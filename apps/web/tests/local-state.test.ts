@@ -132,7 +132,7 @@ test("imports merge by reference type, keep existing choices and never import co
   assert.equal(report.themeApplied, true);
   assert.equal(state.getStarred().find((ref) => ref.type === "item")!.savedAt, "2026-01-01");
   assert.doesNotMatch(values.get(state.KEYS.starred)!, /replacement|forbidden|summary|title/);
-  assert.deepEqual(state.exportBundle(), { version: 1, starred: state.getStarred(), read: ["one"], theme: "dark" });
+  assert.deepEqual(state.exportBundle(), { version: 1, starred: state.getStarred(), read: ["one"], theme: "dark", font: "system" });
   const again = state.importBundle(JSON.stringify({ ...incoming, theme: "light" }));
   assert.equal(again.starredAdded, 0);
   assert.equal(again.readAdded, 0);
@@ -190,4 +190,22 @@ test("recent search is bounded, case-insensitive, local only and clears only aft
   assert.equal(state.addRecentSearch("失败"), false);
   assert.equal(values.get(state.KEYS.recentSearches), previous);
   assert.deepEqual(state.getRecentSearches(), ["保留"]);
+});
+
+test("font choices survive imports and denied storage; changelog marks keep the newest seen release", async () => {
+  const { state, deny, values } = await reader();
+  assert.equal(state.getFontPreference(), null);
+  const imported = state.importBundle(JSON.stringify({ version: 1, starred: [], read: [], font: "browser" }));
+  assert.equal(imported.fontApplied, true);
+  assert.equal(state.exportBundle().font, "browser");
+  state.setChangelogSeen("2026-10-17T12:30");
+  state.setChangelogSeen("2026-10-16");
+  state.setChangelogSeen("invalid");
+  assert.equal(state.getChangelogSeen(), "2026-10-17T12:30");
+  deny();
+  assert.equal(state.setFontPreference(null), false);
+  assert.equal(state.getFontPreference(), null);
+  assert.equal(values.get(state.KEYS.font), "browser", "failed writes retain the saved preference for a later visit");
+  state.setChangelogSeen("2026-10-18");
+  assert.equal(state.getChangelogSeen(), "2026-10-18");
 });

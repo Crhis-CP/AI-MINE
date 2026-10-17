@@ -742,3 +742,12 @@
 :root:not([data-theme="dark"]) body:has(.report-shell) {
   background: var(--surface);
 }
+
+/* Optional browser typography; no remote fonts or additional downloads. */
+:root[data-font="browser"] {
+  font-family: initial;
+}
+[data-font="browser"] body,
+[data-font="browser"] .font-sans {
+  font-family: inherit;
+}

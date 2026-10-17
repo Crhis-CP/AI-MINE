@@ -48,7 +48,7 @@ export default function StarredPage() {
       if (file.size > IMPORT_MAX_CHARS * 4) throw new Error("文件过大，请选择本站导出的收藏文件。");
       const result = importBundle(await file.text());
       setNotice(
-        `新增收藏 ${result.starredAdded} 条、已读记录 ${result.readAdded} 条${result.starredSkipped + result.readSkipped ? `；格式无效或超过上限，跳过 ${result.starredSkipped + result.readSkipped} 条` : ""}${result.themeApplied ? "；已沿用文件中的外观设置" : ""}。`,
+        `新增收藏 ${result.starredAdded} 条、已读记录 ${result.readAdded} 条${result.starredSkipped + result.readSkipped ? `；格式无效或超过上限，跳过 ${result.starredSkipped + result.readSkipped} 条` : ""}${result.themeApplied || result.fontApplied ? "；已沿用文件中的外观设置" : ""}。`,
       );
       setError(result.readFailed ? "收藏已导入，但已读记录未能保存，请检查浏览器存储。" : null);
     } catch (e) {

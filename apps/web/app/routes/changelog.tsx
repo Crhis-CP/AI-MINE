@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { setChangelogSeen } from "../lib/local-state";
 import { SITE, withSubject } from "@amp/industry/site";
 import { Link, useLoaderData } from "react-router";
 import { apiGet } from "../lib/api.server";
@@ -74,6 +76,11 @@ function ReleaseBody({ lines }: { lines: string[] }) {
 
 export default function ChangelogPage() {
   const data = useLoaderData<typeof loader>();
+  const first = data.releases[0];
+  const version = first ? first.date + (first.time ? `T${first.time}` : "") : null;
+  useEffect(() => {
+    if (version) setChangelogSeen(version);
+  }, [version]);
   const groups = new Map<string, Release[]>();
   for (const r of data.releases) groups.set(r.date, [...(groups.get(r.date) ?? []), r]);
   // Month → the newest date shown in it (the jump target) and how many entries it holds.

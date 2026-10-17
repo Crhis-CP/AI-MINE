@@ -14,6 +14,7 @@ let origin = "",
   web: ChildProcess,
   browser: Browser;
 let phase = "setup";
+let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
 let withdrawn = false,
   added = false;
@@ -107,7 +108,11 @@ const api = createServer((req, res) => {
           },
     );
   }
-  if (url.pathname === "/api/site/meta") return answer({ changelogVersion: null });
+  if (url.pathname === "/api/site/meta") return answer({ changelogVersion });
+  if (url.pathname === "/api/site/changelog")
+    return answer({
+      releases: changelogVersion ? [{ date: changelogVersion.slice(0, 10), time: "12:30", kind: "优化", title: "合成阅读更新", body: ["改进阅读体验。"] }] : [],
+    });
   if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : "1" });
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
   if (url.pathname === "/api/site/timeline")
@@ -324,6 +329,13 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await other.goto(`${origin}/more`);
   await other.evaluate(() => localStorage.setItem("amp-theme", "dark"));
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByLabel("字体", { exact: true }).selectOption("browser");
+  await expect(other.locator("html")).toHaveAttribute("data-font", "browser");
+  await page.reload();
+  await expect(page.getByLabel("字体", { exact: true })).toHaveValue("browser");
+  await expect(page.locator("html")).toHaveAttribute("data-font", "browser");
+  await other.getByLabel("字体", { exact: true }).selectOption("system");
+  await expect(page.locator("html")).toHaveAttribute("data-font", "system");
   phase = "theme close other";
   await other.close();
   assert.deepEqual(errors, []);
@@ -564,6 +576,28 @@ test("phone navigation retries independently of search and removes earlier hot l
     assert.deepEqual(blocked, []);
   } finally {
     searchNavigationMode = "ready";
+    await context.close();
+  }
+});
+
+test("reading the changelog clears its local unread marker while a newer release restores it", { timeout: 20000 }, async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  await isolateBrowser(context, [origin]);
+  const page = await context.newPage();
+  try {
+    changelogVersion = "2026-10-17T12:30";
+    await page.goto(`${origin}/more`);
+    const link = page.getByRole("link", { name: /^更新日志/ }).filter({ visible: true });
+    await expect(link.getByRole("img", { name: "有未读更新" })).toBeVisible();
+    await link.click();
+    await expect(page.getByRole("heading", { name: "合成阅读更新" })).toBeVisible();
+    await page.goto(`${origin}/more`);
+    await expect(link.getByRole("img", { name: "有未读更新" })).toHaveCount(0);
+    changelogVersion = "2026-10-18T12:30";
+    await page.reload();
+    await expect(link.getByRole("img", { name: "有未读更新" })).toBeVisible();
+  } finally {
+    changelogVersion = null;
     await context.close();
   }
 });

@@ -11,7 +11,8 @@
       "金属价格显示真实报价日期、单位和比较期，方便核对官方来源。",
       "修复返回列表时标题出现黑框、内容刷新时链接跳动等问题，改善手机阅读。",
       "补充隐私说明与使用规则，说明本地记录、反馈资料及第三方内容的使用方式。",
-      "页脚补充公安联网备案号及查询链接。"
+      "页脚补充公安联网备案号及查询链接。",
+      "“更多”页面可选择字体；更新日志有新内容时会提示，阅读后自动清除。"
     ]
   },
   "fragments": [
@@ -23,7 +24,8 @@
     "changes/TASK-0367-reader-refresh.md",
     "changes/TASK-0367-report-editions.md",
     "changes/TASK-0367-event-grouping.md",
-    "changes/TASK-0367-reader-privacy-terms.md"
+    "changes/TASK-0367-reader-privacy-terms.md",
+    "changes/TASK-0367-reader-preferences.md"
   ],
   "announcement": {
     "kind": "公告",

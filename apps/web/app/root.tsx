@@ -7,7 +7,7 @@ import "./group.css";
 import { Wordmark } from "./components/Logo";
 import { buttonClass } from "./components/ui/Controls";
 import { NonceContext } from "./lib/csp";
-import { THEME_BOOT_SCRIPT } from "./lib/local-state";
+import { THEME_BOOT_SCRIPT, useAppearanceSync } from "./lib/local-state";
 import { useHydratedFlag } from "./lib/hydration";
 
 export function loader() {
@@ -53,6 +53,7 @@ export function meta({ error }: Route.MetaArgs) {
 
 export default function App() {
   useHydratedFlag();
+  useAppearanceSync();
   return <Outlet />;
 }
 

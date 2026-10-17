@@ -1,3 +1,4 @@
+import { UnreadMark } from "../../features/changelog/UnreadMark";
 import { Link, useLocation } from "react-router";
 import { TABBAR, tabIsActive } from "./nav";
 
@@ -24,7 +25,10 @@ export function MobileTabBar() {
               className={`relative flex flex-col items-center justify-center gap-[3px] text-[11px] transition-colors ${active ? "font-semibold text-accent" : "text-ink-3 active:text-ink"}`}
             >
               <Icon size={21} />
-              <span>{t.label}</span>
+              <span className="flex items-center gap-1">
+                {t.label}
+                {t.to === "/more" && <UnreadMark />}
+              </span>
             </Link>
           );
         })}

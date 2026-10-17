@@ -1,5 +1,7 @@
+import { setFontPreference, useFontPreference } from "../lib/local-state";
+import { UnreadMark } from "../features/changelog/UnreadMark";
 import { SITE } from "@amp/industry/site";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { feedbackPath } from "../lib/feedback-origin";
 import { pageMeta } from "../lib/seo";
@@ -56,6 +58,8 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 export default function MorePage() {
   const location = useLocation();
+  const font = useFontPreference();
+  const [fontSaved, setFontSaved] = useState(true);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
       <h1 className="pb-4 pt-5 text-[22px] font-bold text-ink lg:pt-1">更多</h1>
@@ -69,19 +73,46 @@ export default function MorePage() {
                   className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
                 >
                   <span className="text-ink-3">{r.icon}</span>
-                  <span className="flex flex-1 items-center gap-2">{r.label}</span>
+                  <span className="flex flex-1 items-center gap-2">
+                    {r.label}
+                    {r.to === "/changelog" && <UnreadMark />}
+                  </span>
                   <IconChevronRight size={16} className="text-ink-4" />
                 </Link>
               </li>
             ))}
             {g.title === "偏好" && (
-              <li className="flex h-[58px] items-center gap-3 px-4 text-[15px] font-medium text-ink">
-                <span className="text-ink-3">
-                  <IconMoon size={18} />
-                </span>
-                <span className="flex-1">外观</span>
-                <ThemeSwitch className="w-[124px]" />
-              </li>
+              <>
+                <li className="flex h-[58px] items-center gap-3 px-4 text-[15px] font-medium text-ink">
+                  <span className="text-ink-3">
+                    <IconMoon size={18} />
+                  </span>
+                  <span className="flex-1">外观</span>
+                  <ThemeSwitch className="w-[124px]" />
+                </li>
+                <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
+                  <span className="w-[18px] text-center text-ink-3" aria-hidden="true">
+                    Aa
+                  </span>
+                  <label htmlFor="reader-font" className="flex-1 font-medium">
+                    字体
+                  </label>
+                  <select
+                    id="reader-font"
+                    value={font ?? "system"}
+                    onChange={(event) => setFontSaved(setFontPreference(event.target.value === "browser" ? "browser" : null))}
+                    className="h-10 max-w-[190px] rounded-control border border-line bg-surface px-2 text-[16px]"
+                  >
+                    <option value="system">默认字体</option>
+                    <option value="browser">浏览器默认字体</option>
+                  </select>
+                  {!fontSaved && (
+                    <p role="status" className="w-full text-[13px] text-ink-3">
+                      浏览器未能保存，当前页面仍可使用。
+                    </p>
+                  )}
+                </li>
+              </>
             )}
           </Group>
         ))}

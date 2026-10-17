@@ -14,8 +14,7 @@ interface SiteMeta {
   changelogVersion: string | null;
 }
 
-// Nothing reads the changelog version since the navigation's unread dot was removed; the endpoint
-// changes when site/meta.ts moves to the product update records.
+// Unavailable metadata leaves the navigation unmarked; it never invents an update.
 export async function loader({ request }: Route.LoaderArgs) {
   try {
     return await apiGet<SiteMeta>("/api/site/meta", { signal: request.signal });

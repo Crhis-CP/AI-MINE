@@ -1,3 +1,4 @@
+import { UnreadMark } from "../../features/changelog/UnreadMark";
 import { feedbackPath } from "../../lib/feedback-origin";
 import { SITE } from "@amp/industry/site";
 import { Link, useLocation } from "react-router";
@@ -23,6 +24,7 @@ function SideLink({ item }: { item: NavItem }) {
         <Icon size={17} />
       </span>
       <span className="min-w-0 truncate">{item.label}</span>
+      {item.to === "/changelog" && <UnreadMark />}
     </Link>
   );
 }

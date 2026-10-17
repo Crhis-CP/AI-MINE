@@ -1,5 +1,5 @@
 // Reader preferences and saved references remain in this browser. Never retain article content.
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { beijingDate } from "@amp/contracts/time";
 
 export const KEYS = {
@@ -7,6 +7,8 @@ export const KEYS = {
   read: "amp-read-items",
   recentSearches: "amp-recent-searches",
   theme: "amp-theme",
+  font: "amp-font",
+  changelogSeen: "amp-changelog-seen-version",
   feedbackDraft: "amp-feedback-draft-v1",
 } as const;
 
@@ -63,6 +65,8 @@ function emit(key?: string) {
 }
 function onStorage(event: StorageEvent) {
   if (event.storageArea && event.storageArea !== storage("local")) return;
+  if (event.key === null || event.key === KEYS.font) unsavedFont = undefined;
+  if (event.key === null || event.key === KEYS.changelogSeen) unsavedChangelogSeen = undefined;
   if (event.key === null) cache.clear();
   else {
     cache.delete(event.key);
@@ -86,6 +90,8 @@ function subscribeKey(key: string) {
 }
 const subscribeStarred = subscribeKey(KEYS.starred);
 const subscribeTheme = subscribeKey(KEYS.theme);
+const subscribeFont = subscribeKey(KEYS.font);
+const subscribeChangelog = subscribeKey(KEYS.changelogSeen);
 const subscribeRead = subscribeKey(KEYS.read);
 const subscribeRecentSearches = subscribeKey(KEYS.recentSearches);
 
@@ -215,8 +221,64 @@ export function resolvedTheme(pref: ThemePreference = getThemePreference()): "li
   }
 }
 
-/** Inline script run before paint so the first frame already has the reader's theme. */
-export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('${KEYS.theme}');if(t==='"light"'||t==='"dark"')t=JSON.parse(t);if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
+export type FontPreference = "browser" | null;
+let unsavedFont: FontPreference | undefined;
+export function getFontPreference(): FontPreference {
+  return unsavedFont !== undefined ? unsavedFont : readRaw(KEYS.font) === "browser" ? "browser" : null;
+}
+export function setFontPreference(pref: FontPreference): boolean {
+  const saved = writeRaw(KEYS.font, pref);
+  unsavedFont = saved ? undefined : pref;
+  emit(KEYS.font);
+  return saved;
+}
+export function useFontPreference(): FontPreference {
+  return useSyncExternalStore(subscribeFont, getFontPreference, () => null);
+}
+const THEME_COLOR = { light: "#faf9f6", dark: "#13191c" } as const;
+export function applyTheme(theme: "light" | "dark", followsSystem: boolean) {
+  document.documentElement.setAttribute("data-theme", theme);
+  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))
+    meta.content = followsSystem ? THEME_COLOR[meta.media.includes("dark") ? "dark" : "light"] : THEME_COLOR[theme];
+}
+export function useAppearanceSync() {
+  const font = useFontPreference(),
+    theme = useThemePreference();
+  useEffect(() => {
+    document.documentElement.setAttribute("data-font", font ?? getFontPreference() ?? "system");
+  }, [font]);
+  useEffect(() => {
+    const current = theme ?? getThemePreference();
+    applyTheme(resolvedTheme(current), current === null);
+    if (current !== null) return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const changed = () => applyTheme(media.matches ? "dark" : "light", true);
+    media.addEventListener("change", changed);
+    return () => media.removeEventListener("change", changed);
+  }, [theme]);
+}
+
+/** Set local appearance before the first paint, including legacy quoted theme values. */
+export const THEME_BOOT_SCRIPT = `(function(){var f='system';try{f=localStorage.getItem('${KEYS.font}')==='browser'?'browser':'system'}catch(e){}document.documentElement.setAttribute('data-font',f);try{var t=localStorage.getItem('${KEYS.theme}');if(t==='"light"'||t==='"dark"')t=JSON.parse(t);if(t==='light'||t==='dark'){document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=t==='dark'?'${THEME_COLOR.dark}':'${THEME_COLOR.light}'})}else{t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
+
+const CHANGELOG_VERSION = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?$/;
+let unsavedChangelogSeen: string | undefined;
+export function getChangelogSeen(): string | null {
+  const value = unsavedChangelogSeen ?? readRaw(KEYS.changelogSeen);
+  return value && CHANGELOG_VERSION.test(value) ? value : null;
+}
+export function setChangelogSeen(version: string): void {
+  if (!CHANGELOG_VERSION.test(version) || version <= (getChangelogSeen() ?? "")) return;
+  unsavedChangelogSeen = writeRaw(KEYS.changelogSeen, version) ? undefined : version;
+  emit(KEYS.changelogSeen);
+}
+export function useChangelogUnread(version: string | null | undefined): boolean {
+  return useSyncExternalStore(
+    subscribeChangelog,
+    () => !!version && CHANGELOG_VERSION.test(version) && version > (getChangelogSeen() ?? ""),
+    () => false,
+  );
+}
 
 // --- React hooks ---
 const EMPTY_STARRED: LocalStarredItem[] = [];
@@ -269,10 +331,11 @@ export interface ExportBundle {
   starred: LocalStarredItem[];
   read: string[];
   theme: "light" | "dark" | "auto";
+  font?: "system" | "browser";
 }
 export function exportBundle(): ExportBundle {
   if (unreadableList(KEYS.starred)) throw new Error("已有收藏数据无法读取，暂不能导出。");
-  return { version: 1, starred: getStarred(), read: getReadIds(), theme: getThemePreference() ?? "auto" };
+  return { version: 1, starred: getStarred(), read: getReadIds(), theme: getThemePreference() ?? "auto", font: getFontPreference() ?? "system" };
 }
 export interface ImportReport {
   starredAdded: number;
@@ -281,6 +344,7 @@ export interface ImportReport {
   readSkipped: number;
   readFailed: boolean;
   themeApplied: boolean;
+  fontApplied: boolean;
 }
 /** Merge references only; existing choices and unavailable content cannot be restored by imported copy. */
 export function importBundle(text: string): ImportReport {
@@ -342,9 +406,18 @@ export function importBundle(text: string): ImportReport {
   }
   const readFailed = unreadableList(KEYS.read) || !writeRaw(KEYS.read, JSON.stringify([...reads, ...readAdditions]));
   const themeApplied = !getThemePreference() && (data.theme === "light" || data.theme === "dark") && writeRaw(KEYS.theme, data.theme);
+  const fontApplied = !getFontPreference() && data.font === "browser" && writeRaw(KEYS.font, "browser");
   cache.clear();
   emit();
-  return { starredAdded: additions.length, starredSkipped, readAdded: readFailed ? 0 : readAdditions.length, readSkipped, readFailed, themeApplied };
+  return {
+    fontApplied,
+    starredAdded: additions.length,
+    starredSkipped,
+    readAdded: readFailed ? 0 : readAdditions.length,
+    readSkipped,
+    readFailed,
+    themeApplied,
+  };
 }
 
 const EMPTY_SEARCHES: string[] = [];
