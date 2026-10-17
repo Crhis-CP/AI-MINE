@@ -320,3 +320,11 @@ export type SourceDatedStoryFollowup = Omit<StoryFollowupCore, "representative">
 };
 
 export type SearchSuggestions = import("zod").infer<typeof import("./http/public.ts").SearchSuggestions>;
+
+/** Public metadata shared by link cards and reader-generated article posters; never includes bodies. */
+export type ItemShareMetadata = Pick<
+  ItemSummary,
+  "id" | "title" | "summary" | "category" | "timelineAt" | "publishedAt" | "sourceTime" | "score" | "selected"
+> & {
+  source: Pick<SourceRef, "name">;
+};
