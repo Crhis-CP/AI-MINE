@@ -274,7 +274,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         if (!d) continue;
         const need: DetailNeed = {
           date: d.publishedAtAuthoritative === true || !(stored?.published_at || c.publishedAt) || d.upgradeDatePrecision === true,
-          title: !!(d.titleSelector || d.titleRegex) && (d.titleAuthoritative === true || needsTitle(c.title)),
+          title: !!(d.titleSelector || d.titleRegex) && (d.titleAuthoritative === true || !!stored || needsTitle(c.title)),
           summary: !!d.summarySelector && !(stored?.excerpt || c.excerpt),
           body: source.participation_mode === "editorial" && stored?.body_status !== "ok" && !c.bodyText && (!c.bodyStatus || c.bodyStatus === "pending"),
         };

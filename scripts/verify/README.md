@@ -60,7 +60,7 @@ make verify TASK=TASK-0002
 | `docs` | [`scripts/docs-check/validate_package.py`](../docs-check/validate_package.py) `--strict`：文档链接与围栏、编号定义、契约文件、验收场景、`upstream/aihot.lock.json` 与来源清单逐文件一致、数据文件、追踪表 | Python 3 | — |
 | `tasks` | 每张任务卡字段齐全、取值合法，泳道、任务包与规格编号都真实存在 | — | — |
 
-还没接入的阶段写在回执的 `pending_stages` 里：`contracts`（TASK-0005）、`e2e-smoke`（TASK-0008）、`pit-checks`（TASK-0011）、`product-update`。
+回执的 `pending_stages` 如实保留尚未完成的PIT文档控制覆盖（TASK-0011）；contracts、e2e-smoke和product-update已有实际阶段，不再列为未实现。`scope:full`仅表示此提交注册的检查全部执行，不等于历史107条PIT已全部自动覆盖，也不代表真实模型质量或生产验收。已存在的角色、许可、回执、撤回、修订、采集和报告回归继续复用，不为每条历史条目另造测试框架。当前差异与承接见[本轮交付记录](../../tasks/TASK-0367.md)。
 
 `role-config` 当前验证进程凭据/代理拒绝、web与平台规则一致性、展开Compose锚点后的web环境隔离。fetcher启动与合成回放由后端测试阶段验证，正式FetchPort与取得链仍归TASK-0005/M1；真实数据库授权矩阵已经进入full的role-config阶段；quick结果不能代替真实矩阵。
 

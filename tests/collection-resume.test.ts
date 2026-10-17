@@ -13,6 +13,7 @@ config.allowPrivateNetworkFetch = true;
 let ready = false,
   listingHits = 0,
   detailHits = 0;
+let titlePrefix = "Copper production";
 const published = new Date(Date.now() - 3600000);
 const server = createServer((req, res) => {
   if (req.url?.startsWith("/detail/")) {
@@ -24,7 +25,7 @@ const server = createServer((req, res) => {
     }
     res.setHeader("content-type", "text/html");
     res.end(
-      `<article><h1>Copper production ${req.url}</h1><time datetime="${published.toISOString()}"></time><p>${"Copper processing details and conditions. ".repeat(30)}</p></article>`,
+      `<article><h1>${titlePrefix} ${req.url}</h1><time datetime="${published.toISOString()}"></time><p>${"Copper processing details and conditions. ".repeat(30)}</p></article>`,
     );
     return;
   }
@@ -75,7 +76,6 @@ test("failed and budget-deferred detail work resumes for stored articles before 
   await source("detail-resume-fixture", "/small", {
     maxFetches: 1,
     titleSelector: "h1",
-    titleAuthoritative: true,
     publishedAtSelector: "time",
     publishedAtAuthoritative: true,
   });
@@ -94,4 +94,16 @@ test("failed and budget-deferred detail work resumes for stored articles before 
   assert.equal(again.found, 0);
   assert.equal(detailHits, before);
   assert.ok(listingHits > 3);
+  titlePrefix = "Corrected copper production";
+  const expired = new Date(Date.now() - 25 * 3600000).toISOString();
+  await sql`UPDATE sources SET cursor=jsonb_set(cursor,'{detailCheckedAt}',${sql.json(expired)}) WHERE id='detail-resume-fixture'`;
+  await sql`UPDATE articles SET raw=jsonb_set(raw,'{collectionDetail,checkedAt}',${sql.json(expired)}) WHERE source_id='detail-resume-fixture'`;
+  assert.equal((await collectSource("detail-resume-fixture")).status, "ok");
+  const corrected = await sql`SELECT title FROM articles WHERE source_id='detail-resume-fixture'`;
+  assert.equal(corrected.length, 2, "rechecking preserves article identities");
+  assert.equal(
+    corrected.filter((row) => row.title.startsWith(titlePrefix)).length,
+    1,
+    "unchanged detail rules still refresh a corrected title within the fetch budget",
+  );
 });

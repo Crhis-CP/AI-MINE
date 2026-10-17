@@ -42,7 +42,7 @@ import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 import { sourceIdentity } from "@amp/backend/admin/sources";
 
 const WEB_PACKAGE = "@amp/web";
-const PENDING_STAGES = ["contracts (TASK-0005)", "pit-checks (TASK-0011)"];
+const PENDING_STAGES = ["pit-checks (TASK-0011; document-control coverage is not implied by scope:full)"];
 const PASS_ENV = [
   "PATH",
   "HOME",

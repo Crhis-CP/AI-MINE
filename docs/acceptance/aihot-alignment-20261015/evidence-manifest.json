@@ -1,0 +1,103 @@
+{
+  "recorded_at": "2026-10-17",
+  "scope": "Selected existing upgrade verification artifacts; not a final release receipt",
+  "lookup": "Resolve git rev-parse --path-format=absolute --git-common-dir; its parent is primary-checkout. Local logs remain controlled there. CI run links allow independent retrieval. A missing original is not recreated from a hash.",
+  "artifacts": [
+    {
+      "artifact": "ci-38962592941.receipt.json",
+      "sha256": "60dde1ed1e7d647669281c09f099b5676f88a620d473a78d6e624483e290d708",
+      "controlled_locator": "primary-checkout:.verify/ci-38962592941.receipt.json",
+      "kind": "ci_receipt",
+      "public_copy": false,
+      "commit": "2fde4cb4cf9c8688b56666b3a9ff59d4082b9358",
+      "scope": "full",
+      "exit_status": 0,
+      "retrieval": "https://github.com/Crhis-CP/AI-MINE/actions/runs/38962592941"
+    },
+    {
+      "artifact": "ci-39078009782.receipt.json",
+      "sha256": "3b3d314e223e6e7f895b2ec1c250bc796bc74ce9fcda87f6f89b71a6f7f22756",
+      "controlled_locator": "primary-checkout:.verify/ci-39078009782.receipt.json",
+      "kind": "ci_receipt",
+      "public_copy": false,
+      "commit": "a7066e2a198220dac643a3c56d4df0c26b02a675",
+      "scope": "full",
+      "exit_status": 0,
+      "retrieval": "https://github.com/Crhis-CP/AI-MINE/actions/runs/39078009782"
+    },
+    {
+      "artifact": "ci-39078951959.receipt.json",
+      "sha256": "c91b8f06a0596157eac7a73fa1e0670b51224d0adc36b72604d14c9e50740e6a",
+      "controlled_locator": "primary-checkout:.verify/ci-39078951959.receipt.json",
+      "kind": "ci_receipt",
+      "public_copy": false,
+      "commit": "60cf41316e01c41bf00ba8014be8f31a0b0bae8a",
+      "scope": "full",
+      "exit_status": 0,
+      "retrieval": "https://github.com/Crhis-CP/AI-MINE/actions/runs/39078951959"
+    },
+    {
+      "artifact": "poster-reader-check-final.log",
+      "sha256": "8b9e52945704070b80d339ac1721a24359ca431c7b89f9e704f8f8c1f5664403",
+      "controlled_locator": "primary-checkout:.verify/poster-reader-check-final.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "poster-reader-browser-final.log",
+      "sha256": "fe2b76911e8a8002fbf0a230c6e28bd2249ea495a1d0c232195aaff9b3d71aec",
+      "controlled_locator": "primary-checkout:.verify/poster-reader-browser-final.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "poster-final-backend-tests.log",
+      "sha256": "97656ef3369786c4dd9d1eb0c9436be7804c5a7b50e3b9ac4f51f016021bf208",
+      "controlled_locator": "primary-checkout:.verify/poster-final-backend-tests.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "task-evidence-check.log",
+      "sha256": "568cca5f9d0649fe25cf51576988003b65d2b2f029f5bb458281e42a40faa031",
+      "controlled_locator": "primary-checkout:.verify/task-evidence-check.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "report-rules-tests.log",
+      "sha256": "5bf5632b9648bb2ce1848c31889a4ba334ce5111737f12e48b98c5b32d82c426",
+      "controlled_locator": "primary-checkout:.verify/report-rules-tests.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "report-period-recovery-tests.log",
+      "sha256": "ac0ace230fd380669e9df2371bc7149c466f01d6cf337ca16775fb366f017703",
+      "controlled_locator": "primary-checkout:.verify/report-period-recovery-tests.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "reader-preference-check-final.log",
+      "sha256": "99eba534eac26500485daff60c581dfebbbadf258485550627af1a6ab8747a5d",
+      "controlled_locator": "primary-checkout:.verify/reader-preference-check-final.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "reader-tools-check.log",
+      "sha256": "345f814fcd672591df7c97fcada939846a1059df04772e5562e34cc59c224efe",
+      "controlled_locator": "primary-checkout:.verify/reader-tools-check.log",
+      "kind": "raw_local_log",
+      "public_copy": false
+    },
+    {
+      "artifact": "source-current-identity-20261016.jsonl",
+      "sha256": "563445faad7264053260da0df70b874e14364439af33fbd9ca7b6cd1a53d3714",
+      "controlled_locator": "primary-checkout:.verify/source-current-identity-20261016.jsonl",
+      "kind": "raw_local_log",
+      "public_copy": false
+    }
+  ]
+}
