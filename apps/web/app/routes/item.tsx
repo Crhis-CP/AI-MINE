@@ -1,3 +1,5 @@
+import { ArticleBody } from "../features/item/ArticleBody";
+import { SharePoster } from "../features/item/SharePoster";
 import { Sheet } from "../components/ui/Sheet";
 import { ReaderToolbar, scrollToReadingAnchor } from "../features/item/ReaderTools";
 import { markRead } from "../lib/local-state";
@@ -112,9 +114,9 @@ export default function ItemPage() {
   const lang = item.bodyLanguage;
   const [toast, setToast] = useState<string | null>(null);
   const itemKey = `${item.id}:${item.revision}`;
-  const [sheetState, setSheetState] = useState<{ key: string; view: "outline" | "actions" } | null>(null);
+  const [sheetState, setSheetState] = useState<{ key: string; view: "outline" | "actions" | "poster" } | null>(null);
   const sheet = sheetState?.key === itemKey ? sheetState.view : null;
-  const setSheet = (view: "outline" | "actions" | null) => setSheetState(view ? { key: itemKey, view } : null);
+  const setSheet = (view: "outline" | "actions" | "poster" | null) => setSheetState(view ? { key: itemKey, view } : null);
   const [readingAnchor, setReadingAnchor] = useState<string | null>(null);
   useEffect(() => {
     if (!toast) return;
@@ -170,6 +172,15 @@ export default function ItemPage() {
             }}
           >
             分享链接
+          </MenuItem>
+          <MenuItem
+            icon={<IconShare size={15} />}
+            onSelect={() => {
+              close();
+              setSheet("poster");
+            }}
+          >
+            分享图片
           </MenuItem>
           <MenuItem
             icon={<IconCopy size={15} />}
@@ -417,7 +428,7 @@ export default function ItemPage() {
               {hasTranslation && lang === "zh" && !item.body.complete && (
                 <p className="mb-5 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">译文尚不完整，完整内容请切换到原文。</p>
               )}
-              <div className="prose" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+              <ArticleBody key={`${itemKey}:${lang}`} html={bodyHtml} />
             </section>
           )}
 
@@ -514,7 +525,7 @@ export default function ItemPage() {
       <ReaderToolbar
         id={item.id}
         originalUrl={item.links.original}
-        onShare={() => void share()}
+        onShare={() => setSheet("actions")}
         onOutline={
           showOutline
             ? () => {
@@ -526,8 +537,10 @@ export default function ItemPage() {
             : undefined
         }
       />
-      <Sheet open={sheet !== null} onClose={() => setSheet(null)} title={sheet === "outline" ? "文章目录" : "更多操作"}>
-        {sheet === "outline" ? (
+      <Sheet open={sheet !== null} onClose={() => setSheet(null)} title={sheet === "outline" ? "文章目录" : sheet === "poster" ? "分享图片" : "更多操作"}>
+        {sheet === "poster" ? (
+          <SharePoster key={itemKey} id={item.id} title={item.title} />
+        ) : sheet === "outline" ? (
           <nav aria-label="手机文章目录">
             <ol>
               {item.outline.map((entry) => (
@@ -551,6 +564,14 @@ export default function ItemPage() {
           </nav>
         ) : (
           <div className="space-y-1">
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-[16px] hover:bg-bg-sunk"
+              onClick={() => setSheet("poster")}
+            >
+              <IconShare size={20} />
+              分享图片
+            </button>
             <button
               type="button"
               className="flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-[16px] hover:bg-bg-sunk"

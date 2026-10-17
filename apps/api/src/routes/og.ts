@@ -2,7 +2,7 @@
 // gets a card; anything else is a real 404.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
-import { beijingDate } from "@amp/contracts/time";
+import { articlePoster, posterEtag, renderPoster } from "@amp/backend/media/images";
 import { loadItemShare } from "@amp/backend/publication/og";
 import { loadReport, type ReportKind } from "@amp/backend/publication/reports";
 import { loadTopic } from "@amp/backend/publication/topics";
@@ -73,6 +73,7 @@ export function registerOg(app: FastifyInstance) {
     if (!file.endsWith(".png")) return notFound(reply);
     const d = await loadItemShare(file.slice(0, -4));
     if (!d) return notFound(reply);
+    const poster = articlePoster(d);
     reply.header("X-Accel-Expires", ARTICLE_IMAGE_ORIGIN_SECONDS);
     return send(
       req,
@@ -81,11 +82,30 @@ export function registerOg(app: FastifyInstance) {
         kicker: d.category ? CATEGORY_LABELS[d.category] : withSubject("动态"),
         title: d.title,
         subtitle: d.summary,
-        meta: `${d.source.name.replace(/（[^）]*）\s*$/, "")} · ${beijingDate(d.timelineAt)}`,
+        meta: [d.source.name.replace(/（[^）]*）\s*$/, ""), poster.date].filter(Boolean).join(" · "),
       },
       3600,
       ARTICLE_IMAGE_CACHE,
     );
+  });
+
+  app.get("/og/posters/:file", async (req, reply) => {
+    // Always consult the current public projection before either disk reuse or a conditional 304.
+    reply.header("Cache-Control", "private, no-cache, must-revalidate").header("X-Accel-Expires", "0");
+    const file = (req.params as { file: string }).file;
+    if (!/^[a-zA-Z0-9_-]{1,128}\.png$/.test(file)) return reply.code(404).send("Not found");
+    const item = await loadItemShare(file.slice(0, -4));
+    if (!item) return reply.code(404).send("Not found");
+    const poster = articlePoster(item),
+      tag = `"poster-${posterEtag(poster)}"`;
+    reply.header("ETag", tag);
+    if (
+      String(req.headers["if-none-match"] ?? "")
+        .split(",")
+        .some((value) => value.trim().replace(/^W\//, "") === tag)
+    )
+      return reply.code(304).send();
+    return reply.type("image/png").send((await renderPoster(poster)).png);
   });
 
   app.get("/og/reports/:kind/:file", async (req, reply) => {

@@ -279,12 +279,6 @@ importers:
       fastify-type-provider-zod:
         specifier: 7.0.0
         version: 7.0.0(@fastify/swagger@9.9.1(supports-color@10.2.2))(fastify@5.12.5)(openapi-types@12.1.3)(zod@4.6.5)
-      satori:
-        specifier: 0.33.5
-        version: 0.33.5
-      sharp:
-        specifier: 0.35.5
-        version: 0.35.5(@types/node@24.19.0)
       zod:
         specifier: 4.6.5
         version: 4.6.5
@@ -559,12 +553,18 @@ importers:
       sanitize-html:
         specifier: 2.17.7
         version: 2.17.7
+      satori:
+        specifier: 0.33.5
+        version: 0.33.5
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@24.19.0)
       undici:
         specifier: 8.11.2
         version: 8.11.2
+      uqr:
+        specifier: 0.1.3
+        version: 0.1.3
       zod:
         specifier: 4.6.5
         version: 4.6.5
@@ -2596,6 +2596,9 @@ packages:
     peerDependencies:
       browserslist: '>= 4.21.0'
 
+  uqr@0.1.3:
+    resolution: {integrity: sha512-0rjE8iEJe4YmT9TOhwsZtqCMRLc5DXZUI2UEYUUg63ikBkqqE5EYWaI0etFe/5KUcmcYwLih2RND1kq+hrUJXA==}
+
   uri-js-replace@1.0.1:
     resolution: {integrity: sha512-W+C9NWNLFOoBI2QWDp4UT9pv65r2w5Cx+3sTYFvtMdDBxkKt1syCqsUdSFAChbEe1uK5TfS04wt/nGwmaeIQ0g==}
 
@@ -4395,6 +4398,8 @@ snapshots:
       browserslist: 4.29.1
       escalade: 3.2.0
       picocolors: 1.1.1
+
+  uqr@0.1.3: {}
 
   uri-js-replace@1.0.1: {}
 

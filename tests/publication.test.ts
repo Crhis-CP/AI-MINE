@@ -11,7 +11,6 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // leaves new snapshots at once, and snapshots answer conditional requests.
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
-import { beijingDate } from "@amp/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
 import { tag, stub } from "./setup.ts";
 import { runBodyTranslation } from "../packages/backend/src/editorial/translation-runtime.ts";
@@ -490,14 +489,20 @@ test("share images keep detail metadata and access rules while conditional reads
   const d = JSON.parse((await get(`/api/site/items/${id}`)).body);
   const kicker = d.category ? CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] : "AI 动态";
   const source = d.source.name.replace(/（[^）]*）\s*$/, "");
-  const date = beijingDate(d.timelineAt);
+  const { articlePoster, posterEtag } = await import("@amp/backend/media/images");
+  const { loadItemShare } = await import("@amp/backend/publication/og");
+  const poster = articlePoster((await loadItemShare(id))!);
+  const date = poster.date;
   const card = {
     kicker,
     title: d.title,
     subtitle: d.summary,
-    meta: `${source} · ${date}`,
+    meta: [source, date].filter(Boolean).join(" · "),
   };
-  const paths = [[`/og/items/${id}.png`, `"og-${ogEtag(card)}"`]];
+  const paths = [
+    [`/og/items/${id}.png`, `"og-${ogEtag(card)}"`],
+    [`/og/posters/${id}.png`, `"poster-${posterEtag(poster)}"`],
+  ];
   const queries: string[] = [];
   const previous = sql.options.debug;
   sql.options.debug = (_connection, query) => {
@@ -509,7 +514,7 @@ test("share images keep detail metadata and access rules while conditional reads
       assert.equal(response.status, 304);
       assert.equal(response.etag, etag);
     }
-    assert.equal(queries.length, 1);
+    assert.equal(queries.length, paths.length * 2);
     assert.ok(
       queries.every((q) => !/body_html|body_text|translations|fact_articles/.test(q)),
       "cards only load their public metadata",

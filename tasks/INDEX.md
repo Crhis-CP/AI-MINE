@@ -240,6 +240,7 @@
 | [TASK-0366](TASK-0366.md) | T-0101 | M3 | architect | specified | 完成至少200个真正新增信源及重点矿企核验 | — |
 | [TASK-0367](TASK-0367.md) | T-0101 | M3 | architect | specified | 全站升级、集中验收与统一发布 | — |
 | [TASK-0368](TASK-0368.md) | T-0101 | M3 | architect | integrated | 直接数据库连接入口契约 | — |
+| [TASK-0369](TASK-0369.md) | T-0101 | M3 | architect | locally_verified | 文章分享图片资源与元数据契约 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

@@ -45,7 +45,7 @@ const detail = {
   author: null,
   language: "zh",
   body: {
-    zh: '<h2 id="section-one">正文第一节</h2><p>合成正文</p><h2 id="section-two">正文第二节</h2><h2 id="section-three">正文第三节</h2>',
+    zh: '<h2 id="section-one">正文第一节</h2><p>合成正文</p><img alt="合成矿山图片" width="300" height="200" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22200%22%3E%3Crect width=%22300%22 height=%22200%22 fill=%22gray%22/%3E%3C/svg%3E"><h2 id="section-two">正文第二节</h2><h2 id="section-three">正文第三节</h2>',
     original: null,
     zhKind: "original",
     complete: true,
@@ -319,6 +319,29 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page).toHaveURL(/#section-one$/);
   assert.equal(await page.evaluate(() => history.state.idx), historyPosition, "outline navigation does not insert a back-history entry");
+  const picture = page.getByRole("button", { name: "查看大图：合成矿山图片" });
+  await picture.click();
+  await expect(page.getByRole("dialog", { name: "文章图片" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(picture).toBeFocused();
+  await page.route("**/og/posters/fixture-a.png", (route) => route.fulfill({ status: 503, body: "unavailable" }));
+  await page.mouse.wheel(0, -500);
+  await readingTools.getByRole("button", { name: "分享", exact: true }).click();
+  await page.getByRole("button", { name: "分享图片", exact: true }).click();
+  const poster = page.getByRole("dialog", { name: "分享图片" });
+  await expect(poster.getByText("图片暂时无法加载，请重试或分享文章链接。")).toBeVisible();
+  await page.unroute("**/og/posters/fixture-a.png");
+  await page.route("**/og/posters/fixture-a.png", (route) =>
+    route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jBusAAAAASUVORK5CYII=", "base64"),
+    }),
+  );
+  await poster.getByRole("button", { name: "重试" }).click();
+  await expect(poster.getByRole("img")).toBeVisible();
+  await expect(poster.getByRole("link", { name: "保存图片" })).toHaveAttribute("download", "aimine-fixture-a.png");
+  await page.keyboard.press("Escape");
+
   await openQualifiedReader(page);
   added = true;
   await checkVersionOnFocus(page, "1");
