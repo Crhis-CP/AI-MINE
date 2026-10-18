@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
-import { DATABASE_ROLES } from "@amp/config";
+import { DATABASE_ROLES } from "@amp/backend/db";
 import {
   catalogProblems,
   planRoleGrants,

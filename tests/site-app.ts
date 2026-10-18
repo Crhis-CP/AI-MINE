@@ -1,4 +1,4 @@
-import type { ApiRole } from "@amp/config";
+import type { ApiRole } from "@amp/backend/db";
 /** Match the deployed site composition after each test has prepared its own environment. */
 export async function buildApp(role: ApiRole) {
   const [{ buildApp: create }, { installModules }, { SERVER_MODULES }] = await Promise.all([

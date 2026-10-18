@@ -9,7 +9,7 @@ import {
   PROCESS_DATABASE_ROLES,
   type ProcessRole,
   type QueryRole,
-} from "@amp/config";
+} from "@amp/backend/db";
 
 const url = "postgres://postgres@127.0.0.1:1/config_test";
 const key = (role: string) => `DATABASE_URL_${role.toUpperCase()}`;

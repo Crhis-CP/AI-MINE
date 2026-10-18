@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import type { Database } from "@amp/config";
+import type { Database } from "@amp/backend/db";
 import { provisionRoles } from "../scripts/db-roles.ts";
 import { readRoleCatalog } from "../scripts/db-roles/catalog.ts";
 import { catalogProblems, quote } from "../scripts/db-roles/grants.ts";

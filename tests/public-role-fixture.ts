@@ -41,7 +41,7 @@ export type PublicFixture = Awaited<ReturnType<typeof publicRoleFixture>>;
 /** The app gets only its real public/feedback identities; fixture administration stays in the parent. */
 export async function publicServer(t: TestContext, f: PublicFixture) {
   const code = `
-    import {assertProcessEnvironment,assertPublicApiCredentials} from '@amp/config';
+    import {assertProcessEnvironment,assertPublicApiCredentials} from '@amp/backend/db';
     assertProcessEnvironment('public-api',process.env);assertPublicApiCredentials(process.env);
     const {initializeDb,closeDb}=await import('@amp/backend/db');
     const {buildApp}=await import('./apps/api/src/app.ts');

@@ -5,7 +5,7 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { z } from "zod";
-import { createDatabaseAccess } from "@amp/config";
+import { createDatabaseAccess } from "@amp/backend/db";
 import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
 import { closeDb, sql } from "@amp/backend/db";

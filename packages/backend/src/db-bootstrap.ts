@@ -1,5 +1,5 @@
 // Explicit process root: shared query pool plus dedicated identity and feedback handles.
-import { createDatabaseAccess, type ProcessRole, type QueryRole } from "@amp/config";
+import { createDatabaseAccess, type ProcessRole, type QueryRole } from "./process-config.ts";
 import { installConnections } from "./db-connections.ts";
 
 export type DatabaseProcess = Exclude<ProcessRole, "web">;

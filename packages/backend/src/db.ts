@@ -1,5 +1,5 @@
 import type postgres from "postgres";
-import type { Database } from "@amp/config";
+import type { Database } from "./process-config.ts";
 import { sql } from "./db-connections.ts";
 import { closeProcessDb } from "./db-bootstrap.ts";
 
@@ -32,3 +32,6 @@ export function one<T>(rows: readonly T[]): T {
   if (row === undefined) throw new Error("expected one row");
   return row;
 }
+
+// Pure startup validation and connection factories; importing these does not read credentials or open pools.
+export * from "./process-config.ts";

@@ -52,7 +52,7 @@
       "linter": { "rules": { "style": { "noProcessEnv": "warn" } } }
     },
     {
-      "includes": ["packages/platform/config/**"],
+      "includes": ["packages/backend/src/process-config.ts"],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     },
     {

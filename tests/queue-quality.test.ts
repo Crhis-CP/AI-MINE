@@ -1,7 +1,7 @@
 import { createTestDatabase, resourcePrefix } from "./test-resources.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { createDatabaseAccess } from "@amp/config";
+import { createDatabaseAccess } from "@amp/backend/db";
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { enqueue, ensureQueue, getBoss, stopBoss } from "@amp/backend/jobs/queue";
 

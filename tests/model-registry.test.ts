@@ -5,7 +5,7 @@ import { after, test } from "node:test";
 import { z } from "zod";
 import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
-import { publicApiCredentialNames, environmentProblems } from "@amp/config";
+import { publicApiCredentialNames, environmentProblems } from "@amp/backend/db";
 import {
   createModelConnection,
   updateModelConnection,

@@ -4,7 +4,7 @@ import { createServer, type Server } from "node:http";
 import { spawn, spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { parseDocument } from "yaml";
-import { assertPublicApiCredentials, environmentProblems } from "@amp/config";
+import { assertPublicApiCredentials, environmentProblems } from "@amp/backend/db";
 import { webEnvironmentProblems } from "../../../apps/web/runtime-env.ts";
 import { apiChildEnvironment, siteChildEnvironments } from "../api-harness.ts";
 import { checkApiSplit } from "../api-split.ts";

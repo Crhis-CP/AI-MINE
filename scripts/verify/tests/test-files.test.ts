@@ -119,7 +119,7 @@ test("runner ends with failed-file summary after later passes, timeout and clean
              if (${cleanupFailure} && query.startsWith('DROP ROLE')) throw new Error('simulated role cleanup failure');
              return [];
            };
-           mock.module('@amp/config', { namedExports: { createDatabaseAccess: () => ({ dbFor: () => control, close: async () => console.error('database access closed') }) } });
+           mock.module('@amp/backend/db', { namedExports: { createDatabaseAccess: () => ({ dbFor: () => control, close: async () => console.error('database access closed') }) } });
            const { runTestFiles } = await import(${JSON.stringify(runner)});
            try {
              const code = await runTestFiles(${JSON.stringify(files)}, {

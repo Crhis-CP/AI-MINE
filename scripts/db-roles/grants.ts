@@ -1,5 +1,5 @@
 // TASK-0004 D4/D5: pure, explicit grants. This module never connects or executes the plan.
-import type { DatabaseRole } from "@amp/config";
+import type { DatabaseRole } from "@amp/backend/db";
 import { MODULE_SCHEMAS } from "../migrations/inventory.ts";
 import manifest from "../../database/roles/table-grants.json" with { type: "json" };
 

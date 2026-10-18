@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@amp/backend": "workspace:*",
-    "@amp/config": "workspace:*",
     "@amp/contracts": "workspace:*",
     "@amp/industry": "workspace:*",
     "@amp/site": "workspace:*",

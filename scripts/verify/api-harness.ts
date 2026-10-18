@@ -1,4 +1,4 @@
-import { apiRoleFromEnv, databaseConfig, type ApiRole } from "@amp/config";
+import { apiRoleFromEnv, databaseConfig, type ApiRole } from "@amp/backend/db";
 import { webEnvironment } from "../../apps/web/runtime-env.ts";
 
 type Environment = Readonly<Record<string, string | undefined>>;

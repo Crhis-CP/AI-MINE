@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { apiRoleFromEnv, publicApiCredentialNames, assertPublicApiCredentials, databaseConfig, environmentProblems } from "@amp/config";
+import { apiRoleFromEnv, publicApiCredentialNames, assertPublicApiCredentials, databaseConfig, environmentProblems } from "@amp/backend/db";
 
 const forbidden = [
   "SESSION_SECRET",

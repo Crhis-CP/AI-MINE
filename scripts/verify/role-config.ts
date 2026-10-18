@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { environmentProblems, PROCESS_DATABASE_ROLES, type ProcessRole } from "@amp/config";
+import { environmentProblems, PROCESS_DATABASE_ROLES, type ProcessRole } from "@amp/backend/db";
 import { parseDocument } from "yaml";
 import { webEnvironmentProblems } from "../../apps/web/runtime-env.ts";
 import { ROOT } from "./lib.ts";

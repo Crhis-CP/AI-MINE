@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import type { Database } from "@amp/config";
+import type { Database } from "@amp/backend/db";
 import { closeDb, sql as runtimeSql, initializeDb } from "@amp/backend/db";
 import { readRoleCatalog } from "./db-roles/catalog.ts";
 import { GrantPlanError, planRoleGrants, roleNames } from "./db-roles/grants.ts";

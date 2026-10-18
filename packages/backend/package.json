@@ -92,7 +92,6 @@
     "./publication/news-links": "./src/publication/news-links.ts"
   },
   "dependencies": {
-    "@amp/config": "workspace:*",
     "@amp/contracts": "workspace:*",
     "@amp/industry": "workspace:*",
     "@amp/metals": "workspace:*",

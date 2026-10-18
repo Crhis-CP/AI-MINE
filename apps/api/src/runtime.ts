@@ -1,4 +1,4 @@
-import { apiRoleFromEnv, assertProcessEnvironment, assertPublicApiCredentials, assertProcessEnvironmentSource } from "@amp/config";
+import { apiRoleFromEnv, assertProcessEnvironment, assertPublicApiCredentials, assertProcessEnvironmentSource } from "@amp/backend/db";
 
 /** Explicit composition root; importing this module creates no application or database resources. */
 export async function startApi(env: Readonly<Record<string, string | undefined>>): Promise<void> {

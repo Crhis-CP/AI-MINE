@@ -25,7 +25,7 @@ apps/web              读者站（SSR）+ 登录后的 /admin 后台；经 API �
 apps/api              HTTP 组合根；默认统一 api 进程，公开与后台路由共存，后台逐请求鉴权；旧角色仅作迁移兼容
 apps/worker           任务组合根：各模块 jobs；队列按 <lane>.<stage> 划分
 packages/backend     采集、内容、事件、发布、法规、报告、模型与运行管理
-packages/platform/config  运行环境配置
+packages/backend/src/process-config.ts  纯进程配置与连接工厂，经既有db入口导出
 packages/contracts    契约（Zod → OpenAPI）：HTTP、任务与事件载荷（带 lane）、端口接口
 packages/{api-client,ui,testkit}  生成的客户端（不要手改）、设计系统、测试工具
 tooling/              契约生成等依赖旧编译器 API 的工具（固定 TypeScript 5.9.x）

@@ -1,4 +1,4 @@
-import { environmentProblems, publicApiCredentialNames } from "@amp/config";
+import { environmentProblems, publicApiCredentialNames } from "@amp/backend/db";
 import { webEnvironmentProblems } from "../../apps/web/runtime-env.ts";
 
 const mapping = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);

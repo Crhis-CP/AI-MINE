@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DATABASE_ROLES, type DatabaseRole, type Database } from "@amp/config";
+import { DATABASE_ROLES, type DatabaseRole, type Database } from "@amp/backend/db";
 import { readRoleCatalog } from "../scripts/db-roles/catalog.ts";
 import { quote } from "../scripts/db-roles/grants.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";

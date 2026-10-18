@@ -8,7 +8,7 @@ import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
 import { webEnvironmentProblems } from "../apps/web/runtime-env.ts";
 import { config } from "@amp/backend/config";
 import { guardedFetch } from "@amp/backend/lib/http-fetch";
-import { environmentProblems } from "@amp/config";
+import { environmentProblems } from "@amp/backend/db";
 
 const previousProxy = config.egressProxyUrl;
 const previousPrivate = config.allowPrivateNetworkFetch;

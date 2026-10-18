@@ -14,7 +14,7 @@ export async function privateProducerFixture(t: TestContext) {
   assert.match(url.pathname, /_(test|ci)$/, "Private producer tests require an isolated DATABASE_URL");
   process.env.AMP_CREDENTIALS_DIR = "/nonexistent-test-credentials";
   process.env.SESSION_SECRET = "test-session-secret-0123456789";
-  const { createDatabaseAccess } = await import("@amp/config");
+  const { createDatabaseAccess } = await import("@amp/backend/db");
   const { config } = await import("@amp/backend/config");
   const databaseModule = await import("@amp/backend/db");
   const { closeDb, initializeDb } = databaseModule;
