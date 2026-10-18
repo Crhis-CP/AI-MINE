@@ -3,7 +3,7 @@ import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapsho
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
-import { prepareReadableDocument } from "./readable-dom.ts";
+import { prepareReadableDocument, type PreserveRule } from "./readable-dom.ts";
 import { contentDocument, assertPageContent, UnavailablePageError } from "../lib/page-content.ts";
 import { sql } from "../db.ts";
 import {
@@ -17,6 +17,7 @@ import {
 } from "../acquisition/crawl.ts";
 import { readSourceDateContext } from "@amp/backend/admin/sources";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
+import { languageHeaders } from "../lib/http-fetch.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
@@ -31,7 +32,7 @@ export interface ExtractedBody {
 
 const MIN_BODY_CHARS = 200;
 
-export function readable(html: string, url: string): ExtractedBody | null {
+export function readable(html: string, url: string, rules: { preserve?: PreserveRule[] } = {}): ExtractedBody | null {
   let document: ReturnType<typeof contentDocument>;
   try {
     document = contentDocument(html);
@@ -46,7 +47,7 @@ export function readable(html: string, url: string): ExtractedBody | null {
   } catch {
     // no head
   }
-  prepareReadableDocument(document);
+  prepareReadableDocument(document, rules.preserve);
   const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], {
     charThreshold: MIN_BODY_CHARS,
     keepClasses: false,
@@ -100,12 +101,19 @@ function markdownToHtml(md: string): string {
 
 export async function extractFromUrl(
   url: string,
-  opts: { allowJina: boolean; subject: string; lane?: "news" | "policy"; runtimeControl?: RuntimeControlSnapshot },
+  opts: {
+    allowJina: boolean;
+    subject: string;
+    lane?: "news" | "policy";
+    runtimeControl?: RuntimeControlSnapshot;
+    acceptLanguage?: string;
+    preserve?: PreserveRule[];
+  },
 ): Promise<ExtractedBody | null> {
   const direct = await crawlStep(`readability:${url}`, url, async () => {
     try {
-      const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
-      if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url);
+      const res = await guardedFetch(url, { headers: languageHeaders(opts.acceptLanguage), timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
+      if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url, opts);
     } catch (error) {
       if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
       // Oversized bodies fail the same way on every try. Swallowing this sent the page to the paid
@@ -160,7 +168,14 @@ async function extractArticleBody(
     });
     return "skipped";
   }
-  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}`, lane: source.lane, runtimeControl: control });
+  const got = await extractFromUrl(a.url, {
+    allowJina,
+    subject: `article:${a.id}`,
+    lane: source.lane,
+    runtimeControl: control,
+    acceptLanguage: source.config.acceptLanguage,
+    preserve: source.config.detail?.preserve,
+  });
   if (!got) {
     await sql.begin(async (tx) => {
       await assertRuntimeControl(tx, control);

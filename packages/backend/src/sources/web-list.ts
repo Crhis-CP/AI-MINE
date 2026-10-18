@@ -1,3 +1,4 @@
+import { languageHeaders } from "../lib/http-fetch.ts";
 // Web list pages: HTML with selectors, and Markdown through Jina Reader.
 import * as cheerio from "cheerio";
 import { contentDocument } from "../lib/page-content.ts";
@@ -179,7 +180,7 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
   const res = await guardedFetch(url, {
-    headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8" },
+    headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", ...languageHeaders(source.config.acceptLanguage) },
     timeoutMs: 25_000,
     retryDropped: true,
   });
@@ -331,7 +332,7 @@ export async function fetchWebList(source: SourceRow): Promise<Candidate[]> {
       const request = formPageRequest(html, base, form.selector, form.pageField, page);
       const response = await guardedFetch(request.url, {
         method: request.method,
-        headers: request.contentType ? { "content-type": request.contentType } : {},
+        headers: { ...languageHeaders(source.config.acceptLanguage), ...(request.contentType ? { "content-type": request.contentType } : {}) },
         body: request.body,
         timeoutMs: 25_000,
         retryDropped: request.method === "GET",
@@ -389,7 +390,7 @@ export async function fetchDetail(
   let html: string | null = null;
   let body: ExtractedBody | null = null;
   if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary || need.body) {
-    const res = await guardedFetch(url, { timeoutMs: 20_000 });
+    const res = await guardedFetch(url, { headers: languageHeaders(source.config.acceptLanguage), timeoutMs: 20_000 });
     if (res.status !== 200) throw new FetchError(`Detail HTTP ${res.status}`, res.status);
     if (res.status === 200) {
       observedAt = res.fetchedAt ?? observedAt;
@@ -397,7 +398,7 @@ export async function fetchDetail(
       contentDocument(html);
       if (need.body && /html/.test(res.headers.get("content-type") ?? "")) {
         try {
-          body = readable(html, res.url);
+          body = readable(html, res.url, { preserve: source.config.detail?.preserve });
         } catch {
           /* A failed extraction must not discard the detail metadata. */
         }

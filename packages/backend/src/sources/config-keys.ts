@@ -25,6 +25,26 @@ export function normalizeSourceLanguage(value: unknown): string | null {
 
 export const SourceCrawlProfile = z.strictObject({ sensitive: z.boolean().optional(), minimumIntervalSeconds: z.number().min(2).max(86400).optional() });
 
+const preservationRules = z
+  .array(
+    z
+      .strictObject({
+        selector: z.string().trim().min(1).max(500),
+        as: z.enum(["pre", "table"]),
+        code: z.string().trim().min(1).max(500).optional(),
+        caption: z.string().trim().min(1).max(500).optional(),
+      })
+      .refine((rule) => rule.as === "pre" || (!rule.code && !rule.caption)),
+  )
+  .max(30);
+const acceptLanguage = z
+  .string()
+  .min(1)
+  .max(256)
+  .refine((value) =>
+    value.split(",").every((part) => /^(?:\*|[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*)(?:\s*;\s*q=(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?))?$/.test(part.trim())),
+  );
+
 // Rules applied in collect.ts to every kind read through collectSource.
 const COLLECTED = [
   "policyProfile",
@@ -33,6 +53,7 @@ const COLLECTED = [
   "sourceDate",
   "_amp",
   "language",
+  "acceptLanguage",
   "allowUrlPrefixes",
   "denyUrlPrefixes",
   "ingestNoiseFilter",
@@ -119,6 +140,7 @@ const NESTED: Record<string, string[]> = {
     "titleRegex",
     "titleAuthoritative",
     "summarySelector",
+    "preserve",
   ],
 };
 
@@ -199,7 +221,7 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
       kind,
       profile: sourceDateProfile(config),
       detailProfile: sourceDateProfile(config, true),
-      selectors: Object.fromEntries(keys.filter((key) => config[key] !== undefined).map((key) => [key, config[key]])),
+      selectors: Object.fromEntries([...keys, "acceptLanguage"].filter((key) => config[key] !== undefined).map((key) => [key, config[key]])),
       detail: Object.fromEntries(
         ["publishedAtSelector", "publishedAtRegex", "publishedAtAuthoritative", "upgradeDatePrecision"]
           .filter((key) => page[key] !== undefined)
@@ -213,6 +235,9 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
 export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string, unknown>): string[] {
   const allowed = new Set(KEYS[kind] ?? []);
   const out: string[] = [];
+  if (config.acceptLanguage !== undefined && !acceptLanguage.safeParse(config.acceptLanguage).success) out.push("acceptLanguage");
+  const detail = config.detail as Record<string, unknown> | undefined;
+  if (detail?.preserve !== undefined && !preservationRules.safeParse(detail.preserve).success) out.push("detail.preserve");
   if (config.directoryProfile !== undefined && !directoryContract({ kind, config })) out.push("directoryProfile");
   if (config?.crawlProfile !== undefined && !SourceCrawlProfile.safeParse(config.crawlProfile).success) out.push("crawlProfile");
   for (const [key, value] of Object.entries(config ?? {})) {

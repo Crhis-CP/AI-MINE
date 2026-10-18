@@ -1,3 +1,4 @@
+import { languageHeaders } from "../lib/http-fetch.ts";
 // JSON sources: plain JSON APIs, JSON embedded in HTML (script tags, window variables).
 import * as cheerio from "cheerio";
 import { staticLiteralJson } from "./static-literal.ts";
@@ -161,7 +162,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
   let observedAt = new Date().toISOString();
   const c = source.config;
   const url = String(c.url ?? "");
-  const headers: Record<string, string> = { accept: "application/json, text/html;q=0.9", ...(c.headers ?? {}) };
+  const headers: Record<string, string> = { accept: "application/json, text/html;q=0.9", ...languageHeaders(c.acceptLanguage), ...(c.headers ?? {}) };
   if (/^https:\/\/api\.github\.com\//.test(url)) {
     const token = credential("collectors", "GITHUB_TOKEN");
     if (token) headers.authorization = `Bearer ${token}`;

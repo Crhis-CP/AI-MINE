@@ -16,6 +16,9 @@ import { SITE } from "@amp/industry/site";
  * calls and paid APIs called straight (Dajiala). This dispatcher is per request: it is not installed
  * as HTTP_PROXY, so plain fetch (unregistered models and embeddings) does not use it.
  */
+/** Explicit source request preference; it does not declare the returned content language. */
+export const languageHeaders = (language: string | undefined): Record<string, string> => (language ? { "accept-language": language } : {});
+
 export type EgressRoute = "egress" | "direct";
 
 let proxyAgent: ProxyAgent | null = null;

@@ -1,3 +1,4 @@
+import { languageHeaders } from "../lib/http-fetch.ts";
 // RSS 2.0 / Atom / RDF feeds.
 import { XMLParser } from "fast-xml-parser";
 import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
@@ -135,13 +136,17 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   // Config changes can alter parsing/filtering even when the upstream bytes did not change.
   const configHash = sha256(stableJson(source.config));
   const previous = !opts.force && source.cursor?.rss?.configHash === configHash ? (source.cursor.rss as RssValidator) : null;
-  const headers: Record<string, string> = { accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8" };
+  const plainHeaders = {
+    accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8",
+    ...languageHeaders(source.config.acceptLanguage),
+  };
+  const headers: Record<string, string> = { ...plainHeaders };
   if (previous?.etag) headers["if-none-match"] = previous.etag;
   if (previous?.lastModified) headers["if-modified-since"] = previous.lastModified;
   let res = await guardedFetch(url, { headers, timeoutMs: 25_000, retryDropped: true });
   // A redirect may have changed destinations, whose ETag namespace is unrelated to the old one.
   if (res.status === 304 && previous && res.url !== previous.responseUrl) {
-    res = await guardedFetch(url, { headers: { accept: headers.accept! }, timeoutMs: 25_000, retryDropped: true });
+    res = await guardedFetch(url, { headers: plainHeaders, timeoutMs: 25_000, retryDropped: true });
   }
   const validator: RssValidator = {
     configHash,

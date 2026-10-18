@@ -1,4 +1,4 @@
-import { readable } from "@amp/backend/content/extract";
+import { readable, extractFromUrl } from "@amp/backend/content/extract";
 // Listing parsers on the page shapes Jina returns for real sites: card links that wrap
 // an image, a title attribute, http links under https prefixes, and navigation that is no post. Also
 // what made articles flip between versions: in-page anchors of an HTML listing and
@@ -9,11 +9,11 @@ import http from "node:http";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { sanitizeBody, trimTrailingChrome } from "@amp/backend/content/sanitize";
-import { fetchDetail, fromHtml, fromMarkdown } from "@amp/backend/sources/web-list";
+import { fetchDetail, fetchWebList, fromHtml, fromMarkdown } from "@amp/backend/sources/web-list";
 import { fetchRss } from "@amp/backend/sources/rss";
 import { fetchJsonList } from "@amp/backend/sources/json-list";
 import { noiseFiltered } from "@amp/backend/sources/collect";
-import { normalizeSourceLanguage, unsupportedConfig } from "@amp/backend/sources/config-keys";
+import { normalizeSourceLanguage, unsupportedConfig, sourceDateConfigHash } from "@amp/backend/sources/config-keys";
 import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 
@@ -63,8 +63,10 @@ const pages: Record<string, () => string> = {
     `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Blog"},` +
     `{"@type":"BlogPosting","headline":"Turn REST APIs into MCP tools","datePublished":"2026-09-24"}]}</script></head><body><p>Post</p></body></html>`,
 };
+const requestLanguages = new Map<string, Array<string | undefined>>();
 const server = http.createServer((req, res) => {
   const path = req.url ?? "";
+  requestLanguages.set(path, [...(requestLanguages.get(path) ?? []), req.headers["accept-language"]]);
   const found = Object.hasOwn(pages, path);
   res.writeHead(found ? 200 : 404, { "content-type": "text/html; charset=utf-8" });
   res.end(found ? pages[path]!() : "");
@@ -369,4 +371,53 @@ test("figure descriptions survive once while hidden responsive copies and SVG co
   assert.equal(article.text.match(/Copper output rose 27 percent/g)?.length, 1);
   assert.doesNotMatch(article.html, /<svg|<script|Hidden graphic|never execute/);
   assert.match(article.text, /Quarterly production/);
+});
+
+test("a source language preference reaches lists, detail and extraction without becoming a content-language claim", async () => {
+  requestLanguages.clear();
+  const acceptLanguage = "es-PE, es;q=0.9, en;q=0.5";
+  const body = "The mine published its technical report and production outlook. ".repeat(7);
+  pages["/language-list"] = () => '<html><body><a href="/language-detail">Mining production and technical report</a></body></html>';
+  pages["/language-detail"] = () => `<html><body><article><h1>Production outlook</h1><p>${body}</p></article></body></html>`;
+  await fetchWebList(source({ url: `${site}/language-list`, acceptLanguage }));
+  await fetchDetail(`${site}/language-detail`, source({ acceptLanguage, detail: { titleSelector: "h1" } }), { title: true, date: false, summary: false });
+  await extractFromUrl(`${site}/language-detail`, { subject: "language-fixture", allowJina: false, acceptLanguage });
+  await fetchRss(source({ feedUrl: `${site}/days.xml`, acceptLanguage }));
+  await fetchJsonList(
+    source({ url: `${site}/days.json`, itemsPath: "data.list", titlePaths: ["ttl"], urlTemplate: "https://example.org/news/{seq}", acceptLanguage }),
+  );
+  for (const path of ["/language-list", "/language-detail", "/days.xml", "/days.json"]) {
+    const languages = requestLanguages.get(path);
+    assert.ok(languages?.length, path);
+    assert.ok(
+      languages.every((value) => value === acceptLanguage),
+      path,
+    );
+  }
+  assert.equal(requestLanguages.get("/language-detail")?.length, 2, "both metadata and independent extraction requests use the preference");
+  assert.deepEqual(unsupportedConfig("rss", { feedUrl: "https://example.org/feed", acceptLanguage }), []);
+  assert.ok(unsupportedConfig("rss", { acceptLanguage: "en\r\nx-injected: true" }).includes("acceptLanguage"));
+  assert.notEqual(
+    sourceDateConfigHash("rss", { feedUrl: "https://example.org/feed" }),
+    sourceDateConfigHash("rss", { feedUrl: "https://example.org/feed", acceptLanguage }),
+  );
+});
+
+test("declared widgets retain literal code and matched table columns while hidden text stays hidden", () => {
+  const prose = "The copper mine reports comparable production figures and operating results. ".repeat(6);
+  const code =
+    '<div class="sample"><h3>Measurement method</h3><code>recovery &lt; 100 &amp;&amp; grade &gt; 0</code><span aria-hidden="true">Copy button</span></div>';
+  const column = (name: string, value: string) => `<div><h3>${name}</h3><dl><dt>Copper</dt><dd>${value}</dd></dl></div>`;
+  const html = `<html><body><article><h1>Comparison</h1><p>${prose}</p>${code}<div class="compare">${column("Q2", "100")}${column("Q3", "127")}</div><p>${prose}</p></article></body></html>`;
+  const preserve = [
+    { selector: ".sample", as: "pre" as const, code: "code", caption: "h3" },
+    { selector: ".compare", as: "table" as const },
+  ];
+  assert.deepEqual(unsupportedConfig("web_list", { detail: { preserve } }), []);
+  assert.ok(unsupportedConfig("web_list", { detail: { preserve: [{ selector: ".sample", as: "execute" }] } }).includes("detail.preserve"));
+  const article = readable(html, "https://example.org/news", { preserve })!;
+  assert.match(article.html, /<pre><code>recovery &lt; 100 &amp;&amp; grade &gt; 0<\/code><\/pre>/);
+  assert.match(article.html, /<table>/);
+  assert.match(article.text, /Q2.*Q3.*Copper.*100.*127/s);
+  assert.doesNotMatch(article.html, /Copy button/);
 });

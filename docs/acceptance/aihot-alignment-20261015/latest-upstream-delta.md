@@ -7,11 +7,11 @@ Owner于2026-10-18要求最新页面和最新仓库一起核对。当前基线�
 | 原目标 | 新版本变化及源码定位 | 本站处理与当前状态 |
 |---|---|---|
 | 1、2、6 | `events/group.ts`、`recall.ts`、`consolidate.ts`、`jobs/events.ts`：归组补排优先级、服务额度等待、选中背景召回及事件恢复 | 已确认本站timeline按story优先折叠，而新对照按同一次事实fact折叠，避免同一事件的不同新增进展被合成一个精选席位；已修正分组键、最早日期锚点、代表稿范围与旧游标失效处理，相关真实数据库回归通过（fact-timeline-tests.log）；跨出口及新增模型恢复差异继续核验。已补恢复优先级、服务额度等待时长及已有未来作业排除，真实队列回归通过；提供商故障/备用路由仍随模型差异核验，保留人工归属及修订围栏。 |
-| 3、4、5 | `sources/collect.ts`、`dates.ts`、`json-list.ts`、`web-list.ts`、`health.ts`：日期精度、正文保留与补抓、首次导入折日、按来源自身节奏判断静默 | 待逐项核对；已通过的202个候选预览记录保留，新增解析行为变化后只重验受影响配置。 |
+| 3、4、5 | `sources/collect.ts`、`dates.ts`、`json-list.ts`、`web-list.ts`、`health.ts`：日期精度、正文保留与补抓、首次导入折日、按来源自身节奏判断静默 | 已确认本站周报仍固定7天静默，尚缺来源90天自身节奏与持续问题分类；归入运行机制收口。其他日期和首次导入差异继续核对；已通过的202个候选预览记录保留，新增解析行为变化后只重验受影响配置。 |
 | 3、15 | `lib/url.ts`、`http-fetch.ts`、`sources/x*.ts`：私有来源主机配置、元数据地址拒绝、分片水位及账号改名 | 待区分本批已安装能力与未启用社交服务；不为参考配置自动开通新供应商。真实缺口实施，未安装扩展记录适用结论。 |
-| 6、7 | `content/extract.ts`、`materials.ts`、`presentation.ts`、`page-content.ts`、`editorial/analyze.ts`、`translate.ts`：正文版本、组件保留、语言和错误页判断、图形文字替代 | 已接正文展示与语义修订分离、严格检查点/原回执复用、部分译文保持部分、无法对应时回滚单篇及读者修订通知；本地实际存储和RSS采集回归通过。错误页与渲染协议警告识别已接通，普通正文引用不误拦，失败渲染已付回执保持复用，page-content-check与真实本地HTTP回归通过；静态流式片段、行内可见性及图形文字替代已实现，readable-dom-tests-final与必要代码检查通过；语言协商与来源声明组件preserve仍待核对；矿业提示词不替换为行业示例。 |
+| 6、7 | `content/extract.ts`、`materials.ts`、`presentation.ts`、`page-content.ts`、`editorial/analyze.ts`、`translate.ts`：正文版本、组件保留、语言和错误页判断、图形文字替代 | 已接正文展示与语义修订分离、严格检查点/原回执复用、部分译文保持部分、无法对应时回滚单篇及读者修订通知；本地实际存储和RSS采集回归通过。错误页与渲染协议警告识别已接通，普通正文引用不误拦，失败渲染已付回执保持复用，page-content-check与真实本地HTTP回归通过；静态流式片段、行内可见性及图形文字替代已实现，readable-dom-tests-final与必要代码检查通过；语言协商与来源声明组件preserve已接RSS/网页/JSON/详情及独立补抓，配置校验和日期身份同步，source-page-rules-check与实际HTTP回归通过；其余分析行为随模型路由继续核对；矿业提示词不替换为行业示例。 |
 | 8 | `reports/compose.ts`、`operations/reports.ts`、`edition.ts`：已完整处理的安静刊期、恢复及退出 | 已补周月完整安静周期判定、缺刊/撤回失败与停机退出；沿用日报故障区分、已发布刊期不重复写作和重复调度幂等。period-quiet-check与实际数据库回归通过。矿业词表目前仅name/aliases，报告与归属已覆盖全部声明别名，无需添加参考行业示例字段。 |
-| 9、10 | `editorial/models.ts`、`providers/circuit.ts`、`llm.ts`、`receipts.ts`、`site/models.ts`：经评估的跨服务备用路由、临时故障恢复探测、回执状态与模型映射 | 待核对与本站不自动降级规则的具体差异。按最新已批准机制处理，但不凭示例开供应商；首批只有现有DeepSeek配置。后台自由添加和切换保持。 |
+| 9、10 | `editorial/models.ts`、`providers/circuit.ts`、`llm.ts`、`receipts.ts`、`site/models.ts`：经评估的跨服务备用路由、临时故障恢复探测、回执状态与模型映射 | 已确认本站有质量评估备用路由及许可绑定，尚无最新共享故障冷却与唯一恢复探测，需接入原第15项运行机制并核对等待/人工暂停优先级。按最新已批准机制处理，但不凭示例开供应商；首批只有现有DeepSeek配置。后台自由添加和切换保持。 |
 | 11 | `admin/content.ts`、`models.ts`、`sources.ts`、`runs.ts`、后台相应页面：诊断、连接、来源、运行显示 | 待按真实行为核对最新差异，已实现的鉴权、密钥不回显和手机版交互保留。 |
 | 11、15 | `operations/feedback.ts`、`admin/feedback.ts`、两项反馈迁移：提交状态、封禁期限与处理 | 待核对本站已实施的输入规则、幂等、私有群转发和图片删除，新增差异仅做兼容迁移。 |
 | 12 | `Timeline.tsx`、`FeedItem.tsx`、`ReadingGroup.tsx`：未读筛选、组内未读成员、手机新闻行及日期栏 | 已修改手机时间并入来源行、整行日期折叠与紧凑推荐理由；必要浏览器回归通过。PR257契约完整验证后合入，前后端已接通组内未读与状态显示、返回恢复及有界自动翻页；手机/桌面与数据库回归通过（group-unread-browser.log、group-unread-publication-tests.log）。 |

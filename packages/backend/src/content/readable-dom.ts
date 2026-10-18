@@ -171,8 +171,106 @@ function describeFigureDrawings(document: Doc) {
   }
 }
 
-export function prepareReadableDocument(document: Doc): void {
+export interface PreserveRule {
+  selector: string;
+  as: "pre" | "table";
+  code?: string;
+  caption?: string;
+}
+
+/** Text of an element as a reader sees it: without scripts, styles and parts hidden from assistive technology. */
+function shownText(el: El): string {
+  const copy = el.cloneNode(true) as El;
+  for (const hidden of copy.querySelectorAll('script, style, [aria-hidden="true"]')) hidden.remove();
+  return copy.textContent?.trim() ?? "";
+}
+
+/** The widget's text (its `code` part) as a code block, verbatim, under its caption when it has one. */
+function codeBlock(document: Doc, el: El, rule: PreserveRule): El | null {
+  const text = rule.code ? el.querySelector(rule.code) : el;
+  if (!text) return null;
+  const pre = document.createElement("pre");
+  const code = document.createElement("code");
+  code.textContent = shownText(text);
+  pre.append(code);
+  const label = rule.caption ? el.querySelector(rule.caption) : null;
+  const caption = label ? shownText(label) : "";
+  if (!caption) return pre;
+  const block = document.createElement("div");
+  const p = document.createElement("p");
+  p.textContent = caption;
+  block.append(p, pre);
+  return block;
+}
+
+/**
+ * Side-by-side description lists as one table: each child of the element is a column, headed by its
+ * first other element with text; their terms are the rows. Null unless every column lists the same terms.
+ */
+function descriptionTable(document: Doc, el: El): El | null {
+  const columns = [...el.children].map((column) => {
+    const list = column.querySelector("dl");
+    const heading = [...column.children].find((child) => child !== list && child.getAttribute("aria-hidden") !== "true" && shownText(child));
+    return {
+      label: heading ? shownText(heading) : "",
+      rows: list
+        ? [...list.querySelectorAll("dt")].map((term) => ({
+            label: shownText(term),
+            value: term.nextElementSibling?.localName === "dd" ? shownText(term.nextElementSibling) : "",
+          }))
+        : [],
+    };
+  });
+  const rows = columns[0]?.rows;
+  if (
+    !rows?.length ||
+    columns.some(
+      (column) => !column.label || column.rows.length !== rows.length || column.rows.some((row, i) => !row.label || !row.value || row.label !== rows[i]!.label),
+    )
+  )
+    return null;
+  const table = document.createElement("table");
+  const head = document.createElement("thead");
+  const body = document.createElement("tbody");
+  const row = (cells: Array<{ tag: "th" | "td"; text: string }>) => {
+    const tr = document.createElement("tr");
+    for (const cell of cells) {
+      const c = document.createElement(cell.tag);
+      c.textContent = cell.text;
+      tr.append(c);
+    }
+    return tr;
+  };
+  head.append(row(["", ...columns.map((column) => column.label)].map((text) => ({ tag: "th", text }))));
+  rows.forEach((entry, i) => {
+    body.append(row([{ tag: "th", text: entry.label }, ...columns.map((column) => ({ tag: "td" as const, text: column.rows[i]!.value }))]));
+  });
+  table.append(head, body);
+  return table;
+}
+
+/**
+ * A source's declared widgets get a portable structure before Readability removes their controls and
+ * CSS: each matched element becomes a code block ("pre") or a table ("table"), keeping what hides it,
+ * so a hidden widget stays hidden. One without that shape is left as it is.
+ */
+function preserveWidgets(document: Doc, rules: PreserveRule[]) {
+  for (const rule of rules) {
+    for (const el of document.querySelectorAll(rule.selector)) {
+      const content = rule.as === "pre" ? codeBlock(document, el, rule) : descriptionTable(document, el);
+      if (!content) continue;
+      for (const name of ["hidden", "aria-hidden", "style"]) {
+        const value = el.getAttribute(name);
+        if (value !== null) content.setAttribute(name, value);
+      }
+      el.replaceWith(content);
+    }
+  }
+}
+
+export function prepareReadableDocument(document: Doc, rules: PreserveRule[] = []): void {
   settleStreamedContent(document);
   settleInlineVisibility(document);
+  preserveWidgets(document, rules);
   describeFigureDrawings(document);
 }
