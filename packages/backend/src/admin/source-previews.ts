@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { addAbortListener } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { enqueue } from "../jobs/queue.ts";
@@ -137,7 +138,18 @@ async function executeSourcePreview(preview: SourcePreview, token: string, signa
     signal.throwIfAborted();
   };
   await check();
-  const work = fetchPreview({ ...source, kind, config, collectionSignal: signal, collectionReadKey: `preview:${previewId}` });
+  const work = (async () => {
+    for (;;) {
+      await check();
+      const result = await fetchPreview({ ...source, kind, config, collectionSignal: signal, collectionReadKey: `preview:${previewId}` });
+      if (!("status" in result) || result.status !== "deferred") return result;
+      // Robots and list reads share host pacing. Resume this same preview after the reserved time,
+      // within its existing deadline; a cooldown is not a permanent failure or permission to bypass it.
+      const wait = Date.parse(result.retryAt) - Date.now();
+      if (!Number.isFinite(wait)) throw new Conflict("预览等待时间无效，请重新试抓。");
+      await delay(Math.max(1, wait), undefined, { signal });
+    }
+  })();
   let listener: Disposable | undefined;
   const result = await Promise.race([
     work,
@@ -146,7 +158,6 @@ async function executeSourcePreview(preview: SourcePreview, token: string, signa
     }),
   ]).finally(() => listener?.[Symbol.dispose]());
   await check();
-  if ("status" in result && result.status === "deferred") throw new Conflict(`预览待重试：${result.reason}`);
   if (result.count < 1) throw new Conflict("预览未取得有效样例，不能据此启用");
   const [saved] =
     await sql`UPDATE sources.source_previews SET status='succeeded',result=${sql.json(result as never)},error=NULL,completed_at=now(),execution_token=NULL,lease_until=NULL

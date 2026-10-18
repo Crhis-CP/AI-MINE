@@ -654,6 +654,17 @@
     ]
   },
   {
+    "route": "GET /og/posters/:file",
+    "fixture": "直接SQL夹具：publications/articles/translations",
+    "cases": [
+      {
+        "url": "/og/posters/pr9-editorial-public-full.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
     "route": "GET /og/pages/:file",
     "cases": [
       {

@@ -11588,6 +11588,36 @@
       "site_fulltext": false,
       "syndicate_fulltext": false,
       "owner_entity_id": "kincora"
+    },
+    {
+      "id": "research-20261017-tudor",
+      "name": "Tudor Gold · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://tudor-gold.com/category/news/",
+        "itemSelector": "li.wp-block-post",
+        "linkSelector": "h3.wp-block-post-title a",
+        "titleSelector": "h3.wp-block-post-title a",
+        "publishedAtSelector": ".wp-block-post-date time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "allowUrlPrefixes": ["https://tudor-gold.com/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "tudor-gold"
     }
   ]
 }

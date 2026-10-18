@@ -1,0 +1,1623 @@
+{
+  "method": "Compare complete current configuration to retained actual native-preview inputs; independent identity eligibility comes from source-intake.json",
+  "production_enabled": false,
+  "natural_collection_accepted": false,
+  "entries": [
+    {
+      "id": "exp-20261014-abrasilver",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:27:26.590Z",
+      "preview_count": 202,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-albemarle",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:27:35.411Z",
+      "preview_count": 4,
+      "valid_samples": 4,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-alkane",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:27:41.783Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-ame-bc",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:27:52.053Z",
+      "preview_count": 99,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-antaike",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:28:04.268Z",
+      "preview_count": 30,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-arafura",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:28:13.119Z",
+      "preview_count": 72,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-at-minerals",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:28:21.934Z",
+      "preview_count": 35,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-aurubis",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:28:29.832Z",
+      "preview_count": 15,
+      "valid_samples": 15,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-australian-mining",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:28:37.756Z",
+      "preview_count": 5,
+      "valid_samples": 5,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-australian-mining-review",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:28:45.086Z",
+      "preview_count": 11,
+      "valid_samples": 11,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-aya-gold-silver",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:29:02.286Z",
+      "preview_count": 384,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-benchmark-minerals",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:29:11.064Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-caem",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:29:18.296Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-capstone-copper",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:29:37.413Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-ceec",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:29:44.172Z",
+      "preview_count": 22,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-century-lithium",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:29:58.399Z",
+      "preview_count": 238,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-chinamining",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:30:07.149Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-cleveland-cliffs",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:30:19.915Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-cnmc",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:30:26.838Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-cobalt-institute",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:30:40.613Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-crirsco",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:30:55.314Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-dipromin",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:31:02.031Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-drdgold",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:31:10.992Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-endeavour-mining",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:31:20.084Z",
+      "preview_count": 248,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-energiminas",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:31:29.857Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-energy-fuels",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:31:37.506Z",
+      "preview_count": 5,
+      "valid_samples": 5,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-eramet",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:31:44.513Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-euromines",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:31:53.483Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-evolution-mining",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:32:13.641Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-fastmarkets",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:32:20.062Z",
+      "preview_count": 6,
+      "valid_samples": 6,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-first-quantum",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:32:29.386Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-fortescue",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:32:36.905Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-freeport",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:32:49.631Z",
+      "preview_count": 325,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-ganfeng",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:32:57.239Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-global-mining-review",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:33:07.637Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-gold-royalty",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:33:14.453Z",
+      "preview_count": 122,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-harmony",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:33:22.572Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-huayou",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:33:30.469Z",
+      "preview_count": 7,
+      "valid_samples": 7,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-ibram",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:33:43.169Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-icmm",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:33:50.304Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-iimp",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:33:57.789Z",
+      "preview_count": 528,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-ilia",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:34:11.924Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-ilzsg",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T19:27:27.998Z",
+      "preview_count": 1,
+      "valid_samples": 1,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-retry-preview-20261017.jsonl"
+    },
+    {
+      "id": "exp-20261014-imoa",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:34:30.240Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-implats",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:34:38.865Z",
+      "preview_count": 53,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-international-aluminium",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:34:57.110Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-international-tin",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:35:06.501Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-irma",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:35:15.416Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-jiangxi-copper",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:35:21.924Z",
+      "preview_count": 6,
+      "valid_samples": 6,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-jinchuan",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:35:36.420Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-kaz-minerals",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:35:44.731Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-kazakhmys",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:35:52.958Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-kghm",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:36:03.907Z",
+      "preview_count": 5,
+      "valid_samples": 5,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-kitco-news",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:36:13.170Z",
+      "preview_count": 18,
+      "valid_samples": 18,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-komatsu",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:36:19.725Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-liontown",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:36:26.281Z",
+      "preview_count": 21,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-lundin-gold",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:36:37.116Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-lundin-mining",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:36:46.823Z",
+      "preview_count": 357,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-maptek",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:36:56.772Z",
+      "preview_count": 6,
+      "valid_samples": 6,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-merdeka",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:37:06.363Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-metso",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:37:18.093Z",
+      "preview_count": 4,
+      "valid_samples": 4,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mineral-resources",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T19:28:10.543Z",
+      "preview_count": 16,
+      "valid_samples": 16,
+      "raw_evidence": "primary-checkout:.verify/mineralresources-repair-preview-20261017.jsonl"
+    },
+    {
+      "id": "exp-20261014-minerals-council-australia",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:37:36.784Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-minerandina",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:37:45.100Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mineria-desarrollo",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:37:53.126Z",
+      "preview_count": 200,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mineria-en-linea",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:37:59.896Z",
+      "preview_count": 16,
+      "valid_samples": 16,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mineria-panamericana",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:06.860Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mining-association-canada",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:14.548Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mining-connection",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:21.971Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mining-life",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:30.710Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mining-metal-news",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:37.859Z",
+      "preview_count": 26,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mining-zimbabwe",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:46.111Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mining3",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:52.411Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-miningmx",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:38:58.875Z",
+      "preview_count": 50,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mmg",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:39:07.132Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-mysteel",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:39:15.321Z",
+      "preview_count": 27,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-new-pacific",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:39:22.987Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-nma",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:39:31.407Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-nonfemet",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:39:38.446Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-nornickel",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:39:49.956Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-northam",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:40:01.776Z",
+      "preview_count": 31,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-northern-star",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:40:19.000Z",
+      "preview_count": 4,
+      "valid_samples": 4,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-outlet-minero",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:40:27.336Z",
+      "preview_count": 15,
+      "valid_samples": 15,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-panorama-minero",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:40:35.253Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-petromindo",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:40:41.476Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-polyus",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:40:51.342Z",
+      "preview_count": 7,
+      "valid_samples": 7,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-portal-minero",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:00.563Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-proactivo",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:07.544Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-reporte-minero",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:13.880Z",
+      "preview_count": 27,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-resolute-mining",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:20.277Z",
+      "preview_count": 24,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-rio-tinto",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:27.592Z",
+      "preview_count": 3,
+      "valid_samples": 3,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-rmi",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:36.224Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-saimm",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:44.024Z",
+      "preview_count": 14,
+      "valid_samples": 14,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-sandvik",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:41:52.637Z",
+      "preview_count": 15,
+      "valid_samples": 15,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-silver-institute",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:42:01.246Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-silver-tiger",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:42:09.479Z",
+      "preview_count": 6,
+      "valid_samples": 6,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-silvercorp",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:42:18.576Z",
+      "preview_count": 283,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-smm",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:42:30.016Z",
+      "preview_count": 60,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-snmpe",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:42:40.603Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-solaris-resources",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:42:48.405Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-sonami",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:42:56.035Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-teck",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:43:05.348Z",
+      "preview_count": 50,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-trekor-metals",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:43:14.598Z",
+      "preview_count": 311,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-trilogy-metals",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:43:34.206Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-vale",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:43:41.286Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-world-gold-council",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:43:48.077Z",
+      "preview_count": 5,
+      "valid_samples": 5,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-wpic-platinum",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:43:54.475Z",
+      "preview_count": 80,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-yunnan-tin",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:44:02.556Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "exp-20261014-zambia-chamber",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:44:13.629Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-amq-inc",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:44:38.653Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-chamberofmines",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:44:46.447Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-championiron",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:44:57.475Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-chinagoldgroup",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:45:05.576Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-consejominero",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:45:16.197Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-copperalliance",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:45:27.414Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-dataminesoftware",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:45:38.249Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-dynonobel",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:45:45.550Z",
+      "preview_count": 4,
+      "valid_samples": 4,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-gem",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:45:55.300Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-hydro",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:46:08.094Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-igo",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:46:15.069Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-ila-lead",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:46:26.388Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-investingnews",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:46:38.443Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-k92mining",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:46:47.602Z",
+      "preview_count": 352,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-liebherr",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:47:01.460Z",
+      "preview_count": 18,
+      "valid_samples": 18,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-micromine",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:47:10.867Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-normet",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:47:21.060Z",
+      "preview_count": 70,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-nuevamineria",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:47:33.191Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-qhyhgf",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:47:39.677Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-rpmglobal",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:47:49.388Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-seequent",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:48:01.473Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-sigmalithiumresources",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:48:09.603Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-theassay",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:48:19.661Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-torexgold",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:48:28.459Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-tronox",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:48:37.795Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-weir",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:48:46.257Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "rpl-wencomine",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:48:59.054Z",
+      "preview_count": 93,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "sup-20261014-cfgold",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:49:05.536Z",
+      "preview_count": 6,
+      "valid_samples": 6,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "sup-20261014-ivanhoe-electric",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:49:15.099Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "sup-20261014-ngex",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:49:23.189Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "sup-20261014-oceanagold",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:49:34.144Z",
+      "preview_count": 25,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "xfil-20261014-chalco-sse",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:49:40.635Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/existing-batch-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-appiareu-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:08:06.120Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-aurania-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:08:21.225Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-brixtonmetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:08:27.987Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-chesapeakegold-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:08:50.010Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-collectivemining-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:09:00.066Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-fireweedmetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:09:36.072Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-fpxnickel-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:09:44.672Z",
+      "preview_count": 5,
+      "valid_samples": 5,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-gigametals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:09:55.622Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-goliathresourcesltd-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:10:04.543Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-magnamining-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:10:33.320Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-q2metals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:10:57.198Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-rocktechlithium-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:11:06.931Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-silverstorm-ca",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:11:24.763Z",
+      "preview_count": 12,
+      "valid_samples": 12,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-silverxmining-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:11:32.304Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-strikepointgold-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:11:49.329Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-westredlakegold-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:12:07.163Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-aldebaranresources-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:12:20.540Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-aris-mining-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:12:32.543Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-astonbayholdings-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:12:40.283Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-e3lithium-ca",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:12:58.015Z",
+      "preview_count": 2,
+      "valid_samples": 2,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-electrabmc-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:13:08.348Z",
+      "preview_count": 264,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-excellonresources-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:13:35.049Z",
+      "preview_count": 334,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-fortuneminerals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:13:50.194Z",
+      "preview_count": 4,
+      "valid_samples": 4,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-highlandcopper-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:14:00.897Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-ivanhoeatlantic-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:14:09.057Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-li-ft-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:14:23.273Z",
+      "preview_count": 120,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-metallic-minerals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:14:34.016Z",
+      "preview_count": 15,
+      "valid_samples": 15,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-northwestcopper-ca",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:14:54.157Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-outcropsilver-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:15:04.878Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-seabridgegold-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:15:16.012Z",
+      "preview_count": 3,
+      "valid_samples": 3,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-sitkagoldcorp-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:15:23.131Z",
+      "preview_count": 200,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-surgebatterymetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:15:30.068Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-surgecopper-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:15:37.975Z",
+      "preview_count": 15,
+      "valid_samples": 15,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-talonmetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:15:50.508Z",
+      "preview_count": 24,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-vizslasilvercorp-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:16:15.669Z",
+      "preview_count": 19,
+      "valid_samples": 19,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-westerncopperandgold-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:16:36.750Z",
+      "preview_count": 6,
+      "valid_samples": 6,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-eurobatteryminerals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:16:44.147Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-beowulfmining-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:16:53.049Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-canadanickel-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:17:02.987Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-amarcresources-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:17:11.573Z",
+      "preview_count": 192,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-copperfoxmetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:17:24.567Z",
+      "preview_count": 24,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-giyanimetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:17:33.856Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-newfoundgold-ca",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:17:40.909Z",
+      "preview_count": 16,
+      "valid_samples": 16,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-heliostarmetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:17:48.929Z",
+      "preview_count": 179,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-lavrasgold-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:17:58.066Z",
+      "preview_count": 14,
+      "valid_samples": 14,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-thesisgoldsilver-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:18:04.753Z",
+      "preview_count": 69,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-abitibimetals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:18:14.379Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-kenorlandminerals-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:18:27.199Z",
+      "preview_count": 155,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-vior-ca",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:18:38.019Z",
+      "preview_count": 134,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-drydengold-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:18:47.712Z",
+      "preview_count": 8,
+      "valid_samples": 8,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-empressroyalty-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:18:55.717Z",
+      "preview_count": 9,
+      "valid_samples": 9,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261015-salazarresources-com",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:19:04.798Z",
+      "preview_count": 14,
+      "valid_samples": 14,
+      "raw_evidence": "primary-checkout:.verify/candidate-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-gold-hunter",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:15:50.295Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/extra-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-banyan",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:25:48.875Z",
+      "preview_count": 16,
+      "valid_samples": 16,
+      "raw_evidence": "primary-checkout:.verify/extra-web-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-onyx",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:25:49.898Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/extra-web-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-omai",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:25:51.541Z",
+      "preview_count": 10,
+      "valid_samples": 10,
+      "raw_evidence": "primary-checkout:.verify/extra-web-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-founders",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:23:32.947Z",
+      "preview_count": 120,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/extra-more-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-westhaven",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:25:49.377Z",
+      "preview_count": 275,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/extra-more-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-blackrock",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:23:39.028Z",
+      "preview_count": 208,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/extra-more-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261016-kincora",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T18:25:52.523Z",
+      "preview_count": 132,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/extra-more-native-preview-20261016.jsonl"
+    },
+    {
+      "id": "research-20261017-tudor",
+      "configuration_matches_preview": true,
+      "checked_at": "2026-10-16T19:41:16.702Z",
+      "preview_count": 20,
+      "valid_samples": 20,
+      "raw_evidence": "primary-checkout:.verify/tudor-native-preview-20261017.jsonl"
+    }
+  ]
+}
