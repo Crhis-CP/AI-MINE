@@ -1,3 +1,4 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
@@ -7,7 +8,7 @@ import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts
 import { CATEGORY_LABELS, CHANNEL_LABELS } from "@amp/industry/taxonomy";
 import { IconClose, IconSearch } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 
 /** The selector describes event/impact geography; publication-source tags are not an input. */
 export function JurisdictionFilter({ base, value }: { base: string; value: string | null }) {
@@ -17,11 +18,11 @@ export function JurisdictionFilter({ base, value }: { base: string; value: strin
     [failed, setFailed] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    createPublicClient({ baseUrl: window.location.origin })
-      .GET("/api/site/jurisdictions", { signal: controller.signal })
-      .then((response) => {
-        if (!response.response.ok) throw new Error("jurisdictions unavailable");
-        if (!controller.signal.aborted) setChoices(publicSchemas.PolicyJurisdictionList.parse(response.data));
+    apiFetch("/api/site/jurisdictions", { signal: controller.signal, baseUrl: window.location.origin })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("jurisdictions unavailable");
+        const choices = publicSchemas.PolicyJurisdictionList.parse(await response.json());
+        if (!controller.signal.aborted) setChoices(choices);
       })
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);

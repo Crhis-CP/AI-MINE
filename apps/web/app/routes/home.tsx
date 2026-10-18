@@ -1,7 +1,8 @@
+import { apiFetch } from "../lib/http.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { Link, data as withHeaders, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/home";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
@@ -34,20 +35,19 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
   const data = await loadOr404(
     () =>
-      createPublicClient({ baseUrl: apiBaseFor("/api/site/timeline") })
-        .GET("/api/site/timeline", {
-          params: { query },
-          querySerializer: () => queryString(query).slice(1),
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-        })
-        .then((result) => {
-          const body = contractResult(result, publicSchemas.TimelineResponse);
-          result.response.headers.forEach((value, name) => {
-            upstream.set(name, value);
-          });
-          return body;
-        }),
+      apiFetch("/api/site/timeline", {
+        params: { query },
+        querySerializer: () => queryString(query).slice(1),
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        baseUrl: apiBaseFor("/api/site/timeline"),
+      }).then(async (result) => {
+        const body = await contractResult(result, publicSchemas.TimelineResponse);
+        result.headers.forEach((value, name) => {
+          upstream.set(name, value);
+        });
+        return body;
+      }),
     { signal: request.signal },
   );
   // Until the first pick exists, the unfiltered home page shows the newest items of 全部动态 instead of
@@ -66,22 +66,22 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 /** True when any 精选 exists, including ones outside the homepage window. A failed read counts as not started. */
 function featuredHasStarted(signal: AbortSignal) {
-  return createPublicClient({ baseUrl: apiBaseFor("/api/site/stats") })
-    .GET("/api/site/stats", {
-      headers: { accept: "application/json", "x-amp-ssr": "1" },
-      signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
-    })
-    .then((result) => contractResult(result, publicSchemas.SiteStats).selected > 0)
+  return apiFetch("/api/site/stats", {
+    headers: { accept: "application/json", "x-amp-ssr": "1" },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
+    baseUrl: apiBaseFor("/api/site/stats"),
+  })
+    .then(async (result) => (await contractResult(result, publicSchemas.SiteStats)).selected > 0)
     .catch(() => false);
 }
 
 /** The first page of 全部动态; "empty" or "failed" when there is nothing to show (DR-85). */
 function loadLatest(signal: AbortSignal) {
-  return createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
-    .GET("/api/site/pool", {
-      headers: { accept: "application/json", "x-amp-ssr": "1" },
-      signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
-    })
+  return apiFetch("/api/site/pool", {
+    headers: { accept: "application/json", "x-amp-ssr": "1" },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/pool"),
+  })
     .then((result) => contractResult(result, publicSchemas.PoolResponse))
     .then((pool) => (pool.items.length > 0 ? pool : ("empty" as const)))
     .catch(() => "failed" as const);

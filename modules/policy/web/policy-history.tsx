@@ -1,17 +1,19 @@
+import { apiFetch } from "@amp/web/extension";
 import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
 import { PolicyBack, PolicyError, policyCache, policyHref, timeLabel, actionClass, usePolicyRecheck } from "./features/PolicyUI";
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/{id}/history", {
+  const result = await apiFetch("/api/site/policies/{id}/history", {
     params: { path: { id: params.id! }, query: { limit: 20 } },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/policies"),
   });
-  if (!result.response.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
-  return publicSchemas.PolicyHistoryPage.parse(result.data);
+  if (!result.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.status) ? result.status : 503 });
+  return publicSchemas.PolicyHistoryPage.parse(await result.json());
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
@@ -33,12 +35,13 @@ function History({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
     setBusy(true);
     setFailed(false);
     try {
-      const next = await createPublicClient({ baseUrl: location.origin }).GET("/api/site/policies/{id}/history", {
+      const next = await apiFetch("/api/site/policies/{id}/history", {
         params: { path: { id: data.policy_id }, query: { cursor: data.next_cursor, limit: 20 } },
+        baseUrl: location.origin,
       });
-      if ([404, 409, 410].includes(next.response.status)) return setInvalid(true);
-      if (!next.response.ok) throw new Error("unavailable");
-      const parsed = publicSchemas.PolicyHistoryPage.parse(next.data);
+      if ([404, 409, 410].includes(next.status)) return setInvalid(true);
+      if (!next.ok) throw new Error("unavailable");
+      const parsed = publicSchemas.PolicyHistoryPage.parse(await next.json());
       if (parsed.policy_id !== data.policy_id || parsed.content_version !== data.content_version) return setInvalid(true);
       setData({ ...parsed, items: [...data.items, ...parsed.items] });
     } catch {

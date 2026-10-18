@@ -1,6 +1,7 @@
+import { apiFetch } from "../../lib/http.ts";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useRevalidator } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 
 const ReaderItemScope = createContext<Set<string> | null>(null);
 /** Withdrawal refreshes can update/remove current cards; new arrivals wait for an explicit reload. */
@@ -34,12 +35,13 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       pending = true;
       setStatus((old) => (old === "idle" ? "checking" : old));
       try {
-        const result = await createPublicClient({ baseUrl: window.location.origin }).GET("/api/site/content-version", {
+        const result = await apiFetch("/api/site/content-version", {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+          baseUrl: window.location.origin,
         });
-        if (!result.response.ok) throw new Error("version unavailable");
-        const value = publicSchemas.ContentVersion.parse(result.data);
+        if (!result.ok) throw new Error("version unavailable");
+        const value = publicSchemas.ContentVersion.parse(await result.json());
         if (controller.signal.aborted) return;
         const previous = baseline.current;
         if (!previous || value.withdrawalVersion !== previous.withdrawalVersion) {

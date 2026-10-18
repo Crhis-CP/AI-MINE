@@ -1,8 +1,9 @@
+import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
 import { Link, redirect, useLoaderData, useSearchParams } from "react-router";
 import type { Route } from "./+types/topic";
 import type { FeedItemSummary } from "@amp/contracts/site";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { SearchField, SourceDateFilters, JurisdictionFilter, hrefWith } from "../features/feed/Filters";
 import { contractResult, queryString, loadOr404 } from "../lib/api.server";
@@ -54,20 +55,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   };
   const pool = await loadOr404(
     () =>
-      createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
-        .GET("/api/site/pool", {
-          params: { query },
-          querySerializer: () => queryString({ ...query, selected: query.selected ? "true" : undefined }).slice(1),
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: request.signal,
-        })
-        .then((result) => contractResult(result, publicSchemas.PoolResponse)),
+      apiFetch("/api/site/pool", {
+        params: { query },
+        querySerializer: () => queryString({ ...query, selected: query.selected ? "true" : undefined }).slice(1),
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: request.signal,
+        baseUrl: apiBaseFor("/api/site/pool"),
+      }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal },
   );
   const countries =
     data.topic.group === "genre"
-      ? await createPublicClient({ baseUrl: apiBaseFor("/api/site/jurisdictions") })
-          .GET("/api/site/jurisdictions", { signal: request.signal })
+      ? await apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor("/api/site/jurisdictions") })
           .then((result) => contractResult(result, publicSchemas.PolicyJurisdictionList))
           .catch(() => [])
       : [];

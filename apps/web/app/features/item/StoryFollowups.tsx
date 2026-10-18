@@ -1,6 +1,7 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { StoryFollowup, StoryRef } from "@amp/contracts/site";
 import { MoreLink } from "../../components/ui/Page";
 import { newsSourceDate, shortSourceName } from "../../lib/format";
@@ -23,13 +24,14 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
       pending = true;
       setState({ status: "loading", items: [], more: false });
       try {
-        const result = await createPublicClient({ baseUrl: window.location.origin }).GET("/api/site/stories/{publicId}/followups", {
+        const result = await apiFetch("/api/site/stories/{publicId}/followups", {
           params: { path: { publicId: story.publicId } },
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+          baseUrl: window.location.origin,
         });
-        if (!result.response.ok) throw new Error("followups unavailable");
-        const body = publicSchemas.StoryFollowupsResponse.parse(result.data);
+        if (!result.ok) throw new Error("followups unavailable");
+        const body = publicSchemas.StoryFollowupsResponse.parse(await result.json());
         if (!controller.signal.aborted)
           setState({ status: "ready", items: body.items.filter((d) => d.representative.id !== currentId && d.factId !== currentFactId), more: body.more });
       } catch {

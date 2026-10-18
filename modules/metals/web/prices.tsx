@@ -1,18 +1,18 @@
+import { apiFetch } from "@amp/web/extension";
 import { useEffect, useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor, contractResult } from "@amp/web/extension.server";
 import { pageMeta, IconExternal } from "@amp/web/extension";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const prices = await createPublicClient({ baseUrl: apiBaseFor("/api/site/metal-prices") })
-      .GET("/api/site/metal-prices", {
-        headers: { accept: "application/json", "x-amp-ssr": "1" },
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-      })
-      .then((response) => contractResult(response, publicSchemas.MetalPrices));
+    const prices = await apiFetch("/api/site/metal-prices", {
+      headers: { accept: "application/json", "x-amp-ssr": "1" },
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+      baseUrl: apiBaseFor("/api/site/metal-prices"),
+    }).then((response) => contractResult(response, publicSchemas.MetalPrices));
     return withHeaders({ prices }, { headers: { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" } });
   } catch (error) {
     if (request.signal.aborted) throw error;
@@ -52,19 +52,20 @@ export default function MetalsPage() {
     if (initialPrices) setPrices(initialPrices);
     let timer: ReturnType<typeof setInterval> | undefined;
     let pending: AbortController | null = null;
-    const client = createPublicClient({ baseUrl: window.location.origin });
+    const apiBase = window.location.origin;
     const refresh = async () => {
       if (document.visibilityState !== "visible" || pending) return;
       const request = new AbortController();
       pending = request;
       try {
-        const result = await client.GET("/api/site/metal-prices", {
+        const result = await apiFetch("/api/site/metal-prices", {
           cache: "no-cache",
           headers: { accept: "application/json" },
           signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+          baseUrl: apiBase,
         });
-        if (!result.response.ok) throw new Error("Price refresh unavailable");
-        const next = publicSchemas.MetalPrices.parse(result.data);
+        if (!result.ok) throw new Error("Price refresh unavailable");
+        const next = publicSchemas.MetalPrices.parse(await result.json());
         if (!request.signal.aborted) {
           setPrices(next);
           setRefreshFailed(false);

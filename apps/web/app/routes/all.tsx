@@ -1,7 +1,8 @@
+import { apiFetch } from "../lib/http.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { data as withStatus, Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/all";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { isValidDate } from "@amp/contracts/time";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
@@ -56,25 +57,24 @@ export async function loader({ request }: Route.LoaderArgs) {
     );
   // The optional policy search starts alongside news and has its own short deadline.
   const policyRequest = q
-    ? createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") })
-        .GET("/api/site/policies", {
-          params: { query: { q, page: 1, page_size: 5 } },
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: AbortSignal.any([request.signal, AbortSignal.timeout(3000)]),
-        })
+    ? apiFetch("/api/site/policies", {
+        params: { query: { q, page: 1, page_size: 5 } },
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(3000)]),
+        baseUrl: apiBaseFor("/api/site/policies"),
+      })
         .then((result) => contractResult(result, publicSchemas.PolicyListResponse))
         .catch(() => null)
     : null;
   const data = await loadOr404(
     () =>
-      createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
-        .GET("/api/site/pool", {
-          params: { query },
-          querySerializer: () => queryString(query).slice(1),
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-        })
-        .then((result) => contractResult(result, publicSchemas.PoolResponse)),
+      apiFetch("/api/site/pool", {
+        params: { query },
+        querySerializer: () => queryString(query).slice(1),
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        baseUrl: apiBaseFor("/api/site/pool"),
+      }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal },
   );
   const policyMatches = await policyRequest;

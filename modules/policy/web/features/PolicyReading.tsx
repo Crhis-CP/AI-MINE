@@ -1,5 +1,6 @@
+import { apiFetch } from "@amp/web/extension";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { Policy } from "@amp/contracts/http/public";
 import { actionClass, EvidenceLinks } from "./PolicyUI";
 
@@ -159,11 +160,11 @@ export function PolicyReading({
     requests.current.set(expression.id, controller);
     update(expression.id, { ...old, busy: true, error: false });
     try {
-      const client = createPublicClient({ baseUrl: window.location.origin });
+      const apiBase = window.location.origin;
       const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
       let cursor = old.next ?? (expression.id === selected?.id ? policy.reading?.next_cursor : null);
       if (!old.loaded && expression.id !== selected?.id) {
-        const context = await client.GET("/api/site/policies/{id}", {
+        const context = await apiFetch("/api/site/policies/{id}", {
           params: {
             path: { id: policy.id },
             query: {
@@ -173,13 +174,14 @@ export function PolicyReading({
           },
           cache: "no-cache",
           signal,
+          baseUrl: apiBase,
         });
-        if ([404, 409, 410].includes(context.response.status)) {
+        if ([404, 409, 410].includes(context.status)) {
           onInvalid();
           return;
         }
-        if (!context.response.ok) throw new Error("unavailable");
-        const chosen = publicSchemas.Policy.parse(context.data);
+        if (!context.ok) throw new Error("unavailable");
+        const chosen = publicSchemas.Policy.parse(await context.json());
         if (
           chosen.selected_policy_version_id !== expression.policy_version_id ||
           chosen.reading?.expression_id !== expression.id ||
@@ -190,20 +192,21 @@ export function PolicyReading({
         }
         cursor = chosen.reading.next_cursor;
       }
-      const result = await client.GET("/api/site/policies/{id}/reading", {
+      const result = await apiFetch("/api/site/policies/{id}/reading", {
         params: {
           path: { id: policy.id },
           query: { expression_id: expression.id, document_revision_id: expression.document_revision_id, limit: 20, ...(cursor ? { cursor } : {}) },
         },
         cache: "no-cache",
         signal,
+        baseUrl: apiBase,
       });
-      if ([404, 409, 410].includes(result.response.status)) {
+      if ([404, 409, 410].includes(result.status)) {
         onInvalid();
         return;
       }
-      if (!result.response.ok) throw new Error("unavailable");
-      const next = publicSchemas.PolicyReadingPage.parse(result.data);
+      if (!result.ok) throw new Error("unavailable");
+      const next = publicSchemas.PolicyReadingPage.parse(await result.json());
       if (next.expression_id !== expression.id || next.document_revision_id !== expression.document_revision_id || next.subject_id !== policy.id) {
         onInvalid();
         return;

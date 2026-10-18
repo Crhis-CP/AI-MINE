@@ -1,6 +1,7 @@
+import { apiFetch } from "@amp/web/extension";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyReportQuery } from "@amp/contracts/http/public";
 import { PolicyReportFilters } from "./features/PolicyReportFilters";
 import { apiBaseFor } from "@amp/web/extension.server";
@@ -14,16 +15,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ...Object.fromEntries([...url.searchParams].filter(([key, value]) => key !== "_routes" && value !== "")),
     });
   if (!parsed.success) throw withHeaders(null, { status: 400 });
-  const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports", {
+  const result = await apiFetch("/api/site/policies/reports", {
     params: { query: parsed.data },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/policies"),
   });
-  if (!result.response.ok) throw withHeaders(null, { status: 503 });
-  const scope = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/scope", { signal: request.signal });
+  if (!result.ok) throw withHeaders(null, { status: 503 });
+  const scope = await apiFetch("/api/site/policies/scope", { signal: request.signal, baseUrl: apiBaseFor("/api/site/policies") });
   return {
-    listing: publicSchemas.PolicyReportList.parse(result.data),
+    listing: publicSchemas.PolicyReportList.parse(await result.json()),
     query: parsed.data,
-    scope: scope.response.ok ? publicSchemas.PolicyScopeList.parse(scope.data) : null,
+    scope: scope.ok ? publicSchemas.PolicyScopeList.parse(await scope.json()) : null,
   };
 }
 export const headers = policyCache;

@@ -1,7 +1,8 @@
+import { apiFetch } from "@amp/web/extension";
 import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyReportDetailQuery } from "@amp/contracts/http/public";
 import { PolicyReportFilters } from "./features/PolicyReportFilters";
 import { apiBaseFor } from "@amp/web/extension.server";
@@ -12,12 +13,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     Object.fromEntries([...new URL(request.url).searchParams].filter(([key, value]) => key !== "_routes" && value !== "")),
   );
   if (!parsed.success) throw withHeaders(null, { status: 400 });
-  const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports/{id}", {
+  const result = await apiFetch("/api/site/policies/reports/{id}", {
     params: { path: { id: params.id! }, query: parsed.data },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/policies"),
   });
-  if (!result.response.ok) throw withHeaders(null, { status: [404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
-  return { report: publicSchemas.PolicyReport.parse(result.data), query: parsed.data };
+  if (!result.ok) throw withHeaders(null, { status: [404, 409, 410].includes(result.status) ? result.status : 503 });
+  return { report: publicSchemas.PolicyReport.parse(await result.json()), query: parsed.data };
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
@@ -39,13 +41,14 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
     setBusy(true);
     setFailed(false);
     try {
-      const response = await createPublicClient({ baseUrl: location.origin }).GET("/api/site/policies/reports/{id}", {
+      const response = await apiFetch("/api/site/policies/reports/{id}", {
         params: { path: { id: report.id }, query: { ...query, cursor: report.next_cursor } },
         signal: AbortSignal.timeout(15_000),
+        baseUrl: location.origin,
       });
-      if ([404, 409, 410].includes(response.response.status)) return setInvalid(true);
-      if (!response.response.ok) throw new Error("unavailable");
-      const next = publicSchemas.PolicyReport.parse(response.data);
+      if ([404, 409, 410].includes(response.status)) return setInvalid(true);
+      if (!response.ok) throw new Error("unavailable");
+      const next = publicSchemas.PolicyReport.parse(await response.json());
       if (next.content_version !== report.content_version || next.id !== report.id || next.edition !== report.edition) return setInvalid(true);
       const groups = structuredClone(report.groups);
       for (const incoming of next.groups) {

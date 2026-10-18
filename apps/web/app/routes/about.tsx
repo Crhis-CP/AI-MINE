@@ -1,7 +1,8 @@
+import { apiFetch } from "../lib/http.ts";
 import { useMemo, type ReactNode } from "react";
 import { Link, useLoaderData } from "react-router";
 import type { SiteStats } from "@amp/contracts/site";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { contractResult } from "../lib/api.server";
 import { ABOUT, SITE, withSubject } from "@amp/industry/site";
@@ -16,19 +17,19 @@ export function headers() {
 }
 
 export async function loader({ request }: { request: Request }) {
-  const informationRequest = createPublicClient({ baseUrl: apiBaseFor("/api/site/information") })
-    .GET("/api/site/information", {
-      cache: "no-store",
-      headers: { accept: "application/json", "x-amp-ssr": "1" },
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-    })
+  const informationRequest = apiFetch("/api/site/information", {
+    cache: "no-store",
+    headers: { accept: "application/json", "x-amp-ssr": "1" },
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/information"),
+  })
     .then((result) => contractResult(result, publicSchemas.SiteInformation))
     .catch(() => null);
-  const stats = await createPublicClient({ baseUrl: apiBaseFor("/api/site/stats") })
-    .GET("/api/site/stats", {
-      headers: { accept: "application/json", "x-amp-ssr": "1" },
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-    })
+  const stats = await apiFetch("/api/site/stats", {
+    headers: { accept: "application/json", "x-amp-ssr": "1" },
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/stats"),
+  })
     .then((result) => contractResult(result, publicSchemas.SiteStats))
     .catch(() => null);
   return { stats, information: await informationRequest };

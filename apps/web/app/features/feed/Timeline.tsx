@@ -1,10 +1,11 @@
+import { apiFetch } from "../../lib/http.ts";
 // The day-grouped feed (精选 home, topics): a time rail with cards on desktop, dated rows under grey
 // day bars on phones. Keeps its place across back navigation and loads further pages. There is no
 // "new items" prompt: readers refresh for the latest head (feedback #1199).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
 import { Collapse } from "@amp/ui/Presence";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { useReaderItemScope } from "./ContentVersionGuard";
 import { FeedItem } from "./FeedItem";
@@ -266,9 +267,9 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     setLoadingMore(true);
     setLoadError(false);
     try {
-      const client = createPublicClient({ baseUrl: window.location.origin });
+      const apiBase = window.location.origin;
       const read = (cursor?: string) =>
-        client.GET("/api/site/timeline", {
+        apiFetch("/api/site/timeline", {
           params: {
             query: {
               channel: filters.channel,
@@ -280,16 +281,20 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
           },
           querySerializer: () => filterQuery(filters, { cursor }),
           signal: controller.signal,
+          baseUrl: apiBase,
         });
       const res = await read(s.nextCursor);
-      if (res.response.status === 400) {
+      if (res.status === 400) {
         // Cursor no longer fits: start over from the head.
         const head = await read();
-        if (head.response.ok && current()) setState(fromResponse(publicSchemas.TimelineResponse.parse(head.data)));
+        if (head.ok) {
+          const page = publicSchemas.TimelineResponse.parse(await head.json());
+          if (current()) setState(fromResponse(page));
+        }
         return;
       }
-      if (!res.response.ok) throw new Error(String(res.response.status));
-      const page = publicSchemas.TimelineResponse.parse(res.data);
+      if (!res.ok) throw new Error(String(res.status));
+      const page = publicSchemas.TimelineResponse.parse(await res.json());
       if (!current()) return;
       setState((prev) => {
         const seen = new Set(prev.cards.map((c) => c.key));

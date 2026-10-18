@@ -1,6 +1,7 @@
+import { apiFetch } from "@amp/web/extension";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { Policy } from "@amp/contracts/http/public";
 import { policyHref } from "./PolicyUI";
 import { toggleStar, useStarred } from "@amp/web/local-state";
@@ -47,17 +48,18 @@ export function PolicySavedList() {
       pending = true;
       setBusy(true);
       setItems([]);
-      const client = createPublicClient({ baseUrl: location.origin });
+      const apiBase = location.origin;
       const values = await Promise.allSettled(
         selected
           ? selected.split(",").map(async (id) => {
-              const r = await client.GET("/api/site/policies/{id}", {
+              const r = await apiFetch("/api/site/policies/{id}", {
                 params: { path: { id } },
                 cache: "no-cache",
                 signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+                baseUrl: apiBase,
               });
-              if (!r.response.ok) throw new Error("unavailable");
-              return publicSchemas.Policy.parse(r.data);
+              if (!r.ok) throw new Error("unavailable");
+              return publicSchemas.Policy.parse(await r.json());
             })
           : [],
       );

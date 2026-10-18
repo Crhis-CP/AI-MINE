@@ -1,6 +1,7 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { removeStar, toggleStar, useIsStarred, useStarred } from "../../lib/local-state";
 import { fullDateTime } from "../../lib/format";
 
@@ -49,7 +50,7 @@ export function StorySavedList() {
       setReading(empty(selected, true));
       const result = empty(selected);
       const ids = selected ? selected.split(",") : [];
-      const client = createPublicClient({ baseUrl: window.location.origin });
+      const apiBase = window.location.origin;
       let next = 0;
       const worker = async () => {
         while (!controller.signal.aborted) {
@@ -57,17 +58,18 @@ export function StorySavedList() {
           if (!referenceId) return;
           try {
             // Fetch follows same-endpoint merge redirects; the canonical ID comes from the validated response.
-            const response = await client.GET("/api/v3/events/{id}", {
+            const response = await apiFetch("/api/v3/events/{id}", {
               params: { path: { id: referenceId } },
               cache: "no-store",
               signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+              baseUrl: apiBase,
             });
-            if (response.response.status === 404 || response.response.status === 410) {
+            if (response.status === 404 || response.status === 410) {
               result.missing.push(referenceId);
               continue;
             }
-            if (!response.response.ok) throw new Error("event unavailable");
-            const current = publicSchemas.V3Event.parse(response.data);
+            if (!response.ok) throw new Error("event unavailable");
+            const current = publicSchemas.V3Event.parse(await response.json());
             result.items.push({ referenceId, id: current.id, title: current.title, summary: current.summary });
           } catch {
             if (!controller.signal.aborted) result.failed.push(referenceId);

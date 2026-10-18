@@ -1,7 +1,8 @@
+import { apiFetch } from "@amp/web/extension";
 import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyDetailQuery } from "@amp/contracts/http/public";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
@@ -29,13 +30,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const parsed = PolicyDetailQuery.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   try {
-    const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/{id}", {
+    const result = await apiFetch("/api/site/policies/{id}", {
       params: { path: { id: params.id! }, query: parsed.data },
       headers: { accept: "application/json", "x-amp-ssr": "1" },
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+      baseUrl: apiBaseFor("/api/site/policies"),
     });
-    if (!result.response.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
-    const policy = publicSchemas.Policy.parse(result.data);
+    if (!result.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.status) ? result.status : 503 });
+    const policy = publicSchemas.Policy.parse(await result.json());
     const selected = policy.expressions.find((expression) => expression.id === policy.selected_expression_id);
     let initialReading: ReturnType<typeof publicSchemas.PolicyReadingPage.parse> | null = null;
     let initialReadingFailed = false;
@@ -43,7 +45,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       if (policy.reading.expression_id !== selected.id || policy.reading.document_revision_id !== selected.document_revision_id)
         throw withHeaders(null, { status: 409 });
       try {
-        const page = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/{id}/reading", {
+        const page = await apiFetch("/api/site/policies/{id}/reading", {
           params: {
             path: { id: policy.id },
             query: {
@@ -56,10 +58,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           headers: { accept: "application/json", "x-amp-ssr": "1" },
           cache: "no-cache",
           signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+          baseUrl: apiBaseFor("/api/site/policies"),
         });
-        if ([400, 404, 409, 410].includes(page.response.status)) throw withHeaders(null, { status: page.response.status });
-        if (!page.response.ok) throw new Error("Policy reading temporarily unavailable");
-        const reading = publicSchemas.PolicyReadingPage.parse(page.data);
+        if ([400, 404, 409, 410].includes(page.status)) throw withHeaders(null, { status: page.status });
+        if (!page.ok) throw new Error("Policy reading temporarily unavailable");
+        const reading = publicSchemas.PolicyReadingPage.parse(await page.json());
         if (
           reading.subject_id !== policy.id ||
           reading.expression_id !== selected.id ||

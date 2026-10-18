@@ -4,10 +4,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createPublicClient, publicSchemas } from "../../packages/api-client/src/public.ts";
+import { type createPublicClient, publicSchemas } from "../../packages/api-client/src/public.ts";
 import { privateSchemas } from "../../packages/api-client/src/private.ts";
 import type { PoolResponse, FeedItemSummary, ItemSummary, SourceRef, TimelineResponse } from "../../packages/contracts/src/site.ts";
 import type { components } from "../../packages/api-client/src/public.types.ts";
+import { apiFetch } from "../../apps/web/app/lib/http.ts";
 import { ApiError, contractResult } from "../../apps/web/app/lib/api.server.ts";
 
 type PublicReadPath = Parameters<ReturnType<typeof createPublicClient>["GET"]>[0];
@@ -229,43 +230,35 @@ if (process.argv.includes("--routes")) {
       stdio: "pipe",
     });
   });
-  test("generated public client validates values and preserves HTTP errors and cancellation", async () => {
+  test("native public HTTP validates values and preserves HTTP errors and cancellation", async (t) => {
     const controller = new AbortController();
-    const client = createPublicClient({
-      baseUrl: "https://fixture.invalid",
-      fetch: async (request) => {
-        assert.equal(new URL(request.url).pathname, "/api/site/stats");
-        request.signal.throwIfAborted();
-        return Response.json(stats);
-      },
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const request = new Request(input, init);
+      assert.equal(new URL(request.url).pathname, "/api/site/stats");
+      request.signal.throwIfAborted();
+      return Response.json(stats);
     });
-    const result = await client.GET("/api/site/stats", { signal: controller.signal });
-    assert.deepEqual(contractResult(result, publicSchemas.SiteStats), stats);
-    assert.throws(() => contractResult({ ...result, data: { ...stats, items: null } }, publicSchemas.SiteStats));
-    assert.throws(
-      () =>
-        contractResult(
-          { response: new Response("", { status: 503, headers: { "retry-after": "30" } }), error: { code: "temporarily_unavailable" } },
-          publicSchemas.SiteStats,
-        ),
+    const result = await apiFetch("/api/site/stats", { baseUrl: "https://fixture.invalid", signal: controller.signal });
+    assert.deepEqual(await contractResult(result, publicSchemas.SiteStats), stats);
+    await assert.rejects(contractResult(Response.json({ ...stats, items: null }), publicSchemas.SiteStats));
+    await assert.rejects(
+      contractResult(Response.json({ code: "temporarily_unavailable" }, { status: 503, headers: { "retry-after": "30" } }), publicSchemas.SiteStats),
       (error) => error instanceof ApiError && error.status === 503 && error.retryAfter === 30,
     );
     controller.abort();
-    await assert.rejects(client.GET("/api/site/stats", { signal: controller.signal }), { name: "AbortError" });
+    await assert.rejects(apiFetch("/api/site/stats", { baseUrl: "https://fixture.invalid", signal: controller.signal }), { name: "AbortError" });
   });
-  test("pool generated client enforces nullable DTO and preserves serialized query/cancellation", async () => {
+  test("pool HTTP transport enforces nullable DTO and preserves serialized query/cancellation", async (t) => {
     const controller = new AbortController();
-    const client = createPublicClient({
-      baseUrl: "https://fixture.invalid",
-      fetch: async (request) => {
-        assert.equal(new URL(request.url).pathname, "/api/site/pool");
-        assert.equal(new URL(request.url).searchParams.get("page"), "2");
-        request.signal.throwIfAborted();
-        return Response.json(pool);
-      },
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const request = new Request(input, init);
+      assert.equal(new URL(request.url).pathname, "/api/site/pool");
+      assert.equal(new URL(request.url).searchParams.get("page"), "2");
+      request.signal.throwIfAborted();
+      return Response.json(pool);
     });
-    const response = await client.GET("/api/site/pool", { params: { query: { page: 2 } }, signal: controller.signal });
-    assert.deepEqual(contractResult(response, publicSchemas.PoolResponse), pool);
+    const response = await apiFetch("/api/site/pool", { baseUrl: "https://fixture.invalid", params: { query: { page: 2 } }, signal: controller.signal });
+    assert.deepEqual(await contractResult(response, publicSchemas.PoolResponse), pool);
     for (const item of [
       { ...pool.items[0], category: "unapproved" },
       { ...pool.items[0], summary: undefined },
@@ -273,21 +266,21 @@ if (process.argv.includes("--routes")) {
       assert.throws(() => publicSchemas.PoolResponse.parse({ ...pool, items: [item] }));
     }
     controller.abort();
-    await assert.rejects(client.GET("/api/site/pool", { params: { query: { page: 2 } }, signal: controller.signal }), { name: "AbortError" });
+    await assert.rejects(apiFetch("/api/site/pool", { baseUrl: "https://fixture.invalid", params: { query: { page: 2 } }, signal: controller.signal }), {
+      name: "AbortError",
+    });
   });
-  test("timeline client preserves opaque cursors and validates nullable nested cards", async () => {
+  test("timeline HTTP transport preserves opaque cursors and validates nullable nested cards", async (t) => {
     const controller = new AbortController();
-    const client = createPublicClient({
-      baseUrl: "https://fixture.invalid",
-      fetch: async (request) => {
-        assert.equal(new URL(request.url).searchParams.get("cursor"), timeline.nextCursor);
-        request.signal.throwIfAborted();
-        return Response.json(timeline);
-      },
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const request = new Request(input, init);
+      assert.equal(new URL(request.url).searchParams.get("cursor"), timeline.nextCursor);
+      request.signal.throwIfAborted();
+      return Response.json(timeline);
     });
     const query = { cursor: timeline.nextCursor!, limit: 2 };
-    const result = await client.GET("/api/site/timeline", { params: { query }, signal: controller.signal });
-    assert.deepEqual(contractResult(result, publicSchemas.TimelineResponse), timeline);
+    const result = await apiFetch("/api/site/timeline", { baseUrl: "https://fixture.invalid", params: { query }, signal: controller.signal });
+    assert.deepEqual(await contractResult(result, publicSchemas.TimelineResponse), timeline);
     for (const invalid of [
       { ...timeline, refreshAt: "not-a-date" },
       { ...timeline, dayCounts: [] },
@@ -295,7 +288,9 @@ if (process.argv.includes("--routes")) {
     ])
       assert.throws(() => publicSchemas.TimelineResponse.parse(invalid));
     controller.abort();
-    await assert.rejects(client.GET("/api/site/timeline", { params: { query }, signal: controller.signal }), { name: "AbortError" });
+    await assert.rejects(apiFetch("/api/site/timeline", { baseUrl: "https://fixture.invalid", params: { query }, signal: controller.signal }), {
+      name: "AbortError",
+    });
   });
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [

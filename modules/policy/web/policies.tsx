@@ -1,7 +1,8 @@
+import { apiFetch } from "@amp/web/extension";
 import { useRef } from "react";
 import { Form, Link, data as withHeaders, useLoaderData, useSearchParams } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyListQuery } from "@amp/contracts/http/public";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { contractResult } from "@amp/web/extension.server";
@@ -28,13 +29,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const parsed = PolicyListQuery.safeParse(input);
   const invalid = !parsed.success || [...url.searchParams.keys()].some((k) => url.searchParams.getAll(k).length > 1);
   if (invalid) return withHeaders({ listing: null, scope: null, filters: { ...PolicyListQuery.parse({}), ...input }, error: 400 }, { status: 400 });
-  const client = createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") });
+  const apiBase = apiBaseFor("/api/site/policies");
   const options = { headers: { accept: "application/json", "x-amp-ssr": "1" }, signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]) };
   const [listing, scope] = await Promise.allSettled([
-    client
-      .GET("/api/site/policies", { ...options, params: { query: parsed.success ? parsed.data : PolicyListQuery.parse({}) } })
-      .then((r) => contractResult(r, publicSchemas.PolicyListResponse)),
-    client.GET("/api/site/policies/scope", options).then((r) => contractResult(r, publicSchemas.PolicyScopeList)),
+    apiFetch("/api/site/policies", { ...options, params: { query: parsed.success ? parsed.data : PolicyListQuery.parse({}) }, baseUrl: apiBase }).then((r) =>
+      contractResult(r, publicSchemas.PolicyListResponse),
+    ),
+    apiFetch("/api/site/policies/scope", { ...options, baseUrl: apiBase }).then((r) => contractResult(r, publicSchemas.PolicyScopeList)),
   ]);
   const values = {
     listing: listing.status === "fulfilled" ? listing.value : null,

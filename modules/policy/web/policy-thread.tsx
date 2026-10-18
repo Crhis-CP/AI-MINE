@@ -1,16 +1,18 @@
+import { apiFetch } from "@amp/web/extension";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
 import { PolicyBack, PolicyCardView, PolicyError, policyCache, policyHref, timeLabel, usePolicyRecheck } from "./features/PolicyUI";
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policy-threads") }).GET("/api/site/policy-threads/{id}", {
+  const result = await apiFetch("/api/site/policy-threads/{id}", {
     params: { path: { id: params.id! } },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/policy-threads"),
   });
-  if (!result.response.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
-  return publicSchemas.PolicyThread.parse(result.data);
+  if (!result.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.status) ? result.status : 503 });
+  return publicSchemas.PolicyThread.parse(await result.json());
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;

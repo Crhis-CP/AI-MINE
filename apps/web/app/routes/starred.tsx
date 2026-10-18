@@ -1,7 +1,8 @@
+import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { pageMeta } from "../lib/seo";
 import { removeStar, useStarred, exportBundle, importBundle, STARRED_LIMIT, IMPORT_MAX_CHARS } from "../lib/local-state";
@@ -65,20 +66,21 @@ export default function StarredPage() {
       pending = true;
       setState((previous) => ({ ...previous, loading: true, failed: false }));
       try {
-        const client = createPublicClient({ baseUrl: location.origin });
+        const apiBase = location.origin;
         // Existing over-limit references are preserved, and resolved in bounded batches.
         const refs = ids ? ids.split(",") : [];
         const batches = [];
         for (let i = 0; i < refs.length; i += 100) batches.push(refs.slice(i, i + 100));
         const values = await Promise.allSettled(
           batches.map(async (batch) => {
-            const response = await client.GET("/api/site/items/saved", {
+            const response = await apiFetch("/api/site/items/saved", {
               params: { query: { ids: batch.join(",") } },
               cache: "no-store",
               signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+              baseUrl: apiBase,
             });
-            if (!response.response.ok) throw new Error("saved content unavailable");
-            return { batch, value: publicSchemas.SavedItems.parse(response.data) };
+            if (!response.ok) throw new Error("saved content unavailable");
+            return { batch, value: publicSchemas.SavedItems.parse(await response.json()) };
           }),
         );
         if (!controller.signal.aborted)
