@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-export const scrollBehavior = (): ScrollBehavior => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
+export const reducedMotion = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const scrollBehavior = (): ScrollBehavior => (reducedMotion() ? "auto" : "smooth");
 const landing = (element: Element) => Number.parseFloat(getComputedStyle(element).scrollMarginTop) || 0;
 
 /** Jump within this reading entry without adding another step to Back. */

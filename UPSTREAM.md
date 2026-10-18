@@ -100,3 +100,7 @@ HTTP成功响应中的错误页和渲染协议警告识别参考4947ad03309c64a4
 worker心跳提醒的发送后记状态与事务锁参考AIHOT `4947ad0` 的 `operations/watch.ts`；本站继续使用现有飞书通道，未配置自动运维Agent唤醒。禁用发送不记录为已通知，实际通知失败由下一轮继续。
 
 读者链接按压预加载、独立PrefetchPageLinks、收起区最小列宽及画布外观观察参考AIHOT `4947ad0` 的 IntentLink、Presence 与 local-state；本站保留原生SSR读取、人工刷新和已验证的返回焦点行为。复制共用现有成功确认与焦点恢复，失败不能显示已复制。
+
+关于页流程画布SignalRiver采用AIHOT `4947ad03309c64a4002bd073d690aee50c548063` 的 `apps/web/app/features/about/SignalRiver.tsx`，替换行业与出刊配置入口；遵循原MIT许可，现有NOTICE与许可说明保持。画布由真实来源样本驱动，后台未提供样本时不得声称来源已接入。
+
+Agent共用中文答案参考AIHOT `4947ad0` 的 `publication/agent.ts` 与 `routes/mcp.ts`；本站适配现有归属链接、当前公开资格、报告引用及法规工具，复用现有publication/llms包入口。旧JSON字段和工具身份不变，未转发参考行业示例。

@@ -1,3 +1,4 @@
+export { agentGuide, latestAnswer, searchItems, searchAnswer, hotAnswer, storyAnswer, dailyAnswer, reportAnswer } from "./agent.ts";
 // /llms.txt — generated from the site's own configuration; only real, available resources are listed.
 import { SITE, withSubject } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";

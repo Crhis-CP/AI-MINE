@@ -6,8 +6,7 @@
     "lint/style/noProcessEnv": 1
   },
   "apps/api/src/routes/mcp.ts": {
-    "lint/style/noProcessEnv": 1,
-    "lint/suspicious/useIterableCallbackReturn": 2
+    "lint/style/noProcessEnv": 1
   },
   "apps/api/src/routes/static.ts": {
     "lint/suspicious/noImplicitAnyLet": 1
