@@ -321,7 +321,11 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   const opened = await openQualifiedReader(page);
   assert.match(opened!.headers()["cache-control"]!, /(?:^|, )no-store(?:,|$)/);
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
-  await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link")).toHaveCount(5);
+  const tabs = page.getByRole("navigation", { name: "底部导航" });
+  await expect(tabs.getByRole("link")).toHaveCount(5);
+  await expect(tabs.getByRole("link", { name: "金属价格", exact: true })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "我的", exact: true })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "精选", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link", { name: "热点榜" })).toBeVisible();
   const mobileCard = page.locator('[data-item-id="fixture-a"]');
   await expect(mobileCard.locator("header time")).toBeVisible();

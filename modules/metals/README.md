@@ -5,3 +5,5 @@ server入口注册原有metals.prices定时任务及/api/site/metal-prices读取
 backend目录拥有来源适配、PDF/工作簿解析、期次与单位校验、存储、刷新和公开读取实现。对外仅提供read、refresh、diagnostics与registry入口；来源适配器和存储细节留在内部。数据仍使用既有publication.metal_prices表，来源ID、期间、单位和币种不变。
 
 web/prices.tsx拥有原/metals页面，模块声明保持旧路由ID；web入口提供桌面及手机菜单，站点分别安装地址、浏览器与服务端定义。页面只经公开api-client读取数据，核心web仅提供具名展示与服务端HTTP辅助入口。核心旧价格后端入口目前保留兼容转发，部分运维展示继续调用既有地址；运维挂口的归属继续迁移。公开读取沿用只读事务、当前网站官方链接和权限控制，不依靠源码路径变化绕过SQL归属检查。
+
+网页扩展通过tabs声明金属价格的手机底部入口，通用网页据实际模块声明组装并高亮；侧栏、/more内入口与/metals原地址保留。

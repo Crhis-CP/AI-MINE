@@ -15,7 +15,7 @@ export function headers() {
 }
 
 export function meta() {
-  return pageMeta({ title: "更多", path: "/more", noindex: true });
+  return pageMeta({ title: "我的", path: "/more", noindex: true });
 }
 
 type Row = { to: string; label: string; icon: ReactNode };
@@ -62,7 +62,7 @@ export default function MorePage() {
   const [fontSaved, setFontSaved] = useState(true);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
-      <h1 className="pb-4 pt-5 text-[22px] font-bold text-ink lg:pt-1">更多</h1>
+      <h1 className="pb-4 pt-5 text-[22px] font-bold text-ink lg:pt-1">我的</h1>
       <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0 2xl:grid-cols-3">
         {GROUPS.map((g) => (
           <Group key={g.title} title={g.title}>

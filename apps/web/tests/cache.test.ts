@@ -1165,10 +1165,12 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   } finally {
     priceMode = "full";
   }
-  // Desktop sidebar entry; on phones the bottom bar keeps “更多” highlighted.
+  // The installed price module owns its phone tab; the personal tab must not also light up.
   assert.match(html, /<aside[\s\S]*href="\/metals"[\s\S]*<\/aside>/);
   const tabbar = html.slice(html.indexOf('aria-label="底部导航"'));
-  assert.match(tabbar.slice(0, tabbar.indexOf("</nav>")), /<a[^>]*aria-current="page"[^>]*href="\/more"|<a[^>]*href="\/more"[^>]*aria-current="page"/);
+  const phoneTabs = tabbar.slice(0, tabbar.indexOf("</nav>"));
+  assert.match(phoneTabs, /<a(?=[^>]*href="\/metals")(?=[^>]*aria-current="page")[^>]*>/);
+  assert.equal([...phoneTabs.matchAll(/aria-current="page"/g)].length, 1);
   // The “更多” page lists it in its own body, not only through the sidebar.
   const more = await (await fetch(`${origin}/more`)).text();
   const body = more.slice(more.indexOf('id="main"'), more.indexOf('aria-label="底部导航"'));
