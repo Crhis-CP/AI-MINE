@@ -94,3 +94,5 @@ HTTP成功响应中的错误页和渲染协议警告识别参考4947ad03309c64a4
 逻辑请求恢复与备用选择按4947ad03309c64a4002bd073d690aee50c548063的providers/receipts.ts、llm.ts及operations/recover.ts核对：每回执一次自动恢复、不同输入独立记账，备用failed时回到主请求。资讯额外的材料/报告级未知费用屏障退出；保留准确旧键兼容、实际回执证明、当前许可与法规独有边界。
 
 较早精选的60天阅读背景、同事实背景去重及近期跳过信号的任务补排，对照4947ad03309c64a4002bd073d690aee50c548063的events/recall.ts和jobs/events.ts实现；本站通过publication/content所属入口取数，保留既有人工操作与业务线控制。
+
+信源健康的90天自身节奏、至少4个产出日/4倍间隔、7天持续失败比例与问题分类参考AIHOT `4947ad0` 的 `sources/health.ts` 与 `operations/reports.ts`；本站按各表所有者拆分只读证据，保留北京时间、法规独立范围及既有权限。

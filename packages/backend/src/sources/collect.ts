@@ -274,7 +274,8 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
       // Previously stored items can finish a failed or budget-deferred detail read.
       const detailBudget = Math.max(0, Math.min(50, Math.floor(Number(d?.maxFetches ?? 0) || 0)));
       let detailUsed = 0,
-        detailPending = 0;
+        detailPending = 0,
+        detailFailures = 0;
       const detailErrors: { url: string; error: string }[] = [];
       for (const c of candidates) {
         const stored = known.get(identityKeyFor({ ...c, sourceId, via: "fetch" }));
@@ -329,12 +330,13 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         } catch (error) {
           if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
           detailPending++;
+          if (!(error instanceof BudgetExceededError)) detailFailures++;
           detailErrors.push({ url: c.url, error: failureMessage(error).slice(0, 300) });
         }
       }
 
       if (d) {
-        detail = { ...detail, detailAttempts: detailUsed, detailPending, detailErrors };
+        detail = { ...detail, detailAttempts: detailUsed, detailFailures, detailPending, detailErrors };
         nextCursor.detailRules = detailRules;
         if (detailPending === 0 && !detail.notModified) nextCursor.detailCheckedAt = new Date().toISOString();
         else if (source.kind === "rss") delete nextCursor.rss;

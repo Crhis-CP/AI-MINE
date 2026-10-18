@@ -4,6 +4,7 @@
 //   today  — money at risk or only the owner can act: sent at once, repeated at most daily, recovery reported.
 //   digest — follow-ups without reader impact: one 09:00 message a day, meant to be handed to the AI.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
+import { sourceHealth, SOURCE_PROBLEMS } from "../sources/health.ts";
 import { manualReviewExceptions } from "@amp/backend/admin/content";
 import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
@@ -490,6 +491,17 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
       });
     }
   }
+
+  if (collecting())
+    for (const group of await sourceHealth(now))
+      for (const problem of SOURCE_PROBLEMS)
+        for (const source of group[problem.problem])
+          out.push({
+            key: `sources.${problem.problem}.${source.id}`,
+            level: "digest",
+            title: `${group.name}信源「${source.name}」${problem.title}`,
+            detail: `${source.id}：${problem.describe(source)}；${problem.action}`,
+          });
 
   // ---- Follow-ups for the daily digest ------------------------------------------------------------
   const [r] = await sql<{ receipts: number; first_attempts: number; repeated_attempts: number; services: string | null; deliveries: number }[]>`

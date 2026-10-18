@@ -248,3 +248,10 @@ export async function modelSwitchHistory() {
     SELECT created_at AS at,actor,subject,reason,before,after FROM audit_log
     WHERE action='models.switch' ORDER BY created_at DESC LIMIT 30`;
 }
+
+/** Health reports need only the repair time, never audit payloads. */
+export async function presentationRefreshTimes(articleIds: string[]) {
+  if (!articleIds.length) return [];
+  return sql<{ subject: string; at: Date }[]>`SELECT subject,max(created_at) AS at FROM audit_log
+    WHERE action='content.presentation.updated' AND subject=ANY(${articleIds.map((id) => `content:${id}`)}::text[]) GROUP BY subject`;
+}

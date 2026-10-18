@@ -1,3 +1,4 @@
+import { audit } from "../admin/auth.ts";
 import { refreshTranslationPresentation } from "../editorial/translation-store.ts";
 export { PresentationMismatch } from "../editorial/presentation.ts";
 import { decideTimeline } from "./timeline.ts";
@@ -243,6 +244,7 @@ export async function updateMaterialPresentation(
   if (html === body.body_html && stableJson(media) === stableJson(body.media) && status === body.body_status) return false;
   if (html && html !== body.body_html) await refreshTranslationPresentation(body, html, db);
   await db`UPDATE articles SET body_html=${html},media=${db.json(media as never)},body_status=${status},updated_at=now() WHERE id=${articleId}`;
+  if (html && html !== body.body_html) await audit("worker", "content.presentation.updated", `content:${articleId}`, null, null, null, undefined, db);
   return true;
 }
 
