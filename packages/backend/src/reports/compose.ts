@@ -163,7 +163,16 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   const end = editionTime(endDateInclusive);
   const period = await periodEntries(startDate, endDateInclusive),
     top = period.entries.slice(0, kind === "weekly" ? 20 : 30);
-  if (!top.length) return { key, entries: 0 };
+  if (!top.length) {
+    if (["scheduled", "catch-up"].includes(reason) && !period.hasEntries && period.issues > 0) {
+      const [first] = await sql<{ key: string | null }[]>`SELECT min(key) AS key FROM reports WHERE kind='daily'`;
+      const firstDate = first?.key && first.key > startDate ? first.key : startDate;
+      const expected = (Date.parse(endDateInclusive) - Date.parse(firstDate)) / 86400000 + 1;
+      // Only complete quiet periods may be skipped. Missing dailies or withdrawn entries need attention.
+      if (period.issues === expected) return { key, entries: 0 };
+    }
+    throw new Error(`${kind} ${key}: no daily entries in the period`);
+  }
   const model = await modelFor("report");
   let written: Awaited<ReturnType<typeof writePeriod>> | null = null;
   try {
@@ -288,6 +297,7 @@ export async function catchUpReports(now = new Date(), limit = 8): Promise<{ gen
         await item.compose(key, "catch-up");
         if ((await sql`SELECT 1 FROM reports WHERE kind=${item.kind} AND key=${key}`).length) generated.push(`${item.kind}:${key}`);
       } catch (error) {
+        if (shutdownSignal.signal.aborted) break editions;
         failed.push(`${item.kind}:${key}`);
         console.warn(
           JSON.stringify({ level: "error", msg: "report issue failed", kind: item.kind, key, error: error instanceof Error ? error.name : "Error" }),

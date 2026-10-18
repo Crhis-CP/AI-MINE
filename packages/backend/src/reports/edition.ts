@@ -168,7 +168,7 @@ export async function dailyEdition(date: string, start: Date, end: Date) {
 }
 
 /** Period reports use only main entries actually carried by dailies, in their current public wording. */
-export async function periodEntries(start: string, end: string): Promise<{ entries: Candidate[]; issues: number }> {
+export async function periodEntries(start: string, end: string): Promise<{ entries: Candidate[]; issues: number; hasEntries: boolean }> {
   const issues = await sql<
     { key: string; content: StoredReportContent }[]
   >`SELECT key,content FROM reports WHERE kind='daily' AND key>=${start} AND key<=${end} ORDER BY key`;
@@ -209,5 +209,5 @@ export async function periodEntries(start: string, end: string): Promise<{ entri
     return { candidate: { ...reportEntry(row), category: row.category, factKey: factKey(row) }, rank };
   });
   ranked.sort((a, b) => b.rank - a.rank || a.candidate.itemId.localeCompare(b.candidate.itemId));
-  return { entries: ranked.map((entry) => entry.candidate), issues: issues.length };
+  return { entries: ranked.map((entry) => entry.candidate), issues: issues.length, hasEntries: carried.length > 0 };
 }

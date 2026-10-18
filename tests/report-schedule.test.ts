@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import "./setup.ts";
 import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { catchUpReports, dueDaily, dueWeekly, dueMonthly, editionTime } from "@amp/backend/reports/compose";
+import { catchUpReports, composeWeekly, dueDaily, dueWeekly, dueMonthly, editionTime } from "@amp/backend/reports/compose";
 import { expectedReportKey } from "../apps/web/app/features/report/report-period.ts";
 
 after(async () => {
@@ -42,5 +42,24 @@ test("catch-up revisits an old gap outside the former seven-day limit and does n
   const result = await catchUpReports(new Date("2020-01-20T01:00Z"), 1);
   assert.deepEqual(result.generated, ["daily:2020-01-03"]);
   assert.equal((await sql`SELECT origin FROM reports WHERE key='2020-01-03'`)[0]!.origin, "rule");
-  assert.deepEqual((await catchUpReports(new Date("2020-01-20T01:00Z"), 1)).generated, []);
+  await assert.rejects(catchUpReports(new Date("2020-01-20T01:00Z"), 1), /weekly:2020-W02 failed/, "missing dailies remain a failed period, not a quiet one");
+});
+
+test("empty weeks skip only complete quiet dailies, with no paid writing or empty public issue", async () => {
+  const before = await sql`SELECT id FROM receipts ORDER BY id`;
+  await assert.rejects(composeWeekly("2021-W01"), /no daily entries/);
+  for (let day = 4; day <= 9; day++) {
+    const key = `2021-01-${String(day).padStart(2, "0")}`;
+    await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,origin)
+      VALUES('daily',${key},${editionTime(key)},${editionTime(key)},${sql.json({ sections: [], flashes: [] })},now(),'rule')`;
+  }
+  await assert.rejects(composeWeekly("2021-W01"), /no daily entries/, "one missing daily is not quiet");
+  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,origin)
+    VALUES('daily','2021-01-10','2021-01-09','2021-01-10',${sql.json({ sections: [], flashes: [] })},now(),'rule')`;
+  assert.deepEqual(await composeWeekly("2021-W01"), { key: "2021-W01", entries: 0 });
+  await assert.rejects(composeWeekly("2021-W01", "operator requested rebuild"), /no daily entries/);
+  await sql`UPDATE reports SET content=${sql.json({ sections: [{ label: "企业与项目", items: [{ itemId: "no-longer-public" }] }] })} WHERE kind='daily' AND key='2021-01-10'`;
+  await assert.rejects(composeWeekly("2021-W01"), /no daily entries/, "a formerly carried entry losing public eligibility is not an originally quiet period");
+  assert.equal((await sql`SELECT id FROM reports WHERE kind='weekly' AND key='2021-W01'`).length, 0);
+  assert.deepEqual([...(await sql`SELECT id FROM receipts ORDER BY id`)], [...before]);
 });
