@@ -1,4 +1,5 @@
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { apiFetch } from "../../lib/http.ts";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import type { z } from "zod";
 import { SITE } from "@amp/industry/site";
 import { useState } from "react";
@@ -44,10 +45,12 @@ interface Preview {
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const response = await adminGet<Detail>(request, `/api/admin/sources/${encodeURIComponent(params.id)}`, (url, init) =>
-    createPrivateClient({ baseUrl: new URL(String(url)).origin }).GET("/api/admin/sources/{id}", {
+    apiFetch("/api/admin/sources/{id}", {
       params: { path: { id: params.id } },
       headers: init.headers,
       signal: init.signal,
+      method: "GET",
+      baseUrl: new URL(String(url)).origin,
     }),
   );
   const previewInfo = await adminGet<{

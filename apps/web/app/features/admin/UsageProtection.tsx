@@ -1,6 +1,7 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useState } from "react";
 import type { z } from "zod";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { useAdminAction } from "./action";
 import { Badge, Button, Card, Field, Input, ReasonDialog, Select } from "./ui";
 import { bj } from "./format";
@@ -141,12 +142,12 @@ function ConfigForm({ data }: { data: Data }) {
         onClose={() => setConfirm(false)}
         onSubmit={async (reason) => {
           const body = { expected_version: data.configuration?.version ?? 0, config: build(), reason, high_risk_confirmed: true as const },
-            client = createPrivateClient({ baseUrl: window.location.origin });
+            apiBase = window.location.origin;
           const result = await run("PUT", "/api/admin/usage-config", body, {
             label: "usage-config",
             success: "用量提醒已保存",
             parse: privateSchemas.UsageConfigRecord.parse,
-            send: (_url, init) => client.PUT("/api/admin/usage-config", { body, headers: init.headers }),
+            send: (_url, init) => apiFetch("/api/admin/usage-config", { json: body, headers: init.headers, method: "PUT", baseUrl: apiBase }),
           });
           return result !== null;
         }}
@@ -317,13 +318,13 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
               (p) => p.price.service === price.service && p.price.model === price.model && p.price.configuration_hash === price.configuration_hash,
             ),
             body = { expected_version: prior?.version ?? 0, price, reason, high_risk_confirmed: true as const },
-            client = createPrivateClient({ baseUrl: window.location.origin });
+            apiBase = window.location.origin;
           return (
             (await run("PUT", "/api/admin/usage-prices", body, {
               label: "usage-price",
               success: "有效价格已保存",
               parse: privateSchemas.UsagePriceRecord.parse,
-              send: (_url, init) => client.PUT("/api/admin/usage-prices", { body, headers: init.headers }),
+              send: (_url, init) => apiFetch("/api/admin/usage-prices", { json: body, headers: init.headers, method: "PUT", baseUrl: apiBase }),
             })) !== null
           );
         }}
@@ -465,13 +466,20 @@ export function UsageProtection({ data }: { data: Data | null }) {
         onSubmit={async (reason) => {
           if (!recover) return false;
           const body = { expected_revision: recover.revision, reason },
-            client = createPrivateClient({ baseUrl: window.location.origin });
+            apiBase = window.location.origin;
           return (
             (await run("POST", `/api/admin/breakers/${encodeURIComponent(recover.id)}/recover`, body, {
               label: "recover-breaker",
               success: "所选费用范围已恢复",
               parse: privateSchemas.UsageBreaker.parse,
-              send: (_url, init) => client.POST("/api/admin/breakers/{id}/recover", { params: { path: { id: recover.id } }, body, headers: init.headers }),
+              send: (_url, init) =>
+                apiFetch("/api/admin/breakers/{id}/recover", {
+                  params: { path: { id: recover.id } },
+                  json: body,
+                  headers: init.headers,
+                  method: "POST",
+                  baseUrl: apiBase,
+                }),
             })) !== null
           );
         }}

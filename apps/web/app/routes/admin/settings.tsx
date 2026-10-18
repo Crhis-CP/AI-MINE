@@ -1,4 +1,5 @@
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { apiFetch } from "../../lib/http.ts";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { apiBaseFor } from "../../../api-target.ts";
 import { UsageProtection } from "../../features/admin/UsageProtection";
 import { SITE } from "@amp/industry/site";
@@ -44,7 +45,7 @@ interface Settings {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const path = "/api/admin/usage-protection",
-    client = createPrivateClient({ baseUrl: apiBaseFor(path) });
+    apiBase = apiBaseFor(path);
   const [settings, runtime, monthly, protection] = await Promise.all([
     adminGet<Omit<Settings, "runtime" | "monthly" | "protection">>(request, "/api/admin/settings").catch(() => null),
     adminGet<unknown>(request, "/api/admin/lane-controls")
@@ -53,7 +54,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     adminGet<unknown>(request, "/api/admin/usage/reports")
       .then((value) => MonthlyUsageList.parse(value).items)
       .catch(() => null),
-    adminGet<unknown>(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal }))
+    adminGet<unknown>(request, path, (_url, init) => apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase }))
       .then((value) => privateSchemas.UsageProtectionOverview.parse(value))
       .catch(() => null),
   ]);

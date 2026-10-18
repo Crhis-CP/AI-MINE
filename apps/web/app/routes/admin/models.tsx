@@ -1,7 +1,8 @@
+import { apiFetch } from "../../lib/http.ts";
 import { SelectionStandardsSection } from "../../features/admin/SelectionStandards";
 import { Link, useRevalidator } from "react-router";
 import { SITE } from "@amp/industry/site";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { ModelFallbacks, type FallbackOverview, type FallbackChange } from "../../features/admin/ModelFallbacks";
 import { ModelConnections, type ModelRegistry, type ModelCommand } from "../../features/admin/ModelConnections";
 import { adminBody, type AdminSend } from "../../lib/admin-response";
@@ -80,11 +81,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   const days = new URL(request.url).searchParams.get("days") ?? "7";
   const models = await adminGet<Models>(request, `/api/admin/models?days=${encodeURIComponent(days)}`);
   const path = "/api/admin/model-connections",
-    client = createPrivateClient({ baseUrl: apiBaseFor(path) });
+    apiBase = apiBaseFor(path);
   let registry: ModelRegistry | null = null;
   try {
     registry = privateSchemas.ModelRegistryResponse.parse(
-      await adminGet(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal })),
+      await adminGet(request, path, (_url, init) => apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase })),
     );
   } catch (error) {
     if (error instanceof Response && error.status === 302) throw error;
@@ -93,7 +94,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   try {
     const fallbackPath = "/api/admin/model-fallbacks";
     fallbacks = privateSchemas.ModelFallbackOverview.parse(
-      await adminGet(request, fallbackPath, (_url, init) => client.GET(fallbackPath, { headers: init.headers, signal: init.signal })),
+      await adminGet(request, fallbackPath, (_url, init) =>
+        apiFetch(fallbackPath, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase }),
+      ),
     );
   } catch (error) {
     if (error instanceof Response && error.status === 302) throw error;
@@ -112,26 +115,38 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   const me = useAdminMe() as ReturnType<typeof useAdminMe> & { owner?: boolean; modelsManage?: boolean };
   const closeTarget = useCallback(() => setTarget(null), []);
   const command = async ({ kind, id, body }: ModelCommand) => {
-    const client = createPrivateClient({ baseUrl: window.location.origin });
+    const apiBase = window.location.origin;
     const send: AdminSend = (_url, init) => {
       const common = { headers: init.headers, signal: init.signal };
-      if (kind === "create") return client.POST("/api/admin/model-connections", { ...common, body: privateSchemas.ModelConnectionCreate.parse(body) });
+      if (kind === "create")
+        return apiFetch("/api/admin/model-connections", {
+          ...common,
+          json: privateSchemas.ModelConnectionCreate.parse(body),
+          method: "POST",
+          baseUrl: apiBase,
+        });
       if (kind === "update")
-        return client.PUT("/api/admin/model-connections/{id}", {
+        return apiFetch("/api/admin/model-connections/{id}", {
           ...common,
           params: { path: { id: id! } },
-          body: privateSchemas.ModelConnectionUpdate.parse(body),
+          json: privateSchemas.ModelConnectionUpdate.parse(body),
+          method: "PUT",
+          baseUrl: apiBase,
         });
       if (kind === "disable")
-        return client.POST("/api/admin/model-connections/{id}/disable", {
+        return apiFetch("/api/admin/model-connections/{id}/disable", {
           ...common,
           params: { path: { id: id! } },
-          body: privateSchemas.ModelConnectionDisable.parse(body),
+          json: privateSchemas.ModelConnectionDisable.parse(body),
+          method: "POST",
+          baseUrl: apiBase,
         });
-      return client.POST("/api/admin/model-connections/{id}/test", {
+      return apiFetch("/api/admin/model-connections/{id}/test", {
         ...common,
         params: { path: { id: id! } },
-        body: privateSchemas.ModelConnectionProbe.parse(body),
+        json: privateSchemas.ModelConnectionProbe.parse(body),
+        method: "POST",
+        baseUrl: apiBase,
       });
     };
     return run(kind === "update" ? "PUT" : "POST", "/api/admin/model-connections", body, {
@@ -141,14 +156,16 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
     });
   };
   const changeFallback = async (capability: string, value: FallbackChange) => {
-    const client = createPrivateClient({ baseUrl: window.location.origin });
+    const apiBase = window.location.origin;
     return run("PUT", `/api/admin/model-fallbacks/${encodeURIComponent(capability)}`, value, {
       send: (_url, init) =>
-        client.PUT("/api/admin/model-fallbacks/{capability}", {
+        apiFetch("/api/admin/model-fallbacks/{capability}", {
           headers: init.headers,
           signal: init.signal,
           params: { path: { capability } },
-          body: privateSchemas.ModelFallbackChange.parse(value),
+          json: privateSchemas.ModelFallbackChange.parse(value),
+          method: "PUT",
+          baseUrl: apiBase,
         }),
       parse: (result) => privateSchemas.ModelFallbackRoute.parse(result),
       success: "备用设置已保存",
@@ -157,9 +174,9 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
     });
   };
   const readProbe = async (id: string) => {
-    const client = createPrivateClient({ baseUrl: window.location.origin });
-    const result = await client.GET("/api/admin/model-connection-tests/{id}", { params: { path: { id } } });
-    if (!result.response.ok) return null;
+    const apiBase = window.location.origin;
+    const result = await apiFetch("/api/admin/model-connection-tests/{id}", { params: { path: { id } }, method: "GET", baseUrl: apiBase });
+    if (!result.ok) return null;
     const probe = privateSchemas.ModelProbeRecord.parse(await adminBody(result));
     if (!["queued", "running"].includes(probe.status)) revalidator.revalidate();
     return probe;
@@ -407,17 +424,19 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
         onSubmit={async (reason) => {
           if (choice.startsWith("registered:")) {
             const body = { model: choice, expected_revision: target!.routeRevision, reason, evaluation_id: null, emergency_confirmed: false };
-            const client = createPrivateClient({ baseUrl: window.location.origin });
+            const apiBase = window.location.origin;
             return (
               (await run("POST", `/api/admin/model-routes/${target!.key}`, body, {
                 label: "switch",
                 success: "已切换，之后的新任务使用这个模型",
                 send: (_url, init) =>
-                  client.POST("/api/admin/model-routes/{capability}", {
+                  apiFetch("/api/admin/model-routes/{capability}", {
                     params: { path: { capability: target!.key } },
                     headers: init.headers,
                     signal: init.signal,
-                    body: privateSchemas.ModelRouteChange.parse(body),
+                    json: privateSchemas.ModelRouteChange.parse(body),
+                    method: "POST",
+                    baseUrl: apiBase,
                   }),
               })) !== null
             );

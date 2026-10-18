@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { z } from "zod";
-import type { privateSchemas } from "@amp/api-client/private";
+import type { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { Card, Empty, Badge } from "@amp/web/admin-ui";
 import { bj } from "@amp/web/admin-format";
 export type CoverageData = z.infer<typeof privateSchemas.SourceCoverage>;

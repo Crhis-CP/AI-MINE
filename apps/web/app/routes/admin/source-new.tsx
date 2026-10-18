@@ -1,4 +1,5 @@
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { apiFetch } from "../../lib/http.ts";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { SITE } from "@amp/industry/site";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -274,11 +275,12 @@ export default function NewSource() {
                   );
                   return;
                 }
-                const client = createPrivateClient({ baseUrl: window.location.origin });
+                const apiBase = window.location.origin;
                 const r = await run("POST", "/api/admin/sources", input.data, {
                   label: "create",
                   revalidate: false,
-                  send: (_url, init) => client.POST("/api/admin/sources", { body: input.data, headers: init.headers, signal: init.signal }),
+                  send: (_url, init) =>
+                    apiFetch("/api/admin/sources", { json: input.data, headers: init.headers, signal: init.signal, method: "POST", baseUrl: apiBase }),
                   parse: privateSchemas.SourceCreateResponse.parse,
                 });
                 if (!r) return;

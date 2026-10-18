@@ -1,6 +1,7 @@
+import { apiFetch } from "@amp/web/extension";
 import { SourceCoverage, type CoverageData } from "./SourceCoverage";
 import { useAdminAction, useAdminMe } from "@amp/web/admin-action";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { SITE } from "@amp/industry/site";
 import { Form, Link, useNavigate, useSearchParams } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
@@ -13,15 +14,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url),
     query = Object.fromEntries(["q", "country", "state", "page"].flatMap((key) => (url.searchParams.get(key) ? [[key, url.searchParams.get(key)!]] : [])));
   const path = "/api/admin/source-targets",
-    client = createPrivateClient({ baseUrl: apiBaseFor(path) });
+    apiBase = apiBaseFor(path);
   const targets = privateSchemas.SourceTargetsResponse.parse(
     await adminGet<SourceTargetsData>(request, `${path}?${new URLSearchParams(query)}`, (_url, init) =>
-      client.GET(path, {
+      apiFetch(path, {
         params: {
           query: { ...query, page: Number(query.page ?? 1), state: query.state as "unmatched" | "configured" | "observed" | "needs_address" | undefined },
         },
         headers: init.headers,
         signal: init.signal,
+        method: "GET",
+        baseUrl: apiBase,
       }),
     ),
   );
@@ -29,7 +32,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   try {
     const path = "/api/admin/source-coverage";
     coverage = privateSchemas.SourceCoverage.parse(
-      await adminGet(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal })),
+      await adminGet(request, path, (_url, init) => apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase })),
     );
   } catch (error) {
     if (error instanceof Response && error.status === 302) throw error;
@@ -41,14 +44,15 @@ export default function SourceTargetPage({ loaderData }: { loaderData: Awaited<R
   const me = useAdminMe(),
     { run, pending } = useAdminAction();
   const exportTargets = async () => {
-    const client = createPrivateClient({ baseUrl: window.location.origin });
+    const apiBase = window.location.origin;
     const result = await run(
       "POST",
       "/api/admin/source-targets/export",
       {},
       {
         revalidate: false,
-        send: (_url, init) => client.POST("/api/admin/source-targets/export", { headers: init.headers, signal: init.signal, body: {} }),
+        send: (_url, init) =>
+          apiFetch("/api/admin/source-targets/export", { headers: init.headers, signal: init.signal, json: {}, method: "POST", baseUrl: apiBase }),
         parse: privateSchemas.SourceTargetExport.parse,
       },
     );

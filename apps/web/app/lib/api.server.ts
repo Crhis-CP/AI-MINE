@@ -82,12 +82,9 @@ export function releaseBoundCache(refreshAt: string | null, maxSeconds: number, 
 }
 
 /** Read and validate HTTP responses without losing status, retry timing or response headers. */
-export async function contractResult<T>(
-  result: Response | { response: Response; data?: unknown; error?: unknown },
-  schema: { parse: (value: unknown) => T },
-): Promise<T> {
-  const response = result instanceof Response ? result : result.response;
-  const payload = result instanceof Response ? await result.json().catch(() => null) : response.ok ? result.data : result.error;
+export async function contractResult<T>(result: Response, schema: { parse: (value: unknown) => T }): Promise<T> {
+  const response = result;
+  const payload = await result.json().catch(() => null);
   const body = payload,
     error = payload;
   if (!response.ok) {

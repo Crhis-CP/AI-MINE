@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiFetch } from "../app/lib/http.ts";
-import { createPrivateClient } from "@amp/api-client/private";
 import { adminBody } from "../app/lib/admin-response.ts";
 import { apiGet, contractResult, loadOr404 } from "../app/lib/api.server.ts";
 import { adminGet } from "../app/lib/admin.server.ts";
@@ -127,15 +126,16 @@ test("an optional admin transport keeps original Host/cookie, timeout, cancellat
   }
 });
 
-test("generated admin success and consumed error bodies stay readable to loaders and actions", async () => {
+test("native admin success and error bodies stay readable to loaders and actions", async (t) => {
   const request = new Request("https://private.example/admin/runs", { headers: { host: "private.example" } });
   for (const status of [200, 409, 500]) {
     const body = status === 200 ? { feishu: false, password: true } : { detail: "请重新核对本次尝试" };
-    const client = createPrivateClient({ baseUrl: "http://127.0.0.1:1", fetch: async () => Response.json(body, { status }) });
-    const result = await client.GET("/api/auth/options");
-    assert.equal(result.response.bodyUsed, true);
+    t.mock.method(globalThis, "fetch", async () => Response.json(body, { status }));
+    const result = await apiFetch("/api/auth/options", { baseUrl: "http://127.0.0.1:1" });
+    assert.equal(result.bodyUsed, false);
+    const loaderResponse = result.clone();
     assert.deepEqual(await adminBody(result, true), body);
-    const pending = adminGet(request, "/api/auth/options", async () => result);
+    const pending = adminGet(request, "/api/auth/options", async () => loaderResponse);
     if (status === 200) assert.deepEqual(await pending, body);
     else
       await assert.rejects(pending, (error: unknown) => {

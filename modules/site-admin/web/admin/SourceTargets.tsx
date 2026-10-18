@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { privateSchemas } from "@amp/api-client/private";
+import type { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { Badge, Card, Empty } from "@amp/web/admin-ui";
 import { bj, num } from "@amp/web/admin-format";
 export type SourceTargetsData = z.infer<typeof privateSchemas.SourceTargetsResponse>;

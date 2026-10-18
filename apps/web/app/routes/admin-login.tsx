@@ -1,10 +1,11 @@
+import { apiFetch } from "../lib/http.ts";
 // Admin sign-in: the admin password (ADMIN_PASSWORD), and Feishu when it is configured. The form posts
 // straight to the API, which sets the session cookie and sends the browser on.
 import { useEffect, useState } from "react";
 import { useLoaderData } from "react-router";
 import type { Route } from "./+types/admin-login";
 import { SITE } from "@amp/industry/site";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { contractResult } from "../lib/api.server";
 import { apiBaseFor, privateHostHeaders } from "../../api-target.ts";
 import { Wordmark } from "../components/Logo";
@@ -20,11 +21,12 @@ const ERRORS: Record<string, string> = {
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("return") ?? "/admin";
-  const options = await createPrivateClient({ baseUrl: apiBaseFor("/api/auth/options") })
-    .GET("/api/auth/options", {
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-      headers: { accept: "application/json", "x-amp-ssr": "1", ...privateHostHeaders("/api/auth/options", request.headers.get("host")) },
-    })
+  const options = await apiFetch("/api/auth/options", {
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    headers: { accept: "application/json", "x-amp-ssr": "1", ...privateHostHeaders("/api/auth/options", request.headers.get("host")) },
+    method: "GET",
+    baseUrl: apiBaseFor("/api/auth/options"),
+  })
     .then((result) => contractResult(result, privateSchemas.LoginOptions))
     .catch(() => ({
       password: true,
@@ -51,11 +53,10 @@ export default function AdminLogin() {
     const controller = new AbortController();
     const refresh = () => {
       if (active) setNonce("");
-      createPrivateClient({ baseUrl: "" })
-        .GET("/api/auth/password-nonce", { signal: controller.signal })
-        .then((r) => {
-          const parsed = privateSchemas.LoginNonce.safeParse(r.data);
-          if (!r.response.ok || !parsed.success) throw new Error();
+      apiFetch("/api/auth/password-nonce", { signal: controller.signal, method: "GET", baseUrl: "" })
+        .then(async (r) => {
+          const parsed = privateSchemas.LoginNonce.safeParse(await r.json());
+          if (!r.ok || !parsed.success) throw new Error();
           if (active) {
             setNonce(parsed.data.token);
             setNonceError("");

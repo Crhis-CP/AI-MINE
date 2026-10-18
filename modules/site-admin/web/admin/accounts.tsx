@@ -1,6 +1,7 @@
+import { apiFetch } from "@amp/web/extension";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import type { z } from "zod";
 import { SITE } from "@amp/industry/site";
 import type { LoaderFunctionArgs } from "react-router";
@@ -19,10 +20,9 @@ const names: Record<Action, string> = {
 };
 export const meta = () => [{ title: `账号管理 · ${SITE.name} 后台` }];
 export async function loader({ request }: LoaderFunctionArgs) {
-  const path = "/api/admin/accounts",
-    client = createPrivateClient({ baseUrl: "" });
+  const path = "/api/admin/accounts";
   return privateSchemas.AccountList.parse(
-    await adminGet(request, path, (_u, init) => client.GET(path, { baseUrl: new URL(_u).origin, headers: init.headers, signal: init.signal })),
+    await adminGet(request, path, (_u, init) => apiFetch(path, { baseUrl: new URL(_u).origin, headers: init.headers, signal: init.signal, method: "GET" })),
   );
 }
 export default function Accounts({ loaderData }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
@@ -91,7 +91,7 @@ export default function Accounts({ loaderData }: { loaderData: Awaited<ReturnTyp
               e.preventDefault();
               if (busy) return;
               setError("");
-              const client = createPrivateClient({ baseUrl: "" });
+              const apiBase = "";
               let result: Account | null;
               if (create) {
                 const body = privateSchemas.AccountCreateRequest.safeParse({
@@ -108,7 +108,8 @@ export default function Accounts({ loaderData }: { loaderData: Awaited<ReturnTyp
                 result = await run("POST", "/api/admin/accounts", body.data, {
                   success: "管理员已建立，首次登录必须修改密码。",
                   parse: (v) => privateSchemas.AccountRecord.parse(v),
-                  send: (_u, init) => client.POST("/api/admin/accounts", { body: body.data, headers: init.headers, signal: init.signal }),
+                  send: (_u, init) =>
+                    apiFetch("/api/admin/accounts", { json: body.data, headers: init.headers, signal: init.signal, method: "POST", baseUrl: apiBase }),
                 });
               } else {
                 const s = selected!;
@@ -127,11 +128,13 @@ export default function Accounts({ loaderData }: { loaderData: Awaited<ReturnTyp
                   parse: (v) => privateSchemas.AccountRecord.parse(v),
                   onConflict: () => setError("账号状态已更新，已保留你的输入。请核对最新状态后再操作。"),
                   send: (_u, init) =>
-                    client.POST("/api/admin/accounts/{id}/actions", {
+                    apiFetch("/api/admin/accounts/{id}/actions", {
                       params: { path: { id: String(s.account.id) } },
-                      body: body.data,
+                      json: body.data,
                       headers: init.headers,
                       signal: init.signal,
+                      method: "POST",
+                      baseUrl: apiBase,
                     }),
                 });
               }

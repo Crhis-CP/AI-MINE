@@ -1,17 +1,17 @@
+import { apiFetch } from "@amp/web/extension";
 import { useRef, useState } from "react";
 import type { z } from "zod";
 import { SITE } from "@amp/industry/site";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import type { LoaderFunctionArgs } from "react-router";
 import { adminGet } from "@amp/web/admin-extension.server";
 import { useAdminAction } from "@amp/web/admin-action";
 import { AdminPage, Card, Input, Button, Badge } from "@amp/web/admin-ui";
 export const meta = () => [{ title: `网站资料 · ${SITE.name} 后台` }];
 export async function loader({ request }: LoaderFunctionArgs) {
-  const path = "/api/admin/site",
-    client = createPrivateClient({ baseUrl: "" });
+  const path = "/api/admin/site";
   return privateSchemas.AdminSiteInformation.parse(
-    await adminGet(request, path, (url, init) => client.GET(path, { baseUrl: new URL(url).origin, headers: init.headers, signal: init.signal })),
+    await adminGet(request, path, (url, init) => apiFetch(path, { baseUrl: new URL(url).origin, headers: init.headers, signal: init.signal, method: "GET" })),
   );
 }
 type Information = z.infer<typeof privateSchemas.SiteInformation>;
@@ -86,12 +86,13 @@ export default function SiteSettings({ loaderData }: { loaderData: Awaited<Retur
             setError("请核对邮箱、完整HTTPS地址、入口名称和说明；关于文字不能超过5000字，地址不能重复。");
             return;
           }
-          const client = createPrivateClient({ baseUrl: "" });
+          const apiBase = "";
           const result = await run("PUT", "/api/admin/site", input.data, {
             success: "网站资料已保存，公开页面会读取新资料。",
             parse: (v) => privateSchemas.SiteInformation.parse(v),
             onConflict: () => setConflict(true),
-            send: (_url, init) => client.PUT("/api/admin/site", { body: input.data, headers: init.headers, signal: init.signal }),
+            send: (_url, init) =>
+              apiFetch("/api/admin/site", { json: input.data, headers: init.headers, signal: init.signal, method: "PUT", baseUrl: apiBase }),
           });
           if (result) {
             setRevision(result.revision);

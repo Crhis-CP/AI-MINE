@@ -1,6 +1,7 @@
+import { apiFetch } from "@amp/web/extension";
 import { useState } from "react";
 import { Link } from "react-router";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { SITE } from "@amp/industry/site";
 import type { LoaderFunctionArgs } from "react-router";
 import { adminGet } from "@amp/web/admin-extension.server";
@@ -9,10 +10,9 @@ import { AdminPage, Card, Input, Button, Badge } from "@amp/web/admin-ui";
 import { bj } from "@amp/web/admin-format";
 export const meta = () => [{ title: `我的账号 · ${SITE.name} 后台` }];
 export async function loader({ request }: LoaderFunctionArgs) {
-  const path = "/api/admin/account",
-    client = createPrivateClient({ baseUrl: "" });
+  const path = "/api/admin/account";
   return privateSchemas.CurrentAccount.parse(
-    await adminGet(request, path, (_u, init) => client.GET(path, { baseUrl: new URL(_u).origin, headers: init.headers, signal: init.signal })),
+    await adminGet(request, path, (_u, init) => apiFetch(path, { baseUrl: new URL(_u).origin, headers: init.headers, signal: init.signal, method: "GET" })),
   );
 }
 export default function Account({ loaderData }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
@@ -83,11 +83,18 @@ export default function Account({ loaderData }: { loaderData: Awaited<ReturnType
                   setError("新密码需为 12–128 个字符，两次输入应一致。");
                   return;
                 }
-                const client = createPrivateClient({ baseUrl: "" });
+                const apiBase = "";
                 const result = await run("POST", "/api/admin/account/password", parsed.data, {
                   revalidate: false,
                   parse: (v) => privateSchemas.AccountPasswordChanged.parse(v),
-                  send: (_url, init) => client.POST("/api/admin/account/password", { body: parsed.data, headers: init.headers, signal: init.signal }),
+                  send: (_url, init) =>
+                    apiFetch("/api/admin/account/password", {
+                      json: parsed.data,
+                      headers: init.headers,
+                      signal: init.signal,
+                      method: "POST",
+                      baseUrl: apiBase,
+                    }),
                 });
                 if (result) window.location.assign("/admin/login?password-changed=1");
               }}

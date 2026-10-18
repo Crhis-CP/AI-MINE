@@ -1,10 +1,11 @@
+import { apiFetch } from "./http.ts";
 // Admin loaders read /api/admin/* with the visitor's own cookie; the web process holds no session.
 import { data, redirect } from "react-router";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import type { z } from "zod";
 
 import { apiBaseFor, privateHostHeaders } from "../../api-target.ts";
-import { adminBody, adminResponse, type AdminSend } from "./admin-response.ts";
+import { adminBody, type AdminSend } from "./admin-response.ts";
 
 export async function adminGet<T>(request: Request, path: string, send: AdminSend = fetch): Promise<T> {
   const result = await send(`${apiBaseFor(path)}${path}`, {
@@ -16,7 +17,7 @@ export async function adminGet<T>(request: Request, path: string, send: AdminSen
     },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(30_000)]),
   });
-  const res = adminResponse(result);
+  const res = result;
   if (res.status === 401) {
     const url = new URL(request.url);
     throw redirect(`/admin/login?${new URLSearchParams({ return: url.pathname + url.search })}`);
@@ -39,8 +40,10 @@ type Reconciliation = Pick<z.infer<typeof privateSchemas.ReceiptReconciliationRe
 /** The unchanged legacy monitor fields remain untyped here; the reconciliation subset is checked. */
 export async function loadReconciliation<T extends Reconciliation = Reconciliation>(request: Request): Promise<T> {
   const path = "/api/admin/runs";
-  const client = createPrivateClient({ baseUrl: apiBaseFor(path) });
-  const body = await adminGet<T>(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal }));
+  const apiBase = apiBaseFor(path);
+  const body = await adminGet<T>(request, path, (_url, init) =>
+    apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase }),
+  );
   privateSchemas.ReceiptReconciliationResponse.parse(body);
   return body;
 }

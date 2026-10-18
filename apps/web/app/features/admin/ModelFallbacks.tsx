@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import type { z } from "zod";
 import { Badge, Button, Card, Empty, Field, ReasonDialog, Select } from "./ui";
 
