@@ -136,6 +136,26 @@ test("unbreakable rows/clauses/inline nodes stop before any paid request", async
   assert.equal(requests.length, before);
 });
 
+test("mixed ordinary and over-capacity blocks retain a partial translation without claiming completeness", async () => {
+  mode = "normal";
+  const html = sanitizeBody(`<p>Mixed ordinary block ${T}.</p><p>${"long ".repeat(1000)}</p>`);
+  const { articleId } = await material("mixed-capacity", html),
+    before = requests.length;
+  const result = await runBodyTranslation(articleId, recipe);
+  assert.equal(result.status, "partial");
+  assert.equal(result.reason, "pending_capacity");
+  const row = await stored(articleId);
+  assert.equal(row.complete, false);
+  assert.match(row.body_html, /long long long/);
+  assert.equal(row.manifest.format, "partial-model-v1");
+  assert.equal(row.manifest.translatedSegments, 1);
+  assert.equal(readableTranslation(html, { revision: 1, recipe: recipe.id }, row as never), null);
+  assert.equal(readableTranslation(html, { revision: 1, recipe: recipe.id }, { ...row, complete: true } as never), null);
+  assert.equal(requests.length - before, 1);
+  assert.equal((await runBodyTranslation(articleId, recipe)).reason, "pending_capacity");
+  assert.equal(requests.length - before, 1, "completed ordinary block is reused on retry");
+});
+
 test("known truncation makes exactly one durable replacement; all raw attempts and reuse survive", async () => {
   mode = "length-once";
   const html = halves("replace"),

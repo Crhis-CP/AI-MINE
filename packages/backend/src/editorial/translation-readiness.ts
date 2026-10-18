@@ -182,8 +182,7 @@ export function translationReplacement(segment: SourceSegment, roots: number): S
 }
 
 export function translationLeaves(source: ReturnType<typeof translationSourceManifest>, replacements: readonly number[]) {
-  if (source.capacity.length || new Set(replacements).size !== replacements.length || replacements.some((n) => !Number.isSafeInteger(n) || !source.segments[n]))
-    return null;
+  if (new Set(replacements).size !== replacements.length || replacements.some((n) => !Number.isSafeInteger(n) || !source.segments[n])) return null;
   const leaves: SourceSegment[] = [];
   for (const segment of source.segments) {
     const parts = replacements.includes(segment.index) ? translationReplacement(segment, source.segments.length) : [segment];
@@ -211,7 +210,7 @@ export function completeTranslationManifest(
   replacements: readonly number[] = [],
 ) {
   const source = translationSourceManifest(sourceHtml);
-  if (!Number.isSafeInteger(current.revision) || current.revision < 1 || !current.recipe || !source.segments.length) return null;
+  if (source.capacity.length || !Number.isSafeInteger(current.revision) || current.revision < 1 || !current.recipe || !source.segments.length) return null;
   const leaves = translationLeaves(source, replacements);
   if (!leaves || leaves.length !== checkpoints.length) return null;
   const segments: {
@@ -330,6 +329,7 @@ export function readableTranslation(sourceHtml: string, current: { revision: num
     source = translationSourceManifest(sourceHtml);
   const leaves = translationLeaves(source, manifest.replacements);
   if (
+    source.capacity.length > 0 ||
     stored.recipe !== current.recipe ||
     manifest.recipe !== current.recipe ||
     manifest.revision !== current.revision ||

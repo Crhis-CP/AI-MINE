@@ -11,6 +11,7 @@ import {
   refreshPresentation as requestPresentation,
 } from "../packages/backend/src/admin/content-presentation.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
+import { AdminPresentationRefresh } from "@amp/contracts/http/private";
 import type { JobData } from "@amp/contracts/jobs";
 import { registerExtractionJobs } from "@amp/backend/jobs/content";
 import { stopBoss, type getBoss } from "@amp/backend/jobs/queue";
