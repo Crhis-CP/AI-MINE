@@ -1,3 +1,4 @@
+import type { JobLane } from "./jobs.ts";
 import type { RedirectRule } from "./http-policy.ts";
 
 /** A route within an installed extension; files are relative to its own folder. */
@@ -21,4 +22,12 @@ export interface ModuleDeclaration {
 }
 export function defineModule(module: ModuleDeclaration): ModuleDeclaration {
   return module;
+}
+
+/** A verified directory committed a changed material; an installed module owns its next processing step. */
+export interface MaterialDiscovered {
+  lane: JobLane;
+  sourceId: string;
+  materialId: string;
+  directoryHash: string;
 }
