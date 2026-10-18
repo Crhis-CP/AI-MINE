@@ -11,7 +11,7 @@ test("the hotspot board is rendered above the featured list", () => {
   const featuredList = home.indexOf("<Timeline");
   assert.ok(hotAt >= 0, "首页渲染热点榜");
   assert.ok(featuredTitle > hotAt, "热点榜在精选标题上面");
-  assert.ok(home.indexOf("最新精选") > hotAt, "热点榜在手机精选小标题上面");
+  assert.ok(home.indexOf("<FeedBar") < hotAt, "手机入口在热点榜上面，热点榜仍在资讯列表前");
   assert.ok(featuredList > hotAt, "精选列表仍在热点榜下面");
   assert.equal(home.indexOf("<HotTopics"), home.lastIndexOf("<HotTopics"));
   assert.match(home, /cards=\{data\.cards\}/);
