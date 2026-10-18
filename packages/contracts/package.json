@@ -12,6 +12,7 @@
     "./taxonomy": "./src/taxonomy.ts",
     "./time": "./src/time.ts",
     "./http/common": "./src/http/common.ts",
+    "./http/agent": "./src/http/agent.ts",
     "./http/public": "./src/http/public.ts",
     "./http/private": "./src/http/private.ts",
     "./mining-taxonomy": "./src/mining-taxonomy.ts",

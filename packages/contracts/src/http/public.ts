@@ -1,3 +1,4 @@
+import { agentRoutes, agentSchemas } from "./agent.ts";
 import { v3Schemas, v3Routes, V3Problem } from "./v3.ts";
 import { siteInformationSchemas, siteInformationRoutes } from "./site-information.ts";
 export { SiteInformation, OfficialMetalLink } from "./site-information.ts";
@@ -18,6 +19,14 @@ export const SiteStats = z.strictObject({
   selected: z.number(),
   dailies: z.number(),
   day: z.strictObject({ collected: z.number(), selected: z.number() }),
+  sampleSources: z
+    .array(z.strictObject({ name: z.string(), kind: z.string(), heatOnly: z.boolean() }))
+    .max(180)
+    .optional(),
+  latest: z
+    .array(z.strictObject({ id: z.string(), title: z.string(), source: z.string() }))
+    .max(8)
+    .optional(),
 });
 export type SiteStats = z.infer<typeof SiteStats>;
 export const SourceAttribution = z.strictObject({
@@ -333,6 +342,7 @@ export const SearchSuggestions = z.strictObject({
 });
 
 export const schemas = {
+  ...agentSchemas,
   SearchSuggestions,
   ...v3Schemas,
   ...siteInformationSchemas,
@@ -356,6 +366,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...agentRoutes,
   ...v3Routes,
   ...siteInformationRoutes,
   ...policyRoutes,
