@@ -105,9 +105,7 @@
   "unknown": {
     "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1,
     "packages/backend/src/jobs/queue.ts:enqueue/callerDb/executeSql/rows:8fdd43eb9045acc3b0157570b8f5f382a6589b5eb2b3f96642f0d32293702a08": 1,
-    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:8f53eeab3e488f3f3a465f9e461ab1dfc4c551a74912bfcadac360618c260760": 1,
-    "packages/backend/src/operations/watch.ts:readSetting/[row]:b2ce6c07c5942ab14dd1be46eea2f63beec39622342656b9719d6fcfa24206dd": 1,
-    "packages/backend/src/operations/watch.ts:writeSetting:4fe6c820bab8cf98068ec4d3be0b61ef65180e9909ec49e46f51f8212bb4cea1": 1
+    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:8f53eeab3e488f3f3a465f9e461ab1dfc4c551a74912bfcadac360618c260760": 1
   },
   "extractors": {
     "sql": "2479d891d78d004f23a2d10fcb7ef62f0520a319d69f011d0a48da8833b54f53",

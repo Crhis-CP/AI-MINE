@@ -96,3 +96,5 @@ HTTP成功响应中的错误页和渲染协议警告识别参考4947ad03309c64a4
 较早精选的60天阅读背景、同事实背景去重及近期跳过信号的任务补排，对照4947ad03309c64a4002bd073d690aee50c548063的events/recall.ts和jobs/events.ts实现；本站通过publication/content所属入口取数，保留既有人工操作与业务线控制。
 
 信源健康的90天自身节奏、至少4个产出日/4倍间隔、7天持续失败比例与问题分类参考AIHOT `4947ad0` 的 `sources/health.ts` 与 `operations/reports.ts`；本站按各表所有者拆分只读证据，保留北京时间、法规独立范围及既有权限。
+
+worker心跳提醒的发送后记状态与事务锁参考AIHOT `4947ad0` 的 `operations/watch.ts`；本站继续使用现有飞书通道，未配置自动运维Agent唤醒。禁用发送不记录为已通知，实际通知失败由下一轮继续。
