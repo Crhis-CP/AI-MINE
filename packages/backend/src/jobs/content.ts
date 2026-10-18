@@ -95,6 +95,12 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
  */
 const PRIORITY = { live: 0, liveSignal: -1, history: -2 } as const;
 
+/** Repairs use the same current material priority as first admission. */
+export async function groupingQueuePriority(articleId: string, db: Db = sql): Promise<number> {
+  const current = await route(articleId, db);
+  return current?.historical ? PRIORITY.history : current?.signal ? PRIORITY.liveSignal : PRIORITY.live;
+}
+
 /**
  * The one way to hand an article to processing. `attemptTag` makes an explicit re-evaluation a new
  * (paid) request; the same tag reuses its receipt. With `db`, the job commits with the caller's write.

@@ -870,6 +870,7 @@
     "packages/backend/src/jobs/content.ts": "content",
     "packages/backend/src/jobs/operational-snapshot.ts": "queue",
     "packages/backend/src/jobs/publication.ts": "publication",
+    "packages/backend/src/jobs/module-queues.ts": "queue",
     "packages/backend/src/jobs/queue.ts": "queue",
     "packages/backend/src/jobs/schedule-status.ts": "queue",
     "packages/backend/src/notify/deliver.ts": "ops",

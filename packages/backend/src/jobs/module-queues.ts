@@ -1,3 +1,4 @@
+import { sql, type Db } from "../db.ts";
 import { engineQueueNames } from "./typed-queue.ts";
 import type { PgBoss } from "pg-boss";
 import { serverModules, type ModuleQueue } from "../modules.ts";
@@ -26,3 +27,10 @@ export function workModuleQueues(boss: PgBoss): Promise<void> {
 }
 
 export { enqueueJob, enqueueOn, work } from "./typed-queue.ts";
+
+/** Durable grouping waits belong to the queue module, including delayed and retrying jobs. */
+export async function activeGroupingArticleIds(db: Db = sql): Promise<string[]> {
+  const rows = await db<{ id: string }[]>`SELECT DISTINCT data->>'articleId' AS id FROM pgboss.job
+    WHERE name='events.group' AND state IN ('created','active','retry') AND jsonb_typeof(data->'articleId')='string'`;
+  return rows.map((row) => row.id);
+}

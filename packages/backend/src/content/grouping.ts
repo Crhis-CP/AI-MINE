@@ -55,12 +55,13 @@ export async function failMaterialGrouping(
 }
 
 /** Claim a bounded, fair batch; enqueue in this same transaction so a crash cannot lose the work. */
-export async function claimPendingGrouping(sourceIds: string[], limit: number, db: Db) {
+export async function claimPendingGrouping(sourceIds: string[], limit: number, db: Db, queuedIds: string[] = []) {
   return db<{ id: string; revision: number; grouping_receipt_id: number | null }[]>`
     WITH due AS (
-      SELECT id FROM articles WHERE source_id=ANY(${sourceIds}::text[]) AND grouping_status='pending'
+      SELECT id FROM articles m WHERE source_id=ANY(${sourceIds}::text[]) AND grouping_status='pending'
         AND processing_state IN ('analyzed','blocked')
         AND (grouping_retry_at IS NULL OR grouping_retry_at<=now())
+        AND id <> ALL(${queuedIds}::text[])
       ORDER BY grouping_retry_at NULLS FIRST,created_at,id LIMIT ${Math.max(1, Math.min(limit, 100))} FOR UPDATE SKIP LOCKED
     ) UPDATE articles a SET grouping_retry_at=now()+interval '10 minutes' FROM due WHERE a.id=due.id
       RETURNING a.id,a.revision,a.grouping_receipt_id`;

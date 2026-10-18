@@ -260,6 +260,7 @@ test("scheduled grouping recovery is bounded, durable and respects paused source
   const failed = await article("甲矿项目输出错误待处理");
   await sql`UPDATE articles SET processing_state='analyzed' WHERE id=ANY(${[a, b, unknown, pausedSource, failed]})`;
   await sql`UPDATE articles SET grouping_status='failed' WHERE id=${failed}`;
+  await sql`UPDATE articles SET backfill=true,published_at=now()-interval '90 days' WHERE id=${b}`;
   const receipt = await scopeReceipt(unknown);
   await sql`UPDATE receipts SET status='unknown' WHERE id=${receipt}`;
   await sql`UPDATE articles SET grouping_receipt_id=${receipt} WHERE id=${unknown}`;
@@ -278,13 +279,16 @@ test("scheduled grouping recovery is bounded, durable and respects paused source
   assert.equal(third.enqueued, 0);
   assert.equal((await recoverPendingGroupings(100)).examined, 0);
   const queued = await sql<
-    { article_id: string }[]
-  >`SELECT data->>'articleId' AS article_id FROM pgboss.job WHERE name='events.group' AND data->>'articleId'=ANY(${[a, b, unknown, pausedSource, failed]})`;
+    { article_id: string; priority: number }[]
+  >`SELECT data->>'articleId' AS article_id, priority FROM pgboss.job WHERE name='events.group' AND data->>'articleId'=ANY(${[a, b, unknown, pausedSource, failed]})`;
   assert.deepEqual(new Set(queued.map((r) => r.article_id)), new Set([a, b]));
+  assert.equal(queued.find((row) => row.article_id === a)?.priority, 0);
+  assert.equal(queued.find((row) => row.article_id === b)?.priority, -2, "historical repair cannot jump ahead of live material");
   const [stored] = await sql`SELECT status FROM receipts WHERE id=${receipt}`;
   assert.equal(stored!.status, "unknown");
   assert.equal(provider.hits(), hits, "scheduling never calls a model or rescores");
   await sql`UPDATE articles SET grouping_retry_at=NULL WHERE id=${a}`;
+  assert.equal((await recoverPendingGroupings(100)).examined, 0, "a durable future job prevents the repair sweep from bypassing its wait");
   await sql`UPDATE ops.lane_controls SET paused=true,reason='test owner pause',actor='synthetic owner',expires_at=now()+interval '1 hour' WHERE lane='news' AND switch='processing' AND holder='owner'`;
   try {
     assert.equal((await recoverPendingGroupings()).paused, true);

@@ -1,10 +1,11 @@
+import { groupingQueuePriority } from "../jobs/content.ts";
 import { sql } from "../db.ts";
 import { claimPendingGrouping } from "../content/grouping.ts";
 import { activeNewsSourceIds } from "../admin/sources.ts";
 import { receiptWaitingForRecovery } from "../providers/receipts.ts";
 import { requireRuntimeRunning, RuntimeControlPaused } from "../operations/lane-controls.ts";
 import { ensureQueue, QUEUES } from "../jobs/queue.ts";
-import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
+import { enqueueJob as enqueue, activeGroupingArticleIds } from "../jobs/module-queues.ts";
 
 /** Persistent continuation for legacy and interrupted grouping. Existing scores and receipts stay intact. */
 export async function recoverPendingGroupings(limit = 50) {
@@ -13,7 +14,7 @@ export async function recoverPendingGroupings(limit = 50) {
     return await sql.begin(async (tx) => {
       await requireRuntimeRunning("news", ["processing", "publication"], tx);
       const sources = await activeNewsSourceIds(tx);
-      const rows = await claimPendingGrouping(sources, limit, tx);
+      const rows = await claimPendingGrouping(sources, limit, tx, await activeGroupingArticleIds(tx));
       let enqueued = 0,
         waiting = 0;
       for (const row of rows) {
@@ -21,7 +22,8 @@ export async function recoverPendingGroupings(limit = 50) {
           waiting++;
           continue;
         }
-        if (await enqueue(QUEUES.group, { lane: "news", articleId: row.id }, { singletonKey: row.id }, tx)) enqueued++;
+        if (await enqueue(QUEUES.group, { lane: "news", articleId: row.id }, { singletonKey: row.id, priority: await groupingQueuePriority(row.id, tx) }, tx))
+          enqueued++;
       }
       return { examined: rows.length, enqueued, waiting, paused: false };
     });

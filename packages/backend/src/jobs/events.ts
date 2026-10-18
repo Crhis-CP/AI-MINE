@@ -8,7 +8,7 @@ import type { PgBoss } from "pg-boss";
 import { groupArticle, GroupingSupersededError, consolidate, resumeSignalRematch, EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/group.ts";
 import { composeStoryDigest } from "../events/digest.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
-import { settleNonEditorial, articleJobLane } from "./content.ts";
+import { settleNonEditorial, articleJobLane, groupingQueuePriority } from "./content.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
 
@@ -57,7 +57,8 @@ export async function registerEventJobs(boss: PgBoss) {
           { ...data, lane: "news" },
           {
             singletonKey: `control:${data.articleId}:${!!data.signalOnly}:${!!data.force}`,
-            startAfter: 60,
+            priority: await groupingQueuePriority(data.articleId),
+            startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : 60,
           },
         );
         return { state: "waiting", reason: isModelRouteWaiting(error) ? "model_route" : "runtime_control" };
@@ -81,7 +82,7 @@ export async function registerEventJobs(boss: PgBoss) {
             { ...data, lane: "news" },
             {
               singletonKey: `control:${data.storyId}:${!!data.afterCorrection}`,
-              startAfter: 60,
+              startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : 60,
             },
           );
           return { state: "waiting", reason: isModelRouteWaiting(error) ? "model_route" : "runtime_control" };
@@ -111,7 +112,7 @@ export async function registerEventJobs(boss: PgBoss) {
           return await run(data);
         } catch (error) {
           if (!isWaiting(error)) throw error;
-          await enqueue(queue, data, { singletonKey: key(data), startAfter: 60 });
+          await enqueue(queue, data, { singletonKey: key(data), startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : 60 });
           return { state: "waiting", reason: isModelRouteWaiting(error) ? "model_route" : "runtime_control" };
         }
       },
