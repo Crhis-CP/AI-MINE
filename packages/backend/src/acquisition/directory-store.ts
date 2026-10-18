@@ -5,7 +5,7 @@ import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "@amp/backend/lib/url";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies, lockPolicySourceConfiguration } from "@amp/backend/admin/sources";
 import { upsertMaterial, materialDateIdentityHeads } from "@amp/backend/content/materials";
-import { enqueue, ensureQueue } from "@amp/backend/jobs/queue";
+import { emitMaterialDiscovered } from "../modules.ts";
 import { CrawlDeferred } from "./crawl.ts";
 import type { SourceRow, Candidate } from "../sources/types.ts";
 import type { DirectoryProfile } from "../sources/directory-profile.ts";
@@ -149,7 +149,6 @@ export async function failDirectoryScan(
   });
 }
 export async function applyDirectoryScan(scan: DirectoryScan, probe: DirectoryPage, source: SourceRow) {
-  await ensureQueue("policy.acquire", { policy: "exclusive", retryLimit: 0, expireInSeconds: 600 });
   return sql.begin(async (tx) => {
     if (source.collectionControl) await assertRuntimeControl(tx, source.collectionControl);
     await lockCurrentSourcePolicies(tx, [{ sourceId: source.id, permissionVersion: Number(scan.permission_version) }]);
@@ -224,12 +223,7 @@ export async function applyDirectoryScan(scan: DirectoryScan, probe: DirectoryPa
         VALUES(${scan.id},${row.record_id},${result.articleId},${result.revision},${wakeHash})`;
       if (didChange) {
         changed++;
-        await enqueue(
-          "policy.acquire",
-          { lane: "policy", sourceId: source.id, materialId: result.articleId, directoryHash: wakeHash },
-          { singletonKey: `directory:${source.id}:${result.articleId}:${wakeHash}` },
-          tx,
-        );
+        await emitMaterialDiscovered({ lane: source.lane, sourceId: source.id, materialId: result.articleId, directoryHash: wakeHash }, tx);
       }
     }
     const documentCount = records.every((r) => r.document_id !== null) ? new Set(records.map((r) => r.document_id)).size : null;

@@ -1,3 +1,5 @@
+import type { MaterialDiscovered } from "@amp/contracts/modules";
+import type { Tx } from "./db.ts";
 import type { FastifyInstance } from "fastify";
 import type { PgBoss, WorkOptions } from "pg-boss";
 /** Extension hooks installed by process entry points; the engine does not import site extensions. */
@@ -20,6 +22,7 @@ export function defineQueue<T>(queue: ModuleQueue<T>): ModuleQueue<T> {
 }
 export interface ServerModule {
   name: string;
+  on?: { materialDiscovered?: (data: MaterialDiscovered, tx: Tx) => Promise<boolean> };
   http?: (app: FastifyInstance) => void | Promise<void>;
   schedules?: readonly Scheduled[];
   queues?: readonly ModuleQueue[];
@@ -41,6 +44,15 @@ export function installModules(modules: readonly ServerModule[]): void {
 export function serverModules(): readonly ServerModule[] {
   return installed;
 }
+/** The material and its follow-up job commit together; an unhandled notification must not be lost. */
+export async function emitMaterialDiscovered(data: MaterialDiscovered, tx: Tx): Promise<void> {
+  let handled = false;
+  for (const module of installed) {
+    if (await module.on?.materialDiscovered?.(data, tx)) handled = true;
+  }
+  if (!handled) throw new Error(`No module accepted material discovery for lane ${data.lane}`);
+}
+
 /** Validate the complete active set before registering any timers. */
 export function scheduledTasks(engine: readonly Scheduled[]): readonly Scheduled[] {
   const tasks = [...engine, ...installed.flatMap((module) => module.schedules ?? [])].filter((task) => task.when?.() ?? true);
