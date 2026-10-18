@@ -17,6 +17,11 @@ export function bodyTextMatches(values: TextMatchValues) {
     ELSE ps.body ILIKE ANY(${values.likes}::text[]) OR ps.body ~* ANY(${values.latin}::text[]) END)`;
 }
 
+/** Plain Latin body queries start at a word; named mining entities retain their alias rules. */
+export function publicBodyTextMatches(values: TextMatchValues) {
+  return sql`${bodyTextMatches(values)} AND (${values.bodyPrefix}::text IS NULL OR ps.body ~* ${values.bodyPrefix})`;
+}
+
 export function poolDirectTextMatches(values: TextMatchValues) {
   return sql`(CASE WHEN ${values.hasGuards} THEN (
     ps.direct ILIKE ANY(${values.likes}::text[]) OR ps.direct ~* ANY(${values.latin}::text[])

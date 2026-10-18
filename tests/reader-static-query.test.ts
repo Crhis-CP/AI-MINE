@@ -26,7 +26,7 @@ test("fixed text predicates preserve null/empty, guarded exclusions, Latin bound
   const values: TextMatchValues[] = [
     ...["金", "银", "铁", "铅", "蒙古国", "刚果金", "literal%_link"].map((term) => readMatcherValues(null, null, [], searchTerms(term)).term0),
     readMatcherValues(null, null, [], []).term0,
-    { active: true, likes: [], latin: [], guardRemovals: ["金属|资金|基金"], guardLikes: ["%金%"], hasGuards: true },
+    { active: true, likes: [], latin: [], guardRemovals: ["金属|资金|基金"], guardLikes: ["%金%"], hasGuards: true, bodyPrefix: null },
   ];
   for (const match of values) {
     const rows = await sql<{ current: boolean | null; direct: boolean | null; body: boolean | null; previous: boolean | null }[]>`

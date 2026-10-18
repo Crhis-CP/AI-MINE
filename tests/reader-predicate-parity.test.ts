@@ -107,3 +107,23 @@ test("the real API query keeps its existing timeline and publication ordering in
     assert.doesNotMatch(plan, /Sort Key: CASE/, "custom plans resolve the bound sort choice before planning");
   }
 });
+
+test("plain Latin body search accepts word starts without matching the middle of another word", async () => {
+  const at = new Date("2026-10-12T00:00:00Z");
+  const ids = ["inside", "prefix"].map((kind) => `${source}-${kind}`);
+  for (const [i, id] of ids.entries()) {
+    await sql`INSERT INTO articles(id,source_id,identity_key,url,title,language,discovered_at,timeline_at,body_text,raw)
+      VALUES(${id},${source},${id},${`https://example.invalid/${id}`},'合成矿业材料','zh',${at},${at},'fixture','{}')`;
+    await sql`INSERT INTO publications(article_id,title,source_id,channel,url,discovered_at,timeline_at,sort_at,visibility,eligible,selected,search_text)
+      VALUES(${id},'合成矿业材料',${source},'news',${`https://example.invalid/${id}`},${at},${at},${at},'public',true,false,'合成矿业材料')`;
+    await sql`INSERT INTO pool_search(article_id,direct,body) VALUES(${id},'合成矿业材料',${i === 0 ? "azzzprefix material" : "zzzprefixsuffix material"})`;
+  }
+  const result = await v1Items(
+    { mode: "all", window: "all", by: "timeline", category: null, q: "zzzprefix", limit: 100, cursor: null, source },
+    new Date("2026-10-13T00:00:00Z"),
+  );
+  assert.deepEqual(
+    result.items.map((item) => item.id),
+    [ids[1]],
+  );
+});

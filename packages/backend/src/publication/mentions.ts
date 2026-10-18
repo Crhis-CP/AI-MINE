@@ -268,10 +268,12 @@ export interface TextMatchValues {
   guardRemovals: string[];
   guardLikes: string[];
   hasGuards: boolean;
+  bodyPrefix: string | null;
 }
 function needleValues(needles: Needle[]): TextMatchValues {
   return {
     active: needles.length > 0,
+    bodyPrefix: null,
     likes: needles.filter((n) => n.kind === "like").map((n) => likePattern(n.text)),
     latin: needles.filter((n) => n.kind === "latin").map((n) => `(^|[^a-z0-9])${escapeReg(n.text.toLowerCase())}([^a-z0-9]|$)`),
     guardRemovals: needles
@@ -294,7 +296,12 @@ export function readMatcherValues(tag: string | null | undefined, topicTags: str
       exact = mentionByFold(foldMention(plain));
     if (exact) return needleValues(exact.needles);
     const forms = rewriteTerm(plain);
-    return { ...needleValues([]), active: true, likes: (forms.length > 1 ? forms : [plain]).map(likePattern) };
+    return {
+      ...needleValues([]),
+      active: true,
+      likes: (forms.length > 1 ? forms : [plain]).map(likePattern),
+      bodyPrefix: /^[a-z0-9]+$/.test(plain) ? `(^|[^a-z0-9])${plain}` : null,
+    };
   });
   return {
     tagTags: tag ? (tagMention?.kind === "company" ? [tagMention.label, `entity:${tagMention.id}`] : [tag]) : null,

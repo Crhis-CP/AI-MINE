@@ -6,6 +6,7 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { pushSelected } from "../packages/backend/src/notify/selected.ts";
 import { setVisibility, detachFromFact } from "@amp/backend/admin/content";
+import { encodeCursor, InvalidCursorError, queryBinding } from "@amp/backend/lib/cursor";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { buildApp } from "./site-app.ts";
@@ -100,4 +101,40 @@ test("simultaneous publications choose one stable seat and record both results w
     rows.map((r) => r.article_id),
     [official],
   );
+});
+
+test("different developments retain separate selected cards while duplicate reports keep the fact's original day", async () => {
+  const first = await fact();
+  const [parent] = await sql`SELECT story_id FROM facts WHERE id=${first}`;
+  const [second] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${`f${tag()}`},${parent!.story_id},'合成项目正式投产') RETURNING id`;
+  const initial = await material("T2", first),
+    official = await material("T1", first),
+    development = await material("T2", Number(second!.id));
+  await publishArticle(initial);
+  await publishArticle(official);
+  await publishArticle(development);
+  const firstAt = new Date(Date.now() - 86400000),
+    nextAt = new Date();
+  await sql`UPDATE publications SET sort_at=${firstAt} WHERE article_id=${initial}`;
+  await sql`UPDATE publications SET sort_at=${nextAt} WHERE article_id=ANY(${[official, development]})`;
+  const query = { channel: "all" as const, category: null, tag: null, now: new Date() };
+  const timeline = await loadTimeline(query);
+  const cards = timeline.cards.filter((card) => [initial, official, development].includes(card.item.id));
+  assert.equal(cards.length, 2, "the new fact is not hidden behind the earlier fact's representative");
+  assert.equal(cards.find((card) => card.item.id === official)?.anchorAt, firstAt.toISOString(), "a better representative cannot redate a fact");
+  assert.deepEqual((await seats([initial, official, development])).sort(), [official, development].sort());
+  const api = (await app.inject("/api/v1/items?mode=selected&limit=100")).json().items as { id: string }[];
+  assert.deepEqual(
+    api
+      .filter((item) => [initial, official, development].includes(item.id))
+      .map((item) => item.id)
+      .sort(),
+    [official, development].sort(),
+  );
+  const oldCursor = encodeCursor("tl1", {
+    a: nextAt.getTime(),
+    g: `s${parent!.story_id}`,
+    b: queryBinding({ scope: "selected", c: "all", k: null, t: null, p: null }),
+  });
+  await assert.rejects(() => loadTimeline({ ...query, cursor: oldCursor }), InvalidCursorError);
 });

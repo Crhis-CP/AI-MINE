@@ -1,3 +1,4 @@
+import { checkMcp } from "../scripts/mcp-check.ts";
 import { installTestConnections } from "./direct-db-fixture.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import assert from "node:assert/strict";
@@ -116,6 +117,10 @@ test("all public MCP tools run under public_read; rights, current withdrawal and
     (SELECT count(*) FROM policy.document_revisions)::int originals,(SELECT count(*) FROM publication.policy_editions)::int editions`
       )[0],
     before = await counts();
+  const sdk = await checkMcp(new URL(`${server.url}/api/mcp`), { headers: { host: "public-fixture.example.test" } });
+  assert.ok(sdk.some((result) => result.tool === T.policy && result.state === "passed"));
+  assert.ok(sdk.some((result) => result.tool === T.report && result.state === "passed"));
+  assert.deepEqual(await counts(), before, "official SDK calls only read public projections");
   const request = async (method: string, params: Json = {}) => {
     const response = await server.request("/api/mcp", {
       method: "POST",

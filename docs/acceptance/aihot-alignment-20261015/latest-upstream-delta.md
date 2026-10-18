@@ -6,7 +6,7 @@ Owner于2026-10-18要求最新页面和最新仓库一起核对。当前基线�
 
 | 原目标 | 新版本变化及源码定位 | 本站处理与当前状态 |
 |---|---|---|
-| 1、2、6 | `events/group.ts`、`recall.ts`、`consolidate.ts`、`jobs/events.ts`：归组补排优先级、服务额度等待、选中背景召回及事件恢复 | 已确认本站timeline按story优先折叠，而新对照按同一次事实fact折叠，避免同一事件的不同新增进展被合成一个精选席位；须修正分组键、日期计数、代表稿范围与旧游标失效处理，并核对各出口。队列等待与恢复差异继续核验，保留人工归属及修订围栏。 |
+| 1、2、6 | `events/group.ts`、`recall.ts`、`consolidate.ts`、`jobs/events.ts`：归组补排优先级、服务额度等待、选中背景召回及事件恢复 | 已确认本站timeline按story优先折叠，而新对照按同一次事实fact折叠，避免同一事件的不同新增进展被合成一个精选席位；已修正分组键、最早日期锚点、代表稿范围与旧游标失效处理，相关真实数据库回归通过（fact-timeline-tests.log）；跨出口及新增模型恢复差异继续核验。队列等待与恢复差异继续核验，保留人工归属及修订围栏。 |
 | 3、4、5 | `sources/collect.ts`、`dates.ts`、`json-list.ts`、`web-list.ts`、`health.ts`：日期精度、正文保留与补抓、首次导入折日、按来源自身节奏判断静默 | 待逐项核对；已通过的202个候选预览记录保留，新增解析行为变化后只重验受影响配置。 |
 | 3、15 | `lib/url.ts`、`http-fetch.ts`、`sources/x*.ts`：私有来源主机配置、元数据地址拒绝、分片水位及账号改名 | 待区分本批已安装能力与未启用社交服务；不为参考配置自动开通新供应商。真实缺口实施，未安装扩展记录适用结论。 |
 | 6、7 | `content/extract.ts`、`materials.ts`、`presentation.ts`、`page-content.ts`、`editorial/analyze.ts`、`translate.ts`：正文版本、组件保留、语言和错误页判断、图形文字替代 | 待核对结构更新是否重用正确付费结果，以及读者完整性是否如实。矿业提示词不直接替换为行业示例。 |
@@ -16,9 +16,9 @@ Owner于2026-10-18要求最新页面和最新仓库一起核对。当前基线�
 | 11、15 | `operations/feedback.ts`、`admin/feedback.ts`、两项反馈迁移：提交状态、封禁期限与处理 | 待核对本站已实施的输入规则、幂等、私有群转发和图片删除，新增差异仅做兼容迁移。 |
 | 12 | `Timeline.tsx`、`FeedItem.tsx`、`ReadingGroup.tsx`：未读筛选、组内未读成员、手机新闻行及日期栏 | 已修改手机时间并入来源行、整行日期折叠与紧凑推荐理由；必要浏览器回归通过。未读成员契约尚缺，须先单独契约PR后接消费者，不靠代表稿已读状态误隐藏组内未读内容。 |
 | 12 | `Page.tsx`、`OutlineSheet.tsx`、`motion.ts`、`IntentLink.tsx`、`item.tsx`、`story.tsx`：长侧栏可滚动、目录定位、减少动态效果偏好、导航反馈 | 已补长侧栏滚动；其余差异仍待核对。保留已修复的鼠标返回不抢焦点与键盘可见焦点。 |
-| 12 | `lib/text.ts`、`publication/pool.ts`：中英文连写分词、英文词首与相关度同分排序 | 待核对实际查询与固定样例，已有搜索并行行为不代表新排序已支持。 |
+| 12 | `lib/text.ts`、`publication/pool.ts`：中英文连写分词、英文词首与相关度同分排序 | 已接通中英文连写分词、精选席位/质量同分排序、普通英文正文词首匹配；现有数据库固定样例与新增行为场景通过（search-latest-behavior-tests.log、search-body-prefix-tests.log），矿业实体别名和索引条件保留。 |
 | 15、16、18 | `operations/alerts.ts`、`watch.ts`、`backup.ts`、`modules.ts`、`apps/worker`、部署说明：积压持续时长、退出等待备份、模块生命周期与发布可靠性 | 待核对本轮原生队列和模块收敛结果；沿用本站正式发布脚本和锁，在非生产完成验证后再统一切换。 |
-| 17、18 | `publication/agent.ts`、`routes/mcp.ts`、`scripts/mcp-check.ts`、`notify/agent.ts`：Agent读取与可选运维唤醒 | 接入须验证真实协议、权限和返回结果。本站现有mcp-check仍是早期五工具脚本，部分错误仅打印且检索词非矿业，须更新为实际已公布工具并让失败返回非零；当前缺独立agent答案公共层，继续核对具名能力与HTTP/MCP一致性。可选运维唤醒不同于读者Agent读取；无已配置目的端不伪称投递成功，不擅自向他人发送通知。 |
+| 17、18 | `publication/agent.ts`、`routes/mcp.ts`、`scripts/mcp-check.ts`、`notify/agent.ts`：Agent读取与可选运维唤醒 | 接入须验证真实协议、权限和返回结果。已更新mcp-check为当前工具目录核对与实际SDK调用，失败返回非零，缺样本分别标注；public_read真实服务回归通过，未增加收据/采集/法规版本；当前缺独立agent答案公共层，继续核对具名能力与HTTP/MCP一致性。可选运维唤醒不同于读者Agent读取；无已配置目的端不伪称投递成功，不擅自向他人发送通知。 |
 
 ## 页面观察
 

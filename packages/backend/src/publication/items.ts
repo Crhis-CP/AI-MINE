@@ -10,7 +10,7 @@ import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/con
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
-import { publicationTextMatches, bodyTextMatches } from "./read-predicates.ts";
+import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
 import { displayTags } from "./rules.ts";
 
 export interface ItemRow {
@@ -311,12 +311,12 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
     AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
     AND (${query.jurisdiction}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe)}
       OR (${query.jurisdiction} NOT IN ('unknown','none') AND (p.tags && ${matchers.jurisdictionTags}::text[] OR ${publicationTextMatches(matchers.jurisdictionText)})))
-    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term0)} OFFSET 0))
-    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term1)} OFFSET 0))
-    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term2)} OFFSET 0))
-    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term3)} OFFSET 0))
-    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term4)} OFFSET 0))
-    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term5)} OFFSET 0))
+    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
+    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))
+    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term2)} OFFSET 0))
+    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term3)} OFFSET 0))
+    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term4)} OFFSET 0))
+    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term5)} OFFSET 0))
     AND (${query.windowStart}::timestamptz IS NULL OR ${sort}>=${query.windowStart}) AND ${sort}<=${query.now}
     AND (${query.afterAt}::timestamptz IS NULL OR (${sort},p.article_id)<(${query.afterAt},${query.afterId}))
     ORDER BY ${sort} DESC,p.article_id DESC LIMIT ${query.limit}`;
@@ -334,12 +334,12 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
     AND (${query.jurisdiction}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe)}
       OR (${query.jurisdiction} NOT IN ('unknown','none') AND (p.tags && ${matchers.jurisdictionTags}::text[] OR ${publicationTextMatches(matchers.jurisdictionText)})))
-    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term0)} OFFSET 0))
-    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term1)} OFFSET 0))
-    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term2)} OFFSET 0))
-    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term3)} OFFSET 0))
-    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term4)} OFFSET 0))
-    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term5)} OFFSET 0))
+    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
+    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))
+    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term2)} OFFSET 0))
+    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term3)} OFFSET 0))
+    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term4)} OFFSET 0))
+    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term5)} OFFSET 0))
     GROUP BY st.public_id ORDER BY latest DESC,st.public_id DESC`;
 }
 

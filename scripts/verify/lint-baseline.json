@@ -216,9 +216,6 @@
   "scripts/eval-selection.ts": {
     "lint/suspicious/noAssignInExpressions": 1
   },
-  "scripts/mcp-check.ts": {
-    "lint/suspicious/noExplicitAny": 1
-  },
   "scripts/regroup-events.ts": {
     "lint/suspicious/noAssignInExpressions": 2
   },

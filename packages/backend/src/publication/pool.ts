@@ -70,6 +70,8 @@ export async function withSearchCapacity<T>(fn: (db: Db) => Promise<T>): Promise
 export function searchTerms(q: string): string[] {
   return q
     .toLowerCase()
+    .replace(/(\p{Script=Han})(?=[a-z])/gu, "$1 ")
+    .replace(/([a-z][a-z0-9]*)(?=\p{Script=Han})/gu, "$1 ")
     .split(/\s+/)
     .map((t) => t.trim())
     .filter(Boolean)
@@ -226,6 +228,7 @@ async function queryPool(
         AND (${!textMatchers.term4.active} OR (${poolDirectTextMatches(textMatchers.term4)} OR ${bodyTextMatches(textMatchers.term4)}))
         AND (${!textMatchers.term5.active} OR (${poolDirectTextMatches(textMatchers.term5)} OR ${bodyTextMatches(textMatchers.term5)}))`;
       type RankedRow = Omit<ItemRow, "id"> & { id: string | null; rel: number; total: number };
+      const tie = sql`(CASE WHEN p.selected AND p.seat THEN 1000 ELSE 0 END) + coalesce(p.score, 0)`;
       const result = splitFields
         ? await db<RankedRow[]>`
         WITH matches AS MATERIALIZED (
@@ -233,28 +236,28 @@ async function queryPool(
           (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END)+(CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part
         FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${"%" + terms[0]! + "%"})d
         FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${"%" + terms[0]! + "%"})b ON b.article_id=d.article_id), scored AS MATERIALIZED (
-          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel
+          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel, ${tie} AS tie
           FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id
           WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
         ), page AS MATERIALIZED (
-          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC
+          SELECT article_id, rel, tie FROM scored ORDER BY rel DESC, tie DESC, timeline_at DESC, article_id DESC
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
-          SELECT ${ITEM_COLUMNS()}, page.rel ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
-        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`
+          SELECT ${ITEM_COLUMNS()}, page.rel, page.tie ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
+        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.tie DESC, hydrated.timeline_at DESC, hydrated.id DESC`
         : await db<RankedRow[]>`
         WITH matches AS NOT MATERIALIZED (SELECT ps.article_id,(${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}), scored AS MATERIALIZED (
-          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel
+          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel, ${tie} AS tie
           FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id
           WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
         ), page AS MATERIALIZED (
-          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC
+          SELECT article_id, rel, tie FROM scored ORDER BY rel DESC, tie DESC, timeline_at DESC, article_id DESC
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
-          SELECT ${ITEM_COLUMNS()}, page.rel ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
-        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`;
+          SELECT ${ITEM_COLUMNS()}, page.rel, page.tie ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
+        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.tie DESC, hydrated.timeline_at DESC, hydrated.id DESC`;
       const rows = result.filter((r): r is ItemRow & { rel: number; total: number } => r.id !== null);
       return { rows, total: Number(result[0]!.total) };
     }
