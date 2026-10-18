@@ -307,6 +307,17 @@ if (process.argv.includes("--routes")) {
           "/api/site/stats",
           "/api/site/stories/{publicId}/followups",
           "/api/site/timeline",
+          "/api/v1/agent",
+          "/api/v1/agent/daily",
+          "/api/v1/agent/daily/{date}",
+          "/api/v1/agent/hot",
+          "/api/v1/agent/latest",
+          "/api/v1/agent/monthly",
+          "/api/v1/agent/monthly/{month}",
+          "/api/v1/agent/search",
+          "/api/v1/agent/stories/{publicId}",
+          "/api/v1/agent/weekly",
+          "/api/v1/agent/weekly/{week}",
           "/api/v1/policies",
           "/api/v1/policies/{id}",
           "/api/v1/policies/{id}/history",
@@ -401,6 +412,9 @@ if (process.argv.includes("--routes")) {
           }
         }
       }
+      if (audience === "public")
+        for (const route of routes.filter((path) => path.startsWith("/api/v1/agent")))
+          assert.deepEqual(Object.keys(doc.paths[route].get.responses["200"].content), ["text/markdown"]);
       for (const route of routes)
         for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post ?? doc.paths[route].put).responses)) {
           if (Number(status) >= 400)
