@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ago, bj } from "./format";
-import type { Tone } from "@amp/ui/Status";
-export { Badge, Dot } from "@amp/ui/Status";
+import type { Tone } from "./Status.tsx";
+export { Badge, Dot } from "./Status.tsx";
 
 export function AdminPage({ title, subtitle, actions, children }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (

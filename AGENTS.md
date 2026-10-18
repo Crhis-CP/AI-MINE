@@ -27,7 +27,7 @@ apps/worker           任务组合根：各模块 jobs；队列按 <lane>.<stage
 packages/backend     采集、内容、事件、发布、法规、报告、模型与运行管理
 packages/backend/src/process-config.ts  纯进程配置与连接工厂，经既有db入口导出
 packages/contracts    契约（Zod → OpenAPI）：HTTP、任务与事件载荷（带 lane）、端口接口
-packages/ui          共用设计组件
+apps/web/app/components/ui  共用读者组件；后台状态组件位于features/admin
 scripts/contracts/    对外OpenAPI文档生成与漂移校验，使用项目统一编译器
 site/                 站点品牌、出刊时刻、模型配置和扩展安装清单
 modules/              矿业扩展；metals已接管定时入口，其余实现继续迁移

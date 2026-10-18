@@ -4,7 +4,7 @@ import { apiFetch } from "../../lib/http.ts";
 // "new items" prompt: readers refresh for the latest head (feedback #1199).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
-import { Collapse } from "@amp/ui/Presence";
+import { Collapse } from "../../components/ui/Presence.tsx";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { useReaderItemScope } from "./ContentVersionGuard";

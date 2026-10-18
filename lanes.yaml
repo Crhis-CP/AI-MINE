@@ -29,7 +29,7 @@ lanes:
     owns:
       - apps/web/app/routes/(public)/**
       - apps/web/app/features/**
-      - packages/ui/**
+      - apps/web/app/components/ui/**
     modules: []
   private:                         # 最小私有页面（A10，不阻塞公开站）
     owns:
@@ -130,7 +130,7 @@ shared:
       lanes: all
     logic_owner: runtime                             # 清单以外的逻辑归 runtime 泳道
   - id: ui
-    paths: ["packages/ui/**"]
+    paths: ["apps/web/app/components/ui/**", "apps/web/app/features/admin/Status.tsx"]
     primary: web
     append: [private]                                # 新组件可追加；改已有组件的属性须同时修复所有使用处
   - id: industry

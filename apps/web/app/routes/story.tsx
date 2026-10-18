@@ -9,7 +9,7 @@ import { beijingDate, isDateOnlyInstant, NO_TIME, newsSourceDate, relativeTime, 
 import { ShareLink } from "../components/ShareLink";
 import { StorySaveButton } from "../features/story/StorySaved";
 import { HeatChart } from "../features/story/HeatChart";
-import { Badge, SelectedBadge } from "@amp/ui/Badge";
+import { Badge, SelectedBadge } from "../components/ui/Badge.tsx";
 import { PillTabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Controls";
 import { IconArrowLeft, IconChevronRight, IconClock, IconDoc, IconUsers } from "../components/icons";

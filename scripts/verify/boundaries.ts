@@ -52,8 +52,7 @@ export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   "@amp/backend": ["@amp/policy", "@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals", "@amp/site-admin"],
   "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
-  "@amp/web": amp(["contracts", "industry", "ui", "site"]),
-  "@amp/ui": ["@amp/contracts"],
+  "@amp/web": amp(["contracts", "industry", "site"]),
   "@amp/testkit": L0,
 };
 

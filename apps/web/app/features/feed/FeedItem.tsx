@@ -6,8 +6,8 @@ import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
 import type { GroupInfo, FeedItemSummary, TimelineFilters } from "@amp/contracts/site";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
-import { SelectedBadge } from "@amp/ui/Badge";
-import { ScoreLabel } from "@amp/ui/Score";
+import { SelectedBadge } from "../../components/ui/Badge.tsx";
+import { ScoreLabel } from "../../components/ui/Score.tsx";
 import { SourceLine, StarButton, Attribution } from "./parts";
 import { GroupDevelopments, GroupSources, LatestDevelopment } from "./ReadingGroup";
 

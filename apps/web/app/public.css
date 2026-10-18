@@ -11,11 +11,6 @@
 @source "./root.tsx";
 @source "./routes/*.tsx";
 @source not "./routes/admin-login.tsx";
-@source "../../../packages/ui/src/Badge.tsx";
-@source "../../../packages/ui/src/Kicker.tsx";
-@source "../../../packages/ui/src/Presence.tsx";
-@source "../../../packages/ui/src/Score.tsx";
-@source "../../../packages/ui/src/Menu.tsx";
 
 @source "../../../modules/*/web/**/*";
 @source not "../../../modules/*/web/admin/**/*";
