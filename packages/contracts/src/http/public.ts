@@ -19,6 +19,14 @@ export const SiteStats = z.strictObject({
   selected: z.number(),
   dailies: z.number(),
   day: z.strictObject({ collected: z.number(), selected: z.number() }),
+  sampleSources: z
+    .array(z.strictObject({ name: z.string(), kind: z.string(), heatOnly: z.boolean() }))
+    .max(180)
+    .optional(),
+  latest: z
+    .array(z.strictObject({ id: z.string(), title: z.string(), source: z.string() }))
+    .max(8)
+    .optional(),
 });
 export type SiteStats = z.infer<typeof SiteStats>;
 export const SourceAttribution = z.strictObject({

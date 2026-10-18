@@ -73,3 +73,5 @@ TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public reg
 GroupInfo.memberIds可选列出当前公开筛选内的精选成员ID，供聚合组未读判断。它不上传浏览器已读记录，也不放宽公开资格；无字段的旧响应不推断为全组已读。
 
 Agent答案契约在`http/agent`：匿名只读Markdown说明及资讯、检索、热点、事件、日报/周报/月报共11条GET地址，成功类型为text/markdown，错误保留Problem JSON。参数严格、有界、日期真实；这是准备声明，运行处理器随统一版本接入，不改变已有JSON与MCP工具。
+
+关于页SiteStats可选sampleSources/latest分别限180和8，供实际来源流程示意与最近精选；旧响应继续可读，缺字段不推断已采集或公开。

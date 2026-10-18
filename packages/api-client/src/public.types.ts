@@ -4137,6 +4137,16 @@ export interface components {
       };
       heatOnlySources: number;
       items: number;
+      latest?: {
+        id: string;
+        source: string;
+        title: string;
+      }[];
+      sampleSources?: {
+        heatOnly: boolean;
+        kind: string;
+        name: string;
+      }[];
       selected: number;
       sourceKinds: {
         [key: string]: number;
@@ -4151,6 +4161,16 @@ export interface components {
       };
       heatOnlySources: number;
       items: number;
+      latest?: {
+        id: string;
+        source: string;
+        title: string;
+      }[];
+      sampleSources?: {
+        heatOnly: boolean;
+        kind: string;
+        name: string;
+      }[];
       selected: number;
       sourceKinds: {
         [key: string]: number;

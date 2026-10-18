@@ -14073,6 +14073,54 @@
           "items": {
             "type": "number"
           },
+          "latest": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "source"
+              ],
+              "type": "object"
+            },
+            "maxItems": 8,
+            "type": "array"
+          },
+          "sampleSources": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "heatOnly": {
+                  "type": "boolean"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "kind",
+                "heatOnly"
+              ],
+              "type": "object"
+            },
+            "maxItems": 180,
+            "type": "array"
+          },
           "selected": {
             "type": "number"
           },
@@ -14127,6 +14175,54 @@
           },
           "items": {
             "type": "number"
+          },
+          "latest": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "source"
+              ],
+              "type": "object"
+            },
+            "maxItems": 8,
+            "type": "array"
+          },
+          "sampleSources": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "heatOnly": {
+                  "type": "boolean"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "kind",
+                "heatOnly"
+              ],
+              "type": "object"
+            },
+            "maxItems": 180,
+            "type": "array"
           },
           "selected": {
             "type": "number"
