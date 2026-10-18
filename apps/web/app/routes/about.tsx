@@ -1,5 +1,7 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
+import { SignalRiver, type RiverSource } from "../features/about/SignalRiver";
 import { apiFetch } from "../lib/http.ts";
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { SiteStats } from "@amp/contracts/site";
@@ -10,7 +12,7 @@ import { ABOUT, SITE, withSubject } from "@amp/industry/site";
 import { organizationLd, pageMeta } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker.tsx";
 import { buttonClass } from "../components/ui/Controls";
-import { IconArrowRight } from "../components/icons";
+import { IconArrowLeft, IconArrowRight } from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -103,7 +105,7 @@ function stagesOf(stats: SiteStats | null): Stage[] {
     },
     {
       no: "02",
-      title: "收录",
+      title: "归并",
       figure: stats && <Figure n={stats.items} unit="条动态" />,
       text: ABOUT.steps.store,
       note: stats && <>过去 24 小时收进 {stats.day.collected.toLocaleString("en-US")} 条</>,
@@ -125,13 +127,48 @@ function stagesOf(stats: SiteStats | null): Stage[] {
   ];
 }
 
+const NO_SOURCES: RiverSource[] = [];
+function Latest({ item, className = "" }: { item: NonNullable<SiteStats["latest"]>[number] | undefined; className?: string }) {
+  if (!item) return null;
+  return (
+    <Link to={`/items/${item.id}`} className={`group block ${className}`}>
+      <span className="text-[11px] font-semibold tracking-[0.2em] text-accent">最近精选</span>
+      <span key={item.id} className="animate-fade-up mt-1.5 block">
+        <span className="line-clamp-2 text-[13.5px] font-semibold leading-[1.55] text-ink group-hover:text-accent">{item.title}</span>
+        <span className="mt-1 block truncate text-[12px] text-ink-4">{item.source}</span>
+      </span>
+    </Link>
+  );
+}
+
 export default function AboutPage() {
   const { stats, information } = useLoaderData<typeof loader>();
   const stages = useMemo(() => stagesOf(stats), [stats]);
+  const [focus, setFocus] = useState<number | null>(null),
+    [at, setAt] = useState(0);
+  const shown = useRef(0),
+    sources = useMemo(() => stats?.sampleSources ?? NO_SOURCES, [stats]);
+  const latest = stats?.latest ?? [];
+  const onArrive = useCallback(() => {
+    const now = Date.now();
+    if (now - shown.current < 2800 || latest.length < 2) return;
+    shown.current = now;
+    setAt((i) => (i + 1) % latest.length);
+  }, [latest.length]);
 
   return (
-    <div className="mx-auto max-w-[var(--page-max-reading)] pb-14 pt-6 lg:pt-3">
-      <header className="grid items-end gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
+    <div className="mx-auto max-w-[var(--page-max-reading)] pb-14 lg:pt-3">
+      <PhoneBar
+        leading={
+          <Link to="/more" className="inline-flex h-12 items-center gap-1 px-2.5 text-sm">
+            <IconArrowLeft size={17} />
+            我的
+          </Link>
+        }
+        center={<span className="truncate text-sm font-semibold">关于 {SITE.name}</span>}
+        actions={null}
+      />
+      <header className="grid items-end gap-8 pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:pt-0">
         <div>
           <Kicker>{ABOUT.kicker}</Kicker>
           <h1 className="mt-5 text-[34px] font-black leading-[1.18] tracking-[-0.03em] text-ink [text-wrap:balance] sm:text-[46px] xl:text-[56px] 2xl:text-[64px]">
@@ -163,9 +200,23 @@ export default function AboutPage() {
         <h2 id="how" className="sr-only">
           {SITE.name} 怎么工作
         </h2>
-        <ol className="grid grid-cols-1 border-t border-line-strong sm:grid-cols-2 lg:grid-cols-4">
+        {stats?.sampleSources && (
+          <SignalRiver sources={sources} focus={focus} onArrive={onArrive} className="h-[230px] sm:h-[300px] lg:h-[360px] 2xl:h-[420px]">
+            <Latest item={latest[at % Math.max(1, latest.length)]} className="absolute left-[75%] top-[calc(42%+42px)] hidden w-[25%] px-6 lg:block" />
+          </SignalRiver>
+        )}
+        <p className="sr-only">流程示意：来源的多篇报道汇为事件，经过精选，再编入日报。实际数据以本页统计为准。</p>
+        <Latest item={latest[at % Math.max(1, latest.length)]} className="mt-2 border-t border-line pt-4 lg:hidden" />
+        <ol className="mt-4 grid grid-cols-1 border-t border-line-strong sm:grid-cols-2 lg:mt-0 lg:grid-cols-4">
           {stages.map((s, i) => (
-            <li key={s.no} className={`border-line py-6 ${STAGE_CELL[i]}`}>
+            <li
+              key={s.no}
+              onPointerEnter={() => setFocus(i)}
+              onPointerLeave={() => setFocus(null)}
+              onFocus={() => setFocus(i)}
+              onBlur={() => setFocus(null)}
+              className={`border-line py-6 ${STAGE_CELL[i]}`}
+            >
               <div className="flex items-baseline gap-2.5">
                 <span className="num text-[12px] font-bold tracking-[0.12em] text-accent">{s.no}</span>
                 <h3 className="text-[17px] font-bold text-ink">{s.title}</h3>

@@ -53,6 +53,11 @@ flowchart LR
     E --> G[日报、周报、月报]
 ```
 
+关于页用动态示意展示来源如何汇集、归并、进入精选与成刊，也会带出最近入选的报道。
+
+<img src="docs/assets/reader-preview/about-flow-dark.png" alt="关于页的来源流动示意与最近精选" width="100%">
+<p align="center"><sub>本地实际页面，使用明确的演示数据；正式站随统一升级更新。</sub></p>
+
 ## 中文读懂，也能核对原文
 
 外文资讯先提供中文标题和导读，合格且获准展示全文的精选再由后台补充翻译。翻译尚未完成、只有部分内容或来源不允许展示全文时，页面会如实说明。打开文章不会触发新的付费模型调用。
@@ -79,6 +84,7 @@ flowchart LR
 | 接口文档 | `/openapi-v3.json` |
 | RSS | `/feed.xml`、`/feed/all.xml`、`/feed/daily.xml`、`/feed/policies.xml` |
 | MCP | `/api/mcp` |
+| Agent 中文答案 | `/api/v1/agent`，从说明页选择资讯、检索、热点或报告 |
 | Agent 阅读说明 | `/llms.txt` |
 
 这些入口只读取已公开内容，遵守相同的撤回与内容权限规则。网站允许阅读的全文，也可能不允许向外再分发；接口会按来源权限提供相应内容。

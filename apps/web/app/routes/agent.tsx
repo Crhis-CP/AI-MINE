@@ -19,6 +19,7 @@ export function headers() {
 const MCP_VERSION = "2.1.0";
 /** The machine-readable entry points, with what each one is for. */
 const RESOURCES: Array<[label: string, href: string, note: string]> = [
+  ["Agent中文答案", "/api/v1/agent", "无需MCP，直接读取中文资讯与报告"],
   ["llms.txt", "/llms.txt", "给大模型读的站点说明"],
   ["MCP Server", "/api/mcp", "MCP 客户端的连接地址"],
   ["OpenAPI 3.1", "/openapi-v3.json", "REST API v3 的完整定义"],
@@ -336,6 +337,11 @@ export default function AgentPage() {
         ))}
       </div>
 
+      <CodeBlock
+        title="交给能读取网页的 Agent"
+        lang="text"
+        code={`请先阅读 ${base}/api/v1/agent，按说明查找矿业资讯、热点或报告。只使用返回的公开资料，保留来源和链接。`}
+      />
       <div className="sticky top-0 z-20 -mx-4 mt-7 bg-bg/90 px-4 py-2 backdrop-blur-md lg:mx-0 lg:px-0">
         <PillTabs
           layoutId="agent-tab"

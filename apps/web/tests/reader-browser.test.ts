@@ -98,6 +98,30 @@ const api = createServer((req, res) => {
     }
     return res.end(JSON.stringify(value));
   };
+  if (url.pathname === "/api/site/information")
+    return answer({
+      about: "本地演示：把分散的矿业报道整理成中文，保留来源和原文，方便继续核对。",
+      contactEmail: null,
+      contactPage: null,
+      metalLinks: [],
+      revision: 1,
+      updatedAt: null,
+    });
+  if (url.pathname === "/api/site/stats")
+    return answer({
+      sources: 2,
+      heatOnlySources: 1,
+      sourceKinds: { rss: 2 },
+      items: 4,
+      selected: 1,
+      dailies: 1,
+      day: { collected: 2, selected: 1 },
+      sampleSources: [
+        { name: "合成矿业公告", kind: "rss", heatOnly: false },
+        { name: "合成行业信号", kind: "rss", heatOnly: true },
+      ],
+      latest: [{ id: "fixture-a", title: "可核对的矿业动态", source: "合成来源" }],
+    });
   if (url.pathname === "/api/site/policies") {
     if (url.searchParams.get("q") === "超时测试") return;
     res.statusCode = 503;
@@ -839,5 +863,37 @@ test("reader links prefetch on press rather than hover, and failed copy never cl
     assert.deepEqual(blocked, []);
   } finally {
     await context.close();
+  }
+});
+
+test("about flow uses supplied sources and headlines on desktop and phone, with theme-aware reduced motion", { timeout: 60000 }, async () => {
+  for (const width of [390, 1440]) {
+    const context = await browser.newContext({ viewport: { width, height: 1000 }, locale: "zh-CN", reducedMotion: width === 390 ? "reduce" : "no-preference" });
+    try {
+      const blocked = await isolateBrowser(context, [origin]),
+        page = await context.newPage(),
+        errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.goto(`${origin}/about`);
+      const canvas = page.locator("canvas");
+      await expect(canvas).toBeVisible();
+      await expect(page.getByRole("link", { name: /最近精选.*可核对的矿业动态/ }).filter({ visible: true })).toHaveAttribute("href", "/items/fixture-a");
+      assert.equal(await canvas.evaluate((e) => e.tabIndex), -1);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      await expect.poll(() => canvas.evaluate((e) => (e as HTMLCanvasElement).width)).toBeGreaterThan(300);
+      if (width === 1440) {
+        const first = await canvas.evaluate((e) => (e as HTMLCanvasElement).toDataURL());
+        await expect.poll(() => canvas.evaluate((e) => (e as HTMLCanvasElement).toDataURL())).not.toBe(first);
+      }
+      const light = await canvas.evaluate((e) => (e as HTMLCanvasElement).toDataURL());
+      await page.emulateMedia({ colorScheme: "dark" });
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+      await expect.poll(() => canvas.evaluate((e) => (e as HTMLCanvasElement).toDataURL())).not.toBe(light);
+      await page.screenshot({ path: `.verify/about-flow-${width}.png` });
+      assert.deepEqual(errors, []);
+      assert.deepEqual(blocked, []);
+    } finally {
+      await context.close();
+    }
   }
 });

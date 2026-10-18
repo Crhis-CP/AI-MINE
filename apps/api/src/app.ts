@@ -1,3 +1,4 @@
+import { registerAgent } from "./routes/agent.ts";
 import { serverModules } from "@amp/backend/modules";
 import { registerSiteInformation } from "./routes/site-information.ts";
 import { registerAdminModelFallback } from "./routes/admin-model-fallback.ts";
@@ -141,6 +142,7 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
   if (publicRoutes) {
     registerFeeds(app);
     registerMcp(app);
+    registerAgent(app);
     registerOg(app);
     registerSite(app);
     for (const module of serverModules()) await module.http?.(app);

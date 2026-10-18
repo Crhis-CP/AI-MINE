@@ -150,7 +150,26 @@ test("all public MCP tools run under public_read; rights, current withdrawal and
     assert.equal(result.structuredContent._trust.contentTrust, "untrusted_external_data");
     return result;
   };
-  await good(T.latest, { mode: "all" });
+  const sharedLatest = await good(T.latest, { mode: "all" });
+  const markdown = await server.request("/api/v1/agent/latest?mode=all");
+  assert.equal(markdown.status, 200);
+  assert.match(markdown.headers.get("content-type")!, /text\/markdown/);
+  assert.equal(await markdown.text(), sharedLatest.content[0].text, "HTTP and MCP use one answer for the same query");
+  const unchanged = await server.request("/api/v1/agent/latest?mode=all", { headers: { "if-none-match": markdown.headers.get("etag")! } });
+  assert.equal(unchanged.status, 304);
+  assert.equal(await unchanged.text(), "");
+  for (const route of ["/latest?mode=all&mode=selected", "/search?q=x", "/daily/2026-02-30", "/weekly/2026-W54", "/hot?limit=11", "/latest?private=1"]) {
+    const rejected = await server.request(`/api/v1/agent${route}`);
+    assert.equal(rejected.status, 400, route);
+    assert.match(rejected.headers.get("content-type")!, /problem\+json/);
+  }
+  assert.equal((await server.request("/api/v1/agent/daily/1900-01-01")).status, 404);
+  assert.match(await (await server.request("/api/v1/agent")).text(), /只读GET/);
+  const about = await server.request("/api/site/stats");
+  assert.equal(about.status, 200, server.output());
+  const stats = (await about.json()) as Json;
+  assert.ok(stats.sampleSources.length <= 180 && stats.latest.length <= 8);
+  assert.ok(stats.sampleSources.every((s: Json) => Object.keys(s).sort().join(",") === "heatOnly,kind,name"));
   await good(T.search, { q: "PR9" });
   const hot = await good(T.hot);
   assert.doesNotMatch(JSON.stringify(hot), /"heat"|"trendPct"/);
@@ -225,6 +244,11 @@ test("all public MCP tools run under public_read; rights, current withdrawal and
   assert.equal((await call(T.item, { id: "pr9-editorial-public-full" })).structuredContent.error.code, "not_found");
   const latest = await good(T.latest, { mode: "all" });
   assert.ok(!latest.structuredContent.items.some((row: Json) => row.id === "pr9-editorial-public-full"));
+  const changedAnswer = await server.request("/api/v1/agent/latest?mode=all", { headers: { "if-none-match": markdown.headers.get("etag")! } });
+  assert.equal(changedAnswer.status, 200, "withdrawal changes the current representation before ETag comparison");
+  assert.doesNotMatch(await changedAnswer.text(), /\/items\/pr9-editorial-public-full/);
+  const refreshedStats = (await (await server.request("/api/site/stats")).json()) as Json;
+  assert.ok(!refreshedStats.latest.some((item: Json) => item.id === "pr9-editorial-public-full"), "cached aggregate counts do not keep withdrawn headlines");
   const policies = await good(T.policies, { limit: 1 });
   assert.equal(policies.structuredContent.items.length, 1);
   assert.ok(policies.structuredContent.next_cursor);
