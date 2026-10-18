@@ -82,3 +82,5 @@ Owner要求最新页面与最新仓库一并纳入，当前对照更新为`4947a
 正文展示与语义修订分离参考4947ad03309c64a4002bd073d690aee50c548063的content/materials.ts与content/presentation.ts；本站通过严格分段manifest和已绑定回执复用原始译文，保留人工状态与公开资格，不沿用无法证明完整性的旧标记。
 
 HTTP成功响应中的错误页和渲染协议警告识别参考4947ad03309c64a4002bd073d690aee50c548063的lib/page-content.ts与providers/jina.ts；本站在详情、列表及正文提取中使用，渲染费用和原回执保留，识别不执行网页脚本。
+
+静态流式正文片段复位、行内可见性归一及figure中SVG文字替代采用4947ad03309c64a4002bd073d690aee50c548063的content/extract.ts相应函数，组织在content/readable-dom.ts；只解释已完成片段标记和页面既有文字，不执行来源脚本，最终继续经本站HTML白名单。

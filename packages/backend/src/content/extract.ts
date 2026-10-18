@@ -3,6 +3,7 @@ import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapsho
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
+import { prepareReadableDocument } from "./readable-dom.ts";
 import { contentDocument, assertPageContent, UnavailablePageError } from "../lib/page-content.ts";
 import { sql } from "../db.ts";
 import {
@@ -45,6 +46,7 @@ export function readable(html: string, url: string): ExtractedBody | null {
   } catch {
     // no head
   }
+  prepareReadableDocument(document);
   const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], {
     charThreshold: MIN_BODY_CHARS,
     keepClasses: false,

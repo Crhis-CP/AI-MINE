@@ -342,3 +342,31 @@ test("successful HTTP error pages yield neither article bodies nor navigation ca
   assert.equal(readable(verification, "https://example.org/news"), null);
   assert.equal(readable(`<html><head><title>Mining news</title></head><body><h1>Not found</h1>${body}</body></html>`, "https://example.org/news"), null);
 });
+
+test("static streamed article segments replace only completed boundaries without executing scripts", () => {
+  const prose = "The copper project reached its quarterly production milestone. ".repeat(6);
+  const page = (script: string) =>
+    `<html><head><title>Quarterly update</title></head><body><article><h1>Quarterly update</h1><!--$?--><template id="B:0"></template><p>Loading pending article.</p><!--/$--></article><div hidden id="S:0"><p>${prose}</p></div><script>${script}</script></body></html>`;
+  const restored = readable(page('$RC("B:0","S:0");'), "https://example.org/news")!;
+  assert.ok(restored.text.includes("quarterly production milestone"));
+  assert.ok(!restored.text.includes("Loading pending"));
+  assert.doesNotMatch(restored.html, /<script|<template|\$RC/);
+  assert.equal(
+    readable(page(`const example = '$RC("B:0","S:0");';`), "https://example.org/news"),
+    null,
+    "a quoted completion call is not executed or interpreted",
+  );
+});
+
+test("figure descriptions survive once while hidden responsive copies and SVG code are removed", () => {
+  const prose = "This mining company reports production and costs for the current quarter. ".repeat(5);
+  const chart = `<figure><div role="img" aria-label="Copper output rose 27 percent" style="DISPLAY: NONE !important; display:block"><svg><text>Hidden graphic</text></svg></div><div role="img" aria-label="Copper output rose 27 percent"><svg aria-hidden="true"><script>throw Error('never execute')</script></svg></div><figcaption>Quarterly production</figcaption></figure>`;
+  const article = readable(
+    `<html><body><article><h1>Production results</h1><p>${prose}</p>${chart}<p>${prose}</p></article></body></html>`,
+    "https://example.org/results",
+  )!;
+  assert.ok(article);
+  assert.equal(article.text.match(/Copper output rose 27 percent/g)?.length, 1);
+  assert.doesNotMatch(article.html, /<svg|<script|Hidden graphic|never execute/);
+  assert.match(article.text, /Quarterly production/);
+});
