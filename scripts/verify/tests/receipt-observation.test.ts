@@ -146,6 +146,11 @@ test("receipt schemas stay in explicit private registration without global leaka
     "loginOptions",
     "receiptReview",
     "releaseReceipt",
+    "adminContentRerun",
+    "adminDatePreview",
+    "adminDateCorrection",
+    "adminFeedbackBan",
+    "adminFeedbackEmailBan",
   ]);
   for (const schema of [ReceiptObservedVersion, ReceiptReleaseRequest, ReceiptReleaseResponse, ReceiptIssue, ReceiptReconciliationResponse]) {
     assert.equal(z.globalRegistry.has(schema), false);

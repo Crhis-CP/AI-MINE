@@ -79,6 +79,86 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/content/{id}/date": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["adminDateCorrection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/content/{id}/date-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["adminDatePreview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/content/{id}/rerun": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["adminContentRerun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/feedback-bans": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["adminFeedbackBan"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/feedback/{id}/ban-email": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["adminFeedbackEmailBan"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/lane-controls": {
     parameters: {
       query?: never;
@@ -767,6 +847,324 @@ export interface components {
       /** @enum {string} */
       role: "owner" | "admin";
     };
+    AdminContentRerun: {
+      preview?: boolean;
+      reason?: string;
+      /** @enum {string} */
+      step: "extract" | "analyze" | "group" | "presentation";
+      version?: string;
+    };
+    AdminContentRerunInput: {
+      preview?: boolean;
+      reason?: string;
+      /** @enum {string} */
+      step: "extract" | "analyze" | "group" | "presentation";
+      version?: string;
+    };
+    AdminDateCorrection: {
+      evidence: string;
+      hash: string;
+      publishedAt: string | null;
+      reason: string;
+      version: number;
+    };
+    AdminDateCorrectionInput: {
+      evidence: string;
+      hash: string;
+      publishedAt: string | null;
+      reason: string;
+      version: number;
+    };
+    AdminDateIntent: {
+      evidence: string;
+      publishedAt: string | null;
+    };
+    AdminDateIntentInput: {
+      evidence: string;
+      publishedAt: string | null;
+    };
+    AdminDatePlan: {
+      after: {
+        backfill: boolean;
+        backfillReason: string | null;
+        publishedAt: string | null;
+        sourceTime: {
+          basis: string;
+          beijing_date: string | null;
+          condition_text: string | null;
+          label: string;
+          local_date: string | null;
+          local_time: string | null;
+          /** @enum {string} */
+          meaning:
+            | "published"
+            | "updated"
+            | "registered"
+            | "public_inspection"
+            | "formally_published"
+            | "signed"
+            | "effective"
+            | "applicable"
+            | "deadline"
+            | "compiled"
+            | "expires"
+            | "event"
+            | "discovered"
+            | "site_public"
+            | "uploaded"
+            | "checked"
+            | "repealed";
+          meaning_label: string;
+          /**
+           * @default date
+           * @enum {string}
+           */
+          precision: "unknown" | "date" | "minute" | "second";
+          raw: string;
+          timezone: string | null;
+          utc: string | null;
+        } | null;
+        /** Format: date-time */
+        timelineAt: string;
+      };
+      archive: boolean;
+      articleId: string;
+      before: {
+        backfill: boolean;
+        backfillReason: string | null;
+        publishedAt: string | null;
+        sourceTime: {
+          basis: string;
+          beijing_date: string | null;
+          condition_text: string | null;
+          label: string;
+          local_date: string | null;
+          local_time: string | null;
+          /** @enum {string} */
+          meaning:
+            | "published"
+            | "updated"
+            | "registered"
+            | "public_inspection"
+            | "formally_published"
+            | "signed"
+            | "effective"
+            | "applicable"
+            | "deadline"
+            | "compiled"
+            | "expires"
+            | "event"
+            | "discovered"
+            | "site_public"
+            | "uploaded"
+            | "checked"
+            | "repealed";
+          meaning_label: string;
+          /**
+           * @default date
+           * @enum {string}
+           */
+          precision: "unknown" | "date" | "minute" | "second";
+          raw: string;
+          timezone: string | null;
+          utc: string | null;
+        } | null;
+        /** Format: date-time */
+        timelineAt: string;
+      };
+      changed: boolean;
+      hash: string;
+      /** @enum {string} */
+      mode: "history" | "live";
+      ready: boolean;
+      reason: string | null;
+      version: number;
+    };
+    AdminDatePlanInput: {
+      after: {
+        backfill: boolean;
+        backfillReason: string | null;
+        publishedAt: string | null;
+        sourceTime: {
+          basis: string;
+          beijing_date: string | null;
+          condition_text: string | null;
+          label: string;
+          local_date: string | null;
+          local_time: string | null;
+          /** @enum {string} */
+          meaning:
+            | "published"
+            | "updated"
+            | "registered"
+            | "public_inspection"
+            | "formally_published"
+            | "signed"
+            | "effective"
+            | "applicable"
+            | "deadline"
+            | "compiled"
+            | "expires"
+            | "event"
+            | "discovered"
+            | "site_public"
+            | "uploaded"
+            | "checked"
+            | "repealed";
+          meaning_label: string;
+          /**
+           * @default date
+           * @enum {string}
+           */
+          precision: "unknown" | "date" | "minute" | "second";
+          raw: string;
+          timezone: string | null;
+          utc: string | null;
+        } | null;
+        /** Format: date-time */
+        timelineAt: string;
+      };
+      archive: boolean;
+      articleId: string;
+      before: {
+        backfill: boolean;
+        backfillReason: string | null;
+        publishedAt: string | null;
+        sourceTime: {
+          basis: string;
+          beijing_date: string | null;
+          condition_text: string | null;
+          label: string;
+          local_date: string | null;
+          local_time: string | null;
+          /** @enum {string} */
+          meaning:
+            | "published"
+            | "updated"
+            | "registered"
+            | "public_inspection"
+            | "formally_published"
+            | "signed"
+            | "effective"
+            | "applicable"
+            | "deadline"
+            | "compiled"
+            | "expires"
+            | "event"
+            | "discovered"
+            | "site_public"
+            | "uploaded"
+            | "checked"
+            | "repealed";
+          meaning_label: string;
+          /**
+           * @default date
+           * @enum {string}
+           */
+          precision: "unknown" | "date" | "minute" | "second";
+          raw: string;
+          timezone: string | null;
+          utc: string | null;
+        } | null;
+        /** Format: date-time */
+        timelineAt: string;
+      };
+      changed: boolean;
+      hash: string;
+      /** @enum {string} */
+      mode: "history" | "live";
+      ready: boolean;
+      reason: string | null;
+      version: number;
+    };
+    AdminDateResult: {
+      archived: boolean;
+      articleId: string;
+      publishedAt: string | null;
+      revision: number;
+      /** @enum {string} */
+      status: "corrected" | "unchanged";
+    };
+    AdminDateResultInput: {
+      archived: boolean;
+      articleId: string;
+      publishedAt: string | null;
+      revision: number;
+      /** @enum {string} */
+      status: "corrected" | "unchanged";
+    };
+    AdminFeedbackBan: {
+      expiresAt?: string | null;
+      reason: string;
+      sourceHash: string;
+    };
+    AdminFeedbackBanInput: {
+      expiresAt?: string | null;
+      reason: string;
+      sourceHash: string;
+    };
+    AdminFeedbackEmailBan: {
+      reason: string;
+    };
+    AdminFeedbackEmailBanInput: {
+      reason: string;
+    };
+    AdminFeedbackEmailBanResult: {
+      /** Format: date-time */
+      expiresAt: string;
+      key: string;
+    };
+    AdminFeedbackEmailBanResultInput: {
+      /** Format: date-time */
+      expiresAt: string;
+      key: string;
+    };
+    AdminPresentationRefresh: {
+      applied: boolean;
+      changed: boolean;
+      images: {
+        after: number;
+        before: number;
+      };
+      links: {
+        after: number;
+        before: number;
+      };
+      ready: boolean;
+      reason: string | null;
+      revision: number;
+      /** @enum {string} */
+      translation: "absent" | "reused" | "source" | "manual" | "blocked";
+      version: string;
+    };
+    AdminPresentationRefreshInput: {
+      applied: boolean;
+      changed: boolean;
+      images: {
+        after: number;
+        before: number;
+      };
+      links: {
+        after: number;
+        before: number;
+      };
+      ready: boolean;
+      reason: string | null;
+      revision: number;
+      /** @enum {string} */
+      translation: "absent" | "reused" | "source" | "manual" | "blocked";
+      version: string;
+    };
+    AdminRerunResult:
+      | {
+          jobId: string | null;
+        }
+      | components["schemas"]["AdminPresentationRefresh"];
+    AdminRerunResultInput:
+      | {
+          jobId: string | null;
+        }
+      | components["schemas"]["AdminPresentationRefreshInput"];
     AdminSiteInformation: {
       information: components["schemas"]["SiteInformation"];
       protected: components["schemas"]["ProtectedSiteInformation"];
@@ -4016,6 +4414,406 @@ export interface operations {
       };
       /** @description Problem response */
       500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  adminDateCorrection: {
+    parameters: {
+      query?: never;
+      header: {
+        "idempotency-key": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminDateCorrectionInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminDateResult"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  adminDatePreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminDateIntentInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminDatePlan"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  adminContentRerun: {
+    parameters: {
+      query?: never;
+      header: {
+        "idempotency-key": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminContentRerunInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRerunResult"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  adminFeedbackBan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminFeedbackBanInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  adminFeedbackEmailBan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminFeedbackEmailBanInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminFeedbackEmailBanResult"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
         headers: {
           [name: string]: unknown;
         };
