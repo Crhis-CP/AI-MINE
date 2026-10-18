@@ -245,6 +245,7 @@
 | [TASK-0371](TASK-0371.md) | T-0101 | M3 | architect | integrated | 引擎任务载荷与类型化队列契约 | — |
 | [TASK-0372](TASK-0372.md) | T-0101 | M3 | architect | integrated | 补齐构建迁移与规则入口的根路径 | — |
 | [TASK-0373](TASK-0373.md) | T-0101 | M3 | architect | integrated | 目录材料与模块处理交接契约 | — |
+| [TASK-0374](TASK-0374.md) | T-0101 | M3 | architect | integrated | 聚合组未读成员契约 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

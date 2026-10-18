@@ -741,6 +741,12 @@
               }
             ]
           },
+          "memberIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "reportCount": {
             "type": "number"
           },
@@ -804,6 +810,12 @@
                 "type": "null"
               }
             ]
+          },
+          "memberIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "reportCount": {
             "type": "number"
