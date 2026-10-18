@@ -22,6 +22,8 @@ import { promptVersion } from "../editorial/prompts.ts";
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
 interface DetailRow extends ItemRow {
+  /** Persisted release gate, independent of the confirmed selection badge. */
+  release_gated: boolean;
   first_public_at: Date | null;
   body_html: string | null;
   manual_body_html: string | null;
@@ -59,7 +61,7 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS()}, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
+    SELECT ${ITEM_COLUMNS()}, p.selected AS release_gated, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
       s.syndicate_fulltext AS source_syndicate_fulltext,p.summary AS machine_summary,
       jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
         'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
@@ -219,7 +221,7 @@ export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDe
 /** Machine reading never inherits the website's source-excerpt fallback or its full-text licence. */
 export async function machineItemDetail(id: string, language: "zh" | "original" = "zh", now = new Date()) {
   const found = await loadItemDetail(id, now, true);
-  if (found.kind !== "found" || (found.row.selected && (!found.row.visible_after || found.row.visible_after > now))) return null;
+  if (found.kind !== "found" || (found.row.release_gated && (!found.row.visible_after || found.row.visible_after > now))) return null;
   const { score: _score, ...view } = siteItemDetail(found.detail, language === "original"),
     allowed = found.row.syndicate && found.row.source_syndicate_fulltext && found.row.source_site_fulltext && view.readingMode === "full";
   const html = view.body?.zh ?? view.body?.original ?? null,
