@@ -1,10 +1,11 @@
+import { engineQueueNames } from "./typed-queue.ts";
 import type { PgBoss } from "pg-boss";
 import { serverModules, type ModuleQueue } from "../modules.ts";
-import { ensureQueue, QUEUES } from "./queue.ts";
+import { ensureQueue } from "./queue.ts";
 
 /** Validate the complete set before creating queues or registering any consumer. */
 export async function workQueues(boss: PgBoss, queues: readonly ModuleQueue[]): Promise<void> {
-  const names = new Set<string>(Object.values(QUEUES));
+  const names = new Set<string>(engineQueueNames);
   for (const queue of queues) {
     if (!queue.name.trim() || names.has(queue.name)) throw new Error(`Invalid or duplicate module queue: ${queue.name}`);
     names.add(queue.name);
@@ -23,3 +24,5 @@ export function workModuleQueues(boss: PgBoss): Promise<void> {
     serverModules().flatMap((module) => module.queues ?? []),
   );
 }
+
+export { enqueueJob, enqueueOn, work } from "./typed-queue.ts";

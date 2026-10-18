@@ -3,7 +3,8 @@ import { claimPendingGrouping } from "../content/grouping.ts";
 import { activeNewsSourceIds } from "../admin/sources.ts";
 import { receiptWaitingForRecovery } from "../providers/receipts.ts";
 import { requireRuntimeRunning, RuntimeControlPaused } from "../operations/lane-controls.ts";
-import { ensureQueue, enqueue, QUEUES } from "../jobs/queue.ts";
+import { ensureQueue, QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 
 /** Persistent continuation for legacy and interrupted grouping. Existing scores and receipts stay intact. */
 export async function recoverPendingGroupings(limit = 50) {
@@ -20,7 +21,7 @@ export async function recoverPendingGroupings(limit = 50) {
           waiting++;
           continue;
         }
-        if (await enqueue(QUEUES.group, { articleId: row.id }, { singletonKey: row.id }, tx)) enqueued++;
+        if (await enqueue(QUEUES.group, { lane: "news", articleId: row.id }, { singletonKey: row.id }, tx)) enqueued++;
       }
       return { examined: rows.length, enqueued, waiting, paused: false };
     });

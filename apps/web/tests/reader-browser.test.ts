@@ -86,9 +86,11 @@ const api = createServer((req, res) => {
   const answer = (value: unknown) => {
     if (url.searchParams.get("q") === "并行测试" && ["/api/site/pool", "/api/site/policies"].includes(url.pathname)) {
       const news = url.pathname === "/api/site/pool";
-      searchTimes[news ? "newsStart" : "policyStart"] = Date.now();
+      const start = news ? "newsStart" : "policyStart";
+      const first = searchTimes[start] === 0;
+      if (first) searchTimes[start] = Date.now();
       setTimeout(() => {
-        searchTimes[news ? "newsEnd" : "policyEnd"] = Date.now();
+        if (first) searchTimes[news ? "newsEnd" : "policyEnd"] = Date.now();
         res.end(JSON.stringify(value));
       }, 400);
       return;
@@ -513,6 +515,7 @@ test("saved references import/export and partial refresh preserve usable content
 });
 
 test("news search runs alongside its optional policy search, and invalid dates retain editable filters", { timeout: 20000 }, async () => {
+  Object.assign(searchTimes, { newsStart: 0, newsEnd: 0, policyStart: 0, policyEnd: 0 });
   withdrawn = false;
   added = false;
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN" });

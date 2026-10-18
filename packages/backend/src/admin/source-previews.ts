@@ -3,7 +3,7 @@ import { addAbortListener } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { enqueue } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { Conflict, readCurrentSourcePolicy, evaluateSourcePolicy, previewSource } from "./sources.ts";
 import { audit } from "./auth.ts";
 import type { SourceRow } from "../sources/types.ts";
@@ -20,6 +20,14 @@ type SourcePreview = {
   result: Awaited<ReturnType<typeof previewSource>> | null;
 };
 export const SOURCE_PREVIEW_QUEUE = "sources.preview";
+
+/** The durable preview, not a queue payload, identifies the source and its lane. */
+export async function sourcePreviewLane(previewId: string) {
+  const [row] = await sql<
+    { lane: SourceRow["lane"] }[]
+  >`SELECT s.lane FROM sources.source_previews p JOIN sources s ON s.id=p.source_id WHERE p.id=${previewId}`;
+  return row?.lane ?? null;
+}
 export const sourcePreviewHash = (kind: string, config: unknown) => sha256(stableJson([kind, config]));
 export async function saveSourceDraft(sourceId: string, kind: string, config: Record<string, unknown>, actor: string, db: Db = sql) {
   const [draft] = await db<SourceDraft[]>`INSERT INTO sources.source_config_drafts(source_id,kind,config,config_hash,actor)
@@ -169,7 +177,7 @@ async function executeSourcePreview(preview: SourcePreview, token: string, signa
 /** Worker recovery: expired executions are fenced and requeued atomically, including after process death. */
 export async function recoverSourcePreviews(limit = 100): Promise<{ reenqueued: number }> {
   return sql.begin(async (tx) => {
-    const rows = await tx<{ id: number; lane: string; archived_at: Date | null }[]>`SELECT p.id,s.lane,s.archived_at
+    const rows = await tx<{ id: number; lane: SourceRow["lane"]; archived_at: Date | null }[]>`SELECT p.id,s.lane,s.archived_at
       FROM sources.source_previews p JOIN sources s ON s.id=p.source_id
       WHERE p.status='running' AND (p.lease_until IS NULL OR p.lease_until<=now())
       ORDER BY p.id LIMIT ${Math.min(100, Math.max(1, limit))} FOR UPDATE OF p SKIP LOCKED`;

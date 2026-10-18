@@ -35,7 +35,8 @@ import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT } from "../editorial/translation-readiness.ts";
 import { readStoredTranslation } from "../editorial/translation-store.ts";
 import { itemUrl } from "./links.ts";
-import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
+import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
 import { projectNewsGeography } from "./news-geography.ts";
 
@@ -361,7 +362,7 @@ export async function publishArticleTx(
     (!override?.visibility || override.visibility === "public");
   if (needsTranslation) {
     if (forTranslation) forTranslation(article.revision);
-    else await enqueue(QUEUES.translate, { articleId }, { singletonKey: articleId }, tx);
+    else await enqueue(QUEUES.translate, { articleId, lane: "news" }, { singletonKey: articleId }, tx);
   }
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ?? null) : null;
   const syndicate = mayRedistribute(source, bodyMode);
@@ -525,7 +526,12 @@ export async function publishArticleTx(
   // backfill or stale-on-discovery material); it runs after the release gate opens.
   if (selected && !previousRelease && !options.releasedAt && !article.backfill && visibility === "public") {
     const at = visibleAfter && visibleAfter > now ? visibleAfter : now;
-    await enqueue(QUEUES.notifySelected, { articleId }, { singletonKey: `selected:${articleId}`, startAfter: new Date(at.getTime() + 5_000) }, tx);
+    await enqueue(
+      QUEUES.notifySelected,
+      { articleId, lane: "news" },
+      { singletonKey: `selected:${articleId}`, startAfter: new Date(at.getTime() + 5_000) },
+      tx,
+    );
   }
 
   const seatChanges = await settleSelectedSeats(tx, articleId, previous?.fact_id ?? null, now);
@@ -621,7 +627,7 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
       if (seat)
         await enqueue(
           QUEUES.notifySelected,
-          { articleId: row.article_id },
+          { articleId: row.article_id, lane: "news" },
           { singletonKey: `selected:${row.article_id}`, startAfter: new Date(now.getTime() + 5000) },
           tx,
         );

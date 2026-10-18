@@ -15,7 +15,8 @@ import {
   type RuntimeControlSnapshot,
 } from "../operations/lane-controls.ts";
 import { config } from "../config.ts";
-import { enqueue, ensureQueue } from "../jobs/queue.ts";
+import { ensureQueue } from "../jobs/queue.ts";
+import { enqueueJob as enqueue, work } from "../jobs/module-queues.ts";
 
 const queues = { news: "news.model-test", policy: "policy.model-test" } as const;
 const knownUsage = (usage: Record<string, unknown> | null) =>
@@ -101,10 +102,13 @@ export async function queueModelConnectionProbe(request: { id: string; lane: "ne
 export async function registerModelConnectionProbeJobs(boss: PgBoss, options: { transport?: RegisteredModelTransport } = {}) {
   for (const lane of ["news", "policy"] as const) {
     await ensureQueue(queues[lane]);
-    await boss.work<{ id: string; lane: "news" | "policy" }>(queues[lane], async (jobs) => {
-      for (const job of jobs)
-        if (job.data.lane === lane && (await modelProbeRecord(job.data.id)).lane === lane) await runModelConnectionProbe(job.data.id, options);
-    });
+    await work(
+      boss,
+      queues[lane],
+      {},
+      async (data) => (await modelProbeRecord(data.id)).lane,
+      (data) => runModelConnectionProbe(data.id, options),
+    );
   }
 }
 

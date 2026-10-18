@@ -1,11 +1,11 @@
 import type { PgBoss } from "pg-boss";
-import { defineQueue } from "@amp/backend/modules";
-import { workQueues } from "@amp/backend/jobs/module-queues";
+import { defineQueue, type ModuleQueue } from "@amp/backend/modules";
+import { workQueues, enqueueOn } from "@amp/backend/jobs/module-queues";
 import { z } from "zod";
 import { CrawlDeferred, CrawlObsolete } from "@amp/backend/acquisition/crawl";
 import { publishPolicyPublication } from "./publication/policies-publish.ts";
 import { sourceCollectionEnabled } from "@amp/backend/config";
-import { ensureQueue, enqueue, recordRun, shutdownSignal } from "@amp/backend/jobs/queue";
+import { ensureQueue, recordRun, shutdownSignal } from "@amp/backend/jobs/queue";
 import {
   advancePolicyMaterial,
   deferPolicyWorkflow,
@@ -25,23 +25,26 @@ const Job = z.strictObject({
   directoryHash: z.string().min(1).optional(),
 });
 export async function ensurePolicyQueues() {
-  for (const stage of POLICY_STAGES) await ensureQueue(`policy.${stage}`, { policy: "exclusive", retryLimit: 0, expireInSeconds: 600 });
+  for (const queue of policyQueues()) await ensureQueue(queue.name, queue.options);
 }
 /** Same scheduler/queue infrastructure, separate lane and workers; no reader-triggered writes. */
 export async function sweepPolicyMaterials() {
   await ensurePolicyQueues();
   const discovery = await discoverPolicyWorkflows();
   let enqueued = 0;
+  const queues = policyQueues();
   for (const row of await duePolicyWorkflows()) {
     if (shutdownSignal.signal.aborted) break;
     const job: PolicyJob = { lane: "policy", sourceId: row.source_id, materialId: row.material_id };
-    if (await enqueue(`policy.${row.stage}`, job, { singletonKey: `${row.source_id}:${row.material_id}` })) enqueued++;
+    const queue = queues.find((entry) => entry.name === `policy.${row.stage}`);
+    if (!queue) throw new Error("Unknown policy task stage");
+    if (await enqueueOn(queue, job, { singletonKey: `${row.source_id}:${row.material_id}` })) enqueued++;
   }
   return { ...discovery, enqueued };
 }
 export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPolicyPublication }) {
-  return POLICY_STAGES.map((stage) =>
-    defineQueue<PolicyJob>({
+  return POLICY_STAGES.map((stage) => {
+    const queue: ModuleQueue<PolicyJob> = defineQueue<PolicyJob>({
       name: `policy.${stage}`,
       options: { policy: "exclusive", retryLimit: 0, expireInSeconds: 600 },
       worker: { localConcurrency: 2, pollingIntervalSeconds: 2, batchSize: 1 },
@@ -56,8 +59,8 @@ export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPo
             if (error instanceof CrawlObsolete) return { status: "obsolete" };
             if (error instanceof CrawlDeferred) {
               await deferPolicyWorkflow(data, error.retryAt);
-              await enqueue(
-                `policy.${stage}`,
+              await enqueueOn(
+                queue,
                 { ...data, directoryHash: undefined, ...(error.sessionId ? { crawlSessionId: error.sessionId } : {}) },
                 { startAfter: error.retryAt, singletonKey: `${data.sourceId}:${data.materialId}:${error.reservationId}:${error.retryAt.toISOString()}` },
               );
@@ -68,8 +71,9 @@ export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPo
           }
         });
       },
-    }),
-  );
+    });
+    return queue;
+  });
 }
 /** Compatibility for callers supplying isolated automation ports. */
 export function registerPolicyJobs(boss: PgBoss, ports?: PolicyAutomationPorts) {

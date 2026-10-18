@@ -1,6 +1,8 @@
+import type { PgBoss } from "pg-boss";
 import { sql, type Db } from "../db.ts";
 import { stableJson } from "../lib/ids.ts";
-import { enqueue, ensureQueue } from "../jobs/queue.ts";
+import { ensureQueue, recordRun } from "../jobs/queue.ts";
+import { enqueueJob as enqueue, work } from "../jobs/module-queues.ts";
 import { currentReportPublications, lockReportPublications } from "@amp/backend/publication/publish";
 import { readCurrentSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
 import { isReportWithdrawn } from "@amp/backend/publication/reports";
@@ -131,4 +133,18 @@ export async function enqueuePendingReportCorrections(limit = 20) {
   for (const row of rows)
     await enqueue(REPORT_CORRECTION_QUEUE, { reportId: String(row.report_id), lane: "news" }, { singletonKey: `${row.report_id}:${row.requested_revision}` });
   return { queued: rows.length };
+}
+
+export async function registerReportCorrectionJobs(boss: PgBoss) {
+  await ensureReportCorrectionQueue();
+  await work(
+    boss,
+    REPORT_CORRECTION_QUEUE,
+    { localConcurrency: 1, pollingIntervalSeconds: 2 },
+    async () => "news",
+    async (data) => {
+      if (typeof data.reportId !== "string" || !/^[1-9]\d*$/.test(data.reportId)) throw new Error("Invalid report correction task");
+      return recordRun(REPORT_CORRECTION_QUEUE, () => correctNewsReport(data.reportId));
+    },
+  );
 }

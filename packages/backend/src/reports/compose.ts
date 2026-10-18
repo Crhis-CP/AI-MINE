@@ -302,6 +302,7 @@ export async function catchUpReports(now = new Date(), limit = 8): Promise<{ gen
 export {
   ensureReportCorrectionQueue,
   correctNewsReport,
+  registerReportCorrectionJobs,
   enqueuePendingReportCorrections,
   invalidateReportCorrections,
   REPORT_CORRECTION_QUEUE,

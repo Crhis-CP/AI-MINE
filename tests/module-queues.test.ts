@@ -4,8 +4,8 @@ import { after, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { closeDb } from "@amp/backend/db";
 import { defineQueue, installModules } from "@amp/backend/modules";
-import { workModuleQueues, workQueues } from "@amp/backend/jobs/module-queues";
-import { enqueue, getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
+import { workModuleQueues, workQueues, enqueueJob, enqueueOn } from "@amp/backend/jobs/module-queues";
+import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 
 after(async () => {
   installModules([]);
@@ -15,7 +15,7 @@ after(async () => {
 
 test("an installed module consumes durable queue data with its own options and receives every batched item", async () => {
   const received: number[] = [];
-  const queue = defineQueue<{ value: number }>({
+  const queue = defineQueue<{ value: number; lane: "news" }>({
     name: "fixture-module.capture",
     options: { policy: "standard", retryLimit: 0, expireInSeconds: 60 },
     worker: { batchSize: 2, pollingIntervalSeconds: 1 },
@@ -27,8 +27,8 @@ test("an installed module consumes durable queue data with its own options and r
   installModules([{ name: "fixture-module", queues: [queue] }]);
   const boss = await getBoss();
   await workModuleQueues(boss);
-  await enqueue(queue.name, { value: 1 });
-  await enqueue(queue.name, { value: 2 });
+  await enqueueOn(queue, { value: 1, lane: "news" });
+  await enqueueOn(queue, { value: 2, lane: "news" });
   for (let attempt = 0; attempt < 200 && received.length < 2; attempt++) await delay(50);
   assert.deepEqual(received.sort(), [1, 2]);
   let finished = (await boss.findJobs(queue.name)).filter((job) => job.state === "completed");
@@ -50,4 +50,7 @@ test("duplicate module or engine queue names are rejected before any queue is cr
   await assert.rejects(workQueues(boss, [queue, queue]), /duplicate module queue/);
   assert.equal(await boss.getQueue(queue.name), null);
   await assert.rejects(workQueues(boss, [{ ...queue, name: QUEUES.analyze }]), /duplicate module queue/);
+  await assert.rejects(workQueues(boss, [{ ...queue, name: "sources.preview" }]), /duplicate module queue/);
+  assert.throws(() => enqueueJob(QUEUES.analyze, { articleId: "fixture", lane: "policy" } as never), /lane/);
+  assert.throws(() => enqueueJob(QUEUES.analyze, { articleId: "fixture" } as never), /lane/);
 });

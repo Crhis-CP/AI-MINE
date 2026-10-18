@@ -1,7 +1,8 @@
 import { runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import type { SendOptions } from "pg-boss";
 import type { Db } from "../db.ts";
-import { ensureQueue, enqueue, getBoss } from "./queue.ts";
+import { ensureQueue, getBoss } from "./queue.ts";
+import { enqueueJob as enqueue } from "./module-queues.ts";
 export { sourceCollectionEnabled as collectionEnabled, sourceCollectionConcurrency as collectionConcurrency } from "../config.ts";
 
 export type CollectionLane = "news" | "policy";

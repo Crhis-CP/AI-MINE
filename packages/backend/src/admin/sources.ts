@@ -1,11 +1,19 @@
 import { saveSourceDraft, requireSuccessfulSourcePreview } from "./source-previews.ts";
-export { recoverSourcePreviews, requestSourcePreview, runSourcePreview, sourcePreviewState, SOURCE_PREVIEW_QUEUE } from "./source-previews.ts";
+export {
+  recoverSourcePreviews,
+  sourcePreviewLane,
+  requestSourcePreview,
+  runSourcePreview,
+  sourcePreviewState,
+  SOURCE_PREVIEW_QUEUE,
+} from "./source-previews.ts";
 import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
 import { sql, type Db, type Tx } from "../db.ts";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { enqueueSourceFetch } from "../jobs/source-queues.ts";
 import { republishKey, queueSourceRepublication } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
@@ -198,7 +206,7 @@ export async function updateSource(
     await audit(actor, "source.update", `source:${id}`, input.reason ?? null, Object.fromEntries(keys.map((k) => [k, before[k]])), patch, undefined, tx);
     // What public exits show for this source's articles is derived from these fields: re-derive them
     // all (in the worker) so a revoked licence or an isolated source stops on every exit.
-    if (keys.some((k) => PUBLICATION_FIELDS.includes(k) && JSON.stringify(before[k]) !== JSON.stringify(patch[k]))) {
+    if (before.lane === "news" && keys.some((k) => PUBLICATION_FIELDS.includes(k) && JSON.stringify(before[k]) !== JSON.stringify(patch[k]))) {
       await queueSourceRepublication(id, actor, tx);
     }
     return after;
@@ -302,7 +310,7 @@ export async function fetchNow(id: string, actor: string) {
   await requireRuntimeRunning(s.lane, ["collection"]);
   const jobId =
     s.kind === "mp_account"
-      ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual" }, { singletonKey: `mp:${id}` })
+      ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual", lane: s.lane }, { singletonKey: `mp:${id}` })
       : await enqueueSourceFetch(s.lane, { sourceId: id, force: true });
   await audit(actor, "source.fetch", `source:${id}`, null, null, { jobId });
   return { jobId };

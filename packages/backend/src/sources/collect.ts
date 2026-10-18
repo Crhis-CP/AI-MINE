@@ -18,7 +18,8 @@ import {
   evaluateSourcePolicy,
   readSourceDateContext,
 } from "@amp/backend/admin/sources";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { enqueueSourceFetch, collectionEnabled, type CollectionLane } from "../jobs/source-queues.ts";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { queueProcessing } from "../jobs/content.ts";
@@ -150,7 +151,7 @@ async function store(
     if (res.created || res.revised || res.sourceTimeChanged) await queueProcessing(res.articleId);
   }
   // Republishing is a news step; policy material is never published as news (ADR-0016).
-  if (metadataChanged && lane === "news") await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
+  if (metadataChanged && lane === "news") await enqueue(QUEUES.republishSource, { lane: "news", sourceId }, { singletonKey: sourceId });
   return { created, revised };
 }
 

@@ -3,7 +3,8 @@ import { sql } from "../db.ts";
 import { z } from "zod";
 import { latestSuccessfulRunResult } from "../admin/runs.ts";
 import { modelFor } from "./models.ts";
-import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
+import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { promptText, promptVersion } from "./prompts.ts";
 import { TRANSLATION_MANIFEST_FORMAT } from "./translation-readiness.ts";
 import { releasedTranslationScopes } from "../providers/receipts.ts";
@@ -83,7 +84,7 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
   for (const row of rows) {
     if (shutdownSignal.signal.aborted || Date.now() - started >= (opts.budgetMs ?? 4 * 60_000)) break;
     if (!stopReason(row, recovered.has(`article:${row.article_id}@${row.revision}`))) {
-      const queued = await enqueue(QUEUES.translate, { articleId: row.article_id }, { singletonKey: row.article_id });
+      const queued = await enqueue(QUEUES.translate, { articleId: row.article_id, lane: "news" }, { singletonKey: row.article_id });
       if (queued === undefined) break; // An expired producer gives no durable acceptance evidence.
       if (queued) enqueued++;
     }

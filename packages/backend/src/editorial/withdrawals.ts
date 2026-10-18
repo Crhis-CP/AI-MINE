@@ -12,7 +12,7 @@ import {
 } from "@amp/backend/publication/publish";
 import { audit } from "../admin/auth.ts";
 import { Conflict } from "../admin/sources.ts";
-import { enqueue } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 
 type Active = { id: number; member_ids: string[]; reason: string; created_at: Date };
 async function snapshot(target: WithdrawalTarget, db: Db) {

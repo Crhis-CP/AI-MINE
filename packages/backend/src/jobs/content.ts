@@ -19,7 +19,8 @@ import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUn
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
 import { ModelOutputError } from "../providers/llm.ts";
-import { ensureQueue, enqueue, QUEUES, shutdownSignal } from "./queue.ts";
+import { ensureQueue, QUEUES, shutdownSignal } from "./queue.ts";
+import { enqueueJob as enqueue, work } from "./module-queues.ts";
 
 /** Minutes to wait after the n-th failed attempt; one more failure after the last ends in "failed". */
 const RETRY_MINUTES = [5, 10, 20, 40, 60, 120, 240, 360];
@@ -43,6 +44,7 @@ interface Route {
   language: string | null;
   /** The source is on the news line; policy material never enters news processing. */
   news: boolean;
+  lane: "news" | "policy";
 }
 
 /**
@@ -56,7 +58,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       body_status: string;
       language: string | null;
       participation_mode: string;
-      lane: string;
+      lane: "news" | "policy";
       kind: string;
       config: Record<string, unknown>;
       url: string;
@@ -82,6 +84,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
     historical,
     language: normalizeSourceLanguage(row.language),
     news: row.lane === "news",
+    lane: row.lane,
   };
 }
 
@@ -125,7 +128,7 @@ export async function queueProcessing(
     return record(
       enqueue(
         QUEUES.extractBody,
-        { articleId },
+        { lane: "news", articleId },
         { singletonKey: articleId, priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.live },
         opts.db,
       ),
@@ -134,7 +137,7 @@ export async function queueProcessing(
     return record(
       enqueue(
         QUEUES.group,
-        { articleId, signalOnly: true },
+        { lane: "news", articleId, signalOnly: true },
         { singletonKey: articleId, priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.liveSignal },
         opts.db,
       ),
@@ -144,7 +147,7 @@ export async function queueProcessing(
   return record(
     enqueue(
       QUEUES.analyze,
-      tagged ? { articleId, attemptTag: opts.attemptTag } : { articleId },
+      { ...(tagged ? { articleId, attemptTag: opts.attemptTag } : { articleId }), lane: "news" },
       {
         singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId,
         priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.live,
@@ -198,7 +201,7 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
   if (row.participation_mode !== "editorial") {
     // Normally queued straight for grouping (queueProcessing); an explicit re-evaluation lands here.
     const { group } = await settleNonEditorial(articleId, found.revision);
-    if (group) await enqueue(QUEUES.group, { articleId, signalOnly: true }, { singletonKey: articleId, priority: PRIORITY.liveSignal });
+    if (group) await enqueue(QUEUES.group, { lane: "news", articleId, signalOnly: true }, { singletonKey: articleId, priority: PRIORITY.liveSignal });
     return { state: "skipped" };
   }
   try {
@@ -215,7 +218,7 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     const publication = await publishArticle(articleId);
     // History is archived but founds no event (isHistorical).
     if (result.output.relevance === "pass" && publication?.visibility === "public" && !row.historical)
-      await enqueue(QUEUES.group, { articleId }, { singletonKey: articleId, priority: PRIORITY.live });
+      await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: PRIORITY.live });
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
@@ -286,34 +289,32 @@ async function materialRevision(articleId: string): Promise<number | undefined> 
 
 export async function registerContentJobs(boss: PgBoss, concurrency = Number(process.env.ANALYZE_CONCURRENCY || 6)) {
   await ensureQueue(QUEUES.translate);
-  await boss.work<{ articleId: string }>(QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
-    if (!job) return;
-    const inputRevision = await materialRevision(job.data.articleId);
+  await work(boss, QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, async (data) => {
+    const inputRevision = await materialRevision(data.articleId);
     if (inputRevision === undefined) return { state: "missing" };
     try {
-      const revision = await prepareTranslation(job.data.articleId);
+      const revision = await prepareTranslation(data.articleId);
       if (revision === null) return { state: "not-needed-or-not-permitted" };
-      const result = await translateArticle(job.data.articleId, revision);
+      const result = await translateArticle(data.articleId, revision);
       if (result.reason === "attempts_exhausted") return result;
       if (result.status !== "translated" && ["text_limit", "pending_capacity"].includes(result.reason ?? "")) {
-        await publishArticle(job.data.articleId);
+        await publishArticle(data.articleId);
         return result;
       }
       if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
-      const publication = await publishArticle(job.data.articleId);
-      const r = await route(job.data.articleId, sql);
+      const publication = await publishArticle(data.articleId);
+      const r = await route(data.articleId, sql);
       if (publication?.visibility === "public" && r && !r.historical)
-        await enqueue(QUEUES.group, { articleId: job.data.articleId }, { singletonKey: job.data.articleId, priority: PRIORITY.live });
+        await enqueue(QUEUES.group, { lane: "news", articleId: data.articleId }, { singletonKey: data.articleId, priority: PRIORITY.live });
       return result;
     } catch (error) {
-      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(job.data.articleId, error, inputRevision);
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(data.articleId, error, inputRevision);
       throw error;
     }
   });
   await ensureQueue(QUEUES.analyze);
-  await boss.work<{ articleId: string; attemptTag?: string }>(QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
-    if (!job) return;
-    const { articleId, attemptTag } = job.data;
+  await work(boss, QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, async (data) => {
+    const { articleId, attemptTag } = data;
     const inputRevision = await materialRevision(articleId);
     if (inputRevision === undefined) return { state: "missing" };
     try {
@@ -334,13 +335,12 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
  */
 export async function registerExtractionJobs(boss: PgBoss) {
   await ensureQueue(QUEUES.extractBody);
-  await boss.work<{ articleId: string; crawlSessionId?: string }>(QUEUES.extractBody, { localConcurrency: 4, pollingIntervalSeconds: 2 }, async ([job]) => {
-    if (!job) return;
-    const { articleId } = job.data;
+  await work(boss, QUEUES.extractBody, { localConcurrency: 4, pollingIntervalSeconds: 2 }, articleJobLane, async (data) => {
+    const { articleId } = data;
     const inputRevision = await materialRevision(articleId);
     if (inputRevision === undefined) return { state: "missing" };
     try {
-      const state = await extractArticleBody(articleId, undefined, job.data.crawlSessionId, inputRevision);
+      const state = await extractArticleBody(articleId, undefined, data.crawlSessionId, inputRevision);
       const resultRevision = inputRevision + (state === "ok" ? 1 : 0);
       const changed =
         await sql`UPDATE articles SET processing_error = NULL WHERE id = ${articleId} AND revision=${resultRevision} AND processing_state = 'new' RETURNING id`;
@@ -359,7 +359,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
         }
         await enqueue(
           QUEUES.extractBody,
-          { articleId, crawlSessionId: error.sessionId },
+          { lane: "news", articleId, crawlSessionId: error.sessionId },
           { startAfter: error.retryAt, singletonKey: `${articleId}:${error.reservationId}:${error.retryAt.toISOString()}` },
         );
         return { state: "deferred", retryAt: error.retryAt.toISOString() };
@@ -458,3 +458,8 @@ export async function prepareGeographyBackfill(options: { limit?: number; enqueu
 
 export { registerModelConnectionProbeJobs, runModelConnectionProbe, sweepModelConnectionProbes } from "../providers/model-probe.ts";
 import { CrawlDeferred, CrawlObsolete } from "../acquisition/crawl.ts";
+
+/** Resolve legacy article jobs against their source before any processing or state write. */
+export async function articleJobLane(data: { articleId: string }) {
+  return (await route(data.articleId, sql))?.lane ?? null;
+}

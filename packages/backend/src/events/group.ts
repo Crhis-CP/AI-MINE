@@ -44,7 +44,8 @@ import { chatJson, ModelPostReceiptGuardError } from "../providers/llm.ts";
 import { BudgetExceededError, ReceiptBusyError, ReceiptUnknownError, completeReceipt } from "../providers/receipts.ts";
 import { embeddingsAvailable, ensureEmbeddings } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
-import { enqueue, ensureQueue, QUEUES } from "../jobs/queue.ts";
+import { ensureQueue, QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { publishArticleTx, articleWithdrawalHeld } from "../publication/publish.ts";
 import { mergeStoryInto } from "./merge.ts";
 import { pickRepresentative } from "../publication/representative.ts";
@@ -114,7 +115,7 @@ export async function invalidateWithdrawalStories(target: { type: "event" | "sto
       : await db<{ story_id: number | null }[]>`SELECT id AS story_id FROM stories WHERE public_id::text=${target.id}`;
   for (const id of [...new Set([...rows, ...targetRows].flatMap((r) => (r.story_id === null ? [] : [r.story_id])))].sort((a, b) => a - b)) {
     await db`UPDATE stories SET version=version+1,updated_at=pg_catalog.clock_timestamp() WHERE id=${id}`;
-    await enqueue(QUEUES.digest, { storyId: id, afterCorrection: true }, { singletonKey: `story:${id}:correction` }, db);
+    await enqueue(QUEUES.digest, { lane: "news", storyId: id, afterCorrection: true }, { singletonKey: `story:${id}:correction` }, db);
   }
 }
 import {
@@ -764,7 +765,7 @@ async function resetAutomatic(articleId: string, control: RuntimeControlSnapshot
       await tx`UPDATE stories SET digest=NULL,latest=NULL,digest_updated_at=NULL,version=version+1,updated_at=now()
         WHERE id=${row.story_id} AND NOT EXISTS(SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id=f.id
           WHERE f.story_id=${row.story_id} AND fa.role IN ('primary','report'))`;
-      await enqueue(QUEUES.digest, { storyId: row.story_id, afterCorrection: true }, { singletonKey: `story:${row.story_id}:correction` }, tx);
+      await enqueue(QUEUES.digest, { lane: "news", storyId: row.story_id, afterCorrection: true }, { singletonKey: `story:${row.story_id}:correction` }, tx);
     }
     return left.map((r) => Number(r.story_id));
   });
@@ -1372,7 +1373,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       for (const oldStory of left) {
         await tx`UPDATE stories SET digest=NULL,latest=NULL,digest_updated_at=NULL,version=version+1,updated_at=now()
           WHERE id=${oldStory} AND NOT EXISTS(SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id=f.id WHERE f.story_id=${oldStory} AND fa.role IN ('primary','report'))`;
-        await enqueue(QUEUES.digest, { storyId: oldStory, afterCorrection: true }, { singletonKey: `story:${oldStory}:correction` }, tx);
+        await enqueue(QUEUES.digest, { lane: "news", storyId: oldStory, afterCorrection: true }, { singletonKey: `story:${oldStory}:correction` }, tx);
       }
       await recordDecision(tx, articleId, null, null, unresolved ? "standalone" : "roundup", decisionCandidates, receipts[0] ?? null, {
         revision: a.revision,
@@ -1417,7 +1418,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
         await ensureQueue(EVENT_CONTINUATIONS.consolidate, EVENT_CONTINUATION_OPTIONS);
         await enqueue(
           EVENT_CONTINUATIONS.consolidate,
-          { storyIds: [...tied].sort((a, b) => a - b) },
+          { lane: "news", storyIds: [...tied].sort((a, b) => a - b) },
           { singletonKey: [...tied].sort((a, b) => a - b).join(":"), startAfter: 60 },
         );
       }
@@ -1433,7 +1434,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       result.rematchError = String(error).slice(0, 300);
       if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
         await ensureQueue(EVENT_CONTINUATIONS.rematch, EVENT_CONTINUATION_OPTIONS);
-        await enqueue(EVENT_CONTINUATIONS.rematch, { articleId }, { singletonKey: articleId, startAfter: 60 });
+        await enqueue(EVENT_CONTINUATIONS.rematch, { lane: "news", articleId }, { singletonKey: articleId, startAfter: 60 });
       }
     }
   }
@@ -1480,7 +1481,7 @@ async function rematchSignals(articleId: string, queryText: string): Promise<num
     const similarity = useVectors ? (mine && v ? cosine32(mine, v) : 0) : lexicalSimilarity(queryText, signalText(p));
     if (similarity < SIGNAL_MIN_COSINE) continue;
     // A post still waiting in the queue keeps that job (same key): it will meet the new fact anyway.
-    await enqueue(QUEUES.group, { articleId: p.id, signalOnly: true }, { singletonKey: p.id, priority: -1 });
+    await enqueue(QUEUES.group, { lane: "news", articleId: p.id, signalOnly: true }, { singletonKey: p.id, priority: -1 });
     close += 1;
   }
   return close;

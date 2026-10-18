@@ -9,7 +9,8 @@ import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
 import { currentScheduledJobs } from "../jobs/schedule-status.ts";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { EVENT_CONTINUATIONS } from "../events/queues.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
@@ -164,7 +165,7 @@ async function resumeReceiptWork(row: { purpose: string; subject: string | null;
     const translation = row.purpose === "translate_body";
     return !!(await enqueue(
       translation ? QUEUES.translate : QUEUES.group,
-      { articleId: current.id, ...(row.purpose === "group_signal" ? { signalOnly: true } : {}) },
+      { articleId: current.id, lane: "news", ...(row.purpose === "group_signal" ? { signalOnly: true } : {}) },
       { singletonKey: current.id },
       db,
     ));
@@ -174,13 +175,13 @@ async function resumeReceiptWork(row: { purpose: string; subject: string | null;
     const ids = match?.slice(1).map(Number);
     if (!ids?.every(Number.isSafeInteger)) return false;
     const storyIds = [...new Set(ids)].sort((a, b) => a - b);
-    return !!(await enqueue(EVENT_CONTINUATIONS.consolidate, { storyIds }, { singletonKey: storyIds.join(":") }, db));
+    return !!(await enqueue(EVENT_CONTINUATIONS.consolidate, { lane: "news", storyIds }, { singletonKey: storyIds.join(":") }, db));
   }
   if (row.purpose === "story_digest") {
     const match = /^story:([1-9][0-9]*)@[0-9]+$/.exec(row.subject ?? "");
     const storyId = Number(match?.[1]);
     if (!Number.isSafeInteger(storyId)) return false;
-    return !!(await enqueue(QUEUES.digest, { storyId }, { singletonKey: `story:${storyId}` }, db));
+    return !!(await enqueue(QUEUES.digest, { lane: "news", storyId }, { singletonKey: `story:${storyId}` }, db));
   }
   const subject = ARTICLE_STEPS.has(row.purpose) ? /^article:([a-zA-Z0-9_-]+)(?:@([1-9][0-9]*))?$/.exec(row.subject ?? "") : null;
   if (!subject || (!subject[2] && row.purpose !== "body_fallback")) return false;

@@ -12,7 +12,8 @@ import { GeographyCandidate } from "../editorial/geography.ts";
 import { z } from "zod";
 import { ARTICLE_ID_PATTERN, CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { sql, type Db } from "../db.ts";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { normalizeUrl } from "../lib/url.ts";
 import { publishArticle, publishArticleTx, publishedStoryId } from "../publication/publish.ts";
@@ -256,7 +257,7 @@ export async function overrideFields(
     if (published?.changed) {
       await invalidateReportCorrections(tx, [id], "manual_correction");
       const storyId = await publishedStoryId(id, tx);
-      if (storyId) await enqueue(QUEUES.digest, { storyId, afterCorrection: true }, { singletonKey: `story:${storyId}:correction` }, tx);
+      if (storyId) await enqueue(QUEUES.digest, { lane: "news", storyId, afterCorrection: true }, { singletonKey: `story:${storyId}:correction` }, tx);
     }
     await audit(actor, "content.override", `content:${id}`, input.reason, before.fields, { fields: next, manual_revision_id: draft!.id }, undefined, tx);
     return { draft_id: draft!.id, version: written[0]!.version, status: "active", publication: published };
@@ -278,7 +279,12 @@ export async function rerun(id: string, step: "extract" | "analyze" | "group", r
       const previous = await previousAuditedCommand(actor, "content.rerun.group", `content:${id}`, requestId, tx);
       if (previous) return z.object({ jobId: z.string().nullable() }).parse(previous.result);
       if (!(await requestArticleRegroup(id, tx))) return null;
-      const queued = await enqueue(QUEUES.group, { articleId: id, force: true }, { singletonKey: `manual:group:${actor}:${id}:${requestId}` }, tx);
+      const queued = await enqueue(
+        QUEUES.group,
+        { lane: "news", articleId: id, force: true },
+        { singletonKey: `manual:group:${actor}:${id}:${requestId}` },
+        tx,
+      );
       const result = { jobId: queued };
       await audit(actor, "content.rerun.group", `content:${id}`, null, null, { ...result, requestId }, requestId, tx);
       return result;
@@ -305,7 +311,7 @@ export async function detachFromFact(id: string, reason: string, actor: string) 
   if (facts.length) {
     for (const articleId of await factArticleIds(facts, sql)) await publishArticle(articleId);
   }
-  for (const storyId of stories) await enqueue(QUEUES.digest, { storyId }, { singletonKey: `story:${storyId}` });
+  for (const storyId of stories) await enqueue(QUEUES.digest, { lane: "news", storyId }, { singletonKey: `story:${storyId}` });
   await audit(actor, "content.detach", `content:${id}`, reason, { facts, stories }, null);
   return { detached: facts.length };
 }
