@@ -19,7 +19,7 @@ import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
-import { contentHash, readCurrentBody } from "./materials.ts";
+import { contentHash, updateMaterialPresentation, readCurrentBody } from "./materials.ts";
 
 export interface ExtractedBody {
   html: string;
@@ -159,10 +159,14 @@ async function extractArticleBody(
   const stored = await sql.begin(async (tx) => {
     await assertRuntimeControl(tx, control);
     const [row] = await tx<
-      { title: string; excerpt: string | null }[]
-    >`SELECT title, excerpt FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
+      { title: string; excerpt: string | null; content_hash: string | null }[]
+    >`SELECT title, excerpt, content_hash FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
     if (!row) return false;
     const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
+    if (row.content_hash === hash) {
+      await updateMaterialPresentation(articleId, { html: body.html, bodyStatus: "ok" }, tx);
+      return true;
+    }
     const [r] = await tx<{ revision: number }[]>`
       UPDATE articles SET body_html = ${body.html}, body_text = ${body.text}, body_status = 'ok',
         media = CASE WHEN jsonb_array_length(media) = 0 THEN ${tx.json(got.images as never)}::jsonb ELSE media END,

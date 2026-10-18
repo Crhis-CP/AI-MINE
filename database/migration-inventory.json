@@ -431,6 +431,18 @@
     {
       "name": "publication/202610160700_source_time_binding.sql",
       "dependsOn": ["publication/202610042021_public_source_time.sql"]
+    },
+    {
+      "name": "publication/202610180500_body_presentation_read_version.sql",
+      "dependsOn": ["publication/202610120200_public_read_watermarks.sql", "enrichment/202610042100_translation_readiness.sql"]
+    },
+    {
+      "name": "content/202610180501_body_presentation_read_hook.sql",
+      "dependsOn": ["publication/202610180500_body_presentation_read_version.sql"]
+    },
+    {
+      "name": "enrichment/202610180502_translation_presentation_read_hook.sql",
+      "dependsOn": ["publication/202610180500_body_presentation_read_version.sql"]
     }
   ]
 }

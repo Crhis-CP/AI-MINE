@@ -13,7 +13,7 @@ import { config } from "../config.ts";
 import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
-import { isHistorical } from "../content/materials.ts";
+import { isHistorical, readCurrentBody } from "../content/materials.ts";
 import { publishArticle, prepareTranslation } from "../publication/publish.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
@@ -347,7 +347,11 @@ export async function registerExtractionJobs(boss: PgBoss) {
     if (inputRevision === undefined) return { state: "missing" };
     try {
       const state = await extractArticleBody(articleId, undefined, data.crawlSessionId, inputRevision);
-      const resultRevision = inputRevision + (state === "ok" ? 1 : 0);
+      const current = await readCurrentBody(articleId);
+      if (!current || current.revision < inputRevision || current.revision > inputRevision + (state === "ok" ? 1 : 0)) return { state: "stale" };
+      const resultRevision = current.revision;
+      if (state === "ok" && resultRevision === inputRevision)
+        await enqueue(QUEUES.republishSource, { lane: "news", sourceId: current.source_id }, { singletonKey: current.source_id });
       const changed =
         await sql`UPDATE articles SET processing_error = NULL WHERE id = ${articleId} AND revision=${resultRevision} AND processing_state = 'new' RETURNING id`;
       if (!changed.length) return { state: "stale-or-settled" };

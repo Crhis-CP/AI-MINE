@@ -32,7 +32,8 @@
     "changes/TASK-0367-reader-tools.md",
     "changes/TASK-0367-reader-sharing.md",
     "changes/TASK-0367-feedback-input.md",
-    "changes/TASK-0367-reader-layout.md"
+    "changes/TASK-0367-reader-layout.md",
+    "changes/TASK-0367-presentation.md"
   ],
   "announcement": {
     "kind": "公告",

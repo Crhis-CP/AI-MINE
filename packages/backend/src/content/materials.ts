@@ -1,3 +1,5 @@
+import { refreshTranslationPresentation } from "../editorial/translation-store.ts";
+export { PresentationMismatch } from "../editorial/presentation.ts";
 import { decideTimeline } from "./timeline.ts";
 export { decideTimeline, isHistorical, STALE_ON_DISCOVERY_MS, FUTURE_TOLERANCE_MS, type TimelineDecision } from "./timeline.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
@@ -5,7 +7,7 @@ import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived, 
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
 import { sql, type Db, type Tx } from "../db.ts";
-import { newArticleId, sha256 } from "../lib/ids.ts";
+import { newArticleId, sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult, SourceDateEvidence } from "@amp/contracts/time-assertion";
@@ -46,6 +48,7 @@ export interface MaterialInput extends MaterialSourceDateInput {
 }
 
 interface BaseMaterialResult {
+  presentationChanged?: boolean;
   articleId: string;
   created: boolean;
   revised: boolean;
@@ -99,19 +102,25 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
     if (collectionControl) await lockSourceCollectionActive(tx, m.sourceId);
     await prepareDateMutation(tx, m.sourceId, date);
     if (!collectionControl) await lockSourceNotArchived(tx, m.sourceId);
-    const result = await upsertIn(tx, m);
+    const result = await upsertIn(tx, m, source.lane === "news");
     if (m.collectionDetail)
       await tx`UPDATE articles SET raw=jsonb_set(
       CASE WHEN raw IS NULL THEN '{}'::jsonb WHEN jsonb_typeof(raw)='object' THEN raw ELSE jsonb_build_object('original',raw) END,
       '{collectionDetail}',${tx.json(m.collectionDetail)}) WHERE id=${result.articleId} AND source_id=${m.sourceId}`;
     const metadata = await commitDateObservation(tx, result.articleId, date, Date.now());
     const [head] = metadata.metadataChanged ? await tx<{ backfill: boolean }[]>`SELECT backfill FROM articles WHERE id=${result.articleId}` : [];
-    return MaterialUpdateResult.parse({ ...result, ...metadata, backfill: head?.backfill ?? result.backfill });
+    const { presentationChanged, ...material } = result;
+    return MaterialUpdateResult.parse({
+      ...material,
+      ...metadata,
+      metadataChanged: metadata.metadataChanged || !!presentationChanged,
+      backfill: head?.backfill ?? result.backfill,
+    });
   };
   return typeof (db as typeof sql).begin === "function" ? (db as typeof sql).begin(run) : run(db as Tx);
 }
 
-async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
+async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise<BaseMaterialResult> {
   let identityKey = identityKeyFor(m);
   // Retain this source's existing material IDs while new sources receive independent identities.
   // Serialise first insertion with compatibility lookup; a foreign source can never claim the row.
@@ -171,7 +180,21 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
   const bodyText = m.bodyText ?? existing!.body_text;
   const excerpt = m.excerpt ?? existing!.excerpt;
   const next = contentHash({ title, bodyText, excerpt });
-  if (existing!.content_hash === next) return unchanged;
+  if (existing!.content_hash === next) {
+    const presentationChanged =
+      presentation &&
+      !!(m.bodyHtml?.trim() || m.media?.length) &&
+      (await updateMaterialPresentation(
+        existing!.id,
+        {
+          html: m.bodyHtml?.trim() ? m.bodyHtml : undefined,
+          media: m.bodyHtml?.trim() ? m.media : m.media?.length ? m.media : undefined,
+          bodyStatus: m.bodyHtml?.trim() ? m.bodyStatus : undefined,
+        },
+        db,
+      ));
+    return { ...unchanged, presentationChanged };
+  }
   if (existing!.content_hash === null) {
     // Imported history carries no hash of this form (its collectors normalised differently): the
     // first report here records the baseline instead of a revision, so an import does not send
@@ -202,6 +225,25 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
   await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
            VALUES (${existing!.id}, ${row!.revision}, ${next}, ${title}, ${bodyText})`;
   return { articleId: existing!.id, created: false, revised: true, backfill: existing!.backfill };
+}
+
+/** Only representation changes here; language, semantic revision and human decisions remain intact. */
+export async function updateMaterialPresentation(
+  articleId: string,
+  next: { html?: string; media?: MediaItem[]; bodyStatus?: MaterialInput["bodyStatus"] },
+  db: Db,
+): Promise<boolean> {
+  const [body] = await db<
+    (CurrentBody & { media: MediaItem[] })[]
+  >`SELECT id,source_id,revision,title,language,body_status,body_html,body_text,media FROM articles WHERE id=${articleId} FOR UPDATE`;
+  if (!body) return false;
+  const html = next.html ?? body.body_html,
+    media = next.media ?? body.media,
+    status = next.bodyStatus ?? body.body_status;
+  if (html === body.body_html && stableJson(media) === stableJson(body.media) && status === body.body_status) return false;
+  if (html && html !== body.body_html) await refreshTranslationPresentation(body, html, db);
+  await db`UPDATE articles SET body_html=${html},media=${db.json(media as never)},body_status=${status},updated_at=now() WHERE id=${articleId}`;
+  return true;
 }
 
 /** Hold the material revision while another module commits its result and receipts on this transaction. */

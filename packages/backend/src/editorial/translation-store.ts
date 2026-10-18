@@ -1,3 +1,4 @@
+import { presentationPlan, PresentationMismatch } from "./presentation.ts";
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
 import { sql, type Db, type Tx } from "../db.ts";
@@ -36,6 +37,7 @@ interface StoredSegment {
   state: "complete" | "failed" | "unknown";
   failed_attempts: number;
   attempt_id: string | null;
+  receipt_id: string | null;
   response_text: string | null;
   response_hash: string | null;
   restored_html: string | null;
@@ -103,10 +105,10 @@ async function withCurrentTranslation<T>(run: TranslationSession, write: (tx: Tx
   });
 }
 
-export async function translationCheckpoints(run: TranslationSession, tx: Tx | typeof sql = sql) {
+export async function translationCheckpoints(run: TranslationSession, tx: Db = sql) {
   const rows = await tx<
     StoredSegment[]
-  >`SELECT segment_index,segment_hash,state,failed_attempts,attempt_id,response_text,response_hash,restored_html,restored_hash,parent_index,replacement_plan
+  >`SELECT segment_index,segment_hash,state,failed_attempts,attempt_id,receipt_id::text AS receipt_id,response_text,response_hash,restored_html,restored_hash,parent_index,replacement_plan
     FROM enrichment.translation_segments WHERE article_id=${run.body.id} AND revision=${run.body.revision}
       AND recipe=${run.recipe} AND source_hash=${run.source.sourceHash} ORDER BY segment_index`;
   return rows.map((row): TranslationCheckpoint & { failedAttempts: number; replacement: boolean } => {
@@ -231,4 +233,56 @@ export async function readStoredTranslation(articleId: string, db: Db = sql): Pr
   const [row] = await db<StoredTranslation[]>`SELECT revision,body_html,complete,origin,recipe,source_hash,manifest
     FROM translations WHERE article_id=${articleId} AND lang='zh'`;
   return row ?? null;
+}
+
+/** The caller holds the material row; a mismatch aborts that update, never buys another translation. */
+export async function refreshTranslationPresentation(body: CurrentBody, nextHtml: string, db: Db): Promise<void> {
+  if (!body.body_html || body.body_html === nextHtml) return;
+  const [stored] = await db<StoredTranslation[]>`SELECT revision,body_html,complete,origin,recipe,source_hash,manifest
+    FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
+  if (stored?.origin !== "model" || stored.revision !== body.revision || !stored.body_html) return;
+  if (!stored.recipe || stored.source_hash !== translationSourceManifest(body.body_html).sourceHash) throw new PresentationMismatch();
+  const old: TranslationSession = { body: { ...body, body_html: body.body_html }, recipe: stored.recipe, source: translationSourceManifest(body.body_html) };
+  const saved = await translationCheckpoints(old, db),
+    replacements = saved.filter((row) => row.replacement).map((row) => row.index);
+  const oldLeaves = translationLeaves(old.source, replacements);
+  if (!oldLeaves) throw new PresentationMismatch();
+  const ordered = oldLeaves.map((leaf) => saved.find((row) => row.index === leaf.index)).filter((row): row is (typeof saved)[number] => !!row);
+  const original = stored.complete
+    ? assembleTranslation(body.body_html, { revision: body.revision, recipe: stored.recipe }, ordered, replacements)
+    : assemblePartialTranslation(body.body_html, { revision: body.revision, recipe: stored.recipe }, saved, replacements);
+  if (!original || original.html !== stored.body_html || stableJson(original.manifest) !== stableJson(stored.manifest)) throw new PresentationMismatch();
+  const plan = presentationPlan(body.body_html, nextHtml, { revision: body.revision, recipe: stored.recipe }, saved);
+  const rows = await db<
+    (StoredSegment & { receipt_id: string | null })[]
+  >`SELECT segment_index,segment_hash,state,failed_attempts,attempt_id,receipt_id::text AS receipt_id,response_text,response_hash,restored_html,restored_hash,parent_index,replacement_plan
+    FROM enrichment.translation_segments WHERE article_id=${body.id} AND revision=${body.revision} AND recipe=${stored.recipe} AND source_hash=${old.source.sourceHash} ORDER BY segment_index`;
+  const nextRun: TranslationSession = { ...old, body: { ...old.body, body_html: nextHtml }, source: plan.source };
+  const retained = rows.filter((row) => plan.checkpoints.some((part) => part.index === row.segment_index && part.state === "complete"));
+  // Identical model inputs can share receipts across articles; lock those receipts in one order.
+  for (const row of [...new Map(retained.map((row) => [`${row.receipt_id}:${row.attempt_id}`, row])).values()].sort(
+    (a, b) => Number(a.receipt_id) - Number(b.receipt_id),
+  )) {
+    if (row.receipt_id === null || !(await settleTranslationResponse(db, { receiptId: Number(row.receipt_id), attemptId: row.attempt_id }, { accepted: true })))
+      throw new PresentationMismatch();
+  }
+  for (const row of rows) {
+    const checkpoint = plan.checkpoints.find((part) => part.index === row.segment_index);
+    const segment = segmentAt(nextRun, row.segment_index);
+    const replaced = plan.replacements.includes(row.segment_index);
+    if (!segment || (!replaced && checkpoint?.state !== "complete")) continue;
+    const restored = checkpoint?.state === "complete" ? restoreTranslationText(segment.html, { text: checkpoint.text }) : null;
+    if (checkpoint?.state === "complete" && restored === null) throw new PresentationMismatch();
+    const replacement = replaced ? replacementPlan(nextRun, row.segment_index) : null;
+    await db`INSERT INTO enrichment.translation_segments(article_id,revision,recipe,source_hash,segment_index,segment_hash,state,receipt_id,attempt_id,failed_attempts,response_text,response_hash,restored_html,restored_hash,parent_index,replacement_plan)
+      VALUES(${body.id},${body.revision},${stored.recipe},${plan.source.sourceHash},${row.segment_index},${segment.sourceHash},${replaced ? row.state : "complete"},${row.receipt_id},${row.attempt_id},${row.failed_attempts},${row.response_text},${row.response_hash},${restored},${restored === null ? null : sha256(restored)},${row.parent_index},${replacement ? db.json(replacement) : null})
+      ON CONFLICT(article_id,revision,recipe,source_hash,segment_index) DO UPDATE SET segment_hash=EXCLUDED.segment_hash,state=EXCLUDED.state,
+        receipt_id=EXCLUDED.receipt_id,attempt_id=EXCLUDED.attempt_id,failed_attempts=EXCLUDED.failed_attempts,response_text=EXCLUDED.response_text,response_hash=EXCLUDED.response_hash,
+        restored_html=EXCLUDED.restored_html,restored_hash=EXCLUDED.restored_hash,parent_index=EXCLUDED.parent_index,replacement_plan=EXCLUDED.replacement_plan,last_error=NULL,updated_at=now()`;
+  }
+  const html = sanitizeBody(plan.assembled.html),
+    tree = cheerio.load(html, null, false);
+  if (tree.html() !== plan.assembled.html) throw new PresentationMismatch();
+  await db`UPDATE translations SET source_hash=${plan.source.sourceHash},body_html=${html},body_text=${tree.root().text().trim()},complete=${plan.complete},manifest=${db.json(plan.assembled.manifest)}
+    WHERE article_id=${body.id} AND lang='zh' AND revision=${body.revision} AND origin='model'`;
 }

@@ -31,8 +31,17 @@ const provider = http.createServer((req, res) => {
     pending?.asked.open();
     if (pending) await pending.release.promise;
     if (selectedMode === "reset") return res.destroy();
-    const bad = (selectedMode === "bad" && !input.text.includes("GOOD")) || selectedMode === "no-usage-bad";
-    const text = selectedMode === "encoded" ? "中文 &#65533;" : input.text.includes("<strong>") ? "合成<strong>未</strong>获准。" : "合成中文正文。";
+    const bad =
+      (selectedMode === "presentation-partial" && input.text.includes("BAD")) ||
+      (selectedMode === "bad" && !input.text.includes("GOOD")) ||
+      selectedMode === "no-usage-bad";
+    const text = selectedMode.startsWith("presentation")
+      ? input.text.replace(/Mining project/g, "矿业项目").replace(/report/g, "报告")
+      : selectedMode === "encoded"
+        ? "中文 &#65533;"
+        : input.text.includes("<strong>")
+          ? "合成<strong>未</strong>获准。"
+          : "合成中文正文。";
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
@@ -297,4 +306,65 @@ test("one released unknown segment can recover and continue to the next segment 
   assert.deepEqual({ ...original }, { status: "unknown", state: "unknown", known_unbilled: false });
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
   assert.equal(hits - start, 3);
+});
+
+test("presentation updates reuse bound translations and preserve semantic state without any model request", async () => {
+  mode = "presentation";
+  const name = "presentation-refresh";
+  const oldHtml = `<p>Mining project ${T} <a href="https://fixture.invalid/old">report</a> <img src="https://fixture.invalid/old.png"></p>`;
+  const nextHtml = oldHtml.replaceAll("/old", "/new");
+  const { articleId } = await material(name, oldHtml);
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  await sql`UPDATE articles SET processing_state='failed',processing_error='kept' WHERE id=${articleId}`;
+  await sql`INSERT INTO publications(article_id,title,source_id,channel,url,discovered_at,timeline_at,sort_at,visibility,body_mode,eligible,selected)
+    VALUES(${articleId},'合成展示版本',${SOURCE},'news',${`https://fixture.invalid/${T}/${name}`},now(),now(),now(),'public','full',true,false)`;
+  const [watermark] = await sql`SELECT version,last_public_at FROM publication.read_watermarks WHERE lane='news'`;
+  const beforeHits = hits;
+  const beforeReceipts = await sql`SELECT id,status,response_attempt_id FROM receipts ORDER BY id`;
+  const update = await material(name, nextHtml);
+  assert.equal(update.revised, false);
+  assert.equal(update.metadataChanged, true);
+  assert.equal(update.revision, 1);
+  const [nextWatermark] = await sql`SELECT version,last_public_at FROM publication.read_watermarks WHERE lane='news'`;
+  assert.ok(Number(nextWatermark.version) > Number(watermark.version), "open readers can detect presentation updates");
+  assert.equal(nextWatermark.last_public_at.getTime(), watermark.last_public_at.getTime(), "presentation is not another publication");
+  const refreshed = await translation(articleId);
+  assert.equal(refreshed.complete, true);
+  assert.match(refreshed.body_html, /矿业项目/);
+  assert.match(refreshed.body_html, /fixture.invalid\/new.png/);
+  assert.match(refreshed.body_html, /href="https:\/\/fixture.invalid\/new"/);
+  assert.equal(hits, beforeHits);
+  assert.deepEqual(await sql`SELECT id,status,response_attempt_id FROM receipts ORDER BY id`, beforeReceipts);
+  assert.equal(
+    (await runBodyTranslation(articleId, { ...recipe, model: "not-configured" })).status,
+    "translated",
+    "retained wording also survives a later model route change",
+  );
+  assert.equal(hits, beforeHits);
+  assert.deepEqual(
+    { ...(await sql`SELECT processing_state,processing_error FROM articles WHERE id=${articleId}`)[0] },
+    { processing_state: "failed", processing_error: "kept" },
+  );
+  assert.equal((await material(name, nextHtml)).metadataChanged, false);
+  await material(name, oldHtml);
+  await material(name, nextHtml);
+  assert.equal(hits, beforeHits, "returning to an earlier presentation keeps the same paid attempts");
+  await assert.rejects(material(name, nextHtml.replace(" <a", "</p><p><a")), /保留原版本/);
+  assert.equal((await sql`SELECT body_html FROM articles WHERE id=${articleId}`)[0].body_html, sanitizeBody(nextHtml));
+});
+
+test("presentation updates keep a partial translation partial and retain unfinished attempts", async () => {
+  mode = "presentation-partial";
+  const name = "presentation-partial";
+  const html = `<p>Mining project ${T} <a href="https://fixture.invalid/old">report</a></p><p>BAD Mining project ${T}.</p>`;
+  const { articleId } = await material(name, html);
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "partial");
+  const before = hits;
+  await material(name, html.replace("/old", "/new"));
+  const refreshed = await translation(articleId);
+  assert.equal(refreshed.complete, false);
+  assert.equal(refreshed.manifest.translatedSegments, 1);
+  assert.equal(refreshed.manifest.totalSegments, 2);
+  assert.match(refreshed.body_html, /BAD Mining project/);
+  assert.equal(hits, before);
 });

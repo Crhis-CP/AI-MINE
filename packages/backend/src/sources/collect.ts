@@ -10,7 +10,14 @@ import {
 // Collection run for one source: fetch listing → filter → store material → enqueue processing.
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
 import { sql } from "../db.ts";
-import { identityKeyFor, upsertMaterial, materialDateHeads, collectionDetails, STALE_ON_DISCOVERY_MS } from "@amp/backend/content/materials";
+import {
+  identityKeyFor,
+  upsertMaterial,
+  PresentationMismatch,
+  materialDateHeads,
+  collectionDetails,
+  STALE_ON_DISCOVERY_MS,
+} from "@amp/backend/content/materials";
 import {
   SourceCollectionPaused,
   recordSourceCollectionSuccess,
@@ -116,10 +123,11 @@ async function store(
   declaredLanguage: string | null | undefined,
   lane: SourceRow["lane"],
   collectionControl: RuntimeControlSnapshot,
-): Promise<{ created: number; revised: number }> {
+): Promise<{ created: number; revised: number; presentationFailures: Array<{ url: string; reason: string }> }> {
   let created = 0;
   let revised = 0;
   let metadataChanged = false;
+  const presentationFailures: Array<{ url: string; reason: string }> = [];
   const seen = new Set<string>();
   const heads = new Map(
     (
@@ -143,7 +151,14 @@ async function store(
     const key = identityKeyFor(material);
     if (seen.has(key)) continue;
     seen.add(key);
-    const res = await upsertMaterial(material, undefined, collectionControl);
+    let res: Awaited<ReturnType<typeof upsertMaterial>>;
+    try {
+      res = await upsertMaterial(material, undefined, collectionControl);
+    } catch (error) {
+      if (!(error instanceof PresentationMismatch)) throw error;
+      presentationFailures.push({ url: c.url, reason: error.message });
+      continue;
+    }
     if (res.created) created += 1;
     if (res.revised) revised += 1;
     metadataChanged ||= res.metadataChanged;
@@ -152,7 +167,7 @@ async function store(
   }
   // Republishing is a news step; policy material is never published as news (ADR-0016).
   if (metadataChanged && lane === "news") await enqueue(QUEUES.republishSource, { lane: "news", sourceId }, { singletonKey: sourceId });
-  return { created, revised };
+  return { created, revised, presentationFailures };
 }
 
 async function collectSource(sourceId: string, opts: { force?: boolean; lane?: CollectionLane } = {}): Promise<CollectResult> {
@@ -328,7 +343,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         delete nextCursor.detailCheckedAt;
       }
       const language = Object.hasOwn(source.config, "language") ? normalizeSourceLanguage(source.config.language) : undefined;
-      ({ created, revised } = await store(
+      const stored = await store(
         sourceId,
         candidates,
         firstImport ? "first-import" : null,
@@ -336,7 +351,10 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         language,
         source.lane,
         collectionControl,
-      ));
+      );
+      ({ created, revised } = stored);
+      if (stored.presentationFailures.length)
+        detail = { ...detail, presentationFailureCount: stored.presentationFailures.length, presentationFailures: stored.presentationFailures.slice(0, 20) };
     }
 
     if (firstImport) nextCursor.initializedAt = new Date().toISOString();
