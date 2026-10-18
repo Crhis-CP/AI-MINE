@@ -14,6 +14,7 @@ let origin = "",
   web: ChildProcess,
   browser: Browser;
 let phase = "setup";
+let unreadGroup = false;
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
 let withdrawn = false,
@@ -126,13 +127,41 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/timeline")
     return answer({
       filters: { channel: "all", category: null, tag: null, topic: null, jurisdiction: null },
-      cards: [{ key: "fixture-a", anchorAt: now, item: card(), group: null }],
+      cards: [
+        {
+          key: "fixture-a",
+          anchorAt: now,
+          item: card(),
+          group: unreadGroup
+            ? { factId: "fixture-fact", story: null, additionalSourceCount: 1, reportCount: 2, developmentCount: 1, memberIds: ["fixture-a", "fixture-b"] }
+            : null,
+        },
+      ],
       nextCursor: null,
       refreshAt: null,
       hot: null,
       dayCounts: {},
       generatedAt: now,
     });
+  if (url.pathname === "/api/site/groups/fixture-fact/reports")
+    return answer({
+      factId: "fixture-fact",
+      revision: "1",
+      nextCursor: null,
+      reports: [
+        {
+          id: "fixture-b",
+          title: "新到的矿业动态",
+          summary: "合成导读",
+          source: { id: "fixture-source-b", name: "另一合成来源", kind: "rss", firstParty: false },
+          timelineAt: now,
+          sourceTime: null,
+          originalUrl: "https://example.invalid/other",
+          selected: true,
+        },
+      ],
+    });
+  if (url.pathname === "/api/site/items/fixture-b") return answer({ ...detail, id: "fixture-b", title: "新到的矿业动态" });
   if (url.pathname === "/api/site/items/saved") return answer({ items: withdrawn ? [] : [card()], unavailableIds: withdrawn ? ["fixture-a"] : [] });
   if (url.pathname === "/api/site/items/fixture-a") {
     if (withdrawn) {
@@ -654,3 +683,34 @@ test("reading the changelog clears its local unread marker while a newer release
     await context.close();
   }
 });
+
+for (const width of [390, 1440])
+  test(`unread groups remain until every selected member is read at ${width}px`, { timeout: 30000 }, async () => {
+    unreadGroup = true;
+    withdrawn = false;
+    added = false;
+    const context = await browser.newContext({ viewport: { width, height: 844 }, reducedMotion: "reduce" });
+    try {
+      await isolateBrowser(context, [origin]);
+      await context.addInitScript(() => localStorage.setItem("amp-read-items", JSON.stringify(["fixture-a"])));
+      const page = await context.newPage();
+      await page.goto(origin);
+      const toggle = () => page.getByRole("button", { name: "只看未读", exact: true }).filter({ visible: true });
+      await toggle().click();
+      await expect(toggle()).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+      await page.getByRole("button", { name: "另有 1 家信源报道", exact: true }).click();
+      await expect(page.getByText("未读", { exact: true })).toBeVisible();
+      await page.screenshot({ path: `.verify/group-unread-${width}.png` });
+      await page.getByRole("link", { name: "新到的矿业动态", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "新到的矿业动态", exact: true })).toBeVisible();
+      await page.goBack();
+      await expect(page.getByText("没有未读的精选内容", { exact: true })).toBeVisible();
+      await expect(toggle()).toHaveAttribute("aria-pressed", "true");
+      await toggle().click();
+      await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+    } finally {
+      unreadGroup = false;
+      await context.close();
+    }
+  });

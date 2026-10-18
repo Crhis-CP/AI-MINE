@@ -160,7 +160,7 @@ test("paused event jobs defer into durable future work without consuming ordinar
       assert.ok(rows.every((row) => row.singleton_on instanceof Date));
       assert.equal(new Set(rows.map((row) => row.singleton_on.toISOString())).size, rows.length, "one deferred refresh per scheduling slot");
     } else assert.equal(rows.length, 1);
-    assert.deepEqual(rows[0].data, data);
+    assert.deepEqual(rows[0].data, { ...data, lane: "news" });
     assert.equal(rows[0].state, "created");
     assert.equal(rows[0].retry_count, 0);
     assert.equal(rows[0].deferred, true);

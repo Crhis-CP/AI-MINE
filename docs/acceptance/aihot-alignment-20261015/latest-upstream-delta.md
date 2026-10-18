@@ -14,8 +14,8 @@ Owner于2026-10-18要求最新页面和最新仓库一起核对。当前基线�
 | 9、10 | `editorial/models.ts`、`providers/circuit.ts`、`llm.ts`、`receipts.ts`、`site/models.ts`：经评估的跨服务备用路由、临时故障恢复探测、回执状态与模型映射 | 待核对与本站不自动降级规则的具体差异。按最新已批准机制处理，但不凭示例开供应商；首批只有现有DeepSeek配置。后台自由添加和切换保持。 |
 | 11 | `admin/content.ts`、`models.ts`、`sources.ts`、`runs.ts`、后台相应页面：诊断、连接、来源、运行显示 | 待按真实行为核对最新差异，已实现的鉴权、密钥不回显和手机版交互保留。 |
 | 11、15 | `operations/feedback.ts`、`admin/feedback.ts`、两项反馈迁移：提交状态、封禁期限与处理 | 待核对本站已实施的输入规则、幂等、私有群转发和图片删除，新增差异仅做兼容迁移。 |
-| 12 | `Timeline.tsx`、`FeedItem.tsx`、`ReadingGroup.tsx`：未读筛选、组内未读成员、手机新闻行及日期栏 | 已修改手机时间并入来源行、整行日期折叠与紧凑推荐理由；必要浏览器回归通过。未读成员契约尚缺，须先单独契约PR后接消费者，不靠代表稿已读状态误隐藏组内未读内容。 |
-| 12 | `Page.tsx`、`OutlineSheet.tsx`、`motion.ts`、`IntentLink.tsx`、`item.tsx`、`story.tsx`：长侧栏可滚动、目录定位、减少动态效果偏好、导航反馈 | 已补长侧栏滚动；其余差异仍待核对。保留已修复的鼠标返回不抢焦点与键盘可见焦点。 |
+| 12 | `Timeline.tsx`、`FeedItem.tsx`、`ReadingGroup.tsx`：未读筛选、组内未读成员、手机新闻行及日期栏 | 已修改手机时间并入来源行、整行日期折叠与紧凑推荐理由；必要浏览器回归通过。PR257契约完整验证后合入，前后端已接通组内未读与状态显示、返回恢复及有界自动翻页；手机/桌面与数据库回归通过（group-unread-browser.log、group-unread-publication-tests.log）。 |
+| 12 | `Page.tsx`、`OutlineSheet.tsx`、`motion.ts`、`IntentLink.tsx`、`item.tsx`、`story.tsx`：长侧栏可滚动、目录定位、减少动态效果偏好、导航反馈 | 已补长侧栏滚动；实拍确认手机顶部仍须接统一PhoneBar、精选/全部切换及筛选入口（保留矿业地区条件），目录定位与其余动效差异继续核对。保留已修复的鼠标返回不抢焦点与键盘可见焦点。 |
 | 12 | `lib/text.ts`、`publication/pool.ts`：中英文连写分词、英文词首与相关度同分排序 | 已接通中英文连写分词、精选席位/质量同分排序、普通英文正文词首匹配；现有数据库固定样例与新增行为场景通过（search-latest-behavior-tests.log、search-body-prefix-tests.log），矿业实体别名和索引条件保留。 |
 | 15、16、18 | `operations/alerts.ts`、`watch.ts`、`backup.ts`、`modules.ts`、`apps/worker`、部署说明：积压持续时长、退出等待备份、模块生命周期与发布可靠性 | 待核对本轮原生队列和模块收敛结果；沿用本站正式发布脚本和锁，在非生产完成验证后再统一切换。 |
 | 17、18 | `publication/agent.ts`、`routes/mcp.ts`、`scripts/mcp-check.ts`、`notify/agent.ts`：Agent读取与可选运维唤醒 | 接入须验证真实协议、权限和返回结果。已更新mcp-check为当前工具目录核对与实际SDK调用，失败返回非零，缺样本分别标注；public_read真实服务回归通过，未增加收据/采集/法规版本；当前缺独立agent答案公共层，继续核对具名能力与HTTP/MCP一致性。可选运维唤醒不同于读者Agent读取；无已配置目的端不伪称投递成功，不擅自向他人发送通知。 |

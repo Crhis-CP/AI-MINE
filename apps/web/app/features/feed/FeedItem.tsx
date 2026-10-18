@@ -15,14 +15,16 @@ import { GroupDevelopments, GroupSources, LatestDevelopment } from "./ReadingGro
 export interface FeedItemProps {
   item: FeedItemSummary;
   at?: string;
+  read?: boolean;
   group?: GroupInfo | null;
   filters?: TimelineFilters;
   /** Show category and tags under the text (全部动态, topics, search). */
   showTags?: boolean;
 }
 
-export const FeedItem = memo(function FeedItem({ item, group, filters, at = item.timelineAt, showTags = false }: FeedItemProps) {
-  const read = useIsRead(item.id);
+export const FeedItem = memo(function FeedItem({ item, group, filters, at = item.timelineAt, read: readOverride, showTags = false }: FeedItemProps) {
+  const markedRead = useIsRead(item.id);
+  const read = readOverride ?? markedRead;
   const dateOnly =
     isDateOnlyInstant(at) && !(item.sourceTime?.utc && Date.parse(item.sourceTime.utc) === Date.parse(at) && item.sourceTime.precision !== "date");
   const showSources = !!group && (group.additionalSourceCount > 0 || (group.developmentCount <= 1 && group.reportCount > 1));

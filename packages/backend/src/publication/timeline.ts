@@ -192,11 +192,19 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
         ).map((row) => [row.id, row])
       : [],
   );
+  const currentMembers = members.length
+    ? await sql<{ id: string; fact_id: number }[]>`
+    SELECT p.article_id AS id,p.fact_id FROM publications p WHERE p.article_id=ANY(${members.map((member) => member.id)}::text[])
+      AND p.selected AND ${entryCondition(q, now)} AND ${ownFactEvidence()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
+    : [];
   await attachSourcePolicies([...rows.values()]);
   const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt, group }) => {
     const row = rows.get(id);
     if (!row) return [];
-    if (group) group.story = row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null;
+    if (group) {
+      group.story = row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null;
+      group.memberIds = [...new Set(currentMembers.filter((member) => member.fact_id === row.fact_id).map((member) => member.id))];
+    }
     return [{ key, anchorAt, item: toFeedItemSummary(row), group }];
   });
 

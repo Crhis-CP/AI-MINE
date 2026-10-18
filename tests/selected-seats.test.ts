@@ -78,6 +78,7 @@ test("a better representative replaces the prior selected seat across API, RSS, 
     cards.filter((c) => [media, official].includes(c.item.id)).map((c) => c.item.id),
     [official],
   );
+  assert.deepEqual(cards.find((c) => c.item.id === official)?.group?.memberIds?.sort(), [media, official].sort());
   const revisions = (await sql`SELECT revision FROM publications WHERE article_id=${official}`)[0]!.revision;
   await publishArticle(official);
   assert.equal((await sql`SELECT revision FROM publications WHERE article_id=${official}`)[0]!.revision, revisions, "reprojection is idempotent");

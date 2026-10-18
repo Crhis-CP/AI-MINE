@@ -318,6 +318,14 @@ export function markRead(id: string): boolean {
   invalidate(KEYS.read);
   return true;
 }
+const EMPTY_READ_SET: ReadonlySet<string> = new Set();
+export function useReadSet(): ReadonlySet<string> {
+  return useSyncExternalStore(
+    subscribeRead,
+    () => cached<Set<string>>(KEYS.read + ":set", () => new Set(getReadIds())),
+    () => EMPTY_READ_SET,
+  );
+}
 export function useIsRead(id: string): boolean {
   return useSyncExternalStore(
     subscribeRead,

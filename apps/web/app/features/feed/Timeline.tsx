@@ -1,3 +1,4 @@
+import { useReadSet } from "../../lib/local-state";
 import { apiFetch } from "../../lib/http.ts";
 // The day-grouped feed (精选 home, topics): a time rail with cards on desktop, dated rows under grey
 // day bars on phones. Keeps its place across back navigation and loads further pages.
@@ -22,6 +23,7 @@ interface ListState {
   dayCounts: Record<string, number>;
   collapsed: string[];
   batches: number;
+  unreadOnly: boolean;
 }
 
 function filterQuery(f: TimelineFilters, extra: Record<string, string | number | null | undefined> = {}) {
@@ -35,8 +37,8 @@ function filterQuery(f: TimelineFilters, extra: Record<string, string | number |
   return sp.toString();
 }
 
-function fromResponse(r: TimelineResponse): ListState {
-  return { cards: r.cards, nextCursor: r.nextCursor, dayCounts: r.dayCounts, collapsed: [], batches: 1 };
+function fromResponse(r: TimelineResponse, unreadOnly = false): ListState {
+  return { cards: r.cards, nextCursor: r.nextCursor, dayCounts: r.dayCounts, collapsed: [], batches: 1, unreadOnly };
 }
 
 const WEEKDAY_SHORT = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -48,12 +50,14 @@ export function DayHeader({
   count,
   collapsed,
   onToggle,
+  aside,
 }: {
   day: string;
   today: string;
   count: number | null;
   collapsed?: boolean;
   onToggle?: () => void;
+  aside?: React.ReactNode;
 }) {
   const [, m, d] = day.split("-").map(Number) as [number, number, number];
   const date = `${m}月${d}日`;
@@ -124,6 +128,7 @@ export function DayHeader({
             </>
           )}
         </span>
+        {aside && <span className="ml-auto">{aside}</span>}
       </div>
     </div>
   );
@@ -174,6 +179,7 @@ export function TimelineSlot({
 
 export function Timeline({ initial, filters }: { initial: TimelineResponse; filters: TimelineFilters }) {
   const allowedIds = useReaderItemScope();
+  const readSet = useReadSet();
   const location = useLocation();
   const navigation = useNavigation();
   const historyKey = location.key;
@@ -183,7 +189,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   const [state, setState] = useState<ListState>(() => {
     if (isHydrated()) {
       const snap = readSnapshot<ListState>(historyKey);
-      if (snap) return { ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] };
+      if (snap) return { ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] };
     }
     return fromResponse(initial);
   });
@@ -192,7 +198,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   useLayoutEffect(() => {
     if (lastInitial.current !== initial) {
       lastInitial.current = initial;
-      setState((old) => ({ ...fromResponse(initial), collapsed: old.collapsed }));
+      setState((old) => ({ ...fromResponse(initial, old.unreadOnly), collapsed: old.collapsed }));
     }
   }, [initial]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -216,10 +222,10 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       setLoadingMore(false);
       const snap = readSnapshot<ListState>(historyKey);
       if (snap) {
-        setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
+        setState({ ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] });
         restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
       } else {
-        setState(fromResponse(initial));
+        setState(fromResponse(initial, stateRef.current.unreadOnly));
       }
     }
   }, [filterKey, initial, historyKey]);
@@ -233,7 +239,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       // A full load keeps the server's fresh list when the reader reloaded; after a back/forward
       // that reloaded the document, it restores the saved list and position.
       if (snap && !isReload()) {
-        setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
+        setState({ ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] });
         requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus));
       }
       return;
@@ -301,7 +307,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
         const head = await read();
         if (head.ok) {
           const page = publicSchemas.TimelineResponse.parse(await head.json());
-          if (current()) setState(fromResponse(page));
+          if (current()) setState(fromResponse(page, stateRef.current.unreadOnly));
         }
         return;
       }
@@ -346,36 +352,72 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   }, [state.nextCursor, state.batches, loadMore]);
 
   const today = beijingDate(Date.now());
+  const unreadVisible = useCallback(
+    (card: TimelineCard) =>
+      !readSet.has(card.item.id) || (!!card.group && (card.group.memberIds === undefined || card.group.memberIds.some((id) => !readSet.has(id)))),
+    [readSet],
+  );
   const days = useMemo(() => {
     const out: Array<{ day: string; cards: TimelineCard[] }> = [];
     for (const c of state.cards) {
       if (allowedIds && !allowedIds.has(c.item.id)) continue;
+      if (state.unreadOnly && !unreadVisible(c)) continue;
       const d = beijingDate(c.anchorAt);
       const last = out[out.length - 1];
       if (last && last.day === d) last.cards.push(c);
       else out.push({ day: d, cards: [c] });
     }
     return out;
-  }, [state.cards, allowedIds]);
+  }, [state.cards, allowedIds, state.unreadOnly, unreadVisible]);
+
+  const visibleCount = days.reduce((count, day) => count + day.cards.length, 0);
+  useEffect(() => {
+    if (state.unreadOnly && visibleCount === 0 && state.nextCursor && state.batches < AUTO_BATCHES && !loadingMore && !loadError) void loadMore();
+  }, [state.unreadOnly, visibleCount, state.nextCursor, state.batches, loadingMore, loadError, loadMore]);
 
   const toggleDay = (day: string) =>
     setState((s) => ({ ...s, collapsed: s.collapsed.includes(day) ? s.collapsed.filter((d) => d !== day) : [...s.collapsed, day] }));
 
   let order = 0;
+  const unreadToggle = (
+    <button
+      type="button"
+      aria-pressed={state.unreadOnly}
+      onClick={() => setState((s) => ({ ...s, unreadOnly: !s.unreadOnly }))}
+      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-[12.5px] transition-colors ${state.unreadOnly ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-ink-3 hover:text-ink"}`}
+    >
+      <span aria-hidden="true" className={`size-3.5 rounded-full border ${state.unreadOnly ? "border-accent bg-accent" : "border-line-strong"}`} />
+      只看未读
+    </button>
+  );
   return (
     <div className="relative">
-      {days.length === 0 && (
+      <div className={`mb-2 flex justify-end ${days.length ? "lg:hidden" : ""}`}>{unreadToggle}</div>
+      {days.length === 0 && !loadingMore && (
         <div className="lg:card">
-          <EmptyState title="这个筛选下还没有精选内容">换个类别看看，或者去全部动态里找找。</EmptyState>
+          {state.unreadOnly ? (
+            <EmptyState title={state.nextCursor ? "这批精选都读过了" : "没有未读的精选内容"}>
+              {state.nextCursor ? "可以继续查看更早的未读精选。" : "关掉「只看未读」可以看到全部内容。"}
+            </EmptyState>
+          ) : (
+            <EmptyState title="这个筛选下还没有精选内容">换个类别看看，或者去全部动态里找找。</EmptyState>
+          )}
         </div>
       )}
 
-      {days.map(({ day, cards }) => {
+      {days.map(({ day, cards }, dayIndex) => {
         const collapsed = state.collapsed.includes(day);
-        const count = state.dayCounts[day] ?? cards.length;
+        const count = state.unreadOnly ? cards.length : (state.dayCounts[day] ?? cards.length);
         return (
           <section key={day} aria-label={day} className="lg:mb-1">
-            <DayHeader day={day} today={today} count={count} collapsed={collapsed} onToggle={() => toggleDay(day)} />
+            <DayHeader
+              day={day}
+              today={today}
+              count={count}
+              collapsed={collapsed}
+              onToggle={() => toggleDay(day)}
+              aside={dayIndex === 0 ? unreadToggle : undefined}
+            />
             <Collapse open={!collapsed}>
               <ol className="lg:pt-1">
                 {cards.map((c) => {
@@ -383,7 +425,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
                   const delay = fresh ? Math.min(order++, 10) * 40 : 0;
                   return (
                     <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} sourceTime={c.item.sourceTime} fresh={fresh} delay={delay}>
-                      <FeedItem item={c.item} group={c.group} filters={filters} at={c.anchorAt} />
+                      <FeedItem item={c.item} group={c.group} filters={filters} at={c.anchorAt} read={state.unreadOnly ? false : undefined} />
                     </TimelineSlot>
                   );
                 })}
