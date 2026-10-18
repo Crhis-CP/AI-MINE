@@ -293,6 +293,19 @@ export const MetalPrices = z
 export type MetalPrices = z.infer<typeof MetalPrices>;
 
 /** A stable client submission identity, not a credential. */
+/** Shared submission limits; activated by the unified reader and worker release. */
+export const FEEDBACK_LIMITS = { minText: 2, maxText: 5000, maxEmail: 200, screenshotBytes: 8 * 1024 * 1024, imagePixels: 60_000_000, perMinute: 5 } as const;
+export const FeedbackSubmissionFields = z.strictObject({
+  content: z.string().trim().min(FEEDBACK_LIMITS.minText).max(FEEDBACK_LIMITS.maxText),
+  email: z
+    .string()
+    .trim()
+    .max(FEEDBACK_LIMITS.maxEmail)
+    .refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+    .nullish(),
+  pageUrl: z.string().max(2048).nullish(),
+});
+
 export const FeedbackIdempotencyHeaders = z.looseObject({ "idempotency-key": z.uuid() });
 export const StoryFollowupsResponse = z.strictObject({
   items: z.array(
