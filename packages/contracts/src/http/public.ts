@@ -305,7 +305,18 @@ export type MetalPrices = z.infer<typeof MetalPrices>;
 
 /** A stable client submission identity, not a credential. */
 /** Shared submission limits; activated by the unified reader and worker release. */
-export const FEEDBACK_LIMITS = { minText: 2, maxText: 5000, maxEmail: 200, screenshotBytes: 8 * 1024 * 1024, imagePixels: 60_000_000, perMinute: 5 } as const;
+export const FEEDBACK_LIMITS = {
+  minText: 2,
+  maxText: 5000,
+  maxEmail: 200,
+  screenshotBytes: 8 * 1024 * 1024,
+  imagePixels: 60_000_000,
+  perMinute: 5,
+  perHour: 3,
+  attemptsPerHour: 20,
+  pauseSeconds: 3600,
+  emailPauseSeconds: 48 * 3600,
+} as const;
 export const FeedbackSubmissionFields = z.strictObject({
   content: z.string().trim().min(FEEDBACK_LIMITS.minText).max(FEEDBACK_LIMITS.maxText),
   email: z
