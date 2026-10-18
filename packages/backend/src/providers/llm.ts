@@ -1,3 +1,4 @@
+import { enterModelCircuit, recordModelHealth, type CircuitPermit } from "./circuit.ts";
 import { providerRejection } from "./provider-errors.ts";
 import { PRESETS } from "@amp/site/models";
 import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
@@ -381,84 +382,107 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     maxRejectedOutputs: opts.maxRejectedOutputs,
     translationObservations: opts.translationObservations,
   };
-  const primary = async (): Promise<ChatJsonResult<z.infer<S>>> => {
-    const receipt = await paidRequest(request, async () => {
-      const send = async () => {
-        if (opts.beforeRequest) {
-          try {
-            await opts.beforeRequest();
-          } catch (error) {
-            if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
-              throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
-            throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false, "input_changed");
+  const primary = async (circuit = false): Promise<ChatJsonResult<z.infer<S>>> => {
+    const timeoutMs = opts.timeoutMs ?? (circuit ? 30_000 : 120_000);
+    let circuitPermit: CircuitPermit | undefined;
+    const receipt = await paidRequest(
+      request,
+      async () => {
+        const send = async () => {
+          if (opts.beforeRequest) {
+            try {
+              await opts.beforeRequest();
+            } catch (error) {
+              if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+                throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
+              throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false, "input_changed");
+            }
           }
-        }
-        const started = Date.now();
-        let res: { status: number; headers: { get(name: string): string | null }; text(): string | Promise<string> };
-        try {
-          res = registered
-            ? await (opts.registeredTransport ?? guardedFetch)(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-                method: "POST",
-                headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-                body: requestBody,
-                timeoutMs: opts.timeoutMs ?? 120_000,
-                maxBytes: 8 * 1024 * 1024,
-                maxRedirects: 0,
-                route: "direct",
-              })
-            : await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-                method: "POST",
-                headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-                body: requestBody,
-                signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
-              });
-        } catch (error) {
-          if (isConnectFailure(error))
-            throw new ProviderRejectedError(`connect failed: ${registered ? "模型连接失败" : String(error)}`, null, true, "connect_before_send");
-          if (registered) throw new Error("模型服务请求结果未知");
-          throw error;
-        }
-        const text = redactModelSecret(await res.text(), apiKey);
-        if (res.status < 200 || res.status >= 300) {
-          const failure = providerRejection(budgetService, res.status, text);
-          throw new ProviderRejectedError(failure.message, res.status, failure.retryable, failure.failureKind);
-        }
-        let json: Record<string, unknown>;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          json = { unparsable: text.slice(0, 20000) };
-        }
-        const usage = (json.usage as Record<string, unknown> | undefined) ?? null;
-        return {
-          response: { ...json, _latencyMs: Date.now() - started },
-          requestId: (json.id as string | undefined) ?? (res.headers.get("x-request-id") ? redactModelSecret(res.headers.get("x-request-id")!, apiKey) : null),
-          usage,
-          cost:
-            registered && [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0)
-              ? {
-                  amount:
-                    (Number(usage!.prompt_tokens) * Number(registered.config.input_cny_per_million) +
-                      Number(usage!.completion_tokens) * Number(registered.config.output_cny_per_million)) /
-                    1e6,
-                  currency: "CNY",
-                  basis: "estimated" as const,
-                }
-              : null,
+          const started = Date.now();
+          const readResponse = async () => {
+            let res: { status: number; headers: { get(name: string): string | null }; text(): string | Promise<string> };
+            try {
+              res = registered
+                ? await (opts.registeredTransport ?? guardedFetch)(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+                    method: "POST",
+                    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+                    body: requestBody,
+                    timeoutMs: timeoutMs,
+                    maxBytes: 8 * 1024 * 1024,
+                    maxRedirects: 0,
+                    route: "direct",
+                  })
+                : await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+                    method: "POST",
+                    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+                    body: requestBody,
+                    signal: AbortSignal.timeout(timeoutMs),
+                  });
+            } catch (error) {
+              if (isConnectFailure(error))
+                throw new ProviderRejectedError(`connect failed: ${registered ? "模型连接失败" : String(error)}`, null, true, "connect_before_send");
+              if (registered) throw new Error("模型服务请求结果未知");
+              throw error;
+            }
+            const text = redactModelSecret(await res.text(), apiKey);
+            if (res.status < 200 || res.status >= 300) {
+              const failure = providerRejection(budgetService, res.status, text);
+              throw new ProviderRejectedError(failure.message, res.status, failure.retryable, failure.failureKind);
+            }
+            return { res, text };
+          };
+          let response: Awaited<ReturnType<typeof readResponse>>;
+          try {
+            response = await readResponse();
+          } catch (error) {
+            if (circuitPermit) await recordModelHealth(budgetService, circuitPermit, !(error instanceof ProviderRejectedError && !error.retryable));
+            throw error;
+          }
+          if (circuitPermit) await recordModelHealth(budgetService, circuitPermit, false);
+          const { res, text } = response;
+          let json: Record<string, unknown>;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            json = { unparsable: text.slice(0, 20000) };
+          }
+          const usage = (json.usage as Record<string, unknown> | undefined) ?? null;
+          return {
+            response: { ...json, _latencyMs: Date.now() - started },
+            requestId:
+              (json.id as string | undefined) ?? (res.headers.get("x-request-id") ? redactModelSecret(res.headers.get("x-request-id")!, apiKey) : null),
+            usage,
+            cost:
+              registered && [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0)
+                ? {
+                    amount:
+                      (Number(usage!.prompt_tokens) * Number(registered.config.input_cny_per_million) +
+                        Number(usage!.completion_tokens) * Number(registered.config.output_cny_per_million)) /
+                      1e6,
+                    currency: "CNY",
+                    basis: "estimated" as const,
+                  }
+                : null,
+          };
         };
-      };
-      if (!registered) return send();
-      // Claim the current configuration before sending; do not hold the registry/database lock
-      // across a provider's network response. Already-started work retains its frozen request.
-      await sql.begin(async (tx) => {
-        try {
-          await registered.assertCurrent(tx);
-        } catch {
-          throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false, "configuration_changed");
-        }
-      });
-      return send();
-    });
+        if (!registered) return send();
+        // Claim the current configuration before sending; do not hold the registry/database lock
+        // across a provider's network response. Already-started work retains its frozen request.
+        await sql.begin(async (tx) => {
+          try {
+            await registered.assertCurrent(tx);
+          } catch {
+            throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false, "configuration_changed");
+          }
+        });
+        return send();
+      },
+      circuit
+        ? async (tx) => {
+            circuitPermit = await enterModelCircuit(tx, budgetService, timeoutMs);
+          }
+        : undefined,
+    );
 
     const response = receipt.response as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: Record<string, unknown> };
     if (response.choices?.[0]?.finish_reason === "content_filter") throw new ModelContentFiltered(receipt.receiptId, receipt.attemptId);
@@ -483,7 +507,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     };
   };
   // Both paid sends and free cache reuse require the same current source permit.
-  const permittedPrimary = async () => {
+  const permittedPrimary = async (circuit = false) => {
     const permit = opts.fallbackPermit ? await opts.fallbackPermit.authorize({ modelKey: opts.model, configurationHash }) : null;
     if (
       !permit &&
@@ -502,7 +526,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         };
         await opts.beforeRequest();
       }
-      const result = await primary();
+      const result = await primary(circuit);
       try {
         await (permit?.afterResponse ?? permit?.beforeRequest)?.();
       } catch (error) {

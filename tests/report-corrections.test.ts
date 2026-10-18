@@ -1,4 +1,4 @@
-import { tag, stub, Reply } from "./setup.ts";
+import { tag, stub, DROP_RESPONSE } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { sql, closeDb } from "@amp/backend/db";
@@ -20,7 +20,7 @@ let mode = "ok",
   index = 0;
 const provider = await stub(async (_hit, request) => {
   if (afterSend) await afterSend();
-  if (mode === "unknown") return new Reply(503, { error: "synthetic outcome unknown" });
+  if (mode === "unknown") return DROP_RESPONSE;
   const input = JSON.parse(request.body).messages.at(-1).content as string;
   const text = input.includes("10吨") ? "项目产量更正为10吨" : "当前合成公开报道";
   return {

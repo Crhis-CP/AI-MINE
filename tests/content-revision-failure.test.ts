@@ -1,4 +1,4 @@
-import { gate, Reply, stub, tag } from "./setup.ts";
+import { gate, DROP_RESPONSE, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -18,7 +18,7 @@ const provider = await stub(async () => {
   const current = held;
   current?.asked.open();
   if (current) await current.release.promise;
-  if (current?.unknown) return new Reply(503, { error: { message: "synthetic response unknown" } });
+  if (current?.unknown) return DROP_RESPONSE;
   return {
     model: "fixture",
     choices: [{ message: { content: JSON.stringify({ label: "BLOCK", reason: "synthetic scope" }) } }],

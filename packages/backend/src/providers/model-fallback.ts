@@ -1,3 +1,4 @@
+import { CircuitOpenError } from "./circuit.ts";
 import { sql, type Db } from "../db.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { currentModelConfiguration } from "../admin/models.ts";
@@ -20,11 +21,16 @@ export class ModelContentFiltered extends Error {
   }
 }
 export const isModelRouteWaiting = (error: unknown) =>
-  error instanceof ModelFallbackBlocked || error instanceof ModelContentFiltered || error instanceof ReceiptPhysicalLimitError;
+  error instanceof ModelFallbackBlocked ||
+  error instanceof ModelContentFiltered ||
+  error instanceof ReceiptPhysicalLimitError ||
+  error instanceof CircuitOpenError;
+export const modelRouteWaitSeconds = (error: unknown, otherwise = 300) => (error instanceof CircuitOpenError ? error.retryAfterSeconds : otherwise);
 type Resolution = {
   route_revision: number;
-  primary_receipt_id: number;
-  primary_attempt_id: string;
+  primary_receipt_id: number | null;
+  primary_attempt_id: string | null;
+  primary_circuit: CircuitOpenError["evidence"] | null;
   backup_model: string;
   backup_configuration_hash: string;
   permit_fingerprint: string;
@@ -87,7 +93,7 @@ async function proof(key: string, configurationHash: string, db: Db, policy: boo
 async function resolution(key: string, db: Db) {
   const [r] = await db<
     Resolution[]
-  >`SELECT route_revision,primary_receipt_id,primary_attempt_id::text,backup_model,backup_configuration_hash,permit_fingerprint,blocked_reason FROM ai.model_fallback_resolutions WHERE primary_key=${key} ORDER BY route_revision DESC LIMIT 1`;
+  >`SELECT route_revision,primary_receipt_id,primary_attempt_id::text,primary_circuit,backup_model,backup_configuration_hash,permit_fingerprint,blocked_reason FROM ai.model_fallback_resolutions WHERE primary_key=${key} ORDER BY route_revision DESC LIMIT 1`;
   return r ?? null;
 }
 async function verifyResponse<T>(result: ChatJsonResult<T>, route: StoredBackup, approved: BackupAdmission, key: string) {
@@ -111,22 +117,27 @@ async function verifyResponse<T>(result: ChatJsonResult<T>, route: StoredBackup,
 /** One durable alternate decision. Neither a retry nor a new route can erase an unresolved alternate attempt. */
 export async function withModelFallback<T>(
   input: Input,
-  primary: () => Promise<ChatJsonResult<T>>,
+  primary: (circuit?: boolean) => Promise<ChatJsonResult<T>>,
   backup: (model: string, authorize: () => Promise<void>, fallbackFor: string) => Promise<ChatJsonResult<T>>,
 ): Promise<ChatJsonResult<T>> {
   const capability = Object.entries(CAPABILITIES).find(([, c]) => (c.purposes as string[]).includes(input.purpose))?.[0];
-  if (!capability || input.fallbackHop || input.registeredProbe || (input.usagePurpose && input.usagePurpose !== "production")) return primary();
+  if (!capability || input.registeredProbe || (input.usagePurpose && input.usagePurpose !== "production")) return primary(false);
+  if (input.fallbackHop) return primary(!input.request.policy);
   const key = logicalKeyFor(input.request),
     stored = await resolution(key, sql);
+  let circuitEvidence = stored?.primary_circuit ?? null;
   if (!stored) {
     try {
-      return await primary();
+      const evaluated = !input.request.policy && !!(await sql.begin((tx) => admission(input, capability, tx)));
+      return await primary(evaluated);
     } catch (error) {
       const policy = !!input.request.policy;
       const eligibleFailure =
         (error instanceof ProviderRejectedError && (error.failureKind === "connect_before_send" || (!policy && error.failureKind === "provider_outage"))) ||
         (policy ? error instanceof ModelContentFiltered : error instanceof ReceiptUnknownError);
-      if (!eligibleFailure || !(await proof(key, input.configurationHash, sql, policy))) throw error;
+      const circuit = !policy && error instanceof CircuitOpenError && error.evidence.service === (input.request.budgetService ?? input.request.service);
+      if (!circuit && (!eligibleFailure || !(await proof(key, input.configurationHash, sql, policy)))) throw error;
+      if (circuit) circuitEvidence = error.evidence;
       const eligible = await sql.begin((tx) => admission(input, capability, tx));
       if (!eligible || !input.permit) throw error;
     }
@@ -148,16 +159,16 @@ export async function withModelFallback<T>(
       await tx`SELECT pg_advisory_xact_lock(hashtext(${`model-fallback:${key}`}))`;
       const current = await admission(input, capability, tx),
         prior = await resolution(key, tx),
-        original = await proof(key, input.configurationHash, tx, !!input.request.policy, prior?.primary_attempt_id ?? null);
+        original = circuitEvidence ? null : await proof(key, input.configurationHash, tx, !!input.request.policy, prior?.primary_attempt_id ?? null);
       if (
         !current ||
         current.route.revision !== selected.route.revision ||
-        !original ||
+        (!original && !circuitEvidence) ||
         (prior && (prior.route_revision !== selected.route.revision || prior.permit_fingerprint !== permit.inputFingerprint || prior.blocked_reason))
       )
         throw new ModelFallbackBlocked("主路由未有明确可安全回退证据，或备用配置已变化");
-      await tx`INSERT INTO ai.model_fallback_resolutions(primary_key,route_revision,capability,primary_receipt_id,primary_attempt_id,backup_model,backup_configuration_hash,source_ids,permit_fingerprint)
-    VALUES(${key},${selected.route.revision},${capability},${original.receiptId},${original.attemptId},${selected.route.backup_model!},${selected.approved.configurationHash},${[...input.permit!.sourceIds]},${permit.inputFingerprint}) ON CONFLICT DO NOTHING`;
+      await tx`INSERT INTO ai.model_fallback_resolutions(primary_key,route_revision,capability,primary_receipt_id,primary_attempt_id,primary_circuit,backup_model,backup_configuration_hash,source_ids,permit_fingerprint)
+    VALUES(${key},${selected.route.revision},${capability},${original?.receiptId ?? null},${original?.attemptId ?? null},${circuitEvidence ? tx.json(circuitEvidence) : null},${selected.route.backup_model!},${selected.approved.configurationHash},${[...input.permit!.sourceIds]},${permit.inputFingerprint}) ON CONFLICT DO NOTHING`;
     });
     const authorize = async () => {
       await permit.beforeRequest();

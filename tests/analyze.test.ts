@@ -8,7 +8,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // and fact. Material with only a feed summary has its page fetched first. The steps run on the models the
 // upstream project assigns them (set through the environment here); every prompt in the pack renders.
 import { READER_WORDING } from "@amp/industry/wording";
-import { gate, Reply, stub, tag } from "./setup.ts";
+import { gate, Reply, DROP_RESPONSE, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { after, before, beforeEach, test } from "node:test";
@@ -155,7 +155,7 @@ const provider = await stub(async (_hit, req) => {
       hold.asked();
       await hold.release;
     }
-    if (marker === "SCFAIL") return new Reply(503, { error: { message: "synthetic score outage" } });
+    if (marker === "SCFAIL") return DROP_RESPONSE;
     if (marker === "SCREFUSED") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
     return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
   }
@@ -502,7 +502,7 @@ test("INV-13: Chinese material is public on its excerpt through score failure, m
   const body = "铜矿扩大产能的原始公告，附产量、地点和建设条件，供读者核对。".repeat(8);
   await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
   const id = await article("SCFAIL", { title: "铜矿扩产公告", language: "zh", bodyText: `SCFAIL：${body} (${T})` });
-  assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
+  assert.equal((await processArticle(id)).state, "unknown-receipt", "a lost response remains unknown while confirmed scope stays public");
   const p = await projection(id);
   assert.deepEqual([p.visibility, p.eligible, p.selected, p.score], ["public", true, false, null]);
   assert.ok(p.source_excerpt.startsWith("来源摘录：SCFAIL：") && p.source_excerpt.includes("根据来源正文整理"));
@@ -732,7 +732,7 @@ test("current input metadata keeps its new scope receipt after score failure", a
     language: "zh",
     bodyText: `SCFAIL：铜矿项目扩大产能，公告说明地点、产量和原始条件。${T}`.repeat(4),
   });
-  assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
+  assert.equal((await processArticle(id)).state, "unknown-receipt", "a lost response remains unknown while confirmed scope stays public");
   assert.equal((await projection(id)).visibility, "public");
   try {
     await sql`UPDATE sources SET name = '来源名称已核正' WHERE id = ${SOURCE}`;
@@ -740,7 +740,7 @@ test("current input metadata keeps its new scope receipt after score failure", a
     await publishArticle(id);
     assert.equal((await projection(id)).visibility, "public", "a rename alone withdraws nothing and pays nothing");
     assert.equal(provider.hits(), hits);
-    assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
+    assert.equal((await processArticle(id)).state, "unknown-receipt", "a lost response remains unknown while confirmed scope stays public");
     const [material] = await sql`SELECT revision FROM articles WHERE id = ${id}`;
     const receipts = await sql`SELECT id, status, request->>'userHash' AS input_hash FROM receipts
       WHERE purpose = 'prefilter_article' AND subject = ${`article:${id}@1`} ORDER BY id`;
@@ -782,7 +782,9 @@ test("structure distinguishes composite scope and legacy missing scope stays unk
 });
 
 test("structure failure settles its receipt without starting a writing request", async () => {
-  await assert.rejects(analyzeArticle(await article("STFAIL")), /调用结果或费用尚未确认/);
+  const id = await article("STFAIL");
+  await assert.rejects(analyzeArticle(id), /HTTP 400.*invalid structure request/);
+  assert.equal((await sql`SELECT status FROM receipts WHERE subject=${`article:${id}@1`} AND purpose='structure_article'`)[0].status, "failed");
   assert.deepEqual(calls("STFAIL").sort(), ["prefilter", "score", "score", "structure"]);
 });
 

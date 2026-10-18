@@ -1,3 +1,4 @@
+import { enterModelCircuit, recordModelHealth } from "../packages/backend/src/providers/circuit.ts";
 import { paidRequest, BudgetExceededError } from "../packages/backend/src/providers/receipts.ts";
 import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
@@ -45,6 +46,9 @@ test("real private API requires current model capability and CSRF, preserves CAS
   dispose();
   const restoreWorker = installTestConnections(dbs.worker);
   try {
+    const permit = await dbs.worker.begin((tx) => enterModelCircuit(tx, "role-circuit", 30_000));
+    await recordModelHealth("role-circuit", permit, true);
+    assert.equal((await dbs.private_ops`SELECT state FROM ai.model_service_circuits WHERE service='role-circuit'`)[0].state.failures, 1);
     await assert.rejects(
       paidRequest(
         {
@@ -69,6 +73,8 @@ test("real private API requires current model capability and CSRF, preserves CAS
   await denied(dbs.worker, "UPDATE ai.model_fallback_routes SET backup_model=NULL");
   await denied(dbs.public_read, "SELECT * FROM ai.model_fallback_routes");
   await denied(dbs.public_read, "SELECT * FROM ai.model_fallback_resolutions");
+  await denied(dbs.public_read, "SELECT * FROM ai.model_service_circuits");
+  await denied(dbs.private_ops, "UPDATE ai.model_service_circuits SET state=state");
   await dbs.auth`UPDATE identity.account_access SET models_manage=false,revision=revision+1 WHERE user_id=${manager.id}`;
   assert.equal((await get(manager.cookie)).statusCode, 403);
 });

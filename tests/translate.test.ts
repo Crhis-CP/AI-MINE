@@ -5,7 +5,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // Full-text translations follow the text: an article corrected while the model was translating the old
 // wording is translated again, and a translation of an older revision is never shown as the current one.
 // Links and images inside a paragraph survive the model.
-import { gate, stub, tag, Reply } from "./setup.ts";
+import { gate, stub, tag, DROP_RESPONSE } from "./setup.ts";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -29,7 +29,7 @@ let unknownReply = false;
 const asked = gate();
 const asks = new Map<string, number>();
 const provider = await stub(async (_hit, req) => {
-  if (unknownReply) return new Reply(503, { error: "synthetic ambiguous response" });
+  if (unknownReply) return DROP_RESPONSE;
   const { text: s } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
   if (hold) {
     asked.open();

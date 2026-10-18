@@ -609,6 +609,10 @@
     "feedback.quota_buckets": {
       "module": "feedback",
       "access": "business"
+    },
+    "ai.model_service_circuits": {
+      "module": "ai-gateway",
+      "access": "business"
     }
   },
   "externalTables": {
@@ -941,6 +945,7 @@
     "packages/backend/src/sources/participants.ts": "sources",
     "packages/backend/src/sources/permission-store.ts": "sources",
     "packages/backend/src/sources/policy-coverage.ts": "sources",
-    "packages/backend/src/sources/representative-input.ts": "sources"
+    "packages/backend/src/sources/representative-input.ts": "sources",
+    "packages/backend/src/providers/circuit.ts": "ai-gateway"
   }
 }

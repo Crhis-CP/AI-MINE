@@ -447,6 +447,10 @@
     {
       "name": "ai-gateway/202610180600_model_fallback_outcomes.sql",
       "dependsOn": ["ai-gateway/202610091800_model_fallback.sql"]
+    },
+    {
+      "name": "ai-gateway/202610180700_model_service_circuits.sql",
+      "dependsOn": ["ai-gateway/202610180600_model_fallback_outcomes.sql"]
     }
   ]
 }

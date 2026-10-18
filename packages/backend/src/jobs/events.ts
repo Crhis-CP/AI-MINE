@@ -1,7 +1,7 @@
 import type { JobData } from "@amp/contracts/jobs";
 import { ModelPostReceiptGuardError } from "../providers/llm.ts";
 import { computeHotRanking } from "../events/hot.ts";
-import { isModelRouteWaiting } from "../providers/model-fallback.ts";
+import { isModelRouteWaiting, modelRouteWaitSeconds } from "../providers/model-fallback.ts";
 import { ReceiptBusyError, ReceiptUnknownError, BudgetExceededError } from "../providers/receipts.ts";
 // Event jobs: serial grouping, debounced digests.
 import type { PgBoss } from "pg-boss";
@@ -58,7 +58,7 @@ export async function registerEventJobs(boss: PgBoss) {
           {
             singletonKey: `control:${data.articleId}:${!!data.signalOnly}:${!!data.force}`,
             priority: await groupingQueuePriority(data.articleId),
-            startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : 60,
+            startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : modelRouteWaitSeconds(error, 60),
           },
         );
         return { state: "waiting", reason: isModelRouteWaiting(error) ? "model_route" : "runtime_control" };
@@ -82,7 +82,7 @@ export async function registerEventJobs(boss: PgBoss) {
             { ...data, lane: "news" },
             {
               singletonKey: `control:${data.storyId}:${!!data.afterCorrection}`,
-              startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : 60,
+              startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : modelRouteWaitSeconds(error, 60),
             },
           );
           return { state: "waiting", reason: isModelRouteWaiting(error) ? "model_route" : "runtime_control" };
@@ -112,7 +112,10 @@ export async function registerEventJobs(boss: PgBoss) {
           return await run(data);
         } catch (error) {
           if (!isWaiting(error)) throw error;
-          await enqueue(queue, data, { singletonKey: key(data), startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : 60 });
+          await enqueue(queue, data, {
+            singletonKey: key(data),
+            startAfter: error instanceof BudgetExceededError ? Math.max(1, error.retryAfterSeconds) : modelRouteWaitSeconds(error, 60),
+          });
           return { state: "waiting", reason: isModelRouteWaiting(error) ? "model_route" : "runtime_control" };
         }
       },

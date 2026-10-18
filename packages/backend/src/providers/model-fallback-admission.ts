@@ -21,16 +21,18 @@ export type BackupAdmission = {
   name: string;
   modelName: string;
 };
+export async function modelService(key: string, db: Db): Promise<string | null> {
+  const id = registeredModelId(key);
+  if (id) {
+    const row = await connectionRow(id, db);
+    return modelBudgetService(row.config.endpoint, row.config.interface === "deepseek" ? "deepseek" : undefined);
+  }
+  const configured = environmentModelMetadata(key);
+  return configured && "budgetService" in configured ? configured.budgetService : null;
+}
 /** A fallback must survive the primary service failing; another model on the same service cannot do so. */
 export async function differentModelServices(primaryKey: string, backupConfig: ConnectionConfig, db: Db): Promise<boolean> {
-  const primaryId = registeredModelId(primaryKey);
-  const primaryConfig = primaryId ? (await connectionRow(primaryId, db)).config : null;
-  const configured = primaryConfig ? null : environmentModelMetadata(primaryKey);
-  const primaryService = primaryConfig
-    ? modelBudgetService(primaryConfig.endpoint, primaryConfig.interface === "deepseek" ? "deepseek" : undefined)
-    : configured && "budgetService" in configured
-      ? configured.budgetService
-      : null;
+  const primaryService = await modelService(primaryKey, db);
   const backupService = modelBudgetService(backupConfig.endpoint, backupConfig.interface === "deepseek" ? "deepseek" : undefined);
   return !!primaryService && primaryService !== backupService;
 }

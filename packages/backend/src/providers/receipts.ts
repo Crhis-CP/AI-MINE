@@ -516,7 +516,7 @@ async function legacyModelReceipt(db: Db, req: ReceiptRequest) {
  * Runs a paid request at most once per logical key and returns its raw response.
  * The caller parses the response and commits business results, then calls completeReceipt.
  */
-export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallOutcome>): Promise<ReceiptResult> {
+export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallOutcome>, beforeAttempt?: (tx: Db) => Promise<void>): Promise<ReceiptResult> {
   if (req.maxRejectedOutputs !== undefined && (![1, 3].includes(req.maxRejectedOutputs) || req.purpose !== "translate_body"))
     throw new Error("Only translation may opt into a rejected-output limit");
   const knownLane = req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane;
@@ -688,6 +688,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       }
       const usage = await usageAdmission(tx);
       if (!usage.reservation) return { kind: "usage_blocked" as const, reason: usage.blocked!, code: usage.code };
+      await beforeAttempt?.(tx);
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
       const attemptId = await startAttempt(tx, existing.id, r!.attempts, req, usage.reservation);
@@ -722,6 +723,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     }
     const usage = await usageAdmission(tx);
     if (!usage.reservation) return { kind: "usage_blocked" as const, reason: usage.blocked!, code: usage.code };
+    await beforeAttempt?.(tx);
     const [row] = await tx<{ id: number; id_text: string }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
       VALUES (${logicalKey}, ${req.service}, ${req.model ?? null}, ${req.purpose}, ${req.subject ?? null}, 'pending',

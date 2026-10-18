@@ -1,3 +1,4 @@
+import { CircuitOpenError, enterModelCircuit, recordModelHealth, modelCircuits } from "../packages/backend/src/providers/circuit.ts";
 import { recoverUnknownOnce } from "../packages/backend/src/providers/unknown-recovery.ts";
 import { providerRejection } from "../packages/backend/src/providers/provider-errors.ts";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
@@ -37,13 +38,15 @@ process.env.MODEL_REGISTRY_ENCRYPTION_KEY = Buffer.alloc(32, 28).toString("base6
 config.modelCallsEnabled = true;
 after(closeDb);
 const schema = z.strictObject({ ok: z.literal(true) }),
-  events: string[] = [];
+  events: string[] = [],
+  requestTimeouts: number[] = [];
 let mode = "ok",
   onPrimary: (() => Promise<void>) | null = null;
 const transport: RegisteredModelTransport = async (url, options) => {
   const body = JSON.parse(options.body!),
     which = url.includes("primary") ? "primary" : "backup";
   events.push(which);
+  requestTimeouts.push(options.timeoutMs ?? 0);
   const probe = body.max_tokens < 512;
   if (!probe && which === "primary") {
     if (onPrimary) await onPrimary();
@@ -92,6 +95,7 @@ const transport: RegisteredModelTransport = async (url, options) => {
   };
 };
 async function fixture(capability: "summarize" | "translate" = "summarize") {
+  await sql`DELETE FROM ai.model_service_circuits WHERE service IN ('model:primary.fixture.invalid','model:backup.fixture.invalid')`;
   const t = tag(),
     source = `fallback-${t}`,
     url = `https://source.invalid/${t}`;
@@ -218,12 +222,13 @@ async function fixture(capability: "summarize" | "translate" = "summarize") {
     };
   };
   const fallbackPermit = createFallbackPermitPort({ root, snapshot: await snapshot(), current: snapshot });
-  const call = (name: string, subject = `fallback:${t}:${name}`) =>
+  const call = (name: string, subject = `fallback:${t}:${name}`, timeoutMs?: number) =>
     chatJson({
       ...base,
       model: primary.key,
       subject,
       user: `SYNTHETIC production material ${name}`,
+      timeoutMs,
       fallbackPermit,
       ...(capability === "translate" ? { maxRejectedOutputs: 1 as const } : {}),
     });
@@ -435,6 +440,8 @@ test("filtered output remains reusable after rejection and route waits do not co
     }
     return false;
   });
+  assert.equal(requestTimeouts[before], 120_000, "without an evaluated backup the ordinary timeout remains unchanged");
+  assert.equal((await modelCircuits())["model:primary.fixture.invalid"], undefined, "a route without a backup does not start shared failover health tracking");
   const known = refused as ModelContentFiltered | null;
   assert.ok(known);
   await rejectReceivedResponse(known.receiptId, "SYNTHETIC downstream rejected filtered output", known.attemptId);
@@ -615,4 +622,56 @@ test("a received but refused alternate never releases the unknown primary", asyn
   const [decision] = await sql`SELECT accepted_at,blocked_reason FROM ai.model_fallback_resolutions WHERE backup_model=${f.backup.key}`;
   assert.equal(decision.accepted_at, null);
   assert.ok(decision.blocked_reason);
+});
+
+test("service cooldown avoids phantom primary attempts and admits one recovery probe across concurrent callers", async () => {
+  mode = "ok";
+  const f = await fixture(),
+    service = "model:primary.fixture.invalid";
+  mode = "primary-ok";
+  const primaryCache = await f.call("healthy-cached-primary");
+  mode = "http";
+  const before = events.length;
+  for (let i = 0; i < 10; i++) await f.call(`outage-${i}`, undefined, i === 0 ? 75_000 : undefined);
+  assert.equal(events.length - before, 20);
+  assert.deepEqual(requestTimeouts.slice(before, before + 4), [75_000, 75_000, 30_000, 30_000]);
+  const open = (await modelCircuits())[service]!;
+  assert.equal(open.failures, 10);
+  assert.ok(open.openUntil > Date.now());
+  const view = (await modelFallbacks(f.owner)).routes.find((row) => row.capability === "summarize")!;
+  assert.equal(view.state, "ready");
+  assert.match(view.detail!, /主服务暂时不可用/);
+  await f.call("cooled-primary");
+  assert.deepEqual(events.slice(before + 20), ["backup"]);
+  const [decision] =
+    await sql`SELECT primary_receipt_id,primary_attempt_id,primary_circuit FROM ai.model_fallback_resolutions WHERE backup_model=${f.backup.key} AND primary_circuit IS NOT NULL`;
+  assert.equal(decision.primary_receipt_id, null);
+  assert.equal(decision.primary_attempt_id, null);
+  assert.equal(decision.primary_circuit.service, service);
+  assert.equal((await sql`SELECT id FROM receipts WHERE service=${f.primary.key} AND subject LIKE '%:cooled-primary'`).length, 0);
+  const cachedBefore = events.length;
+  assert.equal((await f.call("healthy-cached-primary")).receiptId, primaryCache.receiptId);
+  await f.call("outage-0", undefined, 75_000);
+  assert.equal(events.length, cachedBefore);
+  assert.deepEqual((await modelCircuits())[service], open, "cache reuse cannot report the service healthy");
+  await sql`UPDATE ai.model_service_circuits SET state=state || ${sql.json({ openUntil: Date.now() - 1, probeUntil: 0 })} WHERE service=${service}`;
+  const probes = await Promise.allSettled(Array.from({ length: 6 }, () => sql.begin((tx) => enterModelCircuit(tx, service, 30_000))));
+  const admitted = probes.filter((result) => result.status === "fulfilled");
+  assert.equal(admitted.length, 1);
+  assert.ok(probes.filter((result) => result.status === "rejected").every((result) => result.reason instanceof CircuitOpenError));
+  const first = admitted[0]!.value;
+  await recordModelHealth(service, { probe: null }, false);
+  assert.equal((await modelCircuits())[service]!.probe, first.probe, "old ordinary success cannot close an open circuit");
+  await sql`UPDATE ai.model_service_circuits SET state=state || ${sql.json({ probeUntil: Date.now() - 1 })} WHERE service=${service}`;
+  const replacement = await sql.begin((tx) => enterModelCircuit(tx, service, 30_000));
+  await recordModelHealth(service, first, false);
+  assert.equal((await modelCircuits())[service]!.probe, replacement.probe, "an expired probe cannot close a replacement lease");
+  await recordModelHealth(service, replacement, true);
+  assert.ok((await modelCircuits())[service]!.openUntil > Date.now());
+  await sql`UPDATE ai.model_service_circuits SET state=state || ${sql.json({ openUntil: Date.now() - 1, probeUntil: 0 })} WHERE service=${service}`;
+  mode = "primary-ok";
+  const recovered = await f.call("service-recovered");
+  assert.equal(recovered.model, f.primary.key);
+  assert.equal((await modelCircuits())[service]!.openUntil, 0);
+  assert.equal((await modelCircuits())[service]!.failures, 0);
 });

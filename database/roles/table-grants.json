@@ -1221,6 +1221,15 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT"]
       }
+    },
+    "ai.model_service_circuits": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {
