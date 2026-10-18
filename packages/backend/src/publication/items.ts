@@ -59,7 +59,7 @@ export interface ItemRow {
 export const ITEM_COLUMNS = () => sql`
   p.article_id AS id, p.revision, p.title, p.original_title,
   coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
-  p.selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
+  (${confirmedSelected()}) AS selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
   s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,
   a.author, a.language,
@@ -84,7 +84,7 @@ export type ApiItemRow = Pick<
 >;
 export const API_ITEM_COLUMNS = () => sql`
   p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,
-  p.published_at,${CURRENT_SOURCE_TIME()} AS source_time,p.discovered_at, p.category, p.score, p.selected, p.reason`;
+  p.published_at,${CURRENT_SOURCE_TIME()} AS source_time,p.discovered_at, p.category, p.score, (${confirmedSelected()}) AS selected, p.reason`;
 export const API_ITEM_FROM = () => sql`FROM publications p JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id`;
 
 /** A translation of an older revision is left out: the original changed after it (the worker translates it again). */
@@ -95,6 +95,14 @@ export const ITEM_FROM = () => sql`
   LEFT JOIN stories st ON st.id = p.story_id AND st.merged_into IS NULL
   LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision`;
 
+/** Both flags are written together only by the current confirmed publication projection.
+ * Legacy selected=true rows have selection_candidate=false until that projection is rebuilt.
+ * Non-representative confirmed members remain selected; seat is a separate distribution choice.
+ */
+export function confirmedSelected() {
+  return sql`p.selected AND p.selection_candidate`;
+}
+
 /** Listed items: public, and a selected item only after its release gate. */
 export function listedCondition(now: Date) {
   return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now})`;
@@ -102,7 +110,7 @@ export function listedCondition(now: Date) {
 
 /** Selected set: the 精选 mark, 全部矿业动态, topics, v1 selected mode, RSS and daily issues. No age window. */
 export function selectedCondition(now: Date) {
-  return sql`p.visibility = 'public' AND p.selected AND p.visible_after <= ${now}`;
+  return sql`p.visibility = 'public' AND p.eligible AND ${confirmedSelected()} AND p.visible_after <= ${now}`;
 }
 
 /**
@@ -302,7 +310,7 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
   const sort = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) WHEN ${query.selected} THEN p.sort_at ELSE p.timeline_at END`;
   return db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
     WHERE p.visibility='public' AND (NOT p.selected OR p.visible_after<=${query.now})
-      AND (${!query.selected} OR (p.selected AND p.seat)) AND (${query.selected} OR p.eligible)
+      AND (${!query.selected} OR (${confirmedSelected()} AND p.seat)) AND (${query.selected} OR p.eligible)
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
@@ -325,7 +333,7 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
   return db<{ id: string; latest: Date }[]>`SELECT st.public_id::text AS id,max(p.timeline_at) AS latest
     FROM stories st JOIN publications p ON p.story_id=st.id
     WHERE ((${query.merged} AND st.merged_into IS NOT NULL) OR (${!query.merged} AND st.merged_into IS NULL))
-      AND p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND (${!query.selected} OR p.selected)
+      AND p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND (${!query.selected} OR (${confirmedSelected()}))
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
@@ -397,7 +405,7 @@ export function readConfirmedGroupingItems(ids: string[], db: Db = sql) {
 export async function currentSyncItems(ids: string[], now: Date, db: Db = sql): Promise<ApiItemRow[]> {
   if (!ids.length) return [];
   return db<ApiItemRow[]>`SELECT ${API_ITEM_COLUMNS()} ${API_ITEM_FROM()}
-    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND p.selected AND p.seat
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND ${confirmedSelected()} AND p.seat
       AND p.visible_after<=${now} AND s.participation_mode='editorial' AND s.lane='news'`;
 }
 

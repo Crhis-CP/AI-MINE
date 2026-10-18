@@ -3,10 +3,11 @@ import { readMatcherValues } from "./mentions.ts";
 // "展开 N 条进展". Members must pass the same visibility, pool eligibility and parent-page filters.
 import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";
 import type { DevelopmentsResponse, GroupReportsResponse } from "@amp/contracts/site";
-import { sql } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
 import {
+  confirmedSelected,
   publicTimeMetadata,
   ITEM_COLUMNS,
   ITEM_FROM,
@@ -53,7 +54,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
       first_party: boolean;
     }[]
   >`
-    SELECT p.article_id AS id, p.title, coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, p.selected,
+    SELECT p.article_id AS id, p.title, coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, (${confirmedSelected()}) AS selected,
            s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party
     FROM publications p JOIN sources s ON s.id = p.source_id
     WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND p.eligible
@@ -347,4 +348,14 @@ export async function publicParticipationBindings(ids: string[]) {
   >`
     SELECT p.article_id AS id,p.revision,p.source_id,p.fact_id,f.story_id,p.visibility,p.eligible,p.operator_withdrawn,p.selected,p.visible_after
     FROM publications p LEFT JOIN facts f ON f.id=p.fact_id WHERE p.article_id=ANY(${ids}::text[])`;
+}
+
+/** Bounded public nominations awaiting the current projection; existing selections are not rejudged. */
+export async function recentGroupingCandidateIds(sourceIds: string[], db: Db = sql) {
+  const rows = await db<{ article_id: string }[]>`SELECT p.article_id FROM publications p
+    WHERE p.source_id=ANY(${sourceIds}::text[]) AND p.visibility='public' AND p.eligible
+      AND ((p.selection_candidate AND NOT p.selected) OR (p.selected AND NOT p.selection_candidate))
+      AND NOT p.backfill AND p.timeline_at >= now()-interval '7 days'
+    ORDER BY p.timeline_at DESC,p.article_id LIMIT 1000`;
+  return rows.map((row) => row.article_id);
 }

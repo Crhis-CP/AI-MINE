@@ -7,6 +7,8 @@ import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/
 import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
+  selectedCondition,
+  confirmedSelected,
   ITEM_COLUMNS,
   ITEM_FROM,
   categoryCondition,
@@ -38,7 +40,7 @@ interface GroupRow {
 
 function entryCondition(q: TimelineQuery, now: Date) {
   if (q.scope === "all") return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now}) AND p.eligible`;
-  return sql`p.visibility = 'public' AND p.selected AND p.visible_after <= ${now} AND p.timeline_at >= ${q.featuredSince ?? null}`;
+  return sql`${selectedCondition(now)} AND p.timeline_at >= ${q.featuredSince ?? null}`;
 }
 
 function binding(q: TimelineQuery): string {
@@ -195,7 +197,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const currentMembers = members.length
     ? await sql<{ id: string; fact_id: number }[]>`
     SELECT p.article_id AS id,p.fact_id FROM publications p WHERE p.article_id=ANY(${members.map((member) => member.id)}::text[])
-      AND p.selected AND ${entryCondition(q, now)} AND ${ownFactEvidence()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
+      AND ${confirmedSelected()} AND ${entryCondition(q, now)} AND ${ownFactEvidence()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
     : [];
   await attachSourcePolicies([...rows.values()]);
   const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt, group }) => {

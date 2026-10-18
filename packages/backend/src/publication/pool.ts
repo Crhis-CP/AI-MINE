@@ -5,6 +5,7 @@ import type { PoolResponse, TimelineFilters } from "@amp/contracts/site";
 import { addDays, isValidDate, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import {
+  confirmedSelected,
   categoryCondition,
   publicationDateCondition,
   currentGeographyMatch,
@@ -174,7 +175,7 @@ async function queryPool(
     [],
   );
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(names)} ${topicCondition(names)} ${dateFilter}
-    ${query.selected ? sql`AND p.selected` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``}
+    ${query.selected ? sql`AND ${confirmedSelected()}` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   // A fixed clock (tests, replays) never shares cached totals.
@@ -358,7 +359,7 @@ async function loadPoolSourceFacets(query: PoolQuery, names: ReadMatcherValues, 
     WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
       AND (${query.channel}='all' OR (${query.channel}='firstParty' AND p.first_party) OR p.channel=${query.channel})
       AND (${query.category}::text IS NULL OR p.category=${query.category})
-      AND (${query.selected ?? false}=false OR p.selected)
+      AND (${query.selected ?? false}=false OR (${confirmedSelected()}))
       ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
       AND (${names.tagTags}::text[] IS NULL OR p.tags && ${names.tagTags}::text[] OR (${names.tagText.active} AND ${publicationTextMatches(names.tagText)}))
       AND (${minerals.tagTags}::text[] IS NULL OR p.tags && ${minerals.tagTags}::text[] OR (${minerals.tagText.active} AND ${publicationTextMatches(minerals.tagText)}))

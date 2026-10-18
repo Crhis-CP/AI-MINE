@@ -1,3 +1,4 @@
+import { confirmedSelected } from "./items.ts";
 import { publicHeatSeries, publicHeatSeriesMany } from "../events/participation-read.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import type { z } from "zod";
@@ -72,7 +73,7 @@ interface ReportRow {
 async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
   const rows = await sql<ReportRow[]>`
     SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary,
-      CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, p.selected, p.score, p.body_mode, p.timeline_at,
+      CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, (${confirmedSelected()}) AS selected, p.score, p.body_mode, p.timeline_at,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
       p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id

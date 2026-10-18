@@ -326,6 +326,27 @@ export async function receiptWaitingForRecovery(receiptId: number, db: Db = sql)
   return !row || row.status === "pending" || row.status === "unknown";
 }
 
+/** A new grouping recipe may replace a known rejected answer, never an unknown or in-flight attempt. */
+export async function changedGroupingRecipeReceipts(
+  inputs: Array<{ receiptId: string; subject: string }>,
+  promptVersion: string,
+  limit: number,
+  db: Db,
+): Promise<Map<string, string>> {
+  if (!inputs.length || !promptVersion) return new Map();
+  const subjects = new Map(inputs.map((row) => [row.receiptId, row.subject]));
+  const rows = await db<{ id: string; subject: string }[]>`SELECT r.id::text AS id,r.subject FROM receipts r
+    JOIN receipt_attempts a ON a.id=r.response_attempt_id AND a.receipt_id=r.id AND a.attempt=r.attempts
+    WHERE r.id=ANY(${inputs.map((row) => row.receiptId)}::bigint[]) AND r.purpose='group_article'
+      AND r.origin='live' AND a.origin='live' AND r.status='failed' AND a.status='received'
+      AND r.response IS NOT NULL AND a.response=r.response AND r.request->>'lane'='news'
+      AND jsonb_typeof(r.request->'promptVersion')='string' AND r.request->>'promptVersion'<>''
+      AND r.request->>'promptVersion'<>${promptVersion}
+      AND r.error LIKE 'unusable output: %Every candidate and any unknown query scope require an explicit answer%'
+    ORDER BY r.created_at,r.id LIMIT ${Math.max(1, Math.min(limit, 100))}`;
+  return new Map(rows.filter((row) => subjects.get(row.id) === row.subject).map((row) => [row.id, row.subject] as const));
+}
+
 /** Recover a just-failed JSON parse from the real response pointer; callers still verify the exact input hashes. */
 export async function readPolicyResponseForReceipt(receiptId: number) {
   const [row] = await sql<{ attemptId: string | null }[]>`SELECT response_attempt_id::text AS "attemptId" FROM receipts WHERE id=${receiptId}`;

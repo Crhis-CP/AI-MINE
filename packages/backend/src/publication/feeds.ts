@@ -18,7 +18,7 @@ import { linkBodyImages } from "../content/sanitize.ts";
 import { sql } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
 import { reportHeadline, reportIndex, reportLeadParagraph } from "./reports.ts";
-import type { ItemRow } from "./items.ts";
+import { selectedCondition, type ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { listPolicies } from "./policies.ts";
 
@@ -177,7 +177,7 @@ function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, no
   return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now}) AND (
     (${kind} = 'all' AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
       AND coalesce(p.published_at, p.discovered_at) <= ${now}) OR
-    (${kind} <> 'all' AND p.selected AND p.seat AND p.visible_after <= ${now} AND (${category}::text IS NULL OR p.category = ${category})
+    (${kind} <> 'all' AND ${selectedCondition(now)} AND p.seat AND (${category}::text IS NULL OR p.category = ${category})
       AND (${category}::text IS NULL OR coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)})))`;
 }
 
