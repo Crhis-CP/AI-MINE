@@ -270,7 +270,7 @@ const nextMonth = (key: string) => {
   return month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, "0")}`;
 };
 
-/** Half-hour recovery fills every missing due issue, oldest first; failures do not hold up unrelated issues. */
+/** Half-hour recovery prioritizes current editions, then older gaps within the shared write limit. */
 export async function catchUpReports(now = new Date(), limit = 8): Promise<{ generated: string[] }> {
   const generated: string[] = [],
     failed: string[] = [];
@@ -285,23 +285,26 @@ export async function catchUpReports(now = new Date(), limit = 8): Promise<{ gen
     },
     { kind: "monthly", due: dueMonthly(now), next: nextMonth, end: (key: string) => addDays(`${nextMonth(key)}-01`, -1), compose: composeMonthly },
   ];
-  editions: for (const item of kinds) {
-    const have = new Set((await sql<{ key: string }[]>`SELECT key FROM reports WHERE kind=${item.kind}`).map((row) => row.key));
-    const first = [...have].sort()[0] ?? item.due;
-    const [daily] = await sql<{ key: string | null }[]>`SELECT min(key) AS key FROM reports WHERE kind='daily'`;
-    for (let key = first; key <= item.due; key = item.next(key)) {
-      if (have.has(key)) continue;
-      if (item.kind !== "daily" && (!daily?.key || item.end(key) < daily.key)) continue;
-      if (shutdownSignal.signal.aborted || generated.length >= limit) break editions;
-      try {
-        await item.compose(key, "catch-up");
-        if ((await sql`SELECT 1 FROM reports WHERE kind=${item.kind} AND key=${key}`).length) generated.push(`${item.kind}:${key}`);
-      } catch (error) {
-        if (shutdownSignal.signal.aborted) break editions;
-        failed.push(`${item.kind}:${key}`);
-        console.warn(
-          JSON.stringify({ level: "error", msg: "report issue failed", kind: item.kind, key, error: error instanceof Error ? error.name : "Error" }),
-        );
+  editions: for (const current of [true, false]) {
+    for (const item of kinds) {
+      const have = new Set((await sql<{ key: string }[]>`SELECT key FROM reports WHERE kind=${item.kind}`).map((row) => row.key));
+      const first = current ? item.due : ([...have].sort()[0] ?? item.due);
+      const [daily] = await sql<{ key: string | null }[]>`SELECT min(key) AS key FROM reports WHERE kind='daily'`;
+      for (let key = first; key <= item.due; key = item.next(key)) {
+        if (!current && key === item.due) break;
+        if (have.has(key)) continue;
+        if (item.kind !== "daily" && (!daily?.key || item.end(key) < daily.key)) continue;
+        if (shutdownSignal.signal.aborted || generated.length >= limit) break editions;
+        try {
+          await item.compose(key, "catch-up");
+          if ((await sql`SELECT 1 FROM reports WHERE kind=${item.kind} AND key=${key}`).length) generated.push(`${item.kind}:${key}`);
+        } catch (error) {
+          if (shutdownSignal.signal.aborted) break editions;
+          failed.push(`${item.kind}:${key}`);
+          console.warn(
+            JSON.stringify({ level: "error", msg: "report issue failed", kind: item.kind, key, error: error instanceof Error ? error.name : "Error" }),
+          );
+        }
       }
     }
   }

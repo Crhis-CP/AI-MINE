@@ -41,6 +41,12 @@ test("verified date-only correction is atomic, durable, preserves revision and r
   const plan = (await previewPublicationDateCorrection(articleId, intent))!;
   assert.equal(plan.after.sourceTime?.utc, null);
   assert.equal(plan.after.sourceTime?.precision, "date");
+  const localDay = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+  const offsetPlan = (await previewPublicationDateCorrection(articleId, { ...intent, publishedAt: `${localDay}T23:30:00.123456-03:00` }))!;
+  assert.equal(offsetPlan.after.sourceTime?.local_date, localDay);
+  assert.equal(offsetPlan.after.sourceTime?.local_time, "23:30:00.123456");
+  assert.notEqual(offsetPlan.after.sourceTime?.utc?.slice(0, 10), localDay);
+
   const key = randomUUID(),
     input = { ...intent, version: plan.version, hash: plan.hash, reason: "更正误读的时分" };
   const before = (await sql`SELECT revision,processing_state,body_text,discovered_at FROM articles WHERE id=${articleId}`)[0];
@@ -75,6 +81,30 @@ test("verified date-only correction is atomic, durable, preserves revision and r
   );
   assert.equal(await readTime({ articleId: other.articleId, sourceId: other.sourceId, revision: 1, configHash: "" }, 0, Date.now()), null);
 });
+test("an undated historical material accepts verified old dates without entering recent news", async () => {
+  const { articleId, sourceId } = await fixture();
+  await sql`UPDATE articles SET published_at=NULL,published_at_claim=NULL,backfill=true,backfill_reason='unknown-publication-time' WHERE id=${articleId}`;
+  const oldDay = new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10);
+  const intent = { publishedAt: oldDay, evidence: "原文公布的历史日历日期，现已人工核实。" };
+  const plan = (await previewPublicationDateCorrection(articleId, intent))!;
+  assert.equal(plan.mode, "history");
+  assert.equal(plan.after.backfill, true);
+  assert.equal(plan.after.sourceTime?.precision, "date");
+  const result = await correctPublicationDate(
+    articleId,
+    { ...intent, version: plan.version, hash: plan.hash, reason: "补录已核实历史日期" },
+    randomUUID(),
+    "test:date",
+  );
+  assert.equal(result?.status, "corrected");
+  assert.equal((await readTime({ articleId, sourceId, revision: 1, configHash: "" }, 0, Date.now()))?.local_date, oldDay);
+  const [row] = await sql`SELECT backfill,revision,timeline_at FROM articles WHERE id=${articleId}`;
+  assert.equal(row.backfill, true);
+  assert.equal(row.revision, 1);
+  assert(row.timeline_at.getTime() < Date.now() - 7 * 86400000);
+  await assert.rejects(previewPublicationDateCorrection(articleId, { ...intent, publishedAt: new Date().toISOString() }), /不能.*刷入/);
+});
+
 test("stale preview and unsettled work cannot change dates; repeated analysis command stays idempotent after queue completion", async () => {
   const { articleId } = await fixture();
   const intent = { publishedAt: new Date(Date.now() - 7200000).toISOString(), evidence: "原文明确的带时区发布时间" };

@@ -24,15 +24,17 @@ import { Conflict } from "./sources.ts";
 function timeOf(value: string | null): TimeAssertion | null {
   if (value === null) return null;
   const dayOnly = value.length === 10;
-  const utc = dayOnly ? null : new Date(value).toISOString();
-  const day = dayOnly ? value : utc!.slice(0, 10);
+  const fraction = /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/.exec(value)?.[1];
+  const utc = dayOnly ? null : new Date(value).toISOString().replace(/\.\d{3}Z$/, fraction ? `.${fraction}Z` : ".000Z");
+  const day = value.slice(0, 10);
+  const clock = dayOnly ? null : value.slice(11).replace(/(?:Z|[+-]\d{2}:\d{2})$/, "");
   return TimeAssertion.parse({
     meaning: "published",
     meaning_label: "来源发布",
     raw: value,
     local_date: day,
-    local_time: dayOnly ? null : utc!.slice(11, -1),
-    timezone: dayOnly ? null : "UTC",
+    local_time: clock,
+    timezone: !dayOnly && /(?:Z|[+-]00:00)$/.test(value) ? "UTC" : null,
     utc,
     precision: dayOnly ? "date" : "second",
     basis: "人工核对原文发布时间",
@@ -62,14 +64,14 @@ async function makePlan(a: CorrectionMaterial, input: z.infer<typeof AdminDateIn
     backfill: a.backfill,
     backfillReason: a.backfill_reason,
   };
-  const history = !!(date && a.published_at && a.published_at.getTime() < now.getTime() - 7 * 86400000);
+  const history = !!(date && (a.published_at ? a.published_at.getTime() < now.getTime() - 7 * 86400000 : isHistorical(a)));
   if (history && date!.getTime() >= now.getTime() - 7 * 86400000) throw new Conflict("历史内容不能通过日期校正刷入近期资讯");
   if (!history && isHistorical(a)) throw new Conflict("历史内容只校正有明确原文依据的历史日期");
   const explicit = ["unknown-publication-time", "stale-on-discovery"].includes(a.backfill_reason ?? "") ? null : a.backfill_reason;
   const timeline = history
     ? {
         publishedAt: date,
-        timelineAt: a.timeline_at.getTime() === a.published_at!.getTime() ? date! : a.timeline_at,
+        timelineAt: !a.published_at || a.timeline_at.getTime() === a.published_at.getTime() ? date! : a.timeline_at,
         backfill: a.backfill,
         backfillReason: a.backfill_reason,
       }

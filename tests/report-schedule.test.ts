@@ -27,22 +27,39 @@ test("scheduler and reader agree at Beijing daily, weekly and monthly boundaries
   }
   assert.equal(editionTime("2026-10-12").toISOString(), "2026-10-12T00:00:00.000Z");
 });
-test("catch-up revisits an old gap outside the former seven-day limit and does not count an unjudged issue as written", async () => {
+test("catch-up writes the current daily before more than eight old gaps and retains missing-period failures", async () => {
   await sql`INSERT INTO sources(id,name,kind,participation_mode) VALUES('catch-up-test','合成补刊来源','rss','editorial')`;
-  const { articleId } = await upsertMaterial({
-    sourceId: "catch-up-test",
-    url: "https://example.invalid/catch-up",
-    title: "合成普通新闻",
-    publishedAt: new Date("2020-01-02T12:00Z"),
-    discoveredAt: new Date("2020-01-02T12:00Z"),
-    via: "fetch",
-  });
-  await sql`INSERT INTO publications(article_id,title,summary,url,source_id,channel,discovered_at,timeline_at,sort_at,selected,eligible,score) VALUES(${articleId},'合成普通新闻','已评分未入选','https://example.invalid/catch-up','catch-up-test','news','2020-01-02T12:00Z','2020-01-02T12:00Z','2020-01-02T12:00Z',false,true,20)`;
-  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,origin) VALUES('daily','2020-01-02','2020-01-01','2020-01-02','{}',now(),'rule')`;
-  const result = await catchUpReports(new Date("2020-01-20T01:00Z"), 1);
-  assert.deepEqual(result.generated, ["daily:2020-01-03"]);
-  assert.equal((await sql`SELECT origin FROM reports WHERE key='2020-01-03'`)[0]!.origin, "rule");
-  await assert.rejects(catchUpReports(new Date("2020-01-20T01:00Z"), 1), /weekly:2020-W02 failed/, "missing dailies remain a failed period, not a quiet one");
+  for (const day of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 19, 26]) {
+    const at = new Date(`2020-01-${String(day).padStart(2, "0")}T12:00Z`);
+    const { articleId } = await upsertMaterial({
+      sourceId: "catch-up-test",
+      url: `https://example.invalid/catch-up/${day}`,
+      title: "合成普通新闻",
+      publishedAt: at,
+      discoveredAt: at,
+      via: "fetch",
+    });
+    await sql`INSERT INTO publications(article_id,title,summary,url,source_id,channel,discovered_at,timeline_at,sort_at,selected,eligible,score)
+      VALUES(${articleId},'合成普通新闻','已评分未入选',${`https://example.invalid/catch-up/${day}`},'catch-up-test','news',${at},${at},${at},false,true,20)`;
+  }
+  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,origin)
+    VALUES('daily','2020-01-02','2020-01-01','2020-01-02','{}',now(),'rule'),
+      ('weekly','2020-W02','2020-01-06','2020-01-12','{}',now(),'rule')`;
+  const result = await catchUpReports(new Date("2020-01-20T01:00Z"));
+  assert.deepEqual(result.generated, ["daily:2020-01-20", ...[3, 4, 5, 6, 7, 8, 9].map((day) => `daily:2020-01-${String(day).padStart(2, "0")}`)]);
+  assert.equal((await sql`SELECT origin FROM reports WHERE kind='daily' AND key='2020-01-03'`)[0]!.origin, "rule");
+  assert.equal(
+    (await sql`SELECT 1 FROM reports WHERE kind='daily' AND key='2020-01-10'`).length,
+    0,
+    "the shared eight-write allowance also covers the current issue",
+  );
+  await assert.rejects(
+    catchUpReports(new Date("2020-01-27T01:00Z")),
+    /weekly:2020-W03 failed; daily:2020-01-27, daily:2020-01-10, daily:2020-01-11, daily:2020-01-12 written/,
+    "a missing period fails honestly after unrelated current and historical dailies are written",
+  );
+  assert.equal((await sql`SELECT 1 FROM reports WHERE kind='weekly' AND key='2020-W03'`).length, 0);
+  assert.equal((await sql`SELECT 1 FROM reports WHERE kind='daily' AND key='2020-01-13'`).length, 0, "an unjudged issue is never counted as written");
 });
 
 test("empty weeks skip only complete quiet dailies, with no paid writing or empty public issue", async () => {
