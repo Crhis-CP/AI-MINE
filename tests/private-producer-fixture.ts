@@ -260,14 +260,15 @@ export async function installSqlFailure(f: Awaited<ReturnType<typeof privateProd
   };
 }
 
-export function queueExpired(producer: Awaited<ReturnType<typeof import("@amp/backend/jobs/queue").getBoss>>) {
-  try {
-    producer.getDb();
-    return false;
-  } catch (error) {
-    assert.match((error as Error).message, /instance expired/);
-    return true;
-  }
+/** Observe the actual native stop boundary without relying on removed proxy accessors. */
+export function trackProducerStop(producer: Awaited<ReturnType<typeof import("@amp/backend/jobs/queue").getBoss>>) {
+  let started = false;
+  const stop = producer.stop.bind(producer);
+  producer.stop = (options) => {
+    started = true;
+    return stop(options);
+  };
+  return () => started;
 }
 
 /** Shared HTTP contract assertion; no dependency on a not-yet-merged queue exception type. */

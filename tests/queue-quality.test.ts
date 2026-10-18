@@ -1,6 +1,5 @@
 import { createTestDatabase, resourcePrefix } from "./test-resources.ts";
 import assert from "node:assert/strict";
-import type { EventEmitter } from "node:events";
 import { after, test } from "node:test";
 import { createDatabaseAccess } from "@amp/config";
 import { closeDb, initializeDb } from "@amp/backend/db";
@@ -20,95 +19,20 @@ after(async () => {
   await access.close();
 });
 
-test("retained queue, saved methods and database capabilities are revoked with their root", async () => {
+test("native queue connections stop before the process database closes", async () => {
   await initializeDb("worker", { DATABASE_URL: url });
   const boss = await getBoss();
-  const name = `quality.capabilities-${process.pid}`;
+  const name = `quality.native-${process.pid}`;
   await boss.createQueue(name);
-  const send = boss.send.bind(boss);
-  const getDb = boss.getDb;
-  const db = getDb();
-  const execute = db.executeSql.bind(db);
+  const db = boss.getDb();
   const tx = await db.beginTransaction!();
-  const txExecute = tx.db.executeSql.bind(tx.db);
-  const listener = await db.listen!(
-    `quality_${process.pid}`,
-    () => {},
-    () => {},
-  );
-  try {
-    assert.equal(await boss.start(), boss, "start cannot expose a native receiver");
-    let receiver: unknown;
-    assert.equal(
-      boss.once("stopped", function (this: typeof boss) {
-        receiver = this;
-      }),
-      boss,
-    );
-    boss.emit("stopped");
-    assert.equal(receiver, boss, "event callbacks cannot expose a native receiver");
-    const events = boss as unknown as EventEmitter;
-    for (const mode of ["on", "once", "prependListener", "prependOnceListener"] as const) {
-      for (const raw of [false, true]) {
-        let calls = 0;
-        const listener = () => {
-          calls++;
-        };
-        events[mode]("listener-fixture", listener);
-        assert.equal(events.listeners("listener-fixture")[0], listener);
-        assert.equal(events.listenerCount("listener-fixture", listener), 1);
-        const visible = (raw ? events.rawListeners("listener-fixture") : events.listeners("listener-fixture"))[0] as () => void;
-        if (raw && mode.toLowerCase().includes("once")) assert.equal(Reflect.get(visible, "listener"), listener);
-        if (raw) events.removeListener("listener-fixture", visible);
-        else events.off("listener-fixture", visible);
-        assert.equal(events.listenerCount("listener-fixture"), 0);
-        events.emit("listener-fixture");
-        assert.equal(calls, 0);
-      }
-    }
-    let onceCalls = 0;
-    events.once("once-manual", () => {
-      onceCalls++;
-    });
-    const once = events.rawListeners("once-manual")[0]!;
-    once();
-    once();
-    assert.equal(onceCalls, 1);
-    assert.equal(events.listenerCount("once-manual"), 0);
-    let received: unknown;
-    events.on("db-payload", (payload) => {
-      received = payload;
-    });
-    const payload = { db };
-    events.emit("db-payload", payload);
-    assert.equal(received, payload, "event data is opaque and retains its guarded db");
-    events.emit("db-payload", db);
-    assert.equal(received, db, "a direct event payload is not adapted as a work transaction");
-    await closeDb();
-    await initializeDb("public-api", { DATABASE_URL: url });
-    for (const call of [
-      () => boss.send(name, {}),
-      () => send(name, {}),
-      () => execute("SELECT 1"),
-      () => txExecute("SELECT 1"),
-      () => tx.commit(),
-      () => boss.getDb(),
-      () => getDb(),
-      () => boss.start(),
-      () => payload.db.executeSql("SELECT 23"),
-    ]) {
-      await assert.rejects(async () => call(), expired);
-    }
-    assert.equal((await control`SELECT count(*)::int AS count FROM pgboss.job WHERE name = ${name}`)[0].count, 0);
-    assert.equal(Reflect.get(boss, "__defineGetter__"), undefined);
-    assert.equal(Reflect.get(db, "pool"), undefined, "only the public database capability is exposed");
-    assert.equal(Reflect.get(db, "config"), undefined);
-    assert.equal(Reflect.get(db, "withTransaction"), undefined);
-  } finally {
-    await listener.close();
-    await tx.rollback();
-    await cleanup();
-  }
+  await tx.db.executeSql("SELECT 1");
+  await tx.rollback();
+  await stopBoss();
+  await closeDb();
+  await assert.rejects(() => db.executeSql("SELECT 1"));
+  await assert.rejects(() => boss.send(name, {}));
+  assert.equal((await control`SELECT count(*)::int AS count FROM pgboss.job WHERE name = ${name}`)[0].count, 0);
 });
 
 test("an old ensure completion cannot populate the next instance's queue cache", async () => {

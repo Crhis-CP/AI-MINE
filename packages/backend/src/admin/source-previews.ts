@@ -143,6 +143,7 @@ async function executeSourcePreview(preview: SourcePreview, token: string, signa
       await check();
       const result = await fetchPreview({ ...source, kind, config, collectionSignal: signal, collectionReadKey: `preview:${previewId}` });
       if (!("status" in result) || result.status !== "deferred") return result;
+      if (result.reason !== "host_pacing") throw new Conflict(`预览待重试：${result.reason}`);
       // Robots and list reads share host pacing. Resume this same preview after the reserved time,
       // within its existing deadline; a cooldown is not a permanent failure or permission to bypass it.
       const wait = Date.parse(result.retryAt) - Date.now();

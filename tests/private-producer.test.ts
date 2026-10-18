@@ -7,7 +7,7 @@ import { queueConnection } from "../packages/backend/src/db-bootstrap.ts";
 import {
   privateProducerFixture as fixture,
   assertUnavailable,
-  queueExpired,
+  trackProducerStop,
   holdProducerConnection,
   installSqlFailure,
   pauseQueueRead,
@@ -93,10 +93,11 @@ for (const partition of [false, true])
       await f.install("delete");
       return row;
     };
+    const stopped = trackProducerStop(producer);
     const release = await holdProducerConnection(f.db, f.database, producer);
     try {
       const pending = f.request("new-job", partition);
-      await until(() => queueExpired(producer));
+      await until(stopped);
       let ready = false;
       const next = Promise.all([getBoss(), getBoss()]).then((clients) => {
         ready = true;
@@ -115,7 +116,7 @@ for (const partition of [false, true])
       const [a, b] = await next;
       assert.equal(a, b);
       assert.notEqual(a, producer);
-      await assert.rejects(async () => producer.send(f.queue, {}), /expired/);
+      await assert.rejects(async () => producer.send(f.queue, {}));
     } finally {
       producer.getQueue = get;
       await release();
@@ -197,11 +198,12 @@ for (const mode of ["tx", "options.db"] as const)
     const producer = await getBoss();
     await f.install("delete", false, missing);
     const gate = pauseQueueRead(producer, missing);
+    const stopped = trackProducerStop(producer);
     const request = await prepareLockedTransaction(f, async (tx) => {
       gate.release();
       // Three promise handoffs place retirement between initial getBoss and ensureQueue.
       if (mode === "tx") for (let step = 0; step < 3; step++) await Promise.resolve();
-      else await until(() => queueExpired(producer));
+      else await until(stopped);
       const options =
         mode === "options.db"
           ? { db: { executeSql: async (text: string, values?: unknown[]) => ({ rows: await tx.unsafe(text, (values ?? []) as never[]) }) } }

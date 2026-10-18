@@ -107,11 +107,10 @@
   },
   "unknown": {
     "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1,
-    "packages/backend/src/jobs/queue.ts:bindQueue/bindDb/db/executeSql:63fc330a7a448e3af142788f366684ec35b10c14d8b101b07d8a50debf274f2b": 1,
-    "packages/backend/src/jobs/queue.ts:enqueue/callerDb/executeSql/rows:d00f7d4b44b9896000dc5463bffce8712ac1d628ed3016d4d3d16bc4b52de2af": 1,
-    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:2c56799a00c5ce7c0661ca3aa8e43f1e7d120a1baa92c2ebf848d9bcd7470409": 1,
     "packages/backend/src/operations/watch.ts:readSetting/[row]:f030846870404a90e01cffd48684ad2be4da89ad5ab9929cbdd0334a3ed683ca": 1,
-    "packages/backend/src/operations/watch.ts:writeSetting:27423428d527f057ad060463a135585b5d2192456600bb35f388536521d82f6a": 1
+    "packages/backend/src/operations/watch.ts:writeSetting:27423428d527f057ad060463a135585b5d2192456600bb35f388536521d82f6a": 1,
+    "packages/backend/src/jobs/queue.ts:enqueue/callerDb/executeSql/rows:5056324727ed0a0c3bcbcedef9df12be09adc84590413dcf43e07d0bff2212d8": 1,
+    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:4d7833d2bae73fdd19e977cf0475cadbb70720697fb7382ddc5331760432abb8": 1
   },
   "extractors": {
     "sql": "2479d891d78d004f23a2d10fcb7ef62f0520a319d69f011d0a48da8833b54f53",
@@ -224,20 +223,6 @@
     },
     {
       "file": "packages/backend/src/jobs/queue.ts",
-      "scopeName": "bindQueue/bindDb/db/executeSql",
-      "sourceHash": "ff6e7d36ba6d4b1eba36df3e5538b56d10b3ecc3cf85f106f5c31959ce87204b",
-      "reasons": ["dynamic raw SQL"],
-      "before": {
-        "packages/backend/src/jobs/queue.ts": "0f3e97fd4753a2212ff88e883406da7b2ed655249f1bb18e356a330a1c50990c",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      },
-      "after": {
-        "packages/backend/src/jobs/queue.ts": "a393042183a1a870833d8d0af454951c9ab6d52c89e4407e0fa6b27b458511c6",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      }
-    },
-    {
-      "file": "packages/backend/src/jobs/queue.ts",
       "scopeName": "enqueue/callerDb/executeSql/rows",
       "sourceHash": "3c12b2cc60abbb37e0a50e0ff166fb9e964797dab471b0856a6425780f48b83e",
       "reasons": ["dynamic raw SQL"],
@@ -246,7 +231,7 @@
         "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
       },
       "after": {
-        "packages/backend/src/jobs/queue.ts": "a393042183a1a870833d8d0af454951c9ab6d52c89e4407e0fa6b27b458511c6",
+        "packages/backend/src/jobs/queue.ts": "eadc73f4bee7dc251786605ef06c31c7cf384cc403c466735e47d95cc5c5d58b",
         "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
       }
     },
@@ -260,7 +245,7 @@
         "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
       },
       "after": {
-        "packages/backend/src/jobs/queue.ts": "a393042183a1a870833d8d0af454951c9ab6d52c89e4407e0fa6b27b458511c6",
+        "packages/backend/src/jobs/queue.ts": "eadc73f4bee7dc251786605ef06c31c7cf384cc403c466735e47d95cc5c5d58b",
         "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
       }
     },

@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { ROOT } from "../lib.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { digest } from "../ts-ownership.ts";
-import { importsOnly, rekeyUnknownBudget, unknownRekeyKeys, type UnknownRekey } from "../unknown-rekeys.ts";
+import { nativeQueueOnly, importsOnly, rekeyUnknownBudget, unknownRekeyKeys, type UnknownRekey } from "../unknown-rekeys.ts";
 
 const file = "packages/backend/src/publication/feeds.ts";
 const before = "import { CATEGORY_LABELS } from '@amp/contracts/taxonomy';\nconst table = () => 'items';\nexport const query = sql.unsafe(table());\n";
@@ -143,4 +146,19 @@ test("direct driver migration preserves query bytes and dedicated role selection
   assert.equal(importsOnly(original.replace('"ops"', '"feedback"'), direct.replace("{ sql,", "{ feedbackSql as sql,")), true);
   assert.equal(importsOnly(original, direct.replace('"../db.ts"', '"../other.ts"')), false);
   assert.equal(importsOnly(original, direct.replace("sql.unsafe(statement)", "sql.unsafe(statement + extra)")), false);
+});
+
+test("native queue retirement leaves SQL helpers and driver bindings unchanged", () => {
+  const runtime = readFileSync(path.join(ROOT, "packages/backend/src/jobs/queue.ts"), "utf8");
+  const factory = runtime.slice(runtime.indexOf("function queueInstance("), runtime.indexOf("export async function getBoss()")).trim();
+  const query = "const table = () => 'pgboss.job'; export const run = sql.unsafe(table());";
+  const before =
+    "import {dbOf} from '../db.ts'; const sql = dbOf('platform/queue'); type Callback = () => void; function bindQueue() {} export async function getBoss() { return boss.view; } " +
+    query;
+  const after = "import {sql} from '../db.ts'; " + factory + " export async function getBoss() { return boss.raw; } " + query;
+  assert.equal(nativeQueueOnly(before, after), true);
+  assert.equal(nativeQueueOnly(before, after.replace("'pgboss.job'", "'private_secrets'")), false);
+  assert.equal(nativeQueueOnly(before, after.replace("return boss.raw", "return other.raw")), false);
+  assert.equal(nativeQueueOnly(before, after.replace("ensured: new Set()", "ensured: loadExternalState()")), false);
+  assert.equal(nativeQueueOnly(before, after.replace("import {sql}", "import {feedbackSql as sql}")), false);
 });

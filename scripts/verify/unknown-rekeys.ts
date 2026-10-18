@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { ROOT } from "./lib.ts";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -146,6 +148,40 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
   }
 }
 
+/** Exact retirement of the queue facade; no other statements or SQL helpers may change. */
+export function nativeQueueOnly(before: string, after: string): boolean {
+  const start = before.indexOf("type Callback ="),
+    end = before.indexOf("export async function getBoss()", start);
+  const factoryStart = after.indexOf("function queueInstance("),
+    factoryEnd = after.indexOf("export async function getBoss()", factoryStart);
+  if (start < 0 || end < start || factoryStart < 0 || factoryEnd < factoryStart) return false;
+  const factory = after.slice(factoryStart, factoryEnd).trim();
+  if (digest(factory) !== "e9906faf45629eb2040f8029b637794895479239879c8883c62b4a07bd64d661") return false;
+  let expected = before.slice(0, start) + factory + "\n\n" + before.slice(end);
+  expected = expected.replace("  view: PgBoss;\n", "").replace("bindQueue(b, connection)", "queueInstance(b, connection)").replaceAll(".view", ".raw");
+  expected = expected.replace(
+    "      throw error;\n    }\n  })();\n  return starting;",
+    "      throw error;\n    } finally {\n      if (attempt === generation) starting = null;\n    }\n  })();\n  return starting;",
+  );
+  expected = expected.replace(
+    'pg?.message === "Job queue instance expired"',
+    '/Job queue instance expired|Cannot use a pool after calling end/.test(pg?.message ?? "")',
+  );
+  // Existing formatter canonicalises layout only; strings and all unapproved code remain significant.
+  const format = (source: string) =>
+    execFileSync(process.execPath, [path.join(ROOT, "node_modules/@biomejs/biome/bin/biome"), "format", "--stdin-file-path=queue.ts"], {
+      input: source,
+      encoding: "utf8",
+      timeout: 10000,
+      maxBuffer: 2 * 1024 * 1024,
+    });
+  try {
+    return importsOnly(format(expected), format(after));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Explicitly reviewed owning-file changes can re-identify an existing opaque expression. They cannot
  * buy another expression, function, dependency or occurrence. The current report must still match
@@ -203,14 +239,17 @@ export function rekeyUnknownBudget(
             typeof after === "string" &&
             digest(before) === rekey.before[rekey.file] &&
             digest(after) === rekey.after[rekey.file] &&
-            importsOnly(before, after, path.extname(rekey.file)),
+            (importsOnly(before, after, path.extname(rekey.file)) ||
+              (rekey.file === "packages/backend/src/jobs/queue.ts" &&
+                ["enqueue/callerDb/executeSql/rows", "enqueue/db/executeSql"].includes(rekey.scopeName) &&
+                nativeQueueOnly(before, after))),
         );
       } catch {
         proofs.set(proofKey, false);
       }
     }
     if (!proofs.get(proofKey)) {
-      errors.push(label + ": full source hashes and import-only bodies must be verified");
+      errors.push(label + ": full source hashes and import-only or native-queue bodies must be verified");
       continue;
     }
     delete budget[keys.before];
