@@ -242,8 +242,7 @@
 | [TASK-0368](TASK-0368.md) | T-0101 | M3 | architect | locally_verified | 直接数据库连接入口契约 | — | 394d66c6 |
 | [TASK-0369](TASK-0369.md) | T-0101 | M3 | architect | locally_verified | 文章分享图片资源与元数据契约 | — | ea782429 |
 | [TASK-0370](TASK-0370.md) | T-0101 | M3 | architect | locally_verified | 反馈输入与请求次数契约 | — | 530b78eb |
-| [TASK-0371](TASK-0371.md) | T-0101 | M3 | architect | locally_verified | 引擎任务载荷与类型化队列契约 | — | 931654e7 |
-| [TASK-0372](TASK-0372.md) | T-0101 | M3 | architect | locally_verified | 补齐构建迁移与规则入口的根路径 | — | — |
+| [TASK-0371](TASK-0371.md) | T-0101 | M3 | architect | locally_verified | 引擎任务载荷与类型化队列契约 | — | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — | d58be411 |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — | d58be411 |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — | d58be411 |
