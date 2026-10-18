@@ -1273,5 +1273,126 @@
         "prepare": "advance-ledger"
       }
     ]
+  },
+  {
+    "route": "GET /api/v1/agent",
+    "cases": [
+      {
+        "url": "/api/v1/agent",
+        "status": 200,
+        "contains": ["Agent使用说明", "只读GET"]
+      }
+    ],
+    "noDataReason": "匿名中文读取说明，静态配置，不调用数据库或模型"
+  },
+  {
+    "route": "GET /api/v1/agent/daily",
+    "cases": [
+      {
+        "url": "/api/v1/agent/daily",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/daily/:date",
+    "cases": [
+      {
+        "url": "/api/v1/agent/daily/$DAILY",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/hot",
+    "cases": [
+      {
+        "url": "/api/v1/agent/hot",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/latest",
+    "cases": [
+      {
+        "url": "/api/v1/agent/latest",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/monthly",
+    "cases": [
+      {
+        "url": "/api/v1/agent/monthly",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/monthly/:month",
+    "cases": [
+      {
+        "url": "/api/v1/agent/monthly/$MONTHLY",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/search",
+    "cases": [
+      {
+        "url": "/api/v1/agent/search?q=PR9",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/stories/:publicId",
+    "cases": [
+      {
+        "url": "/api/v1/agent/stories/$STORY",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/weekly",
+    "cases": [
+      {
+        "url": "/api/v1/agent/weekly",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/v1/agent/weekly/:week",
+    "cases": [
+      {
+        "url": "/api/v1/agent/weekly/$WEEKLY",
+        "status": 200,
+        "contains": ["PR9", "回答提示"]
+      }
+    ],
+    "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
   }
 ]

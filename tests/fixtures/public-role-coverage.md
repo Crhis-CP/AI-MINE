@@ -6,7 +6,7 @@
 
 `db-role-matrix.test.ts`使用独立于授权规划器的D4权限预期，逐个真实登录检查48表的SELECT/INSERT/UPDATE/DELETE、受限列、15序列的SELECT/nextval/setval、跨角色SET ROLE、公开DDL/TEMP。零行写语句只验证ACL；worker/private_ops在三张RLS表另外实际插入、读到和更新行，再回滚，避免把0行当放行成功。
 
-`public-role-routes.json`逐条登记固定输入中实际注册的101条GET、可重放示例、夹具和内容断言；用合成IndexNow key覆盖条件注册。与运行时公开工厂路由表严格集合比较，新增或漏掉路由都会失败。JSON是登记数据，9b的public-role-routes.test.ts通过后才算HTTP覆盖证据。
+`public-role-routes.json`逐条登记固定输入中所有实际注册的GET（以JSON清单为准）、可重放示例、夹具和内容断言；用合成IndexNow key覆盖条件注册。与运行时公开工厂路由表严格集合比较，新增或漏掉路由都会失败。JSON是登记数据，9b的public-role-routes.test.ts通过后才算HTTP覆盖证据。
 
 新增content-version、saved、freshness、法域及v3新闻对象逐项读取真实公开夹具；v3增量先取得真实签名快照水位再读取无变化结果。法规系列在此角色夹具中明确验证合法空目录或不存在文书的拒绝分支，非空法规内容资格另由policy-public-api测试负责，不把空响应计为内容覆盖。
 
@@ -21,3 +21,5 @@ D4的M0余项保持原样：公开DB登录仍能读到有projection的summary-on
 TASK-0005九类接线后，分类RSS正例使用company_project及对应当前publication夹具，继续断言有条目和正文；旧industry两个路径明确404。selected ledger仍保留旧industry值，以覆盖旧账本只在公开读取时归null；没有批量改账本或放宽角色断言。
 
 Task20读出口夹具的译文保留origin=replay和全部TRANSLATED_BODY/ORIGINAL_BODY标记，正文增加明确的自编中文，显式登记当前protocol/prompt与逐段结构/hash快照；这是管理员构造的角色读取状态，不是模型回执、自动翻译或来源中文版完整性证据。真实worker登录经本机假HTTP写入attempt/manifest后再由public_read读取的正例在body-images.test.ts；只有origin=source字符串的旧记录不因该标签获得完整身份。
+
+Agent中文答案的11条GET使用同一注册集合检查与真实public_read夹具，包含实际资讯、事件及日/周/月刊期；错误参数、条件请求和MCP一致性另由mcp-public-tools覆盖。
