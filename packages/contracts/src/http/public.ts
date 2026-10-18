@@ -1,3 +1,4 @@
+import { agentRoutes, agentSchemas } from "./agent.ts";
 import { v3Schemas, v3Routes, V3Problem } from "./v3.ts";
 import { siteInformationSchemas, siteInformationRoutes } from "./site-information.ts";
 export { SiteInformation, OfficialMetalLink } from "./site-information.ts";
@@ -333,6 +334,7 @@ export const SearchSuggestions = z.strictObject({
 });
 
 export const schemas = {
+  ...agentSchemas,
   SearchSuggestions,
   ...v3Schemas,
   ...siteInformationSchemas,
@@ -356,6 +358,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...agentRoutes,
   ...v3Routes,
   ...siteInformationRoutes,
   ...policyRoutes,

@@ -83,6 +83,15 @@ for (const [audience, contracts] of [
         }
       }
     }
+    if (audience === "public")
+      for (const [routePath, pathItem] of Object.entries(document.paths ?? {})) {
+        if (!routePath.startsWith("/api/v1/agent")) continue;
+        const response = pathItem?.get?.responses?.["200"];
+        if (response && !("$ref" in response) && response.content?.["application/json"]) {
+          response.content["text/markdown"] = response.content["application/json"];
+          delete response.content["application/json"];
+        }
+      }
     const json = `${JSON.stringify(ordered(document), null, 2)}\n`;
     outputs.set(`reference/contracts/${audience}.openapi.json`, json);
     if (audience === "public") {
