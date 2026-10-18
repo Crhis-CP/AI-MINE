@@ -1,5 +1,6 @@
 import { SITE, withSubject } from "@amp/industry/site";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { HotEntryView, HotResponse } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
@@ -66,7 +67,7 @@ function Badges({ e }: { e: HotEntryView }) {
 /** The whole card opens the event; the title carries the link and stretches over the card. */
 function StoryLink({ e, className }: { e: HotEntryView; className: string }) {
   return (
-    <Link to={`/story/${e.story.publicId}`} prefetch="intent" className={`transition-colors after:absolute after:inset-0 after:content-[''] ${className}`}>
+    <Link to={`/story/${e.story.publicId}`} className={`transition-colors after:absolute after:inset-0 after:content-[''] ${className}`}>
       {e.story.title}
     </Link>
   );

@@ -258,6 +258,15 @@ export function useAppearanceSync() {
   }, [theme]);
 }
 
+/** Drawings update after the page has applied its actual theme or font. */
+export function watchAppearance(onChange: (change: "theme" | "font") => void): () => void {
+  const observer = new MutationObserver((records) => {
+    for (const change of new Set(records.map((r) => (r.attributeName === "data-font" ? "font" : "theme")))) onChange(change);
+  });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-font"] });
+  return () => observer.disconnect();
+}
+
 /** Set local appearance before the first paint, including legacy quoted theme values. */
 export const THEME_BOOT_SCRIPT = `(function(){var f='system';try{f=localStorage.getItem('${KEYS.font}')==='browser'?'browser':'system'}catch(e){}document.documentElement.setAttribute('data-font',f);try{var t=localStorage.getItem('${KEYS.theme}');if(t==='"light"'||t==='"dark"')t=JSON.parse(t);if(t==='light'||t==='dark'){document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=t==='dark'?'${THEME_COLOR.dark}':'${THEME_COLOR.light}'})}else{t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
 

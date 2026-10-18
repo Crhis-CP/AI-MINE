@@ -1,5 +1,6 @@
 import { UnreadMark } from "../../features/changelog/UnreadMark";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
+import { IntentLink as Link } from "../ui/IntentLink";
 import { TABBAR, tabIsActive } from "./nav";
 
 /** Bottom tab bar of the mobile shell (up to 960px), as on the original site. */
@@ -20,7 +21,6 @@ export function MobileTabBar() {
             <Link
               key={t.to}
               to={t.to}
-              prefetch="intent"
               aria-current={active ? "page" : undefined}
               className={`relative flex flex-col items-center justify-center gap-[3px] text-[11px] transition-colors ${active ? "font-semibold text-accent" : "text-ink-3 active:text-ink"}`}
             >

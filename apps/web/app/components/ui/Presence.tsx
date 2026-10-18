@@ -48,7 +48,7 @@ export function Presence({
 export function Collapse({ open, children, duration = 240, className = "" }: { open: boolean; children: ReactNode; duration?: number; className?: string }) {
   return (
     <Presence show={open} enter="anim-collapse-in" exit="anim-collapse-out" duration={duration}>
-      <div className={`grid ${className}`} style={{ "--anim-ms": `${duration}ms` } as CSSProperties}>
+      <div className={`grid grid-cols-[minmax(0,1fr)] ${className}`} style={{ "--anim-ms": `${duration}ms` } as CSSProperties}>
         <div className="min-h-0 overflow-hidden">{children}</div>
       </div>
     </Presence>

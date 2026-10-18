@@ -795,3 +795,49 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     await context.close();
   }
 });
+
+test("reader links prefetch on press rather than hover, and failed copy never claims success", { timeout: 60000 }, async () => {
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: "zh-CN" });
+  try {
+    const blocked = await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await page.goto(origin);
+    const title = page.getByRole("link", { name: "可核对的矿业动态", exact: true }).first();
+    await expect(title).toBeVisible();
+    await title.hover();
+    await page.waitForTimeout(150);
+    const prefetched = page.locator('link[rel="prefetch"][href*="fixture-a"]');
+    assert.equal(await prefetched.count(), 0, "passing the pointer over a card does not fetch it");
+    await title.dispatchEvent("pointerdown", { pointerType: "mouse", button: 0 });
+    await expect.poll(() => prefetched.count()).toBeGreaterThan(0);
+    await title.click();
+    await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    await expect(prefetched).toHaveCount(0);
+    await page.goto(`${origin}/agent`);
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async () => {
+            throw new Error("fixture denied");
+          },
+        },
+      });
+      document.execCommand = () => false;
+    });
+    const copy = page.getByRole("button", { name: /复制/ }).first();
+    await copy.click();
+    await expect(copy).toHaveAccessibleName("复制失败，请手动选择");
+    assert.equal(await page.locator("textarea").count(), 0);
+    await page.evaluate(() => {
+      document.execCommand = () => true;
+    });
+    await copy.click();
+    await expect(copy).toHaveAccessibleName("已复制");
+    assert.deepEqual(blocked, []);
+  } finally {
+    await context.close();
+  }
+});

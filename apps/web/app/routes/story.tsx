@@ -1,6 +1,7 @@
 import { SITE } from "@amp/industry/site";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, redirect, useLoaderData } from "react-router";
+import { redirect, useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
@@ -158,11 +159,7 @@ function TimelineRow({ r }: { r: StoryReportView }) {
           <span className="min-w-0 truncate">{r.source.name.replace(/（RSS）|（网页）|（API）/g, "")}</span>
           {r.selected && <SelectedBadge />}
         </div>
-        <Link
-          to={`/items/${r.id}`}
-          prefetch="intent"
-          className="mt-1 block text-[16px] font-[650] leading-[1.6] text-ink transition-colors hover:text-accent lg:text-[15.5px]"
-        >
+        <Link to={`/items/${r.id}`} className="mt-1 block text-[16px] font-[650] leading-[1.6] text-ink transition-colors hover:text-accent lg:text-[15.5px]">
           {r.title}
         </Link>
         {r.summary && (

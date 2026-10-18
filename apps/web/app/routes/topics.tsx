@@ -1,4 +1,5 @@
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 
@@ -67,7 +68,6 @@ export default function TopicsPage() {
                 <li key={t.slug}>
                   <Link
                     to={`/topics/${t.slug}`}
-                    prefetch="intent"
                     aria-label={`查看${t.name}相关${picks ? "精选文章" : "动态"}`}
                     className="card card-hover group flex h-full flex-col px-5 py-[18px]"
                   >

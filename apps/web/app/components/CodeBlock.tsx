@@ -1,32 +1,33 @@
+import { copyText } from "../lib/clipboard";
 import { useState } from "react";
 import { IconCheck, IconCopy } from "./icons";
 
 export function CopyButton({ text, label = "复制", className = "" }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
     <button
       type="button"
       onClick={async () => {
+        setFailed(false);
+        setCopied(false);
         try {
-          await navigator.clipboard.writeText(text);
+          await copyText(text);
         } catch {
-          const ta = document.createElement("textarea");
-          ta.value = text;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          ta.remove();
+          setFailed(true);
+          return;
         }
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
       className={`inline-flex h-7 items-center gap-1 rounded-mark border border-line bg-surface px-2 text-[12px] transition-colors ${copied ? "text-ok" : "text-ink-3 hover:border-line-strong hover:text-ink"} ${className}`}
-      aria-label={copied ? "已复制" : label}
+      aria-label={copied ? "已复制" : failed ? "复制失败，请手动选择" : label}
+      aria-live="polite"
     >
       <span key={copied ? "ok" : "copy"} className={copied ? "anim-swap-in" : ""}>
         {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
       </span>
-      {copied ? "已复制" : label}
+      {copied ? "已复制" : failed ? "复制失败，请手动选择" : label}
     </button>
   );
 }

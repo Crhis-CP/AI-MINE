@@ -1,6 +1,7 @@
 import { apiFetch } from "../lib/http.ts";
 import { useMemo, type ReactNode } from "react";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { SiteStats } from "@amp/contracts/site";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
@@ -149,10 +150,10 @@ export default function AboutPage() {
           )}
         </div>
         <div className="flex flex-wrap gap-3 lg:pb-2">
-          <Link to="/" prefetch="intent" className={buttonClass("primary", "lg")}>
+          <Link to="/" className={buttonClass("primary", "lg")}>
             看今天的精选 <IconArrowRight size={15} />
           </Link>
-          <Link to="/daily" prefetch="intent" className={buttonClass("secondary", "lg")}>
+          <Link to="/daily" className={buttonClass("secondary", "lg")}>
             读最新{withSubject("日报")}
           </Link>
         </div>

@@ -7,7 +7,7 @@
 // sit in rows of two whose rules run across the page, each story as tall as its neighbour.
 import { SITE, withSubject } from "@amp/industry/site";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { IntentLink as Link } from "../../components/ui/IntentLink";
 import type { ReportCitation, ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
 import { shortSourceName, fullDateTime, newsSourceDate } from "../../lib/format";
 import { Badge } from "../../components/ui/Badge.tsx";
@@ -172,7 +172,7 @@ function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean
         <>
           <h3 className="mt-3 text-[19px] font-bold leading-[1.5] tracking-[-0.01em] text-ink [overflow-wrap:anywhere] [text-wrap:pretty] @[880px]:text-[20px]">
             {c.itemId ? (
-              <Link to={`/items/${c.itemId}`} prefetch="intent" className="transition-colors hover:text-accent">
+              <Link to={`/items/${c.itemId}`} className="transition-colors hover:text-accent">
                 {c.title}
               </Link>
             ) : (
@@ -274,7 +274,7 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
         <Kicker>{daily ? "头条" : "本期导读"}</Kicker>
         <h2 className="mt-4 text-[32px] font-black leading-[1.28] tracking-[-0.03em] text-ink [text-wrap:balance] @[520px]:text-[40px] @[1040px]:text-[48px] @[1040px]:leading-[1.22]">
           {leadStory?.itemId ? (
-            <Link to={`/items/${leadStory.itemId}`} prefetch="intent" className="transition-colors hover:text-accent">
+            <Link to={`/items/${leadStory.itemId}`} className="transition-colors hover:text-accent">
               {title}
             </Link>
           ) : (
