@@ -195,7 +195,7 @@ test("selected timeline country scope binds cursors and never leaks representati
   const body = "合成矿山位于智利。".repeat(3),
     a = await fixture(body, candidate([assignment("CL", "智利", body)])),
     b = await fixture(body, candidate([assignment("CL", "智利", body)]));
-  await sql`UPDATE publications SET selected=true,visible_after=now()-interval '1 minute' WHERE article_id IN (${a.articleId},${b.articleId})`;
+  await sql`UPDATE publications SET selected=true,selection_candidate=true,visible_after=now()-interval '1 minute' WHERE article_id IN (${a.articleId},${b.articleId})`;
   const page = await loadTimeline({ channel: "all", category: null, tag: null, jurisdiction: "CL", limit: 1, now: new Date() });
   assert.equal(page.cards.length, 1);
   assert.ok(page.nextCursor);

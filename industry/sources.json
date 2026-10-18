@@ -11618,6 +11618,201 @@
       "site_fulltext": false,
       "syndicate_fulltext": false,
       "owner_entity_id": "tudor-gold"
+    },
+    {
+      "id": "research-20261018-euro-manganese",
+      "name": "Euro Manganese · 官方新闻",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "feedUrl": "https://www.mn25.ca/blog-feed.xml",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.mn25.ca/post/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "euro-manganese",
+      "tags": []
+    },
+    {
+      "id": "research-20261018-gold-x2",
+      "name": "Gold X2 Mining · 官方新闻",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 10
+        },
+        "url": "https://goldx2.com/wp-json/wp/v2/posts?per_page=10&_fields=id,date_gmt,link,title,type",
+        "titlePaths": ["title.rendered"],
+        "urlTemplate": "{raw:link}",
+        "publishedAtPath": "date_gmt",
+        "externalIdPath": "id",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en",
+          "timezone": "Etc/UTC",
+          "timezoneEvidence": "The official WordPress REST API defines date_gmt as publication date in GMT: https://developer.wordpress.org/rest-api/reference/posts/ ; this public official source response returns date_gmt."
+        },
+        "allowUrlPrefixes": ["https://goldx2.com/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "gold-x2",
+      "tags": []
+    },
+    {
+      "id": "research-20261018-almonty",
+      "name": "Almonty Industries · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "url": "https://almonty.com/investors/market-announcements/",
+        "itemSelector": "article.dp-dfg-item",
+        "linkSelector": "a.dp-dfg-more-button",
+        "titleSelector": "h2.entry-title",
+        "publishedAtSelector": "span.published",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://almonty.com/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "almonty",
+      "tags": []
+    },
+    {
+      "id": "research-20261018-gunnison",
+      "name": "Gunnison Copper · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "url": "https://gunnisoncopper.com/news/news-2026",
+        "itemSelector": "tr:has(.list-title a):has(.list-date)",
+        "linkSelector": ".list-title a",
+        "titleSelector": ".list-title a",
+        "publishedAtSelector": ".list-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://gunnisoncopper.com/news/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "gunnison",
+      "tags": []
+    },
+    {
+      "id": "research-20261018-leading-edge",
+      "name": "Leading Edge Materials · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "url": "https://www.leadingedgematerials.com/news",
+        "itemSelector": ".wixui-repeater__item[role=\"listitem\"]:has(h4):has(h5)",
+        "linkSelector": "a.wixui-button",
+        "titleSelector": "h4",
+        "publishedAtSelector": "h5",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.leadingedgematerials.com/_files/ugd/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "leading-edge",
+      "tags": []
+    },
+    {
+      "id": "research-20261018-defense-metals",
+      "name": "Defense Metals · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "url": "https://www.defensemetals.com/newsreleases",
+        "itemSelector": ".wixui-repeater__item:has(h5):has(p)",
+        "linkSelector": "a.wixui-button",
+        "titleSelector": "p",
+        "publishedAtSelector": "h5",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.defensemetals.com/_files/ugd/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "defense-metals",
+      "tags": []
     }
   ]
 }

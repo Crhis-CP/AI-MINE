@@ -46,9 +46,9 @@ async function item(name: string, opts: { search: string; tags?: string[]; selec
   await sql`INSERT INTO articles (id, source_id, identity_key, url, title, discovered_at, timeline_at, language, body_text, raw)
     VALUES (${id}, ${SOURCE}, ${id}, ${url}, ${name}, ${at}, ${at}, 'zh', 'body', '{}')`;
   await sql`INSERT INTO publications (article_id, title, summary, search_text, source_id, channel, url, discovered_at, timeline_at, sort_at,
-      visibility, eligible, selected, visible_after, tags)
+      visibility, eligible, selected, selection_candidate, visible_after, tags)
     VALUES (${id}, ${name}, ${opts.search}, ${opts.search.toLowerCase()}, ${SOURCE}, 'news', ${url}, ${at}, ${at}, ${at},
-      ${opts.visibility ?? "public"}, ${opts.eligible ?? true}, ${opts.selected ?? false}, ${at}, ${opts.tags ?? []})`;
+      ${opts.visibility ?? "public"}, ${opts.eligible ?? true}, ${opts.selected ?? false}, ${opts.selected ?? false}, ${at}, ${opts.tags ?? []})`;
   return id;
 }
 

@@ -55,18 +55,57 @@ export async function failMaterialGrouping(
   return changed.count === 1;
 }
 
+/** Only the known rejected grouping answer is eligible; input revisions and other failures stay untouched. */
+export async function failedGroupingRecipeInputs(sourceIds: string[], queuedIds: string[], db: Db) {
+  return db<{ id: string; revision: number; receipt_id: string }[]>`SELECT id,revision,grouping_receipt_id::text AS receipt_id FROM articles
+    WHERE source_id=ANY(${sourceIds}::text[]) AND id<>ALL(${queuedIds}::text[])
+      AND processing_state IN ('analyzed','blocked') AND grouping_status='failed' AND grouping_input_revision=revision
+      AND grouping_receipt_id IS NOT NULL
+      AND grouping_error LIKE '%Every candidate and any unknown query scope require an explicit answer%'
+    ORDER BY created_at,id`;
+}
+
+/** A changed recipe may resume this exact failure; queueing and this CAS share the recovery transaction. */
+export async function resumeGroupingRecipeFailure(input: { id: string; revision: number; receipt_id: string }, db: Db) {
+  const changed = await db`UPDATE articles SET grouping_status='pending',grouping_retry_at=NULL
+    WHERE id=${input.id} AND revision=${input.revision} AND grouping_input_revision=${input.revision}
+      AND grouping_status='failed' AND grouping_receipt_id=${input.receipt_id}
+      AND grouping_error LIKE '%Every candidate and any unknown query scope require an explicit answer%'`;
+  return changed.count === 1;
+}
+
 /** Claim a bounded, fair batch; enqueue in this same transaction so a crash cannot lose the work. */
-export async function claimPendingGrouping(sourceIds: string[], limit: number, db: Db, queuedIds: string[] = [], signalSourceIds: string[] = []) {
+export async function claimPendingGrouping(
+  sourceIds: string[],
+  limit: number,
+  db: Db,
+  queuedIds: string[] = [],
+  signalSourceIds: string[] = [],
+  recentCandidateIds: string[] = [],
+) {
+  const size = Math.max(1, Math.min(limit, 100));
+  // Keep an oldest-first share even while recent public nominations continuously arrive.
   return db<{ id: string; revision: number; grouping_receipt_id: number | null; signal_only: boolean }[]>`
-    WITH due AS (
+    WITH oldest AS (
       SELECT id FROM articles m WHERE grouping_status='pending'
         AND ((source_id=ANY(${sourceIds}::text[]) AND processing_state IN ('analyzed','blocked'))
           OR (source_id=ANY(${signalSourceIds}::text[]) AND processing_state='skipped'
             AND (NOT backfill OR discovered_at-published_at <= make_interval(secs=>${STALE_ON_DISCOVERY_MS / 1000}))))
         AND (grouping_retry_at IS NULL OR grouping_retry_at<=now())
         AND id <> ALL(${queuedIds}::text[])
-      ORDER BY grouping_retry_at NULLS FIRST,created_at,id LIMIT ${Math.max(1, Math.min(limit, 100))} FOR UPDATE SKIP LOCKED
-    ) UPDATE articles a SET grouping_retry_at=now()+interval '10 minutes' FROM due WHERE a.id=due.id
+      ORDER BY grouping_retry_at NULLS FIRST,created_at,id LIMIT ${Math.max(1, Math.floor(size / 5))} FOR UPDATE SKIP LOCKED
+    ), recent AS (
+      SELECT id FROM articles m WHERE grouping_status='pending'
+        AND ((source_id=ANY(${sourceIds}::text[]) AND processing_state IN ('analyzed','blocked'))
+          OR (source_id=ANY(${signalSourceIds}::text[]) AND processing_state='skipped'
+            AND (NOT backfill OR discovered_at-published_at <= make_interval(secs=>${STALE_ON_DISCOVERY_MS / 1000}))))
+        AND (grouping_retry_at IS NULL OR grouping_retry_at<=now())
+        AND id <> ALL(${queuedIds}::text[])
+        AND NOT EXISTS(SELECT 1 FROM oldest WHERE oldest.id=m.id)
+      ORDER BY (id=ANY(${recentCandidateIds}::text[])) DESC,grouping_retry_at NULLS FIRST,created_at,id
+      LIMIT ${size}-(SELECT count(*) FROM oldest) FOR UPDATE SKIP LOCKED
+    ), due AS (SELECT id FROM oldest UNION ALL SELECT id FROM recent)
+    UPDATE articles a SET grouping_retry_at=now()+interval '10 minutes' FROM due WHERE a.id=due.id
       RETURNING a.id,a.revision,a.grouping_receipt_id,(a.source_id=ANY(${signalSourceIds}::text[])) AS signal_only`;
 }
 

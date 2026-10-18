@@ -1,11 +1,16 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { sql, closeDb } from "@amp/backend/db";
-import { stopBoss } from "@amp/backend/jobs/queue";
+import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { sourceDetail, updateSource } from "@amp/backend/admin/sources";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { prepareIntake, applyIntakeEntry } from "../scripts/source-intake.ts";
@@ -83,4 +88,64 @@ test("incremental intake previews before enabling, resumes without duplicating a
   await applyIntakeEntry(prepared!, actor, true, output);
   assert.equal(outcomes.pop(), "blocked_unexpected_existing");
   assert.equal((await sourceDetail(source.id))!.source.enabled, false);
+});
+
+test("real intake CLI commits identity edits with publication jobs, exits cleanly and safely resumes", async (t) => {
+  const dir = await mkdtemp(path.join(tmpdir(), "amp-intake-cli-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const ids = ["intake-cli-first", "intake-cli-next"];
+  for (const id of ids)
+    await sql`INSERT INTO sources(id,name,kind,config,enabled,owner_entity_id)
+      VALUES(${id},'合成身份核对来源','rss',${sql.json({ feedUrl: `https://example.invalid/${id}` })},false,'fixture-before')`;
+  const manifest = path.join(dir, "plan.json");
+  await writeFile(
+    manifest,
+    JSON.stringify({
+      batch: "source-intake-20261019",
+      entries: [],
+      identity_patches: ids.map((id) => ({
+        id,
+        expected_owner_entity_id: "fixture-before",
+        owner_entity_id: "fixture-after",
+        expected_entry_hosts: ["example.invalid"],
+      })),
+    }),
+  );
+  const run = async (apply: boolean) => {
+    const { stdout } = await promisify(execFile)(process.execPath, ["scripts/source-intake.ts", manifest, ...(apply ? ["--apply"] : [])], {
+      cwd: process.cwd(),
+      env: process.env,
+      timeout: 15_000,
+    });
+    return stdout
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+  };
+  const preview = await run(false);
+  assert.deepEqual(
+    preview.slice(0, 2).map((r) => r.status),
+    ["would_reconcile_identity", "would_reconcile_identity"],
+  );
+  assert.equal((await sourceDetail(ids[0]!))!.source.owner_entity_id, "fixture-before");
+  const applied = await run(true);
+  assert.deepEqual(
+    applied.slice(0, 2).map((r) => r.status),
+    ["identity_reconciled", "identity_reconciled"],
+  );
+  assert.equal(applied.at(-1).blocked, 0);
+  for (const id of ids) {
+    const source = (await sourceDetail(id))!.source;
+    assert.equal(source.owner_entity_id, "fixture-after");
+    assert.equal(source.enabled, false, "identity reconciliation preserves the existing pause");
+    const jobs = await sql`SELECT data FROM pgboss.job WHERE name=${QUEUES.republishSource} AND data->>'sourceId'=${id}`;
+    assert.equal(jobs.length, 1, "source edit and publication task both committed");
+    assert.equal(jobs[0]!.data.lane, "news");
+  }
+  const resumed = await run(true);
+  assert.deepEqual(
+    resumed.slice(0, 2).map((r) => r.status),
+    ["identity_unchanged", "identity_unchanged"],
+  );
+  assert.equal((await sql`SELECT count(*)::int n FROM pgboss.job WHERE name=${QUEUES.republishSource} AND data->>'sourceId' IN ${sql(ids)}`)[0]!.n, 2);
 });

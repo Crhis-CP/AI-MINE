@@ -285,3 +285,30 @@ test("all public MCP tools run under public_read; rights, current withdrawal and
   assert.ok(!(await good(T.policies)).structuredContent.items.some((row: Json) => row.id === b.id));
   assert.deepEqual(await counts(), before);
 });
+
+test("legacy future release gates survive removal of the public selected badge", async (t) => {
+  const f = await publicRoleFixture(t);
+  await f.admin`UPDATE publications SET selection_candidate=false,seat=false WHERE article_id='pr9-future'`;
+  const server = await publicServer(t, f);
+  const site = await server.request("/api/site/items/pr9-future");
+  assert.equal(site.status, 200, "the existing website detail remains readable");
+  assert.equal(((await site.json()) as Json).selected, false, "the legacy mark is not a confirmed selected badge");
+  for (const path of ["/api/v3/items/pr9-future", "/api/v3/items/pr9-future/reading"]) {
+    const response = await server.request(path);
+    assert.equal(response.status, 404, path);
+    assert.doesNotMatch(await response.text(), /ORIGINAL_BODY_|TRANSLATED_BODY_/);
+  }
+  const response = await server.request("/api/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: T.item, arguments: { id: "pr9-future" } } }),
+  });
+  assert.equal(response.status, 200);
+  const answer = rpc(await response.text());
+  assert.equal(answer.result.isError, true);
+  assert.doesNotMatch(JSON.stringify(answer), /ORIGINAL_BODY_|TRANSLATED_BODY_/);
+  await f.admin`UPDATE publications SET visible_after=now()-interval '1 second' WHERE article_id='pr9-future'`;
+  const released = await server.request("/api/v3/items/pr9-future");
+  assert.equal(released.status, 200, "reaching the actual release time restores machine reading");
+  assert.equal(((await released.json()) as Json).featured, false, "release does not fabricate grouping confirmation");
+});

@@ -1,4 +1,5 @@
-import { beginMaterialGrouping, completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
+import { recentGroupingCandidateIds } from "../packages/backend/src/publication/groups.ts";
+import { claimPendingGrouping, beginMaterialGrouping, completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
@@ -338,4 +339,34 @@ test("grouping repair restores recent skipped signals, without reviving historic
   assert.equal(rows[0].priority, -1, "live signals remain ahead of historical repair and behind editorial work");
   assert.equal((await recoverPendingGroupings(100)).examined, 0, "a persisted job prevents repeated repair");
   assert.equal(provider.hits(), hits);
+});
+
+test("bounded recovery admits recent public nominations while reserving old work under a fresh backlog", async () => {
+  const old: string[] = [],
+    recent: string[] = [];
+  for (let i = 0; i < 12; i++) old.push(await article(`历史候选恢复${i}`, "single", 30));
+  for (let i = 0; i < 6; i++) recent.push(await article(`近期候选恢复${i}`));
+  const withdrawn = await article("人工撤回的近期候选");
+  await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${withdrawn}`;
+  const ids = [...old, ...recent, withdrawn];
+  await sql`UPDATE articles SET processing_state='analyzed' WHERE id=ANY(${ids}::text[])`;
+  await sql`UPDATE articles SET created_at=created_at-interval '30 days' WHERE id=ANY(${old}::text[])`;
+  const sources = (await sql<{ source_id: string }[]>`SELECT source_id FROM articles WHERE id=ANY(${ids}::text[])`).map((row) => row.source_id);
+  const priority = await recentGroupingCandidateIds(sources);
+  assert.deepEqual(new Set(priority), new Set(recent), "only current public nominations receive the recent priority");
+  const scores = await sql`SELECT article_id,score,selected FROM analyses WHERE article_id=ANY(${ids}::text[]) ORDER BY article_id`;
+  const hits = provider.hits();
+  const first = await sql.begin((tx) => claimPendingGrouping(sources, 5, tx, [], [], priority));
+  assert.equal(first.length, 5);
+  assert.equal(first.filter((row) => recent.includes(row.id)).length, 4, "old rows cannot consume the entire batch before recent candidates");
+  assert.equal(first.filter((row) => old.includes(row.id)).length, 1, "one fifth still advances the oldest backlog");
+  const second = await sql.begin((tx) => claimPendingGrouping(sources, 5, tx, [], [], priority));
+  assert.equal(second.length, 5);
+  assert.ok(second.some((row) => old.includes(row.id)));
+  assert.ok(
+    second.every((row) => !first.some((claimed) => claimed.id === row.id)),
+    "the durable lease prevents duplicate admission",
+  );
+  assert.deepEqual(await sql`SELECT article_id,score,selected FROM analyses WHERE article_id=ANY(${ids}::text[]) ORDER BY article_id`, scores);
+  assert.equal(provider.hits(), hits, "recovery admission does not rescore or invoke a model");
 });

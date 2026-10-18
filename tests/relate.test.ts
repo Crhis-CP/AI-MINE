@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   BatchSchema,
   ValueBatchSchema,
+  BATCH_SYSTEM,
   batchUser,
   PairSchema,
   SignalSchema,
@@ -36,6 +37,18 @@ const evidence: RelationEvidence = {
   candidateStage: "approved",
   change: "",
 };
+test("the batch example includes scope and value even when there are no identity candidates", () => {
+  const example = JSON.parse(BATCH_SYSTEM.match(/```json\s*([\s\S]*?)```/)![1]!);
+  assert.equal(ValueBatchSchema.safeParse(example).success, true);
+  assert.equal(example.queryScope, "single");
+  assert.deepEqual(example.decisions, []);
+  const empty = batchUser({ ...a, scope: "unknown" }, []);
+  assert.match(empty, /^事实候选数：0\n事实候选编号：\[\]/);
+  assert.doesNotMatch(empty, /【候选 C1】/);
+  const candidate = { factId: 1, storyId: 1, factTitle: "A", members: 1, storyRoot: true, score: 1, report: b };
+  assert.match(batchUser(a, [candidate]), /^事实候选数：1\n事实候选编号：\["C1"\]/);
+  assert.equal(completeDecisions([{ id: "C1" }], 0), false, "a fabricated zero-candidate answer remains invalid");
+});
 test("whole-report decisions survive different metadata labels and preserve distinct developments", () => {
   const candidate = {
     factId: 1,

@@ -18,7 +18,7 @@ export async function loadSiteStats(): Promise<SiteStats> {
   const current = await stats.get(),
     now = new Date();
   const latest = await sql<{ id: string; title: string; source: string }[]>`SELECT p.article_id AS id,p.title,s.name AS source
-    FROM publications p JOIN sources s ON s.id=p.source_id WHERE ${selectedCondition(now)} ORDER BY p.sort_at DESC,p.article_id DESC LIMIT 8`;
+    FROM publications p JOIN sources s ON s.id=p.source_id WHERE ${selectedCondition(now)} AND p.seat ORDER BY p.sort_at DESC,p.article_id DESC LIMIT 8`;
   return { ...current, latest };
 }
 
@@ -29,10 +29,10 @@ async function querySiteStats(now: Date): Promise<SiteStats> {
       SELECT (SELECT count(*) FROM sources WHERE enabled AND lane = 'news')::int AS sources,
              (SELECT count(*) FROM sources WHERE enabled AND lane = 'news' AND participation_mode = 'hot_signal')::int AS "heatOnlySources",
              (SELECT count(*) FROM publications p WHERE p.visibility <> 'withdrawn')::int AS items,
-             (SELECT count(*) FROM publications p WHERE ${selectedCondition(now)})::int AS selected,
+             (SELECT count(*) FROM publications p WHERE ${selectedCondition(now)} AND p.seat)::int AS selected,
              (SELECT count(*) FROM reports WHERE kind = 'daily')::int AS dailies,
              (SELECT count(*) FROM publications p WHERE p.visibility <> 'withdrawn' AND p.discovered_at > ${dayAgo})::int AS collected,
-             (SELECT count(*) FROM publications p WHERE ${selectedCondition(now)} AND p.timeline_at > ${dayAgo})::int AS "selectedDay"`,
+             (SELECT count(*) FROM publications p WHERE ${selectedCondition(now)} AND p.seat AND p.timeline_at > ${dayAgo})::int AS "selectedDay"`,
     sql<{ kind: string; n: number }[]>`SELECT kind, count(*)::int AS n FROM sources WHERE enabled AND lane = 'news' GROUP BY kind`,
     sql<{ id: string; name: string; kind: string; heatOnly: boolean }[]>`SELECT id,name,kind,participation_mode='hot_signal' AS "heatOnly" FROM sources
       WHERE enabled AND lane='news' ORDER BY id`,

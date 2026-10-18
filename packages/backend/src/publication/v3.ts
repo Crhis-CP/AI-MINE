@@ -53,7 +53,7 @@ export async function v3Version(now = new Date()) {
 
 export async function v3Item(id: string, detail = false, now = new Date()) {
   const found = await loadItemDetail(id, now);
-  if (found.kind !== "found" || (found.row.selected && (!found.row.visible_after || found.row.visible_after > now))) return null;
+  if (found.kind !== "found" || (found.row.release_gated && (!found.row.visible_after || found.row.visible_after > now))) return null;
   const { row, detail: item } = found;
   const meta = await publicItemMetadata(id);
   const parsedTime = TimeAssertion.safeParse(meta?.source_time);
@@ -180,7 +180,7 @@ export async function v3Items(q: z.infer<typeof V3ItemsQuery>, now = new Date())
 }
 export async function v3ItemReading(id: string, q: z.infer<typeof V3ReadingQuery>) {
   const found = await loadItemDetail(id);
-  if (found.kind !== "found" || (found.row.selected && (!found.row.visible_after || found.row.visible_after > new Date())))
+  if (found.kind !== "found" || (found.row.release_gated && (!found.row.visible_after || found.row.visible_after > new Date())))
     throw new V3ReadError(404, "not_found");
   return { ...(await v3Envelope()), ...readingPage(found, q) };
 }

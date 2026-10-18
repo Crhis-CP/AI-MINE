@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
+import { loadSiteStats } from "@amp/backend/site/stats";
+import { loadPool } from "@amp/backend/publication/pool";
 import { pushSelected } from "../packages/backend/src/notify/selected.ts";
 import { setVisibility, detachFromFact } from "@amp/backend/admin/content";
 import { encodeCursor, InvalidCursorError, queryBinding } from "@amp/backend/lib/cursor";
@@ -138,4 +140,51 @@ test("different developments retain separate selected cards while duplicate repo
     b: queryBinding({ scope: "selected", c: "all", k: null, t: null, p: null }),
   });
   await assert.rejects(() => loadTimeline({ ...query, cursor: oldCursor }), InvalidCursorError);
+});
+
+test("legacy nominations stay readable without a selected badge until the confirmed projection is rebuilt", async () => {
+  const id = await material("T1", await fact());
+  await publishArticle(id);
+  await sql`UPDATE articles SET grouping_status='pending',grouping_input_revision=NULL WHERE id=${id}`;
+  await sql`UPDATE publications SET selected=true,selection_candidate=false,seat=false,title='人工保留的合成标题' WHERE article_id=${id}`;
+  const source = (await sql`SELECT source_id FROM publications WHERE article_id=${id}`)[0]!.source_id;
+  const selectedResponse = await app.inject("/api/v1/items?mode=selected&limit=100");
+  assert.equal(selectedResponse.statusCode, 200);
+  const v1 = selectedResponse.json();
+  const v3Response = await app.inject(`/api/v3/items?view=featured&source=${source}&limit=100`);
+  assert.equal(v3Response.statusCode, 200);
+  const v3 = v3Response.json();
+  const rss = await app.inject("/feed.xml");
+  const timeline = await loadTimeline({ channel: "all", category: null, tag: null, now: new Date() });
+  const about = await loadSiteStats();
+  const selectedPool = await loadPool({ channel: "all", category: null, tag: null, source, selected: true, now: new Date() });
+  console.log(
+    JSON.stringify({
+      legacy: {
+        v1: JSON.stringify(v1).includes(id),
+        v3: JSON.stringify(v3).includes(id),
+        rss: rss.body.includes(id),
+        timeline: timeline.cards.some((c) => c.item.id === id),
+        about: (about.latest ?? []).some((item) => item.id === id),
+      },
+    }),
+  );
+  assert.ok(!JSON.stringify(v1).includes(id));
+  assert.ok(!JSON.stringify(v3).includes(id));
+  assert.ok(!rss.body.includes(id));
+  assert.ok(!timeline.cards.some((card) => card.item.id === id));
+  assert.ok(!(about.latest ?? []).some((item) => item.id === id));
+  assert.equal(selectedPool.total, 0);
+  const allResponse = await app.inject("/api/v1/items?mode=all&limit=100");
+  assert.equal(allResponse.statusCode, 200);
+  const all = allResponse.json().items;
+  assert.equal(all.find((item: { id: string }) => item.id === id)?.selected, false);
+  const detail = (await app.inject(`/api/site/items/${id}`)).json();
+  assert.equal(detail.selected, false);
+  assert.equal(detail.title, "人工保留的合成标题");
+  assert.equal(detail.score, 70);
+  await confirmGroupingFixture(id);
+  await publishArticle(id);
+  assert.ok((await loadTimeline({ channel: "all", category: null, tag: null, now: new Date() })).cards.some((card) => card.item.id === id));
+  assert.ok(((await loadSiteStats()).latest ?? []).some((item) => item.id === id));
 });

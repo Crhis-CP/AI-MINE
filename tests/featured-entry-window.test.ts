@@ -30,7 +30,7 @@ test("the homepage query uses the window and daily composition does not", () => 
   const timeline = readFileSync(new URL("../packages/backend/src/publication/timeline.ts", import.meta.url), "utf8");
   const compose = readFileSync(new URL("../packages/backend/src/reports/compose.ts", import.meta.url), "utf8");
 
-  assert.doesNotMatch(timeline, /selectedCondition/);
+  assert.match(timeline, /selectedCondition/);
   assert.doesNotMatch(compose, /featuredEntryCondition|addCalendarMonths/);
 });
 
@@ -40,9 +40,9 @@ async function item(name: string, timeline: Date, discovered: Date) {
   await sql`INSERT INTO articles (id, source_id, identity_key, url, title, discovered_at, timeline_at, language, body_text, raw)
     VALUES (${id}, ${SOURCE}, ${id}, ${url}, ${name}, ${discovered}, ${timeline}, 'zh', 'body', '{}')`;
   await sql`INSERT INTO publications (article_id, title, source_id, channel, url, discovered_at, timeline_at, sort_at,
-      visibility, eligible, selected, visible_after, tags)
+      visibility, eligible, selected, selection_candidate, visible_after, tags)
     VALUES (${id}, ${name}, ${SOURCE}, 'news', ${url}, ${discovered}, ${timeline}, ${discovered}, 'public', true,
-      true, ${timeline}, ${[]})`;
+      true, true, ${timeline}, ${[]})`;
 }
 
 test("picks older than three Beijing months leave the featured entrance and stay listed", async () => {

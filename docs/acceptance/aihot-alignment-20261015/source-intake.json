@@ -1,7 +1,7 @@
 {
   "batch": "source-intake-20261017",
   "scope": "news",
-  "independent_candidates": 202,
+  "independent_candidates": 208,
   "identity_patches": [
     {
       "id": "zijin-news",
@@ -2524,6 +2524,79 @@
       "expected_owner_entity_id": null,
       "owner_entity_id": "northern-miner-group",
       "expected_existing": true
+    },
+    {
+      "id": "research-20261018-euro-manganese",
+      "name": "Euro Manganese · 官方新闻",
+      "publisher_host": "mn25.ca",
+      "counts_as_new": true,
+      "identity_note": "Official independent publisher, former/current names deduped against pre-batch baseline, planned targets, current catalog and manifest; standby only until root applies normal preview.",
+      "target_config_hash": "8e884fcf71981b725f3d5fd2efbaafc4f7038e13bf4285c503d141be7a5a6274",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "euro-manganese",
+      "expected_existing": false
+    },
+    {
+      "id": "research-20261018-gold-x2",
+      "name": "Gold X2 Mining · 官方新闻",
+      "publisher_host": "goldx2.com",
+      "counts_as_new": true,
+      "identity_note": "Official independent publisher, former/current names deduped against pre-batch baseline, planned targets, current catalog and manifest; standby only until root applies normal preview.",
+      "target_config_hash": "773406b07f511e803021378aa056eb90eb3c6ccfe30542a5eac4915a2bc57498",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gold-x2",
+      "expected_existing": false
+    },
+    {
+      "id": "research-20261018-almonty",
+      "name": "Almonty Industries · 官方新闻",
+      "publisher_host": "almonty.com",
+      "counts_as_new": true,
+      "identity_note": "Official independent publisher, former/current names deduped against pre-batch baseline, planned targets, current catalog and manifest; standby only until root applies normal preview.",
+      "target_config_hash": "425d15863515de602a4c5957665b1ec6e9c10b3fef643be6c4c6019b9f6320f3",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "almonty",
+      "expected_existing": false
+    },
+    {
+      "id": "research-20261018-gunnison",
+      "name": "Gunnison Copper · 官方新闻",
+      "publisher_host": "gunnisoncopper.com",
+      "counts_as_new": true,
+      "identity_note": "Official independent publisher, former/current names deduped against pre-batch baseline, planned targets, current catalog and manifest; standby only until root applies normal preview.",
+      "target_config_hash": "10f20cd3615b9df952a96378ac20a78e8112c988c0b37689d6b8e79be57c4c77",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gunnison",
+      "expected_existing": false
+    },
+    {
+      "id": "research-20261018-leading-edge",
+      "name": "Leading Edge Materials · 官方新闻",
+      "publisher_host": "leadingedgematerials.com",
+      "counts_as_new": true,
+      "identity_note": "Official independent publisher, former/current names deduped against pre-batch baseline, planned targets, current catalog and manifest; standby only until root applies normal preview.",
+      "target_config_hash": "a4791d67ac237f493265e1fe167f5a2e4af265662bb023ef75c2f12458003271",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "leading-edge",
+      "expected_existing": false
+    },
+    {
+      "id": "research-20261018-defense-metals",
+      "name": "Defense Metals · 官方新闻",
+      "publisher_host": "defensemetals.com",
+      "counts_as_new": true,
+      "identity_note": "Official independent publisher, former/current names deduped against pre-batch baseline, planned targets, current catalog and manifest; standby only until root applies normal preview.",
+      "target_config_hash": "aae7050e61ce68562e1a8fc74f774e22cc39568194b34410c1f2676cf6159a13",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "defense-metals",
+      "expected_existing": false
     }
-  ]
+  ],
+  "reserve_addition_note": "Six local-researched independent publishers added on 2026-10-18; no task-side production changes. Original batch retained for existing-entry idempotence."
 }
