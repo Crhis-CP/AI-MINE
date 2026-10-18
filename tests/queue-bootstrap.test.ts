@@ -5,10 +5,10 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { after, test } from "node:test";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql, initializeDb } from "@amp/backend/db";
 import { ensureQueue, getBoss, stopBoss } from "@amp/backend/jobs/queue";
 
-const sql = dbOf("queue");
+const sql = runtimeSql;
 const run = promisify(execFile);
 after(closeDb);
 
@@ -39,10 +39,10 @@ test("epoch migration inserts once, preserves an existing value and permits the 
       "-e",
       `
     import assert from 'node:assert/strict';
-    import { initializeDb, dbOf, closeDb } from '@amp/backend/db';
+    import { initializeDb, sql as runtimeSql, closeDb } from '@amp/backend/db';
     import { ledgerEpoch } from '@amp/backend/publication/v1';
     await initializeDb('test');
-    await dbOf('publication')\`SET default_transaction_read_only = on\`;
+    await runtimeSql\`SET default_transaction_read_only = on\`;
     assert.ok(await ledgerEpoch());
     await closeDb();
   `,
@@ -97,6 +97,15 @@ test("the real worker creates every application queue with collection disabled a
       { env, timeout: 30_000 },
     );
     assert.ok(stdout.includes("QUEUE_BOOTSTRAP_PASSED"));
+    const logs = stdout
+      .split("\n")
+      .filter((line) => line.startsWith('{"'))
+      .map((line) => JSON.parse(line));
+    const draining = logs.filter((row) => row.msg === "queue drain");
+    assert.equal(draining[0].phase, "start");
+    assert.equal(draining.at(-1).phase, "complete");
+    for (const phase of draining) for (const job of phase.jobs) assert.deepEqual(Object.keys(job).sort(), ["count", "oldestMs", "queue"]);
+    assert.ok(logs.some((row) => row.msg === "worker stopped" && row.databaseCloseMs >= 0));
   } finally {
     await sql`DROP DATABASE ${sql(database)} WITH (FORCE)`;
   }

@@ -7,7 +7,7 @@ import {
 } from "../operations/lane-controls.ts";
 // WeChat official accounts. Dajiala (极致了, a paid service) supplies each account's latest posts and
 // article bodies; every enabled account is checked once per source interval.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { identityKeyFor, upsertMaterial, updateMaterialSourceDate, updateMaterialBodyRetry } from "@amp/backend/content/materials";
 import {
   SourceCollectionPaused,
@@ -18,15 +18,14 @@ import {
 } from "@amp/backend/admin/sources";
 import { requireDateCollection } from "./collect.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { stripTags } from "../lib/text.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { mpArticle, mpHistory, type MpArticle } from "../providers/dajiala.ts";
 import { BudgetExceededError, ProviderRejectedError } from "../providers/receipts.ts";
-
-const sql = dbOf("acquisition");
 
 const MAX_NEW_PER_CHECK = 8;
 /** Posts older than this on the first check of an account are history, not news. */
@@ -106,7 +105,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       if (known && !retryBody) {
         const result = await updateMaterialSourceDate(known.id, known.revision, date);
         if (result.sourceTimeChanged) await queueProcessing(known.id);
-        if (result.metadataChanged) await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
+        if (result.metadataChanged && source.lane === "news") await enqueue(QUEUES.republishSource, { lane: "news", sourceId }, { singletonKey: sourceId });
         continue;
       }
       fetched += 1;
@@ -162,7 +161,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
         created += res.created ? 1 : 0;
         await queueProcessing(res.articleId);
       }
-      if (res.metadataChanged) await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
+      if (res.metadataChanged && source.lane === "news") await enqueue(QUEUES.republishSource, { lane: "news", sourceId }, { singletonKey: sourceId });
     }
     const cursor = {
       ...(source.cursor ?? {}),
@@ -196,13 +195,13 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
 
 /** Every enabled account is checked once per its interval (the paid list call is the cost). */
 export async function scheduleMpReconcile(now = new Date()) {
-  const rows = await sql<{ id: string; last: string | null; interval_minutes: number }[]>`
-    SELECT id, cursor->>'lastCheckedAt' AS last, interval_minutes FROM sources WHERE kind = 'mp_account' AND enabled`;
+  const rows = await sql<{ id: string; lane: "news" | "policy"; last: string | null; interval_minutes: number }[]>`
+    SELECT id, lane, cursor->>'lastCheckedAt' AS last, interval_minutes FROM sources WHERE kind = 'mp_account' AND enabled`;
   let enqueued = 0;
   for (const s of rows) {
     const since = s.last ? now.getTime() - Date.parse(s.last) : Infinity;
     if (since <= s.interval_minutes * 60_000) continue;
-    await enqueue(QUEUES.mpCheck, { sourceId: s.id, reason: "schedule" }, { singletonKey: `mp:${s.id}` });
+    await enqueue(QUEUES.mpCheck, { sourceId: s.id, reason: "schedule", lane: s.lane }, { singletonKey: `mp:${s.id}` });
     enqueued += 1;
   }
   return { enqueued };

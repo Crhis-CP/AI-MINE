@@ -3,12 +3,10 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource, previewSource } from "./crawl-fixture.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
-
-const sql = dbOf("acquisition");
 
 const T = tag();
 let version = 1;

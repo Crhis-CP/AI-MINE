@@ -1,4 +1,5 @@
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { apiFetch } from "../../lib/http.ts";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { apiBaseFor } from "../../../api-target.ts";
 import { UsageProtection } from "../../features/admin/UsageProtection";
 import { SITE } from "@amp/industry/site";
@@ -44,7 +45,7 @@ interface Settings {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const path = "/api/admin/usage-protection",
-    client = createPrivateClient({ baseUrl: apiBaseFor(path) });
+    apiBase = apiBaseFor(path);
   const [settings, runtime, monthly, protection] = await Promise.all([
     adminGet<Omit<Settings, "runtime" | "monthly" | "protection">>(request, "/api/admin/settings").catch(() => null),
     adminGet<unknown>(request, "/api/admin/lane-controls")
@@ -53,7 +54,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     adminGet<unknown>(request, "/api/admin/usage/reports")
       .then((value) => MonthlyUsageList.parse(value).items)
       .catch(() => null),
-    adminGet<unknown>(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal }))
+    adminGet<unknown>(request, path, (_url, init) => apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase }))
       .then((value) => privateSchemas.UsageProtectionOverview.parse(value))
       .catch(() => null),
   ]);
@@ -92,7 +93,7 @@ function BudgetRow({ b }: { b: Settings["budgets"][number] }) {
         <ReasonDialog
           open={open}
           title={`调整 ${b.service} 的请求上限`}
-          description="这里限制各时间窗口内的请求次数；超过后暂停请求并按窗口重试。填 0 表示立即停用这个服务。"
+          description="同一服务下的模型与接入合计，重试也计入。达到上限后等待滚动窗口恢复；填 0 表示停用该服务的新付费调用。"
           confirmLabel="保存"
           busy={pending === "budget"}
           onClose={() => setOpen(false)}
@@ -183,6 +184,9 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
             />
           </Card>
           <Card className="mt-5" title="付费请求上限" right={<span>已用：近 1 小时 / 近 24 小时</span>} pad={false}>
+            <p className="px-4 py-3 text-[13px] leading-6 text-ink-3">
+              同一服务下的不同模型和接入共享次数，连接测试与失败后的重试也计入。计数按滚动时间窗口恢复。
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-[13px]">
                 <thead>
@@ -190,7 +194,7 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
                     <th className="px-3 py-2 font-medium">服务</th>
                     <th className="px-3 py-2 font-medium">每分钟</th>
                     <th className="px-3 py-2 font-medium">每小时</th>
-                    <th className="px-3 py-2 font-medium">每天</th>
+                    <th className="px-3 py-2 font-medium">滚动24小时</th>
                     <th className="px-3 py-2 text-right font-medium">已用</th>
                     <th />
                   </tr>

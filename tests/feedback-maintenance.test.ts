@@ -1,9 +1,9 @@
 import "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { feedbackSql as sql, closeDb } from "@amp/backend/db";
 import { updateFeedback, anonymizeExpiredFeedback, weeklyFeedbackSummary, sendWeeklyFeedbackSummary } from "@amp/backend/admin/feedback";
-const sql = dbOf("feedback");
+
 after(closeDb);
 test("completion time remains stable, 180-day cleanup preserves feedback and removes identifying fields", async () => {
   const [f] =

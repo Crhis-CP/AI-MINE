@@ -1,3 +1,4 @@
+import { EDITION_TIMES } from "@amp/industry/site";
 // Names, dates and grouping for daily, weekly and monthly reports.
 import { withSubject } from "@amp/industry/site";
 import type { ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
@@ -130,7 +131,11 @@ export function dateMark(kind: ReportKind, key: string): { figure: string; top: 
 }
 
 /** When each kind comes out (F10), for the masthead. */
-export const EDITION: Record<ReportKind, string> = { daily: "每天 08:00 出刊", weekly: "每周一出刊", monthly: "每月 1 日出刊" };
+export const EDITION: Record<ReportKind, string> = {
+  daily: `每天 ${EDITION_TIMES.daily} 出刊`,
+  weekly: `每周一 ${EDITION_TIMES.weekly} 出刊`,
+  monthly: `每月 1 日 ${EDITION_TIMES.monthly} 出刊`,
+};
 
 /** The masthead's figures, in the order a reader wants them; zero model releases is left out. */
 const METRICS: Array<[key: string, unit: string]> = [
@@ -138,7 +143,6 @@ const METRICS: Array<[key: string, unit: string]> = [
   ["totalStories", "件大事"],
   ["sourcesCount", "个来源"],
   ["firstPartyEvents", "件一手发布"],
-  ["modelsReleased", "个新模型"],
   ["selectedCount", "条精选"],
   ["reportsCovered", "期日报"],
 ];

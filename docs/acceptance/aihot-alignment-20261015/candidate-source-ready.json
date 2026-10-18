@@ -1,0 +1,1052 @@
+{
+  "observed_window": {
+    "start": "2026-10-16T18:07:59.246Z",
+    "end": "2026-10-16T18:19:17.433Z"
+  },
+  "method": "Actual previewSource in an isolated local database, normal robots and pacing, no model calls, no production changes.",
+  "summary": {
+    "candidates": 71,
+    "preview_passed": 62,
+    "blocked_or_deferred": 9
+  },
+  "entries": [
+    {
+      "id": "candidate-americanlithiumcorp-com",
+      "checked_at": "2026-10-16T18:07:59.246Z",
+      "config_sha256": "0a29ce90b68eb89063de83961580703594bec4bfec5a1c0f1463c6c0857303e3",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-americanpacificmining-com",
+      "checked_at": "2026-10-16T18:08:02.651Z",
+      "config_sha256": "0e3c00b23d3606f6c81c33f355ffd60e63d2b8ae6e11b654bb7304f03c03010d",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-appiareu-com",
+      "checked_at": "2026-10-16T18:08:06.120Z",
+      "config_sha256": "ab907a435b7c87ea67762ac028e00e59e21ab8b7aeca4d238b614558ef160969",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Appia Rare Earths & Uranium Corp. To Present at The John Tumazos Very Independent Research Virtual Conference on October 6, 2026",
+        "url": "https://appiareu.com/appia-rare-earths-uranium-corp-to-present-at-the-john-tumazos-very-independent-research-virtual-conference-on-october-6-2026/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-athaenergy-com",
+      "checked_at": "2026-10-16T18:08:13.194Z",
+      "config_sha256": "15c1488992a3d58f28ea9e17e0f85116da4aa8dcbd952fcefe574512ffb722c1",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "ATHA Energy Successfully Completes Diamond Drilling at Rib North Discovery, Expanding Strike Length to 3.4 km, and Identifies a Higher-Grade Sub Zone: Results Include RIBN-DD-023 Intersecting 19.5 m of Composite Uranium Mineralization with 2.0 m of High-Grade",
+        "url": "https://athaenergy.com/atha-energy-successfully-completes-diamond-drilling-at-rib-north-discovery-expanding-strike-length-to-3-4-km-and-identifies-a-higher-grade-sub-zone-results-include-ribn-dd-023-intersecting-19-5-m-o/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-aurania-com",
+      "checked_at": "2026-10-16T18:08:21.225Z",
+      "config_sha256": "32f12781c7f7f7adb8826eaeaf90d761b4f6b4a8a2ec1f7961da0d45107ac78d",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Aurania Completes Drilling at Thormodsdalur Gold Project in Iceland",
+        "url": "https://aurania.com/aurania-completes-drilling-at-thormodsdalur-gold-project-in-iceland/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-brixtonmetals-com",
+      "checked_at": "2026-10-16T18:08:27.987Z",
+      "config_sha256": "4c79341c98f37acab72225ace6aefe9f7025295cf966641fb73195e812e41273",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Brixton Metals Samples New Vein Grading 195 g/t Gold, 4.11% Copper and 147 g/t Silver At Its Thorn Project",
+        "url": "https://brixtonmetals.com/brixton-metals-samples-new-vein-grading-195-g-t-gold-4-11-copper-and-147-g-t-silver-at-its-thorn-project/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-canalaska-com",
+      "checked_at": "2026-10-16T18:08:41.451Z",
+      "config_sha256": "e2b9c36410f076f27915bcb15e2b02b9c0ca49746f8d8c1fd9ce08615080cb97",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "CanAlaska Appoints New Vice President Exploration",
+        "url": "https://canalaska.com/canalaska-appoints-new-vice-president-exploration-2026/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-chesapeakegold-com",
+      "checked_at": "2026-10-16T18:08:50.010Z",
+      "config_sha256": "d8ed951653d866b360d594621408681c8217be11a4d3da4128d35f029abc6781",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "CHESAPEAKE ANNOUNCES PROPRIETARY HEAP OXIDATION TECHNOLOGY UPDATES",
+        "url": "https://chesapeakegold.com/2026/09/22/chesapeake-announces-proprietary-heap-oxidation-technology-updates/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-collectivemining-com",
+      "checked_at": "2026-10-16T18:09:00.066Z",
+      "config_sha256": "890998a29072c146509e1ed03478041e92c02afb0fe9288536f9ce52ee0a70bd",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Collective Mining Discovers Shallow High-Grade Silver-Tungsten Mineralization in Northern Apollo, Drilling 5.50m at 1,283 g/t Silver, 0.83% WO₃, 0.57% Copper and 0.17 g/t Gold from 89.15m",
+        "url": "https://collectivemining.com/collective-mining-discovers-shallow-high-grade-silver-tungsten-mineralization-in-northern-apollo-drilling-5-50m-at-1283-g-t-silver-0-83-wo%e2%82%83-0-57-copper-and-0-17-g-t-gold-from-89-15m/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-deepyellow-com-au",
+      "checked_at": "2026-10-16T18:09:09.993Z",
+      "config_sha256": "60ee440ae8c05e66de8d94dd61e57924c3e8c24b9d2469e5c302ec849b883563",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Sustainability Report – Year Ended 30 June 2026",
+        "url": "https://deepyellow.com.au/sustainability-report-year-ended-30-june-2026/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-f3uranium-com",
+      "checked_at": "2026-10-16T18:09:24.715Z",
+      "config_sha256": "9514c290bcf77b5e56ff3594355cd34c848f85db7588741193c8c2086968fbdb",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "F3 Announces the Appointment of Ross McElroy as CEO",
+        "url": "https://f3uranium.com/f3-announces-the-appointment-of-ross-mcelroy-as-ceo/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-fireweedmetals-com",
+      "checked_at": "2026-10-16T18:09:36.072Z",
+      "config_sha256": "be26dcfed54ee55da141812aa0c586e678efacc3f2869053eacf010ef1b2a46e",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Fireweed Intersects 43 m True Width Sub-Interval of 10.53% ZnEq in Tom South Step Out",
+        "url": "https://fireweedmetals.com/fireweed-intersects-43-m-true-width-sub-interval-of-10-53-zneq-in-tom-south-step-out/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-fpxnickel-com",
+      "checked_at": "2026-10-16T18:09:44.672Z",
+      "config_sha256": "e19ea14161423cf6704d2c56d51c320650fe0c8dc3f747fdb233c3e76ff64fca",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 5,
+      "sampled_valid_items": 5,
+      "sample": {
+        "title": "FPX Nickel Completes Birchy North Drilling and Commences Drilling at Expanded Wolverine Target at Advocate Nickel Property in Newfoundland",
+        "url": "https://fpxnickel.com/blog/2026/10/01/fpx-nickel-completes-birchy-north-drilling-and-commences-drilling-at-expanded-wolverine-target-at-advocate-nickel-property-in-newfoundland/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-gigametals-com",
+      "checked_at": "2026-10-16T18:09:55.622Z",
+      "config_sha256": "3729b73ea9dbcd58bfe54404007c3a6918148c6d487c389a0aa93b5dc765e0e1",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Stage 2 Geophysical Program Identifies Multiple Exploration Targets in Attic Zone at Giga Metals’ Turnagain Project",
+        "url": "https://gigametals.com/stage-2-geophysical-program-identifies-multiple-exploration-targets-in-attic-zone-at-giga-metals-turnagain-project/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-goliathresourcesltd-com",
+      "checked_at": "2026-10-16T18:10:04.543Z",
+      "config_sha256": "0d531b03f80addb6859a57279c791cb267cee35eed9db6395479a5979bdf3e78",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "October 7, 2026 – Goliath Reports Several Holes, Up To 9.89 g/t AuEq Over 12.00 Meters From Surebet Zone Confirming Continuity, As Well As 24.97 Meters Of 0.70 g/t AuEq From Newly Identified And Extensive Big Bulk Zone, Golddigger Property, Golden Triangle, B.C.",
+        "url": "https://goliathresourcesltd.com/wp-content/uploads/2026/10/October-7-2026-Goliath-Reports-Several-Holes-Up-To-9.89-gt-AuEq-Over-12.00-Meters-From-Surebet-Zone-24.97-Meters-Of-0.70-gpt-AuEq-From-Big-Bulk-Zone.pdf#new_tab"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-graphiteoneinc-com",
+      "checked_at": "2026-10-16T18:10:20.485Z",
+      "config_sha256": "af219055c1d2d9db403fa69f1fb5d57a60560b6ae8d9752874e6c31cdaebf43c",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Graphite One Announces Creation of G1 Advanced Systems Division and Marketing Campaign Update",
+        "url": "https://www.graphiteoneinc.com/graphite-one-announces-creation-of-g1-advanced-systems-division-and-marketing-campaign-update/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-magnamining-com",
+      "checked_at": "2026-10-16T18:10:33.320Z",
+      "config_sha256": "19615b077b85575590af079dff38c759b204d48551a7c68ff3ddb6d76171fefd",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Magna Mining Reports Results of Levack Mine Preliminary Economic Assessment and Approves Restart of Production",
+        "url": "https://magnamining.com/magna-mining-reports-results-of-levack-mine-preliminary-economic-assessment-and-approves-restart-of-production/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-northerngraphite-com",
+      "checked_at": "2026-10-16T18:10:48.028Z",
+      "config_sha256": "16de2aec2c4833ac8fe9c912d0b9fdb187803a1b2797960f07f6e11a069cc172",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Northern Graphite Engages Germany’s DGWA to Support European Investor & Corporate Activities",
+        "url": "https://www.northerngraphite.com/northern-graphite-engages-germanys-dgwa-to-support-european-investor-and-corporate-activities/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-q2metals-com",
+      "checked_at": "2026-10-16T18:10:57.198Z",
+      "config_sha256": "9036e821ad043c8ad21889f871d7713523f76a4d19b34592484b919012f01b4f",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Q2 Metals Extends Near Surface Mineralization 100 Metres North at the Cisco Lithium Project, Intercepting 134.5 Metres at 1.20% Li2O and 101.6 Metres at 1.02% Li20",
+        "url": "https://q2metals.com/q2-metals-extends-near-surface-mineralization-100-metres-north-at-the-cisco-lithium-project/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-rocktechlithium-com",
+      "checked_at": "2026-10-16T18:11:06.931Z",
+      "config_sha256": "758c7412ca6eb1b0000c7ffcdfb7450e718aa0d3b52066e467cf10d6b6a5694b",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Rock Tech Lithium Closes Previously Announced Private Placementat C$6 Million",
+        "url": "https://rocktechlithium.com/en/rock-tech-lithium-closes-previously-announced-private-placementat-c6-million/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-silverbulletmines-com",
+      "checked_at": "2026-10-16T18:11:17.247Z",
+      "config_sha256": "962f600cfd64a2de2c2e374f98c652b0ee2dd00debf55e6cd8017ad250caf52c",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-silverstorm-ca",
+      "checked_at": "2026-10-16T18:11:24.763Z",
+      "config_sha256": "39e4efccacf55d1f7a0c4731dc054753eef0e393f57d0be298b01a5eaf7a4fc5",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 12,
+      "sampled_valid_items": 12,
+      "sample": {
+        "title": "Silver Storm Announces Inclusion into the Benchmark Index Tracked by the GDXJ ETF",
+        "url": "https://silverstorm.ca/press-releases/silver-storm-announces-inclusion-into-the-benchmark-index-tracked-by-the-gdxj-etf/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-silverxmining-com",
+      "checked_at": "2026-10-16T18:11:32.304Z",
+      "config_sha256": "317a7094d3a24602f8404e0d6f965389487f136ff66ff1a1d017d92cdb7a1085",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Silver X Grows the AgEq Processed by 42% and Gold 119% YoY as Nueva Recuperada Plant Expansion to 1,000 TPD Advances",
+        "url": "https://www.silverxmining.com/silver-x-grows-the-ageq-processed-by-42-and-gold-119-yoy-as-nueva-recuperada-plant-expansion-to-1000-tpd-advances/?utm_source=rss&utm_medium=rss&utm_campaign=silver-x-grows-the-ageq-processed-by-42-and-gold-119-yoy-as-nueva-recuperada-plant-expansion-to-1000-tpd-advances"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-southstarbatterymetals-com",
+      "checked_at": "2026-10-16T18:11:43.450Z",
+      "config_sha256": "b1381ace21c674cce1b2697a91fa20cdca8af311098481a950033fb1f8b50b2c",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-stallionuranium-com",
+      "checked_at": "2026-10-16T18:11:46.031Z",
+      "config_sha256": "af52a7de45efa503f0366b87542f70819a154544632f09c0a4df23271ba8f1e7",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-strikepointgold-com",
+      "checked_at": "2026-10-16T18:11:49.329Z",
+      "config_sha256": "4028eb04712f290d0cd926028a82bbeef55c1869e4604051b278ae1ef7c4338a",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "StrikePoint Gold Strengthens its Team with Hiring of Keith Wood as Exploration Manager and Appointment of Stephen Quin as a Strategic Advisor",
+        "url": "https://strikepointgold.com/strikepoint-gold-strengthens-its-team-with-hiring-of-keith-wood-as-exploration-manager-and-appointment-of-stephen-quin-as-a-strategic-advisor/?utm_source=rss&utm_medium=rss&utm_campaign=strikepoint-gold-strengthens-its-team-with-hiring-of-keith-wood-as-exploration-manager-and-appointment-of-stephen-quin-as-a-strategic-advisor"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-ucore-com",
+      "checked_at": "2026-10-16T18:12:02.702Z",
+      "config_sha256": "0e60f4e405d9ef3c54ce62745f3d7da1cb90d321d387add207f08035d9205496",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-vizslacopper-com",
+      "checked_at": "2026-10-16T18:12:04.260Z",
+      "config_sha256": "1781ea4b8ef51201ce343b56028839e57e3088b681d500c114f9178910514ec0",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-westredlakegold-com",
+      "checked_at": "2026-10-16T18:12:07.163Z",
+      "config_sha256": "3148e97a59a2f81b5e08bd84b3f7e975f7af37a61bf71658e82ebf325c068b68",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "West Red Lake Gold Reports 176.04 g/t Au over 5.3m, 128.32 g/t Au over 4.5m and 35.72 g/t Au over 13.35m from Austin 955 and 904 Complexes",
+        "url": "https://westredlakegold.com/west-red-lake-gold-reports-176-04-g-t-au-over-5-3m-128-32-g-t-au-over-4-5m-and-35-72-g-t-au-over-13-35m-from-austin-955-and-904-complexes/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-aldebaranresources-com",
+      "checked_at": "2026-10-16T18:12:20.540Z",
+      "config_sha256": "d6a10a0a573a7d1711692af429664b693aa60850f8ef566354046ce341147259",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 20,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Aldebaran Reports 1,728.9 m of 0.45% CuEq (0.41% Cu, 0.03 g/t Au & 1.34 g/t Ag), including 756 m of 0.68% CuEq (0.61% Cu, 0.03 g/t Au & 2.12 g/t Ag) at the Altar Copper-Gold Project in San Juan, Argentina",
+        "url": "https://aldebaranresources.com/aldebaran-reports-1728-9-m-of-0-45-cueq-0-41-cu-0-03-g-t-au-1-34-g-t-ag-including-756-m-of-0-68-cueq-0-61-cu-0-03-g-t-au-2-12-g-t-ag-at-the-altar-copper-gold-project-in-san-juan-a/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-americanbatterytechnology-com",
+      "checked_at": "2026-10-16T18:12:29.591Z",
+      "config_sha256": "5fc2b353127d32dee6fd64d3accd821826df8f57246f6851b53ce82e7f08455a",
+      "status": "blocked_or_deferred",
+      "reason": "robots_unavailable",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-aris-mining-com",
+      "checked_at": "2026-10-16T18:12:32.543Z",
+      "config_sha256": "e64cbbd19d44fc602c46b27cf476b2656196a46e5082970fb42e375eea280029",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Aris Mining Reports Q3 2026 Production",
+        "url": "https://www.aris-mining.com/news/detail/183/aris-mining-reports-q3-2026-production"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-astonbayholdings-com",
+      "checked_at": "2026-10-16T18:12:40.283Z",
+      "config_sha256": "19b4c56a6abfd2a1f643d235dfae60b3a8ba68356eef780b3abccf66c8ca1a0e",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Aston Bay Identifies New Near-Surface Copper Targets Through Integrated 3D Modelling at the Epworth Copper-Silver Project, Nunavut, Canada",
+        "url": "https://astonbayholdings.com/news/identifies-new-near-surface-copper-targets-through-integrated-3d-modelling/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-denisonmines-com",
+      "checked_at": "2026-10-16T18:12:47.610Z",
+      "config_sha256": "d53871325c1a4900aa3a473bfeeef502c6ef362525fd6cde1f53b65fb3ae06f7",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Denison Reports Financial and Operational Results for Q2 2026, Highlighted by Significant Initial Progress from Construction Activities at the Phoenix In-Situ Recovery ('ISR') Uranium Mine",
+        "url": "https://denisonmines.com/news/denison-reports-financial-and-operational-results-122850/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-e3lithium-ca",
+      "checked_at": "2026-10-16T18:12:58.015Z",
+      "config_sha256": "441b020b009b07ab04971d9a219ccab2c80ad6b9edcd1221fe4829037ca172a5",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 2,
+      "sampled_valid_items": 2,
+      "sample": {
+        "title": "E3 Lithium Confirms Listing of Warrants in Relation to Recently Closed Equity Offering",
+        "url": "https://e3lithium.ca/newsroom/news-releases/e3-lithium-confirms-listing-of-warrants-in-relation-to-recently-closed-equity-offering"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-electrabmc-com",
+      "checked_at": "2026-10-16T18:13:08.348Z",
+      "config_sha256": "97a5f2771bd397a9c771e149708c0f5e4b3ff693df6019a10dfb36d75dff453f",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 264,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Electra Signs Term Sheet for Strategic Partnership with Global Commodities Trader WMC",
+        "url": "https://electrabmc.com/news-releases/news/electra-signs-term-sheet-for-strategic-partnership-with-global-commodities-trader-wmc"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-encoreuranium-com",
+      "checked_at": "2026-10-16T18:13:22.194Z",
+      "config_sha256": "4d90ede72d32828887f4d76583c64bf98bc30bdc74a47b9329a208525722e7ce",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "enCore Energy Completes Distribution of Verdera Common Shares to its Shareholders",
+        "url": "https://encoreuranium.com/news/encore-energy-completes-distribution-of-verdera-common-shares-to-its-shareholders/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-excellonresources-com",
+      "checked_at": "2026-10-16T18:13:35.049Z",
+      "config_sha256": "3fedca9aaa797297cf6b56249ad205128c0904ff4f9e482d78816abb5830cc93",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 334,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Excellon Drilling Confirms Grade and Width Below the 4090 Level at Mallay Silver Mine",
+        "url": "https://excellonresources.com/news/details/index.php?content_id=436"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-fortuneminerals-com",
+      "checked_at": "2026-10-16T18:13:50.194Z",
+      "config_sha256": "b5326b8bea74bf715dabe74374970214f2d15775feb42b2c552d17b5f321ba3a",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 4,
+      "sampled_valid_items": 4,
+      "sample": {
+        "title": "Fortune Minerals Receives Its Northwest Territories Water Licence and Land Use Permit Renewals for the Nico Mine",
+        "url": "https://fortuneminerals.com/news/news-releases/fortune-minerals-receives-its-northwest-territories-water-licence-and-land-use-permit-renewals-for-the-nico-mine"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-highlandcopper-com",
+      "checked_at": "2026-10-16T18:14:00.897Z",
+      "config_sha256": "0eb146880335e69dfc82dc201d957fc9ac9fb0137189714693d170ba0b0c2a1a",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Highland Copper Announces Final Approval of US$50 Million Grant from the State of Michigan for Copperwood Project",
+        "url": "https://www.highlandcopper.com/news/highland-copper-announces-final-approval-of-us50-million-grant-from-the-state-of-michigan-for-copperwood-project/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-ivanhoeatlantic-com",
+      "checked_at": "2026-10-16T18:14:09.057Z",
+      "config_sha256": "8a0427b3500bbc2fa45efe1df541d7482969a369c7b32f515357697cd5b9b12a",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 9,
+      "sampled_valid_items": 9,
+      "sample": {
+        "title": "Ivanhoe Atlantic strengthens U.S. focused Board",
+        "url": "https://ivanhoeatlantic.com/ivanhoe-atlantic-strengthens-u-s-focused-board/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-li-ft-com",
+      "checked_at": "2026-10-16T18:14:23.273Z",
+      "config_sha256": "7b49b6eb1acc86567085b361bcaa022cd63cfcda992759d51f5af98e39ef326b",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 120,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Release Conditions for Renard Option Satisfied",
+        "url": "https://www.li-ft.com/news/release-conditions-for-renard-option-satisfied"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-metallic-minerals-com",
+      "checked_at": "2026-10-16T18:14:34.016Z",
+      "config_sha256": "0117c807aec265c278843ca7c56b7c196ea305706b5a59e4f69d635c9fac68b8",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 15,
+      "sampled_valid_items": 15,
+      "sample": {
+        "title": "Metallic Minerals' La Plata Project Selected for U.S. DOE Genesis Mission AI Research Initiative Award Funding",
+        "url": "https://metallic-minerals.com/news/2026/metallic-minerals-la-plata-project-selected-for-u.s-doe-genesis-mission-ai-research-initiative-award-funding/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-nextsourcematerials-com",
+      "checked_at": "2026-10-16T18:14:44.944Z",
+      "config_sha256": "5f1c0fdf524f0d19a5ad9ebb775f041b1d22345be22b9858a2228a6947763275",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 3,
+      "sampled_valid_items": 3,
+      "sample": {
+        "title": "NextSource Materials Secures Binding Agreement for US$30 Million Strategic Investment from Japan’s Hanwa and JOGMEC to Advance its UAE Battery Anode Facility",
+        "url": "https://www.nextsourcematerials.com/nextsource-materials-secures-binding-agreement-for-us30-million-strategic-investment-from-japans-hanwa-and-jogmec-to-advance-its-uae-battery-anode-facility/"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-northwestcopper-ca",
+      "checked_at": "2026-10-16T18:14:54.157Z",
+      "config_sha256": "5b85f2cd736770ea2be65bd34a2cac85f07ec613e08635d5efbe589c50fb1822",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "NorthWest Intersects 31.4 Metres of 0.92% Copper and 1.08 g/t Gold (2.11% CuEq) at Kwanika in the Pit Zone from 78 Metres",
+        "url": "https://northwestcopper.ca/news/northwest-intersects-31-4-metres-of-0-92-copper-a-15504/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-outcropsilver-com",
+      "checked_at": "2026-10-16T18:15:04.878Z",
+      "config_sha256": "8748d9036c75ec682c8807305ac638f0e7aa4f49a982b233f576093051805e76",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "OUTCROP SILVER Launches Project Argentum: Technical Work Plan Approved for Santa Ana Pilot Operation, Targeted for Production in 2027",
+        "url": "https://outcropsilver.com/news/outcrop-silver-launches-project-argentum-technical-work-plan-approved-for-santa-ana-pilot-operation-targeted-for-production-in/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-seabridgegold-com",
+      "checked_at": "2026-10-16T18:15:16.012Z",
+      "config_sha256": "b06f425edb68ee0ad3274e3c765b17a8b2af7656a1a5a4e1f69d8f2d4c42a1d4",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 3,
+      "sampled_valid_items": 3,
+      "sample": {
+        "title": "Seabridge Gold To Explore Wyoming for Gold and Critical Minerals",
+        "url": "https://www.seabridgegold.com/press-release/seabridge-gold-to-explore-wyoming-for-gold-and-critical-minerals"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-sitkagoldcorp-com",
+      "checked_at": "2026-10-16T18:15:23.131Z",
+      "config_sha256": "dd84199b75e86be738b5595bc094f96533e63bbb778dc065a9c392e4337cd925",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 200,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Sitka Drills 236.0 Metres Of 1.15 g/t Gold, Including 71.0 Metres Of 2.79 g/t Gold And 36.3 Metres Of 3.31 g/t Gold, at the Saddle Zone and Continues to Expand the Eiger Deposit at its RC Gold Project, Yukon",
+        "url": "https://sitkagoldcorp.com/sitka-drills-236-0-metres-of-1-15-g-t-gold-including-71-0-metres-of-2-79-g-t-gold-and-36-3-metres-of-3-31-g-t-gold-at-the-saddle-zone-and-continues-to-expand-the-eiger-deposit-at-its-rc-gold-project/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-surgebatterymetals-com",
+      "checked_at": "2026-10-16T18:15:30.068Z",
+      "config_sha256": "d6e2dba51a80e76663521d47b6a6d3d08100a044071e95c2e6b97d3013d4ccc7",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 8,
+      "sampled_valid_items": 8,
+      "sample": {
+        "title": "Surge Announces Positive Pre-Feasibility Study at Nevada North: After-Tax NPV8% of US$9.81 Billion, After-Tax IRR of 23.6% and Operating Cost of US$4,719/tonne Lithium Carbonate",
+        "url": "https://surgebatterymetals.com/news/surge-announces-positive-pre-feasibility-study-at-nevada-north-after-tax-npv8-of-us-9.81-billion-after-tax-irr-of-23.6-and-operating-cost-of-us-4-719-tonne-lithium-carbonate"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-surgecopper-com",
+      "checked_at": "2026-10-16T18:15:37.975Z",
+      "config_sha256": "d8f3b3f6ab69e1d4c54bcc9925aa7c3c82dc46e13f36d489cefe846df346b93c",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 15,
+      "sampled_valid_items": 15,
+      "sample": {
+        "title": "Surge Copper Announces AGM Results and Grant of Deferred Share Units",
+        "url": "https://surgecopper.com/news-releases/surge-copper-announces-agm-results-and-grant-of-deferred-share-units/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-talonmetals-com",
+      "checked_at": "2026-10-16T18:15:50.508Z",
+      "config_sha256": "6bf46c919650bac786d6a9f7dc799aace300443b50a7478aa6dccedcc79238d5",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 24,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Talon Metals Discovers Mineralized Magmatic Conduit at Roland Nickel-Copper Target in Michigan",
+        "url": "https://talonmetals.com/talon-metals-discovers-mineralized-magmatic-conduit-at-roland-nickel-copper-target-in-michigan/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-ur-energy-com",
+      "checked_at": "2026-10-16T18:16:04.966Z",
+      "config_sha256": "a6a1488f67231fe4c007dc32c879225d2d63f1703aec5c19c90ddfe09f88be40",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 3,
+      "sampled_valid_items": 3,
+      "sample": {
+        "title": "Ur-Energy Announces First Shipment of Uranium from Shirley Basin Mine, Wyoming",
+        "url": "https://www.ur-energy.com/news-media/press-releases/detail/410/ur-energy-announces-first-shipment-of-uranium-from-shirley"
+      },
+      "scope_review": "required_independent_uranium_or_graphite",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-vizslasilvercorp-com",
+      "checked_at": "2026-10-16T18:16:15.669Z",
+      "config_sha256": "8263b81fa860049da089b9bf02d0a208f017869c85cd32d9e71ddb01450ab1cf",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 19,
+      "sampled_valid_items": 19,
+      "sample": {
+        "title": "VIZSLA SILVER ANNOUNCES RESULTS OF ANNUAL GENERAL AND SPECIAL MEETING",
+        "url": "https://vizslasilvercorp.com/vizsla-silver-announces-results-of-annual-general-and-special-meeting-3/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-westerncopperandgold-com",
+      "checked_at": "2026-10-16T18:16:36.750Z",
+      "config_sha256": "d8f05b54b750276bc3d0eec909850b710afa6b49de1a98a900ad3cfe65283756",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 6,
+      "sampled_valid_items": 6,
+      "sample": {
+        "title": "Western Copper and Gold Announces Casino Project Selected For Canada Investment Summit Prospectus",
+        "url": "https://www.westerncopperandgold.com/news-and-resources/news-release/western-copper-and-gold-announces-casino-project-selected-for-canada-investment-summit-prospectus/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-eurobatteryminerals-com",
+      "checked_at": "2026-10-16T18:16:44.147Z",
+      "config_sha256": "8a01e2c3ab1083bce173922b9f3a13431d863c8f58edc72bba240fc9ac96ddca",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Eurobattery Minerals revisor avgår",
+        "url": "https://eurobatteryminerals.com/eurobattery-minerals-revisor-avgar/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-beowulfmining-com",
+      "checked_at": "2026-10-16T18:16:53.049Z",
+      "config_sha256": "3aeb1e04b56c3fb5e231288947a153e639d84c7cc53d26318d625a4d76af73e4",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Beowulf Mining – Corporate Update",
+        "url": "https://beowulfmining.com/beowulf-mining-corporate-update-2/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-canadanickel-com",
+      "checked_at": "2026-10-16T18:17:02.987Z",
+      "config_sha256": "e89ec5a4506a249f48e5756d5b5169078f06ec43e25c0ea1c6e7922cadaea4d8",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 9,
+      "sampled_valid_items": 9,
+      "sample": {
+        "title": "CANADA NICKEL COMPANY RELEASES 2025 ESG REPORT",
+        "url": "https://wp-canadanickel-2025.s3.ca-central-1.amazonaws.com/media/2026/10/Canada-Nickel-ESG_Report-Press-Release_VF-1.pdf"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-amarcresources-com",
+      "checked_at": "2026-10-16T18:17:11.573Z",
+      "config_sha256": "5c64c02f9a5db76b62f6695db4722d3bfe5b6687e8b6ef6999827ca4c8a99d2a",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 192,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "AMARC Announces Chief Financial Officer Transition",
+        "url": "https://amarcresources.com/news-releases/amarc-announces-chief-financial-officer-transition/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-copperfoxmetals-com",
+      "checked_at": "2026-10-16T18:17:24.567Z",
+      "config_sha256": "68a112d2626d006434e25fc0a9868f4c98238e6fe7c81f2849cd14227ed7a3b6",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 24,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Copper Fox Announces 2026 Q3 Financial Results and Project and Corporate Updates",
+        "url": "https://www.copperfoxmetals.com/news/161463"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "candidate-giyanimetals-com",
+      "checked_at": "2026-10-16T18:17:33.856Z",
+      "config_sha256": "4a17cb99af0066be2145a14cc0016db90d2432a123211277c8513e2488793fef",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Giyani Metals Announces Filing of Definitive Feasibility Study",
+        "url": "https://giyanimetals.com/giyani-metals-announces-filing-of-definitive-feasibility-study/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-newfoundgold-ca",
+      "checked_at": "2026-10-16T18:17:40.909Z",
+      "config_sha256": "74b03898ef3565a23254d4df4cefcfed6ba6f8eed5bbe13d771050b403d9e4eb",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 16,
+      "sampled_valid_items": 16,
+      "sample": {
+        "title": "New Found Gold Reports Q3 2026 Preliminary Production Results: Becoming Canada’s Newest Gold Producer",
+        "url": "https://newfoundgold.ca/new-found-gold-reports-q3-2026-preliminary-production-resultsbecoming-canadas-newest-gold-producer/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-heliostarmetals-com",
+      "checked_at": "2026-10-16T18:17:48.929Z",
+      "config_sha256": "bfba3b573eac53e5a567e2838008e7f451772ac033477008dab9f9e78f75a89e",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 179,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Heliostar Submits Environmental Permit Applications for Ana Paula",
+        "url": "https://www.heliostarmetals.com/news-media/news-releases/heliostar-submits-environmental-permit-applications-for-ana-paula"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-lavrasgold-com",
+      "checked_at": "2026-10-16T18:17:58.066Z",
+      "config_sha256": "0ffcdb1910410d84078aa2491d690ee0c5fbce4ae8f919e0707550f36a48e893",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 14,
+      "sampled_valid_items": 14,
+      "sample": {
+        "title": "Lavras Gold Defines a District-Scale Gold-in-Soil Corridor at Lavras do Sul and Identifies Cerrito North as a New Exploration Target",
+        "url": "https://lavrasgold.com/lavras-gold-defines-a-district-scale-gold-in-soil-corridor-at-lavras-do-sul-and-identifies-cerrito-north-as-a-new-exploration-target/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-thesisgoldsilver-com",
+      "checked_at": "2026-10-16T18:18:04.753Z",
+      "config_sha256": "d17f5c12fe22c2b0e12babc06109f0fdda70b5b013c9e327bd04ea79488c3ad6",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 69,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Thesis Gold & Silver Submits Detailed Project Description for Its Lawyers-Ranch Gold-Silver Project",
+        "url": "https://www.thesisgoldsilver.com/news-media/news/thesis-gold--silver-submits-detailed-project-description-for-its-lawyers-ranch-gold-silver-project-20260928"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-abitibimetals-com",
+      "checked_at": "2026-10-16T18:18:14.379Z",
+      "config_sha256": "38e2a6805dc189963bd258e49cfe22ab8e3401c63d60955ecfe49904c20e3af0",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Abitibi Metals Intersects 3.72% CuEq over 9.2 m Within a Broader 1.25% CuEq over 60.2 m at the B26 Deposit",
+        "url": "https://abitibimetals.com/abitibi-metals-intersects-3-72-cueq-over-9-2-m-within-a-broader-1-25-cueq-over-60-2-m-at-the-b26-deposit/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-kenorlandminerals-com",
+      "checked_at": "2026-10-16T18:18:27.199Z",
+      "config_sha256": "e9ebdfbc81d533207cdd397f675b12fcee15ea15b70bbba3b7824a6a38fbde26",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 155,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Kenorland and Auranova Commence Phase 4 Drill Program at the South Uchi Project, Ontario",
+        "url": "https://www.kenorlandminerals.com/news/kenorland-and-auranova-commence-phase-4-drill-program-at-the-south-uchi-project-ontario"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-vior-ca",
+      "checked_at": "2026-10-16T18:18:38.019Z",
+      "config_sha256": "08651f47ecdd580cc54599bc9a74f2da1a9098ce74d30bcbc14f595faafb58f0",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 134,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "VIOR GOLD CORPORATION CONTINUES TO EXTEND HIGH-GRADE FOOTPRINT AT LIGNERIS",
+        "url": "https://www.vior.ca/news/vior-gold-corporation-continues-to-extend-high-grade-footprint-at-ligneris/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-drydengold-com",
+      "checked_at": "2026-10-16T18:18:47.712Z",
+      "config_sha256": "be22e553ffb7aed958d7686e98209d855efc781a7cf707d5778ad32fc5f73337",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 8,
+      "sampled_valid_items": 8,
+      "sample": {
+        "title": "Dryden Gold and Eagle Lake First Nation Sign Early Exploration Agreement",
+        "url": "https://drydengold.com/dryden-gold-and-eagle-lake-first-nation-sign-early-exploration-agreement/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-empressroyalty-com",
+      "checked_at": "2026-10-16T18:18:55.717Z",
+      "config_sha256": "57b0e5e631c384a6c131035cea2c068c53e2db7635df9caa361a9e8817402890",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 9,
+      "sampled_valid_items": 9,
+      "sample": {
+        "title": "Empress Announces Resumption of Trading",
+        "url": "https://www.empressroyalty.com/news/160897"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-salazarresources-com",
+      "checked_at": "2026-10-16T18:19:04.798Z",
+      "config_sha256": "30f5e0b1e7ee8589c11cda3bc925697272ac65f7bd1e3d0511d9718c22306196",
+      "status": "preview_passed",
+      "reason": null,
+      "preview_count": 14,
+      "sampled_valid_items": 14,
+      "sample": {
+        "title": "Salazar Resources Closes $3.5 Million Non-Brokered Private Placement",
+        "url": "https://www.salazarresources.com/investors/regulatory-news/salazar-resources-closes-3.5-million-non-brokered-private-placement/"
+      },
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "reserve-scottieresources-com",
+      "checked_at": "2026-10-16T18:19:16.245Z",
+      "config_sha256": "54c9aa4cb39ccc92b7bd4f6097297ca65003e4421dd7c3f2f84e626be8d953dc",
+      "status": "blocked_or_deferred",
+      "reason": "robots_redirect_not_approved",
+      "preview_count": 0,
+      "sampled_valid_items": 0,
+      "sample": null,
+      "scope_review": "pending_final_intake_review",
+      "production_enabled_by_task": false
+    }
+  ]
+}

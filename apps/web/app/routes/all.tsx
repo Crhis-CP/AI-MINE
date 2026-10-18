@@ -1,12 +1,14 @@
+import { apiFetch } from "../lib/http.ts";
 import { SITE, withSubject } from "@amp/industry/site";
-import { Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { data as withStatus, Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/all";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
+import { isValidDate } from "@amp/contracts/time";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
-import { CategoryTabs, JurisdictionFilter, SearchField, SourceDateFilters } from "../features/feed/Filters";
+import { CategoryTabs, JurisdictionFilter, SearchField, SourceDateFilters, FeedBar } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { HotTopics } from "../features/feed/HotTopics";
@@ -38,35 +40,51 @@ export async function loader({ request }: Route.LoaderArgs) {
     from: url.searchParams.get("from") || undefined,
     to: url.searchParams.get("to") || undefined,
   } as const;
-  const data = await loadOr404(
-    () =>
-      createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
-        .GET("/api/site/pool", {
-          params: { query },
-          querySerializer: () => queryString(query).slice(1),
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-        })
-        .then((result) => contractResult(result, publicSchemas.PoolResponse)),
-    { signal: request.signal },
-  );
-  const policyMatches = q
-    ? await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") })
-        .GET("/api/site/policies", {
-          params: { query: { q, page: 1, page_size: 5 } },
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: request.signal,
-        })
+  const invalidDate = ["on", "from", "to"].some((name) => {
+    const value = url.searchParams.get(name);
+    return !!value && !isValidDate(value);
+  });
+  const invalidRange = query.from && query.to && query.from > query.to;
+  if (invalidDate || invalidRange)
+    return withStatus(
+      {
+        data: null,
+        policyMatches: null,
+        policySearchFailed: false,
+        filterError: invalidDate ? "日期无效，请使用有效的年、月、日。" : "开始日期不能晚于结束日期，请调整后再筛选。",
+      },
+      { status: 400 },
+    );
+  // The optional policy search starts alongside news and has its own short deadline.
+  const policyRequest = q
+    ? apiFetch("/api/site/policies", {
+        params: { query: { q, page: 1, page_size: 5 } },
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(3000)]),
+        baseUrl: apiBaseFor("/api/site/policies"),
+      })
         .then((result) => contractResult(result, publicSchemas.PolicyListResponse))
         .catch(() => null)
     : null;
-  return { data, policyMatches, policySearchFailed: !!q && policyMatches === null };
+  const data = await loadOr404(
+    () =>
+      apiFetch("/api/site/pool", {
+        params: { query },
+        querySerializer: () => queryString(query).slice(1),
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        baseUrl: apiBaseFor("/api/site/pool"),
+      }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
+    { signal: request.signal },
+  );
+  const policyMatches = await policyRequest;
+  return { data, policyMatches, policySearchFailed: !!q && policyMatches === null, filterError: null };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  const f = loaderData?.data.filters;
+  const f = loaderData?.data?.filters;
   const q = f?.q;
-  const page = loaderData?.data.page ?? 1;
+  const page = loaderData?.data?.page ?? 1;
   return pageMeta({
     title: q ? `搜索：${q}` : `全部${withSubject("动态")}`,
     description: `${SITE.name} 收录的全部${withSubject("动态")}，可按国家、地区、类别与标签筛选，支持中英文搜索。`,
@@ -104,9 +122,19 @@ function pageHref(params: URLSearchParams, page: number) {
 }
 
 export default function AllPage() {
-  const { data, policyMatches, policySearchFailed } = useLoaderData<typeof loader>();
+  const { data, policyMatches, policySearchFailed, filterError } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const navigation = useNavigation();
+  if (!data)
+    return (
+      <div className="pb-12">
+        <h1 className="pt-5 text-[24px] font-semibold text-ink">全部矿业动态</h1>
+        <p role="alert" className="mt-3 text-[14px] text-hot">
+          {filterError}
+        </p>
+        <SourceDateFilters base="/all" />
+      </div>
+    );
   const f = data.filters;
   const busy = navigation.state === "loading" && navigation.location?.pathname === "/all";
   const keep = Object.fromEntries([...params].filter(([key]) => !["q", "page", "cursor", "search"].includes(key)));
@@ -121,7 +149,8 @@ export default function AllPage() {
   const updated = new Date(data.freshness).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" });
 
   return (
-    <div className="pb-6">
+    <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
+      <FeedBar base="/all" category={f.category} channel={f.channel} jurisdiction={f.jurisdiction ?? null} facets={data.facets} />
       {/* Desktop, as on 精选: the title, then one filter row with the search field aligned on the right. */}
       <div className="hidden lg:block">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title ?? `全部${withSubject("动态")}`}</h1>
@@ -131,24 +160,10 @@ export default function AllPage() {
         </div>
       </div>
 
-      {/* Phones: title with today's count, the search bar, then the same filter row as 精选. */}
-      <div className="lg:hidden">
-        <div className="flex items-baseline justify-between pb-3 pt-5">
-          <h1 className="text-[22px] font-bold text-ink">{title ?? "全部动态"}</h1>
-          {!f.q && (
-            <span className="text-[12.5px] text-ink-4">
-              今日 <span className="num">{data.todayCount}</span> 条
-            </span>
-          )}
-        </div>
-        <SearchField variant="bar" defaultValue={f.q ?? ""} keep={keep} autoFocus={params.get("search") === "1"} />
-        <div className="-mx-4 mt-3 border-b border-line-soft px-4 pb-3">
-          <CategoryTabs base="/all" category={f.category} channel={f.channel} layoutId="all-cat-mobile" size="sm" className="min-w-0" />
-        </div>
+      <div className="hidden lg:block">
+        <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
+        <SourceDateFilters base="/all" facets={data.facets} />
       </div>
-
-      <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
-      <SourceDateFilters base="/all" facets={data.facets} />
       {data.hot && <HotTopics entries={data.hot} />}
       {f.q && (
         <section aria-label="法规政策搜索结果" className="my-4 rounded-card border border-line px-4 py-3">
@@ -176,7 +191,7 @@ export default function AllPage() {
         </section>
       )}
       <p className="my-3 text-[12px] text-ink-4">
-        第 {data.page} 页 · 共 {data.total} {data.cards ? "张事件卡" : "条动态"}
+        第 {data.page} 页 · 共 {data.total} {data.cards ? "组动态" : "条动态"}
         {data.reportTotal !== undefined ? ` · ${data.reportTotal} 篇报道` : ""}
       </p>
       {f.q && (

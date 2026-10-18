@@ -1,33 +1,10 @@
+import { copyText } from "../lib/clipboard";
 import { useState } from "react";
 
 /** A successful clipboard write is required; cancellation of the system share sheet is neutral. */
 export function ShareLink({ path, title }: { path: string; title: string }) {
   const [message, setMessage] = useState<{ text: string; failed: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
-  const copy = async (url: string) => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        return;
-      }
-    } catch {
-      /* The bounded legacy fallback still has to prove it copied. */
-    }
-    const previous = document.activeElement;
-    const field = document.createElement("textarea");
-    field.value = url;
-    field.readOnly = true;
-    field.style.position = "fixed";
-    field.style.opacity = "0";
-    document.body.append(field);
-    field.select();
-    try {
-      if (!document.execCommand("copy")) throw new Error("copy rejected");
-    } finally {
-      field.remove();
-      if (previous instanceof HTMLElement) previous.focus();
-    }
-  };
   const run = async (share: boolean) => {
     if (busy) return;
     setBusy(true);
@@ -36,7 +13,7 @@ export function ShareLink({ path, title }: { path: string; title: string }) {
     const system = share && !!navigator.share && window.matchMedia("(pointer: coarse)").matches;
     try {
       if (system) await navigator.share({ title, url });
-      else await copy(url);
+      else await copyText(url);
       setMessage({ text: system ? "分享已完成" : "链接已复制", failed: false });
     } catch (error) {
       if (system && error instanceof Error && error.name === "AbortError") return;

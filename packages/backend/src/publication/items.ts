@@ -1,3 +1,5 @@
+import { CURRENT_SOURCE_TIME, publicSourceTime, sourceInstant } from "./source-time.ts";
+import { attachRepresentativePriority, type RepresentativeIdentity } from "./representative.ts";
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
 import { geographyRecipe } from "../editorial/geography.ts";
@@ -7,11 +9,9 @@ import { jurisdictionCodesInText, type ReadMatcherValues } from "./mentions.ts";
 import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
-import { dbOf, type Db } from "../db.ts";
-import { publicationTextMatches, bodyTextMatches } from "./read-predicates.ts";
+import { sql, type Db } from "../db.ts";
+import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
 import { displayTags } from "./rules.ts";
-
-const sql = dbOf("publication");
 
 export interface ItemRow {
   id: string;
@@ -28,6 +28,8 @@ export interface ItemRow {
   channel: "news";
   url: string;
   published_at: Date | null;
+  source_time?: unknown;
+  first_public_at?: Date | null;
   discovered_at: Date;
   timeline_at: Date;
   /** Reading-group anchor for a selected item (timeline_at otherwise). */
@@ -54,10 +56,10 @@ export interface ItemRow {
 }
 
 /** Columns every item listing selects. Internal judgement details never leave this layer. */
-export const ITEM_COLUMNS = sql`
+export const ITEM_COLUMNS = () => sql`
   p.article_id AS id, p.revision, p.title, p.original_title,
   coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
-  p.selected, p.eligible, p.channel, p.url, p.published_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
+  p.selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
   s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,
   a.author, a.language,
@@ -66,15 +68,27 @@ export const ITEM_COLUMNS = sql`
 /** Public API listings never render article bodies or story metadata. */
 export type ApiItemRow = Pick<
   ItemRow,
-  "id" | "title" | "original_title" | "summary" | "source_name" | "url" | "published_at" | "discovered_at" | "category" | "score" | "selected" | "reason"
+  | "id"
+  | "title"
+  | "original_title"
+  | "summary"
+  | "source_name"
+  | "url"
+  | "published_at"
+  | "discovered_at"
+  | "category"
+  | "score"
+  | "selected"
+  | "reason"
+  | "source_time"
 >;
-export const API_ITEM_COLUMNS = sql`
+export const API_ITEM_COLUMNS = () => sql`
   p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,
-  p.published_at, p.discovered_at, p.category, p.score, p.selected, p.reason`;
-export const API_ITEM_FROM = sql`FROM publications p JOIN sources s ON s.id = p.source_id`;
+  p.published_at,${CURRENT_SOURCE_TIME()} AS source_time,p.discovered_at, p.category, p.score, p.selected, p.reason`;
+export const API_ITEM_FROM = () => sql`FROM publications p JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id`;
 
 /** A translation of an older revision is left out: the original changed after it (the worker translates it again). */
-export const ITEM_FROM = sql`
+export const ITEM_FROM = () => sql`
   FROM publications p
   JOIN sources s ON s.id = p.source_id
   JOIN articles a ON a.id = p.article_id
@@ -129,7 +143,9 @@ export function toItemSummary(row: ItemRow): ItemSummary {
       firstParty: row.first_party,
     },
     links: { original: row.url },
-    publishedAt: row.published_at?.toISOString() ?? null,
+    publishedAt: sourceInstant(row.source_time)?.toISOString() ?? null,
+    sourceTime: publicSourceTime(row.source_time),
+    firstPublicAt: row.first_public_at?.toISOString() ?? null,
     discoveredAt: row.discovered_at.toISOString(),
     timelineAt: row.timeline_at.toISOString(),
     category: toPublicApiCategory(row.category),
@@ -152,6 +168,8 @@ export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
     source: { name: item.source.name },
     attribution: readerAttribution(row.source_name, row.url, row.source_policy),
     publishedAt: item.publishedAt,
+    sourceTime: item.sourceTime,
+    firstPublicAt: item.firstPublicAt,
     timelineAt: item.timelineAt,
     category: item.category,
     tags: item.tags,
@@ -163,7 +181,7 @@ export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
 
 export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<string, ItemRow>> {
   if (ids.length === 0) return new Map();
-  const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${db(ids)}`;
+  const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${db(ids)}`;
   await attachSourcePolicies(rows, db);
   return new Map(rows.map((r) => [r.id, r]));
 }
@@ -282,9 +300,9 @@ export interface PublicStoryReadScope extends PublicReadScope {
 }
 export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matchers: ReadMatcherValues): Promise<Array<ApiItemRow & { sort_at: Date }>> {
   const sort = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) WHEN ${query.selected} THEN p.sort_at ELSE p.timeline_at END`;
-  return db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS},${sort} AS sort_at ${API_ITEM_FROM}
+  return db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
     WHERE p.visibility='public' AND (NOT p.selected OR p.visible_after<=${query.now})
-      AND (${!query.selected} OR p.selected) AND (${query.selected} OR p.eligible)
+      AND (${!query.selected} OR (p.selected AND p.seat)) AND (${query.selected} OR p.eligible)
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
@@ -293,12 +311,12 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
     AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
     AND (${query.jurisdiction}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe)}
       OR (${query.jurisdiction} NOT IN ('unknown','none') AND (p.tags && ${matchers.jurisdictionTags}::text[] OR ${publicationTextMatches(matchers.jurisdictionText)})))
-    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term0)} OFFSET 0))
-    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term1)} OFFSET 0))
-    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term2)} OFFSET 0))
-    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term3)} OFFSET 0))
-    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term4)} OFFSET 0))
-    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term5)} OFFSET 0))
+    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
+    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))
+    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term2)} OFFSET 0))
+    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term3)} OFFSET 0))
+    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term4)} OFFSET 0))
+    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term5)} OFFSET 0))
     AND (${query.windowStart}::timestamptz IS NULL OR ${sort}>=${query.windowStart}) AND ${sort}<=${query.now}
     AND (${query.afterAt}::timestamptz IS NULL OR (${sort},p.article_id)<(${query.afterAt},${query.afterId}))
     ORDER BY ${sort} DESC,p.article_id DESC LIMIT ${query.limit}`;
@@ -316,20 +334,20 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
     AND (${query.jurisdiction}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe)}
       OR (${query.jurisdiction} NOT IN ('unknown','none') AND (p.tags && ${matchers.jurisdictionTags}::text[] OR ${publicationTextMatches(matchers.jurisdictionText)})))
-    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term0)} OFFSET 0))
-    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term1)} OFFSET 0))
-    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term2)} OFFSET 0))
-    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term3)} OFFSET 0))
-    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term4)} OFFSET 0))
-    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term5)} OFFSET 0))
+    AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
+    AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))
+    AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term2)} OFFSET 0))
+    AND (${!matchers.term3.active} OR ${publicationTextMatches(matchers.term3)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term3)} OFFSET 0))
+    AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term4)} OFFSET 0))
+    AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term5)} OFFSET 0))
     GROUP BY st.public_id ORDER BY latest DESC,st.public_id DESC`;
 }
 
 /** Reports reuse current item qualification but machine citations never use the website excerpt fallback. */
 export async function fetchMachineReportItems(ids: string[]): Promise<Map<string, ItemRow>> {
   if (!ids.length) return new Map();
-  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS},p.summary AS machine_summary
-    ${ITEM_FROM} WHERE p.article_id IN ${sql(ids)}`;
+  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary
+    ${ITEM_FROM()} WHERE p.article_id IN ${sql(ids)}`;
   return new Map(rows.map((row) => [row.id, { ...row, summary: row.machine_summary }]));
 }
 
@@ -339,4 +357,75 @@ export async function readEventPublicationTimes(articleIds: string[], db: Db) {
   return db<{ article_id: string; published_at: Date | null; discovered_at: Date; order_time: string }[]>`SELECT article_id,published_at,discovered_at,
     (extract(epoch from coalesce(published_at,discovered_at))*1000000)::bigint::text AS order_time
     FROM publications WHERE article_id=ANY(${articleIds}::text[])`;
+}
+
+export interface GroupingSelectionSnapshot extends Partial<RepresentativeIdentity> {
+  article_id: string;
+  source_id: string;
+  material_revision: number;
+  publication_revision: number;
+  fact_id: number | null;
+  title: string;
+  summary: string | null;
+  source_name: string;
+  first_party: boolean;
+  published_at: Date | null;
+  discovered_at: Date;
+  timeline_at: Date;
+  body_mode: string;
+  score: number | null;
+}
+
+/** Only already visible, current confirmed picks can be evidence of what readers have seen. */
+export async function readGroupingSelectionSnapshot(excludeArticleId: string, factIds: number[], db: Db = sql, selectedIds?: string[]) {
+  const rows = await db<GroupingSelectionSnapshot[]>`SELECT p.article_id,p.source_id,a.revision AS material_revision,p.revision AS publication_revision,
+    p.fact_id,p.title,p.summary,s.name AS source_name,p.first_party,p.published_at,p.discovered_at,p.timeline_at,p.body_mode,p.score
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
+    WHERE p.article_id<>${excludeArticleId} AND p.visibility='public' AND p.eligible AND p.selected AND p.visible_after<=now()
+      AND a.grouping_status='complete' AND a.grouping_input_revision=a.revision
+      AND (${selectedIds ?? null}::text[] IS NULL OR p.article_id=ANY(${selectedIds ?? []}::text[]))
+      AND (${selectedIds !== undefined} OR p.fact_id=ANY(${factIds}::bigint[]) OR (p.discovered_at>now()-interval '60 days' AND (p.fact_id IS NULL OR p.discovered_at<=now()-interval '14 days')))
+    ORDER BY p.timeline_at DESC,p.article_id`;
+  return attachRepresentativePriority(rows, db);
+}
+
+export function readConfirmedGroupingItems(ids: string[], db: Db = sql) {
+  return readGroupingSelectionSnapshot("", [], db, ids);
+}
+
+/** Historical sync cursors carry only today's publishable selected seats and current corrections. */
+export async function currentSyncItems(ids: string[], now: Date, db: Db = sql): Promise<ApiItemRow[]> {
+  if (!ids.length) return [];
+  return db<ApiItemRow[]>`SELECT ${API_ITEM_COLUMNS()} ${API_ITEM_FROM()}
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND p.selected AND p.seat
+      AND p.visible_after<=${now} AND s.participation_mode='editorial' AND s.lane='news'`;
+}
+
+/** Small source-time projection for story/report/group references, with no body reads or private date observations. */
+export async function publicTimeMetadata(ids: string[], db: Db = sql) {
+  if (!ids.length) return new Map<string, { sourceTime: ReturnType<typeof publicSourceTime>; publishedAt: string | null; firstPublicAt: string | null }>();
+  const rows = await db<
+    { id: string; source_time: unknown; first_public_at: Date | null }[]
+  >`SELECT p.article_id AS id,${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at
+    FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id WHERE p.article_id=ANY(${ids}::text[])`;
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        sourceTime: publicSourceTime(row.source_time),
+        publishedAt: sourceInstant(row.source_time)?.toISOString() ?? null,
+        firstPublicAt: row.first_public_at?.toISOString() ?? null,
+      },
+    ]),
+  );
+}
+
+/** Current material/configuration mismatches, newest first; an acknowledged unknown date is not retried forever. */
+export async function pendingSourceTimeProjectionIds(limit: number) {
+  const rows = await sql<
+    { article_id: string }[]
+  >`SELECT p.article_id FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
+    WHERE s.lane='news' AND (p.source_time_material_revision IS DISTINCT FROM a.revision OR p.source_date_version IS DISTINCT FROM a.source_date_version OR p.source_date_config_hash IS DISTINCT FROM s.source_date_config_hash)
+    ORDER BY p.timeline_at DESC,p.article_id LIMIT ${limit}`;
+  return rows.map((row) => row.article_id);
 }

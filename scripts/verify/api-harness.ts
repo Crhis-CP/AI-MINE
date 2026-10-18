@@ -1,4 +1,4 @@
-import { apiRoleFromEnv, databaseConfig, type ApiRole } from "@amp/config";
+import { apiRoleFromEnv, databaseConfig, type ApiRole } from "@amp/backend/db";
 import { webEnvironment } from "../../apps/web/runtime-env.ts";
 
 type Environment = Readonly<Record<string, string | undefined>>;
@@ -30,18 +30,21 @@ const pick = (env: Environment, keys: string[]) => Object.fromEntries(keys.filte
 export function apiChildEnvironment(role: ApiRole, input: Environment): Record<string, string> {
   apiRoleFromEnv({ API_ROLE: role });
   databaseConfig("test", { DATABASE_URL: input.DATABASE_URL });
-  const keys = role === "public-api" ? ["PUBLIC_RATE_LIMIT_SECRET", "INDEXNOW_KEY", "MCP_ALLOWED_HOSTS"] : ["SESSION_SECRET", "ADMIN_PASSWORD", "PRIVATE_HOST"];
+  const keys = [
+    ...(role !== "private-api" ? ["PUBLIC_RATE_LIMIT_SECRET", "INDEXNOW_KEY", "MCP_ALLOWED_HOSTS"] : []),
+    ...(role !== "public-api" ? ["SESSION_SECRET", "ADMIN_PASSWORD", "PRIVATE_HOST"] : []),
+  ];
   return {
     ...pick(input, [...RUNTIME, ...keys]),
     NODE_ENV: input.NODE_ENV ?? "production",
     API_ROLE: role,
     API_HOST: input.API_HOST ?? "127.0.0.1",
-    API_PORT: input.API_PORT ?? (role === "public-api" ? "3001" : "3002"),
+    API_PORT: input.API_PORT ?? (role === "private-api" ? "3002" : "3001"),
     COLLECT_ENABLED: "false",
     MODEL_CALLS_ENABLED: "false",
     FEISHU_CONTENT_PUSH_ENABLED: "false",
     INDEXNOW_SUBMIT_ENABLED: "false",
-    ...(role === "private-api" ? { AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials" } : {}),
+    ...(role !== "public-api" ? { AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials" } : {}),
   };
 }
 
@@ -67,10 +70,9 @@ function localOrigin(value: string): URL {
 /** Local smoke/baseline fixtures never borrow the caller's authentication keys. */
 export function siteChildEnvironments(input: Environment) {
   const site = localOrigin(input.SITE_URL || "http://127.0.0.1:3000");
-  const publicApi = localOrigin(input.API_BASE_URL || "http://127.0.0.1:3001");
-  const privateApi = localOrigin(input.PRIVATE_API_BASE_URL || "http://127.0.0.1:3002");
+  const apiOrigin = localOrigin(input.API_BASE_URL || "http://127.0.0.1:3001");
   const port = (url: URL) => url.port || "80";
-  if (new Set([site, publicApi, privateApi].map(port)).size !== 3) throw new Error("Harness ports must be distinct");
+  if (new Set([site, apiOrigin].map(port)).size !== 2) throw new Error("Harness ports must be distinct");
   const base = {
     ...pick(input, RUNTIME),
     NODE_ENV: "production",
@@ -82,12 +84,10 @@ export function siteChildEnvironments(input: Environment) {
   };
   const api = (role: ApiRole, url: URL) => apiChildEnvironment(role, { ...base, API_HOST: url.hostname.replace(/^\[|\]$/g, ""), API_PORT: port(url) });
   return {
-    "public-api": api("public-api", publicApi),
-    "private-api": api("private-api", privateApi),
+    api: api("api", apiOrigin),
     web: webEnvironment({
       ...base,
-      API_BASE_URL: publicApi.origin,
-      PRIVATE_API_BASE_URL: privateApi.origin,
+      API_BASE_URL: apiOrigin.origin,
       WEB_HOST: site.hostname.replace(/^\[|\]$/g, ""),
       WEB_PORT: port(site),
       TRUST_PROXY: "false",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { apiRoleFromEnv, publicApiCredentialNames, assertPublicApiCredentials, databaseConfig, environmentProblems } from "@amp/config";
+import { apiRoleFromEnv, publicApiCredentialNames, assertPublicApiCredentials, databaseConfig, environmentProblems } from "@amp/backend/db";
 
 const forbidden = [
   "SESSION_SECRET",
@@ -28,10 +28,10 @@ const forbidden = [
   "FEISHU_FUTURE_CHAT_ID",
 ];
 
-test("API_ROLE parsing accepts only the two explicit roles and never includes rejected values", () => {
-  for (const role of ["public-api", "private-api"] as const) assert.equal(apiRoleFromEnv({ API_ROLE: role }), role);
-  for (const value of [undefined, "", " ", "api", "worker", "PUBLIC-API", " public-api", "private-api ", "PRIVATE_MARKER"]) {
-    assert.throws(() => apiRoleFromEnv({ API_ROLE: value }), { message: "API_ROLE must be public-api or private-api" });
+test("API_ROLE parsing accepts the unified role and explicit legacy roles and never includes rejected values", () => {
+  for (const role of ["api", "public-api", "private-api"] as const) assert.equal(apiRoleFromEnv({ API_ROLE: role }), role);
+  for (const value of [undefined, "", " ", "worker", "PUBLIC-API", " public-api", "private-api ", "PRIVATE_MARKER"]) {
+    assert.throws(() => apiRoleFromEnv({ API_ROLE: value }), { message: "API_ROLE must be api, public-api or private-api" });
   }
 });
 
@@ -89,11 +89,11 @@ test("the helper does not broaden D7 or impose required-key and private/worker p
 
 test("public production credentials are enforced without extending private or worker policy", () => {
   const env = { NODE_ENV: "production", DATABASE_URL: "postgres://test@127.0.0.1:1/api_config_test", SESSION_SECRET: "PRIVATE_MARKER", LLM_API_KEY: "" };
-  for (const role of ["private-api", "worker"] as const) {
+  for (const role of ["api", "private-api", "worker"] as const) {
     assert.deepEqual(environmentProblems(role, env), []);
     assert.doesNotThrow(() => databaseConfig(role, env));
   }
   assert.deepEqual(environmentProblems("public-api", env), ["LLM_API_KEY", "SESSION_SECRET"]);
   assert.throws(() => databaseConfig("public-api", env), /public-api must not hold/);
-  assert.throws(() => databaseConfig("api" as never, env), /Unknown process role/);
+  assert.throws(() => databaseConfig("unknown-api" as never, env), /Unknown process role/);
 });

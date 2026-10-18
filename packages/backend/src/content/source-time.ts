@@ -1,3 +1,4 @@
+import { FUTURE_TOLERANCE_MS } from "./timeline.ts";
 import { SourceDateBinding, SourceDateEvidence, type TimeAssertion } from "@amp/contracts/time-assertion";
 
 type DateVerdict =
@@ -22,7 +23,7 @@ export function sourceDateVerdict(lane: "news" | "policy", evidence: unknown, cu
   const meanings = { source_published: "published", official_registered: "registered", formally_published: "formally_published", other: null } as const;
   if (value.origin !== "source" || !meanings[value.publicationBasis] || time.meaning !== meanings[value.publicationBasis] || time.condition_text !== null)
     return { status: "pending", reason: "not_source_publication" };
-  const deadline = now + 5 * 60_000;
+  const deadline = now + FUTURE_TOLERANCE_MS;
   const future =
     time.precision === "date"
       ? time.local_date! > new Date(now + 14 * 3_600_000).toISOString().slice(0, 10)

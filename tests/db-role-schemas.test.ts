@@ -35,6 +35,14 @@ test("the real grant entry classifies qualified objects, restricts new schema pr
   const unexpectedlyAccepted: string[] = [];
   for (const [create, drop] of [
     ["CREATE FUNCTION ai.unregistered() RETURNS int LANGUAGE sql AS 'SELECT 1'", "DROP FUNCTION ai.unregistered()"],
+    [
+      "CREATE FUNCTION publication.invalidate_body_presentation(int) RETURNS int LANGUAGE sql AS 'SELECT 1'",
+      "DROP FUNCTION publication.invalidate_body_presentation(int)",
+    ],
+    [
+      "ALTER FUNCTION publication.invalidate_body_presentation() SECURITY DEFINER",
+      "ALTER FUNCTION publication.invalidate_body_presentation() SECURITY INVOKER",
+    ],
     ["CREATE TYPE ai.unregistered_enum AS ENUM ('fixture')", "DROP TYPE ai.unregistered_enum"],
     ["CREATE TYPE ai.unregistered_record AS (payload text)", "DROP TYPE ai.unregistered_record"],
     ["CREATE DOMAIN ai.unregistered_domain AS int CHECK (VALUE >= 0)", "DROP DOMAIN ai.unregistered_domain"],

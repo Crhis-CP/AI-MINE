@@ -1,22 +1,21 @@
+import { publicHeatSeries, publicHeatSeriesMany } from "../events/participation-read.ts";
+import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import type { z } from "zod";
 import type { V3EventsQuery } from "@amp/contracts/http/v3";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
-import { newsJurisdictionScope, readPublicStoryDirectory } from "./items.ts";
+import { newsJurisdictionScope, readPublicStoryDirectory, publicTimeMetadata } from "./items.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { searchTerms } from "./pool.ts";
 import { loadTopicTags } from "./topics.ts";
 // Stories (events) and the hot ranking through the public read layer. The website sees heat values;
 // v1 / MCP / Skill only see ranks and counts.
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
-import { dbOf, withCustomPlans } from "../db.ts";
-import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
+import { sql, withCustomPlans } from "../db.ts";
+import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
-import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
 import { storyApiUrl, storyUrl } from "./links.ts";
 import { SITE } from "@amp/industry/site";
-
-const sql = dbOf("publication");
 
 export type StoryLookup = { kind: "found"; storyId: number; publicId: string } | { kind: "merged"; target: string } | { kind: "not_found" };
 
@@ -45,12 +44,16 @@ export async function resolveStory(publicId: string): Promise<StoryLookup> {
 }
 
 interface ReportRow {
+  sourceTime?: import("@amp/contracts/time-assertion").TimeAssertion | null;
   id: string;
   title: string;
   summary: string | null;
   source_excerpt: string | null;
   url: string;
   selected: boolean;
+  score: number | null;
+  body_mode: string;
+  timeline_at: Date;
   at: Date;
   source_id: string;
   source_name: string;
@@ -67,9 +70,9 @@ interface ReportRow {
  * pages showed. hot_signal material only adds heat and is not listed, as on the live pages.
  */
 async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
-  return sql<ReportRow[]>`
+  const rows = await sql<ReportRow[]>`
     SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary,
-      CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, p.selected,
+      CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, p.selected, p.score, p.body_mode, p.timeline_at,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
       p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
@@ -77,6 +80,9 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.article_id, (fa.role = 'primary') DESC`;
+  const dates = await publicTimeMetadata(rows.map((row) => row.id));
+  for (const row of rows) row.sourceTime = dates.get(row.id)?.sourceTime ?? null;
+  return attachRepresentativePriority(rows);
 }
 
 function reportView(r: ReportRow): StoryReportView {
@@ -86,6 +92,7 @@ function reportView(r: ReportRow): StoryReportView {
     summary: r.summary ?? r.source_excerpt,
     source: { id: r.source_id, name: r.source_name, kind: r.source_kind as never, firstParty: r.first_party },
     publishedAt: r.at.toISOString(),
+    sourceTime: r.sourceTime ?? null,
     originalUrl: r.url,
     selected: r.selected,
     factId: r.fact_public_id,
@@ -135,9 +142,7 @@ async function storyContent(storyId: number, now: Date) {
     .filter((f) => byFact.has(f.id))
     .map((f) => {
       const members = byFact.get(f.id)!;
-      const rep = [...members].sort(
-        (a, b) => Number(b.first_party) - Number(a.first_party) || Number(b.selected) - Number(a.selected) || a.at.getTime() - b.at.getTime(),
-      )[0]!;
+      const rep = pickRepresentative(members);
       const first = members.reduce((m, r) => (r.at < m ? r.at : m), members[0]!.at);
       return {
         factId: f.public_id,
@@ -171,23 +176,11 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
   const content = await storyContent(storyId, now);
   if (!content) return null;
   const { s, reports, developments } = content;
-  const [why] = await sql<{ p48: number; p6: number; r24: number }[]>`
-    SELECT count(DISTINCT participant_key) FILTER (WHERE observed_at > ${now}::timestamptz - interval '48 hours') AS p48,
-           count(DISTINCT participant_key) FILTER (WHERE observed_at > ${now}::timestamptz - interval '6 hours'
-             AND participant_key NOT IN (SELECT participant_key FROM story_signals x WHERE x.story_id = ${storyId} AND x.observed_at <= ${now}::timestamptz - interval '6 hours')) AS p6,
-           count(*) FILTER (WHERE kind = 'editorial' AND observed_at > ${now}::timestamptz - interval '24 hours') AS r24
-    FROM story_signals WHERE story_id = ${storyId} AND observed_at <= ${now}`;
   const ranking = await latestHotRanking();
-  const entry = ranking?.entries.find((e) => e.storyId === storyId) ?? null;
+  const why = await storyParticipation(storyId, now);
+  const entry = ranking?.entries.find((e) => e.storyId === storyId && e.evidenceHash === why?.evidenceHash) ?? null;
   // Only hours observed in full are drawn (the chart leaves a gap otherwise).
-  const heat = await sql<{ hour: Date; heat: number; participants: number }[]>`
-    SELECT hour, heat, participants FROM story_heat_hourly WHERE story_id = ${storyId} AND complete AND hour > ${now}::timestamptz - interval '7 days' ORDER BY hour`;
-  // Complete when none of the sources behind the last 48 hours' participants is behind on collection.
-  const behind = behindSources(await sourceClocks(), now.getTime(), true);
-  const [partial] = behind.length
-    ? await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM story_signals WHERE story_id = ${storyId} AND source_id = ANY(${behind}::text[])
-                                  AND observed_at > ${now}::timestamptz - interval '48 hours' AND observed_at <= ${now}`
-    : [{ n: 0 }];
+  const heat = await publicHeatSeries(storyId, now);
   const related = await relatedStories(storyId);
   const latestAt = s.latest_at ?? reports[0]!.at;
   // Without a digest or a summary of its own, the story opens with its first development's representative report.
@@ -207,10 +200,10 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
     excerpt: !s.digest && !s.summary && originSummary ? { text: originSummary, sourceName: origin!.source_name } : null,
     latest: s.latest,
     whyHot: {
-      participants48h: Number(why?.p48 ?? 0),
-      newParticipants6h: Number(why?.p6 ?? 0),
-      recentReports24h: Number(why?.r24 ?? 0),
-      observationComplete: !partial?.n,
+      participants48h: why?.participants48h ?? 0,
+      newParticipants6h: why?.newParticipants6h ?? 0,
+      recentReports24h: why?.recentReports24h ?? 0,
+      observationComplete: why?.complete ?? false,
       rank: entry?.rank ?? null,
       heat: entry?.heat ?? null,
     },
@@ -231,11 +224,8 @@ const SPARK_HOURS = 24;
 async function sparklines(storyIds: number[], at: Date): Promise<Map<number, Array<number | null>>> {
   const end = Math.floor(at.getTime() / 3600000) * 3600000;
   const start = end - SPARK_HOURS * 3600000;
-  const rows = storyIds.length
-    ? await sql<{ story_id: number; hour: Date; heat: string }[]>`
-        SELECT story_id, hour, heat FROM story_heat_hourly
-        WHERE story_id = ANY(${storyIds}::bigint[]) AND complete AND hour >= ${new Date(start)} AND hour <= ${new Date(end)}`
-    : [];
+  const series = await publicHeatSeriesMany(storyIds, at, 1);
+  const rows = [...series].flatMap(([story_id, points]) => points.map((point) => ({ story_id, ...point })));
   const out = new Map<number, Array<number | null>>(storyIds.map((id) => [id, Array.from({ length: SPARK_HOURS + 1 }, () => null)]));
   for (const r of rows) {
     const slot = Math.round((r.hour.getTime() - start) / 3600000);

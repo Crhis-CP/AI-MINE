@@ -1,3 +1,9 @@
+import { ArticleBody } from "../features/item/ArticleBody";
+import { SharePoster } from "../features/item/SharePoster";
+import { Sheet } from "../components/ui/Sheet";
+import { ReaderToolbar } from "../features/item/ReaderTools";
+import { useCurrentSection } from "../lib/motion";
+import { markRead } from "../lib/local-state";
 import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
@@ -5,12 +11,12 @@ import type { Route } from "./+types/item";
 import type { SiteItemDetail } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
-import { beijingDate, isDateOnlyInstant, relativeTime, sourceDateTime, fullDateTime } from "../lib/format";
-import { SelectedBadge } from "@amp/ui/Badge";
-import { ScoreLabel } from "@amp/ui/Score";
+import { relativeTime, fullDateTime, newsSourceDate } from "../lib/format";
+import { SelectedBadge } from "../components/ui/Badge.tsx";
+import { ScoreLabel } from "../components/ui/Score.tsx";
 import { PillTabs } from "../components/ui/Tabs";
 import { ArticleLayout, RailSection } from "../components/ui/Page";
-import { Menu, MenuItem } from "@amp/ui/Menu";
+import { Menu, MenuItem } from "../components/ui/Menu.tsx";
 import { StarButton, Attribution } from "../features/feed/parts";
 import { GroupSources } from "../features/feed/ReadingGroup";
 import { RelatedCoverage } from "../features/item/RelatedCoverage";
@@ -100,11 +106,18 @@ async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">): Promise<
 
 export default function ItemPage() {
   const { item } = useLoaderData<typeof loader>();
+  useEffect(() => {
+    markRead(item.id);
+  }, [item.id]);
   const currentLocation = useLocation();
   const navigate = useNavigate();
   const hasTranslation = item.hasTranslation;
   const lang = item.bodyLanguage;
   const [toast, setToast] = useState<string | null>(null);
+  const itemKey = `${item.id}:${item.revision}`;
+  const [sheetState, setSheetState] = useState<{ key: string; view: "outline" | "actions" | "poster" } | null>(null);
+  const sheet = sheetState?.key === itemKey ? sheetState.view : null;
+  const setSheet = (view: "outline" | "actions" | "poster" | null) => setSheetState(view ? { key: itemKey, view } : null);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 1600);
@@ -124,11 +137,17 @@ export default function ItemPage() {
         ? "正文 · 原文"
         : "正文";
   // The source's own date. Finding the page is not a publication date (收录时间 stays labeled as such).
-  const publishedIso = item.publishedAt;
-  const dateOnly = publishedIso !== null && isDateOnlyInstant(publishedIso);
-  const publishedAttr = publishedIso === null ? null : dateOnly ? beijingDate(publishedIso) : publishedIso;
+  const sourceDate = newsSourceDate(item.sourceTime, item.publishedAt);
+  const publishedIso = sourceDate && !sourceDate.dateOnly ? sourceDate.dateTime : null;
+  const dateOnly = sourceDate?.dateOnly ?? false;
+  const publishedAttr = sourceDate?.dateTime ?? null;
   const summaryOnly = item.readingMode === "summary-only";
   const showOutline = item.outline.length >= 3;
+  const [readingAnchor, goToSection] = useCurrentSection(
+    item.outline.map((entry) => entry.id),
+    showOutline && !!bodyHtml,
+    itemKey,
+  );
   const originalLabel = "打开原文";
 
   const related = item.relatedStories.filter((s) => s.publicId !== item.story?.publicId);
@@ -158,6 +177,15 @@ export default function ItemPage() {
             }}
           >
             分享链接
+          </MenuItem>
+          <MenuItem
+            icon={<IconShare size={15} />}
+            onSelect={() => {
+              close();
+              setSheet("poster");
+            }}
+          >
+            分享图片
           </MenuItem>
           <MenuItem
             icon={<IconCopy size={15} />}
@@ -205,15 +233,18 @@ export default function ItemPage() {
     <RailSection title="来源">
       <div className="text-[14px] font-semibold leading-snug text-ink">{item.source.name}</div>
       <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
-      <div className="mt-3 text-[12px] text-ink-4">发布时间</div>
-      {publishedIso && publishedAttr ? (
+      <div className="mt-3 text-[12px] text-ink-4">
+        {sourceDate?.label ?? "发布时间"}
+        {sourceDate && !sourceDate.dateOnly ? " · 北京时间" : ""}
+      </div>
+      {sourceDate && publishedAttr ? (
         <>
           <time dateTime={publishedAttr} className="mono mt-0.5 block text-[12.5px] text-ink-2">
-            {sourceDateTime(publishedIso)}
+            {sourceDate.text}
           </time>
-          {!dateOnly && (
+          {!dateOnly && publishedIso && (
             <div className="mt-0.5 text-[12px] text-ink-4" suppressHydrationWarning>
-              {relativeTime(publishedIso)}
+              {Date.parse(publishedIso) <= Date.now() ? relativeTime(publishedIso) : "原文标注"}
             </div>
           )}
         </>
@@ -222,7 +253,7 @@ export default function ItemPage() {
           <div className="mt-0.5 text-[12.5px] text-ink-2">尚未确认</div>
           <div className="mt-3 text-[12px] text-ink-4">收录时间</div>
           <time dateTime={item.discoveredAt} className="mono mt-0.5 block text-[12.5px] text-ink-2">
-            {sourceDateTime(item.discoveredAt)}
+            {fullDateTime(item.discoveredAt)}
           </time>
         </>
       )}
@@ -236,7 +267,13 @@ export default function ItemPage() {
             <li key={o.id}>
               <a
                 href={`#${o.id}`}
-                className={`-ml-px block border-l border-transparent py-1 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink ${o.level > 2 ? "pl-5" : "pl-3"}`}
+                aria-current={readingAnchor === o.id ? "location" : undefined}
+                onClick={(event) => {
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+                  event.preventDefault();
+                  goToSection(o.id);
+                }}
+                className={`-ml-px block border-l py-1 text-[12.5px] leading-snug transition-colors hover:border-accent hover:text-ink ${readingAnchor === o.id ? "border-accent text-accent" : "border-transparent text-ink-3"} ${o.level > 2 ? "pl-5" : "pl-3"}`}
               >
                 {o.text}
               </a>
@@ -274,23 +311,12 @@ export default function ItemPage() {
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
       {item.body && <ReadingProgress />}
 
-      {/* Phones: a sticky bar with back, 收藏, the original, share and more. Desktop puts these in the rails. */}
       <div className="sticky top-0 z-30 -mx-4 flex h-12 items-center gap-1.5 border-b border-line-soft bg-bg/95 px-4 backdrop-blur lg:hidden">
         {backButton}
         <span className="flex-1" />
-        <StarButton item={item} size={32} />
-        <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 items-center gap-1 px-1.5 text-[14px] text-ink-2">
-          <IconExternal size={15} /> 原文
-        </a>
-        <button
-          type="button"
-          aria-label="分享"
-          onClick={share}
-          className="inline-flex size-8 items-center justify-center rounded-full text-ink-3 hover:text-ink"
-        >
-          <IconShare size={17} />
+        <button type="button" aria-label="更多操作" onClick={() => setSheet("actions")} className="grid size-10 place-items-center rounded-full text-ink-3">
+          <IconMenu size={20} />
         </button>
-        {moreMenu}
       </div>
 
       {/* The text on the page in one column; back and the facts in the left rail, actions and notes in the right. */}
@@ -317,19 +343,21 @@ export default function ItemPage() {
             <span className="font-semibold text-ink-2">{item.source.name}</span>
             {item.author && <span>· {item.author}</span>}
             <span>·</span>
-            {publishedIso && publishedAttr ? (
+            {sourceDate && publishedAttr ? (
               <>
                 <time dateTime={publishedAttr} className="mono">
-                  {sourceDateTime(publishedIso)}
+                  {sourceDate.text}
                 </time>
-                {!dateOnly && <span suppressHydrationWarning>· {relativeTime(publishedIso)}</span>}
+                {!dateOnly && publishedIso && (
+                  <span suppressHydrationWarning>· {Date.parse(publishedIso) <= Date.now() ? relativeTime(publishedIso) : "原文标注"}</span>
+                )}
               </>
             ) : (
               <>
                 <span>尚未确认</span>
                 <span>· 收录时间</span>
                 <time dateTime={item.discoveredAt} className="mono">
-                  {sourceDateTime(item.discoveredAt)}
+                  {fullDateTime(item.discoveredAt)}
                 </time>
               </>
             )}
@@ -359,20 +387,6 @@ export default function ItemPage() {
               <p className="text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
             </section>
           )}
-
-          <details className="mt-5 rounded-control border border-line px-4 py-3 lg:hidden">
-            <summary className="cursor-pointer text-[13px] font-semibold">文章目录</summary>
-            <nav aria-label="手机文章目录" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[13px] text-accent">
-              {bodyHtml && <a href="#article-body">正文</a>}
-              {item.outline.map((entry) => (
-                <a key={entry.id} href={`#${entry.id}`}>
-                  {entry.text}
-                </a>
-              ))}
-              <a href="#article-source">来源与依据</a>
-              {item.story && <a href="#article-developments">事件进展</a>}
-            </nav>
-          </details>
 
           {item.reason && !summaryOnly && (
             <section className="mt-6 border-t border-line pt-4 lg:hidden">
@@ -425,7 +439,7 @@ export default function ItemPage() {
               {hasTranslation && lang === "zh" && !item.body.complete && (
                 <p className="mb-5 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">译文尚不完整，完整内容请切换到原文。</p>
               )}
-              <div className="prose" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+              <ArticleBody key={`${itemKey}:${lang}`} html={bodyHtml} />
             </section>
           )}
 
@@ -519,6 +533,77 @@ export default function ItemPage() {
           )}
         </article>
       </ArticleLayout>
+      <ReaderToolbar
+        id={item.id}
+        originalUrl={item.links.original}
+        onShare={() => setSheet("actions")}
+        onOutline={showOutline ? () => setSheet("outline") : undefined}
+      />
+      <Sheet open={sheet !== null} onClose={() => setSheet(null)} title={sheet === "outline" ? "文章目录" : sheet === "poster" ? "分享图片" : "更多操作"}>
+        {sheet === "poster" ? (
+          <SharePoster key={itemKey} id={item.id} title={item.title} />
+        ) : sheet === "outline" ? (
+          <nav aria-label="手机文章目录">
+            <ol>
+              {item.outline.map((entry) => (
+                <li key={entry.id}>
+                  <a
+                    href={`#${entry.id}`}
+                    aria-current={readingAnchor === entry.id ? "location" : undefined}
+                    className={`flex min-h-12 items-center gap-3 rounded-control py-2 text-[16px] transition-colors hover:bg-bg-sunk ${readingAnchor === entry.id ? "bg-accent-soft text-accent" : ""} ${entry.level > 2 ? "pl-6" : "px-2"}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setSheet(null);
+                      requestAnimationFrame(() => goToSection(entry.id));
+                    }}
+                  >
+                    <span className="flex-1">{entry.text}</span>
+                    {readingAnchor === entry.id && <span className="text-[12px] text-accent">正在读</span>}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        ) : (
+          <div className="space-y-1">
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-[16px] hover:bg-bg-sunk"
+              onClick={() => setSheet("poster")}
+            >
+              <IconShare size={20} />
+              分享图片
+            </button>
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-[16px] hover:bg-bg-sunk"
+              onClick={() => {
+                setSheet(null);
+                void share();
+              }}
+            >
+              <IconShare size={20} />
+              分享链接
+            </button>
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-[16px] hover:bg-bg-sunk"
+              onClick={async () => {
+                setSheet(null);
+                try {
+                  await navigator.clipboard.writeText(`${siteUrl()}/items/${item.id}`);
+                  setToast("链接已复制");
+                } catch {
+                  setToast("暂时无法复制，请使用浏览器分享。");
+                }
+              }}
+            >
+              <IconCopy size={20} />
+              复制链接
+            </button>
+          </div>
+        )}
+      </Sheet>
       {toast && (
         <div
           role="status"

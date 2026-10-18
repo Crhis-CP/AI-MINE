@@ -4,10 +4,10 @@ import { backendTestGroups, partitionBackendTests, ROLE_TEST_FILES, runRoleTests
 import { ROOT } from "../lib.ts";
 
 test("all backend tests belong to exactly one group and missing role coverage fails closed", () => {
-  const files = [...ROLE_TEST_FILES, "tests/db-handles.test.ts", "tests/feedback.test.ts"];
+  const files = [...ROLE_TEST_FILES, "tests/db-direct-runtime.test.ts", "tests/feedback.test.ts"];
   const grouped = partitionBackendTests(files);
   assert.deepEqual(grouped.role, [...ROLE_TEST_FILES]);
-  assert.deepEqual(grouped.backend, ["tests/db-handles.test.ts", "tests/feedback.test.ts"]);
+  assert.deepEqual(grouped.backend, ["tests/db-direct-runtime.test.ts", "tests/feedback.test.ts"]);
   assert.deepEqual([...grouped.role, ...grouped.backend].sort(), files.toSorted());
   assert.ok(grouped.role.every((file) => !grouped.backend.includes(file)));
   assert.throws(() => partitionBackendTests(files.slice(1)), /Missing required/);

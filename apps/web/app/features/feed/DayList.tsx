@@ -70,7 +70,7 @@ export function DayList({
           />
           <ol className="lg:pt-1" hidden={collapsed.includes(day)}>
             {list.map((it) => (
-              <TimelineSlot key={it.id} at={it.timelineAt} fresh={animate} delay={animate ? Math.min(order++, 12) * 25 : 0}>
+              <TimelineSlot key={it.id} at={it.timelineAt} sourceTime={it.sourceTime} fresh={animate} delay={animate ? Math.min(order++, 12) * 25 : 0}>
                 <FeedItem
                   item={it}
                   group={cards?.find((card) => card.item.id === it.id)?.group}

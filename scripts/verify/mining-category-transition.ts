@@ -198,7 +198,7 @@ export function miningCategoryBudget(
     if (current?.length !== 1) return fail();
     const actual = current[0]!,
       deps = { ...actual.dependencies };
-    delete deps["pnpm-lock.yaml"];
+    delete deps["package-lock.json"];
     deps[LOCK] = lock;
     if (
       actual.kind !== site.kind ||

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { test } from "node:test";
 import { createPriceRelay } from "../deploy/metal-price-relay/handler.ts";
-import { fetchThroughPriceRelay } from "../packages/backend/src/publication/metal-prices/relay.ts";
+import { fetchThroughPriceRelay } from "../modules/metals/backend/relay.ts";
 import { COCHILCO_LIST_PATH, COCHILCO_ORIGIN, PRICE_RELAY_HEADERS as H, priceRelaySigningText } from "@amp/contracts/metal-price-relay";
 import type { guardedFetch } from "@amp/backend/lib/http-fetch";
 

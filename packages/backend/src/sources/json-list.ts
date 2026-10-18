@@ -1,4 +1,7 @@
+import { languageHeaders } from "../lib/http-fetch.ts";
 // JSON sources: plain JSON APIs, JSON embedded in HTML (script tags, window variables).
+import * as cheerio from "cheerio";
+import { staticLiteralJson } from "./static-literal.ts";
 import { credential } from "../config.ts";
 import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
@@ -34,7 +37,7 @@ export function getPath(obj: unknown, path: string): unknown {
   for (const seg of path.split(".")) {
     if (cur === null || cur === undefined) return undefined;
     if (Array.isArray(cur) && /^\d+$/.test(seg)) cur = cur[Number(seg)];
-    else if (typeof cur === "object") cur = (cur as Record<string, unknown>)[seg];
+    else if (typeof cur === "object" && Object.hasOwn(cur, seg)) cur = (cur as Record<string, unknown>)[seg];
     else return undefined;
   }
   return cur;
@@ -52,7 +55,7 @@ function firstString(obj: unknown, paths: string[] | undefined): string | null {
 /** "{path}" → encoded value, "{raw:path}" → raw value. Returns null when a referenced value is missing. */
 export function renderTemplate(template: string, item: unknown): string | null {
   let missing = false;
-  const out = template.replace(/\{(raw:)?([^}]+)\}/g, (_m, raw: string | undefined, path: string) => {
+  const out = template.replace(/\{(raw:|compact:)?([^}]+)\}/g, (_m, mode: string | undefined, path: string) => {
     const v = getPath(item, path);
     if (v === undefined || v === null || v === "") {
       missing = true;
@@ -60,7 +63,14 @@ export function renderTemplate(template: string, item: unknown): string | null {
     }
     const literal = typeof v === "number" ? rawDateAt(item, path) : "";
     const value = literal && /^-?\d+$/.test(literal) ? literal : String(v);
-    return raw ? value : encodeURIComponent(value).replace(/%2F/g, "/");
+    if (mode === "compact:") {
+      if (!/^\d+(?:-\d+)*$/.test(value)) {
+        missing = true;
+        return "";
+      }
+      return value.replaceAll("-", "");
+    }
+    return mode === "raw:" ? value : encodeURIComponent(value).replace(/%2F/g, "/");
   });
   return missing ? null : out;
 }
@@ -80,6 +90,12 @@ function findKey(obj: unknown, key: string, depth = 0): unknown {
 
 function embeddedJson(html: string, source: SourceRow): unknown {
   const mode = source.config.mode;
+  const parse = (raw: string) => parseSourceJson(source.config.literalFormat === "static" ? staticLiteralJson(raw) : raw);
+  if (mode === "html_attribute") {
+    const raw = cheerio.load(html)(String(source.config.attributeSelector)).first().attr(String(source.config.attributeName));
+    if (!raw?.trim()) throw new FetchError("attribute list not found");
+    return parse(raw);
+  }
   if (mode === "html_window_var") {
     const name = String(source.config.windowVar);
     const re = new RegExp(`(?:window\\.)?${name.replace(/[$]/g, "\\$")}\\s*=\\s*`);
@@ -102,7 +118,7 @@ function embeddedJson(html: string, source: SourceRow): unknown {
       else if (ch === "{" || ch === "[") depth++;
       else if (ch === "}" || ch === "]") {
         depth--;
-        if (depth === 0) return parseSourceJson(html.slice(start, i + 1));
+        if (depth === 0) return parse(html.slice(start, i + 1));
       }
     }
     throw new FetchError(`window.${name} not terminated`);
@@ -146,7 +162,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
   let observedAt = new Date().toISOString();
   const c = source.config;
   const url = String(c.url ?? "");
-  const headers: Record<string, string> = { accept: "application/json, text/html;q=0.9", ...(c.headers ?? {}) };
+  const headers: Record<string, string> = { accept: "application/json, text/html;q=0.9", ...languageHeaders(c.acceptLanguage), ...(c.headers ?? {}) };
   if (/^https:\/\/api\.github\.com\//.test(url)) {
     const token = credential("collectors", "GITHUB_TOKEN");
     if (token) headers.authorization = `Bearer ${token}`;
@@ -167,7 +183,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
 export function jsonListDocument(text: string, source: SourceRow, observedAt: string) {
   const c = source.config;
   let data: unknown;
-  if (c.mode === "html_json_key" || c.mode === "html_window_var") data = embeddedJson(text, source);
+  if (c.mode === "html_json_key" || c.mode === "html_window_var" || c.mode === "html_attribute") data = embeddedJson(text, source);
   else {
     try {
       data = parseSourceJson(text);
@@ -176,6 +192,7 @@ export function jsonListDocument(text: string, source: SourceRow, observedAt: st
     }
   }
   let items = c.itemsPath ? getPath(data, c.itemsPath) : c.jsonKey ? getPath(data, c.jsonKey) : data;
+  if (c.itemsShape === "columns") items = columnRows(items);
   if (c.itemsObjectValues && items && typeof items === "object" && !Array.isArray(items)) items = Object.values(items);
   if (!Array.isArray(items)) throw new FetchError("items path did not resolve to an array");
 
@@ -183,7 +200,8 @@ export function jsonListDocument(text: string, source: SourceRow, observedAt: st
   for (const [index, item] of items.entries()) {
     if (c.requireBoolean && getPath(item, c.requireBoolean.path) !== c.requireBoolean.equals) continue;
     if (c.minNumeric && !(Number(getPath(item, c.minNumeric.path)) >= Number(c.minNumeric.min))) continue;
-    const title = firstString(item, c.titlePaths);
+    if (c.includeValues && !c.includeValues.values.includes(getPath(item, c.includeValues.path))) continue;
+    const title = (c.titleTemplate && renderTemplate(c.titleTemplate, item)) || firstString(item, c.titlePaths);
     const url = (c.urlTemplate && renderTemplate(c.urlTemplate, item)) || (c.urlTemplateFallback && renderTemplate(c.urlTemplateFallback, item));
     if (!title || !url) continue;
     const externalId = c.externalIdPath ? getPath(item, c.externalIdPath) : null;
@@ -222,6 +240,29 @@ export function jsonListDocument(text: string, source: SourceRow, observedAt: st
       raw: { externalId: externalId ?? null },
     });
   }
-  if (items.length > 0 && out.length === 0 && !c.requireBoolean && !c.minNumeric) throw new FetchError("no items mapped (check title/url paths)");
+  if (items.length > 0 && out.length === 0 && !c.requireBoolean && !c.minNumeric && !c.includeValues)
+    throw new FetchError("no items mapped (check title/url paths)");
   return { data, items, candidates: out };
+}
+
+/** Every column must have the same length; a partial column cannot shift filing dates onto other documents. */
+function columnRows(value: unknown): Record<string, unknown>[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new FetchError("column list must be an object");
+  const columns = Object.entries(value);
+  if (!columns.length) return [];
+  const count = Array.isArray(columns[0]![1]) ? columns[0]![1].length : -1;
+  if (count < 0 || columns.some(([, values]) => !Array.isArray(values) || values.length !== count)) throw new FetchError("column lengths do not match");
+  return Array.from({ length: count }, (_, index) => {
+    const row = Object.fromEntries(columns.map(([key, values]) => [key, values[index]]));
+    primitiveSources.set(
+      row,
+      new Map(
+        columns.flatMap(([key, values]) => {
+          const raw = primitiveSources.get(values)?.get(String(index));
+          return raw === undefined ? [] : [[key, raw] as [string, string]];
+        }),
+      ),
+    );
+    return row;
+  });
 }

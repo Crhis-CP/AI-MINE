@@ -2,10 +2,9 @@ import { z } from "zod";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { promptVersion } from "./prompts.ts";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 
-const sql = dbOf("enrichment"),
-  codes = new Map(JURISDICTIONS.map((j) => [j.id, j]));
+const codes = new Map(JURISDICTIONS.map((j) => [j.id, j]));
 const text = z
   .string()
   .trim()

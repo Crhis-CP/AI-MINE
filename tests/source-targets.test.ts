@@ -1,11 +1,12 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { SOURCE_TARGETS, SOURCE_RECORDS } from "@amp/industry/source-targets";
-import { sourceTargets } from "../packages/backend/src/sources/target-catalogue.ts";
+import { sourceTargets } from "../modules/site-admin/backend/target-catalogue.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
-import { injectDb } from "@amp/backend/db";
-import { buildApp } from "../apps/api/src/app.ts";
+
+import { buildApp } from "./site-app.ts";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { sha256 } from "@amp/backend/lib/ids";
 import { config } from "@amp/backend/config";
@@ -26,14 +27,7 @@ test("original identities retain 321-to-320 traceability without loading old run
 test("real private role sees source evidence in separate dimensions; no historical status or similar-domain match becomes completion", async (t) => {
   const f = await publicRoleFixture(t),
     roles = await f.login();
-  const restore = injectDb({
-    sources: roles.private_ops,
-    acquisition: roles.private_ops,
-    content: roles.private_ops,
-    publication: roles.private_ops,
-    policy: roles.private_ops,
-    identity: roles.auth,
-  });
+  const restore = installTestConnections(roles.private_ops, roles.auth);
   t.after(restore);
   const initial = await sourceTargets({});
   assert.equal(initial.total_targets, 320);

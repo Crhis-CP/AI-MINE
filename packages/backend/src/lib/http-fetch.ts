@@ -2,9 +2,10 @@
 import net from "node:net";
 import { addAbortListener } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
-import { Agent, ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
+import { Agent, type ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { config } from "../config.ts";
 import { assertPublicUrl, guardedLookup } from "./url.ts";
+import { createEgressProxy, createEgressResolver, OUTBOUND_HTTP_OPTIONS } from "./egress-proxy.ts";
 import { SITE } from "@amp/industry/site";
 
 /**
@@ -12,14 +13,24 @@ import { SITE } from "@amp/industry/site";
  * through the egress proxy when EGRESS_PROXY_URL is set (for example a rule-based proxy that connects
  * .cn and .local names and Chinese or private addresses directly and sends the rest abroad); the names
  * and address literals such a proxy would connect directly are connected here instead, so the
- * connect-time address check still applies. Empty means a direct connection. "direct" is for model
+ * connect-time address check still applies. Proxy traffic resolves through the proxy and connects
+ * only to the checked address. Empty means a direct connection. "direct" is for model
  * calls and paid APIs called straight (Dajiala). This dispatcher is per request: it is not installed
  * as HTTP_PROXY, so plain fetch (unregistered models and embeddings) does not use it.
  */
+/** Explicit source request preference; it does not declare the returned content language. */
+export const languageHeaders = (language: string | undefined): Record<string, string> => (language ? { "accept-language": language } : {});
+
 export type EgressRoute = "egress" | "direct";
 
 let proxyAgent: ProxyAgent | null = null;
 let directAgent: Agent | null = null;
+let resolveEgress: ReturnType<typeof createEgressResolver> | null = null;
+
+function egressResolver() {
+  resolveEgress ??= createEgressResolver(config.egressProxyUrl!);
+  return resolveEgress;
+}
 
 function proxied(url: URL, route: EgressRoute): boolean {
   if (route !== "egress" || !config.egressProxyUrl) return false;
@@ -29,12 +40,12 @@ function proxied(url: URL, route: EgressRoute): boolean {
 
 function dispatcherFor(viaProxy: boolean): Dispatcher | undefined {
   if (viaProxy) {
-    proxyAgent ??= new ProxyAgent(config.egressProxyUrl!);
+    proxyAgent ??= createEgressProxy(config.egressProxyUrl!, egressResolver());
     return proxyAgent;
   }
   if (config.allowPrivateNetworkFetch) return undefined;
   // Direct connections resolve through the guarded lookup: the address actually dialled is checked.
-  directAgent ??= new Agent({ connect: { lookup: guardedLookup as never } });
+  directAgent ??= new Agent({ ...OUTBOUND_HTTP_OPTIONS, connect: { lookup: guardedLookup as never } });
   return directAgent;
 }
 
@@ -54,6 +65,8 @@ export interface GuardedFetchOptions {
   maxRedirects?: number;
   /** Collector scheduler handles each redirect as its own paced request. Other transports keep existing behavior. */
   followRedirects?: boolean;
+  /** Explicitly bind URLs that may themselves contain credentials to their original origin. */
+  redirectPolicy?: "same-origin";
   /** "egress" by default; see EgressRoute. */
   route?: EgressRoute;
   /** GET only: repeat a dropped connection once with a fresh time budget; not timeouts, connect failures or HTTP errors. */
@@ -98,26 +111,52 @@ async function fetchOnce(input: string, opts: GuardedFetchOptions, attempt?: { r
   const timeout = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   const route = opts.route ?? "egress";
-  const check = (target: string) => withinDeadline(assertPublicUrl(target, config.allowPrivateNetworkFetch, proxied(new URL(target), route)), signal);
+  const check = (target: string) =>
+    withinDeadline(assertPublicUrl(target, config.allowPrivateNetworkFetch, proxied(new URL(target), route) ? egressResolver() : undefined), signal);
   let url = await check(input);
   const maxRedirects = opts.maxRedirects ?? 5;
   const maxBytes = opts.maxBytes ?? 8 * 1024 * 1024;
+  const headers = new Headers({ "user-agent": DEFAULT_UA, "accept-language": "zh-CN,zh;q=0.9,en;q=0.8" });
+  for (const [name, value] of Object.entries(opts.headers ?? {})) headers.set(name, value);
+  const publicHeaders = new Set([
+    "accept",
+    "accept-language",
+    "accept-encoding",
+    "user-agent",
+    "cache-control",
+    "if-modified-since",
+    "if-none-match",
+    "range",
+    "if-range",
+  ]);
+  const originBound =
+    opts.redirectPolicy === "same-origin" || opts.body !== undefined || Object.keys(opts.headers ?? {}).some((name) => !publicHeaders.has(name.toLowerCase()));
+  const initialOrigin = url.origin;
+  let method = (opts.method ?? "GET").toUpperCase();
+  let requestBody = opts.body;
   for (let hop = 0; ; hop++) {
     const res = await undiciFetch(url, {
-      method: opts.method ?? "GET",
-      headers: { "user-agent": DEFAULT_UA, "accept-language": "zh-CN,zh;q=0.9,en;q=0.8", ...(opts.headers ?? {}) },
-      body: opts.body,
+      method,
+      headers: Object.fromEntries(headers),
+      body: requestBody,
       redirect: "manual",
       dispatcher: dispatcherFor(proxied(url, route)),
       signal,
     });
     // A truncated error page is still an HTTP error, not permission to retry (including Retry-After).
     if (attempt) attempt.receivedHttpError = res.status >= 400;
-    if (opts.followRedirects !== false && res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+    if (opts.followRedirects !== false && [301, 302, 303, 307, 308].includes(res.status) && res.headers.get("location")) {
       // Release the connection even when the next URL is refused or the redirect limit is reached.
       await res.body?.cancel();
       if (hop >= maxRedirects) throw new Error(`Too many redirects for ${input}`);
-      url = await check(new URL(res.headers.get("location")!, url).toString());
+      const next = new URL(res.headers.get("location")!, url);
+      if (originBound && next.origin !== initialOrigin) throw new Error("Blocked cross-origin redirect for a protected request");
+      url = await check(next.toString());
+      if (((res.status === 301 || res.status === 302) && method === "POST") || (res.status === 303 && method !== "GET" && method !== "HEAD")) {
+        method = "GET";
+        requestBody = undefined;
+        for (const name of ["content-encoding", "content-language", "content-location", "content-type", "content-length"]) headers.delete(name);
+      }
       continue;
     }
     const chunks: Buffer[] = [];

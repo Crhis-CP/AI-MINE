@@ -1,5 +1,5 @@
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("publication");
+import { sql, type Db } from "../db.ts";
+
 export type ReportWithdrawalKind = "daily" | "weekly" | "monthly";
 export type WithdrawalTarget = { type: "event" | "story"; id: string } | { type: "report"; lane?: "news" | "policy"; kind: ReportWithdrawalKind; key: string };
 export const withdrawalIdentity = (target: WithdrawalTarget) => ({

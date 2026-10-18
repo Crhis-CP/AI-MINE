@@ -1,3 +1,4 @@
+import { jinaRead } from "../packages/backend/src/providers/jina.ts";
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 // Every rule a source's config names is applied, and a name the collector does not implement fails the
 // fetch. Configs that carried adapters and detail rules a collector does not implement used to fall
@@ -7,14 +8,15 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
-import { stopBoss } from "@amp/backend/jobs/queue";
+import { closeDb, sql } from "@amp/backend/db";
+import { stopBoss, type getBoss, QUEUES } from "@amp/backend/jobs/queue";
 import { extractArticleBody, readable } from "@amp/backend/content/extract";
 import { collectSource } from "./crawl-fixture.ts";
-import { updateSource } from "@amp/backend/admin/sources";
+import { withSourceCrawl, CrawlDeferred } from "../packages/backend/src/acquisition/crawl.ts";
+import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
+import { registerExtractionJobs } from "@amp/backend/jobs/content";
+import { readSourceDateContext, updateSource } from "@amp/backend/admin/sources";
 import { grantDateFixture } from "./source-date-fixture.ts";
-
-const sql = dbOf("acquisition");
 
 const T = tag();
 const LONG = `${"A card label that swallowed the summary of the article it links to, ".repeat(2)}${T}`;
@@ -47,6 +49,10 @@ const pages: Record<string, (base: string) => string> = {
 };
 // Jina Reader: GET /<target URL> answers the rendering, with its header lines.
 const jina = (base: string, target: string) => {
+  if (target.endsWith(`/unavailable-${T}`))
+    return `Title: Mine news\nWarning: Target URL returned error 404: Not Found\nURL Source: ${target}\nMarkdown Content:\nNo article`;
+  if (target.endsWith(`/warning-prose-${T}`))
+    return `Title: Mining platform reliability\nURL Source: ${target}\nMarkdown Content:\nWarning: Target URL returned error 404 is the message our engineers fixed.`;
   const md = target.endsWith(`/jlist-${T}`)
     ? `[Short Jina title ${T}](${base}/j/1-${T})\n\n[${LONG}](${base}/j/2-${T})`
     : `# Heading from Jina ${T}\n\nThe article.`;
@@ -184,4 +190,77 @@ test("detail HTML supplies the ordinary extracted body once, while short pages k
   assert.deepEqual([full!.body_html, full!.body_text, full!.body_status], [expected.html, expected.text, "ok"]);
   assert.equal(await extractArticleBody(full!.id, false), "skipped");
   assert.equal(pageReads.get(`/p/b-${T}`), 1, "known listings and extraction never download the same confirmed body again");
+});
+
+test("extracting the same body text preserves revision and still schedules its first analysis", async () => {
+  const [body] = await sql`SELECT id,revision FROM articles WHERE source_id=${id("detail")} AND url=${`${base}/p/b-${T}`}`;
+  assert.ok(body);
+  await sql`UPDATE articles SET body_status='pending',body_html=NULL,processing_state='new',language='en' WHERE id=${body.id}`;
+  await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.analyze} AND data->>'articleId'=${body.id}`;
+  let handle!: (jobs: { data: { articleId: string; lane: "news" } }[]) => Promise<{ state: string; retryAt?: string }>;
+  await registerExtractionJobs({
+    work: async (name: string, _options: unknown, run: typeof handle) => {
+      if (name === QUEUES.extractBody) handle = run;
+    },
+  } as unknown as Awaited<ReturnType<typeof getBoss>>);
+  const source = (await readSourceDateContext(id("detail")))!;
+  let clock = Date.now() + 2 * 86400000;
+  await saveRobots(base, 404, "", new Date(clock), null, null);
+  let result: { state: string; retryAt?: string } | undefined;
+  for (let n = 0; n < 10; n++) {
+    try {
+      result = await withSourceCrawl(source, `same-body:${body.id}`, () => handle([{ data: { articleId: body.id, lane: "news" } }]), {
+        now: () => new Date(clock),
+      });
+    } catch (error) {
+      if (!(error instanceof CrawlDeferred)) throw error;
+      clock = error.retryAt.getTime() + 1;
+      continue;
+    }
+    if (result.state !== "deferred") break;
+    clock = Date.parse(result.retryAt!) + 1;
+  }
+  assert.equal(result?.state, "ok");
+  const [stored] = await sql`SELECT revision,body_status FROM articles WHERE id=${body.id}`;
+  assert.equal(stored.revision, body.revision);
+  assert.equal(stored.body_status, "ok");
+  assert.equal((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.analyze} AND data->>'articleId'=${body.id} AND state='created'`).length, 1);
+});
+
+test("an unprovable presentation keeps its prior body while later feed entries still import", async () => {
+  const sourceId = `presentation-${T}`,
+    articleUrl = `${base}/presentation-old`,
+    published = new Date().toUTCString();
+  let target = "old",
+    extra = false;
+  pages["/presentation.xml"] = () => `<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Presentation fixture</title>
+    <item><title>Representation ${T}</title><link>${articleUrl}</link><pubDate>${published}</pubDate><content:encoded><![CDATA[<p>Mining <a href="${base}/${target}">report</a> ${ARTICLE_BODY}</p>]]></content:encoded></item>
+    ${extra ? `<item><title>New entry ${T}</title><link>${base}/presentation-new</link><pubDate>${published}</pubDate><content:encoded><![CDATA[<p>${ARTICLE_BODY}</p>]]></content:encoded></item>` : ""}</channel></rss>`;
+  await sql`INSERT INTO sources(id,name,kind,config,tier,participation_mode,cursor) VALUES(${sourceId},'Presentation fixture','rss',${sql.json({ feedUrl: base + "/presentation.xml" })},'T1','editorial',${sql.json({ initializedAt: new Date().toISOString() })})`;
+  await grantDateFixture(sourceId, [base]);
+  assert.equal((await collectSource(sourceId, { force: true })).created, 1);
+  const [prior] = await sql`SELECT id,revision,body_html FROM articles WHERE source_id=${sourceId} AND url=${articleUrl}`;
+  await sql`INSERT INTO translations(article_id,lang,revision,complete,origin,body_html) VALUES(${prior.id},'zh',${prior.revision},false,'model','<p>尚无可核对记录的旧译文</p>')`;
+  target = "new";
+  extra = true;
+  const result = await collectSource(sourceId, { force: true });
+  assert.equal(result.status, "ok");
+  assert.equal(result.created, 1);
+  const [run] = await sql`SELECT detail FROM fetch_runs WHERE source_id=${sourceId} ORDER BY started_at DESC,id DESC LIMIT 1`;
+  assert.equal(run.detail.presentationFailureCount, 1);
+  assert.equal(run.detail.presentationFailures[0].url, articleUrl);
+  assert.equal((await sql`SELECT body_html FROM articles WHERE id=${prior.id}`)[0].body_html, prior.body_html);
+});
+
+test("a billed renderer error is reused without becoming content or another paid request", async () => {
+  const target = `${base}/unavailable-${T}`;
+  const options = { purpose: "source_detail", subject: `source:${id("jina")}`, lane: "news" as const };
+  const before = pageReads.get(`/${target}`) ?? 0;
+  await assert.rejects(jinaRead(target, options), /Unavailable page/);
+  const receipts = await sql`SELECT id, status FROM receipts WHERE subject=${options.subject} AND service='jina' ORDER BY id`;
+  await assert.rejects(jinaRead(target, options), /Unavailable page/);
+  assert.equal(pageReads.get(`/${target}`), before + 1, "an already paid response is not fetched again");
+  assert.deepEqual([...(await sql`SELECT id, status FROM receipts WHERE subject=${options.subject} AND service='jina' ORDER BY id`)], [...receipts]);
+  const valid = await jinaRead(`${base}/warning-prose-${T}`, options);
+  assert.match(valid.markdown, /our engineers fixed/, "quoted protocol wording inside prose is ordinary content");
 });

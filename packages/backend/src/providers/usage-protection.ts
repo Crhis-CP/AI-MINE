@@ -13,11 +13,11 @@ import {
 } from "@amp/contracts/http/private";
 import { z } from "zod";
 import { beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
 import { audit } from "../admin/auth.ts";
 import { priceQuote, settleQuotedCost, amountMicros, centsText, MICRO, ratioMicros, type UsageBounds, type UsageQuote } from "./usage-pricing.ts";
-const sql = dbOf("ai-gateway");
+
 export type UsageConfig = z.infer<typeof UsageProtectionConfig>;
 export type Scope = z.infer<typeof UsageScope>;
 export type UsageContext = { lane: "news" | "policy"; capability: string; sourceIds: string[]; object: { kind: "article" | "policy"; id: string } | null };
@@ -37,7 +37,8 @@ export async function usageConfiguration(db: Db = sql) {
     { version: number; config: unknown; effective_at: Date; actor: string; reason: string }[]
   >`SELECT version,config,effective_at,actor,reason FROM ai.usage_control_versions ORDER BY version DESC LIMIT 1`;
   if (!row) return null;
-  return UsageConfigRecord.parse({ ...row, effective_at: row.effective_at.toISOString() });
+  const parsed = UsageConfigRecord.safeParse({ ...row, effective_at: row.effective_at.toISOString() });
+  return parsed.success ? parsed.data : null;
 }
 /**
  * Writes the controlled initial version once when the table is empty.
@@ -89,7 +90,7 @@ async function raise(
   db: Db,
   scope: Scope,
   trigger: "repeated_input" | "object_cost" | "daily_total",
-  level: "warning" | "open",
+  _level: "warning" | "open",
   window: string,
   configVersion: number,
   current: Record<string, string>,
@@ -98,21 +99,20 @@ async function raise(
   now: Date,
 ) {
   const key = sha256(stableJson(scope));
-  const [open] = await db<{ id: string }[]>`SELECT id FROM ai.usage_breakers WHERE scope_key=${key} AND trigger=${trigger} AND state='open'`;
-  if (open) return;
-  const [warning] = await db<
-    { id: string }[]
-  >`SELECT id FROM ai.usage_breakers WHERE scope_key=${key} AND trigger=${trigger} AND window_key=${window} AND state='warning' ORDER BY created_at DESC LIMIT 1`;
-  if (warning && level === "warning") return;
-  const id = warning?.id ?? `brk_${newUuid()}`;
-  if (warning)
-    await db`UPDATE ai.usage_breakers SET state='open',revision=revision+1,current=${db.json(current)},threshold=${db.json(threshold)},config_version=${configVersion},opened_at=${now},receipt_ids=${receipts} WHERE id=${id}`;
-  else
-    await db`INSERT INTO ai.usage_breakers(id,scope_key,scope,trigger,state,window_key,config_version,current,threshold,warning_at,opened_at,created_at,receipt_ids) VALUES(${id},${key},${db.json(scope)},${trigger},${level},${window},${configVersion},${db.json(current)},${db.json(threshold)},${level === "warning" ? now : null},${level === "open" ? now : null},${now},${receipts})`;
+  const [warning] = await db<{ id: string }[]>`SELECT id FROM ai.usage_breakers
+    WHERE scope_key=${key} AND trigger=${trigger} AND window_key=${window} AND state='warning'
+    ORDER BY created_at DESC LIMIT 1`;
+  if (warning) {
+    await db`UPDATE ai.usage_breakers SET current=${db.json(current)},threshold=${db.json(threshold)},receipt_ids=${receipts} WHERE id=${warning.id}`;
+    return;
+  }
+  const id = `brk_${newUuid()}`;
+  await db`INSERT INTO ai.usage_breakers(id,scope_key,scope,trigger,state,window_key,config_version,current,threshold,warning_at,created_at,receipt_ids)
+    VALUES(${id},${key},${db.json(scope)},${trigger},'warning',${window},${configVersion},${db.json(current)},${db.json(threshold)},${now},${now},${receipts})`;
   const record = await usageBreakerRecord(db, id);
-  await usageEvent(db, `${id}:${level}`, level === "open" ? "opened" : "warning", record, scope.lane, scope.capability);
-  if (level === "open") await audit("system:usage", "usage.breaker.open", id, trigger, null, record, undefined, db);
+  await usageEvent(db, `${id}:warning`, "warning", record, scope.lane, scope.capability);
 }
+
 const capabilityScope = (lane: "news" | "policy", capability: string, source: string | null = null): Scope => ({
   lane,
   kind: source ? "capability_source" : "capability",
@@ -121,14 +121,18 @@ const capabilityScope = (lane: "news" | "policy", capability: string, source: st
   object_kind: null,
   object_id: null,
 });
-const scopeApplies = (s: Scope, c: UsageContext) =>
-  s.lane === c.lane &&
-  (s.kind === "object"
-    ? s.object_kind === c.object?.kind && s.object_id === c.object.id
-    : s.capability === c.capability && (s.kind !== "capability_source" || c.sourceIds.includes(s.source_id!)));
-export async function activeUsageBlocker(db: Db, context: UsageContext) {
-  const rows = await db<{ id: string; scope: Scope }[]>`SELECT id,scope FROM ai.usage_breakers WHERE state='open'`;
-  return rows.find((r) => scopeApplies(r.scope, context))?.id ?? null;
+/** Retire the replaced automatic rules, retaining their history and independent manual pauses. */
+export async function activeUsageBlocker(db: Db, _context: UsageContext): Promise<string | null> {
+  const reason = "Owner 2026-10-15：按上游请求次数控制；费用与重复次数仅提醒";
+  const rows = await db<{ id: string }[]>`UPDATE ai.usage_breakers SET state='recovered',revision=revision+1,
+    recovered_at=now(),recovered_by='system:usage-alignment',recovery_reason=${reason}
+    WHERE state='open' AND trigger IN ('daily_total','object_cost','repeated_input') RETURNING id`;
+  for (const row of rows) {
+    const record = await usageBreakerRecord(db, row.id);
+    await audit("system:usage-alignment", "usage.breaker.recover", row.id, reason, { state: "open" }, record, undefined, db);
+    await usageEvent(db, `${row.id}:recovered`, "recovered", record, record.scope.lane, record.scope.capability);
+  }
+  return null;
 }
 
 function sumKeys(c: UsageContext, day: string) {
@@ -355,6 +359,7 @@ const NEWS_PURPOSES = [
   "score_article",
   "understand_article",
   "summarize_article",
+  "mend_wording",
   "structure_article",
   "group_article",
   "group_signal",
@@ -446,6 +451,20 @@ async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
     sourceIds: Array.isArray(row.request?.sourceIds) ? row.request.sourceIds.filter((v): v is string => typeof v === "string") : [],
     object,
   };
+  const [unpriced] = await db<AttemptUsage[]>`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,
+    reserved_micros::text,settled_micros::text,state,quote,occurred_at FROM ai.usage_attempts
+    WHERE attempt_id=${row.attempt_id} AND state='unknown' AND quote->'price'='null'::jsonb FOR UPDATE`;
+  if (unpriced) {
+    // Retain the original quote and attribution; reconciliation adds the proven cost exactly once.
+    await db`UPDATE ai.usage_attempts SET state=${row.status === "failed" ? "failed" : "settled"},
+      settled_micros=${cost.toString()},updated_at=now() WHERE attempt_id=${row.attempt_id}`;
+    await applySums(db, contextOf(unpriced), beijingDate(unpriced.occurred_at), {
+      settled: cost,
+      unknown: -BigInt(unpriced.reserved_micros),
+      reserved: 0n,
+    });
+    return true;
+  }
   const inserted = await db<
     { attempt_id: string }[]
   >`INSERT INTO ai.usage_attempts(attempt_id,receipt_id,logical_key,lane,capability,source_ids,object_kind,object_id,reserved_micros,settled_micros,state,quote,occurred_at,submitted) VALUES(${row.attempt_id},${row.receipt_id},${row.logical_key},${lane},${row.purpose},${context.sourceIds},${object?.kind ?? null},${object?.id ?? null},'0',${cost.toString()},${row.status === "failed" ? "failed" : "settled"},${db.json({ recorded_attempt: true })},${row.started_at},true) ON CONFLICT(attempt_id) DO NOTHING RETURNING attempt_id`;
@@ -458,7 +477,7 @@ async function adoptRecordedUsage(db: Db, since: Date) {
   for (let pass = 0; pass < 40; pass++) {
     const rows = await db<
       RecordedAttempt[]
-    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND u.attempt_id IS NULL AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
+    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb)) AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
     if (!rows.length) return;
     for (const row of rows) if (!(await adoptOne(db, row))) skipped.push(row.attempt_id);
   }
@@ -475,7 +494,7 @@ async function usageCoverageGap(db: Db, configuration: Configuration, now: Date,
   const [missing] = await db<
     { n: number }[]
   >`SELECT count(*)::int AS n FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id
- WHERE a.origin='live' AND a.started_at>=${since} AND a.status<>'failed' AND u.attempt_id IS NULL
+ WHERE a.origin='live' AND a.started_at>=${since} AND a.status<>'failed' AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb))
  AND (${context === undefined} OR (r.request->>'lane'=${context?.lane ?? null} AND (
    (${context?.object?.id ?? null}::text IS NOT NULL AND ((r.request->'usage_object'->>'kind'=${context?.object?.kind ?? null} AND r.request->'usage_object'->>'id'=${context?.object?.id ?? null}) OR (${context?.object?.kind ?? null}='article' AND (r.subject=${context?.object ? `article:${context.object.id}` : null} OR r.subject LIKE ${context?.object ? `article:${context.object.id}#%` : null}))))
    OR (${(context?.sourceIds.length ?? 0) > 0} AND r.purpose=${context?.capability ?? null} AND r.request->'sourceIds' ?| ${context?.sourceIds ?? []}::text[])
@@ -503,11 +522,10 @@ export async function admitUsage(
   try {
     configuration = await usageConfiguration(db);
   } catch {
-    /* invalid configuration is a closed gate */
+    /* Reporting configuration does not impose a payment quota. */
   }
-  let missing = !configuration ? "费用保护配置缺失或不可读取" : !input.context ? "缺少真实业务线及费用归属" : null;
-  if (configuration && !missing) missing = await usageCoverageGap(db, configuration, now, true, input.context!, input.subject);
-  if (missing) {
+  const missing = !configuration ? "用量提醒配置缺失或不可读取" : null;
+  if (missing)
     await usageEvent(
       db,
       `usage-missing:${beijingDate(now)}:${sha256(missing)}`,
@@ -516,15 +534,13 @@ export async function admitUsage(
       input.context?.lane ?? null,
       input.context?.capability ?? null,
     );
-    return { reservation: null, blocked: missing };
+  if (!input.context) return { reservation: null, blocked: "缺少真实业务线及费用归属" };
+  const c = input.context;
+  await activeUsageBlocker(db, c);
+  if (configuration) {
+    await evaluateInput(db, configuration, c, input.logicalKey, now);
+    if (!(await usageCoverageGap(db, configuration, now, true))) await evaluateDaily(db, configuration, now);
   }
-  const c = input.context!,
-    active = await activeUsageBlocker(db, c);
-  if (active) return { reservation: null, blocked: `费用熔断等待负责人恢复：${active}` };
-  await evaluateInput(db, configuration!, c, input.logicalKey, now);
-  if (!(await usageCoverageGap(db, configuration!, now))) await evaluateDaily(db, configuration!, now);
-  const blocked = await activeUsageBlocker(db, c);
-  if (blocked) return { reservation: null, blocked: `费用熔断等待负责人恢复：${blocked}` };
   const priced = await priceQuote(db, input, now);
   if (!priced.quote) {
     await usageEvent(
@@ -535,10 +551,11 @@ export async function admitUsage(
       c.lane,
       c.capability,
     );
-    return { reservation: null, blocked: priced.missing };
   }
+  const quote: UsageQuote = priced.quote ?? { price_id: null, price_version: 0, price: null, reserved_micros: "0", bounds: input.bounds ?? null };
   if (input.taskBudget) {
     const task = input.taskBudget;
+    if (!priced.quote) return { reservation: null, blocked: "有限额的研究任务需要可核对的费用估算", code: "task_budget_unpriced" };
     if (!task.key.trim() || task.key.length > 200 || !/^([1-9]\d{0,17})$/.test(task.limit_micros))
       return { reservation: null, blocked: "研究任务费用上界无效", code: "task_budget_invalid" };
     const [current] = await db<
@@ -553,8 +570,8 @@ export async function admitUsage(
     reservation: {
       context: c,
       logicalKey: input.logicalKey,
-      quote: priced.quote,
-      configVersion: configuration!.version,
+      quote,
+      configVersion: configuration?.version ?? 0,
       ...(input.taskBudget ? { taskBudget: input.taskBudget } : {}),
     },
     blocked: null,
@@ -569,9 +586,10 @@ export async function authorizeUsageSend(db: Db, attemptId: string, now = new Da
   if (!row) return "缺少费用预留证据";
   const c = contextOf(row),
     configuration = await usageConfiguration(db);
-  if (!configuration) return "费用保护配置缺失";
-  await evaluateInput(db, configuration, c, row.logical_key, now);
-  if (!(await usageCoverageGap(db, configuration, now))) await evaluateDaily(db, configuration, now);
+  if (configuration) {
+    await evaluateInput(db, configuration, c, row.logical_key, now);
+    if (!(await usageCoverageGap(db, configuration, now))) await evaluateDaily(db, configuration, now);
+  }
   const open = await activeUsageBlocker(db, c);
   if (open) return `费用熔断等待恢复：${open}`;
   await db`UPDATE ai.usage_attempts SET submitted=true WHERE attempt_id=${attemptId}`;
@@ -581,6 +599,7 @@ export async function authorizeUsageSend(db: Db, attemptId: string, now = new Da
 export async function evaluateUsageProtection(now = new Date()) {
   return sql.begin(async (db) => {
     await usageLock(db);
+    await activeUsageBlocker(db, { lane: "news", capability: "usage-observation", sourceIds: [], object: null });
     const config = await usageConfiguration(db);
     if (!config) {
       await usageEvent(db, `usage-missing:${beijingDate(now)}`, "configuration_missing", { reason: "费用保护配置尚未安装" });

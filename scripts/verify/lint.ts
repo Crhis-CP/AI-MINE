@@ -49,7 +49,7 @@ export function compareWarnings(now: Counts, baseline: Counts): string[] {
 }
 
 async function lintCounts(log: Log, env: NodeJS.ProcessEnv): Promise<Counts | null> {
-  const r = await capture("pnpm", ["exec", "biome", "lint", "--reporter=json", "--max-diagnostics=none", "--colors=off", "."], { log, env });
+  const r = await capture("npm", ["exec", "--", "biome", "lint", "--reporter=json", "--max-diagnostics=none", "--colors=off", "."], { log, env });
   try {
     return countWarnings((JSON.parse(r.stdout) as { diagnostics: Diagnostic[] }).diagnostics);
   } catch {
@@ -61,8 +61,8 @@ async function lintCounts(log: Log, env: NodeJS.ProcessEnv): Promise<Counts | nu
 /** The stage: `biome ci`, then the warning counts against the baseline. Returns the problems found. */
 export async function formatLint(log: Log, env: NodeJS.ProcessEnv): Promise<string[]> {
   const problems: string[] = [];
-  if ((await run("pnpm", ["exec", "biome", "ci", "--colors=off", "."], { log, env })) !== 0) {
-    problems.push("biome ci failed (formatting or a lint error); run pnpm exec biome check --write . and fix the rest");
+  if ((await run("npm", ["exec", "--", "biome", "ci", "--colors=off", "."], { log, env })) !== 0) {
+    problems.push("biome ci failed (formatting or a lint error); run npm exec -- biome check --write . and fix the rest");
   }
   const now = await lintCounts(log, env);
   if (!now) return [...problems, "could not count the lint warnings"];

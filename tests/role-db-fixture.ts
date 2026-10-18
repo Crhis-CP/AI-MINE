@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import { promisify } from "node:util";
-import { createDatabaseAccess, type Database, type DatabaseRole } from "@amp/config";
+import { createDatabaseAccess, type Database, type DatabaseRole } from "@amp/backend/db";
 import { createTestDatabase, recordResources, resourcePrefix } from "./test-resources.ts";
 import { quote, roleNames } from "../scripts/db-roles/grants.ts";
 

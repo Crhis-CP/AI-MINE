@@ -1,12 +1,12 @@
-import { evaluateSourcePolicy } from "../admin/sources.ts";
+import { evaluateSourcePolicy, sourceDateConfiguration } from "../admin/sources.ts";
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
-import { beijingDate, beijingTime } from "@amp/contracts/time";
-import { dbOf, type Db } from "../db.ts";
+import type { TimeAssertion } from "@amp/contracts/time-assertion";
+import { materialSourceTime } from "../content/date-evidence.ts";
+import { modelSourceDateLabel } from "./source-time.ts";
+import { sql, type Db } from "../db.ts";
 import { collapseWhitespace, truncate } from "../lib/text.ts";
 import { produceImage } from "../media/images.ts";
 import type { ContentPart } from "../providers/llm.ts";
-
-const sql = dbOf("enrichment");
 
 export interface AnalyzeInputArticle {
   sourceId?: string;
@@ -16,7 +16,9 @@ export interface AnalyzeInputArticle {
   url: string;
   author: string | null;
   publishedAt: Date | null;
-  /** When the site first saw it (the score input's time when the source gives none). */
+  /** Explicit null means the original time is unconfirmed. Undefined is reserved for old offline inputs. */
+  sourceTime?: TimeAssertion | null;
+  /** When the site first saw it; never an original publication timestamp. */
   discoveredAt?: Date | null;
   bodyText: string | null;
   excerpt: string | null;
@@ -47,6 +49,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
       url: string;
       author: string | null;
       published_at: Date | null;
+      source_date_version: string;
       discovered_at: Date;
       body_text: string | null;
       excerpt: string | null;
@@ -62,13 +65,23 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
       translation_zh: string | null;
     }[]
   >`
-    SELECT a.source_id, a.id, a.revision, a.title, a.url, a.author, a.published_at, a.discovered_at, a.body_text, a.excerpt, a.body_status, a.media,
+    SELECT a.source_id, a.id, a.revision, a.title, a.url, a.author, a.published_at, a.source_date_version, a.discovered_at, a.body_text, a.excerpt, a.body_status, a.media,
            s.name AS source_name, s.kind AS source_kind, s.tier, s.first_party, s.tags AS source_tags, s.owner_entity_id, s.config,
            tr.body_text AS translation_zh
     FROM articles a JOIN sources s ON s.id = a.source_id
     LEFT JOIN translations tr ON tr.article_id = a.id AND tr.lang = 'zh' AND tr.revision >= a.revision
     WHERE a.id = ${articleId}`;
   if (!row) return null;
+  const dateConfig = await sourceDateConfiguration(row.source_id, db);
+  const sourceTime =
+    dateConfig?.lane === "news" && dateConfig.configHash
+      ? await materialSourceTime(
+          { articleId: row.id, sourceId: row.source_id, revision: row.revision, configHash: dateConfig.configHash },
+          Number(row.source_date_version),
+          Date.now(),
+          db,
+        )
+      : null;
   return {
     sourceId: row.source_id,
     id: row.id,
@@ -77,6 +90,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
     url: row.url,
     author: row.author,
     publishedAt: row.published_at,
+    sourceTime,
     discoveredAt: row.discovered_at,
     bodyText: row.body_text,
     excerpt: row.excerpt,
@@ -111,7 +125,7 @@ export function buildMaterial(a: AnalyzeInputArticle): string {
   lines.push(`类型：${KIND_LABEL[a.source.kind] ?? a.source.kind}；分级：${a.source.tier}；一手来源：${a.source.firstParty ? "是" : "否"}`);
   lines.push("</source>");
   lines.push("<material>");
-  if (a.publishedAt) lines.push(`发布时间：${beijingDate(a.publishedAt)} ${beijingTime(a.publishedAt)}（北京时间）`);
+  lines.push(`原文时间：${modelSourceDateLabel(a)}`);
   if (a.author) lines.push(`作者：${a.author}`);
   lines.push(`标题：${collapseWhitespace(a.title)}`);
   const body = a.bodyText ?? a.excerpt ?? "";

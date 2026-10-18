@@ -1,12 +1,13 @@
+import { modelCircuits, type ModelCircuit } from "../providers/circuit.ts";
 import { ModelFallbackChange, ModelFallbackOverview, ModelFallbackRoute } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { CAPABILITIES, modelSources } from "../editorial/models.ts";
 import { modelConfigurationIdentity } from "./models.ts";
 import { modelFallbackSources } from "./sources.ts";
 import { actorOf, audit, requireCapability, type AdminPrincipal } from "./auth.ts";
 import { modelRegistryLock, connectionRow } from "../providers/model-registry.ts";
-import { backupAdmission } from "../providers/model-fallback-admission.ts";
-const sql = dbOf("ai-gateway");
+import { backupAdmission, differentModelServices, modelService } from "../providers/model-fallback-admission.ts";
+
 export type StoredBackup = {
   capability: string;
   revision: number;
@@ -26,7 +27,7 @@ export async function readStoredBackup(capability: string, db: Db = sql) {
   >`SELECT capability,revision,primary_model,primary_configuration_hash,backup_model,backup_configuration_hash,backup_connection_revision,approval_kind,approval_id,source_ids,coalesce(r.blocked_reason,(SELECT x.blocked_reason FROM ai.model_fallback_resolutions x WHERE x.capability=r.capability AND x.route_revision=r.revision AND x.backup_model=r.backup_model AND x.backup_configuration_hash=r.backup_configuration_hash AND x.blocked_reason IS NOT NULL ORDER BY x.updated_at DESC LIMIT 1)) AS blocked_reason FROM ai.model_fallback_routes r WHERE capability=${capability}`;
   return r ?? null;
 }
-async function routeView(capability: string, db: Db) {
+async function routeView(capability: string, db: Db, circuits?: Record<string, ModelCircuit>) {
   const cap = CAPABILITIES[capability as keyof typeof CAPABILITIES],
     primary = (await modelSources(db))[capability]!.model,
     stored = await readStoredBackup(capability, db);
@@ -35,10 +36,10 @@ async function routeView(capability: string, db: Db) {
     rows.map(async ({ id }) => {
       const row = await connectionRow(id, db),
         model = `registered:${id}`,
-        admission = await backupAdmission(capability, model, primary, db);
-      const reason = ["group", "groupReview", "digest"].includes(capability)
-        ? "尚缺衍生输入的原始修订绑定，当前只保留主路由"
-        : model === primary
+        admission = await backupAdmission(capability, model, primary, db),
+        distinctService = await differentModelServices(primary, row.config, db);
+      const reason =
+        model === primary
           ? "当前主模型，不能同时作为备用"
           : !row.enabled
             ? "接入已停用"
@@ -46,13 +47,15 @@ async function routeView(capability: string, db: Db) {
               ? "当前接入版本尚未通过连接测试"
               : "vision" in cap && cap.vision && !row.config.vision
                 ? "此环节需要图像处理能力"
-                : !admission
-                  ? capability === "score"
-                    ? "尚无主备同样本、同标准的负责人确认校准"
-                    : capability.startsWith("policy_")
-                      ? "尚无此实际配置对应的当前法规质量资格"
-                      : "尚无此环节当前提示与实际配置的负责人质量确认"
-                  : null;
+                : !distinctService
+                  ? "请选择不同服务的备用接入"
+                  : !admission
+                    ? capability === "score"
+                      ? "尚无主备同样本、同标准的负责人确认校准"
+                      : capability.startsWith("policy_")
+                        ? "尚无此实际配置对应的当前法规质量资格"
+                        : "尚无此环节当前提示与实际配置的负责人质量确认"
+                    : null;
       return {
         model,
         name: row.config.name,
@@ -65,11 +68,7 @@ async function routeView(capability: string, db: Db) {
     }),
   );
   let state: "none" | "ready" | "stale" | "blocked" = "none",
-    detail: string | null = ["group", "groupReview", "digest"].includes(capability)
-      ? "备用等待新产生衍生输入的来源修订绑定；旧产物缺少证明不会借用当前材料。"
-      : capability === "understand"
-        ? "当前备用仅用于已有材料许可绑定的纯文本输入；图片任务继续使用主路由。"
-        : null;
+    detail: string | null = capability === "understand" ? "当前备用仅用于已有材料许可绑定的纯文本输入；图片任务继续使用主路由。" : null;
   if (stored?.backup_model) {
     const current = await modelConfigurationIdentity(primary, db),
       admission = await backupAdmission(capability, stored.backup_model, primary, db);
@@ -82,6 +81,20 @@ async function routeView(capability: string, db: Db) {
       stored.source_ids.every((s) => admission.sourceIds.includes(s));
     state = stored.blocked_reason ? "blocked" : valid ? "ready" : "stale";
     detail = stored.blocked_reason ?? (valid ? null : "主备配置或质量资格已变化；当前不会自动回退，请重新选择。");
+  }
+  if (state === "ready" && stored?.backup_model && !capability.startsWith("policy_")) {
+    const health = circuits ?? (await modelCircuits(db)),
+      now = Date.now();
+    const primaryHealth = health[(await modelService(primary, db)) ?? ""];
+    const backupHealth = health[(await modelService(stored.backup_model, db)) ?? ""];
+    const wait = (value: ModelCircuit | undefined) => Math.max(0, Math.ceil((Math.max(value?.openUntil ?? 0, value?.probeUntil ?? 0) - now) / 1000));
+    if (wait(backupHealth)) {
+      state = "blocked";
+      detail = `备用服务暂时不可用，约${wait(backupHealth)}秒后尝试恢复。`;
+    } else if (wait(primaryHealth)) {
+      detail =
+        primaryHealth!.probeUntil > now ? "主服务正在尝试恢复，备用仍可接续。" : `主服务暂时不可用，约${wait(primaryHealth)}秒后尝试恢复；备用可继续接续。`;
+    }
   }
   return ModelFallbackRoute.parse({
     capability,
@@ -99,8 +112,9 @@ export async function modelFallbacks(principal: AdminPrincipal) {
   return sql.begin(async (tx) => {
     await requireCapability(principal, "models.manage", tx);
     await modelRegistryLock(tx);
+    const circuits = await modelCircuits(tx);
     return ModelFallbackOverview.parse({
-      routes: await Promise.all(Object.keys(CAPABILITIES).map((c) => routeView(c, tx))),
+      routes: await Promise.all(Object.keys(CAPABILITIES).map((c) => routeView(c, tx, circuits))),
       sources: await modelFallbackSources(tx),
     });
   });

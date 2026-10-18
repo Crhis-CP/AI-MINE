@@ -2,11 +2,10 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { readFileSync } from "node:fs";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { v3Envelope, v3Items, effectiveWatermark } from "@amp/backend/publication/v1";
-import { buildApp } from "../apps/api/src/app.ts";
-const sql = dbOf("publication"),
-  source = `v3-${tag()}`,
+import { buildApp } from "./site-app.ts";
+const source = `v3-${tag()}`,
   id = `${source}-a`,
   second = `${source}-b`;
 const app = await buildApp("public-api");
@@ -212,7 +211,7 @@ test("non-empty event, development, report and topic projections resolve their c
 test("a scheduled featured release advances the public version without another database write", async () => {
   const gate = new Date("2030-01-01T00:00:00.000Z"),
     before = new Date(gate.getTime() - 1);
-  await sql`UPDATE publications SET selected=true,visible_after=${gate} WHERE article_id=${second}`;
+  await sql`UPDATE publications SET selected=true,seat=true,visible_after=${gate} WHERE article_id=${second}`;
   const [head] = await sql<{ next: number }[]>`SELECT (coalesce(max(seq),0)+1)::int AS next FROM selected_ledger`;
   await sql`INSERT INTO selected_ledger(seq,article_id,op,payload,visible_at) VALUES(${head!.next},${second},'upsert',${sql.json({ id: second })},${new Date(gate.getTime() + 60_000)})`;
   await sql`INSERT INTO selected_ledger(seq,article_id,op,payload,visible_at) VALUES(${head!.next + 1},${second},'upsert',${sql.json({ id: second })},${gate})`;

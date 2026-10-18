@@ -1,10 +1,10 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { paidRequest } from "@amp/backend/providers/receipts";
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
-const sql = dbOf("ai-gateway");
+
 after(closeDb);
 test("actual receipt reuse increments the local counter atomically without another physical attempt", async () => {
   await installUsageFixtureForService("synthetic-local-reuse");

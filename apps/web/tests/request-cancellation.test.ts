@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
-import { createPrivateClient } from "@amp/api-client/private";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
+import { apiFetch } from "../app/lib/http.ts";
 import { adminBody } from "../app/lib/admin-response.ts";
 import { apiGet, contractResult, loadOr404 } from "../app/lib/api.server.ts";
 import { adminGet } from "../app/lib/admin.server.ts";
@@ -32,8 +32,9 @@ test("public and admin loaders forward cancellation without turning it into a 50
   }
 });
 
-test("generated-client loader callback preserves its abort and 15-second timeout", async () => {
+test("native HTTP loader preserves its abort and 15-second timeout", async () => {
   const originalTimeout = AbortSignal.timeout;
+  const originalFetch = globalThis.fetch;
   try {
     for (const path of ["/api/site/pool", "/api/site/timeline"] as const) {
       const timeout = new AbortController();
@@ -43,25 +44,23 @@ test("generated-client loader callback preserves its abort and 15-second timeout
       };
       for (const timedOut of [false, true]) {
         const controller = new AbortController();
-        const client = createPublicClient({
-          baseUrl: "http://127.0.0.1:1",
-          fetch: async (request) =>
-            new Promise<Response>((_resolve, reject) => {
-              if (request.signal.aborted) reject(request.signal.reason);
-              else request.signal.addEventListener("abort", () => reject(request.signal.reason), { once: true });
-            }),
-        });
+        globalThis.fetch = async (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            assert(signal);
+            if (signal.aborted) reject(signal.reason);
+            else signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+          });
         const pending = loadOr404(
           () =>
-            client
-              .GET(path, {
-                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
-              })
-              .then((result) =>
-                contractResult(result, {
-                  parse: (value) => (path.endsWith("timeline") ? publicSchemas.TimelineResponse : publicSchemas.PoolResponse).parse(value),
-                }),
-              ),
+            apiFetch(path, {
+              baseUrl: "http://127.0.0.1:1",
+              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+            }).then((result) =>
+              contractResult(result, {
+                parse: (value) => (path.endsWith("timeline") ? publicSchemas.TimelineResponse : publicSchemas.PoolResponse).parse(value),
+              }),
+            ),
           { signal: controller.signal },
         );
         if (timedOut) timeout.abort(new DOMException("fixture timeout", "TimeoutError"));
@@ -75,6 +74,7 @@ test("generated-client loader callback preserves its abort and 15-second timeout
     }
   } finally {
     AbortSignal.timeout = originalTimeout;
+    globalThis.fetch = originalFetch;
   }
 });
 
@@ -126,15 +126,16 @@ test("an optional admin transport keeps original Host/cookie, timeout, cancellat
   }
 });
 
-test("generated admin success and consumed error bodies stay readable to loaders and actions", async () => {
+test("native admin success and error bodies stay readable to loaders and actions", async (t) => {
   const request = new Request("https://private.example/admin/runs", { headers: { host: "private.example" } });
   for (const status of [200, 409, 500]) {
     const body = status === 200 ? { feishu: false, password: true } : { detail: "请重新核对本次尝试" };
-    const client = createPrivateClient({ baseUrl: "http://127.0.0.1:1", fetch: async () => Response.json(body, { status }) });
-    const result = await client.GET("/api/auth/options");
-    assert.equal(result.response.bodyUsed, true);
+    t.mock.method(globalThis, "fetch", async () => Response.json(body, { status }));
+    const result = await apiFetch("/api/auth/options", { baseUrl: "http://127.0.0.1:1" });
+    assert.equal(result.bodyUsed, false);
+    const loaderResponse = result.clone();
     assert.deepEqual(await adminBody(result, true), body);
-    const pending = adminGet(request, "/api/auth/options", async () => result);
+    const pending = adminGet(request, "/api/auth/options", async () => loaderResponse);
     if (status === 200) assert.deepEqual(await pending, body);
     else
       await assert.rejects(pending, (error: unknown) => {

@@ -1,9 +1,10 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { StoryFollowup, StoryRef } from "@amp/contracts/site";
 import { MoreLink } from "../../components/ui/Page";
-import { isDateOnlyInstant, relativeTime, shortSourceName, sourceMonthDayTime } from "../../lib/format";
+import { newsSourceDate, shortSourceName } from "../../lib/format";
 
 /** Event developments are read on approach; absence and failed qualification stay distinct. */
 export function StoryFollowups({ story, currentId, currentFactId }: { story: StoryRef; currentId: string; currentFactId?: string }) {
@@ -23,13 +24,14 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
       pending = true;
       setState({ status: "loading", items: [], more: false });
       try {
-        const result = await createPublicClient({ baseUrl: window.location.origin }).GET("/api/site/stories/{publicId}/followups", {
+        const result = await apiFetch("/api/site/stories/{publicId}/followups", {
           params: { path: { publicId: story.publicId } },
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+          baseUrl: window.location.origin,
         });
-        if (!result.response.ok) throw new Error("followups unavailable");
-        const body = publicSchemas.StoryFollowupsResponse.parse(result.data);
+        if (!result.ok) throw new Error("followups unavailable");
+        const body = publicSchemas.StoryFollowupsResponse.parse(await result.json());
         if (!controller.signal.aborted)
           setState({ status: "ready", items: body.items.filter((d) => d.representative.id !== currentId && d.factId !== currentFactId), more: body.more });
       } catch {
@@ -90,18 +92,27 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
       {state.status === "ready" && state.items.length === 0 && <p className="text-[13px] text-ink-3">暂无更多相关进展。</p>}
       {state.status === "ready" && state.items.length > 0 && (
         <ul className="divide-y divide-line-soft">
-          {state.items.map((d) => (
-            <li key={d.factId} className="py-2.5">
-              <Link to={`/items/${d.representative.id}`} className="text-[13.5px] leading-snug text-ink-2 hover:text-accent">
-                {d.representative.title}
-              </Link>
-              <p className="mt-1 text-[12px] text-ink-4" suppressHydrationWarning>
-                {shortSourceName(d.representative.source.name)} ·{" "}
-                {isDateOnlyInstant(d.representative.timelineAt) ? sourceMonthDayTime(d.representative.timelineAt) : relativeTime(d.representative.timelineAt)}
-              </p>
-              {d.representative.summary && <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{d.representative.summary}</p>}
-            </li>
-          ))}
+          {state.items.map((d) => {
+            const date = newsSourceDate(d.representative.sourceTime);
+            return (
+              <li key={d.factId} className="py-2.5">
+                <Link to={`/items/${d.representative.id}`} className="text-[13.5px] leading-snug text-ink-2 hover:text-accent">
+                  {d.representative.title}
+                </Link>
+                <p className="mt-1 text-[12px] text-ink-4">
+                  {shortSourceName(d.representative.source.name)} ·{" "}
+                  {date ? (
+                    <time dateTime={date.dateTime}>
+                      {date.label} {date.text}
+                    </time>
+                  ) : (
+                    "原文时间尚未确认"
+                  )}
+                </p>
+                {d.representative.summary && <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{d.representative.summary}</p>}
+              </li>
+            );
+          })}
         </ul>
       )}
       {state.status === "ready" && state.more && <p className="mt-2 text-[12px] text-ink-4">更多进展请查看完整事件。</p>}

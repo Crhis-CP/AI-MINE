@@ -3,10 +3,8 @@
 // models on the same cases and browses each case.
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { audit } from "./auth.ts";
-
-const sql = dbOf("ai-gateway");
 
 const IntegerInput = z
   .union([

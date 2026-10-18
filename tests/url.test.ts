@@ -24,6 +24,8 @@ test("internal and reserved addresses are blocked in every spelling", () => {
     "192.168.1.1",
     "169.254.169.254",
     "100.64.0.1",
+    "198.18.0.1",
+    "198.19.255.255",
     "0.0.0.0",
     "255.255.255.255",
     "::1",
@@ -67,9 +69,8 @@ test("a name resolving to an internal address is refused at connect time", async
   await assert.rejects(undiciFetch(`http://localhost:${port}/`, { dispatcher: agent }));
 });
 
-test("through the egress proxy only internal answers refuse a name; literals keep the full check", async () => {
-  // The proxy resolves and connects abroad: a poisoned local answer (Teredo, documentation, reserved)
-  // must not refuse a blocked site, while anything that reaches this host or its network still does.
+test("address classification and legacy proxy flags keep private literals blocked", async () => {
+  // The diagnostic classification remains compatible, but never relaxes actual outbound checks.
   const internal = [
     "127.0.0.1",
     "10.1.2.3",
@@ -101,5 +102,15 @@ test("through the egress proxy only internal answers refuse a name; literals kee
   );
   for (const url of ["http://localhost/", "http://[::ffff:127.0.0.1]/", "http://[2001:db8::1]/", "http://10.0.0.1/"]) {
     await assert.rejects(assertPublicUrl(url, false, true), Error, url);
+  }
+});
+
+test("proxy URL validation uses its supplied DNS and rejects mixed answers before connecting", async () => {
+  assert.equal((await assertPublicUrl("https://unresolvable.invalid/", false, async () => ["1.1.1.1"])).hostname, "unresolvable.invalid");
+  for (const addresses of [["1.1.1.1", "10.0.0.1"], ["198.18.0.1"], []]) {
+    await assert.rejects(
+      assertPublicUrl("https://unresolvable.invalid/", false, async () => addresses),
+      /Blocked private address/,
+    );
   }
 });

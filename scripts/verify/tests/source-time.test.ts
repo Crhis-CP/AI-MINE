@@ -103,19 +103,19 @@ test("unverified local timezone reduces precision, while explicit absolute time 
   assert.throws(() => normalizeSourceTime({ ...input, timezone: "Asia/Not_A_Zone" }, noZone));
 });
 
-test("absolute timestamps allow exactly five minutes, including original sub-millisecond precision", () => {
+test("absolute timestamps allow exactly one hour, including original sub-millisecond precision", () => {
   for (const [delta, expected] of [
-    [299_999, "reliable"],
-    [300_000, "reliable"],
-    [300_001, "pending"],
+    [3_599_999, "reliable"],
+    [3_600_000, "reliable"],
+    [3_600_001, "pending"],
   ] as const) {
     const result = verdict(instant(new Date(now + delta).toISOString()));
     assert.equal(result.status, expected);
     if (result.status === "pending") assert.equal(result.reason, "future");
   }
-  assert.equal(verdict(instant("2026-10-04T09:05:00.000001Z")).status, "pending");
-  assert.equal(verdict(instant("2026-10-04T09:05:00.000000Z")).status, "reliable");
-  assert.equal(verdict(instant("2026-10-04T09:04:59.999999Z")).status, "reliable");
+  assert.equal(verdict(instant("2026-10-04T10:00:00.000001Z")).status, "pending");
+  assert.equal(verdict(instant("2026-10-04T10:00:00.000000Z")).status, "reliable");
+  assert.equal(verdict(instant("2026-10-04T09:59:59.999999Z")).status, "reliable");
   const valid = instant("2026-10-04T09:00:00.001Z");
   for (const change of [{ utc: "invalid" }, { timezone: "invalid/zone" }, { local_time: "09:00:00.002" }])
     assert.equal(verdict({ ...valid, time: { ...valid.time, ...change } }).status, "pending");
@@ -221,12 +221,39 @@ test("declared day-first numeric formats accept unpadded dates without changing 
   unknown("8/10/2026", "ambiguous_format");
   for (const raw of ["8.10.2026", "5-10-2026"]) unknown(raw, "unrecognized_format");
   unknown("3/4/2026", "unrecognized_format", { format: "declared", formatPattern: "MM/DD/YYYY", language: "en" });
+  const shortYear = parseSourceDate(request("08.10.26", { format: "declared", formatPattern: "DD.MM.YY", language: "en" }));
+  assert.equal(shortYear.reason, null);
+  assert.equal(shortYear.evidence.time.local_date, "2026-10-08");
+  unknown("08.10.26", "unrecognized_format");
+});
+
+test("a date-only reading agrees with one timed reading of the same civil day, and two clocks do not", () => {
+  const { binding: current, ...input } = request("2026-10-04");
+  const drop = ({ binding: _binding, observationId: _id, observedAt: _at, url: _url, ...rest }: SourceDateParseInput) => rest;
+  const sameDay = drop(request("2026-10-04T09:00:00+08:00", { locator: "head/publication-metadata[0]", excerpt: "2026-10-04T09:00:00+08:00" }));
+  const observation = { ...input, sourceId: current.sourceId, configHash: current.configHash, alternatives: [sameDay] };
+  assert.equal(previewSourceDate(observation)?.local_date, "2026-10-04");
+  const otherClock = drop(request("2026-10-04T15:00:00+08:00", { locator: "json-ld", excerpt: "2026-10-04T15:00:00+08:00" }));
+  const clocks = {
+    ...input,
+    raw: "2026-10-04T09:00:00+08:00",
+    excerpt: "2026-10-04T09:00:00+08:00",
+    sourceId: current.sourceId,
+    configHash: current.configHash,
+    alternatives: [otherClock],
+  };
+  assert.equal(previewSourceDate(clocks), null);
+  const otherDay = drop(request("2026-10-05", { locator: "json-ld", excerpt: "2026-10-05" }));
+  assert.equal(previewSourceDate({ ...observation, alternatives: [otherDay] }), null);
 });
 
 test("declared month names use only the stated language, including accents, abbreviations and Russian cases", () => {
   for (const [raw, language, formatPattern, expected] of [
     ["02 October 2026", "en-GB", "D MMMM YYYY", "2026-10-02"],
     ["September 30, 2026", "en", "MMMM D, YYYY", "2026-09-30"],
+    ["Oct 8, 2026", "en", "MMM D, YYYY", "2026-10-08"],
+    ["Sep 22 2026", "en", "MMM D YYYY", "2026-09-22"],
+    ["September 22 2026", "en", "MMMM D YYYY", "2026-09-22"],
     ["8 Oct 2026", "en", "D MMM YYYY", "2026-10-08"],
     ["05-OCT-2026", "es", "DD-MMM-YYYY", "2026-10-05"],
     ["6 de octubre de 2026", "es-AR", "D MMMM YYYY", "2026-10-06"],
@@ -302,8 +329,8 @@ test("ISO absolute offsets and decimal seconds retain raw evidence and do not be
   assert.equal(result.evidence.locator, input.locator);
   assert.deepEqual(result.evidence.binding, input.binding);
   assert.equal(result.evidence.observationId, input.observationId);
-  assert.equal(verdict(parseSourceDate(request("2026-10-04T09:05:00.000001Z")).evidence).status, "pending");
-  assert.equal(verdict(parseSourceDate(request("2026-10-04T09:05:00.000000Z")).evidence).status, "reliable");
+  assert.equal(verdict(parseSourceDate(request("2026-10-04T10:00:00.000001Z")).evidence).status, "pending");
+  assert.equal(verdict(parseSourceDate(request("2026-10-04T10:00:00.000000Z")).evidence).status, "reliable");
   assert.equal(parseSourceDate(request("2026-10-04T00:30+0800")).evidence.time.utc, "2026-10-03T16:30:00Z");
   assert.equal(parseSourceDate(request("2026-10-04t00:30z")).evidence.time.utc, "2026-10-04T00:30:00Z");
 });

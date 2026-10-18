@@ -1,3 +1,7 @@
+import { enterModelCircuit, recordModelHealth, type CircuitPermit } from "./circuit.ts";
+import { providerRejection } from "./provider-errors.ts";
+import { PRESETS } from "@amp/site/models";
+import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
 import { modelOutputContract } from "./model-fallback-contract.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
@@ -25,9 +29,7 @@ import {
   type ModelAttemptSnapshot,
   type ReceiptRequest,
 } from "./receipts.ts";
-import { dbOf } from "../db.ts";
-
-const sql = dbOf("ai-gateway");
+import { sql } from "../db.ts";
 
 export interface ModelSpec {
   key: string;
@@ -50,36 +52,7 @@ function extraFromEnv(value: string | undefined): Record<string, unknown> | unde
   }
 }
 
-/**
- * 上游基础方案's four built-in providers. Presets stay in this list; a later key does not change the admin page.
- * `duty` is the mining job of that seat. Until the other three keys exist, every seat still calls `default`.
- */
-export const BUILTIN_MODEL_FAMILIES = [
-  {
-    id: "deepseek",
-    label: "DeepSeek",
-    duty: "其余稿的中文标题和摘要；几篇报道是不是同一件矿业上的事；事件综述；日报、周报、月报。全文翻译也归这一家。",
-    presets: ["deepseek-flash", "deepseek-flash-think"],
-  },
-  {
-    id: "glm",
-    label: "智谱 GLM",
-    duty: "精选评分：同一标准独立打两次分。入选或接近入选的稿，写中文标题、导读和推荐理由。",
-    presets: ["glm-5.3-flash", "glm-5.3-flash-selection"],
-  },
-  {
-    id: "qwen",
-    label: "通义千问",
-    duty: "预筛：是不是金属矿业的事，宽进，只拦明显无关。结构抽取：分类、主体和事件事实，不写给读者看的文字。能看图的预设留给法规附件，现在不单独接。",
-    presets: ["qwen3.8-flash", "qwen3.7-flash", "qwen3-vl-flash"],
-  },
-  {
-    id: "mimo",
-    label: "小米 MiMo",
-    duty: "归组拿不准时再读一遍：两篇要不要并成一件事。设计上最好和归组不是同一家；测试阶段先共用已经接入的那一个模型。",
-    presets: ["mimo-v2.6-flash"],
-  },
-] as const;
+export { MODEL_FAMILIES as BUILTIN_MODEL_FAMILIES } from "@amp/site/models";
 
 /** True only when this preset has an address, a model name and a key. The key itself is not returned. */
 export function modelPresetReady(key: string): boolean {
@@ -112,82 +85,7 @@ export const MODELS: Record<string, ModelSpec> = {
       return process.env.LLM_VISION === "true";
     },
   },
-  // Named presets (the models the upstream project itself runs on); each needs its own key.
-  // GLM 5.3 Flash always reasons; the lowest effort keeps short structured tasks fast.
-  "glm-5.3-flash": {
-    key: "glm-5.3-flash",
-    service: "zhipu",
-    model: "glm-5.3-flash",
-    baseUrlEnv: "ZHIPU_BASE_URL",
-    apiKeyEnv: "ZHIPU_API_KEY",
-    extra: { thinking: { type: "enabled" }, reasoning_effort: "low" },
-    jsonMode: true,
-  },
-  // The scorer's parameters for glm-5.3-flash (score calls; temperature 1 is set per call).
-  "glm-5.3-flash-selection": {
-    key: "glm-5.3-flash-selection",
-    service: "zhipu",
-    model: "glm-5.3-flash",
-    baseUrlEnv: "ZHIPU_BASE_URL",
-    apiKeyEnv: "ZHIPU_API_KEY",
-    extra: { thinking: { type: "enabled", clear_thinking: false }, reasoning_effort: "high", top_p: 0.95 },
-    jsonMode: true,
-  },
-  // DeepSeek Flash reasons by default; structured tasks switch it off unless the -think variant is used.
-  "deepseek-flash": {
-    key: "deepseek-flash",
-    service: "deepseek",
-    model: "deepseek-flash",
-    baseUrlEnv: "DEEPSEEK_BASE_URL",
-    apiKeyEnv: "DEEPSEEK_API_KEY",
-    extra: { thinking: { type: "disabled" } },
-    jsonMode: true,
-  },
-  "deepseek-flash-think": {
-    key: "deepseek-flash-think",
-    service: "deepseek",
-    model: "deepseek-flash",
-    baseUrlEnv: "DEEPSEEK_BASE_URL",
-    apiKeyEnv: "DEEPSEEK_API_KEY",
-    jsonMode: true,
-  },
-  "qwen3.7-flash": {
-    key: "qwen3.7-flash",
-    service: "dashscope",
-    model: "qwen3.7-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL",
-    apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false },
-    jsonMode: true,
-  },
-  "qwen3.8-flash": {
-    key: "qwen3.8-flash",
-    service: "dashscope",
-    model: "qwen3.8-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL",
-    apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false },
-    jsonMode: true,
-  },
-  "mimo-v2.6-flash": {
-    key: "mimo-v2.6-flash",
-    service: "mimo",
-    model: "mimo-v2.6-flash",
-    baseUrlEnv: "XIAOMI_MIMO_BASE_URL",
-    apiKeyEnv: "XIAOMI_MIMO_API_KEY",
-    extra: { thinking: { type: "disabled" } },
-    jsonMode: true,
-  },
-  "qwen3-vl-flash": {
-    key: "qwen3-vl-flash",
-    service: "dashscope",
-    model: "qwen3-vl-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL",
-    apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false },
-    jsonMode: false,
-    vision: true,
-  },
+  ...Object.fromEntries(Object.entries(PRESETS).map(([key, spec]) => [key, { key, ...spec }])),
 };
 
 function environmentConfiguration(spec: ModelSpec, baseUrl: string) {
@@ -206,6 +104,7 @@ export function environmentModelMetadata(key: string) {
       service: spec.service,
       model: spec.model,
       vision: !!spec.vision,
+      budgetService: base ? modelBudgetService(base, spec.service) : spec.service,
       ...(base && spec.model ? environmentConfiguration(spec, base) : { configuration_hash: null }),
     };
   } catch {
@@ -226,6 +125,7 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   fallbackPolicy?: PolicyFallbackContext;
   /** Gateway recursion guard; no worker should use this to select a supplier directly. */
   fallbackHop?: boolean;
+  fallbackFor?: ReceiptRequest["fallbackFor"];
   maxPhysicalAttempts?: 1;
   taskBudget?: TaskBudget;
   sourceIds?: string[];
@@ -388,10 +288,23 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
   const { withModelFallback, ModelContentFiltered } = await import("./model-fallback.ts");
   const contractHash = modelOutputContract(opts.schema, opts.parse);
+  const budgetService = modelBudgetService(baseUrl, registered ? (registered.config.interface === "deepseek" ? "deepseek" : undefined) : spec.service);
+  const budgetAliases = [
+    ...Object.keys(MODELS).flatMap((key) => {
+      const value = environmentModelMetadata(key);
+      return value?.configuration_hash && "budgetService" in value && value.budgetService === budgetService
+        ? [{ service: value.service, connection_id: null, configuration_hash: value.configuration_hash }]
+        : [];
+    }),
+    ...(await registeredQuotaAliases(budgetService)),
+  ];
   const request: ReceiptRequest = {
     maxPhysicalAttempts: opts.maxPhysicalAttempts,
+    fallbackFor: opts.fallbackFor,
     taskBudget: opts.taskBudget,
     modelSnapshot: registeredSummary,
+    budgetService,
+    budgetAliases,
     usageContext: costLane
       ? {
           lane: costLane,
@@ -468,82 +381,107 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     maxRejectedOutputs: opts.maxRejectedOutputs,
     translationObservations: opts.translationObservations,
   };
-  const primary = async (): Promise<ChatJsonResult<z.infer<S>>> => {
-    const receipt = await paidRequest(request, async () => {
-      const send = async () => {
-        if (opts.beforeRequest) {
-          try {
-            await opts.beforeRequest();
-          } catch (error) {
-            if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
-              throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
-            throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false, "input_changed");
+  const primary = async (circuit = false): Promise<ChatJsonResult<z.infer<S>>> => {
+    const timeoutMs = opts.timeoutMs ?? (circuit ? 30_000 : 120_000);
+    let circuitPermit: CircuitPermit | undefined;
+    const receipt = await paidRequest(
+      request,
+      async () => {
+        const send = async () => {
+          if (opts.beforeRequest) {
+            try {
+              await opts.beforeRequest();
+            } catch (error) {
+              if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+                throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
+              throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false, "input_changed");
+            }
           }
-        }
-        const started = Date.now();
-        let res: { status: number; headers: { get(name: string): string | null }; text(): string | Promise<string> };
-        try {
-          res = registered
-            ? await (opts.registeredTransport ?? guardedFetch)(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-                method: "POST",
-                headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-                body: requestBody,
-                timeoutMs: opts.timeoutMs ?? 120_000,
-                maxBytes: 8 * 1024 * 1024,
-                maxRedirects: 0,
-                route: "direct",
-              })
-            : await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-                method: "POST",
-                headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-                body: requestBody,
-                signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
-              });
-        } catch (error) {
-          if (isConnectFailure(error))
-            throw new ProviderRejectedError(`connect failed: ${registered ? "模型连接失败" : String(error)}`, null, true, "connect_before_send");
-          if (registered) throw new Error("模型服务请求结果未知");
-          throw error;
-        }
-        const text = redactModelSecret(await res.text(), apiKey);
-        if (res.status < 200 || res.status >= 300) {
-          const retryable = res.status === 429 || res.status >= 500;
-          throw new ProviderRejectedError(`HTTP ${res.status}: ${text.slice(0, 500)}`, res.status, retryable, "unproven");
-        }
-        let json: Record<string, unknown>;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          json = { unparsable: text.slice(0, 20000) };
-        }
-        const usage = (json.usage as Record<string, unknown> | undefined) ?? null;
-        return {
-          response: { ...json, _latencyMs: Date.now() - started },
-          requestId: (json.id as string | undefined) ?? (res.headers.get("x-request-id") ? redactModelSecret(res.headers.get("x-request-id")!, apiKey) : null),
-          usage,
-          cost:
-            registered && [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0)
-              ? {
-                  amount:
-                    (Number(usage!.prompt_tokens) * Number(registered.config.input_cny_per_million) +
-                      Number(usage!.completion_tokens) * Number(registered.config.output_cny_per_million)) /
-                    1e6,
-                  currency: "CNY",
-                  basis: "estimated" as const,
-                }
-              : null,
+          const started = Date.now();
+          const readResponse = async () => {
+            let res: { status: number; headers: { get(name: string): string | null }; text(): string | Promise<string> };
+            try {
+              res = registered
+                ? await (opts.registeredTransport ?? guardedFetch)(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+                    method: "POST",
+                    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+                    body: requestBody,
+                    timeoutMs: timeoutMs,
+                    maxBytes: 8 * 1024 * 1024,
+                    maxRedirects: 0,
+                    route: "direct",
+                  })
+                : await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+                    method: "POST",
+                    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+                    body: requestBody,
+                    signal: AbortSignal.timeout(timeoutMs),
+                  });
+            } catch (error) {
+              if (isConnectFailure(error))
+                throw new ProviderRejectedError(`connect failed: ${registered ? "模型连接失败" : String(error)}`, null, true, "connect_before_send");
+              if (registered) throw new Error("模型服务请求结果未知");
+              throw error;
+            }
+            const text = redactModelSecret(await res.text(), apiKey);
+            if (res.status < 200 || res.status >= 300) {
+              const failure = providerRejection(budgetService, res.status, text);
+              throw new ProviderRejectedError(failure.message, res.status, failure.retryable, failure.failureKind);
+            }
+            return { res, text };
+          };
+          let response: Awaited<ReturnType<typeof readResponse>>;
+          try {
+            response = await readResponse();
+          } catch (error) {
+            if (circuitPermit) await recordModelHealth(budgetService, circuitPermit, !(error instanceof ProviderRejectedError && !error.retryable));
+            throw error;
+          }
+          if (circuitPermit) await recordModelHealth(budgetService, circuitPermit, false);
+          const { res, text } = response;
+          let json: Record<string, unknown>;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            json = { unparsable: text.slice(0, 20000) };
+          }
+          const usage = (json.usage as Record<string, unknown> | undefined) ?? null;
+          return {
+            response: { ...json, _latencyMs: Date.now() - started },
+            requestId:
+              (json.id as string | undefined) ?? (res.headers.get("x-request-id") ? redactModelSecret(res.headers.get("x-request-id")!, apiKey) : null),
+            usage,
+            cost:
+              registered && [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0)
+                ? {
+                    amount:
+                      (Number(usage!.prompt_tokens) * Number(registered.config.input_cny_per_million) +
+                        Number(usage!.completion_tokens) * Number(registered.config.output_cny_per_million)) /
+                      1e6,
+                    currency: "CNY",
+                    basis: "estimated" as const,
+                  }
+                : null,
+          };
         };
-      };
-      if (!registered) return send();
-      return sql.begin(async (tx) => {
-        try {
-          await registered.assertCurrent(tx);
-        } catch {
-          throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false, "configuration_changed");
-        }
+        if (!registered) return send();
+        // Claim the current configuration before sending; do not hold the registry/database lock
+        // across a provider's network response. Already-started work retains its frozen request.
+        await sql.begin(async (tx) => {
+          try {
+            await registered.assertCurrent(tx);
+          } catch {
+            throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false, "configuration_changed");
+          }
+        });
         return send();
-      });
-    });
+      },
+      circuit
+        ? async (tx) => {
+            circuitPermit = await enterModelCircuit(tx, budgetService, timeoutMs);
+          }
+        : undefined,
+    );
 
     const response = receipt.response as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: Record<string, unknown> };
     if (response.choices?.[0]?.finish_reason === "content_filter") throw new ModelContentFiltered(receipt.receiptId, receipt.attemptId);
@@ -568,7 +506,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     };
   };
   // Both paid sends and free cache reuse require the same current source permit.
-  const permittedPrimary = async () => {
+  const permittedPrimary = async (circuit = false) => {
     const permit = opts.fallbackPermit ? await opts.fallbackPermit.authorize({ modelKey: opts.model, configurationHash }) : null;
     if (
       !permit &&
@@ -587,7 +525,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         };
         await opts.beforeRequest();
       }
-      const result = await primary();
+      const result = await primary(circuit);
       try {
         await (permit?.afterResponse ?? permit?.beforeRequest)?.();
       } catch (error) {
@@ -614,7 +552,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       vision: Array.isArray(opts.user) && opts.user.some((p) => p.type === "image_url"),
     },
     permittedPrimary,
-    (model, authorize) => chatJson({ ...opts, model, beforeRequest: authorize, fallbackHop: true, maxPhysicalAttempts: 1 }),
+    (model, authorize, fallbackFor) => chatJson({ ...opts, model, beforeRequest: authorize, fallbackHop: true, fallbackFor }),
   );
 }
 

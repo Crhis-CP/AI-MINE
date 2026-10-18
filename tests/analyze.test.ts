@@ -1,3 +1,4 @@
+import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -6,13 +7,14 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // understanding and the rest by the title/summary prompts, a structure step gives the category, subjects
 // and fact. Material with only a feed summary has its page fetched first. The steps run on the models the
 // upstream project assigns them (set through the environment here); every prompt in the pack renders.
-import { gate, Reply, stub, tag } from "./setup.ts";
+import { READER_WORDING } from "@amp/industry/wording";
+import { gate, Reply, DROP_RESPONSE, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { after, before, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@amp/backend/editorial/analyze";
+import { analyzeArticle, SCORE_SYSTEM, tierThreshold, StructureSchema, normalizeAnalysis } from "@amp/backend/editorial/analyze";
 import { afterFailure, processArticle, queueProcessing } from "@amp/backend/jobs/content";
 import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
@@ -21,17 +23,15 @@ import { config } from "@amp/backend/config";
 import { BudgetExceededError } from "@amp/backend/providers/receipts";
 import { publishArticle, republishSource } from "@amp/backend/publication/publish";
 import { setVisibility } from "@amp/backend/admin/content";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { SITE } from "@amp/industry/site";
 import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
-
-const sql = dbOf("enrichment");
 
 const publicApp = await buildApp("public-api");
 const T = tag();
 let SOURCE = `test-analyze-${T}`;
 
-type Step = "prefilter" | "score" | "understand" | "summarize" | "structure";
+type Step = "prefilter" | "score" | "understand" | "summarize" | "structure" | "wording";
 interface Req {
   step: Step;
   marker: string;
@@ -45,7 +45,6 @@ const scoreHolds = new Map<string, { asked: () => void; release: Promise<void> }
 // A test can make the prefilter answer a marker differently on a later judgement.
 const prefilterLabels = new Map<string, string>();
 // A test can make a marker's score requests fail like an outage.
-const scoreOutages = new Set<string>();
 // Prescribed fake labels test the admission plumbing, not the model's mining judgement quality.
 const mining = [
   ["COPPER", "铜矿产量公告", "PASS"],
@@ -73,6 +72,13 @@ const MARKERS = [
   "SCREFUSED",
   "TITLEONLY",
   "EMPTYCASE",
+  "STFAIL",
+  "WMEND",
+  "WNUMBER",
+  "WIDENTITY",
+  "WBAD",
+  "WKEEP",
+  "WREFUSE",
   "TRIMMED",
   "EARLY",
   "REJUDGE",
@@ -91,19 +97,21 @@ const scoreAnswers: Record<string, number[]> = {
 };
 
 const stepOf = (system: string, user: string): Step =>
-  system.includes("宽召回的金属矿业范围预筛")
-    ? "prefilter"
-    : system.includes("事件注意力评分器")
-      ? "score"
-      : system.includes("内容理解编辑")
-        ? "understand"
-        : system.includes("资料结构化助手")
-          ? "structure"
-          : user.includes("title_zh")
-            ? "summarize"
-            : (() => {
-                throw new Error("unknown request");
-              })();
+  system.includes("其中几处用词")
+    ? "wording"
+    : system.includes("宽召回的金属矿业范围预筛")
+      ? "prefilter"
+      : system.includes("事件注意力评分器")
+        ? "score"
+        : system.includes("内容理解编辑")
+          ? "understand"
+          : system.includes("资料结构化助手")
+            ? "structure"
+            : user.includes("title_zh")
+              ? "summarize"
+              : (() => {
+                  throw new Error("unknown request");
+                })();
 
 // One stub stands in for DashScope (prefilter, structure), Zhipu (score, understand) and DeepSeek (summarize).
 const provider = await stub(async (_hit, req) => {
@@ -120,6 +128,18 @@ const provider = await stub(async (_hit, req) => {
     choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }],
     usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
   });
+  if (step === "wording" && marker === "WREFUSE") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
+  if (step === "wording") {
+    const copy = JSON.parse(user.split("中文稿：\n")[1]!.split("\n\n问题：")[0]!);
+    if (marker === "WBAD") return answer({ titleZh: "", summaryZh: "", reasonZh: null });
+    if (marker !== "WKEEP") {
+      copy.titleZh = copy.titleZh.replaceAll("翻译", "整理");
+      copy.summaryZh = copy.summaryZh.replaceAll("翻译", "整理");
+    }
+    if (marker === "WNUMBER") copy.summaryZh += "新增3万吨。";
+    if (marker === "WIDENTITY") copy.titleZh = "紫金矿业扩大产能";
+    return answer(copy);
+  }
   if (step === "prefilter")
     return answer({
       label:
@@ -135,7 +155,7 @@ const provider = await stub(async (_hit, req) => {
       hold.asked();
       await hold.release;
     }
-    if (marker === "SCFAIL" || scoreOutages.has(marker)) return new Reply(503, { error: { message: "synthetic score outage" } });
+    if (marker === "SCFAIL") return DROP_RESPONSE;
     if (marker === "SCREFUSED") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
     return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
   }
@@ -150,6 +170,7 @@ const provider = await stub(async (_hit, req) => {
       summaryZh: `理解摘要 ${marker}。第二句补充一个关键数字。`,
     });
   }
+  if (step === "structure" && marker === "STFAIL") return new Reply(400, { error: { message: "synthetic invalid structure request" } });
   if (step === "structure")
     return answer({
       category: "company_project",
@@ -168,6 +189,7 @@ Object.assign(process.env, {
   SCORE_MODEL: "glm-5.3-flash-selection",
   UNDERSTAND_MODEL: "glm-5.3-flash",
   SUMMARIZE_MODEL: "deepseek-flash",
+  WORDING_MODEL: "deepseek-flash",
   STRUCTURE_MODEL: "qwen3.8-flash",
 });
 
@@ -284,11 +306,17 @@ test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async 
   const vague = await analyzeArticle(vagueId);
   assert.deepEqual([vague!.output!.relevance, vague!.output!.selected, vague!.output!.titleZh], ["pass", true, "理解标题 VAGUE"]);
   assert.equal((await row(vagueId)).output.prefilter.label, "UNKNOWN", "the prefilter's own answer stays on record");
-  // Nothing but a title and no page to fetch: the BLOCK counts as UNKNOWN and is scored, but the
-  // translation writes nothing from a bare title, so it waits for material instead of being published.
-  const bare = await analyzeArticle(await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" }));
-  assert.deepEqual([bare!.output!.relevance, bare!.output!.selected, bare!.output!.score], ["unknown", false, 32]);
-  assert.deepEqual(calls("BARE").sort(), ["prefilter", "score", "score", "structure"]);
+  // Nothing but a title: keep the prefilter receipt and wait without buying scores or copy.
+  const bareId = await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" });
+  const bare = await analyzeArticle(bareId);
+  assert.deepEqual([bare!.output!.relevance, bare!.output!.selected, bare!.output!.score], ["unknown", false, null]);
+  assert.deepEqual(calls("BARE"), ["prefilter"]);
+  prefilterLabels.set("BARE", "PASS");
+  await sql`UPDATE articles SET body_text=${`BARE: ${LONG}`},body_status='ok',revision=revision+1 WHERE id=${bareId}`;
+  const resumed = await analyzeArticle(bareId);
+  assert.equal(resumed!.output!.score, 32);
+  assert.equal(resumed!.output!.titleZh, "翻译标题 BARE");
+  assert.deepEqual(calls("BARE").sort(), ["prefilter", "prefilter", "score", "score", "structure", "summarize"]);
 });
 
 test("a feed summary alone: the article page is fetched first, then the whole article is judged", async () => {
@@ -398,10 +426,16 @@ test("analysing the same revision again reuses every paid answer", async () => {
   const id = await article("CLEAR", { url: `https://example.com/CLEAR-again-${T}`, title: `CLEAR model release again ${T}` });
   const first = await analyzeArticle(id);
   assert.equal(first!.reused, false);
+  await completeMaterialGrouping(id, 1, { addsValue: true, reason: "合成归组已完成" }, null);
   const hits = provider.hits();
   const again = await analyzeArticle(id);
   assert.equal(provider.hits(), hits, "no new requests");
   assert.deepEqual([again!.reused, again!.receiptIds], [true, first!.receiptIds]);
+  assert.equal(
+    (await sql`SELECT grouping_status FROM articles WHERE id=${id}`)[0]!.grouping_status,
+    "complete",
+    "reusing the same analysis preserves grouping",
+  );
   const complete = await row(id);
   await sql`UPDATE receipts SET status = 'unknown' WHERE id = ${again!.receiptIds[1]!}`;
   await assert.rejects(analyzeArticle(id), /unknown outcome/);
@@ -468,7 +502,7 @@ test("INV-13: Chinese material is public on its excerpt through score failure, m
   const body = "铜矿扩大产能的原始公告，附产量、地点和建设条件，供读者核对。".repeat(8);
   await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
   const id = await article("SCFAIL", { title: "铜矿扩产公告", language: "zh", bodyText: `SCFAIL：${body} (${T})` });
-  assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
+  assert.equal((await processArticle(id)).state, "unknown-receipt", "a lost response remains unknown while confirmed scope stays public");
   const p = await projection(id);
   assert.deepEqual([p.visibility, p.eligible, p.selected, p.score], ["public", true, false, null]);
   assert.ok(p.source_excerpt.startsWith("来源摘录：SCFAIL：") && p.source_excerpt.includes("根据来源正文整理"));
@@ -510,7 +544,7 @@ test("INV-13: Chinese material is public on its excerpt through score failure, m
     await assert.rejects(processArticle(coal), /disabled/i);
     assert.equal((await projection(coal)).visibility, "public", "not judged yet: public on its excerpt");
     const off = new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
-    for (let i = 0; i < 12; i++) assert.equal((await afterFailure(coal, off)).state, "waiting");
+    for (let i = 0; i < 12; i++) assert.equal((await afterFailure(coal, off, 1)).state, "waiting");
     const [waiting] = await sql`SELECT processing_state, processing_attempts FROM articles WHERE id = ${coal}`;
     assert.deepEqual({ ...waiting }, { processing_state: "new", processing_attempts: 0 }, "switched-off model calls wait without using up attempts");
     assert.equal(provider.hits(), before);
@@ -531,7 +565,7 @@ test("INV-13: Chinese material is public on its excerpt through score failure, m
     );
     assert.ok(error instanceof BudgetExceededError);
     assert.equal((await projection(paused)).visibility, "public", "paused paid calls (BR-COST-20) do not hold Chinese back");
-    assert.equal((await afterFailure(paused, error)).state, "waiting");
+    assert.equal((await afterFailure(paused, error, 1)).state, "waiting");
     const [held] = await sql`SELECT processing_state, processing_attempts FROM articles WHERE id = ${paused}`;
     assert.deepEqual({ ...held }, { processing_state: "new", processing_attempts: 0 }, "paused paid calls wait without using up attempts");
   } finally {
@@ -588,6 +622,8 @@ test("BR-PUB-08: judging a selected Chinese original again keeps its last comple
   const body = "铜矿扩建项目的原始公告，列明产能、地点与建设条件，供读者核对。".repeat(6);
   const id = await article("REJUDGE", { title: "铜矿扩建公告", language: "zh", bodyText: `REJUDGE：${body} (${T})` });
   assert.equal((await processArticle(id)).state, "pass");
+  await completeMaterialGrouping(id, 1, { addsValue: true, reason: "合成已完成归组" }, null);
+  await publishArticle(id);
   const first = await projection(id);
   assert.deepEqual([first.visibility, first.selected], ["public", true]);
   assert.match(first.summary, /理解摘要 REJUDGE/);
@@ -619,11 +655,13 @@ test("BR-PUB-08: judging a selected Chinese original again keeps its last comple
   const done = await projection(id);
   assert.deepEqual([done.visibility, done.selected], ["public", true]);
   assert.ok(!(await ledger()).includes("remove"), "the selected set never lost it");
-  scoreOutages.add("REJUDGE");
+  // Exercise the actual service request gate; cumulative amount no longer stops a rejudgement.
+  const savedBudgets = await sql<{ service: string; per_minute: number }[]>`SELECT service,per_minute FROM budgets`;
+  await sql`UPDATE budgets SET per_minute=0`;
   try {
     await assert.rejects(processArticle(id, { attemptTag: `outage-${T}` }), BudgetExceededError);
   } finally {
-    scoreOutages.delete("REJUDGE");
+    for (const budget of savedBudgets) await sql`UPDATE budgets SET per_minute=${budget.per_minute} WHERE service=${budget.service}`;
   }
   const failed = await projection(id);
   assert.deepEqual(
@@ -671,8 +709,8 @@ test("empty and punctuation-only source text cannot be replaced by high-score mo
   for (const [i, text] of [null, " \n\t", "。！？……", "产能10万吨"].entries()) {
     const id = await article(`empty-${i}`, { title: `EMPTYCASE 铜矿建设公告 ${T}-${i}`, bodyText: text, excerpt: null, language: "zh", bodyStatus: "none" });
     const analyzed = await analyzeArticle(id);
-    assert.equal(analyzed!.output!.score, 80, "the fake scorer still gives both 80s");
-    assert.ok(analyzed!.output!.summaryZh, "the fake writer supplied copy");
+    assert.equal(analyzed!.output!.score, i === 3 ? 80 : null, "no paid score without usable evidence");
+    assert.equal(!!analyzed!.output!.summaryZh, i === 3, "no generated copy without usable evidence");
     await publishArticle(id);
     assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, i === 3 ? 200 : 404);
   }
@@ -694,7 +732,7 @@ test("current input metadata keeps its new scope receipt after score failure", a
     language: "zh",
     bodyText: `SCFAIL：铜矿项目扩大产能，公告说明地点、产量和原始条件。${T}`.repeat(4),
   });
-  assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
+  assert.equal((await processArticle(id)).state, "unknown-receipt", "a lost response remains unknown while confirmed scope stays public");
   assert.equal((await projection(id)).visibility, "public");
   try {
     await sql`UPDATE sources SET name = '来源名称已核正' WHERE id = ${SOURCE}`;
@@ -702,7 +740,7 @@ test("current input metadata keeps its new scope receipt after score failure", a
     await publishArticle(id);
     assert.equal((await projection(id)).visibility, "public", "a rename alone withdraws nothing and pays nothing");
     assert.equal(provider.hits(), hits);
-    assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
+    assert.equal((await processArticle(id)).state, "unknown-receipt", "a lost response remains unknown while confirmed scope stays public");
     const [material] = await sql`SELECT revision FROM articles WHERE id = ${id}`;
     const receipts = await sql`SELECT id, status, request->>'userHash' AS input_hash FROM receipts
       WHERE purpose = 'prefilter_article' AND subject = ${`article:${id}@1`} ORDER BY id`;
@@ -717,3 +755,70 @@ test("current input metadata keeps its new scope receipt after score failure", a
     await sql`UPDATE sources SET name = 'Test analyze source' WHERE id = ${SOURCE}`;
   }
 });
+
+test("structure distinguishes composite scope and legacy missing scope stays unknown", () => {
+  assert.equal(StructureSchema.parse({}).scope, "unknown");
+  assert.equal(StructureSchema.parse({ scope: "single" }).scope, "single");
+  const run = {
+    prefilter: { label: "PASS" as const, reason: "", model: "fixture", receiptId: 1, reused: false },
+    scores: null,
+    writing: null,
+    structure: {
+      model: "fixture",
+      scope: "composite" as const,
+      category: null,
+      tags: [],
+      subjects: [],
+      fact: { title: "不可当作单一事件" },
+      geography: null as never,
+      company_context: [],
+      receiptId: 1,
+      reused: false,
+    },
+  };
+  const normalized = normalizeAnalysis(run);
+  assert.equal(normalized.scope, "composite");
+  assert.equal(normalized.fact, null);
+});
+
+test("structure failure settles its receipt without starting a writing request", async () => {
+  const id = await article("STFAIL");
+  await assert.rejects(analyzeArticle(id), /HTTP 400.*invalid structure request/);
+  assert.equal((await sql`SELECT status FROM receipts WHERE subject=${`article:${id}@1`} AND purpose='structure_article'`)[0].status, "failed");
+  assert.deepEqual(calls("STFAIL").sort(), ["prefilter", "score", "score", "structure"]);
+});
+
+test("wording only runs for configured matches, reuses its paid result and retains the accounting", async (t) => {
+  const rules = READER_WORDING as Array<readonly [RegExp, string]>;
+  rules.push([/翻译/u, "改为整理"]);
+  t.after(() => {
+    rules.length = 0;
+  });
+  const id = await article("WMEND");
+  await analyzeArticle(id);
+  const result = await row(id);
+  assert.equal(result.title_zh, "整理标题 WMEND");
+  assert.equal(calls("WMEND").filter((s) => s === "wording").length, 1);
+  const [receipt] = await sql`SELECT id,status FROM receipts WHERE subject=${`article:${id}@1`} AND purpose='mend_wording'`;
+  assert.equal(receipt!.status, "completed");
+  assert.ok(result.receipt_ids.map(String).includes(String(receipt!.id)));
+  const before = provider.hits();
+  const reused = (await analyzeArticle(id))!;
+  assert.equal(reused.output!.titleZh, "整理标题 WMEND");
+  assert.equal(reused.reused, true);
+  assert.equal(provider.hits(), before, "all received outputs are reused, including the one wording request");
+});
+
+for (const marker of ["WNUMBER", "WIDENTITY", "WBAD", "WKEEP", "WREFUSE"])
+  test(`wording ${marker} keeps the qualified first copy without another correction`, async (t) => {
+    const rules = READER_WORDING as Array<readonly [RegExp, string]>;
+    rules.push([/翻译/u, "改为整理"]);
+    t.after(() => {
+      rules.length = 0;
+    });
+    const id = await article(marker);
+    await analyzeArticle(id);
+    assert.equal((await row(id)).title_zh, `翻译标题 ${marker}`);
+    assert.equal(calls(marker).filter((s) => s === "wording").length, 1);
+    assert.equal((await sql`SELECT id FROM receipts WHERE subject=${`article:${id}@1`} AND purpose='mend_wording'`).length, 1);
+  });

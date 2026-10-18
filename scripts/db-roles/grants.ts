@@ -1,5 +1,5 @@
 // TASK-0004 D4/D5: pure, explicit grants. This module never connects or executes the plan.
-import type { DatabaseRole } from "@amp/config";
+import type { DatabaseRole } from "@amp/backend/db";
 import { MODULE_SCHEMAS } from "../migrations/inventory.ts";
 import manifest from "../../database/roles/table-grants.json" with { type: "json" };
 
@@ -154,6 +154,14 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         spec.publicColumns.length === 0 &&
         c.tables.find((table) => table.name === name)?.columns.length === feedbackSubmissionColumns.length &&
         feedbackSubmissionColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
+      const feedbackStateColumns = ["source_hash", "attempts", "submissions", "paused_until", "expires_at"];
+      const feedbackState =
+        name === "feedback.submission_state" &&
+        spec.module === "feedback" &&
+        spec.access === "business" &&
+        spec.publicColumns.length === 0 &&
+        c.tables.find((table) => table.name === name)?.columns.length === feedbackStateColumns.length &&
+        feedbackStateColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
       const permissions = spec.permissions;
       const quotaColumns = ["scope", "bucket_key", "window_start", "used"];
       const feedbackQuota =
@@ -177,6 +185,7 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
             values.length &&
             !(
               (role === "auth" && ["identity", "audit"].includes(spec.access)) ||
+              (role === "feedback_write" && feedbackState && values.every((permission) => ["SELECT", "INSERT", "UPDATE"].includes(permission))) ||
               (role === "feedback_write" && feedbackSubmission && values.every((permission) => permission === "SELECT" || permission === "INSERT")) ||
               (role === "feedback_write" &&
                 feedbackQuota &&

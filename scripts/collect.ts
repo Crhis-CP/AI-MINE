@@ -1,10 +1,13 @@
 // Runs collection for given sources now (development / operations helper).
 // node --env-file=.env scripts/collect.ts rss-openai-news rss-hugging-face ...
+import { installModules } from "@amp/backend/modules";
+import { SERVER_MODULES } from "../site/modules/server.ts";
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource } from "@amp/backend/sources/collect";
 
 await initializeDb("worker");
+installModules(SERVER_MODULES);
 
 for (const id of process.argv.slice(2)) {
   const started = Date.now();

@@ -6,7 +6,7 @@
 // manual withdrawals and corrections stay as they are (publication reads them as always).
 //   node scripts/retime-day-only.ts            lists what it would change, writes nothing
 //   node scripts/retime-day-only.ts --apply    corrects and republishes
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { decideTimeline } from "@amp/backend/content/materials";
 import { publishArticleTx } from "@amp/backend/publication/publish";
 import { sourcePublishedAt } from "@amp/backend/sources/web-list";
@@ -20,7 +20,7 @@ if (unknown.length) {
 }
 const dry = !args.includes("--apply");
 await initializeDb("worker");
-const sql = dbOf("content");
+
 interface Row {
   id: string;
   source_id: string;

@@ -7,11 +7,10 @@ import path from "node:path";
 import sharp from "sharp";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, feedbackSql as sql } from "@amp/backend/db";
 import { eraseFeedback, feedbackScreenshot } from "@amp/backend/admin/feedback";
 import { submitFeedback, forwardPendingFeedback } from "@amp/backend/operations/feedback";
 
-const sql = dbOf("feedback");
 config.dataDir = mkdtempSync(path.join(tmpdir(), "amp-feedback-delivery-"));
 process.env.FEISHU_APP_ID = "test-app";
 process.env.FEISHU_APP_SECRET = "test-secret";

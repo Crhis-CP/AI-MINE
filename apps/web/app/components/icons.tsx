@@ -223,3 +223,24 @@ export const IconCopy = (p: P) => (
     <path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3" />
   </Svg>
 );
+
+export const IconFilter = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 7h6m4 0h8M3 17h10m4 0h4" />
+    <circle cx="11" cy="7" r="2" />
+    <circle cx="15" cy="17" r="2" />
+  </Svg>
+);
+
+export const IconChevronLeft = (p: P) => (
+  <Svg {...p}>
+    <path d="m14 6-6 6 6 6" />
+  </Svg>
+);
+
+export const IconUser = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </Svg>
+);

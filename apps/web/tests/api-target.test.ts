@@ -16,7 +16,7 @@ import { fetchWithHost } from "../http-probe.ts";
 const PRIVATE_HOST = "private.localhost:8443";
 const env = { API_BASE_URL: "http://public.test:3001", PRIVATE_API_BASE_URL: "http://private.test:3002" };
 
-test("web dev and start commands supply the private API default and preserve an explicit target", (t) => {
+test("web dev and start commands share the API target and preserve an explicit legacy override", (t) => {
   const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts as Record<string, string>;
   const bin = mkdtempSync(path.join(tmpdir(), "amp-web-command-"));
   t.after(() => rmSync(bin, { recursive: true, force: true }));
@@ -34,7 +34,7 @@ test("web dev and start commands supply the private API default and preserve an 
       assert.equal(result.status, 0, result.stderr);
       const supplied = JSON.parse(result.stdout);
       assert.equal(supplied.WEB_ROUTE_GROUP, name === "start" ? undefined : name === "dev" ? "public" : "private");
-      assert.equal(apiBaseFor("/api/auth/options", supplied), target ?? "http://127.0.0.1:3002");
+      assert.equal(apiBaseFor("/api/auth/options", supplied), target ?? env.API_BASE_URL);
       assert.equal(apiBaseFor("/api/site/items", supplied), env.API_BASE_URL);
     }
   }

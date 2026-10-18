@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { closeDb } from "@amp/backend/db";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const HOST = "private.example.test";
 const savedHost = config.privateHost;
@@ -178,5 +178,30 @@ test("an unset private host keeps local development usable; a malformed configur
     } finally {
       await app.close();
     }
+  }
+});
+
+test("one API serves public reads and guarded administration without applying the private host gate to readers", async () => {
+  config.privateHost = HOST;
+  const app = await buildApp("api");
+  config.privateHost = savedHost;
+  try {
+    assert.equal((await app.inject({ url: "/api/site/meta", headers: { host: "reader.example.test" } })).statusCode, 200);
+    const reader = await app.inject({ url: "/api/site/meta", headers: { host: "reader.example.test", cookie: "__Host-amp_admin=invalid" } });
+    assert.equal(reader.statusCode, 200);
+    assert.equal(reader.headers["set-cookie"], undefined);
+    for (const url of ["/api/auth/options", "/api/admin/me", "/mcp-ops"]) {
+      const method = url === "/mcp-ops" ? "POST" : "GET";
+      assert.equal((await app.inject({ method, url, headers: { host: "reader.example.test" } })).statusCode, 404, url);
+    }
+    assert.equal((await app.inject({ url: "/api/auth/options", headers: forwarded })).statusCode, 200);
+    assert.equal((await app.inject({ url: "/api/admin/me", headers: forwarded })).statusCode, 401);
+    assert.equal((await app.inject({ method: "POST", url: "/mcp-ops", headers: forwarded, payload: {} })).statusCode, 401);
+    assert.equal((await app.inject({ url: "/api/admin/me", headers: { ...forwarded, "x-forwarded-host": `${HOST}, other.test` } })).statusCode, 404);
+    assert.ok(app.hasRoute({ method: "GET", url: "/api/site/metal-prices" }));
+    assert.ok(!app.hasRoute({ method: "POST", url: "/api/ingest/items" }));
+  } finally {
+    await app.close();
+    config.privateHost = savedHost;
   }
 });

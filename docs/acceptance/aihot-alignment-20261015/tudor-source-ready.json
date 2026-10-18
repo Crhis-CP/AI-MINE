@@ -1,0 +1,15 @@
+{
+  "id": "research-20261017-tudor",
+  "checked_at": "2026-10-16T19:41:16.702Z",
+  "configuration_sha256": "4012b4968cb8ceb9969c14191ebd867df768b59ad28f1d496b409ac8824ad011",
+  "method": "原生web_list、静态HTML、robots与既有抓取节奏，无浏览器脚本执行、无模型调用",
+  "preview_count": 20,
+  "valid_sample_count": 20,
+  "sample": {
+    "title": "Tudor Gold Expands Treaty Creek’s Perfectstorm Zone Copper-Gold Porphyry System, Further Defines Higher-Grade Epithermal Overprint and Updates Status of PEA",
+    "url": "https://tudor-gold.com/tudor-gold-expands-treaty-creeks-perfectstorm-zone-copper-gold-porphyry-system-further-defines-higher-grade-epithermal-overprint-and-updates-status-of-pea/",
+    "publishedAt": "2026-10-14T09:30:00.000Z"
+  },
+  "production_enabled": false,
+  "natural_collection_accepted": false
+}

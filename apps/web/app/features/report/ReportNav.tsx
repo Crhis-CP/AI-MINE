@@ -1,6 +1,6 @@
 // Moving between reports: the archive column on desktop, a tab row and recent-issue chips on phones.
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { IntentLink as Link } from "../../components/ui/IntentLink";
 import type { ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
 import { PillTabs } from "../../components/ui/Tabs";
 import { IconChevronRight } from "../../components/icons";
@@ -91,7 +91,6 @@ function ArchiveGroup({
                   to={reportPath(kind, e.key)}
                   aria-current={on ? "page" : undefined}
                   title={e.title ?? undefined}
-                  prefetch="intent"
                   className={`group flex gap-3 rounded-tile py-2.5 pl-2.5 pr-2 transition-colors ${on ? "bg-accent-soft" : "hover:bg-bg-sunk"}`}
                 >
                   <span className="flex w-8 shrink-0 flex-col items-center">

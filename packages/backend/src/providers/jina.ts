@@ -1,6 +1,7 @@
 import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Jina Reader (r.jina.ai): browser-rendered page text. Paid per request, reached through the egress
 // proxy, always behind receipts and the per-minute/hour/day budget (any zero stops it).
+import { contentDocument, assertPageContent, UnavailablePageError } from "../lib/page-content.ts";
 import { credential } from "../config.ts";
 import { guardedFetch } from "../lib/http-fetch.ts";
 import { paidRequest, ProviderRejectedError } from "./receipts.ts";
@@ -87,5 +88,15 @@ export async function jinaRead(
     },
   );
   const raw = String((receipt.response as { text?: string })?.text ?? "");
-  return { ...parseJinaText(raw), receiptId: receipt.receiptId, raw };
+  const page = parseJinaText(raw);
+  // The rendering is already billed, even if the target returned an error. Keep that receipt reusable.
+  if (opts.format === "html") contentDocument(raw);
+  else {
+    const marker = raw.indexOf("\nMarkdown Content:\n");
+    const header = marker < 0 ? "" : raw.slice(0, marker);
+    const warning = /^Warning:.*(?:Target URL returned error [45]\d\d\b|requiring CAPTCHA).*$/im.exec(header);
+    if (warning) throw new UnavailablePageError(warning[0]);
+    assertPageContent(marker < 0 ? "" : (page.title ?? ""), page.markdown);
+  }
+  return { ...page, receiptId: receipt.receiptId, raw };
 }

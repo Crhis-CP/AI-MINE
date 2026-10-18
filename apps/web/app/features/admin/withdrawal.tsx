@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { useAdminAction } from "./action";
 import { Button, Field, Input, ReasonDialog, Select } from "./ui";
 type Target = ReturnType<typeof privateSchemas.WithdrawalTarget.parse>;

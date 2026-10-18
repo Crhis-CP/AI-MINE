@@ -1,10 +1,10 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
-import { buildApp } from "../apps/api/src/app.ts";
-const sql = dbOf("publication");
+import { buildApp } from "./site-app.ts";
+
 const app = await buildApp("public-api");
 after(async () => {
   await app.close();
@@ -17,8 +17,8 @@ test("every RSS item preserves publisher attribution and AI labels while full te
   await sql`INSERT INTO sources(id,name,kind,participation_mode,site_fulltext,syndicate_fulltext) VALUES(${source},'原始发布方','rss','editorial',true,true)`;
   await sql`INSERT INTO articles(id,source_id,identity_key,url,title,language,body_status,body_html,body_text,raw,discovered_at,timeline_at)
     VALUES(${id},${source},${id},'https://example.invalid/original','合成报道','zh','ok','<p>许可内全文</p>','许可内全文','{}',now(),now())`;
-  await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,selected,visible_after,category,body_mode,syndicate)
-    VALUES(${id},'合成报道','合成导读',${source},'news','https://example.invalid/original',now(),now(),now(),now(),'public',true,true,now(),${category},'full',true)`;
+  await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,selected,seat,visible_after,category,body_mode,syndicate)
+    VALUES(${id},'合成报道','合成导读',${source},'news','https://example.invalid/original',now(),now(),now(),now(),'public',true,true,true,now(),${category},'full',true)`;
   for (const route of ["/feed.xml", "/feed/all.xml", "/feed/full.xml", `/feed/category/${category}.xml`, `/feed/full/category/${category}.xml`]) {
     const res = await app.inject(route);
     assert.equal(res.statusCode, 200, route);

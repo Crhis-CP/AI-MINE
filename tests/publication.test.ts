@@ -1,3 +1,4 @@
+import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { decodeCursor, encodeCursor } from "../packages/backend/src/lib/cursor.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
@@ -10,7 +11,6 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // leaves new snapshots at once, and snapshots answer conditional requests.
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
-import { beijingDate } from "@amp/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
 import { tag, stub } from "./setup.ts";
 import { runBodyTranslation } from "../packages/backend/src/editorial/translation-runtime.ts";
@@ -19,7 +19,7 @@ import { promptVersion, promptText } from "@amp/backend/editorial/prompts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { setVisibility } from "@amp/backend/admin/content";
 import { updateSource } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
@@ -29,10 +29,7 @@ import { publishArticle, republishSource } from "@amp/backend/publication/publis
 import { computeHotRanking } from "@amp/backend/events/hot";
 import { latestHotRanking } from "@amp/backend/events/hot-read";
 import { effectiveWatermark } from "@amp/backend/publication/v1";
-import { SITE } from "@amp/industry/site";
-import { buildApp } from "../apps/api/src/app.ts";
-
-const sql = dbOf("publication");
+import { buildApp } from "./site-app.ts";
 
 const T = tag();
 const SOURCE = `test-publication-${T}`;
@@ -80,7 +77,7 @@ after(async () => {
 
 let n = 0;
 /** A selected article with full text and a summary. */
-async function article(body = BODY, language?: string, sourceId = SOURCE): Promise<string> {
+async function article(body = BODY, language?: string, sourceId = SOURCE, confirmed = true): Promise<string> {
   await ensureModelSourceFixture(sourceId, ["https://example.com/source"]);
   n += 1;
   const { articleId } = await upsertMaterial({
@@ -96,6 +93,7 @@ async function article(body = BODY, language?: string, sourceId = SOURCE): Promi
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
             VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题${n}-${T}`}, ${`合成摘要 SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+  if (confirmed) await completeMaterialGrouping(articleId, 1, { addsValue: true, reason: "合成已确认精选" }, null);
   const [source] = await sql`SELECT site_fulltext FROM sources WHERE id=${sourceId}`;
   if (source?.site_fulltext && body && !isChineseOriginal(language ?? null, body)) await translateFixture(articleId);
   return articleId;
@@ -251,10 +249,17 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
   const [story] = await sql<{ id: number }[]>`
     INSERT INTO stories (public_id, title, first_report_at, latest_at) VALUES (${randomUUID()}, ${`HOT-${T}`}, now() - interval '2 hours', now()) RETURNING id`;
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`fact-${T}`}, ${story!.id}, ${`HOT-${T}`}) RETURNING id`;
-  for (const id of [await article(), await article()]) {
-    await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${fact!.id}, ${id}, 'report')`;
+  const secondSource = `${SOURCE}-hot-second`;
+  await sql`INSERT INTO sources(id,name,kind,tier,participation_mode,site_fulltext,syndicate_fulltext,next_fetch_at)
+    VALUES(${secondSource},'Independent synthetic publisher','rss','T1','editorial',true,true,'2100-01-01')`;
+  const reports = [
+    { id: await article(), sourceId: SOURCE },
+    { id: await article(BODY, undefined, secondSource), sourceId: secondSource },
+  ];
+  for (const { id, sourceId } of reports) {
+    await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${fact!.id}, ${id}, 'report',1)`;
     await sql`INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
-              VALUES (${story!.id}, ${id}, ${`participant-${id}`}, ${SOURCE}, 'editorial', now() - interval '1 hour')`;
+              VALUES (${story!.id}, ${id}, ${`source:${sourceId}`}, ${sourceId}, 'editorial', now() - interval '1 hour')`;
     await publishArticle(id, released());
   }
   await computeHotRanking();
@@ -268,7 +273,7 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
     headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
     payload: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: MCP_TOOL_NAMES.hot, arguments: { limit: 10 } } },
   });
-  assert.ok(mcp.body.includes(`${SITE.name}：${itemUrl(rep!)}`), "MCP hot topics link each event's representative item on the site");
+  assert.ok(mcp.body.includes(`](${itemUrl(rep!)})`), "MCP hot topics link each event's representative item on the site");
 
   await setVisibility(rep!, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   for (const url of exits) assert.ok(!(await get(url)).body.includes(rep!), `${url} still shows the withdrawn item`);
@@ -347,13 +352,13 @@ test("one item's failure does not stop a source republish; a passing failure is 
   }
 });
 
-test("an early release keeps the selected ledger in order", async () => {
+test("confirmation appends selection without a waiting-candidate ledger barrier", async () => {
   const x = await article();
   await publishArticle(x, released());
-  const y = await article();
+  const y = await article(BODY, undefined, SOURCE, false);
   await publishArticle(y); // still behind the release gate
   await setVisibility(x, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
-  await sql`UPDATE articles SET grouped_at = now() WHERE id = ${y}`;
+  await completeMaterialGrouping(y, 1, { addsValue: true, reason: "合成归组确认" }, null);
   await publishArticle(y); // grouped: released now
 
   const [entry] = await sql<{ seq: number }[]>`SELECT max(seq)::int AS seq FROM selected_ledger WHERE article_id = ${y}`;
@@ -363,10 +368,10 @@ test("an early release keeps the selected ledger in order", async () => {
   assert.ok(!snapshot.body.includes(x), "withdrawn item is not");
 });
 
-test("a withdrawal waiting behind an unreleased item leaves new snapshots at once, and changes still carry both", async () => {
+test("pending candidates do not block withdrawals or appear in the selected sync", async () => {
   const x = await article();
   await publishArticle(x, released());
-  const y = await article();
+  const y = await article(BODY, undefined, SOURCE, false);
   await publishArticle(y); // behind the release gate: the watermark stays before it
   await setVisibility(x, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
 
@@ -375,15 +380,15 @@ test("a withdrawal waiting behind an unreleased item leaves new snapshots at onc
     assert.ok(!body.includes(x), `${url} still lists the withdrawn item`);
     assert.ok(!body.includes(y), `${url} lists an item before its release`);
   }
-  // A client that saved this snapshot's watermark receives y and x's removal once y is released.
+  // Removal has already crossed the watermark. A later confirmation only adds y.
   const snapshot = JSON.parse((await get("/api/v1/selected/snapshot?fields=minimal&limit=1000")).body) as { cursor: string };
-  await sql`UPDATE articles SET grouped_at = now() WHERE id = ${y}`;
+  await completeMaterialGrouping(y, 1, { addsValue: true, reason: "合成归组确认" }, null);
   await publishArticle(y);
   const changes = JSON.parse((await get(`/api/v1/selected/changes?cursor=${encodeURIComponent(snapshot.cursor)}&limit=100`)).body) as {
     changes: Array<{ op: string; id?: string; item?: { id: string } }>;
   };
   const ours = changes.changes.map((c) => `${c.op}:${c.id ?? c.item?.id}`).filter((c) => c.endsWith(x) || c.endsWith(y));
-  assert.deepEqual(ours, [`upsert:${y}`, `remove:${x}`]);
+  assert.deepEqual(ours, [`upsert:${y}`]);
 });
 
 test("snapshots answer 304 to their own ETag", async () => {
@@ -483,14 +488,20 @@ test("share images keep detail metadata and access rules while conditional reads
   const d = JSON.parse((await get(`/api/site/items/${id}`)).body);
   const kicker = d.category ? CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] : "AI 动态";
   const source = d.source.name.replace(/（[^）]*）\s*$/, "");
-  const date = beijingDate(d.timelineAt);
+  const { articlePoster, posterEtag } = await import("@amp/backend/media/images");
+  const { loadItemShare } = await import("@amp/backend/publication/og");
+  const poster = articlePoster((await loadItemShare(id))!);
+  const date = poster.date;
   const card = {
     kicker,
     title: d.title,
     subtitle: d.summary,
-    meta: `${source} · ${date}`,
+    meta: [source, date].filter(Boolean).join(" · "),
   };
-  const paths = [[`/og/items/${id}.png`, `"og-${ogEtag(card)}"`]];
+  const paths = [
+    [`/og/items/${id}.png`, `"og-${ogEtag(card)}"`],
+    [`/og/posters/${id}.png`, `"poster-${posterEtag(poster)}"`],
+  ];
   const queries: string[] = [];
   const previous = sql.options.debug;
   sql.options.debug = (_connection, query) => {
@@ -502,7 +513,7 @@ test("share images keep detail metadata and access rules while conditional reads
       assert.equal(response.status, 304);
       assert.equal(response.etag, etag);
     }
-    assert.equal(queries.length, 1);
+    assert.equal(queries.length, paths.length * 2);
     assert.ok(
       queries.every((q) => !/body_html|body_text|translations|fact_articles/.test(q)),
       "cards only load their public metadata",

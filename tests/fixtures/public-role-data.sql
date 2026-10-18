@@ -49,7 +49,8 @@ SELECT id,'PR9 已发布 '||id,'PR9 原稿 '||id,'PR9 synthetic summary '||id,'P
        visibility,eligible,selected,CASE WHEN id='pr9-future' THEN now()+interval '1 hour' ELSE now()-interval '1 hour' END,
        body,body='full',visibility='public' AND mode='editorial' AND eligible,source_id='pr9-editorial'
 FROM pr9_cases;
-UPDATE publications SET search_text=lower(title||' '||summary);
+-- Explicit published seats for permission/visibility fixtures; settlement is covered separately.
+UPDATE publications SET seat=selected,representative_priority=CASE WHEN first_party THEN 0 ELSE 3 END,search_text=lower(title||' '||summary);
 INSERT INTO pool_search (article_id,direct,body)
 SELECT id,'pr9 direct '||id,CASE WHEN id='pr9-editorial-public-full' THEN 'uniquebodyneedle pr9 body-only match' ELSE '' END
 FROM pr9_cases WHERE eligible;
@@ -78,7 +79,7 @@ VALUES (9101,date_trunc('hour',now())-interval '1 hour',5,2,true),(9101,date_tru
 INSERT INTO hot_rankings(computed_at,rule_version,entries,evidence,published)
 VALUES (now(),'pr9-synthetic-rule',jsonb_build_array(jsonb_build_object(
  'rank',1,'storyId',9101,'storyPublicId','11111111-1111-4111-8111-111111111111','title','PR9 主线事件','heat',8,
- 'trend','up','trendPct',10,'badges',jsonb_build_array('rising'),'participantCount',3,'sourceCount',3,'signalCount',1,'reportCount',2,
+ 'trend','up','trendPct',10,'badges',jsonb_build_array('rising'),'participantCount',3,'sourceCount',2,'signalCount',1,'reportCount',2,
  'sourceNames',jsonb_build_array('PR9 source pr9-editorial','PR9 source pr9-editorial-2'),'latestAt',now()-interval '15 minutes','firstReportAt',now()-interval '3 hours',
  'representativeItemId','pr9-editorial-public-full','representativeUrl','https://source.example.test/pr9-editorial-public-full','representativeSource','PR9 source pr9-editorial',
  'participants',jsonb_build_array(jsonb_build_object('name','PR9 source pr9-editorial','kind','editorial','tier','T1'))

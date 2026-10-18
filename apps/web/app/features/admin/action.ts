@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useRevalidator, useRouteLoaderData } from "react-router";
 import { toast } from "./toast";
-import { adminBody, adminResponse, type AdminSend } from "../../lib/admin-response.ts";
+import { adminBody, type AdminSend } from "../../lib/admin-response.ts";
 
 export interface AdminMe {
   name: string;
@@ -62,7 +62,7 @@ export function useAdminAction() {
           headers: { "content-type": "application/json", "x-csrf-token": me.csrf, "idempotency-key": key },
           body: body === undefined ? undefined : JSON.stringify(body),
         });
-        const res = adminResponse(result);
+        const res = result;
         if (res.status === 401) {
           window.location.href = `/api/auth/login?return=${encodeURIComponent(window.location.pathname)}`;
           return null;

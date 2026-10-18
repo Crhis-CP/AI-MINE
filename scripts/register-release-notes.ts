@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { config, REPO_ROOT } from "@amp/backend/config";
-import { maintenanceNote, recordSuccessfulRelease } from "@amp/backend/site/meta";
+import { maintenanceNote, recordSuccessfulRelease, recordReleaseAnnouncement, releaseAnnouncementFile, validateReleaseNote } from "@amp/backend/site/meta";
 
 // The host publisher and maintenance timer both hold /opt/aimine/.ops/release.lock before invoking this command.
 const [sha, publishedAt] = process.argv.slice(2);
@@ -15,16 +15,13 @@ if (!response.ok) throw new Error("当前公开健康检查未通过");
 const health = (await response.json()) as { ok: boolean; db: string; release: string };
 if (health.release !== process.env.AMP_RELEASE) throw new Error("公开版本与后台版本不同");
 const manifest = path.join(REPO_ROOT, "industry/release-note.json");
-const note = existsSync(manifest) ? JSON.parse(readFileSync(manifest, "utf8")).note : maintenanceNote;
-console.log(
-  JSON.stringify(
-    recordSuccessfulRelease({
-      filename: path.join(config.dataDir, "site", "release-notes.json"),
-      sha,
-      health,
-      publishedAt,
-      note,
-      lockHeld: true,
-    }),
-  ),
-);
+const description = existsSync(manifest) ? JSON.parse(readFileSync(manifest, "utf8")) : { note: maintenanceNote };
+// Validate both before registering either; retry remains idempotent if the second atomic write fails.
+const note = validateReleaseNote(description.note);
+const announcement = description.announcement === undefined ? null : validateReleaseNote(description.announcement);
+if (announcement && announcement.kind !== "公告") throw new Error("独立说明必须是公告");
+const filename = path.join(config.dataDir, "site", "release-notes.json");
+const common = { sha, health, publishedAt, lockHeld: true };
+const release = recordSuccessfulRelease({ ...common, filename, note });
+const separate = announcement ? recordReleaseAnnouncement({ ...common, filename: releaseAnnouncementFile(filename), note: announcement }) : null;
+console.log(JSON.stringify({ release, announcement: separate }));

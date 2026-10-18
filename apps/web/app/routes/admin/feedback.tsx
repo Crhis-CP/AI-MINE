@@ -20,6 +20,10 @@ interface Feedback {
   created_at: string;
   updated_at: string;
   banned: boolean;
+  banned_until: string | null;
+  paused_until: string | null;
+  email_banned: boolean;
+  email_key: string | null;
   from_source: number;
 }
 
@@ -52,6 +56,7 @@ function FeedbackCard({ f }: { f: Feedback }) {
   const { run, pending } = useAdminAction();
   const [note, setNote] = useState(f.note ?? "");
   const [status, setStatus] = useState(f.status);
+  const [reason, setReason] = useState("");
   const [showScreenshot, setShowScreenshot] = useState(false);
   const base = `/api/admin/feedback/${f.id}`;
   const version = new Date(f.updated_at).toISOString();
@@ -61,11 +66,14 @@ function FeedbackCard({ f }: { f: Feedback }) {
         <span className="num font-medium text-ink-2">#{f.id}</span>
         <Badge tone={TONE[f.status] ?? "muted"}>{FEEDBACK_STATUS[f.status] ?? f.status}</Badge>
         <Time at={f.created_at} />
-        {f.email && (
-          <a className="text-accent" href={`mailto:${f.email}`}>
-            {f.email}
-          </a>
-        )}
+        {f.email &&
+          (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email) ? (
+            <a className="text-accent" href={`mailto:${encodeURIComponent(f.email)}`}>
+              {f.email}
+            </a>
+          ) : (
+            <span>{f.email}</span>
+          ))}
         {f.page_url && (
           <a className="max-w-[320px] truncate hover:text-accent" href={f.page_url} target="_blank" rel="noreferrer">
             {f.page_url}
@@ -90,6 +98,65 @@ function FeedbackCard({ f }: { f: Feedback }) {
           )}
         </div>
       )}
+      <details className="mt-3 text-sm text-ink-2">
+        <summary className="cursor-pointer">提交管理{f.banned || f.paused_until || f.email_banned ? " · 暂停中" : ""}</summary>
+        {(f.banned || f.paused_until) && (
+          <p className="mt-2">
+            此来源已暂停
+            {f.banned_until ? (
+              <>
+                ，到期 <Time at={f.banned_until} />
+              </>
+            ) : (
+              "，需手动解除"
+            )}
+            。
+          </p>
+        )}
+        {f.email_banned && <p className="mt-2">此邮箱已被人工暂停，48小时到期后恢复。</p>}
+        <Input className="mt-2" aria-label="暂停原因" placeholder="填写暂停原因" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {f.source_hash &&
+            (f.banned || f.paused_until ? (
+              <Button
+                disabled={!!pending}
+                onClick={() =>
+                  run("DELETE", `/api/admin/feedback-bans/${encodeURIComponent(f.source_hash)}`, undefined, { success: "来源已恢复，次数窗口已清空" })
+                }
+              >
+                恢复此来源
+              </Button>
+            ) : (
+              <Button
+                disabled={!!pending || !reason.trim()}
+                onClick={() =>
+                  run(
+                    "POST",
+                    "/api/admin/feedback-bans",
+                    { sourceHash: f.source_hash, reason, expiresAt: new Date(Date.now() + 3600000).toISOString() },
+                    { success: "此来源已暂停1小时" },
+                  )
+                }
+              >
+                暂停此来源1小时
+              </Button>
+            ))}
+          {f.email_key &&
+            (f.email_banned ? (
+              <Button
+                disabled={!!pending}
+                onClick={() => run("DELETE", `/api/admin/feedback-bans/${encodeURIComponent(f.email_key!)}`, undefined, { success: "邮箱已恢复" })}
+              >
+                恢复此邮箱
+              </Button>
+            ) : (
+              <Button disabled={!!pending || !reason.trim()} onClick={() => run("POST", `${base}/ban-email`, { reason }, { success: "此邮箱已暂停48小时" })}>
+                暂停此邮箱48小时
+              </Button>
+            ))}
+        </div>
+        <p className="mt-2 text-xs text-ink-3">仅在确认滥用后暂停邮箱；填写相同邮箱不会自动关联或封禁其他来源。</p>
+      </details>
       <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto] sm:items-start">
         <Select aria-label="处理状态" value={status} disabled={!!pending} onChange={(e) => setStatus(e.target.value)}>
           {Object.entries(FEEDBACK_STATUS).map(([k, v]) => (
@@ -98,7 +165,14 @@ function FeedbackCard({ f }: { f: Feedback }) {
             </option>
           ))}
         </Select>
-        <Textarea rows={1} className="!min-h-[38px]" placeholder="处理备注（仅内部可见）" value={note} onChange={(e) => setNote(e.target.value)} />
+        <Textarea
+          aria-label="处理备注（仅内部可见）"
+          rows={1}
+          className="!min-h-[38px]"
+          placeholder="处理备注（仅内部可见）"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
         <div className="flex gap-1.5">
           <Button
             size="md"

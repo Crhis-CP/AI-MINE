@@ -9,7 +9,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { publicSchemas } from "@amp/api-client/public";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { releaseBoundCache } from "../app/lib/api.server.ts";
 import { webEnvironment } from "../runtime-env.ts";
@@ -25,6 +26,14 @@ let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
 let privatePageFixtures = false;
+let coverageUnavailable = false;
+let groupingView: "pending" | "complete" | "failed" | "legacy" = "pending";
+let modelJourney: {
+  connection: ReturnType<typeof privateSchemas.ModelConnectionRecord.parse> | null;
+  route: string;
+  revision: number;
+  commands: Array<{ path: string; body: Record<string, unknown> }>;
+} | null = null;
 let reconciliationUnavailable = false;
 let poolMode: "ok" | "busy" | "bad" | "missing" | "empty" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
@@ -161,15 +170,79 @@ const protectedSiteFixture = {
 
 const apiCookies: Array<string | undefined> = [];
 const privateCookies: Array<string | undefined> = [];
+const privateAgents: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
-const privateApi = createServer((req, res) => {
+const privateApi = createServer(async (req, res) => {
   privateCookies.push(req.headers.cookie);
+  privateAgents.push(req.headers["user-agent"]);
   privateCalls.push({ path: req.url!, forwarded: req.headers["x-forwarded-host"] as string | undefined });
   res.setHeader("Content-Type", "application/json");
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
   if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
   if (privatePageFixtures) {
-    if (req.url === "/api/admin/model-connections") return res.end(JSON.stringify({ storage: "ready", connections: [] }));
+    if (modelJourney && req.method === "POST" && req.url?.startsWith("/api/admin/model-")) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+      const body = JSON.parse(Buffer.concat(chunks).toString());
+      modelJourney.commands.push({ path: req.url, body });
+      if (req.url === "/api/admin/model-connections") {
+        const { secret, reason, owner_confirmed, supplier_basis, ...config } = privateSchemas.ModelConnectionCreate.parse(body);
+        assert.ok(secret && reason && owner_confirmed && supplier_basis);
+        modelJourney.connection = privateSchemas.ModelConnectionRecord.parse({
+          ...config,
+          id: "90f32e1b-398d-4e10-8ab4-748d770e9a07",
+          key: "registered:90f32e1b-398d-4e10-8ab4-748d770e9a07",
+          revision: 1,
+          enabled: true,
+          fingerprint: "synthetic-fingerprint",
+          configuration_hash: "a".repeat(64),
+          test_status: "untested",
+          tested_at: null,
+          updated_at: new Date().toISOString(),
+        });
+        return res.end(JSON.stringify(modelJourney.connection));
+      }
+      if (req.url.endsWith("/test"))
+        return res.end(
+          JSON.stringify({
+            id: "86c944d5-34d3-4164-9943-fcedf7b20785",
+            connection_id: modelJourney.connection!.id,
+            revision: 1,
+            lane: "news",
+            status: "queued",
+            detail: null,
+            receipt_id: null,
+            created_at: new Date().toISOString(),
+            finished_at: null,
+          }),
+        );
+      if (req.url === "/api/admin/model-routes/structure") {
+        const choice = privateSchemas.ModelRouteChange.parse(body);
+        assert.equal(choice.expected_revision, modelJourney.revision);
+        modelJourney.route = choice.model;
+        modelJourney.revision++;
+        return res.end(JSON.stringify({ capability: "structure", model: choice.model, revision: modelJourney.revision, unevaluated: true }));
+      }
+    }
+    if (modelJourney && req.url?.startsWith("/api/admin/model-connection-tests/")) {
+      modelJourney.connection!.test_status = "passed";
+      modelJourney.connection!.tested_at = new Date().toISOString();
+      return res.end(
+        JSON.stringify({
+          id: "86c944d5-34d3-4164-9943-fcedf7b20785",
+          connection_id: modelJourney.connection!.id,
+          revision: 1,
+          lane: "news",
+          status: "passed",
+          detail: "连接通过",
+          receipt_id: "42",
+          created_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+        }),
+      );
+    }
+    if (req.url === "/api/admin/model-connections")
+      return res.end(JSON.stringify({ storage: "ready", connections: modelJourney?.connection ? [modelJourney.connection] : [] }));
     if (req.url === "/api/admin/model-fallbacks") return res.end(JSON.stringify({ routes: [], sources: [] }));
     if (req.url === "/api/admin/selectbench/control") return res.end(JSON.stringify({ enabled: false, expiresAt: null, revision: 0 }));
     if (req.url === "/api/admin/selectbench/prefilter-audit")
@@ -229,19 +302,122 @@ const privateApi = createServer((req, res) => {
         }),
       );
     if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
+    if (req.url === "/api/admin/content/grouping-fixture") {
+      const at = "2026-10-15T08:00:00Z";
+      return res.end(
+        JSON.stringify({
+          article: {
+            id: "grouping-fixture",
+            source_id: "source",
+            source_name: "合成来源",
+            source_kind: "rss",
+            tier: "T1",
+            participation_mode: "editorial",
+            lane: "news",
+            url: "https://example.invalid/original",
+            title: "合成归组诊断",
+            revision: 2,
+            body_status: "ok",
+            body_chars: 30,
+            processing_state: "analyzed",
+            grouped_at: at,
+            discovered_at: at,
+            timeline_at: at,
+          },
+          grouping:
+            groupingView === "legacy"
+              ? undefined
+              : {
+                  materialRevision: 2,
+                  inputRevision: groupingView === "pending" ? null : 2,
+                  status: groupingView,
+                  selectionCandidate: true,
+                  addsValue: groupingView === "complete" ? false : null,
+                  reason: groupingView === "complete" ? "已报道相同事实，无新增信息" : null,
+                  receiptId: null,
+                  error: groupingView === "failed" ? "归组答案缺少一个候选，等待修复后重试" : null,
+                },
+          discoveries: [],
+          revisions: [],
+          analyses: [{ id: 1, input_revision: 2, relevance: "pass", score: 88, selected: true, receipts: [], created_at: at }],
+          publication: null,
+          override: null,
+          ledger: [],
+          membership: [{ fact_id: 1, fact_title: "已有人工归属", role: "report", manual: true, needs_review: true }],
+          decisions: [],
+          deliveries: [],
+          history: [],
+          manualRevisions: [],
+        }),
+      );
+    }
+    if (req.url?.startsWith("/api/admin/source-targets?"))
+      return res.end(
+        JSON.stringify({
+          page: 1,
+          page_size: 50,
+          total: 0,
+          total_targets: 2,
+          total_original_records: 3,
+          counts: { unmatched: 1, configured: 1, observed: 0, needs_address: 0 },
+          countries: [{ id: "CN", name: "中国" }],
+          coverage: [],
+          items: [],
+          as_of: "2026-10-16T08:00:00Z",
+          limitations: [],
+        }),
+      );
+    if (req.url === "/api/admin/source-coverage") {
+      if (coverageUnavailable) {
+        res.statusCode = 503;
+        return res.end(JSON.stringify({ code: "temporarily_unavailable" }));
+      }
+      return res.end(
+        JSON.stringify({
+          asOf: "2026-10-16T08:00:00Z",
+          matrices: [
+            {
+              id: "news",
+              title: "矿业资讯覆盖",
+              explanation: "合成目录与实际采集分开",
+              rows: [{ id: "copper", label: "铜" }],
+              columns: [{ id: "official", label: "官方" }],
+              cells: [{ row: "copper", column: "official", entries: [], configured: 0, observed: 0 }],
+            },
+          ],
+          supplemental: [],
+          limitations: [],
+        }),
+      );
+    }
     if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false, owner: true, modelsManage: true }));
     if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 2, feedback: 1, runs: 0 }));
     if (req.url?.startsWith("/api/admin/models?"))
       return res.end(
         JSON.stringify({
           days: Number(new URL(req.url, "http://fixture").searchParams.get("days") || 7),
-          capabilities: [],
+          capabilities: modelJourney
+            ? [
+                {
+                  key: "structure",
+                  label: "整理文章结构",
+                  env: "STRUCTURE_MODEL",
+                  defaultModel: "default",
+                  vision: false,
+                  routeRevision: modelJourney.revision,
+                  unevaluated: modelJourney.route !== "default",
+                  current: { model: modelJourney.route, source: modelJourney.route === "default" ? "default" : "admin" },
+                  usage: [],
+                },
+              ]
+            : [],
           choices: [],
           history: [],
           benches: [{ id: "old-bench", label: "旧对比记录" }],
         }),
       );
     if (req.url === "/api/admin/settings") return res.end(JSON.stringify({ targets: [], budgets: [] }));
+    if (req.url?.startsWith("/api/admin/audit")) return res.end(JSON.stringify({ page: 1, rows: [] }));
     if (req.url === "/api/admin/runs") {
       if (reconciliationUnavailable) {
         res.statusCode = 503;
@@ -249,9 +425,27 @@ const privateApi = createServer((req, res) => {
       }
       return res.end(
         JSON.stringify({
-          processes: [{ host: "NEVER_SERIALIZE_PROCESS" }],
-          queues: [{ name: "NEVER_SERIALIZE_QUEUE" }],
-          timeline: ["NEVER_SERIALIZE_TIMELINE"],
+          checkedAt: "2026-10-15T00:00:00Z",
+          processes: [
+            {
+              role: "worker",
+              pid: 1,
+              host: "fixture-host",
+              release: "fixture",
+              startedAt: "2026-10-15T00:00:00Z",
+              at: "2026-10-15T00:00:00Z",
+              alive: true,
+              private: "NEVER_SERIALIZE_PROCESS",
+            },
+          ],
+          queues: [{ name: "content.analyze", state: "created", n: 2, oldest: "2026-10-15T00:00:00Z", private: "NEVER_SERIALIZE_QUEUE" }],
+          timeline: [],
+          jobs: [],
+          failedJobs: [],
+          lagging: [],
+          errors: [],
+          ingest: [],
+          retrying: { count: 0, next: null },
           receipts: {
             counts: { unknown: 1 },
             issues: [
@@ -278,7 +472,10 @@ const privateApi = createServer((req, res) => {
               subject_kind: "selected",
               subject_id: "test-material",
               updated_at: "2026-10-04T00:00:00Z",
-              response: "NEVER_SERIALIZE_DELIVERY",
+              response: "合成投递结果未知",
+              attempts: 1,
+              created_at: "2026-10-04T00:00:00Z",
+              private: "NEVER_SERIALIZE_DELIVERY",
             },
           ],
         }),
@@ -292,6 +489,13 @@ const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   apiCookies.push(req.headers.cookie);
   res.setHeader("Content-Type", "application/json");
+  if (url.pathname === "/api/site/policy-threads/thread-fixture") {
+    return res.end(
+      JSON.stringify(
+        publicSchemas.PolicyThread.parse({ id: "thread-fixture", title: "合成政策脉络", summary: null, jurisdictions: [], stages: [], policies: [] }),
+      ),
+    );
+  }
   if (url.pathname.startsWith("/api/site/policies")) {
     const send = (body: unknown, status = 200) => {
       res.statusCode = status;
@@ -917,7 +1121,9 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   assert.match(table, /text-hot[^>]*>\+1.0%/);
   assert.match(table, /text-ok[^>]*>−1.6%/);
   assert.match(table, /text-ink-3[^>]*>0.0%/);
-  assert.doesNotMatch(table, /2026-|合成报价期/);
+  assert.match(table, /合成报价期/);
+  assert.match(table, /对比/);
+  assert.doesNotMatch(table, /2026-/);
   assert.match(html, /href="#n1"[^>]*aria-label="见说明第 1 条"/);
   assert.match(html, /id="n1"/);
   assert.match(html, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
@@ -959,10 +1165,12 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   } finally {
     priceMode = "full";
   }
-  // Desktop sidebar entry; on phones the bottom bar keeps “更多” highlighted.
+  // The installed price module owns its phone tab; the personal tab must not also light up.
   assert.match(html, /<aside[\s\S]*href="\/metals"[\s\S]*<\/aside>/);
   const tabbar = html.slice(html.indexOf('aria-label="底部导航"'));
-  assert.match(tabbar.slice(0, tabbar.indexOf("</nav>")), /<a[^>]*aria-current="page"[^>]*href="\/more"|<a[^>]*href="\/more"[^>]*aria-current="page"/);
+  const phoneTabs = tabbar.slice(0, tabbar.indexOf("</nav>"));
+  assert.match(phoneTabs, /<a(?=[^>]*href="\/metals")(?=[^>]*aria-current="page")[^>]*>/);
+  assert.equal([...phoneTabs.matchAll(/aria-current="page"/g)].length, 1);
   // The “更多” page lists it in its own body, not only through the sidebar.
   const more = await (await fetch(`${origin}/more`)).text();
   const body = more.slice(more.indexOf('id="main"'), more.indexOf('aria-label="底部导航"'));
@@ -1006,6 +1214,21 @@ test("policy pages distinguish basic facts, complete interpretations, unknown da
     policyMode = "full";
   }
 });
+test("installed policy pages retain menu positions and mark thread pages as part of the same reader section", async () => {
+  const response = await fetch(`${origin}/policy-threads/thread-fixture`);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /合成政策脉络/);
+  const sidebar = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+  assert.match(sidebar, /<a(?=[^>]*href="\/policies")(?=[^>]*aria-current="page")[^>]*>/);
+  const links = [...sidebar.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(links[links.indexOf("/daily") + 1], "/policies");
+  assert.equal(links[links.indexOf("/starred") + 1], "/metals");
+  assert.equal(links.filter((path) => path === "/policies").length, 1);
+  const tabs = html.slice(html.indexOf('aria-label="底部导航"'));
+  assert.match(tabs.slice(0, tabs.indexOf("</nav>")), /<a(?=[^>]*href="\/more")(?=[^>]*aria-current="page")[^>]*>/);
+});
+
 test("policy reading retains pages on failure, aligns original nodes and removes stale interpretation on withdrawal or revision", async () => {
   const executablePath = [
     process.env.E2E_BROWSER_PATH,
@@ -1034,7 +1257,7 @@ test("policy reading retains pages on failure, aligns original nodes and removes
     await expect(page.getByText("【合成预览】第一条", { exact: true })).toBeVisible();
     policyMode = "full";
     await page.getByRole("button", { name: "重新读取正文" }).click();
-    await expect(page.getByText("已载入全部正文节点。", { exact: true })).toBeVisible();
+    await expect(page.getByText("正文已全部载入。", { exact: true })).toBeVisible();
     await page.getByRole("link", { name: "原文 en", exact: true }).click();
     await expect(page.getByText(/原文 · en · 已载入 1 \/ 2/)).toBeVisible();
     policyMode = "withdrawn";
@@ -1209,19 +1432,23 @@ test("actual Vite SSR admits only the configured private Host for login", async 
   await once(holder, "listening");
   const port = (holder.address() as AddressInfo).port;
   await new Promise<void>((resolve) => holder.close(() => resolve()));
-  const dev = spawn(process.execPath, ["node_modules/@react-router/dev/bin.cjs", "dev", "--host", "127.0.0.1", "--port", String(port)], {
-    cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: webEnvironment({
-      ...process.env,
-      NODE_ENV: "development",
-      SITE_URL: "http://public.preview.test",
-      PRIVATE_HOST: "private.preview.test",
-      WEB_ROUTE_GROUP: "private",
-      API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
-      PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
-    }),
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const dev = spawn(
+    process.execPath,
+    [fileURLToPath(new URL("bin.cjs", import.meta.resolve("@react-router/dev/package.json"))), "dev", "--host", "127.0.0.1", "--port", String(port)],
+    {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      env: webEnvironment({
+        ...process.env,
+        NODE_ENV: "development",
+        SITE_URL: "http://public.preview.test",
+        PRIVATE_HOST: "private.preview.test",
+        WEB_ROUTE_GROUP: "private",
+        API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
+        PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
+      }),
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   const exited = once(dev, "exit");
   t.after(async () => {
     if (dev.exitCode === null) dev.kill("SIGTERM");
@@ -1312,11 +1539,11 @@ test("existing private preview links redirect only to the configured public orig
   assert.equal(unknown.headers.get("Location"), null);
 });
 
-test("retired daily pages are absent and private navigation no longer requests counts or links construction tools", async () => {
+test("retired search pages stay absent while canonical admin navigation includes runtime and audit", async () => {
   const before = privateCalls.length;
   privatePageFixtures = true;
   try {
-    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/runs"]) {
+    for (const path of ["/search-busy", "/all/search-busy"]) {
       for (const suffix of ["", ".data?_routes=root"]) {
         for (const method of ["GET", "HEAD"]) {
           const response = path.startsWith("/admin")
@@ -1330,30 +1557,32 @@ test("retired daily pages are absent and private navigation no longer requests c
         }
       }
     }
-    const response = await fetchWithHost(origin + "/admin/usage-models", PRIVATE_HOST);
+    const response = await fetchWithHost(origin + "/admin/models", PRIVATE_HOST);
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /合成管理员/);
     assert.match(html, /模型与评测/);
     assert.match(html, /内容诊断/);
     assert.match(html, /精选校准/);
-    assert.match(html, /费用核对/);
+    assert.match(html, /审计记录/);
+    assert.match(html, /运行/);
     for (const path of [
       "content",
       "sources",
       "sources/targets",
-      "usage-models",
+      "models",
       "site",
       "feedback",
       "account",
       "accounts",
       "selectbench",
-      "usage-models/reconciliation",
-      "usage-models/settings",
+      "runs",
+      "audit",
+      "settings",
     ]) {
       assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
     }
-    assert.doesNotMatch(html, /\/admin\/(?:audit|runs)|同批样本对比|Codex|888/);
+    assert.doesNotMatch(html, /同批样本对比|Codex|888/);
     assert.ok(
       privateCalls
         .slice(before)
@@ -1384,7 +1613,9 @@ test("retired daily pages are absent and private navigation no longer requests c
     await runPage.text();
     for (const group of ["public", "private"]) {
       const modules = readFileSync(new URL(`../build/${group}/modules.json`, import.meta.url), "utf8");
-      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|runs))/);
+      assert.doesNotMatch(modules, /routes\/search-busy/);
+      if (group === "public") assert.doesNotMatch(modules, /routes\/admin\/(?:audit|runs)/);
+      else assert.match(modules, /routes\/admin\/runs/);
       if (group === "public") assert.doesNotMatch(modules, /routes\/admin\/selectbench/);
       else assert.match(modules, /routes\/admin\/selectbench/);
     }
@@ -1393,28 +1624,32 @@ test("retired daily pages are absent and private navigation no longer requests c
   }
 });
 
-test("usage reconciliation renders existing controls and serializes only needed fees and delivery fields", async () => {
+test("runtime dashboard exposes operational fields but never serializes unused request data", async () => {
   privatePageFixtures = true;
   try {
     for (const suffix of ["", ".data"]) {
-      const path = "/admin/usage-models/reconciliation" + suffix;
+      const path = "/admin/runs" + suffix;
       const before = privateCalls.length;
-      const denied = await fetch(origin + path);
+      const deniedMarker = `fixture-denied-runs-${suffix || "html"}`;
+      const allowedMarker = `fixture-allowed-runs-${suffix || "html"}`;
+      const denied = await fetch(origin + path, { headers: { "User-Agent": deniedMarker } });
       assert.equal(denied.status, 404);
       assert.equal(denied.headers.get("Set-Cookie"), null);
       await denied.text();
-      assert.equal(privateCalls.length, before);
-      const response = await fetchWithHost(origin + path, PRIVATE_HOST);
+      assert.ok(!privateAgents.includes(deniedMarker), "this denied request must never reach the private API");
+      const response = await fetchWithHost(origin + path, PRIVATE_HOST, { headers: { "User-Agent": allowedMarker } });
       assert.equal(response.status, 200);
       assert.equal(response.headers.get("Cache-Control"), "private, no-store");
       const body = await response.text();
+      assert.ok(privateAgents.includes(allowedMarker), "the probe can observe a forwarded authorized request");
       assert.match(body, /合成通知目的地/);
       assert.match(body, /结果待核实/);
-      assert.doesNotMatch(body, /NEVER_SERIALIZE|worker|队列积压|任务时间线|每 20 秒/);
+      assert.doesNotMatch(body, /NEVER_SERIALIZE/);
+      assert.match(body, /队列积压|content.analyze/);
       assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/runs"));
     }
     reconciliationUnavailable = true;
-    const failed = await fetchWithHost(origin + "/admin/usage-models/reconciliation", PRIVATE_HOST);
+    const failed = await fetchWithHost(origin + "/admin/runs", PRIVATE_HOST);
     assert.equal(failed.status, 503);
     assert.equal(failed.headers.get("Cache-Control"), "private, no-store");
     await failed.text();
@@ -1429,8 +1664,9 @@ test("six private groups reuse existing capabilities and old bookmarks have only
   try {
     for (const method of ["GET", "HEAD"]) {
       for (const [oldPath, expected] of [
-        ["/admin/models?days=30&days=7&redirect=https://attacker.invalid", "/admin/usage-models?days=30"],
-        ["/admin/settings?next=//attacker.invalid", "/admin/usage-models/settings"],
+        ["/admin/usage-models?days=30&days=7&redirect=https://attacker.invalid", "/admin/models?days=30"],
+        ["/admin/usage-models/settings?next=//attacker.invalid", "/admin/settings"],
+        ["/admin/usage-models/reconciliation?next=//attacker.invalid", "/admin/runs"],
       ]) {
         const response = await fetchWithHost(origin + oldPath, PRIVATE_HOST, { method });
         assert.equal(response.status, 302);
@@ -1439,7 +1675,7 @@ test("six private groups reuse existing capabilities and old bookmarks have only
         await response.text();
       }
     }
-    for (const path of ["/admin/accounts", "/admin/site", "/admin/usage-models/settings"]) {
+    for (const path of ["/admin/accounts", "/admin/site", "/admin/settings"]) {
       const before = privateCalls.length;
       const denied = await fetch(origin + path);
       assert.equal(denied.status, 404);
@@ -1488,5 +1724,212 @@ test("site information page loads its real contract and keeps protected fields o
     assert.equal(res.headers.get("Cache-Control"), "private, no-store");
   } finally {
     privatePageFixtures = false;
+  }
+});
+
+test("model dialog keeps the reason across edits, traps keyboard focus and restores its trigger on desktop and mobile", async () => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((file) => file && existsSync(file));
+  assert.ok(executablePath);
+  const browser = await chromium.launch({
+    executablePath,
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+  privatePageFixtures = true;
+  try {
+    for (const viewport of [
+      { width: 1440, height: 1000 },
+      { width: 390, height: 844 },
+    ]) {
+      const context = await browser.newContext({ viewport, serviceWorkers: "block", reducedMotion: "reduce" });
+      await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+      const page = await context.newPage();
+      await page.goto(`${privateOrigin}/admin/models`, { waitUntil: "networkidle" });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "admin page must not overflow the viewport");
+      const trigger = page.getByRole("button", { name: "添加接入", exact: true });
+      await trigger.click();
+      const dialog = page.getByRole("dialog", { name: "添加模型接入" });
+      const first = dialog.getByRole("textbox", { name: "接入名称", exact: true });
+      await expect(first).toBeFocused();
+      const reason = dialog.getByRole("textbox", { name: "原因（写进审计记录）", exact: true });
+      await reason.fill("合成界面测试，不保存配置");
+      await first.fill("备用模型");
+      await dialog.getByRole("textbox", { name: "供应商模型标识", exact: true }).fill("synthetic-model");
+      await expect(reason).toHaveValue("合成界面测试，不保存配置");
+      await first.focus();
+      await page.keyboard.press("Shift+Tab");
+      const last = dialog.getByRole("button", { name: "保存接入", exact: true });
+      await expect(last).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(first).toBeFocused();
+      await dialog
+        .locator("label")
+        .filter({ hasText: "原因（写进审计记录）" })
+        .click({ position: { x: 10, y: 5 } });
+      await expect(reason).toBeFocused();
+      await expect(dialog).toHaveCSS("opacity", "1");
+      await page.screenshot({ path: `.verify/admin-model-${viewport.width}.png` });
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await expect(trigger).toBeFocused();
+      const audit = await page.goto(`${privateOrigin}/admin/audit`);
+      assert.equal(audit?.headers()["x-accel-buffering"], "no");
+      await page.getByRole("textbox", { name: "按操作筛选" }).fill("source.");
+      await page.getByRole("textbox", { name: "按对象筛选" }).fill("source:fixture");
+      await page.getByRole("button", { name: "筛选", exact: true }).click();
+      await expect(page).toHaveURL(/action=source\.&subject=source%3Afixture/);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+      await context.close();
+    }
+  } finally {
+    privatePageFixtures = false;
+    await browser.close();
+  }
+});
+
+test("owner can add an arbitrary model, test it and choose it for a text step without a code change", { timeout: 45000 }, async (t) => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((file) => file && existsSync(file));
+  assert.ok(executablePath);
+  const browser = await chromium.launch({
+    executablePath,
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  t.after(() => browser.close());
+  privatePageFixtures = true;
+  modelJourney = { connection: null, route: "default", revision: 0, commands: [] };
+  try {
+    const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", reducedMotion: "reduce" });
+    await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+    const page = await context.newPage();
+    await page.goto(`${privateOrigin}/admin/models`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "添加接入", exact: true }).click();
+    const form = page.getByRole("dialog", { name: "添加模型接入" });
+    await form.getByRole("textbox", { name: "接入名称", exact: true }).fill("我的模型");
+    await form.getByRole("textbox", { name: "HTTPS 接口地址", exact: true }).fill("https://provider.invalid/v1");
+    await form.getByRole("textbox", { name: "供应商模型标识", exact: true }).fill("custom-version-2026");
+    await form.getByLabel("API 密钥", { exact: true }).fill("synthetic-browser-only");
+    await form.getByRole("textbox", { name: "输入价格", exact: true }).fill("1.2");
+    await form.getByRole("textbox", { name: "输出价格", exact: true }).fill("3.4");
+    await form.getByRole("textbox", { name: "官方计费依据网址", exact: true }).fill("https://provider.invalid/pricing");
+    await form.getByRole("checkbox", { name: "支持图片输入" }).check();
+    await form.getByRole("textbox", { name: "原因（写进审计记录）", exact: true }).fill("新增自选模型");
+    await form.getByRole("button", { name: "保存接入", exact: true }).click();
+    await expect(form).toBeHidden();
+    await page.getByRole("button", { name: "测试连接", exact: true }).click();
+    await page.getByRole("dialog", { name: "测试模型连接" }).getByRole("button", { name: "发起测试", exact: true }).click();
+    await expect(page.getByText("最近连接测试：连接通过", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "切换", exact: true }).click();
+    const switcher = page.getByRole("dialog", { name: "切换模型：整理文章结构" });
+    await switcher.getByRole("combobox").selectOption(modelJourney.connection!.key);
+    await switcher.getByRole("textbox", { name: "原因（写进审计记录）", exact: true }).fill("使用已测试的新版本");
+    await switcher.getByRole("button", { name: "切换", exact: true }).click();
+    await expect(switcher).toBeHidden();
+    await expect(page.getByText("我的模型 · custom-version-2026", { exact: true })).toBeVisible();
+    const assigned = modelJourney.commands.find((command) => command.path === "/api/admin/model-routes/structure");
+    assert.equal(assigned?.body.emergency_confirmed, false);
+    assert.equal(assigned?.body.evaluation_id, null);
+    assert.equal(modelJourney.route, modelJourney.connection!.key);
+    await page.getByRole("button", { name: "复制配置", exact: true }).click();
+    const copy = page.getByRole("dialog", { name: "添加模型接入" });
+    await expect(copy.getByLabel("API 密钥", { exact: true })).toHaveValue("");
+    await expect(copy.getByRole("textbox", { name: "供应商模型标识", exact: true })).toHaveValue("custom-version-2026");
+  } finally {
+    modelJourney = null;
+    privatePageFixtures = false;
+  }
+});
+
+test("content diagnostics distinguish current grouping from nomination and keep manual review visible on mobile and desktop", { timeout: 30000 }, async () => {
+  const { browserExecutable } = await import("./browser.ts");
+  const browser = await chromium.launch({
+    executablePath: browserExecutable(),
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+  privatePageFixtures = true;
+  try {
+    for (const width of [390, 1440]) {
+      const context = await browser.newContext({ viewport: { width, height: 1000 }, serviceWorkers: "block", reducedMotion: "reduce" });
+      try {
+        await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+        const page = await context.newPage();
+        groupingView = "pending";
+        await page.goto(`${privateOrigin}/admin/content/grouping-fixture`);
+        await expect(page.getByText("等待归组确认", { exact: true })).toBeVisible();
+        await expect(page.getByText("达到评分门槛", { exact: true })).toHaveCount(2);
+        await expect(page.getByText("材料已修订，人工归属待复核", { exact: true })).toBeVisible();
+        const steps = await page.locator("h3").allTextContents();
+        assert.ok(steps.indexOf("事件归组") < steps.indexOf("公开"));
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+        groupingView = "complete";
+        await page.reload();
+        await expect(page.getByText("当前修订已确认", { exact: true })).toBeVisible();
+        await expect(page.getByText("没有新增信息，不重复占据精选", { exact: true })).toBeVisible();
+        groupingView = "failed";
+        await page.reload();
+        await expect(page.getByText("当前归组失败", { exact: true })).toBeVisible();
+        await expect(page.getByText("归组答案缺少一个候选，等待修复后重试", { exact: true })).toBeVisible();
+        groupingView = "legacy";
+        await page.reload();
+        await expect(page.getByText("尚无当前修订的归组诊断，不根据旧归组时间推定已完成。", { exact: true })).toBeVisible();
+        await expect(page.getByText("当前修订已确认", { exact: true })).toHaveCount(0);
+      } finally {
+        await context.close();
+      }
+    }
+  } finally {
+    privatePageFixtures = false;
+    groupingView = "pending";
+    await browser.close();
+  }
+});
+
+test("source coverage view survives refresh and back navigation without losing target filters", { timeout: 30000 }, async () => {
+  const { browserExecutable } = await import("./browser.ts");
+  const browser = await chromium.launch({
+    executablePath: browserExecutable(),
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  privatePageFixtures = true;
+  const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+  try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", reducedMotion: "reduce" });
+    await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+    const page = await context.newPage();
+    await page.goto(`${privateOrigin}/admin/sources/targets?country=CN&q=${encodeURIComponent("矿山")}&view=coverage`);
+    await expect(page.getByRole("button", { name: "覆盖与缺口", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toBeVisible();
+    await page.getByRole("button", { name: "原表明细", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "搜索原表目标" })).toHaveValue("矿山");
+    await expect(page.getByRole("combobox", { name: "国家筛选" })).toHaveValue("CN");
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toBeVisible();
+    coverageUnavailable = true;
+    await page.reload();
+    await expect(page.getByText("覆盖记录暂时无法读取，请稍后刷新。", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toHaveCount(0);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    await context.close();
+  } finally {
+    coverageUnavailable = false;
+    privatePageFixtures = false;
+    await browser.close();
   }
 });

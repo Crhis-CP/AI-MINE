@@ -1,15 +1,16 @@
-import { SITE, withSubject } from "@amp/industry/site";
+import { SITE } from "@amp/industry/site";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, redirect, useLoaderData } from "react-router";
+import { redirect, useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
-import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME, relativeTime, shortSourceName, sourceMonthDayTime } from "../lib/format";
+import { beijingDate, isDateOnlyInstant, NO_TIME, newsSourceDate, relativeTime, shortSourceName, sourceMonthDayTime } from "../lib/format";
 import { ShareLink } from "../components/ShareLink";
 import { StorySaveButton } from "../features/story/StorySaved";
 import { HeatChart } from "../features/story/HeatChart";
-import { Badge, SelectedBadge } from "@amp/ui/Badge";
+import { Badge, SelectedBadge } from "../components/ui/Badge.tsx";
 import { PillTabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Controls";
 import { IconArrowLeft, IconChevronRight, IconClock, IconDoc, IconUsers } from "../components/icons";
@@ -137,6 +138,7 @@ function dayLabelOf(day: string): string {
 /** One report on the story timeline: time, source and marks, title, a summary that opens on demand. */
 function TimelineRow({ r }: { r: StoryReportView }) {
   const [open, setOpen] = useState(false);
+  const sourceDate = newsSourceDate(r.sourceTime, r.publishedAt);
   const [clamped, setClamped] = useState(false);
   const ref = useRef<HTMLParagraphElement>(null);
   useIsoLayoutEffect(() => {
@@ -145,19 +147,19 @@ function TimelineRow({ r }: { r: StoryReportView }) {
   }, [r.summary, open]);
   return (
     <li className="grid gap-x-3 border-b border-line-soft py-4 last:border-b-0 lg:grid-cols-[48px_minmax(0,1fr)]">
-      <time dateTime={isDateOnlyInstant(r.publishedAt) ? beijingDate(r.publishedAt) : r.publishedAt} className="mono text-[12px] leading-[20px] text-ink-4">
-        {isDateOnlyInstant(r.publishedAt) ? NO_TIME : beijingTime(r.publishedAt)}
+      <time
+        dateTime={sourceDate?.dateTime}
+        title={sourceDate ? `${sourceDate.label}：${sourceDate.text}` : "原文时间尚未确认"}
+        className="mono text-[12px] leading-[20px] text-ink-4"
+      >
+        {sourceDate?.clock ?? NO_TIME}
       </time>
       <div className="min-w-0">
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[12px] leading-[20px] text-ink-4 lg:mt-0">
           <span className="min-w-0 truncate">{r.source.name.replace(/（RSS）|（网页）|（API）/g, "")}</span>
           {r.selected && <SelectedBadge />}
         </div>
-        <Link
-          to={`/items/${r.id}`}
-          prefetch="intent"
-          className="mt-1 block text-[16px] font-[650] leading-[1.6] text-ink transition-colors hover:text-accent lg:text-[15.5px]"
-        >
+        <Link to={`/items/${r.id}`} className="mt-1 block text-[16px] font-[650] leading-[1.6] text-ink transition-colors hover:text-accent lg:text-[15.5px]">
           {r.title}
         </Link>
         {r.summary && (

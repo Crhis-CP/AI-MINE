@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -5,12 +6,10 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { after, before, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
-
-const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-translate-stop-${T}`;
@@ -119,6 +118,7 @@ for (const scenario of ["normal", "extra-field", "truncated"] as const)
     });
     await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected, prompt_version, receipt_ids, output)
     VALUES (${articleId},1,'rule','pass','ai-models',${`终止测试${T}`},'摘要','理由',90,true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+    await confirmGroupingFixture(articleId);
     await publishArticle(articleId, { releasedAt: new Date(Date.now() - 60_000) });
     const interrupted = runTranslation(articleId);
     await Promise.race([active.asked.promise, interrupted.done.then(() => assert.fail("translation ended before a request"))]);

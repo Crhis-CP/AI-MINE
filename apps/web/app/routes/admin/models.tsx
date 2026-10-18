@@ -1,7 +1,8 @@
+import { apiFetch } from "../../lib/http.ts";
 import { SelectionStandardsSection } from "../../features/admin/SelectionStandards";
 import { Link, useRevalidator } from "react-router";
 import { SITE } from "@amp/industry/site";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { ModelFallbacks, type FallbackOverview, type FallbackChange } from "../../features/admin/ModelFallbacks";
 import { ModelConnections, type ModelRegistry, type ModelCommand } from "../../features/admin/ModelConnections";
 import { adminBody, type AdminSend } from "../../lib/admin-response";
@@ -13,7 +14,15 @@ import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { bj, money, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Empty, Field, FilterChips, ReasonDialog, Select } from "../../features/admin/ui";
 
+const usageMoney = (amount: number, currency: string | null) =>
+  currency === "CNY" || currency === "USD"
+    ? money(amount, currency)
+    : `${amount.toLocaleString("zh-CN", { maximumFractionDigits: 6 })} ${currency ?? "（币种待核对）"}`;
+
 interface Usage {
+  service?: string;
+  serviceName?: string;
+  unpricedCalls?: number;
   purpose: string;
   model: string | null;
   promptVersion: string | null;
@@ -72,11 +81,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   const days = new URL(request.url).searchParams.get("days") ?? "7";
   const models = await adminGet<Models>(request, `/api/admin/models?days=${encodeURIComponent(days)}`);
   const path = "/api/admin/model-connections",
-    client = createPrivateClient({ baseUrl: apiBaseFor(path) });
+    apiBase = apiBaseFor(path);
   let registry: ModelRegistry | null = null;
   try {
     registry = privateSchemas.ModelRegistryResponse.parse(
-      await adminGet(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal })),
+      await adminGet(request, path, (_url, init) => apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase })),
     );
   } catch (error) {
     if (error instanceof Response && error.status === 302) throw error;
@@ -85,7 +94,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   try {
     const fallbackPath = "/api/admin/model-fallbacks";
     fallbacks = privateSchemas.ModelFallbackOverview.parse(
-      await adminGet(request, fallbackPath, (_url, init) => client.GET(fallbackPath, { headers: init.headers, signal: init.signal })),
+      await adminGet(request, fallbackPath, (_url, init) =>
+        apiFetch(fallbackPath, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase }),
+      ),
     );
   } catch (error) {
     if (error instanceof Response && error.status === 302) throw error;
@@ -95,7 +106,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export const meta: Route.MetaFunction = () => [{ title: `模型与评测 · ${SITE.name} 后台` }];
 
-const SOURCE_LABEL = { admin: "后台切换", env: "环境变量", default: "代码默认" } as const;
+const SOURCE_LABEL = { admin: "后台设置", env: "部署配置", default: "站点默认" } as const;
 const secs = (ms: number | null) => (ms == null ? "—" : ms >= 10_000 ? `${Math.round(ms / 1000)} s` : `${(ms / 1000).toFixed(1)} s`);
 
 export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
@@ -104,26 +115,38 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   const me = useAdminMe() as ReturnType<typeof useAdminMe> & { owner?: boolean; modelsManage?: boolean };
   const closeTarget = useCallback(() => setTarget(null), []);
   const command = async ({ kind, id, body }: ModelCommand) => {
-    const client = createPrivateClient({ baseUrl: window.location.origin });
+    const apiBase = window.location.origin;
     const send: AdminSend = (_url, init) => {
       const common = { headers: init.headers, signal: init.signal };
-      if (kind === "create") return client.POST("/api/admin/model-connections", { ...common, body: privateSchemas.ModelConnectionCreate.parse(body) });
+      if (kind === "create")
+        return apiFetch("/api/admin/model-connections", {
+          ...common,
+          json: privateSchemas.ModelConnectionCreate.parse(body),
+          method: "POST",
+          baseUrl: apiBase,
+        });
       if (kind === "update")
-        return client.PUT("/api/admin/model-connections/{id}", {
+        return apiFetch("/api/admin/model-connections/{id}", {
           ...common,
           params: { path: { id: id! } },
-          body: privateSchemas.ModelConnectionUpdate.parse(body),
+          json: privateSchemas.ModelConnectionUpdate.parse(body),
+          method: "PUT",
+          baseUrl: apiBase,
         });
       if (kind === "disable")
-        return client.POST("/api/admin/model-connections/{id}/disable", {
+        return apiFetch("/api/admin/model-connections/{id}/disable", {
           ...common,
           params: { path: { id: id! } },
-          body: privateSchemas.ModelConnectionDisable.parse(body),
+          json: privateSchemas.ModelConnectionDisable.parse(body),
+          method: "POST",
+          baseUrl: apiBase,
         });
-      return client.POST("/api/admin/model-connections/{id}/test", {
+      return apiFetch("/api/admin/model-connections/{id}/test", {
         ...common,
         params: { path: { id: id! } },
-        body: privateSchemas.ModelConnectionProbe.parse(body),
+        json: privateSchemas.ModelConnectionProbe.parse(body),
+        method: "POST",
+        baseUrl: apiBase,
       });
     };
     return run(kind === "update" ? "PUT" : "POST", "/api/admin/model-connections", body, {
@@ -133,14 +156,16 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
     });
   };
   const changeFallback = async (capability: string, value: FallbackChange) => {
-    const client = createPrivateClient({ baseUrl: window.location.origin });
+    const apiBase = window.location.origin;
     return run("PUT", `/api/admin/model-fallbacks/${encodeURIComponent(capability)}`, value, {
       send: (_url, init) =>
-        client.PUT("/api/admin/model-fallbacks/{capability}", {
+        apiFetch("/api/admin/model-fallbacks/{capability}", {
           headers: init.headers,
           signal: init.signal,
           params: { path: { capability } },
-          body: privateSchemas.ModelFallbackChange.parse(value),
+          json: privateSchemas.ModelFallbackChange.parse(value),
+          method: "PUT",
+          baseUrl: apiBase,
         }),
       parse: (result) => privateSchemas.ModelFallbackRoute.parse(result),
       success: "备用设置已保存",
@@ -149,21 +174,25 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
     });
   };
   const readProbe = async (id: string) => {
-    const client = createPrivateClient({ baseUrl: window.location.origin });
-    const result = await client.GET("/api/admin/model-connection-tests/{id}", { params: { path: { id } } });
-    if (!result.response.ok) return null;
+    const apiBase = window.location.origin;
+    const result = await apiFetch("/api/admin/model-connection-tests/{id}", { params: { path: { id } }, method: "GET", baseUrl: apiBase });
+    if (!result.ok) return null;
     const probe = privateSchemas.ModelProbeRecord.parse(await adminBody(result));
     if (!["queued", "running"].includes(probe.status)) revalidator.revalidate();
     return probe;
   };
   const [target, setTarget] = useState<Models["capabilities"][number] | null>(null);
   const [choice, setChoice] = useState<string>("");
+  const modelLabel = (key: string) => {
+    const registered = m.registry?.connections.find((connection) => connection.key === key);
+    return registered ? `${registered.name} · ${registered.model}` : key;
+  };
   const labelOf = (key: string) => m.capabilities.find((c) => `capability:${c.key}` === key)?.label ?? key;
 
   return (
     <AdminPage
       title="模型与评测"
-      subtitle="查看和切换各处理环节使用的模型。已接入的可以切换，尚未接入的供应商保留位置。切换只影响之后的新任务，已有结果不重算。"
+      subtitle="自行添加模型接口和密钥，测试连接后按处理环节选择。切换只影响之后的新任务，已有结果不重算。"
       actions={
         <FilterChips
           param="days"
@@ -175,11 +204,12 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
         />
       }
     >
-      <Card title="内置模型">
+      <ModelConnections registry={m.registry} owner={!!me.owner} manage={!!me.modelsManage || !!me.owner} onCommand={command} onReadProbe={readProbe} />
+      <Card title="部署中已有的模型">
         <p className="text-[13px] leading-6 text-ink-2">
-          查看四家内置供应商的接入情况。各处理环节默认使用已经配置的模型
+          这里列出部署配置中已有的接入。没有单独指定时，各环节使用默认模型
           {m.deploymentReady ? "（这一路已接入）" : ""}
-          ，不会因为这一页改去尚未接入的模型。以后补上接口即可切换，不用改页面结构。
+          。更多供应商或模型版本可在上方“模型接入”中添加。
         </p>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
           {(m.families ?? []).map((family) => {
@@ -196,7 +226,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
           })}
         </ul>
       </Card>
-      <ModelConnections registry={m.registry} owner={!!me.owner} manage={!!me.modelsManage || !!me.owner} onCommand={command} onReadProbe={readProbe} />
+
       <ModelFallbacks data={m.fallbacks} manage={!!me.modelsManage || !!me.owner} onChange={changeFallback} />
       <div className="grid gap-5">
         {m.capabilities.map((c) => {
@@ -207,9 +237,9 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
               title={
                 <span className="inline-flex flex-wrap items-center gap-2">
                   {c.label}
-                  <span className="font-mono text-[12px] font-normal text-ink-3">{c.current.model}</span>
+                  <span className="font-mono text-[12px] font-normal text-ink-3">{modelLabel(c.current.model)}</span>
                   <Badge tone={c.current.source === "admin" ? "accent" : "muted"}>{SOURCE_LABEL[c.current.source]}</Badge>
-                  {c.unevaluated && <Badge tone="warn">待评测</Badge>}
+                  {c.unevaluated && <Badge tone="muted">未附对比评测</Badge>}
                   {me.owner && c.key === "score" && (
                     <a href="#selection-standard" className="text-[12px] font-normal text-accent underline">
                       评分标准与校准记录
@@ -235,9 +265,18 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                 <DataTable
                   dense
                   rows={c.usage}
-                  rowKey={(u) => `${u.purpose}|${u.model}|${u.promptVersion}`}
+                  rowKey={(u) => `${u.service}|${u.currency}|${u.purpose}|${u.model}|${u.promptVersion}`}
                   columns={[
-                    { key: "m", label: "模型", render: (u) => <span className="whitespace-nowrap font-mono text-[12px]">{u.model}</span> },
+                    {
+                      key: "m",
+                      label: "模型",
+                      render: (u) => (
+                        <div>
+                          <span className="whitespace-nowrap font-mono text-[12px]">{u.model}</span>
+                          {u.serviceName && <div className="text-[11.5px] text-ink-3">{u.serviceName}</div>}
+                        </div>
+                      ),
+                    },
                     {
                       key: "v",
                       label: "提示版本",
@@ -275,19 +314,18 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                       key: "$",
                       label: "费用",
                       align: "right",
-                      render: (u) =>
-                        u.actualCost !== null ? (
-                          `${money(u.actualCost)}${u.currency && u.currency !== "CNY" ? ` ${u.currency}` : ""}`
-                        ) : u.estimate ? (
-                          <span title="按用量 × 单价推算">
-                            ≈ {money(u.estimate.amount)}
-                            {u.estimate.currency !== "CNY" ? ` ${u.estimate.currency}` : ""}
-                          </span>
-                        ) : (
-                          <span className="whitespace-nowrap text-ink-4" title="服务商没有返回费用，按 token 数和你的模型单价自己估算">
-                            未定价
-                          </span>
-                        ),
+                      render: (u) => (
+                        <div className="whitespace-nowrap">
+                          {u.actualCost !== null && <div>实际 {usageMoney(u.actualCost, u.currency)}</div>}
+                          {u.estimate && (
+                            <div title="优先采用调用时的估算记录；缺项按已登记单价和已知用量推算">
+                              估算 ≈ {usageMoney(u.estimate.amount, u.estimate.currency)}
+                            </div>
+                          )}
+                          {u.actualCost === null && !u.estimate && <span className="text-ink-4">费用待核对</span>}
+                          {!!u.unpricedCalls && <div className="text-[11.5px] text-ink-3">{num(u.unpricedCalls)} 次未取得费用记录</div>}
+                        </div>
+                      ),
                     },
                   ]}
                 />
@@ -383,14 +421,35 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
         confirmLabel="切换"
         busy={pending === "switch"}
         onClose={closeTarget}
-        onSubmit={async (reason) =>
-          (await run(
-            "POST",
-            `/api/admin/models/${target!.key}`,
-            { model: choice === "__default" ? null : choice, reason },
-            { label: "switch", success: "已切换，之后的新任务使用这个模型" },
-          )) !== null
-        }
+        onSubmit={async (reason) => {
+          if (choice.startsWith("registered:")) {
+            const body = { model: choice, expected_revision: target!.routeRevision, reason, evaluation_id: null, emergency_confirmed: false };
+            const apiBase = window.location.origin;
+            return (
+              (await run("POST", `/api/admin/model-routes/${target!.key}`, body, {
+                label: "switch",
+                success: "已切换，之后的新任务使用这个模型",
+                send: (_url, init) =>
+                  apiFetch("/api/admin/model-routes/{capability}", {
+                    params: { path: { capability: target!.key } },
+                    headers: init.headers,
+                    signal: init.signal,
+                    json: privateSchemas.ModelRouteChange.parse(body),
+                    method: "POST",
+                    baseUrl: apiBase,
+                  }),
+              })) !== null
+            );
+          }
+          return (
+            (await run(
+              "POST",
+              `/api/admin/models/${target!.key}`,
+              { model: choice === "__default" ? null : choice, reason },
+              { label: "switch", success: "已切换，之后的新任务使用这个模型" },
+            )) !== null
+          );
+        }}
       >
         <Field label="模型">
           <Select value={choice} onChange={(e) => setChoice(e.target.value)}>
@@ -398,7 +457,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
             {(m.families ?? []).map((family) => (
               <optgroup key={family.id} label={family.label}>
                 {family.presets
-                  .filter((preset) => preset.vision === !!target?.vision)
+                  .filter((preset) => !target?.vision || preset.vision)
                   .map((preset) => (
                     <option key={preset.key} value={preset.key} disabled={!preset.ready}>
                       {preset.ready ? `${preset.key}（${preset.model ?? preset.service}）` : `${preset.key}（内置，尚未接入）`}
@@ -407,7 +466,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
               </optgroup>
             ))}
             {m.registry?.connections
-              .filter((x) => x.enabled && x.test_status === "passed" && x.vision === !!target?.vision)
+              .filter((x) => x.enabled && x.test_status === "passed" && (!target?.vision || x.vision))
               .map((x) => (
                 <option key={x.id} value={x.key}>
                   {x.name} · {x.model}

@@ -1,5 +1,9 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
+import { useEffect } from "react";
+import { setChangelogSeen } from "../lib/local-state";
 import { SITE, withSubject } from "@amp/industry/site";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
@@ -74,6 +78,11 @@ function ReleaseBody({ lines }: { lines: string[] }) {
 
 export default function ChangelogPage() {
   const data = useLoaderData<typeof loader>();
+  const first = data.releases[0];
+  const version = first ? first.date + (first.time ? `T${first.time}` : "") : null;
+  useEffect(() => {
+    if (version) setChangelogSeen(version);
+  }, [version]);
   const groups = new Map<string, Release[]>();
   for (const r of data.releases) groups.set(r.date, [...(groups.get(r.date) ?? []), r]);
   // Month → the newest date shown in it (the jump target) and how many entries it holds.
@@ -104,7 +113,7 @@ export default function ChangelogPage() {
       </AsideCard>
       <AsideCard title="有想法或遇到问题">
         <p className="text-[13px] leading-[1.75] text-ink-3">想要的功能、用着不顺的地方，都可以在反馈页告诉我们。</p>
-        <Link to="/feedback" prefetch="intent" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
+        <Link to="/feedback" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
           去反馈 <IconChevronRight size={14} />
         </Link>
       </AsideCard>
@@ -112,9 +121,11 @@ export default function ChangelogPage() {
   );
 
   return (
-    <ReadingLayout aside={aside}>
+    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="更新日志" />} aside={aside}>
       <header className="pb-6">
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">更新日志</h1>
+        <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
+          更新日志
+        </h1>
         <p className="mt-1.5 text-[13px] text-ink-3">新功能、调整、下线，都写在这里。</p>
       </header>
       <div className="space-y-4">
@@ -123,12 +134,12 @@ export default function ChangelogPage() {
           const features = releases.filter(isFeatureNotice);
           const plain = releases.filter((r) => !isFeatureNotice(r));
           return (
-            <div key={date} id={`d-${date}`} className="scroll-mt-6 space-y-4">
+            <div key={date} id={`d-${date}`} className="scroll-mt-16 lg:scroll-mt-6 space-y-4">
               {features.map((r) => (
                 <FeatureNotice key={`${r.date}-${r.time ?? ""}-${r.title}`} release={r} />
               ))}
               {plain.length > 0 && (
-                <section className="card scroll-mt-6 px-5 lg:px-7">
+                <section className="card scroll-mt-16 lg:scroll-mt-6 px-5 lg:px-7">
                   <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
                     <time dateTime={date} className="text-[18px] font-bold text-ink">
                       {h.label}

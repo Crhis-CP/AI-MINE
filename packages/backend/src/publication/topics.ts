@@ -4,12 +4,10 @@ import type { FeedItemSummary } from "@amp/contracts/site";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { cached } from "../lib/cache.ts";
 import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
 import { matchesTopicTags, readMatcherValues } from "./mentions.ts";
-
-const sql = dbOf("publication");
 
 export interface TopicRow {
   slug: string;
@@ -177,7 +175,7 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
       WHERE ${listedCondition(now)} AND p.eligible AND ${topicTextMatches(match)}
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
-    SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
+    SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
     ORDER BY p.timeline_at DESC, p.article_id DESC`;
   const related = row.related
     .map((r) => topics.find((t) => t.slug === r))
@@ -185,4 +183,9 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
     .map((t) => ({ slug: t.slug, name: t.name }));
   await attachSourcePolicies(rows);
   return { topic: { ...topic, related }, items: rows.map(toFeedItemSummary), page, pageCount };
+}
+
+/** Search navigation needs catalogue identities only, never an article-count scan. */
+export async function topicBrowseLinks() {
+  return (await listTopics()).map(({ slug, name, grp }) => ({ slug, name, group: grp }));
 }

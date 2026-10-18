@@ -1,6 +1,8 @@
+import { UnreadMark } from "../../features/changelog/UnreadMark";
 import { feedbackPath } from "../../lib/feedback-origin";
 import { SITE } from "@amp/industry/site";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
+import { IntentLink as Link } from "../ui/IntentLink";
 import { Wordmark } from "../Logo";
 import { SIDEBAR, tabIsActive, type NavItem } from "./nav";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -13,7 +15,6 @@ function SideLink({ item }: { item: NavItem }) {
   return (
     <Link
       to={item.to === "/feedback" ? feedbackPath(pathname, search) : item.to}
-      prefetch="intent"
       aria-current={isActive ? "page" : undefined}
       className={`flex h-10 items-center gap-2.5 rounded-control px-2.5 text-[14px] transition-colors duration-150 ${
         isActive ? "bg-accent/10 font-semibold text-ink dark:bg-accent-soft" : "font-medium text-ink-3 hover:bg-bg-sunk hover:text-ink"
@@ -23,6 +24,7 @@ function SideLink({ item }: { item: NavItem }) {
         <Icon size={17} />
       </span>
       <span className="min-w-0 truncate">{item.label}</span>
+      {item.to === "/changelog" && <UnreadMark />}
     </Link>
   );
 }

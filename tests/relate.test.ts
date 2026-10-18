@@ -1,6 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatedRelation, sameOccurrence, storyForDevelopment, type ReportView, type RelationEvidence } from "../packages/backend/src/events/relate.ts";
+import {
+  BatchSchema,
+  ValueBatchSchema,
+  batchUser,
+  PairSchema,
+  SignalSchema,
+  LegacyIdentityAnswerSchema,
+  completeDecisions,
+  verdictsByFact,
+  sameOccurrence,
+  storyForDevelopment,
+  type ReportView,
+  type RelationEvidence,
+} from "../packages/backend/src/events/relate.ts";
 const text = "Argentina Alpha project approved its lithium plant construction on Monday.";
 const a: ReportView = {
   title: "A",
@@ -23,22 +36,83 @@ const evidence: RelationEvidence = {
   candidateStage: "approved",
   change: "",
 };
-test("event relationship requires confidence and current bilateral raw evidence", () => {
-  const v = { relation: "SAME_OCCURRENCE" as const, confidence: 0.95, evidence };
-  assert.equal(validatedRelation(a, b, v), "SAME_OCCURRENCE");
-  for (const bad of [
-    { ...v, confidence: 0 },
-    { ...v, evidence: null },
-    { ...v, evidence: { ...evidence, queryQuote: "invented quotation" } },
-    { ...v, evidence: { ...evidence, queryStage: "proposed" as const } },
-  ])
-    assert.equal(validatedRelation(a, b, bad), "UNRELATED");
-  assert.equal(validatedRelation(a, { ...b, jurisdiction: "CL" }, v), "UNRELATED");
-  assert.equal(validatedRelation(a, { ...b, frame: { object: "Beta project" } }, v), "UNRELATED");
-  assert.equal(validatedRelation(a, b, { ...v, relation: "SAME_STORY" }), "UNRELATED");
+test("whole-report decisions survive different metadata labels and preserve distinct developments", () => {
+  const candidate = {
+    factId: 1,
+    storyId: 1,
+    factTitle: "矿产资源目录",
+    members: 1,
+    storyRoot: true,
+    score: 0.95,
+    report: { ...b, jurisdiction: "CN", frame: { object: "矿产资源分类目录" } },
+  };
+  const query = { ...a, jurisdiction: "CL", frame: { object: "《矿产资源目录》" } };
+  const same = verdictsByFact([{ id: "C1", relation: "SAME_OCCURRENCE", confidence: 0.95, evidence }], [candidate], query);
+  assert.deepEqual(
+    sameOccurrence([candidate], same).map((c) => c.factId),
+    [1],
+    "publisher geography and extracted aliases do not split a confirmed event",
+  );
+  const progress = verdictsByFact([{ id: "C1", relation: "SAME_STORY", confidence: 0.95, evidence }], [candidate], query);
+  assert.deepEqual(sameOccurrence([candidate], progress), [], "equal saved wording does not collapse a distinct later occurrence");
+  assert.equal(storyForDevelopment([candidate], progress)?.factId, 1);
+  const different = verdictsByFact([{ id: "C1", relation: "UNRELATED", confidence: 0.95 }], [candidate], query);
+  assert.deepEqual(sameOccurrence([candidate], different), []);
+  assert.equal(storyForDevelopment([candidate], different), null);
 });
-test("low confidence cannot enter occurrence or development through a secondary path", () => {
+
+test("a same-event answer joins even when confidence is below the old 0.8 bar", () => {
   const c = { factId: 1, storyId: 1, factTitle: "A", members: 2, storyRoot: true, score: 1, report: b };
-  assert.deepEqual(sameOccurrence([c], new Map([[1, { relation: "SAME_OCCURRENCE", confidence: 0, note: "" }]])), []);
-  assert.equal(storyForDevelopment([c], new Map([[1, { relation: "SAME_STORY", confidence: 0, note: "" }]])), null);
+  assert.deepEqual(
+    sameOccurrence([c], new Map([[1, { relation: "SAME_OCCURRENCE", confidence: 0.7, note: "" }]])).map((item) => item.factId),
+    [1],
+  );
+  assert.equal(storyForDevelopment([c], new Map([[1, { relation: "SAME_STORY", confidence: 0.7, note: "" }]]))?.factId, 1);
+  assert.deepEqual(sameOccurrence([c], new Map([[1, { relation: "UNRELATED", confidence: 0.99, note: "" }]])), []);
+});
+
+test("identity answers must cover each candidate exactly once without coercing broken output", () => {
+  const candidates = [1, 2].map((n) => ({ factId: n, storyId: n, factTitle: "项目批准", members: 1, storyRoot: true, score: 1, report: b }));
+  const decision = (id: string) => ({ id, relation: "UNRELATED" as const, confidence: 0.9 });
+  assert.equal(completeDecisions([decision("C2"), decision("C1")], 2), true);
+  assert.equal(verdictsByFact([decision("C2"), decision("C1")], candidates).size, 2);
+  for (const ids of [[], ["C1"], ["C1", "C1"], ["C0", "C2"], ["C1", "C3"], ["1", "C2"], ["C1", "C2", "C3"]]) {
+    assert.equal(completeDecisions(ids.map(decision), 2), false);
+    assert.throws(() => verdictsByFact(ids.map(decision), candidates), /every candidate/);
+  }
+  for (const malformed of [
+    {},
+    { decisions: null },
+    { decisions: [{ ...decision("C1"), relation: "MAYBE" }] },
+    { decisions: [{ ...decision("C1"), confidence: "0.9" }] },
+    { decisions: [decision("C0")] },
+  ]) {
+    assert.equal(BatchSchema.safeParse(malformed).success, false);
+    assert.equal(SignalSchema.safeParse(malformed).success, false);
+  }
+  assert.equal(PairSchema.safeParse({ relation: "MAYBE", confidence: 0.9 }).success, false);
+  const legacy = LegacyIdentityAnswerSchema.parse({ decisions: [{ ...decision("1"), confidence: "0.9" }] });
+  assert.equal("selection" in legacy, false, "legacy identity evidence never implies selection value");
+});
+
+test("reading context is separate from identity candidates and missing value is never affirmative", () => {
+  const candidate = { factId: 1, storyId: 1, factTitle: "铜矿建设", members: 1, storyRoot: true, score: 1, report: b };
+  const unseen = batchUser(a, [candidate]);
+  assert.match(unseen, /尚无公开精选/);
+  assert.doesNotMatch(unseen, /【已公开精选】/);
+  const selected = batchUser(a, [{ ...candidate, selected: true, selectedReport: { ...b, summary: "已公开建设计划" } }], "新报道", [
+    { report: { ...b, summary: "已公开综合稿" } },
+  ]);
+  assert.match(selected, /【候选 C1】/);
+  assert.match(selected, /【已公开精选】/);
+  assert.match(selected, /阅读背景 R1/);
+  assert.equal(ValueBatchSchema.safeParse({ decisions: [] }).success, false);
+  assert.equal(ValueBatchSchema.safeParse({ decisions: [], selection: { addsValue: "false", reason: "已覆盖" } }).success, false);
+  assert.equal(ValueBatchSchema.parse({ decisions: [], selection: { addsValue: false, reason: "已覆盖" } }).selection.addsValue, false);
+});
+
+test("date-only grouping context does not manufacture a midnight publication clock", () => {
+  const input = batchUser({ ...a, at: new Date("2026-10-15T00:00:00+08:00") }, []);
+  assert.match(input, /发布时间：2026-10-15\n/);
+  assert.doesNotMatch(input, /发布时间：2026-10-15 00:00/);
 });

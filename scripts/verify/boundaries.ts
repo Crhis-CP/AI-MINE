@@ -3,7 +3,6 @@
 // New domains follow the module map. Root tests/ and scripts/ are integration code outside workspaces.
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { parse } from "yaml";
 import { modulePath, readModuleSyntax } from "./boundary-imports.ts";
 
 const amp = (names: readonly string[]) => names.map((name) => `@amp/${name}`);
@@ -24,20 +23,36 @@ const DOMAIN_EDGES: Record<string, readonly string[]> = {
   feedback: ["publication"],
 };
 const DOMAINS = amp(Object.keys(DOMAIN_EDGES));
+// The extension registry is a named engine interface; arbitrary legacy export expansion remains rejected.
+const ENGINE_ENTRIES: Record<string, string> = {
+  "./modules": "./src/modules.ts",
+  "./http": "./src/http.ts",
+  "./admin/http": "./src/admin/http.ts",
+  "./sources/evidence": "./src/sources/evidence.ts",
+  "./jobs/module-queues": "./src/jobs/module-queues.ts",
+  "./acquisition/crawl": "./src/acquisition/crawl.ts",
+  "./editorial/translation-readiness": "./src/editorial/translation-readiness.ts",
+  "./operations/lane-controls": "./src/operations/lane-controls.ts",
+  "./providers/model-fallback": "./src/providers/model-fallback.ts",
+  "./providers/model-fallback-permit": "./src/providers/model-fallback-permit.ts",
+  "./providers/permissions": "./src/providers/permissions.ts",
+  "./sources/permissions": "./src/sources/permissions.ts",
+  "./publication/news-links": "./src/publication/news-links.ts",
+};
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
-  "@amp/industry": [],
+  "@amp/industry": ["@amp/site"],
+  "@amp/site": ["@amp/policy", "@amp/contracts", "@amp/metals", "@amp/site-admin", "@amp/web"],
+  "@amp/policy": [...L0, ...amp(DOMAIN_EDGES.policy!), "@amp/backend", "@amp/web", "@amp/industry"],
+  "@amp/site-admin": ["@amp/metals", "@amp/backend", "@amp/contracts", "@amp/web", "@amp/industry"],
+  "@amp/metals": ["@amp/backend", "@amp/contracts", "@amp/web"],
   "@amp/contracts": [],
-  "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config"],
-  "@amp/api": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
-  "@amp/worker": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
-  "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),
-  "@amp/web": amp(["contracts", "industry", "api-client", "ui"]),
-  "@amp/api-client": ["@amp/contracts"],
-  "@amp/ui": ["@amp/contracts"],
+  "@amp/backend": ["@amp/policy", "@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals", "@amp/site-admin"],
+  "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
+  "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
+  "@amp/web": amp(["contracts", "industry", "site"]),
   "@amp/testkit": L0,
-  "@amp/tooling": ["@amp/contracts"],
 };
 
 const DRIVERS = [/^postgres$/, /^pg$/, /^pg-(?!boss$)[\w-]+$/];
@@ -83,7 +98,7 @@ const packageOf = (spec: string) =>
     .join("/");
 
 function workspaces(root: string, files: readonly string[]): Workspace[] {
-  const globs = ((parse(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")) ?? {}) as { packages?: string[] }).packages ?? [];
+  const globs = (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { workspaces?: string[] }).workspaces ?? [];
   const dirs = new Set<string>();
   for (const f of files) {
     if (!f.endsWith("/package.json")) continue;
@@ -144,11 +159,12 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
       const snapshot = JSON.parse(readFileSync(path.join(root, "scripts/verify/backend-exports.json"), "utf8")) as Record<string, string>;
       if (backendBaseline) {
         for (const [entry, target] of Object.entries(snapshot)) {
-          if (backendBaseline.snapshot[entry] !== target) problems.push(`scripts/verify/backend-exports.json: ${entry} expands or retargets the base snapshot`);
+          if (backendBaseline.snapshot[entry] !== target && ENGINE_ENTRIES[entry] !== target)
+            problems.push(`scripts/verify/backend-exports.json: ${entry} expands or retargets the base snapshot`);
         }
       }
       for (const [entry, target] of Object.entries(entries)) {
-        if (snapshot[entry] !== target || (backendBaseline && backendBaseline.exports[entry] !== target))
+        if (snapshot[entry] !== target || (backendBaseline && backendBaseline.exports[entry] !== target && ENGINE_ENTRIES[entry] !== target))
           problems.push(`${w.dir}/package.json: ${entry} is not an unchanged backend export; new code belongs in a module`);
       }
     }
@@ -160,6 +176,15 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     if (!w) continue;
     const parsed = syntax.get(f)!;
     problems.push(...parsed.problems.map((problem) => `${f}: ${problem}`));
+    if (f !== "packages/backend/src/jobs/typed-queue.ts")
+      for (const binding of parsed.bindings) {
+        const target = binding.spec.startsWith(".") ? path.posix.normalize(path.posix.join(path.posix.dirname(f), binding.spec)) : binding.spec;
+        if (
+          ["@amp/backend/jobs/queue", "packages/backend/src/jobs/queue.ts", "packages/backend/src/jobs/queue"].includes(target) &&
+          binding.names.some((name) => name === "enqueue" || name === "*")
+        )
+          problems.push(`${f}: raw queue transport is internal; business producers use enqueueJob or enqueueOn`);
+      }
     for (const spec of parsed.imports) {
       if (spec.startsWith("#") || ((spec.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(spec)) && !spec.startsWith("node:"))) {
         problems.push(`${f}: module URLs, absolute paths and package-import aliases are not public workspace entries`);
@@ -176,10 +201,34 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
       if (pkg.startsWith("@amp/") && pkg !== w.name) {
         const target = spaces.find((s) => s.name === pkg);
         const entry = spec === pkg ? "." : `.${spec.slice(pkg.length)}`;
+        if (
+          w.name === "@amp/backend" &&
+          pkg === "@amp/metals" &&
+          !/^packages\/backend\/src\/publication\/metal-prices\/(read|refresh|change|registry)\.ts$/.test(f)
+        )
+          problems.push(`${f}: metals implementation is only reachable through the temporary compatibility entries`);
+
+        if (
+          w.name === "@amp/backend" &&
+          pkg === "@amp/site-admin" &&
+          !/^packages\/backend\/src\/(publication\/site-information|sources\/target-catalogue|sources\/coverage-matrix|admin\/source-exports)\.ts$/.test(f)
+        )
+          problems.push(`${f}: site management is only reachable through its temporary compatibility entries`);
+
+        if (
+          w.name === "@amp/backend" &&
+          pkg === "@amp/policy" &&
+          !/^packages\/backend\/src\/(publication\/(policies|policies-reports|policy-language|policy-relations|policy-report-job)|policy\/(fallback-quality|model-evidence|quality|receipt-recovery|target-evidence)|jobs\/policy)\.ts$/.test(
+            f,
+          )
+        )
+          problems.push(`${f}: policy implementation is only reachable through its temporary compatibility entries`);
+
+        if (w.name === "@amp/backend" && pkg === "@amp/site" && ![".", "./models"].includes(entry))
+          problems.push(`${f}: engine code cannot import the site's extension installation list`);
+
         if (privatePath(entry)) problems.push(`${f}: imports ${spec}, a private internal/ or store/ path`);
         else if (!target || !strings(publicEntries(target.exports)[entry]).length) problems.push(`${f}: ${spec} is not an explicit public export`);
-        if (w.name === "@amp/fetcher" && pkg === "@amp/acquisition" && entry !== "./fetch-runtime")
-          problems.push(`${f}: fetcher may only import @amp/acquisition/fetch-runtime`);
       }
       if (w.name === "@amp/web" && (DRIVERS.some((re) => re.test(pkg)) || pkg === "pg-boss"))
         problems.push(`${f}: the web app may not import ${pkg} (no database or job queue in the front end)`);
@@ -204,6 +253,23 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     const entry = spec === target.name ? "." : `.${spec.slice(target.name.length)}`;
     return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, exportPath(file))));
   };
+  const web = spaces.find((space) => space.name === "@amp/web");
+  if (web) {
+    const pending = [...sourceFiles].filter((file) => file.startsWith(`${web.dir}/`) || /^modules\/[^/]+\/web(?:\/|\.[cm]?[jt]sx?$)/.test(file));
+    const visited = new Set<string>();
+    while (pending.length) {
+      const file = pending.pop()!;
+      if (visited.has(file)) continue;
+      visited.add(file);
+      for (const spec of syntax.get(file)?.imports ?? []) {
+        const name = packageOf(spec);
+        // Direct reader imports already have a precise diagnostic above; this adds the transitive cases.
+        if (!file.startsWith(`${web.dir}/`) && (name === "@amp/backend" || name === "pg-boss" || [...DRIVERS, ...MODEL_SDKS].some((rule) => rule.test(name))))
+          problems.push(`${file}: web import closure reaches server-only dependency ${spec}`);
+        pending.push(...resolveImport(file, spec));
+      }
+    }
+  }
   const acquisition = spaces.find((space) => space.name === "@amp/acquisition");
   if (acquisition) {
     const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) =>

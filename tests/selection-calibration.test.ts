@@ -2,7 +2,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import {
   selectionTool,
@@ -23,8 +23,7 @@ import {
 } from "@amp/backend/admin/selectbench";
 import type { AdminPrincipal } from "@amp/backend/admin/auth";
 import { selectionStandardSnapshot, type ModelIdentityPort } from "../packages/backend/src/admin/selectbench-runtime.ts";
-const sql = dbOf("ai-gateway"),
-  hash = "a".repeat(64),
+const hash = "a".repeat(64),
   model = "synthetic-score";
 const modelPort: ModelIdentityPort = async () => ({ key: model, service: "synthetic", requestedModel: model, configuration_hash: hash });
 after(closeDb);

@@ -115,11 +115,11 @@ export function RuntimeControls({
                     <strong>
                       {laneLabel[control.lane]} · {switchLabel[control.switch]}
                     </strong>
-                    <Badge tone={control.overdue ? "bad" : "warn"}>{control.overdue ? "已到期，仍暂停" : holderLabel[control.holder]}</Badge>
+                    <Badge tone={control.overdue ? "bad" : "warn"}>{control.overdue ? "已到复核时间，仍暂停" : holderLabel[control.holder]}</Badge>
                   </div>
                   <p className="mt-1 break-words text-ink-2">{control.reason}</p>
                   <p className="text-ink-3">
-                    {holderLabel[control.holder]} · {control.actor} · 到期：{bj(control.expires_at, true)}（北京时间）
+                    {holderLabel[control.holder]} · {control.actor} · 复核时间：{bj(control.expires_at, true)}（北京时间）
                   </p>
                 </div>
               ))}

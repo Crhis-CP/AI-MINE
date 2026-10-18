@@ -2,11 +2,10 @@ import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { z } from "zod";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 
-const sql = dbOf("ai-gateway");
 let finishReason = "length";
 const provider = await stub(() => ({
   choices: [{ message: { content: '{"ok":true}' }, finish_reason: finishReason }],

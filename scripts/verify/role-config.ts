@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { environmentProblems, PROCESS_DATABASE_ROLES, type ProcessRole } from "@amp/config";
+import { environmentProblems, PROCESS_DATABASE_ROLES, type ProcessRole } from "@amp/backend/db";
 import { parseDocument } from "yaml";
 import { webEnvironmentProblems } from "../../apps/web/runtime-env.ts";
 import { ROOT } from "./lib.ts";
@@ -26,14 +26,14 @@ const CREDENTIALS = [
 const PROXIES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"].flatMap((key) => [key, key.toLowerCase()]);
 
 /** D8 parity and Compose checks. Diagnostics contain variable names, never configuration values. */
-export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public-api")[] = ["web", "public-api"]): string[] {
+export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public-api" | "api")[] = ["web", "api"]): string[] {
   const problems: string[] = [];
   const check = (role: ProcessRole, env: Record<string, string | undefined>, expected: string[]) => {
     const results = [environmentProblems(role, env), ...(role === "web" ? [webEnvironmentProblems(env)] : [])];
     if (results.some((result) => [...result].sort().join() !== [...expected].sort().join()))
       problems.push(`${role}: environment rejection matrix differs for ${Object.keys(env).join(", ")}`);
   };
-  for (const role of ["web", "fetcher"] as const)
+  for (const role of ["web"] as const)
     for (const mode of [undefined, "development", "production"])
       for (const key of CREDENTIALS) for (const value of ["", "fixture-value"]) check(role, { NODE_ENV: mode, [key]: value }, [key]);
   for (const role of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[]) {

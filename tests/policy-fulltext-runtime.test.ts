@@ -3,17 +3,16 @@ import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { stripTags } from "@amp/backend/lib/text";
 import { after, test } from "node:test";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { readPolicyResponse } from "@amp/backend/providers/receipts";
-import { recordPolicyOriginal, readPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
-import { runPolicyFulltext } from "../packages/backend/src/policy/fulltext-runtime.ts";
-import { setPolicyProcessingPaused, readPolicyFulltextRun } from "../packages/backend/src/policy/fulltext-store.ts";
-import type { PolicyOriginalInput } from "../packages/backend/src/policy/types.ts";
+import { recordPolicyOriginal, readPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { runPolicyFulltext } from "../modules/policy/backend/domain/fulltext-runtime.ts";
+import { setPolicyProcessingPaused, readPolicyFulltextRun } from "../modules/policy/backend/domain/fulltext-store.ts";
+import type { PolicyOriginalInput } from "../modules/policy/backend/domain/types.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("policy"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 type Part = { partId: string; sourceHash: string; source: string; format: string };
 let transform = (part: Part) => ({
   partId: part.partId,
@@ -179,16 +178,16 @@ test("open extraction gaps never reach the paid gateway", async () => {
   assert.equal(requests.length, before);
 });
 
-test("an unknown usage receipt blocks the next part request without repeating the completed parts", async () => {
+test("received parts without usage remain reusable and their cost stays unknown", async () => {
   const f = await original(13),
     before = requests.length;
   usage = null;
   try {
     const blocked = await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 2 });
-    assert.equal(blocked.status, "blocked_unknown");
-    assert.equal(requests.length - before, 1);
-    assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root })).status, "blocked_unknown");
-    assert.equal(requests.length - before, 1);
+    assert.equal(blocked.status, "program_validated");
+    assert.equal(requests.length - before, 2);
+    assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root })).status, "program_validated");
+    assert.equal(requests.length - before, 2);
   } finally {
     usage = { prompt_tokens: 50, completion_tokens: 20 };
   }
@@ -242,4 +241,21 @@ test("a model cannot smuggle an unrequested part of the same plan into a paid ch
   assert.equal(complete.status, "program_validated");
   assert.equal(requests.length - before, 2);
   assert.equal(requests[before + 1]!.parts.length, 1);
+});
+
+test("two returned bad responses without token usage still exhaust the per-part request limit", async () => {
+  const f = await original(),
+    before = requests.length,
+    normal = transform;
+  usage = null;
+  transform = (p) => ({ ...normal(p), sourceHash: "0".repeat(64) });
+  try {
+    await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 2 });
+    assert.equal(requests.length - before, 2);
+    assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 2 })).status, "blocked_retry_limit");
+    assert.equal(requests.length - before, 2);
+  } finally {
+    transform = normal;
+    usage = { prompt_tokens: 50, completion_tokens: 20 };
+  }
 });

@@ -1,7 +1,8 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useEffect, useState } from "react";
 import { useRevalidator } from "react-router";
 import type { z } from "zod";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { Badge, Card, Empty } from "./ui";
 import { bj, pct } from "./format";
 export type SelectionStandardsData = z.infer<typeof privateSchemas.SelectionStandards>;
@@ -47,11 +48,12 @@ export function SelectionStandardsSection({ owner }: { owner: boolean }) {
     if (!owner || revalidator.state !== "idle") return;
     if (reload > 0) setError(false);
     const abort = new AbortController();
-    createPrivateClient({})
-      .GET("/api/admin/selectbench/standards", { signal: abort.signal })
-      .then(({ data, error }) => {
-        if (error || !data) throw new Error("unavailable");
-        setSnapshot(privateSchemas.SelectionStandards.parse(data));
+    apiFetch("/api/admin/selectbench/standards", { signal: abort.signal, method: "GET", baseUrl: "" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("unavailable");
+        const snapshot = privateSchemas.SelectionStandards.parse(await response.json());
+        if (abort.signal.aborted) return;
+        setSnapshot(snapshot);
         setError(false);
       })
       .catch(() => {

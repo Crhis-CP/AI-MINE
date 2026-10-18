@@ -5,12 +5,11 @@ import { newsAuditSourceNames } from "@amp/backend/admin/sources";
 // A small random look at articles the prefilter already judged. Drawing and labeling only write
 // these audit tables. They do not publish, withdraw, translate, or change the prefilter rules.
 import { randomBytes } from "node:crypto";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 import { PrefilterAuditDrawRequest, PrefilterAuditLabel, PrefilterAuditLabelRequest, PrefilterAuditView } from "@amp/contracts/http/private";
 import { selectionCommand, SelectionConflict } from "./selectbench-state.ts";
 
-const sql = dbOf("ai-gateway");
 export const PREFILTER_AUDIT_BATCH = 20;
 /** Agreed takedown: the 16 China Geological Survey pieces stay out of the sample and stay unpublished. */
 const EXCLUDED_SOURCES = ["cgs-news"];

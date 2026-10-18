@@ -9,8 +9,15 @@ import {
 } from "../operations/lane-controls.ts";
 // Collection run for one source: fetch listing → filter → store material → enqueue processing.
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
-import { dbOf } from "../db.ts";
-import { identityKeyFor, upsertMaterial, materialDateHeads } from "@amp/backend/content/materials";
+import { sql } from "../db.ts";
+import {
+  identityKeyFor,
+  upsertMaterial,
+  PresentationMismatch,
+  materialDateHeads,
+  collectionDetails,
+  STALE_ON_DISCOVERY_MS,
+} from "@amp/backend/content/materials";
 import {
   SourceCollectionPaused,
   recordSourceCollectionSuccess,
@@ -18,7 +25,8 @@ import {
   evaluateSourcePolicy,
   readSourceDateContext,
 } from "@amp/backend/admin/sources";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { enqueueSourceFetch, collectionEnabled, type CollectionLane } from "../jobs/source-queues.ts";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { queueProcessing } from "../jobs/content.ts";
@@ -29,11 +37,11 @@ import { normalizeSourceLanguage, unsupportedConfig, sourceDateConfigHash } from
 import { fetchJsonList } from "./json-list.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { toDateCandidate, previewSourceDate } from "./date-extraction.ts";
+import { sha256, stableJson } from "../lib/ids.ts";
 import { beijingDate } from "@amp/contracts/time";
 
 import { collectPolicyDirectory, DirectoryRoundFailed } from "../acquisition/directory-runtime.ts";
 import { directoryContract } from "./directory-profile.ts";
-const sql = dbOf("acquisition");
 
 export interface CollectResult {
   sourceId: string;
@@ -47,7 +55,8 @@ export interface CollectResult {
   error?: string;
 }
 
-const MAX_ITEMS_PER_RUN = 60;
+type CollectionCandidate = Candidate & { collectionDetail?: { rules: string; checkedAt: string } };
+const DETAIL_RECHECK_MS = 24 * 3600_000;
 
 export function failureMessage(error: unknown): string {
   const message = String(error instanceof Error ? error.message : error);
@@ -102,29 +111,23 @@ export async function requireDateCollection(source: SourceRow, permissionVersion
   }
 }
 
-/** Titles of the articles already stored under these URLs. */
-async function storedTitles(urls: string[]): Promise<Map<string, string>> {
-  if (urls.length === 0) return new Map();
-  const rows = await sql<{ url: string; title: string }[]>`SELECT url, title FROM articles WHERE url IN ${sql(urls)}`;
-  return new Map(rows.map((r) => [r.url, r.title]));
-}
-
 /** A listing title that is no headline: a label that swallowed its summary, or a call to action. */
 const needsTitle = (title: string) =>
   title.length > 100 || /^(read more|learn more|continue reading|more|阅读全文|阅读更多|查看详情|了解更多)$/i.test(title.trim());
 
 async function store(
   sourceId: string,
-  candidates: Candidate[],
+  candidates: CollectionCandidate[],
   backfill: string | null,
   permissionVersion: number,
   declaredLanguage: string | null | undefined,
   lane: SourceRow["lane"],
   collectionControl: RuntimeControlSnapshot,
-): Promise<{ created: number; revised: number }> {
+): Promise<{ created: number; revised: number; presentationFailures: Array<{ url: string; reason: string; identityKey: string }> }> {
   let created = 0;
   let revised = 0;
   let metadataChanged = false;
+  const presentationFailures: Array<{ url: string; reason: string; identityKey: string }> = [];
   const seen = new Set<string>();
   const heads = new Map(
     (
@@ -148,7 +151,14 @@ async function store(
     const key = identityKeyFor(material);
     if (seen.has(key)) continue;
     seen.add(key);
-    const res = await upsertMaterial(material, undefined, collectionControl);
+    let res: Awaited<ReturnType<typeof upsertMaterial>>;
+    try {
+      res = await upsertMaterial(material, undefined, collectionControl);
+    } catch (error) {
+      if (!(error instanceof PresentationMismatch)) throw error;
+      presentationFailures.push({ url: c.url, reason: error.message, identityKey: key });
+      continue;
+    }
     if (res.created) created += 1;
     if (res.revised) revised += 1;
     metadataChanged ||= res.metadataChanged;
@@ -156,8 +166,8 @@ async function store(
     if (res.created || res.revised || res.sourceTimeChanged) await queueProcessing(res.articleId);
   }
   // Republishing is a news step; policy material is never published as news (ADR-0016).
-  if (metadataChanged && lane === "news") await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
-  return { created, revised };
+  if (metadataChanged && lane === "news") await enqueue(QUEUES.republishSource, { lane: "news", sourceId }, { singletonKey: sourceId });
+  return { created, revised, presentationFailures };
 }
 
 async function collectSource(sourceId: string, opts: { force?: boolean; lane?: CollectionLane } = {}): Promise<CollectResult> {
@@ -176,7 +186,8 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
   }
 
   const [run] = await sql<{ id: number }[]>`INSERT INTO fetch_runs (source_id) VALUES (${sourceId}) RETURNING id`;
-  const firstImport = !source.cursor?.initializedAt;
+  const initializedAt = Date.parse(String(source.cursor?.initializedAt ?? ""));
+  const firstImport = !Number.isFinite(initializedAt);
   let created = 0;
   let revised = 0;
   let found = 0;
@@ -191,7 +202,11 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
       permission.permission_version,
       String(source.config.feedUrl ?? source.config.url ?? "").replace(/^https:\/\/r\.jina\.ai\//, ""),
     );
-    let candidates: Candidate[];
+    let candidates: CollectionCandidate[];
+    const d = source.config.detail;
+    const detailRules = d ? sha256(stableJson(d)) : null;
+    const detailCheckedAt = Date.parse(String(source.cursor?.detailCheckedAt ?? ""));
+    const detailExpired = d && (!Number.isFinite(detailCheckedAt) || detailCheckedAt > Date.now() || Date.now() - detailCheckedAt >= DETAIL_RECHECK_MS);
     const nextCursor: Record<string, unknown> = { ...(source.cursor ?? {}) };
     let detail: Record<string, unknown> | null = null;
     // A declared directory still has to finish its whole catalogue. A policy list without that
@@ -203,7 +218,9 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
       detail = { directory };
     } else {
       if (source.kind === "rss") {
-        const rss = await crawlStep("listing", String(source.config.feedUrl), () => fetchRss(source, opts));
+        const rss = await crawlStep("listing", String(source.config.feedUrl), () =>
+          fetchRss(source, { force: !!opts.force || (!!detailRules && (source.cursor?.detailRules !== detailRules || !!detailExpired)) }),
+        );
         candidates = rss.candidates;
         // The first import has a smaller backfill cap than later runs: allow the next run to read
         // the ordinary window before accepting 304s. Persist validators only after store succeeds.
@@ -219,6 +236,22 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         .filter((c) => !noiseFiltered(c, source));
       if (source.config.sortByPublishedAt) candidates.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0));
 
+      const unique = new Map<string, CollectionCandidate>();
+      for (const c of candidates) {
+        const key = identityKeyFor({ ...c, sourceId, via: "fetch" });
+        if (!unique.has(key)) unique.set(key, c);
+      }
+      candidates = [...unique.values()];
+      // An explicitly unreliable list date must not exclude an item before its detail date can be read.
+      if (d?.publishedAtAuthoritative === true)
+        for (const c of candidates) {
+          c.publishedAt = null;
+          delete c.sourceDateObservation;
+        }
+      const known = await collectionDetails(
+        sourceId,
+        candidates.map((c) => identityKeyFor({ ...c, sourceId, via: "fetch" })),
+      );
       // First import of a new source: bounded, and archived by source time (never "today", never pushed).
       const backfillLimit = Number(source.config._amp?.initialBackfillLimit ?? 30);
       const backfillMonths = Number(source.config._amp?.initialBackfillMonths ?? 12);
@@ -232,38 +265,47 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
           })
           .slice(0, backfillLimit);
       } else {
-        candidates = candidates.slice(0, MAX_ITEMS_PER_RUN);
+        const floor = initializedAt - STALE_ON_DISCOVERY_MS;
+        candidates = candidates.filter(
+          (c) => known.has(identityKeyFor({ ...c, sourceId, via: "fetch" })) || !c.publishedAt || !Number.isFinite(floor) || c.publishedAt.getTime() >= floor,
+        );
       }
 
-      // Detail pages only for material we have not seen (bounded per run), and only for what the listing lacks.
-      const d = source.config.detail;
-      const known = await storedTitles(candidates.map((c) => c.url));
-      const detailBudget = Number(d?.maxFetches ?? 0);
-      let detailUsed = 0;
+      // Previously stored items can finish a failed or budget-deferred detail read.
+      const detailBudget = Math.max(0, Math.min(50, Math.floor(Number(d?.maxFetches ?? 0) || 0)));
+      let detailUsed = 0,
+        detailPending = 0,
+        detailFailures = 0;
+      const detailErrors: { url: string; error: string }[] = [];
       for (const c of candidates) {
-        // Listing dates the source marks unreliable are dropped; the detail page's rule decides.
-        if (d?.publishedAtAuthoritative === true) {
-          c.publishedAt = null;
-          delete c.sourceDateObservation;
+        const stored = known.get(identityKeyFor({ ...c, sourceId, via: "fetch" }));
+        if (stored) {
+          if (d?.titleSelector || d?.titleRegex) c.title = stored.title;
+          const age = Date.now() - Date.parse(stored.checked_at ?? "");
+          if (stored.rules === detailRules && age >= 0 && age < DETAIL_RECHECK_MS) {
+            c.publishedAt ??= stored.published_at;
+            continue;
+          }
+          if (!d?.publishedAtAuthoritative) c.publishedAt ??= stored.published_at;
         }
-        const stored = known.get(c.url);
-        if (stored !== undefined) {
-          // The title came from the detail page: the listing's own rendering must not revise it back.
-          if (d?.titleSelector || d?.titleRegex) c.title = stored;
+        if (!d) continue;
+        const need: DetailNeed = {
+          date: d.publishedAtAuthoritative === true || !(stored?.published_at || c.publishedAt) || d.upgradeDatePrecision === true,
+          title: !!(d.titleSelector || d.titleRegex) && (d.titleAuthoritative === true || !!stored || needsTitle(c.title)),
+          summary: !!d.summarySelector && !(stored?.excerpt || c.excerpt),
+          body: source.participation_mode === "editorial" && stored?.body_status !== "ok" && !c.bodyText && (!c.bodyStatus || c.bodyStatus === "pending"),
+        };
+        if (need.body) need.body = await crawlFulltextAllowed(c.url);
+        if (!need.date && !need.title && !need.summary && !need.body) continue;
+        if (detailUsed >= detailBudget) {
+          detailPending++;
           continue;
         }
-        if (!d || detailUsed >= detailBudget) continue;
-        const need: DetailNeed = {
-          date: !c.publishedAt || d.upgradeDatePrecision === true,
-          title: !!(d.titleSelector || d.titleRegex) && (d.titleAuthoritative === true || needsTitle(c.title)),
-          summary: !!d.summarySelector && !c.excerpt,
-          body: source.participation_mode === "editorial" && !c.bodyText && (!c.bodyStatus || c.bodyStatus === "pending"),
-        };
-        if (!need.date && !need.title && !need.summary) continue;
         detailUsed += 1;
         try {
           await requireDateCollection(source, permission.permission_version, c.url);
           const got = await crawlStep(`detail:${c.url}`, c.url, () => fetchDetail(c.url, source, need));
+          c.collectionDetail = { rules: detailRules!, checkedAt: new Date().toISOString() };
           if (got.title) c.title = got.title;
           if (got.summary) c.excerpt = got.summary;
           // The same Readability path as extraction, using bytes already fetched for the detail rules.
@@ -287,12 +329,23 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
           }
         } catch (error) {
           if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
-          // detail is best effort
+          detailPending++;
+          if (!(error instanceof BudgetExceededError)) detailFailures++;
+          detailErrors.push({ url: c.url, error: failureMessage(error).slice(0, 300) });
         }
       }
 
+      if (d) {
+        detail = { ...detail, detailAttempts: detailUsed, detailFailures, detailPending, detailErrors };
+        nextCursor.detailRules = detailRules;
+        if (detailPending === 0 && !detail.notModified) nextCursor.detailCheckedAt = new Date().toISOString();
+        else if (source.kind === "rss") delete nextCursor.rss;
+      } else {
+        delete nextCursor.detailRules;
+        delete nextCursor.detailCheckedAt;
+      }
       const language = Object.hasOwn(source.config, "language") ? normalizeSourceLanguage(source.config.language) : undefined;
-      ({ created, revised } = await store(
+      const stored = await store(
         sourceId,
         candidates,
         firstImport ? "first-import" : null,
@@ -300,7 +353,10 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         language,
         source.lane,
         collectionControl,
-      ));
+      );
+      ({ created, revised } = stored);
+      if (stored.presentationFailures.length)
+        detail = { ...detail, presentationFailureCount: stored.presentationFailures.length, presentationFailures: stored.presentationFailures.slice(0, 20) };
     }
 
     if (firstImport) nextCursor.initializedAt = new Date().toISOString();
@@ -405,7 +461,7 @@ export async function adaptIntervals(): Promise<{ updated: number }> {
 }
 
 import { deferSourceFetch } from "@amp/backend/admin/sources";
-import { withSourceCrawl, crawlStep, CrawlDeferred, CrawlBlocked, CrawlObsolete } from "../acquisition/crawl.ts";
+import { withSourceCrawl, crawlStep, crawlFulltextAllowed, CrawlDeferred, CrawlBlocked, CrawlObsolete } from "../acquisition/crawl.ts";
 async function pacedCollectSource(
   sourceId: string,
   opts: NonNullable<Parameters<typeof collectSource>[1]> & { crawlSessionId?: string } = {},

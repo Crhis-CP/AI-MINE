@@ -1,13 +1,11 @@
 // Starred items live in the browser; this tells the page which ones are still public. A starred item
 // stays available as long as its page does (rules.hasItemPage), whether or not it is in the lists.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { environmentValue } from "../config.ts";
 import { hasItemPage } from "./rules.ts";
 import { fetchItemsByIds, toFeedItemSummary } from "./items.ts";
 import { pendingReleaseCount } from "./v1.ts";
 import { sha256 } from "../lib/ids.ts";
-
-const sql = dbOf("publication");
 
 /** Resolve references anew; browser copies never act as a source of public content. */
 export async function savedItems(ids: string[]) {

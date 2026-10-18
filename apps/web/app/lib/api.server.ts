@@ -81,9 +81,12 @@ export function releaseBoundCache(refreshAt: string | null, maxSeconds: number, 
   };
 }
 
-/** Adapt generated client results without losing the existing HTTP error semantics. */
-export function contractResult<T>(result: { response: Response; data?: unknown; error?: unknown }, schema: { parse: (value: unknown) => T }): T {
-  const { response, data: body, error } = result;
+/** Read and validate HTTP responses without losing status, retry timing or response headers. */
+export async function contractResult<T>(result: Response, schema: { parse: (value: unknown) => T }): Promise<T> {
+  const response = result;
+  const payload = await result.json().catch(() => null);
+  const body = payload,
+    error = payload;
   if (!response.ok) {
     const code = error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : null;
     const retry = response.headers.get("retry-after");

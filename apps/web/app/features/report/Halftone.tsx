@@ -1,3 +1,4 @@
+import { watchAppearance } from "../../lib/local-state";
 // The date in the masthead's 报眼 as a signal board: text drawn on a canvas as a halftone of dots, the
 // accent part in the accent colour and the rest in ink, over a faint grid of unlit dots and the text's own
 // faint silhouette. The dot texture comes from `seed` (the issue), so every
@@ -300,9 +301,7 @@ export function Halftone({ seed, className = "", children }: { seed: string; cla
       paintTint();
       redraw();
     };
-    const theme = new MutationObserver(recolour);
-    const scheme = matchMedia("(prefers-color-scheme: dark)");
-    const onScheme = recolour;
+    let unwatch = () => {};
 
     document.fonts.ready.then(() => {
       if (disposed || !layout()) return;
@@ -312,8 +311,7 @@ export function Halftone({ seed, className = "", children }: { seed: string; cla
       setDrawn(true);
       redraw();
       resize.observe(host);
-      theme.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
-      scheme.addEventListener("change", onScheme);
+      unwatch = watchAppearance((change) => (change === "font" ? rebuild() : recolour()));
       if (hover && !still) {
         canvas.addEventListener("pointermove", onMove);
         canvas.addEventListener("pointerleave", onLeave);
@@ -324,8 +322,7 @@ export function Halftone({ seed, className = "", children }: { seed: string; cla
       disposed = true;
       if (frame) cancelAnimationFrame(frame);
       resize.disconnect();
-      theme.disconnect();
-      scheme.removeEventListener("change", onScheme);
+      unwatch();
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerleave", onLeave);
     };

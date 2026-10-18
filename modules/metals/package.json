@@ -1,0 +1,28 @@
+{
+  "name": "@amp/metals",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./module": "./module.ts",
+    "./server": "./server.ts",
+    "./read": "./backend/read.ts",
+    "./refresh": "./backend/refresh.ts",
+    "./diagnostics": "./backend/change.ts",
+    "./registry": "./backend/registry.ts",
+    "./web": "./web.ts"
+  },
+  "dependencies": {
+    "@amp/backend": "*",
+    "@amp/contracts": "*",
+    "cheerio": "1.2.0",
+    "fast-xml-parser": "5.11.1",
+    "pdfjs-dist": "6.4.299",
+    "zod": "4.6.5",
+    "@amp/web": "*",
+    "react": "19.3.0",
+    "react-router": "8.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  }
+}

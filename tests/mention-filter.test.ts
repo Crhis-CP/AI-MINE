@@ -3,12 +3,11 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { foldMention, mentionByFold, mentionByTag, textHits } from "../packages/backend/src/publication/mentions.ts";
 
-const sql = dbOf("publication");
 const SOURCE = `test-mentions-${tag()}`;
 const NOW = new Date("2026-10-10T04:00:00.000Z");
 

@@ -1,3 +1,5 @@
+import { FEEDBACK_LIMITS } from "@amp/contracts/http/public";
+import { feedbackEmailKey } from "../operations/feedback.ts";
 import { beijingDate, beijingMidnight, addDays } from "@amp/contracts/time";
 import { sendAlert } from "../notify/deliver.ts";
 // Feedback handling: list, status and note, per-source bans, and deletion on request
@@ -5,11 +7,9 @@ import { sendAlert } from "../notify/deliver.ts";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { feedbackSql as sql } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
-
-const sql = dbOf("feedback");
 
 export const FEEDBACK_STATUSES = ["new", "triaged", "replied", "resolved", "spam", "archived"] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
@@ -20,7 +20,8 @@ export async function listFeedback(f: { status?: string; q?: string; page?: numb
   const rows = await sql`
     SELECT fb.id, fb.content, fb.email, fb.page_url, split_part(fb.screenshot_key, ':', 1) AS screenshot, fb.source_hash, fb.status, fb.note,
            fb.created_at, fb.updated_at, fb.completed_at, fb.anonymized_at,
-           EXISTS (SELECT 1 FROM feedback_bans b WHERE b.source_hash = fb.source_hash) AS banned,
+           EXISTS (SELECT 1 FROM feedback_bans b WHERE b.source_hash = fb.source_hash AND (b.expires_at IS NULL OR b.expires_at>now())) AS banned,
+           (SELECT paused_until FROM feedback.submission_state s WHERE s.source_hash=fb.source_hash AND s.paused_until>now()) AS paused_until,
            (SELECT count(*)::int FROM feedback o WHERE o.source_hash = fb.source_hash) AS from_source
     FROM feedback fb
     WHERE (${f.id ?? null}::text IS NULL OR fb.id::text=${f.id ?? null})
@@ -28,11 +29,24 @@ export async function listFeedback(f: { status?: string; q?: string; page?: numb
       AND (${q}::text IS NULL OR fb.content ILIKE ${q} OR fb.email ILIKE ${q} OR fb.page_url ILIKE ${q})
     ORDER BY fb.created_at DESC LIMIT 50 OFFSET ${(page - 1) * 50}`;
   const counts = await sql<{ status: string; n: number }[]>`SELECT status, count(*)::int AS n FROM feedback GROUP BY 1`;
-  const bans = await sql`SELECT source_hash, reason, created_by, created_at FROM feedback_bans ORDER BY created_at DESC LIMIT 100`;
+  const bans =
+    await sql`SELECT source_hash, reason, created_by, created_at, expires_at FROM feedback_bans WHERE expires_at IS NULL OR expires_at>now() ORDER BY created_at DESC`;
   const state = (s: string) => (s === "triaged" ? "new" : s === "replied" ? "resolved" : s === "spam" ? "archived" : s);
   const totals: Record<string, number> = {};
   for (const c of counts) totals[state(c.status)] = (totals[state(c.status)] ?? 0) + c.n;
-  return { page, rows: rows.map((r) => ({ ...r, status: state(String(r.status)) })), counts: totals, bans, weeklySummary: await readWeeklyFeedbackSummary() };
+  return {
+    page,
+    rows: rows.map((r) => ({
+      ...r,
+      status: state(String(r.status)),
+      banned_until: r.banned ? bans.find((b) => b.source_hash === r.source_hash)?.expires_at : r.paused_until,
+      email_banned: !!r.email && bans.some((b) => b.source_hash === feedbackEmailKey(String(r.email))),
+      email_key: r.email ? feedbackEmailKey(String(r.email)) : null,
+    })),
+    counts: totals,
+    bans,
+    weeklySummary: await readWeeklyFeedbackSummary(),
+  };
 }
 
 export async function updateFeedback(id: number, input: { status?: string; note?: string | null; version: string }, actor: string) {
@@ -64,15 +78,33 @@ export async function updateFeedback(id: number, input: { status?: string; note?
 }
 
 /** Refuses further feedback from one source (an unreadable hash of IP and browser family). */
-export async function banSource(sourceHash: string, reason: string, actor: string) {
+export async function banSource(sourceHash: string, reason: string, actor: string, expiresAt?: string | null) {
   if (!reason.trim()) throw new Error("reason is required");
-  await sql`INSERT INTO feedback_bans (source_hash, reason, created_by) VALUES (${sourceHash}, ${reason}, ${actor}) ON CONFLICT (source_hash) DO NOTHING`;
-  await audit(actor, "feedback.ban", `feedback-source:${sourceHash}`, reason, null, null);
+  const until = expiresAt ? new Date(expiresAt) : null;
+  if (until && (!Number.isFinite(until.getTime()) || until.getTime() <= Date.now())) throw new Conflict("暂停截止时间必须在将来");
+  await sql`INSERT INTO feedback_bans(source_hash,reason,created_by,expires_at) VALUES(${sourceHash},${reason},${actor},${until})
+    ON CONFLICT(source_hash) DO UPDATE SET reason=EXCLUDED.reason,created_by=EXCLUDED.created_by,created_at=now(),expires_at=EXCLUDED.expires_at`;
+  await audit(actor, "feedback.ban", `feedback-source:${sourceHash}`, reason, null, { expiresAt: until?.toISOString() ?? null });
+}
+
+/** Only a moderator's explicit decision links a supplied email across sources. */
+export async function banFeedbackEmail(id: number, reason: string, actor: string) {
+  const [row] = await sql<{ email: string | null }[]>`SELECT email FROM feedback WHERE id=${id}`;
+  if (!row?.email) return null;
+  const key = feedbackEmailKey(row.email);
+  const expiresAt = new Date(Date.now() + FEEDBACK_LIMITS.emailPauseSeconds * 1000).toISOString();
+  await banSource(key, reason, actor, expiresAt);
+  return { key, expiresAt };
 }
 
 export async function unbanSource(sourceHash: string, actor: string) {
-  const rows = await sql`DELETE FROM feedback_bans WHERE source_hash = ${sourceHash} RETURNING reason`;
-  if (rows.length) await audit(actor, "feedback.unban", `feedback-source:${sourceHash}`, null, { reason: rows[0]!.reason }, null);
+  await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext(${`feedback:${sourceHash}`}))`;
+    const rows = await tx`DELETE FROM feedback_bans WHERE source_hash=${sourceHash} RETURNING reason`;
+    const cleared = await tx`DELETE FROM feedback.submission_state WHERE source_hash=${sourceHash} RETURNING source_hash`;
+    if (rows.length || cleared.length)
+      await audit(actor, "feedback.unban", `feedback-source:${sourceHash}`, null, { reason: rows[0]?.reason ?? "解除自动暂停" }, null, undefined, tx);
+  });
 }
 
 function screenshotPath(key: string | null): string | null {
@@ -98,13 +130,16 @@ export async function eraseFeedback(id: number, reason: string, actor: string) {
   });
   if (!row) return null;
   const file = screenshotPath(row.screenshot_key);
-  if (file) await unlink(file).catch(() => {});
+  const [referenced] = row.screenshot_key ? await sql`SELECT 1 FROM feedback WHERE screenshot_key=${row.screenshot_key} LIMIT 1` : [];
+  if (file && !referenced) await unlink(file).catch(() => {});
   await audit(actor, "feedback.erase", `feedback:${id}`, reason, null, null);
   return { erased: true };
 }
 
 /** Clears only identifying attachments/contact details, preserving the feedback and handling history. */
 export async function anonymizeExpiredFeedback(now = new Date()) {
+  await sql`DELETE FROM feedback.submission_state WHERE expires_at<=${now}`;
+  await sql`DELETE FROM feedback_bans WHERE expires_at<=${now}`;
   const cleaned = await sql.begin(async (tx) => {
     const rows = await tx<{ id: number; screenshot_key: string | null }[]>`SELECT id,screenshot_key FROM feedback
       WHERE completed_at IS NOT NULL AND completed_at <= ${now}::timestamptz - interval '180 days'

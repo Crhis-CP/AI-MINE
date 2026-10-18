@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { appendFileSync } from "node:fs";
-import type { Database } from "@amp/config";
+import type { Database } from "@amp/backend/db";
 
 /** The parent reserves a random namespace; direct single-file tests keep their existing names. */
 export const resourcePrefix = (fallback: string) =>

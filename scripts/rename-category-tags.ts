@@ -3,7 +3,7 @@
 // stored and calls no model. Tags someone set by hand are listed, not changed: a person changes them.
 //   node scripts/rename-category-tags.ts            lists them, writes nothing
 //   node scripts/rename-category-tags.ts --apply    republishes them, then lists what is left
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { OLD_CATEGORY_TAGS } from "@amp/industry/mining-taxonomy";
@@ -16,7 +16,7 @@ if (unknown.length) {
 }
 const apply = args.includes("--apply");
 await initializeDb("worker");
-const sql = dbOf("publication");
+
 interface Row {
   article_id: string;
   title: string;

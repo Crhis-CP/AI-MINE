@@ -1,13 +1,10 @@
 // Job queue on PostgreSQL (pg-boss). Business code enqueues by name; the worker process owns handlers.
 import { PgBoss, type SendOptions } from "pg-boss";
 import { queueConnection } from "../db-bootstrap.ts";
-import { dbOf, type Db } from "../db.ts";
-
-const sql = dbOf("queue");
+import { sql, type Db } from "../db.ts";
 
 interface QueueInstance {
   raw: PgBoss;
-  view: PgBoss;
   connection: ReturnType<typeof queueConnection>;
   ensured: Set<string>;
   valid: boolean;
@@ -71,19 +68,11 @@ export const QUEUE_OPTIONS: Record<string, QueueOptions> = {
 };
 
 type QueueDb = ReturnType<PgBoss["getDb"]>;
-type Callback = (...args: unknown[]) => unknown;
-const queueMethods = new Set(
-  [...Object.getOwnPropertyNames(PgBoss.prototype), ...Object.getOwnPropertyNames(Object.getPrototypeOf(PgBoss.prototype))].filter(
-    (key) => key !== "constructor",
-  ),
-);
-
-/** Bind public capabilities, never raw receivers or pools, to this exact database root. */
-function bindQueue(raw: PgBoss, connection: ReturnType<typeof queueConnection>): QueueInstance {
+/** Native pg-boss owns its methods, transactions and listeners. The process owns its lifecycle. */
+function queueInstance(raw: PgBoss, connection: ReturnType<typeof queueConnection>): QueueInstance {
   const instance: QueueInstance = {
     raw,
     connection,
-    view: null as unknown as PgBoss,
     ensured: new Set(),
     valid: true,
     check() {
@@ -91,146 +80,6 @@ function bindQueue(raw: PgBoss, connection: ReturnType<typeof queueConnection>):
       if (queueConnection() !== connection) throw new Error("Job queue database root changed");
     },
   };
-  const databases = new WeakMap<QueueDb, QueueDb>();
-  const originals = new WeakMap<object, QueueDb>();
-  const bindDb = (native: QueueDb): QueueDb => {
-    const cached = databases.get(native);
-    if (cached) return cached;
-    const db: QueueDb = {
-      executeSql(text, values) {
-        instance.check();
-        return native.executeSql(text, values);
-      },
-    };
-    if (native.setSessionStatements)
-      db.setSessionStatements = (statements) => {
-        instance.check();
-        return native.setSessionStatements!(statements);
-      };
-    if (native.beginTransaction)
-      db.beginTransaction = async () => {
-        instance.check();
-        const tx = await native.beginTransaction!();
-        try {
-          instance.check();
-        } catch (error) {
-          await tx.rollback();
-          throw error;
-        }
-        return {
-          db: bindDb(tx.db),
-          commit: async () => {
-            instance.check();
-            await tx.commit();
-          },
-          rollback: () => tx.rollback(),
-        };
-      };
-    if (native.listen)
-      db.listen = async (...args) => {
-        instance.check();
-        const listener = await native.listen!(...args);
-        try {
-          instance.check();
-        } catch (error) {
-          await listener.close();
-          throw error;
-        }
-        return { close: () => listener.close() };
-      };
-    databases.set(native, db);
-    originals.set(db, native);
-    return Object.freeze(db);
-  };
-  const callbacks = new WeakMap<object, Callback>();
-  const listeners = new WeakMap<object, Callback>();
-  const listenerOriginals = new WeakMap<object, Callback>();
-  const rawViews = new WeakMap<Callback, Callback>();
-  const rawTargets = new WeakMap<Callback, Callback>();
-  const callback = (fn: Callback, work = false): Callback => {
-    const cache = work ? callbacks : listeners;
-    let wrapped = cache.get(fn);
-    if (!wrapped) {
-      wrapped = (...args) =>
-        Reflect.apply(
-          fn,
-          instance.view,
-          work
-            ? args.map((arg) => (arg && typeof arg === "object" && "executeSql" in arg && typeof arg.executeSql === "function" ? bindDb(arg as QueueDb) : arg))
-            : args,
-        );
-      cache.set(fn, wrapped);
-      if (!work) listenerOriginals.set(wrapped, fn);
-    }
-    return wrapped;
-  };
-  const listenerView = (fn: Callback, raw: boolean): Callback => {
-    const original = listenerOriginals.get(fn);
-    if (original) return original;
-    const listener = Reflect.get(fn, "listener");
-    const once = listener && listenerOriginals.get(listener);
-    if (!raw || !once) return fn;
-    let view = rawViews.get(fn);
-    if (!view) {
-      view = (...args) => Reflect.apply(fn, instance.view, args);
-      Object.defineProperty(view, "listener", { value: once });
-      rawViews.set(fn, view);
-      rawTargets.set(view, fn);
-    }
-    return view;
-  };
-  const methods = new Map<PropertyKey, { native: unknown; wrapped: Callback }>();
-  instance.view = new Proxy(Object.create(PgBoss.prototype) as PgBoss, {
-    get(target, key, receiver) {
-      if (typeof key !== "string" || !queueMethods.has(key)) return undefined;
-      instance.check();
-      if (key === "getDb")
-        return () => {
-          instance.check();
-          return bindDb(raw.getDb());
-        };
-      const overridden = Object.hasOwn(target, key);
-      const native = Reflect.get(overridden ? target : raw, key, overridden ? receiver : raw);
-      if (typeof native !== "function") return undefined;
-      let method = methods.get(key);
-      if (!method || method.native !== native) {
-        const wrapped = (...args: unknown[]) => {
-          instance.check();
-          const prepared = args.map((arg, index) => {
-            if (typeof arg === "function") {
-              if (/^(work|on|once|addListener|prependListener|prependOnceListener)$/.test(key)) return callback(arg as Callback, key === "work");
-              if (/^(removeListener|off|listenerCount)$/.test(key)) return rawTargets.get(arg as Callback) ?? listeners.get(arg) ?? arg;
-            }
-            // Only these settlement options need native tx identity for pg-boss's claim accounting.
-            const dbIndex = key === "complete" || key === "fail" ? 3 : key === "cancel" || key === "deleteJob" ? 2 : -1;
-            if (
-              !overridden &&
-              index === dbIndex &&
-              arg &&
-              typeof arg === "object" &&
-              "db" in arg &&
-              arg.db &&
-              typeof arg.db === "object" &&
-              originals.has(arg.db)
-            )
-              return { ...arg, db: originals.get(arg.db) };
-            return arg;
-          });
-          const value = Reflect.apply(native, overridden ? receiver : raw, prepared);
-          const result = (value: unknown) => {
-            if (value === raw) return instance.view;
-            return (key === "listeners" || key === "rawListeners") && Array.isArray(value)
-              ? value.map((fn) => listenerView(fn, key === "rawListeners"))
-              : value;
-          };
-          return value instanceof Promise ? value.then(result) : result(value);
-        };
-        method = { native, wrapped };
-        methods.set(key, method);
-      }
-      return method.wrapped;
-    },
-  });
   return instance;
 }
 
@@ -243,7 +92,7 @@ export async function getBoss(): Promise<PgBoss> {
     return getBoss();
   }
   // Graceful stop still lets an in-flight handler settle its receipt and enqueue its follow-up.
-  if (boss) return boss.view;
+  if (boss) return boss.raw;
   if (stopping) throw new Error("Job queue is stopping");
   starting ??= (async () => {
     owner = connection;
@@ -253,8 +102,8 @@ export async function getBoss(): Promise<PgBoss> {
     try {
       await b.start();
       if (attempt !== generation || queueConnection() !== connection) throw new Error("Job queue database root changed during startup");
-      boss = bindQueue(b, connection);
-      return boss.view;
+      boss = queueInstance(b, connection);
+      return boss.raw;
     } catch (error) {
       if (connection.migrate === false) {
         try {
@@ -268,6 +117,8 @@ export async function getBoss(): Promise<PgBoss> {
       }
       await b.stop({ graceful: false }).catch(() => {});
       throw error;
+    } finally {
+      if (attempt === generation) starting = null;
     }
   })();
   return starting;
@@ -278,8 +129,8 @@ export async function getBoss(): Promise<PgBoss> {
  * already in flight is allowed to finish, so a deploy does not leave "outcome unknown" receipts.
  */
 export const shutdownSignal = new AbortController();
-/** The longest single paid call (a translation batch, 180 s) plus margin; systemd waits longer. */
-export const STOP_TIMEOUT_MS = 195_000;
+/** Allow in-flight backups and paid calls to finish; the process supervisor waits 480 seconds. */
+export const STOP_TIMEOUT_MS = 470_000;
 
 export async function stopBoss(): Promise<void> {
   if (stopping) return stopping;
@@ -308,7 +159,7 @@ export async function stopBoss(): Promise<void> {
 export async function ensureQueue(name: string, options: QueueOptions = QUEUE_OPTIONS[name] ?? {}): Promise<void> {
   const b = await getBoss();
   const instance = boss;
-  if (!instance || instance.view !== b) throw new Error("Job queue instance expired");
+  if (!instance || instance.raw !== b) throw new Error("Job queue instance expired");
   instance.check();
   const producerOnly = instance.connection.migrate === false;
   if (!producerOnly && instance.ensured.has(name)) return;
@@ -334,7 +185,7 @@ export async function enqueue(name: string, data: object, options: SendOptions =
     const initial = producer ? await getBoss() : null;
     if (initial) {
       if (queueConnection() !== connection) throw new Error("Job queue database root changed");
-      if (boss?.view !== initial) throw new QueueUnavailableError("queue_missing");
+      if (boss?.raw !== initial) throw new QueueUnavailableError("queue_missing");
       used = boss;
       used.check();
     }
@@ -378,7 +229,7 @@ export async function enqueue(name: string, data: object, options: SendOptions =
       }
       throw new QueueUnavailableError("queue_missing");
     }
-    if (used && retiredProducers.has(used) && pg?.message === "Job queue instance expired") {
+    if (used && retiredProducers.has(used) && /Job queue instance expired|Cannot use a pool after calling end/.test(pg?.message ?? "")) {
       if (queueConnection() !== connection) throw mapped;
       if (!callerDb && refreshing?.instance === used) await refreshing.promise;
       throw new QueueUnavailableError("queue_missing");

@@ -1,7 +1,7 @@
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { directoryContract } from "../sources/directory-profile.ts";
 import type { SourceRow } from "../sources/types.ts";
-const sql = dbOf("acquisition");
+
 /** Current acquisition membership, not legal validity or public withdrawal. */
 export async function directoryMaterialState(source: Pick<SourceRow, "id" | "kind" | "config">, materialId: string) {
   const [head] = await sql<

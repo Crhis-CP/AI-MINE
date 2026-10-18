@@ -1,10 +1,41 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseAllDocuments, stringify } from "yaml";
 import { sqlLockFingerprint } from "../sql-lock.ts";
 
-const original = readFileSync(new URL("../../../pnpm-lock.yaml", import.meta.url), "utf8");
+// Small historical-format fixture keeps migration coverage independent of the active lock format.
+const original = stringify({
+  lockfileVersion: "9.0",
+  importers: {
+    ".": { devDependencies: { typescript: { specifier: "7.0.2", version: "7.0.2" } } },
+    "packages/backend": {
+      dependencies: {
+        postgres: { specifier: "3.4.9", version: "3.4.9" },
+        "pg-boss": { specifier: "12.34.0", version: "12.34.0" },
+      },
+    },
+  },
+  packages: Object.fromEntries(
+    [
+      "postgres@3.4.9",
+      "pg-boss@12.34.0",
+      "pg@8.20.0",
+      "pg-pool@3.13.0",
+      "pg-connection-string@2.10.0",
+      "typescript@7.0.2",
+      "@typescript/typescript-linux-x64@7.0.2",
+    ].map((name) => [name, { resolution: { integrity: `fixture-${name}` } }]),
+  ),
+  snapshots: {
+    "postgres@3.4.9": {},
+    "pg-boss@12.34.0": { dependencies: { pg: "8.20.0" } },
+    "pg@8.20.0": { dependencies: { "pg-pool": "3.13.0(pg@8.20.0)", "pg-connection-string": "2.10.0" } },
+    "pg-pool@3.13.0(pg@8.20.0)": {},
+    "pg-connection-string@2.10.0": {},
+    "typescript@7.0.2": { optionalDependencies: { "@typescript/typescript-linux-x64": "7.0.2" } },
+    "@typescript/typescript-linux-x64@7.0.2": {},
+  },
+});
 type Lock = {
   importers: Record<string, unknown>;
   packages: Record<string, { resolution: { integrity: string } }>;
@@ -92,4 +123,48 @@ test("missing nodes, invalid maps and unsupported lock input fail instead of shr
     /Unsupported dependency reference/,
   );
   assert.throws(() => sqlLockFingerprint("invalid: ["), /Cannot parse/);
+});
+
+test("npm SQL graphs retain nested resolution, installed peers and complete fingerprint metadata", () => {
+  const expected = sqlLockFingerprint(original).normalized;
+  const packages: Record<string, Record<string, unknown>> = {};
+  const parts = (key: string) => [key.slice(0, key.lastIndexOf("@")), key.slice(key.lastIndexOf("@") + 1)] as const;
+  for (const [key, node] of Object.entries(expected.nodes)) {
+    const [name, version] = parts(key);
+    assert.equal(packages[`node_modules/${name}`], undefined, "fixture has one resolved version per SQL dependency");
+    packages[`node_modules/${name}`] = {
+      version,
+      integrity: node.integrity,
+      resolved: `https://fixture.invalid/${name}/${version}.tgz`,
+      dependencies: Object.fromEntries(Object.entries(node.dependencies).map(([child, target]) => [child, parts(target)[1]])),
+    };
+  }
+  for (const [key, root] of Object.entries(expected.roots)) {
+    const [name] = parts(root.target),
+      importer = key.slice(0, -(name.length + 1));
+    const location = importer === "." ? "" : importer;
+    packages[location] ??= {};
+    const entry = packages[location];
+    entry[root.kind] ??= {} as Record<string, string>;
+    (entry[root.kind] as Record<string, string>)[name] = root.specifier;
+  }
+  const read = () => sqlLockFingerprint(JSON.stringify({ lockfileVersion: 3, packages }));
+  assert.deepEqual(read().normalized, expected);
+  const pool = packages["node_modules/pg-pool"];
+  packages["node_modules/pg/node_modules/pg-pool"] = pool;
+  delete packages["node_modules/pg-pool"];
+  delete (pool.dependencies as Record<string, string>).pg;
+  pool.peerDependencies = { pg: "^8" };
+  assert.deepEqual(read().normalized, expected);
+  const before = read().fingerprint;
+  pool.peerDependenciesMeta = { pg: { optional: true } };
+  assert.notEqual(read().fingerprint, before, "metadata remains fingerprinted even when the installed peer is unchanged");
+  const driver = packages["node_modules/postgres"];
+  driver.dependencies = null;
+  assert.throws(read, /Unsupported lock record/);
+  delete driver.dependencies;
+  driver.link = true;
+  assert.throws(read, /Unsupported npm SQL package/);
+  delete packages["node_modules/postgres"];
+  assert.throws(read, /Missing npm SQL dependency/);
 });

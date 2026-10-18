@@ -2,9 +2,8 @@ import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { POLICY_JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { PolicyJurisdiction } from "@amp/contracts/http/public";
 import { directoryCoverageEvidence } from "@amp/backend/sources/collect";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 
-const sql = dbOf("sources");
 const directory = new Map(POLICY_SOURCES.map((source) => [`policy-${source.id.toLowerCase()}`, source]));
 
 /** Coverage comes from structural rounds, never a successful HTTP response alone. */

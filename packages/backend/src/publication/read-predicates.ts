@@ -1,6 +1,5 @@
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import type { TextMatchValues, ReadMatcherValues, SearchScoreValues } from "./mentions.ts";
-const sql = dbOf("publication");
 
 /** Custom plans fold the bound guard flag, preserving direct trigram scans when no guarded character exists. */
 export function publicationTextMatches(values: TextMatchValues) {
@@ -16,6 +15,11 @@ export function bodyTextMatches(values: TextMatchValues) {
     OR CASE WHEN ps.body IS NULL THEN NULL ELSE EXISTS (SELECT 1 FROM unnest(${values.guardRemovals}::text[],${values.guardLikes}::text[]) AS guards(removal,pattern)
       WHERE regexp_replace(ps.body,guards.removal,'','gi') ILIKE guards.pattern) END)
     ELSE ps.body ILIKE ANY(${values.likes}::text[]) OR ps.body ~* ANY(${values.latin}::text[]) END)`;
+}
+
+/** Plain Latin body queries start at a word; named mining entities retain their alias rules. */
+export function publicBodyTextMatches(values: TextMatchValues) {
+  return sql`${bodyTextMatches(values)} AND (${values.bodyPrefix}::text IS NULL OR ps.body ~* ${values.bodyPrefix})`;
 }
 
 export function poolDirectTextMatches(values: TextMatchValues) {

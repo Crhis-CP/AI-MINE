@@ -12,7 +12,8 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
     const manifest = JSON.parse(readFileSync(filename, "utf8"));
     validateReleaseNote(manifest.note);
     if (!Array.isArray(manifest.fragments) || !manifest.fragments.length) throw new Error("Release note must cite its product fragments");
-    for (const file of manifest.fragments) {
+    const changedFragments = changed.filter((file) => /^changes\/.+\.md$/.test(file) && existsSync(path.join(root, file)));
+    for (const file of new Set([...manifest.fragments, ...changedFragments])) {
       if (typeof file !== "string" || !/^changes\/[A-Za-z0-9-]+\.md$/.test(file)) throw new Error("Invalid product fragment path");
       const text = readFileSync(path.join(root, file), "utf8");
       const header = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);

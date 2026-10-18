@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { createPublicClient, publicSchemas } from "../packages/api-client/src/public.ts";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
+import { apiFetch } from "../apps/web/app/lib/http.ts";
 import { Policy, PolicyListQuery, PolicyDetailQuery, PolicyReadingQuery } from "@amp/contracts/http/public";
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/policy-public/${name}.json`, import.meta.url), "utf8"));
 
@@ -96,30 +97,27 @@ test("policy queries keep only frozen filters and bind history and reading to im
   assert.equal(PolicyReadingQuery.safeParse({ expression_id: "expression-zh" }).success, false);
   assert.equal(PolicyReadingQuery.parse({ expression_id: "expression-zh", document_revision_id: "revision-zh" }).limit, 20);
 });
-test("generated client preserves policy parameters, failure responses and cancellation without a live policy handler", async () => {
+test("native HTTP preserves policy parameters, failure responses and cancellation without a live policy handler", async (t) => {
   const controller = new AbortController();
-  const client = createPublicClient({
-    baseUrl: "https://fixture.invalid",
-    fetch: async (request) => {
-      request.signal.throwIfAborted();
-      assert.equal(new URL(request.url).pathname, "/api/site/policies");
-      assert.equal(new URL(request.url).searchParams.get("jurisdiction"), "AR");
-      return Response.json(fixture("list"));
-    },
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    const request = new Request(input, init);
+    request.signal.throwIfAborted();
+    assert.equal(new URL(request.url).pathname, "/api/site/policies");
+    assert.equal(new URL(request.url).searchParams.get("jurisdiction"), "AR");
+    return Response.json(fixture("list"));
   });
-  const response = await client.GET("/api/site/policies", { params: { query: { jurisdiction: "AR" } }, signal: controller.signal });
-  assert.equal(publicSchemas.PolicyListResponse.parse(response.data).items.length, 2);
+  const options = { baseUrl: "https://fixture.invalid", params: { query: { jurisdiction: "AR" } }, signal: controller.signal };
+  const response = await apiFetch("/api/site/policies", options);
+  assert.equal(publicSchemas.PolicyListResponse.parse(await response.json()).items.length, 2);
   controller.abort();
-  await assert.rejects(client.GET("/api/site/policies", { params: { query: { jurisdiction: "AR" } }, signal: controller.signal }), { name: "AbortError" });
-  const unavailable = createPublicClient({
-    baseUrl: "https://fixture.invalid",
-    fetch: async () =>
-      Response.json(
-        { type: "about:blank", title: "unavailable", status: 503, detail: "暂时不可用", code: "temporarily_unavailable", requestId: "fixture" },
-        { status: 503 },
-      ),
-  });
-  const failure = await unavailable.GET("/api/site/policies");
-  assert.equal(failure.response.status, 503);
-  assert.equal(publicSchemas.Problem.parse(failure.error).code, "temporarily_unavailable");
+  await assert.rejects(apiFetch("/api/site/policies", options), { name: "AbortError" });
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json(
+      { type: "about:blank", title: "unavailable", status: 503, detail: "暂时不可用", code: "temporarily_unavailable", requestId: "fixture" },
+      { status: 503 },
+    ),
+  );
+  const failure = await apiFetch("/api/site/policies", { baseUrl: "https://fixture.invalid" });
+  assert.equal(failure.status, 503);
+  assert.equal(publicSchemas.Problem.parse(await failure.json()).code, "temporarily_unavailable");
 });

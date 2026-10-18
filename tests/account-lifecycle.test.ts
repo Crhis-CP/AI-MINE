@@ -1,6 +1,7 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { SESSION_COOKIE, sessionPrincipal, requireOwner, requireCapability } from "@amp/backend/admin/auth";
 import {
   provisionFirstOwner,
@@ -18,7 +19,7 @@ import { denied } from "./role-db-fixture.ts";
 test("named accounts, forced password changes, role revocation, capacity race and one-use Owner recovery use real auth role", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ identity: dbs.auth });
+    dispose = installTestConnections(dbs.auth);
   t.after(dispose);
   const setup = await provisionFirstOwner({ loginName: "SYNTHETIC.OWNER", displayName: "合成负责人", reason: "isolated test only" });
   const initial = await namedPasswordLogin(setup.loginName, setup.temporaryPassword, "/admin/accounts", undefined, "synthetic-origin");
@@ -144,7 +145,7 @@ test("named accounts, forced password changes, role revocation, capacity race an
 test("single-use login nonce and per-account/source rate controls are persistent and do not globally deny", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ identity: dbs.auth });
+    dispose = installTestConnections(dbs.auth);
   t.after(dispose);
   const n = await issueLoginNonce("source-a");
   await assert.rejects(consumeLoginNonce(n.token, "wrong", "other-source"));
@@ -159,11 +160,11 @@ test("single-use login nonce and per-account/source rate controls are persistent
 });
 
 test("private HTTP binds one-use login nonce, forced-change scope, Owner account routes and CSRF; outage retains cookie", async (t) => {
-  const { buildApp } = await import("../apps/api/src/app.ts"),
+  const { buildApp } = await import("./site-app.ts"),
     { config } = await import("@amp/backend/config");
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ identity: dbs.auth });
+    dispose = installTestConnections(dbs.auth);
   t.after(dispose);
   const originalHost = config.privateHost,
     originalDev = config.devAdmin;
@@ -214,11 +215,9 @@ test("private HTTP binds one-use login nonce, forced-change scope, Owner account
   assert.equal((await app.inject({ url: "/api/admin/me", headers: sessionHeaders })).statusCode, 401);
   assert.equal((await publicApp.inject({ url: "/api/admin/accounts", headers })).statusCode, 404);
   dispose();
-  const fail = injectDb({
-    identity: (() => {
-      throw new Error("synthetic unavailable");
-    }) as unknown as typeof dbs.auth,
-  });
+  const fail = installTestConnections((() => {
+    throw new Error("synthetic unavailable");
+  }) as unknown as typeof dbs.auth);
   try {
     const unavailable = await app.inject({ url: "/api/admin/me", headers: sessionHeaders });
     assert.equal(unavailable.statusCode, 503);

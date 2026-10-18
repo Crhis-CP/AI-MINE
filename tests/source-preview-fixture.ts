@@ -1,5 +1,5 @@
 // Only loopback/self-authored intake tests: preserve the real worker preview and host pacing.
-import { dbOf } from "@amp/backend/db";
+import { sql as runtimeSql } from "@amp/backend/db";
 import { setTimeout as delay } from "node:timers/promises";
 import { requestSourcePreview, runSourcePreview, previewSource } from "@amp/backend/admin/sources";
 export async function previewSourceFixture(sourceId: string) {
@@ -19,7 +19,7 @@ export async function previewSourceFixture(sourceId: string) {
       if (!retryAt || attempt === 4) throw error;
       // Advance only this synthetic submission's repeat-click window, then request a new preview.
       // A completed failed task itself is immutable to reruns; the real one-minute gate stays enabled.
-      await dbOf("sources")`UPDATE sources.source_previews SET created_at=now()-interval '61 seconds'
+      await runtimeSql`UPDATE sources.source_previews SET created_at=now()-interval '61 seconds'
         WHERE id=${preview.preview_id} AND status='failed'`;
       await delay(Math.max(1, new Date(retryAt).getTime() - Date.now() + 20));
     }

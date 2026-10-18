@@ -3,24 +3,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "WEB_ROUTE_GROUP=public PRIVATE_API_BASE_URL=\"${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}\" react-router dev --port 3000 --host 127.0.0.1",
+    "dev": "WEB_ROUTE_GROUP=public react-router dev --port 3000 --host 127.0.0.1",
     "build": "WEB_ROUTE_GROUP=public react-router build && WEB_ROUTE_GROUP=private react-router build",
-    "start": "PRIVATE_API_BASE_URL=\"${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}\" node server.ts",
+    "start": "node server.ts",
     "typecheck": "WEB_ROUTE_GROUP=public react-router typegen && tsc -p tsconfig.public.json && WEB_ROUTE_GROUP=private react-router typegen && tsc -p tsconfig.private.json",
-    "dev:private": "WEB_ROUTE_GROUP=private PRIVATE_API_BASE_URL=\"${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}\" react-router dev --port 3003 --host 127.0.0.1"
+    "dev:private": "WEB_ROUTE_GROUP=private react-router dev --port 3003 --host 127.0.0.1"
   },
   "dependencies": {
-    "@amp/contracts": "workspace:*",
-    "@amp/industry": "workspace:*",
+    "@amp/contracts": "*",
+    "@amp/industry": "*",
     "@react-router/node": "8.4.0",
     "isbot": "5.2.2",
     "motion": "13.4.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router": "8.4.0",
-    "@amp/api-client": "workspace:*",
     "zod": "4.6.5",
-    "@amp/ui": "workspace:*"
+    "@amp/site": "*"
   },
   "devDependencies": {
     "@react-router/dev": "8.4.0",
@@ -29,5 +28,17 @@
     "@types/react-dom": "19.3.0",
     "tailwindcss": "4.3.3",
     "vite": "8.3.1"
+  },
+  "exports": {
+    "./extension": "./extension.ts",
+    "./extension.server": "./extension.server.ts",
+    "./modules": "./modules.ts",
+    "./admin-extension.server": "./admin-extension.server.ts",
+    "./admin-action": "./app/features/admin/action.ts",
+    "./admin-ui": "./app/features/admin/ui.tsx",
+    "./admin-format": "./app/features/admin/format.ts",
+    "./page": "./app/components/ui/Page.tsx",
+    "./pagination": "./app/features/feed/DayList.tsx",
+    "./local-state": "./app/lib/local-state.ts"
   }
 }

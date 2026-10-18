@@ -74,11 +74,16 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     expect(reader!.status()).toBe(200);
     await pageNonce(reader!);
     await expect(page.getByText("没有找到相关内容", { exact: true })).toBeVisible();
-    const search = page.getByRole("textbox", { name: "搜索标题、摘要与正文" });
+    const phone = info.project.name === "mobile";
+    if (phone) await page.getByRole("link", { name: "搜索", exact: true }).click();
+    const search = phone
+      ? page.getByRole("dialog", { name: "搜索", exact: true }).getByRole("searchbox", { name: "搜索标题、摘要与正文" })
+      : page.getByRole("textbox", { name: "搜索标题、摘要与正文" });
     await search.fill("铜矿");
     await search.press("Enter");
     await expect(page).toHaveURL(/q=/);
-    await expect(page.getByRole("heading", { name: "搜索“铜矿”" })).toBeVisible();
+    if (phone) await expect(page.getByRole("button", { name: "修改搜索：铜矿", exact: true })).toBeVisible();
+    else await expect(page.getByRole("heading", { name: "搜索“铜矿”" })).toBeVisible();
     await page.getByRole("link", { name: "试试“全文相关”，连正文一起搜" }).click();
     await expect(page).toHaveURL(/tab=relevance/);
     assert(site.calls.some((c) => c.role === "public" && new URL(c.path, site.publicOrigin).searchParams.get("q") === "铜矿"));

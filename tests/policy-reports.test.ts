@@ -3,19 +3,18 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { readFileSync } from "node:fs";
 import { PolicyCard } from "@amp/contracts/http/public";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import {
   latestClosedPolicyPeriods,
   planPolicyReport,
   policyReportPeriod,
   type PublicPolicyReportVersion,
-} from "../packages/backend/src/publication/policy-report-plan.ts";
-import { policyReportsToRecheck, savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
+} from "../modules/policy/backend/publication/policy-report-plan.ts";
+import { policyReportsToRecheck, savePolicyReport } from "../modules/policy/backend/publication/policy-report-store.ts";
 import { policySourceCoverage } from "../packages/backend/src/sources/policy-coverage.ts";
-import { setPolicyPublicationPaused } from "../packages/backend/src/publication/policies-publish.ts";
-import { reconcilePolicyReportPeriods } from "../packages/backend/src/publication/policy-report-job.ts";
+import { setPolicyPublicationPaused } from "../modules/policy/backend/publication/policies-publish.ts";
+import { reconcilePolicyReportPeriods } from "../modules/policy/backend/publication/policy-report-job.ts";
 
-const sql = dbOf("publication");
 after(closeDb);
 const full = JSON.parse(readFileSync(new URL("./fixtures/policy-public/basic-facts.json", import.meta.url), "utf8"));
 const base = PolicyCard.parse(Object.fromEntries(Object.keys(PolicyCard.shape).map((key) => [key, full[key]])));
@@ -252,7 +251,7 @@ test("a restart fills missing completed weeks and months after an earlier issue,
 });
 
 test("catch-up batches start from this site's discovery, not an old source publication date, and eventually advance", async () => {
-  const { missingPolicyReportPeriods } = await import("../packages/backend/src/publication/policy-report-periods.ts");
+  const { missingPolicyReportPeriods } = await import("../modules/policy/backend/publication/policy-report-periods.ts");
   const row = edition("old-source-date", "1980-01-01", "2026-10-06T00:00:00Z", "2026-10-07T00:00:00Z");
   const end = new Date("2026-11-02T00:00:00Z"),
     first = missingPolicyReportPeriods([row], [], end, 2);

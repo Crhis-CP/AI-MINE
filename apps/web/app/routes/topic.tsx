@@ -1,8 +1,10 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
+import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
 import { Link, redirect, useLoaderData, useSearchParams } from "react-router";
 import type { Route } from "./+types/topic";
 import type { FeedItemSummary } from "@amp/contracts/site";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { SearchField, SourceDateFilters, JurisdictionFilter, hrefWith } from "../features/feed/Filters";
 import { contractResult, queryString, loadOr404 } from "../lib/api.server";
@@ -34,11 +36,12 @@ interface TopicPageData {
 }
 
 export async function loader({ params, request }: Route.LoaderArgs) {
+  if ([...params.slug].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) throw new Response("Not found", { status: 404 });
   const search = new URL(request.url).searchParams;
   const page = params.page ? Number(params.page) : Math.max(1, Number.parseInt(search.get("page") ?? "1", 10) || 1);
   if (params.page !== undefined && (!/^\d+$/.test(params.page) || page < 1)) throw new Response("Not found", { status: 404 });
   // Page 1 lives at the topic's own address (308).
-  if (params.page === "1") throw redirect(`/topics/${params.slug}`, 308);
+  if (params.page === "1") throw redirect(`/topics/${encodeURIComponent(params.slug)}`, 308);
   const data = await loadOr404<TopicPageData>(`/api/site/topics/${encodeURIComponent(params.slug)}?page=1`, { signal: request.signal });
   const query = {
     topic: params.slug,
@@ -54,20 +57,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   };
   const pool = await loadOr404(
     () =>
-      createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
-        .GET("/api/site/pool", {
-          params: { query },
-          querySerializer: () => queryString({ ...query, selected: query.selected ? "true" : undefined }).slice(1),
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: request.signal,
-        })
-        .then((result) => contractResult(result, publicSchemas.PoolResponse)),
+      apiFetch("/api/site/pool", {
+        params: { query },
+        querySerializer: () => queryString({ ...query, selected: query.selected ? "true" : undefined }).slice(1),
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: request.signal,
+        baseUrl: apiBaseFor("/api/site/pool"),
+      }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal },
   );
   const countries =
     data.topic.group === "genre"
-      ? await createPublicClient({ baseUrl: apiBaseFor("/api/site/jurisdictions") })
-          .GET("/api/site/jurisdictions", { signal: request.signal })
+      ? await apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor("/api/site/jurisdictions") })
           .then((result) => contractResult(result, publicSchemas.PolicyJurisdictionList))
           .catch(() => [])
       : [];
@@ -109,10 +110,13 @@ export default function TopicPage() {
   const first = (page - 1) * 20 + 1;
   const last = first + items.length - 1;
   return (
-    <div className="pb-6">
+    <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
+      <PhoneBar back={{ to: "/topics", label: "全部主题" }} title={topic.name} />
       <header className="pb-4 pt-5 lg:pt-1">
         <div className="flex items-start justify-between gap-4">
-          <h1 className="text-[22px] font-bold leading-[1.35] text-ink">{topic.name}</h1>
+          <h1 data-page-title="" className="text-[22px] font-bold leading-[1.35] text-ink">
+            {topic.name}
+          </h1>
           <span className="hidden pt-2 lg:block">
             <MoreLink to="/topics">全部主题</MoreLink>
           </span>

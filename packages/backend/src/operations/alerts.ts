@@ -4,25 +4,24 @@
 //   today  — money at risk or only the owner can act: sent at once, repeated at most daily, recovery reported.
 //   digest — follow-ups without reader impact: one 09:00 message a day, meant to be handed to the AI.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
+import { sourceHealth, SOURCE_PROBLEMS } from "../sources/health.ts";
 import { manualReviewExceptions } from "@amp/backend/admin/content";
 import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
 import { addDays, beijingDate, beijingMidnight, beijingTime, isoWeekLabel } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
 import { metalPriceChangeIssues } from "../publication/metal-prices/change.ts";
 import { loadMetalPrices } from "../publication/metal-prices/read.ts";
 import { loadReport, type ReportKind } from "../publication/reports.ts";
-import { qualifiedReportEntries } from "../reports/compose.ts";
+import { qualifiedReportEntries, dailyReportQualification } from "../reports/compose.ts";
 import { loadHot } from "../publication/stories.ts";
 import { backupConfigured } from "./backup.ts";
 import { readMetalPriceRuns, type MetalPriceSourceRecord } from "./metal-price-runs.ts";
 
 // The metal price runs, for TASK-0076's check script: the backend's entries are frozen, so they go out through this one.
 export { readMetalPriceRuns, type MetalPriceRuns, type MetalPriceSourceRecord } from "./metal-price-runs.ts";
-
-const sql = dbOf("ops");
 
 const REPEAT_MS: Record<Exclude<Level, "digest">, number> = { now: 3600_000, today: 24 * 3600_000 };
 
@@ -145,16 +144,30 @@ async function describeReport(issue: DueReport, rowExists: boolean | null, now: 
       },
     ];
   }
-  let qualified = 0;
+  let qualified = 0,
+    pendingSelections = 0;
   let countError: string | undefined;
   try {
-    qualified = await qualifiedReportEntries(issue.kind, issue.key);
+    if (issue.kind === "daily") ({ qualified, pendingSelections } = await dailyReportQualification(issue.key));
+    else qualified = await qualifiedReportEntries(issue.kind, issue.key);
   } catch (error) {
     countError = clip(error instanceof Error ? error.message : String(error));
   }
   const countNote = countError
     ? `数不清这段窗口里有多少够格的新精选：${countError}`
     : `这段窗口（${REPORT_WINDOW[issue.kind]}）里够格的新精选是 ${qualified} 条`;
+  if (pendingSelections > 0 && !countError)
+    return [
+      {
+        key: `report.${issue.kind}`,
+        level: "now",
+        title: "今天的日报仍在等待资讯处理",
+        impact: `这段窗口还有 ${pendingSelections} 条入选候选未确认归组，不能据此判断今天没有重要动态`,
+        heals: "后台每半小时重新检查，处理完成后继续补刊",
+        action: "转给 AI 处理",
+        detail: `${issue.label} ${issue.key}；${countNote}；${note}；${where}`,
+      },
+    ];
   const jobFailed = job.state !== "ok";
   // A succeeded job with nothing new leaves the issue missing. That is the edition rule, not an outage.
   if (loaded.state === "missing" && job.state === "ok" && qualified === 0 && !countError) return [];
@@ -177,10 +190,10 @@ async function describeReport(issue: DueReport, rowExists: boolean | null, now: 
         heals: countError
           ? "先数清这段窗口里有没有够格的新精选，数不清之前不能当成正常的不出刊"
           : job.state === "ok" && qualified > 0 && !emptyOnSite
-            ? "系统每小时补做一次，到现在还没写成"
+            ? "系统每半小时补做一次，到现在还没写成"
             : emptyOnSite
               ? "已经挂上的空期不会自己删掉，也不会自动重写"
-              : "系统每小时补做一次，到现在还没跑成",
+              : "系统每半小时补做一次，到现在还没跑成",
         action: "转给 AI 处理",
         detail: `${issue.label} ${issue.key}；${note}；${countNote}；${where}`,
       },
@@ -479,6 +492,17 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
     }
   }
 
+  if (collecting())
+    for (const group of await sourceHealth(now))
+      for (const problem of SOURCE_PROBLEMS)
+        for (const source of group[problem.problem])
+          out.push({
+            key: `sources.${problem.problem}.${source.id}`,
+            level: "digest",
+            title: `${group.name}信源「${source.name}」${problem.title}`,
+            detail: `${source.id}：${problem.describe(source)}；${problem.action}`,
+          });
+
   // ---- Follow-ups for the daily digest ------------------------------------------------------------
   const [r] = await sql<{ receipts: number; first_attempts: number; repeated_attempts: number; services: string | null; deliveries: number }[]>`
     SELECT count(*)::int AS receipts,
@@ -638,7 +662,7 @@ async function providerFindings(): Promise<Finding[]> {
     SELECT b.service, b.per_hour, b.per_day, bool_or(a.model IS NOT NULL) AS models,
            (count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour'))::int AS hour, count(a.id)::int AS day
     FROM budgets b
-    JOIN receipt_attempts a ON a.service = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day'
+    JOIN receipt_attempts a ON coalesce(a.quota_service,a.service) = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day'
     WHERE b.per_minute > 0 AND b.per_hour > 0 AND b.per_day > 0
     GROUP BY 1, 2, 3
     HAVING count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour') >= b.per_hour * 0.8 OR count(a.id) >= b.per_day * 0.8`;

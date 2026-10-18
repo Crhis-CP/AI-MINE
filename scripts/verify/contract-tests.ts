@@ -4,16 +4,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createPublicClient, publicSchemas } from "../../packages/api-client/src/public.ts";
-import { privateSchemas } from "../../packages/api-client/src/private.ts";
-import type { PoolResponse, FeedItemSummary, ItemSummary, SourceRef, TimelineResponse } from "../../packages/contracts/src/site.ts";
-import type { components } from "../../packages/api-client/src/public.types.ts";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
+import type { PoolResponse, FeedItemSummary, ItemSummary, SourceRef } from "../../packages/contracts/src/site.ts";
+import { apiFetch } from "../../apps/web/app/lib/http.ts";
 import { ApiError, contractResult } from "../../apps/web/app/lib/api.server.ts";
-
-type PublicReadPath = Parameters<ReturnType<typeof createPublicClient>["GET"]>[0];
-// @ts-expect-error Public consumers cannot call a private operation.
-const privatePath: PublicReadPath = "/api/auth/options";
-void privatePath;
 
 const stats = { sources: 2, heatOnlySources: 1, items: 3, selected: 1, dailies: 0, sourceKinds: { rss: 2 }, day: { collected: 1, selected: 0 } };
 const pool: PoolResponse = {
@@ -42,14 +37,12 @@ const pool: PoolResponse = {
   generatedAt: "2026-10-04T00:00:00.000Z",
 };
 const timeline = publicSchemas.TimelineResponse.parse(JSON.parse(readFileSync(new URL("./tests/fixtures/timeline-response.json", import.meta.url), "utf8")));
-const timelineShape: Same<TimelineResponse, components["schemas"]["TimelineResponse"]> = true;
-void timelineShape;
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type PriorFeed = Pick<
   ItemSummary,
   "id" | "title" | "summary" | "reason" | "publishedAt" | "timelineAt" | "category" | "tags" | "score" | "selected" | "channel"
 > & { source: Pick<SourceRef, "name"> };
-const shapeProof: [Same<PoolResponse, components["schemas"]["PoolResponse"]>, Same<FeedItemSummary, PriorFeed>] = [true, true];
+const shapeProof: Same<FeedItemSummary, PriorFeed> = true;
 void shapeProof;
 if (process.argv.includes("--routes")) {
   const state = globalThis as typeof globalThis & {
@@ -90,7 +83,19 @@ if (process.argv.includes("--routes")) {
           shortCircuit: true,
         };
       if (specifier === "@amp/backend/events/hot-read")
-        return { url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot}", shortCircuit: true };
+        return {
+          url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot};export async function hotSearchLinks(){return []}",
+          shortCircuit: true,
+        };
+      if (specifier === "@amp/backend/publication/topics")
+        return {
+          url:
+            "data:text/javascript," +
+            encodeURIComponent(
+              `export * from "${new URL("../../packages/backend/src/publication/topics.ts", import.meta.url).href}";export async function topicBrowseLinks(){return [{slug:"copper",name:"铜",group:"field"}]}`,
+            ),
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/publication/timeline")
         return {
           url:
@@ -125,6 +130,9 @@ if (process.argv.includes("--routes")) {
   const app = await buildApp("public-api");
   const privateApp = await buildApp("private-api");
   try {
+    const navigation = await app.inject("/api/site/search/suggestions");
+    assert.equal(navigation.statusCode, 200);
+    assert.deepEqual(publicSchemas.SearchSuggestions.parse(navigation.json()), { topics: [{ slug: "copper", name: "铜", group: "field" }], hot: [] });
     const first = await app.inject("/api/site/stats");
     assert.equal(first.statusCode, 200);
     assert.deepEqual(first.json(), stats);
@@ -214,43 +222,35 @@ if (process.argv.includes("--routes")) {
       stdio: "pipe",
     });
   });
-  test("generated public client validates values and preserves HTTP errors and cancellation", async () => {
+  test("native public HTTP validates values and preserves HTTP errors and cancellation", async (t) => {
     const controller = new AbortController();
-    const client = createPublicClient({
-      baseUrl: "https://fixture.invalid",
-      fetch: async (request) => {
-        assert.equal(new URL(request.url).pathname, "/api/site/stats");
-        request.signal.throwIfAborted();
-        return Response.json(stats);
-      },
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const request = new Request(input, init);
+      assert.equal(new URL(request.url).pathname, "/api/site/stats");
+      request.signal.throwIfAborted();
+      return Response.json(stats);
     });
-    const result = await client.GET("/api/site/stats", { signal: controller.signal });
-    assert.deepEqual(contractResult(result, publicSchemas.SiteStats), stats);
-    assert.throws(() => contractResult({ ...result, data: { ...stats, items: null } }, publicSchemas.SiteStats));
-    assert.throws(
-      () =>
-        contractResult(
-          { response: new Response("", { status: 503, headers: { "retry-after": "30" } }), error: { code: "temporarily_unavailable" } },
-          publicSchemas.SiteStats,
-        ),
+    const result = await apiFetch("/api/site/stats", { baseUrl: "https://fixture.invalid", signal: controller.signal });
+    assert.deepEqual(await contractResult(result, publicSchemas.SiteStats), stats);
+    await assert.rejects(contractResult(Response.json({ ...stats, items: null }), publicSchemas.SiteStats));
+    await assert.rejects(
+      contractResult(Response.json({ code: "temporarily_unavailable" }, { status: 503, headers: { "retry-after": "30" } }), publicSchemas.SiteStats),
       (error) => error instanceof ApiError && error.status === 503 && error.retryAfter === 30,
     );
     controller.abort();
-    await assert.rejects(client.GET("/api/site/stats", { signal: controller.signal }), { name: "AbortError" });
+    await assert.rejects(apiFetch("/api/site/stats", { baseUrl: "https://fixture.invalid", signal: controller.signal }), { name: "AbortError" });
   });
-  test("pool generated client enforces nullable DTO and preserves serialized query/cancellation", async () => {
+  test("pool HTTP transport enforces nullable DTO and preserves serialized query/cancellation", async (t) => {
     const controller = new AbortController();
-    const client = createPublicClient({
-      baseUrl: "https://fixture.invalid",
-      fetch: async (request) => {
-        assert.equal(new URL(request.url).pathname, "/api/site/pool");
-        assert.equal(new URL(request.url).searchParams.get("page"), "2");
-        request.signal.throwIfAborted();
-        return Response.json(pool);
-      },
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const request = new Request(input, init);
+      assert.equal(new URL(request.url).pathname, "/api/site/pool");
+      assert.equal(new URL(request.url).searchParams.get("page"), "2");
+      request.signal.throwIfAborted();
+      return Response.json(pool);
     });
-    const response = await client.GET("/api/site/pool", { params: { query: { page: 2 } }, signal: controller.signal });
-    assert.deepEqual(contractResult(response, publicSchemas.PoolResponse), pool);
+    const response = await apiFetch("/api/site/pool", { baseUrl: "https://fixture.invalid", params: { query: { page: 2 } }, signal: controller.signal });
+    assert.deepEqual(await contractResult(response, publicSchemas.PoolResponse), pool);
     for (const item of [
       { ...pool.items[0], category: "unapproved" },
       { ...pool.items[0], summary: undefined },
@@ -258,21 +258,21 @@ if (process.argv.includes("--routes")) {
       assert.throws(() => publicSchemas.PoolResponse.parse({ ...pool, items: [item] }));
     }
     controller.abort();
-    await assert.rejects(client.GET("/api/site/pool", { params: { query: { page: 2 } }, signal: controller.signal }), { name: "AbortError" });
+    await assert.rejects(apiFetch("/api/site/pool", { baseUrl: "https://fixture.invalid", params: { query: { page: 2 } }, signal: controller.signal }), {
+      name: "AbortError",
+    });
   });
-  test("timeline client preserves opaque cursors and validates nullable nested cards", async () => {
+  test("timeline HTTP transport preserves opaque cursors and validates nullable nested cards", async (t) => {
     const controller = new AbortController();
-    const client = createPublicClient({
-      baseUrl: "https://fixture.invalid",
-      fetch: async (request) => {
-        assert.equal(new URL(request.url).searchParams.get("cursor"), timeline.nextCursor);
-        request.signal.throwIfAborted();
-        return Response.json(timeline);
-      },
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const request = new Request(input, init);
+      assert.equal(new URL(request.url).searchParams.get("cursor"), timeline.nextCursor);
+      request.signal.throwIfAborted();
+      return Response.json(timeline);
     });
     const query = { cursor: timeline.nextCursor!, limit: 2 };
-    const result = await client.GET("/api/site/timeline", { params: { query }, signal: controller.signal });
-    assert.deepEqual(contractResult(result, publicSchemas.TimelineResponse), timeline);
+    const result = await apiFetch("/api/site/timeline", { baseUrl: "https://fixture.invalid", params: { query }, signal: controller.signal });
+    assert.deepEqual(await contractResult(result, publicSchemas.TimelineResponse), timeline);
     for (const invalid of [
       { ...timeline, refreshAt: "not-a-date" },
       { ...timeline, dayCounts: [] },
@@ -280,7 +280,9 @@ if (process.argv.includes("--routes")) {
     ])
       assert.throws(() => publicSchemas.TimelineResponse.parse(invalid));
     controller.abort();
-    await assert.rejects(client.GET("/api/site/timeline", { params: { query }, signal: controller.signal }), { name: "AbortError" });
+    await assert.rejects(apiFetch("/api/site/timeline", { baseUrl: "https://fixture.invalid", params: { query }, signal: controller.signal }), {
+      name: "AbortError",
+    });
   });
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [

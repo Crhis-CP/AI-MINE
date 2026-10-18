@@ -1,0 +1,56 @@
+import "./setup.ts";
+import assert from "node:assert/strict";
+import { after, test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { closeDb } from "@amp/backend/db";
+import { defineQueue, installModules } from "@amp/backend/modules";
+import { workModuleQueues, workQueues, enqueueJob, enqueueOn } from "@amp/backend/jobs/module-queues";
+import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
+
+after(async () => {
+  installModules([]);
+  await stopBoss();
+  await closeDb();
+});
+
+test("an installed module consumes durable queue data with its own options and receives every batched item", async () => {
+  const received: number[] = [];
+  const queue = defineQueue<{ value: number; lane: "news" }>({
+    name: "fixture-module.capture",
+    options: { policy: "standard", retryLimit: 0, expireInSeconds: 60 },
+    worker: { batchSize: 2, pollingIntervalSeconds: 1 },
+    async run(items) {
+      received.push(...items.map((item) => item.value));
+      return { handled: items.length };
+    },
+  });
+  installModules([{ name: "fixture-module", queues: [queue] }]);
+  const boss = await getBoss();
+  await workModuleQueues(boss);
+  await enqueueOn(queue, { value: 1, lane: "news" });
+  await enqueueOn(queue, { value: 2, lane: "news" });
+  for (let attempt = 0; attempt < 200 && received.length < 2; attempt++) await delay(50);
+  assert.deepEqual(received.sort(), [1, 2]);
+  let finished = (await boss.findJobs(queue.name)).filter((job) => job.state === "completed");
+  for (let attempt = 0; attempt < 200 && finished.length < 2; attempt++) {
+    await delay(50);
+    finished = (await boss.findJobs(queue.name)).filter((job) => job.state === "completed");
+  }
+  assert.equal(finished.length, 2, "each consumed job receives its own completion result");
+  assert.ok(finished.every((job) => job.output && "handled" in job.output && Number(job.output.handled) > 0));
+  const actual = await boss.getQueue(queue.name);
+  assert.equal(actual?.policy, "standard");
+  assert.equal(actual?.retryLimit, 0);
+  assert.equal(actual?.expireInSeconds, 60);
+});
+
+test("duplicate module or engine queue names are rejected before any queue is created", async () => {
+  const boss = await getBoss();
+  const queue = defineQueue({ name: "fixture-module.duplicate", options: {}, worker: {}, async run() {} });
+  await assert.rejects(workQueues(boss, [queue, queue]), /duplicate module queue/);
+  assert.equal(await boss.getQueue(queue.name), null);
+  await assert.rejects(workQueues(boss, [{ ...queue, name: QUEUES.analyze }]), /duplicate module queue/);
+  await assert.rejects(workQueues(boss, [{ ...queue, name: "sources.preview" }]), /duplicate module queue/);
+  assert.throws(() => enqueueJob(QUEUES.analyze, { articleId: "fixture", lane: "policy" } as never), /lane/);
+  assert.throws(() => enqueueJob(QUEUES.analyze, { articleId: "fixture" } as never), /lane/);
+});

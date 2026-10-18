@@ -2,15 +2,14 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadPool } from "@amp/backend/publication/pool";
 import { v1Items, v3Events } from "@amp/backend/publication/v1";
 import { publicStoryDirectory } from "@amp/backend/publication/stories";
 import { encodeCursor, InvalidCursorError, queryBinding } from "@amp/backend/lib/cursor";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
-const sql = dbOf("publication"),
-  source = `timeline-date-${tag()}`;
+const source = `timeline-date-${tag()}`;
 const day = "2026-10-11",
   now = new Date("2026-10-12T12:00:00+08:00");
 const fixture = [
@@ -53,7 +52,8 @@ test("Beijing timeline day controls lists, search, facets and API, while source 
       assert.equal(pool.todayCount, 3, "today and the selected Beijing day use the same timeline");
       assert.equal(pool.facets?.sources.find((row) => row.id === source)?.count, 3);
       assert.equal(pool.items.find((row) => row.id === `${source}-unknown`)?.publishedAt, null);
-      assert.equal(pool.items.find((row) => row.id === `${source}-date-only`)?.publishedAt, "2026-10-09T16:00:00.000Z");
+      assert.equal(pool.items.find((row) => row.id === `${source}-date-only`)?.publishedAt, null, "a legacy sorting anchor is not source date evidence");
+      assert.equal(pool.items.find((row) => row.id === `${source}-date-only`)?.sourceTime, null);
     }
     for (const by of ["timeline", "published"] as const) {
       const listing = await v1Items({ ...apiBase, ...filters, by }, now);

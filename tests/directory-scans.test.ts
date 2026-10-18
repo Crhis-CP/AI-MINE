@@ -1,23 +1,27 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
-import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { before, after, test } from "node:test";
+import { closeDb, sql } from "@amp/backend/db";
 import { readPolicyMaterialDate } from "@amp/backend/content/materials";
 import { readSourceDateContext, readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
+import { installModules } from "@amp/backend/modules";
+import policy from "../modules/policy/server.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource, directoryMaterialState } from "@amp/backend/sources/collect";
 import { withSourceCrawl, CrawlDeferred } from "../packages/backend/src/acquisition/crawl.ts";
 import { collectPolicyDirectory, DirectoryRoundFailed } from "../packages/backend/src/acquisition/directory-runtime.ts";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { policySourceCoverage } from "../packages/backend/src/sources/policy-coverage.ts";
-import { wakeDirectoryMaterial, readPolicyWorkflow, advancePolicyMaterial } from "../packages/backend/src/policy/automation.ts";
+import { wakeDirectoryMaterial, readPolicyWorkflow, advancePolicyMaterial } from "../modules/policy/backend/domain/automation.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import type { GuardedResponse } from "../packages/backend/src/lib/http-fetch.ts";
-const sql = dbOf("acquisition");
+
 let serial = 0,
   clock = Date.now();
 Object.assign(process.env, { COLLECT_ENABLED: "true", COLLECT_POLICY_ENABLED: "true" });
+before(() => installModules([policy]));
 after(async () => {
+  installModules([]);
   await stopBoss();
   await closeDb();
 });
@@ -154,6 +158,22 @@ test("bounded JSON turns persist every page, fresh homepage probe, old records b
   const receipt = (await sql`SELECT evidence FROM acquisition.directory_receipts WHERE source_id=${f.id} AND outcome='complete'`)[0].evidence;
   assert.equal(receipt.directoryRecords, 66);
   assert.equal(receipt.currentRecords, 65);
+});
+
+test("unhandled material discovery rolls back the directory and can resume after module installation", async () => {
+  const f = await fixture([[item("module-handoff")]]);
+  installModules([]);
+  try {
+    await assert.rejects(() => drain(f.run), /No module accepted material discovery/);
+    assert.equal((await bindings(f.id)).length, 0);
+    assert.equal((await sql`SELECT id FROM articles WHERE source_id=${f.id}`).length, 0);
+    assert.equal((await sql`SELECT id FROM pgboss.job WHERE name='policy.acquire' AND data->>'sourceId'=${f.id}`).length, 0);
+  } finally {
+    installModules([policy]);
+  }
+  await retry(f.id);
+  assert.equal((await drain(f.run)).created, 1);
+  assert.equal((await sql`SELECT id FROM pgboss.job WHERE name='policy.acquire' AND data->>'sourceId'=${f.id}`).length, 1);
 });
 
 test("duplicates, totals drift, wrong page and changed homepage never apply partial targets; failure proof survives", async () => {

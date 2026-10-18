@@ -8,10 +8,8 @@ import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { config, credential } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { backupDatabaseUrl } from "../db-bootstrap.ts";
-
-const sql = dbOf("ops");
 
 const run = promisify(execFile);
 const KEEP_LOCAL = 3;

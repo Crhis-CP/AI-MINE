@@ -7,11 +7,10 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
-import { loadMetalPriceRegistry, METAL_PRICE_HOSTS, parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
-import { nbsFetcher, NBS_LIST_URL } from "../packages/backend/src/publication/metal-prices/nbs.ts";
+import { closeDb, sql } from "@amp/backend/db";
+import { loadMetalPriceRegistry, METAL_PRICE_HOSTS, parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
+import { nbsFetcher, NBS_LIST_URL } from "../modules/metals/backend/nbs.ts";
 
-const sql = dbOf("publication");
 after(() => closeDb());
 
 /** A valid ten-day row with a synthetic value; every refused case changes a copy of it. */

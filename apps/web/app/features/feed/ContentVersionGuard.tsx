@@ -1,6 +1,7 @@
+import { apiFetch } from "../../lib/http.ts";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useRevalidator } from "react-router";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 
 const ReaderItemScope = createContext<Set<string> | null>(null);
 /** Withdrawal refreshes can update/remove current cards; new arrivals wait for an explicit reload. */
@@ -32,14 +33,15 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     const check = async () => {
       if (pending || document.visibilityState !== "visible") return;
       pending = true;
-      setStatus((old) => (old === "new" ? old : "checking"));
+      setStatus((old) => (old === "idle" ? "checking" : old));
       try {
-        const result = await createPublicClient({ baseUrl: window.location.origin }).GET("/api/site/content-version", {
+        const result = await apiFetch("/api/site/content-version", {
           cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+          baseUrl: window.location.origin,
         });
-        if (!result.response.ok) throw new Error("version unavailable");
-        const value = publicSchemas.ContentVersion.parse(result.data);
+        if (!result.ok) throw new Error("version unavailable");
+        const value = publicSchemas.ContentVersion.parse(await result.json());
         if (controller.signal.aborted) return;
         const previous = baseline.current;
         if (!previous || value.withdrawalVersion !== previous.withdrawalVersion) {
@@ -50,7 +52,9 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
           setStatus(previous ? "withdrawn" : "checking");
           await ref.current.revalidate();
           if (controller.signal.aborted) return;
-          setGeneration((n) => n + 1);
+          // Initial loader refreshes update in place. Replacing the live subtree here can discard
+          // a pointer-down target before its click. Only actual withdrawals invalidate local views.
+          if (previous) setGeneration((n) => n + 1);
           baseline.current = value;
           pendingVersion.current = visible?.size ? value : null;
           setStatus(visible?.size ? "updated" : "idle");
@@ -91,17 +95,15 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
   };
   return (
     <>
-      {!policyPage && status !== "idle" && (
+      {!policyPage && status !== "idle" && status !== "checking" && (
         <div role="status" className="my-2 flex items-center gap-3 rounded-control bg-bg-sunk px-3 py-2 text-[12px] text-ink-3">
-          {status === "checking"
-            ? "正在确认最新内容"
-            : status === "withdrawn"
-              ? "公开内容已调整，正在核对当前页面…"
-              : status === "failed"
-                ? "暂时无法确认最新内容"
-                : status === "updated"
-                  ? "已核对撤回和修订内容"
-                  : "有新的矿业动态"}
+          {status === "withdrawn"
+            ? "公开内容已调整，正在核对当前页面…"
+            : status === "failed"
+              ? "暂时无法确认最新内容"
+              : status === "updated"
+                ? "已核对撤回和修订内容"
+                : "有新的矿业动态"}
           {status === "failed" && (
             <button type="button" onClick={() => retry.current()} className="text-accent">
               重试
@@ -115,9 +117,14 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         </div>
       )}
       <ReaderItemScope.Provider value={allowedIds?.routeKey === routeKey ? allowedIds.ids : null}>
-        <div key={generation} hidden={!policyPage && status === "withdrawn"}>
+        <section
+          key={generation}
+          aria-label="阅读内容"
+          aria-busy={!policyPage && (status === "checking" || status === "withdrawn")}
+          hidden={!policyPage && status === "withdrawn"}
+        >
           {children}
-        </div>
+        </section>
       </ReaderItemScope.Provider>
     </>
   );

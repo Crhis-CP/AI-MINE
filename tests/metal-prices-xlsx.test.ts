@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { deflateRawSync } from "node:zlib";
-import { unzipEntries } from "../packages/backend/src/publication/metal-prices/unzip.ts";
-import { openWorkbook, type Sheet } from "../packages/backend/src/publication/metal-prices/xlsx.ts";
+import { unzipEntries } from "../modules/metals/backend/unzip.ts";
+import { openWorkbook, type Sheet } from "../modules/metals/backend/xlsx.ts";
 
 const monthly = readFileSync(new URL("./fixtures/metal-prices/worldbank/monthly.xlsx", import.meta.url));
 const MiB = 2 ** 20;

@@ -32,7 +32,7 @@ async function readBody(raw: unknown, contentType: string): Promise<FeedbackBody
     content: String(body.content ?? ""),
     email: body.email ?? null,
     pageUrl: body.pageUrl ?? null,
-    screenshot: body.screenshot?.data && body.screenshot.mime ? { mime: body.screenshot.mime, data: Buffer.from(body.screenshot.data, "base64") } : null,
+    screenshot: body.screenshot?.data ? { mime: body.screenshot.mime ?? "", data: Buffer.from(body.screenshot.data, "base64") } : null,
   };
 }
 

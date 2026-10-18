@@ -4,7 +4,7 @@ import { closeSync, fstatSync, mkdtempSync, mkdirSync, openSync, readFileSync, r
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { createDatabaseAccess } from "@amp/config";
+import { createDatabaseAccess } from "@amp/backend/db";
 import { ROOT } from "./lib.ts";
 
 export function testFiles(root: string, requested: string[]) {

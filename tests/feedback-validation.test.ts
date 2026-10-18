@@ -7,9 +7,9 @@ import { tmpdir } from "node:os";
 import { after, test } from "node:test";
 import sharp from "sharp";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, feedbackSql as sql } from "@amp/backend/db";
 import { submitFeedback } from "@amp/backend/operations/feedback";
-const sql = dbOf("feedback");
+
 const dir = await mkdtemp(path.join(tmpdir(), "feedback-validation-"));
 config.dataDir = dir;
 config.siteUrl = "https://trusted.example.test";
@@ -26,15 +26,15 @@ const request = () => ({
 });
 const image = () => sharp({ create: { width: 12, height: 10, channels: 3, background: "#ad2211" } });
 
-test("actual PNG/JPEG/WebP are decoded and privately re-encoded without EXIF even when MIME is false", async () => {
-  for (const format of ["png", "jpeg", "webp"] as const) {
+test("actual PNG/JPEG/WebP/GIF are decoded and privately re-encoded without EXIF even when MIME is false", async () => {
+  for (const format of ["png", "jpeg", "webp", "gif"] as const) {
     const bytes = await image()
       .withExif({ IFD0: { Copyright: "PRIVATE EXIF" } })
       .toFormat(format)
       .toBuffer();
     const { id } = await submitFeedback({ ...request(), screenshot: { mime: "image/gif", data: bytes } });
     const [row] = await sql`SELECT screenshot_key FROM feedback WHERE id=${id}`;
-    assert.match(row!.screenshot_key, new RegExp(`^local:[a-f0-9]{24}\\.${format}$`));
+    assert.match(row!.screenshot_key, new RegExp(`^local:[a-f0-9-]{36}\\.${format}$`));
     const stored = await readFile(path.join(dir, "feedback-screenshots", row!.screenshot_key.slice(6)));
     const metadata = await sharp(stored).metadata();
     assert.equal(metadata.format, format);
@@ -45,24 +45,33 @@ test("actual PNG/JPEG/WebP are decoded and privately re-encoded without EXIF eve
   }
 });
 
-test("forged MIME, GIF/SVG, empty/truncated data and excessive pixels never enter the inbox", async () => {
+test("an animated screenshot preserves its frames after metadata removal", async () => {
+  const pixels = Buffer.from([...Array(4).fill([255, 0, 0, 255]).flat(), ...Array(4).fill([0, 0, 255, 255]).flat()]);
+  const gif = await sharp(pixels, { raw: { width: 2, height: 4, channels: 4, pageHeight: 2 } })
+    .gif({ loop: 0, delay: [80, 160] })
+    .toBuffer();
+  const { id } = await submitFeedback({ ...request(), screenshot: { mime: "image/gif", data: gif } });
+  const [row] = await sql`SELECT screenshot_key FROM feedback WHERE id=${id}`;
+  const metadata = await sharp(await readFile(path.join(dir, "feedback-screenshots", row!.screenshot_key.slice(6))), { animated: true }).metadata();
+  assert.equal(metadata.pages, 2);
+  assert.deepEqual(metadata.delay, [80, 160]);
+});
+
+test("forged MIME, SVG, empty/truncated data and excessive pixels never enter the inbox", async () => {
   const samples = [
     Buffer.alloc(0),
     Buffer.from("<svg></svg>"),
     Buffer.from("<html>fake png</html>"),
     Buffer.from("GIF89a"),
     (await image().png().toBuffer()).subarray(0, 32),
-    await sharp({ create: { width: 16_001, height: 1, channels: 3, background: "white" } })
-      .png()
-      .toBuffer(),
-    await sharp({ create: { width: 6400, height: 6300, channels: 3, background: "white" } })
+    await sharp({ create: { width: 8000, height: 7600, channels: 3, background: "white" } })
       .png()
       .toBuffer(),
   ];
   const before = (await sql`SELECT count(*)::int n FROM feedback`)[0]!.n;
-  for (const data of samples) await assert.rejects(submitFeedback({ ...request(), screenshot: { mime: "image/png", data } }), /PNG、JPEG 或 WebP/);
+  for (const data of samples) await assert.rejects(submitFeedback({ ...request(), screenshot: { mime: "image/png", data } }), /PNG、JPEG、WebP 或 GIF/);
   assert.equal((await sql`SELECT count(*)::int n FROM feedback`)[0]!.n, before);
-  const long = await sharp({ create: { width: 1, height: 16_000, channels: 3, background: "white" } })
+  const long = await sharp({ create: { width: 1, height: 20_000, channels: 3, background: "white" } })
     .png()
     .toBuffer();
   assert.ok((await submitFeedback({ ...request(), screenshot: { mime: "image/png", data: long } })).id);

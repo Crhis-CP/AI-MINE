@@ -1,16 +1,27 @@
+export {
+  correctedSourceTime,
+  saveCorrectedSourceTime,
+  dateCorrectionMaterial,
+  applyCorrectedMaterialDate,
+  resetMaterialProcessing,
+  type CorrectionMaterial,
+} from "./date-correction.ts";
+import { audit } from "../admin/auth.ts";
+import { refreshTranslationPresentation } from "../editorial/translation-store.ts";
+export { PresentationMismatch } from "../editorial/presentation.ts";
+import { decideTimeline } from "./timeline.ts";
+export { decideTimeline, isHistorical, STALE_ON_DISCOVERY_MS, FUTURE_TOLERANCE_MS, type TimelineDecision } from "./timeline.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived, lockSourceCollectionActive } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
-import { dbOf, type Db, type Tx } from "../db.ts";
-import { newArticleId, sha256 } from "../lib/ids.ts";
+import { sql, type Db, type Tx } from "../db.ts";
+import { newArticleId, sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult, SourceDateEvidence } from "@amp/contracts/time-assertion";
-import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
+import { prepareDateMutation, commitDateObservation, materialSourceTime } from "./date-evidence.ts";
 export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
-
-const sql = dbOf("content");
 
 export interface MediaItem {
   kind: "image" | "video";
@@ -36,6 +47,7 @@ export interface MaterialInput extends MaterialSourceDateInput {
   bodyStatus?: "pending" | "ok" | "unconfirmed" | "none";
   media?: MediaItem[];
   raw?: unknown;
+  collectionDetail?: { rules: string; checkedAt: string };
   via: "fetch" | "ingest" | "import";
   discoveredAt?: Date;
   /** Explicit backfill: first import of a new source, or a report flagged as backfill. */
@@ -45,47 +57,13 @@ export interface MaterialInput extends MaterialSourceDateInput {
 }
 
 interface BaseMaterialResult {
+  presentationChanged?: boolean;
   articleId: string;
   created: boolean;
   revised: boolean;
   backfill: boolean;
 }
 export type MaterialResult = MaterialUpdateResult;
-
-// Material first discovered more than this long after its source time is archived by source time,
-// stays out of "today" and is never pushed. Must not be wider than the 72 h the v1 contract states.
-export const STALE_ON_DISCOVERY_MS = 48 * 3600 * 1000;
-// Source times more than an hour in the future are not trusted.
-export const FUTURE_TOLERANCE_MS = 3600 * 1000;
-
-export interface TimelineDecision {
-  publishedAt: Date | null;
-  timelineAt: Date;
-  backfill: boolean;
-  backfillReason: string | null;
-}
-
-/** The one timeline rule shared by every entrance. */
-export function decideTimeline(claimed: Date | null | undefined, discoveredAt: Date, explicitBackfill?: string | null): TimelineDecision {
-  let publishedAt: Date | null = claimed && Number.isFinite(claimed.getTime()) ? claimed : null;
-  if (publishedAt && publishedAt.getTime() > discoveredAt.getTime() + FUTURE_TOLERANCE_MS) publishedAt = null;
-  let backfillReason: string | null = null;
-  if (explicitBackfill) backfillReason = explicitBackfill;
-  else if (publishedAt && discoveredAt.getTime() - publishedAt.getTime() > STALE_ON_DISCOVERY_MS) backfillReason = "stale-on-discovery";
-  const backfill = backfillReason !== null;
-  const timelineAt = backfill && publishedAt ? publishedAt : discoveredAt;
-  return { publishedAt, timelineAt, backfill, backfillReason };
-}
-
-/**
- * History rather than news: a backfill (a new source's first import, stale on discovery, flagged by
- * a report) whose source time is unknown or was already past the stale threshold when found. It is
- * archived and analysed like anything else, but waits behind live work and founds no event and adds
- * no heat (it stays out of the event graph). A new source's post from this morning is news.
- */
-export function isHistorical(a: { backfill: boolean; published_at: Date | null; discovered_at: Date }): boolean {
-  return a.backfill && (!a.published_at || a.discovered_at.getTime() - a.published_at.getTime() > STALE_ON_DISCOVERY_MS);
-}
 
 /** Identity of stored content: the revision changes exactly when this does. */
 export function contentHash(c: { title: string; bodyText?: string | null; excerpt?: string | null }): string {
@@ -133,15 +111,25 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
     if (collectionControl) await lockSourceCollectionActive(tx, m.sourceId);
     await prepareDateMutation(tx, m.sourceId, date);
     if (!collectionControl) await lockSourceNotArchived(tx, m.sourceId);
-    const result = await upsertIn(tx, m);
-    // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
-    const listed = decideTimeline(m.publishedAt, m.discoveredAt ?? new Date()).publishedAt;
-    return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now(), undefined, listed)) });
+    const result = await upsertIn(tx, m, source.lane === "news");
+    if (m.collectionDetail)
+      await tx`UPDATE articles SET raw=jsonb_set(
+      CASE WHEN raw IS NULL THEN '{}'::jsonb WHEN jsonb_typeof(raw)='object' THEN raw ELSE jsonb_build_object('original',raw) END,
+      '{collectionDetail}',${tx.json(m.collectionDetail)}) WHERE id=${result.articleId} AND source_id=${m.sourceId}`;
+    const metadata = await commitDateObservation(tx, result.articleId, date, Date.now());
+    const [head] = metadata.metadataChanged ? await tx<{ backfill: boolean }[]>`SELECT backfill FROM articles WHERE id=${result.articleId}` : [];
+    const { presentationChanged, ...material } = result;
+    return MaterialUpdateResult.parse({
+      ...material,
+      ...metadata,
+      metadataChanged: metadata.metadataChanged || !!presentationChanged,
+      backfill: head?.backfill ?? result.backfill,
+    });
   };
   return typeof (db as typeof sql).begin === "function" ? (db as typeof sql).begin(run) : run(db as Tx);
 }
 
-async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
+async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise<BaseMaterialResult> {
   let identityKey = identityKeyFor(m);
   // Retain this source's existing material IDs while new sources receive independent identities.
   // Serialise first insertion with compatibility lookup; a foreign source can never claim the row.
@@ -201,7 +189,21 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
   const bodyText = m.bodyText ?? existing!.body_text;
   const excerpt = m.excerpt ?? existing!.excerpt;
   const next = contentHash({ title, bodyText, excerpt });
-  if (existing!.content_hash === next) return unchanged;
+  if (existing!.content_hash === next) {
+    const presentationChanged =
+      presentation &&
+      !!(m.bodyHtml?.trim() || m.media?.length) &&
+      (await updateMaterialPresentation(
+        existing!.id,
+        {
+          html: m.bodyHtml?.trim() ? m.bodyHtml : undefined,
+          media: m.bodyHtml?.trim() ? m.media : m.media?.length ? m.media : undefined,
+          bodyStatus: m.bodyHtml?.trim() ? m.bodyStatus : undefined,
+        },
+        db,
+      ));
+    return { ...unchanged, presentationChanged };
+  }
   if (existing!.content_hash === null) {
     // Imported history carries no hash of this form (its collectors normalised differently): the
     // first report here records the baseline instead of a revision, so an import does not send
@@ -224,12 +226,34 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
       body_text = coalesce(${m.bodyText ?? null}, body_text), body_html = coalesce(${m.bodyHtml ?? null}, body_html),
       body_status = CASE WHEN ${m.bodyText ?? null}::text IS NULL THEN body_status ELSE ${m.bodyStatus ?? "ok"} END,
       media = CASE WHEN ${m.media ? db.json(m.media as never) : null}::jsonb IS NULL THEN media ELSE ${m.media ? db.json(m.media as never) : null}::jsonb END,
-      revision = revision + 1, content_hash = ${next}, processing_state = 'new', updated_at = now()
+      grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
+      selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
+      revision = revision + 1, content_hash = ${next}, processing_state = 'new', processing_attempts=0, processing_error=NULL, processing_retry_at=NULL, processing_queued_at=NULL, updated_at = now()
     WHERE id = ${existing!.id}
     RETURNING revision`;
   await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
            VALUES (${existing!.id}, ${row!.revision}, ${next}, ${title}, ${bodyText})`;
   return { articleId: existing!.id, created: false, revised: true, backfill: existing!.backfill };
+}
+
+/** Only representation changes here; language, semantic revision and human decisions remain intact. */
+export async function updateMaterialPresentation(
+  articleId: string,
+  next: { html?: string; media?: MediaItem[]; bodyStatus?: MaterialInput["bodyStatus"] },
+  db: Db,
+): Promise<boolean> {
+  const [body] = await db<
+    (CurrentBody & { media: MediaItem[] })[]
+  >`SELECT id,source_id,revision,title,language,body_status,body_html,body_text,media FROM articles WHERE id=${articleId} FOR UPDATE`;
+  if (!body) return false;
+  const html = next.html ?? body.body_html,
+    media = next.media ?? body.media,
+    status = next.bodyStatus ?? body.body_status;
+  if (html === body.body_html && stableJson(media) === stableJson(body.media) && status === body.body_status) return false;
+  if (html && html !== body.body_html) await refreshTranslationPresentation(body, html, db);
+  await db`UPDATE articles SET body_html=${html},media=${db.json(media as never)},body_status=${status},updated_at=now() WHERE id=${articleId}`;
+  if (html && html !== body.body_html) await audit("worker", "content.presentation.updated", `content:${articleId}`, null, null, null, undefined, db);
+  return true;
 }
 
 /** Hold the material revision while another module commits its result and receipts on this transaction. */
@@ -264,8 +288,8 @@ export interface CurrentBody {
 }
 
 /** Snapshot for derived body work; the network operation must happen after this read returns. */
-export async function readCurrentBody(articleId: string): Promise<CurrentBody | null> {
-  const [row] = await sql<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
+export async function readCurrentBody(articleId: string, db: Db = sql): Promise<CurrentBody | null> {
+  const [row] = await db<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
   return row ?? null;
 }
 
@@ -373,9 +397,28 @@ export async function manualMaterialSnapshot(articleId: string, db: Db = sql) {
   return row ?? null;
 }
 export async function newsRelationMaterials(ids: string[], db: Db = sql) {
-  return db<
-    { id: string; revision: number; original_text: string; published_at: Date | null }[]
-  >`SELECT id,revision,published_at,title || E'\n' || coalesce(body_text,excerpt,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+  const rows = await db<
+    { id: string; source_id: string; revision: number; source_date_version: number; original_text: string; published_at: Date | null }[]
+  >`SELECT id,source_id,revision,source_date_version,published_at,title || E'\n' || coalesce(CASE WHEN body_text<>'' THEN body_text ELSE excerpt END,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+  return Promise.all(
+    rows.map(async (row) => {
+      const context = await sourceDateConfiguration(row.source_id, db);
+      const time =
+        context?.lane === "news"
+          ? await materialSourceTime(
+              { articleId: row.id, sourceId: row.source_id, revision: row.revision, configHash: context.configHash ?? "" },
+              Number(row.source_date_version),
+              Date.now(),
+              db,
+            )
+          : null;
+      return {
+        ...row,
+        source_date_version: Number(row.source_date_version),
+        source_time_label: time ? `${time.label}${time.utc ? "（北京时间）" : ""}` : "日期待核实",
+      };
+    }),
+  );
 }
 export async function lockNewsModelMaterials(ids: string[], db: Db) {
   return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id FOR SHARE`;
@@ -407,4 +450,32 @@ export async function prefilterAuditMaterialCopies(articleIds: string[], db: Db)
   if (!articleIds.length) return [];
   return db<{ id: string; title: string; excerpt: string | null; body_text: string | null; discovered_at: Date | null }[]>`
     SELECT id,title,excerpt,body_text,discovered_at FROM articles WHERE id=ANY(${articleIds}::text[])`;
+}
+
+export interface CollectionDetail {
+  identity_key: string;
+  title: string;
+  published_at: Date | null;
+  excerpt: string | null;
+  body_status: string;
+  rules: string | null;
+  checked_at: string | null;
+}
+
+/** The owning source's stored fields and successful detail checkpoint, never another source's rendering. */
+export async function collectionDetails(sourceId: string, identities: string[]): Promise<Map<string, CollectionDetail>> {
+  if (!identities.length) return new Map();
+  const rows = await sql<CollectionDetail[]>`SELECT identity_key,title,published_at,excerpt,body_status,
+    raw->'collectionDetail'->>'rules' AS rules,raw->'collectionDetail'->>'checkedAt' AS checked_at
+    FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
+  return new Map(rows.map((row) => [row.identity_key, row]));
+}
+
+/** Current semantic material for a presentation-only administrative repair. */
+export async function presentationMaterialSnapshot(articleId: string, db: Db = sql, lock = false) {
+  if (lock) await db`SELECT id FROM articles WHERE id=${articleId} FOR UPDATE`;
+  const [row] = await db<(CurrentBody & { excerpt: string | null; media: MediaItem[]; identity_key: string; url: string })[]>`
+    SELECT id,source_id,revision,title,language,body_status,body_html,body_text,excerpt,media,identity_key,url
+    FROM articles WHERE id=${articleId}`;
+  return row ?? null;
 }

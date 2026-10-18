@@ -4,14 +4,14 @@ export const scopeVersion = promptVersion("prefilter");
 export const scopeOutput = { prefilter: { label: "PASS", reason: "合成范围证据" } };
 
 import { randomUUID } from "node:crypto";
-import { dbOf } from "@amp/backend/db";
+import { sql as runtimeSql } from "@amp/backend/db";
 import { loadAnalyzeInput } from "@amp/backend/editorial/analyze";
 import { prefilterUser, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
 import { sha256 } from "@amp/backend/lib/ids";
 
 export async function scopeReceipt(articleId: string): Promise<number> {
   const input = (await loadAnalyzeInput(articleId))!;
-  const sql = dbOf("ai-gateway");
+  const sql = runtimeSql;
   const request = { promptVersion: scopeVersion, systemHash: sha256(PREFILTER_SYSTEM), userHash: sha256(prefilterUser(input)) };
   const response = { choices: [{ message: { content: JSON.stringify(scopeOutput.prefilter) } }] };
   const [row] = await sql<

@@ -1,8 +1,44 @@
 {
   "note": {
-    "kind": "优化",
-    "title": "修复部分资讯更新延迟",
-    "body": ["修复部分资讯处理异常后长时间未更新的问题。"]
+    "kind": "更新",
+    "title": "矿业资讯全站升级",
+    "body": [
+      "同一新闻的不同报道归到一起，精选只占一条；有实质新进展的报道保留独立入口，事件页可以继续查看各家来源。",
+      "热点榜按独立参与方呈现关注度，同一机构的多个入口不会重复增加热度。",
+      "外文资讯先提供中文标题和导读，获准展示全文的精选随后补充译文；尚未完成或只有部分译文时会明确标示。",
+      "日报整理当期重要资讯，周报和月报从对应日报汇编，减少重复阅读；原文日期和实际出刊时间分别说明。",
+      "手机上的精选与全部动态可以直接切换，筛选和最近搜索更容易找到；主题、收藏和长文页面保留清楚的返回路径。",
+      "收藏支持本机导入导出，阅读记录保存在当前浏览器；文章可保存为带来源和二维码的分享图片，正文图片支持放大查看。",
+      "修复返回列表时标题出现黑框、刷新时链接跳动等问题。“我的”页面可选择字体和外观，更新日志有新内容时会提示。",
+      "关于页用动态示意介绍来源如何汇集、归并、进入精选与成刊，并展示最近精选。",
+      "金属价格显示真实报价日期、单位和比较基期，未取得新报价时保留上一期日期，方便核对官方来源。",
+      "Agent接入页补充可直接读取的中文说明、资讯、热点与报告，RSS和其他公开接口继续提供。",
+      "反馈重复发送会复用原记录，提交过于频繁时短暂暂停并保留草稿；支持留下邮箱和私有截图供处理问题。",
+      "补充公安联网备案号及查询链接，完善隐私说明与使用规则，说明本地记录、反馈资料和第三方内容的使用方式。"
+    ]
   },
-  "fragments": ["changes/TASK-0367-unknown-receipt-digest.md"]
+  "fragments": [
+    "changes/TASK-0361-selected-translation.md",
+    "changes/TASK-0356-event-fold.md",
+    "changes/TASK-0362-source-lists.md",
+    "changes/TASK-0367-metal-timeliness.md",
+    "changes/TASK-0367-policy-pause.md",
+    "changes/TASK-0367-reader-refresh.md",
+    "changes/TASK-0367-report-editions.md",
+    "changes/TASK-0367-event-grouping.md",
+    "changes/TASK-0367-reader-privacy-terms.md",
+    "changes/TASK-0367-reader-preferences.md",
+    "changes/TASK-0367-reader-tools.md",
+    "changes/TASK-0367-reader-sharing.md",
+    "changes/TASK-0367-feedback-input.md",
+    "changes/TASK-0367-reader-layout.md",
+    "changes/TASK-0367-presentation.md",
+    "changes/TASK-0367-major-release.md",
+    "changes/TASK-0367-feedback-controls.md"
+  ],
+  "announcement": {
+    "kind": "公告",
+    "title": "法规政策动态暂时停止更新",
+    "body": ["鉴于成本和技术问题，法规政策动态暂时停止更新。", "栏目入口与已发布内容保留，仍可查阅。", "后续将重新建设并上线，恢复时间另行公告。"]
+  }
 }

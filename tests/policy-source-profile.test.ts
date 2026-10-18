@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { createRequire } from "node:module";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
-import { PolicyAutomationProfile } from "../packages/backend/src/policy/automation-profile.ts";
-import { validateProfile } from "../packages/backend/src/policy/extraction.ts";
+import { PolicyAutomationProfile } from "../modules/policy/backend/domain/automation-profile.ts";
+import { validateProfile } from "../modules/policy/backend/domain/extraction.ts";
 const { load } = createRequire(new URL("../packages/backend/package.json", import.meta.url))("cheerio");
 
 test("reviewed BLM profile distinguishes original directives and posting dates from signature dates", () => {

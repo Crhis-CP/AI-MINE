@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { addAbortListener } from "node:events";
-import { dbOf, type Db } from "../db.ts";
+import { setTimeout as delay } from "node:timers/promises";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { enqueue } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { Conflict, readCurrentSourcePolicy, evaluateSourcePolicy, previewSource } from "./sources.ts";
 import { audit } from "./auth.ts";
 import type { SourceRow } from "../sources/types.ts";
-const sql = dbOf("sources");
+
 type SourceDraft = { id: number; kind: SourceRow["kind"]; config: Record<string, unknown>; config_hash: string };
 type SourcePreview = {
   id: number;
@@ -19,6 +20,14 @@ type SourcePreview = {
   result: Awaited<ReturnType<typeof previewSource>> | null;
 };
 export const SOURCE_PREVIEW_QUEUE = "sources.preview";
+
+/** The durable preview, not a queue payload, identifies the source and its lane. */
+export async function sourcePreviewLane(previewId: string) {
+  const [row] = await sql<
+    { lane: SourceRow["lane"] }[]
+  >`SELECT s.lane FROM sources.source_previews p JOIN sources s ON s.id=p.source_id WHERE p.id=${previewId}`;
+  return row?.lane ?? null;
+}
 export const sourcePreviewHash = (kind: string, config: unknown) => sha256(stableJson([kind, config]));
 export async function saveSourceDraft(sourceId: string, kind: string, config: Record<string, unknown>, actor: string, db: Db = sql) {
   const [draft] = await db<SourceDraft[]>`INSERT INTO sources.source_config_drafts(source_id,kind,config,config_hash,actor)
@@ -137,7 +146,19 @@ async function executeSourcePreview(preview: SourcePreview, token: string, signa
     signal.throwIfAborted();
   };
   await check();
-  const work = fetchPreview({ ...source, kind, config, collectionSignal: signal, collectionReadKey: `preview:${previewId}` });
+  const work = (async () => {
+    for (;;) {
+      await check();
+      const result = await fetchPreview({ ...source, kind, config, collectionSignal: signal, collectionReadKey: `preview:${previewId}` });
+      if (!("status" in result) || result.status !== "deferred") return result;
+      if (result.reason !== "host_pacing") throw new Conflict(`预览待重试：${result.reason}`);
+      // Robots and list reads share host pacing. Resume this same preview after the reserved time,
+      // within its existing deadline; a cooldown is not a permanent failure or permission to bypass it.
+      const wait = Date.parse(result.retryAt) - Date.now();
+      if (!Number.isFinite(wait)) throw new Conflict("预览等待时间无效，请重新试抓。");
+      await delay(Math.max(1, wait), undefined, { signal });
+    }
+  })();
   let listener: Disposable | undefined;
   const result = await Promise.race([
     work,
@@ -146,7 +167,6 @@ async function executeSourcePreview(preview: SourcePreview, token: string, signa
     }),
   ]).finally(() => listener?.[Symbol.dispose]());
   await check();
-  if ("status" in result && result.status === "deferred") throw new Conflict(`预览待重试：${result.reason}`);
   if (result.count < 1) throw new Conflict("预览未取得有效样例，不能据此启用");
   const [saved] =
     await sql`UPDATE sources.source_previews SET status='succeeded',result=${sql.json(result as never)},error=NULL,completed_at=now(),execution_token=NULL,lease_until=NULL
@@ -157,7 +177,7 @@ async function executeSourcePreview(preview: SourcePreview, token: string, signa
 /** Worker recovery: expired executions are fenced and requeued atomically, including after process death. */
 export async function recoverSourcePreviews(limit = 100): Promise<{ reenqueued: number }> {
   return sql.begin(async (tx) => {
-    const rows = await tx<{ id: number; lane: string; archived_at: Date | null }[]>`SELECT p.id,s.lane,s.archived_at
+    const rows = await tx<{ id: number; lane: SourceRow["lane"]; archived_at: Date | null }[]>`SELECT p.id,s.lane,s.archived_at
       FROM sources.source_previews p JOIN sources s ON s.id=p.source_id
       WHERE p.status='running' AND (p.lease_until IS NULL OR p.lease_until<=now())
       ORDER BY p.id LIMIT ${Math.min(100, Math.max(1, limit))} FOR UPDATE OF p SKIP LOCKED`;

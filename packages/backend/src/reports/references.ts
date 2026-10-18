@@ -1,16 +1,22 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import type { ReportEntry } from "./compose.ts";
-const sql = dbOf("reports");
-export type StoredEntry = Partial<ReportEntry> & { itemId: string; publicationRevision?: number };
+
+export type StoredEntry = Partial<ReportEntry> & { itemId: string; publicationRevision?: number; sources?: number; related?: StoredEntry[] };
 export type StoredReportContent = Record<string, unknown> & {
   sections?: Array<{ label: string; items: StoredEntry[] }>;
   themes?: Array<{ heading: string; summary?: string | null; storyRefs: StoredEntry[] }>;
   flashes?: StoredEntry[];
   correctionPending?: boolean;
   sourceMemberIds?: string[];
+  sourceStructure?: { sections: Array<{ label: string; items: StoredEntry[] }>; flashes: StoredEntry[]; leadItemId?: string; highlights?: string[] };
 };
 export function storedReportEntries(content: StoredReportContent): StoredEntry[] {
-  return [...(content.sections ?? []).flatMap((s) => s.items ?? []), ...(content.themes ?? []).flatMap((s) => s.storyRefs ?? []), ...(content.flashes ?? [])];
+  const entries = [
+    ...(content.sections ?? []).flatMap((s) => s.items ?? []),
+    ...(content.themes ?? []).flatMap((s) => s.storyRefs ?? []),
+    ...(content.flashes ?? []),
+  ];
+  return [...entries, ...entries.flatMap((entry) => entry.related ?? [])];
 }
 export function reportMemberIds(content: StoredReportContent) {
   return [

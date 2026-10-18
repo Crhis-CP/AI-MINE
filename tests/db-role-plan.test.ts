@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
-import { DATABASE_ROLES } from "@amp/config";
+import { DATABASE_ROLES } from "@amp/backend/db";
 import {
   catalogProblems,
   planRoleGrants,
@@ -39,15 +39,17 @@ function catalog(): Catalog {
       name,
       owner: "bootstrap",
       columns:
-        name === "feedback.quota_buckets"
-          ? ["scope", "bucket_key", "window_start", "used"]
-          : name === "feedback.submissions"
-            ? ["key_hash", "payload_hash", "feedback_id", "created_at"]
-            : name === "identity.account_access"
-              ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
-              : grant.publicColumns[0] === "*" || !grant.publicColumns.length
-                ? ["id"]
-                : grant.publicColumns,
+        name === "feedback.submission_state"
+          ? ["source_hash", "attempts", "submissions", "paused_until", "expires_at"]
+          : name === "feedback.quota_buckets"
+            ? ["scope", "bucket_key", "window_start", "used"]
+            : name === "feedback.submissions"
+              ? ["key_hash", "payload_hash", "feedback_id", "created_at"]
+              : name === "identity.account_access"
+                ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
+                : grant.publicColumns[0] === "*" || !grant.publicColumns.length
+                  ? ["id"]
+                  : grant.publicColumns,
       rls: false,
     })),
     sequences: Object.entries(SEQUENCES).map(([name, table]) => ({ name, table, owner: "bootstrap" })),
@@ -80,6 +82,8 @@ test("all current migration tables and serial sequences have one explicit classi
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
       "feedback.submissions",
+      "feedback.submission_state",
+      "content.publication_date_corrections",
       "feedback.quota_buckets",
       "editorial.withdrawal_records",
       "editorial.withdrawal_restorations",
@@ -111,6 +115,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "ai.model_routes",
       "ai.model_fallback_routes",
       "ai.model_fallback_resolutions",
+      "ai.model_service_circuits",
       "ai.model_attempt_snapshots",
       "ai.usage_control_versions",
       "ai.usage_prices",

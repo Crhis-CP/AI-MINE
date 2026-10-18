@@ -1,8 +1,10 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
+import { computeHotRanking } from "@amp/backend/events/hot";
 import { tag } from "./setup.ts";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle, type WithdrawalTarget } from "@amp/backend/publication/publish";
 import { previewWithdrawal, actWithdrawal, setVisibility, detachFromFact } from "@amp/backend/admin/content";
@@ -12,7 +14,7 @@ import { loadReport, listReports, v1Daily, publicReportKeys } from "@amp/backend
 import { loadStoryDetail, loadHot } from "@amp/backend/publication/stories";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("editorial");
+
 after(async () => {
   await stopBoss();
   await closeDb();
@@ -38,6 +40,7 @@ test("independent item/event/story holds stack; a later member remains withdrawn
       bodyText: "合成铜矿项目取得建设审批，原始公告列明项目条件与配套要求。",
       language: "zh",
       via: "fetch",
+      publishedAt: new Date(),
     });
     await publishArticle(m.articleId);
     return m.articleId;
@@ -94,6 +97,7 @@ test("report withdrawal is independent of its member articles across report read
     bodyText: "这是一篇用于确认报告下架不会同时撤回成员文章的合成中文报道。",
     language: "zh",
     via: "fetch",
+    publishedAt: new Date(),
   });
   await publishArticle(m.articleId);
   const [p] = await sql`SELECT title,summary,revision FROM publications WHERE article_id=${m.articleId}`;
@@ -123,28 +127,52 @@ test("withdrawing one development removes stale aggregate words while preserving
     [0, "合成铜矿原审批事件"],
     [1, "仍公开的合成环保进展"],
   ] as const) {
+    const sourceId = n === 0 ? source : `${source}-${n}`;
+    if (n) await sql`INSERT INTO sources(id,name,kind,site_fulltext) VALUES(${sourceId},'合成另一独立来源','rss',true)`;
     const m = await upsertMaterial({
-      sourceId: source,
+      sourceId,
       url: `https://source.invalid/${source}/${n}`,
       title,
       bodyText: "合成中文原始材料包含项目条件与审批范围，供独立下架验证使用。",
       language: "zh",
       via: "fetch",
+      publishedAt: new Date(),
     });
     const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${`f${tag()}`},${story!.id},${title}) RETURNING id,public_id`;
     await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${m.articleId},'report',1)`;
+    await confirmGroupingFixture(m.articleId);
     await publishArticle(m.articleId);
-    members.push({ id: m.articleId, factId: String(fact!.public_id), title });
+    await sql`INSERT INTO story_signals(story_id,article_id,participant_key,source_id,kind,observed_at)
+      VALUES(${story!.id},${m.articleId},${`source:${sourceId}`},${sourceId},'editorial',now())`;
+    members.push({ id: m.articleId, factId: String(fact!.public_id), databaseFactId: Number(fact!.id), title });
   }
   const kept = members[1]!,
-    at = new Date().toISOString();
-  await sql`INSERT INTO hot_rankings(computed_at,rule_version,entries,published) VALUES(now(),'synthetic',${sql.json([{ rank: 1, storyId: Number(story!.id), storyPublicId: publicId, title: bad, heat: 10, trend: "new", trendPct: null, badges: [], participantCount: 2, sourceCount: 2, signalCount: 0, reportCount: 2, sourceNames: [], latestAt: at, firstReportAt: at, representativeItemId: kept.id, representativeUrl: "https://source.invalid/kept", representativeSource: "合成来源", participants: [] }])},true)`;
+    thirdSource = `${source}-third`;
+  await sql`INSERT INTO sources(id,name,kind,site_fulltext) VALUES(${thirdSource},'合成第三家独立来源','rss',true)`;
+  const copy = await upsertMaterial({
+    sourceId: thirdSource,
+    url: `https://source.invalid/${thirdSource}`,
+    title: kept.title,
+    bodyText: "合成第三方报道确认仍公开的环保进展及其条件。",
+    bodyStatus: "ok",
+    language: "zh",
+    via: "fetch",
+    publishedAt: new Date(),
+  });
+  await confirmGroupingFixture(copy.articleId);
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${kept.databaseFactId},${copy.articleId},'report',1)`;
+  await publishArticle(copy.articleId);
+  await sql`INSERT INTO story_signals(story_id,article_id,participant_key,source_id,kind,observed_at)
+    VALUES(${story!.id},${copy.articleId},${`source:${thirdSource}`},${thirdSource},'editorial',now())`;
+  await computeHotRanking();
   assert.ok(JSON.stringify(await loadHot()).includes(bad), "warm the old ranking extras before withdrawal");
   await action({ type: "event", id: members[0]!.factId }, "withdraw");
   const detail = await loadStoryDetail(Number(story!.id));
   assert.ok(detail);
   assert.equal(detail.title, kept.title);
   assert.ok(!JSON.stringify(detail).includes(bad));
+  assert.ok(!JSON.stringify(await loadHot()).includes(bad));
+  await computeHotRanking();
   const hot = await loadHot();
   assert.equal(hot.entries.length, 1);
   assert.ok(!JSON.stringify(hot).includes(bad));

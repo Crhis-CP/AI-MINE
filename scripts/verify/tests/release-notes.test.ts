@@ -3,7 +3,15 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { loadChangelog, mergeReleaseRecords, readReleaseRecords, recordSuccessfulRelease, type Changelog } from "@amp/backend/site/meta";
+import {
+  loadChangelog,
+  mergeReleaseRecords,
+  readReleaseRecords,
+  recordSuccessfulRelease,
+  recordReleaseAnnouncement,
+  releaseAnnouncementFile,
+  type Changelog,
+} from "@amp/backend/site/meta";
 
 const note = { kind: "优化" as const, title: "反馈更简洁", body: ["自动定位信息由后台保留。"] };
 const base: Changelog = {
@@ -67,6 +75,48 @@ test("the public reader observes an atomic post-release registration without an 
     const next = loadChangelog();
     assert.equal(next.releases.length, first.releases.length + 1);
     assert.equal(next.releases[0]!.title, note.title);
+  } finally {
+    if (previous === undefined) delete process.env.AMP_RELEASE_CHANGELOG_FILE;
+    else process.env.AMP_RELEASE_CHANGELOG_FILE = previous;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a deployment can publish a separate policy notice without breaking old release files or duplicating retries", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "release-announcement-"));
+  const filename = path.join(dir, "notes.json"),
+    previous = process.env.AMP_RELEASE_CHANGELOG_FILE;
+  process.env.AMP_RELEASE_CHANGELOG_FILE = filename;
+  const sha = "d".repeat(40),
+    publishedAt = "2100-10-14T02:00:00Z";
+  const common = { sha, publishedAt, lockHeld: true, health: { ok: true, db: "ok", release: sha.slice(0, 12) } };
+  const announcement = { kind: "公告", title: "法规政策动态暂时停止更新", body: ["鉴于成本和技术问题暂时停止更新，既有内容仍可查阅，后续重新上线。"] };
+  try {
+    recordSuccessfulRelease({ ...common, filename, note });
+    const original = readFileSync(filename, "utf8");
+    const noticeFile = releaseAnnouncementFile(filename);
+    recordReleaseAnnouncement({ ...common, filename: noticeFile, note: announcement });
+    assert.equal(readFileSync(filename, "utf8"), original, "old readers still see their original valid format");
+    const current = loadChangelog();
+    assert.deepEqual(
+      current.releases.slice(0, 2).map((r) => r.title),
+      [note.title, announcement.title],
+    );
+    assert.equal(current.releases[1].time, current.releases[0].time);
+    assert.equal(recordReleaseAnnouncement({ ...common, filename: noticeFile, note: announcement }).status, "already_recorded");
+    const nextSha = "e".repeat(40);
+    assert.equal(
+      recordReleaseAnnouncement({
+        ...common,
+        sha: nextSha,
+        health: { ...common.health, release: nextSha.slice(0, 12) },
+        filename: noticeFile,
+        note: announcement,
+      }).status,
+      "already_announced",
+    );
+    assert.equal(readReleaseRecords(noticeFile).length, 1);
+    assert.equal(JSON.stringify(current).includes(sha), false);
   } finally {
     if (previous === undefined) delete process.env.AMP_RELEASE_CHANGELOG_FILE;
     else process.env.AMP_RELEASE_CHANGELOG_FILE = previous;

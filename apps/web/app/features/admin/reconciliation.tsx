@@ -1,5 +1,6 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useState } from "react";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import type { z } from "zod";
 import { Link } from "react-router";
 import type { useAdminAction } from "./action";
@@ -147,12 +148,14 @@ export function UsageReconciliation({ data: r, actions }: { data: Reconciliation
               parse: privateSchemas.ReceiptReleaseResponse.parse,
               onConflict: () => setReceipt(null),
               send: (_url, init) =>
-                createPrivateClient({}).POST("/api/admin/receipts/{id}/release", {
+                apiFetch("/api/admin/receipts/{id}/release", {
                   params: { path: { id: String(receipt!.id) } },
-                  body,
+                  json: body,
                   headers: init.headers,
                   credentials: init.credentials,
                   signal: init.signal,
+                  method: "POST",
+                  baseUrl: "",
                 }),
             })) !== null
           );

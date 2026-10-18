@@ -1,3 +1,4 @@
+import { postgresPackage } from "./helpers.ts";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,7 +10,7 @@ test("compiler follows imported fragments and aliases; union tags and unknown SQ
   const root = mkdtempSync(path.join(tmpdir(), "ownership-test-"));
   try {
     mkdirSync(path.join(root, "node_modules"));
-    symlinkSync(path.resolve(import.meta.dirname, "../../../packages/backend/node_modules/postgres"), path.join(root, "node_modules/postgres"));
+    symlinkSync(postgresPackage(), path.join(root, "node_modules/postgres"));
     const inputs: Record<string, string> = {
       "package.json": '{"type":"module"}',
       "tsconfig.json": '{"compilerOptions":{"module":"nodenext","strict":true,"allowImportingTsExtensions":true,"noEmit":true}}',
@@ -59,7 +60,7 @@ test("native calls and narrowed aliases remain visible without treating plain ta
   const root = mkdtempSync(path.join(tmpdir(), "ownership-calls-"));
   try {
     mkdirSync(path.join(root, "node_modules"));
-    symlinkSync(path.resolve(import.meta.dirname, "../../../packages/backend/node_modules/postgres"), path.join(root, "node_modules/postgres"));
+    symlinkSync(postgresPackage(), path.join(root, "node_modules/postgres"));
     const inputs: Record<string, string> = {
       "package.json": '{"type":"module"}',
       "tsconfig.json": '{"compilerOptions":{"module":"nodenext","strict":true,"allowImportingTsExtensions":true,"noEmit":true}}',
@@ -101,6 +102,35 @@ test("native calls and narrowed aliases remain visible without treating plain ta
     const plain = inventory.find((file) => file.file === "plain.ts")!;
     assert.equal(plain.sites.length, 0);
     assert.equal(plain.ignoredTags.length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("site and extension SQL are classified as runtime rather than escaping the ownership inventory", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "extension-ownership-"));
+  try {
+    mkdirSync(path.join(root, "node_modules"));
+    symlinkSync(postgresPackage(), path.join(root, "node_modules/postgres"));
+    mkdirSync(path.join(root, "modules/mining"), { recursive: true });
+    mkdirSync(path.join(root, "site"));
+    writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
+    writeFileSync(path.join(root, "tsconfig.json"), '{"compilerOptions":{"module":"nodenext","strict":true,"allowImportingTsExtensions":true,"noEmit":true}}');
+    writeFileSync(
+      path.join(root, "module-db.ts"),
+      'import type postgres from "postgres";export function dbOf(_name:string):postgres.Sql{throw Error("static only");}',
+    );
+    writeFileSync(
+      path.join(root, "modules/mining/read.ts"),
+      'import {dbOf} from "../../module-db.ts";const sql=dbOf("publication");sql`SELECT id FROM reports`;',
+    );
+    writeFileSync(path.join(root, "site/read.ts"), 'import {dbOf} from "../module-db.ts";const sql=dbOf("publication");sql`SELECT id FROM reports`;');
+    const rows = extractOwnership(root);
+    assert.equal(rows.length, 2);
+    for (const row of rows) {
+      assert.equal(row.scope, "runtime");
+      assert.ok(row.sites.some((site) => site.relations.some((relation) => relation.table === "public.reports")));
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

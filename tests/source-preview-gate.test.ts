@@ -1,11 +1,11 @@
 import { tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { updateSource, requestSourcePreview, runSourcePreview, SOURCE_PREVIEW_QUEUE } from "@amp/backend/admin/sources";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { ensureQueue, stopBoss } from "@amp/backend/jobs/queue";
-const sql = dbOf("sources");
+
 after(async () => {
   await stopBoss();
   await closeDb();
@@ -58,7 +58,7 @@ test("first enable and configuration switches require successful preview bound t
 });
 
 test("private HTTP reports missing current preview or nonexistent draft as actionable 409 conflicts", async (t) => {
-  const { buildApp } = await import("../apps/api/src/app.ts");
+  const { buildApp } = await import("./site-app.ts");
   const { config } = await import("@amp/backend/config");
   const prior = config.devAdmin;
   config.devAdmin = { displayName: "Synthetic source preview operator" };

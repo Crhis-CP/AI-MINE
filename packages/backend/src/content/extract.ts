@@ -3,8 +3,9 @@ import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapsho
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
-import { parseHTML } from "linkedom";
-import { dbOf } from "../db.ts";
+import { prepareReadableDocument, type PreserveRule } from "./readable-dom.ts";
+import { contentDocument, assertPageContent, UnavailablePageError } from "../lib/page-content.ts";
+import { sql } from "../db.ts";
 import {
   crawlFetch as guardedFetch,
   crawlStep,
@@ -16,12 +17,11 @@ import {
 } from "../acquisition/crawl.ts";
 import { readSourceDateContext } from "@amp/backend/admin/sources";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
+import { languageHeaders } from "../lib/http-fetch.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
-import { contentHash, readCurrentBody } from "./materials.ts";
-
-const sql = dbOf("content");
+import { contentHash, updateMaterialPresentation, readCurrentBody } from "./materials.ts";
 
 export interface ExtractedBody {
   html: string;
@@ -32,8 +32,14 @@ export interface ExtractedBody {
 
 const MIN_BODY_CHARS = 200;
 
-export function readable(html: string, url: string): ExtractedBody | null {
-  const { document } = parseHTML(html);
+export function readable(html: string, url: string, rules: { preserve?: PreserveRule[] } = {}): ExtractedBody | null {
+  let document: ReturnType<typeof contentDocument>;
+  try {
+    document = contentDocument(html);
+  } catch (error) {
+    if (error instanceof UnavailablePageError) return null;
+    throw error;
+  }
   try {
     const base = document.createElement("base");
     base.setAttribute("href", url);
@@ -41,6 +47,7 @@ export function readable(html: string, url: string): ExtractedBody | null {
   } catch {
     // no head
   }
+  prepareReadableDocument(document, rules.preserve);
   const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], {
     charThreshold: MIN_BODY_CHARS,
     keepClasses: false,
@@ -49,6 +56,12 @@ export function readable(html: string, url: string): ExtractedBody | null {
   const clean = trimTrailingChrome(sanitizeBody(article.content, url));
   const text = stripTags(clean);
   if (text.length < MIN_BODY_CHARS) return null;
+  try {
+    assertPageContent(article.title ?? "", text);
+  } catch (error) {
+    if (error instanceof UnavailablePageError) return null;
+    throw error;
+  }
   const images: ExtractedBody["images"] = [];
   for (const m of clean.matchAll(/<img\b[^>]*\bsrc="([^"]+)"[^>]*>/gi)) {
     const w = /\bwidth="(\d+)"/.exec(m[0]);
@@ -88,12 +101,19 @@ function markdownToHtml(md: string): string {
 
 export async function extractFromUrl(
   url: string,
-  opts: { allowJina: boolean; subject: string; lane?: "news" | "policy"; runtimeControl?: RuntimeControlSnapshot },
+  opts: {
+    allowJina: boolean;
+    subject: string;
+    lane?: "news" | "policy";
+    runtimeControl?: RuntimeControlSnapshot;
+    acceptLanguage?: string;
+    preserve?: PreserveRule[];
+  },
 ): Promise<ExtractedBody | null> {
   const direct = await crawlStep(`readability:${url}`, url, async () => {
     try {
-      const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
-      if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url);
+      const res = await guardedFetch(url, { headers: languageHeaders(opts.acceptLanguage), timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
+      if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url, opts);
     } catch (error) {
       if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
       // Oversized bodies fail the same way on every try. Swallowing this sent the page to the paid
@@ -130,10 +150,14 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
 }
 
 /** Fetches and stores the body of one article. Unconfirmed bodies are recorded as such. */
-async function extractArticleBody(articleId: string, allowJina = process.env.JINA_BODY_FALLBACK !== "false"): Promise<"ok" | "unconfirmed" | "skipped"> {
+async function extractArticleBody(
+  articleId: string,
+  allowJina = process.env.JINA_BODY_FALLBACK !== "false",
+  expectedRevision?: number,
+): Promise<"ok" | "unconfirmed" | "skipped"> {
   const [a] = await sql<{ id: string; source_id: string; url: string; body_status: string; revision: number }[]>`
     SELECT id, source_id, url, body_status, revision FROM articles WHERE id = ${articleId}`;
-  if (!a || a.body_status === "ok") return "skipped";
+  if (!a || a.body_status === "ok" || (expectedRevision !== undefined && a.revision !== expectedRevision)) return "skipped";
   const source = await readSourceDateContext(a.source_id);
   if (!source) return "skipped";
   const control = await requireRuntimeRunning(source.lane, ["collection"]);
@@ -144,7 +168,14 @@ async function extractArticleBody(articleId: string, allowJina = process.env.JIN
     });
     return "skipped";
   }
-  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}`, lane: source.lane, runtimeControl: control });
+  const got = await extractFromUrl(a.url, {
+    allowJina,
+    subject: `article:${a.id}`,
+    lane: source.lane,
+    runtimeControl: control,
+    acceptLanguage: source.config.acceptLanguage,
+    preserve: source.config.detail?.preserve,
+  });
   if (!got) {
     await sql.begin(async (tx) => {
       await assertRuntimeControl(tx, control);
@@ -154,33 +185,42 @@ async function extractArticleBody(articleId: string, allowJina = process.env.JIN
   }
   const body = z.object({ html: z.string(), text: z.string() }).parse(got);
   // The body is new content: a new revision, so an analysis of the body-less input counts as stale.
-  await sql.begin(async (tx) => {
+  const stored = await sql.begin(async (tx) => {
     await assertRuntimeControl(tx, control);
     const [row] = await tx<
-      { title: string; excerpt: string | null }[]
-    >`SELECT title, excerpt FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
-    if (!row) return;
+      { title: string; excerpt: string | null; content_hash: string | null }[]
+    >`SELECT title, excerpt, content_hash FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
+    if (!row) return false;
     const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
+    if (row.content_hash === hash) {
+      await updateMaterialPresentation(articleId, { html: body.html, bodyStatus: "ok" }, tx);
+      return true;
+    }
     const [r] = await tx<{ revision: number }[]>`
       UPDATE articles SET body_html = ${body.html}, body_text = ${body.text}, body_status = 'ok',
         media = CASE WHEN jsonb_array_length(media) = 0 THEN ${tx.json(got.images as never)}::jsonb ELSE media END,
-        revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
+        grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
+      selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
+      revision = revision + 1, content_hash = ${hash}, processing_state = 'new', processing_attempts=0, processing_error=NULL, processing_retry_at=NULL, processing_queued_at=NULL, updated_at = now()
       WHERE id = ${articleId} RETURNING revision`;
     await tx`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
              VALUES (${articleId}, ${r!.revision}, ${hash}, ${row.title}, ${body.text})`;
+    return true;
   });
-  return "ok";
+  return stored ? "ok" : "skipped";
 }
 
 export { collapseWhitespace };
 
-async function pacedExtractArticleBody(articleId: string, allowJina?: boolean, expectedSessionId?: string) {
+async function pacedExtractArticleBody(articleId: string, allowJina?: boolean, expectedSessionId?: string, expectedRevision?: number) {
   const material = await readCurrentBody(articleId),
     source = material ? await readSourceDateContext(material.source_id) : null;
-  if (!source) return "skipped" as const;
+  if (!source || (expectedRevision !== undefined && material?.revision !== expectedRevision)) return "skipped" as const;
   if (!source.enabled || !sourceCollectionEnabled(source.lane))
     throw new CrawlDeferred(new Date(Date.now() + 60_000), `body:${articleId}`, "collection_paused");
-  return withSourceCrawl(source, `body:${articleId}:${material!.revision}`, () => extractArticleBody(articleId, allowJina), { expectedSessionId });
+  return withSourceCrawl(source, `body:${articleId}:${material!.revision}`, () => extractArticleBody(articleId, allowJina, material!.revision), {
+    expectedSessionId,
+  });
 }
 export { pacedExtractArticleBody as extractArticleBody };
 

@@ -1,19 +1,20 @@
+import { translateArticle } from "@amp/backend/editorial/translate";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { sanitizeBody } from "@amp/backend/content/sanitize";
 import { readCurrentBody, upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { runBodyTranslation, type TranslationRecipe } from "../packages/backend/src/editorial/translation-runtime.ts";
 import { beginTranslation } from "../packages/backend/src/editorial/translation-store.ts";
 
-const sql = dbOf("enrichment"),
-  T = tag(),
+const T = tag(),
   SOURCE = `checkpoints-${T}`;
 const recipe: TranslationRecipe = { id: `strict-${T}`, model: "deepseek-flash", promptVersion: `fixture-${T}`, system: "SELF_AUTHORED strict text fixture" };
 let mode = "stop",
@@ -25,14 +26,23 @@ const provider = http.createServer((req, res) => {
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", async () => {
     hits++;
-    const selectedMode = mode,
-      pending = hold;
+    const selectedMode = mode;
     const input = JSON.parse(JSON.parse(Buffer.concat(chunks).toString()).messages[1].content) as { text: string };
+    const pending = selectedMode === "presentation-hold" && !input.text.includes("SECOND") ? null : hold;
     pending?.asked.open();
     if (pending) await pending.release.promise;
     if (selectedMode === "reset") return res.destroy();
-    const bad = (selectedMode === "bad" && !input.text.includes("GOOD")) || selectedMode === "no-usage-bad";
-    const text = selectedMode === "encoded" ? "中文 &#65533;" : input.text.includes("<strong>") ? "合成<strong>未</strong>获准。" : "合成中文正文。";
+    const bad =
+      (selectedMode === "presentation-partial" && input.text.includes("BAD")) ||
+      (selectedMode === "bad" && !input.text.includes("GOOD")) ||
+      selectedMode === "no-usage-bad";
+    const text = selectedMode.startsWith("presentation")
+      ? input.text.replace(/Mining project/g, "矿业项目").replace(/report/g, "报告")
+      : selectedMode === "encoded"
+        ? "中文 &#65533;"
+        : input.text.includes("<strong>")
+          ? "合成<strong>未</strong>获准。"
+          : "合成中文正文。";
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
@@ -139,7 +149,7 @@ test("model wait holds no material lock and neither late revision nor superseded
   }
 });
 
-test("unknown, explicit truncation and invalid text without usage never purchase an automatic retry", async () => {
+test("unknown outcomes stay blocked and received invalid output respects its retry window", async () => {
   for (const selected of ["reset", "length", "no-usage-bad"]) {
     mode = selected;
     const { articleId } = await material(selected);
@@ -159,7 +169,7 @@ test("unknown, explicit truncation and invalid text without usage never purchase
     assert.equal((await translation(articleId)).body_html, null);
     assert.equal(
       (await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0].status,
-      selected === "reset" ? "unknown" : "received",
+      selected === "reset" ? "unknown" : selected === "no-usage-bad" ? "failed" : "received",
     );
   }
 });
@@ -260,15 +270,137 @@ test("actual process stop retains the received answer and a new process resumes 
   hold = { asked: gate(), release: gate() };
   const start = hits,
     first = launch();
-  await Promise.race([hold.asked.promise, first.done.then(() => assert.fail("child never called provider"))]);
-  first.child.kill("SIGTERM");
-  await first.stopped;
-  hold.release.open();
-  hold = null;
-  assert.equal(await first.done, "interrupted");
+  try {
+    await Promise.race([hold.asked.promise, first.done.then(() => assert.fail("child never called provider"))]);
+    first.child.kill("SIGTERM");
+    await first.stopped;
+    hold.release.open();
+    hold = null;
+    assert.equal(await first.done, "interrupted");
+    assert.equal(hits - start, 1);
+    assert.equal((await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0].status, "received");
+    assert.equal((await translation(articleId)).complete, false);
+    assert.equal(((await launch().done) as { status: string }).status, "translated");
+    assert.equal(hits - start, 2);
+  } finally {
+    hold?.release.open();
+    hold = null;
+  }
+});
+
+test("one released unknown segment can recover and continue to the next segment without clearing its old charge", async () => {
+  const { articleId } = await material("released-segments", `<p>First copper note ${T}.</p><p>Second copper note ${T}.</p>`);
+  const start = hits;
+  mode = "reset";
+  await assert.rejects(runBodyTranslation(articleId, recipe));
+  await assert.rejects(runBodyTranslation(articleId, recipe));
   assert.equal(hits - start, 1);
-  assert.equal((await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0].status, "received");
-  assert.equal((await translation(articleId)).complete, false);
-  assert.equal(((await launch().done) as { status: string }).status, "translated");
-  assert.equal(hits - start, 2);
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject LIKE ${`article:${articleId}@1#%`}`;
+  await autoReleaseUnknownReceipts();
+  mode = "stop";
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  assert.equal(hits - start, 3, "one initial unknown, one exact retry, then the second segment");
+  const [original] = await sql`SELECT a.status,u.state,o.known_unbilled FROM receipt_attempts a
+    JOIN receipts r ON r.id=a.receipt_id JOIN ai.usage_attempts u ON u.attempt_id=a.id
+    JOIN ai.translation_receipt_observations o ON o.attempt_id=a.id::text
+    WHERE r.subject LIKE ${`article:${articleId}@1#%`} AND a.status='unknown'`;
+  assert.deepEqual({ ...original }, { status: "unknown", state: "unknown", known_unbilled: false });
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  assert.equal(hits - start, 3);
+});
+
+test("presentation updates reuse bound translations and preserve semantic state without any model request", async () => {
+  mode = "presentation";
+  const name = "presentation-refresh";
+  const oldHtml = `<p>Mining project ${T} <a href="https://fixture.invalid/old">report</a> <img src="https://fixture.invalid/old.png"></p>`;
+  const nextHtml = oldHtml.replaceAll("/old", "/new");
+  const { articleId } = await material(name, oldHtml);
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  await sql`UPDATE articles SET processing_state='failed',processing_error='kept' WHERE id=${articleId}`;
+  await sql`INSERT INTO publications(article_id,title,source_id,channel,url,discovered_at,timeline_at,sort_at,visibility,body_mode,eligible,selected)
+    VALUES(${articleId},'合成展示版本',${SOURCE},'news',${`https://fixture.invalid/${T}/${name}`},now(),now(),now(),'public','full',true,false)`;
+  const [watermark] = await sql`SELECT version,last_public_at FROM publication.read_watermarks WHERE lane='news'`;
+  const beforeHits = hits;
+  const beforeReceipts = await sql`SELECT id,status,response_attempt_id FROM receipts ORDER BY id`;
+  const update = await material(name, nextHtml);
+  assert.equal(update.revised, false);
+  assert.equal(update.metadataChanged, true);
+  assert.equal(update.revision, 1);
+  const [nextWatermark] = await sql`SELECT version,last_public_at FROM publication.read_watermarks WHERE lane='news'`;
+  assert.ok(Number(nextWatermark.version) > Number(watermark.version), "open readers can detect presentation updates");
+  assert.equal(nextWatermark.last_public_at.getTime(), watermark.last_public_at.getTime(), "presentation is not another publication");
+  const refreshed = await translation(articleId);
+  assert.equal(refreshed.complete, true);
+  assert.match(refreshed.body_html, /矿业项目/);
+  assert.match(refreshed.body_html, /fixture.invalid\/new.png/);
+  assert.match(refreshed.body_html, /href="https:\/\/fixture.invalid\/new"/);
+  assert.equal(hits, beforeHits);
+  assert.deepEqual(await sql`SELECT id,status,response_attempt_id FROM receipts ORDER BY id`, beforeReceipts);
+  assert.equal(
+    (await runBodyTranslation(articleId, { ...recipe, model: "not-configured" })).status,
+    "translated",
+    "retained wording also survives a later model route change",
+  );
+  assert.equal(hits, beforeHits);
+  assert.deepEqual(
+    { ...(await sql`SELECT processing_state,processing_error FROM articles WHERE id=${articleId}`)[0] },
+    { processing_state: "failed", processing_error: "kept" },
+  );
+  assert.equal((await material(name, nextHtml)).metadataChanged, false);
+  await material(name, oldHtml);
+  await material(name, nextHtml);
+  assert.equal(hits, beforeHits, "returning to an earlier presentation keeps the same paid attempts");
+  await assert.rejects(material(name, nextHtml.replace(" <a", "</p><p><a")), /保留原版本/);
+  assert.equal((await sql`SELECT body_html FROM articles WHERE id=${articleId}`)[0].body_html, sanitizeBody(nextHtml));
+});
+
+test("presentation updates keep a partial translation partial and retain unfinished attempts", async () => {
+  mode = "presentation-partial";
+  const name = "presentation-partial";
+  const html = `<p>Mining project ${T} <a href="https://fixture.invalid/old">report</a></p><p>BAD Mining project ${T}.</p>`;
+  const { articleId } = await material(name, html);
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "partial");
+  const before = hits;
+  await material(name, html.replace("/old", "/new"));
+  const refreshed = await translation(articleId);
+  assert.equal(refreshed.complete, false);
+  assert.equal(refreshed.manifest.translatedSegments, 1);
+  assert.equal(refreshed.manifest.totalSegments, 2);
+  assert.match(refreshed.body_html, /BAD Mining project/);
+  assert.equal(hits, before);
+});
+
+test("an in-flight presentation change retains completed fragments and does not spend a body retry", async () => {
+  mode = "presentation-hold";
+  const name = "presentation-inflight",
+    html = `<p>Mining project <a href="https://fixture.invalid/old">FIRST</a> ${T}.</p><p>Mining project SECOND ${T}.</p>`;
+  const { articleId } = await material(name, html);
+  hold = { asked: gate(), release: gate() };
+  const running = translateArticle(articleId, 1);
+  await Promise.race([hold.asked.promise, running.then(() => assert.fail("second fragment was not held"))]);
+  const before = hits;
+  try {
+    const [prior] = await sql`SELECT source_hash FROM translations WHERE article_id=${articleId}`;
+    const updated = await material(name, html.replace("/old", "/new"));
+    assert.equal(updated.metadataChanged, true);
+    assert.equal(updated.revision, 1);
+    const [current] = await sql`SELECT source_hash,body_html,complete FROM translations WHERE article_id=${articleId}`;
+    assert.notEqual(current.source_hash, prior.source_hash);
+    assert.equal(current.body_html, null, "collection does not promote unfinished work");
+    assert.equal(current.complete, false);
+    assert.equal(
+      (
+        await sql`SELECT segment_index FROM enrichment.translation_segments WHERE article_id=${articleId} AND source_hash=${current.source_hash} AND state='complete'`
+      ).length,
+      1,
+    );
+  } finally {
+    hold.release.open();
+  }
+  const stale = await running;
+  hold = null;
+  assert.equal(stale.reason, "input_changed");
+  assert.equal((await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`).length, 0);
+  assert.equal((await translateArticle(articleId, 1)).status, "translated");
+  assert.equal(hits, before, "both already paid replies survive the presentation update");
 });

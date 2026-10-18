@@ -1,8 +1,9 @@
+import { sharedSearch } from "../lib/cache.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 // Public pool (/all) with numeric pages, and search in its two orderings.
 import type { PoolResponse, TimelineFilters } from "@amp/contracts/site";
 import { addDays, isValidDate, beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { one, dbOf, withCustomPlans, type Db } from "../db.ts";
+import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import {
   categoryCondition,
   publicationDateCondition,
@@ -22,8 +23,6 @@ import { publicationTextMatches, poolDirectTextMatches, bodyTextMatches, searchP
 import { termExpands, readMatcherValues, searchScoreValues, type ReadMatcherValues } from "./mentions.ts";
 import { loadTimeline } from "./timeline.ts";
 import { MINERAL_TAGS } from "@amp/industry/taxonomy";
-
-const sql = dbOf("publication");
 
 export const POOL_PAGE_SIZE = 20;
 
@@ -71,6 +70,8 @@ export async function withSearchCapacity<T>(fn: (db: Db) => Promise<T>): Promise
 export function searchTerms(q: string): string[] {
   return q
     .toLowerCase()
+    .replace(/(\p{Script=Han})(?=[a-z])/gu, "$1 ")
+    .replace(/([a-z][a-z0-9]*)(?=\p{Script=Han})/gu, "$1 ")
     .split(/\s+/)
     .map((t) => t.trim())
     .filter(Boolean)
@@ -119,7 +120,34 @@ export interface PoolQuery extends TimelineFilters {
   rangeEnd?: Date | null;
 }
 
-export async function loadPool(
+// Sharing happens before search capacity admission, and retains every site-specific filter in the key.
+const searchPool = sharedSearch(
+  ({ query }: { query: PoolQuery; matchers?: ReadMatcherValues }) =>
+    JSON.stringify([
+      query.channel ?? "all",
+      query.category ?? null,
+      query.tag ?? null,
+      query.topic ?? null,
+      query.topicTags ?? null,
+      query.jurisdiction ?? null,
+      query.source ?? null,
+      query.mineral ?? null,
+      query.on ?? null,
+      query.from ?? null,
+      query.to ?? null,
+      query.selected ?? false,
+      query.q?.trim() ?? null,
+      query.tab ?? "time",
+      query.page ?? 1,
+    ]),
+  ({ query, matchers }, now) => queryPool(query, matchers, now),
+  ({ query, matchers }) => !!query.q?.trim() && matchers === undefined,
+);
+export function loadPool(query: PoolQuery, matchers?: ReadMatcherValues): Promise<PoolResponse> {
+  return searchPool({ query, matchers }, query.now);
+}
+
+async function queryPool(
   query: PoolQuery,
   matchers: ReadMatcherValues = readMatcherValues(
     query.mineral,
@@ -127,9 +155,9 @@ export async function loadPool(
     newsJurisdictionScope(query.jurisdiction).jurisdictionCodes,
     query.q ? searchTerms(query.q.trim()) : [],
   ),
+  now = query.now ?? new Date(),
 ): Promise<PoolResponse> {
   query = { ...query, ...newsJurisdictionScope(query.jurisdiction) };
-  const now = query.now ?? new Date();
   const page = Number.isSafeInteger(query.page) ? Math.max(query.page!, 1) : 1;
   const q = query.q?.trim() || null;
   const tab = q && query.tab === "relevance" ? "relevance" : "time";
@@ -166,7 +194,7 @@ export async function loadPool(
         WITH page AS (
           SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
           ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
-        SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
+        SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
         ORDER BY p.timeline_at DESC, p.article_id DESC`;
       return {
         rows,
@@ -200,6 +228,7 @@ export async function loadPool(
         AND (${!textMatchers.term4.active} OR (${poolDirectTextMatches(textMatchers.term4)} OR ${bodyTextMatches(textMatchers.term4)}))
         AND (${!textMatchers.term5.active} OR (${poolDirectTextMatches(textMatchers.term5)} OR ${bodyTextMatches(textMatchers.term5)}))`;
       type RankedRow = Omit<ItemRow, "id"> & { id: string | null; rel: number; total: number };
+      const tie = sql`(CASE WHEN p.selected AND p.seat THEN 1000 ELSE 0 END) + coalesce(p.score, 0)`;
       const result = splitFields
         ? await db<RankedRow[]>`
         WITH matches AS MATERIALIZED (
@@ -207,28 +236,28 @@ export async function loadPool(
           (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END)+(CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part
         FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${"%" + terms[0]! + "%"})d
         FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${"%" + terms[0]! + "%"})b ON b.article_id=d.article_id), scored AS MATERIALIZED (
-          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel
+          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel, ${tie} AS tie
           FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id
           WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
         ), page AS MATERIALIZED (
-          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC
+          SELECT article_id, rel, tie FROM scored ORDER BY rel DESC, tie DESC, timeline_at DESC, article_id DESC
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
-          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id
-        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`
+          SELECT ${ITEM_COLUMNS()}, page.rel, page.tie ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
+        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.tie DESC, hydrated.timeline_at DESC, hydrated.id DESC`
         : await db<RankedRow[]>`
         WITH matches AS NOT MATERIALIZED (SELECT ps.article_id,(${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}), scored AS MATERIALIZED (
-          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel
+          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel, ${tie} AS tie
           FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id
           WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
         ), page AS MATERIALIZED (
-          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC
+          SELECT article_id, rel, tie FROM scored ORDER BY rel DESC, tie DESC, timeline_at DESC, article_id DESC
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
-          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id
-        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`;
+          SELECT ${ITEM_COLUMNS()}, page.rel, page.tie ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
+        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.tie DESC, hydrated.timeline_at DESC, hydrated.id DESC`;
       const rows = result.filter((r): r is ItemRow & { rel: number; total: number } => r.id !== null);
       return { rows, total: Number(result[0]!.total) };
     }
@@ -243,7 +272,7 @@ export async function loadPool(
           AND (${!textMatchers.term4.active} OR ${publicationTextMatches(textMatchers.term4)})
           AND (${!textMatchers.term5.active} OR ${publicationTextMatches(textMatchers.term5)})
         ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
-      SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
+      SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
       ORDER BY p.timeline_at DESC, p.article_id DESC`;
     const direct = sql`(${!textMatchers.term0.active} OR ${poolDirectTextMatches(textMatchers.term0)})
       AND (${!textMatchers.term1.active} OR ${poolDirectTextMatches(textMatchers.term1)})

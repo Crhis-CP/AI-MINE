@@ -1,6 +1,7 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { LaneControlActionRequest } from "@amp/contracts/http/private";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { denied } from "./role-db-fixture.ts";
@@ -20,7 +21,7 @@ const expiry = (hours = 1) => new Date(Date.now() + hours * 3600_000).toISOStrin
 test("independent holder/lane controls preserve expiry, explicit restore and in-flight CAS using real operator and worker roles", async (t) => {
   const f = await publicRoleFixture(t),
     sessions = await f.login(),
-    dispose = injectDb({ ops: sessions.private_ops });
+    dispose = installTestConnections(sessions.private_ops);
   t.after(dispose);
   const before = await listLaneControls();
   assert.equal(before.controls.length, 0);

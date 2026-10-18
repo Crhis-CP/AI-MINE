@@ -27,7 +27,7 @@ export default function TermsPage() {
             { to: "/privacy", label: "隐私说明" },
             { to: "/agent", label: "Agent 接入页" },
           ]}
-          note={`使用规则 ${TERMS.doc.meta["版本"] ?? ""} · ${TERMS.doc.meta["生效日期"] ?? ""}`}
+          note={`使用规则 ${TERMS.doc.meta["版本"] ?? ""} · ${TERMS.doc.meta["修订日期"] ?? ""}`}
         />
       }
     />

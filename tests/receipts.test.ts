@@ -1,3 +1,4 @@
+import { recoverUnknownOnce } from "../packages/backend/src/providers/unknown-recovery.ts";
 // Paid requests: an answer already received is reused, every request actually sent counts against the
 // budget (retries of one logical request included), an unresolved answer is never bought again, and the
 // valve stops calls before they are sent.
@@ -5,23 +6,28 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { z } from "zod";
-import { createDatabaseAccess } from "@amp/config";
-import { SCHEDULES } from "../apps/worker/src/schedules.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { createDatabaseAccess } from "@amp/backend/db";
+import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { installUsageFixtureForModel, installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
-import { BudgetExceededError, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
+import {
+  BudgetExceededError,
+  markStalePendingReceipts,
+  paidRequest,
+  ReceiptUnknownError,
+  ProviderRejectedError,
+  PolicyPartLimitError,
+} from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial, readCurrentBody } from "@amp/backend/content/materials";
 import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { changeOwnerLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
+import { changeOwnerLaneControls, changeSystemLaneControl, laneControlHolderRevisions } from "../packages/backend/src/operations/lane-controls.ts";
 
-const sql = dbOf("ai-gateway");
 async function versionFor(id: number) {
   const [row] = await sql<{ receiptId: string; attempts: number; updatedAtUtc: string }[]>`SELECT id::text AS "receiptId", attempts,
     pg_catalog.to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAtUtc" FROM receipts WHERE id=${id}`;
@@ -178,40 +184,42 @@ test("with the valve off nothing is sent", async () => {
   }
 });
 
-test("a sent request timing out stays unknown beyond 30 minutes and cannot be bought again", async () => {
+test("unknown paid requests wait 30 minutes, release once, and preserve uncertain charges", async () => {
   const req = { lane: "news" as const, service: "invariant-unbudgeted", purpose: "invariant_test", subject: `lost-${tag()}`, identity: { lost: tag() } };
-  const started = gate(),
-    finish = gate(),
-    abort = new AbortController();
-  const remote = await stub(async () => {
-    started.open();
-    await finish.promise;
-    return { ok: true };
-  });
-  const lost = async () => ({ response: await (await fetch(remote.url, { signal: abort.signal })).json() });
-  try {
-    const first = assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
-    await started.promise;
-    abort.abort(new Error("fixture timeout after sending"));
-    await first;
-    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${req.subject}`;
-    for (const now of [Date.now(), Date.now() + 32 * 86400_000]) {
-      assert.deepEqual(await autoReleaseUnknownReceipts(now), { released: 0, requeued: 0 });
-      await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
-    }
-    const recovery = (await SCHEDULES.find((schedule) => schedule.name === "ops.recover")!.run()) as { released: { released: number; requeued: number } };
-    assert.deepEqual(recovery.released, { released: 0, requeued: 0 });
-    const rows =
-      await sql`SELECT r.status, a.status AS attempt, a.cost FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.subject=${req.subject}`;
-    assert.deepEqual(
-      rows.map((row) => ({ ...row })),
-      [{ status: "unknown", attempt: "unknown", cost: null }],
-    );
-    assert.equal(remote.hits(), 1);
-  } finally {
-    finish.open();
-    await remote.close();
-  }
+  let sent = 0;
+  const lost = async () => {
+    sent++;
+    throw new Error("fixture timeout after sending");
+  };
+  await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${req.subject}`;
+  const released = await Promise.all([autoReleaseUnknownReceipts(), autoReleaseUnknownReceipts()]);
+  assert.equal(
+    released.reduce((n, result) => n + result.released, 0),
+    1,
+    "concurrent recovery releases once",
+  );
+  const [prior] = await sql`SELECT a.status,a.cost,u.state FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id
+    JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.subject=${req.subject}`;
+  assert.deepEqual({ ...prior }, { status: "unknown", cost: null, state: "unknown" }, "release is not proof of non-billing");
+  await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${req.subject}`;
+  assert.deepEqual(await autoReleaseUnknownReceipts(Date.now() + 32 * 86400_000), { released: 0, requeued: 0 });
+  await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
+  assert.equal(sent, 2, "only one additional paid attempt is allowed");
+  const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${req.subject}`;
+  await releaseReceipt(receipt.id, { billed: false, note: "second attempt confirmed unbilled", version: await versionFor(receipt.id) }, "test");
+  const attempts = await sql`SELECT a.status,u.state FROM receipt_attempts a JOIN ai.usage_attempts u ON u.attempt_id=a.id
+    WHERE a.receipt_id=${receipt.id} ORDER BY a.attempt`;
+  assert.deepEqual(
+    attempts.map((a) => ({ ...a })),
+    [
+      { status: "unknown", state: "unknown" },
+      { status: "failed", state: "failed" },
+    ],
+    "confirming the latest attempt cannot erase the earlier uncertain charge",
+  );
 });
 
 async function stoppedArticle(purpose: string, needsBody = false) {
@@ -236,9 +244,9 @@ async function stoppedArticle(purpose: string, needsBody = false) {
   return { articleId, receiptId: receipt!.id, request };
 }
 
-test("unknown news analysis recovers all five steps once after 30 minutes", async () => {
+test("automatic unknown recovery requeues all analysis steps including wording exactly once", async () => {
   const ids: string[] = [];
-  for (const purpose of ["prefilter_article", "score_article", "understand_article", "summarize_article", "structure_article"]) {
+  for (const purpose of ["prefilter_article", "score_article", "understand_article", "summarize_article", "mend_wording", "structure_article"]) {
     const { articleId, receiptId } = await stoppedArticle(purpose);
     ids.push(articleId);
     await sql`UPDATE receipts SET updated_at = now() - interval '31 minutes' WHERE id = ${receiptId}`;
@@ -293,17 +301,12 @@ test("news recovery retains unknown charges, releases once concurrently, and man
   );
 });
 
-test("news recovery does not reset a later material revision or release policy and translation receipts", async () => {
+test("news recovery does not reset a later material revision", async () => {
   const old = await stoppedArticle("structure_article");
   await sql`UPDATE articles SET revision=2 WHERE id=${old.articleId}`;
-  const policy = await stoppedArticle("score_article");
-  await sql`UPDATE receipts SET request=jsonb_set(request,'{lane}','"policy"') WHERE id=${policy.receiptId}`;
-  const translation = await stoppedArticle("translate_body");
-  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id IN ${sql([old.receiptId, policy.receiptId, translation.receiptId])}`;
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${old.receiptId}`;
   assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 0 });
   assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${old.articleId}`)[0].processing_state, "failed");
-  const retained = await sql`SELECT status FROM receipts WHERE id IN ${sql([policy.receiptId, translation.receiptId])}`;
-  assert.ok(retained.every((r) => r.status === "unknown"));
 });
 
 test("a news processing pause and an audit failure retain the automatic recovery opportunity", async () => {
@@ -339,7 +342,7 @@ test("a news processing pause and an audit failure retain the automatic recovery
   assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
 });
 
-test("real chat identity changes cannot grant another automatic retry to the same news revision and purpose", async () => {
+test("each real chat identity has one automatic recovery and retains every earlier unknown attempt", async () => {
   const previous = process.env.DEEPSEEK_BASE_URL;
   const [budget] = await sql`SELECT per_minute,per_hour,per_day FROM budgets WHERE service='deepseek'`;
   await sql`UPDATE budgets SET per_minute=100,per_hour=2000,per_day=20000 WHERE service='deepseek'`;
@@ -388,9 +391,15 @@ test("real chat identity changes cannot grant another automatic retry to the sam
     await assert.rejects(chatJson(request), ReceiptUnknownError);
     assert.equal((await sql`SELECT count(*)::int AS n FROM receipts WHERE subject=${subject}`)[0].n, 2, "the real transport identity changed the logical key");
     await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject}`;
-    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 0 });
     await assert.rejects(chatJson(request), ReceiptUnknownError);
-    assert.equal(remote.hits(), 2, "original request plus only one recovery send");
+    assert.equal(remote.hits(), 3, "the changed request has one recovery, independent of the old identity");
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject}`;
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+    assert.equal(
+      (await sql`SELECT a.id FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id WHERE r.subject=${subject} AND a.status='unknown'`).length,
+      3,
+    );
   } finally {
     process.env.DEEPSEEK_BASE_URL = previous;
     await remote.close();
@@ -489,7 +498,7 @@ test("stale recovery keeps unresolved attempts but never overwrites a concurrent
   await sql`UPDATE receipts SET updated_at=now()-interval '11 minutes' WHERE subject=${req.subject}`;
   await markStalePendingReceipts();
   assert.equal((await sql`SELECT status FROM receipts WHERE subject=${req.subject}`)[0].status, "unknown");
-  assert.deepEqual(await autoReleaseUnknownReceipts(Date.now() + 3600_000), { released: 0, requeued: 0 });
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
   answerReady.open();
   await calling;
   assert.equal(
@@ -524,4 +533,101 @@ test("stale recovery keeps unresolved attempts but never overwrites a concurrent
     await writer;
     await access.close();
   }
+});
+
+test("policy part cap includes sent rejections but excludes proven pre-send failures", async () => {
+  const id = `part-cap-${tag()}`;
+  const request = (n: number) => ({
+    lane: "policy" as const,
+    service: "invariant-unbudgeted",
+    purpose: "policy_fulltext",
+    subject: id,
+    identity: { id, n },
+    policy: {
+      lane: "policy" as const,
+      category: "policy_fulltext" as const,
+      sourceIds: [id],
+      partIds: [id, id],
+      manifestHash: id,
+      inputFingerprint: id,
+      permissionVersions: {},
+      manifest: {},
+    },
+  });
+  let sent = 0;
+  for (const kind of ["input_changed", "configuration_changed", "connect_before_send"] as const) {
+    await assert.rejects(
+      paidRequest(request(-1), async () => {
+        throw new ProviderRejectedError("stopped before send", null, true, kind);
+      }),
+      ProviderRejectedError,
+    );
+  }
+  for (let n = 0; n < 2; n++) {
+    await assert.rejects(
+      paidRequest(request(n), async () => {
+        sent++;
+        throw new ProviderRejectedError("explicit provider rejection", 400, false, "provider_unbilled");
+      }),
+      ProviderRejectedError,
+    );
+  }
+  await assert.rejects(
+    paidRequest(request(2), async () => {
+      sent++;
+      return { response: { ok: true } };
+    }),
+    PolicyPartLimitError,
+  );
+  assert.equal(sent, 2);
+});
+
+test("unknown grouping recovery resumes only its current grouping stage, preserving prior analysis", async () => {
+  for (const purpose of ["group_article", "group_review", "group_signal"]) {
+    const { articleId, receiptId } = await stoppedArticle(purpose);
+    await sql`UPDATE articles SET processing_state='analyzed' WHERE id=${articleId}`;
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${receiptId}`;
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
+    const jobs = await sql`SELECT name,data FROM pgboss.job WHERE data->>'articleId'=${articleId}`;
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].name, "events.group");
+    assert.equal(jobs[0].data.signalOnly, purpose === "group_signal" ? true : undefined);
+    const [article] = await sql`SELECT processing_state,processing_attempts FROM articles WHERE id=${articleId}`;
+    assert.equal(article.processing_state, "analyzed");
+    assert.equal(article.processing_attempts, 3);
+  }
+  const old = await stoppedArticle("group_article");
+  await sql`UPDATE articles SET revision=2 WHERE id=${old.articleId}`;
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${old.receiptId}`;
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 0 });
+  assert.equal((await sql`SELECT 1 FROM pgboss.job WHERE data->>'articleId'=${old.articleId}`).length, 0);
+  const manual = await stoppedArticle("group_review");
+  assert.equal(
+    (await releaseReceipt(manual.receiptId, { billed: false, note: "provider confirmed", version: await versionFor(manual.receiptId) }, "test"))?.requeued,
+    true,
+  );
+  assert.equal((await sql`SELECT name FROM pgboss.job WHERE data->>'articleId'=${manual.articleId}`)[0].name, "events.group");
+});
+
+test("a paused collection lane retains a Reader receipt's recovery opportunity", async () => {
+  await installUsageFixtureForService("jina");
+  const subject = `source:paused-reader-${tag()}`;
+  await assert.rejects(
+    paidRequest({ service: "jina", lane: "news", purpose: "source_listing", subject, identity: { subject } }, async () => {
+      throw new Error("synthetic lost response");
+    }),
+    ReceiptUnknownError,
+  );
+  const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${subject}`;
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${receipt.id}`;
+  const revision = (await laneControlHolderRevisions("news", "system")).collection ?? 0;
+  const control = { lane: "news" as const, switches: ["collection" as const], reason: "synthetic collection hold", actor: "test" };
+  await changeSystemLaneControl({ ...control, action: "pause", expected: { collection: revision }, expiresAt: new Date(Date.now() + 60000).toISOString() });
+  try {
+    assert.deepEqual(await recoverUnknownOnce(Date.now(), async () => false), { released: 0, requeued: 0 });
+    assert.equal((await sql`SELECT status FROM receipts WHERE id=${receipt.id}`)[0].status, "unknown");
+  } finally {
+    await changeSystemLaneControl({ ...control, action: "resume", expected: { collection: revision + 1 } });
+  }
+  assert.deepEqual(await recoverUnknownOnce(Date.now(), async () => false), { released: 1, requeued: 0 });
 });

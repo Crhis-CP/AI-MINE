@@ -1,3 +1,7 @@
+import { correctedSourceTime } from "./date-correction.ts";
+import { beijingMidnight } from "@amp/contracts/time";
+import { decideTimeline } from "./timeline.ts";
+import { beginMaterialGrouping } from "./grouping.ts";
 import { MaterialSourceDateInput, type SourceDateParseResult, type SourceDateParseInput, type MaterialUpdateResult } from "@amp/contracts/time-assertion";
 import {
   readSourceDateContext,
@@ -6,40 +10,13 @@ import {
   lockSourceDateConfiguration,
   parseSourceDate,
 } from "@amp/backend/admin/sources";
-import { dbOf, type Db, type Tx, type Sql } from "../db.ts";
+import { sql, type Db, type Tx, type Sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { sourceDateVerdict } from "./source-time.ts";
+import { sourceDateReadingsAgree } from "../sources/date-extraction.ts";
 
-const sql = dbOf("content");
 type DateResult = Pick<MaterialUpdateResult, "revision" | "sourceTimeChanged" | "metadataChanged" | "sourceDateVersion" | "sourceDateOutcome">;
-
-function agrees(
-  primary: SourceDateParseResult,
-  alternative: SourceDateParseResult,
-  primaryInput: SourceDateParseInput,
-  alternativeInput: SourceDateParseInput,
-): boolean {
-  const a = primary.evidence,
-    b = alternative.evidence;
-  if (alternative.reason || a.origin !== b.origin || a.publicationBasis !== b.publicationBasis) return false;
-  const canonical = (utc: string) => utc.replace(/(\.\d*?[1-9])0+Z$/, "$1Z").replace(/\.0+Z$/, "Z");
-  if (a.time.utc && b.time.utc) return canonical(a.time.utc) === canonical(b.time.utc);
-  const declaration = (value: SourceDateParseInput) => [
-    value.raw.trim(),
-    value.format,
-    value.formatPattern,
-    value.language,
-    value.timezone,
-    value.timezoneEvidence,
-  ];
-  if (stableJson(declaration(primaryInput)) === stableJson(declaration(alternativeInput))) return true;
-  const literalDay = (value: typeof a) =>
-    value.format === "iso8601" ? /^\d{4}-\d{2}-\d{2}$/.test(value.time.raw.trim()) : value.format === "declared" && !value.formatPattern?.includes("HH");
-  // A literal day can agree with a precise source instant without adopting its clock. Unverified
-  // wall-clock candidates do not become agreement merely because normalization removed their time.
-  return !!(literalDay(a) || a.time.utc) && !!(literalDay(b) || b.time.utc) && a.time.local_date === b.time.local_date;
-}
 
 /** Permission → source configuration → material: the same lock order as source editing. */
 export async function prepareDateMutation(tx: Tx, sourceId: string, input: MaterialSourceDateInput): Promise<void> {
@@ -74,12 +51,23 @@ export async function commitDateObservation(
   input: MaterialSourceDateInput,
   now: number,
   expectedRevision?: number,
-  listedAt?: Date | null,
 ): Promise<DateResult> {
   const [article] = await tx<
-    { source_id: string; url: string; revision: number; source_date_version: string; source_date_state: string; source_date_observation_id: string | null }[]
+    {
+      discovered_at: Date;
+      published_at: Date | null;
+      timeline_at: Date;
+      backfill: boolean;
+      backfill_reason: string | null;
+      source_id: string;
+      url: string;
+      revision: number;
+      source_date_version: string;
+      source_date_state: string;
+      source_date_observation_id: string | null;
+    }[]
   >`
-    SELECT source_id, url, revision, source_date_version, source_date_state, source_date_observation_id FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    SELECT discovered_at,published_at,timeline_at,backfill,backfill_reason,source_id, url, revision, source_date_version, source_date_state, source_date_observation_id FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) throw new Error("Missing material");
   const result: DateResult = {
     revision: article.revision,
@@ -115,7 +103,7 @@ export async function commitDateObservation(
     alternatives?.some((candidate) => {
       if (candidate.meaning !== raw.meaning) return false;
       const input: SourceDateParseInput = { ...raw, ...candidate, binding };
-      return !agrees(parsed, parseSourceDate(input), primaryInput, input);
+      return !sourceDateReadingsAgree(parsed, parseSourceDate(input), primaryInput, input);
     })
   ) {
     parsed.reason = "conflicting_candidates";
@@ -146,24 +134,32 @@ export async function commitDateObservation(
     (recent && Math.max(recent.observed_at.getTime(), recent.last_observed_at?.getTime() ?? -Infinity) > Date.parse(observation.observedAt))
   )
     return stale();
+  if ((await correctedSourceTime(articleId, tx)) !== undefined) return result;
   if (previous?.semantic_hash === semanticHash && article.source_date_state === verdict.status) return result;
   const old = previous && source.lane === "news" ? sourceDateVerdict("news", previous.result.evidence, binding, now) : null;
   const time = verdict.status === "reliable" ? verdict.time : null;
-  // A date without a time keeps the start of that day, as the collector read it from the same text (the upstream's way).
-  const publishedAt = time ? (time.utc ?? listedAt?.toISOString() ?? null) : null;
+  // Midnight is an internal calendar anchor; the source TimeAssertion still has no UTC or clock time for a day-only source.
+  const publishedAt = time?.utc ? new Date(time.utc) : time?.local_date ? beijingMidnight(time.local_date) : null;
+  const automatic = ["unknown-publication-time", "stale-on-discovery"].includes(article.backfill_reason ?? "");
+  const explicit = automatic ? null : (article.backfill_reason ?? (article.backfill ? "existing-backfill" : null));
+  const timeline = decideTimeline(publishedAt, article.discovered_at, explicit);
   const oldTime = article.source_date_state === "reliable" && old?.status === "reliable" ? old.time : null;
   const updated = await tx`UPDATE articles SET source_date_version = source_date_version + 1, source_date_observation_id = ${id},
     source_date_state = ${verdict.status}, source_date_error = ${verdict.status === "pending" ? (parsed.reason ?? verdict.reason) : null},
-    published_at = ${publishedAt}, published_at_claim = ${publishedAt}
+    published_at = ${timeline.publishedAt}, published_at_claim = ${publishedAt},
+    timeline_at=${timeline.timelineAt},backfill=${timeline.backfill},backfill_reason=${timeline.backfillReason}
     WHERE id = ${articleId} AND revision = ${article.revision} AND source_date_version = ${result.sourceDateVersion}
     RETURNING source_date_version`;
   if (updated.length !== 1) throw new Error("Source date version changed during commit");
+  const timeIdentity = (value: typeof time) => stableJson(value ? [value.precision, value.utc, value.local_date, value.local_time, value.timezone] : null);
+  const sourceTimeChanged = timeIdentity(oldTime) !== timeIdentity(time);
+  if (sourceTimeChanged) await beginMaterialGrouping(articleId, article.revision, true, tx);
   return {
     ...result,
     sourceDateVersion: result.sourceDateVersion + 1,
     sourceDateOutcome: "applied",
     metadataChanged: true,
-    sourceTimeChanged: stableJson(oldTime) !== stableJson(time),
+    sourceTimeChanged,
   };
 }
 
@@ -225,4 +221,23 @@ export async function materialDateHeads(sourceId: string, urls: string[], db: Db
   if (!urls.length) return [];
   return db<{ id: string; url: string; revision: number; source_date_version: string }[]>`
     SELECT id, url, revision, source_date_version FROM articles WHERE source_id = ${sourceId} AND url IN ${db(urls)}`;
+}
+
+/** Selected source date evidence only. Publication receives no locator, excerpt, permission record or parser state. */
+export async function materialSourceTime(
+  binding: { articleId: string; sourceId: string; revision: number; configHash: string },
+  dateVersion: number,
+  now: number,
+  db: Db = sql,
+) {
+  const corrected = await correctedSourceTime(binding.articleId, db);
+  if (corrected !== undefined) return corrected;
+  if (!Number.isSafeInteger(dateVersion) || dateVersion <= 0) return null;
+  const [row] = await db<
+    { result: SourceDateParseResult }[]
+  >`SELECT o.result FROM articles a JOIN content.source_date_observations o ON o.id=a.source_date_observation_id
+    WHERE a.id=${binding.articleId} AND a.source_id=${binding.sourceId} AND a.revision=${binding.revision} AND a.source_date_version=${dateVersion}
+      AND a.source_date_state='reliable' AND o.article_id=a.id AND o.source_id=a.source_id AND o.revision=a.revision AND o.config_hash=${binding.configHash}`;
+  const verdict = sourceDateVerdict("news", row?.result?.evidence, binding, now);
+  return verdict.status === "reliable" ? verdict.time : null;
 }

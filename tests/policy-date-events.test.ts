@@ -3,10 +3,10 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { Policy } from "@amp/contracts/http/public";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
-import { completePolicy, policyBackfill } from "../packages/backend/src/publication/policies-project.ts";
-import { checkCandidate, candidateClaims, type Candidate } from "../packages/backend/src/policy/interpretation-schema.ts";
-import { buildPolicyFulltextPlan } from "../packages/backend/src/policy/processing-plan.ts";
-import type { FulltextRun } from "../packages/backend/src/policy/fulltext-store.ts";
+import { completePolicy, policyBackfill } from "../modules/policy/backend/publication/policies-project.ts";
+import { checkCandidate, candidateClaims, type Candidate } from "../modules/policy/backend/domain/interpretation-schema.ts";
+import { buildPolicyFulltextPlan } from "../modules/policy/backend/domain/processing-plan.ts";
+import type { FulltextRun } from "../modules/policy/backend/domain/fulltext-store.ts";
 const base = Policy.parse(JSON.parse(readFileSync("tests/fixtures/policy-public/complete.json", "utf8")));
 const source = "Published 2026-01-01. Substantive amendment 2026-02-01. Planned publication 2027-01-01.";
 const plan = buildPolicyFulltextPlan(

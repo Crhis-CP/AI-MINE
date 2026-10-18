@@ -1,6 +1,7 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { sha256 } from "@amp/backend/lib/ids";
 import { sessionPrincipal, SESSION_COOKIE, requireCapability, requireOwner, currentCapability, AccountPermissionDenied } from "@amp/backend/admin/auth";
 import { lockAccountAccess } from "../packages/backend/src/admin/account-access.ts";
@@ -10,7 +11,7 @@ import { denied } from "./role-db-fixture.ts";
 test("real session identity and current access revision distinguish Owner, delegated models.manage, legacy admission and dev impersonation", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ identity: dbs.auth });
+    dispose = installTestConnections(dbs.auth);
   t.after(dispose);
   async function user(name: string, role: "owner" | "admin" | null, manage = false, temporary = false) {
     const [u] = await dbs.auth`INSERT INTO admin_users(email,display_name) VALUES(${`${name}@synthetic.test`},${name}) RETURNING id`;

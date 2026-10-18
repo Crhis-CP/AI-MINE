@@ -76,10 +76,9 @@ function ipv4Blocked(o: [number, number, number, number]): boolean {
     (a === 192 && b === 168) ||
     (a === 192 && b === 0 && (c === 0 || c === 2)) || // IETF protocol assignments, TEST-NET-1
     (a === 192 && b === 88 && c === 99) || // 6to4 relay anycast
+    (a === 198 && (b === 18 || b === 19)) || // benchmark and proxy fake-IP range
     (a === 198 && b === 51 && c === 100) ||
     (a === 203 && b === 0 && c === 113) // TEST-NET-2/3
-    // 198.18.0.0/15 stays allowed: fake-IP resolvers of local proxies (development machines) answer
-    // from it; nothing on the production host listens there.
   );
 }
 
@@ -159,8 +158,8 @@ function ipv4Internal(o: [number, number, number, number]): boolean {
 /**
  * True when an address reaches this host or a private network: loopback, unspecified, private,
  * carrier-grade NAT, link-local and metadata, unique-local and site-local, also inside IPv6 (mapped,
- * compatible, NAT64, 6to4). The narrower check for names the egress proxy resolves itself: a poisoned
- * local answer (Teredo, documentation, reserved) says nothing about where the proxy will connect.
+ * compatible, NAT64, 6to4). Kept for existing diagnostic callers; outbound authorization always
+ * uses the full blocked-address check.
  */
 export function isInternalAddress(address: string): boolean {
   const v4 = parseIpv4(address);
@@ -182,27 +181,21 @@ function blockedHostname(host: string): boolean {
   return host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host === "metadata.google.internal";
 }
 
-/**
- * Rejects URLs that name or resolve to loopback, private, link-local or cloud-metadata addresses
- * (SSRF guard). A direct request is checked again at connect time, so a second DNS answer cannot slip
- * past. A name sent through the egress proxy (`proxied`) is resolved and dialled abroad, so only an
- * internal local answer refuses it: the local resolver's poisoned answers for blocked sites (Teredo and
- * other unroutable addresses) would otherwise refuse them. Only local debugging may disable the guard
- * via ALLOW_PRIVATE_NETWORK_FETCH.
+/** Reject unsafe targets before dialing; proxy DNS and connect-time DNS both check actual addresses.
+ * The legacy boolean argument remains accepted but no longer relaxes reserved-address validation.
  */
-export async function assertPublicUrl(url: string, allowPrivate = false, proxied = false): Promise<URL> {
+export async function assertPublicUrl(url: string, allowPrivate = false, resolve?: boolean | ((hostname: string) => Promise<string[]>)): Promise<URL> {
   const u = new URL(url);
   if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error(`Blocked protocol ${u.protocol}`);
   if (allowPrivate) return u;
   const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
   if (blockedHostname(host)) throw new Error(`Blocked host ${host}`);
-  const literal = net.isIP(host) !== 0;
-  const addresses = literal ? [{ address: host }] : await lookup(host, { all: true });
-  if (addresses.length === 0) throw new Error(`No address for ${host}`);
-  const refused = proxied && !literal ? isInternalAddress : isBlockedAddress;
-  for (const { address } of addresses) {
-    if (refused(address)) throw new Error(`Blocked private address for ${host}`);
-  }
+  const addresses = net.isIP(host)
+    ? [host]
+    : typeof resolve === "function"
+      ? await resolve(host)
+      : (await lookup(host, { all: true })).map((entry) => entry.address);
+  if (!addresses.length || addresses.some(isBlockedAddress)) throw new Error(`Blocked private address for ${host}`);
   return u;
 }
 

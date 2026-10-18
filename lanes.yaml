@@ -23,14 +23,13 @@ lanes:
   contracts:                       # 架构 Agent
     owns:
       - packages/contracts/src/**  # 模块契约子目录归各模块泳道（见下方 per_module），common/** 归集成人（见 shared）
-      - packages/api-client/**     # 生成物，不手改
-      - tooling/**                 # 契约生成等依赖旧编译器 API 的工具（固定 TypeScript 5.9.x）
+      - scripts/contracts/**       # 对外OpenAPI生成与漂移校验
     modules: []
   web:
     owns:
       - apps/web/app/routes/(public)/**
       - apps/web/app/features/**
-      - packages/ui/**
+      - apps/web/app/components/ui/**
     modules: []
   private:                         # 最小私有页面（A10，不阻塞公开站）
     owns:
@@ -113,8 +112,8 @@ shared:
   - id: root-config
     paths:
       - package.json
-      - pnpm-workspace.yaml
-      - pnpm-lock.yaml
+      - .npmrc
+      - package-lock.json
       - tsconfig.base.json
       - biome.jsonc                                  # 交接包写的是 biome.json；仓库用带注释的 .jsonc
       - Makefile
@@ -131,7 +130,7 @@ shared:
       lanes: all
     logic_owner: runtime                             # 清单以外的逻辑归 runtime 泳道
   - id: ui
-    paths: ["packages/ui/**"]
+    paths: ["apps/web/app/components/ui/**", "apps/web/app/features/admin/Status.tsx"]
     primary: web
     append: [private]                                # 新组件可追加；改已有组件的属性须同时修复所有使用处
   - id: industry
@@ -158,5 +157,4 @@ shared:
 
 # 豁免 path-guard 的生成物（由命令生成，漂移检查保证与源一致）
 generated:
-  - packages/api-client/**
   - tasks/INDEX.md

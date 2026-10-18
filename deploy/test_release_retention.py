@@ -71,6 +71,30 @@ class RetentionTests(unittest.TestCase):
                 if kind == "lost-rollback": del images[ident(2)]
                 with self.assertRaises(RuntimeError): m.plan(containers, images, [], seeds, NOW)
 
+    def test_unified_api_accepts_stopped_legacy_containers_but_preserves_their_images(self):
+        containers, images = fixture()
+        for item in containers:
+            if item["name"] in {"/amp-public-api-1", "/amp-private-api-1"}:
+                item["running"] = False
+                item["image"] = ident(7)
+        containers.append({"name": "/amp-api-1", "image": ident(1), "running": True, "started": "2026-10-10T00:00:00Z"})
+        result = m.plan(containers, images, [], [ident(2), ident(3)], NOW)
+        self.assertEqual(result["history"], [ident(1), ident(2), ident(3)])
+        self.assertNotIn(ident(7), {x["id"] for x in result["candidates"]})
+        for item in containers:
+            if item["name"] == "/amp-private-api-1": item["running"] = True
+        with self.assertRaises(RuntimeError): m.plan(containers, images, [], [ident(2), ident(3)], NOW)
+
+    def test_unified_api_missing_recent_or_mixed_services_fail_closed(self):
+        for kind in ["missing", "mixed", "recent"]:
+            with self.subTest(kind=kind):
+                containers, images = fixture()
+                containers = [x for x in containers if x["name"] not in {"/amp-public-api-1", "/amp-private-api-1"}]
+                if kind != "missing":
+                    containers.append({"name": "/amp-api-1", "image": ident(7 if kind == "mixed" else 1), "running": True,
+                                       "started": m.dt.datetime.fromtimestamp(NOW - 10, m.dt.timezone.utc).isoformat()})
+                with self.assertRaises(RuntimeError): m.plan(containers, images, [], [ident(2), ident(3)], NOW)
+
     def run_execute(self, apply, automatic=False, drift=False):
         containers, images = fixture()
         # Exactly one delete candidate, to make command-boundary assertions unambiguous.

@@ -5,7 +5,7 @@ import { siteChildEnvironments } from "./api-harness.ts";
 import { stopSiteProcesses } from "./site-processes.ts";
 
 const role = process.argv[2];
-if (role !== "public-api" && role !== "private-api" && role !== "web" && role !== "validate") throw new Error("Harness process role is required");
+if (role !== "api" && role !== "web" && role !== "validate") throw new Error("Harness process role is required");
 const environments = siteChildEnvironments(process.env);
 if (role === "validate") process.exit(0);
 const root = path.resolve(import.meta.dirname, "../..");

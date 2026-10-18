@@ -5,8 +5,9 @@ import { after, beforeEach, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { getBoss, stopBoss, enqueue, ensureQueue, QUEUES } from "@amp/backend/jobs/queue";
+import { enqueueJob } from "@amp/backend/jobs/module-queues";
 import { SOURCE_QUEUES, ensureSourceQueues, sourceFetchQueue, type CollectionLane } from "../packages/backend/src/jobs/source-queues.ts";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
@@ -14,8 +15,7 @@ import { fetchNow } from "@amp/backend/admin/sources";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("sources"),
-  hits = new Map<string, number>();
+const hits = new Map<string, number>();
 let unblock = () => {};
 let slow = Promise.resolve();
 const server = http.createServer(async (req, res) => {
@@ -138,14 +138,18 @@ test("pausing news leaves its legacy work queued while policy proceeds, then res
 
 test("source pauses and missing permissions still stop requests after lane dispatch", async () => {
   const paused = await source("policy"),
-    denied = await source("news", `denied-${tag()}`, false);
+    denied = await source("news", `denied-${tag()}`, false),
+    mismatched = await source("policy");
   await sql`UPDATE sources SET enabled=false WHERE id=${paused}`;
   const boss = await getBoss();
   await registerSourceJobs(boss);
+  const wrongLane = await enqueueJob(SOURCE_QUEUES.news, { sourceId: mismatched, lane: "news" }, { singletonKey: mismatched, retryLimit: 0 });
   const id = await enqueue(sourceFetchQueue("policy"), { sourceId: paused, lane: "policy" }, { singletonKey: paused });
   await enqueue(sourceFetchQueue("news"), { sourceId: denied, lane: "news" }, { singletonKey: denied });
   await until(() => done(denied), "missing permission fails without fetch");
   await until(async () => (await boss.getJobById(SOURCE_QUEUES.policy, id!))?.state === "completed", "paused source is skipped");
+  await until(async () => (await boss.getJobById(SOURCE_QUEUES.news, wrongLane!))?.state === "failed", "stored source lane rejects the mismatched job");
+  assert.equal(hits.has(mismatched), false);
   assert.equal(hits.has(paused), false);
   assert.equal(hits.has(denied), false);
   assert.equal((await sql`SELECT status FROM fetch_runs WHERE source_id=${denied}`)[0]!.status, "failed");

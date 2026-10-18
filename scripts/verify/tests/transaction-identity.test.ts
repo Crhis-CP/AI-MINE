@@ -6,8 +6,7 @@ import { test } from "node:test";
 import { compareOwnership, ownershipReport, type OwnershipMap } from "../data-ownership.ts";
 import { extractOwnership } from "../ts-ownership.ts";
 import { TRANSACTION_FILE, TRANSACTION_SCOPE, stableTransactionDebt } from "../transaction-identity.ts";
-import { ROOT } from "../lib.ts";
-import { scratch, write } from "./helpers.ts";
+import { scratch, write, postgresPackage } from "./helpers.ts";
 
 // The allowance is intentionally immutable. Test that reviewed function, not today's evolving runtime.
 // Source: this repository at 978efa88dbe293053b1fa91915b3cef68d9715d8, TRANSACTION_FILE.
@@ -37,7 +36,7 @@ const map: OwnershipMap = {
 function report(text: string, file = TRANSACTION_FILE) {
   const root = scratch();
   mkdirSync(path.join(root, "node_modules"));
-  symlinkSync(path.resolve(ROOT, "packages/backend/node_modules/postgres"), path.join(root, "node_modules/postgres"));
+  symlinkSync(postgresPackage(), path.join(root, "node_modules/postgres"));
   write(root, {
     "package.json": '{"type":"module"}',
     "tsconfig.json": '{"compilerOptions":{"module":"nodenext","strict":true,"allowImportingTsExtensions":true,"noEmit":true}}',

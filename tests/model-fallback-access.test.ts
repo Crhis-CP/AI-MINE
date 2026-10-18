@@ -1,15 +1,17 @@
+import { enterModelCircuit, recordModelHealth } from "../packages/backend/src/providers/circuit.ts";
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { sha256 } from "@amp/backend/lib/ids";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { denied } from "./role-db-fixture.ts";
 test("real private API requires current model capability and CSRF, preserves CAS and keeps backup configuration private", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ identity: dbs.auth, "ai-gateway": dbs.private_ops, sources: dbs.private_ops, policy: dbs.private_ops });
+    dispose = installTestConnections(dbs.private_ops, dbs.auth);
   t.after(dispose);
   async function account(name: string, manage: boolean) {
     const [u] = await dbs.auth`INSERT INTO admin_users(email,display_name) VALUES(${`${name}@fixture.invalid`},${name}) RETURNING id`;
@@ -39,9 +41,21 @@ test("real private API requires current model capability and CSRF, preserves CAS
   assert.equal(saved.statusCode, 200, saved.body);
   assert.equal(saved.json().revision, 1);
   assert.equal((await save()).statusCode, 409);
+  dispose();
+  const restoreWorker = installTestConnections(dbs.worker);
+  try {
+    const permit = await dbs.worker.begin((tx) => enterModelCircuit(tx, "role-circuit", 30_000));
+    await recordModelHealth("role-circuit", permit, true);
+    assert.equal((await dbs.private_ops`SELECT state FROM ai.model_service_circuits WHERE service='role-circuit'`)[0].state.failures, 1);
+  } finally {
+    restoreWorker();
+    t.after(installTestConnections(dbs.private_ops, dbs.auth));
+  }
   await denied(dbs.worker, "UPDATE ai.model_fallback_routes SET backup_model=NULL");
   await denied(dbs.public_read, "SELECT * FROM ai.model_fallback_routes");
   await denied(dbs.public_read, "SELECT * FROM ai.model_fallback_resolutions");
+  await denied(dbs.public_read, "SELECT * FROM ai.model_service_circuits");
+  await denied(dbs.private_ops, "UPDATE ai.model_service_circuits SET state=state");
   await dbs.auth`UPDATE identity.account_access SET models_manage=false,revision=revision+1 WHERE user_id=${manager.id}`;
   assert.equal((await get(manager.cookie)).statusCode, 403);
 });

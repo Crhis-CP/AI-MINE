@@ -182,8 +182,7 @@ export function translationReplacement(segment: SourceSegment, roots: number): S
 }
 
 export function translationLeaves(source: ReturnType<typeof translationSourceManifest>, replacements: readonly number[]) {
-  if (source.capacity.length || new Set(replacements).size !== replacements.length || replacements.some((n) => !Number.isSafeInteger(n) || !source.segments[n]))
-    return null;
+  if (new Set(replacements).size !== replacements.length || replacements.some((n) => !Number.isSafeInteger(n) || !source.segments[n])) return null;
   const leaves: SourceSegment[] = [];
   for (const segment of source.segments) {
     const parts = replacements.includes(segment.index) ? translationReplacement(segment, source.segments.length) : [segment];
@@ -211,7 +210,7 @@ export function completeTranslationManifest(
   replacements: readonly number[] = [],
 ) {
   const source = translationSourceManifest(sourceHtml);
-  if (!Number.isSafeInteger(current.revision) || current.revision < 1 || !current.recipe || !source.segments.length) return null;
+  if (source.capacity.length || !Number.isSafeInteger(current.revision) || current.revision < 1 || !current.recipe || !source.segments.length) return null;
   const leaves = translationLeaves(source, replacements);
   if (!leaves || leaves.length !== checkpoints.length) return null;
   const segments: {
@@ -330,6 +329,7 @@ export function readableTranslation(sourceHtml: string, current: { revision: num
     source = translationSourceManifest(sourceHtml);
   const leaves = translationLeaves(source, manifest.replacements);
   if (
+    source.capacity.length > 0 ||
     stored.recipe !== current.recipe ||
     manifest.recipe !== current.recipe ||
     manifest.revision !== current.revision ||
@@ -449,4 +449,99 @@ export function restoreTranslationText(sourceHtml: string, response: unknown): s
   };
   if (shape(original.html) !== shape(raw)) return null;
   return unshield(raw, original);
+}
+
+/** The upstream text allowance selects whole leading blocks, never a truncated HTML prefix. */
+export function translationBudgetUnits(sourceHtml: string): Set<number> {
+  let remaining = 60_000;
+  const selected = new Set<number>();
+  for (const [index, unit] of sourceTree(sourceHtml).segments.entries()) {
+    if (unit.html.length > remaining) break;
+    remaining -= unit.html.length;
+    selected.add(index);
+  }
+  return selected;
+}
+
+/** A partial rendition keeps every untranslated source block and can never prove completeness. */
+export function assemblePartialTranslation(
+  sourceHtml: string,
+  current: { revision: number; recipe: string },
+  checkpoints: readonly TranslationCheckpoint[],
+  replacements: readonly number[] = [],
+) {
+  const source = translationSourceManifest(sourceHtml);
+  const leaves = translationLeaves(source, replacements);
+  if (!leaves) return null;
+  const { $, segments } = sourceTree(sourceHtml);
+  let translated = 0;
+  for (const [unitIndex, unit] of segments.entries()) {
+    const parts = leaves.filter((leaf) => leaf.unitIndex === unitIndex);
+    if (!parts.length) continue;
+    let changed = false;
+    const html = parts
+      .map((part) => {
+        const checkpoint = checkpoints.find(
+          (c) =>
+            c.index === part.index &&
+            c.sourceHash === part.sourceHash &&
+            c.revision === current.revision &&
+            c.recipe === current.recipe &&
+            c.state === "complete",
+        );
+        const restored = checkpoint ? restoreTranslationText(part.html, { text: checkpoint.text }) : null;
+        if (restored !== null) {
+          translated++;
+          changed = true;
+        }
+        return (restored ?? part.html) + part.after;
+      })
+      .join("");
+    if (!changed) continue;
+    if (unit.kind === "element") $(unit.nodes[0]!).html(html);
+    else {
+      $(unit.nodes[0]!).replaceWith(html);
+      for (const node of unit.nodes.slice(1)) $(node).remove();
+    }
+  }
+  if (!translated) return null;
+  const html = $.html();
+  return {
+    html,
+    manifest: {
+      format: "partial-model-v1",
+      ...current,
+      sourceHash: source.sourceHash,
+      bodyHash: hash(html),
+      translatedSegments: translated,
+      totalSegments: leaves.length + source.capacity.length,
+    },
+  };
+}
+
+const PartialManifest = z.strictObject({
+  format: z.literal("partial-model-v1"),
+  revision: z.number().int().positive(),
+  recipe: z.string().min(1),
+  sourceHash: digest,
+  bodyHash: digest,
+  translatedSegments: z.number().int().positive(),
+  totalSegments: z.number().int().positive(),
+});
+
+/** Revision and recipe binding also applies when the page explicitly says a translation is partial. */
+export function readablePartialTranslation(sourceHtml: string, current: { revision: number; recipe: string }, stored: StoredTranslation | null): string | null {
+  if (!stored || stored.complete || stored.origin !== "model" || !stored.body_html || stored.revision !== current.revision || stored.recipe !== current.recipe)
+    return null;
+  const result = PartialManifest.safeParse(stored.manifest);
+  if (!result.success) return null;
+  const m = result.data;
+  return m.revision === current.revision &&
+    m.recipe === current.recipe &&
+    m.sourceHash === hash(sourceHtml) &&
+    stored.source_hash === m.sourceHash &&
+    m.bodyHash === hash(stored.body_html) &&
+    m.translatedSegments < m.totalSegments
+    ? stored.body_html
+    : null;
 }

@@ -4,17 +4,17 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
-import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput, type PolicyPurpose } from "../packages/backend/src/providers/policy.ts";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
+import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput, type PolicyPurpose } from "../modules/policy/backend/provider.ts";
 import { ReceiptBusyError, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { markReceiptsCompleted, chatJson } from "@amp/backend/providers/llm";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { invalidateModelCache } from "@amp/backend/editorial/models";
 import { sha256 } from "../packages/backend/src/lib/ids.ts";
+import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("ai-gateway"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 type ProviderInput = { model: string; messages: { role: string; content: string }[] };
 let respond: (body: ProviderInput) => Promise<Record<string, unknown>> = async () => ({});
 const seen: ProviderInput[] = [];
@@ -237,12 +237,78 @@ test("unknown outcome cannot be repurchased by changing version, input or model"
   }
 });
 
-test("missing usage blocks new payments but still allows free reuse of the received response", async () => {
+test("missing usage stays a cost gap while received responses are reused and later work can proceed", async () => {
   respond = async () => ({ usage: null });
   const f = await fixture(),
     before = seen.length;
   const first = await f.run();
   assert.equal((await f.run()).receiptId, first.receiptId);
-  await assert.rejects(f.run("policy_group"), ReceiptUnknownError);
-  assert.equal(seen.length - before, 1);
+  assert.equal((await f.run("policy_group")).data.ok, true);
+  assert.equal(seen.length - before, 2);
+  assert.equal((await sql`SELECT state FROM ai.usage_attempts WHERE receipt_id=${first.receiptId}`)[0].state, "unknown");
+});
+
+test("one aged policy timeout can retry while the first attempt and its uncertain charge remain", async () => {
+  const f = await fixture(),
+    finish = gate();
+  respond = async () => {
+    await finish.promise;
+    return {};
+  };
+  try {
+    await assert.rejects(f.run("policy_fulltext", "1", 40));
+    const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${`policy:${f.id}@1`}`;
+    await sql`INSERT INTO policy.material_workflows(source_id,material_id,material_revision,status)
+      VALUES(${f.id},${f.id},1,'blocked_unknown'),(${f.id},'unrelated-paused',1,'paused'),(${f.id},'unrelated-unknown',1,'blocked_unknown')`;
+    await autoReleaseUnknownReceipts();
+    await assert.rejects(f.run(), ReceiptUnknownError);
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${receipt.id}`;
+    await autoReleaseUnknownReceipts();
+    assert.equal((await sql`SELECT status FROM policy.material_workflows WHERE source_id=${f.id} AND material_id=${f.id}`)[0].status, "pending");
+    assert.equal((await sql`SELECT status FROM policy.material_workflows WHERE source_id=${f.id} AND material_id='unrelated-paused'`)[0].status, "paused");
+    assert.equal(
+      (await sql`SELECT status FROM policy.material_workflows WHERE source_id=${f.id} AND material_id='unrelated-unknown'`)[0].status,
+      "blocked_unknown",
+    );
+    respond = async () => ({});
+    const retry = await f.run();
+    assert.equal(retry.data.ok, true);
+    assert.equal(retry.receiptId, receipt.id);
+    const attempts = await sql`SELECT a.attempt,a.status,u.state FROM receipt_attempts a
+      JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.receipt_id=${receipt.id} ORDER BY a.attempt`;
+    assert.equal(attempts.length, 2);
+    assert.equal(attempts[0].status, "unknown");
+    assert.equal(attempts[0].state, "unknown");
+    assert.equal(attempts[1].status, "received");
+  } finally {
+    finish.open();
+  }
+});
+
+test("a second unknown policy attempt requires manual reconciliation and retains both charges", async () => {
+  const f = await fixture(),
+    finish = gate();
+  respond = async () => {
+    await finish.promise;
+    return {};
+  };
+  try {
+    await assert.rejects(f.run("policy_fulltext", "1", 40));
+    const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${`policy:${f.id}@1`}`;
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${receipt.id}`;
+    await autoReleaseUnknownReceipts();
+    await assert.rejects(f.run("policy_fulltext", "1", 40));
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${receipt.id}`;
+    await autoReleaseUnknownReceipts();
+    await assert.rejects(f.run(), ReceiptUnknownError);
+    const [current] = await sql`SELECT status,attempts FROM receipts WHERE id=${receipt.id}`;
+    assert.equal(current.status, "unknown");
+    assert.equal(current.attempts, 2);
+    const attempts = await sql`SELECT a.status,u.state FROM receipt_attempts a
+      JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.receipt_id=${receipt.id}`;
+    assert.equal(attempts.length, 2);
+    assert.ok(attempts.every((a) => a.status === "unknown" && a.state === "unknown"));
+  } finally {
+    finish.open();
+  }
 });

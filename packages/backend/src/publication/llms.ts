@@ -1,11 +1,10 @@
+export { agentGuide, latestAnswer, searchItems, searchAnswer, hotAnswer, storyAnswer, dailyAnswer, reportAnswer } from "./agent.ts";
 // /llms.txt — generated from the site's own configuration; only real, available resources are listed.
 import { SITE, withSubject } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { siteUrl } from "./links.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { MCP_TOOLS } from "@amp/contracts/mcp";
-
-const sql = dbOf("publication");
 
 /** Discovery only needs to know whether an entry exists, not count its entire history. */
 export async function loadLlmsAvailability() {
@@ -29,6 +28,7 @@ export function llmsTxt(opts: { hasDailies: boolean; hasWeekly: boolean; hasMont
   lines.push(`> ${SITE.description}`, "");
   lines.push("## 给 Agent 的数据接口", "");
   lines.push("所有接口匿名只读、无需 API Key。", "");
+  lines.push(`- [Agent中文阅读说明](${u("/api/v1/agent")}): 只会读取网页的Agent从这里开始；资讯、搜索、热点、事件和报告返回与MCP共用的中文答案。`);
   lines.push(
     `- [MCP Server](${u("/api/mcp")}): 远程 Streamable HTTP，版本 ${PUBLIC_VERSIONS.mcp}；提供 ${MCP_TOOLS.map((t) => t.name).join("、")} ${MCP_TOOLS.length} 个只读工具`,
   );

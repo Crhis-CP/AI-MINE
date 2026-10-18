@@ -71,3 +71,5 @@ publication.metal_prices（金属价格，TASK-0044、TASK-0077）归publication
 信源的业务线（sources.lane，TASK-0093）按列授予公开登录：公开读取层只用它把法规线信源排除在资讯热度证据之外；不含采集配置或许可内容。
 
 TASK-0110：日期证据表保持worker只读、只插；新表`content.source_date_observation_seen`仅记录最后观察时刻，worker可读/插/改，private_ops与backup只读，公开角色无权；一次性清理仅用migrate角色。
+
+正文展示通知函数publication.invalidate_body_presentation按既有触发器规则精确登记：仅允许零参数、trigger返回类型、非SECURITY DEFINER且由引导或migrate角色拥有的版本。不会放行同名重载、未知函数或提权版本，也不增加表权限；真实worker更新可公开正文时通知news读者，public_read继续只读。

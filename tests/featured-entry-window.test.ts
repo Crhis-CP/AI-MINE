@@ -5,12 +5,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { addCalendarMonths, beijingMidnight } from "@amp/contracts/time";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { featuredEntryCondition, listedCondition } from "../packages/backend/src/publication/items.ts";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { loadPool } from "@amp/backend/publication/pool";
 
-const sql = dbOf("publication");
 const SOURCE = `test-featured-window-${tag()}`;
 const NOW = new Date("2026-10-10T04:00:00.000Z");
 const cutoff = beijingMidnight(addCalendarMonths("2026-10-10", -3));

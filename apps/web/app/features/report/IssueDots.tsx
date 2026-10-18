@@ -1,3 +1,4 @@
+import { watchAppearance } from "../../lib/local-state";
 // The dot grid in the masthead's 报眼, beside the date: one dot per day of the month (dailies), week
 // of the year (weeklies) or month (monthlies). Issues that exist are ink dots, this issue is a larger
 // accent dot in a ring, the rest are faint. Hover names the day and its issue; a click opens it. Drawn
@@ -135,16 +136,15 @@ export function IssueDots({
       readColors();
       redraw();
     };
-    const theme = new MutationObserver(recolour);
-    const scheme = matchMedia("(prefers-color-scheme: dark)");
 
     readColors();
     size();
     started = performance.now();
     redraw();
     resize.observe(canvas);
-    theme.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
-    scheme.addEventListener("change", recolour);
+    const unwatch = watchAppearance((change) => {
+      if (change === "theme") recolour();
+    });
     canvas.addEventListener("pointermove", onMove);
     canvas.addEventListener("pointerleave", onLeave);
     canvas.addEventListener("click", onClick);
@@ -152,8 +152,7 @@ export function IssueDots({
       disposed = true;
       if (frame) cancelAnimationFrame(frame);
       resize.disconnect();
-      theme.disconnect();
-      scheme.removeEventListener("change", recolour);
+      unwatch();
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerleave", onLeave);
       canvas.removeEventListener("click", onClick);

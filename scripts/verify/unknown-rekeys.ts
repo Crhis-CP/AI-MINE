@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { ROOT } from "./lib.ts";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -5,6 +7,7 @@ import { API } from "typescript/unstable/sync";
 import * as ts from "typescript/unstable/ast";
 import { z } from "zod";
 import { digest } from "./ts-ownership.ts";
+import { sameSqlLockGraph, sqlLockFingerprint } from "./sql-lock.ts";
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const dependencies = z.record(z.string().min(1), hash);
@@ -31,7 +34,7 @@ export function unknownRekeyKeys(rekey: UnknownRekey): { before: string; after: 
   return { before: key(rekey.before), after: key(rekey.after) };
 }
 
-/** Only the approved label move may change a runtime binding; all non-import statements stay identical. */
+/** Only approved label or direct-driver binding moves may change imports; SQL and other statements stay identical. */
 export function importsOnly(before: string, after: string, extension = ".ts"): boolean {
   const dir = mkdtempSync(path.join(tmpdir(), "amp-import-rekey-"));
   const files = [path.join(dir, "before" + extension), path.join(dir, "after" + extension)];
@@ -45,10 +48,11 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
           source = project?.program.getSourceFile(file);
         if (!project || !source || project.program.getSyntacticDiagnostics(file).length) throw new Error("unparseable rekey source");
         const body: string[] = [],
+          statements: ts.Node[] = [],
           bindings = new Map<string, string[]>();
         source.forEachChild((node) => {
           if (!ts.isImportDeclaration(node)) {
-            body.push(node.getText());
+            statements.push(node);
             return;
           }
           if (!ts.isStringLiteral(node.moduleSpecifier)) throw new Error("nonliteral import");
@@ -76,6 +80,49 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
             for (const item of named.elements) add(item.name.text, item.propertyName?.text ?? item.name.text, item.isTypeOnly);
           }
         });
+        const accessor = bindings.get("dbOf");
+        let removedAccessor = false;
+        const retained: ts.Node[] = [];
+        for (const statement of statements) {
+          const decl =
+            ts.isVariableStatement(statement) && statement.declarationList.flags & ts.NodeFlags.Const && statement.declarationList.declarations.length === 1
+              ? statement.declarationList.declarations[0]
+              : null;
+          const call = decl?.initializer;
+          if (
+            accessor &&
+            ["../db.ts", "./db.ts", "@amp/backend/db"].includes(accessor[0]!) &&
+            accessor[1] === "dbOf" &&
+            accessor[2] === "false" &&
+            decl &&
+            ts.isIdentifier(decl.name) &&
+            call &&
+            ts.isCallExpression(call) &&
+            ts.isIdentifier(call.expression) &&
+            call.expression.text === "dbOf" &&
+            call.arguments.length === 1 &&
+            ts.isStringLiteral(call.arguments[0]!)
+          ) {
+            const owner = call.arguments[0]!.text;
+            const driver = owner === "identity" ? "identitySql" : owner === "feedback" ? "feedbackSql" : "sql";
+            if (bindings.has(decl.name.text)) throw new Error("ambiguous direct driver binding");
+            bindings.set(decl.name.text, [accessor[0]!, driver, ...accessor.slice(2)]);
+            removedAccessor = true;
+          } else {
+            retained.push(statement);
+            body.push(statement.getText());
+          }
+        }
+        if (removedAccessor) {
+          let used = false;
+          const walk = (node: ts.Node) => {
+            if (ts.isIdentifier(node) && node.text === "dbOf") used = true;
+            node.forEachChild(walk);
+          };
+          retained.forEach(walk);
+          if (used) throw new Error("remaining database accessor use");
+          bindings.delete("dbOf");
+        }
         return { body: JSON.stringify(body), bindings };
       });
       const [left, right] = bodies;
@@ -102,6 +149,42 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
   }
 }
 
+/** Exact retirement of the queue facade; no other statements or SQL helpers may change. */
+export function nativeQueueOnly(before: string, after: string): boolean {
+  const start = before.indexOf("type Callback ="),
+    end = before.indexOf("export async function getBoss()", start);
+  const factoryStart = after.indexOf("function queueInstance("),
+    factoryEnd = after.indexOf("export async function getBoss()", factoryStart);
+  if (start < 0 || end < start || factoryStart < 0 || factoryEnd < factoryStart) return false;
+  const factory = after.slice(factoryStart, factoryEnd).trim();
+  if (digest(factory) !== "e9906faf45629eb2040f8029b637794895479239879c8883c62b4a07bd64d661") return false;
+  let expected = before.slice(0, start) + factory + "\n\n" + before.slice(end);
+  expected = expected.replace("  view: PgBoss;\n", "").replace("bindQueue(b, connection)", "queueInstance(b, connection)").replaceAll(".view", ".raw");
+  expected = expected.replace(
+    "      throw error;\n    }\n  })();\n  return starting;",
+    "      throw error;\n    } finally {\n      if (attempt === generation) starting = null;\n    }\n  })();\n  return starting;",
+  );
+  expected = expected.replace(
+    'pg?.message === "Job queue instance expired"',
+    '/Job queue instance expired|Cannot use a pool after calling end/.test(pg?.message ?? "")',
+  );
+  // The reviewed shutdown window changes no SQL producer or callback.
+  expected = expected.replace("export const STOP_TIMEOUT_MS = 195_000;", "export const STOP_TIMEOUT_MS = 470_000;");
+  // Existing formatter canonicalises layout only; strings and all unapproved code remain significant.
+  const format = (source: string) =>
+    execFileSync(process.execPath, [path.join(ROOT, "node_modules/@biomejs/biome/bin/biome"), "format", "--stdin-file-path=queue.ts"], {
+      input: source,
+      encoding: "utf8",
+      timeout: 10000,
+      maxBuffer: 2 * 1024 * 1024,
+    });
+  try {
+    return importsOnly(format(expected), format(after));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Explicitly reviewed owning-file changes can re-identify an existing opaque expression. They cannot
  * buy another expression, function, dependency or occurrence. The current report must still match
@@ -120,17 +203,20 @@ export function rekeyUnknownBudget(
   const origins = new Set<string>(),
     targets = new Set<string>(),
     proofs = new Map<string, boolean>();
+  const lockKey = "sql/parser-locked-subgraph";
+  let lockProof: { before: string; after: string } | null | undefined;
   for (const rekey of parsed.data) {
     const keys = unknownRekeyKeys(rekey);
     const label = "unknown rekey: " + rekey.file + ":" + rekey.scopeName;
     const beforeNames = Object.keys(rekey.before).sort(),
       afterNames = Object.keys(rekey.after).sort();
+    const lockChanged = rekey.before[lockKey] !== rekey.after[lockKey];
     if (
       !Object.hasOwn(rekey.before, rekey.file) ||
       !Object.hasOwn(rekey.after, rekey.file) ||
-      rekey.before[rekey.file] === rekey.after[rekey.file] ||
+      (!lockChanged && rekey.before[rekey.file] === rekey.after[rekey.file]) ||
       JSON.stringify(beforeNames) !== JSON.stringify(afterNames) ||
-      beforeNames.some((name) => name !== rekey.file && rekey.before[name] !== rekey.after[name])
+      beforeNames.some((name) => name !== rekey.file && name !== lockKey && rekey.before[name] !== rekey.after[name])
     ) {
       errors.push(label + ": only the owning-file fingerprint may change");
       continue;
@@ -148,6 +234,23 @@ export function rekeyUnknownBudget(
       errors.push(label + ": missing, reused or increased prior budget");
       continue;
     }
+    if (lockChanged) {
+      if (lockProof === undefined) {
+        lockProof = null;
+        try {
+          const oldLock = readSource?.("pnpm-lock.yaml", true),
+            newLock = readSource?.("package-lock.json", false);
+          if (oldLock && newLock && !oldLock.trimStart().startsWith("{") && newLock.trimStart().startsWith("{") && sameSqlLockGraph(oldLock, newLock))
+            lockProof = { before: sqlLockFingerprint(oldLock).fingerprint, after: sqlLockFingerprint(newLock).fingerprint };
+        } catch {
+          /* Missing or unsupported evidence cannot transfer a budget. */
+        }
+      }
+      if (!lockProof || rekey.before[lockKey] !== lockProof.before || rekey.after[lockKey] !== lockProof.after) {
+        errors.push(label + ": lock format migration must preserve the complete resolved SQL graph");
+        continue;
+      }
+    }
     const proofKey = JSON.stringify([rekey.file, rekey.before[rekey.file], rekey.after[rekey.file]]);
     if (!proofs.has(proofKey)) {
       try {
@@ -159,14 +262,17 @@ export function rekeyUnknownBudget(
             typeof after === "string" &&
             digest(before) === rekey.before[rekey.file] &&
             digest(after) === rekey.after[rekey.file] &&
-            importsOnly(before, after, path.extname(rekey.file)),
+            (importsOnly(before, after, path.extname(rekey.file)) ||
+              (rekey.file === "packages/backend/src/jobs/queue.ts" &&
+                ["enqueue/callerDb/executeSql/rows", "enqueue/db/executeSql"].includes(rekey.scopeName) &&
+                nativeQueueOnly(before, after))),
         );
       } catch {
         proofs.set(proofKey, false);
       }
     }
     if (!proofs.get(proofKey)) {
-      errors.push(label + ": full source hashes and import-only bodies must be verified");
+      errors.push(label + ": full source hashes and import-only or native-queue bodies must be verified");
       continue;
     }
     delete budget[keys.before];

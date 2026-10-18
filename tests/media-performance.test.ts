@@ -87,6 +87,25 @@ test("concurrent cold OG requests all succeed with identical cached bytes", asyn
   assert.equal((await sharp(cards[0]!.png).metadata()).width, 1200);
 });
 
+test("article posters keep their portrait dimensions and reuse deterministic bytes", async () => {
+  const { renderPoster } = await import("@amp/backend/media/images");
+  const poster = {
+    url: "https://example.org/items/sample",
+    title: "阅读分享排版示例",
+    summary: "公开导读",
+    source: "示例来源",
+    date: null,
+    category: "企业与项目",
+    score: null,
+  };
+  const first = await renderPoster(poster);
+  assert.deepEqual(await renderPoster(poster), first);
+  const metadata = await sharp(first.png).metadata();
+  assert.equal(metadata.width, 1080);
+  assert.equal(metadata.height, 1440);
+  assert.notEqual((await renderPoster({ ...poster, title: "修订后的标题" })).etag, first.etag);
+});
+
 test("successive responsive candidates reuse the completed original download", async () => {
   const before = imageHits;
   const url = `${base}/successive`;

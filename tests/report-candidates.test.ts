@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
@@ -6,13 +7,11 @@ import { gate, stub, tag } from "./setup.ts";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, publishArticleTx } from "@amp/backend/publication/publish";
 import { candidates, composeDaily } from "@amp/backend/reports/compose";
-
-const sql = dbOf("reports");
 
 const T = tag();
 const SOURCE = `test-report-boundary-${T}`;
@@ -57,6 +56,7 @@ async function analyzed(label: string, timelineAt: string): Promise<string> {
 
 async function selected(label: string, timelineAt: string, releasedAt: string): Promise<string> {
   const articleId = await analyzed(label, timelineAt);
+  await confirmGroupingFixture(articleId);
   const published = await publishArticle(articleId, { now: new Date(releasedAt), releasedAt: new Date(releasedAt) });
   assert.equal(published?.selected, true);
   return articleId;
@@ -68,11 +68,11 @@ test("reports assign delayed and boundary releases to the period readers first s
   const atBoundary = await selected("at-boundary", "2020-01-01T23:59:00Z", "2020-01-02T00:00:00Z");
   const groupedBefore = await analyzed("grouped-before", "2020-01-01T23:58:00Z");
   await publishArticle(groupedBefore, { now: new Date("2020-01-01T23:58:00Z") });
-  await sql`UPDATE articles SET grouped_at = ${new Date("2020-01-01T23:59:00Z")} WHERE id = ${groupedBefore}`;
+  await sql`UPDATE articles SET grouping_status='complete',grouping_input_revision=revision,selection_adds_value=true,grouped_at = ${new Date("2020-01-01T23:59:00Z")} WHERE id = ${groupedBefore}`;
   await publishArticle(groupedBefore, { now: new Date("2020-01-01T23:59:10Z") });
   const groupedLate = await analyzed("grouped-late", "2020-01-01T23:58:00Z");
-  await publishArticle(groupedLate, { now: new Date("2020-01-01T23:58:00Z") }); // gated until 08:01
-  await sql`UPDATE articles SET grouped_at = ${new Date("2020-01-01T23:59:50Z")} WHERE id = ${groupedLate}`;
+  await publishArticle(groupedLate, { now: new Date("2020-01-01T23:58:00Z") }); // ordinary until grouping confirmation
+  await sql`UPDATE articles SET grouping_status='complete',grouping_input_revision=revision,selection_adds_value=true,grouped_at = ${new Date("2020-01-01T23:59:50Z")} WHERE id = ${groupedLate}`;
   const boundary = new Date("2020-01-02T00:00:00Z"); // 08:00 Beijing
   const previous = new Set((await candidates(new Date("2020-01-01T00:00:00Z"), boundary)).map((c) => c.itemId));
 
@@ -89,9 +89,13 @@ test("reports assign delayed and boundary releases to the period readers first s
   assert.equal(next.has(groupedBefore), false);
   for (const id of [delayed, atBoundary, groupedLate]) assert.equal(next.has(id), true);
   await composeDaily("2020-01-03");
-  const reports = await sql<{ key: string; content: { sections: Array<{ items: Array<{ itemId: string }> }> } }[]>`
+  const reports = await sql<{ key: string; content: { sections: Array<{ items: Array<{ itemId: string }> }>; flashes: Array<{ itemId: string }> } }[]>`
     SELECT key, content FROM reports WHERE kind = 'daily' AND key IN ('2020-01-02', '2020-01-03')`;
-  const items = (key: string) => new Set(reports.find((r) => r.key === key)!.content.sections.flatMap((s) => s.items.map((i) => i.itemId)));
+  const items = (key: string) =>
+    new Set([
+      ...reports.find((r) => r.key === key)!.content.sections.flatMap((s) => s.items.map((i) => i.itemId)),
+      ...reports.find((r) => r.key === key)!.content.flashes.map((i) => i.itemId),
+    ]);
   assert.equal(items("2020-01-02").has(onTime), true);
   assert.equal(items("2020-01-02").has(groupedBefore), true);
   assert.equal(items("2020-01-02").has(delayed), false);
@@ -117,7 +121,7 @@ for (const lock of ["article", "report snapshot"] as const) {
   test(`a release waiting for the ${lock} lock uses the time after the cutoff`, async (t) => {
     const id = await analyzed(`waiting-${lock}`, "2020-01-01T23:58:00Z");
     await publishArticle(id, { now: new Date("2020-01-01T23:58:00Z") });
-    await sql`UPDATE articles SET grouped_at = ${new Date("2020-01-01T23:59:00Z")} WHERE id = ${id}`;
+    await sql`UPDATE articles SET grouping_status='complete',grouping_input_revision=revision,selection_adds_value=true,grouped_at = ${new Date("2020-01-01T23:59:00Z")} WHERE id = ${id}`;
     const acquired = gate<number>();
     const release = gate();
     const holding = sql.begin(async (tx) => {
@@ -162,7 +166,7 @@ for (const lock of ["article", "report snapshot"] as const) {
 test("daily composition waits for a pre-cutoff release to commit instead of losing it between issues", async (t) => {
   const id = await analyzed("commit-after-cutoff", "2020-01-03T23:58:00Z");
   await publishArticle(id, { now: new Date("2020-01-03T23:58:00Z") });
-  await sql`UPDATE articles SET grouped_at = ${new Date("2020-01-03T23:59:00Z")} WHERE id = ${id}`;
+  await sql`UPDATE articles SET grouping_status='complete',grouping_input_revision=revision,selection_adds_value=true,grouped_at = ${new Date("2020-01-03T23:59:00Z")} WHERE id = ${id}`;
   t.mock.timers.enable({ apis: ["Date"], now: new Date("2020-01-03T23:59:59Z") });
   const written = gate<number>();
   const commit = gate();

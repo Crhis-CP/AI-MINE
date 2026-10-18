@@ -7,11 +7,9 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { after, before, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
-import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
+import { sql, closeDb } from "@amp/backend/db";
+import { getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
-
-const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-analyze-stop-${T}`;
@@ -76,13 +74,12 @@ const provider = await stub(async (_hit, request) => {
 });
 const children = new Set<ReturnType<typeof spawn>>();
 
-function worker(queue: string) {
+function worker() {
   const script = `
     import { getBoss, stopBoss, shutdownSignal, QUEUES } from '@amp/backend/jobs/queue';
     import { registerContentJobs } from '@amp/backend/jobs/content';
     import { closeDb, initializeDb } from '@amp/backend/db';
     await initializeDb('test');
-    QUEUES.analyze = process.env.TEST_ANALYZE_QUEUE;
     let stopping = false;
     process.on('SIGTERM', async () => {
       if (stopping) return;
@@ -98,7 +95,6 @@ function worker(queue: string) {
   `;
   const env = {
     ...process.env,
-    TEST_ANALYZE_QUEUE: queue,
     MODEL_CALLS_ENABLED: "true",
     AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials",
     PREFILTER_MODEL: "qwen3.7-flash",
@@ -171,7 +167,7 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   };
   active.scoreAnswer.open();
   active.structureAnswer.open();
-  const queue = `test.analyze-stop-${T}-final`;
+  const queue = QUEUES.analyze;
   const boss = await getBoss();
   await boss.createQueue(queue, { policy: "short", retryLimit: 4, retryDelay: 1, expireInSeconds: 120 });
   const { articleId } = await upsertMaterial({
@@ -184,8 +180,8 @@ test("SIGTERM during the final paid writing call still commits the complete anal
     via: "fetch",
     publishedAt: new Date(),
   });
-  const jobId = await boss.send(queue, { articleId }, { singletonKey: articleId });
-  const running = worker(queue);
+  const jobId = await boss.send(queue, { articleId, lane: "news" }, { singletonKey: articleId, retryDelay: 1, retryBackoff: false });
+  const running = worker();
   await Promise.race([Promise.all([running.ready, active.writingAsked!.promise]), running.done.then(() => assert.fail("worker exited before writing"))]);
   running.child.kill("SIGTERM");
   await running.stopping;
@@ -201,8 +197,8 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   const [projection] = await sql`SELECT visibility,selected FROM publications WHERE article_id=${articleId}`;
   assert.deepEqual(
     { ...projection },
-    { visibility: "public", selected: true },
-    "Owner guide-first mode retains the completed Chinese introduction while full translation remains pending",
+    { visibility: "public", selected: false },
+    "completed Chinese copy is public while selection waits for its separate grouping job",
   );
   assert.equal((await sql`SELECT 1 FROM receipts WHERE subject=${`article:${articleId}@1`} AND status='completed'`).length, 5);
 });
@@ -210,9 +206,9 @@ test("SIGTERM during the final paid writing call still commits the complete anal
 for (const failScore of [false, true])
   test(`SIGTERM during ${failScore ? "failed" : "successful"} first score drains slower structure and leaves a retryable job`, async () => {
     active = { calls: [], scoreAsked: gate(), structureAsked: gate(), scoreAnswer: gate(), structureAnswer: gate(), failScore };
-    const queue = `test.analyze-stop-${T}-${failScore}`;
+    const queue = QUEUES.analyze;
     const boss = await getBoss();
-    // Isolate this real pg-boss worker from articles queued by the other invariant tests.
+    // The harness gives this file its own database; exercise the real typed engine queue.
     await boss.createQueue(queue, { policy: "short", retryLimit: 4, retryDelay: 1, expireInSeconds: 120 });
     const { articleId } = await upsertMaterial({
       sourceId: SOURCE,
@@ -227,8 +223,8 @@ for (const failScore of [false, true])
       publishedAt: new Date(),
     });
     await sql`UPDATE articles SET processing_attempts=2,processing_error='prior temporary failure',processing_queued_at=now() WHERE id=${articleId}`;
-    const jobId = await boss.send(queue, { articleId }, { singletonKey: articleId });
-    const first = worker(queue);
+    const jobId = await boss.send(queue, { articleId, lane: "news" }, { singletonKey: articleId, retryDelay: 1, retryBackoff: false });
+    const first = worker();
     await Promise.race([
       Promise.all([first.ready, active.scoreAsked.promise, active.structureAsked.promise]),
       first.done.then(() => assert.fail("worker exited before both requests")),
@@ -262,7 +258,7 @@ for (const failScore of [false, true])
       ],
     );
     assert.equal((await sql`SELECT state FROM pgboss.job WHERE id=${jobId}`)[0]!.state, "retry", "pg-boss owns restart recovery");
-    const restarted = worker(queue);
+    const restarted = worker();
     await restarted.ready;
     await until(async () => (await sql`SELECT state FROM pgboss.job WHERE id=${jobId}`)[0]?.state === "completed", "completed retry");
     restarted.child.kill("SIGTERM");

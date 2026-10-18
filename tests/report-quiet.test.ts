@@ -4,7 +4,7 @@ import { after, before, test } from "node:test";
 import { stub, tag } from "./setup.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { composeDaily, catchUpReports, candidates } from "@amp/backend/reports/compose";
@@ -13,8 +13,7 @@ import { dailyFeed } from "@amp/backend/publication/feeds";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { changeSystemLaneControl } from "../packages/backend/src/operations/lane-controls.ts";
 
-const sql = dbOf("reports"),
-  source = `quiet-${tag()}`;
+const source = `quiet-${tag()}`;
 const provider = await stub(() => {
   throw new Error("Quiet issues must never call a model");
 });

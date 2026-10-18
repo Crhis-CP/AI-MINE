@@ -1,13 +1,14 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { contentVersion, savedItems, publicFreshness, recordScheduledCheck } from "../packages/backend/src/publication/availability.ts";
 
 test("public references and version watermarks change atomically on withdrawal; reader login only reads", async (t) => {
   const f = await publicRoleFixture(t),
     logins = await f.login();
-  const dispose = injectDb({ publication: logins.public_read });
+  const dispose = installTestConnections(logins.public_read);
   t.after(dispose);
   const [row] = await f.admin`SELECT article_id FROM publications WHERE visibility='public' AND eligible LIMIT 1`;
   assert.ok(row);
@@ -49,9 +50,16 @@ test("report and source module triggers preserve atomic reader invalidation afte
     await logins.public_read<{ lane: string; version: string; withdrawal_version: string }[]>`
     SELECT lane,version::text,withdrawal_version::text FROM publication.read_watermarks ORDER BY lane`;
   const before = await snapshot();
+  await logins.worker`UPDATE articles SET body_html=body_html || '<p>合成展示更新</p>' WHERE id='pr9-editorial-public-full'`;
+  const bodyChanged = await snapshot();
+  assert.notEqual(bodyChanged.find((row) => row.lane === "news")!.version, before.find((row) => row.lane === "news")!.version);
+  assert.deepEqual(
+    bodyChanged.find((row) => row.lane === "policy"),
+    before.find((row) => row.lane === "policy"),
+  );
   await f.admin`UPDATE reports SET generated_at=generated_at+interval '1 second' WHERE id=(SELECT min(id) FROM reports)`;
   const reportChanged = await snapshot();
-  assert.notEqual(reportChanged.find((r) => r.lane === "news")!.version, before.find((r) => r.lane === "news")!.version);
+  assert.notEqual(reportChanged.find((r) => r.lane === "news")!.version, bodyChanged.find((r) => r.lane === "news")!.version);
   assert.deepEqual(
     reportChanged.find((r) => r.lane === "policy"),
     before.find((r) => r.lane === "policy"),

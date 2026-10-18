@@ -1,12 +1,12 @@
 import { tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { setVisibility } from "@amp/backend/admin/content";
 import { stopBoss } from "@amp/backend/jobs/queue";
-const sql = dbOf("publication");
+
 after(async () => {
   await stopBoss();
   await closeDb();
@@ -14,7 +14,14 @@ after(async () => {
 test("first public time observes new publications and candidate releases, never legacy unknown history or restores", async () => {
   const id = `first-${tag()}`;
   await sql`INSERT INTO sources(id,name,kind,site_fulltext) VALUES(${id},'合成来源','rss',true)`;
-  const common = { sourceId: id, title: "合成铜矿项目报道", language: "zh", via: "fetch" as const };
+  const common = {
+    publishedAt: new Date("2026-10-01T00:00:00Z"),
+    discoveredAt: new Date("2026-10-01T00:30:00Z"),
+    sourceId: id,
+    title: "合成铜矿项目报道",
+    language: "zh",
+    via: "fetch" as const,
+  };
   const candidate = await upsertMaterial({ ...common, url: `https://source.invalid/${id}`, bodyText: null });
   await publishArticle(candidate.articleId, { now: new Date("2026-10-01T01:00:00Z") });
   let [row] = await sql`SELECT first_public_at,first_publication_observed FROM publications WHERE article_id=${candidate.articleId}`;

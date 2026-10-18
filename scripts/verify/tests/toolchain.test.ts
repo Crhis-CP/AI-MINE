@@ -1,4 +1,4 @@
-// toolchain: a second lockfile, a loose package manager pin, the missing release delay, `pnpm deploy`, an
+// toolchain: a second lockfile, a loose package manager pin, the missing release delay, a mutable image install, an
 // unpinned base image and a second workflow file are each stopped; so is every way the verify workflow can
 // leave its shape (TASK-0015: 13 rules, at least one case each).
 // biome-ignore-all lint/suspicious/noTemplateCurlyInString: GitHub Actions expressions (${{ … }}) are plain text in these fixtures
@@ -9,10 +9,10 @@ import { scratch, write } from "./helpers.ts";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
 const good: Record<string, string> = {
-  "package.json": JSON.stringify({ packageManager: "pnpm@12.8.1", engines: { node: ">=24.11" } }),
-  "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
-  "pnpm-workspace.yaml": "packages:\n  - apps/*\nminimumReleaseAge: 1440\nallowBuilds: {}\n",
-  Dockerfile: `# pnpm deploy is not used (comment)\nFROM node:24.21.0-trixie-slim@${DIGEST} AS base\nARG NPM_REGISTRY=\nFROM base\nRUN pnpm install --prod --frozen-lockfile\n`,
+  "package.json": JSON.stringify({ packageManager: "npm@11.19.0", engines: { node: ">=24.11" }, workspaces: ["apps/*"] }),
+  "package-lock.json": '{"lockfileVersion":3}\n',
+  ".npmrc": "min-release-age=1\nignore-scripts=true\n",
+  Dockerfile: `# npm install is not used (comment)\nFROM node:24.21.0-trixie-slim@${DIGEST} AS base\nARG NPM_REGISTRY=\nFROM base\nRUN npm ci && npm run build && npm prune --omit=dev\n`,
   "docker-compose.yml": `services:\n  app:\n    build: .\n    image: amp-app\n  db:\n    image: postgres:17.11-alpine@${DIGEST}\n`,
 };
 
@@ -29,22 +29,24 @@ test("the expected setup passes", () => {
 
 test("each violation is reported", () => {
   const problems = problemsWith({
-    "package.json": JSON.stringify({ packageManager: "pnpm@^12", engines: { node: ">=24.11" } }),
-    "package-lock.json": "{}",
-    "pnpm-workspace.yaml": "packages:\n  - apps/*\n",
-    Dockerfile: "FROM node:24-slim\nRUN pnpm install --prod\nRUN pnpm deploy --filter web /out\n",
+    "package.json": JSON.stringify({ packageManager: "npm@^11", engines: { node: ">=24.11" } }),
+    "pnpm-lock.yaml": "{}",
+    ".npmrc": "min-release-age=0\nignore-scripts=false\n",
+    Dockerfile: "FROM node:24-slim\nRUN npm install --omit=dev\n",
     "docker-compose.yml": "services:\n  db:\n    image: postgres:17-alpine\n",
     ".github/workflows/ci.yml": "on: push\n",
   });
   const expect = [
-    'package.json: packageManager must pin an exact pnpm version (got "pnpm@^12")',
-    "package-lock.json: only pnpm-lock.yaml is allowed (one lockfile, pnpm 12)",
+    'package.json: packageManager must pin an exact npm version (got "npm@^11")',
+    "package.json: explicit workspaces are required",
+    "pnpm-lock.yaml: only package-lock.json is allowed (one root npm lockfile)",
     ".github/workflows/ci.yml: the only workflow is .github/workflows/verify.yml, which runs make verify (ADR-0017; TASK-0015); move this file out of .github/workflows",
-    "pnpm-workspace.yaml: minimumReleaseAge must be at least 1440 minutes",
-    "pnpm-workspace.yaml: allowBuilds must be an explicit mapping (empty when no dependency needs install scripts)",
-    "Dockerfile: `pnpm deploy` is not allowed (copy the repository and run pnpm install --prod)",
+    ".npmrc: min-release-age must be at least 1 day",
+    ".npmrc: ignore-scripts must be true",
     "Dockerfile: keep the NPM_REGISTRY build argument",
-    "Dockerfile: pnpm install without --frozen-lockfile: RUN pnpm install --prod",
+    "Dockerfile: install dependencies with npm ci",
+    "Dockerfile: prune development dependencies after the build",
+    "Dockerfile: mutable dependency install is not allowed: RUN npm install --omit=dev",
     "Dockerfile: base image must name a patch version and its sha256 digest: node:24-slim",
     "docker-compose.yml: service db: image must name a patch version and its sha256 digest: postgres:17-alpine",
   ];

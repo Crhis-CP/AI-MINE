@@ -1,5 +1,7 @@
+import { languageHeaders } from "../lib/http-fetch.ts";
 // Web list pages: HTML with selectors, and Markdown through Jina Reader.
 import * as cheerio from "cheerio";
+import { contentDocument } from "../lib/page-content.ts";
 import { crawlFetch as guardedFetch, crawlExternal, crawlReadKey } from "../acquisition/crawl.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { readable, type ExtractedBody } from "../content/extract.ts";
@@ -178,7 +180,7 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
   const res = await guardedFetch(url, {
-    headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8" },
+    headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", ...languageHeaders(source.config.acceptLanguage) },
     timeoutMs: 25_000,
     retryDropped: true,
   });
@@ -226,6 +228,7 @@ export function fromMarkdown(md: string, base: string, source: SourceRow): Candi
 
 export function htmlListDocument(html: string, base: string, source: SourceRow, observedAt?: string) {
   const c = source.config;
+  contentDocument(html);
   const $ = cheerio.load(html);
   const out: { html: string; candidate: Candidate | null }[] = [];
   const itemSel: string | undefined = c.itemSelector;
@@ -246,7 +249,15 @@ export function htmlListDocument(html: string, base: string, source: SourceRow, 
     }
     let raw = "",
       locator = "listing publication field absent";
-    if (c.publishedAtSelector) {
+    if (Array.isArray(c.publishedAtSelectors) && c.publishedAtSelectors.length) {
+      const separator = typeof c.publishedAtPartSeparator === "string" ? c.publishedAtPartSeparator : "";
+      const selectors = c.publishedAtSelectors.filter((selector: unknown): selector is string => typeof selector === "string" && selector.trim().length > 0);
+      raw = selectors
+        .map((selector) => collapseWhitespace(el.find(selector).first().text()))
+        .filter(Boolean)
+        .join(separator);
+      locator = `selectors:${selectors.join("|")}`;
+    } else if (c.publishedAtSelector) {
       const node = el.find(c.publishedAtSelector).first();
       raw = node.attr("datetime") ?? node.attr("title") ?? node.text();
       locator = `selector:${c.itemSelector ?? "a[href]"}/${c.publishedAtSelector}`;
@@ -277,10 +288,63 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
   });
 }
 
+export function listingFormPages(firstPage: number | undefined, maxPages: number | undefined) {
+  const start = Number.isInteger(firstPage) ? firstPage! : 1;
+  const count = Math.min(5, Math.max(1, Number.isInteger(maxPages) ? maxPages! : 1));
+  return { firstPage: start, pageCount: count };
+}
+
+export function formPageRequest(html: string, baseUrl: string, selector: string, pageField: string, page: number) {
+  const $ = cheerio.load(html);
+  const form = $(selector).first();
+  if (!form.length) throw new FetchError("翻页表单不存在");
+  const method = (form.attr("method") ?? "get").toUpperCase() === "POST" ? "POST" : "GET";
+  const action = new URL(form.attr("action") || baseUrl, baseUrl);
+  const fields = new URLSearchParams();
+  form.find("input, select, textarea").each((_, element) => {
+    const node = $(element);
+    const name = node.attr("name");
+    if (!name || name === pageField) return;
+    const type = (node.attr("type") ?? "").toLowerCase();
+    if ((type === "checkbox" || type === "radio") && node.attr("checked") === undefined) return;
+    fields.append(name, node.is("textarea") ? node.text() : (node.attr("value") ?? ""));
+  });
+  fields.set(pageField, String(page));
+  if (method === "GET") {
+    for (const [key, value] of fields) action.searchParams.set(key, value);
+    return { url: action.href, method: "GET" as const, body: undefined, contentType: undefined };
+  }
+  return { url: action.href, method: "POST" as const, body: fields.toString(), contentType: "application/x-www-form-urlencoded" };
+}
+
 export async function fetchWebList(source: SourceRow): Promise<Candidate[]> {
   const { text, viaJina, base } = await fetchListingText(source);
   const mode = source.config.parseMode ?? (viaJina ? "markdown" : "html");
   const out = mode === "markdown" ? fromMarkdown(text, base, source) : fromHtml(text, base, source);
+  const form = source.config.pageForm as { selector?: string; pageField?: string; firstPage?: number; maxPages?: number } | undefined;
+  if (form?.selector && form.pageField && mode !== "markdown") {
+    const pages = listingFormPages(form.firstPage, form.maxPages);
+    const firstPage = pages.firstPage;
+    const pageCount = pages.pageCount;
+    let html = text;
+    const seen = new Set(out.map((item) => item.url));
+    for (let page = firstPage + 1; page < firstPage + pageCount; page++) {
+      const request = formPageRequest(html, base, form.selector, form.pageField, page);
+      const response = await guardedFetch(request.url, {
+        method: request.method,
+        headers: { ...languageHeaders(source.config.acceptLanguage), ...(request.contentType ? { "content-type": request.contentType } : {}) },
+        body: request.body,
+        timeoutMs: 25_000,
+        retryDropped: request.method === "GET",
+      });
+      if (response.status !== 200) break;
+      html = response.text();
+      const more = fromHtml(html, base, source).filter((item) => !seen.has(item.url));
+      if (!more.length) break;
+      for (const item of more) seen.add(item.url);
+      out.push(...more);
+    }
+  }
   if (out.length === 0) throw new FetchError(`no items matched (${mode})`);
   return out;
 }
@@ -325,14 +389,16 @@ export async function fetchDetail(
       : null;
   let html: string | null = null;
   let body: ExtractedBody | null = null;
-  if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary) {
-    const res = await guardedFetch(url, { timeoutMs: 20_000 });
+  if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary || need.body) {
+    const res = await guardedFetch(url, { headers: languageHeaders(source.config.acceptLanguage), timeoutMs: 20_000 });
+    if (res.status !== 200) throw new FetchError(`Detail HTTP ${res.status}`, res.status);
     if (res.status === 200) {
       observedAt = res.fetchedAt ?? observedAt;
       html = res.text();
+      contentDocument(html);
       if (need.body && /html/.test(res.headers.get("content-type") ?? "")) {
         try {
-          body = readable(html, res.url);
+          body = readable(html, res.url, { preserve: source.config.detail?.preserve });
         } catch {
           /* A failed extraction must not discard the detail metadata. */
         }

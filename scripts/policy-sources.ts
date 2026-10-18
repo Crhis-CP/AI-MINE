@@ -3,11 +3,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
 import { audit } from "@amp/backend/admin/auth";
 import { evaluateSourcePolicy, previewSource, requestSourcePreview, runSourcePreview, readCurrentSourcePolicy, updateSource } from "@amp/backend/admin/sources";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { sourceDateConfigHash } from "@amp/backend/sources/config-keys";
 
 class PolicySourceUsageError extends Error {}
-const sql = dbOf("sources");
+
 const sourceId = (entry: PolicySource) => `policy-${entry.id.toLowerCase()}`;
 type SavedSource = Parameters<typeof previewSource>[0] & { enabled: boolean; updated_at: Date };
 export type PolicySourceSelection = { country?: string; ids?: string[]; limit?: number; dryRun?: boolean };

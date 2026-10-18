@@ -25,6 +25,8 @@ import {
   previewWithdrawal,
   actWithdrawal,
   contentChain,
+  previewPublicationDateCorrection,
+  correctPublicationDate,
   detachFromFact,
   mergeStories,
   overrideFields,
@@ -33,7 +35,7 @@ import {
   setSeoIndexed,
   setVisibility,
 } from "@amp/backend/admin/content";
-import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
+import { banFeedbackEmail, banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
 import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
 import {
   routes as contracts,
@@ -74,11 +76,10 @@ import {
   sourceDetail,
   updateSource,
 } from "@amp/backend/admin/sources";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
 
-const sql = dbOf("sources");
 const AuditQuery = z.object({ subject: z.string().optional(), action: z.string().optional(), page: z.coerce.number().int().positive().default(1) });
 
 type Q = Record<string, string | undefined>;
@@ -305,12 +306,24 @@ export function registerAdmin(app: FastifyInstance) {
     adminHandler(async (req, _reply, admin) => overrideFields(param(req, "id"), body(req) as never, actorOf(admin))),
   );
   app.post(
-    "/api/admin/content/:id/rerun",
+    contracts.adminContentRerun.url,
+    { schema: contracts.adminContentRerun.schema },
     adminHandler(async (req, reply, admin) => {
-      const b = body<{ step: "extract" | "analyze" | "group" }>(req);
-      const requestId = String(req.headers["idempotency-key"] ?? "");
-      return orNotFound(req, reply, await rerun(param(req, "id"), b.step, requestId, actorOf(admin)));
+      const input = contracts.adminContentRerun.schema.body.parse(req.body);
+      return orNotFound(req, reply, await rerun(param(req, "id"), input.step, String(req.headers["idempotency-key"]), actorOf(admin), input));
     }),
+  );
+  app.post(
+    contracts.adminDatePreview.url,
+    { schema: contracts.adminDatePreview.schema },
+    adminHandler(async (req, reply) => orNotFound(req, reply, await previewPublicationDateCorrection(param(req, "id"), req.body))),
+  );
+  app.post(
+    contracts.adminDateCorrection.url,
+    { schema: contracts.adminDateCorrection.schema },
+    adminHandler(async (req, reply, admin) =>
+      orNotFound(req, reply, await correctPublicationDate(param(req, "id"), req.body, String(req.headers["idempotency-key"]), actorOf(admin))),
+    ),
   );
   app.post(
     "/api/admin/content/:id/detach",
@@ -350,12 +363,20 @@ export function registerAdmin(app: FastifyInstance) {
     }),
   );
   app.post(
-    "/api/admin/feedback-bans",
+    contracts.adminFeedbackBan.url,
+    { schema: contracts.adminFeedbackBan.schema },
     adminHandler(async (req, reply, admin) => {
-      const b = body<{ sourceHash: string; reason: string }>(req);
-      await banSource(b.sourceHash, b.reason, actorOf(admin));
+      const b = body<{ sourceHash: string; reason: string; expiresAt?: string | null }>(req);
+      await banSource(b.sourceHash, b.reason, actorOf(admin), b.expiresAt);
       return reply.code(204).send();
     }),
+  );
+  app.post(
+    contracts.adminFeedbackEmailBan.url,
+    { schema: contracts.adminFeedbackEmailBan.schema },
+    adminHandler(async (req, reply, admin) =>
+      orNotFound(req, reply, await banFeedbackEmail(Number(param(req, "id")), String(body(req).reason ?? ""), actorOf(admin))),
+    ),
   );
   app.delete(
     "/api/admin/feedback-bans/:hash",

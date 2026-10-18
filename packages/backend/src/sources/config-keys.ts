@@ -25,6 +25,26 @@ export function normalizeSourceLanguage(value: unknown): string | null {
 
 export const SourceCrawlProfile = z.strictObject({ sensitive: z.boolean().optional(), minimumIntervalSeconds: z.number().min(2).max(86400).optional() });
 
+const preservationRules = z
+  .array(
+    z
+      .strictObject({
+        selector: z.string().trim().min(1).max(500),
+        as: z.enum(["pre", "table"]),
+        code: z.string().trim().min(1).max(500).optional(),
+        caption: z.string().trim().min(1).max(500).optional(),
+      })
+      .refine((rule) => rule.as === "pre" || (!rule.code && !rule.caption)),
+  )
+  .max(30);
+const acceptLanguage = z
+  .string()
+  .min(1)
+  .max(256)
+  .refine((value) =>
+    value.split(",").every((part) => /^(?:\*|[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*)(?:\s*;\s*q=(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?))?$/.test(part.trim())),
+  );
+
 // Rules applied in collect.ts to every kind read through collectSource.
 const COLLECTED = [
   "policyProfile",
@@ -33,6 +53,7 @@ const COLLECTED = [
   "sourceDate",
   "_amp",
   "language",
+  "acceptLanguage",
   "allowUrlPrefixes",
   "denyUrlPrefixes",
   "ingestNoiseFilter",
@@ -57,8 +78,11 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     "linkSelector",
     "titleSelector",
     "publishedAtSelector",
+    "publishedAtSelectors",
+    "publishedAtPartSeparator",
     "publishedAtRegex",
     "publishedAtUtcOffset",
+    "pageForm",
   ],
   json_list: [
     ...COLLECTED,
@@ -69,8 +93,14 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     "bodyJson",
     "jsonKey",
     "windowVar",
+    "attributeSelector",
+    "attributeName",
     "itemsPath",
     "itemsObjectValues",
+    "itemsShape",
+    "literalFormat",
+    "titleTemplate",
+    "includeValues",
     "titlePaths",
     "summaryPaths",
     "summaryIsBody",
@@ -94,7 +124,9 @@ const NESTED: Record<string, string[]> = {
   _amp: ["initialBackfillLimit", "initialBackfillMonths"],
   ingestNoiseFilter: ["dropMarkers", "dropMarkersTitleOnly", "keepIfMatches"],
   itemUrlPrefixRewrite: ["from", "to"],
+  pageForm: ["selector", "pageField", "firstPage", "maxPages"],
   requireBoolean: ["path", "equals"],
+  includeValues: ["path", "values"],
   minNumeric: ["path", "min"],
   detail: [
     "sourceDate",
@@ -108,12 +140,15 @@ const NESTED: Record<string, string[]> = {
     "titleRegex",
     "titleAuthoritative",
     "summarySelector",
+    "preserve",
   ],
 };
 
 const VALUES: Record<string, string[]> = {
   publishedAtField: ["pubDate", "published", "dc:date", "updated"],
   parseMode: ["html", "markdown"],
+  literalFormat: ["json", "static"],
+  itemsShape: ["rows", "columns"],
 };
 
 const DATE_PROFILE = z.strictObject({
@@ -147,6 +182,8 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
             "itemSelector",
             "linkSelector",
             "publishedAtSelector",
+            "publishedAtSelectors",
+            "publishedAtPartSeparator",
             "publishedAtRegex",
             "preserveUrlFragment",
             "itemUrlPrefixRewrite",
@@ -160,8 +197,14 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
               "mode",
               "jsonKey",
               "windowVar",
+              "attributeSelector",
+              "attributeName",
               "itemsPath",
               "itemsObjectValues",
+              "itemsShape",
+              "literalFormat",
+              "titleTemplate",
+              "includeValues",
               "urlTemplate",
               "urlTemplateFallback",
               "publishedAtPath",
@@ -178,7 +221,7 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
       kind,
       profile: sourceDateProfile(config),
       detailProfile: sourceDateProfile(config, true),
-      selectors: Object.fromEntries(keys.filter((key) => config[key] !== undefined).map((key) => [key, config[key]])),
+      selectors: Object.fromEntries([...keys, "acceptLanguage"].filter((key) => config[key] !== undefined).map((key) => [key, config[key]])),
       detail: Object.fromEntries(
         ["publishedAtSelector", "publishedAtRegex", "publishedAtAuthoritative", "upgradeDatePrecision"]
           .filter((key) => page[key] !== undefined)
@@ -192,6 +235,9 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
 export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string, unknown>): string[] {
   const allowed = new Set(KEYS[kind] ?? []);
   const out: string[] = [];
+  if (config.acceptLanguage !== undefined && !acceptLanguage.safeParse(config.acceptLanguage).success) out.push("acceptLanguage");
+  const detail = config.detail as Record<string, unknown> | undefined;
+  if (detail?.preserve !== undefined && !preservationRules.safeParse(detail.preserve).success) out.push("detail.preserve");
   if (config.directoryProfile !== undefined && !directoryContract({ kind, config })) out.push("directoryProfile");
   if (config?.crawlProfile !== undefined && !SourceCrawlProfile.safeParse(config.crawlProfile).success) out.push("crawlProfile");
   for (const [key, value] of Object.entries(config ?? {})) {
@@ -201,6 +247,15 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
       for (const sub of Object.keys(value)) if (!NESTED[key]!.includes(sub)) out.push(`${key}.${sub}`);
     }
   }
+  if (
+    config.includeValues !== undefined &&
+    !z.strictObject({ path: z.string().min(1), values: z.array(z.string()).min(1).max(100) }).safeParse(config.includeValues).success
+  )
+    out.push("includeValues");
+  if (config.literalFormat === "static" && !["html_attribute", "html_window_var"].includes(String(config.mode)))
+    out.push("literalFormat without embedded data mode");
+  if (config.itemsShape === "columns" && config.itemsObjectValues) out.push("itemsShape+itemsObjectValues");
+  if (config.titleTemplate !== undefined && (typeof config.titleTemplate !== "string" || !config.titleTemplate.trim())) out.push("titleTemplate");
   // htmlJsonPath reads list HTML out of a direct JSON response: through Jina or as Markdown it would be
   // ignored or misread, so those combinations are refused like an unknown key. The endpoint is not the page
   // the links belong to, so that page is named explicitly (baseUrl) instead of resolving against the endpoint.

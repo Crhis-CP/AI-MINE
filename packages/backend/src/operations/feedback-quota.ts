@@ -1,20 +1,29 @@
-import { dbOf, type Tx } from "../db.ts";
+import { FEEDBACK_LIMITS } from "@amp/contracts/http/public";
+import type { Db } from "../db.ts";
 import { FeedbackRejected } from "./feedback-validation.ts";
 
-const sql = dbOf("feedback");
-
-/** Claims share the submission transaction: rejecting either bucket rolls back both claims. */
-export async function claimFeedbackQuota(tx: Tx, sourceHash: string) {
-  const dailyQuery = sql`INSERT INTO feedback.quota_buckets(scope,bucket_key,window_start,used)
-    VALUES('site_day','site',pg_catalog.date_trunc('day',now() AT TIME ZONE 'Asia/Shanghai') AT TIME ZONE 'Asia/Shanghai',1)
-    ON CONFLICT(scope,bucket_key,window_start) DO UPDATE SET used=feedback.quota_buckets.used+1
-    WHERE feedback.quota_buckets.used < 500 RETURNING used`;
-  const [daily] = await tx`${dailyQuery}`;
-  if (!daily) throw new FeedbackRejected(429, "rate_limited", "今日提交较多，请稍后再试。", 3600);
-  const hourlyQuery = sql`INSERT INTO feedback.quota_buckets(scope,bucket_key,window_start,used)
-    VALUES('client_hour',${sourceHash},pg_catalog.date_trunc('hour',now() AT TIME ZONE 'Asia/Shanghai') AT TIME ZONE 'Asia/Shanghai',1)
-    ON CONFLICT(scope,bucket_key,window_start) DO UPDATE SET used=feedback.quota_buckets.used+1
-    WHERE feedback.quota_buckets.used < 5 RETURNING used`;
-  const [hourly] = await tx`${hourlyQuery}`;
-  if (!hourly) throw new FeedbackRejected(429, "rate_limited", "提交较频繁，请稍后再试。", 3600);
+export type Submission = { at: number; id: number; fingerprint: string };
+const HOUR = 3600_000;
+type QuotaResult =
+  | { error: FeedbackRejected; duplicate?: never; submissions?: never; now?: never }
+  | { error?: never; duplicate?: number; submissions: Submission[]; now: number };
+/** Caller holds the source lock until its submission or rejection commits. No raw identifiers are stored. */
+export async function claimFeedbackQuota(db: Db, source: string, fingerprint: string, savedId?: number): Promise<QuotaResult> {
+  const now = Date.now();
+  const [state] = await db<{ attempts: number[]; submissions: Submission[]; paused_until: Date | null }[]>`
+    INSERT INTO feedback.submission_state(source_hash,expires_at) VALUES(${source},${new Date(now + HOUR)})
+    ON CONFLICT(source_hash) DO UPDATE SET expires_at=EXCLUDED.expires_at RETURNING attempts,submissions,paused_until`;
+  const attempts = state!.attempts.filter((at) => at > now - HOUR);
+  const submissions = state!.submissions.filter((entry) => entry.at > now - HOUR);
+  const duplicate = savedId ?? submissions.find((entry) => entry.fingerprint === fingerprint)?.id;
+  const paused = state!.paused_until?.getTime() ?? 0;
+  if (paused > now)
+    return { error: new FeedbackRejected(429, "rate_limited", "反馈提交已暂时暂停，请稍后再试，草稿会保留。", Math.ceil((paused - now) / 1000)) };
+  if (attempts.length >= FEEDBACK_LIMITS.attemptsPerHour || (!duplicate && submissions.length >= FEEDBACK_LIMITS.perHour)) {
+    await db`UPDATE feedback.submission_state SET paused_until=${new Date(now + HOUR)},expires_at=${new Date(now + HOUR)} WHERE source_hash=${source}`;
+    return { error: new FeedbackRejected(429, "rate_limited", "反馈提交过于频繁，已暂停 1 小时。请稍后再试，草稿会保留。", FEEDBACK_LIMITS.pauseSeconds) };
+  }
+  attempts.push(now);
+  await db`UPDATE feedback.submission_state SET attempts=${db.json(attempts)},submissions=${db.json(submissions)},paused_until=NULL WHERE source_hash=${source}`;
+  return { duplicate, submissions, now };
 }

@@ -1,4 +1,4 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { withdrawalEventMembers, invalidateWithdrawalStories } from "@amp/backend/events/group";
 import { newsReportWithdrawalSnapshot, invalidateReportCorrections } from "@amp/backend/reports/compose";
@@ -12,8 +12,8 @@ import {
 } from "@amp/backend/publication/publish";
 import { audit } from "../admin/auth.ts";
 import { Conflict } from "../admin/sources.ts";
-import { enqueue } from "../jobs/queue.ts";
-const sql = dbOf("editorial");
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
+
 type Active = { id: number; member_ids: string[]; reason: string; created_at: Date };
 async function snapshot(target: WithdrawalTarget, db: Db) {
   const identity = withdrawalIdentity(target);

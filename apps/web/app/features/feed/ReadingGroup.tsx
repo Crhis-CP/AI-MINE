@@ -1,11 +1,12 @@
+import { markRead, useReadSet } from "../../lib/local-state";
 // Reading-group expansions on a feed item: the other sources of the card's fact ("另有 N 家信源报道")
 // and the event's developments ("展开 N 条进展"). Each loads on first open and pages on demand.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { Collapse } from "@amp/ui/Presence";
+import { Collapse } from "../../components/ui/Presence.tsx";
 import type { Development, GroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
 import { IconArrowUpRight, IconChevronDown } from "../../components/icons";
-import { shortSourceName, sourceMonthDayTime } from "../../lib/format";
+import { shortSourceName, sourceMonthDayTime, newsSourceDate } from "../../lib/format";
 import { isReload } from "./restore";
 import { sessionCache } from "./session-cache";
 
@@ -189,6 +190,7 @@ function LoadState({
 
 /** "另有 N 家信源报道": other reports of the fact the card stands for. */
 export function GroupSources({ group, filters, parentId }: { group: GroupInfo; filters?: TimelineFilters; parentId: string }) {
+  const readSet = useReadSet();
   const { open, setOpen, state, load } = useGroupState<GroupReport>(
     `sources|${group.factId}|${parentId}`,
     (cursor) => `/api/site/groups/${encodeURIComponent(group.factId)}/reports?${filterParams(filters, cursor)}`,
@@ -212,9 +214,10 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
           {others.map((r) => (
             <li key={r.id} className="flex items-baseline gap-2 py-1.5 text-[13px]">
               <span className="w-[108px] shrink-0 truncate text-ink-4">{shortSourceName(r.source.name)}</span>
-              <Link to={`/items/${r.id}`} className="min-w-0 flex-1 truncate text-ink-2 hover:text-accent">
+              <Link to={`/items/${r.id}`} onClick={() => markRead(r.id)} className="min-w-0 flex-1 truncate text-ink-2 hover:text-accent">
                 {r.title}
               </Link>
+              <span className={`shrink-0 text-[11px] ${readSet.has(r.id) ? "text-ink-4" : "text-accent"}`}>{readSet.has(r.id) ? "已读" : "未读"}</span>
               <a href={r.originalUrl} target="_blank" rel="noopener noreferrer" aria-label="打开原文" className="shrink-0 text-ink-4 hover:text-accent">
                 <IconArrowUpRight size={13} />
               </a>
@@ -279,7 +282,8 @@ export function GroupDevelopments({
                 {d.title}
               </Link>
               <div className="mt-0.5 text-[11.5px] text-ink-4">
-                {shortSourceName(d.representative.source.name)} · <span className="num">{sourceMonthDayTime(d.representative.timelineAt)}</span>
+                {shortSourceName(d.representative.source.name)} ·{" "}
+                <span className="num">{newsSourceDate(d.representative.sourceTime, d.representative.publishedAt)?.text ?? "原文时间尚未确认"}</span>
                 {d.reportCount > 1 ? ` · ${d.reportCount} 篇报道` : ""}
               </div>
             </li>

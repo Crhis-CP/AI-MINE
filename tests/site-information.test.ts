@@ -1,19 +1,20 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { sha256 } from "@amp/backend/lib/ids";
 import { config } from "@amp/backend/config";
 import { SITE } from "@amp/industry/site";
 import { SiteInformation, MetalPrices } from "@amp/contracts/http/public";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { denied } from "./role-db-fixture.ts";
 
 test("Owner saves public site fields with session CSRF CAS idempotency and atomic audit; public_read observes fields without private commands", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ publication: dbs.private_ops, identity: dbs.auth });
+    dispose = installTestConnections(dbs.private_ops, dbs.auth);
   t.after(dispose);
   const host = config.privateHost,
     dev = config.devAdmin;

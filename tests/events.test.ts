@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
@@ -11,7 +12,7 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { detachFromFact } from "@amp/backend/admin/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle, linkRelatedStories } from "@amp/backend/events/group";
@@ -19,8 +20,6 @@ import { lexicalSimilarity, reportText } from "@amp/backend/events/relate";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { changeOwnerLaneControls, listLaneControls, RuntimeControlStale } from "../packages/backend/src/operations/lane-controls.ts";
-
-const sql = dbOf("events");
 
 const T = tag();
 const SOURCE = `test-events-${T}`;
@@ -37,6 +36,7 @@ let pairRelation: Rel | null = null;
 /** Answer every candidate of a batch prompt, not only the first. */
 let answerAll = false;
 let responseHook: (() => Promise<void>) | null = null;
+let omitCandidates = false;
 const provider = await stub(async (_hit, req) => {
   asked.open();
   await hold.promise;
@@ -44,7 +44,7 @@ const provider = await stub(async (_hit, req) => {
   const body = JSON.parse(req.body) as { messages: Array<{ content: string }> };
   const user = body.messages[1]!.content;
   const pair = user.includes("报道 A");
-  const ids = answerAll ? [...user.matchAll(/【候选 (C\d+)】/g)].map((m) => m[1]!) : ["C1"];
+  const ids = [...user.matchAll(/【候选 (C\d+)】/g)].map((m) => m[1]!);
   const quotes = [...user.matchAll(/原文证据：([\s\S]*?)\n法域：/g)].map((m) => m[1]!.split("\n").at(-1)!);
   const evidence = (index: number) => ({
     queryQuote: quotes[0] ?? "",
@@ -58,8 +58,23 @@ const provider = await stub(async (_hit, req) => {
   });
   const answer = pair
     ? { a: "发布", b: "发布", relation: pairRelation ?? relation, difference: "", confidence: 0.95, evidence: evidence(1) }
-    : { query: "发布新模型", decisions: ids.map((id) => ({ id, relation, confidence: 0.95, note: "", evidence: evidence(Number(id.slice(1))) })) };
-  return { id: "stub", choices: [{ message: { content: JSON.stringify(answer) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
+    : {
+        query: "发布新模型",
+        selection: { addsValue: true, reason: "合成新增信息判断" },
+        queryScope: "single",
+        decisions: ids.map((id) => ({
+          id,
+          relation: answerAll || id === "C1" ? relation : "UNRELATED",
+          confidence: 0.95,
+          note: "",
+          evidence: evidence(Number(id.slice(1))),
+        })),
+      };
+  return {
+    id: "stub",
+    choices: [{ message: { content: JSON.stringify(omitCandidates && !pair ? { query: "不完整答案", decisions: [] } : answer) } }],
+    usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+  };
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
@@ -88,9 +103,15 @@ async function report(suffix: string, title = FACT_TITLE, summary = "摘要", pu
     publishedAt,
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${title}, ${summary}, 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, fact: { title, subject: "Alpha", action: "announced", object: "Alpha project" }, geography: validateGeography({ status: "identified", primary: "AR", assignments: [{ code: "AR", role: "event_location", mention: "Argentina", segment: "body_head", quote: body }], reason: "synthetic evidence" }, { title: sourceTitle, bodyText: body, excerpt: null, bodyStatus: "ok" }) })})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${title}, ${summary}, 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, scope: "single", fact: { title, subject: "Alpha", action: "announced", object: "Alpha project" }, geography: validateGeography({ status: "identified", primary: "AR", assignments: [{ code: "AR", role: "event_location", mention: "Argentina", segment: "body_head", quote: body }], reason: "synthetic evidence" }, { title: sourceTitle, bodyText: body, excerpt: null, bodyStatus: "ok" }) })})`;
   await publishArticle(articleId);
   return articleId;
+}
+
+async function confirmedReport(...args: Parameters<typeof report>) {
+  const id = await report(...args);
+  await confirmGroupingFixture(id);
+  return id;
 }
 
 before(async () => {
@@ -106,6 +127,7 @@ before(async () => {
   factId = fact!.id;
   const first = await report("first");
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${factId}, ${first}, 'report',1)`;
+  await confirmGroupingFixture(first);
   await sql`INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
             VALUES (${storyId}, ${first}, ${`source:${SOURCE}`}, ${SOURCE}, 'editorial', now())`;
 });
@@ -192,6 +214,7 @@ test("a report waiting for a regroup is not evidence for others, and its own tur
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`fw-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const oldFact = Number(fact!.id);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${oldFact}, ${waiting}, 'report',1)`;
+  await confirmGroupingFixture(waiting);
   await sql`INSERT INTO regroup_pending (article_id) VALUES (${waiting})`;
 
   // A later report of the same occurrence does not meet the waiting one: nothing to compare with.
@@ -226,6 +249,7 @@ test("a development attaches to the story's earliest fact that still holds repor
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`fr-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const first = await report("root", text, text);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${fact!.id}, ${first}, 'report',1)`;
+  await confirmGroupingFixture(first);
 
   relation = "SAME_STORY";
   try {
@@ -248,6 +272,7 @@ async function storyWithRoot(text: string, suffix: string) {
   >`INSERT INTO facts (public_id, story_id, title) VALUES (${`fs-${suffix}-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const article = await report(suffix, text, text);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${fact!.id}, ${article}, 'report',1)`;
+  await confirmGroupingFixture(article);
   return { storyId: Number(story!.id), publicId: String(story!.public_id), factId: Number(fact!.id), articleId: article };
 }
 
@@ -262,8 +287,8 @@ test("a story's root is the fact reported first, not the one with the lowest num
   // Created first (lower id), reported later: a fact carried over from a merged or imported story.
   const [later] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`ft-late-${T}`}, ${story!.id}, ${late}) RETURNING id`;
   const [first] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`ft-early-${T}`}, ${story!.id}, ${early}) RETURNING id`;
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${later!.id}, ${await report("late-fact", late, late)}, 'report',1)`;
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${first!.id}, ${await report("early-fact", early, early, new Date(Date.now() - 2 * 3600_000))}, 'report',1)`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${later!.id}, ${await confirmedReport("late-fact", late, late)}, 'report',1)`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${first!.id}, ${await confirmedReport("early-fact", early, early, new Date(Date.now() - 2 * 3600_000))}, 'report',1)`;
 
   // PostgreSQL retains microseconds: both times occupy the same JS millisecond, but the higher ID is earlier.
   await sql`UPDATE publications p SET published_at=date_trunc('second',now())+
@@ -343,6 +368,7 @@ test("a story whose reports all moved away keeps its address: it redirects to wh
   const other = randomText();
   const staying = await report("staying", other, other);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${old.factId}, ${staying}, 'report',1)`;
+  await confirmGroupingFixture(staying);
   const target = await storyWithRoot(text, "target");
 
   // The first report moves to the story it belongs to; the old story still has a report and stays.
@@ -435,4 +461,58 @@ test("a pause followed by resume still fences an in-flight grouping result and r
   const retried = await groupArticle(id);
   assert.equal(retried.verdict, "same-fact");
   assert.equal(provider.hits(), hits + 1, "the recorded physical response is reused without another paid call");
+});
+
+test("an incomplete identity response does not confirm grouping or create a separate event", async () => {
+  hold = gate();
+  hold.open();
+  responseHook = null;
+  omitCandidates = true;
+  try {
+    const id = await report("incomplete-identity");
+    await assert.rejects(groupArticle(id));
+    const [article] = await sql`SELECT grouped_at FROM articles WHERE id=${id}`;
+    assert.equal(article!.grouped_at, null);
+    assert.equal((await sql`SELECT 1 FROM fact_articles WHERE article_id=${id}`).length, 0);
+    assert.equal((await sql`SELECT 1 FROM grouping_decisions WHERE article_id=${id}`).length, 0);
+  } finally {
+    omitCandidates = false;
+  }
+});
+
+test("an explicitly composite report mentions known events without founding one or adding heat", async () => {
+  hold = gate();
+  hold.open();
+  relation = "SAME_OCCURRENCE";
+  responseHook = null;
+  const id = await report("composite-report");
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{scope}','"composite"'::jsonb) WHERE article_id=${id}`;
+  const before = await sql`SELECT count(*)::int AS n FROM facts`;
+  const result = await groupArticle(id);
+  assert.equal(result.verdict, "roundup");
+  assert.equal(result.factId, undefined);
+  assert.equal(result.storyId, undefined);
+  assert.deepEqual(await sql`SELECT count(*)::int AS n FROM facts`, before);
+  const memberships = await sql`SELECT role FROM fact_articles WHERE article_id=${id}`;
+  assert.ok(memberships.length > 0);
+  assert.ok(memberships.every((m) => m.role === "mention"));
+  assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${id}`).length, 0);
+  const [decision] = await sql`SELECT fact_id,story_id,verdict FROM grouping_decisions WHERE article_id=${id}`;
+  assert.deepEqual({ ...decision }, { fact_id: null, story_id: null, verdict: "roundup" });
+});
+
+test("a report corrected into a roundup clears an empty old event summary without redirecting its address", async () => {
+  hold = gate();
+  hold.open();
+  responseHook = null;
+  const id = await report("former-single", randomText(), randomText());
+  const first = await groupArticle(id);
+  assert.ok(first.storyId);
+  await sql`UPDATE stories SET digest='原自动综述',latest='原最新进展',origin='manual',title='人工保留标题' WHERE id=${first.storyId!}`;
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{scope}','"composite"'::jsonb) WHERE article_id=${id}`;
+  const result = await groupArticle(id, { force: true });
+  assert.equal(result.verdict, "roundup");
+  const [old] = await sql`SELECT title,digest,latest,merged_into FROM stories WHERE id=${first.storyId!}`;
+  assert.deepEqual({ ...old }, { title: "人工保留标题", digest: null, latest: null, merged_into: null });
+  assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${id}`).length, 0);
 });

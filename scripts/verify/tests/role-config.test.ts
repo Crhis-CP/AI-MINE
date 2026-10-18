@@ -93,3 +93,18 @@ test("known disabled literals and absent flags keep passing, including escaped d
   assert.deepEqual(inspect("services: {web: {environment: {ALLOW_PRIVATE_NETWORK_FETCH: 0}}}"), []);
   assert.deepEqual(inspect("services: {web: {environment: {PATH: null}}}"), []);
 });
+
+test("unified API Compose requires both rate-limit and session configuration while web remains credential-free", () => {
+  const dir = scratch();
+  write(dir, {
+    "docker-compose.yml":
+      "services: {web: {image: web}, api: {env_file: .env, environment: {API_ROLE: api, PUBLIC_RATE_LIMIT_SECRET: fixture, SESSION_SECRET: fixture}}}",
+  });
+  assert.deepEqual(checkRoleConfig(dir), []);
+  for (const missing of ["PUBLIC_RATE_LIMIT_SECRET", "SESSION_SECRET"]) {
+    const env = { API_ROLE: "api", PUBLIC_RATE_LIMIT_SECRET: "fixture", SESSION_SECRET: "fixture" };
+    delete env[missing as "PUBLIC_RATE_LIMIT_SECRET" | "SESSION_SECRET"];
+    write(dir, { "docker-compose.yml": JSON.stringify({ services: { web: { image: "web" }, api: { environment: env } } }) });
+    assert.ok(checkRoleConfig(dir).some((problem) => problem.includes(`must define ${missing}`)));
+  }
+});

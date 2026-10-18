@@ -1,5 +1,7 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLoaderData, useNavigate, useSearchParams } from "react-router";
+import { useLoaderData, useNavigate, useSearchParams } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/agent";
 import { SITE, withSubject } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
@@ -18,6 +20,7 @@ export function headers() {
 const MCP_VERSION = "2.1.0";
 /** The machine-readable entry points, with what each one is for. */
 const RESOURCES: Array<[label: string, href: string, note: string]> = [
+  ["Agent中文答案", "/api/v1/agent", "无需MCP，直接读取中文资讯与报告"],
   ["llms.txt", "/llms.txt", "给大模型读的站点说明"],
   ["MCP Server", "/api/mcp", "MCP 客户端的连接地址"],
   ["OpenAPI 3.1", "/openapi-v3.json", "REST API v3 的完整定义"],
@@ -305,17 +308,19 @@ export default function AgentPage() {
       </AsideCard>
       <AsideCard title="没接上？">
         <p className="text-[13px] leading-[1.75] text-ink-3">把客户端、版本和报错写在反馈页，别发 token 或本地文件。</p>
-        <Link to="/feedback" prefetch="intent" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
+        <Link to="/feedback" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
           去反馈 <IconChevronRight size={14} />
         </Link>
       </AsideCard>
     </>
   );
   return (
-    <ReadingLayout aside={aside}>
+    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="Agent 接入" />} aside={aside}>
       <header>
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">让 Agent 直接使用 {SITE.name}</h1>
-        <p className="mt-1.5 text-[13px] text-ink-3">三条接入路径都是匿名只读、无需 API Key：MCP、RSS、REST API v3。</p>
+        <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
+          让 Agent 直接使用 {SITE.name}
+        </h1>
+        <p className="mt-1.5 text-[13px] text-ink-3">中文答案、MCP、RSS 和 REST API 都是匿名只读，无需 API Key。</p>
         <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
           <span className={pill}>匿名只读</span>
           <span className={`${pill} mono`}>API v3</span>
@@ -335,7 +340,12 @@ export default function AgentPage() {
         ))}
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 mt-7 bg-bg/90 px-4 py-2 backdrop-blur-md lg:mx-0 lg:px-0">
+      <CodeBlock
+        title="交给能读取网页的 Agent"
+        lang="text"
+        code={`请先阅读 ${base}/api/v1/agent，按说明查找矿业资讯、热点或报告。只使用返回的公开资料，保留来源和链接。`}
+      />
+      <div className="sticky top-12 z-20 -mx-4 mt-7 bg-bg/90 px-4 py-2 backdrop-blur-md lg:top-0 lg:mx-0 lg:px-0">
         <PillTabs
           layoutId="agent-tab"
           label="接入方式"

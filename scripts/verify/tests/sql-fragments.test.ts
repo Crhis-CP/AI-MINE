@@ -1,3 +1,4 @@
+import { postgresPackage } from "./helpers.ts";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,7 +12,7 @@ function fixture(run: (root: string, files: string[], helper: string) => void) {
   try {
     mkdirSync(path.join(root, "node_modules"));
     mkdirSync(path.join(root, "packages/example"), { recursive: true });
-    symlinkSync(path.resolve(import.meta.dirname, "../../../packages/backend/node_modules/postgres"), path.join(root, "node_modules/postgres"));
+    symlinkSync(postgresPackage(), path.join(root, "node_modules/postgres"));
     writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
     writeFileSync(
       path.join(root, "tsconfig.json"),
@@ -259,5 +260,64 @@ test("expanded scalar DTOs reuse resolved type proofs without spending the SQL v
       sites.every((site) => !site.unknown.length),
       JSON.stringify(sites.map((site) => site.unknown)),
     );
+  });
+});
+
+test("fixed native clause factories retain all table reads and mutable or side-effecting factories stay opaque", () => {
+  fixture((root, files) => {
+    const file = "packages/example/factories.ts";
+    writeFileSync(
+      path.join(root, file),
+      `
+import { dbOf } from "./module-db.ts";
+const sql = dbOf("publication");
+const fields = () => sql\`p.id\`;
+const from = () => sql\`FROM publications p JOIN sources s ON s.id=p.source_id\`;
+let mutable = () => sql\`FROM secrets\`;
+const effect = () => { throw Error("must not execute"); return sql\`FROM secrets\`; };
+const recursive = () => sql\`\${recursive()}\`;
+export const good = sql\`SELECT \${fields()} \${from()}\`;
+export const unsafeMutable = sql\`SELECT 1 \${mutable()}\`;
+export const unsafeEffect = sql\`SELECT 1 \${effect()}\`;
+export const unsafeRecursive = sql\`SELECT 1 \${recursive()}\`;
+`,
+    );
+    const result = extractOwnership(root, [...files, file]).find((entry) => entry.file === file)!;
+    const good = result.sites.filter((site) => site.scopeName === "good");
+    assert.ok(good.length);
+    assert.ok(
+      good.every((site) => !site.unknown.length),
+      JSON.stringify(good.map(({ kind, unknown }) => ({ kind, unknown }))),
+    );
+    assert.deepEqual([...new Set(good.flatMap((site) => site.relations.map((relation) => relation.table)))].sort(), ["public.publications", "public.sources"]);
+    for (const scope of ["unsafeMutable", "unsafeEffect", "unsafeRecursive"])
+      assert.ok(
+        result.sites.filter((site) => site.scopeName === scope).some((site) => site.unknown.length),
+        scope,
+      );
+  });
+});
+
+test("registered live driver exports support expression proofs without accepting arbitrary mutable tags", () => {
+  fixture((root, files) => {
+    const driver = "packages/backend/src/db-connections.ts";
+    mkdirSync(path.dirname(path.join(root, driver)), { recursive: true });
+    writeFileSync(path.join(root, driver), 'import type postgres from "postgres"; export let sql: postgres.Sql;');
+    const file = "packages/example/live-driver.ts";
+    writeFileSync(
+      path.join(root, file),
+      `
+import type postgres from "postgres";
+import { sql } from "../backend/src/db-connections.ts";
+let other: postgres.Sql;
+function live(value: string) { return sql\`p.title = \${value}\`; }
+function mutable(value: string) { return other\`p.title = \${value}\`; }
+export const good = sql\`SELECT * FROM publications p WHERE \${live("title")}\`;
+export const bad = sql\`SELECT * FROM publications p WHERE \${mutable("title")}\`;
+`,
+    );
+    const result = extractOwnership(root, [...files, driver, file]).find((entry) => entry.file === file)!;
+    assert.ok(result.sites.filter((site) => site.scopeName === "good").every((site) => !site.unknown.length));
+    assert.ok(result.sites.filter((site) => site.scopeName === "bad").some((site) => site.unknown.length));
   });
 });

@@ -1,10 +1,13 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
+import { scrollBehavior } from "../lib/motion";
 import { SITE, withSubject } from "@amp/industry/site";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { HotEntryView, HotResponse } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { monthDayTime, shortSourceName } from "../lib/format";
-import { Badge } from "@amp/ui/Badge";
+import { Badge } from "../components/ui/Badge.tsx";
 import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
 import { Sparkline } from "../features/hot/Sparkline";
@@ -37,7 +40,7 @@ const RANK_COLOR = ["text-rank-1", "text-rank-2", "text-rank-3"];
 const rankColor = (rank: number) => RANK_COLOR[rank - 1] ?? "text-rank-rest";
 const pad = (rank: number) => String(rank).padStart(2, "0");
 
-/** "TechCrunch、The Verge 等 4 个来源 · 7 位参与者". */
+/** "两家来源名称等 4 个来源 · 7 个独立参与方". */
 function Voices({ e }: { e: HotEntryView }) {
   const names = e.sourceNames.slice(0, 2).map(shortSourceName);
   return (
@@ -49,7 +52,7 @@ function Voices({ e }: { e: HotEntryView }) {
       </span>
       <span className="mx-1.5 text-line-strong">·</span>
       <span className="whitespace-nowrap">
-        <span className="num">{e.participantCount}</span> 位参与者
+        <span className="num">{e.participantCount}</span> 个独立参与方
       </span>
     </span>
   );
@@ -66,7 +69,7 @@ function Badges({ e }: { e: HotEntryView }) {
 /** The whole card opens the event; the title carries the link and stretches over the card. */
 function StoryLink({ e, className }: { e: HotEntryView; className: string }) {
   return (
-    <Link to={`/story/${e.story.publicId}`} prefetch="intent" className={`transition-colors after:absolute after:inset-0 after:content-[''] ${className}`}>
+    <Link to={`/story/${e.story.publicId}`} className={`transition-colors after:absolute after:inset-0 after:content-[''] ${className}`}>
       {e.story.title}
     </Link>
   );
@@ -164,7 +167,7 @@ function Runner({ e }: { e: HotEntryView }) {
             </span>{" "}
             ·{" "}
             <span className="whitespace-nowrap">
-              <span className="num">{e.participantCount}</span> 位参与者
+              <span className="num">{e.participantCount}</span> 个独立参与方
             </span>
           </span>
         </div>
@@ -225,7 +228,32 @@ export default function HotPage() {
   const others = rest.slice(2);
   return (
     <div className="pb-10">
-      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-5 pt-5 lg:pt-1">
+      <PhoneBar
+        title="热点"
+        large
+        sub={
+          <>
+            过去{hot.windowHours}小时 · {hot.entries.length}个热点{hot.computedAt && <> · {monthDayTime(hot.computedAt)}更新</>}
+          </>
+        }
+        actions={
+          <button
+            type="button"
+            onClick={() => {
+              const method = document.getElementById("hot-method") as HTMLDetailsElement | null;
+              if (method) {
+                method.open = true;
+                method.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
+              }
+            }}
+            className="flex h-11 items-center gap-1 px-3 text-[14px] text-accent"
+          >
+            <IconInfo size={17} />
+            怎么算
+          </button>
+        }
+      />
+      <header className="hidden flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-5 pt-1 lg:flex">
         <div>
           <div className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.08em] text-hot">
             <span className="relative flex size-2" aria-hidden="true">
@@ -284,7 +312,7 @@ export default function HotPage() {
         </>
       )}
 
-      <details className="disclosure group/method mt-8 text-[12px] text-ink-4">
+      <details id="hot-method" className="disclosure group/method mt-8 text-[12px] text-ink-4">
         <summary className="flex items-center gap-1.5 py-1 transition-colors hover:text-ink-2">
           <IconInfo size={15} />
           热度是怎么算的？

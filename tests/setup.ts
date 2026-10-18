@@ -39,6 +39,9 @@ await initializeDb("test");
  * A local HTTP stub standing in for a paid provider; `answer` builds every response from the request
  * (it may wait, to hold a request open while a test changes something).
  */
+/** Accept the request bytes, then lose its response without inventing an HTTP rejection. */
+export const DROP_RESPONSE = Symbol("drop received request response");
+
 export async function stub(answer: (hit: number, req: { url: string; body: string }) => unknown) {
   let hits = 0;
   const server = http.createServer((req, res) => {
@@ -47,6 +50,10 @@ export async function stub(answer: (hit: number, req: { url: string; body: strin
     req.on("end", async () => {
       hits += 1;
       const out = await answer(hits, { url: req.url ?? "/", body: Buffer.concat(chunks).toString("utf8") });
+      if (out === DROP_RESPONSE) {
+        res.destroy();
+        return;
+      }
       const reply = out instanceof Reply ? out : { status: 200, json: out };
       res.writeHead(reply.status, { "content-type": "application/json" });
       res.end(JSON.stringify(reply.json));
@@ -57,7 +64,7 @@ export async function stub(answer: (hit: number, req: { url: string; body: strin
   return { url: `http://127.0.0.1:${port}`, hits: () => hits, close: () => new Promise<void>((resolve) => server.close(() => resolve())) };
 }
 
-/** A stub answer with its own status (e.g. a provider's 503); anything else is a 200 JSON body. */
+/** An explicit HTTP reply; DROP_RESPONSE instead models a response lost after receipt. */
 export class Reply {
   readonly status: number;
   readonly json: unknown;

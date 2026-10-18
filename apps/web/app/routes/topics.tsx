@@ -1,4 +1,6 @@
-import { Link, useLoaderData } from "react-router";
+import { PhoneBar } from "../components/shell/PhoneBar";
+import { useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 
@@ -45,8 +47,11 @@ export default function TopicsPage() {
   const picks = topics[0]?.basis !== "all";
   return (
     <div className="pb-10">
+      <PhoneBar back={{ to: "/more", label: "我的" }} title="主题" />
       <header className="pb-2 pt-5 lg:pt-1">
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">按主题看矿业</h1>
+        <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
+          按主题看矿业
+        </h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
           按国家与地区、金属、矿企浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期{picks ? "焦点与精选" : "动态"}。
         </p>
@@ -67,7 +72,6 @@ export default function TopicsPage() {
                 <li key={t.slug}>
                   <Link
                     to={`/topics/${t.slug}`}
-                    prefetch="intent"
                     aria-label={`查看${t.name}相关${picks ? "精选文章" : "动态"}`}
                     className="card card-hover group flex h-full flex-col px-5 py-[18px]"
                   >

@@ -11,6 +11,7 @@ import {
   restoreTranslationText,
   shield,
   TranslationTextSchema,
+  translationBudgetUnits,
   translationSourceManifest,
   translationLeaves,
   translationReplacement,
@@ -43,8 +44,8 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
   if (!body || !normalizeSourceLanguage(body.language)) return { status: "skipped" as const, revision: body?.revision, reason: "language_unidentified" };
   if (expectedRevision !== undefined && body.revision !== expectedRevision) return { status: "stale" as const, revision: body.revision };
   if (isChineseOriginal(body.language)) return { status: "skipped" as const, revision: body.revision, reason: "original_chinese" };
-  if (translationSourceManifest(body.body_html ?? "").capacity.length)
-    return { status: "partial" as const, revision: body.revision, reason: "pending_capacity" };
+  const manifest = translationSourceManifest(body.body_html ?? "");
+  if (manifest.capacity.length && !manifest.segments.length) return { status: "partial" as const, revision: body.revision, reason: "pending_capacity" };
   const run = await beginTranslation(body, recipe.id);
   if (!run) return { status: "skipped" as const, revision: body?.revision };
   const fallbackInput = await prepareNewsFallback({ root: shutdownSignal.signal, expected: body, current: () => readCurrentBody(articleId), articles: [body] });
@@ -55,9 +56,14 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     saved.filter((row) => row.replacement).map((row) => row.index),
   );
   if (!leaves) throw new Error("Invalid translation leaf plan");
-  let pendingReason: string | undefined;
+  const chosenUnits = translationBudgetUnits(run.body.body_html);
+  let pendingReason: string | undefined = run.source.capacity.length ? "pending_capacity" : undefined;
   for (let position = 0; position < leaves.length; position++) {
     const segment = leaves[position]!;
+    if (!chosenUnits.has(segment.unitIndex)) {
+      pendingReason = "text_limit";
+      break;
+    }
     assertRunning();
     const checkpoint = saved.find((row) => row.index === segment.index && row.sourceHash === segment.sourceHash);
     if (checkpoint?.state === "complete") continue;

@@ -1,10 +1,11 @@
+import { useReadSet } from "../../lib/local-state";
+import { apiFetch } from "../../lib/http.ts";
 // The day-grouped feed (精选 home, topics): a time rail with cards on desktop, dated rows under grey
-// day bars on phones. Keeps its place across back navigation and loads further pages. There is no
-// "new items" prompt: readers refresh for the latest head (feedback #1199).
+// day bars on phones. Keeps its place across back navigation and loads further pages.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
-import { Collapse } from "@amp/ui/Presence";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { Collapse } from "../../components/ui/Presence.tsx";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { useReaderItemScope } from "./ContentVersionGuard";
 import { FeedItem } from "./FeedItem";
@@ -22,6 +23,7 @@ interface ListState {
   dayCounts: Record<string, number>;
   collapsed: string[];
   batches: number;
+  unreadOnly: boolean;
 }
 
 function filterQuery(f: TimelineFilters, extra: Record<string, string | number | null | undefined> = {}) {
@@ -35,8 +37,8 @@ function filterQuery(f: TimelineFilters, extra: Record<string, string | number |
   return sp.toString();
 }
 
-function fromResponse(r: TimelineResponse): ListState {
-  return { cards: r.cards, nextCursor: r.nextCursor, dayCounts: r.dayCounts, collapsed: [], batches: 1 };
+function fromResponse(r: TimelineResponse, unreadOnly = false): ListState {
+  return { cards: r.cards, nextCursor: r.nextCursor, dayCounts: r.dayCounts, collapsed: [], batches: 1, unreadOnly };
 }
 
 const WEEKDAY_SHORT = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -48,69 +50,85 @@ export function DayHeader({
   count,
   collapsed,
   onToggle,
+  aside,
 }: {
   day: string;
   today: string;
   count: number | null;
   collapsed?: boolean;
   onToggle?: () => void;
+  aside?: React.ReactNode;
 }) {
   const [, m, d] = day.split("-").map(Number) as [number, number, number];
   const date = `${m}月${d}日`;
   const weekday = beijingWeekday(day);
   const short = WEEKDAY_SHORT[new Date(`${day}T12:00:00+08:00`).getUTCDay()] ?? "";
-  return (
-    <div className="sticky top-0 z-20 -mx-4 bg-daybar px-4 lg:mx-0 lg:bg-bg lg:px-0">
-      {/* Phones: a full-width day bar. */}
-      <div className="flex h-9 items-center gap-2 lg:hidden">
-        <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
-        {day === today && <span className="text-[12.5px] text-ink-4">{date}</span>}
-        <span className="text-[12.5px] text-ink-4">{short}</span>
-        {onToggle && (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? `展开${date}` : `收起${date}`}
-            className="ml-auto flex min-h-8 items-center gap-1 text-[12px] text-ink-3"
-          >
-            {collapsed ? "展开" : "收起"}
-            <IconChevronDown size={14} className={collapsed ? "-rotate-90" : ""} />
-          </button>
+  const phoneRow = (
+    <>
+      <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
+      {day === today && <span className="text-[12.5px] text-ink-4">{date}</span>}
+      <span className="text-[12.5px] text-ink-4">{short}</span>
+      <span className="ml-auto flex items-center gap-1 text-[12.5px] text-ink-4">
+        {count !== null && (
+          <span>
+            <span className="num">{count}</span> 条
+          </span>
         )}
-      </div>
-      {/* Desktop: the date ends where the times end, the fold toggle sits on the rail. */}
-      <div className="hidden h-11 grid-cols-[64px_22px_minmax(0,1fr)] items-center lg:grid">
+        {onToggle && <IconChevronDown size={14} className={`transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} />}
+      </span>
+    </>
+  );
+  return (
+    <div className="sticky top-[var(--phone-bar-offset,0px)] z-20 -mx-4 bg-daybar px-4 lg:mx-0 lg:bg-bg lg:px-0">
+      {onToggle ? (
         <button
           type="button"
           onClick={onToggle}
-          disabled={!onToggle}
-          className="justify-self-end whitespace-nowrap text-right text-[18px] font-semibold leading-6 text-ink"
+          aria-expanded={!collapsed}
+          aria-label={`${collapsed ? "展开" : "收起"}${date}`}
+          className="flex h-11 w-full items-center gap-2 text-left lg:hidden"
         >
-          {date}
+          {phoneRow}
         </button>
+      ) : (
+        <div className="flex h-9 items-center gap-2 lg:hidden">{phoneRow}</div>
+      )}
+      <div className="hidden h-11 items-center gap-3 lg:flex">
         {onToggle ? (
           <button
             type="button"
             onClick={onToggle}
             aria-expanded={!collapsed}
-            aria-label={collapsed ? `展开${date}` : `收起${date}`}
-            className="grid size-6 place-items-center justify-self-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink"
+            className="whitespace-nowrap text-left text-[18px] font-semibold leading-6 text-ink"
+          >
+            {date}
+          </button>
+        ) : (
+          <time dateTime={day} className="whitespace-nowrap text-[18px] font-semibold leading-6 text-ink">
+            {date}
+          </time>
+        )}
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? "展开" : "收起"}${date}`}
+            className="grid size-6 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink"
           >
             <IconChevronDown size={14} className={`transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} />
           </button>
-        ) : (
-          <span />
         )}
         <span className="text-[13px] text-ink-4">
           {weekday}
           {count !== null && (
             <>
-              {" · "}
-              <span className="num">{count}</span> 条
+              {" "}
+              · <span className="num">{count}</span> 条
             </>
           )}
         </span>
+        {aside && <span className="ml-auto">{aside}</span>}
       </div>
     </div>
   );
@@ -122,29 +140,31 @@ export function DayHeader({
  */
 export function TimelineSlot({
   at,
+  sourceTime,
   children,
   fresh = false,
   delay = 0,
   dataKey,
 }: {
   at: string;
+  sourceTime?: import("@amp/contracts/time-assertion").TimeAssertion | null;
   children: React.ReactNode;
   fresh?: boolean;
   delay?: number;
   dataKey?: string;
 }) {
-  // A source that gave only the date gets a dash, never the day's 00:00 (Owner 2026-10-05: 只显示日期).
-  const dateOnly = isDateOnlyInstant(at);
+  // The anchor orders the site timeline. An explicit source instant can prove that midnight is a real clock time.
+  const dateOnly = isDateOnlyInstant(at) && !(sourceTime?.utc && Date.parse(sourceTime.utc) === Date.parse(at) && sourceTime.precision !== "date");
   return (
     <li
       data-card-key={dataKey}
-      className={`group/slot grid grid-cols-[48px_minmax(0,1fr)] border-b border-line-soft py-3.5 last:border-b-0 lg:grid-cols-[64px_22px_minmax(0,1fr)] lg:border-b-0 lg:py-0 lg:pb-3 lg:last:pb-0 ${fresh ? "animate-fade-up" : ""}`}
+      className={`group/slot grid grid-cols-[minmax(0,1fr)] border-b border-line-soft py-3.5 last:border-b-0 lg:grid-cols-[64px_22px_minmax(0,1fr)] lg:border-b-0 lg:py-0 lg:pb-3 lg:last:pb-0 ${fresh ? "animate-fade-up" : ""}`}
       style={fresh ? { animationDelay: `${delay}ms` } : undefined}
     >
       <time
         dateTime={dateOnly ? beijingDate(at) : at}
-        title={dateOnly ? "来源只写了日期" : undefined}
-        className="mono pt-[2px] text-[13px] leading-[18px] text-ink-4 lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
+        title={dateOnly ? "按日期归档" : "本站时间线"}
+        className="mono hidden text-ink-4 lg:block lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
       >
         {dateOnly ? NO_TIME : beijingTime(at)}
       </time>
@@ -159,6 +179,7 @@ export function TimelineSlot({
 
 export function Timeline({ initial, filters }: { initial: TimelineResponse; filters: TimelineFilters }) {
   const allowedIds = useReaderItemScope();
+  const readSet = useReadSet();
   const location = useLocation();
   const navigation = useNavigation();
   const historyKey = location.key;
@@ -168,7 +189,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   const [state, setState] = useState<ListState>(() => {
     if (isHydrated()) {
       const snap = readSnapshot<ListState>(historyKey);
-      if (snap) return { ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] };
+      if (snap) return { ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] };
     }
     return fromResponse(initial);
   });
@@ -177,7 +198,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   useLayoutEffect(() => {
     if (lastInitial.current !== initial) {
       lastInitial.current = initial;
-      setState((old) => ({ ...fromResponse(initial), collapsed: old.collapsed }));
+      setState((old) => ({ ...fromResponse(initial, old.unreadOnly), collapsed: old.collapsed }));
     }
   }, [initial]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -201,10 +222,10 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       setLoadingMore(false);
       const snap = readSnapshot<ListState>(historyKey);
       if (snap) {
-        setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
-        restoreAnchor(snap.anchor, snap.scrollY);
+        setState({ ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] });
+        restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
       } else {
-        setState(fromResponse(initial));
+        setState(fromResponse(initial, stateRef.current.unreadOnly));
       }
     }
   }, [filterKey, initial, historyKey]);
@@ -218,12 +239,12 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       // A full load keeps the server's fresh list when the reader reloaded; after a back/forward
       // that reloaded the document, it restores the saved list and position.
       if (snap && !isReload()) {
-        setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
-        requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY));
+        setState({ ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] });
+        requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus));
       }
       return;
     }
-    if (snap) restoreAnchor(snap.anchor, snap.scrollY);
+    if (snap) restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
   }, [historyKey, initial]);
 
   // Save the snapshot whenever we leave this history entry.
@@ -264,9 +285,9 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     setLoadingMore(true);
     setLoadError(false);
     try {
-      const client = createPublicClient({ baseUrl: window.location.origin });
+      const apiBase = window.location.origin;
       const read = (cursor?: string) =>
-        client.GET("/api/site/timeline", {
+        apiFetch("/api/site/timeline", {
           params: {
             query: {
               channel: filters.channel,
@@ -278,16 +299,20 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
           },
           querySerializer: () => filterQuery(filters, { cursor }),
           signal: controller.signal,
+          baseUrl: apiBase,
         });
       const res = await read(s.nextCursor);
-      if (res.response.status === 400) {
+      if (res.status === 400) {
         // Cursor no longer fits: start over from the head.
         const head = await read();
-        if (head.response.ok && current()) setState(fromResponse(publicSchemas.TimelineResponse.parse(head.data)));
+        if (head.ok) {
+          const page = publicSchemas.TimelineResponse.parse(await head.json());
+          if (current()) setState(fromResponse(page, stateRef.current.unreadOnly));
+        }
         return;
       }
-      if (!res.response.ok) throw new Error(String(res.response.status));
-      const page = publicSchemas.TimelineResponse.parse(res.data);
+      if (!res.ok) throw new Error(String(res.status));
+      const page = publicSchemas.TimelineResponse.parse(await res.json());
       if (!current()) return;
       setState((prev) => {
         const seen = new Set(prev.cards.map((c) => c.key));
@@ -327,44 +352,80 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   }, [state.nextCursor, state.batches, loadMore]);
 
   const today = beijingDate(Date.now());
+  const unreadVisible = useCallback(
+    (card: TimelineCard) =>
+      !readSet.has(card.item.id) || (!!card.group && (card.group.memberIds === undefined || card.group.memberIds.some((id) => !readSet.has(id)))),
+    [readSet],
+  );
   const days = useMemo(() => {
     const out: Array<{ day: string; cards: TimelineCard[] }> = [];
     for (const c of state.cards) {
       if (allowedIds && !allowedIds.has(c.item.id)) continue;
+      if (state.unreadOnly && !unreadVisible(c)) continue;
       const d = beijingDate(c.anchorAt);
       const last = out[out.length - 1];
       if (last && last.day === d) last.cards.push(c);
       else out.push({ day: d, cards: [c] });
     }
     return out;
-  }, [state.cards, allowedIds]);
+  }, [state.cards, allowedIds, state.unreadOnly, unreadVisible]);
+
+  const visibleCount = days.reduce((count, day) => count + day.cards.length, 0);
+  useEffect(() => {
+    if (state.unreadOnly && visibleCount === 0 && state.nextCursor && state.batches < AUTO_BATCHES && !loadingMore && !loadError) void loadMore();
+  }, [state.unreadOnly, visibleCount, state.nextCursor, state.batches, loadingMore, loadError, loadMore]);
 
   const toggleDay = (day: string) =>
     setState((s) => ({ ...s, collapsed: s.collapsed.includes(day) ? s.collapsed.filter((d) => d !== day) : [...s.collapsed, day] }));
 
   let order = 0;
+  const unreadToggle = (
+    <button
+      type="button"
+      aria-pressed={state.unreadOnly}
+      onClick={() => setState((s) => ({ ...s, unreadOnly: !s.unreadOnly }))}
+      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-[12.5px] transition-colors ${state.unreadOnly ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-ink-3 hover:text-ink"}`}
+    >
+      <span aria-hidden="true" className={`size-3.5 rounded-full border ${state.unreadOnly ? "border-accent bg-accent" : "border-line-strong"}`} />
+      只看未读
+    </button>
+  );
   return (
     <div className="relative">
-      {days.length === 0 && (
+      <div className={`mb-2 flex justify-end ${days.length ? "lg:hidden" : ""}`}>{unreadToggle}</div>
+      {days.length === 0 && !loadingMore && (
         <div className="lg:card">
-          <EmptyState title="这个筛选下还没有精选内容">换个类别看看，或者去全部动态里找找。</EmptyState>
+          {state.unreadOnly ? (
+            <EmptyState title={state.nextCursor ? "这批精选都读过了" : "没有未读的精选内容"}>
+              {state.nextCursor ? "可以继续查看更早的未读精选。" : "关掉「只看未读」可以看到全部内容。"}
+            </EmptyState>
+          ) : (
+            <EmptyState title="这个筛选下还没有精选内容">换个类别看看，或者去全部动态里找找。</EmptyState>
+          )}
         </div>
       )}
 
-      {days.map(({ day, cards }) => {
+      {days.map(({ day, cards }, dayIndex) => {
         const collapsed = state.collapsed.includes(day);
-        const count = state.dayCounts[day] ?? cards.length;
+        const count = state.unreadOnly ? cards.length : (state.dayCounts[day] ?? cards.length);
         return (
           <section key={day} aria-label={day} className="lg:mb-1">
-            <DayHeader day={day} today={today} count={count} collapsed={collapsed} onToggle={() => toggleDay(day)} />
+            <DayHeader
+              day={day}
+              today={today}
+              count={count}
+              collapsed={collapsed}
+              onToggle={() => toggleDay(day)}
+              aside={dayIndex === 0 ? unreadToggle : undefined}
+            />
             <Collapse open={!collapsed}>
               <ol className="lg:pt-1">
                 {cards.map((c) => {
                   const fresh = freshKeys.has(c.key);
                   const delay = fresh ? Math.min(order++, 10) * 40 : 0;
                   return (
-                    <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} fresh={fresh} delay={delay}>
-                      <FeedItem item={c.item} group={c.group} filters={filters} />
+                    <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} sourceTime={c.item.sourceTime} fresh={fresh} delay={delay}>
+                      <FeedItem item={c.item} group={c.group} filters={filters} at={c.anchorAt} read={state.unreadOnly ? false : undefined} />
                     </TimelineSlot>
                   );
                 })}

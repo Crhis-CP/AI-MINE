@@ -1,18 +1,17 @@
+import { apiFetch } from "../lib/http.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { Link, data as withHeaders, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/home";
-import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, organizationLd, pageMeta } from "../lib/seo";
-import { Wordmark } from "../components/Logo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
-import { CategoryTabs, JurisdictionFilter, SearchField, SearchIconLink } from "../features/feed/Filters";
+import { CategoryTabs, JurisdictionFilter, SearchField, FeedBar } from "../features/feed/Filters";
 import { DayList } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
-import { beijingDate, beijingWeekday } from "../lib/format";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
@@ -34,20 +33,19 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
   const data = await loadOr404(
     () =>
-      createPublicClient({ baseUrl: apiBaseFor("/api/site/timeline") })
-        .GET("/api/site/timeline", {
-          params: { query },
-          querySerializer: () => queryString(query).slice(1),
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-        })
-        .then((result) => {
-          const body = contractResult(result, publicSchemas.TimelineResponse);
-          result.response.headers.forEach((value, name) => {
-            upstream.set(name, value);
-          });
-          return body;
-        }),
+      apiFetch("/api/site/timeline", {
+        params: { query },
+        querySerializer: () => queryString(query).slice(1),
+        headers: { accept: "application/json", "x-amp-ssr": "1" },
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        baseUrl: apiBaseFor("/api/site/timeline"),
+      }).then(async (result) => {
+        const body = await contractResult(result, publicSchemas.TimelineResponse);
+        result.headers.forEach((value, name) => {
+          upstream.set(name, value);
+        });
+        return body;
+      }),
     { signal: request.signal },
   );
   // Until the first pick exists, the unfiltered home page shows the newest items of 全部动态 instead of
@@ -66,22 +64,22 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 /** True when any 精选 exists, including ones outside the homepage window. A failed read counts as not started. */
 function featuredHasStarted(signal: AbortSignal) {
-  return createPublicClient({ baseUrl: apiBaseFor("/api/site/stats") })
-    .GET("/api/site/stats", {
-      headers: { accept: "application/json", "x-amp-ssr": "1" },
-      signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
-    })
-    .then((result) => contractResult(result, publicSchemas.SiteStats).selected > 0)
+  return apiFetch("/api/site/stats", {
+    headers: { accept: "application/json", "x-amp-ssr": "1" },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
+    baseUrl: apiBaseFor("/api/site/stats"),
+  })
+    .then(async (result) => (await contractResult(result, publicSchemas.SiteStats)).selected > 0)
     .catch(() => false);
 }
 
 /** The first page of 全部动态; "empty" or "failed" when there is nothing to show (DR-85). */
 function loadLatest(signal: AbortSignal) {
-  return createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
-    .GET("/api/site/pool", {
-      headers: { accept: "application/json", "x-amp-ssr": "1" },
-      signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
-    })
+  return apiFetch("/api/site/pool", {
+    headers: { accept: "application/json", "x-amp-ssr": "1" },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+    baseUrl: apiBaseFor("/api/site/pool"),
+  })
     .then((result) => contractResult(result, publicSchemas.PoolResponse))
     .then((pool) => (pool.items.length > 0 ? pool : ("empty" as const)))
     .catch(() => "failed" as const);
@@ -97,16 +95,6 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
   return loaderHeaders;
 }
 
-function TodayLabel() {
-  const today = beijingDate(Date.now());
-  const [, m, d] = today.split("-").map(Number) as [number, number, number];
-  return (
-    <span className="text-[12.5px] text-ink-4" suppressHydrationWarning>
-      {m}月{d}日 · {beijingWeekday(today).replace("星期", "周")}
-    </span>
-  );
-}
-
 export default function Home() {
   const { data, waiting, latest, filters } = useLoaderData<typeof loader>();
   const title = filters.tag ? `#${filters.tag}` : latest ? "最新动态" : "精选";
@@ -114,12 +102,9 @@ export default function Home() {
   const tabsBase = waiting ? "/all" : "/";
   const allTo = waiting ? "/" : undefined;
   return (
-    <div className="pb-6">
-      {/* Phones: brand bar, today's hot topics, then the feed under "最新精选". */}
-      <div className="flex h-14 items-center justify-between lg:hidden">
-        <Wordmark size={20} className="text-ink" />
-        <TodayLabel />
-      </div>
+    <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
+      <FeedBar base="/" category={filters.category} channel={filters.channel} jurisdiction={filters.jurisdiction ?? null} />
+      {data.hot && <HotTopics entries={data.hot} cards={data.cards} />}
       <div className="hidden lg:block">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
@@ -128,21 +113,8 @@ export default function Home() {
         </div>
       </div>
 
-      <JurisdictionFilter base={tabsBase} value={filters.jurisdiction} />
-      {data.hot && <HotTopics entries={data.hot} />}
-
-      <h2 className="mt-6 text-[20px] font-bold text-ink lg:hidden">{filters.tag || latest ? title : "最新精选"}</h2>
-      <div className="-mx-4 mt-3 flex items-center gap-2 pl-4 pr-2 lg:hidden">
-        <CategoryTabs
-          base={tabsBase}
-          allTo={allTo}
-          category={filters.category}
-          channel={filters.channel}
-          layoutId="home-cat-mobile"
-          size="sm"
-          className="min-w-0 flex-1"
-        />
-        <SearchIconLink />
+      <div className="hidden lg:block">
+        <JurisdictionFilter base={tabsBase} value={filters.jurisdiction} />
       </div>
 
       {latest ? (

@@ -1,12 +1,10 @@
 import { readMatcherValues } from "./mentions.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
-// Home timeline: selected items folded into reading groups (reference SELECTED_READING):
-// one card per story, per fact outside a story, or per standalone article. A card sits at its latest
-// development's first appearance, so a new development brings it back up while a representative swap
-// never moves it; the representative is the first-party pick of the story's initiating fact.
+// Reports of the same fact share a card and its first appearance. New developments in the same
+// story remain separate cards; changing the representative never brings an old fact back to today.
 import type { GroupInfo, TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
   ITEM_COLUMNS,
@@ -20,8 +18,6 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
-
-const sql = dbOf("publication");
 
 export interface TimelineQuery extends TimelineFilters {
   scope?: "all" | "selected";
@@ -56,30 +52,22 @@ function binding(q: TimelineQuery): string {
   });
 }
 
-/** Representative preference: first-party, full text, higher score, earliest. */
-type RepresentativeRow = Pick<ItemRow, "first_party" | "body_mode" | "score" | "timeline_at">;
-export function pickRepresentative<T extends RepresentativeRow>(rows: T[]): T {
-  return [...rows].sort((a, b) => {
-    if (a.first_party !== b.first_party) return a.first_party ? -1 : 1;
-    if (a.body_mode !== b.body_mode) return a.body_mode === "full" ? -1 : 1;
-    const sa = a.score ?? 0;
-    const sb = b.score ?? 0;
-    if (sa !== sb) return sb - sa;
-    return a.timeline_at.getTime() - b.timeline_at.getTime();
-  })[0]!;
+import { attachRepresentativePriority, pickRepresentative, type RepresentativeRow } from "./representative.ts";
+export { pickRepresentative } from "./representative.ts";
+
+/** Only a report still belonging to its fact can share that fact's card. Mentions stay independent. */
+function ownFactEvidence() {
+  return sql`EXISTS (SELECT 1 FROM fact_articles fa WHERE fa.fact_id=p.fact_id AND fa.article_id=p.article_id AND fa.role IN ('primary', 'report'))`;
 }
 
-/**
- * Public pool reports linked to the facts of the given stories and standalone facts, under the same
- * filters (non-selected included): the sets "另有 N 家信源报道" expands and the group counts come from.
- */
-async function groupPool(q: TimelineQuery, now: Date, storyIds: number[], factIds: number[]) {
+/** Public evidence behind the same fact's expandable source list, under the current filters. */
+async function groupPool(q: TimelineQuery, now: Date, factIds: number[]) {
   const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
-  if (!storyIds.length && !factIds.length) return [];
+  if (!factIds.length) return [];
   return sql<{ story_id: number | null; fact_id: number; article_id: string; source_id: string; at: Date }[]>`
     SELECT DISTINCT f.story_id, f.id AS fact_id, p.article_id, p.source_id, p.timeline_at AS at
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
-    WHERE (f.story_id IN ${sql(storyIds.length ? storyIds : [0])} OR f.id IN ${sql(factIds.length ? factIds : [0])})
+    WHERE f.id IN ${sql(factIds)} AND fa.role IN ('primary', 'report')
       AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
 }
 
@@ -114,11 +102,11 @@ async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
   const rows = (
     await sql<{ gk: string; anchor_at: Date }[]>`
       WITH base AS (
-        SELECT p.sort_at, coalesce('s' || p.story_id::text, 'f' || p.fact_id::text, 'a' || p.article_id) AS gk
+        SELECT p.sort_at, CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} THEN 'f' || p.fact_id::text ELSE 'a' || p.article_id END AS gk
         FROM publications p
         WHERE ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}
       )
-      SELECT gk, max(sort_at) AS anchor_at FROM base GROUP BY gk ORDER BY anchor_at DESC, gk COLLATE "C" DESC`
+      SELECT gk, min(sort_at) AS anchor_at FROM base GROUP BY gk ORDER BY anchor_at DESC, gk COLLATE "C" DESC`
   ).map((r) => ({ gk: r.gk, anchor: r.anchor_at.getTime() }));
   return rows;
 }
@@ -132,7 +120,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const bind = binding(q);
   let after: { a: number; g: string } | null = null;
   if (q.cursor) {
-    const c = decodeCursor<{ a: number; g: string; b: string }>("tl1", q.cursor);
+    const c = decodeCursor<{ a: number; g: string; b: string }>("tl2", q.cursor);
     if (c.b !== bind || typeof c.a !== "number" || typeof c.g !== "string") throw new InvalidCursorError("cursor does not match this query");
     after = { a: c.a, g: c.g };
   }
@@ -147,20 +135,20 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const page = groups.slice(0, limit);
   const hasMore = groups.length > limit;
 
-  const storyIds = page.filter((g) => g.gk.startsWith("s")).map((g) => Number(g.gk.slice(1)));
   const factIds = page.filter((g) => g.gk.startsWith("f")).map((g) => Number(g.gk.slice(1)));
 
   // Read only ranking fields for the whole group; bodies, media and translations are hydrated for this page's representatives.
-  type Member = RepresentativeRow & Pick<ItemRow, "id" | "sort_at"> & { story_id: number | null; fact_id: number };
+  type Member = RepresentativeRow & Pick<ItemRow, "id" | "sort_at" | "source_id"> & { story_id: number | null; fact_id: number };
   const [members, pool] = await Promise.all([
-    storyIds.length || factIds.length
+    factIds.length
       ? sql<Member[]>`
-        SELECT p.story_id, p.fact_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
-        WHERE (p.story_id IN ${sql(storyIds.length ? storyIds : [0])} OR (p.story_id IS NULL AND p.fact_id IN ${sql(factIds.length ? factIds : [0])}))
+        SELECT p.story_id, p.fact_id, p.source_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
+        WHERE p.fact_id IN ${sql(factIds)} AND ${ownFactEvidence()}
           AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
       : Promise.resolve([] as Member[]),
-    groupPool(q, now, storyIds, factIds),
+    groupPool(q, now, factIds),
   ]);
+  await attachRepresentativePriority(members);
   const groupFactIds = [...new Set([...members.map((m) => m.fact_id), ...pool.map((r) => r.fact_id)])];
   const factInfo = new Map(
     groupFactIds.length
@@ -170,7 +158,6 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
         ])
       : [],
   );
-  const firstSeen = (list: Member[]) => Math.min(...list.map((r) => (r.sort_at ?? r.timeline_at).getTime()));
 
   const planned: Array<{ key: string; anchorAt: string; id: string; group: GroupInfo | null }> = [];
   for (const g of page) {
@@ -178,35 +165,20 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
       planned.push({ key: g.gk, anchorAt: g.anchor_at.toISOString(), id: g.gk.slice(1), group: null });
       continue;
     }
-    const id = Number(g.gk.slice(1));
-    const isStory = g.gk.startsWith("s");
-    const byFact = new Map<number, Member[]>();
-    for (const m of members) {
-      if (isStory ? m.story_id !== id : m.story_id !== null || m.fact_id !== id) continue;
-      byFact.set(m.fact_id, [...(byFact.get(m.fact_id) ?? []), m]);
-    }
-    if (byFact.size === 0) continue;
-    const reports = pool.filter((r) => (isStory ? r.story_id === id : r.fact_id === id));
-    // The group stands for its initiating fact, the one first reported; that fact's first-party pick
-    // represents it, or, when it has no selected report, the pick of the earliest fact that has one.
-    const firstReport = new Map<number, number>();
-    for (const r of reports) firstReport.set(r.fact_id, Math.min(firstReport.get(r.fact_id) ?? Infinity, r.at.getTime()));
-    const mainFact = [...firstReport.entries()].sort((x, y) => x[1] - y[1] || x[0] - y[0])[0]?.[0] ?? [...byFact.keys()][0]!;
-    const repRows = byFact.get(mainFact) ?? [...byFact.values()].sort((x, y) => firstSeen(x) - firstSeen(y))[0]!;
-    const rep = pickRepresentative(repRows);
-    const mainReports = reports.filter((r) => r.fact_id === mainFact);
-    const [newestFact, newestRows] = [...byFact.entries()].sort((x, y) => firstSeen(y[1]) - firstSeen(x[1]) || y[0] - x[0])[0]!;
-    const newest = newestFact !== mainFact ? factInfo.get(newestFact) : undefined;
+    const factId = Number(g.gk.slice(1));
+    const candidates = members.filter((member) => member.fact_id === factId);
+    if (!candidates.length) continue;
+    const rep = pickRepresentative(candidates);
+    const reports = pool.filter((report) => report.fact_id === factId);
     const group: GroupInfo = {
-      factId: factInfo.get(mainFact)?.public_id ?? String(mainFact),
+      factId: factInfo.get(factId)?.public_id ?? String(factId),
       story: null,
-      additionalSourceCount: Math.max(0, new Set(mainReports.map((r) => r.source_id)).size - 1),
-      // Reports of the facts that have a selected report (the developments), counted once each.
-      reportCount: new Set(reports.filter((r) => byFact.has(r.fact_id)).map((r) => r.article_id)).size,
-      developmentCount: byFact.size,
-      latestDevelopment: newest ? { factId: newest.public_id, title: newest.title, at: new Date(firstSeen(newestRows)).toISOString() } : null,
+      additionalSourceCount: new Set(reports.filter((report) => report.source_id !== rep.source_id).map((report) => report.source_id)).size,
+      reportCount: new Set(reports.map((report) => report.article_id)).size,
+      developmentCount: 1,
+      latestDevelopment: null,
     };
-    const showGroup = group.reportCount > 1 || group.developmentCount > 1;
+    const showGroup = group.reportCount > 1;
     planned.push({ key: g.gk, anchorAt: g.anchor_at.toISOString(), id: rep.id, group: showGroup ? group : null });
   }
 
@@ -215,16 +187,24 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
     planned.length
       ? (
           await sql<ItemRow[]>`
-    SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(planned.map((p) => p.id))}
+    SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${sql(planned.map((p) => p.id))}
       AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
         ).map((row) => [row.id, row])
       : [],
   );
+  const currentMembers = members.length
+    ? await sql<{ id: string; fact_id: number }[]>`
+    SELECT p.article_id AS id,p.fact_id FROM publications p WHERE p.article_id=ANY(${members.map((member) => member.id)}::text[])
+      AND p.selected AND ${entryCondition(q, now)} AND ${ownFactEvidence()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
+    : [];
   await attachSourcePolicies([...rows.values()]);
   const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt, group }) => {
     const row = rows.get(id);
     if (!row) return [];
-    if (group) group.story = row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null;
+    if (group) {
+      group.story = row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null;
+      group.memberIds = [...new Set(currentMembers.filter((member) => member.fact_id === row.fact_id).map((member) => member.id))];
+    }
     return [{ key, anchorAt, item: toFeedItemSummary(row), group }];
   });
 
@@ -240,7 +220,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
 
   const refreshAt = await refreshAtRead;
   const last = page[page.length - 1];
-  const nextCursor = hasMore && last ? encodeCursor("tl1", { a: last.anchor_at.getTime(), g: last.gk, b: bind }) : null;
+  const nextCursor = hasMore && last ? encodeCursor("tl2", { a: last.anchor_at.getTime(), g: last.gk, b: bind }) : null;
   return {
     total: grouped.length,
     filters: { channel: q.channel, category: q.category, tag: q.tag, topic: q.topic ?? null, ...(q.jurisdiction ? { jurisdiction: q.jurisdiction } : {}) },

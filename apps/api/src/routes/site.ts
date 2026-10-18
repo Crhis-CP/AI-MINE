@@ -1,22 +1,22 @@
 import { validNewsJurisdiction } from "@amp/industry/jurisdictions";
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
-import { routes as contracts, MetalPrices, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
+import { routes as contracts, policyRoutes, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
 import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail";
 import { loadPool, SearchBusyError } from "@amp/backend/publication/pool";
-import { loadTimeline } from "@amp/backend/publication/timeline";
+import { loadTimeline, policyScope } from "@amp/backend/publication/timeline";
 import { loadStoryFollowups } from "@amp/backend/publication/followups";
 import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/groups";
 import { loadTopicTags } from "@amp/backend/publication/topics";
-import { loadHotStrip } from "@amp/backend/events/hot-read";
+import { loadHotStrip, hotSearchLinks } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
-import { loadSiteStats, loadMetalPrices } from "@amp/backend/site/stats";
+import { loadSiteStats } from "@amp/backend/site/stats";
 import { isValidDate } from "@amp/contracts/time";
 import { itemAvailability, savedItems, contentVersion, publicFreshness } from "@amp/backend/publication/availability";
-import { listTopicSummaries, loadTopicPage } from "@amp/backend/publication/topics";
+import { listTopicSummaries, loadTopicPage, topicBrowseLinks } from "@amp/backend/publication/topics";
 import { registerFeedback } from "./feedback.ts";
 
 import { loadHot, loadStoryDetail, resolveStory } from "@amp/backend/publication/stories";
@@ -108,6 +108,16 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
 }
 
 export function registerSite(app: FastifyInstance) {
+  // The country filter is shared by news and policy reading.
+  app.get(
+    policyRoutes.siteJurisdictions.url,
+    policyRoutes.siteJurisdictions,
+    siteHandler(async (_req, reply) => {
+      const data = await policyScope(true);
+      return sendJsonWithEtag(_req, reply, data, { etagPrefix: "siteJurisdictions", cacheControl: "no-store" });
+    }),
+  );
+
   app.get(
     contracts.siteContentVersion.url,
     contracts.siteContentVersion,
@@ -272,16 +282,6 @@ export function registerSite(app: FastifyInstance) {
   );
 
   app.get(
-    contracts.siteMetalPrices.url,
-    contracts.siteMetalPrices,
-    siteHandler(async (req, reply) => {
-      const prices = MetalPrices.parse(await loadMetalPrices());
-      const { generatedAt: _generatedAt, ...content } = prices;
-      return sendJsonWithEtag(req, reply, prices, { etagPrefix: "metals", etagOf: content, cacheControl: "public, max-age=300, s-maxage=300" });
-    }),
-  );
-
-  app.get(
     "/api/site/changelog",
     siteHandler(async (req, reply) => {
       return sendJsonWithEtag(req, reply, loadChangelog(), { etagPrefix: "changelog", cacheControl: "public, max-age=300, s-maxage=300" });
@@ -294,6 +294,20 @@ export function registerSite(app: FastifyInstance) {
       const ids = (looseQuery(req).ids ?? "").split(",").filter(Boolean);
       reply.header("Cache-Control", "no-store");
       return reply.send(await itemAvailability(ids));
+    }),
+  );
+
+  app.get(
+    contracts.siteSearchSuggestions.url,
+    { schema: contracts.siteSearchSuggestions.schema },
+    siteHandler(async (req, reply) => {
+      const [topics, hot] = await Promise.all([topicBrowseLinks(), hotSearchLinks()]);
+      return sendJsonWithEtag(
+        req,
+        reply,
+        { topics, hot },
+        { etagPrefix: "search-suggestions", cacheControl: "public, max-age=30, s-maxage=30, must-revalidate" },
+      );
     }),
   );
 

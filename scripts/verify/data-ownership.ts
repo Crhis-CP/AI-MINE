@@ -19,6 +19,7 @@ export const OWNERSHIP_BASELINE = "scripts/verify/data-ownership-baseline.json";
 type Owner = { module: string; access: string };
 export type OwnershipMap = {
   moduleAliases: Record<string, string>;
+  fileModules?: Record<string, string>;
   tables: Record<string, Owner>;
   externalTables: Record<string, Owner>;
   settings: Record<string, string>;
@@ -52,6 +53,7 @@ const budgetSchema = z.object({
 });
 const mapSchema = z.object({
   moduleAliases: strings,
+  fileModules: strings.optional(),
   tables: owners,
   externalTables: owners,
   settings: strings,
@@ -90,7 +92,9 @@ export function ownershipReport(inventory: Inventory, map: OwnershipMap, lockFin
     if (file.sites.length) add(totals, `${file.scope}.sqlFiles`);
     if (map.splitFiles[file.file] && file.sites.length) add(totals, `${file.scope}.splitFilesWithSQL`);
     const names = [...new Set(file.modules.map((item) => item.name && normalize(item.name, map)))];
-    const module = names.length === 1 ? names[0] : null;
+    const registered = map.fileModules?.[file.file];
+    const module = registered ? normalize(registered, map) : names.length === 1 ? names[0] : null;
+    if (registered && names.some((name) => name !== module)) errors.push(`${file.file}: database binding disagrees with registered source ownership`);
     for (const site of file.sites) {
       const reasons = [...site.unknown];
       add(totals, `${file.scope}.sqlSites`);
@@ -138,9 +142,9 @@ export function ownershipReport(inventory: Inventory, map: OwnershipMap, lockFin
         add(totals, `${file.scope}.unknownSites`);
         if (file.scope === "runtime") {
           const dependencies = { ...site.dependencies };
-          if (Object.hasOwn(dependencies, "pnpm-lock.yaml")) {
+          if (Object.hasOwn(dependencies, "package-lock.json")) {
             if (!lockFingerprint) throw new Error("SQL/parser dependency fingerprint missing");
-            delete dependencies["pnpm-lock.yaml"];
+            delete dependencies["package-lock.json"];
             dependencies["sql/parser-locked-subgraph"] = lockFingerprint;
           }
           add(unknown, `${file.file}:${site.scopeName}:${digest(JSON.stringify([site.sourceHash, dependencies, reasons]))}`);
@@ -208,7 +212,7 @@ export function migrationOwnership(root = ROOT) {
 
 export function buildOwnershipReport(root = ROOT, map = read<OwnershipMap>(root, OWNERSHIP_MAP)) {
   const migrations = migrationOwnership(root);
-  const sqlLock = sqlLockFingerprint(readFileSync(path.join(root, "pnpm-lock.yaml"), "utf8"));
+  const sqlLock = sqlLockFingerprint(readFileSync(path.join(root, "package-lock.json"), "utf8"));
   const report = ownershipReport(extractOwnership(root), map, sqlLock.fingerprint);
   for (const file of migrations) if (file.unknown.length) add(report.baseline.unknown, `migration:${file.file}:${file.hash}`);
   return { ...report, migrations, sqlLock };
@@ -269,6 +273,8 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
     for (const file of Object.keys(map.splitFiles)) if (!previous.map.splitFiles[file]) errors.push(`split-file allowlist increased: ${file}`);
     for (const [table, owner] of Object.entries(previous.map.tables))
       if (map.tables[table] && map.tables[table].module !== owner.module) errors.push(`existing table owner changed: ${table}`);
+    for (const [file, owner] of Object.entries(previous.map.fileModules ?? {}))
+      if (map.fileModules?.[file] !== owner) errors.push(`existing source owner changed: ${file}`);
     for (const kind of ["settings", "moduleAliases", "externalTables"] as const)
       for (const [key, value] of Object.entries(map[kind]))
         if (JSON.stringify(previous.map[kind][key]) !== JSON.stringify(value)) errors.push(`ownership rule expanded or changed: ${kind}.${key}`);

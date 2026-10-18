@@ -1,11 +1,13 @@
-import { dbOf, type Db } from "../db.ts";
+import { modelBudgetService } from "./model-budget.ts";
+import { environmentModelMetadata } from "./llm.ts";
+import { sql, type Db } from "../db.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
-import { connectionRow, registeredModelId, modelConfigurationHash } from "./model-registry.ts";
+import { connectionRow, registeredModelId, modelConfigurationHash, type ConnectionConfig } from "./model-registry.ts";
 import { modelConfigurationIdentity } from "../admin/models.ts";
 import { readModelRouteApproval } from "./model-fallback-quality.ts";
 import { policyFallbackQuality, type PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import { policyModelQualificationKey } from "../policy/model-evidence.ts";
-const sql = dbOf("ai-gateway");
+
 export type BackupAdmission = {
   kind: "selection" | "policy" | "capability";
   id: string;
@@ -19,6 +21,21 @@ export type BackupAdmission = {
   name: string;
   modelName: string;
 };
+export async function modelService(key: string, db: Db): Promise<string | null> {
+  const id = registeredModelId(key);
+  if (id) {
+    const row = await connectionRow(id, db);
+    return modelBudgetService(row.config.endpoint, row.config.interface === "deepseek" ? "deepseek" : undefined);
+  }
+  const configured = environmentModelMetadata(key);
+  return configured && "budgetService" in configured ? configured.budgetService : null;
+}
+/** A fallback must survive the primary service failing; another model on the same service cannot do so. */
+export async function differentModelServices(primaryKey: string, backupConfig: ConnectionConfig, db: Db): Promise<boolean> {
+  const primaryService = await modelService(primaryKey, db);
+  const backupService = modelBudgetService(backupConfig.endpoint, backupConfig.interface === "deepseek" ? "deepseek" : undefined);
+  return !!primaryService && primaryService !== backupService;
+}
 export async function backupAdmission(
   capability: string,
   key: string,
@@ -29,9 +46,10 @@ export async function backupAdmission(
 ): Promise<BackupAdmission | null> {
   const id = registeredModelId(key),
     cap = CAPABILITIES[capability as keyof typeof CAPABILITIES];
-  if (!id || !cap || key === primaryKey || ["group", "groupReview", "digest"].includes(capability)) return null;
+  if (!id || !cap || key === primaryKey) return null;
   const row = await connectionRow(id, db),
     cfg = modelConfigurationHash(row.config);
+  if (!(await differentModelServices(primaryKey, row.config, db))) return null;
   if (!row.enabled || row.passed_revision !== row.revision || ("vision" in cap && cap.vision && !row.config.vision)) return null;
   const [probe] = await db<
     { receiptId: number; attemptId: string; reported: string; fingerprint: string | null }[]

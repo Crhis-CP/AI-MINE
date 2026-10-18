@@ -1,3 +1,4 @@
+import { modelBudgetService, ensureModelBudget } from "../providers/model-budget.ts";
 import { hasAssignedBackup } from "./model-fallback.ts";
 import { environmentValue } from "../config.ts";
 import { randomUUID } from "node:crypto";
@@ -11,7 +12,7 @@ import {
   ModelProbeRecord,
   ModelRouteChange,
 } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { audit, actorOf, requireCapability, requireOwner, type AdminPrincipal } from "./auth.ts";
 import { CAPABILITIES, invalidateModelCache, type Capability } from "../editorial/models.ts";
 import {
@@ -26,7 +27,7 @@ import {
 } from "../providers/model-registry.ts";
 import { sealModelSecret, modelStorageReady } from "../providers/model-vault.ts";
 import { requireRuntimeRunning } from "../operations/lane-controls.ts";
-const sql = dbOf("ai-gateway");
+
 export type ModelRegistryGuards = { manage(principal: AdminPrincipal, db: Db): Promise<void>; owner(principal: AdminPrincipal, db: Db): Promise<void> };
 const defaultGuards: ModelRegistryGuards = { manage: (principal, db) => requireCapability(principal, "models.manage", db), owner: requireOwner };
 const parse = <S extends z.ZodType>(schema: S, value: unknown): z.infer<S> => {
@@ -55,6 +56,7 @@ export async function createModelConnection(input: unknown, principal: AdminPrin
     const sealed = sealModelSecret(value.secret, `${id}:${secretId}`),
       config = ModelConnectionConfig.strip().parse(value);
     await tx`INSERT INTO ai.model_connections(id,config,secret_id,sealed_secret,fingerprint) VALUES(${id},${tx.json(config)},${secretId},${tx.json(sealed)},${sealed.fingerprint})`;
+    await ensureModelBudget(modelBudgetService(config.endpoint, config.interface === "deepseek" ? "deepseek" : undefined), tx);
     const record = await connectionRecord(await connectionRow(id, tx), tx);
     await audit(actorOf(principal), "models.connection.create", id, value.reason, null, { ...record, supplier_basis: value.supplier_basis }, undefined, tx);
     return record;
@@ -71,6 +73,8 @@ export async function updateModelConnection(id: string, input: unknown, principa
     if (protectedChange) {
       await guards.owner(principal, tx);
       if (!value.owner_confirmed || !value.supplier_basis) throw new ModelConnectionUnavailable("密钥或供应商变更须负责人确认并提供依据");
+      if (new URL(value.endpoint).origin !== new URL(before.config.endpoint).origin && !value.secret)
+        throw new ModelConnectionUnavailable("更换服务域名时，请填写新服务的密钥，不能自动沿用原密钥");
     }
     const config = ModelConnectionConfig.strip().parse(value);
     if (modelConfigurationHash(config) !== modelConfigurationHash(before.config) || value.enabled === false) {
@@ -84,7 +88,15 @@ export async function updateModelConnection(id: string, input: unknown, principa
     }
     const secretId = value.secret ? randomUUID() : before.secret_id;
     const sealed = value.secret ? sealModelSecret(value.secret, `${id}:${secretId}`) : before.sealed_secret;
-    await tx`UPDATE ai.model_connections SET revision=revision+1,enabled=${value.enabled ?? before.enabled},config=${tx.json(config)},secret_id=${secretId},sealed_secret=${tx.json(sealed)},fingerprint=${sealed.fingerprint},passed_revision=NULL,tested_at=NULL,updated_at=now() WHERE id=${id} AND revision=${before.revision}`;
+    const keepTest =
+      !value.secret &&
+      value.enabled !== false &&
+      before.enabled &&
+      before.passed_revision === before.revision &&
+      modelConfigurationHash(config) === modelConfigurationHash(before.config);
+    await tx`UPDATE ai.model_connections SET revision=revision+1,enabled=${value.enabled ?? before.enabled},config=${tx.json(config)},secret_id=${secretId},sealed_secret=${tx.json(sealed)},fingerprint=${sealed.fingerprint},
+      passed_revision=${keepTest ? before.revision + 1 : null},tested_at=${keepTest ? before.tested_at : null},updated_at=now() WHERE id=${id} AND revision=${before.revision}`;
+    await ensureModelBudget(modelBudgetService(config.endpoint, config.interface === "deepseek" ? "deepseek" : undefined), tx);
     const record = await connectionRecord(await connectionRow(id, tx), tx);
     await audit(
       actorOf(principal),
@@ -209,10 +221,9 @@ export async function assignRegisteredModel(capability: string, input: unknown, 
         if (!run.models.includes(previous) || oldCases.length !== run.sample_size || JSON.stringify(oldCases) !== JSON.stringify(newCases))
           throw new ModelConnectionUnavailable("精选评分切换须先完成同一批校准样本的比较");
       }
-    } else {
-      if (!value.emergency_confirmed || capability === "score") throw new ModelConnectionUnavailable("缺少评测依据；评分不得紧急跳过校准比较");
-      await guards.owner(principal, tx);
     }
+    // Quality comparisons remain available, but a tested connection can be selected directly.
+    // Choosing a model does not change the separately approved mining scoring standard.
     const revision = (route?.revision ?? 0) + 1;
     await tx`INSERT INTO ai.model_routes(capability,revision,model_key,connection_revision,evaluation_id,unevaluated) VALUES(${capability},${revision},${value.model},${row.revision},${value.evaluation_id},${!value.evaluation_id}) ON CONFLICT(capability) DO UPDATE SET revision=EXCLUDED.revision,model_key=EXCLUDED.model_key,connection_revision=EXCLUDED.connection_revision,evaluation_id=EXCLUDED.evaluation_id,unevaluated=EXCLUDED.unevaluated,updated_at=now()`;
     await tx`INSERT INTO settings(key,value,updated_by) VALUES(${`models.${capability}`},${tx.json({ model: value.model })},${actorOf(principal)}) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()`;

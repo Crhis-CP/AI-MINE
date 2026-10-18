@@ -1,5 +1,6 @@
 import { SITE, withSubject } from "@amp/industry/site";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
+import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { ReportIndexEntry } from "@amp/contracts/site";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
@@ -54,7 +55,7 @@ export default function DailyArchive() {
           <SectionPage key={m.id} id={`m-${m.id}`} label={m.label}>
             <Rows items={m.entries}>
               {(e, cell) => (
-                <Link key={e.key} to={`/daily/${e.key}`} prefetch="intent" className={`group flex gap-4 py-4 ${cell}`}>
+                <Link key={e.key} to={`/daily/${e.key}`} className={`group flex gap-4 py-4 ${cell}`}>
                   <span className="flex w-9 shrink-0 flex-col items-center">
                     <span className="num text-[24px] font-black leading-none tracking-[-0.03em] text-ink transition-colors group-hover:text-accent">
                       {e.key.slice(8, 10)}

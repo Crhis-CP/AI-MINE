@@ -1,0 +1,18 @@
+{
+  "audit_id": "AMP-AUDIT-20261013",
+  "local_date": "2026-10-13",
+  "timezone": "America/Catamarca",
+  "baseline": "154246979cd69a865f9d074c2b9974df7db9a405",
+  "root_workspace_baseline": "5c922cb47773804c392538f192dda3b825c2c909",
+  "remote_main_verified": "git ls-remote origin refs/heads/main",
+  "latest_recorded_live_version": "c2568e0ad0c63f397888c34393f31ee2ea9e5e62",
+  "live_verified_this_audit": false,
+  "overall_status": "partial_security_blocked",
+  "counts": {"findings":21,"severity":{"P1":3,"P2":16,"P3":2},"leads":2,"coverage_gaps":1,"historical_records":56},
+  "security": {"started":false,"status":"invocation_blocked","error":"Deep Scan cannot safely start a read-only worker: the parent must provide a managed filesystem permission profile.","scan_id":null,"token_measurement":null,"daybreak":"not_granted","enrollment_url":"https://chatgpt.com/cyber"},
+  "checks": [{"name":"pnpm check","result":"pass","stages":10,"limitations":"quick; no web build so browser tests not run; no database matrix; not full verify"},{"name":"policy offline regression","result":"pass","tests":22,"files":4},{"name":"report dependencies/schema and unsubstantiated live card","result":"reproduced"},{"name":"local Chrome source-component fixtures","result":"4 issues reproduced","production":false}],
+  "reviewed": ["worker注册/调度/队列异常与材料修订","采集/正文抽取/来源日期与更正","资讯报告编排/更正/公开读取","法规规划/完整性/编码/语义正文及流程恢复","读者检索/筛选/详情/收藏/法规/报告/价格的相关路径","后台公共表单和模态交互","历史任务/回归/验收/验证入口"],
+  "not_completed": ["深度攻击面、认证授权、会话/CSRF、SSRF、XSS、注入、上传滥用及公开MCP完整安全审计","当前依赖CVE/容器镜像/秘密历史完整扫描","真实PostgreSQL并发、迁移及角色矩阵回归","全站桌面/移动/无JS/可访问性及iOS真机矩阵","压力/长时运行/备份还原/灾难恢复","公网新鲜度、真实法规质量、带图及联系方式反馈、自然日价定时验收"],
+  "excluded": ["归档旧仓库源码；未clone/导出","依赖目录、缓存、构建产物、嵌套旧worktree不是当前源码基线","真实秘密、生产数据库内容、真实反馈及外部消息"],
+  "existing_work": [{"task":"TASK-0348/TASK-0350","pr":"https://github.com/Crhis-CP/AI-MINE/pull/224","findings":["AMP-20261013-F05","AMP-20261013-F06"],"note":"观察时open；主干未含相应实现，后续修复先重新核对PR状态"}]
+}

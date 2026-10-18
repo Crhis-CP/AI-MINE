@@ -1,4 +1,22 @@
-import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
+import { type RouteConfig, type RouteConfigEntry, index, layout, route } from "@react-router/dev/routes";
+
+import type { ModulePage } from "@amp/contracts/modules";
+import { MODULES } from "@amp/site/modules";
+
+const file = (module: string, path: string) => `../../../modules/${module}/${path}`;
+const page = (module: string, p: ModulePage) => route(p.path, file(module, p.file), p.id ? { id: p.id } : {});
+const modulePages: RouteConfigEntry[] = MODULES.flatMap((m) =>
+  (m.pages ?? []).map((p) =>
+    "layout" in p
+      ? layout(
+          file(m.name, p.layout),
+          p.id ? { id: p.id } : {},
+          p.pages.map((c) => page(m.name, c)),
+        )
+      : page(m.name, p),
+  ),
+);
+const moduleAdminPages: RouteConfigEntry[] = MODULES.flatMap((m) => (m.adminPages ?? []).map((p) => page(m.name, p)));
 
 const publicRoutes = [
   index("routes/home.tsx"),
@@ -25,13 +43,7 @@ const publicRoutes = [
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
-  route("metals", "routes/metals.tsx"),
-  route("policy-threads/:id", "routes/policy-thread.tsx"),
-  route("policies", "routes/policies.tsx"),
-  route("policies/reports", "routes/policy-reports.tsx"),
-  route("policies/reports/:id", "routes/policy-report.tsx"),
-  route("policies/:id/history", "routes/policy-history.tsx"),
-  route("policies/:id", "routes/policy.tsx"),
+  ...modulePages,
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;
 
@@ -42,22 +54,19 @@ const privateRoutes = [
     route("admin/content", "routes/admin/content.tsx"),
     route("admin/content/:id", "routes/admin/content-item.tsx"),
     route("admin/sources", "routes/admin/sources.tsx"),
-    route("admin/sources/targets", "routes/admin/source-targets.tsx"),
     route("admin/sources/new", "routes/admin/source-new.tsx"),
     route("admin/sources/:id", "routes/admin/source.tsx"),
     route("admin/feedback", "routes/admin/feedback.tsx"),
-    layout("routes/admin/usage-layout.tsx", { id: "usage-models-layout" }, [
-      route("admin/usage-models", "routes/admin/models.tsx"),
-      route("admin/usage-models/reconciliation", "routes/admin/reconciliation.tsx"),
-      route("admin/usage-models/settings", "routes/admin/settings.tsx"),
-    ]),
-    route("admin/models", "routes/admin/models-redirect.tsx"),
-    route("admin/settings", "routes/admin/settings-redirect.tsx"),
-    route("admin/accounts", "routes/admin/accounts.tsx"),
-    route("admin/account", "routes/admin/account.tsx"),
+    route("admin/models", "routes/admin/models.tsx"),
+    route("admin/settings", "routes/admin/settings.tsx"),
+    route("admin/runs", "routes/admin/runs.tsx"),
+    route("admin/audit", "routes/admin/audit.tsx"),
+    route("admin/usage-models", "routes/admin/models-redirect.tsx"),
+    route("admin/usage-models/reconciliation", "routes/admin/reconciliation-redirect.tsx"),
+    route("admin/usage-models/settings", "routes/admin/settings-redirect.tsx"),
     route("admin/selectbench", "routes/admin/selectbench.tsx"),
     route("admin/selectbench/:runId", "routes/admin/selectbench-run.tsx"),
-    route("admin/site", "routes/admin/site.tsx"),
+    ...moduleAdminPages,
   ]),
 ] satisfies RouteConfig;
 

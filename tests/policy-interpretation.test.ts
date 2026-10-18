@@ -1,22 +1,21 @@
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
-import { policyModelQualification } from "../packages/backend/src/policy/model-evidence.ts";
+import { policyModelQualification } from "../modules/policy/backend/domain/model-evidence.ts";
 import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
-import { dbOf, closeDb, initializeDb } from "@amp/backend/db";
+import { sql, closeDb, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
-import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
-import { runPolicyFulltext } from "../packages/backend/src/policy/fulltext-runtime.ts";
-import { setPolicyProcessingPaused } from "../packages/backend/src/policy/fulltext-store.ts";
-import { runPolicyInterpretation, loadPolicyInterpretation } from "../packages/backend/src/policy/interpretation-runtime.ts";
-import { checkCandidate, CandidateReply, checkVerification, aggregateVerification } from "../packages/backend/src/policy/interpretation-schema.ts";
-import { buildPolicyFulltextPlan, type PolicyFulltextPlan } from "../packages/backend/src/policy/processing-plan.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { runPolicyFulltext } from "../modules/policy/backend/domain/fulltext-runtime.ts";
+import { setPolicyProcessingPaused } from "../modules/policy/backend/domain/fulltext-store.ts";
+import { runPolicyInterpretation, loadPolicyInterpretation } from "../modules/policy/backend/domain/interpretation-runtime.ts";
+import { checkCandidate, CandidateReply, checkVerification, aggregateVerification } from "../modules/policy/backend/domain/interpretation-schema.ts";
+import { buildPolicyFulltextPlan, type PolicyFulltextPlan } from "../modules/policy/backend/domain/processing-plan.ts";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { sha256 } from "../packages/backend/src/lib/ids.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("policy"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 type Payload = ReturnType<typeof JSON.parse>;
 const requests: Payload[] = [],
   groupReplies: Payload[] = [];
@@ -266,12 +265,12 @@ test("actual group/child/root inputs bound citations; missing judgments and malf
   }
 });
 
-test("unknown usage stops the source and missing provider model identity remains missing evidence", async () => {
+test("missing usage does not erase valid semantic proof; missing provider identity remains missing evidence", async () => {
   const f = await fixture();
   usage = null;
-  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "blocked_unknown");
+  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "semantic_verified");
   const at = requests.length;
-  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "blocked_unknown");
+  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "semantic_verified");
   assert.equal(requests.length, at);
   usage = { prompt_tokens: 50, completion_tokens: 20 };
   const next = await fixture();

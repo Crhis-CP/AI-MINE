@@ -208,6 +208,13 @@
 }
 
 @layer components {
+  .feed-title:focus-visible {
+    outline: none;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+
   .num {
     font-variant-numeric: tabular-nums;
   }
@@ -344,7 +351,7 @@
   animation: fade-up 280ms var(--ease-out-quart) both;
 }
 
-/* Enter/leave keyframes for @amp/ui/Presence; --anim-ms overrides a default length. */
+/* Enter/leave keyframes for Presence; --anim-ms overrides a default length. */
 @keyframes amp-collapse-in {
   from {
     grid-template-rows: 0fr;
@@ -734,4 +741,13 @@
 /* Report pages read on white paper in the light theme (F10); the archive column is halfway between the site sidebar and the paper. */
 :root:not([data-theme="dark"]) body:has(.report-shell) {
   background: var(--surface);
+}
+
+/* Optional browser typography; no remote fonts or additional downloads. */
+:root[data-font="browser"] {
+  font-family: initial;
+}
+[data-font="browser"] body,
+[data-font="browser"] .font-sans {
+  font-family: inherit;
 }

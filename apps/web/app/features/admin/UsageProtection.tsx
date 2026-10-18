@@ -1,6 +1,7 @@
+import { apiFetch } from "../../lib/http.ts";
 import { useState } from "react";
 import type { z } from "zod";
-import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { useAdminAction } from "./action";
 import { Badge, Button, Card, Field, Input, ReasonDialog, Select } from "./ui";
 import { bj } from "./format";
@@ -87,8 +88,8 @@ function ConfigForm({ data }: { data: Data }) {
   };
   return (
     <details className="mt-4 rounded-lg border border-line p-4">
-      <summary className="cursor-pointer text-sm font-medium">{data.configuration ? "调整保护规则" : "安装项目既定的初始保护规则"}</summary>
-      <p className="mt-3 text-sm text-ink-3">这些是异常保护条件，不是月度额度。修改立即作用于之后的新付费请求，不会自动恢复已熔断的范围。</p>
+      <summary className="cursor-pointer text-sm font-medium">{data.configuration ? "调整用量提醒" : "安装初始用量记录配置"}</summary>
+      <p className="mt-3 text-sm text-ink-3">这些条件只用于费用和重复调用提醒，不会因金额而暂停处理。付费请求次数由服务上限控制。</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {configFields.map((f) => (
           <Field key={f.key} label={f.label}>
@@ -133,20 +134,20 @@ function ConfigForm({ data }: { data: Data }) {
       </Button>
       <ReasonDialog
         open={confirm}
-        title="确认修改费用保护规则"
+        title="确认修改用量提醒"
         danger
-        description="请核对页面填写的新值。阈值过低会让正常处理进入等待；这次修改不会解除人工暂停、部署保护或已存在的熔断。"
+        description="请核对新的提醒条件。修改不解除人工暂停或部署保护。"
         confirmLabel="确认保存"
         busy={pending === "usage-config"}
         onClose={() => setConfirm(false)}
         onSubmit={async (reason) => {
           const body = { expected_version: data.configuration?.version ?? 0, config: build(), reason, high_risk_confirmed: true as const },
-            client = createPrivateClient({ baseUrl: window.location.origin });
+            apiBase = window.location.origin;
           const result = await run("PUT", "/api/admin/usage-config", body, {
             label: "usage-config",
-            success: "保护规则已保存",
+            success: "用量提醒已保存",
             parse: privateSchemas.UsageConfigRecord.parse,
-            send: (_url, init) => client.PUT("/api/admin/usage-config", { body, headers: init.headers }),
+            send: (_url, init) => apiFetch("/api/admin/usage-config", { json: body, headers: init.headers, method: "PUT", baseUrl: apiBase }),
           });
           return result !== null;
         }}
@@ -317,13 +318,13 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
               (p) => p.price.service === price.service && p.price.model === price.model && p.price.configuration_hash === price.configuration_hash,
             ),
             body = { expected_version: prior?.version ?? 0, price, reason, high_risk_confirmed: true as const },
-            client = createPrivateClient({ baseUrl: window.location.origin });
+            apiBase = window.location.origin;
           return (
             (await run("PUT", "/api/admin/usage-prices", body, {
               label: "usage-price",
               success: "有效价格已保存",
               parse: privateSchemas.UsagePriceRecord.parse,
-              send: (_url, init) => client.PUT("/api/admin/usage-prices", { body, headers: init.headers }),
+              send: (_url, init) => apiFetch("/api/admin/usage-prices", { json: body, headers: init.headers, method: "PUT", baseUrl: apiBase }),
             })) !== null
           );
         }}
@@ -343,7 +344,7 @@ export function UsageProtection({ data }: { data: Data | null }) {
   const open = data.breakers.filter((b) => b.state === "open");
   return (
     <Card title="费用保护与有效价格">
-      <p className="text-sm text-ink-3">不设月度金额上限。预警只提醒；熔断只暂停被点名范围的新付费请求，公开阅读与已付回执复用继续。</p>
+      <p className="text-sm text-ink-3">累计费用与重复次数只作提醒，不会自动暂停。每个服务按分钟、小时、近24小时的请求次数控制，公开阅读与已付回执复用继续。</p>
       {!!data.missing.length && (
         <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{data.missing.join("；")}。未能核实的金额不会填成0。</div>
       )}
@@ -361,9 +362,9 @@ export function UsageProtection({ data }: { data: Data | null }) {
             </div>
             <p className="mt-2 text-sm">
               {i.trigger === "repeated_input"
-                ? `当前最高重复 ${i.current.repeats} 次；预警 ${i.threshold.warning} 次，熔断 ${i.threshold.limit} 次。`
+                ? `当前最高重复 ${i.current.repeats} 次；预警 ${i.threshold.warning} 次，参考值 ${i.threshold.limit} 次。`
                 : i.trigger === "object_cost"
-                  ? `当前最高 ${money(i.current.micros)}；预警 ${money(i.threshold.warning_micros)}，超过 ${money(i.threshold.micros)} 熔断。`
+                  ? `当前最高 ${money(i.current.micros)}；预警 ${money(i.threshold.warning_micros)}，参考值 ${money(i.threshold.micros)}（不暂停）。`
                   : `今日已记录 ${money(i.current.micros)}；参考 ${i.current.history_days} 个完整自然日。需同时超过日均 ${i.threshold.multiple} 倍与 ${money(i.threshold.floor_micros)}；无历史时超过 ${money(i.threshold.no_history_micros)}。`}
             </p>
           </div>
@@ -458,20 +459,27 @@ export function UsageProtection({ data }: { data: Data | null }) {
       <ReasonDialog
         open={!!recover}
         title="恢复这个费用范围"
-        description={recover ? `${scopeName(recover)}。恢复不改变阈值，也不解除人工或部署暂停；同一异常条件再次满足时会再次熔断。` : ""}
+        description={recover ? `${scopeName(recover)}。恢复不改变阈值，也不解除人工或部署暂停；费用条件只用于提醒，不会再次触发金额暂停。` : ""}
         confirmLabel="确认恢复"
         busy={pending === "recover-breaker"}
         onClose={() => setRecover(null)}
         onSubmit={async (reason) => {
           if (!recover) return false;
           const body = { expected_revision: recover.revision, reason },
-            client = createPrivateClient({ baseUrl: window.location.origin });
+            apiBase = window.location.origin;
           return (
             (await run("POST", `/api/admin/breakers/${encodeURIComponent(recover.id)}/recover`, body, {
               label: "recover-breaker",
               success: "所选费用范围已恢复",
               parse: privateSchemas.UsageBreaker.parse,
-              send: (_url, init) => client.POST("/api/admin/breakers/{id}/recover", { params: { path: { id: recover.id } }, body, headers: init.headers }),
+              send: (_url, init) =>
+                apiFetch("/api/admin/breakers/{id}/recover", {
+                  params: { path: { id: recover.id } },
+                  json: body,
+                  headers: init.headers,
+                  method: "POST",
+                  baseUrl: apiBase,
+                }),
             })) !== null
           );
         }}

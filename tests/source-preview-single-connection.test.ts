@@ -4,11 +4,11 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { requestSourcePreview } from "@amp/backend/admin/sources";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
-const sql = dbOf("sources");
+
 after(closeDb);
 
 test("real RSS preview finishes with a single database connection and leaves its paused source cursor untouched", async (t) => {

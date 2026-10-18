@@ -1,13 +1,12 @@
 // Merging stories: facts and heat evidence move into the surviving story, and the old
 // public id keeps answering as an alias. Editors merge from the admin; grouping merges when two
 // stories turn out to be one (consolidate in group.ts).
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { audit } from "../admin/auth.ts";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { publishArticle } from "../publication/publish.ts";
 import { captureEventWithdrawal } from "./group.ts";
-
-const sql = dbOf("events");
 
 /** Merges `fromId` into `intoId`; null when either story is missing or already merged (nothing changes then). */
 export async function mergeStoryInto(
@@ -44,7 +43,7 @@ export async function mergeStoryInto(
   });
   if (!articles) return null;
   for (const a of articles) await publishArticle(a.article_id);
-  await enqueue(QUEUES.digest, { storyId: intoId }, { singletonKey: `story:${intoId}` });
+  await enqueue(QUEUES.digest, { lane: "news", storyId: intoId }, { singletonKey: `story:${intoId}` });
   await audit(actor, "story.merge", `story:${fromId}`, reason, null, { into: intoId });
   return { moved: articles.length };
 }

@@ -1,7 +1,9 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
+import { FEEDBACK_LIMITS, FeedbackSubmissionFields } from "@amp/contracts/http/public";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Presence } from "@amp/ui/Presence";
+import { Presence } from "../components/ui/Presence.tsx";
 import { pageMeta } from "../lib/seo";
 import { localFeedbackOrigin } from "../lib/feedback-origin";
 import { KEYS } from "../lib/local-state";
@@ -78,9 +80,7 @@ function FeedbackAside() {
   );
 }
 
-const MAX_IMAGE = 2 * 1024 * 1024;
-const MIN_TEXT = 10;
-const MAX_TEXT = 5000;
+const { screenshotBytes: MAX_IMAGE, minText: MIN_TEXT, maxText: MAX_TEXT } = FEEDBACK_LIMITS;
 
 export default function FeedbackPage() {
   const [params] = useSearchParams();
@@ -113,8 +113,8 @@ export default function FeedbackPage() {
 
   const pick = (file: File | null | undefined) => {
     if (!file) return;
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return setState({ kind: "error", message: "截图需要是 PNG、JPEG 或 WebP。" });
-    if (file.size > MAX_IMAGE) return setState({ kind: "error", message: "截图原图不超过 2 MB。" });
+    if (file.type && !/^image\/(png|jpeg|jpg|webp|gif)$/.test(file.type)) return setState({ kind: "error", message: "截图需要是 PNG、JPEG、WebP 或 GIF。" });
+    if (file.size > MAX_IMAGE) return setState({ kind: "error", message: "截图原图不超过 8 MB。" });
     setShot({ file, url: URL.createObjectURL(file) });
     setState({ kind: "idle" });
   };
@@ -131,7 +131,9 @@ export default function FeedbackPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (draft.content.trim().length < MIN_TEXT || draft.content.trim().length > MAX_TEXT)
-      return setState({ kind: "error", message: "反馈内容需要 10–5000 字。" });
+      return setState({ kind: "error", message: "反馈内容需要 2–5000 字。" });
+    if (!FeedbackSubmissionFields.safeParse({ content: draft.content, email: draft.email }).success)
+      return setState({ kind: "error", message: "请填写有效邮箱（最多200字符），或留空。" });
     setState({ kind: "sending" });
     try {
       const pageUrl = draft.pageUrl ? new URL(draft.pageUrl, location.origin).href : "";
@@ -162,12 +164,14 @@ export default function FeedbackPage() {
 
   if (state.kind === "done") {
     return (
-      <ReadingLayout>
+      <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="反馈" />}>
         <div className="card px-6 py-14 text-center">
           <div className="anim-pop-in mx-auto flex size-14 items-center justify-center rounded-full bg-accent text-accent-contrast">
             <IconCheck size={26} />
           </div>
-          <h1 className="mt-6 text-[22px] font-semibold text-ink">收到了，谢谢你</h1>
+          <h1 data-page-title="" className="mt-6 text-[22px] font-semibold text-ink">
+            收到了，谢谢你
+          </h1>
           <p className="mt-2 text-[14px] text-ink-3">
             反馈编号 <span className="mono font-semibold text-ink">#{state.id}</span>，需要回复时我们会引用这个编号。
           </p>
@@ -192,9 +196,11 @@ export default function FeedbackPage() {
   const remaining = Math.max(0, MIN_TEXT - contentLength);
   const canSend = contentLength >= MIN_TEXT && contentLength <= MAX_TEXT && state.kind !== "sending";
   return (
-    <ReadingLayout aside={<FeedbackAside />}>
+    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="反馈" />} aside={<FeedbackAside />}>
       <header>
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">说说你的想法</h1>
+        <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
+          说说你的想法
+        </h1>
         <p className="mt-2 text-[14.5px] leading-relaxed text-ink-3">发现 bug、想要的功能、看不顺眼的地方，都可以告诉我，我都会看到。</p>
       </header>
 
@@ -230,7 +236,7 @@ export default function FeedbackPage() {
                 value={draft.content}
                 onChange={(e) => setDraft({ ...draft, content: e.target.value })}
                 placeholder="例如：我在搜索“紫金矿业”时遇到……我原本想……"
-                className={`${field} block resize-y px-4 pb-8 pt-3.5 text-[14.5px] leading-relaxed`}
+                className={`${field} block resize-y px-4 pb-8 pt-3.5 text-[16px] sm:text-[14.5px] leading-relaxed`}
               />
               <span className="mono pointer-events-none absolute bottom-3 right-4 text-[11px] text-ink-4">
                 {draft.content.length} / {MAX_TEXT}
@@ -243,16 +249,16 @@ export default function FeedbackPage() {
 
           <div>
             <label htmlFor="fb-email" className={label}>
-              联系方式 <span className="font-normal text-ink-4">（选填）</span>
+              邮箱 <span className="font-normal text-ink-4">（选填）</span>
             </label>
             <input
               id="fb-email"
-              type="text"
-              maxLength={254}
+              type="email"
+              maxLength={FEEDBACK_LIMITS.maxEmail}
               value={draft.email}
               onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              placeholder="邮箱、电话或其他方便联系你的方式"
-              className={`${field} h-11 px-4 text-[14.5px]`}
+              placeholder="方便接收回复的邮箱"
+              className={`${field} h-11 px-4 text-[16px] sm:text-[14.5px]`}
             />
           </div>
 
@@ -288,12 +294,18 @@ export default function FeedbackPage() {
                 <span className="min-w-0">
                   <span className="block text-[13.5px] font-semibold text-ink-2">添加一张问题截图</span>
                   <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-4">
-                    粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG 或 WebP，原图不超过 2 MB
+                    粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG、WebP 或 GIF，原图不超过 8 MB
                   </span>
                 </span>
               </button>
             )}
-            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="sr-only"
+              onChange={(e) => pick(e.target.files?.[0])}
+            />
           </div>
 
           <Presence show={state.kind === "error"} enter="anim-notice-in" exit="anim-fade-out" duration={160}>

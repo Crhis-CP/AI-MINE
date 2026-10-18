@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
-import { privateSchemas } from "@amp/api-client/private";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { Badge, Button, Card, Empty, Field, Input, ReasonDialog, Select } from "./ui";
 import { bj } from "./format";
 
@@ -45,9 +45,7 @@ export function ModelConnections({
 }) {
   const [dialog, setDialog] = useState<{ kind: ModelCommand["kind"]; record?: ModelConnection } | null>(null);
   const [draft, setDraft] = useState(initial),
-    [secret, setSecret] = useState(""),
-    [basis, setBasis] = useState(""),
-    [confirmed, setConfirmed] = useState(false);
+    [secret, setSecret] = useState("");
   const [lane, setLane] = useState<"news" | "policy">("news"),
     [enabled, setEnabled] = useState(true),
     [busy, setBusy] = useState(false),
@@ -89,14 +87,12 @@ export function ModelConnections({
     setDialog({ kind, record });
     setError("");
     setSecret("");
-    setBasis("");
-    setConfirmed(false);
     setEnabled(record?.enabled ?? true);
     setLane("news");
     setDraft(
       record
         ? {
-            name: record.name,
+            name: kind === "create" ? `${record.name.slice(0, 70)}（副本）` : record.name,
             interface: record.interface,
             endpoint: record.endpoint,
             model: record.model,
@@ -123,12 +119,12 @@ export function ModelConnections({
               ...draft,
               reason,
               ...(kind === "create"
-                ? { secret, supplier_basis: basis, owner_confirmed: confirmed }
+                ? { secret, supplier_basis: draft.billing_basis, owner_confirmed: true }
                 : {
                     expected_revision: record!.revision,
                     enabled,
                     ...(secret ? { secret } : {}),
-                    ...(protectedChange ? { supplier_basis: basis, owner_confirmed: confirmed } : {}),
+                    ...(protectedChange ? { supplier_basis: draft.billing_basis, owner_confirmed: true } : {}),
                   }),
             };
     const schema =
@@ -140,8 +136,8 @@ export function ModelConnections({
             ? privateSchemas.ModelConnectionProbe
             : privateSchemas.ModelConnectionDisable;
     const parsed = schema.safeParse(raw);
-    if (!parsed.success || ((kind === "create" || kind === "update") && protectedChange && !confirmed)) {
-      setError("请完整填写接入、有效价格与依据；涉及供应商或密钥的变更须由负责人确认。");
+    if (!parsed.success) {
+      setError("请填写接口地址、模型标识、密钥及计费资料；价格可填 0，但未知价格不要当作免费。");
       return false;
     }
     submitting.current = true;
@@ -177,7 +173,7 @@ export function ModelConnections({
       }
     >
       <p className="mb-4 text-[13px] leading-6 text-ink-3">
-        先保存供应商与模型，再测试连接、按处理环节指派。连接通过只说明接口可用，内容质量仍须评测。密钥不回显。
+        先保存供应商与模型，再测试连接、按处理环节指派。连接通过只说明接口可用，内容质量仍须评测。密钥不回显。同一服务的接入共享请求上限，可在后台设置中调整。
       </p>
       {!manage ? (
         <Empty>当前账号没有模型管理权限。</Empty>
@@ -207,6 +203,11 @@ export function ModelConnections({
                       <p className="mt-1 break-all font-mono text-[12px] text-ink-3">{row.model}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {owner && (
+                        <Button size="sm" onClick={() => begin("create", row)}>
+                          复制配置
+                        </Button>
+                      )}
                       <Button size="sm" onClick={() => begin("update", row)}>
                         编辑
                       </Button>
@@ -287,7 +288,7 @@ export function ModelConnections({
             ? "会发起一条最小测试请求并记录实际费用；结果未知时继续核对原回执，不重复付费。"
             : dialog?.kind === "disable"
               ? "仍有处理环节使用时会拒绝停用；请先调整指派。"
-              : "保存后需要重新测试当前版本；不会自动改变任何环节的模型。"
+              : "修改接口、模型或密钥后需要重新测试；只改名称和计费资料不影响连接。新增版本可以复制配置后填写密钥，再测试和切换。"
         }
         requireReason={dialog?.kind !== "test"}
         reasonField={dialog?.kind !== "test"}
@@ -385,17 +386,9 @@ export function ModelConnections({
                 启用此接入
               </label>
             )}
-            {protectedChange && (
-              <div className="space-y-3 sm:col-span-2">
-                <Field label="供应商或变更确认依据网址">
-                  <Input type="url" aria-label="供应商或变更确认依据网址" disabled={!owner} value={basis} onChange={(e) => setBasis(e.target.value)} />
-                </Field>
-                <label className="flex items-start gap-2 text-[13px]">
-                  <input type="checkbox" disabled={!owner} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-                  我是负责人，确认本次供应商与密钥变更。
-                </label>
-              </div>
-            )}
+            <p className="text-[12px] leading-5 text-ink-3 sm:col-span-2">
+              单价用于费用估算。赠送额度、折扣和实际扣款以供应商账户为准，不会因这里登记而自动切换模型。
+            </p>
           </div>
         ) : null}
         {error && (

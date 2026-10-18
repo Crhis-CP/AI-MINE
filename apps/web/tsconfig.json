@@ -1,5 +1,5 @@
 {
-  "include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+  "include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*", "../../modules/*/web.ts", "../../modules/*/web/**/*.tsx", "../../site/modules/web.ts"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2024"],
     "types": ["node", "vite/client"],

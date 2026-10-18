@@ -1,13 +1,12 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadPool, searchTerms } from "@amp/backend/publication/pool";
 import { readMatcherValues, type TextMatchValues } from "../packages/backend/src/publication/mentions.ts";
 import { publicationTextMatches, poolDirectTextMatches, bodyTextMatches } from "../packages/backend/src/publication/read-predicates.ts";
 import { legacyText, legacyScore, legacyPoolMatch, legacyDirectMatch } from "./fixtures/reader-legacy-predicates.ts";
-const sql = dbOf("publication"),
-  source = `static-query-${tag()}`;
+const source = `static-query-${tag()}`;
 after(closeDb);
 
 test("fixed text predicates preserve null/empty, guarded exclusions, Latin boundaries and literal wildcards", async () => {
@@ -27,7 +26,7 @@ test("fixed text predicates preserve null/empty, guarded exclusions, Latin bound
   const values: TextMatchValues[] = [
     ...["金", "银", "铁", "铅", "蒙古国", "刚果金", "literal%_link"].map((term) => readMatcherValues(null, null, [], searchTerms(term)).term0),
     readMatcherValues(null, null, [], []).term0,
-    { active: true, likes: [], latin: [], guardRemovals: ["金属|资金|基金"], guardLikes: ["%金%"], hasGuards: true },
+    { active: true, likes: [], latin: [], guardRemovals: ["金属|资金|基金"], guardLikes: ["%金%"], hasGuards: true, bodyPrefix: null },
   ];
   for (const match of values) {
     const rows = await sql<{ current: boolean | null; direct: boolean | null; body: boolean | null; previous: boolean | null }[]>`

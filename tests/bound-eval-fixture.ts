@@ -1,9 +1,9 @@
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { loadAnalyzeInput, evaluationInputFingerprint } from "@amp/backend/editorial/analyze";
 import { sha256 } from "@amp/backend/lib/ids";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
-const sql = dbOf("sources");
+
 export async function boundEvaluationFixture(value: {
   title: string;
   body: string | null;

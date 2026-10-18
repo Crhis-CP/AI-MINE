@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { requireOwner, audit, type AdminPrincipal } from "./auth.ts";
 import { SelectionStandardReview, SelectionSubmission, SelectionRecord, SelectionStandards, SelectionHoldoutConfirm } from "@amp/contracts/http/private";
 import { selectionCommand, SelectionConflict, toolState } from "./selectbench-state.ts";
 import { selectionStandardSnapshot, currentSelectionModel, type ModelIdentityPort } from "./selectbench-runtime.ts";
 import { selectionRunEvidence, loadSelectionRunEvidence, confirmedRunDetails } from "./selectbench-evidence.ts";
-const sql = dbOf("ai-gateway");
+
 export async function submitSelectionStandard(value: unknown) {
   const input = z.strictObject({ materialReference: z.string().trim().min(1), changeNote: z.string(), synthetic: z.boolean().default(false) }).parse(value),
     current = selectionStandardSnapshot(),

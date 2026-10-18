@@ -20,4 +20,10 @@ timer每15分钟检查：四个应用服务必须运行同一镜像，数据库�
 
 2026-10-13补齐每次发布流程：`deploy/production-release.sh` 接收已完整验证的 SHA、归档及其 SHA-256，全程持同一发布锁，备份后切换并检查网站。健康后在 `.ops/changelog-pending.json` 保存实际上线时间，再由 worker 的 `scripts/register-release-notes.ts` 登记读者更新；同版本重试不重复，失败不会触发网站回滚。维护器每次合格检查先补记，再判断是否需要清理；下一版本切换前必须处理上一版本的待补记。
 
-维护器旁同时安装 `release_changelog.py`。持久更新记录使用现有 data 卷下 `site/release-notes.json` 原子替换，保留 AIHOT 静态历史读取方式，无新增业务数据库表；公开站每次读取合并结果，无需再次重启。发布说明以 `industry/release-note.json` 中读者文字为准并引用产品片段；`product-update` 门禁检查枚举、标题、要点及可见变更是否更新了实际登记文字。纯维护版本重复沿用说明时自动登记“例行维护”。不把内容采集任务记成软件发布。
+维护器旁同时安装 `release_changelog.py`。持久更新记录使用现有 data 卷下 `site/release-notes.json` 原子替换，保留静态历史记录的读取方式，无新增业务数据库表；公开站每次读取合并结果，无需再次重启。发布说明以 `industry/release-note.json` 中读者文字为准并引用产品片段；`product-update` 门禁检查枚举、标题、要点及可见变更是否更新了实际登记文字。纯维护版本重复沿用说明时自动登记“例行维护”。不把内容采集任务记成软件发布。
+
+2026-10-15的法规停更决定在统一发布中执行：迁移完成后、新worker启动前，运行 `scripts/apply-release-controls.ts`，按 `industry/release-controls.json` 的具名决定暂停法规采集和处理。它不关闭公开入口、不改内容、来源或模型配置，也不清除其他人工暂停。决定在审计中只应用一次；后续人工明确恢复后，旧决定不会因再次部署而重放。复核时间为执行后30天，仅用于运营复核，到期仍暂停，绝不自动恢复；负责人后续重做完成后明确恢复。程序回退保留已记录的负责人暂停，避免回退重新产生法规调用。
+
+`industry/release-note.json` 可带独立 `announcement`。发布健康检查通过后，公告使用实际发布时间写入 `release-notes.json.announcements.json`，读者日志将其作为单独条目；相同内容只公告一次。原 `release-notes.json` 格式不变，旧程序回退仍可读取。两份登记都成功才清除待补记标记；后一份写入失败可重试，已成功的记录不会重复。
+
+统一API拓扑迁移兼容：维护脚本识别现役web+worker+api，或旧web+worker+public-api+private-api。必须完整、同镜像、稳定十分钟；两种API同时运行、缺服务或混合镜像均保留全部版本。已停用旧容器仍保护它引用的镜像，自动维护不删除容器或数据卷。

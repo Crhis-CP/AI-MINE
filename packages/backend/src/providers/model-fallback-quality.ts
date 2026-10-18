@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { modelConfigurationIdentity } from "../admin/models.ts";
 import { requireOwner, audit, actorOf, type AdminPrincipal } from "../admin/auth.ts";
-const sql = dbOf("ai-gateway");
+
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const Approval = z.strictObject({
   id: z.string(),
@@ -27,11 +27,12 @@ const Approval = z.strictObject({
 });
 export type ModelRouteApproval = z.infer<typeof Approval>;
 export async function capabilityPrompt(capability: string): Promise<string | null> {
-  if (["prefilter", "score", "understand", "summarize", "structure"].includes(capability)) {
+  if (["prefilter", "score", "understand", "summarize", "wording", "structure"].includes(capability)) {
     const { PROMPT_VERSIONS } = await import("../editorial/analyze.ts");
     return PROMPT_VERSIONS[capability as keyof typeof PROMPT_VERSIONS];
   }
-  if (capability === "group" || capability === "groupReview") return (await import("../events/relate.ts")).RELATE_PROMPT_VERSION;
+  if (capability === "group") return (await import("../events/relate.ts")).BATCH_PROMPT_VERSION;
+  if (capability === "groupReview") return (await import("../events/relate.ts")).RELATE_PROMPT_VERSION;
   if (capability === "digest") return (await import("../events/digest.ts")).DIGEST_PROMPT_VERSION;
   if (capability === "report") return (await import("../reports/compose.ts")).REPORT_VERSION;
   if (capability === "translate") return (await import("../editorial/translate.ts")).TRANSLATE_PROMPT_VERSION;

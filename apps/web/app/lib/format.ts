@@ -71,3 +71,31 @@ export function sourceInitial(name: string): string {
   const s = shortSourceName(name).replace(/^[^\p{L}\p{N}]+/u, "");
   return (s[0] ?? "A").toUpperCase();
 }
+
+/** Source evidence controls precision. The legacy fallback is only for older cached responses lacking the field. */
+export function newsSourceDate(time: import("@amp/contracts/time-assertion").TimeAssertion | null | undefined, legacy?: string | null) {
+  if (time === undefined) {
+    if (!legacy || !Number.isFinite(Date.parse(legacy))) return null;
+    const dateOnly = isDateOnlyInstant(legacy);
+    return {
+      dateTime: dateOnly ? beijingDate(legacy) : legacy,
+      text: sourceDateTime(legacy),
+      clock: dateOnly ? null : beijingTime(legacy),
+      label: "发布时间",
+      dateOnly,
+    };
+  }
+  if (!time || time.precision === "unknown") return null;
+  if (time.precision === "date")
+    return time.local_date
+      ? { dateTime: time.local_date, text: time.local_date, clock: null, label: time.meaning === "published" ? "发布时间" : time.meaning_label, dateOnly: true }
+      : null;
+  if (!time.utc || !Number.isFinite(Date.parse(time.utc))) return null;
+  return {
+    dateTime: time.utc,
+    text: fullDateTime(time.utc),
+    clock: beijingTime(time.utc),
+    label: time.meaning === "published" ? "发布时间" : time.meaning_label,
+    dateOnly: false,
+  };
+}

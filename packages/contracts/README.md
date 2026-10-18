@@ -4,7 +4,7 @@
 
 taxonomy 保存现行分类/栏目 keys 与顺序，mcp 保存5个固定工具名；显示标签从 `@amp/industry/taxonomy` 读取。contracts 不依赖 industry，industry 也不反向导入 contracts；两侧身份一致性由集成测试守护。ADR-0022 的九类已在实际分析、公开投影与客户端联合接入，public OpenAPI 预发布版本为0.2.0。
 
-Fastify 和 tooling 使用同一 `routes`/`schemas` 导出。修改字段须遵守任务卡契约边界；生成命令见 tooling/README.md。不要在契约模块注册 globalRegistry 或引用 backend。
+Fastify 和 scripts/contracts 使用同一 `routes`/`schemas` 导出。修改字段须遵守任务卡契约边界；生成命令见 scripts/contracts/README.md。不要在契约模块注册 globalRegistry 或引用 backend。
 
 `mining-taxonomy` 定义 ADR-0022 的九类键、非空键 schema、nullable 分类 schema 及未知/旧值归 null 的纯助手。CATEGORY_KEYS 使用同一九类键；归一仅用于公开投影，不能据此重写原分析、人工字段或账本。中文定义与报告主题栏在 industry 的同名子路径，二者通过离线测试对齐。
 
@@ -67,6 +67,8 @@ TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public reg
 模块地址声明通过modules入口提供：公开页面、共享布局、后台页面、兼容重定向及API路径匹配。声明只包含受信任仓库配置，不加载业务处理器；后台鉴权、来源权限和公开资格仍由原处理入口执行。现有HTTP接口与链接在本增量中不变。
 
 `jobs`提供引擎队列名与载荷映射JobData/QueueName，以及保留动态队列与载荷关联的JobRequest。此准备片不修改持久队列名、字段、重试或消费者。news/policy来源采集及模型测试分别保留业务线；旧共享sources.fetch由消费者读取真实来源业务线后转交，不凭调用者补造。新发送载荷必须携带lane；只有LegacyJobData消费类型允许历史载荷省略lane，运行端核对材料实际归属和暂停状态，显式错误lane不能被兼容逻辑覆盖。扩展自有作业由扩展的类型化队列定义，不塞入引擎字符串逃生口。
+
+内部生成客户端已退役。历史段落中生成api-client的交付记录保留作当时状态；现行公开和后台页面直接使用共享schemas与HTTP，外部OpenAPI继续生成并校验，使用项目统一编译器。
 
 模块MaterialDiscovered描述已核实目录材料的后续处理交接，字段保持当前业务线、来源、材料和唤醒哈希。它不签发许可或调度任务；事务内发送与模块接收在运行接入中一起完成，公开HTTP不变。
 

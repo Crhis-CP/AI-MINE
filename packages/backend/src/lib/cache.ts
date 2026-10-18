@@ -45,3 +45,18 @@ export function cached<T>(load: () => Promise<T>, opts: { freshMs: number; maxSt
     },
   };
 }
+
+/** Overlapping public searches share work only until it settles. Explicit clocks keep independent snapshots. */
+export function sharedSearch<K, T>(name: (key: K) => string, load: (key: K, now: Date) => Promise<T>, isSearch: (key: K) => boolean) {
+  const pending = new Map<string, Promise<T>>();
+  return (key: K, now?: Date): Promise<T> => {
+    if (now || !isSearch(key)) return load(key, now ?? new Date());
+    const id = name(key);
+    let read = pending.get(id);
+    if (!read) {
+      read = load(key, new Date()).finally(() => pending.delete(id));
+      pending.set(id, read);
+    }
+    return read;
+  };
+}

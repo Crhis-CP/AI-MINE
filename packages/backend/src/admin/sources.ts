@@ -1,11 +1,19 @@
 import { saveSourceDraft, requireSuccessfulSourcePreview } from "./source-previews.ts";
-export { recoverSourcePreviews, requestSourcePreview, runSourcePreview, sourcePreviewState, SOURCE_PREVIEW_QUEUE } from "./source-previews.ts";
+export {
+  recoverSourcePreviews,
+  sourcePreviewLane,
+  requestSourcePreview,
+  runSourcePreview,
+  sourcePreviewState,
+  SOURCE_PREVIEW_QUEUE,
+} from "./source-previews.ts";
 import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
-import { dbOf, type Db, type Tx } from "../db.ts";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { sql, type Db, type Tx } from "../db.ts";
+import { QUEUES } from "../jobs/queue.ts";
+import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { enqueueSourceFetch } from "../jobs/source-queues.ts";
 import { republishKey, queueSourceRepublication } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
@@ -16,7 +24,6 @@ import type { SourceRow } from "../sources/types.ts";
 import { directoryContract } from "../sources/directory-profile.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit } from "./auth.ts";
-const sql = dbOf("sources");
 
 export class Conflict extends Error {
   code = "conflict";
@@ -199,7 +206,7 @@ export async function updateSource(
     await audit(actor, "source.update", `source:${id}`, input.reason ?? null, Object.fromEntries(keys.map((k) => [k, before[k]])), patch, undefined, tx);
     // What public exits show for this source's articles is derived from these fields: re-derive them
     // all (in the worker) so a revoked licence or an isolated source stops on every exit.
-    if (keys.some((k) => PUBLICATION_FIELDS.includes(k) && JSON.stringify(before[k]) !== JSON.stringify(patch[k]))) {
+    if (before.lane === "news" && keys.some((k) => PUBLICATION_FIELDS.includes(k) && JSON.stringify(before[k]) !== JSON.stringify(patch[k]))) {
       await queueSourceRepublication(id, actor, tx);
     }
     return after;
@@ -207,7 +214,16 @@ export async function updateSource(
 }
 
 /** Source fields the public projection reads (publication/rules.ts and the v1 payload). */
-const PUBLICATION_FIELDS: string[] = ["participation_mode", "site_fulltext", "syndicate_fulltext", "tier", "name", "first_party"];
+const PUBLICATION_FIELDS: string[] = [
+  "participation_mode",
+  "site_fulltext",
+  "syndicate_fulltext",
+  "tier",
+  "name",
+  "first_party",
+  "owner_entity_id",
+  "publisher_role",
+];
 
 /** The address a source collects from, used to find duplicates before creating one. */
 export function sourceIdentity(config: Record<string, unknown>): string | null {
@@ -294,7 +310,7 @@ export async function fetchNow(id: string, actor: string) {
   await requireRuntimeRunning(s.lane, ["collection"]);
   const jobId =
     s.kind === "mp_account"
-      ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual" }, { singletonKey: `mp:${id}` })
+      ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual", lane: s.lane }, { singletonKey: `mp:${id}` })
       : await enqueueSourceFetch(s.lane, { sourceId: id, force: true });
   await audit(actor, "source.fetch", `source:${id}`, null, null, { jobId });
   return { jobId };
@@ -303,6 +319,14 @@ export async function fetchNow(id: string, actor: string) {
 /** The sources on one business line (ADR-0016), for checks of one line that must not count the other line's material. */
 export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]> {
   return (await sql<{ id: string }[]>`SELECT id FROM sources WHERE lane = ${lane}`).map((r) => r.id);
+}
+
+/** Scheduled processing recovery respects sources explicitly paused or archived by an editor. */
+export async function activeNewsSourceIds(db: Db = sql, participation?: "editorial" | "hot_signal"): Promise<string[]> {
+  return (
+    await db<{ id: string }[]>`SELECT id FROM sources WHERE lane='news' AND enabled AND archived_at IS NULL
+    AND (${participation ?? null}::text IS NULL OR participation_mode=${participation ?? null})`
+  ).map((r) => r.id);
 }
 
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
@@ -425,7 +449,11 @@ export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
   const [row] = await db<{ lane: "news" | "policy"; kind: SourceRow["kind"]; config: SourceRow["config"]; source_date_config_hash: string | null }[]>`
     SELECT lane,kind,config,source_date_config_hash FROM sources WHERE id=${sourceId}`;
   return row
-    ? { lane: row.lane, configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null }
+    ? {
+        lane: row.lane,
+        storedConfigHash: row.source_date_config_hash,
+        configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null,
+      }
     : null;
 }
 
@@ -433,3 +461,6 @@ export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
 export async function newsAuditSourceNames(db: Db) {
   return db<{ id: string; name: string }[]>`SELECT id,name FROM sources WHERE lane='news'`;
 }
+
+export { SourcePolicyConflict } from "../sources/permission-store.ts";
+export type { SourceRow } from "../sources/types.ts";

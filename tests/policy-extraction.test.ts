@@ -2,15 +2,14 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
-import { acquirePolicyOriginal } from "../packages/backend/src/policy/acquire.ts";
-import { extractPolicyOriginal, type ExtractionProfile } from "../packages/backend/src/policy/extraction.ts";
-import { readPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
+import { acquirePolicyOriginal } from "../modules/policy/backend/domain/acquire.ts";
+import { extractPolicyOriginal, type ExtractionProfile } from "../modules/policy/backend/domain/extraction.ts";
+import { readPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("policy"),
-  url = "https://source.invalid/rule",
+const url = "https://source.invalid/rule",
   annex = "https://source.invalid/annex.pdf";
 const pdf = readFileSync(new URL("./fixtures/policy/text.pdf", import.meta.url));
 const html =

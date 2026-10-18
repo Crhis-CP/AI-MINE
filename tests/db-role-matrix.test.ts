@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DATABASE_ROLES, type DatabaseRole, type Database } from "@amp/config";
+import { DATABASE_ROLES, type DatabaseRole, type Database } from "@amp/backend/db";
 import { readRoleCatalog } from "../scripts/db-roles/catalog.ts";
 import { quote } from "../scripts/db-roles/grants.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
@@ -74,6 +74,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "ai.model_fallback_resolutions",
       "ai.model_fallback_routes",
       "ai.model_routes",
+      "ai.model_service_circuits",
       "ai.prefilter_audit_draws",
       "ai.prefilter_audit_items",
       "ai.prefilter_audit_labels",
@@ -95,6 +96,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "ai.usage_prices",
       "ai.usage_protection_events",
       "ai.usage_sums",
+      "content.publication_date_corrections",
       "content.source_date_observation_seen",
       "content.source_date_observations",
       "editorial.manual_revision_events",
@@ -105,6 +107,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
       "feedback.quota_buckets",
+      "feedback.submission_state",
       "feedback.submissions",
       "identity.account_access",
       "identity.account_commands",
