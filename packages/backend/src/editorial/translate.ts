@@ -51,7 +51,8 @@ export async function translateArticle(articleId: string, expectedRevision: numb
     },
     expectedRevision,
   );
-  const result: TranslateResult = { ...translated, articleId, status: translated.status === "stale" ? "partial" : translated.status };
+  if (translated.status === "stale") return { articleId, status: "partial", revision: translated.revision, reason: "input_changed" };
+  const result: TranslateResult = { ...translated, articleId, status: translated.status };
   if (result.revision !== undefined && result.reason !== "retry_cooldown")
     await sql`INSERT INTO translation_attempts(article_id,revision,attempts,outcome,reason)
     VALUES(${articleId},${result.revision},1,${result.status},${result.reason ?? null})

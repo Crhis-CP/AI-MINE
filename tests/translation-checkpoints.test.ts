@@ -1,3 +1,4 @@
+import { translateArticle } from "@amp/backend/editorial/translate";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
@@ -25,9 +26,9 @@ const provider = http.createServer((req, res) => {
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", async () => {
     hits++;
-    const selectedMode = mode,
-      pending = hold;
+    const selectedMode = mode;
     const input = JSON.parse(JSON.parse(Buffer.concat(chunks).toString()).messages[1].content) as { text: string };
+    const pending = selectedMode === "presentation-hold" && !input.text.includes("SECOND") ? null : hold;
     pending?.asked.open();
     if (pending) await pending.release.promise;
     if (selectedMode === "reset") return res.destroy();
@@ -367,4 +368,39 @@ test("presentation updates keep a partial translation partial and retain unfinis
   assert.equal(refreshed.manifest.totalSegments, 2);
   assert.match(refreshed.body_html, /BAD Mining project/);
   assert.equal(hits, before);
+});
+
+test("an in-flight presentation change retains completed fragments and does not spend a body retry", async () => {
+  mode = "presentation-hold";
+  const name = "presentation-inflight",
+    html = `<p>Mining project <a href="https://fixture.invalid/old">FIRST</a> ${T}.</p><p>Mining project SECOND ${T}.</p>`;
+  const { articleId } = await material(name, html);
+  hold = { asked: gate(), release: gate() };
+  const running = translateArticle(articleId, 1);
+  await Promise.race([hold.asked.promise, running.then(() => assert.fail("second fragment was not held"))]);
+  const before = hits;
+  try {
+    const [prior] = await sql`SELECT source_hash FROM translations WHERE article_id=${articleId}`;
+    const updated = await material(name, html.replace("/old", "/new"));
+    assert.equal(updated.metadataChanged, true);
+    assert.equal(updated.revision, 1);
+    const [current] = await sql`SELECT source_hash,body_html,complete FROM translations WHERE article_id=${articleId}`;
+    assert.notEqual(current.source_hash, prior.source_hash);
+    assert.equal(current.body_html, null, "collection does not promote unfinished work");
+    assert.equal(current.complete, false);
+    assert.equal(
+      (
+        await sql`SELECT segment_index FROM enrichment.translation_segments WHERE article_id=${articleId} AND source_hash=${current.source_hash} AND state='complete'`
+      ).length,
+      1,
+    );
+  } finally {
+    hold.release.open();
+  }
+  const stale = await running;
+  hold = null;
+  assert.equal(stale.reason, "input_changed");
+  assert.equal((await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`).length, 0);
+  assert.equal((await translateArticle(articleId, 1)).status, "translated");
+  assert.equal(hits, before, "both already paid replies survive the presentation update");
 });

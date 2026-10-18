@@ -50,9 +50,16 @@ test("report and source module triggers preserve atomic reader invalidation afte
     await logins.public_read<{ lane: string; version: string; withdrawal_version: string }[]>`
     SELECT lane,version::text,withdrawal_version::text FROM publication.read_watermarks ORDER BY lane`;
   const before = await snapshot();
+  await logins.worker`UPDATE articles SET body_html=body_html || '<p>合成展示更新</p>' WHERE id='pr9-editorial-public-full'`;
+  const bodyChanged = await snapshot();
+  assert.notEqual(bodyChanged.find((row) => row.lane === "news")!.version, before.find((row) => row.lane === "news")!.version);
+  assert.deepEqual(
+    bodyChanged.find((row) => row.lane === "policy"),
+    before.find((row) => row.lane === "policy"),
+  );
   await f.admin`UPDATE reports SET generated_at=generated_at+interval '1 second' WHERE id=(SELECT min(id) FROM reports)`;
   const reportChanged = await snapshot();
-  assert.notEqual(reportChanged.find((r) => r.lane === "news")!.version, before.find((r) => r.lane === "news")!.version);
+  assert.notEqual(reportChanged.find((r) => r.lane === "news")!.version, bodyChanged.find((r) => r.lane === "news")!.version);
   assert.deepEqual(
     reportChanged.find((r) => r.lane === "policy"),
     before.find((r) => r.lane === "policy"),

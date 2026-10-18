@@ -240,7 +240,7 @@ export async function refreshTranslationPresentation(body: CurrentBody, nextHtml
   if (!body.body_html || body.body_html === nextHtml) return;
   const [stored] = await db<StoredTranslation[]>`SELECT revision,body_html,complete,origin,recipe,source_hash,manifest
     FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
-  if (stored?.origin !== "model" || stored.revision !== body.revision || !stored.body_html) return;
+  if (stored?.origin !== "model" || stored.revision !== body.revision) return;
   if (!stored.recipe || stored.source_hash !== translationSourceManifest(body.body_html).sourceHash) throw new PresentationMismatch();
   const old: TranslationSession = { body: { ...body, body_html: body.body_html }, recipe: stored.recipe, source: translationSourceManifest(body.body_html) };
   const saved = await translationCheckpoints(old, db),
@@ -251,7 +251,9 @@ export async function refreshTranslationPresentation(body: CurrentBody, nextHtml
   const original = stored.complete
     ? assembleTranslation(body.body_html, { revision: body.revision, recipe: stored.recipe }, ordered, replacements)
     : assemblePartialTranslation(body.body_html, { revision: body.revision, recipe: stored.recipe }, saved, replacements);
-  if (!original || original.html !== stored.body_html || stableJson(original.manifest) !== stableJson(stored.manifest)) throw new PresentationMismatch();
+  if (!original && !stored.body_html) return;
+  if (!original || (stored.body_html && (original.html !== stored.body_html || stableJson(original.manifest) !== stableJson(stored.manifest))))
+    throw new PresentationMismatch();
   const plan = presentationPlan(body.body_html, nextHtml, { revision: body.revision, recipe: stored.recipe }, saved);
   const rows = await db<
     (StoredSegment & { receipt_id: string | null })[]
@@ -283,6 +285,6 @@ export async function refreshTranslationPresentation(body: CurrentBody, nextHtml
   const html = sanitizeBody(plan.assembled.html),
     tree = cheerio.load(html, null, false);
   if (tree.html() !== plan.assembled.html) throw new PresentationMismatch();
-  await db`UPDATE translations SET source_hash=${plan.source.sourceHash},body_html=${html},body_text=${tree.root().text().trim()},complete=${plan.complete},manifest=${db.json(plan.assembled.manifest)}
+  await db`UPDATE translations SET source_hash=${plan.source.sourceHash},body_html=${stored.body_html ? html : null},body_text=${stored.body_html ? tree.root().text().trim() : null},complete=${!!stored.body_html && plan.complete},manifest=${stored.body_html ? db.json(plan.assembled.manifest) : null}
     WHERE article_id=${body.id} AND lang='zh' AND revision=${body.revision} AND origin='model'`;
 }
