@@ -1,7 +1,8 @@
 import { ArticleBody } from "../features/item/ArticleBody";
 import { SharePoster } from "../features/item/SharePoster";
 import { Sheet } from "../components/ui/Sheet";
-import { ReaderToolbar, scrollToReadingAnchor } from "../features/item/ReaderTools";
+import { ReaderToolbar } from "../features/item/ReaderTools";
+import { useCurrentSection } from "../lib/motion";
 import { markRead } from "../lib/local-state";
 import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
@@ -117,7 +118,6 @@ export default function ItemPage() {
   const [sheetState, setSheetState] = useState<{ key: string; view: "outline" | "actions" | "poster" } | null>(null);
   const sheet = sheetState?.key === itemKey ? sheetState.view : null;
   const setSheet = (view: "outline" | "actions" | "poster" | null) => setSheetState(view ? { key: itemKey, view } : null);
-  const [readingAnchor, setReadingAnchor] = useState<string | null>(null);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 1600);
@@ -143,6 +143,11 @@ export default function ItemPage() {
   const publishedAttr = sourceDate?.dateTime ?? null;
   const summaryOnly = item.readingMode === "summary-only";
   const showOutline = item.outline.length >= 3;
+  const [readingAnchor, goToSection] = useCurrentSection(
+    item.outline.map((entry) => entry.id),
+    showOutline && !!bodyHtml,
+    itemKey,
+  );
   const originalLabel = "打开原文";
 
   const related = item.relatedStories.filter((s) => s.publicId !== item.story?.publicId);
@@ -262,7 +267,13 @@ export default function ItemPage() {
             <li key={o.id}>
               <a
                 href={`#${o.id}`}
-                className={`-ml-px block border-l border-transparent py-1 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink ${o.level > 2 ? "pl-5" : "pl-3"}`}
+                aria-current={readingAnchor === o.id ? "location" : undefined}
+                onClick={(event) => {
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+                  event.preventDefault();
+                  goToSection(o.id);
+                }}
+                className={`-ml-px block border-l py-1 text-[12.5px] leading-snug transition-colors hover:border-accent hover:text-ink ${readingAnchor === o.id ? "border-accent text-accent" : "border-transparent text-ink-3"} ${o.level > 2 ? "pl-5" : "pl-3"}`}
               >
                 {o.text}
               </a>
@@ -526,16 +537,7 @@ export default function ItemPage() {
         id={item.id}
         originalUrl={item.links.original}
         onShare={() => setSheet("actions")}
-        onOutline={
-          showOutline
-            ? () => {
-                setReadingAnchor(
-                  item.outline.filter((entry) => (document.getElementById(entry.id)?.getBoundingClientRect().top ?? Infinity) <= 72).at(-1)?.id ?? null,
-                );
-                setSheet("outline");
-              }
-            : undefined
-        }
+        onOutline={showOutline ? () => setSheet("outline") : undefined}
       />
       <Sheet open={sheet !== null} onClose={() => setSheet(null)} title={sheet === "outline" ? "文章目录" : sheet === "poster" ? "分享图片" : "更多操作"}>
         {sheet === "poster" ? (
@@ -548,11 +550,11 @@ export default function ItemPage() {
                   <a
                     href={`#${entry.id}`}
                     aria-current={readingAnchor === entry.id ? "location" : undefined}
-                    className={`flex min-h-12 items-center gap-3 rounded-control py-2 text-[16px] hover:bg-bg-sunk ${entry.level > 2 ? "pl-6" : "px-2"}`}
+                    className={`flex min-h-12 items-center gap-3 rounded-control py-2 text-[16px] transition-colors hover:bg-bg-sunk ${readingAnchor === entry.id ? "bg-accent-soft text-accent" : ""} ${entry.level > 2 ? "pl-6" : "px-2"}`}
                     onClick={(event) => {
                       event.preventDefault();
                       setSheet(null);
-                      requestAnimationFrame(() => scrollToReadingAnchor(entry.id));
+                      requestAnimationFrame(() => goToSection(entry.id));
                     }}
                   >
                     <span className="flex-1">{entry.text}</span>

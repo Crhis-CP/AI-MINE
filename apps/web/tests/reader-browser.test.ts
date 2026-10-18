@@ -361,6 +361,12 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page).toHaveURL(/#section-one$/);
   assert.equal(await page.evaluate(() => history.state.idx), historyPosition, "outline navigation does not insert a back-history entry");
+  await readingTools.getByRole("button", { name: "目录", exact: true }).click();
+  await page.getByRole("navigation", { name: "手机文章目录" }).getByRole("link", { name: "正文第二节" }).click();
+  await expect(page).toHaveURL(/#section-two$/);
+  await readingTools.getByRole("button", { name: "目录", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "手机文章目录" }).getByRole("link", { name: "正文第二节" })).toHaveAttribute("aria-current", "location");
+  await outlineDialog.getByRole("button", { name: "关闭", exact: true }).click();
   const picture = page.getByRole("button", { name: "查看大图：合成矿山图片" });
   await picture.click();
   await expect(page.getByRole("dialog", { name: "文章图片" })).toBeVisible();
@@ -462,6 +468,24 @@ for (const width of [390, 1440]) {
     const title = page.locator("h3 a").filter({ hasText: "可核对的矿业动态" });
     await title.click();
     await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    if (width === 1440) {
+      const position = await page.evaluate(() => history.state.idx);
+      const current = page.getByRole("navigation", { name: "本文目录" }).getByRole("link", { name: "正文第二节" });
+      await current.click();
+      await expect(current).toHaveAttribute("aria-current", "location");
+      assert.equal(await page.evaluate(() => history.state.idx), position);
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const target = document.getElementById("section-two")!;
+            const landed = target.getBoundingClientRect().top <= (parseFloat(getComputedStyle(target).scrollMarginTop) || 0) + 1;
+            return window.scrollY > 0 && (landed || window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4);
+          }),
+        )
+        .toBe(true);
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await expect(current).not.toHaveAttribute("aria-current", "location");
+    }
     await page.goBack();
     await expect(title).toBeVisible();
     // Wait for the existing second layout-settle pass, which used to steal focus again.

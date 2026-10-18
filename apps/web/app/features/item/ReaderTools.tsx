@@ -74,9 +74,4 @@ export function ReaderToolbar({ id, originalUrl, onOutline, onShare }: { id: str
   );
 }
 
-export function scrollToReadingAnchor(id: string) {
-  const element = document.getElementById(id);
-  if (!element) return;
-  element.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-  history.replaceState(history.state, "", `${location.pathname}${location.search}#${encodeURIComponent(id)}`);
-}
+export { scrollToAnchor as scrollToReadingAnchor } from "../../lib/motion";
