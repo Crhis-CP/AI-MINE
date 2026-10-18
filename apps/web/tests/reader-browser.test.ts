@@ -126,7 +126,13 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
   if (url.pathname === "/api/site/timeline")
     return answer({
-      filters: { channel: "all", category: null, tag: null, topic: null, jurisdiction: null },
+      filters: {
+        channel: url.searchParams.get("channel") ?? "all",
+        category: url.searchParams.get("category"),
+        tag: null,
+        topic: null,
+        jurisdiction: url.searchParams.get("jurisdiction"),
+      },
       cards: [
         {
           key: "fixture-a",
@@ -714,3 +720,50 @@ for (const width of [390, 1440])
       await context.close();
     }
   });
+
+test("phone feed scope and sheet preserve mining filters and close on desktop resize", { timeout: 30000 }, async () => {
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  let releaseChoices!: () => void;
+  const choicesReady = new Promise<void>((resolve) => {
+    releaseChoices = resolve;
+  });
+  try {
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await page.route("**/api/site/jurisdictions", async (route) => {
+      await choicesReady;
+      await route.continue();
+    });
+    await page.goto(origin);
+    const bar = page.locator("[data-phone-bar]");
+    await expect(bar.getByRole("navigation", { name: "看精选或全部" })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "国家 / 地区" })).toBeHidden();
+    await page.screenshot({ path: ".verify/feed-phone-bar-390.png" });
+    await bar.getByRole("button", { name: "筛选", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "筛选", exact: true });
+    await sheet.getByRole("combobox", { name: "国家 / 地区" }).selectOption("none");
+    releaseChoices();
+    await expect(sheet.getByText("按事件或影响地区 · 数字为已识别资讯数")).toBeVisible();
+    await expect(sheet.getByRole("combobox", { name: "国家 / 地区" })).toHaveValue("none");
+    await sheet.getByRole("button", { name: "筛选", exact: true }).click();
+    await expect(sheet).not.toBeVisible();
+    await expect(page).toHaveURL(/jurisdiction=none/);
+    await bar.getByRole("button", { name: "筛选（已选）" }).click();
+    await sheet.getByRole("link", { name: "企业与项目", exact: true }).click();
+    await expect(page).toHaveURL(/category=company_project/);
+    assert.equal(new URL(page.url()).searchParams.get("jurisdiction"), "none");
+    await bar.getByRole("navigation", { name: "看精选或全部" }).getByRole("link", { name: "全部", exact: true }).click();
+    await expect(page).toHaveURL(/\/all\?/);
+    await bar.getByRole("button", { name: "筛选（已选）" }).click();
+    await sheet.getByText("来源、矿种与日期筛选", { exact: true }).click();
+    await expect(sheet.getByLabel("开始日期")).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(sheet).not.toBeVisible();
+    await expect(page.getByRole("combobox", { name: "国家 / 地区" })).toBeVisible();
+  } finally {
+    releaseChoices();
+    await context.close();
+  }
+});

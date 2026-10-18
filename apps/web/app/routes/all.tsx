@@ -8,7 +8,7 @@ import { isValidDate } from "@amp/contracts/time";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
-import { CategoryTabs, JurisdictionFilter, SearchField, SourceDateFilters } from "../features/feed/Filters";
+import { CategoryTabs, JurisdictionFilter, SearchField, SourceDateFilters, FeedBar } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { HotTopics } from "../features/feed/HotTopics";
@@ -149,7 +149,8 @@ export default function AllPage() {
   const updated = new Date(data.freshness).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" });
 
   return (
-    <div className="pb-6">
+    <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
+      <FeedBar base="/all" category={f.category} channel={f.channel} jurisdiction={f.jurisdiction ?? null} facets={data.facets} />
       {/* Desktop, as on 精选: the title, then one filter row with the search field aligned on the right. */}
       <div className="hidden lg:block">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title ?? `全部${withSubject("动态")}`}</h1>
@@ -159,24 +160,10 @@ export default function AllPage() {
         </div>
       </div>
 
-      {/* Phones: title with today's count, the search bar, then the same filter row as 精选. */}
-      <div className="lg:hidden">
-        <div className="flex items-baseline justify-between pb-3 pt-5">
-          <h1 className="text-[22px] font-bold text-ink">{title ?? "全部动态"}</h1>
-          {!f.q && (
-            <span className="text-[12.5px] text-ink-4">
-              今日 <span className="num">{data.todayCount}</span> 条
-            </span>
-          )}
-        </div>
-        <SearchField variant="bar" defaultValue={f.q ?? ""} keep={keep} autoFocus={params.get("search") === "1"} />
-        <div className="-mx-4 mt-3 border-b border-line-soft px-4 pb-3">
-          <CategoryTabs base="/all" category={f.category} channel={f.channel} layoutId="all-cat-mobile" size="sm" className="min-w-0" />
-        </div>
+      <div className="hidden lg:block">
+        <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
+        <SourceDateFilters base="/all" facets={data.facets} />
       </div>
-
-      <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
-      <SourceDateFilters base="/all" facets={data.facets} />
       {data.hot && <HotTopics entries={data.hot} />}
       {f.q && (
         <section aria-label="法规政策搜索结果" className="my-4 rounded-card border border-line px-4 py-3">
@@ -204,7 +191,7 @@ export default function AllPage() {
         </section>
       )}
       <p className="my-3 text-[12px] text-ink-4">
-        第 {data.page} 页 · 共 {data.total} {data.cards ? "张事件卡" : "条动态"}
+        第 {data.page} 页 · 共 {data.total} {data.cards ? "组动态" : "条动态"}
         {data.reportTotal !== undefined ? ` · ${data.reportTotal} 篇报道` : ""}
       </p>
       {f.q && (

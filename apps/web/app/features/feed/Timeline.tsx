@@ -79,7 +79,7 @@ export function DayHeader({
     </>
   );
   return (
-    <div className="sticky top-0 z-20 -mx-4 bg-daybar px-4 lg:mx-0 lg:bg-bg lg:px-0">
+    <div className="sticky top-[var(--phone-bar-offset,0px)] z-20 -mx-4 bg-daybar px-4 lg:mx-0 lg:bg-bg lg:px-0">
       {onToggle ? (
         <button
           type="button"

@@ -1,12 +1,16 @@
+import { PhoneBar } from "../../components/shell/PhoneBar";
+import { Sheet } from "../../components/ui/Sheet";
+import { Wordmark } from "../../components/Logo";
+import { SITE } from "@amp/industry/site";
 import { apiFetch } from "../../lib/http.ts";
 import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
 import { useEffect, useRef, useState } from "react";
-import { Form, Link, useNavigation, useSearchParams } from "react-router";
+import { Form, Link, useLocation, useNavigate, useNavigation, useSearchParams } from "react-router";
 import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS, CHANNEL_LABELS } from "@amp/industry/taxonomy";
-import { IconClose, IconSearch } from "../../components/icons";
+import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 
@@ -14,6 +18,8 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 export function JurisdictionFilter({ base, value }: { base: string; value: string | null }) {
   const [params] = useSearchParams(),
     navigation = useNavigation();
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
   const [choices, setChoices] = useState<{ code: string; label: string; kind: string; news_count: number }[] | null>(null),
     [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -41,12 +47,12 @@ export function JurisdictionFilter({ base, value }: { base: string; value: strin
         国家 / 地区
         <select
           name="jurisdiction"
-          defaultValue={value ?? ""}
-          key={`${value ?? "all"}:${choices ? "ready" : "loading"}`}
+          value={draft}
+          onChange={(event) => setDraft(event.currentTarget.value)}
           className="max-w-[220px] rounded-md border border-line-strong bg-surface px-3 py-2 text-ink"
         >
           <option value="">全部国家 / 地区</option>
-          {value && !["unknown", "none"].includes(value) && !choices?.some((j) => j.code === value) && <option value={value}>当前国家条件</option>}
+          {draft && !["unknown", "none"].includes(draft) && !choices?.some((j) => j.code === draft) && <option value={draft}>当前国家条件</option>}
           {[
             { label: "国家", kind: "country" },
             { label: "中国省区", kind: "subdivision" },
@@ -122,6 +128,200 @@ export function CategoryTabs({
   ];
   const active = channel === "firstParty" ? "firstParty" : (category ?? "all");
   return <PillTabs items={items} active={active} layoutId={layoutId} label="筛选" size={size} className={className} />;
+}
+
+/** The same scope switch and filter sheet on the two news feeds. */
+export function FeedBar({
+  base,
+  category,
+  channel,
+  jurisdiction,
+  facets,
+}: {
+  base: "/" | "/all";
+  category: CategoryKey | null;
+  channel: ChannelKey;
+  jurisdiction: string | null;
+  facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };
+}) {
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const [sheetKey, setSheetKey] = useState<string | null>(null);
+  const sheet = sheetKey === location.key;
+  const setSheet = (open: boolean) => setSheetKey(open ? location.key : null);
+  const search = useOpenSearch();
+  const navigate = useNavigate();
+  const legacyOpened = useRef(false);
+  const query = params.get("q");
+  const active = channel === "firstParty" ? "firstParty" : (category ?? "all");
+  const filtered = active !== "all" || ["jurisdiction", "tag", "source", "mineral", "on", "from", "to"].some((key) => params.get(key));
+  useEffect(() => {
+    const media = matchMedia("(min-width: 961px)");
+    const close = () => {
+      if (media.matches) setSheetKey(null);
+    };
+    media.addEventListener("change", close);
+    return () => media.removeEventListener("change", close);
+  }, []);
+  useEffect(() => {
+    if (!legacyOpened.current && params.get("search") === "1" && matchMedia("(max-width: 960px)").matches && search) {
+      legacyOpened.current = true;
+      search(query ?? "");
+    }
+  }, [params, search, query]);
+  const scope = (to: "/" | "/all") =>
+    hrefWith(to, params, {
+      q: null,
+      tab: null,
+      search: null,
+      ...(to === "/" ? { source: null, mineral: null, on: null, from: null, to: null, selected: null } : {}),
+    });
+  const choices = [
+    { key: "all", label: "不限", to: hrefWith(base, params, { category: null, channel: null }) },
+    { key: "firstParty", label: CHANNEL_LABELS.firstParty, to: hrefWith(base, params, { category: null, channel: "firstParty" }) },
+    ...CATEGORY_KEYS.map((key) => ({ key, label: CATEGORY_LABELS[key], to: hrefWith(base, params, { category: key, channel: null }) })),
+  ];
+  const chips = [
+    ...(active !== "all"
+      ? [{ key: "category", label: active === "firstParty" ? CHANNEL_LABELS.firstParty : CATEGORY_LABELS[category!], patch: { category: null, channel: null } }]
+      : []),
+    ...["tag", "jurisdiction", "source", "mineral", "on", "from", "to"].flatMap((key) => {
+      const value = params.get(key);
+      if (!value) return [];
+      const label =
+        key === "jurisdiction"
+          ? "地区筛选"
+          : key === "source"
+            ? "来源筛选"
+            : key === "tag"
+              ? `#${value}`
+              : key === "from"
+                ? `自${value}`
+                : key === "to"
+                  ? `至${value}`
+                  : value;
+      return [{ key, label, patch: { [key]: null } }];
+    }),
+  ];
+  return (
+    <>
+      <PhoneBar
+        leading={
+          query ? (
+            <Link
+              to={hrefWith("/all", params, { q: null, tab: null, search: null })}
+              onClick={(event) => {
+                if (
+                  event.button === 0 &&
+                  !event.metaKey &&
+                  !event.ctrlKey &&
+                  !event.altKey &&
+                  !event.shiftKey &&
+                  typeof history.state?.idx === "number" &&
+                  history.state.idx > 0
+                ) {
+                  event.preventDefault();
+                  navigate(-1);
+                }
+              }}
+              aria-label="返回动态"
+              className="flex min-h-11 items-center px-1 text-[15px] text-accent"
+            >
+              <IconChevronLeft size={23} />
+              返回
+            </Link>
+          ) : (
+            <Link to="/" aria-label={`${SITE.name} 首页`} className="flex h-11 items-center px-2.5">
+              <Wordmark size={17} />
+            </Link>
+          )
+        }
+        center={
+          query ? (
+            <button
+              type="button"
+              aria-label={`修改搜索：${query}`}
+              className="flex h-9 min-w-0 items-center gap-2 rounded-full bg-bg-sunk px-3 text-left text-[14px]"
+              onClick={(event) => search?.(query, event.currentTarget)}
+            >
+              <IconSearch size={16} className="shrink-0" />
+              <span className="truncate">{query}</span>
+            </button>
+          ) : (
+            <PillTabs
+              size="sm"
+              layoutId="feed-scope"
+              label="看精选或全部"
+              active={base === "/" ? "featured" : "all"}
+              items={[
+                { key: "featured", label: "精选", to: scope("/") },
+                { key: "all", label: "全部", to: scope("/all") },
+              ]}
+            />
+          )
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              aria-label={filtered ? "筛选（已选）" : "筛选"}
+              aria-expanded={sheet}
+              onClick={() => setSheet(true)}
+              className={`relative grid size-11 shrink-0 place-items-center rounded-full transition-colors active:bg-bg-sunk ${filtered ? "text-accent" : "text-ink-2"}`}
+            >
+              <IconFilter size={21} />
+              {filtered && <span aria-hidden="true" className="absolute right-2 top-2 size-1.5 rounded-full bg-accent" />}
+            </button>
+            {!query && <SearchIconLink />}
+          </>
+        }
+      />
+      {chips.length > 0 && (
+        <div className="flex flex-wrap gap-2 py-2 lg:hidden">
+          {chips.map((chip) => (
+            <Link
+              key={chip.key}
+              aria-label={`取消筛选：${chip.label}`}
+              to={hrefWith(base, params, chip.patch)}
+              className="inline-flex min-h-10 max-w-full items-center gap-1 rounded-full bg-accent-soft px-3 text-[13px] text-accent"
+            >
+              <span className="truncate">{chip.label}</span>
+              <IconClose size={14} />
+            </Link>
+          ))}
+        </div>
+      )}
+      <Sheet open={sheet} onClose={() => setSheet(false)} title="筛选">
+        {sheet && (
+          <>
+            <JurisdictionFilter base={base} value={jurisdiction} />
+            {base === "/all" ? (
+              <SourceDateFilters base="/all" facets={facets} />
+            ) : (
+              <Link to={scope("/all")} className="block py-3 text-[13px] text-accent">
+                按来源、矿种或日期查找 →
+              </Link>
+            )}
+            <ul className="divide-y divide-line-soft">
+              {choices.map((choice) => (
+                <li key={choice.key}>
+                  <Link
+                    to={choice.to}
+                    onClick={() => setSheet(false)}
+                    aria-current={active === choice.key ? "true" : undefined}
+                    className={`flex min-h-11 items-center justify-between rounded-tile px-2 text-[15px] active:bg-bg-sunk ${active === choice.key ? "font-semibold text-accent" : "text-ink-2"}`}
+                  >
+                    {choice.label}
+                    {active === choice.key && <span aria-hidden="true">✓</span>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Sheet>
+    </>
+  );
 }
 
 function useSlashFocus(ref: React.RefObject<HTMLInputElement | null>) {
@@ -279,7 +479,7 @@ export function SearchIconLink() {
         }
       }}
       aria-label="搜索"
-      className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
+      className="flex size-11 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
     >
       <IconSearch size={19} />
     </Link>

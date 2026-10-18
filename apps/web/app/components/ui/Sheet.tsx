@@ -8,8 +8,10 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   const close = useRef(onClose);
   close.current = onClose;
   const titleId = useId();
+  const entrance = useRef<Animation | null>(null);
   const drag = useRef<{ start: number; y: number; time: number } | null>(null);
   const begin = useCallback((y: number) => {
+    entrance.current?.cancel();
     drag.current = { start: y, y, time: performance.now() };
     if (dialog.current) dialog.current.style.transition = "none";
   }, []);
@@ -36,6 +38,15 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     const overflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
     element.showModal();
+    if (element.animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      entrance.current = element.animate(
+        [
+          { transform: matchMedia("(max-width: 639px)").matches ? "translateY(100%)" : "translateY(18px)", opacity: 0 },
+          { transform: "translateY(0)", opacity: 1 },
+        ],
+        { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+      );
+    }
     const start = (event: TouchEvent) => {
       if (body.scrollTop === 0 && event.touches.length === 1 && !(event.target instanceof Element && event.target.closest("a,button,input,select,textarea")))
         begin(event.touches[0]!.clientY);
@@ -61,6 +72,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       body.removeEventListener("touchend", end);
       body.removeEventListener("touchcancel", cancel);
       finish(true);
+      entrance.current?.cancel();
       element.close();
       document.documentElement.style.overflow = overflow;
     };
