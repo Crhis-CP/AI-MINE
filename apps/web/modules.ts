@@ -19,6 +19,8 @@ export interface AdminModuleNavigation {
 export interface WebModule {
   name: string;
   navigation?: ModuleNavigation[];
+  /** Optional phone tabs appear after the core reading tabs and before the personal page. */
+  tabs?: ModuleNavigation[];
   starred?: () => Promise<{ default: ComponentType }>;
   admin?: {
     content?: AdminModuleNavigation[];
