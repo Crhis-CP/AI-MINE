@@ -118,6 +118,8 @@ export const PoolQuery = z.object({
 export const StoryRef = z.strictObject({ publicId: z.string(), title: z.string() });
 export const GroupInfo = z.strictObject({
   factId: z.string(),
+  /** Public selected members under the same filters; browser read marks never leave the device. */
+  memberIds: z.array(z.string()).optional(),
   story: StoryRef.nullable(),
   /** Other public sources of the represented fact, matching the expandable reports. */
   additionalSourceCount: z.number(),

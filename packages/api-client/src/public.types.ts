@@ -943,6 +943,7 @@ export interface components {
         factId: string;
         title: string;
       } | null;
+      memberIds?: string[];
       reportCount: number;
       story: components["schemas"]["StoryRef"] | null;
     };
@@ -956,6 +957,7 @@ export interface components {
         factId: string;
         title: string;
       } | null;
+      memberIds?: string[];
       reportCount: number;
       story: components["schemas"]["StoryRefInput"] | null;
     };
