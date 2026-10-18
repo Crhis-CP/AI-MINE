@@ -3,7 +3,7 @@ import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapsho
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
-import { parseHTML } from "linkedom";
+import { contentDocument, assertPageContent, UnavailablePageError } from "../lib/page-content.ts";
 import { sql } from "../db.ts";
 import {
   crawlFetch as guardedFetch,
@@ -31,7 +31,13 @@ export interface ExtractedBody {
 const MIN_BODY_CHARS = 200;
 
 export function readable(html: string, url: string): ExtractedBody | null {
-  const { document } = parseHTML(html);
+  let document: ReturnType<typeof contentDocument>;
+  try {
+    document = contentDocument(html);
+  } catch (error) {
+    if (error instanceof UnavailablePageError) return null;
+    throw error;
+  }
   try {
     const base = document.createElement("base");
     base.setAttribute("href", url);
@@ -47,6 +53,12 @@ export function readable(html: string, url: string): ExtractedBody | null {
   const clean = trimTrailingChrome(sanitizeBody(article.content, url));
   const text = stripTags(clean);
   if (text.length < MIN_BODY_CHARS) return null;
+  try {
+    assertPageContent(article.title ?? "", text);
+  } catch (error) {
+    if (error instanceof UnavailablePageError) return null;
+    throw error;
+  }
   const images: ExtractedBody["images"] = [];
   for (const m of clean.matchAll(/<img\b[^>]*\bsrc="([^"]+)"[^>]*>/gi)) {
     const w = /\bwidth="(\d+)"/.exec(m[0]);

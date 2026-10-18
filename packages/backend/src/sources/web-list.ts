@@ -1,5 +1,6 @@
 // Web list pages: HTML with selectors, and Markdown through Jina Reader.
 import * as cheerio from "cheerio";
+import { contentDocument } from "../lib/page-content.ts";
 import { crawlFetch as guardedFetch, crawlExternal, crawlReadKey } from "../acquisition/crawl.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { readable, type ExtractedBody } from "../content/extract.ts";
@@ -226,6 +227,7 @@ export function fromMarkdown(md: string, base: string, source: SourceRow): Candi
 
 export function htmlListDocument(html: string, base: string, source: SourceRow, observedAt?: string) {
   const c = source.config;
+  contentDocument(html);
   const $ = cheerio.load(html);
   const out: { html: string; candidate: Candidate | null }[] = [];
   const itemSel: string | undefined = c.itemSelector;
@@ -392,6 +394,7 @@ export async function fetchDetail(
     if (res.status === 200) {
       observedAt = res.fetchedAt ?? observedAt;
       html = res.text();
+      contentDocument(html);
       if (need.body && /html/.test(res.headers.get("content-type") ?? "")) {
         try {
           body = readable(html, res.url);

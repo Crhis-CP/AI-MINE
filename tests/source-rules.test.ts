@@ -1,3 +1,4 @@
+import { jinaRead } from "../packages/backend/src/providers/jina.ts";
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 // Every rule a source's config names is applied, and a name the collector does not implement fails the
 // fetch. Configs that carried adapters and detail rules a collector does not implement used to fall
@@ -48,6 +49,10 @@ const pages: Record<string, (base: string) => string> = {
 };
 // Jina Reader: GET /<target URL> answers the rendering, with its header lines.
 const jina = (base: string, target: string) => {
+  if (target.endsWith(`/unavailable-${T}`))
+    return `Title: Mine news\nWarning: Target URL returned error 404: Not Found\nURL Source: ${target}\nMarkdown Content:\nNo article`;
+  if (target.endsWith(`/warning-prose-${T}`))
+    return `Title: Mining platform reliability\nURL Source: ${target}\nMarkdown Content:\nWarning: Target URL returned error 404 is the message our engineers fixed.`;
   const md = target.endsWith(`/jlist-${T}`)
     ? `[Short Jina title ${T}](${base}/j/1-${T})\n\n[${LONG}](${base}/j/2-${T})`
     : `# Heading from Jina ${T}\n\nThe article.`;
@@ -245,4 +250,17 @@ test("an unprovable presentation keeps its prior body while later feed entries s
   assert.equal(run.detail.presentationFailureCount, 1);
   assert.equal(run.detail.presentationFailures[0].url, articleUrl);
   assert.equal((await sql`SELECT body_html FROM articles WHERE id=${prior.id}`)[0].body_html, prior.body_html);
+});
+
+test("a billed renderer error is reused without becoming content or another paid request", async () => {
+  const target = `${base}/unavailable-${T}`;
+  const options = { purpose: "source_detail", subject: `source:${id("jina")}`, lane: "news" as const };
+  const before = pageReads.get(`/${target}`) ?? 0;
+  await assert.rejects(jinaRead(target, options), /Unavailable page/);
+  const receipts = await sql`SELECT id, status FROM receipts WHERE subject=${options.subject} AND service='jina' ORDER BY id`;
+  await assert.rejects(jinaRead(target, options), /Unavailable page/);
+  assert.equal(pageReads.get(`/${target}`), before + 1, "an already paid response is not fetched again");
+  assert.deepEqual([...(await sql`SELECT id, status FROM receipts WHERE subject=${options.subject} AND service='jina' ORDER BY id`)], [...receipts]);
+  const valid = await jinaRead(`${base}/warning-prose-${T}`, options);
+  assert.match(valid.markdown, /our engineers fixed/, "quoted protocol wording inside prose is ordinary content");
 });

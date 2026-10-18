@@ -1,3 +1,4 @@
+import { readable } from "@amp/backend/content/extract";
 // Listing parsers on the page shapes Jina returns for real sites: card links that wrap
 // an image, a title attribute, http links under https prefixes, and navigation that is no post. Also
 // what made articles flip between versions: in-page anchors of an HTML listing and
@@ -326,4 +327,18 @@ test("Atom updated is a source date only when explicitly selected and never fall
   assert.match(explicit[0]!.sourceDateObservation?.locator ?? "", /Atom updated.*\.updated/);
   assert.equal(implicit[0]!.sourceDateObservation?.raw, "");
   assert.deepEqual(unsupportedConfig("rss", { publishedAtField: "updated" }), []);
+});
+
+test("successful HTTP error pages yield neither article bodies nor navigation candidates", () => {
+  const prose = "Mining companies describe production, costs and development milestones. ".repeat(8);
+  const body = `<article><h1>Copper mine update</h1><p>${prose}</p></article>`;
+  assert.ok(readable(`<html><head><title>How miners handle access denied errors</title></head><body>${body}</body></html>`, "https://example.org/news"));
+  for (const label of ["404 Not Found", "Access denied", "Just a moment...", "Security verification"]) {
+    const page = `<html><head><title>${label} | Publisher</title></head><body>${body}<a href="/help">Read the support documentation</a></body></html>`;
+    assert.equal(readable(page, "https://example.org/news"), null);
+    assert.throws(() => fromHtml(page, "https://example.org/news", source({})), /Unavailable page/);
+  }
+  const verification = `<html><body><div>example.org</div><h1>Performing security verification</h1><p>This website uses a security service to protect against malicious bots.</p>${body}</body></html>`;
+  assert.equal(readable(verification, "https://example.org/news"), null);
+  assert.equal(readable(`<html><head><title>Mining news</title></head><body><h1>Not found</h1>${body}</body></html>`, "https://example.org/news"), null);
 });
