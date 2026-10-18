@@ -1212,6 +1212,25 @@
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
     },
+    "content.publication_date_corrections": {
+      "module": "content",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "feedback.submission_state": {
+      "module": "feedback",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "feedback_write": ["SELECT", "INSERT", "UPDATE"],
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "DELETE"]
+      }
+    },
     "feedback.quota_buckets": {
       "module": "feedback",
       "access": "business",

@@ -45,3 +45,7 @@ robots缓存24小时，404允许；暂不可取得保留明确延后。匹配规
 coverage按真实结构轮回执计 complete/incomplete，报告期末尚未完成的轮计 incomplete；没有适用证据的来源计 missing。成功HTTP不替代完整回执。目录记录数/当前记录数/不同文书数保存在回执；原件取得成功由 policy 工作流及原件回执单独证明，公开数仍由 publication 合格版本计算。源码没有为真实来源虚构分页字段或启用 held 来源，尚未配置结构profile的web/json法规来源会明确报缺配置，RSS成功也不产生完整目录证明。
 
 TASK0144补充真实WordPress目录家族：`pageNumber: {kind:"link_neighbors",header:"link",parameter:"page"}`从响应前后页链接核页码，要求同一集合，拒绝跨主机/改分类、矛盾或缺失关系；不是照抄请求page。`recordScope:{field,anyOf}`逐条核对官方分类，越界使整轮失败，不过滤后假装总数一致。来源声明0记录/0页时保留declaredTotalPages=0，并以一次物理空响应完成校验。读取配方已升为directory-v2，恢复中的旧配方从首页重开。真实配置覆盖与缺口见`docs/research/policy-directory-profiles.md`；当前AR-008仍无全轮complete证明，BLM缺总记录字段不填猜测。
+
+## 出站解析与跳转
+
+经出站代理的公开抓取使用同一代理取得 DNS 结果，并把通过地址检查的 IP 固定为 CONNECT 目标；原网站的 Host 与 TLS 校验名称保持不变。解析等待受请求总时限约束，所有返回地址均须通过检查，私网、元数据、保留及基准测试网段一律拒绝。直连在建立连接时重新验证实际地址；生产不开放私网来源例外。公开请求可按现有规则跳转；含请求正文或非公开自定义请求头的跳转限原始 origin，避免把凭据交给其他网站。

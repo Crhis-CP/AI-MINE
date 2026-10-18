@@ -44,14 +44,12 @@ async function sourceTimeForMaterial(material: { id: string; source_id: string; 
   const context = await sourceDateConfiguration(material.source_id, db);
   if (context?.lane !== "news") return null;
   const time = publicSourceTime(
-    context.configHash
-      ? await materialSourceTime(
-          { articleId: material.id, sourceId: material.source_id, revision: material.revision, configHash: context.configHash },
-          Number(material.source_date_version),
-          now.getTime(),
-          db,
-        )
-      : null,
+    await materialSourceTime(
+      { articleId: material.id, sourceId: material.source_id, revision: material.revision, configHash: context.configHash ?? "" },
+      Number(material.source_date_version),
+      now.getTime(),
+      db,
+    ),
   );
   return { time, configHash: (time ? context.configHash : context.storedConfigHash) ?? null };
 }

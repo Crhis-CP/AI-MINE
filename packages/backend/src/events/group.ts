@@ -763,20 +763,28 @@ async function resetAutomatic(articleId: string, control: RuntimeControlSnapshot
     await assertRuntimeControl(tx, control);
     await assertGroupingInput(articleId, input, tx);
     if (await manualDecision(tx, articleId)) return [];
-    await captureEventWithdrawal(tx, articleId);
-    const left = await tx<{ story_id: number }[]>`
+    return (await removeAutomaticDateMembership(articleId, tx)) ?? [];
+  });
+}
+
+/** Date corrections may archive automatic membership; human grouping is never discarded. */
+export async function removeAutomaticDateMembership(articleId: string, tx: Db): Promise<number[] | null> {
+  const [manual] = await tx`SELECT 1 FROM grouping_overrides WHERE article_id=${articleId}
+    UNION ALL SELECT 1 FROM fact_articles WHERE article_id=${articleId} AND manual LIMIT 1`;
+  if (manual) return null;
+  await captureEventWithdrawal(tx, articleId);
+  const left = await tx<{ story_id: number }[]>`
       SELECT DISTINCT f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
       WHERE fa.article_id = ${articleId} AND NOT fa.manual AND fa.role IN ('primary', 'report') AND f.story_id IS NOT NULL`;
-    await tx`DELETE FROM fact_articles WHERE article_id = ${articleId} AND NOT manual`;
-    await tx`DELETE FROM story_signals WHERE article_id = ${articleId}`;
-    for (const row of left) {
-      await tx`UPDATE stories SET digest=NULL,latest=NULL,digest_updated_at=NULL,version=version+1,updated_at=now()
+  await tx`DELETE FROM fact_articles WHERE article_id = ${articleId} AND NOT manual`;
+  await tx`DELETE FROM story_signals WHERE article_id = ${articleId}`;
+  for (const row of left) {
+    await tx`UPDATE stories SET digest=NULL,latest=NULL,digest_updated_at=NULL,version=version+1,updated_at=now()
         WHERE id=${row.story_id} AND NOT EXISTS(SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id=f.id
           WHERE f.story_id=${row.story_id} AND fa.role IN ('primary','report'))`;
-      await enqueue(QUEUES.digest, { lane: "news", storyId: row.story_id, afterCorrection: true }, { singletonKey: `story:${row.story_id}:correction` }, tx);
-    }
-    return left.map((r) => Number(r.story_id));
-  });
+    await enqueue(QUEUES.digest, { lane: "news", storyId: row.story_id, afterCorrection: true }, { singletonKey: `story:${row.story_id}:correction` }, tx);
+  }
+  return left.map((r) => Number(r.story_id));
 }
 
 /**

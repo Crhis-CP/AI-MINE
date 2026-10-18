@@ -1,3 +1,4 @@
+import { correctedSourceTime } from "./date-correction.ts";
 import { beijingMidnight } from "@amp/contracts/time";
 import { decideTimeline } from "./timeline.ts";
 import { beginMaterialGrouping } from "./grouping.ts";
@@ -133,6 +134,7 @@ export async function commitDateObservation(
     (recent && Math.max(recent.observed_at.getTime(), recent.last_observed_at?.getTime() ?? -Infinity) > Date.parse(observation.observedAt))
   )
     return stale();
+  if ((await correctedSourceTime(articleId, tx)) !== undefined) return result;
   if (previous?.semantic_hash === semanticHash && article.source_date_state === verdict.status) return result;
   const old = previous && source.lane === "news" ? sourceDateVerdict("news", previous.result.evidence, binding, now) : null;
   const time = verdict.status === "reliable" ? verdict.time : null;
@@ -228,6 +230,8 @@ export async function materialSourceTime(
   now: number,
   db: Db = sql,
 ) {
+  const corrected = await correctedSourceTime(binding.articleId, db);
+  if (corrected !== undefined) return corrected;
   if (!Number.isSafeInteger(dateVersion) || dateVersion <= 0) return null;
   const [row] = await db<
     { result: SourceDateParseResult }[]

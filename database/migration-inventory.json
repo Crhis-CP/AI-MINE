@@ -125,6 +125,10 @@
   ],
   "migrations": [
     {
+      "name": "feedback/202610182210_submission_state.sql",
+      "dependsOn": ["feedback/202610121230_feedback_forward.sql"]
+    },
+    {
       "name": "enrichment/202610042100_translation_readiness.sql",
       "dependsOn": []
     },
@@ -451,6 +455,10 @@
     {
       "name": "ai-gateway/202610180700_model_service_circuits.sql",
       "dependsOn": ["ai-gateway/202610180600_model_fallback_outcomes.sql"]
+    },
+    {
+      "name": "content/202610182215_publication_date_corrections.sql",
+      "dependsOn": ["content/202610042020_source_date_evidence.sql"]
     }
   ]
 }

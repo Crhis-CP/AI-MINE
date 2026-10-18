@@ -7,7 +7,7 @@ import { after, test } from "node:test";
 import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
 import { webEnvironmentProblems } from "../apps/web/runtime-env.ts";
 import { config } from "@amp/backend/config";
-import { guardedFetch } from "@amp/backend/lib/http-fetch";
+import { guardedFetch, type GuardedFetchOptions } from "@amp/backend/lib/http-fetch";
 import { environmentProblems } from "@amp/backend/db";
 
 const previousProxy = config.egressProxyUrl;
@@ -79,4 +79,39 @@ test("production startup accepts EGRESS_PROXY_URL and still refuses a process-wi
   }
   assert.deepEqual(webEnvironmentProblems({ NODE_ENV: "production", EGRESS_PROXY_URL: "http://127.0.0.1:7890" }), []);
   assert.deepEqual(webEnvironmentProblems({ NODE_ENV: "production", https_proxy: "" }), ["https_proxy"]);
+});
+
+test("redirects preserve public headers but never forward credentials to another origin", async () => {
+  config.allowPrivateNetworkFetch = true;
+  config.egressProxyUrl = null;
+  const start = mock.get("https://redirect.invalid");
+  const finish = mock.get("https://destination.invalid");
+  start
+    .intercept({ path: "/public", headers: { "user-agent": "SourceReader" } })
+    .reply(302, "", { headers: { location: "https://destination.invalid/public" } });
+  finish.intercept({ path: "/public", headers: { "user-agent": "SourceReader" } }).reply(200, "public");
+  assert.equal((await guardedFetch("https://redirect.invalid/public", { headers: { "User-Agent": "SourceReader" } })).text(), "public");
+  const protectedRequests: GuardedFetchOptions[] = [
+    { headers: { authorization: "secret" } },
+    { headers: { "x-api-key": "secret" } },
+    { method: "POST", body: "secret" },
+    { redirectPolicy: "same-origin" },
+  ];
+  for (const options of protectedRequests) {
+    start.intercept({ path: "/protected", method: options.method ?? "GET" }).reply(307, "", { headers: { location: "https://destination.invalid/protected" } });
+    await assert.rejects(guardedFetch("https://redirect.invalid/protected", options), /Blocked cross-origin redirect/);
+  }
+  start.intercept({ path: "/submit", method: "POST" }).reply(303, "", { headers: { location: "/done" } });
+  start.intercept({ path: "/done", method: "GET", headers: { authorization: "secret" } }).reply(200, "saved");
+  assert.equal(
+    (
+      await guardedFetch("https://redirect.invalid/submit", {
+        method: "POST",
+        body: "data",
+        headers: { authorization: "secret", "content-type": "text/plain" },
+      })
+    ).text(),
+    "saved",
+  );
+  mock.assertNoPendingInterceptors();
 });

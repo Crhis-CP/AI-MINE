@@ -73,6 +73,13 @@ test("seven real logins enforce grants, install worker-owned queues and round-tr
   assert.equal((await s.feedback_write`SELECT source_hash FROM feedback_bans`).length, 1);
   await denied(s.feedback_write, "SELECT content,email FROM feedback");
   await denied(s.feedback_write, "DELETE FROM feedback");
+  await s.feedback_write`INSERT INTO feedback.submission_state(source_hash,expires_at) VALUES('fixture-client',now()+interval '1 hour')`;
+  await s.feedback_write`UPDATE feedback.submission_state SET attempts='[1]'::jsonb WHERE source_hash='fixture-client'`;
+  assert.deepEqual((await s.feedback_write`SELECT attempts FROM feedback.submission_state WHERE source_hash='fixture-client'`)[0].attempts, [1]);
+  await denied(s.feedback_write, "DELETE FROM feedback.submission_state");
+  await denied(s.feedback_write, "INSERT INTO feedback_bans(source_hash,reason) VALUES('forbidden','test')");
+  await denied(s.feedback_write, "DELETE FROM feedback_bans");
+  await denied(s.feedback_write, "INSERT INTO audit_log(actor,action) VALUES('forbidden','test')");
   const [user] = await s.auth`INSERT INTO admin_users (display_name) VALUES ('Fixture') RETURNING id`;
   await s.auth`INSERT INTO admin_sessions (id_hash,user_id,csrf_token,expires_at) VALUES ('fixture-session',${user.id},'fixture-csrf',now()+interval '1 hour')`;
   assert.equal((await s.auth`SELECT id_hash FROM admin_sessions`).length, 1);

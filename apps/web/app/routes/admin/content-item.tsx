@@ -1,3 +1,5 @@
+import { DateCorrection } from "../../features/admin/DateCorrection";
+import { PresentationRefresh } from "../../features/admin/PresentationRefresh";
 import type { NewsGroupingDiagnostic } from "@amp/contracts/http/private";
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
@@ -438,6 +440,12 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
         </div>
       </div>
 
+      <DateCorrection id={a.id} />
+      <PresentationRefresh
+        id={a.id}
+        history={c.history.map((h) => ({ action: String(h.action), after: h.after, reason: h.reason == null ? null : String(h.reason) }))}
+      />
+
       <ReasonDialog
         open={dialog === "seo"}
         title={p?.indexable ? "取消搜索收录" : "标记为可收录"}
@@ -616,7 +624,7 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
         confirmLabel="重新评估"
         busy={pending === "analyze"}
         onClose={() => setDialog(null)}
-        onSubmit={async () => (await run("POST", `${base}/rerun`, { step: "analyze" }, { label: "analyze", success: "已加入评估队列" })) !== null}
+        onSubmit={async (reason) => (await run("POST", `${base}/rerun`, { step: "analyze", reason }, { label: "analyze", success: "已加入评估队列" })) !== null}
       />
       <ReasonDialog
         open={dialog === "extract"}
@@ -625,7 +633,7 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
         confirmLabel="重新抽取"
         busy={pending === "extract"}
         onClose={() => setDialog(null)}
-        onSubmit={async () => (await run("POST", `${base}/rerun`, { step: "extract" }, { label: "extract", success: "已加入抽取队列" })) !== null}
+        onSubmit={async (reason) => (await run("POST", `${base}/rerun`, { step: "extract", reason }, { label: "extract", success: "已加入抽取队列" })) !== null}
       />
       <ReasonDialog
         open={dialog === "group"}
@@ -635,7 +643,7 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
         confirmLabel="重新归组"
         busy={pending === "group"}
         onClose={() => setDialog(null)}
-        onSubmit={async () => (await run("POST", `${base}/rerun`, { step: "group" }, { label: "group", success: "已加入归组队列" })) !== null}
+        onSubmit={async (reason) => (await run("POST", `${base}/rerun`, { step: "group", reason }, { label: "group", success: "已加入归组队列" })) !== null}
       />
       <ReasonDialog
         open={dialog === "detach"}

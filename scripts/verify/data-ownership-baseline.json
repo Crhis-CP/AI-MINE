@@ -23,8 +23,6 @@
     "[\"packages/backend/src/admin/content.ts\",\"inHotRanking/[p]\",\"editorial\",\"public.publications\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/content.ts\",\"setSeoIndexed/[before]\",\"editorial\",\"public.publications\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/content.ts\",\"setSeoIndexed\",\"editorial\",\"public.publications\",\"write\",\"split-debt\"]": 1,
-    "[\"packages/backend/src/admin/content.ts\",\"rerun/[a]\",\"editorial\",\"public.articles\",\"read\",\"split-debt\"]": 1,
-    "[\"packages/backend/src/admin/content.ts\",\"rerun\",\"editorial\",\"public.articles\",\"write\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/content.ts\",\"mergeStories/found\",\"editorial\",\"public.stories\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/runs.ts\",\"runsOverview/[heartbeats, latest, timeline, queues, failedJobs, lagging, receipts, receiptIssues, deliveries, errors, ingest]\",\"platform/ops\",\"pgboss.job\",\"read\",\"split-debt\"]": 2,
     "[\"packages/backend/src/admin/runs.ts\",\"runsOverview/[heartbeats, latest, timeline, queues, failedJobs, lagging, receipts, receiptIssues, deliveries, errors, ingest]\",\"platform/ops\",\"public.sources\",\"read\",\"split-debt\"]": 1,

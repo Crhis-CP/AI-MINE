@@ -582,6 +582,10 @@
       "module": "feedback",
       "access": "business"
     },
+    "feedback.submission_state": {
+      "module": "feedback",
+      "access": "business"
+    },
     "feedback.submissions": {
       "module": "feedback",
       "access": "business"
@@ -612,6 +616,10 @@
     },
     "ai.model_service_circuits": {
       "module": "ai-gateway",
+      "access": "business"
+    },
+    "content.publication_date_corrections": {
+      "module": "content",
       "access": "business"
     }
   },
@@ -949,6 +957,9 @@
     "packages/backend/src/sources/permission-store.ts": "sources",
     "packages/backend/src/sources/policy-coverage.ts": "sources",
     "packages/backend/src/sources/representative-input.ts": "sources",
-    "packages/backend/src/providers/circuit.ts": "ai-gateway"
+    "packages/backend/src/providers/circuit.ts": "ai-gateway",
+    "packages/backend/src/admin/content-date.ts": "editorial",
+    "packages/backend/src/admin/content-presentation.ts": "editorial",
+    "packages/backend/src/content/date-correction.ts": "content"
   }
 }

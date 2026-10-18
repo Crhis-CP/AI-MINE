@@ -235,11 +235,11 @@ export async function readStoredTranslation(articleId: string, db: Db = sql): Pr
   return row ?? null;
 }
 
-/** The caller holds the material row; a mismatch aborts that update, never buys another translation. */
-export async function refreshTranslationPresentation(body: CurrentBody, nextHtml: string, db: Db): Promise<void> {
+/** Read-only validation shared by the administrative preview and the locked update. */
+export async function previewTranslationPresentation(body: CurrentBody, nextHtml: string, db: Db, lock = false) {
   if (!body.body_html || body.body_html === nextHtml) return;
-  const [stored] = await db<StoredTranslation[]>`SELECT revision,body_html,complete,origin,recipe,source_hash,manifest
-    FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
+  if (lock) await db`SELECT article_id FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
+  const stored = await readStoredTranslation(body.id, db);
   if (stored?.origin !== "model" || stored.revision !== body.revision) return;
   if (!stored.recipe || stored.source_hash !== translationSourceManifest(body.body_html).sourceHash) throw new PresentationMismatch();
   const old: TranslationSession = { body: { ...body, body_html: body.body_html }, recipe: stored.recipe, source: translationSourceManifest(body.body_html) };
@@ -255,6 +255,14 @@ export async function refreshTranslationPresentation(body: CurrentBody, nextHtml
   if (!original || (stored.body_html && (original.html !== stored.body_html || stableJson(original.manifest) !== stableJson(stored.manifest))))
     throw new PresentationMismatch();
   const plan = presentationPlan(body.body_html, nextHtml, { revision: body.revision, recipe: stored.recipe }, saved);
+  return { stored, old, plan, saved };
+}
+
+/** The caller holds the material row; a mismatch aborts that update, never buys another translation. */
+export async function refreshTranslationPresentation(body: CurrentBody, nextHtml: string, db: Db): Promise<void> {
+  const preview = await previewTranslationPresentation(body, nextHtml, db, true);
+  if (!preview) return;
+  const { stored, old, plan } = preview;
   const rows = await db<
     (StoredSegment & { receipt_id: string | null })[]
   >`SELECT segment_index,segment_hash,state,failed_attempts,attempt_id,receipt_id::text AS receipt_id,response_text,response_hash,restored_html,restored_hash,parent_index,replacement_plan

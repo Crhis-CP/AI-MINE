@@ -1,3 +1,5 @@
+import { applyPresentationRefresh } from "../admin/content-presentation.ts";
+import { audit } from "../admin/auth.ts";
 import { isModelRouteWaiting, modelRouteWaitSeconds } from "../providers/model-fallback.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Content processing: body extraction when the source needs it → analysis → publish → event grouping.
@@ -343,6 +345,38 @@ export async function registerExtractionJobs(boss: PgBoss) {
   await ensureQueue(QUEUES.extractBody);
   await work(boss, QUEUES.extractBody, { localConcurrency: 4, pollingIntervalSeconds: 2 }, articleJobLane, async (data) => {
     const { articleId } = data;
+    if (data.presentation) {
+      const command = data.presentation;
+      try {
+        return await applyPresentationRefresh(
+          articleId,
+          { version: command.version, reason: command.reason },
+          command.requestId,
+          command.actor,
+          data.crawlSessionId,
+        );
+      } catch (error) {
+        if (error instanceof CrawlDeferred) {
+          await enqueue(
+            QUEUES.extractBody,
+            { ...data, crawlSessionId: error.sessionId },
+            { startAfter: error.retryAt, singletonKey: `presentation:${articleId}:${command.requestId}:${error.reservationId}:${error.retryAt.toISOString()}` },
+          );
+          return { state: "deferred", retryAt: error.retryAt.toISOString() };
+        }
+        const reason = error instanceof Error ? error.message.slice(0, 500) : "正文展示刷新失败，请重新预览后重试";
+        await audit(
+          command.actor,
+          "content.rerun.presentation.failed",
+          `content:${articleId}`,
+          reason,
+          null,
+          { requestId: command.requestId, version: command.version },
+          command.requestId,
+        );
+        return { state: "needs-preview", reason };
+      }
+    }
     const inputRevision = await materialRevision(articleId);
     if (inputRevision === undefined) return { state: "missing" };
     try {

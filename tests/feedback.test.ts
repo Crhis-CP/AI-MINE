@@ -56,6 +56,19 @@ test("public submission keeps the screenshot and never sends directly even when 
   const [row] = await sql<{ content: string; screenshot_key: string }[]>`SELECT content, screenshot_key FROM feedback WHERE id = ${id}`;
   assert.equal(row!.content, `反馈 ${T}`);
   assert.match(row!.screenshot_key, /^local:/);
+  assert.deepEqual(
+    await submitFeedback({
+      idempotencyKey: randomUUID(),
+      content: `反馈 ${T}`,
+      email: "reader@example.com",
+      pageUrl: "/daily",
+      screenshot: { mime: "image/jpg", data: PNG },
+      ip: "203.0.113.7",
+      userAgent: "test",
+    }),
+    { id },
+    "raw image bytes determine duplicate identity, not a declared MIME type",
+  );
   const file = await feedbackScreenshot(id);
   assert.ok(file && existsSync(file), "the admin pages read the screenshot from the server");
   const second = await submitFeedback({

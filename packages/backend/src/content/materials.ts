@@ -1,3 +1,11 @@
+export {
+  correctedSourceTime,
+  saveCorrectedSourceTime,
+  dateCorrectionMaterial,
+  applyCorrectedMaterialDate,
+  resetMaterialProcessing,
+  type CorrectionMaterial,
+} from "./date-correction.ts";
 import { audit } from "../admin/auth.ts";
 import { refreshTranslationPresentation } from "../editorial/translation-store.ts";
 export { PresentationMismatch } from "../editorial/presentation.ts";
@@ -395,14 +403,15 @@ export async function newsRelationMaterials(ids: string[], db: Db = sql) {
   return Promise.all(
     rows.map(async (row) => {
       const context = await sourceDateConfiguration(row.source_id, db);
-      const time = context?.configHash
-        ? await materialSourceTime(
-            { articleId: row.id, sourceId: row.source_id, revision: row.revision, configHash: context.configHash },
-            Number(row.source_date_version),
-            Date.now(),
-            db,
-          )
-        : null;
+      const time =
+        context?.lane === "news"
+          ? await materialSourceTime(
+              { articleId: row.id, sourceId: row.source_id, revision: row.revision, configHash: context.configHash ?? "" },
+              Number(row.source_date_version),
+              Date.now(),
+              db,
+            )
+          : null;
       return {
         ...row,
         source_date_version: Number(row.source_date_version),
@@ -460,4 +469,13 @@ export async function collectionDetails(sourceId: string, identities: string[]):
     raw->'collectionDetail'->>'rules' AS rules,raw->'collectionDetail'->>'checkedAt' AS checked_at
     FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
   return new Map(rows.map((row) => [row.identity_key, row]));
+}
+
+/** Current semantic material for a presentation-only administrative repair. */
+export async function presentationMaterialSnapshot(articleId: string, db: Db = sql, lock = false) {
+  if (lock) await db`SELECT id FROM articles WHERE id=${articleId} FOR UPDATE`;
+  const [row] = await db<(CurrentBody & { excerpt: string | null; media: MediaItem[]; identity_key: string; url: string })[]>`
+    SELECT id,source_id,revision,title,language,body_status,body_html,body_text,excerpt,media,identity_key,url
+    FROM articles WHERE id=${articleId}`;
+  return row ?? null;
 }
