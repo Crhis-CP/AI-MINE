@@ -61,11 +61,14 @@ function FeedbackCard({ f }: { f: Feedback }) {
         <span className="num font-medium text-ink-2">#{f.id}</span>
         <Badge tone={TONE[f.status] ?? "muted"}>{FEEDBACK_STATUS[f.status] ?? f.status}</Badge>
         <Time at={f.created_at} />
-        {f.email && (
-          <a className="text-accent" href={`mailto:${f.email}`}>
-            {f.email}
-          </a>
-        )}
+        {f.email &&
+          (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email) ? (
+            <a className="text-accent" href={`mailto:${encodeURIComponent(f.email)}`}>
+              {f.email}
+            </a>
+          ) : (
+            <span>{f.email}</span>
+          ))}
         {f.page_url && (
           <a className="max-w-[320px] truncate hover:text-accent" href={f.page_url} target="_blank" rel="noreferrer">
             {f.page_url}

@@ -1,3 +1,4 @@
+import { FEEDBACK_LIMITS } from "@amp/contracts/http/public";
 import sharp from "sharp";
 import { config } from "../config.ts";
 
@@ -34,29 +35,29 @@ export function feedbackPageUrl(input?: string | null): string | null {
 export async function feedbackImage(input?: { mime: string; data: Buffer } | null): Promise<{ data: Buffer; extension: string } | null> {
   if (!input) return null;
   const data = input.data;
-  if (data.length > 2 * 1024 * 1024) throw new FeedbackRejected(400, "invalid_request", "截图最大 2MB。");
-  const bad = () => new FeedbackRejected(400, "invalid_request", "图片需为有效的 PNG、JPEG 或 WebP，大小不超过2MB，单边不超过16000像素、总像素不超过4000万。");
+  if (data.length > FEEDBACK_LIMITS.screenshotBytes) throw new FeedbackRejected(400, "invalid_request", "截图最大 8MB。");
+  const bad = () => new FeedbackRejected(400, "invalid_request", "图片需为有效的 PNG、JPEG、WebP 或 GIF，大小不超过8MB，总像素不超过6000万。");
   const format = data.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"))
     ? "png"
     : data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff
       ? "jpeg"
       : data.length >= 12 && data.toString("ascii", 0, 4) === "RIFF" && data.toString("ascii", 8, 12) === "WEBP"
         ? "webp"
-        : null;
+        : data.length >= 6 && /^GIF8[79]a$/.test(data.toString("ascii", 0, 6))
+          ? "gif"
+          : null;
   if (!format) throw bad();
   try {
-    const decoder = sharp(data, { limitInputPixels: 40_000_000, failOn: "warning" });
+    const decoder = sharp(data, { animated: true, limitInputPixels: FEEDBACK_LIMITS.imagePixels, failOn: "warning" });
     const metadata = await decoder.metadata();
     if (
       metadata.format !== format ||
       !metadata.width ||
       !metadata.height ||
-      metadata.width > 16_000 ||
-      metadata.height > 16_000 ||
-      metadata.width * metadata.height * (metadata.pages ?? 1) > 40_000_000
+      metadata.width * (metadata.pageHeight ?? metadata.height) * (metadata.pages ?? 1) > FEEDBACK_LIMITS.imagePixels
     )
       throw bad();
-    return { data: await decoder.rotate().toFormat(format).toBuffer(), extension: format };
+    return { data: await ((metadata.pages ?? 1) > 1 ? decoder : decoder.rotate()).toFormat(format).toBuffer(), extension: format };
   } catch {
     throw bad();
   }

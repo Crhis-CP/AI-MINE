@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 import { after, test } from "node:test";
-import { feedbackScreenshot } from "@amp/backend/admin/feedback";
+import { eraseFeedback, feedbackScreenshot } from "@amp/backend/admin/feedback";
 import { config } from "@amp/backend/config";
 import { closeDb, feedbackSql as sql, initializeDb } from "@amp/backend/db";
 import { submitFeedback } from "@amp/backend/operations/feedback";
@@ -58,23 +58,40 @@ test("public submission keeps the screenshot and never sends directly even when 
   assert.match(row!.screenshot_key, /^local:/);
   const file = await feedbackScreenshot(id);
   assert.ok(file && existsSync(file), "the admin pages read the screenshot from the server");
+  const second = await submitFeedback({
+    idempotencyKey: randomUUID(),
+    content: "相同截图的另一条反馈",
+    ip: "203.0.113.51",
+    userAgent: "test",
+    screenshot: { mime: "image/png", data: PNG },
+  });
+  const [other] = await sql`SELECT screenshot_key FROM feedback WHERE id=${second.id}`;
+  assert.notEqual(other!.screenshot_key, row!.screenshot_key, "each new feedback owns its image file");
+  // Legacy records may still share a content-hash key; deleting one must not erase the other's image.
+  await sql`UPDATE feedback SET screenshot_key=${row!.screenshot_key} WHERE id=${second.id}`;
+  await eraseFeedback(id, "删除合成资料", "test");
+  assert.ok(existsSync(file!));
+  await eraseFeedback(second.id, "删除最后一份合成资料", "test");
+  assert.equal(existsSync(file!), false);
 });
 
-test("feedback accepts general contact and 5000 characters while enforcing 10-character and 2MB limits", async () => {
+test("feedback accepts optional email and 2–5000 characters with an 8MB screenshot limit", async () => {
   const common = {
     idempotencyKey: randomUUID(),
-    email: "微信：reader-contact",
+    email: "reader@example.test",
     pageUrl: "/all",
     screenshot: null,
     ip: "203.0.113.8",
     userAgent: "validation-test",
   };
-  await assert.rejects(submitFeedback({ ...common, content: "太短" }), /至少 10/);
+  await assert.rejects(submitFeedback({ ...common, content: "短" }), /至少 2/);
   await assert.rejects(submitFeedback({ ...common, content: "字".repeat(5001) }), /最多 5000/);
   await assert.rejects(
-    submitFeedback({ ...common, content: "反馈内容用于校验截图大小", screenshot: { mime: "image/png", data: Buffer.alloc(2 * 1024 * 1024 + 1) } }),
-    /2MB/,
+    submitFeedback({ ...common, content: "反馈内容用于校验截图大小", screenshot: { mime: "image/png", data: Buffer.alloc(8 * 1024 * 1024 + 1) } }),
+    /8MB/,
   );
+  await assert.rejects(submitFeedback({ ...common, content: "有效", email: "微信：reader" }), /有效邮箱/);
+  assert.ok((await submitFeedback({ ...common, idempotencyKey: randomUUID(), content: "有效" })).id);
   const { id } = await submitFeedback({ ...common, content: "字".repeat(5000) });
   const [row] = await sql`SELECT email,length(content) AS length FROM feedback WHERE id=${id}`;
   assert.equal(row.email, common.email);

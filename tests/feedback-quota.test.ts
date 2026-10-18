@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { after, test } from "node:test";
-import { closeDb, feedbackSql as sql, initializeDb } from "@amp/backend/db";
+import { closeDb, feedbackSql as sql } from "@amp/backend/db";
 import { submitFeedback, feedbackSourceHash } from "@amp/backend/operations/feedback";
 
 after(closeDb);
@@ -22,39 +22,35 @@ async function otherInstance(inputs: ReturnType<typeof request>[]) {
   return JSON.parse(result.stdout.match(/RESULT:(.+)/)![1]!) as Array<{ status: number; id?: number }>;
 }
 
-test("hourly five is atomic across separate instances; restart and replay cannot consume or bypass the durable limit", async () => {
+test("five rolling-minute attempts are atomic in an API process and saved retries do not spend another attempt", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
   const inputs = Array.from({ length: 8 }, () => request("quota-client-one"));
-  const rows = (await Promise.all([otherInstance(inputs.slice(0, 4)), otherInstance(inputs.slice(4))])).flat();
-  assert.equal(rows.filter((r) => r.status === 201).length, 5);
-  assert.equal(rows.filter((r) => r.status === 429).length, 3);
-  const success = rows.findIndex((r) => r.status === 201);
-  const id = rows[success]!.id;
-  await closeDb();
-  await initializeDb("test");
+  const rows = await Promise.all(
+    inputs.map(async (input) => {
+      try {
+        return { status: 201, id: (await submitFeedback(input)).id };
+      } catch (error) {
+        return { status: (error as { status: number }).status, id: undefined };
+      }
+    }),
+  );
+  assert.equal(rows.filter((row) => row.status === 201).length, 5);
+  assert.equal(rows.filter((row) => row.status === 429).length, 3);
+  const success = rows.findIndex((row) => row.status === 201),
+    id = rows[success]!.id;
   assert.deepEqual(await submitFeedback(inputs[success]!), { id });
-  assert.deepEqual((await otherInstance([inputs[success]!]))[0], { status: 201, id });
-  assert.equal((await otherInstance([request("quota-client-one")]))[0]!.status, 429);
-  const buckets = await sql`SELECT scope,used,window_start FROM feedback.quota_buckets ORDER BY scope`;
-  assert.equal(buckets.find((r) => r.scope === "client_hour")!.used, 5);
-  assert.equal(buckets.find((r) => r.scope === "site_day")!.used, 5, "rejected client claims roll back the global counter");
-  assert.equal(new Date(buckets.find((r) => r.scope === "site_day")!.window_start).getUTCHours(), 16, "site day begins at Beijing midnight");
-  assert.equal((await sql`SELECT count(*)::int n FROM feedback WHERE source_hash=${feedbackSourceHash("quota-client-one", "quota-fixture")}`)[0]!.n, 5);
+  t.mock.timers.tick(60_001);
+  assert.ok((await submitFeedback(request("quota-client-one"))).id);
+  assert.equal((await otherInstance([request("quota-client-one")]))[0]!.status, 201, "a new API process starts a new minute window");
+  assert.equal((await sql`SELECT count(*)::int n FROM feedback WHERE source_hash=${feedbackSourceHash("quota-client-one", "quota-fixture")}`)[0]!.n, 7);
 });
 
-test("the final daily slot is exclusive across instances and unknown-response retries still return the original receipt at quota", async () => {
-  await sql`UPDATE feedback.quota_buckets SET used=499 WHERE scope='site_day'
-    AND window_start=date_trunc('day',now() AT TIME ZONE 'Asia/Shanghai') AT TIME ZONE 'Asia/Shanghai'`;
-  const inputs = [request("daily-client-a"), request("daily-client-b")];
-  const rows = (await Promise.all(inputs.map((input) => otherInstance([input])))).flat();
-  assert.equal(rows.filter((r) => r.status === 201).length, 1);
-  assert.equal(rows.filter((r) => r.status === 429).length, 1);
-  const index = rows.findIndex((r) => r.status === 201);
-  assert.deepEqual((await otherInstance([inputs[index]!]))[0], rows[index]);
-  assert.equal((await sql`SELECT used FROM feedback.quota_buckets WHERE scope='site_day' ORDER BY window_start DESC LIMIT 1`)[0]!.used, 500);
-  assert.equal(
-    (
-      await sql`SELECT count(*)::int n FROM feedback.quota_buckets WHERE scope='client_hour' AND bucket_key=ANY(${inputs.map((i) => feedbackSourceHash(i.ip, i.userAgent))})`
-    )[0]!.n,
-    1,
-  );
+test("legacy amount-of-feedback buckets no longer block submission, while invalid images still spend new attempts", async () => {
+  await sql`INSERT INTO feedback.quota_buckets(scope,bucket_key,window_start,used) VALUES('site_day','site',now(),500)`;
+  assert.ok((await submitFeedback(request("daily-client-a"))).id);
+  for (let i = 0; i < 5; i++)
+    await assert.rejects(submitFeedback({ ...request("invalid-image-client"), screenshot: { mime: "image/png", data: Buffer.from("invalid") } }), /有效的/);
+  await assert.rejects(submitFeedback(request("invalid-image-client")), (error) => (error as { status: number }).status === 429);
+  assert.ok((await submitFeedback(request("another-client"))).id);
+  assert.equal((await sql`SELECT used FROM feedback.quota_buckets WHERE scope='site_day'`)[0]!.used, 500, "historical quota rows remain untouched");
 });

@@ -96,7 +96,8 @@ export async function eraseFeedback(id: number, reason: string, actor: string) {
   });
   if (!row) return null;
   const file = screenshotPath(row.screenshot_key);
-  if (file) await unlink(file).catch(() => {});
+  const [referenced] = row.screenshot_key ? await sql`SELECT 1 FROM feedback WHERE screenshot_key=${row.screenshot_key} LIMIT 1` : [];
+  if (file && !referenced) await unlink(file).catch(() => {});
   await audit(actor, "feedback.erase", `feedback:${id}`, reason, null, null);
   return { erased: true };
 }

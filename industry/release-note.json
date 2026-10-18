@@ -1,7 +1,7 @@
 {
   "note": {
-    "kind": "优化",
-    "title": "矿业资讯聚合与阅读体验更新",
+    "kind": "更新",
+    "title": "矿业资讯全站升级",
     "body": [
       "同一次事件的多个来源合并展示，有实质新进展的报道保留独立阅读入口。",
       "热点榜按独立来源呈现关注度，同一机构的多个入口不重复增加热度。",
@@ -13,7 +13,9 @@
       "补充隐私说明与使用规则，说明本地记录、反馈资料及第三方内容的使用方式。",
       "页脚补充公安联网备案号及查询链接。",
       "“更多”页面可选择字体；更新日志有新内容时会提示，阅读后自动清除。",
-      "手机文章底部集中提供收藏、目录、分享和原文入口，章节跳转不会打乱返回顺序。"
+      "手机文章底部集中提供收藏、目录、分享和原文入口，章节跳转不会打乱返回顺序。",
+      "文章可保存为带来源和二维码的分享图片，正文图片支持放大查看。",
+      "反馈支持较短的问题描述和更大的截图，可留下邮箱接收回复。"
     ]
   },
   "fragments": [
@@ -27,7 +29,9 @@
     "changes/TASK-0367-event-grouping.md",
     "changes/TASK-0367-reader-privacy-terms.md",
     "changes/TASK-0367-reader-preferences.md",
-    "changes/TASK-0367-reader-tools.md"
+    "changes/TASK-0367-reader-tools.md",
+    "changes/TASK-0367-reader-sharing.md",
+    "changes/TASK-0367-feedback-input.md"
   ],
   "announcement": {
     "kind": "公告",

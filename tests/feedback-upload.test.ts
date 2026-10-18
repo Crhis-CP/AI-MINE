@@ -34,11 +34,11 @@ async function upload(file: Buffer, ip: string) {
   });
 }
 
-test("a valid 2 MiB multipart screenshot is decoded and privately re-encoded", async () => {
+test("a valid 8 MiB multipart screenshot is decoded and privately re-encoded", async () => {
   const png = await sharp({ create: { width: 20, height: 10, channels: 3, background: "white" } })
     .png()
     .toBuffer();
-  const file = Buffer.concat([png, Buffer.alloc(2 * 1024 * 1024 - png.length)]);
+  const file = Buffer.concat([png, Buffer.alloc(8 * 1024 * 1024 - png.length)]);
   const result = await upload(file, "203.0.113.211");
   assert.equal(result.statusCode, 201, result.body);
   assert.equal(result.headers["cache-control"], "no-store");
@@ -51,7 +51,7 @@ test("a valid 2 MiB multipart screenshot is decoded and privately re-encoded", a
   assert.equal((await sharp(stored).metadata()).exif, undefined);
 });
 
-test("malformed multipart and screenshots above the approved 2 MiB limit are rejected", async () => {
+test("malformed multipart and screenshots above the approved 8 MiB limit are rejected", async () => {
   const bad = await app.inject({
     method: "POST",
     url: "/api/site/feedback",
@@ -59,9 +59,9 @@ test("malformed multipart and screenshots above the approved 2 MiB limit are rej
     payload: Buffer.from("bad"),
   });
   assert.equal(bad.statusCode, 400);
-  const result = await upload(Buffer.alloc(2 * 1024 * 1024 + 1), "203.0.113.212");
+  const result = await upload(Buffer.alloc(8 * 1024 * 1024 + 1), "203.0.113.212");
   assert.equal(result.statusCode, 400);
-  assert.match(result.json().detail, /2MB/);
+  assert.match(result.json().detail, /8MB/);
 });
 
 test("the JSON screenshot sent by an already-open tab remains accepted", async () => {

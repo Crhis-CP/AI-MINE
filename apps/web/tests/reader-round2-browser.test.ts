@@ -351,14 +351,14 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const [value, remaining] of [
-      ["", 10],
-      ["   ", 10],
-      ["  一二三四五六七八九  ", 1],
-      ["一二三四五六七八九十", 0],
-      ["一二三四五六七八九", 1],
+      ["", 2],
+      ["   ", 2],
+      ["  一  ", 1],
+      ["一二", 0],
+      ["🙂", 0],
     ] as const) {
       await content.fill(value);
-      await expect(content).toHaveAccessibleDescription(`至少填写10字${remaining ? `，还差 ${remaining} 字可发送` : ""}`);
+      await expect(content).toHaveAccessibleDescription(`至少填写2字${remaining ? `，还差 ${remaining} 字可发送` : ""}`);
       await expect(page.locator("#fb-content-hint")).toBeVisible();
       if (remaining) await expect(send).toBeDisabled();
       else await expect(send).toBeEnabled();

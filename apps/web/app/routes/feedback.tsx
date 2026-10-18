@@ -1,3 +1,4 @@
+import { FEEDBACK_LIMITS, FeedbackSubmissionFields } from "@amp/contracts/http/public";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -78,9 +79,7 @@ function FeedbackAside() {
   );
 }
 
-const MAX_IMAGE = 2 * 1024 * 1024;
-const MIN_TEXT = 10;
-const MAX_TEXT = 5000;
+const { screenshotBytes: MAX_IMAGE, minText: MIN_TEXT, maxText: MAX_TEXT } = FEEDBACK_LIMITS;
 
 export default function FeedbackPage() {
   const [params] = useSearchParams();
@@ -113,8 +112,8 @@ export default function FeedbackPage() {
 
   const pick = (file: File | null | undefined) => {
     if (!file) return;
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return setState({ kind: "error", message: "截图需要是 PNG、JPEG 或 WebP。" });
-    if (file.size > MAX_IMAGE) return setState({ kind: "error", message: "截图原图不超过 2 MB。" });
+    if (file.type && !/^image\/(png|jpeg|jpg|webp|gif)$/.test(file.type)) return setState({ kind: "error", message: "截图需要是 PNG、JPEG、WebP 或 GIF。" });
+    if (file.size > MAX_IMAGE) return setState({ kind: "error", message: "截图原图不超过 8 MB。" });
     setShot({ file, url: URL.createObjectURL(file) });
     setState({ kind: "idle" });
   };
@@ -131,7 +130,9 @@ export default function FeedbackPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (draft.content.trim().length < MIN_TEXT || draft.content.trim().length > MAX_TEXT)
-      return setState({ kind: "error", message: "反馈内容需要 10–5000 字。" });
+      return setState({ kind: "error", message: "反馈内容需要 2–5000 字。" });
+    if (!FeedbackSubmissionFields.safeParse({ content: draft.content, email: draft.email }).success)
+      return setState({ kind: "error", message: "请填写有效邮箱（最多200字符），或留空。" });
     setState({ kind: "sending" });
     try {
       const pageUrl = draft.pageUrl ? new URL(draft.pageUrl, location.origin).href : "";
@@ -243,15 +244,15 @@ export default function FeedbackPage() {
 
           <div>
             <label htmlFor="fb-email" className={label}>
-              联系方式 <span className="font-normal text-ink-4">（选填）</span>
+              邮箱 <span className="font-normal text-ink-4">（选填）</span>
             </label>
             <input
               id="fb-email"
-              type="text"
-              maxLength={254}
+              type="email"
+              maxLength={FEEDBACK_LIMITS.maxEmail}
               value={draft.email}
               onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              placeholder="邮箱、电话或其他方便联系你的方式"
+              placeholder="方便接收回复的邮箱"
               className={`${field} h-11 px-4 text-[16px] sm:text-[14.5px]`}
             />
           </div>
@@ -288,12 +289,18 @@ export default function FeedbackPage() {
                 <span className="min-w-0">
                   <span className="block text-[13.5px] font-semibold text-ink-2">添加一张问题截图</span>
                   <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-4">
-                    粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG 或 WebP，原图不超过 2 MB
+                    粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG、WebP 或 GIF，原图不超过 8 MB
                   </span>
                 </span>
               </button>
             )}
-            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="sr-only"
+              onChange={(e) => pick(e.target.files?.[0])}
+            />
           </div>
 
           <Presence show={state.kind === "error"} enter="anim-notice-in" exit="anim-fade-out" duration={160}>

@@ -1,7 +1,8 @@
+import { FEEDBACK_LIMITS, FeedbackSubmissionFields } from "@amp/contracts/http/public";
 // Feedback: content, optional email, page URL, one optional screenshot. It stays on the server and is
 // forwarded only by the worker to the approved private feedback chat; admin pages keep the screenshot. Abuse control
-// uses an unreadable source identifier (HMAC of client IP + UA family), per-source bans and durable hourly/site-daily quotas.
-import { createHmac } from "node:crypto";
+// uses an unreadable source identifier (HMAC of client IP + UA family), per-source bans and a rolling per-minute request window.
+import { createHmac, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config, credential, isProduction } from "../config.ts";
@@ -41,10 +42,11 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
   if (!input.idempotencyKey || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(input.idempotencyKey))
     throw new FeedbackRejected(400, "idempotency_key_required", "提交编号缺失或格式不正确，请刷新反馈表单后重试。");
   const content = input.content.trim();
-  if ([...content].length < 10) throw new FeedbackRejected(400, "invalid_request", "反馈内容至少 10 字。");
-  if ([...content].length > 5000) throw new FeedbackRejected(400, "invalid_request", "反馈内容最多 5000 字。");
-  const email = input.email?.trim() || null;
-  if (email && [...email].length > 254) throw new FeedbackRejected(400, "invalid_request", "联系方式最多 254 字。");
+  if (content.length < FEEDBACK_LIMITS.minText) throw new FeedbackRejected(400, "invalid_request", "反馈内容至少 2 字。");
+  if (content.length > FEEDBACK_LIMITS.maxText) throw new FeedbackRejected(400, "invalid_request", "反馈内容最多 5000 字。");
+  const parsedEmail = FeedbackSubmissionFields.shape.email.safeParse(input.email);
+  if (!parsedEmail.success) throw new FeedbackRejected(400, "invalid_request", "请填写有效邮箱（最多200字符），或留空。");
+  const email = parsedEmail.data || null;
   const pageUrl = feedbackPageUrl(input.pageUrl);
   const keyHash = sha256(input.idempotencyKey.toLowerCase());
   const payloadHash = sha256(
@@ -62,11 +64,11 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
     const source = feedbackSourceHash(input.ip, input.userAgent);
     const [banned] = await tx`SELECT 1 FROM feedback_bans WHERE source_hash = ${source}`;
     if (banned) throw new FeedbackRejected(403, "forbidden", "暂时无法提交反馈。");
+    claimFeedbackQuota(source);
     const screenshot = await feedbackImage(input.screenshot);
-    await claimFeedbackQuota(tx, source);
     let screenshotKey: string | null = null;
     if (screenshot) {
-      const name = `${sha256(screenshot.data).slice(0, 24)}.${screenshot.extension}`;
+      const name = `${randomUUID()}.${screenshot.extension}`;
       const dir = path.join(config.dataDir, "feedback-screenshots");
       await mkdir(dir, { recursive: true });
       await writeFile(path.join(dir, name), screenshot.data);

@@ -1,18 +1,14 @@
-import { feedbackSql as sql, type Tx } from "../db.ts";
+import { FEEDBACK_LIMITS } from "@amp/contracts/http/public";
 import { FeedbackRejected } from "./feedback-validation.ts";
 
-/** Claims share the submission transaction: rejecting either bucket rolls back both claims. */
-export async function claimFeedbackQuota(tx: Tx, sourceHash: string) {
-  const dailyQuery = sql`INSERT INTO feedback.quota_buckets(scope,bucket_key,window_start,used)
-    VALUES('site_day','site',pg_catalog.date_trunc('day',now() AT TIME ZONE 'Asia/Shanghai') AT TIME ZONE 'Asia/Shanghai',1)
-    ON CONFLICT(scope,bucket_key,window_start) DO UPDATE SET used=feedback.quota_buckets.used+1
-    WHERE feedback.quota_buckets.used < 500 RETURNING used`;
-  const [daily] = await tx`${dailyQuery}`;
-  if (!daily) throw new FeedbackRejected(429, "rate_limited", "今日提交较多，请稍后再试。", 3600);
-  const hourlyQuery = sql`INSERT INTO feedback.quota_buckets(scope,bucket_key,window_start,used)
-    VALUES('client_hour',${sourceHash},pg_catalog.date_trunc('hour',now() AT TIME ZONE 'Asia/Shanghai') AT TIME ZONE 'Asia/Shanghai',1)
-    ON CONFLICT(scope,bucket_key,window_start) DO UPDATE SET used=feedback.quota_buckets.used+1
-    WHERE feedback.quota_buckets.used < 5 RETURNING used`;
-  const [hourly] = await tx`${hourlyQuery}`;
-  if (!hourly) throw new FeedbackRejected(429, "rate_limited", "提交较频繁，请稍后再试。", 3600);
+const recent = new Map<string, number[]>();
+/** New attempts count after text validation; a saved submission is returned before this point. */
+export function claimFeedbackQuota(sourceHash: string): void {
+  const now = Date.now(),
+    cutoff = now - 60_000;
+  const attempts = (recent.get(sourceHash) ?? []).filter((at) => at > cutoff);
+  if (attempts.length >= FEEDBACK_LIMITS.perMinute) throw new FeedbackRejected(429, "rate_limited", "提交太频繁，请稍后再试。", 60);
+  attempts.push(now);
+  recent.set(sourceHash, attempts);
+  if (recent.size > 5000) for (const [key, timestamps] of recent) if (timestamps.every((at) => at <= cutoff)) recent.delete(key);
 }
