@@ -1,3 +1,4 @@
+import { providerRejection } from "./provider-errors.ts";
 import { PRESETS } from "@amp/site/models";
 import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
 import { modelOutputContract } from "./model-fallback-contract.ts";
@@ -123,6 +124,8 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   fallbackPolicy?: PolicyFallbackContext;
   /** Gateway recursion guard; no worker should use this to select a supplier directly. */
   fallbackHop?: boolean;
+  /** Gateway-owned linkage to an evaluated alternate; the receipt layer verifies its durable decision. */
+  fallbackFor?: string;
   maxPhysicalAttempts?: 1;
   taskBudget?: TaskBudget;
   sourceIds?: string[];
@@ -297,6 +300,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   ];
   const request: ReceiptRequest = {
     maxPhysicalAttempts: opts.maxPhysicalAttempts,
+    fallbackFor: opts.fallbackFor,
     taskBudget: opts.taskBudget,
     modelSnapshot: registeredSummary,
     budgetService,
@@ -416,8 +420,8 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         }
         const text = redactModelSecret(await res.text(), apiKey);
         if (res.status < 200 || res.status >= 300) {
-          const retryable = res.status === 429 || res.status >= 500;
-          throw new ProviderRejectedError(`HTTP ${res.status}: ${text.slice(0, 500)}`, res.status, retryable, "unproven");
+          const failure = providerRejection(budgetService, res.status, text);
+          throw new ProviderRejectedError(failure.message, res.status, failure.retryable, failure.failureKind);
         }
         let json: Record<string, unknown>;
         try {
@@ -525,7 +529,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       vision: Array.isArray(opts.user) && opts.user.some((p) => p.type === "image_url"),
     },
     permittedPrimary,
-    (model, authorize) => chatJson({ ...opts, model, beforeRequest: authorize, fallbackHop: true, maxPhysicalAttempts: 1 }),
+    (model, authorize, fallbackFor) => chatJson({ ...opts, model, beforeRequest: authorize, fallbackHop: true, fallbackFor }),
   );
 }
 

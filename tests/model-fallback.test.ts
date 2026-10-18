@@ -1,3 +1,5 @@
+import { recoverUnknownOnce } from "../packages/backend/src/providers/unknown-recovery.ts";
+import { providerRejection } from "../packages/backend/src/providers/provider-errors.ts";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 import { createPolicyGateway } from "../modules/policy/backend/provider.ts";
@@ -14,7 +16,7 @@ import { upsertMaterial, readCurrentBody, newsMaterialBindings } from "@amp/back
 import { config } from "@amp/backend/config";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { chatJson, type RegisteredModelTransport } from "../packages/backend/src/providers/llm.ts";
-import { completeReceipt, rejectReceivedResponse, ReceiptUnknownError, ReceiptPhysicalLimitError } from "../packages/backend/src/providers/receipts.ts";
+import { completeReceipt, rejectReceivedResponse, ReceiptUnknownError, ProviderRejectedError } from "../packages/backend/src/providers/receipts.ts";
 import {
   createModelConnection,
   requestModelConnectionProbe,
@@ -26,7 +28,7 @@ import { importSelectBenchRun } from "../packages/backend/src/admin/selectbench.
 import { approveModelRoute, capabilityPrompt } from "../packages/backend/src/providers/model-fallback-quality.ts";
 import { changeModelFallback, modelFallbacks } from "../packages/backend/src/admin/model-fallback.ts";
 import { createFallbackPermitPort } from "../packages/backend/src/providers/model-fallback-permit.ts";
-import { ModelFallbackBlocked, ModelContentFiltered } from "../packages/backend/src/providers/model-fallback.ts";
+import { ModelFallbackBlocked, ModelContentFiltered, isModelRouteWaiting } from "../packages/backend/src/providers/model-fallback.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "../packages/backend/src/admin/sources.ts";
@@ -46,6 +48,10 @@ const transport: RegisteredModelTransport = async (url, options) => {
   if (!probe && which === "primary") {
     if (onPrimary) await onPrimary();
     if (mode !== "primary-ok") {
+      if (mode === "http-refused") return { status: 401, headers: new Headers(), text: () => "invalid credentials" };
+      if (mode === "credit-refused")
+        return { status: 429, headers: new Headers(), text: () => JSON.stringify({ error: { code: "CreditLimitExceeded", message: "out of credit" } }) };
+      if (["primary-unknown", "both-unknown", "unknown-filter"].includes(mode)) throw new Error("synthetic after-send connection reset");
       if (mode === "http") return { status: 503, headers: new Headers(), text: () => "unconfirmed billing" };
       if (mode === "filter")
         return {
@@ -61,7 +67,18 @@ const transport: RegisteredModelTransport = async (url, options) => {
       throw Object.assign(new Error("synthetic pre-send refused"), { code: "ECONNREFUSED" });
     }
   }
-  if (!probe && which === "backup" && mode === "backup-unknown") throw new Error("synthetic after-send reset");
+  if (!probe && which === "backup" && mode === "unknown-filter")
+    return {
+      status: 200,
+      headers: new Headers(),
+      text: () =>
+        JSON.stringify({
+          model: "synthetic-model",
+          choices: [{ message: { content: "" }, finish_reason: "content_filter" }],
+          usage: { prompt_tokens: 20, completion_tokens: 0 },
+        }),
+    };
+  if (!probe && which === "backup" && ["backup-unknown", "both-unknown"].includes(mode)) throw new Error("synthetic after-send reset");
   if (!probe && which === "backup" && mode === "backup-connect") throw Object.assign(new Error("synthetic pre-send refused"), { code: "ECONNREFUSED" });
   return {
     status: 200,
@@ -74,7 +91,7 @@ const transport: RegisteredModelTransport = async (url, options) => {
       }),
   };
 };
-async function fixture() {
+async function fixture(capability: "summarize" | "translate" = "summarize") {
   const t = tag(),
     source = `fallback-${t}`,
     url = `https://source.invalid/${t}`;
@@ -112,17 +129,17 @@ async function fixture() {
   };
   const primary = await create("primary"),
     backup = await create("backup");
-  await sql`DELETE FROM ai.model_routes WHERE capability='summarize'`;
-  const [previousBackup] = await sql`SELECT revision FROM ai.model_fallback_routes WHERE capability='summarize'`;
+  await sql`DELETE FROM ai.model_routes WHERE capability=${capability}`;
+  const [previousBackup] = await sql`SELECT revision FROM ai.model_fallback_routes WHERE capability=${capability}`;
   const routeRevision = Number(previousBackup?.revision ?? 0) + 1;
   await assignRegisteredModel(
-    "summarize",
+    capability,
     { model: primary.key, expected_revision: 0, reason: "SYNTHETIC primary assignment", evaluation_id: null, emergency_confirmed: true },
     owner,
   );
-  const promptVersion = (await capabilityPrompt("summarize"))!,
+  const promptVersion = (await capabilityPrompt(capability))!,
     base = {
-      purpose: "summarize_article",
+      purpose: capability === "translate" ? "translate_body" : "summarize_article",
       schema,
       system: "SYNTHETIC fixture only",
       promptVersion,
@@ -159,7 +176,7 @@ async function fixture() {
   await approveModelRoute(
     {
       runId: run.id,
-      capability: "summarize",
+      capability: capability,
       modelKey: backup.key,
       goldHash: sha256(stableJson([[t, "ok"]])),
       reviewEvidence: "SYNTHETIC isolation only; no actual Owner approval",
@@ -174,7 +191,7 @@ async function fixture() {
     owner,
   );
   await changeModelFallback(
-    "summarize",
+    capability,
     { expected_revision: routeRevision - 1, backup_model: backup.key, source_ids: [source], reason: "SYNTHETIC fixture" },
     owner,
   );
@@ -201,11 +218,19 @@ async function fixture() {
     };
   };
   const fallbackPermit = createFallbackPermitPort({ root, snapshot: await snapshot(), current: snapshot });
-  const call = (name: string) =>
-    chatJson({ ...base, model: primary.key, subject: `fallback:${t}:${name}`, user: `SYNTHETIC production material ${name}`, fallbackPermit });
+  const call = (name: string, subject = `fallback:${t}:${name}`) =>
+    chatJson({
+      ...base,
+      model: primary.key,
+      subject,
+      user: `SYNTHETIC production material ${name}`,
+      fallbackPermit,
+      ...(capability === "translate" ? { maxRejectedOutputs: 1 as const } : {}),
+    });
   return {
     owner,
     source,
+    articleId: material.articleId,
     primary,
     backup,
     call,
@@ -238,14 +263,34 @@ test("one qualified alternate has independent real receipts and is recovered fre
   assert.equal(row.state, "ready");
   assert.ok(row.choices.some((c) => !c.eligible && c.reason));
 });
-test("HTTP billing uncertainty and unknown alternate never retry or hop again", async () => {
+test("a temporary HTTP failure uses the evaluated alternate while unknown bills and alternate decisions remain durable", async () => {
   mode = "ok";
   const f = await fixture();
   mode = "http";
   let before = events.length;
-  await assert.rejects(f.call("http"), ReceiptUnknownError);
-  await assert.rejects(f.call("http"), ReceiptUnknownError);
-  assert.deepEqual(events.slice(before), ["primary"]);
+  const response = await f.call("http");
+  assert.equal(response.model, f.backup.key);
+  assert.equal((await f.call("http")).receiptId, response.receiptId);
+  assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  const [httpAttempt] =
+    await sql`SELECT a.failure_kind,a.status,u.state FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.subject LIKE ${"%:http"} AND a.service=${f.primary.key}`;
+  assert.deepEqual(
+    { ...httpAttempt },
+    { failure_kind: "provider_outage", status: "failed", state: "failed" },
+    "a new explicit provider rejection is distinct from an unknown transport outcome",
+  );
+  for (const refusal of ["http-refused", "credit-refused"]) {
+    mode = refusal;
+    before = events.length;
+    await assert.rejects(f.call(refusal), (error) => error instanceof ProviderRejectedError && !error.retryable && !isModelRouteWaiting(error));
+    assert.deepEqual(events.slice(before), ["primary"], "access or spending refusals need the operator, not another paid supplier");
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE service=${f.primary.key} AND subject LIKE ${"%:" + refusal}`;
+    assert.deepEqual(
+      await recoverUnknownOnce(Date.now(), async () => true),
+      { released: 0, requeued: 0 },
+      "account refusal is not an unknown network outcome to retry automatically",
+    );
+  }
   mode = "backup-unknown";
   before = events.length;
   await assert.rejects(f.call("unknown"), ReceiptUnknownError);
@@ -254,17 +299,20 @@ test("HTTP billing uncertainty and unknown alternate never retry or hop again", 
   mode = "backup-connect";
   before = events.length;
   await assert.rejects(f.call("bounded"));
-  await assert.rejects(f.call("bounded"), ReceiptPhysicalLimitError);
-  assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  await assert.rejects(f.call("bounded"), ProviderRejectedError);
+  assert.deepEqual(
+    events.slice(before),
+    ["primary", "backup", "backup"],
+    "proven unbilled alternate failures may retry under the shared request quota without returning to primary",
+  );
 });
-test("known-cost filtering can use the admitted alternate; input and permission changes cannot", async () => {
+test("news refusal does not choose another provider; changed input and permissions also stop the alternate", async () => {
   mode = "ok";
   const f = await fixture();
   mode = "filter";
   let before = events.length;
-  const result = await f.call("filter");
-  assert.equal(result.model, f.backup.key);
-  assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  await assert.rejects(f.call("filter"), ModelContentFiltered);
+  assert.deepEqual(events.slice(before), ["primary"]);
   mode = "ok";
   before = events.length;
   onPrimary = async () => f.changeInput();
@@ -457,4 +505,114 @@ test("real news material preparation consumes the same fallback gateway and reje
   await sql`UPDATE articles SET revision=revision+1,body_text='changed',content_hash=${sha256("changed")} WHERE id=${article}`;
   await assert.rejects(chatJson(options), ModelFallbackBlocked);
   assert.equal(events.length, before + 2);
+});
+
+test("temporary throttling stays distinct from account and spending refusals", () => {
+  for (const [service, status, body, expected] of [
+    ["deepseek", 503, "service unavailable", "provider_outage"],
+    ["deepseek", 429, '{"error":{"code":"rate_limit","message":"try later"}}', "provider_outage"],
+    ["deepseek", 401, "invalid key", "provider_refused"],
+    ["mimo", 429, '{"code":"CreditLimitExceeded","message":"credit limit"}', "provider_refused"],
+    ["zhipu", 429, '{"error":{"code":1113,"message":"account limit"}}', "provider_refused"],
+    ["dashscope", 429, '{"code":"insufficient_quota","message":"TPM throttle"}', "provider_outage"],
+    ["dashscope", 429, '{"code":"insufficient_quota","message":"Free allocated quota exceeded."}', "provider_refused"],
+    ["model:custom.invalid", 429, '{"message":"insufficient account balance"}', "provider_refused"],
+    ["model:custom.invalid", 400, "bad request", "provider_refused"],
+  ] as const)
+    assert.equal(providerRejection(service, status, body).failureKind, expected);
+  assert.match(
+    providerRejection("mimo", 429, JSON.stringify({ error: { code: "CreditLimitExceeded", message: "x".repeat(900) } })).message,
+    /CreditLimitExceeded/,
+  );
+});
+
+test("a real news scope can continue an unknown primary only through its bound alternate", async () => {
+  mode = "ok";
+  const f = await fixture(),
+    subject = `article:${f.articleId}@1`;
+  mode = "primary-unknown";
+  const before = events.length;
+  const first = await f.call("first-news", subject);
+  assert.equal(first.model, f.backup.key);
+  assert.equal((await f.call("first-news", subject)).receiptId, first.receiptId);
+  await sql`UPDATE ai.model_fallback_resolutions SET accepted_at=NULL WHERE backup_receipt_id=${first.receiptId}`;
+  await assert.rejects(f.call("unconfirmed-old-decision", subject), ReceiptUnknownError, "old decisions are not assumed to have an accepted result");
+  assert.equal((await f.call("first-news", subject)).receiptId, first.receiptId, "a cached result can be checked without paying again");
+  const second = await f.call("second-news", subject);
+  assert.equal(second.model, f.backup.key, "an accepted alternate resolves the work without erasing its unknown primary bill");
+  assert.deepEqual(events.slice(before), ["primary", "backup", "primary", "backup"]);
+  await rejectReceivedResponse(second.receiptId, "SYNTHETIC rejected alternate output", second.attemptId);
+  await assert.rejects(f.call("third-news", subject), ReceiptUnknownError, "a rejected alternate cannot release the unresolved original");
+  assert.equal(events.length, before + 4);
+  const unknown =
+    await sql`SELECT a.status,u.state FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.subject=${subject} AND a.service=${f.primary.key}`;
+  assert.equal(unknown.length, 2);
+  assert.ok(unknown.every((row) => row.status === "unknown" && row.state === "unknown"));
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject} AND service=${f.primary.key}`;
+  const resumed: number[] = [];
+  await recoverUnknownOnce(Date.now(), async (row) => {
+    resumed.push(row.id);
+    return true;
+  });
+  assert.deepEqual(resumed, [], "a handed-off primary remains for billing and is never automatically revived");
+});
+
+test("translation advances past a completed alternate while retaining both unknown primary observations", async () => {
+  mode = "ok";
+  const f = await fixture("translate"),
+    before = events.length;
+  mode = "primary-unknown";
+  const subject = `article:${f.articleId}@1#0`;
+  const first = await f.call("first-translation", subject);
+  const second = await f.call("second-translation", `article:${f.articleId}@1#1`);
+  assert.equal(first.model, f.backup.key);
+  assert.equal(second.model, f.backup.key);
+  assert.deepEqual(events.slice(before), ["primary", "backup", "primary", "backup"]);
+  const observations =
+    await sql`SELECT o.attempt_id,a.status FROM ai.translation_receipt_observations o JOIN receipt_attempts a ON a.id::text=o.attempt_id WHERE o.scope=${`article:${f.articleId}@1`} ORDER BY a.id`;
+  assert.deepEqual(
+    observations.map((row) => row.status),
+    ["unknown", "received", "unknown", "received"],
+  );
+});
+
+test("only the unknown alternate receives one timed recovery; the primary stays handed off", async () => {
+  mode = "ok";
+  const f = await fixture(),
+    subject = `article:${f.articleId}@1`,
+    before = events.length;
+  mode = "both-unknown";
+  await assert.rejects(f.call("both-unknown", subject), ReceiptUnknownError);
+  const [handoff] = await sql`SELECT primary_receipt_id,backup_receipt_id FROM ai.model_fallback_resolutions WHERE backup_model=${f.backup.key}`;
+  assert.ok(handoff?.backup_receipt_id);
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id IN (${handoff.primary_receipt_id},${handoff.backup_receipt_id})`;
+  const resumed: number[] = [];
+  await recoverUnknownOnce(Date.now(), async (row) => {
+    resumed.push(row.id);
+    return true;
+  });
+  assert.deepEqual(resumed, [handoff.backup_receipt_id]);
+  await assert.rejects(f.call("both-unknown", subject), ReceiptUnknownError);
+  assert.deepEqual(events.slice(before), ["primary", "backup", "backup"]);
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id IN (${handoff.primary_receipt_id},${handoff.backup_receipt_id})`;
+  assert.deepEqual(await recoverUnknownOnce(Date.now(), async () => true), { released: 0, requeued: 0 });
+  const attempts =
+    await sql`SELECT a.status,u.state FROM receipt_attempts a JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.receipt_id IN (${handoff.primary_receipt_id},${handoff.backup_receipt_id})`;
+  assert.equal(attempts.length, 3);
+  assert.ok(attempts.every((row) => row.status === "unknown" && row.state === "unknown"));
+});
+
+test("a received but refused alternate never releases the unknown primary", async () => {
+  mode = "ok";
+  const f = await fixture(),
+    subject = `article:${f.articleId}@1`,
+    before = events.length;
+  mode = "unknown-filter";
+  await assert.rejects(f.call("filtered-alternate", subject), ModelContentFiltered);
+  await assert.rejects(f.call("filtered-alternate", subject), ModelFallbackBlocked);
+  await assert.rejects(f.call("new-input-after-filter", subject), ReceiptUnknownError);
+  assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  const [decision] = await sql`SELECT accepted_at,blocked_reason FROM ai.model_fallback_resolutions WHERE backup_model=${f.backup.key}`;
+  assert.equal(decision.accepted_at, null);
+  assert.ok(decision.blocked_reason);
 });

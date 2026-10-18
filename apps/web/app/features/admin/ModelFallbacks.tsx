@@ -78,7 +78,7 @@ export function ModelFallbacks({
   return (
     <Card title="各环节的备用模型" className="mb-5" pad={false}>
       <p className="border-b border-line px-4 py-3 text-[13px] leading-6 text-ink-3">
-        仅在主模型明确失败且允许切换时使用已评测的备用；结果未知、人工暂停或来源权限变化时不会转发。未配置备用的环节保持原有处理方式。
+        资讯主模型临时故障或结果未知时，可由已评测的不同服务接续；原调用仍可能收费，两次费用分别保留。账户限制、内容拒答、人工暂停或来源权限变化时不会自动切换。未配置备用的环节保持原有处理方式。
       </p>
       {!data ? (
         <Empty>备用模型状态暂时未能读取，请稍后重试。</Empty>

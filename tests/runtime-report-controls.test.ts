@@ -110,7 +110,7 @@ test("empty deterministic reports do not use models; processing and publication 
   const hits = provider.hits();
   await owner("pause", "news");
   await owner("pause", "policy");
-  await composeMonthly("1999-01");
+  await assert.rejects(composeMonthly("1999-01"), /no daily entries/);
   assert.equal(provider.hits(), hits);
   const control = { lane: "news" as const, switches: ["publication" as const], reason: "Synthetic public hold", actor: "test" };
   await changeSystemLaneControl({ ...control, action: "pause", expected: { publication: 0 }, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
@@ -118,7 +118,7 @@ test("empty deterministic reports do not use models; processing and publication 
   assert.equal((await sql`SELECT id FROM reports WHERE key='1999-02'`).length, 0);
   await changeSystemLaneControl({ ...control, action: "resume", expected: { publication: 1 } });
   await owner("resume", "news");
-  await composeMonthly("1999-02");
+  await assert.rejects(composeMonthly("1999-02"), /no daily entries/);
   assert.equal(provider.hits(), hits);
   assert.ok((await listLaneControls()).controls.some((c) => c.lane === "policy" && c.switch === "processing"));
 });

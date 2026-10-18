@@ -13,6 +13,8 @@ export async function recoverUnknownOnce(now: number, resume: (row: Released, db
     { id: number; subject: string | null; purpose: string; lane: string }[]
   >`SELECT r.id,r.subject,r.purpose,coalesce(r.request->>'lane','news') AS lane FROM receipts r
     WHERE r.status='unknown' AND r.updated_at<${cutoff}
+      AND NOT EXISTS (SELECT 1 FROM ai.model_fallback_resolutions f WHERE f.primary_receipt_id=r.id)
+      AND NOT EXISTS (SELECT 1 FROM receipt_attempts current WHERE current.receipt_id=r.id AND current.attempt=r.attempts AND current.failure_kind='provider_refused')
       AND NOT EXISTS (SELECT 1 FROM receipt_attempts a JOIN receipts prior ON prior.id=a.receipt_id
         WHERE prior.purpose=r.purpose AND coalesce(prior.request->>'lane','news')=coalesce(r.request->>'lane','news')
           AND (prior.subject=r.subject OR (r.subject IS NULL AND prior.id=r.id))
@@ -26,6 +28,9 @@ export async function recoverUnknownOnce(now: number, resume: (row: Released, db
       const [row] = await tx<Released[]>`SELECT id,subject,purpose,request,attempts,error FROM receipts
         WHERE id=${candidate.id} AND status='unknown' AND updated_at<${cutoff} FOR UPDATE`;
       if (!row) return null;
+      const [held] = await tx`SELECT 1 WHERE EXISTS (SELECT 1 FROM ai.model_fallback_resolutions f WHERE f.primary_receipt_id=${row.id})
+        OR EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id=${row.id} AND a.attempt=${row.attempts} AND a.failure_kind='provider_refused')`;
+      if (held) return null;
       const lane = row.request && typeof row.request === "object" && "lane" in row.request && row.request.lane === "policy" ? "policy" : "news";
       // An intentional pause must retain the one recovery opportunity until that lane can actually continue.
       if (lane === "news" || lane === "policy") {

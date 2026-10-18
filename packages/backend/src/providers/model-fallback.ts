@@ -74,11 +74,13 @@ async function admission(input: Input, capability: string, db: Db) {
     return null;
   return { route, approved };
 }
-async function proof(key: string, configurationHash: string, db: Db) {
+async function proof(key: string, configurationHash: string, db: Db, policy: boolean, savedAttempt: string | null = null) {
   const [r] = await db<{ receiptId: number; attemptId: string; safe: boolean }[]>`SELECT r.id AS "receiptId",a.id::text AS "attemptId",
- ((a.status='failed' AND r.status='failed' AND a.failure_kind='connect_before_send' AND u.state='failed') OR
- (a.status='received' AND r.status IN ('received','completed','failed') AND a.response=r.response AND a.id=r.response_attempt_id AND a.response->'choices'->0->>'finish_reason'='content_filter' AND u.state='settled')) AS safe
- FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id
+ ((a.status='failed' AND r.status='failed' AND (a.failure_kind='connect_before_send' OR (NOT ${policy} AND a.failure_kind='provider_outage')) AND u.state='failed') OR
+ (${policy} AND a.status='received' AND r.status IN ('received','completed','failed') AND a.response=r.response AND a.id=r.response_attempt_id AND a.response->'choices'->0->>'finish_reason'='content_filter' AND u.state='settled') OR
+ (NOT ${policy} AND a.status='unknown' AND a.failure_kind IN ('unknown','provider_outage') AND u.state='unknown') OR
+ (${savedAttempt}::text IS NOT NULL AND a.id::text=${savedAttempt})) AS safe
+ FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND (${savedAttempt}::text IS NULL AND a.attempt=r.attempts OR a.id::text=${savedAttempt}) JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id
  JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.logical_key=${key} AND s.configuration_hash=${configurationHash} AND a.origin='live' AND r.origin='live'`;
   return r?.safe ? r : null;
 }
@@ -102,7 +104,7 @@ async function verifyResponse<T>(result: ChatJsonResult<T>, route: StoredBackup,
     approved.reportedModels.includes(reported) &&
     approved.fingerprints.includes(fingerprint);
   await sql.begin(async (tx) => {
-    await tx`UPDATE ai.model_fallback_resolutions SET backup_receipt_id=${result.receiptId},backup_attempt_id=${result.attemptId},blocked_reason=${accepted ? null : "备用接入实际响应模型或版本标记不符合质量记录，须重新评测"},updated_at=now() WHERE primary_key=${key} AND route_revision=${route.revision}`;
+    await tx`UPDATE ai.model_fallback_resolutions SET backup_receipt_id=${result.receiptId},backup_attempt_id=${result.attemptId},accepted_at=CASE WHEN ${accepted} THEN now() ELSE NULL END,blocked_reason=${accepted ? null : "备用接入实际响应模型或版本标记不符合质量记录，须重新评测"},updated_at=now() WHERE primary_key=${key} AND route_revision=${route.revision}`;
   });
   if (!accepted) throw new ModelFallbackBlocked("备用响应已保存，但模型身份与质量依据不一致，当前不采用");
 }
@@ -110,7 +112,7 @@ async function verifyResponse<T>(result: ChatJsonResult<T>, route: StoredBackup,
 export async function withModelFallback<T>(
   input: Input,
   primary: () => Promise<ChatJsonResult<T>>,
-  backup: (model: string, authorize: () => Promise<void>) => Promise<ChatJsonResult<T>>,
+  backup: (model: string, authorize: () => Promise<void>, fallbackFor: string) => Promise<ChatJsonResult<T>>,
 ): Promise<ChatJsonResult<T>> {
   const capability = Object.entries(CAPABILITIES).find(([, c]) => (c.purposes as string[]).includes(input.purpose))?.[0];
   if (!capability || input.fallbackHop || input.registeredProbe || (input.usagePurpose && input.usagePurpose !== "production")) return primary();
@@ -120,7 +122,11 @@ export async function withModelFallback<T>(
     try {
       return await primary();
     } catch (error) {
-      if (!(error instanceof ModelContentFiltered) && !(error instanceof ProviderRejectedError && error.failureKind === "connect_before_send")) throw error;
+      const policy = !!input.request.policy;
+      const eligibleFailure =
+        (error instanceof ProviderRejectedError && (error.failureKind === "connect_before_send" || (!policy && error.failureKind === "provider_outage"))) ||
+        (policy ? error instanceof ModelContentFiltered : error instanceof ReceiptUnknownError);
+      if (!eligibleFailure || !(await proof(key, input.configurationHash, sql, policy))) throw error;
       const eligible = await sql.begin((tx) => admission(input, capability, tx));
       if (!eligible || !input.permit) throw error;
     }
@@ -141,8 +147,8 @@ export async function withModelFallback<T>(
     await sql.begin(async (tx) => {
       await tx`SELECT pg_advisory_xact_lock(hashtext(${`model-fallback:${key}`}))`;
       const current = await admission(input, capability, tx),
-        original = await proof(key, input.configurationHash, tx),
-        prior = await resolution(key, tx);
+        prior = await resolution(key, tx),
+        original = await proof(key, input.configurationHash, tx, !!input.request.policy, prior?.primary_attempt_id ?? null);
       if (
         !current ||
         current.route.revision !== selected.route.revision ||
@@ -161,14 +167,14 @@ export async function withModelFallback<T>(
     await authorize();
     let result: ChatJsonResult<T>;
     try {
-      result = await backup(selected.route.backup_model!, authorize);
+      result = await backup(selected.route.backup_model!, authorize, key);
     } catch (error) {
       if (
         (error instanceof ProviderRejectedError || error instanceof ReceiptUnknownError || error instanceof ModelContentFiltered) &&
         error.receiptId !== null &&
         error.attemptId !== null
       )
-        await sql`UPDATE ai.model_fallback_resolutions SET backup_receipt_id=${error.receiptId},backup_attempt_id=${error.attemptId},updated_at=now() WHERE primary_key=${key} AND route_revision=${selected.route.revision}`;
+        await sql`UPDATE ai.model_fallback_resolutions SET backup_receipt_id=${error.receiptId},backup_attempt_id=${error.attemptId},accepted_at=NULL,blocked_reason=${error instanceof ModelContentFiltered ? "备用内容拒答，等待处理" : null},updated_at=now() WHERE primary_key=${key} AND route_revision=${selected.route.revision}`;
       throw error;
     }
     await authorize();
