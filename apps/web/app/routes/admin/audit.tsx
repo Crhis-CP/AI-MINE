@@ -4,7 +4,7 @@ import type { Route } from "./+types/audit";
 import type { AdminAudit } from "../../features/admin/run-types";
 import { adminGet } from "../../lib/admin.server";
 import { bj } from "../../features/admin/format";
-import { AdminPage, Card, DataTable, Input, Json, Pager } from "../../features/admin/ui";
+import { AdminPage, Button, Card, DataTable, Input, Json, Pager } from "../../features/admin/ui";
 
 export async function loader({ request }: Route.LoaderArgs) {
   return adminGet<AdminAudit>(request, `/api/admin/audit${new URL(request.url).search}`);
@@ -34,9 +34,12 @@ export default function Audit({ loaderData }: Route.ComponentProps) {
   const [sp] = useSearchParams();
   return (
     <AdminPage title="审计记录" subtitle="所有人工操作：谁、何时、改了什么、为什么。">
-      <Form method="get" className="mb-4 flex max-w-xl gap-2">
+      <Form method="get" className="mb-4 flex max-w-2xl flex-wrap gap-2">
         <Input name="action" defaultValue={sp.get("action") ?? ""} placeholder="操作前缀，例如 content. 或 source." aria-label="按操作筛选" />
         <Input name="subject" defaultValue={sp.get("subject") ?? ""} placeholder="对象，例如 source:company-news" aria-label="按对象筛选" />
+        <Button type="submit" tone="primary">
+          筛选
+        </Button>
       </Form>
       <Card pad={false}>
         <DataTable

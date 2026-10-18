@@ -98,7 +98,14 @@ function FeedbackCard({ f }: { f: Feedback }) {
             </option>
           ))}
         </Select>
-        <Textarea rows={1} className="!min-h-[38px]" placeholder="处理备注（仅内部可见）" value={note} onChange={(e) => setNote(e.target.value)} />
+        <Textarea
+          aria-label="处理备注（仅内部可见）"
+          rows={1}
+          className="!min-h-[38px]"
+          placeholder="处理备注（仅内部可见）"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
         <div className="flex gap-1.5">
           <Button
             size="md"

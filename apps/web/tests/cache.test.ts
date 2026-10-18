@@ -1773,6 +1773,13 @@ test("model dialog keeps the reason across edits, traps keyboard focus and resto
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
       await expect(trigger).toBeFocused();
+      const audit = await page.goto(`${privateOrigin}/admin/audit`);
+      assert.equal(audit?.headers()["x-accel-buffering"], "no");
+      await page.getByRole("textbox", { name: "按操作筛选" }).fill("source.");
+      await page.getByRole("textbox", { name: "按对象筛选" }).fill("source:fixture");
+      await page.getByRole("button", { name: "筛选", exact: true }).click();
+      await expect(page).toHaveURL(/action=source\.&subject=source%3Afixture/);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
       await context.close();
     }
   } finally {
