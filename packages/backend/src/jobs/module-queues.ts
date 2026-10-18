@@ -11,7 +11,10 @@ export async function workQueues(boss: PgBoss, queues: readonly ModuleQueue[]): 
   }
   for (const queue of queues) {
     await ensureQueue(queue.name, queue.options);
-    await boss.work(queue.name, queue.worker, async (jobs) => queue.run(jobs.map((job) => job.data) as never[]));
+    await boss.work(queue.name, { ...queue.worker, perJobResults: true }, async (jobs) => {
+      const output = await queue.run(jobs.map((job) => job.data) as never[]);
+      return jobs.map((job) => ({ id: job.id, status: "completed" as const, output }));
+    });
   }
 }
 export function workModuleQueues(boss: PgBoss): Promise<void> {

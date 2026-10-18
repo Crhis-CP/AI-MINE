@@ -21,6 +21,7 @@ test("an installed module consumes durable queue data with its own options and r
     worker: { batchSize: 2, pollingIntervalSeconds: 1 },
     async run(items) {
       received.push(...items.map((item) => item.value));
+      return { handled: items.length };
     },
   });
   installModules([{ name: "fixture-module", queues: [queue] }]);
@@ -30,6 +31,13 @@ test("an installed module consumes durable queue data with its own options and r
   await enqueue(queue.name, { value: 2 });
   for (let attempt = 0; attempt < 200 && received.length < 2; attempt++) await delay(50);
   assert.deepEqual(received.sort(), [1, 2]);
+  let finished = (await boss.findJobs(queue.name)).filter((job) => job.state === "completed");
+  for (let attempt = 0; attempt < 200 && finished.length < 2; attempt++) {
+    await delay(50);
+    finished = (await boss.findJobs(queue.name)).filter((job) => job.state === "completed");
+  }
+  assert.equal(finished.length, 2, "each consumed job receives its own completion result");
+  assert.ok(finished.every((job) => job.output && "handled" in job.output && Number(job.output.handled) > 0));
   const actual = await boss.getQueue(queue.name);
   assert.equal(actual?.policy, "standard");
   assert.equal(actual?.retryLimit, 0);
