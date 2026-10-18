@@ -23,3 +23,7 @@ fontsource-noto-sans-sc-*.tgz
 
 # Private runtime credentials must never enter Git or a shared application image.
 .credentials
+
+# Local Python verification bytecode.
+__pycache__/
+*.py[cod]
