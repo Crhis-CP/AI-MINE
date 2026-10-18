@@ -498,7 +498,7 @@ test("all new environment calls bind actual endpoint configuration to each physi
   }
 });
 
-test("legacy unhashed unknown cannot be bypassed by a new config identity; an exact legacy response is still free", async () => {
+test("an exact unhashed legacy request remains held across namespace migration; a bound legacy response is free", async () => {
   await install();
   const provider = await stub(() => {
     throw new Error("legacy migration must not pay");
@@ -534,9 +534,24 @@ test("legacy unhashed unknown cannot be bypassed by a new config identity; an ex
     const permit = factory({ system: "", user });
     const subject = `article:${binding.analysisInput.id}@${binding.analysisInput.revision}`,
       purpose = "understand_article";
+    const oldKey = logicalKeyFor({
+      service: "llm",
+      model: "legacy-current-model",
+      purpose,
+      subject,
+      identity: {
+        model: "legacy-current-model",
+        promptVersion: "new-recipe",
+        system: sha256(""),
+        user: sha256(user),
+        temperature: 0.2,
+        maxTokens: 1500,
+        extra: null,
+      },
+    });
     const [old] =
-      await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts) VALUES('synthetic-old-unhashed','previous-service','previous-model',${purpose},${subject},'unknown',${sql.json({ userHash: sha256(user), configuration_hash: "f".repeat(64) })},1) RETURNING id`;
-    await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status) VALUES(${old!.id},1,'previous-service','previous-model','unknown')`;
+      await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts) VALUES(${oldKey},'llm','legacy-current-model',${purpose},${subject},'unknown',${sql.json({ userHash: sha256(user) })},1) RETURNING id`;
+    await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status) VALUES(${old!.id},1,'llm','legacy-current-model','unknown')`;
     await assert.rejects(
       chatJson({
         model: "default",

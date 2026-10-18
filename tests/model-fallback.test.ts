@@ -16,7 +16,7 @@ import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { upsertMaterial, readCurrentBody, newsMaterialBindings } from "@amp/backend/content/materials";
 import { config } from "@amp/backend/config";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-import { chatJson, type RegisteredModelTransport } from "../packages/backend/src/providers/llm.ts";
+import { chatJson, ModelOutputError, type RegisteredModelTransport } from "../packages/backend/src/providers/llm.ts";
 import { completeReceipt, rejectReceivedResponse, ReceiptUnknownError, ProviderRejectedError } from "../packages/backend/src/providers/receipts.ts";
 import {
   createModelConnection,
@@ -54,7 +54,8 @@ const transport: RegisteredModelTransport = async (url, options) => {
       if (mode === "http-refused") return { status: 401, headers: new Headers(), text: () => "invalid credentials" };
       if (mode === "credit-refused")
         return { status: 429, headers: new Headers(), text: () => JSON.stringify({ error: { code: "CreditLimitExceeded", message: "out of credit" } }) };
-      if (["primary-unknown", "both-unknown", "unknown-filter"].includes(mode)) throw new Error("synthetic after-send connection reset");
+      if (["primary-unknown", "both-unknown", "unknown-filter", "unknown-invalid-output"].includes(mode))
+        throw new Error("synthetic after-send connection reset");
       if (mode === "http") return { status: 503, headers: new Headers(), text: () => "unconfirmed billing" };
       if (mode === "filter")
         return {
@@ -70,6 +71,17 @@ const transport: RegisteredModelTransport = async (url, options) => {
       throw Object.assign(new Error("synthetic pre-send refused"), { code: "ECONNREFUSED" });
     }
   }
+  if (!probe && which === "backup" && mode === "unknown-invalid-output")
+    return {
+      status: 200,
+      headers: new Headers(),
+      text: () =>
+        JSON.stringify({
+          model: "synthetic-model",
+          choices: [{ message: { content: "not-json" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 20, completion_tokens: 4 },
+        }),
+    };
   if (!probe && which === "backup" && mode === "unknown-filter")
     return {
       status: 200,
@@ -199,8 +211,8 @@ async function fixture(capability: "summarize" | "translate" = "summarize") {
     { expected_revision: routeRevision - 1, backup_model: backup.key, source_ids: [source], reason: "SYNTHETIC fixture" },
     owner,
   );
-  const snapshot = async () => {
-    const [current] = await newsMaterialBindings([material.articleId]);
+  const snapshot = async (id = material.articleId) => {
+    const [current] = await newsMaterialBindings([id]);
     assert.ok(current?.content_hash);
     return {
       inputFingerprint: sha256(stableJson(current)),
@@ -236,6 +248,7 @@ async function fixture(capability: "summarize" | "translate" = "summarize") {
     owner,
     source,
     articleId: material.articleId,
+    permitFor: async (id: string) => createFallbackPermitPort({ root, snapshot: await snapshot(id), current: () => snapshot(id) }),
     primary,
     backup,
     call,
@@ -307,8 +320,8 @@ test("a temporary HTTP failure uses the evaluated alternate while unknown bills 
   await assert.rejects(f.call("bounded"), ProviderRejectedError);
   assert.deepEqual(
     events.slice(before),
-    ["primary", "backup", "backup"],
-    "proven unbilled alternate failures may retry under the shared request quota without returning to primary",
+    ["primary", "backup", "primary", "backup"],
+    "a failed alternate returns to the primary before choosing the evaluated backup again",
   );
 });
 test("news refusal does not choose another provider; changed input and permissions also stop the alternate", async () => {
@@ -344,8 +357,9 @@ test("actual response identity drift blocks the assigned backup and retains paid
   mode = "drift";
   const before = events.length;
   await assert.rejects(f.call("drift"), ModelFallbackBlocked);
-  await assert.rejects(f.call("drift"), ModelFallbackBlocked);
-  assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  mode = "primary-ok";
+  assert.equal((await f.call("drift")).model, f.primary.key, "an ineligible alternate does not prevent recovery of the configured primary");
+  assert.deepEqual(events.slice(before), ["primary", "backup", "primary"]);
   assert.equal((await modelFallbacks(f.owner)).routes.find((r) => r.capability === "summarize")!.state, "blocked");
 });
 
@@ -453,7 +467,7 @@ test("filtered output remains reusable after rejection and route waits do not co
   assert.equal((await afterFailure(article, known, 1)).state, "waiting");
   assert.equal((await sql`SELECT processing_attempts FROM articles WHERE id=${article}`)[0]!.processing_attempts, 0);
 });
-test("pause after primary failure prevents a backup claim and resumes the same one-shot decision later", async () => {
+test("pause prevents a backup claim; after resume a recovered primary can finish the request", async () => {
   mode = "ok";
   const f = await fixture(),
     controls = await listLaneControls(),
@@ -486,8 +500,11 @@ test("pause after primary failure prevents a backup claim and resumes the same o
   assert.equal(resumed.state, "ready", JSON.stringify(resumed));
   const decisions = await sql`SELECT backup_model,blocked_reason FROM ai.model_fallback_resolutions WHERE backup_model=${f.backup.key}`;
   assert.equal(decisions.length, 1, `decision after pause: ${JSON.stringify(decisions)}`);
-  assert.equal((await f.call("pause")).model, f.backup.key);
-  assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  mode = "primary-ok";
+  const result = await f.call("pause");
+  assert.equal(result.model, f.primary.key);
+  assert.equal((await f.call("pause")).receiptId, result.receiptId);
+  assert.deepEqual(events.slice(before), ["primary", "primary"]);
 });
 
 test("real news material preparation consumes the same fallback gateway and rejects a changed stored revision", async () => {
@@ -543,17 +560,16 @@ test("a real news scope can continue an unknown primary only through its bound a
   assert.equal(first.model, f.backup.key);
   assert.equal((await f.call("first-news", subject)).receiptId, first.receiptId);
   await sql`UPDATE ai.model_fallback_resolutions SET accepted_at=NULL WHERE backup_receipt_id=${first.receiptId}`;
-  await assert.rejects(f.call("unconfirmed-old-decision", subject), ReceiptUnknownError, "old decisions are not assumed to have an accepted result");
   assert.equal((await f.call("first-news", subject)).receiptId, first.receiptId, "a cached result can be checked without paying again");
   const second = await f.call("second-news", subject);
   assert.equal(second.model, f.backup.key, "an accepted alternate resolves the work without erasing its unknown primary bill");
   assert.deepEqual(events.slice(before), ["primary", "backup", "primary", "backup"]);
   await rejectReceivedResponse(second.receiptId, "SYNTHETIC rejected alternate output", second.attemptId);
-  await assert.rejects(f.call("third-news", subject), ReceiptUnknownError, "a rejected alternate cannot release the unresolved original");
-  assert.equal(events.length, before + 4);
+  assert.equal((await f.call("third-news", subject)).model, f.backup.key, "a distinct input is not blocked by an earlier rejected response");
+  assert.equal(events.length, before + 6);
   const unknown =
     await sql`SELECT a.status,u.state FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.subject=${subject} AND a.service=${f.primary.key}`;
-  assert.equal(unknown.length, 2);
+  assert.equal(unknown.length, 3);
   assert.ok(unknown.every((row) => row.status === "unknown" && row.state === "unknown"));
   await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject} AND service=${f.primary.key}`;
   const resumed: number[] = [];
@@ -609,19 +625,26 @@ test("only the unknown alternate receives one timed recovery; the primary stays 
   assert.ok(attempts.every((row) => row.status === "unknown" && row.state === "unknown"));
 });
 
-test("a received but refused alternate never releases the unknown primary", async () => {
+test("a refused alternate stays unusable without blocking another logical input", async () => {
   mode = "ok";
   const f = await fixture(),
     subject = `article:${f.articleId}@1`,
     before = events.length;
   mode = "unknown-filter";
+  let refusedReceipt = 0;
+  await assert.rejects(f.call("filtered-alternate", subject), (error) => {
+    if (!(error instanceof ModelContentFiltered)) return false;
+    refusedReceipt = error.receiptId;
+    return true;
+  });
   await assert.rejects(f.call("filtered-alternate", subject), ModelContentFiltered);
-  await assert.rejects(f.call("filtered-alternate", subject), ModelFallbackBlocked);
-  await assert.rejects(f.call("new-input-after-filter", subject), ReceiptUnknownError);
   assert.deepEqual(events.slice(before), ["primary", "backup"]);
-  const [decision] = await sql`SELECT accepted_at,blocked_reason FROM ai.model_fallback_resolutions WHERE backup_model=${f.backup.key}`;
+  mode = "primary-unknown";
+  assert.equal((await f.call("new-input-after-filter", subject)).model, f.backup.key);
+  assert.deepEqual(events.slice(before), ["primary", "backup", "primary", "backup"]);
+  const [decision] = await sql`SELECT accepted_at,blocked_reason FROM ai.model_fallback_resolutions WHERE backup_receipt_id=${refusedReceipt}`;
   assert.equal(decision.accepted_at, null);
-  assert.ok(decision.blocked_reason);
+  assert.equal(decision.blocked_reason, null, "a single content refusal does not revoke the service's quality qualification");
 });
 
 test("service cooldown avoids phantom primary attempts and admits one recovery probe across concurrent callers", async () => {
@@ -674,4 +697,54 @@ test("service cooldown avoids phantom primary attempts and admits one recovery p
   assert.equal(recovered.model, f.primary.key);
   assert.equal((await modelCircuits())[service]!.openUntil, 0);
   assert.equal((await modelCircuits())[service]!.failures, 0);
+});
+
+test("an unusable alternate is linked when claimed, before response parsing can fail", async () => {
+  mode = "ok";
+  const f = await fixture();
+  mode = "unknown-invalid-output";
+  await assert.rejects(f.call("invalid-alternate"), ModelOutputError);
+  const [decision] =
+    await sql`SELECT f.primary_receipt_id,f.backup_receipt_id,f.backup_attempt_id,r.status,a.response FROM ai.model_fallback_resolutions f JOIN receipts r ON r.id=f.backup_receipt_id JOIN receipt_attempts a ON a.id=f.backup_attempt_id WHERE f.backup_model=${f.backup.key}`;
+  assert.ok(decision?.backup_receipt_id && decision.response);
+  assert.equal(decision.status, "failed");
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${decision.primary_receipt_id}`;
+  assert.deepEqual(
+    await recoverUnknownOnce(Date.now(), async () => true),
+    { released: 0, requeued: 0 },
+    "an actual alternate claim keeps its original request out of automatic replay",
+  );
+});
+
+test("after an alternate clearly fails, a recovered primary wins and its result is reused", async () => {
+  mode = "ok";
+  const f = await fixture(),
+    before = events.length;
+  mode = "backup-connect";
+  await assert.rejects(f.call("recover-primary"), ProviderRejectedError);
+  mode = "primary-ok";
+  const result = await f.call("recover-primary");
+  assert.equal(result.model, f.primary.key);
+  assert.equal((await f.call("recover-primary")).receiptId, result.receiptId);
+  assert.deepEqual(events.slice(before), ["primary", "backup", "primary"]);
+});
+
+test("identical paid alternate output is reused for another currently permitted material", async () => {
+  mode = "ok";
+  const f = await fixture();
+  const result = await f.call("shared-output"),
+    before = events.length;
+  const original = (await readCurrentBody(f.articleId))!;
+  const [binding] = await newsMaterialBindings([f.articleId]);
+  const other = await upsertMaterial({ sourceId: f.source, url: binding!.url + "/shared", title: original.title, bodyText: original.body_text!, via: "fetch" });
+  const reused = await chatJson({
+    ...f.base,
+    model: f.primary.key,
+    subject: `article:${other.articleId}@1`,
+    user: "SYNTHETIC production material shared-output",
+    fallbackPermit: await f.permitFor(other.articleId),
+  });
+  assert.equal(reused.receiptId, result.receiptId);
+  assert.ok(reused.reused);
+  assert.equal(events.length, before, "a current source permit does not require buying identical model text again");
 });

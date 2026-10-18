@@ -20,7 +20,7 @@ after(async () => {
 });
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-test("actual single-pool Jina timeout records unknown; lease recovery and a fresh preview cannot buy another attempt", async (t) => {
+test("a lost Jina preview stays held on lease recovery while an explicit fresh preview has a new receipt", async (t) => {
   let hits = 0;
   const server = http.createServer((_req, _res) => {
     hits++;
@@ -63,10 +63,15 @@ test("actual single-pool Jina timeout records unknown; lease recovery and a fres
   assert.notEqual(fresh.preview_id, preview.preview_id);
   await sql`UPDATE acquisition.crawl_hosts SET next_slot=now()-interval '1 hour',last_finished=now()-interval '1 hour',cooldown_until=now()-interval '1 hour'`;
   await sql`UPDATE acquisition.crawl_requests SET ready_at=now()-interval '1 hour'`;
-  await assert.rejects(runSourcePreview(String(fresh.preview_id)), /预览待重试/);
-  assert.equal(hits, 1, "a new preview ID must not bypass the source-scoped unresolved bill");
+  await assert.rejects(runSourcePreview(String(fresh.preview_id), undefined, { timeoutMs: 500 }), /timeout|aborted/i);
+  for (let n = 0; n < 100; n++) {
+    const [count] = await sql`SELECT count(*)::int n FROM receipts WHERE subject=${`source:${id}`} AND service='jina' AND status='unknown'`;
+    if (count.n === 2) break;
+    await wait(10);
+  }
+  assert.equal(hits, 2, "an explicit fresh preview is a distinct read, not a retry of the old receipt");
   assert.deepEqual(await sql`SELECT id,attempts,status FROM receipts WHERE id=${receipt!.id}`, before);
-  assert.equal((await sql`SELECT count(*)::int n FROM receipts WHERE subject=${`source:${id}`} AND service='jina'`)[0]!.n, 1);
+  assert.equal((await sql`SELECT count(*)::int n FROM receipts WHERE subject=${`source:${id}`} AND service='jina'`)[0]!.n, 2);
   assert.equal((await sql`SELECT count(*)::int n FROM receipt_attempts WHERE receipt_id=${receipt!.id}`)[0]!.n, 1);
   assert.equal((await recoverSourcePreviews()).reenqueued, 0, "unknown/permanent failures do not enter a recovery loop");
 });

@@ -1,3 +1,4 @@
+import { ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { ensureModelSourceFixture, materialFixturePermit } from "./model-source-fixture.ts";
 import { gate, tag } from "./setup.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -244,56 +245,24 @@ test("replacement transaction failure and a late revision keep the received pare
   assert.equal((await sql`SELECT count(*) AS n FROM enrichment.translation_segments WHERE article_id=${late.articleId}`)[0]!.n, 0);
 });
 
-test("unknown prior recipe blocks a new paid key for the same material revision and stage", async () => {
-  for (const initial of ["reset"]) {
-    mode = initial;
-    const { articleId } = await material(`unknown-recipe-${initial}`, halves(`unknown-recipe-${initial}`)),
-      start = requests.length;
-    if (initial === "reset") await assert.rejects(runBodyTranslation(articleId, recipe));
-    else assert.equal((await runBodyTranslation(articleId, recipe)).reason, "truncated");
-    mode = "normal";
-    await assert.rejects(
-      runBodyTranslation(articleId, { ...recipe, id: recipe.id + "-changed", promptVersion: recipe.promptVersion + "-changed" }),
-      /unknown outcome/,
-    );
-    assert.equal(requests.length - start, 1);
-    assert.equal(
-      (await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0]!.status,
-      initial === "reset" ? "unknown" : "received",
-    );
-  }
-});
-
-test("A/B sharing an unknown receipt cannot evade the hold by changing B's recipe", async () => {
+test("the same unknown translation key stays held while a new recipe has independent receipts", async () => {
   const html = halves("shared-unknown"),
     a = await material("shared-a", html),
     b = await material("shared-b", html),
     start = requests.length;
-  assert.notEqual(a.articleId, b.articleId);
   mode = "reset";
-  await assert.rejects(runBodyTranslation(a.articleId, recipe));
-  await assert.rejects(runBodyTranslation(b.articleId, recipe));
-  const rows =
-    await sql`SELECT s.article_id,s.receipt_id,s.attempt_id,r.subject,r.status FROM enrichment.translation_segments s JOIN receipts r ON r.id=s.receipt_id
-    WHERE s.article_id=ANY(${[a.articleId, b.articleId]}::text[]) ORDER BY s.article_id`;
-  assert.equal(rows.length, 2);
-  assert.equal(new Set(rows.map((row) => String(row.receipt_id))).size, 1);
-  assert.ok(rows.some((row) => row.article_id === b.articleId));
-  assert.ok(rows.every((row) => row.subject.startsWith(`article:${a.articleId}@1#`) && row.status === "unknown"));
-  assert.equal(requests.length - start, 1);
+  await assert.rejects(runBodyTranslation(a.articleId, recipe), ReceiptUnknownError);
+  await assert.rejects(runBodyTranslation(b.articleId, recipe), ReceiptUnknownError);
+  assert.equal(requests.length - start, 1, "identical input uses the same unresolved receipt across articles");
+  const [old] = await sql`SELECT id,status FROM receipts WHERE subject=${`article:${a.articleId}@1#0`}`;
   mode = "normal";
-  let result: unknown, error: unknown;
-  try {
-    result = await runBodyTranslation(b.articleId, { ...recipe, id: recipe.id + "-B2", promptVersion: recipe.promptVersion + "-B2" });
-  } catch (e) {
-    error = e;
-  }
-  console.log(
-    "SHARED_UNKNOWN_PROBE=" +
-      JSON.stringify({ a: a.articleId, b: b.articleId, observations: rows, providerHits: requests.length - start, result, error: String(error) }),
-  );
-  assert.ok(error instanceof Error && /unknown outcome/.test(error.message), "B's observed attempt must remain blocked across recipe keys");
-  assert.equal(requests.length - start, 1);
+  const changed = { ...recipe, id: recipe.id + "-B2", promptVersion: recipe.promptVersion + "-B2" };
+  assert.equal((await runBodyTranslation(b.articleId, changed)).status, "translated");
+  assert.equal(requests.length - start, 2);
+  assert.equal((await sql`SELECT status FROM receipts WHERE id=${old!.id}`)[0].status, "unknown");
+  const [current] = await sql`SELECT receipt_id,attempt_id FROM enrichment.translation_segments WHERE article_id=${b.articleId} AND recipe=${changed.id}`;
+  assert.notEqual(String(current.receipt_id), String(old!.id));
+  assert.ok(current.attempt_id);
 });
 
 test("a shared pending observation closes the pre-catch window; non-billing releases only the confirmed attempt", async () => {
@@ -311,8 +280,7 @@ test("a shared pending observation closes the pre-catch window; non-billing rele
     0,
     "there is no catch-written checkpoint yet",
   );
-  const changed = { ...recipe, id: recipe.id + "-pending", promptVersion: recipe.promptVersion + "-pending" };
-  await assert.rejects(runBodyTranslation(b.articleId, changed), /in flight/);
+  await assert.rejects(runBodyTranslation(b.articleId, recipe), /in flight/);
   assert.equal(requests.length - start, 1);
   hold.release.open();
   hold = null;
@@ -325,7 +293,7 @@ test("a shared pending observation closes the pre-catch window; non-billing rele
   await assert.rejects(runBodyTranslation(b.articleId, recipe));
   assert.equal(requests.length - start, 2);
   await assert.rejects(confirm(old), { code: "conflict" });
-  await assert.rejects(runBodyTranslation(b.articleId, changed), /unknown outcome/);
+  await assert.rejects(runBodyTranslation(b.articleId, recipe), /unknown outcome/);
   assert.equal(requests.length - start, 2, "old confirmation cannot unlock the new unknown attempt");
   await confirm(await observedVersion(receipt!.id));
   mode = "normal";
@@ -340,7 +308,7 @@ test("a shared pending observation closes the pre-catch window; non-billing rele
   assert.equal(new Set(observations.map((r) => r.attempt_id)).size, 3);
 });
 
-test("unbound historical cache records null observation and cannot authorize a changed-key purchase", async () => {
+test("unbound history stays unproved while a new recipe can obtain its own response", async () => {
   mode = "normal";
   const html = halves("unbound-shared"),
     a = await material("history-a", html),
@@ -352,11 +320,16 @@ test("unbound historical cache records null observation and cannot authorize a c
   const start = requests.length;
   assert.equal((await runBodyTranslation(b.articleId, recipe)).reason, "unbound historical response");
   assert.equal((await sql`SELECT attempt_id FROM ai.translation_receipt_observations WHERE scope=${`article:${b.articleId}@1`}`)[0]!.attempt_id, null);
-  await assert.rejects(
-    runBodyTranslation(b.articleId, { ...recipe, id: recipe.id + "-history", promptVersion: recipe.promptVersion + "-history" }),
-    /unknown outcome/,
+  assert.equal(
+    (await runBodyTranslation(b.articleId, { ...recipe, id: recipe.id + "-history", promptVersion: recipe.promptVersion + "-history" })).status,
+    "translated",
   );
-  assert.equal(requests.length, start, "neither MAX(attempt id) nor a new recipe repairs missing response provenance");
+  assert.equal(requests.length, start + 1);
+  assert.equal(
+    (await sql`SELECT response_attempt_id FROM receipts WHERE id=${receipt!.id}`)[0].response_attempt_id,
+    null,
+    "a fresh result never invents old provenance",
+  );
 });
 
 test("an explicit non-billing decision resolves only the unproved historical counter before new real attempts", async () => {
@@ -417,20 +390,21 @@ test("upgrade recovers an own paid attempt before any segment or observation exi
     assert.equal((await sql`SELECT count(*) AS n FROM ai.translation_receipt_observations WHERE scope=${stage}`)[0]!.n, 0);
     assert.equal((await sql`SELECT count(*) AS n FROM enrichment.translation_segments WHERE article_id=${articleId}`)[0]!.n, 0);
     mode = "normal";
+    const previousHold = hold;
+    hold = null;
     let outcome: unknown, error: unknown;
     try {
       outcome = await runBodyTranslation(articleId, { ...recipe, id: recipe.id + initial, promptVersion: recipe.promptVersion + initial });
     } catch (failure) {
       error = failure;
     } finally {
-      hold?.release.open();
-      hold = null;
+      previousHold?.release.open();
       await stopped;
     }
     console.log("LEGACY_NO_OBSERVATION=" + JSON.stringify({ initial, old, calls: requests.length - start, outcome, error: String(error) }));
-    assert.equal(requests.length - start, initial === "normal" || initial === "no-usage-length" ? 2 : 1);
-    if (initial === "normal" || initial === "no-usage-length") assert.equal((outcome as { status: string }).status, "translated");
-    else assert.match(String(error), initial === "pending" ? /in flight/ : /unknown outcome/);
+    assert.equal(requests.length - start, 2);
+    assert.equal(error, undefined);
+    assert.equal((outcome as { status: string }).status, "translated");
     const [observed] = await sql`SELECT receipt_version,attempt_id FROM ai.translation_receipt_observations
       WHERE scope=${stage} AND receipt_id=${old!.id}`;
     assert.deepEqual({ ...observed }, { receipt_version: 1, attempt_id: old!.attempt_id });
@@ -457,8 +431,10 @@ test("upgrade must retain an own-material unknown when old worker persisted no c
     error = failure;
   }
   console.log("ROOT_LEGACY_NO_OBSERVATION=" + JSON.stringify({ articleId, old, calls: requests.length - start, outcome, error: String(error) }));
-  assert.equal(requests.length, start + 1, "unresolved old physical request must block a new paid key even before new observation storage was introduced");
-  assert.match(String(error), /unknown outcome/);
+  assert.equal(requests.length, start + 2);
+  assert.equal(error, undefined);
+  assert.equal((outcome as { status: string }).status, "translated");
+  assert.equal((await sql`SELECT status FROM receipts WHERE id=${old.id}`)[0].status, "unknown", "new recipe does not rewrite the old bill");
 });
 
 test("a known truncated response without usage can use one bounded replacement without inventing a bill", async () => {

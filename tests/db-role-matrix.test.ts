@@ -74,6 +74,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "ai.model_fallback_resolutions",
       "ai.model_fallback_routes",
       "ai.model_routes",
+      "ai.model_service_circuits",
       "ai.prefilter_audit_draws",
       "ai.prefilter_audit_items",
       "ai.prefilter_audit_labels",

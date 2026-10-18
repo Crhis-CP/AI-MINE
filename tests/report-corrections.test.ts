@@ -175,7 +175,7 @@ test("permission changed during a paid answer preserves its receipt but cannot p
   assert.ok(receipt!.response);
   assert.equal(receipt!.status, "received");
 });
-test("unknown report cost cannot be bypassed by changing corrected input or the model", async () => {
+test("an unknown report request stays held while corrected input and a new model form a separate request", async () => {
   const f = await fixture();
   for (const id of f.members) await correct(id, 0);
   const daily = f.reports[1]!;
@@ -183,11 +183,17 @@ test("unknown report cost cannot be bypassed by changing corrected input or the 
   try {
     await assert.rejects(correctNewsReport(daily.id), ReceiptUnknownError);
     const hits = provider.hits();
+    await assert.rejects(correctNewsReport(daily.id), ReceiptUnknownError);
+    assert.equal(provider.hits(), hits);
     await correct(f.members[0]!, 1, "已更正的铜矿产量为10吨");
     mode = "ok";
     process.env.REPORT_MODEL = "qwen3.7-flash";
-    await assert.rejects(correctNewsReport(daily.id), ReceiptUnknownError);
-    assert.equal(provider.hits(), hits, "changed input and model keep the same report billing barrier");
+    await correctNewsReport(daily.id);
+    assert.equal(provider.hits(), hits + 1, "changed input and model have their own paid identity");
+    assert.ok(
+      (await sql`SELECT id FROM receipts WHERE subject=${`report:${daily.kind}:${daily.key}`} AND status='unknown'`).length,
+      "old unknown billing remains recorded",
+    );
   } finally {
     mode = "ok";
     process.env.REPORT_MODEL = "deepseek-flash";

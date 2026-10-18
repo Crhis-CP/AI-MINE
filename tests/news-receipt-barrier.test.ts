@@ -2,42 +2,48 @@ import "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { closeDb, sql } from "@amp/backend/db";
-import { paidRequest, rejectReceivedResponse, ReceiptUnknownError, ReceiptBusyError } from "@amp/backend/providers/receipts";
+import { paidRequest, logicalKeyFor, rejectReceivedResponse, ReceiptUnknownError, ReceiptBusyError } from "@amp/backend/providers/receipts";
 
 after(closeDb);
-test("model and attempt tag changes cannot bypass unresolved news material cost", async () => {
+test("unknown and pending hold their own news key while distinct requests keep their own ledger", async () => {
+  const original = {
+    lane: "news" as const,
+    service: "old",
+    model: "model-A",
+    purpose: "summarize_article",
+    subject: "article:barrier@1",
+    identity: { text: "same" },
+  };
+  const oldKey = logicalKeyFor(original);
   await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts)
-    VALUES('news-old-model','old','model-A','summarize_article','article:barrier@1','unknown','{"lane":"news"}',1)`;
+    VALUES(${oldKey},'old','model-A','summarize_article','article:barrier@1','unknown','{"lane":"news","userHash":"same"}',1)`;
   let hits = 0;
-  for (const attemptTag of [undefined, "admin:changed-route"])
-    await assert.rejects(
-      () =>
-        paidRequest(
-          {
-            lane: "news",
-            service: "new",
-            model: "model-B",
-            purpose: "summarize_article",
-            subject: "article:barrier@1",
-            identity: { new: true },
-            attemptTag,
-          },
-          async () => {
-            hits++;
-            return { response: {} };
-          },
-        ),
-      ReceiptUnknownError,
-    );
-  assert.equal(hits, 0);
-  await sql`UPDATE receipts SET status='pending' WHERE logical_key='news-old-model'`;
-  await assert.rejects(
-    () =>
-      paidRequest({ lane: "news", service: "new", model: "B", purpose: "summarize_article", subject: "article:barrier@1", identity: 2 }, async () => ({
-        response: {},
-      })),
-    ReceiptBusyError,
-  );
+  const send = async () => {
+    hits++;
+    return { response: { ok: true } };
+  };
+  await assert.rejects(paidRequest(original, send), ReceiptUnknownError);
+  for (const attemptTag of [undefined, "admin:changed-route"]) {
+    const fresh = {
+      ...original,
+      service: "new",
+      model: "model-B",
+      identity: { configuration: "new", text: "same" },
+      legacyIdentity: original.identity,
+      requestSummary: { userHash: "same" },
+      attemptTag,
+    };
+    const first = await paidRequest(fresh, send),
+      reused = await paidRequest(fresh, send);
+    assert.equal(reused.receiptId, first.receiptId);
+    assert.ok(reused.reused);
+  }
+  assert.equal(hits, 2);
+  assert.equal((await sql`SELECT status FROM receipts WHERE logical_key=${oldKey}`)[0].status, "unknown");
+  await sql`UPDATE receipts SET status='pending' WHERE logical_key=${oldKey}`;
+  await assert.rejects(paidRequest(original, send), ReceiptBusyError);
+  await paidRequest({ ...original, service: "new", model: "model-B", identity: { text: "corrected" } }, send);
+  assert.equal(hits, 3);
 });
 
 test("missing usage does not block known responses, and bad outputs still stop after three physical attempts", async () => {

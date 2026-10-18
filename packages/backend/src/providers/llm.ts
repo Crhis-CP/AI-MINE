@@ -125,8 +125,7 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   fallbackPolicy?: PolicyFallbackContext;
   /** Gateway recursion guard; no worker should use this to select a supplier directly. */
   fallbackHop?: boolean;
-  /** Gateway-owned linkage to an evaluated alternate; the receipt layer verifies its durable decision. */
-  fallbackFor?: string;
+  fallbackFor?: ReceiptRequest["fallbackFor"];
   maxPhysicalAttempts?: 1;
   taskBudget?: TaskBudget;
   sourceIds?: string[];

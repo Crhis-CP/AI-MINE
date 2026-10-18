@@ -31,6 +31,7 @@ type Resolution = {
   primary_receipt_id: number | null;
   primary_attempt_id: string | null;
   primary_circuit: CircuitOpenError["evidence"] | null;
+  backup_status: string | null;
   backup_model: string;
   backup_configuration_hash: string;
   permit_fingerprint: string;
@@ -90,10 +91,10 @@ async function proof(key: string, configurationHash: string, db: Db, policy: boo
  JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.logical_key=${key} AND s.configuration_hash=${configurationHash} AND a.origin='live' AND r.origin='live'`;
   return r?.safe ? r : null;
 }
-async function resolution(key: string, db: Db) {
+async function resolution(key: string, revision: number, db: Db) {
   const [r] = await db<
     Resolution[]
-  >`SELECT route_revision,primary_receipt_id,primary_attempt_id::text,primary_circuit,backup_model,backup_configuration_hash,permit_fingerprint,blocked_reason FROM ai.model_fallback_resolutions WHERE primary_key=${key} ORDER BY route_revision DESC LIMIT 1`;
+  >`SELECT f.route_revision,f.primary_receipt_id,f.primary_attempt_id::text,f.primary_circuit,f.backup_model,f.backup_configuration_hash,f.permit_fingerprint,f.blocked_reason,b.status AS backup_status FROM ai.model_fallback_resolutions f LEFT JOIN receipts b ON b.id=f.backup_receipt_id WHERE f.primary_key=${key} AND f.route_revision=${revision}`;
   return r ?? null;
 }
 async function verifyResponse<T>(result: ChatJsonResult<T>, route: StoredBackup, approved: BackupAdmission, key: string) {
@@ -118,18 +119,24 @@ async function verifyResponse<T>(result: ChatJsonResult<T>, route: StoredBackup,
 export async function withModelFallback<T>(
   input: Input,
   primary: (circuit?: boolean) => Promise<ChatJsonResult<T>>,
-  backup: (model: string, authorize: () => Promise<void>, fallbackFor: string) => Promise<ChatJsonResult<T>>,
+  backup: (model: string, authorize: () => Promise<void>, fallbackFor: NonNullable<ReceiptRequest["fallbackFor"]>) => Promise<ChatJsonResult<T>>,
 ): Promise<ChatJsonResult<T>> {
   const capability = Object.entries(CAPABILITIES).find(([, c]) => (c.purposes as string[]).includes(input.purpose))?.[0];
   if (!capability || input.registeredProbe || (input.usagePurpose && input.usagePurpose !== "production")) return primary(false);
   if (input.fallbackHop) return primary(!input.request.policy);
+  const evaluated = await sql.begin((tx) => admission(input, capability, tx));
+  if (!evaluated || !input.permit) {
+    if (input.request.policy && (await sql`SELECT 1 FROM ai.model_fallback_resolutions WHERE primary_key=${logicalKeyFor(input.request)} LIMIT 1`).length)
+      throw new ModelFallbackBlocked("法规备用配置或质量资格已变化，等待核对");
+    return primary(false);
+  }
   const key = logicalKeyFor(input.request),
-    stored = await resolution(key, sql);
-  let circuitEvidence = stored?.primary_circuit ?? null;
-  if (!stored) {
+    stored = await resolution(key, evaluated.route.revision, sql);
+  const retryPrimary = !stored?.backup_status || stored.backup_status === "failed";
+  let circuitEvidence = retryPrimary ? null : (stored?.primary_circuit ?? null);
+  if (retryPrimary) {
     try {
-      const evaluated = !input.request.policy && !!(await sql.begin((tx) => admission(input, capability, tx)));
-      return await primary(evaluated);
+      return await primary(!input.request.policy);
     } catch (error) {
       const policy = !!input.request.policy;
       const eligibleFailure =
@@ -158,17 +165,24 @@ export async function withModelFallback<T>(
     await sql.begin(async (tx) => {
       await tx`SELECT pg_advisory_xact_lock(hashtext(${`model-fallback:${key}`}))`;
       const current = await admission(input, capability, tx),
-        prior = await resolution(key, tx),
-        original = circuitEvidence ? null : await proof(key, input.configurationHash, tx, !!input.request.policy, prior?.primary_attempt_id ?? null);
+        prior = await resolution(key, selected.route.revision, tx),
+        original = circuitEvidence
+          ? null
+          : await proof(key, input.configurationHash, tx, !!input.request.policy, retryPrimary ? null : (prior?.primary_attempt_id ?? null));
       if (
         !current ||
         current.route.revision !== selected.route.revision ||
         (!original && !circuitEvidence) ||
-        (prior && (prior.route_revision !== selected.route.revision || prior.permit_fingerprint !== permit.inputFingerprint || prior.blocked_reason))
+        (prior &&
+          (prior.route_revision !== selected.route.revision ||
+            (!!input.request.policy && prior.permit_fingerprint !== permit.inputFingerprint) ||
+            prior.blocked_reason))
       )
         throw new ModelFallbackBlocked("主路由未有明确可安全回退证据，或备用配置已变化");
       await tx`INSERT INTO ai.model_fallback_resolutions(primary_key,route_revision,capability,primary_receipt_id,primary_attempt_id,primary_circuit,backup_model,backup_configuration_hash,source_ids,permit_fingerprint)
-    VALUES(${key},${selected.route.revision},${capability},${original?.receiptId ?? null},${original?.attemptId ?? null},${circuitEvidence ? tx.json(circuitEvidence) : null},${selected.route.backup_model!},${selected.approved.configurationHash},${[...input.permit!.sourceIds]},${permit.inputFingerprint}) ON CONFLICT DO NOTHING`;
+    VALUES(${key},${selected.route.revision},${capability},${original?.receiptId ?? null},${original?.attemptId ?? null},${circuitEvidence ? tx.json(circuitEvidence) : null},${selected.route.backup_model!},${selected.approved.configurationHash},${[...input.permit!.sourceIds]},${permit.inputFingerprint}) ON CONFLICT(primary_key,route_revision) DO UPDATE SET
+      primary_receipt_id=EXCLUDED.primary_receipt_id,primary_attempt_id=EXCLUDED.primary_attempt_id,primary_circuit=EXCLUDED.primary_circuit,
+      source_ids=EXCLUDED.source_ids,permit_fingerprint=EXCLUDED.permit_fingerprint,updated_at=now()`;
     });
     const authorize = async () => {
       await permit.beforeRequest();
@@ -178,14 +192,14 @@ export async function withModelFallback<T>(
     await authorize();
     let result: ChatJsonResult<T>;
     try {
-      result = await backup(selected.route.backup_model!, authorize, key);
+      result = await backup(selected.route.backup_model!, authorize, { primaryKey: key, routeRevision: selected.route.revision });
     } catch (error) {
       if (
         (error instanceof ProviderRejectedError || error instanceof ReceiptUnknownError || error instanceof ModelContentFiltered) &&
         error.receiptId !== null &&
         error.attemptId !== null
       )
-        await sql`UPDATE ai.model_fallback_resolutions SET backup_receipt_id=${error.receiptId},backup_attempt_id=${error.attemptId},accepted_at=NULL,blocked_reason=${error instanceof ModelContentFiltered ? "备用内容拒答，等待处理" : null},updated_at=now() WHERE primary_key=${key} AND route_revision=${selected.route.revision}`;
+        await sql`UPDATE ai.model_fallback_resolutions SET backup_receipt_id=${error.receiptId},backup_attempt_id=${error.attemptId},accepted_at=NULL,updated_at=now() WHERE primary_key=${key} AND route_revision=${selected.route.revision}`;
       throw error;
     }
     await authorize();

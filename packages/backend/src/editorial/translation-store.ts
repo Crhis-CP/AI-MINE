@@ -26,7 +26,7 @@ export interface TranslationSession {
   source: ReturnType<typeof translationSourceManifest>;
 }
 
-/** Preserve observed holds from earlier recipes too; the gateway validates each receipt/attempt pair. */
+/** Preserve prior provenance and output-repair evidence; each receipt/attempt pair remains independently verifiable. */
 export async function translationObservations(body: CurrentBody): Promise<TranslationObservation[]> {
   return sql<TranslationObservation[]>`SELECT DISTINCT receipt_id::text AS "receiptId",attempt_id AS "attemptId"
     FROM enrichment.translation_segments WHERE article_id=${body.id} AND revision=${body.revision} AND receipt_id IS NOT NULL`;

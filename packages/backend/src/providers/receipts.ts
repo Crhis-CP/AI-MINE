@@ -136,8 +136,8 @@ export interface ModelAttemptSnapshot {
   pricing?: { input: string; output: string; currency: "CNY"; basis: string };
 }
 export interface ReceiptRequest {
-  /** Only a matching persisted alternate decision may continue an unresolved primary. */
-  fallbackFor?: string;
+  /** Persist the chosen pair when a real alternate receipt is reused or claimed. Not a spending exemption. */
+  fallbackFor?: { primaryKey: string; routeRevision: number };
   /** Explicit caller send cap; durable received responses remain reusable. */
   maxPhysicalAttempts?: 1;
   usageContext?: UsageContext;
@@ -184,97 +184,24 @@ const PENDING_STALE_MS = 10 * 60 * 1000;
 const knownTranslationUsage = (usage: Record<string, unknown> | null) =>
   [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0);
 
-type FallbackExemption = { receiptId: number; attemptId: string } | null;
-async function fallbackExemption(db: Db, req: ReceiptRequest): Promise<FallbackExemption> {
-  if (!req.fallbackFor || req.policy || (req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane) !== "news") return null;
-  const summary = req.requestSummary;
-  if (![summary?.userHash, summary?.systemHash, summary?.promptVersion, summary?.contractHash].every((v) => typeof v === "string" && v.length)) return null;
-  const [row] = await db<{ receiptId: number; attemptId: string }[]>`SELECT r.id AS "receiptId", a.id::text AS "attemptId"
-    FROM ai.model_fallback_resolutions f JOIN ai.model_fallback_routes route ON route.capability=f.capability AND route.revision=f.route_revision
-    JOIN receipts r ON r.id=f.primary_receipt_id JOIN receipt_attempts a ON a.id=f.primary_attempt_id AND a.receipt_id=r.id
-    WHERE f.primary_key=${req.fallbackFor} AND r.logical_key=f.primary_key AND f.backup_model=${req.service}
-      AND f.backup_configuration_hash=${req.modelSnapshot?.configuration_hash ?? null}
-      AND route.backup_model=f.backup_model AND route.backup_configuration_hash=f.backup_configuration_hash
-      AND f.blocked_reason IS NULL AND route.blocked_reason IS NULL AND r.purpose=${req.purpose}
-      AND a.status='unknown' AND a.failure_kind IN ('unknown','provider_outage')
-      AND r.request->>'lane'='news' AND r.request->>'userHash'=${String(summary!.userHash)}
-      AND r.request->>'systemHash'=${String(summary!.systemHash)} AND r.request->>'promptVersion'=${String(summary!.promptVersion)}
-      AND r.request->>'contractHash'=${String(summary!.contractHash)}`;
-  return row ?? null;
+async function recordFallbackAttempt(db: Db, req: ReceiptRequest, receiptId: number, attemptId: string | null): Promise<void> {
+  if (!req.fallbackFor) return;
+  const changed =
+    await db`UPDATE ai.model_fallback_resolutions SET backup_receipt_id=${receiptId},backup_attempt_id=${attemptId},accepted_at=NULL,updated_at=now()
+    WHERE primary_key=${req.fallbackFor.primaryKey} AND route_revision=${req.fallbackFor.routeRevision}
+      AND backup_model=${req.service} AND backup_configuration_hash=${req.modelSnapshot?.configuration_hash ?? null}`;
+  if (changed.count !== 1) throw new ReceiptBusyError("备用配置已变化，等待任务重新读取");
 }
 
-async function translationBlocker(db: Db, stage: string | null, logicalKey: string, alternate: FallbackExemption) {
-  if (!stage) return null;
-  const rows = await db<
-    {
-      id: number;
-      id_text: string;
-      status: string;
-      usage: Record<string, unknown> | null;
-      attempt_id: string | null;
-      known_unbilled: boolean;
-      has_response: boolean;
-      receipt_version: number;
-      attempt_error: string | null;
-      recovery_bound: boolean;
-      alternate_received: boolean;
-    }[]
-  >`
-    SELECT r.id,r.id::text AS id_text,CASE WHEN a.id IS NULL AND r.attempts<>o.receipt_version THEN 'unknown' ELSE coalesce(a.status,r.status) END AS status,
-      a.usage,o.attempt_id,o.known_unbilled,r.response IS NOT NULL AS has_response,o.receipt_version,a.error AS attempt_error,
-      (r.status='completed' AND recovered.response IS NOT NULL AND recovered.response=r.response) AS recovery_bound,
-      EXISTS (SELECT 1 FROM ai.model_fallback_resolutions f JOIN receipts b ON b.id=f.backup_receipt_id
-        JOIN receipt_attempts ba ON ba.id=f.backup_attempt_id AND ba.receipt_id=b.id
-        WHERE f.primary_receipt_id=r.id AND f.primary_attempt_id=a.id AND f.blocked_reason IS NULL AND f.accepted_at IS NOT NULL
-          AND b.status IN ('received','completed') AND b.response_attempt_id=ba.id AND b.response=ba.response
-          AND ba.status='received' AND ba.output_rejected_at IS NULL AND coalesce(ba.response->'choices'->0->>'finish_reason','')<>'content_filter') AS alternate_received
-    FROM ai.translation_receipt_observations o JOIN receipts r ON r.id=o.receipt_id
-      LEFT JOIN receipt_attempts a ON a.id::text=o.attempt_id AND a.receipt_id=r.id AND a.attempt=o.receipt_version
-      LEFT JOIN receipt_attempts recovered ON recovered.id=r.response_attempt_id AND recovered.receipt_id=r.id
-        AND recovered.attempt=r.attempts AND recovered.attempt>o.receipt_version AND recovered.status='received' AND recovered.output_rejected_at IS NULL
-    WHERE o.scope=${stage} AND r.logical_key<>${logicalKey} ORDER BY r.id`;
-  for (const row of rows) {
-    if (row.known_unbilled) continue;
-    if (row.status === "unknown" && (row.alternate_received || (row.id === alternate?.receiptId && row.attempt_id === alternate.attemptId))) continue;
-    // Automatic release is recorded atomically with its audit. A later accepted response restores progress, not the old bill.
-    if (row.attempt_id !== null && row.status === "unknown" && row.attempt_error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE) && row.recovery_bound) continue;
-    if (row.status === "failed" && row.attempt_id === null && !row.has_response) {
-      await db`UPDATE ai.translation_receipt_observations SET known_unbilled=true
-        WHERE scope=${stage} AND receipt_id=${row.id_text} AND receipt_version=${row.receipt_version} AND attempt_id IS NULL`;
-      continue;
-    }
-    if (row.attempt_id !== null && (row.status === "failed" || row.status === "received")) continue;
-    if (row.attempt_id !== null && row.status === "pending") return { kind: "busy" as const, row };
-    return { kind: "unknown" as const, row };
-  }
-  return null;
-}
-
-/** A route or request tag never clears an unresolved bill for the same news material and capability. */
-async function newsReceiptBlocker(db: Db, scope: string | null, req: ReceiptRequest, logicalKey: string, alternate: FallbackExemption) {
-  if (!scope) return null;
-  const [row] = await db<{ id: number; status: string; attempt_id: string | null }[]>`
-    SELECT r.id,r.status,a.id::text AS attempt_id FROM receipts r
-    LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
-    WHERE r.logical_key<>${logicalKey} AND r.purpose=${req.purpose}
-      AND CASE WHEN ${scope.startsWith("report:")} THEN r.subject ELSE substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') END=${scope}
-      AND coalesce(r.request->>'lane','news')='news'
-      AND r.status IN ('pending','unknown')
-      AND (r.status<>'unknown' OR r.id<>${alternate?.receiptId ?? -1} OR a.id::text IS DISTINCT FROM ${alternate?.attemptId ?? ""})
-      AND NOT EXISTS (SELECT 1 FROM ai.model_fallback_resolutions f JOIN receipts b ON b.id=f.backup_receipt_id
-        JOIN receipt_attempts ba ON ba.id=f.backup_attempt_id AND ba.receipt_id=b.id
-        WHERE f.primary_receipt_id=r.id AND f.primary_attempt_id=a.id AND f.blocked_reason IS NULL AND f.accepted_at IS NOT NULL
-          AND b.status IN ('received','completed') AND b.response_attempt_id=ba.id AND b.response=ba.response
-          AND ba.status='received' AND ba.output_rejected_at IS NULL AND coalesce(ba.response->'choices'->0->>'finish_reason','')<>'content_filter')
-    ORDER BY r.id LIMIT 1`;
-  if (!row) return null;
-  if (row.status === "pending") return { kind: "busy" as const, row };
-  return { kind: "unknown" as const, row };
-}
-
-/** A new preview ID/configuration cannot evade an unresolved source Reader call. */
-async function sourcePreviewReceiptBlocker(db: Db, req: ReceiptRequest, logicalKey: string, lane: string | undefined) {
-  if (req.service !== "jina" || req.purpose !== "source_listing" || req.requestSummary?.source_preview !== true || !req.subject?.startsWith("source:"))
+/** The independent policy intake retains its existing preview-cost guard. */
+async function policyPreviewReceiptBlocker(db: Db, req: ReceiptRequest, logicalKey: string, lane: string | undefined) {
+  if (
+    lane !== "policy" ||
+    req.service !== "jina" ||
+    req.purpose !== "source_listing" ||
+    req.requestSummary?.source_preview !== true ||
+    !req.subject?.startsWith("source:")
+  )
     return null;
   const [row] = await db<{ id: number; status: string; attempt_id: string | null }[]>`SELECT r.id,r.status,a.id::text AS attempt_id
     FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
@@ -504,7 +431,7 @@ async function legacyModelReceipt(db: Db, req: ReceiptRequest) {
  FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts LEFT JOIN ai.model_attempt_snapshots ms ON ms.attempt_id=a.id
  WHERE r.model IS NOT NULL AND r.status IN ('pending','unknown') AND ms.configuration_hash IS NULL
  AND (r.request->>'lane' IS NULL OR r.request->>'lane'=${req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane ?? null})
- AND (r.logical_key=${legacyKey} OR (r.purpose=${req.purpose} AND r.subject IS NOT DISTINCT FROM ${req.subject ?? null} AND ${hash}::text IS NOT NULL AND r.request->>'userHash'=${hash}))
+ AND (r.logical_key=${legacyKey} OR (${!!req.policy} AND r.purpose=${req.purpose} AND r.subject IS NOT DISTINCT FROM ${req.subject ?? null} AND ${hash}::text IS NOT NULL AND r.request->>'userHash'=${hash}))
  ORDER BY r.id LIMIT 1 FOR UPDATE OF r`;
   if (!unresolved) return null;
   if (unresolved.status === "pending" && Date.now() - unresolved.updated_at.getTime() < PENDING_STALE_MS) return { kind: "busy" as const, row: unresolved };
@@ -556,26 +483,18 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       bounds: req.costBounds,
       registeredPricing: req.modelSnapshot?.pricing,
     });
-  const newsScope =
-    knownLane === "news" && req.model
-      ? (/^article:[a-zA-Z0-9_-]+@[1-9][0-9]*/.exec(req.subject ?? "")?.[0] ??
-        /^report:(?:daily|weekly|monthly):[a-zA-Z0-9_-]+$/.exec(req.subject ?? "")?.[0] ??
-        null)
-      : null;
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
   if (req.budgetService) await prepareModelQuota(req.budgetService, req.service, req.modelSnapshot, req.budgetAliases);
   const claimed = await sql.begin(async (tx) => {
-    if (newsScope) await tx`SELECT pg_advisory_xact_lock(hashtext(${`news-receipt:${req.purpose}:${newsScope}`}))`;
     for (const sourceId of [...new Set(req.policy?.sourceIds ?? [])].sort()) await tx`SELECT pg_advisory_xact_lock(hashtext(${`policy-source:${sourceId}`}))`;
-    // A changed recipe/input key cannot route around an unresolved call in this material stage.
+    // Serialize the translation output-repair cap; unknown outcomes are held by their own logical key.
     if (stage) await tx`SELECT pg_advisory_xact_lock(hashtext(${"translation:" + stage}))`;
     for (const receipt of req.translationObservations ?? []) await observeTranslation(tx, stage, receipt);
     // Serialise budget checks per service so concurrent workers cannot overshoot.
     await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + quotaService}))`;
     await observeOriginalTranslation(tx, stage);
-    const alternate = await fallbackExemption(tx, req);
     const [existing] = await tx<ReceiptRow[]>`
       SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
         (a.id IS NOT NULL AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response) AS response_bound,
@@ -585,6 +504,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         LEFT JOIN receipt_attempts ca ON ca.receipt_id=r.id AND ca.attempt=r.attempts
       WHERE r.logical_key=${logicalKey} FOR UPDATE OF r`;
     if (existing) {
+      await recordFallbackAttempt(tx, req, existing.id, existing.attempt_id ?? existing.current_attempt_id);
       if (existing.status === "received" || existing.status === "completed") {
         if (existing.response_bound && existing.attempt_id === null) throw new ReceiptAttemptSupersededError(`Receipt ${existing.id} stores an older attempt`);
         await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.attempt_id });
@@ -658,10 +578,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         }
       }
       // failed: the provider did not take the request, or its answer was unusable; a new attempt is allowed.
-      const blocked =
-        (await sourcePreviewReceiptBlocker(tx, req, logicalKey, knownLane)) ??
-        (await newsReceiptBlocker(tx, newsScope, req, logicalKey, alternate)) ??
-        (await translationBlocker(tx, stage, logicalKey, alternate));
+      const blocked = await policyPreviewReceiptBlocker(tx, req, logicalKey, knownLane);
       if (blocked) return blocked;
       if (stage && !existing.has_response)
         await tx`UPDATE ai.translation_receipt_observations SET known_unbilled=true
@@ -693,13 +610,11 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
       const attemptId = await startAttempt(tx, existing.id, r!.attempts, req, usage.reservation);
       await reserveUsageAttempt(tx, attemptId, existing.id, usage.reservation);
+      await recordFallbackAttempt(tx, req, existing.id, attemptId);
       await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId });
       return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts, control };
     }
-    const blocked =
-      (await sourcePreviewReceiptBlocker(tx, req, logicalKey, knownLane)) ??
-      (await newsReceiptBlocker(tx, newsScope, req, logicalKey, alternate)) ??
-      (await translationBlocker(tx, stage, logicalKey, alternate));
+    const blocked = await policyPreviewReceiptBlocker(tx, req, logicalKey, knownLane);
     if (blocked) return blocked;
     const legacy = await legacyModelReceipt(tx, req);
     if (legacy) return legacy;
@@ -731,6 +646,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       RETURNING id,id::text AS id_text`;
     const attemptId = await startAttempt(tx, row!.id, 1, req, usage.reservation);
     await reserveUsageAttempt(tx, attemptId, row!.id, usage.reservation);
+    await recordFallbackAttempt(tx, req, row!.id, attemptId);
     await observeTranslation(tx, stage, { receiptId: row!.id_text, attemptId });
     return { kind: "call" as const, id: row!.id, attemptId, attempt: 1, control };
   });

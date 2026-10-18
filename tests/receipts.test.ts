@@ -1,3 +1,4 @@
+import { recoverUnknownOnce } from "../packages/backend/src/providers/unknown-recovery.ts";
 // Paid requests: an answer already received is reused, every request actually sent counts against the
 // budget (retries of one logical request included), an unresolved answer is never bought again, and the
 // valve stops calls before they are sent.
@@ -25,7 +26,7 @@ import { upsertMaterial, readCurrentBody } from "@amp/backend/content/materials"
 import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { changeOwnerLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
+import { changeOwnerLaneControls, changeSystemLaneControl, laneControlHolderRevisions } from "../packages/backend/src/operations/lane-controls.ts";
 
 async function versionFor(id: number) {
   const [row] = await sql<{ receiptId: string; attempts: number; updatedAtUtc: string }[]>`SELECT id::text AS "receiptId", attempts,
@@ -341,7 +342,7 @@ test("a news processing pause and an audit failure retain the automatic recovery
   assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
 });
 
-test("real chat identity changes cannot grant another automatic retry to the same news revision and purpose", async () => {
+test("each real chat identity has one automatic recovery and retains every earlier unknown attempt", async () => {
   const previous = process.env.DEEPSEEK_BASE_URL;
   const [budget] = await sql`SELECT per_minute,per_hour,per_day FROM budgets WHERE service='deepseek'`;
   await sql`UPDATE budgets SET per_minute=100,per_hour=2000,per_day=20000 WHERE service='deepseek'`;
@@ -390,9 +391,15 @@ test("real chat identity changes cannot grant another automatic retry to the sam
     await assert.rejects(chatJson(request), ReceiptUnknownError);
     assert.equal((await sql`SELECT count(*)::int AS n FROM receipts WHERE subject=${subject}`)[0].n, 2, "the real transport identity changed the logical key");
     await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject}`;
-    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 0 });
     await assert.rejects(chatJson(request), ReceiptUnknownError);
-    assert.equal(remote.hits(), 2, "original request plus only one recovery send");
+    assert.equal(remote.hits(), 3, "the changed request has one recovery, independent of the old identity");
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject}`;
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+    assert.equal(
+      (await sql`SELECT a.id FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id WHERE r.subject=${subject} AND a.status='unknown'`).length,
+      3,
+    );
   } finally {
     process.env.DEEPSEEK_BASE_URL = previous;
     await remote.close();
@@ -600,4 +607,27 @@ test("unknown grouping recovery resumes only its current grouping stage, preserv
     true,
   );
   assert.equal((await sql`SELECT name FROM pgboss.job WHERE data->>'articleId'=${manual.articleId}`)[0].name, "events.group");
+});
+
+test("a paused collection lane retains a Reader receipt's recovery opportunity", async () => {
+  await installUsageFixtureForService("jina");
+  const subject = `source:paused-reader-${tag()}`;
+  await assert.rejects(
+    paidRequest({ service: "jina", lane: "news", purpose: "source_listing", subject, identity: { subject } }, async () => {
+      throw new Error("synthetic lost response");
+    }),
+    ReceiptUnknownError,
+  );
+  const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${subject}`;
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${receipt.id}`;
+  const revision = (await laneControlHolderRevisions("news", "system")).collection ?? 0;
+  const control = { lane: "news" as const, switches: ["collection" as const], reason: "synthetic collection hold", actor: "test" };
+  await changeSystemLaneControl({ ...control, action: "pause", expected: { collection: revision }, expiresAt: new Date(Date.now() + 60000).toISOString() });
+  try {
+    assert.deepEqual(await recoverUnknownOnce(Date.now(), async () => false), { released: 0, requeued: 0 });
+    assert.equal((await sql`SELECT status FROM receipts WHERE id=${receipt.id}`)[0].status, "unknown");
+  } finally {
+    await changeSystemLaneControl({ ...control, action: "resume", expected: { collection: revision + 1 } });
+  }
+  assert.deepEqual(await recoverUnknownOnce(Date.now(), async () => false), { released: 1, requeued: 0 });
 });
