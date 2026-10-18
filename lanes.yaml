@@ -23,8 +23,7 @@ lanes:
   contracts:                       # 架构 Agent
     owns:
       - packages/contracts/src/**  # 模块契约子目录归各模块泳道（见下方 per_module），common/** 归集成人（见 shared）
-      - packages/api-client/**     # 生成物，不手改
-      - tooling/**                 # 契约生成等依赖旧编译器 API 的工具（固定 TypeScript 5.9.x）
+      - scripts/contracts/**       # 对外OpenAPI生成与漂移校验
     modules: []
   web:
     owns:
@@ -158,5 +157,4 @@ shared:
 
 # 豁免 path-guard 的生成物（由命令生成，漂移检查保证与源一致）
 generated:
-  - packages/api-client/**
   - tasks/INDEX.md

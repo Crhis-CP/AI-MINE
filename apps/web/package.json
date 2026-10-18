@@ -18,7 +18,6 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router": "8.4.0",
-    "@amp/api-client": "workspace:*",
     "zod": "4.6.5",
     "@amp/ui": "workspace:*",
     "@amp/site": "workspace:*"

@@ -11,12 +11,12 @@
     "dev:api": "pnpm --filter @amp/api dev",
     "dev:worker": "pnpm --filter @amp/worker dev",
     "dev:web": "pnpm --filter @amp/web dev",
-    "typecheck": "tsc -p site && tsc -p packages/contracts && tsc -p packages/api-client && tsc -p packages/backend && tsc -p packages/ui && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && tsc -p scripts && tsc -p e2e && pnpm --filter @amp/web typecheck",
+    "typecheck": "tsc -p site && tsc -p packages/contracts && tsc -p packages/backend && tsc -p packages/ui && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && tsc -p scripts && tsc -p e2e && pnpm --filter @amp/web typecheck",
     "test": "node scripts/verify/test-files.ts",
     "check": "node scripts/verify/run.ts --quick",
     "dev:private-api": "pnpm --filter @amp/api dev:private",
-    "contracts:gen": "pnpm --filter @amp/tooling generate",
-    "contracts:check": "pnpm --filter @amp/tooling check && node --test scripts/verify/contract-tests.ts",
+    "contracts:gen": "node scripts/contracts/generate.ts",
+    "contracts:check": "node scripts/contracts/generate.ts --check && node --test scripts/verify/contract-tests.ts",
     "check:data-ownership": "node scripts/verify/data-ownership.ts",
     "e2e": "pnpm --filter @amp/web build && pnpm e2e:smoke",
     "e2e:smoke": "playwright test --config e2e/playwright.config.ts"
@@ -39,6 +39,8 @@
     "sharp": "0.35.5",
     "typescript": "7.0.2",
     "undici": "8.11.2",
-    "yaml": "2.9.1"
+    "yaml": "2.9.1",
+    "@fastify/swagger": "9.9.1",
+    "fastify-type-provider-zod": "7.0.0"
   }
 }

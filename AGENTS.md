@@ -27,8 +27,8 @@ apps/worker           任务组合根：各模块 jobs；队列按 <lane>.<stage
 packages/backend     采集、内容、事件、发布、法规、报告、模型与运行管理
 packages/backend/src/process-config.ts  纯进程配置与连接工厂，经既有db入口导出
 packages/contracts    契约（Zod → OpenAPI）：HTTP、任务与事件载荷（带 lane）、端口接口
-packages/{api-client,ui,testkit}  生成的客户端（不要手改）、设计系统、测试工具
-tooling/              契约生成等依赖旧编译器 API 的工具（固定 TypeScript 5.9.x）
+packages/ui          共用设计组件
+scripts/contracts/    对外OpenAPI文档生成与漂移校验，使用项目统一编译器
 site/                 站点品牌、出刊时刻、模型配置和扩展安装清单
 modules/              矿业扩展；metals已接管定时入口，其余实现继续迁移
 industry/             行业分类、法域、矿种、提示词、门槛和种子；旧site入口只作兼容转发
@@ -62,7 +62,7 @@ pnpm install --frozen-lockfile     # 常规安装冻结锁；工作区迁移只�
 pnpm check                         # 快速子集：类型、Biome、边界、契约漂移、受影响工作区测试（提交前必跑）
 pnpm test --filter @amp/<module>   # 只测你的模块（node:test，自动使用临时库）
 pnpm e2e                           # Playwright + axe（桌面 + 手机）
-pnpm contracts:gen                 # 重新生成 OpenAPI 与 api-client
+pnpm contracts:gen                 # 重新生成对外 OpenAPI 文档
 make verify                        # 合并前必过：在独立执行器上对 PR 最终 SHA 运行，产出回执
 make release-check                 # 发布前：制品、SBOM、签名、冒烟（运维泳道）
 ```

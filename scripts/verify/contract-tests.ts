@@ -4,17 +4,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { type createPublicClient, publicSchemas } from "../../packages/api-client/src/public.ts";
-import { privateSchemas } from "../../packages/api-client/src/private.ts";
-import type { PoolResponse, FeedItemSummary, ItemSummary, SourceRef, TimelineResponse } from "../../packages/contracts/src/site.ts";
-import type { components } from "../../packages/api-client/src/public.types.ts";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
+import type { PoolResponse, FeedItemSummary, ItemSummary, SourceRef } from "../../packages/contracts/src/site.ts";
 import { apiFetch } from "../../apps/web/app/lib/http.ts";
 import { ApiError, contractResult } from "../../apps/web/app/lib/api.server.ts";
-
-type PublicReadPath = Parameters<ReturnType<typeof createPublicClient>["GET"]>[0];
-// @ts-expect-error Public consumers cannot call a private operation.
-const privatePath: PublicReadPath = "/api/auth/options";
-void privatePath;
 
 const stats = { sources: 2, heatOnlySources: 1, items: 3, selected: 1, dailies: 0, sourceKinds: { rss: 2 }, day: { collected: 1, selected: 0 } };
 const pool: PoolResponse = {
@@ -43,14 +37,12 @@ const pool: PoolResponse = {
   generatedAt: "2026-10-04T00:00:00.000Z",
 };
 const timeline = publicSchemas.TimelineResponse.parse(JSON.parse(readFileSync(new URL("./tests/fixtures/timeline-response.json", import.meta.url), "utf8")));
-const timelineShape: Same<TimelineResponse, components["schemas"]["TimelineResponse"]> = true;
-void timelineShape;
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type PriorFeed = Pick<
   ItemSummary,
   "id" | "title" | "summary" | "reason" | "publishedAt" | "timelineAt" | "category" | "tags" | "score" | "selected" | "channel"
 > & { source: Pick<SourceRef, "name"> };
-const shapeProof: [Same<PoolResponse, components["schemas"]["PoolResponse"]>, Same<FeedItemSummary, PriorFeed>] = [true, true];
+const shapeProof: Same<FeedItemSummary, PriorFeed> = true;
 void shapeProof;
 if (process.argv.includes("--routes")) {
   const state = globalThis as typeof globalThis & {

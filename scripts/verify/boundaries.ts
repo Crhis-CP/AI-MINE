@@ -45,18 +45,16 @@ export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": ["@amp/site"],
   "@amp/site": ["@amp/policy", "@amp/contracts", "@amp/metals", "@amp/site-admin", "@amp/web"],
-  "@amp/policy": [...L0, ...amp(DOMAIN_EDGES.policy!), "@amp/backend", "@amp/web", "@amp/api-client", "@amp/industry"],
-  "@amp/site-admin": ["@amp/metals", "@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client", "@amp/industry"],
-  "@amp/metals": ["@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client"],
+  "@amp/policy": [...L0, ...amp(DOMAIN_EDGES.policy!), "@amp/backend", "@amp/web", "@amp/industry"],
+  "@amp/site-admin": ["@amp/metals", "@amp/backend", "@amp/contracts", "@amp/web", "@amp/industry"],
+  "@amp/metals": ["@amp/backend", "@amp/contracts", "@amp/web"],
   "@amp/contracts": [],
   "@amp/backend": ["@amp/policy", "@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals", "@amp/site-admin"],
   "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
-  "@amp/web": amp(["contracts", "industry", "api-client", "ui", "site"]),
-  "@amp/api-client": ["@amp/contracts"],
+  "@amp/web": amp(["contracts", "industry", "ui", "site"]),
   "@amp/ui": ["@amp/contracts"],
   "@amp/testkit": L0,
-  "@amp/tooling": ["@amp/contracts"],
 };
 
 const DRIVERS = [/^postgres$/, /^pg$/, /^pg-(?!boss$)[\w-]+$/];

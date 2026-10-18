@@ -10,9 +10,10 @@ import { config } from "@amp/backend/config";
 import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
-import { createPrivateClient, privateSchemas } from "../packages/api-client/src/private.ts";
+import { schemas as privateSchemas } from "@amp/contracts/http/private";
+import { apiFetch } from "../apps/web/app/lib/http.ts";
 
-test("observed receipt versions preserve guard order and reject an old UI form before any second release", async () => {
+test("observed receipt versions preserve guard order and reject an old UI form before any second release", async (t) => {
   const sql = runtimeSql,
     saved = { host: config.privateHost, admin: config.devAdmin };
   config.privateHost = "private.receipt.test";
@@ -91,21 +92,25 @@ test("observed receipt versions preserve guard order and reject an old UI form b
     assert.equal((await paidRequest(request, call)).reused, false);
     assert.equal((await paidRequest(request, call)).reused, true);
     assert.equal(hits, 3);
-    const client = createPrivateClient({
-      baseUrl: "http://private.test",
-      fetch: async (req) => {
-        const response = await app.inject({
-          method: req.method as "GET" | "POST",
-          url: new URL(req.url).pathname,
-          headers: Object.fromEntries(req.headers),
-          payload: req.method === "POST" ? await req.text() : undefined,
-        });
-        return new Response(response.body, { status: response.statusCode, headers: { "content-type": String(response.headers["content-type"]) } });
-      },
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const req = new Request(input, init);
+      const response = await app.inject({
+        method: req.method as "GET" | "POST",
+        url: new URL(req.url).pathname,
+        headers: Object.fromEntries(req.headers),
+        payload: req.method === "POST" ? await req.text() : undefined,
+      });
+      return new Response(response.body, { status: response.statusCode, headers: { "content-type": String(response.headers["content-type"]) } });
     });
-    const replay = await client.POST("/api/admin/receipts/{id}/release", { params: { path: { id: String(old.id) } }, headers, body });
-    assert.equal(replay.response.status, 409);
-    assert.equal(replay.error?.code, "conflict");
+    const replay = await apiFetch("/api/admin/receipts/{id}/release", {
+      method: "POST",
+      baseUrl: "http://private.test",
+      params: { path: { id: String(old.id) } },
+      headers,
+      json: body,
+    });
+    assert.equal(replay.status, 409);
+    assert.equal(privateSchemas.Problem.parse(await replay.json()).code, "conflict");
   } finally {
     await app.close();
     provider.closeAllConnections();
