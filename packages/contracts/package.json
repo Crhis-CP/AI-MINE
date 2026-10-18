@@ -19,7 +19,8 @@
     "./time-assertion": "./src/time-assertion.ts",
     "./ops-mcp": "./src/ops-mcp.ts",
     "./http/v3": "./src/http/v3.ts",
-    "./modules": "./src/modules.ts"
+    "./modules": "./src/modules.ts",
+    "./jobs": "./src/jobs.ts"
   },
   "dependencies": {
     "zod": "4.6.5"
