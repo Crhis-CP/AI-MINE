@@ -64,11 +64,11 @@ export async function sourceWeeklyItems(since: Date, before: Date, until: Date) 
   return row!;
 }
 
-export async function presentationMaterialRevisions(urls: string[]) {
-  if (!urls.length) return [];
-  return sql<{ id: string; url: string; revised_at: Date | null }[]>`SELECT a.id,a.url,max(fresh.created_at) AS revised_at
+export async function presentationMaterialRevisions(urls: string[], identities: string[] = []) {
+  if (!urls.length && !identities.length) return [];
+  return sql<{ id: string; identity_key: string; url: string; revised_at: Date | null }[]>`SELECT a.id,a.identity_key,a.url,max(fresh.created_at) AS revised_at
     FROM articles a LEFT JOIN article_revisions fresh ON fresh.article_id=a.id
     LEFT JOIN article_revisions old ON old.article_id=fresh.article_id AND old.revision=fresh.revision-1
-    WHERE a.url=ANY(${urls}::text[]) AND (fresh.revision IS NULL OR fresh.revision=1 OR fresh.body_text IS DISTINCT FROM old.body_text)
-    GROUP BY a.id,a.url`;
+    WHERE (a.url=ANY(${urls}::text[]) OR a.identity_key=ANY(${identities}::text[])) AND (fresh.revision IS NULL OR fresh.revision=1 OR fresh.body_text IS DISTINCT FROM old.body_text)
+    GROUP BY a.id,a.identity_key,a.url`;
 }

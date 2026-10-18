@@ -13,9 +13,9 @@ export async function sourceFetchHealth(since: Date, until: Date) {
 
 /** Retain each article's latest failed presentation until that article has newer repair evidence. */
 export async function sourcePresentationFailures() {
-  return sql<{ source_id: string; url: string; reason: string; at: Date }[]>`
+  return sql<{ source_id: string; url: string; identity_key: string | null; reason: string; at: Date }[]>`
     SELECT DISTINCT ON (source_id,failure->>'url') source_id,failure->>'url' AS url,
-      coalesce(failure->>'reason',failure->>'error') AS reason,started_at AS at
+      failure->>'identityKey' AS identity_key,coalesce(failure->>'reason',failure->>'error') AS reason,started_at AS at
     FROM fetch_runs CROSS JOIN LATERAL jsonb_array_elements(detail->'presentationFailures') failure
     WHERE detail ? 'presentationFailures'
     ORDER BY source_id,failure->>'url',id DESC`;

@@ -110,4 +110,16 @@ test("sustained failures survive a successful fetch, while unrelated work cannot
   assert.ok(!group.presentation.some((s) => s.id === ids[0]));
   const [entry] = await sql`SELECT action FROM audit_log WHERE subject=${`content:${id}`} AND action='content.presentation.updated'`;
   assert.ok(entry, "repair evidence comes from the actual material update");
+  await sql`UPDATE audit_log SET created_at=now()-interval '2 minutes' WHERE subject=${`content:${id}`}`;
+  await sql`INSERT INTO fetch_runs(source_id,status,started_at,detail) VALUES(${ids[0]!},'ok',now()-interval '1 minute',
+    ${sql.json({ presentationFailures: [{ url: `${url}?utm_source=feed`, identityKey: id, reason: "new layout mismatch" }] })})`;
+  assert.ok(
+    (await sourceHealth()).some((g) => g.presentation.some((s) => s.id === ids[0])),
+    "a later failed layout remains unresolved",
+  );
+  await sql.begin((tx) => updateMaterialPresentation(id, { html: '<p class="repaired-again">same body</p>' }, tx));
+  assert.ok(
+    !(await sourceHealth()).some((g) => g.presentation.some((s) => s.id === ids[0])),
+    "stable identity matches the repaired article even when the listing URL changes",
+  );
 });

@@ -85,10 +85,13 @@ export async function sourceHealth(now = Date.now()) {
     sourceMaterialHealth(since, until),
     sourcePresentationFailures(),
   ]);
-  const bodies = await presentationMaterialRevisions(presentation.map((p) => p.url));
+  const bodies = await presentationMaterialRevisions(
+    presentation.map((p) => p.url),
+    presentation.flatMap((p) => (p.identity_key ? [p.identity_key] : [])),
+  );
   const repaired = new Map((await presentationRefreshTimes(bodies.map((b) => b.id))).map((r) => [r.subject, r.at]));
   const currentFailures = presentation.filter((f) => {
-    const body = bodies.find((b) => b.url === f.url),
+    const body = bodies.find((b) => (f.identity_key ? b.identity_key === f.identity_key : b.url === f.url)),
       at = body ? repaired.get(`content:${body.id}`) : null;
     return !body || (!(body.revised_at && body.revised_at > f.at) && !(at && at > f.at));
   });

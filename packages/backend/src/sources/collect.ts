@@ -123,11 +123,11 @@ async function store(
   declaredLanguage: string | null | undefined,
   lane: SourceRow["lane"],
   collectionControl: RuntimeControlSnapshot,
-): Promise<{ created: number; revised: number; presentationFailures: Array<{ url: string; reason: string }> }> {
+): Promise<{ created: number; revised: number; presentationFailures: Array<{ url: string; reason: string; identityKey: string }> }> {
   let created = 0;
   let revised = 0;
   let metadataChanged = false;
-  const presentationFailures: Array<{ url: string; reason: string }> = [];
+  const presentationFailures: Array<{ url: string; reason: string; identityKey: string }> = [];
   const seen = new Set<string>();
   const heads = new Map(
     (
@@ -156,7 +156,7 @@ async function store(
       res = await upsertMaterial(material, undefined, collectionControl);
     } catch (error) {
       if (!(error instanceof PresentationMismatch)) throw error;
-      presentationFailures.push({ url: c.url, reason: error.message });
+      presentationFailures.push({ url: c.url, reason: error.message, identityKey: key });
       continue;
     }
     if (res.created) created += 1;
