@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { initializeDb, closeDb } from "@amp/backend/db";
+import { stopBoss } from "@amp/backend/jobs/queue";
 import {
   createSource,
   sourceDetail,
@@ -212,7 +213,8 @@ if (import.meta.main) {
     if (status.startsWith("blocked") || status === "preserved_pause") blocked++;
     console.log(JSON.stringify({ id, status, ...(previewId ? { preview_id: previewId } : {}) }));
   };
-  await initializeDb("migrate");
+  // Identity/configuration edits also enqueue publication work in the same transaction.
+  await initializeDb("worker");
   try {
     for (const patch of plan.identity_patches ?? []) {
       try {
@@ -225,6 +227,10 @@ if (import.meta.main) {
     console.log(JSON.stringify({ batch: plan.batch, apply: process.argv.includes("--apply"), blocked, natural_collection_accepted: false }));
     if (blocked) process.exitCode = 2;
   } finally {
-    await closeDb();
+    try {
+      await stopBoss();
+    } finally {
+      await closeDb();
+    }
   }
 }
