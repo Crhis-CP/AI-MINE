@@ -1,3 +1,5 @@
+import { adminMaintenanceRoutes, adminMaintenanceSchemas } from "./admin-maintenance.ts";
+export * from "./admin-maintenance.ts";
 import { GroupingOverview, schemas as groupingSchemas } from "./private-grouping.ts";
 export { NewsGroupingDiagnostic, GroupingOverview, GroupingQueueItem } from "./private-grouping.ts";
 import { withdrawalSchemas, withdrawalRoutes } from "./withdrawals.ts";
@@ -234,6 +236,7 @@ export const schemas = {
   DeliveryIssue,
   ReceiptReconciliationResponse,
   Problem,
+  ...adminMaintenanceSchemas,
 };
 export const routes = {
   ...withdrawalRoutes,
@@ -324,6 +327,7 @@ export const routes = {
       },
     },
   },
+  ...adminMaintenanceRoutes,
 };
 
 export { AccountLoginName } from "./accounts.ts";

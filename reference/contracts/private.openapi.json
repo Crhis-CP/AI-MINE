@@ -433,6 +433,1496 @@
         ],
         "type": "object"
       },
+      "AdminContentRerun": {
+        "additionalProperties": false,
+        "properties": {
+          "preview": {
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "extract",
+              "analyze",
+              "group",
+              "presentation"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "type": "object"
+      },
+      "AdminContentRerunInput": {
+        "additionalProperties": false,
+        "properties": {
+          "preview": {
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "extract",
+              "analyze",
+              "group",
+              "presentation"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "type": "object"
+      },
+      "AdminDateCorrection": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "publishedAt",
+          "evidence",
+          "version",
+          "hash",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminDateCorrectionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "publishedAt",
+          "evidence",
+          "version",
+          "hash",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminDateIntent": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "publishedAt",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "AdminDateIntentInput": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "publishedAt",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "AdminDatePlan": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "additionalProperties": false,
+            "properties": {
+              "backfill": {
+                "type": "boolean"
+              },
+              "backfillReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "publishedAt": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      },
+                      {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sourceTime": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "basis": {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      "beijing_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "condition_text": {
+                        "anyOf": [
+                          {
+                            "maxLength": 2000,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "local_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "local_time": {
+                        "anyOf": [
+                          {
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meaning": {
+                        "enum": [
+                          "published",
+                          "updated",
+                          "registered",
+                          "public_inspection",
+                          "formally_published",
+                          "signed",
+                          "effective",
+                          "applicable",
+                          "deadline",
+                          "compiled",
+                          "expires",
+                          "event",
+                          "discovered",
+                          "site_public",
+                          "uploaded",
+                          "checked",
+                          "repealed"
+                        ],
+                        "type": "string"
+                      },
+                      "meaning_label": {
+                        "type": "string"
+                      },
+                      "precision": {
+                        "default": "date",
+                        "enum": [
+                          "unknown",
+                          "date",
+                          "minute",
+                          "second"
+                        ],
+                        "type": "string"
+                      },
+                      "raw": {
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "utc": {
+                        "anyOf": [
+                          {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "meaning",
+                      "raw",
+                      "local_date",
+                      "local_time",
+                      "timezone",
+                      "utc",
+                      "precision",
+                      "basis",
+                      "condition_text",
+                      "meaning_label",
+                      "label",
+                      "beijing_date"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timelineAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "publishedAt",
+              "sourceTime",
+              "timelineAt",
+              "backfill",
+              "backfillReason"
+            ],
+            "type": "object"
+          },
+          "archive": {
+            "type": "boolean"
+          },
+          "articleId": {
+            "type": "string"
+          },
+          "before": {
+            "additionalProperties": false,
+            "properties": {
+              "backfill": {
+                "type": "boolean"
+              },
+              "backfillReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "publishedAt": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      },
+                      {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sourceTime": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "basis": {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      "beijing_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "condition_text": {
+                        "anyOf": [
+                          {
+                            "maxLength": 2000,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "local_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "local_time": {
+                        "anyOf": [
+                          {
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meaning": {
+                        "enum": [
+                          "published",
+                          "updated",
+                          "registered",
+                          "public_inspection",
+                          "formally_published",
+                          "signed",
+                          "effective",
+                          "applicable",
+                          "deadline",
+                          "compiled",
+                          "expires",
+                          "event",
+                          "discovered",
+                          "site_public",
+                          "uploaded",
+                          "checked",
+                          "repealed"
+                        ],
+                        "type": "string"
+                      },
+                      "meaning_label": {
+                        "type": "string"
+                      },
+                      "precision": {
+                        "default": "date",
+                        "enum": [
+                          "unknown",
+                          "date",
+                          "minute",
+                          "second"
+                        ],
+                        "type": "string"
+                      },
+                      "raw": {
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "utc": {
+                        "anyOf": [
+                          {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "meaning",
+                      "raw",
+                      "local_date",
+                      "local_time",
+                      "timezone",
+                      "utc",
+                      "precision",
+                      "basis",
+                      "condition_text",
+                      "meaning_label",
+                      "label",
+                      "beijing_date"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timelineAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "publishedAt",
+              "sourceTime",
+              "timelineAt",
+              "backfill",
+              "backfillReason"
+            ],
+            "type": "object"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "history",
+              "live"
+            ],
+            "type": "string"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "articleId",
+          "version",
+          "hash",
+          "before",
+          "after",
+          "mode",
+          "archive",
+          "changed",
+          "ready",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminDatePlanInput": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "additionalProperties": false,
+            "properties": {
+              "backfill": {
+                "type": "boolean"
+              },
+              "backfillReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "publishedAt": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      },
+                      {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sourceTime": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "basis": {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      "beijing_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "condition_text": {
+                        "anyOf": [
+                          {
+                            "maxLength": 2000,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "local_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "local_time": {
+                        "anyOf": [
+                          {
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meaning": {
+                        "enum": [
+                          "published",
+                          "updated",
+                          "registered",
+                          "public_inspection",
+                          "formally_published",
+                          "signed",
+                          "effective",
+                          "applicable",
+                          "deadline",
+                          "compiled",
+                          "expires",
+                          "event",
+                          "discovered",
+                          "site_public",
+                          "uploaded",
+                          "checked",
+                          "repealed"
+                        ],
+                        "type": "string"
+                      },
+                      "meaning_label": {
+                        "type": "string"
+                      },
+                      "precision": {
+                        "default": "date",
+                        "enum": [
+                          "unknown",
+                          "date",
+                          "minute",
+                          "second"
+                        ],
+                        "type": "string"
+                      },
+                      "raw": {
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "utc": {
+                        "anyOf": [
+                          {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "meaning",
+                      "raw",
+                      "local_date",
+                      "local_time",
+                      "timezone",
+                      "utc",
+                      "basis",
+                      "condition_text",
+                      "meaning_label",
+                      "label",
+                      "beijing_date"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timelineAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "publishedAt",
+              "sourceTime",
+              "timelineAt",
+              "backfill",
+              "backfillReason"
+            ],
+            "type": "object"
+          },
+          "archive": {
+            "type": "boolean"
+          },
+          "articleId": {
+            "type": "string"
+          },
+          "before": {
+            "additionalProperties": false,
+            "properties": {
+              "backfill": {
+                "type": "boolean"
+              },
+              "backfillReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "publishedAt": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      },
+                      {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sourceTime": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "basis": {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      "beijing_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "condition_text": {
+                        "anyOf": [
+                          {
+                            "maxLength": 2000,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "local_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "local_time": {
+                        "anyOf": [
+                          {
+                            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meaning": {
+                        "enum": [
+                          "published",
+                          "updated",
+                          "registered",
+                          "public_inspection",
+                          "formally_published",
+                          "signed",
+                          "effective",
+                          "applicable",
+                          "deadline",
+                          "compiled",
+                          "expires",
+                          "event",
+                          "discovered",
+                          "site_public",
+                          "uploaded",
+                          "checked",
+                          "repealed"
+                        ],
+                        "type": "string"
+                      },
+                      "meaning_label": {
+                        "type": "string"
+                      },
+                      "precision": {
+                        "default": "date",
+                        "enum": [
+                          "unknown",
+                          "date",
+                          "minute",
+                          "second"
+                        ],
+                        "type": "string"
+                      },
+                      "raw": {
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "utc": {
+                        "anyOf": [
+                          {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "meaning",
+                      "raw",
+                      "local_date",
+                      "local_time",
+                      "timezone",
+                      "utc",
+                      "basis",
+                      "condition_text",
+                      "meaning_label",
+                      "label",
+                      "beijing_date"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "timelineAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "publishedAt",
+              "sourceTime",
+              "timelineAt",
+              "backfill",
+              "backfillReason"
+            ],
+            "type": "object"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "history",
+              "live"
+            ],
+            "type": "string"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "articleId",
+          "version",
+          "hash",
+          "before",
+          "after",
+          "mode",
+          "archive",
+          "changed",
+          "ready",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminDateResult": {
+        "additionalProperties": false,
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "articleId": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "corrected",
+              "unchanged"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "articleId",
+          "revision",
+          "status",
+          "publishedAt",
+          "archived"
+        ],
+        "type": "object"
+      },
+      "AdminDateResultInput": {
+        "additionalProperties": false,
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "articleId": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "corrected",
+              "unchanged"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "articleId",
+          "revision",
+          "status",
+          "publishedAt",
+          "archived"
+        ],
+        "type": "object"
+      },
+      "AdminFeedbackBan": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sourceHash": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceHash",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminFeedbackBanInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sourceHash": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceHash",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminFeedbackEmailBan": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminFeedbackEmailBanInput": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "AdminFeedbackEmailBanResult": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AdminFeedbackEmailBanResultInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AdminPresentationRefresh": {
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "images": {
+            "additionalProperties": false,
+            "properties": {
+              "after": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "before": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "before",
+              "after"
+            ],
+            "type": "object"
+          },
+          "links": {
+            "additionalProperties": false,
+            "properties": {
+              "after": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "before": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "before",
+              "after"
+            ],
+            "type": "object"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "translation": {
+            "enum": [
+              "absent",
+              "reused",
+              "source",
+              "manual",
+              "blocked"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "version",
+          "ready",
+          "applied",
+          "changed",
+          "reason",
+          "images",
+          "links",
+          "translation"
+        ],
+        "type": "object"
+      },
+      "AdminPresentationRefreshInput": {
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "images": {
+            "additionalProperties": false,
+            "properties": {
+              "after": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "before": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "before",
+              "after"
+            ],
+            "type": "object"
+          },
+          "links": {
+            "additionalProperties": false,
+            "properties": {
+              "after": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "before": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "before",
+              "after"
+            ],
+            "type": "object"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "translation": {
+            "enum": [
+              "absent",
+              "reused",
+              "source",
+              "manual",
+              "blocked"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "version",
+          "ready",
+          "applied",
+          "changed",
+          "reason",
+          "images",
+          "links",
+          "translation"
+        ],
+        "type": "object"
+      },
+      "AdminRerunResult": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "jobId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "jobId"
+            ],
+            "type": "object"
+          },
+          {
+            "$ref": "#/components/schemas/AdminPresentationRefresh"
+          }
+        ]
+      },
+      "AdminRerunResultInput": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "jobId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "jobId"
+            ],
+            "type": "object"
+          },
+          {
+            "$ref": "#/components/schemas/AdminPresentationRefreshInput"
+          }
+        ]
+      },
       "AdminSiteInformation": {
         "additionalProperties": false,
         "properties": {
@@ -15361,6 +16851,499 @@
             "description": "Problem response"
           },
           "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/content/{id}/date": {
+      "post": {
+        "operationId": "adminDateCorrection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "pattern": "^[\\w-]{8,80}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDateCorrectionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDateResult"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/content/{id}/date-preview": {
+      "post": {
+        "operationId": "adminDatePreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDateIntentInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDatePlan"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/content/{id}/rerun": {
+      "post": {
+        "operationId": "adminContentRerun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "pattern": "^[\\w-]{8,80}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminContentRerunInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRerunResult"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/feedback-bans": {
+      "post": {
+        "operationId": "adminFeedbackBan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminFeedbackBanInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/feedback/{id}/ban-email": {
+      "post": {
+        "operationId": "adminFeedbackEmailBan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9]\\d*$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminFeedbackEmailBanInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFeedbackEmailBanResult"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
             "content": {
               "application/problem+json": {
                 "schema": {
