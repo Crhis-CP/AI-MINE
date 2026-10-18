@@ -1,3 +1,4 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
 import { useEffect } from "react";
 import { setChangelogSeen } from "../lib/local-state";
 import { SITE, withSubject } from "@amp/industry/site";
@@ -120,9 +121,11 @@ export default function ChangelogPage() {
   );
 
   return (
-    <ReadingLayout aside={aside}>
+    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="更新日志" />} aside={aside}>
       <header className="pb-6">
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">更新日志</h1>
+        <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
+          更新日志
+        </h1>
         <p className="mt-1.5 text-[13px] text-ink-3">新功能、调整、下线，都写在这里。</p>
       </header>
       <div className="space-y-4">
@@ -131,12 +134,12 @@ export default function ChangelogPage() {
           const features = releases.filter(isFeatureNotice);
           const plain = releases.filter((r) => !isFeatureNotice(r));
           return (
-            <div key={date} id={`d-${date}`} className="scroll-mt-6 space-y-4">
+            <div key={date} id={`d-${date}`} className="scroll-mt-16 lg:scroll-mt-6 space-y-4">
               {features.map((r) => (
                 <FeatureNotice key={`${r.date}-${r.time ?? ""}-${r.title}`} release={r} />
               ))}
               {plain.length > 0 && (
-                <section className="card scroll-mt-6 px-5 lg:px-7">
+                <section className="card scroll-mt-16 lg:scroll-mt-6 px-5 lg:px-7">
                   <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
                     <time dateTime={date} className="text-[18px] font-bold text-ink">
                       {h.label}

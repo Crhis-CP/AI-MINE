@@ -1,3 +1,4 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
 import { FEEDBACK_LIMITS, FeedbackSubmissionFields } from "@amp/contracts/http/public";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
@@ -163,12 +164,14 @@ export default function FeedbackPage() {
 
   if (state.kind === "done") {
     return (
-      <ReadingLayout>
+      <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="反馈" />}>
         <div className="card px-6 py-14 text-center">
           <div className="anim-pop-in mx-auto flex size-14 items-center justify-center rounded-full bg-accent text-accent-contrast">
             <IconCheck size={26} />
           </div>
-          <h1 className="mt-6 text-[22px] font-semibold text-ink">收到了，谢谢你</h1>
+          <h1 data-page-title="" className="mt-6 text-[22px] font-semibold text-ink">
+            收到了，谢谢你
+          </h1>
           <p className="mt-2 text-[14px] text-ink-3">
             反馈编号 <span className="mono font-semibold text-ink">#{state.id}</span>，需要回复时我们会引用这个编号。
           </p>
@@ -193,9 +196,11 @@ export default function FeedbackPage() {
   const remaining = Math.max(0, MIN_TEXT - contentLength);
   const canSend = contentLength >= MIN_TEXT && contentLength <= MAX_TEXT && state.kind !== "sending";
   return (
-    <ReadingLayout aside={<FeedbackAside />}>
+    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="反馈" />} aside={<FeedbackAside />}>
       <header>
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">说说你的想法</h1>
+        <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
+          说说你的想法
+        </h1>
         <p className="mt-2 text-[14.5px] leading-relaxed text-ink-3">发现 bug、想要的功能、看不顺眼的地方，都可以告诉我，我都会看到。</p>
       </header>
 

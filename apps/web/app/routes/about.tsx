@@ -12,7 +12,7 @@ import { ABOUT, SITE, withSubject } from "@amp/industry/site";
 import { organizationLd, pageMeta } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker.tsx";
 import { buttonClass } from "../components/ui/Controls";
-import { IconArrowLeft, IconArrowRight } from "../components/icons";
+import { IconArrowRight } from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -158,20 +158,14 @@ export default function AboutPage() {
 
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-14 lg:pt-3">
-      <PhoneBar
-        leading={
-          <Link to="/more" className="inline-flex h-12 items-center gap-1 px-2.5 text-sm">
-            <IconArrowLeft size={17} />
-            我的
-          </Link>
-        }
-        center={<span className="truncate text-sm font-semibold">关于 {SITE.name}</span>}
-        actions={null}
-      />
+      <PhoneBar back={{ to: "/more", label: "我的" }} title={`关于 ${SITE.name}`} />
       <header className="grid items-end gap-8 pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:pt-0">
         <div>
           <Kicker>{ABOUT.kicker}</Kicker>
-          <h1 className="mt-5 text-[34px] font-black leading-[1.18] tracking-[-0.03em] text-ink [text-wrap:balance] sm:text-[46px] xl:text-[56px] 2xl:text-[64px]">
+          <h1
+            data-page-title=""
+            className="mt-5 text-[34px] font-black leading-[1.18] tracking-[-0.03em] text-ink [text-wrap:balance] sm:text-[46px] xl:text-[56px] 2xl:text-[64px]"
+          >
             {ABOUT.headline[0]}
             <br />
             <span className="text-accent">{ABOUT.headline[1]}</span>

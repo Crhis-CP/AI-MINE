@@ -104,3 +104,5 @@ worker心跳提醒的发送后记状态与事务锁参考AIHOT `4947ad0` 的 `op
 关于页流程画布SignalRiver采用AIHOT `4947ad03309c64a4002bd073d690aee50c548063` 的 `apps/web/app/features/about/SignalRiver.tsx`，替换行业与出刊配置入口；遵循原MIT许可，现有NOTICE与许可说明保持。画布由真实来源样本驱动，后台未提供样本时不得声称来源已接入。
 
 Agent共用中文答案参考AIHOT `4947ad0` 的 `publication/agent.ts` 与 `routes/mcp.ts`；本站适配现有归属链接、当前公开资格、报告引用及法规工具，复用现有publication/llms包入口。旧JSON字段和工具身份不变，未转发参考行业示例。
+
+手机页面标题/返回交互与worker退出470秒等待参考AIHOT `4947ad0` 的 PhoneBar、jobs/queue.ts、apps/worker/src/main.ts；本站继续保留原生React Router阅读恢复、数据库根关闭围栏和正式发布锁。

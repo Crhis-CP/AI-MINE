@@ -7,6 +7,7 @@ import * as ast from "typescript/unstable/ast";
 
 export interface ModuleSyntax {
   imports: string[];
+  bindings: Array<{ spec: string; names: string[] }>;
   problems: string[];
 }
 
@@ -50,6 +51,7 @@ function literal(input: ast.Node | undefined): string | undefined {
 
 function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
   const imports = new Set<string>();
+  const importedBindings: ModuleSyntax["bindings"] = [];
   const problems: string[] = [];
   const creators = new Set<string>();
   const modules = new Set(["module"]);
@@ -170,7 +172,32 @@ function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
     else if (ast.isCallExpression(node) && (node.expression.kind === ast.SyntaxKind.ImportKeyword || known(node.expression, "require")))
       add(node.arguments[0], node);
   });
-  return { imports: [...imports], problems };
+  walk(source, (node) => {
+    let spec: string | undefined,
+      names: string[] = [];
+    if (ast.isImportDeclaration(node) && node.importClause?.phaseModifier !== ast.SyntaxKind.TypeKeyword) {
+      spec = literal(node.moduleSpecifier);
+      const bindings = node.importClause?.namedBindings;
+      names = bindings && ast.isNamedImports(bindings) ? bindings.elements.filter((e) => !e.isTypeOnly).map((e) => (e.propertyName ?? e.name).text) : ["*"];
+    } else if (ast.isExportDeclaration(node) && node.moduleSpecifier && !node.isTypeOnly) {
+      spec = literal(node.moduleSpecifier);
+      names =
+        node.exportClause && ast.isNamedExports(node.exportClause)
+          ? node.exportClause.elements.filter((e) => !e.isTypeOnly).map((e) => (e.propertyName ?? e.name).text)
+          : ["*"];
+    } else if (ast.isCallExpression(node) && (node.expression.kind === ast.SyntaxKind.ImportKeyword || known(node.expression, "require"))) {
+      spec = literal(node.arguments[0]);
+      names = ["*"];
+    }
+    if (spec !== undefined) {
+      try {
+        importedBindings.push({ spec: modulePath(spec), names });
+      } catch {
+        /* The path diagnostic is recorded above. */
+      }
+    }
+  });
+  return { imports: [...imports], bindings: importedBindings, problems };
 }
 
 /** Batch parsing avoids a compiler process per source file; all resources close before returning. */

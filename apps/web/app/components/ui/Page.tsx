@@ -15,21 +15,26 @@ export function ReadingLayout({
   footer,
   className = "",
   asideClassName = "",
+  phoneBar,
 }: {
   children: ReactNode;
   aside?: ReactNode;
   footer?: ReactNode;
   className?: string;
   asideClassName?: string;
+  phoneBar?: ReactNode;
 }) {
   return (
-    <div
-      className={`mx-auto grid max-w-[var(--page-max-reading)] gap-8 pb-14 pt-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-10 lg:pt-0 2xl:grid-cols-[minmax(0,1fr)_340px] ${className}`}
-    >
-      <div className="min-w-0">{children}</div>
-      {aside && <aside className={`min-w-0 space-y-4 lg:sticky lg:top-6 lg:self-start ${asideClassName}`}>{aside}</aside>}
-      {footer && <div className="min-w-0 lg:col-span-2">{footer}</div>}
-    </div>
+    <>
+      {phoneBar}
+      <div
+        className={`mx-auto grid max-w-[var(--page-max-reading)] gap-8 pb-14 ${phoneBar ? "pt-4" : "pt-5"} lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-10 lg:pt-0 2xl:grid-cols-[minmax(0,1fr)_340px] ${className}`}
+      >
+        <div className="min-w-0">{children}</div>
+        {aside && <aside className={`min-w-0 space-y-4 lg:sticky lg:top-6 lg:self-start ${asideClassName}`}>{aside}</aside>}
+        {footer && <div className="min-w-0 lg:col-span-2">{footer}</div>}
+      </div>
+    </>
   );
 }
 

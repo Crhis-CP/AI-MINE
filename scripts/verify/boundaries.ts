@@ -176,6 +176,15 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     if (!w) continue;
     const parsed = syntax.get(f)!;
     problems.push(...parsed.problems.map((problem) => `${f}: ${problem}`));
+    if (f !== "packages/backend/src/jobs/typed-queue.ts")
+      for (const binding of parsed.bindings) {
+        const target = binding.spec.startsWith(".") ? path.posix.normalize(path.posix.join(path.posix.dirname(f), binding.spec)) : binding.spec;
+        if (
+          ["@amp/backend/jobs/queue", "packages/backend/src/jobs/queue.ts", "packages/backend/src/jobs/queue"].includes(target) &&
+          binding.names.some((name) => name === "enqueue" || name === "*")
+        )
+          problems.push(`${f}: raw queue transport is internal; business producers use enqueueJob or enqueueOn`);
+      }
     for (const spec of parsed.imports) {
       if (spec.startsWith("#") || ((spec.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(spec)) && !spec.startsWith("node:"))) {
         problems.push(`${f}: module URLs, absolute paths and package-import aliases are not public workspace entries`);

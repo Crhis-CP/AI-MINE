@@ -317,3 +317,21 @@ test("module route files are reader roots even when route registration uses only
   write(safe.dir, { "packages/contracts/package.json": pkg("@amp/contracts", [], { "./modules": "./src/modules.ts" }) });
   assert.deepEqual(checkBoundaries(safe.dir, safe.files), []);
 });
+
+test("business producers cannot import or re-export the raw queue sender", () => {
+  for (const source of [
+    'import { enqueue as send } from "../jobs/queue.ts";',
+    'import * as queue from "../jobs/queue.ts";',
+    'export { enqueue as send } from "../jobs/queue.ts";',
+    'export * from "../jobs/queue.ts";',
+    'const queue = await import("../jobs/queue.ts");',
+  ]) {
+    const probe = workspace({ "packages/backend/src/content/producer.ts": source });
+    assert.ok(checkBoundaries(probe.dir, probe.files).some((p) => p.includes("raw queue transport is internal")));
+  }
+  const valid = workspace({
+    "packages/backend/src/content/producer.ts": 'import { enqueueJob } from "../jobs/typed-queue.ts";',
+    "packages/backend/src/jobs/typed-queue.ts": 'import { enqueue } from "./queue.ts";',
+  });
+  assert.deepEqual(checkBoundaries(valid.dir, valid.files), []);
+});

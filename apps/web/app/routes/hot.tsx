@@ -1,3 +1,5 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
+import { scrollBehavior } from "../lib/motion";
 import { SITE, withSubject } from "@amp/industry/site";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
@@ -226,7 +228,32 @@ export default function HotPage() {
   const others = rest.slice(2);
   return (
     <div className="pb-10">
-      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-5 pt-5 lg:pt-1">
+      <PhoneBar
+        title="热点"
+        large
+        sub={
+          <>
+            过去{hot.windowHours}小时 · {hot.entries.length}个热点{hot.computedAt && <> · {monthDayTime(hot.computedAt)}更新</>}
+          </>
+        }
+        actions={
+          <button
+            type="button"
+            onClick={() => {
+              const method = document.getElementById("hot-method") as HTMLDetailsElement | null;
+              if (method) {
+                method.open = true;
+                method.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
+              }
+            }}
+            className="flex h-11 items-center gap-1 px-3 text-[14px] text-accent"
+          >
+            <IconInfo size={17} />
+            怎么算
+          </button>
+        }
+      />
+      <header className="hidden flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-5 pt-1 lg:flex">
         <div>
           <div className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.08em] text-hot">
             <span className="relative flex size-2" aria-hidden="true">
@@ -285,7 +312,7 @@ export default function HotPage() {
         </>
       )}
 
-      <details className="disclosure group/method mt-8 text-[12px] text-ink-4">
+      <details id="hot-method" className="disclosure group/method mt-8 text-[12px] text-ink-4">
         <summary className="flex items-center gap-1.5 py-1 transition-colors hover:text-ink-2">
           <IconInfo size={15} />
           热度是怎么算的？

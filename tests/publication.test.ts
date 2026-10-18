@@ -29,7 +29,6 @@ import { publishArticle, republishSource } from "@amp/backend/publication/publis
 import { computeHotRanking } from "@amp/backend/events/hot";
 import { latestHotRanking } from "@amp/backend/events/hot-read";
 import { effectiveWatermark } from "@amp/backend/publication/v1";
-import { SITE } from "@amp/industry/site";
 import { buildApp } from "./site-app.ts";
 
 const T = tag();
@@ -274,7 +273,7 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
     headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
     payload: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: MCP_TOOL_NAMES.hot, arguments: { limit: 10 } } },
   });
-  assert.ok(mcp.body.includes(`${SITE.name}：${itemUrl(rep!)}`), "MCP hot topics link each event's representative item on the site");
+  assert.ok(mcp.body.includes(`](${itemUrl(rep!)})`), "MCP hot topics link each event's representative item on the site");
 
   await setVisibility(rep!, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   for (const url of exits) assert.ok(!(await get(url)).body.includes(rep!), `${url} still shows the withdrawn item`);

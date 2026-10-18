@@ -897,3 +897,32 @@ test("about flow uses supplied sources and headlines on desktop and phone, with 
     }
   }
 });
+
+test("phone page bars return through reading history and fall back to the parent on a direct visit", { timeout: 60000 }, async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: "zh-CN", reducedMotion: "reduce" });
+  try {
+    const blocked = await isolateBrowser(context, [origin]),
+      page = await context.newPage();
+    await page.goto(`${origin}/starred`);
+    const bar = page.locator("[data-phone-bar]");
+    await expect(bar.getByRole("button", { name: "我的", exact: true })).toBeVisible();
+    await bar.getByRole("button", { name: "我的", exact: true }).click();
+    await expect(page).toHaveURL(`${origin}/more`);
+    await page.getByRole("link", { name: "Agent 接入", exact: true }).filter({ visible: true }).click();
+    await expect(page).toHaveURL(`${origin}/agent`);
+    await expect(bar.getByRole("button", { name: "返回", exact: true })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    await expect(bar.getByText("Agent 接入", { exact: true })).toHaveAttribute("aria-hidden", "false");
+    await expect
+      .poll(() => page.getByRole("tablist", { name: "接入方式" }).evaluate((e) => e.parentElement!.getBoundingClientRect().top))
+      .toBeGreaterThanOrEqual(47);
+    await page.getByRole("link", { name: /反馈/ }).filter({ visible: true }).first().click();
+    await expect(page).toHaveURL(/\/feedback(?:\?|$)/);
+    await bar.getByRole("button", { name: "返回", exact: true }).click();
+    await expect(page).toHaveURL(`${origin}/agent`);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    assert.deepEqual(blocked, []);
+  } finally {
+    await context.close();
+  }
+});

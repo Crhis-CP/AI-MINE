@@ -95,7 +95,7 @@ PYH
 }
 restore() {
   phase rollback
-  dc stop -t 210 worker || return 1
+  dc stop -t 480 worker || return 1
   stop_api_containers || return 1
   cp -p "$RELEASE_BACKUP/environment" "$RELEASE_ROOT/.env" || return 1
   mkdir -p "$RELEASE_BACKUP/restore-source"
@@ -169,7 +169,7 @@ PYN
 fi
 phase drain_worker
 RELEASE_STOPPED=1
-dc stop -t 210 worker
+dc stop -t 480 worker
 phase database_backup
 docker exec amp-db-1 pg_dump -U amp -d amp -Fc > "$RELEASE_BACKUP/database.dump"
 docker exec -i amp-db-1 pg_restore --list < "$RELEASE_BACKUP/database.dump" > "$RELEASE_BACKUP/database-restore-list.txt"

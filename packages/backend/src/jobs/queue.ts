@@ -129,8 +129,8 @@ export async function getBoss(): Promise<PgBoss> {
  * already in flight is allowed to finish, so a deploy does not leave "outcome unknown" receipts.
  */
 export const shutdownSignal = new AbortController();
-/** The longest single paid call (a translation batch, 180 s) plus margin; systemd waits longer. */
-export const STOP_TIMEOUT_MS = 195_000;
+/** Allow in-flight backups and paid calls to finish; the process supervisor waits 480 seconds. */
+export const STOP_TIMEOUT_MS = 470_000;
 
 export async function stopBoss(): Promise<void> {
   if (stopping) return stopping;

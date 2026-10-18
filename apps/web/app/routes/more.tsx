@@ -1,3 +1,4 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
 import { setFontPreference, useFontPreference } from "../lib/local-state";
 import { UnreadMark } from "../features/changelog/UnreadMark";
 import { SITE } from "@amp/industry/site";
@@ -62,7 +63,8 @@ export default function MorePage() {
   const [fontSaved, setFontSaved] = useState(true);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
-      <h1 className="pb-4 pt-5 text-[22px] font-bold text-ink lg:pt-1">我的</h1>
+      <PhoneBar title="我的" large />
+      <h1 className="hidden pb-4 pt-5 text-[22px] font-bold text-ink lg:block lg:pt-1">我的</h1>
       <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0 2xl:grid-cols-3">
         {GROUPS.map((g) => (
           <Group key={g.title} title={g.title}>

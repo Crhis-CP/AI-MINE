@@ -1,3 +1,4 @@
+import { PhoneBar } from "../components/shell/PhoneBar";
 import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
@@ -128,8 +129,11 @@ export default function StarredPage() {
   };
   return (
     <div className="pb-12">
+      <PhoneBar back={{ to: "/more", label: "我的" }} title="收藏" />
       <header className="pb-4 pt-5 lg:pt-1">
-        <h1 className="text-[24px] font-semibold text-ink">收藏</h1>
+        <h1 data-page-title="" className="text-[24px] font-semibold text-ink">
+          收藏
+        </h1>
         <p className="mt-2 text-[13px] text-ink-3">保存在当前浏览器中的阅读清单，最多{STARRED_LIMIT}条。可导出文件带到另一台设备，内容不会自动同步。</p>
         <div className="mt-3 flex gap-4 text-[13px] text-accent">
           <button type="button" onClick={() => fileRef.current?.click()}>

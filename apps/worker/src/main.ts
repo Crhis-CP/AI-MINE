@@ -37,10 +37,49 @@ let stopping = false;
 const shutdown = async () => {
   if (stopping) return;
   stopping = true;
+  const started = performance.now();
   console.log(JSON.stringify({ level: "info", msg: "worker stopping" }));
+  const report = (phase: "start" | "waiting" | "complete") => {
+    const queues = new Map<string, { queue: string; count: number; oldestMs: number }>();
+    for (const work of boss.getWipData({ includeInternal: true })) {
+      if (!work.count) continue;
+      const row = queues.get(work.name) ?? { queue: work.name, count: 0, oldestMs: 0 };
+      row.count += work.count;
+      row.oldestMs = Math.max(row.oldestMs, work.lastJobStartedOn === null ? 0 : Math.max(0, Date.now() - work.lastJobStartedOn));
+      queues.set(work.name, row);
+    }
+    const jobs = [...queues.values()].sort((a, b) => a.queue.localeCompare(b.queue));
+    console.log(
+      JSON.stringify({
+        level: "info",
+        msg: "queue drain",
+        phase,
+        elapsedMs: Math.round(performance.now() - started),
+        count: jobs.reduce((n, job) => n + job.count, 0),
+        jobs,
+      }),
+    );
+  };
   clearInterval(heartbeat);
-  await stopBoss();
+  report("start");
+  const progress = setInterval(() => report("waiting"), 10_000);
+  progress.unref();
+  try {
+    await stopBoss();
+    report("complete");
+  } finally {
+    clearInterval(progress);
+  }
+  const closing = performance.now();
   await closeDb();
+  console.log(
+    JSON.stringify({
+      level: "info",
+      msg: "worker stopped",
+      elapsedMs: Math.round(performance.now() - started),
+      databaseCloseMs: Math.round(performance.now() - closing),
+    }),
+  );
   process.exit(0);
 };
 process.on("SIGTERM", shutdown);

@@ -1,3 +1,4 @@
+import { stopBoss } from "@amp/backend/jobs/queue";
 import { apiRoleFromEnv, assertProcessEnvironment, assertPublicApiCredentials, assertProcessEnvironmentSource } from "@amp/backend/db";
 
 /** Explicit composition root; importing this module creates no application or database resources. */
@@ -16,7 +17,6 @@ export async function startApi(env: Readonly<Record<string, string | undefined>>
       throw new Error("Refusing to start in production: set ADMIN_PASSWORD (at least 12 characters) or configure Feishu sign-in");
   }
   const { closeDb, initializeDb } = await import("@amp/backend/db");
-  const { stopBoss } = await import("@amp/backend/jobs/queue");
   const { startHeartbeat } = await import("@amp/backend/operations/heartbeat");
   const { startWorkerWatchdog } = await import("@amp/backend/operations/watch");
   const { buildApp } = await import("./app.ts");

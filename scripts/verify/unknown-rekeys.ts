@@ -168,6 +168,8 @@ export function nativeQueueOnly(before: string, after: string): boolean {
     'pg?.message === "Job queue instance expired"',
     '/Job queue instance expired|Cannot use a pool after calling end/.test(pg?.message ?? "")',
   );
+  // The reviewed shutdown window changes no SQL producer or callback.
+  expected = expected.replace("export const STOP_TIMEOUT_MS = 195_000;", "export const STOP_TIMEOUT_MS = 470_000;");
   // Existing formatter canonicalises layout only; strings and all unapproved code remain significant.
   const format = (source: string) =>
     execFileSync(process.execPath, [path.join(ROOT, "node_modules/@biomejs/biome/bin/biome"), "format", "--stdin-file-path=queue.ts"], {

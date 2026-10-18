@@ -97,6 +97,15 @@ test("the real worker creates every application queue with collection disabled a
       { env, timeout: 30_000 },
     );
     assert.ok(stdout.includes("QUEUE_BOOTSTRAP_PASSED"));
+    const logs = stdout
+      .split("\n")
+      .filter((line) => line.startsWith('{"'))
+      .map((line) => JSON.parse(line));
+    const draining = logs.filter((row) => row.msg === "queue drain");
+    assert.equal(draining[0].phase, "start");
+    assert.equal(draining.at(-1).phase, "complete");
+    for (const phase of draining) for (const job of phase.jobs) assert.deepEqual(Object.keys(job).sort(), ["count", "oldestMs", "queue"]);
+    assert.ok(logs.some((row) => row.msg === "worker stopped" && row.databaseCloseMs >= 0));
   } finally {
     await sql`DROP DATABASE ${sql(database)} WITH (FORCE)`;
   }
