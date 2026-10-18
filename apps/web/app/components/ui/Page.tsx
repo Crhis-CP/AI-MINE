@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { IconChevronRight } from "../icons";
 
@@ -41,19 +41,45 @@ export function ReadingLayout({
  * column; phones read one column. `railTop` clears a sticky top bar.
  */
 export function ArticleLayout({ children, left, right, railTop = "top-6" }: { children: ReactNode; left?: ReactNode; right?: ReactNode; railTop?: string }) {
+  const [leftRail, leftScroll] = useContainedScroll();
+  const [rightRail, rightScroll] = useContainedScroll();
   return (
     <div className="mx-auto grid max-w-[var(--page-max-reading)] grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-x-12 2xl:grid-cols-[minmax(200px,1fr)_minmax(0,760px)_minmax(200px,1fr)] 2xl:gap-x-12">
       <aside className="hidden 2xl:block">
-        <div className={`sticky ${railTop} max-w-[260px] space-y-8`}>{left}</div>
+        <div ref={leftRail} className={`scrollbar-thin sticky ${railTop} max-h-[calc(100dvh-6rem)] max-w-[260px] space-y-8 overflow-y-auto ${leftScroll}`}>
+          {left}
+        </div>
       </aside>
       <div className="min-w-0">
         <div className="mx-auto max-w-[760px]">{children}</div>
       </div>
       <aside className="hidden lg:block">
-        <div className={`sticky ${railTop} ml-auto max-w-[260px] space-y-8`}>{right}</div>
+        <div
+          ref={rightRail}
+          className={`scrollbar-thin sticky ${railTop} ml-auto max-h-[calc(100dvh-6rem)] max-w-[260px] space-y-8 overflow-y-auto ${rightScroll}`}
+        >
+          {right}
+        </div>
       </aside>
     </div>
   );
+}
+
+/** Keep a long rail reachable without trapping page scrolling when it fits. */
+function useContainedScroll() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    const update = () => setScrolls(box.scrollHeight > box.clientHeight);
+    const resize = new ResizeObserver(update);
+    resize.observe(box);
+    for (const child of box.children) resize.observe(child);
+    update();
+    return () => resize.disconnect();
+  }, []);
+  return [ref, scrolls ? "overscroll-y-contain" : ""] as const;
 }
 
 /** A titled block in an article rail: a hairline, a small grey title, then the content; no card. */

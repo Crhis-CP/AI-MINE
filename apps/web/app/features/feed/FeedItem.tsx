@@ -1,6 +1,7 @@
 // One report in a feed. Desktop (≥ 961px): a white card beside the time rail. Mobile: a compact row
-// with a divider, the reason in a grey box. One markup, two presentations, as on the original site.
+// with a divider and a short recommendation. One markup serves both layouts.
 import { markRead, useIsRead } from "../../lib/local-state";
+import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME } from "../../lib/format";
 import { memo } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
@@ -13,14 +14,17 @@ import { GroupDevelopments, GroupSources, LatestDevelopment } from "./ReadingGro
 
 export interface FeedItemProps {
   item: FeedItemSummary;
+  at?: string;
   group?: GroupInfo | null;
   filters?: TimelineFilters;
   /** Show category and tags under the text (全部动态, topics, search). */
   showTags?: boolean;
 }
 
-export const FeedItem = memo(function FeedItem({ item, group, filters, showTags = false }: FeedItemProps) {
+export const FeedItem = memo(function FeedItem({ item, group, filters, at = item.timelineAt, showTags = false }: FeedItemProps) {
   const read = useIsRead(item.id);
+  const dateOnly =
+    isDateOnlyInstant(at) && !(item.sourceTime?.utc && Date.parse(item.sourceTime.utc) === Date.parse(at) && item.sourceTime.precision !== "date");
   const showSources = !!group && (group.additionalSourceCount > 0 || (group.developmentCount <= 1 && group.reportCount > 1));
   const showDevelopments = !!group?.story && group.developmentCount > 1;
   const tags = showTags ? item.tags.slice(0, 3) : [];
@@ -29,9 +33,12 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
     <article className="relative min-w-0 lg:card lg:card-hover lg:px-[18px] lg:pb-[14px] lg:pt-[15px]" data-item-id={item.id}>
       <header className="flex min-h-[18px] items-center gap-2 text-[12.5px] leading-[18px] text-ink-4">
         <SourceLine item={item} className="text-ink-4" />
+        <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? "按日期归档" : "本站时间线"} className="mono shrink-0 text-[12px] lg:hidden">
+          · {dateOnly ? NO_TIME : beijingTime(at)}
+        </time>
         {read && <span className="shrink-0 text-[11px] text-ink-4">已读</span>}
         {item.selected && (
-          <span className="inline-flex">
+          <span className="hidden lg:inline-flex">
             <SelectedBadge />
           </span>
         )}
@@ -80,8 +87,8 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
       )}
 
       {item.reason && (
-        <div className="mt-2.5 rounded-control bg-bg-sunk px-3 py-2 dark:bg-bg-muted/60 lg:mt-3 lg:rounded-none lg:border-t lg:border-line-soft lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-3 lg:dark:bg-transparent">
-          <p className="line-clamp-2 text-[13px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">推荐理由：{item.reason}</p>
+        <div className="mt-2.5 lg:mt-3 lg:border-t lg:border-line-soft lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-3 lg:dark:bg-transparent">
+          <p className="line-clamp-1 text-[13px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">推荐理由：{item.reason}</p>
         </div>
       )}
     </article>

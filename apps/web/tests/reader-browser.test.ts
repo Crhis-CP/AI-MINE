@@ -288,6 +288,11 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link")).toHaveCount(5);
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link", { name: "热点榜" })).toBeVisible();
+  const mobileCard = page.locator('[data-item-id="fixture-a"]');
+  await expect(mobileCard.locator("header time")).toBeVisible();
+  const rowBounds = await mobileCard.boundingBox();
+  const slotBounds = await mobileCard.locator("..").boundingBox();
+  assert.ok(rowBounds && slotBounds && Math.abs(rowBounds.x - slotBounds.x) < 1, "phone cards use the full row without a separate time column");
   await page.getByRole("button", { name: "收藏", exact: true }).click();
   assert.deepEqual(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("amp-starred-items")!)[0]).sort()), ["id", "savedAt", "type"]);
   await page.getByRole("button", { name: /^收起/ }).filter({ visible: true }).click();

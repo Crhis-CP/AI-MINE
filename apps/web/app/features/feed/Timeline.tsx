@@ -1,7 +1,6 @@
 import { apiFetch } from "../../lib/http.ts";
 // The day-grouped feed (精选 home, topics): a time rail with cards on desktop, dated rows under grey
-// day bars on phones. Keeps its place across back navigation and loads further pages. There is no
-// "new items" prompt: readers refresh for the latest head (feedback #1199).
+// day bars on phones. Keeps its place across back navigation and loads further pages.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
 import { Collapse } from "../../components/ui/Presence.tsx";
@@ -60,55 +59,68 @@ export function DayHeader({
   const date = `${m}月${d}日`;
   const weekday = beijingWeekday(day);
   const short = WEEKDAY_SHORT[new Date(`${day}T12:00:00+08:00`).getUTCDay()] ?? "";
+  const phoneRow = (
+    <>
+      <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
+      {day === today && <span className="text-[12.5px] text-ink-4">{date}</span>}
+      <span className="text-[12.5px] text-ink-4">{short}</span>
+      <span className="ml-auto flex items-center gap-1 text-[12.5px] text-ink-4">
+        {count !== null && (
+          <span>
+            <span className="num">{count}</span> 条
+          </span>
+        )}
+        {onToggle && <IconChevronDown size={14} className={`transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} />}
+      </span>
+    </>
+  );
   return (
     <div className="sticky top-0 z-20 -mx-4 bg-daybar px-4 lg:mx-0 lg:bg-bg lg:px-0">
-      {/* Phones: a full-width day bar. */}
-      <div className="flex h-9 items-center gap-2 lg:hidden">
-        <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
-        {day === today && <span className="text-[12.5px] text-ink-4">{date}</span>}
-        <span className="text-[12.5px] text-ink-4">{short}</span>
-        {onToggle && (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? `展开${date}` : `收起${date}`}
-            className="ml-auto flex min-h-8 items-center gap-1 text-[12px] text-ink-3"
-          >
-            {collapsed ? "展开" : "收起"}
-            <IconChevronDown size={14} className={collapsed ? "-rotate-90" : ""} />
-          </button>
-        )}
-      </div>
-      {/* Desktop: the date ends where the times end, the fold toggle sits on the rail. */}
-      <div className="hidden h-11 grid-cols-[64px_22px_minmax(0,1fr)] items-center lg:grid">
+      {onToggle ? (
         <button
           type="button"
           onClick={onToggle}
-          disabled={!onToggle}
-          className="justify-self-end whitespace-nowrap text-right text-[18px] font-semibold leading-6 text-ink"
+          aria-expanded={!collapsed}
+          aria-label={`${collapsed ? "展开" : "收起"}${date}`}
+          className="flex h-11 w-full items-center gap-2 text-left lg:hidden"
         >
-          {date}
+          {phoneRow}
         </button>
+      ) : (
+        <div className="flex h-9 items-center gap-2 lg:hidden">{phoneRow}</div>
+      )}
+      <div className="hidden h-11 items-center gap-3 lg:flex">
         {onToggle ? (
           <button
             type="button"
             onClick={onToggle}
             aria-expanded={!collapsed}
-            aria-label={collapsed ? `展开${date}` : `收起${date}`}
-            className="grid size-6 place-items-center justify-self-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink"
+            className="whitespace-nowrap text-left text-[18px] font-semibold leading-6 text-ink"
+          >
+            {date}
+          </button>
+        ) : (
+          <time dateTime={day} className="whitespace-nowrap text-[18px] font-semibold leading-6 text-ink">
+            {date}
+          </time>
+        )}
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? "展开" : "收起"}${date}`}
+            className="grid size-6 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink"
           >
             <IconChevronDown size={14} className={`transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} />
           </button>
-        ) : (
-          <span />
         )}
         <span className="text-[13px] text-ink-4">
           {weekday}
           {count !== null && (
             <>
-              {" · "}
-              <span className="num">{count}</span> 条
+              {" "}
+              · <span className="num">{count}</span> 条
             </>
           )}
         </span>
@@ -141,13 +153,13 @@ export function TimelineSlot({
   return (
     <li
       data-card-key={dataKey}
-      className={`group/slot grid grid-cols-[48px_minmax(0,1fr)] border-b border-line-soft py-3.5 last:border-b-0 lg:grid-cols-[64px_22px_minmax(0,1fr)] lg:border-b-0 lg:py-0 lg:pb-3 lg:last:pb-0 ${fresh ? "animate-fade-up" : ""}`}
+      className={`group/slot grid grid-cols-[minmax(0,1fr)] border-b border-line-soft py-3.5 last:border-b-0 lg:grid-cols-[64px_22px_minmax(0,1fr)] lg:border-b-0 lg:py-0 lg:pb-3 lg:last:pb-0 ${fresh ? "animate-fade-up" : ""}`}
       style={fresh ? { animationDelay: `${delay}ms` } : undefined}
     >
       <time
         dateTime={dateOnly ? beijingDate(at) : at}
         title={dateOnly ? "按日期归档" : "本站时间线"}
-        className="mono pt-[2px] text-[13px] leading-[18px] text-ink-4 lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
+        className="mono hidden text-ink-4 lg:block lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
       >
         {dateOnly ? NO_TIME : beijingTime(at)}
       </time>
@@ -371,7 +383,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
                   const delay = fresh ? Math.min(order++, 10) * 40 : 0;
                   return (
                     <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} sourceTime={c.item.sourceTime} fresh={fresh} delay={delay}>
-                      <FeedItem item={c.item} group={c.group} filters={filters} />
+                      <FeedItem item={c.item} group={c.group} filters={filters} at={c.anchorAt} />
                     </TimelineSlot>
                   );
                 })}
