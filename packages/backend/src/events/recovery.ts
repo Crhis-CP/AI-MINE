@@ -13,8 +13,9 @@ export async function recoverPendingGroupings(limit = 50) {
   try {
     return await sql.begin(async (tx) => {
       await requireRuntimeRunning("news", ["processing", "publication"], tx);
-      const sources = await activeNewsSourceIds(tx);
-      const rows = await claimPendingGrouping(sources, limit, tx, await activeGroupingArticleIds(tx));
+      const sources = await activeNewsSourceIds(tx, "editorial");
+      const signals = await activeNewsSourceIds(tx, "hot_signal");
+      const rows = await claimPendingGrouping(sources, limit, tx, await activeGroupingArticleIds(tx), signals);
       let enqueued = 0,
         waiting = 0;
       for (const row of rows) {
@@ -22,7 +23,14 @@ export async function recoverPendingGroupings(limit = 50) {
           waiting++;
           continue;
         }
-        if (await enqueue(QUEUES.group, { lane: "news", articleId: row.id }, { singletonKey: row.id, priority: await groupingQueuePriority(row.id, tx) }, tx))
+        if (
+          await enqueue(
+            QUEUES.group,
+            { lane: "news", articleId: row.id, ...(row.signal_only ? { signalOnly: true } : {}) },
+            { singletonKey: row.id, priority: await groupingQueuePriority(row.id, tx) },
+            tx,
+          )
+        )
           enqueued++;
       }
       return { examined: rows.length, enqueued, waiting, paused: false };

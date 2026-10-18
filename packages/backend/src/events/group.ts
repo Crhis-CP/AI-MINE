@@ -540,6 +540,7 @@ async function relationInput(reports: ReportView[], system: string, render: () =
     report.revision = material.revision;
     report.dateVersion = material.source_date_version;
     report.at = material.published_at;
+    report.sourceTimeLabel = material.source_time_label;
     report.originalText = material.original_text.slice(0, GROUP_BODY_CHARS);
     report.jurisdiction = material.jurisdiction;
   }
@@ -580,14 +581,15 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
   };
 }
 
-async function recallSelectedBackground(articleId: string, text: string): Promise<ReadingContext[]> {
-  const pool = await readGroupingSelectionSnapshot(articleId, []);
+async function recallSelectedBackground(articleId: string, text: string, candidateFacts: number[]): Promise<ReadingContext[]> {
+  const pool = (await readGroupingSelectionSnapshot(articleId, [])).filter((row) => row.fact_id === null || !candidateFacts.includes(row.fact_id));
   const useVectors = embeddingsAvailable();
   const vectors =
     useVectors && pool.length
       ? await vectorsFor([{ id: articleId, text }, ...pool.map((r) => ({ id: r.article_id, text: reportText(r.title, r.summary) }))])
       : null;
   const mine = vectors?.get(articleId);
+  const seen = new Set<number>();
   return pool
     .map((row) => {
       const vector = vectors?.get(row.article_id);
@@ -596,6 +598,12 @@ async function recallSelectedBackground(articleId: string, text: string): Promis
     })
     .filter((r) => r.score >= r.threshold)
     .sort((a, b) => b.score - a.score || a.row.article_id.localeCompare(b.row.article_id))
+    .filter(({ row }) => {
+      if (row.fact_id === null) return true;
+      if (seen.has(row.fact_id)) return false;
+      seen.add(row.fact_id);
+      return true;
+    })
     .slice(0, 3)
     .map(({ row }) => ({ report: selectionReport(row) }));
 }
@@ -1191,6 +1199,7 @@ async function assertReportInputs(reports: ReportView[], tx: Tx) {
       !row ||
       row.revision !== report.revision ||
       (report.dateVersion !== undefined && row.source_date_version !== report.dateVersion) ||
+      (report.sourceTimeLabel !== undefined && row.source_time_label !== report.sourceTimeLabel) ||
       (report.originalText !== undefined && row.original_text.slice(0, GROUP_BODY_CHARS) !== report.originalText) ||
       (row.published_at?.getTime() ?? null) !== (report.at?.getTime() ?? null)
     )
@@ -1250,7 +1259,13 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   const recalled = selectedSameUrl ? exact : await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS);
   if (sameUrl && !recalled.some((r) => r.factId === sameUrl.fact_id)) recalled.unshift(exact[0]!);
   const cands = selectedSameUrl ? exactViews : await candidateViews(recalled, undefined, articleId);
-  const reading = selectedSameUrl ? [] : await recallSelectedBackground(articleId, reportText(title, an.summary_zh));
+  const reading = selectedSameUrl
+    ? []
+    : await recallSelectedBackground(
+        articleId,
+        reportText(title, an.summary_zh),
+        cands.map((c) => c.factId),
+      );
   let verdicts = new Map<number, Verdict>(),
     selection = NO_SELECTED_COVERAGE;
   const receipts: number[] = [];

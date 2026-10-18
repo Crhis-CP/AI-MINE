@@ -61,7 +61,7 @@ beforeEach(async () => {
   await sql`DELETE FROM story_signals`;
   await installUsageFixtureForModel("deepseek-flash");
 });
-async function article(title: string, scope: "single" | "composite" | null = "single") {
+async function article(title: string, scope: "single" | "composite" | null = "single", daysAgo = 0) {
   const source = `selection-flow-${tag()}`;
   const url = `https://example.com/${source}`;
   await sql`INSERT INTO sources(id,name,kind,tier,first_party,site_fulltext) VALUES(${source},'合成矿业来源','rss','T1',true,true)`;
@@ -73,7 +73,8 @@ async function article(title: string, scope: "single" | "composite" | null = "si
     bodyText: `${title}。这是一份合成矿业材料，披露具体建设范围、投资和数量。`,
     language: "zh",
     via: "fetch",
-    publishedAt: new Date(Date.now() - 60000),
+    publishedAt: new Date(Date.now() - 60000 - daysAgo * 86400000),
+    ...(daysAgo ? { discoveredAt: new Date(Date.now() - daysAgo * 86400000) } : {}),
   });
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,score,selected,prompt_version,receipt_ids,output)
     VALUES(${material.articleId},1,'rule','pass','company_project',${title},${`${title}，披露项目建设范围和数量。`},80,true,${scopeVersion},${[await scopeReceipt(material.articleId)]},
@@ -252,6 +253,26 @@ test("a preferred member waiting for a new date judgement cannot hide another co
   assert.ok(!lastInput.includes("甲矿项目原始公告主稿"));
 });
 
+test("selected facts older than the identity window remain one reading context and prevent repeated selection", async () => {
+  const first = await article("甲矿项目建设进展正式公布", "single", 30);
+  await groupArticle(first);
+  const [{ fact_id }] = await sql`SELECT fact_id FROM fact_articles WHERE article_id=${first}`;
+  const peer = await article("甲矿项目建设进展再次披露", "single", 30);
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact_id},${peer},'report',1)`;
+  await completeMaterialGrouping(peer, 1, { addsValue: true, reason: "合成既有公开报道" }, null);
+  await publishArticle(peer);
+  const repeat = await article("甲矿项目建设进展再次介绍");
+  addsValue = false;
+  await groupArticle(repeat);
+  assert.match(lastInput, /已公开精选阅读背景 R1/);
+  assert.doesNotMatch(
+    lastInput,
+    /已公开精选阅读背景 R2|【候选 C1】/,
+    "one fact supplies one background and never becomes identity evidence outside its window",
+  );
+  assert.equal((await publication(repeat)).selected, false);
+});
+
 test("scheduled grouping recovery is bounded, durable and respects paused sources, lanes and unknown receipts", async () => {
   const a = await article("甲矿项目自动归组恢复甲");
   const b = await article("甲矿项目自动归组恢复乙");
@@ -297,4 +318,24 @@ test("scheduled grouping recovery is bounded, durable and respects paused source
   } finally {
     await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='processing' AND holder='owner'`;
   }
+});
+
+test("grouping repair restores recent skipped signals, without reviving historical signals or paying for scoring", async () => {
+  await sql`UPDATE sources SET enabled=false`;
+  const live = await article("甲矿项目近期讨论"),
+    old = await article("甲矿项目历史讨论"),
+    unknown = await article("甲矿项目无日期讨论");
+  const ids = [live, old, unknown];
+  await sql`UPDATE sources SET participation_mode='hot_signal' WHERE id IN (SELECT source_id FROM articles WHERE id=ANY(${ids}::text[]))`;
+  await sql`UPDATE articles SET processing_state='skipped',grouping_status='pending',grouping_retry_at=NULL WHERE id=ANY(${ids}::text[])`;
+  await sql`UPDATE articles SET backfill=true,published_at=now()-interval '90 days' WHERE id=${old}`;
+  await sql`UPDATE articles SET backfill=true,published_at=NULL WHERE id=${unknown}`;
+  const hits = provider.hits();
+  assert.equal((await recoverPendingGroupings(100)).enqueued, 1);
+  const rows = await sql`SELECT data,priority FROM pgboss.job WHERE name='events.group' AND data->>'articleId'=ANY(${ids}::text[])`;
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0].data, { lane: "news", articleId: live, signalOnly: true });
+  assert.equal(rows[0].priority, -1, "live signals remain ahead of historical repair and behind editorial work");
+  assert.equal((await recoverPendingGroupings(100)).examined, 0, "a persisted job prevents repeated repair");
+  assert.equal(provider.hits(), hits);
 });

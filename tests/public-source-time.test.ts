@@ -1,9 +1,10 @@
+import { describeReport } from "../packages/backend/src/events/relate.ts";
 import "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql, closeDb } from "@amp/backend/db";
-import { upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
+import { upsertMaterial, updateMaterialSourceDate, newsRelationMaterials } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { loadItemDetail, publicItemMetadata } from "@amp/backend/publication/detail";
 import { v3Item } from "../packages/backend/src/publication/v3.ts";
@@ -199,4 +200,24 @@ test("relative source dates use the original local day across time zones", async
   });
   assert.ok(prompt.includes("2026-01-02"));
   assert.ok(!prompt.includes("2026-01-03"));
+});
+
+test("grouping receives the same date precision, including real midnight and unknown source dates", async () => {
+  const day = beijingDate(new Date()),
+    dated = await fixture(day),
+    midnight = await fixture(`${day}T00:00:00+08:00`),
+    unknown = await fixture();
+  const rows = await newsRelationMaterials([dated.articleId, midnight.articleId, unknown.articleId]);
+  const text = (id: string) => {
+    const row = rows.find((item) => item.id === id)!;
+    return describeReport(
+      { title: "合成矿业公告", source: "合成来源", firstParty: true, at: row.published_at, summary: null, sourceTimeLabel: row.source_time_label },
+      "新报道",
+    );
+  };
+  assert.ok(text(dated.articleId).includes(day));
+  assert.doesNotMatch(text(dated.articleId), /00:00/);
+  assert.match(text(midnight.articleId), /00:00.*北京时间/);
+  assert.match(text(unknown.articleId), /日期待核实/);
+  assert.doesNotMatch(text(dated.articleId), /PRIVATE_DATE_CONFIGURATION/);
 });

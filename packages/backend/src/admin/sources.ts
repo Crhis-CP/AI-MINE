@@ -322,8 +322,11 @@ export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]
 }
 
 /** Scheduled processing recovery respects sources explicitly paused or archived by an editor. */
-export async function activeNewsSourceIds(db: Db = sql): Promise<string[]> {
-  return (await db<{ id: string }[]>`SELECT id FROM sources WHERE lane='news' AND enabled AND archived_at IS NULL`).map((r) => r.id);
+export async function activeNewsSourceIds(db: Db = sql, participation?: "editorial" | "hot_signal"): Promise<string[]> {
+  return (
+    await db<{ id: string }[]>`SELECT id FROM sources WHERE lane='news' AND enabled AND archived_at IS NULL
+    AND (${participation ?? null}::text IS NULL OR participation_mode=${participation ?? null})`
+  ).map((r) => r.id);
 }
 
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */

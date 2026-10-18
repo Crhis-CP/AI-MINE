@@ -26,6 +26,7 @@ export interface ReportView {
   revision?: number;
   publicationRevision?: number;
   dateVersion?: number;
+  sourceTimeLabel?: string;
   originalText?: string;
   jurisdiction?: string | null;
   title: string;
@@ -183,7 +184,7 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
     `【${label}】${extra}`,
     `标题：${r.title}`,
     r.scope ? `稿件范围：${r.scope === "single" ? "单一报道" : r.scope === "composite" ? "综合稿" : "未确认"}` : null,
-    `来源：${r.source}${r.firstParty ? "（当事方/官方）" : ""}｜发布时间：${when(r.at)}`,
+    `来源：${r.source}${r.firstParty ? "（当事方/官方）" : ""}｜${r.sourceTimeLabel === undefined ? `发布时间：${when(r.at)}` : `时间信息：${r.sourceTimeLabel}`}`,
     `原文证据：${r.originalText ?? "（无）"}`,
     `法域：${r.jurisdiction ?? "未知"}`,
     `摘要：${(r.summary ?? "").slice(0, 360) || "（无）"}`,

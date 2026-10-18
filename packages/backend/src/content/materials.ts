@@ -11,7 +11,7 @@ import { newArticleId, sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult, SourceDateEvidence } from "@amp/contracts/time-assertion";
-import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
+import { prepareDateMutation, commitDateObservation, materialSourceTime } from "./date-evidence.ts";
 export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
 
 export interface MediaItem {
@@ -388,9 +388,26 @@ export async function manualMaterialSnapshot(articleId: string, db: Db = sql) {
 }
 export async function newsRelationMaterials(ids: string[], db: Db = sql) {
   const rows = await db<
-    { id: string; revision: number; source_date_version: number; original_text: string; published_at: Date | null }[]
-  >`SELECT id,revision,source_date_version,published_at,title || E'\n' || coalesce(CASE WHEN body_text<>'' THEN body_text ELSE excerpt END,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
-  return rows.map((row) => ({ ...row, source_date_version: Number(row.source_date_version) }));
+    { id: string; source_id: string; revision: number; source_date_version: number; original_text: string; published_at: Date | null }[]
+  >`SELECT id,source_id,revision,source_date_version,published_at,title || E'\n' || coalesce(CASE WHEN body_text<>'' THEN body_text ELSE excerpt END,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+  return Promise.all(
+    rows.map(async (row) => {
+      const context = await sourceDateConfiguration(row.source_id, db);
+      const time = context?.configHash
+        ? await materialSourceTime(
+            { articleId: row.id, sourceId: row.source_id, revision: row.revision, configHash: context.configHash },
+            Number(row.source_date_version),
+            Date.now(),
+            db,
+          )
+        : null;
+      return {
+        ...row,
+        source_date_version: Number(row.source_date_version),
+        source_time_label: time ? `${time.label}${time.utc ? "（北京时间）" : ""}` : "日期待核实",
+      };
+    }),
+  );
 }
 export async function lockNewsModelMaterials(ids: string[], db: Db) {
   return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id FOR SHARE`;

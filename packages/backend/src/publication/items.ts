@@ -384,7 +384,7 @@ export async function readGroupingSelectionSnapshot(excludeArticleId: string, fa
     WHERE p.article_id<>${excludeArticleId} AND p.visibility='public' AND p.eligible AND p.selected AND p.visible_after<=now()
       AND a.grouping_status='complete' AND a.grouping_input_revision=a.revision
       AND (${selectedIds ?? null}::text[] IS NULL OR p.article_id=ANY(${selectedIds ?? []}::text[]))
-      AND (${selectedIds !== undefined} OR p.fact_id=ANY(${factIds}::bigint[]) OR (p.fact_id IS NULL AND p.discovered_at>now()-interval '14 days'))
+      AND (${selectedIds !== undefined} OR p.fact_id=ANY(${factIds}::bigint[]) OR (p.discovered_at>now()-interval '60 days' AND (p.fact_id IS NULL OR p.discovered_at<=now()-interval '14 days')))
     ORDER BY p.timeline_at DESC,p.article_id`;
   return attachRepresentativePriority(rows, db);
 }

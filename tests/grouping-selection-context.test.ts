@@ -36,4 +36,12 @@ test("only already-visible current confirmed picks count as reader coverage", as
   assert.equal(current[0].material_revision, 1);
   assert.equal(current[0].source_name, "合成矿业发布方");
   assert.equal((await readGroupingSelectionSnapshot(ids[0], [])).length, 0, "query is never its own already-read evidence");
+  await sql`UPDATE publications SET discovered_at=now()-interval '45 days' WHERE article_id=${ids[0]}`;
+  assert.deepEqual(
+    (await readGroupingSelectionSnapshot("new-query", [])).map((row) => row.article_id),
+    [ids[0]],
+    "reader coverage lasts beyond identity recall",
+  );
+  await sql`UPDATE publications SET discovered_at=now()-interval '61 days' WHERE article_id=${ids[0]}`;
+  assert.equal((await readGroupingSelectionSnapshot("new-query", [])).length, 0);
 });
