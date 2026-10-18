@@ -5,7 +5,11 @@ export type SourceFetchData = { sourceId: string; force?: boolean; crawlSessionI
 export interface JobData {
   "content.analyze": News & { articleId: string; attemptTag?: string };
   "content.translate": News & { articleId: string };
-  "content.extract-body": News & { articleId: string; crawlSessionId?: string };
+  "content.extract-body": News & {
+    articleId: string;
+    crawlSessionId?: string;
+    presentation?: { version: string; requestId: string; actor: string; reason?: string };
+  };
   "events.group": News & { articleId: string; signalOnly?: boolean; force?: boolean };
   "events.digest": News & { storyId: number; afterCorrection?: boolean };
   "events.hot-refresh": News & { articleId?: string };
