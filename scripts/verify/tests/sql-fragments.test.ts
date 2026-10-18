@@ -1,3 +1,4 @@
+import { postgresPackage } from "./helpers.ts";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,7 +12,7 @@ function fixture(run: (root: string, files: string[], helper: string) => void) {
   try {
     mkdirSync(path.join(root, "node_modules"));
     mkdirSync(path.join(root, "packages/example"), { recursive: true });
-    symlinkSync(path.resolve(import.meta.dirname, "../../../packages/backend/node_modules/postgres"), path.join(root, "node_modules/postgres"));
+    symlinkSync(postgresPackage(), path.join(root, "node_modules/postgres"));
     writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
     writeFileSync(
       path.join(root, "tsconfig.json"),

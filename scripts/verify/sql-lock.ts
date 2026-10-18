@@ -33,6 +33,11 @@ function canonical(value: unknown): unknown {
   return value;
 }
 
+/** Format-only migration: resolved roots, artifacts and dependency edges must all remain identical. */
+export function sameSqlLockGraph(before: string, after: string): boolean {
+  return JSON.stringify(canonical(sqlLockFingerprint(before).normalized)) === JSON.stringify(canonical(sqlLockFingerprint(after).normalized));
+}
+
 /** Only the resolved SQL-driver/queue and native parser subgraphs; no general JS dependency inference. */
 export function sqlLockFingerprint(text: string) {
   if (text.trimStart().startsWith("{")) return npmSqlLockFingerprint(text);

@@ -1432,19 +1432,23 @@ test("actual Vite SSR admits only the configured private Host for login", async 
   await once(holder, "listening");
   const port = (holder.address() as AddressInfo).port;
   await new Promise<void>((resolve) => holder.close(() => resolve()));
-  const dev = spawn(process.execPath, ["node_modules/@react-router/dev/bin.cjs", "dev", "--host", "127.0.0.1", "--port", String(port)], {
-    cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: webEnvironment({
-      ...process.env,
-      NODE_ENV: "development",
-      SITE_URL: "http://public.preview.test",
-      PRIVATE_HOST: "private.preview.test",
-      WEB_ROUTE_GROUP: "private",
-      API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
-      PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
-    }),
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const dev = spawn(
+    process.execPath,
+    [fileURLToPath(new URL("bin.cjs", import.meta.resolve("@react-router/dev/package.json"))), "dev", "--host", "127.0.0.1", "--port", String(port)],
+    {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      env: webEnvironment({
+        ...process.env,
+        NODE_ENV: "development",
+        SITE_URL: "http://public.preview.test",
+        PRIVATE_HOST: "private.preview.test",
+        WEB_ROUTE_GROUP: "private",
+        API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
+        PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
+      }),
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   const exited = once(dev, "exit");
   t.after(async () => {
     if (dev.exitCode === null) dev.kill("SIGTERM");

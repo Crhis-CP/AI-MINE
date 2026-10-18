@@ -6,12 +6,12 @@ import { checkBoundaries, importsOf } from "../boundaries.ts";
 import { scratch, write } from "./helpers.ts";
 
 const pkg = (name: string, deps: string[] = [], exports: unknown = { ".": "./src/index.ts" }) =>
-  JSON.stringify({ name, exports, dependencies: Object.fromEntries(deps.map((d) => [d, "workspace:*"])) });
+  JSON.stringify({ name, exports, dependencies: Object.fromEntries(deps.map((d) => [d, "*"])) });
 
 function workspace(files: Record<string, string>): { dir: string; files: string[] } {
   const dir = scratch();
   const all: Record<string, string> = {
-    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - packages/domains/*\n  - packages/platform/*\n  - industry\n",
+    "package.json": JSON.stringify({ workspaces: ["apps/*", "packages/*", "packages/domains/*", "packages/platform/*", "industry"] }),
     "industry/package.json": pkg("@amp/industry", [], { "./site": "./site.ts" }),
     "packages/contracts/package.json": pkg("@amp/contracts"),
     "packages/backend/package.json": pkg("@amp/backend", ["@amp/contracts", "@amp/industry"], { "./db": "./src/db.ts" }),
@@ -257,7 +257,7 @@ test("fetch-runtime traverses extensionless CJS and directory entries, including
 
 test("the site configuration workspace is explicit and stays free of backend handlers", () => {
   const fixture = workspace({
-    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - site\n",
+    "package.json": JSON.stringify({ workspaces: ["apps/*", "packages/*", "industry", "site"] }),
     "site/package.json": pkg("@amp/site", [], { ".": "./site.ts", "./models": "./models.ts" }),
     "site/site.ts": "export const SITE = {};",
     "site/models.ts": "export const DEFAULTS = {};",
@@ -280,7 +280,7 @@ test("the named extension registry can be introduced without reopening arbitrary
 
 test("a site helper cannot carry backend code into a reader import closure", () => {
   const fixture = workspace({
-    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - site\n  - modules/*\n",
+    "package.json": JSON.stringify({ workspaces: ["apps/*", "packages/*", "industry", "site", "modules/*"] }),
     "site/package.json": pkg("@amp/site", ["@amp/metals"], { ".": "./site.ts", "./modules/server": "./modules/server.ts" }),
     "site/site.ts": "export const SITE={};",
     "site/modules/server.ts": 'export { run } from "@amp/metals/server";',
@@ -296,7 +296,7 @@ test("a site helper cannot carry backend code into a reader import closure", () 
 
 test("module route files are reader roots even when route registration uses only a filename", () => {
   const base = {
-    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - modules/*\n",
+    "package.json": JSON.stringify({ workspaces: ["apps/*", "packages/*", "industry", "modules/*"] }),
     "modules/metals/package.json": pkg("@amp/metals", ["@amp/backend", "@amp/contracts"]),
     "modules/metals/module.ts": 'export default {name:"metals",pages:[{path:"metals",file:"web/prices.tsx"}]};',
   };

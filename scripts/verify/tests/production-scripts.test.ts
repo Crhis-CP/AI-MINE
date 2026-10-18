@@ -1,13 +1,12 @@
 // production-scripts: a script the production image runs (setup's migrate and seed, verify's smoke, one-off
 // corrections such as retime-day-only) loads only what the image installs: Node's own modules and the
-// dependencies of the package.json files above it, never devDependencies (Dockerfile: `pnpm install --prod`).
+// dependencies of the package.json files above it, never devDependencies (Dockerfile: `npm prune --omit=dev`).
 // The tests pass because a development install has both (PIT-073), so this reads the imports instead.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createRequire, isBuiltin } from "node:module";
 import path from "node:path";
 import { test } from "node:test";
-import { parse } from "yaml";
 import { importsOf } from "../boundaries.ts";
 import { ROOT } from "../lib.ts";
 import { scratch, write } from "./helpers.ts";
@@ -54,7 +53,7 @@ function anchoredCanvasMetadata(root: string, file: string, spec: string, source
 /** What the image would fail to load, from each script directly under scripts/ through its relative imports. */
 function productionImports(root: string, exempt: Record<string, string> = EXEMPT) {
   const read = (file: string): Manifest | null => (existsSync(path.join(root, file)) ? JSON.parse(readFileSync(path.join(root, file), "utf8")) : null);
-  const globs = (parse(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")) as { packages?: string[] }).packages ?? [];
+  const globs = (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { workspaces?: string[] }).workspaces ?? [];
   const workspaces = new Map<string, Manifest>();
   for (const glob of globs)
     for (const dir of !glob.endsWith("/*")
@@ -135,10 +134,10 @@ test("every script the production image runs loads only what the image installs"
 function workspace(files: Record<string, string>) {
   const dir = scratch();
   write(dir, {
-    "pnpm-workspace.yaml": "packages:\n  - packages/*\n",
     "package.json": JSON.stringify({
-      dependencies: { "@amp/backend": "workspace:*", zod: "4" },
-      devDependencies: { "@amp/contracts": "workspace:*", yaml: "2" },
+      workspaces: ["packages/*"],
+      dependencies: { "@amp/backend": "*", zod: "4" },
+      devDependencies: { "@amp/contracts": "*", yaml: "2" },
     }),
     "packages/backend/package.json": JSON.stringify({ name: "@amp/backend", exports: { "./db": "./src/db.ts" } }),
     "packages/contracts/package.json": JSON.stringify({ name: "@amp/contracts", exports: { "./time": "./src/time.ts" } }),

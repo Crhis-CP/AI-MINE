@@ -4,7 +4,7 @@
 
 | 命令 | 什么时候用 | 跑什么 | 回执 |
 |---|---|---|---|
-| `pnpm check`（= `make check`） | 每次提交前 | 快速子集：toolchain、format-lint、typecheck、boundaries、names、role-config、data-ownership、test（自测；已有前端构建时加前端测试） | 无 |
+| `npm run check`（= `make check`） | 每次提交前 | 快速子集：toolchain、format-lint、typecheck、boundaries、names、role-config、data-ownership、test（自测；已有前端构建时加前端测试） | 无 |
 | `make verify [TASK=TASK-nnnn] [SHA=<40 位>]` | 合并前，对 PR 的最终提交 | 全部阶段（第 2 节） | `.verify/receipts/<sha12>.json` |
 | `make release-check`、`make nightly` | — | 骨架：目前一律报“未实现”并以 2 退出，不会冒充通过（TASK-0008、TASK-0009、TASK-0012） | 无 |
 | `make tasks-index` | 任务卡变更后、提交 PR 前 | 由任务卡生成 `tasks/INDEX.md` | 无 |
@@ -13,7 +13,7 @@
 
 ```bash
 # 提交前
-pnpm check
+npm run check
 
 # 合并前：干净检出（没有未提交或未跟踪的文件），数据库名必须以 _ci 或 _test 结尾（会被删掉重建）
 VERIFY_DATABASE_URL=postgres://postgres:ci@127.0.0.1:5432/amp_verify_ci \
@@ -41,17 +41,17 @@ make verify TASK=TASK-0002
 
 | 阶段 | 检查什么 | 需要 | 对应上游步骤 |
 |---|---|---|---|
-| `install` | `pnpm install --frozen-lockfile`，且锁文件不被改动 | 能访问 npm 源 | Install |
-| `toolchain` | `packageManager` 写死 pnpm 版本；只有一份根锁文件，没有 npm/yarn/bun 锁文件；`.github/workflows/` 下只有 `verify.yml`，且是第 7 节写的形状（没有这个文件也通过）；`minimumReleaseAge` ≥ 1 天、声明了 `allowBuilds`；Dockerfile 不用 `pnpm deploy`、安装带 `--frozen-lockfile`、保留 `NPM_REGISTRY`；基础镜像与 compose 镜像写到补丁版本加 sha256；本机 Node、pnpm 与声明一致 | — | — |
+| `install` | `npm ci`，且锁文件不被改动 | 能访问 npm 源 | Install |
+| `toolchain` | 固定 npm 版本、根 package-lock.json 与显式 workspaces；`.npmrc` 保留一天等待并禁用安装脚本；镜像使用 npm ci、构建后 prune 开发依赖，保留 NPM_REGISTRY、镜像摘要和只读工作流要求 | — | — |
 | `format-lint` | `biome ci` 通过；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增 | — | — |
-| `typecheck` | `pnpm typecheck`（含 `scripts/`） | — | Typecheck |
+| `typecheck` | `npm run typecheck`（含 `scripts/`） | — | Typecheck |
 | `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少 | — | — |
 | `data-ownership` | 表归属与授权分类一致；跨模块 SQL 分位置只减不增；publication 显式读模型、附录拆分文件与未知位置分别记账 | — | — |
 | `role-config` | 进程凭据与生产代理拒绝矩阵、web规则一致性、Compose合并锚点后的web环境隔离；`ALLOW_PRIVATE_NETWORK_FETCH` 的未展开插值与null/裸继承值保守拒绝，不读取环境或秘密展开，明确false/0/显式空值及未配置仍可通过；quick只做静态/纯规划，full在迁移后执行真实授权与公开HTTP矩阵 | — | — |
 | `names` | 上游项目的名称（含带空格的写法，不分大小写）、两个品牌色值与环形加载标识只在 [`names.json`](names.json) 列的例外路径里出现（TASK-0003 完成条件第 1 条；`04-aihot-adoption.md` 4.3、4.6 第 1 条）：来源登记；交接包原件及其写回（上游的宣传图 `docs/assets/` 和上游自带的 7 份说明文档不算）；历史证据；治理记录（`AGENTS.md`、`CLAUDE.md`、`tasks/_template.md` 只在与交接包模板逐字节相同时算例外，由任务卡生成的 `tasks/INDEX.md` 也在内）；上游原样存档（只在与来源清单里的上游原件哈希相同时算例外）；`names.json` 本身；更新日志数据 `industry/changelog.json`（第 7 类“致谢”，Owner 2026-10-05 要求，TASK-0038；这个文件里的命中只能落在 `names.json` 的 `allowedPhrases` 列出的三句原句里，每句在文件里的次数也登记在那里：原句以外多出一处，或某句的次数与登记的不同，即失败；第 7 类的文件清单必须和 `allowedPhrases.files` 完全相同，不同即失败）。JSON 文件先把 `\uXXXX` 转义还原成字符再查，原句次数也按还原后的文字数（反斜杠本身被转义的不还原；还原出的换行不算换行，报出的行号仍是文件里的行号）。引用登记文件或交接包文件的路径与文件名不算命中。文件清单取自 `git ls-files -z`，中文等非 ASCII 路径照原样查；文件路径本身也查；二进制文件按字节查；符号链接查它存的目标路径；读不了的文件记为问题。任何文件都不得与来源清单里的上游品牌素材 SHA-256 相同（不设例外）。`node scripts/verify/names.ts --counts` 列出例外内各文件的命中行数。带空格的写法不看词边界：以 ai 结尾的英文词后面跟以 hot 开头的词（比如上海、迪拜的英文名后接 hotel）也会命中，以后用真实新闻数据查输出时要预期这种误报。规则文件 §8.2 与测试标准 1.1 放在 `pit-checks`（TASK-0011）里的“去品牌残留”扫描就是这个阶段，TASK-0011 复用它，不再另写 | — | — |
 | `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围；任务卡与 `lanes.yaml` 从**基线提交**读取，PR 改不宽自己的路径。例外是计划 PR（规则文件 3.3）：点名的卡还不在基线上、本 PR 新增了这张卡、改动全在 `tasks/` 下，就放行；夹带 `tasks/` 以外的文件，或卡既不在基线上也不是本 PR 新增的，仍然失败 | 能取到基线分支 | — |
 | `secrets` | 基线到当前提交之间的每个提交：trufflehog（版本与 sha256 写在 [`tools.json`](tools.json)，首次运行下载到 `.tools/`，不联网验证，所有候选都算）+ 本项目规则（私钥块、腾讯云 SecretId、模型服务密钥、飞书应用密钥、带用户名和密码的 URL）；只报规则、文件与行号，不打印命中的内容 | 首次运行能访问 github.com 下载 | — |
-| `audit` | `pnpm audit --audit-level=high`；高危或严重即失败 | 能访问 npm 源的漏洞接口 | — |
+| `audit` | `npm audit --audit-level=high`；高危或严重即失败 | 能访问 npm 源的漏洞接口 | — |
 | `build-web` | 前端生产构建；构建产物里没有上游名称、色值、环形标识，也没有上游品牌素材（不设例外） | — | Build web |
 | `migrations` | 空库跑全部迁移 + 话题种子；另一个空库跑完整种子，信源数与 `industry/sources.json` 一致 | 数据库 | Migrate and seed topics |
 | `smoke` | 关掉采集与模型调用，起 api 与 web，等 `/api/health`，跑 `scripts/smoke.ts` 与 `scripts/mcp-check.ts`（官方 MCP 客户端：握手、列出工具、调用工具；`get_story` 只在热点里有事件时才调，空库下不调）。再按 [`names.ts`](names.ts) 的清单取 16 个页面（含一个不存在的页面，查 404 页）、`llms.txt`、`/openapi-v1.json`、四个 RSS、`robots.txt`、`sitemap.xml`、`manifest`、`security.txt` 、6 个公开接口（精选变更用快照回应里的游标去取）和更新日志的站内接口 `/api/site/changelog`，每一项写明预期状态码，不符即失败；MCP 发握手、工具清单和 5 个工具各一次调用（`get_story` 用一个不存在的编号，查它的报错回应），每个回应都必须带 JSON-RPC 结果，空库上也有内容的 latest、search、hot 三个工具不得回报错结果（工具名在取站点输出时才从契约加载，其他阶段与改名脚本不加载产品代码）。这些完整回应连同 MCP 检查的输出一起查上游名称与标识：零命中，路径引用也算命中；唯一放行的是 `/changelog` 页与站内接口 `/api/site/changelog` 回应里 `names.json` 的 `allowedPhrases` 列出的三句致谢原句，一字不差才放行，别的页面和输出一律不放行（TASK-0038）。冒烟用的是空库，没有条目，条目列表、RSS 条目与详情页里的条目文字靠全仓检查兜底 | 数据库、两个空闲端口 | Smoke check of the built site |
@@ -75,10 +75,10 @@ make verify TASK=TASK-0002
 | `git` | 完整 SHA、tree、基线引用与合并基点、开始时 main 的位置、锁文件 sha256、开始与结束时工作区是否干净 |
 | `verify_revision` | `Makefile`、`scripts/verify/`、`scripts/docs-check/` 的内容哈希：检查本身改了，回执就对不上 |
 | `task_card` | 本次对应的任务卡 |
-| `executor` | 执行器名字、系统、架构、Docker、Node、pnpm、PostgreSQL 版本 |
+| `executor` | 执行器名字、系统、架构、Docker、Node、npm、PostgreSQL 版本 |
 | `stages` | 每个阶段的结果、耗时、说明 |
 | `secret_scan` | 工具与版本、扫描的提交范围、命中数（分 trufflehog 与本项目规则） |
-| `audit` | 工具、pnpm 版本、数据来源、日期、各级漏洞数 |
+| `audit` | 工具、npm 版本、数据来源、日期、各级漏洞数 |
 | `log_digest` | 全部阶段日志的 sha256 |
 
 缺 `secret_scan` 或 `audit` 的回执一律判为未通过（规则文件 8.3）。
@@ -95,11 +95,11 @@ make verify TASK=TASK-0002
 - **密钥扫描误报**：本项目规则的误报，在该行写 `secret-scan:allow` 和理由；trufflehog 的误报，在该行写 `trufflehog:ignore` 和理由。两种标记都会在审查时逐条看。真的提交了密钥：先作废密钥，再处理历史。
 - **执行器没有 Docker 或构建时上不了网**：`VERIFY_SKIP=compose-smoke make verify`，回执是 focused，只能说明其余阶段通过，不能用来合并。
 - **端口被占用**：设 `VERIFY_WEB_PORT`、`VERIFY_API_PORT`。
-- **跑完 `make verify` 又想在同一提交上跑 `pnpm check`**：先别跑。两者共用 `.verify/logs/<sha12>/`，开跑先清空，`pnpm check` 会清掉回执对应的日志，回执的 `log_digest` 就无从核对。要检查新改动，先提交再跑。集成人会在下一张改 `scripts/verify/` 的卡里让 `pnpm check` 用自己的日志目录（TASK-0003 :137）。
+- **跑完 `make verify` 又想在同一提交上跑 `npm run check`**：先别跑。两者共用 `.verify/logs/<sha12>/`，开跑先清空，`npm run check` 会清掉回执对应的日志，回执的 `log_digest` 就无从核对。要检查新改动，先提交再跑。集成人会在下一张改 `scripts/verify/` 的卡里让 `npm run check` 用自己的日志目录（TASK-0003 :137）。
 
 ## 6. 执行器要求（规则文件 8.4）
 
-- Linux（amd64 或 arm64），Docker 与 compose 插件，PostgreSQL（一个可以随便删建的 `*_ci` 库），Python 3，Node 与 pnpm 为 `package.json` 声明的版本（`engines.node`、`packageManager`）。
+- Linux（amd64 或 arm64），Docker 与 compose 插件，PostgreSQL（一个可以随便删建的 `*_ci` 库），Python 3，Node 与 npm 为 `package.json` 声明的版本（`engines.node`、`packageManager`）。
 - 网络：npm 源、Docker Hub、`deb.debian.org`（镜像构建装 `postgresql-client`）、github.com（首次下载 trufflehog）。测试本身不访问外网、不调真实模型。
 - **不放任何生产凭据，不是生产主机**；每次在干净检出上运行。
 - 执行器可以替换：同一提交在任何合格执行器上应得到相同的阶段结果。
@@ -117,7 +117,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 - **只在公开仓库上跑**：作业条件是 `github.event.repository.visibility == 'public'`。仓库改成私有，作业直接跳过，不计费；这时它不再算已授权的执行者，直到 Owner 重新确认。改可见性之前先问 Owner。
 - **跑哪个提交**：PR 的最终提交，不是 GitHub 合成的合并提交，带完整历史，用来与 main 比较。这个 SHA 经环境变量传给 `make verify SHA=…`，检出错了直接拒绝运行；回执绑定的就是它。
 - **环境**：
-  - `ubuntu-24.04` 托管 runner，Node 24；pnpm 照 `Dockerfile` 的装法，`npm install -g pnpm@<packageManager 的版本>`；不用任何缓存。
+  - `ubuntu-24.04` 托管 runner，Node 24；npm 照 `Dockerfile` 的装法，`npm install -g npm@<packageManager 的版本>`；不用任何缓存。
   - 先装一次依赖，再由 [`ci-db.ts`](ci-db.ts) 起数据库：它从 `docker-compose.yml` 读出 `db` 服务那个按摘要锁定的镜像，用 `docker run` 起在 `127.0.0.1:5432`，信任认证、不设口令，等到能连上。库名 `amp_ci`。镜像只写在 compose 一处，换数据库镜像的卡只改 compose，不用改工作流。
   - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端。`ci-db.ts` 在数据库就绪时打出客户端版本。2026-10-03 第一次通过的[运行](https://github.com/Crhis-CP/AI-MINE/actions/runs/37105388171)（runner 镜像 `ubuntu-24.04`，版本 20260927.320.1）是客户端 16.15、服务端 17.11；这两处只建库删库、计数和读服务端版本，照常可用。
   - dump/restore 必须与服务端匹配：`ci-db.ts` 把绑定本次容器 ID 的两个适配器写入 `.verify/pg-tools/bin`，通过 `GITHUB_PATH` 只供后续验证步骤使用，不替换系统工具。VM 可在自己的检出里运行 `node scripts/verify/pg-tools.ts install <测试容器> <主机端口> <固定摘要镜像> <私有bin目录>`，只给本次验证的 PATH 加上返回目录。
@@ -159,11 +159,11 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 
 双API冒烟分别以隔离的合成环境启动public-api、private-api与web；检查两端health、正反路由和经web的真实登录选项，退出时等待三个进程清理。生产Compose静态检查同时要求web和public-api满足各自凭据边界，缺少public-api会失败。
 
-`role-config` 在完整验证中于迁移之后执行真实角色、授权和公开路由矩阵；缺数据库只会记录 skipped，不能产生 full 通过。快速检查只做静态配置和纯授权规划。角色测试清单与其余后端测试互斥且覆盖全集，同一完整运行不重复执行；单独运行 `pnpm test` 仍包含全部后端测试。
+`role-config` 在完整验证中于迁移之后执行真实角色、授权和公开路由矩阵；缺数据库只会记录 skipped，不能产生 full 通过。快速检查只做静态配置和纯授权规划。角色测试清单与其余后端测试互斥且覆盖全集，同一完整运行不重复执行；单独运行 `npm test` 仍包含全部后端测试。
 
 ## 数据归属与待迁出清单（TASK-0004 D13）
 
-`pnpm check:data-ownership` 检查当前清单；完整 `verify` 的同名阶段还与基点比较，禁止提高存量预算、扩大读模型或拆分文件例外、改写既有归属来绕过检查。表目录与 `database/roles/table-grants.json` 逐表核对，该目录和真实角色矩阵已由 PR8/9 交付。`data-ownership-map.json` 记录附录 B.7.1 的表归属、B.7.2 的 settings 键归属及来源；`stored_files` 按 D13 归 platform/storage，仍是 T-0613 的删除候选，没有恢复已删除用途。
+`npm run check:data-ownership` 检查当前清单；完整 `verify` 的同名阶段还与基点比较，禁止提高存量预算、扩大读模型或拆分文件例外、改写既有归属来绕过检查。表目录与 `database/roles/table-grants.json` 逐表核对，该目录和真实角色矩阵已由 PR8/9 交付。`data-ownership-map.json` 记录附录 B.7.1 的表归属、B.7.2 的 settings 键归属及来源；`stored_files` 按 D13 归 platform/storage，仍是 T-0613 的删除候选，没有恢复已删除用途。
 
 生成全部位置和数量（不执行项目 SQL，不读取环境配置）：
 
@@ -189,3 +189,5 @@ node scripts/verify/data-ownership.ts --report > .verify/data-ownership.json
 主回执的 `local_rehearsal` 未执行时为 `null`；它只证明本执行器的合成 Compose 演练。执行后按白名单记录固定 source SHA、正常/故障 image ID、fixture SHA256、准备阶段及中间资源清理、控制器退出码、检查阶段、恢复和清理结果，不包含环境对象、日志或工作目录。`boundToInput` 核对本次 head/镜像/夹具；`accepted` 还要求正常检查、候选实际健康失败、同一上一镜像的完整复验和所属资源清理全部满足。字段出现本身不算通过，原有 `scope` / `full` / 退出状态判定保持不变；它不是 PG18、正式发布或开发机 VM 已演练的证据。
 
 健康观测只访问本次登记的 loopback `/api/health`，不跟随任何重定向；记录有界的原因、原目标、状态和是否直接响应，不记录响应正文或 Location。故意503演练还必须具有直接HTTP503观测；Docker/端口查询、地址、连接、重定向或响应结构错误即使成功回退，也不得被计为该故障夹具验收通过。
+
+2026-10-18工作区锁格式迁移：SQL子图读取npm v3的真实嵌套解析和已安装peer；完整锁项元数据继续绑定指纹。仅在旧pnpm与新npm的根选择、制品integrity和解析依赖边全部一致时，允许已有UNKNOWN身份转移；SQL源代码、依赖和发生次数约束保持，新增或缺少证明均失败。历史锁解析仅供基线迁移证明。

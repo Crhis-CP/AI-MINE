@@ -83,9 +83,9 @@ test("opaque SQL is recorded and changed dependencies fail even without a resolv
 test("UNKNOWN keeps source protection while replacing whole-lock bytes with the selected graph", () => {
   const data = fixture();
   data[0].sites[0].unknown = ["opaque SQL"];
-  data[0].sites[0].dependencies["pnpm-lock.yaml"] = "whole-lock-before";
+  data[0].sites[0].dependencies["package-lock.json"] = "whole-lock-before";
   const before = ownershipReport(data, map, "sql-graph-one").baseline;
-  data[0].sites[0].dependencies["pnpm-lock.yaml"] = "whole-lock-after";
+  data[0].sites[0].dependencies["package-lock.json"] = "whole-lock-after";
   assert.deepEqual(compareOwnership(ownershipReport(data, map, "sql-graph-one").baseline, before), []);
   assert.match(compareOwnership(ownershipReport(data, map, "sql-graph-two").baseline, before).join(), /unknown: new/);
   data[0].sites[0].dependencies["packages/change.ts"] = "source-changed";

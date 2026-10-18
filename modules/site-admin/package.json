@@ -12,15 +12,15 @@
     "./export": "./backend/source-export.ts"
   },
   "dependencies": {
-    "@amp/contracts": "workspace:*",
-    "@amp/web": "workspace:*",
-    "@amp/industry": "workspace:*",
+    "@amp/contracts": "*",
+    "@amp/web": "*",
+    "@amp/industry": "*",
     "react": "19.3.0",
     "react-router": "8.4.0",
     "zod": "4.6.5",
-    "@amp/backend": "workspace:*",
+    "@amp/backend": "*",
     "fastify": "5.12.5",
-    "@amp/metals": "workspace:*"
+    "@amp/metals": "*"
   },
   "devDependencies": {
     "@types/react": "19.3.0"

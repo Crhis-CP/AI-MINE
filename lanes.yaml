@@ -112,8 +112,8 @@ shared:
   - id: root-config
     paths:
       - package.json
-      - pnpm-workspace.yaml
-      - pnpm-lock.yaml
+      - .npmrc
+      - package-lock.json
       - tsconfig.base.json
       - biome.jsonc                                  # 交接包写的是 biome.json；仓库用带注释的 .jsonc
       - Makefile

@@ -92,12 +92,12 @@
     "./publication/news-links": "./src/publication/news-links.ts"
   },
   "dependencies": {
-    "@amp/contracts": "workspace:*",
-    "@amp/industry": "workspace:*",
-    "@amp/metals": "workspace:*",
-    "@amp/policy": "workspace:*",
-    "@amp/site": "workspace:*",
-    "@amp/site-admin": "workspace:*",
+    "@amp/contracts": "*",
+    "@amp/industry": "*",
+    "@amp/metals": "*",
+    "@amp/policy": "*",
+    "@amp/site": "*",
+    "@amp/site-admin": "*",
     "@mozilla/readability": "0.6.0",
     "@paralleldrive/cuid2": "3.3.0",
     "cheerio": "1.2.0",

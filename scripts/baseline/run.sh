@@ -42,7 +42,7 @@ echo "== routes, queues, schedules"
 node scripts/baseline/capture.ts "$out" > /dev/null
 
 echo "== built site: machine outputs, smoke, MCP check"
-pnpm --filter @amp/web build > /dev/null
+npm run build --workspace @amp/web > /dev/null
 # The site runs with collection and model calls off; the tests below use their own local stubs.
 node scripts/verify/site-process.ts validate
 pids=()

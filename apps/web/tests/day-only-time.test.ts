@@ -1,7 +1,7 @@
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 // A source that gave only the date is kept at the start of that Beijing day, and pages show the date alone
 // (Owner 2026-10-05: 只显示日期; TASK-0040): the time column shows a dash, never 00:00, and the article page
-// shows the stated date with no time and no "几天前". Run after `pnpm --filter @amp/web build`.
+// shows the stated date with no time and no "几天前". Run after `npm run build --workspace @amp/web`.
 // Real production server and router, synthetic HTTP API only.
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";

@@ -7,6 +7,7 @@ import { API } from "typescript/unstable/sync";
 import * as ts from "typescript/unstable/ast";
 import { z } from "zod";
 import { digest } from "./ts-ownership.ts";
+import { sameSqlLockGraph, sqlLockFingerprint } from "./sql-lock.ts";
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const dependencies = z.record(z.string().min(1), hash);
@@ -200,17 +201,20 @@ export function rekeyUnknownBudget(
   const origins = new Set<string>(),
     targets = new Set<string>(),
     proofs = new Map<string, boolean>();
+  const lockKey = "sql/parser-locked-subgraph";
+  let lockProof: { before: string; after: string } | null | undefined;
   for (const rekey of parsed.data) {
     const keys = unknownRekeyKeys(rekey);
     const label = "unknown rekey: " + rekey.file + ":" + rekey.scopeName;
     const beforeNames = Object.keys(rekey.before).sort(),
       afterNames = Object.keys(rekey.after).sort();
+    const lockChanged = rekey.before[lockKey] !== rekey.after[lockKey];
     if (
       !Object.hasOwn(rekey.before, rekey.file) ||
       !Object.hasOwn(rekey.after, rekey.file) ||
-      rekey.before[rekey.file] === rekey.after[rekey.file] ||
+      (!lockChanged && rekey.before[rekey.file] === rekey.after[rekey.file]) ||
       JSON.stringify(beforeNames) !== JSON.stringify(afterNames) ||
-      beforeNames.some((name) => name !== rekey.file && rekey.before[name] !== rekey.after[name])
+      beforeNames.some((name) => name !== rekey.file && name !== lockKey && rekey.before[name] !== rekey.after[name])
     ) {
       errors.push(label + ": only the owning-file fingerprint may change");
       continue;
@@ -227,6 +231,23 @@ export function rekeyUnknownBudget(
     if (!prior || previous[keys.after] || now[keys.before] || now[keys.after]! > prior) {
       errors.push(label + ": missing, reused or increased prior budget");
       continue;
+    }
+    if (lockChanged) {
+      if (lockProof === undefined) {
+        lockProof = null;
+        try {
+          const oldLock = readSource?.("pnpm-lock.yaml", true),
+            newLock = readSource?.("package-lock.json", false);
+          if (oldLock && newLock && !oldLock.trimStart().startsWith("{") && newLock.trimStart().startsWith("{") && sameSqlLockGraph(oldLock, newLock))
+            lockProof = { before: sqlLockFingerprint(oldLock).fingerprint, after: sqlLockFingerprint(newLock).fingerprint };
+        } catch {
+          /* Missing or unsupported evidence cannot transfer a budget. */
+        }
+      }
+      if (!lockProof || rekey.before[lockKey] !== lockProof.before || rekey.after[lockKey] !== lockProof.after) {
+        errors.push(label + ": lock format migration must preserve the complete resolved SQL graph");
+        continue;
+      }
     }
     const proofKey = JSON.stringify([rekey.file, rekey.before[rekey.file], rekey.after[rekey.file]]);
     if (!proofs.has(proofKey)) {

@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { ownershipReport, type OwnershipMap } from "../data-ownership.ts";
 import { ROUTE_IDENTITY_FILE, stableRouteDebt } from "../route-identities.ts";
 import { extractOwnership } from "../ts-ownership.ts";
-import { scratch, write } from "./helpers.ts";
+import { scratch, write, postgresPackage } from "./helpers.ts";
 
 const nav = `app.get("/api/admin/nav-counts", adminHandler(async () => {
   return await sql\`SELECT id FROM feedback\`;
@@ -33,7 +33,7 @@ const map: OwnershipMap = {
 function report(text: string, file = ROUTE_IDENTITY_FILE) {
   const root = scratch();
   mkdirSync(path.join(root, "node_modules"));
-  symlinkSync(path.resolve(import.meta.dirname, "../../../packages/backend/node_modules/postgres"), path.join(root, "node_modules/postgres"));
+  symlinkSync(postgresPackage(), path.join(root, "node_modules/postgres"));
   write(root, {
     "package.json": '{"type":"module"}',
     "tsconfig.json": '{"compilerOptions":{"module":"nodenext","strict":true,"allowImportingTsExtensions":true,"noEmit":true}}',

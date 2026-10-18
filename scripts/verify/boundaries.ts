@@ -3,7 +3,6 @@
 // New domains follow the module map. Root tests/ and scripts/ are integration code outside workspaces.
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { parse } from "yaml";
 import { modulePath, readModuleSyntax } from "./boundary-imports.ts";
 
 const amp = (names: readonly string[]) => names.map((name) => `@amp/${name}`);
@@ -99,7 +98,7 @@ const packageOf = (spec: string) =>
     .join("/");
 
 function workspaces(root: string, files: readonly string[]): Workspace[] {
-  const globs = ((parse(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")) ?? {}) as { packages?: string[] }).packages ?? [];
+  const globs = (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { workspaces?: string[] }).workspaces ?? [];
   const dirs = new Set<string>();
   for (const f of files) {
     if (!f.endsWith("/package.json")) continue;

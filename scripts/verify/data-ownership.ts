@@ -142,9 +142,9 @@ export function ownershipReport(inventory: Inventory, map: OwnershipMap, lockFin
         add(totals, `${file.scope}.unknownSites`);
         if (file.scope === "runtime") {
           const dependencies = { ...site.dependencies };
-          if (Object.hasOwn(dependencies, "pnpm-lock.yaml")) {
+          if (Object.hasOwn(dependencies, "package-lock.json")) {
             if (!lockFingerprint) throw new Error("SQL/parser dependency fingerprint missing");
-            delete dependencies["pnpm-lock.yaml"];
+            delete dependencies["package-lock.json"];
             dependencies["sql/parser-locked-subgraph"] = lockFingerprint;
           }
           add(unknown, `${file.file}:${site.scopeName}:${digest(JSON.stringify([site.sourceHash, dependencies, reasons]))}`);
@@ -212,7 +212,7 @@ export function migrationOwnership(root = ROOT) {
 
 export function buildOwnershipReport(root = ROOT, map = read<OwnershipMap>(root, OWNERSHIP_MAP)) {
   const migrations = migrationOwnership(root);
-  const sqlLock = sqlLockFingerprint(readFileSync(path.join(root, "pnpm-lock.yaml"), "utf8"));
+  const sqlLock = sqlLockFingerprint(readFileSync(path.join(root, "package-lock.json"), "utf8"));
   const report = ownershipReport(extractOwnership(root), map, sqlLock.fingerprint);
   for (const file of migrations) if (file.unknown.length) add(report.baseline.unknown, `migration:${file.file}:${file.hash}`);
   return { ...report, migrations, sqlLock };

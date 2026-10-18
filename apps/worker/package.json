@@ -7,10 +7,10 @@
     "start": "node src/main.ts"
   },
   "dependencies": {
-    "@amp/backend": "workspace:*",
-    "@amp/contracts": "workspace:*",
-    "@amp/industry": "workspace:*",
+    "@amp/backend": "*",
+    "@amp/contracts": "*",
+    "@amp/industry": "*",
     "pg-boss": "12.34.0",
-    "@amp/site": "workspace:*"
+    "@amp/site": "*"
   }
 }

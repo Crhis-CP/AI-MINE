@@ -84,7 +84,7 @@ test("environment reads are warned only in the approved backend scope", () => {
       mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
       writeFileSync(path.join(directory, file), "export const value = process.env.EXAMPLE;\n");
     }
-    const result = spawnSync("pnpm", ["exec", "biome", "lint", `--config-path=${directory}`, "--vcs-enabled=false", "--reporter=json", directory], {
+    const result = spawnSync("npm", ["exec", "--", "biome", "lint", `--config-path=${directory}`, "--vcs-enabled=false", "--reporter=json", directory], {
       encoding: "utf8",
     });
     assert.equal(result.status, 0, result.stderr);

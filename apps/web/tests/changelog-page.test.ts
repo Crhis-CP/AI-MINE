@@ -1,4 +1,4 @@
-// Run after `pnpm --filter @amp/web build`. The changelog page on the real production server with a synthetic
+// Run after `npm run build --workspace @amp/web`. The changelog page on the real production server with a synthetic
 // API (TASK-0038): a date-only entry shows no time at all, never 00:00, and a major update shows its version.
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";

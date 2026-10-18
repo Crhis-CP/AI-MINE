@@ -25,6 +25,6 @@
     "./wording": "./wording.ts"
   },
   "dependencies": {
-    "@amp/site": "workspace:*"
+    "@amp/site": "*"
   }
 }

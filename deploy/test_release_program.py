@@ -13,13 +13,13 @@ COMMAND = re.search(r'docker exec "amp-\$role-1" sh -c \'\n(.*?)\n  \' > "\$RELE
 
 
 class ProgramArchiveTests(unittest.TestCase):
-    def archive(self, extensions):
+    def archive(self, extensions, lockfiles=("pnpm-lock.yaml", "pnpm-workspace.yaml")):
         with tempfile.TemporaryDirectory(prefix="program archive ") as temporary:
             root = Path(temporary)
             for name in ["apps", "packages", "industry", "scripts", "assets", "reference", "database", "deploy", "node_modules", *extensions]:
                 (root / name).mkdir()
                 (root / name / "synthetic.txt").write_text(name)
-            for name in ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]:
+            for name in ["package.json", *lockfiles]:
                 (root / name).write_text("synthetic")
             (root / ".env").write_text("synthetic private fixture")
             command = COMMAND.replace('"/app/$extra"', '"$FIXTURE_ROOT/$extra"').replace('-C /app', '-C "$FIXTURE_ROOT"')
@@ -27,6 +27,8 @@ class ProgramArchiveTests(unittest.TestCase):
             with tarfile.open(fileobj=io.BytesIO(result.stdout), mode="r:gz") as archive:
                 names = archive.getnames()
                 self.assertNotIn(".env", names)
+                for name in lockfiles:
+                    self.assertIn(name, names)
                 self.assertIn("apps/synthetic.txt", names)
                 for name in extensions:
                     self.assertEqual(archive.extractfile(f"{name}/synthetic.txt").read().decode(), name)
@@ -39,6 +41,9 @@ class ProgramArchiveTests(unittest.TestCase):
 
     def test_site_and_extension_code_are_kept_with_the_program(self):
         self.archive(["site", "modules"])
+
+    def test_npm_release_keeps_lock_and_install_configuration(self):
+        self.archive(["site", "modules"], ("package-lock.json", ".npmrc"))
 
 
 if __name__ == "__main__":

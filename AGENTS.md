@@ -60,11 +60,11 @@ evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile s
 ## 4. 常用命令
 
 ```bash
-pnpm install --frozen-lockfile     # 常规安装冻结锁；工作区迁移只同步本地链接，核对外部依赖不变
-pnpm check                         # 快速子集：类型、Biome、边界、契约漂移、受影响工作区测试（提交前必跑）
-pnpm test --filter @amp/<module>   # 只测你的模块（node:test，自动使用临时库）
-pnpm e2e                           # Playwright + axe（桌面 + 手机）
-pnpm contracts:gen                 # 重新生成对外 OpenAPI 文档
+npm ci     # 按固定锁安装；禁用依赖安装脚本并保留一天新版本等待
+npm run check                         # 快速子集：类型、Biome、边界、契约漂移、受影响工作区测试（提交前必跑）
+npm test -- --filter @amp/<module>   # 只测你的模块（node:test，自动使用临时库）
+npm run e2e                           # Playwright + axe（桌面 + 手机）
+npm run contracts:gen                 # 重新生成对外 OpenAPI 文档
 make verify                        # 合并前必过：在独立执行器上对 PR 最终 SHA 运行，产出回执
 make release-check                 # 发布前：制品、SBOM、签名、冒烟（运维泳道）
 ```

@@ -122,6 +122,7 @@ test("a text corrected while its translation was running is translated again, an
   await confirmGroupingFixture(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   assert.equal((await translateOne(id)).status, "translated", "this item was genuinely complete and publicly readable before reprocessing");
+  const previousAttempts = await sql`SELECT * FROM translation_attempts WHERE article_id=${id}`;
   await material("ten");
   await currentJudgement(id);
 
@@ -133,10 +134,10 @@ test("a text corrected while its translation was running is translated again, an
   assert.equal(revised.revised, true);
   hold.open();
   hold = null;
-  await running;
+  assert.equal((await running).reason, "input_changed");
 
-  const [attempt] = await sql<{ revision: number; outcome: string }[]>`SELECT revision, outcome FROM translation_attempts WHERE article_id = ${id}`;
-  assert.deepEqual({ ...attempt }, { revision: 2, outcome: "partial" }, "a superseded response is not promoted or booked against the new revision");
+  const attempts = await sql`SELECT * FROM translation_attempts WHERE article_id=${id}`;
+  assert.deepEqual([...attempts], [...previousAttempts], "a superseded response cannot overwrite or consume revision attempts");
   const stale = await detail(id);
   assert.equal(stale.body.zh, null, "a translation of the old wording is not shown");
   assert.equal(stale.body.original, null, "the default Chinese page stays pending");

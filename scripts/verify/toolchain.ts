@@ -1,15 +1,4 @@
-// Stage `toolchain` (T-0001): the repository rules that keep installs and images reproducible and keep
-// GitHub Actions to one executor of make verify (docs/07-bootstrap/01-new-repo-bootstrap.md §4 T-0001;
-// docs/04-architecture/02-tech-stack.md 7.2; docs/04-architecture/06-security-and-access.md 6.1):
-//   - pnpm only: `packageManager` pinned to an exact version, one pnpm-lock.yaml, no npm/yarn/bun lockfile;
-//   - pnpm-workspace.yaml keeps the one-day release delay and an explicit allowBuilds list;
-//   - the Dockerfile installs with --frozen-lockfile, keeps the NPM_REGISTRY build argument and never uses
-//     `pnpm deploy` (it breaks Node's type stripping of the workspace packages);
-//   - every base image is pinned to a patch version and its sha256 digest;
-//   - under .github/workflows only verify.yml, in the shape workflowProblems() checks (TASK-0015): the Owner
-//     kept GitHub Actions on for the public repository (2026-10-03, 08-owner-voice DEC-25 ③), and by
-//     ADR-0017's reversal clause a hosted CI is one more executor of `make verify`, never a gate or a release
-//     path. The file may also be absent: nothing asserts that a CI workflow exists (rules file 8.1).
+// Reproducible npm workspaces, pinned container images and the read-only verification executor.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
@@ -28,8 +17,8 @@ const CANCEL_PULL_REQUESTS_ONLY = "${{ github.event_name == 'pull_request' }}";
 // biome-ignore lint/suspicious/noTemplateCurlyInString: a GitHub Actions expression, compared as text
 const GROUP = "verify-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}";
 const VERIFY_STEP = 'make verify SHA="$HEAD_SHA"';
-const OTHER_LOCKFILES = new Set(["package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "bun.lockb"]);
-const MIN_RELEASE_AGE_MINUTES = 1440;
+const OTHER_LOCKFILES = new Set(["pnpm-lock.yaml", "pnpm-workspace.yaml", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "bun.lockb"]);
+const MIN_RELEASE_AGE_DAYS = 1;
 
 const isDockerfile = (f: string) => /(^|\/)Dockerfile[^/]*$|\.dockerfile$/i.test(f);
 const isComposeFile = (f: string) => /(^|\/)(docker-)?compose[^/]*\.ya?ml$/.test(f);
@@ -40,16 +29,16 @@ export function checkToolchain(root: string, files: readonly string[]): string[]
   const read = (f: string) => readFileSync(path.join(root, f), "utf8");
   const tracked = files.filter((f) => !f.startsWith("docs/"));
 
-  const pkg = JSON.parse(read("package.json")) as { packageManager?: string; engines?: { node?: string } };
-  if (!/^pnpm@\d+\.\d+\.\d+$/.test(pkg.packageManager ?? "")) {
-    problems.push(`package.json: packageManager must pin an exact pnpm version (got "${pkg.packageManager ?? ""}")`);
+  const pkg = JSON.parse(read("package.json")) as { packageManager?: string; engines?: { node?: string }; workspaces?: string[] };
+  if (!/^npm@\d+\.\d+\.\d+$/.test(pkg.packageManager ?? "")) {
+    problems.push(`package.json: packageManager must pin an exact npm version (got "${pkg.packageManager ?? ""}")`);
   }
   if (!pkg.engines?.node) problems.push("package.json: engines.node is missing");
 
   for (const f of tracked) {
     const base = path.posix.basename(f);
-    if (OTHER_LOCKFILES.has(base)) problems.push(`${f}: only pnpm-lock.yaml is allowed (one lockfile, pnpm 12)`);
-    if (base === "pnpm-lock.yaml" && f !== "pnpm-lock.yaml") problems.push(`${f}: the workspace has one lockfile, at the root`);
+    if (OTHER_LOCKFILES.has(base)) problems.push(`${f}: only package-lock.json is allowed (one root npm lockfile)`);
+    if (base === "package-lock.json" && f !== "package-lock.json") problems.push(`${f}: the workspace has one lockfile, at the root`);
     if (f.startsWith(".github/workflows/")) {
       problems.push(
         ...(f === WORKFLOW
@@ -58,24 +47,32 @@ export function checkToolchain(root: string, files: readonly string[]): string[]
       );
     }
   }
-  if (!files.includes("pnpm-lock.yaml")) problems.push("pnpm-lock.yaml is missing");
+  if (!files.includes("package-lock.json")) problems.push("package-lock.json is missing");
 
-  const ws = (parse(read("pnpm-workspace.yaml")) ?? {}) as { minimumReleaseAge?: unknown; allowBuilds?: unknown };
-  if (typeof ws.minimumReleaseAge !== "number" || ws.minimumReleaseAge < MIN_RELEASE_AGE_MINUTES) {
-    problems.push(`pnpm-workspace.yaml: minimumReleaseAge must be at least ${MIN_RELEASE_AGE_MINUTES} minutes`);
-  }
-  if (typeof ws.allowBuilds !== "object" || ws.allowBuilds === null || Array.isArray(ws.allowBuilds)) {
-    problems.push("pnpm-workspace.yaml: allowBuilds must be an explicit mapping (empty when no dependency needs install scripts)");
-  }
+  if (!Array.isArray(pkg.workspaces) || !pkg.workspaces.length || pkg.workspaces.some((value) => typeof value !== "string" || !value))
+    problems.push("package.json: explicit workspaces are required");
+  const config = Object.fromEntries(
+    read(".npmrc")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#") && !line.startsWith(";"))
+      .map((line) => line.split("=").map((part) => part.trim())),
+  );
+  const age = Number(config["min-release-age"]);
+  if (!Number.isFinite(age) || age < MIN_RELEASE_AGE_DAYS) problems.push(".npmrc: min-release-age must be at least 1 day");
+  if (config["ignore-scripts"] !== "true") problems.push(".npmrc: ignore-scripts must be true");
 
   for (const f of tracked.filter(isDockerfile)) {
     const text = read(f);
     const lines = text.split("\n");
     const instructions = lines.filter((l) => !/^\s*#/.test(l)).join("\n");
-    if (/\bpnpm\b[^\n]*\bdeploy\b/.test(instructions)) problems.push(`${f}: \`pnpm deploy\` is not allowed (copy the repository and run pnpm install --prod)`);
+    if (/\bpnpm\b/.test(instructions)) problems.push(`${f}: use the pinned npm workspace toolchain`);
     if (!/^\s*ARG\s+NPM_REGISTRY\b/m.test(instructions)) problems.push(`${f}: keep the NPM_REGISTRY build argument`);
-    for (const line of instructions.split("\n").filter((l) => /\bpnpm\s+install\b/.test(l))) {
-      if (!line.includes("--frozen-lockfile")) problems.push(`${f}: pnpm install without --frozen-lockfile: ${line.trim()}`);
+    if (!/\bnpm\s+ci\b/.test(instructions)) problems.push(`${f}: install dependencies with npm ci`);
+    if (!/\bnpm\s+prune\s+--omit=dev\b/.test(instructions)) problems.push(`${f}: prune development dependencies after the build`);
+    for (const line of instructions.split("\n").filter((line) => /\bnpm\s+install\b/.test(line))) {
+      if (!/\bnpm\s+install\s+(?:-g|--global)\s+npm@\d+\.\d+\.\d+\b/.test(line))
+        problems.push(`${f}: mutable dependency install is not allowed: ${line.trim()}`);
     }
     const stages = new Set<string>();
     for (const line of lines) {
@@ -244,12 +241,12 @@ function expressions(s: string): string[] {
  * (toJSON(github), github.*: the token is one of its properties) all hand the token on. Names match in any case. */
 const readsToken = (code: string) => [...code.matchAll(/\bgithub\b(?:\s*\.\s*([A-Za-z_][\w-]*))?/gi)].some((m) => !m[1] || m[1].toLowerCase() === "token");
 
-/** Problems with the tools this run uses: Node within package.json's engines, pnpm at packageManager. */
-export function checkRuntime(pnpmVersion: string | null, root = ROOT): string[] {
+/** Problems with the tools this run uses: Node within package.json's engines, npm at packageManager. */
+export function checkRuntime(npmVersion: string | null, root = ROOT): string[] {
   const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { packageManager?: string; engines?: { node?: string } };
   const problems: string[] = [];
-  const want = pkg.packageManager?.replace(/^pnpm@/, "");
-  if (pnpmVersion !== want) problems.push(`pnpm ${pnpmVersion ?? "(not found)"} is running; package.json pins pnpm ${want}`);
+  const want = pkg.packageManager?.replace(/^npm@/, "");
+  if (npmVersion !== want) problems.push(`npm ${npmVersion ?? "(not found)"} is running; package.json pins npm ${want}`);
   const min = pkg.engines?.node?.match(/^>=\s*(\d+)(?:\.(\d+))?/);
   const [major, minor] = process.versions.node.split(".").map(Number);
   if (min && (major < Number(min[1]) || (major === Number(min[1]) && minor < Number(min[2] ?? 0)))) {

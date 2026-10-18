@@ -112,14 +112,14 @@ docker compose up -d --build
 
 初始化会生成本地配置和管理员密码，并拒绝覆盖已有 `.env`。启动后打开 `http://localhost:3000`，在后台完成模型及来源配置。来源是否启用、是否允许处理和展示全文，要分别核对；没有有效内容时保留空态。
 
-参与代码开发时使用仓库固定的 pnpm 版本：
+参与代码开发时使用仓库固定的 npm 版本：
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm check
+npm ci
+npm run check
 ```
 
-`pnpm check` 是快速检查。合并需要独立非生产执行器上的完整 `make verify` 回执，生产发布另按固定流程执行。阅读[贡献指南](CONTRIBUTING.md)和 [AGENTS.md](AGENTS.md) 后，再从对应任务卡开始。
+`npm run check` 是快速检查。合并需要独立非生产执行器上的完整 `make verify` 回执，生产发布另按固定流程执行。阅读[贡献指南](CONTRIBUTING.md)和 [AGENTS.md](AGENTS.md) 后，再从对应任务卡开始。
 
 ## 往哪里找
 

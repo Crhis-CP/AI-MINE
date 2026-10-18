@@ -7,7 +7,7 @@ import { checkWebSplit } from "./web-split.ts";
 // (scripts/verify/upstream-check.yml) are translated step by step: install, typecheck, build-web, web tests,
 // migrations, smoke, backend tests, compose-smoke.
 //   node scripts/verify/run.ts [--task TASK-nnnn] [--sha <40 hex>] [--only a,b] [--skip a,b] [--allow-dirty]
-//   node scripts/verify/run.ts --quick          pnpm check: the fast subset, no receipt
+//   node scripts/verify/run.ts --quick          npm run check: the fast subset, no receipt
 // Environment (nothing else from the caller's environment reaches the checks, see childEnv):
 //   VERIFY_DATABASE_URL  PostgreSQL database named *_ci or *_test, dropped and recreated (default DATABASE_URL)
 //   VERIFY_BASE          ref the change is compared with (default origin/main, else main)
@@ -304,17 +304,17 @@ const STAGES: Stage[] = [
   {
     name: "install",
     run: async ({ log, env }) => {
-      const before = sha256File("pnpm-lock.yaml");
-      const code = await run("pnpm", ["install", "--frozen-lockfile"], { log, env: env(), timeoutMs: 15 * 60_000 });
-      if (code !== 0) return fail(`pnpm install --frozen-lockfile exited with ${code}`);
-      return sha256File("pnpm-lock.yaml") === before ? pass() : fail("pnpm install changed pnpm-lock.yaml");
+      const before = sha256File("package-lock.json");
+      const code = await run("npm", ["ci", "--no-audit", "--no-fund"], { log, env: env(), timeoutMs: 15 * 60_000 });
+      if (code !== 0) return fail(`npm ci exited with ${code}`);
+      return sha256File("package-lock.json") === before ? pass() : fail("npm ci changed package-lock.json");
     },
   },
   {
     name: "toolchain",
     quick: true,
     run: async ({ log }) =>
-      problems([...checkToolchain(ROOT, trackedFiles()), ...checkRuntime(probe("pnpm", ["--version"]))], log, "pins, lockfile, images, workflow shape"),
+      problems([...checkToolchain(ROOT, trackedFiles()), ...checkRuntime(probe("npm", ["--version"]))], log, "pins, lockfile, images, workflow shape"),
   },
   {
     name: "format-lint",
@@ -326,13 +326,13 @@ const STAGES: Stage[] = [
     name: "typecheck",
     quick: true,
     after: ["install"],
-    run: async ({ log, env }) => fromCode(await run("pnpm", ["typecheck"], { log, env: env() }), "pnpm typecheck"),
+    run: async ({ log, env }) => fromCode(await run("npm", ["run", "typecheck"], { log, env: env() }), "npm run typecheck"),
   },
   {
     name: "contracts",
     quick: true,
     after: ["install"],
-    run: async ({ log, env }) => fromCode(await run("pnpm", ["contracts:check"], { log, env: env() }), "generated contracts and migrated route examples"),
+    run: async ({ log, env }) => fromCode(await run("npm", ["run", "contracts:check"], { log, env: env() }), "generated contracts and migrated route examples"),
   },
   {
     name: "boundaries",
@@ -385,17 +385,17 @@ const STAGES: Stage[] = [
     name: "audit",
     after: ["install"],
     run: async ({ log, env }) => {
-      const r = await capture("pnpm", ["audit", "--audit-level=high", "--json"], { log, env: env(), timeoutMs: 5 * 60_000 });
+      const r = await capture("npm", ["audit", "--audit-level=high", "--json"], { log, env: env(), timeoutMs: 5 * 60_000 });
       let v: Record<string, number>;
       try {
         v = (JSON.parse(r.stdout) as { metadata: { vulnerabilities: Record<string, number> } }).metadata.vulnerabilities;
       } catch {
-        return fail(`pnpm audit gave no report (exit ${r.code}); the advisory service may be unreachable from this executor`);
+        return fail(`npm audit gave no report (exit ${r.code}); the advisory service may be unreachable from this executor`);
       }
       receipt.audit = {
-        tool: "pnpm audit --audit-level=high",
-        version: probe("pnpm", ["--version"]),
-        datasource: `${probe("pnpm", ["config", "get", "registry"]) ?? "npm registry"} (bulk advisory endpoint)`,
+        tool: "npm audit --audit-level=high",
+        version: probe("npm", ["--version"]),
+        datasource: `${probe("npm", ["config", "get", "registry"]) ?? "npm registry"} (bulk advisory endpoint)`,
         date: new Date().toISOString().slice(0, 10),
         vulnerabilities: v,
       };
@@ -410,7 +410,7 @@ const STAGES: Stage[] = [
     name: "build-web",
     after: ["install"],
     run: async ({ log, env }) => {
-      const code = await run("pnpm", ["--filter", WEB_PACKAGE, "build"], { log, env: env(), timeoutMs: 15 * 60_000 });
+      const code = await run("npm", ["run", "build", "--workspace", WEB_PACKAGE], { log, env: env(), timeoutMs: 15 * 60_000 });
       if (code !== 0) return fail(`web build exited with ${code}`);
       return problems([...checkOutputTree(path.join(ROOT, "apps/web/build")), ...checkWebSplit(ROOT)], log, "brand output and public/private build isolation");
     },
@@ -420,7 +420,7 @@ const STAGES: Stage[] = [
     after: ["build-web"],
     run: async ({ log, env }) =>
       fromCode(
-        await run("pnpm", ["e2e:smoke"], {
+        await run("npm", ["run", "e2e:smoke"], {
           log,
           env: env({ PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" }),
           timeoutMs: 5 * 60_000,
@@ -529,7 +529,7 @@ const STAGES: Stage[] = [
     run: async ({ log, env, db, quick }) => {
       const failed: string[] = [];
       if ((await run("node", ["--test", "scripts/verify/tests/*.test.ts"], { log, env: env() })) !== 0) failed.push("verify self-tests");
-      // The web tests start the production server, so they need the build (pnpm check runs them when it exists).
+      // The web tests start the production server, so they need the build (npm run check runs them when it exists).
       const webTests = !quick || existsSync(path.join(ROOT, "apps/web/build"));
       if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: webEnvironment(env()) })) !== 0) {
         failed.push("web tests");
@@ -681,7 +681,7 @@ const treeState = (): TreeState => ({
   head: git(["rev-parse", "HEAD"]),
   tree: git(["rev-parse", "HEAD^{tree}"]),
   status: git(["status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none"]),
-  lockfile: sha256File("pnpm-lock.yaml"),
+  lockfile: sha256File("package-lock.json"),
 });
 
 /** Ways a checkout can show different content than the commit says; each makes the run invalid. */
@@ -742,7 +742,7 @@ if (import.meta.main) {
     const full = !quick && !only.length && results.length === STAGES.length && results.every((r) => r.status !== "skipped") && cleanAtStart;
     const body = {
       receipt_version: 1,
-      command: quick ? "pnpm check" : "make verify",
+      command: quick ? "npm run check" : "make verify",
       verify_revision: sha256(git(["ls-files", "-s", "--", "Makefile", "scripts/verify", "scripts/docs-check"])),
       scope: full ? "full" : "focused",
       git: {
@@ -762,7 +762,7 @@ if (import.meta.main) {
         arch: process.arch === "x64" ? "amd64" : process.arch,
         docker: probe("docker", ["version", "--format", "{{.Server.Version}}"]),
         node: process.versions.node,
-        pnpm: probe("pnpm", ["--version"]),
+        npm: probe("npm", ["--version"]),
         postgres: db ? probe("psql", ["-XAtqc", "show server_version"], { ...process.env, ...pgEnv(db.url) }) : null,
       },
       started_at: startedAt.toISOString(),
@@ -799,7 +799,7 @@ if (import.meta.main) {
   process.on("SIGINT", interrupt).on("SIGTERM", interrupt);
 
   console.log(
-    `${quick ? "pnpm check" : "make verify"} on ${head.slice(0, 12)}${base ? ` (base ${base.slice(0, 12)} from ${baseRef})` : ""}${task ? `, ${task}` : ""}`,
+    `${quick ? "npm run check" : "make verify"} on ${head.slice(0, 12)}${base ? ` (base ${base.slice(0, 12)} from ${baseRef})` : ""}${task ? `, ${task}` : ""}`,
   );
   for (const [i, stage] of selected.entries()) {
     current = stage.name;
@@ -833,14 +833,14 @@ if (import.meta.main) {
   const drift: string[] = [];
   if (endState.head !== startState.head) drift.push("HEAD moved");
   if (endState.tree !== startState.tree) drift.push("the commit's tree changed");
-  if (endState.lockfile !== startState.lockfile) drift.push("pnpm-lock.yaml changed");
+  if (endState.lockfile !== startState.lockfile) drift.push("package-lock.json changed");
   if (cleanAtStart && endState.status !== "") drift.push(`the checks left files behind:\n${endState.status.split("\n").slice(0, 10).join("\n")}`);
   for (const d of drift) console.log(`drift: ${d}`);
 
   const failedStage = drift.length ? "end-state" : (results.find((r) => r.status === "fail")?.name ?? null);
   const exitStatus = failedStage ? 1 : 0;
   if (quick) {
-    console.log(exitStatus ? "pnpm check: failed" : "pnpm check: passed (fast subset; merging needs a make verify receipt)");
+    console.log(exitStatus ? "npm run check: failed" : "npm run check: passed (fast subset; merging needs a make verify receipt)");
     process.exit(exitStatus);
   }
   const file = writeReceipt(exitStatus, failedStage, endState);

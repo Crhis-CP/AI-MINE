@@ -85,7 +85,7 @@ function databaseCallable(checker: Checker, node: ts.Node, visit = (_node: ts.No
 }
 export function extractOwnership(root: string, files = ownershipFiles(root)) {
   const api = new API({ cwd: root });
-  const lock = path.join(root, "pnpm-lock.yaml");
+  const lock = path.join(root, "package-lock.json");
   const lockHash = existsSync(lock) ? digest(readFileSync(lock, "utf8")) : undefined;
   try {
     const snapshot = api.updateSnapshot({ openFiles: files.map((file) => path.resolve(root, file)) });
@@ -140,7 +140,7 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
         const scopeName = names.join("/") || "<module>";
         const legacyScopeName = legacyNames.join("/") || "<module>";
         const holes: Hole[] = [],
-          dependencies: Record<string, string> = lockHash ? { "pnpm-lock.yaml": lockHash } : {},
+          dependencies: Record<string, string> = lockHash ? { "package-lock.json": lockHash } : {},
           reasons: string[] = [];
         if (kind.startsWith("unresolved-")) reasons.push("unresolved database operation type");
         const seen = new Set<ts.Node>();

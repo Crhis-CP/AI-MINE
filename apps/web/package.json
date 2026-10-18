@@ -10,8 +10,8 @@
     "dev:private": "WEB_ROUTE_GROUP=private react-router dev --port 3003 --host 127.0.0.1"
   },
   "dependencies": {
-    "@amp/contracts": "workspace:*",
-    "@amp/industry": "workspace:*",
+    "@amp/contracts": "*",
+    "@amp/industry": "*",
     "@react-router/node": "8.4.0",
     "isbot": "5.2.2",
     "motion": "13.4.4",
@@ -19,7 +19,7 @@
     "react-dom": "19.3.0",
     "react-router": "8.4.0",
     "zod": "4.6.5",
-    "@amp/site": "workspace:*"
+    "@amp/site": "*"
   },
   "devDependencies": {
     "@react-router/dev": "8.4.0",

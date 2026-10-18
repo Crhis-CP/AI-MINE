@@ -2,32 +2,32 @@
   "name": "ai-mining-policy",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.8.1",
+  "packageManager": "npm@11.19.0",
   "engines": {
     "node": ">=24.11"
   },
   "scripts": {
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts",
-    "dev:api": "pnpm --filter @amp/api dev",
-    "dev:worker": "pnpm --filter @amp/worker dev",
-    "dev:web": "pnpm --filter @amp/web dev",
-    "typecheck": "tsc -p site && tsc -p packages/contracts && tsc -p packages/backend && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && tsc -p scripts && tsc -p e2e && pnpm --filter @amp/web typecheck",
+    "dev:api": "npm run dev --workspace @amp/api",
+    "dev:worker": "npm run dev --workspace @amp/worker",
+    "dev:web": "npm run dev --workspace @amp/web",
+    "typecheck": "tsc -p site && tsc -p packages/contracts && tsc -p packages/backend && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && tsc -p scripts && tsc -p e2e && npm run typecheck --workspace @amp/web",
     "test": "node scripts/verify/test-files.ts",
     "check": "node scripts/verify/run.ts --quick",
-    "dev:private-api": "pnpm --filter @amp/api dev:private",
+    "dev:private-api": "npm run dev:private --workspace @amp/api",
     "contracts:gen": "node scripts/contracts/generate.ts",
     "contracts:check": "node scripts/contracts/generate.ts --check && node --test scripts/verify/contract-tests.ts",
     "check:data-ownership": "node scripts/verify/data-ownership.ts",
-    "e2e": "pnpm --filter @amp/web build && pnpm e2e:smoke",
+    "e2e": "npm run build --workspace @amp/web && npm run e2e:smoke",
     "e2e:smoke": "playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
-    "@amp/backend": "workspace:*",
-    "@amp/industry": "workspace:*",
+    "@amp/backend": "*",
+    "@amp/industry": "*",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@amp/contracts": "workspace:*",
+    "@amp/contracts": "*",
     "@axe-core/playwright": "4.13.0",
     "@biomejs/biome": "2.5.15",
     "@modelcontextprotocol/client": "2.2.0",
@@ -42,5 +42,15 @@
     "yaml": "2.9.1",
     "@fastify/swagger": "9.9.1",
     "fastify-type-provider-zod": "7.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "industry",
+    "site",
+    "modules/*"
+  ],
+  "overrides": {
+    "fflate": "0.7.5"
   }
 }

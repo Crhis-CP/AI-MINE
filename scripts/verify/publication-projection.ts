@@ -133,6 +133,7 @@ export function publicationProjectionBudget(
     if (current?.length !== 1 || current[0]!.kind !== "template") return fail();
     const actual = current[0]!,
       dependencies = { ...actual.dependencies };
+    delete dependencies["package-lock.json"];
     delete dependencies["pnpm-lock.yaml"];
     dependencies[LOCK] = lock;
     if (

@@ -12,13 +12,13 @@
     "./web": "./web.ts"
   },
   "dependencies": {
-    "@amp/backend": "workspace:*",
-    "@amp/contracts": "workspace:*",
+    "@amp/backend": "*",
+    "@amp/contracts": "*",
     "cheerio": "1.2.0",
     "fast-xml-parser": "5.11.1",
     "pdfjs-dist": "6.4.299",
     "zod": "4.6.5",
-    "@amp/web": "workspace:*",
+    "@amp/web": "*",
     "react": "19.3.0",
     "react-router": "8.4.0"
   },

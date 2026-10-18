@@ -9,10 +9,10 @@
     "start:private": "API_ROLE=private-api API_PORT=3002 node src/main.ts"
   },
   "dependencies": {
-    "@amp/backend": "workspace:*",
-    "@amp/contracts": "workspace:*",
-    "@amp/industry": "workspace:*",
-    "@amp/site": "workspace:*",
+    "@amp/backend": "*",
+    "@amp/contracts": "*",
+    "@amp/industry": "*",
+    "@amp/site": "*",
     "@fastify/swagger": "9.9.1",
     "@modelcontextprotocol/server": "2.1.0",
     "@resvg/resvg-js": "2.6.2",

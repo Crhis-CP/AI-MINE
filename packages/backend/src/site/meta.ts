@@ -105,7 +105,7 @@ export function validateReleaseNote(value: unknown): ReleaseNote {
   const note = value as ReleaseNote;
   if (!CHANGELOG_KINDS.includes(note.kind) || typeof note.title !== "string" || [...note.title].length > 24) throw new Error("产品更新类型或标题无效");
   validateChangelog({ latestVersion: "2026-01-01", releases: [{ ...note, date: "2026-01-01" }] });
-  if (/[a-f0-9]{40}|TASK-\d{4}|\b(?:pnpm|docker|git commit|make verify)\b/i.test(JSON.stringify(note)))
+  if (/[a-f0-9]{40}|TASK-\d{4}|\b(?:npm|pnpm|docker|git commit|make verify)\b/i.test(JSON.stringify(note)))
     throw new Error("产品更新说明不能包含提交号、任务号或部署命令");
   return note;
 }

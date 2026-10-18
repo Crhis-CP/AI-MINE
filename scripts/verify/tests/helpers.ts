@@ -1,5 +1,7 @@
 // Throwaway repositories and trees for the verify self-tests: each test builds the smallest fixture that
 // shows one rule catching one violation.
+import { createRequire } from "node:module";
+import { ROOT } from "../lib.ts";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,3 +42,6 @@ export function memoryLog(root: string) {
   writeFileSync(file, "");
   return { file, line: (_: string) => {} };
 }
+
+/** Resolve the backend dependency through Node, independent of the install layout. */
+export const postgresPackage = () => path.resolve(createRequire(path.join(ROOT, "packages/backend/package.json")).resolve("postgres"), "../../..");

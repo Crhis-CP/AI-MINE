@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { sqlLockFingerprint } from "../sql-lock.ts";
 import { ROOT } from "../lib.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -161,4 +162,54 @@ test("native queue retirement leaves SQL helpers and driver bindings unchanged",
   assert.equal(nativeQueueOnly(before, after.replace("return boss.raw", "return other.raw")), false);
   assert.equal(nativeQueueOnly(before, after.replace("ensured: new Set()", "ensured: loadExternalState()")), false);
   assert.equal(nativeQueueOnly(before, after.replace("import {sql}", "import {feedbackSql as sql}")), false);
+});
+
+test("lock format changes preserve exact graph, source proof and occurrence budget", () => {
+  const pnpm = `lockfileVersion: '9.0'
+importers:
+  .:
+    devDependencies:
+      typescript: {specifier: '7.0.2', version: '7.0.2'}
+  packages/backend:
+    dependencies:
+      postgres: {specifier: '3.4.9', version: '3.4.9'}
+      pg-boss: {specifier: '12.34.0', version: '12.34.0'}
+packages:
+  typescript@7.0.2: {resolution: {integrity: ts}}
+  postgres@3.4.9: {resolution: {integrity: pg}}
+  pg-boss@12.34.0: {resolution: {integrity: queue}}
+snapshots:
+  typescript@7.0.2: {}
+  postgres@3.4.9: {}
+  pg-boss@12.34.0: {}
+`;
+  const packages = {
+    "": { devDependencies: { typescript: "7.0.2" } },
+    "packages/backend": { dependencies: { postgres: "3.4.9", "pg-boss": "12.34.0" } },
+    "node_modules/typescript": { version: "7.0.2", integrity: "ts", resolved: "https://fixture.invalid/ts.tgz" },
+    "node_modules/postgres": { version: "3.4.9", integrity: "pg", resolved: "https://fixture.invalid/pg.tgz" },
+    "node_modules/pg-boss": { version: "12.34.0", integrity: "queue", resolved: "https://fixture.invalid/queue.tgz" },
+  };
+  const npm = JSON.stringify({ lockfileVersion: 3, packages });
+  const rekey = {
+    ...entry,
+    before: { ...entry.before, "sql/parser-locked-subgraph": sqlLockFingerprint(pnpm).fingerprint },
+    after: { ...entry.after, "sql/parser-locked-subgraph": sqlLockFingerprint(npm).fingerprint },
+  };
+  const keys = unknownRekeyKeys(rekey),
+    prior = { [keys.before]: 1 },
+    now = { [keys.after]: 1 };
+  const source = (name: string, old: boolean) => (name === "pnpm-lock.yaml" && old ? pnpm : name === "package-lock.json" && !old ? npm : read(name, old));
+  assert.deepEqual(rekeyUnknownBudget(now, prior, [rekey], source), { budget: now, errors: [] });
+  assert.deepEqual(rekeyUnknownBudget(now, now, [rekey]), { budget: now, errors: [] });
+  assert.ok(rekeyUnknownBudget({ ...now, ...prior }, prior, [rekey], source).errors.length);
+  const changed = npm.replace('"integrity":"pg"', '"integrity":"different"');
+  const invalid = { ...rekey, after: { ...rekey.after, "sql/parser-locked-subgraph": sqlLockFingerprint(changed).fingerprint } };
+  assert.ok(
+    rekeyUnknownBudget({ [unknownRekeyKeys(invalid).after]: 1 }, prior, [invalid], (name, old) => (name === "package-lock.json" ? changed : source(name, old)))
+      .errors.length,
+  );
+  assert.ok(
+    rekeyUnknownBudget(now, prior, [rekey], (name, old) => (name === file && !old ? after.replace("'items'", "'secret'") : source(name, old))).errors.length,
+  );
 });
