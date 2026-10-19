@@ -140,6 +140,7 @@ import {
   PAIR_SYSTEM,
   PairSchema,
   RELATE_PROMPT_VERSION,
+  FACT_CONVERGENCE_VERSION,
   SIGNAL_SYSTEM,
   STORY_REVIEW_MIN_CONFIDENCE,
   SignalSchema,
@@ -150,6 +151,7 @@ import {
   pairUser,
   reportText,
   sameOccurrence,
+  sameOccurrenceForGrouping,
   signalTarget,
   storyForDevelopment,
   verdictsByFact,
@@ -665,7 +667,7 @@ async function assertReadingContext(articleId: string, cands: CandidateView[], r
 }
 
 /** The review model reads both reports on their own; a merge stands only when it agrees. */
-async function confirmMerge(articleId: string, query: ReportView, cand: CandidateView): Promise<{ relation: Relation; receiptId: number }> {
+async function confirmMerge(articleId: string, query: ReportView, cand: CandidateView): Promise<{ relation: Relation; confidence: number; receiptId: number }> {
   query.articleId = articleId;
   const prepared = await relationInput([query, cand.report], PAIR_SYSTEM, () => pairUser(query, cand.report));
   const res = await chatJson({
@@ -679,7 +681,7 @@ async function confirmMerge(articleId: string, query: ReportView, cand: Candidat
     temperature: 0,
     maxTokens: 2560,
   });
-  return { relation: validatedRelation(query, cand.report, res.data), receiptId: res.receiptId };
+  return { relation: validatedRelation(query, cand.report, res.data), confidence: res.data.confidence, receiptId: res.receiptId };
 }
 
 async function judgeSignal(articleId: string, query: ReportView, cands: CandidateView[]): Promise<{ verdicts: Map<number, Verdict>; receiptId: number }> {
@@ -1178,7 +1180,14 @@ async function finishGrouping(articleId: string, input: GroupRunInput, selection
     if (!manual)
       await recordDecision(tx, articleId, result.factId ?? null, result.storyId ?? null, result.verdict, [], null, {
         revision: input.revision,
-        manifest: { version: 1, recipe: BATCH_PROMPT_VERSION, materialRevision: input.revision, analysisHash: analysisHash ?? null, selection },
+        manifest: {
+          version: 1,
+          recipe: BATCH_PROMPT_VERSION,
+          factConvergenceVersion: FACT_CONVERGENCE_VERSION,
+          materialRevision: input.revision,
+          analysisHash: analysisHash ?? null,
+          selection,
+        },
       });
     await finishGroupingTx(tx, articleId, input, manual ? { addsValue: true, reason: "人工确认的归属" } : selection, null);
     await publishArticleTx(tx, articleId);
@@ -1361,22 +1370,26 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
             : "new-story";
   let factId: number | null = historical ? null : (kept?.factId ?? sameUrl?.fact_id ?? null);
   let storyId: number | null = historical ? null : (kept?.storyId ?? sameUrl?.story_id ?? null);
+  const reviewedSameOccurrence = new Set<number>();
+  const reviewCandidate = async (candidate: CandidateView) => {
+    const review = await confirmMerge(articleId, query, candidate);
+    receipts.push(review.receiptId);
+    verdicts.set(candidate.factId, { ...verdicts.get(candidate.factId)!, relation: review.relation, confidence: review.confidence });
+    if (review.relation === "SAME_OCCURRENCE") reviewedSameOccurrence.add(candidate.factId);
+    return review.relation;
+  };
   if (!historical && !composite && !unresolved && !kept && !sameUrl) {
-    for (const pick of sameOccurrence(cands, verdicts)) {
+    for (const pick of sameOccurrenceForGrouping(cands, verdicts)) {
       if (pick.score >= CONFIRM_BELOW_COSINE) {
         factId = pick.factId;
         break;
       }
-      const review = await confirmMerge(articleId, query, pick);
-      receipts.push(review.receiptId);
-      if (review.relation === "SAME_OCCURRENCE") {
+      const relation = await reviewCandidate(pick);
+      if (relation === "SAME_OCCURRENCE") {
         factId = pick.factId;
         break;
       }
-      if (review.relation === "SAME_STORY" && pick.storyRoot) {
-        storyId = pick.storyId;
-        break;
-      }
+      if (relation === "SAME_STORY" && pick.storyRoot && !storyId) storyId = pick.storyId;
     }
     if (factId) {
       verdict = "same-fact";
@@ -1388,6 +1401,12 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
         verdict = "new-fact-in-story";
         storyId = development.storyId;
       }
+    }
+    if (factId) {
+      const peers = sameOccurrenceForGrouping(cands, verdicts).filter((c) => c.storyId === storyId && c.factId !== factId);
+      // One extra pair at most establishes durable evidence for the existing bounded member repair.
+      // An unreviewed low-similarity match never authorizes a peer's recovery.
+      if (peers.length && !peers.some((c) => c.score >= CONFIRM_BELOW_COSINE || reviewedSameOccurrence.has(c.factId))) await reviewCandidate(peers[0]!);
     }
   }
   if (!composite && !unresolved && factId && cands.some((c) => c.factId === factId && c.selected))
@@ -1406,9 +1425,18 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
     else decisionCandidates.push({ id: sameUrl.fact_id, score: 1, relation: "SAME_OCCURRENCE", confidence: 1 });
   }
   const evidenceReports = [query, ...cands.flatMap((c) => [c.report, ...(c.selectedReport ? [c.selectedReport] : [])]), ...reading.map((r) => r.report)];
+  const convergingFacts = sameOccurrence(cands, verdicts)
+    .filter((c) => c.storyId === storyId && (c.score >= CONFIRM_BELOW_COSINE || reviewedSameOccurrence.has(c.factId)))
+    .map((c) => c.factId)
+    .sort((a, b) => a - b);
   const manifest = {
     version: 1,
     recipe: BATCH_PROMPT_VERSION,
+    factConvergenceVersion: FACT_CONVERGENCE_VERSION,
+    factConvergence:
+      !historical && !composite && !unresolved && convergingFacts.length > 1 && factId === convergingFacts[0]
+        ? { version: FACT_CONVERGENCE_VERSION, storyId, canonicalFactId: factId, factIds: convergingFacts }
+        : null,
     materialRevision: a.revision,
     analysisHash,
     scope: unresolved ? "unknown" : composite ? "composite" : "single",

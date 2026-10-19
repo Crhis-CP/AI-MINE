@@ -238,7 +238,7 @@
 | [TASK-0364](TASK-0364.md) | T-0101 | M3 | architect | specified | 对齐事件关系、新信息准入与公开出口去重 | — |
 | [TASK-0365](TASK-0365.md) | T-0101 | M3 | architect | specified | 对齐读者后台流程并修复审计问题 | — |
 | [TASK-0366](TASK-0366.md) | T-0101 | M3 | architect | specified | 完成至少200个真正新增信源及重点矿企核验 | — |
-| [TASK-0367](TASK-0367.md) | T-0101 | M3 | architect | specified | 全站升级、集中验收与统一发布 | — |
+| [TASK-0367](TASK-0367.md) | T-0101 | M3 | architect | implemented | 全站升级、集中验收与统一发布 | — |
 | [TASK-0368](TASK-0368.md) | T-0101 | M3 | architect | integrated | 直接数据库连接入口契约 | — |
 | [TASK-0369](TASK-0369.md) | T-0101 | M3 | architect | locally_verified | 文章分享图片资源与元数据契约 | — |
 | [TASK-0370](TASK-0370.md) | T-0101 | M3 | architect | integrated | 反馈输入与请求次数契约 | — |

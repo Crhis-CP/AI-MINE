@@ -16,6 +16,7 @@ import { promptText, promptVersion } from "../editorial/prompts.ts";
 export const GROUP_BODY_CHARS = 10_000;
 export const BATCH_PROMPT_VERSION = promptVersion("group-batch", "group-value");
 export const RELATE_PROMPT_VERSION = promptVersion("group-batch", "group-pair", "group-signal");
+export const FACT_CONVERGENCE_VERSION = "same-occurrence-canonical-v1";
 
 export const RELATIONS = ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP"] as const;
 export type Relation = (typeof RELATIONS)[number];
@@ -257,6 +258,12 @@ export function sameOccurrence(cands: CandidateView[], verdicts: Map<number, Ver
   return cands
     .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE")
     .sort((a, b) => verdicts.get(b.factId)!.confidence - verdicts.get(a.factId)!.confidence || b.score - a.score);
+}
+
+/** Keep the preferred story, but converge its confirmed duplicate facts toward one stable identity. */
+export function sameOccurrenceForGrouping(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView[] {
+  const matches = sameOccurrence(cands, verdicts);
+  return [...new Set(matches.map((c) => c.storyId))].flatMap((storyId) => matches.filter((c) => c.storyId === storyId).sort((a, b) => a.factId - b.factId));
 }
 
 /** The story a development joins: the most similar candidate that is its story's root occurrence. */

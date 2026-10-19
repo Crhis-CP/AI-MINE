@@ -28,6 +28,8 @@ export interface TranslateResult {
 type AttemptState = { attempts: number | null; outcome: string | null; reason: string | null };
 function stopReason(row: AttemptState | undefined, recovered: boolean): string | null {
   if (row?.outcome === "partial" && ["text_limit", "pending_capacity"].includes(row.reason ?? "")) return row.reason;
+  // Older cooldown-only passes consumed this counter; resume checkpoints without clearing real attempts.
+  if (row?.outcome === "partial" && row.reason === "retry_cooldown") return null;
   return row && (row.attempts ?? 0) >= 3 && row.outcome !== "translated" && !recovered ? "attempts_exhausted" : null;
 }
 async function bodyTranslationStop(articleId: string, revision: number): Promise<string | null> {
