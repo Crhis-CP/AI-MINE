@@ -101,7 +101,15 @@ export async function saveRobots(origin: string, status: number, body: string, n
     ON CONFLICT(origin) DO UPDATE SET status=EXCLUDED.status,body=EXCLUDED.body,observed_at=EXCLUDED.observed_at,expires_at=EXCLUDED.expires_at,retry_at=EXCLUDED.retry_at,error=EXCLUDED.error`;
 }
 /** Durable FIFO reservation and one actual active request across every lane/source on the same hostname. */
-export async function claimCrawlRequest(sessionId: string, key: string, url: string, intervalMs: number, nowInput: Date | undefined, timeoutMs: number) {
+export async function claimCrawlRequest(
+  sessionId: string,
+  key: string,
+  url: string,
+  intervalMs: number,
+  nowInput: Date | undefined,
+  timeoutMs: number,
+  cacheValidAfter?: Date,
+) {
   const host = new URL(url).hostname.toLowerCase(),
     id = sha256(`${sessionId}:${key}`);
   const result = await sql.begin(async (tx) => {
@@ -111,7 +119,8 @@ export async function claimCrawlRequest(sessionId: string, key: string, url: str
     const [clock] = await tx<{ now: Date }[]>`SELECT pg_catalog.clock_timestamp() AS now`;
     const now = nowInput ?? clock!.now;
     const [cached] = await tx`SELECT id,ready_at,state,lease_token,fetched_at,status,headers,body,error FROM acquisition.crawl_requests WHERE id=${id}`;
-    if (cached?.state === "done" && cached.body !== null) return { cached };
+    if (cached?.state === "done" && cached.body !== null && (!cacheValidAfter || (cached.fetched_at && new Date(cached.fetched_at) >= cacheValidAfter)))
+      return { cached };
     if (cached?.state === "blocked") return { blocked: String(cached.error) };
     const gap = Math.max(intervalMs, Number(h!.min_interval_ms));
     const ready = cached ? new Date(cached.ready_at) : new Date(Math.max(now.getTime(), new Date(h!.next_slot).getTime()));

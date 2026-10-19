@@ -105,7 +105,7 @@ function retryAfter(value: string | null, now: Date) {
   return new Date(Number.isFinite(at) ? Math.max(now.getTime(), at) : now.getTime() + 60_000);
 }
 const crawlTime = async (ctx: Context) => (ctx.virtualClock ? ctx.now() : crawlClock());
-async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap: number, robot = false): Promise<GuardedResponse> {
+async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap: number, robot = false, cacheValidAfter?: Date): Promise<GuardedResponse> {
   ctx.signal?.throwIfAborted();
   const now = await crawlTime(ctx);
   const key = stableJson([
@@ -117,7 +117,7 @@ async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap
     opts.crawlResponseHeaders ?? [],
     robot ? Math.floor(now.getTime() / 86400_000) : null,
   ]);
-  const claim = await claimCrawlRequest(ctx.sessionId, key, url, gap, ctx.virtualClock ? now : undefined, opts.timeoutMs ?? 20_000);
+  const claim = await claimCrawlRequest(ctx.sessionId, key, url, gap, ctx.virtualClock ? now : undefined, opts.timeoutMs ?? 20_000, cacheValidAfter);
   if ("cached" in claim && claim.cached) {
     if (!robot && claim.cached.status === 200 && !(await permitted(ctx, url, "store_fulltext", opts.sourceResource)))
       throw new CrawlBlocked("crawl_cached_permission_changed");
@@ -209,7 +209,9 @@ async function robots(ctx: Context, url: string) {
     try {
       let target = `${origin}/robots.txt`;
       for (let hop = 0; ; hop++) {
-        res = await request(ctx, target, { maxBytes: 512_000, maxRedirects: 0 }, ctx.minimumMs, true);
+        // An expired robots observation needs new bytes, even when this session cached its earlier HTTP error.
+        // Keep fresh redirect steps resumable across pacing waits without reusing the expired failure.
+        res = await request(ctx, target, { maxBytes: 512_000, maxRedirects: 0 }, ctx.minimumMs, true, observation?.expires_at);
         if (!(res.status >= 300 && res.status < 400 && res.headers.has("location"))) break;
         const next = new URL(res.headers.get("location")!, target),
           current = new URL(target);
