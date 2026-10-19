@@ -1,15 +1,10 @@
 {
   "note": {
     "kind": "优化",
-    "title": "精选显示与近期资讯恢复优化",
-    "body": [
-      "统一首页、关于页、搜索和文章详情的精选状态，待确认资讯继续保留阅读。",
-      "优先恢复近期候选的归组处理，并持续处理历史待办。",
-      "修复部分资讯长时间未完成归并的问题。",
-      "补充矿企官方新闻来源，保留来源与原文链接。"
-    ]
+    "title": "修复部分文章更新延迟",
+    "body": ["修复部分来源恢复后，文章仍长时间未更新的问题。", "调整异常文章的重试，减少重复等待。"]
   },
-  "fragments": ["changes/TASK-0367-selected-recovery.md", "changes/TASK-0367-group-recipe-recovery.md"],
+  "fragments": ["changes/TASK-0367-ingestion-recovery.md"],
   "announcement": {
     "kind": "公告",
     "title": "法规政策动态暂时停止更新",

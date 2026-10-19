@@ -338,8 +338,8 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
 }
 
 /**
- * Body extraction before analysis. Failures are retried a few times; after that the article is judged
- * on the excerpt it has ("unconfirmed" body, never a wrong one).
+ * Body extraction before analysis. Temporary failures are retried a few times; an oversized response
+ * cannot succeed with the same limit, so it immediately continues on its excerpt ("unconfirmed" body).
  */
 export async function registerExtractionJobs(boss: PgBoss) {
   await ensureQueue(QUEUES.extractBody);
@@ -386,8 +386,8 @@ export async function registerExtractionJobs(boss: PgBoss) {
       const resultRevision = current.revision;
       if (state === "ok" && resultRevision === inputRevision)
         await enqueue(QUEUES.republishSource, { lane: "news", sourceId: current.source_id }, { singletonKey: current.source_id });
-      const changed =
-        await sql`UPDATE articles SET processing_error = NULL WHERE id = ${articleId} AND revision=${resultRevision} AND processing_state = 'new' RETURNING id`;
+      const changed = await sql`UPDATE articles SET processing_error = NULL, processing_retry_at = NULL, processing_queued_at = NULL
+          WHERE id = ${articleId} AND revision=${resultRevision} AND processing_state = 'new' RETURNING id`;
       if (!changed.length) return { state: "stale-or-settled" };
       await queueProcessing(articleId, { step: "analyze" });
       return { state };
@@ -409,14 +409,15 @@ export async function registerExtractionJobs(boss: PgBoss) {
         return { state: "deferred", retryAt: error.retryAt.toISOString() };
       }
       const message = String(error instanceof Error ? error.message : error).slice(0, 500);
+      const oversized = error instanceof Error && error.message.startsWith("Response too large");
       const [a] = await sql<{ processing_attempts: number }[]>`
         UPDATE articles SET processing_attempts = processing_attempts + 1, processing_error = ${`extract: ${message}`},
           processing_queued_at = NULL, processing_retry_at = now() + interval '10 minutes'
-        WHERE id = ${articleId} AND revision=${inputRevision} RETURNING processing_attempts`;
+        WHERE id = ${articleId} AND revision=${inputRevision} AND processing_state = 'new' RETURNING processing_attempts`;
       if (!a) return { state: "stale" };
-      if (a.processing_attempts < MAX_EXTRACT_FAILURES) return { state: "retrying" };
-      const changed =
-        await sql`UPDATE articles SET body_status = 'unconfirmed', processing_attempts = 0, processing_retry_at = NULL WHERE id = ${articleId} AND revision=${inputRevision} AND body_status = 'pending' RETURNING id`;
+      if (!oversized && a.processing_attempts < MAX_EXTRACT_FAILURES) return { state: "retrying" };
+      const changed = await sql`UPDATE articles SET body_status = 'unconfirmed', processing_attempts = 0, processing_retry_at = NULL
+          WHERE id = ${articleId} AND revision=${inputRevision} AND processing_state = 'new' AND body_status = 'pending' RETURNING id`;
       if (!changed.length) return { state: "stale-or-settled" };
       await queueProcessing(articleId, { step: "analyze" });
       return { state: "unconfirmed" };
@@ -443,13 +444,14 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
  * A paced fetch can wait without failing the article. Keep that reason on the article, or the stuck-content
  * alert only sees a blank. Host pacing does not use up extraction attempts. A source-reader failure is not
  * pacing: it uses the same three tries as any other extract failure, then the article continues unconfirmed.
+ * Persist the same deadline as its delayed job so the safety net cannot enqueue an earlier attempt.
  */
 export async function recordExtractDeferral(articleId: string, error: CrawlDeferred, expectedRevision: number): Promise<"waiting" | "unconfirmed" | "stale"> {
   const revision = expectedRevision;
   const message = `extract: ${error.message}`.slice(0, 500);
   if (error.reason !== "source_reader_pending") {
-    const changed =
-      await sql`UPDATE articles SET processing_error = ${message} WHERE id = ${articleId} AND revision=${revision} AND processing_state = 'new' RETURNING id`;
+    const changed = await sql`UPDATE articles SET processing_error = ${message}, processing_retry_at = ${error.retryAt}, processing_queued_at = NULL
+        WHERE id = ${articleId} AND revision=${revision} AND processing_state = 'new' RETURNING id`;
     return changed.length ? "waiting" : "stale";
   }
   const [a] = await sql<{ processing_attempts: number }[]>`
