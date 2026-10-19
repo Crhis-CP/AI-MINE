@@ -7,6 +7,7 @@ import { useLocation, useNavigation } from "react-router";
 import { Collapse } from "../../components/ui/Presence.tsx";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
+import { monthDay } from "@amp/contracts/time";
 import { useReaderItemScope } from "./ContentVersionGuard";
 import { FeedItem } from "./FeedItem";
 import { IconChevronDown } from "../../components/icons";
@@ -59,8 +60,7 @@ export function DayHeader({
   onToggle?: () => void;
   aside?: React.ReactNode;
 }) {
-  const [, m, d] = day.split("-").map(Number) as [number, number, number];
-  const date = `${m}月${d}日`;
+  const date = monthDay(day, today);
   const weekday = beijingWeekday(day);
   const short = WEEKDAY_SHORT[new Date(`${day}T12:00:00+08:00`).getUTCDay()] ?? "";
   const phoneRow = (

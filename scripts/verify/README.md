@@ -1,6 +1,6 @@
 # 统一验证入口：`make verify`
 
-合并前唯一的检查入口（规则文件 [`docs/06-agents/01-parallel-development-rules.md`](../../docs/06-agents/01-parallel-development-rules.md) 第 8 节；[ADR-0017](../../docs/04-architecture/adr/0017-provider-independent-delivery.md)）。所有不需要真实模型的检查都写在仓库里，在一份干净检出上对**一个提交**运行，最后写一份绑定该提交完整 SHA 的回执。不依赖 GitHub Actions：任何满足第 6 节要求的执行器跑出的结果都一样；GitHub Actions 上的工作流只是其中一个执行者（第 7 节）。
+合并前唯一的检查入口（规则文件 [`docs/06-agents/01-parallel-development-rules.md`](../../docs/06-agents/01-parallel-development-rules.md) 第 8 节；[ADR-0017](../../docs/04-architecture/adr/0017-provider-independent-delivery.md)）。所有不需要真实模型的检查都写在仓库里，在一份干净检出上对**一个提交**运行，最后写一份绑定该提交完整 SHA 的回执。验证命令可由满足第6节要求的执行器运行；当前主分支保护另要求真实GitHub Actions应用15368的strict `make-verify`通过。命令可移植不等于可以绕过平台必过检查（Owner 2026-10-15授权，2026-10-19复核）。
 
 | 命令 | 什么时候用 | 跑什么 | 回执 |
 |---|---|---|---|
@@ -132,7 +132,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 - **回执在哪**：写在运行日志和运行摘要页里，集成人照旧贴到 PR 评论。有阶段失败时，运行日志里接着打出这个阶段的完整日志：控制台只显示最后 25 行，运行结束后 runner 上的文件也不在了。打出的日志只当文字，不当工作流命令。
 - **日志是公开的**：仓库公开，运行日志谁都能看，失败阶段的整段日志也一样。工作流不用任何密钥，`make verify` 的各阶段拿不到真实凭据；`compose-smoke` 的日志里会有一次性站点的临时管理员口令，站点随即删掉，无害。以后加阶段或改脚本，输出里也不能出现真实凭据。
 - **它不是什么**：
-  - 不是必过检查：分支保护按规则文件 8.5 的 A 阶段，不设“必须通过检查”，免得 Actions 不可用时谁也合并不了（PIT-055）；
+  - 2026-10-15以前曾不是平台必过检查；现已按Owner授权成为strict必过检查，旧A阶段结束（规则文件8.5）；
   - 不构建、签名或推送发布镜像，不部署，不定时运行；
   - 只有 `contents: read` 权限，不用任何密钥，检出不留凭据。
 - **形状由 `toolchain` 阶段核对**，13 条，每条至少一个违规用例：
@@ -150,14 +150,14 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
   12. 不设服务容器与作业容器，数据库由 `ci-db.ts` 起；
   13. 有一步只跑 `make verify SHA="$HEAD_SHA"`，不接别的命令、不带条件。规则核对的是这一步的写法（换 `shell`、设 `MAKEFLAGS` 之类不在其列），合并仍以回执为准。
 - **Actions 用不了时**：
-  - M0 期间：沿用 08-owner-voice DEC-24 ② 的做法。云端容器的 focused 回执通过、独立审查没有阻断项，就可以合并，合并后在项目对话里说一声；PR 评论写明缺 `compose-smoke`、原因是 Actions 不可用。Actions 恢复后，在 main 的头上手动运行一次，补出 `scope: full` 的回执，记进 T-0001 验收记录。期限是 M0 退出前。
+  - 已结束的M0历史例外（当前不可使用）：当时沿用08-owner-voice DEC-24 ②的做法。云端容器的 focused 回执通过、独立审查没有阻断项，就可以合并，合并后在项目对话里说一声；PR 评论写明缺 `compose-smoke`、原因是 Actions 不可用。Actions 恢复后，在 main 的头上手动运行一次，补出 `scope: full` 的回执，记进 T-0001 验收记录。期限是 M0 退出前。
   - M0 之后：没有这个例外，等 Actions 恢复；focused 回执照旧不能用来合并（规则文件 8.3）。要不要另备一个不依赖 GitHub、能跑 `compose-smoke` 的执行器，M0 退出前写 Q 卡片请 Owner 定。
 
 ### 模块语法检查
 
 `boundaries` 使用当前固定 TypeScript 版本的原生 AST，在只含待查源码的虚拟文件系统中解析，不执行源码。字符串、反引号、转义、静态拼接与 createRequire 别名进入同一模块图；无法确定的动态模块路径、模块URL/绝对路径/未建模的包内别名被拒绝。仅查询串变化保留固定模块身份；web顶层的固定build/server/index.js载入单独核对，不允许改为任意目录。SQL、注释与JSX文本中的类似字样不会被当作导入。该检查验证源码模块依赖，不是对任意动态执行代码的运行时沙箱。
 
-双API冒烟分别以隔离的合成环境启动public-api、private-api与web；检查两端health、正反路由和经web的真实登录选项，退出时等待三个进程清理。生产Compose静态检查同时要求web和public-api满足各自凭据边界，缺少public-api会失败。
+当前主拓扑为统一api与web；验证保留旧public-api/private-api兼容拓扑的隔离矩阵，检查health、正反路由和经web的登录选项，退出后清理进程。生产Compose静态检查以当前服务角色和web凭据边界为准，不要求已退役的public-api服务重新出现。
 
 `role-config` 在完整验证中于迁移之后执行真实角色、授权和公开路由矩阵；缺数据库只会记录 skipped，不能产生 full 通过。快速检查只做静态配置和纯授权规划。角色测试清单与其余后端测试互斥且覆盖全集，同一完整运行不重复执行；单独运行 `npm test` 仍包含全部后端测试。
 

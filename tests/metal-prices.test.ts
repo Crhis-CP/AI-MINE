@@ -118,7 +118,7 @@ test("the fourth-version registry preserves source facts, five active bureau quo
   assert.equal(registry.intro, "官方机构定期发布的金属价格，注明出处。不是实时行情。");
   assert.deepEqual(
     registry.frequencies.find((f) => f.key === "ten_day"),
-    { key: "ten_day", tag: "旬", compare: "旬价比上一旬" },
+    { key: "ten_day", tag: "旬", compare: "旬价比上一有效期" },
   );
   const domesticNotes = registry.notes.filter((note) => note.sources?.includes("nbs"));
   assert.ok(domesticNotes.some((note) => note.text.includes("转自国家统计局网站 https://www.stats.gov.cn")));

@@ -78,6 +78,7 @@ let policyMode: "full" | "empty" | "error" | "withdrawn" | "reading_error" | "re
 const policyFixture = (name: string) => JSON.parse(readFileSync(new URL(`../../../tests/fixtures/policy-public/${name}.json`, import.meta.url), "utf8"));
 function syntheticPrices() {
   const period = { start: "2026-09-11", end: "2026-09-20", label: "合成报价期" };
+  const previous = { start: "2026-07-01", end: "2026-07-31", label: "合成跨期基期" };
   const q = (key: string, source: string, value: string | null, percent: string | null, decimals: number | null = null) => ({
     key,
     source,
@@ -89,7 +90,7 @@ function syntheticPrices() {
     currency: "CNY",
     decimals,
     period: value ? period : null,
-    change: percent ? { percent, previous: { value: "100.0", period } } : null,
+    change: percent ? { percent, previous: { value: "100.0", period: previous } } : null,
   });
   const data = publicSchemas.MetalPrices.parse({
     generatedAt: "2026-10-06T04:00:00Z",
@@ -1113,8 +1114,8 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   const table = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
   const text = table.replace(/<[^>]+>/g, "");
   assert.match(text, /品种报价价格变化规格/);
-  assert.ok(text.includes("较上一交易日") && text.includes("较上月"));
-  assert.doesNotMatch(text, /较上期/);
+  assert.ok(text.includes("对比 合成跨期基期"));
+  assert.doesNotMatch(text, /较上周|较上一旬|较上月|较上一交易日|紧挨/);
   assert.match(table, /scope="rowgroup" rowspan="2"/i);
   for (const value of ["合成甲", "合成乙", "合成报价 a", "甲", "乙", "合成规格", "108,770.0", "64.60", "+1.0%", "−1.6%", "0.0%", "暂缺"])
     assert.ok(text.includes(value), value);

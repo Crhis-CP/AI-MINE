@@ -23,7 +23,7 @@ test("two source entrances to the same current document reuse its fact without a
   const prefix = tag();
   const url = `https://example.com/news/${prefix}`;
   const ids: string[] = [];
-  for (const suffix of ["rss", "list", "json"]) {
+  for (const suffix of ["rss", "list", "json", "latest"]) {
     const sourceId = `same-url-${prefix}-${suffix}`;
     await sql`INSERT INTO sources(id,name,kind,tier,site_fulltext) VALUES(${sourceId},'合成来源','rss','T1',true)`;
     await grantDateFixture(sourceId, [url]);
@@ -54,5 +54,12 @@ test("two source entrances to the same current document reuse its fact without a
   const third = await groupArticle(ids[2]!);
   assert.equal(third.verdict, "same-url", "an older unproven membership must not hide the current matching source");
   assert.equal(third.factId, Number(fact!.id));
+  assert.equal(provider.hits(), 0);
+  const [withdrawnFact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${tag()},${story!.id},'已撤回归属') RETURNING id`;
+  await sql`UPDATE fact_articles SET input_revision=1,fact_id=${withdrawnFact!.id} WHERE article_id=${ids[0]!}`;
+  await sql`UPDATE publications SET operator_withdrawn=true WHERE article_id=${ids[0]!}`;
+  const fourth = await groupArticle(ids[3]!);
+  assert.equal(fourth.verdict, "same-url");
+  assert.equal(fourth.factId, Number(fact!.id), "a withdrawn early same-URL membership cannot hide a later current one");
   assert.equal(provider.hits(), 0);
 });

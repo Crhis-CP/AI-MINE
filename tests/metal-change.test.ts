@@ -55,7 +55,7 @@ test("a daily price compares with the previous trading day, including across a w
   );
 });
 
-test("a weekly price compares with the date seven days earlier, and a monthly price with the previous month", () => {
+test("weekly, ten-day and monthly prices may compare with an earlier effective period across a missing release", () => {
   assert.equal(
     metalChangeIssue(
       row({
@@ -80,7 +80,7 @@ test("a weekly price compares with the date seven days earlier, and a monthly pr
     ),
     null,
   );
-  assert.match(
+  assert.equal(
     metalChangeIssue(
       row({
         tag: "周",
@@ -88,10 +88,10 @@ test("a weekly price compares with the date seven days earlier, and a monthly pr
         period: { start: "2026-10-02", end: "2026-10-02" },
         change: { percent: "-0.6", previous: { value: "111975", period: { start: "2026-09-18", end: "2026-09-18" } } },
       }),
-    ) ?? "",
-    /正好早 7 天/,
+    ),
+    null,
   );
-  assert.match(
+  assert.equal(
     metalChangeIssue(
       row({
         tag: "月",
@@ -99,9 +99,15 @@ test("a weekly price compares with the date seven days earlier, and a monthly pr
         period: { start: "2026-09-01", end: "2026-09-30" },
         change: { percent: "-2.1", previous: { value: "4411", period: { start: "2026-07-01", end: "2026-07-31" } } },
       }),
-    ) ?? "",
-    /上个月/,
+    ),
+    null,
   );
+  const current = { start: "2026-10-11", end: "2026-10-20" };
+  const previous = { start: "2026-09-21", end: "2026-09-30" };
+  const quote = row({ tag: "旬", value: "110", period: current, change: { percent: "10.0", previous: { value: "100", period: previous } } });
+  assert.equal(metalChangeIssue(quote), null);
+  for (const period of [current, { start: "2026-10-21", end: "2026-10-31" }, { start: "2026-10-01", end: "2026-10-11" }])
+    assert.match(metalChangeIssue({ ...quote, change: { ...quote.change!, previous: { value: "100", period } } }) ?? "", /本期之前/);
 });
 
 test("a reversed direction fails, and a missing previous period does not invent a rise or fall", () => {

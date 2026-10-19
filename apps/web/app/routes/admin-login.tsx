@@ -1,7 +1,7 @@
 import { apiFetch } from "../lib/http.ts";
 // Admin sign-in: the admin password (ADMIN_PASSWORD), and Feishu when it is configured. The form posts
 // straight to the API, which sets the session cookie and sends the browser on.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLoaderData } from "react-router";
 import type { Route } from "./+types/admin-login";
 import { SITE } from "@amp/industry/site";
@@ -47,34 +47,56 @@ export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-stor
 export default function AdminLogin() {
   const { returnTo, error, password, feishu, changed } = useLoaderData<typeof loader>();
   const [nonce, setNonce] = useState(""),
-    [nonceError, setNonceError] = useState("");
-  useEffect(() => {
-    let active = true;
+    [nonceError, setNonceError] = useState(""),
+    [verificationCleared, setVerificationCleared] = useState(false),
+    [busy, setBusy] = useState(false);
+  const nonceRequest = useRef<AbortController | null>(null);
+  const submitting = useRef(false);
+  const refreshNonce = useCallback(async () => {
+    nonceRequest.current?.abort();
     const controller = new AbortController();
-    const refresh = () => {
-      if (active) setNonce("");
-      apiFetch("/api/auth/password-nonce", { signal: controller.signal, method: "GET", baseUrl: "" })
-        .then(async (r) => {
-          const parsed = privateSchemas.LoginNonce.safeParse(await r.json());
-          if (!r.ok || !parsed.success) throw new Error();
-          if (active) {
-            setNonce(parsed.data.token);
-            setNonceError("");
-          }
-        })
-        .catch(() => {
-          if (active) setNonceError("登录验证暂时无法取得，请稍后刷新重试。");
-        });
-    };
-    refresh();
-    const timer = setInterval(refresh, 4 * 60_000);
-    return () => {
-      active = false;
-      controller.abort();
-      clearInterval(timer);
-    };
+    nonceRequest.current = controller;
+    setNonce("");
+    setNonceError("");
+    let limited = false;
+    try {
+      const response = await apiFetch("/api/auth/password-nonce", {
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        baseUrl: "",
+      });
+      limited = response.status === 429;
+      const parsed = privateSchemas.LoginNonce.safeParse(await response.json());
+      if (!response.ok || !parsed.success) throw new Error("Login verification unavailable");
+      if (nonceRequest.current !== controller || controller.signal.aborted) return null;
+      setNonce(parsed.data.token);
+      setVerificationCleared(true);
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("error") === "verification") {
+        url.searchParams.delete("error");
+        window.history.replaceState(window.history.state, "", url);
+      }
+      return parsed.data.token;
+    } catch {
+      if (nonceRequest.current === controller && !controller.signal.aborted)
+        setNonceError(limited ? "登录验证请求过多，请稍后再试。" : "登录验证暂时无法取得，请稍后再次点击登录；已填写的内容会保留。");
+      return null;
+    } finally {
+      if (nonceRequest.current === controller) nonceRequest.current = null;
+    }
   }, []);
-  const message = nonceError || (error ? (ERRORS[error] ?? ERRORS.wrong) : !password ? ERRORS.unset : null);
+  useEffect(() => {
+    setVerificationCleared(error !== "verification");
+    void refreshNonce();
+    return () => {
+      nonceRequest.current?.abort();
+      nonceRequest.current = null;
+    };
+  }, [error, refreshNonce]);
+  const currentError = error === "verification" && verificationCleared ? null : error;
+  const message = nonceError || (currentError ? (ERRORS[currentError] ?? ERRORS.wrong) : !password ? ERRORS.unset : null);
   return (
     <div className="flex min-h-dvh items-center justify-center bg-bg px-4">
       <div className="w-full max-w-[360px]">
@@ -82,7 +104,30 @@ export default function AdminLogin() {
           <Wordmark size={26} className="text-ink" />
           <span className="text-[15px] font-semibold text-ink-3">后台</span>
         </div>
-        <form method="post" action="/api/auth/password" className="card mt-8 p-6">
+        <form
+          method="post"
+          action="/api/auth/password"
+          className="card mt-8 p-6"
+          aria-busy={busy}
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (submitting.current || !password) return;
+            const form = event.currentTarget;
+            submitting.current = true;
+            setBusy(true);
+            // A sleeping page or another tab may have replaced the HttpOnly ticket. Renew it
+            // immediately before the native POST, without retaining or replaying the password.
+            const token = await refreshNonce();
+            if (!token || !form.isConnected || !form.reportValidity()) {
+              submitting.current = false;
+              if (form.isConnected) setBusy(false);
+              return;
+            }
+            // React may not have committed the hidden value yet. Submit this exact response.
+            (form.elements.namedItem("login_nonce") as HTMLInputElement).value = token;
+            HTMLFormElement.prototype.submit.call(form);
+          }}
+        >
           <input type="hidden" name="return" value={returnTo} />
           <input type="hidden" name="login_nonce" value={nonce} />
           {changed && (
@@ -99,6 +144,7 @@ export default function AdminLogin() {
             type="text"
             autoComplete="username"
             autoCapitalize="none"
+            readOnly={busy}
             spellCheck={false}
             autoFocus
             maxLength={128}
@@ -116,6 +162,7 @@ export default function AdminLogin() {
             name="password"
             type="password"
             autoComplete="current-password"
+            readOnly={busy}
             required
             maxLength={256}
             className="mt-2 h-10 w-full rounded-full border border-line-strong bg-surface px-4 text-[14px] text-ink outline-none transition-colors focus:border-accent"
@@ -125,8 +172,8 @@ export default function AdminLogin() {
               {message}
             </p>
           )}
-          <button type="submit" disabled={!nonce || !password} className={`${buttonClass("primary", "lg")} mt-5 w-full`}>
-            登录
+          <button type="submit" disabled={!password || busy || (!nonce && !nonceError)} className={`${buttonClass("primary", "lg")} mt-5 w-full`}>
+            {busy ? "正在登录…" : "登录"}
           </button>
           {feishu && (
             <a href={`/api/auth/feishu?${new URLSearchParams({ return: returnTo })}`} className={`${buttonClass("secondary", "lg")} mt-3 w-full`}>

@@ -359,10 +359,11 @@ export async function fetchMachineReportItems(ids: string[]): Promise<Map<string
   return new Map(rows.map((row) => [row.id, { ...row, summary: row.machine_summary }]));
 }
 
-/** Event ranking reads only these published timestamps inside the caller's existing transaction. */
-export async function readEventPublicationTimes(articleIds: string[], db: Db) {
+/** Version, withdrawal and original time for event evidence, inside the caller's transaction. */
+export async function readGroupingEvidencePublications(articleIds: string[], db: Db) {
   if (!articleIds.length) return [];
-  return db<{ article_id: string; published_at: Date | null; discovered_at: Date; order_time: string }[]>`SELECT article_id,published_at,discovered_at,
+  return db<{ article_id: string; revision: number; withdrawn: boolean; order_time: string }[]>`
+    SELECT article_id,revision,(visibility='withdrawn' OR operator_withdrawn) AS withdrawn,
     (extract(epoch from coalesce(published_at,discovered_at))*1000000)::bigint::text AS order_time
     FROM publications WHERE article_id=ANY(${articleIds}::text[])`;
 }
@@ -399,6 +400,14 @@ export async function readGroupingSelectionSnapshot(excludeArticleId: string, fa
 
 export function readConfirmedGroupingItems(ids: string[], db: Db = sql) {
   return readGroupingSelectionSnapshot("", [], db, ids);
+}
+
+/** Current public seats of the requested inputs; withdrawn or unreleased copies are never repair candidates. */
+export async function selectedGroupingRecipeInputs(ids: string[], db: Db) {
+  if (!ids.length) return [];
+  return db<{ article_id: string; source_id: string; fact_id: number | null }[]>`SELECT article_id,source_id,fact_id FROM publications p
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND ${confirmedSelected()} AND p.seat AND p.visible_after<=now()
+      AND NOT p.operator_withdrawn`;
 }
 
 /** Historical sync cursors carry only today's publishable selected seats and current corrections. */

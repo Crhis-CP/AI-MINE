@@ -1,10 +1,16 @@
 {
   "note": {
     "kind": "优化",
-    "title": "修复部分文章更新延迟",
-    "body": ["修复部分来源恢复后，文章仍长时间未更新的问题。", "调整异常文章的重试，减少重复等待。"]
+    "title": "优化精选归组与文章更新",
+    "body": [
+      "改进同一公告及配套解读的归组，减少重复精选，并逐步修复已有重复内容。",
+      "修复部分来源恢复后，文章仍长时间未更新的问题。",
+      "完善文章日期识别和跨年日期显示。",
+      "修复后台登录页停留较久后，登录验证容易失效的问题。",
+      "金属价格遇到停发期时，按已有的上一有效报价比较，并写明实际比较日期。"
+    ]
   },
-  "fragments": ["changes/TASK-0367-ingestion-recovery.md"],
+  "fragments": ["changes/TASK-0367-ingestion-recovery.md", "changes/TASK-0367-upgrade-closure.md"],
   "announcement": {
     "kind": "公告",
     "title": "法规政策动态暂时停止更新",

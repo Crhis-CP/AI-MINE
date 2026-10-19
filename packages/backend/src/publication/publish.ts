@@ -1,4 +1,8 @@
-import { newsMaterialBindings } from "../content/materials.ts";
+import { isHistorical, newsMaterialBindings } from "../content/materials.ts";
+import { groupingAnalysisHash } from "../enrichment/records.ts";
+import { deferHistoricalSelection } from "../events/group.ts";
+import { recomputeSelection } from "./selection-recompute.ts";
+import { audit } from "../admin/auth.ts";
 import { pendingSourceTimeProjectionIds } from "./items.ts";
 import { materialSourceTime } from "../content/date-evidence.ts";
 import { sourceDateConfiguration } from "../admin/sources.ts";
@@ -79,6 +83,7 @@ interface ArticleRow {
 
 interface AnalysisRow {
   id: number;
+  prompt_version: string | null;
   input_revision: number;
   relevance: string | null;
   output: unknown;
@@ -99,6 +104,7 @@ interface OverrideRow {
 
 interface PublicationRow {
   article_id: string;
+  analysis_id: number | null;
   first_public_at: Date | null;
   first_publication_observed: boolean;
   company_context?: ReturnType<typeof verifiedCompanyContext>;
@@ -217,6 +223,13 @@ export async function publishArticle(articleId: string, options: PublishOptions 
   return sql.begin((tx) => publishArticleTx(tx, articleId, options));
 }
 
+/** Grouping reads the effective nomination only when it belongs to the same saved analysis. */
+export async function groupingSelectionCandidate(articleId: string, analysisId: number, db: Db = sql) {
+  const [row] = await db<{ selection_candidate: boolean }[]>`SELECT selection_candidate FROM publications
+    WHERE article_id=${articleId} AND analysis_id=${analysisId}`;
+  return row?.selection_candidate === true;
+}
+
 /** Worker rechecks current scope, source licence and withdrawal before any translation request. */
 export async function prepareTranslation(articleId: string): Promise<number | null> {
   let revision: number | null = null;
@@ -253,7 +266,7 @@ export async function publishArticleTx(
   if (!dateProjection) return null;
   const { time: sourceTime, configHash: timeConfigHash } = dateProjection;
   const [storedAnalysis] = await tx<AnalysisRow[]>`
-    SELECT id, input_revision, relevance, output, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
+    SELECT id, input_revision, prompt_version, relevance, output, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
   const [override] = await tx<OverrideRow[]>`SELECT fields, visibility FROM editorial_overrides WHERE article_id = ${articleId}`;
   const [membership] = await tx<{ fact_id: number; story_id: number | null; fact_public_id: string; story_public_id: string | null }[]>`
@@ -312,7 +325,8 @@ export async function publishArticleTx(
     .parse(Array.isArray(f.tags) ? f.tags : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
-  const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
+  const recomputed = analysis && typeof f.selected !== "boolean" ? recomputeSelection(analysis, source.tier, article.timeline_at, now, previous) : null;
+  const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (recomputed?.selected ?? analysis?.selected ?? null);
   const chineseCopy = !!title && !!displaySummary && looksZh(title) && looksZh(displaySummary);
   const translation = !nativeChinese && article.body_html ? await readStoredTranslation(articleId, tx) : null;
   const wholeChinese =
@@ -342,8 +356,21 @@ export async function publishArticleTx(
     isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary }) &&
     (!article.backfill || article.published_at !== null || !!options.releasedAt);
   const selectionCandidate = isSelectable(eligible, judgedSelected, source.tier);
+  const waitingForCoverage =
+    selectionCandidate &&
+    typeof f.selected !== "boolean" &&
+    analysis !== undefined &&
+    analysis.selected !== true &&
+    isHistorical(article) &&
+    visibility === "public" &&
+    !operatorWithdrawn &&
+    article.grouping_status === "complete" &&
+    article.grouping_input_revision === article.revision &&
+    article.selection_adds_value === true &&
+    (await deferHistoricalSelection(articleId, article.revision, groupingAnalysisHash({ ...analysis, selected: false }), tx));
   const selected =
     selectionCandidate &&
+    !waitingForCoverage &&
     article.grouping_status === "complete" &&
     article.grouping_input_revision === article.revision &&
     (f.selected === true || article.selection_adds_value === true);
@@ -458,6 +485,18 @@ export async function publishArticleTx(
         indexable: previous.indexable,
       });
   const wasPublic = !!previous && previous.visibility !== "withdrawn" && previous.eligible;
+  if (recomputed?.evidence && previous?.selection_candidate !== selectionCandidate) {
+    await audit(
+      "worker",
+      "selection.recompute",
+      `article:${articleId}`,
+      "来源分级门槛变更，复用原两次评分",
+      { selected: previous?.selected ?? null, selectionCandidate: previous?.selection_candidate ?? null },
+      { ...recomputed.evidence, selected, selectionCandidate, promptVersion: analysis!.prompt_version },
+      undefined,
+      tx,
+    );
+  }
   const reduced =
     wasPublic &&
     (visibility === "withdrawn" ||
@@ -740,7 +779,13 @@ export async function lockReportPublications(ids: string[], db: Db) {
   if (ids.length) await db`SELECT article_id FROM publications WHERE article_id=ANY(${ids}::text[]) ORDER BY article_id FOR SHARE`;
 }
 
-export { newsRelationJurisdictions, publicNewsDigestInput, readGroupingSelectionSnapshot, readConfirmedGroupingItems } from "./items.ts";
+export {
+  newsRelationJurisdictions,
+  publicNewsDigestInput,
+  readGroupingSelectionSnapshot,
+  readConfirmedGroupingItems,
+  selectedGroupingRecipeInputs,
+} from "./items.ts";
 export type { GroupingSelectionSnapshot } from "./items.ts";
 
 export async function publishedStoryId(articleId: string, tx: Tx): Promise<number | null> {
@@ -748,7 +793,7 @@ export async function publishedStoryId(articleId: string, tx: Tx): Promise<numbe
   return row?.story_id ?? null;
 }
 
-export { readEventPublicationTimes } from "./items.ts";
+export { readGroupingEvidencePublications } from "./items.ts";
 
 /** Bounded server maintenance for existing records. Only time fields and their sync projection change; no model call or re-scoring. */
 export async function repairPublicationTimes(limit = 100) {

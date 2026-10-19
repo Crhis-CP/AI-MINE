@@ -108,3 +108,9 @@ Agent共用中文答案参考AIHOT `4947ad0` 的 `publication/agent.ts` 与 `rou
 手机页面标题/返回交互与worker退出470秒等待参考AIHOT `4947ad0` 的 PhoneBar、jobs/queue.ts、apps/worker/src/main.ts；本站继续保留原生React Router阅读恢复、数据库根关闭围栏和正式发布锁。
 
 代理侧DNS解析与固定CONNECT地址、HTTP跳转请求约束参考AIHOT `4947ad0` 的lib/egress-proxy.ts、http-fetch.ts及对应测试；保留原MIT登记。本站继续拒绝生产私网与元数据地址，不启用额外私网白名单。后台日期校正、正文展示预览和反馈小时控制参考同版本admin/content.ts、operations/feedback.ts；本站保留原文日期精度、人工操作、角色隔离及180天反馈留存。
+
+## 2026-10-19 固定最新对照
+
+Owner再次要求按最新代码核对原18项目标。本轮固定为AIHOT `6d82afb854e863ba3456d320820a57a8771ea29f`，相对此前4947新增2个提交、5个文件。英文日期中at的读取及跨年Timeline日标题参考该版 `sources/dates.ts`、`packages/contracts/src/time.ts` 和 `apps/web/app/features/feed/Timeline.tsx`，适配本站严格时区证据、日期精度与北京时间。原MIT版权、NOTICE和历史移植记录继续保留。
+
+归组源码在4947至6d82之间没有变化；本次另按同版 `events/recall.ts` 核对并补齐公开修订驱动的单篇向量缓存、候选资格在排名前过滤。本站使用各数据所有者的窄读取接口实现，保留内容许可、人工归属/撤回/暂停和现有代表稿规则。晚发配套解读与历史重复精选的矿业语义修复由本站实现，未复制参考行业示例，也不宣称整库逐字一致。

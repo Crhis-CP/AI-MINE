@@ -1,5 +1,15 @@
 # ADR-0017：不依赖 GitHub Actions 的验证与交付【新增】
 
+## 当前实现与后续Owner授权（2026-10-19）
+
+下文保留最初决定及设计，当前运行状态以本节区分。2026-10-15授权的主分支规则24400438现已要求最新基线上的`make-verify`，无管理员绕过；不再使用M0的focused例外。最终PR和正式发布提交均须有非生产Docker完整`make verify`证据。
+
+`Makefile`与`scripts/verify/run.ts`将`release-check`和`nightly`明确保留为失败的规划入口。SBOM/离线签名/受保护信任根链尚未实施，本轮不声称通过、不把SHA-256当成签名，也不生成、替换或禁用现有信任根。本文第5至7条继续作为独立签名交付链的设计，不能描述为生产现状。
+
+Owner于2026-10-19再次明确本轮使用既有`deploy/production-release.sh`持锁统一上线。这条实际发布链要求已审查的最终SHA完整验证、归档内容/tree及哈希核对、正式锁、现役检查、备份、受控构建迁移、源站/公网健康、失败回退和现役加两个必要回退版本保留。执行结果与自然任务/手机验收单独记录；合并和完整验证不触发自动部署。已有签名机制若另行安装仍须遵守，不能通过文档修改关闭它。
+
+## 历史决定与设计
+
 - 状态：【Owner 决定】已接受——承接旧ADR-0038（Owner 2026-09-26 批准：“GitHub Actions 如果不是必须，以后不用”；PR-only、线性历史、版本绑定、可信制品、授权和回退不取消；`docs/architecture/decisions/0038-provider-independent-delivery.md:3-47@policy`）。验证入口、回执、信任根与部署授权的具体做法为【设计】工程基线（裁决 DEC-17；D12-architecture-011、D15-secops-004）。
 - 2026-10-03 更新（GitHub Actions；08-owner-voice DEC-25 ③，TASK-0015）：
   - Owner 决定使用 GitHub Actions：新仓库是公开仓库（2026-10-03 读回），GitHub 托管的 runner 对公开仓库不计费。按“推翻条件”，它只作为第 3 条里的一个执行者：工作流 `.github/workflows/verify.yml` 跑的就是 `make verify`，同一套阶段、同一份回执，形状由 `make verify` 的 `toolchain` 阶段核对；其余条款不变（M0 期间有一个例外，见下面“Actions 不可用时”），生产照旧不依赖 Actions（第 10 条）。

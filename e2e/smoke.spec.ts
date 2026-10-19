@@ -26,6 +26,119 @@ const test = base.extend<{ site: Awaited<ReturnType<typeof startBrowserSite>> }>
   },
 });
 
+test("login renews an expired or other-tab ticket before one native password submission", async ({ page, context, site }) => {
+  const blocked = await isolateBrowser(context, [site.privateOrigin]);
+  let issued = 0;
+  let currentToken = "";
+  let now = Date.parse(FIXED_TIME);
+  let expires = 0;
+  const ticket = (sequence: number) => `synthetic_login_ticket_${sequence}`.padEnd(43, "_");
+  let releaseSubmit!: () => void;
+  const submitReady = new Promise<void>((resolve) => {
+    releaseSubmit = resolve;
+  });
+  const posts: Array<{ token: string | null; cookie: string; name: string | null; password: string | null }> = [];
+  await context.route(`${site.privateOrigin}/api/auth/password-nonce`, async (route) => {
+    const token = ticket(++issued);
+    if (issued === 3) await submitReady;
+    currentToken = token;
+    expires = now + 300_000;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "cache-control": "no-store", "set-cookie": `amp_login_nonce=${token}; Path=/; HttpOnly; SameSite=Lax` },
+      body: JSON.stringify({ token, expires_at: new Date(expires).toISOString() }),
+    });
+  });
+  await context.route(`${site.privateOrigin}/api/auth/password`, async (route) => {
+    const data = new URLSearchParams(route.request().postData() ?? "");
+    const posted = {
+      token: data.get("login_nonce"),
+      cookie: (await route.request().headerValue("cookie")) ?? "",
+      name: data.get("login_name"),
+      password: data.get("password"),
+    };
+    posts.push(posted);
+    const verified = expires > now && posted.token === currentToken && posted.cookie.includes(`amp_login_nonce=${currentToken}`);
+    currentToken = "consumed";
+    await route.fulfill({
+      status: verified ? 200 : 400,
+      contentType: "text/html; charset=utf-8",
+      body: verified ? "<h1>合成登录完成</h1>" : "<h1>合成验证失败</h1>",
+    });
+  });
+  await page.clock.setFixedTime(new Date(now));
+  await page.goto(`${site.privateOrigin}/admin/login?return=%2Fadmin&error=verification`);
+  await expect(page.locator('input[name="login_nonce"]')).toHaveValue(ticket(1));
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/error=verification/);
+  await page.getByLabel("登录名", { exact: true }).fill("synthetic.operator");
+  await page.getByLabel("密码", { exact: true }).fill("synthetic-password");
+  now += 6 * 60_000;
+  await page.clock.setFixedTime(new Date(now));
+  const other = await context.newPage();
+  await other.goto(`${site.privateOrigin}/admin/login`);
+  await expect(other.locator('input[name="login_nonce"]')).toHaveValue(ticket(2));
+  await expect(page.locator('input[name="login_nonce"]')).toHaveValue(ticket(1));
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect.poll(() => issued).toBe(3);
+  await expect(page.getByRole("button", { name: "正在登录…", exact: true })).toBeDisabled();
+  await page.locator("form").evaluate((form: HTMLFormElement) => form.requestSubmit());
+  expect(issued).toBe(3);
+  expect(posts).toHaveLength(0);
+  const submission = page.waitForResponse((response) => response.url() === `${site.privateOrigin}/api/auth/password` && response.request().method() === "POST");
+  releaseSubmit();
+  const submitted = await submission;
+  expect(posts).toEqual([{ token: ticket(3), cookie: `amp_login_nonce=${ticket(3)}`, name: "synthetic.operator", password: "synthetic-password" }]);
+  expect(submitted.status()).toBe(200);
+  expect(submitted.headers()["content-type"]).toBe("text/html; charset=utf-8");
+  await expect(page.getByRole("heading", { name: "合成登录完成" })).toBeVisible();
+  expect(blocked).toEqual([]);
+  await other.close();
+});
+
+test("login keeps entered credentials after ticket failure and ignores a response after leaving", async ({ page, context, site }) => {
+  const blocked = await isolateBrowser(context, [site.privateOrigin]);
+  let issued = 0;
+  let posts = 0;
+  let releaseLate!: () => void;
+  const lateResponse = new Promise<void>((resolve) => {
+    releaseLate = resolve;
+  });
+  await context.route(`${site.privateOrigin}/api/auth/password-nonce`, async (route) => {
+    const sequence = ++issued;
+    if (sequence === 2) return route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+    if (sequence === 3) await lateResponse;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ token: `synthetic-retry-ticket-${sequence}`, expires_at: new Date(Date.parse(FIXED_TIME) + 300_000).toISOString() }),
+    });
+  });
+  await context.route(`${site.privateOrigin}/api/auth/password`, async (route) => {
+    posts++;
+    await route.abort();
+  });
+  await page.goto(`${site.privateOrigin}/admin/login`);
+  await expect(page.getByRole("button", { name: "登录", exact: true })).toBeEnabled();
+  await page.getByLabel("登录名", { exact: true }).fill("synthetic.operator");
+  await page.getByLabel("密码", { exact: true }).fill("synthetic-password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("已填写的内容会保留");
+  await expect(page.getByLabel("登录名", { exact: true })).toHaveValue("synthetic.operator");
+  await expect(page.getByLabel("密码", { exact: true })).toHaveValue("synthetic-password");
+  await expect(page.getByRole("button", { name: "登录", exact: true })).toBeEnabled();
+  expect(posts).toBe(0);
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect.poll(() => issued).toBe(3);
+  await page.getByRole("link", { name: /回到/ }).click();
+  releaseLate();
+  await expect(page).toHaveURL(`${site.privateOrigin}/`);
+  await expect(page.locator('input[name="password"]')).toHaveCount(0);
+  expect(posts).toBe(0);
+  expect(blocked).toEqual([]);
+});
+
 test("production empty reader, private Host boundary and WCAG smoke", async ({ page, context, browser, site }, info) => {
   const blocked = await isolateBrowser(context, [site.publicOrigin, site.privateOrigin, site.badOrigin]);
   const violations: CspViolation[] = [];

@@ -73,7 +73,7 @@
 |---|---|---|
 | `packages/contracts/src/common/**`（ID、时间值类型、错误体 `{code,message,request_id,retry_after_seconds?}`、分页、`lane` 枚举） | 集成人 | 公共类型只有集成人修改；其他泳道提需求 |
 | `packages/contracts/src/<module>/**` | 对应模块泳道 | 追加类变更通过漂移检查与破坏性检测即可自行合并；弃用与破坏类须架构 Agent 批准（第 5.2 节） |
-| 根配置（`package.json`、`pnpm-workspace.yaml`、`tsconfig.base.json`、`Makefile`、`scripts/verify*`、`lanes.yaml`、`.github/` 下的非 PR 模板文件）与锁文件 `pnpm-lock.yaml` | 集成人 | 其他泳道提需求，不直接改；依赖升级走“仅依赖升级”的 PR 通道（依赖审计阻断时） |
+| 根配置（`package.json`、`tsconfig.base.json`、`Makefile`、`scripts/verify*`、`lanes.yaml`、`.github/` 下的非 PR 模板文件）与锁文件 `package-lock.json` | 集成人 | 其他泳道提需求，不直接改；依赖升级走“仅依赖升级”的 PR 通道（依赖审计阻断时） |
 | `apps/api`、`apps/worker` 的注册清单 | 各泳道追加 | 只允许“每模块一行、按字母序”的追加；逻辑归 `runtime` 泳道；路径守卫对“一模块一行”放行 |
 | `packages/ui/**` | `web` 泳道（主）+ `private` 泳道（追加） | 新组件可追加；改已有组件的属性需同时修复所有使用处 |
 | `industry/**` | 按文件分：`seed/` 归 `sources`；`prompts/<capability>/` 归能力所在泳道；品牌与站点文案归 `web`；法域与分类字典归 `sources`（写入走规格 PR） | **产品参数（分类、门槛、文案）的 Owner 确认走规格 PR**，不靠文件所有权；**矿业版评分标准（`industry/prompts/selection-score` 等）生效前必须先经 Owner 审阅确认**（路线图 T-0323，DEC-10），未确认的版本不得用于正式站精选 |
@@ -95,7 +95,7 @@
 
 ## 4. 边界如何被机器强制
 
-全部检查都在 `make verify` 里（第 8 节）；工具取最小集（ADR-0015）：`package.json#exports` 白名单 + pnpm 严格依赖图 + 约 50 行的工作区依赖图脚本 + Biome `noRestrictedImports`；不采用 dependency-cruiser。
+全部检查都在 `make verify` 里（第 8 节）；工具取最小集（ADR-0015）：`package.json#exports` 白名单 + npm工作区依赖图 + 约 50 行的工作区依赖图脚本 + Biome `noRestrictedImports`；不采用 dependency-cruiser。
 
 | 边界 | 强制手段 | 失败表现 |
 |---|---|---|
@@ -161,7 +161,7 @@
   → 泳道 Agent 认领（同一泳道同时最多 2 个进行中任务）
   → 从最新 main 建分支 agent/<lane>/TASK-nnnn-<slug>（同一工作对象复用一个分支与工作区）
   → 实现 + 测试 + 文档 + 产品更新片段（同一 PR）；每个检查点提交并保持草稿 PR
-  → 提交前跑 `pnpm check`（快速子集）
+  → 提交前跑 `npm run check`（快速子集）
   → 在独立执行器上对 PR 最终 SHA 跑 `make verify`，回执贴在 PR（第 8 节）
   → 审查 Agent 审查（第 7 节，最多两轮）
   → 集成人核对回执与审查结论后 squash 合并（第 6.4 节，一次一个）
@@ -229,16 +229,16 @@ GitHub 合并队列要求检查对 `merge_group` 事件同样回报，而检查�
 
 ## 8. 验证与合并（取代原“CI 门禁”）
 
-> **执行器可替换，规则不变。** 检查由仓库内受跟踪、版本化的 `make verify` 实现，在**任一**独立执行器上对指定完整 SHA 的干净检出运行，结果以“提交版本 + 回执”为准。Owner 已批准不依赖 GitHub Actions（旧ADR-0038，2026-09-26；ADR-0017；ANTI-20）：执行器不可用时换一个执行器跑同样的检查，而不是跳过检查；2026-10-03 起 GitHub Actions 是执行器之一，只跑 `.github/workflows/verify.yml`（公开仓库、不计费、不是必过检查；08-owner-voice DEC-25 ③，ADR-0017 的 2026-10-03 更新，TASK-0015）；**新闻与法规的采集、加工、发布永远不依赖任何执行器或托管平台**（INV-29）。
+> **执行器可替换，规则不变。** 检查由仓库内受跟踪、版本化的 `make verify` 实现，在**任一**独立执行器上对指定完整 SHA 的干净检出运行，结果以“提交版本 + 回执”为准。Owner 已批准不依赖 GitHub Actions（旧ADR-0038，2026-09-26；ADR-0017；ANTI-20）：执行器不可用时换一个执行器跑同样的检查，而不是跳过检查；2026-10-03 起 GitHub Actions 是执行器之一；2026-10-15 Owner授权规则24400438后，`.github/workflows/verify.yml`对应的`make-verify`已成为最新主分支上的必过检查（历史授权见DEC-25，当前规则见repository-governance.md）；**新闻与法规的采集、加工、发布永远不依赖任何执行器或托管平台**（INV-29）。
 
 ### 8.1 入口与命令
 
 | 命令 | 用途 | 说明 |
 |---|---|---|
-| `pnpm check` | 提交前的快速子集 | 类型检查、Biome、边界脚本、契约漂移、受影响工作区的 `node:test` |
+| `npm run check` | 提交前的快速子集 | 类型检查、Biome、边界脚本、契约漂移、受影响工作区的 `node:test` |
 | `make verify` | **合并前必过** | 下表全部阶段；在指定完整 SHA 的干净检出上运行；产出回执 |
-| `make release-check` | 发布前必过 | 制品构建、镜像扫描、SBOM、签名、容量与冒烟（ADR-0017） |
-| `make nightly` | 夜间任务（显式启动） | 全量 E2E、容量基准；由集成人或本机定时任务启动；**不含真实模型评测**，也不假设云端 cron |
+| `make release-check` | 规划入口，当前明确失败 | SBOM/签名等阶段尚未实现；不得报通过。当前Owner指定的发布入口为`deploy/production-release.sh`，按最终SHA完整验证、制品核对、持锁备份/构建/迁移/健康切换留证；见ADR-0017当前实现说明。 |
+| `make nightly` | 规划入口，当前明确失败 | 不当作已部署的夜间任务；真实E2E属于完整verify，容量按授权只读实测。 |
 
 根 `AGENTS.md` 写明：**提交前跑 `check`；合并前以 `verify` 回执为准**。结构测试与自检脚本只断言“存在并执行统一入口”，**不得断言某个 CI 工作流文件存在**（旧 `REQUIRED_PATHS` 教训）。
 
@@ -246,14 +246,14 @@ GitHub 合并队列要求检查对 `merge_group` 事件同样回报，而检查�
 
 | 阶段 | 内容 | 来源 |
 |---|---|---|
-| `install` | `pnpm install --frozen-lockfile`，锁文件不变 | ADR-0015 |
+| `install` | `npm ci`，锁文件不变 | ADR-0015 |
 | `format-lint` / `typecheck` | Biome（格式 + lint 一个工具）；`tsc` | ADR-0015 |
 | `boundaries` / `data-ownership` / `role-config` | 第 4 节全部边界检查（含数据库角色真实登录测试、按角色配置校验） | 03-module-map §3.3 |
-| `contracts` | Zod→OpenAPI→`api-client` 漂移（`pnpm contracts:gen` 干净克隆逐字节一致）、示例回放、契约哈希 | DEC-31 |
+| `contracts` | Zod→OpenAPI 漂移（`npm run contracts:gen` 干净克隆逐字节一致）、示例回放、契约哈希 | DEC-31 |
 | `path-guard` | 第 3.3 节 | D18-delivery-006 |
 | `migrations` | 空库全量执行、已合并迁移哈希、模块 schema 归属、迁移 lint、在上一版本数据快照上执行 | ADR-0003 |
 | `test` | 单元与模块集成（`node:test`、临时 PostgreSQL 模板库克隆、假模型服务、录制的信源响应）；**不访问外网与真实模型** | `05-quality/03-testing-standards.md` |
-| `secrets` / `audit` | 密钥扫描（PR 差异）、`pnpm audit --audit-level=high`（允许“仅依赖升级”的 PR 通道） | `04-architecture/02-tech-stack.md` 7.2 |
+| `secrets` / `audit` | 密钥扫描（PR 差异）、`npm audit --audit-level=high`（允许“仅依赖升级”的 PR 通道） | `04-architecture/02-tech-stack.md` 7.2 |
 | `e2e-smoke` | Playwright 桌面 + 手机、axe；需带浏览器依赖的执行器 | L4 |
 | `product-update` | 有用户可见变化时必须有合法的 `changes/*.md` 片段（类型枚举、平实中文字段校验） | BR-SITE-01 |
 | `docs` | 链接有效、编号唯一且被引用处存在；起点是 `tools/validate_package.py`，扩展到 F-/BR-/PG-/AC-/INV-/PIT-/Q- 编号 | README |
@@ -276,12 +276,12 @@ GitHub 合并队列要求检查对 `merge_group` 事件同样回报，而检查�
     "sha": "<40 位完整提交>",
     "tree": "<tree 哈希>",
     "main_head_at_start": "<开始时 main 头>",
-    "lockfile_sha256": "<pnpm-lock.yaml 哈希>",
+    "lockfile_sha256": "<package-lock.json 哈希>",
     "tracked_and_untracked_clean_at_start": true,
     "tracked_and_untracked_clean_at_end": true
   },
   "task_card": "TASK-0000",
-  "executor": { "id": "<执行器编号>", "os": "linux", "arch": "amd64", "docker": "<版本>", "node": "<版本>", "pnpm": "<版本>", "postgres": "<版本>" },
+  "executor": { "id": "<执行器编号>", "os": "linux", "arch": "amd64", "docker": "<版本>", "node": "<版本>", "npm": "<版本>", "postgres": "<版本>" },
   "started_at": "<ISO 时间>",
   "finished_at": "<ISO 时间>",
   "stages": [ { "name": "boundaries", "status": "pass", "duration_s": 0 } ],
@@ -293,26 +293,23 @@ GitHub 合并队列要求检查对 `merge_group` 事件同样回报，而检查�
 }
 ```
 
-规则（旧ADR-0038:19-29@policy）：首尾校验 HEAD、tree、已跟踪与未跟踪文件状态、锁文件；拒绝替换对象、隐藏修改、错误提交、失败、中断与漂移；**不含环境变量、凭据、个人路径、主机名**；不得把假目标或部分检查记成完整通过；回执缺 `secret_scan` 或 `audit` 项视为未通过。**无签名回执只是执行记录，不构成生产信任**，生产信任来自 `make release-check` 的签名制品（ADR-0017 第 5、6 条）。`scope: focused` 的回执（只跑部分工作区，缺 Docker 的本机只能如此）**不得用于合并，也不得宣称完整通过**。“不得用于合并”在 M0 期间有一个例外，见 ADR-0017 的 2026-10-03 更新（08-owner-voice DEC-24 ②）。
+规则（旧ADR-0038:19-29@policy）：首尾校验 HEAD、tree、已跟踪与未跟踪文件状态、锁文件；拒绝替换对象、隐藏修改、错误提交、失败、中断与漂移；**不含环境变量、凭据、个人路径、主机名**；不得把假目标或部分检查记成完整通过；回执缺 `secret_scan` 或 `audit` 项视为未通过。**哈希和无签名回执不构成签名证明**；ADR-0017第5、6条为尚未实施的签名链设计，当前正式发布的实际授权、制品来源与内容核对、锁和回退证据另行登记，不伪称该规划入口已通过。`scope: focused` 的回执（只跑部分工作区，缺 Docker 的本机只能如此）**不得用于合并，也不得宣称完整通过**。M0曾有例外，现已结束；不得再引用ADR-0017的2026-10-03过渡条款以局部验证合并。
 
 ### 8.4 执行环境规格（M0 交付物，T-0001）
 
-Linux（amd64 优先）+ Docker / Compose + 临时 PostgreSQL（经 `DATABASE_URL`，库名须以 `_test` 或 `_ci` 结尾）+ 浏览器依赖 + 锁定的 Node 与 pnpm 版本；**不含生产凭据与模型密钥；不得是生产主机**（ADR-0017 第 3 条；旧ADR-0038 明确不用生产小主机作 runner，同时旧主机资源也不足以现场构建）；执行器的测试沙箱不持有 Checks 写入权、制品签名或云凭据（`docs/policy-upgrade/actions-transition.md:106@policy`：否则等于让任何 PR 都能花 Owner 的钱）。默认形态：开发机上的隔离 Linux 虚拟机（ANTI-21：不在 Owner 的电脑上验收）；需要按量租用云主机时先请示费用（第 14 节）。ARM 本地验证与 Linux AMD64 制品核验分开，不由宿主机测试推断镜像架构正确。
+Linux（amd64 优先）+ Docker / Compose + 临时 PostgreSQL（经 `DATABASE_URL`，库名须以 `_test` 或 `_ci` 结尾）+ 浏览器依赖 + 锁定的 Node 与 npm 版本；**不含生产凭据与模型密钥；不得是生产主机**（ADR-0017 第 3 条；旧ADR-0038 明确不用生产小主机作 runner，同时旧主机资源也不足以现场构建）；执行器的测试沙箱不持有 Checks 写入权、制品签名或云凭据（`docs/policy-upgrade/actions-transition.md:106@policy`：否则等于让任何 PR 都能花 Owner 的钱）。默认形态：开发机上的隔离 Linux 虚拟机（ANTI-21：不在 Owner 的电脑上验收）；需要按量租用云主机时先请示费用（第 14 节）。ARM 本地验证与 Linux AMD64 制品核验分开，不由宿主机测试推断镜像架构正确。
 
-### 8.5 必过检查的来源与分支保护（两阶段，避免死锁）
+### 8.5 必过检查的来源与分支保护
 
-旧项目的真实死结：必过检查绑定 Actions 应用，托管平台的 Actions 额度（费用）耗尽后任何 PR 都无法合并，本机又缺 Docker 跑不完 `make verify`（`docs/policy-upgrade/actions-transition.md:24-34@policy`）。新仓库按两阶段处理：
+2026-10-15经Owner授权启用、10月19日再次读回的现行规则为24400438：默认分支要求PR、解决审查讨论、线性历史、禁止强推与删除，推送撤销旧批准，没有绕过actor。必须通过真实GitHub Actions应用15368发布的`make-verify`，且`strict=true`、基于最新main。只允许squash/rebase；合并后自动删除来源分支。准确PR提交的完整回执与合并后main完整复验分别保存；同名status、旧提交或局部回执不替代真实检查。
 
-| 阶段 | 做法 | 状态标注 |
-|---|---|---|
-| **A：现在（默认）** | 分支保护只开 ADR-0017 保留的项：PR-only、线性历史、禁止强推与删除、审查对话须解决、管理员同受约束；**不设“必须通过检查”的平台保护**；合并由集成人按第 6.4 节核对回执执行 | 【Owner 决定】基线；“回执核对”是流程约束，**不是平台强制**，须如实标注，不得说成“已强制检查” |
-| **B：Owner 授权后** | 注册仅限本仓库的最小 GitHub App（`checks:write`），由受控外围进程核验真实回执后发布 `verify` 检查；分支保护按该 App 的**真实 app_id** 绑定（禁止 `app_id=-1` 或同名 status 冒充）；**该 App 实际发布过一次真实检查之前，不得开启“必须通过检查才可合并”**；切换时先证明新检查真实运行、再交接（旧项目做法） | 需 Owner 逐项授权（第 14 节：启用 Actions/注册 runner、修改分支保护均须授权） |
-
-`strict`（必须基于最新 main）的代价：开启则每合并一个 PR，其余 PR 的回执失效、须重新 rebase 并重跑，成本随泳道数线性上升，由集成人串行合并（取代合并队列）；不开启则合并后立即对新 main 复验并准备回退。阶段 A 默认按“合并前已含 main 头 + 合并后复验”执行（第 6.4 节），代价写在交付 ADR（ADR-0017）里。**2026-10-03 补注（TASK-0015）**：Owner 决定使用 GitHub Actions 后，A 阶段不变：Actions 的运行只是一个执行者的结果，不设为必过检查，合并仍由集成人核对 PR 最终提交的回执。工作流叫 `make verify (GitHub Actions)`、作业叫 `make-verify`，不叫 `verify`，免得与 B 阶段由 App 发布的 `verify` 检查同名。
+早期A阶段“不设必过检查”和M0 focused例外是已结束的历史过渡安排；原B阶段另建GitHub App的提案也不是当前实现。当前工作流仍叫`make verify (GitHub Actions)`，作业叫`make-verify`。检查额度或执行环境不足时保留失败/阻塞事实，不能降低保护；新的执行器、检查来源或保护变更仍须Owner明确授权。
 
 ### 8.6 部署与制品
 
-合并后**不自动部署生产**；部署是独立、可回退的操作（ADR-0012、ADR-0017）：镜像在执行器上按 SHA 构建（linux/amd64），附 manifest（镜像 digest 清单）、SBOM 与离线签名；生产主机只接受受信公钥签名的制品，按 digest 拉取；信任根由 Owner 一次性授权设定，更换须显式授权，**不能先关验签来上线**；公开响应带发布标识头，外部读回该头才算“已上线”；回滚也要验收；发布成功且健康后才幂等登记产品更新（BR-SITE-01）。详见 `04-architecture/07-deployment-and-ops.md`。**代码、内容指针、数据三类回退分开演练**，不用 revert 宣称数据已恢复（B:delivery/02 M5）。
+合并不自动部署生产。当前Owner授权的正式入口为`deploy/production-release.sh`：最终准确SHA先在非生产环境通过完整验证，再核对归档内容树与哈希；正式发布全程持有既有release.lock，保存程序/数据库/运行配置的必要回退，按该版本构建、增量迁移、健康切换和失败恢复。上线须外部读回版本及真实页面，健康后才幂等登记产品更新；代码、内容指针和数据回退分别核对，不能用revert宣称数据已恢复。保留现役及两个必要回退版本。
+
+ADR-0017原设计中的执行器产出签名镜像、manifest/SBOM、受信公钥与离线验签链尚未实施；`release-check`和`nightly`仍明确失败，不伪称执行通过。现行哈希核对不构成签名证明。本轮没有关闭已有验签，也不新建或更换信任根来绕过Owner选择；后续实现该设计须单独交付并取得相应授权。详见ADR-0017的当前实现说明及`04-architecture/07-deployment-and-ops.md`的历史设计。
 
 ### 8.7 评测与验证分开
 

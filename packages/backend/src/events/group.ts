@@ -1,21 +1,23 @@
 import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
-import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
+import { readGroupingAnalysis, groupingAnalysisHash, groupingScopeInputs } from "../enrichment/records.ts";
 import {
   readMaterialGrouping,
   beginMaterialGrouping,
   completeMaterialGrouping,
   failMaterialGrouping,
   confirmedGroupingMaterials,
+  resumeCompletedGroupingRecipe,
 } from "../content/grouping.ts";
 import { isModelRouteWaiting } from "../providers/model-fallback.ts";
 import { z } from "zod";
 import { isValidDate } from "@amp/contracts/time";
 import {
   newsRelationJurisdictions,
-  readEventPublicationTimes,
+  readGroupingEvidencePublications,
   readGroupingSelectionSnapshot,
   readConfirmedGroupingItems,
+  groupingSelectionCandidate,
   type GroupingSelectionSnapshot,
 } from "@amp/backend/publication/publish";
 import { newsRelationMaterials, newsMaterialBindings, lockNewsModelMaterials, lockMaterialForGrouping } from "@amp/backend/content/materials";
@@ -191,11 +193,17 @@ interface ArticleRow {
   backfill: boolean;
 }
 
-interface PoolRow {
+interface ReportMembership {
   article_id: string;
+  input_revision: number | null;
+  manual: boolean;
+}
+
+interface PoolRow extends ReportMembership {
   fact_id: number;
   story_id: number;
   fact_title: string;
+  publication_revision: number;
 }
 
 interface Recalled {
@@ -220,25 +228,40 @@ function trusted(alias: "x" | "z" | "fa") {
   return sql`(fa.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=fa.article_id))`;
 }
 
+/** Qualify before ranking or choosing a representative, so obsolete members cannot consume candidate slots. */
+async function qualifiedReports<T extends ReportMembership>(rows: T[], db: Db = sql, withWaiting = false) {
+  const ids = [...new Set(rows.map((row) => row.article_id))];
+  const [materials, confirmations, publications, scopes] = await Promise.all([
+    newsMaterialBindings(ids, db),
+    withWaiting ? [] : confirmedGroupingMaterials(ids, db),
+    readGroupingEvidencePublications(ids, db),
+    groupingScopeInputs(ids, db),
+  ]);
+  const current = new Map(materials.map((row) => [row.id, row.revision]));
+  const confirmed = new Map(confirmations.map((row) => [row.id, row.revision]));
+  const published = new Map(publications.map((row) => [row.article_id, row]));
+  const composite = new Set(scopes.filter((row) => row.scope === "composite").map((row) => row.article_id));
+  return rows.flatMap((row) => {
+    const revision = current.get(row.article_id);
+    const publication = published.get(row.article_id);
+    if (revision === undefined || publication?.withdrawn || composite.has(row.article_id)) return [];
+    if (!row.manual && (revision !== row.input_revision || (!withWaiting && confirmed.get(row.article_id) !== revision))) return [];
+    return [{ ...row, material_revision: revision, publication_revision: publication?.revision ?? 0, order_time: publication?.order_time ?? null }];
+  });
+}
+
 /** Empty facts do not start a story; trusted report time wins, then fact ID. */
 async function storyRootFacts(storyIds: number[], db: Db = sql): Promise<Map<number, number>> {
   if (!storyIds.length) return new Map();
-  const members = await db<{ story_id: number; fact_id: number; article_id: string }[]>`
-    SELECT y.story_id,y.id AS fact_id,z.article_id FROM facts y
+  const rows = await db<(ReportMembership & { story_id: number; fact_id: number })[]>`
+    SELECT y.story_id,y.id AS fact_id,z.article_id,z.input_revision,z.manual FROM facts y
     JOIN fact_articles z ON z.fact_id=y.id AND z.role IN ('primary','report')
     WHERE y.story_id=ANY(${storyIds}) AND (z.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=z.article_id))`;
-  const times = new Map(
-    (
-      await readEventPublicationTimes(
-        members.map((m) => m.article_id),
-        db,
-      )
-    ).map((p) => [p.article_id, BigInt(p.order_time)]),
-  );
+  const members = await qualifiedReports(rows, db);
   const roots = new Map<number, { factId: number; at: bigint }>();
   for (const member of members) {
-    const at = times.get(member.article_id);
-    if (at === undefined) continue;
+    if (member.order_time === null) continue;
+    const at = BigInt(member.order_time);
     const before = roots.get(member.story_id);
     if (!before || at < before.at || (at === before.at && member.fact_id < before.factId)) roots.set(member.story_id, { factId: member.fact_id, at });
   }
@@ -247,13 +270,17 @@ async function storyRootFacts(storyIds: number[], db: Db = sql): Promise<Map<num
 
 /** Reports of the recall window that belong to a live fact; those waiting for a regroup only when asked for (the warm-up). */
 async function recallPool(withWaiting = false): Promise<PoolRow[]> {
-  return sql<PoolRow[]>`
+  return qualifiedReports(
+    await sql<Omit<PoolRow, "publication_revision">[]>`
     SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title
     FROM fact_articles fa
     JOIN facts f ON f.id = fa.fact_id
     JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
     JOIN articles a ON a.id = fa.article_id
-    WHERE fa.role IN ('primary', 'report') AND (${withWaiting} OR fa.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=fa.article_id)) AND a.discovered_at > now() - make_interval(days => ${RECALL_DAYS})`;
+    WHERE fa.role IN ('primary', 'report') AND (${withWaiting} OR fa.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=fa.article_id)) AND a.discovered_at > now() - make_interval(days => ${RECALL_DAYS})`,
+    sql,
+    withWaiting,
+  );
 }
 
 /** The public title and summary of reports (the analysis when a report has no publication yet). */
@@ -270,16 +297,18 @@ async function reportTexts(ids: string[]): Promise<Map<string, string>> {
 
 // Vectors of the recall window stay in the worker process; only new or changed texts are embedded
 // (and stored) again. Grouping is serial, so one process holds the whole window.
-const vectorCache = new Map<string, { hash: string; vector: Float32Array }>();
+const vectorCache = new Map<string, { revision: number | undefined; hash: string; vector: Float32Array }>();
 
-async function vectorsFor(items: Array<{ id: string; text: string }>): Promise<Map<string, Float32Array>> {
+async function vectorsFor(items: Array<{ id: string; text: string; revision?: number }>): Promise<Map<string, Float32Array>> {
   const out = new Map<string, Float32Array>();
-  const missing: Array<{ id: string; text: string; hash: string }> = [];
+  const missing: Array<{ id: string; text: string; revision?: number; hash: string }> = [];
   for (const it of items) {
     const hash = sha256(it.text);
     const cached = vectorCache.get(it.id);
-    if (cached && cached.hash === hash) out.set(it.id, cached.vector);
-    else missing.push({ ...it, hash });
+    if (cached && cached.hash === hash) {
+      if (it.revision !== undefined) cached.revision = it.revision;
+      out.set(it.id, cached.vector);
+    } else missing.push({ ...it, hash });
   }
   if (missing.length) {
     const got = await ensureEmbeddings(
@@ -290,7 +319,7 @@ async function vectorsFor(items: Array<{ id: string; text: string }>): Promise<M
       const v = got.get(m.id);
       if (!v) continue;
       const vector = Float32Array.from(v);
-      vectorCache.set(m.id, { hash: m.hash, vector });
+      vectorCache.set(m.id, { revision: m.revision, hash: m.hash, vector });
       out.set(m.id, vector);
     }
   }
@@ -371,21 +400,29 @@ async function recallFacts(queryId: string, queryText: string, minScore: number,
     if (!embeddingsAvailable()) {
       await considerLexical();
     } else {
-      // Window members already in the cache keep their vector (a later revision of their text is
-      // picked up when the cache turns over); only new members and the query are embedded now.
+      // Publication changes reload the current text; unchanged text still reuses its vector.
       // A missing or mismatched vector falls back to lexical overlap. A vector that exists and scores
       // under the cosine bar does not: a low cosine is a reject, not a missing measurement.
       const ids = [...new Set(pool.map((r) => r.article_id))];
-      const uncached = ids.filter((id) => !vectorCache.has(id));
+      const revisions = new Map(pool.map((row) => [row.article_id, row.publication_revision]));
+      const cached = new Map<string, Float32Array>();
+      for (const id of ids) {
+        const hit = vectorCache.get(id);
+        if (hit && hit.revision === revisions.get(id)) cached.set(id, hit.vector);
+      }
+      const uncached = ids.filter((id) => !cached.has(id));
       const texts = await reportTexts(uncached);
-      const fresh = await vectorsFor([{ id: queryId, text: queryText }, ...uncached.map((id) => ({ id, text: texts.get(id) ?? "" })).filter((x) => x.text)]);
+      const fresh = await vectorsFor([
+        { id: queryId, text: queryText },
+        ...uncached.map((id) => ({ id, text: texts.get(id) ?? "", revision: revisions.get(id) })).filter((x) => x.text),
+      ]);
       const mine = fresh.get(queryId);
       if (!mine) {
         await considerLexical();
       } else {
         const missing = new Set<string>();
         for (const r of pool) {
-          const v = fresh.get(r.article_id) ?? vectorCache.get(r.article_id)?.vector;
+          const v = fresh.get(r.article_id) ?? cached.get(r.article_id);
           if (!v || v.length !== mine.length) {
             missing.add(r.article_id);
             continue;
@@ -438,22 +475,8 @@ async function candidateViews(recalled: Recalled[], db?: Db, excludeArticleId = 
     JOIN sources s ON s.id = p.source_id
     WHERE fa.fact_id = ANY(${recalled.map((r) => r.factId)}) AND fa.article_id<>${excludeArticleId} AND fa.role IN ('primary', 'report') AND ${trusted("fa")}
     ORDER BY fa.fact_id, (fa.role = 'primary') DESC, p.timeline_at ASC`;
-  const materials = await newsMaterialBindings(
-    rows.map((r) => r.article_id),
-    db,
-  );
-  const confirmed = new Map(
-    (
-      await confirmedGroupingMaterials(
-        rows.map((r) => r.article_id),
-        db,
-      )
-    ).map((r) => [r.id, r.revision]),
-  );
-  const qualified = rows.filter((r) =>
-    materials.some((m) => m.id === r.article_id && (r.manual || (m.revision === r.input_revision && confirmed.get(r.article_id) === m.revision))),
-  );
-  const byFact = new Map<number, (typeof rows)[number]>();
+  const qualified = await qualifiedReports(rows, db);
+  const byFact = new Map<number, (typeof qualified)[number]>();
   for (const row of qualified) if (!byFact.has(Number(row.fact_id))) byFact.set(Number(row.fact_id), row);
   const selected = await readGroupingSelectionSnapshot(
     "",
@@ -463,7 +486,7 @@ async function candidateViews(recalled: Recalled[], db?: Db, excludeArticleId = 
   return recalled.flatMap((r) => {
     const row = byFact.get(r.factId);
     if (!row) return [];
-    const visible = selected.filter((item) => item.fact_id === r.factId);
+    const visible = selected.filter((item) => item.fact_id === r.factId && qualified.some((member) => member.article_id === item.article_id));
     const selectedReport = visible.length ? selectionReport(pickRepresentative(visible)) : null;
     return [
       {
@@ -477,7 +500,7 @@ async function candidateViews(recalled: Recalled[], db?: Db, excludeArticleId = 
         selectedReport,
         report: {
           articleId: row.article_id,
-          revision: materials.find((m) => m.id === row.article_id)!.revision,
+          revision: row.material_revision,
           title: row.title,
           source: row.source,
           firstParty: row.first_party,
@@ -811,13 +834,14 @@ async function redirectEmptiedStories(articleId: string, left: number[], storyId
 
 /** The live fact another report of the same page belongs to. */
 async function sameUrlFact(a: ArticleRow): Promise<PoolRow | null> {
-  const [sameUrl] = await sql<(PoolRow & { input_revision: number | null; manual: boolean })[]>`
+  const [sameUrl] = await qualifiedReports(
+    await sql<Omit<PoolRow, "publication_revision">[]>`
     SELECT fa.article_id, fa.fact_id, fa.input_revision, fa.manual, f.story_id, f.title AS fact_title
     FROM articles b JOIN fact_articles fa ON fa.article_id = b.id AND fa.role IN ('primary', 'report')
     JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
-    WHERE b.url = ${a.url} AND b.id <> ${a.id} AND (fa.manual OR fa.input_revision=b.revision) AND ${trusted("fa")} ORDER BY fa.created_at LIMIT 1`;
-  if (!sameUrl || sameUrl.manual) return sameUrl ?? null;
-  return (await newsRelationMaterials([sameUrl.article_id]))[0]?.revision === sameUrl.input_revision ? sameUrl : null;
+    WHERE b.url = ${a.url} AND b.id <> ${a.id} AND (fa.manual OR fa.input_revision=b.revision) AND ${trusted("fa")} ORDER BY fa.created_at`,
+  );
+  return sameUrl ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -837,6 +861,10 @@ async function storyRoot(storyId: number, db?: Db): Promise<StoryRoot | null> {
   if (!db) return sql.begin("isolation level repeatable read read only", (tx) => storyRoot(storyId, tx));
   const root = (await storyRootFacts([storyId], db)).get(storyId);
   if (root === undefined) return null;
+  const members = await db<ReportMembership[]>`SELECT article_id,input_revision,manual FROM fact_articles fa
+    WHERE fact_id=${root} AND role IN ('primary','report') AND ${trusted("fa")}`;
+  const qualified = await qualifiedReports(members, db);
+  const ids = qualified.map((member) => member.article_id);
   const [row] = await db<
     {
       article_id: string;
@@ -858,22 +886,22 @@ async function storyRoot(storyId: number, db?: Db): Promise<StoryRoot | null> {
     SELECT fa.article_id,fa.input_revision,fa.manual, f.subject, f.action, f.object, f.occurred_at, p.title, p.summary, s.name AS source, p.first_party,
            coalesce(p.published_at, p.discovered_at) AS at,
            (SELECT min(coalesce(q.published_at, q.discovered_at)) FROM fact_articles z JOIN publications q ON q.article_id = z.article_id
-            WHERE z.fact_id = f.id AND z.role IN ('primary', 'report') AND ${trusted("z")}) AS started_at,
+            WHERE z.fact_id = f.id AND z.role IN ('primary', 'report') AND z.article_id=ANY(${ids}::text[]) AND ${trusted("z")}) AS started_at,
            EXISTS (SELECT 1 FROM grouping_decisions d WHERE d.article_id = fa.article_id AND d.verdict = 'roundup') AS roundup
     FROM facts f
     JOIN fact_articles fa ON fa.fact_id = f.id AND fa.role IN ('primary', 'report') AND ${trusted("fa")}
     JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
-    WHERE f.id = ${root}
-    ORDER BY (fa.role = 'primary') DESC, p.timeline_at ASC
-    LIMIT 1`;
-  if (!row || (!row.manual && (await newsRelationMaterials([row.article_id], db))[0]?.revision !== row.input_revision)) return null;
+    WHERE f.id = ${root} AND fa.article_id=ANY(${ids}::text[])
+    ORDER BY (fa.role = 'primary') DESC, p.timeline_at ASC LIMIT 1`;
+  if (!row) return null;
   return {
     storyId,
     at: row.started_at,
     roundup: row.roundup,
     report: {
       articleId: row.article_id,
+      revision: qualified.find((member) => member.article_id === row.article_id)!.material_revision,
       title: row.title,
       source: row.source,
       firstParty: row.first_party,
@@ -1079,6 +1107,27 @@ export interface GroupOptions {
   force?: boolean;
 }
 
+/** A newly nominated archive needs the formal coverage path, while human grouping remains authoritative. */
+export async function deferHistoricalSelection(articleId: string, revision: number, analysisHash: string, db: Db) {
+  if (await manualDecision(db, articleId)) return false;
+  const [decision] = await db<{ input_revision: number | null; verdict: string; input_manifest: Record<string, unknown> | null }[]>`
+    SELECT input_revision,verdict,input_manifest FROM grouping_decisions WHERE article_id=${articleId} ORDER BY id DESC LIMIT 1`;
+  const manifest = decision?.input_manifest;
+  if (
+    decision?.input_revision === revision &&
+    decision.verdict === "historical" &&
+    manifest?.materialRevision === revision &&
+    manifest.analysisHash === analysisHash &&
+    Array.isArray(manifest.reports) &&
+    Array.isArray(manifest.candidates)
+  )
+    return false;
+  // Only a model-free completion is resumed. An unproved paid pointer cannot admit a selected seat.
+  // The existing pending sweep enqueues this CAS; the old decision and any paid receipt stay intact.
+  await resumeCompletedGroupingRecipe({ id: articleId, revision, receipt_id: null }, db);
+  return true;
+}
+
 export async function requestArticleRegroup(articleId: string, db: Db = sql): Promise<boolean> {
   if (db === sql) return sql.begin((tx) => requestArticleRegroup(articleId, tx));
   await db`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
@@ -1129,7 +1178,7 @@ async function finishGrouping(articleId: string, input: GroupRunInput, selection
     if (!manual)
       await recordDecision(tx, articleId, result.factId ?? null, result.storyId ?? null, result.verdict, [], null, {
         revision: input.revision,
-        manifest: { version: 1, materialRevision: input.revision, analysisHash: analysisHash ?? null, selection },
+        manifest: { version: 1, recipe: BATCH_PROMPT_VERSION, materialRevision: input.revision, analysisHash: analysisHash ?? null, selection },
       });
     await finishGroupingTx(tx, articleId, input, manual ? { addsValue: true, reason: "人工确认的归属" } : selection, null);
     await publishArticleTx(tx, articleId);
@@ -1228,13 +1277,18 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   const source = { id: a.source_id };
   const publication = await requireRuntimeRunning("news", ["publication"]),
     processing = await runtimeControlSnapshot("news", ["processing"]);
-  const mustReset = !!opts.force || a.regroup_pending || a.stale_membership || isHistorical(a) || !!(await currentMembership(articleId, a.revision));
+  const historical = isHistorical(a);
+  const mustReset = !!opts.force || a.regroup_pending || a.stale_membership || historical || !!(await currentMembership(articleId, a.revision));
   let left = mustReset ? await resetAutomatic(articleId, await runtimeControlSnapshot("news", ["processing", "publication"]), input) : [];
-  if (isHistorical(a)) return finishGrouping(articleId, input, { addsValue: true, reason: "历史资料按原文时间归档" }, { verdict: "historical" });
-  if (opts.signalOnly || a.participation_mode !== "editorial") return groupSignal(a, source, observedAt, input);
+  if (opts.signalOnly || a.participation_mode !== "editorial") {
+    if (historical) return finishGrouping(articleId, input, { addsValue: true, reason: "历史资料按原文时间归档" }, { verdict: "historical" });
+    return groupSignal(a, source, observedAt, input);
+  }
   const an = await readGroupingAnalysis(articleId, a.revision);
   if (!an) throw new GroupingSupersededError("当前材料仍在等待内容分析");
   const analysisHash = groupingAnalysisHash(an);
+  if (historical && !an.selected && !(await groupingSelectionCandidate(articleId, an.id)))
+    return finishGrouping(articleId, input, { addsValue: true, reason: "历史资料按原文时间归档" }, { verdict: "historical" }, analysisHash);
   const parsed = z.object({ scope: z.enum(["single", "composite", "unknown"]).catch("unknown"), fact: FactFrame.optional() }).safeParse(an.output);
   let composite = parsed.success && parsed.data.scope === "composite";
   let unresolved = false;
@@ -1278,7 +1332,9 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
     selection = NO_SELECTED_COVERAGE;
   const receipts: number[] = [];
   const needsJudgement =
-    query.scope === "unknown" || ((!sameUrl || (!selectedSameUrl && (reading.length || cands.some((c) => c.selected)))) && (cands.length || reading.length));
+    query.scope === "unknown" ||
+    (historical && (reading.length || cands.some((c) => c.selected))) ||
+    ((!sameUrl || (!selectedSameUrl && (reading.length || cands.some((c) => c.selected)))) && (cands.length || reading.length));
   if (needsJudgement) {
     const judged = await judgeBatch(articleId, query, cands, reading);
     verdicts = judged.verdicts;
@@ -1292,10 +1348,20 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       if (unresolved) selection = { addsValue: false, reason: "材料不足以确认当前消息" };
     }
   }
-  let verdict: GroupResult["verdict"] = unresolved ? "standalone" : composite ? "roundup" : kept ? "kept" : sameUrl ? "same-url" : "new-story";
-  let factId: number | null = kept?.factId ?? sameUrl?.fact_id ?? null;
-  let storyId: number | null = kept?.storyId ?? sameUrl?.story_id ?? null;
-  if (!composite && !unresolved && !kept && !sameUrl) {
+  let verdict: GroupResult["verdict"] = historical
+    ? "historical"
+    : unresolved
+      ? "standalone"
+      : composite
+        ? "roundup"
+        : kept
+          ? "kept"
+          : sameUrl
+            ? "same-url"
+            : "new-story";
+  let factId: number | null = historical ? null : (kept?.factId ?? sameUrl?.fact_id ?? null);
+  let storyId: number | null = historical ? null : (kept?.storyId ?? sameUrl?.story_id ?? null);
+  if (!historical && !composite && !unresolved && !kept && !sameUrl) {
     for (const pick of sameOccurrence(cands, verdicts)) {
       if (pick.score >= CONFIRM_BELOW_COSINE) {
         factId = pick.factId;
@@ -1326,6 +1392,8 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   }
   if (!composite && !unresolved && factId && cands.some((c) => c.factId === factId && c.selected))
     selection = { addsValue: true, reason: "同一新闻的代表报道候选" };
+  if (historical && (selectedSameUrl || sameOccurrence(cands, verdicts).some((candidate) => candidate.selected)))
+    selection = { addsValue: false, reason: "同一次发生已有公开精选，历史资料按原文时间归档" };
   const decisionCandidates: DecisionCandidate[] = cands.map((c) => ({
     id: c.factId,
     score: Math.round(c.score * 1000) / 1000,
@@ -1340,6 +1408,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   const evidenceReports = [query, ...cands.flatMap((c) => [c.report, ...(c.selectedReport ? [c.selectedReport] : [])]), ...reading.map((r) => r.report)];
   const manifest = {
     version: 1,
+    recipe: BATCH_PROMPT_VERSION,
     materialRevision: a.revision,
     analysisHash,
     scope: unresolved ? "unknown" : composite ? "composite" : "single",
@@ -1371,22 +1440,26 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       await publishArticleTx(tx, articleId);
       return { manual: late, factId: null, storyId: null };
     }
-    const confirmedCandidates = new Map(
-      (
-        await confirmedGroupingMaterials(
-          cands.map((c) => c.report.articleId!),
-          tx,
-        )
-      ).map((r) => [r.id, r.revision]),
-    );
+    const members = await tx<(ReportMembership & { fact_id: number; story_id: number })[]>`
+      SELECT fa.article_id,fa.input_revision,fa.manual,fa.fact_id,f.story_id
+      FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id JOIN stories st ON st.id=f.story_id
+      WHERE fa.article_id=ANY(${cands.map((c) => c.report.articleId!)}::text[]) AND fa.role IN ('primary','report')
+        AND st.merged_into IS NULL AND ${trusted("fa")}`;
+    const currentCandidates = await qualifiedReports(members, tx);
     for (const candidate of cands) {
-      const [current] = await tx`SELECT 1 FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id JOIN stories st ON st.id=f.story_id
-        WHERE fa.fact_id=${candidate.factId} AND fa.article_id=${candidate.report.articleId!} AND f.story_id=${candidate.storyId}
-          AND fa.role IN ('primary','report') AND (fa.manual OR (fa.input_revision=${candidate.report.revision!} AND ${confirmedCandidates.get(candidate.report.articleId!) === candidate.report.revision})) AND st.merged_into IS NULL AND ${trusted("fa")}`;
-      if (!current) throw new GroupingSupersededError("事件候选归属已经变化");
+      if (
+        !currentCandidates.some(
+          (row) =>
+            row.fact_id === candidate.factId &&
+            row.story_id === candidate.storyId &&
+            row.article_id === candidate.report.articleId &&
+            row.material_revision === candidate.report.revision,
+        )
+      )
+        throw new GroupingSupersededError("事件候选归属已经变化");
     }
-    if (composite || unresolved) {
-      for (const candidate of composite ? cands : []) {
+    if (historical || composite || unresolved) {
+      for (const candidate of composite && !historical ? cands : []) {
         const relation = verdicts.get(candidate.factId);
         if (!relation || relation.relation === "UNRELATED" || relation.confidence < TIE_MIN_CONFIDENCE) continue;
         await tx`INSERT INTO fact_articles(fact_id,article_id,role,created_at,input_revision)
@@ -1398,10 +1471,19 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
           WHERE id=${oldStory} AND NOT EXISTS(SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id=f.id WHERE f.story_id=${oldStory} AND fa.role IN ('primary','report'))`;
         await enqueue(QUEUES.digest, { lane: "news", storyId: oldStory, afterCorrection: true }, { singletonKey: `story:${oldStory}:correction` }, tx);
       }
-      await recordDecision(tx, articleId, null, null, unresolved ? "standalone" : "roundup", decisionCandidates, receipts[0] ?? null, {
-        revision: a.revision,
-        manifest,
-      });
+      await recordDecision(
+        tx,
+        articleId,
+        null,
+        null,
+        historical ? "historical" : unresolved ? "standalone" : "roundup",
+        decisionCandidates,
+        receipts[0] ?? null,
+        {
+          revision: a.revision,
+          manifest,
+        },
+      );
       await finishGroupingTx(tx, articleId, input, selection, receipts[0] ?? null);
       for (const id of receipts) await completeReceipt(tx, id);
       await publishArticleTx(tx, articleId);
@@ -1424,6 +1506,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
     return { manual: null, factId: fact, storyId: story };
   });
   if (written.manual) return { verdict: "manual", factId: written.manual.factId };
+  if (historical) return { verdict: "historical" };
   if (composite || unresolved) return { verdict: unresolved ? "standalone" : "roundup" };
   const result: GroupResult = { verdict, factId: written.factId!, storyId: written.storyId! };
 

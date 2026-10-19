@@ -118,7 +118,7 @@ test("same-period revisions use deterministic tie-breaks; empty and stale source
   assert.equal((await read(NOW, disabled)).sources.find((s) => s.key === "nbs")?.status, "empty");
 });
 
-test("numeric comparisons round away from zero, require adjacent periods and reject corrupt current units", async () => {
+test("numeric comparisons round away from zero, retain release revisions and reject corrupt current units", async () => {
   for (const [key, value, expected] of [
     ["nbs.copper", "100.05", "0.1"],
     ["nbs.aluminum", "99.95", "-0.1"],
@@ -146,6 +146,30 @@ test("numeric comparisons round away from zero, require adjacent periods and rej
   assert.equal(quote(await read(), "nbs.lead").change, null);
   await sql`UPDATE publication.metal_prices SET currency='USD' WHERE series_key='nbs.aluminum' AND period_start='2026-09-11'`;
   await assert.rejects(read(), /unit\/currency mismatch/);
+});
+
+test("ten-day and monthly comparisons cross missing releases, name the actual base and do not skip a corrupt latest base", async () => {
+  const now = new Date("2026-10-25T04:00:00Z");
+  for (const [key, previous, current] of [
+    ["nbs.copper", { start: "2026-09-21", end: "2026-09-30", label: "2026年9月下旬" }, { start: "2026-10-11", end: "2026-10-20" }],
+    ["wb.copper", { start: "2026-07-01", end: "2026-07-31", label: "2026年7月" }, { start: "2026-09-01", end: "2026-09-30" }],
+  ] as const) {
+    const item = registry.items.find((item) => item.key === key)!;
+    const source = registry.sources.find((source) => source.key === item.source)!;
+    await seed(key, "2026-01-01", key === "nbs.copper" ? "2026-01-10" : "2026-01-31", "90");
+    await seed(key, previous.start, previous.end, "100", { period_label: previous.label });
+    await seed(key, current.start, current.end, "120");
+    const comparison = quote(await read(now), key).change;
+    assert.deepEqual(comparison, { percent: "20.0", previous: { value: "100", period: previous } });
+    await sql`UPDATE publication.metal_prices SET unit='Synthetic incompatible base' WHERE series_key=${key} AND period_start=${previous.start}`;
+    assert.equal(quote(await read(now), key).change, null, "an older compatible quote must not hide the latest base's wrong unit");
+    await sql`UPDATE publication.metal_prices SET unit=${item.unit}, currency=${source.currency === "CNY" ? "USD" : "CNY"}
+      WHERE series_key=${key} AND period_start=${previous.start}`;
+    assert.equal(quote(await read(now), key).change, null, "a different currency is not comparable either");
+    await sql`UPDATE publication.metal_prices SET currency=${source.currency}, period_end=${current.start}
+      WHERE series_key=${key} AND period_start=${previous.start}`;
+    assert.equal(quote(await read(now), key).change, null, "overlapping periods are not a previous-period comparison");
+  }
 });
 
 test("latest groups, notes and footnote numbering follow enabled registry order without fixed source totals", async () => {
@@ -209,11 +233,13 @@ test("recorded daily conversions match hand calculations, cross weekends and ski
     const q = quote(skipped, `cbr.${metal}`);
     assert.deepEqual([q.change?.previous.period.start, q.change?.percent], ["2026-10-01", percent]);
   }
+  await sql`UPDATE publication.metal_prices SET unit='Synthetic wrong previous rate unit' WHERE series_key='cbr.usd' AND period_start='2026-10-01'`;
+  assert.equal(quote(await read(), "cbr.gold").change, null, "the base fixing must have a compatible exchange-rate unit");
   await sql`UPDATE publication.metal_prices SET unit='Synthetic wrong rate unit' WHERE series_key='cbr.usd' AND period_start='2026-10-05'`;
   await assert.rejects(read(), /unit\/currency mismatch/);
 });
 
-test("recorded weekly prices compare only adjacent weeks and retain date labels with Beijing stale boundaries", async () => {
+test("recorded weekly prices compare with the previous stored release and retain date labels with Beijing stale boundaries", async () => {
   const fetcher = mofcomFetcher(registry, async (url, options) => ({
     url,
     status: 200,
@@ -244,8 +270,13 @@ test("recorded weekly prices compare only adjacent weeks and retain date labels 
     assert.equal(boundary.latest.find((p) => p.tag === "周")?.stale, status === "stale");
   }
   assert.equal((await read(new Date("2027-01-01T00:00:00Z"))).latest.find((p) => p.tag === "周")?.label, "2026年9月25日");
+  const previous = data.metals.flatMap((metal) => metal.quotes).find((quote) => quote.key === "mofcom.copper")!;
+  const [earlier] = await sql`SELECT value::text AS value, period_label FROM publication.metal_prices
+    WHERE series_key='mofcom.copper' AND period_start='2026-09-11'`;
   await sql`DELETE FROM publication.metal_prices WHERE source='mofcom' AND period_start='2026-09-18'`;
-  assert.equal(quote(await read(), "mofcom.copper").change, null, "a stored week 14 days earlier cannot substitute for the missing week");
+  const comparison = quote(await read(), "mofcom.copper").change;
+  assert.deepEqual(comparison?.previous, { value: earlier!.value, period: { start: "2026-09-11", end: "2026-09-11", label: earlier!.period_label } });
+  assert.equal(quote(await read(), "mofcom.copper").value, previous.value);
 });
 
 test("site-only price HTTP matches the reader, ignores generation time in ETags, and fails uncached on wrong units", async (t) => {

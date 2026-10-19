@@ -489,10 +489,10 @@
     {
       "key": "week",
       "tag": "周",
-      "compare": "周价比上一周"
+      "compare": "周价比上一有效期"
     },
-    { "key": "ten_day", "tag": "旬", "compare": "旬价比上一旬" },
-    { "key": "month", "tag": "月", "compare": "月价比上个月" }
+    { "key": "ten_day", "tag": "旬", "compare": "旬价比上一有效期" },
+    { "key": "month", "tag": "月", "compare": "月价比上一有效期" }
   ],
   "footnotes": [
     { "key": "monthly_average", "text": "月均价：世界银行公布的当月每日现货价格的平均值，不是某一天的价格。" },
@@ -529,7 +529,7 @@
       "link": { "name": "CC BY 4.0", "url": "https://creativecommons.org/licenses/by/4.0/" },
       "sources": ["worldbank"]
     },
-    { "text": "较上期：{compare}。红色是涨，绿色是跌。" },
+    { "text": "较上期：{compare}。按各行所示基期比较，可能跨越停发或未收录期次。红色是涨，绿色是跌。" },
     { "text": "本栏数据不授权转载，需要使用请到各官方网站查阅原数。" }
   ],
   "officialLinks": [

@@ -154,6 +154,19 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
   return { key: date, entries: main.length + flashes.length };
 }
 
+/** Published dailies prove period coverage independently of the next catch-up's transient run status. */
+async function periodEvidence(startDate: string, endDateInclusive: string) {
+  const period = await periodEntries(startDate, endDateInclusive);
+  if (period.entries.length) return { ...period, state: "entries" as const };
+  const [first] = await sql<{ key: string | null }[]>`SELECT min(key) AS key FROM reports WHERE kind='daily'`;
+  if (!period.issues && first?.key && endDateInclusive < first.key) return { ...period, state: "before_first_daily" as const };
+  const firstDate = first?.key && first.key > startDate ? first.key : startDate;
+  const expected = (Date.parse(endDateInclusive) - Date.parse(firstDate)) / 86400000 + 1;
+  // Missing dailies and entries that have lost public eligibility are not a completed quiet period.
+  const quiet = !period.hasEntries && period.issues > 0 && period.issues === expected;
+  return { ...period, state: quiet ? ("quiet" as const) : ("incomplete" as const) };
+}
+
 async function composePeriod(kind: "weekly" | "monthly", key: string, startDate: string, endDateInclusive: string, reason: string) {
   const publication = await requireRuntimeRunning("news", ["publication"]),
     processing = await runtimeControlSnapshot("news", ["processing"]);
@@ -161,16 +174,10 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   if (kept > 0) return { key, entries: kept };
   const start = editionTime(addDays(startDate, -1));
   const end = editionTime(endDateInclusive);
-  const period = await periodEntries(startDate, endDateInclusive),
+  const period = await periodEvidence(startDate, endDateInclusive),
     top = period.entries.slice(0, kind === "weekly" ? 20 : 30);
   if (!top.length) {
-    if (["scheduled", "catch-up"].includes(reason) && !period.hasEntries && period.issues > 0) {
-      const [first] = await sql<{ key: string | null }[]>`SELECT min(key) AS key FROM reports WHERE kind='daily'`;
-      const firstDate = first?.key && first.key > startDate ? first.key : startDate;
-      const expected = (Date.parse(endDateInclusive) - Date.parse(firstDate)) / 86400000 + 1;
-      // Only complete quiet periods may be skipped. Missing dailies or withdrawn entries need attention.
-      if (period.issues === expected) return { key, entries: 0 };
-    }
+    if (["scheduled", "catch-up"].includes(reason) && period.state === "quiet") return { key, entries: 0 };
     throw new Error(`${kind} ${key}: no daily entries in the period`);
   }
   const model = await modelFor("report");
@@ -227,27 +234,29 @@ export async function dailyReportQualification(date: string) {
   return { qualified: edition.main.length + edition.flashes.length, pendingSelections: candidates.stats.pendingSelections };
 }
 
-async function periodEntryCount(startDate: string, endDateInclusive: string): Promise<number> {
-  return (await periodEntries(startDate, endDateInclusive)).entries.length;
+async function periodQualification(startDate: string, endDateInclusive: string) {
+  const period = await periodEvidence(startDate, endDateInclusive);
+  return { qualified: period.entries.length, state: period.state };
 }
 
-/**
- * How many qualified new selections the composer would put in this issue.
- * Daily is the fresh items in [D-1 08:00, D 08:00). Weekly and monthly are the selections in that
- * calendar period. Zero may be a quiet daily; it is not a count of older selections.
- */
-export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
-  if (kind === "daily") return (await dailyReportQualification(key)).qualified;
+/** Read the same durable daily coverage used by period composition, without writing an issue or starting a job. */
+export async function periodReportQualification(kind: "weekly" | "monthly", key: string) {
   if (kind === "weekly") {
     const range = isoWeekRange(key);
     if (!range) throw new Error(`bad week label ${key}`);
-    return periodEntryCount(range.start, range.end);
+    return periodQualification(range.start, range.end);
   }
   const match = /^(\d{4})-(\d{2})$/.exec(key);
   if (!match) throw new Error(`bad month label ${key}`);
   const start = `${key}-01`;
   const next = Number(match[2]) === 12 ? `${Number(match[1]) + 1}-01-01` : `${match[1]}-${String(Number(match[2]) + 1).padStart(2, "0")}-01`;
-  return periodEntryCount(start, addDays(next, -1));
+  return periodQualification(start, addDays(next, -1));
+}
+
+/** How many current entries the composer would use; zero alone does not prove a completed quiet period. */
+export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
+  if (kind === "daily") return (await dailyReportQualification(key)).qualified;
+  return (await periodReportQualification(kind, key)).qualified;
 }
 
 export const editionTime = (date: string) => new Date(`${date}T${EDITION_TIMES.daily}:00+08:00`);

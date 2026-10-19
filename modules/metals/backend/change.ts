@@ -1,7 +1,5 @@
 // Whether a published comparison equals this period minus the previous one. A missing previous period is blank on
 // purpose and is not an alert: the next official release has not arrived, and a Saturday has no new daily fixing.
-import { addDays } from "@amp/contracts/time";
-
 const DECIMAL = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 function parts(value: string): { signed: bigint; scale: number } {
@@ -90,11 +88,11 @@ function periodIssue(tag: string, current: { start: string; end: string }, previ
     return null;
   }
   if (tag === "周") {
-    if (!singleDay(current) || !singleDay(previous) || previous.start !== addDays(current.start, -7)) return "周价应比正好早 7 天的那一期";
+    if (!singleDay(current) || !singleDay(previous) || previous.start >= current.start) return "周价应比本期之前的有效期次";
     return null;
   }
   if (tag === "旬" || tag === "月") {
-    if (previous.end !== addDays(current.start, -1)) return tag === "月" ? "月价应比紧挨着的上个月" : "旬价应比紧挨着的上一旬";
+    if (previous.end >= current.start) return `${tag}价应比本期之前的有效期次`;
     return null;
   }
   return null;

@@ -49,8 +49,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
     const out = new Map<string, Price>();
     for (const item of ordered) {
       const source = sources.find((s) => s.key === item.source)!;
-      const convert = item.convert,
-        frequency: string = source.frequency;
+      const convert = item.convert;
       const [row] = await tx<Price[]>`
         WITH versions AS (
           SELECT DISTINCT ON (series_key, period_start) series_key, currency, unit, period_start, period_end, period_label,
@@ -70,9 +69,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
           p.rate_unit AS previous_rate_unit, p.rate_currency AS previous_rate_currency,
           pg_catalog.round((c.displayed - p.displayed) / p.displayed * 100, 1)::text AS percent
         FROM current c LEFT JOIN LATERAL (
-          SELECT * FROM prices p WHERE p.period_start < c.period_start AND
-            (${frequency} = 'day' OR (${frequency} = 'week' AND p.period_start = c.period_start - 7)
-              OR (${frequency} NOT IN ('day','week') AND p.period_end = c.period_start - 1))
+          SELECT * FROM prices p WHERE p.period_start < c.period_start
           ORDER BY p.period_start DESC LIMIT 1
         ) p ON true`;
       if (!row) continue;
@@ -116,6 +113,8 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         if (item.footnote && !references.has(item.footnote)) references.set(item.footnote, references.size + 1);
         const compared =
           row?.previous_value &&
+          row.previous_end !== null &&
+          row.previous_end < row.start &&
           row.previous_unit === row.unit &&
           row.previous_currency === row.currency &&
           (!convert || (row.previous_rate_unit === row.rate_unit && row.previous_rate_currency === row.rate_currency));

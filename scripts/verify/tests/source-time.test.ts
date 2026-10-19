@@ -205,6 +205,42 @@ function unknown(raw: string, reason: string, change: Partial<SourceDateParseInp
   assert.equal(verdict(result.evidence).status, "pending");
 }
 
+test("declared English dates accept at without changing source evidence or timezone requirements", () => {
+  const declared = { format: "declared", formatPattern: "MMM D, YYYY HH:mm", language: "en" } as const;
+  for (const raw of ["Sep 26, 2026 at 10:30", "Sept. 26, 2026, at 10:30"]) {
+    const unzoned = parseSourceDate(request(raw, declared));
+    assert.equal(unzoned.reason, null);
+    assert.deepEqual([unzoned.evidence.time.raw, unzoned.evidence.time.precision, unzoned.evidence.time.utc], [raw, "date", null]);
+    const zoned = parseSourceDate(request(raw, { ...declared, timezone: "Asia/Shanghai", timezoneEvidence: "Synthetic verified source timezone" }));
+    assert.equal(zoned.reason, null);
+    assert.deepEqual([zoned.evidence.time.raw, zoned.evidence.time.local_time, zoned.evidence.time.utc], [raw, "10:30", "2026-09-26T02:30:00Z"]);
+  }
+  unknown("March 8, 2026 at 02:30", "nonexistent_local_time", {
+    ...declared,
+    timezone: "America/New_York",
+    timezoneEvidence: "Synthetic verified source timezone",
+  });
+});
+
+test("a numeric date joined by at retains its literal fragment and explicit offset", () => {
+  const raw = "2026-09-26 at 10:30 +08:00";
+  const result = parseSourceDate(request(`Published: ${raw}`));
+  assert.equal(result.reason, null);
+  assert.deepEqual([result.evidence.time.raw, result.evidence.time.precision, result.evidence.time.utc], [raw, "minute", "2026-09-26T02:30:00Z"]);
+});
+
+test("declared abbreviated months keep date-only precision and reject impossible dates", () => {
+  for (const [raw, formatPattern] of [
+    ["Sept. 26, 2026", "MMM D, YYYY"],
+    ["26 Sept. 2026", "D MMM YYYY"],
+  ] as const) {
+    const result = parseSourceDate(request(raw, { format: "declared", formatPattern, language: "en" }));
+    assert.equal(result.reason, null);
+    assert.deepEqual([result.evidence.time.local_date, result.evidence.time.precision, result.evidence.time.utc], ["2026-09-26", "date", null]);
+  }
+  unknown("Feb. 30, 2026", "invalid_calendar", { format: "declared", formatPattern: "MMM D, YYYY", language: "en" });
+});
+
 test("declared day-first numeric formats accept unpadded dates without changing undeclared order", () => {
   for (const [raw, formatPattern] of [
     ["8.10.2026", "DD.MM.YYYY"],
