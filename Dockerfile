@@ -11,9 +11,22 @@ RUN npm install -g npm@11.19.0 --ignore-scripts --no-audit --no-fund ${NPM_REGIS
 
 FROM base AS build
 ARG NPM_REGISTRY=
-COPY . .
+COPY package.json package-lock.json .npmrc ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/worker/package.json apps/worker/package.json
+COPY packages/backend/package.json packages/backend/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY industry/package.json industry/package.json
+COPY site/package.json site/package.json
+COPY modules/metals/package.json modules/metals/package.json
+COPY modules/policy/package.json modules/policy/package.json
+COPY modules/site-admin/package.json modules/site-admin/package.json
+# Source edits reuse the installed workspace dependencies; installation scripts stay disabled by .npmrc.
 RUN npm ci --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
- && npm run build --workspace @amp/web \
+ && npm cache clean --force
+COPY . .
+RUN npm run build --workspace @amp/web \
  && npm prune --omit=dev --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
  && npm cache clean --force
 

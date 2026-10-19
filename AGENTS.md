@@ -69,9 +69,9 @@ make verify                        # 合并前必过：在独立执行器上对 
 make release-check                 # 尚未实现的制品/SBOM/签名入口；当前明确失败，不能报通过
 ```
 
-**每次生产发布的版本保留与清理**：Owner 2026-10-12已授权持续执行。发布全程持有`/opt/aimine/.ops/release.lock`，保留现役及两个必要历史版本；健康稳定后由已安装维护timer清理确认无用的旧程序标签与过期构建缓存。不要删除/替换锁文件，不清理稿件、法规、数据库卷或必要回退副本；详见`docs/runbooks/release-retention.md`。
+**每次生产发布的版本保留与清理**：Owner 2026-10-12已授权持续执行，并于2026-10-19明确要求恢复和质量验收后再清理。发布全程持有`/opt/aimine/.ops/release.lock`，保留现役及两个必要历史版本；健康、恢复引用和质量门槛通过后，由已安装维护timer清理确认无用的受管旧程序与过期构建缓存。不要删除/替换锁文件，不清理稿件、法规、数据库卷或必要回退副本；详见`docs/runbooks/release-retention.md`。
 
-**提交前跑 `check`；合并前以 `verify` 回执为准。** 主分支必须取得 `make-verify` 检查通过，完整验证在非生产执行器运行；缺 Docker 的本机只能跑 focused 子集，**不得宣称完整通过**。当前获准的正式发布入口是 `deploy/production-release.sh`：最终SHA完整验证、制品内容/哈希核对、持锁备份、构建迁移、健康切换和回退分别留证。`release-check`与`nightly`仍是失败的规划入口，详见ADR-0017的当前实现说明；不把哈希校验写成签名验证，不生成或更换信任根来代替用户选择。
+**提交前跑 `check`；合并前以 `verify` 回执为准。** 主分支必须取得 `make-verify` 检查通过，完整验证在非生产执行器运行；缺 Docker 的本机只能跑 focused 子集，**不得宣称完整通过**。当前获准的正式发布入口是 `deploy/production-release.sh`：最终SHA完整验证后导出同一受测镜像，生产核对回执与制品、检查容量、持锁导入和备份，再迁移切换并分别记录健康与回退结果，质量验收接受前禁止清理。`release-check`与`nightly`仍是失败的规划入口，详见ADR-0017的当前实现说明；不把哈希校验写成签名验证，不生成或更换信任根来代替用户选择。
 
 ## 5. 授权边界（完整清单：`docs/06-agents/01-parallel-development-rules.md` 第 14 节）
 

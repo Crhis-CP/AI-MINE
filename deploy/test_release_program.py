@@ -13,6 +13,23 @@ COMMAND = re.search(r'docker exec "amp-\$role-1" sh -c \'\n(.*?)\n  \' > "\$RELE
 
 
 class ProgramArchiveTests(unittest.TestCase):
+    def test_only_new_byte_identical_archives_share_storage_and_keep_role_paths(self):
+        reuse = re.search(r"reuse_identical_program\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        with tempfile.TemporaryDirectory(prefix="program reuse ") as temporary:
+            root = Path(temporary)
+            first, duplicate, different = [root / name for name in ("api.tar.gz", "web.tar.gz", "worker.tar.gz")]
+            first.write_bytes(b"same program archive")
+            duplicate.write_bytes(first.read_bytes())
+            different.write_bytes(b"unique role overlay")
+            original_inode = first.stat().st_ino
+            command = 'set -e\n' + reuse + '\nreuse_identical_program "$1" "$1"\nreuse_identical_program "$1" "$2"\nreuse_identical_program "$1" "$3"'
+            subprocess.run(["bash", "-c", command, "reuse", str(first), str(duplicate), str(different)], check=True)
+            self.assertEqual(first.stat().st_ino, original_inode)
+            self.assertEqual(duplicate.stat().st_ino, original_inode)
+            self.assertEqual(duplicate.read_bytes(), b"same program archive")
+            self.assertNotEqual(different.stat().st_ino, original_inode)
+            self.assertEqual(different.read_bytes(), b"unique role overlay")
+
     def archive(self, extensions, lockfiles=("pnpm-lock.yaml", "pnpm-workspace.yaml")):
         with tempfile.TemporaryDirectory(prefix="program archive ") as temporary:
             root = Path(temporary)

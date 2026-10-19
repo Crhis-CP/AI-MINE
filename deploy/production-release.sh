@@ -4,12 +4,18 @@ umask 077
 RELEASE_SHA=${1:?exact verified SHA required}
 RELEASE_ARCHIVE=${2:?archive path required}
 RELEASE_ARCHIVE_HASH=${3:?archive hash required}
-[[ $RELEASE_SHA =~ ^[0-9a-f]{40}$ && $RELEASE_ARCHIVE_HASH =~ ^[0-9a-f]{64}$ ]]
+RELEASE_BUNDLE=${4:?verified artifact directory required}
+RELEASE_MANIFEST_HASH=${5:?independently checked manifest hash required}
+RELEASE_TREE=${6:?verified source tree required}
+[[ $RELEASE_SHA =~ ^[0-9a-f]{40}$ && $RELEASE_ARCHIVE_HASH =~ ^[0-9a-f]{64}$ && $RELEASE_MANIFEST_HASH =~ ^[0-9a-f]{64}$ && $RELEASE_TREE =~ ^[0-9a-f]{40}$ ]]
+RELEASE_TOOLS=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 RELEASE_ID=${RELEASE_SHA:0:12}
+RELEASE_ATTEMPT=$(date -u +%Y%m%dT%H%M%S%N)
 RELEASE_ROOT=/opt/aimine
-RELEASE_BACKUP=/opt/aimine-backup/release-$RELEASE_ID
-RELEASE_STAGE=/opt/aimine-release-stage/$RELEASE_ID
-RELEASE_JOURNAL=$RELEASE_ROOT/.ops/release-$RELEASE_ID.json
+RELEASE_BACKUP=/opt/aimine-backup/release-$RELEASE_ID-$RELEASE_ATTEMPT
+RELEASE_STAGE=/opt/aimine-release-stage/$RELEASE_ID-$RELEASE_ATTEMPT
+RELEASE_JOURNAL=$RELEASE_ROOT/.ops/release-$RELEASE_ID-$RELEASE_ATTEMPT.json
+RELEASE_PREVIOUS_HEALTH=$RELEASE_ROOT/.ops/previous-health-$RELEASE_ID-$RELEASE_ATTEMPT.json
 RELEASE_IMAGE=amp-release:$RELEASE_ID
 RELEASE_OLD_IMAGE=
 RELEASE_OLD_TAG=
@@ -17,6 +23,8 @@ RELEASE_OLD_VERSION=
 RELEASE_STOPPED=0
 RELEASE_SWITCHED=0
 RELEASE_CADDY_CHANGED=0
+RELEASE_MONITOR=
+RELEASE_QUALITY_GATE=$RELEASE_ROOT/.ops/release-quality-gate.json
 RELEASE_CURRENT_APIS=()
 RELEASE_OLD_APIS=()
 RELEASE_PHASE=preflight
@@ -26,7 +34,10 @@ flock -w 5 9
 cd "$RELEASE_ROOT"
 [[ ! -e $RELEASE_BACKUP && ! -e $RELEASE_STAGE ]]
 printf '%s  %s\n' "$RELEASE_ARCHIVE_HASH" "$RELEASE_ARCHIVE" | sha256sum -c -
-mkdir -p "$RELEASE_BACKUP" "$RELEASE_STAGE"
+python3 -B "$RELEASE_TOOLS/release_artifact.py" verify --directory "$RELEASE_BUNDLE" --sha "$RELEASE_SHA" --tree "$RELEASE_TREE" --manifest-sha256 "$RELEASE_MANIFEST_HASH"
+cmp "$RELEASE_ARCHIVE" "$RELEASE_BUNDLE/source.tar.gz"
+# Resource checks run while the old worker is still running. Failure only leaves the evidence receipt.
+python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-import-$RELEASE_ATTEMPT.json"
 phase() {
   RELEASE_PHASE=$1
   python3 - "$RELEASE_JOURNAL" "$RELEASE_SHA" "$RELEASE_PHASE" "$RELEASE_IMAGE" "$RELEASE_BACKUP" <<'PYJ'
@@ -35,10 +46,28 @@ p,sha,phase,image,backup=sys.argv[1:]
 x={'sha':sha,'phase':phase,'image':image,'backup':backup,'at':datetime.datetime.now(datetime.timezone.utc).isoformat()}
 with open(p+'.tmp','w') as f:json.dump(x,f)
 os.replace(p+'.tmp',p)
+with open(p+'.jsonl','a') as f:f.write(json.dumps(x)+'\n')
 print(json.dumps(x),flush=True)
 PYJ
 }
 dc() { docker compose --project-name amp --env-file "$RELEASE_ROOT/.env" -f "$RELEASE_ROOT/docker-compose.yml" "$@"; }
+require_monitor() {
+  for attempt in $(seq 1 20); do
+    kill -0 "$RELEASE_MONITOR" 2>/dev/null || return 1
+    [[ -s $RELEASE_BACKUP/resource-samples.jsonl ]] && return 0
+    sleep 0.1
+  done
+  printf '%s\n' 'Release resource sampling did not start' >&2
+  return 1
+}
+reuse_identical_program() {
+  local first=$1 archive=$2
+  if [[ $first != "$archive" ]] && cmp -s "$first" "$archive"; then
+    # Keep every role path; only a newly created, byte-identical duplicate becomes a hard link.
+    ln "$first" "$archive.link"
+    mv "$archive.link" "$archive"
+  fi
+}
 # Read names only; never render interpolated Compose configuration or secrets.
 read_api_topology() {
   local configured service single=0 public=0 private=0
@@ -101,8 +130,8 @@ restore() {
   mkdir -p "$RELEASE_BACKUP/restore-source"
   tar -xzf "$RELEASE_BACKUP/host-program.tar.gz" -C "$RELEASE_BACKUP/restore-source" || return 1
   rsync -a --delete --exclude='.env*' --exclude=.ops --exclude=.data --exclude=.git --exclude=.credentials --exclude=node_modules "$RELEASE_BACKUP/restore-source/" "$RELEASE_ROOT/" || return 1
-  set_value APP_IMAGE "$RELEASE_OLD_TAG"
-  set_value AMP_RELEASE "$RELEASE_OLD_VERSION"
+  set_value APP_IMAGE "$RELEASE_OLD_TAG" || return 1
+  set_value AMP_RELEASE "$RELEASE_OLD_VERSION" || return 1
   export APP_IMAGE=$RELEASE_OLD_TAG AMP_RELEASE=$RELEASE_OLD_VERSION
   dc up --no-start --no-deps --no-build --pull never --force-recreate "${RELEASE_OLD_APIS[@]}" web worker || return 1
   for role in "${RELEASE_OLD_APIS[@]}" web worker; do
@@ -122,26 +151,55 @@ on_exit() {
     if [[ $RELEASE_SWITCHED == 1 ]]; then
       restore || phase recovery_failed
     elif [[ $RELEASE_STOPPED == 1 ]]; then
-      docker start amp-worker-1 && health "$RELEASE_OLD_VERSION" && phase failed_previous_running
+      if docker start amp-worker-1 && health "$RELEASE_OLD_VERSION"; then
+        phase failed_previous_running
+      else phase recovery_failed
+      fi
     else phase failed_before_switch
     fi
+    if [[ $RELEASE_PHASE != recovery_failed && -f "$RELEASE_BACKUP/previous-quality-gate.json" ]]; then
+      cp -p "$RELEASE_BACKUP/previous-quality-gate.json" "$RELEASE_QUALITY_GATE"
+    fi
   fi
+  if [[ -n $RELEASE_MONITOR ]]; then kill "$RELEASE_MONITOR" 2>/dev/null || true; wait "$RELEASE_MONITOR" 2>/dev/null || true; fi
   exit "$result"
 }
 trap on_exit EXIT
-phase backup
+phase observe_previous
 read_api_topology
 RELEASE_OLD_APIS=("${RELEASE_CURRENT_APIS[@]}")
-printf '%s\n' "${RELEASE_OLD_APIS[@]}" > "$RELEASE_BACKUP/previous-api-services.txt"
-curl -fsS --max-time 5 -H 'Host: aiminingpolicy.com' http://127.0.0.1:3000/api/health > "$RELEASE_BACKUP/previous-health.json"
-RELEASE_OLD_VERSION=$(python3 - "$RELEASE_BACKUP/previous-health.json" <<'PYP'
+curl -fsS --max-time 5 -H 'Host: aiminingpolicy.com' http://127.0.0.1:3000/api/health > "$RELEASE_PREVIOUS_HEALTH"
+RELEASE_OLD_VERSION=$(python3 - "$RELEASE_PREVIOUS_HEALTH" <<'PYP'
 import json,sys,re
 x=json.load(open(sys.argv[1]));assert x.get('ok') is True and x.get('db')=='ok' and re.fullmatch('[a-f0-9]{7,40}',x.get('release',''));print(x['release'])
 PYP
 )
-RELEASE_OLD_IMAGE=$(docker inspect --format '{{.Image}}' amp-web-1)
+RELEASE_OLD_IMAGE=$(docker image inspect --format '{{.Id}}' "$(docker inspect --format '{{.Image}}' amp-web-1)")
+[[ $RELEASE_OLD_IMAGE =~ ^sha256:[0-9a-f]{64}$ ]]
 for role in "${RELEASE_OLD_APIS[@]}" web worker; do
-  [[ $(docker inspect --format '{{.Image}} {{.State.Running}}' "amp-$role-1") == "$RELEASE_OLD_IMAGE true" ]]
+  [[ $(docker inspect --format '{{.State.Running}}' "amp-$role-1") == true ]]
+  [[ $(docker image inspect --format '{{.Id}}' "$(docker inspect --format '{{.Image}}' "amp-$role-1")") == "$RELEASE_OLD_IMAGE" ]]
+done
+# Record the verified predecessor before importing a candidate. Each attempt keeps
+# its own evidence, so a failed import neither loses references nor prevents a retry.
+mkdir -p "$RELEASE_BACKUP" "$RELEASE_STAGE"
+printf '%s\n' "$RELEASE_OLD_IMAGE" > "$RELEASE_BACKUP/previous-image.txt"
+printf '%s\n' "${RELEASE_OLD_APIS[@]}" > "$RELEASE_BACKUP/previous-api-services.txt"
+cp -p "$RELEASE_PREVIOUS_HEALTH" "$RELEASE_BACKUP/previous-health.json"
+python3 -B "$RELEASE_TOOLS/release_capacity.py" monitor --root "$RELEASE_ROOT" --output "$RELEASE_BACKUP/resource-samples.jsonl" --parent "$$" 9>&- &
+RELEASE_MONITOR=$!
+require_monitor
+phase import_verified_image
+tar -xzf "$RELEASE_ARCHIVE" -C "$RELEASE_STAGE" --strip-components=1
+docker image load --input "$RELEASE_BUNDLE/image.tar.gz"
+RELEASE_CANDIDATE_IMAGE=$(python3 -B "$RELEASE_TOOLS/release_artifact.py" loaded --directory "$RELEASE_BUNDLE" --manifest-sha256 "$RELEASE_MANIFEST_HASH")
+docker image tag "$RELEASE_CANDIDATE_IMAGE" "$RELEASE_IMAGE"
+printf '%s\n' "$RELEASE_CANDIDATE_IMAGE" > "$RELEASE_BACKUP/candidate-image.txt"
+# Loading and unpacking are complete before the database recovery point and worker pause.
+phase backup
+for role in "${RELEASE_OLD_APIS[@]}" web worker; do
+  [[ $(docker inspect --format '{{.State.Running}}' "amp-$role-1") == true ]]
+  [[ $(docker image inspect --format '{{.Id}}' "$(docker inspect --format '{{.Image}}' "amp-$role-1")") == "$RELEASE_OLD_IMAGE" ]]
   docker exec "amp-$role-1" sh -c '
     set -- apps packages industry scripts assets reference database deploy node_modules package.json
     for extra in site modules package-lock.json .npmrc pnpm-lock.yaml pnpm-workspace.yaml; do
@@ -150,14 +208,26 @@ for role in "${RELEASE_OLD_APIS[@]}" web worker; do
     exec tar -czf - -C /app "$@"
   ' > "$RELEASE_BACKUP/$role-program.tar.gz"
   tar -tzf "$RELEASE_BACKUP/$role-program.tar.gz" >/dev/null
+  reuse_identical_program "$RELEASE_BACKUP/${RELEASE_OLD_APIS[0]}-program.tar.gz" "$RELEASE_BACKUP/$role-program.tar.gz"
  done
 RELEASE_OLD_TAG=amp-retained:${RELEASE_OLD_IMAGE:7:12}
 docker image inspect --format '{{.Id}}' "$RELEASE_OLD_IMAGE" >/dev/null
 docker image tag "$RELEASE_OLD_IMAGE" "$RELEASE_OLD_TAG"
-printf '%s\n' "$RELEASE_OLD_IMAGE" > "$RELEASE_BACKUP/previous-image.txt"
 cp -p .env "$RELEASE_BACKUP/environment"
 tar --exclude='.env*' --exclude=.ops --exclude=.data --exclude=.git --exclude=.credentials --exclude=node_modules -czf "$RELEASE_BACKUP/host-program.tar.gz" -C "$RELEASE_ROOT" .
 tar -tzf "$RELEASE_BACKUP/host-program.tar.gz" >/dev/null
+if [[ -f $RELEASE_QUALITY_GATE ]]; then cp -p "$RELEASE_QUALITY_GATE" "$RELEASE_BACKUP/previous-quality-gate.json"; fi
+python3 - "$RELEASE_QUALITY_GATE" "$RELEASE_SHA" <<'PYQ'
+import datetime,json,os,sys
+p,sha=sys.argv[1:]
+with open(p+'.tmp','w') as f:json.dump({'sha':sha,'status':'pending','at':datetime.datetime.now(datetime.timezone.utc).isoformat()},f)
+os.replace(p+'.tmp',p)
+PYQ
+# Install the quality-aware guard before any failure can leave a new release
+# running under the old timer's health-only cleanup rules. Business rollback
+# deliberately keeps this conservative guard.
+install -m 0755 "$RELEASE_STAGE/deploy/release-retention.py" /usr/local/lib/aimine-maintenance/release-retention.py
+install -m 0644 "$RELEASE_STAGE/deploy/release_changelog.py" /usr/local/lib/aimine-maintenance/release_changelog.py
 # Finish any older healthy version's note before changing its running code.
 if [[ -f "$RELEASE_ROOT/.ops/changelog-pending.json" ]]; then
   python3 - "$RELEASE_ROOT" "$RELEASE_OLD_VERSION" <<'PYN'
@@ -167,6 +237,8 @@ from release_changelog import retry_pending
 assert retry_pending(sys.argv[1],sys.argv[2]), 'Pending note must be resolved before switching'
 PYN
 fi
+require_monitor
+python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --phase before_backup --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-backup-$RELEASE_ATTEMPT.json"
 phase drain_worker
 RELEASE_STOPPED=1
 dc stop -t 480 worker
@@ -174,10 +246,16 @@ phase database_backup
 docker exec amp-db-1 pg_dump -U amp -d amp -Fc > "$RELEASE_BACKUP/database.dump"
 docker exec -i amp-db-1 pg_restore --list < "$RELEASE_BACKUP/database.dump" > "$RELEASE_BACKUP/database-restore-list.txt"
 sha256sum "$RELEASE_BACKUP/"*-program.tar.gz "$RELEASE_BACKUP/database.dump" > "$RELEASE_BACKUP/backup-sha256.txt"
-phase build
-tar -xzf "$RELEASE_ARCHIVE" -C "$RELEASE_STAGE" --strip-components=1
-docker build --build-arg NPM_REGISTRY=https://registry.npmmirror.com --tag "$RELEASE_IMAGE" "$RELEASE_STAGE"
-docker image inspect --format '{{.Id}}' "$RELEASE_IMAGE" > "$RELEASE_BACKUP/candidate-image.txt"
+# This manifest identifies the predecessor recovery point; the directory name identifies the attempted successor.
+python3 - "$RELEASE_BACKUP" "$RELEASE_OLD_VERSION" "$RELEASE_OLD_IMAGE" "$RELEASE_SHA" <<'PYB'
+import datetime,json,sys
+from pathlib import Path
+p=Path(sys.argv[1]);files=[]
+hashes={Path(name).name:h for h,name in (line.split('  ',1) for line in (p/'backup-sha256.txt').read_text().splitlines())}
+for f in sorted([*p.glob('*-program.tar.gz'),p/'database.dump']):
+    s=f.stat();files.append({'file':f.name,'sha256':hashes[f.name],'bytes':s.st_size,'allocated_bytes':s.st_blocks*512,'inode':s.st_ino,'links':s.st_nlink})
+(p/'recovery-point.json').write_text(json.dumps({'version':1,'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'previous_release':sys.argv[2],'previous_image':sys.argv[3],'attempted_release':sys.argv[4],'isolated_restore':'pending','files':files},indent=2)+'\n')
+PYB
 phase prepare_switch
 RELEASE_SWITCHED=1
 cmp -s "$RELEASE_ROOT/deploy/Caddyfile" "$RELEASE_STAGE/deploy/Caddyfile" || RELEASE_CADDY_CHANGED=1
@@ -213,8 +291,18 @@ health "$RELEASE_ID"
 systemctl is-active aimine-release-retention.timer
 df -B1 / > "$RELEASE_BACKUP/disk-after.txt"
 phase deployed_origin_verified
-# From this point, a note-registration failure must never roll back a healthy website.
+# From this point, missing observations or note-registration failures must not
+# roll back a healthy website. They still fail completion and keep quality pending.
 trap - EXIT
+RELEASE_SAMPLING_OK=1
+require_monitor || RELEASE_SAMPLING_OK=0
+kill "$RELEASE_MONITOR" 2>/dev/null || RELEASE_SAMPLING_OK=0
+wait "$RELEASE_MONITOR" 2>/dev/null || RELEASE_SAMPLING_OK=0
+RELEASE_MONITOR=
+if [[ $RELEASE_SAMPLING_OK != 1 ]]; then
+  phase deployed_capacity_evidence_missing
+  exit 1
+fi
 python3 - "$RELEASE_ROOT" "$RELEASE_SHA" <<'PYN'
 import sys,datetime
 sys.path.insert(0, sys.argv[1] + '/deploy')
@@ -222,6 +310,4 @@ from release_changelog import save_pending,retry_pending
 save_pending(sys.argv[1],sys.argv[2],datetime.datetime.now(datetime.timezone.utc).isoformat())
 retry_pending(sys.argv[1],sys.argv[2][:12])
 PYN
-install -m 0755 deploy/release-retention.py /usr/local/lib/aimine-maintenance/release-retention.py
-install -m 0644 deploy/release_changelog.py /usr/local/lib/aimine-maintenance/release_changelog.py
 # The shared lock is released only on process exit. The installed timer waits for ten steady minutes.

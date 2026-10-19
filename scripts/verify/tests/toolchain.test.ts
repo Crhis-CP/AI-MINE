@@ -116,6 +116,27 @@ test("the verify workflow in its shape passes, and so does a repository without 
   assert.deepEqual(problemsWith({}), []);
 });
 
+test("release upload follows successful verify and cannot upload arbitrary or overwritten files", () => {
+  const upload = [
+    `      - uses: actions/upload-artifact@${SHA_CHECKOUT}`,
+    "        with:",
+    "          path: |",
+    ...["source.tar.gz", "image.tar.gz", "verify-receipt.json", "release-manifest.json"].map((name) => `            .verify/release/${name}`),
+    "          if-no-files-found: error",
+    "          retention-days: 7",
+    "          overwrite: false",
+    "",
+  ].join("\n");
+  assert.deepEqual(workflowProblems(WORKFLOW, WORKFLOW_TEXT + upload), []);
+  for (const changed of [
+    upload.replace(".verify/release/source.tar.gz", ".verify/**"),
+    upload.replace("with:", "if: always()\n        with:"),
+    upload.replace("overwrite: false", "overwrite: true"),
+  ])
+    assert.equal(workflowProblems(WORKFLOW, WORKFLOW_TEXT + changed).length, 1);
+  assert.equal(workflowProblems(WORKFLOW, edit(STEP_SLOTS, upload + STEP_SLOTS)).length, 1);
+});
+
 test("each of the 13 workflow rules stops its violations", () => {
   const postgres = `postgres:17.11-alpine@${DIGEST}`; // pinned, and still not allowed: the image lives in compose
   const cases: Array<[rule: number, what: string, text: string, problem: string]> = [
@@ -161,19 +182,19 @@ test("each of the 13 workflow rules stops its violations", () => {
       5,
       "a GitHub action off the list",
       edit(STEP_SLOTS, `      - uses: actions/cache@${SHA_CHECKOUT}\n${STEP_SLOTS}`),
-      job(`step 3: actions/cache@${SHA_CHECKOUT}: only actions/checkout and actions/setup-node, pinned to a full commit SHA`),
+      job(`step 3: actions/cache@${SHA_CHECKOUT}: only actions/checkout, actions/setup-node and actions/upload-artifact, pinned to a full commit SHA`),
     ],
     [
       5,
       "a third-party action",
       edit(STEP_SLOTS, `      - uses: some-org/setup-tools@${SHA_CHECKOUT}\n${STEP_SLOTS}`),
-      job(`step 3: some-org/setup-tools@${SHA_CHECKOUT}: only actions/checkout and actions/setup-node, pinned to a full commit SHA`),
+      job(`step 3: some-org/setup-tools@${SHA_CHECKOUT}: only actions/checkout, actions/setup-node and actions/upload-artifact, pinned to a full commit SHA`),
     ],
     [
       5,
       "an action by tag",
       edit(`actions/setup-node@${SHA_SETUP_NODE}`, "actions/setup-node@v7"),
-      job("step 2: actions/setup-node@v7: only actions/checkout and actions/setup-node, pinned to a full commit SHA"),
+      job("step 2: actions/setup-node@v7: only actions/checkout, actions/setup-node and actions/upload-artifact, pinned to a full commit SHA"),
     ],
     [
       5,
