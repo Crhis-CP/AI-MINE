@@ -9,6 +9,7 @@ import { promptText, promptVersion } from "./prompts.ts";
 import { TRANSLATION_MANIFEST_FORMAT } from "./translation-readiness.ts";
 import { releasedTranslationScopes } from "../providers/receipts.ts";
 import { runBodyTranslation } from "./translation-runtime.ts";
+import { retryableTranslationScopes } from "./translation-store.ts";
 export { shield, unshield } from "./translation-readiness.ts";
 
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
@@ -26,17 +27,27 @@ export interface TranslateResult {
 }
 
 type AttemptState = { attempts: number | null; outcome: string | null; reason: string | null };
+type TranslationCandidate = AttemptState & { article_id: string; revision: number };
 function stopReason(row: AttemptState | undefined, recovered: boolean): string | null {
   if (row?.outcome === "partial" && ["text_limit", "pending_capacity"].includes(row.reason ?? "")) return row.reason;
   // Older cooldown-only passes consumed this counter; resume checkpoints without clearing real attempts.
   if (row?.outcome === "partial" && row.reason === "retry_cooldown") return null;
   return row && (row.attempts ?? 0) >= 3 && row.outcome !== "translated" && !recovered ? "attempts_exhausted" : null;
 }
+async function translationRecoveryScopes(rows: TranslationCandidate[]): Promise<Set<string>> {
+  const stopped = rows.filter((row) => stopReason(row, false) === "attempts_exhausted");
+  const scope = (row: TranslationCandidate) => `article:${row.article_id}@${row.revision}`;
+  const [released, retryable] = await Promise.all([
+    releasedTranslationScopes(stopped.map(scope)),
+    retryableTranslationScopes(stopped.filter((row) => row.outcome === "partial").map(scope), RECIPE),
+  ]);
+  return new Set([...released, ...retryable]);
+}
 async function bodyTranslationStop(articleId: string, revision: number): Promise<string | null> {
   const [row] = await sql<AttemptState[]>`SELECT attempts,outcome,reason FROM translation_attempts WHERE article_id=${articleId} AND revision=${revision}`;
-  if (!stopReason(row, false)) return null;
+  if (!row || !stopReason(row, false)) return null;
   const scope = `article:${articleId}@${revision}`;
-  return stopReason(row, (await releasedTranslationScopes([scope])).has(scope));
+  return stopReason(row, (await translationRecoveryScopes([{ ...row, article_id: articleId, revision }])).has(scope));
 }
 
 /** Called only after the worker obtains a current revision from publication.prepareTranslation. */
@@ -72,7 +83,7 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new RangeError("translation repair limit must be from 1 to 1000");
   const previous = RepairCursor.safeParse(await latestSuccessfulRunResult("content.translate"));
   let afterId = previous.success ? previous.data.cursor.afterId : null;
-  const rows = await sql<({ article_id: string; revision: number } & AttemptState)[]>`
+  const rows = await sql<TranslationCandidate[]>`
     SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason FROM publications p JOIN articles a ON a.id = p.article_id
     LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh'
     LEFT JOIN translation_attempts ta ON ta.article_id=p.article_id AND ta.revision=a.revision
@@ -81,7 +92,7 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
       AND (tr.article_id IS NULL OR (tr.origin <> 'source' AND
            (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE})))
     ORDER BY p.article_id LIMIT ${limit}`;
-  const recovered = await releasedTranslationScopes(rows.filter((row) => !!stopReason(row, false)).map((row) => `article:${row.article_id}@${row.revision}`));
+  const recovered = await translationRecoveryScopes(rows);
   let enqueued = 0,
     scanned = 0;
   for (const row of rows) {

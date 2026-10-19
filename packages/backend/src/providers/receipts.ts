@@ -173,6 +173,43 @@ export interface TranslationObservation {
   attemptId: string | null;
 }
 
+/** Read-only admission evidence; the gateway still claims and checks every actual retry. */
+export async function retryableTranslationSubjects(
+  candidates: (TranslationObservation & { subject: string; maxRejectedOutputs: 1 | 3 })[],
+): Promise<Set<string>> {
+  if (!candidates.length) return new Set();
+  const receiptIds = [...new Set(candidates.map((row) => row.receiptId))];
+  const rows = await sql<{ receiptId: string; attemptId: string; subject: string; rejected: number; identical: boolean }[]>`
+    SELECT r.id::text AS "receiptId",a.id::text AS "attemptId",r.subject,budget.rejected,budget.identical
+    FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.id=r.response_attempt_id AND a.attempt=r.attempts
+      AND a.status='received' AND a.output_rejected_at IS NOT NULL AND a.response IS NOT NULL AND a.response=r.response
+      AND coalesce(a.response->'choices'->0->>'finish_reason','') IN ('','stop')
+    JOIN LATERAL (
+      SELECT count(*)::int AS rejected,
+        count(*) FILTER(WHERE status='received')>=2
+        AND count(content) FILTER(WHERE status='received')=count(*) FILTER(WHERE status='received')
+        AND count(DISTINCT content) FILTER(WHERE status='received')=1 AS identical
+      FROM (SELECT status,response->'choices'->0->'message'->>'content' AS content FROM receipt_attempts
+        WHERE receipt_id=r.id AND output_rejected_at IS NOT NULL) outputs
+    ) budget ON true WHERE r.id=ANY(${receiptIds}::bigint[]) AND r.purpose='translate_body' AND r.status='failed'`;
+  const budgets = new Map(rows.map((row) => [row.receiptId, row]));
+  return new Set(
+    candidates
+      .filter((candidate) => {
+        const row = budgets.get(candidate.receiptId);
+        return (
+          row &&
+          row.attemptId === candidate.attemptId &&
+          row.subject === candidate.subject &&
+          row.rejected > 0 &&
+          row.rejected < candidate.maxRejectedOutputs &&
+          !row.identical
+        );
+      })
+      .map((candidate) => candidate.subject),
+  );
+}
+
 export interface ReceiptResult {
   receiptId: number;
   response: unknown;

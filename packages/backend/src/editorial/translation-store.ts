@@ -5,7 +5,7 @@ import { sql, type Db, type Tx } from "../db.ts";
 import { commitBodyResult, type CurrentBody } from "../content/materials.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { canReplaceTranslationResponse, settleTranslationResponse, type TranslationObservation } from "../providers/receipts.ts";
+import { canReplaceTranslationResponse, retryableTranslationSubjects, settleTranslationResponse, type TranslationObservation } from "../providers/receipts.ts";
 import type { ChatJsonResult } from "../providers/llm.ts";
 import {
   assembleTranslation,
@@ -31,6 +31,23 @@ export async function translationObservations(body: CurrentBody): Promise<Transl
   return sql<TranslationObservation[]>`SELECT DISTINCT receipt_id::text AS "receiptId",attempt_id AS "attemptId"
     FROM enrichment.translation_segments WHERE article_id=${body.id} AND revision=${body.revision} AND receipt_id IS NOT NULL`;
 }
+
+/** A saved partial keeps presentation changes behind the existing input/manifest fence. */
+export async function retryableTranslationScopes(scopes: string[], recipe: string): Promise<Set<string>> {
+  if (!scopes.length) return new Set();
+  const segments = await sql<(TranslationObservation & { subject: string; maxRejectedOutputs: 1 | 3 })[]>`
+    SELECT s.receipt_id::text AS "receiptId",s.attempt_id AS "attemptId",
+      'article:'||t.article_id||'@'||t.revision||'#'||s.segment_index AS subject,
+      CASE WHEN s.parent_index IS NULL THEN 3 ELSE 1 END AS "maxRejectedOutputs"
+    FROM translations t JOIN enrichment.translation_segments s ON s.article_id=t.article_id AND s.revision=t.revision
+      AND s.recipe=t.recipe AND s.source_hash=t.source_hash
+    WHERE t.lang='zh' AND t.origin='model' AND NOT t.complete AND t.recipe=${recipe} AND t.body_html<>''
+      AND ('article:'||t.article_id||'@'||t.revision)=ANY(${scopes}::text[])
+      AND s.state='failed' AND s.replacement_plan IS NULL AND s.receipt_id IS NOT NULL AND s.attempt_id IS NOT NULL`;
+  const subjects = await retryableTranslationSubjects(segments);
+  return new Set([...subjects].map((subject) => subject.slice(0, subject.lastIndexOf("#"))));
+}
+
 interface StoredSegment {
   segment_index: number;
   segment_hash: string;
