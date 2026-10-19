@@ -61,7 +61,11 @@ test("login renews an expired or other-tab ticket before one native password sub
     posts.push(posted);
     const verified = expires > now && posted.token === currentToken && posted.cookie.includes(`amp_login_nonce=${currentToken}`);
     currentToken = "consumed";
-    await route.fulfill({ status: verified ? 200 : 400, contentType: "text/html", body: verified ? "<h1>合成登录完成</h1>" : "<h1>合成验证失败</h1>" });
+    await route.fulfill({
+      status: verified ? 200 : 400,
+      contentType: "text/html; charset=utf-8",
+      body: verified ? "<h1>合成登录完成</h1>" : "<h1>合成验证失败</h1>",
+    });
   });
   await page.clock.setFixedTime(new Date(now));
   await page.goto(`${site.privateOrigin}/admin/login?return=%2Fadmin&error=verification`);
@@ -82,9 +86,13 @@ test("login renews an expired or other-tab ticket before one native password sub
   await page.locator("form").evaluate((form: HTMLFormElement) => form.requestSubmit());
   expect(issued).toBe(3);
   expect(posts).toHaveLength(0);
+  const submission = page.waitForResponse((response) => response.url() === `${site.privateOrigin}/api/auth/password` && response.request().method() === "POST");
   releaseSubmit();
-  await expect(page.getByRole("heading", { name: "合成登录完成" })).toBeVisible();
+  const submitted = await submission;
   expect(posts).toEqual([{ token: ticket(3), cookie: `amp_login_nonce=${ticket(3)}`, name: "synthetic.operator", password: "synthetic-password" }]);
+  expect(submitted.status()).toBe(200);
+  expect(submitted.headers()["content-type"]).toBe("text/html; charset=utf-8");
+  await expect(page.getByRole("heading", { name: "合成登录完成" })).toBeVisible();
   expect(blocked).toEqual([]);
   await other.close();
 });
