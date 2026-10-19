@@ -40,6 +40,7 @@ const provider = await stub(async (_hit, req) => {
     if (s.includes("Neuroglancer")) {
       const n = (asks.get(s) ?? 0) + 1;
       asks.set(s, n);
+      if (s.includes("legacy cooldown") && (n === 2 || (n === 3 && s.includes("EXHAUST_SEGMENT")))) return `第 ${n} 次回复丢了链接 ⟦0⟧。`;
       return n === 1 ? "解释 Neuroglancer 的文字 ⟦0⟧。" : '解释 <a id="L0">Neuroglancer</a> 的文字 ⟦0⟧。';
     }
     if (s.includes("never keeps")) {
@@ -189,6 +190,7 @@ test("links and images survive partial translation while failed blocks keep thei
   assert.equal(parts[1]!.restored_html, null);
   assert.equal(parts[1]!.failed_attempts, 2);
   assert.deepEqual([...asks.values()].sort(), [2, 2], "a repaired segment is reused and the same bad answer is not bought again");
+  assert.equal((await translateOne(id)).reason, "attempts_exhausted", "two identical rejected outputs also stop the legacy admission gate");
   const incomplete = await app.inject(`/api/site/items/${id}`);
   assert.equal(incomplete.statusCode, 200, "a Chinese title and guide stay public while the body is incomplete");
   const shown = incomplete.json();
@@ -314,75 +316,112 @@ test("repair rotates past a full blocked batch, includes old material and resume
 });
 
 test("a body translation that already failed three times is not bought again", async () => {
-  const { articleId: id } = await upsertMaterial({
+  const input = {
     sourceId: SOURCE,
     url: `${URL_}-spent`,
     title: `Spent ${T}`,
     language: "en",
-    bodyText: `Spent copper note ${T}.`,
-    bodyHtml: `<p>Spent copper note ${T}.</p>`,
-    bodyStatus: "ok",
-    via: "fetch",
+    bodyText: `Spent never keeps copper note ${T}.`,
+    bodyHtml: `<p>Spent <a href="https://example.com/kept">never keeps</a> copper note ${T}.</p>`,
+    bodyStatus: "ok" as const,
+    via: "fetch" as const,
     publishedAt: new Date(),
-  });
+  };
+  const { articleId: id } = await upsertMaterial(input);
   await currentJudgement(id);
+  await publishArticle(id);
+  assert.equal((await translateOne(id)).status, "partial");
+  assert.equal((await sql`SELECT body_html FROM translations WHERE article_id=${id} AND lang='zh'`)[0].body_html, null);
   const [{ revision }] = await sql<{ revision: number }[]>`SELECT revision FROM articles WHERE id = ${id}`;
   await sql`INSERT INTO translation_attempts (article_id, revision, attempts, outcome, reason)
-            VALUES (${id}, ${revision}, 3, 'failed', 'synthetic exhausted')`;
+            VALUES (${id}, ${revision}, 3, 'failed', 'synthetic exhausted')
+            ON CONFLICT(article_id) DO UPDATE SET attempts=3,outcome='failed',reason=EXCLUDED.reason`;
   const before = provider.hits();
   const result = await translateArticle(id, revision);
   assert.deepEqual({ status: result.status, reason: result.reason }, { status: "skipped", reason: "attempts_exhausted" });
+  await sql`UPDATE translation_attempts SET outcome='partial',reason=NULL WHERE article_id=${id}`;
+  assert.equal((await translateArticle(id, revision)).reason, "attempts_exhausted", "failed receipts without a saved partial grant no retry");
+  const changed = await upsertMaterial({ ...input, bodyHtml: input.bodyHtml.replace("copper", "<strong>copper</strong>") });
+  assert.equal(changed.revised, false, "zero completed segments allow a same-revision presentation change");
+  const [current] = await sql`SELECT revision,body_html FROM articles WHERE id=${id}`;
+  assert.equal(current.revision, revision);
+  assert.match(current.body_html, /<strong>copper<\/strong>/);
+  assert.equal((await translateArticle(id, revision)).reason, "attempts_exhausted", "old zero-completion receipts cannot authorize this new model input");
   assert.equal(provider.hits(), before, "the spent body is not bought again");
 });
 
-test("legacy cooldown exhaustion resumes unfinished segments through repair and worker gates", async () => {
-  const { articleId } = await upsertMaterial({
-    sourceId: SOURCE,
-    url: `${URL_}-legacy-cooldown`,
-    title: `Legacy cooldown ${T}`,
-    language: "en",
-    bodyText: `Legacy cooldown copper report ${T}.`,
-    bodyHtml:
-      `<p>Completed copper paragraph ${T}.</p>` +
-      `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> legacy cooldown ${T} <img src="https://example.com/cooldown-${T}.png" alt="Copper prices"></p>`,
-    bodyStatus: "ok",
-    via: "fetch",
-    publishedAt: new Date(),
-  });
-  await currentJudgement(articleId);
-  await publishArticle(articleId);
-  assert.equal((await translateOne(articleId)).status, "partial");
-  const completed = await sql`SELECT segment_index,receipt_id,attempt_id,restored_hash FROM enrichment.translation_segments
+for (const finalStatus of ["translated", "partial"] as const)
+  test(`legacy cooldown recovery keeps the remaining segment budget through another partial: ${finalStatus}`, async () => {
+    const { articleId } = await upsertMaterial({
+      sourceId: SOURCE,
+      url: `${URL_}-legacy-cooldown-${finalStatus}`,
+      title: `Legacy cooldown ${T}`,
+      language: "en",
+      bodyText: `Legacy cooldown copper report ${T}.`,
+      bodyHtml:
+        `<p>Completed copper paragraph ${T}.</p>` +
+        `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> legacy cooldown ${finalStatus === "partial" ? "EXHAUST_SEGMENT" : ""} ${T} <img src="https://example.com/cooldown-${T}.png" alt="Copper prices"></p>`,
+      bodyStatus: "ok",
+      via: "fetch",
+      publishedAt: new Date(),
+    });
+    await currentJudgement(articleId);
+    await publishArticle(articleId);
+    assert.equal((await translateOne(articleId)).status, "partial");
+    const completed = await sql`SELECT segment_index,receipt_id,attempt_id,restored_hash FROM enrichment.translation_segments
     WHERE article_id=${articleId} AND state='complete' ORDER BY segment_index`;
-  assert.equal(completed.length, 1);
-  const calls = provider.hits();
-  assert.equal((await translateOne(articleId)).reason, "retry_cooldown");
-  assert.equal(
-    (await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`)[0].attempts,
-    1,
-    "new cooldown-only passes consume no whole-article attempts",
-  );
+    assert.equal(completed.length, 1);
+    const calls = provider.hits();
+    assert.equal((await translateOne(articleId)).reason, "retry_cooldown");
+    assert.equal(
+      (await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`)[0].attempts,
+      1,
+      "new cooldown-only passes consume no whole-article attempts",
+    );
 
-  // Reproduce an old counter which included cooldown passes; do not reset its history during repair.
-  await sql`UPDATE translation_attempts SET attempts=3,outcome='partial',reason='retry_cooldown' WHERE article_id=${articleId}`;
-  await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
-  for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
-  assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
-  assert.equal((await translateOne(articleId)).reason, "retry_cooldown", "the worker reaches the existing segment cooldown guard");
-  assert.equal(provider.hits(), calls, "neither repair nor an unexpired cooldown sends another request");
-  assert.equal((await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`)[0].attempts, 3);
+    // Reproduce an old counter which included cooldown passes; do not reset its history during repair.
+    await sql`UPDATE translation_attempts SET attempts=3,outcome='partial',reason='retry_cooldown' WHERE article_id=${articleId}`;
+    await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
+    for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
+    assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
+    assert.equal((await translateOne(articleId)).reason, "retry_cooldown", "the worker reaches the existing segment cooldown guard");
+    assert.equal(provider.hits(), calls, "neither repair nor an unexpired cooldown sends another request");
+    assert.equal((await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`)[0].attempts, 3);
 
-  await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
+    await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
     WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`})`;
-  assert.equal((await translateOne(articleId)).status, "translated");
-  assert.equal(provider.hits(), calls + 1, "only the unfinished segment is bought again after cooldown");
-  const reused = await sql`SELECT segment_index,receipt_id,attempt_id,restored_hash FROM enrichment.translation_segments
+    assert.equal((await translateOne(articleId)).status, "partial", "a different second bad output leaves one real segment opportunity");
+    assert.equal(provider.hits(), calls + 1, "only the unfinished segment is bought again after cooldown");
+    assert.deepEqual(
+      { ...(await sql`SELECT attempts,outcome,reason FROM translation_attempts WHERE article_id=${articleId}`)[0] },
+      { attempts: 4, outcome: "partial", reason: null },
+    );
+    await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
+    for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
+    assert.ok(
+      (await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0,
+      "the remaining physical segment budget passes the repair gate after the legacy reason was replaced",
+    );
+    assert.equal((await translateOne(articleId)).reason, "retry_cooldown");
+    assert.equal(provider.hits(), calls + 1, "the resumed worker still obeys the second output's cooldown");
+    await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
+    WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`})`;
+    assert.equal((await translateOne(articleId)).status, finalStatus);
+    assert.equal(provider.hits(), calls + 2, "exactly one remaining segment attempt is bought");
+    const reused = await sql`SELECT segment_index,receipt_id,attempt_id,restored_hash FROM enrichment.translation_segments
     WHERE article_id=${articleId} AND segment_index=${completed[0].segment_index}`;
-  assert.deepEqual([...reused], [...completed], "the completed checkpoint and its paid identity are unchanged");
-  const [history] = await sql`SELECT attempts,outcome,reason FROM translation_attempts WHERE article_id=${articleId}`;
-  assert.deepEqual({ ...history }, { attempts: 4, outcome: "translated", reason: null });
-  assert.equal((await detail(articleId)).body.complete, true);
-});
+    assert.deepEqual([...reused], [...completed], "the completed checkpoint and its paid identity are unchanged");
+    const [history] = await sql`SELECT attempts,outcome,reason FROM translation_attempts WHERE article_id=${articleId}`;
+    assert.deepEqual({ ...history }, { attempts: 5, outcome: finalStatus, reason: null });
+    assert.equal((await detail(articleId)).body.complete, finalStatus === "translated");
+    if (finalStatus === "partial") {
+      assert.equal((await translateOne(articleId)).reason, "attempts_exhausted", "three different rejected outputs exhaust the actual segment budget");
+      await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
+      for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
+      assert.equal((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`).length, 0);
+      assert.equal(provider.hits(), calls + 2, "neither repair nor the worker buys a fourth rejected output");
+    }
+  });
 
 test("unselected foreign articles are public without entering the translation queue", async () => {
   const { articleId } = await upsertMaterial({
