@@ -7,7 +7,7 @@ import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { sha256 } from "@amp/backend/lib/ids";
 import { EMBEDDING_MODEL } from "@amp/backend/providers/embeddings";
-import { reportText } from "../packages/backend/src/events/relate.ts";
+import { FACT_CONVERGENCE_VERSION, reportText } from "../packages/backend/src/events/relate.ts";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle, GroupingSupersededError } from "@amp/backend/events/group";
 import { publishArticle } from "@amp/backend/publication/publish";
@@ -26,6 +26,8 @@ let scopeAnswer: "single" | "composite" | "unknown" = "single";
 let lastInput = "";
 let beforeAnswer: (() => Promise<void>) | null = null;
 let relationAnswer: "SAME_STORY" | "SAME_OCCURRENCE" = "SAME_STORY";
+let preferredCandidateTitle = "";
+let rejectedReviewTitle = "";
 let embeddingCalls = 0;
 const provider = await stub(async (_hit, request) => {
   const body = JSON.parse(request.body);
@@ -43,10 +45,20 @@ const provider = await stub(async (_hit, request) => {
           content: JSON.stringify({
             query: "项目进展",
             queryScope: scopeAnswer,
-            decisions: ids.map((id) => ({ id, relation: relationAnswer, confidence: 0.96, note: "合成关系判断", evidence: null })),
+            decisions: ids.map((id) => ({
+              id,
+              relation: relationAnswer,
+              confidence: preferredCandidateTitle
+                ? lastInput.split(`【候选 ${id}】`)[1]?.split("【")[0]?.includes(preferredCandidateTitle)
+                  ? 0.97
+                  : 0.95
+                : 0.96,
+              note: "合成关系判断",
+              evidence: null,
+            })),
             a: "合成公告",
             b: "合成配套说明",
-            relation: relationAnswer,
+            relation: rejectedReviewTitle && lastInput.split("【报道 B】")[1]?.includes(rejectedReviewTitle) ? "SAME_STORY" : relationAnswer,
             confidence: 0.96,
             difference: "按合成原文核对具体发生",
             ...(missingValue ? {} : { selection: { addsValue, reason: addsValue ? "出现新的可核对事实" : "已公开报道覆盖，没有新增事实" } }),
@@ -73,6 +85,7 @@ beforeEach(async () => {
   lastInput = "";
   beforeAnswer = null;
   relationAnswer = "SAME_STORY";
+  preferredCandidateTitle = rejectedReviewTitle = "";
   embeddingCalls = 0;
   process.env.EMBEDDINGS_ENABLED = "false";
   await sql`UPDATE publications SET selected=false,visibility='withdrawn'`;
@@ -205,6 +218,59 @@ test("the normal group consumer repairs an announcement, interpretation and dupl
   assert.deepEqual((await sql`SELECT * FROM receipts WHERE id=${receiptId}`)[0], evidence);
   assert.deepEqual(await sql`SELECT * FROM receipt_attempts WHERE receipt_id=${receiptId} ORDER BY attempt`, attempts);
   assert.deepEqual(await sql`SELECT * FROM analyses WHERE article_id=ANY(${ids}) ORDER BY id`, scores);
+});
+
+test("multi-member duplicate facts converge despite higher self-match confidence, and review rejection cannot authorize peer repair", async () => {
+  const interpretation = await article("甲矿项目分类目录：负责人配套解读");
+  const canonical = await groupArticle(interpretation);
+  const announcement = await article("甲矿项目分类目录：两部门发布完整公告");
+  const split = await groupArticle(announcement);
+  assert.equal(split.verdict, "new-fact-in-story");
+  const peers: string[] = [];
+  for (const [title, factId] of [
+    ["甲矿项目分类目录：负责人配套解读转载", canonical.factId!],
+    ["甲矿项目分类目录：旧公告转载一", split.factId!],
+    ["甲矿项目分类目录：旧公告转载二", split.factId!],
+  ] as const) {
+    const id = await article(title);
+    await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${factId},${id},'report',1)`;
+    await completeMaterialGrouping(id, 1, { addsValue: true, reason: "合成既有同事实报道" }, null);
+    await publishArticle(id);
+    peers.push(id);
+  }
+  const ids = [interpretation, announcement, ...peers];
+  const dates = () => sql`SELECT article_id,timeline_at,published_at FROM publications WHERE article_id=ANY(${ids}) ORDER BY article_id`;
+  const before = await dates();
+  const latest = async (id: string) =>
+    (await sql`SELECT candidates,input_manifest FROM grouping_decisions WHERE article_id=${id} ORDER BY id DESC LIMIT 1`)[0]!;
+  relationAnswer = "SAME_OCCURRENCE";
+  preferredCandidateTitle = rejectedReviewTitle = "旧公告";
+  assert.equal((await groupArticle(announcement, { force: true })).factId, canonical.factId);
+  const rejected = await latest(announcement);
+  assert.equal(rejected.candidates.find((c: { id: number }) => c.id === split.factId).relation, "SAME_STORY");
+  assert.equal(rejected.input_manifest.factConvergence, null, "the second model rejected the other fact, so its members cannot be recovered from this answer");
+  assert.equal(
+    (await sql`SELECT count(*)::int AS n FROM publications WHERE article_id=ANY(${ids}) AND seat`)[0].n,
+    2,
+    "the old fact still has other selected members",
+  );
+  rejectedReviewTitle = "";
+  assert.equal((await groupArticle(peers[1]!, { force: true })).factId, canonical.factId);
+  const accepted = await latest(peers[1]!);
+  assert.deepEqual(accepted.input_manifest.factConvergence, {
+    version: FACT_CONVERGENCE_VERSION,
+    storyId: canonical.storyId,
+    canonicalFactId: canonical.factId,
+    factIds: [canonical.factId, split.factId],
+  });
+  assert.equal(accepted.input_manifest.factConvergenceVersion, FACT_CONVERGENCE_VERSION);
+  assert.equal((await groupArticle(peers[2]!, { force: true })).factId, canonical.factId);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM publications WHERE article_id=ANY(${ids}) AND seat`)[0].n, 1);
+  assert.equal(
+    (await sql`SELECT count(*)::int AS n FROM publications WHERE article_id=ANY(${ids}) AND visibility='public' AND fact_id=${canonical.factId!}`)[0].n,
+    ids.length,
+  );
+  assert.deepEqual(await dates(), before);
 });
 
 test("an uncovered archive keeps its old date and does not loop when the review needs no model receipt", async () => {

@@ -6,8 +6,10 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { recoverPendingGroupings } from "@amp/backend/events/group";
 import { stopBoss, ensureQueue, QUEUES } from "@amp/backend/jobs/queue";
 import { enqueueJob } from "../packages/backend/src/jobs/module-queues.ts";
-import { BATCH_PROMPT_VERSION } from "../packages/backend/src/events/relate.ts";
+import { BATCH_PROMPT_VERSION, FACT_CONVERGENCE_VERSION } from "../packages/backend/src/events/relate.ts";
 import { failMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
+import { grantDateFixture } from "./source-date-fixture.ts";
+import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 
 const failure = "Every candidate and any unknown query scope require an explicit answer";
 after(async () => {
@@ -60,7 +62,7 @@ async function completedSplit() {
     VALUES(${f.id},${f.source},'news','合成公告及解读','public',true,true,true,true,${fact.id},${story.id},${`https://example.com/${f.id}`},now(),now(),now(),now())`;
   await sql`INSERT INTO grouping_decisions(article_id,fact_id,story_id,verdict,candidates,receipt_id,input_revision)
     VALUES(${f.id},${fact.id},${story.id},'new-fact-in-story','[{"id":1,"relation":"SAME_STORY","confidence":0.93}]',${f.receiptId},1)`;
-  return f;
+  return { ...f, fact: Number(fact.id), story: Number(story.id) };
 }
 const state = async (id: string) =>
   (await sql`SELECT grouping_status,grouping_receipt_id::text,grouping_retry_at,processing_state FROM articles WHERE id=${id}`)[0]!;
@@ -166,4 +168,127 @@ test("completed split repair preserves current recipes, unknown attempts, revisi
   assert.deepEqual(await Promise.all(fixtures.map((f) => state(f.id))), before);
   assert.equal((await sql`SELECT count(*)::int AS n FROM regroup_pending WHERE article_id=ANY(${fixtures.map((f) => f.id)})`)[0].n, 0);
   assert.equal((await sql`SELECT count(*)::int AS n FROM grouping_overrides WHERE article_id=ANY(${fixtures.map((f) => f.id)})`)[0].n, 1);
+});
+
+async function convergenceFixture(extra = 0) {
+  const canonical = await completedSplit(),
+    peer = await completedSplit(),
+    anchor = await completedSplit();
+  const residuals = [peer];
+  for (let i = 0; i < extra; i++) residuals.push(await completedSplit());
+  const all = [canonical, anchor, ...residuals];
+  await sql`UPDATE facts SET story_id=${canonical.story} WHERE id=${peer.fact}`;
+  for (const f of all) {
+    const fact = f === canonical ? canonical.fact : peer.fact;
+    await grantDateFixture(f.source, ["https://example.com/"]);
+    await sql`UPDATE receipts SET request=jsonb_set(request,'{promptVersion}',${sql.json(BATCH_PROMPT_VERSION)}) WHERE id=${f.receiptId}`;
+    await sql`UPDATE fact_articles SET fact_id=${fact} WHERE article_id=${f.id}`;
+    await sql`UPDATE grouping_decisions SET fact_id=${fact},story_id=${canonical.story},verdict='same-fact',candidates='[]' WHERE article_id=${f.id}`;
+    await sql`UPDATE publications SET fact_id=${fact},story_id=${canonical.story},selected=${f === canonical || f === anchor},seat=${f === canonical || f === anchor} WHERE article_id=${f.id}`;
+  }
+  const versions = await sql`SELECT id,source_date_version::int FROM articles WHERE id=ANY(${[anchor.id, canonical.id, peer.id]})`;
+  const manifest = {
+    materialRevision: 1,
+    reports: versions.map((r) => ({ articleId: r.id, revision: 1, dateVersion: r.source_date_version, publicationRevision: 1 })),
+    candidates: [canonical, peer].map((f) => ({ factId: f.fact, storyId: canonical.story, articleId: f.id, revision: 1 })),
+  };
+  const candidates = [peer, canonical].map((f, index) => ({ id: f.fact, relation: "SAME_OCCURRENCE", confidence: index ? 0.95 : 0.97 }));
+  await sql`UPDATE grouping_decisions SET input_manifest=${sql.json(manifest)},candidates=${sql.json(candidates)} WHERE article_id=${anchor.id}`;
+  return { canonical, peer, anchor, residuals, all, manifest };
+}
+
+async function finishConvergence(f: Awaited<ReturnType<typeof convergenceFixture>>, id = f.anchor.id, positive = true) {
+  const fact = positive ? f.canonical.fact : f.peer.fact;
+  const [material] = await sql`SELECT grouping_receipt_id FROM articles WHERE id=${id}`;
+  await sql`UPDATE articles SET grouping_status='complete',grouping_input_revision=revision,selection_adds_value=${positive} WHERE id=${id}`;
+  await sql`UPDATE fact_articles SET fact_id=${fact} WHERE article_id=${id}`;
+  await sql`UPDATE publications SET visibility='public',eligible=true,fact_id=${fact},story_id=${f.canonical.story},selected=false,seat=false WHERE article_id=${id}`;
+  await sql`DELETE FROM regroup_pending WHERE article_id=${id}`;
+  await sql`DELETE FROM pgboss.job WHERE name='events.group' AND data->>'articleId'=${id}`;
+  await sql`INSERT INTO grouping_decisions(article_id,fact_id,story_id,verdict,input_revision,receipt_id,input_manifest)
+    VALUES(${id},${fact},${f.canonical.story},'same-fact',1,${material.grouping_receipt_id},${sql.json({
+      ...f.manifest,
+      factConvergenceVersion: FACT_CONVERGENCE_VERSION,
+      factConvergence: positive
+        ? { version: FACT_CONVERGENCE_VERSION, storyId: f.canonical.story, canonicalFactId: f.canonical.fact, factIds: [f.canonical.fact, f.peer.fact] }
+        : null,
+    })})`;
+}
+
+test("old same-occurrence conflict admits only its current selected anchor once, including after a negative completion", async () => {
+  const f = await convergenceFixture(1);
+  await sql`UPDATE publications SET revision=revision+1 WHERE article_id=${f.canonical.id}`;
+  const reading = f.residuals[1]!;
+  await sql`UPDATE grouping_decisions SET input_manifest=${sql.json({ ...f.manifest, reports: [...f.manifest.reports, { articleId: reading.id, revision: 1, dateVersion: null }] })} WHERE article_id=${f.anchor.id}`;
+  await sql`UPDATE articles SET revision=2 WHERE id=${reading.id}`;
+  const evidence = await Promise.all(f.all.map((r) => paid(r.receiptId)));
+  const sweeps = await Promise.all([recoverPendingGroupings(), recoverPendingGroupings()]);
+  assert.equal(
+    sweeps.reduce((n, r) => n + r.enqueued, 0),
+    1,
+  );
+  assert.equal((await state(f.anchor.id)).grouping_status, "pending");
+  for (const r of [f.canonical, ...f.residuals]) assert.equal((await state(r.id)).grouping_status, "complete", "old evidence cannot move other members");
+  await finishConvergence(f, f.anchor.id, false);
+  assert.equal((await recoverPendingGroupings()).enqueued, 0, "the new algorithm's negative answer cannot rearm the old conflict");
+  assert.deepEqual(await Promise.all(f.all.map((r) => paid(r.receiptId))), evidence);
+});
+
+test("new same-occurrence proof repairs residual members within the shared five limit and survives a witness moving to canonical", async () => {
+  const f = await convergenceFixture(4);
+  await finishConvergence(f);
+  const invalidate = [
+    [
+      () => sql`UPDATE articles SET source_date_version=source_date_version+1 WHERE id=${f.peer.id}`,
+      () => sql`UPDATE articles SET source_date_version=source_date_version-1 WHERE id=${f.peer.id}`,
+    ],
+    [
+      () => sql`UPDATE fact_articles SET manual=true WHERE article_id=${f.peer.id}`,
+      () => sql`UPDATE fact_articles SET manual=false WHERE article_id=${f.peer.id}`,
+    ],
+    [() => sql`UPDATE sources SET enabled=false WHERE id=${f.peer.source}`, () => sql`UPDATE sources SET enabled=true WHERE id=${f.peer.source}`],
+    [
+      () => sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${f.peer.id}`,
+      () => sql`UPDATE publications SET visibility='public' WHERE article_id=${f.peer.id}`,
+    ],
+    [
+      () => sql`UPDATE publications SET operator_withdrawn=true WHERE article_id=${f.peer.id}`,
+      () => sql`UPDATE publications SET operator_withdrawn=false WHERE article_id=${f.peer.id}`,
+    ],
+    [
+      () => sql`UPDATE receipts SET status='unknown' WHERE id=${f.peer.receiptId}`,
+      () => sql`UPDATE receipts SET status='completed' WHERE id=${f.peer.receiptId}`,
+    ],
+  ];
+  for (const [change, restore] of invalidate) {
+    await change!();
+    assert.equal((await recoverPendingGroupings()).enqueued, 0, "stale, manual, disabled, withdrawn or unknown evidence is not an anchor");
+    await restore!();
+  }
+  const policy = (await readCurrentSourcePolicy(f.peer.source))!;
+  await saveSourcePolicy(
+    f.peer.source,
+    {
+      policy: { ...policy, permissions: { ...policy.permissions, external_model: "deny" } },
+      expectedVersion: policy.permission_version,
+      reason: "Synthetic permission denial",
+    },
+    "test",
+  );
+  assert.equal((await recoverPendingGroupings()).enqueued, 0, "denied evidence cannot nominate other members");
+  await saveSourcePolicy(f.peer.source, { policy, expectedVersion: policy.permission_version + 1, reason: "Synthetic permission restoration" }, "test");
+  const unknown = f.residuals.at(-1)!;
+  await sql`UPDATE receipts SET status='unknown' WHERE id=${unknown.receiptId}`;
+  const old = [await completedSplit(), await completedSplit()];
+  const evidence = await Promise.all([...f.all, ...old].map((r) => paid(r.receiptId)));
+  assert.equal((await recoverPendingGroupings()).enqueued, 5, "two old recipe repairs and three convergence repairs share one budget");
+  assert.equal((await state(f.canonical.id)).grouping_status, "complete", "canonical membership is not rejudged");
+  assert.equal((await state(f.peer.id)).grouping_status, "pending", "an ordinary nonselected member uses the same consumer");
+  await finishConvergence(f, f.peer.id);
+  await finishConvergence(f, f.residuals[1]!.id, false);
+  assert.equal((await recoverPendingGroupings()).enqueued, 1, "a proof survives its original later-fact witness moving to canonical");
+  assert.equal((await recoverPendingGroupings()).enqueued, 0);
+  assert.equal((await state(f.residuals[1]!.id)).grouping_status, "complete", "a negative current-version member cannot loop under another positive anchor");
+  assert.equal((await state(unknown.id)).grouping_status, "complete", "an unknown current paid attempt stays untouched");
+  assert.deepEqual(await Promise.all([...f.all, ...old].map((r) => paid(r.receiptId))), evidence);
 });

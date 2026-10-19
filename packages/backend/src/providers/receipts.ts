@@ -347,8 +347,8 @@ export async function changedGroupingRecipeReceipts(
   return new Map(rows.filter((row) => subjects.get(row.id) === row.subject).map((row) => [row.id, row.subject] as const));
 }
 
-/** Only a known successful old grouping answer can be reviewed; this projection never reads its paid text. */
-export async function completedGroupingRecipeReceipts(inputs: Array<{ receiptId: string; subject: string }>, promptVersion: string, db: Db) {
+/** Known successful grouping answers only; a non-null recipe excludes that recipe's completions. No paid text is returned. */
+export async function completedGroupingRecipeReceipts(inputs: Array<{ receiptId: string; subject: string }>, promptVersion: string | null, db: Db) {
   if (!inputs.length) return new Map<string, string>();
   const subjects = new Map(inputs.map((row) => [row.receiptId, row.subject]));
   const rows = await db<{ id: string; subject: string }[]>`SELECT r.id::text AS id,r.subject FROM receipts r
@@ -356,7 +356,8 @@ export async function completedGroupingRecipeReceipts(inputs: Array<{ receiptId:
     WHERE r.id=ANY(${inputs.map((row) => row.receiptId)}::bigint[]) AND r.purpose='group_article'
       AND r.origin='live' AND a.origin='live' AND r.status='completed' AND a.status='received'
       AND r.response IS NOT NULL AND a.response=r.response AND r.request->>'lane'='news'
-      AND r.request->>'promptVersion' LIKE 'group-batch+group-value@%' AND r.request->>'promptVersion'<>${promptVersion}`;
+      AND r.request->>'promptVersion' LIKE 'group-batch+group-value@%'
+      AND (${promptVersion}::text IS NULL OR r.request->>'promptVersion'<>${promptVersion})`;
   return new Map(rows.filter((row) => subjects.get(row.id) === row.subject).map((row) => [row.id, row.subject]));
 }
 
