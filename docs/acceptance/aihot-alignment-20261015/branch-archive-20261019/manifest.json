@@ -1,0 +1,53 @@
+{
+  "format_version": 1,
+  "archived_at": "2026-10-19T13:07:05.760355+00:00",
+  "repository": "https://github.com/Crhis-CP/AI-MINE",
+  "audited_main": "e75f033d0e1b626c9af3fe274464171d4d6f6806",
+  "purpose": "Preserve unique historical explanations and a scope proposal before branch cleanup; this archive does not make historical task instructions current or authorize production changes.",
+  "files": [
+    {
+      "kind": "original_file",
+      "source_ref": "refs/pull/227/head",
+      "source_head": "b7fcbe44eb24e85df61a5578cfbf2ff2680b0cde",
+      "source_path": "docs/05-quality/08-audit-ledger.md",
+      "source_git_blob": "4075d12a1c49901e39c98601f029a90b62372a46",
+      "source_sha256": "8967d1ae67376fe08f012c779c3812a26423553f6a693946ffa2a534cd17578b",
+      "saved_path": "08-audit-ledger.md.txt",
+      "saved_sha256": "8967d1ae67376fe08f012c779c3812a26423553f6a693946ffa2a534cd17578b",
+      "bytes": 3807
+    },
+    {
+      "kind": "original_file",
+      "source_ref": "refs/pull/227/head",
+      "source_head": "b7fcbe44eb24e85df61a5578cfbf2ff2680b0cde",
+      "source_path": "tasks/TASK-0352.md",
+      "source_git_blob": "8b69fb76a7dd8bbb66f75b676c1329ba53e0c2a9",
+      "source_sha256": "4181cada1c4c867633b413c4267ae24a5d68d88966fdfdf32857392e58b94213",
+      "saved_path": "TASK-0352.md.txt",
+      "saved_sha256": "4181cada1c4c867633b413c4267ae24a5d68d88966fdfdf32857392e58b94213",
+      "bytes": 2893
+    },
+    {
+      "kind": "unique_addition_patch",
+      "source_ref": "refs/heads/codex/source-date-integration-plan",
+      "source_head": "e79a201727df881d455bf5535a256f2bdf2ee4e7",
+      "source_path": "tasks/TASK-0022.md",
+      "source_git_blob": "20e7fea00d5635df5979f477f591a6750aac2337",
+      "source_sha256": "ffffef92d2332e60c5c0995c97ff471e6e9d2e21f8d8dd487a8a4cc8d7186feb",
+      "source_bytes": 30599,
+      "base_commit": "37f6c5a79385129a2be1d886d8018632962b06f5",
+      "base_git_blob": "8b058ca14b4abe7208b208ea7cbf190a39dc001d",
+      "base_sha256": "4558919ded39f4f54a5882f15707dc5c4c38a113fc7a6a66fe234cccc8a8eb0e",
+      "base_file_matches_audited_main": true,
+      "saved_path": "source-date-integration-plan.patch",
+      "saved_sha256": "262519cb3ce96d879a8374ab34117a0945ba43d36b877385a495b2266b090259",
+      "bytes": 2625,
+      "added_lines": 22,
+      "removed_lines": 0,
+      "reconstruction_verified": true,
+      "reconstruction_method": "Verify exact base SHA-256, then git apply --unidiff-zero in an isolated temporary directory; compare complete restored bytes and SHA-256 with the original source blob.",
+      "patch_context_lines": 0,
+      "patch_generation": "git diff --binary --unified=0 <base_commit> <source_head> -- <source_path>"
+    }
+  ]
+}

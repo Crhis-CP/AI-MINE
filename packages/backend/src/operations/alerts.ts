@@ -15,7 +15,7 @@ import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAl
 import { metalPriceChangeIssues } from "../publication/metal-prices/change.ts";
 import { loadMetalPrices } from "../publication/metal-prices/read.ts";
 import { loadReport, type ReportKind } from "../publication/reports.ts";
-import { qualifiedReportEntries, dailyReportQualification } from "../reports/compose.ts";
+import { dailyReportQualification, periodReportQualification } from "../reports/compose.ts";
 import { loadHot } from "../publication/stories.ts";
 import { backupConfigured } from "./backup.ts";
 import { readMetalPriceRuns, type MetalPriceSourceRecord } from "./metal-price-runs.ts";
@@ -45,7 +45,7 @@ export interface DueReport {
 /**
  * Issues whose compose time has passed, checked two hours later. Daily is composed at 08:00 and checked
  * from 10:00; weekly Monday at 10:00, checked from 12:00; monthly on the 1st at 10:30, checked from 12:30.
- * A missing issue after that is normal when the job succeeded and the window had no qualified selection.
+ * Period absence needs the composer's daily coverage evidence, not a generic catch-up status and a zero count.
  */
 export function dueReports(now: number): DueReport[] {
   const today = beijingDate(now);
@@ -146,16 +146,21 @@ async function describeReport(issue: DueReport, rowExists: boolean | null, now: 
   }
   let qualified = 0,
     pendingSelections = 0;
+  let period: Awaited<ReturnType<typeof periodReportQualification>> | undefined;
   let countError: string | undefined;
   try {
     if (issue.kind === "daily") ({ qualified, pendingSelections } = await dailyReportQualification(issue.key));
-    else qualified = await qualifiedReportEntries(issue.kind, issue.key);
+    else {
+      period = await periodReportQualification(issue.kind, issue.key);
+      qualified = period.qualified;
+    }
   } catch (error) {
     countError = clip(error instanceof Error ? error.message : String(error));
   }
+  if (loaded.state === "missing" && (period?.state === "before_first_daily" || period?.state === "quiet")) return [];
   const countNote = countError
     ? `数不清这段窗口里有多少够格的新精选：${countError}`
-    : `这段窗口（${REPORT_WINDOW[issue.kind]}）里够格的新精选是 ${qualified} 条`;
+    : `这段窗口（${REPORT_WINDOW[issue.kind]}）里够格的新精选是 ${qualified} 条${period?.state === "incomplete" ? "；日报尚未齐全或原刊主条目已不可用，不能认定为完整的安静周期" : ""}`;
   if (pendingSelections > 0 && !countError)
     return [
       {
@@ -169,8 +174,8 @@ async function describeReport(issue: DueReport, rowExists: boolean | null, now: 
       },
     ];
   const jobFailed = job.state !== "ok";
-  // A succeeded job with nothing new leaves the issue missing. That is the edition rule, not an outage.
-  if (loaded.state === "missing" && job.state === "ok" && qualified === 0 && !countError) return [];
+  // Periods use their own persisted daily evidence above; unrelated catch-up success cannot clear a real gap.
+  if (issue.kind === "daily" && loaded.state === "missing" && job.state === "ok" && qualified === 0 && !countError) return [];
   if (loaded.state === "missing" || jobFailed || qualified > 0 || countError) {
     const emptyOnSite = loaded.state === "empty";
     return [
@@ -181,7 +186,9 @@ async function describeReport(issue: DueReport, rowExists: boolean | null, now: 
           ? qualified > 0 || countError
             ? `这一期${issue.label}该有内容，但里面没有条目`
             : `这一期${issue.label}是空的，而出刊任务没有成功`
-          : missingTitle(issue, job),
+          : period?.state === "incomplete" && job.state === "ok"
+            ? `这一期${issue.label}还缺少可汇编的日报内容`
+            : missingTitle(issue, job),
         impact: emptyOnSite
           ? `读者能打开 ${issue.key}，但看不到条目。空期不该留。${countNote}`
           : job.state === "ok"

@@ -347,6 +347,19 @@ export async function changedGroupingRecipeReceipts(
   return new Map(rows.filter((row) => subjects.get(row.id) === row.subject).map((row) => [row.id, row.subject] as const));
 }
 
+/** Only a known successful old grouping answer can be reviewed; this projection never reads its paid text. */
+export async function completedGroupingRecipeReceipts(inputs: Array<{ receiptId: string; subject: string }>, promptVersion: string, db: Db) {
+  if (!inputs.length) return new Map<string, string>();
+  const subjects = new Map(inputs.map((row) => [row.receiptId, row.subject]));
+  const rows = await db<{ id: string; subject: string }[]>`SELECT r.id::text AS id,r.subject FROM receipts r
+    JOIN receipt_attempts a ON a.id=r.response_attempt_id AND a.receipt_id=r.id AND a.attempt=r.attempts
+    WHERE r.id=ANY(${inputs.map((row) => row.receiptId)}::bigint[]) AND r.purpose='group_article'
+      AND r.origin='live' AND a.origin='live' AND r.status='completed' AND a.status='received'
+      AND r.response IS NOT NULL AND a.response=r.response AND r.request->>'lane'='news'
+      AND r.request->>'promptVersion' LIKE 'group-batch+group-value@%' AND r.request->>'promptVersion'<>${promptVersion}`;
+  return new Map(rows.filter((row) => subjects.get(row.id) === row.subject).map((row) => [row.id, row.subject]));
+}
+
 /** Recover a just-failed JSON parse from the real response pointer; callers still verify the exact input hashes. */
 export async function readPolicyResponseForReceipt(receiptId: number) {
   const [row] = await sql<{ attemptId: string | null }[]>`SELECT response_attempt_id::text AS "attemptId" FROM receipts WHERE id=${receiptId}`;

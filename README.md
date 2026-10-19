@@ -7,13 +7,13 @@
 
 不用注册。打开就能读，想核对时可以回到原文。
 
-> 本分支正在准备一次统一升级。下文介绍这次版本的功能与使用方式；正式站的实际发布以网站更新日志为准。实施和验收状态见[升级清单](docs/acceptance/major-upgrade-status.md)。
+> 全站升级已于 2026 年 10 月 18 日上线，后续修复仍在按完整清单验收。功能说明和实际发布时间可查看网站更新日志；各项实现、验证、上线及质量验收分别记录在[升级清单](docs/acceptance/major-upgrade-status.md)。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/reader-preview/reader-dark.png">
   <img src="docs/assets/reader-preview/reader-light.png" alt="AI矿策精选页面：中文标题、来源、导读和推荐理由" width="100%">
 </picture>
-<p align="center"><sub>截图来自本地实际页面，使用演示数据；不代表正式站已经完成本次升级。</sub></p>
+<p align="center"><sub>截图来自本地实际页面，使用演示数据。</sub></p>
 
 ## 从今天发生了什么开始
 
@@ -56,7 +56,7 @@ flowchart LR
 关于页用动态示意展示来源如何汇集、归并、进入精选与成刊，也会带出最近入选的报道。
 
 <img src="docs/assets/reader-preview/about-flow-dark.png" alt="关于页的来源流动示意与最近精选" width="100%">
-<p align="center"><sub>本地实际页面，使用明确的演示数据；正式站随统一升级更新。</sub></p>
+<p align="center"><sub>本地实际页面，使用明确的演示数据。</sub></p>
 
 ## 中文读懂，也能核对原文
 
@@ -72,7 +72,7 @@ flowchart LR
 <p align="center"><sub>本地演示数据与手机布局截图。</sub></p>
 </details>
 
-**法规政策动态**保留独立入口和已有内容。本次统一升级上线时，将因成本和技术问题暂时停止自动更新，后续重新建设并上线；届时会单独发布更新说明。
+**法规政策动态**因成本和技术问题暂时停止自动更新，独立入口和已有内容继续保留。后续将重新建设并上线，恢复时间另行公告；停更说明已在更新日志中单独发布。
 
 ## 让自己的工具一起读
 

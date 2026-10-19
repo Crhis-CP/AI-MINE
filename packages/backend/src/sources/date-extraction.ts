@@ -174,7 +174,7 @@ function declared(raw: string, pattern: string | null, language: string | null):
         : [`(\\d{1,2})${glue}${word}${glue}(\\d{4})${tail}`, "dmy"];
   } else if (!language?.trim()) reject("missing_format_language");
   if (!entry) reject("unsupported_format");
-  const clockPattern = time ? (time[1] === "HH:mm" ? " (\\d{2}:\\d{2})" : " (\\d{2}:\\d{2}:\\d{2})") : "";
+  const clockPattern = time ? `(?: |,?\\s+at\\s+)(\\d{2}:\\d{2}${time[1] === "HH:mm" ? "" : ":\\d{2}"})` : "";
   const suffix = `${clockPattern}${time?.[2] ? "\\s*(Z|UT|UTC|GMT|[+-]\\d{2}:?\\d{2})" : ""}`;
   const match = new RegExp(`^${entry[0]}${suffix}$`, "iu").exec(raw);
   if (!match) reject("unrecognized_format");
@@ -187,9 +187,9 @@ function declared(raw: string, pattern: string | null, language: string | null):
 }
 
 // No declared format, neither ISO nor RFC: the first year-month-day in the text, as the upstream reads it
-// (parseLooseDate in published-at.ts), but with both separators alike and a time only after one space; a zone right
+// (parseLooseDate in published-at.ts), but with both separators alike and a time after a space or "at"; a zone right
 // after that time makes it the exact instant (the upstream also drops a zone inside Chinese text; not followed here).
-const LOOSE = /((\d{4})(?:([-/.])(\d{1,2})\3(\d{1,2})|年(\d{1,2})月(\d{1,2})日))(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?/;
+const LOOSE = /((\d{4})(?:([-/.])(\d{1,2})\3(\d{1,2})|年(\d{1,2})月(\d{1,2})日))(?:(?: |,?\s+at\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?)?/i;
 const LOOSE_FORMATS: Record<string, string> = { "-": "YYYY-MM-DD", "/": "YYYY/MM/DD", ".": "YYYY.MM.DD" };
 // The zone right after that time: Z, ±hh:mm, ±hhmm, or GMT/UTC with an offset after it (a space between allowed) or none ("GMT+8", "GMT +0800", "UTC+08:00").
 const LOOSE_ZONE = /^(?:\.\d+)?\s*(?:(Z|[+-]\d{2}:?\d{2})|(?:GMT|UTC)(?:\s*([+-])(\d{1,2})(?::?(\d{2}))?)?)\b/i;

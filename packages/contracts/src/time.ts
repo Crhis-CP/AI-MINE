@@ -19,6 +19,12 @@ export function beijingMidnight(date: string): Date {
   return new Date(Date.parse(`${date}T00:00:00+08:00`));
 }
 
+/** A calendar day's month and day; archived days include the year when it differs from today's Beijing year. */
+export function monthDay(date: string, today?: string): string {
+  const year = today && date.slice(0, 4) !== today.slice(0, 4) ? `${date.slice(0, 4)}年` : "";
+  return `${year}${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日`;
+}
+
 export function addDays(date: string, days: number): string {
   const t = Date.parse(`${date}T00:00:00Z`) + days * 86400000;
   return new Date(t).toISOString().slice(0, 10);

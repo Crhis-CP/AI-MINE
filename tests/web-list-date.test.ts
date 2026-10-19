@@ -34,6 +34,11 @@ test("no date at all is null", () => {
   assert.equal(iso("yesterday"), null);
 });
 
+test("at joins a source date and its clock in the legacy offset adapter", () => {
+  assert.equal(iso("Sep 26, 2026 at 10:30"), "2026-09-26T02:30:00.000Z");
+  assert.equal(iso("2026-09-26 at 10:30", "-07:00"), "2026-09-26T17:30:00.000Z");
+});
+
 test("the published time kept for a parsed source date: its instant; a date alone the start of that day in the source's offset", () => {
   const day = (raw: string, localDate: string, offset?: string) =>
     sourcePublishedAt({ raw, utc: null, local_date: localDate, local_time: null }, offset)?.toISOString() ?? null;

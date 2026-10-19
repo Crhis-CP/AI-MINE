@@ -1,0 +1,28 @@
+diff --git a/tasks/TASK-0022.md b/tasks/TASK-0022.md
+index 8b058ca..20e7fea 100644
+--- a/tasks/TASK-0022.md
++++ b/tasks/TASK-0022.md
+@@ -151,0 +152,12 @@ allowed_paths:
++  - apps/api/src/runtime.ts
++  - apps/worker/src/main.ts
++  - packages/backend/src/providers/permissions.ts
++  - packages/backend/src/sources/permissions.ts
++  - scripts/verify/retained-sql-context.ts
++  - scripts/verify/tests/retained-sql-context.test.ts
++  - scripts/verify/source-date-transition.ts
++  - scripts/verify/tests/source-date-transition.test.ts
++  - scripts/verify/source-date-transition.json
++  - scripts/verify/data-ownership.ts
++  - scripts/verify/tests/mining-category-transition.test.ts
++  - scripts/verify/tests/fixtures/mining-category-transition.json
+@@ -299,0 +312,10 @@ SOURCE_DATE_ALERT_DAYS集中经现有backend/config.ts读取，.env.example仅
++
++## 日期消费者最终组合的精确配套
++
++获取的逐跳许可与根生命周期直接复用 TASK-0021 的固定互操作：四条已列入口负责 worker/private-api 初始化、当前来源用途核验与明确错误类型，public-api 不签发；本卡只接日期补取依赖，不宣称模型/全部公开出口的用途许可已完成。现有报告候选读取端口已在本卡允许范围，原事务/锁/窗口保持。
++
++C 配套仅登记既有日期安全标量所需七组精确读模型引用，32个已有动态SQL仍是UNKNOWN。固定三份业务文件的前后完整字节、唯一调用槽、完整SQL的受限分支、原opaque表达式/绑定/原因、解析器依赖及每份一对一同额预算共同核验；唯一run(sql)绑定变化必须追到同批已展开的父查询。最多128分支，新增未知、关系、依赖、非日期变化或重复花用均拒绝，不整体刷新预算。新增五个精确文件及data-ownership入口与日期消费者同一实现片生效，本计划不使用新增路径。
++
++组合回归还确认旧mining-category测试从当前ROOT读取pool，而其余前后像已冻结。后续把当时pool原字节及哈希放回既有夹具，读取固定输入；保留十一槽全部额度、负例及runtime证明器，不能更新旧证明去追随新业务。该测试与夹具两条路径仅为修复已复现的测试前提。
++
++能力②固定业务候选2209有效行，C必要证明/负例按实际另计，批准本次整个日期能力一次≤3000有效行（全部测试计入，生成契约及固定证据数据单列）；不压缩或删断言，不拆开公开条件。最终实现仍取最终SHA完整回执及独立审查；此计划不改业务、模型、生产或外部来源状态。

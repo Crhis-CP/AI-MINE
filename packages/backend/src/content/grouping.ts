@@ -74,6 +74,24 @@ export async function resumeGroupingRecipeFailure(input: { id: string; revision:
   return changed.count === 1;
 }
 
+/** Current completions in the repair window, without material text or historic revisions. */
+export async function completedGroupingRecipeInputs(sourceIds: string[], queuedIds: string[], db: Db) {
+  return db<{ id: string; source_id: string; revision: number; receipt_id: string | null; historical: boolean }[]>`
+    SELECT id,source_id,revision,grouping_receipt_id::text AS receipt_id,
+      (backfill AND (published_at IS NULL OR discovered_at-published_at>make_interval(secs=>${STALE_ON_DISCOVERY_MS / 1000}))) AS historical FROM articles
+    WHERE source_id=ANY(${sourceIds}::text[]) AND id<>ALL(${queuedIds}::text[])
+      AND processing_state IN ('analyzed','blocked') AND grouping_status='complete' AND grouping_input_revision=revision
+      AND discovered_at>now()-interval '14 days'`;
+}
+
+/** Keep the old answer and analysis intact while atomically scheduling a review of this exact completion. */
+export async function resumeCompletedGroupingRecipe(input: { id: string; revision: number; receipt_id: string | null }, db: Db) {
+  const changed = await db`UPDATE articles SET grouping_status='pending',grouping_retry_at=NULL
+    WHERE id=${input.id} AND revision=${input.revision} AND grouping_input_revision=${input.revision}
+      AND processing_state IN ('analyzed','blocked') AND grouping_status='complete' AND grouping_receipt_id IS NOT DISTINCT FROM ${input.receipt_id}::bigint`;
+  return changed.count === 1;
+}
+
 /** Claim a bounded, fair batch; enqueue in this same transaction so a crash cannot lose the work. */
 export async function claimPendingGrouping(
   sourceIds: string[],

@@ -670,6 +670,8 @@ test("a missing, empty or unreadable report is alerted, and a real issue is not"
     await sql`DELETE FROM reports WHERE id IN ${sql(ids)}`;
     ids.length = 0;
     for (const issue of due) if (issue.kind !== "weekly") ids.push(await putReport(issue.kind, issue.key, okReport(issue.kind)));
+    // This is a gap inside the daily archive, not a week before the first daily existed.
+    ids.push(await putReport("daily", "2026-09-28", { sections: [], flashes: [] }));
     const [failed] = await sql<{ id: number }[]>`
       INSERT INTO job_runs (job, started_at, finished_at, status, error)
       VALUES ('reports.weekly', ${new Date(PRODUCT_AT - 3600_000)}, ${new Date(PRODUCT_AT - 3600_000)}, 'failed', '模型没有返回周报')
