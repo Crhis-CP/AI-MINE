@@ -335,6 +335,55 @@ test("a body translation that already failed three times is not bought again", a
   assert.equal(provider.hits(), before, "the spent body is not bought again");
 });
 
+test("legacy cooldown exhaustion resumes unfinished segments through repair and worker gates", async () => {
+  const { articleId } = await upsertMaterial({
+    sourceId: SOURCE,
+    url: `${URL_}-legacy-cooldown`,
+    title: `Legacy cooldown ${T}`,
+    language: "en",
+    bodyText: `Legacy cooldown copper report ${T}.`,
+    bodyHtml:
+      `<p>Completed copper paragraph ${T}.</p>` +
+      `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> legacy cooldown ${T} <img src="https://example.com/cooldown-${T}.png" alt="Copper prices"></p>`,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+  });
+  await currentJudgement(articleId);
+  await publishArticle(articleId);
+  assert.equal((await translateOne(articleId)).status, "partial");
+  const completed = await sql`SELECT segment_index,receipt_id,attempt_id,restored_hash FROM enrichment.translation_segments
+    WHERE article_id=${articleId} AND state='complete' ORDER BY segment_index`;
+  assert.equal(completed.length, 1);
+  const calls = provider.hits();
+  assert.equal((await translateOne(articleId)).reason, "retry_cooldown");
+  assert.equal(
+    (await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`)[0].attempts,
+    1,
+    "new cooldown-only passes consume no whole-article attempts",
+  );
+
+  // Reproduce an old counter which included cooldown passes; do not reset its history during repair.
+  await sql`UPDATE translation_attempts SET attempts=3,outcome='partial',reason='retry_cooldown' WHERE article_id=${articleId}`;
+  await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
+  for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
+  assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
+  assert.equal((await translateOne(articleId)).reason, "retry_cooldown", "the worker reaches the existing segment cooldown guard");
+  assert.equal(provider.hits(), calls, "neither repair nor an unexpired cooldown sends another request");
+  assert.equal((await sql`SELECT attempts FROM translation_attempts WHERE article_id=${articleId}`)[0].attempts, 3);
+
+  await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
+    WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`})`;
+  assert.equal((await translateOne(articleId)).status, "translated");
+  assert.equal(provider.hits(), calls + 1, "only the unfinished segment is bought again after cooldown");
+  const reused = await sql`SELECT segment_index,receipt_id,attempt_id,restored_hash FROM enrichment.translation_segments
+    WHERE article_id=${articleId} AND segment_index=${completed[0].segment_index}`;
+  assert.deepEqual([...reused], [...completed], "the completed checkpoint and its paid identity are unchanged");
+  const [history] = await sql`SELECT attempts,outcome,reason FROM translation_attempts WHERE article_id=${articleId}`;
+  assert.deepEqual({ ...history }, { attempts: 4, outcome: "translated", reason: null });
+  assert.equal((await detail(articleId)).body.complete, true);
+});
+
 test("unselected foreign articles are public without entering the translation queue", async () => {
   const { articleId } = await upsertMaterial({
     sourceId: SOURCE,
