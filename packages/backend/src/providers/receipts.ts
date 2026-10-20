@@ -60,7 +60,7 @@ export class ReceiptOutputLimitError extends Error {
   readonly receiptId: number;
   readonly rejected: number;
   constructor(receiptId: number, rejected: number) {
-    super(`Receipt ${receiptId} reached its translation output retry limit (${rejected})`);
+    super(`Receipt ${receiptId} reached its output retry limit (${rejected})`);
     this.receiptId = receiptId;
     this.rejected = rejected;
   }
@@ -645,6 +645,9 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         const [counts] = await tx<{ stored: number }[]>`SELECT count(*)::int AS stored FROM receipt_attempts
           WHERE receipt_id=${existing.id} AND status='received' AND response IS NOT NULL`;
         if (counts && counts.stored >= 3) {
+          // Report workers need a terminal verdict; paused/waiting turns are not physical outputs.
+          if (req.purpose === "report_weekly" || req.purpose === "report_monthly")
+            return { kind: "limited" as const, id: existing.id, rejected: counts.stored };
           await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
           return { kind: "reuse" as const, row: existing };
         }

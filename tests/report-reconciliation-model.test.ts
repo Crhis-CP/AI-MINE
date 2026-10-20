@@ -64,9 +64,22 @@ test("rejected historical prose retries within the existing receipt bound and st
   await composeDaily("2020-07-01");
   answerOverview = "";
   await requestReportRevision("monthly", "2020-06", "synthetic rejected prose", [material]);
-  for (let attempt = 0; attempt < 3; attempt++) {
+  // Two unrelated paused turns must not consume any output retry allowance.
+  await sql`UPDATE ops.lane_controls SET paused=true,reason='synthetic replay pause',actor='synthetic-test',expires_at=now()+interval '1 hour' WHERE lane='news' AND switch='publication' AND holder='owner'`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await sql`UPDATE reports.reconciliation_jobs SET state='pending',lease_until=NULL WHERE kind='monthly' AND key='2020-06'`;
+    await assert.rejects(reconcileReport("monthly", "2020-06"), /paused/);
+  }
+  await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='publication' AND holder='owner'`;
+  for (let attempt = 0; attempt < 4; attempt++) {
     await sql`UPDATE reports.reconciliation_jobs SET state='pending',next_attempt_at=now() WHERE kind='monthly' AND key='2020-06'`;
     await reconcileReport("monthly", "2020-06");
+    if (attempt === 0)
+      assert.equal(
+        (await sql`SELECT state FROM reports.reconciliation_jobs WHERE kind='monthly' AND key='2020-06'`)[0].state,
+        "retry",
+        "paused worker turns cannot exhaust output attempts",
+      );
     const [receipt] = await sql`SELECT id,status FROM receipts WHERE subject='report:monthly:2020-06'`;
     assert.equal(receipt.status, "failed", "an unusable overview cannot become a completed reusable answer");
     await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes' WHERE receipt_id=${receipt.id}`;
