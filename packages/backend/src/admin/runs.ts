@@ -15,6 +15,7 @@ import { EVENT_CONTINUATIONS } from "../events/queues.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { redactDatabaseConnection } from "../lib/operational-error.ts";
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 
@@ -80,6 +81,11 @@ export async function runsOverview() {
   const [retrying] = await sql<{ n: number; next: Date | null }[]>`
     SELECT count(*)::int AS n, min(processing_retry_at) AS next FROM articles WHERE processing_state = 'new' AND processing_attempts > 0`;
   const now = Date.now();
+  // Existing records may predate safe task logging. Redact even if SQL already truncated the URI.
+  for (const row of [...latest, ...timeline, ...failedJobs]) {
+    if (typeof row.error === "string") row.error = redactDatabaseConnection(row.error);
+    if (typeof row.last_output === "string") row.last_output = redactDatabaseConnection(row.last_output);
+  }
   return {
     checkedAt: new Date(now).toISOString(),
     processes: heartbeats.map((h) => ({

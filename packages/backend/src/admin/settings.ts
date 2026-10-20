@@ -1,28 +1,10 @@
 // Operator settings: notification targets (switching a group on records enabled_at so older content is
 // never back-filled) and per-service request budgets (the circuit breaker paid calls check before sending).
-import { config } from "../config.ts";
 import { sql } from "../db.ts";
-import { audit } from "./auth.ts";
+import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 export { monthlyUsageReports } from "../operations/usage-monthly.ts";
 
-export async function listTargets() {
-  return sql`
-    SELECT t.key, t.purpose, t.kind, t.enabled, t.enabled_at, t.config_ref, t.note, t.updated_at,
-           (SELECT count(*)::int FROM deliveries d WHERE d.target_key = t.key AND d.created_at > now() - interval '7 days') AS deliveries_7d,
-           (SELECT max(d.sent_at) FROM deliveries d WHERE d.target_key = t.key) AS last_sent_at
-    FROM notify_targets t ORDER BY t.purpose, t.key`;
-}
-
-export async function setTargetEnabled(key: string, enabled: boolean, reason: string, actor: string) {
-  if (!reason?.trim()) throw new Error("reason is required");
-  const [before] = await sql`SELECT enabled, enabled_at FROM notify_targets WHERE key = ${key}`;
-  if (!before) return null;
-  const [after] = await sql`
-    UPDATE notify_targets SET enabled = ${enabled}, enabled_at = CASE WHEN ${enabled} AND NOT enabled THEN now() ELSE enabled_at END, updated_at = now()
-    WHERE key = ${key} RETURNING key, enabled, enabled_at`;
-  await audit(actor, enabled ? "notify.enable" : "notify.disable", `notify-target:${key}`, reason, before, after);
-  return { ...after, pushEnabledHere: config.feishuContentPushEnabled };
-}
+export { listTargets, setTargetEnabled } from "@amp/backend/notify/deliver";
 
 export async function listBudgets() {
   return sql`
@@ -32,17 +14,25 @@ export async function listBudgets() {
     FROM budgets b WHERE b.service NOT LIKE 'registered:%' OR b.per_minute=0 OR b.per_hour=0 OR b.per_day=0 ORDER BY b.service`;
 }
 
-export async function updateBudget(service: string, input: { perMinute: number; perHour: number; perDay: number; reason: string }, actor: string) {
-  if (!input.reason?.trim()) throw new Error("reason is required");
-  for (const v of [input.perMinute, input.perHour, input.perDay])
-    if (!Number.isInteger(v) || v < 0) throw new Error("budgets are non-negative integers (0 stops the service)");
-  const [before] = await sql`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
-  const [after] = await sql`
+export async function updateBudget(
+  service: string,
+  input: { perMinute: number; perHour: number; perDay: number; reason: string },
+  actor: string,
+  principal?: AdminPrincipal,
+) {
+  return sql.begin(async (tx) => {
+    if (principal) await requireOwner(principal, tx);
+    if (!input.reason?.trim()) throw new Error("reason is required");
+    for (const v of [input.perMinute, input.perHour, input.perDay])
+      if (!Number.isInteger(v) || v < 0) throw new Error("budgets are non-negative integers (0 stops the service)");
+    const [before] = await tx`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
+    const [after] = await tx`
     INSERT INTO budgets (service, per_minute, per_hour, per_day, note) VALUES (${service}, ${input.perMinute}, ${input.perHour}, ${input.perDay}, ${input.reason})
     ON CONFLICT (service) DO UPDATE SET per_minute = EXCLUDED.per_minute, per_hour = EXCLUDED.per_hour, per_day = EXCLUDED.per_day, note = EXCLUDED.note, updated_at = now()
     RETURNING service, per_minute, per_hour, per_day`;
-  await audit(actor, "budget.update", `budget:${service}`, input.reason, before ?? null, after);
-  return after;
+    await audit(actor, "budget.update", `budget:${service}`, input.reason, before ?? null, after, undefined, tx);
+    return after;
+  });
 }
 
 export { listLaneControls, changeOwnerLaneControls, LaneControlConflict } from "../operations/lane-controls.ts";

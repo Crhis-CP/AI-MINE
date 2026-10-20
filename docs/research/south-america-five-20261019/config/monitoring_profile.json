@@ -1,0 +1,89 @@
+{
+  "format": "AIMINE-group-monitoring-intent-v1",
+  "native_loader": false,
+  "profile_id": "south-america-five-mining",
+  "display_name": "南美五国矿业法规与新闻动态",
+  "applies_to": "Group selection/presentation after the existing unified intake and processing; adapt to current repository contracts.",
+  "jurisdictions": [
+    "PE",
+    "CO",
+    "AR",
+    "GY",
+    "SR"
+  ],
+  "country_aliases": {
+    "PE": [
+      "秘鲁",
+      "Perú",
+      "Peru"
+    ],
+    "CO": [
+      "哥伦比亚",
+      "Colombia"
+    ],
+    "AR": [
+      "阿根廷",
+      "Argentina"
+    ],
+    "GY": [
+      "圭亚那",
+      "Guyana"
+    ],
+    "SR": [
+      "苏里南",
+      "Suriname",
+      "Surinam"
+    ]
+  },
+  "country_disambiguation": [
+    "法属圭亚那/French Guiana is not Guyana.",
+    "Guayana may name a wider region; require country context.",
+    "Do not stamp all five country codes on every item from a global source."
+  ],
+  "content_languages": [
+    "es",
+    "en",
+    "nl",
+    "zh-CN"
+  ],
+  "presentation_language": "zh-CN",
+  "include_topics": [
+    "矿权、矿业许可与正规化",
+    "勘探、开发、投产、停产和矿业项目进展",
+    "矿产资源、产量与出口",
+    "矿企交易、融资和经营",
+    "矿业相关税收、海关、外汇和投资制度",
+    "环境、安全、用工、社区与非法采矿",
+    "对五国矿业经营有明确影响的电力、交通、公共卫生与政治事件"
+  ],
+  "applicability_evidence": [
+    "Article/document directly concerns a target country or project.",
+    "A broader rule or development has documented, explainable applicability to target-country mining operations."
+  ],
+  "intake_rule": "Reuse current mining information intake rules. Concrete mining/industry information need not first qualify as major news. Do not change existing scoring thresholds or selected/hot rules.",
+  "global_sources": "Keep global/China sources in the shared source inventory; apply target-country applicability at group selection, not by publisher headquarters or language.",
+  "edge_sources": {
+    "ids": [
+      "coal_age",
+      "mining_review_africa",
+      "auc",
+      "odihr",
+      "who"
+    ],
+    "handling": "Retain requested sources. Ordinary off-region coal, election or health news is outside this group unless applicability to target-country mining is evidenced."
+  },
+  "law_state": "Keep draft/introduced/passed/promulgated/effective states distinct. Media summaries require a legal original when reporting legal effect.",
+  "deduplication": [
+    "Preserve source IDs and runtime manual state.",
+    "Same publisher across feeds/sections/languages is not automatically independent corroboration.",
+    "Use current event grouping, source ownership and information-increment rules; no new voting formula.",
+    "Shared government hosts need institution-level identity."
+  ],
+  "source_dates": "Preserve original raw date and precision. Do not fill timezone from the publisher country; never replace missing dates with fetch time.",
+  "rights_defaults": {
+    "site_fulltext": false,
+    "syndicate_fulltext": false,
+    "note": "Existing source permissions remain governed by the repository; the package itself does not modify them."
+  },
+  "delivery": "No recipient, webhook, token, schedule or actual group-message delivery is configured by this package."
+}

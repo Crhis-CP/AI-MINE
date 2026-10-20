@@ -1,0 +1,3247 @@
+{
+  "checked_at": "2026-10-19T13:21:01.237Z",
+  "repository_commit": "e75f033d0e1b626c9af3fe274464171d4d6f6806",
+  "method": "Unmodified native collector functions replayed over captured public response bytes; only transport mocked",
+  "live_admin_preview": false,
+  "production_write": false,
+  "results": [
+    {
+      "id": "mining_com",
+      "kind": "rss",
+      "config_hash": "666941c3e64ff3402446fd94f223b02856d0df959918de270300ee5efcd73cc2",
+      "native_config_supported": true,
+      "captured_response_replayed": false,
+      "candidate_count": 0,
+      "valid_link_title_count": 0,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {},
+      "detail_sample": null,
+      "issues": [
+        "No captured response for this configuration"
+      ],
+      "native_source_id": "sa5-mining-com"
+    },
+    {
+      "id": "mining_journal",
+      "kind": "web_list",
+      "config_hash": "7b141f723be4b293ea78d13907fd5d727b7c31315463e62525178a1c31087afa",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 0,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "d9dd72bf6120982fd726385dddc3b898d6d76d50acfa446042bd2d1205760292",
+      "checked_at": "2026-10-19T12:55:13.401074+00:00",
+      "sample": [
+        {
+          "url": "https://www.mining-journal.com/mj-comment/opinion-articles/4537049/copper-schrodingers-box",
+          "date_raw": "18 September 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "18 September 2026",
+            "local_date": "2026-09-18",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:.secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)/.date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-09-18",
+            "beijing_date": "2026-09-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-mining-journal"
+    },
+    {
+      "id": "mining_weekly",
+      "kind": "rss",
+      "config_hash": "c9a6d1ee8d82c624c5da125548d8462a0519dcc129dabe2bec442ba51832733a",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 36,
+      "valid_link_title_count": 36,
+      "parsed_date_count": 36,
+      "source_utc_count": 36,
+      "source_date_raw_count": 36,
+      "date_meanings": {
+        "published": 36
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "cdd3dfdd58ca1aa9eb77821b8091325374c8ef21aeb82aff71e46a6c5bf0628e",
+      "checked_at": "2026-10-19T12:56:56.300619+00:00",
+      "sample": [
+        {
+          "url": "https://www.miningweekly.com/article/ilzsg-sees-global-zinc-lead-markets-in-surplus-in-2027-2026-10-19",
+          "date_raw": "Mon, 19 Oct 2026 14:31:00 +0200",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 14:31:00 +0200",
+            "local_date": "2026-10-19",
+            "local_time": "14:31:00",
+            "timezone": null,
+            "utc": "2026-10-19T12:31:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 20:31",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-mining-weekly"
+    },
+    {
+      "id": "mining_magazine",
+      "kind": "web_list",
+      "config_hash": "afa8e365a22996ec7e51529536f090796035eb6038cec98ce7c1df74a9f5ac6e",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 29,
+      "valid_link_title_count": 29,
+      "parsed_date_count": 29,
+      "source_utc_count": 0,
+      "source_date_raw_count": 29,
+      "date_meanings": {
+        "published": 29
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "dc7fdc31af0fdf1529aeeefcc860677bd92fe539e3182d2c18f01ec4e54e9405",
+      "checked_at": "2026-10-19T12:55:13.402383+00:00",
+      "sample": [
+        {
+          "url": "https://www.miningmagazine.com/community/news-analysis/4538311/nations-responding-canadas-regulatory-revolution",
+          "date_raw": "19 October 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "19 October 2026",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:.secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)/.date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-mining-magazine"
+    },
+    {
+      "id": "international_mining",
+      "kind": "rss",
+      "config_hash": "38676ec1e5635787e1c0d0c3d5dc28ee2f397b5a985171ad9a203d54871ac582",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 12,
+      "valid_link_title_count": 12,
+      "parsed_date_count": 12,
+      "source_utc_count": 12,
+      "source_date_raw_count": 12,
+      "date_meanings": {
+        "published": 12
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "85b70095e1182a4c78a4db434a80b24901a29d904ec82ab2b0db61a41a005423",
+      "checked_at": "2026-10-19T12:56:55.412612+00:00",
+      "sample": [
+        {
+          "url": "https://im-mining.com/2026/10/19/safety-as-the-foundation-of-successful-underground-mining/",
+          "date_raw": "Mon, 19 Oct 2026 12:32:59 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 12:32:59 +0000",
+            "local_date": "2026-10-19",
+            "local_time": "12:32:59",
+            "timezone": null,
+            "utc": "2026-10-19T12:32:59Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 20:32",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-international-mining"
+    },
+    {
+      "id": "northern_miner",
+      "kind": "rss",
+      "config_hash": "752b9fcc219e3e83d5ff00e619ce250d0b4ce11d1e0532a231b43033b7eb4d6d",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 20,
+      "valid_link_title_count": 20,
+      "parsed_date_count": 20,
+      "source_utc_count": 20,
+      "source_date_raw_count": 20,
+      "date_meanings": {
+        "published": 20
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "de074a248994db3d2a38c7a2a15a61acd3a5625b710fb7f7a6f2f4ecdc816101",
+      "checked_at": "2026-10-19T12:55:31.921683+00:00",
+      "sample": [
+        {
+          "url": "https://www.northernminer.com/news/brazil-survey-plan-could-give-big-miners-first-claims/1003895843/",
+          "date_raw": "Mon, 19 Oct 2026 11:30:00 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 11:30:00 +0000",
+            "local_date": "2026-10-19",
+            "local_time": "11:30:00",
+            "timezone": null,
+            "utc": "2026-10-19T11:30:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 19:30",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-northern-miner"
+    },
+    {
+      "id": "canadian_mining_journal",
+      "kind": "rss",
+      "config_hash": "1aff5bc11decc2dd098394dcc2f9ec34b4d9b4d4f7c7e2e72bc411ec3a865e16",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 12,
+      "valid_link_title_count": 12,
+      "parsed_date_count": 12,
+      "source_utc_count": 12,
+      "source_date_raw_count": 12,
+      "date_meanings": {
+        "published": 12
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "9ca7b03ba9671fdfec8adef6c4cc31fd8e7a9de308f98b7d2981426dc281f0a5",
+      "checked_at": "2026-10-19T12:56:55.413336+00:00",
+      "sample": [
+        {
+          "url": "https://www.canadianminingjournal.com/news/caterpillar-announces-leadership-reshuffle/",
+          "date_raw": "Fri, 16 Oct 2026 16:01:41 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Fri, 16 Oct 2026 16:01:41 +0000",
+            "local_date": "2026-10-16",
+            "local_time": "16:01:41",
+            "timezone": null,
+            "utc": "2026-10-16T16:01:41Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-17 00:01",
+            "beijing_date": "2026-10-17"
+          }
+        }
+      ],
+      "native_source_id": "sa5-canadian-mining-journal"
+    },
+    {
+      "id": "kitco_mining",
+      "kind": "web_list",
+      "config_hash": "74eefccb0484b7089d28154144430474a8c8c2efd1f648ecc29098747083174b",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 19,
+      "valid_link_title_count": 19,
+      "parsed_date_count": 19,
+      "source_utc_count": 0,
+      "source_date_raw_count": 19,
+      "date_meanings": {
+        "published": 19
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "1c9f9be597c0a930950e0202457d3714f4dec2cb722f4deb5b174b7688281d6b",
+      "checked_at": "2026-10-19T12:56:55.421621+00:00",
+      "sample": [
+        {
+          "url": "https://www.kitco.com/news/article/2026-10-14/golds-weakness-buying-opportunity-jefferies-sees-5000-price-2027-healthy",
+          "date_raw": "2026-10-14",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-14",
+            "local_date": "2026-10-14",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:/news/(?:article|off-the-wire)/(\\d{4}-\\d{2}-\\d{2})/",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-14",
+            "beijing_date": "2026-10-14"
+          }
+        }
+      ],
+      "native_source_id": "sa5-kitco-mining"
+    },
+    {
+      "id": "miningnews",
+      "kind": "web_list",
+      "config_hash": "464a4134d0d8f0b5fda46b06d4133aa196274bfdd70c154c84ad6ef616724f5d",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 34,
+      "valid_link_title_count": 34,
+      "parsed_date_count": 34,
+      "source_utc_count": 0,
+      "source_date_raw_count": 34,
+      "date_meanings": {
+        "published": 34
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "a561b064d2767117a721fd9dcf98f7b37a4c72284da5c7284f9094dc65cefbdd",
+      "checked_at": "2026-10-19T12:55:13.409573+00:00",
+      "sample": [
+        {
+          "url": "https://www.miningnews.net/capital-markets/news-analysis/4538292/mixed-monday-asx-miners",
+          "date_raw": "19 October 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "19 October 2026",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:.secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)/.date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-miningnews"
+    },
+    {
+      "id": "australian_mining",
+      "kind": "rss",
+      "config_hash": "7b9faceef000fb8f5d68ea21170eaa09cfa134e3796da9cc544986f4304ed2d5",
+      "native_config_supported": true,
+      "captured_response_replayed": false,
+      "candidate_count": 0,
+      "valid_link_title_count": 0,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {},
+      "detail_sample": null,
+      "issues": [
+        "No captured response for this configuration"
+      ],
+      "native_source_id": "sa5-australian-mining"
+    },
+    {
+      "id": "mining_monthly",
+      "kind": "web_list",
+      "config_hash": "02671de8d7fbcca670142d6ea7d35d9cb036b254983077552d2d6c84680f5dd1",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 27,
+      "valid_link_title_count": 27,
+      "parsed_date_count": 27,
+      "source_utc_count": 0,
+      "source_date_raw_count": 27,
+      "date_meanings": {
+        "published": 27
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "bf2511f1fa8153ae4ef626bd54535a2d4a91f77fdb9e57aedef82692e37b9527",
+      "checked_at": "2026-10-19T12:55:13.411967+00:00",
+      "sample": [
+        {
+          "url": "https://www.miningmonthly.com/community/news-analysis/4538277/miners-welcome-nsw-govts-mount-pleasant-law",
+          "date_raw": "19 October 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "19 October 2026",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:.secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)/.date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-mining-monthly"
+    },
+    {
+      "id": "global_mining_review",
+      "kind": "web_list",
+      "config_hash": "f994eb30e349ee13dbc5eaaf28d24937ff83853ad733c78e299c425b97773999",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 12,
+      "valid_link_title_count": 12,
+      "parsed_date_count": 12,
+      "source_utc_count": 0,
+      "source_date_raw_count": 12,
+      "date_meanings": {
+        "published": 12
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "5739a5f7f3d9997d72f20af89b7ef31ef83f0588a51cfb80fddc11a19f876e48",
+      "checked_at": "2026-10-19T12:56:55.417677+00:00",
+      "sample": [
+        {
+          "url": "https://www.globalminingreview.com/mining/19102026/fortescues-world-first-arsenic-removal-technology-unlocks-new-potential-for-global-copper-deposits/",
+          "date_raw": "19 Oct 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "19 Oct 2026",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:>(\\d{1,2} [A-Z][a-z]{2} \\d{4})<",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-global-mining-review"
+    },
+    {
+      "id": "coal_age",
+      "kind": "rss",
+      "config_hash": "7194d3cc14ad02d04eb163c2d382568f38c26e77fc849240c1dcb83c7be15136",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "6f39c80d1f2433c714aa93df6048fde4b66e84ec0366d8f926044b698e37ab68",
+      "checked_at": "2026-10-19T12:55:31.922551+00:00",
+      "sample": [
+        {
+          "url": "https://www.coalage.com/departments/breaking-news/volvo-unveils-new-heavy-haul-truckvolvo-unveils-new-heavy-haul-truck/",
+          "date_raw": "Wed, 14 Oct 2026 17:58:29 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Wed, 14 Oct 2026 17:58:29 +0000",
+            "local_date": "2026-10-14",
+            "local_time": "17:58:29",
+            "timezone": null,
+            "utc": "2026-10-14T17:58:29Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-15 01:58",
+            "beijing_date": "2026-10-15"
+          }
+        }
+      ],
+      "native_source_id": "sa5-coal-age"
+    },
+    {
+      "id": "mining_technology",
+      "kind": "rss",
+      "config_hash": "d80531f5dad3b76ff38eb7654ededdf25d153a1f4704f1e4870f55fe5b676fe6",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "d1f8d1e19175c66b8e92dce970536423e42d622c7071df0caae20b52388c80c7",
+      "checked_at": "2026-10-19T12:55:31.923597+00:00",
+      "sample": [
+        {
+          "url": "https://www.mining-technology.com/news/cobalt-blue-offtake-term-sheet-stg/",
+          "date_raw": "Mon, 19 Oct 2026 09:57:22 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 09:57:22 +0000",
+            "local_date": "2026-10-19",
+            "local_time": "09:57:22",
+            "timezone": null,
+            "utc": "2026-10-19T09:57:22Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 17:57",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-mining-technology"
+    },
+    {
+      "id": "investing_news_network",
+      "kind": "web_list",
+      "config_hash": "d4cd80a68be024c9e6f99ca5137d32bd1262347d606bf9ad1589d6c23e8f9f5d",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 21,
+      "valid_link_title_count": 21,
+      "parsed_date_count": 21,
+      "source_utc_count": 0,
+      "source_date_raw_count": 21,
+      "date_meanings": {
+        "published": 21
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "70606fefc8d8ed444e25aca27e73db24a936ad5302c654501a790b21630ce82d",
+      "checked_at": "2026-10-19T12:56:55.424754+00:00",
+      "sample": [
+        {
+          "url": "https://investingnews.com/top-stock-market-news/",
+          "date_raw": "Oct 16, 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Oct 16, 2026",
+            "local_date": "2026-10-16",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:social-date__text\">([A-Z][a-z]{2} \\d{1,2}, \\d{4})",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-16",
+            "beijing_date": "2026-10-16"
+          }
+        }
+      ],
+      "native_source_id": "sa5-investing-news-network"
+    },
+    {
+      "id": "fastmarkets",
+      "kind": "web_list",
+      "config_hash": "9288ef76d80ddbe7a98ca10d4cc1dcf343dc9a07894ef6e048858c30be42082f",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 6,
+      "valid_link_title_count": 6,
+      "parsed_date_count": 6,
+      "source_utc_count": 0,
+      "source_date_raw_count": 6,
+      "date_meanings": {
+        "published": 6
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "b24ba494a535767151beb5400efe856915ef89061c75c55063e5e29e60fb75d1",
+      "checked_at": "2026-10-19T12:56:55.419790+00:00",
+      "sample": [
+        {
+          "url": "https://www.fastmarkets.com/insights/ai-data-center-expansion-intensifies-competition-for-power-equipment-climate-week-nyc-panel/",
+          "date_raw": "\n\t\t\tOctober 16, 2026\t\t",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "\n\t\t\tOctober 16, 2026\t\t",
+            "local_date": "2026-10-16",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:div.PageListD-items-item/div.PagePromo-date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-16",
+            "beijing_date": "2026-10-16"
+          }
+        }
+      ],
+      "native_source_id": "sa5-fastmarkets"
+    },
+    {
+      "id": "spglobal_energy",
+      "kind": "rss",
+      "config_hash": "144b01203ec2dc5f3ba596ec82445d615254fc4f84b84e4396e56dc364594046",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 5,
+      "valid_link_title_count": 5,
+      "parsed_date_count": 5,
+      "source_utc_count": 5,
+      "source_date_raw_count": 5,
+      "date_meanings": {
+        "published": 5
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "0c6e8d946e4eb405f1c69989f7e5398f4edf90382f9564b73522b2c850cb2c5b",
+      "checked_at": "2026-10-19T12:55:32.153658+00:00",
+      "sample": [
+        {
+          "url": "https://www.spglobal.com/energy/en/news-research/latest-news/metals/092126-chinas-cobalt-price-slump-exposes-a-deeper-shift-in-battery-demand",
+          "date_raw": "2026-09-21T15:00:15Z",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-09-21T15:00:15Z",
+            "local_date": "2026-09-21",
+            "local_time": "15:00:15",
+            "timezone": null,
+            "utc": "2026-09-21T15:00:15Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-09-21 23:00",
+            "beijing_date": "2026-09-21"
+          }
+        }
+      ],
+      "native_source_id": "sa5-spglobal-energy"
+    },
+    {
+      "id": "china_mining_news",
+      "kind": "web_list",
+      "config_hash": "e827bd5d5c156fceb614c9b57773fef09208e5697a954a6cd59f53eba0de7f2a",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 16,
+      "valid_link_title_count": 16,
+      "parsed_date_count": 16,
+      "source_utc_count": 0,
+      "source_date_raw_count": 16,
+      "date_meanings": {
+        "published": 16
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "73d1c05a1808b240b92c0e2ef1c635ac3c4d541162a35da81050160879364ac9",
+      "checked_at": "2026-10-19T13:12:51.171929+00:00",
+      "sample": [
+        {
+          "url": "http://www.kyb.cgs.gov.cn/zhyw/hyyw/202610/t20261014_870415.html",
+          "date_raw": "2026-10-12",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-12",
+            "local_date": "2026-10-12",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:li.commonRow/span.datetime",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-12",
+            "beijing_date": "2026-10-12"
+          }
+        }
+      ],
+      "native_source_id": "sa5-china-mining-news"
+    },
+    {
+      "id": "china_mining_federation",
+      "kind": "web_list",
+      "config_hash": "eccc9e54fe0139e2d7c0067bc65c597552deb9ec444c2c9fa98208c3e394b36a",
+      "native_config_supported": true,
+      "captured_response_replayed": false,
+      "candidate_count": 0,
+      "valid_link_title_count": 0,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {},
+      "detail_sample": null,
+      "issues": [
+        "No captured response for this configuration"
+      ],
+      "native_source_id": "sa5-china-mining-federation"
+    },
+    {
+      "id": "china_nonferrous_paper",
+      "kind": "web_list",
+      "config_hash": "d5362c4c7d940d9a469c4d88d40a4b28a771a81f4adeee7e5d5a8185877bb8d2",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 20,
+      "valid_link_title_count": 20,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 20
+      },
+      "detail_sample": {
+        "url": "https://www.cnmn.com.cn/ShowNews1.aspx?id=474683",
+        "raw_sha256": "27499f7ab16355a56d393fb43cca26ae4b019981955c611f1d5ca48ae3cec2df",
+        "raw": "2026年10月19日",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026年10月19日",
+          "local_date": "2026-10-19",
+          "local_time": null,
+          "timezone": null,
+          "utc": null,
+          "precision": "date",
+          "basis": "Source field: regex:<span\\s+class=\"time\">\\s*(\\d{4}年\\d{1,2}月\\d{1,2}日)",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-19",
+          "beijing_date": "2026-10-19"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "49d6a8bf08045d492dffaf16ecebe92c9f0bec334f95068f9d815f57c265995b",
+      "checked_at": "2026-10-19T12:56:55.786301+00:00",
+      "sample": [
+        {
+          "url": "https://www.cnmn.com.cn/ShowNews1.aspx?id=474683",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-china-nonferrous-paper"
+    },
+    {
+      "id": "smm",
+      "kind": "json_list",
+      "config_hash": "7778c5a3059f53e765eb0bfa840806894fc2763f4590718ed2285071252673ab",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 60,
+      "valid_link_title_count": 60,
+      "parsed_date_count": 60,
+      "source_utc_count": 60,
+      "source_date_raw_count": 60,
+      "date_meanings": {
+        "published": 60
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "63ca0bde191ad7d5b19574f955a95a5ce16807f87820f0a2d0988d860a4bb50a",
+      "checked_at": "2026-10-19T12:56:55.423445+00:00",
+      "sample": [
+        {
+          "url": "https://news.smm.cn/news/104164980",
+          "date_raw": "1792408541",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "1792408541",
+            "local_date": "2026-10-19",
+            "local_time": "11:15:41.000",
+            "timezone": null,
+            "utc": "2026-10-19T11:15:41.000Z",
+            "precision": "second",
+            "basis": "Source field: json.items[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 19:15",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-smm"
+    },
+    {
+      "id": "mysteel",
+      "kind": "web_list",
+      "config_hash": "213825a6f04d6b3f64265007637f91d9bf36cfc45a8f5c6869446a9db08a4d16",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 27,
+      "valid_link_title_count": 27,
+      "parsed_date_count": 24,
+      "source_utc_count": 0,
+      "source_date_raw_count": 24,
+      "date_meanings": {
+        "published": 27
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "f9c80e95c45a7dc5f744ba4b412305dc982f640ed3bb33409dd2b2688ebca47c",
+      "checked_at": "2026-10-19T12:56:55.424136+00:00",
+      "sample": [
+        {
+          "url": "https://news.mysteel.com/a/26101920/126F866D59134D2F.html",
+          "date_raw": "2026-10-19 20:29",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-19 20:29",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:ul#news > li/p.rTime",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19（时区待核实）",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-mysteel"
+    },
+    {
+      "id": "ccmn",
+      "kind": "web_list",
+      "config_hash": "0b28d2cd4bf5283a232d107118099119f4db64365b9a543743460c5cfe0be3ce",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": {
+        "url": "https://www.ccmn.cn/news/ZX018/202610/8f4103e1de214e8b89b2b758fd8581d7.html",
+        "raw_sha256": "e60091e4ab04dcb49318ad780899ca62fbbe340bbb7bcb43ed42145565fd36d2",
+        "raw": "2026-10-19",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-19",
+          "local_date": "2026-10-19",
+          "local_time": null,
+          "timezone": null,
+          "utc": null,
+          "precision": "date",
+          "basis": "Source field: selector:.title_others p.left > label:first-child",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-19",
+          "beijing_date": "2026-10-19"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "2d928e71894280a4f9e0f08fcd59e3b48e28fc05b08eed82c6796764c3c5cf2e",
+      "checked_at": "2026-10-19T12:56:55.800191+00:00",
+      "sample": [
+        {
+          "url": "https://www.ccmn.cn/news/ZX018/202610/8f4103e1de214e8b89b2b758fd8581d7.html",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ccmn"
+    },
+    {
+      "id": "asianmetal",
+      "kind": "web_list",
+      "config_hash": "c3f7abb48484abdfc4b61d5379016f516ba10c5b0881a1efa1ecd4af4157c351",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 30,
+      "valid_link_title_count": 30,
+      "parsed_date_count": 30,
+      "source_utc_count": 0,
+      "source_date_raw_count": 30,
+      "date_meanings": {
+        "published": 30
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "7cbbd868e6aeaf151396e256ee886b941724d020dbdf323b894d2177cac6c2e5",
+      "checked_at": "2026-10-19T12:56:55.851784+00:00",
+      "sample": [
+        {
+          "url": "https://www.asianmetal.com/news/2379992/Tianma-New-Materials-signs-exclusive-distribution-agreement-for-alumina-products",
+          "date_raw": "2026-10-19 11:20:52",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-19 11:20:52",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:<li[^>]*class=[\"']reportstimes02[\"'][^>]*>\\s*<span>\\[(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})\\]",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19（时区待核实）",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-asianmetal"
+    },
+    {
+      "id": "sun_sirs",
+      "kind": "web_list",
+      "config_hash": "88f05413fdb48aa5addfbe384a6d0fa3782ee29a3e496287270841a81050ed77",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 30,
+      "valid_link_title_count": 30,
+      "parsed_date_count": 30,
+      "source_utc_count": 0,
+      "source_date_raw_count": 30,
+      "date_meanings": {
+        "published": 30
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "73f4d5d0c27aca09f8057acfea5337f64e3d4ab0aebfd39b06daa5a75dc8e16e",
+      "checked_at": "2026-10-19T13:09:59.671035+00:00",
+      "sample": [
+        {
+          "url": "https://www.100ppi.com/news/detail-20261019-6362400.html",
+          "date_raw": "2026-10-19 10:07:14",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-19 10:07:14",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:.list-c li/span",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19（时区待核实）",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sun-sirs"
+    },
+    {
+      "id": "who",
+      "kind": "json_list",
+      "config_hash": "cf90787d85cfd5a227cdcd454790f923a8f7e78f71d4a563d0e8ff82eadf6c11",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 50,
+      "valid_link_title_count": 50,
+      "parsed_date_count": 50,
+      "source_utc_count": 0,
+      "source_date_raw_count": 50,
+      "date_meanings": {
+        "published": 50
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "a0d154fa96cd4c556a3b39fec87f34baae2fc9a4d0755bbf779b7afd7d38a09d",
+      "checked_at": "2026-10-19T13:02:06.591693+00:00",
+      "sample": [
+        {
+          "url": "https://www.who.int/news/item/16-10-2026-who-and-advance-id-strengthen-clinical-trial-capacity-through-workshop",
+          "date_raw": "16 October 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "16 October 2026",
+            "local_date": "2026-10-16",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: json.items[0].FormatedDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-16",
+            "beijing_date": "2026-10-16"
+          }
+        }
+      ],
+      "native_source_id": "sa5-who"
+    },
+    {
+      "id": "ilo",
+      "kind": "web_list",
+      "config_hash": "282a457ee99fd5e4ad0f599e359a4a18ceaafe337a50edca2aa2f6ddaba2c120",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 3,
+      "valid_link_title_count": 3,
+      "parsed_date_count": 3,
+      "source_utc_count": 0,
+      "source_date_raw_count": 3,
+      "date_meanings": {
+        "published": 3
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "c0619605123aefc89e71fd81c34e5ee78b1a071528df3fb974bd588335417275",
+      "checked_at": "2026-10-19T12:56:55.654400+00:00",
+      "sample": [
+        {
+          "url": "https://www.ilo.org/resource/news/ilo-supports-ecuador-reviewing-sectoral-minimum-wages-and-updating",
+          "date_raw": "15 October 2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "15 October 2026",
+            "local_date": "2026-10-15",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:<time[^>]*>\\s*(\\d{1,2} [A-Za-z]+ \\d{4})\\s*</time>",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-15",
+            "beijing_date": "2026-10-15"
+          }
+        }
+      ],
+      "native_source_id": "sa5-ilo"
+    },
+    {
+      "id": "auc",
+      "kind": "web_list",
+      "config_hash": "f1cccee538a30b37f6a834073e0d4dd584ec83ad5e2bd2e6beeca657e222c1f8",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "351fbc71b8dd9943b928680641cf03d19056eab79ee8fb0043892f767a527a45",
+      "checked_at": "2026-10-19T12:56:55.766616+00:00",
+      "sample": [
+        {
+          "url": "https://au.int/en/pressreleases/20261019/auc-chairperson-visited-pan-african-statistical-training-centre-panstat",
+          "date_raw": "2026-10-19T15:44:42Z",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-19T15:44:42Z",
+            "local_date": "2026-10-19",
+            "local_time": "15:44:42",
+            "timezone": null,
+            "utc": "2026-10-19T15:44:42Z",
+            "precision": "second",
+            "basis": "Source field: selector:li.splide__slide:has(time)/time",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 23:44",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-auc"
+    },
+    {
+      "id": "odihr",
+      "kind": "web_list",
+      "config_hash": "77aacf563eaae5fb0d2f699d068e4ff7248e86559f27ffdc5055da86ea8e1602",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 4,
+      "valid_link_title_count": 4,
+      "parsed_date_count": 4,
+      "source_utc_count": 4,
+      "source_date_raw_count": 4,
+      "date_meanings": {
+        "published": 4
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "23d415609c9fed5cd8e430e5e2538c15d548ff180783cc9ef989987f7a1c49e8",
+      "checked_at": "2026-10-19T12:55:15.157358+00:00",
+      "sample": [
+        {
+          "url": "https://odihr.osce.org/news/odihr/668796",
+          "date_raw": "2026-10-15T19:56:40Z",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-15T19:56:40Z",
+            "local_date": "2026-10-15",
+            "local_time": "19:56:40",
+            "timezone": null,
+            "utc": "2026-10-15T19:56:40Z",
+            "precision": "second",
+            "basis": "Source field: selector:a.teaser[href^=\"/news/odihr/\"]/time",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-16 03:56",
+            "beijing_date": "2026-10-16"
+          }
+        }
+      ],
+      "native_source_id": "sa5-odihr"
+    },
+    {
+      "id": "pe-minem-news",
+      "kind": "web_list",
+      "config_hash": "ec34f302377d4a6fc51d0f63413f103a1fc166f81d1ba2bc707ec5f70967dda9",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 0,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "0a4c6e5299a084ddf282765eaff4cb21974bb8515e4a86d0ef197af1b5084e1c",
+      "checked_at": "2026-10-19T12:54:24.203574+00:00",
+      "sample": [
+        {
+          "url": "https://www.gob.pe/institucion/minem/noticias/1458728-minem-impulsa-14-proyectos-de-electrificacion-rural-en-ucayali-en-beneficio-de-miles-de-pobladores",
+          "date_raw": "2026-10-17 17:55:00.000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-17 17:55:00.000",
+            "local_date": "2026-10-17",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:ul.js-feeds-search-results .card/time[datetime]",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-17（时区待核实）",
+            "beijing_date": "2026-10-17"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-minem-news"
+    },
+    {
+      "id": "pe-minem-rules",
+      "kind": "web_list",
+      "config_hash": "cea726d01e80d5e5f0ff7f53482ad1e2b92b397ec14094117f23738e0b44f4fd",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 0,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "b90282ca2b2073d5b09d9fdccfa9a206e499354492efe2b83796914c4b57cb43",
+      "checked_at": "2026-10-19T12:54:24.204200+00:00",
+      "sample": [
+        {
+          "url": "https://www.gob.pe/institucion/minem/normas-legales/8732140-446-2026-minem-dm",
+          "date_raw": "2026-10-16",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-16",
+            "local_date": "2026-10-16",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:<time[^>]*datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-16",
+            "beijing_date": "2026-10-16"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-minem-rules"
+    },
+    {
+      "id": "pe-ingemmet-news",
+      "kind": "web_list",
+      "config_hash": "40e7823e9ecc8dd47b30818b7b01f73965c43456bcb24c19aa5c5c4aa7754248",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 0,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "d7560430e29345df2e5d6da8dfe04dea16f0935f5e5d61ed5f3a992c562ebc76",
+      "checked_at": "2026-10-19T12:54:24.204607+00:00",
+      "sample": [
+        {
+          "url": "https://www.gob.pe/institucion/ingemmet/noticias/1457576-ingemmet-capacita-a-estudiantes-y-docentes-de-sencico-puno-sobre-el-procedimiento-ordinario-minero",
+          "date_raw": "2026-10-17 18:50:00.000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-17 18:50:00.000",
+            "local_date": "2026-10-17",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:ul.js-feeds-search-results .card/time[datetime]",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-17（时区待核实）",
+            "beijing_date": "2026-10-17"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-ingemmet-news"
+    },
+    {
+      "id": "pe-ingemmet-rules",
+      "kind": "web_list",
+      "config_hash": "ddc4f3d7cfbcef6164fe18d74b1bf46d709ca530aa291d33bfa2467d95f64c3b",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 0,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "49d5ddbbd5bb9bf0eafe531f3fab3501b9336bcb0f4bf4ee9e1da56623a341b7",
+      "checked_at": "2026-10-19T12:55:34.993441+00:00",
+      "sample": [
+        {
+          "url": "https://www.gob.pe/institucion/ingemmet/normas-legales/8725998-282-2026-ingemmet-pe",
+          "date_raw": "2026-10-15",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-15",
+            "local_date": "2026-10-15",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:<time[^>]*datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-15",
+            "beijing_date": "2026-10-15"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-ingemmet-rules"
+    },
+    {
+      "id": "pe-ipen-news",
+      "kind": "web_list",
+      "config_hash": "b142e827430262e1dee6a1950f9b9bfc029cf0fb5b6610b4e79acef0904e9eda",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 0,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "913ccb979a6105f91e7e71b5f08565462b9217bf222eab755807ddb0f122aa4f",
+      "checked_at": "2026-10-19T12:54:24.208977+00:00",
+      "sample": [
+        {
+          "url": "https://www.gob.pe/institucion/ipen/noticias/1451693-ipen-abordan-avances-y-el-potencial-de-los-reactores-modulares-pequenos-para-la-generacion-electrica-en-el-peru-con-importante-senador",
+          "date_raw": "2026-10-01 14:41:00.000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-01 14:41:00.000",
+            "local_date": "2026-10-01",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:ul.js-feeds-search-results .card/time[datetime]",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-01（时区待核实）",
+            "beijing_date": "2026-10-01"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-ipen-news"
+    },
+    {
+      "id": "pe-mincetur-news",
+      "kind": "web_list",
+      "config_hash": "e290f4ddc94ed79bcc110bb7164fbf6f42517e0f280dfde03a7eb3c8841398ae",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 0,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "f12f94ba4decc438d5670098ee43dcd242dd6a711e85a1cfec236c82f5c3e711",
+      "checked_at": "2026-10-19T12:54:24.631206+00:00",
+      "sample": [
+        {
+          "url": "https://www.gob.pe/institucion/mincetur/noticias/1458774-ministro-de-comercio-exterior-y-turismo-participo-en-homenaje-al-senor-de-los-milagros",
+          "date_raw": "2026-10-18 15:05:00.000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-18 15:05:00.000",
+            "local_date": "2026-10-18",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:ul.js-feeds-search-results .card/time[datetime]",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-18（时区待核实）",
+            "beijing_date": "2026-10-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-mincetur-news"
+    },
+    {
+      "id": "pe-revista-mineria",
+      "kind": "web_list",
+      "config_hash": "fd8ee9d3d681be948b45360a498ba47abfa6fa530ceb46ffbdbbd13b6549a653",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 7,
+      "valid_link_title_count": 7,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 7
+      },
+      "detail_sample": {
+        "url": "https://revistamineria.com.pe/actualidad/empresas-mineras-tienen-176-convenios-de-oxi-en-ejecucion",
+        "raw_sha256": "4911dffc3dda196cb45a795b775c771e4943f9318a1a92a543b0430109e6b32f",
+        "raw": null,
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": false,
+        "source_time": null
+      },
+      "issues": [
+        "No accepted news publication date in list or captured detail"
+      ],
+      "raw_sha256": "78611f04ef24a2d57a77b1938677e05df54b1be62bbd9dc88d99e316acc6c834",
+      "checked_at": "2026-10-19T12:55:34.986291+00:00",
+      "sample": [
+        {
+          "url": "https://revistamineria.com.pe/actualidad/gobernanza-social-para-la-sostenibilidad-de-proyectos-mineros",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-pe-revista-mineria"
+    },
+    {
+      "id": "pe-snmpe-press",
+      "kind": "rss",
+      "config_hash": "8f1ae448fa56e994cae51b90ec6fedc572e7ac394eb16da305c4a44e7c5e2498",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "22cc1af422cde638ed5e5909ec5700bf1407e7ef83377b92af858fb55bdcfe58",
+      "checked_at": "2026-10-19T12:56:38.932174+00:00",
+      "sample": [
+        {
+          "url": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe/9901-snmpe-12-escolares-de-lima-y-regiones-son-premiados-en-el-concurso-la-ruta-de-la-electricidad.html",
+          "date_raw": "Thu, 03 Sep 2026 15:47:40 -0500",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Thu, 03 Sep 2026 15:47:40 -0500",
+            "local_date": "2026-09-03",
+            "local_time": "15:47:40",
+            "timezone": null,
+            "utc": "2026-09-03T20:47:40Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-09-04 04:47",
+            "beijing_date": "2026-09-04"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-snmpe-press"
+    },
+    {
+      "id": "pe-portal-minero",
+      "kind": "rss",
+      "config_hash": "4abf43fbd35ade014aefbabe4cef3a282db6d636faa239b69426794175737a8e",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "861bacd069f0e6ca5602fd70fe0b525c0b091a6dc444bd0a3246964357e73dd6",
+      "checked_at": "2026-10-19T12:55:34.988187+00:00",
+      "sample": [
+        {
+          "url": "https://portalminerodelperu.com/mineria-ilegal-consumo-de-combustible-en-madre-de-dios-llego-a-ser-ocho-veces-superior-al-promedio-nacional/",
+          "date_raw": "Tue, 13 Oct 2026 23:22:03 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Tue, 13 Oct 2026 23:22:03 +0000",
+            "local_date": "2026-10-13",
+            "local_time": "23:22:03",
+            "timezone": null,
+            "utc": "2026-10-13T23:22:03Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-14 07:22",
+            "beijing_date": "2026-10-14"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-portal-minero"
+    },
+    {
+      "id": "pe-dipromin",
+      "kind": "rss",
+      "config_hash": "46ed2c1d94184aef02b134d5315eab154197ed0ff7983cb386e4a89732cf27a6",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 9,
+      "valid_link_title_count": 9,
+      "parsed_date_count": 9,
+      "source_utc_count": 9,
+      "source_date_raw_count": 9,
+      "date_meanings": {
+        "published": 9
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "5918e9ce469d27c9a5f15367cd3af1aa3eb69495da8ee82d8a0adb08255bb638",
+      "checked_at": "2026-10-19T12:55:34.991180+00:00",
+      "sample": [
+        {
+          "url": "https://www.dipromin.com/noticias/mineria/nativo-resources-obtiene-financiamiento-para-poner-en-marcha-su-planta-de-oro-en-arequipa/",
+          "date_raw": "Sun, 18 Oct 2026 15:34:42 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Sun, 18 Oct 2026 15:34:42 +0000",
+            "local_date": "2026-10-18",
+            "local_time": "15:34:42",
+            "timezone": null,
+            "utc": "2026-10-18T15:34:42Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-18 23:34",
+            "beijing_date": "2026-10-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-dipromin"
+    },
+    {
+      "id": "co-anm-news",
+      "kind": "json_list",
+      "config_hash": "e531379893701ea51035fb4e24975ed7290a8af25c053bb847dada1e173a8fe4",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 5,
+      "valid_link_title_count": 5,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 5
+      },
+      "detail_sample": {
+        "url": "https://www.anm.gov.co/hecho-historico-colombia-impulsa-la-inversion-minera-la-anm-firma-9-contratos-de-rondas-mineras-y",
+        "raw_sha256": "a9f81bd4d020df764444ca972bf142d2bceddfb8af85c890971fcd30ecafd6a6",
+        "raw": "09/10/2026",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "09/10/2026",
+          "local_date": "2026-10-09",
+          "local_time": null,
+          "timezone": null,
+          "utc": null,
+          "precision": "date",
+          "basis": "Source field: regex:Fecha de publicación:\\s*(\\d{2}/\\d{2}/\\d{4})",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-09",
+          "beijing_date": "2026-10-09"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "987a75b29b95e665408536021ef33f57c958d154ea3466cedc1002dedce66a4d",
+      "checked_at": "2026-10-19T12:58:11.155450+00:00",
+      "sample": [
+        {
+          "url": "https://www.anm.gov.co/hecho-historico-colombia-impulsa-la-inversion-minera-la-anm-firma-9-contratos-de-rondas-mineras-y",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-co-anm-news"
+    },
+    {
+      "id": "co-anm-rules",
+      "kind": "json_list",
+      "config_hash": "8c6af8216cc13d35ad8a5205c4a05fb02624482d4016284f63a89ae5c5db9e0b",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 3,
+      "valid_link_title_count": 3,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 3
+      },
+      "detail_sample": {
+        "url": "https://www.anm.gov.co/node/396038",
+        "raw_sha256": "66e8958de64395621da61db7b29f1d45075c879037dcfc99b855c4a887177e2e",
+        "raw": null,
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": false,
+        "source_time": null
+      },
+      "issues": [
+        "No accepted news publication date in list or captured detail"
+      ],
+      "raw_sha256": "23ee1afb02bc84774b5bd8c8cbcd02f8b6a2a7a8d80644ff32cee5fb7f6ca3a6",
+      "checked_at": "2026-10-19T12:56:38.934840+00:00",
+      "sample": [
+        {
+          "url": "https://www.anm.gov.co/node/396038",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-co-anm-rules"
+    },
+    {
+      "id": "co-vanguardia-mining",
+      "kind": "web_list",
+      "config_hash": "de9593598e693f3e2e6501f0870986985320efacf04c88b3973441429a2bd696",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "f84e7947e7e9803c69728348bac19d42b30da05d75b9906eb8674b6ec1336cd5",
+      "checked_at": "2026-10-19T12:55:34.994221+00:00",
+      "sample": [
+        {
+          "url": "https://www.vanguardia.com/judicial/2026/10/11/capturan-a-14-personas-por-presunta-mineria-ilegal-cerca-del-rio-de-oro-en-giron/",
+          "date_raw": "2026-10-11T15:26:37.043Z",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-11T15:26:37.043Z",
+            "local_date": "2026-10-11",
+            "local_time": "15:26:37.043",
+            "timezone": null,
+            "utc": "2026-10-11T15:26:37.043Z",
+            "precision": "second",
+            "basis": "Source field: regex:data-date=\"([^\"]+)\"",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-11 23:26",
+            "beijing_date": "2026-10-11"
+          }
+        }
+      ],
+      "native_source_id": "sa5-co-vanguardia-mining"
+    },
+    {
+      "id": "co-el-colombiano-mining",
+      "kind": "web_list",
+      "config_hash": "b5c741ba55e59228c26ad37fb3d2188b0a6d40592176189408f19131da43124f",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 12,
+      "valid_link_title_count": 12,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 12
+      },
+      "detail_sample": {
+        "url": "https://www.elcolombiano.com/negocios/consulta-previa-colombia-cambios-gobierno-comunidades-etnicas-NN42382816",
+        "raw_sha256": "8728557831fb5c2f9ae8a76f92c04e74c294c7d8a6879d85221ebf2aaef0c744",
+        "raw": "2026-10-17 18:20:17",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": false,
+        "source_time": null
+      },
+      "issues": [
+        "No accepted news publication date in list or captured detail"
+      ],
+      "raw_sha256": "2207bb61b12e38438caf4cb04af97a8dd3068fbf296763fe30a0edb2b424a601",
+      "checked_at": "2026-10-19T12:55:35.107777+00:00",
+      "sample": [
+        {
+          "url": "https://www.elcolombiano.com/negocios/consulta-previa-colombia-cambios-gobierno-comunidades-etnicas-NN42382816",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-co-el-colombiano-mining"
+    },
+    {
+      "id": "co-congress-senate-news",
+      "kind": "web_list",
+      "config_hash": "2de4f07229f5b892517ff8e88eef561cf5d95474c3d29dc7134508dd58c25eed",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 3,
+      "valid_link_title_count": 3,
+      "parsed_date_count": 3,
+      "source_utc_count": 3,
+      "source_date_raw_count": 3,
+      "date_meanings": {
+        "published": 3
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "f467b501fc807310207bf00e7d507258b19ea942244d6eaec01d2868e0788593",
+      "checked_at": "2026-10-19T12:55:35.758752+00:00",
+      "sample": [
+        {
+          "url": "https://www.senado.gov.co/index.php/el-senado/noticias/7655-que-tan-largos-deben-ser-los-programas-de-educacion-en-colombia-asi-fue-el-debate-en-el-senado",
+          "date_raw": "2026-10-17T12:13:32-05:00",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-17T12:13:32-05:00",
+            "local_date": "2026-10-17",
+            "local_time": "12:13:32",
+            "timezone": null,
+            "utc": "2026-10-17T17:13:32Z",
+            "precision": "second",
+            "basis": "Source field: selector:.article-list .article/time[datetime]",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-18 01:13",
+            "beijing_date": "2026-10-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-co-congress-senate-news"
+    },
+    {
+      "id": "co-congress-house-news",
+      "kind": "rss",
+      "config_hash": "80c87919bbdf5f9469c75a2a5a064ed85e631ae1be5e77921bdbf883475d1a56",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 9,
+      "valid_link_title_count": 9,
+      "parsed_date_count": 9,
+      "source_utc_count": 9,
+      "source_date_raw_count": 9,
+      "date_meanings": {
+        "published": 9
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "4321c8d77bd884c5be78b693cd9e0589ff9229686e898fa9cf4b320efc3aa1e1",
+      "checked_at": "2026-10-19T12:55:35.742513+00:00",
+      "sample": [
+        {
+          "url": "https://www.camara.gov.co/camara-de-representantes-lanza-parlar-un-espacio-de-intercambio-internacional-sobre-comunicacion-legislativa/",
+          "date_raw": "Sun, 18 Oct 2026 13:00:00 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Sun, 18 Oct 2026 13:00:00 +0000",
+            "local_date": "2026-10-18",
+            "local_time": "13:00:00",
+            "timezone": null,
+            "utc": "2026-10-18T13:00:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-18 21:00",
+            "beijing_date": "2026-10-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-co-congress-house-news"
+    },
+    {
+      "id": "pe-el-peruano-rules",
+      "kind": "web_list",
+      "config_hash": "634ef2addc5fa5119974dee691a6844bf3a89ed517234e731b55ae2fefe51405",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 16,
+      "valid_link_title_count": 16,
+      "parsed_date_count": 16,
+      "source_utc_count": 0,
+      "source_date_raw_count": 16,
+      "date_meanings": {
+        "published": 16
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "f2bc19c189a6c31672db0f97b07157f4ab5fd7008c0090a7591ec0e9fdd8ae11",
+      "checked_at": "2026-10-19T12:56:38.935983+00:00",
+      "sample": [
+        {
+          "url": "https://busquedas.elperuano.pe/dispositivo/NL/2565768-1",
+          "date_raw": "19/10/2026",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "19/10/2026",
+            "local_date": "2026-10-19",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:Fecha:\\s*(\\d{2}/\\d{2}/\\d{4})",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-pe-el-peruano-rules"
+    },
+    {
+      "id": "ar_mineria",
+      "kind": "web_list",
+      "config_hash": "5d44c7a47af2cd8c73cf892f476cfac7c0494b29efad13626f9fe6b63d054f3d",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 16,
+      "valid_link_title_count": 16,
+      "parsed_date_count": 16,
+      "source_utc_count": 0,
+      "source_date_raw_count": 16,
+      "date_meanings": {
+        "published": 16
+      },
+      "detail_sample": {
+        "url": "https://www.argentina.gob.ar/noticias/el-gobierno-nacional-simplifica-el-proceso-de-compra-de-maquinaria-para-mineria-en-el-marco",
+        "raw_sha256": "9e72d98df3a557d49d33f137b3b639dda3342b8499df858705c7f0f7913b1c2e",
+        "raw": "2026-09-01T07:04:02-03:00",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-09-01T07:04:02-03:00",
+          "local_date": "2026-09-01",
+          "local_time": "07:04:02",
+          "timezone": null,
+          "utc": "2026-09-01T10:04:02Z",
+          "precision": "second",
+          "basis": "Source field: selector:meta[property=\"article:published_time\"]",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-09-01 18:04",
+          "beijing_date": "2026-09-01"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "b8a5fb0f0e45878d29ca236674bb20f8b61d01649449895f507cd108e4e9d150",
+      "checked_at": "2026-10-19T12:54:48.340024+00:00",
+      "sample": [
+        {
+          "url": "https://www.argentina.gob.ar/noticias/el-gobierno-nacional-simplifica-el-proceso-de-compra-de-maquinaria-para-mineria-en-el-marco",
+          "date_raw": "2026-09-01",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-09-01",
+            "local_date": "2026-09-01",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-09-01",
+            "beijing_date": "2026-09-01"
+          }
+        }
+      ],
+      "native_source_id": "sa5-ar-mineria"
+    },
+    {
+      "id": "ar_panorama",
+      "kind": "web_list",
+      "config_hash": "8e2c6293443ddcdd741e05a4787009e31e75a5d4941c6e706958acdd8f1e43a7",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 24,
+      "source_utc_count": 24,
+      "source_date_raw_count": 24,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": {
+        "url": "https://www.panorama-minero.com/es/news/las-nevadas-historicas-retrasan-el-inicio-de-la-temporada-exploratoria-en-la-alta-cordillera-sanjuanina",
+        "raw_sha256": "7ee141c37af5e4ef944b1df39ab7c00412a2e1698174e67934698f2a0d7daa44",
+        "raw": "2026-10-16T14:44:53.392Z",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-16T14:44:53.392Z",
+          "local_date": "2026-10-16",
+          "local_time": "14:44:53.392",
+          "timezone": null,
+          "utc": "2026-10-16T14:44:53.392Z",
+          "precision": "second",
+          "basis": "Source field: head/publication-metadata[0]",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-16 22:44",
+          "beijing_date": "2026-10-16"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "7b8fa58f5146e55965f066b4dce7185c0ddd6511c5898659bf9d445211b31b98",
+      "checked_at": "2026-10-19T12:54:48.340737+00:00",
+      "sample": [
+        {
+          "url": "https://www.panorama-minero.com/es/news/proveedores-mineros-buscan-sumarse-al-crecimiento-del-litio-en-el-noa",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ar-panorama"
+    },
+    {
+      "id": "ar_sitioandino",
+      "kind": "web_list",
+      "config_hash": "dafff75c0e5f173c94c96e2cf2eb3208bfec1fec57c653e7c06c48d82a7aac95",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 13,
+      "valid_link_title_count": 13,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 13
+      },
+      "detail_sample": {
+        "url": "https://www.sitioandino.com.ar/energia/mineria-acompano-una-jornada-formacion-futuros-auxiliares-mineros-mendoza-n5732047",
+        "raw_sha256": "8947703e99d4a780294aed8c3d6028d8dbba36ed862e69b3e88b89562bd0728a",
+        "raw": "2026-10-17T21:42:00.000Z",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-17T21:42:00.000Z",
+          "local_date": "2026-10-17",
+          "local_time": "21:42:00.000",
+          "timezone": null,
+          "utc": "2026-10-17T21:42:00.000Z",
+          "precision": "second",
+          "basis": "Source field: selector:.article-body__date time",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-18 05:42",
+          "beijing_date": "2026-10-18"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "9f9056639ffa029e2c521d2c397220d536c34f38be23fd1dabb0b324ed59bcf3",
+      "checked_at": "2026-10-19T12:54:48.341238+00:00",
+      "sample": [
+        {
+          "url": "https://www.sitioandino.com.ar/energia/mineria-acompano-una-jornada-formacion-futuros-auxiliares-mineros-mendoza-n5732047",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ar-sitioandino"
+    },
+    {
+      "id": "ar_ambito",
+      "kind": "web_list",
+      "config_hash": "7ecae702e7e9ebbaed62686227f307f97690d5ccede015ac0fb1758983925952",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 30,
+      "valid_link_title_count": 30,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 30
+      },
+      "detail_sample": {
+        "url": "https://www.ambito.com/ambito-debate/luis-vacazur-si-no-hay-politicas-estado-que-minera-va-venir-poner-plata-aca-n6332612",
+        "raw_sha256": "40eb3d204dc78b33e07ec401f3c26e489e799340d36b6e726934e8be98644c79",
+        "raw": "2026-10-13T00:10:00-03:00",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-13T00:10:00-03:00",
+          "local_date": "2026-10-13",
+          "local_time": "00:10:00",
+          "timezone": null,
+          "utc": "2026-10-13T03:10:00Z",
+          "precision": "second",
+          "basis": "Source field: script[type=application/ld+json][0][0].datePublished",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-13 11:10",
+          "beijing_date": "2026-10-13"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "19143ba6cef3f0d005d094332a8ab3426d8ed42491f6817b7b0e2597e0014008",
+      "checked_at": "2026-10-19T12:54:48.341716+00:00",
+      "sample": [
+        {
+          "url": "https://www.ambito.com/ambito-debate/luis-vacazur-si-no-hay-politicas-estado-que-minera-va-venir-poner-plata-aca-n6332612",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ar-ambito"
+    },
+    {
+      "id": "ar_infobae_mining",
+      "kind": "rss",
+      "config_hash": "e5d1203033e5364bd37513434f47bdaade22700e4c7efdd9c48f334ea8a65cef",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 100,
+      "valid_link_title_count": 100,
+      "parsed_date_count": 100,
+      "source_utc_count": 100,
+      "source_date_raw_count": 100,
+      "date_meanings": {
+        "published": 100
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "fce3ae3f4f18dd15e949e7d6b4a9f973301f0a0d12e2588059bb72b9a707d480",
+      "checked_at": "2026-10-19T12:57:39.841437+00:00",
+      "sample": [
+        {
+          "url": "https://www.infobae.com/politica/2026/10/17/una-delegacion-argentina-viajo-al-reino-unido-en-medio-de-la-tension-por-la-soberania-y-el-petroleo-de-malvinas/",
+          "date_raw": "Sat, 17 Oct 2026 18:51:14 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Sat, 17 Oct 2026 18:51:14 +0000",
+            "local_date": "2026-10-17",
+            "local_time": "18:51:14",
+            "timezone": null,
+            "utc": "2026-10-17T18:51:14Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-18 02:51",
+            "beijing_date": "2026-10-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-ar-infobae-mining"
+    },
+    {
+      "id": "ar_comunidad",
+      "kind": "rss",
+      "config_hash": "4e31fc9d0a947438ffec147c2a91eb8371cf43fe27036b4a770bc9e884b3f79a",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 200,
+      "valid_link_title_count": 200,
+      "parsed_date_count": 200,
+      "source_utc_count": 200,
+      "source_date_raw_count": 200,
+      "date_meanings": {
+        "published": 200
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "4149ffac0e51294b379b0db16be773d03e7e1476e8fac91e936564419eba781b",
+      "checked_at": "2026-10-19T12:54:48.343196+00:00",
+      "sample": [
+        {
+          "url": "https://www.comunidadminera.com/noticias/2026/10/19/1631-la-puna-saltena-suma-nuevas-perforaciones-de-oro-y-cobre-en-rio-grande-y-junto-a-taca-taca",
+          "date_raw": "Mon, 19 Oct 2026 12:51:17 GMT",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 12:51:17 GMT",
+            "local_date": "2026-10-19",
+            "local_time": "12:51:17",
+            "timezone": null,
+            "utc": "2026-10-19T12:51:17Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 20:51",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-ar-comunidad"
+    },
+    {
+      "id": "ar_ancasti",
+      "kind": "web_list",
+      "config_hash": "830a9bbb0e7f85b7b059a9eb5e5abb3545330dc31e9776b944589c62ff060b95",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 12,
+      "valid_link_title_count": 12,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 12
+      },
+      "detail_sample": {
+        "url": "https://www.elancasti.com.ar/edicion-impresa/a-las-mineras-rogando-y-el-mazo-dando-n624166",
+        "raw_sha256": "d20cf2686993421e20e73a350fbc8c4508d5875a498a27988400817f78863841",
+        "raw": "2026-10-19T03:50:00.000Z",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-19T03:50:00.000Z",
+          "local_date": "2026-10-19",
+          "local_time": "03:50:00.000",
+          "timezone": null,
+          "utc": "2026-10-19T03:50:00.000Z",
+          "precision": "second",
+          "basis": "Source field: selector:.article-body__date time",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-19 11:50",
+          "beijing_date": "2026-10-19"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "3f005d50f7eed04f5c9c6162122f46d0d12cf712631530fdd64a6deded32ae88",
+      "checked_at": "2026-10-19T12:54:48.345520+00:00",
+      "sample": [
+        {
+          "url": "https://www.elancasti.com.ar/edicion-impresa/a-las-mineras-rogando-y-el-mazo-dando-n624166",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ar-ancasti"
+    },
+    {
+      "id": "gy_ggmc",
+      "kind": "rss",
+      "config_hash": "ff1f36ef147e584ffaffd7ebc73837a762b78ad41a899cc40a8539f29092fe24",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "a44b896f3a78ab33740e13151c3bb91d07ff7b5f2192a857b8f37a8690707dea",
+      "checked_at": "2026-10-19T12:54:48.615345+00:00",
+      "sample": [
+        {
+          "url": "https://www.ggmc.gov.gy/ggmc-statement-on-material-deviations-from-the-legal-and-regulatory-framework-for-the-award-and-transfer-of-extractive-licences/",
+          "date_raw": "Tue, 06 Oct 2026 12:11:21 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Tue, 06 Oct 2026 12:11:21 +0000",
+            "local_date": "2026-10-06",
+            "local_time": "12:11:21",
+            "timezone": null,
+            "utc": "2026-10-06T12:11:21Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-06 20:11",
+            "beijing_date": "2026-10-06"
+          }
+        }
+      ],
+      "native_source_id": "sa5-gy-ggmc"
+    },
+    {
+      "id": "gy_kaieteur",
+      "kind": "rss",
+      "config_hash": "54d31230a24cdbe86cf0619caff05356b05cdcf6a46ec8131a1d944bf78afca1",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 25,
+      "valid_link_title_count": 25,
+      "parsed_date_count": 25,
+      "source_utc_count": 25,
+      "source_date_raw_count": 25,
+      "date_meanings": {
+        "published": 25
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "313f697974e88e168db7dd491e4310034dbd593f333eb0cc81ddae3a14a91dd5",
+      "checked_at": "2026-10-19T12:54:48.637797+00:00",
+      "sample": [
+        {
+          "url": "https://kaieteurnewsonline.com/2026/10/18/govt-moves-to-restrict-vape-imports/",
+          "date_raw": "Sun, 18 Oct 2026 14:40:28 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Sun, 18 Oct 2026 14:40:28 +0000",
+            "local_date": "2026-10-18",
+            "local_time": "14:40:28",
+            "timezone": null,
+            "utc": "2026-10-18T14:40:28Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-18 22:40",
+            "beijing_date": "2026-10-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-gy-kaieteur"
+    },
+    {
+      "id": "gy_times",
+      "kind": "rss",
+      "config_hash": "4bfb660749e3bb43ea98128f7317db061595b75c449175e29abeb8c457d7eb0d",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "cdda36be1dcef0f57600a4b9ae44ac172dc7a483ede7ac7c9188ffc9fcb416ce",
+      "checked_at": "2026-10-19T12:54:48.799940+00:00",
+      "sample": [
+        {
+          "url": "https://guyanatimesgy.com/govt-moves-to-restrict-importation-of-vapes-vaping-products-pres-ali/",
+          "date_raw": "Sun, 18 Oct 2026 08:05:33 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Sun, 18 Oct 2026 08:05:33 +0000",
+            "local_date": "2026-10-18",
+            "local_time": "08:05:33",
+            "timezone": null,
+            "utc": "2026-10-18T08:05:33Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-18 16:05",
+            "beijing_date": "2026-10-18"
+          }
+        }
+      ],
+      "native_source_id": "sa5-gy-times"
+    },
+    {
+      "id": "sr_starnieuws",
+      "kind": "rss",
+      "config_hash": "e353cd263b15eb84690d20c7246f2dde430581eb4db2fa37106a35d24700a622",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 15,
+      "valid_link_title_count": 15,
+      "parsed_date_count": 15,
+      "source_utc_count": 15,
+      "source_date_raw_count": 15,
+      "date_meanings": {
+        "published": 15
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "8c4fe92c4262c38022a9a53535385b0d3cad95084f8f7b442ad4e1d84aff550b",
+      "checked_at": "2026-10-19T12:54:48.959938+00:00",
+      "sample": [
+        {
+          "url": "https://www.starnieuws.com/index.php/welcome/index/nieuwsitem/94436",
+          "date_raw": "Mon, 19 Oct 2026 11:51:00 GMT",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 11:51:00 GMT",
+            "local_date": "2026-10-19",
+            "local_time": "11:51:00",
+            "timezone": null,
+            "utc": "2026-10-19T11:51:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 19:51",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-starnieuws"
+    },
+    {
+      "id": "sr_dwt",
+      "kind": "rss",
+      "config_hash": "c25b69280b588ed226ab7cd835618b8bc07e1f99fc3922dfa1e035ddcdcd3bfe",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "7f2b8c23493775b8b1255c907bd589151ee075aa28b5cc835571592eb027f15e",
+      "checked_at": "2026-10-19T12:54:48.987183+00:00",
+      "sample": [
+        {
+          "url": "https://dwtonline.com/bagasi-wat-we-meedragen-opent-koffer-met-koloniaal-verleden/",
+          "date_raw": "Mon, 19 Oct 2026 11:04:00 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 11:04:00 +0000",
+            "local_date": "2026-10-19",
+            "local_time": "11:04:00",
+            "timezone": null,
+            "utc": "2026-10-19T11:04:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 19:04",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-dwt"
+    },
+    {
+      "id": "sr_times_news",
+      "kind": "web_list",
+      "config_hash": "26a4307fbbef02f0c33cd1d5e4c1d56db80bc6ba317d9c97e46786a661d53d71",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 41,
+      "valid_link_title_count": 41,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 41
+      },
+      "detail_sample": {
+        "url": "https://www.surinametimes.com/artikel/asabina-eist-integraal-belastingplan",
+        "raw_sha256": "4724d8bc0858324aec385bf912007650a5e67d971d21c1f9d014d2be05b1ebec",
+        "raw": "2026-10-19T11:00:00+0000",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-19T11:00:00+0000",
+          "local_date": "2026-10-19",
+          "local_time": "11:00:00",
+          "timezone": null,
+          "utc": "2026-10-19T11:00:00Z",
+          "precision": "second",
+          "basis": "Source field: regex:timestamp[^A-Za-z0-9]{1,20}(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}[+-]\\d{4})",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-19 19:00",
+          "beijing_date": "2026-10-19"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "777dfb314e0b217949cdc71a9805be6022bc47971ded28d12a64ad0db934cd2f",
+      "checked_at": "2026-10-19T12:55:54.309506+00:00",
+      "sample": [
+        {
+          "url": "https://www.surinametimes.com/artikel/asabina-eist-integraal-belastingplan",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-sr-times-news"
+    },
+    {
+      "id": "sr_gov",
+      "kind": "rss",
+      "config_hash": "acbbcfc0a697a09725e57a7f305a7c52202d781b84a71eea99e6db14c59d6d62",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "a3be7f59c27a2f22bedeec4b96e41291baa66b5c73bef8290478033dfc42047f",
+      "checked_at": "2026-10-19T12:54:49.023640+00:00",
+      "sample": [
+        {
+          "url": "https://gov.sr/ido-opent-opleidingsjaar-2026-2027-met-thema-van-kennis-naar-paraatheid/",
+          "date_raw": "Mon, 19 Oct 2026 12:24:18 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 12:24:18 +0000",
+            "local_date": "2026-10-19",
+            "local_time": "12:24:18",
+            "timezone": null,
+            "utc": "2026-10-19T12:24:18Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 20:24",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-gov"
+    },
+    {
+      "id": "sr_waterkant",
+      "kind": "rss",
+      "config_hash": "9940eef02f6839c16a7ec0f1348df9f96d3eb1d76ea33ab2398d8d8642ddbd98",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 8,
+      "valid_link_title_count": 8,
+      "parsed_date_count": 8,
+      "source_utc_count": 8,
+      "source_date_raw_count": 8,
+      "date_meanings": {
+        "published": 8
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "10bbe68fbac950e384c08c2d242431de59c8814524042f206e644769e659a48f",
+      "checked_at": "2026-10-19T12:54:49.053467+00:00",
+      "sample": [
+        {
+          "url": "https://www.waterkant.net/suriname/2026/10/19/drie-gemaskerde-overvallers-slaan-toe-aan-napelsstraat-en-laten-slachtoffer-gekneveld-achter/#utm_source=rss&utm_medium=rss&utm_campaign=drie-gemaskerde-overvallers-slaan-toe-aan-napelsstraat-en-laten-slachtoffer-gekneveld-achter",
+          "date_raw": "Mon, 19 Oct 2026 11:00:00 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Mon, 19 Oct 2026 11:00:00 +0000",
+            "local_date": "2026-10-19",
+            "local_time": "11:00:00",
+            "timezone": null,
+            "utc": "2026-10-19T11:00:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 19:00",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-waterkant"
+    },
+    {
+      "id": "ar_arca_biblioteca",
+      "kind": "web_list",
+      "config_hash": "dd63739750ccb8e6717f45c74c8a137956d4df834e9350b9529bf354f21a0eb0",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 0,
+      "valid_link_title_count": 0,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {},
+      "detail_sample": null,
+      "issues": [
+        "Zero parsed candidates"
+      ],
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "checked_at": "2026-10-19T13:15:12.002992+00:00",
+      "sample": [],
+      "native_source_id": "sa5-ar-arca-biblioteca"
+    },
+    {
+      "id": "ar_cnv_news",
+      "kind": "web_list",
+      "config_hash": "b4052ab8fb574d452da41bc88a55264f26a5a1f22cf7b0f903dcc6c3ba11d5b5",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 16,
+      "valid_link_title_count": 16,
+      "parsed_date_count": 16,
+      "source_utc_count": 0,
+      "source_date_raw_count": 16,
+      "date_meanings": {
+        "published": 16
+      },
+      "detail_sample": {
+        "url": "https://www.argentina.gob.ar/noticias/reunion-plenaria-del-iarc-en-canada",
+        "raw_sha256": "8d1e3623a16d28cd335c3b7da4f984d4d6276f53f2e28c4aa76923f64ffaef84",
+        "raw": "2026-10-16T09:39:20-03:00",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-16T09:39:20-03:00",
+          "local_date": "2026-10-16",
+          "local_time": "09:39:20",
+          "timezone": null,
+          "utc": "2026-10-16T12:39:20Z",
+          "precision": "second",
+          "basis": "Source field: selector:meta[property=\"article:published_time\"]",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-16 20:39",
+          "beijing_date": "2026-10-16"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "d8a7ba9a77ea79d124c6fcb857e2cb0b6f7a44be00fd5451ce609a1baac42dc9",
+      "checked_at": "2026-10-19T12:55:52.480044+00:00",
+      "sample": [
+        {
+          "url": "https://www.argentina.gob.ar/noticias/reunion-plenaria-del-iarc-en-canada",
+          "date_raw": "2026-10-16",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-10-16",
+            "local_date": "2026-10-16",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-16",
+            "beijing_date": "2026-10-16"
+          }
+        }
+      ],
+      "native_source_id": "sa5-ar-cnv-news"
+    },
+    {
+      "id": "ar_anpyn_news",
+      "kind": "web_list",
+      "config_hash": "e87cb369ba1b02d66d8eb9edf6f7c15807fcd5b73dd90d2fbb6b8581faf9c5ad",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 16,
+      "valid_link_title_count": 16,
+      "parsed_date_count": 16,
+      "source_utc_count": 0,
+      "source_date_raw_count": 16,
+      "date_meanings": {
+        "published": 16
+      },
+      "detail_sample": {
+        "url": "https://www.argentina.gob.ar/noticias/sumando-100-recaladas-comienza-una-temporada-de-cruceros-record-en-el-puerto-de-ushuaia",
+        "raw_sha256": "30b549721d172e94834db3d140ff27e7e07ea335a50481025390d8ebd7d9e37f",
+        "raw": "2026-09-14T15:47:43-03:00",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-09-14T15:47:43-03:00",
+          "local_date": "2026-09-14",
+          "local_time": "15:47:43",
+          "timezone": null,
+          "utc": "2026-09-14T18:47:43Z",
+          "precision": "second",
+          "basis": "Source field: selector:meta[property=\"article:published_time\"]",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-09-15 02:47",
+          "beijing_date": "2026-09-15"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "902fae53a15ae74b5053c4e2a2d91e07799563cfa79aa22c80ce525615f1952e",
+      "checked_at": "2026-10-19T12:55:52.544575+00:00",
+      "sample": [
+        {
+          "url": "https://www.argentina.gob.ar/noticias/sumando-100-recaladas-comienza-una-temporada-de-cruceros-record-en-el-puerto-de-ushuaia",
+          "date_raw": "2026-09-14",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "2026-09-14",
+            "local_date": "2026-09-14",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: regex:datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-09-14",
+            "beijing_date": "2026-09-14"
+          }
+        }
+      ],
+      "native_source_id": "sa5-ar-anpyn-news"
+    },
+    {
+      "id": "gy_inews",
+      "kind": "rss",
+      "config_hash": "f9cd979ffbf95e3e4e0a99ccc3443b3ce93f506632d168fb2818e6eda1923fcf",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 10,
+      "valid_link_title_count": 10,
+      "parsed_date_count": 10,
+      "source_utc_count": 10,
+      "source_date_raw_count": 10,
+      "date_meanings": {
+        "published": 10
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "ebdf47057daada99077bc74f5534570cf1d9eebb9d3cdf34349f83c30f96684f",
+      "checked_at": "2026-10-19T12:54:48.806623+00:00",
+      "sample": [
+        {
+          "url": "https://inewsguyana.com/psc-supports-vape-import-restrictions-to-protect-guyanas-young-people/",
+          "date_raw": "Sun, 18 Oct 2026 21:54:00 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Sun, 18 Oct 2026 21:54:00 +0000",
+            "local_date": "2026-10-18",
+            "local_time": "21:54:00",
+            "timezone": null,
+            "utc": "2026-10-18T21:54:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-19 05:54",
+            "beijing_date": "2026-10-19"
+          }
+        }
+      ],
+      "native_source_id": "sa5-gy-inews"
+    },
+    {
+      "id": "ar_hcdn_bills",
+      "kind": "web_list",
+      "config_hash": "82db068b0db7e36ebe1a29809c53b9b7660d645e61e4eeb3c218f473fc451e00",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 17,
+      "valid_link_title_count": 17,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 17,
+      "date_meanings": {
+        "event": 17
+      },
+      "detail_sample": {
+        "url": "https://www.hcdn.gob.ar/comisiones/permanentes/cmineria/proyecto.html?exp=5204-D-2026",
+        "raw_sha256": "54c94ccb0d40106858f92598a8fd2b92ebeb2121e3ffee4a99f9ccbf1414c353",
+        "raw": null,
+        "meaning": "event",
+        "publication_basis": "other",
+        "parsed_date": false,
+        "source_time": null
+      },
+      "issues": [
+        "Date meaning is excluded by the news-only previewSourceDate gate; retain actual policy date meaning"
+      ],
+      "raw_sha256": "b95bc914e1a1c364fceae45841ef69df4ace8099be835055b1e0c799c693c496",
+      "checked_at": "2026-10-19T12:55:52.630296+00:00",
+      "sample": [
+        {
+          "url": "https://www.hcdn.gob.ar/comisiones/permanentes/cmineria/proyecto.html?exp=5204-D-2026",
+          "date_raw": "01/10/2026",
+          "meaning": "event",
+          "publication_basis": "other",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ar-hcdn-bills"
+    },
+    {
+      "id": "sr_nh",
+      "kind": "web_list",
+      "config_hash": "95277494b3ad217a83bbe40c60727d6bf785e562fa8d84771a5a26d0ceaac2ad",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 12,
+      "valid_link_title_count": 12,
+      "parsed_date_count": 12,
+      "source_utc_count": 0,
+      "source_date_raw_count": 12,
+      "date_meanings": {
+        "published": 12
+      },
+      "detail_sample": {
+        "url": "https://gov.sr/nieuwe-mijnbouwwet-zorgt-voor-modern-en-voorspelbaar-mijnbouwkader/",
+        "raw_sha256": "525225cc3041b59d0f6b791f220fbc1159af4780f17d70e5ba77f100869c735f",
+        "raw": "2026-10-14T13:22:39+00:00",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-14T13:22:39+00:00",
+          "local_date": "2026-10-14",
+          "local_time": "13:22:39",
+          "timezone": null,
+          "utc": "2026-10-14T13:22:39Z",
+          "precision": "second",
+          "basis": "Source field: head/publication-metadata[0]",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-14 21:22",
+          "beijing_date": "2026-10-14"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "035b8c4b96bc4b99884f88b57282ab35ade9ec377bb175a8ce361dab7a51c719",
+      "checked_at": "2026-10-19T12:54:49.295619+00:00",
+      "sample": [
+        {
+          "url": "https://gov.sr/nieuwe-mijnbouwwet-zorgt-voor-modern-en-voorspelbaar-mijnbouwkader/",
+          "date_raw": "\n\t\t\tOctober 14, 2026\t\t",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "\n\t\t\tOctober 14, 2026\t\t",
+            "local_date": "2026-10-14",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:article.elementor-post/.elementor-post-date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-14",
+            "beijing_date": "2026-10-14"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-nh"
+    },
+    {
+      "id": "sr_president_news",
+      "kind": "web_list",
+      "config_hash": "17dadc3f1844247fecf69c56c2d1a32fadf64478bc1e08de164a7fec031a5303",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 6,
+      "valid_link_title_count": 6,
+      "parsed_date_count": 6,
+      "source_utc_count": 0,
+      "source_date_raw_count": 6,
+      "date_meanings": {
+        "published": 6
+      },
+      "detail_sample": {
+        "url": "https://gov.sr/president-simons-vertrouwen-is-onze-sterkste-valuta/",
+        "raw_sha256": "0b8b8e6a8c85f93fe245b195c40b1a3e09aa731037c1f0f31422584e66ea1d81",
+        "raw": "2026-10-17T18:06:12+00:00",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-17T18:06:12+00:00",
+          "local_date": "2026-10-17",
+          "local_time": "18:06:12",
+          "timezone": null,
+          "utc": "2026-10-17T18:06:12Z",
+          "precision": "second",
+          "basis": "Source field: head/publication-metadata[0]",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-18 02:06",
+          "beijing_date": "2026-10-18"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "fc592da92def775af47c36c0496cdd6cddb7ee0dec7b81ac1fe6adc3f5539d78",
+      "checked_at": "2026-10-19T12:55:52.643933+00:00",
+      "sample": [
+        {
+          "url": "https://gov.sr/president-simons-vertrouwen-is-onze-sterkste-valuta/",
+          "date_raw": "\n\t\t\tOctober 17, 2026\t\t",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "\n\t\t\tOctober 17, 2026\t\t",
+            "local_date": "2026-10-17",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:article.elementor-post/.elementor-post-date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-17",
+            "beijing_date": "2026-10-17"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-president-news"
+    },
+    {
+      "id": "sr_vwa_labour",
+      "kind": "web_list",
+      "config_hash": "a7f5aed30f8b8cd0a80cf60af2a6a17d9199778b2e64547fa92932f6c7e32613",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 6,
+      "valid_link_title_count": 6,
+      "parsed_date_count": 6,
+      "source_utc_count": 0,
+      "source_date_raw_count": 6,
+      "date_meanings": {
+        "published": 6
+      },
+      "detail_sample": {
+        "url": "https://gov.sr/spwe-start-opleiding-small-business-coach-ter-versterking-van-ondernemerschapsbegeleiding/",
+        "raw_sha256": "071a92d5c913d35abae66398a2dcce27f45dd20491ad368e095c7f97690e03dc",
+        "raw": "2026-10-15T08:37:28+00:00",
+        "meaning": "published",
+        "publication_basis": "source_published",
+        "parsed_date": true,
+        "source_time": {
+          "meaning": "published",
+          "raw": "2026-10-15T08:37:28+00:00",
+          "local_date": "2026-10-15",
+          "local_time": "08:37:28",
+          "timezone": null,
+          "utc": "2026-10-15T08:37:28Z",
+          "precision": "second",
+          "basis": "Source field: head/publication-metadata[0]",
+          "condition_text": null,
+          "meaning_label": "来源发布",
+          "label": "来源发布于 2026-10-15 16:37",
+          "beijing_date": "2026-10-15"
+        }
+      },
+      "issues": [],
+      "raw_sha256": "ae293ea2033589fdd9a5ef15a5763a0b13232fb5b7ba1e1043bce39aad1cb92d",
+      "checked_at": "2026-10-19T12:55:53.109230+00:00",
+      "sample": [
+        {
+          "url": "https://gov.sr/spwe-start-opleiding-small-business-coach-ter-versterking-van-ondernemerschapsbegeleiding/",
+          "date_raw": "\n\t\t\tOctober 15, 2026\t\t",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "\n\t\t\tOctober 15, 2026\t\t",
+            "local_date": "2026-10-15",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:article.elementor-post/.elementor-post-date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-15",
+            "beijing_date": "2026-10-15"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-vwa-labour"
+    },
+    {
+      "id": "sr_vwa_news",
+      "kind": "web_list",
+      "config_hash": "080cff71d4ac7d9ab584afa871c7912ac78d732b1596ae39371f48849997f2c9",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 12,
+      "valid_link_title_count": 12,
+      "parsed_date_count": 12,
+      "source_utc_count": 0,
+      "source_date_raw_count": 12,
+      "date_meanings": {
+        "published": 12
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "5494c585ef857dfcfe687445cb4848c9dfcd98f22d1896492bd0680ca70e34e3",
+      "checked_at": "2026-10-19T12:55:52.952269+00:00",
+      "sample": [
+        {
+          "url": "https://gov.sr/medische-zending-ontvangt-medische-hulpmiddelen-van-zijin-rosebel-gold-mines-ter-versterking-van-gezondheidszorg-in-het-binnenland/",
+          "date_raw": "\n\t\t\tOctober 15, 2026\t\t",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "\n\t\t\tOctober 15, 2026\t\t",
+            "local_date": "2026-10-15",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "basis": "Source field: selector:article.elementor-post/.elementor-post-date",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-10-15",
+            "beijing_date": "2026-10-15"
+          }
+        }
+      ],
+      "native_source_id": "sa5-sr-vwa-news"
+    },
+    {
+      "id": "gy_mnr",
+      "kind": "rss",
+      "config_hash": "b2827e2a0bf8482f18dbde942eb298cd888530fffc3775193e670b75668850db",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 4,
+      "valid_link_title_count": 4,
+      "parsed_date_count": 4,
+      "source_utc_count": 4,
+      "source_date_raw_count": 4,
+      "date_meanings": {
+        "published": 4
+      },
+      "detail_sample": null,
+      "issues": [],
+      "raw_sha256": "c69879ff49759e63a045817fd1173a905fc714e3d95ca3ae16f19064e5b48120",
+      "checked_at": "2026-10-19T12:55:53.999015+00:00",
+      "sample": [
+        {
+          "url": "https://mnr.gov.gy/2026/09/29/three-detained-for-illegal-mining-along-siparuni-riverbank/",
+          "date_raw": "Wed, 30 Sep 2026 03:15:00 +0000",
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": {
+            "meaning": "published",
+            "raw": "Wed, 30 Sep 2026 03:15:00 +0000",
+            "local_date": "2026-09-30",
+            "local_time": "03:15:00",
+            "timezone": null,
+            "utc": "2026-09-30T03:15:00Z",
+            "precision": "second",
+            "basis": "Source field: feed.item[0].pubDate",
+            "condition_text": null,
+            "meaning_label": "来源发布",
+            "label": "来源发布于 2026-09-30 11:15",
+            "beijing_date": "2026-09-30"
+          }
+        }
+      ],
+      "native_source_id": "sa5-gy-mnr"
+    },
+    {
+      "id": "gy_gazette_pubs",
+      "kind": "json_list",
+      "config_hash": "e5d7f9521fd0af91a8024914de2a7136e4129f30340d23b0e621ce5a09ecc071",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 50,
+      "valid_link_title_count": 50,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 50,
+      "date_meanings": {
+        "site_public": 50
+      },
+      "detail_sample": null,
+      "issues": [
+        "Date meaning is excluded by the news-only previewSourceDate gate; retain actual policy date meaning"
+      ],
+      "raw_sha256": "16f0662064c2406213b865b11b4f6dec96d5edb419bff5ffc1be3e48ef75371a",
+      "checked_at": "2026-10-19T13:15:12.004976+00:00",
+      "sample": [
+        {
+          "url": "https://officialegazette.gov.gy/publications/04da3808-2a7f-486f-9a38-082a7fc86f82",
+          "date_raw": "2026-10-16T03:25:31.908Z",
+          "meaning": "site_public",
+          "publication_basis": "other",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-gy-gazette-pubs"
+    },
+    {
+      "id": "ar_boletin",
+      "kind": "web_list",
+      "config_hash": "2b6f6604ffc0a555b1c0c34f2f106547dfc56f1a1c55490d2706200933af8fea",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 65,
+      "valid_link_title_count": 65,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 65,
+      "date_meanings": {
+        "formally_published": 65
+      },
+      "detail_sample": null,
+      "issues": [
+        "Date meaning is excluded by the news-only previewSourceDate gate; retain actual policy date meaning"
+      ],
+      "raw_sha256": "cd53111e9bc372800880fe1d73249e3b32affff59ebbdccc1113ef1847c85c7b",
+      "checked_at": "2026-10-19T13:15:12.002247+00:00",
+      "sample": [
+        {
+          "url": "https://www.boletinoficial.gob.ar/detalleAviso/primera/349188/20261019",
+          "date_raw": "20261019",
+          "meaning": "formally_published",
+          "publication_basis": "formally_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ar-boletin"
+    },
+    {
+      "id": "sr_dna",
+      "kind": "web_list",
+      "config_hash": "7f3ef309fa37ed5ea98f86f8d4fa4ba47f90e255c3281843d49a684dd5b1e33b",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 49,
+      "valid_link_title_count": 49,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 49
+      },
+      "detail_sample": null,
+      "issues": [
+        "No accepted news publication date in list or captured detail"
+      ],
+      "raw_sha256": "37a9180da7a00cb2425c48f96054cd9b6a56f99e545b655c884a8dc8f2ef50d6",
+      "checked_at": "2026-10-19T13:15:12.003441+00:00",
+      "sample": [
+        {
+          "url": "https://www.dna.sr/wetgeving/surinaamse-wetten/wetten-na-2005/wet-collectieve-arbeidsovereenkomst/",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-sr-dna"
+    },
+    {
+      "id": "ar_cnv_regulations",
+      "kind": "web_list",
+      "config_hash": "b8135c07dace51c5e965b6a4f02b1b692dc1158910f4669f5de52c704fa5b025",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 691,
+      "valid_link_title_count": 691,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "formally_published": 691
+      },
+      "detail_sample": {
+        "url": "https://servicios.infoleg.gob.ar/infolegInternet/anexos/430000-434999/431260/norma.htm",
+        "raw_sha256": "cd69181145db88465562e7751ec6b0a0fe8e28c9ff86e2fe70eb4fe6397655e4",
+        "raw": "15/10/2026",
+        "meaning": "formally_published",
+        "publication_basis": "formally_published",
+        "parsed_date": false,
+        "source_time": null
+      },
+      "issues": [
+        "Date meaning is excluded by the news-only previewSourceDate gate; retain actual policy date meaning"
+      ],
+      "raw_sha256": "69ff9ae68d364e2a24638cc149b6a516289041ccd42498fe31c93fc54d840af3",
+      "checked_at": "2026-10-19T13:05:24.263292+00:00",
+      "sample": [
+        {
+          "url": "https://servicios.infoleg.gob.ar/infolegInternet/anexos/430000-434999/431260/norma.htm",
+          "date_raw": null,
+          "meaning": "formally_published",
+          "publication_basis": "formally_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-ar-cnv-regulations"
+    },
+    {
+      "id": "sr_dna_drafts",
+      "kind": "web_list",
+      "config_hash": "3a904627bfd811dcf588070f48aa1a52db24e42486760780ba7ba64a1e48d804",
+      "native_config_supported": true,
+      "captured_response_replayed": true,
+      "candidate_count": 60,
+      "valid_link_title_count": 60,
+      "parsed_date_count": 0,
+      "source_utc_count": 0,
+      "source_date_raw_count": 0,
+      "date_meanings": {
+        "published": 60
+      },
+      "detail_sample": null,
+      "issues": [
+        "No accepted news publication date in list or captured detail"
+      ],
+      "raw_sha256": "19958c1825a172683111d8832e63096b5f0961450c19e18ac0724db8f0eb855d",
+      "checked_at": "2026-10-19T13:15:12.004043+00:00",
+      "sample": [
+        {
+          "url": "https://www.dna.sr/wetgeving/ontwerpwetten-bij-dna/goedgekeurd/ontwerpwet-overeenkomst-tussen-reg-sur-en-reg-togo-inzake-wederzijdse-visa-afschaffing/",
+          "date_raw": null,
+          "meaning": "published",
+          "publication_basis": "source_published",
+          "parsed_source_time": null
+        }
+      ],
+      "native_source_id": "sa5-sr-dna-drafts"
+    }
+  ],
+  "interpretation": {
+    "candidate_count": "Candidates returned by the actual native parser over captured bytes; not relevance-selected or delivered items.",
+    "valid_link_title_count": "Non-empty title plus HTTP(S) URL only. Does not prove clean title text; AsianMetal remains held.",
+    "source_date_raw_count": "List records with nonempty source date observations, regardless of date meaning.",
+    "parsed_date_count": "List dates accepted by news-only previewSourceDate (published/source_published). Official promulgation, site-public and legislative-event meanings are deliberately separate.",
+    "detail_sample": "One captured detail response tested when available, not all article bodies.",
+    "raw_hash": "Hash of the captured HTTP entity body used for replay; raw website bodies are not redistributed."
+  }
+}

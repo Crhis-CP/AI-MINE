@@ -5,10 +5,33 @@
 // skipped and nothing leaves the process.
 import { config, credential } from "../config.ts";
 import { sql } from "../db.ts";
+import { audit, requireOwner, type AdminPrincipal } from "../admin/auth.ts";
 import { postWebhook } from "./feishu.ts";
 
 // For scripts/feishu-check.ts: the backend's entry points are frozen, so the check reaches Feishu through this one.
 export { feishuInternalEnabled, feishuSettingsSummary, listBotChats, sendAlert } from "./feishu.ts";
+
+export async function listTargets() {
+  return sql`
+    SELECT t.key, t.purpose, t.kind, t.enabled, t.enabled_at, t.config_ref, t.note, t.updated_at,
+           (SELECT count(*)::int FROM deliveries d WHERE d.target_key = t.key AND d.created_at > now() - interval '7 days') AS deliveries_7d,
+           (SELECT max(d.sent_at) FROM deliveries d WHERE d.target_key = t.key) AS last_sent_at
+    FROM notify_targets t ORDER BY t.purpose, t.key`;
+}
+
+export async function setTargetEnabled(key: string, enabled: boolean, reason: string, actor: string, principal?: AdminPrincipal) {
+  return sql.begin(async (tx) => {
+    if (principal) await requireOwner(principal, tx);
+    if (!reason?.trim()) throw new Error("reason is required");
+    const [before] = await tx`SELECT enabled, enabled_at FROM notify_targets WHERE key = ${key}`;
+    if (!before) return null;
+    const [after] = await tx`
+    UPDATE notify_targets SET enabled = ${enabled}, enabled_at = CASE WHEN ${enabled} AND NOT enabled THEN now() ELSE enabled_at END, updated_at = now()
+    WHERE key = ${key} RETURNING key, enabled, enabled_at`;
+    await audit(actor, enabled ? "notify.enable" : "notify.disable", `notify-target:${key}`, reason, before, after, undefined, tx);
+    return { ...after, pushEnabledHere: config.feishuContentPushEnabled };
+  });
+}
 
 export interface DeliveryRequest {
   subjectKind: "selected";

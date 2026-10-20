@@ -4,15 +4,62 @@
 import { execFile } from "node:child_process";
 import { createHash, createHmac } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { config, credential } from "../config.ts";
+import { config, credential, environmentValue } from "../config.ts";
 import { sql } from "../db.ts";
 import { backupDatabaseUrl } from "../db-bootstrap.ts";
 
 const run = promisify(execFile);
 const KEEP_LOCAL = 3;
+
+/** A password file keeps the database credential out of argv and child-process error messages. */
+async function dumpDatabase(file: string) {
+  const address = new URL(backupDatabaseUrl());
+  const password = decodeURIComponent(address.password);
+  address.password = "";
+  const dir = await mkdtemp(path.join(tmpdir(), "amp-backup-auth-"));
+  try {
+    const env = Object.fromEntries(
+      [
+        "PATH",
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PGPASSFILE",
+        "PGSSLMODE",
+        "PGSSLROOTCERT",
+        "PGSSLCERT",
+        "PGSSLKEY",
+        "PGSSLCRL",
+        "PGSSLCRLDIR",
+        "PGSERVICE",
+        "PGSERVICEFILE",
+      ].flatMap((name) => {
+        const value = environmentValue(name);
+        return value === undefined ? [] : [[name, value]];
+      }),
+    );
+    if (password) {
+      if (/[\r\n]/.test(password)) throw new Error("Unsupported backup credential format");
+      const passfile = path.join(dir, "pgpass");
+      await writeFile(passfile, `*:*:*:*:${password.replace(/\\/g, "\\\\").replace(/:/g, "\\:")}\n`, { mode: 0o600, flag: "wx" });
+      env.PGPASSFILE = passfile;
+    }
+    try {
+      await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", file, address.href], { env, maxBuffer: 16 * 1024 * 1024 });
+    } catch (error) {
+      const code = (error as { code?: unknown }).code;
+      const status = typeof code === "number" || ["ENOENT", "EACCES", "ETIMEDOUT"].includes(String(code)) ? String(code) : "failed";
+      // stderr can contain server-controlled text. Never persist execFile's argv, stderr or cause.
+      throw new Error(`Database backup failed (pg_dump: ${status}); check the backup connection, permissions and available storage.`);
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
 
 interface Store {
   secretId: string;
@@ -120,7 +167,7 @@ export async function runBackup(now = new Date()) {
   await mkdir(dir, { recursive: true });
   const stamp = now.toISOString().slice(0, 16).replace(/[-:T]/g, "");
   const dump = path.join(dir, `amp-${stamp}.dump`);
-  await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", dump, backupDatabaseUrl()], { maxBuffer: 16 * 1024 * 1024 });
+  await dumpDatabase(dump);
   // Verify before shipping: the archive must list cleanly.
   await run("pg_restore", ["--list", dump], { maxBuffer: 64 * 1024 * 1024 });
   const files = path.join(dir, `amp-files-${stamp}.tar.gz`);

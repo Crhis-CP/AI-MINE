@@ -1,0 +1,70 @@
+{
+  "original_rows": 83,
+  "original_rows_mapped": 83,
+  "monitoring_entries": 101,
+  "additional_entries_without_original_row": 10,
+  "native_configurations": 76,
+  "news_configurations": 65,
+  "policy_configurations": 11,
+  "entries_without_native_configuration": 25,
+  "captured_response_verified_configurations": 71,
+  "native_response_replayed_configurations": 73,
+  "candidate_only_configurations": 5,
+  "native_list_replay_with_items": 72,
+  "news_configurations_ready_for_target_preview": 58,
+  "production_sources_enabled": 0,
+  "by_integration_status": {
+    "access_pending": 19,
+    "ready_for_target_preview": 61,
+    "needs_freshness_review": 1,
+    "needs_adapter": 8,
+    "needs_date_review": 5,
+    "reference_only": 1,
+    "archive_reference": 2,
+    "needs_policy_time_handling": 4
+  },
+  "by_country": {
+    "PE": {
+      "entries": 13,
+      "native_configs": 11,
+      "news_preview_candidates": 7,
+      "policy_entries": 3
+    },
+    "CO": {
+      "entries": 13,
+      "native_configs": 6,
+      "news_preview_candidates": 4,
+      "policy_entries": 5
+    },
+    "AR": {
+      "entries": 17,
+      "native_configs": 13,
+      "news_preview_candidates": 9,
+      "policy_entries": 7
+    },
+    "GY": {
+      "entries": 9,
+      "native_configs": 6,
+      "news_preview_candidates": 5,
+      "policy_entries": 2
+    },
+    "SR": {
+      "entries": 13,
+      "native_configs": 11,
+      "news_preview_candidates": 9,
+      "policy_entries": 2
+    },
+    "GLOBAL": {
+      "entries": 26,
+      "native_configs": 21,
+      "news_preview_candidates": 18,
+      "policy_entries": 0
+    },
+    "CN": {
+      "entries": 10,
+      "native_configs": 8,
+      "news_preview_candidates": 6,
+      "policy_entries": 1
+    }
+  }
+}
