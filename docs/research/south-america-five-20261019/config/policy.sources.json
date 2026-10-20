@@ -1,0 +1,416 @@
+{
+  "$comment": "Disabled source seed drafts for AI-MINE. Reconcile identities and review registry status before integration. policy rows are not industry/policy-sources catalogue rows. This file does not authorize enabling any source.",
+  "sources": [
+    {
+      "id": "sa5-pe-minem-rules",
+      "name": "MINEM · 法律文件",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.gob.pe/institucion/minem/normas-legales",
+        "itemSelector": "ul.js-rules-search-results > li",
+        "linkSelector": "a.card__mock",
+        "titleSelector": "a.card__mock",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.gob.pe/institucion/minem/normas-legales/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "publishedAtRegex": "<time[^>]*datetime=\"(\\d{4}-\\d{2}-\\d{2})"
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-ingemmet-rules",
+      "name": "INGEMMET · 法律文件",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.gob.pe/institucion/ingemmet/normas-legales",
+        "itemSelector": "ul.js-rules-search-results > li",
+        "linkSelector": "a.card__mock",
+        "titleSelector": "a.card__mock",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.gob.pe/institucion/ingemmet/normas-legales/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "publishedAtRegex": "<time[^>]*datetime=\"(\\d{4}-\\d{2}-\\d{2})"
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-co-anm-rules",
+      "name": "哥伦比亚国家矿业局 ANM · 决议",
+      "kind": "json_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.anm.gov.co/jsonapi/node/resoluciones?sort=-created&page%5Blimit%5D=3",
+        "itemsPath": "data",
+        "titlePaths": [
+          "attributes.title"
+        ],
+        "summaryPaths": [
+          "attributes.field_descripcion.0"
+        ],
+        "publishedAtPath": "attributes.field_fecha_de_publicacion",
+        "externalIdPath": "attributes.drupal_internal__nid",
+        "urlTemplate": "https://www.anm.gov.co/node/{attributes.drupal_internal__nid}",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "language": "es",
+        "requireBoolean": {
+          "path": "attributes.status",
+          "equals": true
+        },
+        "allowUrlPrefixes": [
+          "https://www.anm.gov.co/node/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-el-peruano-rules",
+      "name": "秘鲁《秘鲁人报》· Normas Legales",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://diariooficial.elperuano.pe/normas/LoadNormasLegales?Length=0",
+        "itemSelector": "article.edicionesoficiales_articulos",
+        "linkSelector": "h5 a[href*=\"/dispositivo/\"]",
+        "titleSelector": "h5",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://busquedas.elperuano.pe/dispositivo/NL/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "publishedAtRegex": "Fecha:\\s*(\\d{2}/\\d{2}/\\d{4})",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-arca-biblioteca",
+      "name": "阿根廷税务与海关管理局 ARCA—法规库",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://biblioteca.arca.gob.ar/search/query/ajax.GetNovedadesRG.aspx",
+        "itemSelector": "div.cn_item",
+        "linkSelector": "a[href*=\"norma.aspx\"]",
+        "titleSelector": "p",
+        "publishedAtRegex": "\\|f:(\\d{2}/\\d{2}/\\d{4})",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es",
+          "meaning": "signed",
+          "publicationBasis": "other",
+          "basis": "Repository AR-004 notes identify the list date as the resolution signing/issuance date, not its publication in the official gazette; live response is empty, so this remains a candidate."
+        },
+        "allowUrlPrefixes": [
+          "https://biblioteca.arca.gob.ar/search/query/norma.aspx"
+        ],
+        "language": "es"
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-hcdn-bills",
+      "name": "阿根廷众议院矿业委员会—议案",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.hcdn.gob.ar/comisiones/permanentes/cmineria/listado-proyectos.html",
+        "language": "es",
+        "itemSelector": "table tbody tr",
+        "linkSelector": "td[headers=\"expHead\"] a",
+        "titleSelector": "td[headers=\"sumHead\"]",
+        "publishedAtSelector": "td[headers=\"fechaHead\"]",
+        "allowUrlPrefixes": [
+          "https://www.hcdn.gob.ar/comisiones/permanentes/cmineria/proyecto.html"
+        ],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es",
+          "meaning": "event",
+          "publicationBasis": "other",
+          "basis": "HCDN project table labels the field Fecha; preserve as project date without claiming source publication, filing, enactment or effectiveness"
+        },
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-gy-gazette-pubs",
+      "name": "圭亚那官方电子公报",
+      "kind": "json_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://officialegazette.gov.gy/api/publications?page=1&pageSize=50",
+        "itemsPath": "publications",
+        "titlePaths": [
+          "title",
+          "properties.cm:title",
+          "name"
+        ],
+        "publishedAtPath": "publishedAt",
+        "externalIdPath": "id",
+        "urlTemplate": "https://officialegazette.gov.gy/publications/{id}",
+        "language": "en",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en",
+          "meaning": "site_public",
+          "publicationBasis": "other",
+          "basis": "API field publishedAt is the website publication timestamp. Captured sample publishedAt is 2026-10-16 while its gazette title is 12 September 2026; gazette issue and effective dates require separate document extraction."
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-boletin",
+      "name": "阿根廷国家官方公报—第一部分",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.boletinoficial.gob.ar/seccion/primera",
+        "titleSelector": "div.linea-aviso",
+        "publishedAtRegex": "/detalleAviso/primera/\\d+/(\\d{8})",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYYMMDD",
+          "language": "es",
+          "meaning": "formally_published",
+          "publicationBasis": "formally_published",
+          "basis": "The eight-digit suffix is the issue date in the official Boletin Oficial Primera Seccion item URL; day precision only, not a signing or effective date."
+        },
+        "allowUrlPrefixes": [
+          "https://www.boletinoficial.gob.ar/detalleAviso/primera/"
+        ],
+        "language": "es",
+        "itemSelector": "#avisosSeccionDiv > div.row:not(div.row:has(h5.seccion-rubro:contains(\"CONCURSOS OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"REMATES OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"AVISOS OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"CONVENCIONES COLECTIVAS\")) ~ div.row) a[href^=\"/detalleAviso/primera/\"]:has(div.linea-aviso)",
+        "policyProfile": {
+          "version": 1,
+          "officialRole": {
+            "kind": "official_original",
+            "evidenceUrl": "https://www.boletinoficial.gob.ar/detalleAviso/primera/348786/20261009",
+            "basis": "国家公报第一部分当日列表指向同一主机的单件页。2026-10-09 核对 Resolución 1433/2026：标题在 #tituloDetalleAviso，正文在 #cuerpoDetalleAviso，页面是 HTML。",
+            "singleObjectPattern": "^https://www\\.boletinoficial\\.gob\\.ar/detalleAviso/primera/\\d+/\\d{8}$"
+          },
+          "identityMarker": {
+            "selector": "#tituloDetalleAviso",
+            "pattern": "^[\\s\\S]{12,800}$"
+          },
+          "titleSelector": "#tituloDetalleAviso",
+          "numberSelector": null,
+          "originalLinkSelector": null,
+          "versionSelector": null,
+          "identity": {
+            "jurisdiction": {
+              "value": "AR",
+              "evidenceUrl": "https://www.boletinoficial.gob.ar/seccion/primera",
+              "basis": "页面标题写明 BOLETIN OFICIAL REPUBLICA ARGENTINA，法域按登记为阿根廷。"
+            },
+            "authority": {
+              "value": "阿根廷国家公报局",
+              "evidenceUrl": "https://www.boletinoficial.gob.ar/seccion/primera",
+              "basis": "第一部分目录由阿根廷国家公报发布，与登记发布方一致。"
+            },
+            "documentType": null
+          },
+          "language": "es",
+          "kind": "original",
+          "recheckMinutes": 360,
+          "extraction": {
+            "bodySelector": "#cuerpoDetalleAviso",
+            "attachmentSelector": null,
+            "maxBytes": 2097152,
+            "maxResources": 5,
+            "maxPages": 1,
+            "maxTextBytes": 2097152
+          }
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-dna",
+      "name": "苏里南国民议会—2005 年后法律库",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.dna.sr/wetgeving/surinaamse-wetten/wetten-na-2005/",
+        "itemSelector": "#arbeid a.list-group-item, #belasting a.list-group-item, #financieel-economisch a.list-group-item, #milieu-en-ruimtelijke-ordening a.list-group-item",
+        "allowUrlPrefixes": [
+          "https://www.dna.sr/wetgeving/surinaamse-wetten/wetten-na-2005/"
+        ],
+        "_amp": {
+          "initialBackfillLimit": 60
+        },
+        "language": "nl"
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-cnv-regulations",
+      "name": "阿根廷国家证券委员会 CNV—一般决议",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.cnv.gov.ar/sitioWeb/MarcoRegulatorio?panel=2",
+        "itemSelector": "table.table tbody tr",
+        "linkSelector": "a.infoleg-link",
+        "titleSelector": "td:nth-child(4)",
+        "allowUrlPrefixes": [
+          "https://servicios.infoleg.gob.ar/infolegInternet/"
+        ],
+        "language": "es",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es",
+          "meaning": "formally_published",
+          "publicationBasis": "formally_published"
+        },
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtRegex": "e\\.\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-dna-drafts",
+      "name": "苏里南国民议会—已通过议案目录",
+      "kind": "web_list",
+      "lane": "policy",
+      "config": {
+        "url": "https://www.dna.sr/wetgeving/ontwerpwetten-bij-dna/goedgekeurd/",
+        "itemSelector": "div.list-group a.list-group-item",
+        "allowUrlPrefixes": [
+          "https://www.dna.sr/wetgeving/ontwerpwetten-bij-dna/"
+        ],
+        "_amp": {
+          "initialBackfillLimit": 60
+        },
+        "language": "nl"
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    }
+  ]
+}

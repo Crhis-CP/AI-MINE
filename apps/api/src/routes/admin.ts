@@ -209,17 +209,19 @@ export function registerAdmin(app: FastifyInstance) {
     contracts.createSource.url,
     { schema: { operationId: contracts.createSource.schema.operationId, response: contracts.createSource.schema.response } },
     adminHandler(async (req, reply, admin) => {
+      await requireOwner(admin);
       const parsed = SourceCreateRequest.safeParse(body(req));
       if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请填写有效的信源、许可范围和附件许可。" });
-      const result = await createSource(parsed.data, actorOf(admin));
+      const result = await createSource(parsed.data, actorOf(admin), { principal: admin });
       return SourceCreateResponse.parse(JSON.parse(JSON.stringify(result.created ? { ...result, source: sourceWire(result.source) } : result)));
     }),
   );
   app.post(
     "/api/admin/sources/preview",
     adminHandler(async (req, _reply, admin) => {
+      await requireOwner(admin);
       const input = body<{ id: string; config?: Record<string, unknown> }>(req);
-      return requestSourcePreview(input.id, input, actorOf(admin));
+      return requestSourcePreview(input.id, input, actorOf(admin), { principal: admin });
     }),
   );
   app.post(
@@ -229,7 +231,7 @@ export function registerAdmin(app: FastifyInstance) {
       await requireOwner(admin);
       const input = SourceArchiveRequest.safeParse(body(req));
       if (!input.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对信源版本、归档原因和归档确认。" });
-      const source = await archiveSource(param(req, "id"), input.data, actorOf(admin));
+      const source = await archiveSource(param(req, "id"), input.data, actorOf(admin), admin);
       return source === null ? notFound(req, reply) : SourceArchiveResponse.parse(JSON.parse(JSON.stringify({ source: sourceWire(source.source) })));
     }),
   );
@@ -248,8 +250,9 @@ export function registerAdmin(app: FastifyInstance) {
   app.patch(
     "/api/admin/sources/:id",
     adminHandler(async (req, reply, admin) => {
+      await requireOwner(admin);
       const b = body<{ patch: unknown; version: string; reason?: string }>(req);
-      return orNotFound(req, reply, await updateSource(param(req, "id"), b, actorOf(admin)));
+      return orNotFound(req, reply, await updateSource(param(req, "id"), b, actorOf(admin), admin));
     }),
   );
   app.get(
@@ -258,11 +261,17 @@ export function registerAdmin(app: FastifyInstance) {
   );
   app.post(
     "/api/admin/sources/:id/preview",
-    adminHandler(async (req, _reply, admin) => requestSourcePreview(param(req, "id"), body(req) as never, actorOf(admin))),
+    adminHandler(async (req, _reply, admin) => {
+      await requireOwner(admin);
+      return requestSourcePreview(param(req, "id"), body(req) as never, actorOf(admin), { principal: admin });
+    }),
   );
   app.post(
     "/api/admin/sources/:id/fetch",
-    adminHandler(async (req, reply, admin) => orNotFound(req, reply, await fetchNow(param(req, "id"), actorOf(admin)))),
+    adminHandler(async (req, reply, admin) => {
+      await requireOwner(admin);
+      return orNotFound(req, reply, await fetchNow(param(req, "id"), actorOf(admin), admin));
+    }),
   );
 
   app.post(
@@ -417,13 +426,17 @@ export function registerAdmin(app: FastifyInstance) {
   app.post(
     "/api/admin/notify-targets/:key",
     adminHandler(async (req, reply, admin) => {
+      await requireOwner(admin);
       const b = body<{ enabled: boolean; reason: string }>(req);
-      return orNotFound(req, reply, await setTargetEnabled(param(req, "key"), !!b.enabled, b.reason, actorOf(admin)));
+      return orNotFound(req, reply, await setTargetEnabled(param(req, "key"), !!b.enabled, b.reason, actorOf(admin), admin));
     }),
   );
   app.put(
     "/api/admin/budgets/:service",
-    adminHandler(async (req, _reply, admin) => updateBudget(param(req, "service"), body(req) as never, actorOf(admin))),
+    adminHandler(async (req, _reply, admin) => {
+      await requireOwner(admin);
+      return updateBudget(param(req, "service"), body(req) as never, actorOf(admin), admin);
+    }),
   );
 
   // Models and evaluation (F20)

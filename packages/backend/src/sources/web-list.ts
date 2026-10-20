@@ -13,6 +13,7 @@ import { sourcePublishedAt } from "./published-at.ts";
 import { getPath } from "./json-list.ts";
 import type { SourceDateObservationInput } from "@amp/contracts/time-assertion";
 import { identityKeyForUrl } from "../lib/url.ts";
+import { isSignInUrl } from "../lib/auth-page.ts";
 
 export { parseLooseDate, sourcePublishedAt } from "./published-at.ts";
 
@@ -141,7 +142,7 @@ function listingItself(url: string, listing: string): boolean {
  * author and pagination pages.
  */
 function navigationLink(url: string, listing: string): boolean {
-  if (listingItself(url, listing)) return true;
+  if (listingItself(url, listing) || isSignInUrl(url)) return true;
   const u = new URL(url);
   return /\/(label|labels|tag|tags|category|categories|author|authors|page)(\/|$)/i.test(u.pathname) || /\/(19|20)\d{2}(\/\d{1,2})?\/?$/.test(u.pathname);
 }
@@ -279,6 +280,7 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
     if (
       !candidate ||
       seen.has(candidate.url) ||
+      isSignInUrl(candidate.url) ||
       !allowed(candidate.url, source) ||
       (!source.config.preserveUrlFragment && listingItself(candidate.url, listing))
     )

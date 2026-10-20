@@ -22,6 +22,7 @@ import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
 import { contentHash, updateMaterialPresentation, readCurrentBody } from "./materials.ts";
+import { isSignInRedirect } from "../lib/auth-page.ts";
 
 export interface ExtractedBody {
   html: string;
@@ -113,6 +114,7 @@ export async function extractFromUrl(
   const direct = await crawlStep(`readability:${url}`, url, async () => {
     try {
       const res = await guardedFetch(url, { headers: languageHeaders(opts.acceptLanguage), timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
+      if (isSignInRedirect(url, res.url)) return { authenticationRequired: true as const };
       if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url, opts);
     } catch (error) {
       if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
@@ -122,6 +124,8 @@ export async function extractFromUrl(
     }
     return null;
   });
+  // Keep the refusal in the durable step result: retrying must not buy a reader fallback.
+  if (direct && "authenticationRequired" in direct) return null;
   if (direct) return direct;
   if (!opts.allowJina) return null;
   try {

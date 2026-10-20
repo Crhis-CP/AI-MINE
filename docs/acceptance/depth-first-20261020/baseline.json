@@ -1,0 +1,29 @@
+{
+  "observed_at": "2026-10-20T11:25:17.103461+00:00",
+  "repository_base": "0520c97f4713ffad7c57701e6a24a0cc9635a1dd",
+  "branch": "codex/depth-first-optimization-20261020",
+  "production_release": "1763d0d7602f",
+  "production_version_evidence": "direct public health and authenticated SSH docker ps, 2026-10-20T11:24:19Z",
+  "upstream": {
+    "repository": "KKKKhazix/AIHOT",
+    "default_branch": "main",
+    "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+    "commit_time": "2026-10-20T10:18:34Z",
+    "query_time": "2026-10-20T11:26:47.153752+00:00",
+    "online_release": "unknown"
+  },
+  "brief_sha256": "7016caf88abbec0303688e41d12273c2958edcc0b7863166cc65ef5f5e879174",
+  "source_bundle": {
+    "checked_at": "2026-10-20T11:24:09.139237+00:00",
+    "archive_sha256": "5b0d44bec5130e977e83a3f81179b9114b70dcd0ba97d1aebff9134a35282255",
+    "files": 30,
+    "verified_manifest_files": 29,
+    "manifest_passed": true,
+    "expanded_bytes": 1293603
+  },
+  "current_checks": {
+    "repository_base_full_verify": "https://github.com/Crhis-CP/AI-MINE/actions/runs/39345886387",
+    "new_changes_full_verify": "not_run"
+  },
+  "raw_evidence_location": ".verify/depth-first-20261020 (local, production data not committed)"
+}

@@ -1,0 +1,23 @@
+test_active_replacement_wins_over_archived_and_paused_duplicates (__main__.ReconciliationTests.test_active_replacement_wins_over_archived_and_paused_duplicates) ... ok
+test_candidate_identity_and_enabled_validation (__main__.ReconciliationTests.test_candidate_identity_and_enabled_validation) ... ok
+test_catalogue_absence_is_not_runtime_reuse_or_new_directory_entry (__main__.ReconciliationTests.test_catalogue_absence_is_not_runtime_reuse_or_new_directory_entry) ... ok
+test_cli_only_writes_local_drafts_and_refuses_incomplete_snapshot_before_writes (__main__.ReconciliationTests.test_cli_only_writes_local_drafts_and_refuses_incomplete_snapshot_before_writes) ... ok
+test_complete_inventory_required_and_counts_checked (__main__.ReconciliationTests.test_complete_inventory_required_and_counts_checked) ... ok
+test_cross_lane_native_duplicate_blocks_even_when_review_urls_differ (__main__.ReconciliationTests.test_cross_lane_native_duplicate_blocks_even_when_review_urls_differ) ... ok
+test_declared_publisher_id_cannot_merge_distinct_catalogue_channels (__main__.ReconciliationTests.test_declared_publisher_id_cannot_merge_distinct_catalogue_channels) ... ok
+test_kind_is_part_of_native_duplicate_identity (__main__.ReconciliationTests.test_kind_is_part_of_native_duplicate_identity) ... ok
+test_live_catalogue_id_with_different_entry_is_not_called_absent (__main__.ReconciliationTests.test_live_catalogue_id_with_different_entry_is_not_called_absent) ... ok
+test_native_extraction_does_not_evaluate_admin_module (__main__.ReconciliationTests.test_native_extraction_does_not_evaluate_admin_module) ... ok
+test_native_identity_matches_target_semantics (__main__.ReconciliationTests.test_native_identity_matches_target_semantics) ... ok
+test_no_inventory_is_explicitly_catalogue_only (__main__.ReconciliationTests.test_no_inventory_is_explicitly_catalogue_only) ... ok
+test_package_duplicates_are_checked_before_proposals_in_both_lanes (__main__.ReconciliationTests.test_package_duplicates_are_checked_before_proposals_in_both_lanes) ... ok
+test_pause_archive_and_id_lane_collision_protect_only_direct_identity (__main__.ReconciliationTests.test_pause_archive_and_id_lane_collision_protect_only_direct_identity) ... ok
+test_related_paused_or_archived_channel_does_not_transfer_state (__main__.ReconciliationTests.test_related_paused_or_archived_channel_does_not_transfer_state) ... ok
+test_runtime_owner_must_be_explicit_null_or_nonempty_limited_string (__main__.ReconciliationTests.test_runtime_owner_must_be_explicit_null_or_nonempty_limited_string) ... ok
+test_shared_government_host_preserves_institution_boundary (__main__.ReconciliationTests.test_shared_government_host_preserves_institution_boundary) ... ok
+test_unconfigured_policy_catalogues_keep_identity_and_registry_only_references (__main__.ReconciliationTests.test_unconfigured_policy_catalogues_keep_identity_and_registry_only_references) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 1.934s
+
+OK

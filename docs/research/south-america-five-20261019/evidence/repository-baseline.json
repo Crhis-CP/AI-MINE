@@ -1,0 +1,82 @@
+{
+  "repository_url": "https://github.com/Crhis-CP/AI-MINE",
+  "branch": "main",
+  "commit": "e75f033d0e1b626c9af3fe274464171d4d6f6806",
+  "read_only_inspection": true,
+  "production_inventory_obtained": false,
+  "news_catalogue_rows": 412,
+  "policy_catalogue_rows": 156,
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "01030403be9148f52c1a7b395c6d11035167c08c5734f40bbf63b1a183c57cc8",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/AGENTS.md"
+    },
+    {
+      "path": "industry/sources.json",
+      "sha256": "5cd83c842c569567a4c90c6e9c67de3e29e9e52b1f762b35ef0599835de288f6",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/industry/sources.json"
+    },
+    {
+      "path": "industry/policy-sources.json",
+      "sha256": "3119dfc58da91ec25bc8883070924a0b8b73f614ef9a15f07870a0086e6f5e4a",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/industry/policy-sources.json"
+    },
+    {
+      "path": "industry/policy-sources.ts",
+      "sha256": "b40d1334e1dc0b81046807da039acd5137d9916fda6fb05f82596754c0803265",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/industry/policy-sources.ts"
+    },
+    {
+      "path": "scripts/source-intake.ts",
+      "sha256": "56afc6daff19827a8a33b191311a0631a19f8b01c23646ab42ab52bf82bad5ff",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/scripts/source-intake.ts"
+    },
+    {
+      "path": "scripts/seed.ts",
+      "sha256": "e7715bea20261f7e3a46b427de92a29a893ab47205350aafda3614ed22b1f196",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/scripts/seed.ts"
+    },
+    {
+      "path": "packages/backend/src/admin/sources.ts",
+      "sha256": "ec45e63977fafa8e5098e5e8f4fb11f8548037b3d4b35661b9f59931a6cffdbf",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/packages/backend/src/admin/sources.ts"
+    },
+    {
+      "path": "packages/backend/src/sources/config-keys.ts",
+      "sha256": "139122eebd1576ae18b6de4415665df6fe1ce6f890b2cfcea6aaf2d0086f5ee3",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/packages/backend/src/sources/config-keys.ts"
+    },
+    {
+      "path": "packages/backend/src/sources/web-list.ts",
+      "sha256": "92818155f0717d1b40f04a117dd52dbf39e1a9a6f1aa1397561e0ad0618a3f99",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/packages/backend/src/sources/web-list.ts"
+    },
+    {
+      "path": "packages/backend/src/sources/rss.ts",
+      "sha256": "8359353eb7f8a6baa810772fca3ffd121d1f31534560d097a650371f34c9d65f",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/packages/backend/src/sources/rss.ts"
+    },
+    {
+      "path": "packages/backend/src/sources/json-list.ts",
+      "sha256": "2efe61462268139299292316627ee61632f32794f084982243654abd4d31b909",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/packages/backend/src/sources/json-list.ts"
+    },
+    {
+      "path": "packages/backend/src/sources/date-extraction.ts",
+      "sha256": "3aefe160f4245bbf0e22e2cd9878f4793a92218b7b03ac2f82546b7ced5faccb",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/packages/backend/src/sources/date-extraction.ts"
+    },
+    {
+      "path": "packages/contracts/src/http/private.ts",
+      "sha256": "3cf4c72fb90868794d53c35e1867fb899a8e90188e6e8e809f0d617bff551a4d",
+      "url": "https://github.com/Crhis-CP/AI-MINE/blob/e75f033d0e1b626c9af3fe274464171d4d6f6806/packages/contracts/src/http/private.ts"
+    }
+  ],
+  "legal_lane_scope": {
+    "instruction_file": "AGENTS.md",
+    "decision": "DEC-71, Owner 2026-10-15",
+    "instruction": "随最终统一发布暂停法规后台采集与模型处理；保留入口和已发布内容阅读；现在不提前改变线上状态。",
+    "this_package": "Only disabled policy configuration drafts and catalogue improvement advice. Does not establish current runtime pause/enable state."
+  }
+}

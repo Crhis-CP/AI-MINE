@@ -5027,5 +5027,31 @@
    "spec_refs": "ADR-0015",
    "tasks": "T-0001、T-0002"
   }
+ ],
+ "subsequent_adaptations": [
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-20T11:54:03.159712+00:00",
+   "mechanism": "Authentication path filtering for list links and final article redirects",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "packages/backend/src/content/extract.ts",
+     "sha256": "b30aa0712dd6ee6ba90c2f2b90dec94b257cc3c218763f576bb149ebeb2db9b8",
+     "bytes": 26613
+    },
+    {
+     "path": "packages/backend/src/sources/web-list.ts",
+     "sha256": "0306cf2665433f7812a298ce32a610a2f5ad2c785d6a07038ec68bf9d2930b7e",
+     "bytes": 21182
+    }
+   ],
+   "targets": [
+    "packages/backend/src/lib/auth-page.ts",
+    "packages/backend/src/sources/web-list.ts",
+    "packages/backend/src/content/extract.ts"
+   ],
+   "local_adaptation": "Shared pure URL guard; persistent crawl step preserves refusal and avoids paid reader fallback."
+  }
  ]
 }

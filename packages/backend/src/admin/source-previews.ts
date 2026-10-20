@@ -5,7 +5,7 @@ import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { Conflict, readCurrentSourcePolicy, evaluateSourcePolicy, previewSource } from "./sources.ts";
-import { audit } from "./auth.ts";
+import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 import type { SourceRow } from "../sources/types.ts";
 
 type SourceDraft = { id: number; kind: SourceRow["kind"]; config: Record<string, unknown>; config_hash: string };
@@ -47,9 +47,10 @@ export async function requestSourcePreview(
   sourceId: string,
   input: { draft_id?: number; config?: Record<string, unknown> },
   actor: string,
-  options: { inline?: boolean } = {},
+  options: { inline?: boolean; principal?: AdminPrincipal } = {},
 ) {
   return sql.begin(async (tx) => {
+    if (options.principal) await requireOwner(options.principal, tx);
     const [source] = await tx<SourceRow[]>`SELECT * FROM sources WHERE id=${sourceId} FOR UPDATE`;
     if (!source) throw new Conflict("请先保存暂停的信源，再请求预览");
     if (source.archived_at) throw new Conflict("信源已归档，不能试抓；如需再次采集请重新添加。");

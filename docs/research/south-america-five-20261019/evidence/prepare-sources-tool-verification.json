@@ -1,0 +1,10 @@
+{
+  "test_count": 18,
+  "passed": true,
+  "test_record": "evidence/prepare-sources-tests.txt",
+  "command": "python3 tools/test_prepare_sources.py --repo /absolute/path/to/AI-MINE -v",
+  "implementation_sha256": "fec00690b9b0e6488a447fdf067f88cc9719b397b7ed75b949c3677269fb15d1",
+  "tests_sha256": "c164c79a6c5b7979b59578c01d98916d765dcb40e9b6980d041b35f2573bec0f",
+  "repository_commit": "e75f033d0e1b626c9af3fe274464171d4d6f6806",
+  "runtime_inventory_obtained": false
+}

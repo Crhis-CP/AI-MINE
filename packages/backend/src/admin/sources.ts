@@ -23,7 +23,7 @@ import { assertSupportedConfig, sourceDateConfigHash, sourceCheckpointIdentity }
 import type { SourceRow } from "../sources/types.ts";
 import { directoryContract } from "../sources/directory-profile.ts";
 import { fetchWebList } from "../sources/web-list.ts";
-import { audit } from "./auth.ts";
+import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 
 export class Conflict extends Error {
   code = "conflict";
@@ -122,9 +122,11 @@ export async function updateSource(
   id: string,
   input: { patch: unknown; version: string; reason?: string; config_command?: "activate_draft"; draft_id?: number; preview_id?: number },
   actor: string,
+  principal?: AdminPrincipal,
 ) {
   const patch = EDITABLE.parse(input.patch);
   return sql.begin(async (tx) => {
+    if (principal) await requireOwner(principal, tx);
     await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${id}))`;
     const [before] = await tx`SELECT * FROM sources WHERE id = ${id} FOR UPDATE`;
     if (!before) return null;
@@ -252,11 +254,12 @@ export function validateSourceCreate(input: unknown) {
   return source;
 }
 
-export async function createSource(input: unknown, actor: string, opts: { lane?: "news" | "policy" } = {}) {
+export async function createSource(input: unknown, actor: string, opts: { lane?: "news" | "policy"; principal?: AdminPrincipal } = {}) {
   const lane = opts.lane ?? "news";
   if (lane !== "news" && lane !== "policy") throw new Error("业务线必须是 news 或 policy");
   const s = validateSourceCreate(input);
   return sql.begin(async (tx) => {
+    if (opts.principal) await requireOwner(opts.principal, tx);
     await tx`SELECT pg_advisory_xact_lock(23622, hashtext(${s.kind + ":" + (sourceIdentity(s.config) ?? s.id)}))`;
     const dup = await findDuplicateSource(s.kind, s.config, tx);
     if (dup) return { created: false as const, duplicate: dup };
@@ -301,19 +304,22 @@ export async function createSource(input: unknown, actor: string, opts: { lane?:
   });
 }
 
-export async function fetchNow(id: string, actor: string) {
-  const [s] = await sql<
-    { id: string; kind: string; lane: SourceRow["lane"]; archived_at: Date | null }[]
-  >`SELECT id, kind, lane, archived_at FROM sources WHERE id = ${id}`;
-  if (!s) return null;
-  if (s.archived_at) throw new Conflict("信源已归档，不能重新采集。");
-  await requireRuntimeRunning(s.lane, ["collection"]);
-  const jobId =
-    s.kind === "mp_account"
-      ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual", lane: s.lane }, { singletonKey: `mp:${id}` })
-      : await enqueueSourceFetch(s.lane, { sourceId: id, force: true });
-  await audit(actor, "source.fetch", `source:${id}`, null, null, { jobId });
-  return { jobId };
+export async function fetchNow(id: string, actor: string, principal?: AdminPrincipal) {
+  return sql.begin(async (tx) => {
+    if (principal) await requireOwner(principal, tx);
+    const [s] = await tx<
+      { id: string; kind: string; lane: SourceRow["lane"]; archived_at: Date | null }[]
+    >`SELECT id, kind, lane, archived_at FROM sources WHERE id = ${id}`;
+    if (!s) return null;
+    if (s.archived_at) throw new Conflict("信源已归档，不能重新采集。");
+    await requireRuntimeRunning(s.lane, ["collection"]);
+    const jobId =
+      s.kind === "mp_account"
+        ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual", lane: s.lane }, { singletonKey: `mp:${id}` }, tx)
+        : await enqueueSourceFetch(s.lane, { sourceId: id, force: true }, {}, tx);
+    await audit(actor, "source.fetch", `source:${id}`, null, null, { jobId }, undefined, tx);
+    return { jobId };
+  });
 }
 
 /** The sources on one business line (ADR-0016), for checks of one line that must not count the other line's material. */
@@ -406,9 +412,15 @@ export async function lockSourceNotArchived(tx: Tx, sourceId: string) {
   if (!source || source.archived_at) throw new Conflict("信源已归档，当前采集结果不再入库。");
 }
 
-export async function archiveSource(id: string, input: { version: string; reason: string; high_risk_confirmed: boolean }, actor: string) {
+export async function archiveSource(
+  id: string,
+  input: { version: string; reason: string; high_risk_confirmed: boolean },
+  actor: string,
+  principal?: AdminPrincipal,
+) {
   if (!input.high_risk_confirmed || !input.reason.trim()) throw new Conflict("归档须填写原因并确认已了解后果。");
   return sql.begin(async (tx) => {
+    if (principal) await requireOwner(principal, tx);
     const [before] = await tx`SELECT * FROM sources WHERE id=${id} FOR UPDATE`;
     if (!before) return null;
     if (new Date(before.updated_at).toISOString() !== input.version) throw new Conflict("信源已被其他操作修改，请刷新后再改");

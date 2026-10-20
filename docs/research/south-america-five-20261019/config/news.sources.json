@@ -1,0 +1,2035 @@
+{
+  "$comment": "Disabled source seed drafts for AI-MINE. Reconcile identities and review registry status before integration. policy rows are not industry/policy-sources catalogue rows. This file does not authorize enabling any source.",
+  "sources": [
+    {
+      "id": "sa5-mining-com",
+      "name": "Mining.com",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.mining.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": [
+          "https://www.mining.com/"
+        ],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-mining-journal",
+      "name": "Mining Journal",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.mining-journal.com/",
+        "language": "en",
+        "itemSelector": ".secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)",
+        "linkSelector": "h4.headline a",
+        "titleSelector": "h4.headline a",
+        "publishedAtSelector": ".date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-mining-weekly",
+      "name": "Mining Weekly",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.miningweekly.com/page/latest-news/feed",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-mining-magazine",
+      "name": "Mining Magazine",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.miningmagazine.com/",
+        "language": "en",
+        "itemSelector": ".secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)",
+        "linkSelector": "h4.headline a",
+        "titleSelector": "h4.headline a",
+        "publishedAtSelector": ".date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-international-mining",
+      "name": "International Mining",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://im-mining.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-northern-miner",
+      "name": "The Northern Miner",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.northernminer.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-canadian-mining-journal",
+      "name": "Canadian Mining Journal",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.canadianminingjournal.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-kitco-mining",
+      "name": "Kitco Mining",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "url": "https://www.kitco.com/news/category/mining",
+        "itemSelector": "a[href*=\"/news/article/\"]:has(h3, h4), a[href*=\"/news/off-the-wire/\"]:has(h3, h4)",
+        "publishedAtRegex": "/news/(?:article|off-the-wire)/(\\d{4}-\\d{2}-\\d{2})/",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "en"
+        },
+        "allowUrlPrefixes": [
+          "https://www.kitco.com/news/"
+        ],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": [
+            "crude oil",
+            "natural gas",
+            "thermal coal",
+            "coal power",
+            "bitcoin",
+            "crypto"
+          ]
+        },
+        "titleSelector": "h3, h4",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-miningnews",
+      "name": "MiningNews.net",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.miningnews.net/",
+        "language": "en",
+        "itemSelector": ".secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)",
+        "linkSelector": "h4.headline a",
+        "titleSelector": "h4.headline a",
+        "publishedAtSelector": ".date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-australian-mining",
+      "name": "Australian Mining",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.australianmining.com.au/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": [
+          "https://www.australianmining.com.au/"
+        ],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-mining-monthly",
+      "name": "Mining Monthly",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.miningmonthly.com/",
+        "language": "en",
+        "itemSelector": ".secondary-story-content:has(.date), .lead-story-content:has(.date), .teritary-story-content:has(.date), .editors-content:has(.date)",
+        "linkSelector": "h4.headline a",
+        "titleSelector": "h4.headline a",
+        "publishedAtSelector": ".date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-global-mining-review",
+      "name": "Global Mining Review",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.globalminingreview.com/news/",
+        "language": "en",
+        "allowUrlPrefixes": [
+          "https://www.globalminingreview.com/"
+        ],
+        "itemSelector": "article",
+        "linkSelector": "a[href]",
+        "titleSelector": "h2, h3",
+        "publishedAtRegex": ">(\\d{1,2} [A-Z][a-z]{2} \\d{4})<",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-coal-age",
+      "name": "Coal Age",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.coalage.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-mining-technology",
+      "name": "Mining Technology",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.mining-technology.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-investing-news-network",
+      "name": "Investing News Network",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://investingnews.com/category/daily/resource-investing/",
+        "language": "en",
+        "itemSelector": "article:has(.social-date__text):has(a.widget__section[href*='/resource-investing/']):not(:has(a.widget__section[href*='uranium'])):not(:has(a.widget__section[href*='energy-investing']))",
+        "linkSelector": "h2 a",
+        "titleSelector": "h2 a",
+        "publishedAtRegex": "social-date__text\">([A-Z][a-z]{2} \\d{1,2}, \\d{4})",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": [
+          "https://investingnews.com/"
+        ],
+        "denyUrlPrefixes": [
+          "https://investingnews.com/stocks/",
+          "https://investingnews.com/author/"
+        ],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-fastmarkets",
+      "name": "Fastmarkets",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "language": "en",
+        "url": "https://www.fastmarkets.com/metals-and-mining/",
+        "itemSelector": "div.PageListD-items-item",
+        "linkSelector": "div.PagePromo-title a",
+        "titleSelector": "div.PagePromo-title",
+        "publishedAtSelector": "div.PagePromo-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": [
+          "https://www.fastmarkets.com/insights/"
+        ],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-spglobal-energy",
+      "name": "S&P Global Energy（金属与矿业）",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.spglobal.com/energy/en/rss/metals",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-china-mining-news",
+      "name": "中国矿业报（矿业界）",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "http://www.kyb.cgs.gov.cn/zhyw/hyyw/",
+        "language": "zh-CN",
+        "itemSelector": "li.commonRow",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.datetime",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        },
+        "allowUrlPrefixes": [
+          "http://www.kyb.cgs.gov.cn/zhyw/hyyw/"
+        ],
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-china-mining-federation",
+      "name": "中国矿业网（中国矿业联合会）",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://chinamining.org.cn/index.php/news/4",
+        "parseMode": "html",
+        "language": "zh-CN",
+        "itemSelector": "div.newlist div.newlb ul > li",
+        "linkSelector": "div.title a",
+        "titleSelector": "div.title a",
+        "publishedAtSelector": "div.riqi",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        },
+        "allowUrlPrefixes": [
+          "https://chinamining.org.cn/index.php/news/4/"
+        ],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": [
+            "瓦斯",
+            "煤矿",
+            "煤炭",
+            "地面沉降",
+            "地质灾害",
+            "地热"
+          ]
+        },
+        "detail": {
+          "maxFetches": 10,
+          "titleSelector": "div.newinfo div.futitle"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-china-nonferrous-paper",
+      "name": "中国有色网（中国有色金属报主办）",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.cnmn.com.cn/ShowNewsList.aspx?id=43",
+        "language": "zh-CN",
+        "itemSelector": ".con-middle > h4",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY年M月D日",
+          "language": "zh-CN"
+        },
+        "allowUrlPrefixes": [
+          "https://www.cnmn.com.cn/ShowNews1.aspx?id="
+        ],
+        "detail": {
+          "maxFetches": 20,
+          "publishedAtRegex": "<span\\s+class=\"time\">\\s*(\\d{4}年\\d{1,2}月\\d{1,2}日)"
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-smm",
+      "name": "上海有色网 SMM",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "language": "zh-CN",
+        "url": "https://news.smm.cn/l/22",
+        "mode": "html_json_key",
+        "jsonKey": "listList",
+        "titlePaths": [
+          "title"
+        ],
+        "urlTemplate": "https://news.smm.cn/news/{newsId}",
+        "externalIdPath": "newsId",
+        "publishedAtPath": "pubDate",
+        "publishedAtUnit": "epoch_s",
+        "allowUrlPrefixes": [
+          "https://news.smm.cn/news/"
+        ],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": [
+            "招标",
+            "中标",
+            "展商推介",
+            "璀璨亮相",
+            "助力smm",
+            "库存日报",
+            "注销仓单",
+            "smm日评",
+            "smm午评",
+            "原油",
+            "opec",
+            "光伏组件",
+            "集成电路",
+            "汽车产销"
+          ]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-mysteel",
+      "name": "我的钢铁网 Mysteel",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "language": "zh-CN",
+        "url": "https://news.mysteel.com/article/p-3822-------------1.html",
+        "itemSelector": "ul#news > li",
+        "linkSelector": "h3 a",
+        "publishedAtSelector": "p.rTime",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD HH:mm",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": [
+          "https://news.mysteel.com/a/"
+        ],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": [
+            "煤",
+            "焦化",
+            "焦炭"
+          ]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ccmn",
+      "name": "长江有色金属网",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.ccmn.cn/news/",
+        "language": "zh-CN",
+        "itemSelector": ".bulletion_others li",
+        "linkSelector": "a[title]",
+        "titleSelector": "a[title]",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        },
+        "allowUrlPrefixes": [
+          "https://www.ccmn.cn/news/"
+        ],
+        "detail": {
+          "maxFetches": 20,
+          "publishedAtSelector": ".title_others p.left > label:first-child"
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-asianmetal",
+      "name": "亚洲金属网",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.asianmetal.com/news/getMoreProNewsEn.am?jspBarNewsType=News&f",
+        "language": "en",
+        "itemSelector": "div.baramp > a",
+        "titleSelector": "li.reportsnew02",
+        "publishedAtRegex": "<li[^>]*class=[\"']reportstimes02[\"'][^>]*>\\s*<span>\\[(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})\\]",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD HH:mm:ss",
+          "language": "en"
+        },
+        "allowUrlPrefixes": [
+          "https://www.asianmetal.com/news/"
+        ]
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sun-sirs",
+      "name": "生意社",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://metals.100ppi.com/news/list-11--1.html",
+        "language": "zh-CN",
+        "itemSelector": ".list-c li",
+        "linkSelector": "a[href*=\"/news/detail-\"]",
+        "titleSelector": "a[href*=\"/news/detail-\"]",
+        "publishedAtSelector": "span",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD HH:mm:ss",
+          "language": "zh-CN"
+        },
+        "allowUrlPrefixes": [
+          "https://www.100ppi.com/news/detail-"
+        ],
+        "sortByPublishedAt": true
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-who",
+      "name": "世界卫生组织（WHO）",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.who.int/api/hubs/newsitems?sf_site=15210d59-ad60-47ff-a542-7ed76645f0c7&sf_provider=OpenAccessDataProvider&sf_culture=en&$orderby=PublicationDateAndTime%20desc&$select=Title,ItemDefaultUrl,FormatedDate,Tag,ThumbnailUrl",
+        "language": "en",
+        "itemsPath": "value",
+        "titlePaths": [
+          "Title"
+        ],
+        "urlTemplate": "https://www.who.int/news/item{ItemDefaultUrl}",
+        "publishedAtPath": "FormatedDate",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": [
+          "https://www.who.int/news/item/"
+        ],
+        "sortByPublishedAt": true
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ilo",
+      "name": "国际劳工组织（ILO）",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.ilo.org/regions-and-countries/latin-america-and-caribbean",
+        "language": "en",
+        "itemSelector": ".ilo--card:has(time)",
+        "linkSelector": "a.ilo--card--link",
+        "titleSelector": ".ilo--card--title",
+        "publishedAtRegex": "<time[^>]*>\\s*(\\d{1,2} [A-Za-z]+ \\d{4})\\s*</time>",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": [
+          "https://www.ilo.org/resource/"
+        ],
+        "sortByPublishedAt": true
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-auc",
+      "name": "非洲联盟委员会（AUC）",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://au.int/en/happening/news",
+        "language": "en",
+        "itemSelector": "li.splide__slide:has(time)",
+        "linkSelector": ".views-field-field-short-title a",
+        "titleSelector": ".views-field-field-short-title a",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": [
+          "https://au.int/en/pressreleases/",
+          "https://au.int/en/newsevents/",
+          "https://au.int/en/speeches/"
+        ],
+        "sortByPublishedAt": true
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-odihr",
+      "name": "欧安组织民主制度与人权办公室（ODIHR）",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://odihr.osce.org/",
+        "language": "en",
+        "itemSelector": "a.teaser[href^=\"/news/odihr/\"]",
+        "titleSelector": "h2.teaser__title",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "sortByPublishedAt": true
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-minem-news",
+      "name": "MINEM · 新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.gob.pe/institucion/minem/noticias",
+        "itemSelector": "ul.js-feeds-search-results .card",
+        "linkSelector": "a.card__mock",
+        "titleSelector": "a.card__mock",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.gob.pe/institucion/minem/noticias/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "publishedAtSelector": "time[datetime]",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-ingemmet-news",
+      "name": "INGEMMET · 新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.gob.pe/institucion/ingemmet/noticias",
+        "itemSelector": "ul.js-feeds-search-results .card",
+        "linkSelector": "a.card__mock",
+        "titleSelector": "a.card__mock",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.gob.pe/institucion/ingemmet/noticias/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "publishedAtSelector": "time[datetime]",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-ipen-news",
+      "name": "秘鲁核能研究所 IPEN · 新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.gob.pe/institucion/ipen/noticias",
+        "itemSelector": "ul.js-feeds-search-results .card",
+        "linkSelector": "a.card__mock",
+        "titleSelector": "a.card__mock",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.gob.pe/institucion/ipen/noticias/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "publishedAtSelector": "time[datetime]",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-mincetur-news",
+      "name": "MINCETUR · 新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.gob.pe/institucion/mincetur/noticias",
+        "itemSelector": "ul.js-feeds-search-results .card",
+        "linkSelector": "a.card__mock",
+        "titleSelector": "a.card__mock",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.gob.pe/institucion/mincetur/noticias/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "publishedAtSelector": "time[datetime]",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-revista-mineria",
+      "name": "Revista Minería（IIMP）· Actualidad",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://revistamineria.com.pe/actualidad",
+        "itemSelector": "article.item-lateral, article.noticias-categ-item",
+        "linkSelector": "a[href]",
+        "titleSelector": "h2",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://revistamineria.com.pe/actualidad/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-snmpe-press",
+      "name": "SNMPE · 协会新闻稿",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe.feed?type=rss",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe/"
+        ],
+        "sortByPublishedAt": true,
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-portal-minero",
+      "name": "Portal Minero del Perú",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://portalminerodelperu.com/feed/",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://portalminerodelperu.com/"
+        ],
+        "sortByPublishedAt": true,
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-pe-dipromin",
+      "name": "DIPROMIN · 矿业能源数字媒体",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.dipromin.com/feed/",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.dipromin.com/noticias/"
+        ],
+        "sortByPublishedAt": true,
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-co-anm-news",
+      "name": "哥伦比亚国家矿业局 ANM · 新闻",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.anm.gov.co/jsonapi/node/noticia?sort=-created&page%5Blimit%5D=5",
+        "itemsPath": "data",
+        "titlePaths": [
+          "attributes.title"
+        ],
+        "summaryPaths": [
+          "attributes.field_resumen",
+          "attributes.body.processed"
+        ],
+        "externalIdPath": "attributes.drupal_internal__nid",
+        "urlTemplate": "https://www.anm.gov.co{attributes.path.alias}",
+        "urlTemplateFallback": "https://www.anm.gov.co/node/{attributes.drupal_internal__nid}",
+        "language": "es",
+        "requireBoolean": {
+          "path": "attributes.status",
+          "equals": true
+        },
+        "allowUrlPrefixes": [
+          "https://www.anm.gov.co/"
+        ],
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtRegex": "Fecha de publicación:\\s*(\\d{2}/\\d{2}/\\d{4})",
+          "publishedAtAuthoritative": true,
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "DD/MM/YYYY",
+            "language": "es"
+          }
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-co-vanguardia-mining",
+      "name": "Vanguardia · Minería",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.vanguardia.com/tags/mineria/",
+        "itemSelector": ".vg-result-list .vg-story-base",
+        "linkSelector": "a.vg-story-base-anchor-ctn",
+        "titleSelector": "h2",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.vanguardia.com/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "publishedAtRegex": "data-date=\"([^\"]+)\"",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-co-el-colombiano-mining",
+      "name": "El Colombiano · Minería",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.elcolombiano.com/cronologia/noticias/meta/mineria",
+        "itemSelector": "article:has(.title__noticia__metadato)",
+        "linkSelector": ".text__container__noticia__metadato > a[href]",
+        "titleSelector": ".title__noticia__metadato",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.elcolombiano.com/"
+        ],
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtSelector": "meta[property=\"article:published_time\"]",
+          "publishedAtAuthoritative": true,
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "es"
+          }
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-co-congress-senate-news",
+      "name": "哥伦比亚国会参议院 · 新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.senado.gov.co/index.php/el-senado/noticias",
+        "itemSelector": ".article-list .article",
+        "linkSelector": "h2 a[href]",
+        "titleSelector": "h2",
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.senado.gov.co/index.php/el-senado/noticias/"
+        ],
+        "detail": {
+          "maxFetches": 5
+        },
+        "publishedAtSelector": "time[datetime]",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-co-congress-house-news",
+      "name": "哥伦比亚国会众议院 · 新闻",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.camara.gov.co/feed/",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "language": "es",
+        "allowUrlPrefixes": [
+          "https://www.camara.gov.co/"
+        ],
+        "sortByPublishedAt": true,
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-mineria",
+      "name": "阿根廷国家矿业秘书处—新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.argentina.gob.ar/economia/mineria/noticias",
+        "language": "es",
+        "itemSelector": "a.panel.panel-default[href^=\"/noticias/\"]",
+        "linkSelector": "a[href]",
+        "titleSelector": "h3",
+        "publishedAtRegex": "datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+        "allowUrlPrefixes": [
+          "https://www.argentina.gob.ar/noticias/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtSelector": "meta[property=\"article:published_time\"]"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-panorama",
+      "name": "Panorama Minero—西语新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.panorama-minero.com/es",
+        "language": "es",
+        "itemSelector": "article",
+        "linkSelector": "a[href^=\"/es/news/\"]",
+        "titleSelector": "h2,h3",
+        "publishedAtSelector": "time[datetime]",
+        "allowUrlPrefixes": [
+          "https://www.panorama-minero.com/es/news/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-sitioandino",
+      "name": "Sitio Andino—能源与矿业",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.sitioandino.com.ar/seccion/energia",
+        "language": "es",
+        "itemSelector": "a.news-article[href]",
+        "linkSelector": "a[href]",
+        "titleSelector": ".news-article__title",
+        "allowUrlPrefixes": [
+          "https://www.sitioandino.com.ar/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtSelector": ".article-body__date time"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-ambito",
+      "name": "Ámbito—矿业专题",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.ambito.com/mineria-a5123007/1",
+        "language": "es",
+        "itemSelector": "article.news-article",
+        "linkSelector": ".news-article__title a",
+        "titleSelector": ".news-article__title a",
+        "allowUrlPrefixes": [
+          "https://www.ambito.com/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-infobae-mining",
+      "name": "Infobae—矿业专题RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.infobae.com/arc/outboundfeeds/rss/tags_slug/mineria/",
+        "publishedAtField": "pubDate",
+        "language": "es",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-comunidad",
+      "name": "Comunidad Minera—最新新闻",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.comunidadminera.com/rss/noticias",
+        "publishedAtField": "pubDate",
+        "language": "es",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-ancasti",
+      "name": "El Ancasti—矿业专题",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.elancasti.com.ar/mineria-a66",
+        "language": "es",
+        "itemSelector": "a.grouper-news-article",
+        "linkSelector": "a[href]",
+        "titleSelector": ".grouper-news-article__title",
+        "allowUrlPrefixes": [
+          "https://www.elancasti.com.ar/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtSelector": ".article-body__date time"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-gy-ggmc",
+      "name": "圭亚那地质矿产委员会 GGMC—公告RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.ggmc.gov.gy/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-gy-kaieteur",
+      "name": "Kaieteur News—RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://kaieteurnewsonline.com/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-gy-times",
+      "name": "Guyana Times—RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://guyanatimesgy.com/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-starnieuws",
+      "name": "Starnieuws—RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.starnieuws.com/rss/starnieuws.rss",
+        "publishedAtField": "pubDate",
+        "language": "nl",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "nl"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-dwt",
+      "name": "De Ware Tijd—RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://dwtonline.com/feed/",
+        "publishedAtField": "pubDate",
+        "language": "nl",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "nl"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-times-news",
+      "name": "Times of Suriname—国内新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.surinametimes.com/binnenland",
+        "language": "nl",
+        "itemSelector": "a[class*=\"article-card_container\"]",
+        "linkSelector": "a[href]",
+        "titleSelector": "[class*=\"article-card_title\"]",
+        "allowUrlPrefixes": [
+          "https://www.surinametimes.com/artikel/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "nl"
+        },
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtRegex": "timestamp[^A-Za-z0-9]{1,20}(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}[+-]\\d{4})"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-gov",
+      "name": "苏里南政府—全站新闻RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://gov.sr/feed/",
+        "publishedAtField": "pubDate",
+        "language": "nl",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "nl"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-waterkant",
+      "name": "Waterkant—RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://www.waterkant.net/feed/",
+        "publishedAtField": "pubDate",
+        "language": "nl",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "nl"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-cnv-news",
+      "name": "阿根廷国家证券委员会 CNV—新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.argentina.gob.ar/cnv/noticias",
+        "language": "es",
+        "itemSelector": "a.panel.panel-default[href^=\"/noticias/\"]",
+        "linkSelector": "a[href]",
+        "titleSelector": "h3",
+        "publishedAtRegex": "datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+        "allowUrlPrefixes": [
+          "https://www.argentina.gob.ar/noticias/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtSelector": "meta[property=\"article:published_time\"]"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-ar-anpyn-news",
+      "name": "阿根廷国家港口与航运局 ANPYN—新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.argentina.gob.ar/economia/agencia-nacional-de-puertos-y-navegacion/noticias",
+        "language": "es",
+        "itemSelector": "a.panel.panel-default[href^=\"/noticias/\"]",
+        "linkSelector": "a[href]",
+        "titleSelector": "h3",
+        "publishedAtRegex": "datetime=\"(\\d{4}-\\d{2}-\\d{2})",
+        "allowUrlPrefixes": [
+          "https://www.argentina.gob.ar/noticias/"
+        ],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "detail": {
+          "maxFetches": 5,
+          "publishedAtSelector": "meta[property=\"article:published_time\"]"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-gy-inews",
+      "name": "INews Guyana—RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://inewsguyana.com/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-nh",
+      "name": "苏里南自然资源部—新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://gov.sr/ministeries/ministerie-van-natuurlijke-hulpbronnen/nieuws/",
+        "language": "nl",
+        "itemSelector": "article.elementor-post",
+        "linkSelector": ".elementor-post__title a",
+        "titleSelector": ".elementor-post__title a",
+        "publishedAtSelector": ".elementor-post-date",
+        "allowUrlPrefixes": [
+          "https://gov.sr/"
+        ],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-president-news",
+      "name": "苏里南总统府—新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://gov.sr/ministeries/kabinet-van-de-president/nieuws/",
+        "language": "nl",
+        "itemSelector": "article.elementor-post",
+        "linkSelector": ".elementor-post__title a",
+        "titleSelector": ".elementor-post__title a",
+        "publishedAtSelector": ".elementor-post-date",
+        "allowUrlPrefixes": [
+          "https://gov.sr/"
+        ],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-vwa-labour",
+      "name": "苏里南卫生、福利与劳动部—福利与劳动新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws-2/",
+        "language": "nl",
+        "itemSelector": "article.elementor-post",
+        "linkSelector": ".elementor-post__title a",
+        "titleSelector": ".elementor-post__title a",
+        "publishedAtSelector": ".elementor-post-date",
+        "allowUrlPrefixes": [
+          "https://gov.sr/"
+        ],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-sr-vwa-news",
+      "name": "苏里南卫生、福利与劳动部—卫生新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws/",
+        "language": "nl",
+        "itemSelector": "article.elementor-post",
+        "linkSelector": ".elementor-post__title a",
+        "titleSelector": ".elementor-post__title a",
+        "publishedAtSelector": ".elementor-post-date",
+        "allowUrlPrefixes": [
+          "https://gov.sr/"
+        ],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "detail": {
+          "maxFetches": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sa5-gy-mnr",
+      "name": "圭亚那自然资源部 MNR—RSS",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://mnr.gov.gy/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    }
+  ]
+}

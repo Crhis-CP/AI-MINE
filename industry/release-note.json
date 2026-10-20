@@ -1,14 +1,14 @@
 {
   "note": {
     "kind": "优化",
-    "title": "补齐译文续接与升级检查",
+    "title": "改进资讯采集与后台操作",
     "body": [
-      "修复未完成译文再次遇到异常后，无法继续补译剩余段落的问题。",
-      "继续复用已经完成的译文，未译完时保留明确提示。",
-      "网站升级先完成程序准备，再暂停内容处理；恢复资料或空间检查不通过时保留原运行版本。"
+      "未完成的译文可继续补译剩余段落，已完成的内容保持可读。",
+      "资讯采集会识别来源网站的登录页面，减少无效内容进入阅读页面。",
+      "后台的信源、通知及请求次数配置按照账号权限开放。"
     ]
   },
-  "fragments": ["changes/TASK-0367-translation-resume-budget.md", "changes/TASK-0367-release-capacity.md"],
+  "fragments": ["changes/TASK-0367-translation-resume-budget.md", "changes/TASK-0367-release-capacity.md", "changes/TASK-0367-depth-first.md"],
   "announcement": {
     "kind": "公告",
     "title": "法规政策动态暂时停止更新",

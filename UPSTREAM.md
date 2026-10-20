@@ -114,3 +114,5 @@ Agent共用中文答案参考AIHOT `4947ad0` 的 `publication/agent.ts` 与 `rou
 Owner再次要求按最新代码核对原18项目标。本轮固定为AIHOT `6d82afb854e863ba3456d320820a57a8771ea29f`，相对此前4947新增2个提交、5个文件。英文日期中at的读取及跨年Timeline日标题参考该版 `sources/dates.ts`、`packages/contracts/src/time.ts` 和 `apps/web/app/features/feed/Timeline.tsx`，适配本站严格时区证据、日期精度与北京时间。原MIT版权、NOTICE和历史移植记录继续保留。
 
 归组源码在4947至6d82之间没有变化；本次另按同版 `events/recall.ts` 核对并补齐公开修订驱动的单篇向量缓存、候选资格在排名前过滤。本站使用各数据所有者的窄读取接口实现，保留内容许可、人工归属/撤回/暂停和现有代表稿规则。晚发配套解读与历史重复精选的矿业语义修复由本站实现，未复制参考行业示例，也不宣称整库逐字一致。
+
+2026-10-20固定比较AIHOT `a0d1e75b00ede7e503ca948e71a468db964b2df2`（MIT）。认证路径识别采纳 `packages/backend/src/content/extract.ts` 及 `sources/web-list.ts` 的机制，目标为 `packages/backend/src/lib/auth-page.ts` 与现有采集消费者；另适配本站持久crawlStep，拒绝结果跨续跑保留并阻止付费fallback。完整上游文件哈希与采用范围见本轮验收目录，保留LICENSES/AIHOT-MIT.txt。

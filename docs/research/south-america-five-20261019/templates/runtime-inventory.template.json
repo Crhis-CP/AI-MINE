@@ -1,0 +1,41 @@
+{
+  "_note": "SCHEMA TEMPLATE ONLY. Intentionally incomplete and rejected by prepare_sources.py. Replace every placeholder and all counts with an actual complete target-environment export; do not assert an empty production database from this template.",
+  "schema_version": "aimine.runtime-sources.v1",
+  "snapshot_at": null,
+  "environment": null,
+  "complete": false,
+  "coverage": {
+    "lanes": [
+      "news",
+      "policy"
+    ],
+    "includes_archived": false,
+    "includes_unarchived": false,
+    "total_rows": null,
+    "by_lane": {
+      "news": null,
+      "policy": null
+    },
+    "by_archive_state": {
+      "archived": null,
+      "unarchived": null
+    }
+  },
+  "pagination": {
+    "all_pages_fetched": false,
+    "expected_pages": null,
+    "fetched_pages": null,
+    "next_cursor": null
+  },
+  "sources": [],
+  "_source_row_fields": {
+    "id": "existing source ID",
+    "name": "display name",
+    "kind": "actual collector kind",
+    "lane": "news or policy",
+    "config": "full original config object, not a summary",
+    "enabled": "actual boolean",
+    "owner_entity_id": "actual string or explicit null",
+    "archived_at": "actual timestamp or explicit null"
+  }
+}

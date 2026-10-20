@@ -1,0 +1,1319 @@
+{
+  "checked_on": "2026-10-19",
+  "method": "Public HTTP retrieval in the research environment; source-specific outcome, not production acceptance.",
+  "results": [
+    {
+      "registry_id": "mining_com",
+      "entry_url": "https://www.mining.com/feed/",
+      "access_status": "blocked_http_403",
+      "checked_at": "2026-10-19T12:56:55.411385+00:00",
+      "final_url": "https://www.mining.com/feed/",
+      "http_status": 403,
+      "notes": [
+        "HTTP Error 403: Forbidden"
+      ]
+    },
+    {
+      "registry_id": "mining_journal",
+      "entry_url": "https://www.mining-journal.com/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:55:13.401074+00:00",
+      "final_url": "https://www.mining-journal.com/",
+      "http_status": 200,
+      "bytes": 81453,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "d9dd72bf6120982fd726385dddc3b898d6d76d50acfa446042bd2d1205760292"
+    },
+    {
+      "registry_id": "mining_weekly",
+      "entry_url": "https://www.miningweekly.com/page/latest-news/feed",
+      "access_status": "rss_verified",
+      "checked_at": "2026-10-19T12:56:56.300619+00:00",
+      "final_url": "https://www.miningweekly.com/page/latest-news/feed",
+      "http_status": 200,
+      "bytes": 52713,
+      "content_type": "application/xml",
+      "notes": [],
+      "response_sha256": "cdd3dfdd58ca1aa9eb77821b8091325374c8ef21aeb82aff71e46a6c5bf0628e"
+    },
+    {
+      "registry_id": "mining_magazine",
+      "entry_url": "https://www.miningmagazine.com/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:55:13.402383+00:00",
+      "final_url": "https://www.miningmagazine.com/",
+      "http_status": 200,
+      "bytes": 92480,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "dc7fdc31af0fdf1529aeeefcc860677bd92fe539e3182d2c18f01ec4e54e9405"
+    },
+    {
+      "registry_id": "international_mining",
+      "entry_url": "https://im-mining.com/feed/",
+      "access_status": "rss_verified",
+      "checked_at": "2026-10-19T12:56:55.412612+00:00",
+      "final_url": "https://im-mining.com/feed/",
+      "http_status": 200,
+      "bytes": 73482,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "85b70095e1182a4c78a4db434a80b24901a29d904ec82ab2b0db61a41a005423"
+    },
+    {
+      "registry_id": "engineering_mining_journal",
+      "entry_url": "https://www.e-mj.com/",
+      "access_status": "blocked_http_403",
+      "checked_at": "2026-10-19T12:55:13.406063+00:00",
+      "final_url": "https://www.e-mj.com/",
+      "http_status": 403,
+      "notes": [
+        "HTTP Error 403: Forbidden"
+      ]
+    },
+    {
+      "registry_id": "northern_miner",
+      "entry_url": "https://www.northernminer.com/feed/",
+      "access_status": "rss_verified",
+      "checked_at": "2026-10-19T12:55:31.921683+00:00",
+      "final_url": "https://www.northernminer.com/feed/",
+      "http_status": 200,
+      "bytes": 30103,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "de074a248994db3d2a38c7a2a15a61acd3a5625b710fb7f7a6f2f4ecdc816101"
+    },
+    {
+      "registry_id": "canadian_mining_journal",
+      "entry_url": "https://www.canadianminingjournal.com/feed/",
+      "access_status": "rss_verified",
+      "checked_at": "2026-10-19T12:56:55.413336+00:00",
+      "final_url": "https://www.canadianminingjournal.com/feed/",
+      "http_status": 200,
+      "bytes": 24023,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "9ca7b03ba9671fdfec8adef6c4cc31fd8e7a9de308f98b7d2981426dc281f0a5"
+    },
+    {
+      "registry_id": "kitco_mining",
+      "entry_url": "https://www.kitco.com/news/category/mining",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:56:55.421621+00:00",
+      "final_url": "https://www.kitco.com/news/category/mining",
+      "http_status": 200,
+      "bytes": 235985,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "1c9f9be597c0a930950e0202457d3714f4dec2cb722f4deb5b174b7688281d6b"
+    },
+    {
+      "registry_id": "miningnews",
+      "entry_url": "https://www.miningnews.net/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:55:13.409573+00:00",
+      "final_url": "https://www.miningnews.net/",
+      "http_status": 200,
+      "bytes": 92783,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "a561b064d2767117a721fd9dcf98f7b37a4c72284da5c7284f9094dc65cefbdd"
+    },
+    {
+      "registry_id": "australian_mining",
+      "entry_url": "https://www.australianmining.com.au/feed/",
+      "access_status": "blocked_http_403",
+      "checked_at": "2026-10-19T12:56:55.414121+00:00",
+      "final_url": "https://www.australianmining.com.au/feed/",
+      "http_status": 403,
+      "notes": [
+        "HTTP Error 403: Forbidden"
+      ]
+    },
+    {
+      "registry_id": "mining_monthly",
+      "entry_url": "https://www.miningmonthly.com/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:55:13.411967+00:00",
+      "final_url": "https://www.miningmonthly.com/",
+      "http_status": 200,
+      "bytes": 86122,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "bf2511f1fa8153ae4ef626bd54535a2d4a91f77fdb9e57aedef82692e37b9527"
+    },
+    {
+      "registry_id": "global_mining_review",
+      "entry_url": "https://www.globalminingreview.com/news/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:56:55.417677+00:00",
+      "final_url": "https://www.globalminingreview.com/news/",
+      "http_status": 200,
+      "bytes": 191994,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "5739a5f7f3d9997d72f20af89b7ef31ef83f0588a51cfb80fddc11a19f876e48"
+    },
+    {
+      "registry_id": "coal_age",
+      "entry_url": "https://www.coalage.com/feed/",
+      "access_status": "rss_verified",
+      "checked_at": "2026-10-19T12:55:31.922551+00:00",
+      "final_url": "https://www.coalage.com/feed/",
+      "http_status": 200,
+      "bytes": 75829,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "6f39c80d1f2433c714aa93df6048fde4b66e84ec0366d8f926044b698e37ab68"
+    },
+    {
+      "registry_id": "mining_technology",
+      "entry_url": "https://www.mining-technology.com/feed/",
+      "access_status": "rss_verified",
+      "checked_at": "2026-10-19T12:55:31.923597+00:00",
+      "final_url": "https://www.mining-technology.com/feed/",
+      "http_status": 200,
+      "bytes": 21311,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "d1f8d1e19175c66b8e92dce970536423e42d622c7071df0caae20b52388c80c7"
+    },
+    {
+      "registry_id": "mining_review_africa",
+      "entry_url": "https://www.miningreview.com/feed/",
+      "access_status": "blocked_http_403",
+      "checked_at": "2026-10-19T12:56:56.206215+00:00",
+      "final_url": "https://www.miningreview.com/feed/",
+      "http_status": 403,
+      "notes": [
+        "HTTP Error 403: Forbidden"
+      ]
+    },
+    {
+      "registry_id": "investing_news_network",
+      "entry_url": "https://investingnews.com/category/daily/resource-investing/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:56:55.424754+00:00",
+      "final_url": "https://investingnews.com/category/daily/resource-investing/",
+      "http_status": 200,
+      "bytes": 592238,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "70606fefc8d8ed444e25aca27e73db24a936ad5302c654501a790b21630ce82d"
+    },
+    {
+      "registry_id": "reuters_commodities",
+      "entry_url": "https://www.reuters.com/markets/commodities/",
+      "access_status": "blocked_http_401",
+      "checked_at": "2026-10-19T12:55:13.669546+00:00",
+      "final_url": "https://www.reuters.com/markets/commodities/",
+      "http_status": 401,
+      "notes": [
+        "HTTP Error 401: Unauthorized"
+      ]
+    },
+    {
+      "registry_id": "fastmarkets",
+      "entry_url": "https://www.fastmarkets.com/metals-and-mining/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:56:55.419790+00:00",
+      "final_url": "https://www.fastmarkets.com/metals-and-mining/",
+      "http_status": 200,
+      "bytes": 203258,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "b24ba494a535767151beb5400efe856915ef89061c75c55063e5e29e60fb75d1"
+    },
+    {
+      "registry_id": "spglobal_energy",
+      "entry_url": "https://www.spglobal.com/energy/en/rss/metals",
+      "access_status": "rss_verified_stale",
+      "checked_at": "2026-10-19T12:55:32.153658+00:00",
+      "final_url": "https://www.spglobal.com/energy/en/rss/metals",
+      "http_status": 200,
+      "bytes": 4371,
+      "content_type": "application/xml;charset=utf-8",
+      "notes": [
+        "metals RSS 共5条，最新条目日期为2026-09-21；需与网页栏目核对新鲜度。"
+      ],
+      "response_sha256": "0c6e8d946e4eb405f1c69989f7e5398f4edf90382f9564b73522b2c850cb2c5b"
+    },
+    {
+      "registry_id": "china_mining_news",
+      "entry_url": "http://www.kyb.cgs.gov.cn/zhyw/hyyw/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T13:12:51.171929+00:00",
+      "final_url": "http://www.kyb.cgs.gov.cn/zhyw/hyyw/",
+      "http_status": 200,
+      "bytes": 17943,
+      "content_type": "text/html",
+      "notes": [
+        "采用列表明确印出的日期，不采用URL里的tYYYYMMDD：首条列表日期为2026-10-12，而URL日期为20261014。"
+      ],
+      "response_sha256": "73d1c05a1808b240b92c0e2ef1c635ac3c4d541162a35da81050160879364ac9"
+    },
+    {
+      "registry_id": "china_mining_federation",
+      "entry_url": "https://chinamining.org.cn/index.php/news/4",
+      "access_status": "blocked_http_503",
+      "checked_at": "2026-10-19T12:56:55.430178+00:00",
+      "final_url": "https://chinamining.org.cn/index.php/news/4",
+      "http_status": 503,
+      "notes": [
+        "HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "china_nonferrous_paper",
+      "entry_url": "https://www.cnmn.com.cn/ShowNewsList.aspx?id=43",
+      "access_status": "html_listing_and_detail_date_sample_verified",
+      "checked_at": "2026-10-19T12:56:55.786301+00:00",
+      "final_url": "https://www.cnmn.com.cn/ShowNewsList.aspx?id=43",
+      "http_status": 200,
+      "bytes": 48199,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "49d6a8bf08045d492dffaf16ecebe92c9f0bec334f95068f9d815f57c265995b"
+    },
+    {
+      "registry_id": "smm",
+      "entry_url": "https://news.smm.cn/l/22",
+      "access_status": "json_native_replay_verified",
+      "checked_at": "2026-10-19T12:56:55.423445+00:00",
+      "final_url": "https://news.smm.cn/l/22",
+      "http_status": 200,
+      "bytes": 275664,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "官方RSS目录及industry/macro XML均存在；pubDate采用中文星期及月份，例如周一,19 10月 2026 01:22:03 +0800。继续复用现有epoch秒JSON列表可避免RSS日期适配。",
+        "原站响应gzip；已保存压缩字节并将snapshot解压为HTTP正文，与Node fetch自动解压一致。"
+      ],
+      "response_sha256": "63ca0bde191ad7d5b19574f955a95a5ce16807f87820f0a2d0988d860a4bb50a"
+    },
+    {
+      "registry_id": "mysteel",
+      "entry_url": "https://news.mysteel.com/article/p-3822-------------1.html",
+      "access_status": "existing_html_verified_partial_date_coverage",
+      "checked_at": "2026-10-19T12:56:55.424136+00:00",
+      "final_url": "https://news.mysteel.com/article/p-3822-------------1.html",
+      "http_status": 200,
+      "bytes": 69618,
+      "content_type": "text/html;charset=utf-8",
+      "notes": [
+        "复用现配置，27条中24条有列表发布日期，3条置顶记录缺该字段；原站详情补抓后再确认这些条目的发布日期。"
+      ],
+      "response_sha256": "f9c80e95c45a7dc5f744ba4b412305dc982f640ed3bb33409dd2b2688ebca47c"
+    },
+    {
+      "registry_id": "ccmn",
+      "entry_url": "https://www.ccmn.cn/news/",
+      "access_status": "html_listing_and_detail_date_sample_verified",
+      "checked_at": "2026-10-19T12:56:55.800191+00:00",
+      "final_url": "https://www.ccmn.cn/news/",
+      "http_status": 200,
+      "bytes": 42346,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "2d928e71894280a4f9e0f08fcd59e3b48e28fc05b08eed82c6796764c3c5cf2e"
+    },
+    {
+      "registry_id": "asianmetal",
+      "entry_url": "https://www.asianmetal.com/news/getMoreProNewsEn.am?jspBarNewsType=News&f",
+      "access_status": "needs_title_attribute_adapter",
+      "checked_at": "2026-10-19T12:56:55.851784+00:00",
+      "final_url": "https://www.asianmetal.com/news/getMoreProNewsEn.am?jspBarNewsType=News&f",
+      "http_status": 200,
+      "bytes": 151747,
+      "content_type": "text/html;charset=UTF-8",
+      "notes": [
+        "列表title文本夹带document.write(getProductCss(...))及分类方括号；清洁标题在a[title]属性。建议适配器新增titleAttribute:title或移除script和.newspro后取正文文本，再预览。"
+      ],
+      "response_sha256": "7cbbd868e6aeaf151396e256ee886b941724d020dbdf323b894d2177cac6c2e5"
+    },
+    {
+      "registry_id": "sun_sirs",
+      "entry_url": "https://metals.100ppi.com/news/list-11--1.html",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T13:09:59.671035+00:00",
+      "final_url": "https://metals.100ppi.com/news/list-11--1.html",
+      "http_status": 200,
+      "bytes": 30129,
+      "content_type": "text/html; charset=utf-8;",
+      "notes": [],
+      "response_sha256": "73f4d5d0c27aca09f8057acfea5337f64e3d4ab0aebfd39b06daa5a75dc8e16e"
+    },
+    {
+      "registry_id": "china_mnr",
+      "entry_url": "https://www.mnr.gov.cn/",
+      "access_status": "blocked_http_503",
+      "checked_at": "2026-10-19T12:55:14.149620+00:00",
+      "final_url": "https://www.mnr.gov.cn/",
+      "http_status": 503,
+      "notes": [
+        "HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "china_gold_news",
+      "entry_url": "https://www.gold.org.cn/",
+      "access_status": "blocked_http_503",
+      "checked_at": "2026-10-19T12:55:14.262565+00:00",
+      "final_url": "https://www.gold.org.cn/",
+      "http_status": 503,
+      "notes": [
+        "HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "eiu_viewpoint",
+      "entry_url": "https://viewpoint.eiu.com/",
+      "access_status": "unavailable_html_200",
+      "checked_at": "2026-10-19T12:55:14.321278+00:00",
+      "final_url": "https://viewpoint.eiu.com/",
+      "http_status": 200,
+      "bytes": 195,
+      "content_type": "text/html",
+      "notes": [],
+      "response_sha256": "5b131ca14aa96311d3432b0062c7443d3b0e6346ec279bd376a75f0a76bcd5d7"
+    },
+    {
+      "registry_id": "world_bank",
+      "entry_url": "https://www.worldbank.org/en/news/all?displayconttype_exact=Press+Release&lang_exact=English&admreg_exact=Latin+America+and+the+Caribbean",
+      "access_status": "needs_public_json_adapter",
+      "checked_at": "2026-10-19T13:05:30.905089+00:00",
+      "final_url": "https://www.worldbank.org/en/news/all?displayconttype_exact=Press+Release&lang_exact=English&admreg_exact=Latin+America+and+the+Caribbean",
+      "http_status": 200,
+      "bytes": 5281,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "All News页面只有agentic-chat动态挂载节点；需要核验公开列表请求后配置json_list。区域主页同时保留作研究报告入口。"
+      ],
+      "response_sha256": "1530fa67237da265f20a246a92fd653645917e2faed76ea2ca9d7fb582a67958"
+    },
+    {
+      "registry_id": "who",
+      "entry_url": "https://www.who.int/api/hubs/newsitems?sf_site=15210d59-ad60-47ff-a542-7ed76645f0c7&sf_provider=OpenAccessDataProvider&sf_culture=en&$orderby=PublicationDateAndTime%20desc&$select=Title,ItemDefaultUrl,FormatedDate,Tag,ThumbnailUrl",
+      "access_status": "json_native_replay_verified",
+      "checked_at": "2026-10-19T13:02:06.591693+00:00",
+      "final_url": "https://www.who.int/api/hubs/newsitems?sf_site=15210d59-ad60-47ff-a542-7ed76645f0c7&sf_provider=OpenAccessDataProvider&sf_culture=en&$orderby=PublicationDateAndTime%20desc&$select=Title,ItemDefaultUrl,FormatedDate,Tag,ThumbnailUrl",
+      "http_status": 200,
+      "bytes": 23551,
+      "content_type": "application/json; odata.metadata=minimal",
+      "notes": [
+        "news-english.xml返回126条，但第一条是2020-08-27文章、pubDate为2026-10-10；不采用该RSS日期作新闻发布日期。"
+      ],
+      "response_sha256": "a0d154fa96cd4c556a3b39fec87f34baae2fc9a4d0755bbf779b7afd7d38a09d"
+    },
+    {
+      "registry_id": "ilo",
+      "entry_url": "https://www.ilo.org/regions-and-countries/latin-america-and-caribbean",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:56:55.654400+00:00",
+      "final_url": "https://www.ilo.org/regions-and-countries/latin-america-and-caribbean",
+      "http_status": 200,
+      "bytes": 83112,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "c0619605123aefc89e71fd81c34e5ee78b1a071528df3fb974bd588335417275"
+    },
+    {
+      "registry_id": "auc",
+      "entry_url": "https://au.int/en/happening/news",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:56:55.766616+00:00",
+      "final_url": "https://au.int/en/happening/news",
+      "http_status": 200,
+      "bytes": 112973,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "AUC机构页声明的taxonomy/term/9/feed返回XML但0条，不作为可用采集入口。"
+      ],
+      "response_sha256": "351fbc71b8dd9943b928680641cf03d19056eab79ee8fb0043892f767a527a45"
+    },
+    {
+      "registry_id": "odihr",
+      "entry_url": "https://odihr.osce.org/",
+      "access_status": "html_native_replay_verified",
+      "checked_at": "2026-10-19T12:55:15.157358+00:00",
+      "final_url": "https://odihr.osce.org/",
+      "http_status": 200,
+      "bytes": 136203,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "机构首页可采集最新4条新闻；独立news/list页面为动态列表，本次静态HTTP未取得条目。历史补抓需适配该列表公开数据请求。"
+      ],
+      "response_sha256": "23d415609c9fed5cd8e430e5e2538c15d548ff180783cc9ef989987f7a1c49e8"
+    },
+    {
+      "registry_id": "pe-minem-news",
+      "entry_url": "https://www.gob.pe/institucion/minem/noticias",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:54:24.203574+00:00",
+      "requested_url": "https://www.gob.pe/institucion/minem/noticias",
+      "final_url": "https://www.gob.pe/institucion/minem/noticias",
+      "http_status": 200,
+      "bytes": 205443,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "time[datetime]无时区偏移，保留原文本地日期/时间，不从国家默认时区补造UTC。法律正文以附件PDF为准。"
+      ],
+      "response_sha256": "0a4c6e5299a084ddf282765eaff4cb21974bb8515e4a86d0ef197af1b5084e1c"
+    },
+    {
+      "registry_id": "pe-minem-rules",
+      "entry_url": "https://www.gob.pe/institucion/minem/normas-legales",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:54:24.204200+00:00",
+      "requested_url": "https://www.gob.pe/institucion/minem/normas-legales",
+      "final_url": "https://www.gob.pe/institucion/minem/normas-legales",
+      "http_status": 200,
+      "bytes": 204027,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "法律列表可见字段只有日期；HTML datetime的00:00为日级占位，仅提取YYYY-MM-DD以保留日精度，不把午夜当成发布时刻。"
+      ],
+      "response_sha256": "b90282ca2b2073d5b09d9fdccfa9a206e499354492efe2b83796914c4b57cb43"
+    },
+    {
+      "registry_id": "pe-ingemmet-news",
+      "entry_url": "https://www.gob.pe/institucion/ingemmet/noticias",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:54:24.204607+00:00",
+      "requested_url": "https://www.gob.pe/institucion/ingemmet/noticias",
+      "final_url": "https://www.gob.pe/institucion/ingemmet/noticias",
+      "http_status": 200,
+      "bytes": 195100,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "time[datetime]无时区偏移，保留原文本地日期/时间，不从国家默认时区补造UTC。法律正文以附件PDF为准。"
+      ],
+      "response_sha256": "d7560430e29345df2e5d6da8dfe04dea16f0935f5e5d61ed5f3a992c562ebc76"
+    },
+    {
+      "registry_id": "pe-ingemmet-rules",
+      "entry_url": "https://www.gob.pe/institucion/ingemmet/normas-legales",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:55:34.993441+00:00",
+      "requested_url": "https://www.gob.pe/institucion/ingemmet/normas-legales",
+      "final_url": "https://www.gob.pe/institucion/ingemmet/normas-legales",
+      "http_status": 200,
+      "bytes": 193597,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "法律列表可见字段只有日期；HTML datetime的00:00为日级占位，仅提取YYYY-MM-DD以保留日精度，不把午夜当成发布时刻。"
+      ],
+      "response_sha256": "49d5ddbbd5bb9bf0eafe531f3fab3501b9336bcb0f4bf4ee9e1da56623a341b7"
+    },
+    {
+      "registry_id": "pe-ipen-news",
+      "entry_url": "https://www.gob.pe/institucion/ipen/noticias",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:54:24.208977+00:00",
+      "requested_url": "https://www.gob.pe/institucion/ipen/noticias",
+      "final_url": "https://www.gob.pe/institucion/ipen/noticias",
+      "http_status": 200,
+      "bytes": 182331,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "time[datetime]无时区偏移，保留原文本地日期/时间，不从国家默认时区补造UTC。法律正文以附件PDF为准。"
+      ],
+      "response_sha256": "913ccb979a6105f91e7e71b5f08565462b9217bf222eab755807ddb0f122aa4f"
+    },
+    {
+      "registry_id": "pe-mincetur-news",
+      "entry_url": "https://www.gob.pe/institucion/mincetur/noticias",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:54:24.631206+00:00",
+      "requested_url": "https://www.gob.pe/institucion/mincetur/noticias",
+      "final_url": "https://www.gob.pe/institucion/mincetur/noticias",
+      "http_status": 200,
+      "bytes": 217360,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [
+        "time[datetime]无时区偏移，保留原文本地日期/时间，不从国家默认时区补造UTC。法律正文以附件PDF为准。"
+      ],
+      "response_sha256": "f12f94ba4decc438d5670098ee43dcd242dd6a711e85a1cfec236c82f5c3e711"
+    },
+    {
+      "registry_id": "pe-revista-mineria",
+      "entry_url": "https://revistamineria.com.pe/actualidad",
+      "access_status": "content_verified_date_month_only",
+      "checked_at": "2026-10-19T12:55:34.986291+00:00",
+      "requested_url": "https://revistamineria.com.pe/actualidad",
+      "final_url": "https://revistamineria.com.pe/actualidad",
+      "http_status": 200,
+      "bytes": 17988,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [
+        "样本只提供Octubre 2026，日期保留未知/月份事实，不能制造某日。"
+      ],
+      "response_sha256": "78611f04ef24a2d57a77b1938677e05df54b1be62bbd9dc88d99e316acc6c834"
+    },
+    {
+      "registry_id": "pe-snmpe-press",
+      "entry_url": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe.feed?type=rss",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:56:38.932174+00:00",
+      "requested_url": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe.feed?type=rss",
+      "final_url": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe.feed?type=rss",
+      "http_status": 200,
+      "bytes": 9595,
+      "content_type": "application/rss+xml; charset=utf-8",
+      "notes": [],
+      "response_sha256": "22cc1af422cde638ed5e5909ec5700bf1407e7ef83377b92af858fb55bdcfe58"
+    },
+    {
+      "registry_id": "pe-portal-minero",
+      "entry_url": "https://portalminerodelperu.com/feed/",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:55:34.988187+00:00",
+      "requested_url": "https://portalminerodelperu.com/feed/",
+      "final_url": "https://portalminerodelperu.com/feed/",
+      "http_status": 200,
+      "bytes": 57409,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "861bacd069f0e6ca5602fd70fe0b525c0b091a6dc444bd0a3246964357e73dd6"
+    },
+    {
+      "registry_id": "pe-dipromin",
+      "entry_url": "https://www.dipromin.com/feed/",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:55:34.991180+00:00",
+      "requested_url": "https://www.dipromin.com/feed/",
+      "final_url": "https://www.dipromin.com/feed/",
+      "http_status": 200,
+      "bytes": 99932,
+      "content_type": "application/rss+xml; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "5918e9ce469d27c9a5f15367cd3af1aa3eb69495da8ee82d8a0adb08255bb638"
+    },
+    {
+      "registry_id": "pe-ipe",
+      "entry_url": "https://ipe.org.pe/nuestras-publicaciones/",
+      "access_status": "http_blocked",
+      "checked_at": "2026-10-19T13:06:12.744020+00:00",
+      "requested_url": "https://ipe.org.pe/nuestras-publicaciones/",
+      "http_status": 503,
+      "notes": [
+        "HTTPError: HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "pe-bcrp",
+      "entry_url": "https://www.bcrp.gob.pe/",
+      "access_status": "challenge_page_http_200",
+      "checked_at": "2026-10-19T12:54:24.608521+00:00",
+      "requested_url": "https://www.bcrp.gob.pe/",
+      "final_url": "https://www.bcrp.gob.pe/",
+      "http_status": 200,
+      "bytes": 6183,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "8b882e9ba2a64e67906326b3f76bf96bcecac4be6386bbcd7039b46200f3e365"
+    },
+    {
+      "registry_id": "co-anm-news",
+      "entry_url": "https://www.anm.gov.co/jsonapi/node/noticia?sort=-created&page%5Blimit%5D=5",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:58:11.155450+00:00",
+      "requested_url": "https://www.anm.gov.co/jsonapi/node/noticia?sort=-created&page%5Blimit%5D=5",
+      "final_url": "https://www.anm.gov.co/jsonapi/node/noticia?sort=-created&page%5Blimit%5D=5",
+      "http_status": 200,
+      "bytes": 76816,
+      "content_type": "application/vnd.api+json",
+      "notes": [
+        "JSON发现链接，不采用created/field_fecha_inicial制造日内精度。样本详情last-created明确Fecha de publicación:09/10/2026；用detail正则读取日精度。"
+      ],
+      "response_sha256": "987a75b29b95e665408536021ef33f57c958d154ea3466cedc1002dedce66a4d"
+    },
+    {
+      "registry_id": "co-anm-rules",
+      "entry_url": "https://www.anm.gov.co/jsonapi/node/resoluciones?sort=-created&page%5Blimit%5D=3",
+      "access_status": "content_verified_publication_date_missing",
+      "checked_at": "2026-10-19T12:56:38.934840+00:00",
+      "requested_url": "https://www.anm.gov.co/jsonapi/node/resoluciones?sort=-created&page%5Blimit%5D=3",
+      "final_url": "https://www.anm.gov.co/jsonapi/node/resoluciones?sort=-created&page%5Blimit%5D=3",
+      "http_status": 200,
+      "bytes": 14489,
+      "content_type": "application/vnd.api+json",
+      "notes": [
+        "详情只有Expedición del Documento（文书签发日）字段；最新样本公开发布日期field_fecha_de_publicacion为空。保留缺失，不沿用原配置created上架时间。"
+      ],
+      "response_sha256": "23ee1afb02bc84774b5bd8c8cbcd02f8b6a2a7a8d80644ff32cee5fb7f6ca3a6"
+    },
+    {
+      "registry_id": "co-minenergia-news",
+      "entry_url": "https://www.minenergia.gov.co/es/sala-de-prensa/noticias-index/",
+      "access_status": "http_blocked",
+      "checked_at": "2026-10-19T12:54:25.451189+00:00",
+      "requested_url": "https://www.minenergia.gov.co/es/sala-de-prensa/noticias-index/",
+      "http_status": 503,
+      "notes": [
+        "HTTPError: HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "co-minenergia-rules",
+      "entry_url": "https://www.minenergia.gov.co/es/repositorio-normativo/normativa/",
+      "access_status": "http_blocked",
+      "checked_at": "2026-10-19T12:54:25.802984+00:00",
+      "requested_url": "https://www.minenergia.gov.co/es/repositorio-normativo/normativa/",
+      "http_status": 503,
+      "notes": [
+        "HTTPError: HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "co-vanguardia-mining",
+      "entry_url": "https://www.vanguardia.com/tags/mineria/",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:55:34.994221+00:00",
+      "requested_url": "https://www.vanguardia.com/tags/mineria/",
+      "final_url": "https://www.vanguardia.com/tags/mineria/",
+      "http_status": 200,
+      "bytes": 231033,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "f84e7947e7e9803c69728348bac19d42b30da05d75b9906eb8674b6ec1336cd5"
+    },
+    {
+      "registry_id": "co-el-colombiano-mining",
+      "entry_url": "https://www.elcolombiano.com/cronologia/noticias/meta/mineria",
+      "access_status": "needs_date_review",
+      "checked_at": "2026-10-19T12:55:35.107777+00:00",
+      "requested_url": "https://www.elcolombiano.com/cronologia/noticias/meta/mineria",
+      "final_url": "https://www.elcolombiano.com/cronologia/noticias/meta/mineria",
+      "http_status": 200,
+      "bytes": 171174,
+      "content_type": "text/html",
+      "notes": [
+        "文章meta为2026-10-17 18:20:17；JSON-LD为2026-10-17 18:20:17 -0500。原生ISO正则不接受时分秒与偏移之间的空格，同时detail强制合并所有日期候选，无法仅用当前source config排除该候选；已标needs_date_review，不拿列表18/10替代发表日。"
+      ],
+      "response_sha256": "2207bb61b12e38438caf4cb04af97a8dd3068fbf296763fe30a0edb2b424a601"
+    },
+    {
+      "registry_id": "co-procuraduria",
+      "entry_url": "https://www.procuraduria.gov.co/Pages/Noticias.aspx",
+      "access_status": "http_503_and_js_shell",
+      "checked_at": "2026-10-19T12:55:35.228883+00:00",
+      "requested_url": "https://www.procuraduria.gov.co/Pages/Noticias.aspx",
+      "http_status": 503,
+      "notes": [
+        "HTTPError: HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "co-congress-senate-news",
+      "entry_url": "https://www.senado.gov.co/index.php/el-senado/noticias",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:55:35.758752+00:00",
+      "requested_url": "https://www.senado.gov.co/index.php/el-senado/noticias",
+      "final_url": "https://www.senado.gov.co/index.php/el-senado/noticias",
+      "http_status": 200,
+      "bytes": 100687,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "f467b501fc807310207bf00e7d507258b19ea942244d6eaec01d2868e0788593"
+    },
+    {
+      "registry_id": "co-congress-house-news",
+      "entry_url": "https://www.camara.gov.co/feed/",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:55:35.742513+00:00",
+      "requested_url": "https://www.camara.gov.co/feed/",
+      "final_url": "https://www.camara.gov.co/feed/",
+      "http_status": 200,
+      "bytes": 21552,
+      "content_type": "text/xml;charset=UTF-8",
+      "notes": [],
+      "response_sha256": "4321c8d77bd884c5be78b693cd9e0589ff9229686e898fa9cf4b320efc3aa1e1"
+    },
+    {
+      "registry_id": "co-congress-house-bills",
+      "entry_url": "https://www.camara.gov.co/proyectos-de-ley/",
+      "access_status": "dynamic_table_adapter_required",
+      "checked_at": "2026-10-19T12:54:26.439741+00:00",
+      "requested_url": "https://www.camara.gov.co/proyectos-de-ley/",
+      "final_url": "https://www.camara.gov.co/proyectos-de-ley/",
+      "http_status": 200,
+      "bytes": 760966,
+      "content_type": "text/html",
+      "notes": [],
+      "response_sha256": "3b9f24a5589594d01fe9b78c62547275bc8bfd2b7da12c1d0308ef07beae2000"
+    },
+    {
+      "registry_id": "co-congress-gazette",
+      "entry_url": "https://www.senado.gov.co/index.php/el-senado/area-legislativa/gaceta-del-congreso",
+      "access_status": "reference_portal_verified",
+      "checked_at": "2026-10-19T12:55:35.937169+00:00",
+      "requested_url": "https://www.senado.gov.co/index.php/el-senado/area-legislativa/gaceta-del-congreso",
+      "final_url": "https://www.senado.gov.co/index.php/el-senado/area-legislativa/gaceta-del-congreso",
+      "http_status": 200,
+      "bytes": 68542,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "710f268d8b188011d750641d8b46afe37bc32f4f415a776c018b82e457d6e907"
+    },
+    {
+      "registry_id": "co-cne",
+      "entry_url": "https://www.cne.gov.co/prensa/comunicados-oficiales",
+      "access_status": "http_blocked",
+      "checked_at": "2026-10-19T12:55:35.259647+00:00",
+      "requested_url": "https://www.cne.gov.co/prensa/comunicados-oficiales",
+      "http_status": 503,
+      "notes": [
+        "HTTPError: HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "pe-el-peruano-rules",
+      "entry_url": "https://diariooficial.elperuano.pe/normas/LoadNormasLegales?Length=0",
+      "access_status": "http_success_content_verified",
+      "checked_at": "2026-10-19T12:56:38.935983+00:00",
+      "requested_url": "https://diariooficial.elperuano.pe/normas/LoadNormasLegales?Length=0",
+      "final_url": "https://diariooficial.elperuano.pe/normas/LoadNormasLegales?Length=0",
+      "http_status": 200,
+      "bytes": 27302,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "f2bc19c189a6c31672db0f97b07157f4ab5fd7008c0090a7591ec0e9fdd8ae11"
+    },
+    {
+      "registry_id": "co-diario-oficial",
+      "entry_url": "https://svrpubindc.imprenta.gov.co/diario/view/diarioficial/consultarDiarios.xhtml",
+      "access_status": "jsf_post_adapter_required",
+      "checked_at": "2026-10-19T12:55:35.872443+00:00",
+      "requested_url": "https://svrpubindc.imprenta.gov.co/diario/view/diarioficial/consultarDiarios.xhtml",
+      "final_url": "https://svrpubindc.imprenta.gov.co/diario/view/diarioficial/consultarDiarios.xhtml",
+      "http_status": 200,
+      "bytes": 44965,
+      "content_type": "text/html;charset=UTF-8",
+      "notes": [],
+      "response_sha256": "58eeaa829cc5ef25155950f1faa534168dea0a148e8aa7048a6b867eac5d5c14"
+    },
+    {
+      "registry_id": "ar_mineria",
+      "entry_url": "https://www.argentina.gob.ar/economia/mineria/noticias",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:54:48.340024+00:00",
+      "requested_url": "https://www.argentina.gob.ar/economia/mineria/noticias",
+      "final_url": "https://www.argentina.gob.ar/economia/mineria/noticias",
+      "http_status": 200,
+      "bytes": 36964,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "b8a5fb0f0e45878d29ca236674bb20f8b61d01649449895f507cd108e4e9d150"
+    },
+    {
+      "registry_id": "ar_panorama",
+      "entry_url": "https://www.panorama-minero.com/es",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:54:48.340737+00:00",
+      "requested_url": "https://www.panorama-minero.com/es",
+      "final_url": "https://www.panorama-minero.com/es",
+      "http_status": 200,
+      "bytes": 527141,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "7b8fa58f5146e55965f066b4dce7185c0ddd6511c5898659bf9d445211b31b98"
+    },
+    {
+      "registry_id": "ar_sitioandino",
+      "entry_url": "https://www.sitioandino.com.ar/seccion/energia",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:54:48.341238+00:00",
+      "requested_url": "https://www.sitioandino.com.ar/seccion/energia",
+      "final_url": "https://www.sitioandino.com.ar/seccion/energia",
+      "http_status": 200,
+      "bytes": 78138,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "9f9056639ffa029e2c521d2c397220d536c34f38be23fd1dabb0b324ed59bcf3"
+    },
+    {
+      "registry_id": "ar_ambito",
+      "entry_url": "https://www.ambito.com/mineria-a5123007/1",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:54:48.341716+00:00",
+      "requested_url": "https://www.ambito.com/mineria-a5123007/1",
+      "final_url": "https://www.ambito.com/mineria-a5123007/1",
+      "http_status": 200,
+      "bytes": 138098,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "19143ba6cef3f0d005d094332a8ab3426d8ed42491f6817b7b0e2597e0014008"
+    },
+    {
+      "registry_id": "ar_infobae_mining",
+      "entry_url": "https://www.infobae.com/arc/outboundfeeds/rss/tags_slug/mineria/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:59:21.893661+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "fce3ae3f4f18dd15e949e7d6b4a9f973301f0a0d12e2588059bb72b9a707d480",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:59:21.893661+00:00",
+        "http_status": 200,
+        "response_sha256": "fce3ae3f4f18dd15e949e7d6b4a9f973301f0a0d12e2588059bb72b9a707d480"
+      }
+    },
+    {
+      "registry_id": "ar_comunidad",
+      "entry_url": "https://www.comunidadminera.com/rss/noticias",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.256056+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "4149ffac0e51294b379b0db16be773d03e7e1476e8fac91e936564419eba781b",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.256056+00:00",
+        "http_status": 200,
+        "response_sha256": "4149ffac0e51294b379b0db16be773d03e7e1476e8fac91e936564419eba781b"
+      }
+    },
+    {
+      "registry_id": "ar_ancasti",
+      "entry_url": "https://www.elancasti.com.ar/mineria-a66",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:54:48.345520+00:00",
+      "requested_url": "https://www.elancasti.com.ar/mineria-a66",
+      "final_url": "https://www.elancasti.com.ar/mineria-a66",
+      "http_status": 200,
+      "bytes": 79806,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "3f005d50f7eed04f5c9c6162122f46d0d12cf712631530fdd64a6deded32ae88"
+    },
+    {
+      "registry_id": "gy_chronicle_news",
+      "entry_url": "https://guyanachronicle.com/category/news/",
+      "access_status": "http_redirect_loop",
+      "checked_at": "2026-10-19T12:57:39.840897+00:00",
+      "requested_url": "https://guyanachronicle.com/category/news/",
+      "final_url": "https://guyanachronicle.com/category/news/",
+      "http_status": 307,
+      "bytes": 1331,
+      "notes": [
+        "HTTP Error 307: Temporary Redirect"
+      ]
+    },
+    {
+      "registry_id": "gy_ggmc",
+      "entry_url": "https://www.ggmc.gov.gy/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.265139+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "a44b896f3a78ab33740e13151c3bb91d07ff7b5f2192a857b8f37a8690707dea",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.265139+00:00",
+        "http_status": 200,
+        "response_sha256": "a44b896f3a78ab33740e13151c3bb91d07ff7b5f2192a857b8f37a8690707dea"
+      }
+    },
+    {
+      "registry_id": "gy_kaieteur",
+      "entry_url": "https://kaieteurnewsonline.com/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.254613+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "313f697974e88e168db7dd491e4310034dbd593f333eb0cc81ddae3a14a91dd5",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.254613+00:00",
+        "http_status": 200,
+        "response_sha256": "313f697974e88e168db7dd491e4310034dbd593f333eb0cc81ddae3a14a91dd5"
+      }
+    },
+    {
+      "registry_id": "gy_stabroek",
+      "entry_url": "https://www.stabroeknews.com/",
+      "access_status": "closed_archive_only",
+      "checked_at": "2026-10-19T12:54:48.678390+00:00",
+      "requested_url": "https://www.stabroeknews.com/",
+      "final_url": "https://www.stabroeknews.com/",
+      "http_status": 200,
+      "bytes": 231834,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "7633ebfaf46e1b064a89c67644f4304b3941a4809c9a73a2125ecadc5ccae765"
+    },
+    {
+      "registry_id": "gy_times",
+      "entry_url": "https://guyanatimesgy.com/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:57:39.837620+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "cdda36be1dcef0f57600a4b9ae44ac172dc7a483ede7ac7c9188ffc9fcb416ce",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:57:39.837620+00:00",
+        "http_status": 200,
+        "response_sha256": "cdda36be1dcef0f57600a4b9ae44ac172dc7a483ede7ac7c9188ffc9fcb416ce"
+      }
+    },
+    {
+      "registry_id": "sr_starnieuws",
+      "entry_url": "https://www.starnieuws.com/rss/starnieuws.rss",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.400849+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "8c4fe92c4262c38022a9a53535385b0d3cad95084f8f7b442ad4e1d84aff550b",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.400849+00:00",
+        "http_status": 200,
+        "response_sha256": "8c4fe92c4262c38022a9a53535385b0d3cad95084f8f7b442ad4e1d84aff550b"
+      }
+    },
+    {
+      "registry_id": "sr_dwt",
+      "entry_url": "https://dwtonline.com/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.268324+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "7f2b8c23493775b8b1255c907bd589151ee075aa28b5cc835571592eb027f15e",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.268324+00:00",
+        "http_status": 200,
+        "response_sha256": "7f2b8c23493775b8b1255c907bd589151ee075aa28b5cc835571592eb027f15e"
+      }
+    },
+    {
+      "registry_id": "sr_times_news",
+      "entry_url": "https://www.surinametimes.com/binnenland",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:55:54.309506+00:00",
+      "requested_url": "https://www.surinametimes.com/binnenland",
+      "final_url": "https://www.surinametimes.com/binnenland",
+      "http_status": 200,
+      "bytes": 389390,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "777dfb314e0b217949cdc71a9805be6022bc47971ded28d12a64ad0db934cd2f"
+    },
+    {
+      "registry_id": "sr_gov",
+      "entry_url": "https://gov.sr/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.255392+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "a3be7f59c27a2f22bedeec4b96e41291baa66b5c73bef8290478033dfc42047f",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.255392+00:00",
+        "http_status": 200,
+        "response_sha256": "a3be7f59c27a2f22bedeec4b96e41291baa66b5c73bef8290478033dfc42047f"
+      }
+    },
+    {
+      "registry_id": "sr_waterkant",
+      "entry_url": "https://www.waterkant.net/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.259600+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "10bbe68fbac950e384c08c2d242431de59c8814524042f206e644769e659a48f",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.259600+00:00",
+        "http_status": 200,
+        "response_sha256": "10bbe68fbac950e384c08c2d242431de59c8814524042f206e644769e659a48f"
+      }
+    },
+    {
+      "registry_id": "ar_arca_biblioteca",
+      "entry_url": "https://biblioteca.arca.gob.ar/search/query/ajax.GetNovedadesRG.aspx",
+      "access_status": "http_200_empty_existing_config_candidate",
+      "checked_at": "2026-10-19T13:15:12.002992+00:00",
+      "requested_url": "https://biblioteca.arca.gob.ar/search/query/ajax.GetNovedadesRG.aspx",
+      "final_url": "https://biblioteca.arca.gob.ar/search/query/ajax.GetNovedadesRG.aspx",
+      "http_status": 200,
+      "bytes": 0,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "registry_id": "ar_cnv_news",
+      "entry_url": "https://www.argentina.gob.ar/cnv/noticias",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:55:52.480044+00:00",
+      "requested_url": "https://www.argentina.gob.ar/cnv/noticias",
+      "final_url": "https://www.argentina.gob.ar/cnv/noticias",
+      "http_status": 200,
+      "bytes": 39340,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "d8a7ba9a77ea79d124c6fcb857e2cb0b6f7a44be00fd5451ce609a1baac42dc9"
+    },
+    {
+      "registry_id": "ar_agn_main",
+      "entry_url": "https://agn.ar/",
+      "access_status": "http_503",
+      "checked_at": "2026-10-19T12:57:39.842096+00:00",
+      "requested_url": "https://agn.ar/",
+      "final_url": "https://agn.ar/",
+      "http_status": 503,
+      "bytes": 98,
+      "notes": [
+        "HTTP Error 503: Service Unavailable"
+      ]
+    },
+    {
+      "registry_id": "ar_anpyn_news",
+      "entry_url": "https://www.argentina.gob.ar/economia/agencia-nacional-de-puertos-y-navegacion/noticias",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:55:52.544575+00:00",
+      "requested_url": "https://www.argentina.gob.ar/economia/agencia-nacional-de-puertos-y-navegacion/noticias",
+      "final_url": "https://www.argentina.gob.ar/economia/agencia-nacional-de-puertos-y-navegacion/noticias",
+      "http_status": 200,
+      "bytes": 39332,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "902fae53a15ae74b5053c4e2a2d91e07799563cfa79aa22c80ce525615f1952e"
+    },
+    {
+      "registry_id": "sr_scsd",
+      "entry_url": "https://tx.bitdynamics.sr/scsd/",
+      "access_status": "javascript_shell_adapter_required",
+      "checked_at": "2026-10-19T12:54:49.248372+00:00",
+      "requested_url": "https://tx.bitdynamics.sr/scsd/",
+      "final_url": "https://tx.bitdynamics.sr/scsd/",
+      "http_status": 200,
+      "bytes": 1139,
+      "content_type": "text/html",
+      "notes": [],
+      "response_sha256": "37d7b8ec60f44c4d84f876e8e5395de381676f5bb01da9ddcfab536c0cfc30f8"
+    },
+    {
+      "registry_id": "gy_inews",
+      "entry_url": "https://inewsguyana.com/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:55:52.264147+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "ebdf47057daada99077bc74f5534570cf1d9eebb9d3cdf34349f83c30f96684f",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:55:52.264147+00:00",
+        "http_status": 200,
+        "response_sha256": "ebdf47057daada99077bc74f5534570cf1d9eebb9d3cdf34349f83c30f96684f"
+      }
+    },
+    {
+      "registry_id": "ar_bcra",
+      "entry_url": "https://www.bcra.gob.ar/buscador-de-comunicaciones/",
+      "access_status": "public_post_api_verified_adapter_required",
+      "checked_at": "2026-10-19T12:54:48.531799+00:00",
+      "requested_url": "https://www.bcra.gob.ar/buscador-de-comunicaciones/",
+      "final_url": "https://www.bcra.gob.ar/buscador-de-comunicaciones/",
+      "http_status": 200,
+      "bytes": 77078,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "9af864f111e774ec4fdb592790fac023565e4565c47ab8f4050fc86737777a20"
+    },
+    {
+      "registry_id": "ar_uif_resolutions",
+      "entry_url": "https://www.argentina.gob.ar/uif/normativa/resoluciones",
+      "access_status": "regulation_detail_date_adapter_required",
+      "checked_at": "2026-10-19T12:57:39.852983+00:00",
+      "requested_url": "https://www.argentina.gob.ar/uif/normativa/resoluciones",
+      "final_url": "https://www.argentina.gob.ar/uif/normativa/resoluciones",
+      "http_status": 200,
+      "bytes": 42165,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "0284a5e82f47a441ea30459581370cfb8f48cbc97d3ff1b20892da916879f7f8"
+    },
+    {
+      "registry_id": "ar_hcdn_bills",
+      "entry_url": "https://www.hcdn.gob.ar/comisiones/permanentes/cmineria/listado-proyectos.html",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:55:52.630296+00:00",
+      "requested_url": "https://www.hcdn.gob.ar/comisiones/permanentes/cmineria/listado-proyectos.html",
+      "final_url": "https://www.hcdn.gob.ar/comisiones/permanentes/cmineria/listado-proyectos.html",
+      "http_status": 200,
+      "bytes": 38572,
+      "content_type": "text/html;charset=UTF-8",
+      "notes": [],
+      "response_sha256": "b95bc914e1a1c364fceae45841ef69df4ace8099be835055b1e0c799c693c496"
+    },
+    {
+      "registry_id": "sr_nh",
+      "entry_url": "https://gov.sr/ministeries/ministerie-van-natuurlijke-hulpbronnen/nieuws/",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:54:49.295619+00:00",
+      "requested_url": "https://gov.sr/ministeries/ministerie-van-natuurlijke-hulpbronnen/nieuws/",
+      "final_url": "https://gov.sr/ministeries/ministerie-van-natuurlijke-hulpbronnen/nieuws/",
+      "http_status": 200,
+      "bytes": 280731,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "035b8c4b96bc4b99884f88b57282ab35ade9ec377bb175a8ce361dab7a51c719"
+    },
+    {
+      "registry_id": "sr_president_news",
+      "entry_url": "https://gov.sr/ministeries/kabinet-van-de-president/nieuws/",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:55:52.643933+00:00",
+      "requested_url": "https://gov.sr/ministeries/kabinet-van-de-president/nieuws/",
+      "final_url": "https://gov.sr/ministeries/kabinet-van-de-president/nieuws/",
+      "http_status": 200,
+      "bytes": 264025,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "fc592da92def775af47c36c0496cdd6cddb7ee0dec7b81ac1fe6adc3f5539d78"
+    },
+    {
+      "registry_id": "sr_vwa_labour",
+      "entry_url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws-2/",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:55:53.109230+00:00",
+      "requested_url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws-2/",
+      "final_url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws-2/",
+      "http_status": 200,
+      "bytes": 258547,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "ae293ea2033589fdd9a5ef15a5763a0b13232fb5b7ba1e1043bce39aad1cb92d"
+    },
+    {
+      "registry_id": "sr_vwa_news",
+      "entry_url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws/",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T12:55:52.952269+00:00",
+      "requested_url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws/",
+      "final_url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/nieuws/",
+      "http_status": 200,
+      "bytes": 273477,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "5494c585ef857dfcfe687445cb4848c9dfcd98f22d1896492bd0680ca70e34e3"
+    },
+    {
+      "registry_id": "gy_mnr",
+      "entry_url": "https://mnr.gov.gy/feed/",
+      "access_status": "rss_parsed_verified",
+      "checked_at": "2026-10-19T12:57:39.839240+00:00",
+      "http_status": 200,
+      "notes": [],
+      "response_sha256": "c69879ff49759e63a045817fd1173a905fc714e3d95ca3ae16f19064e5b48120",
+      "rss_response": {
+        "checked_at": "2026-10-19T12:57:39.839240+00:00",
+        "http_status": 200,
+        "response_sha256": "c69879ff49759e63a045817fd1173a905fc714e3d95ca3ae16f19064e5b48120"
+      }
+    },
+    {
+      "registry_id": "gy_ggmc_gazettes",
+      "entry_url": "https://www.ggmc.gov.gy/gazettes-claims/",
+      "access_status": "pdf_index_adapter_required",
+      "checked_at": "2026-10-19T12:55:53.327013+00:00",
+      "requested_url": "https://www.ggmc.gov.gy/gazettes-claims/",
+      "final_url": "https://www.ggmc.gov.gy/gazettes-claims/",
+      "http_status": 200,
+      "bytes": 269926,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "d81f479dc0fa1738d75c94a11a0e34256a9d98e65a4515852a9d1d3ee8487f49"
+    },
+    {
+      "registry_id": "gy_gazette_pubs",
+      "entry_url": "https://officialegazette.gov.gy/api/publications?page=1&pageSize=50",
+      "access_status": "native_items_and_date_fields_verified_semantic_gate_applies",
+      "checked_at": "2026-10-19T13:15:12.004976+00:00",
+      "requested_url": "https://officialegazette.gov.gy/api/publications?page=1&pageSize=50",
+      "final_url": "https://officialegazette.gov.gy/api/publications?page=1&pageSize=50",
+      "http_status": 200,
+      "bytes": 39182,
+      "content_type": "application/json; charset=utf-8",
+      "notes": [
+        "提取到日期；previewSourceDate 仅接纳 published/source_published，当前正式公报或本站公开语义被其排除，不能把预览为 0 解读为无日期。"
+      ],
+      "response_sha256": "16f0662064c2406213b865b11b4f6dec96d5edb419bff5ffc1be3e48ef75371a"
+    },
+    {
+      "registry_id": "ar_boletin",
+      "entry_url": "https://www.boletinoficial.gob.ar/seccion/primera",
+      "access_status": "native_items_and_date_fields_verified_semantic_gate_applies",
+      "checked_at": "2026-10-19T13:15:12.002247+00:00",
+      "requested_url": "https://www.boletinoficial.gob.ar/seccion/primera",
+      "final_url": "https://www.boletinoficial.gob.ar/seccion/primera",
+      "http_status": 200,
+      "bytes": 227730,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [
+        "提取到日期；previewSourceDate 仅接纳 published/source_published，当前正式公报或本站公开语义被其排除，不能把预览为 0 解读为无日期。"
+      ],
+      "response_sha256": "cd53111e9bc372800880fe1d73249e3b32affff59ebbdccc1113ef1847c85c7b"
+    },
+    {
+      "registry_id": "ar_catamarca_boletin",
+      "entry_url": "https://boletinoficial.catamarca.gob.ar/",
+      "access_status": "http_403",
+      "checked_at": "2026-10-19T12:57:39.846014+00:00",
+      "requested_url": "https://boletinoficial.catamarca.gob.ar/",
+      "final_url": "https://boletinoficial.catamarca.gob.ar/",
+      "http_status": 403,
+      "bytes": 6076,
+      "notes": [
+        "HTTP Error 403: Forbidden"
+      ]
+    },
+    {
+      "registry_id": "sr_dna",
+      "entry_url": "https://www.dna.sr/wetgeving/surinaamse-wetten/wetten-na-2005/",
+      "access_status": "native_items_verified_source_dates_missing",
+      "checked_at": "2026-10-19T13:15:12.003441+00:00",
+      "requested_url": "https://www.dna.sr/wetgeving/surinaamse-wetten/wetten-na-2005/",
+      "final_url": "https://www.dna.sr/wetgeving/surinaamse-wetten/wetten-na-2005/",
+      "http_status": 200,
+      "bytes": 65130,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "37a9180da7a00cb2425c48f96054cd9b6a56f99e545b655c884a8dc8f2ef50d6"
+    },
+    {
+      "registry_id": "sr_cus",
+      "entry_url": "https://www.surinamecompete.org/",
+      "access_status": "stale_reference_only",
+      "checked_at": "2026-10-19T12:54:49.072651+00:00",
+      "requested_url": "https://www.surinamecompete.org/",
+      "final_url": "https://www.surinamecompete.org/",
+      "http_status": 200,
+      "bytes": 45213,
+      "content_type": "text/html; charset=UTF-8",
+      "notes": [],
+      "response_sha256": "71c0603a6bd25ac2a076e98be79187890591090304ff856e46a7a241567452ac"
+    },
+    {
+      "registry_id": "ar_cnv_regulations",
+      "entry_url": "https://www.cnv.gov.ar/sitioWeb/MarcoRegulatorio?panel=2",
+      "access_status": "html_sample_verified",
+      "checked_at": "2026-10-19T13:05:24.263292+00:00",
+      "requested_url": "https://www.cnv.gov.ar/sitioWeb/MarcoRegulatorio?panel=2",
+      "final_url": "https://www.cnv.gov.ar/sitioWeb/MarcoRegulatorio?panel=2",
+      "http_status": 200,
+      "bytes": 1385311,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "69ff9ae68d364e2a24638cc149b6a516289041ccd42498fe31c93fc54d840af3"
+    },
+    {
+      "registry_id": "sr_dna_drafts",
+      "entry_url": "https://www.dna.sr/wetgeving/ontwerpwetten-bij-dna/goedgekeurd/",
+      "access_status": "native_items_verified_source_dates_missing",
+      "checked_at": "2026-10-19T13:15:12.004043+00:00",
+      "requested_url": "https://www.dna.sr/wetgeving/ontwerpwetten-bij-dna/goedgekeurd/",
+      "final_url": "https://www.dna.sr/wetgeving/ontwerpwetten-bij-dna/goedgekeurd/",
+      "http_status": 200,
+      "bytes": 49538,
+      "content_type": "text/html; charset=utf-8",
+      "notes": [],
+      "response_sha256": "19958c1825a172683111d8832e63096b5f0961450c19e18ac0724db8f0eb855d"
+    }
+  ]
+}

@@ -8,6 +8,11 @@ import { config, credential } from "../config.ts";
 import { sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { paidRequest, ProviderRejectedError } from "./receipts.ts";
+import { newsMaterialBindings } from "@amp/backend/content/materials";
+import { readCurrentSourcePolicy, evaluateSourcePolicy } from "@amp/backend/admin/sources";
+import { shutdownSignal } from "../jobs/queue.ts";
+import { prepareNewsFallback } from "./news-fallback.ts";
+import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 
 const own = !!credential("models", "EMBEDDING_API_KEY");
 export const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || (own ? "text-embedding-3-small" : "text-embedding-v4");
@@ -37,39 +42,78 @@ export function embeddingsAvailable(): boolean {
   );
 }
 
-async function embedBatch(texts: string[], subject: string, runtimeControl: RuntimeControlSnapshot): Promise<number[][]> {
+type EmbeddingItem = { id: string; text: string };
+async function permittedItems(kind: string, items: EmbeddingItem[]) {
+  // Old fact/story vectors can be read locally, but new external work requires actual material identities.
+  if (kind !== "article") return [];
+  const materials = await newsMaterialBindings(items.map((item) => item.id));
+  const allowed: Array<EmbeddingItem & { revision: number }> = [];
+  for (const item of items) {
+    const material = materials.find((row) => row.id === item.id);
+    if (!material?.content_hash) continue;
+    const policy = await readCurrentSourcePolicy(material.source_id);
+    if (!policy) continue;
+    const decision = await evaluateSourcePolicy({
+      source_id: material.source_id,
+      lane: "news",
+      capability: "external_model",
+      expected_permission_version: policy.permission_version,
+      resource: { url: material.url, document_type: null, attachment: false },
+    });
+    if (decision.decision === "allow") allowed.push({ ...item, revision: material.revision });
+  }
+  return allowed;
+}
+
+async function embedBatch(texts: string[], subject: string, runtimeControl: RuntimeControlSnapshot, input: FallbackPermitPort): Promise<number[][]> {
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
   const base = own
     ? (credential("models", "EMBEDDING_BASE_URL") ?? "https://api.openai.com/v1")
     : (credential("models", "DASHSCOPE_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1");
   const key = own ? credential("models", "EMBEDDING_API_KEY") : credential("models", "DASHSCOPE_API_KEY");
   if (!key) throw new Error("EMBEDDING_API_KEY (or DASHSCOPE_API_KEY) missing");
-  const receipt = await paidRequest(
-    {
-      service: SERVICE,
-      costBounds: { input_tokens: texts.reduce((n, t) => n + Buffer.byteLength(t), 0), output_tokens: 0 },
-      model: EMBEDDING_MODEL,
-      purpose: "embedding",
-      runtimeControl,
-      subject,
-      identity: { model: EMBEDDING_MODEL, dims: EMBEDDING_DIMS, texts: texts.map((t) => sha256(t)) },
-      requestSummary: { count: texts.length },
-    },
-    async () => {
-      const res = await fetch(`${base.replace(/\/$/, "")}/embeddings`, {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model: EMBEDDING_MODEL, input: texts, ...(EMBEDDING_DIMS > 0 ? { dimensions: EMBEDDING_DIMS } : {}), encoding_format: "float" }),
-        signal: AbortSignal.timeout(60_000),
-      });
-      const text = await res.text();
-      if (!res.ok) throw new ProviderRejectedError(`embeddings HTTP ${res.status}: ${text.slice(0, 200)}`, res.status, res.status === 429 || res.status >= 500);
-      const json = JSON.parse(text) as { data: Array<{ embedding: number[]; index: number }>; usage?: Record<string, unknown> };
-      return { response: json, usage: json.usage ?? null, cost: null };
-    },
-  );
-  const data = (receipt.response as { data: Array<{ embedding: number[]; index: number }> }).data;
-  return [...data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
+  const configurationHash = sha256(JSON.stringify([SERVICE, base, EMBEDDING_MODEL, EMBEDDING_DIMS, sha256(key)]));
+  const permit = await input.authorize({ modelKey: `${SERVICE}:${EMBEDDING_MODEL}`, configurationHash });
+  try {
+    await permit.beforeRequest();
+    const receipt = await paidRequest(
+      {
+        service: SERVICE,
+        costBounds: { input_tokens: texts.reduce((n, t) => n + Buffer.byteLength(t), 0), output_tokens: 0 },
+        model: EMBEDDING_MODEL,
+        purpose: "embedding",
+        runtimeControl,
+        usageContext: { lane: "news", capability: "embedding", sourceIds: [...input.sourceIds], object: null },
+        subject,
+        identity: { model: EMBEDDING_MODEL, dims: EMBEDDING_DIMS, texts: texts.map((t) => sha256(t)) },
+        requestSummary: { count: texts.length, sourceIds: [...input.sourceIds], configurationHash },
+      },
+      async () => {
+        await permit.beforeRequest();
+        const res = await fetch(`${base.replace(/\/$/, "")}/embeddings`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: EMBEDDING_MODEL,
+            input: texts,
+            ...(EMBEDDING_DIMS > 0 ? { dimensions: EMBEDDING_DIMS } : {}),
+            encoding_format: "float",
+          }),
+          signal: AbortSignal.timeout(60_000),
+        });
+        const text = await res.text();
+        if (!res.ok)
+          throw new ProviderRejectedError(`embeddings HTTP ${res.status}: ${text.slice(0, 200)}`, res.status, res.status === 429 || res.status >= 500);
+        const json = JSON.parse(text) as { data: Array<{ embedding: number[]; index: number }>; usage?: Record<string, unknown> };
+        return { response: json, usage: json.usage ?? null, cost: null };
+      },
+    );
+    await (permit.afterResponse ?? permit.beforeRequest)();
+    const data = (receipt.response as { data: Array<{ embedding: number[]; index: number }> }).data;
+    return [...data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
+  } finally {
+    permit.close();
+  }
 }
 
 /** Returns stored embeddings, computing and storing the missing ones. */
@@ -107,17 +151,23 @@ export async function ensureEmbeddings(kind: "fact" | "article" | "story", items
   });
   const runtimeControl = missing.length ? await runtimeControlSnapshot("news", ["processing"]) : null;
   for (let i = 0; i < missing.length; i += 10) {
-    const batch = missing.slice(i, i + 10);
-    const vectors = await embedBatch(
-      batch.map((b) => b.text.slice(0, 2000)),
-      `${kind}:${batch[0]!.id}`,
-      runtimeControl!,
-    );
+    const batch = await permittedItems(kind, missing.slice(i, i + 10));
+    if (!batch.length) continue;
+    const texts = batch.map((item) => item.text.slice(0, 2000));
+    const prepared = await prepareNewsFallback({
+      root: shutdownSignal.signal,
+      expected: texts,
+      current: async () => texts,
+      articles: batch.map(({ id, revision }) => ({ id, revision })),
+    });
+    if (!prepared) continue;
+    const vectors = await embedBatch(texts, `${kind}:${batch[0]!.id}`, runtimeControl!, prepared({ system: "", user: texts }));
     await storeEmbeddingBatch(
       kind,
       EMBEDDING_MODEL,
       batch.map((item, index) => ({ id: item.id, textHash: hashes.get(item.id)!, vector: vectors[index]! })),
       runtimeControl!,
+      batch.map(({ id, revision }) => ({ id, revision })),
     );
     for (const [index, item] of batch.entries()) out.set(item.id, vectors[index]!);
   }

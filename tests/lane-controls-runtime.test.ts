@@ -12,6 +12,7 @@ import { paidRequest } from "@amp/backend/providers/receipts";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle, republishSource } from "@amp/backend/publication/publish";
 import { stopBoss } from "@amp/backend/jobs/queue";
+import { grantDateFixture } from "./source-date-fixture.ts";
 import {
   changeOwnerLaneControls,
   changeSystemLaneControl,
@@ -162,6 +163,15 @@ test("collection CAS rejects stale stored material while publication pause prese
 
 test("in-flight embedding cannot persist across pause and reuses the same recorded response on resume", async () => {
   await installUsageFixtureForEmbedding("text-embedding-v4");
+  await sql`INSERT INTO sources(id,name,kind) VALUES('runtime-vector-source','Synthetic vector source','rss')`;
+  await grantDateFixture("runtime-vector-source", ["https://fixture.invalid/vector"]);
+  const { articleId } = await upsertMaterial({
+    sourceId: "runtime-vector-source",
+    url: "https://fixture.invalid/vector",
+    title: "Synthetic mining fact",
+    bodyText: "Synthetic mining fact",
+    via: "fetch",
+  });
   const entered = Promise.withResolvers<void>(),
     release = Promise.withResolvers<void>();
   const provider = await stub(async () => {
@@ -174,15 +184,15 @@ test("in-flight embedding cannot persist across pause and reuses the same record
   process.env.DASHSCOPE_BASE_URL = provider.url;
   process.env.DASHSCOPE_API_KEY = "synthetic-control-key";
   try {
-    const result = ensureEmbeddings("article", [{ id: "runtime-vector", text: "Synthetic mining fact" }]);
+    const result = ensureEmbeddings("article", [{ id: articleId, text: "Synthetic mining fact" }]);
     const rejected = assert.rejects(result, RuntimeControlStale);
     await entered.promise;
     await owner("news", "processing", "pause");
     release.resolve();
     await rejected;
-    assert.equal((await sql`SELECT count(*)::int n FROM embeddings WHERE ref_id='runtime-vector'`)[0].n, 0);
+    assert.equal((await sql`SELECT count(*)::int n FROM embeddings WHERE ref_id=${articleId}`)[0].n, 0);
     await owner("news", "processing", "resume");
-    assert.deepEqual((await ensureEmbeddings("article", [{ id: "runtime-vector", text: "Synthetic mining fact" }])).get("runtime-vector"), [0.5, 0.5]);
+    assert.deepEqual((await ensureEmbeddings("article", [{ id: articleId, text: "Synthetic mining fact" }])).get(articleId), [0.5, 0.5]);
     assert.equal(provider.hits(), 1);
   } finally {
     if (oldUrl === undefined) delete process.env.DASHSCOPE_BASE_URL;
