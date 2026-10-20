@@ -19,3 +19,5 @@
 本表是机制取舍与证据索引，不把实现相似度当作功能验收。原18项、最终full、生产身份、自然业务及真实手机分别看goal-status.md和正式发布记录。
 
 配置依据另列：固定提交的[官方部署说明](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/docs/deploy.md)第5行推荐至少2核、4GB，并明确构建需要；[CI定义](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/.github/workflows/check.yml)两个job均为ubuntu-latest、25分钟、Node24，检查job使用PostgreSQL17。文件未写固定CPU/RAM，不能把runner标签换算成作者服务器规格。仓库公布站点为https://aihot.news，作者实际购买配置及该站运行提交未取得可验证证据，保持未知。本站改用非生产构建并接收同一制品，是否仍需扩容按本次实测发布峰值判断。
+
+执行中的网页核对（2026-10-20 UTC）：在线读取当前[AIHOT首页](https://aihot.news/)，可见精选/全部、热点、日报、主题、收藏、Agent入口、更新日志和反馈，以及按日分组、未读筛选和其他报道展开入口；本站继续保留相应读者行为并使用矿业入口和语义。页面内容不能证明运行源码提交；作者服务器规格及线上SHA仍未知。再次读取默认分支仍为固定a0d1e75b（提交时间10:18:34 UTC），没有静默替换比较基线。
