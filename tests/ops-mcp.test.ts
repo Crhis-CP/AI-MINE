@@ -84,7 +84,18 @@ test("worker snapshots and real observer login expose bounded metadata only; Own
   const protection = await call("owner", { dataset: "protection" });
   assert.ok(rpc(protection.body).result.structuredContent.items.some((x: { state: string }) => x.state === "needs_configuration"));
   const before = Number((await f.admin`SELECT count(*) FROM receipt_attempts`)[0].count);
-  const health = await call();
+  for (const args of [
+    Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`unknown${index}`, index])),
+    { dataset: { nested: Array.from({ length: 9 }, () => null) } },
+  ]) {
+    const limited = await call("owner", args);
+    assert.equal(limited.statusCode, 200);
+    const result = rpc(limited.body).result;
+    assert.equal(result.isError, true);
+    assert.match(result.content[0].text, /element.*8|8.*element/i);
+  }
+  assert.equal((await call("owner", { dataset: "health", padding: "x".repeat(64 * 1024) })).statusCode, 413);
+  const health = await call("owner", { dataset: "health", offset: 0, limit: 100 });
   assert.equal(health.statusCode, 200, health.body);
   const result = rpc(health.body).result.structuredContent;
   assert.equal(result.state, "stale");

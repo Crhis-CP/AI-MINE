@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { Policy, PolicyCard } from "@amp/contracts/http/public";
 
 import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
@@ -121,6 +122,29 @@ test("all public MCP tools run under public_read; rights, current withdrawal and
   assert.ok(sdk.some((result) => result.tool === T.policy && result.state === "passed"));
   assert.ok(sdk.some((result) => result.tool === T.report && result.state === "passed"));
   assert.deepEqual(await counts(), before, "official SDK calls only read public projections");
+  const clients = [new Client({ name: "synthetic-client-a", version: "1" }), new Client({ name: "synthetic-client-b", version: "1" })];
+  try {
+    await Promise.all(
+      clients.map((client) =>
+        client.connect(
+          new StreamableHTTPClientTransport(new URL(`${server.url}/api/mcp`), { requestInit: { headers: { host: "public-fixture.example.test" } } }),
+        ),
+      ),
+    );
+    // Both clients start their own request sequence. Matching JSON-RPC IDs must not mix results.
+    for (let repeat = 0; repeat < 3; repeat++) {
+      const [first, second] = await Promise.all([
+        clients[0]!.callTool({ name: T.item, arguments: { id: "pr9-editorial-public-full" } }),
+        clients[1]!.callTool({ name: T.report, arguments: { kind: "daily" } }),
+      ]);
+      assert.equal(first.isError, undefined);
+      assert.equal(second.isError, undefined);
+      assert.equal((first.structuredContent as Json).item.id, "pr9-editorial-public-full");
+      assert.equal((second.structuredContent as Json).report.kind, "daily");
+    }
+  } finally {
+    await Promise.all(clients.map((client) => client.close()));
+  }
   const request = async (method: string, params: Json = {}) => {
     const response = await server.request("/api/mcp", {
       method: "POST",
@@ -151,6 +175,19 @@ test("all public MCP tools run under public_read; rights, current withdrawal and
     return result;
   };
   const sharedLatest = await good(T.latest, { mode: "all" });
+  const policyFilters = {
+    q: "",
+    jurisdiction: "AR",
+    theme: "tax_finance",
+    nature: "regulation",
+    stage: "published",
+    from: "2026-10-01",
+    to: "2026-10-31",
+    limit: 1,
+  };
+  const policyPage = await good(T.policies, policyFilters);
+  assert.ok(policyPage.structuredContent.next_cursor, "synthetic policies provide a real cursor for all nine legal input fields");
+  await good(T.policies, { ...policyFilters, cursor: policyPage.structuredContent.next_cursor });
   const markdown = await server.request("/api/v1/agent/latest?mode=all");
   assert.equal(markdown.status, 200);
   assert.match(markdown.headers.get("content-type")!, /text\/markdown/);
