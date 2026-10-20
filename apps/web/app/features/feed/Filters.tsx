@@ -9,7 +9,7 @@ import { addRecentSearch } from "../../lib/local-state";
 import { useEffect, useRef, useState } from "react";
 import { Form, Link, useLocation, useNavigate, useNavigation, useSearchParams } from "react-router";
 import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
-import { CATEGORY_LABELS, CHANNEL_LABELS } from "@amp/industry/taxonomy";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -97,11 +97,23 @@ export function hrefWith(base: string, params: URLSearchParams, patch: Record<st
   return s ? `${base}?${s}` : base;
 }
 
-/**
- * The feed's one filter row (精选 and 全部动态 alike): 全部, 一手, then the categories. One choice at a
- * time: picking 一手 clears the category and picking a category clears 一手. Older 资讯 / X links
- * still filter; the row then shows 全部.
- */
+/** Source attributes and subject categories combine through the existing query contract. */
+function SourceScopeTabs({ base, channel, layoutId }: { base: string; channel: ChannelKey; layoutId: string }) {
+  const [params] = useSearchParams();
+  return (
+    <PillTabs
+      size="sm"
+      label="来源属性"
+      layoutId={layoutId}
+      active={channel === "firstParty" ? "firstParty" : "all"}
+      items={[
+        { key: "all", label: "全部来源", resetScroll: true, to: hrefWith(base, params, { channel: null }) },
+        { key: "firstParty", label: "一手来源", resetScroll: true, to: hrefWith(base, params, { channel: "firstParty" }) },
+      ]}
+    />
+  );
+}
+
 export function CategoryTabs({
   base,
   allTo,
@@ -122,12 +134,15 @@ export function CategoryTabs({
 }) {
   const [params] = useSearchParams();
   const items = [
-    { key: "all", label: "全部", to: allTo ?? hrefWith(base, params, { category: null, channel: null }) },
-    { key: "firstParty", label: CHANNEL_LABELS.firstParty, to: hrefWith(base, params, { category: null, channel: "firstParty" }) },
-    ...CATEGORY_KEYS.map((k) => ({ key: k, label: CATEGORY_LABELS[k], to: hrefWith(base, params, { category: k, channel: null }) })),
+    { key: "all", label: "全部分类", resetScroll: true, to: hrefWith(allTo ?? base, params, { category: null }) },
+    ...CATEGORY_KEYS.map((k) => ({ key: k, label: CATEGORY_LABELS[k], resetScroll: true, to: hrefWith(base, params, { category: k }) })),
   ];
-  const active = channel === "firstParty" ? "firstParty" : (category ?? "all");
-  return <PillTabs items={items} active={active} layoutId={layoutId} label="筛选" size={size} className={className} />;
+  return (
+    <div className={`min-w-0 space-y-2 ${className}`}>
+      <SourceScopeTabs base={base} channel={channel} layoutId={`${layoutId}-source`} />
+      <PillTabs items={items} active={category ?? "all"} layoutId={layoutId} label="新闻分类" size={size} />
+    </div>
+  );
 }
 
 /** The same scope switch and filter sheet on the two news feeds. */
@@ -153,8 +168,9 @@ export function FeedBar({
   const navigate = useNavigate();
   const legacyOpened = useRef(false);
   const query = params.get("q");
-  const active = channel === "firstParty" ? "firstParty" : (category ?? "all");
-  const filtered = active !== "all" || ["jurisdiction", "tag", "source", "mineral", "on", "from", "to"].some((key) => params.get(key));
+  const active = category ?? "all";
+  const filtered =
+    channel === "firstParty" || active !== "all" || ["jurisdiction", "tag", "source", "mineral", "on", "from", "to"].some((key) => params.get(key));
   useEffect(() => {
     const media = matchMedia("(min-width: 961px)");
     const close = () => {
@@ -177,14 +193,12 @@ export function FeedBar({
       ...(to === "/" ? { source: null, mineral: null, on: null, from: null, to: null, selected: null } : {}),
     });
   const choices = [
-    { key: "all", label: "不限", to: hrefWith(base, params, { category: null, channel: null }) },
-    { key: "firstParty", label: CHANNEL_LABELS.firstParty, to: hrefWith(base, params, { category: null, channel: "firstParty" }) },
-    ...CATEGORY_KEYS.map((key) => ({ key, label: CATEGORY_LABELS[key], to: hrefWith(base, params, { category: key, channel: null }) })),
+    { key: "all", label: "不限分类", to: hrefWith(base, params, { category: null }) },
+    ...CATEGORY_KEYS.map((key) => ({ key, label: CATEGORY_LABELS[key], to: hrefWith(base, params, { category: key }) })),
   ];
   const chips = [
-    ...(active !== "all"
-      ? [{ key: "category", label: active === "firstParty" ? CHANNEL_LABELS.firstParty : CATEGORY_LABELS[category!], patch: { category: null, channel: null } }]
-      : []),
+    ...(channel === "firstParty" ? [{ key: "channel", label: "一手来源", patch: { channel: null } }] : []),
+    ...(category ? [{ key: "category", label: CATEGORY_LABELS[category], patch: { category: null } }] : []),
     ...["tag", "jurisdiction", "source", "mineral", "on", "from", "to"].flatMap((key) => {
       const value = params.get(key);
       if (!value) return [];
@@ -294,6 +308,7 @@ export function FeedBar({
       <Sheet open={sheet} onClose={() => setSheet(false)} title="筛选">
         {sheet && (
           <>
+            <SourceScopeTabs base={base} channel={channel} layoutId="phone-source-scope" />
             <JurisdictionFilter base={base} value={jurisdiction} />
             {base === "/all" ? (
               <SourceDateFilters base="/all" facets={facets} />

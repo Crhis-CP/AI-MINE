@@ -1,4 +1,4 @@
-import { CircuitOpenError } from "./circuit.ts";
+import { CircuitOpenError, modelCircuitKey } from "./circuit.ts";
 import { sql, type Db } from "../db.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { currentModelConfiguration } from "../admin/models.ts";
@@ -142,7 +142,10 @@ export async function withModelFallback<T>(
       const eligibleFailure =
         (error instanceof ProviderRejectedError && (error.failureKind === "connect_before_send" || (!policy && error.failureKind === "provider_outage"))) ||
         (policy ? error instanceof ModelContentFiltered : error instanceof ReceiptUnknownError);
-      const circuit = !policy && error instanceof CircuitOpenError && error.evidence.service === (input.request.budgetService ?? input.request.service);
+      const circuit =
+        !policy &&
+        error instanceof CircuitOpenError &&
+        error.evidence.service === modelCircuitKey(input.request.budgetService ?? input.request.service, input.configurationHash);
       if (!circuit && (!eligibleFailure || !(await proof(key, input.configurationHash, sql, policy)))) throw error;
       if (circuit) circuitEvidence = error.evidence;
       const eligible = await sql.begin((tx) => admission(input, capability, tx));

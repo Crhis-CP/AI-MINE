@@ -1,4 +1,4 @@
-import { enterModelCircuit, recordModelHealth, type CircuitPermit } from "./circuit.ts";
+import { enterModelCircuit, recordModelHealth, modelCircuitKey, type CircuitPermit } from "./circuit.ts";
 import { providerRejection } from "./provider-errors.ts";
 import { PRESETS } from "@amp/site/models";
 import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
@@ -289,6 +289,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   const { withModelFallback, ModelContentFiltered } = await import("./model-fallback.ts");
   const contractHash = modelOutputContract(opts.schema, opts.parse);
   const budgetService = modelBudgetService(baseUrl, registered ? (registered.config.interface === "deepseek" ? "deepseek" : undefined) : spec.service);
+  const circuitKey = modelCircuitKey(budgetService, configurationHash);
   const budgetAliases = [
     ...Object.keys(MODELS).flatMap((key) => {
       const value = environmentModelMetadata(key);
@@ -434,10 +435,10 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
           try {
             response = await readResponse();
           } catch (error) {
-            if (circuitPermit) await recordModelHealth(budgetService, circuitPermit, !(error instanceof ProviderRejectedError && !error.retryable));
+            if (circuitPermit) await recordModelHealth(circuitKey, circuitPermit, !(error instanceof ProviderRejectedError && !error.retryable));
             throw error;
           }
-          if (circuitPermit) await recordModelHealth(budgetService, circuitPermit, false);
+          if (circuitPermit) await recordModelHealth(circuitKey, circuitPermit, false);
           const { res, text } = response;
           let json: Record<string, unknown>;
           try {
@@ -478,7 +479,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       },
       circuit
         ? async (tx) => {
-            circuitPermit = await enterModelCircuit(tx, budgetService, timeoutMs);
+            circuitPermit = await enterModelCircuit(tx, circuitKey, timeoutMs);
           }
         : undefined,
     );

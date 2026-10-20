@@ -277,8 +277,10 @@ export async function runBackup(now = new Date()) {
       out.push({ key: s ? key : `local-only:${path.basename(file)}`, bytes: size, sha256: sha });
     }
   }
+  const version = environmentValue("AMP_RELEASE");
   const summary = {
     at: now.toISOString(),
+    programRelease: version && /^[a-f0-9]{12,40}$/.test(version) ? version : null,
     destination: s ? "object-store" : "local",
     uploaded: !!s && !filesError,
     objects: out,

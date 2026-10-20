@@ -1,0 +1,352 @@
+{
+  "batch": "source-intake-20261020",
+  "scope": "news",
+  "production_applied": false,
+  "natural_collection_accepted": false,
+  "entries": [
+    {
+      "id": "sa5-mining-journal",
+      "target_config_hash": "7b141f723be4b293ea78d13907fd5d727b7c31315463e62525178a1c31087afa",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "aspermont",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-mining-weekly",
+      "target_config_hash": "c9a6d1ee8d82c624c5da125548d8462a0519dcc129dabe2bec442ba51832733a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "creamer-media",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-mining-magazine",
+      "target_config_hash": "afa8e365a22996ec7e51529536f090796035eb6038cec98ce7c1df74a9f5ac6e",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "aspermont",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-miningnews",
+      "target_config_hash": "464a4134d0d8f0b5fda46b06d4133aa196274bfdd70c154c84ad6ef616724f5d",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "aspermont",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-mining-monthly",
+      "target_config_hash": "02671de8d7fbcca670142d6ea7d35d9cb036b254983077552d2d6c84680f5dd1",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "aspermont",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-coal-age",
+      "target_config_hash": "7194d3cc14ad02d04eb163c2d382568f38c26e77fc849240c1dcb83c7be15136",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mining-media-international",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-china-mining-news",
+      "target_config_hash": "e827bd5d5c156fceb614c9b57773fef09208e5697a954a6cd59f53eba0de7f2a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "china-mining-news",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ccmn",
+      "target_config_hash": "0b28d2cd4bf5283a232d107118099119f4db64365b9a543743460c5cfe0be3ce",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ccmn",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sun-sirs",
+      "target_config_hash": "88f05413fdb48aa5addfbe384a6d0fa3782ee29a3e496287270841a81050ed77",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "toocle",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-who",
+      "target_config_hash": "cf90787d85cfd5a227cdcd454790f923a8f7e78f71d4a563d0e8ff82eadf6c11",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "who",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ilo",
+      "target_config_hash": "282a457ee99fd5e4ad0f599e359a4a18ceaafe337a50edca2aa2f6ddaba2c120",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ilo",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-auc",
+      "target_config_hash": "f1cccee538a30b37f6a834073e0d4dd584ec83ad5e2bd2e6beeca657e222c1f8",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "auc",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-odihr",
+      "target_config_hash": "77aacf563eaae5fb0d2f699d068e4ff7248e86559f27ffdc5055da86ea8e1602",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "odihr",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-pe-minem-news",
+      "target_config_hash": "ec34f302377d4a6fc51d0f63413f103a1fc166f81d1ba2bc707ec5f70967dda9",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pe-minem",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-pe-ingemmet-news",
+      "target_config_hash": "40e7823e9ecc8dd47b30818b7b01f73965c43456bcb24c19aa5c5c4aa7754248",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pe-ingemmet",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-pe-ipen-news",
+      "target_config_hash": "b142e827430262e1dee6a1950f9b9bfc029cf0fb5b6610b4e79acef0904e9eda",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pe-ipen-news",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-pe-mincetur-news",
+      "target_config_hash": "e290f4ddc94ed79bcc110bb7164fbf6f42517e0f280dfde03a7eb3c8841398ae",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pe-mincetur-news",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-pe-portal-minero",
+      "target_config_hash": "4abf43fbd35ade014aefbabe4cef3a282db6d636faa239b69426794175737a8e",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pe-portal-minero",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-co-anm-news",
+      "target_config_hash": "e531379893701ea51035fb4e24975ed7290a8af25c053bb847dada1e173a8fe4",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "co-anm",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-co-vanguardia-mining",
+      "target_config_hash": "de9593598e693f3e2e6501f0870986985320efacf04c88b3973441429a2bd696",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "co-galvis-ramirez",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-co-congress-senate-news",
+      "target_config_hash": "2de4f07229f5b892517ff8e88eef561cf5d95474c3d29dc7134508dd58c25eed",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "co-congress-senate",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-co-congress-house-news",
+      "target_config_hash": "80c87919bbdf5f9469c75a2a5a064ed85e631ae1be5e77921bdbf883475d1a56",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "co-congress-house",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-mineria",
+      "target_config_hash": "5d44c7a47af2cd8c73cf892f476cfac7c0494b29efad13626f9fe6b63d054f3d",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ar-mineria",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-sitioandino",
+      "target_config_hash": "dafff75c0e5f173c94c96e2cf2eb3208bfec1fec57c653e7c06c48d82a7aac95",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "medios-andinos",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-ambito",
+      "target_config_hash": "7ecae702e7e9ebbaed62686227f307f97690d5ccede015ac0fb1758983925952",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ar-nefir",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-infobae-mining",
+      "target_config_hash": "e5d1203033e5364bd37513434f47bdaade22700e4c7efdd9c48f334ea8a65cef",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "thx-medios",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-comunidad",
+      "target_config_hash": "4e31fc9d0a947438ffec147c2a91eb8371cf43fe27036b4a770bc9e884b3f79a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ar-comunidad",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-ancasti",
+      "target_config_hash": "830a9bbb0e7f85b7b059a9eb5e5abb3545330dc31e9776b944589c62ff060b95",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ar-ancasti",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-gy-ggmc",
+      "target_config_hash": "ff1f36ef147e584ffaffd7ebc73837a762b78ad41a899cc40a8539f29092fe24",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gy-ggmc",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-gy-kaieteur",
+      "target_config_hash": "54d31230a24cdbe86cf0619caff05356b05cdcf6a46ec8131a1d944bf78afca1",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gy-kaieteur",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-gy-times",
+      "target_config_hash": "4bfb660749e3bb43ea98128f7317db061595b75c449175e29abeb8c457d7eb0d",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gy-times",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-starnieuws",
+      "target_config_hash": "e353cd263b15eb84690d20c7246f2dde430581eb4db2fa37106a35d24700a622",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-network-star",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-dwt",
+      "target_config_hash": "c25b69280b588ed226ab7cd835618b8bc07e1f99fc3922dfa1e035ddcdcd3bfe",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-dwt",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-times-news",
+      "target_config_hash": "26a4307fbbef02f0c33cd1d5e4c1d56db80bc6ba317d9c97e46786a661d53d71",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-times-news",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-gov",
+      "target_config_hash": "acbbcfc0a697a09725e57a7f305a7c52202d781b84a71eea99e6db14c59d6d62",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-gov",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-waterkant",
+      "target_config_hash": "9940eef02f6839c16a7ec0f1348df9f96d3eb1d76ea33ab2398d8d8642ddbd98",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-waterkant",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-cnv-news",
+      "target_config_hash": "b4052ab8fb574d452da41bc88a55264f26a5a1f22cf7b0f903dcc6c3ba11d5b5",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ar-cnv",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-ar-anpyn-news",
+      "target_config_hash": "e87cb369ba1b02d66d8eb9edf6f7c15807fcd5b73dd90d2fbb6b8581faf9c5ad",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ar-anpyn-news",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-nh",
+      "target_config_hash": "95277494b3ad217a83bbe40c60727d6bf785e562fa8d84771a5a26d0ceaac2ad",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-nh",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-president-news",
+      "target_config_hash": "17dadc3f1844247fecf69c56c2d1a32fadf64478bc1e08de164a7fec031a5303",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-president-news",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-vwa-labour",
+      "target_config_hash": "a7f5aed30f8b8cd0a80cf60af2a6a17d9199778b2e64547fa92932f6c7e32613",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-vwa",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-sr-vwa-news",
+      "target_config_hash": "080cff71d4ac7d9ab584afa871c7912ac78d732b1596ae39371f48849997f2c9",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sr-vwa",
+      "expected_existing": false
+    },
+    {
+      "id": "sa5-gy-mnr",
+      "target_config_hash": "b2827e2a0bf8482f18dbde942eb298cd888530fffc3775193e670b75668850db",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gy-mnr",
+      "expected_existing": false
+    }
+  ]
+}

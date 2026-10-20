@@ -1,4 +1,4 @@
-import { modelCircuits, type ModelCircuit } from "../providers/circuit.ts";
+import { modelCircuits, modelCircuitKey, type ModelCircuit } from "../providers/circuit.ts";
 import { ModelFallbackChange, ModelFallbackOverview, ModelFallbackRoute } from "@amp/contracts/http/private";
 import { sql, type Db } from "../db.ts";
 import { CAPABILITIES, modelSources } from "../editorial/models.ts";
@@ -85,15 +85,20 @@ async function routeView(capability: string, db: Db, circuits?: Record<string, M
   if (state === "ready" && stored?.backup_model && !capability.startsWith("policy_")) {
     const health = circuits ?? (await modelCircuits(db)),
       now = Date.now();
-    const primaryHealth = health[(await modelService(primary, db)) ?? ""];
-    const backupHealth = health[(await modelService(stored.backup_model, db)) ?? ""];
+    const currentHealth = async (model: string) => {
+      const service = await modelService(model, db),
+        identity = await modelConfigurationIdentity(model, db);
+      return service && identity.configuration_hash ? health[modelCircuitKey(service, identity.configuration_hash)] : undefined;
+    };
+    const primaryHealth = await currentHealth(primary);
+    const backupHealth = await currentHealth(stored.backup_model);
     const wait = (value: ModelCircuit | undefined) => Math.max(0, Math.ceil((Math.max(value?.openUntil ?? 0, value?.probeUntil ?? 0) - now) / 1000));
     if (wait(backupHealth)) {
       state = "blocked";
-      detail = `备用服务暂时不可用，约${wait(backupHealth)}秒后尝试恢复。`;
+      detail = `备用模型暂时不可用，约${wait(backupHealth)}秒后尝试恢复。`;
     } else if (wait(primaryHealth)) {
       detail =
-        primaryHealth!.probeUntil > now ? "主服务正在尝试恢复，备用仍可接续。" : `主服务暂时不可用，约${wait(primaryHealth)}秒后尝试恢复；备用可继续接续。`;
+        primaryHealth!.probeUntil > now ? "主模型正在尝试恢复，备用仍可接续。" : `主模型暂时不可用，约${wait(primaryHealth)}秒后尝试恢复；备用可继续接续。`;
     }
   }
   return ModelFallbackRoute.parse({

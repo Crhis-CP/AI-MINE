@@ -1002,9 +1002,9 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
   }
 });
 
-/** Each 筛选 tab row on a page, as its links' attributes and visible text. */
+/** Each category row on a page, independently of the source-attribute row. */
 function filterTabs(html: string) {
-  return [...html.matchAll(/<nav[^>]*aria-label="筛选"[^>]*>([\s\S]*?)<\/nav>/g)].map((row) =>
+  return [...html.matchAll(/<nav[^>]*aria-label="新闻分类"[^>]*>([\s\S]*?)<\/nav>/g)].map((row) =>
     [...(row[1] ?? "").matchAll(/<a([^>]*)>([\s\S]*?)<\/a>/g)].map((link) => ({
       attrs: link[1] ?? "",
       text: (link[2] ?? "").replace(/<[^>]+>/g, "").trim(),
@@ -1027,11 +1027,11 @@ test("until the first pick exists the unfiltered home page shows the newest item
     assert.match(html, /href="\/all\?page=2"/);
     assert.deepEqual(poolCalls.slice(before), [{ path: "/api/site/pool", accept: "application/json", ssr: "1" }]);
     assert.equal(home.headers.get("X-Accel-Expires"), "0");
-    // “全部” stays on the home page (the current page); the other tabs lead to 全部动态.
+    // “全部分类” stays on the home page; category links lead to 全部动态.
     const rows = filterTabs(html);
     assert.ok(rows.length > 0);
     for (const links of rows) {
-      const all = links.find((link) => link.text === "全部")?.attrs ?? "";
+      const all = links.find((link) => link.text === "全部分类")?.attrs ?? "";
       assert.match(all, /href="\/"/);
       assert.match(all, /aria-current="page"/);
       assert.ok(links.some((link) => link.attrs.includes(`href="/all?category=${category}"`)));
@@ -1079,7 +1079,7 @@ test("until the first pick exists the unfiltered home page shows the newest item
     const pickRows = filterTabs(picks);
     assert.ok(pickRows.length > 0);
     for (const links of pickRows) {
-      assert.match(links.find((link) => link.text === "全部")?.attrs ?? "", /href="\/"/);
+      assert.match(links.find((link) => link.text === "全部分类")?.attrs ?? "", /href="\/"/);
       assert.ok(links.some((link) => link.attrs.includes(`href="/?category=${category}"`)));
     }
   } finally {

@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "./IntentLink";
+import { IconChevronLeft, IconChevronRight } from "../icons";
 import { useEntrance } from "../../lib/hydration";
 
 /** Where each switch's thumb sat when it last left, relative to its track. */
@@ -48,6 +49,8 @@ export interface TabItem {
   to?: string;
   prefetch?: "intent";
   replace?: boolean;
+  /** A changed filter starts at its first result; ordinary panel switches retain position. */
+  resetScroll?: boolean;
   count?: number | null;
 }
 
@@ -84,42 +87,99 @@ export function PillTabs({
   className?: string;
 }) {
   const links = items.some((t) => t.to);
+  const wrapper = useRef<HTMLDivElement>(null),
+    viewport = useRef<HTMLDivElement>(null);
+  const [scroll, setScroll] = useState({ overflow: false, left: false, right: false });
+  useLayoutEffect(() => {
+    const el = viewport.current,
+      outer = wrapper.current;
+    if (!el || !outer) return;
+    if (!items.length) {
+      setScroll({ overflow: false, left: false, right: false });
+      return;
+    }
+    const measure = () =>
+      setScroll({ overflow: el.scrollWidth > outer.clientWidth + 2, left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    observer.observe(outer);
+    const track = el.querySelector(links ? "nav" : "[role=tablist]");
+    if (track) observer.observe(track);
+    el.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      observer.disconnect();
+      el.removeEventListener("scroll", measure);
+    };
+  }, [items.length, links]);
+  const move = (direction: number) => {
+    const el = viewport.current;
+    if (!el) return;
+    el.scrollBy({
+      left: direction * Math.max(160, el.clientWidth * 0.7),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+    });
+  };
   const Track = links ? "nav" : "div";
   return (
-    <div className={`scrollbar-none max-w-full overflow-x-auto ${fill ? "w-full" : ""} ${className}`}>
-      <Track
-        data-pill-track=""
-        aria-label={label}
-        role={links ? undefined : "tablist"}
-        className={`${fill ? "grid w-full" : "inline-flex w-max"} gap-0.5 rounded-full bg-bg-sunk p-[3px] ring-1 ring-inset ring-line-soft dark:bg-bg-muted/60`}
-        style={fill ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined}
-      >
-        {items.map((t) => {
-          const on = t.key === active;
-          const inner = (
-            <>
-              {on && <Thumb id={layoutId} />}
-              <span className="relative inline-flex items-center gap-1">
-                {t.label}
-                {t.count !== undefined && t.count !== null && (
-                  <span className={`num text-[0.86em] font-normal ${on ? "text-ink-3" : "text-ink-4"}`}>{t.count}</span>
-                )}
-              </span>
-            </>
-          );
-          const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-full font-medium outline-offset-1 transition-colors duration-150 active:scale-[0.98] ${SIZES[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
-          const TabLink = t.prefetch === "intent" ? IntentLink : Link;
-          return t.to ? (
-            <TabLink key={t.key} to={t.to} replace={t.replace} preventScrollReset aria-current={on ? "page" : undefined} className={cls}>
-              {inner}
-            </TabLink>
-          ) : (
-            <button key={t.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect?.(t.key)} className={cls}>
-              {inner}
-            </button>
-          );
-        })}
-      </Track>
+    <div ref={wrapper} className={`flex max-w-full items-center gap-1 ${fill ? "w-full" : ""} ${className}`}>
+      {scroll.overflow && (
+        <button
+          type="button"
+          aria-label={`${label ?? "选项"}向左滚动`}
+          disabled={!scroll.left}
+          onClick={() => move(-1)}
+          className="hidden size-9 shrink-0 place-items-center rounded-full border border-line text-ink-3 disabled:opacity-30 lg:grid"
+        >
+          <IconChevronLeft size={18} />
+        </button>
+      )}
+      <div ref={viewport} className={`scrollbar-none min-w-0 max-w-full overflow-x-auto ${fill ? "flex-1" : ""}`}>
+        <Track
+          data-pill-track=""
+          aria-label={label}
+          role={links ? undefined : "tablist"}
+          className={`${fill ? "grid w-full" : "inline-flex w-max"} gap-0.5 rounded-full bg-bg-sunk p-[3px] ring-1 ring-inset ring-line-soft dark:bg-bg-muted/60`}
+          style={fill ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined}
+        >
+          {items.map((t) => {
+            const on = t.key === active;
+            const inner = (
+              <>
+                {on && <Thumb id={layoutId} />}
+                <span className="relative inline-flex items-center gap-1">
+                  {t.label}
+                  {t.count !== undefined && t.count !== null && (
+                    <span className={`num text-[0.86em] font-normal ${on ? "text-ink-3" : "text-ink-4"}`}>{t.count}</span>
+                  )}
+                </span>
+              </>
+            );
+            const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-full font-medium outline-offset-1 transition-colors duration-150 active:scale-[0.98] ${SIZES[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
+            const TabLink = t.prefetch === "intent" ? IntentLink : Link;
+            return t.to ? (
+              <TabLink key={t.key} to={t.to} replace={t.replace} preventScrollReset={!t.resetScroll} aria-current={on ? "page" : undefined} className={cls}>
+                {inner}
+              </TabLink>
+            ) : (
+              <button key={t.key} type="button" role="tab" aria-selected={on} onClick={() => onSelect?.(t.key)} className={cls}>
+                {inner}
+              </button>
+            );
+          })}
+        </Track>
+      </div>
+      {scroll.overflow && (
+        <button
+          type="button"
+          aria-label={`${label ?? "选项"}向右滚动`}
+          disabled={!scroll.right}
+          onClick={() => move(1)}
+          className="hidden size-9 shrink-0 place-items-center rounded-full border border-line text-ink-3 disabled:opacity-30 lg:grid"
+        >
+          <IconChevronRight size={18} />
+        </button>
+      )}
     </div>
   );
 }

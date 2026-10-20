@@ -64,3 +64,5 @@ PR269契约66537e28通过run39437549180的21阶段full/exit0，树与回执摘�
 2026-10-20：基于 main e4bb1fb8 的 `npm run check` 十阶段快速子集全部通过。历史修订、跨期归属、并发材料变更与回执复用、后台命令幂等、Owner 权限、unknown 恢复公平性、全部动态出口代表稿、报价有效期以及深分页返回已分别有隔离回归。真实 pg_dump/pg_restore 与本地备份清单验证通过；发布容量及保留的 Python 检查通过，Linux /proc 项在 macOS 如实跳过，待最终 Linux full。已有三处 SQL UNKNOWN 仍未证明。以上不是最终 SHA full、生产部署或内容质量验收。
 
 当前真实模型/流水线证据与仍待完成的质量范围见[运行事实](runtime-findings.md)。
+
+最新[独立内容与分类流程](content-and-reading-review.md)、[来源当前状态](source-current-status.md)分别记录保留样本、原始回执根因、筛选调整及原201来源的当前可用性。
