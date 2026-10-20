@@ -151,6 +151,7 @@ test("receipt schemas stay in explicit private registration without global leaka
     "adminDateCorrection",
     "adminFeedbackBan",
     "adminFeedbackEmailBan",
+    "adminReports",
     "reconcileNewsReport",
   ]);
   for (const schema of [ReceiptObservedVersion, ReceiptReleaseRequest, ReceiptReleaseResponse, ReceiptIssue, ReceiptReconciliationResponse]) {
