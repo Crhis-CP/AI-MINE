@@ -1,4 +1,5 @@
 import { sourceInstant } from "./source-time.ts";
+import { readAllFactApiItems } from "./timeline.ts";
 import { z } from "zod";
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
 import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
@@ -54,6 +55,17 @@ export function rowToV1(row: ApiItemRow): V1ItemPayload {
 }
 
 export async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1ItemsResult> {
+  const unfilteredAll =
+    !query.category &&
+    !query.q &&
+    !query.source &&
+    !query.mineral &&
+    !query.jurisdiction &&
+    !query.on &&
+    !query.from &&
+    !query.to &&
+    !query.topicTags?.length &&
+    query.mode === "all";
   const windowMs = query.window === "24h" ? 86400000 : 7 * 86400000;
   const windowStart = query.window === "all" ? null : new Date(now.getTime() - windowMs);
   const binding = queryBinding({
@@ -69,6 +81,7 @@ export async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1
     from: query.from,
     to: query.to,
     topicTags: query.topicTags,
+    ...(unfilteredAll ? { factProjection: "facts-v1" } : {}),
     ...(query.on || query.from || query.to ? { dateBasis: "timeline-beijing-v1" } : {}),
   });
   // by=timeline is the site's own order: a selected item at its reading-group anchor, anything else at its timeline time.
@@ -102,7 +115,7 @@ export async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1
     afterId: after?.i ?? null,
     limit: query.limit + 1,
   };
-  const run = (db: Db) => readPublicApiItems(db, request, matchers);
+  const run = (db: Db) => (unfilteredAll ? readAllFactApiItems(db, request) : readPublicApiItems(db, request, matchers));
   const rows = terms.length ? await withSearchCapacity(run) : await withCustomPlans(run);
 
   const page = rows.slice(0, query.limit);

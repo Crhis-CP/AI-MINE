@@ -43,6 +43,7 @@ const NAV: Array<{ group: string; items: NavEntry[] }> = [
     group: "内容",
     items: [
       { to: "/admin/content", label: "内容诊断" },
+      { to: "/admin/reports", label: "报告修订" },
       { to: "/admin/sources", label: "信源", count: "sources", tone: "bad" },
       ...ADMIN_MODULES.flatMap((module) => module.admin?.content ?? []),
       { to: "/admin/feedback", label: "反馈", count: "feedback", tone: "accent" },
@@ -55,7 +56,7 @@ const NAV: Array<{ group: string; items: NavEntry[] }> = [
       { to: "/admin/models", label: "模型与评测", end: true },
       { to: "/admin/selectbench", label: "精选校准", owner: true },
       { to: "/admin/settings", label: "设置", end: true },
-      { to: "/admin/audit", label: "审计记录", end: true },
+      { to: "/admin/audit", label: "审计记录", end: true, owner: true },
     ],
   },
 ];

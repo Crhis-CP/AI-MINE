@@ -423,18 +423,21 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
         </p>
         {daily && (
           <p className="pt-1 text-[13px] text-ink-2">
-            本期收录截至 {fullDateTime(report.windowEnd)} 的精选。之后入选的内容，请看后续日报。
+            本期按来源日期收录所属时段的精选。晚到报道或日期更正会补入相应历史期次。
             <Link to="/" className="ml-1 underline underline-offset-2">
               查看最新精选
             </Link>
           </p>
         )}
         <p>
-          生成于 {fullDateTime(report.generatedAt)} ·{" "}
+          首次出刊 {fullDateTime(report.firstPublishedAt ?? report.generatedAt)}
+          {report.lastRevisedAt && <> · 最近修订 {fullDateTime(report.lastRevisedAt)}</>} ·{" "}
           {quiet
             ? "本期无新增精选"
             : report.generationStatus === "ready"
-              ? "AI 综合已完成"
+              ? daily
+                ? "规则汇编"
+                : "AI 综合已完成"
               : report.generationStatus === "pending"
                 ? "AI 综合正在排队，当前为资料汇总"
                 : report.generationStatus === "failed"

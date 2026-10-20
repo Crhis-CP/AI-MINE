@@ -1,3 +1,4 @@
+import { sourceOwnerHeaders } from "./source-owner-fixture.ts";
 import { recoverUnknownOnce } from "../packages/backend/src/providers/unknown-recovery.ts";
 // Paid requests: an answer already received is reused, every request actually sent counts against the
 // budget (retries of one logical request included), an unresolved answer is never bought again, and the
@@ -430,14 +431,15 @@ test("manual HTTP resolution rejects billed/invalid inputs and commits audit, re
   const stopped = await stoppedArticle("prefilter_article");
   const saved = { host: config.privateHost, admin: config.devAdmin };
   config.privateHost = "private.receipt.test";
-  config.devAdmin = { displayName: "Receipt test" };
+  config.devAdmin = null;
+  const ownerHeaders = await sourceOwnerHeaders();
   const app = await buildApp("private-api");
   const observed = await versionFor(stopped.receiptId);
   const post = (payload: object) =>
     app.inject({
       method: "POST",
       url: `/api/admin/receipts/${stopped.receiptId}/release`,
-      headers: { "x-forwarded-host": "private.receipt.test", "x-csrf-token": "dev" },
+      headers: { ...ownerHeaders, "x-forwarded-host": "private.receipt.test" },
       payload: { version: observed, ...payload },
     });
   const state = async () => (await sql`SELECT status FROM receipts WHERE id=${stopped.receiptId}`)[0].status;

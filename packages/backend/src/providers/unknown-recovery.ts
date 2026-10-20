@@ -1,7 +1,7 @@
 // One automatic retry after an unknown outcome; uncertainty remains in the cost ledger.
 import { sql, type Db } from "../db.ts";
 import { audit } from "../admin/auth.ts";
-import { requireRuntimeRunning, RuntimeControlPaused } from "../operations/lane-controls.ts";
+import { requireRuntimeRunning, RuntimeControlPaused, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 
 export const UNKNOWN_AUTO_RELEASE_NOTE = "自动放行：结果未知超过 30 分钟，未核对是否计费";
 type Released = {
@@ -18,8 +18,18 @@ type Released = {
 /** Private gateway helper: claiming, audit and requeue commit atomically. */
 export async function recoverUnknownOnce(now: number, resume: (row: Released, db: Db) => Promise<boolean>) {
   const cutoff = new Date(now - 30 * 60_000);
+  const [newsProcessing, newsCollection, policyProcessing, policyCollection] = await Promise.all([
+    runtimeControlSnapshot("news", ["processing"]),
+    runtimeControlSnapshot("news", ["collection"]),
+    runtimeControlSnapshot("policy", ["processing"]),
+    runtimeControlSnapshot("policy", ["collection"]),
+  ]);
   const candidates = await sql<{ id: number }[]>`SELECT r.id FROM receipts r
     WHERE r.status='unknown' AND r.updated_at<${cutoff}
+      AND CASE WHEN r.request->>'lane'='policy'
+        THEN CASE WHEN r.model IS NULL AND r.service IN ('jina','dajiala') THEN ${!policyCollection.paused} ELSE ${!policyProcessing.paused} END
+        ELSE CASE WHEN r.model IS NULL AND r.service IN ('jina','dajiala') THEN ${!newsCollection.paused} ELSE ${!newsProcessing.paused} END END
+      AND EXISTS(SELECT 1 FROM receipt_attempts current WHERE current.receipt_id=r.id AND current.attempt=r.attempts AND current.status='unknown')
       AND NOT EXISTS (SELECT 1 FROM ai.model_fallback_resolutions f WHERE f.primary_receipt_id=r.id AND f.backup_receipt_id IS NOT NULL)
       AND NOT EXISTS (SELECT 1 FROM receipt_attempts current WHERE current.receipt_id=r.id AND current.attempt=r.attempts AND current.failure_kind='provider_refused')
       AND NOT EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id=r.id

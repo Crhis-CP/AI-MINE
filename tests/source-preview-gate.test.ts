@@ -1,3 +1,4 @@
+import { sourceOwnerHeaders } from "./source-owner-fixture.ts";
 import { tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -61,7 +62,7 @@ test("private HTTP reports missing current preview or nonexistent draft as actio
   const { buildApp } = await import("./site-app.ts");
   const { config } = await import("@amp/backend/config");
   const prior = config.devAdmin;
-  config.devAdmin = { displayName: "Synthetic source preview operator" };
+  config.devAdmin = null;
   const app = await buildApp("private-api");
   const address = await app.listen({ host: "127.0.0.1", port: 0 });
   t.after(async () => {
@@ -73,7 +74,7 @@ test("private HTTP reports missing current preview or nonexistent draft as actio
   await sql`INSERT INTO sources(id,name,kind,config,enabled) VALUES(${id},'HTTP fixture','rss',${sql.json(sourceConfig)},false)`;
   await grantDateFixture(id, [sourceConfig.feedUrl]);
   const version = (await sql`SELECT updated_at FROM sources WHERE id=${id}`)[0]!.updated_at.toISOString();
-  const headers = { "content-type": "application/json", "x-csrf-token": "dev" };
+  const headers = { "content-type": "application/json", ...(await sourceOwnerHeaders()) };
   const enable = await fetch(`${address}/api/admin/sources/${id}`, { method: "PATCH", headers, body: JSON.stringify({ patch: { enabled: true }, version }) });
   assert.equal(enable.status, 409);
   const problem = (await enable.json()) as { code: string; detail: string };

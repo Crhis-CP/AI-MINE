@@ -5,7 +5,7 @@ import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/conte
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
 import { sql, type Tx, type Db } from "../db.ts";
-import { audit } from "./auth.ts";
+import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
 import { currentScheduledJobs } from "../jobs/schedule-status.ts";
@@ -142,7 +142,8 @@ async function release(id: number, error: string, actor: string, note: string, b
 }
 
 /** Existing endpoint can confirm non-billing; billed reconciliation needs the separate amount contract. */
-export async function releaseReceipt(id: number, input: unknown, actor: string) {
+export async function releaseReceipt(id: number, input: unknown, actor: string, principal?: AdminPrincipal) {
+  if (principal) await requireOwner(principal);
   const parsed = ReceiptReleaseRequest.safeParse(input);
   if (!parsed.success) throw Object.assign(new Error("请重新读取回执版本，并填写供应商未计费的核对依据"), { statusCode: 400 });
   const data = parsed.data;
@@ -156,7 +157,10 @@ export async function releaseReceipt(id: number, input: unknown, actor: string) 
   if (data.billed) throw new Conflict("已计费但结果未取回：须完成金额核销，当前不能放行或重新发起付费调用");
   const note = data.note;
   const error = `${MANUAL_UNBILLED_NOTE_PREFIX}${note}`;
-  return sql.begin((tx) => release(id, error, actor, note, false, tx, row));
+  return sql.begin(async (tx) => {
+    if (principal) await requireOwner(principal, tx);
+    return release(id, error, actor, note, false, tx, row);
+  });
 }
 
 /** Restore the original stage; grouping and translation never buy scoring again. */

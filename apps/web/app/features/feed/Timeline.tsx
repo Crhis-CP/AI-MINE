@@ -14,7 +14,7 @@ import { IconChevronDown } from "../../components/icons";
 import { LoadingDots } from "../../components/Logo";
 import { EmptyState } from "../../components/ui/Page";
 import { beijingDate, beijingTime, beijingWeekday, isDateOnlyInstant, NO_TIME } from "../../lib/format";
-import { isHydrated, isReload, markHydrated, readSnapshot, restoreAnchor, saveSnapshot } from "./restore";
+import { isHydrated, markHydrated, readSnapshot, restoreAnchor, saveSnapshot, type ListSnapshot } from "./restore";
 
 const AUTO_BATCHES = 3;
 
@@ -194,13 +194,21 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     return fromResponse(initial);
   });
   const restoredRef = useRef(false);
+  const restorePending = useRef<ListSnapshot<ListState> | null>(null);
   const lastInitial = useRef(initial);
   useLayoutEffect(() => {
     if (lastInitial.current !== initial) {
       lastInitial.current = initial;
+      pageRequest.current?.abort();
+      pageRequest.current = null;
+      setLoadingMore(false);
+      if (!restorePending.current && stateRef.current.batches > 1) {
+        saveSnapshot(historyKey, { ...stateRef.current, cards: [] });
+        restorePending.current = readSnapshot<ListState>(historyKey);
+      }
       setState((old) => ({ ...fromResponse(initial, old.unreadOnly), collapsed: old.collapsed }));
     }
-  }, [initial]);
+  }, [initial, historyKey]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [freshKeys, setFreshKeys] = useState<Set<string>>(() => new Set());
@@ -223,8 +231,9 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       const snap = readSnapshot<ListState>(historyKey);
       if (snap) {
         setState({ ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] });
-        restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
+        restorePending.current = snap;
       } else {
+        restorePending.current = null;
         setState(fromResponse(initial, stateRef.current.unreadOnly));
       }
     }
@@ -236,15 +245,14 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     const snap = readSnapshot<ListState>(historyKey);
     if (!isHydrated()) {
       markHydrated();
-      // A full load keeps the server's fresh list when the reader reloaded; after a back/forward
-      // that reloaded the document, it restores the saved list and position.
-      if (snap && !isReload()) {
+      // Reloads and returns fetch fresh pages to the saved depth; no cached article is resurrected.
+      if (snap) {
         setState({ ...fromResponse(initial, snap.data.unreadOnly ?? false), collapsed: snap.data.collapsed ?? [] });
-        requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus));
+        restorePending.current = snap;
       }
       return;
     }
-    if (snap) restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
+    if (snap) restorePending.current = snap;
   }, [historyKey, initial]);
 
   // Save the snapshot whenever we leave this history entry.
@@ -279,9 +287,10 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     const s = stateRef.current;
     if (!s.nextCursor || pageRequest.current) return;
     const key = filterQuery(filters);
+    const initialVersion = lastInitial.current;
     const controller = new AbortController();
     pageRequest.current = controller;
-    const current = () => lastFilterKey.current === key && !controller.signal.aborted;
+    const current = () => lastFilterKey.current === key && lastInitial.current === initialVersion && !controller.signal.aborted;
     setLoadingMore(true);
     setLoadError(false);
     try {
@@ -335,6 +344,18 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       }
     }
   }, [filters]);
+
+  useLayoutEffect(() => {
+    const snap = restorePending.current;
+    if (!snap || loadingMore || pageRequest.current) return;
+    const depth = Number.isSafeInteger(snap.data.batches) ? Math.min(50, Math.max(1, snap.data.batches)) : 1;
+    if (state.batches < depth && state.nextCursor && !loadError) {
+      void loadMore();
+      return;
+    }
+    restorePending.current = null;
+    restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
+  }, [state.batches, state.nextCursor, loadingMore, loadError, loadMore]);
 
   // Auto-load a few batches when the sentinel nears the viewport, then hand over to a button.
   const sentinel = useRef<HTMLDivElement>(null);

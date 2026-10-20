@@ -33,7 +33,7 @@ RUN npm run build --workspace @amp/web \
 FROM base
 ENV NODE_ENV=production
 COPY --from=build --chown=node:node /app /app
-RUN mkdir -p /data && chown node:node /data
+RUN mkdir -p /data /backups && chown node:node /data /backups && chmod 700 /backups
 USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.ts"]

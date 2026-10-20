@@ -459,6 +459,14 @@
     {
       "name": "content/202610182215_publication_date_corrections.sql",
       "dependsOn": ["content/202610042020_source_date_evidence.sql"]
+    },
+    {
+      "name": "publication/202610201300_report_revision_changes.sql",
+      "dependsOn": ["publication/202610160700_source_time_binding.sql", "publication/202610160600_operator_withdrawal_projection.sql"]
+    },
+    {
+      "name": "reports/202610201400_report_reconciliation.sql",
+      "dependsOn": ["reports/202610120430_report_corrections.sql"]
     }
   ]
 }

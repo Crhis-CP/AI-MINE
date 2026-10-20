@@ -21,6 +21,9 @@ import {
   type ItemRow,
 } from "./items.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
+import type { ReportPublicationChange } from "@amp/contracts/jobs";
+import { addDays, beijingDate, beijingTime } from "@amp/contracts/time";
+import { publicSourceTime, CURRENT_SOURCE_TIME } from "./source-time.ts";
 
 export interface GroupReportsQuery {
   factPublicId: string;
@@ -254,17 +257,76 @@ export interface ReportInputRow {
   selected: boolean;
   selection_candidate: boolean;
   visible_after: Date | null;
+  source_time?: unknown;
+  source_date_version?: number;
+  source_time_current?: boolean;
 }
 const REPORT_INPUT_COLUMNS =
   () => sql`p.article_id AS id,p.revision,p.title,p.summary,p.url,p.category,p.tags,p.score,p.first_party,p.body_mode,p.representative_priority,
   p.source_id,s.name AS source_name,s.kind AS source_kind,p.fact_id,f.public_id AS fact_public_id,f.story_id,st.public_id::text AS story_public_id,
-  p.timeline_at,p.selected,p.selection_candidate,p.visible_after`;
+  p.timeline_at,p.selected,p.selection_candidate,p.visible_after,p.source_time,p.source_date_version`;
+
+/** A date-only source belongs to the next day's issue, without inventing a publication clock. */
+export function sourceReportIssue(value: unknown): string | null {
+  const time = publicSourceTime(value);
+  if (!time) return null;
+  if (time.precision === "date") return addDays(time.local_date!, 1);
+  if (!time.utc) return null;
+  return beijingTime(time.utc) < "08:00" ? beijingDate(time.utc) : addDays(beijingDate(time.utc), 1);
+}
+
+function legacyReportIssue(value: unknown) {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) return null;
+  return beijingTime(value) < "08:00" ? beijingDate(value) : addDays(beijingDate(value), 1);
+}
+
+/** Reliable original dates may arrive after an issue was first published, including backfills. */
+export async function historicalReportRows(start: Date, end: Date): Promise<ReportInputRow[]> {
+  const issue = beijingDate(end);
+  const rows = await sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()},true AS source_time_current
+    FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id
+    LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
+    WHERE p.visibility='public' AND p.eligible AND NOT p.operator_withdrawn
+      AND s.lane='news' AND s.participation_mode='editorial'
+      AND (NOT p.selected OR p.visible_after<=now())
+      AND (${CURRENT_SOURCE_TIME()}) IS NOT NULL
+      AND ((p.published_at>=${new Date(start.getTime() - 86400000)} AND p.published_at<${new Date(end.getTime() + 86400000)})
+        OR (p.source_time->>'local_date'>=${addDays(issue, -2)} AND p.source_time->>'local_date'<=${issue}))
+    ORDER BY p.timeline_at,p.article_id`;
+  return rows.filter((row) => sourceReportIssue(row.source_time) === issue);
+}
+
+/** Pending notifications are never consumed by an unstable timestamp cursor. */
+export async function reportChangeNotifications(limit: number): Promise<ReportPublicationChange[]> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) throw new Error("Invalid report change limit");
+  const rows = await sql<{ article_id: string; generation: string; time_hints: Array<{ sourceTime?: unknown; legacyAt?: unknown }> }[]>`
+    SELECT article_id,generation,time_hints FROM publication.report_revision_changes WHERE pending ORDER BY priority_at DESC,updated_at,article_id LIMIT ${limit}`;
+  return rows.map((row) => ({
+    articleId: row.article_id,
+    generation: Number(row.generation),
+    periods: [
+      ...new Set(
+        row.time_hints
+          .flatMap((hint) => [sourceReportIssue(hint.sourceTime), legacyReportIssue(hint.legacyAt)])
+          .filter((date): date is string => date !== null),
+      ),
+    ].sort(),
+  }));
+}
+
+/** Same transaction as the report owner's durable requests; a newer source change remains pending. */
+export async function ackReportChangeNotifications(changes: ReportPublicationChange[], db: Db) {
+  for (const change of [...changes].sort((a, b) => a.articleId.localeCompare(b.articleId)))
+    await db`UPDATE publication.report_revision_changes SET pending=false,time_hints='[]'::jsonb
+      WHERE article_id=${change.articleId} AND generation=${change.generation} AND pending`;
+}
 
 /** Selected arrivals and ordinary reports of active facts, within one day before the issue's window. */
 export async function reportWindowEvidence(start: Date, end: Date) {
   return sql.begin("isolation level read committed", async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    return tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
+    return tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()},(${CURRENT_SOURCE_TIME()}) IS NOT NULL AS source_time_current
+      FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id
       LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
       WHERE p.visibility='public' AND p.eligible AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
         AND p.timeline_at>=${new Date(start.getTime() - 86400000)} AND p.timeline_at<${end}
@@ -291,9 +353,11 @@ export async function reportCurrentIdentities(ids: string[]) {
 /** Weekly/monthly compilation reads only the current public reports named by published dailies. */
 export async function reportPublicInputs(ids: string[]) {
   if (!ids.length) return [];
-  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
+  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()},(${CURRENT_SOURCE_TIME()}) IS NOT NULL AS source_time_current
+    FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id
     LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
     WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible
+      AND NOT p.operator_withdrawn AND (NOT p.selected OR p.visible_after<=now())
       AND s.lane='news' AND s.participation_mode='editorial' ORDER BY p.article_id`;
 }
 

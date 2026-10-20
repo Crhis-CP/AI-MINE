@@ -150,7 +150,7 @@ function expression(tokens: Token[]) {
     if (["word", "quoted"].includes(t.kind) && tokens[i + 1]?.value === "(") {
       const catalog =
         t.kind === "word" &&
-        ["now", "to_jsonb"].includes(t.value) &&
+        ["now", "to_jsonb", "jsonb_build_array", "jsonb_build_object"].includes(t.value) &&
         tokens[i - 1]?.value === "." &&
         tokens[i - 2]?.kind === "word" &&
         tokens[i - 2]?.value === "pg_catalog" &&
@@ -175,7 +175,7 @@ function bodyRelations(body: string): Relation[] {
       const name = c.name();
       if (locals.has(name) || ["new", "old", "tg_op", "tg_argv", "tg_table_name"].includes(name)) fail("invalid local binding");
       locals.add(name);
-      c.need("text");
+      if (!c.eat("text") && !c.eat("jsonb") && !c.eat("timestamptz")) fail("unsupported local type");
       if (c.eat(":=")) expression(c.until(";"));
       c.need(";");
     }
@@ -189,6 +189,12 @@ function bodyRelations(body: string): Relation[] {
         c.need("end");
         c.need("if");
         c.need(";");
+      } else if (c.eat("insert")) {
+        c.need("into");
+        const table = c.relation();
+        const tail = c.until(";");
+        c.need(";");
+        analyze(`INSERT INTO ${table} ${print(tail)}`);
       } else if (c.eat("update")) {
         const table = c.relation();
         c.need("set");

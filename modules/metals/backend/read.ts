@@ -86,6 +86,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
   });
   const today = beijingDate(now),
     yearPrefix = `${today.slice(0, 4)}年`;
+  const stalePeriod = (end: string, days: number) => new Date(Date.parse(end) + days * 86400_000).toISOString().slice(0, 10) < today;
   const presentationSources = sources.map((source) => {
     const rows = items
       .filter((item) => item.source === source.key)
@@ -93,7 +94,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       .filter((row): row is Price => !!row);
     rows.sort((a, b) => b.end.localeCompare(a.end));
     const newest = rows[0];
-    const status = !newest ? "empty" : new Date(Date.parse(newest.end) + source.staleDays * 86400_000).toISOString().slice(0, 10) < today ? "stale" : "fresh";
+    const status = !newest ? "empty" : rows.some((row) => stalePeriod(row.end, source.staleDays)) ? "stale" : "fresh";
     return {
       key: source.key,
       name: source.name,
@@ -148,7 +149,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         if (source.tag !== frequency.tag || !quote.period) continue;
         const group = groups.get(quote.period.label) ?? { label: short(quote.period.label), end: quote.period.end, stale: false, metals: [] };
         if (quote.period.end > group.end) group.end = quote.period.end;
-        group.stale ||= source.status === "stale";
+        group.stale ||= stalePeriod(quote.period.end, sources.find((registered) => registered.key === quote.source)!.staleDays);
         if (!group.metals.includes(metal.name)) group.metals.push(metal.name);
         groups.set(quote.period.label, group);
       }

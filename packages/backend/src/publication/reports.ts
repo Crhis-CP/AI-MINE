@@ -83,6 +83,8 @@ interface ReportRow {
   window_end: Date;
   content: Record<string, any>;
   generated_at: Date;
+  first_published_at: Date | null;
+  last_revised_at: Date | null;
   revision: number;
 }
 
@@ -295,7 +297,7 @@ async function neighbors(kind: ReportKind, key: string): Promise<{ prev: string 
 export async function loadReport(kind: ReportKind, key: string, machine = false): Promise<ReportDetail | null> {
   const [r] = await sql<
     ReportRow[]
-  >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports r WHERE kind = ${kind} AND key = ${key} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)`;
+  >`SELECT kind, key, window_start, window_end, content, generated_at, revision, first_published_at, last_revised_at FROM reports r WHERE kind = ${kind} AND key = ${key} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)`;
   if (!r) return null;
   const c = r.content;
   const allCitations = reportCitations(c);
@@ -357,6 +359,8 @@ export async function loadReport(kind: ReportKind, key: string, machine = false)
     windowStart: r.window_start.toISOString(),
     windowEnd: r.window_end.toISOString(),
     generatedAt: r.generated_at.toISOString(),
+    ...(r.first_published_at ? { firstPublishedAt: r.first_published_at.toISOString() } : {}),
+    ...(r.last_revised_at ? { lastRevisedAt: r.last_revised_at.toISOString() } : {}),
     revision: r.revision,
     corrections: publicCorrections(c.corrections),
     lead: removed ? null : (c.lead ?? (headline ? { title: headline, leadParagraph: overview ?? "" } : null)),

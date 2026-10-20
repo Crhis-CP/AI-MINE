@@ -2,9 +2,9 @@
 // to the existing object store (Tencent COS through its S3-compatible API, AWS Signature V4) under
 // daily/ (Sundays also weekly/, the 1st also monthly/). A few local copies are kept.
 import { execFile } from "node:child_process";
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rename, rm, stat, statfs, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -14,6 +14,8 @@ import { backupDatabaseUrl } from "../db-bootstrap.ts";
 
 const run = promisify(execFile);
 const KEEP_LOCAL = 3;
+const BACKUP_RESERVE = 1024 ** 3;
+const localBackupEnabled = () => environmentValue("DB_BACKUP_LOCAL_ENABLED") === "true";
 
 /** A password file keeps the database credential out of argv and child-process error messages. */
 async function dumpDatabase(file: string) {
@@ -48,13 +50,29 @@ async function dumpDatabase(file: string) {
       await writeFile(passfile, `*:*:*:*:${password.replace(/\\/g, "\\\\").replace(/:/g, "\\:")}\n`, { mode: 0o600, flag: "wx" });
       env.PGPASSFILE = passfile;
     }
+    const controller = new AbortController();
+    const guard = setInterval(() => {
+      void statfs(path.dirname(file))
+        .then((space) => {
+          if (space.bavail * space.bsize < BACKUP_RESERVE) controller.abort();
+        })
+        .catch(() => controller.abort());
+    }, 1000);
+    guard.unref();
     try {
-      await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", file, address.href], { env, maxBuffer: 16 * 1024 * 1024 });
+      await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", file, address.href], {
+        env,
+        signal: controller.signal,
+        maxBuffer: 16 * 1024 * 1024,
+      });
     } catch (error) {
+      if (controller.signal.aborted) throw new Error("Database backup stopped to preserve free disk space; the previous verified backup is retained.");
       const code = (error as { code?: unknown }).code;
       const status = typeof code === "number" || ["ENOENT", "EACCES", "ETIMEDOUT"].includes(String(code)) ? String(code) : "failed";
       // stderr can contain server-controlled text. Never persist execFile's argv, stderr or cause.
       throw new Error(`Database backup failed (pg_dump: ${status}); check the backup connection, permissions and available storage.`);
+    } finally {
+      clearInterval(guard);
     }
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -71,7 +89,7 @@ interface Store {
 
 /** Backups run where the object store is configured (production); development never uploads. */
 export function backupConfigured(): boolean {
-  return store() !== null;
+  return store() !== null || localBackupEnabled();
 }
 
 function store(): Store | null {
@@ -163,41 +181,57 @@ async function upload(s: Store, key: string, file: string, sha: string, size: nu
 
 export async function runBackup(now = new Date()) {
   const s = store();
-  const dir = path.join(config.dataDir, "backups");
-  await mkdir(dir, { recursive: true });
-  const stamp = now.toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  const dir = environmentValue("AMP_BACKUP_DIR") || path.join(config.dataDir, "backups");
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  const stamp = `${now.toISOString().replace(/[-:T.Z]/g, "")}-${randomBytes(4).toString("hex")}`;
   const dump = path.join(dir, `amp-${stamp}.dump`);
-  await dumpDatabase(dump);
-  // Verify before shipping: the archive must list cleanly.
-  await run("pg_restore", ["--list", dump], { maxBuffer: 64 * 1024 * 1024 });
+  const space = await statfs(dir);
+  const older = (await readdir(dir))
+    .filter((name) => /^amp-\d{12,17}(?:-[a-f0-9]{8})?\.dump$/.test(name))
+    .sort()
+    .at(-1);
+  const estimate = older ? Math.ceil((await stat(path.join(dir, older))).size * 1.25) : BACKUP_RESERVE;
+  if (space.bavail * space.bsize < estimate + BACKUP_RESERVE)
+    throw new Error("Database backup deferred: free space is below the measured dump estimate plus the recovery reserve.");
+  const pendingDump = `${dump}.partial-${process.pid}`;
+  try {
+    await dumpDatabase(pendingDump);
+    await run("pg_restore", ["--list", pendingDump], { maxBuffer: 64 * 1024 * 1024 });
+    await rename(pendingDump, dump);
+  } finally {
+    await rm(pendingDump, { force: true });
+  }
   const files = path.join(dir, `amp-files-${stamp}.tar.gz`);
+  const pendingFiles = `${files}.partial`;
   // An empty archive only when there is nothing to keep. A failure to read or pack existing files is
   // tried once more and otherwise reported: the database dump still ships, but the run fails.
   const kept: string[] = [];
   // Feedback screenshots stay out of backups, so erasing one (admin/feedback.ts) leaves no copy behind.
-  for (const d of ["uploads"])
+  for (const d of ["uploads", "site/release-notes.json", "site/release-notes.json.announcements.json"])
     if (
       await stat(path.join(config.dataDir, d)).then(
-        (i) => i.isDirectory(),
+        (i) => i.isDirectory() || i.isFile(),
         () => false,
       )
     )
       kept.push(d);
   let filesError: string | null = null;
-  if (!kept.length) await run("tar", ["-czf", files, "-T", "/dev/null"]);
+  if (!kept.length) await run("tar", ["-czf", pendingFiles, "-T", "/dev/null"]);
   else {
-    const pack = () => run("tar", ["-czf", files, "-C", config.dataDir, ...kept]);
+    const pack = () => run("tar", ["-czf", pendingFiles, "-C", config.dataDir, ...kept]);
     await pack()
       .catch(() => pack())
-      .catch((error: unknown) => {
-        filesError = String(error instanceof Error ? error.message : error).slice(0, 300);
+      .catch(() => {
+        filesError = "persistent_files_archive_failed";
       });
   }
+  if (filesError) await rm(pendingFiles, { force: true });
+  else await rename(pendingFiles, files);
   const out: Array<{ key: string; bytes: number; sha256: string }> = [];
   const bj = new Date(now.getTime() + 8 * 3600_000);
   const prefixes = ["daily"];
-  if (bj.getUTCDay() === 0) prefixes.push("weekly");
-  if (bj.getUTCDate() === 1) prefixes.push("monthly");
+  if (s && bj.getUTCDay() === 0) prefixes.push("weekly");
+  if (s && bj.getUTCDate() === 1) prefixes.push("monthly");
   for (const file of filesError ? [dump] : [dump, files]) {
     const size = (await stat(file)).size;
     const sha = await fileSha256(file);
@@ -209,18 +243,26 @@ export async function runBackup(now = new Date()) {
       out.push({ key: s ? key : `local-only:${path.basename(file)}`, bytes: size, sha256: sha });
     }
   }
-  // Local copies: keep the newest few of each kind.
-  for (const kind of ["amp-2", "amp-files-"]) {
+  const summary = {
+    at: now.toISOString(),
+    destination: s ? "object-store" : "local",
+    uploaded: !!s && !filesError,
+    objects: out,
+    ...(filesError ? { filesError } : {}),
+  };
+  await writeFile(path.join(dir, `amp-manifest-${stamp}.json`), `${JSON.stringify(summary, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+  // Remove only earlier generated copies after the new files and their hashes exist.
+  for (const kind of filesError ? [] : ["amp-2", "amp-files-", "amp-manifest-"]) {
     const list = (await readdir(dir))
       .filter((f) => f.startsWith(kind))
+      .filter((f) => /^amp-(?:files-|manifest-)?\d{12,17}(?:-[a-f0-9]{8})?\.(?:dump|tar\.gz|json)$/.test(f))
       .sort()
       .reverse();
-    for (const f of list.slice(KEEP_LOCAL)) await rm(path.join(dir, f), { force: true });
+    for (const f of list.slice(!s && localBackupEnabled() ? 1 : KEEP_LOCAL)) await rm(path.join(dir, f), { force: true });
   }
-  const summary = { at: now.toISOString(), uploaded: !!s && !filesError, objects: out, ...(filesError ? { filesError } : {}) };
   await sql`INSERT INTO settings (key, value, updated_by) VALUES ('backup.last', ${sql.json(summary as never)}, 'backup')
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`;
-  if (!s) throw new Error("backup made locally but not uploaded: object store credentials are not configured");
+  if (!s && !localBackupEnabled()) throw new Error("backup made locally but not uploaded: object store credentials are not configured");
   if (filesError) throw new Error(`database backed up, but the file archive failed: ${filesError}`);
   return summary;
 }

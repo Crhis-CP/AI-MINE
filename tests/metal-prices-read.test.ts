@@ -194,6 +194,16 @@ test("latest groups, notes and footnote numbering follow enabled registry order 
   assert.ok(got.notes.some((n) => n.text.includes("转自国家统计局网站")));
 });
 
+test("a fresh quote from one source cannot hide another metal's stale period", async () => {
+  await seed("wb.gold", "2026-09-01", "2026-09-30", "50", { period_label: "2026年9月" });
+  await seed("wb.silver", "2026-01-01", "2026-01-31", "20", { period_label: "2026年1月" });
+  const data = await read();
+  const monthly = data.latest.find((period) => period.tag === "月")!;
+  assert.equal(monthly.stale, false);
+  assert.equal(monthly.extras.find((period) => period.metals.includes("银"))?.stale, true);
+  assert.equal(data.sources.find((source) => source.key === quote(data, "wb.silver").source)?.status, "stale");
+});
+
 test("recorded daily conversions match hand calculations, cross weekends and skip held or missing-rate dates", async () => {
   const fetcher = cbrFetcher(registry, async (url) => {
     if (new URL(url).hostname === "bank.gov.ua") return { url, status: 503, text: () => "Synthetic comparison unavailable" };

@@ -1,7 +1,7 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { mkdtemp, writeFile, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { config } from "@amp/backend/config";
@@ -86,4 +86,26 @@ test("the password-file path still produces a real readable database backup", as
   const db = fixture.open(fixture.urlFor(undefined, restored));
   assert.equal((await db`SELECT count(*)::int AS count FROM sources`)[0].count, (await fixture.admin`SELECT count(*)::int AS count FROM sources`)[0].count);
   assert.ok((await db`SELECT count(*)::int AS count FROM articles`)[0].count > 0);
+  const previousLocal = process.env.DB_BACKUP_LOCAL_ENABLED;
+  process.env.DB_BACKUP_LOCAL_ENABLED = "true";
+  t.after(() => {
+    if (previousLocal === undefined) delete process.env.DB_BACKUP_LOCAL_ENABLED;
+    else process.env.DB_BACKUP_LOCAL_ENABLED = previousLocal;
+  });
+  await mkdir(path.join(dir, "site"), { recursive: true });
+  await mkdir(path.join(dir, "feedback-screenshots"), { recursive: true });
+  await writeFile(path.join(dir, "site/release-notes.json"), "[]");
+  await writeFile(path.join(dir, "site/release-notes.json.announcements.json"), "[]");
+  await writeFile(path.join(dir, "feedback-screenshots/private.png"), "synthetic private screenshot");
+  const local = await runBackup();
+  assert.equal(local.destination, "local");
+  assert.equal(local.uploaded, false);
+  const retained = await readdir(path.join(dir, "backups"));
+  assert.equal(retained.filter((name) => name.endsWith(".dump")).length, 1);
+  assert.equal(retained.filter((name) => name.endsWith(".tar.gz")).length, 1);
+  const archive = retained.find((name) => name.endsWith(".tar.gz"))!;
+  const listed = await fixture.run("tar", ["-tzf", path.join(dir, "backups", archive)]);
+  assert.match(listed.stdout, /site\/release-notes.json/);
+  assert.match(listed.stdout, /announcements.json/);
+  assert.doesNotMatch(listed.stdout, /private.png|feedback-screenshots/);
 });

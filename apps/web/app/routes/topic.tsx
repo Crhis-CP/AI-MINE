@@ -124,7 +124,7 @@ export default function TopicPage() {
         <p className="mt-1 max-w-[640px] text-[13px] leading-relaxed text-ink-3">{topic.definition}</p>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <span className="text-[12.5px] text-ink-4">
-            <span className="num mr-1 text-[20px] font-bold text-ink">{topic.total.toLocaleString("zh-CN")}</span>条{picks ? "精选" : "动态"}
+            <span className="num mr-1 text-[20px] font-bold text-ink">{pool.total.toLocaleString("zh-CN")}</span>条{picks ? "精选" : "动态"}
           </span>
           {topic.related.length > 0 && (
             <span className="flex flex-wrap items-center gap-1.5 text-[12.5px]">

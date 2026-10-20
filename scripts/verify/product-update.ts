@@ -21,7 +21,12 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
       const fragment = parse(header[1]);
       if (!Array.isArray(fragment.highlights) || !fragment.highlights.length || !fragment.highlights.every((v: unknown) => typeof v === "string" && v.trim()))
         throw new Error(`${file}: highlights must be nonempty reader sentences`);
-      validateReleaseNote({ kind: fragment.type, title: fragment.title, body: fragment.highlights });
+      validateReleaseNote({
+        kind: fragment.type,
+        title: fragment.title,
+        body: fragment.highlights,
+        ...(fragment.version === undefined ? {} : { version: fragment.version }),
+      });
       if (!["读者", "运营", "读者和运营"].includes(fragment.audience)) throw new Error(`${file}: invalid audience`);
     }
     const userRoutesChanged = changed.some((file) => /^apps\/web\/app\/(routes|components)\//.test(file) || /^changes\/.+\.md$/.test(file));
