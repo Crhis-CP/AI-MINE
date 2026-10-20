@@ -62,6 +62,7 @@ export default function Reports({ loaderData }: Route.ComponentProps) {
           {notice}
         </p>
       )}
+      <p className="mb-2 text-xs text-ink-3 sm:hidden">左右滑动表格可查看处理结果和操作。</p>
       <Card title="期次与处理结果" pad={false} scrollable>
         <DataTable
           scrollable
@@ -106,7 +107,15 @@ export default function Reports({ loaderData }: Route.ComponentProps) {
               label: "核对结果",
               render: (entry) => (
                 <div className="min-w-56 max-w-lg">
-                  <Badge>{entry.origin === "manual" ? "人工稿" : entry.reconciliation ? STATES[entry.reconciliation.state] : "尚未请求核对"}</Badge>
+                  <Badge>
+                    {entry.origin === "manual"
+                      ? "人工稿"
+                      : entry.reconciliation
+                        ? entry.reconciliation.state === "done" && entry.reconciliation.result === "waiting"
+                          ? "需人工处理"
+                          : STATES[entry.reconciliation.state]
+                        : "尚未请求核对"}
+                  </Badge>
                   {entry.reconciliation?.message && <p className="mt-1 text-sm text-ink-2">{entry.reconciliation.message}</p>}
                   {entry.reconciliation?.checkedAt && (
                     <div className="mt-1 text-xs text-ink-4">

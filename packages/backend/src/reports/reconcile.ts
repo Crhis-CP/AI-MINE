@@ -8,6 +8,7 @@ import { reportPublicInputs } from "@amp/backend/publication/groups";
 import { readCurrentSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { completeReceipt } from "../providers/receipts.ts";
+import { ModelOutputError } from "../providers/llm.ts";
 import { modelFor } from "../editorial/models.ts";
 import { recordRun } from "../jobs/queue.ts";
 import { work } from "../jobs/module-queues.ts";
@@ -130,10 +131,12 @@ export async function reconcileReport(kind: ReportKind, key: string) {
     const dependencies = stableJson(await dailyDependencies(kind, key));
     const processing = await runtimeControlSnapshot("news", ["processing"]);
     let written: Awaited<ReturnType<typeof writePeriod>> | null = null;
+    let requiresManualReview = false;
     if (needsProse) {
       try {
         written = await writePeriod(kind as "weekly" | "monthly", key, prepared.range.start, prepared.range.end, prepared.top, await modelFor("report"));
-      } catch {
+      } catch (error) {
+        requiresManualReview = error instanceof ModelOutputError && job.attempts >= 3;
         /* Existing gateway owns original attempts and uncertain costs. Keep a factual rule summary and retry later. */
       }
     }
@@ -195,10 +198,10 @@ export async function reconcileReport(kind: ReportKind, key: string) {
           VALUES(${kind},${key},${prepared.range.from},${prepared.range.until},${tx.json(revised as never)},now(),now(),${written?.model ?? null},${written ? "model" : "rule"})`;
         if (kind === "daily") await requestReportDependents(key, ids, tx);
       }
-      const retry = needsProse && !written?.overview;
-      await tx`UPDATE reports.reconciliation_jobs SET state=${retry ? "retry" : "done"},result=${changed ? "revised" : "unchanged"},
+      const retry = needsProse && !written?.overview && !requiresManualReview;
+      await tx`UPDATE reports.reconciliation_jobs SET state=${retry ? "retry" : "done"},result=${requiresManualReview ? "waiting" : changed ? "revised" : "unchanged"},
         input_hash=${hash},checked_at=now(),lease_until=NULL,next_attempt_at=now()+interval '30 minutes',
-        message=${retry ? "事实汇编已核对，综述暂未完成；系统稍后再试。" : changed ? "本期已更新，相关周报和月报会继续核对。" : "已核对，事实和编排没有变化。"}
+        message=${requiresManualReview ? "综述多次未通过内容核验，已停止自动重试；事实汇编保持可读。请人工检查模型设置后重新核对。" : retry ? "事实汇编已核对，综述暂未完成；系统稍后再试。" : changed ? "本期已更新，相关周报和月报会继续核对。" : "已核对，事实和编排没有变化。"}
         WHERE kind=${kind} AND key=${key} AND generation=${job.generation}`;
       if (latest) await tx`UPDATE reports.correction_jobs SET state='done',last_error=NULL,updated_at=now() WHERE report_id=${latest.id}`;
       if (written) await completeReceipt(tx, written.receiptId);

@@ -106,8 +106,8 @@ async function carriedArticle(visibility: "public" | "withdrawn", suffix: string
     discoveredAt: at,
     via: "fetch",
   });
-  await sql`INSERT INTO publications(article_id,title,summary,url,source_id,channel,discovered_at,timeline_at,sort_at,selected,eligible,visibility)
-    VALUES(${articleId},'合成已刊矿业报道','合成条目，仅用于验证报告告警。',${`https://example.invalid/report-alerts/${suffix}`},${SOURCE},'news',${at},${at},${at},true,true,${visibility})`;
+  await sql`INSERT INTO publications(article_id,title,summary,url,source_id,channel,discovered_at,timeline_at,sort_at,visible_after,selected,eligible,visibility)
+    VALUES(${articleId},'合成已刊矿业报道','合成条目，仅用于验证报告告警。',${`https://example.invalid/report-alerts/${suffix}`},${SOURCE},'news',${at},${at},${at},${at},true,true,${visibility})`;
   await sql`UPDATE reports SET content=${sql.json({ sections: [{ label: "企业与项目", items: [{ itemId: articleId }] }], flashes: [] })}
     WHERE kind='daily' AND key='2026-09-30'`;
   return articleId;

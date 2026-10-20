@@ -32,10 +32,18 @@ test("unfiltered all exits choose one identical representative per fact and reta
     next = await v1Items({ ...query, cursor: first.page.nextCursor }, now);
   assert.deepEqual([...first.items, ...next.items].map((entry) => entry.id).sort(), ["follow-up", "official"]);
   assert.equal(next.page.hasMore, false);
+  // A later representative keeps the fact's first-appearance position.
+  await sql`UPDATE publications SET published_at=${new Date(now.getTime() - 1000)},timeline_at=${new Date(now.getTime() - 1000)} WHERE article_id='official'`;
+  const currentWeb = await loadTimeline({ scope: "all", channel: "all", category: null, tag: null, now });
   const rss = await itemFeed("all", null, now);
   assert.match(rss, /<amp:content-id>official<\/amp:content-id>/);
   assert.match(rss, /<amp:content-id>follow-up<\/amp:content-id>/);
   assert.doesNotMatch(rss, /<amp:content-id>reprint<\/amp:content-id>/);
+  const feedIds = [...rss.matchAll(/<amp:content-id>([^<]+)<\/amp:content-id>/g)].map((match) => match[1]);
+  assert.deepEqual(
+    feedIds,
+    currentWeb.cards.map((entry) => entry.item.id),
+  );
   await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id='official'`;
   const current = await v1Items({ ...query, limit: 20 }, now);
   assert.deepEqual(current.items.map((entry) => entry.id).sort(), ["follow-up", "reprint"]);

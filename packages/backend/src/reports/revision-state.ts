@@ -16,7 +16,7 @@ export async function requestReportRevision(kind: ReportKind, key: string, reaso
   const window = periodWindow(kind, key);
   // Future periods stay tracked until their normal edition time; new inputs cannot publish them early.
   await db`INSERT INTO reports.reconciliation_jobs(kind,key,period_start,period_end,reason_code,evidence,next_attempt_at)
-    VALUES(${kind},${key},${window.from},${window.until},${reason},${db.json([...new Set(evidence)].slice(0, 200))},${periodDueAt(kind, key)})
+    VALUES(${kind},${key},${window.from},${window.until},${reason},${db.json([...new Set(evidence)].slice(0, 200))},greatest(now(),${periodDueAt(kind, key)}))
     ON CONFLICT(kind,key) DO UPDATE SET generation=reports.reconciliation_jobs.generation+1,
       state='pending',period_start=EXCLUDED.period_start,period_end=EXCLUDED.period_end,reason_code=EXCLUDED.reason_code,evidence=EXCLUDED.evidence,
       requested_at=now(),next_attempt_at=greatest(now(),EXCLUDED.next_attempt_at),attempts=0`;

@@ -513,6 +513,11 @@ for (const width of [390, 1440]) {
     }
     await page.getByRole("button", { name: "加载更多", exact: true }).click();
     await expect(page.locator("[data-card-key]")).toHaveCount(40);
+    added = true;
+    await checkVersionOnFocus(page, "1");
+    await page.getByRole("button", { name: "加载最新", exact: true }).click();
+    await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+    await expect(page.locator("[data-card-key]")).toHaveCount(40);
     const link = page.locator('[data-card-key="fixture-a"] h3 a');
     await link.scrollIntoViewIfNeeded();
     const top = await link.evaluate((node) => node.getBoundingClientRect().top);

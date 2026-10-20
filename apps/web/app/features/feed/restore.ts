@@ -68,7 +68,18 @@ export function readSnapshot<T>(historyKey: string): ListSnapshot<T> | null {
 
 /** Puts the anchor card back at the same viewport offset (falls back to the raw scroll position). */
 export function restoreAnchor(anchor: ListSnapshot<unknown>["anchor"], scrollY: number, keyboardFocus?: ListSnapshot<unknown>["keyboardFocus"]) {
+  const url = window.location.href;
+  let cancelled = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const events = ["pointerdown", "wheel", "touchstart", "keydown"] as const;
+  const stop = () => {
+    cancelled = true;
+    if (timer) clearTimeout(timer);
+    for (const event of events) window.removeEventListener(event, stop, true);
+  };
+  for (const event of events) window.addEventListener(event, stop, { capture: true, passive: true });
   const apply = () => {
+    if (cancelled || window.location.href !== url) return;
     if (anchor) {
       const el = document.querySelector<HTMLElement>(`[data-card-key="${CSS.escape(anchor.key)}"]`);
       if (el) {
@@ -81,6 +92,10 @@ export function restoreAnchor(anchor: ListSnapshot<unknown>["anchor"], scrollY: 
   };
   requestAnimationFrame(() => {
     apply();
+    if (cancelled || window.location.href !== url) {
+      stop();
+      return;
+    }
     // Restore an actual keyboard reading position, never invent focus for a pointer visit.
     // The later layout pass must not steal focus from a new reader interaction.
     if (keyboardFocus && (!document.activeElement || document.activeElement === document.body)) {
@@ -91,6 +106,9 @@ export function restoreAnchor(anchor: ListSnapshot<unknown>["anchor"], scrollY: 
       link?.focus({ preventScroll: true });
     }
     // Images or late layout may shift content; settle once more.
-    setTimeout(apply, 120);
+    timer = setTimeout(() => {
+      apply();
+      stop();
+    }, 120);
   });
 }
