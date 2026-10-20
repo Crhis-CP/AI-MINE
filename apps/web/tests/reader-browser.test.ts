@@ -855,10 +855,13 @@ for (const width of [390, 1440])
     }
   });
 
-test("phone feed scope and sheet preserve mining filters and close on desktop resize", { timeout: 30000 }, async () => {
+test("phone feed scope and sheet preserve mining filters and close on desktop resize", { timeout: 30000 }, async (t) => {
   withdrawn = false;
   added = false;
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  context.setDefaultTimeout(5000);
+  let filterPhase = "open phone page";
+  t.after(() => t.diagnostic(`last filter phase: ${filterPhase}`));
   let releaseChoices!: () => void;
   const choicesReady = new Promise<void>((resolve) => {
     releaseChoices = resolve;
@@ -875,6 +878,7 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     await expect(bar.getByRole("navigation", { name: "看精选或全部" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "国家 / 地区" })).toBeHidden();
     await page.screenshot({ path: ".verify/feed-phone-bar-390.png" });
+    filterPhase = "choose jurisdiction";
     await bar.getByRole("button", { name: "筛选", exact: true }).click();
     const sheet = page.getByRole("dialog", { name: "筛选", exact: true });
     await sheet.getByRole("combobox", { name: "国家 / 地区" }).selectOption("none");
@@ -884,25 +888,40 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     await sheet.getByRole("button", { name: "筛选", exact: true }).click();
     await expect(sheet).not.toBeVisible();
     await expect(page).toHaveURL(/jurisdiction=none/);
+    filterPhase = "combine category and source";
     await bar.getByRole("button", { name: "筛选（已选）" }).click();
     await sheet.getByRole("link", { name: "企业与项目", exact: true }).click();
     await expect(page).toHaveURL(/category=company_project/);
+    await expect(sheet).not.toBeVisible();
+    await expect(page.getByRole("link", { name: "取消筛选：企业与项目", exact: true })).toBeVisible();
     assert.equal(new URL(page.url()).searchParams.get("jurisdiction"), "none");
     await bar.getByRole("button", { name: "筛选（已选）" }).click();
     await sheet.getByRole("link", { name: "一手来源", exact: true }).click();
     await expect(page).toHaveURL(/channel=firstParty/);
+    await expect(sheet).not.toBeVisible();
+    await expect(page.getByRole("link", { name: "取消筛选：一手来源", exact: true })).toBeVisible();
     assert.equal(new URL(page.url()).searchParams.get("category"), "company_project");
+    filterPhase = "remove category";
     await page.getByRole("link", { name: "取消筛选：企业与项目", exact: true }).click();
     await expect(page).not.toHaveURL(/category=/);
+    await expect(page.getByRole("link", { name: "取消筛选：企业与项目", exact: true })).toHaveCount(0);
     assert.equal(new URL(page.url()).searchParams.get("channel"), "firstParty");
     await bar.getByRole("button", { name: "筛选（已选）" }).click();
     await sheet.getByRole("link", { name: "企业与项目", exact: true }).click();
     await expect(page).toHaveURL(/category=company_project/);
+    await expect(sheet).not.toBeVisible();
+    await expect(page.getByRole("link", { name: "取消筛选：企业与项目", exact: true })).toBeVisible();
+    filterPhase = "switch feed scope";
     await bar.getByRole("navigation", { name: "看精选或全部" }).getByRole("link", { name: "全部", exact: true }).click();
     await expect(page).toHaveURL(/\/all\?/);
+    await expect(bar.getByRole("navigation", { name: "看精选或全部" }).getByRole("link", { name: "全部", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await bar.getByRole("button", { name: "筛选（已选）" }).click();
     await sheet.getByText("来源、矿种与日期筛选", { exact: true }).click();
     await expect(sheet.getByLabel("开始日期")).toBeVisible();
+    filterPhase = "resize to desktop";
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(sheet).not.toBeVisible();
     await expect(page.getByRole("combobox", { name: "国家 / 地区" })).toBeVisible();
@@ -910,9 +929,24 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
       page.getByRole("navigation", { name: "来源属性" }).filter({ visible: true }).getByRole("link", { name: "一手来源", exact: true }),
     ).toHaveAttribute("aria-current", "page");
     const categories = page.getByRole("navigation", { name: "新闻分类" }).filter({ visible: true });
+    const naturalSize = await categories.evaluate((node) => ({
+      trackWidth: node.scrollWidth,
+      viewportWidth: node.parentElement!.clientWidth,
+      wrapperWidth: node.parentElement!.parentElement!.clientWidth,
+    }));
+    t.diagnostic(JSON.stringify(naturalSize));
+    if (naturalSize.trackWidth <= naturalSize.wrapperWidth + 2) await expect(page.getByRole("button", { name: "新闻分类向右滚动", exact: true })).toBeHidden();
+    // Host CJK fonts can fit all categories at desktop width. Exercise a constrained
+    // container as well, so the overflow controls are verified without assuming font metrics.
+    await categories.evaluate((node) => {
+      node.parentElement!.parentElement!.style.maxWidth = "560px";
+    });
+    filterPhase = "desktop scroll right";
     await page.getByRole("button", { name: "新闻分类向右滚动", exact: true }).click();
     await expect.poll(() => categories.evaluate((node) => node.parentElement!.scrollLeft)).toBeGreaterThan(0);
+    filterPhase = "desktop scroll left";
     await page.getByRole("button", { name: "新闻分类向左滚动", exact: true }).click();
+    filterPhase = "desktop category";
     await categories.getByRole("link", { name: "政策监管", exact: true }).click();
     await expect(page).toHaveURL(/category=policy_regulation/);
     assert.equal(new URL(page.url()).searchParams.get("channel"), "firstParty");
