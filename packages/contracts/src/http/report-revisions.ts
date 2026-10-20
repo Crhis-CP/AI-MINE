@@ -26,6 +26,7 @@ export const reportRevisionRoutes = {
     schema: {
       operationId: "reconcileNewsReport",
       params: NewsReportPeriod,
+      // Swagger requires inline parameter objects; reusing a registered object produces an unresolved local ref.
       headers: z.looseObject({ "idempotency-key": z.string().regex(/^[\w-]{8,80}$/) }),
       body: ReportReconcileRequest,
       response: {
