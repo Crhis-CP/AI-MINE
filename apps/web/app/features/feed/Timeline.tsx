@@ -183,6 +183,9 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   const location = useLocation();
   const navigation = useNavigation();
   const historyKey = location.key;
+  const filterKey = filterQuery(filters);
+  const lastHistoryKey = useRef(historyKey);
+  const lastFilterKey = useRef(filterKey);
 
   // Back navigation (client side): restore synchronously from the snapshot. A full reload restores
   // after hydration so the first client render matches the server HTML.
@@ -204,13 +207,13 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       pageRequest.current?.abort();
       pageRequest.current = null;
       setLoadingMore(false);
-      if (!restorePending.current && stateRef.current.batches > 1) {
+      if (lastHistoryKey.current === historyKey && lastFilterKey.current === filterKey && !restorePending.current && stateRef.current.batches > 1) {
         saveSnapshot(historyKey, { ...stateRef.current, cards: [] });
         restorePending.current = readSnapshot<ListState>(historyKey);
       }
       setState((old) => ({ ...fromResponse(initial, old.unreadOnly), collapsed: old.collapsed }));
     }
-  }, [initial, historyKey]);
+  }, [initial, historyKey, filterKey]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [freshKeys, setFreshKeys] = useState<Set<string>>(() => new Set());
@@ -220,13 +223,12 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   // Filters (i.e. the loader data) changed. A page still loading for the old filters is cancelled, and a
   // response that arrives anyway is dropped (it belongs to another list and cursor). Back or forward to a
   // filter already visited restores what that history entry had loaded and folded; a new one starts over.
-  const filterKey = filterQuery(filters);
-  const lastFilterKey = useRef(filterKey);
   const pageRequest = useRef<AbortController | null>(null);
   useEffect(() => () => pageRequest.current?.abort(), []);
   useLayoutEffect(() => {
-    if (lastFilterKey.current !== filterKey) {
+    if (lastFilterKey.current !== filterKey || lastHistoryKey.current !== historyKey) {
       lastFilterKey.current = filterKey;
+      lastHistoryKey.current = historyKey;
       pageRequest.current?.abort();
       pageRequest.current = null;
       setLoadingMore(false);

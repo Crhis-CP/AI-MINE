@@ -100,7 +100,16 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       name: source.name,
       tag: frequencies.find((f) => f.key === source.frequency)!.tag,
       status,
-      latest: newest ? { label: newest.label, release: { label: newest.release, url: newest.url, date: newest.date } } : null,
+      latest: newest
+        ? {
+            label: newest.label,
+            release: {
+              label: source.key === "cochilco" ? newest.release.replace(/ [a-f0-9]{64}$/, "") : newest.release,
+              url: newest.url,
+              date: newest.date,
+            },
+          }
+        : null,
     };
   });
   const references = new Map<string, number>();

@@ -500,6 +500,36 @@ test("a combined withdrawal and arrival removes the old card while the new card 
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
 });
 
+test("a new category starts at the top while Back restores the prior category depth", { timeout: 45000 }, async (t) => {
+  deepTimeline = true;
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+  t.after(async () => {
+    deepTimeline = false;
+    await context.close();
+  });
+  await isolateBrowser(context, [origin]);
+  const page = await context.newPage();
+  await openQualifiedReader(page, "/");
+  for (const size of [20, 30]) {
+    await page.locator("[data-card-key]").last().scrollIntoViewIfNeeded();
+    await expect.poll(() => page.locator("[data-card-key]").count()).toBeGreaterThanOrEqual(size);
+  }
+  await page.getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(page.locator("[data-card-key]")).toHaveCount(40);
+  const before = calls.length;
+  await page.locator('nav[aria-label="新闻分类"] a[href="/?category=company_project"]').click();
+  await expect(page).toHaveURL(`${origin}/?category=company_project`);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(150);
+  await expect.poll(() => page.locator("[data-card-key]").count()).toBeLessThan(40);
+  // The near-viewport prefetch may load page two. It must not restore the old manual fourth page.
+  assert.ok(!calls.slice(before).some((url) => url.includes("category=company_project") && url.includes("cursor=3")));
+  await page.goBack();
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(page.locator("[data-card-key]")).toHaveCount(40);
+});
+
 for (const width of [390, 1440]) {
   test(`return from the fourth timeline page revalidates its depth and restores the article anchor at ${width}px`, { timeout: 45000 }, async (t) => {
     deepTimeline = true;

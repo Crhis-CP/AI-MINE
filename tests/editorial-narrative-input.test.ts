@@ -7,6 +7,7 @@ import { periodPrompt } from "../packages/backend/src/reports/period-writing.ts"
 import type { Candidate } from "../packages/backend/src/reports/compose.ts";
 import { buildScoreInput } from "@amp/backend/editorial/analyze";
 import { buildArticlePrompt, finalizeCopy, translateInputOf } from "../packages/backend/src/editorial/writing.ts";
+import { sanitizeBody } from "@amp/backend/content/sanitize";
 
 after(closeDb);
 test("analysis excludes a standalone linked article card while preserving the original, genuine quotations and inline references", async () => {
@@ -26,6 +27,20 @@ test("analysis excludes a standalone linked article card while preserving the or
   const [stored] = await sql`SELECT body_text,body_html FROM articles WHERE id='narrative-article'`;
   assert.equal(stored.body_text, raw);
   assert.equal(stored.body_html, html);
+});
+
+test("a genuine linked quotation retains its safe citation through extraction cleanup and analysis", async () => {
+  const html = sanitizeBody(
+    '<figure><blockquote cite="/primary-evidence"><a href="https://other.invalid/evidence">The permit remains conditional on consultation.</a></blockquote></figure><p>The application continues.</p>',
+    "https://news.invalid/main",
+  );
+  assert.match(html, /cite="https:\/\/news\.invalid\/primary-evidence"/);
+  assert.doesNotMatch(sanitizeBody('<blockquote cite="javascript:alert(1)">Evidence</blockquote>'), /javascript:/);
+  await sql`INSERT INTO sources(id,name,kind) VALUES('quotation-fixture','Synthetic quoted news','rss')`;
+  await sql`INSERT INTO articles(id,source_id,identity_key,url,title,body_html,body_text,language,body_status,discovered_at,timeline_at,raw)
+    VALUES('quotation-article','quotation-fixture','quotation-key','https://news.invalid/main','Permit conditions',${html},
+    'The permit remains conditional on consultation. The application continues.','en','ok',now(),now(),'{}')`;
+  assert.match((await loadAnalyzeInput("quotation-article"))!.bodyText!, /conditional on consultation/);
 });
 
 test("a valid received summary retains later conditions and negations instead of silently cutting at the first sentence", () => {
