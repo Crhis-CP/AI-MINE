@@ -109,7 +109,7 @@ export default function Home() {
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
           <CategoryTabs base={tabsBase} allTo={allTo} category={filters.category} channel={filters.channel} layoutId="home-cat-desk" className="min-w-0" />
-          <SearchField variant="track" keep={{ category: filters.category, jurisdiction: filters.jurisdiction }} />
+          <SearchField variant="track" keep={{ channel: filters.channel, category: filters.category, jurisdiction: filters.jurisdiction }} />
         </div>
       </div>
 

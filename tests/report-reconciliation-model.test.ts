@@ -103,3 +103,13 @@ test("rejected historical prose retries within the existing receipt bound and st
   assert.equal((await sql`SELECT status FROM receipts WHERE subject='report:monthly:2020-07'`)[0].status, "completed");
   assert.equal((await sql`SELECT state FROM reports.reconciliation_jobs WHERE kind='monthly' AND key='2020-07'`)[0].state, "done");
 });
+
+test("report prose preserves a later operative condition within the output schema bound", async () => {
+  const material = await historyMaterial("2020-04-30", "矿山扩建获批，开工仍须另行许可");
+  await composeDaily("2020-05-01");
+  answerOverview = "矿山扩建获批。".repeat(40) + "开工仍须另行许可。";
+  await requestReportRevision("monthly", "2020-04", "synthetic complete conditional prose", [material]);
+  assert.equal((await reconcileReport("monthly", "2020-04")).status, "reconciled");
+  const [saved] = await sql`SELECT content->>'overview' AS overview FROM reports WHERE kind='monthly' AND key='2020-04'`;
+  assert.equal(saved.overview, answerOverview, "the length preference must not delete the last qualifying sentence");
+});

@@ -1,3 +1,4 @@
+import * as cheerio from "cheerio";
 import { evaluateSourcePolicy, sourceDateConfiguration } from "../admin/sources.ts";
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
 import type { TimeAssertion } from "@amp/contracts/time-assertion";
@@ -39,6 +40,32 @@ export interface AnalyzeInputArticle {
   translationZh?: string | null;
 }
 
+/** An embedded article-link card is navigation, not a fact about this article. Raw bodies remain unchanged. */
+function narrativeText(text: string | null, html: string | null, url: string): string | null {
+  if (!html?.includes("<figure")) return text;
+  const $ = cheerio.load(html, null, false);
+  let removed = false;
+  $("figure").each((_, node) => {
+    const figure = $(node),
+      quote = figure.children("blockquote");
+    if (figure.children().length !== 1 || quote.length !== 1 || quote.attr("cite")) return;
+    const link = quote.children("a[href]");
+    if (quote.children().length !== 1 || link.length !== 1 || !link.text().trim() || collapseWhitespace(figure.text()) !== collapseWhitespace(link.text()))
+      return;
+    try {
+      const target = new URL(link.attr("href")!, url);
+      if (!["http:", "https:"].includes(target.protocol) || target.href === url) return;
+    } catch {
+      return;
+    }
+    figure.remove();
+    removed = true;
+  });
+  if (!removed) return text;
+  $("p,h1,h2,h3,h4,h5,h6,li,blockquote,figcaption,td,th,br").append("\n");
+  return collapseWhitespace($.root().text());
+}
+
 export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise<AnalyzeInputArticle | null> {
   const [row] = await db<
     {
@@ -52,6 +79,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
       source_date_version: string;
       discovered_at: Date;
       body_text: string | null;
+      body_html: string | null;
       excerpt: string | null;
       body_status: string;
       media: Array<Record<string, any>>;
@@ -65,7 +93,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
       translation_zh: string | null;
     }[]
   >`
-    SELECT a.source_id, a.id, a.revision, a.title, a.url, a.author, a.published_at, a.source_date_version, a.discovered_at, a.body_text, a.excerpt, a.body_status, a.media,
+    SELECT a.source_id, a.id, a.revision, a.title, a.url, a.author, a.published_at, a.source_date_version, a.discovered_at, a.body_text, a.body_html, a.excerpt, a.body_status, a.media,
            s.name AS source_name, s.kind AS source_kind, s.tier, s.first_party, s.tags AS source_tags, s.owner_entity_id, s.config,
            tr.body_text AS translation_zh
     FROM articles a JOIN sources s ON s.id = a.source_id
@@ -92,7 +120,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
     publishedAt: row.published_at,
     sourceTime,
     discoveredAt: row.discovered_at,
-    bodyText: row.body_text,
+    bodyText: narrativeText(row.body_text, row.body_html, row.url),
     excerpt: row.excerpt,
     bodyStatus: row.body_status,
     media: row.media,

@@ -193,6 +193,7 @@ export function enforceIdentity(input: TranslateInput, copy: { titleZh: string; 
 
 // ── Answer-first summary length ──────────────────────────────────────────────────────────────
 
+/** Legacy formatting helper only; never use it to rewrite published factual summaries. */
 export function compactAnswerFirstSummary(summary: string, maxChars = 190): string {
   const text = summary.trim().replace(/\s*\n+\s*/g, " ");
   if (text.length <= maxChars) return text;
@@ -215,22 +216,9 @@ export function compactAnswerFirstSummary(summary: string, maxChars = 190): stri
   return result.length >= 50 ? `${result.replace(/[，；：、,;:]$/u, "")}。` : text;
 }
 
-function answerFirstSummaryLengthOk(summary: string, input: TranslateInput): boolean {
-  const trimmed = summary.trim();
-  const sourceLength = cleanArticleTextForLLM(input.text).trim().length;
-  const sentences = trimmed
-    .split(/[。！？!?]+/u)
-    .map((p) => p.trim())
-    .filter(Boolean).length;
-  const rich = sourceLength >= 500;
-  return trimmed.length <= 200 && trimmed.length >= (rich ? 80 : 50) && sentences <= 3 && (!rich || sentences >= 2);
-}
-
-/** The length rule (compacted without another call) and the identity guard, for any writing model. */
+/** Preserve the validated answer: a later sentence may qualify the first sentence's legal or business effect. */
 export function finalizeCopy(input: TranslateInput, copy: { titleZh: string; summaryZh: string }) {
-  let summaryZh = copy.summaryZh;
-  if (summaryZh && !answerFirstSummaryLengthOk(summaryZh, input)) summaryZh = compactAnswerFirstSummary(summaryZh);
-  return enforceIdentity(input, { titleZh: copy.titleZh, summaryZh });
+  return enforceIdentity(input, { titleZh: copy.titleZh, summaryZh: copy.summaryZh.trim().replace(/\s*\n+\s*/g, " ") });
 }
 
 // ── Title/summary prompts for items the content understanding does not write ─────────────────

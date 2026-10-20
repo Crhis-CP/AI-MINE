@@ -150,11 +150,15 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.policy_reports",
       "publication.policy_threads",
       "publication.read_watermarks",
+      "publication.report_revision_changes",
       "publication.site_information",
       "publication.site_information_commands",
       "publication.withdrawal_members",
       "publication.withdrawal_targets",
+      "reports.calendar",
       "reports.correction_jobs",
+      "reports.reconciliation_commands",
+      "reports.reconciliation_jobs",
       "sources.source_config_activations",
       "sources.source_config_drafts",
       "sources.source_policy_current",
@@ -171,6 +175,27 @@ test("every real role has exactly the approved table, column, sequence and cross
     await permission(sql, "UPDATE feedback.quota_buckets SET used=used WHERE false", quotaWrite, `${role} updates quota count`);
     await permission(sql, "UPDATE feedback.quota_buckets SET bucket_key=bucket_key WHERE false", role === "migrate", `${role} cannot reassign quota bucket`);
     await permission(sql, "DELETE FROM feedback.quota_buckets WHERE false", role === "migrate", `${role} cannot clear quota`);
+    // Report work state is private. Business roles can append/update; only migrations can delete it.
+    for (const [table, field] of [
+      ["publication.report_revision_changes", "generation"],
+      ["reports.calendar", "first_daily"],
+      ["reports.reconciliation_jobs", "state"],
+      ["reports.reconciliation_commands", "response"],
+    ])
+      for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+        const allowed =
+          role === "migrate" || (role === "backup" && operation === "SELECT") || (["private_ops", "worker"].includes(role) && operation !== "DELETE");
+        const name = table.split(".").map(quote).join(".");
+        const statement =
+          operation === "SELECT"
+            ? `SELECT * FROM ${name} LIMIT 1`
+            : operation === "INSERT"
+              ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false RETURNING 1`
+              : operation === "UPDATE"
+                ? `UPDATE ${name} SET ${quote(field)}=${quote(field)} WHERE false RETURNING 1`
+                : `DELETE FROM ${name} WHERE false RETURNING 1`;
+        await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
+      }
     for (const row of legacy) {
       assert.match(row.name, /^public\./, "this independent oracle covers the 48 legacy public tables");
       const table = { ...row, name: row.name.slice(7) };

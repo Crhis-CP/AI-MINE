@@ -20,6 +20,11 @@ export class CircuitOpenError extends ProviderRejectedError {
   }
 }
 
+/** Availability belongs to an actual model configuration; request quotas still belong to its service. */
+export function modelCircuitKey(service: string, configurationHash: string): string {
+  return `model-route:${service}:${configurationHash}`;
+}
+
 /** Admission runs under the receipt transaction and its service lock, only for a new paid attempt. */
 export async function enterModelCircuit(tx: Db, service: string, timeoutMs: number): Promise<CircuitPermit> {
   await tx`INSERT INTO ai.model_service_circuits(service,state) VALUES(${service},${tx.json(closed())}) ON CONFLICT DO NOTHING`;

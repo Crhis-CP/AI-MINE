@@ -1,10 +1,11 @@
-import { CircuitOpenError, enterModelCircuit, recordModelHealth, modelCircuits } from "../packages/backend/src/providers/circuit.ts";
+import { CircuitOpenError, enterModelCircuit, recordModelHealth, modelCircuits, modelCircuitKey } from "../packages/backend/src/providers/circuit.ts";
 import { recoverUnknownOnce } from "../packages/backend/src/providers/unknown-recovery.ts";
 import { providerRejection } from "../packages/backend/src/providers/provider-errors.ts";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 import { createPolicyGateway } from "../modules/policy/backend/provider.ts";
 import { installPolicyQualityRelease, revokePolicyQualityRelease } from "../modules/policy/backend/domain/quality.ts";
+import { modelConfigurationIdentity } from "../packages/backend/src/admin/models.ts";
 import { currentInterpretationQualification } from "../modules/policy/backend/domain/fallback-quality.ts";
 import { policyModelQualificationKey } from "../modules/policy/backend/domain/model-evidence.ts";
 import { promptVersion } from "../packages/backend/src/editorial/prompts.ts";
@@ -106,8 +107,8 @@ const transport: RegisteredModelTransport = async (url, options) => {
       }),
   };
 };
-async function fixture(capability: "summarize" | "translate" = "summarize") {
-  await sql`DELETE FROM ai.model_service_circuits WHERE service IN ('model:primary.fixture.invalid','model:backup.fixture.invalid')`;
+async function fixture(capability: "summarize" | "translate" = "summarize", options: { primaryModel?: string; keepHealth?: boolean } = {}) {
+  if (!options.keepHealth) await sql`DELETE FROM ai.model_service_circuits`;
   const t = tag(),
     source = `fallback-${t}`,
     url = `https://source.invalid/${t}`;
@@ -125,7 +126,7 @@ async function fixture(capability: "summarize" | "translate" = "summarize") {
         name: `SYNTHETIC ${kind}`,
         interface: "openai-compatible",
         endpoint: `https://${kind}.fixture.invalid/v1`,
-        model: "synthetic-model",
+        model: kind === "primary" ? (options.primaryModel ?? "synthetic-model") : "synthetic-model",
         input_cny_per_million: "0",
         output_cny_per_million: "0",
         billing_basis: "https://fixture.invalid/pricing",
@@ -455,7 +456,7 @@ test("filtered output remains reusable after rejection and route waits do not co
     return false;
   });
   assert.equal(requestTimeouts[before], 120_000, "without an evaluated backup the ordinary timeout remains unchanged");
-  assert.equal((await modelCircuits())["model:primary.fixture.invalid"], undefined, "a route without a backup does not start shared failover health tracking");
+  assert.equal(Object.keys(await modelCircuits()).length, 0, "a route without a backup does not start failover health tracking");
   const known = refused as ModelContentFiltered | null;
   assert.ok(known);
   await rejectReceivedResponse(known.receiptId, "SYNTHETIC downstream rejected filtered output", known.attemptId);
@@ -647,10 +648,10 @@ test("a refused alternate stays unusable without blocking another logical input"
   assert.equal(decision.blocked_reason, null, "a single content refusal does not revoke the service's quality qualification");
 });
 
-test("service cooldown avoids phantom primary attempts and admits one recovery probe across concurrent callers", async () => {
+test("model configuration cooldown avoids phantom primary attempts and admits one recovery probe across concurrent callers", async () => {
   mode = "ok";
   const f = await fixture(),
-    service = "model:primary.fixture.invalid";
+    service = modelCircuitKey("model:primary.fixture.invalid", (await modelConfigurationIdentity(f.primary.key)).configuration_hash!);
   mode = "primary-ok";
   const primaryCache = await f.call("healthy-cached-primary");
   mode = "http";
@@ -663,7 +664,7 @@ test("service cooldown avoids phantom primary attempts and admits one recovery p
   assert.ok(open.openUntil > Date.now());
   const view = (await modelFallbacks(f.owner)).routes.find((row) => row.capability === "summarize")!;
   assert.equal(view.state, "ready");
-  assert.match(view.detail!, /主服务暂时不可用/);
+  assert.match(view.detail!, /主模型暂时不可用/);
   await f.call("cooled-primary");
   assert.deepEqual(events.slice(before + 20), ["backup"]);
   const [decision] =
@@ -747,4 +748,20 @@ test("identical paid alternate output is reused for another currently permitted 
   assert.equal(reused.receiptId, result.receiptId);
   assert.ok(reused.reused);
   assert.equal(events.length, before, "a current source permit does not require buying identical model text again");
+});
+
+test("one unavailable model cannot cool down a healthy model on the same request-quota service", async () => {
+  mode = "ok";
+  const failing = await fixture();
+  mode = "http";
+  for (let i = 0; i < 10; i++) await failing.call(`isolated-model-outage-${i}`);
+  mode = "ok";
+  const healthy = await fixture("translate", { primaryModel: "another-model", keepHealth: true });
+  mode = "primary-ok";
+  const before = events.length;
+  const result = await healthy.call("healthy-sibling-model");
+  assert.equal(result.model, healthy.primary.key, "a different model must still reach its healthy primary");
+  assert.deepEqual(events.slice(before), ["primary"]);
+  const [quota] = await sql`SELECT a.quota_service FROM receipt_attempts a WHERE a.receipt_id=${result.receiptId}`;
+  assert.equal(quota.quota_service, "model:primary.fixture.invalid", "availability isolation must not split the shared request budget");
 });

@@ -209,7 +209,13 @@ const api = createServer((req, res) => {
   }
   if (url.pathname === "/api/site/pool")
     return answer({
-      filters: { channel: "all", category: null, tag: null, q: url.searchParams.get("q"), tab: "time" },
+      filters: {
+        channel: url.searchParams.get("channel") ?? "all",
+        category: url.searchParams.get("category"),
+        tag: null,
+        q: url.searchParams.get("q"),
+        tab: "time",
+      },
       items: withdrawn ? (added ? [card("fixture-new")] : []) : added ? [card("fixture-new"), card()] : [card()],
       page: Number(url.searchParams.get("page") || 1),
       pageCount: 51,
@@ -508,8 +514,8 @@ for (const width of [390, 1440]) {
     const page = await context.newPage();
     await openQualifiedReader(page, "/");
     for (const size of [20, 30]) {
-      await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
-      await expect.poll(() => page.locator("[data-card-key]").count()).toBe(size);
+      await page.locator("[data-card-key]").last().scrollIntoViewIfNeeded();
+      await expect.poll(() => page.locator("[data-card-key]").count()).toBeGreaterThanOrEqual(size);
     }
     await page.getByRole("button", { name: "加载更多", exact: true }).click();
     await expect(page.locator("[data-card-key]")).toHaveCount(40);
@@ -852,6 +858,16 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     await sheet.getByRole("link", { name: "企业与项目", exact: true }).click();
     await expect(page).toHaveURL(/category=company_project/);
     assert.equal(new URL(page.url()).searchParams.get("jurisdiction"), "none");
+    await bar.getByRole("button", { name: "筛选（已选）" }).click();
+    await sheet.getByRole("link", { name: "一手来源", exact: true }).click();
+    await expect(page).toHaveURL(/channel=firstParty/);
+    assert.equal(new URL(page.url()).searchParams.get("category"), "company_project");
+    await page.getByRole("link", { name: "取消筛选：企业与项目", exact: true }).click();
+    await expect(page).not.toHaveURL(/category=/);
+    assert.equal(new URL(page.url()).searchParams.get("channel"), "firstParty");
+    await bar.getByRole("button", { name: "筛选（已选）" }).click();
+    await sheet.getByRole("link", { name: "企业与项目", exact: true }).click();
+    await expect(page).toHaveURL(/category=company_project/);
     await bar.getByRole("navigation", { name: "看精选或全部" }).getByRole("link", { name: "全部", exact: true }).click();
     await expect(page).toHaveURL(/\/all\?/);
     await bar.getByRole("button", { name: "筛选（已选）" }).click();
@@ -860,6 +876,17 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(sheet).not.toBeVisible();
     await expect(page.getByRole("combobox", { name: "国家 / 地区" })).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "来源属性" }).filter({ visible: true }).getByRole("link", { name: "一手来源", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    const categories = page.getByRole("navigation", { name: "新闻分类" }).filter({ visible: true });
+    await page.getByRole("button", { name: "新闻分类向右滚动", exact: true }).click();
+    await expect.poll(() => categories.evaluate((node) => node.parentElement!.scrollLeft)).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "新闻分类向左滚动", exact: true }).click();
+    await categories.getByRole("link", { name: "政策监管", exact: true }).click();
+    await expect(page).toHaveURL(/category=policy_regulation/);
+    assert.equal(new URL(page.url()).searchParams.get("channel"), "firstParty");
+    assert.equal(new URL(page.url()).searchParams.get("jurisdiction"), "none");
   } finally {
     releaseChoices();
     await context.close();

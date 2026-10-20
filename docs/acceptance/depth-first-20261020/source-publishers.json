@@ -1,8 +1,8 @@
 {
-  "checked_at": "2026-10-20T16:28:58.099227+00:00",
-  "scope": "Publisher normalization only; not a grant of source rights, independent reporting proof, final preview or production enablement.",
-  "supported": 36,
-  "unresolved": 7,
+  "checked_at": "2026-10-20T17:05:54.189354+00:00",
+  "scope": "Publisher identity normalization; brand-only evidence is labelled. This is not a grant of source rights, ultimate-control due diligence, independent reporting proof, final production preview or enablement.",
+  "supported": 43,
+  "unresolved": 0,
   "sources": [
     {
       "source_id": "sa5-mining-journal",
@@ -84,10 +84,17 @@
     },
     {
       "source_id": "sa5-china-mining-news",
-      "publisher_id": null,
-      "publisher_name": null,
-      "status": "identity_unresolved_pending_preview",
-      "evidence": []
+      "publisher_id": "china-mining-news",
+      "publisher_name": "中国地质调查局矿业报社",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "http://www.kyb.cgs.gov.cn/zhyw/hyyw/",
+          "finding": "按配置的官方HTTP原址读取，页面标题及页脚主办单位均明确为中国地质调查局矿业报社；没有把同域其他机构并入。",
+          "checked_at": "2026-10-20T17:05:54.189354+00:00"
+        }
+      ],
+      "evidence_level": "named_publisher"
     },
     {
       "source_id": "sa5-ccmn",
@@ -104,10 +111,17 @@
     },
     {
       "source_id": "sa5-sun-sirs",
-      "publisher_id": null,
-      "publisher_name": null,
-      "status": "identity_unresolved_pending_preview",
-      "evidence": []
+      "publisher_id": "toocle",
+      "publisher_name": "上海生意社信息服务有限公司／网盛生意宝",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.100ppi.com/help/about_us/",
+          "finding": "官方简介明确运营公司及网盛生意宝旗下关系；中英文域名属于同一平台。",
+          "checked_at": "2026-10-20T17:05:54.189354+00:00"
+        }
+      ],
+      "evidence_level": "named_publisher_and_group"
     },
     {
       "source_id": "sa5-who",
@@ -306,10 +320,17 @@
     },
     {
       "source_id": "sa5-ar-ambito",
-      "publisher_id": null,
-      "publisher_name": null,
-      "status": "identity_unresolved_pending_preview",
-      "evidence": []
+      "publisher_id": "ar-nefir",
+      "publisher_name": "Nefir S.A.",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.ambito.com/",
+          "finding": "官网页脚Propietario明确为Nefir S.A.；按本次原站披露登记，不从历史集团报道推断其他未核对入口。",
+          "checked_at": "2026-10-20T17:05:54.189354+00:00"
+        }
+      ],
+      "evidence_level": "named_publisher"
     },
     {
       "source_id": "sa5-ar-infobae-mining",
@@ -326,10 +347,17 @@
     },
     {
       "source_id": "sa5-ar-comunidad",
-      "publisher_id": null,
-      "publisher_name": null,
-      "status": "identity_unresolved_pending_preview",
-      "evidence": []
+      "publisher_id": "ar-comunidad",
+      "publisher_name": "Comunidad Minera",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.comunidadminera.com/paginas/p1-politica-de-privacidad",
+          "finding": "官网自我介绍明确矿业媒体品牌与编辑原则；技术CMS服务商不作为发布主体，未核验最终控制人。",
+          "checked_at": "2026-10-20T17:05:54.189354+00:00"
+        }
+      ],
+      "evidence_level": "publisher_brand_only"
     },
     {
       "source_id": "sa5-ar-ancasti",
@@ -359,10 +387,17 @@
     },
     {
       "source_id": "sa5-gy-kaieteur",
-      "publisher_id": null,
-      "publisher_name": null,
-      "status": "identity_unresolved_pending_preview",
-      "evidence": []
+      "publisher_id": "gy-kaieteur",
+      "publisher_name": "Kaieteur News",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://kaieteurnewsonline.com/contact/",
+          "finding": "官方联系页明确Kaieteur News编辑部门与报社地址；按同一媒体品牌归一，未据名称推断其他集团关系。",
+          "checked_at": "2026-10-20T17:05:54.189354+00:00"
+        }
+      ],
+      "evidence_level": "publisher_brand_only"
     },
     {
       "source_id": "sa5-gy-times",
@@ -418,17 +453,31 @@
     },
     {
       "source_id": "sa5-sr-gov",
-      "publisher_id": null,
-      "publisher_name": null,
-      "status": "identity_unresolved_pending_preview",
-      "evidence": []
+      "publisher_id": "sr-gov",
+      "publisher_name": "Overheid van de Republiek Suriname",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://gov.sr/feed/",
+          "finding": "官方RSS channel明确本源为苏里南共和国政府门户；只登记门户发布主体，不用同域名自动合并各机关。",
+          "checked_at": "2026-10-20T17:05:54.189354+00:00"
+        }
+      ],
+      "evidence_level": "official_portal"
     },
     {
       "source_id": "sa5-sr-waterkant",
-      "publisher_id": null,
-      "publisher_name": null,
-      "status": "identity_unresolved_pending_preview",
-      "evidence": []
+      "publisher_id": "sr-waterkant",
+      "publisher_name": "Waterkant",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.waterkant.net/feed/",
+          "finding": "官方RSS channel为Waterkant并链接waterkant.net，与当前官网品牌一致；不声称最终控制人已审查。",
+          "checked_at": "2026-10-20T17:05:54.189354+00:00"
+        }
+      ],
+      "evidence_level": "publisher_brand_only"
     },
     {
       "source_id": "sa5-ar-cnv-news",

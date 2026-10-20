@@ -24,7 +24,7 @@ export function periodPrompt(kind: "weekly" | "monthly", start: string, end: str
       overviewLength: kind === "weekly" ? "160" : "240",
       sections: introduced.length ? introduced.join("、") : "无；sections 返回空对象",
     }),
-    user: `本期：${start} 至 ${end}\n${groups.map((group) => [`【${group.label}】`, ...group.items.flatMap((entry) => [entry, ...(entry.related ?? [])].map((member) => `- ${member.title}｜${member.summary.slice(0, 140)}`))].join("\n")).join("\n")}`,
+    user: `本期：${start} 至 ${end}\n${groups.map((group) => [`【${group.label}】`, ...group.items.flatMap((entry) => [entry, ...(entry.related ?? [])].map((member) => `- ${member.title}｜${member.summary}`))].join("\n")).join("\n")}`,
   };
 }
 const COMPANY_NAMES = Object.values(ENTITIES).map((entity) => [entity.name, ...entity.aliases].map((name) => name.toLowerCase()));
@@ -56,9 +56,10 @@ export async function writePeriod(kind: "weekly" | "monthly", key: string, start
   const prompt = periodPrompt(kind, start, end, entries),
     permit = await reportFallbackInput(inputs);
   const corpus = [`${start} ${end}`, ...inputs.map((entry) => `${entry.title} ${entry.summary}`)].join("\n");
-  const usable = (text: string | undefined, max: number) => {
-    const fit = fitted(text ?? "", max);
-    return fit && grounded(fit, corpus) ? fit : null;
+  const usable = (text: string | undefined) => {
+    // Schema bounds size. Cutting complete sentences can erase a later condition or negation.
+    const whole = text?.trim();
+    return whole && grounded(whole, corpus) ? whole : null;
   };
   const result = await chatJson({
     model,
@@ -68,18 +69,15 @@ export async function writePeriod(kind: "weekly" | "monthly", key: string, start
     ...prompt,
     sourceIds: [...new Set(inputs.map((entry) => entry.sourceId))],
     fallbackPermit: permit?.(prompt),
-    schema: PeriodSchema.refine(
-      (value) => !!usable(value.overview, kind === "weekly" ? 240 : 340),
-      "Report overview must fit and be supported by the current issue",
-    ),
+    schema: PeriodSchema.refine((value) => !!usable(value.overview), "Report overview must fit and be supported by the current issue"),
     temperature: 0.3,
     maxTokens: 2500,
   });
   return {
-    overview: usable(result.data.overview, kind === "weekly" ? 240 : 340),
+    overview: usable(result.data.overview),
     themes: periodGroups(entries).map((group) => ({
       heading: group.label,
-      summary: group.items.length >= 3 ? usable(result.data.sections[group.label], 90) : null,
+      summary: group.items.length >= 3 ? usable(result.data.sections[group.label]) : null,
       storyRefs: group.items,
     })),
     model: result.model,
