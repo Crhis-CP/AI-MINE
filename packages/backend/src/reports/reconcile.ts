@@ -7,8 +7,7 @@ import { isReportWithdrawn } from "@amp/backend/publication/reports";
 import { reportPublicInputs } from "@amp/backend/publication/groups";
 import { readCurrentSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
-import { completeReceipt } from "../providers/receipts.ts";
-import { ModelOutputError } from "../providers/llm.ts";
+import { completeReceipt, ReceiptOutputLimitError } from "../providers/receipts.ts";
 import { modelFor } from "../editorial/models.ts";
 import { recordRun } from "../jobs/queue.ts";
 import { work } from "../jobs/module-queues.ts";
@@ -136,7 +135,7 @@ export async function reconcileReport(kind: ReportKind, key: string) {
       try {
         written = await writePeriod(kind as "weekly" | "monthly", key, prepared.range.start, prepared.range.end, prepared.top, await modelFor("report"));
       } catch (error) {
-        requiresManualReview = error instanceof ModelOutputError && job.attempts >= 3;
+        requiresManualReview = error instanceof ReceiptOutputLimitError;
         /* Existing gateway owns original attempts and uncertain costs. Keep a factual rule summary and retry later. */
       }
     }
