@@ -115,6 +115,7 @@ export function sanitizeBody(html: string, baseUrl?: string): string {
     nonTextTags: DROP_WHOLE,
     allowedAttributes: {
       a: ["href", "title"],
+      blockquote: ["cite"],
       img: ["src", "alt", "width", "height", "title"],
       video: ["src", "poster", "width", "height"],
       code: ["class"],
@@ -136,6 +137,10 @@ export function sanitizeBody(html: string, baseUrl?: string): string {
       a: (tagName, attribs) => ({
         tagName,
         attribs: { ...attribs, ...(attribs.href ? { href: resolveUrl(attribs.href, baseUrl) } : {}) },
+      }),
+      blockquote: (tagName, attribs) => ({
+        tagName,
+        attribs: { ...attribs, ...(attribs.cite ? { cite: resolveUrl(attribs.cite, baseUrl) } : {}) },
       }),
       img: (tagName, attribs) => {
         const src = unwrapProxyUrl(attribs["data-src"] || attribs["data-original"] || attribs.src || "");

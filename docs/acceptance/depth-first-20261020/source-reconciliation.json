@@ -39,7 +39,23 @@
         "mining-com-news"
       ],
       "target_config_hash": "666941c3e64ff3402446fd94f223b02856d0df959918de270300ee5efcd73cc2",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "mining-com-news"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "mining-com-news",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:14:39.192968+00:00",
+          "articles_created_last_7d": 46,
+          "reliable_date_articles": 99
+        }
+      ]
     },
     {
       "candidate_id": "sa5-mining-journal",
@@ -73,7 +89,23 @@
         "exp-20261014-international-mining"
       ],
       "target_config_hash": "38676ec1e5635787e1c0d0c3d5dc28ee2f397b5a985171ad9a203d54871ac582",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "im-mining-news"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "im-mining-news",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:33:35.796509+00:00",
+          "articles_created_last_7d": 41,
+          "reliable_date_articles": 63
+        }
+      ]
     },
     {
       "candidate_id": "sa5-northern-miner",
@@ -83,7 +115,23 @@
         "exp-20261014-northern-miner"
       ],
       "target_config_hash": "752b9fcc219e3e83d5ff00e619ce250d0b4ce11d1e0532a231b43033b7eb4d6d",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-northern-miner"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-northern-miner",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:16:38.825366+00:00",
+          "articles_created_last_7d": 47,
+          "reliable_date_articles": 47
+        }
+      ]
     },
     {
       "candidate_id": "sa5-canadian-mining-journal",
@@ -93,7 +141,23 @@
         "exp-20261014-canadian-mining-journal"
       ],
       "target_config_hash": "1aff5bc11decc2dd098394dcc2f9ec34b4d9b4d4f7c7e2e72bc411ec3a865e16",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-canadian-mining-journal"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-canadian-mining-journal",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:19:35.354266+00:00",
+          "articles_created_last_7d": 34,
+          "reliable_date_articles": 34
+        }
+      ]
     },
     {
       "candidate_id": "sa5-kitco-mining",
@@ -103,7 +167,23 @@
         "exp-20261014-kitco-news"
       ],
       "target_config_hash": "74eefccb0484b7089d28154144430474a8c8c2efd1f648ecc29098747083174b",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-kitco-news"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-kitco-news",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:16:45.119956+00:00",
+          "articles_created_last_7d": 36,
+          "reliable_date_articles": 36
+        }
+      ]
     },
     {
       "candidate_id": "sa5-miningnews",
@@ -139,7 +219,23 @@
         "exp-20261014-global-mining-review"
       ],
       "target_config_hash": "f994eb30e349ee13dbc5eaaf28d24937ff83853ad733c78e299c425b97773999",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-global-mining-review"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-global-mining-review",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:15:35.736177+00:00",
+          "articles_created_last_7d": 26,
+          "reliable_date_articles": 26
+        }
+      ]
     },
     {
       "candidate_id": "sa5-coal-age",
@@ -167,7 +263,23 @@
         "rpl-investingnews"
       ],
       "target_config_hash": "d4cd80a68be024c9e6f99ca5137d32bd1262347d606bf9ad1589d6c23e8f9f5d",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "rpl-investingnews"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "rpl-investingnews",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:20:36.406843+00:00",
+          "articles_created_last_7d": 62,
+          "reliable_date_articles": 62
+        }
+      ]
     },
     {
       "candidate_id": "sa5-fastmarkets",
@@ -177,7 +289,23 @@
         "exp-20261014-fastmarkets"
       ],
       "target_config_hash": "9288ef76d80ddbe7a98ca10d4cc1dcf343dc9a07894ef6e048858c30be42082f",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-fastmarkets"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-fastmarkets",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:15:41.117182+00:00",
+          "articles_created_last_7d": 13,
+          "reliable_date_articles": 13
+        }
+      ]
     },
     {
       "candidate_id": "sa5-spglobal-energy",
@@ -211,7 +339,23 @@
       "action": "review_existing_configuration",
       "existing_source_ids": [],
       "target_config_hash": "d5362c4c7d940d9a469c4d88d40a4b28a771a81f4adeee7e5d5a8185877bb8d2",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "cnmn-news"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "cnmn-news",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T17:56:37.908883+00:00",
+          "articles_created_last_7d": 16,
+          "reliable_date_articles": 9
+        }
+      ]
     },
     {
       "candidate_id": "sa5-smm",
@@ -221,7 +365,23 @@
         "exp-20261014-smm"
       ],
       "target_config_hash": "7778c5a3059f53e765eb0bfa840806894fc2763f4590718ed2285071252673ab",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-smm"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-smm",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:27:34.507976+00:00",
+          "articles_created_last_7d": 211,
+          "reliable_date_articles": 211
+        }
+      ]
     },
     {
       "candidate_id": "sa5-mysteel",
@@ -231,7 +391,23 @@
         "exp-20261014-mysteel"
       ],
       "target_config_hash": "213825a6f04d6b3f64265007637f91d9bf36cfc45a8f5c6869446a9db08a4d16",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-mysteel"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-mysteel",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:04:34.281322+00:00",
+          "articles_created_last_7d": 115,
+          "reliable_date_articles": 108
+        }
+      ]
     },
     {
       "candidate_id": "sa5-ccmn",
@@ -353,7 +529,23 @@
         "exp-20261014-snmpe"
       ],
       "target_config_hash": "8f1ae448fa56e994cae51b90ec6fedc572e7ac394eb16da305c4a44e7c5e2498",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-snmpe"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-snmpe",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:16:42.275636+00:00",
+          "articles_created_last_7d": 9,
+          "reliable_date_articles": 9
+        }
+      ]
     },
     {
       "candidate_id": "sa5-pe-portal-minero",
@@ -371,7 +563,23 @@
         "exp-20261014-dipromin"
       ],
       "target_config_hash": "46ed2c1d94184aef02b134d5315eab154197ed0ff7983cb386e4a89732cf27a6",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-dipromin"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "本日自然读取成功且已有真实材料；保留当前日期解析、节流、噪声过滤及人工状态。包中排序开关或冗余日期声明没有证明新增实际收益，不以整包配置覆盖有效适配。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-dipromin",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:18:36.15479+00:00",
+          "articles_created_last_7d": 40,
+          "reliable_date_articles": 40
+        }
+      ]
     },
     {
       "candidate_id": "sa5-co-anm-news",
@@ -447,7 +655,23 @@
       "action": "review_optimization_or_supplement",
       "existing_source_ids": [],
       "target_config_hash": "8e2c6293443ddcdd741e05a4787009e31e75a5d4941c6e706958acdd8f1e43a7",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "exp-20261014-panorama-minero"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "已有同主体语言版或商业/油气入口持续自然采集；没有证明新入口带来独立新增矿业事实，保留作为后续覆盖候选，不重复启用计数。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "exp-20261014-panorama-minero",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:22:35.50362+00:00",
+          "articles_created_last_7d": 30,
+          "reliable_date_articles": 30
+        }
+      ]
     },
     {
       "candidate_id": "sa5-ar-sitioandino",
@@ -585,7 +809,32 @@
       "action": "review_optimization_or_supplement",
       "existing_source_ids": [],
       "target_config_hash": "f9cd979ffbf95e3e4e0a99ccc3443b3ce93f506632d168fb2818e6eda1923fcf",
-      "suggested_creation_id": null
+      "suggested_creation_id": null,
+      "verified_runtime_ids": [
+        "gy-inews-oil",
+        "inews-gy-business"
+      ],
+      "decision": "retain_existing_native_configuration",
+      "reason": "已有同主体语言版或商业/油气入口持续自然采集；没有证明新入口带来独立新增矿业事实，保留作为后续覆盖候选，不重复启用计数。",
+      "checked_at": "2026-10-20T18:49:04.488514+00:00",
+      "observed": [
+        {
+          "id": "gy-inews-oil",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:14:38.266119+00:00",
+          "articles_created_last_7d": 3,
+          "reliable_date_articles": 14
+        },
+        {
+          "id": "inews-gy-business",
+          "enabled": true,
+          "last_fetch_status": "ok",
+          "last_fetch_at": "2026-10-20T18:14:34.670138+00:00",
+          "articles_created_last_7d": 3,
+          "reliable_date_articles": 16
+        }
+      ]
     },
     {
       "candidate_id": "sa5-ar-hcdn-bills",
@@ -683,5 +932,6 @@
       "target_config_hash": "3a904627bfd811dcf588070f48aa1a52db24e42486760780ba7ba64a1e48d804",
       "suggested_creation_id": null
     }
-  ]
+  ],
+  "followup_evidence_sha256": "6c3bc7e2dbc8b42f382ec979230969293749a37c66e9bd53ace88969fbdb1568"
 }
