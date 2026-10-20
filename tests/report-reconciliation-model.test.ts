@@ -10,11 +10,12 @@ import { requestReportRevision } from "../packages/backend/src/reports/revision-
 import { historyMaterial } from "./report-history-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 
+let answerOverview = "矿山扩建获批。";
 let afterAnswer: (() => Promise<void>) | null = null;
 const provider = await stub(async () => {
   await afterAnswer?.();
   return {
-    choices: [{ message: { content: JSON.stringify({ overview: "矿山扩建获批。", sections: {} }) } }],
+    choices: [{ message: { content: JSON.stringify({ overview: answerOverview, sections: {} }) } }],
     usage: { prompt_tokens: 20, completion_tokens: 10 },
   };
 });
@@ -56,4 +57,36 @@ test("historical monthly composition keeps its paid result when material changes
   await requestReportRevision("monthly", "2020-08", "synthetic manual protection", [material]);
   assert.equal((await reconcileReport("monthly", "2020-08")).status, "preserved_manual");
   assert.equal(provider.hits(), hits);
+});
+
+test("rejected historical prose retries within the existing receipt bound and stops asking for automatic recovery at exhaustion", async () => {
+  const material = await historyMaterial("2020-06-30", "矿山扩建获批");
+  await composeDaily("2020-07-01");
+  answerOverview = "";
+  await requestReportRevision("monthly", "2020-06", "synthetic rejected prose", [material]);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await sql`UPDATE reports.reconciliation_jobs SET state='pending',next_attempt_at=now() WHERE kind='monthly' AND key='2020-06'`;
+    await reconcileReport("monthly", "2020-06");
+    const [receipt] = await sql`SELECT id,status FROM receipts WHERE subject='report:monthly:2020-06'`;
+    assert.equal(receipt.status, "failed", "an unusable overview cannot become a completed reusable answer");
+    await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes' WHERE receipt_id=${receipt.id}`;
+  }
+  const [job] = await sql`SELECT state,result,message FROM reports.reconciliation_jobs WHERE kind='monthly' AND key='2020-06'`;
+  assert.equal(job.state, "done");
+  assert.equal(job.result, "waiting");
+  assert.match(job.message, /人工/);
+  const [count] = await sql`SELECT count(*)::int AS n FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id WHERE r.subject='report:monthly:2020-06'`;
+  assert.equal(count.n, 3, "the existing three-response gateway bound is retained");
+  answerOverview = "矿山扩建获批。";
+  const july = await historyMaterial("2020-07-31", "矿山扩建获批");
+  await composeDaily("2020-08-01");
+  answerOverview = "无依据的99999吨。";
+  await requestReportRevision("monthly", "2020-07", "synthetic grounding", [july]);
+  await reconcileReport("monthly", "2020-07");
+  await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes' WHERE receipt_id IN(SELECT id FROM receipts WHERE subject='report:monthly:2020-07')`;
+  answerOverview = "矿山扩建获批。";
+  await requestReportRevision("monthly", "2020-07", "synthetic valid retry", [july]);
+  await reconcileReport("monthly", "2020-07");
+  assert.equal((await sql`SELECT status FROM receipts WHERE subject='report:monthly:2020-07'`)[0].status, "completed");
+  assert.equal((await sql`SELECT state FROM reports.reconciliation_jobs WHERE kind='monthly' AND key='2020-07'`)[0].state, "done");
 });

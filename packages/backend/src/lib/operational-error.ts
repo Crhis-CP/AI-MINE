@@ -1,4 +1,4 @@
-/** Also matches a URI cut off by a legacy database projection before its host or closing quote. */
+/** Legacy command quoting cannot delimit an unescaped credential; discard the diagnostic suffix. */
 export function redactDatabaseConnection(text: string): string {
-  return text.replace(/postgres(?:ql)?:\/\/[^\s"'<>]*/gi, "[database connection]");
+  return text.replace(/postgres(?:ql)?:\/\/[\s\S]*/gi, "[database connection]");
 }

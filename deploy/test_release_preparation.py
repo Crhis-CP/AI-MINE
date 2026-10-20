@@ -1,10 +1,19 @@
 import tempfile
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 import prepare_capacity as preparation
 
 
 class PreparationTests(unittest.TestCase):
+    def test_config_and_manifest_aliases_protect_the_same_existing_image(self):
+        manifest = "sha256:" + "b"*64
+        config = "sha256:" + "a"*64
+        with patch.object(preparation, "command", side_effect=lambda *args: manifest if args[-1] in {manifest, config} else ""):
+            self.assertEqual(preparation.canonical_images({manifest, config}), {manifest})
+            with self.assertRaisesRegex(ValueError, "unavailable"):
+                preparation.canonical_images({"missing"})
+
     def test_only_identical_program_bytes_share_an_inode_and_all_recovery_paths_survive(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

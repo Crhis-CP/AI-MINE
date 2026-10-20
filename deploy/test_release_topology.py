@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import unittest
 
 SCRIPT = Path(__file__).with_name("production-release.sh").read_text()
@@ -14,6 +15,21 @@ class TopologyTests(unittest.TestCase):
     def select(self, services):
         command = 'set -e\ndc() { printf "%s\\n" "$FIXTURE_SERVICES"; }\n' + SELECT + '\nread_api_topology\nprintf "%s\\n" "${RELEASE_CURRENT_APIS[@]}"'
         return subprocess.run(["bash", "-c", command], env={"PATH": os.defpath, "FIXTURE_SERVICES": services}, capture_output=True, text=True)
+
+    def test_local_backup_upgrade_default_preserves_explicit_owner_choice(self):
+        setter = re.search(r"set_value\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        enable = re.search(r"if ! grep -Eq .*?DB_BACKUP_LOCAL_ENABLED.*?; fi", SCRIPT).group(0)
+        for existing in [None, "DB_BACKUP_LOCAL_ENABLED=false", "DB_BACKUP_LOCAL_ENABLED=true", "export DB_BACKUP_LOCAL_ENABLED=false", " DB_BACKUP_LOCAL_ENABLED = false"]:
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as folder:
+                environment_file = Path(folder) / ".env"
+                before = "UNCHANGED=synthetic\n" + ("" if existing is None else f"{existing}\n")
+                environment_file.write_text(before)
+                environment_file.chmod(0o600)
+                result = subprocess.run(["bash", "-c", "set -e\n" + setter + "\n" + enable],
+                    env={"PATH": os.environ["PATH"], "RELEASE_ROOT": folder}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(environment_file.read_text(), before if existing else before + "DB_BACKUP_LOCAL_ENABLED=true\n")
+                self.assertEqual(environment_file.stat().st_mode & 0o777, 0o600)
 
     def test_accepts_complete_legacy_and_unified_topologies(self):
         for services, expected in [("db\napi\nworker\nweb", ["api"]), ("setup\npublic-api\nprivate-api\nworker\nweb", ["public-api", "private-api"])]:

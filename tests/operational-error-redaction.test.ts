@@ -20,3 +20,13 @@ test("historical truncated task errors never return a database connection string
   assert.ok(old);
   assert.ok(!old.error.includes(credential) && !old.error.includes("postgresql://"), "a truncated URI must also be redacted on read");
 });
+
+test("legacy diagnostic quoting cannot leave a credential suffix visible", async () => {
+  const { redactDatabaseConnection } = await import("../packages/backend/src/lib/operational-error.ts");
+  for (const separator of ["'", '"', " ", "\n", "<"]) {
+    const message = `failed command postgres://worker:SYNTHETIC${separator}PASSWORD_SUFFIX@db.invalid/archive`;
+    const safe = redactDatabaseConnection(message);
+    assert.ok(!safe.includes("PASSWORD_SUFFIX"), "a raw credential delimiter is not a safe redaction terminator");
+    assert.match(safe, /failed command/);
+  }
+});

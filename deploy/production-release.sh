@@ -122,7 +122,7 @@ set_value() {
 import os,sys
 from pathlib import Path
 p=Path(sys.argv[1]); key,value=sys.argv[2:]
-assert key in {'APP_IMAGE','AMP_RELEASE'}
+assert key in {'APP_IMAGE','AMP_RELEASE','DB_BACKUP_LOCAL_ENABLED'}
 stat=p.stat(); lines=p.read_text().splitlines(); lines=[s for s in lines if not s.startswith(key+'=')]
 t=p.with_name(p.name+'.release-tmp');t.write_text('\n'.join([*lines,key+'='+value])+'\n')
 os.chmod(t,stat.st_mode & 0o777);os.chown(t,stat.st_uid,stat.st_gid);os.replace(t,p)
@@ -300,7 +300,7 @@ set_value APP_IMAGE "$RELEASE_IMAGE"
 set_value AMP_RELEASE "$RELEASE_ID"
 # This upgrade enables the requested daily local recovery point when no explicit Owner choice exists.
 # Existing false/true values and any configured object store retain their meaning.
-if ! grep -q '^DB_BACKUP_LOCAL_ENABLED=' "$RELEASE_ROOT/.env"; then set_value DB_BACKUP_LOCAL_ENABLED true; fi
+if ! grep -Eq '^[[:space:]]*(export[[:space:]]+)?DB_BACKUP_LOCAL_ENABLED[[:space:]]*=' "$RELEASE_ROOT/.env"; then set_value DB_BACKUP_LOCAL_ENABLED true; fi
 export APP_IMAGE=$RELEASE_IMAGE AMP_RELEASE=$RELEASE_ID
 phase migrate
 # Existing source settings and permissions are retained; this run never executes seed or source repair.

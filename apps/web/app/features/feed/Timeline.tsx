@@ -196,9 +196,11 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   const restoredRef = useRef(false);
   const restorePending = useRef<ListSnapshot<ListState> | null>(null);
   const lastInitial = useRef(initial);
+  const [appliedInitial, setAppliedInitial] = useState(initial);
   useLayoutEffect(() => {
     if (lastInitial.current !== initial) {
       lastInitial.current = initial;
+      setAppliedInitial(initial);
       pageRequest.current?.abort();
       pageRequest.current = null;
       setLoadingMore(false);
@@ -347,7 +349,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
 
   useLayoutEffect(() => {
     const snap = restorePending.current;
-    if (!snap || loadingMore || pageRequest.current) return;
+    if (!snap || appliedInitial !== initial || loadingMore || pageRequest.current) return;
     const depth = Number.isSafeInteger(snap.data.batches) ? Math.min(50, Math.max(1, snap.data.batches)) : 1;
     if (state.batches < depth && state.nextCursor && !loadError) {
       void loadMore();
@@ -355,7 +357,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     }
     restorePending.current = null;
     restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
-  }, [state.batches, state.nextCursor, loadingMore, loadError, loadMore]);
+  }, [state.batches, state.nextCursor, loadingMore, loadError, loadMore, appliedInitial, initial]);
 
   // Auto-load a few batches when the sentinel nears the viewport, then hand over to a button.
   const sentinel = useRef<HTMLDivElement>(null);

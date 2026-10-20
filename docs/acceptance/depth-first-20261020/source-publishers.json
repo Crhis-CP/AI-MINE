@@ -1,0 +1,525 @@
+{
+  "checked_at": "2026-10-20T16:28:58.099227+00:00",
+  "scope": "Publisher normalization only; not a grant of source rights, independent reporting proof, final preview or production enablement.",
+  "supported": 36,
+  "unresolved": 7,
+  "sources": [
+    {
+      "source_id": "sa5-mining-journal",
+      "publisher_id": "aspermont",
+      "publisher_name": "Aspermont",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.aspermont.com/about/our-brands/",
+          "finding": "官方品牌页同时列明 Mining Journal、Mining Magazine、MiningNews.net 和 Australia’s Mining Monthly。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-mining-weekly",
+      "publisher_id": "creamer-media",
+      "publisher_name": "Creamer Media",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://engineeringnews.co.za/article/creamer-media-consolidates-global-resources-coverage-under-mining-weekly-international-banner-2026-04-13",
+          "finding": "出版方自述 Mining Weekly 是 Creamer Media 旗下品牌。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-mining-magazine",
+      "publisher_id": "aspermont",
+      "publisher_name": "Aspermont",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.aspermont.com/about/our-brands/",
+          "finding": "官方品牌页同时列明 Mining Journal、Mining Magazine、MiningNews.net 和 Australia’s Mining Monthly。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-miningnews",
+      "publisher_id": "aspermont",
+      "publisher_name": "Aspermont",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.aspermont.com/about/our-brands/",
+          "finding": "官方品牌页同时列明 Mining Journal、Mining Magazine、MiningNews.net 和 Australia’s Mining Monthly。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-mining-monthly",
+      "publisher_id": "aspermont",
+      "publisher_name": "Aspermont",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.aspermont.com/about/our-brands/",
+          "finding": "官方品牌页同时列明 Mining Journal、Mining Magazine、MiningNews.net 和 Australia’s Mining Monthly。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-coal-age",
+      "publisher_id": "mining-media-international",
+      "publisher_name": "Mining Media International",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.linkedin.com/company/miningmediainternational",
+          "finding": "出版机构官方公司页列明Coal Age、E&MJ、Equipo Minero；主站研究抓取robots拒绝不绕过。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-china-mining-news",
+      "publisher_id": null,
+      "publisher_name": null,
+      "status": "identity_unresolved_pending_preview",
+      "evidence": []
+    },
+    {
+      "source_id": "sa5-ccmn",
+      "publisher_id": "ccmn",
+      "publisher_name": "长江有色（厦门）科技股份有限公司",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://m.ccmn.cn/about.html",
+          "finding": "网站自述由长江有色（厦门）科技股份有限公司全资主办；ccmn.cn 与 cjys.cn 属同平台。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sun-sirs",
+      "publisher_id": null,
+      "publisher_name": null,
+      "status": "identity_unresolved_pending_preview",
+      "evidence": []
+    },
+    {
+      "source_id": "sa5-who",
+      "publisher_id": "who",
+      "publisher_name": "World Health Organization",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.who.int/about/policies/terms-of-use",
+          "finding": "官方版权页明确 World Health Organization 为站点信息发布机构。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-ilo",
+      "publisher_id": "ilo",
+      "publisher_name": "International Labour Organization",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.ilo.org/rights-and-permissions",
+          "finding": "ILO 官方权利页确认 ILO 出版与新闻材料身份；不据此合并其他联合国机构。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-auc",
+      "publisher_id": "auc",
+      "publisher_name": "African Union Commission",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://au.int/en/auc",
+          "finding": "官方委员会页面及版权标识确认 AUC；不是非洲全部政府或联合国的主体。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-odihr",
+      "publisher_id": "odihr",
+      "publisher_name": "OSCE Office for Democratic Institutions and Human Rights",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://odihr.osce.org/",
+          "finding": "机构页面明确 ODIHR 身份，不仅凭 osce.org 共享域名归并。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-pe-minem-news",
+      "publisher_id": "pe-minem",
+      "publisher_name": "Ministerio de Energía y Minas",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.gob.pe/institucion/minem/funcionarios",
+          "finding": "秘鲁政府官方机构目录确认 MINEM；共享 gob.pe 不代表同一机关。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-pe-ingemmet-news",
+      "publisher_id": "pe-ingemmet",
+      "publisher_name": "Instituto Geológico, Minero y Metalúrgico",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.gob.pe/institucion/ingemmet/institucional",
+          "finding": "官方页确认 INGEMMET 为具有自身法人资格和技术、行政及经济自主性的公共技术机构；不与 MINEM 按共享平台合并。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-pe-ipen-news",
+      "publisher_id": "pe-ipen-news",
+      "publisher_name": "Instituto Peruano de Energía Nuclear",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.gob.pe/institucion/ipen/institucional",
+          "finding": "官方页确认 Instituto Peruano de Energía Nuclear；与 MINEM/INGEMMET 分开记录。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-pe-mincetur-news",
+      "publisher_id": "pe-mincetur-news",
+      "publisher_name": "Ministerio de Comercio Exterior y Turismo",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.gob.pe/institucion/mincetur/institucional",
+          "finding": "官方页确认 Ministerio de Comercio Exterior y Turismo，非 gob.pe 平台统一出版主体。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-pe-portal-minero",
+      "publisher_id": "pe-portal-minero",
+      "publisher_name": "Portal Minero del Perú",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://portalminerodelperu.com/nosotros/",
+          "finding": "官网机构介绍及版权主体一致。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-co-anm-news",
+      "publisher_id": "co-anm",
+      "publisher_name": "Agencia Nacional de Minería",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.anm.gov.co/",
+          "finding": "官方主页确认 ANM 发布机构；既有 policy-co-004 是同机构法规入口但当前 owner 为空。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-co-vanguardia-mining",
+      "publisher_id": "co-galvis-ramirez",
+      "publisher_name": "Galvis Ramirez & Cia S.A.S.",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.vanguardia.com/nuestra-empresa/",
+          "finding": "官网页脚标注出版主体；不是同名西班牙报纸。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-co-congress-senate-news",
+      "publisher_id": "co-congress-senate",
+      "publisher_name": "Senado de la República de Colombia",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.senado.gov.co/",
+          "finding": "官方搜索读回确认参议院机构；本次直接打开曾超时，机构身份不由该超时否定。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-co-congress-house-news",
+      "publisher_id": "co-congress-house",
+      "publisher_name": "Cámara de Representantes de Colombia",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.camara.gov.co/",
+          "finding": "官方主页确认众议院；不与参议院直接合并为单一网站主体。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-ar-mineria",
+      "publisher_id": "ar-mineria",
+      "publisher_name": "Secretaría de Minería de Argentina",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.argentina.gob.ar/economia/mineria",
+          "finding": "官方矿业机关页面；不得继承同域总统府或 InfoLEG 的主体。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-ar-sitioandino",
+      "publisher_id": "medios-andinos",
+      "publisher_name": "Medios Andinos S.A.",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.sitioandino.com.ar/sociedad/sitio-andino-cumple-15-anos-y-reafirma-su-compromiso-un-periodismo-federal-cercano-y-veraz-n5704866",
+          "finding": "媒体自己的周年说明明确 Sitio Andino 由 Medios Andinos S.A. 创办；不归并到 Grupo América 或 Grupo Indalo。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-ar-ambito",
+      "publisher_id": null,
+      "publisher_name": null,
+      "status": "identity_unresolved_pending_preview",
+      "evidence": []
+    },
+    {
+      "source_id": "sa5-ar-infobae-mining",
+      "publisher_id": "thx-medios",
+      "publisher_name": "THX Medios S.A.",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.infobae.com/politicas-de-privacidad/",
+          "finding": "阿根廷条款明确运营主体THX Medios S.A.；仅用于媒体主体归一。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-ar-comunidad",
+      "publisher_id": null,
+      "publisher_name": null,
+      "status": "identity_unresolved_pending_preview",
+      "evidence": []
+    },
+    {
+      "source_id": "sa5-ar-ancasti",
+      "publisher_id": "ar-ancasti",
+      "publisher_name": "El Ancasti",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.elancasti.com.ar/",
+          "finding": "官网版权标注El Ancasti；只确认发布品牌，不声称已核验最终控制人。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-gy-ggmc",
+      "publisher_id": "gy-ggmc",
+      "publisher_name": "Guyana Geology and Mines Commission",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.ggmc.gov.gy/",
+          "finding": "GGMC 官方站点确认机构身份；不与同国 MNR 简单合并。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-gy-kaieteur",
+      "publisher_id": null,
+      "publisher_name": null,
+      "status": "identity_unresolved_pending_preview",
+      "evidence": []
+    },
+    {
+      "source_id": "sa5-gy-times",
+      "publisher_id": "gy-times",
+      "publisher_name": "Guyana Times Inc",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://guyanatimesgy.com/about-us/",
+          "finding": "官方About Us列明Guyana Times Inc及其出版物。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-starnieuws",
+      "publisher_id": "sr-network-star",
+      "publisher_name": "Network Star Suriname",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.starnieuws.com/index.php/welcome/index/colofon",
+          "finding": "官方编辑部名单和版权明确NSS主体。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-dwt",
+      "publisher_id": "sr-dwt",
+      "publisher_name": "De Ware Tijd Online",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://dwtonline.com/contact/",
+          "finding": "官方联系页与版权链接dwtnews.com，按同一出版品牌归一；技术服务商不作为发布主体。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-times-news",
+      "publisher_id": "sr-times-news",
+      "publisher_name": "Times of Suriname",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.surinametimes.com/contact",
+          "finding": "官方联系页及版权主体为Times of Suriname；不将其他同名报刊归入。",
+          "checked_at": "2026-10-20T16:28:58.099227+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-gov",
+      "publisher_id": null,
+      "publisher_name": null,
+      "status": "identity_unresolved_pending_preview",
+      "evidence": []
+    },
+    {
+      "source_id": "sa5-sr-waterkant",
+      "publisher_id": null,
+      "publisher_name": null,
+      "status": "identity_unresolved_pending_preview",
+      "evidence": []
+    },
+    {
+      "source_id": "sa5-ar-cnv-news",
+      "publisher_id": "ar-cnv",
+      "publisher_name": "Comisión Nacional de Valores",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.argentina.gob.ar/cnv",
+          "finding": "官方 CNV 机构页面；与同域其他机关分开。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-ar-anpyn-news",
+      "publisher_id": "ar-anpyn-news",
+      "publisher_name": "Agencia Nacional de Puertos y Navegación",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://www.argentina.gob.ar/economia/agencia-nacional-de-puertos-y-navegacion",
+          "finding": "官方 ANPYN 机构页面；保留独立机关键。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-nh",
+      "publisher_id": "sr-nh",
+      "publisher_name": "Ministerie van Natuurlijke Hulpbronnen",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://gov.sr/ministeries/ministerie-van-natuurlijke-hulpbronnen/",
+          "finding": "政府平台中的自然资源部专页；与总统府、VWA 分开。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-president-news",
+      "publisher_id": "sr-president-news",
+      "publisher_name": "Kabinet van de President",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://gov.sr/ministeries/kabinet-van-de-president/",
+          "finding": "政府平台中的总统府专页；共享 gov.sr 不代表与各部同一主体。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-vwa-labour",
+      "publisher_id": "sr-vwa",
+      "publisher_name": "Ministerie van Volksgezondheid, Welzijn & Arbeid",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/",
+          "finding": "同一 VWA 机关下的 nieuws 与 nieuws-2 栏目，共用同一发布机构。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-sr-vwa-news",
+      "publisher_id": "sr-vwa",
+      "publisher_name": "Ministerie van Volksgezondheid, Welzijn & Arbeid",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://gov.sr/ministeries/ministerie-van-volksgezondheid-welzijn-arbeid/",
+          "finding": "同一 VWA 机关下的 nieuws 与 nieuws-2 栏目，共用同一发布机构。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    },
+    {
+      "source_id": "sa5-gy-mnr",
+      "publisher_id": "gy-mnr",
+      "publisher_name": "Ministry of Natural Resources of Guyana",
+      "status": "identity_supported_pending_preview",
+      "evidence": [
+        {
+          "url": "https://mnr.gov.gy/",
+          "finding": "MNR 官方站点确认机构身份。",
+          "checked_at": "2026-10-20T15:59:31.953805+00:00"
+        }
+      ]
+    }
+  ]
+}

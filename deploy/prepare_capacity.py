@@ -85,6 +85,13 @@ def command(*args):
     return subprocess.check_output(args, text=True, timeout=180).strip()
 
 
+def canonical_images(references):
+    resolved = {command("docker", "image", "inspect", "--format", "{{.Id}}", image) for image in references}
+    if any(not re.fullmatch(r"sha256:[a-f0-9]{64}", image) for image in resolved):
+        raise ValueError("A referenced recovery image is unavailable")
+    return resolved
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
@@ -114,9 +121,8 @@ def main():
             containers = command("docker", "ps", "-aq").split()
             images = set(command("docker", "inspect", "--format", "{{.Image}}", *containers).split()) if containers else set()
             images.update(backups.values())
-            for image in images:
-                if command("docker", "image", "inspect", "--format", "{{.Id}}", image) != image:
-                    raise ValueError("A referenced recovery image is unavailable")
+            # Docker 29 may expose a config digest on containers and a manifest digest on images.
+            images = canonical_images(images)
             result["programs"] = program_plan(args.backup_root)
             result["protected_images"] = sorted(images)
             if args.apply:

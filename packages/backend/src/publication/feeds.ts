@@ -233,6 +233,10 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
           WHERE m.article_id=p.article_id AND m.material_revision=current_article.revision AND m.state IN ('active','needs_review')) AS human_edited
       FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id
       ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`;
+  if (allIds) {
+    const order = new Map(allIds.map((id, index) => [id, index]));
+    rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+  }
   let meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number };
   if (category) {
     const label = CATEGORY_LABELS[category] ?? category;

@@ -32,6 +32,8 @@ test("report management reads without side effects and persists exactly one vers
   const first = await app.inject(command);
   assert.equal(first.statusCode, 200, first.body);
   assert.equal(first.json().status, "queued");
+  const [scheduled] = await sql`SELECT next_attempt_at FROM reports.reconciliation_jobs WHERE kind='daily' AND key='2020-10-01'`;
+  assert.ok(scheduled.next_attempt_at.getTime() > Date.now() - 5000, "a newly requested historical check is scheduled now, not years in the past");
   assert.deepEqual((await app.inject(command)).json(), first.json());
   assert.equal(Number((await sql`SELECT generation FROM reports.reconciliation_jobs`)[0].generation), 1);
   assert.equal((await sql`SELECT 1 FROM reports.reconciliation_commands`).length, 1);

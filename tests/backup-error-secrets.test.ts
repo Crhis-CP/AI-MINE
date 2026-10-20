@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { mkdir, mkdtemp, writeFile, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
+import fsPromises from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { config } from "@amp/backend/config";
 import { closeDb, initializeDb, sql } from "@amp/backend/db";
@@ -108,4 +110,37 @@ test("the password-file path still produces a real readable database backup", as
   assert.match(listed.stdout, /site\/release-notes.json/);
   assert.match(listed.stdout, /announcements.json/);
   assert.doesNotMatch(listed.stdout, /private.png|feedback-screenshots/);
+  const originalArchive = await readFile(path.join(dir, "backups", archive));
+  const previousPath = process.env.PATH;
+  const marker = path.join(dir, "synthetic-tar-started");
+  await writeFile(
+    path.join(dir, "tar"),
+    `#!${process.execPath}
+const fs = require("node:fs");
+fs.writeFileSync(${JSON.stringify(marker)},"packing");
+fs.writeFileSync(process.argv[3],"synthetic partial archive");
+setTimeout(()=>process.exit(0),2200);
+`,
+    { mode: 0o700 },
+  );
+  process.env.PATH = `${dir}${path.delimiter}${previousPath}`;
+  const originalStatfs = fsPromises.statfs;
+  const override = t.mock.method(fsPromises, "statfs", async (...args: Parameters<typeof originalStatfs>) => {
+    const space = await originalStatfs(...args);
+    const started = await readFile(marker).then(
+      () => true,
+      () => false,
+    );
+    return started ? { ...space, bavail: 0 } : space;
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(runBackup(), /file archive failed/);
+    assert.deepEqual(await readFile(path.join(dir, "backups", archive)), originalArchive, "previous complete file archive survives reserve exhaustion");
+    assert.ok(!(await readdir(path.join(dir, "backups"))).some((name) => name.includes("partial")));
+  } finally {
+    override.mock.restore();
+    syncBuiltinESMExports();
+    process.env.PATH = previousPath;
+  }
 });

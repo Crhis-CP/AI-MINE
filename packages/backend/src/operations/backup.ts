@@ -4,7 +4,7 @@
 import { execFile } from "node:child_process";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, readdir, rename, rm, stat, statfs, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readdir, rename, rm, stat, statfs, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -16,6 +16,45 @@ const run = promisify(execFile);
 const KEEP_LOCAL = 3;
 const BACKUP_RESERVE = 1024 ** 3;
 const localBackupEnabled = () => environmentValue("DB_BACKUP_LOCAL_ENABLED") === "true";
+
+/** Every growing backup output retains the same reserve, including persistent-file archives. */
+async function withSpaceReserve<T>(directory: string, action: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const check = async () => {
+    const space = await statfs(directory);
+    if (space.bavail * space.bsize < BACKUP_RESERVE) controller.abort();
+  };
+  await check();
+  const guard = setInterval(() => {
+    void check().catch(() => controller.abort());
+  }, 1000);
+  guard.unref();
+  try {
+    if (controller.signal.aborted) throw new Error("reserve");
+    return await action(controller.signal);
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("Backup stopped to preserve free disk space; the previous verified backup is retained.");
+    throw error;
+  } finally {
+    clearInterval(guard);
+  }
+}
+async function persistentBytes(file: string): Promise<number> {
+  const info = await lstat(file);
+  if (info.isSymbolicLink()) return 0;
+  if (info.isFile()) return info.size;
+  if (!info.isDirectory()) return 0;
+  let bytes = 0;
+  for (const name of await readdir(file)) bytes += await persistentBytes(path.join(file, name));
+  return bytes;
+}
+const archiveEnvironment = () =>
+  Object.fromEntries(
+    ["PATH", "HOME", "LANG", "LC_ALL"].flatMap((name) => {
+      const value = environmentValue(name);
+      return value === undefined ? [] : [[name, value]];
+    }),
+  );
 
 /** A password file keeps the database credential out of argv and child-process error messages. */
 async function dumpDatabase(file: string) {
@@ -50,30 +89,20 @@ async function dumpDatabase(file: string) {
       await writeFile(passfile, `*:*:*:*:${password.replace(/\\/g, "\\\\").replace(/:/g, "\\:")}\n`, { mode: 0o600, flag: "wx" });
       env.PGPASSFILE = passfile;
     }
-    const controller = new AbortController();
-    const guard = setInterval(() => {
-      void statfs(path.dirname(file))
-        .then((space) => {
-          if (space.bavail * space.bsize < BACKUP_RESERVE) controller.abort();
-        })
-        .catch(() => controller.abort());
-    }, 1000);
-    guard.unref();
-    try {
-      await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", file, address.href], {
-        env,
-        signal: controller.signal,
-        maxBuffer: 16 * 1024 * 1024,
-      });
-    } catch (error) {
-      if (controller.signal.aborted) throw new Error("Database backup stopped to preserve free disk space; the previous verified backup is retained.");
-      const code = (error as { code?: unknown }).code;
-      const status = typeof code === "number" || ["ENOENT", "EACCES", "ETIMEDOUT"].includes(String(code)) ? String(code) : "failed";
-      // stderr can contain server-controlled text. Never persist execFile's argv, stderr or cause.
-      throw new Error(`Database backup failed (pg_dump: ${status}); check the backup connection, permissions and available storage.`);
-    } finally {
-      clearInterval(guard);
-    }
+    await withSpaceReserve(path.dirname(file), async (signal) => {
+      try {
+        await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", file, address.href], {
+          env,
+          signal,
+          maxBuffer: 16 * 1024 * 1024,
+        });
+      } catch (error) {
+        const code = (error as { code?: unknown }).code;
+        const status = typeof code === "number" || ["ENOENT", "EACCES", "ETIMEDOUT"].includes(String(code)) ? String(code) : "failed";
+        // Never persist execFile's argv, stderr or cause.
+        throw new Error(`Database backup failed (pg_dump: ${status}); check the backup connection, permissions and available storage.`);
+      }
+    });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -183,28 +212,7 @@ export async function runBackup(now = new Date()) {
   const s = store();
   const dir = environmentValue("AMP_BACKUP_DIR") || path.join(config.dataDir, "backups");
   await mkdir(dir, { recursive: true, mode: 0o700 });
-  const stamp = `${now.toISOString().replace(/[-:T.Z]/g, "")}-${randomBytes(4).toString("hex")}`;
-  const dump = path.join(dir, `amp-${stamp}.dump`);
-  const space = await statfs(dir);
-  const older = (await readdir(dir))
-    .filter((name) => /^amp-\d{12,17}(?:-[a-f0-9]{8})?\.dump$/.test(name))
-    .sort()
-    .at(-1);
-  const estimate = older ? Math.ceil((await stat(path.join(dir, older))).size * 1.25) : BACKUP_RESERVE;
-  if (space.bavail * space.bsize < estimate + BACKUP_RESERVE)
-    throw new Error("Database backup deferred: free space is below the measured dump estimate plus the recovery reserve.");
-  const pendingDump = `${dump}.partial-${process.pid}`;
-  try {
-    await dumpDatabase(pendingDump);
-    await run("pg_restore", ["--list", pendingDump], { maxBuffer: 64 * 1024 * 1024 });
-    await rename(pendingDump, dump);
-  } finally {
-    await rm(pendingDump, { force: true });
-  }
-  const files = path.join(dir, `amp-files-${stamp}.tar.gz`);
-  const pendingFiles = `${files}.partial`;
-  // An empty archive only when there is nothing to keep. A failure to read or pack existing files is
-  // tried once more and otherwise reported: the database dump still ships, but the run fails.
+  await chmod(dir, 0o700);
   const kept: string[] = [];
   // Feedback screenshots stay out of backups, so erasing one (admin/feedback.ts) leaves no copy behind.
   for (const d of ["uploads", "site/release-notes.json", "site/release-notes.json.announcements.json"])
@@ -215,16 +223,42 @@ export async function runBackup(now = new Date()) {
       )
     )
       kept.push(d);
-  let filesError: string | null = null;
-  if (!kept.length) await run("tar", ["-czf", pendingFiles, "-T", "/dev/null"]);
-  else {
-    const pack = () => run("tar", ["-czf", pendingFiles, "-C", config.dataDir, ...kept]);
-    await pack()
-      .catch(() => pack())
-      .catch(() => {
-        filesError = "persistent_files_archive_failed";
-      });
+  const fileBytes = (await Promise.all(kept.map((name) => persistentBytes(path.join(config.dataDir, name))))).reduce((a, b) => a + b, 0);
+  const stamp = `${now.toISOString().replace(/[-:T.Z]/g, "")}-${randomBytes(4).toString("hex")}`;
+  const dump = path.join(dir, `amp-${stamp}.dump`);
+  const space = await statfs(dir);
+  const older = (await readdir(dir))
+    .filter((name) => /^amp-\d{12,17}(?:-[a-f0-9]{8})?\.dump$/.test(name))
+    .sort()
+    .at(-1);
+  const estimate = older ? Math.ceil((await stat(path.join(dir, older))).size * 1.25) : BACKUP_RESERVE;
+  if (space.bavail * space.bsize < estimate + Math.ceil(fileBytes * 1.05) + BACKUP_RESERVE)
+    throw new Error("Database backup deferred: free space is below the measured dump and persistent-file estimate plus the recovery reserve.");
+  const pendingDump = `${dump}.partial-${process.pid}`;
+  try {
+    await dumpDatabase(pendingDump);
+    await run("pg_restore", ["--list", pendingDump], { env: archiveEnvironment(), maxBuffer: 64 * 1024 * 1024 });
+    await rename(pendingDump, dump);
+  } finally {
+    await rm(pendingDump, { force: true });
   }
+  const files = path.join(dir, `amp-files-${stamp}.tar.gz`);
+  const pendingFiles = `${files}.partial`;
+  // An empty archive only when there is nothing to keep. A failure to read or pack existing files is
+  // tried once more and otherwise reported: the database dump still ships, but the run fails.
+  let filesError: string | null = null;
+  const pack = () =>
+    withSpaceReserve(dir, (signal) =>
+      run("tar", kept.length ? ["-czf", pendingFiles, "-C", config.dataDir, ...kept] : ["-czf", pendingFiles, "-T", "/dev/null"], {
+        env: archiveEnvironment(),
+        signal,
+      }),
+    );
+  await pack()
+    .catch(() => pack())
+    .catch(() => {
+      filesError = "persistent_files_archive_failed";
+    });
   if (filesError) await rm(pendingFiles, { force: true });
   else await rename(pendingFiles, files);
   const out: Array<{ key: string; bytes: number; sha256: string }> = [];

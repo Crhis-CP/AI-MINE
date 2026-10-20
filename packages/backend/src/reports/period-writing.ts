@@ -55,6 +55,11 @@ export async function writePeriod(kind: "weekly" | "monthly", key: string, start
   const inputs = [...new Map(entries.flatMap((entry) => [entry, ...(entry.related ?? [])]).map((entry) => [entry.itemId, entry])).values()];
   const prompt = periodPrompt(kind, start, end, entries),
     permit = await reportFallbackInput(inputs);
+  const corpus = [`${start} ${end}`, ...inputs.map((entry) => `${entry.title} ${entry.summary}`)].join("\n");
+  const usable = (text: string | undefined, max: number) => {
+    const fit = fitted(text ?? "", max);
+    return fit && grounded(fit, corpus) ? fit : null;
+  };
   const result = await chatJson({
     model,
     purpose: `report_${kind}`,
@@ -63,15 +68,13 @@ export async function writePeriod(kind: "weekly" | "monthly", key: string, start
     ...prompt,
     sourceIds: [...new Set(inputs.map((entry) => entry.sourceId))],
     fallbackPermit: permit?.(prompt),
-    schema: PeriodSchema,
+    schema: PeriodSchema.refine(
+      (value) => !!usable(value.overview, kind === "weekly" ? 240 : 340),
+      "Report overview must fit and be supported by the current issue",
+    ),
     temperature: 0.3,
     maxTokens: 2500,
   });
-  const corpus = [`${start} ${end}`, ...inputs.map((entry) => `${entry.title} ${entry.summary}`)].join("\n");
-  const usable = (text: string | undefined, max: number) => {
-    const fit = fitted(text ?? "", max);
-    return fit && grounded(fit, corpus) ? fit : null;
-  };
   return {
     overview: usable(result.data.overview, kind === "weekly" ? 240 : 340),
     themes: periodGroups(entries).map((group) => ({
