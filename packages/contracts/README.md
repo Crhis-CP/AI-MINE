@@ -79,3 +79,7 @@ Agent答案契约在`http/agent`：匿名只读Markdown说明及资讯、检索�
 关于页SiteStats可选sampleSources/latest分别限180和8，供实际来源流程示意与最近精选；旧响应继续可读，缺字段不推断已采集或公开。
 
 历史报告修订兼容契约（TASK-0378）：ReportDetail可选firstPublishedAt/lastRevisedAt分别表示首次出刊及最近实际修订，原generatedAt、revision、corrections保持。`http/private`声明按真实刊期的reconcileNewsReport：观察到的revision、非空原因、幂等请求键及人工版本/撤回保留状态。`jobs`新增固定news lane的reports.reconcile和按代际确认的ReportPublicationChange；处理器、持久化及页面随后接入，声明不表示已修订。模块职责及消费者验收见[历史报告设计](../../docs/04-architecture/report-revisions.md)。
+
+后台报告列表（TASK-0380）补充同一修订流程的查询：按日报/周报/月报有界分页，返回版本、人工来源、首次出刊/最近修订，以及持久核对状态、实际检查时间、下次尝试和安全说明。排队、运行、等待重试、修订完成、无变化、人工保留与撤回分别表达；查询本身不生成报告或调用模型。
+
+后台列表中的revision=0、origin=null表示已跟踪但尚未出刊；expectedRevision=0只用于此类期次，消费者须有现成跟踪记录或可验证材料，不凭任意日期创造空刊。公开已刊报告的版本语义不变。
