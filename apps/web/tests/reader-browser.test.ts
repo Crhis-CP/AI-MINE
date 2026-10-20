@@ -162,7 +162,8 @@ const api = createServer((req, res) => {
         ? Array.from({ length: 10 }, (_, i) => {
             const page = Number(url.searchParams.get("cursor") ?? 0);
             const id = page === 3 && i === 9 ? "fixture-a" : `deep-${page}-${i}`;
-            return { key: id, anchorAt: now, item: card(id), group: null };
+            const item = card(id);
+            return { key: id, anchorAt: now, item: { ...item, title: added ? "更新后的矿业动态" : item.title }, group: null };
           })
         : [
             {
@@ -500,6 +501,18 @@ test("a combined withdrawal and arrival removes the old card while the new card 
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
 });
 
+async function loadFourTimelinePages(page: Page) {
+  const viewport = page.viewportSize()!;
+  await page.mouse.move(viewport.width / 2, Math.min(600, viewport.height - 100));
+  for (const size of [20, 30]) {
+    // Scroll the viewport like a reader; a card node can be replaced during loader refresh.
+    await page.mouse.wheel(0, await page.evaluate(() => document.documentElement.scrollHeight));
+    await expect.poll(() => page.locator("[data-card-key]").count()).toBeGreaterThanOrEqual(size);
+  }
+  await page.getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(page.locator("[data-card-key]")).toHaveCount(40);
+}
+
 test("a new category starts at the top while Back restores the prior category depth", { timeout: 45000 }, async (t) => {
   deepTimeline = true;
   withdrawn = false;
@@ -512,12 +525,7 @@ test("a new category starts at the top while Back restores the prior category de
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   await openQualifiedReader(page, "/");
-  for (const size of [20, 30]) {
-    await page.locator("[data-card-key]").last().scrollIntoViewIfNeeded();
-    await expect.poll(() => page.locator("[data-card-key]").count()).toBeGreaterThanOrEqual(size);
-  }
-  await page.getByRole("button", { name: "加载更多", exact: true }).click();
-  await expect(page.locator("[data-card-key]")).toHaveCount(40);
+  await loadFourTimelinePages(page);
   const before = calls.length;
   await page.locator('nav[aria-label="新闻分类"] a[href="/?category=company_project"]').click();
   await expect(page).toHaveURL(`${origin}/?category=company_project`);
@@ -543,22 +551,32 @@ for (const width of [390, 1440]) {
     await isolateBrowser(context, [origin]);
     const page = await context.newPage();
     await openQualifiedReader(page, "/");
-    for (const size of [20, 30]) {
-      await page.locator("[data-card-key]").last().scrollIntoViewIfNeeded();
-      await expect.poll(() => page.locator("[data-card-key]").count()).toBeGreaterThanOrEqual(size);
-    }
-    await page.getByRole("button", { name: "加载更多", exact: true }).click();
-    await expect(page.locator("[data-card-key]")).toHaveCount(40);
+    await loadFourTimelinePages(page);
     added = true;
     await checkVersionOnFocus(page, "1");
     await page.getByRole("button", { name: "加载最新", exact: true }).click();
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
-    await expect(page.locator("[data-card-key]")).toHaveCount(40);
     const link = page.locator('[data-card-key="fixture-a"] h3 a');
-    await link.scrollIntoViewIfNeeded();
+    // Forty old cards can still exist while the new loader data is committing.
+    // The refreshed last card proves that all four fresh pages have rendered.
+    await expect(link).toHaveText("更新后的矿业动态");
+    await expect(page.locator("[data-card-key]")).toHaveCount(40);
+    await expect(page.getByText("正在加载", { exact: true })).toHaveCount(0);
+    // A reader's wheel input supersedes any delayed restoration from "load latest".
+    await page.mouse.move(width / 2, 500);
+    await page.mouse.wheel(0, await page.evaluate(() => document.documentElement.scrollHeight));
+    await link.hover();
     const top = await link.evaluate((node) => node.getBoundingClientRect().top);
+    const homeKey = await page.evaluate(() => history.state.key);
     await link.click();
     await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    await expect(page.getByRole("heading", { name: "可核对的矿业动态", exact: true })).toBeVisible();
+    t.diagnostic(
+      `saved fourth-page position: ${await page.evaluate((key) => {
+        const saved = JSON.parse(sessionStorage.getItem(`amp:list:${key}`) ?? "null");
+        return JSON.stringify(saved && { scrollY: saved.scrollY, anchor: saved.anchor, batches: saved.data.batches });
+      }, homeKey)}`,
+    );
     await page.goBack();
     await expect(page.locator("[data-card-key]")).toHaveCount(40);
     await expect.poll(async () => Math.abs((await link.evaluate((node) => node.getBoundingClientRect().top)) - top)).toBeLessThan(80);
