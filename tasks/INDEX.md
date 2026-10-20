@@ -250,7 +250,16 @@
 | [TASK-0376](TASK-0376.md) | T-0101 | M3 | architect | integrated | Agent答案与关于页动态展示契约 | — |
 | [TASK-0377](TASK-0377.md) | T-0101 | M3 | architect | specified | 后台维护与反馈控制契约 | — |
 | [TASK-0378](TASK-0378.md) | T-0101 | M3 | architect | locally_verified | 声明历史报告修订与首次出刊的兼容契约 | — |
+| [TASK-0379](TASK-0379.md) | T-0101 | M3 | architect | specified | 记录报告相关公开变化并提供可靠历史日期候选 | TASK-0378 |
 | [TASK-0380](TASK-0380.md) | T-0101 | M3 | architect | locally_verified | 声明后台报告核对结果的有界查询 | TASK-0378 |
+| [TASK-0381](TASK-0381.md) | T-0101 | M3 | architect | specified | 持久记录报告修订请求与自然期间依赖 | TASK-0378、TASK-0379 |
+| [TASK-0382](TASK-0382.md) | T-0101 | M3 | architect | specified | 从原有巡检自动执行有界历史报告修订 | TASK-0378、TASK-0379、TASK-0381 |
+| [TASK-0383](TASK-0383.md) | T-0101 | M3 | architect | specified | 接入报告管理查询及按期核对界面 | TASK-0380、TASK-0381、TASK-0382 |
+| [TASK-0384](TASK-0384.md) | T-0101 | M3 | architect | specified | 修复运营权限范围及回执和价格的故障隔离 | TASK-0367 |
+| [TASK-0385](TASK-0385.md) | T-0101 | M3 | architect | specified | 恢复深页阅读并统一全部动态代表稿 | TASK-0367 |
+| [TASK-0386](TASK-0386.md) | T-0101 | M3 | architect | specified | 启用有容量保护的每日本地备份 | TASK-0367 |
+| [TASK-0387](TASK-0387.md) | T-0101 | M3 | architect | specified | 在既有发布锁下压缩重复程序归档和过期构建缓存 | TASK-0367 |
+| [TASK-0388](TASK-0388.md) | T-0101 | M3 | architect | specified | 以实际发布记录改进读者更新说明 | TASK-0367 |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

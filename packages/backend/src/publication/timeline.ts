@@ -4,7 +4,7 @@ import { attachSourcePolicies } from "./reader-context.ts";
 // story remain separate cards; changing the representative never brings an old fact back to today.
 import type { GroupInfo, TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { sql } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
   selectedCondition,
@@ -19,6 +19,10 @@ import {
   toFeedItemSummary,
   topicCondition,
   type ItemRow,
+  API_ITEM_COLUMNS,
+  API_ITEM_FROM,
+  type ApiItemRow,
+  type PublicApiReadScope,
 } from "./items.ts";
 
 export interface TimelineQuery extends TimelineFilters {
@@ -60,6 +64,30 @@ export { pickRepresentative } from "./representative.ts";
 /** Only a report still belonging to its fact can share that fact's card. Mentions stay independent. */
 function ownFactEvidence() {
   return sql`EXISTS (SELECT 1 FROM fact_articles fa WHERE fa.fact_id=p.fact_id AND fa.article_id=p.article_id AND fa.role IN ('primary', 'report'))`;
+}
+
+/** Unfiltered machine lists share the website's fact membership and representative ranking. */
+export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Promise<Array<ApiItemRow & { sort_at: Date }>> {
+  const time = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) ELSE p.sort_at END`;
+  return db<(ApiItemRow & { sort_at: Date })[]>`
+    WITH base AS MATERIALIZED (
+      SELECT p.article_id,${time} AS at,p.representative_priority,p.body_mode,p.score,p.timeline_at,
+        CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} THEN 'f'||p.fact_id::text ELSE 'a'||p.article_id END AS gk
+      FROM publications p WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND ${time}<=${query.now}
+    ), anchors AS (
+      SELECT gk,min(at) AS anchor FROM base GROUP BY gk
+    ), ranked AS (
+      SELECT DISTINCT ON(gk) gk,article_id FROM base
+      ORDER BY gk,representative_priority,(body_mode='full') DESC,coalesce(score,0) DESC,timeline_at,article_id COLLATE "C"
+    ), page AS MATERIALIZED (
+      SELECT article_id,anchor FROM ranked JOIN anchors USING(gk)
+      WHERE (${query.windowStart}::timestamptz IS NULL OR anchor>=${query.windowStart})
+        AND (${query.afterAt}::timestamptz IS NULL OR (anchor,article_id)<(${query.afterAt},${query.afterId}))
+      ORDER BY anchor DESC,article_id DESC LIMIT ${query.limit}
+    )
+    SELECT ${API_ITEM_COLUMNS()},page.anchor AS sort_at ${API_ITEM_FROM()} JOIN page ON page.article_id=p.article_id
+    WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now})
+    ORDER BY page.anchor DESC,p.article_id DESC`;
 }
 
 /** Public evidence behind the same fact's expandable source list, under the current filters. */

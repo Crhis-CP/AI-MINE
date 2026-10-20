@@ -15,6 +15,7 @@ let origin = "",
   browser: Browser;
 let phase = "setup";
 let unreadGroup = false;
+let deepTimeline = false;
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
 let withdrawn = false,
@@ -157,17 +158,23 @@ const api = createServer((req, res) => {
         topic: null,
         jurisdiction: url.searchParams.get("jurisdiction"),
       },
-      cards: [
-        {
-          key: "fixture-a",
-          anchorAt: now,
-          item: card(),
-          group: unreadGroup
-            ? { factId: "fixture-fact", story: null, additionalSourceCount: 1, reportCount: 2, developmentCount: 1, memberIds: ["fixture-a", "fixture-b"] }
-            : null,
-        },
-      ],
-      nextCursor: null,
+      cards: deepTimeline
+        ? Array.from({ length: 10 }, (_, i) => {
+            const page = Number(url.searchParams.get("cursor") ?? 0);
+            const id = page === 3 && i === 9 ? "fixture-a" : `deep-${page}-${i}`;
+            return { key: id, anchorAt: now, item: card(id), group: null };
+          })
+        : [
+            {
+              key: "fixture-a",
+              anchorAt: now,
+              item: card(),
+              group: unreadGroup
+                ? { factId: "fixture-fact", story: null, additionalSourceCount: 1, reportCount: 2, developmentCount: 1, memberIds: ["fixture-a", "fixture-b"] }
+                : null,
+            },
+          ],
+      nextCursor: deepTimeline && Number(url.searchParams.get("cursor") ?? 0) < 3 ? String(Number(url.searchParams.get("cursor") ?? 0) + 1) : null,
       refreshAt: null,
       hot: null,
       dayCounts: {},
@@ -310,8 +317,11 @@ async function openQualifiedReader(page: Page, path: "/" | "/all" | "/starred" =
     await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
+    if (deepTimeline) await expect(page.getByRole("heading", { name: "新到的矿业动态" }).first()).toBeVisible();
+    else {
+      await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
+    }
     phase = `baseline ${path}: ready`;
     return opened;
   } finally {
@@ -485,6 +495,37 @@ test("a combined withdrawal and arrival removes the old card while the new card 
 });
 
 for (const width of [390, 1440]) {
+  test(`return from the fourth timeline page revalidates its depth and restores the article anchor at ${width}px`, { timeout: 45000 }, async (t) => {
+    deepTimeline = true;
+    withdrawn = false;
+    added = false;
+    const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+    t.after(async () => {
+      deepTimeline = false;
+      await context.close();
+    });
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await openQualifiedReader(page, "/");
+    for (const size of [20, 30]) {
+      await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
+      await expect.poll(() => page.locator("[data-card-key]").count()).toBe(size);
+    }
+    await page.getByRole("button", { name: "加载更多", exact: true }).click();
+    await expect(page.locator("[data-card-key]")).toHaveCount(40);
+    const link = page.locator('[data-card-key="fixture-a"] h3 a');
+    await link.scrollIntoViewIfNeeded();
+    const top = await link.evaluate((node) => node.getBoundingClientRect().top);
+    await link.click();
+    await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    await page.goBack();
+    await expect(page.locator("[data-card-key]")).toHaveCount(40);
+    await expect.poll(async () => Math.abs((await link.evaluate((node) => node.getBoundingClientRect().top)) - top)).toBeLessThan(80);
+    assert.ok(
+      (await page.evaluate(() => sessionStorage.getItem(`amp:list:${history.state.key}`)))?.includes('"cards":[]'),
+      "restoration keeps references and depth, not stale article copies",
+    );
+  });
   test(`return to feed keeps pointer titles quiet and keyboard focus visible at ${width}px`, { timeout: 30000 }, async (t) => {
     withdrawn = false;
     added = false;

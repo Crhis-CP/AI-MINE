@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
+import { ReadingUpgrade } from "./ReadingUpgrade";
 
 interface Release {
   date: string;
@@ -242,6 +243,7 @@ export function FeatureNotice({ release }: { release: Release }) {
         {release.title}
       </h2>
       {test && <Beats />}
+      {release.title === "历史报告与连续阅读升级" && <ReadingUpgrade />}
       <div className="mt-4 max-w-[42em] space-y-3 text-[15px] leading-[1.85] text-ink-2">
         {parts.paragraphs.map((p, i) => (
           <p key={p} className="animate-fade-up" style={at((test ? 4 : 1) + i * 0.6)}>

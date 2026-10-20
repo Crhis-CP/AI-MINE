@@ -1,3 +1,4 @@
+import { sourceOwnerHeaders } from "./source-owner-fixture.ts";
 // SELF_AUTHORED intake through real HTTP, source workers and translation jobs; never a quality sample.
 import assert from "node:assert/strict";
 import { previewSourceFixture } from "./source-preview-fixture.ts";
@@ -83,12 +84,12 @@ export async function foreignFixture(
     modelCallsEnabled: true,
     egressProxyUrl: null,
     privateHost: "private.foreign.test",
-    devAdmin: { displayName: "Synthetic owner" },
+    devAdmin: null,
   });
   const admin = await buildApp("private-api"),
     reader = await buildApp("public-api");
   apps.push(admin, reader);
-  const headers = { "x-forwarded-host": "private.foreign.test", "x-csrf-token": "dev" };
+  const headers = { "x-forwarded-host": "private.foreign.test", ...(await sourceOwnerHeaders()) };
   const created = await admin.inject({
     method: "POST",
     url: "/api/admin/sources",

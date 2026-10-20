@@ -36,6 +36,9 @@ class CapacityTests(unittest.TestCase):
         self.assertEqual({row["device"]: row["estimated_peak_additional_bytes"] for row in separated["filesystems"]}, {"1": 50 * MIB, "2": 250 * MIB})
         for change in [{"memory_available_bytes": capacity.GIB - 1}, {"root": {**FILESYSTEM, "inodes_available": 0}}]:
             self.assertFalse(capacity.evaluate(MANIFEST, PREVIOUS, {**OBSERVED, **change}, "before_import")["passed"])
+        with_files = capacity.evaluate(MANIFEST, {**PREVIOUS, "persistent_bytes": 100*MIB}, OBSERVED, "before_backup")
+        self.assertEqual(with_files["persistent_estimate_bytes"],125*MIB)
+        self.assertEqual(with_files["filesystems"][0]["estimated_peak_additional_bytes"],425*MIB)
 
     def test_missing_backup_blocks_release_and_failed_record_is_preserved(self):
         with tempfile.TemporaryDirectory() as work:

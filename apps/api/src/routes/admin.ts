@@ -3,7 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { actorOf, requireOwner, requireCapability } from "@amp/backend/admin/auth";
+import { actorOf, requireOwner, requireCapability, readOwnerAudit } from "@amp/backend/admin/auth";
 
 import { registerSelectionCalibration } from "./selection-calibration.ts";
 import { withSelectionTool, importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
@@ -36,7 +36,7 @@ import {
   setVisibility,
 } from "@amp/backend/admin/content";
 import { banFeedbackEmail, banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
-import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
+import { releaseReceipt, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
 import {
   routes as contracts,
   ReceiptReconciliationResponse,
@@ -79,6 +79,7 @@ import {
 import { sql } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
+import { managedReports, requestManagedReport } from "@amp/backend/reports/compose";
 
 const AuditQuery = z.object({ subject: z.string().optional(), action: z.string().optional(), page: z.coerce.number().int().positive().default(1) });
 
@@ -97,6 +98,18 @@ const modelGuards: ModelRegistryGuards = {
 
 export function registerAdmin(app: FastifyInstance) {
   registerSelectionCalibration(app);
+  app.get(
+    contracts.adminReports.url,
+    contracts.adminReports,
+    adminHandler(async (req, _reply, admin) => managedReports(req.query, admin)),
+  );
+  app.post(
+    contracts.reconcileNewsReport.url,
+    contracts.reconcileNewsReport,
+    adminHandler(async (req, reply, admin) =>
+      orNotFound(req, reply, await requestManagedReport(req.params, req.body, admin, String(req.headers["idempotency-key"] ?? ""))),
+    ),
+  );
   app.get(
     contracts.modelRegistry.url,
     contracts.modelRegistry,
@@ -405,7 +418,7 @@ export function registerAdmin(app: FastifyInstance) {
     contracts.releaseReceipt.url,
     { schema: { operationId: contracts.releaseReceipt.schema.operationId, response: contracts.releaseReceipt.schema.response } },
     adminHandler(async (req, reply, admin) => {
-      const result = await releaseReceipt(Number(param(req, "id")), body(req), actorOf(admin));
+      const result = await releaseReceipt(Number(param(req, "id")), body(req), actorOf(admin), admin);
       return orNotFound(req, reply, result === null ? null : ReceiptReleaseResponse.parse(result));
     }),
   );
@@ -415,7 +428,13 @@ export function registerAdmin(app: FastifyInstance) {
   );
   app.post(
     "/api/admin/processing/requeue",
-    adminHandler(async (req, _reply, admin) => requeueFailedArticles(body(req) as never, actorOf(admin))),
+    adminHandler(async (req, reply) =>
+      sendProblem(req, reply, {
+        status: 403,
+        code: "forbidden",
+        detail: "批量重放不在后台操作范围内。请在具体内容的诊断页核对失败步骤并重试。",
+      }),
+    ),
   );
 
   // Settings
@@ -494,14 +513,11 @@ export function registerAdmin(app: FastifyInstance) {
   // Audit trail
   app.get(
     "/api/admin/audit",
-    adminHandler(async (req, reply) => {
+    adminHandler(async (req, reply, admin) => {
       const parsed = AuditQuery.safeParse(req.query);
       if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "审计筛选必须使用单个文本值和正整数页码。" });
       const f = parsed.data;
-      const rows = await sql`
-      SELECT id, created_at, actor, action, subject, reason, before, after FROM audit_log
-      WHERE (${f.subject ?? null}::text IS NULL OR subject = ${f.subject ?? null}) AND (${f.action ?? null}::text IS NULL OR action LIKE ${`${f.action ?? ""}%`})
-      ORDER BY created_at DESC LIMIT 100 OFFSET ${(f.page - 1) * 100}`;
+      const rows = await readOwnerAudit(admin, f);
       return { page: f.page, rows };
     }),
   );

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { config, credential, isProduction } from "../config.ts";
 import { identitySql as sql, type Db } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
-import { lockAccountAccess, readAccountAccess } from "./account-access.ts";
+import { lockAccountAccess, readAccountAccess, requireOwner, AccountPermissionDenied } from "./account-access.ts";
 
 export const SESSION_COOKIE = isProduction ? "__Host-amp_admin" : "amp_admin";
 export const LOGIN_NONCE_COOKIE = isProduction ? "__Host-amp_login_nonce" : "amp_login_nonce";
@@ -233,6 +233,26 @@ export { issueLoginNonce, consumeLoginNonce, AccountRateLimited, AccountLoginVer
 export async function auditActionExists(actor: string, action: string, db: Db = sql) {
   const [row] = await db`SELECT 1 FROM audit_log WHERE actor=${actor} AND action=${action} LIMIT 1`;
   return !!row;
+}
+
+/** Owner-only audit reads hold the account fence through the complete query. */
+export async function readOwnerAudit(principal: AdminPrincipal, filters: { subject?: string; action?: string; page: number }) {
+  return sql.begin(async (tx) => {
+    await requireOwner(principal, tx);
+    return tx`SELECT id,created_at,actor,action,subject,reason,before,after FROM audit_log
+      WHERE (${filters.subject ?? null}::text IS NULL OR subject=${filters.subject ?? null})
+        AND (${filters.action ?? null}::text IS NULL OR action LIKE ${`${filters.action ?? ""}%`})
+      ORDER BY created_at DESC LIMIT 100 OFFSET ${(filters.page - 1) * 100}`;
+  });
+}
+
+/** Content maintenance belongs to active administrators; stale sessions cannot commit a command. */
+export async function requireActiveAdmin(principal: AdminPrincipal, db: Db) {
+  if (principal.legacySharedOperator) return requireOwner(principal, db);
+  if (principal.dev || !principal.userId) throw new AccountPermissionDenied();
+  await lockAccountAccess(db, principal.userId);
+  const access = await readAccountAccess(principal.userId, db);
+  if (!access?.active || access.must_change_password || access.revision !== principal.accessRevision) throw new AccountPermissionDenied();
 }
 
 /** Read only this actor's matching command result; used inside the caller's serialized mutation. */

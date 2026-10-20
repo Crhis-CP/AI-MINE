@@ -1249,6 +1249,42 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "publication.report_revision_changes": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "reports.calendar": {
+      "module": "reports",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "reports.reconciliation_jobs": {
+      "module": "reports",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "reports.reconciliation_commands": {
+      "module": "reports",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

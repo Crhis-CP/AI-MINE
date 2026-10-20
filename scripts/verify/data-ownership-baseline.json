@@ -93,8 +93,7 @@
     "[\"packages/backend/src/sources/mp.ts\",\"scheduleMpReconcile/rows\",\"acquisition\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
     "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.feedback\",\"read\",\"split-debt\"]": 1,
     "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.receipts\",\"read\",\"split-debt\"]": 1,
-    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.deliveries\",\"read\",\"split-debt\"]": 1,
-    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/audit>/rows\",\"sources\",\"public.audit_log\",\"read\",\"split-debt\"]": 1
+    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.deliveries\",\"read\",\"split-debt\"]": 1
   },
   "unknown": {
     "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1,

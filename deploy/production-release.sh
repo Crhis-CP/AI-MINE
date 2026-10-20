@@ -36,8 +36,28 @@ cd "$RELEASE_ROOT"
 printf '%s  %s\n' "$RELEASE_ARCHIVE_HASH" "$RELEASE_ARCHIVE" | sha256sum -c -
 python3 -B "$RELEASE_TOOLS/release_artifact.py" verify --directory "$RELEASE_BUNDLE" --sha "$RELEASE_SHA" --tree "$RELEASE_TREE" --manifest-sha256 "$RELEASE_MANIFEST_HASH"
 cmp "$RELEASE_ARCHIVE" "$RELEASE_BUNDLE/source.tar.gz"
+python3 -B "$RELEASE_TOOLS/prepare_capacity.py" --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --lock-fd 9 --apply \
+  --record "$RELEASE_ROOT/.ops/capacity-preparation-$RELEASE_ID-$RELEASE_ATTEMPT.json"
+persistent_bytes() {
+  docker exec amp-worker-1 node --input-type=module -e '
+    import {lstat,readdir} from "node:fs/promises";
+    import path from "node:path";
+    async function size(file) {
+      const item=await lstat(file);
+      if(item.isDirectory()) { let n=1024; for(const name of await readdir(file))n+=await size(path.join(file,name)); return n; }
+      return item.size+1024;
+    }
+    let n=0;
+    for(const file of ["/data/uploads","/data/site/release-notes.json","/data/site/release-notes.json.announcements.json"]) {
+      try { n+=await size(file); } catch(error) { if(error.code!=="ENOENT")throw error; }
+    }
+    console.log(n);
+  '
+}
+RELEASE_PERSISTENT_BYTES=$(persistent_bytes)
+[[ $RELEASE_PERSISTENT_BYTES =~ ^[0-9]+$ ]]
 # Resource checks run while the old worker is still running. Failure only leaves the evidence receipt.
-python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-import-$RELEASE_ATTEMPT.json"
+python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --persistent-bytes "$RELEASE_PERSISTENT_BYTES" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-import-$RELEASE_ATTEMPT.json"
 phase() {
   RELEASE_PHASE=$1
   python3 - "$RELEASE_JOURNAL" "$RELEASE_SHA" "$RELEASE_PHASE" "$RELEASE_IMAGE" "$RELEASE_BACKUP" <<'PYJ'
@@ -238,21 +258,36 @@ assert retry_pending(sys.argv[1],sys.argv[2]), 'Pending note must be resolved be
 PYN
 fi
 require_monitor
-python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --phase before_backup --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-backup-$RELEASE_ATTEMPT.json"
+RELEASE_PERSISTENT_BYTES=$(persistent_bytes)
+[[ $RELEASE_PERSISTENT_BYTES =~ ^[0-9]+$ ]]
+python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --phase before_backup --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --persistent-bytes "$RELEASE_PERSISTENT_BYTES" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-backup-$RELEASE_ATTEMPT.json"
 phase drain_worker
 RELEASE_STOPPED=1
 dc stop -t 480 worker
 phase database_backup
 docker exec amp-db-1 pg_dump -U amp -d amp -Fc > "$RELEASE_BACKUP/database.dump"
 docker exec -i amp-db-1 pg_restore --list < "$RELEASE_BACKUP/database.dump" > "$RELEASE_BACKUP/database-restore-list.txt"
-sha256sum "$RELEASE_BACKUP/"*-program.tar.gz "$RELEASE_BACKUP/database.dump" > "$RELEASE_BACKUP/backup-sha256.txt"
+# Durable files are separate from programs and the database. Screenshots remain outside backups.
+[[ $(docker inspect --format '{{.State.Running}}' amp-worker-1) == false ]]
+RELEASE_DATA_VOLUME=$(docker inspect --format '{{range .Mounts}}{{if and (eq .Destination "/data") (eq .Type "volume")}}{{.Name}}{{end}}{{end}}' amp-worker-1)
+[[ $RELEASE_DATA_VOLUME =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]
+docker run --rm --pull never --network none --read-only --memory 128m --cpus 1 --mount "type=volume,source=$RELEASE_DATA_VOLUME,target=/data,readonly" --entrypoint sh "$RELEASE_OLD_IMAGE" -c '
+  set --
+  for item in uploads site/release-notes.json site/release-notes.json.announcements.json; do
+    if [ -e "/data/$item" ]; then set -- "$@" "$item"; fi
+  done
+  if [ "$#" -eq 0 ]; then exec tar -czf - -T /dev/null; fi
+  exec tar -czf - -C /data "$@"
+' > "$RELEASE_BACKUP/persistent-files.tar.gz"
+tar -tzf "$RELEASE_BACKUP/persistent-files.tar.gz" > "$RELEASE_BACKUP/persistent-files-list.txt"
+sha256sum "$RELEASE_BACKUP/"*-program.tar.gz "$RELEASE_BACKUP/database.dump" "$RELEASE_BACKUP/persistent-files.tar.gz" > "$RELEASE_BACKUP/backup-sha256.txt"
 # This manifest identifies the predecessor recovery point; the directory name identifies the attempted successor.
 python3 - "$RELEASE_BACKUP" "$RELEASE_OLD_VERSION" "$RELEASE_OLD_IMAGE" "$RELEASE_SHA" <<'PYB'
 import datetime,json,sys
 from pathlib import Path
 p=Path(sys.argv[1]);files=[]
 hashes={Path(name).name:h for h,name in (line.split('  ',1) for line in (p/'backup-sha256.txt').read_text().splitlines())}
-for f in sorted([*p.glob('*-program.tar.gz'),p/'database.dump']):
+for f in sorted([*p.glob('*-program.tar.gz'),p/'database.dump',p/'persistent-files.tar.gz']):
     s=f.stat();files.append({'file':f.name,'sha256':hashes[f.name],'bytes':s.st_size,'allocated_bytes':s.st_blocks*512,'inode':s.st_ino,'links':s.st_nlink})
 (p/'recovery-point.json').write_text(json.dumps({'version':1,'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'previous_release':sys.argv[2],'previous_image':sys.argv[3],'attempted_release':sys.argv[4],'isolated_restore':'pending','files':files},indent=2)+'\n')
 PYB
@@ -263,6 +298,9 @@ rsync -a --delete --exclude='.env*' --exclude=.ops --exclude=.data --exclude=.gi
 read_api_topology
 set_value APP_IMAGE "$RELEASE_IMAGE"
 set_value AMP_RELEASE "$RELEASE_ID"
+# This upgrade enables the requested daily local recovery point when no explicit Owner choice exists.
+# Existing false/true values and any configured object store retain their meaning.
+if ! grep -q '^DB_BACKUP_LOCAL_ENABLED=' "$RELEASE_ROOT/.env"; then set_value DB_BACKUP_LOCAL_ENABLED true; fi
 export APP_IMAGE=$RELEASE_IMAGE AMP_RELEASE=$RELEASE_ID
 phase migrate
 # Existing source settings and permissions are retained; this run never executes seed or source repair.

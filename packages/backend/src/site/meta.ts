@@ -5,7 +5,7 @@ import { beijingDate, beijingTime } from "@amp/contracts/time";
 import path from "node:path";
 import { config, environmentValue, REPO_ROOT } from "../config.ts";
 
-/** 重大更新 is the hand-written entry of a major version; change fragments (changes/*.md) keep the other four. */
+/** Major notes and their source fragments carry a version; other kinds retain their original date identity. */
 export const CHANGELOG_KINDS = ["重大更新", "更新", "优化", "公告", "下线"] as const;
 
 export interface ChangelogRelease {
@@ -83,7 +83,25 @@ export function loadChangelog(): Changelog {
     changelogCache = validateChangelog(JSON.parse(readFileSync(file, "utf8")));
   }
   const runtime = environmentValue("AMP_RELEASE_CHANGELOG_FILE") || path.join(config.dataDir, "site", "release-notes.json");
-  return mergeReleaseRecords(changelogCache, [...readReleaseRecords(runtime), ...readReleaseRecords(releaseAnnouncementFile(runtime))]);
+  const published = mergeReleaseRecords(changelogCache, [...readReleaseRecords(runtime), ...readReleaseRecords(releaseAnnouncementFile(runtime))]);
+  const edits = path.join(REPO_ROOT, "industry/changelog-copy-edits.json");
+  return existsSync(edits) ? readerChangelogCopy(published, JSON.parse(readFileSync(edits, "utf8"))) : published;
+}
+
+/** Owner-requested reader wording; original release receipts and dates remain an unchanged audit record. */
+export function readerChangelogCopy(
+  changelog: Changelog,
+  edits: Array<{ date: string; time: string; title: string; originalCopySha256: string; copy: { title: string; body: string[] } }>,
+): Changelog {
+  const releases = changelog.releases.map((release) => {
+    const original = { date: release.date, time: release.time, title: release.title, body: release.body };
+    const hash = createHash("sha256").update(JSON.stringify(original)).digest("hex");
+    const edit = edits.find(
+      (item) => item.date === release.date && item.time === release.time && item.title === release.title && item.originalCopySha256 === hash,
+    );
+    return edit ? { ...release, title: edit.copy.title, body: edit.copy.body } : release;
+  });
+  return validateChangelog({ ...changelog, releases });
 }
 
 export function siteMeta() {

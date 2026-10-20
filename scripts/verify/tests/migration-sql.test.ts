@@ -10,6 +10,26 @@ const update = "UPDATE publication.read_watermarks SET version=version+1 WHERE l
 const trigger = "CREATE TRIGGER mark AFTER INSERT OR UPDATE ON public.sources FOR EACH ROW EXECUTE FUNCTION publication.guard('news');";
 const prove = (text: string, functions: MigrationFunctions = new Map()) => migrationSql(text, "publication", ["publication"], functions);
 
+test("fixed insert/upsert trigger bodies expose every relation while dynamic targets and hidden calls stay unproved", () => {
+  const body = `DECLARE item text; hints jsonb; at timestamptz; BEGIN
+    item:=NEW.article_id; hints:=pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('time',NEW.source_time)); at:=NEW.timeline_at;
+    INSERT INTO publication.report_changes(article_id,hints,changed_at) VALUES(item,hints,at)
+      ON CONFLICT(article_id) DO UPDATE SET hints=EXCLUDED.hints;
+    RETURN NULL; END;`;
+  const result = prove(definition(body, "SET search_path=pg_catalog,publication"));
+  assert.deepEqual(result.unknown, []);
+  assert.ok(result.relations.some((r) => r.table === "publication.report_changes" && r.mode === "write"));
+  const changed = prove(definition(body.replace("publication.report_changes", "public.secret_rows")));
+  assert.ok(changed.relations.some((r) => r.table === "public.secret_rows" && r.mode === "write"));
+  for (const unsafe of [
+    body.replace("publication.report_changes", "unqualified_target"),
+    body.replace("VALUES(item,hints,at)", "VALUES(item,public.mutate_hidden(),at)"),
+    body.replace("pg_catalog.jsonb_build_array", "public.jsonb_build_array"),
+    body.replace("hints jsonb", "hints custom_type"),
+  ])
+    assert.ok(prove(definition(unsafe)).unknown.length, unsafe);
+});
+
 test("complete fixed trigger functions expose their actual writes and reads; calls belong to the defining migration", () => {
   const functions: MigrationFunctions = new Map();
   const body = `DECLARE line text := TG_ARGV[0]; BEGIN

@@ -24,7 +24,7 @@ export function periodPrompt(kind: "weekly" | "monthly", start: string, end: str
       overviewLength: kind === "weekly" ? "160" : "240",
       sections: introduced.length ? introduced.join("、") : "无；sections 返回空对象",
     }),
-    user: `本期：${start} 至 ${end}\n${groups.map((group) => [`【${group.label}】`, ...group.items.map((entry) => `- ${entry.title}｜${entry.summary.slice(0, 140)}`)].join("\n")).join("\n")}`,
+    user: `本期：${start} 至 ${end}\n${groups.map((group) => [`【${group.label}】`, ...group.items.flatMap((entry) => [entry, ...(entry.related ?? [])].map((member) => `- ${member.title}｜${member.summary.slice(0, 140)}`))].join("\n")).join("\n")}`,
   };
 }
 const COMPANY_NAMES = Object.values(ENTITIES).map((entity) => [entity.name, ...entity.aliases].map((name) => name.toLowerCase()));
@@ -52,21 +52,22 @@ export function fitted(text: string, max: number): string | null {
   return result.trim() || null;
 }
 export async function writePeriod(kind: "weekly" | "monthly", key: string, start: string, end: string, entries: Candidate[], model: string) {
+  const inputs = [...new Map(entries.flatMap((entry) => [entry, ...(entry.related ?? [])]).map((entry) => [entry.itemId, entry])).values()];
   const prompt = periodPrompt(kind, start, end, entries),
-    permit = await reportFallbackInput(entries);
+    permit = await reportFallbackInput(inputs);
   const result = await chatJson({
     model,
     purpose: `report_${kind}`,
     subject: `report:${kind}:${key}`,
     promptVersion: REPORT_VERSION,
     ...prompt,
-    sourceIds: [...new Set(entries.map((entry) => entry.sourceId))],
+    sourceIds: [...new Set(inputs.map((entry) => entry.sourceId))],
     fallbackPermit: permit?.(prompt),
     schema: PeriodSchema,
     temperature: 0.3,
     maxTokens: 2500,
   });
-  const corpus = [`${start} ${end}`, ...entries.map((entry) => `${entry.title} ${entry.summary}`)].join("\n");
+  const corpus = [`${start} ${end}`, ...inputs.map((entry) => `${entry.title} ${entry.summary}`)].join("\n");
   const usable = (text: string | undefined, max: number) => {
     const fit = fitted(text ?? "", max);
     return fit && grounded(fit, corpus) ? fit : null;

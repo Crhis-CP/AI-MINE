@@ -49,6 +49,7 @@ def latest_backup(root):
         raise ValueError("Previous program archive sizes unavailable")
     unique = {(path.stat().st_dev, path.stat().st_ino): path.stat() for path in programs}
     return {"path": str(dump.parent), "dump_bytes": dump.stat().st_size,
+            "persistent_bytes": (dump.parent / "persistent-files.tar.gz").stat().st_size if (dump.parent / "persistent-files.tar.gz").is_file() else 0,
             "dump_modified_at": dt.datetime.fromtimestamp(dump.stat().st_mtime, dt.timezone.utc).isoformat(),
             "program_named_bytes": sum(path.stat().st_size for path in programs),
             "program_unique_allocated_bytes": sum(stat.st_blocks * 512 for stat in unique.values()),
@@ -65,6 +66,9 @@ def evaluate(manifest, previous, observed, phase):
     # these alternative layout estimates are not added together as observed usage.
     retained_image = image["layer_blob_bytes"] + image["layer_tar_bytes"]
     dump, program = ((previous[key] * 5 + 3) // 4 for key in ("dump_bytes", "program_named_bytes"))
+    if type(previous.get("persistent_bytes", 0)) is not int or previous.get("persistent_bytes", 0) < 0:
+        raise ValueError("Nonnegative measured persistent size required")
+    persistent = (previous.get("persistent_bytes", 0) * 5 + 3) // 4
     stages = {}
 
     def stage(name, contributions):
@@ -75,9 +79,9 @@ def evaluate(manifest, previous, observed, phase):
 
     if phase == "before_import":
         stage("image_import", [(root_device, source["tar_bytes"] + max(image["tar_bytes"], retained_image))])
-        stage("backup_and_source_stage", [(root_device, retained_image + 2 * source["tar_bytes"]), (backup_device, dump + program)])
+        stage("backup_and_source_stage", [(root_device, retained_image + 2 * source["tar_bytes"]), (backup_device, dump + program + persistent)])
     else:
-        stage("database_and_source_switch", [(backup_device, dump), (root_device, source["tar_bytes"])])
+        stage("database_and_source_switch", [(backup_device, dump + persistent), (root_device, source["tar_bytes"])])
     devices = {}
     for sample in (observed["root"], observed["backup"]):
         item = devices.setdefault(sample["device"], {**sample, "paths": []})
@@ -97,7 +101,7 @@ def evaluate(manifest, previous, observed, phase):
                        {"name": "inodes_available", "device": device, "actual": sample["inodes_available"], "required": inode_floor,
                         "passed": sample["inodes_available"] >= inode_floor}])
     return {"passed": all(check["passed"] for check in checks), "checks": checks, "filesystems": list(devices.values()),
-            "stage_estimates": stages, "dump_estimate_bytes": dump, "program_estimate_bytes": program,
+            "stage_estimates": stages, "dump_estimate_bytes": dump, "program_estimate_bytes": program, "persistent_estimate_bytes": persistent,
             "assumptions": ["Docker and release source staging use the observed root filesystem",
                             "Previous compressed dump and named program sizes receive 25% planning allowance; this is not a measured growth rate",
                             "Source staging and its possible target copy are budgeted together before import",
@@ -106,7 +110,7 @@ def evaluate(manifest, previous, observed, phase):
                             "One GiB remains outside the estimated peak; estimates cannot prove actual Docker, WAL or future dump peaks"]}
 
 
-def preflight(root, backup_root, manifest_file, record, phase):
+def preflight(root, backup_root, manifest_file, record, phase, persistent_bytes=0):
     result = {"version": 1, "kind": "release_preflight", "at": now(), "phase": phase, "passed": False,
               "command": {"root": str(root), "backup_root": str(backup_root), "manifest": str(manifest_file)}}
     try:
@@ -115,6 +119,7 @@ def preflight(root, backup_root, manifest_file, record, phase):
         result["input"] = {"manifest_sha256": hashlib.sha256(raw).hexdigest(), "sha": manifest["source"]["sha"], "tree": manifest["source"]["tree"]}
         result["observed"] = {"root": filesystem(root), "backup": filesystem(backup_root), "memory_available_bytes": memory_available()}
         result["previous_backup"] = latest_backup(backup_root)
+        result["previous_backup"]["persistent_bytes"] = max(persistent_bytes, result["previous_backup"]["persistent_bytes"])
         result.update(evaluate(manifest, result["previous_backup"], result["observed"], phase))
     except (OSError, ValueError, KeyError, TypeError) as error:
         result["error"] = str(error)
@@ -158,6 +163,7 @@ def main():
     before.add_argument("--manifest", type=Path, required=True)
     before.add_argument("--record", type=Path, required=True)
     before.add_argument("--phase", choices=["before_import", "before_backup"], default="before_import")
+    before.add_argument("--persistent-bytes", type=int, default=0)
     watch = commands.add_parser("monitor")
     watch.add_argument("--root", type=Path, required=True)
     watch.add_argument("--output", type=Path, required=True)
@@ -167,7 +173,7 @@ def main():
     if args.command == "monitor":
         monitor(args.root, args.output, args.parent)
         return 0
-    result = preflight(args.root, args.backup_root, args.manifest, args.record, args.phase)
+    result = preflight(args.root, args.backup_root, args.manifest, args.record, args.phase, args.persistent_bytes)
     print(json.dumps(result, indent=2))
     return 0 if result["passed"] else 1
 

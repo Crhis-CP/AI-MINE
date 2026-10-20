@@ -60,6 +60,7 @@ const privateRoutes = [
     route("admin/models", "routes/admin/models.tsx"),
     route("admin/settings", "routes/admin/settings.tsx"),
     route("admin/runs", "routes/admin/runs.tsx"),
+    route("admin/reports", "routes/admin/reports.tsx"),
     route("admin/audit", "routes/admin/audit.tsx"),
     route("admin/usage-models", "routes/admin/models-redirect.tsx"),
     route("admin/usage-models/reconciliation", "routes/admin/reconciliation-redirect.tsx"),

@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import type { Route } from "./+types/runs";
 import type { AdminDeliveryIssue, AdminReceiptIssue, AdminRuns } from "../../features/admin/run-types";
 import { loadReconciliation } from "../../lib/admin.server";
-import { useAdminAction } from "../../features/admin/action";
+import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { ago, bj, duration, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Dot, Empty, Field, Json, ReasonDialog, Select, Stat, Time } from "../../features/admin/ui";
 
@@ -80,12 +80,11 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
   const refresh = useFetcher<typeof loader>();
   const r = refresh.data ?? loaderData;
   const { run, pending } = useAdminAction();
+  const me = useAdminMe();
   const [receipt, setReceipt] = useState<AdminReceiptIssue | null>(null);
   const [billed, setBilled] = useState("false");
   const [delivery, setDelivery] = useState<AdminDeliveryIssue | null>(null);
   const [outcome, setOutcome] = useState<"sent" | "drop" | "resend">("sent");
-  // Failure group to put back into processing ("" = every failure of the last 30 days).
-  const [requeue, setRequeue] = useState<string | null>(null);
 
   // Live view: refresh every 20 s while visible.
   useEffect(() => {
@@ -312,7 +311,7 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
                 key: "a",
                 label: "",
                 render: (x) =>
-                  x.status === "unknown" ? (
+                  x.status === "unknown" && me.owner ? (
                     <Button size="sm" onClick={() => setReceipt(x)}>
                       核对
                     </Button>
@@ -413,11 +412,6 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
                   等待重试 {num(r.retrying.count)} 条 · 下一次 <Time at={r.retrying.next} />
                 </span>
               )}
-              {r.errors.length > 0 && (
-                <Button size="sm" onClick={() => setRequeue("")}>
-                  全部重新处理
-                </Button>
-              )}
             </span>
           }
           pad={false}
@@ -447,9 +441,9 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
                 label: "",
                 align: "right",
                 render: (e) => (
-                  <Button size="sm" onClick={() => setRequeue(e.error)}>
-                    重新处理
-                  </Button>
+                  <Link className="text-accent" to={`/admin/content/${e.example}`}>
+                    诊断与重试
+                  </Link>
                 ),
               },
             ]}
@@ -548,17 +542,6 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
           </Select>
         </Field>
       </ReasonDialog>
-      <ReasonDialog
-        open={requeue !== null}
-        title={requeue ? "重新处理这一类失败" : "重新处理全部失败"}
-        description="这些文章会重新进入处理队列（正文、判断、发布）。模型调用会重新计费；供应商拒绝的内容可能再次失败。"
-        confirmLabel="重新处理"
-        busy={pending === "requeue"}
-        onClose={() => setRequeue(null)}
-        onSubmit={async (reason) =>
-          (await run("POST", "/api/admin/processing/requeue", { group: requeue || null, reason }, { label: "requeue", success: "已重新排队" })) !== null
-        }
-      />
       <ReasonDialog
         open={!!delivery}
         title="处理投递"

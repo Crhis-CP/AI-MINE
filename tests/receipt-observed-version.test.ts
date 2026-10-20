@@ -1,3 +1,4 @@
+import { sourceOwnerHeaders } from "./source-owner-fixture.ts";
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import "./setup.ts";
 import assert from "node:assert/strict";
@@ -17,7 +18,7 @@ test("observed receipt versions preserve guard order and reject an old UI form b
   const sql = runtimeSql,
     saved = { host: config.privateHost, admin: config.devAdmin };
   config.privateHost = "private.receipt.test";
-  config.devAdmin = { displayName: "Receipt contract fixture" };
+  config.devAdmin = null;
   const app = await buildApp("private-api");
   let hits = 0;
   const provider = createServer((_req, res) => {
@@ -25,7 +26,7 @@ test("observed receipt versions preserve guard order and reject an old UI form b
     if (hits < 3) return res.destroy();
     res.end(JSON.stringify({ ok: true }));
   });
-  const headers = { "x-forwarded-host": "private.receipt.test", "x-csrf-token": "dev" };
+  const headers = { ...(await sourceOwnerHeaders()), "x-forwarded-host": "private.receipt.test" };
   await installUsageFixtureForService("fixture-client-version");
   const request = {
     lane: "news" as const,
@@ -55,8 +56,8 @@ test("observed receipt versions preserve guard order and reject an old UI form b
     const post = (payload: object, requestHeaders = headers) => app.inject({ method: "POST", url, headers: requestHeaders, payload });
     assert.equal((await post({}, { ...headers, "x-forwarded-host": "wrong.test" })).statusCode, 404);
     config.devAdmin = null;
-    assert.equal((await post({})).statusCode, 401);
-    config.devAdmin = { displayName: "Receipt contract fixture" };
+    assert.equal((await post({}, { ...headers, cookie: "" })).statusCode, 401);
+    config.devAdmin = null;
     assert.equal((await post({}, { ...headers, "x-csrf-token": "wrong" })).statusCode, 403);
     const fixture = JSON.parse(readFileSync(new URL("../scripts/verify/tests/fixtures/receipt-observation.json", import.meta.url), "utf8"));
     for (const invalid of fixture.invalidBodies) assert.equal((await post(invalid.body)).statusCode, 400, invalid.name);

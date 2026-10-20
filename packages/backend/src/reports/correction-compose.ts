@@ -1,6 +1,6 @@
 import { reportFactEvidence, reportPublicInputs } from "../publication/groups.ts";
 import { SITE } from "@amp/industry/site";
-import { addDays, beijingDate } from "@amp/contracts/time";
+import { periodDates } from "./periods.ts";
 import { modelFor } from "../editorial/models.ts";
 import { writePeriod, REPORT_VERSION, type Candidate } from "./compose.ts";
 import type { StoredReportContent } from "./references.ts";
@@ -72,7 +72,8 @@ export async function generateReportCorrection(
     };
   }
   if (!entries.length) return { content: { ...base, themes: [], storyOrder: [], flashes: [] }, model, receiptId: null };
-  const result = await writePeriod(report.kind, report.key, beijingDate(report.window_start), addDays(beijingDate(report.window_end), -1), entries, model!);
+  const dates = periodDates(report.kind, report.key);
+  const result = await writePeriod(report.kind, report.key, dates.start, dates.end, entries, model!);
   const lead = entries[0]!;
   return {
     content: {

@@ -21,6 +21,7 @@ import { reportHeadline, reportIndex, reportLeadParagraph } from "./reports.ts";
 import { selectedCondition, type ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { listPolicies } from "./policies.ts";
+import { readAllFactApiItems } from "./timeline.ts";
 
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
@@ -183,10 +184,32 @@ function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, no
 
 export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date()): Promise<string> {
   const includeContent = kind === "selected-full";
+  const allIds =
+    kind === "all"
+      ? (
+          await readAllFactApiItems(sql, {
+            category: null,
+            source: null,
+            jurisdiction: null,
+            jurisdictionCodes: [],
+            jurisdictionRecipe: "",
+            rangeStart: null,
+            rangeEnd: null,
+            selected: false,
+            by: "published",
+            now,
+            windowStart: new Date(now.getTime() - 7 * 86400000),
+            afterAt: null,
+            afterId: null,
+            limit: 50,
+          })
+        ).map((row) => row.id)
+      : null;
   const rows = includeContent
     ? await sql<FeedRow[]>`
       WITH page AS MATERIALIZED (
         SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
+          AND (${allIds}::text[] IS NULL OR p.article_id=ANY(${allIds}::text[]))
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
       SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
@@ -202,6 +225,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
     : await sql<FeedRow[]>`
       WITH page AS MATERIALIZED (
         SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
+          AND (${allIds}::text[] IS NULL OR p.article_id=ANY(${allIds}::text[]))
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
       SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,

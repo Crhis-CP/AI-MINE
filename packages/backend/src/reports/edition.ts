@@ -7,6 +7,8 @@ import {
   reportFactEvidence,
   reportPublicInputs,
   reportWindowEvidence,
+  historicalReportRows,
+  sourceReportIssue,
   type ReportInputRow,
 } from "../publication/groups.ts";
 import { pickRepresentative } from "../publication/representative.ts";
@@ -14,6 +16,7 @@ import { sql } from "../db.ts";
 import { relatedReport, reportImportance, type EditionEntry } from "./arrangement.ts";
 import { storedReportEntries, type StoredReportContent } from "./references.ts";
 import type { Candidate, ReportEntry } from "./compose.ts";
+import { sourceCalendarDate } from "./periods.ts";
 
 const factKey = (row: ReportInputRow) => row.fact_public_id ?? `a:${row.id}`;
 function groupBy<T>(rows: T[], key: (row: T) => string) {
@@ -63,17 +66,30 @@ export async function dailyMemory(date: string) {
 
 /** One entry per event; the most-covered new fact leads and its other developments remain related reading. */
 export async function dailyEdition(date: string, start: Date, end: Date) {
-  const [memory, rows] = await Promise.all([dailyMemory(date), reportWindowEvidence(start, end)]);
+  const [memory, arrivals, historical] = await Promise.all([dailyMemory(date), reportWindowEvidence(start, end), historicalReportRows(start, end)]);
+  // Preserve the old arrival rule only for unconverted legacy projections. Proven source dates own their issue.
+  const legacy = arrivals.filter((row) => !row.source_time && Number(row.source_date_version ?? 0) === 0);
+  const rows = [...new Map([...legacy, ...historical].map((row) => [row.id, row])).values()];
+  const historicalIds = new Set(historical.map((row) => row.id));
   const nominations = rows.filter((row) => row.selected || row.selection_candidate);
   const confirmed = new Set((await confirmedGroupingMaterials(nominations.map((row) => row.id))).map((row) => row.id));
-  const pendingSelections = nominations.filter((row) => !confirmed.has(row.id) && row.timeline_at >= start).length;
+  const pendingDates = arrivals.filter(
+    (row) =>
+      (row.selected || row.selection_candidate) &&
+      Number(row.source_date_version ?? 0) > 0 &&
+      !row.source_time_current &&
+      (sourceReportIssue(row.source_time) === date || (!sourceReportIssue(row.source_time) && row.timeline_at >= start)),
+  ).length;
+  const pendingSelections =
+    pendingDates + nominations.filter((row) => !confirmed.has(row.id) && (historicalIds.has(row.id) || row.timeline_at >= start)).length;
   const selected = rows.filter(
     (row) =>
       row.selected &&
       confirmed.has(row.id) &&
       row.visible_after !== null &&
-      Math.max(row.timeline_at.getTime(), row.visible_after.getTime()) >= start.getTime() &&
-      Math.max(row.timeline_at.getTime(), row.visible_after.getTime()) < end.getTime(),
+      (historicalIds.has(row.id) ||
+        (Math.max(row.timeline_at.getTime(), row.visible_after.getTime()) >= start.getTime() &&
+          Math.max(row.timeline_at.getTime(), row.visible_after.getTime()) < end.getTime())),
   );
   const evidence = await reportFactEvidence([...new Set(rows.flatMap((row) => (row.fact_id === null ? [] : [row.fact_id])))], end);
   const context = await reportEventEvidence(
@@ -83,7 +99,7 @@ export async function dailyEdition(date: string, start: Date, end: Date) {
   );
   const selectedFacts = new Set(selected.map(factKey));
   const anySelected = await reportSelectedFacts([...new Set(evidence.flatMap((row) => (row.fact_id === null ? [] : [row.fact_id])))]);
-  const activeFacts = new Set(rows.filter((row) => row.timeline_at >= start).map(factKey));
+  const activeFacts = new Set(rows.filter((row) => historicalIds.has(row.id) || row.timeline_at >= start).map(factKey));
   const missed = [
     ...groupBy(
       evidence.filter((row) => context.signals.some((signal) => signal.article_id === row.id && signal.fact_id === row.fact_id)),
@@ -159,6 +175,7 @@ export async function dailyEdition(date: string, start: Date, end: Date) {
     stats: {
       selectedReports: selected.length,
       pendingSelections,
+      judged: rows.filter((row) => row.score !== null && (historicalIds.has(row.id) || row.timeline_at >= start)).length,
       facts: raw.length,
       repeatsSuppressed: raw.length - kept.length,
       events: entries.length,
@@ -171,21 +188,29 @@ export async function dailyEdition(date: string, start: Date, end: Date) {
 export async function periodEntries(start: string, end: string): Promise<{ entries: Candidate[]; issues: number; hasEntries: boolean }> {
   const issues = await sql<
     { key: string; content: StoredReportContent }[]
-  >`SELECT key,content FROM reports WHERE kind='daily' AND key>=${start} AND key<=${end} ORDER BY key`;
+  >`SELECT key,content FROM reports WHERE kind='daily' AND key>=${start} AND key<=${addDays(end, 1)} ORDER BY key`;
   const carried = issues.flatMap((issue) =>
     (issue.content.sections ?? []).flatMap((section) =>
-      section.items.map((entry) => ({
-        id: entry.itemId,
-        key: issue.key,
-        sources: typeof entry.sources === "number" ? entry.sources : 1,
-        lead: issue.content.leadItemId === entry.itemId,
-        highlight: Array.isArray(issue.content.highlights) && issue.content.highlights.includes(entry.itemId),
-      })),
+      section.items.flatMap((entry) =>
+        [entry, ...(entry.related ?? [])].map((member) => ({
+          id: member.itemId,
+          key: issue.key,
+          sources: typeof entry.sources === "number" ? entry.sources : 1,
+          lead: issue.content.leadItemId === entry.itemId,
+          highlight: Array.isArray(issue.content.highlights) && issue.content.highlights.includes(entry.itemId),
+        })),
+      ),
     ),
   );
   const current = new Map((await reportPublicInputs([...new Set(carried.map((entry) => entry.id))])).map((row) => [row.id, row]));
   const events = groupBy(
-    carried.filter((entry) => current.has(entry.id)),
+    carried.filter((entry) => {
+      const row = current.get(entry.id);
+      if (!row) return false;
+      const date = sourceCalendarDate(row.source_time);
+      if (Number(row.source_date_version ?? 0) > 0) return row.source_time_current && !!date && date >= start && date <= end;
+      return entry.key <= end;
+    }),
     (entry) => {
       const row = current.get(entry.id)!;
       return row.story_id === null ? `a:${row.id}` : `s:${row.story_id}`;
@@ -206,8 +231,23 @@ export async function periodEntries(start: string, end: string): Promise<{ entri
       (entries.some((entry) => entry.lead) ? 6 : 0) +
       (entries.some((entry) => entry.highlight) ? 3 : 0) +
       4 * (new Set(entries.map((entry) => entry.key)).size - 1);
-    return { candidate: { ...reportEntry(row), category: row.category, factKey: factKey(row) }, rank };
+    const distinct = new Map(
+      entries.map((entry) => {
+        const member = current.get(entry.id)!;
+        return [factKey(member), member];
+      }),
+    );
+    distinct.delete(factKey(row));
+    return {
+      candidate: {
+        ...reportEntry(row),
+        category: row.category,
+        factKey: factKey(row),
+        ...(distinct.size ? { related: [...distinct.values()].map(reportEntry) } : {}),
+      },
+      rank,
+    };
   });
   ranked.sort((a, b) => b.rank - a.rank || a.candidate.itemId.localeCompare(b.candidate.itemId));
-  return { entries: ranked.map((entry) => entry.candidate), issues: issues.length, hasEntries: carried.length > 0 };
+  return { entries: ranked.map((entry) => entry.candidate), issues: issues.filter((issue) => issue.key <= end).length, hasEntries: carried.length > 0 };
 }

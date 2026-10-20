@@ -1,11 +1,12 @@
 import { arrangeDaily } from "./arrangement.ts";
 import { dailyEdition, periodEntries } from "./edition.ts";
-import { dailyJudgedReportCount, reportCandidateRows } from "@amp/backend/publication/groups";
+import { dailyDraft, periodContent } from "./draft.ts";
+import { reportCandidateRows } from "@amp/backend/publication/groups";
 export { newsReportWithdrawalSnapshot } from "./references.ts";
 // Daily, weekly and monthly reports. Windows are Beijing calendar based and written into the report;
 // missed schedule points are caught up; regeneration creates a revision. The editors' prompts are in
 // the industry pack (industry/prompts/report-*.md), the sections follow its categories.
-import { SITE, EDITION_TIMES } from "@amp/industry/site";
+import { EDITION_TIMES } from "@amp/industry/site";
 import { modelFor } from "../editorial/models.ts";
 import { addDays, beijingDate, beijingTime, isoWeekLabel, isoWeekRange } from "@amp/contracts/time";
 import { sql } from "../db.ts";
@@ -14,7 +15,9 @@ import { shutdownSignal } from "../jobs/queue.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 export { composePolicyReports } from "../publication/policy-report-job.ts";
 
-import { REPORT_VERSION, reportSection, SECTION_ORDER, periodGroups, writePeriod } from "./period-writing.ts";
+import { writePeriod } from "./period-writing.ts";
+import { firstScheduledDaily, preserveReportCalendar, requestReportDependents } from "./revision-state.ts";
+import { periodWindow } from "./periods.ts";
 export { REPORT_VERSION, PeriodSchema, periodPrompt, writePeriod } from "./period-writing.ts";
 
 export interface ReportEntry {
@@ -36,6 +39,7 @@ export interface ReportEntry {
 export interface Candidate extends ReportEntry {
   category: string | null;
   factKey: string;
+  related?: ReportEntry[];
 }
 
 function roleOf(kind: string, firstParty: boolean): string {
@@ -85,12 +89,16 @@ async function saveReport(
   await sql.begin(async (tx) => {
     await assertRuntimeControl(tx, control.publication);
     if (control.processing) await assertRuntimeControl(tx, control.processing);
+    await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
     const [existing] = await tx<{ id: number; revision: number; content: unknown; generated_at: Date }[]>`
       SELECT id, revision, content, generated_at FROM reports WHERE kind = ${kind} AND key = ${key} FOR UPDATE`;
     // Scheduled retries preserve an existing issue. Corrections use their own writer.
     if (existing) return;
-    await tx`INSERT INTO reports (kind, key, window_start, window_end, content, generated_at, model, origin)
-      VALUES (${kind},${key},${start},${end},${tx.json(content as never)},now(),${model},${model ? "model" : "rule"}) ON CONFLICT (kind,key) DO NOTHING`;
+    await preserveReportCalendar(tx);
+    const inserted = await tx`INSERT INTO reports (kind, key, window_start, window_end, content, generated_at, first_published_at, model, origin)
+      VALUES (${kind},${key},${start},${end},${tx.json(content as never)},now(),now(),${model},${model ? "model" : "rule"}) ON CONFLICT (kind,key) DO NOTHING`;
+    await preserveReportCalendar(tx);
+    if (inserted.count && kind === "daily") await requestReportDependents(key, [], tx);
   });
 }
 
@@ -112,46 +120,10 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
   if (existing) return { key: date, entries: await publishedEntries("daily", date) };
   const end = editionTime(date);
   const start = new Date(end.getTime() - 86400000);
-  const edition = await dailyEdition(date, start, end);
-  const arranged = arrangeDaily(edition.entries.filter((entry) => reportSection(entry.category)));
-  arranged.flashes = [...arranged.flashes, ...edition.entries.filter((entry) => !reportSection(entry.category))].slice(0, 10);
-  const perSection = new Map<string, typeof arranged.main>();
-  for (const entry of arranged.main) {
-    const label = reportSection(entry.category) ?? SECTION_ORDER.at(-1)!;
-    perSection.set(label, [...(perSection.get(label) ?? []), entry]);
-  }
-  const sections = SECTION_ORDER.filter((label) => perSection.has(label)).map((label) => ({
-    label,
-    items: perSection.get(label)!.map((entry) => entry.entry),
-  }));
-  const main = arranged.main.map((entry) => entry.entry),
-    flashes = arranged.flashes.map((entry) => entry.entry);
-  const quiet = !main.length && !flashes.length;
-  if (quiet && (edition.stats.pendingSelections > 0 || (await dailyJudgedReportCount(start, end)) === 0)) return { key: date, entries: 0 };
-  const lead = main[0];
-  const content = {
-    date,
-    generationStatus: quiet ? "summary" : "ready",
-    lead: lead
-      ? { title: lead.title, leadParagraph: lead.summary }
-      : quiet
-        ? { title: "今日无大事发生", leadParagraph: "本期已完成评分的矿业资讯中，没有新增内容入选日报。" }
-        : null,
-    leadItemId: lead?.itemId ?? null,
-    highlights: main.slice(1, 4).map((entry) => entry.itemId),
-    sections,
-    flashes,
-    metrics: {
-      totalEvents: main.length,
-      sourcesCount: new Set(arranged.main.flatMap((entry) => [...entry.sourceIds])).size,
-      firstPartyEvents: main.filter((entry) => entry.firstParty).length,
-    },
-    windowStart: start.toISOString(),
-    windowEnd: end.toISOString(),
-    generator: { version: REPORT_VERSION, model: null, ...edition.stats, ...arranged.stats },
-  };
-  await saveReport("daily", date, start, end, content, reason, null, { publication });
-  return { key: date, entries: main.length + flashes.length };
+  const prepared = await dailyDraft(date, start, end);
+  if (prepared.waiting) return { key: date, entries: 0 };
+  await saveReport("daily", date, start, end, prepared.content, reason, null, { publication });
+  return { key: date, entries: prepared.entries };
 }
 
 /** Published dailies prove period coverage independently of the next catch-up's transient run status. */
@@ -172,8 +144,7 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
     processing = await runtimeControlSnapshot("news", ["processing"]);
   const kept = await publishedEntries(kind, key);
   if (kept > 0) return { key, entries: kept };
-  const start = editionTime(addDays(startDate, -1));
-  const end = editionTime(endDateInclusive);
+  const { from: start, until: end } = periodWindow(kind, key);
   const period = await periodEvidence(startDate, endDateInclusive),
     top = period.entries.slice(0, kind === "weekly" ? 20 : 30);
   if (!top.length) {
@@ -189,23 +160,7 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
     // Failed prose never changes the already determined contents of an issue.
     console.warn(JSON.stringify({ level: "warn", msg: "report overview unavailable", kind, key, error: error instanceof Error ? error.name : "Error" }));
   }
-  const lead = top[0]!;
-  const content = {
-    kind,
-    generationStatus: written?.overview ? "ready" : "summary",
-    title: `${SITE.name} ${kind === "weekly" ? "周报" : "月报"} · ${key}`,
-    ...(kind === "weekly" ? { isoLabel: key } : { monthLabel: key }),
-    periodStart: startDate,
-    periodEnd: endDateInclusive,
-    headline: lead.title,
-    leadItemId: lead.itemId,
-    highlights: top.slice(1, 4).map((entry) => entry.itemId),
-    overview: written?.overview ?? null,
-    themes: written?.themes ?? periodGroups(top).map((group) => ({ heading: group.label, summary: null, storyRefs: group.items })),
-    storyOrder: top.map((entry) => entry.itemId),
-    metrics: { totalStories: top.length, selectedCount: period.entries.length, reportsCovered: period.issues },
-    generator: { version: REPORT_VERSION, model: written?.model ?? null, written: !!written?.overview },
-  };
+  const content = periodContent(kind, key, startDate, endDateInclusive, period, top, written);
   await saveReport(kind, key, start, end, content, reason, written?.model ?? null, { publication, ...(written ? { processing } : {}) });
   if (written) await completeReceipt(sql, written.receiptId);
   return { key, entries: top.length };
@@ -297,8 +252,11 @@ export async function catchUpReports(now = new Date(), limit = 8): Promise<{ gen
   editions: for (const current of [true, false]) {
     for (const item of kinds) {
       const have = new Set((await sql<{ key: string }[]>`SELECT key FROM reports WHERE kind=${item.kind}`).map((row) => row.key));
-      const first = current ? item.due : ([...have].sort()[0] ?? item.due);
-      const [daily] = await sql<{ key: string | null }[]>`SELECT min(key) AS key FROM reports WHERE kind='daily'`;
+      const firstDaily = await firstScheduledDaily();
+      const floor = firstDaily && (item.kind === "daily" ? firstDaily : item.kind === "weekly" ? isoWeekLabel(firstDaily) : firstDaily.slice(0, 7));
+      const earliest = [...have].sort()[0] ?? item.due;
+      const first = current ? item.due : floor && floor > earliest ? floor : earliest;
+      const daily = { key: firstDaily };
       for (let key = first; key <= item.due; key = item.next(key)) {
         if (!current && key === item.due) break;
         if (have.has(key)) continue;
@@ -329,3 +287,4 @@ export {
   invalidateReportCorrections,
   REPORT_CORRECTION_QUEUE,
 } from "./corrections.ts";
+export { managedReports, requestManagedReport } from "./management.ts";

@@ -61,6 +61,30 @@ test("ordinary administrators cannot change Owner source, notification or reques
   assert.equal((await f.admin`SELECT 1 FROM sources WHERE id='owner-settings-new'`).length, 0);
   assert.equal((await f.admin`SELECT 1 FROM budgets WHERE service='owner-settings-service'`).length, 0);
   assert.equal((await app.inject({ method: "GET", url: "/api/admin/settings", headers: admin })).statusCode, 200);
+  await f.admin`INSERT INTO audit_log(actor,action,subject,reason,"after") VALUES('owner','synthetic.owner-only','private-audit','fixture','{"marker":"OWNER_AUDIT_ONLY"}')`;
+  assert.equal((await app.inject({ method: "GET", url: "/api/admin/audit?action=synthetic.owner-only", headers: admin })).statusCode, 403);
+  const auditResponse = await app.inject({ method: "GET", url: "/api/admin/audit?action=synthetic.owner-only", headers: owner });
+  assert.equal(auditResponse.statusCode, 200);
+  assert.match(auditResponse.body, /OWNER_AUDIT_ONLY/);
+  const [unknown] =
+    await f.admin`INSERT INTO receipts(logical_key,service,purpose,status,attempts) VALUES('synthetic-owner-unknown','fixture','fixture','unknown',1) RETURNING id`;
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: `/api/admin/receipts/${unknown.id}/release`,
+        headers: admin,
+        payload: { billed: false, note: "Synthetic provider observation", version: `rv1:${"a".repeat(64)}` },
+      })
+    ).statusCode,
+    403,
+  );
+  assert.equal((await f.admin`SELECT status FROM receipts WHERE id=${unknown.id}`)[0].status, "unknown");
+  for (const headers of [admin, owner])
+    assert.equal(
+      (await app.inject({ method: "POST", url: "/api/admin/processing/requeue", headers, payload: { group: null, reason: "Synthetic bulk" } })).statusCode,
+      403,
+    );
   for (const action of actions) assert.equal((await app.inject({ ...action, headers: owner })).statusCode, 200, `${action.method} ${action.url}`);
   const principal = await sessionPrincipal(owner.cookie);
   assert.ok(principal);

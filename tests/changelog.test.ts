@@ -4,9 +4,30 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { type Changelog, loadChangelog, validateChangelog } from "@amp/backend/site/meta";
+import { type Changelog, loadChangelog, validateChangelog, readerChangelogCopy } from "@amp/backend/site/meta";
+import { createHash } from "node:crypto";
 
 const text = readFileSync(new URL("../industry/changelog.json", import.meta.url), "utf8");
+
+test("reader copy edits preserve the original release and apply only to its exact observed wording", () => {
+  const original = { date: "2026-10-18", time: "22:20", kind: "更新" as const, title: "合成原说明", body: ["合成旧文案"] };
+  const history = { latestVersion: "2026-10-18T22:20", releases: [original] };
+  const hash = createHash("sha256")
+    .update(JSON.stringify({ date: original.date, time: original.time, title: original.title, body: original.body }))
+    .digest("hex");
+  const edit = {
+    date: original.date,
+    time: original.time,
+    title: original.title,
+    originalCopySha256: hash,
+    copy: { title: "合成读者说明", body: ["合成使用入口。"] },
+  };
+  const changed = readerChangelogCopy(history, [edit]);
+  assert.equal(changed.releases[0].title, edit.copy.title);
+  assert.equal(changed.latestVersion, history.latestVersion);
+  assert.equal(history.releases[0].title, "合成原说明");
+  assert.deepEqual(readerChangelogCopy(history, [{ ...edit, originalCopySha256: "0".repeat(64) }]), history);
+});
 
 test("the real changelog passes: the first deploy's entries, then the 2.0 launch; no framework sample, no review notes", () => {
   const changelog = validateChangelog(JSON.parse(text));

@@ -1,3 +1,4 @@
+import { sourceOwnerHeaders } from "./source-owner-fixture.ts";
 import "./setup.ts";
 import { previewSourceFixture } from "./source-preview-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -49,13 +50,13 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     egressProxyUrl: null,
     modelCallsEnabled: true,
     privateHost: "private.automatic.test",
-    devAdmin: { displayName: "Synthetic test owner" },
+    devAdmin: null,
   });
   const admin = await buildApp("private-api");
   apps.push(admin);
   const reader = await buildApp("public-api");
   apps.push(reader);
-  const headers = { "x-forwarded-host": "private.automatic.test", "x-csrf-token": "dev" };
+  const headers = { "x-forwarded-host": "private.automatic.test", ...(await sourceOwnerHeaders()) };
   const sourceId = "automatic-fixture-feed";
   async function waitFor(label: string, check: () => Promise<boolean>) {
     for (let i = 0; i < 600; i++) {

@@ -10,6 +10,8 @@ import { completeReceipt } from "../providers/receipts.ts";
 import { requireRuntimeRunning, assertRuntimeControl } from "../operations/lane-controls.ts";
 import { reportMemberIds, type StoredReportContent } from "./references.ts";
 import { generateReportCorrection } from "./correction-compose.ts";
+import { collectReportChanges, enqueueReportReconciliation } from "./revision-state.ts";
+import { registerReconciliationJobs, reconcileReport } from "./reconcile.ts";
 
 export const REPORT_CORRECTION_QUEUE = "reports.correct";
 export async function ensureReportCorrectionQueue() {
@@ -28,6 +30,7 @@ type Report = {
   revision: number;
   content: StoredReportContent;
   generated_at: Date;
+  origin: string;
   window_start: Date;
   window_end: Date;
 };
@@ -37,9 +40,10 @@ const corrections = (content: StoredReportContent) =>
 /** Same transaction as the editorial change: immediately invalidates old synthesis and durably queues repair. */
 export async function invalidateReportCorrections(db: Db, itemIds: string[], reason: CorrectionReason) {
   if (!itemIds.length) return 0;
-  const rows = await db<Report[]>`SELECT id,kind,key,revision,content,generated_at,window_start,window_end FROM reports ORDER BY id FOR UPDATE`;
+  const rows = await db<Report[]>`SELECT id,kind,key,revision,content,generated_at,window_start,window_end,origin FROM reports ORDER BY id FOR UPDATE`;
   let changed = 0;
   for (const report of rows) {
+    if (report.origin === "manual") continue;
     if (!reportMemberIds(report.content).some((id) => itemIds.includes(id))) continue;
     const revision = report.revision + 1;
     const content = {
@@ -62,7 +66,7 @@ export async function invalidateReportCorrections(db: Db, itemIds: string[], rea
       corrections: [...corrections(report.content), { revision, reason: publicReason[reason], at: new Date().toISOString() }],
     };
     await db`INSERT INTO report_revisions(report_id,revision,content,generated_at,reason) VALUES(${report.id},${report.revision},${db.json(report.content as never)},${report.generated_at},${publicReason[reason]}) ON CONFLICT DO NOTHING`;
-    await db`UPDATE reports SET revision=${revision},content=${db.json(content)},updated_at=now() WHERE id=${report.id}`;
+    await db`UPDATE reports SET revision=${revision},content=${db.json(content)},last_revised_at=now(),updated_at=now() WHERE id=${report.id}`;
     await db`INSERT INTO reports.correction_jobs(report_id,requested_revision,state,reason_code) VALUES(${report.id},${revision},'pending',${reason})
       ON CONFLICT(report_id) DO UPDATE SET requested_revision=EXCLUDED.requested_revision,state='pending',reason_code=EXCLUDED.reason_code,last_error=NULL,updated_at=now()`;
     await ensureReportCorrectionQueue();
@@ -73,11 +77,14 @@ export async function invalidateReportCorrections(db: Db, itemIds: string[], rea
 }
 
 export async function correctNewsReport(reportId: string) {
-  const [report] = await sql<Report[]>`SELECT id,kind,key,revision,content,generated_at,window_start,window_end FROM reports WHERE id=${reportId}`;
+  const [report] = await sql<Report[]>`SELECT id,kind,key,revision,content,generated_at,window_start,window_end,origin FROM reports WHERE id=${reportId}`;
   const [job] = await sql<
     { requested_revision: number; state: string; reason_code: CorrectionReason }[]
   >`SELECT requested_revision,state,reason_code FROM reports.correction_jobs WHERE report_id=${reportId}`;
   if (!report || !job || job.state === "done" || !report.content.correctionPending) return { status: "current" as const };
+  if (report.origin === "manual") return { status: "preserved_manual" as const };
+  if ((await sql`SELECT 1 FROM reports.reconciliation_jobs WHERE kind=${report.kind} AND key=${report.key} AND state IN ('pending','running','retry')`).length)
+    return reconcileReport(report.kind, report.key);
   if (await isReportWithdrawn("news", report.kind, report.key)) return { status: "withdrawn" as const };
   const ids = reportMemberIds(report.content);
   const entries = await currentReportPublications(ids);
@@ -108,7 +115,7 @@ export async function correctNewsReport(reportId: string) {
         corrections: [...corrections(report.content), { revision, reason: "已依据当前公开报道完成本期更正。", at: new Date().toISOString() }],
       };
       await tx`INSERT INTO report_revisions(report_id,revision,content,generated_at,reason) VALUES(${report.id},${report.revision},${tx.json(report.content as never)},${report.generated_at},'更正后的报告已生成') ON CONFLICT DO NOTHING`;
-      await tx`UPDATE reports SET content=${tx.json(content as never)},revision=${revision},model=${generatedModel},origin=${generatedModel ? "model" : "rule"},generated_at=now(),updated_at=now() WHERE id=${report.id}`;
+      await tx`UPDATE reports SET content=${tx.json(content as never)},revision=${revision},model=${generatedModel},origin=${generatedModel ? "model" : "rule"},last_revised_at=now(),updated_at=now() WHERE id=${report.id}`;
       await tx`UPDATE reports.correction_jobs SET state='done',last_error=NULL,updated_at=now() WHERE report_id=${report.id} AND requested_revision=${report.revision}`;
       if (generated.receiptId) await completeReceipt(tx, generated.receiptId);
       return true;
@@ -127,15 +134,21 @@ export async function correctNewsReport(reportId: string) {
 
 /** Retry the same durable repair after a control pause or receipt reconciliation; the gateway still refuses unknown bills. */
 export async function enqueuePendingReportCorrections(limit = 20) {
+  await collectReportChanges(100);
+  const revisions = await enqueueReportReconciliation(Math.min(limit, 4));
   await ensureReportCorrectionQueue();
   const rows = await sql<{ report_id: number; requested_revision: number }[]>`SELECT report_id,requested_revision FROM reports.correction_jobs
-    WHERE state IN ('pending','blocked','running') AND updated_at<now()-interval '5 minutes' ORDER BY updated_at LIMIT ${limit}`;
+    WHERE state IN ('pending','blocked','running') AND updated_at<now()-interval '5 minutes'
+      AND NOT EXISTS(SELECT 1 FROM reports r JOIN reports.reconciliation_jobs q ON q.kind=r.kind AND q.key=r.key
+        WHERE r.id=reports.correction_jobs.report_id AND q.state IN ('pending','running','retry'))
+    ORDER BY updated_at LIMIT ${limit}`;
   for (const row of rows)
     await enqueue(REPORT_CORRECTION_QUEUE, { reportId: String(row.report_id), lane: "news" }, { singletonKey: `${row.report_id}:${row.requested_revision}` });
-  return { queued: rows.length };
+  return { queued: rows.length + revisions };
 }
 
 export async function registerReportCorrectionJobs(boss: PgBoss) {
+  await registerReconciliationJobs(boss);
   await ensureReportCorrectionQueue();
   await work(
     boss,

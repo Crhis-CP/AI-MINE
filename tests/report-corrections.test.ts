@@ -266,8 +266,8 @@ test("period publication keeps its daily selection when prose is unknown and doe
     assert.equal(view.generationStatus, "summary");
     assert.equal(view.stories.length, 2);
     assert.match(view.overview!, /本月汇集 2 件矿业动态/);
-    assert.equal(view.windowStart, "2049-12-31T00:00:00.000Z");
-    assert.equal(view.windowEnd, "2050-01-31T00:00:00.000Z");
+    assert.equal(view.windowStart, "2049-12-31T16:00:00.000Z");
+    assert.equal(view.windowEnd, "2050-01-31T16:00:00.000Z");
     const [receipt] = await sql`SELECT status FROM receipts WHERE subject='report:monthly:2050-01'`;
     assert.equal(receipt!.status, "unknown");
     const attempts = provider.hits();
