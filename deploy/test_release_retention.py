@@ -26,6 +26,38 @@ def fixture():
 
 
 class RetentionTests(unittest.TestCase):
+    def test_missing_image_requires_a_verified_overlay_recipe_and_protects_its_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / "release-123456789abc"
+            release.mkdir()
+            original = release / "previous-image.txt"
+            original.write_text(ident(5))
+            missing = m.subprocess.CalledProcessError(1, ["docker", "image", "inspect"])
+            with patch.object(m, "docker", side_effect=missing), patch.object(m, "RecoveryBindings") as factory:
+                factory.return_value.resolve.return_value = ident(6)
+                references, blocked = m.backup_references(root)
+                self.assertEqual(references, {"release-123456789abc/previous-image.txt": ident(6)})
+                self.assertEqual(blocked, [])
+                factory.return_value.resolve.assert_called_once_with(ident(5), "release-123456789abc")
+                self.assertEqual(original.read_text(), ident(5))
+                containers, images = fixture()
+                result = m.plan(containers, images, [], [ident(2), ident(3)], NOW, backup_images=references.values())
+                self.assertNotIn(ident(6), {item["id"] for item in result["candidates"]})
+                factory.return_value.resolve.side_effect = ValueError("Unproved recovery")
+                self.assertTrue(m.backup_references(root)[1])
+                second = root / "release-23456789abcd"
+                second.mkdir()
+                (second / "previous-image.txt").write_text(ident(5))
+                def resolve(image, snapshot):
+                    if snapshot == release.name:
+                        return ident(6)
+                    raise ValueError("This snapshot has no restore proof")
+                factory.return_value.resolve.side_effect = resolve
+                references, blocked = m.backup_references(root)
+                self.assertEqual(references["release-123456789abc/previous-image.txt"], ident(6))
+                self.assertTrue(any(second.name in message for message in blocked))
+
     def test_container_config_digest_resolves_to_manifest_digest(self):
         container = {"image": ident(1), "name": "/amp-web-1"}
         image = {"id": ident(4), "tags": ["amp-app:latest"]}

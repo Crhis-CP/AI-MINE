@@ -246,8 +246,9 @@ PYQ
 # Install the quality-aware guard before any failure can leave a new release
 # running under the old timer's health-only cleanup rules. Business rollback
 # deliberately keeps this conservative guard.
-install -m 0755 "$RELEASE_STAGE/deploy/release-retention.py" /usr/local/lib/aimine-maintenance/release-retention.py
+install -m 0644 "$RELEASE_STAGE/deploy/recovery_bindings.py" /usr/local/lib/aimine-maintenance/recovery_bindings.py
 install -m 0644 "$RELEASE_STAGE/deploy/release_changelog.py" /usr/local/lib/aimine-maintenance/release_changelog.py
+install -m 0755 "$RELEASE_STAGE/deploy/release-retention.py" /usr/local/lib/aimine-maintenance/release-retention.py
 # Finish any older healthy version's note before changing its running code.
 if [[ -f "$RELEASE_ROOT/.ops/changelog-pending.json" ]]; then
   python3 - "$RELEASE_ROOT" "$RELEASE_OLD_VERSION" <<'PYN'
