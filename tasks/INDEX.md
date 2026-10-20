@@ -249,6 +249,7 @@
 | [TASK-0375](TASK-0375.md) | T-0101 | M3 | architect | integrated | 手机导航模块声明契约 | — |
 | [TASK-0376](TASK-0376.md) | T-0101 | M3 | architect | integrated | Agent答案与关于页动态展示契约 | — |
 | [TASK-0377](TASK-0377.md) | T-0101 | M3 | architect | specified | 后台维护与反馈控制契约 | — |
+| [TASK-0378](TASK-0378.md) | T-0101 | M3 | architect | locally_verified | 声明历史报告修订与首次出刊的兼容契约 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

@@ -250,6 +250,10 @@ interface ReportCitationCore {
 }
 
 export interface ReportDetail {
+  /** First publication remains stable through historical revisions. Absent on legacy producers. */
+  firstPublishedAt?: string;
+  /** Most recent actual content revision, not a poll or a no-op replay. */
+  lastRevisedAt?: string;
   corrections?: Array<{ revision: number; reason: string; at: string }>;
   generationStatus?: "ready" | "pending" | "failed" | "summary";
   kind: ReportKind;

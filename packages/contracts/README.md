@@ -77,3 +77,5 @@ GroupInfo.memberIds可选列出当前公开筛选内的精选成员ID，供聚�
 Agent答案契约在`http/agent`：匿名只读Markdown说明及资讯、检索、热点、事件、日报/周报/月报共11条GET地址，成功类型为text/markdown，错误保留Problem JSON。参数严格、有界、日期真实；这是准备声明，运行处理器随统一版本接入，不改变已有JSON与MCP工具。
 
 关于页SiteStats可选sampleSources/latest分别限180和8，供实际来源流程示意与最近精选；旧响应继续可读，缺字段不推断已采集或公开。
+
+历史报告修订兼容契约（TASK-0378）：ReportDetail可选firstPublishedAt/lastRevisedAt分别表示首次出刊及最近实际修订，原generatedAt、revision、corrections保持。`http/private`声明按真实刊期的reconcileNewsReport：观察到的revision、非空原因、幂等请求键及人工版本/撤回保留状态。`jobs`新增固定news lane的reports.reconcile和按代际确认的ReportPublicationChange；处理器、持久化及页面随后接入，声明不表示已修订。模块职责及消费者验收见[历史报告设计](../../docs/04-architecture/report-revisions.md)。
