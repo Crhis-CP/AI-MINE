@@ -1,6 +1,6 @@
-import * as cheerio from "cheerio";
 import { evaluateSourcePolicy, sourceDateConfiguration } from "../admin/sources.ts";
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
+import { narrativeText } from "./narrative.ts";
 import type { TimeAssertion } from "@amp/contracts/time-assertion";
 import { materialSourceTime } from "../content/date-evidence.ts";
 import { modelSourceDateLabel } from "./source-time.ts";
@@ -38,32 +38,6 @@ export interface AnalyzeInputArticle {
   };
   /** Stored Chinese translation of the body (e.g. a full post whose original was truncated). */
   translationZh?: string | null;
-}
-
-/** An embedded article-link card is navigation, not a fact about this article. Raw bodies remain unchanged. */
-function narrativeText(text: string | null, html: string | null, url: string): string | null {
-  if (!html?.includes("<figure")) return text;
-  const $ = cheerio.load(html, null, false);
-  let removed = false;
-  $("figure").each((_, node) => {
-    const figure = $(node),
-      quote = figure.children("blockquote");
-    if (figure.children().length !== 1 || quote.length !== 1 || quote.attr("cite")) return;
-    const link = quote.children("a[href]");
-    if (quote.children().length !== 1 || link.length !== 1 || !link.text().trim() || collapseWhitespace(figure.text()) !== collapseWhitespace(link.text()))
-      return;
-    try {
-      const target = new URL(link.attr("href")!, url);
-      if (!["http:", "https:"].includes(target.protocol) || target.href === url) return;
-    } catch {
-      return;
-    }
-    figure.remove();
-    removed = true;
-  });
-  if (!removed) return text;
-  $("p,h1,h2,h3,h4,h5,h6,li,blockquote,figcaption,td,th,br").append("\n");
-  return collapseWhitespace($.root().text());
 }
 
 export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise<AnalyzeInputArticle | null> {

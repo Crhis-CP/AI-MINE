@@ -8,6 +8,8 @@ import type { Candidate } from "../packages/backend/src/reports/compose.ts";
 import { buildScoreInput } from "@amp/backend/editorial/analyze";
 import { buildArticlePrompt, finalizeCopy, translateInputOf } from "../packages/backend/src/editorial/writing.ts";
 import { sanitizeBody } from "@amp/backend/content/sanitize";
+import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
+import { projectNewsGeography } from "../packages/backend/src/publication/news-geography.ts";
 
 after(closeDb);
 test("analysis excludes a standalone linked article card while preserving the original, genuine quotations and inline references", async () => {
@@ -41,6 +43,61 @@ test("a genuine linked quotation retains its safe citation through extraction cl
     VALUES('quotation-article','quotation-fixture','quotation-key','https://news.invalid/main','Permit conditions',${html},
     'The permit remains conditional on consultation. The application continues.','en','ok',now(),now(),'{}')`;
   assert.match((await loadAnalyzeInput("quotation-article"))!.bodyText!, /conditional on consultation/);
+});
+
+test("publication verifies new and legacy geography against the same narrative without accepting a related-card country", async () => {
+  const main = "Main Miner won approval in Peru.";
+  const card = "Other Miner announced an acquisition in Canada.";
+  const html = `<p>${main}</p><figure><blockquote><a href="https://news.invalid/other">${card}</a></blockquote></figure>`;
+  const raw = `${main} ${card}`;
+  await sql`INSERT INTO sources(id,name,kind) VALUES('geography-narrative','Synthetic geography','rss')`;
+  await sql`INSERT INTO articles(id,source_id,identity_key,url,title,body_html,body_text,language,body_status,discovered_at,timeline_at,raw)
+    VALUES('geography-narrative','geography-narrative','geography-narrative','https://news.invalid/main','Main Miner approval',
+      ${html},${raw},'en','ok',now(),now(),'{}')`;
+  const input = (await loadAnalyzeInput("geography-narrative"))!;
+  const article = {
+    id: input.id,
+    revision: input.revision,
+    title: input.title,
+    url: input.url,
+    body_html: html,
+    body_text: raw,
+    excerpt: null,
+    body_status: "ok",
+  };
+  for (const legacy of [false, true]) {
+    const evidence = validateGeography(
+      {
+        status: "identified",
+        primary: "PE",
+        reason: "Explicit project location",
+        assignments: [{ code: "PE", role: "event_location", mention: "Peru", segment: "body_head", quote: main }],
+      },
+      legacy ? { ...input, bodyText: raw } : input,
+    );
+    assert.equal(evidence.state, "identified", "the synthetic input contains a registered country and exact quote");
+    const [analysis] = await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,output)
+      VALUES(${input.id},1,'model','synthetic','synthetic','pass',${sql.json({ geography: evidence })}) RETURNING id`;
+    await sql.begin((tx) => projectNewsGeography(tx, article, analysis.id));
+    const [projected] = await sql`SELECT state,jurisdictions FROM publication.news_geography WHERE article_id=${input.id}`;
+    assert.equal(projected.state, "identified", `valid ${legacy ? "legacy" : "new"} geography remains usable`);
+    assert.deepEqual(projected.jurisdictions, ["PE"]);
+  }
+  const polluted = validateGeography(
+    {
+      status: "identified",
+      primary: "CA",
+      reason: "Related article",
+      assignments: [{ code: "CA", role: "event_location", mention: "Canada", segment: "body_head", quote: card }],
+    },
+    { ...input, bodyText: raw },
+  );
+  const [analysis] = await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,output)
+    VALUES(${input.id},1,'model','synthetic','synthetic','pass',${sql.json({ geography: polluted })}) RETURNING id`;
+  await sql.begin((tx) => projectNewsGeography(tx, article, analysis.id));
+  const [projected] = await sql`SELECT state,jurisdictions FROM publication.news_geography WHERE article_id=${input.id}`;
+  assert.equal(projected.state, "unknown");
+  assert.deepEqual(projected.jurisdictions, []);
 });
 
 test("a valid received summary retains later conditions and negations instead of silently cutting at the first sentence", () => {
