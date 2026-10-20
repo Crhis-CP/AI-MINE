@@ -117,7 +117,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 - **只在公开仓库上跑**：作业条件是 `github.event.repository.visibility == 'public'`。仓库改成私有，作业直接跳过，不计费；这时它不再算已授权的执行者，直到 Owner 重新确认。改可见性之前先问 Owner。
 - **跑哪个提交**：PR 的最终提交，不是 GitHub 合成的合并提交，带完整历史，用来与 main 比较。这个 SHA 经环境变量传给 `make verify SHA=…`，检出错了直接拒绝运行；回执绑定的就是它。
 - **环境**：
-  - `ubuntu-24.04` 托管 runner，Node 24；npm 照 `Dockerfile` 的装法，`npm install -g npm@<packageManager 的版本>`；不用任何缓存。
+  - `ubuntu-24.04` 托管 runner，Node 24；npm 照 `Dockerfile` 的装法，`npm install -g npm@<packageManager 的版本>`；不使用跨运行的共享缓存。Docker 先安装根锁及工作区清单，再复制源码；同一 builder 内源码变更可复用依赖层，安装脚本禁用与最终生产裁剪保持。
   - 先装一次依赖，再由 [`ci-db.ts`](ci-db.ts) 起数据库：它从 `docker-compose.yml` 读出 `db` 服务那个按摘要锁定的镜像，用 `docker run` 起在 `127.0.0.1:5432`，信任认证、不设口令，等到能连上。库名 `amp_ci`。镜像只写在 compose 一处，换数据库镜像的卡只改 compose，不用改工作流。
   - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端。`ci-db.ts` 在数据库就绪时打出客户端版本。2026-10-03 第一次通过的[运行](https://github.com/Crhis-CP/AI-MINE/actions/runs/37105388171)（runner 镜像 `ubuntu-24.04`，版本 20260927.320.1）是客户端 16.15、服务端 17.11；这两处只建库删库、计数和读服务端版本，照常可用。
   - dump/restore 必须与服务端匹配：`ci-db.ts` 把绑定本次容器 ID 的两个适配器写入 `.verify/pg-tools/bin`，通过 `GITHUB_PATH` 只供后续验证步骤使用，不替换系统工具。VM 可在自己的检出里运行 `node scripts/verify/pg-tools.ts install <测试容器> <主机端口> <固定摘要镜像> <私有bin目录>`，只给本次验证的 PATH 加上返回目录。
@@ -130,6 +130,9 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
   - 推送 main 不需要。
   - 取不到时不设，`path-guard` 照常报“没有任务卡”。计划 PR 的“任务卡”一行照常写本 PR 新增的卡，`path-guard` 按计划 PR 放行（第 2 节）。
 - **回执在哪**：写在运行日志和运行摘要页里，集成人照旧贴到 PR 评论。有阶段失败时，运行日志里接着打出这个阶段的完整日志：控制台只显示最后 25 行，运行结束后 runner 上的文件也不在了。打出的日志只当文字，不当工作流命令。
+- **同一制品交付**：完整验证成功后，`deploy/release_artifact.py` 从原回执的 `local_rehearsal.normalImage` 导出已实际运行的镜像，不重新构建。只上传 `source.tar.gz`、`image.tar.gz`、`verify-receipt.json`、`release-manifest.json` 四个文件，保留七天，不覆盖旧制品。清单绑定提交、tree、镜像 ID、逐层内容、原始日志摘要与文件哈希；下载后先从独立读取的 Actions 日志核对清单哈希，再经正式发布入口校验、加载同一镜像。所记压缩文件、保存的层对象和展开 tar 字节各有口径，不能相加当作实际磁盘峰值；导入后仍需实测。哈希核对不等于签名验证，完整验证也不等于生产或恢复验收。
+- Docker 使用 config digest 或 manifest digest 作为镜像身份时，清单分别保留原验证 ID、原始 config 摘要与层清单。`loaded --directory DIR --manifest-sha256 HASH` 校验平台与层；身份不同则流式读取实际保存清单所引用的 config 字节并复算哈希，不在生产额外保存整份 tar。成功只输出当前 canonical ID，供正式入口打标签和记录；相同文件层不能代替配置相同的证明。Actions 制品名含运行 attempt，同一提交重试也不覆盖已有文件。
+- `deploy/release_capacity.py preflight` 在导入前保留 4 GiB 可用磁盘门槛，两次预检均要求 1 GiB `MemAvailable`；第二次 `--phase before_backup` 在镜像、暂存源码及程序包已准备后只预算尚未生成的 dump 和可能新增的目标源码副本。历史压缩包大小加 25% 只是规划余量，每文件系统按同时发生的阶段取最大估计并保留 1 GiB，不把旧样本当增长率或新 dump 上界。`monitor` 每秒记录实际 `statvfs` 与可用内存，退出或父进程结束后停止。预检与采样只新建证据文件；失败不清理镜像、备份或业务数据，不能用估计通过代替真实峰值和恢复验收。
 - **日志是公开的**：仓库公开，运行日志谁都能看，失败阶段的整段日志也一样。工作流不用任何密钥，`make verify` 的各阶段拿不到真实凭据；`compose-smoke` 的日志里会有一次性站点的临时管理员口令，站点随即删掉，无害。以后加阶段或改脚本，输出里也不能出现真实凭据。
 - **它不是什么**：
   - 2026-10-15以前曾不是平台必过检查；现已按Owner授权成为strict必过检查，旧A阶段结束（规则文件8.5）；
@@ -140,7 +143,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
   2. 只有上面三种触发；
   3. 推送 main 的运行不被取消或替换（并发组逐字核对）；
   4. 权限只在工作流级写一次 `contents: read`；
-  5. 只用按完整 SHA 锁定的 `actions/checkout` 与 `actions/setup-node`，不调用可复用工作流；
+  5. 只用按完整 SHA 锁定的 `actions/checkout`、`actions/setup-node` 与 `actions/upload-artifact`，不调用可复用工作流；制品上传限完整验证成功后的上述四文件，缺文件失败、七天保留且不覆盖；
   6. 检出设 `persist-credentials: false`；
   7. 不读密钥与令牌：每个 `${{ … }}` 照 GitHub 的读法整段核对，`secrets` 怎么写都拦，`github` 只许取 `token` 以外的属性（`toJSON(github)`、`github['token']` 都算令牌）。`if:` 里不写 `${{ }}` 的条件不在其列：条件里本来用不了 `secrets`；令牌在条件里只能决定某一步跑不跑，哪一步跑了在公开日志里看得见，理论上可以一位一位地漏出去，但它只读（`contents: read`）、作业结束就失效，漏出去也用不上；
   8. `run` 里不插 `${{ }}`，值经环境变量传入；

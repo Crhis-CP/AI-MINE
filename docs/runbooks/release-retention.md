@@ -1,24 +1,60 @@
-# 发布后的程序与缓存保留
+# 发布制品与恢复版本保留
 
-Owner于2026-10-12授权上线此维护机制：清理无用旧程序和打包缓存，保留当前与必要回退版本，不动稿件和法规资料。对应部署运维规格3.4；当前生产实际上在单机上构建，因此仅对构建缓存使用Docker专用回收，不使用全局system prune。20GB不作为删业务数据的目标。
+Owner于2026-10-12授权维护当前及必要回退版本，2026-10-19补充按原始证据核验容量、恢复和质量后再清理。以下新流程仍须取得最终提交的完整验证、正式部署及实际验收记录；代码存在不代表生产已采用。对应部署运维规格3.4；稿件、法规资料、数据库卷和历史账本不在自动清理范围内。
 
-`deploy/release-retention.py`默认干跑。首次执行用两个经核对的完整`sha256:`镜像ID作为`--seed`；以后从`/var/lib/aimine-maintenance/state.json`取最近三次健康运行镜像，保留当前加两次历史。全部容器引用（含停止容器）、`amp-app:latest`待发布版本、创建未满24小时及带其他项目标签的镜像继续保留。只处理`amp-app/amp-release/amp-rollback/amp-retained`仓库标签，删除前重新检查状态，禁止强制删除或删父镜像。
+## 同一制品发布
 
-安装脚本到`/usr/local/lib/aimine-maintenance/release-retention.py`，service/timer到`/etc/systemd/system/`，权限分别0755、0644，root所有。先干跑、核对清单，再`--apply --seed <上一版ID> --seed <再上一版ID>`；最后`systemctl daemon-reload`与`systemctl enable --now aimine-release-retention.timer`。安装不重启Docker或应用。
+既有非生产执行器完成准确SHA的Docker完整`make verify`后，`deploy/release_artifact.py pack`导出回执中实际参加演练的`normalImage`，不另建候选镜像。工作流只保存`source.tar.gz`、`image.tar.gz`、`verify-receipt.json`、`release-manifest.json`四个文件，保留七天。导出与上传属于同一个必过作业；失败不能进入发布。PR最终提交与合并main分别核对完整回执，生产使用最终main的制品。
 
-timer每15分钟检查：四个应用服务必须运行同一镜像，数据库与入口也必须运行，全部持续至少10分钟且本机HTTP健康检查直接通过。只有发现新健康版本或距离上次清理满一天才执行。每次成功更新后的下一次合格检查自动清理，通常在稳定后的15分钟内；每日补查回收后来过期的缓存。失败保留旧状态，下次再查，不回滚或暂停业务。
+从对应成功作业核对完整SHA、Git树和清单哈希后，正式入口接收六个参数：
 
-维护与部署必须共用`flock /opt/aimine/.ops/release.lock`，发布者应持锁覆盖构建、切换及健康验证。不得将该锁路径的文件删除或替换；锁忙自动延后。尚未遵循共享锁的手工发布仍有逐次状态核对、24小时保护及Docker在用保护，但必须迁到共享锁流程。
+```bash
+bash "$VERIFIED_SOURCE/deploy/production-release.sh" \
+  "$SHA" "$BUNDLE/source.tar.gz" "$SOURCE_SHA256" \
+  "$BUNDLE" "$MANIFEST_SHA256" "$TREE"
+```
+
+`VERIFIED_SOURCE`须为已核对提交的源码根目录，发布脚本及其相邻校验工具来自同一提交。生产复核文件字节、完整回执和镜像绑定，导入后核对Docker解析的镜像身份、配置摘要、层及平台。清单哈希必须独立取自已核对的CI记录；哈希校验不构成签名验证。具体制品字段见[验证入口](../../scripts/verify/README.md)。
+
+导入镜像、解包源码和保存旧程序均在停止worker之前完成，生产不再构建候选镜像。依赖安装层先复制锁文件及各工作区清单，再复制源码；复用收益以同一构建器的缓存命中记录为准，临时CI任务间不承诺共享缓存。
+
+## 容量与恢复点
+
+`deploy/release_capacity.py`在导入前和数据库备份前各检查一次。导入前保留原有可用磁盘4GiB底线，两阶段均要求`MemAvailable`至少1GiB，并在各文件系统的预计新增峰值之外保留1GiB。磁盘、inode或内存不满足时，在暂停worker前退出。
+
+估算使用本次制品大小和最近完整备份文件大小；旧备份另加25%规划余量，不能当作增长率或新备份的上限。同一文件系统按各阶段峰值取最大值，已经落盘的压缩输入不重复加入；备份前重新采样时不再计入已导入镜像和已生成程序归档。Docker共享层不推定为可释放空间，实际峰值仍须由每秒资源记录与发布阶段日志复算。
+
+每次尝试使用独立的备份、暂存和证据路径，失败记录保留。`recovery-point.json`把尝试发布的版本、前一运行版本及镜像、程序归档和数据库备份对应起来；目录名中的候选版本不是该备份所恢复的版本。新生成的角色程序归档只有逐字相同时才共用硬链接，各角色恢复路径保留；不同程序覆盖继续分别保存。计算实际占用时按设备和inode去重。
+
+隔离恢复须实际导入数据库，并配合对应镜像及必要程序覆盖验证读回和启动，记录时间、命令、输入哈希与结果。归档列表可读、哈希相同或清单中的成功声明均不足以证明可恢复。当前、两个必要回退及历史独有恢复点的映射未核实前保留全部相关资产。自动维护不删除发布备份；按恢复点收敛历史备份须另有完成的恢复验证和保留清单。
+
+## 维护准入与范围
+
+`deploy/release-retention.py`默认干跑。首次用两个经核对的完整`sha256:`镜像ID作为`--seed`；之后从`/var/lib/aimine-maintenance/state.json`读取历史，必须有当前加两个必要回退版本。全部容器引用（含停止容器）、`amp-app:latest`、创建未满24小时和带其他项目标签的镜像继续保留。备份中的前任镜像、候选镜像及早期程序快照引用一并保护；缺清单、未知目录或镜像身份无法解析时停止清理。
+
+受管范围为`amp-app/amp-release/amp-rollback/amp-retained`。维护器先持久保存已观察到的完整镜像身份及标签归属，后续只接管有这份来源记录的无标签镜像；历史无标签镜像不会仅因无容器引用而被认领。每次删除前重查运行及备份引用，禁止强制删除镜像或连带删除父镜像。
+
+发布先将`.ops/release-quality-gate.json`记为当前完整SHA的`pending`。完成自然任务、公开页面、实际手机后台操作及恢复验收后，才可持同一发布锁登记带时间和证据索引的`accepted`。维护器要求记录与健康接口的运行版本相符；缺失、待验收或版本不符均不清理。这个状态文件只是准入条件，独立复核仍须读取原始验收材料。
+
+写入`pending`后、停止worker前，从已核验的暂存源码安装新维护器，避免异常退出后仍由旧规则清理。业务回退保留这一保护；原本没有质量记录时，失败尝试仍保持待验收。采样未启动或提前结束会阻止暂停；源站已健康后的采样失败单独记为`deployed_capacity_evidence_missing`并返回非零，保留健康网站及待验收状态。
+
+安装脚本到`/usr/local/lib/aimine-maintenance/release-retention.py`，service/timer到`/etc/systemd/system/`，权限分别0755、0644，root所有。先干跑核对保护及候选清单，通过上述门槛后再`--apply --seed <上一版ID> --seed <再上一版ID>`，然后`systemctl daemon-reload`与`systemctl enable --now aimine-release-retention.timer`。安装不重启Docker或应用。
+
+timer每15分钟检查应用是否同镜像、数据库与入口是否运行，全部须持续至少10分钟且本机HTTP健康检查直接通过。通过恢复引用和质量门槛后，发现新版本、新受管身份或距上次清理满一天才执行。失败保留证据并在下轮复核，不回滚或暂停业务；十分钟健康不等于质量验收。
+
+维护与部署必须共用`flock /opt/aimine/.ops/release.lock`，发布者持锁覆盖核验、导入、备份、迁移、切换及健康验证。不得删除或替换锁文件；锁忙自动延后。手工发布必须迁到正式入口。
 
 缓存回收使用`docker builder prune --all --force --filter until=24h --keep-storage 2GB`，只涉及未使用的构建缓存，不涉及数据卷；24小时保护可能使短期缓存超过2GB，该值不是硬盘硬上限。保留的程序层仍受镜像引用保护。参考[Docker构建缓存命令](https://docs.docker.com/reference/cli/docker/builder/prune/)与[镜像删除语义](https://docs.docker.com/reference/cli/docker/image/rm/)。
 
-`last-result.json`记录最新保护集合、删除标签及磁盘前后值；systemd journal受主机现有日志轮转约束。`systemctl status aimine-release-retention.timer`与`journalctl -u aimine-release-retention.service`查看执行情况。停用只需`systemctl disable --now aimine-release-retention.timer`；不要删除保留镜像、数据库或卷。停止自动维护不会改变网站版本。
+`last-result.json`记录保护集合、受管删除结果及磁盘前后值，发布目录保存每秒资源记录和恢复点，`.ops`保存各次尝试的阶段JSONL日志；systemd journal受主机现有日志轮转约束。释放空间以可比较窗口的文件系统实际变化为准，镜像显示大小不能直接相加。`systemctl status aimine-release-retention.timer`与`journalctl -u aimine-release-retention.service`查看执行情况。停用只需`systemctl disable --now aimine-release-retention.timer`，不删除保留镜像、数据库或卷，也不改变网站版本。
 
 离线检查：`python3 -B -m unittest discover -s deploy -p test_release_retention.py`。生产验收只做真实维护及只读读回，禁止拿生产主机运行测试或verify。
 
 首次盘点发现现役镜像登记缺失且四个服务有历史代码热补丁。先按内容hash恢复原始程序镜像，另存四个服务的程序目录快照及清单；不使用`docker commit`封存运行时环境。恢复资料保存在`/opt/aimine-backup/program-retention-20261012`，自动清理器不会触碰该目录；恢复现役行为时还需逐服务恢复相应程序快照，不把基础镜像等同热补丁后的完整行为。
 
-2026-10-13补齐每次发布流程：`deploy/production-release.sh` 接收已完整验证的 SHA、归档及其 SHA-256，全程持同一发布锁，备份后切换并检查网站。健康后在 `.ops/changelog-pending.json` 保存实际上线时间，再由 worker 的 `scripts/register-release-notes.ts` 登记读者更新；同版本重试不重复，失败不会触发网站回滚。维护器每次合格检查先补记，再判断是否需要清理；下一版本切换前必须处理上一版本的待补记。
+## 更新登记与业务控制
+
+健康后在`.ops/changelog-pending.json`保存实际上线时间，再由worker的`scripts/register-release-notes.ts`登记读者更新；同版本重试不重复，登记失败不会触发网站回滚。维护器在运行与备份引用合格后补记，再判断清理条件；下一版本切换前必须处理上一版本的待补记。
 
 维护器旁同时安装 `release_changelog.py`。持久更新记录使用现有 data 卷下 `site/release-notes.json` 原子替换，保留静态历史记录的读取方式，无新增业务数据库表；公开站每次读取合并结果，无需再次重启。发布说明以 `industry/release-note.json` 中读者文字为准并引用产品片段；`product-update` 门禁检查枚举、标题、要点及可见变更是否更新了实际登记文字。纯维护版本重复沿用说明时自动登记“例行维护”。不把内容采集任务记成软件发布。
 

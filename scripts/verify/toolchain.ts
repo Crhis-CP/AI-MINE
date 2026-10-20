@@ -9,7 +9,8 @@ export const PINNED_IMAGE = /^[\w./-]+:\d+\.\d+(?:\.\d+)?(?:-[\w.-]+)?@sha256:[0
 /** The one workflow file allowed (TASK-0015). */
 export const WORKFLOW = ".github/workflows/verify.yml";
 const PR_TYPES = new Set(["opened", "synchronize", "reopened", "edited"]);
-const ALLOWED_ACTION = /^actions\/(?:checkout|setup-node)@[0-9a-f]{40}$/;
+const ALLOWED_ACTION = /^actions\/(?:checkout|setup-node|upload-artifact)@[0-9a-f]{40}$/;
+const RELEASE_FILES = ["source.tar.gz", "image.tar.gz", "verify-receipt.json", "release-manifest.json"].map((name) => `.verify/release/${name}`).join("\n");
 const HOSTED_UBUNTU = /^ubuntu-\d+\.\d+$/;
 const PUBLIC_ONLY = "github.event.repository.visibility == 'public'";
 // biome-ignore lint/suspicious/noTemplateCurlyInString: a GitHub Actions expression, compared as text
@@ -105,7 +106,7 @@ const isMapping = (v: unknown) => Boolean(v) && typeof v === "object" && !Array.
 /**
  * Problems with the verify workflow, rule by rule as TASK-0015 lists them: (2) triggered only by pull requests
  * (opened, synchronize, reopened, edited), pushes to main and by hand; (3) a run pushed to main is never
- * cancelled or replaced; (4) read-only for the whole run; (5) only actions/checkout and actions/setup-node,
+ * cancelled or replaced; (4) read-only for the whole run; (5) only checkout, setup-node and bounded release artifact upload,
  * pinned to a full commit SHA, and no reusable workflow; (6) checkout keeps no credentials; (7) no secrets
  * and no token, however an expression is written; (8) no `${{ }}` inside a script; (9) nothing allowed to fail
  * quietly, no deployment environment; (10) a time limit and a GitHub-hosted Ubuntu image of a named version;
@@ -171,6 +172,7 @@ export function workflowProblems(f: string, text: string): string[] {
   if (!jobs.length) bad("has no jobs");
   for (const [name, value] of jobs) {
     const job = mapping(value);
+    let verifiedInJob = false;
     const at = `job ${name}: `;
     if ("uses" in job) bad(`${at}uses a reusable workflow; only steps of this file may run`); // (5)
     if ("permissions" in job) bad(`${at}permissions are set once, for the whole workflow`); // (4)
@@ -193,16 +195,35 @@ export function workflowProblems(f: string, text: string): string[] {
       const label = `${at}step ${i + 1}: `;
       if ("uses" in step) {
         const uses = String(step.uses);
-        if (!ALLOWED_ACTION.test(uses)) bad(`${label}${uses}: only actions/checkout and actions/setup-node, pinned to a full commit SHA`); // (5)
+        if (!ALLOWED_ACTION.test(uses))
+          bad(`${label}${uses}: only actions/checkout, actions/setup-node and actions/upload-artifact, pinned to a full commit SHA`); // (5)
         if (uses.startsWith("actions/checkout@") && mapping(step.with)["persist-credentials"] !== false) {
           bad(`${label}actions/checkout must set persist-credentials: false`); // (6)
+        }
+        if (uses.startsWith("actions/upload-artifact@")) {
+          const options = mapping(step.with);
+          if (
+            !verifiedInJob ||
+            "if" in step ||
+            String(options.path ?? "").trim() !== RELEASE_FILES ||
+            options["if-no-files-found"] !== "error" ||
+            options.overwrite !== false ||
+            options["retention-days"] !== 7
+          ) {
+            bad(
+              `${label}release upload must follow successful verify, include only the four release files, fail on missing files, retain seven days and never overwrite`,
+            );
+          }
         }
       }
       if ("continue-on-error" in step) bad(`${label}continue-on-error is not allowed`); // (9)
       if (typeof step.run === "string") {
         if (step.run.includes("${{")) bad(`${label}\${{ … }} inside run; pass the value through env`); // (8)
         if (/(^|[\s;&|(])node scripts\/verify\/ci-db\.ts(\s|$)/m.test(step.run)) runsDatabase = true;
-        if (step.run.trim() === VERIFY_STEP && !("if" in step)) runsVerify = true; // (13): nothing masks or skips it
+        if (step.run.trim() === VERIFY_STEP && !("if" in step)) {
+          runsVerify = true; // (13): nothing masks or skips it
+          verifiedInJob = true;
+        }
       }
     }
   }

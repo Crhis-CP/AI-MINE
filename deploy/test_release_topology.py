@@ -40,6 +40,21 @@ class TopologyTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stderr, "")
 
+    def test_rollback_environment_write_failure_never_activates_a_container(self):
+        restore = re.search(r"restore\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        for key in ["APP_IMAGE", "AMP_RELEASE"]:
+            command = '''set -e
+phase() { :; }
+dc() { [[ $1 == stop ]] || printf 'unexpected activation'; }
+stop_api_containers() { :; }
+cp() { :; }; mkdir() { :; }; tar() { :; }; rsync() { :; }
+set_value() { [[ $1 != "$FIXTURE_FAIL" ]]; }
+''' + restore + '\nrestore || exit $?'
+            environment = {"PATH": os.defpath, "FIXTURE_FAIL": key, "RELEASE_BACKUP": "/synthetic/backup", "RELEASE_ROOT": "/synthetic/root", "RELEASE_OLD_TAG": "synthetic", "RELEASE_OLD_VERSION": "1234567"}
+            result = subprocess.run(["bash", "-c", command], env=environment, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("unexpected activation", result.stdout)
+
     def test_rollback_only_stops_known_application_containers_and_propagates_failure(self):
         for fail in ["", "amp-api-1"]:
             command = r'''set -e
