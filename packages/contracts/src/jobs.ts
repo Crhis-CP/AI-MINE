@@ -23,6 +23,7 @@ export interface JobData {
   "notify.selected": News & { articleId: string; attempt?: number };
   "publication.republish-source": News & { sourceId: string };
   "reports.correct": { reportId: string; lane: "news" };
+  "reports.reconcile": { kind: "daily" | "weekly" | "monthly"; key: string; lane: "news" };
   "news.model-test": { id: string; lane: "news" };
   "policy.model-test": { id: string; lane: "policy" };
 }
@@ -31,3 +32,11 @@ export type QueueName = keyof JobData;
 export type LegacyJobData<Q extends QueueName> = Omit<JobData[Q], "lane"> & { lane?: JobData[Q]["lane"] };
 /** A discriminated pair preserves the association when a caller selects a queue dynamically. */
 export type JobRequest = { [Q in QueueName]: { name: Q; data: JobData[Q] } }[QueueName];
+
+/** Publication-owned durable changes, acknowledged only at the observed generation. */
+export interface ReportPublicationChange {
+  articleId: string;
+  generation: number;
+  /** Beijing daily issue keys affected before or after the change. */
+  periods: string[];
+}

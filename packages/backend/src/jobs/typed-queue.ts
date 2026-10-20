@@ -21,6 +21,7 @@ const lanes = {
   "notify.selected": "news",
   "publication.republish-source": "news",
   "reports.correct": "news",
+  "reports.reconcile": "news",
   "news.model-test": "news",
   "policy.model-test": "policy",
 } as const satisfies Record<QueueName, JobLane | null>;

@@ -58,6 +58,7 @@ class CapacityTests(unittest.TestCase):
                 os.utime(point / "database.dump", (stamp, stamp))
             self.assertEqual(capacity.latest_backup(root)["path"], str(point))
 
+    @unittest.skipUnless(Path("/proc/self/stat").exists(), "Actual monitor sampling requires Linux /proc; full Docker verification runs this test")
     def test_monitor_writes_actual_samples_and_exits_on_term(self):
         with tempfile.TemporaryDirectory() as work:
             output = Path(work) / "observed.jsonl"
