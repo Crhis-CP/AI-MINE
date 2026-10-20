@@ -13,6 +13,30 @@ COMMAND = re.search(r'docker exec "amp-\$role-1" sh -c \'\n(.*?)\n  \' > "\$RELE
 
 
 class ProgramArchiveTests(unittest.TestCase):
+    def test_failed_dependency_install_preserves_previous_maintenance_entry(self):
+        lines = [line for line in SCRIPT.splitlines() if line.startswith("install -m") and "/usr/local/lib/aimine-maintenance/" in line]
+        with tempfile.TemporaryDirectory(prefix="maintenance install ") as temporary:
+            root = Path(temporary)
+            stage, target = root / "stage", root / "maintenance"
+            (stage / "deploy").mkdir(parents=True)
+            target.mkdir()
+            previous = b"print('previous maintenance entry remains usable')\n"
+            entry = target / "release-retention.py"
+            entry.write_bytes(previous)
+            for name in ("release-retention.py", "release_changelog.py"):
+                (stage / "deploy" / name).write_bytes(Path(__file__).with_name(name).read_bytes())
+            command = "set -e\n" + "\n".join(lines).replace("/usr/local/lib/aimine-maintenance", '"$MAINTENANCE_TARGET"')
+            env = {"PATH": os.defpath, "RELEASE_STAGE": str(stage), "MAINTENANCE_TARGET": str(target), "PYTHONPATH": str(target)}
+            failed = subprocess.run(["bash", "-c", command], env=env, capture_output=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(entry.read_bytes(), previous)
+            subprocess.run(["python3", "-B", str(entry)], env=env, check=True, capture_output=True)
+            name = "recovery_bindings.py"
+            (stage / "deploy" / name).write_bytes(Path(__file__).with_name(name).read_bytes())
+            subprocess.run(["bash", "-c", command], env=env, check=True, capture_output=True)
+            subprocess.run(["python3", "-B", "-c", "import runpy,sys; runpy.run_path(sys.argv[1], run_name='verification')", str(entry)],
+                           env=env, check=True, capture_output=True)
+
     def test_only_new_byte_identical_archives_share_storage_and_keep_role_paths(self):
         reuse = re.search(r"reuse_identical_program\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
         with tempfile.TemporaryDirectory(prefix="program reuse ") as temporary:

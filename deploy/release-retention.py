@@ -12,6 +12,7 @@ import subprocess
 import time
 import urllib.request
 from release_changelog import retry_pending
+from recovery_bindings import RecoveryBindings
 
 APP_NAMES = {"/amp-web-1", "/amp-public-api-1", "/amp-private-api-1", "/amp-worker-1"}
 UNIFIED_APP_NAMES = {"/amp-web-1", "/amp-api-1", "/amp-worker-1"}
@@ -150,16 +151,27 @@ def backup_references(root):
                 blocked.append(f"Invalid image identity: {directory.name}/{name}")
                 continue
             references[str(path.relative_to(root))] = image
-    resolved = {}
-    for image in set(references.values()):
+    resolved, direct = {}, {}
+    recovery = RecoveryBindings(root, lambda image: docker("image", "inspect", "--format", "{{.Id}}", image))
+    for reference, image in references.items():
         try:
-            canonical = docker("image", "inspect", "--format", "{{.Id}}", image)
+            canonical = direct.get(image) or docker("image", "inspect", "--format", "{{.Id}}", image)
             if not IMAGE_ID.fullmatch(canonical):
                 raise RuntimeError("Invalid canonical image identity")
-            resolved[image] = canonical
+            direct[image] = canonical
+            resolved[reference] = canonical
         except (subprocess.CalledProcessError, RuntimeError):
-            blocked.append(f"Backup image cannot be resolved: {image}")
-    return {path: resolved.get(image, image) for path, image in references.items()}, blocked
+            try:
+                name = Path(reference).name
+                if name == "previous-image.txt":
+                    resolved[reference] = recovery.resolve(image, Path(reference).parent.name)
+                elif name == "candidate-image.txt":
+                    resolved[reference] = recovery.resolve_candidate(image)
+                else:
+                    raise ValueError("Program snapshots require their original OCI object")
+            except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.CalledProcessError):
+                blocked.append(f"Backup image cannot be resolved: {reference}: {image}")
+    return {path: resolved.get(path, image) for path, image in references.items()}, blocked
 
 
 def quality_blockers(release, path="/opt/aimine/.ops/release-quality-gate.json"):
