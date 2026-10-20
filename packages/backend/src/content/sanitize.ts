@@ -110,7 +110,10 @@ const DROP_WHOLE = [
 ];
 
 export function sanitizeBody(html: string, baseUrl?: string): string {
-  const cleaned = sanitizeHtml(dropPromotions(html), {
+  // HTML browsers treat CDATA declarations differently from htmlparser2. Normalize that form
+  // before applying the allowlist so a declaration cannot hide a noscript boundary from it.
+  const source = /<!\[CDATA\[/i.test(html) ? cheerio.load(html, { scriptingEnabled: true }, false).html() : html;
+  const cleaned = sanitizeHtml(dropPromotions(source), {
     allowedTags: ALLOWED_TAGS,
     nonTextTags: DROP_WHOLE,
     allowedAttributes: {

@@ -152,7 +152,12 @@ function policyText(policy: PolicyCard) {
 export function buildMcpServer(): McpServer {
   const server = new McpServer(
     { name: SITE.mcpPrefix, version: PUBLIC_VERSIONS.mcp },
-    { capabilities: { tools: { listChanged: true } }, instructions: INSTRUCTIONS },
+    {
+      capabilities: { tools: { listChanged: true } },
+      instructions: INSTRUCTIONS,
+      // The largest tool input has nine scalar fields; reject broad/nested structures before schema validation.
+      maxToolInputElements: 16,
+    },
   );
 
   server.registerTool(
@@ -401,8 +406,9 @@ function corsHeaders(reply: FastifyReply, origin: string | undefined) {
   reply.header("Access-Control-Expose-Headers", CORS_EXPOSE);
 }
 
+const MCP_BODY_LIMIT = 256 * 1024;
 export function registerMcp(app: FastifyInstance) {
-  const handler = createMcpHandler(() => buildMcpServer(), { legacy: "stateless", maxRequestBodySize: 256 * 1024 });
+  const handler = createMcpHandler(() => buildMcpServer(), { legacy: "stateless", maxRequestBodySize: MCP_BODY_LIMIT });
   // SSE subscriptions otherwise keep Fastify's server.close waiting until systemd kills the slot.
   // preClose runs before HTTP draining; onClose would be too late for a never-ending stream.
   app.addHook("preClose", async () => {
@@ -458,7 +464,8 @@ export function registerMcp(app: FastifyInstance) {
     }
   };
 
-  app.route({ method: ["GET", "POST", "DELETE"], url: "/api/mcp", handler: serve });
+  // Fastify parses first; SDK parsedBody handling does not enforce the transport's byte limit.
+  app.route({ method: ["GET", "POST", "DELETE"], url: "/api/mcp", bodyLimit: MCP_BODY_LIMIT, handler: serve });
   app.options("/api/mcp", async (req, reply) => {
     reply.header("Cache-Control", "no-store");
     if (!allowedOrigin(req.headers.origin)) return reply.code(403).type("application/json").send({ error: "origin_not_allowed" });

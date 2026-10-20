@@ -20,3 +20,19 @@
 Owner相关边界及向量用途许可经独立调用链核对关闭；旧错误脱敏对特殊字符仍有残留，本轮已收敛整段连接诊断并补回归。备份目录与所有归档子环境进一步收紧；发布配置和Docker摘要别名回归一并修复。该固定提交意见及后续验证范围见[审查与重放](review-and-replay.md)。原规范扫描不改写，最终新SHA与生产仍待验收。
 
 2026-10-20另执行npm audit --omit=dev官方依赖查询，生产依赖未报告已知漏洞（0 high/critical/moderate/low）；这是当时注册表公告结果，不覆盖依赖内部实现或未知漏洞。原始JSON保存在受限dependency-audit.json。
+
+## 22:4x UTC 依赖公告补查
+
+补充提交2233746d的完整验证因现时npm审计未通过；本次4条为受影响依赖包记录，包含多条公告，不是4次利用事件。原封存扫描范围和结论不改写。新原始audit JSON摘要d81ed2b38ea6facf95aa551fc0307f8bf9148ce51ae3aecb5d3aaf3e28780f4f；独立静态适用性结论如下，修复归TASK-0394。
+
+| 条件 | 本站结论与处理 |
+|---|---|
+| [MCP输入资源限制](https://github.com/modelcontextprotocol/typescript-sdk/security/advisories/GHSA-46jr-4wx8-v453) | 匿名公开MCP的已解析请求绕过SDK读取上限，实际继承Fastify10MiB；两server均缺元素上限。确认条件可达，未执行OOM攻击。升级须配合真正生效的路由体积限制和工具元素限制，不能只改版本。 |
+| [共享MCP实例](https://github.com/modelcontextprotocol/typescript-sdk/security/advisories/GHSA-jm63-cq47-j5jp) | 公开与运维均为每次factory新建server，属于官方排除模式；共享handler不等于共享server/transport。保留并发隔离回归。 |
+| [noscript隐式闭合](https://github.com/apostrophecms/apostrophe/security/advisories/GHSA-x3q4-9hxx-gx8m) | 资讯与法规两清洗器均满足配置条件；影响限定为隐藏内容变成正文/链接，未证明JS执行。修复依赖并验证真实封装；meta refresh与SVG/SMIL所需标签/属性被本站白名单排除。 |
+| [Windows编辑器路径](https://github.com/vitejs/launch-editor/security/advisories/GHSA-587h-7wmj-h5pm) | Vite仅构建/开发依赖，Linux生产为构建后SSR并已prune开发依赖，不是生产RCE证据；未知Windows开发配置仍待核，依赖仍更新。 |
+| MCP client重定向与SDK bearer audience | client只用于开发只读探针，不带秘密header/OAuth；运维使用本站Owner会话与CSRF，不使用SDK bearer工具。未发现对应本站生产泄露/越权链；不替未来自定义调用免责。 |
+
+公开合法工具最多9个平面键，运维最多3个，均无合法array/record参数，可分别采用16/8元素上限。部分字符串无schema最大长度，不能宣称合法字节数有有限上界；字节限制分别沿用原256KiB/64KiB意图，不修改全站其他上传限制。安全更新保留安装脚本禁用及一天版本等待。当前仍须隔离回归、最终完整回执和实际发布，不将公告命中或候选依赖升级当作现役1763已修复。
+
+候选修复已完成本地验证：SDK2.3.0、sanitize-html2.18.1、Vite8.3.3，当前npm audit为0，安装等待与禁用脚本保持。HTML的CDATA变体在公告所列修复版本及2.18.1中仍可复现，故在两处现有入口限定使用既有浏览器HTML解析规范化，原允许列表不放宽；原触发和正常文本/属性、段落、表格、链接、引用回归通过。MCP输入限制、全工具、合法最大字段、两客户端隔离及Owner/CSRF/关闭通过；独立fresh候选审查未发现同边界确证绕过或回归。本机统一quick十阶段已通过，最终准确SHA full、生产生效和质量仍待完成。子Agent的独立RED/GREEN输出只保存在本次工具历史，没有另存日志，不能拿较早同名安全日志代替；实际新增用例进入完整验证。

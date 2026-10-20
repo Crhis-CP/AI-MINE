@@ -1,7 +1,10 @@
+import * as cheerio from "cheerio";
 import sanitizeHtml from "sanitize-html";
 /** Static legal reading markup. No executable attributes, styling, embedded content or remote media survive. */
 export function policySemanticHtml(html: string, baseUrl: string) {
-  return sanitizeHtml(html, {
+  // Match browser HTML parsing for CDATA declarations before the unchanged allowlist runs.
+  const source = /<!\[CDATA\[/i.test(html) ? cheerio.load(html, { scriptingEnabled: true }, false).html() : html;
+  return sanitizeHtml(source, {
     allowedTags: [
       "p",
       "div",
