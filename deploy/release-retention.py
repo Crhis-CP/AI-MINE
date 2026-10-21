@@ -3,11 +3,13 @@
 import argparse
 import datetime as dt
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import time
 import urllib.request
@@ -19,6 +21,7 @@ UNIFIED_APP_NAMES = {"/amp-web-1", "/amp-api-1", "/amp-worker-1"}
 REPOS = {"amp-app", "amp-release", "amp-rollback", "amp-retained"}
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}\Z")
 SOCKET = "unix:///var/run/docker.sock"
+OPS = Path("/opt/aimine/.ops")
 
 
 def docker(*args):
@@ -121,13 +124,15 @@ def program_references(directory):
     return {f"{directory.name}/manifest.json#{key}": image for key, image in identities.items()}
 
 
-def backup_references(root):
+def backup_references(root, excluded=()):
     """Read image identity metadata only; a release directory contains its predecessor."""
     root = Path(root)
     references, blocked = {}, []
     if root.is_symlink() or not root.is_dir():
         return references, ["Backup directory unavailable; recovery references unknown"]
     for directory in sorted(root.iterdir()):
+        if directory.name in excluded:
+            continue
         if not directory.is_dir() and not directory.is_symlink():
             continue
         if not directory.is_symlink() and directory.name.startswith("program-retention-"):
@@ -174,6 +179,151 @@ def backup_references(root):
     return {path: resolved.get(path, image) for path, image in references.items()}, blocked
 
 
+
+def file_signature(path):
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode):
+        raise ValueError("Non-regular recovery file: " + path.name)
+    return [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+
+
+def completed_recovery(directory):
+    """Only the existing successful release format; never inspect environment contents."""
+    match = re.fullmatch(r"release-([a-f0-9]{12})(?:-[A-Za-z0-9]+)?", directory.name)
+    if not match or directory.is_symlink() or not directory.is_dir():
+        raise ValueError("Unmapped recovery directory")
+    files = {p.name: file_signature(p) for p in directory.iterdir()}
+    metadata_names = {"previous-image.txt", "candidate-image.txt", "previous-health.json", "health.json",
+                      "backup-sha256.txt", "database-restore-list.txt", "previous-api-services.txt",
+                      "disk-before.txt", "disk-after.txt", "previous-quality-gate.json", "recovery-point.json",
+                      "persistent-files-list.txt", "resource-samples.jsonl"}
+    metadata = {}
+    for name in files.keys() & metadata_names:
+        if files[name][2] > 16 * 1024 * 1024:
+            raise ValueError("Recovery metadata too large: " + name)
+        with os.fdopen(os.open(directory / name, os.O_RDONLY | os.O_NOFOLLOW), "r") as stream:
+            metadata[name] = stream.read()
+    previous, candidate = (metadata[name].strip() for name in ("previous-image.txt", "candidate-image.txt"))
+    if not all(IMAGE_ID.fullmatch(value) for value in (previous, candidate)):
+        raise ValueError("Invalid recovery image identity")
+    old, healthy = (json.loads(metadata[name]) for name in ("previous-health.json", "health.json"))
+    if any(x.get("ok") is not True or x.get("db") != "ok" for x in (old, healthy)) or healthy.get("release") != match[1]:
+        raise ValueError("Release was not successfully observed; keep failed attempts")
+    if not re.fullmatch(r"[a-f0-9]{7,40}", old.get("release", "")):
+        raise ValueError("Predecessor release unavailable")
+    programs = {name for name in files if name.endswith("-program.tar.gz")}
+    roles = programs - {"host-program.tar.gz"}
+    if roles not in [{"api-program.tar.gz", "web-program.tar.gz", "worker-program.tar.gz"},
+                     {"public-api-program.tar.gz", "private-api-program.tar.gz", "web-program.tar.gz", "worker-program.tar.gz"}]:
+        raise ValueError("Incomplete predecessor programs")
+    payloads = programs | {"database.dump"}
+    if "host-program.tar.gz" not in programs or not files.get("environment", [0, 0, 0])[2] or not metadata.get("database-restore-list.txt", "").strip():
+        raise ValueError("Incomplete host/database recovery point")
+    if "persistent-files.tar.gz" in files:
+        payloads.add("persistent-files.tar.gz")
+        if "persistent-files-list.txt" not in metadata:
+            raise ValueError("Persistent file inventory missing")
+    if files.keys() - payloads - metadata_names - {"environment", "environment-before-model-vault"}:
+        raise ValueError("Unknown recovery contents; keep for review")
+    hashes = {}
+    for line in metadata["backup-sha256.txt"].splitlines():
+        digest, filename = line.split("  ", 1)
+        item = Path(filename)
+        if item.parent != directory or item.name in hashes or not re.fullmatch(r"[a-f0-9]{64}", digest):
+            raise ValueError("Unmapped or duplicate backup checksum")
+        hashes[item.name] = digest
+    if set(hashes) != payloads:
+        raise ValueError("Backup checksum inventory incomplete")
+    backup_time_ns, time_basis = files["database.dump"][3], "database.dump.mtime"
+    if "recovery-point.json" in metadata:
+        point = json.loads(metadata["recovery-point.json"])
+        declared = point.get("files", [])
+        if (point.get("version") != 1 or point.get("previous_image") != previous or
+                point.get("previous_release") != old["release"] or
+                not re.fullmatch(match[1] + r"[a-f0-9]{28}", point.get("attempted_release", "")) or
+                "persistent-files.tar.gz" not in payloads or len(declared) != len(payloads) or
+                {x["file"] for x in declared} != payloads or any(
+                    x["sha256"] != hashes[x["file"]] or x["bytes"] != files[x["file"]][2] for x in declared)):
+            raise ValueError("Recovery point/database/persistent files disagree")
+        recorded_at = point.get("created_at", point.get("at"))
+        if recorded_at is not None:
+            if not isinstance(recorded_at, str):
+                raise ValueError("Recovery timestamp is invalid")
+            completed_at = dt.datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+            if completed_at.utcoffset() is None:
+                raise ValueError("Recovery timestamp has no timezone")
+            backup_time_ns, time_basis = int(completed_at.timestamp() * 1_000_000_000), "recovery-point.timestamp"
+    for name in payloads:
+        if not files.get(name, [0, 0, 0])[2]:
+            raise ValueError("Empty recovery archive")
+        with os.fdopen(os.open(directory / name, os.O_RDONLY | os.O_NOFOLLOW), "rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        if digest != hashes[name]:
+            raise ValueError("Recovery archive checksum mismatch: " + name)
+    if files != {p.name: file_signature(p) for p in directory.iterdir()}:
+        raise ValueError("Recovery point changed during validation")
+    canonical = docker("image", "inspect", "--format", "{{.Id}}", previous)
+    if not IMAGE_ID.fullmatch(canonical):
+        raise ValueError("Predecessor image is not mapped")
+    return {"directory": directory.name, "previous_image": previous, "resolved_previous_image": canonical,
+            "candidate_image": candidate, "backup_time_ns": backup_time_ns, "backup_time_basis": time_basis,
+            "files": files, "metadata": metadata}
+
+
+def recovery_window(root, history):
+    root = Path(root).absolute()
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("Backup root unavailable")
+    completed, uncertain = [], []
+    names = sorted(p.name for p in root.iterdir())
+    for directory in sorted(root.iterdir()):
+        if not directory.is_dir() and not directory.is_symlink():
+            continue
+        try:
+            point = completed_recovery(directory)
+            completed.append(point)
+        except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+            uncertain.append({"directory": directory.name, "reason": str(error)})
+    keep = []
+    for image in history[1:]:
+        matches = [point for point in completed if point["resolved_previous_image"] == image]
+        if not matches:
+            raise ValueError("Necessary rollback recovery point missing or incomplete: " + image)
+        # Only compare dates after proving the same predecessor and complete matching recovery files.
+        keep.append(max(matches, key=lambda point: (point["backup_time_ns"], point["files"]["database.dump"][3], point["directory"])))
+    selected = {point["directory"] for point in keep}
+    return {"root_entries": names, "keep": keep, "remove": [point for point in completed if point["directory"] not in selected],
+            "retained_uncertain": uncertain}
+
+
+def recheck_recovery_window(root, window):
+    root = Path(root).absolute()
+    if root.is_symlink() or sorted(p.name for p in root.iterdir()) != window["root_entries"]:
+        raise RuntimeError("Recovery inventory changed; no backup removed")
+    # Validate the entire planned set before the first deletion, including both required rollbacks.
+    for point in [*window["keep"], *window["remove"]]:
+        directory = root / point["directory"]
+        if directory.is_symlink() or {p.name: file_signature(p) for p in directory.iterdir()} != point["files"]:
+            raise RuntimeError("Recovery point changed; no backup removed")
+
+
+def remove_expired_recovery(root, window, evidence_path):
+    if not shutil.rmtree.avoids_symlink_attacks:
+        raise RuntimeError("Safe directory removal is unavailable")
+    recheck_recovery_window(root, window)
+    evidence = {"at": dt.datetime.now(dt.timezone.utc).isoformat(), "plan": window, "removed": []}
+    save(evidence_path, evidence)  # Metadata proof survives deletion; environment contents are never copied.
+    for point in window["remove"]:
+        try:
+            shutil.rmtree(Path(root) / point["directory"])
+        except OSError as error:
+            evidence["failure"] = {"directory": point["directory"], "reason": str(error)}
+            save(evidence_path, evidence)
+            raise
+        evidence["removed"].append(point["directory"])
+        save(evidence_path, evidence)
+    return evidence["removed"]
+
 def quality_blockers(release, path="/opt/aimine/.ops/release-quality-gate.json"):
     path = Path(path)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
@@ -197,7 +347,6 @@ def plan(containers, images, previous, seeds, now, managed=None, backup_images=(
     if len(history) != 3 or any(not IMAGE_ID.fullmatch(x) or x not in images for x in history):
         raise RuntimeError("Current and two rollback images must exist before cleanup")
     protected = set(history) | {x["image"] for x in containers} | set(backup_images)
-    protected |= {key for key, x in images.items() if "amp-app:latest" in (x["tags"] or [])}
     candidates = []
     for key, item in images.items():
         tags = item["tags"] or []
@@ -219,13 +368,8 @@ def execute(args):
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     containers, images = inventory()
     managed = provenance(images, state.get("managed_images", {}))
-    backups, blocked = backup_references(args.backup_dir)
-    result = plan(containers, images, state.get("history", []), args.seed, now, managed, backups.values())
-    result["backup_references"] = backups
+    result = plan(containers, images, state.get("history", []), args.seed, now, managed)
     result["release"] = health()
-    if blocked:
-        print(json.dumps({"status": "blocked", "reasons": blocked, **result}), flush=True)
-        raise RuntimeError("Backup image references must be resolved before cleanup")
     if args.apply:
         retry_pending("/opt/aimine", result["release"])
     quality_pending = quality_blockers(result["release"])
@@ -235,15 +379,32 @@ def execute(args):
     if args.automatic and state.get("history", [None])[0] == result["current"] and now - state.get("cleaned_at", 0) < 86400 and managed == state.get("managed_images", {}):
         print(json.dumps({"status": "unchanged", "release": result["release"]}))
         return
+    window = recovery_window(args.backup_dir, result["history"])
+    backups, blocked = backup_references(args.backup_dir, {point["directory"] for point in window["remove"]})
+    if blocked:
+        print(json.dumps({"status": "blocked", "reasons": blocked, "retained_uncertain": window["retained_uncertain"]}), flush=True)
+        raise RuntimeError("Retained backup image references must be resolved before cleanup")
+    result.update(plan(containers, images, state.get("history", []), args.seed, now, managed, backups.values()))
+    result["backup_references"] = backups
+    result["recovery_window"] = window
     result["before_used_bytes"] = shutil.disk_usage("/").used
     print(json.dumps({"mode": "apply" if args.apply else "dry-run", **result}), flush=True)
     if not args.apply:
         return
+    # All destructive work starts only after a complete plan and a second live observation.
+    fresh, fresh_images = inventory()
+    if (current_release(fresh, time.time()) != result["current"] or health() != result["release"] or quality_blockers(result["release"]) or
+            any(image not in fresh_images for image in {*result["history"], *backups.values()})):
+        raise RuntimeError("Release/quality/recovery images changed before cleanup")
+    recheck_recovery_window(args.backup_dir, window)
     state_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Persist the newly observed healthy release BEFORE removing any older release.
     for image in result["history"]:
         docker("image", "tag", image, "amp-retained:" + image[7:19])
     save(state_path, {**state, "history": result["history"], "managed_images": managed, "cleaned_at": 0})
+    evidence_path = OPS / ("backup-retention-" + str(time.time_ns()) + ".json") if window["remove"] else None
+    result["removed_recovery_directories"] = remove_expired_recovery(args.backup_dir, window, evidence_path) if evidence_path else []
+    result["recovery_evidence"] = str(evidence_path) if evidence_path else None
     failures = []
     removed = []
     for item in result["candidates"]:
@@ -314,7 +475,7 @@ def main():
     args = parser.parse_args()
     if args.apply:
         # Same lock used by production release operations. Never hold the app's database locks.
-        with open("/opt/aimine/.ops/release.lock", "a") as lock:
+        with os.fdopen(os.open(OPS / "release.lock", os.O_RDWR | os.O_NOFOLLOW), "r+") as lock:
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
