@@ -200,6 +200,16 @@ for role in "${RELEASE_OLD_APIS[@]}" web worker; do
   [[ $(docker inspect --format '{{.State.Running}}' "amp-$role-1") == true ]]
   [[ $(docker image inspect --format '{{.Id}}' "$(docker inspect --format '{{.Image}}' "amp-$role-1")") == "$RELEASE_OLD_IMAGE" ]]
 done
+# Keep the actual healthy predecessor even when its quality gate is still pending.
+# This runs under release.lock before any candidate import, including rapid consecutive releases.
+python3 -B - "$RELEASE_TOOLS" "$RELEASE_OLD_IMAGE" "$RELEASE_OLD_VERSION" <<'PYOBSERVE'
+import runpy,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+retention=runpy.run_path(str(Path(sys.argv[1])/'release-retention.py'))
+retention['observe_current'](Path('/var/lib/aimine-maintenance/state.json'),apply=True,
+    expected_image=sys.argv[2],expected_release=sys.argv[3])
+PYOBSERVE
 # Record the verified predecessor before importing a candidate. Each attempt keeps
 # its own evidence, so a failed import neither loses references nor prevents a retry.
 mkdir -p "$RELEASE_BACKUP" "$RELEASE_STAGE"

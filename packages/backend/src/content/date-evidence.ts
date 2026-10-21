@@ -2,7 +2,13 @@ import { correctedSourceTime } from "./date-correction.ts";
 import { beijingMidnight } from "@amp/contracts/time";
 import { decideTimeline } from "./timeline.ts";
 import { beginMaterialGrouping } from "./grouping.ts";
-import { MaterialSourceDateInput, type SourceDateParseResult, type SourceDateParseInput, type MaterialUpdateResult } from "@amp/contracts/time-assertion";
+import {
+  MaterialSourceDateInput,
+  type SourceDateParseResult,
+  type SourceDateParseInput,
+  type MaterialUpdateResult,
+  type SourceDateObservationInput,
+} from "@amp/contracts/time-assertion";
 import {
   readSourceDateContext,
   evaluateSourcePolicy,
@@ -17,6 +23,9 @@ import { sourceDateVerdict } from "./source-time.ts";
 import { sourceDateReadingsAgree } from "../sources/date-extraction.ts";
 
 type DateResult = Pick<MaterialUpdateResult, "revision" | "sourceTimeChanged" | "metadataChanged" | "sourceDateVersion" | "sourceDateOutcome">;
+const ABSENT_LISTING_FIELD = "listing publication field absent";
+const absentListingDate = (observation: SourceDateObservationInput, parsed: SourceDateParseResult) =>
+  observation.locator === ABSENT_LISTING_FIELD && observation.raw === "" && parsed.reason === "missing" && !observation.alternatives?.length;
 
 /** Permission → source configuration → material: the same lock order as source editing. */
 export async function prepareDateMutation(tx: Tx, sourceId: string, input: MaterialSourceDateInput): Promise<void> {
@@ -87,8 +96,8 @@ export async function commitDateObservation(
     const [revision] = await tx`SELECT 1 FROM article_revisions WHERE article_id = ${articleId} AND revision = ${inputRevision}`;
     if (!revision) return stale(); // Never manufacture a material revision merely to retain evidence.
   }
-  const [previous] = await tx<{ semantic_hash: string; result: SourceDateParseResult; observed_at: Date }[]>`
-    SELECT semantic_hash, result, observed_at FROM content.source_date_observations WHERE id = ${article.source_date_observation_id}`;
+  const [previous] = await tx<{ semantic_hash: string; result: SourceDateParseResult; observation: SourceDateObservationInput; observed_at: Date }[]>`
+    SELECT semantic_hash, result, observation, observed_at FROM content.source_date_observations WHERE id = ${article.source_date_observation_id}`;
   const [recent] = await tx<{ id: string; semantic_hash: string; observed_at: Date; last_observed_at: Date | null }[]>`
     SELECT o.id, o.semantic_hash, o.observed_at, s.last_observed_at FROM content.source_date_observations o
     LEFT JOIN content.source_date_observation_seen s USING (article_id, revision, config_hash)
@@ -112,7 +121,7 @@ export async function commitDateObservation(
   const source = await readSourceDateContext(sourceId, tx);
   if (!source) throw new Error("Source date source missing");
   // Policy owns date semantics. Persist the selected observation without applying news publication rules.
-  const verdict =
+  let verdict =
     source.lane === "policy"
       ? { status: "pending" as const, reason: "not_source_publication" as const }
       : sourceDateVerdict("news", parsed.evidence, binding, now);
@@ -135,8 +144,43 @@ export async function commitDateObservation(
   )
     return stale();
   if ((await correctedSourceTime(articleId, tx)) !== undefined) return result;
-  if (previous?.semantic_hash === semanticHash && article.source_date_state === verdict.status) return result;
   const old = previous && source.lane === "news" ? sourceDateVerdict("news", previous.result.evidence, binding, now) : null;
+  const urlIdentity = identityKeyForUrl(article.url);
+  const sameUrl = (url: string) => url === article.url || (!!urlIdentity && identityKeyForUrl(url) === urlIdentity);
+  // A list with no configured date field says nothing about the date already read from its detail.
+  // The missing observation and seen time above remain auditable; all CAS/permission checks still apply.
+  if (
+    absentListingDate(observation, parsed) &&
+    article.source_date_state === "reliable" &&
+    old?.status === "reliable" &&
+    sameUrl(previous!.result.evidence.url)
+  )
+    return result;
+  let selectedId = id;
+  if (
+    absentListingDate(observation, parsed) &&
+    article.source_date_state === "pending" &&
+    old?.status === "pending" &&
+    old.reason === "unresolved" &&
+    previous &&
+    absentListingDate(previous.observation, previous.result) &&
+    sameUrl(previous.result.evidence.url)
+  ) {
+    // Repair only this known loss on a later natural observation. The latest other observation
+    // is a barrier: an explicit missing/conflicting date must never be skipped for an older date.
+    const [candidate] = await tx<{ id: string; result: SourceDateParseResult }[]>`
+      SELECT id,result FROM content.source_date_observations
+      WHERE article_id=${articleId} AND source_id=${sourceId} AND revision=${inputRevision} AND config_hash=${configHash}
+        AND NOT COALESCE(observation->>'locator'=${ABSENT_LISTING_FIELD} AND observation->>'raw'=''
+          AND result->>'reason'='missing' AND COALESCE(observation->'alternatives','[]'::jsonb)='[]'::jsonb, false)
+      ORDER BY observed_at DESC,created_at DESC,id DESC LIMIT 1`;
+    const recovered = candidate ? sourceDateVerdict("news", candidate.result.evidence, binding, now) : null;
+    if (recovered?.status === "reliable" && sameUrl(candidate!.result.evidence.url)) {
+      verdict = recovered;
+      selectedId = candidate!.id;
+    }
+  }
+  if (previous?.semantic_hash === semanticHash && article.source_date_state === verdict.status) return result;
   const time = verdict.status === "reliable" ? verdict.time : null;
   // Midnight is an internal calendar anchor; the source TimeAssertion still has no UTC or clock time for a day-only source.
   const publishedAt = time?.utc ? new Date(time.utc) : time?.local_date ? beijingMidnight(time.local_date) : null;
@@ -144,7 +188,7 @@ export async function commitDateObservation(
   const explicit = automatic ? null : (article.backfill_reason ?? (article.backfill ? "existing-backfill" : null));
   const timeline = decideTimeline(publishedAt, article.discovered_at, explicit);
   const oldTime = article.source_date_state === "reliable" && old?.status === "reliable" ? old.time : null;
-  const updated = await tx`UPDATE articles SET source_date_version = source_date_version + 1, source_date_observation_id = ${id},
+  const updated = await tx`UPDATE articles SET source_date_version = source_date_version + 1, source_date_observation_id = ${selectedId},
     source_date_state = ${verdict.status}, source_date_error = ${verdict.status === "pending" ? (parsed.reason ?? verdict.reason) : null},
     published_at = ${timeline.publishedAt}, published_at_claim = ${publishedAt},
     timeline_at=${timeline.timelineAt},backfill=${timeline.backfill},backfill_reason=${timeline.backfillReason}

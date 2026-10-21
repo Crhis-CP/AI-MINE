@@ -6,22 +6,23 @@ import { closeDb, sql } from "@amp/backend/db";
 import { saveSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { upsertMaterial, updateMaterialSourceDate, compactDateObservations } from "@amp/backend/content/materials";
 import { observeSourceDate } from "../packages/backend/src/sources/date-extraction.ts";
+import { sourceDateConfigHash } from "@amp/backend/sources/config-keys";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 
 const at = (n: number) => new Date(Date.parse("2026-10-07T10:00:00Z") + n * 1000);
 after(() => closeDb());
 
-async function fixture() {
+async function fixture(kind = "rss") {
   const sourceId = `date-dedupe-${tag()}`,
     url = `https://source.invalid/mining/${sourceId}`;
-  await sql`INSERT INTO sources(id,name,kind,enabled,config) VALUES(${sourceId},'Synthetic date source','rss',true,'{}')`;
+  await sql`INSERT INTO sources(id,name,kind,enabled,config) VALUES(${sourceId},'Synthetic date source',${kind},true,'{}')`;
   const policy = { ...structuredClone(sourcePolicyExample), source_id: sourceId };
   await saveSourcePolicy(sourceId, { expectedVersion: null, policy, reason: "Synthetic fixture" }, "test");
   const { articleId } = await upsertMaterial({ sourceId, url, title: "合成铜矿日期", bodyText: "同一正文", via: "fetch" });
   const source = (await readSourceDateContext(sourceId))!;
-  const send = (raw: string, tick: number, version: number) =>
+  const send = (raw: string, tick: number, version: number, locator = "rss.pubDate") =>
     updateMaterialSourceDate(articleId, 1, {
-      sourceDateObservation: observeSourceDate(source, url, raw, "rss.pubDate", { observedAt: at(tick).toISOString() }),
+      sourceDateObservation: observeSourceDate(source, url, raw, locator, { observedAt: at(tick).toISOString() }),
       expectedSourceDateVersion: version,
       permissionVersion: 1,
     });
@@ -29,8 +30,84 @@ async function fixture() {
   const state = async () =>
     (await sql`SELECT source_date_observation_id, source_date_version, source_date_state, published_at FROM articles WHERE id=${articleId}`)[0]!;
   const seen = () => sql`SELECT * FROM content.source_date_observation_seen WHERE article_id=${articleId} ORDER BY revision,config_hash`;
-  return { articleId, sourceId, send, observations, state, seen };
+  return { articleId, sourceId, url, send, observations, state, seen };
 }
+
+test("an absent unconfigured list field preserves and can restore its latest bound reliable evidence, but cannot cross explicit removal", async () => {
+  const f = await fixture("web_list"),
+    absent = "listing publication field absent";
+  await f.send("2026-10-01", 1, 0, "selector:time");
+  const reliable = await f.state();
+  await f.send("", 2, 1, absent);
+  assert.deepEqual(await f.state(), reliable);
+  const missing = (await f.observations()).find((row) => row.result.reason === "missing")!;
+  assert.ok(missing, "weak observations remain auditable even when not selected");
+  // Existing affected rows already have this audited weak observation selected by the old code.
+  await sql`UPDATE articles SET source_date_observation_id=${missing.id},source_date_state='pending',source_date_error='missing',
+    source_date_version=2,published_at=NULL,published_at_claim=NULL,timeline_at=discovered_at,
+    backfill=true,backfill_reason='unknown-publication-time' WHERE id=${f.articleId}`;
+  const restored = await f.send("", 3, 2, absent);
+  assert.deepEqual([restored.sourceDateOutcome, restored.sourceDateVersion, restored.sourceTimeChanged], ["applied", 3, true]);
+  assert.equal((await f.state()).source_date_observation_id, reliable.source_date_observation_id);
+  assert.equal((await f.state()).published_at.getTime(), reliable.published_at.getTime());
+  assert.equal((await f.seen())[0]!.last_observed_at.getTime(), at(3).getTime());
+  await f.send("2026-10-02", 4, 3, "selector:time");
+  assert.equal((await f.state()).published_at.toISOString(), "2026-10-01T16:00:00.000Z");
+  await f.send("", 5, 4, "selector:time");
+  assert.equal((await f.state()).source_date_state, "pending", "a configured field removal still changes the date");
+  await f.send("", 6, 5, absent);
+  const removed = await f.state();
+  await f.send("", 7, 6, absent);
+  assert.deepEqual(await f.state(), removed, "never search past the latest explicit missing observation for an older reliable date");
+});
+
+test("weak listing evidence cannot retain or recover dates across material, config, URL or conflict boundaries", async () => {
+  for (const change of ["revision", "configuration", "url", "conflict"] as const) {
+    const f = await fixture("web_list");
+    await f.send("2026-10-01", 1, 0, "selector:time");
+    let url = f.url,
+      revision = 1;
+    if (change === "revision") {
+      const result = await upsertMaterial({ sourceId: f.sourceId, url, title: "合成铜矿日期", bodyText: "修订后的正文", via: "fetch" });
+      revision = result.revision;
+      assert.equal(revision, 2);
+    } else if (change === "configuration") {
+      const config = { sourceDate: { format: "iso8601", language: "zh-CN" } };
+      await sql`UPDATE sources SET config=${sql.json(config)},source_date_config_hash=${sourceDateConfigHash("web_list", config)} WHERE id=${f.sourceId}`;
+    } else if (change === "url") {
+      url += "/different-material";
+      await sql`UPDATE articles SET url=${url} WHERE id=${f.articleId}`;
+    } else {
+      const source = (await readSourceDateContext(f.sourceId))!;
+      const primary = observeSourceDate(source, url, "2026-10-02", "selector:time", { observedAt: at(2).toISOString() });
+      const {
+        sourceId: _source,
+        configHash: _config,
+        observationId: _id,
+        observedAt: _at,
+        url: _url,
+        alternatives: _alternatives,
+        ...alternative
+      } = observeSourceDate(source, url, "2026-10-03", "meta:published", { observedAt: at(2).toISOString() });
+      await updateMaterialSourceDate(f.articleId, revision, {
+        sourceDateObservation: { ...primary, alternatives: [alternative] },
+        expectedSourceDateVersion: 1,
+        permissionVersion: 1,
+      });
+      assert.equal((await f.observations()).at(-1)!.result.reason, "conflicting_candidates");
+    }
+    for (const tick of [3, 4]) {
+      const source = (await readSourceDateContext(f.sourceId))!;
+      await updateMaterialSourceDate(f.articleId, revision, {
+        sourceDateObservation: observeSourceDate(source, url, "", "listing publication field absent", { observedAt: at(tick).toISOString() }),
+        expectedSourceDateVersion: Number((await f.state()).source_date_version),
+        permissionVersion: 1,
+      });
+      assert.equal((await f.state()).source_date_state, "pending", change);
+      assert.equal((await f.state()).published_at, null, change);
+    }
+  }
+});
 
 test("three identical listing observations keep one immutable row and advance only the seen time", async () => {
   const f = await fixture();

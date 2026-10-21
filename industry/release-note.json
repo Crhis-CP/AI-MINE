@@ -1,10 +1,14 @@
 {
   "note": {
     "kind": "优化",
-    "title": "返回列表继续阅读",
-    "body": ["从文章返回“全部矿业动态”时，保留筛选与页码，并尽量回到刚才阅读的位置。", "法规政策动态入口显示暂停更新说明，已发布内容仍可查阅。"]
+    "title": "连续阅读与来源日期优化",
+    "body": [
+      "从文章返回“全部矿业动态”时，保留筛选与页码，并尽量回到刚才阅读的位置。",
+      "保留已核实的来源日期，避免无日期列表使原有日期丢失。",
+      "法规政策动态入口显示暂停更新说明，已发布内容仍可查阅。"
+    ]
   },
-  "fragments": ["changes/TASK-0367-reader-return.md", "changes/TASK-0367-policy-entry-notice.md"],
+  "fragments": ["changes/TASK-0367-reader-return.md", "changes/TASK-0367-policy-entry-notice.md", "changes/TASK-0367-source-date-preserve.md"],
   "announcement": {
     "kind": "公告",
     "title": "法规政策动态暂时停止更新",
