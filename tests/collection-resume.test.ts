@@ -30,6 +30,11 @@ const server = createServer((req, res) => {
     return;
   }
   listingHits++;
+  if (req.url === "/undated") {
+    res.setHeader("content-type", "text/html");
+    res.end(`<ul>${[0, 1].map((i) => `<li><a href="${origin}/detail/undated-${i}">Copper project ${i}</a></li>`).join("")}</ul>`);
+    return;
+  }
   if (req.headers["if-none-match"] === '"fixture-v1"') {
     res.writeHead(304);
     res.end();
@@ -106,4 +111,49 @@ test("failed and budget-deferred detail work resumes for stored articles before 
     1,
     "unchanged detail rules still refresh a corrected title within the fetch budget",
   );
+});
+
+test("undated web listings accumulate reliable detail dates across the per-round budget without clearing earlier evidence", async (t) => {
+  ready = true;
+  titlePrefix = "Copper production";
+  const id = "undated-detail-resume-fixture";
+  await sql`INSERT INTO sources(id,name,kind,lane,enabled,config,cursor) VALUES
+    (${id},${id},'web_list','news',true,${sql.json({
+      url: `${origin}/undated`,
+      itemSelector: "li",
+      linkSelector: "a",
+      titleSelector: "a",
+      sourceDate: { format: "iso8601", language: "en" },
+      detail: { maxFetches: 1, publishedAtSelector: "time" },
+    })},${sql.json({ initializedAt: new Date().toISOString() })})`;
+  await grantDateFixture(id, [origin]);
+  const rows = () => sql`SELECT id,url,revision,published_at,source_date_state,source_date_version,source_date_observation_id
+    FROM articles WHERE source_id=${id} ORDER BY url`;
+  const beforeHits = detailHits;
+  assert.equal((await collectSource(id)).status, "ok");
+  const first = await rows();
+  assert.deepEqual(
+    first.map((row) => row.source_date_state),
+    ["reliable", "pending"],
+  );
+  assert.equal(detailHits - beforeHits, 1);
+  // A later scheduled list is newer than the detail fixture's virtual pacing clock.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 2 * 3600000 });
+  assert.equal((await collectSource(id)).status, "ok");
+  const second = await rows();
+  assert.deepEqual(
+    second.map((row) => row.source_date_state),
+    ["reliable", "reliable"],
+  );
+  assert.equal(detailHits - beforeHits, 2, "the second round uses its budget for the other article");
+  assert.deepEqual(second[0], first[0], "missing unconfigured listing dates do not replace the bound reliable detail date");
+  assert.ok(second.every((row) => row.published_at.getTime() === published.getTime()));
+  const missing = await sql`SELECT o.id,o.result,s.last_observed_at,o.observed_at
+    FROM content.source_date_observations o JOIN content.source_date_observation_seen s USING(article_id,revision,config_hash)
+    WHERE o.article_id=${first[0].id} AND o.observation->>'raw'=''
+      AND o.observation->>'locator'='listing publication field absent'`;
+  assert.equal(missing.length, 1, "the missing listing observation remains in the audit history");
+  assert.equal(missing[0].result.reason, "missing");
+  assert.notEqual(missing[0].id, second[0].source_date_observation_id);
+  assert.ok(missing[0].last_observed_at.getTime() >= missing[0].observed_at.getTime());
 });

@@ -2,6 +2,8 @@ import argparse
 import importlib.util
 import hashlib
 import json
+import re
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -95,11 +97,11 @@ class RetentionTests(unittest.TestCase):
             self.backup(root, 10, ident(2), ident(1))
             old = self.backup(root, 12, ident(5), ident(3))
             args = argparse.Namespace(apply=True, automatic=False, seed=[ident(2), ident(3)], state_dir=temporary, backup_dir=str(root))
-            with patch.object(m, "inventory", return_value=fixture()), patch.object(m, "health", return_value="release"), patch.object(m.time, "time", return_value=NOW), patch.object(m, "quality_blockers", return_value=[]), patch.object(m, "retry_pending"), patch.object(m, "docker", side_effect=lambda *args: args[-1]) as docker:
+            with patch.object(m, "inventory", return_value=fixture()), patch.object(m, "health", return_value="a" * 12), patch.object(m.time, "time", return_value=NOW), patch.object(m, "quality_blockers", return_value=[]), patch.object(m, "retry_pending"), patch.object(m, "docker", side_effect=lambda *args: args[-1]) as docker:
                 with self.assertRaisesRegex(ValueError, "Necessary rollback"): m.execute(args)
             self.assertTrue(old.exists())
             self.assertTrue(all(call.args[:2] == ("image", "inspect") for call in docker.call_args_list))
-            self.assertFalse((Path(temporary) / "state.json").exists())
+            self.assertEqual(json.loads((Path(temporary) / "state.json").read_text())["history"], [ident(1)])
 
     def test_hash_symlink_failed_and_unmapped_points_are_kept_explicitly(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(m, "docker", side_effect=lambda *args: args[-1]):
@@ -305,7 +307,7 @@ class RetentionTests(unittest.TestCase):
             args = argparse.Namespace(apply=apply, automatic=automatic, seed=[ident(2), ident(3)], state_dir=directory, backup_dir=directory + "/backups")
             if automatic or dangling:
                 Path(directory, "state.json").write_text(json.dumps({"history": [ident(1), ident(2), ident(3)], "managed_images": managed, "cleaned_at": NOW - 1}))
-            with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="release"), patch.object(m.time, "time", return_value=NOW), patch.object(m, "docker", side_effect=docker), patch.object(m, "backup_references", return_value=({}, [])), patch.object(m, "quality_blockers", return_value=["pending"] if quality_pending else []), patch.object(m, "recovery_window", return_value={"keep": [], "remove": [], "retained_uncertain": []}) as window, patch.object(m, "recheck_recovery_window"), patch.object(m, "remove_expired_recovery", return_value=[]):
+            with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="a" * 12), patch.object(m.time, "time", return_value=NOW), patch.object(m, "docker", side_effect=docker), patch.object(m, "backup_references", return_value=({}, [])), patch.object(m, "quality_blockers", return_value=["pending"] if quality_pending else []), patch.object(m, "recovery_window", return_value={"keep": [], "remove": [], "retained_uncertain": []}) as window, patch.object(m, "recheck_recovery_window"), patch.object(m, "remove_expired_recovery", return_value=[]):
                 if drift:
                     with self.assertRaises(RuntimeError): m.execute(args)
                 else: m.execute(args)
@@ -313,7 +315,9 @@ class RetentionTests(unittest.TestCase):
             if not apply and not automatic: self.assertEqual(state, [])
             if apply and not drift and not quality_pending:
                 self.assertEqual(json.loads(Path(directory, "state.json").read_text())["managed_images"], managed)
-            if quality_pending: self.assertEqual(state, [])
+            if quality_pending:
+                if apply: self.assertEqual(json.loads(Path(directory, "state.json").read_text())["history"], [ident(1)])
+                else: self.assertEqual(state, [])
             if quality_pending or automatic: window.assert_not_called()
         return calls
 
@@ -338,6 +342,100 @@ class RetentionTests(unittest.TestCase):
 
     def test_pending_quality_never_reclaims_images_or_cache(self):
         self.assertEqual(self.run_execute(True, quality_pending=True), [])
+        self.assertEqual(self.run_execute(False, quality_pending=True), [])
+
+    def test_formal_predecessor_observation_handles_rapid_releases_and_rejects_failed_candidates(self):
+        script = Path(__file__).with_name("production-release.sh").read_text()
+        observation = re.search(r"python3 -B - .*? <<'PYOBSERVE'\n(.*?)\nPYOBSERVE", script, re.S)
+        self.assertIsNotNone(observation)
+        start = script.index("<<'PYOBSERVE'")
+        self.assertLess(script.index('flock -w 5 9'), start)
+        self.assertLess(script.index('== "$RELEASE_OLD_IMAGE" ]]'), start)
+        self.assertLess(start, script.index('phase import_verified_image'))
+        containers, images = fixture()
+        for container in containers:
+            container["started"] = m.dt.datetime.fromtimestamp(NOW - 1, m.dt.timezone.utc).isoformat()
+            if container["name"] in m.APP_NAMES: container["image"] = ident(6)
+        with tempfile.TemporaryDirectory() as temporary:
+            state_path = Path(temporary) / "state.json"
+            state_path.write_text(json.dumps({"history": [ident(1), ident(2), ident(3)], "cleaned_at": NOW - 1}))
+            code = observation.group(1).replace('/var/lib/aimine-maintenance/state.json', str(state_path))
+            tools = str(Path(__file__).resolve().parent)
+            with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="a" * 12) as health, \
+                    patch.object(m.time, "time", return_value=NOW), patch("runpy.run_path", return_value=m.__dict__), \
+                    patch.object(sys, "path", sys.path.copy()), patch.object(sys, "argv", ["-", tools, ident(6), "a" * 12]):
+                exec(compile(code, "formal-observe-previous", "exec"), {})
+                self.assertEqual(json.loads(state_path.read_text())["history"], [ident(6), ident(1), ident(2)])
+                # A second actual release is observed before the timer/ten-minute cleanup interval.
+                for container in containers:
+                    if container["name"] in m.APP_NAMES: container["image"] = ident(7)
+                sys.argv[2] = ident(7)
+                exec(compile(code, "formal-observe-previous", "exec"), {})
+                self.assertEqual(json.loads(state_path.read_text())["history"], [ident(7), ident(6), ident(1)])
+                before = state_path.read_bytes()
+                sys.argv[2] = ident(8)  # Staged/failed candidate exists, but it is not running.
+                with self.assertRaisesRegex(RuntimeError, "predecessor changed"):
+                    exec(compile(code, "formal-observe-previous", "exec"), {})
+                self.assertEqual(state_path.read_bytes(), before)
+                sys.argv[2] = ident(7)
+                health.side_effect = RuntimeError("synthetic unhealthy response")
+                with self.assertRaisesRegex(RuntimeError, "unhealthy"):
+                    exec(compile(code, "formal-observe-previous", "exec"), {})
+                self.assertEqual(state_path.read_bytes(), before)
+                with self.assertRaises(RuntimeError): m.plan(containers, images, [ident(7), ident(6), ident(1)], [], NOW)
+
+    def test_observation_dry_run_and_symlink_state_do_not_write(self):
+        containers, images = fixture()
+        with tempfile.TemporaryDirectory() as temporary, patch.object(m, "inventory", return_value=(containers, images)), \
+                patch.object(m, "health", return_value="a" * 12), patch.object(m.time, "time", return_value=NOW):
+            root = Path(temporary)
+            missing = root / "absent" / "state.json"
+            m.observe_current(missing, apply=False)
+            self.assertFalse(missing.parent.exists())
+            target = root / "original.json"; target.write_text('{"history":[]}')
+            linked = root / "state.json"; linked.symlink_to(target)
+            with self.assertRaisesRegex(RuntimeError, "regular file"): m.observe_current(linked, apply=True)
+            self.assertEqual(target.read_text(), '{"history":[]}')
+
+    def test_pending_running_release_is_kept_in_the_next_accepted_recovery_window(self):
+        containers, images = fixture()
+        for container in containers:
+            if container["name"] in m.APP_NAMES: container["image"] = ident(6)
+        # This test exercises real backup selection/removal, not image/cache reclamation.
+        for image in images.values(): image["created"] = m.dt.datetime.fromtimestamp(NOW, m.dt.timezone.utc).isoformat()
+        pending, calls = True, []
+        def docker(*args):
+            calls.append(args)
+            return args[-1] if args[:2] == ("image", "inspect") else ""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            state_path = root / "state.json"
+            state_path.write_text(json.dumps({"history": [ident(1), ident(2), ident(3)], "cleaned_at": NOW - 1}))
+            args = argparse.Namespace(apply=True, automatic=True, seed=[], state_dir=temporary, backup_dir=str(root / "backups"))
+            ops = root / "ops"; ops.mkdir()
+            with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="a" * 12), \
+                    patch.object(m.time, "time", return_value=NOW), patch.object(m, "docker", side_effect=docker), \
+                    patch.object(m, "quality_blockers", side_effect=lambda _: ["pending"] if pending else []), \
+                    patch.object(m, "retry_pending"), patch.object(m, "OPS", ops):
+                m.execute(args)
+                observed = json.loads(state_path.read_text())
+                self.assertEqual(observed["history"], [ident(6), ident(1), ident(2)])
+                self.assertEqual(observed["cleaned_at"], 0)
+                self.assertEqual(calls, [], "pending only records the healthy observation")
+                self.assertFalse(Path(args.backup_dir).exists(), "pending must not require or scan backups")
+                backups = Path(args.backup_dir); backups.mkdir()
+                ece = self.backup(backups, 70, ident(6), ident(7))
+                prior = self.backup(backups, 60, ident(1), ident(6))
+                expired = self.backup(backups, 10, ident(2), ident(1))
+                original = (ece / "database.dump").read_bytes()
+                for container in containers:
+                    if container["name"] in m.APP_NAMES: container["image"] = ident(7)
+                pending = False
+                m.execute(args)
+                self.assertEqual(json.loads(state_path.read_text())["history"], [ident(7), ident(6), ident(1)])
+                self.assertEqual({p.name for p in backups.iterdir()}, {ece.name, prior.name})
+                self.assertEqual((ece / "database.dump").read_bytes(), original)
+                self.assertFalse(expired.exists())
 
 
 if __name__ == "__main__":

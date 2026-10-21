@@ -51,7 +51,7 @@ def inventory():
     return containers, {x["id"]: x for x in images}
 
 
-def current_release(containers, now):
+def current_release(containers, now, minimum_uptime=600):
     running = {x["name"] for x in containers if x["running"] and x["name"] in APP_NAMES | UNIFIED_APP_NAMES}
     if running == UNIFIED_APP_NAMES:
         expected = UNIFIED_APP_NAMES
@@ -64,8 +64,8 @@ def current_release(containers, now):
         raise RuntimeError("Application services missing or on mixed images; keep everything")
     for service in [*expected, "/amp-db-1", "/amp-caddy-1"]:
         item = next((x for x in containers if x["name"] == service), None)
-        if not item or not item["running"] or now - stamp(item["started"]) < 600:
-            raise RuntimeError("Services have not been running steadily for ten minutes; keep everything")
+        if not item or not item["running"] or now - stamp(item["started"]) < minimum_uptime:
+            raise RuntimeError("Services are not running steadily for the required interval; keep everything")
     return apps[0]["image"]
 
 
@@ -362,20 +362,52 @@ def save(path, value):
     os.replace(temp, path)
 
 
+def observe_current(state_path, *, apply=False, expected_image=None, expected_release=None):
+    """Record a healthy running identity; apply callers must hold the existing release lock.
+
+    Observation does not grant cleanup: the plan still requires ten stable minutes, both
+    rollback images and complete recovery points, and execute requires quality acceptance.
+    """
+    state_path = Path(state_path)
+    if state_path.is_symlink() or (state_path.exists() and not state_path.is_file()):
+        raise RuntimeError("Maintenance state is not a regular file")
+    state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    if not isinstance(state, dict):
+        raise RuntimeError("Invalid maintenance state")
+    previous = state.get("history", [])
+    if not isinstance(previous, list) or any(not isinstance(value, str) or not IMAGE_ID.fullmatch(value) for value in previous):
+        raise RuntimeError("Invalid observed release history")
+    containers, images = inventory()
+    current = current_release(containers, time.time(), minimum_uptime=0)
+    release = health()
+    if current not in images or not IMAGE_ID.fullmatch(current) or not isinstance(release, str) or not re.fullmatch(r"[a-f0-9]{7,40}", release):
+        raise RuntimeError("Healthy running release identity unavailable")
+    if (expected_image is not None and current != expected_image) or (expected_release is not None and release != expected_release):
+        raise RuntimeError("Running predecessor changed before history observation")
+    history = list(dict.fromkeys([current, *previous]))[:3]
+    managed = provenance(images, state.get("managed_images", {}))
+    observed = {**state, "history": history, "managed_images": managed}
+    if history != previous or managed != state.get("managed_images", {}):
+        observed["cleaned_at"] = 0
+    if apply and observed != state:
+        state_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        save(state_path, observed)
+    return observed, containers, images, release
+
+
 def execute(args):
     now = time.time()
     state_path = Path(args.state_dir) / "state.json"
-    state = json.loads(state_path.read_text()) if state_path.exists() else {}
-    containers, images = inventory()
-    managed = provenance(images, state.get("managed_images", {}))
-    result = plan(containers, images, state.get("history", []), args.seed, now, managed)
-    result["release"] = health()
+    state, containers, images, release = observe_current(state_path, apply=args.apply)
+    managed = state["managed_images"]
+    result = {"current": state["history"][0], "history": state["history"], "release": release}
     if args.apply:
         retry_pending("/opt/aimine", result["release"])
     quality_pending = quality_blockers(result["release"])
     if quality_pending:
         print(json.dumps({"status": "blocked", "reasons": quality_pending, **result}), flush=True)
         return
+    result.update(plan(containers, images, state["history"], args.seed, now, managed))
     if args.automatic and state.get("history", [None])[0] == result["current"] and now - state.get("cleaned_at", 0) < 86400 and managed == state.get("managed_images", {}):
         print(json.dumps({"status": "unchanged", "release": result["release"]}))
         return
