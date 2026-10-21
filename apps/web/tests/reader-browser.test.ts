@@ -16,6 +16,8 @@ let origin = "",
 let phase = "setup";
 let unreadGroup = false;
 let deepTimeline = false;
+let deepPool = false;
+let readerWithdrawalVersion = "1";
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
 let withdrawn = false,
@@ -147,7 +149,7 @@ const api = createServer((req, res) => {
     return answer({
       releases: changelogVersion ? [{ date: changelogVersion.slice(0, 10), time: "12:30", kind: "优化", title: "合成阅读更新", body: ["改进阅读体验。"] }] : [],
     });
-  if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : "1" });
+  if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion });
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
   if (url.pathname === "/api/site/timeline")
     return answer({
@@ -217,10 +219,27 @@ const api = createServer((req, res) => {
         q: url.searchParams.get("q"),
         tab: "time",
       },
-      items: withdrawn ? (added ? [card("fixture-new")] : []) : added ? [card("fixture-new"), card()] : [card()],
+      items: deepPool
+        ? Array.from({ length: 20 }, (_, offset) => {
+            const index = (Number(url.searchParams.get("page") || 1) - 1) * 20 + offset - (added ? 2 : 0);
+            const item = card(index === 64 ? "fixture-a" : `pool-${index}`);
+            return {
+              ...item,
+              title: index === 64 ? item.title : `合成分页报道 ${index}`,
+              timelineAt: new Date(Date.parse(now) - index * 86400000).toISOString(),
+              category: "commodity_market",
+            };
+          })
+        : withdrawn
+          ? added
+            ? [card("fixture-new")]
+            : []
+          : added
+            ? [card("fixture-new"), card()]
+            : [card()],
       page: Number(url.searchParams.get("page") || 1),
       pageCount: 51,
-      total: 1005,
+      total: deepPool ? (added ? 83 : 81) : 1005,
       todayCount: 1,
       freshness: now,
       generatedAt: now,
@@ -282,7 +301,7 @@ after(async () => {
 });
 
 /** SSR starts without a status banner. Its absence alone cannot prove hydration/baseline readiness. */
-async function openQualifiedReader(page: Page, path: "/" | "/all" | "/starred" = "/all", expectedVersion = "1") {
+async function openQualifiedReader(page: Page, path = "/all", expectedVersion = "1") {
   phase = `baseline ${path}: setup`;
   const versionUrl = `${origin}/api/site/content-version`;
   let release!: () => void;
@@ -296,7 +315,7 @@ async function openQualifiedReader(page: Page, path: "/" | "/all" | "/starred" =
   await page.bringToFront();
   await page.route(versionUrl, holdFirstVersion, { times: 1 });
   const version = page.waitForResponse((response) => response.url() === versionUrl);
-  const revalidation = path === "/all" ? page.waitForResponse((response) => new URL(response.url()).pathname === "/all.data") : null;
+  const revalidation = path.split("?")[0] === "/all" ? page.waitForResponse((response) => new URL(response.url()).pathname === "/all.data") : null;
   // If an earlier readiness assertion fails, context cleanup will reject these waiters too.
   // Keep those rejections observed; the awaited responses below still fail the actual test.
   void version.catch(() => {});
@@ -511,6 +530,76 @@ async function loadFourTimelinePages(page: Page) {
   }
   await page.getByRole("button", { name: "加载更多", exact: true }).click();
   await expect(page.locator("[data-card-key]")).toHaveCount(40);
+}
+
+for (const scenario of ["arrivals", "revision check", "reader scroll during check"] as const) {
+  test(`return to the filtered fourth pool page after detail reload respects ${scenario}`, { timeout: 30000 }, async (t) => {
+    deepPool = true;
+    withdrawn = false;
+    added = false;
+    const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, reducedMotion: "reduce" });
+    let releaseCheck = () => {};
+    t.after(async () => {
+      releaseCheck();
+      deepPool = false;
+      added = false;
+      readerWithdrawalVersion = "1";
+      await context.close();
+    });
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    const path = "/all?channel=firstParty&category=commodity_market&page=4";
+    await openQualifiedReader(page, path);
+    await expect(page.getByText("第 4 页 · 共 81 条动态", { exact: true })).toBeVisible();
+    const link = page.locator('[data-item-id="fixture-a"] h3 a');
+    await page.keyboard.press("PageDown");
+    await page.waitForTimeout(200);
+    await page.mouse.move(800, 500);
+    await page.mouse.wheel(0, (await link.evaluate((node) => node.getBoundingClientRect().top)) - 350);
+    await expect.poll(async () => Math.abs((await link.evaluate((node) => node.getBoundingClientRect().top)) - 350)).toBeLessThan(30);
+    await link.hover();
+    const top = await link.evaluate((node) => node.getBoundingClientRect().top);
+    assert.ok(top > 72 && top < 800, "the selected article is in the reader's viewport before opening it");
+    await link.click();
+    await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    await page.getByRole("button", { name: "收藏", exact: true }).click();
+    await page.reload();
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+    await page.getByRole("button", { name: "取消收藏", exact: true }).click();
+    added = true;
+    if (scenario === "revision check") readerWithdrawalVersion = "2";
+    if (scenario === "reader scroll during check") {
+      const gate = new Promise<void>((resolve) => {
+        releaseCheck = resolve;
+      });
+      await page.route(
+        `${origin}/api/site/content-version`,
+        async (route) => {
+          await gate;
+          await route.continue();
+        },
+        { times: 1 },
+      );
+    }
+    await page.getByRole("button", { name: "返回", exact: true }).click();
+    await expect(page).toHaveURL(`${origin}${path}`);
+    await expect(page.getByText("第 4 页 · 共 83 条动态", { exact: true })).toBeVisible();
+    let expectedTop = top;
+    if (scenario === "reader scroll during check") {
+      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
+      const beforeScroll = await page.evaluate(() => scrollY);
+      await page.mouse.move(800, 500);
+      await page.mouse.wheel(0, 400);
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(beforeScroll + 300);
+      expectedTop = await link.evaluate((node) => node.getBoundingClientRect().top);
+      releaseCheck();
+    }
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+    await expect.poll(async () => Math.abs((await link.evaluate((node) => node.getBoundingClientRect().top)) - expectedTop)).toBeLessThan(80);
+    // The existing layout-settle pass must not move a restored reader again.
+    await page.waitForTimeout(300);
+    assert.ok(Math.abs((await link.evaluate((node) => node.getBoundingClientRect().top)) - expectedTop) < 80);
+  });
 }
 
 test("a new category starts at the top while Back restores the prior category depth", { timeout: 45000 }, async (t) => {
