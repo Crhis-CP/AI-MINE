@@ -135,12 +135,59 @@ def exported_config(image_id, config_id):
         process.wait(timeout=10)
 
 
+def saved_oci_manifest(directory, expected):
+    """Resolve only the unique manifest in the same byte-verified OCI image export."""
+    path = directory / FILES["image"]
+    require(expected.get("file") == FILES["image"] and path.is_file() and not path.is_symlink(), "Expected verified image archive")
+    limit = 1024 * 1024
+    media_type = "application/vnd.oci.image.manifest.v1+json"
+    def unique(pairs):
+        value = dict(pairs)
+        require(len(value) == len(pairs), "Ambiguous OCI metadata fields")
+        return value
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb") as stream:
+        before = os.fstat(stream.fileno())
+        actual_hash, actual_size = digest(stream)
+        require(actual_hash == expected.get("sha256") and actual_size == expected.get("bytes"), "Artifact bytes changed: image.tar.gz")
+        stream.seek(0)
+        with tarfile.open(fileobj=stream, mode="r:gz") as archive:
+            members = archive.getmembers()
+            def metadata(name):
+                matches = [member for member in members if member.name == name]
+                require(len(matches) == 1 and matches[0].isfile() and 0 < matches[0].size <= limit,
+                        "Missing, duplicate or unsafe OCI metadata: " + name)
+                return archive.extractfile(matches[0]).read(limit + 1)
+            index = json.loads(metadata("index.json"), object_pairs_hook=unique)
+            require(isinstance(index, dict) and index.get("schemaVersion") == 2 and
+                    index.get("mediaType", "application/vnd.oci.image.index.v1+json") == "application/vnd.oci.image.index.v1+json" and
+                    isinstance(index.get("manifests"), list) and len(index["manifests"]) == 1,
+                    "OCI export must contain exactly one manifest descriptor")
+            descriptor = index["manifests"][0]
+            require(isinstance(descriptor, dict) and descriptor.get("mediaType") == media_type and
+                    isinstance(descriptor.get("digest"), str) and re.fullmatch(r"sha256:[a-f0-9]{64}", descriptor["digest"]) and
+                    type(descriptor.get("size")) is int and 0 < descriptor["size"] <= limit,
+                    "Unsupported or nested OCI descriptor")
+            raw = metadata("blobs/sha256/" + descriptor["digest"][7:])
+            require(len(raw) == descriptor["size"] and "sha256:" + hashlib.sha256(raw).hexdigest() == descriptor["digest"],
+                    "OCI manifest digest or size mismatch")
+            manifest = json.loads(raw, object_pairs_hook=unique)
+            require(isinstance(manifest, dict) and manifest.get("schemaVersion") == 2 and manifest.get("mediaType") == media_type and
+                    "manifests" not in manifest and isinstance(manifest.get("config"), dict) and
+                    manifest["config"].get("digest") == expected["config_id"], "OCI manifest config mismatch")
+            after = os.fstat(stream.fileno())
+            require((before.st_size, before.st_mtime_ns, before.st_ctime_ns) == (after.st_size, after.st_mtime_ns, after.st_ctime_ns), "Image archive changed during inspection")
+            return descriptor["digest"]
+
+
 def loaded_image(directory, manifest_sha256):
     path = directory / "release-manifest.json"
     require(file_info(path)["sha256"] == manifest_sha256, "Manifest hash mismatch")
     manifest = json.loads(path.read_text())
     expected = manifest["image"]
-    image = image_info(expected["config_id"])
+    try:
+        image = image_info(expected["config_id"])
+    except subprocess.CalledProcessError:
+        image = image_info(saved_oci_manifest(directory, expected))
     require(image["Os"] == expected["os"] and image["Architecture"] == expected["architecture"], "Loaded image platform mismatch")
     require(image["RootFS"]["Layers"] == expected["rootfs_layers"], "Loaded image layer inventory mismatch")
     if image["Id"] != expected["config_id"]:
