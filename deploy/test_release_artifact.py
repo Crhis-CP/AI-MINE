@@ -38,6 +38,39 @@ def saved_image(path, compressed=False, damaged=False):
     return len(encoded)
 
 
+def oci_bundle(directory, defect=None):
+    media_type = "application/vnd.oci.image.manifest.v1+json"
+    layer_id = "sha256:" + hashlib.sha256(LAYER).hexdigest()
+    manifest = {"schemaVersion": 2, "mediaType": media_type,
+                "config": {"mediaType": "application/vnd.oci.image.config.v1+json", "digest": IMAGE["Id"], "size": len(CONFIG)},
+                "layers": [{"mediaType": "application/vnd.oci.image.layer.v1.tar", "digest": layer_id, "size": len(LAYER)}]}
+    if defect == "config": manifest["config"]["digest"] = "sha256:" + "d" * 64
+    raw = json.dumps(manifest).encode()
+    canonical = "sha256:" + hashlib.sha256(raw).hexdigest()
+    descriptor = {"mediaType": media_type, "digest": canonical, "size": len(raw)}
+    if defect == "digest": descriptor["digest"] = "sha256:" + "e" * 64
+    if defect == "size": descriptor["size"] += 1
+    if defect == "oversize": descriptor["size"] = 1024 * 1024 + 1
+    if defect == "nested": descriptor["mediaType"] = "application/vnd.oci.image.index.v1+json"
+    index = {"schemaVersion": 2, "manifests": [descriptor] * (2 if defect == "multiple" else 1)}
+    if defect == "index-type": index["mediaType"] = media_type
+    config_path = "blobs/sha256/" + IMAGE["Id"][7:]
+    files = {"index.json": json.dumps(index).encode(), "blobs/sha256/" + descriptor["digest"][7:]: raw,
+             config_path: CONFIG, "blobs/sha256/" + layer_id[7:]: LAYER,
+             "manifest.json": json.dumps([{"Config": config_path, "RepoTags": None, "Layers": ["blobs/sha256/" + layer_id[7:]]}]).encode()}
+    with tarfile.open(directory / "image.tar.gz", "w:gz") as saved:
+        for name, data in files.items():
+            member = tarfile.TarInfo(name); member.size = len(data)
+            if defect == "symlink" and name == "index.json": member.type = tarfile.SYMTYPE; member.linkname = "other.json"; member.size = 0
+            saved.addfile(member, io.BytesIO(data) if member.isfile() else None)
+            if defect == "duplicate" and name == "index.json": saved.addfile(member, io.BytesIO(data))
+    expected = {"id": IMAGE["Id"], "config_id": IMAGE["Id"], "rootfs_layers": IMAGE["RootFS"]["Layers"], "os": "linux", "architecture": "amd64",
+                **artifact.file_info(directory / "image.tar.gz")}
+    path = directory / "release-manifest.json"
+    path.write_text(json.dumps({"image": expected}))
+    return canonical, artifact.file_info(path)["sha256"]
+
+
 class ReleaseArtifactTests(unittest.TestCase):
     def test_failed_partial_or_different_receipts_are_rejected(self):
         artifact.validate_receipt(receipt(), SHA, TREE, IMAGE["Id"])
@@ -70,6 +103,9 @@ class ReleaseArtifactTests(unittest.TestCase):
             manifest = directory / "release-manifest.json"
             manifest.write_text(json.dumps(metadata))
             manifest_hash = artifact.file_info(manifest)["sha256"]
+            with patch.object(artifact, "image_info", return_value=IMAGE), patch.object(artifact, "exported_config") as config:
+                self.assertEqual(artifact.loaded_image(directory, manifest_hash), IMAGE["Id"])
+                config.assert_not_called()  # Classic lookup needs no OCI archive fallback.
             canonical = "sha256:" + "e" * 64
             process = SimpleNamespace(stdout=io.BytesIO(saved.read_bytes()), poll=lambda: 0, wait=lambda **_: 0, kill=lambda: None)
             with patch.object(artifact, "image_info", return_value={**IMAGE, "Id": canonical}), patch.object(artifact.subprocess, "Popen", return_value=process) as save:
@@ -80,6 +116,28 @@ class ReleaseArtifactTests(unittest.TestCase):
             with patch.object(artifact, "image_info", return_value={**IMAGE, "Id": canonical}), patch.object(artifact, "exported_config", return_value=changed):
                 with self.assertRaisesRegex(ValueError, "config mismatch"):
                     artifact.loaded_image(directory, manifest_hash)
+
+    def test_missing_config_lookup_uses_the_verified_unique_oci_manifest(self):
+        with tempfile.TemporaryDirectory() as work:
+            directory = Path(work)
+            canonical, manifest_hash = oci_bundle(directory)
+            missing = artifact.subprocess.CalledProcessError(1, ["docker", "image", "inspect", IMAGE["Id"]])
+            with patch.object(artifact, "image_info", side_effect=[missing, {**IMAGE, "Id": canonical}]) as inspect, patch.object(artifact, "exported_config", return_value=CONFIG) as config:
+                self.assertEqual(artifact.loaded_image(directory, manifest_hash), canonical)
+                self.assertEqual([call.args[0] for call in inspect.call_args_list], [IMAGE["Id"], canonical])
+                config.assert_called_once_with(canonical, IMAGE["Id"])
+
+    def test_missing_config_lookup_rejects_mismatched_or_ambiguous_archive_metadata(self):
+        for defect in ["config", "digest", "size", "oversize", "multiple", "nested", "index-type", "symlink", "duplicate", "archive-changed"]:
+            with self.subTest(defect=defect), tempfile.TemporaryDirectory() as work:
+                directory = Path(work)
+                _, manifest_hash = oci_bundle(directory, defect)
+                if defect == "archive-changed":
+                    with (directory / "image.tar.gz").open("ab") as stream: stream.write(b"changed after verification")
+                missing = artifact.subprocess.CalledProcessError(1, ["docker", "image", "inspect", IMAGE["Id"]])
+                with patch.object(artifact, "image_info", side_effect=missing) as inspect:
+                    with self.assertRaises(ValueError): artifact.loaded_image(directory, manifest_hash)
+                    inspect.assert_called_once_with(IMAGE["Id"])
 
     def test_export_reuses_verified_image_and_rejects_changed_bundle(self):
         with tempfile.TemporaryDirectory() as work:
