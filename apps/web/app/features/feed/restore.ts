@@ -44,15 +44,15 @@ export function saveSnapshot<T>(historyKey: string, data: T, anchorSelector = "[
     for (const el of cards) {
       const rect = el.getBoundingClientRect();
       if (rect.bottom > 72) {
-        anchor = { key: el.dataset.cardKey!, offset: rect.top };
+        anchor = { key: (el.dataset.cardKey ?? el.dataset.itemId)!, offset: rect.top };
         break;
       }
     }
     const active = document.activeElement;
     const focusedCard = active?.closest<HTMLElement>(anchorSelector);
     const keyboardFocus =
-      active instanceof HTMLAnchorElement && active.matches(":focus-visible") && focusedCard?.dataset.cardKey
-        ? { key: focusedCard.dataset.cardKey, href: active.getAttribute("href")! }
+      active instanceof HTMLAnchorElement && active.matches(":focus-visible") && (focusedCard?.dataset.cardKey ?? focusedCard?.dataset.itemId)
+        ? { key: (focusedCard!.dataset.cardKey ?? focusedCard!.dataset.itemId)!, href: active.getAttribute("href")! }
         : null;
     const snap: ListSnapshot<T> = { savedAt: Date.now(), data, anchor, scrollY: window.scrollY, keyboardFocus };
     snapshots.set(historyKey, snap);
@@ -81,7 +81,8 @@ export function restoreAnchor(anchor: ListSnapshot<unknown>["anchor"], scrollY: 
   const apply = () => {
     if (cancelled || window.location.href !== url) return;
     if (anchor) {
-      const el = document.querySelector<HTMLElement>(`[data-card-key="${CSS.escape(anchor.key)}"]`);
+      const key = CSS.escape(anchor.key);
+      const el = document.querySelector<HTMLElement>(`[data-card-key="${key}"], [data-item-id="${key}"]`);
       if (el) {
         const top = el.getBoundingClientRect().top + window.scrollY - anchor.offset;
         window.scrollTo({ top, behavior: "instant" as ScrollBehavior });
@@ -99,7 +100,8 @@ export function restoreAnchor(anchor: ListSnapshot<unknown>["anchor"], scrollY: 
     // Restore an actual keyboard reading position, never invent focus for a pointer visit.
     // The later layout pass must not steal focus from a new reader interaction.
     if (keyboardFocus && (!document.activeElement || document.activeElement === document.body)) {
-      const card = document.querySelector<HTMLElement>(`[data-card-key="${CSS.escape(keyboardFocus.key)}"]`);
+      const key = CSS.escape(keyboardFocus.key);
+      const card = document.querySelector<HTMLElement>(`[data-card-key="${key}"], [data-item-id="${key}"]`);
       const link = Array.from(card?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? []).find(
         (candidate) => candidate.getAttribute("href") === keyboardFocus.href,
       );
@@ -111,4 +113,5 @@ export function restoreAnchor(anchor: ListSnapshot<unknown>["anchor"], scrollY: 
       stop();
     }, 120);
   });
+  return stop;
 }

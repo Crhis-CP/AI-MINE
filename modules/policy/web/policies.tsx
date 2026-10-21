@@ -136,6 +136,12 @@ export default function PoliciesPage() {
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-10 pt-5 lg:pt-0" data-policies>
       <h1 className="text-[24px] font-semibold text-ink">法规政策动态</h1>
       <p className="mt-2 text-[14px] text-ink-3">按国家与经营主题阅读官方规则、完整中文和原文证据。</p>
+      <p className="mt-4 rounded-control border border-line bg-bg-sunk px-4 py-3 text-[13px] leading-relaxed text-ink-2">
+        法规政策动态暂时停止更新。已发布内容仍可查阅，恢复时间另行公告。{" "}
+        <Link to="/changelog" className="text-accent underline underline-offset-2">
+          查看公告
+        </Link>
+      </p>
       <PolicyTabs />
       <button type="button" className={`${actionClass} mt-4 lg:hidden`} onClick={() => filterDialog.current?.showModal()}>
         筛选法规

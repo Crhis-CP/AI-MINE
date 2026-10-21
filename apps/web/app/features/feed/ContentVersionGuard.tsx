@@ -1,7 +1,8 @@
 import { apiFetch } from "../../lib/http.ts";
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { useLocation, useRevalidator } from "react-router";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation, useNavigation, useRevalidator } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
+import { readSnapshot, restoreAnchor, saveSnapshot, type ListSnapshot } from "./restore";
 
 const ReaderItemScope = createContext<Set<string> | null>(null);
 /** Withdrawal refreshes can update/remove current cards; new arrivals wait for an explicit reload. */
@@ -12,6 +13,7 @@ export function useReaderItemScope() {
 /** New arrivals wait for the reader; withdrawals refresh every public reading surface immediately. */
 export function ContentVersionGuard({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const navigation = useNavigation();
   const revalidator = useRevalidator();
   const routeKey = location.pathname + location.search;
   const ref = useRef(revalidator);
@@ -22,6 +24,60 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
   const retry = useRef<() => void>(() => {});
   const baseline = useRef<{ version: string; withdrawalVersion: string } | null>(null);
   const pendingVersion = useRef<{ version: string; withdrawalVersion: string } | null>(null);
+  // Returning to the same history key still needs this visit's check, not its earlier result.
+  const visit = useMemo(() => ({ key: location.key }), [location.key]);
+  const [checkedVisit, setCheckedVisit] = useState<typeof visit | null>(null);
+  const interaction = useRef(0);
+  const position = useRef<{ key: string; snapshot: ListSnapshot<null>; interaction: number } | null>(null);
+  const pagedList = location.pathname === "/all";
+  useEffect(() => {
+    const interrupt = () => interaction.current++;
+    const events = ["pointerdown", "wheel", "touchstart", "keydown"] as const;
+    for (const event of events) window.addEventListener(event, interrupt, { capture: true, passive: true });
+    return () => {
+      for (const event of events) window.removeEventListener(event, interrupt, true);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const snapshot = pagedList ? readSnapshot<null>(location.key) : null;
+    position.current = snapshot ? { key: location.key, snapshot, interaction: interaction.current } : null;
+  }, [location.key, pagedList]);
+  useEffect(() => {
+    if (pagedList && navigation.state === "loading" && navigation.location?.key !== location.key && status !== "withdrawn") {
+      saveSnapshot(location.key, null, "[data-item-id]");
+    }
+  }, [pagedList, navigation.state, navigation.location, location.key, status]);
+  useEffect(() => {
+    if (!pagedList) return;
+    const save = (flush = false) => {
+      if (status !== "withdrawn") saveSnapshot(location.key, null, "[data-item-id]", flush);
+    };
+    const click = (event: MouseEvent) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+      const to = new URL(link.href, window.location.href);
+      if (to.origin === window.location.origin && to.pathname + to.search !== routeKey) save();
+    };
+    const pop = () => save();
+    const hide = () => save(true);
+    document.addEventListener("click", click, true);
+    window.addEventListener("popstate", pop);
+    window.addEventListener("pagehide", hide);
+    return () => {
+      document.removeEventListener("click", click, true);
+      window.removeEventListener("popstate", pop);
+      window.removeEventListener("pagehide", hide);
+    };
+  }, [pagedList, location.key, routeKey, status]);
+  useLayoutEffect(() => {
+    const pending = position.current;
+    if (!pending || pending.key !== location.key || checkedVisit !== visit || revalidator.state !== "idle" || status === "checking" || status === "withdrawn")
+      return;
+    position.current = null;
+    if (pending.interaction !== interaction.current) return;
+    return restoreAnchor(pending.snapshot.anchor, pending.snapshot.scrollY, pending.snapshot.keyboardFocus);
+  }, [location.key, visit, checkedVisit, revalidator.state, status]);
   const policyPage = !/^\/(?:$|all(?:\/|$)|hot(?:\/|$)|items\/|story\/|topics(?:\/|$)|starred(?:\/|$)|daily(?:\/|$)|weekly(?:\/|$)|monthly(?:\/|$))/.test(
     location.pathname,
   );
@@ -45,6 +101,13 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         if (controller.signal.aborted) return;
         const previous = baseline.current;
         if (!previous || value.withdrawalVersion !== previous.withdrawalVersion) {
+          // Hiding the old page can clamp scrollY to zero. Retain its item anchor until the
+          // fresh loader and visible subtree commit; a reader interaction cancels the return.
+          if (previous && pagedList && (!position.current || position.current.interaction !== interaction.current)) {
+            saveSnapshot(location.key, null, "[data-item-id]");
+            const snapshot = readSnapshot<null>(location.key);
+            if (snapshot) position.current = { key: location.key, snapshot, interaction: interaction.current };
+          }
           const visible = previous
             ? new Set([...document.querySelectorAll<HTMLElement>("[data-item-id]")].flatMap((node) => (node.dataset.itemId ? [node.dataset.itemId] : [])))
             : null;
@@ -65,6 +128,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       } catch {
         if (!controller.signal.aborted) setStatus("failed");
       } finally {
+        if (!controller.signal.aborted) setCheckedVisit(visit);
         pending = false;
       }
     };
@@ -83,7 +147,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       window.removeEventListener("pageshow", check);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [policyPage, routeKey]);
+  }, [policyPage, routeKey, pagedList, location.key, visit]);
   const loadLatest = async () => {
     const position = window.scrollY;
     setAllowedIds(null);
