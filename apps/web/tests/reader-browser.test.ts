@@ -562,6 +562,8 @@ for (const scenario of ["arrivals", "revision check", "reader scroll during chec
     assert.ok(top > 72 && top < 800, "the selected article is in the reader's viewport before opening it");
     await link.click();
     await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    // The router can update the address before the detail subtree replaces the list.
+    await expect(page.getByRole("heading", { level: 1, name: detail.title, exact: true })).toBeVisible();
     await page.getByRole("button", { name: "收藏", exact: true }).click();
     await page.reload();
     await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
