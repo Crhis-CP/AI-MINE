@@ -7,7 +7,8 @@
       "返回精选列表时可继续之前的分页与阅读位置，主题数量随当前筛选显示。",
       "一手来源可与新闻类别、国家地区一起筛选，桌面分类栏支持左右按钮。",
       "金属价格保留实际数据期，旧报价单独提示更新延迟。",
-      "未完成的译文可继续补译剩余段落，已完成的内容保持可读。"
+      "未完成的译文可继续补译剩余段落，已完成的内容保持可读。",
+      "改进自动维护，支持网站持续更新。"
     ],
     "version": "2026.10"
   },
@@ -16,7 +17,8 @@
     "changes/TASK-0367-release-capacity.md",
     "changes/TASK-0367-depth-first.md",
     "changes/TASK-0389.md",
-    "changes/TASK-0390.md"
+    "changes/TASK-0390.md",
+    "changes/TASK-0367-release-retention-window.md"
   ],
   "announcement": {
     "kind": "公告",

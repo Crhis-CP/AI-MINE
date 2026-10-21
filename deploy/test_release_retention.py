@@ -1,5 +1,6 @@
 import argparse
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -26,6 +27,115 @@ def fixture():
 
 
 class RetentionTests(unittest.TestCase):
+    def backup(self, root, suffix, previous, candidate, persistent=False):
+        directory = root / ("release-" + f"{suffix:012x}")
+        directory.mkdir()
+        payloads = {name: (name + str(suffix)).encode() for name in
+                    ["database.dump", "host-program.tar.gz", "api-program.tar.gz", "web-program.tar.gz", "worker-program.tar.gz"]}
+        if persistent:
+            payloads["persistent-files.tar.gz"] = b"SYNTHETIC uploads and site files"
+            (directory / "persistent-files-list.txt").write_text("uploads/fixture\n")
+        for name, data in payloads.items(): (directory / name).write_bytes(data)
+        hashes = {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}
+        (directory / "backup-sha256.txt").write_text("".join(f"{value}  {directory / name}\n" for name, value in hashes.items()))
+        (directory / "environment").write_text("SYNTHETIC SECRET DO NOT COPY")
+        (directory / "database-restore-list.txt").write_text("SYNTHETIC readable dump inventory")
+        (directory / "previous-image.txt").write_text(previous)
+        (directory / "candidate-image.txt").write_text(candidate)
+        (directory / "previous-health.json").write_text(json.dumps({"ok": True, "db": "ok", "release": "a" * 12}))
+        (directory / "health.json").write_text(json.dumps({"ok": True, "db": "ok", "release": f"{suffix:012x}"}))
+        if persistent:
+            (directory / "recovery-point.json").write_text(json.dumps({"version": 1, "previous_image": previous,
+                "previous_release": "a" * 12, "attempted_release": f"{suffix:012x}" + "b" * 28,
+                "files": [{"file": name, "sha256": hashes[name], "bytes": len(data)} for name, data in payloads.items()]}))
+        return directory
+
+    def test_backup_window_uses_predecessor_not_candidate_or_mtime_and_keeps_persistent_proof(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.object(m, "docker", side_effect=lambda *args: args[-1]):
+            root, ops = Path(temporary) / "backups", Path(temporary) / "ops"
+            root.mkdir(); ops.mkdir()
+            first = self.backup(root, 10, ident(2), ident(1), persistent=True)
+            second = self.backup(root, 11, ident(3), ident(2))
+            old = self.backup(root, 12, ident(5), ident(3), persistent=True)
+            current = self.backup(root, 13, ident(1), ident(6))
+            # Directory freshness and its candidate identity cannot turn this expired predecessor into a required point.
+            m.os.utime(old, (NOW + 999, NOW + 999))
+            window = m.recovery_window(root, [ident(1), ident(2), ident(3)])
+            self.assertEqual({p["directory"] for p in window["keep"]}, {first.name, second.name})
+            self.assertEqual([p["directory"] for p in window["remove"]], [old.name, current.name])
+            removed = m.remove_expired_recovery(root, window, ops / "result.json")
+            self.assertEqual(removed, [old.name, current.name]); self.assertFalse(old.exists()); self.assertFalse(current.exists())
+            self.assertTrue((first / "persistent-files.tar.gz").exists()); self.assertTrue(second.exists())
+            evidence = (ops / "result.json").read_text()
+            self.assertIn("persistent-files.tar.gz", evidence)
+            self.assertNotIn("SYNTHETIC SECRET", evidence)
+
+    def test_repeated_success_keeps_newest_complete_database_for_each_rollback(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.object(m, "docker", side_effect=lambda *args: args[-1]):
+            root, ops = Path(temporary) / "backups", Path(temporary) / "ops"
+            root.mkdir(); ops.mkdir()
+            older = self.backup(root, 30, ident(2), ident(1), persistent=True)
+            newer = self.backup(root, 10, ident(2), ident(1), persistent=True)
+            second = self.backup(root, 20, ident(3), ident(2))
+            for directory, at in [(older, "2026-10-12T00:00:00Z"), (newer, "2026-10-13T00:00:00Z")]:
+                path = directory / "recovery-point.json"
+                point = json.loads(path.read_text()); point["at"] = at; path.write_text(json.dumps(point))
+            m.os.utime(older, (NOW + 999, NOW + 999))
+            window = m.recovery_window(root, [ident(1), ident(2), ident(3)])
+            self.assertEqual({p["directory"] for p in window["keep"]}, {newer.name, second.name})
+            self.assertEqual([p["directory"] for p in window["remove"]], [older.name])
+            before = (newer / "database.dump").read_bytes()
+            m.remove_expired_recovery(root, window, ops / "result.json")
+            self.assertEqual((newer / "database.dump").read_bytes(), before)
+            self.assertEqual(len(list(root.iterdir())), 2)
+
+    def test_missing_second_recovery_point_aborts_before_any_deletion(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "backups"; root.mkdir()
+            self.backup(root, 10, ident(2), ident(1))
+            old = self.backup(root, 12, ident(5), ident(3))
+            args = argparse.Namespace(apply=True, automatic=False, seed=[ident(2), ident(3)], state_dir=temporary, backup_dir=str(root))
+            with patch.object(m, "inventory", return_value=fixture()), patch.object(m, "health", return_value="release"), patch.object(m.time, "time", return_value=NOW), patch.object(m, "quality_blockers", return_value=[]), patch.object(m, "retry_pending"), patch.object(m, "docker", side_effect=lambda *args: args[-1]) as docker:
+                with self.assertRaisesRegex(ValueError, "Necessary rollback"): m.execute(args)
+            self.assertTrue(old.exists())
+            self.assertTrue(all(call.args[:2] == ("image", "inspect") for call in docker.call_args_list))
+            self.assertFalse((Path(temporary) / "state.json").exists())
+
+    def test_hash_symlink_failed_and_unmapped_points_are_kept_explicitly(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.object(m, "docker", side_effect=lambda *args: args[-1]):
+            root = Path(temporary)
+            self.backup(root, 10, ident(2), ident(1)); self.backup(root, 11, ident(3), ident(2))
+            for suffix, failure in [(12, "hash"), (13, "symlink"), (14, "failed"), (15, "persistent")]:
+                item = self.backup(root, suffix, ident(5), ident(6), persistent=failure == "persistent")
+                if failure == "hash": (item / "database.dump").write_bytes(b"changed")
+                if failure == "symlink":
+                    (item / "web-program.tar.gz").unlink(); (item / "web-program.tar.gz").symlink_to(root / "outside")
+                if failure == "failed": (item / "health.json").write_text('{"ok":false}')
+                if failure == "persistent": (item / "persistent-files.tar.gz").unlink()
+            (root / "program-retention-legacy").mkdir()
+            window = m.recovery_window(root, [ident(1), ident(2), ident(3)])
+            self.assertEqual(window["remove"], [])
+            self.assertEqual(len(window["retained_uncertain"]), 5)
+
+    def test_changed_retained_input_or_late_inventory_blocks_the_whole_delete_plan(self):
+        for change in ["required-dump", "late-directory"]:
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as temporary, patch.object(m, "docker", side_effect=lambda *args: args[-1]):
+                root = Path(temporary)
+                first = self.backup(root, 10, ident(2), ident(1)); self.backup(root, 11, ident(3), ident(2))
+                old = self.backup(root, 12, ident(5), ident(3))
+                window = m.recovery_window(root, [ident(1), ident(2), ident(3)])
+                if change == "required-dump": (first / "database.dump").write_bytes(b"changed")
+                else: (root / "release-unexpected").mkdir()
+                with self.assertRaises(RuntimeError): m.remove_expired_recovery(root, window, root / "never-written.json")
+                self.assertTrue(old.exists()); self.assertFalse((root / "never-written.json").exists())
+
+    def test_old_latest_tag_has_no_special_exemption_but_current_latest_remains_protected(self):
+        containers, images = fixture()
+        result = m.plan(containers, images, [], [ident(2), ident(3)], NOW)
+        self.assertIn(ident(4), {x["id"] for x in result["candidates"]})
+        images[ident(1)]["tags"].append("amp-app:latest")
+        self.assertNotIn(ident(1), {x["id"] for x in m.plan(containers, images, [], [ident(2), ident(3)], NOW)["candidates"]})
+
     def test_missing_image_requires_a_verified_overlay_recipe_and_protects_its_runtime(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -72,11 +182,11 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(containers[0]["image"], ident(4))
         self.assertIn(containers[0]["image"], images)
 
-    def test_protects_running_rollback_latest_other_and_stopped(self):
+    def test_protects_running_rollback_other_and_stopped(self):
         containers, images = fixture()
         containers.append({"name": "/amp-setup-1", "image": ident(7), "running": False})
         result = m.plan(containers, images, [], [ident(2), ident(3)], NOW)
-        self.assertEqual({x["id"] for x in result["candidates"]}, {ident(5), ident(6)})
+        self.assertEqual({x["id"] for x in result["candidates"]}, {ident(4), ident(5), ident(6)})
         images[ident(5)]["tags"].append("other-project:hold")
         self.assertNotIn(ident(5), {x["id"] for x in m.plan(containers, images, [], [ident(2), ident(3)], NOW)["candidates"]})
 
@@ -180,7 +290,7 @@ class RetentionTests(unittest.TestCase):
     def run_execute(self, apply, automatic=False, drift=False, dangling=False, quality_pending=False):
         containers, images = fixture()
         # Exactly one delete candidate, to make command-boundary assertions unambiguous.
-        del images[ident(6)], images[ident(7)]
+        del images[ident(4)], images[ident(6)], images[ident(7)]
         calls = []
         managed = m.provenance(images, {})
         if dangling: images[ident(5)]["tags"] = []
@@ -195,7 +305,7 @@ class RetentionTests(unittest.TestCase):
             args = argparse.Namespace(apply=apply, automatic=automatic, seed=[ident(2), ident(3)], state_dir=directory, backup_dir=directory + "/backups")
             if automatic or dangling:
                 Path(directory, "state.json").write_text(json.dumps({"history": [ident(1), ident(2), ident(3)], "managed_images": managed, "cleaned_at": NOW - 1}))
-            with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="release"), patch.object(m.time, "time", return_value=NOW), patch.object(m, "docker", side_effect=docker), patch.object(m, "backup_references", return_value=({}, [])), patch.object(m, "quality_blockers", return_value=["pending"] if quality_pending else []):
+            with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="release"), patch.object(m.time, "time", return_value=NOW), patch.object(m, "docker", side_effect=docker), patch.object(m, "backup_references", return_value=({}, [])), patch.object(m, "quality_blockers", return_value=["pending"] if quality_pending else []), patch.object(m, "recovery_window", return_value={"keep": [], "remove": [], "retained_uncertain": []}) as window, patch.object(m, "recheck_recovery_window"), patch.object(m, "remove_expired_recovery", return_value=[]):
                 if drift:
                     with self.assertRaises(RuntimeError): m.execute(args)
                 else: m.execute(args)
@@ -204,6 +314,7 @@ class RetentionTests(unittest.TestCase):
             if apply and not drift and not quality_pending:
                 self.assertEqual(json.loads(Path(directory, "state.json").read_text())["managed_images"], managed)
             if quality_pending: self.assertEqual(state, [])
+            if quality_pending or automatic: window.assert_not_called()
         return calls
 
     def test_dry_run_and_unchanged_automatic_do_not_mutate(self):
