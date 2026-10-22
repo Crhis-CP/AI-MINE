@@ -266,6 +266,12 @@
 | [TASK-0392](TASK-0392.md) | T-0101 | M3 | architect | locally_verified | 证明历史程序覆盖恢复并保留原镜像缺失记录 | TASK-0367、TASK-0387 |
 | [TASK-0393](TASK-0393.md) | T-0101 | M3 | architect | locally_verified | 验证恢复配方边界与维护依赖安装中断 | TASK-0392 |
 | [TASK-0394](TASK-0394.md) | T-0101 | M3 | architect | locally_verified | 更新命中安全公告的依赖并封住MCP解析输入缺口 | TASK-0367 |
+| [TASK-0395](TASK-0395.md) | T-0101 | M3 | architect | specified | 登记第一阶段四项优先修复与评分审阅任务 | — |
+| [TASK-0396](TASK-0396.md) | T-0101 | M3 | architect | specified | 修复国别作用地筛选与全文提及混用 | — |
+| [TASK-0397](TASK-0397.md) | T-0101 | M3 | architect | specified | 准备历史摘要更正并验证既有无损路径 | — |
+| [TASK-0398](TASK-0398.md) | T-0101 | M3 | architect | specified | 显示采集当前等待并纳入既有运行汇总 | — |
+| [TASK-0399](TASK-0399.md) | T-0101 | M3 | architect | specified | 修正周报历史费用回填和估算说明 | — |
+| [TASK-0400](TASK-0400.md) | T-0101 | M3 | architect | specified | 整合第一阶段优先修复与评分审阅稿 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |
