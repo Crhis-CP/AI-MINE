@@ -52,7 +52,7 @@ export async function enqueueReportReconciliation(limit = 4) {
         AND (j.lease_until IS NULL OR j.lease_until<now())
         AND ((j.kind='daily' AND j.key<=${dueDaily()}) OR (j.kind='weekly' AND j.key<=${dueWeekly()}) OR (j.kind='monthly' AND j.key<=${dueMonthly()}))
         AND (j.kind='daily' OR NOT EXISTS(SELECT 1 FROM reports.reconciliation_jobs d
-          WHERE d.kind='daily' AND d.state IN ('pending','running','retry')
+          WHERE d.kind='daily' AND (d.state IN ('pending','running') OR (d.state='retry' AND d.next_attempt_at<=now()))
             AND d.key>=pg_catalog.to_char(j.period_start AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')
             AND d.key<=pg_catalog.to_char(j.period_end AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')))
     ), oldest AS (SELECT * FROM due ORDER BY requested_at,kind,key LIMIT 1)

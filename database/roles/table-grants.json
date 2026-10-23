@@ -1303,6 +1303,15 @@
         "private_ops": ["SELECT", "UPDATE"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "publication.metal_price_checks": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["source", "checked_at", "ok", "changed"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

@@ -1183,7 +1183,8 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
         body = await response.text();
       assert.equal(response.status, mode === "error" ? 503 : 200);
       if (mode === "stale") {
-        assert.ok(body.includes("数据已陈旧"));
+        assert.ok(body.includes("较早期数据"));
+        assert.ok(!body.includes("数据已陈旧"));
         assert.ok(body.includes("108,770.0"));
       }
       if (mode === "partial") {

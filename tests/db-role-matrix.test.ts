@@ -138,6 +138,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "policy.vision_runs",
       "policy.vision_stages",
       "publication.manual_copies",
+      "publication.metal_price_checks",
       "publication.metal_prices",
       "publication.news_geography",
       "publication.policy_documents",
@@ -314,6 +315,22 @@ test("every real role has exactly the approved table, column, sequence and cross
               ? `UPDATE ${name} SET last_observed_at=last_observed_at WHERE false RETURNING 1`
               : `DELETE FROM ${name} WHERE false RETURNING 1`;
       await permission(sql, statement, allowed, `${role} ${operation} source_date_observation_seen`);
+    }
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const allowed =
+        role === "migrate" ||
+        (operation === "SELECT" && ["public_read", "private_ops", "worker", "backup"].includes(role)) ||
+        (role === "worker" && ["INSERT", "UPDATE"].includes(operation));
+      const table = 'publication."metal_price_checks"';
+      const statement =
+        operation === "SELECT"
+          ? `SELECT source,checked_at,ok,changed FROM ${table} LIMIT 1`
+          : operation === "INSERT"
+            ? `INSERT INTO ${table} SELECT * FROM ${table} WHERE false RETURNING 1`
+            : operation === "UPDATE"
+              ? `UPDATE ${table} SET checked_at=checked_at WHERE false RETURNING 1`
+              : `DELETE FROM ${table} WHERE false RETURNING 1`;
+      await permission(sql, statement, allowed, `${role} ${operation} metal_price_checks`);
     }
     // Metal prices are updated in place but never deleted (TASK-0044).
     if (role === "public_read") {

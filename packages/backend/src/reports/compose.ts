@@ -17,7 +17,9 @@ export { composePolicyReports } from "../publication/policy-report-job.ts";
 
 import { writePeriod } from "./period-writing.ts";
 import { firstScheduledDaily, preserveReportCalendar, requestReportDependents } from "./revision-state.ts";
-import { periodWindow } from "./periods.ts";
+import { dependentPeriods, periodWindow } from "./periods.ts";
+import { storedReportEntries, type StoredReportContent } from "./references.ts";
+import { sha256, stableJson } from "../lib/ids.ts";
 export { REPORT_VERSION, PeriodSchema, periodPrompt, writePeriod } from "./period-writing.ts";
 
 export interface ReportEntry {
@@ -234,34 +236,66 @@ const nextMonth = (key: string) => {
   return month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, "0")}`;
 };
 
+function incompleteReport(kind: string, content: StoredReportContent) {
+  try {
+    if (storedReportEntries(content).some((entry) => typeof entry.itemId === "string" && entry.itemId)) return false;
+    const lead = content.lead as { leadParagraph?: unknown } | null;
+    return kind !== "daily" || typeof lead?.leadParagraph !== "string" || !lead.leadParagraph.trim();
+  } catch {
+    return true;
+  }
+}
+
 /** Half-hour recovery prioritizes current editions, then older gaps within the shared write limit. */
 export async function catchUpReports(now = new Date(), limit = 8): Promise<{ generated: string[] }> {
   const generated: string[] = [],
     failed: string[] = [];
+  let repairs = 0;
+  const dailies = await sql<{ key: string }[]>`SELECT key FROM reports WHERE kind='daily' ORDER BY key`;
+  const historicalPeriods = new Set(dailies.flatMap(({ key }) => dependentPeriods(key).map((period) => `${period.kind}:${period.key}`)));
   const kinds = [
-    { kind: "daily", due: dueDaily(now), next: (key: string) => addDays(key, 1), end: (key: string) => key, compose: composeDaily },
+    { kind: "daily" as const, due: dueDaily(now), next: (key: string) => addDays(key, 1), end: (key: string) => key, compose: composeDaily },
     {
-      kind: "weekly",
+      kind: "weekly" as const,
       due: dueWeekly(now),
       next: (key: string) => isoWeekLabel(addDays(isoWeekRange(key)!.start, 7)),
       end: (key: string) => isoWeekRange(key)!.end,
       compose: composeWeekly,
     },
-    { kind: "monthly", due: dueMonthly(now), next: nextMonth, end: (key: string) => addDays(`${nextMonth(key)}-01`, -1), compose: composeMonthly },
+    { kind: "monthly" as const, due: dueMonthly(now), next: nextMonth, end: (key: string) => addDays(`${nextMonth(key)}-01`, -1), compose: composeMonthly },
   ];
   editions: for (const current of [true, false]) {
     for (const item of kinds) {
-      const have = new Set((await sql<{ key: string }[]>`SELECT key FROM reports WHERE kind=${item.kind}`).map((row) => row.key));
-      const firstDaily = await firstScheduledDaily();
+      const have = new Map(
+        (await sql<{ key: string; content: StoredReportContent; origin: string }[]>`SELECT key,content,origin FROM reports WHERE kind=${item.kind}`).map(
+          (row) => [row.key, row],
+        ),
+      );
+      const firstDaily = item.kind !== "daily" && dailies[0] ? addDays(dailies[0].key, -1) : await firstScheduledDaily();
       const floor = firstDaily && (item.kind === "daily" ? firstDaily : item.kind === "weekly" ? isoWeekLabel(firstDaily) : firstDaily.slice(0, 7));
-      const earliest = [...have].sort()[0] ?? item.due;
-      const first = current ? item.due : floor && floor > earliest ? floor : earliest;
+      const earliest = [...have.keys()].sort()[0] ?? item.due;
+      const first = current ? item.due : (floor ?? earliest);
       const daily = { key: firstDaily };
       for (let key = first; key <= item.due; key = item.next(key)) {
         if (!current && key === item.due) break;
-        if (have.has(key)) continue;
+        if (!current && item.kind !== "daily" && !have.has(key) && !historicalPeriods.has(`${item.kind}:${key}`)) continue;
+        if (shutdownSignal.signal.aborted || generated.length + repairs >= limit) break editions;
+        const existing = have.get(key);
+        if (existing) {
+          if (existing.origin !== "manual" && incompleteReport(item.kind, existing.content)) {
+            const window = periodWindow(item.kind, key);
+            const evidence = [`stored_report:${sha256(stableJson(existing.content))}`];
+            // Retry only a newly observed damaged version; active backoff and manual review remain authoritative.
+            const queued = await sql`INSERT INTO reports.reconciliation_jobs AS repair(kind,key,period_start,period_end,reason_code,evidence)
+              VALUES(${item.kind},${key},${window.from},${window.until},'incomplete_edition',${sql.json(evidence)})
+              ON CONFLICT(kind,key) DO UPDATE SET generation=repair.generation+1,state='pending',result=NULL,message=NULL,
+                reason_code=EXCLUDED.reason_code,evidence=EXCLUDED.evidence,requested_at=now(),next_attempt_at=now(),attempts=0,lease_until=NULL
+              WHERE repair.state='done' AND repair.result IN ('revised','unchanged') AND NOT repair.evidence @> EXCLUDED.evidence`;
+            repairs += queued.count;
+          }
+          continue;
+        }
         if (item.kind !== "daily" && (!daily?.key || item.end(key) < daily.key)) continue;
-        if (shutdownSignal.signal.aborted || generated.length >= limit) break editions;
         try {
           await item.compose(key, "catch-up");
           if ((await sql`SELECT 1 FROM reports WHERE kind=${item.kind} AND key=${key}`).length) generated.push(`${item.kind}:${key}`);

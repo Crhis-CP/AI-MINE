@@ -8,7 +8,17 @@ import { cochilcoFetcher } from "./cochilco.ts";
 import { mofcomFetcher } from "./mofcom.ts";
 import { nbsFetcher } from "./nbs.ts";
 import { loadMetalPriceRegistry, type MetalPriceSource, type MetalPriceSourceKey, parseMetalPriceRegistry } from "./registry.ts";
-import { fetchedAt, latestValues, newestStart, previousValues, previewLatestValues, previewPeriod, storedValues, storePeriod } from "./store.ts";
+import {
+  fetchedAt,
+  latestValues,
+  newestStart,
+  previousValues,
+  previewLatestValues,
+  previewPeriod,
+  storedValues,
+  storePeriod,
+  storePriceCheck,
+} from "./store.ts";
 import type { FetchedPeriod, PageGetter } from "./types.ts";
 import { worldbankFetcher } from "./worldbank.ts";
 
@@ -153,6 +163,14 @@ export async function refreshMetalPrices(
       run.ok = run.periods.every((entry) => entry.held === null && !entry.heldSeries);
     } catch (error) {
       run.error = (error instanceof Error ? error.message : String(error)).slice(0, 1000).toWellFormed();
+    }
+    if (!opts.dryRun) {
+      try {
+        await storePriceCheck(source.key, opts.now ?? new Date(), run.ok, run.inserted > 0 || run.periods.some((period) => period.changed.length > 0));
+      } catch {
+        run.ok = false;
+        run.error = [run.error, "检查记录未能保存，原报价保持"].filter(Boolean).join("；");
+      }
     }
   }
   return record;

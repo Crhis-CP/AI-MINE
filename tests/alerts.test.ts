@@ -843,6 +843,23 @@ test("metal prices alert when a period is past its own window, a quote is missin
       stale.find((item) => item.key === "metals.fetch"),
       undefined,
     );
+    const [checked] = await sql`INSERT INTO job_runs(job,status,started_at,finished_at,detail)
+      VALUES('metals.prices','ok',${new Date(PRODUCT_AT - 5 * 60_000)},${new Date(PRODUCT_AT - 5 * 60_000)},
+        ${sql.json({ nbs: entry([{ ...period("2026年9月上旬"), inserted: 0, touched: 1 }]) })}) RETURNING id`;
+    try {
+      assert.equal(
+        (await metals()).find((item) => item.key === "metals.period"),
+        undefined,
+        "a successful check of the same period is waiting, not a collection outage",
+      );
+      await sql`UPDATE job_runs SET detail=${sql.json({ nbs: entry([], "列表页返回 HTTP 503") })} WHERE id=${checked!.id}`;
+      assert.ok(
+        (await metals()).some((item) => item.key === "metals.period"),
+        "an actual failed check must not be suppressed",
+      );
+    } finally {
+      await sql`DELETE FROM job_runs WHERE id=${checked!.id}`;
+    }
 
     await sql`DELETE FROM publication.metal_prices WHERE release_label = 'alert-test-release'`;
     await sql`INSERT INTO publication.metal_prices ${sql(price({ period_start: "2026-09-21", period_end: "2026-09-30", period_label: "2026年9月下旬" }))}`;
@@ -870,5 +887,84 @@ test("metal prices alert when a period is past its own window, a quote is missin
     assert.match(broken.find((item) => item.key === "metals.table")?.heals ?? "", /不会拿别的数字填上/);
   } finally {
     await sql`DELETE FROM publication.metal_prices WHERE release_label = 'alert-test-release'`;
+  }
+});
+
+test("unchanged price incidents stay silent across hours and digests, and changed errors and recovery are announced once", async (t) => {
+  process.env.COLLECT_ENABLED = "true";
+  process.env.FEISHU_INTERNAL_ENABLED = "false";
+  const log = t.mock.method(console, "log", () => {});
+  const savedState = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+  try {
+    await sql`DELETE FROM settings WHERE key='alerts.state'`;
+    await seed({ hours: 30, record: { nbs: entry([], "列表页返回 HTTP 503") } }, { hours: 10, record: { nbs: entry([], "列表页返回 HTTP 503") } });
+    assert.ok((await checkAlerts(NOW)).sent.includes("metals.table"));
+    assert.ok(!(await checkAlerts(NOW + 61 * 60_000)).sent.includes("metals.table"), "same reader impact must not repeat hourly");
+    await sendDigest(NOW);
+    await checkAlerts(NOW + 2 * 3600_000);
+    await seed({ hours: 30, record: { nbs: entry([], "列表页返回 HTTP 503") } }, { hours: -23, record: { nbs: entry([], "列表页返回 HTTP 503") } });
+    log.mock.resetCalls();
+    await sendDigest(NOW + 86400_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("金属价格")), "same fetch error must not repeat in the daily digest");
+    await seed({ hours: 30, record: { nbs: entry([], "列表页返回 HTTP 429") } }, { hours: -23, record: { nbs: entry([], "列表页返回 HTTP 429") } });
+    await sendDigest(NOW + 86400_000);
+    assert.ok(
+      log.mock.calls.some((call) => String(call.arguments[0]).includes("HTTP 429")),
+      "changed cause must be reported",
+    );
+    await seed({ hours: -24, record: { nbs: entry([]) } });
+    log.mock.resetCalls();
+    await sendDigest(NOW + 86400_000 + 60_000);
+    assert.ok(log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")));
+    log.mock.resetCalls();
+    await sendDigest(NOW + 86400_000 + 120_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")));
+  } finally {
+    await seed();
+    await sql`DELETE FROM settings WHERE key='alerts.state'`;
+    if (savedState[0]) await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json(savedState[0].value)})`;
+  }
+});
+
+test("a source failure counter does not reopen its digest, but a changed cause and a real recovery do", async (t) => {
+  process.env.COLLECT_ENABLED = "true";
+  process.env.FEISHU_INTERNAL_ENABLED = "false";
+  const log = t.mock.method(console, "log", () => {});
+  const [source] = await sql`SELECT health,fail_count,last_error FROM sources WHERE id=${SOURCE}`;
+  const [state] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+  const now = Date.now();
+  try {
+    await sql`DELETE FROM settings WHERE key='alerts.state'`;
+    await sql`UPDATE sources SET health='failing',fail_count=5,last_error='HTTP 503' WHERE id=${SOURCE}`;
+    await sendDigest(now);
+    assert.ok(log.mock.calls.some((call) => String(call.arguments[0]).includes(`${SOURCE}：连续失败 5 次，HTTP 503`)));
+    log.mock.resetCalls();
+    await sql`UPDATE sources SET fail_count=6 WHERE id=${SOURCE}`;
+    await sendDigest(now + 60_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes(`${SOURCE}：连续失败`)));
+    await sql`UPDATE sources SET last_error='HTTP 429' WHERE id=${SOURCE}`;
+    await sendDigest(now + 120_000);
+    assert.ok(log.mock.calls.some((call) => String(call.arguments[0]).includes(`${SOURCE}：连续失败 6 次，HTTP 429`)));
+    log.mock.resetCalls();
+    process.env.COLLECT_ENABLED = "false";
+    await sendDigest(now + 180_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")));
+    process.env.COLLECT_ENABLED = "true";
+    await sql`UPDATE sources SET enabled=false,health='paused' WHERE id=${SOURCE}`;
+    await sendDigest(now + 200_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")), "an individually paused source is not recovered");
+    await sql`UPDATE sources SET enabled=true,health='unknown' WHERE id=${SOURCE}`;
+    await sendDigest(now + 210_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")), "resuming without a successful check is not recovered");
+    await sql`INSERT INTO fetch_runs(source_id,status,started_at,finished_at,found_count,new_count)
+      VALUES(${SOURCE},'ok',${new Date(now + 220_000)},${new Date(now + 230_000)},0,0)`;
+    await sql`UPDATE sources SET health='ok',fail_count=0,last_error=NULL WHERE id=${SOURCE}`;
+    await sendDigest(now + 240_000);
+    assert.ok(log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复：编辑内容信源「Test alerts」连续抓取失败")));
+  } finally {
+    await sql`UPDATE sources SET health=${source!.health},fail_count=${source!.fail_count},last_error=${source!.last_error} WHERE id=${SOURCE}`;
+    await sql`DELETE FROM settings WHERE key='alerts.state'`;
+    if (state) await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json(state.value)})`;
+    process.env.COLLECT_ENABLED = "true";
   }
 });

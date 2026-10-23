@@ -298,6 +298,11 @@
 | [TASK-0424](TASK-0424.md) | T-0101 | M3 | architect | locally_verified | 从项目原文明示括号缩写召回历史别名 | TASK-0411、TASK-0415、TASK-0422 |
 | [TASK-0425](TASK-0425.md) | T-0101 | M3 | architect | locally_verified | 阿根廷优化集成及发布观察交接 | TASK-0404、TASK-0405、TASK-0407、TASK-0409、TASK-0414、TASK-0415、TASK-0416、TASK-0418、TASK-0419、TASK-0420、TASK-0421、TASK-0423、TASK-0424、TASK-0426 |
 | [TASK-0426](TASK-0426.md) | T-0101 | M3 | architect | locally_verified | 人工决定在同一事务撤销历史背景引用 | TASK-0414、TASK-0415、TASK-0420 |
+| [TASK-0427](TASK-0427.md) | T-0101 | M3 | architect | implemented | 第一阶段统一依据与完整迁移承接 | — |
+| [TASK-0428](TASK-0428.md) | T-0101 | M3 | architect | locally_verified | 修复资讯报告自动补刊与空期恢复 | — |
+| [TASK-0429](TASK-0429.md) | T-0101 | M3 | architect | locally_verified | 区分价格检查与发布期并合并重复提醒 | — |
+| [TASK-0430](TASK-0430.md) | T-0101 | M3 | architect | specified | 补齐固定上游通用模块扩展契约 | — |
+| [TASK-0431](TASK-0431.md) | T-0101 | M3 | architect | locally_verified | 保存来源检查结果并区分报价所属期 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

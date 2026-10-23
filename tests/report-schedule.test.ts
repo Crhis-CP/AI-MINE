@@ -43,8 +43,8 @@ test("catch-up writes the current daily before more than eight old gaps and reta
       VALUES(${articleId},'合成普通新闻','已评分未入选',${`https://example.invalid/catch-up/${day}`},'catch-up-test','news',${at},${at},${at},false,true,20)`;
   }
   await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,origin)
-    VALUES('daily','2020-01-02','2020-01-01','2020-01-02','{}',now(),'rule'),
-      ('weekly','2020-W02','2020-01-06','2020-01-12','{}',now(),'rule')`;
+    VALUES('daily','2020-01-02','2020-01-01','2020-01-02',${sql.json({ sections: [], flashes: [], lead: { leadParagraph: "合成已完成评判的安静日报。" } })},now(),'rule'),
+      ('weekly','2020-W02','2020-01-06','2020-01-12',${sql.json({ themes: [{ storyRefs: [{ itemId: "synthetic-existing-report-entry" }] }] })},now(),'rule')`;
   const result = await catchUpReports(new Date("2020-01-20T01:00Z"));
   assert.deepEqual(result.generated, ["daily:2020-01-20", ...[3, 4, 5, 6, 7, 8, 9].map((day) => `daily:2020-01-${String(day).padStart(2, "0")}`)]);
   assert.equal((await sql`SELECT origin FROM reports WHERE kind='daily' AND key='2020-01-03'`)[0]!.origin, "rule");

@@ -38,6 +38,7 @@ function facts(content: StoredReportContent) {
           )
         : value;
   return clean({
+    lead: content.lead ?? null,
     sections: content.sections ?? [],
     themes: (content.themes ?? []).map((theme) => ({ heading: theme.heading, storyRefs: theme.storyRefs })),
     flashes: content.flashes ?? [],
@@ -48,7 +49,14 @@ function facts(content: StoredReportContent) {
     periodEnd: content.periodEnd ?? null,
   });
 }
-const sameFacts = (a: StoredReportContent, b: StoredReportContent) => stableJson(facts(a)) === stableJson(facts(b));
+function sameFacts(a: StoredReportContent, b: StoredReportContent) {
+  try {
+    return stableJson(facts(a)) === stableJson(facts(b));
+  } catch {
+    // Malformed old JSON is revision evidence, never proof that the rebuilt issue is unchanged.
+    return false;
+  }
+}
 async function prepare(kind: ReportKind, key: string) {
   const range = periodWindow(kind, key);
   if (kind === "daily") return { ...(await dailyDraft(key, range.from, range.until)), range, top: [], period: null };
@@ -101,7 +109,7 @@ export async function reconcileReport(kind: ReportKind, key: string) {
       await settle("retry", "waiting", "仍在等待本期合格材料；系统会继续核对。", hash);
       return { status: "waiting" };
     }
-    const unchanged = old && !old.content.correctionPending && sameFacts(old.content, prepared.content);
+    const unchanged = old && !old.content?.correctionPending && sameFacts(old.content, prepared.content);
     const needsProse = kind !== "daily" && prepared.top.length > 0 && (!unchanged || !old?.content.overview);
     if (unchanged && !needsProse) {
       await settle("done", "unchanged", "已核对，事实和编排没有变化。", hash);
@@ -173,13 +181,13 @@ export async function reconcileReport(kind: ReportKind, key: string) {
       await preserveReportCalendar(tx);
       const changed =
         !latest ||
-        latest.content.correctionPending ||
+        latest.content?.correctionPending ||
         !sameFacts(latest.content, content) ||
         stableJson(latest.content.overview ?? null) !== stableJson(content.overview ?? null);
       if (changed) {
         const revision = (latest?.revision ?? 0) + 1;
         const reason = latest ? "已依据补充或更正后的公开报道修订本期内容。" : "已根据可靠来源日期补齐本期内容。";
-        const previous = Array.isArray(latest?.content.corrections) ? latest.content.corrections : [];
+        const previous = Array.isArray(latest?.content?.corrections) ? latest.content.corrections : [];
         const revised = {
           ...content,
           correctionPending: false,

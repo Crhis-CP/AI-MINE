@@ -10,7 +10,7 @@ import { nbsFetcher, NBS_LIST_URL } from "../modules/metals/backend/nbs.ts";
 import { worldbankFetcher, WORLDBANK_LIST_URL } from "../modules/metals/backend/worldbank.ts";
 import { cbrFetcher } from "../modules/metals/backend/cbr.ts";
 import { mofcomFetcher } from "../modules/metals/backend/mofcom.ts";
-import { storePeriod } from "../modules/metals/backend/store.ts";
+import { storePeriod, storePriceCheck } from "../modules/metals/backend/store.ts";
 import { buildApp } from "./site-app.ts";
 import type { FetchedPeriod } from "../modules/metals/backend/types.ts";
 
@@ -34,7 +34,7 @@ async function store(periods: FetchedPeriod[]) {
 }
 after(() => closeDb());
 beforeEach(async () => {
-  await sql`TRUNCATE publication.metal_prices`;
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_checks`;
 });
 async function seed(key: string, start: string, end: string, value: string, change: Record<string, unknown> = {}) {
   const item = registry.items.find((i) => i.key === key)!,
@@ -116,6 +116,19 @@ test("same-period revisions use deterministic tie-breaks; empty and stale source
   disabled.items.find((i: { key: string }) => i.key === "nbs.copper").enabled = false;
   assert.ok(!quote(await read(NOW, disabled), "nbs.copper"));
   assert.equal((await read(NOW, disabled)).sources.find((s) => s.key === "nbs")?.status, "empty");
+});
+
+test("price check notes use persisted successful checks, never the reader request time or a fabricated new period", async () => {
+  await seed("nbs.copper", "2026-09-11", "2026-09-20", "100.0");
+  await storePriceCheck("nbs", NOW, true, false);
+  const first = await read();
+  const later = await read(new Date("2026-10-07T04:00:00Z"));
+  const note = (data: MetalPrices) => data.notes.find((n) => n.text.startsWith("国家统计局："))?.text;
+  assert.match(note(first) ?? "", /每旬结束后数日发布.*2026-10-06 12:00（北京时间）/);
+  assert.equal(note(later), note(first));
+  assert.deepEqual(quote(later, "nbs.copper").period, quote(first, "nbs.copper").period);
+  assert.notEqual(first.generatedAt, later.generatedAt);
+  assert.ok(later.notes.some((n) => n.text.includes("世界银行") && n.text.includes("尚无检查记录")));
 });
 
 test("numeric comparisons round away from zero, retain release revisions and reject corrupt current units", async () => {
@@ -230,7 +243,7 @@ test("recorded daily conversions match hand calculations, cross weekends and ski
   assert.equal(data.metals.find((m) => m.key === "gold")!.quotes[0]!.key, "cbr.gold");
   await sql`DELETE FROM publication.metal_prices WHERE series_key='cbr.usd' AND period_start='2026-10-05'`;
   assert.equal(quote(await read(), "cbr.gold").period?.start, "2026-10-02");
-  await sql`TRUNCATE publication.metal_prices`;
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_checks`;
   periods.find((p) => p.period.start === "2026-10-02")!.held.push("Synthetic comparison hold, as in TASK-0083");
   await store(periods.filter((p) => !p.held.length));
   const skipped = await read();
