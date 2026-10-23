@@ -112,10 +112,10 @@ const outcome = (row: ExperimentCase, variant: "A" | "B" | "AR", selected: boole
   error: selected === null ? "synthetic failure" : null,
 });
 
-test("B preserves reviewed weights and A stays unchanged; no production import activates candidates", () => {
+test("historical variants keep reviewed weights; the unified candidate is version-bound and experiments stay isolated", () => {
   const a = readFileSync("industry/prompts/selection-score.md", "utf8"),
     b = readFileSync("industry/prompts/selection-score-b.md", "utf8");
-  assert.equal(createHash("sha256").update(a).digest("hex"), "1225e69a41495d0140c552256215f24c410bf57e045034be83d397d90960f4a4");
+  assert.equal(createHash("sha256").update(a).digest("hex"), "736941dd23a1dcd1badc482d57195e9a7ac2477b73ab5937699d482973902327");
   assert.deepEqual(
     b.split("\n").filter((l) => l.startsWith("|")),
     a.split("\n").filter((l) => l.startsWith("|")),

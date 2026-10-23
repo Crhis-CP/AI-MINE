@@ -83,7 +83,7 @@ test("actual classification, publication and public exits agree on nine keys and
       10,
     );
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
-  assert.equal(PROMPT_VERSIONS.score, "selection-score@09b414c0c5");
+  assert.equal(PROMPT_VERSIONS.score, "selection-score@c644735eb1", "DEC-76 unified scoring candidate remains exactly version-bound");
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
   assert.deepEqual(normalizeTags([]), []);
