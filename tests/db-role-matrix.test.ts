@@ -319,11 +319,11 @@ test("every real role has exactly the approved table, column, sequence and cross
     if (role === "public_read") {
       await permission(
         sql,
-        'SELECT series_key, currency, unit, period_start, period_end, period_label, value, release_label, release_url, released_on, first_fetched_at FROM publication."metal_prices" LIMIT 1',
+        'SELECT series_key, currency, unit, period_start, period_end, period_label, value, release_label, release_url, released_on, first_fetched_at, fetched_at FROM publication."metal_prices" LIMIT 1',
         true,
-        "public_read reads only the eleven site-price columns",
+        "public_read reads only the twelve approved site-price columns",
       );
-      for (const column of ["source", "name_zh", "grade", "benchmark", "delivery_basis", "source_unit", "period_type", "fetched_at"])
+      for (const column of ["source", "name_zh", "grade", "benchmark", "delivery_basis", "source_unit", "period_type"])
         await permission(sql, `SELECT ${quote(column)} FROM publication."metal_prices" LIMIT 1`, false, `public_read cannot read metal_prices.${column}`);
     }
     for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {

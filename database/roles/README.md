@@ -73,3 +73,5 @@ publication.metal_prices（金属价格，TASK-0044、TASK-0077）归publication
 TASK-0110：日期证据表保持worker只读、只插；新表`content.source_date_observation_seen`仅记录最后观察时刻，worker可读/插/改，private_ops与backup只读，公开角色无权；一次性清理仅用migrate角色。
 
 正文展示通知函数publication.invalidate_body_presentation按既有触发器规则精确登记：仅允许零参数、trigger返回类型、非SECURITY DEFINER且由引导或migrate角色拥有的版本。不会放行同名重载、未知函数或提权版本，也不增加表权限；真实worker更新可公开正文时通知news读者，public_read继续只读。
+
+TASK-0429：价格页按Owner要求展示持久报价的成功核对时间，publication.metal_prices的公开列新增fetched_at，仅SELECT。first_fetched_at继续用于原版本顺序；其余元字段及写权限不增加。受限公开角色的真实HTTP矩阵必须实际读通价格页；已有环境使用当前角色规划器更新对应列授权，不能通过改用高权限连接绕过。

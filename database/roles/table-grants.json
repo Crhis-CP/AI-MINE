@@ -321,7 +321,8 @@
         "release_label",
         "release_url",
         "released_on",
-        "first_fetched_at"
+        "first_fetched_at",
+        "fetched_at"
       ],
       "permissions": {
         "private_ops": ["SELECT"],
