@@ -9,7 +9,8 @@
       "重新发送前核对当前内容、目标及暂停状态，法规暂停后不再反复安排已暂停工作。",
       "事件页增加相关历史报道，保留可核对的原文日期和链接，旧背景不计入新进展或热度。",
       "有对应日报资料的历史周报和月报自动补刊，异常刊期可恢复，人工维护和撤回继续优先。",
-      "价格页分别显示数据所属期和最近检查结果；原站没有新一期时保留真实日期，相同价格和来源问题合并提醒。"
+      "价格页分别显示数据所属期和最近检查结果；原站没有新一期时保留真实日期，相同价格和来源问题合并提醒。",
+      "矿业规则、许可和项目进展按实际变化判断，各国使用统一选材标准。"
     ]
   },
   "fragments": [
@@ -24,7 +25,8 @@
     "changes/TASK-0415-history-reading.md",
     "changes/TASK-0414-history.md",
     "changes/TASK-0428-report-recovery.md",
-    "changes/TASK-0429-price-alerts.md"
+    "changes/TASK-0429-price-alerts.md",
+    "changes/TASK-0433-unified-selection.md"
   ],
   "announcement": {
     "kind": "公告",
