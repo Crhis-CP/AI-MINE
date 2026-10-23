@@ -1,5 +1,6 @@
 import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
+export type { HistoricalBackgroundReferencesReader } from "@amp/contracts/site";
 import { readGroupingAnalysis, groupingAnalysisHash, groupingScopeInputs } from "../enrichment/records.ts";
 import {
   readMaterialGrouping,

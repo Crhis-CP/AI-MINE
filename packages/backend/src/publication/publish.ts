@@ -787,6 +787,7 @@ export {
   selectedGroupingRecipeInputs,
 } from "./items.ts";
 export type { GroupingSelectionSnapshot } from "./items.ts";
+export type { HistoricalBackgroundReader, HistoricalBackgroundProjector } from "@amp/contracts/site";
 
 export async function publishedStoryId(articleId: string, tx: Tx): Promise<number | null> {
   const [row] = await tx<{ story_id: number | null }[]>`SELECT story_id FROM publications WHERE article_id=${articleId}`;
