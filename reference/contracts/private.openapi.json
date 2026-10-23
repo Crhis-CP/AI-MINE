@@ -15165,6 +15165,17 @@
             "maxLength": 2048,
             "type": "string"
           },
+          "cache_hit_input_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "configuration_hash": {
             "anyOf": [
               {
@@ -15249,6 +15260,13 @@
             "maximum": 9007199254740991,
             "minimum": 0,
             "type": "integer"
+          },
+          "rate_windows": {
+            "items": {
+              "$ref": "#/components/schemas/UsagePriceWindow"
+            },
+            "maxItems": 128,
+            "type": "array"
           },
           "service": {
             "maxLength": 160,
@@ -15344,6 +15362,17 @@
             "maxLength": 2048,
             "type": "string"
           },
+          "cache_hit_input_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "configuration_hash": {
             "anyOf": [
               {
@@ -15429,6 +15458,13 @@
             "minimum": 0,
             "type": "integer"
           },
+          "rate_windows": {
+            "items": {
+              "$ref": "#/components/schemas/UsagePriceWindowInput"
+            },
+            "maxItems": 128,
+            "type": "array"
+          },
           "service": {
             "maxLength": 160,
             "minLength": 1,
@@ -15510,6 +15546,90 @@
           "version",
           "price",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "UsagePriceWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_hit_input_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ends_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:Z))$",
+            "type": "string"
+          },
+          "input_per_million_micros": {
+            "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+            "type": "string"
+          },
+          "output_per_million_micros": {
+            "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:Z))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "ends_at",
+          "input_per_million_micros",
+          "cache_hit_input_per_million_micros",
+          "output_per_million_micros"
+        ],
+        "type": "object"
+      },
+      "UsagePriceWindowInput": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_hit_input_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ends_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:Z))$",
+            "type": "string"
+          },
+          "input_per_million_micros": {
+            "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+            "type": "string"
+          },
+          "output_per_million_micros": {
+            "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:Z))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "ends_at",
+          "input_per_million_micros",
+          "cache_hit_input_per_million_micros",
+          "output_per_million_micros"
         ],
         "type": "object"
       },

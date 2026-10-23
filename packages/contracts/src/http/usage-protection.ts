@@ -38,6 +38,13 @@ export const UsageConfigChange = z.strictObject({
   reason: Reason,
   high_risk_confirmed: z.literal(true),
 });
+export const UsagePriceWindow = z.strictObject({
+  starts_at: z.iso.datetime({ precision: 0 }),
+  ends_at: z.iso.datetime({ precision: 0 }),
+  input_per_million_micros: UnitRate,
+  cache_hit_input_per_million_micros: UnitRate.nullable(),
+  output_per_million_micros: UnitRate,
+});
 export const UsagePrice = z
   .strictObject({
     service: z.string().min(1).max(160),
@@ -48,7 +55,9 @@ export const UsagePrice = z
       .nullable(),
     currency: z.literal("CNY"),
     input_per_million_micros: UnitRate.nullable(),
+    cache_hit_input_per_million_micros: UnitRate.nullable().optional(),
     output_per_million_micros: UnitRate.nullable(),
+    rate_windows: z.array(UsagePriceWindow).max(128).optional(),
     per_request_micros: Micros.nullable(),
     max_request_micros: Micros.nullable(),
     image_input_token_bound: z.number().int().positive().nullable(),
@@ -70,7 +79,24 @@ export const UsagePrice = z
   .refine((v) => {
     const days = (Date.parse(v.valid_until) - Date.parse(v.observed_on)) / 86400000;
     return days > 0 && days <= 45;
-  }, "价格有效期须为观察日起45天以内");
+  }, "价格有效期须为观察日起45天以内")
+  .superRefine((price, ctx) => {
+    if (
+      (price.cache_hit_input_per_million_micros != null || price.rate_windows?.length) &&
+      (price.input_per_million_micros === null || price.output_per_million_micros === null)
+    )
+      ctx.addIssue({ code: "custom", message: "缓存与时段价格须保留完整基础输入输出单价" });
+    const from = Date.parse(`${price.observed_on}T00:00:00+08:00`),
+      until = Date.parse(`${price.valid_until}T00:00:00+08:00`) + 86400000;
+    let previousEnd = from;
+    for (const [index, window] of (price.rate_windows ?? []).entries()) {
+      const start = Date.parse(window.starts_at),
+        end = Date.parse(window.ends_at);
+      if (start < previousEnd || end <= start || end > until)
+        ctx.addIssue({ code: "custom", path: ["rate_windows", index], message: "时段须升序、不重叠、起止有效且位于报价有效日期内（北京时间，结束时刻不含）" });
+      previousEnd = end;
+    }
+  });
 export const UsagePriceChange = z.strictObject({
   expected_version: z.number().int().nonnegative(),
   price: UsagePrice,
@@ -155,6 +181,7 @@ export const usageProtectionSchemas = {
   UsageConfigRecord,
   UsageConfigChange,
   UsagePrice,
+  UsagePriceWindow,
   UsagePriceRecord,
   UsagePriceChange,
   UsageScope,
