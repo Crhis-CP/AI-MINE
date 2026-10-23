@@ -1,4 +1,6 @@
 import { reportRevisionRoutes, reportRevisionSchemas } from "./report-revisions.ts";
+import { notifyScopeRoutes, notifyScopeSchemas } from "./notify-scopes.ts";
+export * from "./notify-scopes.ts";
 export * from "./report-revisions.ts";
 import { adminMaintenanceRoutes, adminMaintenanceSchemas } from "./admin-maintenance.ts";
 export * from "./admin-maintenance.ts";
@@ -213,6 +215,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...notifyScopeSchemas,
   ...reportRevisionSchemas,
   ...groupingSchemas,
   ...withdrawalSchemas,
@@ -245,6 +248,7 @@ export const schemas = {
   ...adminMaintenanceSchemas,
 };
 export const routes = {
+  ...notifyScopeRoutes,
   ...withdrawalRoutes,
   ...sourceCoverageRoutes,
   ...sourceTargetsRoutes,

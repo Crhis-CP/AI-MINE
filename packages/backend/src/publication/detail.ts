@@ -6,7 +6,7 @@ import { publicCompanyContext, readerAttribution } from "./reader-context.ts";
 import { relatedPoliciesForNews } from "./news-policy-links.ts";
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
 import { linkBodyImages } from "../content/sanitize.ts";
-import { sql } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
@@ -244,8 +244,8 @@ export async function machineItemDetail(id: string, language: "zh" | "original" 
 }
 
 /** Current source-time and geography evidence, projected without raw source metadata. */
-export async function publicItemMetadata(id: string) {
-  const [meta] = await sql<{ source_time: unknown; jurisdictions: string[] | null }[]>`
+export async function publicItemMetadata(id: string, db: Db = sql) {
+  const [meta] = await db<{ source_time: unknown; jurisdictions: string[] | null }[]>`
     SELECT ${CURRENT_SOURCE_TIME()} AS source_time,
       g.jurisdictions FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}

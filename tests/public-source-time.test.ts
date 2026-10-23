@@ -13,6 +13,7 @@ import { readSourceDateContext } from "@amp/backend/admin/sources";
 import { observeSourceDate } from "../packages/backend/src/sources/date-extraction.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { beijingDate } from "@amp/contracts/time";
+import { geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
 
 after(async () => {
   await stopBoss();
@@ -43,6 +44,19 @@ async function fixture(raw?: string) {
   await publishArticle(material.articleId);
   return { ...material, input, context, observation, at };
 }
+test("metadata can follow the caller transaction and never treats rolled-back geography as current", async () => {
+  const f = await fixture();
+  const before = await publicItemMetadata(f.articleId);
+  await assert.rejects(
+    sql.begin(async (tx) => {
+      await tx`UPDATE publication.news_geography SET recipe=${geographyRecipe()},state='identified',jurisdictions=ARRAY['AR'] WHERE article_id=${f.articleId}`;
+      assert.deepEqual((await publicItemMetadata(f.articleId, tx))?.jurisdictions, ["AR"]);
+      throw new Error("rollback geography");
+    }),
+    /rollback geography/,
+  );
+  assert.deepEqual(await publicItemMetadata(f.articleId), before);
+});
 test("a calendar day is published without inventing UTC midnight, with a separate first-public time", async () => {
   const day = beijingDate(new Date()),
     f = await fixture(day),

@@ -374,6 +374,8 @@ if (process.argv.includes("--routes")) {
           "/api/admin/model-fallbacks",
           "/api/admin/model-fallbacks/{capability}",
           "/api/admin/model-routes/{capability}",
+          "/api/admin/notify-target-scopes",
+          "/api/admin/notify-targets/{key}/scope",
           "/api/admin/receipts/{id}/release",
           "/api/admin/reports",
           "/api/admin/reports/{kind}/{key}/reconcile",
