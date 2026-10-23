@@ -10,6 +10,8 @@ import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
 import { addDays, beijingDate, beijingMidnight, beijingTime, isoWeekLabel } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
+import { sourceCollectionEnabled } from "../config.ts";
+import { readSourceTargetEvidence } from "@amp/backend/sources/evidence";
 import { sql } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
 import { metalPriceChangeIssues } from "../publication/metal-prices/change.ts";
@@ -817,8 +819,17 @@ export async function sendDigest(now = Date.now()) {
     lines.push(`${lines.length + 1}. ${f.title}${f.detail ? `\n   ${f.detail}` : ""}`);
   }
   const sourcesPaused = (await runtimeControlSnapshot("news", ["collection"])).paused;
+  const sourceKeys = previousKeys.filter((key) => key.startsWith("digest:sources.") && !items.some((f) => `digest:${f.key}` === key));
+  const sourceId = (key: string) => key.split(".").slice(2).join(".");
+  const recoveredSources = new Map<string, Date>();
+  if (sourceKeys.length && !sourcesPaused && sourceCollectionEnabled("news")) {
+    const healthy = new Set((await sourceHealth(now)).flatMap((group) => group.sources.filter((source) => source.health === "ok").map((source) => source.id)));
+    const [checks] = await readSourceTargetEvidence([...new Set(sourceKeys.map(sourceId).filter((id) => healthy.has(id)))]);
+    for (const check of checks) if (check.latest && check.latest.getTime() <= now) recoveredSources.set(check.source_id, check.latest);
+  }
   for (const key of previousKeys) {
     if (items.some((f) => `digest:${f.key}` === key) || !collecting() || (key.startsWith("digest:sources.") && sourcesPaused)) continue;
+    if (key.startsWith("digest:sources.") && (recoveredSources.get(sourceId(key))?.getTime() ?? 0) <= Date.parse(state[key]!.sentAt)) continue;
     lines.push(`${lines.length + 1}. 已恢复：${state[key]!.title}`);
     delete state[key];
   }

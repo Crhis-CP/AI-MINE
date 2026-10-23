@@ -19,6 +19,7 @@ import { writePeriod } from "./period-writing.ts";
 import { firstScheduledDaily, preserveReportCalendar, requestReportDependents } from "./revision-state.ts";
 import { dependentPeriods, periodWindow } from "./periods.ts";
 import { storedReportEntries, type StoredReportContent } from "./references.ts";
+import { sha256, stableJson } from "../lib/ids.ts";
 export { REPORT_VERSION, PeriodSchema, periodPrompt, writePeriod } from "./period-writing.ts";
 
 export interface ReportEntry {
@@ -283,9 +284,13 @@ export async function catchUpReports(now = new Date(), limit = 8): Promise<{ gen
         if (existing) {
           if (existing.origin !== "manual" && incompleteReport(item.kind, existing.content)) {
             const window = periodWindow(item.kind, key);
-            // Existing repair state owns its retry/backoff and any manual stop; a scan must not reset it.
-            const queued = await sql`INSERT INTO reports.reconciliation_jobs(kind,key,period_start,period_end,reason_code,evidence)
-              VALUES(${item.kind},${key},${window.from},${window.until},'incomplete_edition','[]'::jsonb) ON CONFLICT DO NOTHING`;
+            const evidence = [`stored_report:${sha256(stableJson(existing.content))}`];
+            // Retry only a newly observed damaged version; active backoff and manual review remain authoritative.
+            const queued = await sql`INSERT INTO reports.reconciliation_jobs AS repair(kind,key,period_start,period_end,reason_code,evidence)
+              VALUES(${item.kind},${key},${window.from},${window.until},'incomplete_edition',${sql.json(evidence)})
+              ON CONFLICT(kind,key) DO UPDATE SET generation=repair.generation+1,state='pending',result=NULL,message=NULL,
+                reason_code=EXCLUDED.reason_code,evidence=EXCLUDED.evidence,requested_at=now(),next_attempt_at=now(),attempts=0,lease_until=NULL
+              WHERE repair.state='done' AND repair.result IN ('revised','unchanged') AND NOT repair.evidence @> EXCLUDED.evidence`;
             repairs += queued.count;
           }
           continue;

@@ -950,6 +950,14 @@ test("a source failure counter does not reopen its digest, but a changed cause a
     await sendDigest(now + 180_000);
     assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")));
     process.env.COLLECT_ENABLED = "true";
+    await sql`UPDATE sources SET enabled=false,health='paused' WHERE id=${SOURCE}`;
+    await sendDigest(now + 200_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")), "an individually paused source is not recovered");
+    await sql`UPDATE sources SET enabled=true,health='unknown' WHERE id=${SOURCE}`;
+    await sendDigest(now + 210_000);
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复")), "resuming without a successful check is not recovered");
+    await sql`INSERT INTO fetch_runs(source_id,status,started_at,finished_at,found_count,new_count)
+      VALUES(${SOURCE},'ok',${new Date(now + 220_000)},${new Date(now + 230_000)},0,0)`;
     await sql`UPDATE sources SET health='ok',fail_count=0,last_error=NULL WHERE id=${SOURCE}`;
     await sendDigest(now + 240_000);
     assert.ok(log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复：编辑内容信源「Test alerts」连续抓取失败")));

@@ -80,3 +80,24 @@ test("catch-up queues an empty or corrupt stored month once and the normal worke
   assert.ok(repaired, JSON.stringify(await sql`SELECT kind,key,state,message FROM reports.reconciliation_jobs`));
   assert.ok((await loadReport("monthly", "2020-05"))!.stories.some((entry) => entry.itemId === material));
 });
+
+test("a newly damaged completed edition requeues without resetting active retries or manual-review stops", async () => {
+  for (const [key, result] of [
+    ["2020-06", "revised"],
+    ["2020-07", "waiting"],
+  ]) {
+    await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,origin)
+      VALUES('monthly',${key},${`${key}-01`},${`${key}-28`},'{"themes":"broken"}',now(),'rule')`;
+    await sql`INSERT INTO reports.reconciliation_jobs(kind,key,period_start,period_end,reason_code,evidence,state,result)
+      VALUES('monthly',${key},${`${key}-01`},${`${key}-28`},'synthetic_previous','[]','done',${result}) ON CONFLICT(kind,key) DO UPDATE SET state='done',result=${result}`;
+  }
+  await catchUpReports(new Date("2020-08-02T03:00Z")).catch(() => {});
+  assert.equal((await sql`SELECT state FROM reports.reconciliation_jobs WHERE kind='monthly' AND key='2020-06'`)[0]?.state, "pending");
+  assert.equal((await sql`SELECT state FROM reports.reconciliation_jobs WHERE kind='monthly' AND key='2020-07'`)[0]?.state, "done");
+  await sql`UPDATE reports.reconciliation_jobs SET state='retry',next_attempt_at='2100-01-01T00:00:00Z',attempts=3 WHERE kind='monthly' AND key='2020-06'`;
+  await catchUpReports(new Date("2020-08-02T03:30Z")).catch(() => {});
+  const [kept] = await sql`SELECT state,attempts,next_attempt_at FROM reports.reconciliation_jobs WHERE kind='monthly' AND key='2020-06'`;
+  assert.equal(kept.state, "retry");
+  assert.equal(kept.attempts, 3);
+  assert.equal(kept.next_attempt_at.toISOString(), "2100-01-01T00:00:00.000Z");
+});
