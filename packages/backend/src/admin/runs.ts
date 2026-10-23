@@ -68,8 +68,8 @@ export async function runsOverview() {
       WHERE status = 'unknown' OR (status = 'failed' AND updated_at > now() - interval '3 days') OR (status = 'pending' AND updated_at < now() - interval '15 minutes')
       ORDER BY status = 'unknown' DESC, updated_at DESC LIMIT 40`,
     sql`
-      SELECT id, target_key, subject_kind, subject_id, status, attempts, left(response, 240) AS response, created_at, updated_at FROM deliveries
-      WHERE status IN ('unknown', 'failed') OR (status = 'sending' AND updated_at < now() - interval '15 minutes')
+      SELECT id, target_key, subject_kind, subject_id, status, attempts, left(response, 240) AS response, created_at, updated_at,retry_reason,retry_at,abandoned_at FROM deliveries
+      WHERE abandoned_at IS NULL AND (status IN ('unknown', 'failed') OR (status = 'sending' AND updated_at < now() - interval '15 minutes'))
       ORDER BY status = 'unknown' DESC, updated_at DESC LIMIT 40`,
     sql`
       SELECT ${failureGroupSql()} AS error, count(*)::int AS n, max(discovered_at) AS last,
@@ -225,18 +225,21 @@ export async function requeueFailedArticles(input: { group: string | null; reaso
 /** An in-doubt delivery: confirmed as arrived, given up, or sent again after checking the group. */
 export async function resolveDelivery(id: number, input: { outcome: "sent" | "drop" | "resend"; note: string }, actor: string) {
   if (!input.note?.trim()) throw new Error("note is required");
-  const [before] = await sql<{ status: string; version: string }[]>`SELECT status, updated_at::text AS version FROM deliveries WHERE id = ${id}`;
+  const [before] = await sql<
+    { status: string; version: string; abandoned_at: Date | null }[]
+  >`SELECT status, abandoned_at, updated_at::text AS version FROM deliveries WHERE id = ${id}`;
   if (!before) return null;
-  if (before.status !== "unknown" && before.status !== "failed") throw new Conflict("这条投递不需要处理");
+  if (before.abandoned_at || (before.status !== "unknown" && before.status !== "failed")) throw new Conflict("这条投递不需要处理");
   let status: string;
   if (input.outcome === "sent") {
     const changed =
-      await sql`UPDATE deliveries SET status = 'sent', sent_at = coalesce(sent_at, now()), response = ${`人工确认已送达：${input.note}`}, updated_at = now()
+      await sql`UPDATE deliveries SET status = 'sent',retry_reason=null,retry_at=null,sent_at = coalesce(sent_at, now()), response = ${`人工确认已送达：${input.note}`}, updated_at = now()
       WHERE id = ${id} AND status IN ('unknown', 'failed') AND updated_at::text = ${before.version}`;
     if (!changed.count) throw new Conflict("这条投递已被其他操作处理，请刷新后重试");
     status = "sent";
   } else if (input.outcome === "drop") {
-    const changed = await sql`UPDATE deliveries SET status = 'failed', response = ${`人工放弃：${input.note}`}, updated_at = now()
+    const changed =
+      await sql`UPDATE deliveries SET status = 'failed',abandoned_at=now(),retry_reason=null,retry_at=null,response = ${`人工放弃：${input.note}`}, updated_at = now()
       WHERE id = ${id} AND status IN ('unknown', 'failed') AND updated_at::text = ${before.version}`;
     if (!changed.count) throw new Conflict("这条投递已被其他操作处理，请刷新后重试");
     status = "failed";

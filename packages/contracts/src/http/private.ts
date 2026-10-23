@@ -91,6 +91,9 @@ export const DeliveryIssue = z.looseObject({
   subject_kind: z.string(),
   subject_id: z.string(),
   updated_at: z.iso.datetime({ offset: true }),
+  retry_reason: z.enum(["not_sent", "rate_limited"]).nullable().optional(),
+  retry_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  abandoned_at: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 const ReceiptReconciliationResponseCore = z.looseObject({
   grouping: GroupingOverview.optional(),

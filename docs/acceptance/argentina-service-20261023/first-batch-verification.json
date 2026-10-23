@@ -1,0 +1,23 @@
+{
+  "source_run": "https://github.com/Crhis-CP/AI-MINE/actions/runs/39897448832",
+  "git": {
+    "sha": "a3be502547cf04c72ce9c74c0c6d1515502a9d39",
+    "tree": "deadef1221554ad730c0393868be8c710dae24e9",
+    "base_ref": "origin/main",
+    "base": "3c91e7bf078a84c0892d93f7e03af384e3449bee",
+    "main_head_at_start": "3c91e7bf078a84c0892d93f7e03af384e3449bee",
+    "lockfile_sha256": "ce885fcfa97b658fc1e678788b859f55f916419688748165341e8bee2940ee3f",
+    "tracked_and_untracked_clean_at_start": true,
+    "tracked_and_untracked_clean_at_end": true
+  },
+  "scope": "full",
+  "exit_status": 0,
+  "started_at": "2026-10-23T03:54:31.923Z",
+  "finished_at": "2026-10-23T04:09:49.244Z",
+  "pending_stages": [
+    "pit-checks (TASK-0011; document-control coverage is not implied by scope:full)"
+  ],
+  "receipt_sha256": "dbd4095f8778b69e3cf28aed6de2b155b7249936e80aea19e8a27c0c9e7a07be",
+  "coverage": "first batch only; does not cover later pricing, delivery recovery or historical background consumers",
+  "production_deployed": false
+}

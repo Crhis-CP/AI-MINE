@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { UsagePrice } from "../src/http/usage-protection.ts";
+import { UsagePrice } from "../../../packages/contracts/src/http/usage-protection.ts";
 
 const price = {
   service: "synthetic-model",

@@ -467,6 +467,10 @@
     {
       "name": "reports/202610201400_report_reconciliation.sql",
       "dependsOn": ["reports/202610120430_report_corrections.sql"]
+    },
+    {
+      "name": "platform/ops/202610230100_delivery_recovery.sql",
+      "dependsOn": ["0003_notify.sql"]
     }
   ]
 }

@@ -461,7 +461,7 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
   // Content-group pushes the Feishu webhook refused (a removed bot, a changed address); nothing resends them.
   const [refused] = await sql<{ n: number; target: string | null; response: string | null }[]>`
     SELECT count(*)::int AS n, max(t.note) AS target, left(max(d.response), 200) AS response FROM deliveries d JOIN notify_targets t ON t.key = d.target_key
-    WHERE d.status = 'failed' AND d.updated_at > now() - interval '1 day'`;
+    WHERE d.status = 'failed' AND d.retry_at IS NULL AND d.abandoned_at IS NULL AND d.updated_at > now() - interval '1 day'`;
   if (refused!.n > 0) {
     out.push({
       key: "deliveries.failed",
@@ -469,7 +469,7 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
       title: "飞书内容群有推送没发出去",
       impact: `过去 24 小时 ${refused!.n} 条精选通知没进${refused!.target ?? "内容群"}`,
       heals: "不会自动重发",
-      action: "转给 AI 处理；如果推送机器人被移出了群，需要你把它加回去",
+      action: "检查机器人是否仍在群内及目标配置，核对接收记录后处理",
       detail: refused!.response ?? "",
     });
   }

@@ -4,6 +4,7 @@ import { Link, useFetcher } from "react-router";
 import { useEffect } from "react";
 import type { Route } from "./+types/runs";
 import type { AdminDeliveryIssue, AdminReceiptIssue, AdminRuns } from "../../features/admin/run-types";
+import { DeliveryRecovery } from "../../features/admin/reconciliation";
 import { loadReconciliation } from "../../lib/admin.server";
 import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { ago, bj, duration, num } from "../../features/admin/format";
@@ -55,17 +56,22 @@ export async function loader({ request }: Route.LoaderArgs) {
         version,
       })),
     },
-    deliveries: data.deliveries.map(({ id, target_key, subject_kind, subject_id, status, attempts, response, created_at, updated_at }) => ({
-      id,
-      target_key,
-      subject_kind,
-      subject_id,
-      status,
-      attempts,
-      response,
-      created_at,
-      updated_at,
-    })),
+    deliveries: data.deliveries.map(
+      ({ id, target_key, subject_kind, subject_id, status, attempts, response, created_at, updated_at, retry_reason, retry_at, abandoned_at }) => ({
+        id,
+        target_key,
+        subject_kind,
+        subject_id,
+        status,
+        attempts,
+        response,
+        created_at,
+        updated_at,
+        retry_reason,
+        retry_at,
+        abandoned_at,
+      }),
+    ),
     errors: data.errors.map(({ error, n, last, example }) => ({ error, n, last, example })),
     retrying: { count: data.retrying.count, next: data.retrying.next },
     ingest: data.ingest.map(({ client, kind, status, error, summary, created_at }) => ({ client, kind, status, error, summary, created_at })),
@@ -329,7 +335,7 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
             empty="没有待核实的投递"
             columns={[
               { key: "t", label: "目标", render: (d) => d.target_key },
-              { key: "s", label: "状态", render: (d) => <Badge tone={d.status === "unknown" ? "bad" : "warn"}>{d.status}</Badge> },
+              { key: "s", label: "状态与恢复", render: (d) => <DeliveryRecovery delivery={d} /> },
               {
                 key: "sub",
                 label: "内容",
@@ -346,11 +352,12 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
               {
                 key: "a",
                 label: "",
-                render: (d) => (
-                  <Button size="sm" onClick={() => setDelivery(d)}>
-                    处理
-                  </Button>
-                ),
+                render: (d) =>
+                  d.abandoned_at ? null : (
+                    <Button size="sm" onClick={() => setDelivery(d)}>
+                      处理
+                    </Button>
+                  ),
               },
             ]}
           />
@@ -545,7 +552,7 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
       <ReasonDialog
         open={!!delivery}
         title="处理投递"
-        description="先到对应飞书群确认有没有收到。确认没收到再重发；开发环境不会真的发出。"
+        description="送达结果未知时不会自动重发。请先到对应飞书群确认，确认未收到后再选择重新发送；也可以标记已收到或不再发送。"
         confirmLabel="确认"
         danger={outcome === "resend"}
         busy={pending === "delivery"}

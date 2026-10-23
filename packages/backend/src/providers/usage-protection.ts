@@ -16,7 +16,17 @@ import { beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
 import { audit } from "../admin/auth.ts";
-import { priceQuote, settleQuotedCost, amountMicros, centsText, MICRO, ratioMicros, type UsageBounds, type UsageQuote } from "./usage-pricing.ts";
+import {
+  priceQuote,
+  refreshUsageQuote,
+  settleQuotedCost,
+  amountMicros,
+  centsText,
+  MICRO,
+  ratioMicros,
+  type UsageBounds,
+  type UsageQuote,
+} from "./usage-pricing.ts";
 
 export type UsageConfig = z.infer<typeof UsageProtectionConfig>;
 export type Scope = z.infer<typeof UsageScope>;
@@ -208,7 +218,11 @@ export async function settleUsageAttempt(
     unknown: row.state === "unknown" ? reserve : 0n,
     reserved: row.state === "reserved" ? reserve : 0n,
   };
-  await db`UPDATE ai.usage_attempts SET state=${state},settled_micros=${cost ? amount.toString() : null},updated_at=${now} WHERE attempt_id=${attemptId}`;
+  const quote = {
+    ...row.quote,
+    settlement_issue: typeof outcome === "object" && !cost ? (row.quote.pricing_issue ?? "费用依据或输入输出/缓存分解缺失、不一致；保留未知金额") : undefined,
+  };
+  await db`UPDATE ai.usage_attempts SET state=${state},quote=${db.json(quote)},settled_micros=${cost ? amount.toString() : null},updated_at=${now} WHERE attempt_id=${attemptId}`;
   await applySums(db, contextOf(row), beijingDate(row.occurred_at), {
     settled: (state === "settled" ? amount : 0n) - before.settled,
     unknown: (state === "unknown" ? reserve : 0n) - before.unknown,
@@ -578,20 +592,37 @@ export async function admitUsage(
   };
 }
 /** Recheck before dispatch, then mark actual gateway hand-off, not merely the earlier reservation. */
-export async function authorizeUsageSend(db: Db, attemptId: string, now = new Date()) {
+export async function authorizeUsageSend(db: Db, attemptId: string, clock: () => Date = () => new Date()) {
   await usageLock(db);
   const [row] = await db<
-    AttemptUsage[]
-  >`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,reserved_micros::text,settled_micros::text,state,quote,occurred_at FROM ai.usage_attempts WHERE attempt_id=${attemptId}`;
+    (AttemptUsage & { submitted: boolean; task_key: string | null; task_limit_micros: string | null })[]
+  >`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,reserved_micros::text,settled_micros::text,state,quote,occurred_at,submitted,task_key,task_limit_micros::text FROM ai.usage_attempts WHERE attempt_id=${attemptId}`;
   if (!row) return "缺少费用预留证据";
   const c = contextOf(row),
     configuration = await usageConfiguration(db);
   if (configuration) {
+    const now = clock();
     await evaluateInput(db, configuration, c, row.logical_key, now);
     if (!(await usageCoverageGap(db, configuration, now))) await evaluateDaily(db, configuration, now);
   }
   const open = await activeUsageBlocker(db, c);
   if (open) return `费用熔断等待恢复：${open}`;
+  if (!row.submitted && row.quote.quoted_at) {
+    const [used] = row.task_key
+      ? await db<
+          { amount: string }[]
+        >`SELECT coalesce(sum(CASE WHEN state='settled' THEN settled_micros WHEN state IN ('reserved','unknown') THEN reserved_micros ELSE 0 END),0)::text AS amount FROM ai.usage_attempts WHERE task_key=${row.task_key}`
+      : [];
+    // All admission waits precede this snapshot; the remaining writes preserve that exact decision.
+    const now = clock();
+    const refreshed = refreshUsageQuote(row.quote, now);
+    if (!refreshed.quote && row.task_key) return "研究任务调用前缺少有效费用上界";
+    const next = refreshed.quote ?? { ...row.quote, quoted_at: now.toISOString(), pricing_issue: refreshed.missing! };
+    const delta = BigInt(next.reserved_micros) - BigInt(row.reserved_micros);
+    if (used && delta > 0n && BigInt(used.amount) + delta > BigInt(row.task_limit_micros!)) return "时段切换后的费用上界超过研究任务上界";
+    await db`UPDATE ai.usage_attempts SET quote=${db.json(next)},reserved_micros=${next.reserved_micros},updated_at=${now} WHERE attempt_id=${attemptId}`;
+    await applySums(db, c, beijingDate(row.occurred_at), { settled: 0n, unknown: 0n, reserved: delta });
+  }
   await db`UPDATE ai.usage_attempts SET submitted=true WHERE attempt_id=${attemptId}`;
   return null;
 }
