@@ -95,14 +95,14 @@ export function tierThreshold(tier: string): number | null {
   return draftTierThreshold(tier);
 }
 
-/** The same threshold without the Owner gate: evaluations always run the scoring prompt as it is. */
+/** The same threshold without the release-version gate: evaluations always run the scoring prompt as it is. */
 export function draftTierThreshold(tier: string): number | null {
   return SELECTION.thresholds[tier] ?? null;
 }
 
 /**
- * Owner review gate (ADR-0021 §12, BR-SEL-09): in production nothing is scored or selected, and no score
- * is shown, until the Owner has confirmed this exact scoring prompt (SELECTION_CONFIRMED_VERSION).
+ * Release-version gate: production scores only the exact validated prompt bound by
+ * SELECTION_CONFIRMED_VERSION. DEC-76 delegates this round's rule validation to AI.
  * Development, tests and evaluations (draftTierThreshold) run the draft.
  */
 export function scoringConfirmed(production = isProduction, confirmed = config.selectionConfirmedVersion): boolean {
@@ -361,7 +361,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
 
 /**
  * The production score step; its threshold stays case-specific even when an evaluator shares model output.
- * Evaluations pass the draft's threshold (draftTierThreshold); production keeps the Owner gate.
+ * Evaluations pass the draft's threshold (draftTierThreshold); production keeps the release-version gate.
  */
 export async function runSelectionScores(
   a: AnalyzeInputArticle,

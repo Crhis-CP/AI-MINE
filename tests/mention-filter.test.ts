@@ -4,7 +4,7 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
-import { loadPool } from "@amp/backend/publication/pool";
+import { loadPool, POOL_PAGE_SIZE } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { foldMention, mentionByFold, mentionByTag, textHits } from "../packages/backend/src/publication/mentions.ts";
 import { geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
@@ -121,4 +121,30 @@ test("country, mineral and company filters keep public articles and leave 精选
   const cobaltFeatured = new Set((await loadTimeline({ channel: "all", category: null, tag: "钴", now: NOW })).cards.map((card) => card.item.id));
   assert.equal(cobaltFeatured.has(featuredCobalt), true);
   assert.equal(cobaltFeatured.has(cobalt), false);
+});
+
+test("country selection queries all country candidates before paging, with the same selection and withdrawal rules", async () => {
+  await sql`INSERT INTO sources(id,name,kind,config) VALUES(${SOURCE},'Mention fixture','rss','{}') ON CONFLICT(id) DO NOTHING`;
+  const selected = await item("country-selected", { search: "合成阿根廷铜矿审批", selected: true, jurisdictions: ["AR"] });
+  const ordinary = await item("country-ordinary", { search: "合成阿根廷普通动态", jurisdictions: ["AR"] });
+  await item("country-withdrawn", { search: "合成撤回内容", selected: true, jurisdictions: ["AR"], visibility: "withdrawn" });
+  for (let i = 0; i < POOL_PAGE_SIZE; i++) {
+    const id = await item(`country-newer-${i}`, { search: "合成其他国家精选", selected: true, jurisdictions: ["CL"] });
+    await sql`UPDATE publications SET timeline_at=${new Date(NOW.getTime() - 60_000)} WHERE article_id=${id}`;
+  }
+  const query = { channel: "news" as const, category: null, tag: null, source: SOURCE, now: NOW };
+  const general = await loadPool({ ...query, selected: true });
+  assert.equal(
+    general.items.some((item) => item.id === selected),
+    false,
+    "the country item is outside the first global page",
+  );
+  const country = await loadPool({ ...query, jurisdiction: "AR", selected: true });
+  assert.deepEqual(
+    country.items.map((item) => item.id),
+    [selected],
+    "country membership does not promote ordinary or withdrawn content",
+  );
+  const all = await loadPool({ ...query, jurisdiction: "AR", selected: false });
+  assert.deepEqual(new Set(all.items.map((item) => item.id)), new Set([selected, ordinary]));
 });
