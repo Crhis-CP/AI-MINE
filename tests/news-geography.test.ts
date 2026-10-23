@@ -205,6 +205,62 @@ test("selected timeline country scope binds cursors and never leaks representati
   );
 });
 
+test("country scope uses current evidenced locations across lists, counts and APIs while mention search remains available", async () => {
+  const before = await currentNewsJurisdictionCounts(),
+    body = "公司总部位于加拿大，矿山位于秘鲁，产量排名超过阿根廷的矿山。",
+    f = await fixture(
+      body,
+      candidate([
+        assignment("PE", "秘鲁", "矿山位于秘鲁"),
+        assignment("CA", "加拿大", "公司总部位于加拿大", "headquarters"),
+        assignment("AR", "阿根廷", "产量排名超过阿根廷的矿山", "background"),
+        assignment("CL", "智利", "不存在的智利证据"),
+      ]),
+    );
+  await sql`UPDATE publications SET summary=${body},search_text=${body},tags=ARRAY['秘鲁','阿根廷','加拿大'] WHERE article_id=${f.articleId}`;
+  await sql`INSERT INTO pool_search(article_id,direct,body) VALUES(${f.articleId},${body},${body})
+    ON CONFLICT(article_id) DO UPDATE SET direct=EXCLUDED.direct,body=EXCLUDED.body`;
+  const query = { channel: "all" as const, category: null, tag: null, source: f.input.sourceId, now: new Date() };
+  const peru = await loadPool({ ...query, jurisdiction: "PE" }),
+    argentina = await loadPool({ ...query, jurisdiction: "AR" }),
+    canada = await loadPool({ ...query, jurisdiction: "CA" });
+  assert.equal(peru.total, 1);
+  assert.equal(argentina.total, 0, "a ranking comparison is not an event location");
+  assert.equal(canada.total, 0, "headquarters alone is not an event location");
+  assert.ok(peru.facets && argentina.facets && canada.facets);
+  assert.equal(peru.facets.sources.find((source) => source.id === f.input.sourceId)?.count, 1);
+  assert.ok(!argentina.facets.sources.some((source) => source.id === f.input.sourceId), "source facets use the same country scope");
+  assert.ok(!canada.facets.sources.some((source) => source.id === f.input.sourceId));
+  assert.equal((await loadPool({ ...query, jurisdiction: "unknown" })).total, 1, "partial evidence keeps its review status");
+  assert.equal((await loadPool({ ...query, q: "阿根廷" })).total, 1, "explicit mention search remains broad");
+  const counts = await currentNewsJurisdictionCounts();
+  assert.equal(counts.counts.AR, before.counts.AR);
+  assert.equal(counts.counts.CA, before.counts.CA);
+  assert.equal(counts.counts.PE, before.counts.PE! + 1);
+  const storyId = "dd1b2c27-3cdd-441d-80cb-32a576e4ed80";
+  const [story] = await sql<{ id: number }[]>`INSERT INTO stories(public_id,title) VALUES(${storyId},'合成秘鲁矿山排名') RETURNING id`;
+  const [fact] = await sql<{ id: number }[]>`INSERT INTO facts(public_id,story_id,title) VALUES(${tag()},${story!.id},'合成矿山排名公布') RETURNING id`;
+  await sql`INSERT INTO fact_articles(fact_id,article_id) VALUES(${fact!.id},${f.articleId})`;
+  await sql`UPDATE publications SET story_id=${story!.id},fact_id=${fact!.id} WHERE article_id=${f.articleId}`;
+  for (const endpoint of ["/api/v3/items", "/api/v3/events"]) {
+    for (const [country, expected] of [
+      ["PE", 1],
+      ["AR", 0],
+      ["CA", 0],
+    ] as const) {
+      const response = await app.inject({ method: "GET", url: `${endpoint}?source=${f.input.sourceId}&jurisdiction=${country}` });
+      assert.equal(response.statusCode, 200, response.body);
+      assert.equal(response.json().items.length, expected, `${endpoint} ${country}`);
+    }
+  }
+  await sql`UPDATE publications SET selected=true,selection_candidate=true,visible_after=now()-interval '1 minute' WHERE article_id=${f.articleId}`;
+  const timeline = { channel: "all" as const, category: null, tag: null, limit: 50, now: new Date() };
+  assert.ok((await loadTimeline({ ...timeline, jurisdiction: "PE" })).cards.some((card) => card.item.id === f.articleId));
+  assert.ok(!(await loadTimeline({ ...timeline, jurisdiction: "AR" })).cards.some((card) => card.item.id === f.articleId));
+  await sql`UPDATE publication.news_geography SET recipe='obsolete-recipe' WHERE article_id=${f.articleId}`;
+  assert.equal((await loadPool({ ...query, jurisdiction: "PE", now: new Date() })).total, 0, "stale evidence cannot qualify a country");
+});
+
 test("the cross-lane count port executes using only the actual public_read identity", async (t) => {
   const f = await publicRoleFixture(t),
     code = `import {initializeDb,closeDb} from '@amp/backend/db';

@@ -125,7 +125,10 @@ export function MonthlyUsage({ entries, pushTime = "09:00" }: { entries: Entry[]
         ))}
       </div>
       <p className="mt-3 text-[12px] leading-5 text-ink-3">
-        不同币种分别显示；{r.totals.unpriced_calls}次调用尝试缺少可用金额，未补成0。费用记录仅作核对，不设置月度金额上限。
+        不同币种分别显示；{r.totals.unpriced_calls}次调用尝试缺少可用金额，未补成0，也不按当前价格回填。费用记录仅作核对，不设置周度或月度金额上限。
+      </p>
+      <p className="mt-2 text-[12px] leading-5 text-ink-3">
+        统一输入、输出单价的估算未单独计入缓存命中和峰谷优惠，不等于供应商账单；历史金额保留原依据。服务器、存储、抓取等未记录费用不在此合计中。
       </p>
       <section className="mt-4 rounded-control border border-line p-3">
         <h3 className="text-[13px] font-semibold">本期调用仍占用的金额 · 人民币</h3>
@@ -179,7 +182,8 @@ export function MonthlyUsage({ entries, pushTime = "09:00" }: { entries: Entry[]
       <details className="mt-4 rounded-control border border-line p-3">
         <summary className="cursor-pointer text-[13px] font-semibold">单篇已记录费用与金额最高的任务</summary>
         <p className="mt-2 text-[12px] text-ink-3">
-          只有明确归属及金额的记录才计入单篇平均；另有{r.material_unassigned_calls}次未能归到单篇材料。不跨币种比较排名。
+          只有明确归属及金额的记录才计入单篇平均；另有{r.material_unassigned_calls}
+          次未能归到单篇材料。该平均数不等于通过独立质量复核的合格内容成本；不跨币种比较排名。
         </p>
         {r.material_costs.map((m) => (
           <p key={`${m.kind}:${m.currency}`} className="mt-2 text-[12px]">

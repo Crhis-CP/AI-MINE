@@ -1,7 +1,7 @@
 // The Monday usage report for the ops chat (TASK-0064; BR-COST-18 item 6): last week's paid calls by service and by
 // capability against the week before, the days the request meter stopped a service, and the requests still to be
 // reconciled. It reads the receipts only and calls no model. Amounts stay in their own currency; a call with no amount
-// and no registered price is said to be unpriced, never 0. Sent once per week: the week sent is kept in this job's run.
+// is said to be unpriced, never backfilled from current prices. Sent once per week: the week sent is kept in this job's run.
 import { addDays, beijingDate, beijingMidnight, isoWeekLabel, isoWeekRange } from "@amp/contracts/time";
 import { latestSuccessfulRunResult } from "../admin/runs.ts";
 import { sql } from "../db.ts";
@@ -22,14 +22,6 @@ interface Row {
   tokens_in: string;
   tokens_out: string;
   cost: string | null;
-}
-interface Price {
-  service: string;
-  model: string;
-  currency: string;
-  input_per_mtok: string | null;
-  output_per_mtok: string | null;
-  per_request: string | null;
 }
 interface Tally {
   ok: number;
@@ -53,8 +45,8 @@ const capabilityOf = (purpose: string) =>
     .find((c) => (c.purposes as readonly string[]).includes(purpose))
     ?.label.split("（")[0] ?? "其他";
 
-/** One row's calls, tokens and amount: the recorded amount, else the registered price, else unpriced. */
-function add(t: Tally, row: Row, price: Price | undefined) {
+/** Historical amounts retain their original basis; today's price cannot fill a missing bill. */
+function add(t: Tally, row: Row) {
   const count = row.ok + row.failed + row.unknown;
   const tokensIn = Number(row.tokens_in),
     tokensOut = Number(row.tokens_out);
@@ -65,19 +57,11 @@ function add(t: Tally, row: Row, price: Price | undefined) {
     tokensIn: t.tokensIn + tokensIn,
     tokensOut: t.tokensOut + tokensOut,
   });
-  let amount: { currency: string; value: number; estimated: boolean } | null = null;
-  if (row.basis && row.cost !== null) amount = { currency: row.currency ?? "?", value: Number(row.cost), estimated: row.basis === "estimated" };
-  else if (price && (price.input_per_mtok || price.output_per_mtok))
-    amount = {
-      currency: price.currency,
-      value: (tokensIn / 1e6) * Number(price.input_per_mtok ?? 0) + (tokensOut / 1e6) * Number(price.output_per_mtok ?? 0),
-      estimated: true,
-    };
-  else if (price?.per_request) amount = { currency: price.currency, value: count * Number(price.per_request), estimated: true };
-  if (!amount) {
+  if (!row.currency || row.cost === null || !["actual", "estimated"].includes(row.basis ?? "")) {
     t.unpriced += count;
     return;
   }
+  const amount = { currency: row.currency, value: Number(row.cost), estimated: row.basis === "estimated" };
   t.amounts[amount.currency] ??= { total: 0, estimated: 0, hasActual: false, hasEstimate: false };
   const slot = t.amounts[amount.currency]!;
   slot.total += amount.value;
@@ -96,7 +80,7 @@ function line(name: string, t: Tally, before: Tally) {
       if (!a.hasActual) return `估算 ${money(cur, a.total)}（${change}）`;
       return `${money(cur, a.total)}（${change}；实际 ${money(cur, a.total - a.estimated)}、估算 ${money(cur, a.estimated)}）`;
     });
-  if (t.unpriced) amounts.push(`另有 ${n(t.unpriced)} 次未登记单价`);
+  if (t.unpriced) amounts.push(`另有 ${n(t.unpriced)} 次缺少费用记录`);
   return (
     `· ${name}：${n(calls(t))} 次（${pct(calls(t), calls(before))}；成功 ${n(t.ok)}、失败 ${n(t.failed)}、结果未知 ${n(t.unknown)}），` +
     `输入 ${n(t.tokensIn)} token（${pct(t.tokensIn, before.tokensIn)}）、输出 ${n(t.tokensOut)} token（${pct(t.tokensOut, before.tokensOut)}），金额 ${amounts.join("、") || "无"}`
@@ -110,7 +94,7 @@ export async function usageWeekly(now = Date.now()) {
   const from = beijingMidnight(start),
     to = beijingMidnight(addDays(end, 1)),
     before = beijingMidnight(addDays(start, -7));
-  const [rows, prices, [unknown]] = await Promise.all([
+  const [rows, [unknown]] = await Promise.all([
     sql<Row[]>`
       SELECT a.service, coalesce(a.model, '') AS model, r.purpose, a.started_at >= ${from} AS current,
              CASE WHEN a.cost IS NULL THEN NULL ELSE a.cost_basis END AS basis, a.currency,
@@ -121,22 +105,20 @@ export async function usageWeekly(now = Date.now()) {
       FROM receipt_attempts a JOIN receipts r ON r.id = a.receipt_id
       WHERE a.origin = 'live' AND a.started_at >= ${before} AND a.started_at < ${to}
       GROUP BY 1, 2, 3, 4, 5, 6`,
-    sql<Price[]>`SELECT service, model, currency, input_per_mtok, output_per_mtok, per_request FROM service_prices`,
     sql<{ n: number }[]>`SELECT count(*)::int AS n FROM receipts WHERE status = 'unknown'`,
   ]);
   const groups = { service: new Map<string, [Tally, Tally]>(), capability: new Map<string, [Tally, Tally]>() };
   const total: [Tally, Tally] = [empty(), empty()];
   for (const row of rows) {
-    const price = prices.find((p) => p.service === row.service && p.model === row.model) ?? prices.find((p) => p.service === row.service && p.model === "");
     const at = row.current ? 0 : 1;
     for (const [map, key] of [
       [groups.service, providerName(row.service)],
       [groups.capability, capabilityOf(row.purpose)],
     ] as const) {
       if (!map.has(key)) map.set(key, [empty(), empty()]);
-      add(map.get(key)![at], row, price);
+      add(map.get(key)![at], row);
     }
-    add(total[at], row, price);
+    add(total[at], row);
   }
   const listed = (map: Map<string, [Tally, Tally]>) =>
     [...map].sort(([, a], [, b]) => calls(b[0]) - calls(a[0]) || calls(b[1]) - calls(a[1])).map(([name, [t, b]]) => line(name, t, b));
@@ -165,7 +147,7 @@ export async function usageWeekly(now = Date.now()) {
     "",
     stopped,
     pending ? `待核对：还有 ${n(pending)} 笔付费请求结果未知，请到后台“用量与模型密钥”里的“费用与投递核对”核对。` : "待核对：没有待核对的。",
-    "括号里是和前一周比，“—”表示前一周是 0、没法比；金额按记录的币种分开写，不换算；“估算”是调用时记下的估算，或按登记的单价算的。",
+    "括号里是和前一周比，“—”表示前一周是 0、没法比；金额按记录的币种分开写，不换算；“估算”保留调用时的依据，不等于供应商账单，历史缺金额不按当前价格回填。费用记录不设置周度或月度金额上限。",
   );
   const last = (await latestSuccessfulRunResult("reports.usage-weekly")) as { lastSentWeek?: unknown } | null;
   const lastSentWeek = typeof last?.lastSentWeek === "string" ? last.lastSentWeek : null;

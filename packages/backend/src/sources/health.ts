@@ -1,7 +1,9 @@
 import { sql } from "../db.ts";
-import { sourceFetchHealth, sourcePresentationFailures } from "../acquisition/source-health.ts";
+import { sourceCollectionWaits, sourceFetchHealth, sourcePresentationFailures } from "../acquisition/source-health.ts";
 import { sourceMaterialHealth, sourceOutputRhythm, presentationMaterialRevisions } from "../content/source-health.ts";
 import { presentationRefreshTimes } from "../admin/auth.ts";
+import { runtimeControlSnapshot } from "../operations/lane-controls.ts";
+import { sourceCollectionEnabled } from "../config.ts";
 
 export const SOURCE_USE_NAMES = { editorial: "编辑内容", hot_signal: "热度信号" };
 const often = (failures: number, tries: number) => failures >= 5 && failures / tries >= 0.1;
@@ -24,6 +26,7 @@ export interface SourceHealthRow {
   detail_failures: number;
   ever_output: boolean;
   presentation_failures: Array<{ url: string; reason: string }>;
+  waiting: { observed_at: Date; reason: string; retry_at: string | null } | null;
 }
 export interface QuietSource extends SourceHealthRow {
   evidence_days: number;
@@ -39,6 +42,22 @@ export function rhythmText(row: QuietSource) {
   return `近 7 天 ${row.runs} 次抓取、0 条新内容；${!row.ever_output ? "从未收到过内容" : row.evidence_days ? `窗口内可比较的历史只有 ${row.evidence_days} 天` : "近 90 天窗口内没有可比较的产出"}`;
 }
 export const SOURCE_PROBLEMS = [
+  {
+    problem: "waiting",
+    title: "采集仍在等待",
+    describe: (s: SourceHealthRow) => {
+      const reasons: Record<string, string> = {
+        robots_unavailable: "暂时无法取得源站访问规则",
+        transport_unavailable: "源站连接暂不可用",
+        "HTTP 429": "源站限制请求频率",
+        "HTTP 503": "源站服务暂不可用",
+        source_reader_pending: "读取服务结果尚未返回",
+      };
+      const wait = s.waiting!;
+      return `${reasons[wait.reason]}；最近等待记录 ${wait.observed_at.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}（北京时间）；${wait.retry_at ? `该次计划重试 ${new Date(wait.retry_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}（北京时间）` : "重试时间未记录"}`;
+    },
+    action: "程序按已有等待安排重试；请查看后续采集记录，勿绕过源站访问规则",
+  },
   {
     problem: "failing",
     title: "连续抓取失败",
@@ -76,7 +95,7 @@ export const SOURCE_PROBLEMS = [
 export async function sourceHealth(now = Date.now()) {
   const since = new Date(now - 7 * 86400_000),
     until = new Date(now);
-  const [sources, fetches, materials, presentation] = await Promise.all([
+  const [sources, fetches, materials, presentation, waits, controls] = await Promise.all([
     sql<Pick<SourceHealthRow, "id" | "name" | "participation_mode" | "created_at" | "health" | "fail_count" | "last_error">[]>`
       SELECT id,name,participation_mode,created_at,health,fail_count,left(regexp_replace(last_error,'[[:space:]]+',' ','g'),160) AS last_error
       FROM sources WHERE enabled AND lane='news' AND archived_at IS NULL AND kind NOT IN ('external','mp_account')
@@ -84,6 +103,8 @@ export async function sourceHealth(now = Date.now()) {
     sourceFetchHealth(since, until),
     sourceMaterialHealth(since, until),
     sourcePresentationFailures(),
+    sourceCollectionWaits(until),
+    runtimeControlSnapshot("news", ["collection"]),
   ]);
   const bodies = await presentationMaterialRevisions(
     presentation.map((p) => p.url),
@@ -96,7 +117,8 @@ export async function sourceHealth(now = Date.now()) {
     return !body || (!(body.revised_at && body.revised_at > f.at) && !(at && at > f.at));
   });
   const fetchById = new Map(fetches.map((r) => [r.source_id, r])),
-    materialById = new Map(materials.map((r) => [r.source_id, r]));
+    materialById = new Map(materials.map((r) => [r.source_id, r])),
+    waitById = new Map(waits.map((r) => [r.source_id, r]));
   const rows: SourceHealthRow[] = sources.map((s) => ({
     ...s,
     runs: 0,
@@ -111,6 +133,7 @@ export async function sourceHealth(now = Date.now()) {
     ...fetchById.get(s.id),
     ...materialById.get(s.id),
     presentation_failures: currentFailures.filter((f) => f.source_id === s.id),
+    waiting: controls.paused || !sourceCollectionEnabled("news") ? null : (waitById.get(s.id) ?? null),
   }));
   const quiet = rows.filter((s) => s.created_at < since && s.discoveries === 0);
   const rhythms = new Map(
@@ -129,6 +152,7 @@ export async function sourceHealth(now = Date.now()) {
       mode,
       name,
       sources: own,
+      waiting: own.filter((s) => s.waiting !== null),
       failing: own.filter((s) => s.health === "failing"),
       unstable: own.filter((s) => s.health !== "failing" && often(s.failed, s.runs)),
       quality: mode === "editorial" ? own.filter((s) => s.undated > 0 || s.repeated > 0) : [],

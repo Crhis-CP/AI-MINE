@@ -1,6 +1,6 @@
 // The Monday usage report (TASK-0064): last week's paid calls by service and by capability against the week
-// before, amounts in their own currency (recorded, estimated at call time, or by the registered price, and
-// "未登记单价" with the count when there is no price, never 0), the days the meter stopped a service, and the
+// before, amounts in their own currency (actual or estimated at call time, with missing amounts retained,
+// never backfilled from current prices), the days the meter stopped a service, and the
 // requests still to reconcile. Sent once per week; nothing goes out with alerts off. Feishu is answered here.
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
@@ -55,7 +55,7 @@ async function call(o: {
   at: Date;
   status?: string;
   tokens?: [number, number];
-  cost?: [number | null, string, string];
+  cost?: [number | null, string | null, string | null];
   model?: string;
   origin?: string;
 }) {
@@ -101,8 +101,8 @@ test("each service and capability against the week before, amounts kept apart, u
     `· ${ACTUAL}：2 次（+100%；成功 2、失败 0、结果未知 0），输入 200 token（+100%）、输出 100 token（+100%），金额 ¥3.00（+100%）`,
   );
   assert.match(lineOf(text, ESTIMATED), /2 次（—；.*金额 \$1\.40（—；实际 \$1\.00、估算 \$0\.40）$/);
-  assert.match(lineOf(text, PRICED), /输入 1,000,000 token（—）、输出 500,000 token（—），金额 估算 ¥6\.00（—）$/);
-  assert.match(lineOf(text, UNPRICED), /3 次（—；成功 2、失败 1、结果未知 0），.*金额 另有 3 次未登记单价$/);
+  assert.match(lineOf(text, PRICED), /输入 1,000,000 token（—）、输出 500,000 token（—），金额 另有 1 次缺少费用记录$/);
+  assert.match(lineOf(text, UNPRICED), /3 次（—；成功 2、失败 1、结果未知 0），.*金额 另有 3 次缺少费用记录$/);
   assert.doesNotMatch(lineOf(text, UNPRICED), /[¥$]0/);
   assert.match(lineOf(text, "精选评分"), /^· 精选评分：2 次（\+100%/);
   assert.match(lineOf(text, "其他"), /^· 其他：3 次/);
@@ -116,7 +116,7 @@ test("a week without paid calls still gets its report, and says when the meter h
   assert.match(messages.at(-1)!, /上周没有付费调用（前一周 0 次）\n\n自动暂停：上周还没有这项记录/);
 });
 
-test("zero estimates retain their label, missing costs use model or service prices, and partial stop coverage is stated", async () => {
+test("zero estimates retain their label, missing costs stay missing despite current prices, and partial stop coverage is stated", async () => {
   const [zero, mixed, missing, priced] = ["zero", "mixed", "missing", "model"].map((s) => `test-weekly-${s}-${T}`) as [string, string, string, string];
   const when = at("2100-06-22T10:00:00");
   await call({ service: zero, purpose: "test", at: when, cost: [0, "CNY", "estimated"] });
@@ -135,9 +135,34 @@ test("zero estimates retain their label, missing costs use model or service pric
   const text = messages.at(-1)!;
   assert.match(lineOf(text, zero), /金额 估算 ¥0\.00（—）$/);
   assert.match(lineOf(text, mixed), /金额 \$0\.00（—；实际 \$0\.00、估算 \$0\.00）$/);
-  assert.match(lineOf(text, missing), /金额 ¥2\.00（—）、另有 1 次未登记单价$/);
-  assert.match(lineOf(text, priced), /金额 估算 ¥7\.00（—）$/);
+  assert.match(lineOf(text, missing), /金额 ¥2\.00（—）、另有 1 次缺少费用记录$/);
+  assert.match(lineOf(text, priced), /金额 另有 2 次缺少费用记录$/);
   assert.match(text, /自动暂停：上周没有出现过自动暂停（从\s*6月23日起才有记录）/);
+});
+
+test("unknown costs never become zero and changing today's price cannot change historical weekly amounts", async () => {
+  const service = `test-weekly-history-${T}`,
+    unknownService = `test-weekly-unknown-${T}`,
+    when = at("2100-08-03T10:00:00"),
+    reportAt = Date.parse("2100-08-09T01:05:00Z");
+  await sql`INSERT INTO service_prices(service,model,currency,input_per_mtok,output_per_mtok)
+    VALUES (${service},'','CNY',2,8), (${unknownService},'','CNY',2,8)`;
+  await call({ service, purpose: "test", at: when, tokens: [1_000_000, 500_000] });
+  await call({ service, purpose: "test", at: when, cost: [3, "CNY", "actual"] });
+  await call({ service, purpose: "test", at: when, cost: [8, null, "actual"] });
+  await call({ service, purpose: "test", at: when, cost: [9, "CNY", null] });
+  await call({ service: unknownService, purpose: "test", at: when, status: "unknown" });
+  const before = await usageWeekly(reportAt),
+    beforeText = messages.at(-1)!;
+  assert.match(lineOf(beforeText, service), /金额 ¥3\.00（—）、另有 3 次缺少费用记录$/);
+  assert.match(lineOf(beforeText, unknownService), /结果未知 1.*金额 另有 1 次缺少费用记录$/);
+  assert.doesNotMatch(lineOf(beforeText, unknownService), /[¥$]0/);
+  assert.equal(before.unpriced, 4);
+  await sql`UPDATE service_prices SET input_per_mtok=200,output_per_mtok=800 WHERE service IN (${service},${unknownService})`;
+  const after = await usageWeekly(reportAt);
+  assert.deepEqual(after.amounts, before.amounts);
+  assert.equal(after.unpriced, before.unpriced);
+  assert.equal(messages.at(-1), beforeText);
 });
 
 test("one report per week: a second run of the job for the same week sends nothing", async () => {

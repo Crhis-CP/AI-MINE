@@ -46,7 +46,7 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
   return (
     <AdminPage
       title="信源"
-      subtitle="列表按健康度排序：失败的在最前。点进一条信源可以查看详情，并单独暂停或恢复采集。"
+      subtitle="列表按已有采集结果排序，历史失败在前；上次正常不代表当前没有等待。点进信源查看最近采集记录，并单独暂停或恢复采集。"
       actions={
         <div className="flex gap-2">
           <ButtonLink to="/admin/sources/targets">原表对账</ButtonLink>
@@ -143,7 +143,7 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
             },
             {
               key: "health",
-              label: "健康",
+              label: "已有采集结果",
               render: (r) => (
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Dot tone={r.enabled ? healthTone(r.health) : "muted"} />

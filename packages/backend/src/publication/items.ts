@@ -3,7 +3,7 @@ import { attachRepresentativePriority, type RepresentativeIdentity } from "./rep
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
 import { geographyRecipe } from "../editorial/geography.ts";
-import { jurisdictionCodesInText, type ReadMatcherValues } from "./mentions.ts";
+import type { ReadMatcherValues } from "./mentions.ts";
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
 import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
@@ -198,32 +198,15 @@ export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<
 export function newsJurisdictionScope(value: string | null | undefined) {
   return { jurisdictionCodes: jurisdictionDescendants(value ?? ""), jurisdictionRecipe: geographyRecipe() };
 }
-export function jurisdictionCondition(value: string | null, descendants: string[] | undefined, recipe: string, values: ReadMatcherValues) {
-  const named = !!value && value !== "unknown" && value !== "none";
-  // Geography tags stay authoritative. Title, summary and the country tag count as well,
-  // so a published article is not dropped only because the geography pass never tagged it.
-  // "unknown" and "none" stay geography states: a named country in the title is not "unknown".
-  return sql`AND (
-    ${value}::text IS NULL
-    OR (${value} = 'unknown' AND EXISTS (SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g
-      ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
-      WHERE ga.id=p.article_id AND (g.state IS NULL OR g.state IN ('unknown','partial'))))
-    OR (${value} = 'none' AND EXISTS (SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g
-      ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
-      WHERE ga.id=p.article_id AND g.state='none'))
-    OR (${named} AND (
-      EXISTS (SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g
-        ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
-        WHERE ga.id=p.article_id AND g.jurisdictions && coalesce(${descendants ?? null}::text[], '{}'::text[]))
-      OR p.tags && ${values.jurisdictionTags}::text[] OR ${publicationTextMatches(values.jurisdictionText)}
-    ))
-  )`;
+export function jurisdictionCondition(value: string | null, descendants: string[] | undefined, recipe: string, _values: ReadMatcherValues) {
+  // Country filters use evidenced locations; country mentions remain available through text search.
+  return sql`AND (${value}::text IS NULL OR ${currentGeographyMatch(value, descendants ?? [], recipe)})`;
 }
 /** Cross-lane facet port: known membership only; unknown also counts partially inspected material. No cache or paid work. */
 export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<string, number>; unknown: number }> {
   const now = new Date(),
-    rows = await sql<{ codes: string[] | null; state: string | null; search_text: string }[]>`
-    SELECT g.jurisdictions AS codes, g.state, coalesce(p.search_text, '') AS search_text
+    rows = await sql<{ codes: string[] | null; state: string | null }[]>`
+    SELECT g.jurisdictions AS codes, g.state
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}
     WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})`;
@@ -233,7 +216,6 @@ export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<
     if (!row.state || row.state === "unknown" || row.state === "partial") unknown += 1;
     const hit = new Set<string>();
     for (const code of row.codes ?? []) for (const j of JURISDICTIONS) if (jurisdictionDescendants(j.id).includes(code)) hit.add(j.id);
-    for (const code of jurisdictionCodesInText(row.search_text)) for (const j of JURISDICTIONS) if (jurisdictionDescendants(j.id).includes(code)) hit.add(j.id);
     for (const id of hit) counts[id] = (counts[id] ?? 0) + 1;
   }
   return { counts, unknown };
@@ -317,8 +299,7 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))
     AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
-    AND (${query.jurisdiction}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe)}
-      OR (${query.jurisdiction} NOT IN ('unknown','none') AND (p.tags && ${matchers.jurisdictionTags}::text[] OR ${publicationTextMatches(matchers.jurisdictionText)})))
+    ${jurisdictionCondition(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe, matchers)}
     AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
     AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))
     AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term2)} OFFSET 0))
@@ -340,8 +321,7 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))
     AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
-    AND (${query.jurisdiction}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe)}
-      OR (${query.jurisdiction} NOT IN ('unknown','none') AND (p.tags && ${matchers.jurisdictionTags}::text[] OR ${publicationTextMatches(matchers.jurisdictionText)})))
+    ${jurisdictionCondition(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe, matchers)}
     AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
     AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))
     AND (${!matchers.term2.active} OR ${publicationTextMatches(matchers.term2)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term2)} OFFSET 0))

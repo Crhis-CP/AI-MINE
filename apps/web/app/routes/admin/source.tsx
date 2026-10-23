@@ -32,6 +32,30 @@ import {
 type Source = z.infer<typeof privateSchemas.SourceRecord>;
 type Detail = z.infer<typeof privateSchemas.SourceDetailResponse>;
 
+export function SourceWaitRecord({ detail }: { detail: Detail["runs"][number]["detail"] }) {
+  if (detail?.state !== "deferred") return null;
+  const reasons: Record<string, string> = {
+    host_pacing: "等待正常访问间隔",
+    robots_unavailable: "等待取得源站访问规则",
+    transport_unavailable: "等待源站连接恢复",
+    "HTTP 429": "等待源站请求限流结束",
+    "HTTP 503": "等待源站服务恢复",
+    source_reader_pending: "等待读取服务返回结果",
+    directory_continuation: "等待继续读取目录",
+    directory_restart_pending: "等待重新核对目录",
+  };
+  const reason = typeof detail.reason === "string" ? detail.reason : "";
+  return (
+    <p className="mt-1 text-[12px] text-ink-3">
+      {Object.hasOwn(reasons, reason) ? reasons[reason] : "等待后续采集"}；
+      {typeof detail.retryAt === "string" && Number.isFinite(Date.parse(detail.retryAt))
+        ? `该次计划于 ${bj(detail.retryAt, true)} 重试。`
+        : "该次重试时间未记录。"}
+      此为历史记录，不代表当前采集状态。
+    </p>
+  );
+}
+
 interface Preview {
   status?: "deferred" | "queued" | "succeeded" | "failed";
   preview_id?: number;
@@ -224,7 +248,7 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
       {s.archived_at && <p className="mb-5 text-ink-2">信源已归档，停止采集并保留已公开内容。归档不能撤销，如需再次采集请重新添加。</p>}
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
-          label="健康"
+          label="最近已有采集结果"
           value={
             <span className="inline-flex items-center gap-2 text-[18px]">
               <Dot tone={s.enabled ? healthTone(s.health) : "muted"} />
@@ -422,6 +446,7 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
 
         <div className="space-y-5">
           <Card title="状态">
+            <p className="mb-3 text-[12px] text-ink-3">以下时间与结果来自已有记录；是否已恢复请核对后续采集结果。</p>
             <KV
               items={[
                 ["上次抓取", s.last_fetch_at ? bj(s.last_fetch_at, true) : null],
@@ -448,21 +473,24 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                   key: "st",
                   label: "结果",
                   render: (r) => (
-                    <span className="inline-flex gap-1">
-                      <Badge tone={r.status === "ok" ? "ok" : r.status === "failed" ? "bad" : "muted"} title={r.error ?? undefined}>
-                        {r.status}
-                      </Badge>
-                      {!!r.detail?.dropped && (
-                        <Badge tone="bad" title="有一段更早的帖子没能读完，其中的内容可能漏采">
-                          可能漏采
+                    <div>
+                      <span className="inline-flex gap-1">
+                        <Badge tone={r.status === "ok" ? "ok" : r.status === "failed" ? "bad" : "muted"} title={r.error ?? undefined}>
+                          {r.status === "skipped" && r.detail?.state === "deferred" ? "该次等待" : r.status}
                         </Badge>
-                      )}
-                      {!r.detail?.dropped && !!r.detail?.backlog && (
-                        <Badge tone="warn" title="帖子多于一轮能读的页数，余下的在后面几轮接着读">
-                          续读 {r.detail.backlog} 段
-                        </Badge>
-                      )}
-                    </span>
+                        {!!r.detail?.dropped && (
+                          <Badge tone="bad" title="有一段更早的帖子没能读完，其中的内容可能漏采">
+                            可能漏采
+                          </Badge>
+                        )}
+                        {!r.detail?.dropped && !!r.detail?.backlog && (
+                          <Badge tone="warn" title="帖子多于一轮能读的页数，余下的在后面几轮接着读">
+                            续读 {r.detail.backlog} 段
+                          </Badge>
+                        )}
+                      </span>
+                      {r.status === "skipped" && <SourceWaitRecord detail={r.detail} />}
+                    </div>
                   ),
                 },
                 { key: "n", label: "发现/新增", align: "right", render: (r) => `${r.found_count ?? "—"}/${r.new_count ?? "—"}` },
