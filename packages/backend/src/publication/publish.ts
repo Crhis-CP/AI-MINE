@@ -1,4 +1,5 @@
 import { isHistorical, newsMaterialBindings } from "../content/materials.ts";
+export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
 import { groupingAnalysisHash } from "../enrichment/records.ts";
 import { deferHistoricalSelection } from "../events/group.ts";
 import { recomputeSelection } from "./selection-recompute.ts";

@@ -11,7 +11,7 @@
   "documents": [
     {
       "path": "README.md",
-      "sha256": "b7f852fadb1c19b67719b32e1108fb8179d283e8d9a05cc6530ad7989303bb52"
+      "sha256": "6197ade176d88427ccc0656c41051c9dfd61bdd857fdad85e679a59d763cd0c0"
     },
     {
       "path": "acceptance.md",
@@ -19,7 +19,7 @@
     },
     {
       "path": "agent-tasks.md",
-      "sha256": "1a680a5031439bd10e63dba92ca7f3cc8b187cbfd27aa12f57f3b907947da902"
+      "sha256": "215d20bbaa9a84213fe7c890ecaabd71f98fc59d4790ace92ad5317883c73f55"
     },
     {
       "path": "evidence.md",
@@ -27,7 +27,7 @@
     },
     {
       "path": "AI-MINE网站优化任务书（融合版）.md",
-      "sha256": "6677578e185e87f14cca826adbf06d1ac03a347473716d4eb3521fa583f72ecf"
+      "sha256": "87e378136d4bcc26311a90e86570f2cfdd355920056f80147cbf8e1afdc2982d"
     },
     {
       "path": "phase-two-research.md",
@@ -51,10 +51,18 @@
     "seven_day_observation": "not_started",
     "scope_merge": "full scope restored by Owner: brand, subscription, national law plus Catamarca/Salta/Jujuy comparison"
   },
-  "updated_at": "2026-10-23T03:50:11.657246+00:00",
+  "updated_at": "2026-10-23T05:50:42.972125+00:00",
   "implementation_record": "../../acceptance/phase-one-20261022/README.md",
   "current_task_brief": "AI-MINE网站优化任务书（融合版）.md",
   "baseline_scope": "production and local SHA fields describe the original diagnosis snapshot, not a fresh deployment check",
   "continuation_record": "../../acceptance/selection-country-20261022/README.md",
-  "current_implementation_record": "../../acceptance/argentina-service-20261023/README.md"
+  "current_implementation_record": "../../acceptance/argentina-service-20261023/README.md",
+  "checks_scope": "Original diagnosis checks remain dated 2026-10-22; current code evidence is in current_implementation_record and PR284.",
+  "current_document_checks": {
+    "relative_links": 35,
+    "broken_links": [],
+    "model_calls": 0,
+    "production_writes": 0,
+    "formal_deliveries": 0
+  }
 }

@@ -23,6 +23,7 @@ function catalog(): Catalog {
     schemas: {
       public: "pg_database_owner",
       enrichment: "bootstrap",
+      events: "bootstrap",
       editorial: "bootstrap",
       feedback: "bootstrap",
       sources: "bootstrap",
@@ -94,6 +95,8 @@ test("all current migration tables and serial sequences have one explicit classi
       "reports.reconciliation_jobs",
       "reports.reconciliation_commands",
       "publication.report_revision_changes",
+      "publication.story_background_refs",
+      "events.story_background_proofs",
       "publication.manual_copies",
       "publication.read_watermarks",
       "sources.source_config_drafts",
@@ -202,8 +205,15 @@ test("all current migration tables and serial sequences have one explicit classi
   );
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 39);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 40);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
+  assert.deepEqual(TABLE_GRANTS["events.story_background_proofs"], {
+    module: "events",
+    access: "business",
+    publicColumns: [],
+    permissions: { private_ops: ["SELECT", "UPDATE"], worker: ["SELECT", "INSERT", "UPDATE"] },
+  });
+  assert.deepEqual(TABLE_GRANTS["publication.story_background_refs"].publicColumns, ["*"]);
   assert.deepEqual(TABLE_GRANTS["enrichment.translation_segments"], {
     module: "enrichment",
     access: "business",
@@ -239,7 +249,8 @@ test("the plan separates eight identities, column reads, append-only audit, owne
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "editorial"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "feedback"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "reports"')).length, 4);
-  assert.equal(defaults.length, 56);
+  assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "events"')).length, 4);
+  assert.equal(defaults.length, 60);
   assert.doesNotMatch(sql, /GRANT [^;]*(?:UPDATE|DELETE)[^;]* ON TABLE editorial\."manual_(?:revisions|revision_events)" TO "fixture_(?:worker|private_ops)"/);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "ai"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));

@@ -10,7 +10,8 @@ import { composeStoryDigest } from "../events/digest.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { settleNonEditorial, articleJobLane, groupingQueuePriority } from "./content.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
-import { enqueueJob as enqueue, work } from "./module-queues.ts";
+import { historyQueue } from "../events/history-queue.ts";
+import { enqueueJob as enqueue, enqueueOn, workQueues, work } from "./module-queues.ts";
 
 const isWaiting = (error: unknown) =>
   error instanceof GroupingSupersededError ||
@@ -22,6 +23,7 @@ const isWaiting = (error: unknown) =>
   error instanceof ReceiptUnknownError ||
   error instanceof BudgetExceededError;
 export async function registerEventJobs(boss: PgBoss) {
+  await workQueues(boss, [historyQueue]);
   await ensureQueue("events.hot-refresh");
   await work(
     boss,
@@ -47,6 +49,7 @@ export async function registerEventJobs(boss: PgBoss) {
       const result = await groupArticle(data.articleId, { signalOnly: data.signalOnly, force: data.force });
       if (result.storyId && !result.verdict.startsWith("signal")) {
         await enqueue(QUEUES.digest, { lane: "news", storyId: result.storyId }, { singletonKey: `story:${result.storyId}`, startAfter: 60 });
+        await enqueueOn(historyQueue, { lane: "news", articleId: data.articleId }, { singletonKey: data.articleId });
       }
       return result;
     } catch (error) {

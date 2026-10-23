@@ -1285,6 +1285,24 @@
         "private_ops": ["SELECT", "INSERT", "UPDATE"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "publication.story_background_refs": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["*"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "DELETE"],
+        "worker": ["SELECT", "INSERT", "DELETE"]
+      }
+    },
+    "events.story_background_proofs": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

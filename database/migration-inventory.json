@@ -471,6 +471,14 @@
     {
       "name": "platform/ops/202610230100_delivery_recovery.sql",
       "dependsOn": ["0003_notify.sql"]
+    },
+    {
+      "name": "events/202610230200_story_background.sql",
+      "dependsOn": ["events/202610160610_public_participation.sql"]
+    },
+    {
+      "name": "publication/202610230201_story_background_refs.sql",
+      "dependsOn": ["publication/202610160700_source_time_binding.sql"]
     }
   ]
 }

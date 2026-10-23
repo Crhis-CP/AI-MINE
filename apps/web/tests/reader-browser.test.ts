@@ -17,6 +17,7 @@ let phase = "setup";
 let unreadGroup = false;
 let deepTimeline = false;
 let deepPool = false;
+let historicalBackground = true;
 let readerWithdrawalVersion = "1";
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
@@ -151,6 +152,59 @@ const api = createServer((req, res) => {
     });
   if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion });
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
+  if (url.pathname === "/api/site/stories/synthetic-story")
+    return answer({
+      publicId: "synthetic-story",
+      title: "合成项目事件",
+      status: "settled",
+      reportCount: 0,
+      sourceCount: 0,
+      firstReportAt: null,
+      latestAt: null,
+      digest: null,
+      digestUpdatedAt: null,
+      summary: "当前事件事实",
+      excerpt: null,
+      latest: null,
+      whyHot: { participants48h: 0, newParticipants6h: 0, recentReports24h: 0, observationComplete: false, rank: null, heat: null },
+      developments: [],
+      officialReports: [],
+      timeline: [],
+      heat: [],
+      related: [],
+      ...(historicalBackground
+        ? {
+            background: [
+              {
+                relation: "SAME_STORY",
+                item: {
+                  id: "history-dated",
+                  title: "已核对的旧项目报道",
+                  summary: "早期许可背景",
+                  source: { name: "合成原始来源" },
+                  selected: false,
+                  publishedAt: null,
+                  sourceTime: { meaning: "published", local_date: "2021-03-02", local_time: null, timezone: null, utc: null, precision: "date" },
+                  originalUrl: "https://example.invalid/history",
+                },
+              },
+              {
+                relation: "SAME_OCCURRENCE",
+                item: {
+                  id: "history-undated",
+                  title: "日期尚待核实的背景报道",
+                  summary: null,
+                  source: { name: "合成原始来源" },
+                  selected: false,
+                  publishedAt: null,
+                  sourceTime: null,
+                  originalUrl: "https://example.invalid/undated",
+                },
+              },
+            ],
+          }
+        : {}),
+    });
   if (url.pathname === "/api/site/timeline")
     return answer({
       filters: {
@@ -1139,6 +1193,39 @@ test("about flow uses supplied sources and headlines on desktop and phone, with 
       assert.deepEqual(errors, []);
       assert.deepEqual(blocked, []);
     } finally {
+      await context.close();
+    }
+  }
+});
+
+test("historical background keeps original dates and links separate from story counts on desktop and phone", { timeout: 60000 }, async () => {
+  for (const width of [390, 1440]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, locale: "zh-CN", reducedMotion: "reduce" });
+    try {
+      historicalBackground = true;
+      const blocked = await isolateBrowser(context, [origin]),
+        page = await context.newPage(),
+        errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.goto(`${origin}/story/synthetic-story`);
+      const panel = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "历史背景", exact: true }) });
+      await expect(panel).toBeVisible();
+      await expect(panel.getByRole("link", { name: "已核对的旧项目报道" })).toHaveAttribute("href", "/items/history-dated");
+      await expect(panel.getByRole("link", { name: "核对原文", exact: true }).first()).toHaveAttribute("href", "https://example.invalid/history");
+      await expect(panel).toContainText("2021-03-02");
+      await expect(panel).toContainText("原文日期待核实");
+      await expect(panel).not.toContainText("00:00");
+      await expect(page.locator("#event-reports")).not.toContainText("已核对的旧项目报道");
+      await expect(page.getByText("0 篇报道", { exact: true })).toBeVisible();
+      await expect(page.getByText("0 个报道来源", { exact: true })).toBeVisible();
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      historicalBackground = false;
+      await page.reload();
+      await expect(page.getByRole("heading", { name: "历史背景", exact: true })).toHaveCount(0);
+      assert.deepEqual(errors, []);
+      assert.deepEqual(blocked, []);
+    } finally {
+      historicalBackground = true;
       await context.close();
     }
   }

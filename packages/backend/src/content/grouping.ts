@@ -135,9 +135,9 @@ export async function confirmedGroupingMaterials(ids: string[], db: Db = sql) {
 }
 
 /** Reader-safe versions only; private processing state, text and receipts are never loaded here. */
-export async function publicMaterialVersions(ids: string[]) {
+export async function publicMaterialVersions(ids: string[], db: Db = sql) {
   if (!ids.length) return [];
-  return sql<
+  return db<
     { id: string; revision: number; source_date_version: string }[]
   >`SELECT id,revision,source_date_version::text FROM articles WHERE id=ANY(${ids}::text[])`;
 }

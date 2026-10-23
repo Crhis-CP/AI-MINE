@@ -1,3 +1,4 @@
+import { invalidateHistoricalBackgrounds } from "../events/historical-background-store.ts";
 import { refreshPresentation } from "./content-presentation.ts";
 export { previewPublicationDateCorrection, correctPublicationDate } from "./content-date.ts";
 import { materialGroupingDiagnostic } from "../content/grouping.ts";
@@ -131,6 +132,7 @@ export async function setVisibility(
       WHERE editorial_overrides.version = ${input.version} RETURNING version`;
     if (!written.count) throw new Conflict(STALE);
     const published = await publishArticleTx(tx, id);
+    if (input.visibility === "withdrawn") await invalidateHistoricalBackgrounds([id], tx);
     if (published?.changed) await invalidateReportCorrections(tx, [id], input.visibility === "withdrawn" ? "withdrawal" : "restoration");
     await enqueue("events.hot-refresh", { articleId: id, lane: "news" }, { singletonKey: "hot-ranking" }, tx);
     await audit(actor, "content.visibility", `content:${id}`, input.reason, { visibility: before.visibility }, { visibility: input.visibility }, undefined, tx);
@@ -257,6 +259,7 @@ export async function overrideFields(
     if (!written.count) throw new Conflict(STALE);
     const published = await publishArticleTx(tx, id);
     if (published?.changed) {
+      await invalidateHistoricalBackgrounds([id], tx);
       await invalidateReportCorrections(tx, [id], "manual_correction");
       const storyId = await publishedStoryId(id, tx);
       if (storyId) await enqueue(QUEUES.digest, { lane: "news", storyId, afterCorrection: true }, { singletonKey: `story:${storyId}:correction` }, tx);

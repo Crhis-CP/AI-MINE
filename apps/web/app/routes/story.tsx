@@ -386,6 +386,30 @@ export default function StoryPage() {
             )}
           </Panel>
 
+          {!!story.background?.length && (
+            <Panel title="历史背景" sub="最多展示10条相关背景报道；原文发布日期不代表事件发生日期。" className="order-4">
+              <ul className="divide-y divide-line-soft">
+                {story.background.map(({ relation, item }) => {
+                  const date = newsSourceDate(item.sourceTime, item.publishedAt);
+                  return (
+                    <li key={item.id} className="py-3">
+                      <div className="text-[12px] text-ink-4">
+                        {relation === "SAME_OCCURRENCE" ? "同次事项" : "同一事件脉络"} · {date?.text ?? "原文日期待核实"} · {item.source.name}
+                      </div>
+                      <Link to={`/items/${item.id}`} className="mt-1 block text-[15px] font-semibold text-ink">
+                        {item.title}
+                      </Link>
+                      {item.summary && <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{item.summary}</p>}
+                      <a href={item.originalUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[12px] text-accent">
+                        核对原文
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Panel>
+          )}
+
           {observed && (
             <Panel id={SECTIONS.heat} title="本事件热度走势" className="order-5">
               <HeatChart points={story.heat} />

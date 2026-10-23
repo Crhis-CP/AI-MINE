@@ -1,4 +1,5 @@
 import { confirmedSelected } from "./items.ts";
+import { readHistoricalBackground } from "./historical-background.ts";
 import { publicHeatSeries, publicHeatSeriesMany } from "../events/participation-read.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import type { z } from "zod";
@@ -214,6 +215,7 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
       .slice(0, 12)
       .map(reportView),
     timeline: reports.slice(0, 100).map(reportView),
+    background: await readHistoricalBackground(s.public_id),
     heat: heat.map((h): HeatPoint => ({ hour: h.hour.toISOString(), heat: Number(h.heat), participants: h.participants })),
     related: related.map((r) => ({ publicId: r.public_id, title: r.title, relation: r.relation, latestAt: r.latest_at?.toISOString() ?? null })),
   };

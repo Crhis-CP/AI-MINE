@@ -722,7 +722,7 @@ test("price expiry is notified once per evidence revision; monthly report honors
   assert.equal(messages, 1);
 });
 
-test("token-only receipts take the single registered price and their capability lane; foreign bills and unknown calls stay out", async () => {
+test("token-only receipts stay unpriced after a price is registered or changed; foreign bills and unknown calls stay out", async () => {
   await install();
   await price("0", "llm", "deepseek-flash", null);
   const usage = { prompt_tokens: 1000, completion_tokens: 10 };
@@ -738,18 +738,14 @@ test("token-only receipts take the single registered price and their capability 
   const foreign = await insert(`usd-${index}`, "prefilter_article", { cost: "1.500000", currency: "USD", basis: "actual" });
   const unknown = await insert(`unknown-${index}`, "score_article", { status: "unknown" });
   const first = await evaluateUsageProtection();
-  assert.equal(first.missing[0], "有2次历史调用尚未纳入可核费用，需要补齐原回执费用和业务归属");
-  const [settled] = await sql`SELECT lane,capability,settled_micros::text,state,source_ids FROM ai.usage_attempts WHERE attempt_id=${priced.attemptId}`;
-  assert.equal(settled!.lane, "news");
-  assert.equal(settled!.capability, "prefilter_article");
-  assert.equal(settled!.settled_micros, "2040");
-  assert.equal(settled!.state, "settled");
-  assert.deepEqual(settled!.source_ids, []);
+  assert.equal(first.missing[0], "有3次历史调用尚未纳入可核费用，需要补齐原回执费用和业务归属");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE attempt_id=${priced.attemptId}`)[0]!.n, 0);
   const [receipt] = await sql`SELECT request->>'lane' AS lane,cost::text,currency,cost_basis FROM receipts WHERE id=${priced.receiptId}`;
-  assert.equal(receipt!.lane, "news");
-  assert.equal(receipt!.currency, "CNY");
-  assert.equal(receipt!.cost_basis, "estimated");
-  assert.equal(receipt!.cost, "0.002040");
+  assert.deepEqual(receipt, { lane: null, cost: null, currency: null, cost_basis: null });
+  await price("500000", "llm", "deepseek-flash", null);
+  assert.equal((await evaluateUsageProtection()).missing[0], first.missing[0]);
+  const [unpriced] = await sql`SELECT cost,currency,cost_basis FROM receipt_attempts WHERE id=${priced.attemptId}`;
+  assert.deepEqual(unpriced, { cost: null, currency: null, cost_basis: null });
   const [untouched] =
     await sql`SELECT r.request->>'lane' AS lane,a.currency,a.cost::text,a.status FROM receipts r JOIN receipt_attempts a ON a.id=${foreign.attemptId} WHERE r.id=${foreign.receiptId}`;
   assert.equal(untouched!.lane, null);
@@ -759,7 +755,7 @@ test("token-only receipts take the single registered price and their capability 
   assert.equal(pending!.status, "unknown");
   assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE attempt_id=${foreign.attemptId} OR attempt_id=${unknown.attemptId}`)[0]!.n, 0);
   await evaluateUsageProtection();
-  assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE attempt_id=${priced.attemptId}`)[0]!.n, 1);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE attempt_id=${priced.attemptId}`)[0]!.n, 0);
 });
 
 test("two registered prices for one model do not invent a charge for a token-only receipt", async () => {
@@ -780,7 +776,7 @@ test("two registered prices for one model do not invent a charge for a token-onl
   assert.equal(attempt!.currency, null);
 });
 
-test("a received unpriced attempt is visible as a gap and reconciles once when its matching price arrives", async () => {
+test("a received unpriced attempt stays unknown after later pricing and reconciles once only from its recorded bill", async () => {
   await install();
   const req = { ...request("late-price", { capability: "score_article" }), model: "fixture-model" };
   const received = await paidRequest(req, async () => {
@@ -794,11 +790,19 @@ test("a received unpriced attempt is visible as a gap and reconciles once when i
   await price("0", "usage-fixture", "other-model");
   assert.equal((await evaluateUsageProtection()).missing.length, 1);
   await price("0", "usage-fixture", "fixture-model");
+  assert.equal((await evaluateUsageProtection()).missing.length, 1);
+  const [stillUnknown] = await sql`SELECT state,settled_micros::text,quote FROM ai.usage_attempts WHERE receipt_id=${received.receiptId}`;
+  assert.equal(stillUnknown.state, "unknown");
+  assert.equal(stillUnknown.settled_micros, null);
+  assert.deepEqual(stillUnknown.quote, original.quote);
+  const [noInventedBill] = await sql`SELECT cost,currency,cost_basis FROM receipt_attempts WHERE receipt_id=${received.receiptId}`;
+  assert.deepEqual(noInventedBill, { cost: null, currency: null, cost_basis: null });
+  await sql`UPDATE receipt_attempts SET cost='0.007000',currency='CNY',cost_basis='actual' WHERE receipt_id=${received.receiptId}`;
   const reconciled = await evaluateUsageProtection();
   assert.deepEqual(reconciled.missing, []);
   const [settled] = await sql`SELECT state,settled_micros::text,quote,occurred_at FROM ai.usage_attempts WHERE receipt_id=${received.receiptId}`;
   assert.equal(settled.state, "settled");
-  assert.equal(settled.settled_micros, "2040");
+  assert.equal(settled.settled_micros, "7000");
   assert.deepEqual(settled.quote, original.quote);
   assert.deepEqual(settled.occurred_at, original.occurred_at);
   const sums = await sql`SELECT kind,key,settled_micros::text,unknown_micros::text,reserved_micros::text FROM ai.usage_sums ORDER BY kind,key`;

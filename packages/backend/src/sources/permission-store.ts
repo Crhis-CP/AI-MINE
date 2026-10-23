@@ -115,8 +115,13 @@ export async function readCurrentPublicPolicies(sourceIds: string[], db: Db = sq
 }
 
 /** Only the minimum eligibility projection is readable here, never the private processing permission evidence. */
-export async function publicProcessingAllowed(sourceId: string, resource: z.infer<typeof EvaluateSourcePolicyInputSchema>["resource"], now = Date.now()) {
-  const policy = await readCurrentPublicPolicy(sourceId);
+export async function publicProcessingAllowed(
+  sourceId: string,
+  resource: z.infer<typeof EvaluateSourcePolicyInputSchema>["resource"],
+  now = Date.now(),
+  db: Db = sql,
+) {
+  const policy = await readCurrentPublicPolicy(sourceId, db);
   if (
     policy?.processing?.decision !== "allow" ||
     policy.conditions.length ||
