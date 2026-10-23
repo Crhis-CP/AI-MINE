@@ -94,3 +94,5 @@ Agent答案契约在`http/agent`：匿名只读Markdown说明及资讯、检索�
 
 新字段仅准备传输形状，不证明供应商支持、历史账单已校正或现有运行结算已经采用。调用前冻结price_id/version、整份价格、报价时间及实际采用时段，缺缓存分解或数量不守恒保持unknown；完整用量按价计算仍为estimated，不伪装账单actual。报价、结算、后台编辑保存和账本依据须在后续消费者交付中一起接通；此准备版本不得在生产登记含新字段的价格。精确兼容与消费者清单见[计价设计](../../docs/04-architecture/usage-price-windows.md)。
 投递恢复兼容声明（TASK-0408）：DeliveryIssue可携带retry_reason、retry_at、abandoned_at；旧响应省略表示恢复资格未提供，不能自动重发。明确未发/限流、未知和人工放弃分别处理，处理器及迁移后续接入。见docs/04-architecture/delivery-recovery.md。
+
+TASK-0430：modules入口声明共享的矿业主题/成员、模块标识与导航计数类型，旧ModuleDeclaration/MaterialDiscovered保持。后端及网页扩展可声明固定上游通用插口；运行消费者和HTTP投影不由类型声明自动启用，见docs/03-data/module-extension-contract.md。

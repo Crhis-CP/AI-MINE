@@ -5052,6 +5052,30 @@
     "packages/backend/src/content/extract.ts"
    ],
    "local_adaptation": "Shared pure URL guard; persistent crawl step preserves refusal and avoids paid reader fallback."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-23T18:39:00Z",
+   "mechanism": "Compatible server and web module declarations and ordered dispatch",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "packages/backend/src/modules.ts",
+     "bytes": 13252,
+     "sha256": "6ccfb2272d802ae4583333950ef9f470d56a835627de40e7aeb804ca4de06c57"
+    },
+    {
+     "path": "apps/web/app/modules.ts",
+     "bytes": 8443,
+     "sha256": "c4bf1c64c01ebeb98be7950b00550c3ec9f28e9537454ee75436feb298fd6bb6"
+    }
+   ],
+   "targets": [
+    "packages/backend/src/modules.ts",
+    "apps/web/modules.ts",
+    "packages/contracts/src/modules.ts"
+   ],
+   "local_adaptation": "Preserve news/policy lanes, transactional material discovery, mining project topics, existing navigation and administrative authentication; consumers remain separate."
   }
  ]
 }

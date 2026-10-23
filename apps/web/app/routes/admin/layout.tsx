@@ -11,7 +11,7 @@ import type { AdminMe } from "../../features/admin/action";
 import { Toaster } from "../../features/admin/toast";
 import { adminGet } from "../../lib/admin.server";
 
-type Counts = Partial<Record<"feedback" | "sources" | "runs", number>>;
+type Counts = import("@amp/contracts/modules").ModuleNavigationCounts;
 
 export async function loader({ request }: Route.LoaderArgs) {
   const me = await adminGet<AdminMe>(request, "/api/admin/me");
