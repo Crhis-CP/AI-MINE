@@ -131,3 +131,7 @@
 `@amp/industry/mining-taxonomy` 逐项采用现行术语表第3节、DR-100及DR-89：全称、紧凑别名、定义（guide）和三组报告主题栏。CATEGORIES 使用这份定义；它不是国家/矿种/实体/主题词表，也不改 ITEM_TYPES 或评分。未知分类的主题栏为 null，国内/海外另凭国家证据。
 
 结构化与理解调用使用 `configuredPromptVersion(name, values)` 对实际 `promptText` 渲染文本求版本；仅实际使用的注入值会影响版本，参数键序和未使用值不影响。预筛、评分、发布及公开页面共用当前行业口径；外部HTTP契约保留，内部生成客户端已退役。合成样本只验证链路，不代表真实分类质量验收。
+
+## 隔离评分对照（2026-10-22）
+
+`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。权重、双评分与60/65/76门槛不变；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。
