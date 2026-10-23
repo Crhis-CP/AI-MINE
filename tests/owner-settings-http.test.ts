@@ -86,6 +86,49 @@ test("ordinary administrators cannot change Owner source, notification or reques
       403,
     );
   for (const action of actions) assert.equal((await app.inject({ ...action, headers: owner })).statusCode, 200, `${action.method} ${action.url}`);
+  await f.admin`INSERT INTO notify_targets(key,purpose,kind,enabled) VALUES('owner-country','content','log',false),('feishu-content-main','content','log',false) ON CONFLICT DO NOTHING`;
+  const scopes = await app.inject({ method: "GET", url: "/api/admin/notify-target-scopes", headers: admin });
+  assert.equal(scopes.statusCode, 200);
+  const target = scopes.json().items.find((item: { key: string }) => item.key === "owner-country");
+  const update = {
+    method: "PUT" as const,
+    url: "/api/admin/notify-targets/owner-country/scope",
+    payload: { jurisdiction: "AR", version: target.version, reason: "Synthetic country scope" },
+  };
+  const headers = { ...owner, "idempotency-key": "country-command-001" };
+  assert.equal((await app.inject({ ...update, headers: { ...admin, "idempotency-key": "country-admin-001" } })).statusCode, 403);
+  assert.equal((await app.inject({ ...update, headers: { ...headers, "x-csrf-token": "wrong" } })).statusCode, 403);
+  const changed = await app.inject({ ...update, headers });
+  assert.equal(changed.statusCode, 200, changed.body);
+  assert.equal(changed.json().jurisdiction, "AR");
+  assert.equal(changed.json().enabled, false, "scope change never enables a target");
+  assert.deepEqual((await app.inject({ ...update, headers })).json(), changed.json(), "same command is replayed without changing its activation time");
+  assert.equal((await app.inject({ ...update, headers, payload: { ...update.payload, jurisdiction: "PE" } })).statusCode, 409);
+  assert.equal((await app.inject({ ...update, headers: { ...headers, "idempotency-key": "country-command-002" } })).statusCode, 409, "stale target version");
+  const enabledAt = new Date("2020-01-01Z");
+  await f.admin`UPDATE notify_targets SET enabled=true,enabled_at=${enabledAt} WHERE key='owner-country'`;
+  const current = (await app.inject({ method: "GET", url: "/api/admin/notify-target-scopes", headers: owner }))
+    .json()
+    .items.find((item: { key: string }) => item.key === "owner-country");
+  const noop = await app.inject({
+    ...update,
+    headers: { ...headers, "idempotency-key": "country-command-003" },
+    payload: { ...update.payload, version: current.version },
+  });
+  assert.equal(noop.json().enabledAt, enabledAt.toISOString(), "same scope does not move enabled_at");
+  const switched = await app.inject({
+    ...update,
+    headers: { ...headers, "idempotency-key": "country-command-004" },
+    payload: { ...update.payload, jurisdiction: "PE", version: current.version },
+  });
+  assert.equal(switched.statusCode, 200, switched.body);
+  assert.ok(Date.parse(switched.json().enabledAt) > enabledAt.getTime(), "new scope starts now and cannot backfill old cards");
+  assert.equal(
+    (await app.inject({ ...update, url: "/api/admin/notify-targets/feishu-content-main/scope", headers })).statusCode,
+    409,
+    "general channel cannot be narrowed",
+  );
+  assert.equal((await app.inject({ ...update, headers, payload: { ...update.payload, jurisdiction: "ZZ" } })).statusCode, 400);
   const principal = await sessionPrincipal(owner.cookie);
   assert.ok(principal);
   await dbs.auth`UPDATE identity.account_access SET revision=revision+1 WHERE user_id=${principal.userId}`;

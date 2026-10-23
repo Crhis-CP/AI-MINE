@@ -6,7 +6,8 @@ import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { config } from "@amp/backend/config";
 import { closeDb, sql } from "@amp/backend/db";
-import { resendDelivery } from "@amp/backend/notify/deliver";
+import { deliverContent, resendDelivery } from "@amp/backend/notify/deliver";
+import { geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
 import { buildApp } from "./site-app.ts";
 
 const T = tag();
@@ -295,4 +296,101 @@ test("a completed withdrawal during title-lease contention prevents sending", as
   assert.equal((await retry).statusCode, 409);
   assert.equal(requests.filter((n) => n === id).length, 0);
   assert.equal((await state(id)).attempts, 0);
+});
+
+test("country delivery uses current multi-country evidence and retains the general channel", async () => {
+  const id = await delivery("failed"),
+    articleId = articleIds.get(id)!;
+  const keys = [`${TARGET}-general`, `${TARGET}-ar`, `${TARGET}-pe`];
+  await sql`UPDATE notify_targets SET enabled=false WHERE key=${TARGET}`;
+  for (const [index, country] of [null, "AR", "PE"].entries())
+    await sql`INSERT INTO notify_targets(key,purpose,kind,enabled,jurisdiction) VALUES(${keys[index]!},${country === null ? "content" : "country_content"},'log',true,${country})`;
+  const req = { subjectKind: "selected" as const, subjectId: articleId, dedupeKey: `country:${id}`, contentAt: new Date(), card: { id } };
+  try {
+    const legacy = await sql`SELECT key FROM notify_targets WHERE purpose='content' AND enabled AND key=ANY(${keys}::text[])`;
+    assert.deepEqual(
+      legacy.map((row) => row.key),
+      [keys[0]],
+      "a rollback binary cannot broadcast every article into a country target",
+    );
+    assert.deepEqual((await deliverContent(req)).map((row) => row.target).sort(), [keys[0]], "unknown geography goes only to the general channel");
+    await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
+      VALUES(${articleId},1,NULL,${geographyRecipe()},'identified',ARRAY['AR','PE'])`;
+    assert.deepEqual((await deliverContent({ ...req, dedupeKey: `country:${id}:multi` })).map((row) => row.target).sort(), [...keys].sort());
+    assert.deepEqual(await deliverContent({ ...req, dedupeKey: `country:${id}:multi` }), [], "each target keeps its own dedupe identity");
+    await sql`UPDATE articles SET revision=revision+1 WHERE id=${articleId}`;
+    assert.deepEqual(
+      (await deliverContent({ ...req, dedupeKey: `country:${id}:stale` })).map((row) => row.target),
+      [keys[0]],
+      "old-revision geography cannot route a card",
+    );
+  } finally {
+    await sql`DELETE FROM deliveries WHERE target_key=ANY(${keys}::text[])`;
+    await sql`DELETE FROM notify_targets WHERE key=ANY(${keys}::text[])`;
+    await sql`UPDATE notify_targets SET enabled=true WHERE key=${TARGET}`;
+  }
+});
+
+test("manual recovery rechecks the target country before sending the rebuilt card", async () => {
+  const id = await delivery(),
+    articleId = articleIds.get(id)!;
+  await sql`UPDATE notify_targets SET jurisdiction='AR',purpose='country_content' WHERE key=${TARGET}`;
+  try {
+    await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
+      VALUES(${articleId},1,NULL,${geographyRecipe()},'identified',ARRAY['PE'])`;
+    await assert.rejects(resendDelivery(id), { code: "conflict" });
+    assert.equal(requests.filter((n) => n === id).length, 0);
+    assert.equal((await state(id)).status, "unknown");
+    await sql`UPDATE publication.news_geography SET jurisdictions=ARRAY['AR'] WHERE article_id=${articleId}`;
+    assert.equal((await resendDelivery(id)).status, "sent");
+    assert.equal(requests.filter((n) => n === id).length, 1);
+  } finally {
+    await sql`UPDATE notify_targets SET jurisdiction=NULL,purpose='content' WHERE key=${TARGET}`;
+  }
+});
+
+test("a country correction committed while send admission waits is rechecked for normal and manual sends", { timeout: 10000 }, async () => {
+  await sql`UPDATE notify_targets SET jurisdiction='AR',purpose='country_content' WHERE key=${TARGET}`;
+  try {
+    for (const retry of [false, true]) {
+      const id = await delivery(),
+        articleId = articleIds.get(id)!;
+      await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
+        VALUES(${articleId},1,NULL,${geographyRecipe()},'identified',ARRAY['AR'])`;
+      const entered = gate<number>(),
+        release = gate();
+      const held = sql.begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(hashtext('lane-controls'))`;
+        const [row] = await tx`SELECT pg_backend_pid() AS pid`;
+        entered.open(row.pid);
+        await release.promise;
+      });
+      const pid = await entered.promise;
+      const sending = (
+        retry
+          ? resendDelivery(id)
+          : deliverContent({ subjectKind: "selected", subjectId: articleId, dedupeKey: `normal-country-race:${id}`, contentAt: new Date(), card: { id } })
+      ).then(
+        (result) => ({ result }),
+        (error) => ({ error }),
+      );
+      try {
+        const deadline = performance.now() + 3000;
+        while (!(await sql`SELECT pid FROM pg_stat_activity WHERE ${pid}=ANY(pg_blocking_pids(pid))`).length) {
+          assert.ok(performance.now() < deadline, "sender should reach the control fence");
+          await delay(10);
+        }
+        await sql`UPDATE publication.news_geography SET jurisdictions=ARRAY['PE'] WHERE article_id=${articleId}`;
+      } finally {
+        release.open();
+        await held;
+      }
+      const outcome = await sending;
+      if (retry) assert.equal((outcome as { error: { code: string } }).error.code, "conflict");
+      else assert.deepEqual((outcome as { result: unknown }).result, []);
+      assert.equal(requests.filter((n) => n === id).length, 0);
+    }
+  } finally {
+    await sql`UPDATE notify_targets SET jurisdiction=NULL,purpose='content' WHERE key=${TARGET}`;
+  }
 });

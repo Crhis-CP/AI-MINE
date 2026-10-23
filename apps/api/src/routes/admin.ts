@@ -61,6 +61,8 @@ import {
   listBudgets,
   listTargets,
   setTargetEnabled,
+  listTargetScopes,
+  setTargetScope,
   updateBudget,
   listLaneControls,
   changeOwnerLaneControls,
@@ -438,6 +440,18 @@ export function registerAdmin(app: FastifyInstance) {
   );
 
   // Settings
+  app.get(
+    contracts.notifyTargetScopes.url,
+    contracts.notifyTargetScopes,
+    adminHandler(async () => listTargetScopes()),
+  );
+  app.put(
+    contracts.notifyTargetScopeUpdate.url,
+    contracts.notifyTargetScopeUpdate,
+    adminHandler(async (req, reply, admin) =>
+      orNotFound(req, reply, await setTargetScope(param(req, "key"), req.body, admin, String(req.headers["idempotency-key"] ?? ""))),
+    ),
+  );
   app.get(
     "/api/admin/settings",
     adminHandler(async () => ({ targets: await listTargets(), budgets: await listBudgets() })),

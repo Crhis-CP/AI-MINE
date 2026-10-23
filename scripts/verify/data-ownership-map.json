@@ -917,6 +917,7 @@
     "packages/backend/src/jobs/schedule-status.ts": "queue",
     "packages/backend/src/notify/deliver.ts": "ops",
     "packages/backend/src/notify/selected.ts": "ops",
+    "packages/backend/src/notify/scopes.ts": "ops",
     "packages/backend/src/operations/alerts.ts": "ops",
     "packages/backend/src/operations/backup.ts": "ops",
     "packages/backend/src/operations/feedback-forward.ts": "feedback",

@@ -5,6 +5,7 @@ import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 export { monthlyUsageReports } from "../operations/usage-monthly.ts";
 
 export { listTargets, setTargetEnabled } from "@amp/backend/notify/deliver";
+export { listTargetScopes, setTargetScope } from "../notify/scopes.ts";
 
 export async function listBudgets() {
   return sql`
