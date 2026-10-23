@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { PgBoss, WorkOptions } from "pg-boss";
 import type { z } from "zod";
 import type { Finding } from "./notify/feishu.ts";
+export type { Finding } from "./notify/feishu.ts";
 /** Extension hooks installed by process entry points; the engine does not import site extensions. */
 export interface Scheduled {
   name: string;
