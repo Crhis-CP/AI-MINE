@@ -7,6 +7,12 @@ import { config, credential } from "../config.ts";
 import { sql } from "../db.ts";
 import { audit, requireOwner, type AdminPrincipal } from "../admin/auth.ts";
 import { postWebhook } from "./feishu.ts";
+import { runtimeControlSnapshot, requireRuntimeRunning, RuntimeControlPaused } from "@amp/backend/operations/lane-controls";
+
+const MAX_AUTO_ATTEMPTS = 6;
+async function pushPaused() {
+  return (await runtimeControlSnapshot("news", ["publication"])).paused;
+}
 
 // For scripts/feishu-check.ts: the backend's entry points are frozen, so the check reaches Feishu through this one.
 export { feishuInternalEnabled, feishuSettingsSummary, listBotChats, sendAlert } from "./feishu.ts";
@@ -62,6 +68,23 @@ export async function ensureContentTargets() {
     ON CONFLICT (key) DO NOTHING`;
 }
 
+/** Persist the known outcome and only retry a definite rate-limit rejection. */
+async function recordDeliveryResult(id: number, res: Awaited<ReturnType<typeof postWebhook>>) {
+  const status = res.ok ? "sent" : res.rejected ? "failed" : "unknown";
+  const [row] = await sql<{ attempts: number }[]>`SELECT attempts FROM deliveries WHERE id=${id}`;
+  const now = Date.now();
+  let retryAt: Date | null = null;
+  if (res.status === 429 && row && row.attempts < MAX_AUTO_ATTEMPTS) {
+    const header = res.retryAfter?.trim();
+    const requested = header ? (/^\d+$/.test(header) ? now + Number(header) * 1000 : Date.parse(header)) : now;
+    const next = Math.max(now + Math.min(3600000, 120000 * 2 ** Math.max(0, row.attempts - 1)), Number.isFinite(requested) ? requested : now);
+    if (next <= now + 12 * 3600000) retryAt = new Date(next);
+  }
+  await sql`UPDATE deliveries SET status=${status},response=${res.body.slice(0, 500)},sent_at=${res.ok ? new Date() : null},
+    retry_reason=${retryAt ? "rate_limited" : null},retry_at=${retryAt},updated_at=now() WHERE id=${id}`;
+  return status;
+}
+
 export async function deliverContent(req: DeliveryRequest): Promise<Array<{ target: string; status: string }>> {
   const targets = await sql<Target[]>`SELECT key, kind, enabled_at, config_ref FROM notify_targets WHERE purpose = 'content' AND enabled`;
   const results: Array<{ target: string; status: string }> = [];
@@ -77,18 +100,40 @@ export async function deliverContent(req: DeliveryRequest): Promise<Array<{ targ
       results.push({ target: t.key, status: "skipped" });
       continue;
     }
+    if (await pushPaused()) {
+      await sql`UPDATE deliveries SET response='发布已暂停，等待恢复' WHERE id=${row.id}`;
+      results.push({ target: t.key, status: "pending" });
+      continue;
+    }
     const url = t.config_ref ? credential("integrations", t.config_ref) : undefined;
     if (!url) {
       await sql`UPDATE deliveries SET status = 'failed', response = 'webhook not configured', updated_at = now() WHERE id = ${row.id}`;
       results.push({ target: t.key, status: "failed" });
       continue;
     }
-    await sql`UPDATE deliveries SET status = 'sending', attempts = attempts + 1, updated_at = now() WHERE id = ${row.id}`;
+    let sending: number;
+    try {
+      sending = await sql.begin(async (tx) => {
+        const changed = await tx`UPDATE deliveries SET status='sending',attempts=attempts+1,updated_at=now() WHERE id=${row.id} AND status='pending'
+      AND EXISTS(SELECT 1 FROM notify_targets WHERE key=${t.key} AND enabled AND purpose='content' AND kind=${t.kind}
+        AND config_ref IS NOT DISTINCT FROM ${t.config_ref} AND (enabled_at IS NULL OR enabled_at<=${req.contentAt}))`;
+        if (changed.count) await requireRuntimeRunning("news", ["publication"], tx);
+        return changed.count;
+      });
+    } catch (error) {
+      if (!(error instanceof RuntimeControlPaused)) throw error;
+      await sql`UPDATE deliveries SET response='发布已暂停，等待恢复' WHERE id=${row.id} AND status='pending'`;
+      results.push({ target: t.key, status: "pending" });
+      continue;
+    }
+    if (!sending) {
+      await sql`UPDATE deliveries SET status='skipped',response='目标状态已变化',updated_at=now() WHERE id=${row.id} AND status='pending'`;
+      continue;
+    }
     try {
       const res = await postWebhook(url, req.card);
-      // A Feishu error code on HTTP 200, or a 4xx, is a definite rejection; 5xx may have gone through.
-      const status = res.ok ? "sent" : res.status < 500 ? "failed" : "unknown";
-      await sql`UPDATE deliveries SET status = ${status}, response = ${res.body.slice(0, 500)}, sent_at = ${res.ok ? new Date() : null}, updated_at = now() WHERE id = ${row.id}`;
+      // Only an explicit acknowledgement or rejection is known; malformed responses remain uncertain.
+      const status = await recordDeliveryResult(row.id, res);
       results.push({ target: t.key, status });
     } catch (error) {
       // Timeout or connection loss after sending may still have delivered: never resend.
@@ -104,40 +149,113 @@ export async function deliverContent(req: DeliveryRequest): Promise<Array<{ targ
  * for deliveries in doubt or definitely failed; the safety valve still applies.
  */
 export async function resendDelivery(id: number, version?: string): Promise<{ status: string }> {
-  const [d] = await sql<{ status: string; version: string; payload: unknown; target_key: string; config_ref: string | null; kind: string }[]>`
-    SELECT d.status, d.updated_at::text AS version, d.payload, d.target_key, t.config_ref, t.kind
+  return retryDelivery(id, version, false);
+}
+
+async function retryDelivery(id: number, version: string | undefined, automatic: boolean): Promise<{ status: string }> {
+  const [d] = await sql<
+    {
+      status: string;
+      version: string;
+      abandoned_at: Date | null;
+      response: string | null;
+      subject_id: string;
+      subject_kind: string;
+      dedupe_key: string;
+      target_key: string;
+      config_ref: string | null;
+      kind: string;
+      enabled: boolean;
+      enabled_at: Date | null;
+      purpose: string;
+    }[]
+  >`
+    SELECT d.status, d.abandoned_at, d.response, d.updated_at::text AS version, d.subject_id, d.subject_kind, d.dedupe_key, d.target_key, t.config_ref, t.kind, t.enabled, t.enabled_at, t.purpose
     FROM deliveries d JOIN notify_targets t ON t.key = d.target_key WHERE d.id = ${id}`;
   if (!d) throw new Error(`delivery ${id} not found`);
-  if (d.status !== "unknown" && d.status !== "failed") throw new DeliveryConflict("这条投递不需要处理");
+  if (d.abandoned_at || d.response?.startsWith("人工放弃：") || (d.status !== "unknown" && d.status !== "failed"))
+    throw new DeliveryConflict("这条投递不需要处理");
   if (!config.feishuContentPushEnabled || d.kind !== "feishu_webhook") throw new Error("content push is disabled in this environment");
+  if (!d.enabled || d.purpose !== "content") throw new DeliveryConflict("目标已停用，不能重新发送");
+  if (await pushPaused()) throw new DeliveryConflict("发布已暂停，等待恢复后再处理");
+  if (d.subject_kind !== "selected") throw new DeliveryConflict("这条投递不支持内容重发");
   const url = d.config_ref ? credential("integrations", d.config_ref) : undefined;
   if (!url) throw new Error("webhook not configured");
-  // Keep PostgreSQL's timestamp precision: a retry may already have failed again by the time this
-  // update runs. Only the request that claims the version the operator read may send the card.
-  const claimed = await sql`UPDATE deliveries SET status = 'sending', attempts = attempts + 1, updated_at = now()
-    WHERE id = ${id} AND status IN ('unknown', 'failed') AND updated_at::text = ${version ?? d.version}`;
-  if (!claimed.count) throw new DeliveryConflict("这条投递已被其他操作处理，请刷新后重试");
+  // Claim before reading current content so a queued retry cannot use a pre-withdrawal snapshot.
+  const claimed = await sql<{ version: string }[]>`UPDATE deliveries SET status='sending',updated_at=now()
+    WHERE id=${id} AND status IN ('unknown','failed') AND updated_at::text=${version ?? d.version} AND abandoned_at IS NULL
+      AND (${!automatic} OR (status='failed' AND (response IS NULL OR response NOT LIKE '人工放弃：%') AND retry_reason IS NOT NULL AND retry_at<=now() AND attempts<${MAX_AUTO_ATTEMPTS}))
+      AND EXISTS(SELECT 1 FROM notify_targets WHERE key=${d.target_key} AND enabled AND purpose='content')
+    RETURNING updated_at::text AS version`;
+  if (!claimed.length) throw new DeliveryConflict("这条投递或目标已被其他操作处理，请刷新后重试");
   try {
-    const res = await postWebhook(url, d.payload);
-    const status = res.ok ? "sent" : res.status < 500 ? "failed" : "unknown";
-    await sql`UPDATE deliveries SET status = ${status}, response = ${res.body.slice(0, 500)}, sent_at = ${res.ok ? new Date() : null}, updated_at = now() WHERE id = ${id}`;
+    const { pushSelected } = await import("./selected.ts");
+    const outcome = await pushSelected(d.subject_id, undefined, async (current) => {
+      if (current.dedupeKey !== d.dedupe_key) throw new DeliveryConflict("内容归属已变化，请等待当前事实的正常推送");
+      if (d.enabled_at && current.contentAt < d.enabled_at) throw new DeliveryConflict("内容早于目标本次启用，不补发历史内容");
+      const sending = await sql.begin(async (tx) => {
+        const changed = await tx`UPDATE deliveries SET attempts=attempts+1,payload=${tx.json(current.card as never)},updated_at=now()
+        WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}
+        AND EXISTS(SELECT 1 FROM notify_targets WHERE key=${d.target_key} AND enabled AND purpose='content' AND kind=${d.kind} AND config_ref IS NOT DISTINCT FROM ${d.config_ref}
+          AND (enabled_at IS NULL OR enabled_at<=${current.contentAt}))`;
+        if (changed.count) await requireRuntimeRunning("news", ["publication"], tx);
+        return changed.count;
+      });
+      if (!sending) throw new DeliveryConflict("投递或目标已变化，请刷新后重试");
+      try {
+        const res = await postWebhook(url, current.card);
+        const status = await recordDeliveryResult(id, res);
+        return [{ target: d.target_key, status }];
+      } catch (error) {
+        await sql`UPDATE deliveries SET status='unknown',retry_reason=null,retry_at=null,response=${String(error).slice(0, 500)},updated_at=now() WHERE id=${id}`;
+        return [{ target: d.target_key, status: "unknown" }];
+      }
+    });
+    if (automatic && outcome.status === "retry") {
+      await sql`UPDATE deliveries SET status='failed',retry_reason='not_sent',retry_at=${outcome.after},response=${outcome.reason},updated_at=now()
+        WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}`;
+      return { status: "failed" };
+    }
+    const status = outcome.status !== "retry" ? outcome.targets?.[0]?.status : null;
+    if (!status) throw new DeliveryConflict("内容当前不符合推送条件，请核对公开状态和时效");
     return { status };
   } catch (error) {
-    await sql`UPDATE deliveries SET status = 'unknown', response = ${String(error).slice(0, 500)}, updated_at = now() WHERE id = ${id}`;
-    return { status: "unknown" };
+    await sql`UPDATE deliveries SET status=${d.status},retry_reason=CASE WHEN ${automatic && !(error instanceof RuntimeControlPaused)} THEN null ELSE retry_reason END,
+      retry_at=CASE WHEN ${automatic && !(error instanceof RuntimeControlPaused)} THEN null ELSE retry_at END,response=${String(error).slice(0, 500)},updated_at=now()
+      WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}`;
+    throw error;
   }
 }
 
 /**
  * Deliveries a stopped process left half way: "sending" may have reached the group, so it becomes
  * "unknown" (alerted, resolved in the admin); "pending" never left, so it becomes "failed" (the
- * admin can send it). Nothing is re-sent automatically.
+ * recovery may retry it). Unknown sends and failures without explicit evidence stay manual.
  */
 export async function markStaleDeliveries(): Promise<{ unknown: number; failed: number }> {
+  // Older binaries persisted abandonment in this fixed response marker and retain our nullable columns on rollback.
+  await sql`UPDATE deliveries SET abandoned_at=updated_at,retry_reason=null,retry_at=null
+    WHERE status='failed' AND abandoned_at IS NULL AND response LIKE '人工放弃：%'`;
   const cutoff = new Date(Date.now() - 15 * 60_000);
-  const unknown = await sql`UPDATE deliveries SET status = 'unknown', response = coalesce(response, '发送中进程中断，是否送达未知'), updated_at = now()
+  const unknown =
+    await sql`UPDATE deliveries SET status = 'unknown', retry_reason=null,retry_at=null,response = coalesce(response, '发送中进程中断，是否送达未知'), updated_at = now()
                             WHERE status = 'sending' AND updated_at < ${cutoff}`;
-  const failed = await sql`UPDATE deliveries SET status = 'failed', response = coalesce(response, '发送前进程中断，没有发出'), updated_at = now()
+  const failed = await sql`UPDATE deliveries SET status = 'failed',retry_reason=CASE WHEN attempts=0 AND origin='live' THEN 'not_sent' ELSE null END,
+                           retry_at=CASE WHEN attempts=0 AND origin='live' THEN now() ELSE null END, response = coalesce(response, '发送前进程中断，没有发出'), updated_at = now()
                            WHERE status = 'pending' AND updated_at < ${cutoff}`;
+  if (config.feishuContentPushEnabled && !(await pushPaused())) {
+    const ready = await sql<{ id: number; version: string }[]>`SELECT id,updated_at::text AS version FROM deliveries
+      WHERE status='failed' AND origin='live' AND abandoned_at IS NULL AND (response IS NULL OR response NOT LIKE '人工放弃：%') AND retry_reason IS NOT NULL AND retry_at<=now() AND attempts<${MAX_AUTO_ATTEMPTS}
+      ORDER BY retry_at,id LIMIT 40`;
+    for (const row of ready) {
+      try {
+        await retryDelivery(row.id, row.version, true);
+      } catch (error) {
+        if (await pushPaused()) break;
+        await sql`UPDATE deliveries SET retry_reason=null,retry_at=null,response=${String(error).slice(0, 500)},updated_at=now()
+          WHERE id=${row.id} AND status='failed' AND updated_at::text=${row.version}`;
+      }
+    }
+  }
   return { unknown: unknown.count, failed: failed.count };
 }

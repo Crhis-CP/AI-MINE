@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "20583ecd395e3962524da9b0a1a57f1e8a9b5ece7727ca661154426c6950ea26",
+  "grantCatalogueSha256": "d96babc0fbd856619e32a3e2c37a46a7f8d63caffaa866c56928ad040009b359",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -637,6 +637,14 @@
     "reports.reconciliation_commands": {
       "module": "reports",
       "access": "business"
+    },
+    "publication.story_background_refs": {
+      "module": "publication",
+      "access": "business"
+    },
+    "events.story_background_proofs": {
+      "module": "events",
+      "access": "business"
     }
   },
   "externalTables": {
@@ -979,6 +987,9 @@
     "packages/backend/src/content/date-correction.ts": "content",
     "packages/backend/src/reports/reconcile.ts": "reports",
     "packages/backend/src/reports/revision-state.ts": "reports",
-    "packages/backend/src/reports/management.ts": "reports"
+    "packages/backend/src/reports/management.ts": "reports",
+    "packages/backend/src/publication/historical-background.ts": "publication",
+    "packages/backend/src/events/historical-background.ts": "events",
+    "packages/backend/src/events/historical-background-store.ts": "events"
   }
 }

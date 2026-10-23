@@ -6,7 +6,6 @@ import {
   UsageBreaker,
   UsageConfigRecord,
   UsagePriceRecord,
-  UsagePrice,
   UsageProtectionEvent,
   UsageProtectionOverview,
   type UsageScope,
@@ -16,7 +15,17 @@ import { beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
 import { audit } from "../admin/auth.ts";
-import { priceQuote, settleQuotedCost, amountMicros, centsText, MICRO, ratioMicros, type UsageBounds, type UsageQuote } from "./usage-pricing.ts";
+import {
+  priceQuote,
+  refreshUsageQuote,
+  settleQuotedCost,
+  amountMicros,
+  centsText,
+  MICRO,
+  ratioMicros,
+  type UsageBounds,
+  type UsageQuote,
+} from "./usage-pricing.ts";
 
 export type UsageConfig = z.infer<typeof UsageProtectionConfig>;
 export type Scope = z.infer<typeof UsageScope>;
@@ -208,7 +217,11 @@ export async function settleUsageAttempt(
     unknown: row.state === "unknown" ? reserve : 0n,
     reserved: row.state === "reserved" ? reserve : 0n,
   };
-  await db`UPDATE ai.usage_attempts SET state=${state},settled_micros=${cost ? amount.toString() : null},updated_at=${now} WHERE attempt_id=${attemptId}`;
+  const quote = {
+    ...row.quote,
+    settlement_issue: typeof outcome === "object" && !cost ? (row.quote.pricing_issue ?? "费用依据或输入输出/缓存分解缺失、不一致；保留未知金额") : undefined,
+  };
+  await db`UPDATE ai.usage_attempts SET state=${state},quote=${db.json(quote)},settled_micros=${cost ? amount.toString() : null},updated_at=${now} WHERE attempt_id=${attemptId}`;
   await applySums(db, contextOf(row), beijingDate(row.occurred_at), {
     settled: (state === "settled" ? amount : 0n) - before.settled,
     unknown: (state === "unknown" ? reserve : 0n) - before.unknown,
@@ -392,55 +405,27 @@ type RecordedAttempt = {
   cost_basis: string | null;
   request: Record<string, unknown> | null;
   started_at: Date;
-  usage: Record<string, unknown> | null;
-  service: string;
-  model: string | null;
-  configuration_hash: string | null;
 };
 function recordedLane(row: RecordedAttempt): "news" | "policy" | null {
   const explicit = row.request?.lane;
   if (explicit === "news" || explicit === "policy") return explicit;
   return explicit ? null : laneFromPurpose(row.purpose);
 }
-/** Use a receipt's own CNY figure. Token-only receipts take the single price valid that day; foreign bills and unknown calls stay out. */
-async function recordedMicros(db: Db, row: RecordedAttempt, day: string): Promise<bigint | null> {
+/** Only a recorded CNY amount is evidence; today's price cannot price a past call. */
+function recordedMicros(row: RecordedAttempt): bigint | null {
   if (row.currency && row.currency !== "CNY") return null;
   if (row.status === "failed") return 0n;
-  if (row.currency === "CNY" && ["actual", "estimated"].includes(row.cost_basis ?? "")) return amountMicros(row.cost ?? "");
-  if (row.status !== "received" || row.cost !== null || row.currency) return null;
-  const prices = await db<
-    { id: string; version: number; price: unknown }[]
-  >`SELECT id,version,price FROM ai.usage_prices WHERE price->>'service'=${row.service} AND price->>'model'=${row.model ?? ""} AND price->>'currency'='CNY'`;
-  const valid = prices.flatMap((item) => {
-    const parsed = UsagePrice.safeParse(item.price);
-    if (!parsed.success || parsed.data.observed_on > day || parsed.data.valid_until < day) return [];
-    if (row.configuration_hash && parsed.data.configuration_hash !== row.configuration_hash) return [];
-    return [{ id: item.id, version: item.version, price: parsed.data }];
-  });
-  if (valid.length !== 1) return null;
-  const settled = settleQuotedCost(
-    { price_id: valid[0]!.id, price_version: valid[0]!.version, price: valid[0]!.price, reserved_micros: "0", bounds: null },
-    row.usage,
-    null,
-  );
-  return settled?.basis === "estimated" ? settled.micros : null;
+  return row.currency === "CNY" && ["actual", "estimated"].includes(row.cost_basis ?? "") ? amountMicros(row.cost ?? "") : null;
 }
 async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
   const lane = z.enum(["news", "policy"]).nullable().parse(recordedLane(row));
   if (!lane) return false;
   const day = beijingDate(row.started_at),
-    cost = await recordedMicros(db, row, day);
+    cost = recordedMicros(row);
   if (cost === null) return false;
   const explicit = row.request?.lane === "news" || row.request?.lane === "policy";
   if (!explicit)
     await db`UPDATE receipts SET request=jsonb_set(coalesce(request,'{}'::jsonb),'{lane}',pg_catalog.to_jsonb(${lane}::text),true) WHERE id=${row.receipt_id} AND coalesce(request->>'lane','') NOT IN ('news','policy')`;
-  if (row.status !== "failed" && row.cost === null && !row.currency) {
-    const text = centsText(cost);
-    const written =
-      await db`UPDATE receipt_attempts SET cost=${text},currency='CNY',cost_basis='estimated' WHERE id=${row.attempt_id} AND cost IS NULL AND currency IS NULL RETURNING id`;
-    if (!written.length) return false;
-    await db`UPDATE receipts SET cost=${text},currency='CNY',cost_basis='estimated' WHERE id=${row.receipt_id} AND response_attempt_id=${row.attempt_id} AND cost IS NULL AND currency IS NULL`;
-  }
   const supplied = row.request?.usage_object as { kind?: unknown; id?: unknown } | undefined,
     article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(row.subject ?? "");
   const parsedObject = z.object({ kind: z.enum(["article", "policy"]), id: z.string() }).safeParse(supplied);
@@ -471,13 +456,13 @@ async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
   if (inserted.length) await applySums(db, context, day, { settled: cost, unknown: 0n, reserved: 0n });
   return true;
 }
-/** Bring recorded receipts into the ledger. CNY already on the receipt is kept; token counts use the one registered price. No currency conversion and no resend. */
+/** Bring the receipt's recorded costs into the ledger without repricing, currency conversion or resending. */
 async function adoptRecordedUsage(db: Db, since: Date) {
   const skipped: string[] = [];
   for (let pass = 0; pass < 40; pass++) {
     const rows = await db<
       RecordedAttempt[]
-    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb)) AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
+    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb)) AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated'))) ORDER BY a.id LIMIT 500`;
     if (!rows.length) return;
     for (const row of rows) if (!(await adoptOne(db, row))) skipped.push(row.attempt_id);
   }
@@ -578,20 +563,37 @@ export async function admitUsage(
   };
 }
 /** Recheck before dispatch, then mark actual gateway hand-off, not merely the earlier reservation. */
-export async function authorizeUsageSend(db: Db, attemptId: string, now = new Date()) {
+export async function authorizeUsageSend(db: Db, attemptId: string, clock: () => Date = () => new Date()) {
   await usageLock(db);
   const [row] = await db<
-    AttemptUsage[]
-  >`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,reserved_micros::text,settled_micros::text,state,quote,occurred_at FROM ai.usage_attempts WHERE attempt_id=${attemptId}`;
+    (AttemptUsage & { submitted: boolean; task_key: string | null; task_limit_micros: string | null })[]
+  >`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,reserved_micros::text,settled_micros::text,state,quote,occurred_at,submitted,task_key,task_limit_micros::text FROM ai.usage_attempts WHERE attempt_id=${attemptId}`;
   if (!row) return "缺少费用预留证据";
   const c = contextOf(row),
     configuration = await usageConfiguration(db);
   if (configuration) {
+    const now = clock();
     await evaluateInput(db, configuration, c, row.logical_key, now);
     if (!(await usageCoverageGap(db, configuration, now))) await evaluateDaily(db, configuration, now);
   }
   const open = await activeUsageBlocker(db, c);
   if (open) return `费用熔断等待恢复：${open}`;
+  if (!row.submitted && row.quote.quoted_at) {
+    const [used] = row.task_key
+      ? await db<
+          { amount: string }[]
+        >`SELECT coalesce(sum(CASE WHEN state='settled' THEN settled_micros WHEN state IN ('reserved','unknown') THEN reserved_micros ELSE 0 END),0)::text AS amount FROM ai.usage_attempts WHERE task_key=${row.task_key}`
+      : [];
+    // All admission waits precede this snapshot; the remaining writes preserve that exact decision.
+    const now = clock();
+    const refreshed = refreshUsageQuote(row.quote, now);
+    if (!refreshed.quote && row.task_key) return "研究任务调用前缺少有效费用上界";
+    const next = refreshed.quote ?? { ...row.quote, quoted_at: now.toISOString(), pricing_issue: refreshed.missing! };
+    const delta = BigInt(next.reserved_micros) - BigInt(row.reserved_micros);
+    if (used && delta > 0n && BigInt(used.amount) + delta > BigInt(row.task_limit_micros!)) return "时段切换后的费用上界超过研究任务上界";
+    await db`UPDATE ai.usage_attempts SET quote=${db.json(next)},reserved_micros=${next.reserved_micros},updated_at=${now} WHERE attempt_id=${attemptId}`;
+    await applySums(db, c, beijingDate(row.occurred_at), { settled: 0n, unknown: 0n, reserved: delta });
+  }
   await db`UPDATE ai.usage_attempts SET submitted=true WHERE attempt_id=${attemptId}`;
   return null;
 }

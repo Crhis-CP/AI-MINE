@@ -18,6 +18,9 @@ export interface AdminDeliveryIssue {
   [key: string]: unknown;
   id: number;
   target_key: string;
+  retry_reason?: "not_sent" | "rate_limited" | null;
+  retry_at?: Timestamp | null;
+  abandoned_at?: Timestamp | null;
   subject_kind: string;
   subject_id: string;
   status: string;

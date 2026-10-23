@@ -31,7 +31,7 @@ interface UsageRow {
 
 export async function modelsOverview(days = 7) {
   const since = new Date(Date.now() - days * 86400_000);
-  const [sources, usage, prices, history, benches, connections] = await Promise.all([
+  const [sources, usage, history, benches, connections] = await Promise.all([
     modelSources(),
     sql<UsageRow[]>`
       SELECT r.purpose, a.model, r.request->>'promptVersion' AS prompt_version,a.service, count(*)::int AS calls,
@@ -41,14 +41,13 @@ export async function modelsOverview(days = 7) {
              percentile_disc(0.5) WITHIN GROUP (ORDER BY a.latency_ms) AS p50,
              percentile_disc(0.95) WITHIN GROUP (ORDER BY a.latency_ms) AS p95,
              sum((a.usage->>'prompt_tokens')::bigint) AS tokens_in, sum((a.usage->>'completion_tokens')::bigint) AS tokens_out,
-             sum(a.cost) FILTER (WHERE a.cost_basis = 'actual') AS actual_cost,
-             sum(a.cost) FILTER (WHERE a.cost_basis = 'estimated') AS estimated_cost,
-             count(*) FILTER (WHERE a.cost IS NULL)::int AS unpriced_calls,a.currency
+             sum(a.cost) FILTER (WHERE a.cost_basis = 'actual' AND a.currency IS NOT NULL AND trim(a.currency)<>'') AS actual_cost,
+             sum(a.cost) FILTER (WHERE a.cost_basis = 'estimated' AND a.currency IS NOT NULL AND trim(a.currency)<>'') AS estimated_cost,
+             count(*) FILTER (WHERE a.cost IS NULL OR a.currency IS NULL OR trim(a.currency)=''
+               OR coalesce(a.cost_basis,'') NOT IN ('actual','estimated'))::int AS unpriced_calls,a.currency
       FROM receipt_attempts a JOIN receipts r ON r.id = a.receipt_id
       WHERE a.started_at >= ${since} AND a.origin = 'live' AND a.model IS NOT NULL
       GROUP BY 1, 2, 3, 4,a.currency ORDER BY 1,calls DESC`,
-    sql<{ service: string; model: string; currency: string; input_per_mtok: string | null; output_per_mtok: string | null }[]>`
-      SELECT service, model, currency, input_per_mtok, output_per_mtok FROM service_prices`,
     modelSwitchHistory(),
     sql<{ id: string; label: string; sample_size: number; prompt_version: string | null; models: string[]; summary: unknown; created_at: Date }[]>`
       SELECT id, label, sample_size, prompt_version, models,
@@ -58,17 +57,6 @@ export async function modelsOverview(days = 7) {
   ]);
   const routeRevisions = await modelRouteRevisions();
   const connectionNames = new Map(connections.map((c) => [`registered:${c.id}`, c.name]));
-  const priced = (u: UsageRow) => {
-    if (u.estimated_cost !== null && u.currency) return { amount: Number(u.estimated_cost), currency: u.currency };
-    if (u.actual_cost !== null || (u.tokens_in === null && u.tokens_out === null)) return null;
-    const compatible = prices.filter((p) => p.service === u.service && (u.currency === null || p.currency === u.currency));
-    const p = compatible.find((x) => x.model === u.model) ?? compatible.find((x) => x.model === "");
-    if (!p || (p.input_per_mtok === null && p.output_per_mtok === null)) return null;
-    return {
-      amount: (Number(u.tokens_in ?? 0) / 1e6) * Number(p.input_per_mtok ?? 0) + (Number(u.tokens_out ?? 0) / 1e6) * Number(p.output_per_mtok ?? 0),
-      currency: p.currency,
-    };
-  };
   const capabilities = (Object.entries(CAPABILITIES) as Array<[CapabilityKey, Capability]>).map(([key, c]) => ({
     key,
     label: c.label,
@@ -97,7 +85,7 @@ export async function modelsOverview(days = 7) {
         tokensOut: Number(u.tokens_out ?? 0),
         actualCost: u.actual_cost === null ? null : Number(u.actual_cost),
         currency: u.currency,
-        estimate: priced(u),
+        estimate: u.estimated_cost !== null && u.currency ? { amount: Number(u.estimated_cost), currency: u.currency } : null,
       })),
   }));
   const choices = Object.values(MODELS).map((m) => ({ ...environmentModelMetadata(m.key)!, ready: modelPresetReady(m.key) }));

@@ -166,6 +166,7 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
     model: existing?.price.model ?? "",
     hash: existing?.price.configuration_hash ?? "",
     input: yuanRate(existing?.price.input_per_million_micros ?? null),
+    cache: yuanRate(existing?.price.cache_hit_input_per_million_micros ?? null),
     output: yuanRate(existing?.price.output_per_million_micros ?? null),
     fixed: existing?.price.per_request_micros === null || existing === undefined ? "" : decimal(existing.price.per_request_micros, 6),
     maximum: existing?.price.max_request_micros === null || existing === undefined ? "" : decimal(existing.price.max_request_micros, 6),
@@ -175,6 +176,16 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
     observed: existing?.price.observed_on ?? "",
     until: existing?.price.valid_until ?? "",
   }));
+  const [windows, setWindows] = useState(() =>
+    (existing?.price.rate_windows ?? []).map((w) => ({
+      key: w.starts_at,
+      start: w.starts_at,
+      end: w.ends_at,
+      input: yuanRate(w.input_per_million_micros),
+      cache: yuanRate(w.cache_hit_input_per_million_micros),
+      output: yuanRate(w.output_per_million_micros),
+    })),
+  );
   const [confirm, setConfirm] = useState(false),
     [error, setError] = useState("");
   const option = data.pricing_models.find((m) => m.key === selected);
@@ -186,7 +197,21 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
       configuration_hash: draft.hash || null,
       currency: "CNY",
       input_per_million_micros: draft.input ? rate(draft.input) : null,
+      ...(draft.cache || existing?.price.cache_hit_input_per_million_micros !== undefined
+        ? { cache_hit_input_per_million_micros: draft.cache ? rate(draft.cache) : null }
+        : {}),
       output_per_million_micros: draft.output ? rate(draft.output) : null,
+      ...(windows.length || existing?.price.rate_windows !== undefined
+        ? {
+            rate_windows: windows.map((w) => ({
+              starts_at: w.start.trim(),
+              ends_at: w.end.trim(),
+              input_per_million_micros: rate(w.input),
+              cache_hit_input_per_million_micros: w.cache ? rate(w.cache) : null,
+              output_per_million_micros: rate(w.output),
+            })),
+          }
+        : {}),
       per_request_micros: draft.fixed ? micros(draft.fixed) : null,
       max_request_micros: draft.maximum ? micros(draft.maximum) : null,
       image_input_token_bound: draft.image ? Number(draft.image) : null,
@@ -211,6 +236,7 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
               const key = e.target.value,
                 m = data.pricing_models.find((c) => c.key === key);
               setSelected(key);
+              setWindows([]);
               if (m)
                 setDraft({
                   ...draft,
@@ -218,6 +244,7 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
                   model: m.model,
                   hash: m.configuration_hash,
                   input: m.input_cny_per_million ?? "",
+                  cache: "",
                   output: m.output_cny_per_million ?? "",
                   basis: m.basis_url ?? "",
                   fixed: "",
@@ -227,7 +254,7 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
                   observed: "",
                   until: "",
                 });
-              else setDraft({ ...draft, service: "", model: "", hash: "", input: "", output: "", basis: "", protocol: "" });
+              else setDraft({ ...draft, service: "", model: "", hash: "", input: "", cache: "", output: "", basis: "", protocol: "" });
             }}
           >
             <option value="">请选择</option>
@@ -268,10 +295,13 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
         <Field label="计费依据链接（HTTPS）">
           <Input type="url" readOnly={option?.registered} value={draft.basis} onChange={(e) => set("basis", e.target.value)} />
         </Field>
+        <Field label="缓存命中输入单价（元 / 百万 token）" hint="留空沿用总输入单价；0表示有依据的免费缓存。">
+          <Input value={draft.cache} onChange={(e) => set("cache", e.target.value)} inputMode="decimal" />
+        </Field>
         <Field label="价格观察日期">
           <Input type="date" value={draft.observed} onChange={(e) => set("observed", e.target.value)} />
         </Field>
-        <Field label="价格有效至" hint="距观察日期不超过45天；到期只拦该价格下的新付费请求。">
+        <Field label="价格有效至" hint="北京时间，距观察日期不超过45天；过期费用保留未知，研究任务仍需有效上界。">
           <Input type="date" value={draft.until} onChange={(e) => set("until", e.target.value)} />
         </Field>
         <Field label="协议额外输入上界（token）" hint="按供应商可核规则填写；固定按次计费可填0。">
@@ -283,6 +313,43 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
           </Field>
         )}
       </div>
+      <fieldset className="mt-4 space-y-3">
+        <legend className="text-sm font-medium">指定时段价格</legend>
+        <p className="text-xs text-ink-3">填写完整UTC时刻，如2026-10-23T00:00:00Z。按开始时间排列，结束时刻不含；时段外沿用基础价。不自动推断峰谷或节假日。</p>
+        {windows.map((w, index) => (
+          <div key={w.key} className="rounded-lg border border-line p-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ["start", "开始（UTC）"],
+                  ["end", "结束（UTC）"],
+                  ["input", "输入（元 / 百万 token）"],
+                  ["cache", "缓存命中（元 / 百万 token）"],
+                  ["output", "输出（元 / 百万 token）"],
+                ] as const
+              ).map(([key, label]) => (
+                <Field key={key} label={`时段${index + 1} ${label}`} hint={key === "cache" ? "留空表示此时段未单列缓存价，不继承基础缓存折扣。" : undefined}>
+                  <Input
+                    value={w[key]}
+                    inputMode={key === "start" || key === "end" ? "text" : "decimal"}
+                    onChange={(e) => setWindows(windows.map((row, i) => (i === index ? { ...row, [key]: e.target.value } : row)))}
+                  />
+                </Field>
+              ))}
+            </div>
+            <Button className="mt-2" size="sm" onClick={() => setWindows(windows.filter((_, i) => i !== index))}>
+              删除时段{index + 1}
+            </Button>
+          </div>
+        ))}
+        <Button
+          size="sm"
+          disabled={windows.length >= 128}
+          onClick={() => setWindows([...windows, { key: crypto.randomUUID(), start: "", end: "", input: "", cache: "", output: "" }])}
+        >
+          添加指定时段
+        </Button>
+      </fieldset>
       {error && (
         <p role="alert" className="mt-3 text-sm text-red-700">
           {error}
@@ -298,7 +365,7 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
             setError("");
             setConfirm(true);
           } catch {
-            setError("请填写当前计费规则、HTTPS依据及有效期。价格不能缺项，图像上界不能猜测。");
+            setError("请核对单价、HTTPS依据及有效日期；时段须为UTC整秒、升序且不重叠，并全部位于报价有效日期内。不会自动裁剪时段。");
           }
         }}
       >

@@ -228,7 +228,10 @@ export async function listBotChats(): Promise<Array<{ chatId: string; name: stri
 }
 
 /** Custom-bot webhook for content groups (selected cards). */
-export async function postWebhook(url: string, card: unknown): Promise<{ ok: boolean; status: number; body: string }> {
+export async function postWebhook(
+  url: string,
+  card: unknown,
+): Promise<{ ok: boolean; rejected: boolean; status: number; body: string; retryAfter: string | null }> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -236,12 +239,15 @@ export async function postWebhook(url: string, card: unknown): Promise<{ ok: boo
     signal: AbortSignal.timeout(15_000),
   });
   const body = await res.text();
-  let ok = res.ok;
+  let ok = false,
+    rejected = res.status >= 400 && res.status < 500;
   try {
-    const json = JSON.parse(body) as { code?: number; StatusCode?: number };
-    ok = ok && (json.code === 0 || json.StatusCode === 0);
+    const json = JSON.parse(body) as { code?: number; StatusCode?: number } | null;
+    const code = json?.code ?? json?.StatusCode;
+    ok = res.ok && code === 0;
+    rejected ||= res.ok && typeof code === "number" && Number.isFinite(code) && code !== 0;
   } catch {
-    // non-JSON body
+    // A proxy page or malformed success response cannot confirm whether the message arrived.
   }
-  return { ok, status: res.status, body: body.slice(0, 500) };
+  return { ok, rejected, status: res.status, body: body.slice(0, 500), retryAfter: res.headers.get("retry-after") };
 }

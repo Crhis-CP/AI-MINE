@@ -1,3 +1,4 @@
+import { invalidateHistoricalBackgrounds } from "./historical-background-store.ts";
 // Merging stories: facts and heat evidence move into the surviving story, and the old
 // public id keeps answering as an alias. Editors merge from the admin; grouping merges when two
 // stories turn out to be one (consolidate in group.ts).
@@ -21,7 +22,7 @@ export async function mergeStoryInto(
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     if (automaticGuard) await automaticGuard(tx);
     const [from] = await tx<{ public_id: string; merged_into: number | null }[]>`SELECT public_id, merged_into FROM stories WHERE id = ${fromId} FOR UPDATE`;
-    const [into] = await tx<{ merged_into: number | null }[]>`SELECT merged_into FROM stories WHERE id = ${intoId} FOR UPDATE`;
+    const [into] = await tx<{ public_id: string; merged_into: number | null }[]>`SELECT public_id, merged_into FROM stories WHERE id = ${intoId} FOR UPDATE`;
     if (!from || !into || from.merged_into || into.merged_into) return null;
     await tx`UPDATE facts SET story_id = ${intoId}, updated_at = now() WHERE story_id = ${fromId}`;
     // A report with evidence in both stories keeps one row: (story, article) is unique.
@@ -39,6 +40,11 @@ export async function mergeStoryInto(
       { article_id: string }[]
     >`SELECT DISTINCT fa.article_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id WHERE f.story_id = ${intoId}`;
     for (const member of members) await captureEventWithdrawal(tx, member.article_id);
+    await invalidateHistoricalBackgrounds(
+      members.map((m) => m.article_id),
+      tx,
+      [from.public_id, into.public_id],
+    );
     return members;
   });
   if (!articles) return null;

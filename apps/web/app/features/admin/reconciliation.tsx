@@ -10,6 +10,29 @@ export type ReceiptIssue = z.infer<typeof privateSchemas.ReceiptIssue>;
 export type DeliveryIssue = z.infer<typeof privateSchemas.DeliveryIssue>;
 export type ReconciliationData = Pick<z.infer<typeof privateSchemas.ReceiptReconciliationResponse>, "receipts" | "deliveries">;
 
+export function DeliveryRecovery({ delivery: d }: { delivery: Pick<DeliveryIssue, "status" | "retry_reason" | "retry_at" | "abandoned_at"> }) {
+  if (d.abandoned_at) return <Badge tone="muted">已停止发送</Badge>;
+  if (d.status === "unknown") return <Badge tone="bad">送达结果未知，需人工核对</Badge>;
+  const retryable = d.status === "failed" || d.status === "pending";
+  const reason = retryable ? (d.retry_reason === "rate_limited" ? "限流等待" : d.retry_reason === "not_sent" ? "确认尚未发出" : null) : null;
+  return (
+    <div className="space-y-1 text-[12px]">
+      <Badge tone={d.status === "sent" ? "ok" : "warn"}>
+        {reason ?? { sent: "已送达", sending: "发送中", pending: "等待发送", failed: "发送失败，需人工核对" }[d.status] ?? "需人工核对"}
+      </Badge>
+      {reason &&
+        (d.retry_at ? (
+          <div>
+            下次最早尝试：
+            <Time at={d.retry_at} />
+          </div>
+        ) : (
+          <div className="text-ink-3">尚未安排自动尝试，需人工核对。</div>
+        ))}
+    </div>
+  );
+}
+
 export function UsageReconciliation({ data: r, actions }: { data: ReconciliationData; actions: ReturnType<typeof useAdminAction> }) {
   const { run, pending } = actions;
   const [receipt, setReceipt] = useState<ReceiptIssue | null>(null);
@@ -93,7 +116,7 @@ export function UsageReconciliation({ data: r, actions }: { data: Reconciliation
             empty="没有待核实的投递"
             columns={[
               { key: "t", label: "目标", render: (d) => d.target_key },
-              { key: "s", label: "状态", render: (d) => <Badge tone={d.status === "unknown" ? "bad" : "warn"}>{d.status}</Badge> },
+              { key: "s", label: "状态与恢复", render: (d) => <DeliveryRecovery delivery={d} /> },
               {
                 key: "sub",
                 label: "内容",
@@ -110,11 +133,12 @@ export function UsageReconciliation({ data: r, actions }: { data: Reconciliation
               {
                 key: "a",
                 label: "",
-                render: (d) => (
-                  <Button size="sm" onClick={() => setDelivery(d)}>
-                    处理
-                  </Button>
-                ),
+                render: (d) =>
+                  d.abandoned_at ? null : (
+                    <Button size="sm" onClick={() => setDelivery(d)}>
+                      处理
+                    </Button>
+                  ),
               },
             ]}
           />
@@ -164,7 +188,7 @@ export function UsageReconciliation({ data: r, actions }: { data: Reconciliation
       <ReasonDialog
         open={!!delivery}
         title="处理投递"
-        description="先到对应飞书群确认有没有收到。确认没收到再重发；开发环境不会真的发出。"
+        description="送达结果未知时不会自动重发。请先到对应飞书群确认，确认未收到后再选择重新发送；也可以标记已收到或不再发送。"
         confirmLabel="确认"
         danger={outcome === "resend"}
         busy={pending === "delivery"}

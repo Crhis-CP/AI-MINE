@@ -1,6 +1,8 @@
+import { invalidateHistoricalBackgrounds } from "./historical-background-store.ts";
 import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
 export type { HistoricalBackgroundReferencesReader } from "@amp/contracts/site";
+export { readHistoricalBackgroundReferences } from "./historical-background-store.ts";
 import { readGroupingAnalysis, groupingAnalysisHash, groupingScopeInputs } from "../enrichment/records.ts";
 import {
   readMaterialGrouping,
@@ -83,6 +85,7 @@ export async function detachArticleFromFactTx(tx: Tx, articleId: string, reason:
     await completeMaterialGrouping(articleId, material.revision, { addsValue: true, reason: "人工确认独立报道" }, null, tx);
   }
   await tx`DELETE FROM regroup_pending WHERE article_id=${articleId}`;
+  await invalidateHistoricalBackgrounds([articleId], tx);
   return { facts, stories };
 }
 export async function factArticleIds(factIds: number[], db: Db = sql): Promise<string[]> {
@@ -108,6 +111,7 @@ export async function withdrawalEventMembers(type: "event" | "story", publicId: 
 
 /** Withdrawn facts cannot remain embedded in a development line's old synthesized wording. */
 export async function invalidateWithdrawalStories(target: { type: "event" | "story"; id: string }, memberIds: string[], db: Db) {
+  await invalidateHistoricalBackgrounds(memberIds, db, target.type === "story" ? [target.id] : []);
   const rows = await db<
     { story_id: number | null }[]
   >`SELECT f.story_id FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id WHERE fa.article_id=ANY(${memberIds}::text[])
@@ -538,7 +542,7 @@ function selectionReport(row: GroupingSelectionSnapshot): ReportView {
 // Judgement
 // ---------------------------------------------------------------------------
 
-async function relationInput(reports: ReportView[], system: string, render: () => string, checkContext?: () => Promise<void>) {
+export async function relationInput(reports: ReportView[], system: string, render: () => string, checkContext?: () => Promise<void>) {
   const ids = [...new Set(reports.map((r) => r.articleId).filter((id): id is string => !!id))];
   if (reports.some((report) => !report.articleId)) throw new Error("事件裁决缺少双方原材料身份");
   const read = async () => {
@@ -1141,6 +1145,7 @@ export async function requestArticleRegroup(articleId: string, db: Db = sql): Pr
   await db`INSERT INTO regroup_pending(article_id,requested_at) VALUES(${articleId},pg_catalog.clock_timestamp())
     ON CONFLICT(article_id) DO UPDATE SET requested_at=greatest(EXCLUDED.requested_at,regroup_pending.requested_at+interval '1 microsecond')`;
   await beginMaterialGrouping(articleId, material.revision, true, db);
+  await invalidateHistoricalBackgrounds([articleId], db);
   await publishArticleTx(db as Tx, articleId);
   return true;
 }

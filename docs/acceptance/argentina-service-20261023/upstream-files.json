@@ -1,0 +1,48 @@
+{
+  "observed_at": "2026-10-23T03:47:46.620939+00:00",
+  "commit": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+  "files": [
+    {
+      "path": "packages/backend/src/content/extract.ts",
+      "sha256": "b30aa0712dd6ee6ba90c2f2b90dec94b257cc3c218763f576bb149ebeb2db9b8",
+      "bytes": 26613,
+      "url": "https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/packages/backend/src/content/extract.ts"
+    },
+    {
+      "path": "scripts/eval-selection-core.ts",
+      "sha256": "2c1772cae94e52211bdec6678a1ddc97fa276e96d5256e9f4b331328e9bfb2c4",
+      "bytes": 4183,
+      "url": "https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/scripts/eval-selection-core.ts"
+    },
+    {
+      "path": "packages/backend/src/events/group.ts",
+      "sha256": "9fc34062ef21ba52a45c80a248b01c70cb1d8f1bccbc82cb9a09407fe9efdb33",
+      "bytes": 36109,
+      "url": "https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/packages/backend/src/events/group.ts"
+    },
+    {
+      "path": "apps/worker/src/schedules.ts",
+      "sha256": "91b2a539033b0ed0c8b1d2fcc887555e661f6845768dc7376b146d0fd2370e5d",
+      "bytes": 5814,
+      "url": "https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/apps/worker/src/schedules.ts"
+    },
+    {
+      "path": "packages/backend/src/providers/receipts.ts",
+      "sha256": "bea7e2c6a0a77e27c38de5b529dcd81468d5cb4a4363a0b89545f721a401052c",
+      "bytes": 22466,
+      "url": "https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/packages/backend/src/providers/receipts.ts"
+    },
+    {
+      "path": "apps/web/app/features/feed/Filters.tsx",
+      "sha256": "fc8127677ea3a9624dd186adb9921c868fb7abb67730051d1d176c802d949910",
+      "bytes": 9863,
+      "url": "https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/apps/web/app/features/feed/Filters.tsx"
+    },
+    {
+      "path": "apps/web/app/routes/story.tsx",
+      "sha256": "f81bd0d1580ab07a5e0210a7c7a4de2efe422321192fc3325c38c932aac7d3f2",
+      "bytes": 22209,
+      "url": "https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/apps/web/app/routes/story.tsx"
+    }
+  ]
+}

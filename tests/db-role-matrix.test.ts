@@ -104,6 +104,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "editorial.withdrawal_records",
       "editorial.withdrawal_restorations",
       "enrichment.translation_segments",
+      "events.story_background_proofs",
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
       "feedback.quota_buckets",
@@ -153,6 +154,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.report_revision_changes",
       "publication.site_information",
       "publication.site_information_commands",
+      "publication.story_background_refs",
       "publication.withdrawal_members",
       "publication.withdrawal_targets",
       "reports.calendar",
@@ -175,6 +177,30 @@ test("every real role has exactly the approved table, column, sequence and cross
     await permission(sql, "UPDATE feedback.quota_buckets SET used=used WHERE false", quotaWrite, `${role} updates quota count`);
     await permission(sql, "UPDATE feedback.quota_buckets SET bucket_key=bucket_key WHERE false", role === "migrate", `${role} cannot reassign quota bucket`);
     await permission(sql, "DELETE FROM feedback.quota_buckets WHERE false", role === "migrate", `${role} cannot clear quota`);
+    // Independent expectations: proof is private and retained; only the safe projection is publicly readable.
+    for (const [table, field, safe] of [
+      ["events.story_background_proofs", "active", false],
+      ["publication.story_background_refs", "relation", true],
+    ] as const)
+      for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+        const business = role === "worker" || role === "private_ops";
+        const allowed =
+          role === "migrate" ||
+          (operation === "SELECT" && (business || role === "backup" || (safe && role === "public_read"))) ||
+          (safe && business && (operation === "INSERT" || operation === "DELETE")) ||
+          (!safe && business && operation === "UPDATE") ||
+          (!safe && role === "worker" && operation === "INSERT");
+        const name = table.split(".").map(quote).join(".");
+        const statement =
+          operation === "SELECT"
+            ? `SELECT * FROM ${name} LIMIT 1`
+            : operation === "INSERT"
+              ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false RETURNING 1`
+              : operation === "UPDATE"
+                ? `UPDATE ${name} SET ${quote(field)}=${quote(field)} WHERE false RETURNING 1`
+                : `DELETE FROM ${name} WHERE false RETURNING 1`;
+        await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
+      }
     // Report work state is private. Business roles can append/update; only migrations can delete it.
     for (const [table, field] of [
       ["publication.report_revision_changes", "generation"],

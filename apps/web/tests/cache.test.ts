@@ -15,6 +15,7 @@ import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { releaseBoundCache } from "../app/lib/api.server.ts";
 import { webEnvironment } from "../runtime-env.ts";
 import { fetchWithHost } from "../http-probe.ts";
+import { browserExecutable } from "./browser.ts";
 
 const PRIVATE_HOST = "private.localhost:8443";
 const privateHeaders = { Host: PRIVATE_HOST };
@@ -26,6 +27,7 @@ let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
 let privatePageFixtures = false;
+let usagePriceJourney: { record: ReturnType<typeof privateSchemas.UsagePriceRecord.parse>; saved: unknown[] } | null = null;
 let coverageUnavailable = false;
 let groupingView: "pending" | "complete" | "failed" | "legacy" = "pending";
 let modelJourney: {
@@ -181,6 +183,43 @@ const privateApi = createServer(async (req, res) => {
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
   if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
   if (privatePageFixtures) {
+    if (usagePriceJourney && req.url === "/api/admin/usage-protection")
+      return res.end(
+        JSON.stringify({
+          can_manage: true,
+          as_of: "2026-10-23T00:00:00Z",
+          indicators: [],
+          configuration: null,
+          initial_config: null,
+          prices: [usagePriceJourney.record],
+          breakers: [],
+          events: [],
+          missing: [],
+          pricing_models: [
+            {
+              key: "fixture",
+              label: "合成计价模型",
+              service: "fixture-price",
+              model: "price-model",
+              configuration_hash: "a".repeat(64),
+              vision: false,
+              registered: false,
+              input_cny_per_million: "2",
+              output_cny_per_million: "8",
+              basis_url: "https://example.invalid/pricing",
+            },
+          ],
+        }),
+      );
+    if (usagePriceJourney && req.url === "/api/admin/usage-prices" && req.method === "PUT") {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+      const body = privateSchemas.UsagePriceChange.parse(JSON.parse(Buffer.concat(chunks).toString()));
+      assert.equal(body.expected_version, usagePriceJourney.record.version);
+      usagePriceJourney.saved.push(body.price);
+      usagePriceJourney.record = { ...usagePriceJourney.record, price: body.price, version: body.expected_version + 1 };
+      return res.end(JSON.stringify(usagePriceJourney.record));
+    }
     if (modelJourney && req.method === "POST" && req.url?.startsWith("/api/admin/model-")) {
       const chunks = [];
       for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -1930,6 +1969,98 @@ test("source coverage view survives refresh and back navigation without losing t
     await context.close();
   } finally {
     coverageUnavailable = false;
+    privatePageFixtures = false;
+    await browser.close();
+  }
+});
+
+test("usage price editor preserves, edits and removes cache windows without clipping shortened dates", async () => {
+  const browser = await chromium.launch({
+    executablePath: browserExecutable(),
+    args: ["--disable-background-networking", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+  privatePageFixtures = true;
+  try {
+    for (const width of [1440, 390]) {
+      const price = privateSchemas.UsagePrice.parse({
+        service: "fixture-price",
+        model: "price-model",
+        configuration_hash: "a".repeat(64),
+        currency: "CNY",
+        input_per_million_micros: "2000000",
+        cache_hit_input_per_million_micros: "40000",
+        output_per_million_micros: "8000000",
+        per_request_micros: null,
+        max_request_micros: null,
+        image_input_token_bound: null,
+        protocol_input_token_allowance: 0,
+        basis_url: "https://example.invalid/pricing",
+        observed_on: "2026-10-23",
+        valid_until: "2026-10-25",
+        rate_windows: [
+          {
+            starts_at: "2026-10-25T00:00:00Z",
+            ends_at: "2026-10-25T04:00:00Z",
+            input_per_million_micros: "1000000",
+            cache_hit_input_per_million_micros: "20000",
+            output_per_million_micros: "4000000",
+          },
+        ],
+      });
+      usagePriceJourney = { record: { id: "fixture", version: 1, price, updated_at: "2026-10-23T00:00:00Z" }, saved: [] };
+      const context = await browser.newContext({ viewport: { width, height: 900 }, serviceWorkers: "block", reducedMotion: "reduce" });
+      await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+      const page = await context.newPage();
+      await page.goto(`${privateOrigin}/admin/settings`, { waitUntil: "networkidle" });
+      await page.getByText("复核价格 · price-model", { exact: true }).click();
+      const form = page.locator("details").filter({ has: page.getByText("复核价格 · price-model", { exact: true }) });
+      await expect(form.getByLabel("缓存命中输入单价（元 / 百万 token）")).toHaveValue("0.04");
+      const save = async () => {
+        await form.getByRole("button", { name: "核对并保存价格", exact: true }).click();
+        const dialog = page.getByRole("dialog", { name: "确认当前计费依据" });
+        await dialog.getByLabel("原因（写进审计记录）").fill("合成价格回归，无真实调用");
+        await dialog.getByRole("button", { name: "确认有效价格", exact: true }).click();
+        await expect(dialog).toBeHidden();
+        await expect(form).not.toHaveAttribute("open", "");
+        await page.getByText("复核价格 · price-model", { exact: true }).click();
+      };
+      await save();
+      assert.deepEqual(usagePriceJourney.saved[0], price);
+      await form.getByLabel("价格有效至").fill("2026-10-24");
+      await form.getByRole("button", { name: "核对并保存价格", exact: true }).click();
+      await expect(form.getByRole("alert")).toContainText("不会自动裁剪时段");
+      assert.equal(usagePriceJourney.saved.length, 1);
+      await expect(form.getByLabel("时段1 结束（UTC）", { exact: true })).toHaveValue("2026-10-25T04:00:00Z");
+      await form.getByLabel("价格有效至").fill("2026-10-25");
+      for (const [label, value] of [
+        ["开始（UTC）", "2026-10-25T01:00:00Z"],
+        ["结束（UTC）", "2026-10-25T05:00:00Z"],
+        ["输入（元 / 百万 token）", "0.8"],
+        ["缓存命中（元 / 百万 token）", "0.01"],
+        ["输出（元 / 百万 token）", "3.2"],
+      ])
+        await form.getByLabel(`时段1 ${label}`).fill(value!);
+      await form.getByLabel("缓存命中输入单价（元 / 百万 token）").fill("0");
+      await save();
+      assert.equal(usagePriceJourney.record.price.cache_hit_input_per_million_micros, "0");
+      assert.deepEqual(usagePriceJourney.record.price.rate_windows![0], {
+        starts_at: "2026-10-25T01:00:00Z",
+        ends_at: "2026-10-25T05:00:00Z",
+        input_per_million_micros: "800000",
+        cache_hit_input_per_million_micros: "10000",
+        output_per_million_micros: "3200000",
+      });
+      await form.getByRole("button", { name: "删除时段1", exact: true }).click();
+      await form.getByLabel("缓存命中输入单价（元 / 百万 token）").fill("");
+      await save();
+      assert.deepEqual(usagePriceJourney.record.price.rate_windows, []);
+      assert.equal(usagePriceJourney.record.price.cache_hit_input_per_million_micros, null);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+      await context.close();
+    }
+  } finally {
+    usagePriceJourney = null;
     privatePageFixtures = false;
     await browser.close();
   }

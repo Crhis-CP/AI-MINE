@@ -1,3 +1,4 @@
+import { sha256 } from "@amp/backend/lib/ids";
 // Manual delivery recovery must claim one version before sending or changing its outcome.
 import { gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
@@ -14,6 +15,8 @@ const WEBHOOK = "https://delivery.invalid/test";
 const app = await buildApp("private-api");
 const ids: number[] = [];
 const requests: number[] = [];
+const articleIds = new Map<number, string>();
+const cards: unknown[] = [];
 let answer = async (_id: number) => Response.json({ code: 0 });
 
 before(async () => {
@@ -22,13 +25,15 @@ before(async () => {
   // Exercise the live branch entirely in-process; any unexpected network request fails the test.
   globalThis.fetch = (async (input, init) => {
     assert.equal(String(input), WEBHOOK);
-    const id = JSON.parse(String(init?.body)).card.id as number;
+    const card = JSON.parse(String(init?.body)).card;
+    cards.push(card);
+    const id = Number(card.id ?? card.header.title.content);
     requests.push(id);
     return answer(id);
   }) as typeof fetch;
   config.feishuContentPushEnabled = true;
-  await sql`INSERT INTO notify_targets (key, purpose, kind, config_ref)
-    VALUES (${TARGET}, 'content', 'feishu_webhook', 'TEST_DELIVERY_WEBHOOK')`;
+  await sql`INSERT INTO notify_targets (key, purpose, kind, config_ref, enabled)
+    VALUES (${TARGET}, 'content', 'feishu_webhook', 'TEST_DELIVERY_WEBHOOK', true)`;
 });
 const realFetch = globalThis.fetch;
 after(async () => {
@@ -45,6 +50,14 @@ async function delivery(status = "unknown") {
   const [row] = await sql<{ id: number }[]>`INSERT INTO deliveries (target_key, subject_kind, subject_id, dedupe_key, status)
     VALUES (${TARGET}, 'selected', 'test', ${`${T}-${ids.length}`}, ${status}) RETURNING id`;
   ids.push(row.id);
+  const articleId = `delivery-${T}-${row.id}`;
+  articleIds.set(row.id, articleId);
+  await sql`INSERT INTO sources(id,name,kind) VALUES(${articleId},'合成来源','rss')`;
+  await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at)
+    VALUES(${articleId},${articleId},${articleId},${`https://example.com/${articleId}`},${String(row.id)},now(),now())`;
+  await sql`INSERT INTO publications(article_id,source_id,channel,title,url,discovered_at,timeline_at,selected,seat,eligible,summary,sort_at)
+    VALUES(${articleId},${articleId},'news',${String(row.id)},${`https://example.com/${articleId}`},now(),now(),true,true,true,'当前摘要',now())`;
+  await sql`UPDATE deliveries SET subject_id=${articleId},dedupe_key=${`selected:article:${articleId}`} WHERE id=${row.id}`;
   await sql`UPDATE deliveries SET payload = ${sql.json({ id: row.id })} WHERE id = ${row.id}`;
   return row.id;
 }
@@ -184,4 +197,102 @@ test("disabled pushes and missing credentials leave the retry available without 
   }
   assert.deepEqual(await state(id), before);
   assert.equal(requests.filter((n) => n === id).length, 0);
+});
+
+test("resend checks current target, publication and fact identity before any transport", async () => {
+  const disabled = await delivery();
+  await sql`UPDATE notify_targets SET enabled=false WHERE key=${TARGET}`;
+  try {
+    await assert.rejects(resendDelivery(disabled), { code: "conflict" });
+  } finally {
+    await sql`UPDATE notify_targets SET enabled=true WHERE key=${TARGET}`;
+  }
+  const restarted = await delivery();
+  await sql`UPDATE notify_targets SET enabled_at=now()+interval '1 minute' WHERE key=${TARGET}`;
+  try {
+    await assert.rejects(resendDelivery(restarted), { code: "conflict" });
+  } finally {
+    await sql`UPDATE notify_targets SET enabled_at=null WHERE key=${TARGET}`;
+  }
+  const rejected = [disabled, restarted];
+  for (const change of ["withdrawn", "unselected", "old", "backfill", "future", "silent", "new_fact"]) {
+    const id = await delivery();
+    const a = articleIds.get(id)!;
+    if (change === "withdrawn") await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${a}`;
+    if (change === "unselected") await sql`UPDATE publications SET selected=false WHERE article_id=${a}`;
+    if (change === "old") await sql`UPDATE publications SET timeline_at=now()-interval '13 hours' WHERE article_id=${a}`;
+    if (change === "backfill") await sql`UPDATE publications SET backfill=true WHERE article_id=${a}`;
+    if (change === "future") await sql`UPDATE publications SET visible_after=now()+interval '1 hour' WHERE article_id=${a}`;
+    if (change === "silent") await sql`INSERT INTO editorial_overrides(article_id,fields) VALUES(${a},'{"silent":true}')`;
+    if (change === "new_fact") await sql`UPDATE publications SET fact_id=123456 WHERE article_id=${a}`;
+    await assert.rejects(resendDelivery(id), { code: "conflict" }, change);
+    rejected.push(id);
+  }
+  assert.equal(requests.filter((id) => rejected.includes(id)).length, 0);
+});
+
+test("resend regenerates the card from the current approved copy", async () => {
+  const id = await delivery();
+  await sql`UPDATE publications SET summary='已核对的更正摘要' WHERE article_id=${articleIds.get(id)!}`;
+  assert.equal((await resendDelivery(id)).status, "sent");
+  assert.match(JSON.stringify(cards.at(-1)), /已核对的更正摘要/);
+  const [saved] = await sql`SELECT payload FROM deliveries WHERE id=${id}`;
+  assert.deepEqual(saved.payload, cards.at(-1));
+});
+
+test("a retry waiting for its claim observes a completed withdrawal", async () => {
+  const id = await delivery();
+  const lock = await hold(id);
+  const retry = resolve(id).then((r) => r);
+  try {
+    await lock.blocked(1);
+    await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${articleIds.get(id)!}`;
+  } finally {
+    await lock.release();
+  }
+  assert.equal((await retry).statusCode, 409);
+  assert.equal(requests.filter((n) => n === id).length, 0);
+  assert.equal((await state(id)).attempts, 0);
+});
+
+test("an HTTP success without a valid provider acknowledgement remains unknown", async () => {
+  for (const reply of [() => new Response("proxy page"), () => Response.json({ message: "missing code" }), () => Response.json({ code: 0 }, { status: 503 })]) {
+    const id = await delivery();
+    answer = async () => reply();
+    try {
+      assert.equal((await resendDelivery(id)).status, "unknown");
+    } finally {
+      answer = async () => Response.json({ code: 0 });
+    }
+  }
+});
+
+test("a completed withdrawal during title-lease contention prevents sending", async () => {
+  const id = await delivery();
+  const leaseKey = `selected-title:${sha256(String(id)).slice(0, 24)}`;
+  await sql`INSERT INTO delivery_leases(lease_key,holder,expires_at) VALUES(${leaseKey},${articleIds.get(id)!},now()+interval '1 hour')`;
+  const acquired = gate<number>(),
+    release = gate();
+  const lock = sql.begin(async (tx) => {
+    await tx`SELECT lease_key FROM delivery_leases WHERE lease_key=${leaseKey} FOR UPDATE`;
+    const [row] = await tx<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+    acquired.open(row.pid);
+    await release.promise;
+  });
+  const pid = await acquired.promise;
+  const retry = resolve(id).then((r) => r);
+  try {
+    const deadline = performance.now() + 5000;
+    while (!(await sql`SELECT pid FROM pg_stat_activity WHERE ${pid}=ANY(pg_blocking_pids(pid))`).length) {
+      assert.ok(performance.now() < deadline, "retry reached the title lease");
+      await delay(10);
+    }
+    await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${articleIds.get(id)!}`;
+  } finally {
+    release.open();
+    await lock;
+  }
+  assert.equal((await retry).statusCode, 409);
+  assert.equal(requests.filter((n) => n === id).length, 0);
+  assert.equal((await state(id)).attempts, 0);
 });
