@@ -115,11 +115,11 @@ export default function MetalsPage() {
                   <span key={period.tag} className="mr-4 inline-block">
                     <Tag value={period.tag} />
                     {period.label ?? "暂无已授权价格数据"}
-                    {period.stale && <span className="ml-1 text-amber-ink">数据已陈旧</span>}
+                    {period.stale && <span className="ml-1 text-amber-ink">较早期数据</span>}
                     {period.extras.map((extra) => (
                       <span key={extra.label}>
                         （{extra.metals.join("、")} {extra.label}
-                        {extra.stale && " 数据已陈旧"}）
+                        {extra.stale && " 较早期数据"}）
                       </span>
                     ))}
                   </span>

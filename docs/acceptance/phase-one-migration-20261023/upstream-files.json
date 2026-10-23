@@ -1,0 +1,57 @@
+{
+  "commit": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+  "tree_files": 671,
+  "files": [
+    {
+      "path": "apps/web/app/routes.ts",
+      "bytes": 3256,
+      "sha256": "373688211a9754fb4d7372d7dbec246dade65366a5012f6b987e882ab074c168"
+    },
+    {
+      "path": "apps/worker/src/main.ts",
+      "bytes": 2129,
+      "sha256": "4e8dd54e5106a1589ea3b0bd0593efa28f0a6d770ac9f06da4165b8878962854"
+    },
+    {
+      "path": "apps/worker/src/schedules.ts",
+      "bytes": 5815,
+      "sha256": "034d17f2e325854dc3a79d9ea461f692445cce9939685bd0d901eca330167122"
+    },
+    {
+      "path": "docker-compose.yml",
+      "bytes": 2806,
+      "sha256": "df0a0422fecca1709bcb857a4c4d7fbe042750ca62f4ffa6aa6c8dada2ad7c21"
+    },
+    {
+      "path": "docs/architecture.md",
+      "bytes": 12379,
+      "sha256": "0c18104356b41d201efa09a48d54170f10b8000c1e2554baf1b2cf6009e86781"
+    },
+    {
+      "path": "packages/backend/src/db.ts",
+      "bytes": 1801,
+      "sha256": "bf1f269fd9c30543e020f795805774da64a08d2078fb74e2e07b9381ee56a331"
+    },
+    {
+      "path": "packages/backend/src/reports/compose.ts",
+      "bytes": 19844,
+      "sha256": "6eedf8f5893965fedb7d336e757c5a563d49bcea814c1d9e28489672bc57bdac"
+    },
+    {
+      "path": "site/README.md",
+      "bytes": 1272,
+      "sha256": "f7d75f64178c37542018ee28b231a08a54c594d700b8bd691ae192952502c0c7"
+    },
+    {
+      "path": "site/modules/server.ts",
+      "bytes": 236,
+      "sha256": "81f2d77c2668ace936bd4e8577eef277f3026369672f2c8a853d6cd1f73ba499"
+    },
+    {
+      "path": "site/modules/web.ts",
+      "bytes": 181,
+      "sha256": "d61933509a88a9677e29d6176a9297cb2a8836ebc8bed465b957aac627c156f6"
+    }
+  ],
+  "note": "原件经GitHub连接器读取，未执行上游代码。"
+}

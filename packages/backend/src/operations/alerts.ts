@@ -239,16 +239,21 @@ async function metalPageFindings(now: number): Promise<Finding[]> {
     ];
   }
   const out: Finding[] = [];
-  const stale = prices.sources.filter((source) => source.status === "stale");
+  const aged = prices.sources.filter((source) => source.status === "stale");
+  const checks = aged.length ? await readMetalPriceRuns(new Date(now)) : null;
+  const stale = aged.filter((source) => {
+    const check = checks?.sources[source.key];
+    return !check?.latest.ok || !check.lastOkAt || now - check.lastOkAt.getTime() > 26 * 3600_000;
+  });
   if (stale.length) {
     out.push({
       key: "metals.period",
       level: "now",
       title: stale.length === 1 ? `${stale[0]!.name}的价格过了该更新的期限` : `金属价格有 ${stale.length} 个来源过了该更新的期限`,
-      impact: `页面仍显示旧的一期，并标明“数据已陈旧”：${stale.map((source) => `${source.name} ${source.latest?.label ?? "没有期名"}`).join("；")}`,
-      heals: "下一轮定时抓取（每天 09:45、15:45、21:45）拿到新的一期并核对通过后会自己换上；官方没发，或这一期被扣下，就不会",
+      impact: `页面仍显示较早期的数据：${stale.map((source) => `${source.name} ${source.latest?.label ?? "没有期名"}`).join("；")}`,
+      heals: "系统每半小时检查一次，拿到新一期并核对通过后会自动更新；官方尚未更新时保留原期次",
       action: "转给 AI 处理",
-      detail: "期限用的是各来源原来的陈旧天数（统计局 20 天、商务预报 21 天、世界银行 45 天、俄央行 14 天），没有把期限改长",
+      detail: "按各来源登记的有效期核对，没有把期限改长；近期检查成功且没有新一期时正常等待，不作为抓取故障",
     });
   }
   const hasAny = prices.metals.some((metal) => metal.quotes.some((quote) => quote.value !== null));
@@ -694,7 +699,17 @@ async function providerFindings(): Promise<Finding[]> {
 }
 
 interface AlertState {
-  [key: string]: { title: string; level?: Level; since: string; sentAt: string };
+  [key: string]: { title: string; level?: Level; since: string; sentAt: string; fingerprint?: string };
+}
+
+const changeOnly = (key: string) => key.startsWith("metals.") || key.startsWith("sources.");
+function findingFingerprint(f: Finding) {
+  let detail = f.detail;
+  // Waiting timestamps and repeated failure counters describe the same incident, not a new cause.
+  if (f.key.startsWith("sources.waiting.")) detail = detail?.split("；最近等待记录")[0];
+  if (f.key.startsWith("sources.failing.")) detail = detail?.replace(/连续失败 \d+ 次/, "连续失败");
+  if (/^sources\.(unstable|details)\./.test(f.key)) detail = undefined;
+  return JSON.stringify([f.level, f.title, f.impact, f.heals, f.action, detail]);
 }
 
 /** Every 10 minutes: new problems and recoveries of the now/today levels go out; digest items wait for 09:00. */
@@ -706,22 +721,30 @@ export async function checkAlerts(now = Date.now()) {
     })
   ).filter((f) => f.level !== "digest");
   const [row] = await sql<{ value: AlertState }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
-  const state: AlertState = { ...(row?.value ?? {}) };
+  const state: AlertState = Object.fromEntries(Object.entries(row?.value ?? {}).filter(([key]) => !key.startsWith("digest:")));
+  const previousKeys = Object.keys(state);
   const sent: string[] = [];
   const opened: string[] = [];
   for (const f of found) {
     const level = f.level as Exclude<Level, "digest">;
     const open = state[f.key]?.level ? state[f.key] : undefined;
-    if (open && now - Date.parse(open.sentAt) <= REPEAT_MS[level]) continue;
+    const fingerprint = findingFingerprint(f);
+    if (open && changeOnly(f.key)) {
+      if (open.fingerprint === fingerprint || (!open.fingerprint && open.title === f.title && open.level === level)) {
+        state[f.key] = { ...open, fingerprint };
+        continue;
+      }
+    } else if (open && now - Date.parse(open.sentAt) <= REPEAT_MS[level]) continue;
     const since = open ? new Date(open.since) : (f.since ?? new Date(now));
     const msg = formatAlert(f, since, now, !!open);
     await sendAlert(msg.title, msg.lines);
-    state[f.key] = { title: f.title, level, since: since.toISOString(), sentAt: new Date(now).toISOString() };
+    state[f.key] = { title: f.title, level, since: since.toISOString(), sentAt: new Date(now).toISOString(), fingerprint };
     sent.push(f.key);
     if (!open) opened.push(f.key);
   }
   for (const key of Object.keys(state)) {
     if (found.some((f) => f.key === key)) continue;
+    if (key.startsWith("metals.") && !collecting()) continue;
     // Entries without a level predate this scheme (2026-09-29) and close without a message.
     if (state[key]!.level) {
       // A missing finding may mean collection was paused or the worker is warming up. Keep this
@@ -734,7 +757,7 @@ export async function checkAlerts(now = Date.now()) {
     delete state[key];
   }
   await sql`INSERT INTO settings (key, value, updated_by) VALUES ('alerts.state', ${sql.json(state as never)}, 'alerts')
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`;
+            ON CONFLICT (key) DO UPDATE SET value = (settings.value - ${previousKeys}::text[]) || EXCLUDED.value, updated_at = now()`;
   // `opened` (the keys first announced this round) is kept in the ops.alerts run record for autoStopsBetween.
   return { open: Object.keys(state), sent, opened };
 }
@@ -774,11 +797,37 @@ export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: nu
 /** 09:00: one message with follow-ups; unresolved requests can still block new processing. */
 export async function sendDigest(now = Date.now()) {
   const items = (await collectFindings(now)).filter((f) => f.level === "digest");
-  const lines = items.map((f, i) => `${i + 1}. ${f.title}${f.detail ? `\n   ${f.detail}` : ""}`);
+  const [row] = await sql<{ value: AlertState }[]>`SELECT value FROM settings WHERE key='alerts.state'`;
+  const state: AlertState = Object.fromEntries(Object.entries(row?.value ?? {}).filter(([key]) => key.startsWith("digest:")));
+  const previousKeys = Object.keys(state);
+  const lines: string[] = [];
+  for (const f of items) {
+    if (changeOnly(f.key)) {
+      const key = `digest:${f.key}`;
+      const fingerprint = findingFingerprint(f);
+      if (state[key]?.fingerprint === fingerprint) continue;
+      state[key] = {
+        title: f.title,
+        level: "digest",
+        since: state[key]?.since ?? new Date(now).toISOString(),
+        sentAt: new Date(now).toISOString(),
+        fingerprint,
+      };
+    }
+    lines.push(`${lines.length + 1}. ${f.title}${f.detail ? `\n   ${f.detail}` : ""}`);
+  }
+  const sourcesPaused = (await runtimeControlSnapshot("news", ["collection"])).paused;
+  for (const key of previousKeys) {
+    if (items.some((f) => `digest:${f.key}` === key) || !collecting() || (key.startsWith("digest:sources.") && sourcesPaused)) continue;
+    lines.push(`${lines.length + 1}. 已恢复：${state[key]!.title}`);
+    delete state[key];
+  }
   if (!lines.length) return { items: 0 };
   const introduction = items.some((item) => item.key === "receipts.unknown")
     ? "以下事项需要核对。付费请求结果未知可能阻塞新内容处理；请保留费用记录，可把整条转给 AI 排查。"
     : "以下是系统运行的待跟进事项，可把整条转给 AI 排查。";
   await sendAlert(`📋 系统日报 · ${beijingDay(now)}`, [introduction, ...lines]);
+  await sql`INSERT INTO settings(key,value,updated_by) VALUES('alerts.state',${sql.json(state as never)},'alerts')
+    ON CONFLICT(key) DO UPDATE SET value=(settings.value - ${previousKeys}::text[]) || EXCLUDED.value,updated_at=now()`;
   return { items: lines.length };
 }

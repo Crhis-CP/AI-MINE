@@ -1,7 +1,7 @@
 import { loadSiteInformation } from "@amp/backend/site/stats";
 // Site-only price projection: registry presentation and stored decimal values, without acquisition or writes.
 import { MetalPrices } from "@amp/contracts/http/public";
-import { beijingDate } from "@amp/contracts/time";
+import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { sql } from "@amp/backend/db";
 import { loadMetalPriceRegistry, parseMetalPriceRegistry, type MetalPriceItem } from "./registry.ts";
 
@@ -16,6 +16,7 @@ interface Price {
   release: string;
   url: string;
   date: string | null;
+  checked_at: Date;
   rate_unit: string | null;
   rate_currency: string | null;
   previous_start: string | null;
@@ -53,7 +54,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       const [row] = await tx<Price[]>`
         WITH versions AS (
           SELECT DISTINCT ON (series_key, period_start) series_key, currency, unit, period_start, period_end, period_label,
-            value, release_label, release_url, released_on, first_fetched_at
+            value, release_label, release_url, released_on, first_fetched_at, fetched_at
           FROM publication.metal_prices WHERE series_key IN (${item.key}, ${convert?.rate ?? item.key})
           ORDER BY series_key, period_start DESC, first_fetched_at DESC, released_on DESC NULLS LAST, release_label DESC
         ), prices AS (
@@ -63,7 +64,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
           WHERE p.series_key = ${item.key} AND (NOT ${!!convert} OR r.value IS NOT NULL)
         ), current AS (SELECT * FROM prices ORDER BY period_start DESC LIMIT 1)
         SELECT c.period_start::text AS start, c.period_end::text AS end, c.period_label AS label, c.displayed::text AS value,
-          c.unit, c.currency, c.release_label AS release, c.release_url AS url, c.released_on::text AS date, c.rate_unit, c.rate_currency,
+          c.unit, c.currency, c.release_label AS release, c.release_url AS url, c.released_on::text AS date, c.fetched_at AS checked_at, c.rate_unit, c.rate_currency,
           p.period_start::text AS previous_start, p.period_end::text AS previous_end, p.period_label AS previous_label,
           p.displayed::text AS previous_value, p.unit AS previous_unit, p.currency AS previous_currency,
           p.rate_unit AS previous_rate_unit, p.rate_currency AS previous_rate_currency,
@@ -87,6 +88,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
   const today = beijingDate(now),
     yearPrefix = `${today.slice(0, 4)}年`;
   const stalePeriod = (end: string, days: number) => new Date(Date.parse(end) + days * 86400_000).toISOString().slice(0, 10) < today;
+  const checkNotes: MetalPrices["notes"] = [];
   const presentationSources = sources.map((source) => {
     const rows = items
       .filter((item) => item.source === source.key)
@@ -94,6 +96,12 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       .filter((row): row is Price => !!row);
     rows.sort((a, b) => b.end.localeCompare(a.end));
     const newest = rows[0];
+    const checked = rows.length ? new Date(Math.min(...rows.map((row) => row.checked_at.getTime()))) : null;
+    checkNotes.push({
+      ref: null,
+      text: `${source.name}：${source.delay}。${checked ? `现有报价最近成功核对：${beijingDate(checked)} ${beijingTime(checked)}（北京时间）；核对时间不改变数据所属期。` : "尚无成功核对的报价。"}`,
+      link: null,
+    });
     const status = !newest ? "empty" : rows.some((row) => stalePeriod(row.end, source.staleDays)) ? "stale" : "fresh";
     return {
       key: source.key,
@@ -176,6 +184,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         text: note.text.replaceAll("{tags}", frequencies.map((f) => f.tag).join("、")).replaceAll("{compare}", frequencies.map((f) => f.compare).join("，")),
         link: note.link ?? null,
       });
+  notes.push(...checkNotes);
   return MetalPrices.parse({
     generatedAt: now.toISOString(),
     intro: registry.intro,

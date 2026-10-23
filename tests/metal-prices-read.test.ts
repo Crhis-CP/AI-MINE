@@ -118,6 +118,18 @@ test("same-period revisions use deterministic tie-breaks; empty and stale source
   assert.equal((await read(NOW, disabled)).sources.find((s) => s.key === "nbs")?.status, "empty");
 });
 
+test("price check notes use persisted successful checks, never the reader request time or a fabricated new period", async () => {
+  await seed("nbs.copper", "2026-09-11", "2026-09-20", "100.0");
+  const first = await read();
+  const later = await read(new Date("2026-10-07T04:00:00Z"));
+  const note = (data: MetalPrices) => data.notes.find((n) => n.text.startsWith("国家统计局："))?.text;
+  assert.match(note(first) ?? "", /每旬结束后数日发布.*2026-10-06 12:00（北京时间）/);
+  assert.equal(note(later), note(first));
+  assert.deepEqual(quote(later, "nbs.copper").period, quote(first, "nbs.copper").period);
+  assert.notEqual(first.generatedAt, later.generatedAt);
+  assert.ok(later.notes.some((n) => n.text.includes("世界银行") && n.text.includes("尚无成功核对")));
+});
+
 test("numeric comparisons round away from zero, retain release revisions and reject corrupt current units", async () => {
   for (const [key, value, expected] of [
     ["nbs.copper", "100.05", "0.1"],
