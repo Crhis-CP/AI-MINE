@@ -31,3 +31,24 @@ export interface MaterialDiscovered {
   materialId: string;
   directoryHash: string;
 }
+
+/** Optional marks supplied by an installed module, using local assets or a text fallback. */
+export interface ModuleBrand {
+  src: string | null;
+  monogram: string;
+  raster: boolean;
+}
+export interface ModuleTopicSummary {
+  slug: string;
+  name: string;
+  group: "company" | "field" | "genre" | "project";
+  definition: string;
+  total: number;
+  recent: number;
+  indexable: boolean;
+  latestAt: string | null;
+  basis: "selected" | "all";
+}
+export type ModuleTopicMember = import("./site.ts").FeedItemSummary;
+
+export type ModuleNavigationCounts = Partial<Record<string, number>>;

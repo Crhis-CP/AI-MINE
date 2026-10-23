@@ -301,7 +301,7 @@
 | [TASK-0427](TASK-0427.md) | T-0101 | M3 | architect | implemented | 第一阶段统一依据与完整迁移承接 | — |
 | [TASK-0428](TASK-0428.md) | T-0101 | M3 | architect | locally_verified | 修复资讯报告自动补刊与空期恢复 | — |
 | [TASK-0429](TASK-0429.md) | T-0101 | M3 | architect | locally_verified | 区分价格检查与发布期并合并重复提醒 | — |
-| [TASK-0430](TASK-0430.md) | T-0101 | M3 | architect | specified | 补齐固定上游通用模块扩展契约 | — |
+| [TASK-0430](TASK-0430.md) | T-0101 | M3 | architect | locally_verified | 补齐固定上游通用模块扩展契约 | — |
 | [TASK-0431](TASK-0431.md) | T-0101 | M3 | architect | locally_verified | 保存来源检查结果并区分报价所属期 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |

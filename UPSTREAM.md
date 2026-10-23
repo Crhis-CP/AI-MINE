@@ -122,3 +122,5 @@ Owner再次要求按最新代码核对原18项目标。本轮固定为AIHOT `6d8
 安全维护将`@modelcontextprotocol/client`、`core`、`server`固定到2.3.0。三份实际npm包的LICENSE字节相同，sha256为`0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a`；包元数据标注Apache-2.0，但许可正文明确项目处于MIT向Apache-2.0过渡，未取得改许可同意的原贡献仍按MIT，非规格文档按CC-BY-4.0。不能据一个metadata字段改写整份许可。
 
 原文保留在安装包的`node_modules/@modelcontextprotocol/{client,core,server}/LICENSE`，生产镜像保留其实际安装依赖附带的原文；[官方许可证](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/LICENSE)供追溯，具体交付字节以固定版本与上述摘要为准。此条仅登记SDK依赖，不改变本站及AIHOT来源代码各自的MIT原文，也不把SDK归作AIHOT来源。
+
+2026-10-23（TASK-0430）：通用模块扩展声明适配自AIHOT固定提交a0d1e75b00ede7e503ca948e71a468db964b2df2的packages/backend/src/modules.ts、apps/web/app/modules.ts及packages/contracts/src/site.ts中的Brand；沿现有MIT许可和NOTICE署名。本地改为矿业主题及成员类型，保留按lane队列、materialDiscovered、admin.http和原导航兼容；未导入示范来源、品牌或行业模型设置。
