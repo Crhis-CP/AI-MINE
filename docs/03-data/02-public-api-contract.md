@@ -116,7 +116,7 @@
 
 - 结构：`{code, label, kind, parent?}`。`kind` 为 `country`（ISO 3166-1 alpha-2）、`subdivision`（ISO 3166-2，如 `CN-GZ`，`parent` 为所属国家）、`organization`（保留代码 `EU`、`UN`、`OECD`）。运行用的法域字典是 `data/jurisdictions-36.json`：33 国 + 3 个组织共 36 个对象，外加中国 14 个省区下级法域（共 50 条），每个对象带 `news_scope` / `policy_scope` 标志；资讯线以 18 国起步。字段对照：`id`→`code`、`name_zh`→`label`、`kind`、`parent`；`tier`（含 5 个背景层国家）、`policy_first_batch_required`、`scope_basis` 等研究验收字段只在内部使用，**不对外**。`data/jurisdiction-scope.json` 是 B 的范围底表，只作对照。A 的 `countries` 字段删除；参数名只有 `jurisdiction`，旧参数 `country` 不保留（没有旧接口适配层，DEC-21）。
 - 筛选参数 `jurisdiction` 取上述代码；选国家时**包含其下级**省/州。分面按 `kind` 分组，**组织不计入国家数**（旧分支同口径，`docs/policy-upgrade/reader-runtime.md:6-7@policy`）。
-- 条目的 `jurisdictions` 取材料实际涉及的法域，不按发布方总部或网站域名推断（INV-31）。
+- 条目的 `jurisdictions` 取材料实际涉及的法域，不按发布方总部或网站域名推断（INV-31）。 资讯国别筛选按当前有效作用地证据执行，不把正文国名提及或普通标签作为替代；国名全文检索继续由`q`承担。`unknown`包含缺少当前依据及partial待核材料，partial中已证实国家仍可命中，因此待确认计数与国家计数不是互斥分区。列表、精选、事件目录与国家计数沿用同一口径。
 
 ### 2.7 错误（DEC-52）
 

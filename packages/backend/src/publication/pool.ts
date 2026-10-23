@@ -8,7 +8,6 @@ import {
   confirmedSelected,
   categoryCondition,
   publicationDateCondition,
-  currentGeographyMatch,
   jurisdictionCondition,
   newsJurisdictionScope,
   channelCondition,
@@ -364,8 +363,7 @@ async function loadPoolSourceFacets(query: PoolQuery, names: ReadMatcherValues, 
       AND (${names.tagTags}::text[] IS NULL OR p.tags && ${names.tagTags}::text[] OR (${names.tagText.active} AND ${publicationTextMatches(names.tagText)}))
       AND (${minerals.tagTags}::text[] IS NULL OR p.tags && ${minerals.tagTags}::text[] OR (${minerals.tagText.active} AND ${publicationTextMatches(minerals.tagText)}))
       AND (${names.topicTags}::text[] IS NULL OR p.tags && ${names.topicTags}::text[] OR (${names.topicText.active} AND ${publicationTextMatches(names.topicText)}))
-      AND (${query.jurisdiction ?? null}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction ?? null, codes, recipe)}
-        OR (${query.jurisdiction ?? null} NOT IN ('unknown','none') AND (p.tags && ${names.jurisdictionTags}::text[] OR ${publicationTextMatches(names.jurisdictionText)})))
+      ${jurisdictionCondition(query.jurisdiction ?? null, codes, recipe, names)}
       AND (${!names.term0.active} OR ${publicationTextMatches(names.term0)})
       AND (${!names.term1.active} OR ${publicationTextMatches(names.term1)})
       AND (${!names.term2.active} OR ${publicationTextMatches(names.term2)})

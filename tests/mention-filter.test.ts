@@ -1,5 +1,5 @@
-// 全部矿业动态 filters keep every public article whose title or summary names the country,
-// mineral or company. 精选 filters stay inside 精选. Aliases match. Withdrawn stays hidden.
+// Country filters use current evidenced locations; mention searches and mineral/company aliases stay broad.
+// 精选 filters stay inside 精选 and withdrawn content stays hidden.
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -7,6 +7,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { foldMention, mentionByFold, mentionByTag, textHits } from "../packages/backend/src/publication/mentions.ts";
+import { geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
 
 const SOURCE = `test-mentions-${tag()}`;
 const NOW = new Date("2026-10-10T04:00:00.000Z");
@@ -39,7 +40,10 @@ test("刚果金, 刚果（金） and DRC are one country, and 金 is not", () =>
   assert.equal(textHits("精炼铅出口增加", lead.needles), true);
 });
 
-async function item(name: string, opts: { search: string; tags?: string[]; selected?: boolean; visibility?: string; eligible?: boolean }) {
+async function item(
+  name: string,
+  opts: { search: string; tags?: string[]; jurisdictions?: string[]; selected?: boolean; visibility?: string; eligible?: boolean },
+) {
   const id = `${SOURCE}-${name}`;
   const at = new Date(NOW.getTime() - 86_400_000);
   const url = `https://example.invalid/${id}`;
@@ -49,6 +53,9 @@ async function item(name: string, opts: { search: string; tags?: string[]; selec
       visibility, eligible, selected, selection_candidate, visible_after, tags)
     VALUES (${id}, ${name}, ${opts.search}, ${opts.search.toLowerCase()}, ${SOURCE}, 'news', ${url}, ${at}, ${at}, ${at},
       ${opts.visibility ?? "public"}, ${opts.eligible ?? true}, ${opts.selected ?? false}, ${opts.selected ?? false}, ${at}, ${opts.tags ?? []})`;
+  if (opts.jurisdictions)
+    await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
+      VALUES(${id},1,NULL,${geographyRecipe()},'identified',${opts.jurisdictions})`;
   return id;
 }
 
@@ -68,14 +75,15 @@ const poolIds = async (query: { jurisdiction?: string; tag?: string; q?: string 
 
 test("country, mineral and company filters keep public articles and leave 精选, withdrawn and lookalikes alone", async () => {
   await sql`INSERT INTO sources (id, name, kind, config) VALUES (${SOURCE}, 'Mention fixture', 'rss', '{}')`;
-  const listed = await item("listed-drc", { search: "刚果（金）矿业部 · 新闻 刚果（金）矿业周开幕" });
-  const alias = await item("alias-drc", { search: "刚果金矿业部发布新的出口安排" });
-  const featured = await item("featured-drc", { search: "Democratic Republic of the Congo updates cobalt rules", selected: true });
-  const tagged = await item("tagged-drc", { search: "出口配额调整", tags: ["刚果（金）"] });
-  const withdrawn = await item("withdrawn-drc", { search: "刚果（金）矿业部撤回稿", visibility: "withdrawn" });
-  const hidden = await item("ineligible-drc", { search: "刚果（金）未公开稿", eligible: false });
-  const zambia = await item("zambia", { search: "赞比亚政府规划矿业投资" });
-  const inner = await item("inner-mongolia", { search: "内蒙古自治区出让矿业权" });
+  const listed = await item("listed-drc", { search: "刚果（金）矿业部 · 新闻 刚果（金）矿业周开幕", jurisdictions: ["CD"] });
+  const alias = await item("alias-drc", { search: "刚果金矿业部发布新的出口安排", jurisdictions: ["CD"] });
+  const featured = await item("featured-drc", { search: "Democratic Republic of the Congo updates cobalt rules", selected: true, jurisdictions: ["CD"] });
+  const tagged = await item("tagged-drc", { search: "出口配额调整", tags: ["刚果（金）"], jurisdictions: ["CD"] });
+  const withdrawn = await item("withdrawn-drc", { search: "刚果（金）矿业部撤回稿", visibility: "withdrawn", jurisdictions: ["CD"] });
+  const hidden = await item("ineligible-drc", { search: "刚果（金）未公开稿", eligible: false, jurisdictions: ["CD"] });
+  const unconfirmed = await item("unconfirmed-drc", { search: "材料背景提及刚果金，但没有作用地证据", tags: ["刚果（金）"] });
+  const zambia = await item("zambia", { search: "赞比亚政府规划矿业投资", jurisdictions: ["ZM"] });
+  const inner = await item("inner-mongolia", { search: "内蒙古自治区出让矿业权", jurisdictions: ["CN-NM"] });
   const cobalt = await item("cobalt", { search: "钴价上涨，库存下降" });
   const featuredCobalt = await item("featured-cobalt", { search: "cobalt output recovered", selected: true });
   const gold = await item("gold", { search: "黄金价格走高" });
@@ -85,6 +93,7 @@ test("country, mineral and company filters keep public articles and leave 精选
   for (const id of [listed, alias, featured, tagged]) assert.ok(congo.has(id), id);
   assert.equal(congo.has(withdrawn), false);
   assert.equal(congo.has(hidden), false);
+  assert.equal(congo.has(unconfirmed), false);
   assert.equal(congo.has(gold), false);
   assert.equal((await poolIds({ tag: "金" })).has(listed), false);
   assert.equal((await poolIds({ tag: "金" })).has(gold), true);
@@ -99,6 +108,7 @@ test("country, mineral and company filters keep public articles and leave 精选
   assert.equal((await poolIds({ q: "刚果金" })).has(listed), true);
   assert.equal((await poolIds({ q: "刚果金矿业部" })).has(listed), true);
   assert.equal((await poolIds({ q: "DRC" })).has(alias), true);
+  assert.equal((await poolIds({ q: "DRC" })).has(unconfirmed), true);
   assert.equal((await poolIds({ q: "Zambia" })).has(zambia), true);
   assert.equal((await poolIds({ jurisdiction: "ZM" })).has(zambia), true);
   assert.equal((await poolIds({ jurisdiction: "MN" })).has(inner), false);

@@ -8,6 +8,69 @@ import { sourceHealthWeekly } from "@amp/backend/operations/reports";
 
 after(closeDb);
 
+test("current source waits survive historical ok but exclude obsolete sessions, normal pacing and paused sources", async (t) => {
+  const now = new Date(),
+    start = new Date(now.getTime() - 3_600_000),
+    at = new Date(now.getTime() - 60_000),
+    retryAt = new Date(now.getTime() + 60_000).toISOString();
+  const make = async (label: string, reason = "robots_unavailable", scope?: string) => {
+    const id = `wait-${label}-${tag()}`;
+    await sql`INSERT INTO sources(id,name,kind,enabled,health,last_ok_at) VALUES(${id},${id},'rss',true,'ok',${start})`;
+    await sql`INSERT INTO acquisition.crawl_sessions(id,scope,source_id,binding,created_at,updated_at)
+      VALUES(${id},${`${scope ?? "source"}:${id}`},${id},'fixture',${start},${start})`;
+    await sql`INSERT INTO fetch_runs(source_id,status,started_at,finished_at,detail)
+      VALUES(${id},'skipped',${at},${at},${sql.json({ state: "deferred", reason, retryAt })})`;
+    return id;
+  };
+  const current = await make("current"),
+    pacing = await make("pacing", "host_pacing"),
+    obsolete = await make("obsolete"),
+    rebound = await make("rebound"),
+    preview = await make("preview", "robots_unavailable", "preview"),
+    extract = await make("extract", "robots_unavailable", "extract"),
+    paused = await make("paused"),
+    archived = await make("archived"),
+    recovered = await make("recovered");
+  await sql`UPDATE acquisition.crawl_sessions SET active=false WHERE id=${obsolete}`;
+  await sql`UPDATE acquisition.crawl_sessions SET updated_at=${now} WHERE id=${rebound}`;
+  await sql`UPDATE sources SET enabled=false WHERE id=${paused}`;
+  await sql`UPDATE sources SET archived_at=${now},enabled=false WHERE id=${archived}`;
+  await sql`INSERT INTO fetch_runs(source_id,status,started_at,finished_at) VALUES(${recovered},'ok',${now},${now})`;
+  const waits = (await sourceHealth(now.getTime())).flatMap((group) => group.waiting ?? []);
+  assert.deepEqual(
+    waits.map((row) => row.id),
+    [current],
+  );
+  assert.equal(waits[0]!.health, "ok", "historical health is not rewritten as a failure");
+  assert.equal(waits[0]!.waiting!.reason, "robots_unavailable");
+  assert.equal(waits[0]!.waiting!.retry_at, retryAt);
+  assert.ok(![pacing, obsolete, rebound, preview, extract, paused, archived, recovered].some((id) => waits.some((row) => row.id === id)));
+  await sql`UPDATE fetch_runs SET detail=jsonb_set(detail,'{retryAt}','"invalid"'::jsonb) WHERE source_id=${current}`;
+  assert.equal((await sourceHealth(now.getTime())).flatMap((group) => group.waiting)[0]!.waiting!.retry_at, null);
+  await sql`UPDATE fetch_runs SET detail=jsonb_set(detail,'{retryAt}',${sql.json(retryAt)}) WHERE source_id=${current}`;
+
+  const logged: string[] = [];
+  t.mock.method(console, "log", (line: string) => logged.push(line));
+  const previous = process.env.FEISHU_INTERNAL_ENABLED;
+  process.env.FEISHU_INTERNAL_ENABLED = "false";
+  t.after(() => {
+    if (previous === undefined) delete process.env.FEISHU_INTERNAL_ENABLED;
+    else process.env.FEISHU_INTERNAL_ENABLED = previous;
+  });
+  await sourceHealthWeekly(now.getTime());
+  const report = logged.map((line) => JSON.parse(line)).find((entry) => entry.title === "📊 信源周报");
+  assert.ok(report.lines.some((line: string) => line.includes(current) && line.includes("等待") && line.includes("访问规则")));
+  assert.ok(!report.lines.includes("没有需要处理的信源。"));
+
+  await sql`UPDATE ops.lane_controls SET paused=true,reason='fixture pause',actor='test',expires_at=${new Date(now.getTime() + 60_000)}
+    WHERE lane='news' AND switch='collection' AND holder='owner'`;
+  assert.ok((await sourceHealth(now.getTime())).every((group) => group.waiting.length === 0));
+  await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='collection' AND holder='owner'`;
+  await sql`UPDATE acquisition.crawl_sessions SET active=false WHERE id=${current}`;
+  await sql`INSERT INTO fetch_runs(source_id,status,started_at,finished_at) VALUES(${current},'ok',${now},${now})`;
+  assert.ok((await sourceHealth(now.getTime())).every((group) => group.waiting.length === 0));
+});
+
 test("weekly source errors preserve English letters and normalize real whitespace without sending a message", async (t) => {
   const id = `health-${tag()}`;
   const errors = ["Source date permission denied: fetch/resource_mismatch (cdn.example.invalid)", "no items matched (html)\n\tcheck selectors"];
