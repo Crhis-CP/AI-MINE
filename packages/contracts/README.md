@@ -89,3 +89,4 @@ Agent答案契约在`http/agent`：匿名只读Markdown说明及资讯、检索�
 `http/private`的UsagePrice兼容增加可选`cache_hit_input_per_million_micros`与`rate_windows`；旧字段、省略新字段和空时段数组保持旧语义，不自动填默认字段。缓存价null/缺省表示未单列缓存价，不能据此补造供应商缓存折扣。时段含UTC秒精度的starts_at/ends_at及完整输入、缓存命中（可null）、输出单价，最多128段，按起点升序、左闭右开且不重叠；位于observed_on至valid_until的北京时间有效日期范围内，结束日包含全天。无匹配时段使用基础价，不推断循环峰谷或节假日。
 
 新字段仅准备传输形状，不证明供应商支持、历史账单已校正或现有运行结算已经采用。调用前冻结price_id/version、整份价格、报价时间及实际采用时段，缺缓存分解或数量不守恒保持unknown；完整用量按价计算仍为estimated，不伪装账单actual。报价、结算、后台编辑保存和账本依据须在后续消费者交付中一起接通；此准备版本不得在生产登记含新字段的价格。精确兼容与消费者清单见[计价设计](../../docs/04-architecture/usage-price-windows.md)。
+投递恢复兼容声明（TASK-0408）：DeliveryIssue可携带retry_reason、retry_at、abandoned_at；旧响应省略表示恢复资格未提供，不能自动重发。明确未发/限流、未知和人工放弃分别处理，处理器及迁移后续接入。见docs/04-architecture/delivery-recovery.md。

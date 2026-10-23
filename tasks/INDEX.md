@@ -275,6 +275,7 @@
 | [TASK-0401](TASK-0401.md) | T-0101 | M3 | architect | locally_verified | 隔离验证评分B与阿根廷国别精选 | TASK-0402 |
 | [TASK-0402](TASK-0402.md) | T-0101 | M3 | architect | locally_verified | 冻结B与AR候选标准及独立样本判定 | — |
 | [TASK-0403](TASK-0403.md) | T-0101 | M3 | architect | locally_verified | 验证隔离评分与国别提名的恢复和边界 | TASK-0401、TASK-0402 |
+| [TASK-0408](TASK-0408.md) | T-0101 | M3 | architect | locally_verified | 声明投递恢复原因和人工放弃的兼容字段 | — |
 | [TASK-0413](TASK-0413.md) | T-0101 | M3 | architect | locally_verified | 声明缓存命中与绝对时段计价兼容契约 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |

@@ -1,3 +1,4 @@
+import { DeliveryIssue } from "../../packages/contracts/src/http/private.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
@@ -437,3 +438,12 @@ if (process.argv.includes("--routes")) {
     for (const route of ["/api/v3/items", "/api/v3/reports", "/api/v3/policies", "/api/v3/freshness"]) assert.ok(publicV3.paths[route]);
   });
 }
+
+test("delivery recovery metadata remains optional and rejects invented retry reasons", () => {
+  const old = { id: 1, target_key: "test", status: "failed", subject_kind: "selected", subject_id: "article", updated_at: "2026-10-23T00:00:00Z" };
+  assert.equal(DeliveryIssue.safeParse(old).success, true);
+  assert.equal(DeliveryIssue.safeParse({ ...old, retry_reason: "not_sent", retry_at: old.updated_at, abandoned_at: null }).success, true);
+  assert.equal(DeliveryIssue.safeParse({ ...old, retry_reason: null, retry_at: null, abandoned_at: old.updated_at }).success, true);
+  assert.equal(DeliveryIssue.safeParse({ ...old, retry_reason: "unknown" }).success, false);
+  assert.equal(DeliveryIssue.safeParse({ ...old, retry_at: "tomorrow" }).success, false);
+});
