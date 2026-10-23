@@ -9,6 +9,7 @@
 | 声明 | 输入/输出与责任 |
 | --- | --- |
 | HistoricalCandidateRequest | news、query的articleId/materialRevision/publicationRevision/sourceDateVersion、1—3个原文锚点、1—10条limit；无默认国别或精选前提 |
+| HistoricalAnchorExtractor | `(text: string) => z.infer<typeof HistoricalAnchor>[]`；沿site及publication/publish转出类型，准备候选输入 |
 | HistoricalBackgroundReader | `(HistoricalCandidateRequest) => Promise<HistoricalBackgroundCandidate[]>`；只读、无模型、无重评分或公开副作用 |
 | HistoricalBackgroundCandidate | binding、item、候选原文anchors；binding.articleId与item.id一致，包含普通稿，不要求factId |
 | HistoricalBackgroundConfirmation | 双方材料/公开修订、SAME_OCCURRENCE或SAME_STORY、双方非空原文锚点、回执ID与实际输入hash；仅内部证据，不公开 |
@@ -17,6 +18,8 @@
 | StoryDetail.background | 可选数组，每条为relation与item。item复用FeedItemSummary的标题、摘要、来源、精选状态、publishedAt，并带现有sourceTime和originalUrl；无factId或内部证据 |
 
 锚点kind只允许project、mine、document；text须逐字出现在quote中，公司名、矿种或国家名不能独自构成锚点。请求锚点须先在query当前原文核验，候选端口沿现有搜索索引有界检索并生成实际原文摘录；允许使用已核实别名映射检索，但不得从同公司猜测项目身份。双方锚点类型须一致，文字可为有依据的不同语言/别名，模型判定不替代原文与别名依据。无可靠锚点返回空候选，不降级为全历史向量扫描，也不购买新的embedding服务。
+
+TASK-0422追加提取器类型声明：后续在既有`@amp/backend/publication/publish`具名实现`extractHistoricalAnchors(text)`，与候选Reader复用上述项目、矿山、文书语境规则；它只准备候选输入，不签发ProcessingPermit、不调用模型，不将提取本身当作已确认关系。本片不实现函数、不新增package子路径，也不改变HTTP载荷。
 
 公开background的sourceTime使用原有TimeAssertion精度，必须存在或明确null；publishedAt只等于其中已证明的utc。日期精度或未知时publishedAt为null，不能借发现时间、首次公开时间或人为午夜。原文发表日不证明事件发生日，本字段不新增occurredAt。background省略兼容旧生产者；接入后空数组表示没有当前已确认背景，不声称穷尽全部历史。
 
