@@ -44,9 +44,22 @@ for (const [code, names] of Object.entries({
   CD: ["DRC", "DR Congo", "Congo-Kinshasa", "刚果民主共和国"],
 }))
   for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
-const aliasDigest = sha256(stableJson([...aliases].map(([alias, ids]) => [alias, [...ids]])));
-export const geographyRecipe = () =>
-  sha256(stableJson(["news-geography-v1/head12000-tail2000/adaptive-total-32000", promptVersion("structure"), GEOGRAPHY_DICTIONARY, aliasDigest]));
+const digestAliases = () => sha256(stableJson([...aliases].map(([alias, ids]) => [alias, [...ids]])));
+const previousAliasDigest = digestAliases();
+// These unambiguous province names can support a country already chosen by the model; they never infer an event role.
+for (const [code, names] of Object.entries({
+  CA: ["British Columbia", "不列颠哥伦比亚省", "卑诗省"],
+  AU: ["Northern Territory", "New South Wales", "北领地", "新南威尔士州"],
+  AR: ["Catamarca", "Salta", "Jujuy", "卡塔马卡", "萨尔塔", "胡胡伊"],
+}))
+  for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
+const aliasDigest = digestAliases();
+const recipeForAliases = (digest: string) =>
+  sha256(stableJson(["news-geography-v1/head12000-tail2000/adaptive-total-32000", promptVersion("structure"), GEOGRAPHY_DICTIONARY, digest]));
+export const geographyRecipe = () => recipeForAliases(aliasDigest);
+/** Only this additive vocabulary change is compatible; a different prompt, dictionary or old base still fails closed. */
+export const compatibleGeographyRecipes = (recipe = geographyRecipe()) =>
+  recipe === geographyRecipe() ? [recipe, recipeForAliases(previousAliasDigest)] : [recipe];
 const clip = (value: string, limit: number, tail = false) => {
   const chars = Array.from(value);
   let result = "",
@@ -197,7 +210,7 @@ export async function readAnalyzedGeography(
     !Number.isSafeInteger(stored.bodyBudget) ||
     stored.bodyBudget < 1024 ||
     stored.bodyBudget > 22000 ||
-    stored.recipe !== geographyRecipe() ||
+    !compatibleGeographyRecipes().includes(stored.recipe) ||
     stored.sourceHash !== geographyMaterial(material).sourceHash
   )
     return validateGeography(null, material);
@@ -209,10 +222,11 @@ export async function readAnalyzedGeography(
   };
   return validateGeography(candidate, material, stored.bodyBudget);
 }
-/** Current completed geography, including an explicit unknown, is not automatically re-purchased. */
+/** Completed compatible evidence is retained; a prior partial result can be revalidated from its received structure answer. */
 export async function needsGeographyAnalysis(articleId: string, revision: number) {
   const [row] = await sql<
-    { recipe: string | null }[]
-  >`SELECT output->'geography'->>'recipe' AS recipe FROM analyses WHERE article_id=${articleId} AND input_revision=${revision} ORDER BY id DESC LIMIT 1`;
-  return row?.recipe !== geographyRecipe();
+    { recipe: string | null; state: string | null }[]
+  >`SELECT output->'geography'->>'recipe' AS recipe,output->'geography'->>'state' AS state FROM analyses WHERE article_id=${articleId} AND input_revision=${revision} ORDER BY id DESC LIMIT 1`;
+  if (row?.recipe === geographyRecipe()) return false;
+  return !row?.recipe || !compatibleGeographyRecipes().includes(row.recipe) || !["identified", "none"].includes(row.state ?? "");
 }

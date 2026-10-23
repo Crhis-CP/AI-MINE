@@ -3,9 +3,11 @@ import { sendJsonWithEtag, sendProblem } from "@amp/backend/http";
 import { loadMetalPrices } from "./backend/read.ts";
 import { defineServerModule } from "@amp/backend/modules";
 import { refreshMetalPrices } from "./backend/refresh.ts";
+import { metalFindings } from "./backend/alerts.ts";
 /** Keep the existing queue identity and source update frequency. */
 export default defineServerModule({
   name: "metals",
+  alerts: metalFindings,
   http(app) {
     app.get(routes.siteMetalPrices.url, routes.siteMetalPrices, async (request, reply) => {
       try {

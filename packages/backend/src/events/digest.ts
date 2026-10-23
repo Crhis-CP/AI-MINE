@@ -14,7 +14,7 @@ import { completeReceipt } from "../providers/receipts.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 
-export const DIGEST_PROMPT_VERSION = promptVersion("story-digest");
+export const DIGEST_PROMPT_VERSION = promptVersion("story-digest", "story-digest-input");
 
 const SYSTEM = promptText("story-digest");
 
@@ -66,15 +66,18 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
   const corrected = sameReports || opts.afterCorrection === true;
   const known = new Set(last?.article_ids ?? []);
 
-  const lines = reports
-    .slice(-40)
-    .map(
-      (r) =>
-        `${corrected || known.has(r.id) ? "" : "【新】"}${beijingDate(r.at)} ${beijingTime(r.at)}｜${r.source_name}${r.first_party ? "（一手）" : ""}｜${r.title}｜${(r.summary ?? "").slice(0, 220)}`,
-    );
-  const user = corrected
-    ? `事件当前标题：${reports[0]!.title}\n\n报道内容经过编辑更正。请只依据下面这些报道的当前内容重写综述，不要沿用以前版本的说法。\n报道（按时间）：\n${lines.join("\n")}`
-    : `事件当前标题：${story.title}\n${story.digest ? `上一版综述：${story.digest}\n` : ""}\n报道（按时间，标【新】的是上一版之后的新报道）：\n${lines.join("\n")}`;
+  const visible = reports.slice(-40);
+  const lines = visible.map(
+    (r, index) =>
+      `${index + 1}. ${beijingDate(r.at)} ${beijingTime(r.at)}｜${r.source_name}${r.first_party ? "（一手）" : ""}｜${r.title}｜${(r.summary ?? "").slice(0, 220)}`,
+  );
+  const user = promptText("story-digest-input", {
+    reports: lines.join("\n"),
+    mode: corrected ? "更正" : "增量更新",
+    title: corrected ? reports[0]!.title : story.title,
+    previousDigest: corrected ? "无" : (story.digest ?? "无"),
+    newReports: corrected ? "无" : visible.flatMap((r, index) => (known.has(r.id) ? [] : [index + 1])).join("、") || "无",
+  });
   const publication = await requireRuntimeRunning("news", ["publication"]),
     processing = await runtimeControlSnapshot("news", ["processing"]);
   const materials = await newsMaterialBindings(ids);
