@@ -275,7 +275,14 @@
 | [TASK-0401](TASK-0401.md) | T-0101 | M3 | architect | locally_verified | 隔离验证评分B与阿根廷国别精选 | TASK-0402 |
 | [TASK-0402](TASK-0402.md) | T-0101 | M3 | architect | locally_verified | 冻结B与AR候选标准及独立样本判定 | — |
 | [TASK-0403](TASK-0403.md) | T-0101 | M3 | architect | locally_verified | 验证隔离评分与国别提名的恢复和边界 | TASK-0401、TASK-0402 |
+| [TASK-0404](TASK-0404.md) | T-0101 | M3 | architect | locally_verified | 保留模型后台历史费用原始依据 | — |
+| [TASK-0405](TASK-0405.md) | T-0101 | M3 | architect | locally_verified | 阻止法规暂停阶段持续发现和重复入队 | — |
+| [TASK-0406](TASK-0406.md) | T-0101 | M3 | architect | locally_verified | 核实第二阶段法规行情品牌与订阅的研究依据 | — |
+| [TASK-0407](TASK-0407.md) | T-0101 | M3 | architect | locally_verified | 重发前重新核对当前内容和目标资格 | — |
+| [TASK-0410](TASK-0410.md) | T-0101 | M3 | architect | locally_verified | 核对双国地理异常与历史摘要预览绑定 | — |
+| [TASK-0412](TASK-0412.md) | T-0101 | M3 | architect | locally_verified | 核对阿根廷官方来源三十天覆盖窗口 | — |
 | [TASK-0413](TASK-0413.md) | T-0101 | M3 | architect | locally_verified | 声明缓存命中与绝对时段计价兼容契约 | — |
+| [TASK-0417](TASK-0417.md) | T-0101 | M3 | architect | locally_verified | 记录公开访问测量与真实阅读验收条件 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

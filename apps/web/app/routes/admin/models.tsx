@@ -318,12 +318,12 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                         <div className="whitespace-nowrap">
                           {u.actualCost !== null && <div>实际 {usageMoney(u.actualCost, u.currency)}</div>}
                           {u.estimate && (
-                            <div title="优先采用调用时的估算记录；缺项按已登记单价和已知用量推算">
+                            <div title="仅汇总调用时保存的估算金额；缺失费用不按当前价格补算，估算不等同供应商账单">
                               估算 ≈ {usageMoney(u.estimate.amount, u.estimate.currency)}
                             </div>
                           )}
                           {u.actualCost === null && !u.estimate && <span className="text-ink-4">费用待核对</span>}
-                          {!!u.unpricedCalls && <div className="text-[11.5px] text-ink-3">{num(u.unpricedCalls)} 次未取得费用记录</div>}
+                          {!!u.unpricedCalls && <div className="text-[11.5px] text-ink-3">{num(u.unpricedCalls)} 次费用记录不完整，待核对</div>}
                         </div>
                       ),
                     },

@@ -86,8 +86,8 @@ export async function deliverContent(req: DeliveryRequest): Promise<Array<{ targ
     await sql`UPDATE deliveries SET status = 'sending', attempts = attempts + 1, updated_at = now() WHERE id = ${row.id}`;
     try {
       const res = await postWebhook(url, req.card);
-      // A Feishu error code on HTTP 200, or a 4xx, is a definite rejection; 5xx may have gone through.
-      const status = res.ok ? "sent" : res.status < 500 ? "failed" : "unknown";
+      // Only an explicit acknowledgement or rejection is known; malformed responses remain uncertain.
+      const status = res.ok ? "sent" : res.rejected ? "failed" : "unknown";
       await sql`UPDATE deliveries SET status = ${status}, response = ${res.body.slice(0, 500)}, sent_at = ${res.ok ? new Date() : null}, updated_at = now() WHERE id = ${row.id}`;
       results.push({ target: t.key, status });
     } catch (error) {
@@ -104,27 +104,63 @@ export async function deliverContent(req: DeliveryRequest): Promise<Array<{ targ
  * for deliveries in doubt or definitely failed; the safety valve still applies.
  */
 export async function resendDelivery(id: number, version?: string): Promise<{ status: string }> {
-  const [d] = await sql<{ status: string; version: string; payload: unknown; target_key: string; config_ref: string | null; kind: string }[]>`
-    SELECT d.status, d.updated_at::text AS version, d.payload, d.target_key, t.config_ref, t.kind
+  const [d] = await sql<
+    {
+      status: string;
+      version: string;
+      subject_id: string;
+      subject_kind: string;
+      dedupe_key: string;
+      target_key: string;
+      config_ref: string | null;
+      kind: string;
+      enabled: boolean;
+      enabled_at: Date | null;
+      purpose: string;
+    }[]
+  >`
+    SELECT d.status, d.updated_at::text AS version, d.subject_id, d.subject_kind, d.dedupe_key, d.target_key, t.config_ref, t.kind, t.enabled, t.enabled_at, t.purpose
     FROM deliveries d JOIN notify_targets t ON t.key = d.target_key WHERE d.id = ${id}`;
   if (!d) throw new Error(`delivery ${id} not found`);
   if (d.status !== "unknown" && d.status !== "failed") throw new DeliveryConflict("这条投递不需要处理");
   if (!config.feishuContentPushEnabled || d.kind !== "feishu_webhook") throw new Error("content push is disabled in this environment");
+  if (!d.enabled || d.purpose !== "content") throw new DeliveryConflict("目标已停用，不能重新发送");
+  if (d.subject_kind !== "selected") throw new DeliveryConflict("这条投递不支持内容重发");
   const url = d.config_ref ? credential("integrations", d.config_ref) : undefined;
   if (!url) throw new Error("webhook not configured");
-  // Keep PostgreSQL's timestamp precision: a retry may already have failed again by the time this
-  // update runs. Only the request that claims the version the operator read may send the card.
-  const claimed = await sql`UPDATE deliveries SET status = 'sending', attempts = attempts + 1, updated_at = now()
-    WHERE id = ${id} AND status IN ('unknown', 'failed') AND updated_at::text = ${version ?? d.version}`;
-  if (!claimed.count) throw new DeliveryConflict("这条投递已被其他操作处理，请刷新后重试");
+  // Claim before reading current content so a queued retry cannot use a pre-withdrawal snapshot.
+  const claimed = await sql<{ version: string }[]>`UPDATE deliveries SET status='sending',updated_at=now()
+    WHERE id=${id} AND status IN ('unknown','failed') AND updated_at::text=${version ?? d.version}
+      AND EXISTS(SELECT 1 FROM notify_targets WHERE key=${d.target_key} AND enabled AND purpose='content')
+    RETURNING updated_at::text AS version`;
+  if (!claimed.length) throw new DeliveryConflict("这条投递或目标已被其他操作处理，请刷新后重试");
   try {
-    const res = await postWebhook(url, d.payload);
-    const status = res.ok ? "sent" : res.status < 500 ? "failed" : "unknown";
-    await sql`UPDATE deliveries SET status = ${status}, response = ${res.body.slice(0, 500)}, sent_at = ${res.ok ? new Date() : null}, updated_at = now() WHERE id = ${id}`;
+    const { pushSelected } = await import("./selected.ts");
+    const outcome = await pushSelected(d.subject_id, new Date(), async (current) => {
+      if (current.dedupeKey !== d.dedupe_key) throw new DeliveryConflict("内容归属已变化，请等待当前事实的正常推送");
+      if (d.enabled_at && current.contentAt < d.enabled_at) throw new DeliveryConflict("内容早于目标本次启用，不补发历史内容");
+      const sending = await sql`UPDATE deliveries SET attempts=attempts+1,payload=${sql.json(current.card as never)},updated_at=now()
+        WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}
+        AND EXISTS(SELECT 1 FROM notify_targets WHERE key=${d.target_key} AND enabled AND purpose='content'
+          AND (enabled_at IS NULL OR enabled_at<=${current.contentAt}))`;
+      if (!sending.count) throw new DeliveryConflict("投递或目标已变化，请刷新后重试");
+      try {
+        const res = await postWebhook(url, current.card);
+        const status = res.ok ? "sent" : res.rejected ? "failed" : "unknown";
+        await sql`UPDATE deliveries SET status=${status},response=${res.body.slice(0, 500)},sent_at=${res.ok ? new Date() : null},updated_at=now() WHERE id=${id}`;
+        return [{ target: d.target_key, status }];
+      } catch (error) {
+        await sql`UPDATE deliveries SET status='unknown',response=${String(error).slice(0, 500)},updated_at=now() WHERE id=${id}`;
+        return [{ target: d.target_key, status: "unknown" }];
+      }
+    });
+    const status = outcome.status !== "retry" ? outcome.targets?.[0]?.status : null;
+    if (!status) throw new DeliveryConflict("内容当前不符合推送条件，请核对公开状态和时效");
     return { status };
   } catch (error) {
-    await sql`UPDATE deliveries SET status = 'unknown', response = ${String(error).slice(0, 500)}, updated_at = now() WHERE id = ${id}`;
-    return { status: "unknown" };
+    await sql`UPDATE deliveries SET status=${d.status},response=${String(error).slice(0, 500)},updated_at=now()
+      WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}`;
+    throw error;
   }
 }
 

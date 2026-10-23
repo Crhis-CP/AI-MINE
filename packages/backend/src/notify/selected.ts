@@ -58,29 +58,41 @@ function card(r: Row) {
   };
 }
 
-export async function pushSelected(articleId: string, now = new Date()): Promise<PushOutcome> {
-  const [r] = await sql<Row[]>`
+// Manual recovery supplies its single-target claim while sharing all current eligibility and card logic.
+export async function pushSelected(articleId: string, now = new Date(), deliver: typeof deliverContent = deliverContent): Promise<PushOutcome> {
+  let leasedTitle: string | null = null;
+  // Lease acquisition can wait behind another writer; re-read content after that wait.
+  for (let pass = 0; pass < 2; pass++) {
+    const [r] = await sql<Row[]>`
     SELECT p.article_id, p.selected, p.seat, p.visibility, p.title, p.summary, p.reason, p.category, s.name AS source_name, p.url,
            p.timeline_at, p.discovered_at, p.visible_after, p.backfill, p.fact_id,
            coalesce((o.fields->>'silent')::boolean, false) AS silent
     FROM publications p JOIN sources s ON s.id = p.source_id LEFT JOIN editorial_overrides o ON o.article_id = p.article_id
     WHERE p.article_id = ${articleId}`;
-  if (!r || !r.selected || !r.seat || r.visibility !== "public") return { status: "skipped", reason: "not public selected" };
-  if (r.silent) return { status: "skipped", reason: "silenced" };
-  if (r.backfill || now.getTime() - r.timeline_at.getTime() > MAX_AGE_MS) return { status: "skipped", reason: "not live" };
-  if (r.visible_after && r.visible_after > now) return { status: "retry", after: new Date(r.visible_after.getTime() + 5_000), reason: "release gate" };
+    if (!r || !r.selected || !r.seat || r.visibility !== "public") return { status: "skipped", reason: "not public selected" };
+    if (r.silent) return { status: "skipped", reason: "silenced" };
+    if (r.backfill || now.getTime() - r.timeline_at.getTime() > MAX_AGE_MS) return { status: "skipped", reason: "not live" };
+    if (r.visible_after && r.visible_after > now) return { status: "retry", after: new Date(r.visible_after.getTime() + 5_000), reason: "release gate" };
 
-  // Same-title lease: a concurrent report with the same headline waits for grouping.
-  const leaseKey = `selected-title:${sha256(normalizedTitle(r.title)).slice(0, 24)}`;
-  const [lease] = await sql<{ holder: string }[]>`
+    const title = normalizedTitle(r.title);
+    if (!r.fact_id && leasedTitle !== title) {
+      // Same-title lease: a concurrent report with the same headline waits for grouping.
+      const leaseKey = `selected-title:${sha256(normalizedTitle(r.title)).slice(0, 24)}`;
+      const [lease] = await sql<{ holder: string }[]>`
     INSERT INTO delivery_leases (lease_key, holder, expires_at) VALUES (${leaseKey}, ${articleId}, ${new Date(now.getTime() + LEASE_MS)})
     ON CONFLICT (lease_key) DO UPDATE SET holder = CASE WHEN delivery_leases.expires_at < ${now} THEN EXCLUDED.holder ELSE delivery_leases.holder END,
       expires_at = CASE WHEN delivery_leases.expires_at < ${now} THEN EXCLUDED.expires_at ELSE delivery_leases.expires_at END
     RETURNING holder`;
-  if (lease && lease.holder !== articleId && !r.fact_id)
-    return { status: "retry", after: new Date(now.getTime() + 2 * 60_000), reason: "same title in flight" };
+      if (lease && lease.holder !== articleId && !r.fact_id)
+        return { status: "retry", after: new Date(now.getTime() + 2 * 60_000), reason: "same title in flight" };
 
-  const dedupeKey = r.fact_id ? `selected:fact:${r.fact_id}` : `selected:article:${articleId}`;
-  const targets = await deliverContent({ subjectKind: "selected", subjectId: articleId, dedupeKey, contentAt: r.discovered_at, card: card(r) });
-  return { status: targets.some((t) => t.status === "sent") ? "pushed" : "skipped", targets, reason: targets.length ? undefined : "no new target" };
+      leasedTitle = title;
+      continue;
+    }
+
+    const dedupeKey = r.fact_id ? `selected:fact:${r.fact_id}` : `selected:article:${articleId}`;
+    const targets = await deliver({ subjectKind: "selected", subjectId: articleId, dedupeKey, contentAt: r.discovered_at, card: card(r) });
+    return { status: targets.some((t) => t.status === "sent") ? "pushed" : "skipped", targets, reason: targets.length ? undefined : "no new target" };
+  }
+  return { status: "retry", after: new Date(now.getTime() + 2 * 60_000), reason: "content changed while claiming title" };
 }

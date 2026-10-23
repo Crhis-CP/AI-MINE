@@ -1,0 +1,60 @@
+{
+  "status": "diagnosis_preserved_incremental_implementation",
+  "date": "2026-10-22",
+  "production_sha": "5ccbcd6a95c181e08945d4eb7d376434616710da",
+  "local_sha": "53060a0cddd808c09e8b585c461cdd7313601ea2",
+  "tree": "5599ad07fb6ee95bc67486ddd63747ae572c719c",
+  "model_calls": 0,
+  "production_writes": 0,
+  "raw_evidence_manifest": ".verify/optimization-plan-20261022/manifest.json",
+  "raw_evidence_manifest_sha256": "c4f336ebce9927b5556f1a59975c94378047c34f347cccfbcee9bf03120cceab",
+  "documents": [
+    {
+      "path": "README.md",
+      "sha256": "b7f852fadb1c19b67719b32e1108fb8179d283e8d9a05cc6530ad7989303bb52"
+    },
+    {
+      "path": "acceptance.md",
+      "sha256": "1664d69dd77de334abb7fc4a9325edac9731fb91567762555f9d8e2459b9da26"
+    },
+    {
+      "path": "agent-tasks.md",
+      "sha256": "1a680a5031439bd10e63dba92ca7f3cc8b187cbfd27aa12f57f3b907947da902"
+    },
+    {
+      "path": "evidence.md",
+      "sha256": "71e6c3e88b7aa69bd8dc5e822b58766f7f74853a55ceab11997f41c8115ceedf"
+    },
+    {
+      "path": "AI-MINE网站优化任务书（融合版）.md",
+      "sha256": "6677578e185e87f14cca826adbf06d1ac03a347473716d4eb3521fa583f72ecf"
+    },
+    {
+      "path": "phase-two-research.md",
+      "sha256": "9dc02582dbfd866c7878601a8a9f90581cd481862562df6815e7ee17aef5d838"
+    },
+    {
+      "path": "argentina-source-coverage.md",
+      "sha256": "441e0ce6dcc2f0608d9233aec07db6a2d343d82638b4fd0f65ff0a2d288fd024"
+    },
+    {
+      "path": "argentina-source-window.json",
+      "sha256": "841b946f76cc08e630519e4ffb69d659379157dbbce5a7f975ae06d575ed1db1"
+    }
+  ],
+  "checks": {
+    "relative_links": "passed: 27 local links checked",
+    "original_sample_hashes": "32/32 passed",
+    "holdout_revision_binding": "24/24 passed",
+    "independent_document_review": "two findings resolved",
+    "code_tests": "not_run_document_only",
+    "seven_day_observation": "not_started",
+    "scope_merge": "full scope restored by Owner: brand, subscription, national law plus Catamarca/Salta/Jujuy comparison"
+  },
+  "updated_at": "2026-10-23T03:50:11.657246+00:00",
+  "implementation_record": "../../acceptance/phase-one-20261022/README.md",
+  "current_task_brief": "AI-MINE网站优化任务书（融合版）.md",
+  "baseline_scope": "production and local SHA fields describe the original diagnosis snapshot, not a fresh deployment check",
+  "continuation_record": "../../acceptance/selection-country-20261022/README.md",
+  "current_implementation_record": "../../acceptance/argentina-service-20261023/README.md"
+}

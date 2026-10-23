@@ -4,7 +4,9 @@ import { workQueues, enqueueOn } from "@amp/backend/jobs/module-queues";
 import { z } from "zod";
 import { CrawlDeferred, CrawlObsolete } from "@amp/backend/acquisition/crawl";
 import { publishPolicyPublication } from "./publication/policies-publish.ts";
-import { sourceCollectionEnabled } from "@amp/backend/config";
+import { config, sourceCollectionEnabled } from "@amp/backend/config";
+import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
+import { runtimeControlSnapshot } from "@amp/backend/operations/lane-controls";
 import { ensureQueue, recordRun, shutdownSignal } from "@amp/backend/jobs/queue";
 import {
   advancePolicyMaterial,
@@ -30,10 +32,23 @@ export async function ensurePolicyQueues() {
 /** Same scheduler/queue infrastructure, separate lane and workers; no reader-triggered writes. */
 export async function sweepPolicyMaterials() {
   await ensurePolicyQueues();
-  const discovery = await discoverPolicyWorkflows();
+  const [collection, processing, publication] = await Promise.all(
+    (["collection", "processing", "publication"] as const).map((stage) => runtimeControlSnapshot("policy", [stage])),
+  );
+  const collecting = sourceCollectionEnabled("policy") && !collection.paused;
+  const stages = POLICY_STAGES.filter((stage) =>
+    stage === "acquire" ? collecting : stage === "publish" ? !publication.paused : config.modelCallsEnabled && !processing.paused,
+  );
+  const previous = collecting
+    ? null
+    : z.object({ cursor: z.object({ materialId: z.string(), sourceId: z.string() }) }).safeParse(await latestSuccessfulRunResult("policy.pipeline.sweep"));
+  // A successful paused sweep must not erase the discovery checkpoint used on resume.
+  const discovery = collecting
+    ? await discoverPolicyWorkflows()
+    : { scanned: 0, cursor: previous?.success ? previous.data.cursor : { materialId: "", sourceId: "" } };
   let enqueued = 0;
   const queues = policyQueues();
-  for (const row of await duePolicyWorkflows()) {
+  for (const row of stages.length ? await duePolicyWorkflows(50, stages) : []) {
     if (shutdownSignal.signal.aborted) break;
     const job: PolicyJob = { lane: "policy", sourceId: row.source_id, materialId: row.material_id };
     const queue = queues.find((entry) => entry.name === `policy.${row.stage}`);

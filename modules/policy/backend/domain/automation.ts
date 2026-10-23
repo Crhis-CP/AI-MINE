@@ -193,11 +193,12 @@ export async function discoverPolicyWorkflows(limit = 50) {
     cursor: rows.length === limit && last ? { materialId: last.materialId, sourceId: last.sourceId } : { materialId: "", sourceId: "" },
   };
 }
-export async function duePolicyWorkflows(limit = 50) {
+export async function duePolicyWorkflows(limit = 50, stages?: readonly PolicyStage[]) {
   return sql<
     Workflow[]
   >`SELECT source_id,material_id,material_revision,profile_hash,processing_recipe_hash,expression_id,document_revision_id,fulltext_run_id,stage,status,reason,next_check_at
-    FROM policy.material_workflows WHERE next_check_at<=now() ORDER BY next_check_at,source_id,material_id LIMIT ${limit}`;
+    FROM policy.material_workflows WHERE next_check_at<=now() AND (${stages ?? null}::text[] IS NULL OR stage=ANY(${stages ?? []}::text[]))
+    ORDER BY next_check_at,source_id,material_id LIMIT ${limit}`;
 }
 export async function policyWorkflowFailed(job: PolicyJob, stage: PolicyStage) {
   const row = await readPolicyWorkflow(job.sourceId, job.materialId);

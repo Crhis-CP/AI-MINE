@@ -1,14 +1,22 @@
 {
   "note": {
     "kind": "优化",
-    "title": "国别筛选与运行提示优化",
+    "title": "国别筛选、费用与运行恢复优化",
     "body": [
       "国别筛选和计数更准确，仅作背景比较的国家不再混入结果；仍可通过全文搜索查找相关提及。",
       "后台信源详情解释历史采集等待与重试安排，运行汇总补充尚未恢复的访问等待。",
-      "费用记录区分实际、估算和缺项，不再用当前价格补算历史缺失费用。"
+      "费用记录区分实际、估算和缺项，不再用当前价格补算历史缺失费用。",
+      "重新发送内容前会核对最新状态和接收目标，法规暂停时不再反复安排已暂停的工作。"
     ]
   },
-  "fragments": ["changes/TASK-0396.md", "changes/TASK-0398.md", "changes/TASK-0399.md"],
+  "fragments": [
+    "changes/TASK-0396.md",
+    "changes/TASK-0398.md",
+    "changes/TASK-0399.md",
+    "changes/TASK-0404-model-cost.md",
+    "changes/TASK-0405-policy-pause.md",
+    "changes/TASK-0407-delivery.md"
+  ],
   "announcement": {
     "kind": "公告",
     "title": "法规政策动态暂时停止更新",

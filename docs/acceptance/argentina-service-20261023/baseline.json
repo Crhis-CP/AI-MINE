@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-10-23T03:20:58.997785+00:00",
+  "branch": "codex/argentina-service-20261023",
+  "implementation_base": "6d08c14b388f75befd75e297ec17227661527c92",
+  "upstream_comparison": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+  "production_private_state": "not_refreshed; use dated prior evidence only",
+  "project_model_calls": 0,
+  "production_writes": 0,
+  "formal_deliveries": 0,
+  "public_health": {
+    "ok": true,
+    "db": "ok",
+    "ms": 0,
+    "release": "5ccbcd6a95c1"
+  }
+}
