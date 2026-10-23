@@ -289,6 +289,7 @@
 | [TASK-0417](TASK-0417.md) | T-0101 | M3 | architect | locally_verified | 记录公开访问测量与真实阅读验收条件 | — |
 | [TASK-0418](TASK-0418.md) | T-0101 | M3 | architect | locally_verified | 无损编辑缓存命中与绝对时段价格 | TASK-0413 |
 | [TASK-0419](TASK-0419.md) | T-0101 | M3 | architect | locally_verified | 展示投递等待与人工核对状态 | TASK-0408 |
+| [TASK-0422](TASK-0422.md) | T-0101 | M3 | architect | locally_verified | 声明历史锚点提取器类型 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

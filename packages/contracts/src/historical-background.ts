@@ -16,6 +16,7 @@ export const HistoricalAnchor = z
     quote: z.string().trim().min(12).max(600),
   })
   .refine((value) => value.quote.includes(value.text), "Anchor must occur verbatim in its quote");
+export type HistoricalAnchorExtractor = (text: string) => z.infer<typeof HistoricalAnchor>[];
 export const HistoricalCandidateRequest = z.strictObject({
   lane: z.literal("news"),
   query: HistoricalMaterialBinding,
