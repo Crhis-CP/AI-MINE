@@ -9,7 +9,12 @@ export {
   HistoricalBackgroundReference,
   HistoricalBackgroundProjection,
 } from "./historical-background.ts";
-export type { HistoricalBackgroundReader, HistoricalBackgroundReferencesReader, HistoricalBackgroundProjector } from "./historical-background.ts";
+export type {
+  HistoricalAnchorExtractor,
+  HistoricalBackgroundReader,
+  HistoricalBackgroundReferencesReader,
+  HistoricalBackgroundProjector,
+} from "./historical-background.ts";
 
 export type SourceKind = "rss" | "web_list" | "json_list" | "mp_account" | "external";
 

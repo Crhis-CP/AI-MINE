@@ -2,6 +2,8 @@
 
 TASK-0411历史背景契约沿`site`导出news候选、材料/公开修订及真实日期版本绑定、原文锚点、确认凭据、安全引用Reader及同事务投影口类型；安全引用拒绝quote/receipt/hash。`http/public`声明可选`StoryDetail.background`组件，复用Feed与TimeAssertion，无factId，日期或未知不补造时刻。schema不证明真实原文或对象身份，也不授予许可。当前无消费者、迁移或模型调用，后续TASK-0414/0415接入，详见`docs/03-data/historical-background-contract.md`。
 
+TASK-0422仅追加`HistoricalAnchorExtractor`类型，沿既有site和publication/publish出口转出。后续`extractHistoricalAnchors(text)`与候选Reader复用项目、矿山、文书语境规则，只准备候选输入，不签发许可、不调用模型，也不把提取结果当已确认关系；本片不提供占位实现或修改wire。
+
 `http/public` 是首批公开统计契约，`http/private` 是私有登录方式契约，`http/common` 保存现行错误体。Zod 定义传输形状，类型由其推导；site.ts 保留同名类型入口。其余 DTO 随 TASK-0005 后续响应族迁移。
 
 taxonomy 保存现行分类/栏目 keys 与顺序，mcp 保存5个固定工具名；显示标签从 `@amp/industry/taxonomy` 读取。contracts 不依赖 industry，industry 也不反向导入 contracts；两侧身份一致性由集成测试守护。ADR-0022 的九类已在实际分析、公开投影与客户端联合接入，public OpenAPI 预发布版本为0.2.0。
