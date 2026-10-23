@@ -5,6 +5,14 @@ import { sql } from "@amp/backend/db";
 import type { MetalPriceItem, MetalPriceSource } from "./registry.ts";
 import type { FetchedPeriod } from "./types.ts";
 
+/** A completed source check is separate from re-reading or changing its current price workbook. */
+export async function storePriceCheck(source: string, checkedAt: Date, ok: boolean, changed: boolean) {
+  await sql`INSERT INTO publication.metal_price_checks(source,checked_at,ok,changed)
+    VALUES(${source},${checkedAt},${ok},${changed}) ON CONFLICT(source) DO UPDATE
+    SET checked_at=EXCLUDED.checked_at,ok=EXCLUDED.ok,changed=EXCLUDED.changed
+    WHERE metal_price_checks.checked_at<=EXCLUDED.checked_at`;
+}
+
 /** The start of the source's newest stored period; null before its first. */
 export async function newestStart(source: string): Promise<string | null> {
   const [row] = await sql<{ start: string | null }[]>`SELECT max(period_start)::text AS start FROM publication.metal_prices WHERE source = ${source}`;

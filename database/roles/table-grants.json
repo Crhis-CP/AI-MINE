@@ -321,8 +321,7 @@
         "release_label",
         "release_url",
         "released_on",
-        "first_fetched_at",
-        "fetched_at"
+        "first_fetched_at"
       ],
       "permissions": {
         "private_ops": ["SELECT"],
@@ -1302,6 +1301,15 @@
       "publicColumns": [],
       "permissions": {
         "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.metal_price_checks": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["source", "checked_at", "ok", "changed"],
+      "permissions": {
+        "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
     }

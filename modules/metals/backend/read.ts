@@ -16,7 +16,6 @@ interface Price {
   release: string;
   url: string;
   date: string | null;
-  checked_at: Date;
   rate_unit: string | null;
   rate_currency: string | null;
   previous_start: string | null;
@@ -46,7 +45,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         );
       }),
   );
-  const selected = await sql.begin("read only isolation level repeatable read", async (tx) => {
+  const { selected, checks } = await sql.begin("read only isolation level repeatable read", async (tx) => {
     const out = new Map<string, Price>();
     for (const item of ordered) {
       const source = sources.find((s) => s.key === item.source)!;
@@ -54,7 +53,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       const [row] = await tx<Price[]>`
         WITH versions AS (
           SELECT DISTINCT ON (series_key, period_start) series_key, currency, unit, period_start, period_end, period_label,
-            value, release_label, release_url, released_on, first_fetched_at, fetched_at
+            value, release_label, release_url, released_on, first_fetched_at
           FROM publication.metal_prices WHERE series_key IN (${item.key}, ${convert?.rate ?? item.key})
           ORDER BY series_key, period_start DESC, first_fetched_at DESC, released_on DESC NULLS LAST, release_label DESC
         ), prices AS (
@@ -64,7 +63,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
           WHERE p.series_key = ${item.key} AND (NOT ${!!convert} OR r.value IS NOT NULL)
         ), current AS (SELECT * FROM prices ORDER BY period_start DESC LIMIT 1)
         SELECT c.period_start::text AS start, c.period_end::text AS end, c.period_label AS label, c.displayed::text AS value,
-          c.unit, c.currency, c.release_label AS release, c.release_url AS url, c.released_on::text AS date, c.fetched_at AS checked_at, c.rate_unit, c.rate_currency,
+          c.unit, c.currency, c.release_label AS release, c.release_url AS url, c.released_on::text AS date, c.rate_unit, c.rate_currency,
           p.period_start::text AS previous_start, p.period_end::text AS previous_end, p.period_label AS previous_label,
           p.displayed::text AS previous_value, p.unit AS previous_unit, p.currency AS previous_currency,
           p.rate_unit AS previous_rate_unit, p.rate_currency AS previous_rate_currency,
@@ -83,7 +82,13 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         throw new Error(`Price unit/currency mismatch: ${item.key}`);
       out.set(item.key, row);
     }
-    return out;
+    const checks = new Map(
+      (
+        await tx<{ source: string; checked_at: Date; ok: boolean; changed: boolean }[]>`
+        SELECT source,checked_at,ok,changed FROM publication.metal_price_checks WHERE source=ANY(${sources.map((source) => source.key)}::text[])`
+      ).map((row) => [row.source, row]),
+    );
+    return { selected: out, checks };
   });
   const today = beijingDate(now),
     yearPrefix = `${today.slice(0, 4)}年`;
@@ -96,10 +101,10 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       .filter((row): row is Price => !!row);
     rows.sort((a, b) => b.end.localeCompare(a.end));
     const newest = rows[0];
-    const checked = rows.length ? new Date(Math.min(...rows.map((row) => row.checked_at.getTime()))) : null;
+    const check = checks.get(source.key);
     checkNotes.push({
       ref: null,
-      text: `${source.name}：${source.delay}。${checked ? `现有报价最近成功核对：${beijingDate(checked)} ${beijingTime(checked)}（北京时间）；核对时间不改变数据所属期。` : "尚无成功核对的报价。"}`,
+      text: `${source.name}：${source.delay}。${check ? `最近检查：${beijingDate(check.checked_at)} ${beijingTime(check.checked_at)}（北京时间）；${check.ok ? (check.changed ? "检查成功，有报价更新" : "检查成功，未入库新报价") : "检查未成功，保留可用报价"}。` : "尚无检查记录。"}`,
       link: null,
     });
     const status = !newest ? "empty" : rows.some((row) => stalePeriod(row.end, source.staleDays)) ? "stale" : "fresh";

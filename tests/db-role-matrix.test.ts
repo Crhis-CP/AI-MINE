@@ -138,6 +138,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "policy.vision_runs",
       "policy.vision_stages",
       "publication.manual_copies",
+      "publication.metal_price_checks",
       "publication.metal_prices",
       "publication.news_geography",
       "publication.policy_documents",
@@ -315,15 +316,31 @@ test("every real role has exactly the approved table, column, sequence and cross
               : `DELETE FROM ${name} WHERE false RETURNING 1`;
       await permission(sql, statement, allowed, `${role} ${operation} source_date_observation_seen`);
     }
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const allowed =
+        role === "migrate" ||
+        (operation === "SELECT" && ["public_read", "private_ops", "worker", "backup"].includes(role)) ||
+        (role === "worker" && ["INSERT", "UPDATE"].includes(operation));
+      const table = 'publication."metal_price_checks"';
+      const statement =
+        operation === "SELECT"
+          ? `SELECT source,checked_at,ok,changed FROM ${table} LIMIT 1`
+          : operation === "INSERT"
+            ? `INSERT INTO ${table} SELECT * FROM ${table} WHERE false RETURNING 1`
+            : operation === "UPDATE"
+              ? `UPDATE ${table} SET checked_at=checked_at WHERE false RETURNING 1`
+              : `DELETE FROM ${table} WHERE false RETURNING 1`;
+      await permission(sql, statement, allowed, `${role} ${operation} metal_price_checks`);
+    }
     // Metal prices are updated in place but never deleted (TASK-0044).
     if (role === "public_read") {
       await permission(
         sql,
-        'SELECT series_key, currency, unit, period_start, period_end, period_label, value, release_label, release_url, released_on, first_fetched_at, fetched_at FROM publication."metal_prices" LIMIT 1',
+        'SELECT series_key, currency, unit, period_start, period_end, period_label, value, release_label, release_url, released_on, first_fetched_at FROM publication."metal_prices" LIMIT 1',
         true,
-        "public_read reads only the twelve approved site-price columns",
+        "public_read reads only the eleven site-price columns",
       );
-      for (const column of ["source", "name_zh", "grade", "benchmark", "delivery_basis", "source_unit", "period_type"])
+      for (const column of ["source", "name_zh", "grade", "benchmark", "delivery_basis", "source_unit", "period_type", "fetched_at"])
         await permission(sql, `SELECT ${quote(column)} FROM publication."metal_prices" LIMIT 1`, false, `public_read cannot read metal_prices.${column}`);
     }
     for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {

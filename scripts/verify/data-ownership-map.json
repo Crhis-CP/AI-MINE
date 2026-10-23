@@ -645,6 +645,10 @@
     "events.story_background_proofs": {
       "module": "events",
       "access": "business"
+    },
+    "publication.metal_price_checks": {
+      "module": "publication",
+      "access": "business"
     }
   },
   "externalTables": {
