@@ -1,9 +1,67 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { defineServerModule, type ServerModule } from "../../../packages/backend/src/modules.ts";
+import { defineServerModule, emit, installModules, requestNotice, type ServerModule } from "../../../packages/backend/src/modules.ts";
+import type { FastifyRequest } from "fastify";
+import type { Db } from "../../../packages/backend/src/db.ts";
 import { defineWebModule, type WebModule } from "../../../apps/web/modules.ts";
 import type { ModuleNavigationCounts, ModuleTopicSummary } from "@amp/contracts/modules";
+
+test("module dispatch preserves order, caller context and first applicable notice; failures propagate", async () => {
+  const calls: string[] = [];
+  const tx = {} as Db,
+    req = {} as FastifyRequest;
+  try {
+    installModules([
+      {
+        name: "first",
+        on: {
+          reportsChanged: async (change, db) => {
+            assert.equal(db, tx);
+            calls.push(change.reason);
+          },
+        },
+        notices: { json: () => null, agent: () => "" },
+      },
+      {
+        name: "second",
+        on: {
+          reportsChanged: async () => {
+            throw new Error("stop transaction");
+          },
+        },
+        notices: {
+          agent: () => "second reminder",
+          json: (request) => {
+            assert.equal(request, req);
+            return { notice: { text: "second" }, private: true };
+          },
+        },
+      },
+      {
+        name: "third",
+        on: {
+          reportsChanged: async () => {
+            calls.push("unexpected");
+          },
+        },
+        notices: {
+          json: () => {
+            throw new Error("later notice");
+          },
+        },
+      },
+    ]);
+    assert.deepEqual(requestNotice("json", req), { notice: { text: "second" }, private: true });
+    assert.equal(requestNotice("agent", req), "second reminder", "empty reminders defer to the next module, matching the upstream contract");
+    await assert.rejects(emit("reportsChanged", { reason: "published" }, tx), /stop transaction/);
+    assert.deepEqual(calls, ["published"]);
+  } finally {
+    installModules([]);
+  }
+  await emit("reportsChanged", { reason: "no extensions" }, tx);
+  assert.equal(requestNotice("json", req), null);
+});
 
 test("legacy modules and optional extension hooks remain declarations without executing work", () => {
   let calls = 0;

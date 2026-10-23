@@ -155,6 +155,25 @@ export function installModules(modules: readonly ServerModule[]): void {
 export function serverModules(): readonly ServerModule[] {
   return installed;
 }
+/** Use the first installed module's reminder for this request and exit. */
+export function requestNotice<K extends keyof RequestNotices>(exit: K, ...args: Parameters<RequestNotices[K]>): ReturnType<RequestNotices[K]> | null {
+  for (const module of installed) {
+    const ask = module.notices?.[exit] as ((...values: Parameters<RequestNotices[K]>) => ReturnType<RequestNotices[K]>) | undefined;
+    const notice = ask?.(...args);
+    if (notice) return notice;
+  }
+  return null;
+}
+/** Await each handler in order so a failed transactional hook prevents commit. */
+export async function emit<K extends Exclude<keyof EngineHooks, "requestAnswered" | "exitServed">>(
+  hook: K,
+  ...args: Parameters<EngineHooks[K]>
+): Promise<void> {
+  for (const module of installed) {
+    const handler = module.on?.[hook] as ((...values: Parameters<EngineHooks[K]>) => Promise<void>) | undefined;
+    if (handler) await handler(...args);
+  }
+}
 /** The material and its follow-up job commit together; an unhandled notification must not be lost. */
 export async function emitMaterialDiscovered(data: MaterialDiscovered, tx: Tx): Promise<void> {
   let handled = false;

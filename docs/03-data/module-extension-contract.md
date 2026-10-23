@@ -8,4 +8,4 @@ TASK0430接续固定上游a0d1e75b00ede7e503ca948e71a468db964b2df2的backend/mod
 
 矿业TopicSummary维持company/field/genre/project与selected/all口径；成员使用本项目FeedItemSummary，不导入上游AI行业分类。ModuleBrand沿本地资源/文字回退语义，未附带任何上游品牌素材。
 
-本PR只交声明和兼容类型。emit/requestNotice、实际模块告警/保留、各出口与主题/后台消费者须在独立契约合并后接入并用合成模块验证；没有throw占位或默认实现冒充能力完成。公开HTTP响应如需新增字段另沿契约先行，不通过这份声明绕过许可、人工控制或鉴权。
+本PR交声明、兼容类型及emit/requestNotice通用分发函数。分发顺序、事务参数与异常传播沿上游语义；未挂业务调用点。实际模块告警/保留、各出口与主题/后台消费者须在独立契约合并后接入并用合成模块验证；没有throw占位或默认实现冒充能力完成。公开HTTP响应如需新增字段另沿契约先行，不通过这份声明绕过许可、人工控制或鉴权。
