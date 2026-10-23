@@ -82,6 +82,14 @@ const FeedItemSummaryCore = z.strictObject({
 });
 export const SourceDatedFeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.shape);
 export const FeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.partial().shape);
+/** Historical context has no fact identity; a source date never borrows the discovery clock. */
+export const StoryBackgroundReport = FeedItemSummary.pick({ id: true, title: true, summary: true, source: true, publishedAt: true, selected: true })
+  .extend({ sourceTime: SourceTimeProjection.shape.sourceTime, originalUrl: z.url({ protocol: /^https?$/ }) })
+  .refine((item) => item.sourceTime === null || item.sourceTime.meaning === "published", "Background source time must describe publication")
+  .refine((item) => item.publishedAt === (item.sourceTime?.utc ?? null), "Published instant must match current source-time evidence");
+export const StoryBackground = z.strictObject({ relation: z.enum(["SAME_OCCURRENCE", "SAME_STORY"]), item: StoryBackgroundReport });
+/** Optional addition: existing StoryDetail producers may omit it until the background consumer is connected. */
+export const StoryBackgroundFields = z.strictObject({ background: z.array(StoryBackground).optional() });
 export const SavedItems = z.strictObject({ items: z.array(FeedItemSummary), unavailableIds: z.array(z.string()) });
 
 const PoolResponseCore = z.strictObject({
@@ -355,6 +363,9 @@ export const SearchSuggestions = z.strictObject({
 export const schemas = {
   ...agentSchemas,
   SearchSuggestions,
+  StoryBackgroundReport,
+  StoryBackground,
+  StoryBackgroundFields,
   ...v3Schemas,
   ...siteInformationSchemas,
   ...policySchemas,

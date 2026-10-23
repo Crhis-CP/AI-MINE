@@ -2,6 +2,14 @@
 // but it is served from the same public read layer as v1, RSS and MCP.
 import type { SourceTimeProjection } from "./time-assertion.ts";
 import type { CategoryKey } from "./taxonomy.ts";
+export {
+  HistoricalCandidateRequest,
+  HistoricalBackgroundCandidate,
+  HistoricalBackgroundConfirmation,
+  HistoricalBackgroundReference,
+  HistoricalBackgroundProjection,
+} from "./historical-background.ts";
+export type { HistoricalBackgroundReader, HistoricalBackgroundReferencesReader, HistoricalBackgroundProjector } from "./historical-background.ts";
 
 export type SourceKind = "rss" | "web_list" | "json_list" | "mp_account" | "external";
 
@@ -176,6 +184,8 @@ interface StoryFactViewCore {
 }
 
 export interface StoryDetail {
+  /** Confirmed historical context; never counted as new developments, selection or heat. */
+  background?: import("zod").infer<typeof import("./http/public.ts").StoryBackground>[];
   publicId: string;
   title: string;
   status: "active" | "watching" | "settled";

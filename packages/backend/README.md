@@ -1,5 +1,7 @@
 # backend 核心服务与数据库入口
 
+TASK-0411在既有`publication/publish`转出HistoricalBackgroundReader/Projector类型，在`events/group`转出安全引用Reader类型，当前没有函数实现或新package路径。双方绑定包含真实材料/公开修订及sourceDateVersion；候选须有原文项目/矿区/文号锚点，不以精选为前提。后续events私有证明与publication安全投影经具名口同事务保存，公开角色不读取proof；不创建旧稿fact或改变热度/精选/推送。详见`docs/03-data/historical-background-contract.md`。
+
 TASK-0367统一升级保留主线故障修复：同一逻辑请求的未知回执最多自动放行一次；更改输入或模型配置产生独立请求，旧请求与费用保留；原未知错误与费用保留，人工确认只结算当前尝试。暂停保留机会、旧修订不重置新修订；释放、审计及对应任务入队同事务。归组、翻译和法规继续使用统一升级的原环节恢复，不收窄为主线应急版本的资讯五环节范围。
 
 本包负责通用采集、内容评判、事件、发布、报告、模型和运行管理。法规、金属价格、站点资料与来源对账在 modules 对应扩展中；少量旧路径仅用于兼容转发。实际依赖方向见模块地图。
