@@ -96,3 +96,5 @@ Agent答案契约在`http/agent`：匿名只读Markdown说明及资讯、检索�
 投递恢复兼容声明（TASK-0408）：DeliveryIssue可携带retry_reason、retry_at、abandoned_at；旧响应省略表示恢复资格未提供，不能自动重发。明确未发/限流、未知和人工放弃分别处理，处理器及迁移后续接入。见docs/04-architecture/delivery-recovery.md。
 
 TASK-0430：modules入口声明共享的矿业主题/成员、模块标识与导航计数类型，旧ModuleDeclaration/MaterialDiscovered保持。后端及网页扩展可声明固定上游通用插口；运行消费者和HTTP投影不由类型声明自动启用，见docs/03-data/module-extension-contract.md。
+
+TASK0434：notify-scopes声明总渠道/国家范围的私有读取与版本化更新；null代表总渠道，国家代码由消费者再核对支持目录，启用与凭据不在此命令中。
