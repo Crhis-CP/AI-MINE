@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { closeDb, sql as runtimeSql } from "@amp/backend/db";
+import { installModules } from "@amp/backend/modules";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { autoStopsBetween, checkAlerts, collectFindings, dueReports, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
@@ -50,6 +51,7 @@ test("unknown receipt digest reports observed attempts without inventing retries
 });
 
 before(async () => {
+  installModules([(await import("@amp/metals/server")).default]);
   await getBoss(); // collectFindings reads the job tables
   saved = await sql`SELECT key, value FROM settings WHERE key IN ('alerts.state', 'heartbeat.worker')`;
   await sql`DELETE FROM settings WHERE key = 'heartbeat.worker'`;
@@ -68,6 +70,7 @@ before(async () => {
   await sql`UPDATE articles SET discovered_at = now() - interval '3 hours', processing_state = 'new' WHERE id IN ${sql(ids)}`;
 });
 after(async () => {
+  installModules([]);
   await sql`DELETE FROM articles WHERE source_id = ${SOURCE}`;
   await sql`DELETE FROM sources WHERE id = ${SOURCE}`;
   await sql`DELETE FROM settings WHERE key = 'alerts.state'`;

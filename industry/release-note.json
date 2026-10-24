@@ -1,26 +1,12 @@
 {
   "note": {
     "kind": "优化",
-    "title": "完善历史补刊、价格说明与阅读",
+    "title": "国家筛选更准确",
     "body": [
-      "按内容实际涉及地区筛选国别资讯，背景提及仍可通过全文搜索查找。",
-      "事件页补充相关历史报道，保留原文日期和链接，方便核对前后进展。",
-      "历史周报和月报可补入后来收齐的对应日报，空白或异常刊期可继续补齐。",
-      "金属价格分别显示数据所属期与最近核对时间；来源没有新一期时保留真实日期并说明等待状态。",
-      "更新日志精简为读者可直接了解的功能与使用变化。"
+      "明确写出卡塔马卡、萨尔塔、胡胡伊等省州名称的资讯，可以按相应国家查阅。",
+      "同一报道涉及多个国家的实际进展时保留多国关联，背景提及仍可通过全文搜索查找。",
+      "金属价格的检查结果直接说明报价是否变化。"
     ]
   },
-  "fragments": [
-    "changes/TASK-0396.md",
-    "changes/TASK-0415-history-reading.md",
-    "changes/TASK-0414-history.md",
-    "changes/TASK-0428-report-recovery.md",
-    "changes/TASK-0429-price-alerts.md",
-    "changes/TASK-0447-reader-changelog.md"
-  ],
-  "announcement": {
-    "kind": "公告",
-    "title": "法规政策动态暂时停止更新",
-    "body": ["鉴于成本和技术问题，法规政策动态暂时停止更新。", "栏目入口与已发布内容保留，仍可查阅。", "后续将重新建设并上线，恢复时间另行公告。"]
-  }
+  "fragments": ["changes/TASK-0436-country-evidence.md", "changes/TASK-0437-price-checks.md"]
 }

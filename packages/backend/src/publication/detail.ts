@@ -1,6 +1,6 @@
 import { CURRENT_SOURCE_TIME } from "./source-time.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
-import { geographyRecipe } from "../editorial/geography.ts";
+import { compatibleGeographyRecipes } from "../editorial/geography.ts";
 import { publicCompanyContext, readerAttribution } from "./reader-context.ts";
 // Item detail, behind the visibility and licence rules every public output shares.
 import { relatedPoliciesForNews } from "./news-policy-links.ts";
@@ -248,7 +248,7 @@ export async function publicItemMetadata(id: string, db: Db = sql) {
   const [meta] = await db<{ source_time: unknown; jurisdictions: string[] | null }[]>`
     SELECT ${CURRENT_SOURCE_TIME()} AS source_time,
       g.jurisdictions FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
-      LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}
+      LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
       WHERE p.article_id=${id}`;
   return meta ?? null;
 }

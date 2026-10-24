@@ -27,7 +27,8 @@ export const PRESETS: Record<string, ModelPreset> = {
     extra: { thinking: { type: "enabled", clear_thinking: false }, reasoning_effort: "high", top_p: 0.95 },
     jsonMode: true,
   },
-  // DeepSeek Flash reasons by default; structured tasks switch it off unless the -think variant is used.
+  // Official rolling alias: V4.1-Flash-1017 as verified 2026-10-23; do not invent a dated API ID or use Pro.
+  // Flash reasons by default; structured tasks switch it off unless the -think variant is used.
   "deepseek-flash": {
     service: "deepseek",
     model: "deepseek-flash",

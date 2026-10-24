@@ -15,7 +15,14 @@ import { prepareGeographyBackfill } from "@amp/backend/jobs/content";
 import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { currentNewsJurisdictionCounts } from "../packages/backend/src/publication/news-geography.ts";
-import { validateGeography, geographyMaterial, geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
+import {
+  validateGeography,
+  geographyMaterial,
+  geographyRecipe,
+  compatibleGeographyRecipes,
+  needsGeographyAnalysis,
+} from "../packages/backend/src/editorial/geography.ts";
+import { publicItemMetadata } from "@amp/backend/publication/detail";
 import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 
@@ -30,6 +37,7 @@ const provider = await stub((_hit, req) => {
   if (system.includes("资料结构化助手")) {
     const input = JSON.parse(user),
       segment = input.segments.find((s: { id: string }) => s.id === "body_head");
+    const province = segment.text.includes("British Columbia");
     output = {
       category: "mineral-development",
       tags: [],
@@ -37,8 +45,16 @@ const provider = await stub((_hit, req) => {
       fact: null,
       geography: {
         status: "identified",
-        primary: "AR",
-        assignments: [{ code: "AR", role: "event_location", mention: "阿根廷", segment: "body_head", quote: segment.text }],
+        primary: province ? "CA" : "AR",
+        assignments: [
+          {
+            code: province ? "CA" : "AR",
+            role: "event_location",
+            mention: province ? "British Columbia" : "阿根廷",
+            segment: "body_head",
+            quote: segment.text,
+          },
+        ],
         reason: "原文明确矿区所在地",
       },
     };
@@ -68,6 +84,26 @@ after(async () => {
 const material = (body: string) => ({ title: "合成矿业消息", bodyText: body, excerpt: null, bodyStatus: "ok" });
 const assignment = (code: string, mention: string, quote: string, role = "event_location") => ({ code, mention, quote, role, segment: "body_head" });
 const candidate = (assignments: unknown[], status = "identified") => ({ status, primary: null, assignments, reason: "合成原文作用关系" });
+test("explicit unambiguous province evidence keeps all actual project countries without promoting headquarters", () => {
+  const body =
+    "A copper project expanded in British Columbia. Output rose in Northern Territory and New South Wales. A permit changed in Catamarca. Headquarters are in Salta.";
+  const result = validateGeography(
+    candidate([
+      assignment("CA", "British Columbia", body),
+      assignment("AU", "Northern Territory", body),
+      assignment("AU", "New South Wales", body),
+      assignment("AR", "Catamarca", body),
+      assignment("AR", "Salta", body, "headquarters"),
+    ]),
+    material(body),
+  );
+  assert.deepEqual(new Set(result.codes), new Set(["CA", "AU", "AR"]));
+  assert.equal(result.state, "identified");
+  const hq = validateGeography(candidate([assignment("AR", "Salta", body, "headquarters")]), material(body));
+  assert.deepEqual(hq.codes, []);
+  assert.deepEqual(validateGeography(candidate([assignment("CA", "Catamarca", body)]), material(body)).codes, []);
+  assert.deepEqual(validateGeography(candidate([assignment("AR", "San Juan", "Project in San Juan")]), material("Project in San Juan")).codes, []);
+});
 async function fixture(body: string, geo: unknown = undefined) {
   const id = tag(),
     sourceId = `geo-${id}`,
@@ -123,6 +159,35 @@ test("geography keeps exact evidence and roles, rejects currency/substrings/HQ s
   const long = material("无地名的合成原文。".repeat(3000));
   assert.equal(geographyMaterial(long).complete, false);
   assert.equal(validateGeography(candidate([], "none"), long).state, "unknown");
+});
+test("additive aliases preserve valid earlier country evidence without accepting unrelated versions", async () => {
+  const body = "矿山项目位于阿根廷。",
+    f = await fixture(body, candidate([assignment("AR", "阿根廷", body)])),
+    legacy = compatibleGeographyRecipes()[1]!;
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{geography,recipe}',${sql.json(legacy)}) WHERE article_id=${f.articleId}`;
+  await sql`UPDATE publication.news_geography SET recipe=${legacy} WHERE article_id=${f.articleId}`;
+  assert.deepEqual((await publicItemMetadata(f.articleId))?.jurisdictions, ["AR"]);
+  assert.equal(
+    (await loadPool({ channel: "news", category: null, tag: null, jurisdiction: "AR" })).items.some((v) => v.id === f.articleId),
+    true,
+  );
+  assert.equal(await needsGeographyAnalysis(f.articleId, 1), false, "valid old proof does not purchase another answer");
+  await sql`UPDATE publication.news_geography SET recipe='unrelated-geography-version' WHERE article_id=${f.articleId}`;
+  assert.equal((await publicItemMetadata(f.articleId))?.jurisdictions, null);
+});
+test("a previous rejected province is recovered from the received structure answer without another model request", async () => {
+  const f = await fixture("合成铜矿扩建项目位于 British Columbia，原文提供本次建设进展，供独立测试使用。"),
+    first = await analyzeArticle(f.articleId);
+  assert.deepEqual(first?.output?.geography?.codes, ["CA"]);
+  const legacy = { ...first!.output!.geography!, recipe: compatibleGeographyRecipes()[1]!, state: "unknown", codes: [], assignments: [], primary: null };
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{geography}',${sql.json(legacy)}) WHERE id=${first!.analysisId!}`;
+  assert.equal(await needsGeographyAnalysis(f.articleId, 1), true);
+  const before = requests.length,
+    repaired = await analyzeArticle(f.articleId);
+  assert.deepEqual(repaired?.output?.geography?.codes, ["CA"]);
+  assert.equal(requests.length, before, "same material, prompts and model reuse the actual saved replies");
+  assert.equal(repaired?.reused, true);
+  assert.equal(await needsGeographyAnalysis(f.articleId, 1), false);
 });
 test("the same AI02 call supplies geography and existing receipt reuse does not buy another geography call", async () => {
   const body = "合成铜矿项目位于阿根廷，正在建设一条新的选矿生产线，并按公告推进施工。",

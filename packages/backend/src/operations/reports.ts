@@ -4,6 +4,7 @@ import { sourceWeeklyItems } from "../content/source-health.ts";
 import { weeklySelectedCount } from "../publication/operational-snapshot.ts";
 import { sourceWeeklyCounts, sourceHealth, SOURCE_PROBLEMS, rhythmText } from "../sources/health.ts";
 import { sendAlert } from "../notify/feishu.ts";
+import { serverModules } from "../modules.ts";
 
 export { usageWeekly } from "./usage-weekly.ts";
 export { usageMonthly } from "./usage-monthly.ts";
@@ -25,6 +26,16 @@ export async function sourceHealthWeekly(now = Date.now()) {
     `本周收录 ${n(items!.week)} 条（上周 ${n(items!.prev)}，${pct(items!.week, items!.prev)}），其中精选 ${n(selected)} 条`,
     `在用信源 ${counts!.enabled} 个，本周新增 ${counts!.added} 个；抓取失败 ${counts!.failing} 个，不太稳定 ${counts!.degraded} 个`,
   ];
+  let moduleReport = false;
+  for (const module of serverModules())
+    if (module.sourceHealth) {
+      moduleReport = true;
+      try {
+        lines.push(...(await module.sourceHealth(now)));
+      } catch {
+        lines.push(`${module.name}来源状态暂时无法核对；下一次检查会重试。`);
+      }
+    }
   for (const group of groups) {
     lines.push("", `${group.name}：${group.sources.length} 个在用信源；本周归属条目 ${n(group.sources.reduce((sum, s) => sum + s.items, 0))} 条`);
     for (const problem of SOURCE_PROBLEMS)
@@ -36,7 +47,7 @@ export async function sourceHealthWeekly(now = Date.now()) {
   }
   const overdue = groups.reduce((sum, g) => sum + g.overdue.length, 0),
     silent = overdue + groups.reduce((sum, g) => sum + g.unknown.length, 0);
-  const followUp = counts.failing > 0 || silent > 0 || groups.some((g) => SOURCE_PROBLEMS.some((p) => g[p.problem].length));
+  const followUp = moduleReport || counts.failing > 0 || silent > 0 || groups.some((g) => SOURCE_PROBLEMS.some((p) => g[p.problem].length));
   lines.push("", followUp ? "需要处理的话，把这条转给 AI；详情在后台“信源”与“运行”页。" : "没有需要处理的信源。");
   await sendAlert("📊 信源周报", lines);
   return { failing: counts.failing, silent, overdue };

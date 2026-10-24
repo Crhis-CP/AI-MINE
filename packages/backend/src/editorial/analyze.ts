@@ -318,7 +318,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
   const receiptIds: number[] = [];
   const models: string[] = [];
   let reused = true;
-  // One after the other: the second call reuses the provider's cached prompt.
+  // Sequential independent scores share identical input; provider prefix reuse remains best-effort.
   for (let i = 0; i < SCORE_CALLS; i++) {
     checkAnalysisRunning();
     try {

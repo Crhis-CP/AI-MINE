@@ -34,7 +34,7 @@ test("a successful source check without a new period updates only check evidence
   assert.equal(check.changed, false);
   assert.deepEqual([...(await sql`SELECT period_start,period_end,value,fetched_at FROM publication.metal_prices`)], [...before]);
   const view = await loadMetalPrices(now, registry);
-  assert.ok(view.notes.some((note) => note.text.includes("2026-10-23 18:00") && note.text.includes("检查成功，未入库新报价")));
+  assert.ok(view.notes.some((note) => note.text.includes("2026-10-23 18:00") && note.text.includes("检查成功，报价未变")));
   assert.equal(view.metals.flatMap((metal) => metal.quotes).find((quote) => quote.key === "nbs.copper")?.period?.end, "2026-09-30");
 });
 

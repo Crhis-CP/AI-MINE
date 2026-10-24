@@ -303,11 +303,15 @@
 | [TASK-0429](TASK-0429.md) | T-0101 | M3 | architect | integrated | 区分价格检查与发布期并合并重复提醒 | — |
 | [TASK-0430](TASK-0430.md) | T-0101 | M3 | architect | locally_verified | 补齐固定上游通用模块扩展契约 | — |
 | [TASK-0431](TASK-0431.md) | T-0101 | M3 | architect | integrated | 保存来源检查结果并区分报价所属期 | — |
+| [TASK-0432](TASK-0432.md) | T-0101 | M3 | architect | locally_verified | 接通通用模块的运行检查与维护 | — |
 | [TASK-0433](TASK-0433.md) | T-0101 | M3 | architect | locally_verified | 统一矿业评分核对与国别模块纠偏 | — |
 | [TASK-0434](TASK-0434.md) | T-0101 | M3 | architect | locally_verified | 统一国别通知范围契约与事务读取端口 | — |
+| [TASK-0436](TASK-0436.md) | T-0101 | M3 | architect | implemented | 修复明确省州名被国家证据校验丢弃 | — |
+| [TASK-0437](TASK-0437.md) | T-0101 | M3 | architect | implemented | 价格运行检查归入已安装金属模块 | — |
 | [TASK-0439](TASK-0439.md) | T-0101 | M3 | architect | implemented | 阅读返回回归绑定真实点击位置 | — |
+| [TASK-0440](TASK-0440.md) | T-0101 | M3 | architect | locally_verified | 核对最新DeepSeek Flash并修复缓存前缀与跨日复用 | — |
 | [TASK-0445](TASK-0445.md) | T-0101 | M3 | architect | implemented | 修复新公告阻断的运行依赖 | — |
-| [TASK-0447](TASK-0447.md) | T-0101 | M3 | architect | locally_verified | 公开更新日志只保留读者变化并阻止运营说明混入 | — |
+| [TASK-0447](TASK-0447.md) | T-0101 | M3 | architect | live_verified | 公开更新日志只保留读者变化并阻止运营说明混入 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

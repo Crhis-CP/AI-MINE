@@ -5,7 +5,7 @@ import { promptText, promptVersion } from "../editorial/prompts.ts";
 import { chatJson } from "../providers/llm.ts";
 import { reportFallbackInput } from "./fallback-input.ts";
 import type { Candidate } from "./compose.ts";
-export const REPORT_VERSION = `rules-daily-v1:${promptVersion("report-period")}`;
+export const REPORT_VERSION = `rules-daily-v1:${promptVersion("report-period", "report-period-input")}`;
 export const SECTION_ORDER = [...new Set(CATEGORIES.map((category) => category.section))];
 export const reportSection = (category: string | null) => CATEGORIES.find((value) => value.key === category)?.section ?? null;
 export const PeriodSchema = z.object({ overview: z.string().max(1500).catch(""), sections: z.record(z.string(), z.string().max(600)).catch({}) });
@@ -19,12 +19,21 @@ export function periodPrompt(kind: "weekly" | "monthly", start: string, end: str
   const groups = periodGroups(entries),
     introduced = groups.filter((group) => group.items.length >= 3).map((group) => group.label);
   return {
-    system: promptText("report-period", {
+    system: promptText("report-period"),
+    user: promptText("report-period-input", {
       kindName: kind === "weekly" ? "周报" : "月报",
-      overviewLength: kind === "weekly" ? "160" : "240",
+      start,
+      end,
       sections: introduced.length ? introduced.join("、") : "无；sections 返回空对象",
+      groups: groups
+        .map((group) =>
+          [
+            `【${group.label}】`,
+            ...group.items.flatMap((entry) => [entry, ...(entry.related ?? [])].map((member) => `- ${member.title}｜${member.summary}`)),
+          ].join("\n"),
+        )
+        .join("\n"),
     }),
-    user: `本期：${start} 至 ${end}\n${groups.map((group) => [`【${group.label}】`, ...group.items.flatMap((entry) => [entry, ...(entry.related ?? [])].map((member) => `- ${member.title}｜${member.summary}`))].join("\n")).join("\n")}`,
   };
 }
 const COMPANY_NAMES = Object.values(ENTITIES).map((entity) => [entity.name, ...entity.aliases].map((name) => name.toLowerCase()));

@@ -2,7 +2,7 @@ import { CURRENT_SOURCE_TIME, publicSourceTime, sourceInstant } from "./source-t
 import { attachRepresentativePriority, type RepresentativeIdentity } from "./representative.ts";
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
-import { geographyRecipe } from "../editorial/geography.ts";
+import { geographyRecipe, compatibleGeographyRecipes } from "../editorial/geography.ts";
 import type { ReadMatcherValues } from "./mentions.ts";
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
@@ -208,7 +208,7 @@ export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<
     rows = await sql<{ codes: string[] | null; state: string | null }[]>`
     SELECT g.jurisdictions AS codes, g.state
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
-    LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}
+    LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
     WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})`;
   const counts = Object.fromEntries(JURISDICTIONS.map((j) => [j.id, 0]));
   let unknown = 0;
@@ -256,13 +256,13 @@ export function publicationDateCondition(start: Date | null | undefined, end: Da
 /** Geography qualification stays in this established article/publication read port. */
 export function currentGeographyMatch(code: string | null, codes: string[], recipe: string) {
   return sql`CASE WHEN ${code}='unknown' THEN EXISTS (SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g
-    ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
+    ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes(recipe)}::text[])
     WHERE ga.id=p.article_id AND (g.state IS NULL OR g.state IN ('unknown','partial')))
     WHEN ${code}='none' THEN EXISTS (SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g
-      ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
+      ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes(recipe)}::text[])
       WHERE ga.id=p.article_id AND g.state='none')
     ELSE EXISTS (SELECT 1 FROM articles ga JOIN publication.news_geography g
-      ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
+      ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes(recipe)}::text[])
       WHERE ga.id=p.article_id AND g.jurisdictions && ${codes}::text[]) END`;
 }
 export interface PublicReadScope {

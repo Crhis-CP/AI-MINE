@@ -3,6 +3,7 @@ import { readdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../config.ts";
 import { sql } from "../db.ts";
+import { serverModules } from "../modules.ts";
 
 import { anonymizeExpiredFeedback } from "../admin/feedback.ts";
 
@@ -29,6 +30,16 @@ async function pruneCache(dir: string, maxAgeMs: number, now: number): Promise<n
 }
 
 export async function dailyRetention(now = new Date()) {
+  const modules: Record<string, unknown> = {},
+    failures: Array<{ name: string; error: unknown }> = [];
+  for (const module of serverModules())
+    if (module.retention) {
+      try {
+        modules[module.name] = await module.retention(now);
+      } catch (error) {
+        failures.push({ name: module.name, error });
+      }
+    }
   const leases = await sql`DELETE FROM delivery_leases WHERE expires_at < ${now}`;
   // Scheduled-task history: 30 days (failures 90) is enough for the runs view.
   const runs =
@@ -41,5 +52,10 @@ export async function dailyRetention(now = new Date()) {
     (await pruneCache(path.join(config.dataDir, "imgcache"), monthMs, now.getTime())) +
     (await pruneCache(path.join(config.dataDir, "ogcache"), monthMs, now.getTime()));
   const anonymizedFeedback = await anonymizeExpiredFeedback(now);
-  return { anonymizedFeedback, deletedLeases: leases.count, deletedJobRuns: runs.count, deletedFiles: files.length, prunedCache };
+  if (failures.length)
+    throw new AggregateError(
+      failures.map((failure) => failure.error),
+      `扩展维护未完成：${failures.map((failure) => failure.name).join("、")}`,
+    );
+  return { modules, anonymizedFeedback, deletedLeases: leases.count, deletedJobRuns: runs.count, deletedFiles: files.length, prunedCache };
 }

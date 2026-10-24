@@ -19,5 +19,5 @@ test("writer contract accepts only prose, and brief reserves selection and order
   assert.deepEqual(Object.keys(value).sort(), ["overview", "sections"]);
   const brief = periodPrompt("weekly", "2020-01-01", "2020-01-07", []);
   assert.match(brief.system, /不选择或删改条目/);
-  assert.match(brief.system, /sections 返回空对象/);
+  assert.match(brief.user, /sections 返回空对象/);
 });
