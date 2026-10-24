@@ -23,7 +23,8 @@ function publicCorrections(value: unknown): Array<{ revision: number; reason: st
     if (
       typeof row.revision !== "number" ||
       !Number.isSafeInteger(row.revision) ||
-      row.revision < 1 ||
+      // A first publication, including a historical backfill, has no earlier public issue to correct.
+      row.revision < 2 ||
       typeof row.reason !== "string" ||
       typeof row.at !== "string" ||
       !Number.isFinite(Date.parse(row.at))

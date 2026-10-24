@@ -12,6 +12,17 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
     const manifest = JSON.parse(readFileSync(filename, "utf8"));
     validateReleaseNote(manifest.note);
     if (manifest.announcement !== undefined) validateReleaseNote(manifest.announcement);
+    for (const file of ["industry/changelog.json", "industry/changelog-copy-edits.json"]) {
+      if (!existsSync(path.join(root, file))) continue;
+      const data = JSON.parse(readFileSync(path.join(root, file), "utf8"));
+      const notes = file.endsWith("copy-edits.json")
+        ? data.map((edit: { copy: object }) => ({ kind: "优化", ...edit.copy }))
+        : validateChangelog(data).releases;
+      for (const { kind, version, title, body } of notes) {
+        validateReleaseNote({ kind, title, body, ...(version === undefined ? {} : { version }) });
+        if (title === "例行维护") throw new Error(`${file}: 纯维护记录不进入读者日志`);
+      }
+    }
     if (!Array.isArray(manifest.fragments) || !manifest.fragments.length) throw new Error("Release note must cite its product fragments");
     const changedFragments = changed.filter((file) => /^changes\/.+\.md$/.test(file) && existsSync(path.join(root, file)));
     let readerFragmentChanged = false;

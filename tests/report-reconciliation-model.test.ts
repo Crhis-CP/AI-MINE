@@ -48,6 +48,14 @@ test("historical monthly composition keeps its paid result when material changes
   assert.equal((await reconcileReport("monthly", "2020-08")).status, "reconciled");
   const report = (await loadReport("monthly", "2020-08"))!;
   assert.ok(report.stories.some((entry) => entry.itemId === material));
+  assert.equal(report.revision, 1);
+  assert.deepEqual(report.corrections, [], "the first historical publication is not a correction to an earlier public issue");
+  const [stored] = await sql`SELECT content FROM reports WHERE kind='monthly' AND key='2020-08'`;
+  assert.deepEqual(stored.content.corrections, []);
+  await sql`UPDATE reports SET content=content || ${sql.json({ corrections: [{ revision: 1, reason: "合成旧版首发标记", at: "2020-09-01T00:00:00Z" }] })}
+    WHERE kind='monthly' AND key='2020-08'`;
+  assert.deepEqual((await loadReport("monthly", "2020-08"))!.corrections, [], "legacy first-publication markers stay out of reader correction history");
+  assert.equal((await sql`SELECT jsonb_array_length(content->'corrections') AS n FROM reports WHERE kind='monthly' AND key='2020-08'`)[0].n, 1);
   assert.equal(provider.hits(), hits);
   await requestReportRevision("monthly", "2020-08", "synthetic duplicate", [material]);
   assert.equal((await reconcileReport("monthly", "2020-08")).status, "unchanged");

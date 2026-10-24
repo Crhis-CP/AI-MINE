@@ -76,6 +76,17 @@ test("the public reader observes an atomic post-release registration without an 
     const next = loadChangelog();
     assert.equal(next.releases.length, first.releases.length + 1);
     assert.equal(next.releases[0]!.title, note.title);
+    const maintenanceSha = "f".repeat(40);
+    recordSuccessfulRelease({
+      filename,
+      sha: maintenanceSha,
+      note,
+      publishedAt: "2100-10-14T02:00:00Z",
+      lockHeld: true,
+      health: { ok: true, db: "ok", release: maintenanceSha.slice(0, 12) },
+    });
+    assert.equal(readReleaseRecords(filename).length, 2, "the maintenance receipt remains available internally");
+    assert.deepEqual(loadChangelog(), next, "maintenance adds neither a public entry nor an unread update");
   } finally {
     if (previous === undefined) delete process.env.AMP_RELEASE_CHANGELOG_FILE;
     else process.env.AMP_RELEASE_CHANGELOG_FILE = previous;

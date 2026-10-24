@@ -213,6 +213,38 @@ test("intake recovery needs a new discovery, surviving switches, warmup and lega
   });
 });
 
+test("skipped processing and hot checks retain incidents until an actual healthy check", async () => {
+  await withIntakeFixture(async () => {
+    const previous = { title: "合成异常", level: "now", since: new Date(INTAKE_NOW - 3600_000).toISOString(), sentAt: new Date(INTAKE_NOW).toISOString() };
+    const keys = ["content.process", "hot.rank", "hot.page"];
+    await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json(Object.fromEntries(keys.map((key) => [key, previous])))}),
+      ('heartbeat.worker',${sql.json({ startedAt: new Date(INTAKE_NOW).toISOString() })})`;
+    const [ranking] = await sql<{ id: number }[]>`INSERT INTO hot_rankings(computed_at,rule_version,entries,published)
+      VALUES(${new Date(INTAKE_NOW - 60_000)},'heat-v1-48h-halflife24h','[]',true) RETURNING id`;
+    const [job] = await sql<{ id: number }[]>`INSERT INTO job_runs(job,started_at,finished_at,status)
+      VALUES('hot.rank',${new Date(INTAKE_NOW - 60_000)},${new Date(INTAKE_NOW - 60_000)},'ok') RETURNING id`;
+    try {
+      const warming = await checkAlerts(INTAKE_NOW);
+      for (const key of keys) {
+        assert.ok(warming.open.includes(key), `${key} must survive a skipped warm-up check`);
+        assert.ok(!warming.sent.includes(`${key}:recovered`));
+      }
+      await sql`DELETE FROM settings WHERE key='heartbeat.worker'`;
+      const disabled = await checkAlerts(INTAKE_NOW);
+      assert.ok(disabled.open.includes("content.process"), "disabled models supply no processing recovery evidence");
+      assert.deepEqual(disabled.sent.filter((key) => key.startsWith("hot.")).sort(), ["hot.page:recovered", "hot.rank:recovered"]);
+      process.env.MODEL_CALLS_ENABLED = "true";
+      const recovered = await checkAlerts(INTAKE_NOW + 60_000);
+      assert.ok(recovered.sent.includes("content.process:recovered"));
+      assert.ok(!recovered.open.includes("content.process"));
+      assert.ok(!(await checkAlerts(INTAKE_NOW + 120_000)).sent.some((key) => keys.some((incident) => key === `${incident}:recovered`)));
+    } finally {
+      await sql`DELETE FROM hot_rankings WHERE id=${ranking!.id}`;
+      await sql`DELETE FROM job_runs WHERE id=${job!.id}`;
+    }
+  });
+});
+
 // ---- Metal prices (TASK-0071) -------------------------------------------------------------------------------------
 // These metals.prices runs are this file's own, at a fixed far-future hour, and removed after each test: no run another
 // test writes falls in the 30 days the reader looks back from NOW.

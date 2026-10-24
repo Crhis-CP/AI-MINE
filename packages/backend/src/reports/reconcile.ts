@@ -192,7 +192,7 @@ export async function reconcileReport(kind: ReportKind, key: string) {
           ...content,
           correctionPending: false,
           sourceMemberIds: ids,
-          corrections: [...previous, { revision, reason, at: new Date().toISOString() }],
+          corrections: latest ? [...previous, { revision, reason, at: new Date().toISOString() }] : [],
         };
         if (latest) {
           await tx`INSERT INTO report_revisions(report_id,revision,content,generated_at,reason)

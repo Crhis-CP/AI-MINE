@@ -83,7 +83,20 @@ export function loadChangelog(): Changelog {
     changelogCache = validateChangelog(JSON.parse(readFileSync(file, "utf8")));
   }
   const runtime = environmentValue("AMP_RELEASE_CHANGELOG_FILE") || path.join(config.dataDir, "site", "release-notes.json");
-  const published = mergeReleaseRecords(changelogCache, [...readReleaseRecords(runtime), ...readReleaseRecords(releaseAnnouncementFile(runtime))]);
+  const records = [...readReleaseRecords(runtime), ...readReleaseRecords(releaseAnnouncementFile(runtime))];
+  // A repeated release note is an internal maintenance receipt, not another reader update.
+  const published = mergeReleaseRecords(
+    changelogCache,
+    records.filter(
+      ({ release }) =>
+        !(
+          release.kind === maintenanceNote.kind &&
+          release.title === maintenanceNote.title &&
+          release.body.length === 1 &&
+          release.body[0] === maintenanceNote.body[0]
+        ),
+    ),
+  );
   const edits = path.join(REPO_ROOT, "industry/changelog-copy-edits.json");
   return existsSync(edits) ? readerChangelogCopy(published, JSON.parse(readFileSync(edits, "utf8"))) : published;
 }
@@ -126,7 +139,7 @@ export function validateReleaseNote(value: unknown): ReleaseNote {
   if (/[a-f0-9]{40}|TASK-\d{4}|\b(?:npm|pnpm|docker|git commit|make verify)\b/i.test(JSON.stringify(note)))
     throw new Error("产品更新说明不能包含提交号、任务号或部署命令");
   if (
-    /后台|运维|缓存|回执|队列|部署|回滚|迁移号|重试记录|回答被截断|重复处理|原始估算|模型(?:费用|成本|调用|配置)|提示词|熔断/.test(
+    /后台|运维|缓存|回执|队列|部署|回滚|迁移号|重试记录|回答被截断|重复处理|原始估算|模型(?:费用|成本|调用|配置)|提示词|熔断|归组|预筛|入库|回填|重跑|重算|处理链路|构建|环境变量|密钥|数据库|解析器|\b(?:CI|SQL|Docker|PostgreSQL|Redis|TTL)\b/i.test(
       [note.title, ...note.body].join("\n"),
     )
   )
