@@ -1,5 +1,6 @@
 import { ReportReading } from "./report-reading.ts";
 import { z } from "zod";
+import { ModuleNotice } from "./module-outputs.ts";
 import { TimeAssertion } from "../time-assertion.ts";
 import { CATEGORY_KEYS } from "../taxonomy.ts";
 import {
@@ -267,8 +268,8 @@ export const V3PolicyReportQuery = V3CursorQuery.extend({
   jurisdiction: text.optional(),
   theme: text.optional(),
 });
-const response = (body: z.ZodType) => ({
-  200: body,
+const response = (body: z.ZodObject) => ({
+  200: body.safeExtend({ module_notice: ModuleNotice.optional() }),
   304: z.undefined(),
   308: z.undefined(),
   400: V3Problem,
@@ -278,7 +279,7 @@ const response = (body: z.ZodType) => ({
   429: V3Problem,
   503: V3Problem,
 });
-const route = (operationId: string, suffix: string, body: z.ZodType, querystring: z.ZodType = z.strictObject({})) => ({
+const route = (operationId: string, suffix: string, body: z.ZodObject, querystring: z.ZodType = z.strictObject({})) => ({
   method: "GET" as const,
   url: `/api/v3${suffix}`,
   schema: { operationId, querystring, ...(suffix.includes(":id") ? { params: z.strictObject({ id: text.min(1).max(160) }) } : {}), response: response(body) },

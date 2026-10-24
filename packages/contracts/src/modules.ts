@@ -39,6 +39,7 @@ export interface ModuleBrand {
   raster: boolean;
 }
 export interface ModuleTopicSummary {
+  brand?: ModuleBrand;
   slug: string;
   name: string;
   group: "company" | "field" | "genre" | "project";

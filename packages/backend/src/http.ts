@@ -1,6 +1,7 @@
 // Shared HTTP helpers: Problem JSON, public API headers, ETag / 304, strict query parsing.
 import { createHash, randomUUID } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { JsonNotice } from "./modules.ts";
 import { NO_STORE, PUBLIC_API_CORS } from "@amp/contracts/http-policy";
 
 declare module "fastify" {
@@ -85,7 +86,7 @@ export function sendJsonWithEtag(
   req: FastifyRequest,
   reply: FastifyReply,
   body: unknown,
-  opts: { etagPrefix: string; cacheControl: string; contentType?: string; etagOf?: unknown },
+  opts: { etagPrefix: string; cacheControl: string; contentType?: string; etagOf?: unknown; notice?: JsonNotice | null },
 ) {
   const text = opts.etagOf === undefined ? JSON.stringify(body) : undefined;
   const etag = weakEtag(opts.etagPrefix, text ?? JSON.stringify(opts.etagOf));
