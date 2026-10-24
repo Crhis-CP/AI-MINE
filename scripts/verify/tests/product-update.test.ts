@@ -70,6 +70,18 @@ test("public notes reject operator fragments and technical copy, while admin-onl
     manifest.note.body = ["RSS 与公开 API 支持按国家查找资讯。"];
     save();
     assert.deepEqual(checkProductUpdate(root, []), [], "reader-facing API features remain valid product changes");
+    const history = { latestVersion: "2026-01-01", releases: [{ date: "2026-01-01", kind: "优化", title: "内部修复", body: ["CI 检查通过。"] }] };
+    writeFileSync(path.join(root, "industry/changelog.json"), JSON.stringify(history));
+    assert.match(checkProductUpdate(root, [])[0]!, /技术|运维/, "historical copy is checked too");
+    history.releases[0]!.title = "阅读更顺畅";
+    history.releases[0]!.body = ["返回列表时保留阅读位置。"];
+    writeFileSync(path.join(root, "industry/changelog.json"), JSON.stringify(history));
+    const edits = [{ copy: { title: "内部修复", body: ["预筛入库与归组已重算。"] } }];
+    writeFileSync(path.join(root, "industry/changelog-copy-edits.json"), JSON.stringify(edits));
+    assert.match(checkProductUpdate(root, [])[0]!, /技术|运维/, "a historical display correction cannot reintroduce internals");
+    edits[0]!.copy = { title: "阅读更顺畅", body: ["返回列表时保留阅读位置。"] };
+    writeFileSync(path.join(root, "industry/changelog-copy-edits.json"), JSON.stringify(edits));
+    assert.deepEqual(checkProductUpdate(root, []), []);
     const withNotice = { ...manifest, announcement: { kind: "公告", title: "后台部署完成", body: ["回执已经登记。"] } };
     writeFileSync(path.join(root, "industry/release-note.json"), JSON.stringify(withNotice));
     assert.match(checkProductUpdate(root, [])[0]!, /技术|运维/);
