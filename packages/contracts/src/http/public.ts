@@ -8,6 +8,7 @@ import { isValidDate } from "../time.ts";
 import { CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
 import { Problem, ProblemResponse } from "./common.ts";
 import { policySchemas, policyRoutes } from "./policy.ts";
+import { ModuleParts } from "./module-outputs.ts";
 export * from "./policy.ts";
 
 /** Existing about-page figures, read from the public publication layer. */
@@ -91,6 +92,25 @@ export const StoryBackground = z.strictObject({ relation: z.enum(["SAME_OCCURREN
 /** Optional addition: existing StoryDetail producers may omit it until the background consumer is connected. */
 export const StoryBackgroundFields = z.strictObject({ background: z.array(StoryBackground).optional() });
 export const SavedItems = z.strictObject({ items: z.array(FeedItemSummary), unavailableIds: z.array(z.string()) });
+export const TopicSummary = z.strictObject({
+  slug: z.string(),
+  name: z.string(),
+  group: z.enum(["company", "field", "genre", "project"]),
+  definition: z.string(),
+  total: z.number().int().nonnegative(),
+  recent: z.number().int().nonnegative(),
+  indexable: z.boolean(),
+  latestAt: z.iso.datetime({ offset: true }).nullable(),
+  basis: z.enum(["selected", "all"]),
+});
+export const TopicDirectory = z.strictObject({ topics: z.array(TopicSummary) });
+export const TopicPage = z.strictObject({
+  topic: TopicSummary.extend({ related: z.array(z.strictObject({ slug: z.string(), name: z.string() })) }),
+  items: z.array(FeedItemSummary),
+  page: z.number().int().positive(),
+  pageCount: z.number().int().positive(),
+  parts: ModuleParts.optional(),
+});
 
 const PoolResponseCore = z.strictObject({
   filters: SiteFilters.extend({ q: z.string().nullable(), tab: z.enum(["time", "relevance"]) }),
@@ -379,6 +399,9 @@ export const schemas = {
   SiteFilters,
   FeedItemSummary,
   PoolResponse,
+  TopicSummary,
+  TopicDirectory,
+  TopicPage,
   StoryRef,
   GroupInfo,
   TimelineCard,
@@ -388,6 +411,21 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  siteTopics: {
+    method: "GET" as const,
+    url: "/api/site/topics",
+    schema: { operationId: "siteTopics", response: { 200: TopicDirectory, 304: z.undefined(), 503: ProblemResponse } },
+  },
+  siteTopicPage: {
+    method: "GET" as const,
+    url: "/api/site/topics/:slug",
+    schema: {
+      operationId: "siteTopicPage",
+      params: z.strictObject({ slug: z.string().min(1) }),
+      querystring: z.object({ page: z.string().optional() }),
+      response: { 200: TopicPage, 304: z.undefined(), 404: ProblemResponse, 503: ProblemResponse },
+    },
+  },
   ...agentRoutes,
   ...v3Routes,
   ...siteInformationRoutes,

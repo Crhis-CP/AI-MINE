@@ -99,6 +99,7 @@ test("receipt schemas stay in explicit private registration without global leaka
   assert.equal(schemas.ReceiptObservedVersion, ReceiptObservedVersion);
   assert.equal(schemas.ReceiptReconciliationResponse, ReceiptReconciliationResponse);
   assert.deepEqual(Object.keys(routes), [
+    "adminNavigationCounts",
     "notifyTargetScopes",
     "notifyTargetScopeUpdate",
     "previewWithdrawal",
