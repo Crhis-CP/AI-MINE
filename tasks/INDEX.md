@@ -306,6 +306,7 @@
 | [TASK-0433](TASK-0433.md) | T-0101 | M3 | architect | locally_verified | 统一矿业评分核对与国别模块纠偏 | — |
 | [TASK-0434](TASK-0434.md) | T-0101 | M3 | architect | locally_verified | 统一国别通知范围契约与事务读取端口 | — |
 | [TASK-0445](TASK-0445.md) | T-0101 | M3 | architect | implemented | 修复新公告阻断的运行依赖 | — |
+| [TASK-0447](TASK-0447.md) | T-0101 | M3 | architect | locally_verified | 公开更新日志只保留读者变化并阻止运营说明混入 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

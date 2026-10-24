@@ -13,7 +13,7 @@ import {
   type Changelog,
 } from "@amp/backend/site/meta";
 
-const note = { kind: "优化" as const, title: "反馈更简洁", body: ["自动定位信息由后台保留。"] };
+const note = { kind: "优化" as const, title: "反馈更简洁", body: ["提交反馈时无需重复填写页面地址。"] };
 const base: Changelog = {
   latestVersion: "2026-10-10",
   releases: [
@@ -34,6 +34,7 @@ test("failed or mixed releases cannot be announced; healthy retries preserve one
       { ...good, health: { ...good.health, ok: false } },
       { ...good, health: { ...good.health, release: "b".repeat(12) } },
       { ...good, note: { ...note, kind: "修复" } },
+      { ...good, note: { ...note, body: ["后台显示缓存命中价和回执。"] } },
     ])
       assert.throws(() => recordSuccessfulRelease(input));
     assert.equal(existsSync(filename), false);

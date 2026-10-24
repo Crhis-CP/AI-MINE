@@ -52,7 +52,6 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
       ["2026-10-10", undefined, "首页换回精选"],
       ["2026-10-10", undefined, "金属价格页开始显示官方报价"],
       ["2026-10-10", undefined, "法规政策动态可以按国家查看"],
-      ["2026-10-10", undefined, "后台改到网站主域名"],
       ["2026-10-06", undefined, "首页：精选开始之前，先放最新动态"],
       ["2026-10-06", undefined, "金属价格：侧栏新增入口"],
       ["2026-10-06", undefined, "带 www 的网址也能打开本站"],
