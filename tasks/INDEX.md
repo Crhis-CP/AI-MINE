@@ -320,7 +320,7 @@
 | [TASK-0448](TASK-0448.md) | T-0101 | M3 | architect | locally_verified | 接通内容与报告变更的事务模块事件 | — |
 | [TASK-0449](TASK-0449.md) | T-0101 | M3 | architect | integrated | RSS提示和机器阅读扩展的兼容端口 | — |
 | [TASK-0450](TASK-0450.md) | T-0101 | M3 | architect | locally_verified | 接通模块Agent能力与请求观察 | — |
-| [TASK-0451](TASK-0451.md) | T-0101 | M3 | architect | specified | JSON模块提示与主题标识的兼容契约 | — |
+| [TASK-0451](TASK-0451.md) | T-0101 | M3 | architect | locally_verified | JSON模块提示与主题标识的兼容契约 | — |
 | [TASK-0452](TASK-0452.md) | T-0101 | M3 | architect | locally_verified | 接通RSS提示与机器阅读模块说明 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |

@@ -1868,6 +1868,9 @@
           },
           "page": {
             "$ref": "#/components/schemas/Page"
+          },
+          "module_notice": {
+            "$ref": "#/components/schemas/ModuleNotice"
           }
         }
       },
@@ -1970,6 +1973,9 @@
             "items": {
               "$ref": "#/components/schemas/HotTopic"
             }
+          },
+          "module_notice": {
+            "$ref": "#/components/schemas/ModuleNotice"
           }
         }
       },
@@ -2152,6 +2158,9 @@
           },
           "story": {
             "$ref": "#/components/schemas/Story"
+          },
+          "module_notice": {
+            "$ref": "#/components/schemas/ModuleNotice"
           }
         }
       },
@@ -2175,6 +2184,9 @@
             "items": {
               "$ref": "#/components/schemas/DailyEntry"
             }
+          },
+          "module_notice": {
+            "$ref": "#/components/schemas/ModuleNotice"
           }
         }
       },
@@ -2381,6 +2393,9 @@
           },
           "report": {
             "$ref": "#/components/schemas/DailyReport"
+          },
+          "module_notice": {
+            "$ref": "#/components/schemas/ModuleNotice"
           }
         }
       },
@@ -2429,6 +2444,9 @@
           },
           "items": {
             "type": "array"
+          },
+          "module_notice": {
+            "$ref": "#/components/schemas/ModuleNotice"
           }
         },
         "oneOf": [
@@ -2553,6 +2571,9 @@
           },
           "changes": {
             "type": "array"
+          },
+          "module_notice": {
+            "$ref": "#/components/schemas/ModuleNotice"
           }
         },
         "oneOf": [
@@ -2597,6 +2618,11 @@
             }
           }
         ]
+      },
+      "ModuleNotice": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Optional public metadata from an installed site module. Existing document notice fields keep their original meaning."
       }
     }
   }

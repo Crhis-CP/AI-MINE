@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import { ModuleNotice, ModuleBrand, TopicSummary } from "@amp/contracts/http/public";
 import { v3Routes } from "@amp/contracts/http/v3";
 
@@ -9,6 +10,7 @@ test("module response metadata is optional and never replaces document notice se
   assert.deepEqual(wire.parse(version), version);
   const withNotice = { ...version, module_notice: { title: "合成提示", link: "/terms" } };
   assert.deepEqual(wire.parse(withNotice), withNotice);
+  assert.equal(wire.safeParse({ ...version, unexpected: true }).success, false);
   for (const invalid of [null, [], "not an object"]) assert.equal(ModuleNotice.safeParse(invalid).success, false);
   assert.equal(v3Routes.v3Item.schema.response[200].shape.notice.safeParse("正文已有说明").success, true);
   assert.equal(v3Routes.v3Item.schema.response[200].shape.notice.safeParse({ title: "不能替换正文说明" }).success, false);
@@ -33,4 +35,16 @@ test("optional topic marks use local assets or text without forcing a new brand 
   assert.equal(ModuleBrand.safeParse({ ...brand, src: null }).success, true);
   for (const src of ["https://example.invalid/mark.svg", "//example.invalid/mark.svg", "/\\example.invalid/mark.svg", "/bad\npath"])
     assert.equal(ModuleBrand.safeParse({ ...brand, src }).success, false, src);
+});
+
+test("legacy JSON documentation keeps optional module metadata out of errors and required fields", () => {
+  const spec = JSON.parse(readFileSync(new URL("../reference/public-v1.openapi.json", import.meta.url), "utf8"));
+  const schemas = spec.components.schemas;
+  for (const route of Object.values(spec.paths) as Array<{ get: { responses: Record<string, { content: Record<string, { schema: { $ref: string } }> }> } }>) {
+    const name = route.get.responses["200"]!.content["application/json"]!.schema.$ref.split("/").at(-1)!;
+    assert.deepEqual(schemas[name].properties.module_notice, { $ref: "#/components/schemas/ModuleNotice" });
+    assert.ok(!schemas[name].required?.includes("module_notice"));
+  }
+  assert.equal(schemas.ModuleNotice.type, "object");
+  assert.equal(schemas.Problem.properties.module_notice, undefined);
 });
