@@ -98,3 +98,5 @@ Agent答案契约在`http/agent`：匿名只读Markdown说明及资讯、检索�
 TASK-0430：modules入口声明共享的矿业主题/成员、模块标识与导航计数类型，旧ModuleDeclaration/MaterialDiscovered保持。后端及网页扩展可声明固定上游通用插口；运行消费者和HTTP投影不由类型声明自动启用，见docs/03-data/module-extension-contract.md。
 
 TASK0434：notify-scopes声明总渠道/国家范围的私有读取与版本化更新；null代表总渠道，国家代码由消费者再核对支持目录，启用与凭据不在此命令中。
+
+TASK0444：`http/public`声明既有主题目录/详情的共享形状及可选模块`parts`，`http/private`声明后台导航计数和可选`runs.modules`。旧响应可省略新字段；模块自行校验安全投影，通用形状不授予内容公开权限。当前只交兼容契约，实际回调与页面接入在后续消费者完成，见[模块出口](../../docs/03-data/module-output-contract.md)。
