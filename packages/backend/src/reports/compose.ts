@@ -10,6 +10,7 @@ import { EDITION_TIMES } from "@amp/industry/site";
 import { modelFor } from "../editorial/models.ts";
 import { addDays, beijingDate, beijingTime, isoWeekLabel, isoWeekRange } from "@amp/contracts/time";
 import { sql } from "../db.ts";
+import { emit } from "../modules.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
@@ -101,6 +102,7 @@ async function saveReport(
       VALUES (${kind},${key},${start},${end},${tx.json(content as never)},now(),now(),${model},${model ? "model" : "rule"}) ON CONFLICT (kind,key) DO NOTHING`;
     await preserveReportCalendar(tx);
     if (inserted.count && kind === "daily") await requestReportDependents(key, [], tx);
+    if (inserted.count) await emit("reportsChanged", { reason: `${kind} ${key} published` }, tx);
   });
 }
 

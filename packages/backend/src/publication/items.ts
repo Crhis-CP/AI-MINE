@@ -133,7 +133,9 @@ export function tagCondition(values: ReadMatcherValues) {
   return sql`AND (${values.tagTags}::text[] IS NULL OR p.tags && ${values.tagTags}::text[] OR ${publicationTextMatches(values.tagText)})`;
 }
 export function topicCondition(values: ReadMatcherValues) {
-  return sql`AND (${values.topicTags}::text[] IS NULL OR p.tags && ${values.topicTags}::text[] OR ${publicationTextMatches(values.topicText)})`;
+  return sql`AND (${values.topicTags}::text[] IS NULL OR CASE WHEN ${values.topicJurisdiction}::text IS NOT NULL
+    THEN ${currentGeographyMatch(values.topicJurisdiction, values.topicJurisdictionCodes, values.topicRecipe)}
+    ELSE p.tags && ${values.topicTags}::text[] OR ${publicationTextMatches(values.topicText)} END)`;
 }
 
 export function toItemSummary(row: ItemRow): ItemSummary {
@@ -196,7 +198,7 @@ export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<
 
 /** Both branches bind to the article's current source revision, not the publication's independent revision counter. */
 export function newsJurisdictionScope(value: string | null | undefined) {
-  return { jurisdictionCodes: jurisdictionDescendants(value ?? ""), jurisdictionRecipe: geographyRecipe() };
+  return { jurisdictionCodes: jurisdictionDescendants(value ?? ""), jurisdictionRecipe: geographyRecipe(), jurisdictionRecipes: compatibleGeographyRecipes() };
 }
 export function jurisdictionCondition(value: string | null, descendants: string[] | undefined, recipe: string, _values: ReadMatcherValues) {
   // Country filters use evidenced locations; country mentions remain available through text search.
@@ -298,7 +300,7 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))
-    AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
+    ${topicCondition(matchers)}
     ${jurisdictionCondition(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe, matchers)}
     AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
     AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))
@@ -320,7 +322,7 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))
-    AND (${matchers.topicTags}::text[] IS NULL OR p.tags && ${matchers.topicTags}::text[] OR (${matchers.topicText.active} AND ${publicationTextMatches(matchers.topicText)}))
+    ${topicCondition(matchers)}
     ${jurisdictionCondition(query.jurisdiction, query.jurisdictionCodes, query.jurisdictionRecipe, matchers)}
     AND (${!matchers.term0.active} OR ${publicationTextMatches(matchers.term0)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term0)} OFFSET 0))
     AND (${!matchers.term1.active} OR ${publicationTextMatches(matchers.term1)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${publicBodyTextMatches(matchers.term1)} OFFSET 0))

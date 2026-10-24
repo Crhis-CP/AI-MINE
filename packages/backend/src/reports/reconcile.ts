@@ -1,5 +1,6 @@
 import type { PgBoss } from "pg-boss";
 import { sql } from "../db.ts";
+import { emit } from "../modules.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { lockNewsModelMaterials, newsMaterialBindings } from "@amp/backend/content/materials";
 import { currentReportPublications, lockReportPublications } from "@amp/backend/publication/publish";
@@ -204,6 +205,7 @@ export async function reconcileReport(kind: ReportKind, key: string) {
           await tx`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,first_published_at,model,origin)
           VALUES(${kind},${key},${prepared.range.from},${prepared.range.until},${tx.json(revised as never)},now(),now(),${written?.model ?? null},${written ? "model" : "rule"})`;
         if (kind === "daily") await requestReportDependents(key, ids, tx);
+        await emit("reportsChanged", { reason: `${kind} ${key} reconciled` }, tx);
       }
       const retry = needsProse && !written?.overview && !requiresManualReview;
       await tx`UPDATE reports.reconciliation_jobs SET state=${retry ? "retry" : "done"},result=${requiresManualReview ? "waiting" : changed ? "revised" : "unchanged"},

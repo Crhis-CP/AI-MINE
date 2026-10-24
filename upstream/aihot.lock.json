@@ -5076,6 +5076,133 @@
     "packages/contracts/src/modules.ts"
    ],
    "local_adaptation": "Preserve news/policy lanes, transactional material discovery, mining project topics, existing navigation and administrative authentication; consumers remain separate."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T00:19:30.048410+00:00",
+   "mechanism": "Reader module document headers and page parts",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "apps/web/app/root.tsx",
+     "bytes": 7852,
+     "sha256": "748e919edc0060281b7bfbd06225497c2f8eb0c5dd34c9fd601a1373372a771d"
+    }
+   ],
+   "targets": [
+    "apps/web/app/root.tsx",
+    "apps/web/app/routes/public-layout.tsx"
+   ],
+   "local_adaptation": "Module document headers accompany the metadata request, not the document response. Preserve nonce on trusted scripts and separate public/private installation lists."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T01:31:22.841126+00:00",
+   "mechanism": "Transactional content and report module events",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "packages/backend/src/content/materials.ts",
+     "bytes": 23842,
+     "sha256": "e90637a580b3c4088087a102b818f68d401c7ed48fdc73228d4454bae8f04594"
+    },
+    {
+     "path": "packages/backend/src/editorial/translate.ts",
+     "bytes": 22796,
+     "sha256": "c3264163d09fa7f2c97905ac584a1ebf72a70dbcc90ac1d243bfb02daf1daa9a"
+    },
+    {
+     "path": "packages/backend/src/reports/compose.ts",
+     "bytes": 19843,
+     "sha256": "95c4f19202aa009ec61aa5914329b8d7085f693cc5443c5e26e98e11b3595dea"
+    },
+    {
+     "path": "packages/backend/src/jobs/publication.ts",
+     "bytes": 2280,
+     "sha256": "d4af583c9ce218378f658716ed40801cf0ab0c2708ec1d35eaad7bf113fab6bd"
+    },
+    {
+     "path": "packages/backend/src/publication/publish.ts",
+     "bytes": 28075,
+     "sha256": "82617c94f6221b3ec39264905b911a6ff13a69dc7f72ab65307316a5f1b02bb6"
+    }
+   ],
+   "targets": [
+    "packages/backend/src/content/materials.ts",
+    "packages/backend/src/editorial/translation-store.ts",
+    "packages/backend/src/publication/publish.ts",
+    "packages/backend/src/reports/compose.ts",
+    "packages/backend/src/reports/reconcile.ts",
+    "packages/backend/src/reports/corrections.ts",
+    "packages/backend/src/jobs/publication.ts",
+    "packages/backend/src/content/extract.ts",
+    "packages/backend/src/publication/news-geography.ts"
+   ],
+   "local_adaptation": "Emit within existing write transactions, including mining report corrections, current source dates and representative changes. Preserve lane controls and manual state; incomplete source rebuilds do not announce completion."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T19:11:09.631122+00:00",
+   "mechanism": "Read-only module abilities, request notices and response observation",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "apps/api/src/app.ts",
+     "bytes": 5963,
+     "sha256": "be3840e78bc03c955b97e8d0e1a8d358f949a9df891e5f3acec6d1a420002bf8"
+    },
+    {
+     "path": "apps/api/src/routes/agent.ts",
+     "bytes": 7347,
+     "sha256": "8e303b839abc29c11fbad8f1ea3f2012420ba8543771d42fb760ee735819f179"
+    },
+    {
+     "path": "apps/api/src/routes/mcp.ts",
+     "bytes": 22526,
+     "sha256": "e15d9037a5b29ddf5d119bdb061ac795fab9ec056297fbd69a3aa67e195918df"
+    },
+    {
+     "path": "packages/backend/src/publication/agent.ts",
+     "bytes": 19999,
+     "sha256": "74362eddd83f2b0d3143aa20af2b93fe14147c78ee29539a9ba5fbfa7f03d9ec"
+    }
+   ],
+   "targets": [
+    "apps/api/src/app.ts",
+    "apps/api/src/routes/agent.ts",
+    "apps/api/src/routes/mcp.ts",
+    "packages/backend/src/publication/agent.ts"
+   ],
+   "local_adaptation": "Reuse installed read-only capabilities with mining Agent guidance, per-request MCP notice isolation, HTTPS module origins and isolated response observers. Preserve current public rechecks, protocol subscription cleanup, authentication and lane controls; no external calls or publication from reader requests."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T19:57:29.726904+00:00",
+   "mechanism": "Module RSS reminders and machine-reading metadata",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "apps/api/src/routes/feeds.ts",
+     "bytes": 3173,
+     "sha256": "3ebec23146373cbc48732df88d5d95fadf71be7a481db7869033314a07426851"
+    },
+    {
+     "path": "packages/backend/src/publication/feeds.ts",
+     "bytes": 13715,
+     "sha256": "e2e58d9f767712c5d3959ac9e8ac0e6ed80ff930a7172eced768a0cf7f9feecf"
+    },
+    {
+     "path": "packages/backend/src/publication/llms.ts",
+     "bytes": 11969,
+     "sha256": "df72f6d6e03942282901b96ea139f382941381065797b00020499be54388e4cb"
+    }
+   ],
+   "targets": [
+    "apps/api/src/routes/feeds.ts",
+    "packages/backend/src/publication/feeds.ts",
+    "packages/backend/src/publication/llms.ts"
+   ],
+   "local_adaptation": "Preserve all mining RSS paths, report and policy permissions, the original itemFeed date argument and withdrawal rechecks. Request notices are private and part of ETags; module metadata extends existing llms sections and names the installed MCP tools."
   }
  ]
 }

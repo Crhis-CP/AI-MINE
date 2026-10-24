@@ -312,10 +312,16 @@
 | [TASK-0440](TASK-0440.md) | T-0101 | M3 | architect | locally_verified | 核对最新DeepSeek Flash并修复缓存前缀与跨日复用 | — |
 | [TASK-0441](TASK-0441.md) | T-0101 | M3 | architect | locally_verified | 接通统一精选的国别投递与重试复核 | — |
 | [TASK-0442](TASK-0442.md) | T-0101 | M3 | architect | locally_verified | 后台展示和修改通知国家范围 | — |
-| [TASK-0444](TASK-0444.md) | T-0101 | M3 | architect | locally_verified | 主题部件和后台模块数据的兼容出口契约 | — |
+| [TASK-0443](TASK-0443.md) | T-0101 | M3 | architect | locally_verified | 接通网页模块的页面部件与常用入口 | — |
+| [TASK-0444](TASK-0444.md) | T-0101 | M3 | architect | integrated | 主题部件和后台模块数据的兼容出口契约 | — |
 | [TASK-0445](TASK-0445.md) | T-0101 | M3 | architect | implemented | 修复新公告阻断的运行依赖 | — |
+| [TASK-0446](TASK-0446.md) | T-0101 | M3 | architect | locally_verified | 国家主题按当前作用地归类并统一计数 | — |
 | [TASK-0447](TASK-0447.md) | T-0101 | M3 | architect | live_verified | 公开更新日志只保留读者变化并阻止运营说明混入 | — |
-| [TASK-0449](TASK-0449.md) | T-0101 | M3 | architect | locally_verified | RSS提示和机器阅读扩展的兼容端口 | — |
+| [TASK-0448](TASK-0448.md) | T-0101 | M3 | architect | locally_verified | 接通内容与报告变更的事务模块事件 | — |
+| [TASK-0449](TASK-0449.md) | T-0101 | M3 | architect | integrated | RSS提示和机器阅读扩展的兼容端口 | — |
+| [TASK-0450](TASK-0450.md) | T-0101 | M3 | architect | locally_verified | 接通模块Agent能力与请求观察 | — |
+| [TASK-0451](TASK-0451.md) | T-0101 | M3 | architect | specified | JSON模块提示与主题标识的兼容契约 | — |
+| [TASK-0452](TASK-0452.md) | T-0101 | M3 | architect | locally_verified | 接通RSS提示与机器阅读模块说明 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

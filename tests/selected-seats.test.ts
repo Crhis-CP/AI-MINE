@@ -15,6 +15,7 @@ import { buildApp } from "./site-app.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
+import { installModules, serverModules } from "@amp/backend/modules";
 
 const app = await buildApp("public-api");
 after(async () => {
@@ -52,14 +53,35 @@ async function seats(ids: string[]) {
   return (await sql<{ article_id: string }[]>`SELECT article_id FROM publications WHERE article_id=ANY(${ids}) AND seat`).map((r) => r.article_id).sort();
 }
 
-test("a better representative replaces the prior selected seat across API, RSS, ledger and website", async () => {
+test("a better representative replaces the prior selected seat across API, RSS, ledger and website", async (t) => {
   const f = await fact(),
     media = await material("T2", f),
     official = await material("T1", f);
   await publishArticle(media);
   const snapshot = (await app.inject("/api/v1/selected/snapshot")).json();
   assert.ok(snapshot.items.some((item: { id: string }) => item.id === media));
+  const prior = serverModules(),
+    changed: string[] = [];
+  t.after(() => installModules(prior));
+  installModules([
+    ...prior,
+    {
+      name: "fixture-seat-events",
+      on: {
+        articleChanged: async (change, tx) => {
+          changed.push(change.id);
+          if (change.reason === "selected representative changed")
+            assert.equal(
+              (await tx`SELECT in_set FROM selected_state WHERE article_id=${change.id}`)[0]?.in_set,
+              !change.reduced,
+              "the hook sees the settled ledger",
+            );
+        },
+      },
+    },
+  ]);
   await publishArticle(official);
+  assert.equal(changed.filter((id) => id === media).length, 1, "the displaced representative also announces its change once");
   assert.deepEqual(await seats([media, official]), [official]);
   assert.equal((await pushSelected(media)).status, "skipped", "a non-representative cannot send a second selected push");
   const items = (await app.inject("/api/v1/items?mode=selected&limit=100")).json().items as { id: string }[];

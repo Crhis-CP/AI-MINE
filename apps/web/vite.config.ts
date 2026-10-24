@@ -87,7 +87,12 @@ export default defineConfig({
       },
     },
   ],
-  resolve: { alias: { "./group.css": path.resolve(import.meta.dirname, `app/${group}.css`) } },
+  resolve: {
+    alias: {
+      "./group.css": path.resolve(import.meta.dirname, `app/${group}.css`),
+      "../root-modules": path.resolve(import.meta.dirname, group === "private" ? "admin-root-modules.ts" : "root-modules.ts"),
+    },
+  },
   server: { port: 3000, strictPort: true, allowedHosts: [privateWebHostname(), new URL(process.env.SITE_URL || "http://localhost:3000").hostname] },
   build: {
     rolldownOptions: {

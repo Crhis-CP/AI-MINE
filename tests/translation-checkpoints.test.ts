@@ -12,7 +12,8 @@ import { sanitizeBody } from "@amp/backend/content/sanitize";
 import { readCurrentBody, upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { runBodyTranslation, type TranslationRecipe } from "../packages/backend/src/editorial/translation-runtime.ts";
-import { beginTranslation } from "../packages/backend/src/editorial/translation-store.ts";
+import { beginTranslation, finishTranslation } from "../packages/backend/src/editorial/translation-store.ts";
+import { installModules, serverModules } from "@amp/backend/modules";
 
 const T = tag(),
   SOURCE = `checkpoints-${T}`;
@@ -90,16 +91,35 @@ const cool = async (id: string) => {
   WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${id}@1#%`})`;
 };
 
-test("real strict calls assemble all ordered blocks, reuse receipts across recipe assembly and keep analysis state", async () => {
+test("real strict calls assemble all ordered blocks, reuse receipts across recipe assembly and keep analysis state", async (t) => {
   mode = "stop";
   const { articleId } = await material("ordered", `<div>Project <strong>not</strong> permitted ${T}.<p>Tail condition ${T}.</p></div>`);
   await sql`UPDATE articles SET processing_state='failed',processing_error='kept' WHERE id=${articleId}`;
+  const prior = serverModules();
+  let changes = 0;
+  t.after(() => installModules(prior));
+  installModules([
+    ...prior,
+    {
+      name: "fixture-translation-events",
+      on: {
+        articleChanged: async (change) => {
+          assert.equal(change.id, articleId);
+          assert.equal(change.kind, "body");
+          changes++;
+        },
+      },
+    },
+  ]);
   const start = hits;
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
   const first = await translation(articleId);
   assert.equal(first.body_html, "<p>合成<strong>未</strong>获准。</p><p>合成中文正文。</p>");
   assert.equal(first.manifest.segments.length, 2);
   assert.equal(hits - start, 2);
+  assert.equal(changes, 1);
+  assert.equal(await finishTranslation((await beginTranslation((await readCurrentBody(articleId))!, recipe.id))!), true);
+  assert.equal(changes, 1, "unchanged promotion reuses the readable body without another event");
   assert.equal((await runBodyTranslation(articleId, { ...recipe, id: recipe.id + "-reassembled" })).status, "translated");
   assert.equal(hits - start, 2, "same request inputs reuse actual gateway receipts; recipe labels never manufacture an attemptTag");
   const records = await sql`SELECT recipe,receipt_id FROM enrichment.translation_segments WHERE article_id=${articleId} ORDER BY recipe,segment_index`;

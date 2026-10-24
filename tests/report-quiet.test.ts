@@ -12,6 +12,7 @@ import { loadReport, listReports, v1Daily } from "@amp/backend/publication/repor
 import { dailyFeed } from "@amp/backend/publication/feeds";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { changeSystemLaneControl } from "../packages/backend/src/operations/lane-controls.ts";
+import { installModules, serverModules } from "@amp/backend/modules";
 
 const source = `quiet-${tag()}`;
 const provider = await stub(() => {
@@ -45,9 +46,29 @@ async function judged(label: string, at: string, score: number | null = 20) {
   assert.equal((await publishArticle(articleId, { now: new Date(at) }))?.selected, false);
   return articleId;
 }
-test("no selected news yields a dated quiet issue across archive, detail, API and RSS without a model", async () => {
+test("no selected news yields a dated quiet issue across archive, detail, API and RSS without a model", async (t) => {
   await judged("quiet", "2020-07-02T12:00:00Z");
   assert.deepEqual(await candidates(new Date("2020-07-02Z"), new Date("2020-07-03Z")), []);
+  const prior = serverModules();
+  let events = 0,
+    fail = true;
+  t.after(() => installModules(prior));
+  installModules([
+    ...prior,
+    {
+      name: "fixture-report-change",
+      on: {
+        reportsChanged: async (_change, tx) => {
+          assert.equal((await tx`SELECT 1 FROM reports WHERE kind='daily' AND key='2020-07-03'`).length, 1);
+          events++;
+          if (fail) throw Error("synthetic report hook failure");
+        },
+      },
+    },
+  ]);
+  await assert.rejects(composeDaily("2020-07-03"), /synthetic report hook failure/);
+  assert.equal((await sql`SELECT 1 FROM reports WHERE kind='daily' AND key='2020-07-03'`).length, 0);
+  fail = false;
   assert.deepEqual(await composeDaily("2020-07-03"), { key: "2020-07-03", entries: 0 });
   const report = (await loadReport("daily", "2020-07-03"))!;
   assert.equal(report.lead!.title, "今日无大事发生");
@@ -62,6 +83,7 @@ test("no selected news yields a dated quiet issue across archive, detail, API an
   assert.equal(provider.hits(), 0);
   assert.equal((await sql`SELECT model FROM reports WHERE key='2020-07-03'`)[0]!.model, null);
   await Promise.all([composeDaily(report.key), composeDaily(report.key)]);
+  assert.equal(events, 2, "one rejected transaction and one publication; existing issues emit nothing");
   assert.equal((await loadReport("daily", report.key))!.revision, report.revision);
   assert.equal((await sql`SELECT count(*)::int n FROM report_revisions`)[0]!.n, 0);
 });

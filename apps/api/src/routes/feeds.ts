@@ -2,6 +2,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { RSS_CACHE_CONTROL } from "@amp/contracts/http-policy";
 import { dailyFeed, policyFeed, isFeedCategory, itemFeed, type ItemFeedKind } from "@amp/backend/publication/feeds";
+import { requestNotice } from "@amp/backend/modules";
 import { applyPublicHeaders, sendTextWithEtag } from "../http/respond.ts";
 
 async function sendFeed(req: FastifyRequest, reply: FastifyReply, xml: string, cacheControl = RSS_CACHE_CONTROL) {
@@ -28,7 +29,9 @@ export function registerFeeds(app: FastifyInstance) {
   }
   const item = (kind: ItemFeedKind) => async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      return await sendFeed(req, reply, await itemFeed(kind, null));
+      const path = kind === "all" ? "/feed/all.xml" : kind === "selected-full" ? "/feed/full.xml" : "/feed.xml";
+      const notice = requestNotice("feed", req, path);
+      return await sendFeed(req, reply, await itemFeed(kind, null, undefined, notice), notice ? "private, no-store" : RSS_CACHE_CONTROL);
     } catch (error) {
       req.log.error({ err: error }, "feed error");
       return feedError(reply);
@@ -39,7 +42,8 @@ export function registerFeeds(app: FastifyInstance) {
   app.get("/feed/all.xml", item("all"));
   app.get("/feed/policies.xml", async (req, reply) => {
     try {
-      return await sendFeed(req, reply, await policyFeed());
+      const notice = requestNotice("feed", req, "/feed/policies.xml");
+      return await sendFeed(req, reply, await policyFeed(notice), notice ? "private, no-store" : RSS_CACHE_CONTROL);
     } catch (error) {
       req.log.error({ err: error }, "policy feed error");
       return feedError(reply);
@@ -47,7 +51,8 @@ export function registerFeeds(app: FastifyInstance) {
   });
   app.get("/feed/daily.xml", async (req, reply) => {
     try {
-      return await sendFeed(req, reply, await dailyFeed());
+      const notice = requestNotice("feed", req, "/feed/daily.xml");
+      return await sendFeed(req, reply, await dailyFeed(notice), notice ? "private, no-store" : RSS_CACHE_CONTROL);
     } catch (error) {
       req.log.error({ err: error }, "feed error");
       return feedError(reply);
@@ -59,7 +64,13 @@ export function registerFeeds(app: FastifyInstance) {
       const slug = file.replace(/\.xml$/, "");
       if (!file.endsWith(".xml") || !isFeedCategory(slug)) return reply.code(404).type("text/plain; charset=utf-8").send("Not found");
       try {
-        return await sendFeed(req, reply, await itemFeed(full ? "selected-full" : "selected", slug));
+        const notice = requestNotice("feed", req, `${full ? "/feed/full/category/" : "/feed/category/"}${slug}.xml`);
+        return await sendFeed(
+          req,
+          reply,
+          await itemFeed(full ? "selected-full" : "selected", slug, undefined, notice),
+          notice ? "private, no-store" : RSS_CACHE_CONTROL,
+        );
       } catch (error) {
         req.log.error({ err: error }, "feed error");
         return feedError(reply);

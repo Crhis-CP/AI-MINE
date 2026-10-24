@@ -25,6 +25,7 @@ import {
 import { publicItemMetadata } from "@amp/backend/publication/detail";
 import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
+import { installModules, serverModules } from "@amp/backend/modules";
 
 const app = await buildApp("public-api"),
   requests: { system: string; user: string }[] = [];
@@ -131,6 +132,41 @@ async function fixture(body: string, geo: unknown = undefined) {
   await publishArticle(articleId);
   return { articleId, input };
 }
+test("a geography-only correction emits transactionally without changing the article copy or buying a model call", async (t) => {
+  const body = "加拿大公司总部发布消息，阿根廷矿区发生生产变化。";
+  const f = await fixture(body, candidate([assignment("CA", "加拿大", body, "headquarters")], "none"));
+  const [before] = await sql`SELECT title,summary,score FROM publications WHERE article_id=${f.articleId}`;
+  const geography = validateGeography(candidate([assignment("AR", "阿根廷", body)]), { ...material(body), title: f.input.title });
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{geography}',${sql.json(geography as never)}) WHERE article_id=${f.articleId}`;
+  const prior = serverModules(),
+    calls = requests.length;
+  t.after(() => installModules(prior));
+  let events = 0,
+    fail = true;
+  installModules([
+    ...prior,
+    {
+      name: "fixture-geography-event",
+      on: {
+        articleChanged: async (change, tx) => {
+          assert.equal(change.id, f.articleId);
+          assert.deepEqual((await tx`SELECT jurisdictions FROM publication.news_geography WHERE article_id=${f.articleId}`)[0].jurisdictions, ["AR"]);
+          events++;
+          if (fail) throw Error("synthetic geography event failure");
+        },
+      },
+    },
+  ]);
+  await assert.rejects(publishArticle(f.articleId), /synthetic geography event failure/);
+  assert.deepEqual((await sql`SELECT jurisdictions FROM publication.news_geography WHERE article_id=${f.articleId}`)[0].jurisdictions, []);
+  fail = false;
+  assert.equal((await publishArticle(f.articleId))!.changed, true);
+  assert.equal((await publishArticle(f.articleId))!.changed, false);
+  assert.equal(events, 2);
+  assert.deepEqual((await sql`SELECT title,summary,score FROM publications WHERE article_id=${f.articleId}`)[0], before);
+  assert.equal(requests.length, calls);
+});
+
 test("geography keeps exact evidence and roles, rejects currency/substrings/HQ shortcuts, and distinguishes unknown from none", () => {
   const body = "公司总部在加拿大，矿山项目位于阿根廷，规则适用于云南省。融资为 US$ 10 million，与 Indian lands 无关。";
   const result = validateGeography(

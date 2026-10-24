@@ -1,4 +1,3 @@
-import { topicTextMatches } from "./read-predicates.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { readFileSync } from "node:fs";
@@ -6,7 +5,7 @@ import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
 import { sql } from "../db.ts";
 import { cached } from "../lib/cache.ts";
-import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
+import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, topicCondition, newsJurisdictionScope, type ItemRow } from "./items.ts";
 import { matchesTopicTags, readMatcherValues } from "./mentions.ts";
 
 export interface TopicRow {
@@ -21,8 +20,8 @@ export interface TopicRow {
 }
 
 /**
- * Topic pages list 全部矿业动态: every public eligible article whose tag or title/summary names the
- * country, mineral or company. The homepage 精选 filter stays 精选-only (Owner 2026-10-10).
+ * Topic pages list 全部矿业动态 by current country evidence, or mineral/company tags and aliases.
+ * The homepage 精选 filter stays 精选-only (Owner 2026-10-10).
  * `selected` remains in the type so older responses still parse; new counts are `all`.
  */
 export type TopicBasis = "selected" | "all";
@@ -84,17 +83,19 @@ export function topicPageCounts(): Promise<TopicCount[]> {
 }
 
 /**
- * One pass over 全部矿业动态. A topic counts an item when its tags overlap, or the title / summary
- * uses that country, mineral or company name (including aliases).
+ * One pass over 全部矿业动态, using the same country evidence and non-country aliases as item reads.
  */
 async function queryTopicCounts(): Promise<TopicCount[]> {
   const now = new Date();
   const basis: TopicBasis = "all";
   const [topics, items] = await Promise.all([
     sql<Array<Pick<TopicRow, "slug" | "entity_id" | "tags">>>`SELECT slug, entity_id, tags FROM topics ORDER BY position`,
-    sql<{ tags: string[]; timeline_at: Date; search_text: string }[]>`
-      SELECT p.tags, p.timeline_at, coalesce(p.search_text, '') AS search_text
-      FROM publications p WHERE ${listedCondition(now)} AND p.eligible`,
+    sql<{ tags: string[]; timeline_at: Date; search_text: string; jurisdictions: string[] | null }[]>`
+      SELECT p.tags, p.timeline_at, coalesce(p.search_text, '') AS search_text,g.jurisdictions
+      FROM publications p JOIN articles a ON a.id=p.article_id
+      LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision
+        AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${newsJurisdictionScope(null).jurisdictionRecipes}::text[])
+      WHERE ${listedCondition(now)} AND p.eligible`,
   ]);
   const recentFrom = Date.now() - 30 * 86400_000;
   return topics.map((t) => {
@@ -103,7 +104,7 @@ async function queryTopicCounts(): Promise<TopicCount[]> {
     let recent = 0;
     let latest: Date | null = null;
     for (const it of items) {
-      if (!matchesTopicTags(it.tags, it.search_text, match)) continue;
+      if (!matchesTopicTags(it.tags, it.search_text, match, it.jurisdictions)) continue;
       total += 1;
       if (it.timeline_at.getTime() > recentFrom) recent += 1;
       if (!latest || it.timeline_at > latest) latest = it.timeline_at;
@@ -168,12 +169,12 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   const pageCount = Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE));
   if (page < 1 || page > pageCount) return null;
   // Page ids from the set the counts follow first, then the joins for those rows only.
-  const match = readMatcherValues(null, topicMatchTags(row), [], []);
+  const match = readMatcherValues(null, topicMatchTags(row), [], [], newsJurisdictionScope(null).jurisdictionRecipe);
   const offset = (page - 1) * TOPIC_PAGE_SIZE;
   const rows = await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${listedCondition(now)} AND p.eligible AND ${topicTextMatches(match)}
+      WHERE ${match.topicTags !== null} AND ${listedCondition(now)} AND p.eligible ${topicCondition(match)}
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
     SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)

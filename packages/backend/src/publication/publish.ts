@@ -4,6 +4,7 @@ import { groupingAnalysisHash } from "../enrichment/records.ts";
 import { deferHistoricalSelection } from "../events/group.ts";
 import { recomputeSelection } from "./selection-recompute.ts";
 import { audit } from "../admin/auth.ts";
+import { emit } from "../modules.ts";
 import { pendingSourceTimeProjectionIds } from "./items.ts";
 import { materialSourceTime } from "../content/date-evidence.ts";
 import { sourceDateConfiguration } from "../admin/sources.ts";
@@ -549,7 +550,7 @@ export async function publishArticleTx(
     WHERE article_id=${articleId} AND (source_time,source_time_material_revision,source_date_version,source_date_config_hash)
     IS DISTINCT FROM (${sourceTime ? tx.json(sourceTime) : null},${article.revision},${Number(article.source_date_version)},${timeConfigHash})`;
   await tx`UPDATE publications SET company_context=${tx.json(companyContext as never)} WHERE article_id=${articleId} AND company_context IS DISTINCT FROM ${tx.json(companyContext as never)}`;
-  await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
+  const geographyChanged = await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
   if (eligible) {
     const body = bodyMode === "full" ? (article.body_text ?? "").slice(0, 12000).toLowerCase() : "";
@@ -574,8 +575,13 @@ export async function publishArticleTx(
 
   const seatChanges = await settleSelectedSeats(tx, articleId, previous?.fact_id ?? null, now);
   const ledger = seatChanges.ledger;
-
-  return { articleId, changed: changed || seatChanges.changed, selected, visibility, ledger, reduced };
+  if (previous && (changed || seatChanges.changed || geographyChanged))
+    await emit(
+      "articleChanged",
+      { id: articleId, kind: "content", reduced, reason: "republication", previousStoryIds: previous.story_id === null ? [] : [previous.story_id] },
+      tx,
+    );
+  return { articleId, changed: changed || seatChanges.changed || geographyChanged, selected, visibility, ledger, reduced };
 }
 
 interface SeatRow {
@@ -655,6 +661,7 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
   for (const members of groups.values()) chosen.add(pickRepresentative(members).article_id);
   let changed = false,
     ledger: "upsert" | "remove" | null = null;
+  const replaced: SeatRow[] = [];
   // Remove old seats first; all changes become visible at this transaction's commit.
   rows.sort((a, b) => Number(chosen.has(a.article_id)) - Number(chosen.has(b.article_id)) || a.article_id.localeCompare(b.article_id));
   for (const row of rows) {
@@ -670,10 +677,13 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
           tx,
         );
       row.seat = seat;
+      if (row.article_id !== articleId) replaced.push(row);
     }
     const result = await syncSelectedLedger(tx, row, sources.get(row.source_id) ?? "", now);
     if (row.article_id === articleId) ledger = result;
   }
+  for (const row of replaced)
+    await emit("articleChanged", { id: row.article_id, kind: "content", reduced: !row.seat, reason: "selected representative changed" }, tx);
   return { changed, ledger };
 }
 
@@ -832,6 +842,7 @@ export async function repairPublicationTimes(limit = 100) {
         await tx`UPDATE publications SET source_time=${projection.time ? tx.json(projection.time) : null},source_time_material_revision=${material.revision},source_date_version=${Number(material.source_date_version)},source_date_config_hash=${projection.configHash},revision=revision+1,updated_at=now() WHERE article_id=${id}`;
         const [source] = await representativeSourceIdentities([material.source_id], tx);
         await syncSelectedLedger(tx, { ...previous, source_time: projection.time }, source?.name ?? "", now);
+        await emit("articleChanged", { id, kind: "content", reason: "source date correction" }, tx);
         return true;
       });
       checked++;

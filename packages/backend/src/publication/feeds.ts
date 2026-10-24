@@ -81,7 +81,24 @@ function rfc822(d: Date): string {
   return d.toUTCString();
 }
 
-function channel(meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number }, items: string[]): string {
+function noticeXml(notice: FeedNotice): string {
+  if (!Number.isFinite(notice.at.getTime())) throw new Error("Invalid feed notice date");
+  return `    <item>
+      <title>${cdata(notice.title)}</title>
+      <link>${escapeXml(notice.link)}</link>
+      <description>${cdata(notice.description)}</description>
+      <pubDate>${rfc822(notice.at)}</pubDate>
+      <guid isPermaLink="false">${escapeXml(notice.guid)}</guid>
+      <author>${escapeXml(AUTHOR)} (${escapeXml(SITE.name)})</author>
+    </item>`;
+}
+
+function channel(
+  meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number },
+  items: string[],
+  notice?: FeedNotice | null,
+): string {
+  if (notice) items.unshift(noticeXml(notice));
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:amp="urn:aiminingpolicy:ai-metadata:v1">
   <channel>
@@ -183,7 +200,7 @@ function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, no
       AND (${category}::text IS NULL OR coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)})))`;
 }
 
-export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date(), _notice?: FeedNotice | null): Promise<string> {
+export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date(), notice?: FeedNotice | null): Promise<string> {
   const includeContent = kind === "selected-full";
   const allIds =
     kind === "all"
@@ -257,10 +274,11 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
   return channel(
     meta,
     rows.map((r) => itemXml(r, includeContent)),
+    notice,
   );
 }
 
-export async function dailyFeed(_notice?: FeedNotice | null): Promise<string> {
+export async function dailyFeed(notice?: FeedNotice | null): Promise<string> {
   const index = await reportIndex("daily");
   const rows = index.rows.slice(0, 30);
   const m = FEEDS.daily;
@@ -282,7 +300,7 @@ export async function dailyFeed(_notice?: FeedNotice | null): Promise<string> {
       <amp:content-id>daily-${escapeXml(r.key)}</amp:content-id>
     </item>`;
   });
-  return channel({ title: m.title, description: m.description, homePath: m.homePath, selfPath: m.path, ttl: m.pollHintMinutes }, items);
+  return channel({ title: m.title, description: m.description, homePath: m.homePath, selfPath: m.path, ttl: m.pollHintMinutes }, items, notice);
 }
 
 export function isFeedCategory(v: string): v is PublicApiCategoryKey {
@@ -290,7 +308,7 @@ export function isFeedCategory(v: string): v is PublicApiCategoryKey {
 }
 
 /** Summary-only policy syndication; qualifications and withdrawals are evaluated for every read. */
-export async function policyFeed(_notice?: FeedNotice | null) {
+export async function policyFeed(notice?: FeedNotice | null) {
   const { items } = await listPolicies({ page: 1, page_size: 50 });
   return channel(
     {
@@ -318,5 +336,6 @@ export async function policyFeed(_notice?: FeedNotice | null) {
       <amp:content-id>${escapeXml(policy.id)}</amp:content-id>
     </item>`;
     }),
+    notice,
   );
 }

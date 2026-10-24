@@ -1,4 +1,5 @@
 import { presentationPlan, PresentationMismatch } from "./presentation.ts";
+import { emit } from "../modules.ts";
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
 import { sql, type Db, type Tx } from "../db.ts";
@@ -108,6 +109,7 @@ export async function beginTranslation(body: CurrentBody, recipe: string): Promi
       VALUES(${body.id},'zh',${body.revision},false,'model',${recipe},${session.source.sourceHash})
       ON CONFLICT(article_id,lang) DO UPDATE SET revision=EXCLUDED.revision,complete=false,origin='model',recipe=EXCLUDED.recipe,
         source_hash=EXCLUDED.source_hash,manifest=NULL,body_html=NULL,body_text=NULL,receipt_id=NULL`;
+    if (current) await emit("articleChanged", { id: body.id, kind: "body", reason: "translation identity changed" }, tx);
     return true;
   });
   return claimed ? session : null;
@@ -238,8 +240,10 @@ export async function finishTranslation(run: TranslationSession): Promise<boolea
       const html = sanitizeBody(assembled.html),
         tree = cheerio.load(html, null, false);
       if (tree.html() !== assembled.html) return false; // Sanitisation must not silently remove source structure.
-      await tx`UPDATE translations SET body_html=${html},body_text=${tree.root().text().trim()},complete=${!!complete},
-      manifest=${tx.json(assembled.manifest)},created_at=now() WHERE article_id=${run.body.id} AND lang='zh'`;
+      const changed = await tx`UPDATE translations SET body_html=${html},body_text=${tree.root().text().trim()},complete=${!!complete},
+      manifest=${tx.json(assembled.manifest)},created_at=now() WHERE article_id=${run.body.id} AND lang='zh'
+        AND (body_html,body_text,complete,manifest) IS DISTINCT FROM (${html},${tree.root().text().trim()},${!!complete},${tx.json(assembled.manifest)})`;
+      if (changed.count) await emit("articleChanged", { id: run.body.id, kind: "body", reason: "body translation" }, tx);
       return !!complete;
     })) ?? false
   );

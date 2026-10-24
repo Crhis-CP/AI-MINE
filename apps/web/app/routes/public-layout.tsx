@@ -9,6 +9,7 @@ import { MobileFooter } from "../components/shell/MobileFooter";
 import { BackToTop, NavigationProgress } from "../components/shell/Chrome";
 import { apiGet } from "../lib/api.server";
 import { ErrorBoundary as PageError } from "../root";
+import { WEB_MODULES } from "@amp/site/modules/web";
 
 interface SiteMeta {
   changelogVersion: string | null;
@@ -17,7 +18,10 @@ interface SiteMeta {
 // Unavailable metadata leaves the navigation unmarked; it never invents an update.
 export async function loader({ request }: Route.LoaderArgs) {
   try {
-    return await apiGet<SiteMeta>("/api/site/meta", { signal: request.signal });
+    return await apiGet<SiteMeta>("/api/site/meta", {
+      signal: request.signal,
+      headers: Object.assign({}, ...WEB_MODULES.map((module) => module.root?.documentHeaders?.(request) ?? {})),
+    });
   } catch {
     return { changelogVersion: null } satisfies SiteMeta;
   }

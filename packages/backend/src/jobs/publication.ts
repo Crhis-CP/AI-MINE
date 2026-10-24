@@ -5,6 +5,7 @@ import { sql, type Db } from "../db.ts";
 
 import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
+import { emit } from "../modules.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
 
@@ -43,8 +44,18 @@ export async function registerPublicationJobs(boss: PgBoss) {
         await progress(sourceId, { status: "running", ...result, startedAt, reason: "公开暂停，等待恢复" });
         return result;
       }
+      if (result.failed)
+        await progress(sourceId, {
+          status: "failed",
+          ...result,
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          reason: "部分内容更新失败，已保留未完成记录",
+        });
       // Ownership and publisher changes can alter heat without reducing public content.
       await computeHotRanking();
+      if (result.failed) throw new Error(`Source republication incomplete: ${result.failed} failed`);
+      if (result.total > 0) await emit("sourceRepublished", { sourceId });
       await progress(sourceId, { status: "done", ...result, startedAt, finishedAt: new Date().toISOString() });
       return result;
     },

@@ -1,5 +1,6 @@
 import type { PgBoss } from "pg-boss";
 import { sql, type Db } from "../db.ts";
+import { emit } from "../modules.ts";
 import { stableJson } from "../lib/ids.ts";
 import { ensureQueue, recordRun } from "../jobs/queue.ts";
 import { enqueueJob as enqueue, work } from "../jobs/module-queues.ts";
@@ -73,6 +74,7 @@ export async function invalidateReportCorrections(db: Db, itemIds: string[], rea
     await enqueue(REPORT_CORRECTION_QUEUE, { reportId: String(report.id), lane: "news" }, { singletonKey: `${report.id}:${revision}` }, db);
     changed++;
   }
+  if (changed) await emit("reportsChanged", { reason }, db);
   return changed;
 }
 
@@ -117,6 +119,7 @@ export async function correctNewsReport(reportId: string) {
       await tx`INSERT INTO report_revisions(report_id,revision,content,generated_at,reason) VALUES(${report.id},${report.revision},${tx.json(report.content as never)},${report.generated_at},'更正后的报告已生成') ON CONFLICT DO NOTHING`;
       await tx`UPDATE reports SET content=${tx.json(content as never)},revision=${revision},model=${generatedModel},origin=${generatedModel ? "model" : "rule"},last_revised_at=now(),updated_at=now() WHERE id=${report.id}`;
       await tx`UPDATE reports.correction_jobs SET state='done',last_error=NULL,updated_at=now() WHERE report_id=${report.id} AND requested_revision=${report.revision}`;
+      await emit("reportsChanged", { reason: `${report.kind} ${report.key} corrected` }, tx);
       if (generated.receiptId) await completeReceipt(tx, generated.receiptId);
       return true;
     });
