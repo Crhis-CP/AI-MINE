@@ -141,3 +141,37 @@ test("pre-archive evidence never hides an already published empty or broken mont
   await sql`UPDATE reports SET content=${sql.json({ themes: "broken", storyOrder: [] })} WHERE kind='monthly' AND key='2026-09'`;
   assert.ok((await monthlyFindings()).some((finding) => finding.key === "report.monthly.broken"));
 });
+
+test("restart grace and a manual pause cannot announce report recovery before its check actually runs", async () => {
+  await quietDailies("2026-09-01", "2026-09-30");
+  const itemId = await carriedArticle("public", "restart-recovery");
+  await run("ok");
+  const incident = {
+    title: "这一期月报该有内容，但没有写成",
+    level: "now",
+    since: new Date(NOW - 3600_000).toISOString(),
+    sentAt: new Date(NOW - 30 * 60_000).toISOString(),
+  };
+  await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json({ "report.monthly": incident })}),
+    ('heartbeat.worker',${sql.json({ startedAt: new Date(NOW - 5 * 60_000).toISOString() })})`;
+  const warming = await checkAlerts(NOW);
+  assert.ok(warming.open.includes("report.monthly"));
+  assert.ok(!warming.sent.includes("report.monthly:recovered"), "a skipped warm-up check supplies no recovery evidence");
+  await sql`UPDATE settings SET value=${sql.json({ startedAt: new Date(NOW - 3600_000).toISOString() })} WHERE key='heartbeat.worker'`;
+  await sql`UPDATE ops.lane_controls SET paused=true,reason='synthetic report pause',actor='synthetic-test',expires_at=now()+interval '1 hour'
+    WHERE lane='news' AND switch='publication' AND holder='owner'`;
+  try {
+    const paused = await checkAlerts(NOW + 60_000);
+    assert.ok(paused.open.includes("report.monthly"));
+    assert.ok(!paused.sent.includes("report.monthly:recovered"));
+  } finally {
+    await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='publication' AND holder='owner'`;
+  }
+  assert.ok((await checkAlerts(NOW + 2 * 60_000)).open.includes("report.monthly"), "the actually checked missing issue stays unresolved");
+  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,origin)
+    VALUES('monthly','2026-09','2026-09-01','2026-10-01',${sql.json({ themes: [{ heading: "企业与项目", storyRefs: [{ itemId }] }], overview: "合成已刊月报。" })},now(),'rule')`;
+  const recovered = await checkAlerts(NOW + 3 * 60_000);
+  assert.ok(!recovered.open.includes("report.monthly"));
+  assert.equal(recovered.sent.filter((key) => key === "report.monthly:recovered").length, 1);
+  assert.ok(!(await checkAlerts(NOW + 4 * 60_000)).sent.includes("report.monthly:recovered"));
+});

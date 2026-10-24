@@ -372,7 +372,11 @@ async function hotFindings(now: number): Promise<Finding[]> {
 }
 
 /** Everything wrong right now, with its level. */
-export async function collectFindings(now = Date.now(), observeIntake?: (lastDiscoveredAt: Date | null) => void): Promise<Finding[]> {
+export async function collectFindings(
+  now = Date.now(),
+  observeIntake?: (lastDiscoveredAt: Date | null) => void,
+  observeReport?: (kind: ReportKind) => void,
+): Promise<Finding[]> {
   const out: Finding[] = await laneControlFindings(now);
   for (const release of await expiringPolicyQualityReleases(new Date(now), 7, 100)) {
     out.push({
@@ -459,6 +463,7 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
         const [r] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${issue.key}`;
         out.push(...(await describeReport(issue, Boolean(r), now)));
       } else out.push(...(await describeReport(issue, null, now)));
+      observeReport?.(issue.kind);
     }
   }
 
@@ -717,10 +722,17 @@ function findingFingerprint(f: Finding) {
 /** Every 10 minutes: new problems and recoveries of the now/today levels go out; digest items wait for 09:00. */
 export async function checkAlerts(now = Date.now()) {
   const intake: { at?: Date | null } = {};
+  const checkedReports = new Set<string>();
   const found = (
-    await collectFindings(now, (at) => {
-      intake.at = at;
-    })
+    await collectFindings(
+      now,
+      (at) => {
+        intake.at = at;
+      },
+      (kind) => {
+        checkedReports.add(kind);
+      },
+    )
   ).filter((f) => f.level !== "digest");
   const [row] = await sql<{ value: AlertState }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
   const state: AlertState = Object.fromEntries(Object.entries(row?.value ?? {}).filter(([key]) => !key.startsWith("digest:")));
@@ -747,6 +759,8 @@ export async function checkAlerts(now = Date.now()) {
   for (const key of Object.keys(state)) {
     if (found.some((f) => f.key === key)) continue;
     if (key.startsWith("metals.") && !collecting()) continue;
+    // Startup grace, disabled work and manual pauses skip checks; none proves a report recovered.
+    if (key.startsWith("report.") && !checkedReports.has(key.split(".")[1]!)) continue;
     // Entries without a level predate this scheme (2026-09-29) and close without a message.
     if (state[key]!.level) {
       // A missing finding may mean collection was paused or the worker is warming up. Keep this
