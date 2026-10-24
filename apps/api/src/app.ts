@@ -80,6 +80,31 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     if (reply.statusCode >= 500 || (ms >= 1000 && path !== "/api/mcp" && !path.startsWith("/api/img-proxy"))) {
       req.log.warn({ method: req.method, path, status: reply.statusCode, ms }, "request");
     }
+    for (const module of serverModules()) {
+      try {
+        await module.on?.requestAnswered?.(req, reply, path);
+      } catch {
+        req.log.error({ module: module.name }, "module request observer failed");
+      }
+    }
+    const exit =
+      path === "/api/mcp"
+        ? "mcp"
+        : path.startsWith("/api/v1/agent")
+          ? "agent"
+          : /^\/feed(?:\/|\.xml$)/.test(path)
+            ? "rss"
+            : /^\/api\/v[13]\//.test(path)
+              ? "api"
+              : null;
+    if (exit && reply.statusCode < 400)
+      for (const module of serverModules()) {
+        try {
+          await module.on?.exitServed?.(exit, req);
+        } catch {
+          req.log.error({ module: module.name, exit }, "module exit observer failed");
+        }
+      }
   });
 
   if (privateRoutes && config.privateHost !== null) {

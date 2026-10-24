@@ -1,4 +1,5 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { requestNotice, serverModules } from "@amp/backend/modules";
 import type { z } from "zod";
 import { agentRoutes, AgentLatestQuery, AgentSearchQuery, AgentHotQuery, AgentStoryQuery, AgentEmptyQuery } from "@amp/contracts/http/agent";
 import { V1_CACHE_CONTROL } from "@amp/contracts/http-policy";
@@ -13,6 +14,14 @@ function query<S extends z.ZodObject>(req: FastifyRequest, schema: S): z.output<
   const parsed = schema.safeParse(strictQuery(req, Object.keys(schema.shape)));
   if (!parsed.success) throw new QueryError("请求参数无效，请使用接入说明中的字段、范围和真实日期。");
   return parsed.data;
+}
+function markdown(req: FastifyRequest, reply: FastifyReply, text: string, etagPrefix: string, cacheControl: string) {
+  const note = requestNotice("agent", req);
+  return sendTextWithEtag(req, reply, text + (note ?? ""), {
+    etagPrefix,
+    cacheControl: note ? "private, no-store" : cacheControl,
+    contentType: "text/markdown; charset=utf-8",
+  });
 }
 export function registerAgent(app: FastifyInstance) {
   for (const [name, route] of Object.entries(agentRoutes))
@@ -70,7 +79,15 @@ export function registerAgent(app: FastifyInstance) {
             detail: "没有这个当前公开的事件或刊期；请使用已有入口，不换其他内容代替。",
             cacheControl: "public, max-age=60",
           });
-        return sendTextWithEtag(req, reply, text, { etagPrefix: name, cacheControl: cache, contentType: "text/markdown; charset=utf-8" });
+        return markdown(req, reply, text, name, cache);
+      }),
+    );
+  for (const ability of serverModules().flatMap((module) => module.agent?.abilities ?? []))
+    app.get(
+      `/api/v1/agent${ability.path}`,
+      publicHandler(async (req, reply) => {
+        query(req, AgentEmptyQuery);
+        return markdown(req, reply, await ability.answer(), ability.etagPrefix, ability.cacheControl);
       }),
     );
 }

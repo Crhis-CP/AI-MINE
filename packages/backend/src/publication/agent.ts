@@ -8,6 +8,7 @@ import { siteUrl, itemUrl, storyUrl } from "./links.ts";
 import { v1Items, type V1ItemsResult } from "./v1.ts";
 import type { v1HotTopics, v1Story } from "./stories.ts";
 import type { machineReport, v1Daily } from "./reports.ts";
+import { serverModules } from "../modules.ts";
 
 export type AgentWindow = "24h" | "7d";
 export type AgentVia = "http" | "mcp";
@@ -205,6 +206,10 @@ export function reportAnswer(result: NonNullable<Awaited<ReturnType<typeof machi
 
 /** Entry point for clients that can fetch a page but do not speak MCP. */
 export function agentGuide() {
+  const modules = serverModules(),
+    abilities = modules.flatMap((module) => module.agent?.abilities ?? []),
+    unavailable = modules.flatMap((module) => module.agent?.unavailable ?? []),
+    requests = modules.flatMap((module) => module.agent?.requests ?? []);
   const rows = [
     ["今天的重要动态", agentUrl("/latest")],
     ["最近一周", agentUrl("/latest?window=7d")],
@@ -216,11 +221,13 @@ export function agentGuide() {
     ["指定日期日报", agentUrl("/daily/YYYY-MM-DD")],
     ["最新周报、月报", `${agentUrl("/weekly")}、${agentUrl("/monthly")}`],
     ["指定周或月", `${agentUrl("/weekly/YYYY-Www")}、${agentUrl("/monthly/YYYY-MM")}`],
+    ...abilities.map((ability) => [ability.ask, agentUrl(ability.path)]),
   ];
   return [
     `# ${SITE.name} · Agent使用说明`,
     "",
     `${SITE.name}整理全球矿业资讯。以下地址都是匿名只读GET，不需要密钥，返回中文Markdown；程序同步继续使用JSON接口。`,
+    ...(abilities.length ? [`扩展读取：${abilities.map((ability) => ability.title).join("、")}。`] : []),
     "",
     "## 按问题选择入口",
     "",
@@ -229,6 +236,7 @@ export function agentGuide() {
     ...rows.map(([ask, address]) => `| ${ask} | ${address} |`),
     "",
     "检索默认最近7天，最新动态默认过去24小时；window只能是24h或7d。列表默认10条、最多30条，热点最多10条，事件时间线最多50条。category可按站点公开分类筛选，关键词需要URL编码。",
+    ...(unavailable.length ? ["", "## 目前查不到的", "", ...unavailable.map((line) => `- ${line}`)] : []),
     "",
     "## 回答要求",
     "",
@@ -243,6 +251,7 @@ export function agentGuide() {
     `MCP：${siteUrl("/api/mcp")}；JSON文档：${siteUrl("/openapi-v3.json")}；完整接入说明：${siteUrl("/agent")}。金属价格和已发布法规的读取方式以接入说明为准。`,
     "",
     "收到429或503时遵循Retry-After，使用ETag条件请求；仍失败就说明本站暂时不可用。所有阅读请求都不会启动采集、生成报告或调用模型。",
+    ...requests.map((line) => `- ${line}`),
     "",
   ].join("\n");
 }

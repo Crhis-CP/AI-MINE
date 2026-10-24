@@ -5139,6 +5139,41 @@
     "packages/backend/src/publication/news-geography.ts"
    ],
    "local_adaptation": "Emit within existing write transactions, including mining report corrections, current source dates and representative changes. Preserve lane controls and manual state; incomplete source rebuilds do not announce completion."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T19:11:09.631122+00:00",
+   "mechanism": "Read-only module abilities, request notices and response observation",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "apps/api/src/app.ts",
+     "bytes": 5963,
+     "sha256": "be3840e78bc03c955b97e8d0e1a8d358f949a9df891e5f3acec6d1a420002bf8"
+    },
+    {
+     "path": "apps/api/src/routes/agent.ts",
+     "bytes": 7347,
+     "sha256": "8e303b839abc29c11fbad8f1ea3f2012420ba8543771d42fb760ee735819f179"
+    },
+    {
+     "path": "apps/api/src/routes/mcp.ts",
+     "bytes": 22526,
+     "sha256": "e15d9037a5b29ddf5d119bdb061ac795fab9ec056297fbd69a3aa67e195918df"
+    },
+    {
+     "path": "packages/backend/src/publication/agent.ts",
+     "bytes": 19999,
+     "sha256": "74362eddd83f2b0d3143aa20af2b93fe14147c78ee29539a9ba5fbfa7f03d9ec"
+    }
+   ],
+   "targets": [
+    "apps/api/src/app.ts",
+    "apps/api/src/routes/agent.ts",
+    "apps/api/src/routes/mcp.ts",
+    "packages/backend/src/publication/agent.ts"
+   ],
+   "local_adaptation": "Reuse installed read-only capabilities with mining Agent guidance, per-request MCP notice isolation, HTTPS module origins and isolated response observers. Preserve current public rechecks, protocol subscription cleanup, authentication and lane controls; no external calls or publication from reader requests."
   }
  ]
 }
