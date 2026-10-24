@@ -3,19 +3,23 @@ import { schemas as privateSchemas } from "@amp/contracts/http/private";
 import { apiBaseFor } from "../../../api-target.ts";
 import { UsageProtection } from "../../features/admin/UsageProtection";
 import { SITE } from "@amp/industry/site";
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { useState } from "react";
 import type { Route } from "./+types/settings";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { bj, num } from "../../features/admin/format";
-import { AdminPage, Badge, Button, Card, DataTable, Input, ReasonDialog } from "../../features/admin/ui";
+import { AdminPage, Badge, Button, Card, DataTable, Input, ReasonDialog, Select } from "../../features/admin/ui";
 import { RuntimeControls } from "../../features/admin/RuntimeControls";
 import { LaneControlsResponse } from "@amp/contracts/http/private";
 import { MonthlyUsageList } from "@amp/contracts/http/private";
+import { NotifyTargetScope, NotifyTargetScopes } from "@amp/contracts/http/private";
 import { MonthlyUsage } from "../../features/admin/MonthlyUsage";
 import type { z } from "zod";
 
 interface Settings {
+  countries: Array<{ code: string; label: string }> | null;
+  scopes: z.infer<typeof NotifyTargetScopes>["items"] | null;
   protection: z.infer<typeof privateSchemas.UsageProtectionOverview> | null;
   runtime: z.infer<typeof LaneControlsResponse> | null;
   monthly: z.infer<typeof MonthlyUsageList>["items"] | null;
@@ -46,8 +50,8 @@ interface Settings {
 export async function loader({ request }: Route.LoaderArgs) {
   const path = "/api/admin/usage-protection",
     apiBase = apiBaseFor(path);
-  const [settings, runtime, monthly, protection] = await Promise.all([
-    adminGet<Omit<Settings, "runtime" | "monthly" | "protection">>(request, "/api/admin/settings").catch(() => null),
+  const [settings, runtime, monthly, protection, scopes, countries] = await Promise.all([
+    adminGet<Omit<Settings, "runtime" | "monthly" | "protection" | "scopes" | "countries">>(request, "/api/admin/settings").catch(() => null),
     adminGet<unknown>(request, "/api/admin/lane-controls")
       .then((value) => LaneControlsResponse.parse(value))
       .catch(() => null),
@@ -57,6 +61,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     adminGet<unknown>(request, path, (_url, init) => apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase }))
       .then((value) => privateSchemas.UsageProtectionOverview.parse(value))
       .catch(() => null),
+    adminGet<unknown>(request, "/api/admin/notify-target-scopes")
+      .then((value) => NotifyTargetScopes.parse(value).items)
+      .catch(() => null),
+    apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor("/api/site/jurisdictions") })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("国家目录暂时无法读取");
+        return publicSchemas.PolicyJurisdictionList.parse(await response.json())
+          .filter((row) => row.kind === "country")
+          .map(({ code, label }) => ({ code, label }));
+      })
+      .catch(() => null),
   ]);
   return {
     targets: settings?.targets ?? [],
@@ -65,6 +80,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     runtime,
     monthly,
     protection,
+    scopes,
+    countries,
   };
 }
 
@@ -135,6 +152,50 @@ function TargetToggle({ t }: { t: Settings["targets"][number] }) {
   );
 }
 
+function TargetCountry({ scope, canManage, countries }: { scope: z.infer<typeof NotifyTargetScope>; canManage: boolean; countries: Settings["countries"] }) {
+  const [country, setCountry] = useState(scope.jurisdiction ?? "");
+  const [open, setOpen] = useState(false);
+  const { run, pending } = useAdminAction();
+  if (!canManage || scope.key === "feishu-content-main" || !countries)
+    return (
+      <span>
+        {scope.jurisdiction ? (countries?.find((row) => row.code === scope.jurisdiction)?.label ?? scope.jurisdiction) : "全部国家"}
+        {!countries && canManage ? "（国家目录暂时无法读取）" : ""}
+      </span>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select aria-label="推送国家范围" value={country} onChange={(event) => setCountry(event.target.value)}>
+        <option value="">全部国家</option>
+        {countries.map((row) => (
+          <option key={row.code} value={row.code}>
+            {row.label}
+          </option>
+        ))}
+      </Select>
+      <Button size="sm" disabled={country === (scope.jurisdiction ?? "")} onClick={() => setOpen(true)}>
+        保存范围
+      </Button>
+      <ReasonDialog
+        open={open}
+        title="修改推送国家范围"
+        description="国别渠道使用网站同一套精选。修改不会启用目标；已启用目标从本次变更起接收新内容，不补发历史内容。"
+        confirmLabel="保存范围"
+        busy={pending === "country"}
+        onClose={() => setOpen(false)}
+        onSubmit={async (reason) =>
+          (await run(
+            "PUT",
+            `/api/admin/notify-targets/${encodeURIComponent(scope.key)}/scope`,
+            { jurisdiction: country || null, version: scope.version, reason },
+            { label: "country", parse: NotifyTargetScope.parse, success: "推送国家范围已保存" },
+          )) !== null
+        }
+      />
+    </div>
+  );
+}
+
 export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
   const { run } = useAdminAction();
   const me = useAdminMe();
@@ -178,8 +239,21 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
                   ),
                 },
                 { key: "e", label: "状态", render: (t) => (t.enabled ? <Badge tone="ok">启用于 {bj(t.enabled_at)}</Badge> : <Badge>停用</Badge>) },
+                {
+                  key: "country",
+                  label: "国家范围",
+                  render: (t) => {
+                    if (!["content", "country_content"].includes(t.purpose)) return "不适用";
+                    const scope = s.scopes?.find((row) => row.key === t.key);
+                    return scope ? (
+                      <TargetCountry key={`${scope.key}:${scope.version}`} scope={scope} canManage={!!me.owner} countries={s.countries} />
+                    ) : (
+                      "范围暂时无法读取"
+                    );
+                  },
+                },
                 { key: "d", label: "7 天投递", align: "right", render: (t) => num(t.deliveries_7d) },
-                { key: "a", label: "", align: "right", render: (t) => <TargetToggle t={t} /> },
+                { key: "a", label: "", align: "right", render: (t) => (me.owner ? <TargetToggle t={t} /> : null) },
               ]}
             />
           </Card>

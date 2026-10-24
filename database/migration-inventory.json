@@ -481,6 +481,10 @@
       "dependsOn": ["publication/202610160700_source_time_binding.sql"]
     },
     {
+      "name": "platform/ops/202610230400_country_delivery.sql",
+      "dependsOn": ["0003_notify.sql"]
+    },
+    {
       "name": "publication/202610231740_metal_price_checks.sql",
       "dependsOn": ["publication/202610060435_metal_prices.sql"]
     }
