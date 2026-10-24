@@ -5174,6 +5174,35 @@
     "packages/backend/src/publication/agent.ts"
    ],
    "local_adaptation": "Reuse installed read-only capabilities with mining Agent guidance, per-request MCP notice isolation, HTTPS module origins and isolated response observers. Preserve current public rechecks, protocol subscription cleanup, authentication and lane controls; no external calls or publication from reader requests."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T19:57:29.726904+00:00",
+   "mechanism": "Module RSS reminders and machine-reading metadata",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "apps/api/src/routes/feeds.ts",
+     "bytes": 3173,
+     "sha256": "3ebec23146373cbc48732df88d5d95fadf71be7a481db7869033314a07426851"
+    },
+    {
+     "path": "packages/backend/src/publication/feeds.ts",
+     "bytes": 13715,
+     "sha256": "e2e58d9f767712c5d3959ac9e8ac0e6ed80ff930a7172eced768a0cf7f9feecf"
+    },
+    {
+     "path": "packages/backend/src/publication/llms.ts",
+     "bytes": 11969,
+     "sha256": "df72f6d6e03942282901b96ea139f382941381065797b00020499be54388e4cb"
+    }
+   ],
+   "targets": [
+    "apps/api/src/routes/feeds.ts",
+    "packages/backend/src/publication/feeds.ts",
+    "packages/backend/src/publication/llms.ts"
+   ],
+   "local_adaptation": "Preserve all mining RSS paths, report and policy permissions, the original itemFeed date argument and withdrawal rechecks. Request notices are private and part of ETags; module metadata extends existing llms sections and names the installed MCP tools."
   }
  ]
 }
