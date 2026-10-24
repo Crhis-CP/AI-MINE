@@ -355,7 +355,7 @@ export async function publicStoryDirectory(q: z.infer<typeof V3EventsQuery>) {
     geo = newsJurisdictionScope(q.jurisdiction),
     start = q.on ?? q.from,
     end = q.on ?? q.to;
-  const matchers = readMatcherValues(q.mineral, topic, geo.jurisdictionCodes, searchTerms(q.q ?? ""));
+  const matchers = readMatcherValues(q.mineral, topic, geo.jurisdictionCodes, searchTerms(q.q ?? ""), geo.jurisdictionRecipe);
   const query = {
     category: q.category ?? null,
     source: q.source ?? null,

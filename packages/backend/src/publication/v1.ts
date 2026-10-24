@@ -98,7 +98,7 @@ export async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1
   const geo = newsJurisdictionScope(query.jurisdiction);
   const start = query.on ?? query.from,
     end = query.on ?? query.to;
-  const matchers = readMatcherValues(query.mineral, query.topicTags, geo.jurisdictionCodes, terms);
+  const matchers = readMatcherValues(query.mineral, query.topicTags, geo.jurisdictionCodes, terms, geo.jurisdictionRecipe);
   const request = {
     category: query.category,
     source: query.source ?? null,

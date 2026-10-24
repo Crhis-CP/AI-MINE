@@ -315,6 +315,7 @@
 | [TASK-0443](TASK-0443.md) | T-0101 | M3 | architect | implemented | 接通网页模块的页面部件与常用入口 | — |
 | [TASK-0444](TASK-0444.md) | T-0101 | M3 | architect | locally_verified | 主题部件和后台模块数据的兼容出口契约 | — |
 | [TASK-0445](TASK-0445.md) | T-0101 | M3 | architect | implemented | 修复新公告阻断的运行依赖 | — |
+| [TASK-0446](TASK-0446.md) | T-0101 | M3 | architect | locally_verified | 国家主题按当前作用地归类并统一计数 | — |
 | [TASK-0447](TASK-0447.md) | T-0101 | M3 | architect | live_verified | 公开更新日志只保留读者变化并阻止运营说明混入 | — |
 | [TASK-0449](TASK-0449.md) | T-0101 | M3 | architect | locally_verified | RSS提示和机器阅读扩展的兼容端口 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |

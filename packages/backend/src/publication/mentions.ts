@@ -3,7 +3,7 @@
 // summary, source name or display tags (publications.search_text) say so.
 // Full article bodies are not a filter hit. Withdrawn and ineligible rows stay out
 // because every caller still applies its own visibility condition.
-import { JURISDICTIONS } from "@amp/industry/jurisdictions";
+import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
 import { ENTITIES, MINERAL_TAGS, TAG_SYNONYMS } from "@amp/industry/taxonomy";
 const FOLD_DROP = /[\s（）()【】[\]「」『』·・,，.。\-‐‑–—_/]/g;
 const SHORT_LATIN = new Set(["drc", "uk", "eu", "un"]);
@@ -213,7 +213,15 @@ export function textHits(searchText: string, needles: Needle[]): boolean {
   return false;
 }
 
-export function matchesTopicTags(tags: string[], searchText: string, topicTags: string[]): boolean {
+/** Only a single-country topic changes geography scope; mixed business/company topics keep their meanings. */
+export function topicJurisdiction(topicTags: string[] | null | undefined): string | null {
+  const mention = topicTags?.length === 1 ? mentionByTag(topicTags[0]!) : null;
+  return mention?.kind === "country" && JURISDICTIONS.some((row) => row.id === mention.id && row.kind === "country") ? mention.id : null;
+}
+
+export function matchesTopicTags(tags: string[], searchText: string, topicTags: string[], jurisdictions: string[] | null = null): boolean {
+  const country = topicJurisdiction(topicTags);
+  if (country) return jurisdictionDescendants(country).some((code) => jurisdictions?.includes(code));
   if (topicTags.some((tag) => tags.includes(tag))) return true;
   return topicTags.some((tag) => {
     const mention = mentionByTag(tag);
@@ -288,8 +296,9 @@ function needleValues(needles: Needle[]): TextMatchValues {
     hasGuards: needles.some((n) => n.kind === "guarded"),
   };
 }
-export function readMatcherValues(tag: string | null | undefined, topicTags: string[] | null | undefined, codes: string[], terms: string[]) {
+export function readMatcherValues(tag: string | null | undefined, topicTags: string[] | null | undefined, codes: string[], terms: string[], topicRecipe = "") {
   const tagMention = tag ? mentionByTag(tag) : null;
+  const country = topicJurisdiction(topicTags);
   const labels = codes.flatMap((code) => countryById.get(code)?.label ?? []);
   const termValues = terms.map((term) => {
     const plain = unescapeLike(term),
@@ -307,6 +316,9 @@ export function readMatcherValues(tag: string | null | undefined, topicTags: str
     tagTags: tag ? (tagMention?.kind === "company" ? [tagMention.label, `entity:${tagMention.id}`] : [tag]) : null,
     tagText: needleValues(tagMention?.needles ?? []),
     topicTags: topicTags?.length ? topicTags : null,
+    topicJurisdiction: country,
+    topicJurisdictionCodes: jurisdictionDescendants(country ?? ""),
+    topicRecipe,
     topicText: needleValues((topicTags ?? []).flatMap((label) => mentionByTag(label)?.needles ?? [])),
     jurisdictionTags: labels,
     jurisdictionText: needleValues(labels.flatMap((label) => mentionByTag(label)?.needles ?? [])),

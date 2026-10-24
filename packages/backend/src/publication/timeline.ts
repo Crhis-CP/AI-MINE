@@ -92,7 +92,13 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
 
 /** Public evidence behind the same fact's expandable source list, under the current filters. */
 async function groupPool(q: TimelineQuery, now: Date, factIds: number[]) {
-  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
+  const matchers = readMatcherValues(
+    q.tag,
+    q.topicTags,
+    q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [],
+    [],
+    q.jurisdictionRecipe ?? newsJurisdictionScope(q.jurisdiction).jurisdictionRecipe,
+  );
   if (!factIds.length) return [];
   return sql<{ story_id: number | null; fact_id: number; article_id: string; source_id: string; at: Date }[]>`
     SELECT DISTINCT f.story_id, f.id AS fact_id, p.article_id, p.source_id, p.timeline_at AS at
@@ -128,7 +134,13 @@ async function groupedAnchors(q: TimelineQuery, now: Date): Promise<Array<{ gk: 
 }
 
 async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
-  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
+  const matchers = readMatcherValues(
+    q.tag,
+    q.topicTags,
+    q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [],
+    [],
+    q.jurisdictionRecipe ?? newsJurisdictionScope(q.jurisdiction).jurisdictionRecipe,
+  );
   const rows = (
     await sql<{ gk: string; anchor_at: Date }[]>`
       WITH base AS (
@@ -145,7 +157,13 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
   const now = q.now ?? new Date();
   q = { ...q, featuredSince: beijingMidnight(addCalendarMonths(beijingDate(now), -3)) };
-  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
+  const matchers = readMatcherValues(
+    q.tag,
+    q.topicTags,
+    q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [],
+    [],
+    q.jurisdictionRecipe ?? newsJurisdictionScope(q.jurisdiction).jurisdictionRecipe,
+  );
   const limit = Math.min(Math.max(q.limit ?? 20, 1), 40);
   const bind = binding(q);
   let after: { a: number; g: string } | null = null;
@@ -264,7 +282,13 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
 /** Earliest pending release in this scope; caches of this scope must expire by then. */
 export async function nextRelease(q: TimelineQuery, now: Date): Promise<string | null> {
   q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
-  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
+  const matchers = readMatcherValues(
+    q.tag,
+    q.topicTags,
+    q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [],
+    [],
+    q.jurisdictionRecipe ?? newsJurisdictionScope(q.jurisdiction).jurisdictionRecipe,
+  );
   const [row] = await sql<{ t: Date | null }[]>`
     SELECT min(p.visible_after) AS t FROM publications p
     WHERE p.visibility = 'public' AND p.selected AND p.visible_after > ${now} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;

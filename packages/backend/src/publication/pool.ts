@@ -154,6 +154,7 @@ async function queryPool(
     query.topicTags,
     newsJurisdictionScope(query.jurisdiction).jurisdictionCodes,
     query.q ? searchTerms(query.q.trim()) : [],
+    newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
   ),
   now = query.now ?? new Date(),
 ): Promise<PoolResponse> {
@@ -172,6 +173,7 @@ async function queryPool(
     query.topicTags,
     query.jurisdictionCodes?.length ? query.jurisdictionCodes : query.jurisdiction ? [query.jurisdiction] : [],
     [],
+    query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
   );
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(names)} ${topicCondition(names)} ${dateFilter}
     ${query.selected ? sql`AND ${confirmedSelected()}` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``}
@@ -315,7 +317,13 @@ async function queryPool(
     unfiltered ? loadTimeline({ ...query, scope: "all", offset, limit: POOL_PAGE_SIZE, now }) : null,
     loadPoolSourceFacets(
       query,
-      readMatcherValues(query.tag, query.topicTags, query.jurisdictionCodes ?? [], terms),
+      readMatcherValues(
+        query.tag,
+        query.topicTags,
+        query.jurisdictionCodes ?? [],
+        terms,
+        query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
+      ),
       matchers,
       now,
       query.jurisdictionCodes ?? [],
@@ -362,7 +370,7 @@ async function loadPoolSourceFacets(query: PoolQuery, names: ReadMatcherValues, 
       ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
       AND (${names.tagTags}::text[] IS NULL OR p.tags && ${names.tagTags}::text[] OR (${names.tagText.active} AND ${publicationTextMatches(names.tagText)}))
       AND (${minerals.tagTags}::text[] IS NULL OR p.tags && ${minerals.tagTags}::text[] OR (${minerals.tagText.active} AND ${publicationTextMatches(minerals.tagText)}))
-      AND (${names.topicTags}::text[] IS NULL OR p.tags && ${names.topicTags}::text[] OR (${names.topicText.active} AND ${publicationTextMatches(names.topicText)}))
+      ${topicCondition(names)}
       ${jurisdictionCondition(query.jurisdiction ?? null, codes, recipe, names)}
       AND (${!names.term0.active} OR ${publicationTextMatches(names.term0)})
       AND (${!names.term1.active} OR ${publicationTextMatches(names.term1)})
