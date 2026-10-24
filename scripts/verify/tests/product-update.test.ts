@@ -52,6 +52,13 @@ test("public notes reject operator fragments and technical copy, while admin-onl
     const previous = JSON.stringify(manifest);
     const save = () => writeFileSync(path.join(root, "industry/release-note.json"), JSON.stringify(manifest));
     save();
+    writeFileSync(path.join(root, "changes/_template.md"), "<!-- Writing guidance, not a product release. -->\n");
+    assert.deepEqual(checkProductUpdate(root, ["changes/_template.md"], previous), [], "editing writing guidance needs no reader announcement");
+    manifest.fragments.push("changes/_template.md");
+    save();
+    assert.match(checkProductUpdate(root, [])[0]!, /Invalid product fragment path/, "a template cannot become a published fragment");
+    manifest.fragments.pop();
+    save();
     assert.deepEqual(checkProductUpdate(root, ["apps/web/app/routes/admin/settings.tsx", "apps/web/app/routes/admin-login.tsx", operations], previous), []);
     manifest.fragments.push(operations);
     save();

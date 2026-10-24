@@ -24,7 +24,7 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
       }
     }
     if (!Array.isArray(manifest.fragments) || !manifest.fragments.length) throw new Error("Release note must cite its product fragments");
-    const changedFragments = changed.filter((file) => /^changes\/.+\.md$/.test(file) && existsSync(path.join(root, file)));
+    const changedFragments = changed.filter((file) => file !== "changes/_template.md" && /^changes\/.+\.md$/.test(file) && existsSync(path.join(root, file)));
     let readerFragmentChanged = false;
     for (const file of new Set([...manifest.fragments, ...changedFragments])) {
       if (typeof file !== "string" || !/^changes\/[A-Za-z0-9-]+\.md$/.test(file)) throw new Error("Invalid product fragment path");
