@@ -1,6 +1,6 @@
 # One image for setup, api, worker and web; workspace TypeScript sources stay in place.
 # NPM_REGISTRY may select an installation mirror without changing the committed lock.
-FROM node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS base
+FROM node:24.22.1-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea AS base
 ARG NPM_REGISTRY=
 WORKDIR /app
 # pg_dump for the optional database backups (Debian's client matches the PostgreSQL 17 server in compose).
