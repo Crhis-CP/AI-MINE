@@ -10,6 +10,7 @@ import { queueProcessing, registerExtractionJobs } from "@amp/backend/jobs/conte
 import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
+import { installModules, serverModules } from "@amp/backend/modules";
 
 const sourceId = "extract-oversize-source",
   hits = new Map<string, number>(),
@@ -91,7 +92,23 @@ const completed = async (id: string) =>
     )
   )[0]!.output;
 
-test("a real oversized response settles once, retains its reason and lets another page on the same source proceed", async () => {
+test("a real oversized response settles once, retains its reason and lets another page on the same source proceed", async (t) => {
+  const prior = serverModules(),
+    changed: string[] = [];
+  t.after(() => installModules(prior));
+  installModules([
+    ...prior,
+    {
+      name: "fixture-extraction-event",
+      on: {
+        articleChanged: async (change, tx) => {
+          assert.equal(change.reason, "body extraction");
+          assert.equal((await tx`SELECT revision FROM articles WHERE id=${change.id}`)[0].revision, 2);
+          changed.push(change.id);
+        },
+      },
+    },
+  ]);
   const big = await upsertMaterial(material("/oversized")),
     original = await state(big.articleId);
   assert.ok(await queueProcessing(big.articleId));
@@ -104,6 +121,7 @@ test("a real oversized response settles once, retains its reason and lets anothe
     "oversize bytes never become a truncated or replacement body",
   );
   assert.equal(rejected.body_status, "unconfirmed");
+  assert.deepEqual(changed, [], "rejected bytes never announce a material revision");
   assert.equal(rejected.processing_state, "new");
   assert.equal(rejected.processing_attempts, 0);
   assert.equal(rejected.processing_retry_at, null);
@@ -120,6 +138,7 @@ test("a real oversized response settles once, retains its reason and lets anothe
   const readable = await state(normal.articleId);
   assert.equal(hits.get("/normal"), 1, "the same host continues after its ordinary spacing, without a host-wide cooldown");
   assert.equal(readable.body_status, "ok");
+  assert.deepEqual(changed, [normal.articleId]);
   assert.ok(readable.body_text.includes("copper production"));
   assert.equal(readable.processing_error, null);
   assert.equal(readable.processing_retry_at, null, "a successful extraction clears the earlier deferral before analysis");

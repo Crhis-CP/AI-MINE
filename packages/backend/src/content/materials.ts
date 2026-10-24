@@ -7,6 +7,7 @@ export {
   type CorrectionMaterial,
 } from "./date-correction.ts";
 import { audit } from "../admin/auth.ts";
+import { emit } from "../modules.ts";
 import { refreshTranslationPresentation } from "../editorial/translation-store.ts";
 export { PresentationMismatch } from "../editorial/presentation.ts";
 import { decideTimeline } from "./timeline.ts";
@@ -119,6 +120,7 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
     const metadata = await commitDateObservation(tx, result.articleId, date, Date.now());
     const [head] = metadata.metadataChanged ? await tx<{ backfill: boolean }[]>`SELECT backfill FROM articles WHERE id=${result.articleId}` : [];
     const { presentationChanged, ...material } = result;
+    if (source.lane === "news" && result.revised) await emit("articleChanged", { id: result.articleId, kind: "content", reason: "material revision" }, tx);
     return MaterialUpdateResult.parse({
       ...material,
       ...metadata,
@@ -253,6 +255,8 @@ export async function updateMaterialPresentation(
   if (html && html !== body.body_html) await refreshTranslationPresentation(body, html, db);
   await db`UPDATE articles SET body_html=${html},media=${db.json(media as never)},body_status=${status},updated_at=now() WHERE id=${articleId}`;
   if (html && html !== body.body_html) await audit("worker", "content.presentation.updated", `content:${articleId}`, null, null, null, undefined, db);
+  if ((await readSourceDateContext(body.source_id, db))?.lane === "news")
+    await emit("articleChanged", { id: articleId, kind: "body", reason: "body presentation" }, db);
   return true;
 }
 

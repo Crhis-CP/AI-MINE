@@ -47,7 +47,9 @@ export async function projectNewsGeography(
   const projection = z.object({ recipe: z.string(), state: z.string(), codes: z.array(z.string()), primary: z.string().nullable() }).parse(result);
   const write = sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions,primary_jurisdiction)
     VALUES(${article.id},${article.revision},${analysisId},${projection.recipe},${projection.state},${projection.codes},${projection.primary}) ON CONFLICT(article_id) DO UPDATE SET
-      article_revision=EXCLUDED.article_revision,analysis_id=EXCLUDED.analysis_id,recipe=EXCLUDED.recipe,state=EXCLUDED.state,jurisdictions=EXCLUDED.jurisdictions,primary_jurisdiction=EXCLUDED.primary_jurisdiction,updated_at=now()`;
-  await tx`${write}`;
+      article_revision=EXCLUDED.article_revision,analysis_id=EXCLUDED.analysis_id,recipe=EXCLUDED.recipe,state=EXCLUDED.state,jurisdictions=EXCLUDED.jurisdictions,primary_jurisdiction=EXCLUDED.primary_jurisdiction,updated_at=now()
+      WHERE (news_geography.article_revision,news_geography.analysis_id,news_geography.recipe,news_geography.state,news_geography.jurisdictions,news_geography.primary_jurisdiction)
+        IS DISTINCT FROM (EXCLUDED.article_revision,EXCLUDED.analysis_id,EXCLUDED.recipe,EXCLUDED.state,EXCLUDED.jurisdictions,EXCLUDED.primary_jurisdiction)`;
+  return (await tx`${write}`).count > 0;
 }
 export { currentNewsJurisdictionCounts } from "./items.ts";

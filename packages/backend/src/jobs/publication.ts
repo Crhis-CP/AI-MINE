@@ -5,6 +5,7 @@ import { sql, type Db } from "../db.ts";
 
 import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
+import { emit } from "../modules.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
 
@@ -45,6 +46,7 @@ export async function registerPublicationJobs(boss: PgBoss) {
       }
       // Ownership and publisher changes can alter heat without reducing public content.
       await computeHotRanking();
+      if (result.total > 0) await emit("sourceRepublished", { sourceId });
       await progress(sourceId, { status: "done", ...result, startedAt, finishedAt: new Date().toISOString() });
       return result;
     },

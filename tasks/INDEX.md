@@ -317,6 +317,7 @@
 | [TASK-0445](TASK-0445.md) | T-0101 | M3 | architect | implemented | 修复新公告阻断的运行依赖 | — |
 | [TASK-0446](TASK-0446.md) | T-0101 | M3 | architect | locally_verified | 国家主题按当前作用地归类并统一计数 | — |
 | [TASK-0447](TASK-0447.md) | T-0101 | M3 | architect | live_verified | 公开更新日志只保留读者变化并阻止运营说明混入 | — |
+| [TASK-0448](TASK-0448.md) | T-0101 | M3 | architect | locally_verified | 接通内容与报告变更的事务模块事件 | — |
 | [TASK-0449](TASK-0449.md) | T-0101 | M3 | architect | locally_verified | RSS提示和机器阅读扩展的兼容端口 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |

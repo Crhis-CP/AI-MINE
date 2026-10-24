@@ -5094,6 +5094,51 @@
     "apps/web/app/routes/public-layout.tsx"
    ],
    "local_adaptation": "Module document headers accompany the metadata request, not the document response. Preserve nonce on trusted scripts and separate public/private installation lists."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T01:31:22.841126+00:00",
+   "mechanism": "Transactional content and report module events",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "packages/backend/src/content/materials.ts",
+     "bytes": 23842,
+     "sha256": "e90637a580b3c4088087a102b818f68d401c7ed48fdc73228d4454bae8f04594"
+    },
+    {
+     "path": "packages/backend/src/editorial/translate.ts",
+     "bytes": 22796,
+     "sha256": "c3264163d09fa7f2c97905ac584a1ebf72a70dbcc90ac1d243bfb02daf1daa9a"
+    },
+    {
+     "path": "packages/backend/src/reports/compose.ts",
+     "bytes": 19843,
+     "sha256": "95c4f19202aa009ec61aa5914329b8d7085f693cc5443c5e26e98e11b3595dea"
+    },
+    {
+     "path": "packages/backend/src/jobs/publication.ts",
+     "bytes": 2280,
+     "sha256": "d4af583c9ce218378f658716ed40801cf0ab0c2708ec1d35eaad7bf113fab6bd"
+    },
+    {
+     "path": "packages/backend/src/publication/publish.ts",
+     "bytes": 28075,
+     "sha256": "82617c94f6221b3ec39264905b911a6ff13a69dc7f72ab65307316a5f1b02bb6"
+    }
+   ],
+   "targets": [
+    "packages/backend/src/content/materials.ts",
+    "packages/backend/src/editorial/translation-store.ts",
+    "packages/backend/src/publication/publish.ts",
+    "packages/backend/src/reports/compose.ts",
+    "packages/backend/src/reports/reconcile.ts",
+    "packages/backend/src/reports/corrections.ts",
+    "packages/backend/src/jobs/publication.ts",
+    "packages/backend/src/content/extract.ts",
+    "packages/backend/src/publication/news-geography.ts"
+   ],
+   "local_adaptation": "Emit within existing write transactions, including mining report corrections, current source dates and representative changes. Preserve lane controls and manual state; incomplete source rebuilds do not announce completion."
   }
  ]
 }

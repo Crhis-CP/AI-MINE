@@ -6,6 +6,7 @@ import { Readability } from "@mozilla/readability";
 import { prepareReadableDocument, type PreserveRule } from "./readable-dom.ts";
 import { contentDocument, assertPageContent, UnavailablePageError } from "../lib/page-content.ts";
 import { sql } from "../db.ts";
+import { emit } from "../modules.ts";
 import {
   crawlFetch as guardedFetch,
   crawlStep,
@@ -209,6 +210,7 @@ async function extractArticleBody(
       WHERE id = ${articleId} RETURNING revision`;
     await tx`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
              VALUES (${articleId}, ${r!.revision}, ${hash}, ${row.title}, ${body.text})`;
+    if (source.lane === "news") await emit("articleChanged", { id: articleId, kind: "content", reason: "body extraction" }, tx);
     return true;
   });
   return stored ? "ok" : "skipped";
