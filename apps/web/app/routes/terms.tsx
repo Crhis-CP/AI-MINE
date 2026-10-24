@@ -3,6 +3,7 @@ import { pageMeta } from "../lib/seo";
 import { prepareCopy } from "../lib/site-copy";
 import copy from "@amp/industry/pages/terms.md?raw";
 import { CopyPage, LegalFooterLinks } from "../features/copy/CopyPage";
+import { WEB_MODULES } from "@amp/site/modules/web";
 
 const TERMS = prepareCopy(copy);
 
@@ -23,10 +24,7 @@ export default function TermsPage() {
       eyebrow={SITE.name}
       footer={
         <LegalFooterLinks
-          links={[
-            { to: "/privacy", label: "隐私说明" },
-            { to: "/agent", label: "Agent 接入页" },
-          ]}
+          links={[{ to: "/privacy", label: "隐私说明" }, { to: "/agent", label: "Agent 接入页" }, ...WEB_MODULES.flatMap((module) => module.termsLinks ?? [])]}
           note={`使用规则 ${TERMS.doc.meta["版本"] ?? ""} · ${TERMS.doc.meta["修订日期"] ?? ""}`}
         />
       }

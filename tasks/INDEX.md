@@ -312,6 +312,7 @@
 | [TASK-0440](TASK-0440.md) | T-0101 | M3 | architect | locally_verified | 核对最新DeepSeek Flash并修复缓存前缀与跨日复用 | — |
 | [TASK-0441](TASK-0441.md) | T-0101 | M3 | architect | locally_verified | 接通统一精选的国别投递与重试复核 | — |
 | [TASK-0442](TASK-0442.md) | T-0101 | M3 | architect | locally_verified | 后台展示和修改通知国家范围 | — |
+| [TASK-0443](TASK-0443.md) | T-0101 | M3 | architect | implemented | 接通网页模块的页面部件与常用入口 | — |
 | [TASK-0444](TASK-0444.md) | T-0101 | M3 | architect | locally_verified | 主题部件和后台模块数据的兼容出口契约 | — |
 | [TASK-0445](TASK-0445.md) | T-0101 | M3 | architect | implemented | 修复新公告阻断的运行依赖 | — |
 | [TASK-0447](TASK-0447.md) | T-0101 | M3 | architect | live_verified | 公开更新日志只保留读者变化并阻止运营说明混入 | — |

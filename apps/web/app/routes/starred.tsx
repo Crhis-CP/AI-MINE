@@ -11,6 +11,7 @@ import { fullDateTime } from "../lib/format";
 import { FeedItem } from "../features/feed/FeedItem";
 import { StorySavedList } from "../features/story/StorySaved";
 import { loadParts } from "../../site-modules";
+import { WEB_MODULES } from "@amp/site/modules/web";
 const moduleLists = await loadParts((module) => module.starred);
 import { IconBookmark } from "../components/icons";
 
@@ -31,6 +32,7 @@ export default function StarredPage() {
   const retry = useRef<() => void>(() => {});
   const fileRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const doExport = () => {
     try {
       const url = URL.createObjectURL(new Blob([JSON.stringify(exportBundle(), null, 2)], { type: "application/json" }));
@@ -142,6 +144,30 @@ export default function StarredPage() {
           <button type="button" onClick={doExport}>
             导出收藏与已读记录
           </button>
+          {WEB_MODULES.flatMap((module) =>
+            (module.starredImports ?? []).map((entry) => (
+              <button
+                key={`${module.name}:${entry.label}`}
+                type="button"
+                disabled={importing}
+                onClick={async () => {
+                  setImporting(true);
+                  setNotice(null);
+                  try {
+                    const result = await entry.run();
+                    setNotice(result.ok ? result.text : null);
+                    setError(result.ok ? null : result.text);
+                  } catch {
+                    setError("导入未完成，请稍后重试。");
+                  } finally {
+                    setImporting(false);
+                  }
+                }}
+              >
+                {entry.label}
+              </button>
+            )),
+          )}
           <input
             aria-label="导入收藏文件"
             ref={fileRef}

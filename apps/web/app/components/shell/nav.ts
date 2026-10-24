@@ -40,6 +40,7 @@ export const SIDEBAR: Array<{ title: string; items: NavItem[] }> = [
       { to: "/feedback", label: "反馈", icon: IconMessage },
     ],
   },
+  ...WEB_MODULES.flatMap((module) => (module.sidebar ? [{ title: module.sidebar.section, items: module.sidebar.items }] : [])),
 ];
 
 export const TABBAR: NavItem[] = [
@@ -61,6 +62,10 @@ export const MORE_PATHS = [
   "/topics",
   "/starred",
   ...MODULE_NAVIGATION.flatMap((item) => item.activePaths ?? [item.to]),
+  ...WEB_MODULES.flatMap((module) => [
+    ...(module.sidebar?.items ?? []).flatMap((item) => item.activePaths ?? [item.to]),
+    ...(module.tools ?? []).map((item) => item.to),
+  ]),
   "/agent",
   "/about",
   "/changelog",

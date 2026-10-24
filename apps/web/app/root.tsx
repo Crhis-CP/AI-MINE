@@ -9,6 +9,7 @@ import { buttonClass } from "./components/ui/Controls";
 import { NonceContext } from "./lib/csp";
 import { THEME_BOOT_SCRIPT, useAppearanceSync } from "./lib/local-state";
 import { useHydratedFlag } from "./lib/hydration";
+import { ROOT_MODULES } from "../root-modules";
 
 export function loader() {
   return { release: process.env.AMP_RELEASE || "dev" };
@@ -22,6 +23,12 @@ export const links: Route.LinksFunction = () => [
   { rel: "alternate", type: "application/rss+xml", title: `${SITE.name} — 精选`, href: "/feed.xml" },
 ];
 
+// Only checked-in bootstrap code from the installed modules reaches this nonce-bound boundary.
+function BootScript({ text }: { text: string }) {
+  const nonce = useContext(NonceContext);
+  return <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: text }} />;
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={SITE.locale} suppressHydrationWarning>
@@ -31,12 +38,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf9f6" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#13191c" />
-        <script nonce={useContext(NonceContext)} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <BootScript text={THEME_BOOT_SCRIPT} />
+        {ROOT_MODULES.map((module) => module.root?.bootScript && <BootScript key={module.name} text={module.root.bootScript} />)}
         <Meta />
         <Links />
       </head>
       <body>
+        {ROOT_MODULES.map((module) => module.root?.Top && <module.root.Top key={module.name} />)}
         {children}
+        {ROOT_MODULES.map((module) => module.root?.Bottom && <module.root.Bottom key={module.name} />)}
         <ScrollRestoration getKey={(location) => location.key} />
         <Scripts />
       </body>

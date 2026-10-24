@@ -5076,6 +5076,24 @@
     "packages/contracts/src/modules.ts"
    ],
    "local_adaptation": "Preserve news/policy lanes, transactional material discovery, mining project topics, existing navigation and administrative authentication; consumers remain separate."
+  },
+  {
+   "sha": "a0d1e75b00ede7e503ca948e71a468db964b2df2",
+   "retrieved_at": "2026-10-24T00:19:30.048410+00:00",
+   "mechanism": "Reader module document headers and page parts",
+   "license": "MIT",
+   "source_files": [
+    {
+     "path": "apps/web/app/root.tsx",
+     "bytes": 7852,
+     "sha256": "748e919edc0060281b7bfbd06225497c2f8eb0c5dd34c9fd601a1373372a771d"
+    }
+   ],
+   "targets": [
+    "apps/web/app/root.tsx",
+    "apps/web/app/routes/public-layout.tsx"
+   ],
+   "local_adaptation": "Module document headers accompany the metadata request, not the document response. Preserve nonce on trusted scripts and separate public/private installation lists."
   }
  ]
 }
