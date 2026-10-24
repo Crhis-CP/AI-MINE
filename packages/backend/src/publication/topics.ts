@@ -156,6 +156,7 @@ export interface TopicPage {
   items: FeedItemSummary[];
   page: number;
   pageCount: number;
+  parts?: Record<string, unknown>;
 }
 
 export async function loadTopicPage(slug: string, page: number, now = new Date()): Promise<TopicPage | null> {

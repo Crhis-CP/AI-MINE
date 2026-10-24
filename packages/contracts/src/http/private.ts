@@ -40,6 +40,8 @@ export { LaneControl, LaneControlsResponse, LaneControlActionRequest } from "./r
 export { MonthlyUsageReport, MonthlyUsageEntry, MonthlyUsageList, UsageMonth, UsageTotals } from "./usage-monthly.ts";
 import { usageMonthlySchemas, usageMonthlyRoutes } from "./usage-monthly.ts";
 import { z } from "zod";
+import { AdminNavigationCounts, AdminModuleRuns } from "./module-outputs.ts";
+export { AdminNavigationCounts, AdminModuleRuns } from "./module-outputs.ts";
 import { Problem, ProblemResponse } from "./common.ts";
 import { PermissionScopeSchema, SourcePolicySchema } from "../source-policy.ts";
 
@@ -98,6 +100,7 @@ export const DeliveryIssue = z.looseObject({
   abandoned_at: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 const ReceiptReconciliationResponseCore = z.looseObject({
+  modules: AdminModuleRuns.optional(),
   grouping: GroupingOverview.optional(),
   receipts: z.strictObject({ counts: z.record(z.string(), z.number().int().nonnegative()), issues: z.array(ReceiptIssue) }),
   deliveries: z.array(DeliveryIssue),
@@ -244,10 +247,20 @@ export const schemas = {
   ReceiptIssue,
   DeliveryIssue,
   ReceiptReconciliationResponse,
+  AdminNavigationCounts,
+  AdminModuleRuns,
   Problem,
   ...adminMaintenanceSchemas,
 };
 export const routes = {
+  adminNavigationCounts: {
+    method: "GET" as const,
+    url: "/api/admin/nav-counts",
+    schema: {
+      operationId: "adminNavigationCounts",
+      response: { 200: AdminNavigationCounts, 401: ProblemResponse, 404: ProblemResponse, 503: ProblemResponse },
+    },
+  },
   ...notifyScopeRoutes,
   ...withdrawalRoutes,
   ...sourceCoverageRoutes,

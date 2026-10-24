@@ -5,9 +5,10 @@ import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { siteUrl } from "./links.ts";
 import { sql } from "../db.ts";
 import { MCP_TOOLS } from "@amp/contracts/mcp";
+import type { LlmsLines } from "../modules.ts";
 
 /** Discovery only needs to know whether an entry exists, not count its entire history. */
-export async function loadLlmsAvailability() {
+export async function loadLlmsAvailability(): Promise<{ hasDailies: boolean; hasWeekly: boolean; hasMonthly: boolean; moduleLines?: LlmsLines[] }> {
   const [row] = await sql<{ hasDailies: boolean; hasWeekly: boolean; hasMonthly: boolean }[]>`
     SELECT EXISTS (SELECT 1 FROM reports r WHERE kind = 'daily' AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)) AS "hasDailies",
            EXISTS (SELECT 1 FROM reports r WHERE kind = 'weekly' AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)) AS "hasWeekly",
@@ -20,7 +21,13 @@ export const PUBLIC_VERSIONS = {
   v1OpenApi: "2.0.0",
 };
 
-export function llmsTxt(opts: { hasDailies: boolean; hasWeekly: boolean; hasMonthly: boolean; contactEmail?: string | null }): string {
+export function llmsTxt(opts: {
+  hasDailies: boolean;
+  hasWeekly: boolean;
+  hasMonthly: boolean;
+  contactEmail?: string | null;
+  moduleLines?: LlmsLines[];
+}): string {
   const u = siteUrl;
   const daily = withSubject("日报");
   const lines: string[] = [];

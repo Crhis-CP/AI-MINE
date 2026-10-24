@@ -16,6 +16,7 @@ import { SITE, withSubject } from "@amp/industry/site";
 import { config } from "../config.ts";
 import { linkBodyImages } from "../content/sanitize.ts";
 import { sql } from "../db.ts";
+import type { FeedNotice } from "../modules.ts";
 import { escapeXml } from "../lib/text.ts";
 import { reportHeadline, reportIndex, reportLeadParagraph } from "./reports.ts";
 import { selectedCondition, type ItemRow } from "./items.ts";
@@ -182,7 +183,7 @@ function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, no
       AND (${category}::text IS NULL OR coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)})))`;
 }
 
-export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date()): Promise<string> {
+export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date(), _notice?: FeedNotice | null): Promise<string> {
   const includeContent = kind === "selected-full";
   const allIds =
     kind === "all"
@@ -259,7 +260,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
   );
 }
 
-export async function dailyFeed(): Promise<string> {
+export async function dailyFeed(_notice?: FeedNotice | null): Promise<string> {
   const index = await reportIndex("daily");
   const rows = index.rows.slice(0, 30);
   const m = FEEDS.daily;
@@ -289,7 +290,7 @@ export function isFeedCategory(v: string): v is PublicApiCategoryKey {
 }
 
 /** Summary-only policy syndication; qualifications and withdrawals are evaluated for every read. */
-export async function policyFeed() {
+export async function policyFeed(_notice?: FeedNotice | null) {
   const { items } = await listPolicies({ page: 1, page_size: 50 });
   return channel(
     {

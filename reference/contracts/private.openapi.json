@@ -1697,6 +1697,108 @@
         ],
         "type": "object"
       },
+      "AdminModuleRuns": {
+        "additionalProperties": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "data": {},
+                "status": {
+                  "const": "ready",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status",
+                "data"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "const": "unavailable",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "propertyNames": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "AdminModuleRunsInput": {
+        "additionalProperties": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "data": {},
+                "status": {
+                  "const": "ready",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status",
+                "data"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "const": "unavailable",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "propertyNames": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "AdminNavigationCounts": {
+        "additionalProperties": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "propertyNames": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "AdminNavigationCountsInput": {
+        "additionalProperties": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "propertyNames": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": "object"
+      },
       "AdminPresentationRefresh": {
         "additionalProperties": false,
         "properties": {
@@ -9244,6 +9346,9 @@
           "grouping": {
             "$ref": "#/components/schemas/GroupingOverview"
           },
+          "modules": {
+            "$ref": "#/components/schemas/AdminModuleRuns"
+          },
           "receipts": {
             "additionalProperties": false,
             "properties": {
@@ -9289,6 +9394,9 @@
           },
           "grouping": {
             "$ref": "#/components/schemas/GroupingOverviewInput"
+          },
+          "modules": {
+            "$ref": "#/components/schemas/AdminModuleRunsInput"
           },
           "receipts": {
             "additionalProperties": false,
@@ -19140,6 +19248,53 @@
             "description": "Problem response"
           },
           "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/nav-counts": {
+      "get": {
+        "operationId": "adminNavigationCounts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminNavigationCounts"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
             "content": {
               "application/problem+json": {
                 "schema": {
