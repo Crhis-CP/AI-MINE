@@ -104,7 +104,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
     const check = checks.get(source.key);
     checkNotes.push({
       ref: null,
-      text: `${source.name}：${source.delay}。${check ? `最近检查：${beijingDate(check.checked_at)} ${beijingTime(check.checked_at)}（北京时间）；${check.ok ? (check.changed ? "检查成功，有报价更新" : "检查成功，未入库新报价") : "检查未成功，保留可用报价"}。` : "尚无检查记录。"}`,
+      text: `${source.name}：${source.delay}。${check ? `最近检查：${beijingDate(check.checked_at)} ${beijingTime(check.checked_at)}（北京时间）；${check.ok ? (check.changed ? "检查成功，有报价更新" : "检查成功，报价未变") : "检查未成功，保留可用报价"}。` : "尚无检查记录。"}`,
       link: null,
     });
     const status = !newest ? "empty" : rows.some((row) => stalePeriod(row.end, source.staleDays)) ? "stale" : "fresh";

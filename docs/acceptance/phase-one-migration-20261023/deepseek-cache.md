@@ -2,7 +2,11 @@
 
 2026-10-23 Owner指定最新Flash、不用Pro。官方[1017公告](https://api-docs.deepseek.com/news/news261017/)及[更新记录](https://api-docs.deepseek.com/updates/)表明当前为DeepSeek-V4.1-Flash-1017，API仍使用`deepseek-flash`。20:25 UTC只读检查生产：LLM与DeepSeek预设均连接`api.deepseek.com`，LLM_MODEL为`deepseek-flash`，额外参数没有覆盖model，thinking disabled，数据库注册连接和能力路由覆盖为空。当前已在官方最新Flash别名上，未改成Pro；接口只返回别名，不能据此声称每份历史回执的内部权重版本都相同。
 
+2026-10-24再次读取上述官方页面及缓存说明，最新公开Flash版本和调用别名保持；64b2ca18部署前后实际模型配置也一致。这里的三项输入修复仍在原PR290，重放后须取得新头完整验证，不能引用旧头回执放行或把现役别名已正确当作缓存收益已实现。
+
 ## 当前真实记录
+
+重放前基线补充（2026-10-24 15:49:06 UTC）：过去24小时1584次自然LLM调用，请求与返回模型均为deepseek-flash，所有调用都保存命中/未命中字段；输入4,502,788 tokens，命中2,615,397，加权58.08%。该窗口仍运行未包含本PR缓存修复的64b2ca18，不能把它与以下不同滚动窗口的变化解释为修复收益。上线后按同一目的、模型、计数口径与实际费用记录比较；原始聚合保存于受限cache-baseline-20261024.json。
 
 20:24:56 UTC的过去24小时窗口，4160次调用均有完整命中/未命中字段，且请求/返回均为deepseek-flash。输入12344163 tokens，其中7300694命中，按token加权为59.14%。不同目的分别为：
 

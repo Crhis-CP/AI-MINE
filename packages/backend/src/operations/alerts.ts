@@ -283,7 +283,7 @@ async function hotFindings(now: number): Promise<Finding[]> {
 export async function collectFindings(
   now = Date.now(),
   observeIntake?: (lastDiscoveredAt: Date | null) => void,
-  observeCheck?: (kind: ReportKind | "content.process" | "hot") => void,
+  observeCheck?: (key: string) => void,
 ): Promise<Finding[]> {
   const out: Finding[] = await laneControlFindings(now);
   for (const release of await expiringPolicyQualityReleases(new Date(now), 7, 100)) {
@@ -489,12 +489,14 @@ export async function collectFindings(
 
   for (const module of serverModules()) {
     for (const hook of ["alerts", "followUps"] as const) {
+      if (!module[hook]) continue;
       const check = `module.${module.name}.${hook}`;
       try {
         for (const finding of (await module[hook]?.(now)) ?? []) {
           moduleChecks.set(finding, check);
           out.push(finding);
         }
+        observeCheck?.(check);
       } catch {
         const finding: Finding = {
           key: check,
@@ -587,7 +589,7 @@ interface AlertState {
 // Internal provenance keeps extension contracts unchanged and never trusts a missing check as recovery.
 const moduleChecks = new WeakMap<Finding, string>();
 const incompleteChecks = new WeakSet<Finding>();
-const unchecked = (state: AlertState[string], failed: Set<string>) => (state.check ? failed.has(state.check) : failed.size > 0);
+const unchecked = (state: AlertState[string], failed: Set<string>, checked: Set<string>) => (state.check ? !checked.has(state.check) : failed.size > 0);
 
 const changeOnly = (key: string) => key.startsWith("metals.") || key.startsWith("sources.");
 function findingFingerprint(f: Finding) {
@@ -638,7 +640,7 @@ export async function checkAlerts(now = Date.now()) {
   }
   for (const key of Object.keys(state)) {
     if (found.some((f) => f.key === key)) continue;
-    if (unchecked(state[key]!, failed)) continue;
+    if (unchecked(state[key]!, failed, checked)) continue;
     if (key.startsWith("metals.") && !collecting()) continue;
     // Startup grace, disabled work and manual pauses supply no recovery evidence.
     if (key.startsWith("report.") && !checked.has(key.split(".")[1]!)) continue;
@@ -695,7 +697,10 @@ export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: nu
 
 /** 09:00: one message with follow-ups; unresolved requests can still block new processing. */
 export async function sendDigest(now = Date.now()) {
-  const all = await collectFindings(now);
+  const checked = new Set<string>();
+  const all = await collectFindings(now, undefined, (key) => {
+    checked.add(key);
+  });
   const failed = new Set(all.filter((f) => incompleteChecks.has(f)).map((f) => f.key));
   const items = all.filter((f) => f.level === "digest");
   const [row] = await sql<{ value: AlertState }[]>`SELECT value FROM settings WHERE key='alerts.state'`;
@@ -731,7 +736,7 @@ export async function sendDigest(now = Date.now()) {
     for (const check of checks) if (check.latest && check.latest.getTime() <= now) recoveredSources.set(check.source_id, check.latest);
   }
   for (const key of previousKeys) {
-    if (unchecked(state[key]!, failed)) continue;
+    if (unchecked(state[key]!, failed, checked)) continue;
     if (items.some((f) => `digest:${f.key}` === key) || !collecting() || (key.startsWith("digest:sources.") && sourcesPaused)) continue;
     if (key.startsWith("digest:sources.") && (recoveredSources.get(sourceId(key))?.getTime() ?? 0) <= Date.parse(state[key]!.sentAt)) continue;
     lines.push(`${lines.length + 1}. 已恢复：${state[key]!.title}`);

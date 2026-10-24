@@ -52,7 +52,7 @@ test("an incomplete module check cannot close existing immediate or digest incid
   const log = t.mock.method(console, "log", () => {});
   const now = Date.now();
   let phase: "open" | "failed" | "healthy" = "open";
-  installModules([
+  const modules = [
     {
       name: "fixture",
       alerts: async () => {
@@ -69,9 +69,22 @@ test("an incomplete module check cannot close existing immediate or digest incid
       name: "other",
       alerts: async () => (phase === "open" ? [{ key: "metals.other-now", title: "其他扩展异常", level: "now" as const }] : []),
     },
-  ]);
+  ];
+  installModules(modules);
   await checkAlerts(now);
   await sendDigest(now);
+  for (const installed of [[], [{ name: "fixture" }]]) {
+    installModules(installed);
+    log.mock.resetCalls();
+    const skipped = await checkAlerts(now + 30_000);
+    await sendDigest(now + 30_000);
+    assert.ok(skipped.open.includes("metals.fixture-now"), "an uninstalled or absent hook supplies no recovery evidence");
+    assert.ok(!skipped.sent.includes("metals.fixture-now:recovered"));
+    assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复：合成跟进异常")));
+    const [retained] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+    assert.ok(retained.value["digest:metals.fixture-digest"]);
+  }
+  installModules(modules);
   phase = "failed";
   log.mock.resetCalls();
   const failed = await checkAlerts(now + 60_000);
@@ -82,6 +95,14 @@ test("an incomplete module check cannot close existing immediate or digest incid
   assert.ok(!log.mock.calls.some((call) => String(call.arguments[0]).includes("已恢复：合成跟进异常")));
   const [held] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
   assert.ok(held.value["digest:metals.fixture-digest"]);
+  installModules([]);
+  const removedAfterFailure = await checkAlerts(now + 90_000);
+  assert.ok(removedAfterFailure.open.includes("metals.fixture-now"));
+  assert.ok(!removedAfterFailure.sent.includes("metals.fixture-now:recovered"));
+  await sendDigest(now + 90_000);
+  const [uninstalled] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+  assert.ok(uninstalled.value["digest:metals.fixture-digest"], "removing a failed hook must retain its existing incident");
+  installModules(modules);
   phase = "healthy";
   assert.ok((await checkAlerts(now + 120_000)).sent.includes("metals.fixture-now:recovered"));
   await sendDigest(now + 120_000);
