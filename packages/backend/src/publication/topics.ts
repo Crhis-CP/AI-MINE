@@ -1,5 +1,6 @@
 import { attachSourcePolicies } from "./reader-context.ts";
 import type { FeedItemSummary } from "@amp/contracts/site";
+import type { ModuleBrand } from "@amp/contracts/modules";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
@@ -122,6 +123,7 @@ async function queryTopicCounts(): Promise<TopicCount[]> {
 }
 
 export interface TopicSummary {
+  brand?: ModuleBrand;
   slug: string;
   name: string;
   group: "company" | "field" | "genre" | "project";

@@ -8,7 +8,8 @@ import { isValidDate } from "../time.ts";
 import { CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
 import { Problem, ProblemResponse } from "./common.ts";
 import { policySchemas, policyRoutes } from "./policy.ts";
-import { ModuleParts } from "./module-outputs.ts";
+import { ModuleParts, ModuleNotice, ModuleBrand } from "./module-outputs.ts";
+export { ModuleNotice, ModuleBrand } from "./module-outputs.ts";
 export * from "./policy.ts";
 
 /** Existing about-page figures, read from the public publication layer. */
@@ -93,6 +94,7 @@ export const StoryBackground = z.strictObject({ relation: z.enum(["SAME_OCCURREN
 export const StoryBackgroundFields = z.strictObject({ background: z.array(StoryBackground).optional() });
 export const SavedItems = z.strictObject({ items: z.array(FeedItemSummary), unavailableIds: z.array(z.string()) });
 export const TopicSummary = z.strictObject({
+  brand: ModuleBrand.optional(),
   slug: z.string(),
   name: z.string(),
   group: z.enum(["company", "field", "genre", "project"]),
@@ -381,6 +383,8 @@ export const SearchSuggestions = z.strictObject({
 });
 
 export const schemas = {
+  ModuleNotice,
+  ModuleBrand,
   ...agentSchemas,
   SearchSuggestions,
   StoryBackgroundReport,
