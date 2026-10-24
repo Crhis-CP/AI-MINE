@@ -7,6 +7,8 @@ import { publishArticle } from "@amp/backend/publication/publish";
 import { installModules, serverModules } from "@amp/backend/modules";
 import { historyMaterial } from "./report-history-fixture.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
+import { registerPublicationJobs, republishKey } from "@amp/backend/jobs/publication";
+import type { PgBoss } from "pg-boss";
 
 after(async () => {
   await stopBoss();
@@ -88,4 +90,50 @@ test("a failed publication hook rolls back the projection; stable republication 
   const emitted = calls;
   assert.equal((await publishArticle(id))!.changed, false);
   assert.equal(calls, emitted);
+});
+
+test("source rebuild failure remains unfinished and emits completion only after recovery", async (t) => {
+  const prior = serverModules();
+  t.after(() => installModules(prior));
+  const id = await historyMaterial("2020-08-03", "合成来源重建");
+  const [{ source_id: sourceId }] = await sql`SELECT source_id FROM articles WHERE id=${id}`;
+  const completed: string[] = [];
+  let fail = true;
+  installModules([
+    ...prior,
+    {
+      name: "fixture-source-rebuild",
+      on: {
+        articleChanged: async (change) => {
+          if (fail && change.id === id) throw Error("synthetic source rebuild failure");
+        },
+        sourceRepublished: async (change) => {
+          completed.push(change.sourceId);
+        },
+      },
+    },
+  ]);
+  type Handler = (jobs: Array<{ data: { sourceId: string; lane: "news" } }>) => Promise<unknown>;
+  let run: Handler | undefined;
+  const boss = {
+    work: async (_name: string, _options: unknown, handler: Handler) => {
+      run = handler;
+      return "fixture-worker";
+    },
+  } as unknown as PgBoss;
+  await registerPublicationJobs(boss);
+  assert.ok(run);
+  await sql`UPDATE sources SET participation_mode='isolated' WHERE id=${sourceId}`;
+  await assert.rejects(run([{ data: { sourceId, lane: "news" } }]), /republication incomplete/);
+  const [failed] = await sql`SELECT value FROM settings WHERE key=${republishKey(sourceId)}`;
+  assert.equal(failed.value.status, "failed");
+  assert.equal(failed.value.failed, 1);
+  assert.deepEqual(failed.value.failedIds, [id]);
+  assert.deepEqual(completed, []);
+  fail = false;
+  await run([{ data: { sourceId, lane: "news" } }]);
+  const [recovered] = await sql`SELECT value FROM settings WHERE key=${republishKey(sourceId)}`;
+  assert.equal(recovered.value.status, "done");
+  assert.equal(recovered.value.failed, 0);
+  assert.deepEqual(completed, [sourceId]);
 });
