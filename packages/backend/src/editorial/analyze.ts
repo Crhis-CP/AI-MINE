@@ -102,7 +102,7 @@ export function draftTierThreshold(tier: string): number | null {
 
 /**
  * Release-version gate: production scores only the exact validated prompt bound by
- * SELECTION_CONFIRMED_VERSION. DEC-76 delegates this round's rule validation to AI.
+ * SELECTION_CONFIRMED_VERSION. Rule changes require Chris confirmation under Issue #293.
  * Development, tests and evaluations (draftTierThreshold) run the draft.
  */
 export function scoringConfirmed(production = isProduction, confirmed = config.selectionConfirmedVersion): boolean {

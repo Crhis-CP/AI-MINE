@@ -125,6 +125,12 @@ export function validateReleaseNote(value: unknown): ReleaseNote {
   validateChangelog({ latestVersion: "2026-01-01", releases: [{ ...note, date: "2026-01-01" }] });
   if (/[a-f0-9]{40}|TASK-\d{4}|\b(?:npm|pnpm|docker|git commit|make verify)\b/i.test(JSON.stringify(note)))
     throw new Error("产品更新说明不能包含提交号、任务号或部署命令");
+  if (
+    /后台|运维|缓存|回执|队列|部署|回滚|迁移号|重试记录|回答被截断|重复处理|原始估算|模型(?:费用|成本|调用|配置)|提示词|熔断/.test(
+      [note.title, ...note.body].join("\n"),
+    )
+  )
+    throw new Error("公开更新说明只写读者变化，技术和后台运维内容请保留在内部交付记录");
   return note;
 }
 

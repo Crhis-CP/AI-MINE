@@ -38,3 +38,42 @@ test("a changed product fragment cannot silently reuse the previous release's di
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("public notes reject operator fragments and technical copy, while admin-only work needs no reader announcement", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "product-audience-"));
+  try {
+    mkdirSync(path.join(root, "industry"));
+    mkdirSync(path.join(root, "changes"));
+    const reader = "changes/TASK-0447-reader.md",
+      operations = "changes/TASK-0447-operations.md";
+    writeFileSync(path.join(root, reader), "---\ntype: 优化\naudience: 读者\ntitle: 阅读更顺畅\nhighlights:\n  - 返回列表时保留阅读位置。\n---\n");
+    writeFileSync(path.join(root, operations), "---\ntype: 优化\naudience: 运营\ntitle: 后台费用记录\nhighlights:\n  - 后台显示缓存命中价及原始估算。\n---\n");
+    const manifest = { note: { kind: "优化", title: "阅读更顺畅", body: ["返回列表时保留阅读位置。"] }, fragments: [reader] };
+    const previous = JSON.stringify(manifest);
+    const save = () => writeFileSync(path.join(root, "industry/release-note.json"), JSON.stringify(manifest));
+    save();
+    assert.deepEqual(checkProductUpdate(root, ["apps/web/app/routes/admin/settings.tsx", "apps/web/app/routes/admin-login.tsx", operations], previous), []);
+    manifest.fragments.push(operations);
+    save();
+    assert.match(checkProductUpdate(root, [])[0]!, /读者片段/);
+    manifest.fragments.pop();
+    for (const line of [
+      "后台区分当前等待及原始估算。",
+      "支持缓存命中价和指定时段价格。",
+      "完善队列和回执复用。",
+      "调整资讯归组的处理方式，减少回答被截断造成的失败和重复处理。",
+    ]) {
+      manifest.note.body = [line];
+      save();
+      assert.match(checkProductUpdate(root, [])[0]!, /技术|运维/);
+    }
+    manifest.note.body = ["RSS 与公开 API 支持按国家查找资讯。"];
+    save();
+    assert.deepEqual(checkProductUpdate(root, []), [], "reader-facing API features remain valid product changes");
+    const withNotice = { ...manifest, announcement: { kind: "公告", title: "后台部署完成", body: ["回执已经登记。"] } };
+    writeFileSync(path.join(root, "industry/release-note.json"), JSON.stringify(withNotice));
+    assert.match(checkProductUpdate(root, [])[0]!, /技术|运维/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

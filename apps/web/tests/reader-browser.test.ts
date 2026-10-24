@@ -707,15 +707,28 @@ for (const width of [390, 1440]) {
     await expect(link).toHaveText("更新后的矿业动态");
     await expect(page.locator("[data-card-key]")).toHaveCount(40);
     await expect(page.getByText("正在加载", { exact: true })).toHaveCount(0);
+    await link.evaluate((node) => {
+      sessionStorage.removeItem("fixture-click-top");
+      node.addEventListener("click", () => sessionStorage.setItem("fixture-click-top", String(node.getBoundingClientRect().top)), {
+        once: true,
+        capture: true,
+      });
+    });
     // A reader's wheel input supersedes any delayed restoration from "load latest".
     await page.mouse.move(width / 2, 500);
     await page.mouse.wheel(0, await page.evaluate(() => document.documentElement.scrollHeight));
     await link.hover();
-    const top = await link.evaluate((node) => node.getBoundingClientRect().top);
+    const topBeforeClick = await link.evaluate((node) => node.getBoundingClientRect().top);
     const homeKey = await page.evaluate(() => history.state.key);
     await link.click();
     await expect(page).toHaveURL(`${origin}/items/fixture-a`);
     await expect(page.getByRole("heading", { name: "可核对的矿业动态", exact: true })).toBeVisible();
+    // Click dispatch may scroll the target after hover; return must restore the actual clicked position.
+    const capturedTop = await page.evaluate(() => sessionStorage.getItem("fixture-click-top"));
+    assert.notEqual(capturedTop, null);
+    const top = Number(capturedTop);
+    assert.ok(Number.isFinite(top));
+    t.diagnostic(`position before click ${topBeforeClick}; at click ${top}`);
     t.diagnostic(
       `saved fourth-page position: ${await page.evaluate((key) => {
         const saved = JSON.parse(sessionStorage.getItem(`amp:list:${key}`) ?? "null");

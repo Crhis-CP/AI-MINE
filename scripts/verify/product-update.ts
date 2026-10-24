@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
-import { validateReleaseNote } from "../../packages/backend/src/site/meta.ts";
+import { validateChangelog, validateReleaseNote } from "../../packages/backend/src/site/meta.ts";
 
 /** Check the reader note and its source fragments before a release can reach production. */
 export function checkProductUpdate(root: string, changed: string[], previousManifest: string | null = null): string[] {
@@ -11,8 +11,10 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
   try {
     const manifest = JSON.parse(readFileSync(filename, "utf8"));
     validateReleaseNote(manifest.note);
+    if (manifest.announcement !== undefined) validateReleaseNote(manifest.announcement);
     if (!Array.isArray(manifest.fragments) || !manifest.fragments.length) throw new Error("Release note must cite its product fragments");
     const changedFragments = changed.filter((file) => /^changes\/.+\.md$/.test(file) && existsSync(path.join(root, file)));
+    let readerFragmentChanged = false;
     for (const file of new Set([...manifest.fragments, ...changedFragments])) {
       if (typeof file !== "string" || !/^changes\/[A-Za-z0-9-]+\.md$/.test(file)) throw new Error("Invalid product fragment path");
       const text = readFileSync(path.join(root, file), "utf8");
@@ -21,15 +23,24 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
       const fragment = parse(header[1]);
       if (!Array.isArray(fragment.highlights) || !fragment.highlights.length || !fragment.highlights.every((v: unknown) => typeof v === "string" && v.trim()))
         throw new Error(`${file}: highlights must be nonempty reader sentences`);
-      validateReleaseNote({
+      if (!["读者", "运营", "读者和运营"].includes(fragment.audience)) throw new Error(`${file}: invalid audience`);
+      if (manifest.fragments.includes(file) && fragment.audience !== "读者") throw new Error(`${file}: 公开更新清单只能引用读者片段，运营说明留在内部交付记录`);
+      const note = {
         kind: fragment.type,
         title: fragment.title,
         body: fragment.highlights,
         ...(fragment.version === undefined ? {} : { version: fragment.version }),
-      });
-      if (!["读者", "运营", "读者和运营"].includes(fragment.audience)) throw new Error(`${file}: invalid audience`);
+      };
+      if (fragment.audience === "读者") validateReleaseNote(note);
+      else {
+        validateChangelog({ latestVersion: "2026-01-01", releases: [{ ...note, date: "2026-01-01" }] });
+        if ([...fragment.title].length > 24) throw new Error(`${file}: title exceeds 24 characters`);
+      }
+      if (fragment.audience !== "运营" && changedFragments.includes(file)) readerFragmentChanged = true;
     }
-    const userRoutesChanged = changed.some((file) => /^apps\/web\/app\/(routes|components)\//.test(file) || /^changes\/.+\.md$/.test(file));
+    const userRoutesChanged =
+      readerFragmentChanged ||
+      changed.some((file) => /^apps\/web\/app\/(routes|components)\//.test(file) && !/^apps\/web\/app\/routes\/admin(?:\/|-login\.)/.test(file));
     const noteChanged =
       changed.includes("industry/release-note.json") &&
       (!previousManifest || JSON.stringify(JSON.parse(previousManifest).note) !== JSON.stringify(manifest.note));
