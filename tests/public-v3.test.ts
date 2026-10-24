@@ -162,8 +162,9 @@ test("non-empty event, development, report and topic projections resolve their c
   const content = {
     generationStatus: "ready",
     corrections: [
-      { revision: 1, reason: "PRIVATE_FREEFORM_REASON", at: "2026-10-11T01:30:00Z" },
-      { revision: 2, reason: "引用报道已更正，本期内容随之更新。", at: "2026-10-12T01:30:00Z", actor: "PRIVATE_ACTOR", audit_reason: "PRIVATE_AUDIT_REASON" },
+      { revision: 1, reason: "PRIVATE_FIRST_PUBLICATION", at: "2026-10-10T01:30:00Z" },
+      { revision: 2, reason: "PRIVATE_FREEFORM_REASON", at: "2026-10-11T01:30:00Z" },
+      { revision: 3, reason: "引用报道已更正，本期内容随之更新。", at: "2026-10-12T01:30:00Z", actor: "PRIVATE_ACTOR", audit_reason: "PRIVATE_AUDIT_REASON" },
       { revision: -1, reason: "PRIVATE_INVALID_ROW", at: "not-a-date" },
     ],
     lead: { title: "报告标题", leadParagraph: "报告导语" },
@@ -185,20 +186,23 @@ test("non-empty event, development, report and topic projections resolve their c
     ],
     flashes: [],
   };
-  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,revision) VALUES('daily','2026-10-12',now()-interval '1 day',now(),${sql.json(content)},now(),2)`;
+  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,revision) VALUES('daily','2026-10-12',now()-interval '1 day',now(),${sql.json(content)},now(),3)`;
   const report = await get("/api/v3/reports/daily%3A2026-10-12");
   assert.equal(report.response.statusCode, 200, report.response.body);
   assert.equal(report.body.items[0].id, second);
   assert.equal(report.body.status, "ready");
-  assert.equal(report.body.edition, 2);
+  assert.equal(report.body.edition, 3);
   assert.deepEqual(report.body.corrections, [
-    { revision: 1, reason: "本期内容已更正，请以当前版本为准。", at: "2026-10-11T01:30:00.000Z" },
-    { revision: 2, reason: "引用报道已更正，本期内容随之更新。", at: "2026-10-12T01:30:00.000Z" },
+    { revision: 2, reason: "本期内容已更正，请以当前版本为准。", at: "2026-10-11T01:30:00.000Z" },
+    { revision: 3, reason: "引用报道已更正，本期内容随之更新。", at: "2026-10-12T01:30:00.000Z" },
   ]);
   assert.doesNotMatch(report.response.body, /PRIVATE_|audit_reason/);
   const siteReport = await get("/api/site/reports/daily/2026-10-12");
   assert.equal(siteReport.response.statusCode, 200);
   assert.doesNotMatch(siteReport.response.body, /PRIVATE_|audit_reason/);
+  assert.deepEqual(siteReport.body.corrections, report.body.corrections);
+  const [stored] = await sql<{ content: typeof content }[]>`SELECT content FROM reports WHERE kind='daily' AND key='2026-10-12'`;
+  assert.deepEqual(stored!.content.corrections, content.corrections);
   const topic = await get("/api/v3/topics/copper");
   assert.equal(topic.response.statusCode, 200, topic.response.body);
   assert.ok(topic.body.items.some((item: { id: string }) => item.id === second));

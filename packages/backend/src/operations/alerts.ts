@@ -375,7 +375,7 @@ async function hotFindings(now: number): Promise<Finding[]> {
 export async function collectFindings(
   now = Date.now(),
   observeIntake?: (lastDiscoveredAt: Date | null) => void,
-  observeReport?: (kind: ReportKind) => void,
+  observeCheck?: (kind: ReportKind | "content.process" | "hot") => void,
 ): Promise<Finding[]> {
   const out: Finding[] = await laneControlFindings(now);
   for (const release of await expiringPolicyQualityReleases(new Date(now), 7, 100)) {
@@ -456,6 +456,7 @@ export async function collectFindings(
         since: p!.waiting >= 10 && p!.oldest ? p!.oldest : undefined,
       });
     }
+    observeCheck?.("content.process");
     // Daily is composed at 08:00, weekly Monday 10:00, monthly the 1st 10:30; catch-up is hourly.
     // The daily existence read stays here so its data-ownership site does not move.
     for (const issue of dueReports(now)) {
@@ -463,7 +464,7 @@ export async function collectFindings(
         const [r] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${issue.key}`;
         out.push(...(await describeReport(issue, Boolean(r), now)));
       } else out.push(...(await describeReport(issue, null, now)));
-      observeReport?.(issue.kind);
+      observeCheck?.(issue.kind);
     }
   }
 
@@ -632,6 +633,7 @@ export async function collectFindings(
         detail: clip(error instanceof Error ? error.message : String(error)),
       });
     }
+    observeCheck?.("hot");
   }
 
   return out;
@@ -722,7 +724,7 @@ function findingFingerprint(f: Finding) {
 /** Every 10 minutes: new problems and recoveries of the now/today levels go out; digest items wait for 09:00. */
 export async function checkAlerts(now = Date.now()) {
   const intake: { at?: Date | null } = {};
-  const checkedReports = new Set<string>();
+  const checked = new Set<string>();
   const found = (
     await collectFindings(
       now,
@@ -730,7 +732,7 @@ export async function checkAlerts(now = Date.now()) {
         intake.at = at;
       },
       (kind) => {
-        checkedReports.add(kind);
+        checked.add(kind);
       },
     )
   ).filter((f) => f.level !== "digest");
@@ -759,8 +761,10 @@ export async function checkAlerts(now = Date.now()) {
   for (const key of Object.keys(state)) {
     if (found.some((f) => f.key === key)) continue;
     if (key.startsWith("metals.") && !collecting()) continue;
-    // Startup grace, disabled work and manual pauses skip checks; none proves a report recovered.
-    if (key.startsWith("report.") && !checkedReports.has(key.split(".")[1]!)) continue;
+    // Startup grace, disabled work and manual pauses supply no recovery evidence.
+    if (key.startsWith("report.") && !checked.has(key.split(".")[1]!)) continue;
+    if (key === "content.process" && !checked.has(key)) continue;
+    if (key.startsWith("hot.") && !checked.has("hot")) continue;
     // Entries without a level predate this scheme (2026-09-29) and close without a message.
     if (state[key]!.level) {
       // A missing finding may mean collection was paused or the worker is warming up. Keep this
