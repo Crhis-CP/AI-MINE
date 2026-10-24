@@ -707,12 +707,15 @@ export async function sendDigest(now = Date.now()) {
   const state: AlertState = Object.fromEntries(Object.entries(row?.value ?? {}).filter(([key]) => key.startsWith("digest:")));
   const previousKeys = Object.keys(state);
   const lines: string[] = [];
+  let checkChanged = false;
   for (const f of items) {
     if (changeOnly(f.key)) {
       const key = `digest:${f.key}`;
       const fingerprint = findingFingerprint(f);
       if (state[key]?.fingerprint === fingerprint) {
-        state[key]!.check = moduleChecks.get(f);
+        const check = moduleChecks.get(f);
+        checkChanged ||= state[key]!.check !== check;
+        state[key]!.check = check;
         continue;
       }
       state[key] = {
@@ -742,11 +745,13 @@ export async function sendDigest(now = Date.now()) {
     lines.push(`${lines.length + 1}. 已恢复：${state[key]!.title}`);
     delete state[key];
   }
-  if (!lines.length) return { items: 0 };
-  const introduction = items.some((item) => item.key === "receipts.unknown")
-    ? "以下事项需要核对。付费请求结果未知可能阻塞新内容处理；请保留费用记录，可把整条转给 AI 排查。"
-    : "以下是系统运行的待跟进事项，可把整条转给 AI 排查。";
-  await sendAlert(`📋 系统日报 · ${beijingDay(now)}`, [introduction, ...lines]);
+  if (!lines.length && !checkChanged) return { items: 0 };
+  if (lines.length) {
+    const introduction = items.some((item) => item.key === "receipts.unknown")
+      ? "以下事项需要核对。付费请求结果未知可能阻塞新内容处理；请保留费用记录，可把整条转给 AI 排查。"
+      : "以下是系统运行的待跟进事项，可把整条转给 AI 排查。";
+    await sendAlert(`📋 系统日报 · ${beijingDay(now)}`, [introduction, ...lines]);
+  }
   await sql`INSERT INTO settings(key,value,updated_by) VALUES('alerts.state',${sql.json(state as never)},'alerts')
     ON CONFLICT(key) DO UPDATE SET value=(settings.value - ${previousKeys}::text[]) || EXCLUDED.value,updated_at=now()`;
   return { items: lines.length };

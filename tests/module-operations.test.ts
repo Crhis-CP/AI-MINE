@@ -110,6 +110,42 @@ test("an incomplete module check cannot close existing immediate or digest incid
   assert.equal(closed.value["digest:metals.fixture-digest"], undefined);
 });
 
+test("unchanged legacy digest incidents persist their check ownership without sending another message", async (t) => {
+  const log = t.mock.method(console, "log", () => {});
+  const now = Date.now();
+  const key = "digest:metals.fixture-legacy";
+  const legacy = {
+    title: "合成旧摘要异常",
+    level: "digest",
+    since: new Date(now - 86400_000).toISOString(),
+    sentAt: new Date(now - 3600_000).toISOString(),
+    fingerprint: '["digest","合成旧摘要异常",null,null,null,null]',
+  };
+  const [previous] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+  try {
+    await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json({ [key]: legacy })})
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`;
+    installModules([{ name: "fixture", alerts: async () => [{ key: "metals.fixture-legacy", title: legacy.title, level: "digest" }] }]);
+    assert.deepEqual(await sendDigest(now), { items: 0 });
+    assert.equal(log.mock.calls.length, 0);
+    const [adopted] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+    assert.deepEqual(adopted.value[key], { ...legacy, check: "module.fixture.alerts" }, "persist ownership without moving the original reminder clock");
+    installModules([]);
+    assert.deepEqual(await sendDigest(now + 60_000), { items: 0 });
+    const [retained] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+    assert.deepEqual(retained.value[key], adopted.value[key]);
+    assert.equal(log.mock.calls.length, 0);
+    installModules([{ name: "fixture", alerts: async () => [] }]);
+    assert.deepEqual(await sendDigest(now + 120_000), { items: 1 });
+    assert.equal(log.mock.calls.filter((call) => String(call.arguments[0]).includes("已恢复：合成旧摘要异常")).length, 1);
+    assert.deepEqual(await sendDigest(now + 180_000), { items: 0 });
+  } finally {
+    await sql`DELETE FROM settings WHERE key='alerts.state'`;
+    if (previous) await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json(previous.value)})`;
+    installModules([]);
+  }
+});
+
 test("a failed module retention does not stop other modules or core housekeeping and does not report success", async () => {
   let keptRunning = false;
   installModules([
