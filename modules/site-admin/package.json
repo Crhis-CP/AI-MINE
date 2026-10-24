@@ -17,9 +17,9 @@
     "@amp/industry": "*",
     "react": "19.3.0",
     "react-router": "8.4.0",
-    "zod": "4.6.5",
+    "zod": "4.6.7",
     "@amp/backend": "*",
-    "fastify": "5.12.5",
+    "fastify": "5.12.7",
     "@amp/metals": "*"
   },
   "devDependencies": {
