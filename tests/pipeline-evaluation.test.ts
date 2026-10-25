@@ -10,7 +10,8 @@ import { installSelectionDataset } from "@amp/backend/admin/selectbench";
 import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { config } from "@amp/backend/config";
-import { comparePipelineReports, evaluatePipeline, type PipelineReport } from "../scripts/eval-pipeline.ts";
+import { evaluatePipeline } from "../scripts/eval-pipeline.ts";
+import { comparePipelineReports, type PipelineReport } from "../scripts/eval-pipeline-core.ts";
 
 const directory = mkdtempSync(path.join(tmpdir(), "pipeline-evaluation-"));
 let pauseOnNext = false;
@@ -134,6 +135,10 @@ test("unlabelled cases use real analysis steps, preserve business rows, reuse re
   await assert.rejects(evaluatePipeline({ dataset: f.id, output: path.join(directory, "reject.json"), baseline: badPath }), /不一致/);
   assert.equal(provider.hits(), hits, "baseline validation occurs before any paid work");
   const changed: PipelineReport = structuredClone(first);
+  const unknown: PipelineReport = structuredClone(first);
+  unknown.cases[0]!.jurisdictions = null;
+  assert.equal(comparePipelineReports(first, unknown).changes.length, 1, "lost evidence must not disappear from the difference report");
+  assert.equal(comparePipelineReports(unknown, first).changes.length, 1, "recovered evidence must not disappear from the difference report");
   changed.cases[0]!.decision = "reject";
   changed.cases[0]!.jurisdictions = ["CL"];
   const diff = comparePipelineReports(first, changed);
