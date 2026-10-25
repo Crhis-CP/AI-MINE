@@ -179,6 +179,9 @@ export async function releaseReceipt(id: number, input: unknown, actor: string, 
 
 /** Restore the original stage; grouping and translation never buy scoring again. */
 async function resumeReceiptWork(row: { purpose: string; subject: string | null; request: unknown }, db: Db) {
+  const request = row.request && typeof row.request === "object" ? (row.request as Record<string, unknown>) : null;
+  // Old shared receipts keep their recovery; isolated evaluations never resume production work.
+  if (request?.usage_purpose === "evaluation" && request.receipt_scope === "evaluation-v1") return false;
   if (await resumePolicyAfterReceipt(row.request, db)) return true;
   if (["translate_body", "group_article", "group_review", "group_signal"].includes(row.purpose)) {
     const pattern =
