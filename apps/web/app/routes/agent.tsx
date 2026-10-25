@@ -23,6 +23,19 @@ const MCP_VERSION = "2.1.0";
 const AGENT_PARTS = (await loadParts((module) => module.agent)).map(({ name, part }) => ({ ...part, moduleName: name }));
 const TAG = AGENT_PARTS.find((part) => part.tag)?.tag;
 const useTag = TAG?.useValue ?? (() => null);
+const GUIDE_CLIENTS = [...new Set(AGENT_PARTS.flatMap((part) => part.guideClients ?? []))].filter(Boolean).join("、");
+const toolNames = new Set<string>(Object.values(T));
+const MODULE_TOOLS = AGENT_PARTS.flatMap((part) => part.tools ?? []).filter((tool) => {
+  if (!tool.name.trim() || toolNames.has(tool.name)) return false;
+  toolNames.add(tool.name);
+  return true;
+});
+const MCP_TOOL_COUNT = MCP_TOOLS.length + MODULE_TOOLS.length;
+const MCP_TROUBLES = AGENT_PARTS.flatMap((part) => part.mcpTroubles ?? []);
+const RSS_LEAD = AGENT_PARTS.flatMap((part) => part.rssLead ?? []).join("；");
+const RECIPES = AGENT_PARTS.flatMap((part) => part.recipes ?? []).filter(
+  (recipe, index, all) => recipe.key && all.findIndex((candidate) => candidate.key === recipe.key) === index,
+);
 /** The machine-readable entry points, with what each one is for. */
 const RESOURCES: Array<[label: string, href: string, note: string]> = [
   ["Agent中文答案", "/api/v1/agent", "无需MCP，直接读取中文资讯与报告"],
@@ -127,7 +140,7 @@ function McpTab({ base, tag }: AgentPanelProps) {
   const name = SITE.mcpPrefix;
   return (
     <>
-      <h2 className="text-[20px] font-bold text-ink">加一个地址，Agent 直接调用 {MCP_TOOLS.length} 个工具</h2>
+      <h2 className="text-[20px] font-bold text-ink">加一个地址，Agent 直接调用 {MCP_TOOL_COUNT} 个工具</h2>
       <p className="mt-2 text-[14.5px] text-ink-3">
         适合支持远程 MCP 的 Agent 与开发工具。标准 Streamable HTTP，匿名只读，不需要 token；工具返回简洁文字与同一份结构化数据。
       </p>
@@ -138,7 +151,7 @@ function McpTab({ base, tag }: AgentPanelProps) {
       {TAG && <p className="mt-2 text-[13px] text-ink-3">{TAG.mcp}</p>}
       <CodeBlock title="通用 MCP 配置" lang="json" code={JSON.stringify({ mcpServers: { [name]: { type: "http", url } } }, null, 2)} />
       <CodeBlock lang="bash" code={`# Claude Code\nclaude mcp add --transport http ${name} '${url}'\n# Codex\ncodex mcp add ${name} --url '${url}'`} />
-      <Section title={`连上后应看到这 ${MCP_TOOLS.length} 个工具`}>
+      <Section title={`连上后应看到这 ${MCP_TOOL_COUNT} 个工具`}>
         <Bullets
           items={[
             <>
@@ -174,6 +187,11 @@ function McpTab({ base, tag }: AgentPanelProps) {
             <>
               <Mono>{T.policyThread}</Mono>：由有据可查的引用、修订等关系组成的法规脉络
             </>,
+            ...MODULE_TOOLS.map((tool) => (
+              <>
+                <Mono>{tool.name}</Mono>：{tool.does}；示例提问：{tool.ask}
+              </>
+            )),
           ]}
         />
         <p className="mt-4">
@@ -189,6 +207,11 @@ function McpTab({ base, tag }: AgentPanelProps) {
           ]}
         />
       </Section>
+      {MCP_TROUBLES.length > 0 && (
+        <Section title="接入排查">
+          <Bullets items={MCP_TROUBLES} />
+        </Section>
+      )}
     </>
   );
 }
@@ -206,6 +229,7 @@ function RssTab({ base, tag }: AgentPanelProps) {
     <>
       <h2 className="text-[20px] font-bold text-ink">复制地址即可订阅</h2>
       <p className="mt-2 text-[14.5px] text-ink-3">兼容主流 RSS 2.0 阅读器与 n8n、Zapier 这类自动化工具。第一次接入选精选摘要。</p>
+      {RSS_LEAD && <p className="mt-2 text-[13.5px] text-ink-3">{RSS_LEAD}</p>}
       <div className="mt-6 space-y-3">
         {feeds.map(([name, desc, path]) => {
           const url = addressOf(base, path, tag);
@@ -243,6 +267,8 @@ function RssTab({ base, tag }: AgentPanelProps) {
 
 function ApiTab({ base, tag }: AgentPanelProps) {
   const curl = TAG && tag ? `curl -A ${shellQuote(TAG.userAgent(tag))}` : "curl";
+  const [recipe, setRecipe] = useState(RECIPES[0]?.key ?? "");
+  const selectedRecipe = RECIPES.find((candidate) => candidate.key === recipe);
   const endpoints: Array<[string, string]> = [
     ["/api/v3/items", "当前公开资讯；支持精选、分类、来源、日期和关键词筛选"],
     ["/api/v3/items/{id}/reading", "许可允许的正文分段与阅读依据"],
@@ -285,6 +311,19 @@ function ApiTab({ base, tag }: AgentPanelProps) {
           </tbody>
         </table>
       </div>
+      {AGENT_PARTS.map((part) =>
+        part.api ? (
+          <Section key={part.moduleName} title={part.api.group}>
+            <Bullets
+              items={part.api.rows.map(([path, does, often]) => (
+                <>
+                  <Mono>{path}</Mono>：{does}（{often}）
+                </>
+              ))}
+            />
+          </Section>
+        ) : null,
+      )}
       <Section title="先知道这几件事">
         <Bullets
           items={[
@@ -303,6 +342,18 @@ function ApiTab({ base, tag }: AgentPanelProps) {
         />
         <p>每页成功应用后再保存新 cursor。返回 409 snapshot_required 时重新取一次快照即可，接口不会静默漏数。</p>
       </Section>
+      {RECIPES.length > 0 && (
+        <Section title="更多用法">
+          <PillTabs
+            layoutId="agent-module-recipe"
+            label="更多用法"
+            active={recipe}
+            onSelect={setRecipe}
+            items={RECIPES.map(({ key, label }) => ({ key, label }))}
+          />
+          {selectedRecipe && <selectedRecipe.Body base={base} curl={curl} />}
+        </Section>
+      )}
       <Section title="错误与恢复" id="agent-api-recovery">
         <Bullets
           items={[
@@ -310,6 +361,11 @@ function ApiTab({ base, tag }: AgentPanelProps) {
             "409 snapshot_required：增量游标无法安全续传，重新取一次完整快照。",
             "429：遵守 Retry-After，不要增加并发重试。",
             "5xx：指数退避，暂停展示尚未重新核对的内容。",
+            ...AGENT_PARTS.flatMap((part) => part.apiErrors ?? []).map(([status, what]) => (
+              <>
+                <Mono>{status}</Mono>：{what}
+              </>
+            )),
           ]}
         />
       </Section>
@@ -417,6 +473,7 @@ export default function AgentPage() {
         lang="text"
         code={`请先阅读 ${base}/api/v1/agent，按说明查找矿业资讯、热点或报告。只使用返回的公开资料，保留来源和链接。`}
       />
+      {GUIDE_CLIENTS && <p className="mt-2 text-[13px] text-ink-3">使用同一份接入说明的客户端：{GUIDE_CLIENTS}。</p>}
       <div className="sticky top-12 z-20 -mx-4 mt-7 bg-bg/90 px-4 py-2 backdrop-blur-md lg:top-0 lg:mx-0 lg:px-0">
         <PillTabs
           layoutId="agent-tab"
