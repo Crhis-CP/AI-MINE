@@ -163,9 +163,6 @@
   "packages/backend/src/notify/feishu.ts": {
     "lint/style/noProcessEnv": 1
   },
-  "packages/backend/src/notify/selected.ts": {
-    "lint/complexity/useOptionalChain": 1
-  },
   "packages/backend/src/operations/alerts.ts": {
     "lint/complexity/useOptionalChain": 1,
     "lint/style/noProcessEnv": 3

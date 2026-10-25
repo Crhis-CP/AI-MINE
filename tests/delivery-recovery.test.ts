@@ -40,8 +40,8 @@ async function material(status: string | null = "pending", attempts = 0) {
   await sql`INSERT INTO sources(id,name,kind) VALUES(${id},'合成来源','rss')`;
   await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at)
     VALUES(${id},${id},${id},${`https://example.com/${id}`},${id},now(),now())`;
-  await sql`INSERT INTO publications(article_id,source_id,channel,title,url,discovered_at,timeline_at,sort_at,selected,seat,eligible,summary)
-    VALUES(${id},${id},'news',${id},${`https://example.com/${id}`},now(),now(),now(),true,true,true,'合成摘要')`;
+  await sql`INSERT INTO publications(article_id,source_id,channel,title,url,discovered_at,timeline_at,sort_at,selected,seat,eligible,summary,selection_candidate,visible_after)
+    VALUES(${id},${id},'news',${id},${`https://example.com/${id}`},now(),now(),now(),true,true,true,'合成摘要',true,now())`;
   if (status)
     await sql`INSERT INTO deliveries(target_key,subject_kind,subject_id,dedupe_key,status,attempts,updated_at)
     VALUES(${target},'selected',${id},${`selected:article:${id}`},${status},${attempts},now()-interval '16 minutes')`;

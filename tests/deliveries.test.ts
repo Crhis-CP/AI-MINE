@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { config } from "@amp/backend/config";
 import { closeDb, sql } from "@amp/backend/db";
 import { deliverContent, resendDelivery } from "@amp/backend/notify/deliver";
+import { pushSelected } from "../packages/backend/src/notify/selected.ts";
 import { geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
 import { buildApp } from "./site-app.ts";
 
@@ -56,8 +57,8 @@ async function delivery(status = "unknown") {
   await sql`INSERT INTO sources(id,name,kind) VALUES(${articleId},'合成来源','rss')`;
   await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at)
     VALUES(${articleId},${articleId},${articleId},${`https://example.com/${articleId}`},${String(row.id)},now(),now())`;
-  await sql`INSERT INTO publications(article_id,source_id,channel,title,url,discovered_at,timeline_at,selected,seat,eligible,summary,sort_at)
-    VALUES(${articleId},${articleId},'news',${String(row.id)},${`https://example.com/${articleId}`},now(),now(),true,true,true,'当前摘要',now())`;
+  await sql`INSERT INTO publications(article_id,source_id,channel,title,url,discovered_at,timeline_at,selected,seat,eligible,summary,sort_at,selection_candidate,visible_after)
+    VALUES(${articleId},${articleId},'news',${String(row.id)},${`https://example.com/${articleId}`},now(),now(),true,true,true,'当前摘要',now(),true,now())`;
   await sql`UPDATE deliveries SET subject_id=${articleId},dedupe_key=${`selected:article:${articleId}`} WHERE id=${row.id}`;
   await sql`UPDATE deliveries SET payload = ${sql.json({ id: row.id })} WHERE id = ${row.id}`;
   return row.id;
@@ -305,7 +306,7 @@ test("country delivery uses current multi-country evidence and retains the gener
   await sql`UPDATE notify_targets SET enabled=false WHERE key=${TARGET}`;
   for (const [index, country] of [null, "AR", "PE"].entries())
     await sql`INSERT INTO notify_targets(key,purpose,kind,enabled,jurisdiction) VALUES(${keys[index]!},${country === null ? "content" : "country_content"},'log',true,${country})`;
-  const req = { subjectKind: "selected" as const, subjectId: articleId, dedupeKey: `country:${id}`, contentAt: new Date(), card: { id } };
+  const req = { subjectKind: "selected" as const, subjectId: articleId, dedupeKey: `selected:article:${articleId}`, contentAt: new Date(), card: { id } };
   try {
     const legacy = await sql`SELECT key FROM notify_targets WHERE purpose='content' AND enabled AND key=ANY(${keys}::text[])`;
     assert.deepEqual(
@@ -314,13 +315,15 @@ test("country delivery uses current multi-country evidence and retains the gener
       "a rollback binary cannot broadcast every article into a country target",
     );
     assert.deepEqual((await deliverContent(req)).map((row) => row.target).sort(), [keys[0]], "unknown geography goes only to the general channel");
+    await sql`DELETE FROM deliveries WHERE target_key=ANY(${keys}::text[])`;
     await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
       VALUES(${articleId},1,NULL,${geographyRecipe()},'identified',ARRAY['AR','PE'])`;
-    assert.deepEqual((await deliverContent({ ...req, dedupeKey: `country:${id}:multi` })).map((row) => row.target).sort(), [...keys].sort());
-    assert.deepEqual(await deliverContent({ ...req, dedupeKey: `country:${id}:multi` }), [], "each target keeps its own dedupe identity");
+    assert.deepEqual((await deliverContent(req)).map((row) => row.target).sort(), [...keys].sort());
+    assert.deepEqual(await deliverContent(req), [], "each target keeps its own dedupe identity");
+    await sql`DELETE FROM deliveries WHERE target_key=ANY(${keys}::text[])`;
     await sql`UPDATE articles SET revision=revision+1 WHERE id=${articleId}`;
     assert.deepEqual(
-      (await deliverContent({ ...req, dedupeKey: `country:${id}:stale` })).map((row) => row.target),
+      (await deliverContent(req)).map((row) => row.target),
       [keys[0]],
       "old-revision geography cannot route a card",
     );
@@ -357,6 +360,7 @@ test("a country correction committed while send admission waits is rechecked for
         articleId = articleIds.get(id)!;
       await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
         VALUES(${articleId},1,NULL,${geographyRecipe()},'identified',ARRAY['AR'])`;
+      if (!retry) await sql`DELETE FROM deliveries WHERE id=${id}`;
       const entered = gate<number>(),
         release = gate();
       const held = sql.begin(async (tx) => {
@@ -369,7 +373,7 @@ test("a country correction committed while send admission waits is rechecked for
       const sending = (
         retry
           ? resendDelivery(id)
-          : deliverContent({ subjectKind: "selected", subjectId: articleId, dedupeKey: `normal-country-race:${id}`, contentAt: new Date(), card: { id } })
+          : deliverContent({ subjectKind: "selected", subjectId: articleId, dedupeKey: `selected:article:${articleId}`, contentAt: new Date(), card: { id } })
       ).then(
         (result) => ({ result }),
         (error) => ({ error }),
@@ -393,4 +397,84 @@ test("a country correction committed while send admission waits is rechecked for
   } finally {
     await sql`UPDATE notify_targets SET jurisdiction=NULL,purpose='content' WHERE key=${TARGET}`;
   }
+});
+
+test("a qualified non-global representative reaches its country once per fact, never the general channel", async () => {
+  const id = await delivery(),
+    articleId = articleIds.get(id)!;
+  const country = `${TARGET}-non-seat`;
+  await sql`INSERT INTO notify_targets(key,purpose,kind,enabled,config_ref,jurisdiction) VALUES
+    (${country},'country_content','feishu_webhook',true,'TEST_DELIVERY_WEBHOOK','AR')`;
+  try {
+    await sql`UPDATE publications SET seat=false,fact_id=987654 WHERE article_id=${articleId}`;
+    await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
+      VALUES(${articleId},1,NULL,${geographyRecipe()},'identified',ARRAY['AR'])`;
+    assert.equal((await pushSelected(articleId)).status, "pushed");
+    assert.equal(requests.filter((n) => n === id).length, 1);
+    assert.deepEqual(
+      (await sql`SELECT target_key FROM deliveries WHERE subject_id=${articleId} AND status='sent'`).map((r) => r.target_key),
+      [country],
+    );
+    assert.equal((await pushSelected(articleId)).status, "skipped");
+    await sql`UPDATE publications SET seat=true WHERE article_id=${articleId}`;
+    assert.equal((await pushSelected(articleId)).status, "pushed", "general channel keeps its own fact identity");
+    assert.equal(requests.filter((n) => n === id).length, 2);
+    const other = await delivery(),
+      otherId = articleIds.get(other)!;
+    await sql`UPDATE publications SET fact_id=987654 WHERE article_id=${otherId}`;
+    await sql`INSERT INTO publication.news_geography(article_id,article_revision,analysis_id,recipe,state,jurisdictions)
+      VALUES(${otherId},1,NULL,${geographyRecipe()},'identified',ARRAY['AR'])`;
+    assert.equal((await pushSelected(otherId)).status, "skipped", "another report of the same fact cannot send twice");
+    assert.equal(requests.filter((n) => n === other).length, 0);
+  } finally {
+    await sql`DELETE FROM deliveries WHERE target_key=ANY(${[country]}::text[])`;
+    await sql`DELETE FROM notify_targets WHERE key=ANY(${[country]}::text[])`;
+  }
+});
+
+test("normal and recovered sends recheck eligibility and rebuild the card after admission waits", { timeout: 30000 }, async () => {
+  for (const retry of [false, true])
+    for (const change of ["withdrawn", "silent", "unconfirmed", "ineligible", "seat", "fact", "old", "backfill", "future", "copy"]) {
+      const id = await delivery(),
+        articleId = articleIds.get(id)!;
+      if (!retry) await sql`DELETE FROM deliveries WHERE id=${id}`;
+      const entered = gate<number>(),
+        release = gate();
+      const held = sql.begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(hashtext('lane-controls'))`;
+        entered.open((await tx`SELECT pg_backend_pid() AS pid`)[0].pid);
+        await release.promise;
+      });
+      const pid = await entered.promise;
+      const sending = (retry ? resendDelivery(id) : pushSelected(articleId)).then(
+        (result) => ({ result }),
+        (error) => ({ error }),
+      );
+      try {
+        const deadline = performance.now() + 3000;
+        while (!(await sql`SELECT pid FROM pg_stat_activity WHERE ${pid}=ANY(pg_blocking_pids(pid))`).length) {
+          assert.ok(performance.now() < deadline, `${retry}/${change} reaches admission fence`);
+          await delay(10);
+        }
+        if (change === "withdrawn") await sql`UPDATE publications SET operator_withdrawn=true WHERE article_id=${articleId}`;
+        if (change === "silent") await sql`INSERT INTO editorial_overrides(article_id,fields) VALUES(${articleId},'{"silent":true}')`;
+        if (change === "unconfirmed") await sql`UPDATE publications SET selection_candidate=false WHERE article_id=${articleId}`;
+        if (change === "ineligible") await sql`UPDATE publications SET eligible=false WHERE article_id=${articleId}`;
+        if (change === "seat") await sql`UPDATE publications SET seat=false WHERE article_id=${articleId}`;
+        if (change === "fact") await sql`UPDATE publications SET fact_id=876543 WHERE article_id=${articleId}`;
+        if (change === "old") await sql`UPDATE publications SET timeline_at=now()-interval '13 hours' WHERE article_id=${articleId}`;
+        if (change === "backfill") await sql`UPDATE publications SET backfill=true WHERE article_id=${articleId}`;
+        if (change === "future") await sql`UPDATE publications SET visible_after=now()+interval '1 hour' WHERE article_id=${articleId}`;
+        if (change === "copy") await sql`UPDATE publications SET summary='等待后取得的当前摘要' WHERE article_id=${articleId}`;
+      } finally {
+        release.open();
+        await held;
+      }
+      const outcome = await sending;
+      assert.equal(requests.filter((n) => n === id).length, change === "copy" ? 1 : 0, `${retry}/${change}`);
+      if (change === "copy") {
+        assert.match(JSON.stringify(cards.at(-1)), /等待后取得的当前摘要/);
+        assert.deepEqual((await sql`SELECT payload FROM deliveries WHERE subject_id=${articleId}`)[0].payload, cards.at(-1));
+      } else if (retry) assert.equal((outcome as { error: { code: string } }).error.code, "conflict");
+    }
 });
