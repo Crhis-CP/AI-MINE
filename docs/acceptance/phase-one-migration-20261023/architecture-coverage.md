@@ -5,7 +5,7 @@
 ## 对照口径
 
 - AIHOT固定基线：[a0d1e75b](https://github.com/KKKKhazix/AIHOT/tree/a0d1e75b00ede7e503ca948e71a468db964b2df2)，依据其[架构说明](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/docs/architecture.md)、[模块插口及消费者](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/packages/backend/src/modules.ts)和[模型处理流程](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/packages/backend/src/editorial/analyze.ts)。不静默追随新提交。upstream/aihot.lock.json是早期导入登记，不是本轮基线；本轮文件身份见[upstream-files.json](upstream-files.json)。
-- AI-MINE已合并代码截至[c733e85c](https://github.com/Crhis-CP/AI-MINE/commit/c733e85cc27fc655b3fc940583b04f7cd1228b32)。P1模型隔离补丁随后已由[PR315](https://github.com/Crhis-CP/AI-MINE/pull/315)完整验证合并为86b6e519；P2契约PR316正在验证，运行消费者仅本地准备。下表只把有实际消费者和提交证据的部分列为已迁移；部分迁移、尚未逐路径核对均不计为整模块完成。
+- AI-MINE已合并代码截至[c733e85c](https://github.com/Crhis-CP/AI-MINE/commit/c733e85cc27fc655b3fc940583b04f7cd1228b32)。P1模型隔离补丁随后已由[PR315](https://github.com/Crhis-CP/AI-MINE/pull/315)完整验证合并为86b6e519；P2契约PR316也已完整验证并合并为fcef889c，运行消费者本地已验证，待独立交付。下表只把有实际消费者和提交证据的部分列为已迁移；部分迁移、尚未逐路径核对均不计为整模块完成。
 - 生产现役仍为获准的f48781d4报告修复包。“已合并”不表示该批已上线；统一候选尚未部署或验收。价格/月报继续按[发布与自然运行记录](priority-report-live-20261025.md)观察。
 
 ## 逐模块差异
@@ -35,7 +35,7 @@ P1—P5是下一节的实施顺序和预计PR主题，不是已创建的PR号。
 | 顺序 | 预计PR主题（开出后回填链接，不预占编号） | 对应项 | 完成判据 |
 |---|---|---|---|
 | P1 | [PR315已合并](https://github.com/Crhis-CP/AI-MINE/pull/315)：模型目录故障隔离与历史费用归属 | A03/A06/A12 | 坏模块不影响核心/健康模块；无权调用拒绝；历史费用不失归属；最终SHA完整验证 |
-| P2 | AIHOT模型处理、恢复与固定样本评测闭环；[PR316契约](https://github.com/Crhis-CP/AI-MINE/pull/316)验证中，TASK0474运行消费者本地已验证 | A04—A08/A10/A14 | 按上游接通材料等待、模型判断/写作/纠错、提交及重处理；固定样本前后差异报告；人工状态优先；不夹带评分/词表改动 |
+| P2 | AIHOT模型处理、恢复与固定样本评测闭环；[PR316契约已合并](https://github.com/Crhis-CP/AI-MINE/pull/316)，TASK0474运行消费者本地已验证 | A04—A08/A10/A14 | 按上游接通材料等待、模型判断/写作/纠错、提交及重处理；固定样本前后差异报告；人工状态优先；不夹带评分/词表改动 |
 | P3 | 独立精选来源与统一公开出口闭环 | A08—A10/A13 | 插口有实际消费者，各出口读取当前有效结果；默认空名单不改变矿业入选；国别接统一模型结果 |
 | P4 | 其余通用架构差异收口及旧兼容层退役 | A01—A04/A12/A13 | 逐项核对启动、迁移、来源、队列、后台/网页消费者；具体差异补到本表同一行；只删确认无消费者/无唯一数据的旧代码 |
 | P5 | 统一候选验证、获准发布与交付记录 | 全表 | 前四项闭合，固定样本、权限/数据保持、使用流程、最终full及制品通过；具体范围获准后上线，价格/月报和缓存自然观察分别记录 |
