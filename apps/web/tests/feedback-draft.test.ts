@@ -116,3 +116,28 @@ test("storage refusal keeps module drafts until a successful save or confirmed s
   assert.equal(writeDraft(null, true), false);
   assert.equal(cleared, 2);
 });
+
+test("initial empty autosave preserves an unread module draft even when local deletion succeeds", () => {
+  let readable = false,
+    cleared = 0;
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: () => null, removeItem: () => {} } });
+  WEB_MODULES.splice(0, WEB_MODULES.length, {
+    name: "temporarily-unreadable",
+    feedbackDraft: {
+      read: () => {
+        if (!readable) throw Error("not ready");
+        return draft;
+      },
+      clear: () => {
+        cleared++;
+      },
+    },
+  });
+  assert.equal(readDraft(), null);
+  assert.equal(writeDraft(null), true);
+  assert.equal(cleared, 0);
+  readable = true;
+  assert.deepEqual(readDraft(), draft);
+  assert.equal(writeDraft(null, true), true);
+  assert.equal(cleared, 1);
+});

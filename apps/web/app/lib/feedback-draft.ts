@@ -45,7 +45,7 @@ export function writeDraft(draft: Draft | null, submitted = false): boolean {
   } catch {
     // Keep module copies until this browser saves, or the server confirms receipt.
   }
-  if (saved || (draft === null && submitted)) {
+  if ((saved && draft !== null) || (draft === null && submitted)) {
     for (const module of WEB_MODULES) {
       try {
         module.feedbackDraft?.clear();
