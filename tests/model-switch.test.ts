@@ -3,10 +3,21 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { switchModel } from "@amp/backend/admin/models";
-import { modelFor, modelSources } from "@amp/backend/editorial/models";
+import { capabilities, CAPABILITIES, modelFor, modelSources } from "@amp/backend/editorial/models";
 import { modelPresetReady } from "@amp/backend/providers/llm";
 
 after(closeDb);
+
+test("undeclared capabilities cannot be activated by leftover settings or inherited object keys", async () => {
+  assert.deepEqual(capabilities(), CAPABILITIES);
+  const key = "synthetic_unregistered";
+  await sql`INSERT INTO settings(key,value) VALUES(${`models.${key}`},${sql.json({ model: "deepseek-flash" })}) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`;
+  try {
+    for (const capability of [key, "constructor", "__proto__", "toString"]) await assert.rejects(modelFor(capability), /Unknown model capability/);
+  } finally {
+    await sql`DELETE FROM settings WHERE key=${`models.${key}`}`;
+  }
+});
 
 test("model switching validates capability and keeps one route revision clock", async () => {
   await assert.rejects(switchModel("not-a-step", "default", "更换模型", "admin:1"), (e: { statusCode?: number }) => e.statusCode === 400);

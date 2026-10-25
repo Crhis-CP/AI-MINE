@@ -5,14 +5,10 @@ import { environmentValue } from "../config.ts";
 // without a cross-process cache; a changed model does not re-judge historical results.
 import { sql, type Db } from "../db.ts";
 import { MODELS, modelSpecFor } from "../providers/llm.ts";
+import type { ModelStep } from "../modules.ts";
 
-export interface Capability {
-  label: string;
-  env: string;
+export interface Capability extends ModelStep {
   default: string;
-  /** Receipt purposes this capability produces (for the admin statistics). */
-  purposes: string[];
-  vision?: boolean;
 }
 
 export const CAPABILITIES = {
@@ -85,7 +81,12 @@ export const CAPABILITIES = {
   policy_verify: { label: "法规全篇语义核验", env: "POLICY_VERIFY_MODEL", default: DEFAULTS.policy_verify ?? "default", purposes: ["policy_verify"] },
 } satisfies Record<string, Capability>;
 
-export type CapabilityKey = keyof typeof CAPABILITIES;
+export type CapabilityKey = string;
+
+/** The currently declared steps; consumers use this entry point instead of capturing a static map. */
+export function capabilities(): Record<string, Capability> {
+  return { ...CAPABILITIES };
+}
 
 async function overrides(db: Db = sql): Promise<Record<string, string>> {
   const rows = await db<{ key: string; value: { model?: string } }[]>`SELECT key, value FROM settings WHERE key LIKE 'models.%'`;
@@ -104,7 +105,9 @@ export class PolicyVisionConfigurationError extends Error {}
 
 /** The model a capability uses now: admin switch, else environment, else the code default. */
 export async function modelFor(capability: CapabilityKey): Promise<string> {
-  const c: Capability = CAPABILITIES[capability];
+  const available = capabilities();
+  if (!Object.hasOwn(available, capability)) throw new Error("Unknown model capability");
+  const c = available[capability]!;
   const chosen = (await overrides())[capability] ?? process.env[c.env] ?? c.default;
   const spec = await modelSpecFor(chosen);
   if (capability === "policy_vision" && (!chosen || !spec?.vision))
