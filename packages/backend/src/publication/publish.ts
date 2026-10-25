@@ -43,7 +43,17 @@ import { readStoredTranslation } from "../editorial/translation-store.ts";
 import { itemUrl } from "./links.ts";
 import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
-import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, isIndependentSelectedSource, mayRedistribute, type SourceFacts } from "./rules.ts";
+import {
+  bodyModeOf,
+  displayTags,
+  isIndexable,
+  isPoolEligible,
+  isSelectable,
+  independentSelectedSources,
+  isIndependentSelectedSource,
+  mayRedistribute,
+  type SourceFacts,
+} from "./rules.ts";
 import { foldableSelectionCondition } from "./scope.ts";
 import { projectNewsGeography } from "./news-geography.ts";
 
@@ -591,6 +601,7 @@ interface SeatRow {
   source_id: string;
   fact_id: number | null;
   selected: boolean;
+  selection_candidate: boolean;
   seat: boolean;
   representative_priority: number;
   eligible: boolean;
@@ -598,6 +609,7 @@ interface SeatRow {
   body_mode: string;
   score: number | null;
   timeline_at: Date;
+  sort_at: Date;
   visible_after: Date | null;
   title: string;
   original_title: string | null;
@@ -649,29 +661,44 @@ async function syncSelectedLedger(tx: Tx, row: SeatRow, sourceName: string, now:
 async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: number | null, now: Date) {
   const [self] = await tx<{ fact_id: number | null }[]>`SELECT fact_id FROM publications WHERE article_id=${articleId}`;
   const facts = [...new Set([previousFact, self?.fact_id].filter((id): id is number => id !== null && id !== undefined))];
-  const rows = await tx<SeatRow[]>`SELECT article_id,source_id,fact_id,selected,seat,representative_priority,eligible,visibility,body_mode,score,
-    timeline_at,visible_after,title,original_title,summary,url,published_at,source_time,discovered_at,category,reason
+  const rows = await tx<
+    SeatRow[]
+  >`SELECT article_id,source_id,fact_id,selected,selection_candidate,seat,representative_priority,eligible,visibility,body_mode,score,
+    timeline_at,sort_at,visible_after,title,original_title,summary,url,published_at,source_time,discovered_at,category,reason
     FROM publications WHERE article_id=${articleId} OR fact_id=ANY(${facts}::bigint[]) ORDER BY article_id`;
   const sources = new Map((await representativeSourceIdentities([...new Set(rows.map((r) => r.source_id))], tx)).map((s) => [s.id, s.name]));
   const chosen = new Set<string>();
   const groups = new Map<string, SeatRow[]>();
+  const independent = new Set(independentSelectedSources());
+  const independentRow = (row: SeatRow) => row.selected && row.selection_candidate && independent.has(row.source_id);
+  const anchors = new Map<number, number>();
+  for (const row of rows)
+    if (row.fact_id !== null && row.eligible && row.visibility === "public" && !independentRow(row))
+      anchors.set(row.fact_id, Math.min(anchors.get(row.fact_id) ?? Infinity, row.timeline_at.getTime()));
   for (const row of rows)
     if (row.selected && row.eligible && row.visibility === "public") {
-      const key = row.fact_id === null || isIndependentSelectedSource(row.source_id) ? `article:${row.article_id}` : `fact:${row.fact_id}`;
+      const key = row.fact_id === null || independentRow(row) ? `article:${row.article_id}` : `fact:${row.fact_id}`;
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
   for (const members of groups.values()) chosen.add(pickRepresentative(members).article_id);
   let changed = false,
     ledger: "upsert" | "remove" | null = null;
-  const replaced: SeatRow[] = [];
+  const replaced: Array<{ row: SeatRow; reason: string }> = [];
   // Remove old seats first; all changes become visible at this transaction's commit.
   rows.sort((a, b) => Number(chosen.has(a.article_id)) - Number(chosen.has(b.article_id)) || a.article_id.localeCompare(b.article_id));
   for (const row of rows) {
     const seat = chosen.has(row.article_id);
-    if (seat !== row.seat) {
+    const seatChanged = seat !== row.seat;
+    // Reprojecting one source also repairs the ordinary members' previously shared anchor.
+    const sortAt = new Date(
+      row.selected && row.fact_id !== null && !independentRow(row)
+        ? Math.min(row.timeline_at.getTime(), anchors.get(row.fact_id) ?? Infinity)
+        : row.timeline_at.getTime(),
+    );
+    if (seatChanged || sortAt.getTime() !== row.sort_at.getTime()) {
       changed = true;
-      await tx`UPDATE publications SET seat=${seat},revision=revision+1,updated_at=${now} WHERE article_id=${row.article_id}`;
-      if (seat)
+      await tx`UPDATE publications SET seat=${seat},sort_at=${sortAt},revision=revision+1,updated_at=${now} WHERE article_id=${row.article_id}`;
+      if (seatChanged && seat)
         await enqueue(
           QUEUES.notifySelected,
           { articleId: row.article_id, lane: "news" },
@@ -679,13 +706,13 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
           tx,
         );
       row.seat = seat;
-      if (row.article_id !== articleId) replaced.push(row);
+      row.sort_at = sortAt;
+      if (row.article_id !== articleId) replaced.push({ row, reason: seatChanged ? "selected representative changed" : "selected reading-group time changed" });
     }
     const result = await syncSelectedLedger(tx, row, sources.get(row.source_id) ?? "", now);
     if (row.article_id === articleId) ledger = result;
   }
-  for (const row of replaced)
-    await emit("articleChanged", { id: row.article_id, kind: "content", reduced: !row.seat, reason: "selected representative changed" }, tx);
+  for (const { row, reason } of replaced) await emit("articleChanged", { id: row.article_id, kind: "content", reduced: !row.seat, reason }, tx);
   return { changed, ledger };
 }
 
