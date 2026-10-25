@@ -24,6 +24,9 @@ import type { SourceRow } from "../sources/types.ts";
 import { directoryContract } from "../sources/directory-profile.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
+import { serverModules } from "../modules.ts";
+
+const kindHooks = (kind: string) => serverModules().flatMap((module) => module.sourceKinds?.[kind] ?? []);
 
 export class Conflict extends Error {
   code = "conflict";
@@ -164,6 +167,7 @@ export async function updateSource(
       sourceCheckpointIdentity(before.kind as SourceRow["kind"], before.config) !== sourceCheckpointIdentity(before.kind as SourceRow["kind"], patch.config!);
     const directory = input.config_command === "activate_draft" && before.cursor && !resetCursor ? directoryContract(before as SourceRow) : null;
     const preservedCursor = directory ? { ...before.cursor, directoryCheckpointHash: directory.hash } : before.cursor;
+    if (patch.enabled === true && !before.enabled) for (const hook of kindHooks(String(before.kind))) await hook.resumed?.(id, tx);
     const [after] = await tx`UPDATE sources SET
       name = CASE WHEN ${Object.hasOwn(patch, "name")} THEN ${patch.name ?? null} ELSE name END,
       enabled = CASE WHEN ${Object.hasOwn(patch, "enabled")} THEN ${patch.enabled ?? null} ELSE enabled END,
@@ -307,12 +311,24 @@ export async function createSource(input: unknown, actor: string, opts: { lane?:
 export async function fetchNow(id: string, actor: string, principal?: AdminPrincipal) {
   return sql.begin(async (tx) => {
     if (principal) await requireOwner(principal, tx);
+    const [scope] = await tx<{ lane: SourceRow["lane"]; archived_at: Date | null }[]>`SELECT lane,archived_at FROM sources WHERE id=${id}`;
+    if (!scope) return null;
+    if (scope.archived_at) throw new Conflict("信源已归档，不能重新采集。");
+    await requireRuntimeRunning(scope.lane, ["collection"], tx);
+    await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${id}))`;
     const [s] = await tx<
-      { id: string; kind: string; lane: SourceRow["lane"]; archived_at: Date | null }[]
-    >`SELECT id, kind, lane, archived_at FROM sources WHERE id = ${id}`;
+      { id: string; kind: string; config: Record<string, unknown>; lane: SourceRow["lane"]; archived_at: Date | null }[]
+    >`SELECT id, kind, config, lane, archived_at FROM sources WHERE id = ${id} FOR SHARE`;
     if (!s) return null;
     if (s.archived_at) throw new Conflict("信源已归档，不能重新采集。");
-    await requireRuntimeRunning(s.lane, ["collection"]);
+    if (s.lane !== scope.lane) throw new Conflict("信源业务线已变化，请刷新后重试。");
+    const own = kindHooks(s.kind).find((hook) => hook.fetchNow);
+    if (own?.fetchNow) {
+      const result: unknown = JSON.parse(JSON.stringify(await own.fetchNow({ id: s.id, config: s.config, lane: s.lane }, tx)));
+      if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("Invalid module source result");
+      await audit(actor, "source.fetch", `source:${id}`, null, null, result, undefined, tx);
+      return { jobId: null };
+    }
     const jobId =
       s.kind === "mp_account"
         ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual", lane: s.lane }, { singletonKey: `mp:${id}` }, tx)
