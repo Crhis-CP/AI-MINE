@@ -960,6 +960,7 @@
     "packages/backend/src/publication/operational-snapshot.ts": "publication",
     "packages/backend/src/publication/pool.ts": "publication",
     "packages/backend/src/publication/publish.ts": "publication",
+    "packages/backend/src/publication/scope.ts": "publication",
     "packages/backend/src/publication/read-predicates.ts": "publication",
     "packages/backend/src/publication/reader-context.ts": "publication",
     "packages/backend/src/publication/reports.ts": "publication",

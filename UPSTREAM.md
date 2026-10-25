@@ -124,3 +124,5 @@ Owner再次要求按最新代码核对原18项目标。本轮固定为AIHOT `6d8
 原文保留在安装包的`node_modules/@modelcontextprotocol/{client,core,server}/LICENSE`，生产镜像保留其实际安装依赖附带的原文；[官方许可证](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/LICENSE)供追溯，具体交付字节以固定版本与上述摘要为准。此条仅登记SDK依赖，不改变本站及AIHOT来源代码各自的MIT原文，也不把SDK归作AIHOT来源。
 
 2026-10-23（TASK-0430）：通用模块扩展声明适配自AIHOT固定提交a0d1e75b00ede7e503ca948e71a468db964b2df2的packages/backend/src/modules.ts、apps/web/app/modules.ts及packages/contracts/src/site.ts中的Brand；沿现有MIT许可和NOTICE署名。本地改为矿业主题及成员类型，保留按lane队列、materialDiscovered、admin.http和原导航兼容；未导入示范来源、品牌或行业模型设置。
+
+2026-10-25（TASK-0481）：独立已选稿展示消费者适配同一固定基线的publication/rules.ts、scope.ts、publish.ts、timeline.ts及tests/independent-selected.test.ts。沿原MIT/NOTICE；保留本地已确认矿业资格、人工控制、来源许可和事实身份，实际来源名单为空。仅复用通用展示与席位机制，不导入上游示范来源名单或行业规则。

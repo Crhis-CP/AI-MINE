@@ -1,4 +1,5 @@
 import { readMatcherValues } from "./mentions.ts";
+import { foldableSelectionCondition } from "./scope.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 // Reports of the same fact share a card and its first appearance. New developments in the same
 // story remain separate cards; changing the representative never brings an old fact back to today.
@@ -72,7 +73,7 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
   return db<(ApiItemRow & { sort_at: Date })[]>`
     WITH base AS MATERIALIZED (
       SELECT p.article_id,${time} AS at,p.representative_priority,p.body_mode,p.score,p.timeline_at,
-        CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} THEN 'f'||p.fact_id::text ELSE 'a'||p.article_id END AS gk
+        CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} THEN 'f'||p.fact_id::text ELSE 'a'||p.article_id END AS gk
       FROM publications p WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND ${time}<=${query.now}
     ), anchors AS (
       SELECT gk,min(at) AS anchor FROM base GROUP BY gk
@@ -144,7 +145,7 @@ async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
   const rows = (
     await sql<{ gk: string; anchor_at: Date }[]>`
       WITH base AS (
-        SELECT p.sort_at, CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} THEN 'f' || p.fact_id::text ELSE 'a' || p.article_id END AS gk
+        SELECT p.sort_at, CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} THEN 'f' || p.fact_id::text ELSE 'a' || p.article_id END AS gk
         FROM publications p
         WHERE ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}
       )
@@ -191,7 +192,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
     factIds.length
       ? sql<Member[]>`
         SELECT p.story_id, p.fact_id, p.source_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
-        WHERE p.fact_id IN ${sql(factIds)} AND ${ownFactEvidence()}
+        WHERE p.fact_id IN ${sql(factIds)} AND ${ownFactEvidence()} AND ${foldableSelectionCondition()}
           AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
       : Promise.resolve([] as Member[]),
     groupPool(q, now, factIds),
@@ -243,7 +244,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const currentMembers = members.length
     ? await sql<{ id: string; fact_id: number }[]>`
     SELECT p.article_id AS id,p.fact_id FROM publications p WHERE p.article_id=ANY(${members.map((member) => member.id)}::text[])
-      AND ${confirmedSelected()} AND ${entryCondition(q, now)} AND ${ownFactEvidence()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
+      AND ${confirmedSelected()} AND ${entryCondition(q, now)} AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
     : [];
   await attachSourcePolicies([...rows.values()]);
   const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt, group }) => {
