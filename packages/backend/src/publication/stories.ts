@@ -16,7 +16,8 @@ import { sql, withCustomPlans } from "../db.ts";
 import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 import { storyStatusFor } from "../events/digest.ts";
-import { storyApiUrl, storyUrl } from "./links.ts";
+import { siteUrl, storyUrl } from "./links.ts";
+import { serverModules } from "../modules.ts";
 import { SITE } from "@amp/industry/site";
 
 export type StoryLookup = { kind: "found"; storyId: number; publicId: string } | { kind: "merged"; target: string } | { kind: "not_found" };
@@ -284,6 +285,21 @@ export async function loadHot(): Promise<HotResponse> {
 // v1 shapes (ranks and counts only; no heat values)
 // ---------------------------------------------------------------------------
 
+function v1StoryLink(publicId: string, api = false): string {
+  const path = api ? `/api/v1/stories/${publicId}` : `/story/${publicId}`;
+  for (const module of serverModules()) {
+    const value = module.storyOrigin?.();
+    if (value === null || value === undefined || value === "") continue;
+    if (typeof value !== "string" || !URL.canParse(value) || [...value].some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127))
+      throw new Error("Invalid module story origin");
+    const url = new URL(value);
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/" || url.search || url.hash)
+      throw new Error("Invalid module story origin");
+    return `${url.origin}${path}`;
+  }
+  return siteUrl(path);
+}
+
 export async function v1HotTopics() {
   const ranking = await latestHotRanking();
   const items = (ranking?.entries ?? []).map((e) => ({
@@ -293,7 +309,7 @@ export async function v1HotTopics() {
     source: { name: e.representativeSource ?? e.sourceNames[0] ?? SITE.name },
     links: {
       original: e.representativeUrl ?? storyUrl(e.storyPublicId),
-      story: storyUrl(e.storyPublicId),
+      story: v1StoryLink(e.storyPublicId),
     },
     sourceCount: e.sourceCount,
     signalCount: e.signalCount,
@@ -314,7 +330,7 @@ export async function v1Story(storyId: number) {
     publicId: r.public_id,
     title: r.title,
     relation: r.relation,
-    links: { api: storyApiUrl(r.public_id) },
+    links: { api: v1StoryLink(r.public_id, true) },
   }));
   return {
     schemaVersion: 1 as const,
