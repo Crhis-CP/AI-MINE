@@ -230,6 +230,8 @@ function isConnectFailure(error: unknown): boolean {
 
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
   const catalog = buildModelCatalog(CAPABILITIES, serverModules(), DEFAULTS);
+  const probe = opts.purpose === "model_connection_test";
+  if (probe !== !!opts.registeredProbe) throw new Error("Model connection probes require a registered test");
   if (catalog.blockedPurposes.has(opts.purpose)) throw new Error("Model purpose is disabled by its module declaration");
   const step = Object.values(catalog.steps).find((c) => c.purposes.includes(opts.purpose));
   if (step && !step.lane) throw new Error("Model capability requires an explicit lane");
@@ -237,6 +239,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     throw new Error("Model capability lane mismatch");
   if (step?.lane === "policy" && (!opts.policyContext || !opts.beforeRequest)) throw new Error("Policy capabilities require the policy gateway");
   const registered = await resolveRegisteredModel(opts.model, opts.registeredProbe);
+  if (probe && !registered) throw new Error("Model connection probes require a validated registered model");
   const spec: ModelSpec | null = registered ? { ...registered, baseUrlEnv: "", apiKeyEnv: "" } : (MODELS[opts.model] ?? null);
   if (!spec) throw new Error(`Unknown model ${opts.model}`);
   if (step?.vision && (!spec.vision || "messages" in (spec.extra ?? {}) || "model" in (spec.extra ?? {})))
