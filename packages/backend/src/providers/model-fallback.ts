@@ -64,7 +64,7 @@ async function admission(input: Input, capability: string, db: Db) {
     return null;
   const sources = input.permit?.sourceIds ?? [];
   if (!sources.length || sources.some((s) => !route.source_ids.includes(s))) return null;
-  if (capability.startsWith("policy_") && !input.policy) return null;
+  if (capabilities()[capability]?.lane === "policy" && !input.policy) return null;
   const approved = await backupAdmission(capability, route.backup_model, input.model, db, input.policy, sources);
   if (
     !approved ||

@@ -1,3 +1,4 @@
+import { installModules, serverModules } from "@amp/backend/modules";
 import { CircuitOpenError, enterModelCircuit, recordModelHealth, modelCircuits, modelCircuitKey } from "../packages/backend/src/providers/circuit.ts";
 import { recoverUnknownOnce } from "../packages/backend/src/providers/unknown-recovery.ts";
 import { providerRejection } from "../packages/backend/src/providers/provider-errors.ts";
@@ -364,7 +365,7 @@ test("actual response identity drift blocks the assigned backup and retains paid
   assert.equal((await modelFallbacks(f.owner)).routes.find((r) => r.capability === "summarize")!.state, "blocked");
 });
 
-test("policy gateway requires the alternate's own physical-model quality release and current source language/recipe", async () => {
+test("policy gateway requires the alternate's own physical-model quality release and current source language/recipe", async (t) => {
   mode = "ok";
   const f = await fixture();
   await sql`UPDATE sources SET lane='policy' WHERE id=${f.source}`;
@@ -436,9 +437,65 @@ test("policy gateway requires the alternate's own physical-model quality release
     result = await gateway.chat({ input: ref, purpose: "policy_fulltext", schema });
   assert.equal(result.model, f.backup.key);
   assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  const installed = serverModules();
+  t.after(() => installModules(installed));
+  installModules([
+    ...installed,
+    {
+      name: "synthetic-policy-step",
+      models: { module_fulltext: { label: "合成法规步骤", env: "SYNTHETIC_POLICY_MODULE", lane: "policy", purposes: ["synthetic_policy_module"] } },
+    },
+  ]);
+  await assignRegisteredModel(
+    "module_fulltext",
+    { model: f.primary.key, expected_revision: 0, reason: "合成模块", evaluation_id: null, emergency_confirmed: true },
+    f.owner,
+  );
+  await changeModelFallback("module_fulltext", route, f.owner);
+  const inputFingerprint = sha256(stableJson(prepared.manifest));
+  const modulePermit = createFallbackPermitPort({
+    root,
+    snapshot: { inputFingerprint, manifest: prepared.manifest },
+    current: async () => ({ inputFingerprint, manifest: prepared.manifest }),
+  });
+  const moduleRequest = {
+    ...f.base,
+    model: f.primary.key,
+    purpose: "synthetic_policy_module",
+    lane: "policy" as const,
+    fallbackPermit: modulePermit,
+    policyContext: {
+      lane: "policy" as const,
+      category: "policy_fulltext" as const,
+      sourceIds: [f.source],
+      manifestHash: sha256(stableJson(prepared.manifest)),
+      inputFingerprint,
+      permissionVersions: {},
+      manifest: prepared.manifest,
+    },
+    beforeRequest: async () => {},
+  };
+  for (const context of [undefined, { language: "en", fulltextRecipe, interpretationRecipe }]) {
+    const start = events.length;
+    await assert.rejects(
+      chatJson({ ...moduleRequest, subject: `policy-module:${tag()}`, user: `SYNTHETIC module ${tag()}`, fallbackPolicy: context }),
+      ProviderRejectedError,
+    );
+    assert.deepEqual(events.slice(start), ["primary"], "missing or mismatched quality context cannot select a backup");
+  }
+  const moduleStart = events.length;
+  const moduleResult = await chatJson({
+    ...moduleRequest,
+    subject: `policy-module:${tag()}`,
+    user: `SYNTHETIC qualified module ${tag()}`,
+    fallbackPolicy: { language: "es", fulltextRecipe, interpretationRecipe },
+  });
+  assert.equal(moduleResult.model, f.backup.key);
+  assert.deepEqual(events.slice(moduleStart), ["primary", "backup"]);
+  const afterModule = events.length;
   await revokePolicyQualityRelease(release);
   await assert.rejects(gateway.chat({ input: ref, purpose: "policy_fulltext", schema }), ModelFallbackBlocked);
-  assert.equal(events.length, before + 2);
+  assert.equal(events.length, afterModule);
 });
 
 test("filtered output remains reusable after rejection and route waits do not consume article failure attempts", async () => {

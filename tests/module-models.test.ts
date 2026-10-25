@@ -32,6 +32,7 @@ const install = () =>
       name: "synthetic-models",
       models: {
         module_read: step,
+        policy_named_news: { ...step, purposes: ["synthetic_prefixed_news"] },
         module_policy: { ...step, lane: "policy", purposes: ["synthetic_module_policy"] },
         legacy_metadata: { label: "旧元数据", env: step.env, purposes: ["synthetic_missing_lane"] },
         score: { ...step, env: "CANNOT_REPLACE_SCORE", purposes: ["cannot_replace_score"] },
@@ -104,6 +105,8 @@ test("module calls keep declared lanes, current permits, processing pause and ac
   await assert.rejects(chatJson({ ...request, purpose: "synthetic_missing_lane", lane: "news" }), /explicit lane/);
   await assert.rejects(chatJson({ ...request, purpose: "synthetic_module_policy" }), /policy gateway/);
   assert.equal(provider.hits(), before);
+  const prefixed = { ...request, purpose: "synthetic_prefixed_news" };
+  await chatJson({ ...prefixed, fallbackPermit: permit(prefixed) });
   const response = await chatJson({ ...request, fallbackPermit: permit(request) });
   const [usage] = await sql`SELECT lane,capability FROM ai.usage_attempts WHERE receipt_id=${response.receiptId}`;
   assert.deepEqual({ lane: usage.lane, capability: usage.capability }, { lane: "news", capability: step.purposes[0] });
@@ -111,7 +114,7 @@ test("module calls keep declared lanes, current permits, processing pause and ac
   try {
     const next = { ...request, user: "different synthetic input" };
     await assert.rejects(chatJson({ ...next, fallbackPermit: permit(next) }), /暂停|paused/i);
-    assert.equal(provider.hits(), before + 1);
+    assert.equal(provider.hits(), before + 2);
   } finally {
     await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='processing' AND holder='owner'`;
   }
