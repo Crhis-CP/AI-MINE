@@ -13,7 +13,7 @@ import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
 import { addDays, beijingDate, beijingMidnight, beijingTime, isoWeekLabel } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
-import { sourceCollectionEnabled } from "../config.ts";
+import { credential, environmentValue, sourceCollectionEnabled } from "../config.ts";
 import { readSourceTargetEvidence } from "@amp/backend/sources/evidence";
 import { sql } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
@@ -29,6 +29,7 @@ const REPEAT_MS: Record<Exclude<Level, "digest">, number> = { now: 3600_000, tod
 
 const collecting = () => process.env.COLLECT_ENABLED !== "false";
 const modelsOn = () => process.env.MODEL_CALLS_ENABLED !== "false";
+const READER_CONFIGURATION = "provider.config.jina";
 /** First-discovery silence warrants a check; it does not by itself prove collection or publication stopped. */
 const QUIET_MS = Number(process.env.ALERT_QUIET_MINUTES || 360) * 60_000;
 /** An error or reason cut to 200 characters, as left(…, 200) does for the other items. */
@@ -379,6 +380,28 @@ export async function collectFindings(
   }
 
   // ---- Money, and things only the owner can do --------------------------------------------------
+  if (sourceCollectionEnabled("news") && !newsCollectionPaused) {
+    if (environmentValue("JINA_BODY_FALLBACK") === "false") observeCheck?.(`${READER_CONFIGURATION}.disabled`);
+    else {
+      observeCheck?.(READER_CONFIGURATION);
+      let problem: string | null = null;
+      try {
+        if (!credential("collectors", "JINA_API_KEY")) problem = "未配置正文读取凭据";
+      } catch {
+        problem = "正文读取凭据配置无法读取";
+      }
+      if (problem)
+        out.push({
+          key: READER_CONFIGURATION,
+          level: "today",
+          title: "正文读取兜底配置未就绪",
+          impact: "兜底开关已开启，但缺少可用配置；普通提取无法读取的网页或PDF会继续等待材料。",
+          heals: "不会，仅补齐配置也不代表读取服务已实测通过",
+          action: "请确认正文读取方案并通过安全入口补齐配置；如暂不启用，应明确关闭兜底。",
+          detail: problem,
+        });
+    }
+  }
   out.push(...(await providerFindings()));
 
   // Content-group pushes the Feishu webhook refused (a removed bot, a changed address); nothing resends them.
@@ -608,7 +631,7 @@ const moduleChecks = new WeakMap<Finding, string>();
 const incompleteChecks = new WeakSet<Finding>();
 const unchecked = (state: AlertState[string], failed: Set<string>, checked: Set<string>) => (state.check ? !checked.has(state.check) : failed.size > 0);
 
-const changeOnly = (key: string) => key.startsWith("metals.") || key.startsWith("sources.") || key.startsWith("models.module.");
+const changeOnly = (key: string) => key === READER_CONFIGURATION || key.startsWith("metals.") || key.startsWith("sources.") || key.startsWith("models.module.");
 function findingFingerprint(f: Finding) {
   let detail = f.detail;
   // Waiting timestamps and repeated failure counters describe the same incident, not a new cause.
@@ -658,6 +681,13 @@ export async function checkAlerts(now = Date.now()) {
   for (const key of Object.keys(state)) {
     if (found.some((f) => f.key === key)) continue;
     if (unchecked(state[key]!, failed, checked)) continue;
+    if (key === READER_CONFIGURATION) {
+      if (checked.has(`${key}.disabled`)) {
+        delete state[key];
+        continue;
+      }
+      if (!checked.has(key)) continue;
+    }
     if (key.startsWith("metals.") && !collecting()) continue;
     // Startup grace, disabled work and manual pauses supply no recovery evidence.
     if (key.startsWith("report.") && !checked.has(key.split(".")[1]!)) continue;
@@ -668,7 +698,10 @@ export async function checkAlerts(now = Date.now()) {
       // A missing finding may mean collection was paused or the worker is warming up. Keep this
       // incident open until a real discovery advances; never replay its legacy outage title.
       if (key === "content.collect" && !(intake.at && intake.at.getTime() > Date.parse(state[key]!.since) && intake.at.getTime() <= now)) continue;
-      const msg = formatRecovery(key === "content.collect" ? "新文章入库" : state[key]!.title, new Date(state[key]!.since), now);
+      const msg =
+        key === READER_CONFIGURATION
+          ? { title: "正文读取配置已补齐", lines: ["已检测到必需配置。尚未请求读取服务，读取结果与等待材料仍须由后续任务核验。"] }
+          : formatRecovery(key === "content.collect" ? "新文章入库" : state[key]!.title, new Date(state[key]!.since), now);
       await sendAlert(msg.title, msg.lines);
       sent.push(`${key}:recovered`);
     }
