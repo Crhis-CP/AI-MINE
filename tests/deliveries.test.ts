@@ -6,7 +6,7 @@ import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { config } from "@amp/backend/config";
 import { closeDb, sql } from "@amp/backend/db";
-import { deliverContent, resendDelivery } from "@amp/backend/notify/deliver";
+import { deliverContent, resendDelivery, markStaleDeliveries } from "@amp/backend/notify/deliver";
 import { pushSelected } from "../packages/backend/src/notify/selected.ts";
 import { geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
 import { buildApp } from "./site-app.ts";
@@ -433,11 +433,13 @@ test("a qualified non-global representative reaches its country once per fact, n
 });
 
 test("normal and recovered sends recheck eligibility and rebuild the card after admission waits", { timeout: 30000 }, async () => {
-  for (const retry of [false, true])
+  for (const mode of ["normal", "manual", "automatic"])
     for (const change of ["withdrawn", "silent", "unconfirmed", "ineligible", "seat", "fact", "old", "backfill", "future", "copy"]) {
+      const retry = mode !== "normal";
       const id = await delivery(),
         articleId = articleIds.get(id)!;
       if (!retry) await sql`DELETE FROM deliveries WHERE id=${id}`;
+      if (mode === "automatic") await sql`UPDATE deliveries SET status='failed',retry_reason='not_sent',retry_at=now() WHERE id=${id}`;
       const entered = gate<number>(),
         release = gate();
       const held = sql.begin(async (tx) => {
@@ -446,7 +448,7 @@ test("normal and recovered sends recheck eligibility and rebuild the card after 
         await release.promise;
       });
       const pid = await entered.promise;
-      const sending = (retry ? resendDelivery(id) : pushSelected(articleId)).then(
+      const sending = (mode === "automatic" ? markStaleDeliveries() : retry ? resendDelivery(id) : pushSelected(articleId)).then(
         (result) => ({ result }),
         (error) => ({ error }),
       );
@@ -475,6 +477,29 @@ test("normal and recovered sends recheck eligibility and rebuild the card after 
       if (change === "copy") {
         assert.match(JSON.stringify(cards.at(-1)), /等待后取得的当前摘要/);
         assert.deepEqual((await sql`SELECT payload FROM deliveries WHERE subject_id=${articleId}`)[0].payload, cards.at(-1));
-      } else if (retry) assert.equal((outcome as { error: { code: string } }).error.code, "conflict");
+      } else if (mode === "manual") assert.equal((outcome as { error: { code: string } }).error.code, "conflict");
+      if (change === "future") {
+        const [waiting] = await sql`SELECT id,status,retry_reason,retry_at,attempts FROM deliveries WHERE subject_id=${articleId}`;
+        assert.equal(waiting.attempts, 0, "a waiting claim consumes no transport attempt");
+        if (mode === "manual") assert.equal(waiting.status, "unknown", "manual deferral never grants automatic retry to an uncertain send");
+        else {
+          assert.equal(waiting.status, "failed");
+          assert.equal(waiting.retry_reason, "not_sent");
+          assert.ok(waiting.retry_at > new Date());
+        }
+        await sql`UPDATE publications SET visible_after=now()-interval '1 second' WHERE article_id=${articleId}`;
+        if (mode === "manual") await resendDelivery(id);
+        else {
+          await sql`UPDATE deliveries SET retry_at=now()-interval '1 second' WHERE id=${waiting.id}`;
+          await markStaleDeliveries();
+        }
+        await markStaleDeliveries();
+        await pushSelected(articleId);
+        const [sent] = await sql`SELECT id,status,attempts FROM deliveries WHERE subject_id=${articleId}`;
+        assert.equal(sent.id, waiting.id);
+        assert.equal(sent.status, "sent");
+        assert.equal(sent.attempts, 1);
+        assert.equal(requests.filter((n) => n === id).length, 1, "the same delivery sends exactly once after release");
+      }
     }
 });

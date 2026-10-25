@@ -84,7 +84,7 @@ async function currentTargetContent(target: Target, req: DeliveryRequest, db: Db
   if (!currentTarget || !candidate || !matchesTarget(currentTarget, candidate)) return null;
   let ready: DeliveryRequest | null = null;
   const { pushSelected } = await import("./selected.ts");
-  await pushSelected(
+  const outcome = await pushSelected(
     req.subjectId,
     undefined,
     async (current) => {
@@ -93,11 +93,19 @@ async function currentTargetContent(target: Target, req: DeliveryRequest, db: Db
     },
     db,
   );
+  if (outcome.status === "retry") throw new DeliveryDeferred(outcome.after, outcome.reason);
   return ready as DeliveryRequest | null;
 }
 
 export class DeliveryConflict extends Error {
   code = "conflict";
+}
+class DeliveryDeferred extends DeliveryConflict {
+  readonly after: Date;
+  constructor(after: Date, reason: string) {
+    super(reason);
+    this.after = after;
+  }
 }
 
 /** Default content targets; they start disabled and are switched on in production only. */
@@ -167,6 +175,12 @@ export async function deliverContent(req: DeliveryRequest): Promise<Array<{ targ
         return changed.count ? current : null;
       });
     } catch (error) {
+      if (error instanceof DeliveryDeferred) {
+        await sql`UPDATE deliveries SET status='failed',retry_reason='not_sent',retry_at=${error.after.toISOString()},response=${error.message},updated_at=now()
+          WHERE id=${row.id} AND status='pending'`;
+        results.push({ target: t.key, status: "failed" });
+        continue;
+      }
       if (!(error instanceof RuntimeControlPaused)) throw error;
       await sql`UPDATE deliveries SET response='发布已暂停，等待恢复' WHERE id=${row.id} AND status='pending'`;
       results.push({ target: t.key, status: "pending" });
@@ -266,6 +280,11 @@ async function retryDelivery(id: number, version: string | undefined, automatic:
     if (!status) throw new DeliveryConflict("内容当前不符合推送条件，请核对公开状态和时效");
     return { status };
   } catch (error) {
+    if (automatic && error instanceof DeliveryDeferred) {
+      await sql`UPDATE deliveries SET status='failed',retry_reason='not_sent',retry_at=${error.after.toISOString()},response=${error.message},updated_at=now()
+        WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}`;
+      return { status: "failed" };
+    }
     await sql`UPDATE deliveries SET status=${d.status},retry_reason=CASE WHEN ${automatic && !(error instanceof RuntimeControlPaused)} THEN null ELSE retry_reason END,
       retry_at=CASE WHEN ${automatic && !(error instanceof RuntimeControlPaused)} THEN null ELSE retry_at END,response=${String(error).slice(0, 500)},updated_at=now()
       WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}`;
