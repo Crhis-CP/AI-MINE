@@ -330,6 +330,7 @@
 | [TASK-0458](TASK-0458.md) | T-0101 | M3 | architect | locally_verified | 接通反馈模块来源标识的既有封禁查询 | — |
 | [TASK-0459](TASK-0459.md) | T-0101 | M3 | architect | locally_verified | 接通反馈草稿接续并保留提交身份 | — |
 | [TASK-0460](TASK-0460.md) | T-0101 | M3 | architect | locally_verified | 接通模块站点地图条目并保留当前资格读取 | — |
+| [TASK-0461](TASK-0461.md) | T-0101 | M3 | architect | locally_verified | 补齐模块模型与手工采集的执行上下文 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |
