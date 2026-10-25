@@ -671,6 +671,21 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
   const groups = new Map<string, SeatRow[]>();
   const independent = new Set(independentSelectedSources());
   const independentRow = (row: SeatRow) => row.selected && row.selection_candidate && independent.has(row.source_id);
+  const anchorFacts = new Set(rows.filter((r) => r.fact_id !== null && independent.has(r.source_id)).map((r) => r.fact_id!));
+  const priorSeats = new Map<number, number>();
+  for (const row of rows)
+    if (
+      row.fact_id !== null &&
+      row.selected &&
+      row.selection_candidate &&
+      row.seat &&
+      row.eligible &&
+      row.visibility === "public" &&
+      (row.article_id !== articleId || previousFact === row.fact_id)
+    )
+      priorSeats.set(row.fact_id, (priorSeats.get(row.fact_id) ?? 0) + 1);
+  // Multiple existing seats also identify a fact whose independent policy was removed.
+  for (const [fact, count] of priorSeats) if (count > 1) anchorFacts.add(fact);
   const anchors = new Map<number, number>();
   for (const row of rows)
     if (row.fact_id !== null && row.eligible && row.visibility === "public" && !independentRow(row))
@@ -691,9 +706,11 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
     const seatChanged = seat !== row.seat;
     // Reprojecting one source also repairs the ordinary members' previously shared anchor.
     const sortAt = new Date(
-      row.selected && row.fact_id !== null && !independentRow(row)
-        ? Math.min(row.timeline_at.getTime(), anchors.get(row.fact_id) ?? Infinity)
-        : row.timeline_at.getTime(),
+      row.fact_id !== null && anchorFacts.has(row.fact_id)
+        ? row.selected && !independentRow(row)
+          ? Math.min(row.timeline_at.getTime(), anchors.get(row.fact_id) ?? Infinity)
+          : row.timeline_at.getTime()
+        : row.sort_at.getTime(),
     );
     if (seatChanged || sortAt.getTime() !== row.sort_at.getTime()) {
       changed = true;
