@@ -8,6 +8,7 @@ import path from "node:path";
 import { config, credential, isProduction } from "../config.ts";
 import { feedbackSql as sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { serverModules } from "../modules.ts";
 
 import { FeedbackRejected, feedbackPageUrl, feedbackImage } from "./feedback-validation.ts";
 import { claimFeedbackQuota } from "./feedback-quota.ts";
@@ -63,6 +64,13 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
   const fingerprint = sha256(stableJson({ content, email, pageUrl, screenshot: input.screenshot ? sha256(input.screenshot.data) : null }));
   const source = feedbackSourceHash(input.ip, input.userAgent);
   const emailKey = email ? feedbackEmailKey(email) : null;
+  const keys = new Set([source, ...(emailKey ? [emailKey] : [])]);
+  for (const module of serverModules()) {
+    if (!module.feedbackKeys) continue;
+    const extra = module.feedbackKeys(input.ip);
+    if (!Array.isArray(extra) || extra.some((key) => typeof key !== "string" || !key.trim())) throw new Error("Invalid module feedback keys");
+    for (const key of extra) keys.add(key);
+  }
   let file: string | null = null;
   let rejection: FeedbackRejected | undefined;
   const reject = (error: FeedbackRejected) => {
@@ -75,7 +83,7 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
       await tx`SELECT pg_advisory_xact_lock(hashtext(${keyHash}))`;
       const now = new Date();
       const [ban] = await tx<{ expires_at: Date | null }[]>`SELECT expires_at FROM feedback_bans
-        WHERE (source_hash=${source} OR source_hash=${emailKey}) AND (expires_at IS NULL OR expires_at>${now}) ORDER BY expires_at DESC NULLS FIRST LIMIT 1`;
+        WHERE source_hash=ANY(${[...keys]}::text[]) AND (expires_at IS NULL OR expires_at>${now}) ORDER BY expires_at DESC NULLS FIRST LIMIT 1`;
       if (ban)
         return reject(
           new FeedbackRejected(
