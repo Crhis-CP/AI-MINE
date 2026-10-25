@@ -40,21 +40,26 @@ export function buildModelCatalog(core: Record<string, Capability>, modules: rea
       const declared = module.models;
       if (declared === undefined) continue;
       if (!declared || typeof declared !== "object" || Array.isArray(declared)) throw new Error("invalid model declaration");
-      const entries = Object.entries(declared);
-      if (!entries.length) continue;
+      const keys = Object.keys(declared);
+      if (!keys.length) continue;
       checked.push(module.name);
-      for (const [, value] of entries) {
+      const entries: Array<[string, unknown]> = [];
+      let unreadable = false;
+      for (const key of keys) {
         try {
+          const value = declared[key];
+          entries.push([key, value]);
           const raw: unknown = value?.purposes;
           for (const purpose of typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [])
-            if (typeof purpose === "string" && purpose.trim()) {
+            if (typeof purpose === "string") {
               advertised.add(purpose);
               advertised.add(purpose.trim());
             }
         } catch {
-          /* The declaration itself will be rejected below. */
+          unreadable = true;
         }
       }
+      if (unreadable) throw new Error("unreadable model declaration");
       const pending: Record<string, Capability> = Object.create(null),
         nextPurposes = new Set(purposes);
       for (const [key, value] of entries) {

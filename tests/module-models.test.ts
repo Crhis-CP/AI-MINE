@@ -139,13 +139,28 @@ test("module calls keep declared lanes, current permits, processing pause and ac
       },
     },
     { name: "quarantined-label", models: { invalid: { ...step, label: "", purposes: ["quarantined_invalid_label"] } } },
+    {
+      name: "quarantined-getter",
+      models: {
+        get broken(): ModelStep {
+          throw new Error("synthetic step getter");
+        },
+        readable: { ...step, purposes: ["quarantined_readable"] },
+      },
+    },
+    { name: "quarantined-probe-name", models: { shadow: { ...step, purposes: ["model_connection_test"] } } },
   ]);
   const callsBeforeBlocked = provider.hits();
-  for (const purpose of ["quarantined_unique", "quarantined_invalid_label"]) {
+  for (const purpose of ["quarantined_unique", "quarantined_invalid_label", "quarantined_readable"]) {
     const rejected = { ...request, purpose, lane: "news" as const };
     await assert.rejects(chatJson(rejected), /disabled.*module/i);
     await assert.rejects(chatJson({ ...rejected, fallbackPermit: permit(rejected) }), /disabled.*module/i);
   }
+  await assert.rejects(chatJson({ ...request, purpose: "model_connection_test", lane: "news" }), /probe/i);
+  await assert.rejects(
+    chatJson({ ...request, purpose: "model_connection_test", lane: "news", registeredProbe: { probeId: "synthetic-invalid", revision: 1 } }),
+    /probe/i,
+  );
   assert.equal(provider.hits(), callsBeforeBlocked, "a rejected module purpose never reaches transport");
   for (const purpose of ["score_article", "prefilter_article", step.purposes[0]!]) {
     const healthy = { ...request, purpose, user: `healthy after quarantine ${purpose}` };
@@ -165,6 +180,29 @@ test("module calls keep declared lanes, current permits, processing pause and ac
     assert.equal(provider.hits(), before + 7);
   } finally {
     await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='processing' AND holder='owner'`;
+  }
+});
+
+test("a probe purpose name or flag cannot impersonate a registered connection test", async () => {
+  installModules([...prior, { name: "probe-shadow", models: { shadow: { ...step, purposes: ["model_connection_test"] } } }]);
+  const before = provider.hits();
+  const request = {
+    model: "deepseek-flash",
+    purpose: "model_connection_test",
+    lane: "news" as const,
+    subject: "synthetic-probe-shadow",
+    promptVersion: "probe-boundary-test",
+    system: "synthetic",
+    user: "synthetic",
+    schema: z.object({ ok: z.boolean() }),
+  };
+  try {
+    await assert.rejects(chatJson(request), /probe/i);
+    await assert.rejects(chatJson({ ...request, registeredProbe: { probeId: "synthetic-invalid", revision: 1 } }), /probe/i);
+    await assert.rejects(chatJson({ ...request, purpose: "score_article", registeredProbe: { probeId: "synthetic-invalid", revision: 1 } }), /probe/i);
+    assert.equal(provider.hits(), before);
+  } finally {
+    install();
   }
 });
 
