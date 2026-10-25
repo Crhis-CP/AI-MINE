@@ -303,6 +303,9 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     ...(await registeredQuotaAliases(budgetService)),
   ];
   const receiptScope = opts.usagePurpose === "evaluation" ? { receipt_scope: "evaluation-v1" } : {};
+  const analysisEvaluation =
+    opts.usagePurpose === "evaluation" &&
+    (["prefilter", "score", "understand", "summarize", "wording", "structure"] as const).some((key) => CAPABILITIES[key].purposes.includes(opts.purpose));
   const request: ReceiptRequest = {
     maxPhysicalAttempts: opts.maxPhysicalAttempts,
     fallbackFor: opts.fallbackFor,
@@ -338,7 +341,8 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     service: spec.service,
     model: body.model,
     purpose: opts.purpose,
-    subject: opts.subject,
+    // Older recovery code cannot mistake a news evaluation for a production article job.
+    subject: analysisEvaluation ? `evaluation:${opts.subject}` : opts.subject,
     policy: opts.policyContext,
     runtimeControl: opts.runtimeControl,
     legacyModel: spec.model,

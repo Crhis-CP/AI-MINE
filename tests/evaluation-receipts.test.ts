@@ -55,21 +55,26 @@ test("evaluation and production own distinct unknown states while evaluation reu
   assert.equal(repeated.receiptId, evaluation.receiptId);
   assert.equal(repeated.reused, true);
   assert.equal(provider.hits(), hits + 2);
-  const [row] = await sql`SELECT request FROM receipts WHERE id=${evaluation.receiptId}`;
+  const [row] = await sql`SELECT subject,request FROM receipts WHERE id=${evaluation.receiptId}`;
   assert.equal(row.request.receipt_scope, "evaluation-v1");
+  assert.equal(row.subject, `evaluation:article:${f.analysisInput.id}@1`);
+  assert.equal(row.request.usage_object.id, `${f.analysisInput.id}@1`);
 });
 
-test("releasing an isolated evaluation receipt never resets an unrelated failed production article", async () => {
-  const f = await fixture(),
-    result = await f.call("evaluation");
-  await sql`UPDATE articles SET processing_state='failed',processing_error='unrelated production failure' WHERE id=${f.analysisInput.id}`;
-  await sql`UPDATE receipts SET status='unknown',updated_at=now()-interval '31 minutes' WHERE id=${result.receiptId}`;
-  await sql`UPDATE receipt_attempts SET status='unknown',error='synthetic unknown result' WHERE receipt_id=${result.receiptId}`;
-  const resumed = await autoReleaseUnknownReceipts();
-  assert.equal(resumed.released, 1);
-  assert.equal(resumed.requeued, 0);
-  const [article] = await sql`SELECT processing_state,processing_error FROM articles WHERE id=${f.analysisInput.id}`;
-  assert.deepEqual(article, { processing_state: "failed", processing_error: "unrelated production failure" });
-  assert.equal((await sql`SELECT status FROM receipt_attempts WHERE receipt_id=${result.receiptId}`)[0].status, "unknown");
-  assert.equal((await autoReleaseUnknownReceipts()).released, 0);
-});
+for (const legacyRecovery of [false, true])
+  test(`evaluation recovery preserves production even with legacy recovery=${legacyRecovery}`, async () => {
+    const f = await fixture(),
+      result = await f.call("evaluation");
+    await sql`UPDATE articles SET processing_state='failed',processing_error='unrelated production failure' WHERE id=${f.analysisInput.id}`;
+    await sql`UPDATE receipts SET status='unknown',updated_at=now()-interval '31 minutes' WHERE id=${result.receiptId}`;
+    await sql`UPDATE receipt_attempts SET status='unknown',error='synthetic unknown result' WHERE receipt_id=${result.receiptId}`;
+    // The old recovery code ignores the new marker; remove it in this fixture to exercise that same path.
+    if (legacyRecovery) await sql`UPDATE receipts SET request=request-'receipt_scope' WHERE id=${result.receiptId}`;
+    const resumed = await autoReleaseUnknownReceipts();
+    assert.equal(resumed.released, 1);
+    assert.equal(resumed.requeued, 0);
+    const [article] = await sql`SELECT processing_state,processing_error FROM articles WHERE id=${f.analysisInput.id}`;
+    assert.deepEqual(article, { processing_state: "failed", processing_error: "unrelated production failure" });
+    assert.equal((await sql`SELECT status FROM receipt_attempts WHERE receipt_id=${result.receiptId}`)[0].status, "unknown");
+    assert.equal((await autoReleaseUnknownReceipts()).released, 0);
+  });
