@@ -26,7 +26,8 @@ const Step = z.object({
 /** Pure shared lookup: a malformed extension cannot disable core or independent model steps. */
 export function buildModelCatalog(core: Record<string, Capability>, modules: readonly ServerModule[], defaults: Record<string, string>) {
   const steps: Record<string, Capability> = Object.create(null);
-  const purposes = new Set<string>(),
+  const purposes = new Set<string>(["model_connection_test"]),
+    rejectedPurposes = new Set<string>(),
     checked: string[] = [];
   const issues: Array<{ module: string }> = [];
   for (const [key, step] of Object.entries(core)) {
@@ -34,6 +35,7 @@ export function buildModelCatalog(core: Record<string, Capability>, modules: rea
     for (const purpose of step.purposes) purposes.add(purpose);
   }
   for (const module of modules) {
+    const advertised = new Set<string>();
     try {
       const declared = module.models;
       if (declared === undefined) continue;
@@ -41,6 +43,18 @@ export function buildModelCatalog(core: Record<string, Capability>, modules: rea
       const entries = Object.entries(declared);
       if (!entries.length) continue;
       checked.push(module.name);
+      for (const [, value] of entries) {
+        try {
+          const raw: unknown = value?.purposes;
+          for (const purpose of typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [])
+            if (typeof purpose === "string" && purpose.trim()) {
+              advertised.add(purpose);
+              advertised.add(purpose.trim());
+            }
+        } catch {
+          /* The declaration itself will be rejected below. */
+        }
+      }
       const pending: Record<string, Capability> = Object.create(null),
         nextPurposes = new Set(purposes);
       for (const [key, value] of entries) {
@@ -61,7 +75,9 @@ export function buildModelCatalog(core: Record<string, Capability>, modules: rea
       for (const purpose of nextPurposes) purposes.add(purpose);
     } catch {
       issues.push({ module: module.name });
+      for (const purpose of advertised) rejectedPurposes.add(purpose);
     }
   }
-  return { steps, issues, checked };
+  const blockedPurposes = new Set([...rejectedPurposes].filter((purpose) => !purposes.has(purpose)));
+  return { steps, issues, checked, blockedPurposes };
 }

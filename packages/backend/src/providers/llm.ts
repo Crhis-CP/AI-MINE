@@ -1,12 +1,14 @@
 import { enterModelCircuit, recordModelHealth, modelCircuitKey, type CircuitPermit } from "./circuit.ts";
 import { providerRejection } from "./provider-errors.ts";
-import { PRESETS } from "@amp/site/models";
+import { PRESETS, DEFAULTS } from "@amp/site/models";
 import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
 import { modelOutputContract } from "./model-fallback-contract.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import type { TaskBudget } from "./usage-protection.ts";
-import { capabilities } from "../editorial/models.ts";
+import { CAPABILITIES } from "../editorial/models.ts";
+import { serverModules } from "../modules.ts";
+import { buildModelCatalog } from "../model-catalog.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // OpenAI-compatible chat calls, always through receipts. One model is enough: `default` is whatever the
@@ -227,7 +229,9 @@ function isConnectFailure(error: unknown): boolean {
 }
 
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
-  const step = Object.values(capabilities()).find((c) => c.purposes.includes(opts.purpose));
+  const catalog = buildModelCatalog(CAPABILITIES, serverModules(), DEFAULTS);
+  if (catalog.blockedPurposes.has(opts.purpose)) throw new Error("Model purpose is disabled by its module declaration");
+  const step = Object.values(catalog.steps).find((c) => c.purposes.includes(opts.purpose));
   if (step && !step.lane) throw new Error("Model capability requires an explicit lane");
   if (step && [opts.policyContext?.lane, opts.runtimeControl?.lane, opts.lane].some((lane) => lane && lane !== step.lane))
     throw new Error("Model capability lane mismatch");

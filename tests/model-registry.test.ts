@@ -1,3 +1,4 @@
+import { installModules, serverModules } from "@amp/backend/modules";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { gate } from "./setup.ts";
 import assert from "node:assert/strict";
@@ -135,7 +136,16 @@ test("missing guard/key and missing prices fail closed; manager cannot create or
   assert.equal(changed.revision, 2);
   await assert.rejects(updateModelConnection(row.id, { ...connection, expected_revision: 1, reason: "stale" }, manager, guards));
 });
-test("one tiny gateway trial accounts physical estimate and reuses its receipt without exposing plaintext", async () => {
+test("one tiny gateway trial accounts physical estimate and reuses its receipt without exposing plaintext", async (t) => {
+  const installed = serverModules();
+  installModules([
+    ...installed,
+    {
+      name: "invalid-probe-shadow",
+      models: { shadow: { label: "bad probe declaration", env: "SYNTHETIC_MODEL", lane: "news", purposes: ["model_connection_test"] } },
+    },
+  ]);
+  t.after(() => installModules(installed));
   const before = calls,
     row = await create();
   const probe = await requestModelConnectionProbe(row.id, { expected_revision: 1, lane: "policy" }, manager, guards);
