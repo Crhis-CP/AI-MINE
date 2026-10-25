@@ -129,6 +129,28 @@ test("module calls keep declared lanes, current permits, processing pause and ac
     await chatJson({ ...core, fallbackPermit: permit(core) });
   }
   await assert.rejects(modelFor("bad"), /Unknown model capability/);
+  installModules([
+    ...working,
+    {
+      name: "quarantined-batch",
+      models: {
+        allowed_shape: { ...step, purposes: ["quarantined_unique"] },
+        conflict: { ...step, purposes: ["score_article"] },
+      },
+    },
+    { name: "quarantined-label", models: { invalid: { ...step, label: "", purposes: ["quarantined_invalid_label"] } } },
+  ]);
+  const callsBeforeBlocked = provider.hits();
+  for (const purpose of ["quarantined_unique", "quarantined_invalid_label"]) {
+    const rejected = { ...request, purpose, lane: "news" as const };
+    await assert.rejects(chatJson(rejected), /disabled.*module/i);
+    await assert.rejects(chatJson({ ...rejected, fallbackPermit: permit(rejected) }), /disabled.*module/i);
+  }
+  assert.equal(provider.hits(), callsBeforeBlocked, "a rejected module purpose never reaches transport");
+  for (const purpose of ["score_article", "prefilter_article", step.purposes[0]!]) {
+    const healthy = { ...request, purpose, user: `healthy after quarantine ${purpose}` };
+    await chatJson({ ...healthy, fallbackPermit: permit(healthy) });
+  }
   installModules([...working, { name: "bad-shape", models: { bad: { ...step, label: "" } } }]);
   assert.ok(capabilities().prefilter);
   await assert.rejects(modelFor("bad"), /Unknown model capability/);
@@ -140,7 +162,7 @@ test("module calls keep declared lanes, current permits, processing pause and ac
   try {
     const next = { ...request, user: "different synthetic input" };
     await assert.rejects(chatJson({ ...next, fallbackPermit: permit(next) }), /暂停|paused/i);
-    assert.equal(provider.hits(), before + 4);
+    assert.equal(provider.hits(), before + 7);
   } finally {
     await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='processing' AND holder='owner'`;
   }
