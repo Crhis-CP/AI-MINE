@@ -43,7 +43,8 @@ import { readStoredTranslation } from "../editorial/translation-store.ts";
 import { itemUrl } from "./links.ts";
 import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
-import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
+import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, isIndependentSelectedSource, mayRedistribute, type SourceFacts } from "./rules.ts";
+import { foldableSelectionCondition } from "./scope.ts";
 import { projectNewsGeography } from "./news-geography.ts";
 
 async function sourceTimeForMaterial(material: { id: string; source_id: string; revision: number; source_date_version: string | number }, now: Date, db: Db) {
@@ -428,12 +429,13 @@ export async function publishArticleTx(
     [title, originalTitle, displaySummary, source.name, ...displayTags(tags), ...(analysis?.subjects ?? [])].filter(Boolean).join(" "),
   ).toLowerCase();
 
-  // A selected item sits at its reading group's anchor: the earliest public pool member of its fact.
+  // Independent selected articles retain their arrival and never date the ordinary reading group.
   let sortAt: Date = article.timeline_at;
-  if (selected && membership?.fact_id) {
+  if (selected && membership?.fact_id && !isIndependentSelectedSource(source.id)) {
     const [anchor] = await tx<{ t: Date | null }[]>`
-      SELECT min(timeline_at) AS t FROM publications
-      WHERE fact_id = ${membership.fact_id} AND eligible AND visibility = 'public' AND article_id <> ${articleId}`;
+      SELECT min(p.timeline_at) AS t FROM publications p
+      WHERE p.fact_id = ${membership.fact_id} AND p.eligible AND p.visibility = 'public' AND p.article_id <> ${articleId}
+        AND ${foldableSelectionCondition()}`;
     if (anchor?.t && anchor.t < sortAt) sortAt = anchor.t;
   }
 
@@ -643,7 +645,7 @@ async function syncSelectedLedger(tx: Tx, row: SeatRow, sourceName: string, now:
   return null;
 }
 
-/** One machine-facing selected seat per fact, settled with the publication and its sync ledger. */
+/** One ordinary seat per fact, plus each independent selected article; ledger changes commit together. */
 async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: number | null, now: Date) {
   const [self] = await tx<{ fact_id: number | null }[]>`SELECT fact_id FROM publications WHERE article_id=${articleId}`;
   const facts = [...new Set([previousFact, self?.fact_id].filter((id): id is number => id !== null && id !== undefined))];
@@ -655,7 +657,7 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
   const groups = new Map<string, SeatRow[]>();
   for (const row of rows)
     if (row.selected && row.eligible && row.visibility === "public") {
-      const key = row.fact_id === null ? `article:${row.article_id}` : `fact:${row.fact_id}`;
+      const key = row.fact_id === null || isIndependentSelectedSource(row.source_id) ? `article:${row.article_id}` : `fact:${row.fact_id}`;
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
   for (const members of groups.values()) chosen.add(pickRepresentative(members).article_id);
