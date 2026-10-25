@@ -5,7 +5,7 @@
 // skipped and nothing leaves the process.
 import { config, credential } from "../config.ts";
 import { sql, type Db } from "../db.ts";
-import { publicItemMetadata } from "@amp/backend/publication/detail";
+import { selectedDeliveryCandidate, type SelectedDeliveryCandidate } from "@amp/backend/publication/detail";
 import { lockReportPublications } from "@amp/backend/publication/publish";
 import { lockNewsModelMaterials } from "@amp/backend/content/materials";
 import { jurisdictionDescendants } from "@amp/industry/jurisdictions";
@@ -58,25 +58,42 @@ interface Target {
   enabled_at: Date | null;
   config_ref: string | null;
   jurisdiction: string | null;
+  purpose: string;
 }
 
-async function matchesCountry(articleId: string, jurisdiction: string | null, db: Db = sql) {
-  if (jurisdiction === null) return true;
-  const countries = (await publicItemMetadata(articleId, db))?.jurisdictions ?? [];
-  return jurisdictionDescendants(jurisdiction).some((code) => countries.includes(code));
+function matchesTarget(target: Target, current: SelectedDeliveryCandidate) {
+  if (target.enabled_at && current.discovered_at < target.enabled_at) return false;
+  if (target.purpose === "content") return target.jurisdiction === null && current.seat;
+  return (
+    target.purpose === "country_content" &&
+    target.jurisdiction !== null &&
+    jurisdictionDescendants(target.jurisdiction).some((code) => current.jurisdictions.includes(code))
+  );
 }
 
-async function currentTargetMatches(target: Target, req: DeliveryRequest, db: Db) {
-  // Match publication writers' fence order; check geography only after every potentially waiting lock.
+async function currentTargetContent(target: Target, req: DeliveryRequest, db: Db) {
+  // Match publication writers' fence order; refresh eligibility and copy after every waiting lock.
   await db`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
   await requireRuntimeRunning("news", ["publication"], db);
   await lockNewsModelMaterials([req.subjectId], db);
   await lockReportPublications([req.subjectId], db);
-  const [current] = await db`SELECT key FROM notify_targets WHERE key=${target.key} AND enabled AND purpose IN ('content','country_content')
-    AND kind=${target.kind} AND config_ref IS NOT DISTINCT FROM ${target.config_ref}
-    AND jurisdiction IS NOT DISTINCT FROM ${target.jurisdiction}
-    AND (enabled_at IS NULL OR enabled_at<=${req.contentAt}) FOR SHARE`;
-  return !!current && (await matchesCountry(req.subjectId, target.jurisdiction, db));
+  const [currentTarget] = await db<Target[]>`SELECT key,purpose,kind,config_ref,jurisdiction,enabled_at FROM notify_targets
+    WHERE key=${target.key} AND enabled AND purpose=${target.purpose} AND kind=${target.kind}
+    AND config_ref IS NOT DISTINCT FROM ${target.config_ref} AND jurisdiction IS NOT DISTINCT FROM ${target.jurisdiction} FOR SHARE`;
+  const candidate = await selectedDeliveryCandidate(req.subjectId, db);
+  if (!currentTarget || !candidate || !matchesTarget(currentTarget, candidate)) return null;
+  let ready: DeliveryRequest | null = null;
+  const { pushSelected } = await import("./selected.ts");
+  await pushSelected(
+    req.subjectId,
+    undefined,
+    async (current) => {
+      if (current.dedupeKey === req.dedupeKey) ready = current;
+      return [];
+    },
+    db,
+  );
+  return ready as DeliveryRequest | null;
 }
 
 export class DeliveryConflict extends Error {
@@ -111,13 +128,14 @@ async function recordDeliveryResult(id: number, res: Awaited<ReturnType<typeof p
 }
 
 export async function deliverContent(req: DeliveryRequest): Promise<Array<{ target: string; status: string }>> {
+  const initial = await selectedDeliveryCandidate(req.subjectId);
+  if (!initial) return [];
   const targets = await sql<
     Target[]
-  >`SELECT key, kind, enabled_at, config_ref, jurisdiction FROM notify_targets WHERE purpose IN ('content','country_content') AND enabled`;
+  >`SELECT key, purpose, kind, enabled_at, config_ref, jurisdiction FROM notify_targets WHERE purpose IN ('content','country_content') AND enabled`;
   const results: Array<{ target: string; status: string }> = [];
   for (const t of targets) {
-    if (t.enabled_at && req.contentAt < t.enabled_at) continue;
-    if (!(await matchesCountry(req.subjectId, t.jurisdiction))) continue;
+    if (!matchesTarget(t, initial)) continue;
     const [row] = await sql<{ id: number }[]>`
       INSERT INTO deliveries (target_key, subject_kind, subject_id, dedupe_key, status, payload)
       VALUES (${t.key}, ${req.subjectKind}, ${req.subjectId}, ${req.dedupeKey}, 'pending', ${sql.json(req.card as never)})
@@ -139,14 +157,14 @@ export async function deliverContent(req: DeliveryRequest): Promise<Array<{ targ
       results.push({ target: t.key, status: "failed" });
       continue;
     }
-    let sending: number;
+    let sending: DeliveryRequest | null;
     try {
       sending = await sql.begin(async (tx) => {
-        if (!(await currentTargetMatches(t, req, tx))) return 0;
-        const changed = await tx`UPDATE deliveries SET status='sending',attempts=attempts+1,updated_at=now() WHERE id=${row.id} AND status='pending'
-      AND EXISTS(SELECT 1 FROM notify_targets WHERE key=${t.key} AND enabled AND purpose IN ('content','country_content') AND kind=${t.kind}
-        AND config_ref IS NOT DISTINCT FROM ${t.config_ref} AND (enabled_at IS NULL OR enabled_at<=${req.contentAt}))`;
-        return changed.count;
+        const current = await currentTargetContent(t, req, tx);
+        if (!current) return null;
+        const changed =
+          await tx`UPDATE deliveries SET status='sending',attempts=attempts+1,payload=${tx.json(current.card as never)},updated_at=now() WHERE id=${row.id} AND status='pending'`;
+        return changed.count ? current : null;
       });
     } catch (error) {
       if (!(error instanceof RuntimeControlPaused)) throw error;
@@ -159,7 +177,7 @@ export async function deliverContent(req: DeliveryRequest): Promise<Array<{ targ
       continue;
     }
     try {
-      const res = await postWebhook(url, req.card);
+      const res = await postWebhook(url, sending.card);
       // Only an explicit acknowledgement or rejection is known; malformed responses remain uncertain.
       const status = await recordDeliveryResult(row.id, res);
       results.push({ target: t.key, status });
@@ -223,17 +241,15 @@ async function retryDelivery(id: number, version: string | undefined, automatic:
       if (current.dedupeKey !== d.dedupe_key) throw new DeliveryConflict("内容归属已变化，请等待当前事实的正常推送");
       if (d.enabled_at && current.contentAt < d.enabled_at) throw new DeliveryConflict("内容早于目标本次启用，不补发历史内容");
       const sending = await sql.begin(async (tx) => {
-        if (!(await currentTargetMatches({ ...d, key: d.target_key, kind: "feishu_webhook" }, current, tx)))
-          throw new DeliveryConflict("内容不再属于此目标的当前国家范围，或目标已经变化");
-        const changed = await tx`UPDATE deliveries SET attempts=attempts+1,payload=${tx.json(current.card as never)},updated_at=now()
-        WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}
-        AND EXISTS(SELECT 1 FROM notify_targets WHERE key=${d.target_key} AND enabled AND purpose IN ('content','country_content') AND kind=${d.kind} AND config_ref IS NOT DISTINCT FROM ${d.config_ref}
-          AND (enabled_at IS NULL OR enabled_at<=${current.contentAt}))`;
-        return changed.count;
+        const fresh = await currentTargetContent({ ...d, key: d.target_key, kind: "feishu_webhook" }, current, tx);
+        if (!fresh) throw new DeliveryConflict("内容不再符合当前推送条件，或目标已经变化");
+        const changed = await tx`UPDATE deliveries SET attempts=attempts+1,payload=${tx.json(fresh.card as never)},updated_at=now()
+        WHERE id=${id} AND status='sending' AND updated_at::text=${claimed[0]!.version}`;
+        return changed.count ? fresh : null;
       });
       if (!sending) throw new DeliveryConflict("投递或目标已变化，请刷新后重试");
       try {
-        const res = await postWebhook(url, current.card);
+        const res = await postWebhook(url, sending.card);
         const status = await recordDeliveryResult(id, res);
         return [{ target: d.target_key, status }];
       } catch (error) {

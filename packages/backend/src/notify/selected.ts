@@ -1,57 +1,39 @@
 // Selected-item pushes to the content groups. One card per new fact: a short same-title lease holds
 // back concurrent duplicates until grouping settles the fact, and the fact (or the article when it
 // has none) is the dedupe identity per target. Old, backfilled or silenced items are never pushed.
-import { sql } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
-import { itemUrl } from "../publication/links.ts";
-import type { CategoryKey } from "@amp/contracts/taxonomy";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { deliverContent } from "./deliver.ts";
+import { selectedDeliveryCandidate, type SelectedDeliveryCandidate } from "@amp/backend/publication/detail";
+import { itemUrl } from "../publication/links.ts";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SITE } from "@amp/industry/site";
 
 const MAX_AGE_MS = 12 * 3600_000;
+
 const LEASE_MS = 10 * 60_000;
 
 export type PushOutcome =
   | { status: "pushed" | "skipped"; reason?: string; targets?: Array<{ target: string; status: string }> }
   | { status: "retry"; after: Date; reason: string };
 
-interface Row {
-  article_id: string;
-  selected: boolean;
-  seat: boolean;
-  visibility: string;
-  title: string;
-  summary: string | null;
-  reason: string | null;
-  category: CategoryKey | null;
-  source_name: string;
-  url: string;
-  timeline_at: Date;
-  discovered_at: Date;
-  visible_after: Date | null;
-  backfill: boolean;
-  fact_id: number | null;
-  silent: boolean;
-}
-
 function normalizedTitle(t: string) {
   return t.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 }
 
-function card(r: Row) {
-  const category = r.category ? CATEGORY_LABELS[r.category] : null;
-  const lines = [r.summary, r.reason ? `**推荐理由**：${r.reason}` : null, `来源：${r.source_name}`].filter(Boolean);
+function card(candidate: SelectedDeliveryCandidate) {
+  const category = candidate.category ? CATEGORY_LABELS[candidate.category] : null;
+  const lines = [candidate.summary, candidate.reason ? `**推荐理由**：${candidate.reason}` : null, `来源：${candidate.source_name}`].filter(Boolean);
   return {
-    header: { title: { tag: "plain_text", content: r.title }, template: "turquoise" },
+    header: { title: { tag: "plain_text", content: candidate.title }, template: "turquoise" },
     elements: [
       ...(category ? [{ tag: "note", elements: [{ tag: "plain_text", content: category }] }] : []),
       { tag: "div", text: { tag: "lark_md", content: lines.join("\n\n") } },
       {
         tag: "action",
         actions: [
-          { tag: "button", text: { tag: "plain_text", content: `${SITE.name} 查看` }, url: itemUrl(r.article_id), type: "primary" },
-          { tag: "button", text: { tag: "plain_text", content: "原文" }, url: r.url, type: "default" },
+          { tag: "button", text: { tag: "plain_text", content: `${SITE.name} 查看` }, url: itemUrl(candidate.article_id), type: "primary" },
+          { tag: "button", text: { tag: "plain_text", content: "原文" }, url: candidate.url, type: "default" },
         ],
       },
     ],
@@ -63,40 +45,39 @@ export async function pushSelected(
   articleId: string,
   now: Date | undefined = undefined,
   deliver: typeof deliverContent = deliverContent,
+  db: Db = sql,
 ): Promise<PushOutcome> {
   let leasedTitle: string | null = null;
   // Lease acquisition can wait behind another writer; re-read content after that wait.
   for (let pass = 0; pass < 2; pass++) {
-    const [r] = await sql<Row[]>`
-    SELECT p.article_id, p.selected, p.seat, p.visibility, p.title, p.summary, p.reason, p.category, s.name AS source_name, p.url,
-           p.timeline_at, p.discovered_at, p.visible_after, p.backfill, p.fact_id,
-           coalesce((o.fields->>'silent')::boolean, false) AS silent
-    FROM publications p JOIN sources s ON s.id = p.source_id LEFT JOIN editorial_overrides o ON o.article_id = p.article_id
-    WHERE p.article_id = ${articleId}`;
+    const candidate = await selectedDeliveryCandidate(articleId, db);
+    const [r] = await db<
+      { silent: boolean }[]
+    >`SELECT coalesce((fields->>'silent')::boolean, false) AS silent FROM editorial_overrides WHERE article_id=${articleId}`;
     const at = now ?? new Date();
-    if (!r || !r.selected || !r.seat || r.visibility !== "public") return { status: "skipped", reason: "not public selected" };
-    if (r.silent) return { status: "skipped", reason: "silenced" };
-    if (r.backfill || at.getTime() - r.timeline_at.getTime() > MAX_AGE_MS) return { status: "skipped", reason: "not live" };
-    if (r.visible_after && r.visible_after > at) return { status: "retry", after: new Date(r.visible_after.getTime() + 5_000), reason: "release gate" };
+    if (!candidate) return { status: "skipped", reason: "not public selected" };
+    if (r?.silent) return { status: "skipped", reason: "silenced" };
+    if (candidate.backfill || at.getTime() - candidate.timeline_at.getTime() > MAX_AGE_MS) return { status: "skipped", reason: "not live" };
+    if (candidate.visible_after > at) return { status: "retry", after: new Date(candidate.visible_after.getTime() + 5_000), reason: "release gate" };
 
-    const title = normalizedTitle(r.title);
-    if (!r.fact_id && leasedTitle !== title) {
+    const title = normalizedTitle(candidate.title);
+    if (!candidate.fact_id && leasedTitle !== title) {
       // Same-title lease: a concurrent report with the same headline waits for grouping.
-      const leaseKey = `selected-title:${sha256(normalizedTitle(r.title)).slice(0, 24)}`;
-      const [lease] = await sql<{ holder: string }[]>`
+      const leaseKey = `selected-title:${sha256(normalizedTitle(candidate.title)).slice(0, 24)}`;
+      const [lease] = await db<{ holder: string }[]>`
     INSERT INTO delivery_leases (lease_key, holder, expires_at) VALUES (${leaseKey}, ${articleId}, ${new Date(at.getTime() + LEASE_MS)})
     ON CONFLICT (lease_key) DO UPDATE SET holder = CASE WHEN delivery_leases.expires_at < ${at} THEN EXCLUDED.holder ELSE delivery_leases.holder END,
       expires_at = CASE WHEN delivery_leases.expires_at < ${at} THEN EXCLUDED.expires_at ELSE delivery_leases.expires_at END
     RETURNING holder`;
-      if (lease && lease.holder !== articleId && !r.fact_id)
+      if (lease && lease.holder !== articleId && !candidate.fact_id)
         return { status: "retry", after: new Date(at.getTime() + 2 * 60_000), reason: "same title in flight" };
 
       leasedTitle = title;
       continue;
     }
 
-    const dedupeKey = r.fact_id ? `selected:fact:${r.fact_id}` : `selected:article:${articleId}`;
-    const targets = await deliver({ subjectKind: "selected", subjectId: articleId, dedupeKey, contentAt: r.discovered_at, card: card(r) });
+    const dedupeKey = candidate.fact_id ? `selected:fact:${candidate.fact_id}` : `selected:article:${articleId}`;
+    const targets = await deliver({ subjectKind: "selected", subjectId: articleId, dedupeKey, contentAt: candidate.discovered_at, card: card(candidate) });
     return { status: targets.some((t) => t.status === "sent") ? "pushed" : "skipped", targets, reason: targets.length ? undefined : "no new target" };
   }
   return { status: "retry", after: new Date((now?.getTime() ?? Date.now()) + 2 * 60_000), reason: "content changed while claiming title" };

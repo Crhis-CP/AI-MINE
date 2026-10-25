@@ -66,8 +66,6 @@
     "[\"packages/backend/src/jobs/content.ts\",\"processArticle/[found]\",\"content\",\"public.sources\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/jobs/queue.ts\",\"recordRun/[row]\",\"platform/queue\",\"public.job_runs\",\"write\",\"split-debt\"]": 1,
     "[\"packages/backend/src/jobs/queue.ts\",\"recordRun\",\"platform/queue\",\"public.job_runs\",\"write\",\"split-debt\"]": 2,
-    "[\"packages/backend/src/notify/selected.ts\",\"pushSelected/[r]\",\"platform/ops\",\"public.publications\",\"read\",\"cross-debt\"]": 1,
-    "[\"packages/backend/src/notify/selected.ts\",\"pushSelected/[r]\",\"platform/ops\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/notify/selected.ts\",\"pushSelected/[r]\",\"platform/ops\",\"public.editorial_overrides\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/[last]\",\"platform/ops\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/[anySource]\",\"platform/ops\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
