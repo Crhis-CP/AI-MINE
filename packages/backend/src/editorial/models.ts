@@ -1,3 +1,4 @@
+import { buildModelCatalog } from "../model-catalog.ts";
 import { DEFAULTS } from "@amp/site/models";
 import { environmentValue } from "../config.ts";
 // Model per capability: the code default (`default`, the deployment's own model), an environment
@@ -85,29 +86,7 @@ export type CapabilityKey = string;
 
 /** The currently declared steps; consumers use this entry point instead of capturing a static map. */
 export function capabilities(): Record<string, Capability> {
-  const available: Record<string, Capability> = Object.create(null);
-  const purposes = new Set<string>();
-  for (const [key, step] of Object.entries(CAPABILITIES)) {
-    available[key] = { ...step, purposes: [...step.purposes], lane: key.startsWith("policy_") ? "policy" : "news" };
-    for (const purpose of step.purposes) purposes.add(purpose);
-  }
-  for (const module of serverModules())
-    for (const [key, step] of Object.entries(module.models ?? {})) {
-      // Core choices and the first installed declaration keep their identity.
-      if (Object.hasOwn(available, key)) continue;
-      if (
-        !key.trim() ||
-        Object.hasOwn(Object.prototype, key) ||
-        (step.lane !== undefined && step.lane !== "news" && step.lane !== "policy") ||
-        !step.purposes.length ||
-        step.purposes.some((purpose) => !purpose.trim() || purposes.has(purpose)) ||
-        new Set(step.purposes).size !== step.purposes.length
-      )
-        throw new Error(`Invalid or ambiguous model step: ${key}`);
-      available[key] = { ...step, purposes: [...step.purposes], default: DEFAULTS[key] ?? "default" };
-      for (const purpose of step.purposes) purposes.add(purpose);
-    }
-  return available;
+  return buildModelCatalog(CAPABILITIES, serverModules(), DEFAULTS).steps;
 }
 
 async function overrides(db: Db = sql): Promise<Record<string, string>> {

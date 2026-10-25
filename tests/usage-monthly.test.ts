@@ -1,3 +1,4 @@
+import { CAPABILITIES } from "@amp/backend/editorial/models";
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -20,7 +21,7 @@ async function attempt(input: {
   purpose?: string;
 }) {
   const [receipt] =
-    await sql`INSERT INTO receipts(logical_key,service,purpose,subject,status,request) VALUES(${randomUUID()},'synthetic',${input.purpose ?? "structure"},${input.subject ?? "article:synthetic@1"},'completed',${sql.json(input.lane ? { lane: input.lane } : {})}) RETURNING id`;
+    await sql`INSERT INTO receipts(logical_key,service,purpose,subject,status,request) VALUES(${randomUUID()},'synthetic',${input.purpose ?? "structure"},${input.subject ?? "article:synthetic@1"},'completed',${sql.json(input.lane !== undefined ? { lane: input.lane } : {})}) RETURNING id`;
   await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,origin,status,cost,cost_basis,currency,usage,started_at) VALUES(${receipt.id},1,'synthetic','synthetic-model',${input.origin ?? "live"},${input.status ?? "received"},${input.cost ?? null},${input.basis ?? null},${input.currency ?? null},${sql.json((input.usage ?? null) as never)},${new Date(input.at ?? "2026-09-10T00:00:00Z")})`;
   return Number(receipt.id);
 }
@@ -118,4 +119,19 @@ test("historical lane attribution recognizes only original policy purposes, neve
   const report = await buildMonthlyUsage("2026-07", now);
   assert.deepEqual(Object.fromEntries(report.by_lane.map((group) => [group.key, group.totals.calls])), { news: 1, policy: 1, unknown: 2 });
   assert.equal(report.totals.calls, 4);
+});
+
+test("removing an active core purpose cannot reclassify its historical unlabelled calls", async () => {
+  const purposes = [...CAPABILITIES.policy_verify.purposes];
+  await attempt({ at: "2026-06-10T00:00:00Z", purpose: "policy_verify", cost: "2", currency: "CNY", basis: "actual" });
+  await attempt({ at: "2026-06-10T00:00:00Z", purpose: "policy_verify", lane: "", cost: "3", currency: "CNY", basis: "actual" });
+  CAPABILITIES.policy_verify.purposes.length = 0;
+  try {
+    const report = await buildMonthlyUsage("2026-06", now);
+    assert.equal(report.by_lane.find((g) => g.key === "policy")?.totals.calls, 1);
+    assert.equal(report.by_lane.find((g) => g.key === "unknown")?.totals.calls, 1);
+    assert.equal(report.totals.amounts[0]!.actual, "5.000000");
+  } finally {
+    CAPABILITIES.policy_verify.purposes.push(...purposes);
+  }
 });

@@ -35,9 +35,9 @@ const install = () =>
         policy_named_news: { ...step, purposes: ["synthetic_prefixed_news"] },
         module_policy: { ...step, lane: "policy", purposes: ["synthetic_module_policy"] },
         legacy_metadata: { label: "旧元数据", env: step.env, purposes: ["synthetic_missing_lane"] },
-        score: { ...step, env: "CANNOT_REPLACE_SCORE", purposes: ["cannot_replace_score"] },
       },
     },
+    { name: "synthetic-core-override", models: { score: { ...step, env: "CANNOT_REPLACE_SCORE", purposes: ["cannot_replace_score"] } } },
   ]);
 
 test("installed model steps share admin choices, overview and route lookup without replacing core", async () => {
@@ -67,10 +67,15 @@ test("purpose collisions and inherited keys cannot redirect existing processing"
     { other: { ...step, purposes: ["score_article"] } },
     { first: step, second: { ...step, lane: "policy" as const } },
     { constructor: step },
+    { bad_space: { ...step, purposes: [" synthetic_module_read "] } },
   ];
   for (const models of invalid) {
-    installModules([...prior, { name: "synthetic-invalid", models }]);
-    assert.throws(capabilities, /Invalid or ambiguous model step/);
+    installModules([...prior, { name: "healthy", models: { healthy: { ...step, purposes: ["healthy_purpose"] } } }, { name: "synthetic-invalid", models }]);
+    const available = capabilities();
+    assert.equal(available.score!.env, CAPABILITIES.score.env);
+    assert.ok(available.healthy);
+    assert.ok(!Object.hasOwn(available, "first"), "a broken module cannot register an earlier partial step");
+    for (const key of Object.keys(models)) assert.ok(!Object.hasOwn(available, key));
   }
   install();
 });
@@ -108,13 +113,34 @@ test("module calls keep declared lanes, current permits, processing pause and ac
   const prefixed = { ...request, purpose: "synthetic_prefixed_news" };
   await chatJson({ ...prefixed, fallbackPermit: permit(prefixed) });
   const response = await chatJson({ ...request, fallbackPermit: permit(request) });
+  const working = serverModules();
+  installModules([
+    ...working,
+    { name: "broken-core-purpose", models: { bad: { ...step, purposes: ["score_article"] } } },
+    {
+      name: "unreadable-models",
+      get models(): Record<string, ModelStep> {
+        throw new Error("synthetic read failure");
+      },
+    },
+  ]);
+  for (const purpose of ["score_article", "prefilter_article"]) {
+    const core = { ...request, purpose };
+    await chatJson({ ...core, fallbackPermit: permit(core) });
+  }
+  await assert.rejects(modelFor("bad"), /Unknown model capability/);
+  installModules([...working, { name: "bad-shape", models: { bad: { ...step, label: "" } } }]);
+  assert.ok(capabilities().prefilter);
+  await assert.rejects(modelFor("bad"), /Unknown model capability/);
+  installModules(working);
+
   const [usage] = await sql`SELECT lane,capability FROM ai.usage_attempts WHERE receipt_id=${response.receiptId}`;
   assert.deepEqual({ lane: usage.lane, capability: usage.capability }, { lane: "news", capability: step.purposes[0] });
   await sql`UPDATE ops.lane_controls SET paused=true,reason='合成暂停',actor='test',expires_at=now()+interval '1 hour' WHERE lane='news' AND switch='processing' AND holder='owner'`;
   try {
     const next = { ...request, user: "different synthetic input" };
     await assert.rejects(chatJson({ ...next, fallbackPermit: permit(next) }), /暂停|paused/i);
-    assert.equal(provider.hits(), before + 2);
+    assert.equal(provider.hits(), before + 4);
   } finally {
     await sql`UPDATE ops.lane_controls SET paused=false WHERE lane='news' AND switch='processing' AND holder='owner'`;
   }
@@ -141,4 +167,29 @@ test("recorded module costs use only declared historical attribution and never i
   assert.deepEqual(await sql`SELECT attempt_id,settled_micros FROM ai.usage_attempts WHERE capability=${step.purposes[0]!} ORDER BY attempt_id`, before);
   const usage = (await modelsOverview()).capabilities.find((c) => c.key === "module_read")!.usage;
   assert.ok(usage.some((u) => u.service === "synthetic-module" && u.actualCost === 2));
+});
+
+test("legacy accounting survives removal from the current directory without guessing malformed lane fields", async () => {
+  install();
+  const saved = [...CAPABILITIES.policy_verify.purposes];
+  const ids: number[] = [];
+  for (const request of [{}, { lane: "" }]) {
+    const [receipt] =
+      await sql`INSERT INTO receipts(logical_key,service,purpose,status,request) VALUES(${tag()},'synthetic-legacy','policy_verify','received',${sql.json(request)}) RETURNING id`;
+    ids.push(Number(receipt.id));
+    await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status,cost,cost_basis,currency,response) VALUES(${receipt.id},1,'synthetic-legacy','synthetic','received',2,'actual','CNY','{}')`;
+  }
+  CAPABILITIES.policy_verify.purposes.length = 0;
+  try {
+    await evaluateUsageProtection();
+    assert.equal((await sql`SELECT lane FROM ai.usage_attempts WHERE receipt_id=${ids[0]!}`)[0]?.lane, "policy");
+    assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE receipt_id=${ids[1]!}`)[0].n, 0);
+    await evaluateUsageProtection();
+    assert.equal(
+      (await sql`SELECT count(*)::int AS n,sum(settled_micros)::text AS total FROM ai.usage_attempts WHERE receipt_id=${ids[0]!}`)[0].total,
+      "2000000",
+    );
+  } finally {
+    CAPABILITIES.policy_verify.purposes.push(...saved);
+  }
 });
