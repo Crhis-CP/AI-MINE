@@ -3,7 +3,7 @@ import { MonthlyUsageReport, MonthlyUsageEntry, UsageMonth, type UsageTotals } f
 import { beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
-import { capabilities } from "../editorial/models.ts";
+import { capabilities, CAPABILITIES } from "../editorial/models.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { config } from "../config.ts";
 import { usageConfiguration } from "../providers/usage-protection.ts";
@@ -139,6 +139,11 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
     },
     objects = new Map<string, { reference: string; currency: string; amount: bigint; estimated: bigint; calls: number }>(),
     materials = new Map<string, { kind: "article" | "policy"; currency: string; objects: Set<string>; actual: bigint; estimated: bigint; calls: number }>();
+  const legacyPolicyPurposes = new Set(
+    Object.entries(CAPABILITIES)
+      .filter(([key]) => key.startsWith("policy_"))
+      .flatMap(([, step]) => step.purposes),
+  );
   let unassigned = 0;
   for await (const rows of sql<
     Attempt[]
@@ -148,7 +153,7 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
   )) {
     for (const row of rows) {
       add(total, row);
-      const lane = ["news", "policy"].includes(row.lane ?? "") ? row.lane! : row.purpose.startsWith("policy_") ? "policy" : "unknown";
+      const lane = ["news", "policy"].includes(row.lane ?? "") ? row.lane! : !row.lane && legacyPolicyPurposes.has(row.purpose) ? "policy" : "unknown";
       const sources =
           Array.isArray(row.source_ids) && row.source_ids.length && row.source_ids.every((id) => typeof id === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(id))
             ? [...new Set(row.source_ids as string[])].sort().join("+")

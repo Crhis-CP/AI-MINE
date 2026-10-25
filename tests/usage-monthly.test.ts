@@ -17,9 +17,10 @@ async function attempt(input: {
   at?: string;
   lane?: string;
   subject?: string;
+  purpose?: string;
 }) {
   const [receipt] =
-    await sql`INSERT INTO receipts(logical_key,service,purpose,subject,status,request) VALUES(${randomUUID()},'synthetic','structure',${input.subject ?? "article:synthetic@1"},'completed',${sql.json(input.lane ? { lane: input.lane } : {})}) RETURNING id`;
+    await sql`INSERT INTO receipts(logical_key,service,purpose,subject,status,request) VALUES(${randomUUID()},'synthetic',${input.purpose ?? "structure"},${input.subject ?? "article:synthetic@1"},'completed',${sql.json(input.lane ? { lane: input.lane } : {})}) RETURNING id`;
   await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,origin,status,cost,cost_basis,currency,usage,started_at) VALUES(${receipt.id},1,'synthetic','synthetic-model',${input.origin ?? "live"},${input.status ?? "received"},${input.cost ?? null},${input.basis ?? null},${input.currency ?? null},${sql.json((input.usage ?? null) as never)},${new Date(input.at ?? "2026-09-10T00:00:00Z")})`;
   return Number(receipt.id);
 }
@@ -106,4 +107,15 @@ test("a month is delivered once, reconciliation revises history and unknown deli
   await reconcileMonthlyUsage("2026-08", now, send);
   assert.equal(calls, 1);
   assert.equal((await monthlyUsageReports()).length, 2);
+});
+
+test("historical lane attribution recognizes only original policy purposes, never a name prefix", async () => {
+  const at = "2026-07-10T00:00:00Z";
+  await attempt({ at, purpose: "policy_verify" });
+  await attempt({ at, purpose: "policy_extension" });
+  await attempt({ at, purpose: "policy_extension", lane: "news" });
+  await attempt({ at, purpose: "policy_verify", lane: "invalid" });
+  const report = await buildMonthlyUsage("2026-07", now);
+  assert.deepEqual(Object.fromEntries(report.by_lane.map((group) => [group.key, group.totals.calls])), { news: 1, policy: 1, unknown: 2 });
+  assert.equal(report.totals.calls, 4);
 });
