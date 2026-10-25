@@ -30,6 +30,7 @@ import { computeHotRanking } from "@amp/backend/events/hot";
 import { latestHotRanking } from "@amp/backend/events/hot-read";
 import { effectiveWatermark } from "@amp/backend/publication/v1";
 import { buildApp } from "./site-app.ts";
+import { installModules, serverModules } from "@amp/backend/modules";
 
 const T = tag();
 const SOURCE = `test-publication-${T}`;
@@ -236,6 +237,20 @@ test("a withdrawal takes down only the stories citing it, including secondary me
     assert.ok((await get(`/api/site/stories/${story}`)).body.includes(id));
     assert.ok((await get(`/api/v1/stories/${story}`)).body.includes(id));
   }
+  await sql`INSERT INTO story_links(story_id,other_id,relation)
+    SELECT a.id,b.id,'related' FROM stories a,stories b WHERE a.public_id=${stories[0]!} AND b.public_id=${unrelated}`;
+  const modules = serverModules();
+  try {
+    installModules([...modules, { name: "story-origin", storyOrigin: () => "https://module-origin.invalid/" }]);
+    const linked = JSON.parse((await get(`/api/v1/stories/${stories[0]}`)).body);
+    assert.equal(
+      linked.story.related.find((row: { publicId: string }) => row.publicId === unrelated).links.api,
+      `https://module-origin.invalid/api/v1/stories/${unrelated}`,
+    );
+    assert.doesNotMatch((await get(`/api/site/stories/${stories[0]}`)).body, /module-origin.invalid/);
+  } finally {
+    installModules(modules);
+  }
 
   await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   for (const story of stories) {
@@ -267,6 +282,46 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
   assert.ok(rep, "the story is on the board with a representative item");
   const exits = ["/api/v1/hot-topics", "/api/site/hot"];
   for (const url of exits) assert.ok((await get(url)).body.includes(rep!), `${url} shows the item before`);
+  const baseline = await get("/api/v1/hot-topics"),
+    modules = serverModules();
+  try {
+    installModules([
+      ...modules,
+      { name: "empty-origin", storyOrigin: () => null },
+      { name: "story-origin", storyOrigin: () => "https://module-origin.invalid/" },
+      {
+        name: "later-origin",
+        storyOrigin: () => {
+          throw Error("unused origin");
+        },
+      },
+    ]);
+    const routed = await get("/api/v1/hot-topics");
+    assert.equal(routed.status, 200);
+    const entry = JSON.parse(routed.body).items.find((row: { id: string }) => row.id === rep);
+    assert.match(entry.links.story, /^https:\/\/module-origin.invalid\/story\//);
+    assert.equal(entry.links.original, JSON.parse(baseline.body).items.find((row: { id: string }) => row.id === rep).links.original);
+    assert.notEqual(routed.etag, baseline.etag);
+    const credentialOrigin = new URL("https://example.invalid");
+    credentialOrigin.username = "synthetic-user";
+    credentialOrigin.password = "synthetic-password";
+    for (const origin of [
+      "javascript:alert(1)",
+      credentialOrigin.href,
+      "https://example.invalid/prefix",
+      "https://example.invalid/?q=1",
+      "https://example.invalid/#part",
+      "https://exa\nmple.invalid",
+    ]) {
+      installModules([...modules, { name: "invalid-origin", storyOrigin: () => origin }]);
+      const invalid = await get("/api/v1/hot-topics");
+      assert.equal(invalid.status, 503);
+      assert.doesNotMatch(invalid.body, /synthetic-password|invalid-origin/);
+      assert.equal((await get("/api/site/hot")).status, 200);
+    }
+  } finally {
+    installModules(modules);
+  }
   const mcp = await app.inject({
     method: "POST",
     url: "/api/mcp",
