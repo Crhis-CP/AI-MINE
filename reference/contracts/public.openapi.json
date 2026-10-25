@@ -26929,9 +26929,7 @@
                                 "$ref": "#/components/schemas/V3ItemCard"
                               },
                               "op": {
-                                "enum": [
-                                  "upsert"
-                                ],
+                                "const": "upsert",
                                 "type": "string"
                               }
                             },
@@ -26954,9 +26952,7 @@
                                 "type": "string"
                               },
                               "op": {
-                                "enum": [
-                                  "remove"
-                                ],
+                                "const": "remove",
                                 "type": "string"
                               }
                             },
@@ -28192,9 +28188,7 @@
                       "type": "array"
                     },
                     "content_kind": {
-                      "enum": [
-                        "news"
-                      ],
+                      "const": "news",
                       "type": "string"
                     },
                     "content_version": {
@@ -31039,9 +31033,7 @@
                       ]
                     },
                     "timezone": {
-                      "enum": [
-                        "Asia/Shanghai"
-                      ],
+                      "const": "Asia/Shanghai",
                       "type": "string"
                     },
                     "title": {
@@ -34162,9 +34154,7 @@
                       ]
                     },
                     "timezone": {
-                      "enum": [
-                        "Asia/Shanghai"
-                      ],
+                      "const": "Asia/Shanghai",
                       "type": "string"
                     },
                     "title": {

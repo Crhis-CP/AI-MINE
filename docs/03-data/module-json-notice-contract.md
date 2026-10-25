@@ -9,3 +9,11 @@ TASK0451在独立契约中准备可选输出。现有V3ItemDetail.notice是正�
 契约回归覆盖旧响应兼容、正文notice不被对象替换、错误体拒绝模块字段、本地标识路径及v1文档的可选性。运行消费者另行验证跨请求隔离、private/no-store及提示参与ETag，包括既有etagOf覆盖场景；无提示时保留原正文、状态和缓存语义。
 
 PR297已先行将现有v1文档路径纳入集成卡，本卡在该main基线上同步文件，没有放宽权限守卫。当前没有新提示或标识实际输出，没有模型调用、评分变化、群启用或生产部署；不据此宣布完整迁移。
+
+## PR298后生成兼容补正
+
+PR298与main785597e8均已取得准确full，运行消费者仍未接入。Grok对生成差异提出复核后，逐路径展开引用发现真实文档缺陷：新response.safeExtend对象未注册为原组件，进入内联转换，Swagger默认const转enum在复用嵌套属性时丢掉详情content_kind及两类报告timezone常量；独立v3的可达组件裁剪还移除了18个原有名称。运行时Zod校验没有因此改变，不能以此忽略公开文档的变化。
+
+修复仅调整已有生成器：OpenAPI3.1关闭const转enum；独立v3保留公开v3/法规schema及其依赖。原18个名字全部保留，另外3个原已在public中公开的法规schema也保留于独立v3（PolicyListResponse、PolicyReadingPage、PolicyReportList），未增加路由或运行行为。不更改响应主体、错误体或module_notice声明。
+
+与PR298之前aec486b9对比，展开所有本地引用并将单值enum/const按等价约束规范化后：public60条路径、v3 26条、v1 8条数量不变；无路径、响应字段、类型或既有约束删除，差异仅为既定可选module_notice与主题brand；private完全相同。原18具名schema和所有内部引用闭合。受限对比结果openapi-repaired-semantic-diff-20261024.json保留，4项本地契约回归通过；准确头完整CI另取，尚未部署。
