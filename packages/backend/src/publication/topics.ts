@@ -245,7 +245,20 @@ export async function loadTopicPage(slug: string, page: number, now?: Date): Pro
     items: rows.map(toFeedItemSummary),
     page,
     pageCount,
-    ...(parts.length ? { parts: JSON.parse(JSON.stringify(Object.fromEntries(parts.map((part) => [part.name, part.part(current)])))) } : {}),
+    ...(parts.length
+      ? {
+          parts: JSON.parse(
+            JSON.stringify(
+              Object.fromEntries(
+                parts.map((part) => {
+                  const allowed = new Set(part.recheck);
+                  return [part.name, part.part(new Map([...current].filter(([id]) => allowed.has(id))))];
+                }),
+              ),
+            ),
+          ),
+        }
+      : {}),
   };
 }
 

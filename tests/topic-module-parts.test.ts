@@ -103,6 +103,24 @@ test("cached country parts cannot retain withdrawn items or outdated material ge
   assert.deepEqual((await loadTopicPage("argentina", 1))!.parts, { "fixture-country": { ids: [] } });
 });
 
+test("each part receives only its own rechecked IDs even when the database read is shared", async () => {
+  const f = await fixture(),
+    a = await f.add("a", "铜矿甲", ["铜"]),
+    b = await f.add("b", "铜矿乙", ["铜"]);
+  installModules([
+    ...[
+      { name: "a", ids: [a] },
+      { name: "b", ids: [b] },
+      { name: "empty", ids: [] },
+    ].map(({ name, ids }) => ({
+      name,
+      topics: { page: { read: () => ({ recheck: ids, part: (current: ReadonlyMap<string, unknown>) => ({ ids: [...current.keys()] }) }) } },
+    })),
+  ]);
+  await seedTopics();
+  assert.deepEqual((await loadTopicPage(f.source, 1))!.parts, { a: { ids: [a] }, b: { ids: [b] }, empty: { ids: [] } });
+});
+
 test("the module index and recheck use only the real public read identity", async (t) => {
   const f = await publicRoleFixture(t);
   await f.admin`INSERT INTO topics(slug,name,grp,tags,definition,position) VALUES('module-role-fixture','合成主题','field',ARRAY['铜'],'只读验证',999)`;
