@@ -20,6 +20,7 @@ const T = tag();
 const SOURCE = `test-alerts-${T}`;
 let saved: { key: string; value: unknown }[] = [];
 const ids: string[] = [];
+const priorReaderKey = process.env.JINA_API_KEY;
 
 test("unknown receipt digest reports observed attempts without inventing retries or dismissing processing impact", async (t) => {
   const log = t.mock.method(console, "log", () => {});
@@ -51,6 +52,7 @@ test("unknown receipt digest reports observed attempts without inventing retries
 });
 
 before(async () => {
+  process.env.JINA_API_KEY = "synthetic-reader-config-not-a-secret";
   installModules([(await import("@amp/metals/server")).default]);
   await getBoss(); // collectFindings reads the job tables
   saved = await sql`SELECT key, value FROM settings WHERE key IN ('alerts.state', 'heartbeat.worker')`;
@@ -70,6 +72,8 @@ before(async () => {
   await sql`UPDATE articles SET discovered_at = now() - interval '3 hours', processing_state = 'new' WHERE id IN ${sql(ids)}`;
 });
 after(async () => {
+  if (priorReaderKey === undefined) delete process.env.JINA_API_KEY;
+  else process.env.JINA_API_KEY = priorReaderKey;
   installModules([]);
   await sql`DELETE FROM articles WHERE source_id = ${SOURCE}`;
   await sql`DELETE FROM sources WHERE id = ${SOURCE}`;
@@ -1001,5 +1005,70 @@ test("a source failure counter does not reopen its digest, but a changed cause a
     await sql`DELETE FROM settings WHERE key='alerts.state'`;
     if (state) await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json(state.value)})`;
     process.env.COLLECT_ENABLED = "true";
+  }
+});
+
+test("missing body reader configuration is announced once without calls or false service recovery", async (t) => {
+  const log = t.mock.method(console, "log", () => {});
+  const keys = ["COLLECT_ENABLED", "COLLECT_NEWS_ENABLED", "FEISHU_INTERNAL_ENABLED", "JINA_BODY_FALLBACK", "JINA_API_KEY"];
+  const env = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const [state] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
+  const [control] = await sql`SELECT paused,reason,actor,expires_at FROM ops.lane_controls WHERE lane='news' AND switch='collection' AND holder='owner'`;
+  const key = "provider.config.jina",
+    now = Date.now(),
+    mine = (values: string[]) => values.filter((value) => value.startsWith(key));
+  try {
+    process.env.COLLECT_ENABLED = "true";
+    process.env.COLLECT_NEWS_ENABLED = "true";
+    process.env.FEISHU_INTERNAL_ENABLED = "false";
+    process.env.JINA_BODY_FALLBACK = "true";
+    process.env.JINA_API_KEY = "";
+    await sql`DELETE FROM settings WHERE key='alerts.state'`;
+    const before = await sql`SELECT count(*)::int AS n FROM receipt_attempts`;
+    const material = await sql`SELECT id,processing_state FROM articles WHERE source_id=${SOURCE} ORDER BY id`;
+    const finding = (await collectFindings(now)).find((f) => f.key === key);
+    assert.ok(finding);
+    assert.match(finding.impact ?? "", /配置/);
+    assert.deepEqual(mine((await checkAlerts(now)).sent), [key]);
+    assert.deepEqual(mine((await checkAlerts(now + 26 * 3600_000)).sent), [], "same configuration issue must not repeat daily");
+    process.env.COLLECT_NEWS_ENABLED = "false";
+    assert.deepEqual(mine((await checkAlerts(now + 27 * 3600_000)).sent), [], "disabled collection is not recovery");
+    process.env.COLLECT_NEWS_ENABLED = "true";
+    await sql`UPDATE ops.lane_controls SET paused=true,reason='synthetic pause',actor='test',expires_at=now()+interval '2 days'
+      WHERE lane='news' AND switch='collection' AND holder='owner'`;
+    const paused = await checkAlerts(now + 27 * 3600_000);
+    assert.deepEqual(mine(paused.sent), [], "manual pause supplies no recovery evidence");
+    assert.deepEqual(mine(paused.open), [key]);
+    await sql`UPDATE ops.lane_controls SET paused=${control!.paused},reason=${control!.reason},actor=${control!.actor},expires_at=${control!.expires_at}
+      WHERE lane='news' AND switch='collection' AND holder='owner'`;
+    process.env.JINA_API_KEY = "   ";
+    assert.ok(
+      (await collectFindings(now)).some((f) => f.key === key),
+      "blank is missing",
+    );
+    process.env.JINA_API_KEY = "private-synthetic-value-must-not-leave-config";
+    log.mock.resetCalls();
+    assert.deepEqual(mine((await checkAlerts(now + 28 * 3600_000)).sent), [`${key}:recovered`]);
+    const messages = log.mock.calls.map((c) => String(c.arguments[0])).join("\n");
+    assert.match(messages, /正文读取配置已补齐/);
+    assert.match(messages, /尚未请求读取服务/);
+    assert.ok(!messages.includes(process.env.JINA_API_KEY));
+    process.env.JINA_API_KEY = "";
+    await checkAlerts(now + 29 * 3600_000);
+    process.env.JINA_BODY_FALLBACK = "false";
+    const disabled = await checkAlerts(now + 30 * 3600_000);
+    assert.deepEqual(mine(disabled.sent), [], "explicitly disabling the fallback does not claim recovery");
+    assert.deepEqual(mine(disabled.open), []);
+    assert.deepEqual(await sql`SELECT count(*)::int AS n FROM receipt_attempts`, before);
+    assert.deepEqual(await sql`SELECT id,processing_state FROM articles WHERE source_id=${SOURCE} ORDER BY id`, material);
+  } finally {
+    await sql`UPDATE ops.lane_controls SET paused=${control!.paused},reason=${control!.reason},actor=${control!.actor},expires_at=${control!.expires_at}
+      WHERE lane='news' AND switch='collection' AND holder='owner'`;
+    for (const [name, value] of Object.entries(env)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    await sql`DELETE FROM settings WHERE key='alerts.state'`;
+    if (state) await sql`INSERT INTO settings(key,value) VALUES('alerts.state',${sql.json(state.value)})`;
   }
 });
