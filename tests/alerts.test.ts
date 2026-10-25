@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { closeDb, sql as runtimeSql } from "@amp/backend/db";
-import { installModules } from "@amp/backend/modules";
+import { installModules, serverModules } from "@amp/backend/modules";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { autoStopsBetween, checkAlerts, collectFindings, dueReports, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
@@ -1012,6 +1012,7 @@ test("missing body reader configuration is announced once without calls or false
   const log = t.mock.method(console, "log", () => {});
   const keys = ["COLLECT_ENABLED", "COLLECT_NEWS_ENABLED", "FEISHU_INTERNAL_ENABLED", "JINA_BODY_FALLBACK", "JINA_API_KEY"];
   const env = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const modules = serverModules();
   const [state] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
   const [control] = await sql`SELECT paused,reason,actor,expires_at FROM ops.lane_controls WHERE lane='news' AND switch='collection' AND holder='owner'`;
   const key = "provider.config.jina",
@@ -1046,6 +1047,15 @@ test("missing body reader configuration is announced once without calls or false
       (await collectFindings(now)).some((f) => f.key === key),
       "blank is missing",
     );
+    installModules([
+      ...modules,
+      {
+        name: `unrelated-reader-check-${T}`,
+        alerts: async () => {
+          throw new Error("unrelated synthetic failure");
+        },
+      },
+    ]);
     process.env.JINA_API_KEY = "private-synthetic-value-must-not-leave-config";
     log.mock.resetCalls();
     assert.deepEqual(mine((await checkAlerts(now + 28 * 3600_000)).sent), [`${key}:recovered`]);
@@ -1062,6 +1072,7 @@ test("missing body reader configuration is announced once without calls or false
     assert.deepEqual(await sql`SELECT count(*)::int AS n FROM receipt_attempts`, before);
     assert.deepEqual(await sql`SELECT id,processing_state FROM articles WHERE source_id=${SOURCE} ORDER BY id`, material);
   } finally {
+    installModules(modules);
     await sql`UPDATE ops.lane_controls SET paused=${control!.paused},reason=${control!.reason},actor=${control!.actor},expires_at=${control!.expires_at}
       WHERE lane='news' AND switch='collection' AND holder='owner'`;
     for (const [name, value] of Object.entries(env)) {

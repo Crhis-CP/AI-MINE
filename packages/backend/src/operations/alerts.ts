@@ -680,14 +680,14 @@ export async function checkAlerts(now = Date.now()) {
   }
   for (const key of Object.keys(state)) {
     if (found.some((f) => f.key === key)) continue;
-    if (unchecked(state[key]!, failed, checked)) continue;
+    // This configuration check has its own observation, independent of extension failures.
     if (key === READER_CONFIGURATION) {
       if (checked.has(`${key}.disabled`)) {
         delete state[key];
         continue;
       }
       if (!checked.has(key)) continue;
-    }
+    } else if (unchecked(state[key]!, failed, checked)) continue;
     if (key.startsWith("metals.") && !collecting()) continue;
     // Startup grace, disabled work and manual pauses supply no recovery evidence.
     if (key.startsWith("report.") && !checked.has(key.split(".")[1]!)) continue;
