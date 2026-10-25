@@ -822,3 +822,9 @@ for (const marker of ["WNUMBER", "WIDENTITY", "WBAD", "WKEEP", "WREFUSE"])
     assert.equal(calls(marker).filter((s) => s === "wording").length, 1);
     assert.equal((await sql`SELECT id FROM receipts WHERE subject=${`article:${id}@1`} AND purpose='mend_wording'`).length, 1);
   });
+
+test("an unrun analysis has no model judgement or invented score", () => {
+  const out = normalizeAnalysis({ prefilter: null, scores: null, writing: null, structure: null });
+  assert.deepEqual([out.relevance, out.selected, out.score, out.scoreModel], ["unknown", false, null, null]);
+  assert.deepEqual([out.titleZh, out.summaryZh, out.geography], ["", "", null]);
+});
