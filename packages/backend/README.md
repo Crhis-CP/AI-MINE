@@ -491,3 +491,7 @@ editorial/analyze的AnalysisRun允许prefilter=null，表示未进行预筛，�
 ### 缺材料时的运行等待（TASK-0474）
 
 当前文章材料只有标题、正文/摘要均不可用时，runAnalysis和analyzeArticle在预筛前等待，保存无模型/回执的unknown结果；正常材料修订后沿原队列续接。页面抓正文、有效预筛后的中文原文提前公开、权限/暂停及修订围栏保持。评测同样先等材料，记为未判定/等待，不计入正确拒选或准确率。原帖路径及无人工标注固定样本比较仍是后续范围，不能以本片回归宣称整个模型迁移完成。
+
+### 固定样本只读清单（TASK-0475）
+
+admin/selectbench入口复用selectionDatasetManifest，供内部比较器读取未标注样本：label为null，保留样本/材料修订、输入哈希、整组version及current失效标记，不写标签或调用模型。返回的原输入不能直接送外部模型；消费者仍须通过prepareEvaluationInput重核材料和许可。端口没有HTTP路由，不改变gold导出或评分确认；无参考答案的比较不得宣称准确率。

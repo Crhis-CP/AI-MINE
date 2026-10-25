@@ -12,6 +12,7 @@ import {
   selectionSamples,
   labelSelectionSample,
   exportSelectionGold,
+  selectionDatasetManifest,
   submitSelectionStandard,
   reviewSelectionStandard,
   importSelectBenchRun,
@@ -77,6 +78,27 @@ async function dataset(count = 2, synthetic = true) {
 function labelInput(extra: Record<string, unknown> = {}) {
   return { requestId: randomUUID(), sampleRevision: 1, expectedRevision: 0, decision: "select", note: "仅隔离合成用例", ...extra };
 }
+
+test("fixed comparison manifests need no labels and retain material revision invalidation", async () => {
+  const f = await dataset(1);
+  const first = await selectionDatasetManifest(f.id);
+  assert.equal(first.cases[0]!.label, null);
+  assert.equal(first.cases[0]!.hidden_input.sourceId, f.sourceId);
+  assert.equal(first.cases[0]!.current, true);
+  assert.equal((await selectionDatasetManifest(f.id)).version, first.version);
+  await upsertMaterial({
+    sourceId: f.sourceId,
+    url: `https://fixture.invalid/${f.id}/0`,
+    title: "更新后的合成材料",
+    bodyText: "正文已变",
+    bodyStatus: "ok",
+    via: "fetch",
+  });
+  const after = await selectionDatasetManifest(f.id);
+  assert.equal(after.cases[0]!.current, false);
+  assert.equal(after.cases[0]!.input_hash, first.cases[0]!.input_hash, "a stale sample is marked, never silently replaced");
+  assert.equal(after.cases[0]!.label, null, "reading never fabricates a reference answer");
+});
 
 test("default closed; delegated models permission, dev stand-in and revoked access never become Owner", async () => {
   assert.equal((await selectionTool(owner)).enabled, false);
