@@ -506,4 +506,10 @@ admin/selectbench入口复用selectionDatasetManifest，供内部比较器读取
 
 ### 材料等待巡检摘要契约（TASK-0479）
 
-refreshOperationalSnapshots的结果项允许material_wait（count、oldest_at），供原ops.read-snapshots任务在运行日志中显示等待材料情况。当前只准备兼容类型，未采样时不写此字段，缺字段不当作0；旧只读MCP快照payload不变。统计生产者随后接入，不新增超时阈值或恢复动作。
+refreshOperationalSnapshots的结果项允许material_wait（count、oldest_at），供原ops.read-snapshots任务在运行日志中显示等待材料情况。未采样时不写此字段，缺字段不当作0；旧只读MCP快照payload不变。统计由下述TASK0480接入，不新增超时阈值或恢复动作。
+
+### 材料等待可见性（TASK-0480）
+
+原ops.read-snapshots任务的processing结果附material_wait数量与oldest_at。分析、材料、来源各自提供只读元数据，在同一只读快照内按当前修订及活跃news/editorial来源聚合；只有已完成模型入口明确未进入评分/写作的记录计入，兼容旧一次预筛和新零调用等待。时间是该修订最早已记录等待，不能解释成首次发现以来一直等待。
+
+全量统计不受只读MCP每数据集500组展示限制；旧MCP payload字段保持，新增摘要只进现有任务结果/运行日志。读失败仍为unavailable，不伪造0或阻断其他数据集。没有新增超时阈值、自动重试、模型或通知；源端/权限导致的取材失败沿既有来源健康与恢复路径核查。

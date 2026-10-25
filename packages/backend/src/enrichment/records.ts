@@ -1,6 +1,22 @@
 import { sha256, stableJson } from "../lib/ids.ts";
 import { sql, type Db } from "../db.ts";
 
+/** Known complete no-material outcomes, including the former paid-prefilter-only form. */
+export async function recordedMaterialWaits(db: Db) {
+  return db<{ article_id: string; input_revision: number; oldest_at: Date }[]>`
+    WITH complete AS (
+      SELECT id,article_id,input_revision,created_at,
+        (origin='model' AND relevance='unknown' AND output->'scores'='null'::jsonb
+          AND coalesce(output->>'writer','')='' AND coalesce(pg_catalog.cardinality(receipt_ids),0)<=1) AS waiting
+      FROM analyses WHERE output ? 'scores' OR relevance='block'
+    ), latest AS (
+      SELECT DISTINCT ON(article_id) article_id,input_revision,waiting FROM complete
+      ORDER BY article_id,input_revision DESC,id DESC
+    ) SELECT l.article_id,l.input_revision,min(w.created_at) AS oldest_at
+      FROM latest l JOIN complete w ON w.article_id=l.article_id AND w.input_revision=l.input_revision
+      WHERE l.waiting AND w.waiting GROUP BY l.article_id,l.input_revision`;
+}
+
 /** The latest recorded prefilter judgment; an audit never re-runs analysis or publishes it. */
 export async function latestPrefilterAuditJudgments(db: Db = sql) {
   return db<{ article_id: string; analysis_id: number; relevance: string | null }[]>`SELECT DISTINCT ON(article_id)

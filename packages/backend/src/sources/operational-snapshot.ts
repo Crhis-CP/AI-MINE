@@ -1,4 +1,10 @@
-import { sql } from "../db.ts";
+import { sql, type Db } from "../db.ts";
+
+export async function activeEditorialNewsSources(ids: string[], db: Db) {
+  if (!ids.length) return [];
+  return db<{ id: string }[]>`SELECT id FROM sources WHERE id=ANY(${ids}::text[])
+    AND enabled AND archived_at IS NULL AND lane='news' AND participation_mode='editorial'`;
+}
 
 export const sourcesOperationalSnapshot = () =>
   sql.begin(async (db) => {

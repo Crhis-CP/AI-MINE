@@ -348,7 +348,8 @@
 | [TASK-0476](TASK-0476.md) | T-0101 | M3 | architect | integrated | 接通固定样本模型处理与前后差异报告 | TASK-0475、TASK-0477、TASK-0478 |
 | [TASK-0477](TASK-0477.md) | T-0101 | M3 | architect | integrated | 隔离模型评测回执与生产恢复 | — |
 | [TASK-0478](TASK-0478.md) | T-0101 | M3 | architect | integrated | 保留评测未知转换与完整检查点 | — |
-| [TASK-0479](TASK-0479.md) | T-0101 | M3 | architect | locally_verified | 声明现有巡检结果的材料等待摘要 | — |
+| [TASK-0479](TASK-0479.md) | T-0101 | M3 | architect | integrated | 声明现有巡检结果的材料等待摘要 | — |
+| [TASK-0480](TASK-0480.md) | T-0101 | M3 | architect | locally_verified | 将已记录材料等待接入现有巡检 | TASK-0479 |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |
