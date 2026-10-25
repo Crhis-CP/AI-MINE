@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
 import { sql } from "../db.ts";
-import { cached } from "../lib/cache.ts";
+import { cached, type Cached } from "../lib/cache.ts";
+import { serverModules, type ServerModule } from "../modules.ts";
 import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, topicCondition, newsJurisdictionScope, type ItemRow } from "./items.ts";
 import { matchesTopicTags, readMatcherValues } from "./mentions.ts";
 
@@ -33,6 +34,41 @@ const topicsCache = cached(() => sql<TopicRow[]>`SELECT slug, name, grp, entity_
 });
 // Counts may lag by about a minute, like the public directory cache; item reads always check visibility.
 const countsCache = cached(queryTopicCounts, { freshMs: 60_000, maxStaleMs: 10 * 60_000 });
+type PartIndex = { bySlug: Map<string, FeedItemSummary[]>; modules: Map<string, unknown> };
+const partIndexes = new WeakMap<readonly ServerModule[], Cached<PartIndex>>();
+
+async function readPartIndex(modules: readonly ServerModule[], now: Date): Promise<PartIndex> {
+  const [topics, rows] = await Promise.all([
+    listTopics(),
+    sql<(ItemRow & { topic_search: string; jurisdictions: string[] | null })[]>`
+      SELECT ${ITEM_COLUMNS()},coalesce(p.search_text,'') AS topic_search,module_geo.jurisdictions ${ITEM_FROM()}
+      LEFT JOIN publication.news_geography module_geo ON module_geo.article_id=p.article_id AND module_geo.article_revision=a.revision
+        AND module_geo.analysis_id IS NOT DISTINCT FROM p.analysis_id AND module_geo.recipe=ANY(${newsJurisdictionScope(null).jurisdictionRecipes}::text[])
+      WHERE ${listedCondition(now)} AND p.eligible ORDER BY p.timeline_at DESC,p.article_id DESC`,
+  ]);
+  await attachSourcePolicies(rows);
+  const summaries = new Map(rows.map((row) => [row.id, toFeedItemSummary(row)]));
+  const bySlug = new Map(
+    topics.map((topic) => [
+      topic.slug,
+      rows.filter((row) => matchesTopicTags(row.tags, row.topic_search, topicMatchTags(topic), row.jurisdictions)).map((row) => summaries.get(row.id)!),
+    ]),
+  );
+  const ids = new Set([...bySlug.values()].flatMap((members) => members.map((member) => member.id)));
+  const members = rows.filter((row) => ids.has(row.id)).map((row) => summaries.get(row.id)!);
+  const indexes = modules.flatMap((module) => (module.topics?.page?.index ? [{ name: module.name, read: module.topics.page.index }] : []));
+  return { bySlug, modules: new Map(await Promise.all(indexes.map(async ({ name, read }) => [name, await read(members, now)] as const))) };
+}
+
+function partIndex(modules: readonly ServerModule[], now?: Date) {
+  if (now) return readPartIndex(modules, now);
+  let index = partIndexes.get(modules);
+  if (!index) {
+    index = cached(() => readPartIndex(modules, new Date()), { freshMs: 60_000, maxStaleMs: 60_000 });
+    partIndexes.set(modules, index);
+  }
+  return index.get();
+}
 
 /**
  * The topics (stable slugs, names, definitions, related topics) come from the industry pack
@@ -52,6 +88,7 @@ export async function seedTopics(): Promise<number> {
   }
   topicsCache.clear();
   countsCache.clear();
+  partIndexes.get(serverModules())?.clear();
   return data.topics.length;
 }
 
@@ -162,9 +199,10 @@ export interface TopicPage {
   parts?: Record<string, unknown>;
 }
 
-export async function loadTopicPage(slug: string, page: number, now = new Date()): Promise<TopicPage | null> {
+export async function loadTopicPage(slug: string, page: number, now?: Date): Promise<TopicPage | null> {
+  const at = now ?? new Date();
   const row = await loadTopic(slug);
-  if (!row || page < 1) return null;
+  if (!row || !Number.isInteger(page) || page < 1) return null;
   const topics = await listTopicSummaries();
   const topic = topics.find((t) => t.slug === slug);
   if (!topic) return null;
@@ -173,10 +211,19 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   // Page ids from the set the counts follow first, then the joins for those rows only.
   const match = readMatcherValues(null, topicMatchTags(row), [], [], newsJurisdictionScope(null).jurisdictionRecipe);
   const offset = (page - 1) * TOPIC_PAGE_SIZE;
+  const modules = serverModules();
+  const index = modules.some((module) => module.topics?.page) ? await partIndex(modules, now) : null;
+  const parts = index
+    ? modules.flatMap((module) => {
+        const result = module.topics?.page?.read({ topic, page, members: index.bySlug.get(slug) ?? [], index: index.modules.get(module.name), now: at });
+        return result ? [{ name: module.name, ...result }] : [];
+      })
+    : [];
+  const recheck = [...new Set(parts.flatMap((part) => part.recheck))];
   const rows = await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${match.topicTags !== null} AND ${listedCondition(now)} AND p.eligible ${topicCondition(match)}
+      WHERE ${match.topicTags !== null} AND ${listedCondition(at)} AND p.eligible ${topicCondition(match)}
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
     SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
@@ -185,8 +232,21 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
     .map((r) => topics.find((t) => t.slug === r))
     .filter((t): t is TopicSummary => !!t)
     .map((t) => ({ slug: t.slug, name: t.name }));
-  await attachSourcePolicies(rows);
-  return { topic: { ...topic, related }, items: rows.map(toFeedItemSummary), page, pageCount };
+  const live = recheck.length
+    ? await sql<ItemRow[]>`
+    SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id=ANY(${recheck}::text[])
+      AND ${match.topicTags !== null} AND ${listedCondition(at)} AND p.eligible ${topicCondition(match)}
+    ORDER BY p.timeline_at DESC,p.article_id DESC`
+    : [];
+  await attachSourcePolicies([...rows, ...live]);
+  const current = new Map(live.map((row) => [row.id, toFeedItemSummary(row)]));
+  return {
+    topic: { ...topic, related },
+    items: rows.map(toFeedItemSummary),
+    page,
+    pageCount,
+    ...(parts.length ? { parts: JSON.parse(JSON.stringify(Object.fromEntries(parts.map((part) => [part.name, part.part(current)])))) } : {}),
+  };
 }
 
 /** Search navigation needs catalogue identities only, never an article-count scan. */
