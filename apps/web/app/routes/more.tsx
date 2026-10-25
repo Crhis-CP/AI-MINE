@@ -20,9 +20,10 @@ export function meta() {
   return pageMeta({ title: "我的", path: "/more", noindex: true });
 }
 
-type Row = { to: string; label: string; icon: ReactNode };
+type Row = { to: string; label: string; icon: ReactNode; detail?: string };
 const tools = WEB_MODULES.flatMap((module) => module.tools ?? []);
 const toolPaths = new Set(tools.map((tool) => tool.to));
+const agentWays = WEB_MODULES.flatMap((module) => module.agentWays ?? []);
 
 const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
@@ -34,7 +35,12 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
         icon: <Icon size={18} />,
       })),
       { to: "/topics", label: "主题索引", icon: <IconGrid size={18} /> },
-      { to: "/agent", label: "Agent 接入", icon: <IconPlug size={18} /> },
+      {
+        to: "/agent",
+        label: "Agent 接入",
+        icon: <IconPlug size={18} />,
+        detail: agentWays.length ? [...new Set([...agentWays, "MCP", "RSS", "API"])].slice(0, 3).join(" · ") : undefined,
+      },
     ],
   },
   {
@@ -91,6 +97,11 @@ export default function MorePage() {
                     {r.label}
                     {r.to === "/changelog" && <UnreadMark />}
                   </span>
+                  {r.detail && (
+                    <span className="max-w-[45%] truncate text-[12px] text-ink-4" title={r.detail}>
+                      {r.detail}
+                    </span>
+                  )}
                   <IconChevronRight size={16} className="text-ink-4" />
                 </Link>
               </li>

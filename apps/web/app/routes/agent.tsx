@@ -1,6 +1,6 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { useEffect, useState, type ReactNode } from "react";
-import { useLoaderData, useNavigate, useSearchParams } from "react-router";
+import { useLoaderData, useLocation, useNavigate, useSearchParams } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/agent";
 import { SITE, withSubject } from "@amp/industry/site";
@@ -11,6 +11,8 @@ import { CodeBlock, CopyButton } from "../components/CodeBlock";
 import { IconArrowUpRight, IconChevronRight } from "../components/icons";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
 import { PillTabs } from "../components/ui/Tabs";
+import { loadParts } from "../../site-modules";
+import type { AgentPanelProps, AgentTrack } from "../../modules";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -18,6 +20,9 @@ export function headers() {
 }
 
 const MCP_VERSION = "2.1.0";
+const AGENT_PARTS = (await loadParts((module) => module.agent)).map(({ name, part }) => ({ ...part, moduleName: name }));
+const TAG = AGENT_PARTS.find((part) => part.tag)?.tag;
+const useTag = TAG?.useValue ?? (() => null);
 /** The machine-readable entry points, with what each one is for. */
 const RESOURCES: Array<[label: string, href: string, note: string]> = [
   ["Agent中文答案", "/api/v1/agent", "无需MCP，直接读取中文资讯与报告"],
@@ -25,13 +30,45 @@ const RESOURCES: Array<[label: string, href: string, note: string]> = [
   ["MCP Server", "/api/mcp", "MCP 客户端的连接地址"],
   ["OpenAPI 3.1", "/openapi-v3.json", "REST API v3 的完整定义"],
 ];
+for (const resource of AGENT_PARTS.flatMap((part) => part.resources ?? [])) if (!RESOURCES.some(([, href]) => href === resource[1])) RESOURCES.push(resource);
 
-const TABS = [
+const TABS: Array<{ key: string; label: string }> = [
   { key: "mcp", label: "MCP" },
   { key: "rss", label: "RSS" },
   { key: "api", label: "REST API" },
-] as const;
+];
+const MODULE_TRACKS: AgentTrack[] = [];
+for (const track of AGENT_PARTS.flatMap((part) => part.tracks ?? [])) {
+  if (!track.key || TABS.some((tab) => tab.key === track.key)) continue;
+  MODULE_TRACKS.push(track);
+  TABS.push({ key: track.key, label: track.short });
+}
 type TabKey = (typeof TABS)[number]["key"];
+const tabKey = (key: string | null) => (TABS.some((tab) => tab.key === key) ? key! : "mcp");
+const tabHref = (key: string) => (key === "mcp" ? "/agent" : `/agent?${new URLSearchParams({ tab: key })}`);
+const ANCHORS = new Map([["agent-api-recovery", "api"]]);
+for (const track of MODULE_TRACKS) for (const anchor of track.anchors ?? []) if (!ANCHORS.has(anchor)) ANCHORS.set(anchor, track.key);
+const blockIds = new Set(["agent-api-recovery"]);
+const BLOCKS = AGENT_PARTS.flatMap((part) => part.blocks ?? []).filter((block) => {
+  if (
+    !block.anchor ||
+    blockIds.has(block.anchor) ||
+    !TABS.some((tab) => tab.key === block.track) ||
+    (ANCHORS.has(block.anchor) && ANCHORS.get(block.anchor) !== block.track)
+  )
+    return false;
+  blockIds.add(block.anchor);
+  ANCHORS.set(block.anchor, block.track);
+  return true;
+});
+const anchorHref = (id: string) => (ANCHORS.has(id) ? `${tabHref(ANCHORS.get(id)!)}#${encodeURIComponent(id)}` : "/agent");
+function addressOf(base: string, path: string, tag: string | null) {
+  if (!TAG || !tag) return `${base}${path}`;
+  const url = new URL(path, base);
+  url.searchParams.set(TAG.query, tag);
+  return url.href;
+}
+const shellQuote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
 
 export async function loader({ request }: Route.LoaderArgs) {
   const tab = new URL(request.url).searchParams.get("tab");
@@ -45,7 +82,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     healthy = false;
   }
   // The public address the examples show is the configured one, the same on the server and in the browser.
-  return { tab: (TABS.some((t) => t.key === tab) ? tab : "mcp") as TabKey, healthy, base: siteUrl() };
+  return { tab: tabKey(tab), healthy, base: siteUrl(), now: Date.now() };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -85,8 +122,8 @@ function Mono({ children }: { children: ReactNode }) {
   return <code className="mono rounded-mark bg-bg-sunk px-1.5 py-0.5 text-[0.88em] text-ink">{children}</code>;
 }
 
-function McpTab({ base }: { base: string }) {
-  const url = `${base}/api/mcp`;
+function McpTab({ base, tag }: AgentPanelProps) {
+  const url = addressOf(base, "/api/mcp", tag);
   const name = SITE.mcpPrefix;
   return (
     <>
@@ -98,6 +135,7 @@ function McpTab({ base }: { base: string }) {
         <code className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{url}</code>
         <CopyButton text={url} className="!text-ink-3" />
       </div>
+      {TAG && <p className="mt-2 text-[13px] text-ink-3">{TAG.mcp}</p>}
       <CodeBlock title="通用 MCP 配置" lang="json" code={JSON.stringify({ mcpServers: { [name]: { type: "http", url } } }, null, 2)} />
       <CodeBlock lang="bash" code={`# Claude Code\nclaude mcp add --transport http ${name} '${url}'\n# Codex\ncodex mcp add ${name} --url '${url}'`} />
       <Section title={`连上后应看到这 ${MCP_TOOLS.length} 个工具`}>
@@ -155,7 +193,7 @@ function McpTab({ base }: { base: string }) {
   );
 }
 
-function RssTab({ base }: { base: string }) {
+function RssTab({ base, tag }: AgentPanelProps) {
   const feeds = [
     ["精选摘要（推荐）", "最新 50 条精选摘要，保留标题、站内阅读与原文入口。", "/feed.xml"],
     ["精选全文", "与精选摘要相同的最新 50 条；只对明确允许再分发的来源内联正文。", "/feed/full.xml"],
@@ -170,7 +208,7 @@ function RssTab({ base }: { base: string }) {
       <p className="mt-2 text-[14.5px] text-ink-3">兼容主流 RSS 2.0 阅读器与 n8n、Zapier 这类自动化工具。第一次接入选精选摘要。</p>
       <div className="mt-6 space-y-3">
         {feeds.map(([name, desc, path]) => {
-          const url = `${base}${path}`;
+          const url = addressOf(base, path, tag);
           return (
             <div key={path} className="card p-4">
               <div className="flex items-center justify-between gap-3">
@@ -183,6 +221,7 @@ function RssTab({ base }: { base: string }) {
           );
         })}
       </div>
+      {TAG && <p className="mt-3 text-[13px] text-ink-3">{TAG.rss}</p>}
       <Section title="给阅读器和 Agent 的约定">
         <Bullets
           items={[
@@ -202,7 +241,8 @@ function RssTab({ base }: { base: string }) {
   );
 }
 
-function ApiTab({ base }: { base: string }) {
+function ApiTab({ base, tag }: AgentPanelProps) {
+  const curl = TAG && tag ? `curl -A ${shellQuote(TAG.userAgent(tag))}` : "curl";
   const endpoints: Array<[string, string]> = [
     ["/api/v3/items", "当前公开资讯；支持精选、分类、来源、日期和关键词筛选"],
     ["/api/v3/items/{id}/reading", "许可允许的正文分段与阅读依据"],
@@ -224,7 +264,7 @@ function ApiTab({ base }: { base: string }) {
         </a>{" "}
         为准。
       </p>
-      <CodeBlock title="第一个请求" lang="bash" code={`curl '${base}/api/v3/items?view=featured&limit=20'`} />
+      <CodeBlock title="第一个请求" lang="bash" code={`${curl} '${base}/api/v3/items?view=featured&limit=20'`} />
       <div className="overflow-x-auto rounded-card border border-line bg-surface">
         <table className="w-full min-w-[560px] text-left text-[13.5px]">
           <thead className="bg-bg-sunk text-ink-3">
@@ -259,7 +299,7 @@ function ApiTab({ base }: { base: string }) {
       <Section title="维护全部精选：一次快照，之后只拉变化">
         <CodeBlock
           lang="bash"
-          code={`# 首次：分页拿当前全部精选，保存第一页响应里的 cursor（逐页相同）\ncurl '${base}/api/v3/featured/snapshot?limit=500'\n# has_more 为 true 就带 next_page 继续翻\ncurl '${base}/api/v3/featured/snapshot?limit=500&page=<上一页的 next_page>'\n# 翻完之后：原样回传 cursor，只拿新增、修改和撤选\ncurl '${base}/api/v3/featured/changes?cursor=<第一页响应的 cursor>&limit=100'`}
+          code={`# 首次：分页拿当前全部精选，保存第一页响应里的 cursor（逐页相同）\n${curl} '${base}/api/v3/featured/snapshot?limit=500'\n# has_more 为 true 就带 next_page 继续翻\n${curl} '${base}/api/v3/featured/snapshot?limit=500&page=<上一页的 next_page>'\n# 翻完之后：原样回传 cursor，只拿新增、修改和撤选\n${curl} '${base}/api/v3/featured/changes?cursor=<第一页响应的 cursor>&limit=100'`}
         />
         <p>每页成功应用后再保存新 cursor。返回 409 snapshot_required 时重新取一次快照即可，接口不会静默漏数。</p>
       </Section>
@@ -278,17 +318,47 @@ function ApiTab({ base }: { base: string }) {
 }
 
 export default function AgentPage() {
-  const { tab: initialTab, healthy, base } = useLoaderData<typeof loader>();
+  const { healthy, base, now } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
+  const pageLocation = useLocation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<TabKey>(initialTab);
-
-  useEffect(() => setTab((params.get("tab") as TabKey) || "mcp"), [params]);
+  const [tab, setTab] = useState<TabKey>(tabKey(params.get("tab")));
+  const tag = useTag();
+  const props = { base, tag, now };
+  const [target, setTarget] = useState<string | null>(null);
+  useEffect(() => setTab(tabKey(params.get("tab"))), [params]);
+  useEffect(() => {
+    let id: string;
+    try {
+      id = decodeURIComponent(pageLocation.hash.slice(1));
+    } catch {
+      return;
+    }
+    const key = ANCHORS.get(id);
+    if (!key) return;
+    setTab(key);
+    if (key !== tabKey(new URLSearchParams(pageLocation.search).get("tab"))) navigate(anchorHref(id), { replace: true, preventScrollReset: true });
+    setTarget(id);
+  }, [pageLocation.hash, pageLocation.search, navigate]);
+  useEffect(() => {
+    if (!target || tab !== ANCHORS.get(target)) return;
+    document.getElementById(target)?.scrollIntoView({ block: "start" });
+    setTarget(null);
+  }, [target, tab]);
 
   const select = (key: TabKey) => {
+    setTarget(null);
     setTab(key);
-    navigate(key === "mcp" ? "/agent" : `/agent?tab=${key}`, { replace: true, preventScrollReset: true });
+    navigate(tabHref(key), { replace: true, preventScrollReset: true });
   };
+  const open = (id: string) => {
+    if (ANCHORS.has(id)) {
+      setTab(ANCHORS.get(id)!);
+      navigate(anchorHref(id), { replace: true, preventScrollReset: true });
+      setTarget(id);
+    }
+  };
+  const track = MODULE_TRACKS.find((track) => track.key === tab);
 
   const pill = "inline-flex h-6 items-center rounded-mark border border-line bg-surface px-2 text-[11.5px] text-ink-3";
   const aside = (
@@ -331,6 +401,8 @@ export default function AgentPage() {
           </span>
         </div>
       </header>
+      {AGENT_PARTS.map((part) => (part.Banner ? <part.Banner key={part.moduleName} {...props} href={anchorHref} open={open} /> : null))}
+      {TAG && <TAG.Note />}
 
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] lg:hidden">
         {RESOURCES.map(([l, h]) => (
@@ -356,9 +428,26 @@ export default function AgentPage() {
       </div>
 
       <div className="mt-7" role="tabpanel">
-        {tab === "mcp" && <McpTab base={base} />}
-        {tab === "rss" && <RssTab base={base} />}
-        {tab === "api" && <ApiTab base={base} />}
+        {tab === "mcp" && <McpTab {...props} />}
+        {tab === "rss" && <RssTab {...props} />}
+        {tab === "api" && <ApiTab {...props} />}
+        {track && (
+          <>
+            <h2 className="flex items-center gap-2 text-[20px] font-bold">
+              {track.icon && <track.icon size={20} />}
+              {track.name}
+              {track.badge && <span className="chip">{track.badge}</span>}
+            </h2>
+            <p className="mt-2 text-ink-3">{track.pitch}</p>
+            <p className="mt-1 text-[13px] text-ink-4">{track.fit}</p>
+            <track.Panel {...props} />
+          </>
+        )}
+        {BLOCKS.filter((block) => block.track === tab).map((block) => (
+          <section key={block.anchor} id={block.anchor} className="mt-8 scroll-mt-24">
+            <block.Block {...props} />
+          </section>
+        ))}
       </div>
     </ReadingLayout>
   );
