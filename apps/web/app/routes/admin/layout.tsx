@@ -17,7 +17,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const me = await adminGet<AdminMe>(request, "/api/admin/me");
   const path = new URL(request.url).pathname;
   if (me.mustChangePassword && path !== "/admin/account") throw redirect("/admin/account");
-  const counts = me.mustChangePassword ? Promise.resolve<Counts>({}) : adminGet<Counts>(request, "/api/admin/nav-counts").catch(() => ({}));
+  const counts = me.mustChangePassword ? Promise.resolve<Counts>({}) : adminGet<Counts>(request, "/api/admin/nav-counts").catch(() => null);
   return { me, counts, countsKey: crypto.randomUUID() };
 }
 
@@ -69,7 +69,17 @@ function navActive(pathname: string, item: { to: string; end?: boolean }) {
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }
 
-function NavItem({ item, counts, countsKey, pathname }: { item: NavEntry; counts: Promise<Counts>; countsKey: string; pathname: string }) {
+export function NavCount({ value, className }: { value: number | null | undefined; className?: string }) {
+  if (value === null)
+    return (
+      <span role="img" className={className} title="待处理数量暂时无法读取" aria-label="待处理数量暂时无法读取">
+        ?
+      </span>
+    );
+  return typeof value === "number" && value > 0 ? <span className={className}>{value}</span> : null;
+}
+
+function NavItem({ item, counts, countsKey, pathname }: { item: NavEntry; counts: Promise<Counts | null>; countsKey: string; pathname: string }) {
   const active = navActive(pathname, item);
   return (
     <NavLink to={item.to} end={item.end} prefetch="intent" className="group relative block">
@@ -87,15 +97,12 @@ function NavItem({ item, counts, countsKey, pathname }: { item: NavEntry; counts
         {item.count && (
           <Suspense key={countsKey} fallback={null}>
             <Await resolve={counts} errorElement={null}>
-              {(resolved: Counts) =>
-                resolved[item.count!] ? (
-                  <span
-                    className={`num relative min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 ${item.tone === "bad" ? "bg-hot text-white" : "bg-accent-soft text-accent"}`}
-                  >
-                    {resolved[item.count!]}
-                  </span>
-                ) : null
-              }
+              {(resolved: Counts | null) => (
+                <NavCount
+                  value={resolved === null ? null : resolved[item.count!]}
+                  className={`num relative min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 ${item.tone === "bad" ? "bg-hot text-white" : "bg-accent-soft text-accent"}`}
+                />
+              )}
             </Await>
           </Suspense>
         )}
@@ -170,7 +177,9 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
                   {i.count && (
                     <Suspense key={countsKey} fallback={null}>
                       <Await resolve={counts} errorElement={null}>
-                        {(resolved: Counts) => (resolved[i.count!] ? <span className="num ml-1 text-[11px] opacity-70">{resolved[i.count!]}</span> : null)}
+                        {(resolved: Counts | null) => (
+                          <NavCount value={resolved === null ? null : resolved[i.count!]} className="num ml-1 text-[11px] opacity-70" />
+                        )}
                       </Await>
                     </Suspense>
                   )}

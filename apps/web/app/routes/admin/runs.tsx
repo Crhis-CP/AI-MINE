@@ -9,10 +9,16 @@ import { loadReconciliation } from "../../lib/admin.server";
 import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { ago, bj, duration, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Dot, Empty, Field, Json, ReasonDialog, Select, Stat, Time } from "../../features/admin/ui";
+import { loadParts } from "../../../site-modules";
+import { ModuleRunPanels } from "../../features/admin/module-runs";
+import { ADMIN_MODULES } from "@amp/site/modules/admin";
+
+const moduleRuns = await loadParts((module) => module.admin?.runs, ADMIN_MODULES);
 
 export async function loader({ request }: Route.LoaderArgs) {
   const data = await loadReconciliation<AdminRuns>(request);
   return {
+    modules: data.modules,
     checkedAt: data.checkedAt,
     processes: data.processes.map(({ role, pid, host, release, startedAt, at, alive }) => ({ role, pid, host, release, startedAt, at, alive })),
     jobs: data.jobs.map(({ job, started_at, finished_at, status, error, failed_24h, runs_24h }) => ({
@@ -106,6 +112,7 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
 
   return (
     <AdminPage title="运行" subtitle={<>任务、队列、信源延迟与需要人工核对的回执和投递。每 20 秒自动刷新 · 最近检查 {bj(r.checkedAt)}</>}>
+      <ModuleRunPanels parts={moduleRuns} modules={r.modules} />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat
           label="worker"

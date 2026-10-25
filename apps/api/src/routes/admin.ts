@@ -39,6 +39,7 @@ import { banFeedbackEmail, banSource, eraseFeedback, feedbackScreenshot, listFee
 import { releaseReceipt, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
 import {
   routes as contracts,
+  AdminNavigationCounts,
   ReceiptReconciliationResponse,
   ReceiptReleaseResponse,
   SourceRecord,
@@ -79,6 +80,7 @@ import {
   updateSource,
 } from "@amp/backend/admin/sources";
 import { sql } from "@amp/backend/db";
+import { serverModules } from "@amp/backend/modules";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
 import { managedReports, requestManagedReport } from "@amp/backend/reports/compose";
@@ -515,12 +517,22 @@ export function registerAdmin(app: FastifyInstance) {
   // Attention counts for the navigation.
   app.get(
     "/api/admin/nav-counts",
-    adminHandler(async () => {
+    adminHandler(async (req, reply) => {
       const [c] = await sql<Record<string, number>[]>`
       SELECT (SELECT count(*)::int FROM feedback WHERE status = 'new') AS feedback,
              (SELECT count(*)::int FROM sources WHERE enabled AND health = 'failing') AS sources,
              (SELECT count(*)::int FROM receipts WHERE status = 'unknown') + (SELECT count(*)::int FROM deliveries WHERE status = 'unknown') AS runs`;
-      return c;
+      try {
+        const counts = new Map(Object.entries(c!));
+        for (const module of serverModules())
+          for (const [key, read] of Object.entries(module.admin?.counts ?? {})) {
+            if (counts.has(key)) throw Error("Duplicate administrative count");
+            counts.set(AdminNavigationCounts.keyType.parse(key), AdminNavigationCounts.valueType.parse(await read()));
+          }
+        return Object.fromEntries(counts);
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "后台统计暂时无法完整读取，请稍后重试。" });
+      }
     }),
   );
 

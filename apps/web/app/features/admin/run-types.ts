@@ -1,3 +1,5 @@
+import type { z } from "zod";
+import type { AdminModuleRuns } from "@amp/contracts/http/private";
 type Timestamp = string;
 export interface AdminReceiptIssue {
   [key: string]: unknown;
@@ -77,7 +79,7 @@ export interface AdminRuns {
   retrying: { count: number; next: Timestamp | null };
   ingest: Array<{ client: string; kind: string; status: string; error: string | null; summary: unknown; created_at: Timestamp }>;
   /** Each module's part of the page, under its name (what its server module's admin.runs returns). */
-  modules?: Record<string, unknown>;
+  modules?: z.infer<typeof AdminModuleRuns>;
 }
 
 export interface AdminAuditEntry {
