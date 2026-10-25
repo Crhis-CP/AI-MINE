@@ -89,7 +89,7 @@ export function renderContext(a: AnalyzeInputArticle): string {
 /** The prefilter's user message: the context as a JSON string (the prompt was tuned on this form). */
 export const prefilterUser = (a: AnalyzeInputArticle) => JSON.stringify(renderContext(a));
 
-/** Nothing to judge beyond the title: the prefilter's BLOCK then means "wait for material". */
+/** Nothing to judge beyond the title: wait before any paid step. */
 export function missingEvidence(a: AnalyzeInputArticle): boolean {
   return !usableSourceText(a.bodyText, a.excerpt);
 }

@@ -1,4 +1,5 @@
 import { prepareEvaluationInput } from "@amp/backend/editorial/analyze";
+import { missingEvidence } from "@amp/backend/editorial/writing";
 // Checks the selection against your own labelled samples (a "gold set"): each case runs the site's
 // selection steps (editorial/analyze.ts) — the prefilter, then the score prompt twice with every model in
 // --models, the two scores deciding against the source tier's threshold — and is compared with your
@@ -179,6 +180,7 @@ for (const model of models) {
     const receiptIds: number[] = [];
     try {
       const { input, fallbackInput } = await prepareEvaluationInput(r.analysisInput ? toInput(r) : undefined, r.inputFingerprint);
+      if (missingEvidence(input)) return { r, out: null, receiptIds, error: "等待材料：没有可供判断的正文或摘要" };
       const prefilter = await runSelectionPrefilter(input, { fallbackInput, usagePurpose: "evaluation" }, (id) => receiptIds.push(id));
       if (prefilter.label === "BLOCK") {
         const run: AnalysisRun = { prefilter, scores: null, writing: null, structure: null };

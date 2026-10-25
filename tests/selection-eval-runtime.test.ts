@@ -261,3 +261,21 @@ test("in a production environment the evaluation still scores the draft, before 
     assert.equal(score.hits(), 2, "two score calls, shared by the two cases");
   });
 });
+
+test("missing evaluation material waits without buying a judgement or counting a correct rejection", async (t) => {
+  await withoutModelOverrides(async () => {
+    const prefilter = await stub(() => ({ choices: [{ message: { content: JSON.stringify({ label: "PASS", reason: "relevant" }) } }] }));
+    const score = await stub(() => ({ choices: [{ message: { content: JSON.stringify({ attentionScore: 10 }) } }] }));
+    t.after(async () => {
+      await Promise.all([prefilter.close(), score.close()]);
+    });
+    const marker = tag();
+    const sample = row(`${marker}-empty`, marker, "T1", "reject");
+    sample.material.bodyOriginal = "";
+    const result = await evaluate([sample], { prefilter: prefilter.url, score: score.url });
+    assert.deepEqual([prefilter.hits(), score.hits()], [0, 0]);
+    assert.equal(result.cases[0]!.decision, null);
+    assert.match(result.cases[0]!.error ?? "", /等待材料/);
+    assert.deepEqual([result.summary.decisive, result.summary.errors], [0, 1]);
+  });
+});
