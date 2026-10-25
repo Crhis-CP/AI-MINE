@@ -5,14 +5,20 @@ import { siteUrl } from "./links.ts";
 import { topicPageCounts } from "./topics.ts";
 import { PolicyReadError, policyDiscoveryEntries } from "./policies.ts";
 import { policyReport } from "./policies-reports.ts";
+import { serverModules, type SitemapEntry } from "../modules.ts";
+import { z } from "zod";
 
 const MAX_URLS = 45_000;
-interface Entry {
-  loc: string;
-  lastmod?: Date | null;
-  changefreq?: string;
-  priority?: number;
-}
+type Entry = SitemapEntry;
+const moduleEntries = z.array(
+  z.object({
+    loc: z.string().regex(/^\/(?!\/)[^\\\s#]*$/),
+    revision: z.string().optional(),
+    lastmod: z.date().nullish(),
+    changefreq: z.enum(["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"]).optional(),
+    priority: z.number().min(0).max(1).optional(),
+  }),
+);
 
 async function entriesForSitemap(): Promise<Entry[]> {
   const entries: Entry[] = [];
@@ -78,6 +84,15 @@ async function entriesForSitemap(): Promise<Entry[]> {
   const items = await sql<{ id: string; t: Date }[]>`
     SELECT article_id AS id, updated_at AS t FROM publications WHERE visibility = 'public' AND indexable ORDER BY timeline_at DESC,article_id`;
   for (const it of items) entries.push({ loc: `/items/${it.id}`, lastmod: it.t, changefreq: "monthly", priority: 0.5 });
+  const seen = new Set(entries.map((entry) => entry.loc));
+  for (const module of serverModules()) {
+    if (!module.sitemap?.entries) continue;
+    for (const entry of moduleEntries.parse(await module.sitemap.entries())) {
+      if (seen.has(entry.loc)) continue;
+      entries.push(entry);
+      seen.add(entry.loc);
+    }
+  }
   return entries;
 }
 
