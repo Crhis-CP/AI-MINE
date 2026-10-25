@@ -8,7 +8,8 @@
       "国家主题页按资讯实际涉及的地点展示，与国家筛选保持一致。",
       "金属价格的检查结果直接说明报价是否变化。",
       "矿企主题卡片和详情标题旁增加名称首字标识，方便浏览时辨认。",
-      "通过无效标签链接打开接入页时，仍会展示默认接入说明。"
+      "通过无效标签链接打开接入页时，仍会展示默认接入说明。",
+      "符合精选条件的国别报道，不再因未进入总榜而遗漏；已不符合条件的内容不再列入结果。"
     ]
   },
   "fragments": [
@@ -16,6 +17,7 @@
     "changes/TASK-0437-price-checks.md",
     "changes/TASK-0446-country-topics.md",
     "changes/TASK-0457-topic-marks.md",
-    "changes/TASK-0463-agent-navigation.md"
+    "changes/TASK-0463-agent-navigation.md",
+    "changes/TASK-0471-country-selected.md"
   ]
 }

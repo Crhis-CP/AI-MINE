@@ -340,6 +340,7 @@
 | [TASK-0468](TASK-0468.md) | T-0101 | M3 | architect | locally_verified | 修复国别精选漏推和发送等待后的当前内容复核 | — |
 | [TASK-0469](TASK-0469.md) | T-0101 | M3 | architect | locally_verified | 接通统一模型目录与后台选择 | — |
 | [TASK-0470](TASK-0470.md) | T-0101 | M3 | architect | locally_verified | 统一模型用途的调用准入与费用归属 | — |
+| [TASK-0471](TASK-0471.md) | T-0101 | M3 | architect | locally_verified | 补齐国家精选查询遗漏并排除失效资格 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

@@ -291,10 +291,11 @@ export interface PublicStoryReadScope extends PublicReadScope {
   now: Date;
 }
 export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matchers: ReadMatcherValues): Promise<Array<ApiItemRow & { sort_at: Date }>> {
+  const countryScope = !!query.jurisdiction || !!matchers.topicJurisdiction;
   const sort = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) WHEN ${query.selected} THEN p.sort_at ELSE p.timeline_at END`;
   return db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
     WHERE p.visibility='public' AND (NOT p.selected OR p.visible_after<=${query.now})
-      AND (${!query.selected} OR (${confirmedSelected()} AND p.seat)) AND (${query.selected} OR p.eligible)
+      AND p.eligible AND (${!query.selected} OR (${confirmedSelected()} AND (${countryScope} OR p.seat)))
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
