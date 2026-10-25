@@ -5,7 +5,7 @@ import { audit, modelSwitchHistory } from "./auth.ts";
 // and the SelectBench runs that compare models on the same batch. A switch is audited and applies to
 // new work only.
 import { sql, type Db } from "../db.ts";
-import { CAPABILITIES, invalidateModelCache, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
+import { capabilities as declaredCapabilities, invalidateModelCache, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
 import { BUILTIN_MODEL_FAMILIES, MODELS, environmentModelMetadata, modelPresetReady } from "../providers/llm.ts";
 
 import { modelRouteRevisions } from "./model-registry.ts";
@@ -57,7 +57,7 @@ export async function modelsOverview(days = 7) {
   ]);
   const routeRevisions = await modelRouteRevisions();
   const connectionNames = new Map(connections.map((c) => [`registered:${c.id}`, c.name]));
-  const capabilities = (Object.entries(CAPABILITIES) as Array<[CapabilityKey, Capability]>).map(([key, c]) => ({
+  const capabilities = (Object.entries(declaredCapabilities()) as Array<[CapabilityKey, Capability]>).map(([key, c]) => ({
     key,
     label: c.label,
     env: c.env,
@@ -100,8 +100,8 @@ export async function modelsOverview(days = 7) {
 
 /** Select a configured model; switches apply to subsequent work and preserve existing results. */
 export async function switchModel(capability: string, model: string | null, reason: string, actor: string) {
-  const c = (CAPABILITIES as Record<string, Capability>)[capability];
-  if (!c) throw Object.assign(new Error("没有这个处理环节"), { statusCode: 400 });
+  const c = declaredCapabilities()[capability];
+  if (!c?.lane) throw Object.assign(new Error("没有这个处理环节"), { statusCode: 400 });
   if (!reason.trim()) throw Object.assign(new Error("请填写切换原因"), { statusCode: 400 });
   const result = await sql.begin(async (tx) => {
     await modelRegistryLock(tx, true);
@@ -160,7 +160,7 @@ export async function modelConfigurationIdentity(key: string, db: Db = sql): Pro
   return { key, service: configured?.service ?? null, requestedModel: configured?.model || null, configuration_hash: configured?.configuration_hash ?? null };
 }
 export async function currentModelConfiguration(capability: string, db: Db = sql): Promise<ModelConfigurationIdentity> {
-  if (!Object.hasOwn(CAPABILITIES, capability)) throw Object.assign(new Error("unknown capability"), { statusCode: 400 });
+  if (!Object.hasOwn(declaredCapabilities(), capability)) throw Object.assign(new Error("unknown capability"), { statusCode: 400 });
   if (db === sql) return sql.begin((tx) => currentModelConfiguration(capability, tx));
   await modelRegistryLock(db);
   return modelConfigurationIdentity((await modelSources(db))[capability]!.model, db);

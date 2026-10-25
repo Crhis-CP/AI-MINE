@@ -14,7 +14,7 @@ import {
 } from "@amp/contracts/http/private";
 import { sql, type Db } from "../db.ts";
 import { audit, actorOf, requireCapability, requireOwner, type AdminPrincipal } from "./auth.ts";
-import { CAPABILITIES, invalidateModelCache, type Capability } from "../editorial/models.ts";
+import { capabilities, invalidateModelCache, type Capability } from "../editorial/models.ts";
 import {
   modelConfigurationHash,
   connectionRow,
@@ -82,7 +82,7 @@ export async function updateModelConnection(id: string, input: unknown, principa
       if (
         assigned ||
         (await hasAssignedBackup(registeredModelKey(id), tx)) ||
-        Object.values(CAPABILITIES).some((c) => environmentValue(c.env) === registeredModelKey(id))
+        Object.values(capabilities()).some((c) => environmentValue(c.env) === registeredModelKey(id))
       )
         throw new ModelConnectionUnavailable("请先切换使用此接入的环节，再修改运行配置或停用");
     }
@@ -120,7 +120,7 @@ export async function disableModelConnection(id: string, input: unknown, princip
       key = registeredModelKey(id);
     checkRevision(before.revision, value.expected_revision);
     const [assigned] = await tx`SELECT key FROM settings WHERE key LIKE 'models.%' AND value->>'model'=${key} LIMIT 1`;
-    const envAssigned = Object.values(CAPABILITIES).some((c) => environmentValue(c.env) === key);
+    const envAssigned = Object.values(capabilities()).some((c) => environmentValue(c.env) === key);
     if (assigned || envAssigned || (await hasAssignedBackup(key, tx))) throw new ModelConnectionUnavailable("请先将使用此接入的环节切换到其他模型");
     await tx`UPDATE ai.model_connections SET enabled=false,revision=revision+1,passed_revision=NULL,updated_at=now() WHERE id=${id}`;
     const record = await connectionRecord(await connectionRow(id, tx), tx);
@@ -179,9 +179,9 @@ export async function requestModelConnectionProbe(id: string, input: unknown, pr
 }
 export async function assignRegisteredModel(capability: string, input: unknown, principal: AdminPrincipal, guards = defaultGuards) {
   const value = parse(ModelRouteChange, input),
-    c: Capability | undefined = (CAPABILITIES as Record<string, Capability>)[capability],
+    c: Capability | undefined = capabilities()[capability],
     id = registeredModelId(value.model);
-  if (!c || !id) throw new ModelConnectionUnavailable("请选择已登记并通过连接测试的模型");
+  if (!c?.lane || !id) throw new ModelConnectionUnavailable("请选择已登记并通过连接测试的模型");
   const result = await sql.begin(async (tx) => {
     await guards.manage(principal, tx);
     await modelRegistryLock(tx, true);
@@ -191,7 +191,7 @@ export async function assignRegisteredModel(capability: string, input: unknown, 
     const [route] = await tx<{ revision: number }[]>`SELECT revision FROM ai.model_routes WHERE capability=${capability}`;
     checkRevision(route?.revision ?? 0, value.expected_revision);
     const [prior] = await tx<{ value: { model?: string } }[]>`SELECT value FROM settings WHERE key=${`models.${capability}`}`;
-    const previous = prior?.value.model ?? environmentValue(c.env) ?? c.default;
+    const previous = String(prior?.value.model ?? environmentValue(c.env) ?? c.default);
     if (value.evaluation_id) {
       const [run] = await tx<
         { models: string[]; sample_size: number; summary: { model_configurations?: Record<string, string> } }[]

@@ -5,7 +5,7 @@
 import { addDays, beijingDate, beijingMidnight, isoWeekLabel, isoWeekRange } from "@amp/contracts/time";
 import { latestSuccessfulRunResult } from "../admin/runs.ts";
 import { sql } from "../db.ts";
-import { CAPABILITIES } from "../editorial/models.ts";
+import { capabilities } from "../editorial/models.ts";
 import { beijingDay, sendAlert } from "../notify/feishu.ts";
 import { autoStopsBetween, providerName } from "./alerts.ts";
 
@@ -41,7 +41,7 @@ const calls = (t: Tally) => t.ok + t.failed + t.unknown;
 const money = (currency: string, v: number) => `${{ CNY: "¥", USD: "$" }[currency] ?? `${currency} `}${v.toFixed(2)}`;
 const empty = (): Tally => ({ ok: 0, failed: 0, unknown: 0, tokensIn: 0, tokensOut: 0, amounts: {}, unpriced: 0 });
 const capabilityOf = (purpose: string) =>
-  Object.values(CAPABILITIES)
+  Object.values(capabilities())
     .find((c) => (c.purposes as readonly string[]).includes(purpose))
     ?.label.split("（")[0] ?? "其他";
 

@@ -6,7 +6,7 @@ import { modelOutputContract } from "./model-fallback-contract.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import type { TaskBudget } from "./usage-protection.ts";
-import { CAPABILITIES } from "../editorial/models.ts";
+import { capabilities } from "../editorial/models.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // OpenAI-compatible chat calls, always through receipts. One model is enough: `default` is whatever the
@@ -227,15 +227,15 @@ function isConnectFailure(error: unknown): boolean {
 }
 
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
-  if (
-    ["policy_fulltext", "policy_group", "policy_interpret", "policy_verify", "policy_vision"].includes(opts.purpose) &&
-    (!opts.policyContext || !opts.beforeRequest)
-  )
-    throw new Error("Policy capabilities require the policy gateway");
+  const step = Object.values(capabilities()).find((c) => c.purposes.includes(opts.purpose));
+  if (step && !step.lane) throw new Error("Model capability requires an explicit lane");
+  if (step && [opts.policyContext?.lane, opts.runtimeControl?.lane, opts.lane].some((lane) => lane && lane !== step.lane))
+    throw new Error("Model capability lane mismatch");
+  if (step?.lane === "policy" && (!opts.policyContext || !opts.beforeRequest)) throw new Error("Policy capabilities require the policy gateway");
   const registered = await resolveRegisteredModel(opts.model, opts.registeredProbe);
   const spec: ModelSpec | null = registered ? { ...registered, baseUrlEnv: "", apiKeyEnv: "" } : (MODELS[opts.model] ?? null);
   if (!spec) throw new Error(`Unknown model ${opts.model}`);
-  if (opts.purpose === "policy_vision" && (!spec.vision || "messages" in (spec.extra ?? {}) || "model" in (spec.extra ?? {})))
+  if (step?.vision && (!spec.vision || "messages" in (spec.extra ?? {}) || "model" in (spec.extra ?? {})))
     throw new Error("Policy vision requires explicit image capability and immutable input messages");
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
   const baseUrl = registered?.baseUrl ?? credential("models", spec.baseUrlEnv);
@@ -281,11 +281,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         }
       : {}),
   };
-  const costLane =
-    opts.policyContext?.lane ??
-    opts.runtimeControl?.lane ??
-    opts.lane ??
-    (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
+  const costLane = opts.policyContext?.lane ?? opts.runtimeControl?.lane ?? opts.lane ?? step?.lane;
   const { withModelFallback, ModelContentFiltered } = await import("./model-fallback.ts");
   const contractHash = modelOutputContract(opts.schema, opts.parse);
   const budgetService = modelBudgetService(baseUrl, registered ? (registered.config.interface === "deepseek" ? "deepseek" : undefined) : spec.service);
@@ -509,14 +505,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   // Both paid sends and free cache reuse require the same current source permit.
   const permittedPrimary = async (circuit = false) => {
     const permit = opts.fallbackPermit ? await opts.fallbackPermit.authorize({ modelKey: opts.model, configurationHash }) : null;
-    if (
-      !permit &&
-      !opts.fallbackHop &&
-      !opts.registeredProbe &&
-      Object.values(CAPABILITIES).some((capability) => (capability.purposes as readonly string[]).includes(opts.purpose)) &&
-      !opts.policyContext
-    )
-      throw new Error("新闻主模型处理缺少当前材料许可");
+    if (!permit && !opts.fallbackHop && !opts.registeredProbe && step && !opts.policyContext) throw new Error("新闻主模型处理缺少当前材料许可");
     const previous = opts.beforeRequest;
     try {
       if (permit) {

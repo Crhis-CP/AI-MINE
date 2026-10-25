@@ -1,7 +1,7 @@
 import { modelBudgetService } from "./model-budget.ts";
 import { environmentModelMetadata } from "./llm.ts";
 import { sql, type Db } from "../db.ts";
-import { CAPABILITIES } from "../editorial/models.ts";
+import { capabilities } from "../editorial/models.ts";
 import { connectionRow, registeredModelId, modelConfigurationHash, type ConnectionConfig } from "./model-registry.ts";
 import { modelConfigurationIdentity } from "../admin/models.ts";
 import { readModelRouteApproval } from "./model-fallback-quality.ts";
@@ -45,8 +45,8 @@ export async function backupAdmission(
   sourceIds: readonly string[] = [],
 ): Promise<BackupAdmission | null> {
   const id = registeredModelId(key),
-    cap = CAPABILITIES[capability as keyof typeof CAPABILITIES];
-  if (!id || !cap || key === primaryKey) return null;
+    cap = capabilities()[capability];
+  if (!id || !cap?.lane || key === primaryKey) return null;
   const row = await connectionRow(id, db),
     cfg = modelConfigurationHash(row.config);
   if (!(await differentModelServices(primaryKey, row.config, db))) return null;
@@ -70,7 +70,7 @@ export async function backupAdmission(
     name: row.config.name,
     modelName: row.config.model,
   };
-  if (capability.startsWith("policy_")) {
+  if (cap.lane === "policy") {
     const model = policyModelQualificationKey({
       receiptId: probe.receiptId,
       attemptId: probe.attemptId,
