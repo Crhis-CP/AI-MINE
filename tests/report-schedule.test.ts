@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import "./setup.ts";
 import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { catchUpReports, composeWeekly, dueDaily, dueWeekly, dueMonthly, editionTime } from "@amp/backend/reports/compose";
+import { catchUpReports, composeWeekly, dueDaily, dueWeekly, dueMonthly, editionTime, periodReportQualification } from "@amp/backend/reports/compose";
 import { expectedReportKey } from "../apps/web/app/features/report/report-period.ts";
 
 after(async () => {
@@ -27,7 +27,7 @@ test("scheduler and reader agree at Beijing daily, weekly and monthly boundaries
   }
   assert.equal(editionTime("2026-10-12").toISOString(), "2026-10-12T00:00:00.000Z");
 });
-test("catch-up writes the current daily before more than eight old gaps and retains missing-period failures", async () => {
+test("catch-up writes current issues while incomplete old periods remain waiting without a retry failure", async (t) => {
   await sql`INSERT INTO sources(id,name,kind,participation_mode) VALUES('catch-up-test','合成补刊来源','rss','editorial')`;
   for (const day of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 19, 26]) {
     const at = new Date(`2020-01-${String(day).padStart(2, "0")}T12:00Z`);
@@ -53,11 +53,28 @@ test("catch-up writes the current daily before more than eight old gaps and reta
     0,
     "the shared eight-write allowance also covers the current issue",
   );
-  await assert.rejects(
-    catchUpReports(new Date("2020-01-27T01:00Z")),
-    /weekly:2020-W03 failed; daily:2020-01-27, daily:2020-01-10, daily:2020-01-11, daily:2020-01-12 written/,
-    "a missing period fails honestly after unrelated current and historical dailies are written",
+  await sql`ALTER TABLE reports ADD CONSTRAINT fixture_report_write_failure CHECK(kind <> 'daily') NOT VALID`;
+  t.after(async () => {
+    await sql`ALTER TABLE reports DROP CONSTRAINT IF EXISTS fixture_report_write_failure`;
+  });
+  await assert.rejects(catchUpReports(new Date("2020-01-27T01:00Z")), /daily:2020-01-27/, "actual write failures still fail the run");
+  assert.equal((await sql`SELECT 1 FROM reports WHERE kind='daily' AND key='2020-01-27'`).length, 0);
+  await sql`ALTER TABLE reports DROP CONSTRAINT fixture_report_write_failure`;
+  const receipts = await sql`SELECT id FROM receipts ORDER BY id`;
+  await sql`UPDATE reports.reconciliation_jobs SET state='retry',result='waiting',attempts=3,next_attempt_at='2100-01-01T00:00:00Z'
+    WHERE kind='weekly' AND key='2020-W03'`;
+  const [waiting] = await sql`SELECT state,result,attempts,next_attempt_at FROM reports.reconciliation_jobs WHERE kind='weekly' AND key='2020-W03'`;
+  assert.equal(waiting?.result, "waiting");
+  assert.deepEqual(await catchUpReports(new Date("2020-01-27T01:00Z")), {
+    generated: ["daily:2020-01-27", "daily:2020-01-10", "daily:2020-01-11", "daily:2020-01-12"],
+  });
+  assert.deepEqual(await catchUpReports(new Date("2020-01-27T01:30Z")), { generated: [] });
+  assert.deepEqual(
+    (await sql`SELECT state,result,attempts,next_attempt_at FROM reports.reconciliation_jobs WHERE kind='weekly' AND key='2020-W03'`)[0],
+    waiting,
   );
+  assert.deepEqual(await periodReportQualification("weekly", "2020-W03"), { qualified: 0, state: "incomplete" });
+  assert.deepEqual([...(await sql`SELECT id FROM receipts ORDER BY id`)], [...receipts], "waiting does not buy prose");
   assert.equal((await sql`SELECT 1 FROM reports WHERE kind='weekly' AND key='2020-W03'`).length, 0);
   assert.equal((await sql`SELECT 1 FROM reports WHERE kind='daily' AND key='2020-01-13'`).length, 0, "an unjudged issue is never counted as written");
 });

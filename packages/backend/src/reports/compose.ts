@@ -150,7 +150,8 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   const period = await periodEvidence(startDate, endDateInclusive),
     top = period.entries.slice(0, kind === "weekly" ? 20 : 30);
   if (!top.length) {
-    if (["scheduled", "catch-up"].includes(reason) && period.state === "quiet") return { key, entries: 0 };
+    // Recovery waits for missing inputs without retrying the whole sweep or claiming an issue was published.
+    if (reason === "catch-up" || (reason === "scheduled" && period.state === "quiet")) return { key, entries: 0 };
     throw new Error(`${kind} ${key}: no daily entries in the period`);
   }
   const model = await modelFor("report");
