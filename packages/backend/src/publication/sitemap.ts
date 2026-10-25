@@ -12,7 +12,10 @@ const MAX_URLS = 45_000;
 type Entry = SitemapEntry;
 const moduleEntries = z.array(
   z.object({
-    loc: z.string().regex(/^\/(?!\/)[^\\\s#]*$/),
+    loc: z
+      .string()
+      .regex(/^\/(?!\/)[^\\\s#]*$/)
+      .refine((loc) => [...loc].every((character) => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127)),
     revision: z.string().optional(),
     lastmod: z.date().nullish(),
     changefreq: z.enum(["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"]).optional(),

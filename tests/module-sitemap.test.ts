@@ -30,6 +30,7 @@ test("invalid or unavailable module discovery never returns a stale successful m
     { loc: "https://outside.invalid/path" },
     { loc: "//outside.invalid/path" },
     { loc: "/bad\\path" },
+    { loc: "/a\u0000ll" },
     { loc: "/fixture", lastmod: new Date("invalid") },
     { loc: "/fixture", changefreq: "</changefreq><bad/>" },
     { loc: "/fixture", priority: 2 },
