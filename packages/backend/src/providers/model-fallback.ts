@@ -1,6 +1,6 @@
 import { CircuitOpenError, modelCircuitKey } from "./circuit.ts";
 import { sql, type Db } from "../db.ts";
-import { CAPABILITIES } from "../editorial/models.ts";
+import { capabilities } from "../editorial/models.ts";
 import { currentModelConfiguration } from "../admin/models.ts";
 import { readStoredBackup, type StoredBackup } from "../admin/model-fallback.ts";
 import { modelRegistryLock } from "./model-registry.ts";
@@ -121,7 +121,7 @@ export async function withModelFallback<T>(
   primary: (circuit?: boolean) => Promise<ChatJsonResult<T>>,
   backup: (model: string, authorize: () => Promise<void>, fallbackFor: NonNullable<ReceiptRequest["fallbackFor"]>) => Promise<ChatJsonResult<T>>,
 ): Promise<ChatJsonResult<T>> {
-  const capability = Object.entries(CAPABILITIES).find(([, c]) => (c.purposes as string[]).includes(input.purpose))?.[0];
+  const capability = Object.entries(capabilities()).find(([, c]) => (c.purposes as string[]).includes(input.purpose))?.[0];
   if (!capability || input.registeredProbe || (input.usagePurpose && input.usagePurpose !== "production")) return primary(false);
   if (input.fallbackHop) return primary(!input.request.policy);
   const evaluated = await sql.begin((tx) => admission(input, capability, tx));

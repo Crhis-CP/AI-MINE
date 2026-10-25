@@ -394,6 +394,7 @@ test("each physical retry binds its own revision, fingerprint and prices; policy
     ...opts,
     subject: `policy:${row.id}`,
     purpose: "policy_verify",
+    lane: "policy",
     registeredTransport: transport,
     policyContext: {
       lane: "policy",

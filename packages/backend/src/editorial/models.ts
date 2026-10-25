@@ -5,7 +5,7 @@ import { environmentValue } from "../config.ts";
 // without a cross-process cache; a changed model does not re-judge historical results.
 import { sql, type Db } from "../db.ts";
 import { MODELS, modelSpecFor } from "../providers/llm.ts";
-import type { ModelStep } from "../modules.ts";
+import { serverModules, type ModelStep } from "../modules.ts";
 
 export interface Capability extends ModelStep {
   default: string;
@@ -85,7 +85,29 @@ export type CapabilityKey = string;
 
 /** The currently declared steps; consumers use this entry point instead of capturing a static map. */
 export function capabilities(): Record<string, Capability> {
-  return { ...CAPABILITIES };
+  const available: Record<string, Capability> = Object.create(null);
+  const purposes = new Set<string>();
+  for (const [key, step] of Object.entries(CAPABILITIES)) {
+    available[key] = { ...step, purposes: [...step.purposes], lane: key.startsWith("policy_") ? "policy" : "news" };
+    for (const purpose of step.purposes) purposes.add(purpose);
+  }
+  for (const module of serverModules())
+    for (const [key, step] of Object.entries(module.models ?? {})) {
+      // Core choices and the first installed declaration keep their identity.
+      if (Object.hasOwn(available, key)) continue;
+      if (
+        !key.trim() ||
+        Object.hasOwn(Object.prototype, key) ||
+        (step.lane !== undefined && step.lane !== "news" && step.lane !== "policy") ||
+        !step.purposes.length ||
+        step.purposes.some((purpose) => !purpose.trim() || purposes.has(purpose)) ||
+        new Set(step.purposes).size !== step.purposes.length
+      )
+        throw new Error(`Invalid or ambiguous model step: ${key}`);
+      available[key] = { ...step, purposes: [...step.purposes], default: DEFAULTS[key] ?? "default" };
+      for (const purpose of step.purposes) purposes.add(purpose);
+    }
+  return available;
 }
 
 async function overrides(db: Db = sql): Promise<Record<string, string>> {
@@ -108,11 +130,13 @@ export async function modelFor(capability: CapabilityKey): Promise<string> {
   const available = capabilities();
   if (!Object.hasOwn(available, capability)) throw new Error("Unknown model capability");
   const c = available[capability]!;
+  if (!c.lane) throw new Error("Model capability requires an explicit lane");
   const chosen = (await overrides())[capability] ?? process.env[c.env] ?? c.default;
   const spec = await modelSpecFor(chosen);
   if (capability === "policy_vision" && (!chosen || !spec?.vision))
     throw new PolicyVisionConfigurationError("Configure POLICY_VISION_MODEL (or models.policy_vision) with an explicitly vision-capable registered model");
-  if (capability.startsWith("policy_") && !spec) throw new Error(`Unknown configured policy model ${chosen}`);
+  if (c.vision && !spec?.vision) throw new Error("Model capability requires a vision-capable model");
+  if (c.lane === "policy" && !spec) throw new Error(`Unknown configured policy model ${chosen}`);
   return spec ? chosen : c.default;
 }
 
@@ -120,7 +144,7 @@ export async function modelFor(capability: CapabilityKey): Promise<string> {
 export async function modelSources(db: Db = sql): Promise<Record<string, { model: string; source: "admin" | "env" | "default" }>> {
   const o = await overrides(db);
   const out: Record<string, { model: string; source: "admin" | "env" | "default" }> = {};
-  for (const [key, c] of Object.entries(CAPABILITIES) as Array<[string, Capability]>) {
+  for (const [key, c] of Object.entries(capabilities())) {
     if (o[key]) out[key] = { model: o[key]!, source: "admin" };
     else if (process.env[c.env] && (MODELS[process.env[c.env]!] || environmentValue(c.env)!.startsWith("registered:")))
       out[key] = { model: process.env[c.env]!, source: "env" };

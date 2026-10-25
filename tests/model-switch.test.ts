@@ -9,7 +9,7 @@ import { modelPresetReady } from "@amp/backend/providers/llm";
 after(closeDb);
 
 test("undeclared capabilities cannot be activated by leftover settings or inherited object keys", async () => {
-  assert.deepEqual(capabilities(), CAPABILITIES);
+  assert.deepEqual(Object.fromEntries(Object.entries(capabilities()).map(([key, { lane, ...step }]) => [key, step])), CAPABILITIES);
   const key = "synthetic_unregistered";
   await sql`INSERT INTO settings(key,value) VALUES(${`models.${key}`},${sql.json({ model: "deepseek-flash" })}) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`;
   try {

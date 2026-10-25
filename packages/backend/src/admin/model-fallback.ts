@@ -1,7 +1,7 @@
 import { modelCircuits, modelCircuitKey, type ModelCircuit } from "../providers/circuit.ts";
 import { ModelFallbackChange, ModelFallbackOverview, ModelFallbackRoute } from "@amp/contracts/http/private";
 import { sql, type Db } from "../db.ts";
-import { CAPABILITIES, modelSources } from "../editorial/models.ts";
+import { capabilities, modelSources } from "../editorial/models.ts";
 import { modelConfigurationIdentity } from "./models.ts";
 import { modelFallbackSources } from "./sources.ts";
 import { actorOf, audit, requireCapability, type AdminPrincipal } from "./auth.ts";
@@ -28,7 +28,7 @@ export async function readStoredBackup(capability: string, db: Db = sql) {
   return r ?? null;
 }
 async function routeView(capability: string, db: Db, circuits?: Record<string, ModelCircuit>) {
-  const cap = CAPABILITIES[capability as keyof typeof CAPABILITIES],
+  const cap = capabilities()[capability],
     primary = (await modelSources(db))[capability]!.model,
     stored = await readStoredBackup(capability, db);
   const rows = await db<{ id: string }[]>`SELECT id FROM ai.model_connections ORDER BY created_at,id`;
@@ -52,7 +52,7 @@ async function routeView(capability: string, db: Db, circuits?: Record<string, M
                   : !admission
                     ? capability === "score"
                       ? "尚无主备同样本、同标准的负责人确认校准"
-                      : capability.startsWith("policy_")
+                      : cap.lane === "policy"
                         ? "尚无此实际配置对应的当前法规质量资格"
                         : "尚无此环节当前提示与实际配置的负责人质量确认"
                     : null;
@@ -82,7 +82,7 @@ async function routeView(capability: string, db: Db, circuits?: Record<string, M
     state = stored.blocked_reason ? "blocked" : valid ? "ready" : "stale";
     detail = stored.blocked_reason ?? (valid ? null : "主备配置或质量资格已变化；当前不会自动回退，请重新选择。");
   }
-  if (state === "ready" && stored?.backup_model && !capability.startsWith("policy_")) {
+  if (state === "ready" && stored?.backup_model && cap.lane !== "policy") {
     const health = circuits ?? (await modelCircuits(db)),
       now = Date.now();
     const currentHealth = async (model: string) => {
@@ -119,14 +119,15 @@ export async function modelFallbacks(principal: AdminPrincipal) {
     await modelRegistryLock(tx);
     const circuits = await modelCircuits(tx);
     return ModelFallbackOverview.parse({
-      routes: await Promise.all(Object.keys(CAPABILITIES).map((c) => routeView(c, tx, circuits))),
+      routes: await Promise.all(Object.keys(capabilities()).map((c) => routeView(c, tx, circuits))),
       sources: await modelFallbackSources(tx),
     });
   });
 }
 export async function changeModelFallback(capability: string, input: unknown, principal: AdminPrincipal) {
-  const parsed = ModelFallbackChange.safeParse(input);
-  if (!parsed.success || !Object.hasOwn(CAPABILITIES, capability)) throw Object.assign(new Error("请选择有效的处理环节、备用接入和来源"), { statusCode: 400 });
+  const parsed = ModelFallbackChange.safeParse(input),
+    cap = capabilities()[capability];
+  if (!parsed.success || !cap?.lane) throw Object.assign(new Error("请选择有效的处理环节、备用接入和来源"), { statusCode: 400 });
   const value = parsed.data;
   return sql.begin(async (tx) => {
     await requireCapability(principal, "models.manage", tx);
@@ -139,7 +140,7 @@ export async function changeModelFallback(capability: string, input: unknown, pr
     if (value.backup_model && (!primary.configuration_hash || !admission || value.source_ids.some((s) => !admission.sourceIds.includes(s))))
       throw Object.assign(new Error("备用接入、当前质量资格或指定来源尚不满足此环节条件"), { statusCode: 409, code: "conflict" });
     const available = await modelFallbackSources(tx),
-      lane = capability.startsWith("policy_") ? "policy" : "news";
+      lane = cap.lane;
     if (value.source_ids.some((id) => !available.some((s) => s.id === id && s.lane === lane)))
       throw Object.assign(new Error("来源不存在或不属于此业务线"), { statusCode: 400 });
     await tx`INSERT INTO ai.model_fallback_routes(capability,revision,primary_model,primary_configuration_hash,backup_model,backup_configuration_hash,backup_connection_revision,approval_kind,approval_id,source_ids)

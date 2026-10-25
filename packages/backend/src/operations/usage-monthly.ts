@@ -3,7 +3,7 @@ import { MonthlyUsageReport, MonthlyUsageEntry, UsageMonth, type UsageTotals } f
 import { beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
-import { CAPABILITIES } from "../editorial/models.ts";
+import { capabilities } from "../editorial/models.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { config } from "../config.ts";
 import { usageConfiguration } from "../providers/usage-protection.ts";
@@ -215,7 +215,10 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
     totals: finish(total),
     by_lane: grouped(groups.lane, (key) => ({ news: "资讯线", policy: "法规线", unknown: "历史记录未标明业务线" })[key] ?? key),
     by_service: grouped(groups.service, (key) => key),
-    by_capability: grouped(groups.capability, (key) => Object.values(CAPABILITIES).find((c) => (c.purposes as readonly string[]).includes(key))?.label ?? key),
+    by_capability: grouped(
+      groups.capability,
+      (key) => Object.values(capabilities()).find((c) => (c.purposes as readonly string[]).includes(key))?.label ?? key,
+    ),
     by_source: grouped(groups.source, (key) => (key === "unknown" ? "记录未标明来源" : key.includes("+") ? `共同来源：${key}` : key)),
     by_usage_purpose: grouped(
       groups.usagePurpose,

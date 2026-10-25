@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { CAPABILITIES } from "../editorial/models.ts";
+import { capabilities } from "../editorial/models.ts";
 import { modelConfigurationIdentity } from "../admin/models.ts";
 import { requireOwner, audit, actorOf, type AdminPrincipal } from "../admin/auth.ts";
 
@@ -112,8 +112,8 @@ const Install = z.strictObject({
 /** Controlled Owner workflow: uploaded report text is never itself route qualification. */
 export async function approveModelRoute(input: unknown, principal: AdminPrincipal) {
   const value = Install.parse(input),
-    cap = CAPABILITIES[value.capability as keyof typeof CAPABILITIES];
-  if (!cap || value.capability === "score" || value.capability.startsWith("policy_")) throw new Error("评分与法规须使用各自的质量资格入口");
+    cap = capabilities()[value.capability];
+  if (!cap?.lane || value.capability === "score" || cap.lane === "policy") throw new Error("评分与法规须使用各自的质量资格入口");
   if (Date.parse(value.validUntil) <= Date.now()) throw new Error("资格有效期须在当前时间之后");
   return sql.begin(async (tx) => {
     await requireOwner(principal, tx);
