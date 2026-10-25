@@ -1,4 +1,5 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
+import { BrandMark } from "../components/BrandMark";
 import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
 import { Link, redirect, useLoaderData, useSearchParams } from "react-router";
@@ -168,7 +169,8 @@ export default function TopicPage() {
       <PhoneBar back={{ to: "/topics", label: "全部主题" }} title={topic.name} />
       <header className="pb-4 pt-5 lg:pt-1">
         <div className="flex items-start justify-between gap-4">
-          <h1 data-page-title="" className="text-[22px] font-bold leading-[1.35] text-ink">
+          <h1 data-page-title="" className="flex items-center gap-2.5 text-[22px] font-bold leading-[1.35] text-ink">
+            {topic.brand && <BrandMark brand={topic.brand} size={32} />}
             {topic.name}
           </h1>
           <span className="hidden pt-2 lg:block">

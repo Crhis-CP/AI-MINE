@@ -3,22 +3,11 @@ import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
-
-interface TopicSummary {
-  slug: string;
-  name: string;
-  group: "company" | "field" | "genre" | "project";
-  definition: string;
-  total: number;
-  recent: number;
-  indexable: boolean;
-  latestAt: string | null;
-  /** "all" while the site has no 精选 yet: topics then follow 全部矿业动态 (Owner 2026-10-05; DEC-13). */
-  basis: "selected" | "all";
-}
+import { schemas as publicSchemas } from "@amp/contracts/http/public";
+import { BrandMark } from "../components/BrandMark";
 
 export async function loader({ request }: { request: Request }) {
-  return apiGet<{ topics: TopicSummary[] }>("/api/site/topics", { signal: request.signal });
+  return publicSchemas.TopicDirectory.parse(await apiGet<unknown>("/api/site/topics", { signal: request.signal }));
 }
 
 export function meta() {
@@ -75,7 +64,10 @@ export default function TopicsPage() {
                     aria-label={`查看${t.name}相关${picks ? "精选文章" : "动态"}`}
                     className="card card-hover group flex h-full flex-col px-5 py-[18px]"
                   >
-                    <span className="text-[15px] font-bold text-ink transition-colors group-hover:text-accent">{t.name}</span>
+                    <span className="flex items-center gap-2.5 text-[15px] font-bold text-ink transition-colors group-hover:text-accent">
+                      {t.brand && <BrandMark brand={t.brand} />}
+                      {t.name}
+                    </span>
                     <span className="mt-1.5 line-clamp-2 flex-1 text-[12.5px] leading-[1.7] text-ink-3">{t.definition}</span>
                     <span className="mono mt-3 text-[11.5px] text-accent">
                       近 30 天 {t.recent} 条{picks ? "精选" : "动态"}{" "}

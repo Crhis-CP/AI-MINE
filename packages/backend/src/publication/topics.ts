@@ -1,6 +1,7 @@
 import { attachSourcePolicies } from "./reader-context.ts";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import type { ModuleBrand } from "@amp/contracts/modules";
+import { ModuleBrand as BrandSchema } from "@amp/contracts/http/public";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
@@ -175,12 +176,26 @@ export interface TopicSummary {
 export async function listTopicSummaries(): Promise<TopicSummary[]> {
   const topics = await listTopics();
   const counts = new Map((await topicPageCounts()).map((c) => [c.slug, c]));
+  const marks = new Map<string, ModuleBrand>();
+  const companies = new Set(topics.filter((topic) => topic.grp === "company").map((topic) => topic.slug));
+  for (const module of serverModules()) {
+    if (!module.topics?.marks) continue;
+    try {
+      for (const [slug, value] of Object.entries(await module.topics.marks())) {
+        const mark = BrandSchema.safeParse(value);
+        if (companies.has(slug) && !marks.has(slug) && mark.success) marks.set(slug, mark.data);
+      }
+    } catch {
+      // Optional artwork must not make the topic directory unavailable.
+    }
+  }
   return topics.map((t) => {
     const c = counts.get(t.slug);
     return {
       slug: t.slug,
       name: t.name,
       group: t.grp,
+      ...(t.grp === "company" ? { brand: marks.get(t.slug) ?? { src: null, monogram: [...t.name.trim()][0] ?? "矿", raster: false } } : {}),
       definition: t.definition,
       total: c?.total ?? 0,
       recent: c?.recent ?? 0,
