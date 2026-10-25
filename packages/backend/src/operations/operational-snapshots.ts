@@ -44,7 +44,7 @@ const readers = {
 };
 /** Existing worker cron only; bounded, sequential queries do not create models, collection or public writes. */
 export async function refreshOperationalSnapshots() {
-  const result: { dataset: string; state: string }[] = [];
+  const result: { dataset: string; state: string; material_wait?: { count: number; oldest_at: string | null } }[] = [];
   for (const dataset of OpsDataset.options) {
     const sampledAt = new Date();
     try {
