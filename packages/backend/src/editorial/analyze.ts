@@ -210,7 +210,8 @@ const UnderstandSchema = z.object({
 const SummarizeSchema = z.object({ titleZh: z.string(), summaryZh: z.string(), bodyZh: z.string() });
 
 export interface AnalysisRun {
-  prefilter: { label: "PASS" | "BLOCK" | "UNKNOWN"; reason: string; model: string; receiptId: number; reused: boolean };
+  /** Null means no prefilter request was made; it is not an UNKNOWN model answer. */
+  prefilter: { label: "PASS" | "BLOCK" | "UNKNOWN"; reason: string; model: string; receiptId: number; reused: boolean } | null;
   /**
    * The independent score calls and the tier threshold they are held against; absent when the material
    * is not scored. `refused`: the model's content filter declined it, so it is not selected.
@@ -273,7 +274,7 @@ function checkAnalysisRunning() {
 const subjectOf = (a: AnalyzeInputArticle) => `article:${a.id}@${a.revision}`;
 const tagged = (attemptTag: string | undefined, step: string) => [attemptTag, step].filter(Boolean).join(":") || undefined;
 
-async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<AnalysisRun["prefilter"]> {
+async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["prefilter"]>> {
   const model = await modelFor("prefilter");
   checkAnalysisRunning();
   const res = await chatJson({
@@ -298,7 +299,11 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
 }
 
 /** The production prefilter step, exposed separately so SelectBench can preserve partial receipt evidence. */
-export async function runSelectionPrefilter(a: AnalyzeInputArticle, opts: StepOpts = {}, onReceipt?: ReceiptObserver): Promise<AnalysisRun["prefilter"]> {
+export async function runSelectionPrefilter(
+  a: AnalyzeInputArticle,
+  opts: StepOpts = {},
+  onReceipt?: ReceiptObserver,
+): Promise<NonNullable<AnalysisRun["prefilter"]>> {
   try {
     const result = await runPrefilter(a, opts);
     onReceipt?.(result.receiptId);
@@ -606,7 +611,7 @@ export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { sta
 
 async function finishAnalysis(
   a: AnalyzeInputArticle,
-  prefilter: AnalysisRun["prefilter"],
+  prefilter: NonNullable<AnalysisRun["prefilter"]>,
   opts: StepOpts & { stages?: "selection" | "all" },
 ): Promise<AnalysisRun> {
   // UNKNOWN goes on like PASS; BLOCK stops here.
@@ -639,7 +644,7 @@ async function finishAnalysis(
 
 /** One judgement from the steps: the selection rule, the reader-facing copy and the structure. */
 export function normalizeAnalysis(run: AnalysisRun) {
-  const label = run.prefilter.label;
+  const label = run.prefilter?.label;
   const titleZh = collapseWhitespace(run.writing?.titleZh ?? "");
   const summaryZh = (run.writing?.summaryZh ?? "").trim();
   // Past the prefilter (PASS or UNKNOWN) an item is relevant. Writing that gives no usable Chinese title and
@@ -742,14 +747,14 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
     const run = await finishAnalysis(input, prefilter, opts);
     const out = normalizeAnalysis(run);
     const receiptIds = [
-      run.prefilter.receiptId,
+      ...(run.prefilter ? [run.prefilter.receiptId] : []),
       ...(run.scores?.receiptIds ?? []),
       ...(run.writing?.receiptIds ?? []),
       ...(run.structure ? [run.structure.receiptId] : []),
     ];
     const w = run.writing;
     const detail = {
-      prefilter: { label: run.prefilter.label, reason: run.prefilter.reason },
+      prefilter: run.prefilter && { label: run.prefilter.label, reason: run.prefilter.reason },
       scores: out.scores,
       scoreModel: out.scoreModel,
       scoreModels: run.scores?.models ?? [],
@@ -773,7 +778,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
         const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,
         subjects, title_zh, summary_zh, reason_zh, score, selected, output)
-      VALUES (${articleId}, ${input.revision}, 'model', ${w?.model ?? run.prefilter.model}, ${ANALYZE_PROMPT_VERSION}, ${receiptIds},
+      VALUES (${articleId}, ${input.revision}, 'model', ${w?.model ?? run.prefilter?.model ?? null}, ${ANALYZE_PROMPT_VERSION}, ${receiptIds},
         ${out.relevance}, ${out.category}, ${out.tags}, ${out.subjects}, ${out.titleZh}, ${out.summaryZh}, ${out.reasonZh},
         ${out.score}, ${out.selected}, ${sql.json(detail as never)})
       RETURNING id`;
@@ -788,7 +793,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       },
       (tx) => lockNewsProcessingPermissions([articleId], tx),
     );
-    const reused = run.prefilter.reused && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
+    const reused = (run.prefilter?.reused ?? true) && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
     return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };
   } catch (error) {
     if (!(error instanceof ModelPostReceiptGuardError)) throw error;
