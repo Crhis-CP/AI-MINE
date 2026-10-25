@@ -1,7 +1,7 @@
 import { sql } from "../db.ts";
 import { OpsDataset } from "@amp/contracts/ops-mcp";
-import { sourcesOperationalSnapshot } from "../sources/operational-snapshot.ts";
-import { processingOperationalSnapshot } from "../content/operational-snapshot.ts";
+import { sourcesOperationalSnapshot, activeEditorialNewsSources } from "../sources/operational-snapshot.ts";
+import { processingOperationalSnapshot, currentAnalyzedMaterials } from "../content/operational-snapshot.ts";
 import { acquisitionOperationalSnapshot } from "../acquisition/operational-snapshot.ts";
 import { usageOperationalSnapshot, evaluationsOperationalSnapshot, protectionOperationalSnapshot } from "../providers/operational-snapshot.ts";
 import { publicationOperationalSnapshot } from "../publication/operational-snapshot.ts";
@@ -9,6 +9,23 @@ import { accountsOperationalSnapshot, auditOperationalSnapshot } from "../admin/
 import { feedbackOperationalSnapshot } from "../feedback/operational-snapshot.ts";
 import { storeOperationalSnapshot, recordOperationalSnapshotFailure } from "./read-snapshots.ts";
 import { queueOperationalSnapshot } from "../jobs/operational-snapshot.ts";
+import { recordedMaterialWaits } from "../enrichment/records.ts";
+
+/** Metadata only; no text, models, recovery or publication writes. */
+export const materialWaitObservation = () =>
+  sql.begin("isolation level repeatable read read only", async (db) => {
+    await db`SET LOCAL statement_timeout='2s'`;
+    const waits = await recordedMaterialWaits(db);
+    const materials = await currentAnalyzedMaterials(
+      waits.map((w) => w.article_id),
+      db,
+    );
+    const active = new Set((await activeEditorialNewsSources([...new Set(materials.map((m) => m.source_id))], db)).map((s) => s.id));
+    const current = new Map(materials.filter((m) => active.has(m.source_id)).map((m) => [m.id, m.revision]));
+    const kept = waits.filter((w) => current.get(w.article_id) === w.input_revision);
+    const oldest = kept.reduce((at, wait) => Math.min(at, wait.oldest_at.getTime()), Infinity);
+    return { count: kept.length, oldest_at: kept.length ? new Date(oldest).toISOString() : null };
+  });
 
 const health = () =>
   sql.begin(async (db) => {
@@ -48,8 +65,9 @@ export async function refreshOperationalSnapshots() {
   for (const dataset of OpsDataset.options) {
     const sampledAt = new Date();
     try {
+      const materialWait = dataset === "processing" ? await materialWaitObservation() : undefined;
       await storeOperationalSnapshot(dataset, await readers[dataset](), sampledAt);
-      result.push({ dataset, state: "sampled" });
+      result.push({ dataset, state: "sampled", ...(materialWait ? { material_wait: materialWait } : {}) });
     } catch {
       await recordOperationalSnapshotFailure(dataset);
       result.push({ dataset, state: "unavailable" });
