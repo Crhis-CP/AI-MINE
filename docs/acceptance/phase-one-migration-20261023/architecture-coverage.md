@@ -5,7 +5,7 @@
 ## 对照口径
 
 - AIHOT固定基线：[a0d1e75b](https://github.com/KKKKhazix/AIHOT/tree/a0d1e75b00ede7e503ca948e71a468db964b2df2)，依据其[架构说明](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/docs/architecture.md)、[模块插口及消费者](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/packages/backend/src/modules.ts)和[模型处理流程](https://github.com/KKKKhazix/AIHOT/blob/a0d1e75b00ede7e503ca948e71a468db964b2df2/packages/backend/src/editorial/analyze.ts)。不静默追随新提交。upstream/aihot.lock.json是早期导入登记，不是本轮基线；本轮文件身份见[upstream-files.json](upstream-files.json)。
-- AI-MINE已合并代码截至[c733e85c](https://github.com/Crhis-CP/AI-MINE/commit/c733e85cc27fc655b3fc940583b04f7cd1228b32)。P1模型隔离补丁随后已由[PR315](https://github.com/Crhis-CP/AI-MINE/pull/315)完整验证合并为86b6e519；P2契约PR316也已完整验证并合并为fcef889c，运行消费者本地已验证，待独立交付。下表只把有实际消费者和提交证据的部分列为已迁移；部分迁移、尚未逐路径核对均不计为整模块完成。
+- AI-MINE已合并代码截至[c733e85c](https://github.com/Crhis-CP/AI-MINE/commit/c733e85cc27fc655b3fc940583b04f7cd1228b32)。P1模型隔离补丁随后已由[PR315](https://github.com/Crhis-CP/AI-MINE/pull/315)完整验证合并为86b6e519；P2契约PR316也已完整验证并合并为fcef889c，材料等待运行消费者已由PR317完整验证合并为b1b5606d；其余P2仍待完成。下表只把有实际消费者和提交证据的部分列为已迁移；部分迁移、尚未逐路径核对均不计为整模块完成。
 - 生产现役仍为获准的f48781d4报告修复包。“已合并”不表示该批已上线；统一候选尚未部署或验收。价格/月报继续按[发布与自然运行记录](priority-report-live-20261025.md)观察。
 
 ## 逐模块差异
@@ -18,7 +18,7 @@ P1—P5是下一节的实施顺序和预计PR主题，不是已创建的PR号。
 | A02 数据访问与迁移 | 直接SQL、显式事务、引擎和模块增量迁移 | dbOf/injectDb代理已退役；sql/identitySql/feedbackSql及进程连接工厂已接。[PR238](https://github.com/Crhis-CP/AI-MINE/pull/238)，468c06e1 | **主体已迁移。P4**闭合新模块迁移发现、遗留转发与权限消费者；schema名称本身不是待重写架构 | 原表/主键、来源与文章ID、迁移账本、历史版本保持，避免数据及追溯丢失 |
 | A03 模块装配与协作 | site三份安装清单；声明HTTP/队列/事件/页面插口，引擎消费 | site/industry/modules拆分，policy/metals/site-admin安装，事务事件与上下文已接。[PR238](https://github.com/Crhis-CP/AI-MINE/pull/238)、[287](https://github.com/Crhis-CP/AI-MINE/pull/287)、[297](https://github.com/Crhis-CP/AI-MINE/pull/297)、[308](https://github.com/Crhis-CP/AI-MINE/pull/308) | **部分迁移。P1/P3/P4**闭合模型坏声明、独立席位及其余声明→消费者；类型声明不算接入完成 | 专有能力通过模块接入；保留许可和news/policy上下文，专有逻辑不回塞组合根 |
 | A04 来源与材料 | 读取器→判重入库→正文/原帖→可信日期/材料版本→模型；模块来源回调 | 采集/抽取、登录页过滤、日期等待和模块恢复/手工采集已接。[PR238](https://github.com/Crhis-CP/AI-MINE/pull/238)、[262](https://github.com/Crhis-CP/AI-MINE/pull/262)、[310](https://github.com/Crhis-CP/AI-MINE/pull/310)，221c5d13 | **部分迁移。P2/P4**对齐缺材料等待和原帖处理，逐类核对读取器、正文、日期及附件实际路径 | 保留555矿业来源、解析参数、启停和许可；不以示范来源覆盖，也不自动开付费读取服务 |
-| A05 模型选材、结构化、写作与纠错 | 材料齐备再预筛；双评分；结构化与评分并行；理解/摘要及有界措辞修复；结果与回执先存后用 | 双评分、结构化、理解/摘要、措辞修复和提交链已存在。[PR238](https://github.com/Crhis-CP/AI-MINE/pull/238)、[263](https://github.com/Crhis-CP/AI-MINE/pull/263) | **未完整迁移，P2重点。** 本站runAnalysis先预筛、finishAnalysis才查missingEvidence；上游先awaitsMaterial。上游originalPostCopy/verbatim分支在本站同入口缺失。按阶段对齐等待、输出、重处理和保存，不逐条补内容规则 | 已确认矿业提示词语义、评分/门槛及来源等级保留；模型依旧规则更新文章结果，规则/入选条件变化仍需Chris确认 |
+| A05 模型选材、结构化、写作与纠错 | 材料齐备再预筛；双评分；结构化与评分并行；理解/摘要及有界措辞修复；结果与回执先存后用 | 双评分、结构化、理解/摘要、措辞修复和提交链已存在。[PR238](https://github.com/Crhis-CP/AI-MINE/pull/238)、[263](https://github.com/Crhis-CP/AI-MINE/pull/263) | **未完整迁移，P2重点。** 原先先预筛再检查材料的差异已由[PR317](https://github.com/Crhis-CP/AI-MINE/pull/317)修复。上游originalPostCopy/verbatim原帖分支仍缺，整体模型结果与重处理链路继续核对。按阶段对齐等待、输出、重处理和保存，不逐条补内容规则 | 已确认矿业提示词语义、评分/门槛及来源等级保留；模型依旧规则更新文章结果，规则/入选条件变化仍需Chris确认 |
 | A06 模型目录、调用与费用 | 核心/模块步骤统一配置、调用、回执、用途；请求次数控制与未知结果恢复 | 目录已接后台、网关、质量资格和费用标签。[PR313](https://github.com/Crhis-CP/AI-MINE/pull/313)，3e99d8e0；恢复沿用[PR284](https://github.com/Crhis-CP/AI-MINE/pull/284) | **部分迁移。P1**坏声明隔离、调用拒绝和固定历史用途归属已由[PR315](https://github.com/Crhis-CP/AI-MINE/pull/315)合并；**P2/P5**闭合评测/纠错费用及自然运行；**P4**核销仍保留的可选TaskBudget金额上界兼容入口（当前仓库调用方未设置），保留历史费用字段，不给本轮评测重新加金额上限 | 保留现有模型配置、业务线费用和未知费用；最新DeepSeek Flash，不用Pro。不设周/月固定金额上限 |
 | A07 请求复用与模型缓存 | 回执复用；稳定输入前缀；双评分串行利于供应商缓存 | 回执机制已运行；摘要/报告三项输入稳定性修复已合并。[PR290](https://github.com/Crhis-CP/AI-MINE/pull/290)，f83348a2 | **代码已合并，效果未验收。P2/P5**核对全链路前缀，部署后按相同口径读自然缓存/成本；旧58.08%仅基线 | 保留矿业材料、刊期及版本绑定；不靠额外付费预热造命中率，不承诺供应商永久100%命中 |
 | A08 事件归组、事实代表与公开层 | 模型关系判断→确认事实/事件→统一publication资格，各出口同源 | 事实/事件分层、确认归组、普通稿背景、v1事件链接已接。[PR238](https://github.com/Crhis-CP/AI-MINE/pull/238)、[263](https://github.com/Crhis-CP/AI-MINE/pull/263)、[284](https://github.com/Crhis-CP/AI-MINE/pull/284)、[309](https://github.com/Crhis-CP/AI-MINE/pull/309) | **部分迁移。P2/P3**核对关系复核/重处理、证据更新与读取，并以固定样本验收；不由Codex手工决定事件关系 | 矿业事件语义、历史报道/原日期、人工归属与撤回保持 |
@@ -35,7 +35,7 @@ P1—P5是下一节的实施顺序和预计PR主题，不是已创建的PR号。
 | 顺序 | 预计PR主题（开出后回填链接，不预占编号） | 对应项 | 完成判据 |
 |---|---|---|---|
 | P1 | [PR315已合并](https://github.com/Crhis-CP/AI-MINE/pull/315)：模型目录故障隔离与历史费用归属 | A03/A06/A12 | 坏模块不影响核心/健康模块；无权调用拒绝；历史费用不失归属；最终SHA完整验证 |
-| P2 | AIHOT模型处理、恢复与固定样本评测闭环；[PR316契约已合并](https://github.com/Crhis-CP/AI-MINE/pull/316)，TASK0474运行消费者本地已验证 | A04—A08/A10/A14 | 按上游接通材料等待、模型判断/写作/纠错、提交及重处理；固定样本前后差异报告；人工状态优先；不夹带评分/词表改动 |
+| P2 | AIHOT模型处理、恢复与固定样本评测闭环；[PR316契约已合并](https://github.com/Crhis-CP/AI-MINE/pull/316)，[PR317材料等待已合并](https://github.com/Crhis-CP/AI-MINE/pull/317)；TASK0475无标签清单接口本地已验证 | A04—A08/A10/A14 | 按上游接通材料等待、模型判断/写作/纠错、提交及重处理；固定样本前后差异报告；人工状态优先；不夹带评分/词表改动 |
 | P3 | 独立精选来源与统一公开出口闭环 | A08—A10/A13 | 插口有实际消费者，各出口读取当前有效结果；默认空名单不改变矿业入选；国别接统一模型结果 |
 | P4 | 其余通用架构差异收口及旧兼容层退役 | A01—A04/A12/A13 | 逐项核对启动、迁移、来源、队列、后台/网页消费者；具体差异补到本表同一行；只删确认无消费者/无唯一数据的旧代码 |
 | P5 | 统一候选验证、获准发布与交付记录 | 全表 | 前四项闭合，固定样本、权限/数据保持、使用流程、最终full及制品通过；具体范围获准后上线，价格/月报和缓存自然观察分别记录 |
