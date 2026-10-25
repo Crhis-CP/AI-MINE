@@ -345,6 +345,8 @@
 | [TASK-0473](TASK-0473.md) | T-0101 | M3 | architect | integrated | 声明未调用预筛的材料等待结果 | — |
 | [TASK-0474](TASK-0474.md) | T-0101 | M3 | architect | integrated | 在模型调用前等待缺失材料并保持自动续接 | TASK-0473 |
 | [TASK-0475](TASK-0475.md) | T-0101 | M3 | architect | locally_verified | 提供无需人工标注的固定样本只读清单 | — |
+| [TASK-0476](TASK-0476.md) | T-0101 | M3 | architect | locally_verified | 接通固定样本模型处理与前后差异报告 | TASK-0475、TASK-0477 |
+| [TASK-0477](TASK-0477.md) | T-0101 | M3 | architect | locally_verified | 隔离模型评测回执与生产恢复 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

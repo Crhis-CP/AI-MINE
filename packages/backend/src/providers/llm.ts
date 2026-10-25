@@ -302,6 +302,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     }),
     ...(await registeredQuotaAliases(budgetService)),
   ];
+  const receiptScope = opts.usagePurpose === "evaluation" ? { receipt_scope: "evaluation-v1" } : {};
   const request: ReceiptRequest = {
     maxPhysicalAttempts: opts.maxPhysicalAttempts,
     fallbackFor: opts.fallbackFor,
@@ -342,6 +343,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     runtimeControl: opts.runtimeControl,
     legacyModel: spec.model,
     legacyIdentity: {
+      ...receiptScope,
       ...imageTransport,
       ...(registered ? registeredIdentity : {}),
       ...(opts.policyContext ? { policy: opts.policyContext } : {}),
@@ -354,6 +356,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       extra: spec.extra ?? null,
     },
     identity: {
+      ...receiptScope,
       transportHash: sha256(requestBody),
       ...registeredIdentity,
       ...imageTransport,
@@ -367,6 +370,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       extra: spec.extra ?? null,
     },
     requestSummary: {
+      ...receiptScope,
       contractHash,
       sourceIds: opts.sourceIds ?? opts.policyContext?.sourceIds ?? [],
       ...(opts.usagePurpose ? { usage_purpose: opts.usagePurpose } : {}),
