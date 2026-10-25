@@ -20,8 +20,8 @@
 
 PR296已合并为50f6c602，声明与实际接入继续分开记录。网页基本部件/入口、事务变更通知、Agent/MCP读取与请求观察、RSS提示和llms段落已随PR297整合，准确PR/main完整回执见Issue293；尚未上线，不代表全部插口迁移完成。
 
-仍须逐项接通或证明已有等价实现：主题page.index/read/recheck与页面部件、topics.marks及darkMarks；JSON请求提示；模块模型步骤、sourceKinds恢复/立即取得、sitemap条目、storyOrigin、feedbackKeys；网页AgentPart及agentWays、feedbackDraft。当前检索没有找到这些声明对应的完整调用链，不能因为现有静态页面可用就标完成。后台counts/runs已在TASK0453本地接入，尚待完整验证、合并和发布；不把该进展当作其他插口完成。尤其模块独立精选来源会影响呈现/席位，须保留当前矿业规则且不自动启用任何新名单。
+仍须逐项接通或证明已有等价实现：主题page.index/read/recheck与页面部件、topics.marks及darkMarks；模块模型步骤、sourceKinds恢复/立即取得、sitemap条目、storyOrigin、feedbackKeys；网页AgentPart及agentWays、feedbackDraft。当前检索没有找到这些声明对应的完整调用链，不能因为现有静态页面可用就标完成。后台counts/runs已由TASK0453提交PR302；声明覆盖的JSON提示已在TASK0454本地接入，完整验证、合并和发布分别待取得，不把这些进展当作其他插口完成。尤其模块独立精选来源会影响呈现/席位，须保留当前矿业规则且不自动启用任何新名单。
 
-JSON提示需要避免覆盖既有正文notice；主题标识的公开传输形状也须在新增字段前核对契约。原接口、匿名读取、当前权限和人工控制继续作为每项消费者的回归条件，不以安装了模块或类型编译通过代替运行验证。
+JSON提示使用已合并声明的module_notice，保留正文notice；主题brand契约已经声明，实际消费者尚未完成。原接口、匿名读取、当前权限和人工控制继续作为每项消费者的回归条件，不以安装了模块或类型编译通过代替运行验证。
 
 TASK0443接通网页根部件/文档头、侧栏分组、工具、附加收藏导入及条款链接；metals个人页入口经tools唯一提供。读者与后台根部件在构建时分别取各自安装清单，保留CSP nonce和原有路由隔离。此处不等于主题/Agent/反馈草稿/后台数据等尚未接入的插口已经完成。

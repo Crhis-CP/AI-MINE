@@ -8,6 +8,7 @@ import { selectedChanges, selectedSnapshot, SnapshotRequiredError, v1Items } fro
 import { resolveStory, v1HotTopics, v1Story } from "@amp/backend/publication/stories";
 import { v1Dailies, v1Daily } from "@amp/backend/publication/reports";
 import { isValidDate } from "@amp/contracts/time";
+import { requestNotice } from "@amp/backend/modules";
 import { applyPublicHeaders, QueryError, sendJsonWithEtag, sendProblem, strictQuery } from "../http/respond.ts";
 
 type Handler = (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
@@ -81,7 +82,7 @@ export function registerV1(app: FastifyInstance) {
       const limit = intParam(q.limit, "limit", 1, 100, 50);
       if (q.cursor !== undefined && q.cursor.length === 0) throw new InvalidCursorError("empty cursor");
       const body = await v1Items({ mode, window, by, category, q: search, limit, cursor: q.cursor ?? null });
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-items", cacheControl: V1_CACHE_CONTROL.items });
+      return sendJsonWithEtag(req, reply, body, { notice: requestNotice("json", req), etagPrefix: "v1-items", cacheControl: V1_CACHE_CONTROL.items });
     }),
   );
 
@@ -90,7 +91,7 @@ export function registerV1(app: FastifyInstance) {
     publicHandler(async (req, reply) => {
       strictQuery(req, []);
       const body = await v1HotTopics();
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-hot", cacheControl: V1_CACHE_CONTROL.hotTopics });
+      return sendJsonWithEtag(req, reply, body, { notice: requestNotice("json", req), etagPrefix: "v1-hot", cacheControl: V1_CACHE_CONTROL.hotTopics });
     }),
   );
 
@@ -112,7 +113,7 @@ export function registerV1(app: FastifyInstance) {
           detail: `No public story exists for ${publicId}.`,
           cacheControl: "public, max-age=60",
         });
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-story", cacheControl: V1_CACHE_CONTROL.storyByPublicId });
+      return sendJsonWithEtag(req, reply, body, { notice: requestNotice("json", req), etagPrefix: "v1-story", cacheControl: V1_CACHE_CONTROL.storyByPublicId });
     }),
   );
 
@@ -121,7 +122,11 @@ export function registerV1(app: FastifyInstance) {
     publicHandler(async (req, reply) => {
       const q = strictQuery(req, ["limit"]);
       const limit = intParam(q.limit, "limit", 1, 180, 30);
-      return sendJsonWithEtag(req, reply, await v1Dailies(limit), { etagPrefix: "v1-dailies", cacheControl: V1_CACHE_CONTROL.dailies });
+      return sendJsonWithEtag(req, reply, await v1Dailies(limit), {
+        notice: requestNotice("json", req),
+        etagPrefix: "v1-dailies",
+        cacheControl: V1_CACHE_CONTROL.dailies,
+      });
     }),
   );
 
@@ -131,7 +136,7 @@ export function registerV1(app: FastifyInstance) {
       strictQuery(req, []);
       const body = await v1Daily("latest");
       if (!body) return sendProblem(req, reply, { status: 404, code: "not_found", detail: "No daily report has been published yet." });
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-daily", cacheControl: V1_CACHE_CONTROL.latestDaily });
+      return sendJsonWithEtag(req, reply, body, { notice: requestNotice("json", req), etagPrefix: "v1-daily", cacheControl: V1_CACHE_CONTROL.latestDaily });
     }),
   );
 
@@ -144,7 +149,7 @@ export function registerV1(app: FastifyInstance) {
       const body = await v1Daily(date);
       if (!body)
         return sendProblem(req, reply, { status: 404, code: "not_found", detail: `No daily report exists for ${date}.`, cacheControl: "public, max-age=60" });
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-daily", cacheControl: V1_CACHE_CONTROL.dailyByDate });
+      return sendJsonWithEtag(req, reply, body, { notice: requestNotice("json", req), etagPrefix: "v1-daily", cacheControl: V1_CACHE_CONTROL.dailyByDate });
     }),
   );
 
@@ -157,7 +162,12 @@ export function registerV1(app: FastifyInstance) {
       const body = await selectedSnapshot({ fields, limit, page: q.page ?? null });
       // asOf (and the next-page token that carries it) differ per request; the page content does not.
       const etagOf = { fields: body.fields, cursor: body.cursor, count: body.count, hasMore: body.hasMore, items: body.items };
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-snapshot", cacheControl: V1_CACHE_CONTROL.selectedSnapshot, etagOf });
+      return sendJsonWithEtag(req, reply, body, {
+        notice: requestNotice("json", req),
+        etagPrefix: "v1-snapshot",
+        cacheControl: V1_CACHE_CONTROL.selectedSnapshot,
+        etagOf,
+      });
     }),
   );
 
@@ -168,7 +178,11 @@ export function registerV1(app: FastifyInstance) {
       const limit = intParam(q.limit, "limit", 1, 100, 100);
       if (!q.cursor) throw new SnapshotRequiredError("missing cursor");
       const body = await selectedChanges({ cursor: q.cursor, limit });
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-changes", cacheControl: V1_CACHE_CONTROL.selectedChanges });
+      return sendJsonWithEtag(req, reply, body, {
+        notice: requestNotice("json", req),
+        etagPrefix: "v1-changes",
+        cacheControl: V1_CACHE_CONTROL.selectedChanges,
+      });
     }),
   );
 }

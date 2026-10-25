@@ -17,3 +17,13 @@ PR298与main785597e8均已取得准确full，运行消费者仍未接入。Grok�
 修复仅调整已有生成器：OpenAPI3.1关闭const转enum；独立v3保留公开v3/法规schema及其依赖。原18个名字全部保留，另外3个原已在public中公开的法规schema也保留于独立v3（PolicyListResponse、PolicyReadingPage、PolicyReportList），未增加路由或运行行为。不更改响应主体、错误体或module_notice声明。
 
 与PR298之前aec486b9对比，展开所有本地引用并将单值enum/const按等价约束规范化后：public60条路径、v3 26条、v1 8条数量不变；无路径、响应字段、类型或既有约束删除，差异仅为既定可选module_notice与主题brand；private完全相同。原18具名schema和所有内部引用闭合。受限对比结果openapi-repaired-semantic-diff-20261024.json保留，4项本地契约回归通过；准确头完整CI另取，尚未部署。
+
+## TASK0454运行消费者
+
+固定上游a0d1e75的apps/api/src/http/respond.ts（blob08e1d27873f9eeb70c38cf89e4e4fb7dac660258）使用sendJsonWithNotice让提示参与ETag，并在private时禁共享缓存。本仓库复用已先行声明的sendJsonWithEtag.notice参数和module_notice名称，保留原正文notice字符串，不另扩公开函数；不导入上游品牌、条款或弃用默认配置。
+
+实际接通8个资讯v1成功路径及v3统一成功发送点；独立freshness始终即时读取、无ETag，站内JSON与旧法规v1没有此声明，均保持原行为。当前可读资格、查询校验、404/308等先裁决，再调用提示；无提示时原字节、ETag和缓存语义保持。私有提示为private/no-store；提示和etagOf共同确定标签，跨请求不复用其他人的提示，不修改共享正文对象。
+
+提示先转换为真实JSON值，再验证ModuleNotice；序列化后不是对象、非法隐私标记或不支持的根响应形状均拒绝，接口既有错误映射不返回异常正文。仅JSON形状验证不证明任意模块输出安全，模块仍负责自己的公开投影及来源权限。
+
+新回归验证全部8个资讯v1路径、代表性v3路径、跨请求条件读取、撤回后的404、错误体/站内/freshness不注入，以及正文notice与共享对象保留。原实现缺少提示及错误提供者未被调用已红测复现；初版对toJSON输出未复验也另行红测，最终按实际JSON校验。没有真实模型调用或生产更新；准确最终SHA完整验证和上线另取，主题brand消费者仍未完成。

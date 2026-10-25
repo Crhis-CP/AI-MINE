@@ -39,6 +39,7 @@ import {
   PolicyReadError,
 } from "@amp/backend/publication/timeline";
 import { applyPublicHeaders, sendJsonWithEtag } from "../http/respond.ts";
+import { requestNotice } from "@amp/backend/modules";
 
 function cursorKey() {
   const key = environmentValue("PUBLIC_RATE_LIMIT_SECRET");
@@ -242,6 +243,7 @@ export function registerV3(app: FastifyInstance) {
               )
             : body;
         return sendJsonWithEtag(request, reply, body, {
+          notice: requestNotice("json", request),
           etagPrefix: route.schema.operationId,
           cacheControl: "no-store",
           etagOf: stable,

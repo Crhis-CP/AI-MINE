@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { JsonNotice } from "./modules.ts";
 import { NO_STORE, PUBLIC_API_CORS } from "@amp/contracts/http-policy";
+import { ModuleNotice } from "@amp/contracts/http/public";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -88,6 +89,19 @@ export function sendJsonWithEtag(
   body: unknown,
   opts: { etagPrefix: string; cacheControl: string; contentType?: string; etagOf?: unknown; notice?: JsonNotice | null },
 ) {
+  if (opts.notice) {
+    if (!body || typeof body !== "object" || Array.isArray(body) || ![Object.prototype, null].includes(Object.getPrototypeOf(body)))
+      throw new TypeError("JSON reminders require an object response");
+    const privateNotice = opts.notice.private;
+    if (privateNotice !== undefined && typeof privateNotice !== "boolean") throw new TypeError("Invalid reminder cache policy");
+    const notice = ModuleNotice.parse(JSON.parse(JSON.stringify(opts.notice.notice)));
+    body = { ...body, module_notice: notice };
+    opts = {
+      ...opts,
+      cacheControl: privateNotice ? "private, no-store" : opts.cacheControl,
+      etagOf: opts.etagOf === undefined ? undefined : { content: opts.etagOf, module_notice: notice },
+    };
+  }
   const text = opts.etagOf === undefined ? JSON.stringify(body) : undefined;
   const etag = weakEtag(opts.etagPrefix, text ?? JSON.stringify(opts.etagOf));
   reply.header("ETag", etag).header("Cache-Control", opts.cacheControl).header("Vary", "Accept-Encoding");
