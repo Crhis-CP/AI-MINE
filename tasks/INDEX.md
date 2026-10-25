@@ -333,6 +333,7 @@
 | [TASK-0461](TASK-0461.md) | T-0101 | M3 | architect | locally_verified | 补齐模块模型与手工采集的执行上下文 | — |
 | [TASK-0462](TASK-0462.md) | T-0101 | M3 | architect | locally_verified | 接通v1事件结构的可选模块地址 | — |
 | [TASK-0463](TASK-0463.md) | T-0101 | M3 | architect | locally_verified | 接通Agent页面方式与导航部件 | — |
+| [TASK-0464](TASK-0464.md) | T-0101 | M3 | architect | locally_verified | 接通Agent扩展的工具与使用说明 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

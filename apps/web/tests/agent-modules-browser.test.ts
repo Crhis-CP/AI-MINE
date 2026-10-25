@@ -4,9 +4,10 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 import { chromium, expect } from "@playwright/test";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
+import { MCP_TOOLS } from "@amp/contracts/mcp";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-const fixture = `import {createElement as h} from 'react';
+const fixture = `import {createElement as h} from 'react';import {MCP_TOOL_NAMES as TOOL_NAMES} from '@amp/contracts/mcp';
 const marker="test & ' value";
 export const WEB_MODULES=typeof window!=='undefined'&&new URLSearchParams(location.search).has('withoutModules')?[]:[{name:'fixture',agentWays:['扩展接入'],agent:async()=>({default:{
   tracks:[{key:'fixture',name:'合成接入',short:'扩展',badge:'合成标签',pitch:'合成说明',fit:'合成客户端',Panel:({tag,now})=>h('p',{'data-testid':'module-panel'},tag+'|'+now)},
@@ -14,7 +15,13 @@ export const WEB_MODULES=typeof window!=='undefined'&&new URLSearchParams(locati
   tag:{useValue:()=>marker,query:'client',userAgent:v=>'fixture/'+v,Note:()=>h('p',null,'合成标识说明'),mcp:'合成MCP说明',rss:'合成RSS说明'},
   Banner:({href,open})=>h('div',null,h('a',{href:href('fixture-rss')},'合成定位链接'),h('button',{onClick:()=>open('fixture-rss')},'打开合成补充')),
   blocks:[{track:'rss',anchor:'fixture-rss',Block:()=>h('p',null,'合成RSS补充')}],
-  resources:[['合成资源','/fixture-resource','合成资源说明']]
+  resources:[['合成资源','/fixture-resource','合成资源说明']],
+  guideClients:['FixtureGuide'],tools:[{name:'fixture_tool',does:'合成工具用途',ask:'合成询问'},{name:TOOL_NAMES.latest,does:'不得覆盖工具',ask:'不应出现'}],
+  mcpTroubles:[h('span',null,'合成MCP排查')],rssLead:['合成RSS引导'],
+  api:{group:'合成接口组',rows:[['/api/fixture','合成接口用途','按需读取']]},
+  recipes:[{key:'one',label:'合成示例一',Body:({base,curl})=>h('p',{'data-testid':'recipe'},'one:'+base+'|'+curl)},
+    {key:'two',label:'合成示例二',Body:({base,curl})=>h('p',{'data-testid':'recipe'},'two:'+base+'|'+curl)}],
+  apiErrors:[['418',h('span',null,'合成错误说明')]]
 }})}];`;
 const server = await createServer({
   root,
@@ -112,6 +119,31 @@ test("without module providers the existing MCP entry and resources stay availab
     await expect(page.getByText("合成标识说明")).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "扩展", exact: true })).toHaveCount(0);
     await expect(page.locator("code").filter({ hasText: "https://reader.invalid/api/mcp" }).first()).toContainText("https://reader.invalid/api/mcp");
+  } finally {
+    await context.close();
+  }
+});
+
+test("module guide content includes declared tools, recipes and recovery notes without replacing core tools", { timeout: 30000 }, async () => {
+  const context = await browser.newContext();
+  await isolateBrowser(context, [origin]);
+  try {
+    const page = await context.newPage();
+    await page.goto(`${origin}/agent`);
+    await expect(page.getByText("FixtureGuide", { exact: false })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `加一个地址，Agent 直接调用 ${MCP_TOOLS.length + 1} 个工具`, exact: true })).toBeVisible();
+    await expect(page.getByText("fixture_tool", { exact: true })).toBeVisible();
+    await expect(page.getByText("不得覆盖工具", { exact: false })).toHaveCount(0);
+    await expect(page.getByText("合成MCP排查")).toBeVisible();
+    await page.getByRole("tab", { name: "RSS", exact: true }).click();
+    await expect(page.getByText("合成RSS引导", { exact: false })).toBeVisible();
+    await page.getByRole("tab", { name: "REST API", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "合成接口组" })).toBeVisible();
+    await expect(page.getByText("/api/fixture", { exact: true })).toBeVisible();
+    await expect(page.getByText("按需读取", { exact: false })).toBeVisible();
+    await page.getByRole("tab", { name: "合成示例二", exact: true }).click();
+    await expect(page.getByTestId("recipe")).toContainText("two:https://reader.invalid|curl -A");
+    await expect(page.getByText("合成错误说明")).toBeVisible();
   } finally {
     await context.close();
   }
