@@ -8,8 +8,9 @@ import { prepareNewsFallback, lockNewsProcessingPermissions, type NewsFallbackIn
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
+// Missing material waits before any model request.
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
-//      item; UNKNOWN goes on like PASS (a BLOCK given while material is missing counts as UNKNOWN);
+//      item; UNKNOWN goes on like PASS;
 //   2. score: two independent scores against the source tier's threshold (industry/selection.ts) decide 精选;
 //   3. writing: the Chinese title, summary and reason by the content understanding for selected and
 //      near-selected items, by the cheaper title/summary prompts for the rest;
@@ -605,6 +606,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
  */
 export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { stages?: "selection" | "all" } = {}): Promise<AnalysisRun> {
   checkAnalysisRunning();
+  if (missingEvidence(a)) return { prefilter: null, scores: null, writing: null, structure: null };
   const prefilter = await runSelectionPrefilter(a, opts);
   return finishAnalysis(a, prefilter, opts);
 }
@@ -717,34 +719,38 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   opts = {
     ...opts,
     fallbackInput:
-      input.translationZh && !input.bodyText
+      missingEvidence(input) || (input.translationZh && !input.bodyText)
         ? undefined
         : await prepareNewsFallback({ root: shutdownSignal.signal, expected: input, current: () => loadAnalyzeInput(articleId), articles: [input] }),
   };
   try {
-    const prefilter = await runSelectionPrefilter(input, opts);
-    // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
-    // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
-    // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
-    // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
-    await sql.begin(async (tx) => {
-      await lockNewsProcessingPermissions([articleId], tx);
-      await assertRuntimeControl(tx, runtimeControl);
-      const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]>`
+    const prefilter = missingEvidence(input) ? null : await runSelectionPrefilter(input, opts);
+    if (prefilter) {
+      // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
+      // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
+      // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
+      // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
+      await sql.begin(async (tx) => {
+        await lockNewsProcessingPermissions([articleId], tx);
+        await assertRuntimeControl(tx, runtimeControl);
+        const [latest] = await tx<
+          { input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]
+        >`
       SELECT input_revision, prompt_version, output, receipt_ids, relevance FROM analyses WHERE article_id = ${articleId}
       ORDER BY input_revision DESC, id DESC LIMIT 1`;
-      const settled =
-        latest?.input_revision === input.revision && isCompleteJudgement(latest.output) && latest.relevance !== "block" && prefilter.label !== "BLOCK";
-      if (!settled && (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))) {
-        await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
+        const settled =
+          latest?.input_revision === input.revision && isCompleteJudgement(latest.output) && latest.relevance !== "block" && prefilter.label !== "BLOCK";
+        if (!settled && (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))) {
+          await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
         VALUES (${articleId}, ${input.revision}, 'model', ${prefilter.model}, ${PROMPT_VERSIONS.prefilter}, ${[prefilter.receiptId]},
           ${prefilter.label.toLowerCase()}, false, ${tx.json({ prefilter: { label: prefilter.label, reason: prefilter.reason } })})`;
-      }
-      await completeReceipt(tx, prefilter.receiptId);
-    });
-    // The caller may publish now on the committed scope (a Chinese original need not wait for the writing).
-    await afterScope?.();
-    const run = await finishAnalysis(input, prefilter, opts);
+        }
+        await completeReceipt(tx, prefilter.receiptId);
+      });
+      // The caller may publish now on the committed scope (a Chinese original need not wait for the writing).
+      await afterScope?.();
+    }
+    const run = prefilter ? await finishAnalysis(input, prefilter, opts) : await runAnalysis(input, opts);
     const out = normalizeAnalysis(run);
     const receiptIds = [
       ...(run.prefilter ? [run.prefilter.receiptId] : []),

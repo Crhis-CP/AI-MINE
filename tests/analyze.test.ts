@@ -14,7 +14,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { after, before, beforeEach, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle, SCORE_SYSTEM, tierThreshold, StructureSchema, normalizeAnalysis } from "@amp/backend/editorial/analyze";
+import { analyzeArticle, SCORE_SYSTEM, tierThreshold, StructureSchema, normalizeAnalysis, runAnalysis, loadAnalyzeInput } from "@amp/backend/editorial/analyze";
 import { afterFailure, processArticle, queueProcessing } from "@amp/backend/jobs/content";
 import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
@@ -306,17 +306,21 @@ test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async 
   const vague = await analyzeArticle(vagueId);
   assert.deepEqual([vague!.output!.relevance, vague!.output!.selected, vague!.output!.titleZh], ["pass", true, "理解标题 VAGUE"]);
   assert.equal((await row(vagueId)).output.prefilter.label, "UNKNOWN", "the prefilter's own answer stays on record");
-  // Nothing but a title: keep the prefilter receipt and wait without buying scores or copy.
+  // Nothing but a title: no model step is purchased before a material revision arrives.
   const bareId = await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" });
   const bare = await analyzeArticle(bareId);
   assert.deepEqual([bare!.output!.relevance, bare!.output!.selected, bare!.output!.score], ["unknown", false, null]);
-  assert.deepEqual(calls("BARE"), ["prefilter"]);
+  assert.deepEqual(calls("BARE"), []);
+  assert.deepEqual(bare!.receiptIds, []);
+  const waiting = await runAnalysis((await loadAnalyzeInput(bareId))!);
+  assert.deepEqual(waiting, { prefilter: null, scores: null, writing: null, structure: null });
+  assert.deepEqual(calls("BARE"), [], "the direct analysis entry also waits before the first request");
   prefilterLabels.set("BARE", "PASS");
   await sql`UPDATE articles SET body_text=${`BARE: ${LONG}`},body_status='ok',revision=revision+1 WHERE id=${bareId}`;
   const resumed = await analyzeArticle(bareId);
   assert.equal(resumed!.output!.score, 32);
   assert.equal(resumed!.output!.titleZh, "翻译标题 BARE");
-  assert.deepEqual(calls("BARE").sort(), ["prefilter", "prefilter", "score", "score", "structure", "summarize"]);
+  assert.deepEqual(calls("BARE").sort(), ["prefilter", "score", "score", "structure", "summarize"]);
 });
 
 test("a feed summary alone: the article page is fetched first, then the whole article is judged", async () => {
