@@ -54,8 +54,10 @@ for (const [code, names] of Object.entries({
 }))
   for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
 const aliasDigest = digestAliases();
-const recipeForAliases = (digest: string) =>
-  sha256(stableJson(["news-geography-v1/head12000-tail2000/adaptive-total-32000", promptVersion("structure"), GEOGRAPHY_DICTIONARY, digest]));
+const recipeForAliases = (digest: string, prompt = promptVersion("structure")) =>
+  sha256(stableJson(["news-geography-v1/head12000-tail2000/adaptive-total-32000", prompt, GEOGRAPHY_DICTIONARY, digest]));
+// The reviewed scope-only prompt change left geography unchanged; this exception expires with the next prompt change.
+const previousStructureRecipe = promptVersion("structure") === "structure@dc56e3f181" ? recipeForAliases(previousAliasDigest, "structure@4502d2ee48") : null;
 export const geographyRecipe = () => recipeForAliases(aliasDigest);
 /** Only this additive vocabulary change is compatible; a different prompt, dictionary or old base still fails closed. */
 export const compatibleGeographyRecipes = (recipe = geographyRecipe()) =>
@@ -204,18 +206,19 @@ export async function readAnalyzedGeography(
   const [row] = await db<
     { output: { geography?: NewsGeography } | null }[]
   >`SELECT output FROM analyses WHERE id=${analysisId} AND article_id=${articleId} AND input_revision=${revision}`;
-  const stored = row?.output?.geography;
+  const stored = row?.output?.geography,
+    compatible = stored && compatibleGeographyRecipes().includes(stored.recipe);
   if (
     !stored ||
     !Number.isSafeInteger(stored.bodyBudget) ||
     stored.bodyBudget < 1024 ||
     stored.bodyBudget > 22000 ||
-    !compatibleGeographyRecipes().includes(stored.recipe) ||
+    (!compatible && (!previousStructureRecipe || stored.recipe !== previousStructureRecipe)) ||
     stored.sourceHash !== geographyMaterial(material).sourceHash
   )
     return validateGeography(null, material);
   const candidate = {
-    status: stored.state === "none" ? "none" : stored.state === "identified" ? "identified" : "unknown",
+    status: compatible && stored.state === "none" ? "none" : compatible && stored.state === "identified" ? "identified" : "unknown",
     primary: stored.primary,
     assignments: stored.assignments,
     reason: stored.reason,
