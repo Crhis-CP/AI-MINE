@@ -48,3 +48,46 @@ test("legacy JSON documentation keeps optional module metadata out of errors and
   assert.equal(schemas.ModuleNotice.type, "object");
   assert.equal(schemas.Problem.properties.module_notice, undefined);
 });
+
+test("generated module responses preserve existing named schemas and literal constraints", () => {
+  const names = [
+    "Policy",
+    "PolicyCursorResponse",
+    "PolicyHistoryPage",
+    "PolicyReport",
+    "PolicyScopeList",
+    "PolicyThread",
+    "V3Changes",
+    "V3Event",
+    "V3Events",
+    "V3Hot",
+    "V3ItemDetail",
+    "V3Items",
+    "V3ReadingPage",
+    "V3Report",
+    "V3Saved",
+    "V3Snapshot",
+    "V3Story",
+    "V3Version",
+  ];
+  for (const file of ["public", "v3"]) {
+    const spec = JSON.parse(readFileSync(new URL(`../reference/contracts/${file}.openapi.json`, import.meta.url), "utf8"));
+    for (const name of names) assert.ok(spec.components.schemas[name], `${file}: stable schema ${name}`);
+    const body = (path: string) => spec.paths[path].get.responses["200"].content["application/json"].schema;
+    assert.equal(body("/api/v3/items/{id}").properties.content_kind.const, "news");
+    for (const path of ["/api/v3/reports/{id}", "/api/v3/policies/reports/{id}"]) assert.equal(body(path).properties.timezone.const, "Asia/Shanghai");
+    assert.deepEqual(
+      body("/api/v3/featured/changes").properties.changes.items.oneOf.map((v: { properties: { op: { const: string } } }) => v.properties.op.const),
+      ["upsert", "remove"],
+    );
+    const visit = (value: unknown) => {
+      if (!value || typeof value !== "object") return;
+      for (const [key, child] of Object.entries(value)) {
+        if (key === "$ref" && typeof child === "string" && child.startsWith("#/components/schemas/"))
+          assert.ok(spec.components.schemas[child.slice("#/components/schemas/".length)], `${file}: dangling ${child}`);
+        else visit(child);
+      }
+    };
+    visit(spec);
+  }
+});

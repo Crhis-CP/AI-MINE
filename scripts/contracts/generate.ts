@@ -7,7 +7,7 @@ import swagger from "@fastify/swagger";
 import { createJsonSchemaTransform, createJsonSchemaTransformObject, serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { z } from "zod";
 import * as publicContracts from "@amp/contracts/http/public";
-import { V3ItemsQuery, V3EventsQuery } from "@amp/contracts/http/v3";
+import { V3ItemsQuery, V3EventsQuery, v3Schemas } from "@amp/contracts/http/v3";
 import * as privateContracts from "@amp/contracts/http/private";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -33,6 +33,7 @@ for (const [audience, contracts] of [
   try {
     await app.register(swagger, {
       openapi: { openapi: "3.1.0", info: { title: `AI矿策 ${audience}`, version: audience === "private" ? "0.3.0" : "0.2.0" } },
+      convertConstToEnum: false,
       transform: createJsonSchemaTransform({ schemaRegistry: registry }),
       transformObject: createJsonSchemaTransformObject({ schemaRegistry: registry }),
     });
@@ -100,6 +101,8 @@ for (const [audience, contracts] of [
         }
       };
       visit(paths);
+      // Response extensions may inline bodies; published component names remain valid external references.
+      for (const name of Object.keys({ ...v3Schemas, ...publicContracts.policySchemas })) visit({ $ref: `#/components/schemas/${name}` });
       const schemas = Object.fromEntries([...used].map((name) => [name, source.components.schemas[name]]));
       outputs.set(
         "reference/contracts/v3.openapi.json",
