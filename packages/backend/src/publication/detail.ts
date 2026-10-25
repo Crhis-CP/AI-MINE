@@ -7,9 +7,10 @@ import { relatedPoliciesForNews } from "./news-policy-links.ts";
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
 import { linkBodyImages } from "../content/sanitize.ts";
 import { sql, type Db } from "../db.ts";
-import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
+import { ITEM_COLUMNS, ITEM_FROM, confirmedSelected, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
+import type { CategoryKey } from "@amp/contracts/taxonomy";
 import {
   isChineseOriginal,
   readableTranslation,
@@ -251,4 +252,34 @@ export async function publicItemMetadata(id: string, db: Db = sql) {
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
       WHERE p.article_id=${id}`;
   return meta ?? null;
+}
+
+export interface SelectedDeliveryCandidate {
+  article_id: string;
+  seat: boolean;
+  title: string;
+  summary: string | null;
+  reason: string | null;
+  category: CategoryKey | null;
+  source_name: string;
+  url: string;
+  timeline_at: Date;
+  discovered_at: Date;
+  visible_after: Date;
+  backfill: boolean;
+  fact_id: number | null;
+  jurisdictions: string[];
+}
+
+/** Worker admission snapshot; callers must still check release time, age, silence and target scope. */
+export async function selectedDeliveryCandidate(id: string, db: Db = sql): Promise<SelectedDeliveryCandidate | null> {
+  const [row] = await db<SelectedDeliveryCandidate[]>`
+    SELECT p.article_id,p.seat,p.title,p.summary,p.reason,p.category,s.name AS source_name,p.url,
+      p.timeline_at,p.discovered_at,p.visible_after,p.backfill,p.fact_id,coalesce(g.jurisdictions,'{}'::text[]) AS jurisdictions
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
+    LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision
+      AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
+    WHERE p.article_id=${id} AND p.visibility='public' AND p.eligible AND ${confirmedSelected()} AND NOT p.operator_withdrawn
+      AND p.visible_after IS NOT NULL AND s.lane='news' AND s.participation_mode='editorial'`;
+  return row ?? null;
 }

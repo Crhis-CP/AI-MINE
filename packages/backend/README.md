@@ -441,6 +441,8 @@ TASK0461：模块ModelStep可显式声明news/policy业务线，旧无lane声明
 
 TASK0466：capabilities()作为模型步骤查询口，当前返回核心目录；Capability沿ModelStep扩展default，modelFor接命名字符串但只接受自有已声明键，残留设置不能启用未知键。此契约不接模块聚合或付费用途消费者，已知步骤选择与人工配置保持。
 
+TASK0467：selectedDeliveryCandidate通过publication/detail公开给后台投递，读取当前已确认精选资格与来源/人工撤回约束，非seat仍可返回；国家沿当前材料/分析/配方绑定。只返回必要卡片元数据，未来发刊时刻由消费者等待；静默、历史/时效、目标规则与实际发送不在此读口执行，见selected-delivery-contract。未接通知消费者或启用渠道。
+
 TASK0434：publicItemMetadata支持调用者提供同一Db事务；默认读取方式和公开形状保持，用于后续国别投递复核，不能取代当前精选/撤回/时效判断。
 
 TASK0453：认证后的后台计数接已安装admin.counts，核心键和其他模块键不可覆盖，非法数值/读取失败整体返回暂不可用而非0。runsOverview接admin.runs，各模块分别返回ready/data或unavailable；序列化失败也隔离，异常正文不出网。运行页保留该字段并加载匹配的已安装网页面板，省略数据不造内容，失败如实提示。桌面/手机导航保留计数读取失败状态，以?和可访问说明区别真实0。模块负责自己的安全数据投影，只读钩子不调用模型或写业务数据，旧公开API不开放这些入口。
