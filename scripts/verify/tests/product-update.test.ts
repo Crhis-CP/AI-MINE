@@ -96,3 +96,43 @@ test("public notes reject operator fragments and technical copy, while admin-onl
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("internal reader-file refactors need a changed, exact-path explanation without relaxing real product notes", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "internal-reader-change-"));
+  try {
+    mkdirSync(path.join(root, "industry"));
+    mkdirSync(path.join(root, "changes"));
+    const reader = "changes/TASK-0447-reader.md",
+      internal = "changes/TASK-0447-internal.md";
+    const route = "apps/web/app/routes/topic.tsx",
+      second = "apps/web/app/components/Topic.tsx";
+    writeFileSync(path.join(root, reader), "---\ntype: 优化\naudience: 读者\ntitle: 阅读更顺畅\nhighlights:\n  - 返回列表时保留阅读位置。\n---\n");
+    const manifest = { note: { kind: "优化", title: "阅读更顺畅", body: ["返回列表时保留阅读位置。"] }, fragments: [reader] };
+    const previous = JSON.stringify(manifest);
+    writeFileSync(path.join(root, "industry/release-note.json"), previous);
+    const save = (paths: unknown = [route], reason: unknown = "仅接通已声明的空扩展入口，默认页面内容和操作不变。", audience = "运营") =>
+      writeFileSync(
+        path.join(root, internal),
+        `---\ntype: 优化\naudience: ${audience}\ntitle: 内部主题接线\nhighlights:\n  - 保留原页面内容与操作。\nreader_unchanged:\n  paths: ${JSON.stringify(paths)}\n  reason: ${JSON.stringify(reason)}\n---\n`,
+      );
+    save();
+    assert.deepEqual(checkProductUpdate(root, [route, internal], previous), []);
+    assert.ok(checkProductUpdate(root, [route], previous).length, "an old unchanged explanation grants no exemption");
+    assert.ok(checkProductUpdate(root, [route, second, internal], previous).length, "unlisted reader paths still need a public note");
+    assert.ok(checkProductUpdate(root, [route, internal, reader], previous).length, "a changed reader fragment still needs a changed public note");
+    for (const paths of [[], ["apps/web/app/routes/*"], [second], [route, route], "all"]) {
+      save(paths);
+      assert.ok(checkProductUpdate(root, [route, internal], previous).length);
+    }
+    save([route], " ");
+    assert.ok(checkProductUpdate(root, [route, internal], previous).length);
+    save([route], "页面内容不变", "读者");
+    assert.ok(checkProductUpdate(root, [route, internal], previous).length, "only internal audience can declare no reader change");
+    save();
+    manifest.fragments.push(internal);
+    writeFileSync(path.join(root, "industry/release-note.json"), JSON.stringify(manifest));
+    assert.match(checkProductUpdate(root, [route, internal], previous)[0]!, /读者片段/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

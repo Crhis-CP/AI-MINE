@@ -25,6 +25,10 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
     }
     if (!Array.isArray(manifest.fragments) || !manifest.fragments.length) throw new Error("Release note must cite its product fragments");
     const changedFragments = changed.filter((file) => file !== "changes/_template.md" && /^changes\/.+\.md$/.test(file) && existsSync(path.join(root, file)));
+    const readerPaths = new Set(
+      changed.filter((file) => /^apps\/web\/app\/(routes|components)\//.test(file) && !/^apps\/web\/app\/routes\/admin(?:\/|-login\.)/.test(file)),
+    );
+    const unchangedReaderPaths = new Set<string>();
     let readerFragmentChanged = false;
     for (const file of new Set([...manifest.fragments, ...changedFragments])) {
       if (typeof file !== "string" || !/^changes\/[A-Za-z0-9-]+\.md$/.test(file)) throw new Error("Invalid product fragment path");
@@ -36,6 +40,21 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
         throw new Error(`${file}: highlights must be nonempty reader sentences`);
       if (!["读者", "运营", "读者和运营"].includes(fragment.audience)) throw new Error(`${file}: invalid audience`);
       if (manifest.fragments.includes(file) && fragment.audience !== "读者") throw new Error(`${file}: 公开更新清单只能引用读者片段，运营说明留在内部交付记录`);
+      const unchanged = fragment.reader_unchanged;
+      if (unchanged !== undefined) {
+        if (
+          fragment.audience !== "运营" ||
+          !unchanged ||
+          !Array.isArray(unchanged.paths) ||
+          !unchanged.paths.length ||
+          new Set(unchanged.paths).size !== unchanged.paths.length ||
+          !unchanged.paths.every((item: unknown) => typeof item === "string" && readerPaths.has(item)) ||
+          typeof unchanged.reason !== "string" ||
+          !unchanged.reason.trim()
+        )
+          throw new Error(`${file}: reader_unchanged须为运营片段，逐一列出本次读者文件及体验未变的理由`);
+        if (changedFragments.includes(file)) for (const item of unchanged.paths) unchangedReaderPaths.add(item);
+      }
       const note = {
         kind: fragment.type,
         title: fragment.title,
@@ -49,9 +68,7 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
       }
       if (fragment.audience !== "运营" && changedFragments.includes(file)) readerFragmentChanged = true;
     }
-    const userRoutesChanged =
-      readerFragmentChanged ||
-      changed.some((file) => /^apps\/web\/app\/(routes|components)\//.test(file) && !/^apps\/web\/app\/routes\/admin(?:\/|-login\.)/.test(file));
+    const userRoutesChanged = readerFragmentChanged || [...readerPaths].some((file) => !unchangedReaderPaths.has(file));
     const noteChanged =
       changed.includes("industry/release-note.json") &&
       (!previousManifest || JSON.stringify(JSON.parse(previousManifest).note) !== JSON.stringify(manifest.note));
