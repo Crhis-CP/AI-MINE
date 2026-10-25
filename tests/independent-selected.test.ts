@@ -76,8 +76,6 @@ test("configured independent sources keep selected cards and seats without chang
   );
   installModules([...prior, { name: "synthetic-independent", independentSelectedSources: [own, own] }]);
   await republishSource(own);
-  await publishArticle(normal, { now });
-  await publishArticle(duplicate, { now });
   const expected = [first, normal, last].sort();
   const items = (await get("/api/v1/items?mode=selected&limit=100")).json().items;
   assert.deepEqual(items.map((i: { id: string }) => i.id).sort(), expected);
@@ -100,7 +98,9 @@ test("configured independent sources keep selected cards and seats without chang
     cursor = page.nextCursor;
   } while (cursor);
   assert.deepEqual(paged, [last, normal, first]);
+  await sql`UPDATE publications SET selected=true,selection_candidate=false WHERE article_id=${excluded[0]}`;
   const all = await loadTimeline({ ...filters, scope: "all" });
+  assert.deepEqual(all.cards.map((c) => c.item.id).sort(), expected, "legacy nominations do not gain independent cards");
   for (const id of expected) assert.ok(all.cards.some((c) => c.item.id === id));
   for (const id of [first, last]) {
     const detail = (await get(`/api/site/items/${id}`)).json();
