@@ -19,3 +19,5 @@ UTC 2026-10-25 00:39—00:40（阿根廷10月24日21:39—21:40）复核：9月�
 代码修复不补造14个缺失日刊，也不宣布三个旧周刊已经完成。尚未部署；生产发布与自然运行证据分别取得，10月25日12:00原观察点保持。
 
 本地结果：report-schedule红测复现原错误；修复后schedule/catch-up-recovery/alerts/quiet四组18项通过，npm run check的10阶段通过。受限日志report-wait-red-20261024.log、report-wait-focused-20261024.log、report-wait-check-20261024.log保留。准确提交完整CI与独立审阅随后取得，不以本地结果替代。
+
+针对Grok21:50提出的等待记录疑问，在同一回归中另保留retry/result=waiting的既有任务，核对补刊重复运行后状态、尝试次数和下次时间全部不变。catch-up不按entries值写done，只按reports实际存在记录generated；报告完整性与提醒仍使用原资格状态。两轴首轮通过；这项追加需以最终提交CI为准。

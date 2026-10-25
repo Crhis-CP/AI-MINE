@@ -71,10 +71,18 @@ test("catch-up writes current issues while incomplete old periods remain waiting
   assert.equal((await sql`SELECT 1 FROM reports WHERE kind='daily' AND key='2020-01-27'`).length, 0);
   installModules(installed);
   const receipts = await sql`SELECT id FROM receipts ORDER BY id`;
+  await sql`UPDATE reports.reconciliation_jobs SET state='retry',result='waiting',attempts=3,next_attempt_at='2100-01-01T00:00:00Z'
+    WHERE kind='weekly' AND key='2020-W03'`;
+  const [waiting] = await sql`SELECT state,result,attempts,next_attempt_at FROM reports.reconciliation_jobs WHERE kind='weekly' AND key='2020-W03'`;
+  assert.equal(waiting?.result, "waiting");
   assert.deepEqual(await catchUpReports(new Date("2020-01-27T01:00Z")), {
     generated: ["daily:2020-01-27", "daily:2020-01-10", "daily:2020-01-11", "daily:2020-01-12"],
   });
   assert.deepEqual(await catchUpReports(new Date("2020-01-27T01:30Z")), { generated: [] });
+  assert.deepEqual(
+    (await sql`SELECT state,result,attempts,next_attempt_at FROM reports.reconciliation_jobs WHERE kind='weekly' AND key='2020-W03'`)[0],
+    waiting,
+  );
   assert.deepEqual(await periodReportQualification("weekly", "2020-W03"), { qualified: 0, state: "incomplete" });
   assert.deepEqual([...(await sql`SELECT id FROM receipts ORDER BY id`)], [...receipts], "waiting does not buy prose");
   assert.equal((await sql`SELECT 1 FROM reports WHERE kind='weekly' AND key='2020-W03'`).length, 0);
