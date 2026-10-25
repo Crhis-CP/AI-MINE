@@ -21,6 +21,7 @@ import {
   geographyRecipe,
   compatibleGeographyRecipes,
   needsGeographyAnalysis,
+  readAnalyzedGeography,
 } from "../packages/backend/src/editorial/geography.ts";
 import { publicItemMetadata } from "@amp/backend/publication/detail";
 import { buildApp } from "./site-app.ts";
@@ -211,6 +212,45 @@ test("additive aliases preserve valid earlier country evidence without accepting
   await sql`UPDATE publication.news_geography SET recipe='unrelated-geography-version' WHERE article_id=${f.articleId}`;
   assert.equal((await publicItemMetadata(f.articleId))?.jurisdictions, null);
 });
+test("pre-scope evidence is revalidated against current material without trusting its old complete or none status", async () => {
+  const body = "公司总部在加拿大，矿山项目位于阿根廷。",
+    f = await fixture(body, candidate([assignment("CA", "加拿大", body, "headquarters"), assignment("AR", "阿根廷", body)])),
+    [analysis] = await sql`SELECT id,output FROM analyses WHERE article_id=${f.articleId}`,
+    evidence = { ...analysis.output.geography, recipe: "7a01753546527fc23e0fc7d276a3d573fec29c50b5843bb078735e5c053f2514" },
+    bound = { ...material(body), title: f.input.title },
+    before = requests.length;
+  const save = (value: unknown) => sql`UPDATE analyses SET output=jsonb_set(output,'{geography}',${sql.json(value as never)}) WHERE id=${analysis.id}`;
+  await save(evidence);
+  const checked = await readAnalyzedGeography(f.articleId, 1, analysis.id, bound);
+  assert.deepEqual(checked.codes, ["AR"]);
+  assert.equal(checked.state, "partial", "old completeness is not upgraded into a current conclusion");
+  assert.equal(compatibleGeographyRecipes().includes(evidence.recipe), false, "public queries cannot trust old projections without revalidation");
+  assert.deepEqual((await readAnalyzedGeography(f.articleId, 2, analysis.id, bound)).codes, []);
+  assert.deepEqual((await readAnalyzedGeography("another-article", 1, analysis.id, bound)).codes, []);
+  for (const value of [
+    { ...evidence, sourceHash: "stale-material" },
+    { ...evidence, bodyBudget: 1 },
+    { ...evidence, recipe: "unreviewed-recipe" },
+    { ...evidence, assignments: [assignment("AR", "阿根廷", "阿根廷不在这个输入中")] },
+    { ...evidence, state: "none", assignments: [], codes: [], primary: null },
+  ]) {
+    await save(value);
+    const rejected = await readAnalyzedGeography(f.articleId, 1, analysis.id, bound);
+    assert.deepEqual(rejected.codes, []);
+    assert.equal(rejected.state, "unknown");
+  }
+  await save(evidence);
+  await publishArticle(f.articleId);
+  assert.deepEqual((await publicItemMetadata(f.articleId))?.jurisdictions, ["AR"]);
+  assert.equal((await sql`SELECT state FROM publication.news_geography WHERE article_id=${f.articleId}`)[0].state, "partial");
+  assert.deepEqual(
+    (await sql`SELECT output->'geography' AS geography FROM analyses WHERE id=${analysis.id}`)[0].geography,
+    evidence,
+    "source analysis stays intact",
+  );
+  assert.equal(requests.length, before);
+});
+
 test("a previous rejected province is recovered from the received structure answer without another model request", async () => {
   const f = await fixture("合成铜矿扩建项目位于 British Columbia，原文提供本次建设进展，供独立测试使用。"),
     first = await analyzeArticle(f.articleId);
