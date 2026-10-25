@@ -328,6 +328,7 @@
 | [TASK-0456](TASK-0456.md) | T-0101 | M3 | architect | locally_verified | 接通主题网页部件与安全页面摘要 | — |
 | [TASK-0457](TASK-0457.md) | T-0101 | M3 | architect | locally_verified | 接通矿企主题文字标识与获准模块资产呈现 | — |
 | [TASK-0458](TASK-0458.md) | T-0101 | M3 | architect | locally_verified | 接通反馈模块来源标识的既有封禁查询 | — |
+| [TASK-0459](TASK-0459.md) | T-0101 | M3 | architect | locally_verified | 接通反馈草稿接续并保留提交身份 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

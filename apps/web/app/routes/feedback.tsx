@@ -6,7 +6,7 @@ import { Link, useSearchParams } from "react-router";
 import { Presence } from "../components/ui/Presence.tsx";
 import { pageMeta } from "../lib/seo";
 import { localFeedbackOrigin } from "../lib/feedback-origin";
-import { KEYS } from "../lib/local-state";
+import { readDraft, writeDraft, type Draft } from "../lib/feedback-draft";
 import { IconCheck, IconClose, IconImage } from "../components/icons";
 import { LoadingDots } from "../components/Logo";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
@@ -24,38 +24,6 @@ export function meta() {
     image: "/og/pages/feedback.png",
     noindex: true,
   });
-}
-
-interface Draft {
-  content: string;
-  email: string;
-  pageUrl: string;
-  submission?: { key: string; signature: string };
-}
-
-function readDraft(): Draft | null {
-  try {
-    const raw = localStorage.getItem(KEYS.feedbackDraft);
-    if (!raw) return null;
-    const d = JSON.parse(raw);
-    if (typeof d !== "object" || !d) return null;
-    const submission =
-      typeof d.submission?.key === "string" && /^[0-9a-f-]{36}$/i.test(d.submission.key) && typeof d.submission?.signature === "string"
-        ? { key: d.submission.key, signature: d.submission.signature }
-        : undefined;
-    return { content: String(d.content ?? ""), email: String(d.email ?? ""), pageUrl: String(d.pageUrl ?? ""), submission };
-  } catch {
-    return null;
-  }
-}
-
-function writeDraft(d: Draft | null) {
-  try {
-    if (d === null) localStorage.removeItem(KEYS.feedbackDraft);
-    else localStorage.setItem(KEYS.feedbackDraft, JSON.stringify({ ...d, savedAt: new Date().toISOString() }));
-  } catch {
-    // storage unavailable: the form still works
-  }
 }
 
 const TIPS = ["出问题的页面或文章链接", "你看到了什么，原本想做什么", "有截图更好，记得先遮盖敏感信息"];
@@ -153,7 +121,7 @@ export default function FeedbackPage() {
       const res = await fetch("/api/site/feedback", { method: "POST", headers: { "Idempotency-Key": submission.key }, body: form });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) return setState({ kind: "error", message: body.detail ?? "提交失败，请稍后再试。" });
-      writeDraft(null);
+      writeDraft(null, true);
       setState({ kind: "done", id: body.id });
       setDraft({ content: "", email: "", pageUrl: "" });
       setShot(null);
