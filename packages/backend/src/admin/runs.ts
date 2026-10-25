@@ -16,6 +16,7 @@ import { CAPABILITIES } from "../editorial/models.ts";
 import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { redactDatabaseConnection } from "../lib/operational-error.ts";
+import { serverModules } from "../modules.ts";
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 
@@ -86,7 +87,20 @@ export async function runsOverview() {
     if (typeof row.error === "string") row.error = redactDatabaseConnection(row.error);
     if (typeof row.last_output === "string") row.last_output = redactDatabaseConnection(row.last_output);
   }
+  const modules = await Promise.all(
+    serverModules()
+      .flatMap(({ name, admin }) => (admin?.runs ? [{ name, read: admin.runs }] : []))
+      .map(async ({ name, read }) => {
+        try {
+          // Isolate serialization failures before they can break the complete dashboard response.
+          return [name, { status: "ready", data: JSON.parse(JSON.stringify(await read())) }] as const;
+        } catch {
+          return [name, { status: "unavailable" }] as const;
+        }
+      }),
+  );
   return {
+    ...(modules.length ? { modules: Object.fromEntries(modules) } : {}),
     checkedAt: new Date(now).toISOString(),
     processes: heartbeats.map((h) => ({
       role: h.key.slice("heartbeat.".length),
