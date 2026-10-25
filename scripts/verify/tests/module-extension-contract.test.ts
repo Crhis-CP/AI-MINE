@@ -68,7 +68,15 @@ test("legacy modules and optional extension hooks remain declarations without ex
   const legacy = defineServerModule({ name: "legacy", on: { materialDiscovered: async () => true }, admin: { http: () => {} } });
   const module = {
     name: "extension",
-    models: { additional: { label: "合成步骤", env: "SYNTHETIC_MODEL", purposes: ["synthetic"] } },
+    models: {
+      additional: { label: "合成步骤", env: "SYNTHETIC_MODEL", purposes: ["synthetic"] },
+      newsStep: { lane: "news", label: "合成资讯步骤", env: "SYNTHETIC_NEWS_MODEL", purposes: ["synthetic_news"] },
+      policyStep: { lane: "policy", label: "合成法规步骤", env: "SYNTHETIC_POLICY_MODEL", purposes: ["synthetic_policy"] },
+    },
+    sourceKinds: {
+      legacy: { fetchNow: async (source) => ({ id: source.id }) },
+      contextual: { fetchNow: async (source, tx) => ({ lane: source.lane, hasTransaction: !!tx }) },
+    },
     alerts: async () => {
       calls++;
       return [];
@@ -103,6 +111,10 @@ test("legacy modules and optional extension hooks remain declarations without ex
   assert.equal(legacy.name, "legacy");
   const invalid: ServerModule = {
     name: "invalid",
+    models: {
+      // @ts-expect-error Model steps share the existing news/policy lane vocabulary.
+      invalid: { lane: "all", label: "invalid", env: "SYNTHETIC_MODEL", purposes: [] },
+    },
     // @ts-expect-error An alert hook must return a promise of findings.
     alerts: () => [],
   };

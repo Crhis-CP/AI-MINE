@@ -1,4 +1,5 @@
 import type { MaterialDiscovered, ModuleBrand, ModuleTopicSummary, ModuleTopicMember } from "@amp/contracts/modules";
+import type { JobLane } from "@amp/contracts/jobs";
 import type { Db, Tx } from "./db.ts";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { PgBoss, WorkOptions } from "pg-boss";
@@ -24,6 +25,8 @@ export function defineQueue<T>(queue: ModuleQueue<T>): ModuleQueue<T> {
   return queue;
 }
 export interface ModelStep {
+  /** New paid purposes require a declared lane; omission preserves legacy metadata, never implies news. */
+  lane?: JobLane;
   label: string;
   env: string;
   purposes: string[];
@@ -132,7 +135,7 @@ export interface ServerModule {
     string,
     {
       resumed?: (sourceId: string, tx: Db) => Promise<void>;
-      fetchNow?: (source: { id: string; config: Record<string, unknown> }) => Promise<Record<string, unknown>>;
+      fetchNow?: (source: { id: string; config: Record<string, unknown>; lane: JobLane }, tx: Db) => Promise<Record<string, unknown>>;
     }
   >;
   sourceHealth?: (now: number) => Promise<string[]>;
