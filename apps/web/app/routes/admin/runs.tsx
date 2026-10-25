@@ -11,8 +11,9 @@ import { ago, bj, duration, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Dot, Empty, Field, Json, ReasonDialog, Select, Stat, Time } from "../../features/admin/ui";
 import { loadParts } from "../../../site-modules";
 import { ModuleRunPanels } from "../../features/admin/module-runs";
+import { ADMIN_MODULES } from "@amp/site/modules/admin";
 
-const moduleRuns = await loadParts((module) => module.admin?.runs);
+const moduleRuns = await loadParts((module) => module.admin?.runs, ADMIN_MODULES);
 
 export async function loader({ request }: Route.LoaderArgs) {
   const data = await loadReconciliation<AdminRuns>(request);
