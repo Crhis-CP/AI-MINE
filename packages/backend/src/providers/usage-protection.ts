@@ -1,4 +1,4 @@
-import type { Capability } from "../editorial/models.ts";
+import { legacyModelLane, legacyModelPurposes } from "../legacy-model-purposes.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
@@ -380,10 +380,10 @@ type RecordedAttempt = {
   request: Record<string, unknown> | null;
   started_at: Date;
 };
-function recordedLane(row: RecordedAttempt, available: Capability[]): "news" | "policy" | null {
+function recordedLane(row: RecordedAttempt): "news" | "policy" | null {
   const explicit = row.request?.lane;
   if (explicit === "news" || explicit === "policy") return explicit;
-  return explicit ? null : (available.find((c) => c.purposes.includes(row.purpose))?.lane ?? null);
+  return explicit !== undefined && explicit !== null ? null : legacyModelLane(row.purpose);
 }
 /** Only a recorded CNY amount is evidence; today's price cannot price a past call. */
 function recordedMicros(row: RecordedAttempt): bigint | null {
@@ -391,8 +391,8 @@ function recordedMicros(row: RecordedAttempt): bigint | null {
   if (row.status === "failed") return 0n;
   return row.currency === "CNY" && ["actual", "estimated"].includes(row.cost_basis ?? "") ? amountMicros(row.cost ?? "") : null;
 }
-async function adoptOne(db: Db, row: RecordedAttempt, available: Capability[]): Promise<boolean> {
-  const lane = z.enum(["news", "policy"]).nullable().parse(recordedLane(row, available));
+async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
+  const lane = z.enum(["news", "policy"]).nullable().parse(recordedLane(row));
   if (!lane) return false;
   const day = beijingDate(row.started_at),
     cost = recordedMicros(row);
@@ -433,18 +433,12 @@ async function adoptOne(db: Db, row: RecordedAttempt, available: Capability[]): 
 /** Bring the receipt's recorded costs into the ledger without repricing, currency conversion or resending. */
 async function adoptRecordedUsage(db: Db, since: Date) {
   const skipped: string[] = [];
-  const { capabilities, CAPABILITIES } = await import("../editorial/models.ts");
-  // New module declarations cannot establish the lane of an older unlabelled attempt.
-  const available = Object.entries(capabilities())
-    .filter(([key]) => Object.hasOwn(CAPABILITIES, key))
-    .map(([, step]) => step);
-  const attributablePurposes = available.filter((c) => c.lane).flatMap((c) => c.purposes);
   for (let pass = 0; pass < 40; pass++) {
     const rows = await db<
       RecordedAttempt[]
-    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb)) AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${attributablePurposes}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated'))) ORDER BY a.id LIMIT 500`;
+    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb)) AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${legacyModelPurposes}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated'))) ORDER BY a.id LIMIT 500`;
     if (!rows.length) return;
-    for (const row of rows) if (!(await adoptOne(db, row, available))) skipped.push(row.attempt_id);
+    for (const row of rows) if (!(await adoptOne(db, row))) skipped.push(row.attempt_id);
   }
 }
 /** Existing attempts without a price/reservation must be reconciled, never silently counted as zero. */

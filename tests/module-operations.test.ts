@@ -196,3 +196,19 @@ test("module source health and external jobs join the existing reports without h
   assert.equal((await currentScheduledJobs()).filter((name) => name === "outside.fixture").length, 1);
   assert.equal(warning.mock.calls.length, 1);
 });
+
+test("bad model declarations alert once, preserve core checks, and need a valid declaration to recover", async () => {
+  const key = "models.module.fixture-bad-models",
+    now = Date.now();
+  const valid = { label: "合成扩展模型", env: "SYNTHETIC_MODEL", lane: "news" as const, purposes: ["synthetic_module_model"] };
+  installModules([{ name: "fixture-bad-models", models: { bad: { ...valid, purposes: ["score_article"] } } }]);
+  assert.ok((await checkAlerts(now)).sent.includes(key));
+  assert.ok(!(await checkAlerts(now + 25 * 3600000)).sent.includes(key), "unchanged configuration failure does not repeat the next day");
+  installModules([]);
+  const missing = await checkAlerts(now + 25 * 3600000 + 1000);
+  assert.ok(missing.open.includes(key));
+  assert.ok(!missing.sent.includes(key + ":recovered"), "removing a module is not proof of restored model configuration");
+  installModules([{ name: "fixture-bad-models", models: { working: valid } }]);
+  assert.ok((await checkAlerts(now + 25 * 3600000 + 2000)).sent.includes(key + ":recovered"));
+  assert.ok(!(await checkAlerts(now + 25 * 3600000 + 3000)).sent.includes(key + ":recovered"));
+});

@@ -1,3 +1,5 @@
+import { buildModelCatalog } from "../model-catalog.ts";
+import { DEFAULTS } from "@amp/site/models";
 // Operations alerts. The person reading them is the site owner, not an engineer: each
 // message says what readers see, whether it heals by itself and what, if anything, the owner must do.
 //   now    — readers are affected and it has not healed: sent at once, repeated hourly, recovery reported.
@@ -487,6 +489,21 @@ export async function collectFindings(
     observeCheck?.("hot");
   }
 
+  const { CAPABILITIES } = await import("../editorial/models.ts");
+  const modelCatalog = buildModelCatalog(CAPABILITIES, serverModules(), DEFAULTS);
+  for (const name of modelCatalog.checked) observeCheck?.(`models.module.${name}`);
+  for (const issue of modelCatalog.issues) {
+    const finding: Finding = {
+      key: `models.module.${issue.module}`,
+      level: "today",
+      title: `${issue.module}扩展的模型配置需要修正`,
+      impact: "该扩展的模型步骤已停用，基础处理和其他正常扩展继续运行。",
+      heals: "需要修正扩展的模型声明",
+      action: "交给AI检查该扩展，修正后由正常巡检核对。",
+    };
+    moduleChecks.set(finding, finding.key);
+    out.push(finding);
+  }
   for (const module of serverModules()) {
     for (const hook of ["alerts", "followUps"] as const) {
       if (!module[hook]) continue;
@@ -591,7 +608,7 @@ const moduleChecks = new WeakMap<Finding, string>();
 const incompleteChecks = new WeakSet<Finding>();
 const unchecked = (state: AlertState[string], failed: Set<string>, checked: Set<string>) => (state.check ? !checked.has(state.check) : failed.size > 0);
 
-const changeOnly = (key: string) => key.startsWith("metals.") || key.startsWith("sources.");
+const changeOnly = (key: string) => key.startsWith("metals.") || key.startsWith("sources.") || key.startsWith("models.module.");
 function findingFingerprint(f: Finding) {
   let detail = f.detail;
   // Waiting timestamps and repeated failure counters describe the same incident, not a new cause.
