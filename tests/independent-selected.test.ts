@@ -66,6 +66,13 @@ test("configured independent sources keep selected cards and seats without chang
     duplicate = await add(other, 90),
     last = await add(own, 60);
   const excluded = [await add(own, 40, "ordinary"), await add(own, 30, "pending"), await add(own, 20, "low-value")];
+  await sql`UPDATE publications SET sort_at=${at(150)} WHERE article_id=${normal}`;
+  await publishArticle(first, { now });
+  assert.equal(
+    (await sql`SELECT sort_at FROM publications WHERE article_id=${normal}`)[0]!.sort_at.toISOString(),
+    at(150).toISOString(),
+    "empty configuration does not repair an unrelated member's historical anchor",
+  );
   const before = await sql`SELECT article_id,fact_id,role,manual,input_revision FROM fact_articles ORDER BY article_id`;
   const analyses = (await sql`SELECT count(*)::int AS n FROM analyses`)[0]!.n;
   const snapshot = (await get("/api/v1/selected/snapshot?limit=1000")).json();
@@ -131,4 +138,17 @@ test("configured independent sources keep selected cards and seats without chang
   );
   await republishSource(own);
   assert.equal((await app.inject(`/api/site/items/${last}`)).statusCode, 404, "reprojection preserves manual withdrawal");
+  installModules(prior);
+  await republishSource(own);
+  const restored = await loadTimeline({ ...filters, now: new Date() });
+  assert.deepEqual(
+    restored.cards.map((c) => c.item.id),
+    [normal],
+    "removing independent policy restores the ordinary group",
+  );
+  assert.equal(restored.cards[0]!.anchorAt, at(180).toISOString());
+  assert.deepEqual(
+    (await get("/api/v1/items?mode=selected&limit=100")).json().items.map((i: { id: string }) => i.id),
+    [normal],
+  );
 });
