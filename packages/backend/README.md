@@ -547,3 +547,5 @@ ExtractedBody允许via=pdfjs及可选bodyStatus，原抽取函数返回类型预
 ### 任务金额上界退役（TASK-0482）
 
 chatJson、paidRequest及费用预留不再接受TaskBudget；移除未使用的累计金额阻断及发送前旧任务上界检查。历史task_key/task_limit_micros列和值保留，新尝试不写这两个旧字段；每次尝试的回执、用途、业务线、来源/对象、报价、已付/预留/未知金额仍可查。报价缺项不编金额，回执复用与滚动请求次数、人工暂停、未知一次恢复不变。旧编译对象额外携带taskBudget也不会恢复金额限制；参见ADR-0029的源码兼容与回退边界。
+
+TASK0494只声明同事务的SourceEditorialResumeMarker与ManualProcessingExclusionsReader，供真实来源用途变更登记content自有意图及排除人工处理。实际markSourceEditorialResume/manualProcessingExclusions与原sweep消费者随TASK0493接通；声明不入队、不修改来源、人工记录或公开HTTP，也不扩大prefilterAuditExclusions的语义。

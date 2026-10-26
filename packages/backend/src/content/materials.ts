@@ -80,6 +80,9 @@ interface BaseMaterialResult {
 }
 export type MaterialResult = MaterialUpdateResult;
 
+/** Called in the actual news hot_signal → editorial update transaction; records intent, never queues work. */
+export type SourceEditorialResumeMarker = (sourceId: string, db: Db) => Promise<number>;
+
 /** Identity of stored content: the revision changes exactly when this does. */
 export function contentHash(c: Pick<MaterialInput, "title" | "bodyText" | "excerpt" | "xPost">): string {
   return sha256([collapseWhitespace(c.title), collapseWhitespace(c.bodyText ?? ""), collapseWhitespace(c.excerpt ?? "")].join("\u0001"));
