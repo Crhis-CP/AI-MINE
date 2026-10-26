@@ -6,10 +6,14 @@ import { modelFor } from "./models.ts";
 import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { promptText, promptVersion } from "./prompts.ts";
-import { TRANSLATION_MANIFEST_FORMAT } from "./translation-readiness.ts";
+import { TRANSLATION_MANIFEST_FORMAT, isChineseOriginal } from "./translation-readiness.ts";
 import { releasedTranslationScopes } from "../providers/receipts.ts";
 import { runBodyTranslation } from "./translation-runtime.ts";
 import { retryableTranslationScopes } from "./translation-store.ts";
+import { translatePostQuote, quoteTranslationRecipe } from "./post-translation.ts";
+import { loadAnalyzeInput } from "./input.ts";
+import { readCurrentBody } from "../content/materials.ts";
+import { originalPostCopy } from "../lib/text.ts";
 export { shield, unshield } from "./translation-readiness.ts";
 
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
@@ -52,6 +56,20 @@ async function bodyTranslationStop(articleId: string, revision: number): Promise
 
 /** Called only after the worker obtains a current revision from publication.prepareTranslation. */
 export async function translateArticle(articleId: string, expectedRevision: number): Promise<TranslateResult> {
+  const input = await loadAnalyzeInput(articleId);
+  if (!input || input.revision !== expectedRevision) return { articleId, status: "partial", revision: expectedRevision, reason: "input_changed" };
+  const body = input.xPost ? await readCurrentBody(articleId) : null;
+  if (input.xPost && body?.revision !== expectedRevision) return { articleId, status: "partial", revision: expectedRevision, reason: "input_changed" };
+  const quote = await translatePostQuote(articleId, expectedRevision);
+  if (quote === "stale") return { articleId, status: "partial", revision: expectedRevision, reason: "input_changed" };
+  const noMainText = originalPostCopy(input.xPost, input.url) !== null;
+  if (input.xPost && (noMainText || isChineseOriginal(body?.language ?? null)))
+    return {
+      articleId,
+      revision: expectedRevision,
+      status: quote === "partial" ? "partial" : quote === "ready" ? "translated" : "skipped",
+      reason: quote === "partial" ? "quoted_post_pending" : quote === "ready" ? "quoted_post" : noMainText ? "no_post_text" : "original_chinese",
+    };
   const stopped = await bodyTranslationStop(articleId, expectedRevision);
   if (stopped) return { articleId, status: "skipped", reason: stopped };
   const translated = await runBodyTranslation(
@@ -65,6 +83,13 @@ export async function translateArticle(articleId: string, expectedRevision: numb
     expectedRevision,
   );
   if (translated.status === "stale") return { articleId, status: "partial", revision: translated.revision, reason: "input_changed" };
+  if (quote !== "none" && translated.status === "translated")
+    return {
+      articleId,
+      revision: translated.revision,
+      status: quote === "ready" ? "translated" : "partial",
+      reason: quote === "ready" ? "quoted_post" : "quoted_post_pending",
+    };
   const result: TranslateResult = { ...translated, articleId, status: translated.status };
   if (result.revision !== undefined && result.reason !== "retry_cooldown")
     await sql`INSERT INTO translation_attempts(article_id,revision,attempts,outcome,reason)
@@ -83,21 +108,30 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new RangeError("translation repair limit must be from 1 to 1000");
   const previous = RepairCursor.safeParse(await latestSuccessfulRunResult("content.translate"));
   let afterId = previous.success ? previous.data.cursor.afterId : null;
-  const rows = await sql<TranslationCandidate[]>`
-    SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason FROM publications p JOIN articles a ON a.id = p.article_id
+  const bodyPending = sql`(a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh' AND
+    (tr.article_id IS NULL OR (tr.origin <> 'source' AND (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE}))))`;
+  const quotePending = sql`(p.x_post->>'quoteRecipe' IS NOT NULL AND (qt.quote_url IS NULL
+    OR p.x_post_revision IS DISTINCT FROM a.revision OR p.x_post->>'quoteRecipe' IS DISTINCT FROM ${quoteTranslationRecipe()}
+    OR p.x_post#>>'{view,quoted,translation}' IS DISTINCT FROM qt.text_zh))`;
+  const rows = await sql<(TranslationCandidate & { body_pending: boolean; quote_pending: boolean; post_text: string | null; article_text: string | null })[]>`
+    SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason,${bodyPending} AS body_pending,
+      ${quotePending} AS quote_pending,a.x_post->>'text' AS post_text,a.x_article->>'text' AS article_text
+    FROM publications p JOIN articles a ON a.id = p.article_id
     LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh'
     LEFT JOIN translation_attempts ta ON ta.article_id=p.article_id AND ta.revision=a.revision
-    WHERE p.selected AND p.visibility='public' AND p.body_mode = 'full' AND a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh'
+    LEFT JOIN enrichment.quote_translations qt ON qt.source_id=a.source_id AND qt.quote_url=a.x_post->'quoted'->>'url'
+      AND qt.text_hash=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(a.x_post->'quoted'->>'text','UTF8')),'hex') AND qt.recipe=${quoteTranslationRecipe()}
+    WHERE p.selected AND p.visibility='public' AND p.body_mode = 'full'
       AND p.article_id > ${afterId ?? ""}
-      AND (tr.article_id IS NULL OR (tr.origin <> 'source' AND
-           (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE})))
+      AND (${bodyPending} OR ${quotePending})
     ORDER BY p.article_id LIMIT ${limit}`;
   const recovered = await translationRecoveryScopes(rows);
   let enqueued = 0,
     scanned = 0;
   for (const row of rows) {
     if (shutdownSignal.signal.aborted || Date.now() - started >= (opts.budgetMs ?? 4 * 60_000)) break;
-    if (!stopReason(row, recovered.has(`article:${row.article_id}@${row.revision}`))) {
+    const bodyNeeded = row.body_pending && !originalPostCopy(row.post_text === null ? null : { text: row.post_text }, "", { text: row.article_text ?? "" });
+    if (row.quote_pending || (bodyNeeded && !stopReason(row, recovered.has(`article:${row.article_id}@${row.revision}`)))) {
       const queued = await enqueue(QUEUES.translate, { articleId: row.article_id, lane: "news" }, { singletonKey: row.article_id });
       if (queued === undefined) break; // An expired producer gives no durable acceptance evidence.
       if (queued) enqueued++;

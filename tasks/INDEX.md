@@ -362,7 +362,12 @@
 | [TASK-0490](TASK-0490.md) | T-0101 | M3 | architect | integrated | 退役旧API运行分流并保留访问保护 | — |
 | [TASK-0491](TASK-0491.md) | T-0101 | M3 | architect | integrated | 接通模块目录数据库迁移发现 | — |
 | [TASK-0492](TASK-0492.md) | T-0101 | M3 | architect | locally_verified | 原帖显示的完整兼容契约 | TASK-0486 |
+| [TASK-0493](TASK-0493.md) | T-0101 | M3 | architect | locally_verified | 来源用途变更后的服务器自动续接 | TASK-0494 |
 | [TASK-0494](TASK-0494.md) | T-0101 | M3 | architect | locally_verified | 材料自动续接的人工保护与意图接口 | — |
+| [TASK-0495](TASK-0495.md) | T-0101 | M3 | architect | locally_verified | 原帖模型输入与写作翻译消费者 | TASK-0486、TASK-0492 |
+| [TASK-0496](TASK-0496.md) | T-0101 | M3 | architect | locally_verified | 原帖卡片与阅读页显示消费者 | TASK-0492 |
+| [TASK-0497](TASK-0497.md) | T-0101 | M3 | architect | implemented | 原帖材料持久化与许可公开投影 | TASK-0486、TASK-0492、TASK-0494 |
+| [TASK-0498](TASK-0498.md) | T-0101 | M3 | architect | locally_verified | 原帖许可投影与统一阅读出口 | TASK-0492、TASK-0495、TASK-0496、TASK-0497 |
 | [TASK-0499](TASK-0499.md) | T-0101 | M3 | architect | locally_verified | 消除日周来源重复并避免质量假恢复 | — |
 | [TASK-0502](TASK-0502.md) | T-0101 | M3 | architect | locally_verified | 多来源报道阅读组兼容契约 | — |
 | [TASK-0506](TASK-0506.md) | T-0101 | M3 | architect | locally_verified | 报道来源展开保留父列表搜索模式 | — |

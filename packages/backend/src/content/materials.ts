@@ -13,7 +13,16 @@ export { PresentationMismatch } from "../editorial/presentation.ts";
 import { decideTimeline } from "./timeline.ts";
 export { decideTimeline, isHistorical, STALE_ON_DISCOVERY_MS, FUTURE_TOLERANCE_MS, type TimelineDecision } from "./timeline.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
-import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived, lockSourceCollectionActive } from "@amp/backend/admin/sources";
+import {
+  readSourceDateContext,
+  sourceDateConfiguration,
+  lockSourceNotArchived,
+  lockSourceCollectionActive,
+  readCurrentSourcePolicy,
+  lockCurrentSourcePolicies,
+  evaluateSourcePolicy,
+} from "@amp/backend/admin/sources";
+import { validatedPost, postContentIdentity, postBodyHtml, withStoredPostArticle, type PostArticle } from "./post-material.ts";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
 import { sql, type Db, type Tx } from "../db.ts";
@@ -23,6 +32,7 @@ import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult, SourceDateEvidence } from "@amp/contracts/time-assertion";
 import { prepareDateMutation, commitDateObservation, materialSourceTime } from "./date-evidence.ts";
 export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
+export { markSourceEditorialResume } from "./grouping.ts";
 
 export interface MediaItem {
   kind: "image" | "video";
@@ -85,7 +95,8 @@ export type SourceEditorialResumeMarker = (sourceId: string, db: Db) => Promise<
 
 /** Identity of stored content: the revision changes exactly when this does. */
 export function contentHash(c: Pick<MaterialInput, "title" | "bodyText" | "excerpt" | "xPost">): string {
-  return sha256([collapseWhitespace(c.title), collapseWhitespace(c.bodyText ?? ""), collapseWhitespace(c.excerpt ?? "")].join("\u0001"));
+  const parts = [collapseWhitespace(c.title), collapseWhitespace(c.bodyText ?? ""), collapseWhitespace(c.excerpt ?? "")];
+  return sha256(c.xPost ? stableJson({ parts, post: postContentIdentity(c.xPost) }) : parts.join("\u0001"));
 }
 
 const LOST = "\uFFFD";
@@ -117,6 +128,19 @@ export function identityKeyFor(m: MaterialInput): string {
 export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionControl?: RuntimeControlSnapshot): Promise<MaterialResult> {
   const source = await readSourceDateContext(m.sourceId, db);
   if (!source) throw new Error("Material source missing");
+  if (m.xPost) {
+    if (source.lane !== "news") throw new Error("Original-post material requires the news lane");
+    const post = validatedPost(m.xPost);
+    m = {
+      ...m,
+      xPost: post,
+      bodyText: m.bodyText ?? post.text,
+      bodyHtml: m.bodyHtml ?? postBodyHtml(post),
+      bodyStatus: m.bodyStatus ?? (post.text ? "ok" : "none"),
+    };
+  }
+  const postPolicy = m.xPost ? await readCurrentSourcePolicy(m.sourceId, db) : null;
+  if (m.xPost && !postPolicy) throw new Error("Original-post source permission missing");
   const control = collectionControl ?? (await runtimeControlSnapshot(source.lane, ["collection"], db));
   if (control.lane !== source.lane || control.switches.length !== 1 || control.switches[0] !== "collection") throw new Error("Material control scope mismatch");
   const date = MaterialSourceDateInput.parse({
@@ -126,9 +150,28 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
   });
   const run = async (tx: Tx) => {
     await assertRuntimeControl(tx, control);
+    if (postPolicy) await lockCurrentSourcePolicies(tx, [{ sourceId: m.sourceId, permissionVersion: postPolicy.permission_version }]);
     if (collectionControl) await lockSourceCollectionActive(tx, m.sourceId);
     await prepareDateMutation(tx, m.sourceId, date);
     if (!collectionControl) await lockSourceNotArchived(tx, m.sourceId);
+    if (postPolicy) {
+      if ((await readSourceDateContext(m.sourceId, tx))?.lane !== "news") throw new Error("Original-post source lane changed");
+      for (const url of new Set([m.url, ...(m.xPost?.quoted ? [m.xPost.quoted.url] : [])]))
+        for (const capability of ["store_fulltext", "process_locally"] as const) {
+          const decision = await evaluateSourcePolicy(
+            {
+              source_id: m.sourceId,
+              lane: "news",
+              capability,
+              expected_permission_version: postPolicy.permission_version,
+              resource: { url, attachment: false, document_type: null },
+            },
+            undefined,
+            tx,
+          );
+          if (decision.decision !== "allow") throw new Error("Original-post storage permission denied");
+        }
+    }
     const result = await upsertIn(tx, m, source.lane === "news");
     if (m.collectionDetail)
       await tx`UPDATE articles SET raw=jsonb_set(
@@ -165,20 +208,20 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
 
   const t = decideTimeline(m.publishedAt, discoveredAt, m.backfill);
   const newId = m.id ?? newArticleId();
-  const hash = contentHash({ title, bodyText: m.bodyText, excerpt: m.excerpt });
+  const hash = contentHash({ title, bodyText: m.bodyText, excerpt: m.excerpt, xPost: m.xPost });
   const [inserted] = await db<{ id: string }[]>`
     INSERT INTO articles (id, source_id, identity_key, url, title, author, language, published_at, published_at_claim,
       discovered_at, source_updated_at, timeline_at, backfill, backfill_reason, revision, content_hash, excerpt,
-      body_text, body_html, body_status, media, raw)
+      body_text, body_html, body_status, media, raw, x_post)
     VALUES (${newId}, ${m.sourceId}, ${identityKey}, ${m.url}, ${title}, ${m.author ?? null}, ${m.language ?? null},
       ${t.publishedAt}, ${m.publishedAt ?? null}, ${discoveredAt}, ${m.sourceUpdatedAt ?? null}, ${t.timelineAt},
       ${t.backfill}, ${t.backfillReason}, 1, ${hash}, ${m.excerpt ?? null}, ${m.bodyText ?? null}, ${m.bodyHtml ?? null},
       ${m.bodyStatus ?? (m.bodyText ? "ok" : "pending")}, ${db.json((m.media ?? []) as never)},
-      ${m.raw === undefined ? null : db.json(m.raw as never)})
+      ${m.raw === undefined ? null : db.json(m.raw as never)}, ${m.xPost ? db.json(m.xPost as never) : null})
     ON CONFLICT (identity_key) DO NOTHING RETURNING id`;
   if (inserted) {
-    await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
-             VALUES (${newId}, 1, ${hash}, ${title}, ${m.bodyText ?? null})`;
+    await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text, x_post)
+             VALUES (${newId}, 1, ${hash}, ${title}, ${m.bodyText ?? null}, ${m.xPost ? db.json(m.xPost as never) : null})`;
     await db`INSERT INTO article_discoveries (article_id, source_id, via, discovered_at)
              VALUES (${newId}, ${m.sourceId}, ${m.via}, ${discoveredAt}) ON CONFLICT DO NOTHING`;
     return { articleId: newId, created: true, revised: false, backfill: t.backfill };
@@ -194,9 +237,11 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
       title: string;
       body_text: string | null;
       excerpt: string | null;
+      x_post: XPostData | null;
+      x_article: PostArticle;
     }[]
   >`
-    SELECT id, source_id, revision, content_hash, backfill, title, body_text, excerpt FROM articles WHERE identity_key = ${identityKey} FOR UPDATE`;
+    SELECT id, source_id, revision, content_hash, backfill, title, body_text, excerpt, x_post, x_article FROM articles WHERE identity_key = ${identityKey} FOR UPDATE`;
   await db`INSERT INTO article_discoveries (article_id, source_id, via, discovered_at)
            VALUES (${existing!.id}, ${m.sourceId}, ${m.via}, ${discoveredAt}) ON CONFLICT DO NOTHING`;
   const unchanged: BaseMaterialResult = { articleId: existing!.id, created: false, revised: false, backfill: existing!.backfill };
@@ -205,10 +250,15 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
   // between the two sources' versions on every fetch. Only the article's own source revises it.
   if (existing!.source_id !== m.sourceId) return unchanged;
   // What the row will hold after this report: a listing without body keeps the stored (extracted) body.
-  const bodyText = m.bodyText ?? existing!.body_text;
+  const nextPost = m.xPost === undefined ? existing!.x_post : m.xPost;
+  const article = nextPost && nextPost.tweetId === existing!.x_post?.tweetId ? existing!.x_article : null;
+  const bodyText = nextPost ? withStoredPostArticle(m.bodyText ?? existing!.body_text, article) : (m.bodyText ?? existing!.body_text);
+  if (m.xPost && article?.text) m = { ...m, bodyText, bodyHtml: postBodyHtml(m.xPost, article), bodyStatus: "ok" };
   const excerpt = m.excerpt ?? existing!.excerpt;
-  const next = contentHash({ title, bodyText, excerpt });
+  const next = contentHash({ title, bodyText, excerpt, xPost: nextPost });
+  const postChanged = m.xPost !== undefined && stableJson(nextPost) !== stableJson(existing!.x_post);
   if (existing!.content_hash === next) {
+    if (postChanged) await db`UPDATE articles SET x_post=${nextPost ? db.json(nextPost as never) : null},updated_at=now() WHERE id=${existing!.id}`;
     const presentationChanged =
       presentation &&
       !!(m.bodyHtml?.trim() || m.media?.length) &&
@@ -221,21 +271,27 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
         },
         db,
       ));
-    return { ...unchanged, presentationChanged };
+    if (postChanged && presentation) await emit("articleChanged", { id: existing!.id, kind: "body", reason: "post presentation" }, db);
+    return { ...unchanged, presentationChanged: presentationChanged || postChanged };
   }
   if (existing!.content_hash === null) {
     // Imported history carries no hash of this form (its collectors normalised differently): the
     // first report here records the baseline instead of a revision, so an import does not send
     // every article a source still lists back to paid analysis. The baseline joins the history, so
     // a later return to it is recognised as a version seen before.
-    await db`UPDATE articles SET content_hash = ${next}, excerpt = coalesce(excerpt, ${m.excerpt ?? null}) WHERE id = ${existing!.id}`;
-    await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
-             VALUES (${existing!.id}, ${existing!.revision}, ${next}, ${title}, ${bodyText}) ON CONFLICT DO NOTHING`;
+    await db`UPDATE articles SET content_hash = ${next}, excerpt = coalesce(excerpt, ${m.excerpt ?? null}),x_post=${nextPost ? db.json(nextPost as never) : null} WHERE id = ${existing!.id}`;
+    await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text, x_post, x_article)
+             VALUES (${existing!.id}, ${existing!.revision}, ${next}, ${title}, ${bodyText}, ${nextPost ? db.json(nextPost as never) : null}, ${article ? db.json(article as never) : null}) ON CONFLICT DO NOTHING`;
     return unchanged;
   }
   // Only the current revision is idempotent. A source reverting A → B → A is a new observation.
   // Nor is the stored version with other characters lost in transit, or with them restored.
-  if (sameBarringLoss(existing!.title, title) && sameBarringLoss(existing!.body_text, bodyText) && sameBarringLoss(existing!.excerpt, excerpt))
+  if (
+    stableJson(postContentIdentity(nextPost)) === stableJson(postContentIdentity(existing!.x_post)) &&
+    sameBarringLoss(existing!.title, title) &&
+    sameBarringLoss(existing!.body_text, bodyText) &&
+    sameBarringLoss(existing!.excerpt, excerpt)
+  )
     return unchanged;
 
   const [row] = await db<{ revision: number }[]>`
@@ -245,13 +301,14 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
       body_text = coalesce(${m.bodyText ?? null}, body_text), body_html = coalesce(${m.bodyHtml ?? null}, body_html),
       body_status = CASE WHEN ${m.bodyText ?? null}::text IS NULL THEN body_status ELSE ${m.bodyStatus ?? "ok"} END,
       media = CASE WHEN ${m.media ? db.json(m.media as never) : null}::jsonb IS NULL THEN media ELSE ${m.media ? db.json(m.media as never) : null}::jsonb END,
+      x_post=${nextPost ? db.json(nextPost as never) : null},x_article=${article ? db.json(article as never) : null},
       grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
       selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
       revision = revision + 1, content_hash = ${next}, processing_state = 'new', processing_attempts=0, processing_error=NULL, processing_retry_at=NULL, processing_queued_at=NULL, updated_at = now()
     WHERE id = ${existing!.id}
     RETURNING revision`;
-  await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
-           VALUES (${existing!.id}, ${row!.revision}, ${next}, ${title}, ${bodyText})`;
+  await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text, x_post, x_article)
+           VALUES (${existing!.id}, ${row!.revision}, ${next}, ${title}, ${bodyText}, ${nextPost ? db.json(nextPost as never) : null}, ${article ? db.json(article as never) : null})`;
   return { articleId: existing!.id, created: false, revised: true, backfill: existing!.backfill };
 }
 
@@ -311,7 +368,7 @@ export interface CurrentBody {
 
 /** Snapshot for derived body work; the network operation must happen after this read returns. */
 export async function readCurrentBody(articleId: string, db: Db = sql): Promise<CurrentBody | null> {
-  const [row] = await db<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
+  const [row] = await db<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text,x_post FROM articles WHERE id=${articleId}`;
   return row ?? null;
 }
 

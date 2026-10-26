@@ -28,7 +28,7 @@ import { languageHeaders } from "../lib/http-fetch.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
-import { contentHash, updateMaterialPresentation, readCurrentBody } from "./materials.ts";
+import { contentHash, updateMaterialPresentation, readCurrentBody, type XPostData } from "./materials.ts";
 import { isSignInRedirect } from "../lib/auth-page.ts";
 import { readPdfText, PdfPasswordRequired } from "./pdf-text.ts";
 import { BODY_READER_RECIPE, bodyReadingKey } from "./body-reading-key.ts";
@@ -179,9 +179,9 @@ async function extractArticleBody(
   allowJina = process.env.JINA_BODY_FALLBACK !== "false",
   expectedRevision?: number,
 ): Promise<"ok" | "partial" | "unconfirmed" | "skipped"> {
-  const [a] = await sql<{ id: string; source_id: string; url: string; body_status: string; revision: number }[]>`
-    SELECT id, source_id, url, body_status, revision FROM articles WHERE id = ${articleId}`;
-  if (!a || a.body_status === "ok" || (expectedRevision !== undefined && a.revision !== expectedRevision)) return "skipped";
+  const [a] = await sql<{ id: string; source_id: string; url: string; body_status: string; revision: number; original_post: boolean }[]>`
+    SELECT id, source_id, url, body_status, revision, x_post IS NOT NULL AS original_post FROM articles WHERE id = ${articleId}`;
+  if (!a || a.original_post || a.body_status === "ok" || (expectedRevision !== undefined && a.revision !== expectedRevision)) return "skipped";
   const source = await readSourceDateContext(a.source_id);
   if (!source) return "skipped";
   const control = await requireRuntimeRunning(source.lane, ["collection"]);
@@ -204,7 +204,7 @@ async function extractArticleBody(
   if (!(await crawlFulltextAllowed(a.url))) {
     await sql.begin(async (tx) => {
       await guardWrite(tx);
-      await tx`UPDATE articles SET body_status='none' WHERE id=${articleId} AND revision=${a.revision} AND body_status='pending'`;
+      await tx`UPDATE articles SET body_status='none' WHERE id=${articleId} AND revision=${a.revision} AND body_status='pending' AND x_post IS NULL`;
     });
     return "skipped";
   }
@@ -229,7 +229,7 @@ async function extractArticleBody(
   if (!got) {
     await sql.begin(async (tx) => {
       await guardWrite(tx);
-      await tx`UPDATE articles SET body_status='unconfirmed',updated_at=now() WHERE id=${articleId} AND revision=${a.revision} AND body_status<>'ok'`;
+      await tx`UPDATE articles SET body_status='unconfirmed',updated_at=now() WHERE id=${articleId} AND revision=${a.revision} AND body_status<>'ok' AND x_post IS NULL`;
       await recordRead(tx, "unconfirmed");
     });
     return "unconfirmed";
@@ -241,11 +241,11 @@ async function extractArticleBody(
   const stored = await sql.begin(async (tx) => {
     await guardWrite(tx);
     const [row] = await tx<
-      { title: string; excerpt: string | null; content_hash: string | null }[]
-    >`SELECT title, excerpt, content_hash FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
-    if (!row) return false;
+      { title: string; excerpt: string | null; content_hash: string | null; x_post: XPostData | null }[]
+    >`SELECT title, excerpt, content_hash, x_post FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
+    if (!row || row.x_post) return false;
     await recordRead(tx, bodyStatus);
-    const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
+    const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt, xPost: row.x_post });
     if (row.content_hash === hash) {
       await updateMaterialPresentation(articleId, { html: body.html, bodyStatus }, tx);
       return true;
@@ -268,8 +268,10 @@ async function extractArticleBody(
 export { collapseWhitespace };
 
 async function pacedExtractArticleBody(articleId: string, allowJina?: boolean, expectedSessionId?: string, expectedRevision?: number) {
-  const material = await readCurrentBody(articleId),
-    source = material ? await readSourceDateContext(material.source_id) : null;
+  const material = await readCurrentBody(articleId);
+  // Explicit posts already carry their material, even when empty or linking to an unavailable long article.
+  if (material?.x_post) return "skipped" as const;
+  const source = material ? await readSourceDateContext(material.source_id) : null;
   if (!source || (expectedRevision !== undefined && material?.revision !== expectedRevision)) return "skipped" as const;
   if (!source.enabled || !sourceCollectionEnabled(source.lane))
     throw new CrawlDeferred(new Date(Date.now() + 60_000), `body:${articleId}`, "collection_paused");

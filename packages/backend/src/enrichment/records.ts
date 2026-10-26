@@ -1,6 +1,13 @@
 import { sha256, stableJson } from "../lib/ids.ts";
 import { sql, type Db } from "../db.ts";
 
+/** Publication receives only the accepted text for this exact source, quote and recipe. */
+export async function readQuotedPostTranslation(sourceId: string, quote: { url: string; text: string }, recipe: string, db: Db = sql): Promise<string | null> {
+  const [row] = await db<{ text_zh: string }[]>`SELECT text_zh FROM enrichment.quote_translations
+    WHERE source_id=${sourceId} AND quote_url=${quote.url} AND text_hash=${sha256(quote.text)} AND recipe=${recipe}`;
+  return row?.text_zh ?? null;
+}
+
 /** Known complete no-material outcomes, including the former paid-prefilter-only form. */
 export async function recordedMaterialWaits(db: Db, articleId?: string) {
   return db<{ article_id: string; input_revision: number; oldest_at: Date }[]>`

@@ -1,6 +1,16 @@
 import { STALE_ON_DISCOVERY_MS } from "./timeline.ts";
 import type { NewsGroupingDiagnostic } from "@amp/contracts/http/private";
 import { sql, type Db } from "../db.ts";
+import type { SourceEditorialResumeMarker } from "./materials.ts";
+
+export const EDITORIAL_RESUME_PENDING = "source_mode:hot_signal_to_editorial";
+
+/** Only the source owner's real mode-change transaction records this intent; pauses retain it. */
+export const markSourceEditorialResume: SourceEditorialResumeMarker = async (sourceId, db) => {
+  const changed = await db`UPDATE articles SET processing_error=${EDITORIAL_RESUME_PENDING}
+    WHERE source_id=${sourceId} AND processing_state='skipped' AND processing_error IS NULL`;
+  return changed.count;
+};
 
 export interface MaterialGroupingState {
   id: string;

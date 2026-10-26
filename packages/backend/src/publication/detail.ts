@@ -19,6 +19,8 @@ import {
   type StoredTranslation,
 } from "../editorial/translation-readiness.ts";
 import { promptVersion } from "../editorial/prompts.ts";
+import { looksZh } from "../editorial/writing.ts";
+import { currentPostView, postPermission, postQuoteHtml } from "./post-view.ts";
 
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
@@ -109,7 +111,11 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
 
   let body: ItemDetail["body"] = null;
   let outline: OutlineEntry[] = [];
-  if (row.body_mode === "full" && row.source_site_fulltext && (row.body_html || row.manual_body_html)) {
+  const originalAllowed =
+    !row.is_original_post ||
+    (row.x_post_revision === row.content_revision && postPermission(row.source_policy, row.source_id, row.url, "public_original_fulltext", now.getTime()));
+  const translationAllowed = !row.is_original_post || postPermission(row.source_policy, row.source_id, row.url, "public_translation", now.getTime());
+  if (originalAllowed && row.body_mode === "full" && row.source_site_fulltext && (row.body_html || row.manual_body_html)) {
     const isZh = isChineseOriginal(row.language, row.body_text ?? "");
     const original = linkBodyImages(row.body_html ?? "");
     const verified = isZh || !row.body_html ? null : readableTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
@@ -117,13 +123,14 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
       isZh || !row.body_html || verified
         ? null
         : readablePartialTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
-    const zh = row.manual_body_html
-      ? `<p>AI 辅助整理，经人工修订</p>${linkBodyImages(row.manual_body_html)}`
-      : isZh
-        ? original
-        : verified || partial
-          ? linkBodyImages((verified ?? partial)!)
-          : null;
+    const zh =
+      row.manual_body_html && (translationAllowed || isZh)
+        ? `<p>AI 辅助整理，经人工修订</p>${linkBodyImages(row.manual_body_html)}`
+        : isZh
+          ? original
+          : translationAllowed && (verified || partial)
+            ? linkBodyImages((verified ?? partial)!)
+            : null;
     const primary = withOutline(zh ?? original);
     outline = primary.outline;
     body = {
@@ -157,16 +164,18 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     }
   }
 
+  const post = row.is_original_post ? currentPostView(row, now.getTime()) : undefined;
   const detail: ItemDetail = {
     ...summary,
     readingMode: "full",
-    readingState: !row.source_site_fulltext
-      ? "restricted"
-      : body?.zh
-        ? "available"
-        : row.body_status === "pending" || (body?.original && !body.complete)
-          ? "pending"
-          : "unavailable",
+    readingState:
+      !row.source_site_fulltext || !originalAllowed
+        ? "restricted"
+        : body?.zh || post?.quoted
+          ? "available"
+          : row.body_status === "pending" || (body?.original && !body.complete)
+            ? "pending"
+            : "unavailable",
     firstPublicAt: row.first_public_at?.toISOString() ?? null,
     eventCoverage: row.story_id ? await eventCoverage(row.story_id, now, machine) : null,
     manualRevisionLabel: row.manual_revision_label,
@@ -180,6 +189,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     relatedStories: related,
     indexable: row.indexable,
     group,
+    ...(row.is_original_post ? { x: post ?? null } : {}),
   };
   return { kind: "found", detail, row };
 }
@@ -191,6 +201,7 @@ async function eventCoverage(storyId: number, now: Date, machine: boolean): Prom
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.timeline_at ASC,p.article_id ASC`;
   if (rows.length < 2) return null;
+  await attachSourcePolicies(rows);
   await attachRepresentativePriority(rows);
   const facts = new Map<string, (typeof rows)[number][]>();
   for (const row of rows) {
@@ -204,16 +215,17 @@ async function eventCoverage(storyId: number, now: Date, machine: boolean): Prom
 
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */
 export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDetail {
-  const hasTranslation = !!detail.body?.zh && detail.body.zhKind === "translation" && !!detail.body.original;
-  const bodyLanguage = original && detail.body?.original ? "original" : "zh";
-  const selectedHtml = bodyLanguage === "zh" ? detail.body?.zh : detail.body?.original;
+  const hasTranslation = (!!detail.body?.zh && detail.body.zhKind === "translation" && !!detail.body.original) || !!detail.x?.quoted?.translation;
+  const bodyLanguage = original && (detail.body?.original || detail.x) ? "original" : "zh";
+  const originalHtml = detail.body?.original ?? (detail.body?.zhKind === "original" ? detail.body.zh : null);
+  const selectedHtml = bodyLanguage === "zh" ? detail.body?.zh : originalHtml;
   return {
     ...detail,
     hasTranslation,
     bodyLanguage,
     readingState: selectedHtml ? "available" : detail.readingState,
     body: detail.body
-      ? { ...detail.body, zh: bodyLanguage === "zh" ? detail.body.zh : null, original: bodyLanguage === "original" ? detail.body.original : null }
+      ? { ...detail.body, zh: bodyLanguage === "zh" ? detail.body.zh : null, original: bodyLanguage === "original" ? originalHtml : null }
       : null,
     outline: selectedHtml ? withOutline(selectedHtml).outline : [],
   };
@@ -225,14 +237,34 @@ export async function machineItemDetail(id: string, language: "zh" | "original" 
   if (found.kind !== "found" || (found.row.release_gated && (!found.row.visible_after || found.row.visible_after > now))) return null;
   const { score: _score, ...view } = siteItemDetail(found.detail, language === "original"),
     allowed = found.row.syndicate && found.row.source_syndicate_fulltext && found.row.source_site_fulltext && view.readingMode === "full";
-  const html = view.body?.zh ?? view.body?.original ?? null,
+  const quoteHtml = allowed ? postQuoteHtml(view.x, language === "original") : "";
+  const baseHtml = view.body?.zh ?? view.body?.original ?? null;
+  const html = [baseHtml, quoteHtml].filter(Boolean).join("\n") || null,
     capacity = html !== null && Buffer.byteLength(html) > 256 * 1024,
     readable = allowed && html !== null && !capacity;
+  const body = !found.row.is_original_post
+    ? readable
+      ? view.body
+      : null
+    : readable
+      ? {
+          zh: language === "zh" ? html : null,
+          original: language === "original" ? html : null,
+          zhKind: view.body?.zhKind ?? (view.x?.quoted?.translation ? ("translation" as const) : null),
+          complete: !!view.body?.complete && (!view.x?.quoted || language === "original" || !!view.x.quoted.translation || looksZh(view.x.quoted.text)),
+        }
+      : null;
   return {
-    item: { ...view, summary: found.row.machine_summary, body: readable ? view.body : null, outline: readable ? view.outline : [] },
+    item: {
+      ...view,
+      summary: found.row.is_original_post ? found.detail.summary : found.row.machine_summary,
+      ...(found.row.is_original_post && !readable ? { x: null } : {}),
+      body,
+      outline: readable ? view.outline : [],
+    },
     reading: {
       redistribution: allowed ? ("allowed" as const) : ("restricted" as const),
-      state: readable ? (view.body?.complete ? ("complete" as const) : ("partial" as const)) : ("link_only" as const),
+      state: readable ? (body?.complete ? ("complete" as const) : ("partial" as const)) : ("link_only" as const),
       reason: !allowed
         ? "全文站外再分发未获许可，请到本站或原文阅读。"
         : capacity

@@ -2,6 +2,8 @@ import { z } from "zod";
 import { sql, type Tx } from "../db.ts";
 import { readAnalyzedGeography, validateGeography } from "../editorial/geography.ts";
 import { narrativeText } from "../editorial/narrative.ts";
+import { withXArticle } from "../editorial/input.ts";
+import type { XPostData } from "../content/materials.ts";
 
 export async function projectNewsGeography(
   tx: Tx,
@@ -14,11 +16,20 @@ export async function projectNewsGeography(
     url?: string;
     excerpt: string | null;
     body_status: string;
+    x_post?: XPostData | null;
+    x_article?: { title?: string; text?: string } | null;
   },
   analysisId: number | null,
   override?: unknown,
 ) {
-  const material = { title: article.title, bodyText: article.body_text, excerpt: article.excerpt, bodyStatus: article.body_status };
+  const post = withXArticle(article.x_post ?? null, article.x_article ?? null);
+  const material = {
+    title: article.title,
+    bodyText: article.body_text,
+    excerpt: article.excerpt,
+    bodyStatus: article.body_status,
+    ...(post ? { xPost: post } : {}),
+  };
   const narrative = {
     ...material,
     bodyText: article.url ? narrativeText(article.body_text, article.body_html ?? null, article.url) : article.body_text,

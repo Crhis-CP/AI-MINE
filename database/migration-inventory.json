@@ -487,6 +487,18 @@
     {
       "name": "publication/202610231740_metal_price_checks.sql",
       "dependsOn": ["publication/202610060435_metal_prices.sql"]
+    },
+    {
+      "name": "content/202610260845_original_post_material.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "enrichment/202610260846_quote_translations.sql",
+      "dependsOn": ["content/202610260845_original_post_material.sql", "enrichment/202610042100_translation_readiness.sql"]
+    },
+    {
+      "name": "publication/202610260847_original_post_projection.sql",
+      "dependsOn": ["content/202610260845_original_post_material.sql", "enrichment/202610260846_quote_translations.sql"]
     }
   ]
 }

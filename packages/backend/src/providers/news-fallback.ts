@@ -1,5 +1,5 @@
-import { databaseLifetimeSignal, type Tx } from "../db.ts";
-import { newsMaterialBindings } from "@amp/backend/content/materials";
+import { databaseLifetimeSignal, sql, type Db, type Tx } from "../db.ts";
+import { newsMaterialBindings, readCurrentBody } from "@amp/backend/content/materials";
 import { readCurrentSourcePolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { createFallbackPermitPort, type FallbackMaterialSnapshot, type FallbackPermitPort } from "./model-fallback-permit.ts";
@@ -14,6 +14,21 @@ const defaultPorts: Ports = {
   permissionVersion: async (id) => (await readCurrentSourcePolicy(id))?.permission_version ?? null,
 };
 export type NewsFallbackInput = (request: { system: string; user: unknown }) => FallbackPermitPort;
+
+/** Quote resources retain the parent's material identity but need their own current URL permission. */
+async function quotedResources(materials: Material[], db: Db = sql) {
+  const resources: { id: string; sourceId: string; revision: number; url: string }[] = [];
+  for (const material of materials) {
+    const body = await readCurrentBody(material.id, db);
+    if (!body || body.revision !== material.revision || body.source_id !== material.source_id) throw new Error("新闻引用材料修订未证明");
+    const quote = body.x_post?.quoted;
+    if (quote) {
+      if (!quote.url) throw new Error("新闻引用材料URL缺失");
+      resources.push({ id: material.id, sourceId: material.source_id, revision: material.revision, url: quote.url });
+    }
+  }
+  return resources;
+}
 /** Prepared before the primary call. A later failure can only use this same input, never a new read substituted for it. */
 export async function prepareNewsFallback<T>(
   input: {
@@ -42,10 +57,25 @@ export async function prepareNewsFallback<T>(
         return { id, version };
       }),
     );
+    const quotes = await quotedResources(materials);
+    for (const quote of quotes) {
+      const decision = await evaluateSourcePolicy({
+        source_id: quote.sourceId,
+        lane: "news",
+        capability: "process_locally",
+        expected_permission_version: permissions.find((p) => p.id === quote.sourceId)!.version,
+        resource: { url: quote.url, attachment: false, document_type: null },
+      });
+      if (decision.decision !== "allow") throw new Error("新闻引用材料当前不允许处理");
+    }
     // Read again across the independent projection/permission ports, avoiding a mixed initial snapshot.
-    if (stableJson(await input.current()) !== expected || stableJson(await ports.materials(ids)) !== stableJson(materials))
+    if (
+      stableJson(await input.current()) !== expected ||
+      stableJson(await ports.materials(ids)) !== stableJson(materials) ||
+      stableJson(await quotedResources(materials)) !== stableJson(quotes)
+    )
       throw new Error("新闻备用输入读取期间已变化");
-    return { value, materials, permissions };
+    return { value, materials, permissions, ...(quotes.length ? { quotes } : {}) };
   };
   let initial: Awaited<ReturnType<typeof read>>;
   try {
@@ -59,13 +89,15 @@ export async function prepareNewsFallback<T>(
       schema_version: 1,
       kind: "source_materials",
       lane: "news",
-      materials: state.materials.map((m: Material) => ({
-        source_id: m.source_id,
-        material_id: m.id,
-        revision: m.revision,
-        content_hash: m.content_hash!,
-        resource: { url: m.url, document_type: null, attachment: false },
-      })),
+      materials: state.materials.flatMap((m: Material) =>
+        [...new Set([m.url, ...(state.quotes ?? []).filter((q) => q.id === m.id).map((q) => q.url)])].map((url) => ({
+          source_id: m.source_id,
+          material_id: m.id,
+          revision: m.revision,
+          content_hash: m.content_hash!,
+          resource: { url, document_type: null, attachment: false },
+        })),
+      ),
       upstream_artifacts: [],
     },
   });
@@ -93,19 +125,21 @@ export async function lockNewsProcessingPermissions(articleIds: string[], tx: Tx
     }),
   );
   await lockCurrentSourcePolicies(tx, policies);
+  const quotes = await quotedResources(materials, tx);
   for (const material of materials)
-    for (const capability of ["external_model", "process_locally"] as const) {
-      const decision = await evaluateSourcePolicy(
-        {
-          source_id: material.source_id,
-          lane: "news",
-          capability,
-          expected_permission_version: policies.find((p) => p.sourceId === material.source_id)!.permissionVersion,
-          resource: { url: material.url, attachment: false, document_type: null },
-        },
-        undefined,
-        tx,
-      );
-      if (decision.decision !== "allow") throw new Error("新闻结果写回前来源许可已收紧");
-    }
+    for (const url of new Set([material.url, ...quotes.filter((q) => q.id === material.id).map((q) => q.url)]))
+      for (const capability of ["external_model", "process_locally"] as const) {
+        const decision = await evaluateSourcePolicy(
+          {
+            source_id: material.source_id,
+            lane: "news",
+            capability,
+            expected_permission_version: policies.find((p) => p.sourceId === material.source_id)!.permissionVersion,
+            resource: { url, attachment: false, document_type: null },
+          },
+          undefined,
+          tx,
+        );
+        if (decision.decision !== "allow") throw new Error("新闻结果写回前来源许可已收紧");
+      }
 }

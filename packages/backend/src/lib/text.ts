@@ -13,6 +13,15 @@ export function collapseWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+export const isEmptyOrLinkOnly = (text: string) => !text.replace(/https?:\/\/\S+/giu, "").trim();
+
+/** Only explicit posts have this copy; a fetched article supplies material for the normal writer. */
+export function originalPostCopy(post: { text?: unknown } | null | undefined, url: string, article?: { text?: string } | null) {
+  if (!post || article?.text?.trim()) return null;
+  const text = String(post.text ?? "");
+  return isEmptyOrLinkOnly(text) ? { title: collapseWhitespace(text) || url, summary: text.trim() ? text : null } : null;
+}
+
 export function truncate(s: string, max: number, ellipsis = "…"): string {
   const chars = [...s];
   if (chars.length <= max) return s;

@@ -3,6 +3,7 @@ import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { promptVersion } from "./prompts.ts";
 import { sql, type Db } from "../db.ts";
+import { postEvidenceText, type AnalyzeInputArticle } from "./input.ts";
 
 const codes = new Map(JURISDICTIONS.map((j) => [j.id, j]));
 const text = z
@@ -25,7 +26,7 @@ export const GeographyCandidate = z.strictObject({
   reason: text,
 });
 type Assignment = z.infer<typeof Assignment>;
-type Material = { title: string; bodyText: string | null; excerpt: string | null; bodyStatus?: string };
+type Material = Pick<AnalyzeInputArticle, "title" | "bodyText" | "excerpt" | "bodyStatus" | "xPost">;
 const active = new Set(["event_location", "rule_scope", "affected_location"]);
 export const GEOGRAPHY_DICTIONARY = JURISDICTIONS.map((j) => `${j.id}=${j.name_zh}/${j.name_en}${j.parent ? `(parent:${j.parent})` : ""}`).join("; ");
 const aliases = new Map<string, Set<string>>();
@@ -78,7 +79,7 @@ const clip = (value: string, limit: number, tail = false) => {
 export function geographyMaterial(a: Material, bodyBudget = 22000) {
   if (!Number.isSafeInteger(bodyBudget) || bodyBudget < 1024 || bodyBudget > 22000) throw new Error("Invalid structure evidence capacity");
   const tailBudget = Math.min(4000, Math.floor(bodyBudget / 4));
-  const body = a.bodyText ?? a.excerpt ?? "",
+  const body = a.xPost ? postEvidenceText(a.xPost) : (a.bodyText ?? a.excerpt ?? ""),
     all = Array.from(body),
     head = clip(all.slice(0, 12000).join(""), bodyBudget - tailBudget),
     tail = all.length > Array.from(head).length ? clip(all.slice(-2000).join(""), tailBudget, true) : "";
@@ -88,7 +89,7 @@ export function geographyMaterial(a: Material, bodyBudget = 22000) {
   return {
     bodyBudget,
     segments,
-    complete: !!a.bodyText && a.bodyStatus === "ok" && head + actualTail === body,
+    complete: (!!a.xPost || (!!a.bodyText && a.bodyStatus === "ok")) && head + actualTail === body,
     sourceHash: sha256(stableJson([a.title, body])),
   };
 }

@@ -183,11 +183,13 @@ test("trigger target recognition does not approve function bodies, dynamic targe
     assert.ok(sqlOwnership(statement).unknown.length, statement);
 });
 
-test("only explicit pg_catalog date_trunc, to_jsonb and cardinality are known scalar functions", () => {
+test("only explicit catalogue scalar functions are trusted and their nested reads remain visible", () => {
   for (const [name, argument] of [
     ["date_trunc", "'day', (SELECT started_at FROM receipts LIMIT 1)"],
     ["to_jsonb", "(SELECT request FROM receipts LIMIT 1)"],
     ["cardinality", "(SELECT ids FROM receipts LIMIT 1)"],
+    ["sha256", "(SELECT response FROM receipts LIMIT 1)::bytea"],
+    ["convert_to", "(SELECT response FROM receipts LIMIT 1)::text, 'UTF8'"],
   ]) {
     const result = sqlOwnership(`SELECT pg_catalog.${name}(${argument})`);
     assert.deepEqual(result.unknown, [], name);

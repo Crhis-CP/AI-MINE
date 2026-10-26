@@ -146,7 +146,7 @@
     "lint/correctness/noUnusedFunctionParameters": 1
   },
   "packages/backend/src/editorial/input.ts": {
-    "lint/suspicious/noExplicitAny": 4
+    "lint/suspicious/noExplicitAny": 3
   },
   "packages/backend/src/editorial/models.ts": {
     "lint/style/noProcessEnv": 4

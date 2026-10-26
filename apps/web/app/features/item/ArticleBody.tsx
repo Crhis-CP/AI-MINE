@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { IconArrowLeft, IconArrowRight, IconClose } from "../../components/icons";
 
-type Picture = { src: string; alt: string };
+type Picture = { src: string; alt: string; fallbackSrc: string };
 /** Enhance only the permitted, sanitised body already returned by the public API. */
-export function ArticleBody({ html }: { html: string }) {
+export function ArticleBody({ html, children }: { html?: string; children?: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [viewer, setViewer] = useState<{ pictures: Picture[]; index: number } | null>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     const body = root.current;
-    if (!body || !html) return;
+    if (!body || (!html && !children)) return;
     const pictures = () =>
       [...body.querySelectorAll<HTMLImageElement>("img")].filter((image) => !image.closest("a") && (!image.naturalWidth || image.naturalWidth >= 120));
     const enhanced = new Map<HTMLImageElement, { role: string | null; tabindex: string | null; label: string | null; cursor: string }>();
@@ -36,7 +36,14 @@ export function ArticleBody({ html }: { html: string }) {
       if (index < 0) return;
       event.preventDefault();
       (event.target as HTMLImageElement).focus({ preventScroll: true });
-      setViewer({ pictures: images.map((image) => ({ src: image.currentSrc || image.src, alt: image.alt })), index });
+      setViewer({
+        pictures: images.map((image) => ({
+          src: image.dataset.fullSrc && /^\/(?!\/)[^\\\s]*$/.test(image.dataset.fullSrc) ? image.dataset.fullSrc : image.currentSrc || image.src,
+          alt: image.alt,
+          fallbackSrc: image.currentSrc || image.src,
+        })),
+        index,
+      });
     };
     mark();
     body.addEventListener("load", mark, true);
@@ -57,7 +64,7 @@ export function ArticleBody({ html }: { html: string }) {
         image.style.cursor = previous.cursor;
       }
     };
-  }, [html]);
+  }, [html, children]);
   const opened = viewer !== null;
   useEffect(() => {
     const element = dialog.current;
@@ -76,7 +83,7 @@ export function ArticleBody({ html }: { html: string }) {
   return (
     <>
       {/* HTML is sanitised by the publication layer; no extra material is fetched here. */}
-      <div ref={root} className="prose" dangerouslySetInnerHTML={{ __html: html }} />
+      {children ? <div ref={root}>{children}</div> : <div ref={root} className="prose" dangerouslySetInnerHTML={{ __html: html ?? "" }} />}
       <dialog
         ref={dialog}
         aria-label="文章图片"
@@ -114,7 +121,16 @@ export function ArticleBody({ html }: { html: string }) {
           touch.current = null;
         }}
       >
-        {picture && <img src={picture.src} alt={picture.alt} className="absolute inset-0 m-auto max-h-[85dvh] max-w-[90vw] touch-pinch-zoom object-contain" />}
+        {picture && (
+          <img
+            src={picture.src}
+            alt={picture.alt}
+            onError={(event) => {
+              if (event.currentTarget.src !== picture.fallbackSrc) event.currentTarget.src = picture.fallbackSrc;
+            }}
+            className="absolute inset-0 m-auto max-h-[85dvh] max-w-[90vw] touch-pinch-zoom object-contain"
+          />
+        )}
         <button
           type="button"
           aria-label="关闭图片"

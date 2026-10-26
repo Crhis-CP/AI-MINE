@@ -25,6 +25,7 @@ import { directoryContract } from "../sources/directory-profile.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 import { serverModules } from "../modules.ts";
+import { markSourceEditorialResume } from "@amp/backend/content/materials";
 
 const kindHooks = (kind: string) => serverModules().flatMap((module) => module.sourceKinds?.[kind] ?? []);
 
@@ -210,6 +211,8 @@ export async function updateSource(
         });
     }
     await audit(actor, "source.update", `source:${id}`, input.reason ?? null, Object.fromEntries(keys.map((k) => [k, before[k]])), patch, undefined, tx);
+    if (before.lane === "news" && before.participation_mode === "hot_signal" && patch.participation_mode === "editorial")
+      await markSourceEditorialResume(id, tx);
     // What public exits show for this source's articles is derived from these fields: re-derive them
     // all (in the worker) so a revoked licence or an isolated source stops on every exit.
     if (before.lane === "news" && keys.some((k) => PUBLICATION_FIELDS.includes(k) && JSON.stringify(before[k]) !== JSON.stringify(patch[k]))) {
