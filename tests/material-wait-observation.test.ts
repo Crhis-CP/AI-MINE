@@ -1,6 +1,6 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
-import { after, test } from "node:test";
+import { after, mock, test } from "node:test";
 import { sql, closeDb } from "@amp/backend/db";
 import { materialWaitObservation, refreshOperationalSnapshots } from "../packages/backend/src/operations/operational-snapshots.ts";
 
@@ -82,4 +82,54 @@ test("existing worker run includes the full wait total beyond MCP group limits w
     snapshot.payload.every((r: object) => Object.keys(r).sort().join(",") === "count,source_id,state"),
     "old strict MCP readers keep their original row shape",
   );
+});
+
+test("reader configuration remains beside the wait count when disabled or configured, without calling or changing materials", async () => {
+  const saved = { JINA_API_KEY: process.env.JINA_API_KEY, JINA_BODY_FALLBACK: process.env.JINA_BODY_FALLBACK };
+  const waits = await materialWaitObservation();
+  const materials = await sql`SELECT id,revision,processing_state FROM articles ORDER BY id`;
+  const receipts = await sql`SELECT count(*)::int AS n FROM receipts`;
+  try {
+    for (const [enabled, key, expected] of [
+      ["false", "", "disabled"],
+      ["true", "", "missing"],
+      ["true", "synthetic-reader-key-never-return", "configured"],
+    ]) {
+      process.env.JINA_BODY_FALLBACK = enabled;
+      process.env.JINA_API_KEY = key;
+      const results = await refreshOperationalSnapshots();
+      const processing = results.find((r) => r.dataset === "processing")!;
+      assert.equal(processing.state, "sampled");
+      assert.equal(processing.body_reader?.state, expected);
+      assert.deepEqual(processing.material_wait, waits);
+      assert.ok(results.filter((r) => r.dataset !== "processing").every((r) => !("body_reader" in r)));
+      assert.ok(!JSON.stringify(results).includes("synthetic-reader-key-never-return"));
+    }
+    assert.deepEqual(await sql`SELECT id,revision,processing_state FROM articles ORDER BY id`, materials);
+    assert.deepEqual(await sql`SELECT count(*)::int AS n FROM receipts`, receipts);
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});
+
+test("a failed count does not become zero or hide independently observed reader configuration", async () => {
+  const saved = process.env.JINA_BODY_FALLBACK;
+  process.env.JINA_BODY_FALLBACK = "false";
+  const failed = mock.method(sql, "begin", async () => {
+    throw new Error("synthetic sampling failure");
+  });
+  try {
+    const result = (await refreshOperationalSnapshots()).find((r) => r.dataset === "processing")!;
+    assert.equal(result.state, "unavailable");
+    assert.equal(result.body_reader?.state, "disabled");
+    assert.ok(!("material_wait" in result));
+    assert.ok(!JSON.stringify(result).includes("synthetic sampling failure"));
+  } finally {
+    failed.mock.restore();
+    if (saved === undefined) delete process.env.JINA_BODY_FALLBACK;
+    else process.env.JINA_BODY_FALLBACK = saved;
+  }
 });

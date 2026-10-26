@@ -1,5 +1,5 @@
 import { sql } from "../db.ts";
-import type { bodyReaderConfiguration } from "../config.ts";
+import { bodyReaderConfiguration } from "../config.ts";
 import { OpsDataset } from "@amp/contracts/ops-mcp";
 import { sourcesOperationalSnapshot, activeEditorialNewsSources } from "../sources/operational-snapshot.ts";
 import { processingOperationalSnapshot, currentAnalyzedMaterials } from "../content/operational-snapshot.ts";
@@ -70,13 +70,14 @@ export async function refreshOperationalSnapshots() {
   }[] = [];
   for (const dataset of OpsDataset.options) {
     const sampledAt = new Date();
+    const reader = dataset === "processing" ? { body_reader: bodyReaderConfiguration() } : {};
     try {
       const materialWait = dataset === "processing" ? await materialWaitObservation() : undefined;
       await storeOperationalSnapshot(dataset, await readers[dataset](), sampledAt);
-      result.push({ dataset, state: "sampled", ...(materialWait ? { material_wait: materialWait } : {}) });
+      result.push({ dataset, state: "sampled", ...reader, ...(materialWait ? { material_wait: materialWait } : {}) });
     } catch {
       await recordOperationalSnapshotFailure(dataset);
-      result.push({ dataset, state: "unavailable" });
+      result.push({ dataset, state: "unavailable", ...reader });
     }
   }
   return result;
