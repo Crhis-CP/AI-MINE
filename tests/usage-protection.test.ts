@@ -10,7 +10,7 @@ import defaults from "../industry/usage-controls.json" with { type: "json" };
 import { sql, closeDb } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { sessionPrincipal, SESSION_COOKIE, type AdminPrincipal } from "@amp/backend/admin/auth";
-import { paidRequest, logicalKeyFor, ReceiptUnknownError, UsageProtectionError } from "@amp/backend/providers/receipts";
+import { paidRequest, logicalKeyFor, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { changeUsageProtection, changeUsagePrice, recoverUsageBreaker, usageProtectionOverview } from "../packages/backend/src/admin/usage-protection.ts";
 import {
   evaluateUsageProtection,
@@ -669,30 +669,29 @@ test("eight-decimal unit price is preserved exactly; rounding happens only on th
   assert.ok(quoted.quote?.price);
   assert.equal(quoted.quote.price.input_per_million_micros, "123456.78");
 });
-test("optional research task cap atomically retains in-flight and unknown usage, while free reuse adds no reservation", async () => {
+test("legacy task cap parameters cannot stop traced calls; unknown charges and free reuse remain", async () => {
   await install();
   await price("300000");
-  const taskBudget = { key: `synthetic-task-${index}`, limit_micros: "800000" };
-  const first = await paidRequest({ ...request("task-first"), taskBudget }, send);
+  const legacy = { taskBudget: { key: `synthetic-task-${index}`, limit_micros: "800000" } };
+  const first = await paidRequest({ ...request("task-first"), ...legacy }, send);
   await assert.rejects(
-    paidRequest({ ...request("task-unknown"), taskBudget }, async () => {
+    paidRequest({ ...request("task-unknown"), ...legacy }, async () => {
       calls++;
       throw new Error("unknown");
     }),
   );
-  await assert.rejects(
-    paidRequest({ ...request("task-third"), taskBudget }, send),
-    (e: unknown) => e instanceof UsageProtectionError && e.usageCode === "task_budget_exceeded",
-  );
-  assert.equal((await paidRequest({ ...request("task-first"), taskBudget }, send)).receiptId, first.receiptId);
-  assert.equal(calls, 2);
-  await assert.rejects(
-    paidRequest({ ...request("task-widen"), taskBudget: { ...taskBudget, limit_micros: "1000000" } }, send),
-    (e: unknown) => e instanceof UsageProtectionError && e.usageCode === "task_budget_changed",
-  );
-  const [row] =
-    await sql`SELECT sum(CASE WHEN state='settled' THEN settled_micros ELSE reserved_micros END)::text AS used FROM ai.usage_attempts WHERE task_key=${taskBudget.key}`;
-  assert.equal(row!.used, "600000");
+  await paidRequest({ ...request("task-third"), ...legacy }, send);
+  assert.equal((await paidRequest({ ...request("task-first"), ...legacy }, send)).receiptId, first.receiptId);
+  assert.equal(calls, 3, "received reuse adds no physical request");
+  await paidRequest({ ...request("task-fourth"), ...{ taskBudget: { ...legacy.taskBudget, limit_micros: "1" } } }, send);
+  assert.equal(calls, 4);
+  const [row] = await sql`SELECT sum(settled_micros)::text AS settled,
+    sum(reserved_micros) FILTER(WHERE state='unknown')::text AS unknown,
+    count(*) FILTER(WHERE task_key IS NOT NULL OR task_limit_micros IS NOT NULL)::int AS new_caps
+    FROM ai.usage_attempts`;
+  assert.equal(row!.settled, "900000");
+  assert.equal(row!.unknown, "300000");
+  assert.equal(row!.new_caps, 0);
 });
 
 test("price expiry is notified once per evidence revision; monthly report honors the configured Beijing minute", async () => {

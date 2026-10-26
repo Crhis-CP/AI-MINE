@@ -351,13 +351,14 @@
 | [TASK-0479](TASK-0479.md) | T-0101 | M3 | architect | integrated | 声明现有巡检结果的材料等待摘要 | — |
 | [TASK-0480](TASK-0480.md) | T-0101 | M3 | architect | integrated | 将已记录材料等待接入现有巡检 | TASK-0479 |
 | [TASK-0481](TASK-0481.md) | T-0101 | M3 | architect | integrated | 接通已选稿独立展示的模块消费者 | TASK-0430 |
+| [TASK-0482](TASK-0482.md) | T-0101 | M3 | architect | locally_verified | 退役任务金额上界接口与执行分支 | TASK-0472 |
 | [TASK-0483](TASK-0483.md) | T-0101 | M3 | architect | integrated | 在原巡检识别正文兜底配置缺失 | TASK-0480 |
 | [TASK-0484](TASK-0484.md) | T-0101 | M3 | architect | integrated | 声明原巡检的正文备用配置状态 | TASK-0480、TASK-0483 |
 | [TASK-0485](TASK-0485.md) | T-0101 | M3 | architect | integrated | 接通原巡检的正文备用状态与等待摘要 | TASK-0484 |
 | [TASK-0486](TASK-0486.md) | T-0101 | M3 | architect | integrated | 原帖材料与写作结果的内部兼容契约 | — |
 | [TASK-0487](TASK-0487.md) | T-0101 | M3 | architect | integrated | 声明同一正文入口的PDF部分提取结果 | — |
-| [TASK-0488](TASK-0488.md) | T-0101 | M3 | architect | locally_verified | 将PDF文字读取接入现有正文处理 | TASK-0487 |
-| [TASK-0489](TASK-0489.md) | T-0101 | M3 | architect | locally_verified | 由现有服务器巡检自动续接材料等待 | — |
+| [TASK-0488](TASK-0488.md) | T-0101 | M3 | architect | integrated | 将PDF文字读取接入现有正文处理 | TASK-0487 |
+| [TASK-0489](TASK-0489.md) | T-0101 | M3 | architect | integrated | 由现有服务器巡检自动续接材料等待 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

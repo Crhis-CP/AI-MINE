@@ -5,7 +5,6 @@ import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
 import { modelOutputContract } from "./model-fallback-contract.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
-import type { TaskBudget } from "./usage-protection.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { serverModules } from "../modules.ts";
 import { buildModelCatalog } from "../model-catalog.ts";
@@ -129,7 +128,6 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   fallbackHop?: boolean;
   fallbackFor?: ReceiptRequest["fallbackFor"];
   maxPhysicalAttempts?: 1;
-  taskBudget?: TaskBudget;
   sourceIds?: string[];
   usageObject?: { kind: "article" | "policy"; id: string };
   model: string;
@@ -309,7 +307,6 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   const request: ReceiptRequest = {
     maxPhysicalAttempts: opts.maxPhysicalAttempts,
     fallbackFor: opts.fallbackFor,
-    taskBudget: opts.taskBudget,
     modelSnapshot: registeredSummary,
     budgetService,
     budgetAliases,
