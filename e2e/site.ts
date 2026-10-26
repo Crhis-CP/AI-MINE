@@ -6,6 +6,7 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { LoginNonce } from "@amp/contracts/http/private";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { webEnvironment } from "../apps/web/runtime-env.ts";
+import { isPrivateApiPath } from "../apps/web/api-target.ts";
 import { openLog, ROOT, start } from "../scripts/verify/lib.ts";
 import { stopSiteProcesses } from "../scripts/verify/site-processes.ts";
 import { FIXED_TIME } from "./time.ts";
@@ -16,7 +17,7 @@ async function listen(server: Server) {
   return (server.address() as { port: number }).port;
 }
 
-/** Real production web, isolated public/private synthetic HTTP upstreams; no DB/model credentials. */
+/** Real production web and one synthetic API with protected routes; no DB/model credentials. */
 export async function startBrowserSite(logFile: string) {
   for (const group of ["public", "private"]) {
     if (!existsSync(path.join(ROOT, `apps/web/build/${group}/server/index.js`))) throw new Error("Production public/private builds are required");
@@ -24,88 +25,85 @@ export async function startBrowserSite(logFile: string) {
   const calls: Array<{ role: string; path: string; method: string }> = [];
   let privateAuthority = "";
   let loginNonceSequence = 0;
-  const api = (role: string) =>
-    createServer((req, res) => {
-      const url = new URL(req.url!, "http://fixture");
-      calls.push({ role, path: req.url!, method: req.method! });
-      res.setHeader("content-type", "application/json");
-      if (role === "private") {
-        if (req.method === "GET" && req.headers["x-forwarded-host"] === privateAuthority) {
-          res.setHeader("cache-control", "no-store");
-          if (url.pathname === "/api/auth/options") return res.end(JSON.stringify({ password: true, feishu: true }));
-          if (url.pathname === "/api/auth/password-nonce")
-            return res.end(
-              JSON.stringify(
-                LoginNonce.parse({
-                  token: `synthetic-login-nonce-${++loginNonceSequence}`,
-                  expires_at: new Date(Date.parse(FIXED_TIME) + 300_000).toISOString(),
-                }),
-              ),
-            );
-        }
-        res.statusCode = 404;
-        return res.end("{}");
-      }
-      const query = url.searchParams;
-      const channel = query.get("channel"),
-        category = query.get("category");
-      const filters = {
-        channel: isChannelKey(channel) ? channel : "all",
-        category: isCategoryKey(category) ? category : null,
-        tag: query.get("tag"),
-        topic: null,
-      };
-      if (url.pathname === "/api/health" || url.pathname === "/api/site/meta") return res.end(JSON.stringify({ ok: true, changelogVersion: FIXED_TIME }));
-      if (url.pathname === "/api/site/pool")
-        return res.end(
-          JSON.stringify(
-            publicSchemas.PoolResponse.parse({
-              filters: { ...filters, q: query.get("q"), tab: query.get("tab") === "relevance" ? "relevance" : "time" },
-              items: [],
-              page: 1,
-              pageCount: 0,
-              total: 0,
-              todayCount: 0,
-              freshness: FIXED_TIME,
-              generatedAt: FIXED_TIME,
-            }),
-          ),
-        );
-      if (url.pathname === "/api/site/timeline")
-        return res.end(
-          JSON.stringify(
-            publicSchemas.TimelineResponse.parse({
-              filters,
-              cards: [],
-              nextCursor: null,
-              refreshAt: null,
-              hot: [],
-              dayCounts: {},
-              generatedAt: FIXED_TIME,
-            }),
-          ),
-        );
-      if (["/icon.png", "/favicon.ico"].includes(url.pathname)) {
-        res.setHeader("content-type", url.pathname.endsWith("png") ? "image/png" : "image/x-icon");
-        return res.end(readFileSync(path.join(ROOT, "industry/brand", url.pathname.slice(1))));
+  const api = createServer((req, res) => {
+    const url = new URL(req.url!, "http://fixture");
+    const role = isPrivateApiPath(url.pathname) ? "private" : "public";
+    calls.push({ role, path: req.url!, method: req.method! });
+    res.setHeader("content-type", "application/json");
+    if (role === "private") {
+      if (req.method === "GET" && req.headers["x-forwarded-host"] === privateAuthority) {
+        res.setHeader("cache-control", "no-store");
+        if (url.pathname === "/api/auth/options") return res.end(JSON.stringify({ password: true, feishu: true }));
+        if (url.pathname === "/api/auth/password-nonce")
+          return res.end(
+            JSON.stringify(
+              LoginNonce.parse({
+                token: `synthetic-login-nonce-${++loginNonceSequence}`,
+                expires_at: new Date(Date.parse(FIXED_TIME) + 300_000).toISOString(),
+              }),
+            ),
+          );
       }
       res.statusCode = 404;
-      res.end("{}");
-    });
-  const publicApi = api("public"),
-    privateApi = api("private"),
-    reservation = createServer();
+      return res.end("{}");
+    }
+    const query = url.searchParams;
+    const channel = query.get("channel"),
+      category = query.get("category");
+    const filters = {
+      channel: isChannelKey(channel) ? channel : "all",
+      category: isCategoryKey(category) ? category : null,
+      tag: query.get("tag"),
+      topic: null,
+    };
+    if (url.pathname === "/api/health" || url.pathname === "/api/site/meta") return res.end(JSON.stringify({ ok: true, changelogVersion: FIXED_TIME }));
+    if (url.pathname === "/api/site/pool")
+      return res.end(
+        JSON.stringify(
+          publicSchemas.PoolResponse.parse({
+            filters: { ...filters, q: query.get("q"), tab: query.get("tab") === "relevance" ? "relevance" : "time" },
+            items: [],
+            page: 1,
+            pageCount: 0,
+            total: 0,
+            todayCount: 0,
+            freshness: FIXED_TIME,
+            generatedAt: FIXED_TIME,
+          }),
+        ),
+      );
+    if (url.pathname === "/api/site/timeline")
+      return res.end(
+        JSON.stringify(
+          publicSchemas.TimelineResponse.parse({
+            filters,
+            cards: [],
+            nextCursor: null,
+            refreshAt: null,
+            hot: [],
+            dayCounts: {},
+            generatedAt: FIXED_TIME,
+          }),
+        ),
+      );
+    if (["/icon.png", "/favicon.ico"].includes(url.pathname)) {
+      res.setHeader("content-type", url.pathname.endsWith("png") ? "image/png" : "image/x-icon");
+      return res.end(readFileSync(path.join(ROOT, "industry/brand", url.pathname.slice(1))));
+    }
+    res.statusCode = 404;
+    res.end("{}");
+  });
+  const reservation = createServer();
   const children: ReturnType<typeof start>[] = [];
   const close = async () => {
     await stopSiteProcesses(children);
-    for (const server of [publicApi, privateApi, reservation]) {
+    for (const server of [api, reservation]) {
       server.closeAllConnections();
       if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   };
   try {
-    const publicPort = await listen(publicApi),
-      privatePort = await listen(privateApi),
+    const apiPort = await listen(api),
       port = await listen(reservation);
     await new Promise<void>((resolve) => reservation.close(() => resolve()));
     const publicOrigin = `http://127.0.0.1:${port}`,
@@ -119,8 +117,7 @@ export async function startBrowserSite(logFile: string) {
       SITE_URL: publicOrigin,
       PRIVATE_HOST: "127.0.0.1",
       TRUST_PROXY: "false",
-      API_BASE_URL: `http://127.0.0.1:${publicPort}`,
-      PRIVATE_API_BASE_URL: `http://127.0.0.1:${privatePort}`,
+      API_BASE_URL: `http://127.0.0.1:${apiPort}`,
     });
     children.push(start(process.execPath, ["--import", path.join(ROOT, "e2e/web-clock.ts"), "apps/web/server.ts"], { env, log: openLog(logFile) }));
     for (let count = 0; count < 100; count++) {

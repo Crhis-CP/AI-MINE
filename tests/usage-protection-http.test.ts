@@ -22,7 +22,7 @@ test("real private roles expose read-only usage to administrators and Owner-only
   const server = await apiProcess(t, {
     ...f.env,
     NODE_ENV: "production",
-    API_ROLE: "private-api",
+    API_ROLE: "api",
     PRIVATE_HOST: "usage.synthetic.invalid",
     SITE_URL: "https://usage.synthetic.invalid",
     DATABASE_URL_PRIVATE_OPS: f.urlFor("private_ops"),
