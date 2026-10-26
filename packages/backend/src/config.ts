@@ -109,6 +109,18 @@ export function credential(group: CredentialGroup, name: string): string | null 
   return value && value.trim() !== "" ? value : null;
 }
 
+/** Configuration presence only; never probes the service or returns secret/error values. */
+export function bodyReaderConfiguration() {
+  if (env.JINA_BODY_FALLBACK === "false") return { state: "disabled" as const, detail: "正文读取备用已关闭" };
+  try {
+    return credential("collectors", "JINA_API_KEY")
+      ? { state: "configured" as const, detail: "正文读取备用配置已齐；尚未验证服务可用性" }
+      : { state: "missing" as const, detail: "未配置正文读取凭据" };
+  } catch {
+    return { state: "unavailable" as const, detail: "正文读取凭据配置无法读取" };
+  }
+}
+
 const PLACEHOLDER = /^(changeme|placeholder|dummy|test|xxx+|your[-_ ].*|<.*>)$/i;
 
 /** Production refuses to start with missing or placeholder critical secrets, or dev-login bypasses. */

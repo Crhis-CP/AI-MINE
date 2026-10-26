@@ -525,3 +525,5 @@ publication消费现有模块independentSelectedSources精确ID清单，去重�
 原ops.alerts在news采集启用且未人工暂停时检查已开启正文兜底的凭据是否缺失或不可读。只生成固定原因，密钥值和配置读取错误原文不进入提醒。同一原因经原alerts.state去重，不按小时/天重复；补齐仅提示配置项已齐并注明未请求读取服务，不宣称取材恢复。明确关闭兜底时静默结束此配置提醒，采集停用或人工暂停不当作恢复。
 
 此检查不建新队列、不调用Reader/模型、不重排等待稿、不改变原告警数值阈值。已有analyzed/unknown材料不会因补凭据自动重处理，恢复须另核许可、修订和人工状态后走原受控入口。读取能力方案见验收目录reader-capability-decision-20261025.md；源码强制key与官方基础无key模式不同，不自动切换。
+
+TASK-0484为独立兼容契约：config.bodyReaderConfiguration仅返回非秘密state/detail，状态为disabled/missing/configured/unavailable，配置齐全不宣称服务已验证。processing结果允许可选body_reader，旧日志缺字段表示未观测，旧MCP payload和HTTP不变。当前巡检及告警尚未调用新getter或输出字段；实际消费者待契约合并后接通，届时与material_wait并列，关闭备用仍保留等待数。无Reader/模型调用，不启用服务。
