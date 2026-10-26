@@ -275,6 +275,16 @@
           },
           "title": {
             "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostFeedView"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -528,6 +538,16 @@
           },
           "title": {
             "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostFeedViewInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -933,6 +953,196 @@
           "trend",
           "storyPublicId",
           "itemId"
+        ],
+        "type": "object"
+      },
+      "MediaView": {
+        "additionalProperties": false,
+        "properties": {
+          "alt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fullUrl": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "type": "string"
+              },
+              {
+                "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                "type": "string"
+              }
+            ]
+          },
+          "height": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "video"
+            ],
+            "type": "string"
+          },
+          "poster": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "srcSet": {
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "type": "string"
+              },
+              {
+                "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                "type": "string"
+              }
+            ]
+          },
+          "width": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "url",
+          "width",
+          "height",
+          "alt",
+          "poster"
+        ],
+        "type": "object"
+      },
+      "MediaViewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "alt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fullUrl": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "type": "string"
+              },
+              {
+                "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                "type": "string"
+              }
+            ]
+          },
+          "height": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "video"
+            ],
+            "type": "string"
+          },
+          "poster": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "srcSet": {
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "type": "string"
+              },
+              {
+                "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                "type": "string"
+              }
+            ]
+          },
+          "width": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "url",
+          "width",
+          "height",
+          "alt",
+          "poster"
         ],
         "type": "object"
       },
@@ -22881,6 +23091,514 @@
           "content_version",
           "generated_at",
           "state"
+        ],
+        "type": "object"
+      },
+      "XPostDetailFields": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostDetailView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "XPostDetailFieldsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostDetailViewInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "XPostDetailView": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "avatarSrcSet": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/MediaView"
+            },
+            "type": "array"
+          },
+          "quoted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostQuotedView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "avatarUrl",
+          "quoted",
+          "media"
+        ],
+        "type": "object"
+      },
+      "XPostDetailViewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "avatarSrcSet": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/MediaViewInput"
+            },
+            "type": "array"
+          },
+          "quoted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostQuotedViewInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "avatarUrl",
+          "quoted",
+          "media"
+        ],
+        "type": "object"
+      },
+      "XPostFeedView": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "avatarSrcSet": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/MediaView"
+            },
+            "type": "array"
+          },
+          "quoted": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "authorName": {
+                    "type": "string"
+                  },
+                  "handle": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "translation": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "authorName",
+                  "handle",
+                  "text",
+                  "translation"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "avatarUrl",
+          "quoted",
+          "media"
+        ],
+        "type": "object"
+      },
+      "XPostFeedViewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "avatarSrcSet": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/MediaViewInput"
+            },
+            "type": "array"
+          },
+          "quoted": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "authorName": {
+                    "type": "string"
+                  },
+                  "handle": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "translation": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "authorName",
+                  "handle",
+                  "text",
+                  "translation"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "avatarUrl",
+          "quoted",
+          "media"
+        ],
+        "type": "object"
+      },
+      "XPostQuotedView": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "translation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "text",
+          "url",
+          "translation"
+        ],
+        "type": "object"
+      },
+      "XPostQuotedViewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "translation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "text",
+          "url",
+          "translation"
+        ],
+        "type": "object"
+      },
+      "XPostView": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "avatarSrcSet": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/MediaView"
+            },
+            "type": "array"
+          },
+          "quoted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostQuotedView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "translation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "avatarUrl",
+          "text",
+          "translation",
+          "quoted",
+          "media"
+        ],
+        "type": "object"
+      },
+      "XPostViewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "authorName": {
+            "type": "string"
+          },
+          "avatarSrcSet": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "format": "uri",
+                    "type": "string"
+                  },
+                  {
+                    "pattern": "^\\/(?!\\/)[^\\\\\\s]*$",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/MediaViewInput"
+            },
+            "type": "array"
+          },
+          "quoted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XPostQuotedViewInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "translation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "authorName",
+          "handle",
+          "avatarUrl",
+          "text",
+          "translation",
+          "quoted",
+          "media"
         ],
         "type": "object"
       }
