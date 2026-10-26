@@ -1,5 +1,9 @@
 # @amp/contracts
 
+TASK-0492原帖显示兼容契约：`http/public`提供严格MediaView、XPostView及XPostFeedView/XPostDetailView派生，`site`沿原类型入口导出。FeedItemSummary可省略或显式null的x只带作者、头像、媒体及精简引用（无引用URL），不带主text/translation；ItemDetail和SiteItemDetail继承XPostDetailFields，x只带安全详情元数据和引用，主原文/译文继续由body按原方式提供。旧响应不自动填x/null/空数组，channel保持news，news/policy业务线不变。URL采用HTTP(S)或无双斜杠/反斜杠/空白的站内路径；srcSet候选也逐项核对，raw/内部字段不透传。
+
+schema只校验形状，不授予原帖、引用或媒体的读取/公开许可，也不开放图片代理。TASK0486的材料XPostData不在此重复。下一批须按当前许可把材料/版本、模型、投影、网页及机器出口完整接通；新契约通过和OpenAPI生成不等于已有生产者、入选资格获准或上线。现有严格客户端也须与新字段生产者配套更新，不能用旧响应兼容测试代替完整运行验收。
+
 TASK-0411历史背景契约沿`site`导出news候选、材料/公开修订及真实日期版本绑定、原文锚点、确认凭据、安全引用Reader及同事务投影口类型；安全引用拒绝quote/receipt/hash。`http/public`声明可选`StoryDetail.background`组件，复用Feed与TimeAssertion，无factId，日期或未知不补造时刻。schema不证明真实原文或对象身份，也不授予许可。当前无消费者、迁移或模型调用，后续TASK-0414/0415接入，详见`docs/03-data/historical-background-contract.md`。
 
 TASK-0422仅追加`HistoricalAnchorExtractor`类型，沿既有site和publication/publish出口转出。后续`extractHistoricalAnchors(text)`与候选Reader复用项目、矿山、文书语境规则，只准备候选输入，不签发许可、不调用模型，也不把提取结果当已确认关系；本片不提供占位实现或修改wire。

@@ -359,8 +359,9 @@
 | [TASK-0487](TASK-0487.md) | T-0101 | M3 | architect | integrated | 声明同一正文入口的PDF部分提取结果 | — |
 | [TASK-0488](TASK-0488.md) | T-0101 | M3 | architect | integrated | 将PDF文字读取接入现有正文处理 | TASK-0487 |
 | [TASK-0489](TASK-0489.md) | T-0101 | M3 | architect | integrated | 由现有服务器巡检自动续接材料等待 | — |
-| [TASK-0490](TASK-0490.md) | T-0101 | M3 | architect | locally_verified | 退役旧API运行分流并保留访问保护 | — |
-| [TASK-0491](TASK-0491.md) | T-0101 | M3 | architect | locally_verified | 接通模块目录数据库迁移发现 | — |
+| [TASK-0490](TASK-0490.md) | T-0101 | M3 | architect | integrated | 退役旧API运行分流并保留访问保护 | — |
+| [TASK-0491](TASK-0491.md) | T-0101 | M3 | architect | integrated | 接通模块目录数据库迁移发现 | — |
+| [TASK-0492](TASK-0492.md) | T-0101 | M3 | architect | locally_verified | 原帖显示的完整兼容契约 | TASK-0486 |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

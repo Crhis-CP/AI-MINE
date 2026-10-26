@@ -37,6 +37,51 @@ export const SourceAttribution = z.strictObject({
   notice: z.string().nullable(),
   legalUrl: z.url({ protocol: /^https?$/ }).nullable(),
 });
+
+const postMediaUrl = z.union([z.url({ protocol: /^https?$/ }), z.string().regex(/^\/(?!\/)[^\\\s]*$/)]);
+const postMediaSourceSet = z.string().refine(
+  (value) =>
+    value.split(",").every((candidate) => {
+      const [url, descriptor, ...extra] = candidate.trim().split(/\s+/);
+      if (extra.length || !postMediaUrl.safeParse(url).success) return false;
+      if (descriptor === undefined) return true;
+      const match = /^(\d+(?:\.\d+)?)(w|x)$/.exec(descriptor);
+      return !!match && Number(match[1]) > 0 && Number.isFinite(Number(match[1])) && (match[2] === "x" || /^\d+$/.test(match[1]));
+    }),
+  "Expected safe media URLs with optional positive width or density descriptors",
+);
+/** These views contain only permitted public fields; parsing never grants source or media rights. */
+export const MediaView = z.strictObject({
+  kind: z.enum(["image", "video"]),
+  url: postMediaUrl,
+  fullUrl: postMediaUrl.optional(),
+  width: z.number().nonnegative().nullable(),
+  height: z.number().nonnegative().nullable(),
+  alt: z.string().nullable(),
+  poster: postMediaUrl.nullable(),
+  srcSet: postMediaSourceSet.optional(),
+});
+export const XPostQuotedView = z.strictObject({
+  authorName: z.string(),
+  handle: z.string(),
+  text: z.string(),
+  url: z.url({ protocol: /^https?$/ }),
+  translation: z.string().nullable(),
+});
+export const XPostView = z.strictObject({
+  authorName: z.string(),
+  handle: z.string(),
+  avatarUrl: postMediaUrl.nullable(),
+  avatarSrcSet: postMediaSourceSet.optional(),
+  text: z.string(),
+  translation: z.string().nullable(),
+  quoted: XPostQuotedView.nullable(),
+  media: z.array(MediaView),
+});
+/** The main text uses the existing body projection, not a second bilingual copy inside x. */
+export const XPostDetailView = XPostView.omit({ text: true, translation: true });
+export const XPostFeedView = XPostDetailView.extend({ quoted: XPostQuotedView.omit({ url: true }).nullable() });
+export const XPostDetailFields = z.strictObject({ x: XPostDetailView.nullable().optional() });
 export const ContentVersion = z.strictObject({ version: z.string(), withdrawalVersion: z.string() });
 export const Freshness = z.strictObject({
   generated_at: z.iso.datetime(),
@@ -81,6 +126,7 @@ const FeedItemSummaryCore = z.strictObject({
   channel: z.literal("news"),
   source: z.strictObject({ name: z.string() }),
   attribution: SourceAttribution.nullable().optional(),
+  x: XPostFeedView.nullable().optional(),
 });
 export const SourceDatedFeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.shape);
 export const FeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.partial().shape);
@@ -397,6 +443,12 @@ export const schemas = {
   FeedbackIdempotencyHeaders,
   StoryFollowupsResponse,
   SourceAttribution,
+  MediaView,
+  XPostQuotedView,
+  XPostView,
+  XPostDetailView,
+  XPostFeedView,
+  XPostDetailFields,
   ContentVersion,
   SavedItems,
   Freshness,

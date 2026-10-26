@@ -26,6 +26,11 @@ export interface SourceRef {
 }
 
 export type StoryRef = import("zod").infer<typeof import("./http/public.ts").StoryRef>;
+export type MediaView = import("zod").infer<typeof import("./http/public.ts").MediaView>;
+export type XPostView = import("zod").infer<typeof import("./http/public.ts").XPostView>;
+export type XPostFeedView = import("zod").infer<typeof import("./http/public.ts").XPostFeedView>;
+export type XPostDetailView = import("zod").infer<typeof import("./http/public.ts").XPostDetailView>;
+export type XPostDetailFields = import("zod").infer<typeof import("./http/public.ts").XPostDetailFields>;
 
 export type ItemSummary = ItemSummaryCore;
 interface ItemSummaryCore {
@@ -68,7 +73,7 @@ export interface OutlineEntry {
   level: number;
 }
 
-export interface ItemDetail extends ItemSummary {
+export interface ItemDetail extends ItemSummary, XPostDetailFields {
   readingState?: "available" | "pending" | "restricted" | "unavailable";
   /** Recorded first public eligibility; unknown historical values stay null. */
   firstPublicAt?: string | null;
