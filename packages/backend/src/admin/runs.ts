@@ -17,6 +17,7 @@ import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields }
 import { sha256, stableJson } from "../lib/ids.ts";
 import { redactDatabaseConnection } from "../lib/operational-error.ts";
 import { serverModules } from "../modules.ts";
+import { recordedRunContext } from "../operations/run-context.ts";
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 
@@ -25,6 +26,16 @@ export async function latestSuccessfulRunResult(job: string): Promise<unknown> {
   const [row] = await sql<{ detail: unknown }[]>`SELECT detail FROM job_runs
     WHERE job=${job} AND status='ok' ORDER BY started_at DESC,id DESC LIMIT 1`;
   return row?.detail ?? null;
+}
+
+/** Preserve the newest failure/unfinished observation, excluding only the exact invoking run. */
+export async function previousRecordedRun(job: string) {
+  const current = recordedRunContext.getStore();
+  const [row] = await sql<{ id: string; started_at: Date; finished_at: Date | null; status: string; detail: unknown }[]>`
+    SELECT id::text,started_at,finished_at,status,detail FROM job_runs
+    WHERE job=${job} AND id IS DISTINCT FROM ${current?.job === job ? current.id : null}::bigint
+    ORDER BY started_at DESC,job_runs.id DESC LIMIT 1`;
+  return row ?? null;
 }
 
 /** Exact database text only: no Date/epoch conversion, I/O, or authentication semantics. */

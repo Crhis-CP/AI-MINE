@@ -8,6 +8,7 @@ import { checkAlerts, collectFindings, sendDigest } from "@amp/backend/operation
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { sourceHealthWeekly } from "@amp/backend/operations/reports";
 import { currentScheduledJobs } from "../packages/backend/src/jobs/schedule-status.ts";
+import { mockFeishuAlerts } from "./feishu-alert-fixture.ts";
 
 const internal = process.env.FEISHU_INTERNAL_ENABLED;
 process.env.FEISHU_INTERNAL_ENABLED = "false";
@@ -49,6 +50,7 @@ test("module alert failures stay visible while other alerts and follow-ups still
 });
 
 test("an incomplete module check cannot close existing immediate or digest incidents", async (t) => {
+  mockFeishuAlerts(t);
   const log = t.mock.method(console, "log", () => {});
   const now = Date.now();
   let phase: "open" | "failed" | "healthy" = "open";
@@ -111,6 +113,7 @@ test("an incomplete module check cannot close existing immediate or digest incid
 });
 
 test("unchanged legacy digest incidents persist their check ownership without sending another message", async (t) => {
+  mockFeishuAlerts(t);
   const log = t.mock.method(console, "log", () => {});
   const now = Date.now();
   const key = "digest:metals.fixture-legacy";
