@@ -1,4 +1,5 @@
 import { applyPresentationRefresh } from "../admin/content-presentation.ts";
+import { manualProcessingExclusions } from "@amp/backend/admin/content";
 import { audit, previousAuditedCommand } from "../admin/auth.ts";
 import { isModelRouteWaiting, modelRouteWaitSeconds } from "../providers/model-fallback.ts";
 import { RuntimeControlPaused, RuntimeControlStale, runtimeControlSnapshot, assertRuntimeControl } from "../operations/lane-controls.ts";
@@ -16,7 +17,9 @@ import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
 import { isHistorical, readCurrentBody, resetMaterialProcessing } from "../content/materials.ts";
-import { recordedMaterialWaits } from "../enrichment/records.ts";
+import { recordedMaterialWaits, readGroupingAnalysis } from "../enrichment/records.ts";
+import { beginMaterialGrouping, EDITORIAL_RESUME_PENDING } from "../content/grouping.ts";
+import { captureEventWithdrawal, removeAutomaticDateMembership } from "@amp/backend/events/group";
 import {
   readSourceDateContext,
   readCurrentSourcePolicy,
@@ -26,7 +29,7 @@ import {
 } from "@amp/backend/admin/sources";
 import { bodyReadingKey } from "../content/body-reading-key.ts";
 import { usableSourceText } from "../lib/text.ts";
-import { publishArticle, prepareTranslation } from "../publication/publish.ts";
+import { publishArticle, prepareTranslation, articleWithdrawalHeld } from "../publication/publish.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
@@ -49,6 +52,7 @@ type Step = "extract" | "analyze";
 
 interface Route {
   revision: number;
+  originalPost: boolean;
   step: Step;
   /** Not an editorial source: no analysis; the post goes straight to event grouping as discussion evidence. */
   signal: boolean;
@@ -78,19 +82,21 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       backfill: boolean;
       published_at: Date | null;
       discovered_at: Date;
+      original_post: boolean;
     }[]
   >`
     SELECT a.revision, a.body_status, a.language, s.participation_mode, s.lane, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
-           a.backfill, a.published_at, a.discovered_at
+           a.backfill, a.published_at, a.discovered_at, a.x_post IS NOT NULL AS original_post
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!row) return null;
   const historical = isHistorical(row);
   const signal = row.participation_mode !== "editorial";
   const pending = row.body_status === "pending";
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
-  const needsPage = !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
+  const needsPage = !row.original_post && !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
   return {
     revision: row.revision,
+    originalPost: row.original_post,
     step: pending && needsPage ? "extract" : "analyze",
     signal,
     historical,
@@ -136,7 +142,7 @@ export async function queueProcessing(
     await unidentifiedLanguage(articleId, r.revision, db);
     return null;
   }
-  const step = opts.step ?? r.step;
+  const step = r.originalPost ? "analyze" : (opts.step ?? r.step);
   const record = async (pending: Promise<string | null>) => {
     const jobId = await pending;
     if (jobId) await db`UPDATE articles SET processing_queued_at=now() WHERE id=${articleId} AND revision=${r.revision}`;
@@ -358,6 +364,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
     if (data.presentation) {
       const command = data.presentation;
       try {
+        if ((await readCurrentBody(articleId))?.x_post) throw new Error("原帖正文来自已保存的原帖材料，不能使用网页正文展示刷新");
         return await applyPresentationRefresh(
           articleId,
           { version: command.version, reason: command.reason },
@@ -510,6 +517,80 @@ async function resumeMaterialWaits(): Promise<number> {
   return resumed;
 }
 
+let editorialResumeCursor = "";
+/** A real source edit records the intent; unchanged discoveries never authorize paid processing. */
+async function resumeEditorialSources(): Promise<number> {
+  if (!sourceCollectionEnabled("news") || !config.modelCallsEnabled) return 0;
+  const control = await runtimeControlSnapshot("news", ["collection", "processing", "publication"]);
+  if (control.paused) return 0;
+  const pending = await sql<{ id: string; source_id: string }[]>`SELECT id,source_id FROM articles
+    WHERE processing_state='skipped' AND processing_error=${EDITORIAL_RESUME_PENDING}
+    ORDER BY (id>${editorialResumeCursor}) DESC,id LIMIT 500`;
+  let resumed = 0;
+  for (const candidate of pending) {
+    editorialResumeCursor = candidate.id;
+    try {
+      resumed += await sql.begin(async (tx) => {
+        await tx`SET LOCAL statement_timeout='2s'`;
+        await assertRuntimeControl(tx, control);
+        await lockSourceCollectionActive(tx, candidate.source_id);
+        const source = await readSourceDateContext(candidate.source_id, tx);
+        if (source?.lane !== "news" || source.participation_mode !== "editorial") return 0;
+        await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+        const [material] = await tx<{ revision: number; url: string; language: string | null }[]>`SELECT revision,url,language FROM articles
+          WHERE id=${candidate.id} AND source_id=${source.id} AND processing_state='skipped'
+            AND processing_error=${EDITORIAL_RESUME_PENDING} FOR UPDATE`;
+        if (!material || !normalizeSourceLanguage(material.language)) return 0;
+        const dismiss = async () => {
+          await tx`UPDATE articles SET processing_error=NULL WHERE id=${candidate.id} AND revision=${material.revision}
+            AND processing_state='skipped' AND processing_error=${EDITORIAL_RESUME_PENDING}`;
+          return 0;
+        };
+        const judgement = await readGroupingAnalysis(candidate.id, material.revision, tx);
+        if (judgement?.relevance != null || (await manualProcessingExclusions([candidate.id], tx)).length) return dismiss();
+        await captureEventWithdrawal(tx, candidate.id);
+        if (await articleWithdrawalHeld(tx, candidate.id, null, null)) return dismiss();
+        const permission = await readCurrentSourcePolicy(source.id, tx);
+        if (!permission) return 0;
+        for (const capability of ["process_locally", "external_model"] as const) {
+          const allowed = await evaluateSourcePolicy(
+            {
+              source_id: source.id,
+              expected_permission_version: permission.permission_version,
+              lane: "news",
+              capability,
+              resource: { url: material.url, document_type: source.config.policyProfile?.identity?.documentType?.value ?? null, attachment: false },
+            },
+            undefined,
+            tx,
+          );
+          if (allowed.decision !== "allow") return 0;
+        }
+        if ((await removeAutomaticDateMembership(candidate.id, tx)) === null) return dismiss();
+        await beginMaterialGrouping(candidate.id, material.revision, true, tx);
+        await resetMaterialProcessing(candidate.id, false, tx);
+        const jobId = await queueProcessing(candidate.id, { lowPriority: true, db: tx });
+        await audit(
+          "worker",
+          "content.editorial-resume",
+          `content:${candidate.id}`,
+          "来源用途已由负责人改为编辑，继续尚未判断的当前材料",
+          null,
+          { sourceId: source.id, revision: material.revision, jobId },
+          undefined,
+          tx,
+        );
+        return jobId ? 1 : 0;
+      });
+    } catch (error) {
+      if (error instanceof SourceCollectionPaused) continue;
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) break;
+      throw error;
+    }
+  }
+  return resumed;
+}
+
 export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
   const rows = await sql<{ id: string }[]>`
     SELECT id FROM articles
@@ -518,7 +599,7 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
       AND (processing_queued_at IS NULL OR processing_queued_at < now() - ${QUEUED_STALE}::interval)
     ORDER BY discovered_at DESC LIMIT 500`;
   for (const r of rows) await queueProcessing(r.id);
-  return { enqueued: rows.length + (await resumeMaterialWaits()) };
+  return { enqueued: rows.length + (await resumeMaterialWaits()) + (await resumeEditorialSources()) };
 }
 
 /**

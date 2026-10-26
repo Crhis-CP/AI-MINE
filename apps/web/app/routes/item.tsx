@@ -1,4 +1,5 @@
 import { ArticleBody } from "../features/item/ArticleBody";
+import { PostAuthor, PostMedia, QuotedPost } from "../features/item/OriginalPost";
 import { SharePoster } from "../features/item/SharePoster";
 import { Sheet } from "../components/ui/Sheet";
 import { ReaderToolbar } from "../features/item/ReaderTools";
@@ -9,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
 import type { Route } from "./+types/item";
 import type { SiteItemDetail } from "@amp/contracts/site";
+import { XPostDetailFields } from "@amp/contracts/http/public";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { relativeTime, fullDateTime, newsSourceDate } from "../lib/format";
@@ -26,6 +28,7 @@ import { IconArrowLeft, IconCopy, IconExternal, IconMenu, IconShare } from "../c
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const item = await loadOr404<SiteItemDetail>(`/api/site/items/${encodeURIComponent(params.id)}`, { signal: request.signal });
+  XPostDetailFields.parse(item.x === undefined ? {} : { x: item.x });
   return { item };
 }
 
@@ -111,7 +114,7 @@ export default function ItemPage() {
   }, [item.id]);
   const currentLocation = useLocation();
   const navigate = useNavigate();
-  const hasTranslation = item.hasTranslation;
+  const hasTranslation = item.hasTranslation || !!item.x?.quoted?.translation?.trim();
   const lang = item.bodyLanguage;
   const [toast, setToast] = useState<string | null>(null);
   const itemKey = `${item.id}:${item.revision}`;
@@ -376,6 +379,7 @@ export default function ItemPage() {
             {item.title}
           </h1>
           {item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
+          {item.x && <PostAuthor post={item.x} />}
 
           <p className="mt-2 text-[12px] text-ink-4">
             本站公开 {item.firstPublicAt ? <time dateTime={item.firstPublicAt}>{fullDateTime(item.firstPublicAt)}</time> : "时间未记录"}
@@ -419,15 +423,15 @@ export default function ItemPage() {
             </section>
           )}
 
-          {item.body && bodyHtml && (
+          {((item.body && bodyHtml) || (item.x && hasTranslation)) && (
             <section id="article-body" className="mt-9 scroll-mt-16 border-t border-line pt-4 xl:mt-10">
               <div className="mb-6 flex items-center justify-between gap-3">
-                <span className="text-[12px] text-ink-4">{bodyLabel}</span>
+                <span className="text-[12px] text-ink-4">{bodyLabel ?? "引用"}</span>
                 {hasTranslation && (
                   <PillTabs
                     size="xs"
                     layoutId="item-body-lang"
-                    label="正文语言"
+                    label={bodyHtml ? "正文语言" : "引用语言"}
                     active={lang}
                     items={[
                       { key: "zh", label: "中文", prefetch: "intent", replace: true, to: `/items/${item.id}` },
@@ -436,12 +440,14 @@ export default function ItemPage() {
                   />
                 )}
               </div>
-              {hasTranslation && lang === "zh" && !item.body.complete && (
+              {hasTranslation && lang === "zh" && item.body && !item.body.complete && (
                 <p className="mb-5 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">译文尚不完整，完整内容请切换到原文。</p>
               )}
-              <ArticleBody key={`${itemKey}:${lang}`} html={bodyHtml} />
+              {bodyHtml && <ArticleBody key={`${itemKey}:${lang}`} html={bodyHtml} />}
             </section>
           )}
+          {item.x && <PostMedia key={itemKey} media={item.x.media} href={item.links.original} />}
+          {item.x?.quoted && <QuotedPost quoted={item.x.quoted} language={lang} />}
 
           <p id="article-source" className="mt-8 scroll-mt-16 text-[13px] text-ink-4">
             来源：

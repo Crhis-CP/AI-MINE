@@ -1,4 +1,4 @@
-import { loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
+import { loadAnalyzeInput, analysisInputIdentity, type AnalyzeInputArticle } from "./input.ts";
 import { prepareNewsFallback } from "../providers/news-fallback.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -6,6 +6,7 @@ import { sha256, stableJson } from "../lib/ids.ts";
 const instant = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
 /** Exact fields read by news model renderers; extra export metadata never authorizes edited material. */
 export function evaluationInputFingerprint(a: AnalyzeInputArticle) {
+  const identity = analysisInputIdentity(a);
   return sha256(
     stableJson({
       sourceId: a.sourceId ?? null,
@@ -20,7 +21,8 @@ export function evaluationInputFingerprint(a: AnalyzeInputArticle) {
       bodyText: a.bodyText,
       excerpt: a.excerpt,
       bodyStatus: a.bodyStatus ?? "pending",
-      media: a.media,
+      media: identity.media,
+      ...(a.xPost ? { xPost: identity.xPost } : {}),
       translationZh: a.translationZh ?? null,
       source: { ...a.source, tags: a.source.tags ?? [], ownerEntityId: a.source.ownerEntityId ?? null, fetchesBody: a.source.fetchesBody ?? false },
     }),
@@ -39,8 +41,11 @@ export async function prepareEvaluationInput(expected: AnalyzeInputArticle | und
     throw new Error("评测样本与当前原材料或输入哈希不一致，请重新导出；不能以sourceId授权改写的内容");
   const fallbackInput = await prepareNewsFallback({
     root: shutdownSignal.signal,
-    expected: current,
-    current: () => loadAnalyzeInput(current.id),
+    expected: analysisInputIdentity(current),
+    current: async () => {
+      const next = await loadAnalyzeInput(current.id);
+      return next ? analysisInputIdentity(next) : null;
+    },
     articles: [current],
   });
   if (!fallbackInput) throw new Error("当前评测材料的来源许可或完整输入绑定缺失");

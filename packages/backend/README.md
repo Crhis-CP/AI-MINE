@@ -490,7 +490,7 @@ editorial/analyze的AnalysisRun允许prefilter=null，表示未进行预筛，�
 
 ### 缺材料时的运行等待（TASK-0474）
 
-当前文章材料只有标题、正文/摘要均不可用时，runAnalysis和analyzeArticle在预筛前等待，保存无模型/回执的unknown结果；正常材料修订后沿原队列续接。页面抓正文、有效预筛后的中文原文提前公开、权限/暂停及修订围栏保持。评测同样先等材料，记为未判定/等待，不计入正确拒选或准确率。原帖路径及无人工标注固定样本比较仍是后续范围，不能以本片回归宣称整个模型迁移完成。
+当前文章材料只有标题、正文/摘要均不可用时，runAnalysis和analyzeArticle在预筛前等待，保存无模型/回执的unknown结果；正常材料修订后沿原队列续接。页面抓正文、有效预筛后的中文原文提前公开、权限/暂停及修订围栏保持。评测同样先等材料，记为未判定/等待，不计入正确拒选或准确率。原帖路径由下述TASK0493/0495—0498消费者接通；真实固定样本比较仍待完成，不能以本片回归宣称整个模型迁移完成。
 
 ### 固定样本只读清单（TASK-0475）
 
@@ -532,7 +532,7 @@ TASK-0485消费上述已合并契约：原提醒及processing采样共用bodyRea
 
 ### 原帖内部契约准备（TASK-0486）
 
-content/materials沿固定上游声明XPostData，MaterialInput及editorial/input允许可选xPost，Candidate继续派生MaterialInput；contentHash输入与CurrentBody预留原帖信息，现有哈希算法及正文查询不变；AnalysisRun预留verbatim写作结果。仅内部类型，不保存或传递新字段、不新增供应商或来源，不改变当前等待/normalize/公开条件。真实消费者仍须校验输入、权限、材料变版和人工控制；空/链接/极短原帖的准入变化须类别级确认后生效，不能把类型声明算成完整原帖迁移。
+PR326最初声明XPostData、MaterialInput.xPost、CurrentBody及AnalysisRun.verbatim；PR331补齐显示与来源续接端口。以下完整消费者沿这些兼容接口实施；无原帖的旧材料哈希和模型输入保持，未新增来源或供应商。空/链接/极短原帖的准入变化须类别级确认后生效，代码接通不等于已获准部署。
 
 ### PDF正文结果契约准备（TASK-0487）
 
@@ -548,7 +548,17 @@ ExtractedBody允许via=pdfjs及可选bodyStatus，原抽取函数返回类型预
 
 chatJson、paidRequest及费用预留不再接受TaskBudget；移除未使用的累计金额阻断及发送前旧任务上界检查。历史task_key/task_limit_micros列和值保留，新尝试不写这两个旧字段；每次尝试的回执、用途、业务线、来源/对象、报价、已付/预留/未知金额仍可查。报价缺项不编金额，回执复用与滚动请求次数、人工暂停、未知一次恢复不变。旧编译对象额外携带taskBudget也不会恢复金额限制；参见ADR-0029的源码兼容与回退边界。
 
-TASK0494只声明同事务的SourceEditorialResumeMarker与ManualProcessingExclusionsReader，供真实来源用途变更登记content自有意图及排除人工处理。实际markSourceEditorialResume/manualProcessingExclusions与原sweep消费者随TASK0493接通；声明不入队、不修改来源、人工记录或公开HTTP，也不扩大prefilterAuditExclusions的语义。
+TASK0494声明同事务的SourceEditorialResumeMarker与ManualProcessingExclusionsReader；TASK0493由真实hot_signal→editorial来源编辑登记续接意图，原content.sweep有界复核当前材料、许可、人工处理和暂停后交回原队列。已有效的模型判断、人工修订/撤回/归属不被覆盖；其他skipped稿件不顺带重跑，暂停时意图保留。
+
+### 原帖实际消费者（TASK0493、TASK0495—0498）
+
+只有明确的xPost进入原帖材料，普通缺正文文章不推断为原帖。增量保存当前及历史原帖/已取得长文；语义变版进入原修订流程，头像与尺寸变化只更新展示。新任务、强制抽取及残留抽取任务都保护已有原帖材料，不经通用网页/Jina覆盖，沿原分析/信号队列运行。普通HTML/PDF路径保持。
+
+预筛、双评分、结构化、理解/摘要及评测读取同一原帖与引用/已取得长文；空/链接原帖和中文短帖的verbatim分支沿固定上游接入，矿业评分与归组门槛不改。引用翻译按来源/URL/文本/配方复用真实回执，引用译文不冒充完整正文；已有获准缓存可以在停止新付费后继续使用。来源/材料/人工状态与当前权限在调用和提交时复核。
+
+发布投影及卡片、详情、原文、RSS和机器出口共用当前许可后的原帖视图；引用按自己的URL复核，旧修订和旧配方不能继续充当当前结果。全文不借标题、摘要、搜索或分享绕过权限。人工正文优先；DR-78继续保留，头像与媒体目前为空，不启用图片代理或放宽CSP。网页可分开发帖内容与引用，并在已有引用译文和原文之间切换。
+
+本批运行代码尚未部署；固定真实材料、模型效果和获准发布后的自然任务仍须验收。通用入口可接收提供者明确给出的xPost，但没有新建或启用X/SocialData等付费来源，未取得的长文不伪造。来源发布者证据与发现协作按架构清单A04继续核对，不把本批原帖消费者等同整个A04完成。
 
 ### 报道阅读组契约准备（TASK0502）
 

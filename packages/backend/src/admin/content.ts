@@ -353,6 +353,17 @@ export async function manualReviewExceptions() {
 /** Same-transaction IDs with current manual content/revision or visibility controls; no private contents leave this port. */
 export type ManualProcessingExclusionsReader = (articleIds: string[], db: Db) => Promise<string[]>;
 
+export const manualProcessingExclusions: ManualProcessingExclusionsReader = async (articleIds, db) => {
+  if (!articleIds.length) return [];
+  const rows = await db<{ article_id: string }[]>`SELECT o.article_id FROM editorial_overrides o
+    WHERE o.article_id=ANY(${articleIds}::text[]) AND (
+      o.visibility IN ('withdrawn','summary-only') OR
+      ((o.fields<>'{}'::jsonb OR o.manual_revision_id IS NOT NULL) AND
+       (o.manual_revision_id IS NULL OR coalesce((SELECT state FROM editorial.manual_revision_events
+        WHERE revision_id=o.manual_revision_id ORDER BY id DESC LIMIT 1),'active') NOT IN ('superseded','withdrawn'))))`;
+  return rows.map((row) => row.article_id);
+};
+
 /** Human takedown/relevance decisions remain authoritative for the private prefilter sample. */
 export async function prefilterAuditExclusions(articleIds: string[], db: Db) {
   if (!articleIds.length) return [];

@@ -649,6 +649,10 @@
     "publication.metal_price_checks": {
       "module": "publication",
       "access": "business"
+    },
+    "enrichment.quote_translations": {
+      "module": "enrichment",
+      "access": "business"
     }
   },
   "externalTables": {
@@ -894,6 +898,7 @@
     "packages/backend/src/editorial/models.ts": "ai-gateway",
     "packages/backend/src/editorial/report-exclusions.ts": "editorial",
     "packages/backend/src/editorial/translate.ts": "enrichment",
+    "packages/backend/src/editorial/post-translation.ts": "enrichment",
     "packages/backend/src/editorial/translation-store.ts": "enrichment",
     "packages/backend/src/editorial/withdrawals.ts": "editorial",
     "packages/backend/src/enrichment/records.ts": "enrichment",

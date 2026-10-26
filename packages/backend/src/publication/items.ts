@@ -12,8 +12,14 @@ import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/si
 import { sql, type Db } from "../db.ts";
 import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
 import { displayTags } from "./rules.ts";
+import { postFeedView, postPermission } from "./post-view.ts";
 
 export interface ItemRow {
+  is_original_post?: boolean;
+  x_post?: unknown;
+  x_post_revision?: number | null;
+  content_revision?: number;
+  source_site_fulltext?: boolean;
   id: string;
   revision: number;
   title: string;
@@ -58,10 +64,11 @@ export interface ItemRow {
 /** Columns every item listing selects. Internal judgement details never leave this layer. */
 export const ITEM_COLUMNS = () => sql`
   p.article_id AS id, p.revision, p.title, p.original_title,
+  p.is_original_post,p.x_post,p.x_post_revision,a.revision AS content_revision,
   coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
   (${confirmedSelected()}) AS selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
-  s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,
+  s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,s.site_fulltext AS source_site_fulltext,
   a.author, a.language,
   st.public_id::text AS story_public_id, st.title AS story_title`;
 
@@ -81,11 +88,27 @@ export type ApiItemRow = Pick<
   | "selected"
   | "reason"
   | "source_time"
->;
+> &
+  Pick<ItemRow, "source_id" | "source_policy" | "is_original_post">;
 export const API_ITEM_COLUMNS = () => sql`
-  p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,
+  p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,s.id AS source_id,p.is_original_post,
   p.published_at,${CURRENT_SOURCE_TIME()} AS source_time,p.discovered_at, p.category, p.score, (${confirmedSelected()}) AS selected, p.reason`;
 export const API_ITEM_FROM = () => sql`FROM publications p JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id`;
+
+/** Apply the same current summary grant to every machine listing, including sync cursors. */
+export async function protectApiPostRows<T extends ApiItemRow>(rows: T[], db: Db = sql, now = Date.now()): Promise<T[]> {
+  const posts = rows.filter((row) => row.is_original_post);
+  await attachSourcePolicies(posts, db);
+  for (const row of posts) {
+    row.original_title = null;
+    if (!postPermission(row.source_policy, row.source_id, row.url, "public_summary", now)) {
+      row.title = `${row.source_name}的原帖`;
+      row.summary = null;
+      row.reason = null;
+    }
+  }
+  return rows;
+}
 
 /** A translation of an older revision is left out: the original changed after it (the worker translates it again). */
 export const ITEM_FROM = () => sql`
@@ -139,13 +162,14 @@ export function topicCondition(values: ReadMatcherValues) {
 }
 
 export function toItemSummary(row: ItemRow): ItemSummary {
+  const summaryAllowed = !row.is_original_post || postPermission(row.source_policy, row.source_id, row.url, "public_summary");
   return {
     id: row.id,
     revision: row.revision,
-    title: row.title,
-    originalTitle: row.original_title,
-    summary: row.summary,
-    reason: row.selected ? row.reason : null,
+    title: summaryAllowed ? row.title : `${row.source_name}的原帖`,
+    originalTitle: row.is_original_post ? null : row.original_title,
+    summary: summaryAllowed ? row.summary : null,
+    reason: row.selected && summaryAllowed ? row.reason : null,
     source: {
       id: row.source_id,
       name: row.source_name,
@@ -186,6 +210,7 @@ export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
     score: item.score,
     selected: item.selected,
     channel: item.channel,
+    ...(row.is_original_post ? { x: postFeedView(row) } : {}),
   };
 }
 
@@ -293,7 +318,7 @@ export interface PublicStoryReadScope extends PublicReadScope {
 export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matchers: ReadMatcherValues): Promise<Array<ApiItemRow & { sort_at: Date }>> {
   const countryScope = !!query.jurisdiction || !!matchers.topicJurisdiction;
   const sort = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) WHEN ${query.selected} THEN p.sort_at ELSE p.timeline_at END`;
-  return db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
+  const rows = await db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
     WHERE p.visibility='public' AND (NOT p.selected OR p.visible_after<=${query.now})
       AND p.eligible AND (${!query.selected} OR (${confirmedSelected()} AND (${countryScope} OR p.seat)))
 
@@ -312,6 +337,7 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
     AND (${query.windowStart}::timestamptz IS NULL OR ${sort}>=${query.windowStart}) AND ${sort}<=${query.now}
     AND (${query.afterAt}::timestamptz IS NULL OR (${sort},p.article_id)<(${query.afterAt},${query.afterId}))
     ORDER BY ${sort} DESC,p.article_id DESC LIMIT ${query.limit}`;
+  return protectApiPostRows(rows, db, query.now.getTime());
 }
 export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadScope, matchers: ReadMatcherValues): Promise<Array<{ id: string; latest: Date }>> {
   return db<{ id: string; latest: Date }[]>`SELECT st.public_id::text AS id,max(p.timeline_at) AS latest
@@ -396,9 +422,10 @@ export async function selectedGroupingRecipeInputs(ids: string[], db: Db) {
 /** Historical sync cursors carry only today's publishable selected seats and current corrections. */
 export async function currentSyncItems(ids: string[], now: Date, db: Db = sql): Promise<ApiItemRow[]> {
   if (!ids.length) return [];
-  return db<ApiItemRow[]>`SELECT ${API_ITEM_COLUMNS()} ${API_ITEM_FROM()}
+  const rows = await db<ApiItemRow[]>`SELECT ${API_ITEM_COLUMNS()} ${API_ITEM_FROM()}
     WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND ${confirmedSelected()} AND p.seat
       AND p.visible_after<=${now} AND s.participation_mode='editorial' AND s.lane='news'`;
+  return protectApiPostRows(rows, db, now.getTime());
 }
 
 /** Small source-time projection for story/report/group references, with no body reads or private date observations. */

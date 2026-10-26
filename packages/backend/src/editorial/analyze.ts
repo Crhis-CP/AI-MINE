@@ -3,7 +3,7 @@ import { modelSourceDate, modelSourceDateLabel } from "./source-time.ts";
 import { beginMaterialGrouping } from "../content/grouping.ts";
 export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "../enrichment/records.ts";
 import { ModelContentFiltered } from "../providers/model-fallback.ts";
-import { evaluateSourcePolicy } from "../admin/sources.ts";
+import { evaluateSourcePolicy, readCurrentSourcePolicy } from "../admin/sources.ts";
 import { prepareNewsFallback, lockNewsProcessingPermissions, type NewsFallbackInput } from "../providers/news-fallback.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
@@ -26,14 +26,26 @@ import { config, isProduction } from "../config.ts";
 import { sql } from "../db.ts";
 import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
-import { collapseWhitespace, normalizedUppercase, usableSourceText } from "../lib/text.ts";
+import { collapseWhitespace, normalizedUppercase, usableSourceText, originalPostCopy } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
-import { buildMaterial, firstImagePart, loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
+import {
+  buildMaterial,
+  firstImagePart,
+  firstInputImage,
+  postEvidenceText,
+  analysisInputIdentity,
+  loadAnalyzeInput,
+  type AnalyzeInputArticle,
+} from "./input.ts";
 import { pageFetchable } from "../content/extract.ts";
 import { commitProcessingResult } from "../content/materials.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import {
   buildArticlePrompt,
+  buildShortTweetPrompt,
+  buildLongTweetPrompt,
+  isShortTweetInput,
+  needsShortTweetTranslation,
   finalizeCopy,
   looksZh,
   MAX_BODY_CHARS,
@@ -81,6 +93,10 @@ export const PROMPT_VERSIONS = {
 /** Every step's prompt, as stored on each judgement. */
 export const SELECTION_PROMPT_VERSION = [PROMPT_VERSIONS.prefilter, PROMPT_VERSIONS.score].join("+");
 export const ANALYZE_PROMPT_VERSION = Object.values(PROMPT_VERSIONS).join("+");
+const POST_SUMMARIZE_PROMPT_VERSION = () =>
+  promptVersion("summarize-short-post", "summarize-short-post-quoted", "summarize-long-post", "summarize-long-post-quoted", "identity-context");
+export const analysisVersionOf = (a: Pick<AnalyzeInputArticle, "xPost">) =>
+  a.xPost ? `${ANALYZE_PROMPT_VERSION}+${POST_SUMMARIZE_PROMPT_VERSION()}` : ANALYZE_PROMPT_VERSION;
 
 // ── Scoring ───────────────────────────────────────────────────────────────────────────────
 
@@ -149,7 +165,7 @@ export function scoreInputTime(at: Date): string {
  * original title (items are scored before any Chinese copy exists) and the whole body.
  */
 export function buildScoreInput(a: AnalyzeInputArticle): string {
-  let body = usableSourceText(a.bodyText, a.excerpt).trim();
+  let body = a.xPost ? postEvidenceText(a.xPost) : usableSourceText(a.bodyText, a.excerpt).trim();
   if (!body) body = a.title;
   return [
     "请按系统规则评估以下单篇材料所代表的事件。只输出 attentionScore。",
@@ -251,8 +267,10 @@ const isContentFilter = (error: unknown) =>
 
 /** Only a title or a feed summary, and a page to fetch: the article is judged on the page. */
 export function waitsForPage(a: AnalyzeInputArticle): boolean {
-  return a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
+  return !a.xPost && a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
+
+export const awaitsMaterial = (a: AnalyzeInputArticle) => missingEvidence(a) && !originalPostCopy(a.xPost, a.url);
 
 type StepOpts = {
   expectedRevision?: number;
@@ -448,12 +466,15 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
       fallbackPermit: opts.fallbackInput?.({ system: UNDERSTAND_SYSTEM, user: image ? [{ type: "text", text }, image] : text }),
       beforeRequest: image
         ? async () => {
-            const url = a.media.find((m) => m.kind === "image" && m.url)?.url;
+            const url = firstInputImage(a)?.url;
             if (!a.sourceId || !url) throw new Error("图片原材料身份缺失");
+            const policy = await readCurrentSourcePolicy(a.sourceId);
+            if (!policy) throw new Error("图片原材料许可缺失");
             const permit = await evaluateSourcePolicy({
               source_id: a.sourceId,
               lane: "news",
               capability: "external_model",
+              expected_permission_version: policy.permission_version,
               resource: { url: String(url), attachment: true, document_type: null },
             });
             if (permit.decision !== "allow") throw new Error("图片外部模型许可已变化");
@@ -563,20 +584,24 @@ async function mendWording(a: AnalyzeInputArticle, w: NonNullable<AnalysisRun["w
 async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
   const t = translateInputOf(a);
   const plain = { reasonZh: null, tags: null, receiptIds: [] as number[], reused: true };
+  const short = isShortTweetInput(t),
+    main = collapseWhitespace(t.mainText || t.title);
+  if (short && !needsShortTweetTranslation(main)) return { kind: "verbatim", model: null, titleZh: main, summaryZh: main, ...plain };
   // Too little text is not written up from a title.
-  if (t.text.trim().length < 20) return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
+  if (!short && t.text.trim().length < 20) return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
   const model = await modelFor("summarize");
+  const user = short ? buildShortTweetPrompt(t) : a.xPost ? buildLongTweetPrompt(t) : buildArticlePrompt(t);
   checkAnalysisRunning();
   const res = await chatJson({
     model,
     purpose: "summarize_article",
     subject: subjectOf(a),
     sourceIds: a.sourceId ? [a.sourceId] : [],
-    promptVersion: PROMPT_VERSIONS.summarize,
+    promptVersion: a.xPost ? POST_SUMMARIZE_PROMPT_VERSION() : PROMPT_VERSIONS.summarize,
     system: "",
-    user: buildArticlePrompt(t),
+    user,
     usagePurpose: opts.usagePurpose,
-    fallbackPermit: opts.fallbackInput?.({ system: "", user: buildArticlePrompt(t) }),
+    fallbackPermit: opts.fallbackInput?.({ system: "", user }),
     schema: SummarizeSchema,
     json: false,
     parse: parseTranslateOutput,
@@ -586,7 +611,12 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     runtimeControl: opts.runtimeControl,
   });
   const p = res.data;
-  const copy = finalizeCopy(t, { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh });
+  const draft = short
+    ? { titleZh: p.titleZh || (looksZh(main) ? main : ""), summaryZh: p.bodyZh || p.summaryZh }
+    : a.xPost
+      ? { titleZh: p.titleZh, summaryZh: p.summaryZh || p.bodyZh }
+      : { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh };
+  const copy = finalizeCopy(t, draft);
   return {
     kind: "summarize",
     model: res.model,
@@ -606,7 +636,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
  */
 export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { stages?: "selection" | "all" } = {}): Promise<AnalysisRun> {
   checkAnalysisRunning();
-  if (missingEvidence(a)) return { prefilter: null, scores: null, writing: null, structure: null };
+  if (awaitsMaterial(a)) return { prefilter: null, scores: null, writing: null, structure: null };
   const prefilter = await runSelectionPrefilter(a, opts);
   return finishAnalysis(a, prefilter, opts);
 }
@@ -619,7 +649,7 @@ async function finishAnalysis(
   // UNKNOWN goes on like PASS; BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
   // A title cannot support a paid score, fact extraction or invented summary. A later material revision resumes.
-  if (missingEvidence(a)) return { prefilter, scores: null, writing: null, structure: null };
+  if (awaitsMaterial(a)) return { prefilter, scores: null, writing: null, structure: null };
   if (opts.stages === "selection") {
     const scores = await runSelectionScores(a, opts);
     return { prefilter, scores, writing: null, structure: null };
@@ -635,7 +665,10 @@ async function finishAnalysis(
     const near = sum !== null && (sum >= scores!.threshold * SCORE_CALLS || sum > UNDERSTAND_FLOOR * SCORE_CALLS);
     const s = await structure;
     if ("error" in s) throw s.error;
-    const writing = await mendWording(a, (near ? await runUnderstand(a, opts) : null) ?? (await runSummarize(a, opts)), opts);
+    const original = originalPostCopy(a.xPost, a.url);
+    const writing: NonNullable<AnalysisRun["writing"]> = original
+      ? { kind: "verbatim", model: null, titleZh: original.title, summaryZh: original.summary ?? "", reasonZh: null, tags: null, receiptIds: [], reused: true }
+      : await mendWording(a, (near ? await runUnderstand(a, opts) : null) ?? (await runSummarize(a, opts)), opts);
     return { prefilter, scores, writing, structure: s.value };
   } finally {
     // A score/writing error or deploy must not let the job finish while a paid structure request
@@ -652,7 +685,8 @@ export function normalizeAnalysis(run: AnalysisRun) {
   // Past the prefilter (PASS or UNKNOWN) an item is relevant. Writing that gives no usable Chinese title and
   // summary leaves it without copy of its own ("unknown", waiting for material); a Chinese original from a
   // full-text source still shows its source excerpt, since publication only keeps a BLOCK out.
-  const relevance = label === "BLOCK" ? "block" : (run.writing ? !titleZh || !summaryZh : !run.scores) ? "unknown" : "pass";
+  const relevance =
+    label === "BLOCK" ? "block" : (run.writing ? !titleZh || (!summaryZh && run.writing.kind !== "verbatim") : !run.scores) ? "unknown" : "pass";
   // Selected when the two scores add up to twice the tier threshold; the mean, floored,
   // is the score shown (it never decides a half point on its own).
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
@@ -711,6 +745,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   opts = { ...opts, runtimeControl };
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
+  const analysisVersion = analysisVersionOf(input);
   if (opts.expectedRevision !== undefined && input.revision !== opts.expectedRevision)
     return { analysisId: null, stale: true, output: null, receiptIds: [], reused: true };
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
@@ -719,12 +754,20 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   opts = {
     ...opts,
     fallbackInput:
-      missingEvidence(input) || (input.translationZh && !input.bodyText)
+      awaitsMaterial(input) || (input.translationZh && !input.bodyText && !input.xPost)
         ? undefined
-        : await prepareNewsFallback({ root: shutdownSignal.signal, expected: input, current: () => loadAnalyzeInput(articleId), articles: [input] }),
+        : await prepareNewsFallback({
+            root: shutdownSignal.signal,
+            expected: analysisInputIdentity(input),
+            current: async () => {
+              const current = await loadAnalyzeInput(articleId);
+              return current ? analysisInputIdentity(current) : null;
+            },
+            articles: [input],
+          }),
   };
   try {
-    const prefilter = missingEvidence(input) ? null : await runSelectionPrefilter(input, opts);
+    const prefilter = awaitsMaterial(input) ? null : await runSelectionPrefilter(input, opts);
     if (prefilter) {
       // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
       // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
@@ -784,7 +827,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
         const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,
         subjects, title_zh, summary_zh, reason_zh, score, selected, output)
-      VALUES (${articleId}, ${input.revision}, 'model', ${w?.model ?? run.prefilter?.model ?? null}, ${ANALYZE_PROMPT_VERSION}, ${receiptIds},
+      VALUES (${articleId}, ${input.revision}, 'model', ${w?.model ?? run.prefilter?.model ?? null}, ${analysisVersion}, ${receiptIds},
         ${out.relevance}, ${out.category}, ${out.tags}, ${out.subjects}, ${out.titleZh}, ${out.summaryZh}, ${out.reasonZh},
         ${out.score}, ${out.selected}, ${sql.json(detail as never)})
       RETURNING id`;
@@ -812,7 +855,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       "analyzed",
       async (tx) => {
         const [row] = await tx<{ id: number }[]>`INSERT INTO analyses(article_id,input_revision,origin,prompt_version,receipt_ids,output)
-        VALUES(${articleId},${input.revision},'model',${ANALYZE_PROMPT_VERSION},${[error.receiptId]},${tx.json({ stale_after_response: true, output_applied: false })}) RETURNING id`;
+        VALUES(${articleId},${input.revision},'model',${analysisVersion},${[error.receiptId]},${tx.json({ stale_after_response: true, output_applied: false })}) RETURNING id`;
         await completeReceipt(tx, error.receiptId);
         return row!.id;
       },

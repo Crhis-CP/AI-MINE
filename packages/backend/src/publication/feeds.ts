@@ -23,6 +23,9 @@ import { selectedCondition, type ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { listPolicies } from "./policies.ts";
 import { readAllFactApiItems } from "./timeline.ts";
+import { attachSourcePolicies } from "./reader-context.ts";
+import { postPermission } from "./post-view.ts";
+import { machineItemDetail } from "./detail.ts";
 
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
@@ -121,6 +124,10 @@ type FeedRow = Pick<
 > &
   Partial<
     Pick<ItemRow, "language" | "syndicate"> & {
+      source_id: string;
+      source_policy: unknown;
+      is_original_post: boolean;
+      post_content: string | null;
       human_edited: boolean;
       body_html: string | null;
       manual_body_html: string | null;
@@ -146,14 +153,17 @@ function attributionHtml(r: FeedRow) {
   return `据<a href="${escapeXml(r.url)}">${escapeXml(r.source_name)}</a>原文整理：`;
 }
 function fullContent(r: FeedRow, pageUrl: string): string | null {
-  const html = r.manual_body_html
-    ? `<p>AI 辅助整理，经人工修订</p>${r.manual_body_html}`
-    : r.body_html
-      ? isChineseOriginal(r.language ?? null, r.body_html)
-        ? r.body_html
-        : (readableTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null) ??
-          `<p>中文译文尚不完整，未译部分保留原文。</p>${readablePartialTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null) ?? r.body_html}`)
-      : null;
+  const html =
+    r.post_content !== undefined
+      ? r.post_content
+      : r.manual_body_html
+        ? `<p>AI 辅助整理，经人工修订</p>${r.manual_body_html}`
+        : r.body_html
+          ? isChineseOriginal(r.language ?? null, r.body_html)
+            ? r.body_html
+            : (readableTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null) ??
+              `<p>中文译文尚不完整，未译部分保留原文。</p>${readablePartialTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null) ?? r.body_html}`)
+          : null;
   if (!html) return null;
   return `<p>${attributionHtml(r)}</p>${linkBodyImages(html)}<p>${aiNotice(r)}</p><p>—— 本文由 ${escapeXml(SITE.name)} 聚合整理，完整版与更多动态见 <a href="${pageUrl}">${pageUrl}</a></p>`;
 }
@@ -230,7 +240,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
           AND (${allIds}::text[] IS NULL OR p.article_id=ANY(${allIds}::text[]))
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,s.id AS source_id,p.is_original_post,
         EXISTS(SELECT 1 FROM publication.manual_copies m JOIN articles current_article ON current_article.id=m.article_id
           WHERE m.article_id=p.article_id AND m.material_revision=current_article.revision AND m.state IN ('active','needs_review')) AS human_edited,
         (p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS syndicate, a.language, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review') AND p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS manual_body_html, CASE WHEN p.syndicate AND s.site_fulltext AND s.syndicate_fulltext THEN a.body_html END AS body_html, a.revision AS content_revision,
@@ -246,11 +256,25 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
           AND (${allIds}::text[] IS NULL OR p.article_id=ANY(${allIds}::text[]))
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,s.id AS source_id,p.is_original_post,
         EXISTS(SELECT 1 FROM publication.manual_copies m JOIN articles current_article ON current_article.id=m.article_id
           WHERE m.article_id=p.article_id AND m.material_revision=current_article.revision AND m.state IN ('active','needs_review')) AS human_edited
       FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id
       ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`;
+  const posts = rows.filter((row): row is FeedRow & { source_id: string } => !!row.is_original_post && !!row.source_id);
+  await attachSourcePolicies(posts);
+  for (const row of posts) {
+    if (!postPermission(row.source_policy, row.source_id, row.url, "public_summary", now.getTime())) {
+      row.title = `${row.source_name}的原帖`;
+      row.summary = null;
+    }
+    if (includeContent) {
+      const found = await machineItemDetail(row.id, "zh", now);
+      row.post_content = found?.item.body?.zh ?? found?.item.body?.original ?? null;
+      row.syndicate = found?.reading.redistribution === "allowed";
+      if (row.post_content && found?.reading.state === "partial") row.post_content = `<p>中文译文尚不完整，未译部分保留原文。</p>${row.post_content}`;
+    }
+  }
   if (allIds) {
     const order = new Map(allIds.map((id, index) => [id, index]));
     rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!);

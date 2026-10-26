@@ -5,6 +5,8 @@ import type { ItemShareMetadata } from "@amp/contracts/site";
 import { publicTimeMetadata } from "./items.ts";
 import { sql } from "../db.ts";
 import { hasItemPage } from "./rules.ts";
+import { attachSourcePolicies } from "./reader-context.ts";
+import { postPermission } from "./post-view.ts";
 
 export async function loadItemShare(id: string): Promise<ItemShareMetadata | null> {
   const [row] = await sql<
@@ -20,12 +22,23 @@ export async function loadItemShare(id: string): Promise<ItemShareMetadata | nul
       selected: boolean;
       source_mode: string;
       visibility: string;
+      source_id: string;
+      source_policy?: unknown;
+      url: string;
+      is_original_post: boolean;
     }[]
   >`SELECT p.article_id AS id, p.title, p.summary, p.category, p.timeline_at,
       p.published_at, p.score, p.selected,
-      s.name AS source_name, s.participation_mode AS source_mode, p.visibility
+      s.name AS source_name, s.participation_mode AS source_mode, p.visibility,s.id AS source_id,p.url,p.is_original_post
     FROM publications p JOIN sources s ON s.id = p.source_id WHERE p.article_id = ${id}`;
   if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return null;
+  if (row.is_original_post) {
+    await attachSourcePolicies([row]);
+    if (!postPermission(row.source_policy, row.source_id, row.url, "public_summary")) {
+      row.title = `${row.source_name}的原帖`;
+      row.summary = null;
+    }
+  }
   const time = (await publicTimeMetadata([id])).get(id);
   return {
     id: row.id,

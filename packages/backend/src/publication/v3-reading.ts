@@ -5,6 +5,8 @@ import type { DetailResult } from "./detail.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError } from "../lib/cursor.ts";
 import { sha256 } from "../lib/ids.ts";
 import { V3ReadError } from "./v3.ts";
+import { postQuoteHtml } from "./post-view.ts";
+import { looksZh } from "../editorial/writing.ts";
 type Found = Extract<DetailResult, { kind: "found" }>;
 
 /** Preserve real semantic blocks; unsupported merged cells are explicitly partial rather than silently called complete. */
@@ -60,7 +62,8 @@ export function newsReadingBlocks(html: string, base: string) {
 }
 function material(found: Found, language: "zh" | "original") {
   const { detail, row } = found;
-  const html = language === "zh" ? detail.body?.zh : detail.body?.original;
+  const main = language === "zh" ? detail.body?.zh : (detail.body?.original ?? (detail.x && detail.body?.zhKind === "original" ? detail.body.zh : null));
+  const html = [main, postQuoteHtml(detail.x, language === "original")].filter(Boolean).join("\n") || null;
   const allowed = row.syndicate && row.source_syndicate_fulltext && row.source_site_fulltext && detail.readingMode === "full";
   const expression = `${detail.id}-${row.content_revision}-${language}`;
   const revision = `${detail.id}-${row.content_revision}`;
@@ -76,7 +79,10 @@ const token = (found: Found, language: "zh" | "original", offset: number) => {
 };
 export function readingFor(found: Found, language: "zh" | "original"): z.infer<typeof V3Reading> {
   const current = material(found, language);
-  const complete = !!found.detail.body?.complete && !current.parsed.merged;
+  const complete =
+    !!found.detail.body?.complete &&
+    !current.parsed.merged &&
+    (!found.detail.x?.quoted || language === "original" || !!found.detail.x.quoted.translation || looksZh(found.detail.x.quoted.text));
   return V3Reading.parse({
     mode: current.mode,
     state:

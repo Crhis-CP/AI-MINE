@@ -24,6 +24,7 @@ import {
   API_ITEM_FROM,
   type ApiItemRow,
   type PublicApiReadScope,
+  protectApiPostRows,
 } from "./items.ts";
 
 export interface TimelineQuery extends TimelineFilters {
@@ -70,7 +71,7 @@ function ownFactEvidence() {
 /** Unfiltered machine lists share the website's fact membership and representative ranking. */
 export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Promise<Array<ApiItemRow & { sort_at: Date }>> {
   const time = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) ELSE p.sort_at END`;
-  return db<(ApiItemRow & { sort_at: Date })[]>`
+  const rows = await db<(ApiItemRow & { sort_at: Date })[]>`
     WITH base AS MATERIALIZED (
       SELECT p.article_id,${time} AS at,p.representative_priority,p.body_mode,p.score,p.timeline_at,
         CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} THEN 'f'||p.fact_id::text ELSE 'a'||p.article_id END AS gk
@@ -89,6 +90,7 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
     SELECT ${API_ITEM_COLUMNS()},page.anchor AS sort_at ${API_ITEM_FROM()} JOIN page ON page.article_id=p.article_id
     WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now})
     ORDER BY page.anchor DESC,p.article_id DESC`;
+  return protectApiPostRows(rows, db, query.now.getTime());
 }
 
 /** Public evidence behind the same fact's expandable source list, under the current filters. */

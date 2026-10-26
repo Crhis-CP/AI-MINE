@@ -1,13 +1,13 @@
-import { isHistorical, newsMaterialBindings } from "../content/materials.ts";
+import { isHistorical, newsMaterialBindings, type XPostData } from "../content/materials.ts";
 export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
-import { groupingAnalysisHash } from "../enrichment/records.ts";
+import { groupingAnalysisHash, readQuotedPostTranslation } from "../enrichment/records.ts";
 import { deferHistoricalSelection } from "../events/group.ts";
 import { recomputeSelection } from "./selection-recompute.ts";
 import { audit } from "../admin/auth.ts";
 import { emit } from "../modules.ts";
 import { pendingSourceTimeProjectionIds } from "./items.ts";
 import { materialSourceTime } from "../content/date-evidence.ts";
-import { sourceDateConfiguration } from "../admin/sources.ts";
+import { sourceDateConfiguration, readCurrentPublicPolicy, evaluateSourcePolicy } from "../admin/sources.ts";
 import { publicSourceTime, sourceInstant } from "./source-time.ts";
 import { representativeFactSubjects } from "../events/representative-input.ts";
 import { representativePriority, pickRepresentative } from "./representative.ts";
@@ -56,6 +56,10 @@ import {
 } from "./rules.ts";
 import { foldableSelectionCondition } from "./scope.ts";
 import { projectNewsGeography } from "./news-geography.ts";
+import { withXArticle } from "../editorial/input.ts";
+import { analysisVersionOf } from "../editorial/analyze.ts";
+import { quoteTranslatable, quoteTranslationRecipe } from "../editorial/post-translation.ts";
+import { postPermission, projectPostView } from "./post-view.ts";
 
 async function sourceTimeForMaterial(material: { id: string; source_id: string; revision: number; source_date_version: string | number }, now: Date, db: Db) {
   const context = await sourceDateConfiguration(material.source_id, db);
@@ -72,6 +76,8 @@ async function sourceTimeForMaterial(material: { id: string; source_id: string; 
 }
 
 interface ArticleRow {
+  x_post: XPostData | null;
+  x_article: { title?: string; text?: string } | null;
   id: string;
   revision: number;
   source_id: string;
@@ -116,6 +122,9 @@ interface OverrideRow {
 }
 
 interface PublicationRow {
+  x_post?: unknown;
+  x_post_revision?: number | null;
+  is_original_post?: boolean;
   article_id: string;
   analysis_id: number | null;
   first_public_at: Date | null;
@@ -265,7 +274,7 @@ export async function publishArticleTx(
   await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
   const [article] = await tx<ArticleRow[]>`
     SELECT id, revision, source_id, source_date_version, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, body_html, excerpt, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state
+           body_text, body_html, excerpt, x_post, x_article, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -292,7 +301,23 @@ export async function publishArticleTx(
   const priority = representativePriority({ ...identity, fact_subject: factIdentity?.subject ?? null });
   const [previous] = await tx<PublicationRow[]>`SELECT * FROM publications WHERE article_id = ${articleId}`;
 
-  const analysis = storedAnalysis?.input_revision === article.revision ? storedAnalysis : undefined;
+  const post = withXArticle(article.x_post, article.x_article);
+  const analysis =
+    storedAnalysis?.input_revision === article.revision && (!post || storedAnalysis.prompt_version === analysisVersionOf({ xPost: post }))
+      ? storedAnalysis
+      : undefined;
+  const currentPolicy = post ? await readCurrentPublicPolicy(source.id, tx) : null;
+  const quotedTranslation = post?.quoted ? await readQuotedPostTranslation(source.id, post.quoted, quoteTranslationRecipe(), tx) : null;
+  const postView = source.site_fulltext ? projectPostView(post, source.id, article.url, currentPolicy, quotedTranslation, now.getTime()) : null;
+  const quoteRecipe =
+    postView?.quoted &&
+    quoteTranslatable(postView.quoted.text) &&
+    postPermission(currentPolicy, source.id, postView.quoted.url, "public_translation", now.getTime())
+      ? quoteTranslationRecipe()
+      : null;
+  const storedPostView = postView ? { view: postView, quoteRecipe } : null;
+  const postReady = !!post && !!analysis && analysis.relevance === "pass";
+  const verbatim = postReady && (analysis.output as { writer?: unknown } | null)?.writer === "verbatim";
   const manual = await manualRevisionState(articleId, article.revision, article.title + "\n" + (article.body_text ?? ""), tx);
   const f: Record<string, unknown> = manual.fields;
   const [previousManual] = await tx<{ manual_revision_id: number | null; body_html: string | null; state: string }[]>`
@@ -307,7 +332,7 @@ export async function publishArticleTx(
     ON CONFLICT(article_id) DO UPDATE SET manual_revision_id=EXCLUDED.manual_revision_id,material_revision=EXCLUDED.material_revision,body_html=EXCLUDED.body_html,label=EXCLUDED.label,state=EXCLUDED.state
     WHERE (manual_copies.manual_revision_id,manual_copies.material_revision,manual_copies.body_html,manual_copies.state)
       IS DISTINCT FROM (EXCLUDED.manual_revision_id,EXCLUDED.material_revision,EXCLUDED.body_html,EXCLUDED.state)`;
-  const hasMaterial = !!usableSourceText(article.body_text, article.excerpt);
+  const hasMaterial = !!usableSourceText(article.body_text, article.excerpt) || postReady;
   const language = normalizeSourceLanguage(article.language);
   const nativeChinese = isChineseOriginal(language);
   // Wide admission (BR-SEL-01): only a BLOCK keeps an item out. PASS, UNKNOWN and "not judged yet" go on;
@@ -317,18 +342,28 @@ export async function publishArticleTx(
   const manualScope = f.relevance === "pass" || f.relevance === "block" ? f.relevance : null;
   const scope = manualScope ?? storedAnalysis?.relevance ?? (article.processing_state === "skipped" ? "block" : null);
   const admitted = scope !== "block";
-  const bodyMode = bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
+  const bodyMode = post
+    ? source.site_fulltext &&
+      (article.body_status === "ok" || verbatim) &&
+      postPermission(currentPolicy, source.id, article.url, "public_original_fulltext", now.getTime())
+      ? "full"
+      : "summary"
+    : bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
   // A Chinese original with full-text permission is guided by a deterministic excerpt until the model writes (BR-ENR-06).
   const excerpt =
-    admitted && nativeChinese && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
+    !post && admitted && nativeChinese && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
       ? `来源摘录：${Array.from(collapseWhitespace(article.body_text!)).slice(0, 400).join("")}（根据来源正文整理，保留原始材料供核对）`
       : null;
   const isChineseTitle = nativeChinese;
   // Without a written Chinese title, a Chinese original keeps its own title; a foreign one would
   // still be a half-finished card.
   const zhTitle = analysis?.title_zh?.trim() ? analysis.title_zh : null;
-  const title = pickString(f.title, zhTitle ?? (isChineseTitle ? collapseWhitespace(article.title) : null));
-  const summary = pickString(f.summary, analysis?.summary_zh?.trim() || null);
+  // A verbatim title/summary is the original full text, not a separately licensed summary.
+  const title = pickString(
+    f.title,
+    post && verbatim ? `${post.authorName || post.handle || source.name}的原帖` : (zhTitle ?? (isChineseTitle ? collapseWhitespace(article.title) : null)),
+  );
+  const summary = pickString(f.summary, post && verbatim ? null : analysis?.summary_zh?.trim() || null);
   const sourceExcerpt = summary ? null : excerpt;
   const displaySummary = summary ?? sourceExcerpt;
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
@@ -340,7 +375,7 @@ export async function publishArticleTx(
   const relevance = admitted ? "pass" : "unknown";
   const recomputed = analysis && typeof f.selected !== "boolean" ? recomputeSelection(analysis, source.tier, article.timeline_at, now, previous) : null;
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (recomputed?.selected ?? analysis?.selected ?? null);
-  const chineseCopy = !!title && !!displaySummary && looksZh(title) && looksZh(displaySummary);
+  const chineseCopy = (!!title && !!displaySummary && looksZh(title) && looksZh(displaySummary)) || (postReady && verbatim);
   const translation = !nativeChinese && article.body_html ? await readStoredTranslation(articleId, tx) : null;
   const wholeChinese =
     nativeChinese ||
@@ -366,7 +401,8 @@ export async function publishArticleTx(
   const eligible =
     readingReady &&
     hasMaterial &&
-    isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary }) &&
+    (isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary }) ||
+      (postReady && verbatim && source.participation_mode === "editorial" && admitted && !!title)) &&
     (!article.backfill || article.published_at !== null || !!options.releasedAt);
   const selectionCandidate = isSelectable(eligible, judgedSelected, source.tier);
   const waitingForCoverage =
@@ -387,15 +423,37 @@ export async function publishArticleTx(
     article.grouping_status === "complete" &&
     article.grouping_input_revision === article.revision &&
     (f.selected === true || article.selection_adds_value === true);
+  let quoteNeedsTranslation =
+    !!postView?.quoted &&
+    quoteTranslatable(postView.quoted.text) &&
+    !quotedTranslation &&
+    postPermission(currentPolicy, source.id, postView.quoted.url, "public_translation", now.getTime());
+  if (quoteNeedsTranslation && postView?.quoted && currentPolicy) {
+    for (const capability of ["external_model", "process_locally", "store_fulltext"] as const) {
+      const allowed = await evaluateSourcePolicy(
+        {
+          source_id: source.id,
+          lane: "news",
+          capability,
+          expected_permission_version: currentPolicy.permission_version,
+          resource: { url: postView.quoted.url, document_type: null, attachment: false },
+        },
+        undefined,
+        tx,
+      );
+      if (allowed.decision !== "allow") quoteNeedsTranslation = false;
+    }
+  }
+  if (!quotedTranslation && storedPostView && !quoteNeedsTranslation) storedPostView.quoteRecipe = null;
   const needsTranslation =
     selected &&
     visibility === "public" &&
     !!language &&
-    !nativeChinese &&
     admitted &&
     chineseCopy &&
     bodyMode === "full" &&
-    !wholeChinese &&
+    ((!nativeChinese && !wholeChinese && (!post || postPermission(currentPolicy, source.id, article.url, "public_translation", now.getTime()))) ||
+      quoteNeedsTranslation) &&
     source.participation_mode === "editorial" &&
     (!override?.visibility || override.visibility === "public");
   if (needsTranslation) {
@@ -404,7 +462,7 @@ export async function publishArticleTx(
   }
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ?? null) : null;
   const syndicate = mayRedistribute(source, bodyMode);
-  const originalTitle = isChineseTitle && title === collapseWhitespace(article.title) ? null : collapseWhitespace(article.title);
+  const originalTitle = post ? null : isChineseTitle && title === collapseWhitespace(article.title) ? null : collapseWhitespace(article.title);
 
   // Nomination and actual public confirmation are separate clocks. Waiting never times out into selection.
   const selectedReadyAt = previous?.selected_ready_at ?? (selectionCandidate ? (options.releasedAt ?? now) : null);
@@ -471,6 +529,9 @@ export async function publishArticleTx(
   };
   const changed =
     !previous ||
+    previous.is_original_post !== !!post ||
+    stableJson(previous.x_post ?? null) !== stableJson(storedPostView) ||
+    (previous.x_post_revision ?? null) !== (post ? article.revision : null) ||
     manualChanged ||
     stableJson(previous.source_time) !== stableJson(sourceTime) ||
     previous.source_time_material_revision !== article.revision ||
@@ -558,6 +619,8 @@ export async function publishArticleTx(
         EXCLUDED.indexable, EXCLUDED.story_id, EXCLUDED.fact_id, EXCLUDED.search_text,
         EXCLUDED.sort_at,EXCLUDED.first_public_at)`;
 
+  await tx`UPDATE publications SET is_original_post=${!!post},x_post=${storedPostView ? tx.json(storedPostView) : null},x_post_revision=${post ? article.revision : null}
+    WHERE article_id=${articleId} AND (is_original_post,x_post,x_post_revision) IS DISTINCT FROM (${!!post},${storedPostView ? tx.json(storedPostView) : null},${post ? article.revision : null})`;
   await tx`UPDATE publications SET source_time=${sourceTime ? tx.json(sourceTime) : null},source_time_material_revision=${article.revision},source_date_version=${Number(article.source_date_version)},source_date_config_hash=${timeConfigHash}
     WHERE article_id=${articleId} AND (source_time,source_time_material_revision,source_date_version,source_date_config_hash)
     IS DISTINCT FROM (${sourceTime ? tx.json(sourceTime) : null},${article.revision},${Number(article.source_date_version)},${timeConfigHash})`;
@@ -565,7 +628,7 @@ export async function publishArticleTx(
   const geographyChanged = await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
   if (eligible) {
-    const body = bodyMode === "full" ? (article.body_text ?? "").slice(0, 12000).toLowerCase() : "";
+    const body = !post && bodyMode === "full" ? (article.body_text ?? "").slice(0, 12000).toLowerCase() : "";
     await tx`INSERT INTO pool_search (article_id, direct, body) VALUES (${articleId}, ${searchText}, ${body})
              ON CONFLICT (article_id) DO UPDATE SET direct = EXCLUDED.direct, body = EXCLUDED.body
              WHERE pool_search.direct IS DISTINCT FROM EXCLUDED.direct OR pool_search.body IS DISTINCT FROM EXCLUDED.body`;

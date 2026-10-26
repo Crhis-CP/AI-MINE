@@ -1,4 +1,4 @@
-import { evaluateSourcePolicy, sourceDateConfiguration } from "../admin/sources.ts";
+import { evaluateSourcePolicy, readCurrentSourcePolicy, sourceDateConfiguration } from "../admin/sources.ts";
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
 import { narrativeText } from "./narrative.ts";
 import type { XPostData } from "../content/materials.ts";
@@ -42,6 +42,18 @@ export interface AnalyzeInputArticle {
   translationZh?: string | null;
 }
 
+/** An acquired long article joins the original post, without changing the stored post itself. */
+export function withXArticle(post: XPostData | null, article: { title?: string; text?: string } | null): XPostData | null {
+  if (!post || !article?.text?.trim()) return post;
+  return { ...post, text: [post.text.trim(), article.title ? `【X 长文】${article.title}` : "【X 长文】", article.text].filter(Boolean).join("\n\n") };
+}
+
+/** Shared evidence for scoring and structure; quotations never become the author's own words. */
+export function postEvidenceText(post: XPostData): string {
+  const quoted = post.quoted?.text ? `\n\n[引用 ${post.quoted.handle ? `@${post.quoted.handle}` : "原帖"}]：${post.quoted.text}` : "";
+  return `${post.text.trim()}${quoted}`.trim();
+}
+
 export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise<AnalyzeInputArticle | null> {
   const [row] = await db<
     {
@@ -58,6 +70,8 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
       body_html: string | null;
       excerpt: string | null;
       body_status: string;
+      x_post: XPostData | null;
+      x_article: { title?: string; text?: string } | null;
       media: Array<Record<string, any>>;
       source_name: string;
       source_kind: string;
@@ -69,7 +83,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
       translation_zh: string | null;
     }[]
   >`
-    SELECT a.source_id, a.id, a.revision, a.title, a.url, a.author, a.published_at, a.source_date_version, a.discovered_at, a.body_text, a.body_html, a.excerpt, a.body_status, a.media,
+    SELECT a.source_id, a.id, a.revision, a.title, a.url, a.author, a.published_at, a.source_date_version, a.discovered_at, a.body_text, a.body_html, a.excerpt, a.body_status, a.x_post, a.x_article, a.media,
            s.name AS source_name, s.kind AS source_kind, s.tier, s.first_party, s.tags AS source_tags, s.owner_entity_id, s.config,
            tr.body_text AS translation_zh
     FROM articles a JOIN sources s ON s.id = a.source_id
@@ -99,6 +113,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
     bodyText: narrativeText(row.body_text, row.body_html, row.url),
     excerpt: row.excerpt,
     bodyStatus: row.body_status,
+    ...(row.x_post ? { xPost: withXArticle(row.x_post, row.x_article)! } : {}),
     media: row.media,
     source: {
       name: row.source_name,
@@ -131,10 +146,17 @@ export function buildMaterial(a: AnalyzeInputArticle): string {
   lines.push("<material>");
   lines.push(`原文时间：${modelSourceDateLabel(a)}`);
   if (a.author) lines.push(`作者：${a.author}`);
-  lines.push(`标题：${collapseWhitespace(a.title)}`);
-  const body = a.bodyText ?? a.excerpt ?? "";
-  lines.push(body ? `正文：\n${truncate(body, 7000)}` : "正文：（无）");
-  if (a.translationZh && !a.bodyText) lines.push(`正文中文译文：\n${truncate(a.translationZh, 5000)}`);
+  if (a.xPost) {
+    lines.push(`作者：${a.xPost.authorName} (@${a.xPost.handle})`);
+    lines.push(`帖子：\n${truncate(a.xPost.text, 60000)}`);
+    if (a.xPost.quoted?.text) lines.push(`引用的帖子（@${a.xPost.quoted.handle}）：\n${truncate(a.xPost.quoted.text, 60000)}`);
+    if (a.translationZh) lines.push(`帖子中文译文：\n${truncate(a.translationZh, 4000)}`);
+  } else {
+    lines.push(`标题：${collapseWhitespace(a.title)}`);
+    const body = a.bodyText ?? a.excerpt ?? "";
+    lines.push(body ? `正文：\n${truncate(body, 7000)}` : "正文：（无）");
+    if (a.translationZh && !a.bodyText) lines.push(`正文中文译文：\n${truncate(a.translationZh, 5000)}`);
+  }
   lines.push(`原文链接：${a.url}`);
   lines.push("</material>");
   return lines.join("\n");
@@ -145,13 +167,16 @@ export function buildMaterial(a: AnalyzeInputArticle): string {
  * the site's cached thumbnail (fetched through the egress route). None when it cannot be fetched.
  */
 export async function firstImagePart(a: AnalyzeInputArticle): Promise<ContentPart | null> {
-  const image = (a.media ?? []).find((m: any) => m.kind === "image" && m.url);
+  const image = firstInputImage(a);
   if (!image || !a.sourceId) return null;
+  const policy = await readCurrentSourcePolicy(a.sourceId);
+  if (!policy) return null;
   for (const capability of ["fetch", "external_model"] as const) {
     const permit = await evaluateSourcePolicy({
       source_id: a.sourceId,
       lane: "news",
       capability,
+      expected_permission_version: policy.permission_version,
       resource: { url: String(image.url), attachment: true, document_type: null },
     });
     if (permit.decision !== "allow") return null;
@@ -162,6 +187,30 @@ export async function firstImagePart(a: AnalyzeInputArticle): Promise<ContentPar
   } catch {
     return null;
   }
+}
+
+export const firstInputImage = (a: AnalyzeInputArticle) =>
+  [...(a.xPost?.media ?? []), ...(a.xPost?.quoted?.media ?? []), ...(a.media ?? [])].find((m) => m.kind === "image" && m.url);
+
+/** Bind only post fields consumed by model renderers/images; display-only edits cannot invalidate a paid input. */
+export function analysisInputIdentity(a: AnalyzeInputArticle) {
+  if (!a.xPost) return a;
+  const post = a.xPost,
+    counted = post.media ?? a.media ?? [];
+  return {
+    ...a,
+    xPost: {
+      authorName: post.authorName,
+      handle: post.handle,
+      text: post.text,
+      ...(post.quoted?.text ? { quoted: { handle: post.quoted.handle, text: post.quoted.text } } : {}),
+    },
+    media: {
+      images: counted.filter((m) => m.kind === "image").length,
+      videos: counted.filter((m) => m.kind === "video").length,
+      firstImageUrl: firstInputImage(a)?.url ?? null,
+    },
+  };
 }
 
 /** Existing model-derived context may be cited in an evaluation only for this actual material revision. */
