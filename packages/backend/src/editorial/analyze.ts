@@ -218,9 +218,9 @@ export interface AnalysisRun {
    * is not scored. `refused`: the model's content filter declined it, so it is not selected.
    */
   scores: { model: string; models?: string[]; threshold: number; values: number[]; receiptIds: number[]; reused: boolean; refused?: boolean } | null;
-  /** The reader-facing copy: `understand` (selected, near-selected), `summarize`, `none`. */
+  /** The reader-facing copy; `verbatim` reserves original-post copy without a writer call. */
   writing: {
-    kind: "understand" | "summarize" | "none";
+    kind: "understand" | "summarize" | "verbatim" | "none";
     model: string | null;
     titleZh: string;
     summaryZh: string;

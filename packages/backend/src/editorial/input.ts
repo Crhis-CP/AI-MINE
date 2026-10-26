@@ -1,6 +1,7 @@
 import { evaluateSourcePolicy, sourceDateConfiguration } from "../admin/sources.ts";
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
 import { narrativeText } from "./narrative.ts";
+import type { XPostData } from "../content/materials.ts";
 import type { TimeAssertion } from "@amp/contracts/time-assertion";
 import { materialSourceTime } from "../content/date-evidence.ts";
 import { modelSourceDateLabel } from "./source-time.ts";
@@ -26,6 +27,7 @@ export interface AnalyzeInputArticle {
   /** pending: no body fetched yet; ok; unconfirmed: fetching failed; none. */
   bodyStatus?: string;
   media: Array<Record<string, any>>;
+  xPost?: XPostData | null;
   source: {
     name: string;
     kind: string;
