@@ -31,9 +31,7 @@ import {
 export type UsageConfig = z.infer<typeof UsageProtectionConfig>;
 export type Scope = z.infer<typeof UsageScope>;
 export type UsageContext = { lane: "news" | "policy"; capability: string; sourceIds: string[]; object: { kind: "article" | "policy"; id: string } | null };
-export type TaskBudget = { key: string; limit_micros: string };
 export type UsageReservation = {
-  taskBudget?: TaskBudget;
   context: UsageContext;
   logicalKey: string;
   quote: UsageQuote;
@@ -174,8 +172,8 @@ async function applySums(db: Db, c: UsageContext, day: string, delta: { settled:
 export async function reserveUsageAttempt(db: Db, attemptId: string, receiptId: number, value: UsageReservation, now = new Date()) {
   await usageLock(db);
   const c = value.context;
-  await db`INSERT INTO ai.usage_attempts(attempt_id,receipt_id,logical_key,lane,capability,source_ids,object_kind,object_id,reserved_micros,state,quote,occurred_at,task_key,task_limit_micros)
- VALUES(${attemptId},${receiptId},${value.logicalKey},${c.lane},${c.capability},${c.sourceIds},${c.object?.kind ?? null},${c.object?.id ?? null},${value.quote.reserved_micros},'reserved',${db.json(value.quote)},${now},${value.taskBudget?.key ?? null},${value.taskBudget?.limit_micros ?? null})`;
+  await db`INSERT INTO ai.usage_attempts(attempt_id,receipt_id,logical_key,lane,capability,source_ids,object_kind,object_id,reserved_micros,state,quote,occurred_at)
+ VALUES(${attemptId},${receiptId},${value.logicalKey},${c.lane},${c.capability},${c.sourceIds},${c.object?.kind ?? null},${c.object?.id ?? null},${value.quote.reserved_micros},'reserved',${db.json(value.quote)},${now})`;
   await applySums(db, c, beijingDate(now), { settled: 0n, unknown: 0n, reserved: BigInt(value.quote.reserved_micros) });
 }
 type AttemptUsage = {
@@ -466,7 +464,6 @@ export async function admitUsage(
   input: {
     context: UsageContext | null;
     subject?: string | null;
-    taskBudget?: TaskBudget;
     logicalKey: string;
     service: string;
     model?: string | null;
@@ -512,26 +509,12 @@ export async function admitUsage(
     );
   }
   const quote: UsageQuote = priced.quote ?? { price_id: null, price_version: 0, price: null, reserved_micros: "0", bounds: input.bounds ?? null };
-  if (input.taskBudget) {
-    const task = input.taskBudget;
-    if (!priced.quote) return { reservation: null, blocked: "有限额的研究任务需要可核对的费用估算", code: "task_budget_unpriced" };
-    if (!task.key.trim() || task.key.length > 200 || !/^([1-9]\d{0,17})$/.test(task.limit_micros))
-      return { reservation: null, blocked: "研究任务费用上界无效", code: "task_budget_invalid" };
-    const [current] = await db<
-      { used: string; low: string | null; high: string | null }[]
-    >`SELECT coalesce(sum(CASE WHEN state='settled' THEN settled_micros WHEN state IN ('reserved','unknown') THEN reserved_micros ELSE 0 END),0)::text AS used,min(task_limit_micros)::text AS low,max(task_limit_micros)::text AS high FROM ai.usage_attempts WHERE task_key=${task.key}`;
-    if (current!.low !== null && (current!.low !== task.limit_micros || current!.high !== task.limit_micros))
-      return { reservation: null, blocked: "任务费用上界发生变化，不能通过新参数绕过", code: "task_budget_changed" };
-    if (BigInt(current!.used) + BigInt(priced.quote.reserved_micros) > BigInt(task.limit_micros))
-      return { reservation: null, blocked: "本次来源研究已达到单任务费用上界，已有进度和回执保留", code: "task_budget_exceeded" };
-  }
   return {
     reservation: {
       context: c,
       logicalKey: input.logicalKey,
       quote,
       configVersion: configuration?.version ?? 0,
-      ...(input.taskBudget ? { taskBudget: input.taskBudget } : {}),
     },
     blocked: null,
   };
@@ -540,8 +523,8 @@ export async function admitUsage(
 export async function authorizeUsageSend(db: Db, attemptId: string, clock: () => Date = () => new Date()) {
   await usageLock(db);
   const [row] = await db<
-    (AttemptUsage & { submitted: boolean; task_key: string | null; task_limit_micros: string | null })[]
-  >`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,reserved_micros::text,settled_micros::text,state,quote,occurred_at,submitted,task_key,task_limit_micros::text FROM ai.usage_attempts WHERE attempt_id=${attemptId}`;
+    (AttemptUsage & { submitted: boolean })[]
+  >`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,reserved_micros::text,settled_micros::text,state,quote,occurred_at,submitted FROM ai.usage_attempts WHERE attempt_id=${attemptId}`;
   if (!row) return "缺少费用预留证据";
   const c = contextOf(row),
     configuration = await usageConfiguration(db);
@@ -553,18 +536,11 @@ export async function authorizeUsageSend(db: Db, attemptId: string, clock: () =>
   const open = await activeUsageBlocker(db, c);
   if (open) return `费用熔断等待恢复：${open}`;
   if (!row.submitted && row.quote.quoted_at) {
-    const [used] = row.task_key
-      ? await db<
-          { amount: string }[]
-        >`SELECT coalesce(sum(CASE WHEN state='settled' THEN settled_micros WHEN state IN ('reserved','unknown') THEN reserved_micros ELSE 0 END),0)::text AS amount FROM ai.usage_attempts WHERE task_key=${row.task_key}`
-      : [];
     // All admission waits precede this snapshot; the remaining writes preserve that exact decision.
     const now = clock();
     const refreshed = refreshUsageQuote(row.quote, now);
-    if (!refreshed.quote && row.task_key) return "研究任务调用前缺少有效费用上界";
     const next = refreshed.quote ?? { ...row.quote, quoted_at: now.toISOString(), pricing_issue: refreshed.missing! };
     const delta = BigInt(next.reserved_micros) - BigInt(row.reserved_micros);
-    if (used && delta > 0n && BigInt(used.amount) + delta > BigInt(row.task_limit_micros!)) return "时段切换后的费用上界超过研究任务上界";
     await db`UPDATE ai.usage_attempts SET quote=${db.json(next)},reserved_micros=${next.reserved_micros},updated_at=${now} WHERE attempt_id=${attemptId}`;
     await applySums(db, c, beijingDate(row.occurred_at), { settled: 0n, unknown: 0n, reserved: delta });
   }

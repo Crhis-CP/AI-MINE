@@ -1,13 +1,5 @@
 import { prepareModelQuota, type ModelQuotaAlias } from "./model-budget.ts";
-import {
-  admitUsage,
-  reserveUsageAttempt,
-  settleUsageAttempt,
-  authorizeUsageSend,
-  type UsageContext,
-  type UsageReservation,
-  type TaskBudget,
-} from "./usage-protection.ts";
+import { admitUsage, reserveUsageAttempt, settleUsageAttempt, authorizeUsageSend, type UsageContext, type UsageReservation } from "./usage-protection.ts";
 import { UNKNOWN_AUTO_RELEASE_NOTE } from "./unknown-recovery.ts";
 import { rateYuan, type UsageBounds } from "./usage-pricing.ts";
 
@@ -142,7 +134,6 @@ export interface ReceiptRequest {
   maxPhysicalAttempts?: 1;
   usageContext?: UsageContext;
   costBounds?: UsageBounds;
-  taskBudget?: TaskBudget;
   modelSnapshot?: ModelAttemptSnapshot;
   service: string;
   /** Shared service quota; does not alter billing identity or the paid-result cache key. */
@@ -547,7 +538,6 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     admitUsage(tx, {
       context: usageContext,
       subject: req.subject,
-      taskBudget: req.taskBudget,
       logicalKey: usageInputKey,
       service: req.service,
       model: req.model,

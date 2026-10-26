@@ -126,7 +126,7 @@ TASK-0129运行控制：`operations/lane-controls.ts`提供27条分线/阶段/�
 
 TASK-0139费用保护：`admin/settings`既有入口转发usageProtectionOverview/changeUsageProtection/changeUsagePrice/recoverUsageBreaker；读取仍为管理员，三个写口在同事务requireOwner并校验版本和记录理由。`providers/usage-protection.ts`内部readUsageProtection(db?)可复用调用方只读事务，提供配置/价格/真实已开范围/缺项，未计价金额不填0。`admin/models`内部规范身份读取modelConfigurationIdentity(key,db?)/currentModelConfiguration(capability,db?)仅返回key/service/requestedModel/configuration_hash，不暴露密钥或质量资格。
 
-paidRequest先免费复用回执，再按已核CNY价格做保守预留；chatJson每次实际attempt绑定非秘密transport配置hash。旧无hash unknown/pending不能因迁移而变新key重复付费，已有received可免费接续。重复输入、单对象、日总异常按明确lane/能力/来源/对象持久熔断；未知费用仍占用，Owner只恢复所选范围，人工/部署/system暂停互不释放。taskBudget={key,limit_micros}是来源研究的可选固定任务上界，同任务已结算+未知+在途+新预留原子比较；任务执行器提供不可变key/限额，不是月度额度。usageProtectionTick与usageMonthly由现有worker调度，HTTP不运行模型、发送通知或补算费用。
+paidRequest先免费复用回执，再按已核CNY价格做保守预留；chatJson每次实际attempt绑定非秘密transport配置hash。旧无hash unknown/pending不能因迁移而变新key重复付费，已有received可免费接续。重复输入、单对象、日总异常按明确lane/能力/来源/对象持久熔断；未知费用仍占用，Owner只恢复所选范围，人工/部署/system暂停互不释放。历史taskBudget固定任务金额上界已退役（TASK-0482）；当前不设累计金额上限，见文末退役说明。usageProtectionTick与usageMonthly由现有worker调度，HTTP不运行模型、发送通知或补算费用。
 
 ### TASK-0148 按环节主备
 
@@ -543,3 +543,7 @@ ExtractedBody允许via=pdfjs及可选bodyStatus，原抽取函数返回类型预
 正文入口复用现有PDF.js，在不继承生产环境变量的独立线程逐页取文字；同进程串行、原6MiB响应、100页、每页2万项、100万字符、15秒及128MiB JS堆限制。堆限制不是RSS硬上限，真实服务器资源仍需验证。没有OCR或图表完整性承诺，密码保护不转备用绕过。部分文字保持unconfirmed，可形成新修订并进入原分析队列，但不获得全文资格，也不能通过后台展示刷新晋升完整；新body-direct:v2派生检查点与旧程序隔离，原HTTP缓存有效时复用。
 
 现有每5分钟content.sweep复核已记录的无材料等待，来源/权限/暂停与当前修订在锁内确认后，以低优先级交回原提取任务。实际读取尝试和入队意图分别审计；只有前者阻止同一材料/URL、来源配置/权限、读取器与备用配置重复续接。配置秘密只参与内存哈希，不写审计或日志。纯等待不由Codex逐篇代跑，不改模型结果或日期；旧数据、人工记录、法规暂停保持。本批工作树实现尚未部署，真实资料和模型效果不由合成测试替代。
+
+### 任务金额上界退役（TASK-0482）
+
+chatJson、paidRequest及费用预留不再接受TaskBudget；移除未使用的累计金额阻断及发送前旧任务上界检查。历史task_key/task_limit_micros列和值保留，新尝试不写这两个旧字段；每次尝试的回执、用途、业务线、来源/对象、报价、已付/预留/未知金额仍可查。报价缺项不编金额，回执复用与滚动请求次数、人工暂停、未知一次恢复不变。旧编译对象额外携带taskBudget也不会恢复金额限制；参见ADR-0029的源码兼容与回退边界。

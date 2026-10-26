@@ -4,7 +4,7 @@ import { after, beforeEach, test } from "node:test";
 import { sql, closeDb } from "@amp/backend/db";
 import { beijingDate } from "@amp/contracts/time";
 import { priceQuote, settleQuotedCost, usagePriceId, type Price, type UsageQuote } from "../packages/backend/src/providers/usage-pricing.ts";
-import { authorizeUsageSend, reserveUsageAttempt, type TaskBudget } from "../packages/backend/src/providers/usage-protection.ts";
+import { authorizeUsageSend, reserveUsageAttempt } from "../packages/backend/src/providers/usage-protection.ts";
 import { paidRequest } from "@amp/backend/providers/receipts";
 import { buildMonthlyUsage } from "../packages/backend/src/operations/usage-monthly.ts";
 
@@ -39,7 +39,7 @@ const id = usagePriceId(price.service, "", null);
 const store = (p = price, version = 1) =>
   sql`INSERT INTO ai.usage_prices(id,version,price) VALUES(${id},${version},${sql.json(p)}) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,price=EXCLUDED.price`;
 const at = async (instant: string) => (await priceQuote(sql, input, new Date(instant))).quote!;
-async function pending(quote: UsageQuote, taskBudget?: TaskBudget) {
+async function pending(quote: UsageQuote, legacyTask?: { key: string; limit_micros: string }) {
   const key = crypto.randomUUID();
   const [r] = await sql`INSERT INTO receipts(logical_key,service,purpose,status) VALUES(${key},'window-fixture','fixture_capability','pending') RETURNING id`;
   const [a] = await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,status) VALUES(${r!.id},1,'window-fixture','pending') RETURNING id::text`;
@@ -48,10 +48,11 @@ async function pending(quote: UsageQuote, taskBudget?: TaskBudget) {
       tx,
       a!.id,
       Number(r!.id),
-      { context: { lane: "news", capability: "fixture_capability", sourceIds: [], object: null }, logicalKey: key, quote, configVersion: 0, taskBudget },
+      { context: { lane: "news", capability: "fixture_capability", sourceIds: [], object: null }, logicalKey: key, quote, configVersion: 0 },
       new Date(quote.quoted_at!),
     ),
   );
+  if (legacyTask) await sql`UPDATE ai.usage_attempts SET task_key=${legacyTask.key},task_limit_micros=${legacyTask.limit_micros} WHERE attempt_id=${a!.id}`;
   return a!.id;
 }
 beforeEach(async () => {
@@ -210,15 +211,15 @@ test("only an unsubmitted attempt updates its frozen window and reservation acro
   assert.deepEqual(again!.quote, sent!.quote);
 });
 
-test("a boundary cannot bypass a research cap and expired ordinary prices stay unpriced", async () => {
+test("retired historical caps do not block repricing and remain recorded; expired prices stay unpriced", async () => {
   const q = await at("2026-10-23T01:00:00Z");
-  const capped = await pending(q, { key: "synthetic-window-cap", limit_micros: "2000" });
-  assert.match((await sql.begin((tx) => authorizeUsageSend(tx, capped, () => new Date("2026-10-23T08:00:00Z"))))!, /上界/);
-  const [held] = await sql`SELECT submitted,quote,reserved_micros::text FROM ai.usage_attempts WHERE attempt_id=${capped}`;
-  assert.equal(held!.submitted, false);
-  assert.deepEqual(held!.quote, JSON.parse(JSON.stringify(q)));
-  assert.equal(held!.reserved_micros, "1400");
-  assert.match((await sql.begin((tx) => authorizeUsageSend(tx, capped, () => new Date("2026-10-25T00:00:00Z"))))!, /上界/);
+  const legacy = await pending(q, { key: "synthetic-window-cap", limit_micros: "2000" });
+  assert.equal(await sql.begin((tx) => authorizeUsageSend(tx, legacy, () => new Date("2026-10-23T08:00:00Z"))), null);
+  const [old] = await sql`SELECT submitted,reserved_micros::text,task_key,task_limit_micros::text FROM ai.usage_attempts WHERE attempt_id=${legacy}`;
+  assert.equal(old!.submitted, true);
+  assert.equal(old!.reserved_micros, "2800");
+  assert.equal(old!.task_key, "synthetic-window-cap");
+  assert.equal(old!.task_limit_micros, "2000");
   const ordinary = await pending(q);
   assert.equal(await sql.begin((tx) => authorizeUsageSend(tx, ordinary, () => new Date("2026-10-25T00:00:00Z"))), null);
   const [sent] = await sql`SELECT quote,submitted FROM ai.usage_attempts WHERE attempt_id=${ordinary}`;
