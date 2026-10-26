@@ -48,7 +48,18 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
   if (manifest.capacity.length && !manifest.segments.length) return { status: "partial" as const, revision: body.revision, reason: "pending_capacity" };
   const run = await beginTranslation(body, recipe.id);
   if (!run) return { status: "skipped" as const, revision: body?.revision };
-  const fallbackInput = await prepareNewsFallback({ root: shutdownSignal.signal, expected: body, current: () => readCurrentBody(articleId), articles: [body] });
+  const bodyInput = (current: typeof body | null) => {
+    if (!current?.x_post) return current;
+    const { x_post: _unusedPostView, ...originalBody } = current;
+    return originalBody;
+  };
+  const fallbackInput = await prepareNewsFallback({
+    root: shutdownSignal.signal,
+    expected: bodyInput(body),
+    current: async () => bodyInput(await readCurrentBody(articleId)),
+    articles: [body],
+    materialScope: "body",
+  });
   const saved = await translationCheckpoints(run);
   let inheritedObservations = await translationObservations(body);
   const leaves = translationLeaves(

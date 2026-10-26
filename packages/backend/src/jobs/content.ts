@@ -320,6 +320,10 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
       const revision = await prepareTranslation(data.articleId);
       if (revision === null) return { state: "not-needed-or-not-permitted" };
       const result = await translateArticle(data.articleId, revision);
+      if (result.status === "skipped" && (result.reason === "no_post_text" || result.reason === "quote_not_permitted")) {
+        await publishArticle(data.articleId);
+        return result;
+      }
       if (result.reason === "attempts_exhausted") return result;
       if (result.status !== "translated" && ["text_limit", "pending_capacity"].includes(result.reason ?? "")) {
         await publishArticle(data.articleId);

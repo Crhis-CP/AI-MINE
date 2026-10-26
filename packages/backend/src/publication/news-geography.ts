@@ -2,7 +2,7 @@ import { z } from "zod";
 import { sql, type Tx } from "../db.ts";
 import { readAnalyzedGeography, validateGeography } from "../editorial/geography.ts";
 import { narrativeText } from "../editorial/narrative.ts";
-import { withXArticle } from "../editorial/input.ts";
+import { withXArticle } from "../lib/text.ts";
 import type { XPostData } from "../content/materials.ts";
 
 export async function projectNewsGeography(

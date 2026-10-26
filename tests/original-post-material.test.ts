@@ -4,7 +4,7 @@ import { after, test } from "node:test";
 import http from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 import { sql, closeDb } from "@amp/backend/db";
-import { contentHash, upsertMaterial, type XPostData } from "@amp/backend/content/materials";
+import { contentHash, upsertMaterial, readCurrentBody, type XPostData } from "@amp/backend/content/materials";
 import { extractArticleBody } from "@amp/backend/content/extract";
 import { queueProcessing, registerExtractionJobs } from "@amp/backend/jobs/content";
 import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
@@ -59,11 +59,20 @@ test("explicit posts retain raw data and revisions while avatar/size updates onl
   assert.equal(history.length, 2);
   assert.equal(history[0]!.x_post.quoted.text, input.xPost.quoted!.text);
   assert.equal(history[1]!.x_post.quoted.text, edited.xPost.quoted!.text);
+  edited.xPost.text = "";
+  edited.xPost.media = [];
+  assert.equal((await upsertMaterial(edited)).revised, true);
+  const [empty] = await sql`SELECT body_text,body_html FROM articles WHERE id=${first.articleId}`;
+  assert.equal(empty!.body_text, "");
+  assert.equal(empty!.body_html, null, "clearing the typed post must not retain its old rendered body");
 });
 
 test("ordinary hashes remain unchanged and a stored long article survives an unchanged post refresh", async () => {
   const ordinary = { title: "Same  title", bodyText: "same body", excerpt: null };
   assert.equal(contentHash(ordinary), sha256("Same title\u0001same body\u0001"));
+  const { xPost: _noPost, ...ordinarySource } = await fixture();
+  const regular = await upsertMaterial({ ...ordinarySource, ...ordinary });
+  assert.ok(!Object.hasOwn((await readCurrentBody(regular.articleId))!, "x_post"), "ordinary fallback snapshots keep their previous field shape");
   const input = await fixture(),
     first = await upsertMaterial(input);
   const long = { title: "已取得的合成长文", text: "合成长文正文，与原帖主体分开记录。" };
@@ -73,6 +82,19 @@ test("ordinary hashes remain unchanged and a stored long article survives an unc
   const [stored] = await sql`SELECT x_article,body_text FROM articles WHERE id=${first.articleId}`;
   assert.deepEqual(stored!.x_article, long);
   assert.equal(stored!.body_text, full);
+  const { xPost: _omittedPost, ...listing } = input;
+  const title = "列表标题更新";
+  assert.equal((await upsertMaterial({ ...listing, title, bodyText: "列表的短描述", bodyHtml: "<p>列表的短描述</p>" })).revised, true);
+  const [current] = await sql`SELECT revision,title,x_post,x_article,body_text,body_html,content_hash FROM articles WHERE id=${first.articleId}`;
+  const [history] = await sql`SELECT body_text,content_hash FROM article_revisions WHERE article_id=${first.articleId} AND revision=${current!.revision}`;
+  assert.deepEqual(current!.x_post, input.xPost);
+  assert.deepEqual(current!.x_article, long);
+  assert.equal(current!.body_text, full);
+  assert.match(current!.body_html, new RegExp(long.text));
+  assert.ok(!current!.body_html.includes("列表的短描述"));
+  assert.equal(current!.content_hash, contentHash({ ...input, title, bodyText: full }));
+  assert.equal(history!.body_text, current!.body_text);
+  assert.equal(history!.content_hash, current!.content_hash);
 });
 
 test("post storage validates structure and current fulltext permission; raw data never establishes post identity", async () => {

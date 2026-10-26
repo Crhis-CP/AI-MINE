@@ -3,7 +3,8 @@ import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { promptVersion } from "./prompts.ts";
 import { sql, type Db } from "../db.ts";
-import { postEvidenceText, type AnalyzeInputArticle } from "./input.ts";
+import type { AnalyzeInputArticle } from "./input.ts";
+import { postEvidenceText } from "../lib/text.ts";
 
 const codes = new Map(JURISDICTIONS.map((j) => [j.id, j]));
 const text = z

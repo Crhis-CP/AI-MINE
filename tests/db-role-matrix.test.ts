@@ -103,6 +103,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "editorial.manual_revisions",
       "editorial.withdrawal_records",
       "editorial.withdrawal_restorations",
+      "enrichment.quote_translations",
       "enrichment.translation_segments",
       "events.story_background_proofs",
       "feedback.feedback_private_deletions",
@@ -253,12 +254,16 @@ test("every real role has exactly the approved table, column, sequence and cross
       if (role === "feedback_write" && table.name === "feedback")
         for (const column of table.columns.filter((name) => name !== "id")) await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
     }
-    for (const [table, field] of [
-      ['"enrichment"."translation_segments"', "state"],
-      ['"ai"."translation_receipt_observations"', "scope"],
-    ])
+    for (const [table, field, appendOnly] of [
+      ['"enrichment"."translation_segments"', "state", false],
+      ['"ai"."translation_receipt_observations"', "scope", false],
+      ['"enrichment"."quote_translations"', "text_zh", true],
+    ] as const)
       for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
-        const allowed = role === "migrate" || role === "worker" || (operation === "SELECT" && (role === "private_ops" || role === "backup"));
+        const allowed =
+          role === "migrate" ||
+          (role === "worker" && (!appendOnly || operation === "SELECT" || operation === "INSERT")) ||
+          (operation === "SELECT" && (role === "private_ops" || role === "backup"));
         const statement =
           operation === "SELECT"
             ? `SELECT * FROM ${table} LIMIT 1`

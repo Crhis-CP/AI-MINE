@@ -1,6 +1,7 @@
-import { tag, gate, stub } from "./setup.ts";
+import { tag, gate, stub, DROP_RESPONSE } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial, type XPostData } from "@amp/backend/content/materials";
 import { analysisVersionOf, loadAnalyzeInput, tierThreshold } from "@amp/backend/editorial/analyze";
@@ -8,7 +9,8 @@ import { translateArticle, translatePending } from "@amp/backend/editorial/trans
 import { translatePostQuote, quoteTranslationRecipe } from "../packages/backend/src/editorial/post-translation.ts";
 import { prepareTranslation, publishArticle } from "@amp/backend/publication/publish";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
-import { QUEUES, stopBoss, recordRun } from "@amp/backend/jobs/queue";
+import { QUEUES, stopBoss, recordRun, getBoss } from "@amp/backend/jobs/queue";
+import { registerContentJobs } from "@amp/backend/jobs/content";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { scopeOutput, scopeReceipt } from "./scope-fixture.ts";
@@ -19,19 +21,30 @@ const T = tag(),
 let serial = 0,
   bodyCalls = 0,
   quoteCalls = 0;
+const requests: string[] = [];
 let hold: { asked: ReturnType<typeof gate<void>>; release: ReturnType<typeof gate<void>> } | null = null;
 const provider = await stub(async (_n, req) => {
+  requests.push(req.body);
   const value = JSON.parse(JSON.parse(req.body).messages.at(-1).content);
   const quote = Array.isArray(value.segments);
   if (quote) quoteCalls++;
   else bodyCalls++;
+  if (!quote && String(value.text).includes("UNKNOWN_BODY")) return DROP_RESPONSE;
   const captured = hold;
   captured?.asked.open();
   if (captured) await captured.release.promise;
   return {
     choices: [
       {
-        message: { content: JSON.stringify(quote ? { t: ["合成引用译文：铜矿项目按计划建设。"] } : { text: "已取得长文的合成完整译文。" }) },
+        message: {
+          content: JSON.stringify(
+            quote
+              ? { t: ["合成引用译文：铜矿项目按计划建设。"] }
+              : String(value.text).includes("BROKEN_TRANSLATION")
+                ? { invalid: "Synthetic invalid body response" }
+                : { text: "已取得长文的合成完整译文。" },
+          ),
+        },
         finish_reason: "stop",
       },
     ],
@@ -172,7 +185,7 @@ test("quote URL must be independently permitted before sending and remains fence
     q = quote("permission");
   const outside = await previouslyPermittedQuote(id, "中文主帖。", { ...q, url: "https://unapproved-quote.invalid/post" });
   const calls = quoteCalls;
-  await assert.rejects(translatePostQuote(outside, 1), /引用 URL/);
+  assert.equal(await translatePostQuote(outside, 1), "denied");
   assert.equal(quoteCalls, calls);
   const item = await material(id, "中文主帖。", q),
     original = (await readCurrentSourcePolicy(id))!;
@@ -192,7 +205,7 @@ test("quote URL must be independently permitted before sending and remains fence
     },
     "test",
   );
-  await assert.rejects(translatePostQuote(item, 1));
+  assert.equal(await translatePostQuote(item, 1), "denied");
   assert.equal(quoteCalls, calls, "a parent URL grant cannot authorize the quoted URL");
   const restricted = (await readCurrentSourcePolicy(id))!;
   await saveSourcePolicy(id, { policy: original, expectedVersion: restricted.permission_version, reason: "Restore synthetic scope" }, "test");
@@ -214,4 +227,119 @@ test("quote URL must be independently permitted before sending and remains fence
   await assert.rejects(running);
   assert.equal(quoteCalls, calls + 1);
   assert.equal((await sql`SELECT count(*)::int AS n FROM enrichment.quote_translations WHERE input_article_id=${item}`)[0].n, 0);
+});
+
+test("real preparation and worker stop empty/link body retries, finish quote-only work once and keep real body failures", async () => {
+  // Earlier tests own their queued fixtures; only the following cases are consumed by this real worker.
+  await sql`DELETE FROM pgboss.job WHERE name=ANY(${[QUEUES.translate, QUEUES.analyze]}::text[])`;
+  const sourceId = await source(),
+    bodies = bodyCalls,
+    quotes = quoteCalls;
+  for (const text of ["", `${host}/empty-link`]) {
+    const id = await material(sourceId, text, undefined, "en");
+    await publish(id);
+    assert.equal(await prepareTranslation(id), null);
+    assert.equal(await queued(id), 0, "empty/link main text creates no body job");
+  }
+  const residual: Array<{ id: string; jobId: string }> = [];
+  for (const text of ["", `${host}/changed-to-link`]) {
+    const id = await material(sourceId, `Original mining announcement ${serial} with substantive English text.`, undefined, "en");
+    await publish(id);
+    const [job] = await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${id} AND state='created'`;
+    assert.ok(job, "the old meaningful revision already had a durable body job");
+    const [old] = await sql`SELECT url,x_post FROM articles WHERE id=${id}`;
+    await upsertMaterial({ sourceId, url: old.url, title: text || "现在为空的原帖", language: "en", via: "fetch", xPost: { ...old.x_post, text } });
+    await publish(id);
+    assert.equal(await prepareTranslation(id), null);
+    residual.push({ id, jobId: job.id });
+  }
+  const quoted = await material(sourceId, `${host}/quote-only-link`, quote("worker-no-main"), "en");
+  await publish(quoted);
+  assert.equal(await prepareTranslation(quoted), 1, "the quote still needs its permitted translation");
+  const long = await material(sourceId, `${host}/worker-long`, undefined, "en");
+  await sql`UPDATE articles SET revision=revision+1,x_article=${sql.json({ title: "Acquired worker article", text: "Actual acquired copper mining article." })},
+    body_text='Actual acquired copper mining article.',body_html='<p>Actual acquired copper mining article.</p>' WHERE id=${long}`;
+  await publish(long);
+  assert.equal(await prepareTranslation(long), 2, "an acquired long article still needs the strict body translator");
+  const broken = await material(sourceId, "BROKEN_TRANSLATION Copper mining announcement requiring a body translation.", undefined, "en");
+  await publish(broken);
+  const independentSource = await source(),
+    protectedQuote = { ...quote("body-independent"), text: "DENIED_QUOTE_SENTINEL protected mining quotation." };
+  const mainOnly = await material(independentSource, "MAIN_ONLY permitted copper mining body without the separate quoted text.", protectedQuote, "en");
+  const unknownBody = await material(independentSource, "UNKNOWN_BODY permitted copper mining body whose response will be lost.", protectedQuote, "en");
+  await publish(mainOnly);
+  await publish(unknownBody);
+  const policy = (await readCurrentSourcePolicy(independentSource))!;
+  const privatePurposes = ["process_locally", "store_fulltext", "external_model"] as const;
+  await saveSourcePolicy(
+    independentSource,
+    {
+      policy: {
+        ...policy,
+        evidence: policy.evidence.flatMap((e) => [
+          { ...e, capabilities: e.capabilities.filter((c) => !privatePurposes.includes(c as (typeof privatePurposes)[number])) },
+          { ...e, capabilities: [...privatePurposes], scope: { ...e.scope, path_prefixes: ["/post/"] } },
+        ]),
+      },
+      expectedVersion: policy.permission_version,
+      reason: "Synthetic main-body grant without quote processing/storage",
+    },
+    "test",
+  );
+  assert.equal(await prepareTranslation(mainOnly), 1, "a denied quote must not block the permitted main body");
+  assert.equal(await prepareTranslation(unknownBody), 1);
+  const active = await sql<{ id: string; article_id: string }[]>`SELECT id,data->>'articleId' AS article_id FROM pgboss.job
+    WHERE name=${QUEUES.translate} AND data->>'articleId'=ANY(${[quoted, long, broken, mainOnly, unknownBody]}::text[]) AND state='created'`;
+  assert.equal(active.length, 5);
+  await registerContentJobs(await getBoss(), 1);
+  const finished = async (jobId: string) => {
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      const [job] = await sql`SELECT state,output,retry_count FROM pgboss.job WHERE name=${QUEUES.translate} AND id=${jobId}`;
+      if (job && ["completed", "failed", "retry"].includes(job.state)) return job;
+      assert.ok(Date.now() < deadline, `Translation worker did not settle ${jobId}`);
+      await delay(50);
+    }
+  };
+  for (const pending of residual) {
+    const job = await finished(pending.jobId);
+    assert.equal(job.state, "completed");
+    assert.equal(job.retry_count, 0);
+    assert.equal(job.output.state, "not-needed-or-not-permitted");
+  }
+  for (const item of active) {
+    const job = await finished(item.id);
+    if (item.article_id === broken || item.article_id === unknownBody)
+      assert.notEqual(job.state, "completed", "other translation failures must still retry/fail");
+    else {
+      assert.equal(job.state, "completed");
+      assert.equal(job.retry_count, 0);
+    }
+  }
+  assert.equal(bodyCalls, bodies + 4, "the two independently permitted bodies are sent without the denied quote");
+  assert.equal(quoteCalls, quotes + 1);
+  assert.ok(requests.some((body) => body.includes("MAIN_ONLY")));
+  assert.ok(
+    requests.every((body) => !body.includes("DENIED_QUOTE_SENTINEL")),
+    "the unused, denied quote never reaches any model request",
+  );
+  assert.equal((await sql`SELECT complete FROM translations WHERE article_id=${mainOnly}`)[0].complete, true);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM enrichment.quote_translations WHERE source_id=${independentSource}`)[0].n, 0);
+  const beforeReuse = bodyCalls;
+  assert.equal((await translateArticle(mainOnly, 1)).status, "translated");
+  assert.equal(bodyCalls, beforeReuse, "current strict body checkpoints remain reusable");
+  await assert.rejects(translateArticle(unknownBody, 1));
+  assert.equal(bodyCalls, beforeReuse, "unknown body charges never buy another request");
+  const [unknown] = await sql`SELECT id,status FROM receipts WHERE subject=${`article:${unknownBody}@1#0`} AND purpose='translate_body'`;
+  assert.equal(unknown.status, "unknown");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM receipt_attempts WHERE receipt_id=${unknown.id}`)[0].n, 1);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM translations WHERE article_id=ANY(${[quoted, ...residual.map((x) => x.id)]}::text[])`)[0].n, 0);
+  assert.equal(await prepareTranslation(quoted), null);
+  await publishArticle(quoted);
+  await recordRun("content.translate", () => translatePending({ limit: 1000 }));
+  assert.equal(
+    (await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${quoted}`)[0].n,
+    1,
+    "completed quote work never creates another body job",
+  );
 });
