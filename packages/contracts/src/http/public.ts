@@ -256,6 +256,55 @@ export const TimelineQuery = PoolQuery.pick({ channel: true, category: true, tag
   limit: z.number().optional(),
 });
 
+/** Explicit reader capability: omitted requests retain their existing strict shape and pagination. */
+export const ReportGroupReading = z.literal("reports-v1");
+export const ReportGroupedPoolQuery = PoolQuery.extend({ readingGroups: ReportGroupReading.optional() });
+export const ReportGroupedTimelineQuery = TimelineQuery.extend({ readingGroups: ReportGroupReading.optional() });
+export const ReportGroupedItemQuery = z.object({ readingGroups: ReportGroupReading.optional() });
+
+/** A reading group is not a fact or story; only currently public members leave the projection. */
+export const ReportGroupInfo = z
+  .strictObject({
+    id: z.uuid(),
+    memberIds: z.array(z.string().min(1)).min(1),
+    reportCount: z.int().positive(),
+    additionalSourceCount: z.int().nonnegative(),
+  })
+  .refine((group) => new Set(group.memberIds).size === group.memberIds.length, "Duplicate reading-group member")
+  .refine((group) => group.memberIds.length <= group.reportCount && group.additionalSourceCount < group.reportCount, "Invalid reading-group counts");
+export const ReportGroupDetailFields = z.strictObject({ reportGroup: ReportGroupInfo.nullable().optional() });
+export const ReportGroupedTimelineCard = TimelineCardCore.extend(ReportGroupDetailFields.shape);
+export const ReportGroupedTimelineResponse = TimelineResponseCore.extend({ cards: z.array(ReportGroupedTimelineCard) });
+export const ReportGroupedPoolResponse = PoolResponseCore.extend({ cards: z.array(ReportGroupedTimelineCard).optional() });
+
+/** Same report item as the existing fact-group expansion; no model proof or private text. */
+export const GroupReport = z.strictObject({
+  id: z.string(),
+  title: z.string(),
+  summary: z.string().nullable(),
+  source: z.strictObject({
+    id: z.string(),
+    name: z.string(),
+    kind: z.enum(["rss", "web_list", "json_list", "mp_account", "external"]),
+    firstParty: z.boolean(),
+  }),
+  timelineAt: z.iso.datetime({ offset: true }),
+  sourceTime: SourceTimeProjection.shape.sourceTime.optional(),
+  originalUrl: z.url({ protocol: /^https?$/ }),
+  selected: z.boolean(),
+});
+export const ReportGroupReportsQuery = PoolQuery.omit({ tab: true, page: true }).extend({
+  cursor: z.string().optional(),
+  take: z.int().min(1).max(40).optional(),
+  revision: z.string().optional(),
+});
+export const ReportGroupReportsResponse = z.strictObject({
+  reportGroupId: z.uuid(),
+  revision: z.string().min(1),
+  reports: z.array(GroupReport),
+  nextCursor: z.string().nullable(),
+});
+
 const priceText = z.string().regex(/\S/, "must not be blank");
 const priceUrl = z.url({ protocol: /^https$/ });
 const priceValue = z
@@ -463,6 +512,13 @@ export const schemas = {
   TimelineCard,
   HotStripEntry,
   TimelineResponse,
+  ReportGroupInfo,
+  ReportGroupDetailFields,
+  ReportGroupedTimelineCard,
+  ReportGroupedTimelineResponse,
+  ReportGroupedPoolResponse,
+  GroupReport,
+  ReportGroupReportsResponse,
   MetalPrices,
   Problem,
 };
@@ -524,8 +580,8 @@ export const routes = {
     url: "/api/site/timeline",
     schema: {
       operationId: "siteTimeline",
-      querystring: TimelineQuery,
-      response: { 200: TimelineResponse, 304: z.undefined(), 400: ProblemResponse, 503: ProblemResponse },
+      querystring: ReportGroupedTimelineQuery,
+      response: { 200: ReportGroupedTimelineResponse, 304: z.undefined(), 400: ProblemResponse, 503: ProblemResponse },
     },
   },
   sitePool: {
@@ -533,8 +589,18 @@ export const routes = {
     url: "/api/site/pool",
     schema: {
       operationId: "sitePool",
-      querystring: PoolQuery,
-      response: { 200: PoolResponse, 304: z.undefined(), 400: ProblemResponse, 503: ProblemResponse },
+      querystring: ReportGroupedPoolQuery,
+      response: { 200: ReportGroupedPoolResponse, 304: z.undefined(), 400: ProblemResponse, 503: ProblemResponse },
+    },
+  },
+  siteReportGroupReports: {
+    method: "GET" as const,
+    url: "/api/site/report-groups/:reportGroupId/reports",
+    schema: {
+      operationId: "siteReportGroupReports",
+      params: z.strictObject({ reportGroupId: z.uuid() }),
+      querystring: ReportGroupReportsQuery,
+      response: { 200: ReportGroupReportsResponse, 304: z.undefined(), 400: ProblemResponse, 404: ProblemResponse, 409: ProblemResponse, 503: ProblemResponse },
     },
   },
   siteStats: {
