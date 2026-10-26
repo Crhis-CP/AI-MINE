@@ -136,7 +136,6 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
       xPost: post,
       bodyText: post.text,
       bodyHtml: postBodyHtml(post),
-      bodyStatus: m.bodyStatus ?? (post.text ? "ok" : "none"),
     };
   }
   const postPolicy = m.xPost ? await readCurrentSourcePolicy(m.sourceId, db) : null;
@@ -216,7 +215,7 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
     VALUES (${newId}, ${m.sourceId}, ${identityKey}, ${m.url}, ${title}, ${m.author ?? null}, ${m.language ?? null},
       ${t.publishedAt}, ${m.publishedAt ?? null}, ${discoveredAt}, ${m.sourceUpdatedAt ?? null}, ${t.timelineAt},
       ${t.backfill}, ${t.backfillReason}, 1, ${hash}, ${m.excerpt ?? null}, ${m.bodyText ?? null}, ${m.bodyHtml ?? null},
-      ${m.bodyStatus ?? (m.bodyText ? "ok" : "pending")}, ${db.json((m.media ?? []) as never)},
+      ${m.bodyStatus ?? (m.bodyText ? "ok" : m.xPost ? "none" : "pending")}, ${db.json((m.media ?? []) as never)},
       ${m.raw === undefined ? null : db.json(m.raw as never)}, ${m.xPost ? db.json(m.xPost as never) : null})
     ON CONFLICT (identity_key) DO NOTHING RETURNING id`;
   if (inserted) {

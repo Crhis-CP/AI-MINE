@@ -95,6 +95,16 @@ test("ordinary hashes remain unchanged and a stored long article survives an unc
   assert.equal(current!.content_hash, contentHash({ ...input, title, bodyText: full }));
   assert.equal(history!.body_text, current!.body_text);
   assert.equal(history!.content_hash, current!.content_hash);
+  const captionless = await fixture();
+  captionless.xPost.text = "";
+  const storedLong = await upsertMaterial(captionless),
+    articleText = `# ${long.title}\n\n${long.text}`;
+  await sql`UPDATE articles SET x_article=${sql.json(long)},body_text=${articleText},body_status='ok',
+    content_hash=${contentHash({ ...captionless, bodyText: articleText })} WHERE id=${storedLong.articleId}`;
+  assert.equal((await upsertMaterial(captionless)).revised, false);
+  assert.equal((await readCurrentBody(storedLong.articleId))!.body_status, "ok", "an empty caption does not downgrade an acquired long article");
+  await upsertMaterial({ ...captionless, bodyStatus: "unconfirmed" });
+  assert.equal((await readCurrentBody(storedLong.articleId))!.body_status, "unconfirmed", "an explicitly partial result never becomes complete by default");
 });
 
 test("post storage validates structure and current fulltext permission; raw data never establishes post identity", async () => {
