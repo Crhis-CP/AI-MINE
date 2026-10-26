@@ -40,7 +40,7 @@ test("Monday summaries do not repeat incident details or consume each other's fa
   assert.ok(!delivery.messages[1]!.includes(id), "weekly overview must not repeat the daily incident's detailed source list");
   assert.match(delivery.messages[1]!, /连续抓取失败：1 个/);
   assert.match(delivery.messages[1]!, /较上次成功运行记录的统计：抓取失败 -2 个/);
-  assert.match(delivery.messages[1]!, /逐项问题由系统日报发送，未送达的仍保留待发送/);
+  assert.match(delivery.messages[1]!, /故障明细由系统日报发送，未送达的仍保留待发送/);
   delivery.fail = true;
   await assert.rejects(sourceHealthWeekly(now), /outcome unknown/);
   assert.deepEqual(await state(), announced);
