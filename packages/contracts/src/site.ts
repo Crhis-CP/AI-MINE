@@ -15,6 +15,20 @@ export type {
   HistoricalBackgroundReferencesReader,
   HistoricalBackgroundProjector,
 } from "./historical-background.ts";
+export {
+  ReportMaterialBinding,
+  ReportIdentityDecision,
+  ReportGroupProjection,
+  ReportGroupProjectionChange,
+} from "./report-groups.ts";
+export type {
+  ReportGroupCandidate,
+  ReportGroupCandidateReader,
+  ReportGroupDecisionReader,
+  ReportGroupMember,
+  ReportGroupMembersReader,
+  ReportGroupProjector,
+} from "./report-groups.ts";
 
 export type SourceKind = "rss" | "web_list" | "json_list" | "mp_account" | "external";
 
@@ -66,6 +80,12 @@ export type TimelineFilters = import("zod").infer<typeof import("./http/public.t
 export type TimelineResponse = import("zod").infer<typeof import("./http/public.ts").TimelineResponse>;
 
 export type PoolResponse = import("zod").infer<typeof import("./http/public.ts").PoolResponse>;
+export type ReportGroupInfo = import("zod").infer<typeof import("./http/public.ts").ReportGroupInfo>;
+export type ReportGroupDetailFields = import("zod").infer<typeof import("./http/public.ts").ReportGroupDetailFields>;
+export type ReportGroupedTimelineCard = import("zod").infer<typeof import("./http/public.ts").ReportGroupedTimelineCard>;
+export type ReportGroupedTimelineResponse = import("zod").infer<typeof import("./http/public.ts").ReportGroupedTimelineResponse>;
+export type ReportGroupedPoolResponse = import("zod").infer<typeof import("./http/public.ts").ReportGroupedPoolResponse>;
+export type ReportGroupReportsResponse = import("zod").infer<typeof import("./http/public.ts").ReportGroupReportsResponse>;
 
 export interface OutlineEntry {
   id: string;
@@ -94,17 +114,9 @@ export interface ItemDetail extends ItemSummary, XPostDetailFields {
   group: GroupInfo | null;
 }
 
-export type GroupReport = GroupReportCore;
-interface GroupReportCore {
-  sourceTime?: SourceTimeProjection["sourceTime"];
-  id: string;
-  title: string;
-  summary: string | null;
-  source: SourceRef;
-  timelineAt: string;
-  originalUrl: string;
-  selected: boolean;
-}
+export type GroupReport = import("zod").infer<typeof import("./http/public.ts").GroupReport>;
+type GroupReportCore = GroupReport;
+export type ReportGroupedItemDetail = ItemDetail & ReportGroupDetailFields;
 
 export interface GroupReportsResponse {
   factId: string;
@@ -314,6 +326,7 @@ export interface SiteItemDetail extends ItemDetail {
   hasTranslation: boolean;
   bodyLanguage: "zh" | "original";
 }
+export type ReportGroupedSiteItemDetail = SiteItemDetail & ReportGroupDetailFields;
 
 export type StoryFollowup = StoryFollowupCore;
 type StoryFollowupCore = StoryFollowupsResponse["items"][number];

@@ -1,4 +1,5 @@
 import { readMatcherValues } from "./mentions.ts";
+export type { ReportGroupCandidateReader, ReportGroupMembersReader, ReportGroupProjector } from "@amp/contracts/site";
 // Reading-group expansions: the reports behind "另有 N 家信源报道" and the developments behind
 // "展开 N 条进展". Members must pass the same visibility, pool eligibility and parent-page filters.
 import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";

@@ -1,4 +1,5 @@
 import { invalidateHistoricalBackgrounds } from "./historical-background-store.ts";
+export type { ReportGroupDecisionReader } from "@amp/contracts/site";
 import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
 export type { HistoricalBackgroundReferencesReader } from "@amp/contracts/site";
