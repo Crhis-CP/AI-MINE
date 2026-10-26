@@ -28,10 +28,10 @@ const forbidden = [
   "FEISHU_FUTURE_CHAT_ID",
 ];
 
-test("API_ROLE parsing accepts the unified role and explicit legacy roles and never includes rejected values", () => {
-  for (const role of ["api", "public-api", "private-api"] as const) assert.equal(apiRoleFromEnv({ API_ROLE: role }), role);
-  for (const value of [undefined, "", " ", "worker", "PUBLIC-API", " public-api", "private-api ", "PRIVATE_MARKER"]) {
-    assert.throws(() => apiRoleFromEnv({ API_ROLE: value }), { message: "API_ROLE must be api, public-api or private-api" });
+test("API startup is unified by default and rejects legacy modes without echoing values", () => {
+  for (const role of [undefined, "api"]) assert.equal(apiRoleFromEnv({ API_ROLE: role }), "api");
+  for (const value of ["public-api", "private-api", "", " ", "worker", "PUBLIC-API", " public-api", "private-api ", "PRIVATE_MARKER"]) {
+    assert.throws(() => apiRoleFromEnv({ API_ROLE: value }), { message: "API_ROLE must be api when set; legacy API modes are no longer supported" });
   }
 });
 

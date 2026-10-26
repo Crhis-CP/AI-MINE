@@ -27,7 +27,7 @@ test("ordinary administrators cannot change Owner source, notification or reques
   }
   const admin = await account("operator", "admin"),
     owner = await account("owner", "owner"),
-    app = await buildApp("api");
+    app = await buildApp();
   t.after(() => app.close());
   await f.admin`INSERT INTO sources(id,name,kind,enabled) VALUES('owner-settings-source','Synthetic source','rss',true)`;
   await f.admin`INSERT INTO notify_targets(key,purpose,kind,enabled) VALUES('owner-settings-alert','alert','log',true)`;

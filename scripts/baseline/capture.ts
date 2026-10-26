@@ -29,7 +29,7 @@ const { installModules, scheduledTasks } = await import("@amp/backend/modules");
 installModules(SERVER_MODULES);
 const combined = new Set<string>();
 for (const role of ["api"] as const) {
-  const app = await buildApp(role);
+  const app = await buildApp();
   try {
     await app.ready();
     const tree = app.printRoutes({ commonPrefix: false });

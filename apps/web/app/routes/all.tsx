@@ -61,7 +61,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         params: { query: { q, page: 1, page_size: 5 } },
         headers: { accept: "application/json", "x-amp-ssr": "1" },
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(3000)]),
-        baseUrl: apiBaseFor("/api/site/policies"),
+        baseUrl: apiBaseFor(),
       })
         .then((result) => contractResult(result, publicSchemas.PolicyListResponse))
         .catch(() => null)
@@ -73,7 +73,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         querySerializer: () => queryString(query).slice(1),
         headers: { accept: "application/json", "x-amp-ssr": "1" },
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-        baseUrl: apiBaseFor("/api/site/pool"),
+        baseUrl: apiBaseFor(),
       }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal },
   );

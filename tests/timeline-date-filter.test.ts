@@ -24,7 +24,7 @@ const expected = fixture.filter((row) => ["start", "unknown", "date-only"].inclu
 const ids = (rows: { id: string }[]) => rows.map((row) => row.id).sort();
 const base = { channel: "all" as const, category: null, tag: null, source, now };
 const apiBase = { mode: "all" as const, window: "all" as const, by: "timeline" as const, category: null, q: null, source, limit: 100, cursor: null };
-const app = await buildApp("public-api");
+const app = await buildApp();
 after(async () => {
   await app.close();
   await closeDb();

@@ -86,8 +86,8 @@ export async function foreignFixture(
     privateHost: "private.foreign.test",
     devAdmin: null,
   });
-  const admin = await buildApp("private-api"),
-    reader = await buildApp("public-api");
+  const admin = await buildApp(),
+    reader = await buildApp();
   apps.push(admin, reader);
   const headers = { "x-forwarded-host": "private.foreign.test", ...(await sourceOwnerHeaders()) };
   const created = await admin.inject({

@@ -1,4 +1,4 @@
-import { apiRoleFromEnv, databaseConfig, type ApiRole } from "@amp/backend/db";
+import { apiRoleFromEnv, databaseConfig } from "@amp/backend/db";
 import { webEnvironment } from "../../apps/web/runtime-env.ts";
 
 type Environment = Readonly<Record<string, string | undefined>>;
@@ -27,24 +27,21 @@ const RUNTIME = [
 const pick = (env: Environment, keys: string[]) => Object.fromEntries(keys.filter((key) => env[key] !== undefined).map((key) => [key, env[key]!]));
 
 /** Isolated tests only. Deliberate rejection-test pollution belongs after this whitelist. */
-export function apiChildEnvironment(role: ApiRole, input: Environment): Record<string, string> {
-  apiRoleFromEnv({ API_ROLE: role });
+export function apiChildEnvironment(input: Environment): Record<string, string> {
+  apiRoleFromEnv(input);
   databaseConfig("test", { DATABASE_URL: input.DATABASE_URL });
-  const keys = [
-    ...(role !== "private-api" ? ["PUBLIC_RATE_LIMIT_SECRET", "INDEXNOW_KEY", "MCP_ALLOWED_HOSTS"] : []),
-    ...(role !== "public-api" ? ["SESSION_SECRET", "ADMIN_PASSWORD", "PRIVATE_HOST"] : []),
-  ];
+  const keys = ["PUBLIC_RATE_LIMIT_SECRET", "INDEXNOW_KEY", "MCP_ALLOWED_HOSTS", "SESSION_SECRET", "ADMIN_PASSWORD", "PRIVATE_HOST"];
   return {
     ...pick(input, [...RUNTIME, ...keys]),
     NODE_ENV: input.NODE_ENV ?? "production",
-    API_ROLE: role,
+    API_ROLE: "api",
     API_HOST: input.API_HOST ?? "127.0.0.1",
-    API_PORT: input.API_PORT ?? (role === "private-api" ? "3002" : "3001"),
+    API_PORT: input.API_PORT ?? "3001",
     COLLECT_ENABLED: "false",
     MODEL_CALLS_ENABLED: "false",
     FEISHU_CONTENT_PUSH_ENABLED: "false",
     INDEXNOW_SUBMIT_ENABLED: "false",
-    ...(role !== "public-api" ? { AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials" } : {}),
+    AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials",
   };
 }
 
@@ -64,7 +61,7 @@ function localOrigin(value: string): URL {
   } catch {
     /* Report only configuration names, never the malformed URL. */
   }
-  throw new Error("Harness API_BASE_URL / PRIVATE_API_BASE_URL / SITE_URL must be local HTTP origins");
+  throw new Error("Harness API_BASE_URL / SITE_URL must be local HTTP origins");
 }
 
 /** Local smoke/baseline fixtures never borrow the caller's authentication keys. */
@@ -82,9 +79,9 @@ export function siteChildEnvironments(input: Environment) {
     SESSION_SECRET: "verify-session-key-0123456789abcdef",
     ADMIN_PASSWORD: "verify-admin-password-0123456789",
   };
-  const api = (role: ApiRole, url: URL) => apiChildEnvironment(role, { ...base, API_HOST: url.hostname.replace(/^\[|\]$/g, ""), API_PORT: port(url) });
+  const api = (url: URL) => apiChildEnvironment({ ...base, API_HOST: url.hostname.replace(/^\[|\]$/g, ""), API_PORT: port(url) });
   return {
-    api: api("api", apiOrigin),
+    api: api(apiOrigin),
     web: webEnvironment({
       ...base,
       API_BASE_URL: apiOrigin.origin,

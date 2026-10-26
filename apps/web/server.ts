@@ -172,7 +172,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
       .map((v) => v.trim())
       .filter(Boolean);
     const client = TRUST_PROXY && forwarded.length ? forwarded[forwarded.length - 1]! : (req.socket.remoteAddress ?? "");
-    const target = new URL(apiBaseFor(raw));
+    const target = new URL(apiBaseFor());
     const headers = { ...apiForwardHeaders(raw, req.headers), "x-forwarded-for": client, "x-real-ip": client };
     const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);

@@ -30,7 +30,7 @@
 
 ```text
 apps/web              读者站（SSR）+ 登录后的 /admin 后台；经 API 客户端读取后端
-apps/api              HTTP 组合根；默认统一 api 进程，公开与后台路由共存，后台逐请求鉴权；旧角色仅作迁移兼容
+apps/api              HTTP 组合根；仅统一 api 运行入口，公开与后台路由共存，后台逐请求鉴权；旧数据角色仅供权限工装与历史恢复
 apps/worker           任务组合根：各模块 jobs；队列按 <lane>.<stage> 划分
 packages/backend     采集、内容、事件、发布、法规、报告、模型与运行管理
 packages/backend/src/process-config.ts  纯进程配置与连接工厂，经既有db入口导出
@@ -40,7 +40,8 @@ scripts/contracts/    对外OpenAPI文档生成与漂移校验，使用项目统
 site/                 站点品牌、出刊时刻、模型配置和扩展安装清单
 modules/              矿业扩展；metals已接管定时入口，其余实现继续迁移
 industry/             行业分类、法域、矿种、提示词、门槛和种子；旧site入口只作兼容转发
-database/migrations/<module>/   按模块分目录、时间戳命名的迁移
+database/migrations/<module>/   引擎增量迁移，时间戳命名
+modules/<module>/migrations/    扩展增量迁移，使用同一登记与执行器
 evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile scripts/
 ```
 
@@ -55,7 +56,7 @@ evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile s
 7. 人工下架、人工修订、人工暂停永远优先；重采集、回填、升级不能复活或覆盖它们。
 8. 业务线是一等维度：任务、事件、回执、账本、采集配置都带 `lane`（`news`｜`policy`）；**禁止单一站点级暂停开关**；资讯线材料不得拦截法规线。
 9. 契约先行：改契约或公开接口单独提 PR；发现契约须改时**停止并开契约卡**；破坏性变更需要 ADR。
-10. 迁移只做向后兼容的增量，放在 `database/migrations/<你的模块>/`；已合并迁移不可改。
+10. 迁移只做向后兼容的增量，放在 `database/migrations/<你的模块>/` 或扩展的 `modules/<你的模块>/migrations/`；统一登记、依赖、归属与哈希校验，已合并迁移不可改。
 11. 提示词只放 `industry/prompts/<能力>/`，评测集放 `evals/<能力>/`；代码里不写提示词正文。
 12. 时间：只有日期的来源不补时分；报告周期、用量月份、“今天”按北京时间；旧文不进入“今天”。
 13. 不提交密钥、`.env`、真实生产数据；测试与 `verify` 不访问外网与真实模型（真实评测是显式任务，任务卡写 `budget`）。

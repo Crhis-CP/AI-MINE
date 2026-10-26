@@ -13,14 +13,14 @@ after(async () => {
 });
 test("price HTTP belongs to the installed extension and remains a read-only public route", async () => {
   installModules([]);
-  const core = await buildApp("public-api");
+  const core = await buildApp();
   try {
     assert.equal((await core.inject("/api/site/metal-prices")).statusCode, 404);
   } finally {
     await core.close();
   }
   installModules(SERVER_MODULES);
-  const site = await buildApp("public-api");
+  const site = await buildApp();
   try {
     const [before] = await sql`SELECT (SELECT count(*) FROM receipts)::int AS receipts,(SELECT count(*) FROM publication.metal_prices)::int AS prices`;
     const result = await site.inject("/api/site/metal-prices");
@@ -36,37 +36,30 @@ test("price HTTP belongs to the installed extension and remains a read-only publ
   }
 });
 
-test("site management routes follow installation and stay absent from the legacy public API", async () => {
-  for (const role of ["api", "private-api"] as const) {
-    installModules([]);
-    const core = await buildApp(role);
-    try {
-      assert.equal(core.hasRoute({ method: "GET", url: "/api/admin/site" }), false);
-      assert.equal(core.hasRoute({ method: "GET", url: "/api/admin/source-targets" }), false);
-    } finally {
-      await core.close();
-    }
-    installModules(SERVER_MODULES);
-    const site = await buildApp(role);
-    try {
-      assert.equal(site.hasRoute({ method: "GET", url: "/api/admin/site" }), true);
-      assert.equal(site.hasRoute({ method: "GET", url: "/api/admin/source-targets" }), true);
-    } finally {
-      await site.close();
-    }
-  }
-  const reader = await buildApp("public-api");
+test("module administration follows installation and retains authentication", async () => {
+  installModules([]);
+  const core = await buildApp();
   try {
-    assert.equal(reader.hasRoute({ method: "GET", url: "/api/admin/site" }), false);
-    assert.equal(reader.hasRoute({ method: "GET", url: "/api/admin/source-targets" }), false);
+    assert.equal(core.hasRoute({ method: "GET", url: "/api/admin/site" }), false);
+    assert.equal(core.hasRoute({ method: "GET", url: "/api/admin/source-targets" }), false);
   } finally {
-    await reader.close();
+    await core.close();
+  }
+  installModules(SERVER_MODULES);
+  const site = await buildApp();
+  try {
+    for (const url of ["/api/admin/site", "/api/admin/source-targets"]) {
+      assert.equal(site.hasRoute({ method: "GET", url }), true);
+      assert.equal((await site.inject(url)).statusCode, 401, "installation does not authorize anonymous users");
+    }
+  } finally {
+    await site.close();
   }
 });
 
 test("policy reading endpoints are provided by the installed module without requiring policy processing", async () => {
   installModules([]);
-  const core = await buildApp("api");
+  const core = await buildApp();
   try {
     assert.equal((await core.inject("/api/site/policies/scope")).statusCode, 404);
     assert.equal((await core.inject("/api/site/jurisdictions")).statusCode, 200);
@@ -74,7 +67,7 @@ test("policy reading endpoints are provided by the installed module without requ
     await core.close();
   }
   installModules(SERVER_MODULES);
-  const site = await buildApp("api");
+  const site = await buildApp();
   try {
     assert.equal((await site.inject("/api/site/policies/scope")).statusCode, 200);
     assert.ok(site.hasRoute({ method: "GET", url: "/api/site/policies/:id" }));

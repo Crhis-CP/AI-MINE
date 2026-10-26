@@ -46,10 +46,13 @@ export async function publicServer(t: TestContext, f: PublicFixture) {
     const {initializeDb,closeDb}=await import('@amp/backend/db');
     const {buildApp}=await import('./apps/api/src/app.ts');
     const {normalizeRouteTree}=await import('./scripts/baseline/routes.ts');
-    const {installModules}=await import('@amp/backend/modules');const {SERVER_MODULES}=await import('./site/modules/server.ts');installModules(SERVER_MODULES);await initializeDb('public-api');const app=await buildApp('public-api');
+    const {installModules}=await import('@amp/backend/modules');const {SERVER_MODULES}=await import('./site/modules/server.ts');installModules(SERVER_MODULES);await initializeDb('public-api');const app=await buildApp();
     await app.listen({host:'127.0.0.1',port:Number(process.env.API_PORT)});
-    const routes=normalizeRouteTree(app.printRoutes({commonPrefix:false}),{'':'/api/public/*','/api/v1':'/api/v1/*'}).filter(x=>x.startsWith('GET '));
-    console.log('PR9_ROUTES='+JSON.stringify(routes));console.log('PR9_READY');
+    const allRoutes=normalizeRouteTree(app.printRoutes({commonPrefix:false}),{'':'/api/public/*','/api/v1':'/api/v1/*'}).filter(x=>x.startsWith('GET '));
+    const isProtected=x=>x==='GET /mcp-ops'||x==='GET /api/admin'||x.startsWith('GET /api/admin/')||x==='GET /api/auth'||x.startsWith('GET /api/auth/');
+    const routes=allRoutes.filter(x=>!isProtected(x));
+    const protectedRoutes=allRoutes.filter(isProtected);
+    console.log('PR9_ROUTES='+JSON.stringify(routes));console.log('PR9_PROTECTED_ROUTES='+JSON.stringify(protectedRoutes));console.log('PR9_READY');
     process.on('SIGTERM',async()=>{await app.close();await closeDb();process.exit(0)});
   `;
   const child = await apiProcess(
@@ -57,7 +60,8 @@ export async function publicServer(t: TestContext, f: PublicFixture) {
     {
       PATH: process.env.PATH,
       NODE_ENV: "production",
-      API_ROLE: "public-api",
+      API_ROLE: "api",
+      PRIVATE_HOST: "private-role-fixture.example.test",
       DATABASE_POOL_MAX: "1",
       DATABASE_URL_PUBLIC_READ: f.urlFor("public_read"),
       DATABASE_URL_FEEDBACK_WRITE: f.urlFor("feedback_write"),
@@ -87,6 +91,13 @@ export async function publicServer(t: TestContext, f: PublicFixture) {
       .find((line) => line.startsWith("PR9_ROUTES="))!
       .slice("PR9_ROUTES=".length),
   ) as string[];
+  const protectedRoutes = JSON.parse(
+    child
+      .output()
+      .split("\n")
+      .find((line) => line.startsWith("PR9_PROTECTED_ROUTES="))!
+      .slice("PR9_PROTECTED_ROUTES=".length),
+  ) as string[];
   const request = (url: string, options: RequestInit = {}) =>
     fetch(child.url + url, {
       ...options,
@@ -94,7 +105,7 @@ export async function publicServer(t: TestContext, f: PublicFixture) {
       signal: options.signal ?? AbortSignal.timeout(10_000),
       headers: { host: "public-fixture.example.test", ...options.headers },
     });
-  return { ...child, routes, request };
+  return { ...child, routes, protectedRoutes, request };
 }
 
 export async function roleConnections(f: PublicFixture) {

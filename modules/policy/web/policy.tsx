@@ -34,7 +34,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       params: { path: { id: params.id! }, query: parsed.data },
       headers: { accept: "application/json", "x-amp-ssr": "1" },
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-      baseUrl: apiBaseFor("/api/site/policies"),
+      baseUrl: apiBaseFor(),
     });
     if (!result.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.status) ? result.status : 503 });
     const policy = publicSchemas.Policy.parse(await result.json());
@@ -58,7 +58,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           headers: { accept: "application/json", "x-amp-ssr": "1" },
           cache: "no-cache",
           signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-          baseUrl: apiBaseFor("/api/site/policies"),
+          baseUrl: apiBaseFor(),
         });
         if ([400, 404, 409, 410].includes(page.status)) throw withHeaders(null, { status: page.status });
         if (!page.ok) throw new Error("Policy reading temporarily unavailable");

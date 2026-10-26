@@ -27,7 +27,7 @@ import { buildApp } from "./site-app.ts";
 import { SITE } from "@amp/industry/site";
 import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
 
-const publicApp = await buildApp("public-api");
+const publicApp = await buildApp();
 const T = tag();
 let SOURCE = `test-analyze-${T}`;
 

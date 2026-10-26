@@ -20,7 +20,7 @@ test("Owner saves public site fields with session CSRF CAS idempotency and atomi
     dev = config.devAdmin;
   config.privateHost = "site-settings.test";
   config.devAdmin = null;
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   t.after(async () => {
     await app.close();
     config.privateHost = host;

@@ -13,7 +13,7 @@ import { grantDateFixture } from "./source-date-fixture.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 
-const app = await buildApp("public-api"),
+const app = await buildApp(),
   prior = serverModules();
 after(async () => {
   installModules(prior);

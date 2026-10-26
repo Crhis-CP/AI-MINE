@@ -19,7 +19,7 @@ test("observed receipt versions preserve guard order and reject an old UI form b
     saved = { host: config.privateHost, admin: config.devAdmin };
   config.privateHost = "private.receipt.test";
   config.devAdmin = null;
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   let hits = 0;
   const provider = createServer((_req, res) => {
     hits++;

@@ -170,8 +170,8 @@ test("private HTTP binds one-use login nonce, forced-change scope, Owner account
     originalDev = config.devAdmin;
   config.privateHost = "account.example.test";
   config.devAdmin = null;
-  const app = await buildApp("private-api"),
-    publicApp = await buildApp("public-api");
+  const app = await buildApp(),
+    publicApp = await buildApp();
   t.after(async () => {
     await app.close();
     await publicApp.close();
@@ -213,7 +213,8 @@ test("private HTTP binds one-use login nonce, forced-change scope, Owner account
   assert.equal(changed.statusCode, 200, changed.body);
   assert.deepEqual(changed.json(), { changed: true, signed_out: true });
   assert.equal((await app.inject({ url: "/api/admin/me", headers: sessionHeaders })).statusCode, 401);
-  assert.equal((await publicApp.inject({ url: "/api/admin/accounts", headers })).statusCode, 404);
+  assert.equal((await publicApp.inject({ url: "/api/admin/accounts", headers })).statusCode, 401, "the unified reader client still needs a session");
+  assert.equal((await publicApp.inject({ url: "/api/admin/accounts" })).statusCode, 404, "admin Host remains required");
   dispose();
   const fail = installTestConnections((() => {
     throw new Error("synthetic unavailable");

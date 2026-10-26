@@ -11,7 +11,7 @@ import { closeDb, feedbackSql as sql } from "@amp/backend/db";
 import { buildApp } from "./site-app.ts";
 
 config.dataDir = await mkdtemp(path.join(tmpdir(), "amp-upload-"));
-const app = await buildApp("public-api");
+const app = await buildApp();
 after(async () => {
   await app.close();
   await closeDb();

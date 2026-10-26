@@ -70,7 +70,7 @@ test("worker snapshots and real observer login expose bounded metadata only; Own
     DATABASE_POOL_MAX: "1",
   });
   t.after(closeDb);
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   t.after(() => app.close());
   const call = (who = "owner", args: unknown = { dataset: "health" }, extra: Record<string, string> = {}) =>
     app.inject({
@@ -121,7 +121,7 @@ test("worker snapshots and real observer login expose bounded metadata only; Own
   await closeDb();
   // Existing private controls remain usable with the observer address absent; this feature fails closed.
   await initializeDb("private-api", { DATABASE_URL_PRIVATE_OPS: f.urlFor("private_ops"), DATABASE_URL_AUTH: f.urlFor("auth"), DATABASE_POOL_MAX: "1" });
-  const absent = await buildApp("private-api");
+  const absent = await buildApp();
   t.after(() => absent.close());
   const unavailable = await absent.inject({
     method: "POST",

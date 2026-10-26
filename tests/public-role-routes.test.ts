@@ -65,6 +65,13 @@ test("every registered public GET reaches its documented data fixture or explici
   try {
     assert.deepEqual([...app.routes].sort(), routes.map((r) => r.route).sort());
     assert.equal(new Set(routes.map((r) => r.route)).size, routes.length);
+    assert.ok(app.protectedRoutes.includes("GET /api/admin/me") && app.protectedRoutes.includes("GET /api/auth/options"));
+    for (const route of app.protectedRoutes) {
+      const response = await app.request(route.slice("GET ".length));
+      assert.equal(response.status, 404, `${route}: the public Host cannot reach a protected route`);
+      assert.equal(response.headers.get("set-cookie"), null, route);
+      await response.arrayBuffer();
+    }
     assert.deepEqual(await roleConnections(f), { public_read: 0, feedback_write: 0 });
     let cursor = "";
     for (const row of routes) {

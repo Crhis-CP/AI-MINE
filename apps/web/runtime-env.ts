@@ -42,7 +42,6 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "WEB_PORT",
     "SITE_URL",
     "API_BASE_URL",
-    "PRIVATE_API_BASE_URL",
     "PRIVATE_HOST",
     "WEB_ROUTE_GROUP",
     "TRUST_PROXY",

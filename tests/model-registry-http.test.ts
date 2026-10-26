@@ -39,7 +39,7 @@ test("unified API model HTTP routes enforce current identity, CSRF and revision 
   const owner = await principal("owner", "owner", true),
     manager = await principal("manager", "admin", true),
     basic = await principal("basic", "admin", false);
-  const app = await buildApp("api");
+  const app = await buildApp();
   t.after(() => app.close());
   const payload = {
     name: "HTTP synthetic",

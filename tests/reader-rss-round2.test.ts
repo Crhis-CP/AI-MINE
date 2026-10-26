@@ -5,7 +5,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { buildApp } from "./site-app.ts";
 
-const app = await buildApp("public-api");
+const app = await buildApp();
 after(async () => {
   await app.close();
   await closeDb();

@@ -65,7 +65,7 @@ test("installed reader abilities share Agent/MCP inputs and isolate per-request 
       },
     },
   ]);
-  const app = await buildApp("public-api");
+  const app = await buildApp();
   t.after(() => app.close());
   const [before] = await sql`SELECT (SELECT count(*) FROM receipts)::int receipts,(SELECT count(*) FROM fetch_runs)::int fetches`;
   const path = "/api/v1/agent/module-fixture";
@@ -137,7 +137,7 @@ test("a failed request observer cannot suppress another observer or break the re
       },
     },
   ]);
-  const app = await buildApp("public-api");
+  const app = await buildApp();
   t.after(() => app.close());
   assert.equal((await app.inject("/api/health")).statusCode, 200);
   assert.equal(observed, 1);

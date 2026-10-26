@@ -16,7 +16,7 @@ import { fetchWithHost } from "../http-probe.ts";
 const PRIVATE_HOST = "private.localhost:8443";
 const env = { API_BASE_URL: "http://public.test:3001", PRIVATE_API_BASE_URL: "http://private.test:3002" };
 
-test("web dev and start commands share the API target and preserve an explicit legacy override", (t) => {
+test("web dev and start commands share one API target even with a stale private override", (t) => {
   const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts as Record<string, string>;
   const bin = mkdtempSync(path.join(tmpdir(), "amp-web-command-"));
   t.after(() => rmSync(bin, { recursive: true, force: true }));
@@ -34,15 +34,13 @@ test("web dev and start commands share the API target and preserve an explicit l
       assert.equal(result.status, 0, result.stderr);
       const supplied = JSON.parse(result.stdout);
       assert.equal(supplied.WEB_ROUTE_GROUP, name === "start" ? undefined : name === "dev" ? "public" : "private");
-      assert.equal(apiBaseFor("/api/auth/options", supplied), target ?? env.API_BASE_URL);
-      assert.equal(apiBaseFor("/api/site/items", supplied), env.API_BASE_URL);
+      assert.equal(apiBaseFor(supplied), env.API_BASE_URL);
     }
   }
 });
 
 test("private path trees are distinct from lookalikes and query text; fallback never resolves the incoming host", () => {
-  for (const path of ["/api/admin", "/api/admin?x=1", "/api/admin/sources?q=a%2Fb&q=", "/api/auth/options"])
-    assert.equal(apiBaseFor(path, env), env.PRIVATE_API_BASE_URL);
+  for (const path of ["/api/admin", "/api/admin?x=1", "/api/admin/sources?q=a%2Fb&q=", "/api/auth/options"]) assert.equal(isPrivateApiPath(path), true);
   for (const path of [
     "/api/administrator",
     "/api/authors",
@@ -52,11 +50,11 @@ test("private path trees are distinct from lookalikes and query text; fallback n
     "/api/%61dmin/x",
   ]) {
     assert.equal(isPrivateApiPath(path), false);
-    assert.equal(apiBaseFor(path, env), env.API_BASE_URL);
+    assert.equal(apiBaseFor(env), env.API_BASE_URL);
   }
-  assert.equal(apiBaseFor("/api/auth/options", { API_BASE_URL: env.API_BASE_URL }), env.API_BASE_URL);
-  assert.equal(apiBaseFor("/api/auth/options", { ...env, PRIVATE_API_BASE_URL: "" }), env.API_BASE_URL);
-  assert.equal(apiBaseFor("/api/auth/options", {}), "http://127.0.0.1:3001");
+  assert.equal(apiBaseFor({ API_BASE_URL: env.API_BASE_URL }), env.API_BASE_URL);
+  assert.equal(apiBaseFor({ ...env, PRIVATE_API_BASE_URL: "" }), env.API_BASE_URL);
+  assert.equal(apiBaseFor({}), "http://127.0.0.1:3001");
   assert.deepEqual(privateHostHeaders("/api/auth/options", null), { "x-forwarded-host": "" });
 });
 
@@ -79,7 +77,7 @@ test("admin loader uses inbound Host, not a spoofed forwarded header or Request 
   }
 });
 
-test("Vite devEdge forwards to two local APIs using the same path and Host rules", async (t) => {
+test("Vite devEdge ignores the retired target while preserving path, Host and cookie isolation", async (t) => {
   const apis = ["public", "private"].map((target) =>
     createServer((req, res) => {
       res.setHeader("Content-Type", "application/json");
@@ -118,7 +116,7 @@ test("Vite devEdge forwards to two local APIs using the same path and Host rules
   const origin = `http://127.0.0.1:${(edge.address() as AddressInfo).port}`;
   for (const path of ["/api/auth/options?a=%2F&a=", "/api/admin/sources?x=1"]) {
     const response = await fetchWithHost(origin + path, PRIVATE_HOST, { headers: { "X-Forwarded-Host": "spoofed.invalid" } });
-    assert.deepEqual(await response.json(), { target: "private", path, forwarded: PRIVATE_HOST });
+    assert.deepEqual(await response.json(), { target: "public", path, forwarded: PRIVATE_HOST });
   }
   for (const path of ["/api/auth/options", "/admin/login", "/%61dmin/login.data", "/sources/old"]) {
     const response = await fetch(origin + path, { redirect: "manual", headers: { "X-Forwarded-Host": PRIVATE_HOST } });

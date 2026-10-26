@@ -25,7 +25,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
     headers: { accept: "application/json", "x-amp-ssr": "1", ...privateHostHeaders("/api/auth/options", request.headers.get("host")) },
     method: "GET",
-    baseUrl: apiBaseFor("/api/auth/options"),
+    baseUrl: apiBaseFor(),
   })
     .then((result) => contractResult(result, privateSchemas.LoginOptions))
     .catch(() => ({

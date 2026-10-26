@@ -31,7 +31,7 @@ node scripts/db-roles.ts --prefix amp --public-connections 10 --apply
 
 ## 模块对象身份准备（TASK-0006 D1）
 
-`relationIdentity` 从唯一迁移目录的既定模块/schema映射验证对象名：旧裸名明确归public，模块对象保留schema-qualified身份，未知schema、歧义名字与重复的裸名/qualified别名拒绝。C核对schema与模块归属，不猜成public。此准备片未改48表授权、元目录查询或SQL规划；非public表的真实目录、逐角色权限和schema授权须在后续接线，不把名字解析当作已授权，也不移除模块迁移执行限制。
+`relationIdentity` 从共用迁移清单的既定模块/schema映射验证对象名：旧裸名明确归public，模块对象保留schema-qualified身份，未知schema、歧义名字与重复的裸名/qualified别名拒绝。C核对schema与模块归属，不猜成public。此准备片未改48表授权、元目录查询或SQL规划；非public表的真实目录、逐角色权限和schema授权须在后续接线，不把名字解析当作已授权，也不移除模块迁移执行限制。
 
 ## Qualified目录与授权接线（TASK-0006 D1）
 

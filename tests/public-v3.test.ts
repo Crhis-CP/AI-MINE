@@ -8,7 +8,7 @@ import { buildApp } from "./site-app.ts";
 const source = `v3-${tag()}`,
   id = `${source}-a`,
   second = `${source}-b`;
-const app = await buildApp("public-api");
+const app = await buildApp();
 after(async () => {
   await app.close();
   await closeDb();

@@ -69,15 +69,27 @@ test("real migration entry preserves legacy records, serializes fresh runs and r
   mkdirSync(directory, { recursive: true });
   const manifest = JSON.parse(readFileSync("database/migration-inventory.json", "utf8"));
   for (const entry of inventory) {
-    const file = path.join(directory, entry.name);
+    const file = path.join(entry.name.startsWith("modules/") ? root : directory, entry.name);
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, entry.text);
   }
-  mkdirSync(path.join(directory, "sources"), { recursive: true });
-  writeFileSync(path.join(directory, "sources/202610041000_new.sql"), "CREATE TABLE sources.unregistered_probe(id integer);");
+  const extension = "modules/policy/migrations/202610261000_probe.sql";
+  mkdirSync(path.dirname(path.join(root, extension)), { recursive: true });
+  writeFileSync(path.join(root, extension), "CREATE TABLE policy.unregistered_probe(id integer);");
   writeFileSync(path.join(root, "database/migration-inventory.json"), JSON.stringify(manifest));
   const args = ["--input-type=module", "-e", "import {migrate} from './scripts/migrate.ts'; await migrate(process.argv[1]);", root];
   await assert.rejects(run(f.urlFor(), args), /Unregistered migration/);
-  assert.equal((await f.admin`SELECT to_regclass('sources.unregistered_probe') AS name`)[0].name, null);
+  assert.equal((await f.admin`SELECT to_regclass('policy.unregistered_probe') AS name`)[0].name, null);
   assert.match((await run()).stdout, /database is up to date/);
+  const beforeExtension = await records();
+  manifest.migrations.push({ name: extension, dependsOn: [] });
+  writeFileSync(path.join(root, "database/migration-inventory.json"), JSON.stringify(manifest));
+  assert.match((await run(f.urlFor(), args)).stdout, /applied modules\/policy\/migrations\/202610261000_probe.sql/);
+  assert.equal((await f.admin`SELECT to_regclass('policy.unregistered_probe') AS name`)[0].name, "policy.unregistered_probe");
+  assert.deepEqual(
+    (await records()).filter((row) => row.name !== extension),
+    beforeExtension,
+  );
+  assert.equal((await records()).find((row) => row.name === extension)!.sha256, loadMigrationInventory(root).find((entry) => entry.name === extension)!.sha256);
+  assert.match((await run(f.urlFor(), args)).stdout, /database is up to date/);
 });

@@ -24,8 +24,6 @@ import { registerStatic } from "./routes/static.ts";
 import { registerMcp } from "./routes/mcp.ts";
 import { applyPublicHeaders, sendProblem } from "./http/respond.ts";
 
-export type ApiRole = "api" | "public-api" | "private-api";
-
 /** A single Host authority, never a URL, list, userinfo or escaped hostname. Ports are not part of the hostname. */
 function hostname(authority: unknown): string | null {
   if (typeof authority !== "string" || !authority || /[\s,/@\\?#%]/.test(authority)) return null;
@@ -36,10 +34,7 @@ function hostname(authority: unknown): string | null {
   }
 }
 
-export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
-  if (role !== "api" && role !== "public-api" && role !== "private-api") throw new Error("Invalid API role");
-  const publicRoutes = role !== "private-api";
-  const privateRoutes = role !== "public-api";
+export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL || "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
     // Access logs never record query strings (tokens, actors).
@@ -51,22 +46,20 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
   });
 
   app.setValidatorCompiler(validatorCompiler);
-  if (publicRoutes) {
-    const limited = publicReadLimiter(credential("auth", "PUBLIC_RATE_LIMIT_SECRET") ?? "development-public-read-limit");
-    app.addHook("onRequest", async (req, reply) => {
-      if (!/^\/api\/v[13](?:\/|$)/.test(req.url) || req.method === "OPTIONS") return;
-      const retry = limited(req.ip);
-      if (!retry) return;
-      applyPublicHeaders(reply);
-      if (req.url.startsWith("/api/v3/"))
-        return reply
-          .code(429)
-          .header("Retry-After", retry)
-          .header("Cache-Control", "no-store")
-          .send({ code: "rate_limited", message: "请求过于频繁，请稍后再试。", request_id: req.id, retry_after_seconds: retry });
-      return sendProblem(req, reply, { status: 429, code: "rate_limited", detail: "请求过于频繁，请稍后再试。", retryAfter: retry });
-    });
-  }
+  const limited = publicReadLimiter(credential("auth", "PUBLIC_RATE_LIMIT_SECRET") ?? "development-public-read-limit");
+  app.addHook("onRequest", async (req, reply) => {
+    if (!/^\/api\/v[13](?:\/|$)/.test(req.url) || req.method === "OPTIONS") return;
+    const retry = limited(req.ip);
+    if (!retry) return;
+    applyPublicHeaders(reply);
+    if (req.url.startsWith("/api/v3/"))
+      return reply
+        .code(429)
+        .header("Retry-After", retry)
+        .header("Cache-Control", "no-store")
+        .send({ code: "rate_limited", message: "请求过于频繁，请稍后再试。", request_id: req.id, retry_after_seconds: retry });
+    return sendProblem(req, reply, { status: 429, code: "rate_limited", detail: "请求过于频繁，请稍后再试。", retryAfter: retry });
+  });
   app.setSerializerCompiler(serializerCompiler);
 
   app.addHook("onRequest", async (req) => {
@@ -107,13 +100,13 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
       }
   });
 
-  if (privateRoutes && config.privateHost !== null) {
+  if (config.privateHost !== null) {
     const expected = hostname(config.privateHost);
     app.addHook("onRequest", async (req, reply) => {
       const pathname = (req.raw.url ?? "").split("?")[0]!;
       if (pathname === "/api/health") return;
       const route = req.routeOptions.url ?? pathname;
-      if (role === "api" && !/^\/api\/(admin|auth)(?:\/|$)/.test(route) && route !== "/mcp-ops") return;
+      if (!/^\/api\/(admin|auth)(?:\/|$)/.test(route) && route !== "/mcp-ops") return;
       const forwarded = req.headers["x-forwarded-host"];
       const count = req.raw.rawHeaders.filter((value, index) => index % 2 === 0 && value.toLowerCase() === "x-forwarded-host").length;
       if (expected && count === 1 && hostname(forwarded) === expected) return;
@@ -122,25 +115,24 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
   }
 
   // Central public redirect table (shared with the web server); never bypasses the private host guard.
-  if (publicRoutes)
-    app.addHook("onRequest", async (req, reply) => {
-      const raw = req.raw.url ?? "/";
-      const qi = raw.indexOf("?");
-      const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
-      const search = qi >= 0 ? raw.slice(qi) : "";
-      if (OAUTH_PROBE_PATHS.includes(pathname)) {
-        return reply.code(404).header("Cache-Control", "public, max-age=3600").type("application/json").send('{"error":"not_found"}');
-      }
-      const decision = resolveRedirect(pathname, search);
-      if (decision) {
-        for (const [k, v] of Object.entries(decision.headers)) reply.header(k, v);
-        if (decision.location) return reply.code(decision.status).header("Location", decision.location).send();
-        return reply
-          .code(decision.status)
-          .type("text/plain; charset=utf-8")
-          .send(decision.status === 410 ? "Gone" : "Not found");
-      }
-    });
+  app.addHook("onRequest", async (req, reply) => {
+    const raw = req.raw.url ?? "/";
+    const qi = raw.indexOf("?");
+    const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
+    const search = qi >= 0 ? raw.slice(qi) : "";
+    if (OAUTH_PROBE_PATHS.includes(pathname)) {
+      return reply.code(404).header("Cache-Control", "public, max-age=3600").type("application/json").send('{"error":"not_found"}');
+    }
+    const decision = resolveRedirect(pathname, search);
+    if (decision) {
+      for (const [k, v] of Object.entries(decision.headers)) reply.header(k, v);
+      if (decision.location) return reply.code(decision.status).header("Location", decision.location).send();
+      return reply
+        .code(decision.status)
+        .type("text/plain; charset=utf-8")
+        .send(decision.status === 410 ? "Gone" : "Not found");
+    }
+  });
 
   app.get("/api/health", async (_req, reply) => {
     const started = Date.now();
@@ -154,29 +146,25 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
   // (routes/ingest.ts, F-ACQ-07, a candidate): enabling it also moves it off the public port (adoption 4.5
   // row 7).
 
-  if (privateRoutes) {
-    registerAdmin(app);
-    for (const module of serverModules()) await module.admin?.http?.(app);
-    registerAdminModelFallback(app);
+  registerAdmin(app);
+  for (const module of serverModules()) await module.admin?.http?.(app);
+  registerAdminModelFallback(app);
 
-    registerOperationsMcp(app);
-    registerUsageProtection(app);
+  registerOperationsMcp(app);
+  registerUsageProtection(app);
 
-    registerAdminAuth(app);
-  }
-  if (publicRoutes) {
-    registerFeeds(app);
-    registerMcp(app);
-    registerAgent(app);
-    registerOg(app);
-    registerSite(app);
-    for (const module of serverModules()) await module.http?.(app);
-    registerSiteInformation(app);
-    registerStatic(app);
-    registerV1(app);
-    registerV3(app);
-    registerV1Fallbacks(app);
-  }
+  registerAdminAuth(app);
+  registerFeeds(app);
+  registerMcp(app);
+  registerAgent(app);
+  registerOg(app);
+  registerSite(app);
+  for (const module of serverModules()) await module.http?.(app);
+  registerSiteInformation(app);
+  registerStatic(app);
+  registerV1(app);
+  registerV3(app);
+  registerV1Fallbacks(app);
 
   app.setNotFoundHandler((req, reply) => {
     if ((req.raw.url ?? "").startsWith("/api/v3/")) {

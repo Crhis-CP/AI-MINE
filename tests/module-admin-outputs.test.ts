@@ -11,8 +11,8 @@ const original = { modules: serverModules(), admin: config.devAdmin, host: confi
 config.privateHost = "module-admin.private.test";
 config.devAdmin = null;
 await getBoss();
-const app = await buildApp("private-api"),
-  reader = await buildApp("public-api");
+const app = await buildApp(),
+  reader = await buildApp();
 const read = (url: string) => app.inject({ url, headers: { "x-forwarded-host": config.privateHost! } });
 after(async () => {
   installModules(original.modules);
@@ -24,7 +24,7 @@ after(async () => {
   await closeDb();
 });
 
-test("administrative module reads require authentication and stay absent from the public API", async () => {
+test("administrative module reads require authentication and remain hidden without the admin Host", async () => {
   let calls = 0;
   installModules([
     {

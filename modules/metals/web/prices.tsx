@@ -11,7 +11,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const prices = await apiFetch("/api/site/metal-prices", {
       headers: { accept: "application/json", "x-amp-ssr": "1" },
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-      baseUrl: apiBaseFor("/api/site/metal-prices"),
+      baseUrl: apiBaseFor(),
     }).then((response) => contractResult(response, publicSchemas.MetalPrices));
     return withHeaders({ prices }, { headers: { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" } });
   } catch (error) {

@@ -42,7 +42,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     publicSchemas.TopicPage.parse(
       await apiGet<unknown>(`${topicPath}?page=${wanted}`, {
         signal: request.signal,
-        baseUrl: apiBaseFor(topicPath),
+        baseUrl: apiBaseFor(),
       }),
     );
   let data = await loadOr404(() => readTopic(1), { signal: request.signal });
@@ -65,7 +65,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         querySerializer: () => queryString({ ...query, selected: query.selected ? "true" : undefined }).slice(1),
         headers: { accept: "application/json", "x-amp-ssr": "1" },
         signal: request.signal,
-        baseUrl: apiBaseFor("/api/site/pool"),
+        baseUrl: apiBaseFor(),
       }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal },
   );
@@ -96,7 +96,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
   const countries =
     data.topic.group === "genre"
-      ? await apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor("/api/site/jurisdictions") })
+      ? await apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor() })
           .then((result) => contractResult(result, publicSchemas.PolicyJurisdictionList))
           .catch(() => [])
       : [];

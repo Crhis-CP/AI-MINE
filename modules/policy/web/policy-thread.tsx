@@ -9,7 +9,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const result = await apiFetch("/api/site/policy-threads/{id}", {
     params: { path: { id: params.id! } },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-    baseUrl: apiBaseFor("/api/site/policy-threads"),
+    baseUrl: apiBaseFor(),
   });
   if (!result.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.status) ? result.status : 503 });
   return publicSchemas.PolicyThread.parse(await result.json());

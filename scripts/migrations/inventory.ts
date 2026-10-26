@@ -29,7 +29,7 @@ const manifestSchema = z
     version: z.literal(1),
     historicalCommit: z.string().regex(/^[a-f0-9]{40}$/),
     legacy: z.array(z.object({ name: z.string().regex(/^\d{4}_[a-z0-9_]+\.sql$/), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict()).min(1),
-    migrations: z.array(z.object({ name: z.string(), dependsOn: z.array(z.string()) }).strict()),
+    migrations: z.array(z.object({ name: z.string(), module: z.string().optional(), dependsOn: z.array(z.string()) }).strict()),
   })
   .strict();
 export interface Migration {
@@ -49,20 +49,33 @@ export function loadMigrationInventory(root: string): Migration[] {
   const manifestFile = path.join(root, "database/migration-inventory.json");
   if (!lstatSync(manifestFile).isFile() || lstatSync(manifestFile).isSymbolicLink()) throw new Error("Migration manifest must be a regular file");
   const manifest = manifestSchema.parse(JSON.parse(readFileSync(manifestFile, "utf8")));
-  const files = new Set<string>();
-  const discover = (dir: string) => {
+  const files = new Map<string, string>();
+  const discover = (dir: string, base: string) => {
     if (lstatSync(dir).isSymbolicLink()) throw new Error(`Migration directory symlink: ${dir}`);
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`Migration symlink: ${full}`);
-      if (entry.isDirectory()) discover(full);
+      if (entry.isDirectory()) discover(full, base);
       else if (/\.sql$/i.test(entry.name)) {
         if (!entry.isFile()) throw new Error(`Migration must be a regular file: ${full}`);
-        files.add(path.relative(directory, full).split(path.sep).join("/"));
+        const name = path.relative(base, full).split(path.sep).join("/");
+        if (files.has(name)) throw new Error(`Duplicate migration identity: ${name}`);
+        files.set(name, full);
       }
     }
   };
-  discover(directory);
+  discover(directory, directory);
+  const modules = path.join(root, "modules"),
+    modulesStat = lstatSync(modules, { throwIfNoEntry: false });
+  if (modulesStat?.isSymbolicLink()) throw new Error("Migration modules directory symlink");
+  if (modulesStat) {
+    for (const entry of readdirSync(modules, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) throw new Error(`Migration module directory symlink: ${entry.name}`);
+      if (!entry.isDirectory()) continue;
+      const migrations = path.join(modules, entry.name, "migrations");
+      if (lstatSync(migrations, { throwIfNoEntry: false })) discover(migrations, root);
+    }
+  }
   const legacy = [...manifest.legacy].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   if (new Set(legacy.map((entry) => entry.name)).size !== legacy.length) throw new Error("Duplicate migration identity in historical manifest");
   // Fingerprint of the a32baebb originals: editing SQL and repinning its manifest cannot bless old bytes.
@@ -73,9 +86,12 @@ export function loadMigrationInventory(root: string): Migration[] {
   const entries: Array<Migration & { order: string }> = [];
   const add = (name: string, module: string | null, dependsOn: string[], expected?: string) => {
     if (entries.some((entry) => entry.name === name)) throw new Error(`Duplicate migration identity: ${name}`);
-    if (!files.delete(name)) throw new Error(`Missing migration file: ${name}`);
+    if (entries.some((entry) => path.posix.basename(entry.name) === path.posix.basename(name))) throw new Error(`Duplicate migration filename: ${name}`);
+    const file = files.get(name);
+    if (!file) throw new Error(`Missing migration file: ${name}`);
+    files.delete(name);
     if (new Set(dependsOn).size !== dependsOn.length) throw new Error(`Duplicate migration dependency: ${name}`);
-    const bytes = readFileSync(path.join(directory, name));
+    const bytes = readFileSync(file);
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     if (expected !== undefined && sha256 !== expected) throw new Error(`Historical migration hash mismatch: ${name}`);
     const time = module ? path.posix.basename(name).slice(0, 12) : "";
@@ -91,9 +107,15 @@ export function loadMigrationInventory(root: string): Migration[] {
   };
   for (const [i, entry] of legacy.entries()) add(entry.name, null, i ? [legacy[i - 1]!.name] : [], entry.sha256);
   for (const entry of manifest.migrations) {
-    const module = path.posix.dirname(entry.name),
+    const extension = /^modules\/([a-z][a-z0-9-]*)\/migrations\/([^/]+)$/.exec(entry.name);
+    const module = extension ? (entry.module ?? extension[1]!) : path.posix.dirname(entry.name),
       file = path.posix.basename(entry.name);
-    if (path.posix.normalize(entry.name) !== entry.name || entry.name.includes("\\") || !Object.hasOwn(MODULE_SCHEMAS, module))
+    if (
+      path.posix.normalize(entry.name) !== entry.name ||
+      entry.name.includes("\\") ||
+      (!extension && entry.module !== undefined) ||
+      !Object.hasOwn(MODULE_SCHEMAS, module)
+    )
       throw new Error(`Unknown module or noncanonical migration path: ${entry.name}`);
     const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})_[a-z][a-z0-9_]*\.sql$/.exec(file);
     const stamp = match && `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:00.000Z`;
@@ -101,7 +123,7 @@ export function loadMigrationInventory(root: string): Migration[] {
     if (new Set(entry.dependsOn).size !== entry.dependsOn.length) throw new Error(`Duplicate migration dependency: ${entry.name}`);
     add(entry.name, module, [...new Set([legacy.at(-1)!.name, ...entry.dependsOn])]);
   }
-  if (files.size) throw new Error(`Unregistered migration files: ${[...files].sort().join(", ")}`);
+  if (files.size) throw new Error(`Unregistered migration files: ${[...files.keys()].sort().join(", ")}`);
   const names = new Set(entries.map((entry) => entry.name));
   for (const entry of entries)
     for (const dependency of entry.dependsOn) if (!names.has(dependency)) throw new Error(`Missing dependency ${dependency} for ${entry.name}`);

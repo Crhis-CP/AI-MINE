@@ -203,12 +203,12 @@ test("in-flight embedding cannot persist across pause and reuses the same record
   }
 });
 
-test("private control routes require a session and CSRF, reject another holder, and remain absent from public API", async () => {
+test("control routes require a session and CSRF, reject another holder, and remain hidden without the admin Host", async () => {
   const previous = { admin: config.devAdmin, host: config.privateHost };
   config.privateHost = "private.controls.test";
   config.devAdmin = null;
-  const app = await buildApp("private-api"),
-    pub = await buildApp("public-api");
+  const app = await buildApp(),
+    pub = await buildApp();
   try {
     assert.equal((await app.inject({ url: "/api/admin/lane-controls", headers: { "x-forwarded-host": config.privateHost } })).statusCode, 401);
     config.devAdmin = { displayName: "Synthetic authenticated operator" };

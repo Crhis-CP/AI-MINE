@@ -23,7 +23,7 @@ test("real auth/private_ops/worker/public roles enforce Owner-only, closed-by-de
   }
   const owner = await account("selection-owner", "owner"),
     manager = await account("selection-manager", "admin"),
-    app = await buildApp("private-api");
+    app = await buildApp();
   t.after(() => app.close());
   const request = (url: string, cookie?: string, payload?: unknown, csrf = true) =>
     app.inject({

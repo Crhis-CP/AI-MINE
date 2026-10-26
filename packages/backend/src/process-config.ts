@@ -17,12 +17,12 @@ export type ProcessRole = keyof typeof PROCESS_DATABASE_ROLES;
 type Environment = Readonly<Record<string, string | undefined>>;
 const variable = (role: DatabaseRole) => `DATABASE_URL_${role.toUpperCase()}`;
 
-export type ApiRole = "api" | "public-api" | "private-api";
+export type ApiRole = "api";
 
-/** Unified API and the two legacy process names accepted during topology migration. */
+/** Old database profiles remain available to verification, but cannot select an API runtime. */
 export function apiRoleFromEnv(env: Environment): ApiRole {
-  if (env.API_ROLE === "api" || env.API_ROLE === "public-api" || env.API_ROLE === "private-api") return env.API_ROLE;
-  throw new Error("API_ROLE must be api, public-api or private-api");
+  if (env.API_ROLE === undefined || env.API_ROLE === "api") return "api";
+  throw new Error("API_ROLE must be api when set; legacy API modes are no longer supported");
 }
 
 /** Backend configuration still reads the process environment; API startup must use that same source. */

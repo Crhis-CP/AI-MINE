@@ -8,7 +8,7 @@ import { apiBaseFor, privateHostHeaders } from "../../api-target.ts";
 import { adminBody, type AdminSend } from "./admin-response.ts";
 
 export async function adminGet<T>(request: Request, path: string, send: AdminSend = fetch): Promise<T> {
-  const result = await send(`${apiBaseFor(path)}${path}`, {
+  const result = await send(`${apiBaseFor()}${path}`, {
     headers: {
       accept: "application/json",
       cookie: request.headers.get("cookie") ?? "",
@@ -40,7 +40,7 @@ type Reconciliation = Pick<z.infer<typeof privateSchemas.ReceiptReconciliationRe
 /** The unchanged legacy monitor fields remain untyped here; the reconciliation subset is checked. */
 export async function loadReconciliation<T extends Reconciliation = Reconciliation>(request: Request): Promise<T> {
   const path = "/api/admin/runs";
-  const apiBase = apiBaseFor(path);
+  const apiBase = apiBaseFor();
   const body = await adminGet<T>(request, path, (_url, init) =>
     apiFetch(path, { headers: init.headers, signal: init.signal, method: "GET", baseUrl: apiBase }),
   );
