@@ -533,3 +533,7 @@ TASK-0485消费上述已合并契约：原提醒及processing采样共用bodyRea
 ### 原帖内部契约准备（TASK-0486）
 
 content/materials沿固定上游声明XPostData，MaterialInput及editorial/input允许可选xPost，Candidate继续派生MaterialInput；contentHash输入与CurrentBody预留原帖信息，现有哈希算法及正文查询不变；AnalysisRun预留verbatim写作结果。仅内部类型，不保存或传递新字段、不新增供应商或来源，不改变当前等待/normalize/公开条件。真实消费者仍须校验输入、权限、材料变版和人工控制；空/链接/极短原帖的准入变化须类别级确认后生效，不能把类型声明算成完整原帖迁移。
+
+### PDF正文结果契约准备（TASK-0487）
+
+ExtractedBody允许via=pdfjs及可选bodyStatus，原抽取函数返回类型预留partial；本卡不产生这些结果。后续同一入口读取PDF时，文字可用但完整性未确认的材料应保持unconfirmed而非获得全文资格，worker修订检查和后台展示刷新须一起适配。新派生结果需独立版本检查点以兼容旧程序恢复，复用原HTTP缓存与许可，不新增队列。
