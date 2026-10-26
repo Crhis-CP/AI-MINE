@@ -68,7 +68,16 @@ export async function translateArticle(articleId: string, expectedRevision: numb
       articleId,
       revision: expectedRevision,
       status: quote === "partial" ? "partial" : quote === "ready" ? "translated" : "skipped",
-      reason: quote === "partial" ? "quoted_post_pending" : quote === "ready" ? "quoted_post" : noMainText ? "no_post_text" : "original_chinese",
+      reason:
+        quote === "partial"
+          ? "quoted_post_pending"
+          : quote === "ready"
+            ? "quoted_post"
+            : quote === "denied"
+              ? "quote_not_permitted"
+              : noMainText
+                ? "no_post_text"
+                : "original_chinese",
     };
   const stopped = await bodyTranslationStop(articleId, expectedRevision);
   if (stopped) return { articleId, status: "skipped", reason: stopped };
@@ -83,7 +92,7 @@ export async function translateArticle(articleId: string, expectedRevision: numb
     expectedRevision,
   );
   if (translated.status === "stale") return { articleId, status: "partial", revision: translated.revision, reason: "input_changed" };
-  if (quote !== "none" && translated.status === "translated")
+  if ((quote === "ready" || quote === "partial") && translated.status === "translated")
     return {
       articleId,
       revision: translated.revision,

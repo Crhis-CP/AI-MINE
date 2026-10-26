@@ -13,10 +13,10 @@ import { shutdownSignal } from "../jobs/queue.ts";
 import { loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
 import { modelFor } from "./models.ts";
 import { looksZh } from "./writing.ts";
-import { promptText, promptVersion } from "./prompts.ts";
+import { promptText, quoteTranslationRecipe } from "./prompts.ts";
 import { translationTextIssue } from "./translation-readiness.ts";
 
-export const quoteTranslationRecipe = () => `post-quote-v1:${promptVersion("translate-post")}`;
+export { quoteTranslationRecipe } from "./prompts.ts";
 const Output = z.strictObject({ t: z.tuple([z.string().trim().min(1)]) });
 export function quoteTranslatable(text: string): boolean {
   const words = collapseWhitespace(text.replace(/https?:\/\/\S+/g, " "));
@@ -24,14 +24,14 @@ export function quoteTranslatable(text: string): boolean {
 }
 
 /** Called from the existing translation job after publication's current permission/admission check. */
-export async function translatePostQuote(articleId: string, revision: number): Promise<"none" | "ready" | "partial" | "stale"> {
+export async function translatePostQuote(articleId: string, revision: number): Promise<"none" | "ready" | "partial" | "stale" | "denied"> {
   const input = await loadAnalyzeInput(articleId);
   if (!input || input.revision !== revision) return "stale";
   const quote = input.xPost?.quoted;
   if (!quote || !quoteTranslatable(quote.text) || !input.sourceId) return "none";
   const policy = await readCurrentSourcePolicy(input.sourceId);
-  if (!policy) throw new Error("引用全文保存许可缺失");
-  const checkPermissions = async (capabilities: Array<"process_locally" | "store_fulltext" | "external_model">, db: Db = sql) => {
+  if (!policy) return "denied";
+  const permissionsAllow = async (capabilities: Array<"process_locally" | "store_fulltext" | "external_model">, db: Db = sql) => {
     for (const url of new Set([input.url, quote.url]))
       for (const capability of capabilities) {
         const result = await evaluateSourcePolicy(
@@ -45,15 +45,20 @@ export async function translatePostQuote(articleId: string, revision: number): P
           undefined,
           db,
         );
-        if (result.decision !== "allow") throw new Error("当前来源不允许处理或保存该引用 URL 的全文译文");
+        if (result.decision !== "allow") return false;
       }
+    return true;
   };
-  await checkPermissions(["process_locally", "store_fulltext"]);
+  const checkPermissions = async (capabilities: Array<"process_locally" | "store_fulltext" | "external_model">, db: Db = sql) => {
+    if (!(await permissionsAllow(capabilities, db))) throw new Error("当前来源不允许处理或保存该引用 URL 的全文译文");
+  };
+  if (!(await permissionsAllow(["process_locally", "store_fulltext"]))) return "denied";
   const hash = sha256(quote.text),
     recipe = quoteTranslationRecipe();
   const [saved] = await sql`SELECT text_zh FROM enrichment.quote_translations
     WHERE source_id=${input.sourceId} AND quote_url=${quote.url} AND text_hash=${hash} AND recipe=${recipe}`;
   if (saved) return "ready";
+  if (!(await permissionsAllow(["external_model"]))) return "denied";
   const runtimeControl = await requireRuntimeRunning("news", ["processing"]);
   const identity = (value: AnalyzeInputArticle) => ({
     id: value.id,

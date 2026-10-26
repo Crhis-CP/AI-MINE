@@ -1,3 +1,17 @@
+import type { XPostData } from "../content/materials.ts";
+
+/** An acquired long article joins the original post, without changing the stored post itself. */
+export function withXArticle(post: XPostData | null, article: { title?: string; text?: string } | null): XPostData | null {
+  if (!post || !article?.text?.trim()) return post;
+  return { ...post, text: [post.text.trim(), article.title ? `【X 长文】${article.title}` : "【X 长文】", article.text].filter(Boolean).join("\n\n") };
+}
+
+/** Shared evidence for scoring and structure; quotations never become the author's own words. */
+export function postEvidenceText(post: XPostData): string {
+  const quoted = post.quoted?.text ? `\n\n[引用 ${post.quoted.handle ? `@${post.quoted.handle}` : "原帖"}]：${post.quoted.text}` : "";
+  return `${post.text.trim()}${quoted}`.trim();
+}
+
 /** The existing prefilter coercion, shared by live parsing and persisted-response verification. */
 export const normalizedUppercase = (value: unknown): string =>
   String(value ?? "")

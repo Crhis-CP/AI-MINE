@@ -6,7 +6,8 @@ import type { TimeAssertion } from "@amp/contracts/time-assertion";
 import { materialSourceTime } from "../content/date-evidence.ts";
 import { modelSourceDateLabel } from "./source-time.ts";
 import { sql, type Db } from "../db.ts";
-import { collapseWhitespace, truncate } from "../lib/text.ts";
+import { collapseWhitespace, truncate, withXArticle } from "../lib/text.ts";
+export { withXArticle, postEvidenceText } from "../lib/text.ts";
 import { produceImage } from "../media/images.ts";
 import type { ContentPart } from "../providers/llm.ts";
 
@@ -40,18 +41,6 @@ export interface AnalyzeInputArticle {
   };
   /** Stored Chinese translation of the body (e.g. a full post whose original was truncated). */
   translationZh?: string | null;
-}
-
-/** An acquired long article joins the original post, without changing the stored post itself. */
-export function withXArticle(post: XPostData | null, article: { title?: string; text?: string } | null): XPostData | null {
-  if (!post || !article?.text?.trim()) return post;
-  return { ...post, text: [post.text.trim(), article.title ? `【X 长文】${article.title}` : "【X 长文】", article.text].filter(Boolean).join("\n\n") };
-}
-
-/** Shared evidence for scoring and structure; quotations never become the author's own words. */
-export function postEvidenceText(post: XPostData): string {
-  const quoted = post.quoted?.text ? `\n\n[引用 ${post.quoted.handle ? `@${post.quoted.handle}` : "原帖"}]：${post.quoted.text}` : "";
-  return `${post.text.trim()}${quoted}`.trim();
 }
 
 export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise<AnalyzeInputArticle | null> {

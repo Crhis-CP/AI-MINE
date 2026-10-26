@@ -55,6 +55,8 @@ export function promptVersion(...names: string[]): string {
   return `${names.join("+")}@${hash.digest("hex").slice(0, 10)}`;
 }
 
+export const quoteTranslationRecipe = () => `post-quote-v1:${promptVersion("translate-post")}`;
+
 /** Existing analysis evidence is reusable only for this material revision and scope wording. */
 export function currentPrefilter(analysis: { input_revision: number; prompt_version: string | null; output: unknown } | undefined, revision: number) {
   if (analysis?.input_revision !== revision || !analysis.prompt_version?.split("+").includes(promptVersion("prefilter"))) return null;

@@ -3,7 +3,8 @@ import { emit } from "../modules.ts";
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
 import { sql, type Db, type Tx } from "../db.ts";
-import { commitBodyResult, type CurrentBody } from "../content/materials.ts";
+import { commitBodyResult, manualMaterialSnapshot, readCurrentBody, type CurrentBody } from "../content/materials.ts";
+import { lockNewsProcessingPermissions } from "../providers/news-fallback.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { canReplaceTranslationResponse, retryableTranslationSubjects, settleTranslationResponse, type TranslationObservation } from "../providers/receipts.ts";
@@ -89,6 +90,19 @@ async function activeSegment(run: TranslationSession, segment: SourceSegment, tx
     : !!row?.replacement_plan && stableJson(row.replacement_plan) === stableJson(replacementPlan(run, parent));
 }
 
+/** A post body's translation consumes only the main URL; source permission locks precede the content lock. */
+async function commitTranslationBody<T>(body: CurrentBody, write: (tx: Tx) => Promise<T>): Promise<T | null> {
+  if (!body.x_post) return commitBodyResult(body, write);
+  const result = await sql.begin(async (tx) => {
+    await lockNewsProcessingPermissions([body.id], tx, "body");
+    const locked = await manualMaterialSnapshot(body.id, tx);
+    const current = locked?.revision === body.revision ? await readCurrentBody(body.id, tx) : null;
+    if (!current || current.source_id !== body.source_id || current.body_html !== body.body_html) return { value: null };
+    return { value: await write(tx) };
+  });
+  return result.value;
+}
+
 /** Claim a target identity before paid work; source-provided translations are never replaced. */
 export async function beginTranslation(body: CurrentBody, recipe: string): Promise<TranslationSession | null> {
   if (!body.body_html || !recipe) return null;
@@ -100,7 +114,7 @@ export async function beginTranslation(body: CurrentBody, recipe: string): Promi
     source: translationSourceManifest(body.body_html),
   };
   if (!session.source.segments.length) return null;
-  const claimed = await commitBodyResult(body, async (tx) => {
+  const claimed = await commitTranslationBody(body, async (tx) => {
     await assertRuntimeControl(tx, runtimeControl);
     const [current] = await tx`SELECT revision,recipe,source_hash,origin FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
     if (current?.origin === "source" || current?.revision > body.revision) return false;
@@ -116,7 +130,7 @@ export async function beginTranslation(body: CurrentBody, recipe: string): Promi
 }
 
 async function withCurrentTranslation<T>(run: TranslationSession, write: (tx: Tx) => Promise<T>): Promise<T | null> {
-  return commitBodyResult(run.body, async (tx) => {
+  return commitTranslationBody(run.body, async (tx) => {
     if (run.runtimeControl) await assertRuntimeControl(tx, run.runtimeControl);
     const rows = await tx`SELECT article_id FROM translations WHERE article_id=${run.body.id} AND lang='zh' AND revision=${run.body.revision}
       AND recipe=${run.recipe} AND source_hash=${run.source.sourceHash} AND origin='model' FOR UPDATE`;

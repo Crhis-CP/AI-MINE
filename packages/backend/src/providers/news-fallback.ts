@@ -36,6 +36,8 @@ export async function prepareNewsFallback<T>(
     expected: T;
     current(): Promise<T | null>;
     articles: { id: string; revision: number }[];
+    /** Strict body translation consumes only its HTML, never the separately stored quote. */
+    materialScope?: "body";
   },
   ports: Ports = defaultPorts,
 ): Promise<NewsFallbackInput | undefined> {
@@ -57,7 +59,7 @@ export async function prepareNewsFallback<T>(
         return { id, version };
       }),
     );
-    const quotes = await quotedResources(materials);
+    const quotes = input.materialScope === "body" ? [] : await quotedResources(materials);
     for (const quote of quotes) {
       const decision = await evaluateSourcePolicy({
         source_id: quote.sourceId,
@@ -72,7 +74,7 @@ export async function prepareNewsFallback<T>(
     if (
       stableJson(await input.current()) !== expected ||
       stableJson(await ports.materials(ids)) !== stableJson(materials) ||
-      stableJson(await quotedResources(materials)) !== stableJson(quotes)
+      (input.materialScope !== "body" && stableJson(await quotedResources(materials)) !== stableJson(quotes))
     )
       throw new Error("新闻备用输入读取期间已变化");
     return { value, materials, permissions, ...(quotes.length ? { quotes } : {}) };
@@ -114,7 +116,7 @@ export async function prepareNewsFallback<T>(
 }
 
 /** Publication of a paid result is fenced against a simultaneous permission edit. Call before taking material locks. */
-export async function lockNewsProcessingPermissions(articleIds: string[], tx: Tx) {
+export async function lockNewsProcessingPermissions(articleIds: string[], tx: Tx, materialScope?: "body") {
   const materials = await newsMaterialBindings(articleIds, tx);
   if (materials.length !== new Set(articleIds).size) throw new Error("新闻写回原材料缺失");
   const policies = await Promise.all(
@@ -125,10 +127,12 @@ export async function lockNewsProcessingPermissions(articleIds: string[], tx: Tx
     }),
   );
   await lockCurrentSourcePolicies(tx, policies);
-  const quotes = await quotedResources(materials, tx);
+  const quotes = materialScope === "body" ? [] : await quotedResources(materials, tx);
   for (const material of materials)
     for (const url of new Set([material.url, ...quotes.filter((q) => q.id === material.id).map((q) => q.url)]))
-      for (const capability of ["external_model", "process_locally"] as const) {
+      for (const capability of materialScope === "body"
+        ? (["external_model", "process_locally", "store_fulltext"] as const)
+        : (["external_model", "process_locally"] as const)) {
         const decision = await evaluateSourcePolicy(
           {
             source_id: material.source_id,

@@ -34,7 +34,7 @@ import { toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { one, sql, type Tx, type Db } from "../db.ts";
 import { fetchItemsByIds } from "./items.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { collapseWhitespace, usableSourceText } from "../lib/text.ts";
+import { collapseWhitespace, usableSourceText, originalPostCopy } from "../lib/text.ts";
 import { promptVersion } from "../editorial/prompts.ts";
 import { looksZh } from "../editorial/writing.ts";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
@@ -445,6 +445,7 @@ export async function publishArticleTx(
     }
   }
   if (!quotedTranslation && storedPostView && !quoteNeedsTranslation) storedPostView.quoteRecipe = null;
+  const noMainText = originalPostCopy(post, article.url) !== null;
   const needsTranslation =
     selected &&
     visibility === "public" &&
@@ -452,7 +453,10 @@ export async function publishArticleTx(
     admitted &&
     chineseCopy &&
     bodyMode === "full" &&
-    ((!nativeChinese && !wholeChinese && (!post || postPermission(currentPolicy, source.id, article.url, "public_translation", now.getTime()))) ||
+    ((!noMainText &&
+      !nativeChinese &&
+      !wholeChinese &&
+      (!post || postPermission(currentPolicy, source.id, article.url, "public_translation", now.getTime()))) ||
       quoteNeedsTranslation) &&
     source.participation_mode === "editorial" &&
     (!override?.visibility || override.visibility === "public");

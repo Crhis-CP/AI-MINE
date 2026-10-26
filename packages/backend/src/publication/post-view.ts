@@ -3,7 +3,7 @@ import { XPostDetailView, type XPostFeedView } from "@amp/contracts/http/public"
 import { PermissionScopeSchema } from "@amp/contracts/source-policy";
 import type { XPostData } from "../content/materials.ts";
 import { escapeHtml } from "../lib/text.ts";
-import { quoteTranslationRecipe } from "../editorial/post-translation.ts";
+import { quoteTranslationRecipe } from "../editorial/prompts.ts";
 
 type Purpose = "public_excerpt" | "public_summary" | "public_original_fulltext" | "public_translation";
 const policy = z.object({

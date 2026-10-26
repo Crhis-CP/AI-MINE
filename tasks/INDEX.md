@@ -366,7 +366,7 @@
 | [TASK-0494](TASK-0494.md) | T-0101 | M3 | architect | locally_verified | 材料自动续接的人工保护与意图接口 | — |
 | [TASK-0495](TASK-0495.md) | T-0101 | M3 | architect | locally_verified | 原帖模型输入与写作翻译消费者 | TASK-0486、TASK-0492 |
 | [TASK-0496](TASK-0496.md) | T-0101 | M3 | architect | locally_verified | 原帖卡片与阅读页显示消费者 | TASK-0492 |
-| [TASK-0497](TASK-0497.md) | T-0101 | M3 | architect | implemented | 原帖材料持久化与许可公开投影 | TASK-0486、TASK-0492、TASK-0494 |
+| [TASK-0497](TASK-0497.md) | T-0101 | M3 | architect | locally_verified | 原帖材料持久化与许可公开投影 | TASK-0486、TASK-0492、TASK-0494 |
 | [TASK-0498](TASK-0498.md) | T-0101 | M3 | architect | locally_verified | 原帖许可投影与统一阅读出口 | TASK-0492、TASK-0495、TASK-0496、TASK-0497 |
 | [TASK-0499](TASK-0499.md) | T-0101 | M3 | architect | locally_verified | 消除日周来源重复并避免质量假恢复 | — |
 | [TASK-0502](TASK-0502.md) | T-0101 | M3 | architect | locally_verified | 多来源报道阅读组兼容契约 | — |

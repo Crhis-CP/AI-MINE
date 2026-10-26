@@ -134,8 +134,8 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
     m = {
       ...m,
       xPost: post,
-      bodyText: m.bodyText ?? post.text,
-      bodyHtml: m.bodyHtml ?? postBodyHtml(post),
+      bodyText: post.text,
+      bodyHtml: postBodyHtml(post),
       bodyStatus: m.bodyStatus ?? (post.text ? "ok" : "none"),
     };
   }
@@ -252,8 +252,9 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
   // What the row will hold after this report: a listing without body keeps the stored (extracted) body.
   const nextPost = m.xPost === undefined ? existing!.x_post : m.xPost;
   const article = nextPost && nextPost.tweetId === existing!.x_post?.tweetId ? existing!.x_article : null;
-  const bodyText = nextPost ? withStoredPostArticle(m.bodyText ?? existing!.body_text, article) : (m.bodyText ?? existing!.body_text);
-  if (m.xPost && article?.text) m = { ...m, bodyText, bodyHtml: postBodyHtml(m.xPost, article), bodyStatus: "ok" };
+  const bodyText = nextPost ? withStoredPostArticle(nextPost.text, article) : (m.bodyText ?? existing!.body_text);
+  // The typed post is canonical; a generic listing refresh cannot replace it or drop its acquired article.
+  if (nextPost) m = { ...m, bodyText, bodyHtml: postBodyHtml(nextPost, article), bodyStatus: m.bodyStatus ?? (bodyText ? "ok" : "none") };
   const excerpt = m.excerpt ?? existing!.excerpt;
   const next = contentHash({ title, bodyText, excerpt, xPost: nextPost });
   const postChanged = m.xPost !== undefined && stableJson(nextPost) !== stableJson(existing!.x_post);
@@ -298,7 +299,8 @@ async function upsertIn(db: Db, m: MaterialInput, presentation = false): Promise
     UPDATE articles SET
       title = ${title}, author = coalesce(${m.author ?? null}, author), language = CASE WHEN ${m.language !== undefined} THEN ${m.language ?? null} ELSE language END,
       source_updated_at = ${m.sourceUpdatedAt ?? null}, excerpt = coalesce(${m.excerpt ?? null}, excerpt),
-      body_text = coalesce(${m.bodyText ?? null}, body_text), body_html = coalesce(${m.bodyHtml ?? null}, body_html),
+      body_text = coalesce(${m.bodyText ?? null}, body_text),
+      body_html = CASE WHEN ${!!nextPost} THEN ${m.bodyHtml ?? null} ELSE coalesce(${m.bodyHtml ?? null}, body_html) END,
       body_status = CASE WHEN ${m.bodyText ?? null}::text IS NULL THEN body_status ELSE ${m.bodyStatus ?? "ok"} END,
       media = CASE WHEN ${m.media ? db.json(m.media as never) : null}::jsonb IS NULL THEN media ELSE ${m.media ? db.json(m.media as never) : null}::jsonb END,
       x_post=${nextPost ? db.json(nextPost as never) : null},x_article=${article ? db.json(article as never) : null},
@@ -369,6 +371,7 @@ export interface CurrentBody {
 /** Snapshot for derived body work; the network operation must happen after this read returns. */
 export async function readCurrentBody(articleId: string, db: Db = sql): Promise<CurrentBody | null> {
   const [row] = await db<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text,x_post FROM articles WHERE id=${articleId}`;
+  if (row?.x_post === null) delete row.x_post;
   return row ?? null;
 }
 
