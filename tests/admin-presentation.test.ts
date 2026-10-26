@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { sql, closeDb } from "@amp/backend/db";
-import { upsertMaterial } from "@amp/backend/content/materials";
+import { contentHash, upsertMaterial } from "@amp/backend/content/materials";
 import { readSourceDateContext } from "@amp/backend/admin/sources";
-import { withSourceCrawl } from "@amp/backend/acquisition/crawl";
+import { withSourceCrawl, crawlStep, crawlFetch } from "@amp/backend/acquisition/crawl";
+import { extractFromUrl } from "@amp/backend/content/extract";
+import { textPdf } from "./pdf-fixture.ts";
 import {
   applyPresentationRefresh as refreshPresentation,
   refreshPresentation as requestPresentation,
@@ -19,6 +21,82 @@ import { stopBoss, type getBoss } from "@amp/backend/jobs/queue";
 after(async () => {
   await stopBoss();
   await closeDb();
+});
+
+test("partial PDF checkpoints cannot masquerade as legacy complete bodies or replace confirmed presentation", async () => {
+  const sourceId = `pdf-presentation-${randomUUID()}`,
+    host = `https://${sourceId}.invalid`,
+    url = `${host}/doc.pdf`;
+  await sql`INSERT INTO sources(id,name,kind,config,enabled) VALUES(${sourceId},'Synthetic PDF','web_list',${sql.json({ url, language: "en" })},true)`;
+  await grantDateFixture(sourceId, [host]);
+  const text = "The mining project reported copper production and the information shown in its document. ".repeat(12).trim();
+  const { articleId } = await upsertMaterial({
+    sourceId,
+    url,
+    title: "Synthetic PDF",
+    language: "en",
+    bodyText: text,
+    bodyHtml: `<p>${text}</p><img src="${host}/chart.png">`,
+    bodyStatus: "ok",
+    via: "fetch",
+  });
+  const [before] = await sql`SELECT revision,content_hash,body_html,body_status FROM articles WHERE id=${articleId}`;
+  const receipts = await sql`SELECT count(*)::int AS n FROM receipts`;
+  const source = (await readSourceDateContext(sourceId))!;
+  const hits = new Map<string, number>();
+  let clock = Date.now();
+  const priorKey = process.env.JINA_API_KEY;
+  process.env.JINA_API_KEY = "";
+  try {
+    await withSourceCrawl(
+      source,
+      `pdf-preview:${articleId}`,
+      async () => {
+        const got = await extractFromUrl(url, { allowJina: false, subject: articleId });
+        assert.equal(got?.bodyStatus, "unconfirmed");
+        assert.equal(contentHash({ title: "Synthetic PDF", bodyText: got!.text }), contentHash({ title: "Synthetic PDF", bodyText: text }));
+        // Replay the pre-PDF program's checkpoint and HTML-only branch against the same HTTP cache.
+        const legacy = await crawlStep(`readability:${url}`, url, async () => {
+          const response = await crawlFetch(url, { headers: {}, timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
+          return /html/.test(response.headers.get("content-type") ?? "") ? "html" : null;
+        });
+        assert.equal(legacy, null);
+        const preview = await refreshPresentation(articleId, { preview: true }, randomUUID(), "test:pdf");
+        assert.equal(preview?.ready, false);
+        assert.match(preview!.reason!, /尚未确认正文完整/);
+        await assert.rejects(refreshPresentation(articleId, { preview: false, version: preview!.version }, randomUUID(), "test:pdf"), /尚未确认正文完整/);
+        assert.equal(hits.get(url), 1, "PDF parsing, old-reader replay and preview reuse one HTTP response");
+        assert.equal(
+          await extractFromUrl(`${host}/locked.pdf`, { allowJina: true, subject: articleId }),
+          null,
+          "password protection never reaches the unconfigured external reader",
+        );
+      },
+      {
+        now: () => {
+          clock += 60_000;
+          return new Date(clock);
+        },
+        get: async (target) => {
+          hits.set(target, (hits.get(target) ?? 0) + 1);
+          const robots = target.endsWith("/robots.txt");
+          const body = robots ? Buffer.alloc(0) : textPdf(text, { encrypted: target.endsWith("/locked.pdf") });
+          return {
+            status: robots ? 404 : 200,
+            url: target,
+            headers: new Headers({ "content-type": robots ? "text/plain" : "application/pdf" }),
+            body,
+            text: () => body.toString(),
+          };
+        },
+      },
+    );
+  } finally {
+    if (priorKey === undefined) delete process.env.JINA_API_KEY;
+    else process.env.JINA_API_KEY = priorKey;
+  }
+  assert.deepEqual((await sql`SELECT revision,content_hash,body_html,body_status FROM articles WHERE id=${articleId}`)[0], before);
+  assert.deepEqual(await sql`SELECT count(*)::int AS n FROM receipts`, receipts);
 });
 
 test("presentation preview is read-only, apply preserves semantic state, and durable retries do not refetch", async () => {

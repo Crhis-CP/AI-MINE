@@ -16,7 +16,12 @@ test("reader configuration distinguishes missing and unreadable credentials with
       results.push(bodyReaderConfiguration());
       process.env.JINA_BODY_FALLBACK = "true";
       process.env.JINA_API_KEY = "synthetic-reader-key-never-return";
-      results.push(bodyReaderConfiguration());
+      const { bodyReadingKey } = await import(${JSON.stringify(new URL("../packages/backend/src/content/body-reading-key.ts", import.meta.url).href)});
+      const { readPdfText } = await import(${JSON.stringify(new URL("../packages/backend/src/content/pdf-text.ts", import.meta.url).href)});
+      const { textPdf } = await import(${JSON.stringify(new URL("./pdf-fixture.ts", import.meta.url).href)});
+      results.push({ ...bodyReaderConfiguration(),
+        key: bodyReadingKey({ id: "fixture", revision: 1, url: "https://example.invalid/file.pdf" }, {}, 1),
+        text: await readPdfText(textPdf("Local reading remains available.")) });
       process.env.JINA_API_KEY = "   ";
       results.push(bodyReaderConfiguration());
       console.log(JSON.stringify(results));
@@ -32,6 +37,8 @@ test("reader configuration distinguishes missing and unreadable credentials with
       ["unavailable", "disabled", "configured", "missing"],
     );
     assert.match(results[2].detail, /尚未验证/);
+    assert.match(results[2].key, /^[0-9a-f]{64}$/);
+    assert.match(results[2].text, /Local reading remains available/);
     assert.ok(!output.includes(directory));
     assert.ok(!output.includes("synthetic-reader-key-never-return"));
     assert.ok(!output.includes("EISDIR"));

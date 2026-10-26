@@ -110,10 +110,12 @@ export async function applyPresentationRefresh(
   );
   let reason = !got
     ? "当前原文未能直接抽取，请使用正常正文抽取处理"
-    : contentHash({ title: body.title, bodyText: body.body_text, excerpt: body.excerpt }) !==
-        contentHash({ title: body.title, bodyText: got.text, excerpt: body.excerpt })
-      ? "正文文字已经变化，需要正常抽取和评估，不能只刷新展示"
-      : null;
+    : "bodyStatus" in got && got.bodyStatus === "unconfirmed"
+      ? "当前只取得文字部分，尚未确认正文完整，暂不能替换正文展示"
+      : contentHash({ title: body.title, bodyText: body.body_text, excerpt: body.excerpt }) !==
+          contentHash({ title: body.title, bodyText: got.text, excerpt: body.excerpt })
+        ? "正文文字已经变化，需要正常抽取和评估，不能只刷新展示"
+        : null;
   const stored = body.translation as { origin: string; body_html: string | null } | null;
   let translation: Result["translation"] =
     stored?.origin === "manual" ? "manual" : stored?.origin === "source" ? "source" : stored?.body_html ? "reused" : "absent";
