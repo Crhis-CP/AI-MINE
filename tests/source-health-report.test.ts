@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { sourceHealthWeekly } from "@amp/backend/operations/reports";
+import { mockFeishuAlerts } from "./feishu-alert-fixture.ts";
 
 after(closeDb);
 
@@ -59,7 +60,8 @@ test("current source waits survive historical ok but exclude obsolete sessions, 
   });
   await sourceHealthWeekly(now.getTime());
   const report = logged.map((line) => JSON.parse(line)).find((entry) => entry.title === "📊 信源周报");
-  assert.ok(report.lines.some((line: string) => line.includes(current) && line.includes("等待") && line.includes("访问规则")));
+  assert.ok(report.lines.some((line: string) => line.includes("采集仍在等待：1 个信源")));
+  assert.ok(!report.lines.some((line: string) => line.includes(current)));
   assert.ok(!report.lines.includes("没有需要处理的信源。"));
 
   await sql`UPDATE ops.lane_controls SET paused=true,reason='fixture pause',actor='test',expires_at=${new Date(now.getTime() + 60_000)}
@@ -71,7 +73,7 @@ test("current source waits survive historical ok but exclude obsolete sessions, 
   assert.ok((await sourceHealth(now.getTime())).every((group) => group.waiting.length === 0));
 });
 
-test("weekly source errors preserve English letters and normalize real whitespace without sending a message", async (t) => {
+test("source error details stay exact while the weekly report only summarizes their count", async (t) => {
   const id = `health-${tag()}`;
   const errors = ["Source date permission denied: fetch/resource_mismatch (cdn.example.invalid)", "no items matched (html)\n\tcheck selectors"];
   for (let i = 0; i < errors.length; i++)
@@ -89,12 +91,14 @@ test("weekly source errors preserve English letters and normalize real whitespac
   assert.equal(result.failing, 2);
   const report = logged.map((line) => JSON.parse(line)).find((entry) => entry.title === "📊 信源周报");
   assert.ok(report, "the actual weekly report was rendered with delivery disabled");
-  assert.ok(report.lines.some((line: string) => line.includes(errors[0]!)));
-  assert.ok(report.lines.some((line: string) => line.includes("no items matched (html) check selectors")));
-  assert.ok(!report.lines.some((line: string) => /permi ion|no item {2}matched/.test(line)));
+  assert.ok(report.lines.some((line: string) => line.includes("连续抓取失败：2 个信源")));
+  const failures = (await sourceHealth()).flatMap((group) => group.failing);
+  assert.ok(failures.some((source) => source.last_error === errors[0]));
+  assert.ok(failures.some((source) => source.last_error === "no items matched (html) check selectors"));
+  assert.ok(!report.lines.some((line: string) => line.includes("synthetic.invalid") || line.includes("check selectors")));
 });
 
-test("quiet sources use their own dated rhythm, with first imports and discovery channels kept distinct", async () => {
+test("quiet sources use their own dated rhythm, with first imports and discovery channels kept distinct", async (t) => {
   const now = Date.parse("2026-10-18T12:00:00Z"),
     day = 86400_000;
   const make = async (label: string, mode = "editorial") => {
@@ -133,6 +137,12 @@ test("quiet sources use their own dated rhythm, with first imports and discovery
   assert.equal(editorial.unknown.find((s) => s.id === old)?.ever_output, true);
   assert.equal(editorial.unknown.find((s) => s.id === old)?.evidence_days, 0);
   assert.equal(signals.overdue.find((s) => s.id === signal)?.evidence_days, 4);
+  const delivery = mockFeishuAlerts(t);
+  await sourceHealthWeekly(now);
+  assert.ok(delivery.messages[0]!.includes(daily), "weekly-only rhythm evidence remains identifiable");
+  assert.ok(delivery.messages[0]!.includes(never), "insufficient history remains identifiable without a daily fault alert");
+  assert.ok(delivery.messages[0]!.includes(signal));
+  assert.ok(!delivery.messages[0]!.includes(slow), "a low-frequency source within its own rhythm is not an issue");
 });
 
 test("sustained failures survive a successful fetch, while unrelated work cannot clear a presentation failure", async () => {

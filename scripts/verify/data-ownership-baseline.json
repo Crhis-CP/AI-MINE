@@ -97,8 +97,8 @@
   },
   "unknown": {
     "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1,
-    "packages/backend/src/jobs/queue.ts:enqueue/callerDb/executeSql/rows:fd3e8031eefe7185236c16c5c3b7ca49485dea0a85287624291ed55fece56845": 1,
-    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:76053ba24074a3c62bd5638bf0870882c28914e0fc9c445f356a6a73e94509a0": 1
+    "packages/backend/src/jobs/queue.ts:enqueue/callerDb/executeSql/rows:2401fc333ba56ba9947a9632b3ab2917513367b5f0dd88cac3de14c3e53ce79a": 1,
+    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:006352df9eeae2e7ac68a6e5f0c9297dde0960c1bbdbe6fb63cb86444ea83733": 1
   },
   "extractors": {
     "sql": "2479d891d78d004f23a2d10fcb7ef62f0520a319d69f011d0a48da8833b54f53",
@@ -262,6 +262,34 @@
       },
       "after": {
         "packages/backend/src/operations/watch.ts": "8c0a7fa477ab1e84cb9484a5a2fa818b348ae4dd1e64c19593d4d72cd3a96c60",
+        "sql/parser-locked-subgraph": "af4ad18d4cf1ca01d0ac2e66312234a52624bb96eb7433fce742e50d1d830c78"
+      }
+    },
+    {
+      "file": "packages/backend/src/jobs/queue.ts",
+      "scopeName": "enqueue/callerDb/executeSql/rows",
+      "sourceHash": "3c12b2cc60abbb37e0a50e0ff166fb9e964797dab471b0856a6425780f48b83e",
+      "reasons": ["dynamic raw SQL"],
+      "before": {
+        "packages/backend/src/jobs/queue.ts": "3f517e3c6fabf49e36aa2e6aa755338266f77cc547bc905d4c32ee8de7706c2f",
+        "sql/parser-locked-subgraph": "af4ad18d4cf1ca01d0ac2e66312234a52624bb96eb7433fce742e50d1d830c78"
+      },
+      "after": {
+        "packages/backend/src/jobs/queue.ts": "9abd77070c33d7df985abe56821736ed00342abbe9bb41f20e4c546c252bb158",
+        "sql/parser-locked-subgraph": "af4ad18d4cf1ca01d0ac2e66312234a52624bb96eb7433fce742e50d1d830c78"
+      }
+    },
+    {
+      "file": "packages/backend/src/jobs/queue.ts",
+      "scopeName": "enqueue/db/executeSql",
+      "sourceHash": "331036442c13a9513a715000b02e463f8f05e706998941b033d6b101a8ba2645",
+      "reasons": ["dynamic raw SQL"],
+      "before": {
+        "packages/backend/src/jobs/queue.ts": "3f517e3c6fabf49e36aa2e6aa755338266f77cc547bc905d4c32ee8de7706c2f",
+        "sql/parser-locked-subgraph": "af4ad18d4cf1ca01d0ac2e66312234a52624bb96eb7433fce742e50d1d830c78"
+      },
+      "after": {
+        "packages/backend/src/jobs/queue.ts": "9abd77070c33d7df985abe56821736ed00342abbe9bb41f20e4c546c252bb158",
         "sql/parser-locked-subgraph": "af4ad18d4cf1ca01d0ac2e66312234a52624bb96eb7433fce742e50d1d830c78"
       }
     }

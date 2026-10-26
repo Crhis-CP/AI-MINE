@@ -5,7 +5,7 @@ import { ROOT } from "../lib.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { digest } from "../ts-ownership.ts";
-import { nativeQueueOnly, importsOnly, rekeyUnknownBudget, unknownRekeyKeys, type UnknownRekey } from "../unknown-rekeys.ts";
+import { nativeQueueOnly, recordedRunContextOnly, importsOnly, rekeyUnknownBudget, unknownRekeyKeys, type UnknownRekey } from "../unknown-rekeys.ts";
 
 const file = "packages/backend/src/publication/feeds.ts";
 const before = "import { CATEGORY_LABELS } from '@amp/contracts/taxonomy';\nconst table = () => 'items';\nexport const query = sql.unsafe(table());\n";
@@ -212,4 +212,19 @@ snapshots:
   assert.ok(
     rekeyUnknownBudget(now, prior, [rekey], (name, old) => (name === file && !old ? after.replace("'items'", "'secret'") : source(name, old))).errors.length,
   );
+});
+
+test("run context rekey permits only the exact callback wrapper, with no queue SQL or caller changes", () => {
+  const before = 'import { sql, type Db } from "../db.ts";\nconst result = await fn();\nawait sql`UPDATE job_runs SET detail=null`;';
+  const after = before
+    .replace(
+      'import { sql, type Db } from "../db.ts";',
+      'import { sql, type Db } from "../db.ts";\nimport { recordedRunContext } from "../operations/run-context.ts";',
+    )
+    .replace("const result = await fn();", "const result = await recordedRunContext.run({ id: String(row!.id), job }, fn);");
+  assert.equal(recordedRunContextOnly(before, after), true);
+  assert.equal(recordedRunContextOnly(before, after.replace("UPDATE job_runs", "UPDATE secrets")), false);
+  assert.equal(recordedRunContextOnly(before, after.replace("String(row!.id)", "String(0)")), false);
+  assert.equal(recordedRunContextOnly(before, after.replace("job }, fn", "job }, other")), false);
+  assert.equal(recordedRunContextOnly(before, after + "\nawait fn();"), false);
 });

@@ -4,6 +4,7 @@
 // The request meter's automatic stops (hourly and daily) are announced as such, not as a used-up quota, and
 // the days they happened are counted for the weekly usage report (TASK-0063).
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
+import { mockFeishuAlerts } from "./feishu-alert-fixture.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -924,7 +925,7 @@ test("metal prices alert when a period is past its own window, a quote is missin
 
 test("unchanged price incidents stay silent across hours and digests, and changed errors and recovery are announced once", async (t) => {
   process.env.COLLECT_ENABLED = "true";
-  process.env.FEISHU_INTERNAL_ENABLED = "false";
+  mockFeishuAlerts(t);
   const log = t.mock.method(console, "log", () => {});
   const savedState = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
   try {
@@ -960,7 +961,7 @@ test("unchanged price incidents stay silent across hours and digests, and change
 
 test("a source failure counter does not reopen its digest, but a changed cause and a real recovery do", async (t) => {
   process.env.COLLECT_ENABLED = "true";
-  process.env.FEISHU_INTERNAL_ENABLED = "false";
+  mockFeishuAlerts(t);
   const log = t.mock.method(console, "log", () => {});
   const [source] = await sql`SELECT health,fail_count,last_error FROM sources WHERE id=${SOURCE}`;
   const [state] = await sql`SELECT value FROM settings WHERE key='alerts.state'`;
