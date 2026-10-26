@@ -350,6 +350,9 @@ export async function manualReviewExceptions() {
     WHERE e.state IN ('needs_review','conflict') ORDER BY e.created_at LIMIT 100`;
 }
 
+/** Same-transaction IDs with current manual content/revision or visibility controls; no private contents leave this port. */
+export type ManualProcessingExclusionsReader = (articleIds: string[], db: Db) => Promise<string[]>;
+
 /** Human takedown/relevance decisions remain authoritative for the private prefilter sample. */
 export async function prefilterAuditExclusions(articleIds: string[], db: Db) {
   if (!articleIds.length) return [];
