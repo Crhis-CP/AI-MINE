@@ -2,18 +2,23 @@ import { beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { FUTURE_TOLERANCE_MS } from "./timeline.ts";
 
-export async function sourceMaterialHealth(since: Date, until: Date) {
+export async function sourceMaterialHealth(since: Date, until: Date, sourceId: string | null = null) {
   return sql<{ source_id: string; discoveries: number; items: number; undated: number; repeated: number; ever_output: boolean }[]>`
     WITH seen AS (
       SELECT article_id,source_id FROM article_discoveries WHERE discovered_at BETWEEN ${since} AND ${until}
+        AND (${sourceId}::text IS NULL OR source_id=${sourceId})
       UNION SELECT id,source_id FROM articles WHERE discovered_at BETWEEN ${since} AND ${until}
+        AND (${sourceId}::text IS NULL OR source_id=${sourceId})
     ), discoveries AS (SELECT source_id,count(*)::int AS n FROM seen GROUP BY source_id),
     items AS (SELECT source_id,count(*)::int AS n,count(*) FILTER(WHERE published_at IS NULL)::int AS undated
-      FROM articles WHERE discovered_at BETWEEN ${since} AND ${until} GROUP BY source_id),
-    revisions AS (SELECT article_id FROM article_revisions WHERE created_at BETWEEN ${since} AND ${until} AND revision>1
+      FROM articles WHERE discovered_at BETWEEN ${since} AND ${until}
+        AND (${sourceId}::text IS NULL OR source_id=${sourceId}) GROUP BY source_id),
+    revisions AS (SELECT r.article_id FROM article_revisions r JOIN articles a ON a.id=r.article_id
+      WHERE r.created_at BETWEEN ${since} AND ${until} AND r.revision>1 AND (${sourceId}::text IS NULL OR a.source_id=${sourceId})
       GROUP BY article_id HAVING count(*)>=5),
     repeated AS (SELECT a.source_id,count(*)::int AS n FROM articles a JOIN revisions r ON r.article_id=a.id GROUP BY a.source_id),
-    history AS (SELECT source_id FROM articles UNION SELECT source_id FROM article_discoveries)
+    history AS (SELECT source_id FROM articles WHERE ${sourceId}::text IS NULL OR source_id=${sourceId}
+      UNION SELECT source_id FROM article_discoveries WHERE ${sourceId}::text IS NULL OR source_id=${sourceId})
     SELECT h.source_id,coalesce(d.n,0) AS discoveries,coalesce(i.n,0) AS items,coalesce(i.undated,0) AS undated,
       coalesce(r.n,0) AS repeated,true AS ever_output FROM history h
       LEFT JOIN discoveries d USING(source_id) LEFT JOIN items i USING(source_id) LEFT JOIN repeated r USING(source_id)`;

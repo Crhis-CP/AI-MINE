@@ -171,3 +171,12 @@ export async function sourceWeeklyCounts(since: Date) {
     FROM sources WHERE lane='news' AND archived_at IS NULL`;
   return row!;
 }
+
+/** Recheck the old notice's window with current metadata; no source text or new quality threshold. */
+export async function sourceQualityClearance(sourceId: string, sentAt: string, now: number): Promise<"window" | "observed" | null> {
+  const at = Date.parse(sentAt);
+  if (!Number.isFinite(at) || at > now) return null;
+  const [old] = await sourceMaterialHealth(new Date(at - 7 * 86400_000), new Date(at), sourceId);
+  if (!old || (!old.items && !old.repeated)) return null;
+  return old.undated || old.repeated ? "window" : "observed";
+}

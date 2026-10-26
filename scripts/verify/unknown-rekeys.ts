@@ -185,6 +185,19 @@ export function nativeQueueOnly(before: string, after: string): boolean {
   }
 }
 
+/** The run context wraps only recordRun's callback; queue SQL and every other byte stay unchanged. */
+export function recordedRunContextOnly(before: string, after: string): boolean {
+  const anchor = 'import { sql, type Db } from "../db.ts";';
+  const added = 'import { recordedRunContext } from "../operations/run-context.ts";';
+  const call = "const result = await fn();";
+  return (
+    !before.includes(added) &&
+    before.split(anchor).length === 2 &&
+    before.split(call).length === 2 &&
+    after === before.replace(anchor, `${anchor}\n${added}`).replace(call, "const result = await recordedRunContext.run({ id: String(row!.id), job }, fn);")
+  );
+}
+
 /**
  * Explicitly reviewed owning-file changes can re-identify an existing opaque expression. They cannot
  * buy another expression, function, dependency or occurrence. The current report must still match
@@ -265,7 +278,7 @@ export function rekeyUnknownBudget(
             (importsOnly(before, after, path.extname(rekey.file)) ||
               (rekey.file === "packages/backend/src/jobs/queue.ts" &&
                 ["enqueue/callerDb/executeSql/rows", "enqueue/db/executeSql"].includes(rekey.scopeName) &&
-                nativeQueueOnly(before, after))),
+                (nativeQueueOnly(before, after) || recordedRunContextOnly(before, after)))),
         );
       } catch {
         proofs.set(proofKey, false);

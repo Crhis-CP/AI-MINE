@@ -6,7 +6,7 @@ import { DEFAULTS } from "@amp/site/models";
 //   today  — money at risk or only the owner can act: sent at once, repeated at most daily, recovery reported.
 //   digest — follow-ups without reader impact: one 09:00 message a day, meant to be handed to the AI.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
-import { sourceHealth, SOURCE_PROBLEMS } from "../sources/health.ts";
+import { sourceHealth, sourceQualityClearance, SOURCE_PROBLEMS } from "../sources/health.ts";
 import { serverModules } from "../modules.ts";
 import { manualReviewExceptions } from "@amp/backend/admin/content";
 import { expiringPolicyQualityReleases } from "../policy/quality.ts";
@@ -752,6 +752,13 @@ export async function sendDigest(now = Date.now()) {
   const state: AlertState = Object.fromEntries(Object.entries(row?.value ?? {}).filter(([key]) => key.startsWith("digest:")));
   const previousKeys = Object.keys(state);
   const lines: string[] = [];
+  const qualityChanges: Array<{
+    source_id: string;
+    state: "window_expired" | "statistics_changed";
+    observed_at: string;
+    notice_sent_at: string;
+    reviewed: false;
+  }> = [];
   let checkChanged = false;
   for (const f of items) {
     if (changeOnly(f.key)) {
@@ -778,8 +785,13 @@ export async function sendDigest(now = Date.now()) {
   const sourceKeys = previousKeys.filter((key) => key.startsWith("digest:sources.") && !items.some((f) => `digest:${f.key}` === key));
   const sourceId = (key: string) => key.split(".").slice(2).join(".");
   const recoveredSources = new Map<string, Date>();
+  const qualityObserved = new Set<string>();
   if (sourceKeys.length && !sourcesPaused && sourceCollectionEnabled("news")) {
-    const healthy = new Set((await sourceHealth(now)).flatMap((group) => group.sources.filter((source) => source.health === "ok").map((source) => source.id)));
+    const groups = await sourceHealth(now);
+    const healthy = new Set(groups.flatMap((group) => group.sources.filter((source) => source.health === "ok").map((source) => source.id)));
+    for (const group of groups)
+      if (group.mode === "editorial")
+        for (const source of group.sources) if (source.health === "ok" && source.undated === 0 && source.repeated === 0) qualityObserved.add(source.id);
     const [checks] = await readSourceTargetEvidence([...new Set(sourceKeys.map(sourceId).filter((id) => healthy.has(id)))]);
     for (const check of checks) if (check.latest && check.latest.getTime() <= now) recoveredSources.set(check.source_id, check.latest);
   }
@@ -787,7 +799,25 @@ export async function sendDigest(now = Date.now()) {
     if (unchecked(state[key]!, failed, checked)) continue;
     if (items.some((f) => `digest:${f.key}` === key) || !collecting() || (key.startsWith("digest:sources.") && sourcesPaused)) continue;
     if (key.startsWith("digest:sources.") && (recoveredSources.get(sourceId(key))?.getTime() ?? 0) <= Date.parse(state[key]!.sentAt)) continue;
-    lines.push(`${lines.length + 1}. 已恢复：${state[key]!.title}`);
+    if (key.startsWith("digest:sources.quality.")) {
+      const id = sourceId(key);
+      if (!qualityObserved.has(id)) continue;
+      let clearance: "window" | "observed" | null = null;
+      try {
+        clearance = await sourceQualityClearance(id, state[key]!.sentAt, now);
+      } catch {
+        // An unreadable prior window supplies no evidence for closing this notice.
+      }
+      if (!clearance) continue;
+      qualityChanges.push({
+        source_id: id,
+        state: clearance === "window" ? "window_expired" : "statistics_changed",
+        observed_at: new Date(now).toISOString(),
+        notice_sent_at: state[key]!.sentAt,
+        reviewed: false,
+      });
+      checkChanged = true;
+    } else lines.push(`${lines.length + 1}. 已恢复：${state[key]!.title}`);
     delete state[key];
   }
   if (!lines.length && !checkChanged) return { items: 0 };
@@ -795,9 +825,9 @@ export async function sendDigest(now = Date.now()) {
     const introduction = items.some((item) => item.key === "receipts.unknown")
       ? "以下事项需要核对。付费请求结果未知可能阻塞新内容处理；请保留费用记录，可把整条转给 AI 排查。"
       : "以下是系统运行的待跟进事项，可把整条转给 AI 排查。";
-    await sendAlert(`📋 系统日报 · ${beijingDay(now)}`, [introduction, ...lines]);
+    if ((await sendAlert(`📋 系统日报 · ${beijingDay(now)}`, [introduction, ...lines])) !== "sent") return { items: 0 };
   }
   await sql`INSERT INTO settings(key,value,updated_by) VALUES('alerts.state',${sql.json(state as never)},'alerts')
     ON CONFLICT(key) DO UPDATE SET value=(settings.value - ${previousKeys}::text[]) || EXCLUDED.value,updated_at=now()`;
-  return { items: lines.length };
+  return { items: lines.length, ...(qualityChanges.length ? { quality_changes: qualityChanges } : {}) };
 }

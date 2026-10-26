@@ -59,7 +59,8 @@ test("current source waits survive historical ok but exclude obsolete sessions, 
   });
   await sourceHealthWeekly(now.getTime());
   const report = logged.map((line) => JSON.parse(line)).find((entry) => entry.title === "📊 信源周报");
-  assert.ok(report.lines.some((line: string) => line.includes(current) && line.includes("等待") && line.includes("访问规则")));
+  assert.ok(report.lines.some((line: string) => line.includes("采集仍在等待：1 个信源")));
+  assert.ok(!report.lines.some((line: string) => line.includes(current)));
   assert.ok(!report.lines.includes("没有需要处理的信源。"));
 
   await sql`UPDATE ops.lane_controls SET paused=true,reason='fixture pause',actor='test',expires_at=${new Date(now.getTime() + 60_000)}
@@ -71,7 +72,7 @@ test("current source waits survive historical ok but exclude obsolete sessions, 
   assert.ok((await sourceHealth(now.getTime())).every((group) => group.waiting.length === 0));
 });
 
-test("weekly source errors preserve English letters and normalize real whitespace without sending a message", async (t) => {
+test("source error details stay exact while the weekly report only summarizes their count", async (t) => {
   const id = `health-${tag()}`;
   const errors = ["Source date permission denied: fetch/resource_mismatch (cdn.example.invalid)", "no items matched (html)\n\tcheck selectors"];
   for (let i = 0; i < errors.length; i++)
@@ -89,9 +90,11 @@ test("weekly source errors preserve English letters and normalize real whitespac
   assert.equal(result.failing, 2);
   const report = logged.map((line) => JSON.parse(line)).find((entry) => entry.title === "📊 信源周报");
   assert.ok(report, "the actual weekly report was rendered with delivery disabled");
-  assert.ok(report.lines.some((line: string) => line.includes(errors[0]!)));
-  assert.ok(report.lines.some((line: string) => line.includes("no items matched (html) check selectors")));
-  assert.ok(!report.lines.some((line: string) => /permi ion|no item {2}matched/.test(line)));
+  assert.ok(report.lines.some((line: string) => line.includes("连续抓取失败：2 个信源")));
+  const failures = (await sourceHealth()).flatMap((group) => group.failing);
+  assert.ok(failures.some((source) => source.last_error === errors[0]));
+  assert.ok(failures.some((source) => source.last_error === "no items matched (html) check selectors"));
+  assert.ok(!report.lines.some((line: string) => line.includes("synthetic.invalid") || line.includes("check selectors")));
 });
 
 test("quiet sources use their own dated rhythm, with first imports and discovery channels kept distinct", async () => {

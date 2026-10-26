@@ -2,9 +2,12 @@
 // alerts (off unless FEISHU_INTERNAL_ENABLED).
 import { sourceWeeklyItems } from "../content/source-health.ts";
 import { weeklySelectedCount } from "../publication/operational-snapshot.ts";
-import { sourceWeeklyCounts, sourceHealth, SOURCE_PROBLEMS, rhythmText } from "../sources/health.ts";
+import { sourceWeeklyCounts, sourceHealth, SOURCE_PROBLEMS } from "../sources/health.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { serverModules } from "../modules.ts";
+import { previousRecordedRun } from "../admin/runs.ts";
+import { z } from "zod";
+import { addDays, beijingDate } from "@amp/contracts/time";
 
 export { usageWeekly } from "./usage-weekly.ts";
 export { usageMonthly } from "./usage-monthly.ts";
@@ -38,17 +41,40 @@ export async function sourceHealthWeekly(now = Date.now()) {
     }
   for (const group of groups) {
     lines.push("", `${group.name}：${group.sources.length} 个在用信源；本周归属条目 ${n(group.sources.reduce((sum, s) => sum + s.items, 0))} 条`);
-    for (const problem of SOURCE_PROBLEMS)
-      if (group[problem.problem].length)
-        lines.push(`${problem.title}：${group[problem.problem].map((s) => `${s.name}（${s.id}）：${problem.describe(s)}`).join("；")}`);
-    if (group.overdue.length) lines.push(`超出自身更新节奏（先核对原站）：${group.overdue.map((s) => `${s.name}：${rhythmText(s)}`).join("；")}`);
-    if (group.unknown.length)
-      lines.push(`7 天没有新内容（历史不足，尚不能判断是否异常）：${group.unknown.map((s) => `${s.name}：${rhythmText(s)}`).join("；")}`);
+    for (const problem of SOURCE_PROBLEMS) if (group[problem.problem].length) lines.push(`${problem.title}：${group[problem.problem].length} 个信源`);
+    if (group.overdue.length) lines.push(`超出自身更新节奏（先核对原站）：${group.overdue.length} 个信源`);
+    if (group.unknown.length) lines.push(`7 天没有新内容（历史不足，尚不能判断是否异常）：${group.unknown.length} 个信源`);
   }
   const overdue = groups.reduce((sum, g) => sum + g.overdue.length, 0),
     silent = overdue + groups.reduce((sum, g) => sum + g.unknown.length, 0);
+  const last = await previousRecordedRun("reports.source-health");
+  const previous = z
+    .object({ failing: z.number().int().nonnegative(), silent: z.number().int().nonnegative(), overdue: z.number().int().nonnegative() })
+    .safeParse(last?.detail);
+  const recent =
+    last &&
+    last.started_at.getTime() <= now &&
+    last.finished_at &&
+    last.finished_at.getTime() <= now &&
+    last.finished_at.getTime() >= last.started_at.getTime() &&
+    beijingDate(last.started_at) >= addDays(beijingDate(now), -7);
+  if (last?.status === "ok" && recent && previous.success) {
+    const change = (value: number, prior: number) => `${value >= prior ? "+" : ""}${value - prior}`;
+    lines.push(
+      "",
+      `较上次成功运行记录的统计：抓取失败 ${change(counts.failing, previous.data.failing)} 个，超出自身节奏 ${change(overdue, previous.data.overdue)} 个，合计静默 ${change(silent, previous.data.silent)} 个。该记录不等同消息送达或质量复核完成。`,
+    );
+  } else {
+    lines[0] = `本周收录 ${n(items!.week)} 条，其中精选 ${n(selected)} 条`;
+    lines.push("", "无可比基准：最近记录未成功、未完成、缺失或超过7天的北京时间日期边界；仅列本期数量。");
+  }
   const followUp = moduleReport || counts.failing > 0 || silent > 0 || groups.some((g) => SOURCE_PROBLEMS.some((p) => g[p.problem].length));
-  lines.push("", followUp ? "需要处理的话，把这条转给 AI；详情在后台“信源”与“运行”页。" : "没有需要处理的信源。");
+  lines.push(
+    "",
+    followUp
+      ? "逐项问题由系统日报发送，未送达的仍保留待发送；后台“信源”可查最近抓取错误和等待记录，“运行”可查任务状态。质量统计变化不代表问题已核实修复。"
+      : "没有需要处理的信源。",
+  );
   await sendAlert("📊 信源周报", lines);
   return { failing: counts.failing, silent, overdue };
 }

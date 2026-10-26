@@ -2,6 +2,7 @@
 import { PgBoss, type SendOptions } from "pg-boss";
 import { queueConnection } from "../db-bootstrap.ts";
 import { sql, type Db } from "../db.ts";
+import { recordedRunContext } from "../operations/run-context.ts";
 
 interface QueueInstance {
   raw: PgBoss;
@@ -284,7 +285,7 @@ async function retireProducer(instance: QueueInstance): Promise<void> {
 export async function recordRun<T>(job: string, fn: () => Promise<T>): Promise<T> {
   const [row] = await sql<{ id: number }[]>`INSERT INTO job_runs (job) VALUES (${job}) RETURNING id`;
   try {
-    const result = await fn();
+    const result = await recordedRunContext.run({ id: String(row!.id), job }, fn);
     const detail = result && typeof result === "object" ? result : { result };
     await sql`UPDATE job_runs SET status = 'ok', finished_at = now(), detail = ${sql.json(detail as never)} WHERE id = ${row!.id}`;
     return result;
