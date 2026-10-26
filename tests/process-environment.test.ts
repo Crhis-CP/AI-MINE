@@ -40,11 +40,13 @@ test("development login and production login requirements depend on NODE_ENV, no
     assert.equal(result.status, 0, result.stderr);
   }
   const result = run(["apps/api/src/main.ts"], {
-    API_ROLE: "private-api",
+    API_ROLE: "api",
     NODE_ENV: "production",
     AMP_ENVIRONMENT: "development",
     DATABASE_URL: "postgres://postgres@127.0.0.1:1/environment_test",
     SESSION_SECRET: "process-test-session-0123456789",
+    PUBLIC_RATE_LIMIT_SECRET: "process-test-rate-0123456789",
+    AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials",
     API_PORT: "0",
   });
   assert.equal(result.error, undefined);

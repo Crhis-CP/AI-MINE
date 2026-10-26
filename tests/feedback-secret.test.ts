@@ -38,12 +38,15 @@ test("missing or empty production public keys never fall back to the private key
   }
 });
 
-test("the public production entrypoint requires its key before listening", () => {
+test("the unified production entrypoint requires the public key before listening", () => {
   const result = spawnSync(process.execPath, ["apps/api/src/main.ts"], {
     env: {
       ...webEnvironment(process.env),
-      API_ROLE: "public-api",
+      API_ROLE: "api",
       NODE_ENV: "production",
+      SESSION_SECRET: "synthetic-private-secret-0123456789",
+      ADMIN_PASSWORD: "synthetic-password-0123456789",
+      AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials",
       DATABASE_URL: "postgres://postgres@127.0.0.1:1/feedback_secret_test",
       API_PORT: "0",
     },
