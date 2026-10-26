@@ -29,7 +29,9 @@ export interface ExtractedBody {
   html: string;
   text: string;
   images: Array<{ kind: "image"; url: string; width: number | null; height: number | null }>;
-  via: "readability" | "jina";
+  via: "readability" | "jina" | "pdfjs";
+  /** Text-only extraction may supply material without confirming complete source presentation. */
+  bodyStatus?: "ok" | "unconfirmed";
 }
 
 const MIN_BODY_CHARS = 200;
@@ -159,7 +161,7 @@ async function extractArticleBody(
   articleId: string,
   allowJina = process.env.JINA_BODY_FALLBACK !== "false",
   expectedRevision?: number,
-): Promise<"ok" | "unconfirmed" | "skipped"> {
+): Promise<"ok" | "partial" | "unconfirmed" | "skipped"> {
   const [a] = await sql<{ id: string; source_id: string; url: string; body_status: string; revision: number }[]>`
     SELECT id, source_id, url, body_status, revision FROM articles WHERE id = ${articleId}`;
   if (!a || a.body_status === "ok" || (expectedRevision !== undefined && a.revision !== expectedRevision)) return "skipped";
