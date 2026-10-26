@@ -33,6 +33,19 @@ export interface MediaItem {
   poster?: string | null;
 }
 
+/** Explicit original-post material; ordinary article text must not be inferred to be a post. */
+export interface XPostData {
+  tweetId: string;
+  authorName: string;
+  handle: string;
+  avatarUrl?: string | null;
+  text: string;
+  quoted?: { authorName: string; handle: string; text: string; url: string; media?: MediaItem[] } | null;
+  media?: MediaItem[];
+  lang?: string | null;
+  replyTo?: string | null;
+}
+
 export interface MaterialInput extends MaterialSourceDateInput {
   sourceId: string;
   url: string;
@@ -47,6 +60,7 @@ export interface MaterialInput extends MaterialSourceDateInput {
   bodyText?: string | null;
   bodyStatus?: "pending" | "ok" | "unconfirmed" | "none";
   media?: MediaItem[];
+  xPost?: XPostData | null;
   raw?: unknown;
   collectionDetail?: { rules: string; checkedAt: string };
   via: "fetch" | "ingest" | "import";
@@ -67,7 +81,7 @@ interface BaseMaterialResult {
 export type MaterialResult = MaterialUpdateResult;
 
 /** Identity of stored content: the revision changes exactly when this does. */
-export function contentHash(c: { title: string; bodyText?: string | null; excerpt?: string | null }): string {
+export function contentHash(c: Pick<MaterialInput, "title" | "bodyText" | "excerpt" | "xPost">): string {
   return sha256([collapseWhitespace(c.title), collapseWhitespace(c.bodyText ?? ""), collapseWhitespace(c.excerpt ?? "")].join("\u0001"));
 }
 
@@ -281,6 +295,7 @@ export async function commitProcessingResult<T>(
 }
 
 export interface CurrentBody {
+  x_post?: XPostData | null;
   id: string;
   source_id: string;
   revision: number;
