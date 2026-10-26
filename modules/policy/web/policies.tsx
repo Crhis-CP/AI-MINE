@@ -29,7 +29,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const parsed = PolicyListQuery.safeParse(input);
   const invalid = !parsed.success || [...url.searchParams.keys()].some((k) => url.searchParams.getAll(k).length > 1);
   if (invalid) return withHeaders({ listing: null, scope: null, filters: { ...PolicyListQuery.parse({}), ...input }, error: 400 }, { status: 400 });
-  const apiBase = apiBaseFor("/api/site/policies");
+  const apiBase = apiBaseFor();
   const options = { headers: { accept: "application/json", "x-amp-ssr": "1" }, signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]) };
   const [listing, scope] = await Promise.allSettled([
     apiFetch("/api/site/policies", { ...options, params: { query: parsed.success ? parsed.data : PolicyListQuery.parse({}) }, baseUrl: apiBase }).then((r) =>

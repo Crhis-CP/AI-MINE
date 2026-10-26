@@ -28,7 +28,7 @@ import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { installModules, serverModules } from "@amp/backend/modules";
 
-const app = await buildApp("public-api"),
+const app = await buildApp(),
   requests: { system: string; user: string }[] = [];
 const provider = await stub((_hit, req) => {
   const body = JSON.parse(req.body),

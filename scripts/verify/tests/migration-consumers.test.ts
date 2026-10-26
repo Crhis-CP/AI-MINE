@@ -18,9 +18,9 @@ function fixture() {
     write(root, { [`database/migrations/${entry.name}`]: readFileSync(path.join(ROOT, "database/migrations", entry.name), "utf8") });
   manifest.migrations = [];
   write(root, { "database/migration-inventory.json": JSON.stringify(manifest) });
-  const add = (name: string, text: string, dependsOn: string[] = []) => {
-    manifest.migrations.push({ name, dependsOn });
-    write(root, { [`database/migrations/${name}`]: text, "database/migration-inventory.json": JSON.stringify(manifest) });
+  const add = (name: string, text: string, dependsOn: string[] = [], module?: string) => {
+    manifest.migrations.push({ name, dependsOn, ...(module ? { module } : {}) });
+    write(root, { [name.startsWith("modules/") ? name : `database/migrations/${name}`]: text, "database/migration-inventory.json": JSON.stringify(manifest) });
   };
   return { root, add };
 }
@@ -111,4 +111,15 @@ test("new module DDL/DML must write its registered logical owner, including lega
     f.add("sources/202610042200_wrong.sql", statement);
     assert.throws(() => checkDataOwnership(f.root), /Module migration sources.*owned by (enrichment|content)/);
   }
+});
+
+test("extension directory and explicit data owner cannot bypass table ownership or grant classification", () => {
+  const f = fixture(),
+    name = "modules/metals/migrations/202610261000_owned.sql";
+  f.add(name, "ALTER TABLE publication.metal_prices ADD COLUMN fixture text;", [], "publication");
+  assert.equal(migrationOwnership(f.root).find((entry) => entry.file === name)!.module, "publication");
+  write(f.root, { [name]: "UPDATE public.articles SET title='fixture' WHERE false;" });
+  assert.throws(() => migrationOwnership(f.root), /owned by content/);
+  write(f.root, { [name]: "CREATE TABLE publication.unclassified_probe(id integer);" });
+  assert.throws(() => migrationOwnership(f.root), /owned by unclassified/);
 });

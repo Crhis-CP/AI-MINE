@@ -63,7 +63,7 @@ test("private HTTP reports missing current preview or nonexistent draft as actio
   const { config } = await import("@amp/backend/config");
   const prior = config.devAdmin;
   config.devAdmin = null;
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   const address = await app.listen({ host: "127.0.0.1", port: 0 });
   t.after(async () => {
     await app.close();

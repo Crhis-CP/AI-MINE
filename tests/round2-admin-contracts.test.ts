@@ -17,7 +17,7 @@ test("real Owner archive and private withdrawal commands retain authentication, 
   const old = { host: config.privateHost, dev: config.devAdmin };
   config.privateHost = "round2.private.test";
   config.devAdmin = null;
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   try {
     const [user] = await sql`INSERT INTO admin_users(email,display_name) VALUES('round2-owner@synthetic.test','Synthetic Owner') RETURNING id`;
     await sql`INSERT INTO identity.account_access(user_id,role) VALUES(${user.id},'owner')`;

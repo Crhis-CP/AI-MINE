@@ -6,9 +6,9 @@
 
 | 位置 | 当前职责 |
 |---|---|
-| apps/api | 一个API进程承接公开和后台接口；后台逐请求验证会话、能力、CSRF和强制改密状态。旧进程角色暂作迁移兼容。 |
+| apps/api | 一个API运行入口承接公开和后台接口；后台逐请求验证会话、能力、CSRF和强制改密状态。旧public-api/private-api不再是新程序的启动模式。 |
 | apps/worker | 运行引擎与安装模块的队列、调度和恢复；模型、翻译、采集均在后台任务中执行。 |
-| apps/web | 读者页与登录后台的SSR及交互，只通过HTTP访问API，不持有数据库或模型凭据。 |
+| apps/web | 读者页与登录后台的SSR及交互，只通过单一API_BASE_URL访问API，私有请求仍传入站Host，公开请求不转发管理员cookie；不持有数据库或模型凭据。 |
 | packages/backend | 采集、材料、筛选、写作、事件、发布、报告、模型回执及运行管理的通用实现；法规旧路径暂留已登记的兼容转发。 |
 | packages/contracts | 外部HTTP契约、任务数据、共享类型及模块地址声明；变更按契约任务单独验证。 |
 | site | 品牌、刊期、默认模型及模块安装清单；地址、后台处理与浏览器入口分别导入。 |
@@ -23,7 +23,7 @@
 ## 2. 模块的安装与接口
 
 - module.ts声明页面、后台页面和API路径；site/modules/index.ts决定安装的地址。
-- server.ts通过ServerModule声明HTTP、后台HTTP和定时任务。组合根安装后注册；旧公开API不注册admin.http。
+- server.ts通过ServerModule声明HTTP、后台HTTP和定时任务。统一API组合根安装后注册；admin.http沿原会话、Host、能力与CSRF保护。
 - web入口只提供浏览器可用的导航和页面扩展。当前公开与私有构建分别读取site/modules/web.ts和admin.ts，不把私有客户端编入读者资源。
 - 扩展通过引擎具名入口调用共享能力；页面通过HTTP客户端访问后端。源码检查沿模块页面和导入链拒绝数据库、队列及模型SDK进入前端。
 - 引擎不导入站点安装清单。迁移期间仅允许已登记的兼容入口转发至metals、site-admin与policy；其余依赖不得绕过公开入口。
@@ -33,6 +33,8 @@
 现有表、来源ID、文章地址、版本号、回执和审计记录保留。迁移只做向后兼容的增量；人工修订、撤回、归属和暂停不得被采集或重试覆盖。
 
 数据库中的schema及SQL归属名是现有数据边界，不代表仓库存在12个领域包。运行代码、脚本和测试使用sql/identitySql/feedbackSql直接驱动入口，旧dbOf/injectDb及通用查询代理已退役；按进程配置的真实角色、事务、关闭与权限行为保留。进程配置与连接工厂已合入backend/process-config，通过既有db入口导出；独立platform/config工作区退役。纯启动校验不加载业务凭据或自动连接数据库。不得把配置模板当成线上真实数据库账户的证据。
+
+升级文件统一发现database/migrations与modules/*/migrations，通过既有登记、依赖、哈希、数据归属及角色授权检查执行。扩展目录与既有数据归属不同时在清单中显式关联，不因此获得新schema权限；历史SQL和账本身份不迁移。具体登记见[scripts/migrations/README.md](../../scripts/migrations/README.md)。
 
 来源统计分别记录配置、采集、材料、正文和公开证据。site-admin通过有界sources/evidence读取各组件证据；没有自然采集记录时不得把登记或预览当成来源完成。权限判断在处理和公开时执行，SQL接口不能替代ProcessingPermit。
 

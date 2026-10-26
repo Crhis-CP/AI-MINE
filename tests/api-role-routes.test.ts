@@ -14,19 +14,18 @@ config.devAdmin = null;
 delete process.env.FEISHU_LOGIN_APP_ID;
 delete process.env.FEISHU_LOGIN_APP_SECRET;
 config.privateHost = HOST;
-const publicApp = await buildApp("public-api");
-const privateApp = await buildApp("private-api");
+const api = await buildApp();
 config.privateHost = savedHost;
-const forwarded = { host: "private-api:3001", "x-forwarded-host": HOST };
+const forwarded = { host: "api:3001", "x-forwarded-host": HOST };
 after(async () => {
   config.privateHost = savedHost;
   config.adminPassword = savedPassword;
   config.devAdmin = savedDevAdmin;
-  await Promise.all([publicApp.close(), privateApp.close()]);
+  await api.close();
   await closeDb();
 });
 
-test("public route families and feedback belong only to the public root", async () => {
+test("the unified root serves public route families and feedback on reader or admin hosts", async () => {
   const examples = [
     { method: "GET", url: "/api/site/meta", status: 200 },
     { method: "GET", url: "/og/site.png", status: 200 },
@@ -38,41 +37,39 @@ test("public route families and feedback belong only to the public root", async 
   ] as const;
   for (const example of examples) {
     const { status, ...request } = example;
-    const found = await publicApp.inject({ ...request, headers: { host: "localhost" } });
+    const found = await api.inject({ ...request, headers: { host: "localhost" } });
     assert.equal(found.statusCode, status, `${example.url}: ${found.body.slice(0, 300)}`);
-    const absent = await privateApp.inject({ ...request, headers: forwarded });
-    assert.equal(absent.statusCode, 404, example.url);
+    const onAdminHost = await api.inject({ ...request, headers: forwarded });
+    assert.equal(onAdminHost.statusCode, status, example.url);
   }
-  assert.equal(publicApp.hasRoute({ method: "GET", url: "/api/mcp" }), true);
-  assert.equal(privateApp.hasRoute({ method: "GET", url: "/api/mcp" }), false);
-  const fallback = await publicApp.inject("/api/v1/missing");
+  assert.equal(api.hasRoute({ method: "GET", url: "/api/mcp" }), true);
+
+  const fallback = await api.inject("/api/v1/missing");
   assert.equal(fallback.statusCode, 404);
   assert.equal(fallback.headers["access-control-allow-origin"], "*");
-  const privateFallback = await privateApp.inject({ url: "/api/v1/missing", headers: forwarded });
-  assert.equal(privateFallback.headers["access-control-allow-origin"], undefined);
+  const privateFallback = await api.inject({ url: "/api/v1/missing", headers: forwarded });
+  assert.equal(privateFallback.headers["access-control-allow-origin"], "*");
 });
 
-test("auth and admin are private and an explicit role is mandatory", async () => {
+test("auth and administration remain protected within the unified API", async () => {
   for (const [url, status] of [
     ["/api/auth/options", 200],
     ["/api/auth/login", 302],
     ["/api/admin/me", 401],
     ["/api/admin/sources", 401],
   ] as const) {
-    assert.equal((await publicApp.inject({ url, headers: forwarded })).statusCode, 404, url);
-    assert.equal((await privateApp.inject({ url, headers: forwarded })).statusCode, status, url);
+    assert.equal((await api.inject({ url, headers: { host: "reader.example.test" } })).statusCode, 404, url);
+    assert.equal((await api.inject({ url, headers: forwarded })).statusCode, status, url);
   }
-  for (const app of [publicApp, privateApp]) {
+  for (const app of [api]) {
     assert.equal((await app.inject({ method: "POST", url: "/api/ingest/items", headers: forwarded })).statusCode, 404);
     assert.equal((await app.inject({ url: "/api/img-proxy", headers: forwarded })).statusCode, 404);
   }
-  await assert.rejects(buildApp(undefined as never), /Invalid API role/);
-  await assert.rejects(buildApp("other" as never), /Invalid API role/);
 });
 
-test("private root accepts one matching forwarded hostname, with case and optional port normalization", async () => {
+test("protected routes accept one matching forwarded hostname, with case and optional port normalization", async () => {
   for (const value of [HOST, "PRIVATE.EXAMPLE.TEST", `${HOST}:8443`]) {
-    const result = await privateApp.inject({ url: "/api/auth/options", headers: { host: "internal:3001", "x-forwarded-host": value } });
+    const result = await api.inject({ url: "/api/auth/options", headers: { host: "internal:3001", "x-forwarded-host": value } });
     assert.equal(result.statusCode, 200, value);
     assert.deepEqual(result.json(), { password: true, feishu: false });
   }
@@ -99,41 +96,41 @@ test("missing, forged, multiple and malformed forwarded authorities fail before 
   ];
   for (const value of invalid) {
     const headers = { host: HOST, forwarded: `host=${HOST}`, ...(value === undefined ? {} : { "x-forwarded-host": value }) };
-    for (const url of ["/api/auth/login?return=/admin", "/api/admin/me", "/sources"]) {
-      const result = await privateApp.inject({ url, headers });
+    for (const url of ["/api/auth/login?return=/admin", "/api/admin/me"]) {
+      const result = await api.inject({ url, headers });
       assert.equal(result.statusCode, 404, `${String(value)} ${url}`);
       assert.equal(result.headers.location, undefined);
       assert.equal(result.headers["set-cookie"], undefined);
     }
-    const password = await privateApp.inject({ method: "POST", url: "/api/auth/password", headers, payload: { password: config.adminPassword } });
+    const password = await api.inject({ method: "POST", url: "/api/auth/password", headers, payload: { password: config.adminPassword } });
     assert.equal(password.statusCode, 404);
     assert.equal(password.headers.location, undefined);
     assert.equal(password.headers["set-cookie"], undefined);
   }
 });
 
-test("health works on both roots regardless of forwarded hostname; public redirects remain public", async () => {
-  for (const app of [publicApp, privateApp]) {
+test("health is independent of the admin Host and public redirects remain public", async () => {
+  for (const app of [api]) {
     for (const headers of [{}, { "x-forwarded-host": "wrong.test, wrong.test" }]) {
       const result = await app.inject({ url: "/api/health?probe=1", headers });
       assert.equal(result.statusCode, 200);
       assert.equal(result.json().db, "ok");
     }
   }
-  for (const app of [publicApp]) {
+  for (const app of [api]) {
     const result = await app.inject("/rss?reader=test");
     assert.equal(result.statusCode, 301);
     assert.equal(result.headers.location, "/feed.xml?reader=test");
   }
-  const privateRedirect = await privateApp.inject({ url: "/rss?reader=test", headers: forwarded });
-  assert.equal(privateRedirect.statusCode, 404);
-  assert.equal(privateRedirect.headers.location, undefined);
+  const privateRedirect = await api.inject({ url: "/rss?reader=test", headers: forwarded });
+  assert.equal(privateRedirect.statusCode, 301);
+  assert.equal(privateRedirect.headers.location, "/feed.xml?reader=test");
 });
 
 test("a matching private host reaches the real password/session guard without bypassing login", async () => {
-  assert.equal((await privateApp.inject({ url: "/api/admin/me", headers: forwarded })).statusCode, 401);
-  const nonce = await privateApp.inject({ url: "/api/auth/password-nonce", headers: forwarded });
-  const login = await privateApp.inject({
+  assert.equal((await api.inject({ url: "/api/admin/me", headers: forwarded })).statusCode, 401);
+  const nonce = await api.inject({ url: "/api/auth/password-nonce", headers: forwarded });
+  const login = await api.inject({
     method: "POST",
     url: "/api/auth/password",
     headers: { ...forwarded, cookie: String(nonce.headers["set-cookie"]).split(";")[0]!, "content-type": "application/x-www-form-urlencoded" },
@@ -141,8 +138,8 @@ test("a matching private host reaches the real password/session guard without by
   });
   assert.equal(login.statusCode, 303);
   assert.equal(login.headers.location, "/admin");
-  const passwordOnlyNonce = await privateApp.inject({ url: "/api/auth/password-nonce", headers: forwarded });
-  const passwordOnly = await privateApp.inject({
+  const passwordOnlyNonce = await api.inject({ url: "/api/auth/password-nonce", headers: forwarded });
+  const passwordOnly = await api.inject({
     method: "POST",
     url: "/api/auth/password",
     headers: {
@@ -156,11 +153,11 @@ test("a matching private host reaches the real password/session guard without by
   assert.equal(passwordOnly.headers.location, "/admin");
   const cookie = String(login.headers["set-cookie"]).split(";")[0]!;
   assert.match(cookie, /^amp_admin=/);
-  const me = await privateApp.inject({ url: "/api/admin/me", headers: { ...forwarded, cookie } });
+  const me = await api.inject({ url: "/api/admin/me", headers: { ...forwarded, cookie } });
   assert.equal(me.statusCode, 200);
   assert.equal(me.json().dev, false);
-  assert.equal((await privateApp.inject({ url: "/api/admin/me", headers: { host: HOST, cookie } })).statusCode, 404);
-  const csrf = await privateApp.inject({ method: "POST", url: "/api/admin/sources", headers: { ...forwarded, cookie }, payload: {} });
+  assert.equal((await api.inject({ url: "/api/admin/me", headers: { host: HOST, cookie } })).statusCode, 404);
+  const csrf = await api.inject({ method: "POST", url: "/api/admin/sources", headers: { ...forwarded, cookie }, payload: {} });
   assert.equal(csrf.statusCode, 403, "host matching must not bypass CSRF");
 });
 
@@ -171,7 +168,7 @@ test("an unset private host keeps local development usable; a malformed configur
     ["   ", 404],
   ] as const) {
     config.privateHost = host;
-    const app = await buildApp("private-api");
+    const app = await buildApp();
     config.privateHost = savedHost;
     try {
       assert.equal((await app.inject({ url: "/api/auth/options", headers: host === null ? {} : forwarded })).statusCode, expected);
@@ -183,7 +180,7 @@ test("an unset private host keeps local development usable; a malformed configur
 
 test("one API serves public reads and guarded administration without applying the private host gate to readers", async () => {
   config.privateHost = HOST;
-  const app = await buildApp("api");
+  const app = await buildApp();
   config.privateHost = savedHost;
   try {
     assert.equal((await app.inject({ url: "/api/site/meta", headers: { host: "reader.example.test" } })).statusCode, 200);

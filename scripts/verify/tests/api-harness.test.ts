@@ -4,7 +4,7 @@ import { createServer, type Server } from "node:http";
 import { spawn, spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { parseDocument } from "yaml";
-import { assertPublicApiCredentials, environmentProblems } from "@amp/backend/db";
+import { environmentProblems } from "@amp/backend/db";
 import { webEnvironmentProblems } from "../../../apps/web/runtime-env.ts";
 import { apiChildEnvironment, siteChildEnvironments } from "../api-harness.ts";
 import { checkApiSplit } from "../api-split.ts";
@@ -30,28 +30,25 @@ const input = {
   DATABASE_URL_WORKER: "PRIVATE_MARKER",
   DEV_AUTH_ROLE: "PRIVATE_MARKER",
 };
-test("API child environments retain explicit test identity and only their own secrets", () => {
-  for (const role of ["api", "public-api", "private-api"] as const) {
-    const env = apiChildEnvironment(role, input);
-    assert.equal(env.API_ROLE, role);
-    assert.equal(env.API_PORT, "0");
-    assert.equal(env.DATABASE_URL, input.DATABASE_URL);
-    assert.equal(env.MODEL_CALLS_ENABLED, "false");
-    assert.ok(!Object.values(env).includes("PRIVATE_MARKER"));
-    assert.deepEqual(environmentProblems(role, env), []);
-    if (role === "public-api") {
-      assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, input.PUBLIC_RATE_LIMIT_SECRET);
-      for (const name of ["SESSION_SECRET", "ADMIN_PASSWORD", "AMP_CREDENTIALS_DIR"]) assert.equal(env[name], undefined);
-      assert.doesNotThrow(() => assertPublicApiCredentials(env));
-    } else {
-      assert.equal(env.SESSION_SECRET, input.SESSION_SECRET);
-      assert.equal(env.ADMIN_PASSWORD, input.ADMIN_PASSWORD);
-      assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, role === "api" ? input.PUBLIC_RATE_LIMIT_SECRET : undefined);
-    }
-  }
-  assert.equal(apiChildEnvironment("public-api", { DATABASE_URL: input.DATABASE_URL }).PUBLIC_RATE_LIMIT_SECRET, undefined);
-  assert.equal(apiChildEnvironment("public-api", { ...input, NODE_ENV: "development" }).NODE_ENV, "development");
-  assert.throws(() => apiChildEnvironment("public-api", { DATABASE_URL: "postgres://fixture@localhost/production" }), /DATABASE_URL/);
+test("the unified API child keeps required fixture credentials without adopting model secrets", () => {
+  const env = apiChildEnvironment(input);
+  assert.equal(env.API_ROLE, "api");
+  assert.equal(env.API_PORT, "0");
+  assert.equal(env.DATABASE_URL, input.DATABASE_URL);
+  assert.equal(env.MODEL_CALLS_ENABLED, "false");
+  assert.ok(!Object.values(env).includes("PRIVATE_MARKER"));
+  assert.deepEqual(environmentProblems("api", env), []);
+  assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, input.PUBLIC_RATE_LIMIT_SECRET);
+  assert.equal(env.SESSION_SECRET, input.SESSION_SECRET);
+  assert.equal(env.ADMIN_PASSWORD, input.ADMIN_PASSWORD);
+  assert.equal(apiChildEnvironment({ DATABASE_URL: input.DATABASE_URL }).PUBLIC_RATE_LIMIT_SECRET, undefined);
+  assert.equal(apiChildEnvironment({ ...input, NODE_ENV: "development" }).NODE_ENV, "development");
+  assert.throws(() => apiChildEnvironment({ DATABASE_URL: "postgres://fixture@localhost/production" }), /DATABASE_URL/);
+  for (const API_ROLE of ["public-api", "private-api", "PRIVATE_MARKER"])
+    assert.throws(
+      () => apiChildEnvironment({ ...input, API_ROLE }),
+      (e: Error) => /API_ROLE/.test(e.message) && !e.message.includes("PRIVATE_MARKER"),
+    );
 });
 test("the unified API and web fixture uses distinct local endpoints and never adopts caller auth material", () => {
   const envs = siteChildEnvironments({ ...input, API_BASE_URL: "http://127.0.0.1:3101", PRIVATE_API_BASE_URL: "http://127.0.0.1:3102" });

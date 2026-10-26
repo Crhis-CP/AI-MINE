@@ -1,21 +1,20 @@
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { apiRoleFromEnv, assertProcessEnvironment, assertPublicApiCredentials, assertProcessEnvironmentSource } from "@amp/backend/db";
+import { apiRoleFromEnv, assertProcessEnvironment, assertProcessEnvironmentSource } from "@amp/backend/db";
 
 /** Explicit composition root; importing this module creates no application or database resources. */
 export async function startApi(env: Readonly<Record<string, string | undefined>>): Promise<void> {
   assertProcessEnvironmentSource(env);
-  const role = apiRoleFromEnv(env);
-  assertProcessEnvironment(role, env);
-  if (role === "public-api") assertPublicApiCredentials(env);
+  apiRoleFromEnv(env);
+  assertProcessEnvironment("api", env);
   // Reject an invalid role or forbidden environment before loading backend configuration or credentials.
   const { assertProductionSecrets, config, isProduction } = await import("@amp/backend/config");
   const { feishuLoginConfigured } = await import("@amp/backend/admin/auth");
-  if (role !== "private-api") assertProductionSecrets([["auth", "PUBLIC_RATE_LIMIT_SECRET"]]);
-  if (role !== "public-api") {
-    assertProductionSecrets([["auth", "SESSION_SECRET"]]);
-    if (isProduction && !(config.adminPassword && config.adminPassword.length >= 12) && !feishuLoginConfigured())
-      throw new Error("Refusing to start in production: set ADMIN_PASSWORD (at least 12 characters) or configure Feishu sign-in");
-  }
+  assertProductionSecrets([
+    ["auth", "PUBLIC_RATE_LIMIT_SECRET"],
+    ["auth", "SESSION_SECRET"],
+  ]);
+  if (isProduction && !(config.adminPassword && config.adminPassword.length >= 12) && !feishuLoginConfigured())
+    throw new Error("Refusing to start in production: set ADMIN_PASSWORD (at least 12 characters) or configure Feishu sign-in");
   const { closeDb, initializeDb } = await import("@amp/backend/db");
   const { startHeartbeat } = await import("@amp/backend/operations/heartbeat");
   const { startWorkerWatchdog } = await import("@amp/backend/operations/watch");
@@ -23,10 +22,10 @@ export async function startApi(env: Readonly<Record<string, string | undefined>>
   const { SERVER_MODULES } = await import("@amp/site/modules/server");
   const { installModules } = await import("@amp/backend/modules");
   installModules(SERVER_MODULES);
-  await initializeDb(role, env);
+  await initializeDb("api", env);
   let app: Awaited<ReturnType<typeof buildApp>> | undefined;
   try {
-    app = await buildApp(role);
+    app = await buildApp();
     await app.listen({ port: config.apiPort, host: env.API_HOST || "127.0.0.1" });
   } catch (error) {
     try {
@@ -36,7 +35,8 @@ export async function startApi(env: Readonly<Record<string, string | undefined>>
     }
     throw error;
   }
-  const timers = role !== "public-api" ? [startHeartbeat(`private-api:${config.apiPort}`), startWorkerWatchdog()] : [];
+  // Existing operational readers use this persisted heartbeat key across upgrades.
+  const timers = [startHeartbeat(`private-api:${config.apiPort}`), startWorkerWatchdog()];
   let stopping = false;
   const shutdown = async () => {
     if (stopping) return;
@@ -46,7 +46,7 @@ export async function startApi(env: Readonly<Record<string, string | undefined>>
       await app?.close();
     } finally {
       try {
-        if (role !== "public-api") await stopBoss();
+        await stopBoss();
       } finally {
         await closeDb();
       }

@@ -60,7 +60,7 @@ test("three matrices preserve exact original exceptions, unresolved gaps and ind
   assert.equal(exp.content.split("\r\n").length, 322);
   assert.ok(exp.content.startsWith("\uFEFF"));
   assert.doesNotMatch(exp.content, /NEVER_EXPORT_MATRIX_SECRET|old_source_id/);
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   t.after(() => app.close());
   const headers: Record<string, Record<string, string>> = {};
   for (const role of ["owner", "admin"]) {

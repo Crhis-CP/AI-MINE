@@ -36,7 +36,7 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
           return res.end();
         }
         if (!isApiOwned(pathname)) return next();
-        const target = new URL(apiBaseFor(raw, env));
+        const target = new URL(apiBaseFor(env));
         const headers = apiForwardHeaders(raw, req.headers);
         const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
           res.writeHead(up.statusCode ?? 502, up.headers);

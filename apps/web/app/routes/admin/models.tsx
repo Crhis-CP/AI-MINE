@@ -81,7 +81,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const days = new URL(request.url).searchParams.get("days") ?? "7";
   const models = await adminGet<Models>(request, `/api/admin/models?days=${encodeURIComponent(days)}`);
   const path = "/api/admin/model-connections",
-    apiBase = apiBaseFor(path);
+    apiBase = apiBaseFor();
   let registry: ModelRegistry | null = null;
   try {
     registry = privateSchemas.ModelRegistryResponse.parse(

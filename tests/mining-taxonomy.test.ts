@@ -21,7 +21,7 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { buildApp } from "./site-app.ts";
 
 const source = `mining-category-${tag()}`;
-const app = await buildApp("public-api");
+const app = await buildApp();
 const provider = await stub((_hit, req) => {
   const { messages } = JSON.parse(req.body);
   const system = String(messages[0].content),

@@ -10,7 +10,7 @@ import { buildApp } from "./site-app.ts";
 
 delete process.env.FEISHU_LOGIN_APP_ID;
 delete process.env.FEISHU_LOGIN_APP_SECRET;
-const app = await buildApp("private-api");
+const app = await buildApp();
 after(async () => {
   delete process.env.FEISHU_LOGIN_APP_ID;
   delete process.env.FEISHU_LOGIN_APP_SECRET;

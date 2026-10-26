@@ -224,7 +224,7 @@ test("private creation confirms an explicit scope atomically and the real evalua
   const { stopBoss } = await import("@amp/backend/jobs/queue");
   const original = { adminPassword: config.adminPassword, devAdmin: config.devAdmin, privateHost: config.privateHost };
   Object.assign(config, { adminPassword: "synthetic-policy-password-012345", devAdmin: null, privateHost: "private.policy.test" });
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   const forwarded = { "x-forwarded-host": "private.policy.test" };
   const payload = {
     id: "policy-created-source",

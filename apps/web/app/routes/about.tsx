@@ -24,14 +24,14 @@ export async function loader({ request }: { request: Request }) {
     cache: "no-store",
     headers: { accept: "application/json", "x-amp-ssr": "1" },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-    baseUrl: apiBaseFor("/api/site/information"),
+    baseUrl: apiBaseFor(),
   })
     .then((result) => contractResult(result, publicSchemas.SiteInformation))
     .catch(() => null);
   const stats = await apiFetch("/api/site/stats", {
     headers: { accept: "application/json", "x-amp-ssr": "1" },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-    baseUrl: apiBaseFor("/api/site/stats"),
+    baseUrl: apiBaseFor(),
   })
     .then((result) => contractResult(result, publicSchemas.SiteStats))
     .catch(() => null);

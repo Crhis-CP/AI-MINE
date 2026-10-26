@@ -12,16 +12,16 @@ function fixture() {
     text = "SELECT 1;";
   const manifest = JSON.parse(readFileSync(path.join(ROOT, "database/migration-inventory.json"), "utf8")) as {
     legacy: { name: string; sha256: string }[];
-    migrations: { name: string; dependsOn: string[] }[];
+    migrations: { name: string; module?: string; dependsOn: string[] }[];
   };
   for (const entry of manifest.legacy)
     write(root, { [`database/migrations/${entry.name}`]: readFileSync(path.join(ROOT, "database/migrations", entry.name), "utf8") });
   // Synthetic topology starts from the fixed legacy baseline; each test registers its own modules.
   manifest.migrations = [];
   const save = () => write(root, { "database/migration-inventory.json": JSON.stringify(manifest) });
-  const add = (name: string, dependsOn: string[] = []) => {
-    manifest.migrations.push({ name, dependsOn });
-    write(root, { [`database/migrations/${name}`]: text });
+  const add = (name: string, dependsOn: string[] = [], module?: string) => {
+    manifest.migrations.push({ name, dependsOn, ...(module ? { module } : {}) });
+    write(root, { [name.startsWith("modules/") ? name : `database/migrations/${name}`]: text });
     save();
   };
   save();
@@ -629,6 +629,27 @@ test("module discovery orders dependencies before timestamps and paths, with can
   assert.deepEqual(entries[30]!.schemas, ["identity", "audit"]);
 });
 
+test("extension migrations share ordering, approved schemas and applied hashes with engine migrations", () => {
+  const f = fixture(),
+    base = "sources/202610041000_base.sql",
+    metals = "modules/metals/migrations/202610040900_prices.sql",
+    policy = "modules/policy/migrations/202610040800_policy.sql";
+  f.add(policy, [metals]);
+  f.add(metals, [base], "publication");
+  f.add(base);
+  const entries = loadMigrationInventory(f.root);
+  assert.deepEqual(
+    entries.slice(30).map(({ name, module, schemas }) => ({ name, module, schemas })),
+    [
+      { name: base, module: "sources", schemas: ["sources"] },
+      { name: metals, module: "publication", schemas: ["publication"] },
+      { name: policy, module: "policy", schemas: ["policy"] },
+    ],
+  );
+  validateAppliedMigrations(entries, [{ name: metals, sha256: entries[31]!.sha256 }]);
+  assert.throws(() => validateAppliedMigrations(entries, [{ name: metals, sha256: "0".repeat(64) }]), /Applied migration hash/);
+});
+
 type InvalidCase = [(f: ReturnType<typeof fixture>) => void, RegExp];
 test("changed, missing, unregistered, escaped and cyclic inputs cannot become a valid inventory", () => {
   const cases: InvalidCase[] = [
@@ -651,6 +672,16 @@ test("changed, missing, unregistered, escaped and cyclic inputs cannot become a 
       /Duplicate migration identity/,
     ],
     [(f) => f.add("unknown/202610041000_new.sql"), /Unknown module/],
+    [(f) => f.add("modules/metals/migrations/202610041000_new.sql", [], "unknown"), /Unknown module/],
+    [(f) => f.add("sources/202610041000_new.sql", [], "publication"), /noncanonical/],
+    [(f) => write(f.root, { "modules/policy/migrations/202610041000_hidden.sql": "SELECT 1;" }), /Unregistered/],
+    [
+      (f) => {
+        f.add("policy/202610041000_duplicate.sql");
+        f.add("modules/policy/migrations/202610041000_duplicate.sql");
+      },
+      /Duplicate migration filename/,
+    ],
     [
       (f) => {
         f.manifest.migrations.push({ name: "../escape.sql", dependsOn: [] });
@@ -677,6 +708,16 @@ test("changed, missing, unregistered, escaped and cyclic inputs cannot become a 
       (name): InvalidCase => [
         (f) => {
           rmSync(path.join(f.root, name), { recursive: true, force: true });
+          symlinkSync(path.join(ROOT, "database"), path.join(f.root, name));
+        },
+        /symlink/,
+      ],
+    ),
+    ...["modules", "modules/policy", "modules/policy/migrations", "modules/policy/migrations/202610041000_new.sql"].map(
+      (name): InvalidCase => [
+        (f) => {
+          f.add("modules/policy/migrations/202610041000_new.sql");
+          rmSync(path.join(f.root, name), { recursive: true });
           symlinkSync(path.join(ROOT, "database"), path.join(f.root, name));
         },
         /symlink/,

@@ -14,7 +14,7 @@ import { buildApp } from "./site-app.ts";
 const T = tag();
 const TARGET = `test-delivery-${T}`;
 const WEBHOOK = "https://delivery.invalid/test";
-const app = await buildApp("private-api");
+const app = await buildApp();
 const ids: number[] = [];
 const requests: number[] = [];
 const articleIds = new Map<number, string>();

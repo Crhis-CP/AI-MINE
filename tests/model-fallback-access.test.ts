@@ -22,7 +22,7 @@ test("real private API requires current model capability and CSRF, preserves CAS
   }
   const manager = await account("manager", true),
     ordinary = await account("ordinary", false),
-    app = await buildApp("private-api");
+    app = await buildApp();
   t.after(() => app.close());
   const get = (cookie?: string) => app.inject({ method: "GET", url: "/api/admin/model-fallbacks", headers: cookie ? { cookie } : {} });
   assert.equal((await get()).statusCode, 401);

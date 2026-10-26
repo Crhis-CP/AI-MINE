@@ -18,10 +18,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const result = await apiFetch("/api/site/policies/reports", {
     params: { query: parsed.data },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-    baseUrl: apiBaseFor("/api/site/policies"),
+    baseUrl: apiBaseFor(),
   });
   if (!result.ok) throw withHeaders(null, { status: 503 });
-  const scope = await apiFetch("/api/site/policies/scope", { signal: request.signal, baseUrl: apiBaseFor("/api/site/policies") });
+  const scope = await apiFetch("/api/site/policies/scope", { signal: request.signal, baseUrl: apiBaseFor() });
   return {
     listing: publicSchemas.PolicyReportList.parse(await result.json()),
     query: parsed.data,

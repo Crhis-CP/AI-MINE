@@ -128,8 +128,8 @@ if (process.argv.includes("--routes")) {
     },
   });
   const { buildApp } = await import("../../apps/api/src/app.ts");
-  const app = await buildApp("public-api");
-  const privateApp = await buildApp("private-api");
+  const app = await buildApp();
+  const privateApp = await buildApp();
   try {
     const navigation = await app.inject("/api/site/search/suggestions");
     assert.equal(navigation.statusCode, 200);
@@ -188,12 +188,16 @@ if (process.argv.includes("--routes")) {
     assert.equal(cursorError.statusCode, 400);
     assert.equal(cursorError.json().code, "invalid_cursor");
     assert.equal((await app.inject("/api/site/timeline?category=unapproved")).statusCode, 400);
-    assert.equal((await privateApp.inject({ url: "/api/site/timeline", headers: { "x-forwarded-host": "private.invalid" } })).statusCode, 404);
+    const timelineOnAdminHost = await privateApp.inject({ url: "/api/site/timeline", headers: { "x-forwarded-host": "private.invalid" } });
+    assert.equal(timelineOnAdminHost.statusCode, 200);
+    assert.deepEqual(publicSchemas.TimelineResponse.parse(timelineOnAdminHost.json()).cards, []);
     state.poolMode = "busy";
     const busyPool = await app.inject("/api/site/pool");
     assert.equal(busyPool.statusCode, 503);
     assert.equal(busyPool.headers["retry-after"], "17");
-    assert.equal((await privateApp.inject({ url: "/api/site/pool", headers: { "x-forwarded-host": "private.invalid" } })).statusCode, 404);
+    const busyPoolOnAdminHost = await privateApp.inject({ url: "/api/site/pool", headers: { "x-forwarded-host": "private.invalid" } });
+    assert.equal(busyPoolOnAdminHost.statusCode, 503);
+    assert.equal(busyPoolOnAdminHost.headers["retry-after"], "17");
     assert.equal((await app.inject("/api/auth/options")).statusCode, 404);
     const denied = await privateApp.inject("/api/auth/options");
     assert.equal(denied.statusCode, 404);

@@ -305,7 +305,7 @@ test("recorded weekly prices compare with the previous stored release and retain
 test("site-only price HTTP matches the reader, ignores generation time in ETags, and fails uncached on wrong units", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
   await seed("nbs.copper", "2026-09-11", "2026-09-20", "100.0");
-  const app = await buildApp("public-api");
+  const app = await buildApp();
   t.after(() => app.close());
   const first = await app.inject({ method: "GET", url: "/api/site/metal-prices" });
   assert.equal(first.statusCode, 200);

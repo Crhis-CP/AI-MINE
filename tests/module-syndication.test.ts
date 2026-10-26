@@ -69,7 +69,7 @@ test("RSS reminders and machine-reading additions reach every existing exit with
       },
     },
   ]);
-  const app = await buildApp("public-api");
+  const app = await buildApp();
   t.after(() => app.close());
   const [before] = await sql`SELECT (SELECT count(*) FROM receipts)::int receipts,(SELECT count(*) FROM fetch_runs)::int fetches`;
   const feeds = [

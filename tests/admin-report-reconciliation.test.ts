@@ -9,7 +9,7 @@ import { sessionPrincipal, AccountPermissionDenied } from "@amp/backend/admin/au
 import { requestManagedReport } from "@amp/backend/reports/compose";
 
 config.devAdmin = null;
-const app = await buildApp("api"),
+const app = await buildApp(),
   headers = await sourceOwnerHeaders();
 after(async () => {
   await app.close();

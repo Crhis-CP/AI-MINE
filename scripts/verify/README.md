@@ -182,7 +182,7 @@ node scripts/verify/data-ownership.ts --report > .verify/data-ownership.json
 
 `admin.ts` 中既有 `nav-counts` 与 `audit` 两个直接注册、经 `adminHandler` 的 GET 使用方法/路径作为已知SQL作用域身份，避免增加无关路由配置时因行号改变误报。首次从旧行号键迁移仅在业务文件前后字节完全相同、同模块/表/方向、计数完全相同且一对一时接受，旧键必须删除；重复路由、嵌套/未审路径不获此身份。UNKNOWN仍保留原作用域与依赖指纹，不借本机制迁移。后续稳定身份仍受原来的不得增额检查约束。
 
-预算两侧（含previous.baseline）都先校验为非负有限整数；错误值、缺失的预算字典或数组冒充字典、错误读模型列表或所属模块字段直接失败，不参与JavaScript隐式数值比较。迁移发现与执行器共同使用 `loadMigrationInventory`：先验证30份历史原件、登记、路径与依赖，再按拓扑消费原文和字节哈希；未登记的模块子目录不能被静默漏掉。历史迁移的 UNKNOWN key 与额度不变，`migrate.ts` 内建账本建表仍单独纳入。模块迁移可供离线报告解析，但执行器仍拒绝执行，须待模块DDL归属、schema-qualified授权目录与真实首个迁移同批接通。角色catalog只读数据库元目录，当前表/序列/RLS仍限public、owner/ACL限public和pgboss；没有为它加入无用的文件发现，也没有增加授权。
+预算两侧（含previous.baseline）都先校验为非负有限整数；错误值、缺失的预算字典或数组冒充字典、错误读模型列表或所属模块字段直接失败，不参与JavaScript隐式数值比较。迁移发现与执行器共同使用`loadMigrationInventory`，扫描database/migrations和modules/*/migrations；先验证30份历史原件、登记、路径与依赖，再按拓扑消费原文和字节哈希。扩展条目可显式关联既有数据归属，不能绕过SQL所有者或授权分类。未登记、重名、符号链接及未知归属拒绝；原历史UNKNOWN身份不变。执行器与真实模块迁移已接通，角色目录按当前schema-qualified登记和真实数据库元目录核对，不因目录发现扩大授权。登记说明见[scripts/migrations/README.md](../migrations/README.md)。
 
 锁定子图只从backend importer的postgres、pg-boss与根目录实际TypeScript 7出发，包含全部传递/可选依赖及已解析peer的package和snapshot完整条目（包括integrity）；用现有yaml的parseAllDocuments读取pnpm12多文档，缺节点或不支持的解析直接失败。B原始报告仍保留完整锁文件哈希作溯源，预算用相关子图指纹替换它：无关tooling依赖不消耗UNKNOWN预算，相关SQL库/解析依赖的锁项变化仍被拒绝；不推断其他JavaScript依赖。
 

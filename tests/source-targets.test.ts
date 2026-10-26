@@ -65,7 +65,7 @@ test("real private role sees source evidence in separate dimensions; no historic
   const [user] = await roles.auth`INSERT INTO admin_users(email,display_name) VALUES('target-reader@synthetic.invalid','Target reader') RETURNING id`;
   await roles.auth`INSERT INTO identity.account_access(user_id,role) VALUES(${user.id},'admin')`;
   await roles.auth`INSERT INTO admin_sessions(id_hash,user_id,csrf_token,expires_at) VALUES(${sha256("target-reader")},${user.id},'synthetic-csrf',now()+interval '1 hour')`;
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   t.after(() => app.close());
   const headers = { cookie: `${SESSION_COOKIE}=target-reader`, ...(config.privateHost ? { "x-forwarded-host": config.privateHost } : {}) };
   const read = await app.inject({ url: "/api/admin/source-targets?country=CN&page=2", headers });

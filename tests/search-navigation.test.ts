@@ -10,7 +10,7 @@ import { SearchSuggestions } from "@amp/contracts/http/public";
 import { buildApp } from "./site-app.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 
-const app = await buildApp("public-api");
+const app = await buildApp();
 after(async () => {
   await app.close();
   await stopBoss();

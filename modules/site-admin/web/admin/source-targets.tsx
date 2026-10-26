@@ -14,7 +14,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url),
     query = Object.fromEntries(["q", "country", "state", "page"].flatMap((key) => (url.searchParams.get(key) ? [[key, url.searchParams.get(key)!]] : [])));
   const path = "/api/admin/source-targets",
-    apiBase = apiBaseFor(path);
+    apiBase = apiBaseFor();
   const targets = privateSchemas.SourceTargetsResponse.parse(
     await adminGet<SourceTargetsData>(request, `${path}?${new URLSearchParams(query)}`, (_url, init) =>
       apiFetch(path, {

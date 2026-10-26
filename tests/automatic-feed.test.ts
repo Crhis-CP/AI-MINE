@@ -52,9 +52,9 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     privateHost: "private.automatic.test",
     devAdmin: null,
   });
-  const admin = await buildApp("private-api");
+  const admin = await buildApp();
   apps.push(admin);
-  const reader = await buildApp("public-api");
+  const reader = await buildApp();
   apps.push(reader);
   const headers = { "x-forwarded-host": "private.automatic.test", ...(await sourceOwnerHeaders()) };
   const sourceId = "automatic-fixture-feed";

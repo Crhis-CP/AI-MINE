@@ -17,7 +17,7 @@ import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { installModules, serverModules } from "@amp/backend/modules";
 
-const app = await buildApp("public-api");
+const app = await buildApp();
 after(async () => {
   await app.close();
   await stopBoss();

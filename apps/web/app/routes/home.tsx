@@ -38,7 +38,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         querySerializer: () => queryString(query).slice(1),
         headers: { accept: "application/json", "x-amp-ssr": "1" },
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
-        baseUrl: apiBaseFor("/api/site/timeline"),
+        baseUrl: apiBaseFor(),
       }).then(async (result) => {
         const body = await contractResult(result, publicSchemas.TimelineResponse);
         result.headers.forEach((value, name) => {
@@ -67,7 +67,7 @@ function featuredHasStarted(signal: AbortSignal) {
   return apiFetch("/api/site/stats", {
     headers: { accept: "application/json", "x-amp-ssr": "1" },
     signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
-    baseUrl: apiBaseFor("/api/site/stats"),
+    baseUrl: apiBaseFor(),
   })
     .then(async (result) => (await contractResult(result, publicSchemas.SiteStats)).selected > 0)
     .catch(() => false);
@@ -78,7 +78,7 @@ function loadLatest(signal: AbortSignal) {
   return apiFetch("/api/site/pool", {
     headers: { accept: "application/json", "x-amp-ssr": "1" },
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
-    baseUrl: apiBaseFor("/api/site/pool"),
+    baseUrl: apiBaseFor(),
   })
     .then((result) => contractResult(result, publicSchemas.PoolResponse))
     .then((pool) => (pool.items.length > 0 ? pool : ("empty" as const)))

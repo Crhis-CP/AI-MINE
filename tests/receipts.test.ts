@@ -433,7 +433,7 @@ test("manual HTTP resolution rejects billed/invalid inputs and commits audit, re
   config.privateHost = "private.receipt.test";
   config.devAdmin = null;
   const ownerHeaders = await sourceOwnerHeaders();
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   const observed = await versionFor(stopped.receiptId);
   const post = (payload: object) =>
     app.inject({

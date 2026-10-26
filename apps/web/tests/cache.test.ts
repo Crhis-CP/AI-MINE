@@ -4,7 +4,7 @@ import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
@@ -175,7 +175,7 @@ const apiCookies: Array<string | undefined> = [];
 const privateCookies: Array<string | undefined> = [];
 const privateAgents: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
-const privateApi = createServer(async (req, res) => {
+const protectedApi = async (req: IncomingMessage, res: ServerResponse) => {
   privateCookies.push(req.headers.cookie);
   privateAgents.push(req.headers["user-agent"]);
   privateCalls.push({ path: req.url!, forwarded: req.headers["x-forwarded-host"] as string | undefined });
@@ -524,9 +524,10 @@ const privateApi = createServer(async (req, res) => {
   }
   res.statusCode = 401;
   res.end(JSON.stringify({ code: "unauthorized" }));
-});
+};
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
+  if (/^\/api\/(?:admin|auth)(?:\/|$)/.test(url.pathname)) return protectedApi(req, res);
   apiCookies.push(req.headers.cookie);
   res.setHeader("Content-Type", "application/json");
   if (url.pathname === "/api/site/policy-threads/thread-fixture") {
@@ -692,8 +693,6 @@ before(async () => {
   refreshAt = new Date((deadline + 5) * 1000).toISOString();
   api.listen(0, "127.0.0.1");
   await once(api, "listening");
-  privateApi.listen(0, "127.0.0.1");
-  await once(privateApi, "listening");
   web = spawn(process.execPath, [fileURLToPath(new URL("../server.ts", import.meta.url))], {
     env: webEnvironment({
       ...process.env,
@@ -702,7 +701,6 @@ before(async () => {
       PRIVATE_HOST: "private.localhost",
       TRUST_PROXY: "false",
       API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
-      PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
     }),
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -732,7 +730,7 @@ after(async () => {
     web.kill("SIGTERM");
     await once(web, "exit");
   }
-  for (const server of [api, privateApi]) {
+  for (const server of [api]) {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
@@ -1485,7 +1483,6 @@ test("actual Vite SSR admits only the configured private Host for login", async 
         PRIVATE_HOST: "private.preview.test",
         WEB_ROUTE_GROUP: "private",
         API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
-        PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
       }),
       stdio: ["ignore", "pipe", "pipe"],
     },

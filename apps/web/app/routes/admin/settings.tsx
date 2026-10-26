@@ -49,7 +49,7 @@ interface Settings {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const path = "/api/admin/usage-protection",
-    apiBase = apiBaseFor(path);
+    apiBase = apiBaseFor();
   const [settings, runtime, monthly, protection, scopes, countries] = await Promise.all([
     adminGet<Omit<Settings, "runtime" | "monthly" | "protection" | "scopes" | "countries">>(request, "/api/admin/settings").catch(() => null),
     adminGet<unknown>(request, "/api/admin/lane-controls")
@@ -64,7 +64,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     adminGet<unknown>(request, "/api/admin/notify-target-scopes")
       .then((value) => NotifyTargetScopes.parse(value).items)
       .catch(() => null),
-    apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor("/api/site/jurisdictions") })
+    apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor() })
       .then(async (response) => {
         if (!response.ok) throw new Error("国家目录暂时无法读取");
         return publicSchemas.PolicyJurisdictionList.parse(await response.json())

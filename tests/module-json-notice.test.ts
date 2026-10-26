@@ -24,7 +24,7 @@ for (const stable of [false, true])
       notice: tag ? { notice: { tag }, private: tag !== "public" } : null,
     });
   });
-const app = await buildApp("public-api"),
+const app = await buildApp(),
   original = serverModules();
 for (const [path, body, notice] of [
   ["/invalid-array", [], { notice: {} }],

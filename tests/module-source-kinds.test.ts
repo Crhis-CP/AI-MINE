@@ -129,7 +129,7 @@ test("manual callbacks require Owner, respect pause/archive, and return the old 
   const f = await fixture(),
     previous = config.devAdmin;
   config.devAdmin = null;
-  const app = await buildApp("private-api");
+  const app = await buildApp();
   t.after(async () => {
     await app.close();
     config.devAdmin = previous;

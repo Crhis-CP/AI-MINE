@@ -58,7 +58,7 @@ async function translateFixture(id: string) {
   });
   assert.equal(result.status, "translated");
 }
-const app = await buildApp("public-api");
+const app = await buildApp();
 
 before(async () => {
   await installUsageFixtureForModel("deepseek-flash");
