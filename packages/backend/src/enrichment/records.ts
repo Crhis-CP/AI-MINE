@@ -2,13 +2,14 @@ import { sha256, stableJson } from "../lib/ids.ts";
 import { sql, type Db } from "../db.ts";
 
 /** Known complete no-material outcomes, including the former paid-prefilter-only form. */
-export async function recordedMaterialWaits(db: Db) {
+export async function recordedMaterialWaits(db: Db, articleId?: string) {
   return db<{ article_id: string; input_revision: number; oldest_at: Date }[]>`
     WITH complete AS (
       SELECT id,article_id,input_revision,created_at,
         (origin='model' AND relevance='unknown' AND output->'scores'='null'::jsonb
           AND coalesce(output->>'writer','')='' AND coalesce(pg_catalog.cardinality(receipt_ids),0)<=1) AS waiting
-      FROM analyses WHERE output ? 'scores' OR relevance='block'
+      FROM analyses WHERE (output ? 'scores' OR relevance='block')
+        AND (${articleId ?? null}::text IS NULL OR article_id=${articleId ?? null})
     ), latest AS (
       SELECT DISTINCT ON(article_id) article_id,input_revision,waiting FROM complete
       ORDER BY article_id,input_revision DESC,id DESC

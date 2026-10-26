@@ -5,7 +5,7 @@ import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapsho
 import { Readability } from "@mozilla/readability";
 import { prepareReadableDocument, type PreserveRule } from "./readable-dom.ts";
 import { contentDocument, assertPageContent, UnavailablePageError } from "../lib/page-content.ts";
-import { sql } from "../db.ts";
+import { sql, type Tx } from "../db.ts";
 import { emit } from "../modules.ts";
 import {
   crawlFetch as guardedFetch,
@@ -16,7 +16,13 @@ import {
   crawlFulltextAllowed,
   crawlExternal,
 } from "../acquisition/crawl.ts";
-import { readSourceDateContext } from "@amp/backend/admin/sources";
+import {
+  readSourceDateContext,
+  readCurrentSourcePolicy,
+  lockCurrentSourcePolicies,
+  lockSourceCollectionActive,
+  SourceCollectionPaused,
+} from "@amp/backend/admin/sources";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { languageHeaders } from "../lib/http-fetch.ts";
 import { jinaRead } from "../providers/jina.ts";
@@ -24,6 +30,9 @@ import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
 import { contentHash, updateMaterialPresentation, readCurrentBody } from "./materials.ts";
 import { isSignInRedirect } from "../lib/auth-page.ts";
+import { readPdfText, PdfPasswordRequired } from "./pdf-text.ts";
+import { BODY_READER_RECIPE, bodyReadingKey } from "./body-reading-key.ts";
+import { audit, previousAuditedCommand } from "../admin/auth.ts";
 
 export interface ExtractedBody {
   html: string;
@@ -76,8 +85,8 @@ export function readable(html: string, url: string, rules: { preserve?: Preserve
   return { html: clean, text, images, via: "readability" };
 }
 
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 function markdownToHtml(md: string): string {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const inline = (s: string) =>
     esc(s)
       .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '<img src="$2" alt="$1">')
@@ -114,12 +123,20 @@ export async function extractFromUrl(
     preserve?: PreserveRule[];
   },
 ): Promise<ExtractedBody | null> {
-  const direct = await crawlStep(`readability:${url}`, url, async () => {
+  // Older programs treat every saved body as complete; they must not consume a partial PDF result.
+  const direct = await crawlStep(`${BODY_READER_RECIPE}:${url}`, url, async () => {
     try {
       const res = await guardedFetch(url, { headers: languageHeaders(opts.acceptLanguage), timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
       if (isSignInRedirect(url, res.url)) return { authenticationRequired: true as const };
+      if (res.status === 200 && res.body.subarray(0, 5).toString("ascii") === "%PDF-") {
+        const text = await readPdfText(res.body);
+        return text.length < MIN_BODY_CHARS
+          ? null
+          : { html: `<p>${esc(text).replace(/\n/g, "<br>")}</p>`, text, images: [], via: "pdfjs" as const, bodyStatus: "unconfirmed" as const };
+      }
       if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url, opts);
     } catch (error) {
+      if (error instanceof PdfPasswordRequired) return { authenticationRequired: true as const };
       if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
       // Oversized bodies fail the same way on every try. Swallowing this sent the page to the paid
       // reader, which then cooled the whole host. The extract job records it and continues with an unconfirmed body.
@@ -168,43 +185,73 @@ async function extractArticleBody(
   const source = await readSourceDateContext(a.source_id);
   if (!source) return "skipped";
   const control = await requireRuntimeRunning(source.lane, ["collection"]);
+  const permission = await readCurrentSourcePolicy(a.source_id);
+  const readKey = permission ? bodyReadingKey(a, source.config, permission.permission_version) : null;
+  const guardWrite = async (tx: Tx) => {
+    await assertRuntimeControl(tx, control);
+    if (permission) await lockCurrentSourcePolicies(tx, [{ sourceId: a.source_id, permissionVersion: permission.permission_version }]);
+    try {
+      await lockSourceCollectionActive(tx, a.source_id);
+    } catch (error) {
+      if (error instanceof SourceCollectionPaused) throw new CrawlDeferred(new Date(Date.now() + 60_000), `body:${articleId}`, "collection_paused");
+      throw error;
+    }
+  };
+  const recordRead = async (tx: Tx, outcome: string) => {
+    if (readKey && !(await previousAuditedCommand("worker", "content.body-read", `content:${articleId}`, readKey, tx)))
+      await audit("worker", "content.body-read", `content:${articleId}`, "记录实际正文读取尝试", null, { inputRevision: a.revision, outcome }, readKey, tx);
+  };
   if (!(await crawlFulltextAllowed(a.url))) {
     await sql.begin(async (tx) => {
-      await assertRuntimeControl(tx, control);
+      await guardWrite(tx);
       await tx`UPDATE articles SET body_status='none' WHERE id=${articleId} AND revision=${a.revision} AND body_status='pending'`;
     });
     return "skipped";
   }
-  const got = await extractFromUrl(a.url, {
-    allowJina,
-    subject: `article:${a.id}`,
-    lane: source.lane,
-    runtimeControl: control,
-    acceptLanguage: source.config.acceptLanguage,
-    preserve: source.config.detail?.preserve,
-  });
+  let got: ExtractedBody | null;
+  try {
+    got = await extractFromUrl(a.url, {
+      allowJina,
+      subject: `article:${a.id}`,
+      lane: source.lane,
+      runtimeControl: control,
+      acceptLanguage: source.config.acceptLanguage,
+      preserve: source.config.detail?.preserve,
+    });
+  } catch (error) {
+    if (!(error instanceof CrawlDeferred) || error.reason === "source_reader_pending")
+      await sql.begin(async (tx) => {
+        await guardWrite(tx);
+        await recordRead(tx, "unavailable");
+      });
+    throw error;
+  }
   if (!got) {
     await sql.begin(async (tx) => {
-      await assertRuntimeControl(tx, control);
+      await guardWrite(tx);
       await tx`UPDATE articles SET body_status='unconfirmed',updated_at=now() WHERE id=${articleId} AND revision=${a.revision} AND body_status<>'ok'`;
+      await recordRead(tx, "unconfirmed");
     });
     return "unconfirmed";
   }
-  const body = z.object({ html: z.string(), text: z.string() }).parse(got);
+  const body = z.object({ html: z.string(), text: z.string(), bodyStatus: z.enum(["ok", "unconfirmed"]).optional() }).parse(got);
+  const bodyStatus = body.bodyStatus ?? "ok";
+  if (!permission) throw new CrawlBlocked("crawl_body_permission_missing");
   // The body is new content: a new revision, so an analysis of the body-less input counts as stale.
   const stored = await sql.begin(async (tx) => {
-    await assertRuntimeControl(tx, control);
+    await guardWrite(tx);
     const [row] = await tx<
       { title: string; excerpt: string | null; content_hash: string | null }[]
     >`SELECT title, excerpt, content_hash FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
     if (!row) return false;
+    await recordRead(tx, bodyStatus);
     const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
     if (row.content_hash === hash) {
-      await updateMaterialPresentation(articleId, { html: body.html, bodyStatus: "ok" }, tx);
+      await updateMaterialPresentation(articleId, { html: body.html, bodyStatus }, tx);
       return true;
     }
     const [r] = await tx<{ revision: number }[]>`
-      UPDATE articles SET body_html = ${body.html}, body_text = ${body.text}, body_status = 'ok',
+      UPDATE articles SET body_html = ${body.html}, body_text = ${body.text}, body_status = ${bodyStatus},
         media = CASE WHEN jsonb_array_length(media) = 0 THEN ${tx.json(got.images as never)}::jsonb ELSE media END,
         grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
       selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
@@ -215,7 +262,7 @@ async function extractArticleBody(
     if (source.lane === "news") await emit("articleChanged", { id: articleId, kind: "content", reason: "body extraction" }, tx);
     return true;
   });
-  return stored ? "ok" : "skipped";
+  return stored ? (bodyStatus === "ok" ? "ok" : "partial") : "skipped";
 }
 
 export { collapseWhitespace };

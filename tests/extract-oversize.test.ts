@@ -6,11 +6,15 @@ import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { closeDb, sql } from "@amp/backend/db";
 import { commitProcessingResult, upsertMaterial } from "@amp/backend/content/materials";
-import { queueProcessing, registerExtractionJobs } from "@amp/backend/jobs/content";
+import { queueProcessing, registerExtractionJobs, sweepUnprocessed } from "@amp/backend/jobs/content";
 import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { installModules, serverModules } from "@amp/backend/modules";
+import { textPdf } from "./pdf-fixture.ts";
+import { bodyReadingKey } from "../packages/backend/src/content/body-reading-key.ts";
+import { audit } from "../packages/backend/src/admin/auth.ts";
+import { readSourceDateContext, readCurrentSourcePolicy } from "@amp/backend/admin/sources";
 
 const sourceId = "extract-oversize-source",
   hits = new Map<string, number>(),
@@ -22,8 +26,9 @@ const server = http.createServer((req, res) => {
   const path = req.url!;
   hits.set(path, (hits.get(path) ?? 0) + 1);
   const reply = () => {
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(path === "/normal" ? html : oversized);
+    const pdf = path.startsWith("/pdf");
+    res.writeHead(200, { "content-type": pdf ? "application/pdf" : "text/html; charset=utf-8" });
+    res.end(pdf ? textPdf(path === "/pdf-empty" ? "" : body + "<script>not executable</script>") : path === "/normal" ? html : oversized);
   };
   const pending = held.get(path);
   if (pending) void pending.promise.then(reply);
@@ -91,6 +96,61 @@ const completed = async (id: string) =>
       `Extraction must finish without waiting for a ten-minute retry: ${id}`,
     )
   )[0]!.output;
+
+test("PDF text uses the same extraction job, creates a partial revision and continues analysis without a reader purchase", async () => {
+  const item = await upsertMaterial(material("/pdf"));
+  assert.ok(await queueProcessing(item.articleId));
+  assert.equal((await completed(item.articleId)).state, "partial");
+  const row = await state(item.articleId);
+  assert.equal(row.revision, 2);
+  assert.equal(row.body_status, "unconfirmed");
+  assert.match(row.body_text, /copper production/);
+  assert.match(row.body_html, /&lt;script&gt;/);
+  assert.ok(!row.body_html.includes("<script>"));
+  assert.equal(row.processing_error, null);
+  assert.equal(hits.get("/pdf"), 1);
+  assert.deepEqual(
+    (await analysis(item.articleId)).map((job) => [job.state, job.data.lane]),
+    [["created", "news"]],
+  );
+  assert.equal((await sql`SELECT count(*)::int AS n FROM receipts`)[0].n, 0);
+});
+
+test("pausing a source while its PDF is in flight prevents material writes and analysis", async () => {
+  const path = "/pdf-paused",
+    release = gate();
+  held.set(path, release);
+  const item = await upsertMaterial(material(path));
+  const before = await state(item.articleId);
+  assert.ok(await queueProcessing(item.articleId));
+  try {
+    await until(
+      async () => hits.get(path) ?? 0,
+      (n) => n === 1,
+      "PDF fetch must be in flight",
+    );
+    const [active] = await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.extractBody} AND data->>'articleId'=${item.articleId} AND state='active'`;
+    assert.ok(active, "capture the exact attempt holding this response");
+    await sql`UPDATE sources SET enabled=false WHERE id=${sourceId}`;
+    release.open();
+    const rows = await until(
+      () => sql`SELECT output FROM pgboss.job WHERE id=${active.id} AND state='completed'`,
+      (rows) => rows.length > 0,
+      "The paused extraction must settle",
+    );
+    assert.equal(rows[0].output.state, "deferred");
+    const after = await state(item.articleId);
+    assert.deepEqual(
+      [after.revision, after.body_text, after.body_html, after.body_status, after.processing_attempts],
+      [before.revision, before.body_text, before.body_html, before.body_status, before.processing_attempts],
+    );
+    assert.equal((await analysis(item.articleId)).length, 0);
+  } finally {
+    release.open();
+    await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.extractBody} AND data->>'articleId'=${item.articleId} AND state IN ('created','retry')`;
+    await sql`UPDATE sources SET enabled=true WHERE id=${sourceId}`;
+  }
+});
 
 test("a real oversized response settles once, retains its reason and lets another page on the same source proceed", async (t) => {
   const prior = serverModules(),
@@ -199,4 +259,39 @@ test("an oversized response cannot change a settled article on the same revision
   } finally {
     release.open();
   }
+});
+
+test("the existing server sweep resumes a material wait once and respects source pause and later configuration changes", async () => {
+  const item = await upsertMaterial({ ...material("/pdf-empty"), excerpt: null, bodyStatus: "unconfirmed" });
+  const waiting = async () => {
+    await sql`UPDATE articles SET processing_state='analyzed',processing_queued_at=NULL WHERE id=${item.articleId}`;
+    await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,selected,receipt_ids,output)
+      VALUES(${item.articleId},1,'model','unknown',false,'{}'::bigint[],'{"prefilter":null,"scores":null}'::jsonb)`;
+  };
+  const reads = () => sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.extractBody} AND data->>'articleId'=${item.articleId}`;
+  await waiting();
+  const source = (await readSourceDateContext(sourceId))!,
+    permission = (await readCurrentSourcePolicy(sourceId))!;
+  const requestId = bodyReadingKey({ id: item.articleId, revision: 1, url: `${base}/pdf-empty` }, source.config, permission.permission_version);
+  // A queued intent left by an earlier deployment is not proof its reader actually ran.
+  await audit("worker", "content.body-resume", `content:${item.articleId}`, "Synthetic interrupted dispatch", null, { jobId: null }, requestId);
+  await sql`UPDATE sources SET enabled=false WHERE id=${sourceId}`;
+  try {
+    await sweepUnprocessed();
+    assert.equal((await reads()).length, 0);
+  } finally {
+    await sql`UPDATE sources SET enabled=true WHERE id=${sourceId}`;
+  }
+  await sweepUnprocessed();
+  assert.equal((await completed(item.articleId)).state, "unconfirmed");
+  await waiting(); // The normal no-material analysis remains a wait, without a model call.
+  const attempted = (await reads()).length;
+  await sweepUnprocessed();
+  assert.equal((await reads()).length, attempted, "unchanged failed input is not endlessly retried");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM audit_log WHERE action='content.body-resume' AND subject=${`content:${item.articleId}`}`)[0].n, 1);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM audit_log WHERE action='content.body-read' AND subject=${`content:${item.articleId}`}`)[0].n, 1);
+  await sql`UPDATE sources SET config=config || '{"acceptLanguage":"en-GB"}'::jsonb WHERE id=${sourceId}`;
+  await sweepUnprocessed();
+  assert.ok((await reads()).length > attempted, "a changed reading configuration can resume automatically");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM receipts`)[0].n, 0);
 });

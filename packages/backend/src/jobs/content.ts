@@ -1,7 +1,7 @@
 import { applyPresentationRefresh } from "../admin/content-presentation.ts";
-import { audit } from "../admin/auth.ts";
+import { audit, previousAuditedCommand } from "../admin/auth.ts";
 import { isModelRouteWaiting, modelRouteWaitSeconds } from "../providers/model-fallback.ts";
-import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
+import { RuntimeControlPaused, RuntimeControlStale, runtimeControlSnapshot, assertRuntimeControl } from "../operations/lane-controls.ts";
 // Content processing: body extraction when the source needs it → analysis → publish → event grouping.
 // Every article reaches the queues through queueProcessing, which records when it was queued, so the
 // safety net only picks up articles nothing is working on and sends those still waiting for a body to
@@ -11,11 +11,21 @@ import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-co
 import { needsGeographyAnalysis } from "../editorial/geography.ts";
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
-import { config } from "../config.ts";
+import { config, sourceCollectionEnabled } from "../config.ts";
 import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
-import { isHistorical, readCurrentBody } from "../content/materials.ts";
+import { isHistorical, readCurrentBody, resetMaterialProcessing } from "../content/materials.ts";
+import { recordedMaterialWaits } from "../enrichment/records.ts";
+import {
+  readSourceDateContext,
+  readCurrentSourcePolicy,
+  evaluateSourcePolicy,
+  lockSourceCollectionActive,
+  SourceCollectionPaused,
+} from "@amp/backend/admin/sources";
+import { bodyReadingKey } from "../content/body-reading-key.ts";
+import { usableSourceText } from "../lib/text.ts";
 import { publishArticle, prepareTranslation } from "../publication/publish.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
@@ -382,9 +392,10 @@ export async function registerExtractionJobs(boss: PgBoss) {
     try {
       const state = await extractArticleBody(articleId, undefined, data.crawlSessionId, inputRevision);
       const current = await readCurrentBody(articleId);
-      if (!current || current.revision < inputRevision || current.revision > inputRevision + (state === "ok" ? 1 : 0)) return { state: "stale" };
+      const stored = state === "ok" || state === "partial";
+      if (!current || current.revision < inputRevision || current.revision > inputRevision + (stored ? 1 : 0)) return { state: "stale" };
       const resultRevision = current.revision;
-      if (state === "ok" && resultRevision === inputRevision)
+      if (stored && resultRevision === inputRevision)
         await enqueue(QUEUES.republishSource, { lane: "news", sourceId: current.source_id }, { singletonKey: current.source_id });
       const changed = await sql`UPDATE articles SET processing_error = NULL, processing_retry_at = NULL, processing_queued_at = NULL
           WHERE id = ${articleId} AND revision=${resultRevision} AND processing_state = 'new' RETURNING id`;
@@ -429,6 +440,76 @@ export async function registerExtractionJobs(boss: PgBoss) {
  * Safety net: articles waiting for processing that no queue holds (crash between write and enqueue,
  * a lost job, a retry that came due). Articles already queued or running are left alone.
  */
+let bodyResumeCursor = "";
+/** Audit ids persist retries; this per-worker cursor only bounds metadata scans. */
+async function resumeMaterialWaits(): Promise<number> {
+  if (!sourceCollectionEnabled("news")) return 0;
+  const control = await runtimeControlSnapshot("news", ["collection"]);
+  if (control.paused) return 0;
+  const waits = (await recordedMaterialWaits(sql)).sort((a, b) => (a.article_id < b.article_id ? -1 : a.article_id > b.article_id ? 1 : 0));
+  const batch = [...waits.filter((w) => w.article_id > bodyResumeCursor), ...waits.filter((w) => w.article_id <= bodyResumeCursor)].slice(0, 500);
+  let resumed = 0;
+  for (const wait of batch) {
+    bodyResumeCursor = wait.article_id;
+    try {
+      resumed += await sql.begin(async (tx) => {
+        await tx`SET LOCAL statement_timeout='2s'`;
+        await assertRuntimeControl(tx, control);
+        const [identity] = await tx<{ source_id: string }[]>`SELECT source_id FROM articles WHERE id=${wait.article_id}`;
+        if (!identity) return 0;
+        await lockSourceCollectionActive(tx, identity.source_id);
+        const source = await readSourceDateContext(identity.source_id, tx);
+        if (source?.lane !== "news" || source.participation_mode !== "editorial") return 0;
+        const [current] = await tx<
+          { source_id: string; revision: number; url: string; language: string | null; body_text: string | null; excerpt: string | null }[]
+        >`
+          SELECT source_id,revision,url,language,body_text,excerpt FROM articles
+          WHERE id=${wait.article_id} AND processing_state='analyzed' AND revision=${wait.input_revision} AND body_status<>'ok' FOR UPDATE`;
+        if (
+          !current ||
+          current.source_id !== source.id ||
+          !normalizeSourceLanguage(current.language) ||
+          !pageFetchable(current.url, source.kind) ||
+          usableSourceText(current.body_text) ||
+          usableSourceText(current.excerpt)
+        )
+          return 0;
+        const permission = await readCurrentSourcePolicy(source.id, tx);
+        if (!permission) return 0;
+        for (const capability of ["fetch", "store_metadata", "process_locally", "store_fulltext"] as const) {
+          const allowed = await evaluateSourcePolicy(
+            {
+              source_id: source.id,
+              expected_permission_version: permission.permission_version,
+              lane: "news",
+              capability,
+              resource: { url: current.url, document_type: source.config.policyProfile?.identity?.documentType?.value ?? null, attachment: false },
+            },
+            undefined,
+            tx,
+          );
+          if (allowed.decision !== "allow") return 0;
+        }
+        if (!(await recordedMaterialWaits(tx, wait.article_id)).some((w) => w.input_revision === current.revision)) return 0;
+        const requestId = bodyReadingKey({ id: wait.article_id, revision: current.revision, url: current.url }, source.config, permission.permission_version);
+        const target = `content:${wait.article_id}`,
+          action = "content.body-resume";
+        if (await previousAuditedCommand("worker", "content.body-read", target, requestId, tx)) return 0;
+        await resetMaterialProcessing(wait.article_id, true, tx);
+        const jobId = await queueProcessing(wait.article_id, { step: "extract", lowPriority: true, db: tx });
+        if (!(await previousAuditedCommand("worker", action, target, requestId, tx)))
+          await audit("worker", action, target, "读取能力就绪后自动续接缺材料记录", null, { jobId, inputRevision: current.revision }, requestId, tx);
+        return jobId ? 1 : 0;
+      });
+    } catch (error) {
+      if (error instanceof SourceCollectionPaused) continue;
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) break;
+      throw error;
+    }
+  }
+  return resumed;
+}
+
 export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
   const rows = await sql<{ id: string }[]>`
     SELECT id FROM articles
@@ -437,7 +518,7 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
       AND (processing_queued_at IS NULL OR processing_queued_at < now() - ${QUEUED_STALE}::interval)
     ORDER BY discovered_at DESC LIMIT 500`;
   for (const r of rows) await queueProcessing(r.id);
-  return { enqueued: rows.length };
+  return { enqueued: rows.length + (await resumeMaterialWaits()) };
 }
 
 /**
