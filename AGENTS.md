@@ -103,3 +103,14 @@ make release-check                 # 尚未实现的制品/SBOM/签名入口；�
 本轮在统一整合分支保存检查点并维护一份草稿 PR，随提交更新任务卡的“交付记录 / 未完成项”。新会话只读任务卡 + 分支 + 模块 README 即可接力，不依赖聊天；进度看 `tasks/INDEX.md`。并行度与额度由集成人调度，卡粒度 ≤400 行有效改动。
 
 详细协作规则：`docs/06-agents/01-parallel-development-rules.md`；路线图：`docs/06-agents/02-roadmap-and-wbs.md`。
+
+## Cursor Cloud specific instructions
+
+Cloud Agent 用主机上的 Node 跑开发服务，数据库用 compose 锁定的 Postgres 镜像。不要把 `docker compose up --build` 当作日常改代码的启动方式。
+
+- Node 是 `/usr/local/bin` 里的 24.21.0，npm 是 11.19.0。登录 shell 会把它放在平台自带的 Node 22 前面。如果 `node -v` 仍是 22，先执行 `export PATH="/usr/local/bin:$PATH"`。
+- Postgres 容器名 `amp-dev-db`，只监听 `127.0.0.1:5432`，信任认证。应用库是 `amp`，连接串 `postgres://postgres@127.0.0.1:5432/amp`。跑测试时库名必须以 `_test` 或 `_ci` 结尾，不要指向 `amp`。
+- 读者站 `http://127.0.0.1:3000`，API `http://127.0.0.1:3001`，后台 `http://private.localhost:3003/admin`。tmux 会话是 `dockerd`、`api`、`worker`、`web`、`web-private`。
+- 这些进程启动时关闭采集和模型调用。`.env` 只在本机由 `node scripts/init-env.ts` 生成，不要提交。管理员密码只写在这份 `.env` 里。
+- web 进程不能持有数据库地址、密码或模型密钥。启动读者站时只传 `SITE_URL`、`API_BASE_URL` 和 `PRIVATE_HOST`。
+- `npm run check` 里，`deploy/test_release_recovery_bindings.py` 有两项会交替失败，和这次环境安装无关。类型检查、格式和其余快速检查可以通过。
