@@ -526,4 +526,6 @@ publication消费现有模块independentSelectedSources精确ID清单，去重�
 
 此检查不建新队列、不调用Reader/模型、不重排等待稿、不改变原告警数值阈值。已有analyzed/unknown材料不会因补凭据自动重处理，恢复须另核许可、修订和人工状态后走原受控入口。读取能力方案见验收目录reader-capability-decision-20261025.md；源码强制key与官方基础无key模式不同，不自动切换。
 
-TASK-0484为独立兼容契约：config.bodyReaderConfiguration仅返回非秘密state/detail，状态为disabled/missing/configured/unavailable，配置齐全不宣称服务已验证。processing结果允许可选body_reader，旧日志缺字段表示未观测，旧MCP payload和HTTP不变。当前巡检及告警尚未调用新getter或输出字段；实际消费者待契约合并后接通，届时与material_wait并列，关闭备用仍保留等待数。无Reader/模型调用，不启用服务。
+TASK-0484为独立兼容契约：config.bodyReaderConfiguration仅返回非秘密state/detail，状态为disabled/missing/configured/unavailable，配置齐全不宣称服务已验证。processing结果允许可选body_reader，旧日志缺字段表示未观测，旧MCP payload和HTTP不变。该契约PR未调用新getter或输出字段；实际消费者由下述TASK0485在契约合并后接通，与material_wait并列，关闭备用仍保留等待数。无Reader/模型调用，不启用服务。
+
+TASK-0485消费上述已合并契约：原提醒及processing采样共用bodyReaderConfiguration。采样结果并列body_reader和material_wait，关闭或缺配置不隐藏数量；统计失败保留配置状态但不补0。旧严格MCP快照、HTTP与材料/人工控制不变。配置齐全仍明确未验证服务，未部署。

@@ -13,7 +13,7 @@ import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
 import { addDays, beijingDate, beijingMidnight, beijingTime, isoWeekLabel } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
-import { credential, environmentValue, sourceCollectionEnabled } from "../config.ts";
+import { bodyReaderConfiguration, sourceCollectionEnabled } from "../config.ts";
 import { readSourceTargetEvidence } from "@amp/backend/sources/evidence";
 import { sql } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
@@ -381,16 +381,11 @@ export async function collectFindings(
 
   // ---- Money, and things only the owner can do --------------------------------------------------
   if (sourceCollectionEnabled("news") && !newsCollectionPaused) {
-    if (environmentValue("JINA_BODY_FALLBACK") === "false") observeCheck?.(`${READER_CONFIGURATION}.disabled`);
+    const reader = bodyReaderConfiguration();
+    if (reader.state === "disabled") observeCheck?.(`${READER_CONFIGURATION}.disabled`);
     else {
       observeCheck?.(READER_CONFIGURATION);
-      let problem: string | null = null;
-      try {
-        if (!credential("collectors", "JINA_API_KEY")) problem = "未配置正文读取凭据";
-      } catch {
-        problem = "正文读取凭据配置无法读取";
-      }
-      if (problem)
+      if (reader.state !== "configured")
         out.push({
           key: READER_CONFIGURATION,
           level: "today",
@@ -398,7 +393,7 @@ export async function collectFindings(
           impact: "兜底开关已开启，但缺少可用配置；普通提取无法读取的网页或PDF会继续等待材料。",
           heals: "不会，仅补齐配置也不代表读取服务已实测通过",
           action: "请确认正文读取方案并通过安全入口补齐配置；如暂不启用，应明确关闭兜底。",
-          detail: problem,
+          detail: reader.detail,
         });
     }
   }

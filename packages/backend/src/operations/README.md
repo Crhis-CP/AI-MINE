@@ -10,7 +10,7 @@ TASK-0323的`scripts/source-health-repair.ts`仅用于已核实的三处官方�
 
 `operations/reports`沿既有出口提供`refreshOperationalSnapshots`和`readOperationalSnapshot`。worker每两分钟顺序读取各模块自有的固定聚合端口，单查询2秒上限；数据经严格的`@amp/contracts/ops-mcp`结构验证后写入ops.operational_snapshots。原始错误不写入快照，采样失败保留最后成功时间并标明失败时间；超过5分钟的样本显示陈旧。
 
-TASK0484仅准备processing运行结果的可选body_reader契约，以及bodyReaderConfiguration提供的disabled/missing/configured/unavailable和固定中文detail；配置齐全不是服务可用证据。原任务尚不调用此getter、不输出新字段；旧MCP payload不变。消费者在独立契约合并后接通，与material_wait并列。
+TASK0484仅准备processing运行结果的可选body_reader契约，以及bodyReaderConfiguration提供的disabled/missing/configured/unavailable和固定中文detail；配置齐全不是服务可用证据。该契约PR没有调用此getter或输出新字段，旧MCP payload不变；后续消费者由下述TASK0485接通，与material_wait并列。
 
 private-api的`POST /mcp-ops`只接受当前具名Owner与既有CSRF，提供`read_operations`一个工具和固定13数据集，每次最多100行。服务最多2个并发读取，每位Owner每分钟30次；不接受订阅、任意查询、任务或命令。专用ops_read仅SELECT快照；缺专用地址不退回private_ops。身份与调用审计仍由auth承担，当前Owner能力锁持有到读取与审计完成；角色被撤销即拒绝后续读取。
 
@@ -46,3 +46,5 @@ TASK0458：feedbackKeys可为当前IP提供模块自有匿名来源标识，与�
 价格及来源异常仅在首次出现、原因/影响变化或恢复时通知。既有alerts.state保存比较依据；日摘要与即时异常按独立字段合并，避免互相覆盖。来源等待时间、连续失败次数增长本身不产生新原因；采集关闭或人工暂停不作为恢复证明。其他服务的原有提醒频率未调整。
 
 报告恢复只依据本轮确实检查过的刊种：worker启动等待、采集/模型禁用、人工暂停或尚未到检查时间时，保留旧报告异常，不发送恢复消息；同样保留因启动等待而跳过的内容处理、热点异常，内容处理禁用或暂停也不视为恢复。实际检查确认恢复后只关闭一次。原20分钟启动等待和报告出刊资格保持（TASK-0428）。
+
+TASK0485已接PR324契约：原告警与processing巡检共用配置判断，运行结果并列body_reader与material_wait。关闭备用仍统计等待；配置不可读不阻断统计，统计失败不补0且保留配置状态。未调用外部服务，旧MCP payload不变。源码接通不等于生产已显示。
