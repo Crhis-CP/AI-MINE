@@ -2,7 +2,7 @@
 // alerts (off unless FEISHU_INTERNAL_ENABLED).
 import { sourceWeeklyItems } from "../content/source-health.ts";
 import { weeklySelectedCount } from "../publication/operational-snapshot.ts";
-import { sourceWeeklyCounts, sourceHealth, SOURCE_PROBLEMS } from "../sources/health.ts";
+import { sourceWeeklyCounts, sourceHealth, SOURCE_PROBLEMS, rhythmText } from "../sources/health.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { serverModules } from "../modules.ts";
 import { previousRecordedRun } from "../admin/runs.ts";
@@ -42,8 +42,15 @@ export async function sourceHealthWeekly(now = Date.now()) {
   for (const group of groups) {
     lines.push("", `${group.name}：${group.sources.length} 个在用信源；本周归属条目 ${n(group.sources.reduce((sum, s) => sum + s.items, 0))} 条`);
     for (const problem of SOURCE_PROBLEMS) if (group[problem.problem].length) lines.push(`${problem.title}：${group[problem.problem].length} 个信源`);
-    if (group.overdue.length) lines.push(`超出自身更新节奏（先核对原站）：${group.overdue.length} 个信源`);
-    if (group.unknown.length) lines.push(`7 天没有新内容（历史不足，尚不能判断是否异常）：${group.unknown.length} 个信源`);
+    const dailySources = new Set(SOURCE_PROBLEMS.flatMap((problem) => group[problem.problem].map((source) => source.id)));
+    for (const [sources, title] of [
+      [group.overdue, "超出自身更新节奏（先核对原站）"],
+      [group.unknown, "7 天没有新内容（历史不足，尚不能判断是否异常）"],
+    ] as const) {
+      if (!sources.length) continue;
+      const details = sources.filter((source) => !dailySources.has(source.id)).map((source) => `${source.name}（${source.id}）：${rhythmText(source)}`);
+      lines.push(`${title}：${sources.length} 个信源${details.length ? `；${details.join("；")}` : "（已有故障明细见日报）"}`);
+    }
   }
   const overdue = groups.reduce((sum, g) => sum + g.overdue.length, 0),
     silent = overdue + groups.reduce((sum, g) => sum + g.unknown.length, 0);
@@ -72,7 +79,7 @@ export async function sourceHealthWeekly(now = Date.now()) {
   lines.push(
     "",
     followUp
-      ? "逐项问题由系统日报发送，未送达的仍保留待发送；后台“信源”可查最近抓取错误和等待记录，“运行”可查任务状态。质量统计变化不代表问题已核实修复。"
+      ? "故障明细由系统日报发送，未送达的仍保留待发送；本报另保留未列入日报的更新节奏资料，不据静默判断故障。后台“信源”可查最近抓取错误和等待记录，“运行”可查任务状态。质量统计变化不代表问题已核实修复。"
       : "没有需要处理的信源。",
   );
   await sendAlert("📊 信源周报", lines);

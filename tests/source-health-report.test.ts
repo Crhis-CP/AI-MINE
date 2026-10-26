@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { sourceHealthWeekly } from "@amp/backend/operations/reports";
+import { mockFeishuAlerts } from "./feishu-alert-fixture.ts";
 
 after(closeDb);
 
@@ -97,7 +98,7 @@ test("source error details stay exact while the weekly report only summarizes th
   assert.ok(!report.lines.some((line: string) => line.includes("synthetic.invalid") || line.includes("check selectors")));
 });
 
-test("quiet sources use their own dated rhythm, with first imports and discovery channels kept distinct", async () => {
+test("quiet sources use their own dated rhythm, with first imports and discovery channels kept distinct", async (t) => {
   const now = Date.parse("2026-10-18T12:00:00Z"),
     day = 86400_000;
   const make = async (label: string, mode = "editorial") => {
@@ -136,6 +137,12 @@ test("quiet sources use their own dated rhythm, with first imports and discovery
   assert.equal(editorial.unknown.find((s) => s.id === old)?.ever_output, true);
   assert.equal(editorial.unknown.find((s) => s.id === old)?.evidence_days, 0);
   assert.equal(signals.overdue.find((s) => s.id === signal)?.evidence_days, 4);
+  const delivery = mockFeishuAlerts(t);
+  await sourceHealthWeekly(now);
+  assert.ok(delivery.messages[0]!.includes(daily), "weekly-only rhythm evidence remains identifiable");
+  assert.ok(delivery.messages[0]!.includes(never), "insufficient history remains identifiable without a daily fault alert");
+  assert.ok(delivery.messages[0]!.includes(signal));
+  assert.ok(!delivery.messages[0]!.includes(slow), "a low-frequency source within its own rhythm is not an issue");
 });
 
 test("sustained failures survive a successful fetch, while unrelated work cannot clear a presentation failure", async () => {
