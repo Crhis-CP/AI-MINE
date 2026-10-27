@@ -79,6 +79,7 @@ test("the capability is explicit for list and detail queries and never inferred 
   assert.equal(ReportGroupReportsQuery.safeParse({ take: 41 }).success, false);
   const memberFilters = {
     q: "合成",
+    tab: "relevance",
     source: "synthetic-source",
     mineral: "copper",
     on: "2026-10-01",

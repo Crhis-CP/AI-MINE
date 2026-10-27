@@ -293,7 +293,7 @@ export const GroupReport = z.strictObject({
   originalUrl: z.url({ protocol: /^https?$/ }),
   selected: z.boolean(),
 });
-export const ReportGroupReportsQuery = PoolQuery.omit({ tab: true, page: true }).extend({
+export const ReportGroupReportsQuery = PoolQuery.omit({ page: true }).extend({
   cursor: z.string().optional(),
   take: z.int().min(1).max(40).optional(),
   revision: z.string().optional(),
