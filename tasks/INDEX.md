@@ -365,6 +365,7 @@
 | [TASK-0494](TASK-0494.md) | T-0101 | M3 | architect | locally_verified | 材料自动续接的人工保护与意图接口 | — |
 | [TASK-0499](TASK-0499.md) | T-0101 | M3 | architect | locally_verified | 消除日周来源重复并避免质量假恢复 | — |
 | [TASK-0502](TASK-0502.md) | T-0101 | M3 | architect | locally_verified | 多来源报道阅读组兼容契约 | — |
+| [TASK-0506](TASK-0506.md) | T-0101 | M3 | architect | locally_verified | 报道来源展开保留父列表搜索模式 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

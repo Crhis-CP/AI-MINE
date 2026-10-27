@@ -26413,6 +26413,18 @@
           },
           {
             "in": "query",
+            "name": "tab",
+            "required": false,
+            "schema": {
+              "enum": [
+                "time",
+                "relevance"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "source",
             "required": false,
             "schema": {
