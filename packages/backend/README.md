@@ -560,6 +560,8 @@ TASK0494声明同事务的SourceEditorialResumeMarker与ManualProcessingExclusio
 
 TASK0503依据Owner默认关闭决定，使用唯一 `ORIGINAL_POST_ADMISSION_ENABLED`（仅精确 `true` 开启，API/worker默认false）。空/链接/仅媒体原帖在付费前等待；中文短帖只关闭旧summarize 20字符门槛以下新增verbatim准入，高分understand、正常原帖及已取得长文保持。评测/缓存/恢复不能绕过，开启仍须Chris另行确认。publication保存内部准入依赖，当前公开读取和派生文本再核开关；服务内缓存、同步游标及撤回版本跟随状态变化，关闭不依赖重投影、不删除历史，也不暴露内部字段。
 
+原帖导读与直译分开：同次短帖写作的summary_zh只存真正摘要，body_zh只作带修订/配方/真实回执的私有副本；保存全文许可不足时改用已有摘要任务，不请求完整直译。严格正文仍由translations及public_translation独立处理。publication.x_post内部summaryKind区分导读身份，view可为空；旧未分类译文不能借public_summary继续公开。事实来源、事件报告与共享条目读取同用当前摘要许可和URL范围，派生事件文字也在撤权时停止沿用。
+
 本批运行代码尚未部署；固定真实材料、模型效果和获准发布后的自然任务仍须验收。通用入口可接收提供者明确给出的xPost，但没有新建或启用X/SocialData等付费来源，未取得的长文不伪造。来源发布者证据与发现协作按架构清单A04继续核对，不把本批原帖消费者等同整个A04完成。
 
 ### 报道阅读组契约准备（TASK0502）

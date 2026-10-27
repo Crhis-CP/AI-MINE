@@ -12,10 +12,11 @@ import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/si
 import { sql, type Db } from "../db.ts";
 import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
 import { displayTags, independentSelectedSources } from "./rules.ts";
-import { postFeedView, postPermission } from "./post-view.ts";
+import { postFeedView, publicPostSummary } from "./post-view.ts";
 import { config } from "../config.ts";
 
 export interface ItemRow {
+  post_summary_kind?: string | null;
   original_post_admission_required?: boolean | null;
   is_original_post?: boolean;
   x_post?: unknown;
@@ -66,7 +67,7 @@ export interface ItemRow {
 /** Columns every item listing selects. Internal judgement details never leave this layer. */
 export const ITEM_COLUMNS = () => sql`
   p.article_id AS id, p.revision, p.title, p.original_title,
-  p.is_original_post,p.original_post_admission_required,p.x_post,p.x_post_revision,a.revision AS content_revision,
+  p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind,p.original_post_admission_required,p.x_post,p.x_post_revision,a.revision AS content_revision,
   coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
   (${confirmedSelected()}) AS selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
@@ -92,9 +93,9 @@ export type ApiItemRow = Pick<
   | "reason"
   | "source_time"
 > &
-  Pick<ItemRow, "source_id" | "source_policy" | "is_original_post">;
+  Pick<ItemRow, "source_id" | "source_policy" | "is_original_post" | "post_summary_kind">;
 export const API_ITEM_COLUMNS = () => sql`
-  p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,s.id AS source_id,p.is_original_post,
+  p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,s.id AS source_id,p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind,
   p.published_at,${CURRENT_SOURCE_TIME()} AS source_time,p.discovered_at, p.category, p.score, (${confirmedSelected()}) AS selected, p.reason`;
 export const API_ITEM_FROM = () => sql`FROM publications p JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id`;
 
@@ -104,11 +105,7 @@ export async function protectApiPostRows<T extends ApiItemRow>(rows: T[], db: Db
   await attachSourcePolicies(posts, db);
   for (const row of posts) {
     row.original_title = null;
-    if (!postPermission(row.source_policy, row.source_id, row.url, "public_summary", now)) {
-      row.title = `${row.source_name}的原帖`;
-      row.summary = null;
-      row.reason = null;
-    }
+    Object.assign(row, publicPostSummary(row, now));
   }
   return rows;
 }
@@ -183,14 +180,14 @@ export function topicCondition(values: ReadMatcherValues) {
 }
 
 export function toItemSummary(row: ItemRow): ItemSummary {
-  const summaryAllowed = !row.is_original_post || postPermission(row.source_policy, row.source_id, row.url, "public_summary");
+  const copy = publicPostSummary(row);
   return {
     id: row.id,
     revision: row.revision,
-    title: summaryAllowed ? row.title : `${row.source_name}的原帖`,
+    title: copy.title,
     originalTitle: row.is_original_post ? null : row.original_title,
-    summary: summaryAllowed ? row.summary : null,
-    reason: row.selected && summaryAllowed ? row.reason : null,
+    summary: copy.summary,
+    reason: row.selected ? copy.reason : null,
     source: {
       id: row.source_id,
       name: row.source_name,
@@ -239,6 +236,7 @@ export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<
   if (ids.length === 0) return new Map();
   const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${db(ids)} AND ${originalPostAdmissionCondition()}`;
   await attachSourcePolicies(rows, db);
+  for (const row of rows) Object.assign(row, publicPostSummary(row));
   return new Map(rows.map((r) => [r.id, r]));
 }
 
@@ -388,7 +386,7 @@ export async function fetchMachineReportItems(ids: string[]): Promise<Map<string
   const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary
     ${ITEM_FROM()} WHERE p.article_id IN ${sql(ids)} AND ${originalPostAdmissionCondition()}`;
   await attachSourcePolicies(rows);
-  return new Map(rows.map((row) => [row.id, { ...row, summary: row.machine_summary }]));
+  return new Map(rows.map((row) => [row.id, { ...row, ...publicPostSummary({ ...row, summary: row.machine_summary }) }]));
 }
 
 /** Version, withdrawal and original time for event evidence, inside the caller's transaction. */

@@ -370,3 +370,14 @@ export function parseTranslateOutput(text: string): { titleZh: string; summaryZh
   }
   return { titleZh, summaryZh: stripEcho(summaryZh), bodyZh: stripEcho(bodyZh) };
 }
+
+/** A short-post body is a translation, never the fallback for an absent or identical summary. */
+export function parseShortPostOutput(text: string) {
+  const parsed = parseTranslateOutput(text);
+  const compact = (value: string) => value.replace(/\s+/gu, "");
+  return {
+    ...parsed,
+    summaryZh: /^summary_zh\s*[:：]/mu.test(text) && compact(parsed.summaryZh) !== compact(parsed.bodyZh) ? parsed.summaryZh : "",
+    bodyZh: /^body_zh\s*[:：]/mu.test(text) ? parsed.bodyZh : "",
+  };
+}

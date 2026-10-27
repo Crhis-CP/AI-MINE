@@ -317,7 +317,10 @@ export async function publishArticleTx(
     postPermission(currentPolicy, source.id, postView.quoted.url, "public_translation", now.getTime())
       ? quoteTranslationRecipe()
       : null;
-  const storedPostView = postView ? { view: postView, quoteRecipe } : null;
+  const postWriter = analysis?.output as { writer?: string; postSummaryKind?: string } | null | undefined;
+  const summaryKind =
+    postWriter?.writer === "verbatim" ? "original" : postWriter?.writer === "understand" || postWriter?.postSummaryKind === "summary" ? "summary" : null;
+  const storedPostView = post ? { view: postView, quoteRecipe, summaryKind } : null;
   const admissionRequired = originalPostAdmissionRequired(post, (analysis?.output as { writer?: string } | null)?.writer, analysis?.summary_zh);
   const admissionAllowed = originalPostProjectionAllowed({ is_original_post: !!post, original_post_admission_required: admissionRequired });
   const postReady = admissionAllowed && !!post && !!analysis && analysis.relevance === "pass";
@@ -367,7 +370,8 @@ export async function publishArticleTx(
     f.title,
     post && verbatim ? `${post.authorName || post.handle || source.name}的原帖` : (zhTitle ?? (isChineseTitle ? collapseWhitespace(article.title) : null)),
   );
-  const summary = pickString(f.summary, post && verbatim ? null : analysis?.summary_zh?.trim() || null);
+  const summary = pickString(f.summary, post && summaryKind !== "summary" ? null : analysis?.summary_zh?.trim() || null);
+  if (storedPostView && typeof f.summary === "string" && f.summary.trim()) storedPostView.summaryKind = "summary";
   const sourceExcerpt = summary ? null : excerpt;
   const displaySummary = summary ?? sourceExcerpt;
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));

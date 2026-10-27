@@ -6,7 +6,7 @@ import { publicTimeMetadata, originalPostAdmissionCondition } from "./items.ts";
 import { sql } from "../db.ts";
 import { hasItemPage } from "./rules.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
-import { postPermission } from "./post-view.ts";
+import { publicPostSummary } from "./post-view.ts";
 
 export async function loadItemShare(id: string): Promise<ItemShareMetadata | null> {
   const [row] = await sql<
@@ -26,18 +26,16 @@ export async function loadItemShare(id: string): Promise<ItemShareMetadata | nul
       source_policy?: unknown;
       url: string;
       is_original_post: boolean;
+      post_summary_kind: string | null;
     }[]
   >`SELECT p.article_id AS id, p.title, p.summary, p.category, p.timeline_at,
       p.published_at, p.score, p.selected,
-      s.name AS source_name, s.participation_mode AS source_mode, p.visibility,s.id AS source_id,p.url,p.is_original_post
+      s.name AS source_name, s.participation_mode AS source_mode, p.visibility,s.id AS source_id,p.url,p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind
     FROM publications p JOIN sources s ON s.id = p.source_id WHERE p.article_id = ${id} AND ${originalPostAdmissionCondition()}`;
   if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return null;
   if (row.is_original_post) {
     await attachSourcePolicies([row]);
-    if (!postPermission(row.source_policy, row.source_id, row.url, "public_summary")) {
-      row.title = `${row.source_name}的原帖`;
-      row.summary = null;
-    }
+    Object.assign(row, publicPostSummary(row));
   }
   const time = (await publicTimeMetadata([id])).get(id);
   return {

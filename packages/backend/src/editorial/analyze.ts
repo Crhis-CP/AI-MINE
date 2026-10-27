@@ -51,6 +51,7 @@ import {
   MAX_BODY_CHARS,
   missingEvidence,
   parseTranslateOutput,
+  parseShortPostOutput,
   PREFILTER_SYSTEM,
   prefilterUser,
   translateInputOf,
@@ -246,6 +247,8 @@ export interface AnalysisRun {
     itemType?: string;
     authorRole?: string;
     identityGuard?: IdentityGuard;
+    /** Private writer output; never a summary or a complete translate-body manifest. */
+    postTranslation?: { textZh: string; recipe: string };
     receiptIds: number[];
     reused: boolean;
   } | null;
@@ -583,6 +586,24 @@ async function mendWording(a: AnalyzeInputArticle, w: NonNullable<AnalysisRun["w
   return { ...w, ...mended, identityGuard: copy.identityGuard ?? w.identityGuard, ...paid };
 }
 
+/** The gateway retains responses, so a full translated copy must be allowed before it is requested. */
+async function mayStorePostTranslation(a: AnalyzeInputArticle) {
+  if (!a.sourceId || !a.xPost) return false;
+  const policy = await readCurrentSourcePolicy(a.sourceId);
+  if (!policy) return false;
+  for (const url of new Set([a.url, ...(a.xPost.quoted ? [a.xPost.quoted.url] : [])])) {
+    const permission = await evaluateSourcePolicy({
+      source_id: a.sourceId,
+      lane: "news",
+      capability: "store_fulltext",
+      expected_permission_version: policy.permission_version,
+      resource: { url, attachment: false, document_type: null },
+    });
+    if (permission.decision !== "allow") return false;
+  }
+  return true;
+}
+
 /** The title/summary prompt for the items the content understanding does not write. */
 async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
   const t = translateInputOf(a);
@@ -595,8 +616,9 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
   // Too little text is not written up from a title.
   if ((!short || (chineseShort && !config.originalPostAdmissionEnabled)) && t.text.trim().length < LEGACY_SUMMARY_MIN_CHARS)
     return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
+  const shortTranslation = short && (await mayStorePostTranslation(a));
   const model = await modelFor("summarize");
-  const user = short ? buildShortTweetPrompt(t) : a.xPost ? buildLongTweetPrompt(t) : buildArticlePrompt(t);
+  const user = shortTranslation ? buildShortTweetPrompt(t) : a.xPost ? buildLongTweetPrompt(t) : buildArticlePrompt(t);
   checkAnalysisRunning();
   const res = await chatJson({
     model,
@@ -608,9 +630,16 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     user,
     usagePurpose: opts.usagePurpose,
     fallbackPermit: opts.fallbackInput?.({ system: "", user }),
+    ...(shortTranslation
+      ? {
+          beforeRequest: async () => {
+            if (!(await mayStorePostTranslation(a))) throw new Error("原帖译文保存许可已收紧");
+          },
+        }
+      : {}),
     schema: SummarizeSchema,
     json: false,
-    parse: parseTranslateOutput,
+    parse: shortTranslation ? parseShortPostOutput : parseTranslateOutput,
     temperature: 0.2,
     maxTokens: 2048,
     attemptTag: tagged(opts.attemptTag, "summarize"),
@@ -618,9 +647,9 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
   });
   const p = res.data;
   const draft = short
-    ? { titleZh: p.titleZh || (looksZh(main) ? main : ""), summaryZh: p.bodyZh || p.summaryZh }
+    ? { titleZh: p.titleZh || (looksZh(main) ? main : ""), summaryZh: p.summaryZh }
     : a.xPost
-      ? { titleZh: p.titleZh, summaryZh: p.summaryZh || p.bodyZh }
+      ? { titleZh: p.titleZh, summaryZh: p.summaryZh }
       : { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh };
   const copy = finalizeCopy(t, draft);
   return {
@@ -631,6 +660,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     reasonZh: null,
     tags: null,
     identityGuard: copy.identityGuard,
+    ...(shortTranslation && p.bodyZh ? { postTranslation: { textZh: p.bodyZh, recipe: POST_SUMMARIZE_PROMPT_VERSION() } } : {}),
     receiptIds: [res.receiptId],
     reused: res.reused,
   };
@@ -821,6 +851,8 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       threshold: out.threshold,
       ...(out.scoreRefused ? { scoreRefused: true } : {}),
       ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
+      ...(input.xPost && out.summaryZh && (w?.kind === "summarize" || w?.kind === "understand") ? { postSummaryKind: "summary" } : {}),
+      ...(w?.postTranslation ? { postTranslation: { ...w.postTranslation, inputRevision: input.revision, receiptId: w.receiptIds[0] } } : {}),
       ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
       scope: out.scope,
       fact: out.fact,
@@ -851,7 +883,32 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
         for (const id of receiptIds) await completeReceipt(tx, id);
         return row!.id;
       },
-      (tx) => lockNewsProcessingPermissions([articleId], tx),
+      async (tx) => {
+        await lockNewsProcessingPermissions([articleId], tx);
+        if (!detail.postTranslation) return;
+        const policy = input.sourceId ? await readCurrentSourcePolicy(input.sourceId, tx) : null;
+        if (!policy) {
+          delete detail.postTranslation;
+          return;
+        }
+        for (const url of new Set([input.url, ...(input.xPost?.quoted ? [input.xPost.quoted.url] : [])])) {
+          const permission = await evaluateSourcePolicy(
+            {
+              source_id: policy.source_id,
+              lane: "news",
+              capability: "store_fulltext",
+              expected_permission_version: policy.permission_version,
+              resource: { url, attachment: false, document_type: null },
+            },
+            undefined,
+            tx,
+          );
+          if (permission.decision !== "allow") {
+            delete detail.postTranslation;
+            break;
+          }
+        }
+      },
     );
     const reused = (run.prefilter?.reused ?? true) && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
     return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };

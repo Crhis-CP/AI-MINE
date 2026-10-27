@@ -1,3 +1,4 @@
+import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { config } from "@amp/backend/config";
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
@@ -10,7 +11,7 @@ import { prepareEvaluationInput, runSelectionPrefilter, runSelectionScores } fro
 import { buildMaterial, firstInputImage, loadAnalyzeInput, withXArticle } from "../packages/backend/src/editorial/input.ts";
 import { evaluationInputFingerprint } from "../packages/backend/src/editorial/evaluation-input.ts";
 import { geographyMaterial } from "../packages/backend/src/editorial/geography.ts";
-import { prefilterUser, understandUser, translateInputOf, buildArticlePrompt } from "@amp/backend/editorial/writing";
+import { prefilterUser, understandUser, translateInputOf, buildArticlePrompt, parseShortPostOutput } from "@amp/backend/editorial/writing";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -49,7 +50,9 @@ const provider = await stub((_n, req) => {
                 titleZh: "合成铜矿投产",
                 summaryZh: "合成铜矿投产，原帖保留来源说明。",
               }
-            : "title_zh: 合成铜矿项目进展\nbody_zh: 合成主帖中文译文。\nsummary_zh: 合成项目进展摘要。";
+            : user.includes("body_zh:")
+              ? "title_zh: 合成铜矿项目进展\nbody_zh: 合成主帖中文译文。\nsummary_zh: 合成项目进展摘要。"
+              : "title_zh: 合成铜矿项目进展\nsummary_zh: 合成项目进展摘要。";
   return {
     choices: [{ message: { content: typeof value === "string" ? value : JSON.stringify(value) }, finish_reason: "stop" }],
     usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
@@ -189,6 +192,50 @@ test("short Chinese is verbatim only in summarize; high score still understands;
       start = requests.length,
       result = (await analyzeArticle(id))!;
     assert.equal((await sql`SELECT output->>'writer' AS kind FROM analyses WHERE id=${result.analysisId!}`)[0].kind, writer);
+    if (writer === "summarize") {
+      const [saved] = await sql`SELECT summary_zh,output,receipt_ids FROM analyses WHERE id=${result.analysisId!}`;
+      assert.equal(saved.summary_zh, "合成项目进展摘要。");
+      assert.equal(saved.output.postSummaryKind, "summary");
+      assert.equal(saved.output.postTranslation.textZh, "合成主帖中文译文。");
+      assert.equal(saved.output.postTranslation.inputRevision, 1);
+      assert.ok(saved.receipt_ids.includes(saved.output.postTranslation.receiptId));
+      assert.ok(
+        requests
+          .slice(start)
+          .find((request) => request.step === "summarize")!
+          .user.includes("summary_zh: <简洁中文导读>"),
+      );
+      const prior = (await readCurrentSourcePolicy(source))!;
+      await saveSourcePolicy(
+        source,
+        {
+          policy: { ...prior, permissions: { ...prior.permissions, store_fulltext: "deny" } },
+          expectedVersion: prior.permission_version,
+          reason: "Synthetic private translation storage restriction",
+        },
+        "test",
+      );
+      try {
+        const requestStart = requests.length;
+        const restricted = (await analyzeArticle(id))!;
+        const [copy] = await sql`SELECT summary_zh,output FROM analyses WHERE id=${restricted.analysisId!}`;
+        assert.equal(copy.summary_zh, "合成项目进展摘要。");
+        assert.equal(copy.output.postTranslation, undefined, "a summary grant does not permit saving a full translated copy");
+        const requested = requests.slice(requestStart).filter((request) => request.step === "summarize");
+        assert.equal(requested.length, 1);
+        assert.ok(requested[0]!.user.includes("不是全文翻译"));
+        assert.ok(!requested[0]!.user.includes("body_zh:"));
+        const [writerReceipt] =
+          await sql`SELECT request,response FROM receipts WHERE id=ANY(${restricted.receiptIds}::bigint[]) AND purpose='summarize_article'`;
+        assert.ok(writerReceipt);
+        assert.ok(!JSON.stringify(writerReceipt.request).includes("body_zh:"));
+        assert.ok(!JSON.stringify(writerReceipt.response).includes("合成主帖中文译文"));
+      } finally {
+        const current = (await readCurrentSourcePolicy(source))!;
+        await saveSourcePolicy(source, { policy: prior, expectedVersion: current.permission_version, reason: "Restore synthetic source grant" }, "test");
+      }
+    }
+
     assert.equal(
       requests.slice(start).some((r) => r.step === "understand"),
       writer === "understand",
@@ -199,6 +246,8 @@ test("short Chinese is verbatim only in summarize; high score still understands;
     );
   }
   score = 20;
+  assert.equal(parseShortPostOutput("title_zh: 原帖标题\nbody_zh: 完整译文原样保留。").summaryZh, "");
+  assert.equal(parseShortPostOutput("title_zh: 原帖标题\nbody_zh: 完整译文原样保留。\nsummary_zh: 完整译文原样保留。").summaryZh, "");
 });
 
 test("all model consumers distinguish quoted authors and acquired long text; versions and evaluation fingerprints follow those inputs", async () => {
