@@ -388,6 +388,28 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   await context.close();
 });
 
+test("feedback transport failure never claims an unsaved local draft is safe", { timeout: 30000 }, async () => {
+  const context = await browser.newContext();
+  await isolateBrowser(context, [origin]);
+  await context.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException("Synthetic storage refusal", "QuotaExceededError");
+    };
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${origin}/feedback`);
+    await page.route("**/api/site/feedback", (route) => route.abort("failed"));
+    await page.getByLabel("想说点什么？").fill("合成草稿：存储拒绝后仍保留当前输入。");
+    await page.getByRole("button", { name: "发送反馈", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("请保留当前内容");
+    await expect(page.getByRole("alert")).not.toContainText("已保存");
+    await expect(page.getByLabel("想说点什么？")).toHaveValue("合成草稿：存储拒绝后仍保留当前输入。");
+  } finally {
+    await context.close();
+  }
+});
+
 test("daily, weekly and monthly report pages show public correction notes, without inventing absent history", { timeout: 30000 }, async () => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "America/Argentina/Catamarca" });
   await isolateBrowser(context, [origin]);

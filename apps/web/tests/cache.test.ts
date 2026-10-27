@@ -1092,14 +1092,16 @@ test("until the first pick exists the unfiltered home page shows the newest item
     assert.doesNotMatch(emptyBody, notice);
     assert.match(emptyBody, noPicks);
     assert.equal(empty.headers.get("X-Accel-Expires"), "0");
-    // 全部动态 unreadable or unusable: the same empty state, and nothing is cached so the next request reads again.
+    // Failed reads stay distinct from a confirmed empty collection and remain uncached.
     for (const mode of ["busy", "bad"] as const) {
       poolMode = mode;
       const failed = await fetch(`${origin}/`);
       assert.equal(failed.status, 200, mode);
       const body = await failed.text();
       assert.doesNotMatch(body, notice, mode);
-      assert.match(body, noPicks, mode);
+      assert.match(body, /精选暂时无法读取/, mode);
+      assert.match(body, /href="\/all"/, mode);
+      assert.doesNotMatch(body, noPicks, mode);
       assert.equal(failed.headers.get("Cache-Control"), "private, no-store", mode);
       assert.equal(failed.headers.get("X-Accel-Expires"), "0", mode);
     }
@@ -1186,19 +1188,19 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
         assert.ok(body.includes("108,770.0"));
       }
       if (mode === "partial") {
-        assert.ok(body.includes("暂无已授权价格数据"));
+        assert.ok(body.includes("暂无可显示的报价"));
         assert.ok(body.includes("暂缺"));
         assert.ok(body.includes("108,770.0"));
       }
       if (mode === "empty") {
-        assert.ok(body.includes("暂无已授权价格数据"));
+        assert.ok(body.includes("暂无可显示的报价"));
         assert.doesNotMatch(body, /<table|id="metals-notes"/);
         assert.ok(body.includes("合成官方入口甲"));
       }
       if (mode === "error") {
         assert.match(response.headers.get("Cache-Control") ?? "", /no-store/);
         assert.ok(body.includes("价格数据暂时无法读取"));
-        assert.doesNotMatch(body, /<table|暂无已授权价格数据|合成价格测试导语|合成官方入口/);
+        assert.doesNotMatch(body, /<table|暂无可显示的报价|合成价格测试导语|合成官方入口/);
       }
     }
   } finally {
@@ -1235,7 +1237,10 @@ test("policy pages distinguish basic facts, complete interpretations, unknown da
     assert.doesNotMatch(html, /id="analysis"/);
     const report = await fetch(`${origin}/policies/reports/report-fixture`);
     assert.equal(report.status, 200);
-    assert.match(await report.text(), /本期来源检查说明/);
+    const reportHtml = await report.text();
+    assert.match(reportHtml, /覆盖期间：/);
+    assert.match(reportHtml, /所有条目、时间与覆盖数均为样例，不是真实汇总/);
+    assert.doesNotMatch(reportHtml, /本期来源检查说明|完整回执|不完整回执/);
     policyMode = "empty";
     assert.match(await (await fetch(`${origin}/policies`)).text(), /当前筛选暂无已公开法规/);
     policyMode = "error";

@@ -369,6 +369,7 @@
 | [TASK-0497](TASK-0497.md) | T-0101 | M3 | architect | locally_verified | 原帖材料持久化与许可公开投影 | TASK-0486、TASK-0492、TASK-0494 |
 | [TASK-0498](TASK-0498.md) | T-0101 | M3 | architect | locally_verified | 原帖许可投影与统一阅读出口 | TASK-0492、TASK-0495、TASK-0496、TASK-0497 |
 | [TASK-0499](TASK-0499.md) | T-0101 | M3 | architect | locally_verified | 消除日周来源重复并避免质量假恢复 | — |
+| [TASK-0500](TASK-0500.md) | T-0101 | M3 | architect | locally_verified | 关于统计自动更新与全读者页面文案修复 | — |
 | [TASK-0502](TASK-0502.md) | T-0101 | M3 | architect | locally_verified | 多来源报道阅读组兼容契约 | — |
 | [TASK-0503](TASK-0503.md) | T-0101 | M3 | architect | locally_verified | 原帖新准入默认关闭与关闭行为保护 | — |
 | [TASK-0506](TASK-0506.md) | T-0101 | M3 | architect | locally_verified | 报道来源展开保留父列表搜索模式 | — |

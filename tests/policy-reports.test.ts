@@ -14,6 +14,7 @@ import { policyReportsToRecheck, savePolicyReport } from "../modules/policy/back
 import { policySourceCoverage } from "../packages/backend/src/sources/policy-coverage.ts";
 import { setPolicyPublicationPaused } from "../modules/policy/backend/publication/policies-publish.ts";
 import { reconcilePolicyReportPeriods } from "../modules/policy/backend/publication/policy-report-job.ts";
+import { policyReport } from "../modules/policy/backend/reports.ts";
 
 after(closeDb);
 const full = JSON.parse(readFileSync(new URL("./fixtures/policy-public/basic-facts.json", import.meta.url), "utf8"));
@@ -108,7 +109,7 @@ test("period membership preserves versions, stable language, backfill, unknown d
   assert.equal(members.get("interpretation")!.label, "interpretation_update");
   assert.equal(members.get("published-after-cutoff")!.availableByCutoff, false);
   assert.equal(plan.card.item_count, 5);
-  assert.match(plan.card.coverage_note, /缺少首次发现依据/);
+  assert.match(plan.card.coverage_note, /暂无法确定所属刊期/);
   assert.equal(plan.contentHash, planPolicyReport("weekly", "2026-W41", [...rows].reverse(), [], issuer, new Date(now.getTime() + 3600_000)).contentHash);
 });
 
@@ -260,4 +261,23 @@ test("catch-up batches start from this site's discovery, not an old source publi
   const second = missingPolicyReportPeriods([row], first, end, 2);
   assert.ok(second.every((p) => !first.some((done) => done.kind === p.kind && done.period_key === p.period_key)));
   assert.ok(second.every((p) => Date.parse(policyReportPeriod(p.kind, p.period_key).end) + 8 * 3600_000 <= end.getTime()));
+});
+
+test("public historical reports translate only the stored system coverage template and preserve its evidence", async () => {
+  const draft = planPolicyReport("weekly", "2031-W01", [], [], issuer, new Date("2031-03-01T00:00:00Z"));
+  const legacy =
+    "本报告引用当前仍可公开的固定文书版本；未取得完整检查回执不代表没有新法规。另有2个版本缺少首次发现依据，未推测归期。另有1个已登记来源尚未归入既定法域，未猜测归属。";
+  draft.card.coverage_note = legacy;
+  const saved = await savePolicyReport(draft);
+  assert.ok(saved.id);
+  const report = await policyReport(saved.id, { edition: saved.revision, limit: 50 });
+  assert.match(report.coverage_note, /资料覆盖可能不完整，未收录不代表没有新法规/);
+  assert.match(report.coverage_note, /2份文书暂无法确定所属刊期/);
+  assert.doesNotMatch(report.coverage_note, /回执|登记来源|首次发现依据/);
+  const [stored] = await sql`SELECT card FROM publication.policy_report_revisions WHERE report_id=${saved.id} AND revision=${saved.revision}`;
+  assert.equal(stored!.card.coverage_note, legacy);
+  const custom = "人工说明：本报告特别解释回执制度，不能视为取得全部许可证。";
+  await sql`UPDATE publication.policy_report_revisions SET card=${sql.json({ ...stored!.card, coverage_note: custom })}
+    WHERE report_id=${saved.id} AND revision=${saved.revision}`;
+  assert.equal((await policyReport(saved.id, { limit: 50 })).coverage_note, custom);
 });

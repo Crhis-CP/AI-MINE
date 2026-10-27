@@ -106,7 +106,7 @@ export default function MetalsPage() {
             {refreshFailed ? "更新暂时失败，仍显示上次读取的结果。" : "按官方最新公布的期次展示；尚未发布新报价时保留上一期。"}
           </p>
           {!hasData ? (
-            <p className="mt-5 text-[14px] text-ink-3">暂无已授权价格数据</p>
+            <p className="mt-5 text-[14px] text-ink-3">暂无可显示的报价</p>
           ) : (
             <>
               <section aria-label="最新一期" className="mt-5 rounded-control bg-bg-sunk px-3 py-2.5 text-[12px] leading-6 text-ink-3">
@@ -114,7 +114,7 @@ export default function MetalsPage() {
                 {prices.latest.map((period) => (
                   <span key={period.tag} className="mr-4 inline-block">
                     <Tag value={period.tag} />
-                    {period.label ?? "暂无已授权价格数据"}
+                    {period.label ?? "暂无可显示的报价"}
                     {period.stale && <span className="ml-1 text-amber-ink">较早期数据</span>}
                     {period.extras.map((extra) => (
                       <span key={extra.label}>

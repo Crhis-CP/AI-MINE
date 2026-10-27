@@ -117,11 +117,11 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
       {report.change && (
         <p className="mt-2 text-[12px] text-ink-3">
           本次新增 {report.change.added} 条版本记录，移除 {report.change.removed} 条；
-          {report.change.reason === "initial" ? "首次汇编" : "公开版本或来源检查依据发生变化"}。
+          {report.change.reason === "initial" ? "首次汇编" : "本期收录内容或资料覆盖情况已更新"}。
         </p>
       )}
       <p className="mt-4 text-[13px] text-ink-3">
-        覆盖期间：{systemTime(report.period_start)} 至 {systemTime(report.period_end)}（右开，北京时间）
+        覆盖期间：{systemTime(report.period_start)} 至 {systemTime(report.period_end)}（北京时间，结束时刻不含）
       </p>
       <p className="mt-2 text-[12px] text-ink-4">
         出刊：{systemTime(report.issued_at)} · 第 {report.edition} 版 · {report.item_count} 份文书
@@ -211,43 +211,6 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
           <p className="text-[13px] text-ink-3">当前没有可列示的已核实基本事实，不代表没有新法规。</p>
         )}
       </Section>
-      <details className="mt-6 text-[12px] text-ink-3">
-        <summary className="cursor-pointer font-semibold">本期来源检查说明</summary>
-        <p className="mt-3">一次结构完整回执不代表该来源已全量覆盖或持续供给；未取得回执不能理解为没有新法规。</p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-left">
-            <caption className="sr-only">来源检查统计</caption>
-            <thead>
-              <tr>
-                {["国家与组织", "登记来源", "完整回执", "不完整回执", "缺完整回执"].map((t) => (
-                  <th key={t} className="whitespace-nowrap border-b border-line p-2">
-                    {t}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {report.coverage.map((c) => (
-                <tr key={c.jurisdiction.code}>
-                  <td className="p-2">{c.jurisdiction.label}</td>
-                  {[c.registered_source_count, c.complete_receipt_count, c.incomplete_receipt_count, c.missing_receipt_count].map((n, i) => (
-                    <td key={`${c.jurisdiction.code}:${["registered", "complete", "incomplete", "missing"][i]}`} className="p-2">
-                      {n}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {report.coverage.flatMap((c) =>
-          c.failures.map((f) => (
-            <p key={`${c.jurisdiction.code}:${f.category}:${f.start}`} className="mt-2">
-              {c.jurisdiction.label} · {f.category} · {systemTime(f.start)} 至 {f.end ? systemTime(f.end) : "仍未恢复"}
-            </p>
-          )),
-        )}
-      </details>
       {failed && (
         <p role="status" className="mt-3 text-[13px] text-amber-ink">
           暂时无法继续读取本版汇总，已载入内容仍保留。

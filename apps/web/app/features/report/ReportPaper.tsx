@@ -187,7 +187,7 @@ function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean
         </>
       ) : (
         <p className="mt-3 text-[14px] leading-relaxed text-ink-4">
-          <span className="line-through">{c.title}</span> · 该内容已按来源方要求下架或调整展示方式。
+          <span className="line-through">{c.title}</span> · 该报道当前不可公开阅读。
         </p>
       )}
     </article>
@@ -436,13 +436,11 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
             ? "本期无新增精选"
             : report.generationStatus === "ready"
               ? daily
-                ? "规则汇编"
-                : "AI 综合已完成"
-              : report.generationStatus === "pending"
-                ? "AI 综合正在排队，当前为资料汇总"
-                : report.generationStatus === "failed"
-                  ? "AI 综合暂未成功，当前为资料汇总"
-                  : "资料汇总"}{" "}
+                ? "精选汇编"
+                : "含 AI 导读"
+              : report.generationStatus === "pending" || report.generationStatus === "failed"
+                ? "本期先提供报道汇总"
+                : "资料汇总"}{" "}
           · AI 辅助生成
         </p>
       </div>

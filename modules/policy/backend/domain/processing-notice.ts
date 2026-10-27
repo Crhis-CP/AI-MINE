@@ -1,4 +1,5 @@
 import { sql } from "@amp/backend/db";
+import { readerProcessingNotice } from "../reader-copy.ts";
 
 /** Public wording is selected from status codes; private errors and model/receipt details never enter a DTO. */
 export async function policyProcessingNotice(expressionId: string) {
@@ -16,5 +17,5 @@ export async function policyProcessingNotice(expressionId: string) {
     incomplete: "原件、版面或附件尚未完整",
     needs_configuration: "原件取得配置尚未完成",
   };
-  return row ? (labels[row.status] ?? null) : null;
+  return row && labels[row.status] ? readerProcessingNotice(labels[row.status]!) : null;
 }

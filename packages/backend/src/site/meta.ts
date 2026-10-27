@@ -139,7 +139,7 @@ export function validateReleaseNote(value: unknown): ReleaseNote {
   if (/[a-f0-9]{40}|TASK-\d{4}|\b(?:npm|pnpm|docker|git commit|make verify)\b/i.test(JSON.stringify(note)))
     throw new Error("产品更新说明不能包含提交号、任务号或部署命令");
   if (
-    /后台|运维|缓存|回执|队列|部署|回滚|迁移号|重试记录|回答被截断|重复处理|原始估算|模型(?:费用|成本|调用|配置)|提示词|熔断|归组|预筛|入库|回填|重跑|重算|处理链路|构建|环境变量|密钥|数据库|解析器|\b(?:CI|SQL|Docker|PostgreSQL|Redis|TTL)\b/i.test(
+    /后台|运维|缓存|回执|队列|部署|回滚|最近(?:检查|核对)(?:时间|[：:])|价格检查说明|检查(?:成功|未成功|失败)|迁移号|重试记录|回答被截断|重复处理|原始估算|模型(?:费用|成本|调用|配置)|提示词|熔断|归组|预筛|入库|回填|重跑|重算|处理链路|构建|环境变量|密钥|数据库|解析器|\b(?:CI|SQL|Docker|PostgreSQL|Redis|TTL)\b/i.test(
       [note.title, ...note.body].join("\n"),
     )
   )

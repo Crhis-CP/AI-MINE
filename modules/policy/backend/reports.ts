@@ -6,6 +6,7 @@ import { config } from "@amp/backend/config";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { encodeCursor, decodeCursor, queryBinding } from "@amp/backend/lib/cursor";
 import { policyPublicMembers, PolicyReadError } from "./read.ts";
+import { readerCoverageNote } from "./reader-copy.ts";
 
 type Query = { edition?: number; jurisdiction?: string; theme?: string; cursor?: string; limit: number };
 const matches = (p: PolicyCard, q: Query) =>
@@ -60,8 +61,10 @@ export async function policyReport(id: string, q: Query) {
     groups[kind].set(item.policy.id, entry);
   }
   const attrs = [...new Map(selected.flatMap((m) => m.attributions).map((a) => [a.url, a])).values()];
+  const card = PolicyReportCard.parse(report.card);
   return PolicyReport.parse({
-    ...PolicyReportCard.parse(report.card),
+    ...card,
+    coverage_note: readerCoverageNote(card.coverage_note),
     edition: report.revision,
     change: report.change,
     item_count: new Set(selected.map((m) => m.policy.id)).size,
