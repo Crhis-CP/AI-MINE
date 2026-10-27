@@ -3,7 +3,8 @@ import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { sharedSearch } from "../lib/cache.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 // Public pool (/all) with numeric pages, and search in its two orderings.
-import type { PoolResponse, TimelineFilters } from "@amp/contracts/site";
+import { loadReportGroupedPage } from "./report-group-reading.ts";
+import type { ReportGroupedPoolResponse as PoolResponse, TimelineFilters } from "@amp/contracts/site";
 import { addDays, isValidDate, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import {
@@ -106,6 +107,7 @@ async function poolCount(key: string | null, query: () => Promise<Array<{ n: num
 }
 
 export interface PoolQuery extends TimelineFilters {
+  readingGroups?: "reports-v1";
   source?: string | null;
   mineral?: string | null;
   on?: string | null;
@@ -143,6 +145,7 @@ const searchPool = sharedSearch(
         query.q?.trim() ?? null,
         query.tab ?? "time",
         query.page ?? 1,
+        query.readingGroups ?? null,
       ]),
     ),
   ({ query, matchers }, now) => queryPool(query, matchers, now),
@@ -295,7 +298,17 @@ async function queryPool(
     return { rows, total: Number(n) };
   };
 
-  const { rows, total } = q ? await withSearchCapacity(run) : await withCustomPlans(run);
+  const negotiated =
+    query.readingGroups === "reports-v1"
+      ? await (q ? withSearchCapacity : withCustomPlans)((db) =>
+          loadReportGroupedPage({ ...query, scope: query.selected ? "selected" : "all", offset, limit: POOL_PAGE_SIZE }, now, db),
+        )
+      : null;
+  const { rows, total } = negotiated
+    ? { rows: [] as ItemRow[], total: negotiated.reportTotal }
+    : q
+      ? await withSearchCapacity(run)
+      : await withCustomPlans(run);
   await attachSourcePolicies(rows);
   const today = beijingDate(now);
   const meta = one(
@@ -318,8 +331,8 @@ async function queryPool(
     !from &&
     !to &&
     !query.selected;
-  const [grouped, sourceFacets] = await Promise.all([
-    unfiltered ? loadTimeline({ ...query, scope: "all", offset, limit: POOL_PAGE_SIZE, now }) : null,
+  const [legacyGrouped, sourceFacets] = await Promise.all([
+    !negotiated && unfiltered ? loadTimeline({ ...query, scope: "all", offset, limit: POOL_PAGE_SIZE, now }) : null,
     loadPoolSourceFacets(
       query,
       readMatcherValues(
@@ -335,6 +348,7 @@ async function queryPool(
       query.jurisdictionRecipe ?? "",
     ),
   ]);
+  const grouped = negotiated ?? legacyGrouped;
   return {
     filters: {
       source: query.source ?? null,
@@ -357,7 +371,7 @@ async function queryPool(
     page,
     pageCount: Math.max(1, Math.ceil((grouped?.total ?? total) / POOL_PAGE_SIZE)),
     total: grouped?.total ?? total,
-    todayCount: Number(meta.today_count),
+    todayCount: negotiated ? (negotiated.dayCounts[today] ?? 0) : Number(meta.today_count),
     freshness: (meta.updated_at ?? now).toISOString(),
     generatedAt: now.toISOString(),
   };

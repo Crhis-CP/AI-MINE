@@ -9,9 +9,9 @@ import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
 import type { Route } from "./+types/item";
-import type { SiteItemDetail } from "@amp/contracts/site";
-import { XPostDetailFields } from "@amp/contracts/http/public";
-import { loadOr404 } from "../lib/api.server";
+import { XPostDetailFields, ReportGroupDetailFields } from "@amp/contracts/http/public";
+import type { ReportGroupedSiteItemDetail as SiteItemDetail } from "@amp/contracts/site";
+import { apiGet, loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { relativeTime, fullDateTime, newsSourceDate } from "../lib/format";
 import { SelectedBadge } from "../components/ui/Badge.tsx";
@@ -27,8 +27,14 @@ import { StoryFollowups } from "../features/item/StoryFollowups";
 import { IconArrowLeft, IconCopy, IconExternal, IconMenu, IconShare } from "../components/icons";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const item = await loadOr404<SiteItemDetail>(`/api/site/items/${encodeURIComponent(params.id)}`, { signal: request.signal });
-  XPostDetailFields.parse(item.x === undefined ? {} : { x: item.x });
+  const item = await loadOr404(
+    async () => {
+      const value = await apiGet<SiteItemDetail>(`/api/site/items/${encodeURIComponent(params.id)}?readingGroups=reports-v1`, { signal: request.signal });
+      XPostDetailFields.parse(value.x === undefined ? {} : { x: value.x });
+      return { ...value, ...ReportGroupDetailFields.parse(value.reportGroup === undefined ? {} : { reportGroup: value.reportGroup }) };
+    },
+    { signal: request.signal },
+  );
   return { item };
 }
 
@@ -399,9 +405,13 @@ export default function ItemPage() {
             </section>
           )}
 
-          {item.group && item.group.reportCount > 1 && (
+          {(item.reportGroup ?? item.group) && (item.reportGroup ?? item.group)!.reportCount > 1 && (
             <div className="mt-5">
-              <GroupSources group={item.group} parentId={item.id} />
+              <GroupSources
+                group={(item.reportGroup ?? item.group)!}
+                parentId={item.id}
+                filters={{ channel: "all", category: null, tag: null, scope: "all" }}
+              />
             </div>
           )}
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "d96babc0fbd856619e32a3e2c37a46a7f8d63caffaa866c56928ad040009b359",
+  "grantCatalogueSha256": "98c9905ee0503f6a35f44ca938602efdaec0f6bab732866ea195d6a030ab955a",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -653,6 +653,18 @@
     "enrichment.quote_translations": {
       "module": "enrichment",
       "access": "business"
+    },
+    "publication.report_group_members": {
+      "module": "publication",
+      "access": "business"
+    },
+    "events.report_group_decisions": {
+      "module": "events",
+      "access": "business"
+    },
+    "events.report_group_checks": {
+      "module": "events",
+      "access": "business"
     }
   },
   "externalTables": {
@@ -1001,6 +1013,9 @@
     "packages/backend/src/reports/management.ts": "reports",
     "packages/backend/src/publication/historical-background.ts": "publication",
     "packages/backend/src/events/historical-background.ts": "events",
-    "packages/backend/src/events/historical-background-store.ts": "events"
+    "packages/backend/src/events/historical-background-store.ts": "events",
+    "packages/backend/src/events/report-groups.ts": "events",
+    "packages/backend/src/publication/report-groups.ts": "publication",
+    "packages/backend/src/publication/report-group-reading.ts": "publication"
   }
 }

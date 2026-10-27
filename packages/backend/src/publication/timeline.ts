@@ -5,7 +5,8 @@ import { foldableSelectionCondition } from "./scope.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 // Reports of the same fact share a card and its first appearance. New developments in the same
 // story remain separate cards; changing the representative never brings an old fact back to today.
-import type { GroupInfo, TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
+import { loadReportGroupedPage } from "./report-group-reading.ts";
+import type { GroupInfo, TimelineCard, TimelineFilters, ReportGroupedTimelineResponse } from "@amp/contracts/site";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
@@ -30,6 +31,7 @@ import {
 } from "./items.ts";
 
 export interface TimelineQuery extends TimelineFilters {
+  readingGroups?: "reports-v1";
   scope?: "all" | "selected";
   featuredSince?: Date;
   offset?: number;
@@ -161,10 +163,24 @@ async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
   return rows;
 }
 
-export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineResponse, "hot" | "generatedAt"> & { total: number }> {
+export async function loadTimeline(q: TimelineQuery): Promise<Omit<ReportGroupedTimelineResponse, "hot" | "generatedAt"> & { total: number }> {
   q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
   const now = q.now ?? new Date();
   q = { ...q, featuredSince: beijingMidnight(addCalendarMonths(beijingDate(now), -3)) };
+  if (q.readingGroups === "reports-v1") {
+    const { cards, total, dayCounts, nextCursor } = await loadReportGroupedPage(
+      { ...q, scope: q.scope ?? "selected", featuredSince: q.scope === "all" ? undefined : q.featuredSince },
+      now,
+    );
+    return {
+      cards,
+      total,
+      dayCounts,
+      nextCursor,
+      refreshAt: await nextRelease(q, now),
+      filters: { channel: q.channel, category: q.category, tag: q.tag, topic: q.topic ?? null, ...(q.jurisdiction ? { jurisdiction: q.jurisdiction } : {}) },
+    };
+  }
   const matchers = readMatcherValues(
     q.tag,
     q.topicTags,

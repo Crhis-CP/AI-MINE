@@ -5,13 +5,13 @@ import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME } from "../../lib/
 import { memo } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
-import type { GroupInfo, FeedItemSummary, TimelineFilters } from "@amp/contracts/site";
+import type { GroupInfo, ReportGroupInfo, FeedItemSummary } from "@amp/contracts/site";
 import { XPostFeedView } from "@amp/contracts/http/public";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SelectedBadge } from "../../components/ui/Badge.tsx";
 import { ScoreLabel } from "../../components/ui/Score.tsx";
 import { SourceLine, StarButton, Attribution } from "./parts";
-import { GroupDevelopments, GroupSources, LatestDevelopment } from "./ReadingGroup";
+import { GroupDevelopments, GroupSources, LatestDevelopment, type ReadingGroupFilters } from "./ReadingGroup";
 import { PostAuthor, PostMedia, QuotedPost } from "../item/OriginalPost";
 
 export interface FeedItemProps {
@@ -19,23 +19,38 @@ export interface FeedItemProps {
   at?: string;
   read?: boolean;
   group?: GroupInfo | null;
-  filters?: TimelineFilters;
+  reportGroup?: ReportGroupInfo | null;
+  filters?: ReadingGroupFilters;
   /** Show category and tags under the text (全部动态, topics, search). */
   showTags?: boolean;
 }
 
-export const FeedItem = memo(function FeedItem({ item, group, filters, at = item.timelineAt, read: readOverride, showTags = false }: FeedItemProps) {
+export const FeedItem = memo(function FeedItem({
+  item,
+  group,
+  reportGroup,
+  filters,
+  at = item.timelineAt,
+  read: readOverride,
+  showTags = false,
+}: FeedItemProps) {
   const markedRead = useIsRead(item.id);
   const read = readOverride ?? markedRead;
   const dateOnly =
     isDateOnlyInstant(at) && !(item.sourceTime?.utc && Date.parse(item.sourceTime.utc) === Date.parse(at) && item.sourceTime.precision !== "date");
-  const showSources = !!group && (group.additionalSourceCount > 0 || (group.developmentCount <= 1 && group.reportCount > 1));
+  const showSources = reportGroup
+    ? reportGroup.reportCount > 1
+    : !!group && (group.additionalSourceCount > 0 || (group.developmentCount <= 1 && group.reportCount > 1));
   const showDevelopments = !!group?.story && group.developmentCount > 1;
   const tags = showTags ? item.tags.slice(0, 3) : [];
   const post = item.x ? XPostFeedView.parse(item.x) : null;
 
   return (
-    <article className="relative min-w-0 lg:card lg:card-hover lg:px-[18px] lg:pb-[14px] lg:pt-[15px]" data-item-id={item.id}>
+    <article
+      className="relative min-w-0 lg:card lg:card-hover lg:px-[18px] lg:pb-[14px] lg:pt-[15px]"
+      data-item-id={item.id}
+      data-member-ids={JSON.stringify(reportGroup?.memberIds ?? group?.memberIds ?? [])}
+    >
       <header className="flex min-h-[18px] items-center gap-2 text-[12.5px] leading-[18px] text-ink-4">
         <SourceLine item={item} className="text-ink-4" />
         <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? "按日期归档" : "本站时间线"} className="mono shrink-0 text-[12px] lg:hidden">
@@ -89,7 +104,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, at = item
       {group && <LatestDevelopment group={group} />}
       {(showSources || showDevelopments) && (
         <div className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-1">
-          {showSources && <GroupSources group={group!} filters={filters} parentId={item.id} />}
+          {showSources && <GroupSources group={reportGroup ?? group!} filters={filters} parentId={item.id} />}
           {showDevelopments && <GroupDevelopments group={{ ...group!, story: group!.story! }} filters={filters} parentId={item.id} />}
         </div>
       )}

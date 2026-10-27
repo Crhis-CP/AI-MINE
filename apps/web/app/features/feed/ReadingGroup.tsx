@@ -4,18 +4,35 @@ import { markRead, useReadSet } from "../../lib/local-state";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { Collapse } from "../../components/ui/Presence.tsx";
-import type { Development, GroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
+import type { Development, GroupInfo, ReportGroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
+import { ReportGroupReportsResponse } from "@amp/contracts/http/public";
 import { IconArrowUpRight, IconChevronDown } from "../../components/icons";
 import { shortSourceName, sourceMonthDayTime, newsSourceDate } from "../../lib/format";
 import { isReload } from "./restore";
 import { sessionCache } from "./session-cache";
 
-function filterParams(filters: TimelineFilters | undefined, cursor: string | null) {
+export type ReadingGroupFilters = TimelineFilters & { q?: string | null; tab?: "time" | "relevance" | null };
+function filterParams(filters: ReadingGroupFilters | undefined, cursor: string | null) {
   const sp = new URLSearchParams();
-  if (filters?.channel && filters.channel !== "all") sp.set("channel", filters.channel);
-  if (filters?.category) sp.set("category", filters.category);
-  if (filters?.tag) sp.set("tag", filters.tag);
-  if (filters?.scope) sp.set("scope", filters.scope);
+  for (const key of [
+    "channel",
+    "category",
+    "tag",
+    "topic",
+    "jurisdiction",
+    "q",
+    "tab",
+    "source",
+    "mineral",
+    "on",
+    "from",
+    "to",
+    "selected",
+    "scope",
+  ] as const) {
+    const value = filters?.[key];
+    if (value !== null && value !== undefined && value !== "" && value !== false && !(key === "channel" && value === "all")) sp.set(key, String(value));
+  }
   if (cursor) sp.set("cursor", cursor);
   return sp;
 }
@@ -97,12 +114,13 @@ function usePaged<T>(url: (cursor: string | null) => string, pick: (body: Record
     try {
       let res = await fetch(url(cursor), { signal: controller.signal });
       // An expired cursor gets one fresh first page, never an unbounded retry loop.
-      if (res.status === 409 && cursor) {
+      if ((res.status === 400 || res.status === 409) && cursor) {
         cursor = null;
         res = await fetch(url(null), { signal: controller.signal });
       }
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as Record<string, unknown> & { nextCursor: string | null };
+      const items = pick(body);
       if (!active()) return;
       setState((s) => ({
         scope: at,
@@ -110,7 +128,7 @@ function usePaged<T>(url: (cursor: string | null) => string, pick: (body: Record
         error: false,
         loaded: true,
         next: body.nextCursor,
-        items: cursor && s.scope === at ? [...s.items, ...pick(body)] : pick(body),
+        items: cursor && s.scope === at ? [...s.items, ...items] : items,
       }));
     } catch {
       if (active()) setState((s) => ({ ...s, loading: false, error: true }));
@@ -189,12 +207,20 @@ function LoadState({
 }
 
 /** "另有 N 家信源报道": other reports of the fact the card stands for. */
-export function GroupSources({ group, filters, parentId }: { group: GroupInfo; filters?: TimelineFilters; parentId: string }) {
+export function GroupSources({ group, filters, parentId }: { group: GroupInfo | ReportGroupInfo; filters?: ReadingGroupFilters; parentId: string }) {
   const readSet = useReadSet();
+  const fact = "factId" in group;
+  const id = fact ? group.factId : group.id;
+  const kind = fact ? "groups" : "report-groups";
   const { open, setOpen, state, load } = useGroupState<GroupReport>(
-    `sources|${group.factId}|${parentId}`,
-    (cursor) => `/api/site/groups/${encodeURIComponent(group.factId)}/reports?${filterParams(filters, cursor)}`,
-    (b) => b.reports as GroupReport[],
+    `sources|${kind}|${id}|${parentId}|${filterParams(filters, null)}`,
+    (cursor) => `/api/site/${kind}/${encodeURIComponent(id)}/reports?${filterParams(filters, cursor)}`,
+    (b) => {
+      if (fact) return b.reports as GroupReport[];
+      const parsed = ReportGroupReportsResponse.parse(b);
+      if (parsed.reportGroupId !== id) throw new Error("Unexpected reading group");
+      return parsed.reports;
+    },
   );
   const others = state.items.filter((r) => r.id !== parentId);
   const label = group.additionalSourceCount > 0 ? `另有 ${group.additionalSourceCount} 家信源报道` : `${group.reportCount} 篇报道`;
@@ -232,7 +258,7 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
           onMore={() => load(state.next)}
           onRetry={() => load(null)}
         />
-        {group.story && (
+        {fact && group.story && (
           <Link
             to={`/story/${group.story.publicId}`}
             className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"

@@ -973,7 +973,7 @@ test("the real /all page consumes its generated pool contract and preserves erro
     const page = await fetch(`${origin}/all?q=%E9%93%9C+%E9%87%91&page=2`, { headers: { cookie: "admin_session=private" } });
     assert.equal(page.status, 200);
     assert.match(await page.text(), /真实列表消费者/);
-    assert.deepEqual(poolCalls.at(-1), { path: "/api/site/pool?q=%E9%93%9C+%E9%87%91&page=2", accept: "application/json", ssr: "1" });
+    assert.deepEqual(poolCalls.at(-1), { path: "/api/site/pool?readingGroups=reports-v1&q=%E9%93%9C+%E9%87%91&page=2", accept: "application/json", ssr: "1" });
     assert.equal(page.headers.get("Cache-Control"), "private, no-store");
     assert.ok(apiCookies.every((cookie) => !cookie));
     for (const [mode, status] of [
@@ -993,7 +993,7 @@ test("the real /all page consumes its generated pool contract and preserves erro
       assert.equal(busy.headers.get("Location"), null);
       assert.equal(busy.headers.get("Cache-Control"), "private, no-store");
       assert.equal(busy.url, origin + path);
-      assert.equal(poolCalls.at(-1)!.path, "/api/site/pool?q=%E9%93%9C+%E9%87%91&page=2");
+      assert.equal(poolCalls.at(-1)!.path, "/api/site/pool?readingGroups=reports-v1&q=%E9%93%9C+%E9%87%91&page=2");
       await busy.text();
     }
   } finally {
@@ -1009,7 +1009,7 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
     assert.equal(response.status, 200);
     assert.match(await response.text(), /真实精选消费者/);
     assert.deepEqual(timelineCalls.at(-1), {
-      path: `/api/site/timeline?channel=news&category=${category}&tag=%E9%93%9C+%E9%87%91`,
+      path: `/api/site/timeline?readingGroups=reports-v1&channel=news&category=${category}&tag=%E9%93%9C+%E9%87%91`,
       accept: "application/json",
       ssr: "1",
     });
@@ -1062,7 +1062,7 @@ test("until the first pick exists the unfiltered home page shows the newest item
     assert.match(html, notice);
     assert.match(html, /真实列表消费者/);
     assert.match(html, /href="\/all\?page=2"/);
-    assert.deepEqual(poolCalls.slice(before), [{ path: "/api/site/pool", accept: "application/json", ssr: "1" }]);
+    assert.deepEqual(poolCalls.slice(before), [{ path: "/api/site/pool?readingGroups=reports-v1", accept: "application/json", ssr: "1" }]);
     assert.equal(home.headers.get("X-Accel-Expires"), "0");
     // “全部分类” stays on the home page; category links lead to 全部动态.
     const rows = filterTabs(html);

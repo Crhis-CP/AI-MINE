@@ -109,7 +109,17 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
             if (snapshot) position.current = { key: location.key, snapshot, interaction: interaction.current };
           }
           const visible = previous
-            ? new Set([...document.querySelectorAll<HTMLElement>("[data-item-id]")].flatMap((node) => (node.dataset.itemId ? [node.dataset.itemId] : [])))
+            ? new Set(
+                [...document.querySelectorAll<HTMLElement>("[data-item-id]")].flatMap((node) => {
+                  const ids = node.dataset.itemId ? [node.dataset.itemId] : [];
+                  try {
+                    const members: unknown = JSON.parse(node.dataset.memberIds ?? "[]");
+                    return Array.isArray(members) ? [...ids, ...members.filter((id): id is string => typeof id === "string")] : ids;
+                  } catch {
+                    return ids;
+                  }
+                }),
+              )
             : null;
           if (visible?.size) setAllowedIds({ routeKey, ids: visible });
           setStatus(previous ? "withdrawn" : "checking");

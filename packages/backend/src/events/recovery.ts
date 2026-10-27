@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recoverReportGroupings } from "./report-groups.ts";
 import { BATCH_PROMPT_VERSION, FACT_CONVERGENCE_VERSION } from "./relate.ts";
 import { recentGroupingCandidateIds } from "../publication/groups.ts";
 import {
@@ -289,7 +290,7 @@ export async function recoverPendingGroupings(limit = 50) {
   await ensureQueue(QUEUES.group);
   const size = Math.max(1, Math.min(limit, 100));
   try {
-    return await sql.begin(async (tx) => {
+    const result = await sql.begin(async (tx) => {
       await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
       await requireRuntimeRunning("news", ["processing", "publication"], tx);
       const sources = await activeNewsSourceIds(tx, "editorial");
@@ -329,6 +330,9 @@ export async function recoverPendingGroupings(limit = 50) {
       }
       return { examined: rows.length + splits.examined + convergence.examined, enqueued, waiting, paused: false };
     });
+    const remaining = Math.max(0, size - result.examined);
+    const reportGroups = remaining ? await recoverReportGroupings(remaining) : { examined: 0, enqueued: 0, waiting: 0 };
+    return { ...result, reportGroups };
   } catch (error) {
     if (!(error instanceof RuntimeControlPaused)) throw error;
     return { examined: 0, enqueued: 0, waiting: 0, paused: true };

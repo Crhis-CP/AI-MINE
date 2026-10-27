@@ -97,6 +97,9 @@ test("all current migration tables and serial sequences have one explicit classi
       "publication.report_revision_changes",
       "publication.story_background_refs",
       "events.story_background_proofs",
+      "events.report_group_decisions",
+      "events.report_group_checks",
+      "publication.report_group_members",
       "publication.manual_copies",
       "publication.read_watermarks",
       "sources.source_config_drafts",
@@ -207,7 +210,7 @@ test("all current migration tables and serial sequences have one explicit classi
   );
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 41);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 42);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["events.story_background_proofs"], {
     module: "events",

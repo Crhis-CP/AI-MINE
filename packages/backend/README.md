@@ -567,3 +567,19 @@ TASK0503依据Owner默认关闭决定，使用唯一 `ORIGINAL_POST_ADMISSION_EN
 ### 报道阅读组契约准备（TASK0502）
 
 沿既有events/group类型出口声明ReportGroupDecisionReader，publication/groups声明ReportGroupCandidateReader、ReportGroupMembersReader及同事务ReportGroupProjector；全部类型来自contracts/site，私有决定按两份材料/输入指纹/配方读取，投影或清除仅作用于派生阅读组。当前只有类型，没有候选查询、模型比较、持久关系、队列或投影实现。fact/story、精选与原归组保持；运行消费者须与readingGroups=reports-v1协商、当前权限/人工控制、发布失效和原队列恢复一起接通，详见contracts README。
+
+### TASK-0504 多来源报道阅读组
+
+`publication/groups`提供`readReportGroupCandidates`、`readReportGroupMembers`与`projectReportGroup`。事件模块保留模型原答和回执，发布模块只保存当前材料/许可/公开修订绑定及固定身份锚点；Projector沿调用方事务和原成员锁核对事件模块的真实`same_report`决定。人工独立/撤回清除派生关系，锚点清除同时撤销依赖成员；读时材料、许可、公开修订或身份锚点失配即拆回逐篇，不等待后台重算。
+
+`loadTimeline`、`loadPool`仅在`readingGroups=reports-v1`时启用新阅读组。现有事实组仍用factId，报道组另用UUID；原稿、分数、精选/独立来源席位与账本不改。新路径复用现有匹配器和代表选择，先按完整页面条件取得窄元数据，再分组、计数和分页，只加载本页代表的阅读字段。`loadReportGroupReports`沿相同搜索、来源、矿种、时间、精选和国别条件展开；`readItemReportGroup`供显式新能力详情附加安全字段。旧请求的字段和分页保持；新游标、并发搜索键与旧能力隔离，成员修订变化要求重新读取。
+
+当前为运行消费者实施，不代表已部署、真实模型已确认案例或读者验收完成。新增投影的实际权限矩阵、完整验证与正式发布分别留证。
+
+### 普通复合稿的报道身份（TASK-0501）
+
+`events/group` 的 `compareReportGroup` 在原归组任务结束后运行，包括 `kept` 和 `roundup`；只处理当前公开合格、当前归组完成、没有主事实/报道成员且无人工独立或正文控制的资讯稿。候选可含普通稿、精选和已有事实的报道，近14日相似度只作召回，每轮最多比较3个不同的固定身份锚点。模型经现有 `groupReview` 服务判断同一核心事件/阶段、真实新进展、无关或不足；不修改评分、入选、原文或事实归属。
+
+`events.report_group_decisions` 保存双方真实材料、许可、人工状态与配方绑定、原文引文及实际回执/字符串attempt身份。原始正文和配方构成付费输入，公开修订、计数、展示代表不加入该指纹；正负结果可复用，回执完成与决定保存同事务。未知结果只有waiting状态，不伪造模型结论；原未知费用和30分钟一次恢复规则仍由gateway管理。`events.report_group_checks`只记录无候选/负结果和恢复扫描位置，不冒充模型结果。
+
+`readReportIdentityDecision`经已声明只读口重核当前双方绑定，只有真实完成的same_report能交给publication投影。人工独立或重新归组在同一事务清除阅读关系；每个成员直接比较固定锚点，不能因共享中间成员推导合并。材料、公开修订或许可变化先使旧公开关系失效，再沿原group队列和两分钟归组恢复有界续接；模型暂停保留当前有效关系，阻止新付费比较。新增有效候选或真实材料变化可能增加调用量，不能把首次到达估算当成固定总额。

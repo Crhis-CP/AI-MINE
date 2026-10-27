@@ -14,6 +14,8 @@ import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 
 export const GROUP_BODY_CHARS = 10_000;
+export const LEXICAL_RECALL_MIN = 0.25;
+export const RECALL_TOP_FACTS = 10;
 export const BATCH_PROMPT_VERSION = promptVersion("group-batch", "group-value");
 export const RELATE_PROMPT_VERSION = promptVersion("group-batch", "group-pair", "group-signal");
 export const FACT_CONVERGENCE_VERSION = "same-occurrence-canonical-v1";
