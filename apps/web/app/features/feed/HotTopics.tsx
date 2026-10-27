@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import type { HotStripEntry, TimelineCard } from "@amp/contracts/site";
+import type { HotStripEntry, ReportGroupedTimelineCard as TimelineCard } from "@amp/contracts/site";
 import { EmptyState } from "../../components/ui/Page";
 import { IconArrowRight, IconMinus, IconTrendDown, IconTrendUp } from "../../components/icons";
 
@@ -22,10 +22,13 @@ function TrendMark({ trend }: { trend: HotStripEntry["trend"] }) {
 /** Representative source already on this page's featured card, plus how many other outlets folded under it. */
 function sourcesUnder(entry: HotStripEntry, cards: TimelineCard[] | undefined): string | null {
   const card = cards?.find(
-    (item) => (entry.itemId != null && item.item.id === entry.itemId) || (entry.storyPublicId != null && item.group?.story?.publicId === entry.storyPublicId),
+    (item) =>
+      (entry.itemId != null && (item.item.id === entry.itemId || item.reportGroup?.memberIds.includes(entry.itemId))) ||
+      (entry.storyPublicId != null && item.group?.story?.publicId === entry.storyPublicId),
   );
   if (!card?.item.source.name) return null;
-  const others = card.group && card.group.reportCount > 1 ? card.group.additionalSourceCount : 0;
+  const group = card.reportGroup ?? card.group;
+  const others = group && group.reportCount > 1 ? group.additionalSourceCount : 0;
   return others > 0 ? `${card.item.source.name} · 另有 ${others} 家来源` : card.item.source.name;
 }
 

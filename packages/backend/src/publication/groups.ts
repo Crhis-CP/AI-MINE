@@ -3,12 +3,16 @@ import { originalPostAdmissionCondition } from "./items.ts";
 import { originalPostAffectedStories } from "./stories.ts";
 export { originalPostAffectedStories } from "./stories.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
-import { readMatcherValues } from "./mentions.ts";
+export { fetchItemsByIds } from "./items.ts";
+export { readReportGroupCandidates, readReportGroupMembers, projectReportGroup } from "./report-groups.ts";
+export { loadReportGroupReports, readItemReportGroup } from "./report-group-reading.ts";
+export type { ReportGroupReportsInput, ReportGroupReportsResult } from "./report-group-reading.ts";
+import { readMatcherValues, searchScoreValues } from "./mentions.ts";
 export type { ReportGroupCandidateReader, ReportGroupMembersReader, ReportGroupProjector } from "@amp/contracts/site";
 // Reading-group expansions: the reports behind "另有 N 家信源报道" and the developments behind
 // "展开 N 条进展". Members must pass the same visibility, pool eligibility and parent-page filters.
 import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";
-import type { DevelopmentsResponse, GroupReportsResponse } from "@amp/contracts/site";
+import type { DevelopmentsResponse, GroupReportsResponse, ReportGroupCandidateReader } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
@@ -25,12 +29,18 @@ import {
   toItemSummary,
   topicCondition,
   newsJurisdictionScope,
+  jurisdictionCondition,
+  publicationDateCondition,
   type ItemRow,
 } from "./items.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import type { ReportPublicationChange } from "@amp/contracts/jobs";
-import { addDays, beijingDate, beijingTime } from "@amp/contracts/time";
+import { addDays, beijingDate, beijingTime, beijingMidnight, isValidDate } from "@amp/contracts/time";
 import { publicSourceTime, CURRENT_SOURCE_TIME } from "./source-time.ts";
+import type { ReadingGroupQuery, ReadingRow } from "./report-group-reading.ts";
+import { publicationTextMatches, reportSearchTextMatches, searchPartScore, searchTitleScore } from "./read-predicates.ts";
+import { searchTerms } from "./pool.ts";
+import { foldableSelectionCondition } from "./scope.ts";
 
 export interface GroupReportsQuery {
   factPublicId: string;
@@ -444,4 +454,52 @@ export async function recentGroupingCandidateIds(sourceIds: string[], db: Db = s
       AND NOT p.backfill AND p.timeline_at >= now()-interval '7 days'
     ORDER BY p.timeline_at DESC,p.article_id LIMIT 1000`;
   return rows.map((row) => row.article_id);
+}
+
+/** Group reading and worker recall share this existing cross-module publication read boundary. */
+export async function readReportMembershipHolds(ids: string[], db: Db) {
+  return db<{ article_id: string }[]>`SELECT DISTINCT article_id FROM fact_articles WHERE article_id=ANY(${ids}::text[]) AND manual
+    UNION SELECT article_id FROM publications WHERE article_id=ANY(${ids}::text[]) AND operator_withdrawn`;
+}
+export async function readReportCandidateRows(input: Parameters<ReportGroupCandidateReader<Db>>[0], db: Db) {
+  return db<{ article_id: string; source_id: string; revision: number; title: string; summary: string | null; timeline_at: Date }[]>`
+    WITH query_material AS (SELECT p.title||' '||left(coalesce(p.summary,''),300) AS comparison_text FROM publications p
+      WHERE p.article_id=${input.excludeArticleId} AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible)
+    SELECT p.article_id,p.source_id,a.revision,p.title,p.summary,p.timeline_at
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id CROSS JOIN query_material q
+    WHERE p.article_id<>${input.excludeArticleId} AND p.channel='news' AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND NOT p.operator_withdrawn
+      AND s.participation_mode='editorial' AND (NOT p.selected OR p.visible_after<=now()) AND p.discovered_at>=${input.since}
+    ORDER BY (p.title||' '||left(coalesce(p.summary,''),300)) <-> q.comparison_text,p.discovered_at DESC,p.article_id
+    LIMIT ${Math.max(1, Math.min(input.limit, 1000))}`;
+}
+/** Share the existing publication matchers; select narrow metadata before folding and paging. */
+export async function readReportReadingRows(q: ReadingGroupQuery, now: Date, db: Db): Promise<ReadingRow[]> {
+  const geo = newsJurisdictionScope(q.jurisdiction),
+    terms = searchTerms(q.q?.trim() ?? "");
+  const names = readMatcherValues(q.tag, q.topicTags, geo.jurisdictionCodes, [], geo.jurisdictionRecipe);
+  const minerals = readMatcherValues(q.mineral, q.topicTags, geo.jurisdictionCodes, [], geo.jurisdictionRecipe);
+  const text = readMatcherValues(null, null, [], terms),
+    scores = searchScoreValues(terms);
+  const on = q.on && isValidDate(q.on) ? q.on : null;
+  const from = on ?? (q.from && isValidDate(q.from) ? q.from : null),
+    to = on ?? (q.to && isValidDate(q.to) ? q.to : null);
+  return db<
+    ReadingRow[]
+  >`SELECT p.article_id AS id,p.revision,p.source_id,p.fact_id,f.public_id AS fact_public_id,p.sort_at,p.timeline_at,p.body_mode,p.score,p.representative_priority,
+      EXISTS(SELECT 1 FROM fact_articles fa WHERE fa.fact_id=p.fact_id AND fa.article_id=p.article_id AND fa.role IN ('primary','report')) AS own_fact,
+      ${foldableSelectionCondition()} AS foldable,(${searchPartScore(scores)})+(${searchTitleScore(scores)}) AS rel,
+      (CASE WHEN p.selected AND p.seat THEN 1000 ELSE 0 END)+coalesce(p.score,0) AS tie
+    FROM publications p LEFT JOIN pool_search ps ON ps.article_id=p.article_id LEFT JOIN facts f ON f.id=p.fact_id
+    WHERE ${listedCondition(now)} AND p.eligible AND NOT p.operator_withdrawn
+      AND (${q.reportGroupId ?? null}::uuid IS NULL OR p.article_id IN (SELECT article_id FROM publication.report_group_members WHERE group_id=${q.reportGroupId ?? null}::uuid))
+      AND (${!(q.selected || q.scope === "selected")} OR ${confirmedSelected()})
+      AND (${q.featuredSince ?? null}::timestamptz IS NULL OR p.timeline_at>=${q.featuredSince ?? null})
+      ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(names)} ${topicCondition(names)}
+      ${publicationDateCondition(from ? beijingMidnight(from) : null, to ? beijingMidnight(addDays(to, 1)) : null)}
+      ${jurisdictionCondition(q.jurisdiction ?? null, geo.jurisdictionCodes, geo.jurisdictionRecipe, names)}
+      AND (${q.source ?? null}::text IS NULL OR p.source_id=${q.source ?? null})
+      AND (${minerals.tagTags}::text[] IS NULL OR p.tags&&${minerals.tagTags}::text[] OR (${minerals.tagText.active} AND ${publicationTextMatches(minerals.tagText)}))
+      AND (${!text.term0.active} OR ${reportSearchTextMatches(text.term0, q.tab === "relevance")}) AND (${!text.term1.active} OR ${reportSearchTextMatches(text.term1, q.tab === "relevance")})
+      AND (${!text.term2.active} OR ${reportSearchTextMatches(text.term2, q.tab === "relevance")}) AND (${!text.term3.active} OR ${reportSearchTextMatches(text.term3, q.tab === "relevance")})
+      AND (${!text.term4.active} OR ${reportSearchTextMatches(text.term4, q.tab === "relevance")}) AND (${!text.term5.active} OR ${reportSearchTextMatches(text.term5, q.tab === "relevance")})`;
 }

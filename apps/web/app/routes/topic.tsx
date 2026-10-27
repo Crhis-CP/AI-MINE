@@ -47,9 +47,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     );
   let data = await loadOr404(() => readTopic(1), { signal: request.signal });
   const query = {
+    readingGroups: "reports-v1",
     topic: params.slug,
     page,
     q: search.get("q") || undefined,
+    tab: search.get("tab") === "relevance" ? "relevance" : undefined,
     source: search.get("source") || undefined,
     mineral: search.get("mineral") || undefined,
     jurisdiction: search.get("jurisdiction") || undefined,
@@ -66,7 +68,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         headers: { accept: "application/json", "x-amp-ssr": "1" },
         signal: request.signal,
         baseUrl: apiBaseFor(),
-      }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
+      }).then((result) => contractResult(result, publicSchemas.ReportGroupedPoolResponse)),
     { signal: request.signal },
   );
   const filtered = [
@@ -234,7 +236,7 @@ export default function TopicPage() {
           <EmptyState title={picks ? "这个主题暂时还没有精选内容" : "这个主题暂时还没有内容"} />
         </div>
       ) : (
-        <DayList items={items} />
+        <DayList items={items} cards={pool.cards} filters={pool.filters} />
       )}
       {page > pageCount && (
         <Link to={href(1)} className="block py-4 text-center text-accent">

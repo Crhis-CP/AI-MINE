@@ -2,22 +2,25 @@
 // (全部动态, topics, search results, 收藏).
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import type { FeedItemSummary, TimelineCard } from "@amp/contracts/site";
+import type { FeedItemSummary, ReportGroupedTimelineCard } from "@amp/contracts/site";
 import { IconChevronRight } from "../../components/icons";
 import { beijingDate } from "../../lib/format";
 import { DayHeader, TimelineSlot } from "./Timeline";
 import { useReaderItemScope } from "./ContentVersionGuard";
 import { FeedItem } from "./FeedItem";
+import type { ReadingGroupFilters } from "./ReadingGroup";
 
 export function DayList({
   items,
   cards,
+  filters,
   todayCount = null,
   showTags = true,
   animate = false,
 }: {
   items: FeedItemSummary[];
-  cards?: TimelineCard[];
+  cards?: ReportGroupedTimelineCard[];
+  filters?: ReadingGroupFilters;
   todayCount?: number | null;
   showTags?: boolean;
   animate?: boolean;
@@ -70,11 +73,19 @@ export function DayList({
           />
           <ol className="lg:pt-1" hidden={collapsed.includes(day)}>
             {list.map((it) => (
-              <TimelineSlot key={it.id} at={it.timelineAt} sourceTime={it.sourceTime} fresh={animate} delay={animate ? Math.min(order++, 12) * 25 : 0}>
+              <TimelineSlot
+                key={it.id}
+                at={cards?.find((card) => card.item.id === it.id)?.anchorAt ?? it.timelineAt}
+                sourceTime={it.sourceTime}
+                fresh={animate}
+                delay={animate ? Math.min(order++, 12) * 25 : 0}
+              >
                 <FeedItem
                   item={it}
                   group={cards?.find((card) => card.item.id === it.id)?.group}
-                  filters={cards ? { channel: "all", category: null, tag: null, scope: "all" } : undefined}
+                  reportGroup={cards?.find((card) => card.item.id === it.id)?.reportGroup}
+                  at={cards?.find((card) => card.item.id === it.id)?.anchorAt ?? it.timelineAt}
+                  filters={cards ? { channel: "all", category: null, tag: null, ...filters, scope: "all" } : undefined}
                   showTags={showTags}
                 />
               </TimelineSlot>

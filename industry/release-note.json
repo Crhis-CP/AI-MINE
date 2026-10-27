@@ -4,6 +4,7 @@
     "title": "阅读更清楚，信息更及时",
     "body": [
       "关于页会自动更新当前跟踪的资讯来源和内容数量。",
+      "经确认属于同一事件、同一阶段的多来源报道可集中阅读，并展开查看各自原文；新进展仍单独保留。",
       "金属价格列明报价期次、出处与比较基期，报告和法规页面说明资料覆盖范围。",
       "符合条件的国别精选不再因总榜展示名额而遗漏。",
       "原帖内容与引用分别呈现，已有中文译文时可切换查看原文。",
@@ -18,6 +19,7 @@
     "changes/TASK-0463-agent-navigation.md",
     "changes/TASK-0471-country-selected.md",
     "changes/TASK-0497-original-post-reading.md",
-    "changes/TASK-0500-reader-clarity.md"
+    "changes/TASK-0500-reader-clarity.md",
+    "changes/TASK-0505-report-reading.md"
   ]
 }

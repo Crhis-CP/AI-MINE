@@ -6,8 +6,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useLocation, useNavigation } from "react-router";
 import { Collapse } from "../../components/ui/Presence.tsx";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
-import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
-import { monthDay } from "@amp/contracts/time";
+import type { ReportGroupedTimelineCard as TimelineCard, TimelineFilters, ReportGroupedTimelineResponse as TimelineResponse } from "@amp/contracts/site";
+import { monthDay, addCalendarMonths } from "@amp/contracts/time";
 import { useReaderItemScope } from "./ContentVersionGuard";
 import { FeedItem } from "./FeedItem";
 import { IconChevronDown } from "../../components/icons";
@@ -19,6 +19,7 @@ import { isHydrated, markHydrated, readSnapshot, restoreAnchor, saveSnapshot, ty
 const AUTO_BATCHES = 3;
 
 interface ListState {
+  generatedAt: string;
   cards: TimelineCard[];
   nextCursor: string | null;
   dayCounts: Record<string, number>;
@@ -28,7 +29,7 @@ interface ListState {
 }
 
 function filterQuery(f: TimelineFilters, extra: Record<string, string | number | null | undefined> = {}) {
-  const sp = new URLSearchParams();
+  const sp = new URLSearchParams({ readingGroups: "reports-v1" });
   if (f.channel !== "all") sp.set("channel", f.channel);
   if (f.category) sp.set("category", f.category);
   if (f.tag) sp.set("tag", f.tag);
@@ -39,7 +40,7 @@ function filterQuery(f: TimelineFilters, extra: Record<string, string | number |
 }
 
 function fromResponse(r: TimelineResponse, unreadOnly = false): ListState {
-  return { cards: r.cards, nextCursor: r.nextCursor, dayCounts: r.dayCounts, collapsed: [], batches: 1, unreadOnly };
+  return { generatedAt: r.generatedAt, cards: r.cards, nextCursor: r.nextCursor, dayCounts: r.dayCounts, collapsed: [], batches: 1, unreadOnly };
 }
 
 const WEEKDAY_SHORT = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -196,6 +197,11 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     }
     return fromResponse(initial);
   });
+  const groupFilters = {
+    ...filters,
+    scope: filters.scope ?? ("selected" as const),
+    ...(filters.scope !== "all" ? { from: addCalendarMonths(beijingDate(state.generatedAt), -3) } : {}),
+  };
   const restoredRef = useRef(false);
   const restorePending = useRef<ListSnapshot<ListState> | null>(null);
   const lastInitial = useRef(initial);
@@ -303,6 +309,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
         apiFetch("/api/site/timeline", {
           params: {
             query: {
+              readingGroups: "reports-v1",
               channel: filters.channel,
               category: filters.category ?? undefined,
               tag: filters.tag ?? undefined,
@@ -319,13 +326,13 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
         // Cursor no longer fits: start over from the head.
         const head = await read();
         if (head.ok) {
-          const page = publicSchemas.TimelineResponse.parse(await head.json());
+          const page = publicSchemas.ReportGroupedTimelineResponse.parse(await head.json());
           if (current()) setState(fromResponse(page, stateRef.current.unreadOnly));
         }
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
-      const page = publicSchemas.TimelineResponse.parse(await res.json());
+      const page = publicSchemas.ReportGroupedTimelineResponse.parse(await res.json());
       if (!current()) return;
       setState((prev) => {
         const seen = new Set(prev.cards.map((c) => c.key));
@@ -378,8 +385,10 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
 
   const today = beijingDate(Date.now());
   const unreadVisible = useCallback(
-    (card: TimelineCard) =>
-      !readSet.has(card.item.id) || (!!card.group && (card.group.memberIds === undefined || card.group.memberIds.some((id) => !readSet.has(id)))),
+    (card: TimelineCard) => {
+      const group = card.reportGroup ?? card.group;
+      return !readSet.has(card.item.id) || (!!group && (group.memberIds === undefined || group.memberIds.some((id) => !readSet.has(id))));
+    },
     [readSet],
   );
   const days = useMemo(() => {
@@ -450,7 +459,14 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
                   const delay = fresh ? Math.min(order++, 10) * 40 : 0;
                   return (
                     <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} sourceTime={c.item.sourceTime} fresh={fresh} delay={delay}>
-                      <FeedItem item={c.item} group={c.group} filters={filters} at={c.anchorAt} read={state.unreadOnly ? false : undefined} />
+                      <FeedItem
+                        item={c.item}
+                        group={c.group}
+                        reportGroup={c.reportGroup}
+                        filters={groupFilters}
+                        at={c.anchorAt}
+                        read={state.unreadOnly ? false : undefined}
+                      />
                     </TimelineSlot>
                   );
                 })}

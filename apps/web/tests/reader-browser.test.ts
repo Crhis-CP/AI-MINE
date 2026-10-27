@@ -1,5 +1,6 @@
 // Real production browser/router, synthetic read-only API; no external network or accounts.
 import assert from "node:assert/strict";
+import { beijingDate, addDays, addCalendarMonths } from "@amp/contracts/time";
 import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
 import { createServer } from "node:http";
@@ -15,6 +16,9 @@ let origin = "",
   browser: Browser;
 let phase = "setup";
 let unreadGroup = false;
+let reportReading: false | "grouped" | "latest" = false;
+let reportCursorReset = false;
+const reportGroupId = "de967745-2a89-4d3a-a7f0-d530a1eebd52";
 let deepTimeline = false;
 let deepPool = false;
 let historicalBackground = true;
@@ -102,6 +106,121 @@ const api = createServer((req, res) => {
     }
     return res.end(JSON.stringify(value));
   };
+  if (reportReading) {
+    const members = url.searchParams.get("source") ? ["fixture-a", "fixture-c"] : ["fixture-a", "fixture-b", "fixture-c"];
+    const group = { id: reportGroupId, memberIds: members, reportCount: members.length, additionalSourceCount: members.includes("fixture-b") ? 1 : 0 };
+    const fixtureCard = (id: string) => ({ ...card(id), title: id === "fixture-c" ? "同源补充报道" : card(id).title, selected: true });
+    const fixtureSource = (id: string) => ({
+      id: id === "fixture-b" ? "fixture-source-b" : "fixture-source",
+      name: id === "fixture-b" ? "另一合成来源" : "合成来源",
+      kind: "rss",
+      firstParty: id !== "fixture-b",
+    });
+    const filters = {
+      channel: "all",
+      category: null,
+      tag: url.searchParams.get("tag"),
+      topic: url.searchParams.get("topic"),
+      jurisdiction: url.searchParams.get("jurisdiction"),
+      source: url.searchParams.get("source"),
+      mineral: url.searchParams.get("mineral"),
+      on: url.searchParams.get("on"),
+      from: url.searchParams.get("from"),
+      to: url.searchParams.get("to"),
+      selected: url.searchParams.get("selected") === "true",
+    };
+    const groupedCard = { key: `r${reportGroupId}`, anchorAt: now, item: fixtureCard("fixture-a"), group: null, reportGroup: group };
+    if (url.pathname === "/api/site/timeline") {
+      if (url.searchParams.has("cursor") && !reportCursorReset) {
+        reportCursorReset = true;
+        res.statusCode = 400;
+        return answer({ code: "invalid_cursor" });
+      }
+      return answer({
+        filters,
+        cards: reportReading === "latest" ? [] : [groupedCard],
+        nextCursor: reportReading === "grouped" && !reportCursorReset ? "older-reading-cursor" : null,
+        refreshAt: null,
+        hot: null,
+        dayCounts: {},
+        generatedAt: now,
+      });
+    }
+    if (url.pathname === "/api/site/stats" && reportReading === "latest")
+      return answer({
+        sources: 2,
+        sourceKinds: { rss: 2 },
+        heatOnlySources: 0,
+        items: 3,
+        selected: 0,
+        dailies: 0,
+        day: { collected: 3, selected: 0 },
+        sampleSources: [],
+        latest: [],
+      });
+    if (url.pathname === "/api/site/pool")
+      return answer({
+        filters: { ...filters, q: url.searchParams.get("q"), tab: url.searchParams.get("tab") ?? "time" },
+        items: [fixtureCard("fixture-a")],
+        cards: [groupedCard],
+        page: 1,
+        pageCount: 1,
+        total: 1,
+        todayCount: 1,
+        freshness: now,
+        generatedAt: now,
+      });
+    if (url.pathname === "/api/site/topics/report-topic")
+      return answer({
+        topic: {
+          slug: "report-topic",
+          name: "合成主题",
+          group: "field",
+          definition: "合成矿业资料",
+          total: 3,
+          recent: 3,
+          indexable: false,
+          latestAt: now,
+          basis: "all",
+          related: [],
+        },
+        items: [fixtureCard("fixture-a")],
+        page: 1,
+        pageCount: 1,
+      });
+    if (url.pathname === `/api/site/report-groups/${reportGroupId}/reports`)
+      return answer({
+        reportGroupId,
+        revision: "members-1",
+        nextCursor: null,
+        reports: members.map((id) => ({
+          ...fixtureCard(id),
+          reason: undefined,
+          publishedAt: undefined,
+          category: undefined,
+          tags: undefined,
+          score: undefined,
+          channel: undefined,
+          source: fixtureSource(id),
+          sourceTime: null,
+          originalUrl: `https://example.invalid/${id}`,
+        })),
+      });
+    const itemMatch = /^\/api\/site\/items\/(fixture-[abc])(\/original)?$/.exec(url.pathname);
+    if (itemMatch) {
+      const id = itemMatch[1]!,
+        original = !!itemMatch[2];
+      return answer({
+        ...detail,
+        ...fixtureCard(id),
+        source: fixtureSource(id),
+        reportGroup: group,
+        hasTranslation: true,
+        bodyLanguage: original ? "original" : "zh",
+        body: { zh: original ? null : detail.body.zh, original: original ? `<p>Original ${id}</p>` : null, zhKind: "translation", complete: true },
+      });
+    }
+  }
   if (url.pathname === "/api/site/information")
     return answer({
       about: "本地演示：把分散的矿业报道整理成中文，保留来源和原文，方便继续核对。",
@@ -1270,5 +1389,105 @@ test("phone page bars return through reading history and fall back to the parent
     assert.deepEqual(blocked, []);
   } finally {
     await context.close();
+  }
+});
+
+test("report reading groups preserve filters, source links, unread members and rollback across phone and desktop", { timeout: 60000 }, async () => {
+  for (const width of [390, 1440]) {
+    reportReading = "grouped";
+    reportCursorReset = false;
+    withdrawn = false;
+    added = false;
+    const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+    const start = calls.length,
+      errors: string[] = [];
+    try {
+      const blocked = await isolateBrowser(context, [origin]);
+      await context.addInitScript(() => localStorage.setItem("amp-read-items", JSON.stringify(["fixture-a", "fixture-c"])));
+      const page = await context.newPage();
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.goto(origin);
+      await expect.poll(() => reportCursorReset).toBe(true);
+      const unread = () => page.getByRole("button", { name: "只看未读", exact: true }).filter({ visible: true });
+      await unread().click();
+      const homeSources = page.getByRole("button", { name: "另有 1 家信源报道", exact: true });
+      await homeSources.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("link", { name: "新到的矿业动态", exact: true })).toBeVisible();
+      const homeCall = new URL(
+        calls
+          .slice(start)
+          .filter((p) => p.startsWith(`/api/site/report-groups/${reportGroupId}/reports`))
+          .at(-1)!,
+        "http://fixture",
+      );
+      assert.equal(homeCall.searchParams.get("scope"), "selected");
+      assert.equal(homeCall.searchParams.get("from"), addCalendarMonths(beijingDate(now), -3));
+      await page.getByRole("link", { name: "新到的矿业动态", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "新到的矿业动态", exact: true })).toBeVisible();
+      await page.goBack();
+      await expect(page.getByText("没有未读的精选内容", { exact: true })).toBeVisible();
+      const date = beijingDate(now),
+        filters = new URLSearchParams({
+          q: "铜",
+          tab: "relevance",
+          source: "fixture-source",
+          mineral: "铜",
+          on: date,
+          from: addDays(date, -1),
+          to: addDays(date, 1),
+          selected: "true",
+          jurisdiction: "AR",
+          tag: "铜",
+        });
+      await page.goto(`${origin}/all?${filters}`);
+      const allSources = page.getByRole("button", { name: "2 篇报道", exact: true });
+      await allSources.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("link", { name: "同源补充报道", exact: true })).toBeVisible();
+      const allCall = new URL(
+        calls
+          .slice(start)
+          .filter((p) => p.startsWith(`/api/site/report-groups/${reportGroupId}/reports`))
+          .at(-1)!,
+        "http://fixture",
+      );
+      for (const [key, value] of filters) assert.equal(allCall.searchParams.get(key), value, key);
+      assert.equal(allCall.searchParams.get("scope"), "all");
+      await expect(page.getByRole("link", { name: "打开原文", exact: true })).toHaveAttribute("href", "https://example.invalid/fixture-c");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.screenshot({ path: `.verify/report-reading-${width}.png` });
+      await page.getByRole("link", { name: "同源补充报道", exact: true }).click();
+      await page.getByRole("button", { name: "收藏", exact: true }).filter({ visible: true }).first().click();
+      await expect(page.getByRole("button", { name: "取消收藏", exact: true }).filter({ visible: true }).first()).toBeVisible();
+      await page.getByRole("link", { name: "原文", exact: true }).click();
+      await expect(page.getByText("Original fixture-c", { exact: true })).toBeVisible();
+      await page.goto(`${origin}/topics/report-topic?q=铜&jurisdiction=AR&selected=true`);
+      await page.getByRole("button", { name: "另有 1 家信源报道", exact: true }).click();
+      await expect(page.getByRole("link", { name: "新到的矿业动态", exact: true })).toBeVisible();
+      const topicCall = new URL(
+        calls
+          .slice(start)
+          .filter((p) => p.startsWith(`/api/site/report-groups/${reportGroupId}/reports`))
+          .at(-1)!,
+        "http://fixture",
+      );
+      assert.equal(topicCall.searchParams.get("topic"), "report-topic");
+      reportReading = "latest";
+      await page.goto(origin);
+      await expect(page.getByRole("button", { name: "另有 1 家信源报道", exact: true })).toBeVisible();
+      for (const path of calls
+        .slice(start)
+        .filter((p) => /^\/api\/site\/(?:pool|timeline)(?:\?|$)/.test(p) || /^\/api\/site\/items\/fixture-[abc](?:\/original)?(?:\?|$)/.test(p)))
+        assert.equal(new URL(path, "http://fixture").searchParams.get("readingGroups"), "reports-v1", path);
+      reportReading = false;
+      await page.goto(`${origin}/all`);
+      await expect(page.getByRole("heading", { name: "可核对的矿业动态", exact: true })).toBeVisible();
+      assert.deepEqual(errors, []);
+      assert.deepEqual(blocked, []);
+    } finally {
+      reportReading = false;
+      await context.close();
+    }
   }
 });

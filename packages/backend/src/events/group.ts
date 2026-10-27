@@ -1,5 +1,6 @@
 import { invalidateHistoricalBackgrounds } from "./historical-background-store.ts";
 export type { ReportGroupDecisionReader } from "@amp/contracts/site";
+export { readReportIdentityDecision, compareReportGroup } from "./report-groups.ts";
 import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
 export type { HistoricalBackgroundReferencesReader } from "@amp/contracts/site";
@@ -71,6 +72,8 @@ export async function captureEventWithdrawal(db: Db, articleId: string) {
 /** Human standalone decision and membership removal share the caller's editorial transaction. */
 export async function detachArticleFromFactTx(tx: Tx, articleId: string, reason: string, actor: string) {
   await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+  const { projectReportGroup } = await import("@amp/backend/publication/groups");
+  await projectReportGroup({ articleId, projection: null }, tx);
   await captureEventWithdrawal(tx, articleId);
   await lockMaterialForGrouping(tx, articleId);
   const removed = await tx<{ fact_id: number }[]>`DELETE FROM fact_articles WHERE article_id=${articleId} RETURNING fact_id`;
@@ -138,6 +141,8 @@ import {
   BATCH_SYSTEM,
   BATCH_PROMPT_VERSION,
   GROUP_BODY_CHARS,
+  LEXICAL_RECALL_MIN,
+  RECALL_TOP_FACTS,
   ValueBatchSchema,
   NO_SELECTED_COVERAGE,
   type SelectionValue,
@@ -175,8 +180,6 @@ export const GROUP_PROMPT_VERSION = BATCH_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */
 const RECALL_DAYS = 14;
 const RECALL_MIN_COSINE = 0.6;
-const LEXICAL_RECALL_MIN = 0.25;
-const RECALL_TOP_FACTS = 10;
 /** A merge with a candidate less similar than this is confirmed by the review model before it is written. */
 const CONFIRM_BELOW_COSINE = 0.85;
 /** Discussion posts are judged only against clear candidates, and attach without a call when nearly identical. */
@@ -1141,6 +1144,8 @@ export async function requestArticleRegroup(articleId: string, db: Db = sql): Pr
   await db`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
   const material = await readMaterialGrouping(articleId, db);
   if (!material) return false;
+  const { projectReportGroup } = await import("@amp/backend/publication/groups");
+  await projectReportGroup({ articleId, projection: null }, db);
   await captureEventWithdrawal(db, articleId);
   await db`DELETE FROM grouping_overrides WHERE article_id=${articleId}`;
   await db`INSERT INTO regroup_pending(article_id,requested_at) VALUES(${articleId},pg_catalog.clock_timestamp())

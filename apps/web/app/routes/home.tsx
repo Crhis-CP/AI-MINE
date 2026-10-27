@@ -26,6 +26,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const tag = url.searchParams.get("tag")?.trim() || null;
   const upstream = new Headers();
   const query = {
+    readingGroups: "reports-v1",
     channel: channel === "all" ? undefined : channel,
     category: category ?? undefined,
     tag: tag ?? undefined,
@@ -40,7 +41,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
         baseUrl: apiBaseFor(),
       }).then(async (result) => {
-        const body = await contractResult(result, publicSchemas.TimelineResponse);
+        const body = await contractResult(result, publicSchemas.ReportGroupedTimelineResponse);
         result.headers.forEach((value, name) => {
           upstream.set(name, value);
         });
@@ -77,11 +78,12 @@ function featuredHasStarted(signal: AbortSignal) {
 /** The first page of 全部动态; "empty" or "failed" when there is nothing to show (DR-85). */
 function loadLatest(signal: AbortSignal) {
   return apiFetch("/api/site/pool", {
+    params: { query: { readingGroups: "reports-v1" } },
     headers: { accept: "application/json", "x-amp-ssr": "1" },
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
     baseUrl: apiBaseFor(),
   })
-    .then((result) => contractResult(result, publicSchemas.PoolResponse))
+    .then((result) => contractResult(result, publicSchemas.ReportGroupedPoolResponse))
     .then((pool) => (pool.items.length > 0 ? pool : ("empty" as const)))
     .catch(() => "failed" as const);
 }
@@ -132,7 +134,7 @@ export default function Home() {
       ) : latest ? (
         <div className="mt-2">
           <p className="mb-2 text-[13px] text-ink-3">精选还没开始，先看最新动态。</p>
-          <DayList items={latest.items} todayCount={latest.todayCount} showTags />
+          <DayList items={latest.items} cards={latest.cards} filters={latest.filters} todayCount={latest.todayCount} showTags />
           {latest.pageCount > 1 && (
             <div className="mt-4 text-center">
               <MoreLink to="/all?page=2">更多动态</MoreLink>

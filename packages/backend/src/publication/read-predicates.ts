@@ -48,3 +48,13 @@ export function searchTitleScore(values: SearchScoreValues) {
     + (CASE WHEN lower(p.title) LIKE ${values.term4} THEN 6 ELSE 0 END)
     + (CASE WHEN lower(p.title) LIKE ${values.term5} THEN 6 ELSE 0 END)`;
 }
+
+/** Match the parent's search mode without multiplying SQL branches for each search term. */
+export function reportSearchTextMatches(values: TextMatchValues, relevance: boolean) {
+  return sql`EXISTS (SELECT 1 FROM unnest(CASE WHEN ${relevance} THEN ARRAY[ps.direct,ps.body] ELSE ARRAY[p.search_text] END) AS reading_text(value)
+    WHERE CASE WHEN ${values.hasGuards} THEN (
+      value ILIKE ANY(${values.likes}::text[]) OR value ~* ANY(${values.latin}::text[])
+      OR CASE WHEN value IS NULL THEN NULL ELSE EXISTS (SELECT 1 FROM unnest(${values.guardRemovals}::text[],${values.guardLikes}::text[]) AS guards(removal,pattern)
+        WHERE regexp_replace(value,guards.removal,'','gi') ILIKE guards.pattern) END)
+      ELSE value ILIKE ANY(${values.likes}::text[]) OR value ~* ANY(${values.latin}::text[]) END)`;
+}

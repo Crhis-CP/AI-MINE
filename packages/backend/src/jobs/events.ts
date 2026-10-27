@@ -6,6 +6,7 @@ import { ReceiptBusyError, ReceiptUnknownError, BudgetExceededError } from "../p
 // Event jobs: serial grouping, debounced digests.
 import type { PgBoss } from "pg-boss";
 import { groupArticle, GroupingSupersededError, consolidate, resumeSignalRematch, EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/group.ts";
+import { compareReportGroup } from "../events/report-groups.ts";
 import { composeStoryDigest } from "../events/digest.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { settleNonEditorial, articleJobLane, groupingQueuePriority } from "./content.ts";
@@ -51,7 +52,8 @@ export async function registerEventJobs(boss: PgBoss) {
         await enqueue(QUEUES.digest, { lane: "news", storyId: result.storyId }, { singletonKey: `story:${result.storyId}`, startAfter: 60 });
         await enqueueOn(historyQueue, { lane: "news", articleId: data.articleId }, { singletonKey: data.articleId });
       }
-      return result;
+      const reportGroup = data.signalOnly ? null : await compareReportGroup(data.articleId);
+      return { ...result, ...(reportGroup ? { reportGroup } : {}) };
     } catch (error) {
       if (error instanceof ReceiptUnknownError) return { state: "waiting", reason: "receipt", receiptId: error.receiptId };
       if (isWaiting(error)) {

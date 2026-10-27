@@ -37,6 +37,14 @@ const provider = await stub(async (_hit, request) => {
   }
   lastInput = body.messages[1].content;
   await beforeAnswer?.();
+  if (lastInput.startsWith('{"left":')) {
+    return {
+      choices: [
+        { message: { content: JSON.stringify({ relation: "insufficient", evidence: null, reason: "This fixture only judges existing fact selection" }) } },
+      ],
+      usage: { prompt_tokens: 100, completion_tokens: 30 },
+    };
+  }
   const ids = [...lastInput.matchAll(/【候选 (C\d+)】/g)].map((match) => match[1]);
   return {
     choices: [

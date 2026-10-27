@@ -1,7 +1,17 @@
 import { validNewsJurisdiction } from "@amp/industry/jurisdictions";
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
-import { routes as contracts, policyRoutes, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
+import {
+  routes as contracts,
+  policyRoutes,
+  PoolResponse,
+  SiteStats,
+  TimelineResponse,
+  ReportGroupedPoolResponse,
+  ReportGroupedTimelineResponse,
+  ReportGroupDetailFields,
+  ReportGroupReportsResponse,
+} from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
@@ -9,7 +19,7 @@ import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail"
 import { loadPool, SearchBusyError } from "@amp/backend/publication/pool";
 import { loadTimeline, policyScope } from "@amp/backend/publication/timeline";
 import { loadStoryFollowups } from "@amp/backend/publication/followups";
-import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/groups";
+import { loadDevelopments, loadGroupReports, loadReportGroupReports, readItemReportGroup } from "@amp/backend/publication/groups";
 import { loadTopicTags } from "@amp/backend/publication/topics";
 import { loadHotStrip, hotSearchLinks } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
@@ -26,6 +36,12 @@ import { looseQuery, sendJsonWithEtag, sendProblem, applyPublicHeaders } from ".
 type Handler = (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 
 class BadRequest extends Error {}
+
+function readingGroups(q: Record<string, string>): "reports-v1" | undefined {
+  if (q.readingGroups === undefined) return undefined;
+  if (q.readingGroups !== "reports-v1") throw new BadRequest("invalid reading groups capability");
+  return q.readingGroups;
+}
 
 /** Cache until the earliest pending release in scope (an absolute deadline shared with any proxy or CDN in front). */
 export function cacheUntil(reply: FastifyReply, defaultSeconds: number, refreshAt: string | null, now = Date.now()) {
@@ -53,6 +69,7 @@ export function siteHandler(fn: Handler): Handler {
 }
 
 export interface FilterParams {
+  readingGroups?: "reports-v1";
   jurisdiction?: string | null;
   source?: string | null;
   mineral?: string | null;
@@ -69,6 +86,7 @@ export interface FilterParams {
 }
 
 export async function parseFilters(q: Record<string, string>): Promise<FilterParams> {
+  const capability = readingGroups(q);
   const jurisdiction = q.jurisdiction?.trim() || null;
   if (jurisdiction && !validNewsJurisdiction(jurisdiction)) throw new BadRequest("invalid jurisdiction");
   const channel = q.channel ?? "all";
@@ -91,6 +109,7 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
   if (q.scope && !["all", "selected"].includes(q.scope)) throw new BadRequest("invalid scope");
   if (q.selected && !["true", "false", "1", "0"].includes(q.selected)) throw new BadRequest("invalid selected filter");
   return {
+    ...(capability ? { readingGroups: capability } : {}),
     channel,
     category: category as CategoryKey | null,
     tag,
@@ -156,9 +175,9 @@ export function registerSite(app: FastifyInstance) {
       const [timeline, hot] = await Promise.all([loadTimeline({ ...filters, cursor: q.cursor || null, limit }), unfiltered ? loadHotStrip() : null]);
       const { total: _total, ...data } = timeline;
       const body = { ...data, hot, generatedAt: new Date().toISOString() };
-      TimelineResponse.parse(JSON.parse(JSON.stringify(body)));
+      (filters.readingGroups ? ReportGroupedTimelineResponse : TimelineResponse).parse(JSON.parse(JSON.stringify(body)));
       const cc = cacheUntil(reply, 60, data.refreshAt);
-      return sendJsonWithEtag(req, reply, body, { etagPrefix: "tl", cacheControl: cc, etagOf: { ...data, hot } });
+      return sendJsonWithEtag(req, reply, body, { etagPrefix: filters.readingGroups ? "tl-rg1" : "tl", cacheControl: cc, etagOf: { ...data, hot } });
     }),
   );
 
@@ -189,9 +208,13 @@ export function registerSite(app: FastifyInstance) {
         filters.channel === "all"
       )
         data.hot = (await loadHotStrip()) ?? [];
-      PoolResponse.parse(JSON.parse(JSON.stringify(data))); // Validate wire values without changing the original bytes.
+      (filters.readingGroups ? ReportGroupedPoolResponse : PoolResponse).parse(JSON.parse(JSON.stringify(data))); // Validate wire values without changing the original bytes.
       const { generatedAt: _, ...content } = data;
-      return sendJsonWithEtag(req, reply, data, { etagPrefix: "pool", cacheControl: "public, max-age=60, s-maxage=60", etagOf: content });
+      return sendJsonWithEtag(req, reply, data, {
+        etagPrefix: filters.readingGroups ? "pool-rg1" : "pool",
+        cacheControl: "public, max-age=60, s-maxage=60",
+        etagOf: content,
+      });
     }),
   );
 
@@ -203,7 +226,17 @@ export function registerSite(app: FastifyInstance) {
       const result = await loadItemDetail(id);
       if (result.kind === "not_found")
         return sendProblem(req, reply, { status: 404, code: "not_found", detail: "item not found", cacheControl: "public, max-age=60" });
-      return sendJsonWithEtag(req, reply, siteItemDetail(result.detail), { etagPrefix: "item", cacheControl: "public, max-age=60, s-maxage=60" });
+      const capability = readingGroups(looseQuery(req));
+      const group = capability ? ReportGroupDetailFields.parse({ reportGroup: await readItemReportGroup(id) }) : {};
+      return sendJsonWithEtag(
+        req,
+        reply,
+        { ...siteItemDetail(result.detail), ...group },
+        {
+          etagPrefix: capability ? "item-rg1" : "item",
+          cacheControl: "public, max-age=60, s-maxage=60",
+        },
+      );
     }),
   );
 
@@ -215,10 +248,17 @@ export function registerSite(app: FastifyInstance) {
       const result = await loadItemDetail(id);
       if (result.kind === "not_found")
         return sendProblem(req, reply, { status: 404, code: "not_found", detail: "item not found", cacheControl: "public, max-age=60" });
-      return sendJsonWithEtag(req, reply, siteItemDetail(result.detail, true), {
-        etagPrefix: "item-original",
-        cacheControl: "public, max-age=60, s-maxage=60",
-      });
+      const capability = readingGroups(looseQuery(req));
+      const group = capability ? ReportGroupDetailFields.parse({ reportGroup: await readItemReportGroup(id) }) : {};
+      return sendJsonWithEtag(
+        req,
+        reply,
+        { ...siteItemDetail(result.detail, true), ...group },
+        {
+          etagPrefix: capability ? "item-original-rg1" : "item-original",
+          cacheControl: "public, max-age=60, s-maxage=60",
+        },
+      );
     }),
   );
 
@@ -248,6 +288,33 @@ export function registerSite(app: FastifyInstance) {
       if (data.kind === "changed") return sendProblem(req, reply, { status: 409, code: "group_changed", detail: "reading group changed; reload it" });
       reply.header("Cache-Control", "no-store");
       return reply.send(data.body);
+    }),
+  );
+
+  app.get(
+    contracts.siteReportGroupReports.url,
+    { schema: { operationId: contracts.siteReportGroupReports.schema.operationId, response: contracts.siteReportGroupReports.schema.response } },
+    siteHandler(async (req, reply) => {
+      const params = contracts.siteReportGroupReports.schema.params.safeParse(req.params);
+      if (!params.success) throw new BadRequest("invalid report group");
+      const q = looseQuery(req),
+        filters = await parseFilters(q);
+      const take = Number(q.take ?? 20);
+      if (!Number.isInteger(take) || take < 1 || take > 40) throw new BadRequest("invalid take");
+      const result = await loadReportGroupReports({
+        ...filters,
+        readingGroups: "reports-v1",
+        reportGroupId: params.data.reportGroupId,
+        q: q.q?.trim().slice(0, 200) || null,
+        tab: q.tab === "relevance" ? "relevance" : "time",
+        cursor: q.cursor || null,
+        take,
+        revision: q.revision || null,
+      });
+      if (result.kind === "not_found") return sendProblem(req, reply, { status: 404, code: "not_found", detail: "reading group unavailable" });
+      if (result.kind === "changed") return sendProblem(req, reply, { status: 409, code: "group_changed", detail: "reading group changed; reload it" });
+      ReportGroupReportsResponse.parse(result.body);
+      return reply.header("Cache-Control", "no-store").send(result.body);
     }),
   );
 

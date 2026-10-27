@@ -105,6 +105,8 @@ test("every real role has exactly the approved table, column, sequence and cross
       "editorial.withdrawal_restorations",
       "enrichment.quote_translations",
       "enrichment.translation_segments",
+      "events.report_group_checks",
+      "events.report_group_decisions",
       "events.story_background_proofs",
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
@@ -153,6 +155,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.policy_reports",
       "publication.policy_threads",
       "publication.read_watermarks",
+      "publication.report_group_members",
       "publication.report_revision_changes",
       "publication.site_information",
       "publication.site_information_commands",
@@ -203,6 +206,38 @@ test("every real role has exactly the approved table, column, sequence and cross
                 : `DELETE FROM ${name} WHERE false RETURNING 1`;
         await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
       }
+    // Model answers and recovery checkpoints stay private and retained.
+    for (const table of ["events.report_group_decisions", "events.report_group_checks"])
+      for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+        const allowed =
+          role === "migrate" || (role === "worker" && operation !== "DELETE") || (operation === "SELECT" && ["backup", "private_ops"].includes(role));
+        const statement =
+          operation === "SELECT"
+            ? `SELECT * FROM ${table} LIMIT 1`
+            : operation === "INSERT"
+              ? `INSERT INTO ${table} SELECT * FROM ${table} WHERE false RETURNING 1`
+              : operation === "UPDATE"
+                ? `UPDATE ${table} SET state=state WHERE false RETURNING 1`
+                : `DELETE FROM ${table} WHERE false RETURNING 1`;
+        await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
+      }
+    // Report identities expose only their current safe projection; operators can revoke it, never forge a comparison.
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const allowed =
+        role === "migrate" ||
+        role === "worker" ||
+        (operation === "SELECT" && ["backup", "private_ops", "public_read"].includes(role)) ||
+        (operation === "DELETE" && role === "private_ops");
+      const statement =
+        operation === "SELECT"
+          ? "SELECT * FROM publication.report_group_members LIMIT 1"
+          : operation === "INSERT"
+            ? "INSERT INTO publication.report_group_members SELECT * FROM publication.report_group_members WHERE false RETURNING 1"
+            : operation === "UPDATE"
+              ? "UPDATE publication.report_group_members SET recipe=recipe WHERE false RETURNING 1"
+              : "DELETE FROM publication.report_group_members WHERE false RETURNING 1";
+      await permission(sql, statement, allowed, `${role} ${operation} publication.report_group_members`);
+    }
     // Report work state is private. Business roles can append/update; only migrations can delete it.
     for (const [table, field] of [
       ["publication.report_revision_changes", "generation"],

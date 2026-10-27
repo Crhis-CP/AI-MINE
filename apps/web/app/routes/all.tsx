@@ -27,6 +27,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   // Legacy deep-paging parameters (deep, anchorAt) still open a normal page.
   const page = Math.max(Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1, 1);
   const query = {
+    readingGroups: "reports-v1",
     channel: channel === "all" ? undefined : channel,
     category: category ?? undefined,
     tag: tag ?? undefined,
@@ -35,6 +36,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     tab: tab ?? undefined,
     page: page > 1 ? page : undefined,
     source: url.searchParams.get("source") || undefined,
+    selected: url.searchParams.get("selected") === "true" ? "true" : undefined,
     mineral: url.searchParams.get("mineral") || undefined,
     on: url.searchParams.get("on") || undefined,
     from: url.searchParams.get("from") || undefined,
@@ -74,7 +76,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         headers: { accept: "application/json", "x-amp-ssr": "1" },
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
         baseUrl: apiBaseFor(),
-      }).then((result) => contractResult(result, publicSchemas.PoolResponse)),
+      }).then((result) => contractResult(result, publicSchemas.ReportGroupedPoolResponse)),
     { signal: request.signal },
   );
   const policyMatches = await policyRequest;
@@ -226,7 +228,7 @@ export default function AllPage() {
             </EmptyState>
           </div>
         ) : (
-          <DayList items={data.items} cards={data.cards} todayCount={f.q ? null : data.todayCount} showTags />
+          <DayList items={data.items} cards={data.cards} filters={data.filters} todayCount={f.q ? null : data.todayCount} showTags />
         )}
       </div>
       <Pagination page={data.page} pageCount={data.pageCount} href={(p) => pageHref(params, p)} />

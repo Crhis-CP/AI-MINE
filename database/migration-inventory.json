@@ -499,6 +499,14 @@
     {
       "name": "publication/202610260847_original_post_projection.sql",
       "dependsOn": ["content/202610260845_original_post_material.sql", "enrichment/202610260846_quote_translations.sql"]
+    },
+    {
+      "name": "publication/202610262230_report_group_members.sql",
+      "dependsOn": ["publication/202610160700_source_time_binding.sql", "publication/202610160600_operator_withdrawal_projection.sql"]
+    },
+    {
+      "name": "events/202610270040_report_group_decisions.sql",
+      "dependsOn": ["events/202610230200_story_background.sql"]
     }
   ]
 }
