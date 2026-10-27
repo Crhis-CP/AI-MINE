@@ -79,7 +79,13 @@ export async function runTestFiles(requested: string[], options: { env?: NodeJS.
   const childEnv = (name: string) => {
     const address = new URL(url);
     address.pathname = `/${name}`;
-    return { ...env, DATABASE_URL: address.toString(), DATABASE_POOL_MAX: "4", AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials" };
+    return {
+      ...env,
+      DATABASE_URL: address.toString(),
+      DATABASE_POOL_MAX: "4",
+      AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials",
+      ORIGINAL_POST_ADMISSION_ENABLED: "false",
+    };
   };
   const abort = () => {
     for (const stop of active) stop();
