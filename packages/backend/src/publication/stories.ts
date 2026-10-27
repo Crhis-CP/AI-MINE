@@ -127,8 +127,9 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     ORDER BY p.article_id, (fa.role = 'primary') DESC`;
   await attachSourcePolicies(rows);
   for (const row of rows) {
+    if (!row.is_original_post) continue;
     Object.assign(row, publicPostSummary({ ...row, summary: row.summary ?? row.source_excerpt }, now.getTime()));
-    if (row.is_original_post) row.source_excerpt = null;
+    row.source_excerpt = null;
   }
   const dates = await publicTimeMetadata(rows.map((row) => row.id));
   for (const row of rows) row.sourceTime = dates.get(row.id)?.sourceTime ?? null;
