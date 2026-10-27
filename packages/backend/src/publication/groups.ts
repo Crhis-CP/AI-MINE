@@ -1,3 +1,4 @@
+import { publicPostSummary } from "./post-view.ts";
 import { originalPostAdmissionCondition } from "./items.ts";
 import { originalPostAffectedStories } from "./stories.ts";
 export { originalPostAffectedStories } from "./stories.ts";
@@ -61,15 +62,20 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
       source_name: string;
       source_kind: string;
       first_party: boolean;
+      is_original_post: boolean;
+      post_summary_kind: string | null;
+      source_policy?: unknown;
     }[]
   >`
     SELECT p.article_id AS id, p.title, coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, (${confirmedSelected()}) AS selected,
-           s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party
+           s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party,p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind
     FROM publications p JOIN sources s ON s.id = p.source_id
     WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible
       AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
     ORDER BY p.timeline_at DESC, p.article_id ASC`;
   if (members.length === 0) return { kind: "not_found" };
+  await attachSourcePolicies(members);
+  for (const member of members) Object.assign(member, publicPostSummary(member, now.getTime()));
 
   // The revision covers the actual member set; a cursor from another revision means "reload".
   const revision = shortHash(members.map((m) => m.id).join(","), 10);

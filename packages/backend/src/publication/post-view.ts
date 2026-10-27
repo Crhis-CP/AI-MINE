@@ -37,6 +37,24 @@ export function postPermission(value: unknown, sourceId: string, url: string, pu
   }
 }
 
+export interface PostSummaryProjection {
+  is_original_post?: boolean;
+  post_summary_kind?: string | null;
+  source_id: string;
+  source_name: string;
+  source_policy?: unknown;
+  url: string;
+  title: string;
+  summary: string | null;
+  reason?: string | null;
+}
+/** Translation/original copy and unclassified historical copy never inherit a summary grant. */
+export function publicPostSummary(row: PostSummaryProjection, now = Date.now()) {
+  const allowed = !row.is_original_post || postPermission(row.source_policy, row.source_id, row.url, "public_summary", now);
+  const summary = allowed && (!row.is_original_post || row.post_summary_kind === "summary") ? row.summary : null;
+  return { title: allowed ? row.title : `${row.source_name}的原帖`, summary, reason: allowed ? (row.reason ?? null) : null };
+}
+
 /** DR-78 has no image/avatar grant: retain author and permitted quote text, never invent local media. */
 export function projectPostView(post: XPostData | null, sourceId: string, url: string, currentPolicy: unknown, translation: string | null, now: number) {
   if (!post || !postPermission(currentPolicy, sourceId, url, "public_original_fulltext", now)) return null;
@@ -74,9 +92,12 @@ export function currentPostView(row: PostProjection, now = Date.now()) {
   if (!originalPostProjectionAllowed(row)) return null;
   if (!row.is_original_post || row.x_post_revision !== row.content_revision || row.body_mode !== "full" || row.source_site_fulltext === false) return null;
   if (!postPermission(row.source_policy, row.source_id, row.url, "public_original_fulltext", now)) return null;
-  const parsed = z.strictObject({ view: XPostDetailView, quoteRecipe: z.string().nullable() }).safeParse(row.x_post);
+  const parsed = z
+    .strictObject({ view: XPostDetailView.nullable(), quoteRecipe: z.string().nullable(), summaryKind: z.enum(["summary", "original"]).nullable().optional() })
+    .safeParse(row.x_post);
   if (!parsed.success) return null;
   const post = parsed.data.view;
+  if (!post) return null;
   post.avatarUrl = null;
   delete post.avatarSrcSet;
   post.media = [];

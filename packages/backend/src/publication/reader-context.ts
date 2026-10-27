@@ -1,3 +1,4 @@
+import { publicPostSummary } from "./post-view.ts";
 import { originalPostAffectedStories } from "./groups.ts";
 import { readCurrentPublicPolicies } from "@amp/backend/admin/sources";
 import { z } from "zod";
@@ -72,7 +73,16 @@ export async function publicCompanyContext(articleId: string): Promise<NonNullab
 
 /** Read source-owned licence projections through their port, once per source and request. */
 export async function attachSourcePolicies<
-  T extends { source_id: string; source_policy?: unknown; story_id?: number | null; story_title?: string | null; title?: string },
+  T extends {
+    source_id: string;
+    source_policy?: unknown;
+    is_original_post?: boolean;
+    url?: string;
+    source_name?: string;
+    story_id?: number | null;
+    story_title?: string | null;
+    title?: string;
+  },
 >(rows: T[], db?: Db): Promise<T[]> {
   const ids = [...new Set(rows.map((row) => row.source_id))];
   const policies = new Map<string, unknown>();
@@ -83,7 +93,11 @@ export async function attachSourcePolicies<
   const affected = await originalPostAffectedStories(stories, db);
   for (const row of rows) {
     row.source_policy = policies.get(row.source_id) ?? null;
-    if (row.story_id && affected.has(row.story_id)) row.story_title = row.title ?? null;
+    if (row.story_id && affected.has(row.story_id))
+      row.story_title =
+        row.title && row.url && row.source_name
+          ? publicPostSummary({ ...row, title: row.title, url: row.url, source_name: row.source_name, summary: null }).title
+          : null;
   }
   return rows;
 }

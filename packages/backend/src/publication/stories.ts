@@ -1,4 +1,7 @@
-import { config } from "../config.ts";
+import { readCurrentPublicPolicies } from "@amp/backend/admin/sources";
+import { postPermission, publicPostSummary } from "./post-view.ts";
+import { attachSourcePolicies } from "./reader-context.ts";
+import { originalPostProjectionAllowed } from "../lib/original-post-admission.ts";
 import { originalPostAdmissionCondition } from "./items.ts";
 import { confirmedSelected } from "./items.ts";
 import { readHistoricalBackground } from "./historical-background.ts";
@@ -22,15 +25,38 @@ import { siteUrl, storyUrl } from "./links.ts";
 import { serverModules } from "../modules.ts";
 import { SITE } from "@amp/industry/site";
 
-/** All graph associations can have contributed to cached story text, including signal-only members. */
+/** All graph associations can have contributed to cached story text; current grants fence old copy too. */
 export async function originalPostAffectedStories(ids: number[], db: Db = sql): Promise<Set<number>> {
-  if (config.originalPostAdmissionEnabled || !ids.length) return new Set();
-  const rows = await db<{ id: number }[]>`WITH members AS (
+  if (!ids.length) return new Set();
+  const rows = await db<
+    {
+      id: number;
+      source_id: string;
+      url: string;
+      is_original_post: boolean;
+      original_post_admission_required: boolean | null;
+      summary: string | null;
+      post_summary_kind: string | null;
+    }[]
+  >`WITH members AS (
     SELECT f.story_id,fa.article_id FROM facts f JOIN fact_articles fa ON fa.fact_id=f.id WHERE f.story_id=ANY(${ids}::bigint[])
     UNION SELECT story_id,article_id FROM story_signals WHERE story_id=ANY(${ids}::bigint[])
-  ) SELECT DISTINCT members.story_id AS id FROM members JOIN publications p ON p.article_id=members.article_id
-    WHERE (${originalPostAdmissionCondition()}) IS FALSE`;
-  return new Set(rows.map((row) => row.id));
+  ) SELECT members.story_id AS id,p.source_id,p.url,p.is_original_post,p.original_post_admission_required,p.summary,p.x_post->>'summaryKind' AS post_summary_kind
+    FROM members JOIN publications p ON p.article_id=members.article_id WHERE p.is_original_post`;
+  const sources = [...new Set(rows.map((row) => row.source_id))],
+    policies = new Map<string, unknown>();
+  for (let offset = 0; offset < sources.length; offset += 100)
+    for (const [id, policy] of await readCurrentPublicPolicies(sources.slice(offset, offset + 100), db)) policies.set(id, policy);
+  return new Set(
+    rows
+      .filter(
+        (row) =>
+          !originalPostProjectionAllowed(row) ||
+          !postPermission(policies.get(row.source_id), row.source_id, row.url, "public_summary") ||
+          (!!row.summary && row.post_summary_kind !== "summary"),
+      )
+      .map((row) => row.id),
+  );
 }
 
 export type StoryLookup = { kind: "found"; storyId: number; publicId: string } | { kind: "merged"; target: string } | { kind: "not_found" };
@@ -77,6 +103,9 @@ interface ReportRow {
   first_party: boolean;
   fact_public_id: string;
   fact_id: number;
+  is_original_post: boolean;
+  post_summary_kind: string | null;
+  source_policy?: unknown;
 }
 
 /**
@@ -90,12 +119,17 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary,
       CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, (${confirmedSelected()}) AS selected, p.score, p.body_mode, p.timeline_at,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
-      p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
+      p.first_party, f.public_id AS fact_public_id, f.id AS fact_id,p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.article_id, (fa.role = 'primary') DESC`;
+  await attachSourcePolicies(rows);
+  for (const row of rows) {
+    Object.assign(row, publicPostSummary({ ...row, summary: row.summary ?? row.source_excerpt }, now.getTime()));
+    if (row.is_original_post) row.source_excerpt = null;
+  }
   const dates = await publicTimeMetadata(rows.map((row) => row.id));
   for (const row of rows) row.sourceTime = dates.get(row.id)?.sourceTime ?? null;
   return attachRepresentativePriority(rows);

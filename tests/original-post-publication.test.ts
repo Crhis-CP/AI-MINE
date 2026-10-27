@@ -8,6 +8,9 @@ import { analysisVersionOf, loadAnalyzeInput, tierThreshold } from "@amp/backend
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
 import { loadItemDetail, siteItemDetail, machineItemDetail, publicItemMetadata } from "@amp/backend/publication/detail";
 import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
+import { loadGroupReports } from "@amp/backend/publication/groups";
+import { loadStoryDetail } from "@amp/backend/publication/stories";
+import { fetchItemsByIds, toItemSummary } from "../packages/backend/src/publication/items.ts";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { overrideFields, setVisibility } from "@amp/backend/admin/content";
@@ -23,8 +26,24 @@ const stamp = tag(),
   host = `https://post-${stamp}.invalid`;
 let serial = 0;
 const app = await buildApp();
-const provider = await stub(() => ({
-  choices: [{ message: { content: JSON.stringify({ t: ["引用译文：矿业项目按原文计划建设。"] }) }, finish_reason: "stop" }],
+const provider = await stub((_n, req) => ({
+  choices: [
+    {
+      message: {
+        content: JSON.stringify(
+          JSON.parse(JSON.parse(req.body).messages.at(-1).content).text
+            ? {
+                text: String(JSON.parse(JSON.parse(req.body).messages.at(-1).content).text).replace(
+                  "Copper project construction begins. The owner confirms a new schedule.",
+                  "严格正文译文：项目开工，所有安排按来源说明执行。",
+                ),
+              }
+            : { t: ["引用译文：矿业项目按原文计划建设。"] },
+        ),
+      },
+      finish_reason: "stop",
+    },
+  ],
   usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
 }));
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
@@ -49,7 +68,7 @@ async function source() {
   await grantDateFixture(id, [host]);
   return id;
 }
-async function article(sourceId: string, text: string, quoted?: XPostData["quoted"], ordinary = false) {
+async function article(sourceId: string, text: string, quoted?: XPostData["quoted"], ordinary = false, language = "zh", includeMedia = true) {
   const name = `post-${++serial}`;
   const post: XPostData = {
     tweetId: name,
@@ -58,13 +77,13 @@ async function article(sourceId: string, text: string, quoted?: XPostData["quote
     text,
     quoted,
     avatarUrl: `${host}/private-avatar.jpg`,
-    media: [{ kind: "image", url: `${host}/source-image.jpg` }],
+    media: includeMedia ? [{ kind: "image", url: `${host}/source-image.jpg` }] : [],
   };
   const { articleId } = await upsertMaterial({
     sourceId,
     url: `${host}/${name}`,
     title: ordinary ? "普通矿业标题" : text || `${host}/${name}`,
-    language: "zh",
+    language,
     publishedAt: new Date(Date.now() - 60_000),
     via: "fetch",
     ...(ordinary ? { bodyText: text, bodyHtml: `<p>${text}</p>`, bodyStatus: "ok" as const } : { xPost: post }),
@@ -292,4 +311,103 @@ test("publication rechecks post geography against the same acquired long article
   await confirmGroupingFixture(item);
   await publishArticle(item);
   assert.deepEqual((await publicItemMetadata(item))?.jurisdictions, ["AR"]);
+});
+
+async function authoredPostCopy(id: string, title: string, summary: string, privateTranslation?: string) {
+  await sql`UPDATE analyses SET title_zh=${title},summary_zh=${summary},output=output||${sql.json({
+    writer: "summarize",
+    postSummaryKind: "summary",
+    ...(privateTranslation ? { postTranslation: { textZh: privateTranslation, recipe: "synthetic-private-post-copy" } } : {}),
+  })}
+    WHERE id=(SELECT max(id) FROM analyses WHERE article_id=${id})`;
+  await publishArticle(id);
+}
+
+test("short-post translation is private, true summary and strict body obey independent current grants, and old copies fail closed", async () => {
+  const sourceId = await source();
+  const id = await article(sourceId, "Copper project construction begins. The owner confirms a new schedule.", undefined, false, "en", false);
+  const privateCopy = "PRIVATE_SHORT_POST_TRANSLATION 完整直译不得作为导读。",
+    summary = "矿业项目公布新的建设进展。";
+  await authoredPostCopy(id, "铜矿项目建设进展", summary, privateCopy);
+  const translationResult = await translateArticle(id, 1);
+  assert.equal(translationResult.status, "translated", JSON.stringify(translationResult));
+  await publishArticle(id);
+  const change = async (summaryAllowed: boolean, translationAllowed: boolean) => {
+    const policy = (await readCurrentSourcePolicy(sourceId))!;
+    policy.permissions.public_summary = summaryAllowed ? "allow" : "deny";
+    policy.permissions.public_translation = translationAllowed ? "allow" : "deny";
+    await saveSourcePolicy(sourceId, { policy, expectedVersion: policy.permission_version, reason: "Synthetic separate copy grants" }, "test");
+  };
+  await change(true, false);
+  let detail = (await found(id)).detail;
+  assert.equal(detail.summary, summary);
+  assert.equal(detail.body?.zh, null);
+  for (const path of [`/api/site/items/${id}`, "/api/site/timeline", "/api/v1/items?mode=selected&limit=100", "/feed.xml", "/feed/full.xml"]) {
+    const body = (await response(path)).body;
+    assert.ok(!body.includes(privateCopy), path);
+    assert.ok(!body.includes("严格正文译文"), path);
+  }
+  await change(false, true);
+  detail = (await found(id)).detail;
+  assert.equal(detail.summary, null);
+  assert.equal(detail.title, "合成原帖来源的原帖");
+  assert.match(detail.body!.zh!, /严格正文译文/);
+  assert.ok(!JSON.stringify(detail).includes(privateCopy));
+  // No republish or model call: an old summarize projection has no proof that its summary was an abstract.
+  await change(true, false);
+  await sql`UPDATE publications SET summary=${privateCopy},x_post=x_post-'summaryKind' WHERE article_id=${id}`;
+  for (const path of [`/api/site/items/${id}`, "/api/site/timeline", "/api/v1/items?mode=selected&limit=100", "/feed.xml", "/feed/full.xml"]) {
+    const body = (await response(path)).body;
+    assert.ok(!body.includes(privateCopy), path);
+  }
+  assert.equal(
+    (await sql`SELECT output#>>'{postTranslation,textZh}' AS text FROM analyses WHERE article_id=${id} ORDER BY id DESC LIMIT 1`)[0].text,
+    privateCopy,
+  );
+  const summaryOnly = (await readCurrentSourcePolicy(sourceId))!;
+  summaryOnly.permissions.public_original_fulltext = "deny";
+  await saveSourcePolicy(
+    sourceId,
+    { policy: summaryOnly, expectedVersion: summaryOnly.permission_version, reason: "Synthetic summary-only post grant" },
+    "test",
+  );
+  await publishArticle(id);
+  const summaryOnlyDetail = (await found(id)).detail;
+  assert.equal(summaryOnlyDetail.summary, summary);
+  assert.equal(summaryOnlyDetail.x, null);
+  assert.equal(summaryOnlyDetail.body, null);
+});
+
+test("existing fact, story and shared item projections revoke post summaries immediately when purpose or URL scope changes", async () => {
+  const sourceId = await source(),
+    id = await article(sourceId, "铜矿项目公开原始材料足够完整，供独立许可测试使用。");
+  const secret = "SUMMARY_SCOPE_SENTINEL";
+  await authoredPostCopy(id, `${secret} 标题`, `${secret} 导读`);
+  const [story] =
+    await sql`INSERT INTO stories(public_id,title,summary,digest,latest,digest_updated_at) VALUES(${crypto.randomUUID()},${secret},${secret},${secret},${secret},now()) RETURNING id`;
+  const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${`f${tag()}`},${story.id},${secret}) RETURNING id,public_id`;
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact.id},${id},'report',1)`;
+  await sql`UPDATE publications SET story_id=${story.id},fact_id=${fact.id} WHERE article_id=${id}`;
+  const query = { factPublicId: fact.public_id, channel: "all" as const, category: null, tag: null, topicTags: null, cursor: null, take: 20, revision: null };
+  assert.ok(JSON.stringify(await loadGroupReports(query)).includes(secret));
+  assert.ok(JSON.stringify(await loadStoryDetail(story.id)).includes(secret));
+  const original = (await readCurrentSourcePolicy(sourceId))!;
+  for (const limit of ["summary", "url"] as const) {
+    const current = (await readCurrentSourcePolicy(sourceId))!;
+    const scope = limit === "url" ? { ...original.scope, path_prefixes: ["/elsewhere/"] } : original.scope;
+    const policy = {
+      ...original,
+      scope,
+      permissions: { ...original.permissions, public_summary: limit === "summary" ? ("deny" as const) : ("allow" as const) },
+      evidence: original.evidence.map((e) => ({ ...e, scope })),
+    };
+    await saveSourcePolicy(sourceId, { policy, expectedVersion: current.permission_version, reason: `Synthetic ${limit} revocation` }, "test");
+    const group = await loadGroupReports(query);
+    assert.equal(group.kind, "ok");
+    assert.ok(!JSON.stringify(group).includes(secret), limit);
+    assert.ok(!JSON.stringify(await loadStoryDetail(story.id)).includes(secret), limit);
+    const shared = (await fetchItemsByIds([id])).get(id)!;
+    assert.equal(shared.summary, null);
+    assert.ok(!JSON.stringify(toItemSummary(shared)).includes(secret), "the future report-group reader uses this same current projection");
+  }
 });
