@@ -1,3 +1,4 @@
+import { config } from "@amp/backend/config";
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -5,6 +6,7 @@ import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial, type XPostData } from "@amp/backend/content/materials";
 import { stopBoss, shutdownSignal } from "@amp/backend/jobs/queue";
 import { analyzeArticle, buildScoreInput, normalizeAnalysis, runAnalysis, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
+import { prepareEvaluationInput, runSelectionPrefilter, runSelectionScores } from "@amp/backend/editorial/analyze";
 import { buildMaterial, firstInputImage, loadAnalyzeInput, withXArticle } from "../packages/backend/src/editorial/input.ts";
 import { evaluationInputFingerprint } from "../packages/backend/src/editorial/evaluation-input.ts";
 import { geographyMaterial } from "../packages/backend/src/editorial/geography.ts";
@@ -58,12 +60,14 @@ for (const name of ["DASHSCOPE", "ZHIPU", "DEEPSEEK"]) {
   process.env[`${name}_API_KEY`] = "test-key";
 }
 before(async () => {
+  config.originalPostAdmissionEnabled = true;
   for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "qwen3.8-flash", "glm-5.3-flash", "deepseek-flash"])
     await installUsageFixtureForModel(model);
   await sql`INSERT INTO sources(id,name,kind,tier,participation_mode) VALUES(${source},'Self-authored original post fixture','rss','T1','editorial')`;
   await ensureModelSourceFixture(source, ["https://example.com/source"]);
 });
 after(async () => {
+  config.originalPostAdmissionEnabled = false;
   await provider.close();
   await stopBoss();
   await closeDb();
@@ -118,6 +122,35 @@ test("ordinary missing bodies still wait before payment; optional post never fil
   assert.equal(buildScoreInput(input), buildScoreInput({ ...input, xPost: null }));
   assert.equal(buildArticlePrompt(translateInputOf(input)), buildArticlePrompt(translateInputOf({ ...input, xPost: null })));
   assert.match(PROMPT_VERSIONS.summarize, /^summarize-article\+summarize-article-empty\+identity-context@/);
+});
+
+test("closed admission blocks empty/link cached requests and evaluations but preserves old short-text understand", async () => {
+  const id = await material("gate-cache", post("https://example.com/only"));
+  await analyzeArticle(id); // Explicitly opted-in by this file's before hook; paid judging receipts exist.
+  const input = (await loadAnalyzeInput(id))!,
+    start = requests.length;
+  config.originalPostAdmissionEnabled = false;
+  try {
+    const result = (await analyzeArticle(id))!;
+    assert.equal(result.output!.relevance, "unknown");
+    assert.deepEqual(result.receiptIds, []);
+    assert.equal(requests.length, start);
+    await assert.rejects(prepareEvaluationInput(input), /准入/);
+    await assert.rejects(runSelectionPrefilter(input), /准入/);
+    await assert.rejects(runSelectionScores(input), /准入/);
+    assert.equal(normalizeAnalysis(await runAnalysis(input, { stages: "selection" })).relevance, "unknown");
+    score = 20;
+    const low = await material("gate-short-low", post("铜矿投产。"));
+    assert.equal((await analyzeArticle(low))!.output!.relevance, "unknown");
+    score = 95;
+    const high = await material("gate-short-high", post("铜矿投产。"));
+    const understood = (await analyzeArticle(high))!;
+    assert.equal(understood.output!.relevance, "pass");
+    assert.equal((await sql`SELECT output->>'writer' AS writer FROM analyses WHERE id=${understood.analysisId!}`)[0].writer, "understand");
+  } finally {
+    score = 20;
+    config.originalPostAdmissionEnabled = true;
+  }
 });
 
 test("explicit empty and link-only posts keep four judging receipts and no writer receipts, then reuse them", async () => {

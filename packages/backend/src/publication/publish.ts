@@ -60,6 +60,7 @@ import { withXArticle } from "../editorial/input.ts";
 import { analysisVersionOf } from "../editorial/analyze.ts";
 import { quoteTranslatable, quoteTranslationRecipe } from "../editorial/post-translation.ts";
 import { postPermission, projectPostView } from "./post-view.ts";
+import { originalPostAdmissionRequired, originalPostProjectionAllowed } from "../lib/original-post-admission.ts";
 
 async function sourceTimeForMaterial(material: { id: string; source_id: string; revision: number; source_date_version: string | number }, now: Date, db: Db) {
   const context = await sourceDateConfiguration(material.source_id, db);
@@ -122,6 +123,7 @@ interface OverrideRow {
 }
 
 interface PublicationRow {
+  original_post_admission_required?: boolean | null;
   x_post?: unknown;
   x_post_revision?: number | null;
   is_original_post?: boolean;
@@ -316,7 +318,9 @@ export async function publishArticleTx(
       ? quoteTranslationRecipe()
       : null;
   const storedPostView = postView ? { view: postView, quoteRecipe } : null;
-  const postReady = !!post && !!analysis && analysis.relevance === "pass";
+  const admissionRequired = originalPostAdmissionRequired(post, (analysis?.output as { writer?: string } | null)?.writer, analysis?.summary_zh);
+  const admissionAllowed = originalPostProjectionAllowed({ is_original_post: !!post, original_post_admission_required: admissionRequired });
+  const postReady = admissionAllowed && !!post && !!analysis && analysis.relevance === "pass";
   const verbatim = postReady && (analysis.output as { writer?: unknown } | null)?.writer === "verbatim";
   const manual = await manualRevisionState(articleId, article.revision, article.title + "\n" + (article.body_text ?? ""), tx);
   const f: Record<string, unknown> = manual.fields;
@@ -395,10 +399,11 @@ export async function publishArticleTx(
   const withdrawnByGroup = await articleWithdrawalHeld(tx, articleId, membership?.fact_public_id ?? null, membership?.story_public_id ?? null);
   const operatorWithdrawn = withdrawnByGroup || override?.visibility === "withdrawn" || override?.fields.relevance === "block";
   const visibility =
-    operatorWithdrawn || source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady
+    !admissionAllowed || operatorWithdrawn || source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady
       ? "withdrawn"
       : (override?.visibility ?? "public");
   const eligible =
+    admissionAllowed &&
     readingReady &&
     hasMaterial &&
     (isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary }) ||
@@ -533,6 +538,7 @@ export async function publishArticleTx(
   };
   const changed =
     !previous ||
+    (post && previous.original_post_admission_required !== admissionRequired) ||
     previous.is_original_post !== !!post ||
     stableJson(previous.x_post ?? null) !== stableJson(storedPostView) ||
     (previous.x_post_revision ?? null) !== (post ? article.revision : null) ||
@@ -623,8 +629,8 @@ export async function publishArticleTx(
         EXCLUDED.indexable, EXCLUDED.story_id, EXCLUDED.fact_id, EXCLUDED.search_text,
         EXCLUDED.sort_at,EXCLUDED.first_public_at)`;
 
-  await tx`UPDATE publications SET is_original_post=${!!post},x_post=${storedPostView ? tx.json(storedPostView) : null},x_post_revision=${post ? article.revision : null}
-    WHERE article_id=${articleId} AND (is_original_post,x_post,x_post_revision) IS DISTINCT FROM (${!!post},${storedPostView ? tx.json(storedPostView) : null},${post ? article.revision : null})`;
+  await tx`UPDATE publications SET is_original_post=${!!post},x_post=${storedPostView ? tx.json(storedPostView) : null},x_post_revision=${post ? article.revision : null},original_post_admission_required=${admissionRequired}
+    WHERE article_id=${articleId} AND (is_original_post,x_post,x_post_revision,original_post_admission_required) IS DISTINCT FROM (${!!post},${storedPostView ? tx.json(storedPostView) : null},${post ? article.revision : null},${admissionRequired})`;
   await tx`UPDATE publications SET source_time=${sourceTime ? tx.json(sourceTime) : null},source_time_material_revision=${article.revision},source_date_version=${Number(article.source_date_version)},source_date_config_hash=${timeConfigHash}
     WHERE article_id=${articleId} AND (source_time,source_time_material_revision,source_date_version,source_date_config_hash)
     IS DISTINCT FROM (${sourceTime ? tx.json(sourceTime) : null},${article.revision},${Number(article.source_date_version)},${timeConfigHash})`;

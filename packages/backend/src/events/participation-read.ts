@@ -74,7 +74,12 @@ export async function publicParticipation(storyIds: number[], at: Date, from?: D
     const source = bySource.get(row.source_id),
       publication = byId.get(row.article_id),
       material = byMaterial.get(row.article_id);
-    if (source?.lane !== "news" || source.participation_mode !== (row.kind === "editorial" ? "editorial" : "hot_signal") || publication?.operator_withdrawn)
+    if (
+      source?.lane !== "news" ||
+      source.participation_mode !== (row.kind === "editorial" ? "editorial" : "hot_signal") ||
+      publication?.operator_withdrawn ||
+      publication?.admission_allowed === false
+    )
       return [];
     if (material?.revision !== row.material_revision || material.source_date_version !== row.source_date_version) return [];
     if (

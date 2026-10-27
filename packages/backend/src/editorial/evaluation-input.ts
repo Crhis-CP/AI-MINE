@@ -2,6 +2,7 @@ import { loadAnalyzeInput, analysisInputIdentity, type AnalyzeInputArticle } fro
 import { prepareNewsFallback } from "../providers/news-fallback.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
 
 const instant = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
 /** Exact fields read by news model renderers; extra export metadata never authorizes edited material. */
@@ -31,6 +32,7 @@ export function evaluationInputFingerprint(a: AnalyzeInputArticle) {
 export async function prepareEvaluationInput(expected: AnalyzeInputArticle | undefined, fingerprint?: string) {
   if (!expected?.id || !expected.sourceId || !Number.isInteger(expected.revision)) throw new Error("评测样本未绑定来源与材料修订，请从当前材料重新导出");
   const current = await loadAnalyzeInput(expected.id);
+  if (current && originalPostInputBlocked(current.xPost)) throw new Error("原帖新增准入尚未开启，评测不能绕过当前准入");
   if (
     !current ||
     current.sourceId !== expected.sourceId ||

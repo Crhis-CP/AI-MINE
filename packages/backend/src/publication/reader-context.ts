@@ -1,3 +1,4 @@
+import { originalPostAffectedStories } from "./groups.ts";
 import { readCurrentPublicPolicies } from "@amp/backend/admin/sources";
 import { z } from "zod";
 import { ENTITIES } from "@amp/industry/taxonomy";
@@ -70,12 +71,19 @@ export async function publicCompanyContext(articleId: string): Promise<NonNullab
 }
 
 /** Read source-owned licence projections through their port, once per source and request. */
-export async function attachSourcePolicies<T extends { source_id: string; source_policy?: unknown }>(rows: T[], db?: Db): Promise<T[]> {
+export async function attachSourcePolicies<
+  T extends { source_id: string; source_policy?: unknown; story_id?: number | null; story_title?: string | null; title?: string },
+>(rows: T[], db?: Db): Promise<T[]> {
   const ids = [...new Set(rows.map((row) => row.source_id))];
   const policies = new Map<string, unknown>();
   for (let offset = 0; offset < ids.length; offset += 100) {
     for (const [id, policy] of await readCurrentPublicPolicies(ids.slice(offset, offset + 100), db)) policies.set(id, policy);
   }
-  for (const row of rows) row.source_policy = policies.get(row.source_id) ?? null;
+  const stories = [...new Set(rows.flatMap((row) => (row.story_id ? [row.story_id] : [])))];
+  const affected = await originalPostAffectedStories(stories, db);
+  for (const row of rows) {
+    row.source_policy = policies.get(row.source_id) ?? null;
+    if (row.story_id && affected.has(row.story_id)) row.story_title = row.title ?? null;
+  }
   return rows;
 }

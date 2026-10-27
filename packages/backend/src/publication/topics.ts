@@ -1,3 +1,4 @@
+import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import type { ModuleBrand } from "@amp/contracts/modules";
@@ -36,7 +37,16 @@ const topicsCache = cached(() => sql<TopicRow[]>`SELECT slug, name, grp, entity_
 // Counts may lag by about a minute, like the public directory cache; item reads always check visibility.
 const countsCache = cached(queryTopicCounts, { freshMs: 60_000, maxStaleMs: 10 * 60_000 });
 type PartIndex = { bySlug: Map<string, FeedItemSummary[]>; modules: Map<string, unknown> };
-const partIndexes = new WeakMap<readonly ServerModule[], Cached<PartIndex>>();
+let partIndexes = new WeakMap<readonly ServerModule[], Cached<PartIndex>>();
+let admissionVersion = originalPostReadVersion("topics");
+function currentAdmissionCache() {
+  const current = originalPostReadVersion("topics");
+  if (current !== admissionVersion) {
+    admissionVersion = current;
+    countsCache.clear();
+    partIndexes = new WeakMap();
+  }
+}
 
 async function readPartIndex(modules: readonly ServerModule[], now: Date): Promise<PartIndex> {
   const [topics, rows] = await Promise.all([
@@ -62,6 +72,7 @@ async function readPartIndex(modules: readonly ServerModule[], now: Date): Promi
 }
 
 function partIndex(modules: readonly ServerModule[], now?: Date) {
+  currentAdmissionCache();
   if (now) return readPartIndex(modules, now);
   let index = partIndexes.get(modules);
   if (!index) {
@@ -118,6 +129,7 @@ export const TOPIC_PAGE_SIZE = 20;
 
 /** Topic pages exist for every topic; only topics with enough content are listed and indexed. */
 export function topicPageCounts(): Promise<TopicCount[]> {
+  currentAdmissionCache();
   return countsCache.get();
 }
 

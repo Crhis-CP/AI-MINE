@@ -2,7 +2,7 @@
 // loading bodies, translations, related stories or signed media that never appear on these cards.
 import { toPublicApiCategory, type CategoryKey } from "@amp/contracts/taxonomy";
 import type { ItemShareMetadata } from "@amp/contracts/site";
-import { publicTimeMetadata } from "./items.ts";
+import { publicTimeMetadata, originalPostAdmissionCondition } from "./items.ts";
 import { sql } from "../db.ts";
 import { hasItemPage } from "./rules.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
@@ -30,7 +30,7 @@ export async function loadItemShare(id: string): Promise<ItemShareMetadata | nul
   >`SELECT p.article_id AS id, p.title, p.summary, p.category, p.timeline_at,
       p.published_at, p.score, p.selected,
       s.name AS source_name, s.participation_mode AS source_mode, p.visibility,s.id AS source_id,p.url,p.is_original_post
-    FROM publications p JOIN sources s ON s.id = p.source_id WHERE p.article_id = ${id}`;
+    FROM publications p JOIN sources s ON s.id = p.source_id WHERE p.article_id = ${id} AND ${originalPostAdmissionCondition()}`;
   if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return null;
   if (row.is_original_post) {
     await attachSourcePolicies([row]);

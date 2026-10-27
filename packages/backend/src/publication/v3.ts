@@ -1,3 +1,5 @@
+import { originalPostAdmissionCondition } from "./items.ts";
+import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import type { z } from "zod";
 import { V3ItemCard, type V3ItemsQuery, type V3ReadingQuery } from "@amp/contracts/http/v3";
 import { TimeAssertion, normalizeSourceTime } from "@amp/contracts/time-assertion";
@@ -41,13 +43,13 @@ export async function v3Envelope(now = new Date()) {
   const rows = await sql<{ lane: string; version: string }[]>`SELECT lane,version::text FROM publication.read_watermarks ORDER BY lane`;
   if (rows.length !== 2) throw new V3ReadError(503, "version_unavailable", "暂时无法确认当前公开版本");
   const [released, pending] = await Promise.all([effectiveWatermark(now), pendingReleaseCount(now)]);
-  return { content_version: sha256(JSON.stringify([rows, released, pending])), generated_at: now.toISOString() };
+  return { content_version: originalPostReadVersion(sha256(JSON.stringify([rows, released, pending]))), generated_at: now.toISOString() };
 }
 export async function v3Version(now = new Date()) {
   const envelope = await v3Envelope(now);
   const [row] = await sql<
     { available: boolean }[]
-  >`SELECT EXISTS(SELECT 1 FROM publications WHERE visibility='public' AND eligible AND (NOT selected OR visible_after<=${now})) OR EXISTS(SELECT 1 FROM publication.policy_editions) AS available`;
+  >`SELECT EXISTS(SELECT 1 FROM publications p WHERE visibility='public' AND ${originalPostAdmissionCondition()} AND eligible AND (NOT selected OR visible_after<=${now})) OR EXISTS(SELECT 1 FROM publication.policy_editions) AS available`;
   return { ...envelope, content_version: row?.available ? envelope.content_version : null, state: row?.available ? "available" : "empty" };
 }
 

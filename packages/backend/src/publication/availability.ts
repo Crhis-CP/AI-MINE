@@ -3,7 +3,8 @@
 import { sql } from "../db.ts";
 import { environmentValue } from "../config.ts";
 import { hasItemPage } from "./rules.ts";
-import { fetchItemsByIds, toFeedItemSummary } from "./items.ts";
+import { fetchItemsByIds, toFeedItemSummary, originalPostAdmissionCondition } from "./items.ts";
+import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { pendingReleaseCount } from "./v1.ts";
 import { sha256 } from "../lib/ids.ts";
 
@@ -26,7 +27,7 @@ export async function contentVersion(now = new Date()) {
     SELECT version::text,withdrawal_version::text FROM publication.read_watermarks WHERE lane='news'`;
   if (!row) throw new Error("Public watermarks unavailable");
   const pending = await pendingReleaseCount(now);
-  return { version: sha256(`${row.version}:${pending}`), withdrawalVersion: row.withdrawal_version };
+  return { version: originalPostReadVersion(sha256(`${row.version}:${pending}`)), withdrawalVersion: originalPostReadVersion(row.withdrawal_version) };
 }
 
 export async function publicFreshness() {
@@ -56,7 +57,7 @@ export async function itemAvailability(ids: string[]): Promise<Record<string, "p
   if (clean.length === 0) return out;
   const rows = await sql<{ id: string; visibility: string; source_mode: string }[]>`
     SELECT p.article_id AS id, p.visibility, s.participation_mode AS source_mode
-    FROM publications p JOIN sources s ON s.id = p.source_id WHERE p.article_id IN ${sql(clean)}`;
+    FROM publications p JOIN sources s ON s.id = p.source_id WHERE p.article_id IN ${sql(clean)} AND ${originalPostAdmissionCondition()}`;
   for (const r of rows) {
     if (!hasItemPage({ visibility: r.visibility, sourceMode: r.source_mode })) continue;
     out[r.id] = r.visibility === "summary-only" ? "summary-only" : "public";

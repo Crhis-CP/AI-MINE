@@ -1,3 +1,5 @@
+import { config } from "../config.ts";
+import { originalPostAdmissionCondition } from "./items.ts";
 import { confirmedSelected } from "./items.ts";
 import { readHistoricalBackground } from "./historical-background.ts";
 import { publicHeatSeries, publicHeatSeriesMany } from "../events/participation-read.ts";
@@ -12,13 +14,24 @@ import { loadTopicTags } from "./topics.ts";
 // Stories (events) and the hot ranking through the public read layer. The website sees heat values;
 // v1 / MCP / Skill only see ranks and counts.
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
-import { sql, withCustomPlans } from "../db.ts";
+import { sql, withCustomPlans, type Db } from "../db.ts";
 import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 import { storyStatusFor } from "../events/digest.ts";
 import { siteUrl, storyUrl } from "./links.ts";
 import { serverModules } from "../modules.ts";
 import { SITE } from "@amp/industry/site";
+
+/** All graph associations can have contributed to cached story text, including signal-only members. */
+export async function originalPostAffectedStories(ids: number[], db: Db = sql): Promise<Set<number>> {
+  if (config.originalPostAdmissionEnabled || !ids.length) return new Set();
+  const rows = await db<{ id: number }[]>`WITH members AS (
+    SELECT f.story_id,fa.article_id FROM facts f JOIN fact_articles fa ON fa.fact_id=f.id WHERE f.story_id=ANY(${ids}::bigint[])
+    UNION SELECT story_id,article_id FROM story_signals WHERE story_id=ANY(${ids}::bigint[])
+  ) SELECT DISTINCT members.story_id AS id FROM members JOIN publications p ON p.article_id=members.article_id
+    WHERE (${originalPostAdmissionCondition()}) IS FALSE`;
+  return new Set(rows.map((row) => row.id));
+}
 
 export type StoryLookup = { kind: "found"; storyId: number; publicId: string } | { kind: "merged"; target: string } | { kind: "not_found" };
 
@@ -80,7 +93,7 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
       p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
-    WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND s.participation_mode = 'editorial'
+    WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.article_id, (fa.role = 'primary') DESC`;
   const dates = await publicTimeMetadata(rows.map((row) => row.id));
@@ -129,7 +142,8 @@ async function storyContent(storyId: number, now: Date) {
   for (const r of reports) byFact.set(r.fact_id, [...(byFact.get(r.fact_id) ?? []), r]);
   const facts = await sql<{ id: number; public_id: string; title: string; occurred_at: Date | null; created_at: Date }[]>`
     SELECT id, public_id, title, occurred_at, created_at FROM facts WHERE story_id = ${storyId}`;
-  const pending = storyTextNeedsRefresh(s),
+  const admissionAffected = (await originalPostAffectedStories([storyId])).has(storyId);
+  const pending = storyTextNeedsRefresh(s) || admissionAffected,
     affected = await storyWithdrawalAffected(
       storyId,
       s.public_id,
@@ -149,7 +163,7 @@ async function storyContent(storyId: number, now: Date) {
       const first = members.reduce((m, r) => (r.at < m ? r.at : m), members[0]!.at);
       return {
         factId: f.public_id,
-        title: f.title,
+        title: admissionAffected ? rep.title : f.title,
         occurredAt: f.occurred_at?.toISOString() ?? null,
         firstReportAt: first.toISOString(),
         reportCount: members.length,

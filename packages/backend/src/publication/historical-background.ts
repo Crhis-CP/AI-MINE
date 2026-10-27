@@ -1,3 +1,4 @@
+import { originalPostAdmissionCondition } from "./items.ts";
 import {
   HistoricalCandidateRequest,
   HistoricalBackgroundProjection,
@@ -136,7 +137,7 @@ export const readHistoricalBackgroundCandidates: HistoricalBackgroundReader = as
     // shortcut: body search covers the existing permitted 12,000-character index; use full-text indexing only if this misses useful candidates.
     const ids = (
       await db<{ article_id: string }[]>`SELECT ps.article_id FROM pool_search ps JOIN publications p ON p.article_id=ps.article_id
-      WHERE p.article_id<>${request.query.articleId} AND p.channel='news' AND p.visibility='public' AND p.eligible AND NOT p.operator_withdrawn
+      WHERE p.article_id<>${request.query.articleId} AND p.channel='news' AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND NOT p.operator_withdrawn
         AND (ps.direct LIKE ANY(${likes}::text[]) OR ps.body LIKE ANY(${likes}::text[]))
       ORDER BY (ps.direct LIKE ANY(${likes}::text[])) DESC,p.timeline_at DESC,p.article_id LIMIT ${request.limit * 3}`
     ).map((r) => r.article_id);

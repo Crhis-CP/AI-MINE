@@ -3,6 +3,7 @@ import { newsMaterialBindings, readCurrentBody } from "@amp/backend/content/mate
 import { readCurrentSourcePolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { createFallbackPermitPort, type FallbackMaterialSnapshot, type FallbackPermitPort } from "./model-fallback-permit.ts";
+import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
 
 type Material = Awaited<ReturnType<typeof newsMaterialBindings>>[number];
 type Ports = {
@@ -16,11 +17,14 @@ const defaultPorts: Ports = {
 export type NewsFallbackInput = (request: { system: string; user: unknown }) => FallbackPermitPort;
 
 /** Quote resources retain the parent's material identity but need their own current URL permission. */
-async function quotedResources(materials: Material[], db: Db = sql) {
+async function quotedResources(materials: Material[], db: Db = sql, checkAdmission = false) {
   const resources: { id: string; sourceId: string; revision: number; url: string }[] = [];
   for (const material of materials) {
     const body = await readCurrentBody(material.id, db);
     if (!body || body.revision !== material.revision || body.source_id !== material.source_id) throw new Error("新闻引用材料修订未证明");
+    // Canonical stored body includes an actually acquired long article; quote text is stored separately.
+    if (checkAdmission && body.x_post && originalPostInputBlocked({ text: body.body_text ?? body.x_post.text }))
+      throw new Error("原帖新增准入尚未开启，等待可用正文");
     const quote = body.x_post?.quoted;
     if (quote) {
       if (!quote.url) throw new Error("新闻引用材料URL缺失");
@@ -59,7 +63,7 @@ export async function prepareNewsFallback<T>(
         return { id, version };
       }),
     );
-    const quotes = input.materialScope === "body" ? [] : await quotedResources(materials);
+    const quotes = input.materialScope === "body" ? [] : await quotedResources(materials, sql, true);
     for (const quote of quotes) {
       const decision = await evaluateSourcePolicy({
         source_id: quote.sourceId,
@@ -74,7 +78,7 @@ export async function prepareNewsFallback<T>(
     if (
       stableJson(await input.current()) !== expected ||
       stableJson(await ports.materials(ids)) !== stableJson(materials) ||
-      (input.materialScope !== "body" && stableJson(await quotedResources(materials)) !== stableJson(quotes))
+      (input.materialScope !== "body" && stableJson(await quotedResources(materials, sql, true)) !== stableJson(quotes))
     )
       throw new Error("新闻备用输入读取期间已变化");
     return { value, materials, permissions, ...(quotes.length ? { quotes } : {}) };

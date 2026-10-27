@@ -14,6 +14,9 @@ import { translatePostQuote, quoteTranslationRecipe } from "./post-translation.t
 import { loadAnalyzeInput } from "./input.ts";
 import { readCurrentBody } from "../content/materials.ts";
 import { originalPostCopy } from "../lib/text.ts";
+import { originalPostInputBlocked, originalPostAdmissionRequired } from "../lib/original-post-admission.ts";
+import { currentEvaluationDerivedInput } from "./input.ts";
+import { config } from "../config.ts";
 export { shield, unshield } from "./translation-readiness.ts";
 
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
@@ -58,6 +61,12 @@ async function bodyTranslationStop(articleId: string, revision: number): Promise
 export async function translateArticle(articleId: string, expectedRevision: number): Promise<TranslateResult> {
   const input = await loadAnalyzeInput(articleId);
   if (!input || input.revision !== expectedRevision) return { articleId, status: "partial", revision: expectedRevision, reason: "input_changed" };
+  const writing = input.xPost && !config.originalPostAdmissionEnabled ? await currentEvaluationDerivedInput(articleId, expectedRevision) : null;
+  if (
+    originalPostInputBlocked(input.xPost) ||
+    (!config.originalPostAdmissionEnabled && originalPostAdmissionRequired(input.xPost, writing?.output?.writer as string | undefined, writing?.summary_zh))
+  )
+    return { articleId, status: "skipped", revision: expectedRevision, reason: "post_admission_disabled" };
   const body = input.xPost ? await readCurrentBody(articleId) : null;
   if (input.xPost && body?.revision !== expectedRevision) return { articleId, status: "partial", revision: expectedRevision, reason: "input_changed" };
   const quote = await translatePostQuote(articleId, expectedRevision);

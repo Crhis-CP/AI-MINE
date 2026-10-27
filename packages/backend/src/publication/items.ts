@@ -1,5 +1,5 @@
 import { CURRENT_SOURCE_TIME, publicSourceTime, sourceInstant } from "./source-time.ts";
-import { attachRepresentativePriority, type RepresentativeIdentity } from "./representative.ts";
+import { attachRepresentativePriority, pickRepresentative, type RepresentativeIdentity } from "./representative.ts";
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
 import { geographyRecipe, compatibleGeographyRecipes } from "../editorial/geography.ts";
@@ -11,10 +11,12 @@ import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
 import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
-import { displayTags } from "./rules.ts";
+import { displayTags, independentSelectedSources } from "./rules.ts";
 import { postFeedView, postPermission } from "./post-view.ts";
+import { config } from "../config.ts";
 
 export interface ItemRow {
+  original_post_admission_required?: boolean | null;
   is_original_post?: boolean;
   x_post?: unknown;
   x_post_revision?: number | null;
@@ -64,13 +66,14 @@ export interface ItemRow {
 /** Columns every item listing selects. Internal judgement details never leave this layer. */
 export const ITEM_COLUMNS = () => sql`
   p.article_id AS id, p.revision, p.title, p.original_title,
-  p.is_original_post,p.x_post,p.x_post_revision,a.revision AS content_revision,
-  coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
+  p.is_original_post,p.original_post_admission_required,p.x_post,p.x_post_revision,a.revision AS content_revision,
+  coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
   (${confirmedSelected()}) AS selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
   s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,s.site_fulltext AS source_site_fulltext,
   a.author, a.language,
-  st.public_id::text AS story_public_id, st.title AS story_title`;
+  st.public_id::text AS story_public_id,
+  st.title AS story_title`;
 
 /** Public API listings never render article bodies or story metadata. */
 export type ApiItemRow = Pick<
@@ -126,14 +129,32 @@ export function confirmedSelected() {
   return sql`p.selected AND p.selection_candidate`;
 }
 
+/** Projection-only gate: unknown original-post classifications fail closed; ordinary articles are unchanged. */
+export const originalPostAdmissionCondition = () =>
+  sql`(${config.originalPostAdmissionEnabled} OR NOT p.is_original_post OR p.original_post_admission_required IS FALSE)`;
+
+/** Preserve stored seats unless this admission gate removes that fact's ordinary representative. */
+export async function admissionReplacementSeats(now: Date, db: Db = sql): Promise<string[]> {
+  if (config.originalPostAdmissionEnabled) return [];
+  const independent = independentSelectedSources();
+  const rows = await db<{ article_id: string; fact_id: number; representative_priority: number; body_mode: string; score: number | null; timeline_at: Date }[]>`
+    SELECT p.article_id,p.fact_id,p.representative_priority,p.body_mode,p.score,p.timeline_at FROM publications p
+    WHERE ${selectedCondition(now)} AND p.source_id<>ALL(${independent}::text[])
+      AND p.fact_id IN (SELECT blocked.fact_id FROM publications blocked WHERE blocked.seat AND blocked.is_original_post
+        AND blocked.original_post_admission_required IS DISTINCT FROM false AND blocked.source_id<>ALL(${independent}::text[]))`;
+  const facts = new Map<number, Array<(typeof rows)[number]>>();
+  for (const row of rows) facts.set(row.fact_id, [...(facts.get(row.fact_id) ?? []), row]);
+  return [...facts.values()].map((members) => pickRepresentative(members).article_id);
+}
+
 /** Listed items: public, and a selected item only after its release gate. */
 export function listedCondition(now: Date) {
-  return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now})`;
+  return sql`p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after <= ${now})`;
 }
 
 /** Selected set: the 精选 mark, 全部矿业动态, topics, v1 selected mode, RSS and daily issues. No age window. */
 export function selectedCondition(now: Date) {
-  return sql`p.visibility = 'public' AND p.eligible AND ${confirmedSelected()} AND p.visible_after <= ${now}`;
+  return sql`p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND ${confirmedSelected()} AND p.visible_after <= ${now}`;
 }
 
 /**
@@ -216,7 +237,7 @@ export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
 
 export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<string, ItemRow>> {
   if (ids.length === 0) return new Map();
-  const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${db(ids)}`;
+  const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${db(ids)} AND ${originalPostAdmissionCondition()}`;
   await attachSourcePolicies(rows, db);
   return new Map(rows.map((r) => [r.id, r]));
 }
@@ -236,7 +257,7 @@ export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<
     SELECT g.jurisdictions AS codes, g.state
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
-    WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})`;
+    WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})`;
   const counts = Object.fromEntries(JURISDICTIONS.map((j) => [j.id, 0]));
   let unknown = 0;
   for (const row of rows) {
@@ -258,8 +279,8 @@ export async function newsRelationJurisdictions(materials: { id: string; revisio
   return rows.filter((r) => materials.some((m) => m.id === r.id && m.revision === r.revision));
 }
 export async function publicNewsDigestInput(ids: string[], db: Db = sql) {
-  return db<{ article_id: string; title: string; summary: string | null }[]>`SELECT article_id,title,summary FROM publications
-    WHERE article_id=ANY(${ids}::text[]) AND visibility='public' AND eligible ORDER BY article_id`;
+  return db<{ article_id: string; title: string; summary: string | null }[]>`SELECT article_id,title,summary FROM publications p
+    WHERE article_id=ANY(${ids}::text[]) AND visibility='public' AND ${originalPostAdmissionCondition()} AND eligible ORDER BY article_id`;
 }
 
 /** Current public news source links, for explicit news/policy navigation only. */
@@ -267,7 +288,7 @@ export async function readPublicNewsLinkCandidates(articleId: string | null, off
   const urlPattern = officialUrl === null ? null : `%${officialUrl.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
   return sql<{ id: string; title: string; body_html: string }[]>`SELECT p.article_id AS id,p.title,a.body_html
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
-    WHERE p.visibility='public' AND p.eligible AND s.participation_mode='editorial'
+    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'
       AND (${articleId}::text IS NULL OR p.article_id=${articleId})
       AND (${officialUrl}::text IS NULL OR a.body_html LIKE ${urlPattern})
       AND (NOT p.selected OR p.visible_after<=now())
@@ -317,10 +338,11 @@ export interface PublicStoryReadScope extends PublicReadScope {
 }
 export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matchers: ReadMatcherValues): Promise<Array<ApiItemRow & { sort_at: Date }>> {
   const countryScope = !!query.jurisdiction || !!matchers.topicJurisdiction;
+  const replacements = query.selected && !countryScope ? await admissionReplacementSeats(query.now, db) : [];
   const sort = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) WHEN ${query.selected} THEN p.sort_at ELSE p.timeline_at END`;
   const rows = await db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
-    WHERE p.visibility='public' AND (NOT p.selected OR p.visible_after<=${query.now})
-      AND p.eligible AND (${!query.selected} OR (${confirmedSelected()} AND (${countryScope} OR p.seat)))
+    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after<=${query.now})
+      AND p.eligible AND (${!query.selected} OR (${confirmedSelected()} AND (${countryScope} OR p.seat OR p.article_id=ANY(${replacements}::text[]))))
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
@@ -343,7 +365,7 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
   return db<{ id: string; latest: Date }[]>`SELECT st.public_id::text AS id,max(p.timeline_at) AS latest
     FROM stories st JOIN publications p ON p.story_id=st.id
     WHERE ((${query.merged} AND st.merged_into IS NOT NULL) OR (${!query.merged} AND st.merged_into IS NULL))
-      AND p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND (${!query.selected} OR (${confirmedSelected()}))
+      AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND (${!query.selected} OR (${confirmedSelected()}))
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
@@ -364,7 +386,8 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
 export async function fetchMachineReportItems(ids: string[]): Promise<Map<string, ItemRow>> {
   if (!ids.length) return new Map();
   const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary
-    ${ITEM_FROM()} WHERE p.article_id IN ${sql(ids)}`;
+    ${ITEM_FROM()} WHERE p.article_id IN ${sql(ids)} AND ${originalPostAdmissionCondition()}`;
+  await attachSourcePolicies(rows);
   return new Map(rows.map((row) => [row.id, { ...row, summary: row.machine_summary }]));
 }
 
@@ -372,9 +395,9 @@ export async function fetchMachineReportItems(ids: string[]): Promise<Map<string
 export async function readGroupingEvidencePublications(articleIds: string[], db: Db) {
   if (!articleIds.length) return [];
   return db<{ article_id: string; revision: number; withdrawn: boolean; order_time: string }[]>`
-    SELECT article_id,revision,(visibility='withdrawn' OR operator_withdrawn) AS withdrawn,
+    SELECT article_id,revision,(visibility='withdrawn' OR operator_withdrawn OR (${originalPostAdmissionCondition()}) IS FALSE) AS withdrawn,
     (extract(epoch from coalesce(published_at,discovered_at))*1000000)::bigint::text AS order_time
-    FROM publications WHERE article_id=ANY(${articleIds}::text[])`;
+    FROM publications p WHERE article_id=ANY(${articleIds}::text[])`;
 }
 
 export interface GroupingSelectionSnapshot extends Partial<RepresentativeIdentity> {
@@ -399,7 +422,7 @@ export async function readGroupingSelectionSnapshot(excludeArticleId: string, fa
   const rows = await db<GroupingSelectionSnapshot[]>`SELECT p.article_id,p.source_id,a.revision AS material_revision,p.revision AS publication_revision,
     p.fact_id,p.title,p.summary,s.name AS source_name,p.first_party,p.published_at,p.discovered_at,p.timeline_at,p.body_mode,p.score
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
-    WHERE p.article_id<>${excludeArticleId} AND p.visibility='public' AND p.eligible AND p.selected AND p.visible_after<=now()
+    WHERE p.article_id<>${excludeArticleId} AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND p.selected AND p.visible_after<=now()
       AND a.grouping_status='complete' AND a.grouping_input_revision=a.revision
       AND (${selectedIds ?? null}::text[] IS NULL OR p.article_id=ANY(${selectedIds ?? []}::text[]))
       AND (${selectedIds !== undefined} OR p.fact_id=ANY(${factIds}::bigint[]) OR (p.discovered_at>now()-interval '60 days' AND (p.fact_id IS NULL OR p.discovered_at<=now()-interval '14 days')))
@@ -414,16 +437,18 @@ export function readConfirmedGroupingItems(ids: string[], db: Db = sql) {
 /** Current public seats of the requested inputs; withdrawn or unreleased copies are never repair candidates. */
 export async function selectedGroupingRecipeInputs(ids: string[], db: Db) {
   if (!ids.length) return [];
+  const replacements = await admissionReplacementSeats(new Date(), db);
   return db<{ article_id: string; source_id: string; fact_id: number | null }[]>`SELECT article_id,source_id,fact_id FROM publications p
-    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND ${confirmedSelected()} AND p.seat AND p.visible_after<=now()
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND ${confirmedSelected()} AND (p.seat OR p.article_id=ANY(${replacements}::text[])) AND p.visible_after<=now()
       AND NOT p.operator_withdrawn`;
 }
 
 /** Historical sync cursors carry only today's publishable selected seats and current corrections. */
 export async function currentSyncItems(ids: string[], now: Date, db: Db = sql): Promise<ApiItemRow[]> {
   if (!ids.length) return [];
+  const replacements = await admissionReplacementSeats(now, db);
   const rows = await db<ApiItemRow[]>`SELECT ${API_ITEM_COLUMNS()} ${API_ITEM_FROM()}
-    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND ${confirmedSelected()} AND p.seat
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND ${confirmedSelected()} AND (p.seat OR p.article_id=ANY(${replacements}::text[]))
       AND p.visible_after<=${now} AND s.participation_mode='editorial' AND s.lane='news'`;
   return protectApiPostRows(rows, db, now.getTime());
 }
