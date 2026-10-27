@@ -1,3 +1,5 @@
+import { originalPostAdmissionCondition } from "./items.ts";
+import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { sharedSearch } from "../lib/cache.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 // Public pool (/all) with numeric pages, and search in its two orderings.
@@ -84,6 +86,7 @@ const countCache = new Map<string, { at: number; n: number }>();
 const countPending = new Map<string, Promise<number>>();
 async function poolCount(key: string | null, query: () => Promise<Array<{ n: number }>>): Promise<number> {
   if (key === null) return Number(one(await query()).n);
+  key = originalPostReadVersion(key);
   const hit = countCache.get(key);
   if (hit && Date.now() - hit.at < 30_000) return hit.n;
   const pending = countPending.get(key);
@@ -123,23 +126,25 @@ export interface PoolQuery extends TimelineFilters {
 // Sharing happens before search capacity admission, and retains every site-specific filter in the key.
 const searchPool = sharedSearch(
   ({ query }: { query: PoolQuery; matchers?: ReadMatcherValues }) =>
-    JSON.stringify([
-      query.channel ?? "all",
-      query.category ?? null,
-      query.tag ?? null,
-      query.topic ?? null,
-      query.topicTags ?? null,
-      query.jurisdiction ?? null,
-      query.source ?? null,
-      query.mineral ?? null,
-      query.on ?? null,
-      query.from ?? null,
-      query.to ?? null,
-      query.selected ?? false,
-      query.q?.trim() ?? null,
-      query.tab ?? "time",
-      query.page ?? 1,
-    ]),
+    originalPostReadVersion(
+      JSON.stringify([
+        query.channel ?? "all",
+        query.category ?? null,
+        query.tag ?? null,
+        query.topic ?? null,
+        query.topicTags ?? null,
+        query.jurisdiction ?? null,
+        query.source ?? null,
+        query.mineral ?? null,
+        query.on ?? null,
+        query.from ?? null,
+        query.to ?? null,
+        query.selected ?? false,
+        query.q?.trim() ?? null,
+        query.tab ?? "time",
+        query.page ?? 1,
+      ]),
+    ),
   ({ query, matchers }, now) => queryPool(query, matchers, now),
   ({ query, matchers }) => !!query.q?.trim() && matchers === undefined,
 );
@@ -363,7 +368,7 @@ async function loadPoolSourceFacets(query: PoolQuery, names: ReadMatcherValues, 
   return withCustomPlans(
     async (db) => db<{ id: string; name: string; count: number }[]>`
     SELECT s.id,s.name,count(*) AS count FROM publications p JOIN sources s ON s.id=p.source_id
-    WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
+    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
       AND (${query.channel}='all' OR (${query.channel}='firstParty' AND p.first_party) OR p.channel=${query.channel})
       AND (${query.category}::text IS NULL OR p.category=${query.category})
       AND (${query.selected ?? false}=false OR (${confirmedSelected()}))

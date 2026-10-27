@@ -1,3 +1,7 @@
+import { originalPostAdmissionCondition } from "./items.ts";
+import { originalPostAffectedStories } from "./stories.ts";
+export { originalPostAffectedStories } from "./stories.ts";
+import { attachSourcePolicies } from "./reader-context.ts";
 import { readMatcherValues } from "./mentions.ts";
 export type { ReportGroupCandidateReader, ReportGroupMembersReader, ReportGroupProjector } from "@amp/contracts/site";
 // Reading-group expansions: the reports behind "另有 N 家信源报道" and the developments behind
@@ -62,7 +66,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
     SELECT p.article_id AS id, p.title, coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, (${confirmedSelected()}) AS selected,
            s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party
     FROM publications p JOIN sources s ON s.id = p.source_id
-    WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND p.eligible
+    WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible
       AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
     ORDER BY p.timeline_at DESC, p.article_id ASC`;
   if (members.length === 0) return { kind: "not_found" };
@@ -125,6 +129,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   const [story] = await sql<{ id: number; public_id: string; title: string }[]>`
     SELECT id, public_id::text, title FROM stories WHERE public_id = ${q.storyPublicId} AND merged_into IS NULL`;
   if (!story) return { kind: "not_found" };
+  const admissionAffected = (await originalPostAffectedStories([story.id])).has(story.id);
   const matchers = readMatcherValues(q.tag, q.topicTags, [], [], newsJurisdictionScope(null).jurisdictionRecipe);
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
   type Member = Pick<ItemRow, "source_id" | "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
@@ -138,7 +143,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       await sql<{ fact_id: number; n: number }[]>`
       SELECT fa.fact_id, count(DISTINCT p.article_id)::int AS n
       FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
-      WHERE f.story_id = ${story.id} AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
+      WHERE f.story_id = ${story.id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
       GROUP BY fa.fact_id`
     ).map((c) => [c.fact_id, c.n]),
   );
@@ -189,13 +194,19 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       : [],
   );
   if (rows.size !== page.length) return { kind: "changed" };
+  await attachSourcePolicies([...rows.values()]);
   const developments = page.flatMap(({ representativeId, ...development }) => {
     const row = rows.get(representativeId);
-    return row ? [{ ...development, representative: toItemSummary(row) }] : [];
+    return row ? [{ ...development, title: admissionAffected ? toItemSummary(row).title : development.title, representative: toItemSummary(row) }] : [];
   });
   return {
     kind: "ok",
-    body: { story: { publicId: story.public_id, title: story.title }, revision, developments, nextCursor: next },
+    body: {
+      story: { publicId: story.public_id, title: admissionAffected ? (developments[0]?.representative.title ?? "事件进展") : story.title },
+      revision,
+      developments,
+      nextCursor: next,
+    },
   };
 }
 
@@ -207,7 +218,7 @@ export async function reportCandidateRows(start: Date, end: Date) {
     await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
     const rows = await tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
       LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
-      WHERE p.visibility='public' AND p.eligible AND p.selected AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
+      WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND p.selected AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
         AND p.timeline_at>=${new Date(start.getTime() - 86400000)} AND greatest(p.timeline_at,p.visible_after)>=${start}
         AND greatest(p.timeline_at,p.visible_after)<${end}`;
     const identified = await attachRepresentativePriority(rows, tx);
@@ -227,7 +238,7 @@ export async function reportCandidateRows(start: Date, end: Date) {
 export async function dailyJudgedReportCount(start: Date, end: Date): Promise<number> {
   const [row] = await sql<{ n: number }[]>`
     SELECT count(*)::int AS n FROM publications p JOIN sources s ON s.id=p.source_id
-    WHERE p.visibility='public' AND p.eligible AND p.channel='news' AND s.lane='news'
+    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND p.channel='news' AND s.lane='news'
       AND s.lane='news' AND s.participation_mode='editorial' AND p.score IS NOT NULL AND NOT p.backfill
       AND (NOT p.selected OR p.visible_after <= ${end})
       AND p.timeline_at >= ${start} AND p.timeline_at < ${end}
@@ -288,7 +299,7 @@ export async function historicalReportRows(start: Date, end: Date): Promise<Repo
   const rows = await sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()},true AS source_time_current
     FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id
     LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
-    WHERE p.visibility='public' AND p.eligible AND NOT p.operator_withdrawn
+    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND NOT p.operator_withdrawn
       AND s.lane='news' AND s.participation_mode='editorial'
       AND (NOT p.selected OR p.visible_after<=now())
       AND (${CURRENT_SOURCE_TIME()}) IS NOT NULL
@@ -330,7 +341,7 @@ export async function reportWindowEvidence(start: Date, end: Date) {
     return tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()},(${CURRENT_SOURCE_TIME()}) IS NOT NULL AS source_time_current
       FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id
       LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
-      WHERE p.visibility='public' AND p.eligible AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
+      WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
         AND p.timeline_at>=${new Date(start.getTime() - 86400000)} AND p.timeline_at<${end}
         AND (NOT p.selected OR p.visible_after<=${end}) ORDER BY p.timeline_at,p.article_id`;
   });
@@ -340,7 +351,7 @@ export async function reportFactEvidence(factIds: number[], end: Date) {
   if (!factIds.length) return [];
   return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
     JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
-    WHERE p.fact_id=ANY(${factIds}::bigint[]) AND p.visibility='public' AND p.eligible
+    WHERE p.fact_id=ANY(${factIds}::bigint[]) AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible
       AND s.lane='news' AND s.participation_mode='editorial' AND p.timeline_at<${end}
       AND (NOT p.selected OR p.visible_after<=${end}) ORDER BY p.timeline_at,p.article_id`;
 }
@@ -358,7 +369,7 @@ export async function reportPublicInputs(ids: string[]) {
   return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()},(${CURRENT_SOURCE_TIME()}) IS NOT NULL AS source_time_current
     FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id
     LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
-    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible
       AND NOT p.operator_withdrawn AND (NOT p.selected OR p.visible_after<=now())
       AND s.lane='news' AND s.participation_mode='editorial' ORDER BY p.article_id`;
 }
@@ -390,7 +401,9 @@ export async function reportSelectedFacts(factIds: number[]) {
   if (!factIds.length) return new Set<number>();
   return new Set(
     (
-      await sql<{ fact_id: number }[]>`SELECT DISTINCT fact_id FROM publications WHERE fact_id=ANY(${factIds}::bigint[]) AND selected AND visibility='public'`
+      await sql<
+        { fact_id: number }[]
+      >`SELECT DISTINCT fact_id FROM publications p WHERE fact_id=ANY(${factIds}::bigint[]) AND selected AND visibility='public' AND ${originalPostAdmissionCondition()}`
     ).map((row) => row.fact_id),
   );
 }
@@ -410,16 +423,17 @@ export async function publicParticipationBindings(ids: string[]) {
       operator_withdrawn: boolean;
       selected: boolean;
       visible_after: Date | null;
+      admission_allowed: boolean;
     }[]
   >`
-    SELECT p.article_id AS id,p.revision,p.source_id,p.fact_id,f.story_id,p.visibility,p.eligible,p.operator_withdrawn,p.selected,p.visible_after
+    SELECT p.article_id AS id,p.revision,p.source_id,p.fact_id,f.story_id,p.visibility,p.eligible,p.operator_withdrawn,p.selected,p.visible_after,${originalPostAdmissionCondition()} AS admission_allowed
     FROM publications p LEFT JOIN facts f ON f.id=p.fact_id WHERE p.article_id=ANY(${ids}::text[])`;
 }
 
 /** Bounded public nominations awaiting the current projection; existing selections are not rejudged. */
 export async function recentGroupingCandidateIds(sourceIds: string[], db: Db = sql) {
   const rows = await db<{ article_id: string }[]>`SELECT p.article_id FROM publications p
-    WHERE p.source_id=ANY(${sourceIds}::text[]) AND p.visibility='public' AND p.eligible
+    WHERE p.source_id=ANY(${sourceIds}::text[]) AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible
       AND ((p.selection_candidate AND NOT p.selected) OR (p.selected AND NOT p.selection_candidate))
       AND NOT p.backfill AND p.timeline_at >= now()-interval '7 days'
     ORDER BY p.timeline_at DESC,p.article_id LIMIT 1000`;

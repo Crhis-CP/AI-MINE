@@ -1,3 +1,4 @@
+import { originalPostAdmissionCondition, admissionReplacementSeats } from "./items.ts";
 import { CURRENT_SOURCE_TIME, publicSourceTime, sourceInstant } from "./source-time.ts";
 import {
   isChineseOriginal,
@@ -202,16 +203,17 @@ export type ItemFeedKind = "selected" | "selected-full" | "all";
 // Like the live feeds, items are the newest by their original publish time (the pubDate shown):
 // 50 per feed; a category feed holds only its last 7 days (by original publish time).
 
-function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now: Date) {
-  return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now}) AND (
+function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now: Date, replacements: string[]) {
+  return sql`p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after <= ${now}) AND (
     (${kind} = 'all' AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
       AND coalesce(p.published_at, p.discovered_at) <= ${now}) OR
-    (${kind} <> 'all' AND ${selectedCondition(now)} AND p.seat AND (${category}::text IS NULL OR p.category = ${category})
+    (${kind} <> 'all' AND ${selectedCondition(now)} AND (p.seat OR p.article_id=ANY(${replacements}::text[])) AND (${category}::text IS NULL OR p.category = ${category})
       AND (${category}::text IS NULL OR coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)})))`;
 }
 
 export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date(), notice?: FeedNotice | null): Promise<string> {
   const includeContent = kind === "selected-full";
+  const replacements = kind === "all" ? [] : await admissionReplacementSeats(now);
   const allIds =
     kind === "all"
       ? (
@@ -236,7 +238,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
   const rows = includeContent
     ? await sql<FeedRow[]>`
       WITH page AS MATERIALIZED (
-        SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
+        SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now, replacements)}
           AND (${allIds}::text[] IS NULL OR p.article_id=ANY(${allIds}::text[]))
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
@@ -252,7 +254,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
       ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`
     : await sql<FeedRow[]>`
       WITH page AS MATERIALIZED (
-        SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
+        SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now, replacements)}
           AND (${allIds}::text[] IS NULL OR p.article_id=ANY(${allIds}::text[]))
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )

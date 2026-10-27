@@ -34,6 +34,7 @@ import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUn
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
 import { ModelOutputError } from "../providers/llm.ts";
+import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
 import { ensureQueue, QUEUES, shutdownSignal } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
 
@@ -320,7 +321,7 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
       const revision = await prepareTranslation(data.articleId);
       if (revision === null) return { state: "not-needed-or-not-permitted" };
       const result = await translateArticle(data.articleId, revision);
-      if (result.status === "skipped" && (result.reason === "no_post_text" || result.reason === "quote_not_permitted")) {
+      if (result.status === "skipped" && ["no_post_text", "quote_not_permitted", "post_admission_disabled"].includes(result.reason ?? "")) {
         await publishArticle(data.articleId);
         return result;
       }
@@ -472,13 +473,22 @@ async function resumeMaterialWaits(): Promise<number> {
         const source = await readSourceDateContext(identity.source_id, tx);
         if (source?.lane !== "news" || source.participation_mode !== "editorial") return 0;
         const [current] = await tx<
-          { source_id: string; revision: number; url: string; language: string | null; body_text: string | null; excerpt: string | null }[]
+          {
+            source_id: string;
+            revision: number;
+            url: string;
+            language: string | null;
+            body_text: string | null;
+            excerpt: string | null;
+            original_post: boolean;
+          }[]
         >`
-          SELECT source_id,revision,url,language,body_text,excerpt FROM articles
+          SELECT source_id,revision,url,language,body_text,excerpt,x_post IS NOT NULL AS original_post FROM articles
           WHERE id=${wait.article_id} AND processing_state='analyzed' AND revision=${wait.input_revision} AND body_status<>'ok' FOR UPDATE`;
         if (
           !current ||
           current.source_id !== source.id ||
+          (current.original_post && originalPostInputBlocked({ text: current.body_text ?? "" })) ||
           !normalizeSourceLanguage(current.language) ||
           !pageFetchable(current.url, source.kind) ||
           usableSourceText(current.body_text) ||

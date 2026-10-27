@@ -1,3 +1,5 @@
+import { originalPostAdmissionCondition } from "./items.ts";
+import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { foldableSelectionCondition } from "./scope.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
@@ -45,19 +47,22 @@ interface GroupRow {
 }
 
 function entryCondition(q: TimelineQuery, now: Date) {
-  if (q.scope === "all") return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now}) AND p.eligible`;
+  if (q.scope === "all")
+    return sql`p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after <= ${now}) AND p.eligible`;
   return sql`${selectedCondition(now)} AND p.timeline_at >= ${q.featuredSince ?? null}`;
 }
 
 function binding(q: TimelineQuery): string {
-  return queryBinding({
-    scope: q.scope ?? "selected",
-    c: q.channel,
-    k: q.category,
-    t: q.tag,
-    p: q.topic ?? null,
-    ...(q.jurisdiction ? { j: q.jurisdiction } : {}),
-  });
+  return originalPostReadVersion(
+    queryBinding({
+      scope: q.scope ?? "selected",
+      c: q.channel,
+      k: q.category,
+      t: q.tag,
+      p: q.topic ?? null,
+      ...(q.jurisdiction ? { j: q.jurisdiction } : {}),
+    }),
+  );
 }
 
 import { attachRepresentativePriority, pickRepresentative, type RepresentativeRow } from "./representative.ts";
@@ -75,7 +80,7 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
     WITH base AS MATERIALIZED (
       SELECT p.article_id,${time} AS at,p.representative_priority,p.body_mode,p.score,p.timeline_at,
         CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} THEN 'f'||p.fact_id::text ELSE 'a'||p.article_id END AS gk
-      FROM publications p WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND ${time}<=${query.now}
+      FROM publications p WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND ${time}<=${query.now}
     ), anchors AS (
       SELECT gk,min(at) AS anchor FROM base GROUP BY gk
     ), ranked AS (
@@ -88,7 +93,7 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
       ORDER BY anchor DESC,article_id DESC LIMIT ${query.limit}
     )
     SELECT ${API_ITEM_COLUMNS()},page.anchor AS sort_at ${API_ITEM_FROM()} JOIN page ON page.article_id=p.article_id
-    WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now})
+    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now})
     ORDER BY page.anchor DESC,p.article_id DESC`;
   return protectApiPostRows(rows, db, query.now.getTime());
 }
@@ -107,7 +112,7 @@ async function groupPool(q: TimelineQuery, now: Date, factIds: number[]) {
     SELECT DISTINCT f.story_id, f.id AS fact_id, p.article_id, p.source_id, p.timeline_at AS at
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     WHERE f.id IN ${sql(factIds)} AND fa.role IN ('primary', 'report')
-      AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
+      AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
 }
 
 /**
@@ -294,7 +299,7 @@ export async function nextRelease(q: TimelineQuery, now: Date): Promise<string |
   );
   const [row] = await sql<{ t: Date | null }[]>`
     SELECT min(p.visible_after) AS t FROM publications p
-    WHERE p.visibility = 'public' AND p.selected AND p.visible_after > ${now} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
+    WHERE p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.selected AND p.visible_after > ${now} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
   return row?.t ? row.t.toISOString() : null;
 }
 

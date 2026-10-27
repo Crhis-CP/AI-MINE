@@ -1,4 +1,4 @@
-import { reportPublicInputs } from "../publication/groups.ts";
+import { reportPublicInputs, originalPostAffectedStories } from "../publication/groups.ts";
 import { publicParticipation, participationHash } from "./participation-read.ts";
 // Reading the latest published hot ranking. The web shows heat values; machine exits only ranks.
 import type { HotStripEntry } from "@amp/contracts/site";
@@ -58,6 +58,7 @@ async function queryLatestHotRanking(): Promise<HotRanking | null> {
   const [row] = await sql<{ id: number; computed_at: Date; rule_version: string; entries: HotEntry[]; evidence: Record<string, unknown> | null }[]>`
     SELECT id, computed_at, rule_version, entries, evidence FROM hot_rankings WHERE published ORDER BY computed_at DESC,id DESC LIMIT 1`;
   if (!row) return null;
+  const admissionAffected = await originalPostAffectedStories(row.entries.map((entry) => Number(entry.storyId)));
   const representatives = new Map(
     (await reportPublicInputs(row.entries.flatMap((entry) => (entry.representativeItemId ? [entry.representativeItemId] : [])))).map((value) => [
       value.id,
@@ -93,7 +94,7 @@ async function queryLatestHotRanking(): Promise<HotRanking | null> {
   const entries = (
     await Promise.all(
       row.entries.map(async (entry) => {
-        if (!valid.has(Number(entry.storyId))) return [];
+        if (!valid.has(Number(entry.storyId)) || admissionAffected.has(Number(entry.storyId))) return [];
         const story = byId.get(Number(entry.storyId));
         if (!story || story.merged_into || !entry.representativeItemId || representatives.get(entry.representativeItemId)?.story_id !== Number(entry.storyId))
           return [];
@@ -148,8 +149,10 @@ async function queryExtras(ranking: HotRanking): Promise<Extras> {
 /** What the web adds to a ranking entry: the digest and the latest turn. */
 export async function rankingExtras(ranking: HotRanking) {
   const { texts } = await readExtras(ranking);
+  const admissionAffected = await originalPostAffectedStories(ranking.entries.map((entry) => Number(entry.storyId)));
   return {
-    text: (e: HotEntry) => texts.get(e.storyId) ?? { summary: null, latest: null },
+    text: (e: HotEntry) =>
+      admissionAffected.has(Number(e.storyId)) ? { summary: null, latest: null } : (texts.get(e.storyId) ?? { summary: null, latest: null }),
   };
 }
 

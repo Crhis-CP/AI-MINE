@@ -6,10 +6,11 @@ import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/t
 import { sql, withCustomPlans, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
-import { newsJurisdictionScope, readPublicApiItems, currentSyncItems, type ApiItemRow } from "./items.ts";
+import { newsJurisdictionScope, readPublicApiItems, currentSyncItems, admissionReplacementSeats, type ApiItemRow } from "./items.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { searchTerms, withSearchCapacity } from "./pool.ts";
 import { v1Payload, type V1ItemPayload } from "./publish.ts";
+import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 
 export interface V1ItemsQuery {
   mode: "selected" | "all";
@@ -152,9 +153,12 @@ let epochCache: string | null = null;
 
 /** Ledger epoch: changes whenever the ledger is rebuilt (e.g. after an import), invalidating old watermarks. */
 export async function ledgerEpoch(): Promise<string> {
-  if (epochCache) return epochCache;
+  if (epochCache) return originalPostReadVersion(epochCache);
   const [row] = await sql<{ value: { epoch: string } }[]>`SELECT value FROM settings WHERE key = 'selected_ledger_epoch'`;
-  if (row) return (epochCache = row.value.epoch);
+  if (row) {
+    epochCache = row.value.epoch;
+    return originalPostReadVersion(epochCache);
+  }
   throw new SnapshotRequiredError("selected ledger epoch unavailable");
 }
 
@@ -224,15 +228,17 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
   // The set as of the watermark, less anything taken out of the selected set since: a withdrawal waiting
   // behind a not-yet-released entry must not reach new snapshots. Its remove still follows in changes,
   // which the client applies as a no-op.
+  const replacements = await admissionReplacementSeats(now);
   const rows = await sql<{ article_id: string }[]>`
-    SELECT latest.article_id FROM (
+    SELECT article_id FROM (SELECT latest.article_id FROM (
       SELECT DISTINCT ON (article_id) article_id, op FROM selected_ledger
       WHERE seq <= ${w} AND article_id > ${afterId}
       ORDER BY article_id, seq DESC
     ) latest
     JOIN selected_state st ON st.article_id = latest.article_id AND st.in_set
     WHERE latest.op = 'upsert'
-    ORDER BY latest.article_id
+    UNION SELECT article_id FROM publications WHERE article_id=ANY(${replacements}::text[]) AND article_id>${afterId}) current_items
+    ORDER BY article_id
     LIMIT ${q.limit + 1}`;
   const page = rows.slice(0, q.limit);
   const current = new Map(

@@ -63,6 +63,7 @@ import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, norma
 import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } from "./prompts.ts";
 import { GEOGRAPHY_DICTIONARY, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
 import { stableJson } from "../lib/ids.ts";
+import { LEGACY_SUMMARY_MIN_CHARS, originalPostInputBlocked, verbatimAdmissionRequired } from "../lib/original-post-admission.ts";
 
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 
@@ -270,7 +271,7 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return !a.xPost && a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
 
-export const awaitsMaterial = (a: AnalyzeInputArticle) => missingEvidence(a) && !originalPostCopy(a.xPost, a.url);
+export const awaitsMaterial = (a: AnalyzeInputArticle) => originalPostInputBlocked(a.xPost) || (missingEvidence(a) && !originalPostCopy(a.xPost, a.url));
 
 type StepOpts = {
   expectedRevision?: number;
@@ -323,6 +324,7 @@ export async function runSelectionPrefilter(
   opts: StepOpts = {},
   onReceipt?: ReceiptObserver,
 ): Promise<NonNullable<AnalysisRun["prefilter"]>> {
+  if (originalPostInputBlocked(a.xPost)) throw new Error("原帖新增准入尚未开启，等待可用正文");
   try {
     const result = await runPrefilter(a, opts);
     onReceipt?.(result.receiptId);
@@ -393,6 +395,7 @@ export async function runSelectionScores(
   onReceipt?: ReceiptObserver,
   threshold: number | null = tierThreshold(a.source.tier),
 ): Promise<AnalysisRun["scores"]> {
+  if (originalPostInputBlocked(a.xPost)) throw new Error("原帖新增准入尚未开启，等待可用正文");
   return threshold === null ? null : runScores(a, threshold, opts, onReceipt);
 }
 
@@ -586,9 +589,12 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
   const plain = { reasonZh: null, tags: null, receiptIds: [] as number[], reused: true };
   const short = isShortTweetInput(t),
     main = collapseWhitespace(t.mainText || t.title);
-  if (short && !needsShortTweetTranslation(main)) return { kind: "verbatim", model: null, titleZh: main, summaryZh: main, ...plain };
+  const chineseShort = short && !needsShortTweetTranslation(main);
+  if (chineseShort && (config.originalPostAdmissionEnabled || !verbatimAdmissionRequired(main)))
+    return { kind: "verbatim", model: null, titleZh: main, summaryZh: main, ...plain };
   // Too little text is not written up from a title.
-  if (!short && t.text.trim().length < 20) return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
+  if ((!short || (chineseShort && !config.originalPostAdmissionEnabled)) && t.text.trim().length < LEGACY_SUMMARY_MIN_CHARS)
+    return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
   const model = await modelFor("summarize");
   const user = short ? buildShortTweetPrompt(t) : a.xPost ? buildLongTweetPrompt(t) : buildArticlePrompt(t);
   checkAnalysisRunning();
@@ -682,11 +688,16 @@ export function normalizeAnalysis(run: AnalysisRun) {
   const label = run.prefilter?.label;
   const titleZh = collapseWhitespace(run.writing?.titleZh ?? "");
   const summaryZh = (run.writing?.summaryZh ?? "").trim();
+  const unapprovedCopy = !config.originalPostAdmissionEnabled && run.writing?.kind === "verbatim" && verbatimAdmissionRequired(summaryZh);
   // Past the prefilter (PASS or UNKNOWN) an item is relevant. Writing that gives no usable Chinese title and
   // summary leaves it without copy of its own ("unknown", waiting for material); a Chinese original from a
   // full-text source still shows its source excerpt, since publication only keeps a BLOCK out.
   const relevance =
-    label === "BLOCK" ? "block" : (run.writing ? !titleZh || (!summaryZh && run.writing.kind !== "verbatim") : !run.scores) ? "unknown" : "pass";
+    label === "BLOCK"
+      ? "block"
+      : unapprovedCopy || (run.writing ? !titleZh || (!summaryZh && run.writing.kind !== "verbatim") : !run.scores)
+        ? "unknown"
+        : "pass";
   // Selected when the two scores add up to twice the tier threshold; the mean, floored,
   // is the score shown (it never decides a half point on its own).
   const values = run.scores && !run.scores.refused ? run.scores.values : null;

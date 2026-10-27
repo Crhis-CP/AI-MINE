@@ -4,6 +4,7 @@ import { PermissionScopeSchema } from "@amp/contracts/source-policy";
 import type { XPostData } from "../content/materials.ts";
 import { escapeHtml } from "../lib/text.ts";
 import { quoteTranslationRecipe } from "../editorial/prompts.ts";
+import { originalPostProjectionAllowed } from "../lib/original-post-admission.ts";
 
 type Purpose = "public_excerpt" | "public_summary" | "public_original_fulltext" | "public_translation";
 const policy = z.object({
@@ -58,6 +59,7 @@ export function projectPostView(post: XPostData | null, sourceId: string, url: s
 }
 
 export interface PostProjection {
+  original_post_admission_required?: boolean | null;
   is_original_post?: boolean;
   x_post?: unknown;
   x_post_revision?: number | null;
@@ -69,6 +71,7 @@ export interface PostProjection {
   url: string;
 }
 export function currentPostView(row: PostProjection, now = Date.now()) {
+  if (!originalPostProjectionAllowed(row)) return null;
   if (!row.is_original_post || row.x_post_revision !== row.content_revision || row.body_mode !== "full" || row.source_site_fulltext === false) return null;
   if (!postPermission(row.source_policy, row.source_id, row.url, "public_original_fulltext", now)) return null;
   const parsed = z.strictObject({ view: XPostDetailView, quoteRecipe: z.string().nullable() }).safeParse(row.x_post);

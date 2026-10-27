@@ -370,6 +370,7 @@
 | [TASK-0498](TASK-0498.md) | T-0101 | M3 | architect | locally_verified | 原帖许可投影与统一阅读出口 | TASK-0492、TASK-0495、TASK-0496、TASK-0497 |
 | [TASK-0499](TASK-0499.md) | T-0101 | M3 | architect | locally_verified | 消除日周来源重复并避免质量假恢复 | — |
 | [TASK-0502](TASK-0502.md) | T-0101 | M3 | architect | locally_verified | 多来源报道阅读组兼容契约 | — |
+| [TASK-0503](TASK-0503.md) | T-0101 | M3 | architect | locally_verified | 原帖新准入默认关闭与关闭行为保护 | — |
 | [TASK-0506](TASK-0506.md) | T-0101 | M3 | architect | locally_verified | 报道来源展开保留父列表搜索模式 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |

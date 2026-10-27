@@ -1,3 +1,4 @@
+import { config } from "@amp/backend/config";
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -29,8 +30,12 @@ const provider = await stub(() => ({
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "synthetic-post-publication";
 process.env.TRANSLATE_MODEL = "deepseek-flash";
-before(() => installUsageFixtureForModel("deepseek-flash"));
+before(() => {
+  config.originalPostAdmissionEnabled = true;
+  return installUsageFixtureForModel("deepseek-flash");
+});
 after(async () => {
+  config.originalPostAdmissionEnabled = false;
   await app.close();
   await provider.close();
   await stopBoss();

@@ -1,3 +1,4 @@
+import { originalPostAdmissionCondition } from "./items.ts";
 // Read current qualified metadata on every request. Withdrawals must not survive in a disk fallback.
 import { sql } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
@@ -25,7 +26,9 @@ const moduleEntries = z.array(
 
 async function entriesForSitemap(): Promise<Entry[]> {
   const entries: Entry[] = [];
-  const [latestItem] = await sql<{ t: Date | null }[]>`SELECT max(timeline_at) AS t FROM publications WHERE visibility = 'public' AND selected`;
+  const [latestItem] = await sql<
+    { t: Date | null }[]
+  >`SELECT max(timeline_at) AS t FROM publications p WHERE visibility = 'public' AND ${originalPostAdmissionCondition()} AND selected`;
   const [latestDaily] = await sql<
     { key: string | null; t: Date | null }[]
   >`SELECT max(key) AS key, max(generated_at) AS t FROM reports r WHERE kind = 'daily' AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)`;
@@ -67,7 +70,7 @@ async function entriesForSitemap(): Promise<Entry[]> {
   const stories = await sql<{ public_id: string; latest_at: Date | null }[]>`
     SELECT public_id::text, latest_at FROM stories WHERE merged_into IS NULL AND EXISTS (
       SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
-      WHERE f.story_id = stories.id AND fa.role IN ('primary', 'report') AND p.visibility = 'public' AND p.eligible)
+      WHERE f.story_id = stories.id AND fa.role IN ('primary', 'report') AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible)
     ORDER BY latest_at DESC NULLS LAST LIMIT 500`;
   for (const s of stories) entries.push({ loc: `/story/${s.public_id}`, lastmod: s.latest_at, changefreq: "daily", priority: 0.5 });
   for (const policy of await policyDiscoveryEntries())
@@ -85,7 +88,7 @@ async function entriesForSitemap(): Promise<Entry[]> {
       entries.push({ loc: `/policies/reports/${encodeURIComponent(row.id)}`, lastmod: new Date(report.issued_at), changefreq: "monthly", priority: 0.6 });
   }
   const items = await sql<{ id: string; t: Date }[]>`
-    SELECT article_id AS id, updated_at AS t FROM publications WHERE visibility = 'public' AND indexable ORDER BY timeline_at DESC,article_id`;
+    SELECT article_id AS id, updated_at AS t FROM publications p WHERE visibility = 'public' AND ${originalPostAdmissionCondition()} AND indexable ORDER BY timeline_at DESC,article_id`;
   for (const it of items) entries.push({ loc: `/items/${it.id}`, lastmod: it.t, changefreq: "monthly", priority: 0.5 });
   const seen = new Set(entries.map((entry) => entry.loc));
   for (const module of serverModules()) {

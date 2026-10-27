@@ -15,6 +15,7 @@ import { modelFor } from "./models.ts";
 import { looksZh } from "./writing.ts";
 import { promptText, quoteTranslationRecipe } from "./prompts.ts";
 import { translationTextIssue } from "./translation-readiness.ts";
+import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
 
 export { quoteTranslationRecipe } from "./prompts.ts";
 const Output = z.strictObject({ t: z.tuple([z.string().trim().min(1)]) });
@@ -27,6 +28,7 @@ export function quoteTranslatable(text: string): boolean {
 export async function translatePostQuote(articleId: string, revision: number): Promise<"none" | "ready" | "partial" | "stale" | "denied"> {
   const input = await loadAnalyzeInput(articleId);
   if (!input || input.revision !== revision) return "stale";
+  if (originalPostInputBlocked(input.xPost)) return "denied";
   const quote = input.xPost?.quoted;
   if (!quote || !quoteTranslatable(quote.text) || !input.sourceId) return "none";
   const policy = await readCurrentSourcePolicy(input.sourceId);

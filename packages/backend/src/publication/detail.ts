@@ -1,3 +1,5 @@
+import { originalPostAdmissionCondition } from "./items.ts";
+import { originalPostAffectedStories } from "./groups.ts";
 import { CURRENT_SOURCE_TIME } from "./source-time.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import { compatibleGeographyRecipes } from "../editorial/geography.ts";
@@ -69,7 +71,7 @@ async function loadRow(id: string): Promise<DetailRow | null> {
       jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
         'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
     ${ITEM_FROM()}
-    WHERE p.article_id = ${id}`;
+    WHERE p.article_id = ${id} AND ${originalPostAdmissionCondition()}`;
   if (row) await attachSourcePolicies([row]);
   return row ?? null;
 }
@@ -103,11 +105,13 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     return { kind: "found", detail, row };
   }
 
-  const related = await sql<StoryRef[]>`
-    SELECT DISTINCT st.public_id::text AS "publicId", st.title
+  const relatedRows = await sql<(StoryRef & { internal_id: number })[]>`
+    SELECT DISTINCT st.id AS internal_id,st.public_id::text AS "publicId", st.title
     FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id
     WHERE fa.article_id = ${id} AND (fa.manual OR fa.input_revision=${row.content_revision}) AND fa.role <> 'mention' AND st.merged_into IS NULL
     LIMIT 6`;
+  const admissionAffected = await originalPostAffectedStories(relatedRows.map((story) => story.internal_id));
+  const related = relatedRows.map(({ internal_id, ...story }) => ({ ...story, title: admissionAffected.has(internal_id) ? summary.title : story.title }));
 
   let body: ItemDetail["body"] = null;
   let outline: OutlineEntry[] = [];
@@ -146,7 +150,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     const [g] = await sql<{ public_id: string; reports: number; sources: number }[]>`
       SELECT f.public_id, count(p.article_id) AS reports, count(DISTINCT p.source_id) AS sources
       FROM facts f JOIN publications p ON p.fact_id = f.id
-      WHERE f.id = ${row.fact_id} AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now})
+      WHERE f.id = ${row.fact_id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now})
       GROUP BY f.public_id`;
     const [dev] = await sql<{ n: number }[]>`
       SELECT count(DISTINCT other.id) AS n FROM facts f
@@ -197,7 +201,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
 /** Current public event members: first-party representation and the latest distinct fact stay separate. */
 async function eventCoverage(storyId: number, now: Date, machine: boolean): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
   const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary ${ITEM_FROM()}
-    WHERE p.story_id=${storyId} AND p.visibility='public' AND p.eligible AND s.participation_mode='editorial'
+    WHERE p.story_id=${storyId} AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.timeline_at ASC,p.article_id ASC`;
   if (rows.length < 2) return null;
@@ -282,7 +286,7 @@ export async function publicItemMetadata(id: string, db: Db = sql) {
     SELECT ${CURRENT_SOURCE_TIME()} AS source_time,
       g.jurisdictions FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
-      WHERE p.article_id=${id}`;
+      WHERE p.article_id=${id} AND ${originalPostAdmissionCondition()}`;
   return meta ?? null;
 }
 
@@ -311,7 +315,7 @@ export async function selectedDeliveryCandidate(id: string, db: Db = sql): Promi
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision
       AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
-    WHERE p.article_id=${id} AND p.visibility='public' AND p.eligible AND ${confirmedSelected()} AND NOT p.operator_withdrawn
+    WHERE p.article_id=${id} AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND ${confirmedSelected()} AND NOT p.operator_withdrawn
       AND p.visible_after IS NOT NULL AND s.lane='news' AND s.participation_mode='editorial'`;
   return row ?? null;
 }
