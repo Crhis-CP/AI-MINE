@@ -1,4 +1,5 @@
 import { policyLanguageOrder } from "../language.ts";
+import { POLICY_COVERAGE_NOTE } from "../reader-copy.ts";
 import type { z } from "zod";
 import type { PolicyCard, PolicyHistoryEntry, PolicyReport, PolicyReportCard } from "@amp/contracts/http/public";
 import { addDays, beijingDate, beijingMidnight, isoWeekLabel, isoWeekRange, isValidDate } from "@amp/contracts/time";
@@ -130,7 +131,7 @@ export function planPolicyReport(
     item_count: new Set(selected.map(({ row }) => row.policy.id)).size,
     status: "compiled" as const,
     ai_label: "ai_generated" as const,
-    coverage_note: `本报告引用当前仍可公开的固定文书版本；未取得完整检查回执不代表没有新法规。${unclassified ? `另有${unclassified}个版本缺少首次发现依据，未推测归期。` : ""}`,
+    coverage_note: `${POLICY_COVERAGE_NOTE}${unclassified ? `另有${unclassified}份文书暂无法确定所属刊期。` : ""}`,
   };
   const contentHash = sha256(
     stableJson({ kind, periodKey, members, coverage, attributions, unclassified, views: selected.map(({ row }) => [row.editionId, row.policy, row.versions]) }),

@@ -1,5 +1,5 @@
-// The about page's river. Every line is one of the site's real sources (hover names it). Lines run in
-// from the left, gather into bundles (many reports of one story), meet the 精选 gate that lets a few
+// The about page's illustrative river uses sampled source names. Lines run in
+// from the left, gather into bundles, meet the 精选 gate that lets a few
 // bundles through, and the ones that pass turn teal and run into a small newspaper: the day's report.
 // Pulses carry items along the lines; most stop at the gate, and each that reaches the paper calls
 // onArrive (the page brings up the next latest 精选). The four stages line up with the columns under
@@ -22,7 +22,6 @@ export interface RiverSource {
 export const STAGES = [0, 0.25, 0.5, 0.75, 1] as const;
 
 const STEP = 3;
-const KIND: Record<string, string> = { x_search: "X 账号", rss: "RSS", web_list: "网页", mp_account: "公众号", json_list: "接口" };
 const FLASH_MS = 900;
 const INTRO_MS = 1800;
 /** Slow in, slow out: the river starts gently, crosses, and settles. */
@@ -508,13 +507,10 @@ export function SignalRiver({
       const b = L.bundles[s.bundle]!;
       if (x < L.x2) {
         hover = { s: best, bundle: null, paper: false };
-        const kind = s.source ? (KIND[s.source.kind] ?? "信源") : "信源";
-        place(x, y, s.source ? s.source.name : "一个信源", s.source?.heatOnly ? `${kind} · 只计入热度` : kind);
+        place(x, y, s.source ? s.source.name : "资讯来源", s.source?.heatOnly ? "市场讨论来源" : "资讯来源");
       } else {
         hover = { s: null, bundle: s.bundle, paper: false };
-        if (x < L.gate) place(x, y, "同一件事", `${b.n} 个来源的报道合成一条`);
-        else if (b.kept) place(x, y, "进了精选", "有信息量，分数也够");
-        else place(x, y, "没进精选", "信息不够、重复或只是营销");
+        place(x, y, x < L.gate ? "报道整理" : b.kept ? "精选" : "筛选", "流程示意");
       }
       redraw();
     };

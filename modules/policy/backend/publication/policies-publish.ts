@@ -210,10 +210,8 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
         });
     }
     const gaps = [
-      ...(!snapshot.manifest.catalogueClosed ? ["附件目录尚未闭合"] : []),
-      ...basic.attachment_inventory
-        .filter((a) => a.decisive && a.status !== "complete")
-        .map((a) => `决定性附件${a.status === "blocked_capacity" ? "容量受阻" : "尚未取得"}：${a.title}`),
+      ...(!snapshot.manifest.catalogueClosed ? ["附件清单尚未完整。"] : []),
+      ...basic.attachment_inventory.filter((a) => a.decisive && a.status !== "complete").map((a) => `决定性附件尚未取得：${a.title}`),
       ...(processingNotice ? [processingNotice] : []),
     ];
     if (gaps.length) basic.gaps = [...new Set(gaps)].slice(0, 5);

@@ -1,7 +1,7 @@
 import { loadSiteInformation } from "@amp/backend/site/stats";
 // Site-only price projection: registry presentation and stored decimal values, without acquisition or writes.
 import { MetalPrices } from "@amp/contracts/http/public";
-import { beijingDate, beijingTime } from "@amp/contracts/time";
+import { beijingDate } from "@amp/contracts/time";
 import { sql } from "@amp/backend/db";
 import { loadMetalPriceRegistry, parseMetalPriceRegistry, type MetalPriceItem } from "./registry.ts";
 
@@ -45,7 +45,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         );
       }),
   );
-  const { selected, checks } = await sql.begin("read only isolation level repeatable read", async (tx) => {
+  const selected = await sql.begin("read only isolation level repeatable read", async (tx) => {
     const out = new Map<string, Price>();
     for (const item of ordered) {
       const source = sources.find((s) => s.key === item.source)!;
@@ -82,18 +82,12 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         throw new Error(`Price unit/currency mismatch: ${item.key}`);
       out.set(item.key, row);
     }
-    const checks = new Map(
-      (
-        await tx<{ source: string; checked_at: Date; ok: boolean; changed: boolean }[]>`
-        SELECT source,checked_at,ok,changed FROM publication.metal_price_checks WHERE source=ANY(${sources.map((source) => source.key)}::text[])`
-      ).map((row) => [row.source, row]),
-    );
-    return { selected: out, checks };
+    return out;
   });
   const today = beijingDate(now),
     yearPrefix = `${today.slice(0, 4)}年`;
   const stalePeriod = (end: string, days: number) => new Date(Date.parse(end) + days * 86400_000).toISOString().slice(0, 10) < today;
-  const checkNotes: MetalPrices["notes"] = [];
+  const releaseNotes: MetalPrices["notes"] = [];
   const presentationSources = sources.map((source) => {
     const rows = items
       .filter((item) => item.source === source.key)
@@ -101,10 +95,9 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       .filter((row): row is Price => !!row);
     rows.sort((a, b) => b.end.localeCompare(a.end));
     const newest = rows[0];
-    const check = checks.get(source.key);
-    checkNotes.push({
+    releaseNotes.push({
       ref: null,
-      text: `${source.name}：${source.delay}。${check ? `最近检查：${beijingDate(check.checked_at)} ${beijingTime(check.checked_at)}（北京时间）；${check.ok ? (check.changed ? "检查成功，有报价更新" : "检查成功，报价未变") : "检查未成功，保留可用报价"}。` : "尚无检查记录。"}`,
+      text: `${source.name}：${source.delay}。`,
       link: null,
     });
     const status = !newest ? "empty" : rows.some((row) => stalePeriod(row.end, source.staleDays)) ? "stale" : "fresh";
@@ -189,7 +182,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         text: note.text.replaceAll("{tags}", frequencies.map((f) => f.tag).join("、")).replaceAll("{compare}", frequencies.map((f) => f.compare).join("，")),
         link: note.link ?? null,
       });
-  notes.push(...checkNotes);
+  notes.push(...releaseNotes);
   return MetalPrices.parse({
     generatedAt: now.toISOString(),
     intro: registry.intro,

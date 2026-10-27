@@ -52,6 +52,21 @@ test("basic facts expose a known missing decisive attachment without publishing 
   assert.equal(detail.attachment_inventory[0]!.decisive, true);
   assert.match(detail.gaps.join(" "), /annex.pdf/);
   assert.deepEqual(detail.impacts, []);
+  const [stored] = await sql`SELECT id,basic_detail FROM publication.policy_editions WHERE policy_id=${result.policyId}`;
+  const custom = "人工说明：本条要求提交回执，并核对设备配置。";
+  const legacy = {
+    ...stored!.basic_detail,
+    gaps: ["处理回执尚未核清，完整解读暂不可用", "附件目录尚未闭合", "决定性附件容量受阻：annex.pdf", custom],
+    attachment_inventory: detail.attachment_inventory.map((a) => ({ ...a, status: "blocked_capacity" })),
+  };
+  await sql`UPDATE publication.policy_editions SET basic_detail=${sql.json(legacy)} WHERE id=${stored!.id}`;
+  const expression = detail.expressions[0]!;
+  for (const query of [{}, { expression_id: expression.id, document_revision_id: expression.document_revision_id }]) {
+    const shown = await policyDetail(result.policyId, query);
+    assert.deepEqual(shown.gaps, ["完整解读暂不可用，可先查看基本事实和官方原文。", "附件清单尚未完整。", "决定性附件尚未取得：annex.pdf", custom]);
+    assert.deepEqual(shown.impacts, []);
+  }
+  assert.deepEqual((await sql`SELECT basic_detail FROM publication.policy_editions WHERE id=${stored!.id}`)[0]!.basic_detail, legacy);
 });
 
 test("detail discovers each current official language and switching reads its own metadata", async () => {

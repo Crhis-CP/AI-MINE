@@ -53,16 +53,17 @@ export async function loader({ request }: Route.LoaderArgs) {
   // window is not that case: older picks still exist, so the page stays the featured entrance.
   const unfilteredEmpty = data.cards.length === 0 && channel === "all" && !category && !tag && !jurisdiction;
   const started = unfilteredEmpty ? await featuredHasStarted(request.signal) : false;
-  const waiting = unfilteredEmpty && !started;
+  const waiting = unfilteredEmpty && started === false;
   const latest = waiting ? await loadLatest(request.signal) : null;
+  const unavailable = (unfilteredEmpty && started === null) || latest === "failed";
   // A failed read must not be cached: the next request tries 全部动态 again.
   return withHeaders(
-    { data, waiting, latest: typeof latest === "object" ? latest : null, filters: { channel, category, tag, topic: null, jurisdiction } },
+    { data, waiting, unavailable, latest: typeof latest === "object" ? latest : null, filters: { channel, category, tag, topic: null, jurisdiction } },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
 
-/** True when any 精选 exists, including ones outside the homepage window. A failed read counts as not started. */
+/** True when any 精选 exists, including ones outside the homepage window; null preserves an unavailable observation. */
 function featuredHasStarted(signal: AbortSignal) {
   return apiFetch("/api/site/stats", {
     headers: { accept: "application/json", "x-amp-ssr": "1" },
@@ -70,7 +71,7 @@ function featuredHasStarted(signal: AbortSignal) {
     baseUrl: apiBaseFor(),
   })
     .then(async (result) => (await contractResult(result, publicSchemas.SiteStats)).selected > 0)
-    .catch(() => false);
+    .catch(() => null);
 }
 
 /** The first page of 全部动态; "empty" or "failed" when there is nothing to show (DR-85). */
@@ -96,7 +97,7 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 }
 
 export default function Home() {
-  const { data, waiting, latest, filters } = useLoaderData<typeof loader>();
+  const { data, waiting, unavailable, latest, filters } = useLoaderData<typeof loader>();
   const title = filters.tag ? `#${filters.tag}` : latest ? "最新动态" : "精选";
   // While there are no picks, “全部” stays on this page and the other tabs lead to 全部动态, where the items are.
   const tabsBase = waiting ? "/all" : "/";
@@ -117,7 +118,18 @@ export default function Home() {
         <JurisdictionFilter base={tabsBase} value={filters.jurisdiction} />
       </div>
 
-      {latest ? (
+      {unavailable ? (
+        <EmptyState
+          title="精选暂时无法读取"
+          action={
+            <Link to="/all" className="text-[13px] font-medium text-accent hover:underline">
+              查看全部矿业动态
+            </Link>
+          }
+        >
+          请稍后重试，或先浏览全部矿业动态。
+        </EmptyState>
+      ) : latest ? (
         <div className="mt-2">
           <p className="mb-2 text-[13px] text-ink-3">精选还没开始，先看最新动态。</p>
           <DayList items={latest.items} todayCount={latest.todayCount} showTags />

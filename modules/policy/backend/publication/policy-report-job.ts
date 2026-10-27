@@ -46,7 +46,7 @@ export async function reconcilePolicyReportPeriods(readVersions: () => Promise<P
           )
           .map((edition) => edition.policy.id),
       ).size;
-    if (coverage.unassignedSourceCount) draft.card.coverage_note += `另有${coverage.unassignedSourceCount}个已登记来源尚未归入既定法域，未猜测归属。`;
+    if (coverage.unassignedSourceCount) draft.card.coverage_note += "部分来源的所属国家或地区尚未确认。";
     draft.contentHash = sha256(stableJson([draft.contentHash, draft.coverage, coverage.unassignedSourceCount]));
     results.push({ kind, periodKey: period_key, ...(await savePolicyReport(draft)) });
   }

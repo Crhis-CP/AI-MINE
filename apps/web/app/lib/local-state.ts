@@ -365,16 +365,16 @@ export interface ImportReport {
 }
 /** Merge references only; existing choices and unavailable content cannot be restored by imported copy. */
 export function importBundle(text: string): ImportReport {
-  if (text.length > IMPORT_MAX_CHARS) throw new Error("文件过大（上限 2,000,000 字符）");
+  if (text.length > IMPORT_MAX_CHARS) throw new Error("文件过大，请选择本站导出的收藏文件。");
   let value: unknown;
   try {
     value = JSON.parse(text);
   } catch {
-    throw new Error("不是有效的 JSON 文件");
+    throw new Error("文件格式不受支持，请选择本站导出的收藏文件。");
   }
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("文件格式不对（需要 version: 1）");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("文件格式不受支持，请选择本站导出的收藏文件。");
   const data = value as Record<string, unknown>;
-  if (data.version !== 1 || !Array.isArray(data.starred) || !Array.isArray(data.read)) throw new Error("文件格式不对（需要 version: 1 的收藏与已读记录）");
+  if (data.version !== 1 || !Array.isArray(data.starred) || !Array.isArray(data.read)) throw new Error("文件格式不受支持，请选择本站导出的收藏文件。");
   if (unreadableList(KEYS.starred)) throw new Error("已有收藏数据无法读取，为避免覆盖，这次没有导入。");
   const current = getStarred();
   const seen = new Set(current.map((ref) => `${ref.type}:${ref.id}`));

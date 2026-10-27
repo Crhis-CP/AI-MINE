@@ -126,7 +126,7 @@ export default function FeedbackPage() {
       setDraft({ content: "", email: "", pageUrl: "" });
       setShot(null);
     } catch {
-      setState({ kind: "error", message: "网络不太顺，草稿已保存在本机，稍后再提交。" });
+      setState({ kind: "error", message: "暂时无法确认是否提交成功，请保留当前内容，稍后重试。" });
     }
   };
 

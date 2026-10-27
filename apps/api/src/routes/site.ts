@@ -277,7 +277,7 @@ export function registerSite(app: FastifyInstance) {
     siteHandler(async (req, reply) => {
       const stats = await loadSiteStats();
       SiteStats.parse(stats);
-      return sendJsonWithEtag(req, reply, stats, { etagPrefix: "stats", cacheControl: "public, max-age=300, s-maxage=300" });
+      return sendJsonWithEtag(req, reply, stats, { etagPrefix: "stats", cacheControl: "public, max-age=0, must-revalidate" });
     }),
   );
 

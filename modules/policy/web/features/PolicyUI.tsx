@@ -174,11 +174,11 @@ export function Section({ title, children, id }: { title: string; children: Reac
 }
 export function stateText(policy: Policy) {
   if (policy.interpretation_state === "complete") return "AI 解读 · 请结合适用条件与原文证据阅读";
-  if (policy.attachment_inventory.some((a) => a.decisive && a.status === "blocked_capacity")) return "决定性附件容量受阻，完整解读不可用";
+  if (policy.attachment_inventory.some((a) => a.decisive && a.status === "blocked_capacity")) return "决定性附件尚未取得，完整解读暂不可用";
   if (policy.attachment_inventory.some((a) => a.decisive && a.status === "missing")) return "决定性附件尚未取得，完整解读不可用";
-  if (policy.reading && ["pending", "in_progress"].includes(policy.reading.state)) return "中文正文正在整理";
+  if (policy.reading && ["pending", "in_progress"].includes(policy.reading.state)) return "中文正文尚未提供，可先查看官方原文";
   if (policy.interpretation_state === "withheld" || policy.interpretation_state === "partial") return "完整解读暂不可用";
-  return policy.gaps.find((gap) => gap !== "完整解读尚不可用") ?? "已核实基本事实；完整解读整理中";
+  return policy.gaps.find((gap) => gap !== "完整解读尚不可用") ?? "已核实基本事实；完整解读暂不可用";
 }
 export function PolicyError() {
   const error = useRouteError();

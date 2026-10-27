@@ -34,7 +34,7 @@ test("a successful source check without a new period updates only check evidence
   assert.equal(check.changed, false);
   assert.deepEqual([...(await sql`SELECT period_start,period_end,value,fetched_at FROM publication.metal_prices`)], [...before]);
   const view = await loadMetalPrices(now, registry);
-  assert.ok(view.notes.some((note) => note.text.includes("2026-10-23 18:00") && note.text.includes("检查成功，报价未变")));
+  assert.ok(view.notes.every((note) => !note.text.includes("2026-10-23 18:00") && !note.text.includes("检查成功")));
   assert.equal(view.metals.flatMap((metal) => metal.quotes).find((quote) => quote.key === "nbs.copper")?.period?.end, "2026-09-30");
 });
 
@@ -61,5 +61,6 @@ test("source failures remain separate, previews do not change checks, and older 
   await storePriceCheck("nbs", now, true, true);
   assert.deepEqual([...(await sql`SELECT * FROM publication.metal_price_checks ORDER BY source`)], [...before]);
   const view = await loadMetalPrices(later, registry);
-  assert.ok(view.notes.some((note) => note.text.startsWith("国家统计局") && note.text.includes("检查未成功")));
+  assert.ok(view.notes.every((note) => !note.text.includes("检查未成功") && !note.text.includes("synthetic HTTP 503")));
+  assert.equal(view.metals.flatMap((metal) => metal.quotes).find((quote) => quote.key === "nbs.copper")?.period?.end, "2026-09-30");
 });

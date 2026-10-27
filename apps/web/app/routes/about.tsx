@@ -1,8 +1,8 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { SignalRiver, type RiverSource } from "../features/about/SignalRiver";
 import { apiFetch } from "../lib/http.ts";
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import { useLoaderData } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLoaderData, useRevalidator } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { SiteStats } from "@amp/contracts/site";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -14,7 +14,7 @@ import { Kicker } from "../components/ui/Kicker.tsx";
 import { buttonClass } from "../components/ui/Controls";
 import { IconArrowRight } from "../components/icons";
 
-/** Shared caches may keep this page for five minutes. */
+/** Revalidate page data; the API owns its short statistics snapshot. */
 export function headers() {
   return { "Cache-Control": "public, max-age=0, must-revalidate" };
 }
@@ -29,6 +29,7 @@ export async function loader({ request }: { request: Request }) {
     .then((result) => contractResult(result, publicSchemas.SiteInformation))
     .catch(() => null);
   const stats = await apiFetch("/api/site/stats", {
+    cache: "no-store",
     headers: { accept: "application/json", "x-amp-ssr": "1" },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
     baseUrl: apiBaseFor(),
@@ -66,13 +67,6 @@ function Figure({ n, unit }: { n: number; unit: string }) {
   );
 }
 
-const KIND_ORDER: Array<[string, string]> = [
-  ["rss", "RSS"],
-  ["web_list", "网页"],
-  ["mp_account", "公众号"],
-  ["json_list", "接口"],
-];
-
 /** The stage columns' rules: one column on phones, two by two from sm, four in a row from lg. */
 const STAGE_CELL = [
   "sm:pr-6 lg:pr-6",
@@ -90,18 +84,13 @@ interface Stage {
 }
 
 function stagesOf(stats: SiteStats | null): Stage[] {
-  const kinds = stats
-    ? KIND_ORDER.filter(([k]) => stats.sourceKinds[k])
-        .map(([k, label]) => `${label} ${stats.sourceKinds[k]}`)
-        .join(" · ")
-    : null;
   return [
     {
       no: "01",
       title: "采集",
-      figure: stats && <Figure n={stats.sources} unit="个信源" />,
+      figure: stats && <Figure n={stats.sources} unit="个来源" />,
       text: ABOUT.steps.collect,
-      note: kinds,
+      note: "当前跟踪的资讯来源",
     },
     {
       no: "02",
@@ -143,6 +132,29 @@ function Latest({ item, className = "" }: { item: NonNullable<SiteStats["latest"
 
 export default function AboutPage() {
   const { stats, information } = useLoaderData<typeof loader>();
+  const revalidator = useRevalidator(),
+    refresh = useRef(revalidator);
+  refresh.current = revalidator;
+  useEffect(() => {
+    let pending = false;
+    const update = () => {
+      if (document.visibilityState !== "visible" || pending || refresh.current.state !== "idle") return;
+      pending = true;
+      void refresh.current.revalidate().finally(() => {
+        pending = false;
+      });
+    };
+    const timer = window.setInterval(update, 30_000);
+    window.addEventListener("focus", update);
+    window.addEventListener("pageshow", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", update);
+      window.removeEventListener("pageshow", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
   const stages = useMemo(() => stagesOf(stats), [stats]);
   const [focus, setFocus] = useState<number | null>(null),
     [at, setAt] = useState(0);
@@ -190,17 +202,33 @@ export default function AboutPage() {
         </div>
       </header>
 
-      <section aria-labelledby="how" className="mt-10 xl:mt-14">
+      <section aria-labelledby="how" aria-busy={revalidator.state !== "idle"} className="mt-10 xl:mt-14">
         <h2 id="how" className="sr-only">
           {SITE.name} 怎么工作
         </h2>
-        {stats?.sampleSources && (
+        {stats === null && (
+          <p role="status" className="mb-4 flex items-center gap-3 text-sm text-ink-3">
+            统计暂时无法读取，请稍后重试。
+            <button
+              type="button"
+              disabled={revalidator.state !== "idle"}
+              onClick={() => void revalidator.revalidate()}
+              className="text-accent disabled:opacity-50"
+            >
+              重试
+            </button>
+          </p>
+        )}
+        <p className="mb-3 text-[12px] font-semibold tracking-wide text-ink-3">流程示意</p>
+        {sources.length > 0 ? (
           <SignalRiver sources={sources} focus={focus} onArrive={onArrive} className="h-[230px] sm:h-[300px] lg:h-[360px] 2xl:h-[420px]">
             <Latest item={latest[at % Math.max(1, latest.length)]} className="absolute left-[75%] top-[calc(42%+42px)] hidden w-[25%] px-6 lg:block" />
           </SignalRiver>
+        ) : (
+          stats !== null && <p className="py-8 text-sm text-ink-3">暂无可展示的来源。</p>
         )}
-        <p className="sr-only">流程示意：来源的多篇报道汇为事件，经过精选，再编入日报。实际数据以本页统计为准。</p>
-        <Latest item={latest[at % Math.max(1, latest.length)]} className="mt-2 border-t border-line pt-4 lg:hidden" />
+        <p className="sr-only">来源的报道经过整理与精选，再编入日报。</p>
+        <Latest item={latest[at % Math.max(1, latest.length)]} className={`mt-2 border-t border-line pt-4 ${sources.length ? "lg:hidden" : ""}`} />
         <ol className="mt-4 grid grid-cols-1 border-t border-line-strong sm:grid-cols-2 lg:mt-0 lg:grid-cols-4">
           {stages.map((s, i) => (
             <li

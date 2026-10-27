@@ -11,6 +11,7 @@ import { readCurrentPublicPolicy, evaluateSourcePolicy, publicProcessingAllowed 
 import { stableJson, sha256 } from "@amp/backend/lib/ids";
 import { encodeCursor, decodeCursor, queryBinding } from "@amp/backend/lib/cursor";
 import { decoratePolicyNavigation, decoratePolicyRelationships, readPolicyThread } from "./relations.ts";
+import { readerPolicyGaps } from "./reader-copy.ts";
 
 export class PolicyReadError extends Error {
   readonly status: number;
@@ -287,6 +288,7 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
     const view = await eligible(row, ctx, !historical);
     if (!view) continue;
     const detail = Policy.parse(structuredClone(view.complete ? row.complete_detail : row.basic_detail));
+    detail.gaps = readerPolicyGaps(detail);
     const current = (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     for (const version of detail.versions) version.current = current;
     const expression = q.expression_id

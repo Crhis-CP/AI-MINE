@@ -68,13 +68,17 @@ test("public notes reject operator fragments and technical copy, while admin-onl
       "后台区分当前等待及原始估算。",
       "支持缓存命中价和指定时段价格。",
       "完善队列和回执复用。",
+      "最近检查：2026-10-27 02:30（北京时间）；检查成功，未入库新报价。",
+      "金属价格分别显示数据所属期与最近核对时间。",
+      "价格检查说明更清楚。",
+      "检查未成功时保留可用报价。",
       "调整资讯归组的处理方式，减少回答被截断造成的失败和重复处理。",
     ]) {
       manifest.note.body = [line];
       save();
       assert.match(checkProductUpdate(root, [])[0]!, /技术|运维/);
     }
-    manifest.note.body = ["RSS 与公开 API 支持按国家查找资讯。"];
+    manifest.note.body = ["RSS 与公开 API 支持按国家查找资讯。", "金属价格明确列出报价期次与出处，方便核对原文。"];
     save();
     assert.deepEqual(checkProductUpdate(root, []), [], "reader-facing API features remain valid product changes");
     const history = { latestVersion: "2026-01-01", releases: [{ date: "2026-01-01", kind: "优化", title: "内部修复", body: ["CI 检查通过。"] }] };

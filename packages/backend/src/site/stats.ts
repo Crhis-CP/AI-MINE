@@ -1,68 +1,70 @@
 import { createHash } from "node:crypto";
 import { beijingDate } from "@amp/contracts/time";
-// Figures for the about page: how much the site covers, counted from the public read layer and kept for
-// ten minutes per process (the page itself is cached for five); an older copy is served while the
-// counts are read again, so no reader waits for the full-table counts.
+// About figures share one public snapshot. A short cache expires before serving another response.
 import type { SiteStats } from "@amp/contracts/site";
 import { sql } from "../db.ts";
 import { cached } from "../lib/cache.ts";
 import { selectedCondition, originalPostAdmissionCondition, admissionReplacementSeats } from "../publication/items.ts";
 import { originalPostReadVersion } from "../lib/original-post-admission.ts";
+import { contentVersion } from "../publication/availability.ts";
 
 export type { SiteStats };
 export { loadMetalPrices } from "../publication/metal-prices/read.ts";
 export { currentNewsJurisdictionCounts } from "../publication/items.ts";
 
-const stats = cached(() => querySiteStats(new Date()), { freshMs: 10 * 60_000, maxStaleMs: 60 * 60_000 });
-let admissionVersion = originalPostReadVersion("stats");
+const stats = cached(() => querySiteStats(new Date()), { freshMs: 30_000, maxStaleMs: 30_000 });
+let version: string | null = null;
 
 export async function loadSiteStats(): Promise<SiteStats> {
-  const gate = originalPostReadVersion("stats");
-  if (gate !== admissionVersion) {
-    admissionVersion = gate;
+  const current = await contentVersion();
+  const key = originalPostReadVersion(`${current.version}:${current.withdrawalVersion}`);
+  if (version !== key) {
+    version = key;
     stats.clear();
   }
-  const current = await stats.get(),
-    now = new Date();
-  const replacements = await admissionReplacementSeats(now);
-  const latest = await sql<{ id: string; title: string; source: string }[]>`SELECT p.article_id AS id,p.title,s.name AS source
-    FROM publications p JOIN sources s ON s.id=p.source_id WHERE ${selectedCondition(now)} AND (p.seat OR p.article_id=ANY(${replacements}::text[])) ORDER BY p.sort_at DESC,p.article_id DESC LIMIT 8`;
-  return { ...current, latest };
+  return stats.get();
 }
 
 async function querySiteStats(now: Date): Promise<SiteStats> {
-  const dayAgo = new Date(now.getTime() - 24 * 3600_000);
-  const replacements = await admissionReplacementSeats(now);
-  const [[row], kinds, sample] = await Promise.all([
-    sql<Array<Omit<SiteStats, "sourceKinds" | "day" | "sampleSources" | "latest"> & { collected: number; selectedDay: number }>>`
+  return sql.begin("isolation level repeatable read read only", async (db) => {
+    const dayAgo = new Date(now.getTime() - 24 * 3600_000);
+    const replacements = await admissionReplacementSeats(now, db);
+    const [[row], kinds, sample, latest] = await Promise.all([
+      db<Array<Omit<SiteStats, "sourceKinds" | "day" | "sampleSources" | "latest"> & { collected: number; selectedDay: number }>>`
       SELECT (SELECT count(*) FROM sources WHERE enabled AND lane = 'news')::int AS sources,
              (SELECT count(*) FROM sources WHERE enabled AND lane = 'news' AND participation_mode = 'hot_signal')::int AS "heatOnlySources",
              (SELECT count(*) FROM publications p WHERE p.visibility <> 'withdrawn' AND ${originalPostAdmissionCondition()})::int AS items,
              (SELECT count(*) FROM publications p WHERE ${selectedCondition(now)} AND (p.seat OR p.article_id=ANY(${replacements}::text[])))::int AS selected,
-             (SELECT count(*) FROM reports WHERE kind = 'daily')::int AS dailies,
+             (SELECT count(*) FROM reports r WHERE kind = 'daily' AND NOT EXISTS(
+               SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news'
+                 AND w.target_type='report' AND w.target_key=r.kind||':'||r.key))::int AS dailies,
              (SELECT count(*) FROM publications p WHERE p.visibility <> 'withdrawn' AND ${originalPostAdmissionCondition()} AND p.discovered_at > ${dayAgo})::int AS collected,
              (SELECT count(*) FROM publications p WHERE ${selectedCondition(now)} AND (p.seat OR p.article_id=ANY(${replacements}::text[])) AND p.timeline_at > ${dayAgo})::int AS "selectedDay"`,
-    sql<{ kind: string; n: number }[]>`SELECT kind, count(*)::int AS n FROM sources WHERE enabled AND lane = 'news' GROUP BY kind`,
-    sql<{ id: string; name: string; kind: string; heatOnly: boolean }[]>`SELECT id,name,kind,participation_mode='hot_signal' AS "heatOnly" FROM sources
+      db<{ kind: string; n: number }[]>`SELECT kind, count(*)::int AS n FROM sources WHERE enabled AND lane = 'news' GROUP BY kind`,
+      db<{ id: string; name: string; kind: string; heatOnly: boolean }[]>`SELECT id,name,kind,participation_mode='hot_signal' AS "heatOnly" FROM sources
       WHERE enabled AND lane='news' ORDER BY id`,
-  ]);
-  const { collected, selectedDay, ...totals } = row!;
-  const value: SiteStats = {
-    ...totals,
-    sourceKinds: Object.fromEntries(kinds.map((k) => [k.kind, k.n])),
-    sampleSources: sample
-      .map(({ id, ...view }) => ({
-        view,
-        rank: createHash("md5")
-          .update(id + beijingDate(now))
-          .digest("hex"),
-      }))
-      .sort((a, b) => a.rank.localeCompare(b.rank))
-      .slice(0, 180)
-      .map(({ view }) => view),
-    day: { collected, selected: selectedDay },
-  };
-  return value;
+      db<{ id: string; title: string; source: string }[]>`SELECT p.article_id AS id,p.title,s.name AS source
+      FROM publications p JOIN sources s ON s.id=p.source_id WHERE ${selectedCondition(now)} AND (p.seat OR p.article_id=ANY(${replacements}::text[])) ORDER BY p.sort_at DESC,p.article_id DESC LIMIT 8`,
+    ]);
+    const { collected, selectedDay, ...totals } = row!;
+    const value: SiteStats = {
+      ...totals,
+      sourceKinds: Object.fromEntries(kinds.map((k) => [k.kind, k.n])),
+      sampleSources: sample
+        .map(({ id, ...view }) => ({
+          view,
+          rank: createHash("md5")
+            .update(id + beijingDate(now))
+            .digest("hex"),
+        }))
+        .sort((a, b) => a.rank.localeCompare(b.rank))
+        .slice(0, 180)
+        .map(({ view }) => view),
+      day: { collected, selected: selectedDay },
+      latest,
+    };
+    return value;
+  });
 }
 
 export { loadSiteInformation } from "../publication/site-information.ts";
