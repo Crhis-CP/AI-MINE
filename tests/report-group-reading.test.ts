@@ -6,7 +6,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { installModules, serverModules } from "@amp/backend/modules";
 import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
-import { loadReportGroupReports, readItemReportGroup, projectReportGroup, readReportGroupCandidates } from "@amp/backend/publication/groups";
+import { loadReportGroupReports, loadGroupReports, readItemReportGroup, projectReportGroup, readReportGroupCandidates } from "@amp/backend/publication/groups";
 import { promptVersion } from "../packages/backend/src/editorial/prompts.ts";
 import { geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
@@ -253,4 +253,31 @@ test("recent discovery recall ranks an older matching report before newer noise 
   assert.equal(candidates.length, 2);
   assert.equal(candidates[0]!.articleId, match);
   assert.equal(candidates[0]!.timelineAt.toISOString(), "2020-01-01T00:00:00.000Z");
+});
+
+test("negotiated fact cards retain legacy ordinary-source counts, story metadata and expanded reports", async () => {
+  const f = await fixture(),
+    storyPublicId = randomUUID(),
+    factPublicId = `fact-${tag()}`;
+  await sql`DELETE FROM publication.report_group_members WHERE group_id=${f.groupId}`;
+  const [story] = await sql`INSERT INTO stories(public_id,title) VALUES(${storyPublicId},'合成既有事件') RETURNING id`;
+  const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${factPublicId},${story!.id},'合成既有事实') RETURNING id`;
+  for (const id of f.ids) await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${id},'report',1)`;
+  await sql`UPDATE publications SET fact_id=${fact!.id},story_id=${story!.id},visible_after=${new Date(now.getTime() - 86400000)} WHERE article_id=ANY(${f.ids}::text[])`;
+  for (const selectedCount of [1, 2]) {
+    await sql`UPDATE publications SET selected=(article_id=ANY(${f.ids.slice(0, selectedCount)}::text[])),selection_candidate=(article_id=ANY(${f.ids.slice(0, selectedCount)}::text[])) WHERE article_id=ANY(${f.ids}::text[])`;
+    const query = { ...filters, tag: f.key, now };
+    const legacy = (await loadTimeline(query)).cards[0]!,
+      negotiated = (await loadTimeline({ ...query, readingGroups: "reports-v1" })).cards[0]!;
+    assert.deepEqual(negotiated.group, legacy.group);
+    assert.deepEqual((await loadPool({ ...query, selected: true, readingGroups: "reports-v1" })).cards![0]!.group, legacy.group);
+    assert.equal(negotiated.item.id, legacy.item.id);
+    assert.equal(negotiated.group!.reportCount, 3);
+    assert.equal(negotiated.group!.additionalSourceCount, 2);
+    assert.equal(negotiated.group!.story!.publicId, storyPublicId);
+    assert.deepEqual(negotiated.group!.memberIds?.sort(), f.ids.slice(0, selectedCount).sort());
+    const expanded = await loadGroupReports({ ...filters, tag: f.key, factPublicId, topicTags: null, cursor: null, take: 40, revision: null }, now);
+    assert.equal(expanded.kind, "ok");
+    if (expanded.kind === "ok") assert.equal(expanded.body.reports.length, negotiated.group!.reportCount);
+  }
 });

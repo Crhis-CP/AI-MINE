@@ -51,7 +51,7 @@ interface GroupRow {
 function entryCondition(q: TimelineQuery, now: Date) {
   if (q.scope === "all")
     return sql`p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after <= ${now}) AND p.eligible`;
-  return sql`${selectedCondition(now)} AND p.timeline_at >= ${q.featuredSince ?? null}`;
+  return sql`${selectedCondition(now)} AND (${q.featuredSince ?? null}::timestamptz IS NULL OR p.timeline_at >= ${q.featuredSince ?? null})`;
 }
 
 function binding(q: TimelineQuery): string {
@@ -101,7 +101,7 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
 }
 
 /** Public evidence behind the same fact's expandable source list, under the current filters. */
-async function groupPool(q: TimelineQuery, now: Date, factIds: number[]) {
+async function groupPool(q: TimelineQuery, now: Date, factIds: number[], db: Db = sql) {
   const matchers = readMatcherValues(
     q.tag,
     q.topicTags,
@@ -110,11 +110,56 @@ async function groupPool(q: TimelineQuery, now: Date, factIds: number[]) {
     q.jurisdictionRecipe ?? newsJurisdictionScope(q.jurisdiction).jurisdictionRecipe,
   );
   if (!factIds.length) return [];
-  return sql<{ story_id: number | null; fact_id: number; article_id: string; source_id: string; at: Date }[]>`
+  return db<{ story_id: number | null; fact_id: number; article_id: string; source_id: string; at: Date }[]>`
     SELECT DISTINCT f.story_id, f.id AS fact_id, p.article_id, p.source_id, p.timeline_at AS at
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     WHERE f.id IN ${sql(factIds)} AND fa.role IN ('primary', 'report')
       AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
+}
+
+/** Existing fact cards count every readable source, while read marks cover current selected members. */
+export async function loadTimelineFactGroups(
+  q: TimelineQuery,
+  now: Date,
+  representatives: ItemRow[],
+  candidateIds: string[],
+  db: Db = sql,
+): Promise<Map<string, GroupInfo | null>> {
+  const factIds = [...new Set(representatives.flatMap((row) => (row.fact_id === null ? [] : [row.fact_id])))];
+  if (!factIds.length) return new Map();
+  const matchers = readMatcherValues(
+    q.tag,
+    q.topicTags,
+    q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [],
+    [],
+    q.jurisdictionRecipe ?? newsJurisdictionScope(q.jurisdiction).jurisdictionRecipe,
+  );
+  const [pool, facts, currentMembers] = await Promise.all([
+    groupPool(q, now, factIds, db),
+    db<{ id: number; public_id: string }[]>`SELECT id,public_id FROM facts WHERE id IN ${sql(factIds)}`,
+    db<{ id: string; fact_id: number }[]>`SELECT p.article_id AS id,p.fact_id FROM publications p WHERE p.article_id=ANY(${candidateIds}::text[])
+      AND ${confirmedSelected()} AND ${entryCondition(q, now)} AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`,
+  ]);
+  const factInfo = new Map(facts.map((fact) => [fact.id, fact.public_id]));
+  return new Map(
+    representatives.map((row): [string, GroupInfo | null] => {
+      const reports = pool.filter((report) => report.fact_id === row.fact_id);
+      const reportCount = new Set(reports.map((report) => report.article_id)).size;
+      if (reportCount <= 1) return [row.id, null];
+      return [
+        row.id,
+        {
+          factId: factInfo.get(row.fact_id!) ?? String(row.fact_id),
+          story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null,
+          additionalSourceCount: new Set(reports.filter((report) => report.source_id !== row.source_id).map((report) => report.source_id)).size,
+          reportCount,
+          memberIds: [...new Set(currentMembers.filter((member) => member.fact_id === row.fact_id).map((member) => member.id))],
+          developmentCount: 1,
+          latestDevelopment: null,
+        },
+      ];
+    }),
+  );
 }
 
 /**
@@ -211,47 +256,25 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<ReportGrouped
 
   // Read only ranking fields for the whole group; bodies, media and translations are hydrated for this page's representatives.
   type Member = RepresentativeRow & Pick<ItemRow, "id" | "sort_at" | "source_id"> & { story_id: number | null; fact_id: number };
-  const [members, pool] = await Promise.all([
-    factIds.length
-      ? sql<Member[]>`
+  const members = factIds.length
+    ? await sql<Member[]>`
         SELECT p.story_id, p.fact_id, p.source_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
         WHERE p.fact_id IN ${sql(factIds)} AND ${ownFactEvidence()} AND ${foldableSelectionCondition()}
           AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
-      : Promise.resolve([] as Member[]),
-    groupPool(q, now, factIds),
-  ]);
+    : [];
   await attachRepresentativePriority(members);
-  const groupFactIds = [...new Set([...members.map((m) => m.fact_id), ...pool.map((r) => r.fact_id)])];
-  const factInfo = new Map(
-    groupFactIds.length
-      ? (await sql<{ id: number; public_id: string; title: string }[]>`SELECT id, public_id, title FROM facts WHERE id IN ${sql(groupFactIds)}`).map((f) => [
-          f.id,
-          f,
-        ])
-      : [],
-  );
 
-  const planned: Array<{ key: string; anchorAt: string; id: string; group: GroupInfo | null }> = [];
+  const planned: Array<{ key: string; anchorAt: string; id: string }> = [];
   for (const g of page) {
     if (g.gk.startsWith("a")) {
-      planned.push({ key: g.gk, anchorAt: g.anchor_at.toISOString(), id: g.gk.slice(1), group: null });
+      planned.push({ key: g.gk, anchorAt: g.anchor_at.toISOString(), id: g.gk.slice(1) });
       continue;
     }
     const factId = Number(g.gk.slice(1));
     const candidates = members.filter((member) => member.fact_id === factId);
     if (!candidates.length) continue;
     const rep = pickRepresentative(candidates);
-    const reports = pool.filter((report) => report.fact_id === factId);
-    const group: GroupInfo = {
-      factId: factInfo.get(factId)?.public_id ?? String(factId),
-      story: null,
-      additionalSourceCount: new Set(reports.filter((report) => report.source_id !== rep.source_id).map((report) => report.source_id)).size,
-      reportCount: new Set(reports.map((report) => report.article_id)).size,
-      developmentCount: 1,
-      latestDevelopment: null,
-    };
-    const showGroup = group.reportCount > 1;
-    planned.push({ key: g.gk, anchorAt: g.anchor_at.toISOString(), id: rep.id, group: showGroup ? group : null });
+    planned.push({ key: g.gk, anchorAt: g.anchor_at.toISOString(), id: rep.id });
   }
 
   // Recheck scope when hydrating: a withdrawal may commit after the narrow representative read.
@@ -264,20 +287,16 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<ReportGrouped
         ).map((row) => [row.id, row])
       : [],
   );
-  const currentMembers = members.length
-    ? await sql<{ id: string; fact_id: number }[]>`
-    SELECT p.article_id AS id,p.fact_id FROM publications p WHERE p.article_id=ANY(${members.map((member) => member.id)}::text[])
-      AND ${confirmedSelected()} AND ${entryCondition(q, now)} AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
-    : [];
   await attachSourcePolicies([...rows.values()]);
-  const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt, group }) => {
+  const factGroups = await loadTimelineFactGroups(
+    q,
+    now,
+    planned.filter((entry) => entry.key.startsWith("f")).flatMap((entry) => (rows.get(entry.id) ? [rows.get(entry.id)!] : [])),
+    members.map((member) => member.id),
+  );
+  const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt }) => {
     const row = rows.get(id);
-    if (!row) return [];
-    if (group) {
-      group.story = row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null;
-      group.memberIds = [...new Set(currentMembers.filter((member) => member.fact_id === row.fact_id).map((member) => member.id))];
-    }
-    return [{ key, anchorAt, item: toFeedItemSummary(row), group }];
+    return row ? [{ key, anchorAt, item: toFeedItemSummary(row), group: factGroups.get(id) ?? null }] : [];
   });
 
   // Day header counts for the days on this page, over the full grouped set.
