@@ -1394,5 +1394,20 @@
       }
     ],
     "fixture": "现有公开资讯、事件与刊期夹具；与MCP共用答案"
+  },
+  {
+    "route": "GET /api/site/report-groups/:reportGroupId/reports",
+    "noDataReason": "本夹具保留既有事实关系，不含新报道阅读组；以真实public_read查询不存在的组返回404，有数据读取另由report-group-reading.test.ts覆盖",
+    "cases": [
+      {
+        "url": "/api/site/report-groups/99999999-9999-4999-8999-999999999999/reports",
+        "status": 404,
+        "equals": { "code": "not_found" }
+      },
+      {
+        "url": "/api/site/report-groups/not-a-uuid/reports",
+        "status": 400
+      }
+    ]
   }
 ]

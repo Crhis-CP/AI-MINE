@@ -285,11 +285,14 @@ test("provider and receipt waits resume their original stage without changing th
     await advancePolicyMaterial(job, "fulltext", ports, { root, collectionEnabled: true });
     const before = await readPolicyWorkflow(f.sourceId, f.materialId);
     assert.equal(before?.stage, "fulltext");
+    assert.equal(before?.status, waiting);
     await advancePolicyMaterial(job, "fulltext", ports, { root, collectionEnabled: true });
     assert.equal(attempts, 2);
     assert.equal((await readPolicyWorkflow(f.sourceId, f.materialId))?.document_revision_id, before!.document_revision_id);
     const visible = (await listPolicies({})).items.find((p) => p.original_url === f.url)!;
-    assert.ok((await policyDetail(visible.id)).gaps.some((gap) => /自动复查/.test(gap)));
+    const gaps = (await policyDetail(visible.id)).gaps;
+    assert.ok(gaps.includes("完整解读暂不可用，可先查看基本事实和官方原文。"));
+    assert.doesNotMatch(gaps.join("\n"), /自动复查|回执|处理服务/);
   }
 });
 
