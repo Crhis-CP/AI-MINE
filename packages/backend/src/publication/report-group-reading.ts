@@ -1,4 +1,4 @@
-import type { GroupInfo, ReportGroupInfo, ReportGroupedTimelineCard, ReportGroupReportsResponse } from "@amp/contracts/site";
+import type { ReportGroupInfo, ReportGroupedTimelineCard, ReportGroupReportsResponse } from "@amp/contracts/site";
 import type { PoolQuery } from "./pool.ts";
 import { beijingDate } from "@amp/contracts/time";
 import { sql, type Db } from "../db.ts";
@@ -8,6 +8,7 @@ import { withSearchCapacity } from "./pool.ts";
 import { fetchItemsByIds, publicTimeMetadata, toFeedItemSummary } from "./items.ts";
 import { readReportReadingRows } from "./groups.ts";
 import { pickRepresentative, type RepresentativeRow } from "./representative.ts";
+import { loadTimelineFactGroups } from "./timeline.ts";
 import { currentReportMemberships } from "./report-groups.ts";
 
 export interface ReadingGroupQuery extends PoolQuery {
@@ -57,7 +58,7 @@ async function plans(q: ReadingGroupQuery, now: Date, db: Db) {
     );
   const grouped = new Map<string, ReadingRow[]>();
   for (const row of rows) {
-    const groupId = row.foldable ? membership.get(row.id)?.groupId : null;
+    const groupId = row.foldable && !row.own_fact ? membership.get(row.id)?.groupId : null;
     const key = groupId ? `r${groupId}` : row.foldable && row.own_fact && row.fact_id !== null ? `f${row.fact_id}` : `a${row.id}`;
     grouped.set(key, [...(grouped.get(key) ?? []), row]);
   }
@@ -105,27 +106,23 @@ export async function loadReportGroupedPage(q: ReadingGroupQuery, now: Date, db:
       page.map((g) => g.representative.id),
       db,
     );
+    const facts = page.filter((g) => g.key.startsWith("f"));
+    const factGroups = await loadTimelineFactGroups(
+      q,
+      now,
+      facts.flatMap((g) => (rows.get(g.representative.id) ? [rows.get(g.representative.id)!] : [])),
+      facts.flatMap((g) => g.members.map((member) => member.id)),
+      db,
+    );
     const cards: ReportGroupedTimelineCard[] = page.flatMap((g) => {
       const row = rows.get(g.representative.id);
       if (!row) return [];
-      const group: GroupInfo | null =
-        g.key.startsWith("f") && g.members.length > 1 && g.representative.fact_public_id
-          ? {
-              factId: g.representative.fact_public_id,
-              memberIds: g.members.map((m) => m.id),
-              story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null,
-              reportCount: g.members.length,
-              additionalSourceCount: new Set(g.members.filter((m) => m.source_id !== row.source_id).map((m) => m.source_id)).size,
-              developmentCount: 1,
-              latestDevelopment: null,
-            }
-          : null;
       return [
         {
           key: g.key,
           anchorAt: new Date(g.anchor).toISOString(),
           item: toFeedItemSummary(row),
-          group,
+          group: factGroups.get(row.id) ?? null,
           ...(g.reportGroup ? { reportGroup: g.reportGroup } : {}),
         },
       ];
