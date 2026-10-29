@@ -276,6 +276,7 @@ interface ReceiptRow {
   id: number;
   id_text: string;
   status: string;
+  error?: string | null;
   response: unknown;
   attempt_id: string | null;
   current_attempt_id: string | null;
@@ -283,6 +284,32 @@ interface ReceiptRow {
   response_bound: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+/** Legacy report evidence was checked inside parsing; retain that paid response for local validation. */
+function reusableReportEvidence(req: ReceiptRequest, row: ReceiptRow): boolean {
+  if (
+    req.purpose !== "group_review" ||
+    typeof req.requestSummary?.promptVersion !== "string" ||
+    !req.requestSummary.promptVersion.startsWith("report-group-identity@") ||
+    row.status !== "failed" ||
+    !row.response_bound ||
+    row.attempt_id === null ||
+    !row.error?.startsWith("unusable output: ")
+  )
+    return false;
+  try {
+    const issues: unknown = JSON.parse(row.error.slice("unusable output: ".length));
+    return (
+      Array.isArray(issues) &&
+      issues.length > 0 &&
+      issues.every(
+        (issue) => issue?.code === "custom" && ["Same report needs both original quotes", "Quotes must occur in both actual inputs"].includes(issue.message),
+      )
+    );
+  } catch {
+    return false;
+  }
 }
 
 export class PolicyPartLimitError extends Error {
@@ -558,7 +585,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + quotaService}))`;
     await observeOriginalTranslation(tx, stage);
     const [existing] = await tx<ReceiptRow[]>`
-      SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
+      SELECT r.id,r.id::text AS id_text,r.status,r.error,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
         (a.id IS NOT NULL AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response) AS response_bound,
         CASE WHEN a.attempt=r.attempts AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response
           THEN a.id::text ELSE NULL END AS attempt_id
@@ -582,6 +609,10 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (existing.status === "unknown") {
         await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.current_attempt_id });
         return { kind: "unknown" as const, row: { ...existing, attempt_id: existing.current_attempt_id } };
+      }
+      if (reusableReportEvidence(req, existing)) {
+        await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
+        return { kind: "reuse" as const, row: existing };
       }
       // A downstream validator may reject a filter response, but that never authorizes another send to the refusing route.
       if (

@@ -15,7 +15,7 @@ import {
 import { fetchItemsByIds } from "@amp/backend/publication/groups";
 import { readGroupingEvidencePublications } from "@amp/backend/publication/publish";
 import { config } from "../config.ts";
-import { chatJson } from "../providers/llm.ts";
+import { chatJson, ModelOutputError } from "../providers/llm.ts";
 import { completeReceipt, receiptWaitingForRecovery } from "../providers/receipts.ts";
 import { requireRuntimeRunning, assertRuntimeControl, RuntimeControlPaused } from "../operations/lane-controls.ts";
 import { modelFor } from "../editorial/models.ts";
@@ -298,18 +298,11 @@ export async function compareReportGroup(articleId: string) {
         () => pairInput(query, anchor),
         () => check(),
       );
-      const output = z
-        .strictObject({
-          relation: z.enum(["same_report", "new_development", "different", "insufficient"]),
-          evidence: z.strictObject({ leftQuote: z.string().trim().min(1).max(600), rightQuote: z.string().trim().min(1).max(600) }).nullable(),
-          reason: z.string().trim().min(1).max(1000),
-        })
-        .refine((value) => value.relation !== "same_report" || value.evidence !== null, "Same report needs both original quotes")
-        .refine(
-          (value) =>
-            !value.evidence || (reports[0]!.originalText!.includes(value.evidence.leftQuote) && reports[1]!.originalText!.includes(value.evidence.rightQuote)),
-          "Quotes must occur in both actual inputs",
-        );
+      const output = z.strictObject({
+        relation: z.enum(["same_report", "new_development", "different", "insufficient"]),
+        evidence: z.strictObject({ leftQuote: z.string().trim().min(1).max(600), rightQuote: z.string().trim().min(1).max(600) }).nullable(),
+        reason: z.string().trim().min(1).max(1000),
+      });
       const key = bindingHash(query.binding, anchor.binding);
       await sql`INSERT INTO events.report_group_decisions(input_fingerprint,binding_hash,article_id,anchor_article_id,article_binding,anchor_binding,recipe,state)
         VALUES(${fingerprint},${key},${articleId},${anchor.binding.articleId},${sql.json(query.binding)},${sql.json(anchor.binding)},${recipe},'pending')
@@ -330,6 +323,11 @@ export async function compareReportGroup(articleId: string) {
           runtimeControl: control,
         });
         if (!reply.attemptId) throw new GroupingSupersededError("报道比较缺少真实模型尝试身份");
+        // Invalid evidence blocks grouping, but cannot authorize buying the same paid JSON answer again.
+        const evidence = reply.data.evidence;
+        if (reply.data.relation === "same_report" && !evidence) throw new ModelOutputError("Same report needs both original quotes", reply.receiptId);
+        if (evidence && (!reports[0]!.originalText!.includes(evidence.leftQuote) || !reports[1]!.originalText!.includes(evidence.rightQuote)))
+          throw new ModelOutputError("Quotes must occur in both actual inputs", reply.receiptId);
         const ownLeft = ordered[0]!.binding.articleId === articleId;
         decision = ReportIdentityDecision.parse({
           ...request,

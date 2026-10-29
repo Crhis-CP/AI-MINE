@@ -21,6 +21,7 @@ import {
   ReceiptUnknownError,
   ProviderRejectedError,
   PolicyPartLimitError,
+  rejectReceivedResponse,
 } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial, readCurrentBody } from "@amp/backend/content/materials";
@@ -85,6 +86,87 @@ test("an answer already received is reused instead of bought again", async () =>
   assert.equal(first.reused, false);
   assert.equal(second.reused, true);
   assert.equal(second.receiptId, first.receiptId);
+});
+
+test("legacy report comparison evidence rejection reuses its current paid response without changing its ledger", async () => {
+  const messages = ["Same report needs both original quotes", "Quotes must occur in both actual inputs"];
+  for (const attempts of [1, 2]) {
+    const req = {
+      lane: "news" as const,
+      service: "invariant-unbudgeted",
+      purpose: "group_review",
+      subject: `legacy-report-${tag()}`,
+      identity: { report: tag() },
+      requestSummary: { promptVersion: "report-group-identity@synthetic" },
+    };
+    let sends = 0;
+    const send = async () => ({ response: { result: "same_report", sent: ++sends } });
+    let original = await paidRequest(req, send);
+    if (attempts === 2) {
+      await rejectReceivedResponse(original.receiptId, "unusable output: synthetic earlier structural failure", original.attemptId);
+      original = await paidRequest(req, send);
+    }
+    const error = new z.ZodError(messages.map((message) => ({ code: "custom", path: [], message })));
+    await rejectReceivedResponse(original.receiptId, `unusable output: ${error}`, original.attemptId);
+    const snapshot = async () => ({
+      receipt: await sql`SELECT status,error,attempts,response_attempt_id,response,cost FROM receipts WHERE id=${original.receiptId}`,
+      attempts: await sql`SELECT id,status,response,usage,cost FROM receipt_attempts WHERE receipt_id=${original.receiptId} ORDER BY attempt`,
+    });
+    const before = await snapshot();
+    const reused = await paidRequest(req, send);
+    assert.equal(sends, attempts, "valid legacy evidence rejection must not buy another answer");
+    assert.equal(reused.reused, true);
+    assert.equal(reused.receiptId, original.receiptId);
+    assert.equal(reused.attemptId, original.attemptId);
+    assert.deepEqual(await snapshot(), before, "failed status, actual response and historical bill remain unchanged");
+  }
+});
+
+test("legacy report evidence compatibility excludes other errors, purposes, recipes and unbound responses", async () => {
+  const allowed = { code: "custom", path: [], message: "Quotes must occur in both actual inputs" };
+  const rejected = (issues: unknown) => `unusable output: ${JSON.stringify(issues)}`;
+  for (const variant of [
+    { purpose: "invariant_test" },
+    { promptVersion: "group-relation@synthetic" },
+    { error: "unusable output: malformed JSON" },
+    { error: rejected([]) },
+    { error: rejected([{ ...allowed, message: "Another custom validation" }]) },
+    { error: rejected([allowed, { code: "invalid_type", path: ["relation"], message: "Invalid input" }]) },
+    { unbound: true },
+  ]) {
+    const req = {
+      lane: "news" as const,
+      service: "invariant-unbudgeted",
+      purpose: variant.purpose ?? "group_review",
+      subject: `legacy-report-control-${tag()}`,
+      identity: { report: tag() },
+      requestSummary: { promptVersion: variant.promptVersion ?? "report-group-identity@synthetic" },
+    };
+    let sends = 0;
+    const send = async () => ({ response: { ok: true, sent: ++sends } });
+    const original = await paidRequest(req, send);
+    await rejectReceivedResponse(original.receiptId, variant.error ?? rejected([allowed]), original.attemptId);
+    if (variant.unbound) await sql`UPDATE receipts SET response_attempt_id=NULL WHERE id=${original.receiptId}`;
+    const next = await paidRequest(req, send);
+    assert.equal(sends, 2);
+    assert.equal(next.reused, false);
+    assert.notEqual(next.attemptId, original.attemptId);
+  }
+  const req = {
+    lane: "news" as const,
+    service: "invariant-unbudgeted",
+    purpose: "group_review",
+    subject: `legacy-report-refused-${tag()}`,
+    identity: { report: tag() },
+    requestSummary: { promptVersion: "report-group-identity@synthetic" },
+  };
+  await assert.rejects(
+    paidRequest(req, async () => {
+      throw new ProviderRejectedError("HTTP 402 Insufficient Balance", 402, false, "provider_refused");
+    }),
+    ProviderRejectedError,
+  );
+  assert.equal((await paidRequest(req, async () => ({ response: { ok: true } }))).reused, false);
 });
 
 test("retries of unusable answers stop at the budget, and every request sent is counted", async () => {

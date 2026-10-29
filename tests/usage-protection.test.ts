@@ -194,6 +194,15 @@ test("repetition is observable but service request limits govern admission", asy
   await paidRequest(request("same", { source: "source-a", tag: "1" }), send);
   await paidRequest(request("same", { source: "source-a", tag: "2" }), send);
   assert.equal((await readUsageProtection()).breakers.find((b) => b.trigger === "repeated_input")!.state, "warning");
+  const messages: string[] = [];
+  await deliverUsageProtectionEvents(new Date(), async (title, lines) => {
+    if (title === "费用异常预警") messages.push(lines.join("\n"));
+    return "sent";
+  });
+  assert.equal(messages.length, 1);
+  assert.match(messages[0]!, /同一输入共请求3次（首次1次、重复2次）；重复提醒标准2次/);
+  assert.match(messages[0]!, /费用与重复次数仅作提醒，不会因此自动暂停处理/);
+  assert.doesNotMatch(messages[0]!, /熔断|达到阈值将暂停/);
   await paidRequest(request("same", { source: "source-a", tag: "3" }), send);
   assert.equal((await readUsageProtection()).breakers.filter((b) => b.state === "open").length, 0);
   await paidRequest(request("different", { source: "source-a" }), send);
@@ -211,6 +220,15 @@ test("object costs remain visible above the threshold without stopping payment",
   await charge("object-3", "1", { object: "article-a" });
   rows = (await readUsageProtection()).breakers;
   assert.equal(rows.find((b) => b.trigger === "object_cost")!.state, "warning");
+  const messages: string[] = [];
+  await deliverUsageProtectionEvents(new Date(), async (title, lines) => {
+    if (title === "费用异常预警") messages.push(lines.join("\n"));
+    return "sent";
+  });
+  const message = messages.find((text) => text.includes("单对象累计费用"))!;
+  assert.match(message, /提醒标准3\.5元/);
+  assert.match(message, /不会因此自动暂停处理/);
+  assert.doesNotMatch(message, /熔断|达到阈值将暂停/);
   await paidRequest(request("object-4", { object: "article-a" }), send);
   await paidRequest(request("other-object", { object: "article-b" }), send);
 });

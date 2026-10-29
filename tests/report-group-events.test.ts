@@ -18,6 +18,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 
 type Input = { left: { id: string; text: string }; right: { id: string; text: string } };
 let relation: "same_report" | "new_development" | "different" = "same_report";
+let evidenceMode: "valid" | "invented" | "missing" = "valid";
 let drop = false;
 let beforeAnswer: (() => Promise<void>) | null = null;
 const requests: Input[] = [];
@@ -33,7 +34,13 @@ const provider = await stub(async (_hit, request) => {
         message: {
           content: JSON.stringify({
             relation,
-            evidence: { leftQuote: input.left.text.slice(-45), rightQuote: input.right.text.slice(-45) },
+            evidence:
+              evidenceMode === "missing"
+                ? null
+                : {
+                    leftQuote: evidenceMode === "invented" ? "Synthetic invented quotation absent from both materials" : input.left.text.slice(-45),
+                    rightQuote: input.right.text.slice(-45),
+                  },
             reason: "Synthetic event-stage comparison",
           }),
         },
@@ -52,6 +59,7 @@ afterEach(async () => {
   beforeAnswer = null;
   drop = false;
   relation = "same_report";
+  evidenceMode = "valid";
   if (created.length) {
     await sql`DELETE FROM publications WHERE article_id=ANY(${created}::text[])`;
     await sql`DELETE FROM grouping_decisions WHERE article_id=ANY(${created}::text[])`;
@@ -168,6 +176,56 @@ test("a group member recalls its fixed anchor and an actual new development rema
   assert.equal((await readReportGroupMembers(id, sql)).length, 2);
   await compareReportGroup(c);
   assert.equal(provider.hits(), before + 1, "the same negative decision is durable");
+});
+
+test("invalid report evidence retains its paid answer across retries, reverse comparisons and restarts", async () => {
+  for (const mode of ["invented", "missing"] as const) {
+    const f = await fixture(),
+      [a, b] = f.ids as [string, string],
+      before = provider.hits();
+    evidenceMode = mode;
+    const evidenceError = /Quotes must occur|Same report needs/;
+    await assert.rejects(compareReportGroup(b), evidenceError);
+    await assert.rejects(compareReportGroup(b), evidenceError);
+    await assert.rejects(compareReportGroup(a), evidenceError);
+    const restart = await promisify(execFile)(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `await import('./tests/setup.ts');
+      const {compareReportGroup}=await import('@amp/backend/events/group');const {closeDb}=await import('@amp/backend/db');
+      try {await compareReportGroup(process.argv[1]);process.exitCode=1;} catch(error){console.log(error.constructor.name);} finally {await closeDb();}`,
+        b,
+      ],
+      { env: process.env },
+    );
+    assert.match(restart.stdout, /ModelOutputError/);
+    assert.equal(provider.hits(), before + 1, "local evidence rejection never buys a replacement answer");
+    const waits = await sql`SELECT state,receipt_id,decision FROM events.report_group_decisions WHERE article_id=ANY(${f.ids}::text[])`;
+    assert.ok(waits.length >= 2 && waits.every((row) => row.state === "waiting" && row.decision === null));
+    assert.equal(new Set(waits.map((row) => row.receipt_id)).size, 1);
+    const [receipt] = await sql`SELECT status,attempts FROM receipts WHERE id=${waits[0]!.receipt_id}`;
+    assert.deepEqual({ ...receipt }, { status: "received", attempts: 1 });
+    assert.equal(await groupId(b), undefined);
+    assert.equal(await proof(b), undefined);
+
+    evidenceMode = "valid";
+    await upsertMaterial({
+      sourceId: f.sources[1]!,
+      url: `https://example.com/${f.sources[1]}`,
+      title: "合成矿业综合稿：选举结果与稀土政策",
+      bodyText: `${tag()} 新修订原文补充了已确认的选举结果和稀土政策执行材料。`,
+      language: "zh",
+      via: "fetch",
+    });
+    await completeMaterialGrouping(b, 2, { addsValue: true, reason: "Synthetic changed material" }, null);
+    await sql`INSERT INTO grouping_decisions(article_id,verdict,input_revision,candidates) VALUES(${b},'roundup',2,'[]')`;
+    assert.equal((await compareReportGroup(b)).matched, true);
+    assert.equal(provider.hits(), before + 2, "changed source material may obtain a new model decision");
+    assert.equal((await proof(b)).relation, "same_report");
+    await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=ANY(${f.ids}::text[])`;
+  }
 });
 
 test("unknown receipts wait across restarts and resume through the existing bounded queue without fabricating an answer", async () => {
