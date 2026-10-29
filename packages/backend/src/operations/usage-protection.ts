@@ -58,7 +58,7 @@ export async function deliverUsageProtectionEvents(now = new Date(), send: Sende
         `范围：${g.lane ?? "全站记账"}${g.capability ? ` / ${g.capability}` : ""}`,
         ...g.payloads.flatMap((p) => usageEventLines(g.kind, p)),
         g.kind === "warning"
-          ? "这是预警，尚未暂停任何处理；达到阈值将暂停该范围的新付费调用。"
+          ? "费用与重复次数仅作提醒，不会因此自动暂停处理；实际请求次数限制仍按既有配置执行。"
           : g.kind === "usage_notice"
             ? "这只是提示，没有暂停任何处理。"
             : g.kind === "opened"
@@ -94,13 +94,15 @@ const money = (value: unknown) =>
 function usageEventLines(kind: string, p: Record<string, unknown>): string[] {
   const breaker = UsageBreaker.safeParse(p);
   if (breaker.success) {
-    const b = breaker.data;
+    const b = breaker.data,
+      repeats = b.current.repeats,
+      totalAttempts = repeats && /^\d+$/.test(repeats) ? String(BigInt(repeats) + 1n) : "未确认";
     return [
-      `指标：${{ repeated_input: "同一输入重复付费", object_cost: "单对象累计费用", daily_total: "单日费用异常" }[b.trigger]}`,
+      `指标：${{ repeated_input: "同一输入重复调用", object_cost: "单对象累计费用", daily_total: "单日费用异常" }[b.trigger]}`,
       `涉及：${b.scope.lane === "policy" ? "法规" : "资讯"} / ${b.scope.capability ?? b.scope.object_id ?? "对象"}${b.scope.source_id ? ` / 来源 ${b.scope.source_id}` : ""}`,
       b.trigger === "repeated_input"
-        ? `当前重复${b.current.repeats}次，预警${b.threshold.warning}次，熔断${b.threshold.limit}次。`
-        : `当前${money(b.current.micros)}；${b.trigger === "object_cost" ? `预警${money(b.threshold.warning_micros)}，熔断>${money(b.threshold.micros)}` : `历史${b.current.history_days}天合计${money(b.current.history_micros)}，日均倍数${b.threshold.multiple}，绝对额>${money(b.threshold.floor_micros)}，无历史>${money(b.threshold.no_history_micros)}`}`,
+        ? `同一输入共请求${totalAttempts}次（首次1次、重复${repeats ?? "未确认"}次）；重复提醒标准${b.threshold.warning}次。`
+        : `当前${money(b.current.micros)}；${b.trigger === "object_cost" ? `提醒标准${money(b.threshold.warning_micros)}` : `历史${b.current.history_days}天合计${money(b.current.history_micros)}，日均倍数${b.threshold.multiple}，绝对额>${money(b.threshold.floor_micros)}，无历史>${money(b.threshold.no_history_micros)}`}`,
       ...(kind === "recovered" ? [`恢复人：${b.recovered_by}；备注：${b.recovery_reason}`] : []),
     ];
   }
