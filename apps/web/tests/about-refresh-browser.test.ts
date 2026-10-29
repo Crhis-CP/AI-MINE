@@ -103,7 +103,8 @@ test("about refreshes while visible, resumes on focus and recovers from honest f
     errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.clock.install();
-  await page.goto(`${origin}/about`);
+  // SSR figures precede hydration; wait for the browser code before advancing its interval.
+  await page.goto(`${origin}/about`, { waitUntil: "networkidle" });
   const figures = page.locator('section[aria-labelledby="how"]'),
     source = figures.getByRole("listitem").first();
   await expect(source).toContainText(/1\s*个来源/);
