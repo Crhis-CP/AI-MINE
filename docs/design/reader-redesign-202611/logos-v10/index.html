@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LOGO 第 10 轮 · 星系</title>
+<style>
+@font-face{font-family:"Instrument Sans";src:url(../shared/fonts/InstrumentSans_400Regular.woff2) format("woff2");font-weight:400}
+@font-face{font-family:"Instrument Sans";src:url(../shared/fonts/InstrumentSans_600SemiBold.woff2) format("woff2");font-weight:600}
+@font-face{font-family:"JetBrains Mono";src:url(../shared/fonts/JetBrainsMono_400Regular.woff2) format("woff2")}
+:root{--bg:#0B0C0E;--card:#141518;--line:rgba(255,255,255,.08);--ink:#ECEDEF;--muted:#9A9EA6;--cu:#D9733C;--paper:#F6F4EF;--paper-ink:#14161A}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 "Instrument Sans","Noto Sans SC",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{width:1600px;margin:0 auto;padding:64px 72px 72px}
+.kicker{font:12px/1 "JetBrains Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:44px;line-height:1.15;margin:14px 0 10px;font-weight:600;letter-spacing:-.01em}
+.lede{color:var(--muted);font-size:17px;max-width:980px;margin:0}
+.lede b{color:var(--ink);font-weight:600}
+h2{font-size:13px;font-family:"JetBrains Mono",monospace;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:56px 0 18px;display:flex;gap:12px;align-items:center}
+h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px}
+.card img.hero{width:100%;aspect-ratio:1;display:block;filter:drop-shadow(0 18px 30px rgba(0,0,0,.45))}
+.name{display:flex;align-items:baseline;gap:10px;margin:20px 0 4px}
+.name b{font-size:20px;font-weight:600}
+.tag{font:11px/1 "JetBrains Mono",monospace;color:#120804;background:var(--cu);padding:4px 7px;border-radius:5px;letter-spacing:.06em}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.chips{display:flex;gap:6px;margin-top:14px}
+.chips i{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);display:block}
+.sizes{display:flex;align-items:flex-end;gap:18px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.sizes span{font:11px "JetBrains Mono",monospace;color:var(--muted);display:block;text-align:center;margin-top:6px}
+.dock-stage{height:250px;border-radius:24px;position:relative;overflow:hidden;background:linear-gradient(140deg,#2a3346 0%,#40343a 45%,#1d2433 100%)}
+.dock-stage::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 80% at 20% 10%,rgba(255,255,255,.18),transparent 60%),radial-gradient(50% 60% at 85% 30%,rgba(217,115,60,.18),transparent 70%)}
+.dock{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);display:flex;gap:14px;padding:12px 16px;border-radius:26px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(18px)}
+.dock .ph{width:72px;height:72px;border-radius:17px;background:linear-gradient(#5b6170,#3d424d)}
+.dock .ph.l{background:linear-gradient(#f2f2f4,#d9dade)}
+.dock img{width:72px;height:72px;display:block;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.dock-note{position:absolute;left:28px;top:22px;font-size:13px;color:rgba(255,255,255,.75)}
+.two{display:grid;grid-template-columns:1.25fr 1fr;gap:24px}
+.paper{background:var(--paper);color:var(--paper-ink);border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:30px}
+.paper .row{display:flex;align-items:center;gap:44px}
+.paper small,.night small{font:11px "JetBrains Mono",monospace;letter-spacing:.08em;opacity:.6}
+.night{background:#0E0F12;border:1px solid var(--line);border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:30px}
+.tab{display:flex;align-items:center;gap:8px;background:#fff;border-radius:10px 10px 0 0;padding:9px 14px;width:280px;font-size:13px;color:#333;box-shadow:0 1px 0 #e3e0d8}
+.chrome{background:#E7E3DA;border-radius:12px;padding:10px 10px 0}
+.site{background:#fff;border-radius:0 10px 0 0;height:64px;display:flex;align-items:center;padding:0 22px;gap:26px;font-size:14px;color:#56606a}
+.site img{height:34px}
+.site .sp{flex:1}
+.mono{display:flex;gap:16px}
+.mono div{width:104px;height:104px;border-radius:18px;display:grid;place-items:center}
+.cols{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}
+.cols h3{margin:0 0 10px;font-size:17px;font-weight:600}
+.cols ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+.cols li{margin:4px 0}
+.cols li b{color:var(--ink);font-weight:600}
+.foot{margin-top:40px;color:#6D727A;font-size:12px;font-family:"JetBrains Mono",monospace}
+
+.brief{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.brief div{border-top:2px solid var(--cu);padding-top:14px}
+.brief h3{margin:0 0 8px;font-size:16px;font-weight:600}
+.brief p{margin:0;color:var(--muted);font-size:14px}
+.brief p b{color:var(--ink);font-weight:600}
+.master{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:24px}
+.master .pane{border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:16px}
+.master .pane.p{background:var(--paper);color:var(--paper-ink)}
+.master .pane.d{background:var(--card);border:1px solid var(--line)}
+.master small{font:11px "JetBrains Mono",monospace;letter-spacing:.08em;opacity:.6}
+.rules{margin:0;padding-left:18px;font-size:14px;color:var(--muted)}
+.rules li{margin:5px 0}.rules b{color:var(--ink);font-weight:600}
+.minsz{display:flex;gap:20px;align-items:flex-end}
+.minsz span{display:block;text-align:center;font:11px "JetBrains Mono",monospace;opacity:.6;margin-top:6px}
+.apps{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:24px}
+.mast{background:#fff;color:#14161A;border-radius:16px;padding:26px 28px;display:flex;flex-direction:column;gap:14px}
+.mast .top{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #14161A;padding-bottom:12px}
+.mast .top img{height:40px}
+.mast .top span{font:12px "JetBrains Mono",monospace;color:#5d636c}
+.mast h4{margin:0;font-size:20px;line-height:1.35}
+.mast p{margin:0;color:#5d636c;font-size:13px}
+.mast .src{font:11px "JetBrains Mono",monospace;color:#8a9099}
+.cover{background:#14161A;border-radius:16px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;min-height:300px;color:#EEF0F3}
+.cover .k{font:11px "JetBrains Mono",monospace;letter-spacing:.12em;color:#D9733C}
+.cover h4{font-size:24px;line-height:1.3;margin:10px 0 0;font-weight:600}
+.cover img{height:34px;align-self:flex-start}
+.bcard{display:flex;flex-direction:column;gap:16px}
+.bcard .f{background:var(--paper);border-radius:10px;aspect-ratio:1.75;display:grid;place-items:center}
+.bcard .b{background:#14161A;border-radius:10px;aspect-ratio:1.75;padding:18px 20px;color:#EEF0F3;display:flex;flex-direction:column;justify-content:space-between;font-size:12px}
+.bcard .b img{width:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">AI矿策 · AI Mining Policy · 品牌标识 · 第 10 轮</div>
+  <h1>星系：把分散的消息，读成清楚的变化</h1>
+  <p class="lede">三条旋臂从外向内，收进一颗清楚的核心。<b>外面是散在各国、各语言、各来源的矿业消息和法规，中心是 AI矿策给出的那一个清楚判断。</b>旋臂按黄金螺线构建，主标只用一个颜色，平涂，不靠渐变和特效。</p>
+
+  <h2>品牌定位</h2>
+  <div class="brief">
+    <div><h3>网站要做什么</h3><p>把全球矿企公告、监管通知和海外报道收进来，整理成中文，<b>保留来源和原文链接</b>，让读者看清“哪里变了、影响谁”。免费，不用注册。</p></div>
+    <div><h3>给谁看</h3><p>矿业公司管理层和投资者；法务、合规和政府关系人员；行业分析和研究者；关注海外矿业的中文读者，例如阿根廷锂矿。</p></div>
+    <div><h3>标识要传达的感觉</h3><p><b>可信、清楚、有全球视野、长期可靠。</b>像一份认真编辑的行业报告，不像一个流行 App。</p></div>
+    <div><h3>长期原则</h3><p>主标单色平涂，能盖章、能刻、能烫金；从 16 像素到安全帽贴纸都成立；不追随渐变、玻璃、霓虹等流行做法。几十年不改形。</p></div>
+  </div>
+
+  <h2>主标 · 长期不变的部分</h2>
+  <div class="master">
+    <div class="pane p"><small>主标 · 墨色旋臂 + 铜色核心</small>
+      <img src="mark-light.svg" alt="主标" style="width:72%;align-self:center;margin:8px 0">
+      <div class="minsz"><div><img src="mark-light.svg" width="64"><span>64</span></div><div><img src="mark-light.svg" width="32"><span>32</span></div><div><img src="mark-light.svg" width="24"><span>24</span></div><div><img src="mark-light.svg" width="16"><span>16 最小</span></div></div></div>
+    <div class="pane p"><small>构建 · 半径按黄金比例 φ 递增，三臂相隔 120°</small>
+      <img src="construction.svg" alt="构建图" style="width:100%">
+    </div>
+    <div class="pane d"><small>使用规则</small>
+      <ul class="rules">
+        <li><b>颜色</b>：墨 #14161A，铜 #C8612C，纸 #F6F4EF。铜只用在核心，是全套标识唯一的彩色。</li>
+        <li><b>单色</b>：旋臂和核心同色，用于盖章、刻印、烫金、传真。</li>
+        <li><b>安全区</b>：四周至少留出一个核心直径的 2 倍。</li>
+        <li><b>最小尺寸</b>：屏幕 16 像素，印刷 6 毫米。</li>
+        <li><b>不要</b>：拉伸、改旋转方向、给旋臂换三种颜色、加描边或阴影。</li>
+      </ul>
+      <div class="mono" style="margin-top:auto"><div style="background:#fff"><img src="mark-mono-black.svg" width="62" alt=""></div><div style="background:#1D1F24"><img src="mark-mono-white.svg" width="62" alt=""></div><div style="background:#C8612C"><img src="mark-mono-white.svg" width="62" alt=""></div></div>
+    </div>
+  </div>
+
+  <h2>落到读者会看到的地方</h2>
+  <div class="apps">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="chrome"><div class="tab"><img src="mark-light.svg" width="16" alt="">AI矿策 · 全球矿业资讯</div>
+        <div class="site"><img src="lockup-light.svg" alt=""><span class="sp"></span><span>精选</span><span>全部动态</span><span>法规</span><span>日报</span></div></div>
+      <div class="mast"><div class="top"><img src="lockup-light.svg" alt=""><span>矿业日报 · 2026-11-04</span></div>
+        <h4>示例标题：某国修订矿业特许权费规则，铜、锂项目适用新税率</h4>
+        <p>示例导读：一句话说清发生了什么、影响哪些项目和公司。</p><span class="src">示例 · 3 家独立来源 · AI 整理，不构成法律意见</span></div>
+    </div>
+    <div class="cover"><div><div class="k">法规简报 · 示例</div><h4>阿根廷矿业投资<br>制度变化一览</h4></div><img src="lockup-dark.svg" alt=""></div>
+    <div class="bcard"><div class="f"><img src="mark-light.svg" width="64" alt=""></div><div class="b"><img src="mark-dark.svg" alt=""><div>AI矿策 · AI Mining Policy<br><span style="opacity:.6">aiminingpolicy.com</span></div></div></div>
+  </div>
+
+  <h2>App 图标质感 · 可以随时代更新，主标不变</h2>
+  <div class="grid4">
+    <div class="card"><img class="hero" src="icon-trimetal.svg" alt="三金微光"><div class="name"><b>① 三金 · 微光</b><span class="tag">推荐</span></div>
+      <p>三条旋臂各带一点铜、青铜、钢的色调，饱和度压得很低。整体读作银色，细看是三种金属，像钛金属的几种表面处理。</p>
+      <div class="chips"><i style="background:#F2D2BF"></i><i style="background:#EDDDB8"></i><i style="background:#D2D8E0"></i><i style="background:#09090B"></i></div>
+      <div class="sizes"><div><img src="icon-trimetal.svg" width="64"><span>64</span></div><div><img src="icon-trimetal.svg" width="32"><span>32</span></div><div><img src="icon-trimetal.svg" width="16"><span>16</span></div></div></div>
+    <div class="card"><img class="hero" src="icon-silver.svg" alt="曜石银"><div class="name"><b>② 曜石银</b></div>
+      <p>纯银灰单色，三条臂用三个明度区分，跟 Cursor 立方体的三个面同一个道理。最克制，神秘感最强。</p>
+      <div class="chips"><i style="background:#FFFFFF"></i><i style="background:#D3D6DB"></i><i style="background:#80858E"></i><i style="background:#09090B"></i></div>
+      <div class="sizes"><div><img src="icon-silver.svg" width="64"><span>64</span></div><div><img src="icon-silver.svg" width="32"><span>32</span></div><div><img src="icon-silver.svg" width="16"><span>16</span></div></div></div>
+    <div class="card"><img class="hero" src="icon-strata.svg" alt="地层银"><div class="name"><b>③ 地层银</b></div>
+      <p>每条臂分成三层细线，像岩层，也像星系旋臂的细部。是线条型（学 GPT 的线），大图最耐看，小图会自动合成实心。</p>
+      <div class="chips"><i style="background:#F1F2F4"></i><i style="background:#A4A9B1"></i><i style="background:#2E3137"></i><i style="background:#09090B"></i></div>
+      <div class="sizes"><div><img src="icon-strata.svg" width="64"><span>64</span></div><div><img src="icon-strata.svg" width="32"><span>32</span></div><div><img src="icon-strata.svg" width="16"><span>16</span></div></div></div>
+    <div class="card"><img class="hero" src="icon-copper.svg" alt="铜辉"><div class="name"><b>④ 铜辉</b></div>
+      <p>只用铜一个颜色，深浅变化。铜是人类最早大量使用的金属，暖色，品牌色最好记。</p>
+      <div class="chips"><i style="background:#FFC59A"></i><i style="background:#D9733C"></i><i style="background:#96441C"></i><i style="background:#0A0706"></i></div>
+      <div class="sizes"><div><img src="icon-copper.svg" width="64"><span>64</span></div><div><img src="icon-copper.svg" width="32"><span>32</span></div><div><img src="icon-copper.svg" width="16"><span>16</span></div></div></div>
+  </div>
+
+  <h2>放进 Dock · 和别的 App 并排</h2>
+  <div class="dock-stage"><div class="dock-note">示意：灰色方块代表其他 App</div>
+    <div class="dock"><div class="ph l"></div><div class="ph"></div><img src="icon-trimetal.svg" alt=""><img src="icon-silver.svg" alt=""><img src="icon-strata.svg" alt=""><img src="icon-copper.svg" alt=""><img src="icon-paper.svg" alt=""><div class="ph"></div><div class="ph l"></div></div></div>
+
+
+  <h2>寓意 · 改了什么 · 学了什么</h2>
+  <div class="cols">
+    <div><h3>寓意</h3><ul>
+      <li><b>从外向内</b>：分散的消息和法规，收成一个清楚的判断，这就是网站要做的事。</li>
+      <li><b>三条旋臂</b>：铜、青铜、铁，人类的三个金属时代。</li>
+      <li><b>中心的核</b>：AI，也是硅，今天的芯片材料。</li>
+      <li><b>整体是星系</b>：地球上的铜和铁，最早都在恒星和超新星里形成。从星辰到矿，再从矿到 AI。</li></ul></div>
+    <div><h3>和上一版比改了什么</h3><ul>
+      <li>去掉星空、星云和绿色底，背景回到近黑色。</li>
+      <li>三种不同颜色改成一个颜色家族。</li>
+      <li>立方体晶核改成一颗发光的核。</li>
+      <li>旋臂两头收尖，头部贴着核，没有毛刺和缺口。</li></ul></div>
+    <div><h3>从 AI 图标学到的</h3><ul>
+      <li><b>GPT、Grok</b>：黑白两色，神秘感来自暗底和留白。</li>
+      <li><b>Claude</b>：只用一个颜色，长期不换。</li>
+      <li><b>Cursor</b>：同一种灰的三个明度，做出体积感。</li>
+      <li>只借思路，不用任何一家的形状和颜色。</li></ul></div>
+    <div><h3>从矿业资讯网站学到的</h3><ul>
+      <li><b>金色已经拥挤</b>：Kitco、Benchmark 以金黄为主色，Northern Miner、长江有色、我的钢铁网用作点缀。</li>
+      <li><b>藏蓝太常见</b>：Argus、我的钢铁网、上海有色网都用，可信但难区分。</li>
+      <li><b>红绿留给涨跌</b>：上海有色网红涨绿跌，Kitco 正好相反。品牌色避开红绿。</li>
+      <li>所以选<b>墨 + 纸 + 一点铜</b>，用 SVG 矢量主标；中文同行多用小尺寸位图。</li></ul></div>
+  </div>
+  <p class="foot">docs/design/reader-redesign-202611/logos-v10 · 全部为 SVG 路径，不依赖字体 · 2026-11-04</p>
+</div>
+</body>
+</html>
