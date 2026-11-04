@@ -818,7 +818,9 @@ test("every public page carries the configured filing numbers in the phone foote
   await slash.text();
   const more = await (await fetch(`${origin}/more`)).text();
   assert.equal(phoneFooters(more).length, 0, "the 更多 page has its own footer instead");
-  assert.equal(more.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
+  // Count rendered markup only: the numbers also travel in the layout's hydration data, which is public too.
+  const moreMarkup = more.replace(/<script\b[\s\S]*?<\/script>/g, "");
+  assert.equal(moreMarkup.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
   assert.ok(more.includes(`code=${FILINGS_FIXTURE.publicSecurity.code}`), "the public-security number links to its query page");
   // An API that reports no numbers (unset, or an older release during a rolling update) leaves the footer empty, never invented.
   metaWithoutFilings = true;
