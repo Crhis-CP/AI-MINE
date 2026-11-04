@@ -6,6 +6,7 @@ import { IntentLink as Link } from "../ui/IntentLink";
 import { Wordmark } from "../Logo";
 import { SIDEBAR, tabIsActive, type NavItem } from "./nav";
 import { ThemeSwitch } from "./ThemeSwitch";
+import { FilingLinks, useSiteFilings } from "./Filings";
 
 function SideLink({ item }: { item: NavItem }) {
   const { pathname, search } = useLocation();
@@ -30,6 +31,7 @@ function SideLink({ item }: { item: NavItem }) {
 }
 
 export function Sidebar() {
+  const filings = useSiteFilings();
   return (
     <aside className="sticky top-0 hidden h-dvh w-[180px] shrink-0 flex-col border-r border-line bg-sidebar px-3 pb-3.5 pt-6 lg:flex">
       <Link to="/" className="mb-4 flex h-[50px] items-center px-1 text-ink" aria-label={`${SITE.name} 首页`}>
@@ -49,22 +51,12 @@ export function Sidebar() {
       </nav>
       <div className="mt-2 space-y-2.5 px-1 pt-1">
         <ThemeSwitch className="mx-1" />
-        {SITE.icp && (
-          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="block px-2 text-[10px] text-ink-4 hover:text-ink-3">
-            {SITE.icp}
-          </a>
-        )}
-        {SITE.publicSecurity && (
-          <a
-            href={`https://beian.mps.gov.cn/#/query/webSearch?code=${SITE.publicSecurity.code}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block px-2 text-[10px] text-ink-4 hover:text-ink-3"
-          >
-            {SITE.publicSecurity.text}
-          </a>
-        )}
-        {SITE.newsLicense && <p className="px-2 text-[10px] text-ink-4">互联网新闻信息服务许可证：{SITE.newsLicense}</p>}
+        <FilingLinks
+          filings={filings}
+          linkClassName="block px-2 text-[10px] text-ink-4 hover:text-ink-3"
+          licenseAs="p"
+          licenseClassName="px-2 text-[10px] text-ink-4"
+        />
       </div>
     </aside>
   );

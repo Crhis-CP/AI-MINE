@@ -131,7 +131,7 @@
       {
         "url": "/api/site/meta",
         "status": 200,
-        "contains": ["changelogVersion"]
+        "contains": ["changelogVersion", "filings"]
       }
     ],
     "noDataReason": "行业静态配置与版本，无数据库内容分支"

@@ -1,5 +1,4 @@
 // Run after `npm run build -w @amp/web`. Real production server/router, synthetic HTTP API only.
-import { SITE } from "@amp/industry/site";
 import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -26,6 +25,9 @@ let deadline: number;
 let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
+let metaWithoutFilings = false;
+// Synthetic, obviously fake numbers: the real ones are deployment settings and never live in the repository.
+const FILINGS_FIXTURE = { icp: "京ICP备00000000号-1", publicSecurity: { text: "京公网安备00000000000000号", code: "00000000000000" }, newsLicense: null };
 let privatePageFixtures = false;
 let usagePriceJourney: { record: ReturnType<typeof privateSchemas.UsagePriceRecord.parse>; saved: unknown[] } | null = null;
 let coverageUnavailable = false;
@@ -161,7 +163,7 @@ const siteInformationFixture = publicSchemas.SiteInformation.parse({
 const protectedSiteFixture = {
   siteUrl: "https://public.preview.test",
   siteUrlOrigin: "runtime",
-  icp: { configured: true, origin: "build", footerDisplayed: true, aboutDisplayed: false },
+  icp: { configured: true, origin: "runtime", footerDisplayed: true, aboutDisplayed: false },
   publicSecurity: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
   newsLicense: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
   newsLicenseValidUntil: null,
@@ -597,7 +599,8 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/information") return res.end(JSON.stringify(siteInformationFixture));
   if (url.pathname === "/api/site/meta") {
     metaCalls++;
-    const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
+    const meta = metaWithoutFilings ? { changelogVersion: "2026-09-28T12:00" } : { changelogVersion: "2026-09-28T12:00", filings: FILINGS_FIXTURE };
+    const respond = () => res.end(JSON.stringify(meta));
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
   }
   if (url.pathname === "/api/site/stats") {
@@ -788,9 +791,8 @@ test("INV-34 public, missing and private pages authorize only this response's no
   }
 });
 
-test("every public page carries the ICP filing number in the phone footer; the 更多 page keeps its own", async () => {
-  const icp = SITE.icp!;
-  assert.ok(icp, "the filing number is on file");
+test("every public page carries the configured filing numbers in the phone footer; the 更多 page keeps its own", async () => {
+  const icp = FILINGS_FIXTURE.icp;
   const phoneFooters = (html: string) => html.match(/<footer[^>]*lg:hidden[^>]*>[\s\S]*?<\/footer>/g) ?? [];
   for (const path of ["/", "/all", "/about", "/items/footer-page"]) {
     const res = await fetch(origin + path);
@@ -817,6 +819,18 @@ test("every public page carries the ICP filing number in the phone footer; the �
   const more = await (await fetch(`${origin}/more`)).text();
   assert.equal(phoneFooters(more).length, 0, "the 更多 page has its own footer instead");
   assert.equal(more.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
+  assert.ok(more.includes(`code=${FILINGS_FIXTURE.publicSecurity.code}`), "the public-security number links to its query page");
+  // An API that reports no numbers (unset, or an older release during a rolling update) leaves the footer empty, never invented.
+  metaWithoutFilings = true;
+  try {
+    const home = await fetch(`${origin}/`);
+    assert.equal(home.status, 200);
+    const html = await home.text();
+    assert.equal(phoneFooters(html).length, 0);
+    assert.ok(!html.includes(icp) && !html.includes(FILINGS_FIXTURE.publicSecurity.text));
+  } finally {
+    metaWithoutFilings = false;
+  }
 });
 
 test("HTML and navigation preserve current reading state; cookies do not personalize public results", async () => {

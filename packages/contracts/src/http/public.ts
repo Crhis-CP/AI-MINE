@@ -31,6 +31,19 @@ export const SiteStats = z.strictObject({
     .optional(),
 });
 export type SiteStats = z.infer<typeof SiteStats>;
+/** Filing and licence numbers set by the deployer at run time (DEC-78); null means not configured and not shown. */
+export const SiteFilings = z.strictObject({
+  icp: z.string().min(1).max(80).nullable(),
+  publicSecurity: z.strictObject({ text: z.string().min(1).max(80), code: z.string().regex(/^\d{10,20}$/) }).nullable(),
+  newsLicense: z.string().min(1).max(80).nullable(),
+});
+export type SiteFilings = z.infer<typeof SiteFilings>;
+/** Reader shell metadata: the latest product-update version and the footer filing numbers. */
+export const SiteMeta = z.strictObject({
+  changelogVersion: z.string().min(1).max(40).nullable(),
+  filings: SiteFilings,
+});
+export type SiteMeta = z.infer<typeof SiteMeta>;
 export const SourceAttribution = z.strictObject({
   publishers: z.array(z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }) })),
   license: z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }).nullable() }).nullable(),
@@ -489,6 +502,8 @@ export const schemas = {
   ...siteInformationSchemas,
   ...policySchemas,
   SiteStats,
+  SiteFilings,
+  SiteMeta,
   FeedbackIdempotencyHeaders,
   StoryFollowupsResponse,
   SourceAttribution,
@@ -607,6 +622,11 @@ export const routes = {
     method: "GET" as const,
     url: "/api/site/stats",
     schema: { operationId: "siteStats", response: { 200: SiteStats, 304: z.undefined(), 503: ProblemResponse } },
+  },
+  siteMeta: {
+    method: "GET" as const,
+    url: "/api/site/meta",
+    schema: { operationId: "siteMeta", response: { 200: SiteMeta, 304: z.undefined(), 503: ProblemResponse } },
   },
   siteMetalPrices: {
     method: "GET" as const,

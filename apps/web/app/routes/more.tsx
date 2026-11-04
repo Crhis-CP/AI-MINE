@@ -8,6 +8,7 @@ import { feedbackPath } from "../lib/feedback-origin";
 import { pageMeta } from "../lib/seo";
 import { MODULE_NAVIGATION } from "../components/shell/nav";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
+import { FilingLinks, useSiteFilings } from "../components/shell/Filings";
 import { IconBookmark, IconChevronRight, IconFlame, IconGrid, IconHeart, IconHistory, IconMessage, IconMoon, IconPlug } from "../components/icons";
 import { WEB_MODULES } from "@amp/site/modules/web";
 
@@ -77,6 +78,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 export default function MorePage() {
   const location = useLocation();
+  const filings = useSiteFilings();
   const font = useFontPreference();
   const [fontSaved, setFontSaved] = useState(true);
   return (
@@ -152,22 +154,7 @@ export default function MorePage() {
         <a href="/feed.xml" className="hover:text-ink-2">
           RSS
         </a>
-        {SITE.icp && (
-          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-ink-2">
-            {SITE.icp}
-          </a>
-        )}
-        {SITE.publicSecurity && (
-          <a
-            href={`https://beian.mps.gov.cn/#/query/webSearch?code=${SITE.publicSecurity.code}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-ink-2"
-          >
-            {SITE.publicSecurity.text}
-          </a>
-        )}
-        {SITE.newsLicense && <span>互联网新闻信息服务许可证：{SITE.newsLicense}</span>}
+        <FilingLinks filings={filings} linkClassName="hover:text-ink-2" />
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ export const EDITION_TIMES = { daily: "08:00", weekly: "10:00", monthly: "10:30"
 // 站点身份和读者看得到的文案。换成你的行业时，先改这个文件。
 // 网页和后端都读它；改完重新构建（docker compose up --build）即可生效。
 // 域名不在这里：部署时用环境变量 SITE_URL 设置。
+// 备案号和许可证编号也不在这里：部署者在后端环境变量 SITE_ICP_FILING、SITE_PUBLIC_SECURITY_FILING、
+// SITE_NEWS_LICENSE 里填写，不填就不显示（见 .env.example）。
 
 export const SITE = {
   /** 站名：导航、页面标题、分享图、RSS、MCP、后台都用它。 */
@@ -30,12 +32,6 @@ export const SITE = {
   mcpPrefix: "aiminingpolicy",
   /** 对外联系邮箱（选填）：使用规则、llms.txt、响应头里会写。 */
   contactEmail: null as string | null,
-  /** 中国大陆网站的 ICP 备案号（选填），填了就显示在页脚并链接到工信部备案系统。 */
-  icp: "皖ICP备2026024398号-1" as string | null,
-  /** 公安联网备案号（选填）：text 是页脚显示的完整写法，code 是备案号里的数字（链接到全国互联网安全管理服务平台）。 */
-  publicSecurity: { text: "皖公网安备34170202000876号", code: "34170202000876" } as null | { text: string; code: string },
-  /** 互联网新闻信息服务许可证编号（选填），填了就显示在页脚与关于页。 */
-  newsLicense: null as string | null,
   /** 结构化数据里的网站运营者（搜索引擎用）。 */
   organization: {
     name: "AI矿策",

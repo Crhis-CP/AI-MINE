@@ -122,7 +122,7 @@ TASK-0129运行控制：`operations/lane-controls.ts`提供27条分线/阶段/�
 
 `site/stats`转发`loadSiteInformation(db?)`公开只读口；`admin/settings`转发`readManagedSiteInformation(principal)`、`saveSiteInformation(principal,input,commandKey)`及`protectedSiteInformation(now?)`。新增资料只有关于正文/联系邮箱/联系页面/官方入口，初始值复用当前ABOUT.lead与价格登记清单，不在GET建库。保存先在private_ops事务取得当前Owner能力共享锁，再锁单例资料、验证revision并同事务写公开记录、同一命令不重复执行的记录与前后审计。public_read只读资料表明确列，不可读取命令表或写入。
 
-关于页读取/api/site/information并重新核验缓存；已有价格接口只替换officialLinks，不改变报价来源/字段/采集许可，价格页仍每5分钟与重新可见/聚焦时刷新。联系邮箱同时用于已有security.txt与llms.txt路径，空值不展示、不回退旧值。保护信息仅核程序当前配置存在性及展示策略，不代表已经在线核验资质。当前ICP/公安/新闻许可读取现有构建常量，保留原展示，明确来源；NEWS_LICENSE_VALID_UNTIL是新增受控运行日期（YYYY-MM-DD），缺失/无效分别展示未记录/无法核对，余天按北京时间算。后台不能修改该日期或号码，未自动启用任何新的通知/部署动作。
+关于页读取/api/site/information并重新核验缓存；已有价格接口只替换officialLinks，不改变报价来源/字段/采集许可，价格页仍每5分钟与重新可见/聚焦时刷新。联系邮箱同时用于已有security.txt与llms.txt路径，空值不展示、不回退旧值。保护信息仅核程序当前配置存在性及展示策略，不代表已经在线核验资质。ICP/公安/新闻许可编号由`site/filings.ts`从API运行环境读取（`SITE_ICP_FILING`、`SITE_PUBLIC_SECURITY_FILING`、`SITE_NEWS_LICENSE`），经`/api/site/meta`交给页脚；格式不对或在`SITE_REQUIRE_FILINGS=true`下缺号码时API拒绝启动，错误只写变量名；保护信息来源记为runtime；NEWS_LICENSE_VALID_UNTIL是新增受控运行日期（YYYY-MM-DD），缺失/无效分别展示未记录/无法核对，余天按北京时间算。后台不能修改该日期或号码，未自动启用任何新的通知/部署动作。
 
 TASK-0139费用保护：`admin/settings`既有入口转发usageProtectionOverview/changeUsageProtection/changeUsagePrice/recoverUsageBreaker；读取仍为管理员，三个写口在同事务requireOwner并校验版本和记录理由。`providers/usage-protection.ts`内部readUsageProtection(db?)可复用调用方只读事务，提供配置/价格/真实已开范围/缺项，未计价金额不填0。`admin/models`内部规范身份读取modelConfigurationIdentity(key,db?)/currentModelConfiguration(capability,db?)仅返回key/service/requestedModel/configuration_hash，不暴露密钥或质量资格。
 

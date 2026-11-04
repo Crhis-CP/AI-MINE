@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { createHash } from "node:crypto";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import path from "node:path";
+import type { SiteMeta } from "@amp/contracts/http/public";
 import { config, environmentValue, REPO_ROOT } from "../config.ts";
+import { siteFilings } from "./filings.ts";
+export { assertSiteFilings, FILING_VARIABLES, readSiteFilings, siteFilings } from "./filings.ts";
 
 /** Major notes and their source fragments carry a version; other kinds retain their original date identity. */
 export const CHANGELOG_KINDS = ["重大更新", "更新", "优化", "公告", "下线"] as const;
@@ -117,8 +120,9 @@ export function readerChangelogCopy(
   return validateChangelog({ ...changelog, releases });
 }
 
-export function siteMeta() {
-  return { changelogVersion: loadChangelog().latestVersion };
+/** Footer filing numbers come from the API's run-time environment; unset numbers are null and not shown. */
+export function siteMeta(): SiteMeta {
+  return { changelogVersion: loadChangelog().latestVersion, filings: siteFilings() };
 }
 
 /** Kept separately so older releases can still read their original release records after rollback. */

@@ -298,6 +298,7 @@ if (process.argv.includes("--routes")) {
           "/api/site/information",
           "/api/site/items/saved",
           "/api/site/jurisdictions",
+          "/api/site/meta",
           "/api/site/metal-prices",
           "/api/site/policies",
           "/api/site/policies/reports",

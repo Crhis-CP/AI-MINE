@@ -5,6 +5,7 @@ import {
   routes as contracts,
   policyRoutes,
   PoolResponse,
+  SiteMeta,
   SiteStats,
   TimelineResponse,
   ReportGroupedPoolResponse,
@@ -158,9 +159,10 @@ export function registerSite(app: FastifyInstance) {
     return reply.header("Cache-Control", "no-store").send(await publicFreshness());
   });
   app.get(
-    "/api/site/meta",
+    contracts.siteMeta.url,
+    contracts.siteMeta,
     siteHandler(async (req, reply) => {
-      return sendJsonWithEtag(req, reply, siteMeta(), { etagPrefix: "meta", cacheControl: "public, max-age=60, s-maxage=60" });
+      return sendJsonWithEtag(req, reply, SiteMeta.parse(siteMeta()), { etagPrefix: "meta", cacheControl: "public, max-age=60, s-maxage=60" });
     }),
   );
 

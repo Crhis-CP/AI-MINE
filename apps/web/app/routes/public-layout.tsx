@@ -10,20 +10,23 @@ import { BackToTop, NavigationProgress } from "../components/shell/Chrome";
 import { apiGet } from "../lib/api.server";
 import { ErrorBoundary as PageError } from "../root";
 import { WEB_MODULES } from "@amp/site/modules/web";
+import { SiteMeta } from "@amp/contracts/http/public";
+import { NO_FILINGS } from "../components/shell/Filings";
 
-interface SiteMeta {
-  changelogVersion: string | null;
-}
-
-// Unavailable metadata leaves the navigation unmarked; it never invents an update.
-export async function loader({ request }: Route.LoaderArgs) {
+// Unavailable metadata leaves the navigation unmarked and the footer without numbers; it never invents either.
+export async function loader({ request }: Route.LoaderArgs): Promise<SiteMeta> {
   try {
-    return await apiGet<SiteMeta>("/api/site/meta", {
+    const raw = await apiGet<unknown>("/api/site/meta", {
       signal: request.signal,
       headers: Object.assign({}, ...WEB_MODULES.map((module) => module.root?.documentHeaders?.(request) ?? {})),
     });
+    const meta = SiteMeta.safeParse(raw);
+    if (meta.success) return meta.data;
+    // An API without run-time filing numbers (during a rolling release) still marks product updates.
+    const version = SiteMeta.shape.changelogVersion.safeParse((raw as { changelogVersion?: unknown } | null)?.changelogVersion);
+    return { changelogVersion: version.success ? version.data : null, filings: NO_FILINGS };
   } catch {
-    return { changelogVersion: null } satisfies SiteMeta;
+    return { changelogVersion: null, filings: NO_FILINGS };
   }
 }
 

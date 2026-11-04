@@ -13,6 +13,7 @@ import { organizationLd, pageMeta } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker.tsx";
 import { buttonClass } from "../components/ui/Controls";
 import { IconArrowRight } from "../components/icons";
+import { useSiteFilings } from "../components/shell/Filings";
 
 /** Revalidate page data; the API owns its short statistics snapshot. */
 export function headers() {
@@ -132,6 +133,7 @@ function Latest({ item, className = "" }: { item: NonNullable<SiteStats["latest"
 
 export default function AboutPage() {
   const { stats, information } = useLoaderData<typeof loader>();
+  const filings = useSiteFilings();
   const revalidator = useRevalidator(),
     refresh = useRef(revalidator);
   refresh.current = revalidator;
@@ -279,7 +281,7 @@ export default function AboutPage() {
         联系我们。
       </p>
 
-      {SITE.newsLicense && <p className="mt-4 text-[12.5px] text-ink-4">互联网新闻信息服务许可证：{SITE.newsLicense}</p>}
+      {filings.newsLicense && <p className="mt-4 text-[12.5px] text-ink-4">互联网新闻信息服务许可证：{filings.newsLicense}</p>}
 
       <footer className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5 text-[12.5px] text-ink-4">
         <nav className="flex gap-5" aria-label="规则与隐私">

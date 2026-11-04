@@ -15208,6 +15208,128 @@
         ],
         "type": "object"
       },
+      "SiteFilings": {
+        "additionalProperties": false,
+        "properties": {
+          "icp": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "newsLicense": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publicSecurity": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "pattern": "^\\d{10,20}$",
+                    "type": "string"
+                  },
+                  "text": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "text",
+                  "code"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "icp",
+          "publicSecurity",
+          "newsLicense"
+        ],
+        "type": "object"
+      },
+      "SiteFilingsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "icp": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "newsLicense": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publicSecurity": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "pattern": "^\\d{10,20}$",
+                    "type": "string"
+                  },
+                  "text": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "text",
+                  "code"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "icp",
+          "publicSecurity",
+          "newsLicense"
+        ],
+        "type": "object"
+      },
       "SiteFilters": {
         "additionalProperties": false,
         "properties": {
@@ -15601,6 +15723,56 @@
           "metalLinks",
           "revision",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "SiteMeta": {
+        "additionalProperties": false,
+        "properties": {
+          "changelogVersion": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "filings": {
+            "$ref": "#/components/schemas/SiteFilings"
+          }
+        },
+        "required": [
+          "changelogVersion",
+          "filings"
+        ],
+        "type": "object"
+      },
+      "SiteMetaInput": {
+        "additionalProperties": false,
+        "properties": {
+          "changelogVersion": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "filings": {
+            "$ref": "#/components/schemas/SiteFilingsInput"
+          }
+        },
+        "required": [
+          "changelogVersion",
+          "filings"
         ],
         "type": "object"
       },
@@ -25058,6 +25230,36 @@
               }
             },
             "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/site/meta": {
+      "get": {
+        "operationId": "siteMeta",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteMeta"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "304": {
+            "description": "Default Response"
           },
           "503": {
             "content": {

@@ -8,6 +8,9 @@ export async function startApi(env: Readonly<Record<string, string | undefined>>
   assertProcessEnvironment("api", env);
   // Reject an invalid role or forbidden environment before loading backend configuration or credentials.
   const { assertProductionSecrets, config, isProduction } = await import("@amp/backend/config");
+  const { assertSiteFilings } = await import("@amp/backend/site/meta");
+  // Footer filing numbers are deployment settings: a malformed number, or a missing one under SITE_REQUIRE_FILINGS, stops start-up.
+  assertSiteFilings(env);
   const { feishuLoginConfigured } = await import("@amp/backend/admin/auth");
   assertProductionSecrets([
     ["auth", "PUBLIC_RATE_LIMIT_SECRET"],
