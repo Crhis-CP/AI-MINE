@@ -24,12 +24,38 @@ h1 { margin: 0; font-size: 26px; }
 .tile.dark { background: #0F1416; }
 .tile img { height: 44px; width: auto; max-width: 100%; }
 .why { grid-column: 1 / -1; font-size: 14px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 12px; }
-@media (max-width: 860px) { .dir { grid-template-columns: minmax(0, 1fr); } .tiles { grid-template-columns: minmax(0, 1fr); } }
+.inuse { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; }
+.inuse h2 { grid-column: 1 / -1; margin: 0; font-size: 18px; }
+.tabs { display: grid; gap: 0; background: #DDE1E3; border-radius: 12px; padding: 8px 8px 0; align-content: start; }
+.tab { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; margin-bottom: 6px; background: #FFFFFF; border-radius: 9px; font: 13px/1 system-ui, sans-serif; color: #1F2328; }
+.tab span { flex: 1; }
+.tab b { font: 600 11px/1 system-ui; color: #8A9196; }
+.home { display: flex; flex-wrap: wrap; gap: 18px; align-items: start; padding: 22px; border-radius: 18px; background: linear-gradient(160deg, #3B4A5A, #1E2731); }
+.home figure { margin: 0; display: grid; justify-items: center; gap: 6px; color: #F2F4F5; font: 11px/1.2 system-ui, sans-serif; }
+.home img { border-radius: 14px; box-shadow: 0 6px 14px -6px rgb(0 0 0 / .6); }
+.home .other span { width: 60px; height: 60px; border-radius: 14px; background: rgb(255 255 255 / .18); display: block; }
+@media (max-width: 860px) { .dir { grid-template-columns: minmax(0, 1fr); } .tiles { grid-template-columns: minmax(0, 1fr); } .inuse { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
 <body>
 <main>
   <header><h1>AI矿策 · LOGO 方案</h1><p class="lead">三个图形标，各配中文与英文字标。字标为字体轮廓转换的路径（Noto Sans SC Bold 及各方向的拉丁字体，均为 SIL OFL 许可），不依赖用户设备字体。</p></header>
+
+  <section class="inuse" aria-label="实际使用效果">
+    <h2>实际使用：浏览器标签页 · 手机桌面图标</h2>
+    <div class="tabs">
+      <div class="tab"><img src="a-mark-light.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span><b>A</b></div>
+      <div class="tab"><img src="b-mark-light.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span><b>B</b></div>
+      <div class="tab"><img src="c-mark-light.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span><b>C</b></div>
+    </div>
+    <div class="home">
+      <figure><img src="a-mark-light.svg" width="60" height="60" alt=""><figcaption>A 岩芯</figcaption></figure>
+      <figure><img src="b-mark-light.svg" width="60" height="60" alt=""><figcaption>B 矿脉</figcaption></figure>
+      <figure><img src="c-mark-light.svg" width="60" height="60" alt=""><figcaption>C 勘探图</figcaption></figure>
+      <figure class="other"><span></span><figcaption>其他应用</figcaption></figure>
+      <figure class="other"><span></span><figcaption>其他应用</figcaption></figure>
+    </div>
+  </section>
 
   <section class="dir">
     <div><h2>A · 岩芯</h2><p>岩芯箱里的三排岩芯，中间一段是“见矿”区间，用黄铜色标出。也像三行文字：读资讯，找到有价值的那一段。</p>

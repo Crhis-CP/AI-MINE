@@ -11,6 +11,7 @@
 | 方向 C 勘探图（可交互原型） | [c-survey/index.html](c-survey/index.html) |
 | 三套 LOGO 对比 | [logos/index.html](logos/index.html) |
 | 截图（2 倍图，WebP 格式） | [screenshots/](screenshots/) |
+| 样式图（每个方向一张：色板、字体、组件、截图、LOGO；另有 LOGO 对比图） | [style-boards/](style-boards/)：`a.webp`、`b.webp`、`c.webp`、`logos.webp`，对应源文件为同名 `.html` |
 
 在本地用浏览器打开对应的 `index.html` 就能看，不需要构建，也不联网。
 

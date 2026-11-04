@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=1600">
+<title>样式图 · A · 岩芯</title>
+<style>
+@font-face { font-family: "Instrument Sans"; src: url("../shared/fonts/InstrumentSans_600SemiBold.woff2") format("woff2"); font-weight: 600; }
+@font-face { font-family: "Instrument Sans"; src: url("../shared/fonts/InstrumentSans_400Regular.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "JetBrains Mono"; src: url("../shared/fonts/JetBrainsMono_500Medium.woff2") format("woff2"); font-weight: 500; }
+:root { --bg: #ECEFEE; --surface: #FBFCFB; --sunk: #E2E7E6; --ink: #172024; --muted: #56636A; --line: #D3DBDA; --accent: #C79A2E; --brass: #7F5B0C; --hem: #A3361F; --sans: "Instrument Sans", "PingFang SC", "HarmonyOS Sans SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; --latin: "Instrument Sans", sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { width: 1600px; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+.board { padding: 48px 56px 40px; display: grid; gap: 28px; }
+.top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 32px; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.top .lock { height: 64px; }
+.top h1 { margin: 0; font-size: 34px; line-height: 1.2; letter-spacing: .01em; }
+.top p { margin: 6px 0 0; color: var(--muted); font-size: 16px; max-width: 46em; }
+.top .fit { justify-self: end; text-align: right; font-size: 14px; color: var(--muted); max-width: 300px; }
+.top .fit b { display: block; color: var(--ink); font-size: 15px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.shot { display: block; width: 100%; border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 30px 60px -36px rgb(0 0 0 / .45); }
+.phone { width: 300px; border-radius: 28px; border: 6px solid var(--ink); box-shadow: 0 30px 60px -36px rgb(0 0 0 / .5); display: block; }
+.cap { font-size: 12px; color: var(--muted); margin-top: 8px; letter-spacing: .04em; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 24px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 14px; align-content: start; }
+.panel h2 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.sw { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sw div { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+.sw i { display: block; height: 52px; }
+.sw span { display: block; padding: 6px 8px; font-size: 12px; line-height: 1.35; }
+.sw small { display: block; color: var(--muted); font: 11px/1.3 var(--mono); }
+.sub { font-size: 12px; color: var(--muted); margin: 2px 0 -4px; }
+.type .zh-h { font-size: 26px; font-weight: 700; line-height: 1.35; }
+.type .zh-b { font-size: 16px; line-height: 1.8; color: var(--muted); }
+.type .lat { font-family: var(--latin); font-size: 22px; font-weight: 600; }
+.type .num { font-family: var(--mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+.type .spec { font: 11px/1.4 var(--mono); color: var(--muted); }
+.marks { display: flex; gap: 14px; align-items: end; }
+.marks figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.lockups { display: grid; gap: 12px; }
+.lockups .lt { padding: 14px; border-radius: 12px; background: #F7F8F8; border: 1px solid #DCE1E1; display: grid; gap: 10px; }
+.lockups .dk { padding: 14px; border-radius: 12px; background: #0F1416; display: grid; gap: 10px; }
+.lockups img { height: 34px; width: auto; }
+.motion { font-size: 14px; color: var(--muted); border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; }
+.foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+.comp-label { font-size: 11px; color: var(--muted); letter-spacing: .08em; margin-bottom: -6px; }
+.none { font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 3px 8px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 12px; display: grid; gap: 7px; }
+.meta { display: flex; gap: 8px; font-size: 12px; color: var(--muted); align-items: center; flex-wrap: wrap; } .meta .m { font-family: var(--mono); }
+.badge { margin-left: auto; font: 600 12px/1 var(--mono); padding: 4px 7px; border-radius: 6px; background: var(--sunk); }
+.hi { color: var(--hem); } .mid { color: var(--brass); } .lo { color: var(--muted); }
+.card h3 { margin: 0; font-size: 17px; line-height: 1.45; } .card p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.65; }
+.foot2 { display: flex; gap: 8px; font-size: 12px; color: var(--muted); align-items: center; } .tag { background: var(--sunk); color: var(--ink); padding: 2px 8px; border-radius: 6px; }
+.assay { height: 4px; border-radius: 4px; background: var(--line); } .assay i { display: block; height: 100%; width: 88%; border-radius: inherit; background: #C9512F; }
+.badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chips { display: flex; gap: 8px; } .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 14px; } .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.life { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; } .life i { height: 12px; border-radius: 3px; background: var(--accent); } .life i.cur { background: #C9512F; }
+.lifel { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; font: 10px/1.3 var(--mono); color: var(--muted); }
+.btn { justify-self: start; background: var(--ink); color: var(--bg); border-radius: 10px; padding: 10px 18px; font-weight: 600; }
+</style></head>
+<body><div class="board">
+  <header class="top">
+    <img class="lock" src="../logos/a-lockup-zh-light.svg" alt="AI矿策 A · 岩芯 组合标">
+    <div><h1>方向 A · 岩芯</h1><p>资讯流像一份岩芯编录：左侧是时间刻度尺，每条资讯是一个区间，下方的“化验条”显示 AI 评分。安静、专业，适合长时间阅读。</p></div>
+    <div class="fit"><b>适合</b>以“读”为主的读者：每天花十几分钟认真读几条变化</div>
+  </header>
+  <section class="hero">
+    <div><img class="shot" src="../screenshots/a-home-light.webp" alt="A · 岩芯 桌面首页"><div class="cap">桌面首页 · 1440 宽 · 演示数据</div></div>
+    <div><img class="phone" src="../screenshots/a-mobile.webp" alt="A · 岩芯 手机首页"><div class="cap">手机首页 · 390 宽</div></div>
+  </section>
+  <section class="grid3">
+    <div class="panel"><h2>色板</h2>
+      <div class="sub">浅色（默认）</div><div class="sw"><div><i style="background:#ECEFEE"></i><span>石灰岩底<small>#ECEFEE</small></span></div><div><i style="background:#FBFCFB"></i><span>岩芯白<small>#FBFCFB</small></span></div><div><i style="background:#172024"></i><span>玄武岩墨<small>#172024</small></span></div><div><i style="background:#C79A2E"></i><span>黄铜（强调）<small>#C79A2E</small></span></div><div><i style="background:#C9512F"></i><span>赤铁红（高分）<small>#C9512F</small></span></div><div><i style="background:#D3DBDA"></i><span>岩层线<small>#D3DBDA</small></span></div></div>
+      <div class="sub">深色</div><div class="sw"><div><i style="background:#0F1416"></i><span>玄武岩底<small>#0F1416</small></span></div><div><i style="background:#161D20"></i><span>面板<small>#161D20</small></span></div><div><i style="background:#E6ECEB"></i><span>字色<small>#E6ECEB</small></span></div><div><i style="background:#DDB458"></i><span>黄铜<small>#DDB458</small></span></div><div><i style="background:#F08A6C"></i><span>赤铁红<small>#F08A6C</small></span></div><div><i style="background:#283236"></i><span>分隔线<small>#283236</small></span></div></div></div>
+    <div class="panel type"><h2>字体与标识</h2>
+      <div class="zh-h">萨尔塔省公布环评咨询日程</div>
+      <div class="zh-b">中文标题与正文使用系统字体（苹方、鸿蒙、思源黑体），正文 17–18px，行高 1.8，每行约 38 字。</div>
+      <div class="lat">Instrument Sans — Mining policy, read clearly</div>
+      <div class="num">9,842 USD/t  +0.6%  11-04 09:42</div>
+      <div class="spec">拉丁 Instrument Sans 400/600/700 · 数字 JetBrains Mono · 中文系统字体</div>
+      <div class="marks"><figure><img src="../logos/a-mark-light.svg" width="72" height="72" alt=""><figcaption>512</figcaption></figure><figure><img src="../logos/a-mark-light.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure><figure><img src="../logos/a-mark-light.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure><figure><img src="../logos/a-mark-dark.svg" width="32" height="32" alt=""><figcaption>深色</figcaption></figure></div>
+      <div class="lockups"><div class="lt"><img src="../logos/a-lockup-en-light.svg" alt="AI Mining Policy"></div><div class="dk"><img src="../logos/a-lockup-zh-dark.svg" alt="AI矿策 深色"></div></div>
+    </div>
+    <div class="panel"><h2>关键组件</h2><div class="comp-label">资讯卡片</div>
+<div class="card"><div class="meta"><span>阿根廷 · 萨尔塔</span><span class="m">24.79°S 65.41°W</span><span style="color:var(--brass);font-weight:600">精选</span><span class="badge hi">88</span></div>
+<h3>萨尔塔省公布盐湖提锂项目环评的公众咨询日程</h3><p>省级主管部门列出咨询开放日期、听证地点和书面意见截止时间。</p>
+<div class="foot2"><span class="tag">锂</span><span class="tag">审批</span><span>4 家独立来源 · 2 条新增事实</span></div><div class="assay"><i></i></div></div>
+<div class="comp-label">评分四档</div><div class="badges"><span class="badge hi" style="margin:0">AI 评分 88</span><span class="badge mid" style="margin:0">AI 评分 76</span><span class="badge lo" style="margin:0">AI 评分 62</span><span class="none">无评分：不显示任何标记</span></div>
+<div class="comp-label">筛选</div><div class="chips"><span class="chip on">全部</span><span class="chip">铜</span><span class="chip">锂</span><span class="chip">阿根廷</span></div>
+<div class="comp-label">法规生命周期</div><div class="life"><i></i><i></i><i></i><i></i><i class="cur"></i></div><div class="lifel"><span>修订通过</span><span>法律施行</span><span>条例通过</span><span>公布</span><span>施行</span></div>
+<span class="btn">阅读原文 ↗</span><div class="motion">动效：刻度尺由上往下绘出；化验条依次填满；卡片悬停时轻微上浮。开启“减少动态效果”后全部静止。</div></div>
+  </section>
+  <footer class="foot"><span>AI矿策 · 读者端改版 · 方向 A · 岩芯</span><span>原型与截图均为演示数据，非真实资讯</span></footer>
+</div></body></html>

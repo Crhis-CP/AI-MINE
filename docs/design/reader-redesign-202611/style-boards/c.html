@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=1600">
+<title>样式图 · C · 勘探图</title>
+<style>
+@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_600SemiBold.woff2") format("woff2"); font-weight: 600; }
+@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_400Regular.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Barlow Condensed"; src: url("../shared/fonts/BarlowCondensed_600SemiBold.woff2") format("woff2"); font-weight: 600; }
+:root { --bg: #F4F6F6; --surface: #FFFFFF; --sunk: #EBEFF0; --ink: #17232D; --muted: #52616C; --line: #D7DEE1; --accent: #E8590C; --stake-ink: #9E3907; --olive: #4F5F22; --olivef: #8A9A4B; --contour: #C8B191; --hi: #B42318; --sans: "Barlow", "PingFang SC", "HarmonyOS Sans SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; --latin: "Barlow", sans-serif; --mono: "Barlow Condensed", "Barlow", sans-serif; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { width: 1600px; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+.board { padding: 48px 56px 40px; display: grid; gap: 28px; }
+.top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 32px; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.top .lock { height: 64px; }
+.top h1 { margin: 0; font-size: 34px; line-height: 1.2; letter-spacing: .01em; }
+.top p { margin: 6px 0 0; color: var(--muted); font-size: 16px; max-width: 46em; }
+.top .fit { justify-self: end; text-align: right; font-size: 14px; color: var(--muted); max-width: 300px; }
+.top .fit b { display: block; color: var(--ink); font-size: 15px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.shot { display: block; width: 100%; border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 30px 60px -36px rgb(0 0 0 / .45); }
+.phone { width: 300px; border-radius: 28px; border: 6px solid var(--ink); box-shadow: 0 30px 60px -36px rgb(0 0 0 / .5); display: block; }
+.cap { font-size: 12px; color: var(--muted); margin-top: 8px; letter-spacing: .04em; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 24px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 14px; align-content: start; }
+.panel h2 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.sw { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sw div { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+.sw i { display: block; height: 52px; }
+.sw span { display: block; padding: 6px 8px; font-size: 12px; line-height: 1.35; }
+.sw small { display: block; color: var(--muted); font: 11px/1.3 var(--mono); }
+.sub { font-size: 12px; color: var(--muted); margin: 2px 0 -4px; }
+.type .zh-h { font-size: 26px; font-weight: 700; line-height: 1.35; }
+.type .zh-b { font-size: 16px; line-height: 1.8; color: var(--muted); }
+.type .lat { font-family: var(--latin); font-size: 22px; font-weight: 600; }
+.type .num { font-family: var(--mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+.type .spec { font: 11px/1.4 var(--mono); color: var(--muted); }
+.marks { display: flex; gap: 14px; align-items: end; }
+.marks figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.lockups { display: grid; gap: 12px; }
+.lockups .lt { padding: 14px; border-radius: 12px; background: #F7F8F8; border: 1px solid #DCE1E1; display: grid; gap: 10px; }
+.lockups .dk { padding: 14px; border-radius: 12px; background: #0F1416; display: grid; gap: 10px; }
+.lockups img { height: 34px; width: auto; }
+.motion { font-size: 14px; color: var(--muted); border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; }
+.foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+.comp-label { font-size: 11px; color: var(--muted); letter-spacing: .08em; margin-bottom: -6px; }
+.none { font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 3px 8px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 7px; }
+.loc { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); flex-wrap: wrap; } .coord { font: 600 13px/1 var(--mono); letter-spacing: .04em; }
+.flag { margin-left: auto; font: 600 14px/1 var(--mono); padding: 4px 8px 4px 6px; border-radius: 4px; background: var(--sunk); display: inline-flex; gap: 4px; align-items: center; }
+.flag::before { content: ""; width: 3px; height: 14px; background: currentColor; border-radius: 1px; }
+.f-hi { color: var(--hi); } .f-mid { color: var(--stake-ink); } .f-lo { color: var(--muted); }
+.card h3 { margin: 0; font-size: 17px; line-height: 1.45; font-weight: 600; } .card p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.65; }
+.meta { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); } .tag { background: var(--sunk); color: var(--ink); padding: 2px 8px; border-radius: 4px; } .tag.p { background: rgb(232 89 12 / .16); color: var(--stake-ink); font-weight: 600; }
+.flags { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; } .seg span { padding: 6px 12px; border-radius: 8px; font-size: 14px; color: var(--muted); font-weight: 600; } .seg span.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.chips { display: flex; gap: 8px; } .chip { border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; } .chip.on { background: #E8590C; border-color: #E8590C; color: #1A0E06; font-weight: 600; }
+.bench { display: grid; grid-template-columns: repeat(5, 1fr); justify-items: center; gap: 4px; border-top: 1.5px dashed var(--contour); padding-top: 10px; }
+.bench svg { width: 26px; height: 22px; }
+.btn { justify-self: start; background: #E8590C; color: #1A0E06; border-radius: 10px; padding: 10px 18px; font-weight: 600; }
+</style></head>
+<body><div class="board">
+  <header class="top">
+    <img class="lock" src="../logos/c-lockup-zh-light.svg" alt="AI矿策 C · 勘探图 组合标">
+    <div><h1>方向 C · 勘探图</h1><p>一张勘查图：页头的等高线缓缓漂移，首页先看世界点阵地图（阿根廷优先），资讯按地区分组，法规步骤是测量三角点。</p></div>
+    <div class="fit"><b>适合</b>关心特定国家，尤其是阿根廷，习惯从地理位置看变化的读者</div>
+  </header>
+  <section class="hero">
+    <div><img class="shot" src="../screenshots/c-home-light.webp" alt="C · 勘探图 桌面首页"><div class="cap">桌面首页 · 1440 宽 · 演示数据</div></div>
+    <div><img class="phone" src="../screenshots/c-mobile.webp" alt="C · 勘探图 手机首页"><div class="cap">手机首页 · 390 宽</div></div>
+  </section>
+  <section class="grid3">
+    <div class="panel"><h2>色板</h2>
+      <div class="sub">浅色（默认）</div><div class="sw"><div><i style="background:#F4F6F6"></i><span>测绘白底<small>#F4F6F6</small></span></div><div><i style="background:#FFFFFF"></i><span>图纸<small>#FFFFFF</small></span></div><div><i style="background:#17232D"></i><span>蓝黑墨<small>#17232D</small></span></div><div><i style="background:#E8590C"></i><span>测量桩橙（强调）<small>#E8590C</small></span></div><div><i style="background:#8A9A4B"></i><span>地形橄榄<small>#8A9A4B</small></span></div><div><i style="background:#C8B191"></i><span>等高线棕<small>#C8B191</small></span></div></div>
+      <div class="sub">深色</div><div class="sw"><div><i style="background:#0F1519"></i><span>夜间图底<small>#0F1519</small></span></div><div><i style="background:#162026"></i><span>面板<small>#162026</small></span></div><div><i style="background:#E5EBED"></i><span>字色<small>#E5EBED</small></span></div><div><i style="background:#FF7A33"></i><span>橙<small>#FF7A33</small></span></div><div><i style="background:#BCCB80"></i><span>橄榄<small>#BCCB80</small></span></div><div><i style="background:#5A4835"></i><span>等高线<small>#5A4835</small></span></div></div></div>
+    <div class="panel type"><h2>字体与标识</h2>
+      <div class="zh-h">萨尔塔省公布环评咨询日程</div>
+      <div class="zh-b">中文标题与正文使用系统字体（苹方、鸿蒙、思源黑体），正文 17–18px，行高 1.8，每行约 38 字。</div>
+      <div class="lat">Barlow — Survey the shifts</div>
+      <div class="num">9,842 USD/t  +0.6%  11-04 09:42</div>
+      <div class="spec">拉丁 Barlow 400/600 · 标注 Barlow Condensed · 中文系统字体</div>
+      <div class="marks"><figure><img src="../logos/c-mark-light.svg" width="72" height="72" alt=""><figcaption>512</figcaption></figure><figure><img src="../logos/c-mark-light.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure><figure><img src="../logos/c-mark-light.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure><figure><img src="../logos/c-mark-dark.svg" width="32" height="32" alt=""><figcaption>深色</figcaption></figure></div>
+      <div class="lockups"><div class="lt"><img src="../logos/c-lockup-en-light.svg" alt="AI Mining Policy"></div><div class="dk"><img src="../logos/c-lockup-zh-dark.svg" alt="AI矿策 深色"></div></div>
+    </div>
+    <div class="panel"><h2>关键组件</h2><div class="comp-label">资讯卡片</div>
+<div class="card"><div class="loc"><span>▲ 阿根廷 · 萨尔塔</span><span class="coord">24.79°S 65.41°W</span><span>· 09:42</span><span class="flag f-hi">88</span></div>
+<h3>萨尔塔省公布盐湖提锂项目环评的公众咨询日程</h3><p>省级主管部门列出咨询开放日期、听证地点和书面意见截止时间。</p>
+<div class="meta"><span class="tag p">精选</span><span class="tag">锂</span><span class="tag">审批</span><span>4 家独立来源 · 2 条新增事实</span></div></div>
+<div class="comp-label">评分四档</div><div class="flags"><span class="flag f-hi" style="margin:0">88</span><span class="flag f-mid" style="margin:0">76</span><span class="flag f-lo" style="margin:0">62</span><span class="none">无评分：不显示任何标记</span></div>
+<div class="comp-label">筛选</div><div class="seg"><span class="on">国家</span><span>矿种</span><span>产业链</span><span>公司</span></div><div class="chips"><span class="chip on">阿根廷</span><span class="chip">智利</span><span class="chip">秘鲁</span></div>
+<div class="comp-label">法规生命周期（测量三角点）</div><div class="bench">
+<svg viewBox="0 0 30 26"><path d="M15 2L28 24H2z" fill="#8A9A4B" stroke="#E8590C" stroke-width="1.6" stroke-linejoin="round"/></svg>
+<svg viewBox="0 0 30 26"><path d="M15 2L28 24H2z" fill="#8A9A4B" stroke="#E8590C" stroke-width="1.6" stroke-linejoin="round"/></svg>
+<svg viewBox="0 0 30 26"><path d="M15 2L28 24H2z" fill="#8A9A4B" stroke="#E8590C" stroke-width="1.6" stroke-linejoin="round"/></svg>
+<svg viewBox="0 0 30 26"><path d="M15 2L28 24H2z" fill="#8A9A4B" stroke="#E8590C" stroke-width="1.6" stroke-linejoin="round"/></svg>
+<svg viewBox="0 0 30 26"><path d="M15 2L28 24H2z" fill="#E8590C" stroke="#E8590C" stroke-width="1.6" stroke-linejoin="round"/><circle cx="15" cy="16" r="3" fill="#F4F6F6"/></svg></div>
+<span class="btn">阅读原文 ↗</span><div class="motion">动效：页头等高线缓慢漂移；地图圆点依次落下，阿根廷位置闪 3 次；卡片悬停时轻微上浮。开启“减少动态效果”后全部静止。</div></div>
+  </section>
+  <footer class="foot"><span>AI矿策 · 读者端改版 · 方向 C · 勘探图</span><span>原型与截图均为演示数据，非真实资讯</span></footer>
+</div></body></html>
