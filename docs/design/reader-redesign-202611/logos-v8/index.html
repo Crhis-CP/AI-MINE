@@ -1,0 +1,69 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=1600"><title>AI矿策 · LOGO 铜青铜铁·硅晶</title>
+<style>@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_600SemiBold.woff2") format("woff2"); font-weight: 600; }@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_400Regular.woff2") format("woff2"); font-weight: 400 500; }
+* { box-sizing: border-box; } html, body { margin: 0; }
+body { width: 1600px; background: #0B2E22; color: #EEF4F0; font: 15px/1.6 "PingFang SC", "Noto Sans SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.top { display: grid; grid-template-columns: 540px 1fr; gap: 56px; align-items: center; padding: 64px 70px 50px; background: radial-gradient(70% 100% at 22% 40%, #1D6A4B 0%, #0B2E22 72%); }
+.top img { width: 500px; height: 500px; border-radius: 112px; box-shadow: 0 50px 80px -40px #021A12, 0 0 0 1px #1F5A43; }
+.kicker { font: 600 13px/1 "Barlow", sans-serif; letter-spacing: .3em; color: #E0A06A; text-transform: uppercase; }
+h1 { margin: 12px 0 0; font-size: 46px; line-height: 1.18; }
+.lead { margin: 16px 0 0; font-size: 19px; line-height: 1.8; color: #CFE0D6; }
+.ages { display: grid; grid-template-columns: repeat(4, auto); justify-content: start; gap: 0 26px; margin-top: 24px; }
+.ages div { display: grid; gap: 4px; } .ages i { width: 44px; height: 10px; border-radius: 6px; display: block; }
+.ages b { font-size: 19px; } .ages span { font: 500 13px/1.4 "Barlow", "Noto Sans SC", sans-serif; color: #A9C2B5; }
+.paper { background: #F3F5F1; color: #10241B; padding: 46px 70px 42px; display: grid; gap: 24px; }
+.card { background: #fff; border: 1px solid #DCE3DD; border-radius: 18px; padding: 20px 22px; display: grid; gap: 14px; align-content: start; }
+.card h2 { margin: 0; font-size: 13px; letter-spacing: .16em; color: #6E8478; font-weight: 600; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.cmp { display: grid; grid-template-columns: 170px 1fr; gap: 18px; align-items: center; }
+.cmp img { width: 170px; height: 170px; border-radius: 38px; } .cmp h3 { margin: 0 0 6px; font-size: 22px; } .cmp p { margin: 0; color: #4A5E54; font-size: 14px; line-height: 1.75; }
+.rec { display: inline-block; background: #C46A33; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin-left: 8px; vertical-align: 3px; }
+.vars { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
+.vars figure { margin: 0; display: grid; justify-items: center; gap: 5px; font-size: 12px; color: #6E8478; }
+.wb { box-shadow: 0 0 0 1px #DCE3DD; border-radius: 26px; }
+.md { background: #fff; border: 1px solid #DCE3DD; border-radius: 12px; padding: 8px; } .ml { background: #0B2E22; border-radius: 12px; padding: 8px; }
+.locks { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .locks div { border-radius: 14px; padding: 18px; display: grid; place-items: center; }
+.locks .lt { background: #fff; border: 1px solid #DCE3DD; } .locks .dk { background: #123F2E; } .locks img { height: 66px; }
+.scenes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; }
+.phone { background: linear-gradient(170deg, #2C3B33, #0F1713); border-radius: 26px; padding: 22px 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.phone figure { margin: 0; display: grid; justify-items: center; gap: 5px; color: #EEF2EF; font: 10px/1.2 system-ui, sans-serif; }
+.phone img, .phone .x { width: 54px; height: 54px; border-radius: 12px; } .phone .x { background: rgb(255 255 255 / .15); }
+.tabs { background: #DDE3E0; border-radius: 12px; padding: 8px 8px 2px; }
+.tab { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; margin-bottom: 6px; background: #fff; border-radius: 8px; font: 12px/1 system-ui, sans-serif; } .tab span { flex: 1; } .tab.dim { opacity: .5; }
+.site { border-radius: 10px; overflow: hidden; border: 1px solid #DCE3DD; } .site .bar { height: 22px; background: #E5EAE7; display: flex; align-items: center; gap: 5px; padding: 0 8px; } .site .bar i { width: 7px; height: 7px; border-radius: 50%; background: #C0C8C3; }
+.site .hd { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff; } .site .hd img { height: 34px; } .site .hd span { font-size: 11px; color: #4A5E54; } .site .hd span.on { color: #10241B; font-weight: 600; box-shadow: inset 0 -2px 0 #C46A33; }
+.plaque { aspect-ratio: 1.5; border-radius: 6px; display: grid; place-items: center; background: repeating-linear-gradient(90deg, #2B2F33 0 2px, #33383D 2px 4px); box-shadow: inset 0 0 0 4px #1B1E21, inset 0 0 0 6px #4A5056; }
+.plaque img { width: 70%; }
+.note { font-size: 13px; color: #4A5E54; line-height: 1.75; margin: 0; }
+.foot { display: flex; justify-content: space-between; font-size: 12px; color: #6E8478; border-top: 1px solid #DCE3DD; padding-top: 14px; }
+</style></head>
+<body>
+<header class="top"><img src="main-icon-hero.svg" alt="AI矿策 标志：铜、青铜、铁三道旋臂围绕硅晶核心，孔雀石绿底">
+<div><div class="kicker">AI Mining Policy · 铜 · 青铜 · 铁 · 硅</div>
+<h1>从铜到硅：人类的金属时代，汇成 AI 的核心</h1>
+<p class="lead">三道旋臂是人类用得最多、也最改变历史的金属：<b>铜</b>（人类最早大规模使用的金属）、<b>青铜</b>（铜和锡合成，开启青铜时代）、<b>铁</b>（至今用量最大的金属）。它们像古老的三曲纹一样旋转，汇向中心那颗<b>硅晶</b>：今天的芯片和 AI 由硅造成。底色是<b>孔雀石绿</b>：孔雀石本身就是一种铜矿石，是大自然的颜色，也是一切的根基。</p>
+<div class="ages"><div><i style="background:linear-gradient(90deg,#F0A06A,#7A3410)"></i><b>铜</b><span>约公元前 5000 年起</span></div><div><i style="background:linear-gradient(90deg,#E6CB92,#6E5223)"></i><b>青铜</b><span>约公元前 3300 年起</span></div><div><i style="background:linear-gradient(90deg,#E3E8EE,#4B545E)"></i><b>铁</b><span>约公元前 1200 年起</span></div><div><i style="background:linear-gradient(90deg,#FFFFFF,#8C9FC2)"></i><b>硅 · AI</b><span>20 世纪 50 年代起</span></div></div>
+</div></header>
+<section class="paper">
+  <div class="two">
+    <section class="card cmp"><img src="main-icon-hero.svg" alt=""><div><h3>铜 · 青铜 · 铁<span class="rec">推荐</span></h3><p>三道旋臂对应三个金属时代，按时间顺序一条接一条，最后汇入硅晶，故事最完整。暖铜、古铜、冷铁三种质感，层次清楚。</p></div></section>
+    <section class="card cmp"><img src="alt-icon-hero.svg" alt=""><div><h3>铜 · 铁 · 金（备选）</h3><p>改用三种最常见的金属：铜和铁用量最大，金是价值的象征。比全金版更丰富，但金色仍偏亮，和“三道金”的联想会多一些。</p></div></section>
+  </div>
+  <section class="card"><h2>主方案：配色与尺寸</h2><div class="vars">
+    <figure><img src="main-icon-hero.svg" width="120" height="120" alt=""><figcaption>App 图标 · 金属质感</figcaption></figure>
+    <figure><img src="main-icon-green.svg" width="120" height="120" alt=""><figcaption>孔雀石绿 · 平涂（主标）</figcaption></figure>
+    <figure><img class="wb" src="main-icon-white.svg" width="120" height="120" alt=""><figcaption>白底</figcaption></figure>
+    <figure><img src="main-icon-ink.svg" width="120" height="120" alt=""><figcaption>深墨底</figcaption></figure>
+    <figure><div class="md"><img src="main-glyph-mono-black.svg" width="72" height="72" alt=""></div><figcaption>单色黑</figcaption></figure>
+    <figure><div class="ml"><img src="main-glyph-mono-white.svg" width="72" height="72" alt=""></div><figcaption>单色白</figcaption></figure>
+    <figure><img src="main-icon-hero.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+    <figure><img src="main-icon-hero.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+  </div></section>
+  <section class="card"><h2>组合标</h2><div class="locks"><div class="lt"><img src="main-lockup-light.svg" alt=""></div><div class="dk"><img src="main-lockup-dark.svg" alt=""></div></div></section>
+  <div class="scenes">
+    <section class="card"><h2>手机桌面</h2><div class="phone"><figure><img src="main-icon-hero.svg" alt=""><figcaption>AI矿策</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure></div></section>
+    <section class="card"><h2>标签页 · 网站页头</h2><div class="tabs"><div class="tab"><img src="main-icon-hero.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span></div><div class="tab dim"><span>其他网站</span></div></div>
+      <div class="site"><div class="bar"><i></i><i></i><i></i></div><div class="hd"><img src="main-lockup-light.svg" alt=""><span class="on">精选</span><span>热点</span><span>法规政策</span></div></div></section>
+    <section class="card"><h2>说明</h2><p class="note">· 绿色选用孔雀石绿（色相约 155°），和上游项目的青绿色（约 186°）明显不同。<br>· 紫金矿业的公司标识没有查到官方释义；港交所的认可金库名单把它金锭上的印记描述为“双新月”标志。本方案用三种不同的金属色、三条长旋臂，再加中心晶体，与“全金弯月”的观感明显不同。<br>· 三条旋臂彼此分开、中心是实心晶体，不会形成环形 O。<br>· 设计稿只自查了相似性，没有做商标检索。</p></section>
+  </div>
+  <footer class="foot"><span>AI矿策 · LOGO · 铜青铜铁 · 硅晶 · 孔雀石绿</span><span>年代为通行的大致年代</span></footer>
+</section></body></html>
