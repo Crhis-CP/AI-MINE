@@ -117,7 +117,7 @@ export function SiteHeader() {
   return (
     <header className="site-header relative hidden border-b border-line bg-surface lg:block">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <svg className="site-contours" viewBox="0 0 2880 90" preserveAspectRatio="none" focusable="false">
+        <svg className="site-contours" viewBox="0 0 2880 90" preserveAspectRatio="none" aria-hidden="true" focusable="false">
           {CONTOURS.map((d) => (
             <path key={d} d={d} />
           ))}
