@@ -40,7 +40,11 @@ export function PolicyTabs({ active = "policies" }: { active?: string }) {
     current = new URLSearchParams(location.search);
   const preserve = (to: string) => {
     const target = new URL(to, "https://site.invalid");
-    for (const key of ["jurisdiction", "theme"]) if (current.get(key)) target.searchParams.set(key, current.get(key)!);
+    // The list's own “all themes” value is not a theme; the reports take only real filters.
+    for (const key of ["jurisdiction", "theme"]) {
+      const value = current.get(key);
+      if (value && !(key === "theme" && value === "all")) target.searchParams.set(key, value);
+    }
     return target.pathname + target.search;
   };
   return (

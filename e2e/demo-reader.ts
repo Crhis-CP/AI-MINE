@@ -993,17 +993,28 @@ function policyCard(seed: PolicySeed) {
 
 const POLICY_CARDS = POLICY_SEEDS.map((seed) => PolicyCard.parse(policyCard(seed)));
 
-export function demoPolicies(page = 1) {
-  const pageSize = 20,
-    items = POLICY_CARDS.slice((page - 1) * pageSize, page * pageSize);
+/** The list filters the public API applies; the demo honours the ones its five cards can answer. */
+export type DemoPolicyQuery = { jurisdiction?: string; theme?: string; nature?: string; stage?: string; q?: string; page?: number; page_size?: number };
+export function demoPolicies(query: DemoPolicyQuery = {}) {
+  const page = Math.max(1, query.page ?? 1),
+    pageSize = Math.min(50, Math.max(1, query.page_size ?? 20)),
+    needle = query.q?.trim().toLowerCase();
+  const matching = POLICY_CARDS.filter(
+    (card) =>
+      (!query.jurisdiction || card.jurisdictions.some((j) => j.code === query.jurisdiction)) &&
+      (!query.theme || card.themes.some((t) => t.code === query.theme)) &&
+      (!query.nature || card.nature.code === query.nature) &&
+      (!query.stage || card.legal_brief.stage === query.stage) &&
+      (!needle || [card.title, card.original_title, card.authority.name, card.instrument_number ?? ""].some((text) => text.toLowerCase().includes(needle))),
+  );
   return PolicyListResponse.parse({
     content_version: "demo-1",
     generated_at: FIXED_TIME,
-    items,
+    items: matching.slice((page - 1) * pageSize, page * pageSize),
     page,
     page_size: pageSize,
-    total: POLICY_CARDS.length,
-    has_more: page * pageSize < POLICY_CARDS.length,
+    total: matching.length,
+    has_more: page * pageSize < matching.length,
   });
 }
 
