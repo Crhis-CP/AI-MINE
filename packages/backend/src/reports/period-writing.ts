@@ -3,6 +3,7 @@ import { CATEGORIES, ENTITIES } from "@amp/industry/taxonomy";
 import { SITE } from "@amp/industry/site";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 import { chatJson } from "../providers/llm.ts";
+import { bilingualNames } from "../editorial/bilingual-names.ts";
 import { reportFallbackInput } from "./fallback-input.ts";
 import type { Candidate } from "./compose.ts";
 export const REPORT_VERSION = `rules-daily-v1:${promptVersion("report-period", "report-period-input")}`;
@@ -68,7 +69,8 @@ export async function writePeriod(kind: "weekly" | "monthly", key: string, start
   const usable = (text: string | undefined) => {
     // Schema bounds size. Cutting complete sentences can erase a later condition or negation.
     const whole = text?.trim();
-    return whole && grounded(whole, corpus) ? whole : null;
+    // Checked against the issue as the model wrote it, then foreign company names as 中文名（原文名）.
+    return whole && grounded(whole, corpus) ? bilingualNames(whole) : null;
   };
   const result = await chatJson({
     model,

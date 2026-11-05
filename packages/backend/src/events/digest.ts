@@ -12,6 +12,7 @@ import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
 import { isProviderPeak, nextOffPeakStart } from "../providers/peak-hours.ts";
+import { bilingualNames } from "../editorial/bilingual-names.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -143,6 +144,10 @@ export async function composeStoryDigest(
     maxTokens: 1200,
   });
   const version = story.version + 1;
+  // Foreign company names as 中文名（原文名）, as in titles and summaries (Owner 2026-11-05).
+  const digest = bilingualNames(res.data.digest),
+    latest = res.data.latest ? bilingualNames(res.data.latest) : null,
+    title = bilingualNames(res.data.title);
   // Only figures the reports themselves state may appear in the before/after table or the dates to watch.
   const detail = readDigestDetail(res.data, visible.map((r) => `${r.title} ${(r.summary ?? "").slice(0, 220)}`).join("\n"));
   const written = await sql.begin(async (tx) => {
@@ -152,9 +157,9 @@ export async function composeStoryDigest(
     const [currentStory] = await tx<{ version: number }[]>`SELECT version FROM stories WHERE id=${storyId} FOR UPDATE`;
     if (currentStory?.version !== story.version || stableJson(await publicNewsDigestInput(ids, tx)) !== stableJson(expected)) return false;
     await tx`INSERT INTO story_digests (story_id, version, digest, latest, receipt_id, article_ids, inputs_hash, digest_detail)
-             VALUES (${storyId}, ${version}, ${res.data.digest}, ${res.data.latest || null}, ${res.receiptId}, ${ids}, ${inputsHash}, ${tx.json(detail as never)})`;
-    await tx`UPDATE stories SET digest = ${res.data.digest}, latest = ${res.data.latest || null}, digest_detail = ${tx.json(detail as never)}, digest_updated_at = now(),
-               title = CASE WHEN origin = 'manual' OR ${res.data.title} = '' THEN title ELSE ${res.data.title} END,
+             VALUES (${storyId}, ${version}, ${digest}, ${latest || null}, ${res.receiptId}, ${ids}, ${inputsHash}, ${tx.json(detail as never)})`;
+    await tx`UPDATE stories SET digest = ${digest}, latest = ${latest || null}, digest_detail = ${tx.json(detail as never)}, digest_updated_at = now(),
+               title = CASE WHEN origin = 'manual' OR ${title} = '' THEN title ELSE ${title} END,
                version = ${version}, updated_at = now()
              WHERE id = ${storyId}`;
     await completeReceipt(tx, res.receiptId);

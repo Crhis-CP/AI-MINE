@@ -9,6 +9,7 @@ import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORIES, CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy";
+import { MINING_CATEGORY_KEYS } from "@amp/contracts/mining-taxonomy";
 import { SELECTION } from "@amp/industry/selection";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
@@ -69,6 +70,8 @@ test("actual classification, publication and public exits agree on nine keys and
     ITEM_TYPES,
     CATEGORIES.map((category) => category.key),
   );
+  // The public contract keeps its own copy (contracts do not depend on industry data): it must stay the same list.
+  assert.deepEqual([...MINING_CATEGORY_KEYS], [...ITEM_TYPES]);
   for (const category of CATEGORIES) {
     const line = `- \`${category.key}\`：${category.label}`;
     assert.ok(score.includes(line), line);

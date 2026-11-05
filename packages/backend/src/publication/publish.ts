@@ -479,7 +479,7 @@ export async function publishArticleTx(
     if (forTranslation) forTranslation(article.revision);
     else await enqueue(QUEUES.translate, { articleId, lane: "news" }, { singletonKey: articleId }, tx);
   }
-  const reason = selected ? pickString(f.reason, analysis?.reason_zh ?? null) : null;
+  const reason = selected ? pickString(f.reason, analysis?.reason_zh ? bilingualNames(analysis.reason_zh) : null) : null;
   const syndicate = mayRedistribute(source, bodyMode);
   const originalTitle = post ? null : isChineseTitle && title === collapseWhitespace(article.title) ? null : collapseWhitespace(article.title);
 

@@ -123,6 +123,13 @@ export const ITEM_FROM = () => sql`
 /** Both flags are written together only by the current confirmed publication projection.
  * Legacy selected=true rows have selection_candidate=false until that projection is rebuilt.
  * Non-representative confirmed members remain selected; seat is a separate distribution choice.
+ *
+ * The selection gates, and which one each read uses:
+ * - confirmedSelected() (this): reader-facing 精选 lists, the browse floor's exception and public counts.
+ * - `NOT p.selected OR p.visible_after <= now`: the release delay only. A pick is held back until its release
+ *   time on every list; this says nothing about whether it is a pick.
+ * - bare `p.selected`: reads of a recent window (report candidates, the next-release time, full-text
+ *   translation of picks) where the current projection writes both flags together; admin counts.
  */
 export function confirmedSelected() {
   return sql`p.selected AND p.selection_candidate`;
