@@ -3,6 +3,7 @@ import type { Finding } from "@amp/backend/modules";
 import { beijingDate, beijingTime, monthDay } from "@amp/contracts/time";
 import { loadMetalPrices } from "./read.ts";
 import { metalPriceChangeIssues } from "./change.ts";
+import { allOpenHolds } from "./store.ts";
 
 const collecting = () => process.env.COLLECT_ENABLED !== "false";
 const clip = (text: string) => [...text].slice(0, 200).join("");
@@ -142,6 +143,31 @@ export async function metalFindings(now: number): Promise<Finding[]> {
         title: "金属价格的运行记录读不出来，没法判断有没有抓到",
         detail: `${clip(String(error))}；${METALS_WHERE}`,
       });
+    }
+  }
+
+  // A price held back alone after a jump (DEC-78补充 item 4) is informational: the rest of its period went in, the page
+  // keeps the last value marked 待下期确认, and the next period releases or discards it without anyone stepping in.
+  if (collecting()) {
+    try {
+      const holds = await allOpenHolds();
+      if (holds.length) {
+        out.push({
+          key: "metals.hold",
+          level: "digest",
+          title: holds.length === 1 ? "金属价格有 1 个报价跳变较大，单独扣下等下一期确认" : `金属价格有 ${holds.length} 个报价跳变较大，单独扣下等下一期确认`,
+          impact: "页面上这几个报价暂时仍显示上一期已核对的数值，标“待下期确认”；同一期的其他报价已照常更新",
+          heals: "会。下一期公布后，若仍在新水平附近就自动补入这两期；若回到原水平就作废扣下的值",
+          action: "不用处理，仅供知悉",
+          detail: holds
+            .slice(0, 6)
+            .map((hold) => `${hold.series_key} ${hold.period_label} ${hold.value}（比较值 ${hold.compared_value}，${beijingStamp(hold.held_at)}扣下）`)
+            .join("；"),
+          since: holds[0]!.held_at,
+        });
+      }
+    } catch (error) {
+      out.push({ key: "metals.hold", level: "digest", title: "金属价格的单独扣下记录读不出来", detail: `${clip(String(error))}；${METALS_WHERE}` });
     }
   }
 

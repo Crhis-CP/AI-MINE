@@ -6,6 +6,13 @@ import { recordRun } from "@amp/backend/jobs/queue";
 import { readMetalPriceRuns } from "@amp/backend/operations/alerts";
 import type { MetalPriceSourceRecord } from "@amp/backend/operations/alerts";
 
+/** What the refresh adds to a period's record for series held alone after a jump, and their release or discard. */
+type Decided = {
+  pending?: { key: string; value: string; reason: string }[];
+  released?: { key: string; period: string; value: string; reason: string }[];
+  discarded?: { key: string; period: string; value: string; reason: string }[];
+};
+
 const USAGE = `用法：node --env-file=.env scripts/metal-prices-check.ts
   不带参数：只读最近一次 metals.prices 运行与每个来源上次成功时间，不抓取。
   --dry-run [--source <来源键>] [--force-period <所属期起日>]
@@ -15,6 +22,8 @@ const USAGE = `用法：node --env-file=.env scripts/metal-prices-check.ts
   旬：“2026年9月中旬” → 2026-09-11；月：“2026年8月” → 2026-08-01。
   周：“2026年9月25日” → 2026-09-25；日：“2026年10月5日定价” → 2026-10-05。
   试跑不写价格和运行记录；入库只跳过指定一期的行数、倍数检查。
+  单个品种跳变只扣下该品种（待下期确认），下一期自动放行或作废，不需要也不能用 --force-period；
+  --force-period 只用于整期被扣下（行数不足、多数品种同时跳变等读错的情形）。
   正式库每次运行须 Owner 同意；--store 会写正式库，更须明确同意。`;
 
 function printRecord(record: Record<string, MetalPriceSourceRecord>, preview = false) {
@@ -29,6 +38,10 @@ function printRecord(record: Record<string, MetalPriceSourceRecord>, preview = f
       console.log(`    ${period.held ? `被扣下：${period.held}` : "检查通过"}`);
       for (const note of period.notes) console.log(`    说明：${note}`);
       for (const row of period.heldSeries ?? []) console.log(`    品种被扣下 ${row.key}：${row.reason}`);
+      const decided = period as Decided;
+      for (const row of decided.pending ?? []) console.log(`    待下期确认 ${row.key} ${row.value}：${row.reason}`);
+      for (const row of decided.released ?? []) console.log(`    放行 ${row.key} ${row.period} ${row.value}：${row.reason}`);
+      for (const row of decided.discarded ?? []) console.log(`    作废 ${row.key} ${row.period} ${row.value}：${row.reason}`);
     }
   }
 }
@@ -69,7 +82,13 @@ try {
     } else {
       const refresh = async () => {
         const held = periodStart ? ((await readMetalPriceRuns(now)).sources[values.source!]?.held ?? []) : [];
-        return refreshMetalPrices({ now, dryRun, source: values.source, force: periodStart ? { periodStart, held } : undefined });
+        return refreshMetalPrices({
+          now,
+          dryRun,
+          source: values.source,
+          force: periodStart ? { periodStart, held } : undefined,
+          by: "metals.prices.manual",
+        });
       };
       const record = values.store ? await recordRun("metals.prices.manual", refresh) : await refresh();
       printRecord(record, dryRun);

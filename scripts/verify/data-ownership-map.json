@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "98c9905ee0503f6a35f44ca938602efdaec0f6bab732866ea195d6a030ab955a",
+  "grantCatalogueSha256": "74744f16abc35748b4cdc4bd1300c2ca9a84f30cbe376a70f3c402eccd7fe2d2",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -647,6 +647,10 @@
       "access": "business"
     },
     "publication.metal_price_checks": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.metal_price_holds": {
       "module": "publication",
       "access": "business"
     },

@@ -138,6 +138,7 @@ test("all current migration tables and serial sequences have one explicit classi
 
       "publication.metal_prices",
       "publication.metal_price_checks",
+      "publication.metal_price_holds",
       "policy.instruments",
       "policy.versions",
       "policy.expressions",
@@ -210,7 +211,7 @@ test("all current migration tables and serial sequences have one explicit classi
   );
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 42);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 43);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["events.story_background_proofs"], {
     module: "events",

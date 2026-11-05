@@ -3,7 +3,80 @@
 // the figure as the source wrote it (packages/platform/config/src/index.ts). Only enabled series are written.
 import { sql } from "@amp/backend/db";
 import type { MetalPriceItem, MetalPriceSource } from "./registry.ts";
-import type { FetchedPeriod } from "./types.ts";
+import type { FetchedPeriod, PriceHold } from "./types.ts";
+
+/** A value held back alone as publication.metal_price_holds keeps it: enough to add it to the price table on release. */
+export interface StoredHold extends PriceHold {
+  periodEnd: string;
+  releaseLabel: string;
+  releaseUrl: string;
+  releasedOn: string | null;
+  heldAt: Date;
+}
+
+/**
+ * What a stored period does to the source's holds, in the same transaction as its rows (DEC-78补充 item 4): series it
+ * holds back alone, earlier holds it releases (the held row goes into the price table beside the new one) or discards.
+ * `by` is who decided (the schedule, or the manual run), `period` the deciding period's label.
+ */
+export interface HoldDecisions {
+  by: string;
+  period: string;
+  hold: { item: MetalPriceItem; value: string; was: string; reason: string }[];
+  release: { item: MetalPriceItem; hold: StoredHold; reason: string }[];
+  discard: { hold: StoredHold; reason: string }[];
+}
+
+/** The source's open holds by series; at most one per series. */
+export async function openHolds(source: string): Promise<Map<string, StoredHold>> {
+  const rows = await sql<
+    {
+      series_key: string;
+      period_start: string;
+      period_end: string;
+      period_label: string;
+      value: string;
+      release_label: string;
+      release_url: string;
+      released_on: string | null;
+      held_at: Date;
+    }[]
+  >`SELECT series_key, period_start::text, period_end::text, period_label, value::text AS value, release_label, release_url,
+      released_on::text, held_at FROM publication.metal_price_holds WHERE source = ${source} AND status = 'held'`;
+  return new Map(
+    rows.map((row) => [
+      row.series_key,
+      {
+        key: row.series_key,
+        periodStart: row.period_start,
+        periodEnd: row.period_end,
+        periodLabel: row.period_label,
+        value: row.value,
+        releaseLabel: row.release_label,
+        releaseUrl: row.release_url,
+        releasedOn: row.released_on,
+        heldAt: row.held_at,
+      },
+    ]),
+  );
+}
+
+/** Every open hold, oldest first, for the informational alert. */
+export async function allOpenHolds() {
+  return sql<{ source: string; series_key: string; period_label: string; value: string; compared_value: string; reason: string; held_at: Date }[]>`
+    SELECT source, series_key, period_label, value::text AS value, compared_value::text AS compared_value, reason, held_at
+    FROM publication.metal_price_holds WHERE status = 'held' ORDER BY held_at, series_key`;
+}
+
+/** Each given series' latest value stored in a period before `start` (its newest version): the last value that went in. */
+export async function acceptedValues(source: string, start: string, keys: string[]): Promise<Map<string, string>> {
+  if (!keys.length) return new Map();
+  const rows = await sql<{ series_key: string; value: string }[]>`
+    SELECT DISTINCT ON (series_key) series_key, value::text AS value FROM publication.metal_prices
+    WHERE source = ${source} AND series_key IN ${sql(keys)} AND period_start < ${start}
+    ORDER BY series_key, period_start DESC, first_fetched_at DESC`;
+  return new Map(rows.map((row) => [row.series_key, row.value]));
+}
 
 /** A completed source check is separate from re-reading or changing its current price workbook. */
 export async function storePriceCheck(source: string, checkedAt: Date, ok: boolean, changed: boolean) {
@@ -82,26 +155,79 @@ export async function previewLatestValues(source: string, { period, release, row
 /**
  * A row of the same version (release) read again moves fetched_at only, or takes the new value too when the source now
  * writes it differently (before and after are returned); a new version of a period is a row beside the old one.
+ * `items` are the series to store (less any held back alone); `holds` are written in the same transaction.
  */
-export async function storePeriod(source: MetalPriceSource, items: MetalPriceItem[], fetched: FetchedPeriod, now: Date) {
+export async function storePeriod(source: MetalPriceSource, items: MetalPriceItem[], fetched: FetchedPeriod, now: Date, holds?: HoldDecisions) {
   const { period, release } = fetched;
   const fixed = { source: source.key, currency: source.currency, period_type: source.frequency, period_start: period.start, period_end: period.end };
   const seen = { period_label: period.label, release_label: release.label, release_url: release.url, released_on: release.releasedOn };
+  const series = (item: MetalPriceItem) => ({
+    series_key: item.key,
+    name_zh: item.name,
+    grade: item.grade,
+    benchmark: item.benchmark,
+    delivery_basis: item.deliveryBasis,
+    unit: item.unit,
+    source_unit: item.sourceUnit,
+  });
   const rows = items.map((item) => {
-    const series = { series_key: item.key, name_zh: item.name, grade: item.grade, benchmark: item.benchmark, delivery_basis: item.deliveryBasis };
     const value = fetched.rows.find((row) => row.key === item.key)!.value;
-    return { ...series, unit: item.unit, source_unit: item.sourceUnit, value, ...fixed, ...seen, first_fetched_at: now, fetched_at: now };
+    return { ...series(item), value, ...fixed, ...seen, first_fetched_at: now, fetched_at: now };
   });
   return sql.begin(async (tx) => {
     const stored = await tx<{ series_key: string; value: string }[]>`
       SELECT series_key, value::text AS value FROM publication.metal_prices
       WHERE source = ${source.key} AND period_start = ${period.start} AND release_label = ${release.label} FOR UPDATE`;
     const before = new Map(stored.map((row) => [row.series_key, row.value]));
-    const after = await tx<{ series_key: string; value: string }[]>`
+    const after = rows.length
+      ? await tx<{ series_key: string; value: string }[]>`
       INSERT INTO publication.metal_prices ${tx(rows)}
       ON CONFLICT (series_key, period_start, release_label) DO UPDATE SET value = EXCLUDED.value, fetched_at = EXCLUDED.fetched_at
-      RETURNING series_key, value::text AS value`;
+      RETURNING series_key, value::text AS value`
+      : [];
     const changed = after.filter((row) => before.has(row.series_key) && before.get(row.series_key) !== row.value);
+    if (holds) {
+      const decided = { decided_at: now, decided_by: holds.by, decided_period: holds.period };
+      for (const { hold, reason } of holds.discard)
+        await tx`UPDATE publication.metal_price_holds SET ${tx({ status: "discarded", decision: reason, ...decided })}
+          WHERE series_key = ${hold.key} AND status = 'held'`;
+      for (const { item, hold, reason } of holds.release) {
+        // The held value goes in as the version it was read from, first fetched when it was held.
+        const row = {
+          ...series(item),
+          value: hold.value,
+          ...fixed,
+          period_start: hold.periodStart,
+          period_end: hold.periodEnd,
+          period_label: hold.periodLabel,
+          release_label: hold.releaseLabel,
+          release_url: hold.releaseUrl,
+          released_on: hold.releasedOn,
+          first_fetched_at: hold.heldAt,
+          fetched_at: hold.heldAt,
+        };
+        await tx`INSERT INTO publication.metal_prices ${tx(row)}
+          ON CONFLICT (series_key, period_start, release_label) DO UPDATE SET value = EXCLUDED.value`;
+        await tx`UPDATE publication.metal_price_holds SET ${tx({ status: "released", decision: reason, ...decided })}
+          WHERE series_key = ${hold.key} AND status = 'held'`;
+      }
+      for (const { item, value, was, reason } of holds.hold)
+        await tx`INSERT INTO publication.metal_price_holds ${tx({
+          source: source.key,
+          series_key: item.key,
+          period_start: period.start,
+          period_end: period.end,
+          period_label: period.label,
+          release_label: release.label,
+          release_url: release.url,
+          released_on: release.releasedOn,
+          value,
+          compared_value: was,
+          reason,
+          held_at: now,
+          held_by: holds.by,
+        })}`;
+    }
     return {
       inserted: after.filter((row) => !before.has(row.series_key)).length,
       touched: after.filter((row) => before.get(row.series_key) === row.value).length,

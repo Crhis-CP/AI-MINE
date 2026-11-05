@@ -703,6 +703,9 @@ export const PHRASES = {
   暂缺: "Missing",
   "缺少可比的上一期报价，暂不显示涨跌": "No comparable previous price, so no change is shown",
   暂无可比上期: "No comparable previous period",
+  待下期确认: "Awaiting next period",
+  "新一期报价较上一期变动超出常规范围，暂显示上一期已核对的数值，下一期公布后自动确认或更正":
+    "The newest price moved more than usual from the previous period, so the last checked price is shown; the next release confirms or corrects it automatically",
   "按各报价所示的实际基期比较，可能跨越停发期": "Compared with the base period shown for each price; may span a pause in publication",
   各金属最新报价: "Latest price of each metal",
   "另有 {count} 个报价": "Other prices: {count}",

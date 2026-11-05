@@ -9,6 +9,7 @@ import {
   changeText,
   headlineIndex,
   isBehind,
+  isHeld,
   licenceNotes,
   noteParts,
   priceText,
@@ -120,6 +121,11 @@ function Period({ prices, metal, quote }: { prices: MetalPrices; metal: Metal; q
       <Tag value={tagOf(prices, quote)} />
       {quote.period ? shortLabel(prices, quote.period.label) : tr("暂缺")}
       {isBehind(prices, metal, quote) && <span className="ml-1 text-amber-ink">{tr("较早期数据")}</span>}
+      {isHeld(prices, quote) && (
+        <span className="ml-1 text-amber-ink" title={tr("新一期报价较上一期变动超出常规范围，暂显示上一期已核对的数值，下一期公布后自动确认或更正")}>
+          {tr("待下期确认")}
+        </span>
+      )}
     </span>
   );
 }
