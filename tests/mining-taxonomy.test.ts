@@ -84,7 +84,7 @@ test("actual classification, publication and public exits agree on nine keys and
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
   assert.equal(
     PROMPT_VERSIONS.score,
-    "selection-score@a795d9b2da+weights@ae8058ad1d",
+    "selection-score@e7d514006c+weights@7b454f00e9",
     "axis output with code weights (Owner 2026-11-05); production still waits for SELECTION_CONFIRMED_VERSION",
   );
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));

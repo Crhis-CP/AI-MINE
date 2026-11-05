@@ -22,7 +22,7 @@ import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
-import { attentionScore, SELECTION, type ScoreAxes } from "@amp/industry/selection";
+import { attentionScore, MAJOR_COMPANIES, meetsThreshold, NOISE_TYPES, SELECTION, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
 import { sql } from "../db.ts";
 import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
@@ -89,7 +89,7 @@ export const PROMPT_VERSIONS = {
   prefilter: promptVersion("prefilter"),
   // The score recipe is the prompt plus the weights and cap that turn its axes into the score.
   score: `${promptVersion("selection-score")}+weights@${createHash("sha256")
-    .update(JSON.stringify([SELECTION.weights, SELECTION.unusableMaterialCap]))
+    .update(JSON.stringify([SELECTION.weights, SELECTION.unusableMaterialCap, SELECTION.noiseCaps, MAJOR_COMPANIES]))
     .digest("hex")
     .slice(0, 10)}`,
   understand: configuredPromptVersion("understand", UNDERSTAND_CONFIG),
@@ -107,7 +107,10 @@ export const analysisVersionOf = (a: Pick<AnalyzeInputArticle, "xPost">) =>
 
 // ── Scoring ───────────────────────────────────────────────────────────────────────────────
 
-/** Independent score calls per article; their mean decides and is shown to one decimal. */
+/**
+ * At most this many independent score calls per article; their mean decides and is shown to one decimal.
+ * A first score far from the threshold (SELECTION.secondScoreMargin) settles alone (Owner 2026-11-05, cost).
+ */
 export const SCORE_CALLS = 2;
 
 /**
@@ -146,7 +149,7 @@ const SCORE_CALL: Record<string, { temperature: number; maxTokens: number; timeo
 const scoreCall = (model: string) => SCORE_CALL[model] ?? { temperature: 0.2, maxTokens: 1024, timeoutMs: 120_000 };
 
 /** The score prompt: the industry's taste (industry/prompts/selection-score.md). */
-export const SCORE_SYSTEM = promptText("selection-score");
+export const SCORE_SYSTEM = promptText("selection-score", { majorCompanies: MAJOR_COMPANIES.join("、") });
 
 const axis = z.coerce.number().min(0).max(10);
 /** The model judges the type and five axes (0–10, one decimal); code weighs them into the 0–100 score (industry/selection.ts). */
@@ -158,6 +161,7 @@ export const ScoreSchema = z.object({
   reson: axis,
   act: axis,
   materialUnusable: z.boolean().catch(false).default(false),
+  noise: z.enum(NOISE_TYPES).catch("none").default("none"),
 });
 const tenth = (value: number) => Math.round(value * 10) / 10;
 
@@ -186,7 +190,7 @@ export function buildScoreInput(a: AnalyzeInputArticle): string {
   let body = a.xPost ? postEvidenceText(a.xPost) : usableSourceText(a.bodyText, a.excerpt).trim();
   if (!body) body = a.title;
   return [
-    "请按系统规则评估以下单篇材料所代表的事件。只输出内容类型和五轴分。",
+    "请按系统规则评估以下单篇材料所代表的事件。只输出内容类型、五轴分和噪声类型。",
     `【原文时间】\n${modelSourceDateLabel(a)}`,
     `【标题】\n${a.title.trim()}`,
     `【完整正文】\n${body.length > MAX_BODY_CHARS ? body.slice(0, MAX_BODY_CHARS) : body}`,
@@ -409,6 +413,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
       models.push(res.model);
       receiptIds.push(res.receiptId);
       reused &&= res.reused;
+      if (scoreSettled(values, threshold, SCORE_CALLS)) break;
     } catch (error) {
       const receiptId = observableReceiptId(error);
       if (receiptId !== null) onReceipt?.(receiptId);
@@ -732,8 +737,8 @@ async function finishAnalysis(
   );
   try {
     const scores = await runSelectionScores(a, opts);
-    const sum = scores && !scores.refused && scores.values.length === SCORE_CALLS ? scores.values.reduce((total, v) => total + v, 0) : null;
-    const near = sum !== null && (sum >= scores!.threshold * SCORE_CALLS || sum > UNDERSTAND_FLOOR * SCORE_CALLS);
+    const mean = scores && !scores.refused && scoreSettled(scores.values, scores.threshold, SCORE_CALLS) ? scoreMean(scores.values) : null;
+    const near = mean !== null && (meetsThreshold(scores!.values, scores!.threshold) || mean > UNDERSTAND_FLOOR);
     const s = await structure;
     if ("error" in s) throw s.error;
     const original = originalPostCopy(a.xPost, a.url);
@@ -763,13 +768,12 @@ export function normalizeAnalysis(run: AnalysisRun) {
       : unapprovedCopy || (run.writing ? !titleZh || (!summaryZh && run.writing.kind !== "verbatim") : !run.scores)
         ? "unknown"
         : "pass";
-  // Selected when the mean of the scores reaches the tier threshold (same as the sum reaching twice it);
-  // that mean, to one decimal, is the score shown.
-  const values = run.scores && !run.scores.refused ? run.scores.values : null;
-  const sum = values?.length === SCORE_CALLS ? values.reduce((total, v) => total + v, 0) : null;
-  const score = sum === null ? null : tenth(sum / SCORE_CALLS);
+  // Selected when the mean of the scores taken reaches the tier threshold; that mean, to one decimal, is the
+  // score shown. One score stands alone only when it is far from the threshold (scoreSettled).
   const threshold = run.scores?.threshold ?? null;
-  const selected = relevance === "pass" && sum !== null && threshold !== null && tenth(sum) >= threshold * SCORE_CALLS;
+  const values = run.scores && !run.scores.refused && threshold !== null && scoreSettled(run.scores.values, threshold, SCORE_CALLS) ? run.scores.values : null;
+  const score = scoreMean(values);
+  const selected = relevance === "pass" && meetsThreshold(values, threshold);
   const subjects = run.structure?.subjects ?? [];
   const category = toPublicApiCategory(run.structure?.category ?? null);
   const tags = normalizeTags(run.writing?.tags ?? run.structure?.tags ?? []).filter((t) => !(CATEGORY_TAGS as readonly string[]).includes(t));

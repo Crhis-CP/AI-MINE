@@ -1,4 +1,4 @@
-import { SELECTION } from "@amp/industry/selection";
+import { meetsThreshold, SELECTION } from "@amp/industry/selection";
 import { SCORE_CALLS, tierThreshold } from "../editorial/analyze.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
@@ -27,15 +27,13 @@ export function recomputeSelection(
   const values =
     (data.scoreRefused === undefined || data.scoreRefused === false) &&
     Array.isArray(data.scores) &&
-    data.scores.length === SCORE_CALLS &&
+    data.scores.length >= 1 &&
+    data.scores.length <= SCORE_CALLS &&
     data.scores.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100)
       ? (data.scores as number[])
       : null;
-  const selected =
-    analysis.relevance === "pass" &&
-    values !== null &&
-    threshold !== null &&
-    Math.round(values.reduce((sum, value) => sum + value, 0) * 10) >= threshold * SCORE_CALLS * 10;
+  // One recorded score stands for itself (it was far from the threshold when taken); two are averaged.
+  const selected = analysis.relevance === "pass" && meetsThreshold(values, threshold);
   return {
     selected,
     evidence: { tier, threshold, thresholdVersion, originalThreshold: original, scores: values, analysisId: analysis.id },

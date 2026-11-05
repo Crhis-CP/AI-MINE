@@ -1,5 +1,5 @@
 import { config } from "../config.ts";
-import { SELECTION } from "@amp/industry/selection";
+import { SELECTION, MAJOR_COMPANIES } from "@amp/industry/selection";
 import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
 import * as modelPorts from "@amp/backend/admin/models";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -29,7 +29,7 @@ export async function currentSelectionModel(db?: Db, port?: ModelIdentityPort): 
   }
 }
 export function selectionStandardSnapshot() {
-  const text = promptText("selection-score");
+  const text = promptText("selection-score", { majorCompanies: MAJOR_COMPANIES.join("、") });
   return {
     standardVersion: promptVersion("selection-score"),
     contentHash: sha256(text),

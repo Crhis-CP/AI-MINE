@@ -87,7 +87,7 @@ test("source tier republication uses the saved pair, preserves analysis and rele
   assert.equal((await republishSource(f.source)).failed, 0);
   assert.equal((await projection(f.articleId)).selected, false, "the raw mean 65.5 fails T2 despite the stored display score 99");
   const [decision] = await sql`SELECT after FROM audit_log WHERE subject=${`article:${f.articleId}`} AND action='selection.recompute' ORDER BY id DESC LIMIT 1`;
-  assert.equal(decision!.after.threshold, 76);
+  assert.equal(decision!.after.threshold, 66);
   assert.match(decision!.after.thresholdVersion, /^selection-thresholds@/);
   assert.equal(decision!.after.promptVersion, "analysis@synthetic");
   await tier(f.source, "T1_5");
@@ -116,7 +116,8 @@ test("invalid scores, human choices and the seven-day boundary retain their dist
   const a = { id: 1, selected: false, relevance: "pass", output: { scores: [64, 66], threshold: 76 } };
   assert.equal(recomputeSelection(a, "T1_5", at, now)?.selected, true, "exactly seven days and the raw 130 sum still qualify");
   for (const output of [
-    { scores: [80], threshold: 60 },
+    { scores: [], threshold: 60 },
+    { scores: [80, 80, 80], threshold: 60 },
     { scores: [80, "80"], threshold: 60 },
     { scores: [80, Number.NaN], threshold: 60 },
     { scores: [101, 80], threshold: 60 },
@@ -126,6 +127,9 @@ test("invalid scores, human choices and the seven-day boundary retain their dist
   ]) {
     assert.equal(recomputeSelection({ ...a, selected: true, output }, "T2", now, now)?.selected, false);
   }
+  // A single recorded score was far from the threshold when taken (second score on demand) and stands for itself.
+  assert.equal(recomputeSelection({ ...a, output: { scores: [80], threshold: 60 } }, "T2", now, now)?.selected, true);
+  assert.equal(recomputeSelection({ ...a, output: { scores: [40], threshold: 60 } }, "T2", now, now)?.selected, false);
   assert.equal(recomputeSelection({ ...a, output: {} }, "T2", now, now), null, "legacy judgments are not inferred from a display score");
   const f = await fixture("T1", true, { scores: [65, 66], threshold: 60 });
   await tier(f.source, "T2");

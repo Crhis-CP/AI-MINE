@@ -56,7 +56,7 @@ const provider = await stub(async (_hit, request) => {
     step === "prefilter"
       ? { label: "PASS", reason: "AI model release" }
       : step === "score"
-        ? scoreAxes(80)
+        ? scoreAxes(70)
         : step === "structure"
           ? { category: "ai-models", tags: ["模型发布"], subjects: [], fact: { title: "新模型发布" } }
           : {
@@ -193,7 +193,7 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${articleId}`)[0]!.processing_state, "analyzed");
   const [analysis] = await sql`SELECT selected,score,receipt_ids FROM analyses WHERE article_id=${articleId} ORDER BY id DESC LIMIT 1`;
   assert.equal(analysis!.selected, true);
-  assert.equal(analysis!.score, 80);
+  assert.equal(analysis!.score, 70);
   assert.equal(analysis!.receipt_ids.length, 5);
   const [projection] = await sql`SELECT visibility,selected FROM publications WHERE article_id=${articleId}`;
   assert.deepEqual(
@@ -270,7 +270,7 @@ for (const failScore of [false, true])
     assert.equal(active.calls.filter((s) => s === "understand").length, 1);
     const [result] = await sql`SELECT selected,score,receipt_ids FROM analyses WHERE article_id=${articleId} ORDER BY id DESC LIMIT 1`;
     assert.equal(result!.selected, true);
-    assert.equal(result!.score, 80);
+    assert.equal(result!.score, 70);
     assert.equal(result!.receipt_ids.length, 5);
     assert.equal((await sql`SELECT processing_attempts FROM articles WHERE id=${articleId}`)[0]!.processing_attempts, 0);
   });

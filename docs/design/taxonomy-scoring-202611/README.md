@@ -23,7 +23,7 @@
   - 逐篇：最近 3.4 天的全部 736 篇，加全站每 5 页抽 1 页共 1280 篇，合计 2016 篇，来自 278 个信源，每篇有标题、分类、分数、是否精选。
   - 近一个月的精选 144 篇。
   - 归组：上面 28 对疑似同一事件的报道逐篇读取详情；另随机抽 79 篇近期文章看有没有归组。
-- **Owner 标注：**从线上挑 120 篇难例做成标注页 [label.html](label.html)，页面不显示现有分数；Owner 2026-11-05 标完 119 篇，结果在 [gold-labels.json](gold-labels.json)，候选清单和现有分数在 [gold-candidates.json](gold-candidates.json)。
+- **Owner 标注：**从线上挑 120 篇难例做成标注页 [label.html](label.html)，页面不显示现有分数；Owner 2026-11-05 标完 119 篇，结果在 [owner-20261105-labels.json](../../../industry/selection-gold/owner-20261105-labels.json)，候选清单和现有分数在 [owner-20261105-candidates.json](../../../industry/selection-gold/owner-20261105-candidates.json)。
 - **AIHOT：**2026-11-05 读取上游主干的 `docs/selection.md`、`docs/grouping.md`、`industry/selection.ts`、`industry/taxonomy.ts` 和评分提示词。
 - **公开数据看不到的：**
   - 信源分级；

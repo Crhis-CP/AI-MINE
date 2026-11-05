@@ -21,14 +21,14 @@
 
 ## 1. 范围
 
-**要做的：**S1～S10。
+**要做的：**S1～S11（S11 需 Owner 先批准模型调用）。
 
 **不做的**（看到相关问题只记进报告）：
 - 不改任何代码、文档、测试、任务卡（S2 复制卡片、S3 重新生成索引除外）。不“顺手优化”。
 - 不新增、修改、跳过、禁用任何测试；检查失败不重跑第二次（第 2 节列出的例外除外）。
 - 不改评分规则、权重、门槛、提示词。`SELECTION_CONFIRMED_VERSION` 只写本文给出的值。
 - 不解除法规线暂停（DEC-71），不启用任何法规采集或模型调用。
-- 不调用模型做评测或对比（旧版的 S9 已取消）。
+- 除 S11（Owner 批准后）外，不调用模型做评测或对比。
 - 不把备案号写进仓库、PR、Issue、聊天或日志；不改写 git 历史；不强推。
 - 不新开付费服务，不改 DNS，不换域名，不改 Caddy、compose 文件和发布脚本。
 - 不处理资讯地图的审图号：Owner 决定不申请，地图照常显示（只有陆地点阵，不画国界）。
@@ -82,7 +82,7 @@
   | `SITE_ICP_FILING` | 原 ICP 备案号全文（取法见 S6） |
   | `SITE_PUBLIC_SECURITY_FILING` | 原公安联网备案号全文，例如“皖公网安备……号”（取法见 S6） |
   | `SITE_REQUIRE_FILINGS` | `true` |
-  | `SELECTION_CONFIRMED_VERSION` | `selection-score@a795d9b2da+weights@ae8058ad1d` |
+  | `SELECTION_CONFIRMED_VERSION` | `selection-score@e7d514006c+weights@7b454f00e9` |
 
 ## 4. 已知情况（不要当成新问题）
 
@@ -291,7 +291,7 @@
        SITE_ICP_FILING=<ICP 备案号原文>
        SITE_PUBLIC_SECURITY_FILING=<公安联网备案号全文>
        SITE_REQUIRE_FILINGS=true
-       SELECTION_CONFIRMED_VERSION=selection-score@a795d9b2da+weights@ae8058ad1d
+       SELECTION_CONFIRMED_VERSION=selection-score@e7d514006c+weights@7b454f00e9
        ```
   4. 核对（输出里不含号码）：
      ```bash
@@ -301,7 +301,7 @@
      ```
 - **通过标准：**
   - 第一条输出 `3`；
-  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score@a795d9b2da+weights@ae8058ad1d`；
+  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score@e7d514006c+weights@7b454f00e9`；
   - 第三条 api 和 worker 两行都列出这 4 个变量名。
 - **注意：**这一步只改文件，不重启任何服务。新值在 S7 发布、容器重建时生效。
 - **失败时：**
@@ -384,7 +384,7 @@
             count(*) FILTER (WHERE score <> round(score)) AS with_decimal
      FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%'
+       AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%'
        AND created_at >= '<发布时间>';"
      ```
   2. 新版本最常见的 10 个分值：
@@ -392,7 +392,7 @@
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT score, count(*) FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%'
+       AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%'
        AND created_at >= '<发布时间>'
      GROUP BY score ORDER BY count(*) DESC, score DESC LIMIT 10;"
      ```
@@ -405,7 +405,7 @@
             count(DISTINCT score) AS distinct_values
      FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version NOT LIKE '%selection-score@a795d9b2da%'
+       AND prompt_version NOT LIKE '%selection-score@e7d514006c%'
        AND created_at >= timestamptz '<发布时间>' - interval '7 days'
        AND created_at < '<发布时间>';"
      ```
@@ -414,7 +414,7 @@
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT floor(score / 5) * 5 AS band, count(*) FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%'
+       AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%'
        AND created_at >= '<发布时间>'
      GROUP BY band ORDER BY band;"
      ```
@@ -467,6 +467,25 @@
   - 第 2 条排第一的分值占 `scored` 的三成以上：分数仍集中在少数值上。
 - **报告里写：**9 组输出原文。
 
+### S11 用 Owner 的标注评测新评分（需 Owner 批准调用，60 分钟）
+
+- **目的：**评分标准已按 Owner 对 119 篇线上文章的标注改写。上线后用这批标注，在服务器上测新标准选得准不准。结果写进 24 小时报告，交给 Claude 决定是否再调门槛。
+- **先问 Owner：**在正式 PR 上留言请 Owner 批准，说明这一步约 350 次模型调用（116 篇 × 预筛 1 次 + 评分最多 2 次），费用按 S9 录入的价格估算后写明。批准后再做；不批准就跳过，在报告里写“未做”。
+- **命令（在生产服务器上）：**
+  ```bash
+  cd /opt/aimine
+  docker compose exec -T worker node scripts/gold-from-labels.ts --out /tmp/gold-owner-20261105.jsonl
+  docker compose exec -T worker node scripts/eval-selection.ts --gold /tmp/gold-owner-20261105.jsonl --n 116 --label "Owner 标注 2026-11-05 · 新评分标准"
+  ```
+  第一条只读数据库、不调用模型，输出写了多少条、哪些编号没找到；第二条调用模型，输出准确率、查准率、查全率、F1，以及门槛 40–90 的扫描结果。
+- **通过标准：**两条命令都正常结束。第一条报告“没找到”的编号不超过 10 个。
+- **失败时：**任何报错原样记录，停下报告，不重跑第二次，不改脚本。
+- **报告里写：**
+  - 第一条的输出原文；
+  - 第二条输出的指标和门槛扫描表原文；
+  - 实际调用次数和费用；
+  - 报告文件路径（`.data/eval/` 下）。
+
 ## 6. 上线后服务器测试（S8 用）
 
 在任意能访问公网的机器上执行，先设 `S=https://aiminingpolicy.com`。每条记下“命令、期望、实际、结论”。
@@ -496,7 +515,7 @@
 - **T17 容器状态**：服务器上执行 S5 的前两条命令。期望：所有服务 `running`，`api`、`worker`、`web` 的镜像都是 `amp-release:${MAIN:0:12}` 或发布脚本切换后的标签，RestartCount 都是 0。只记录实际值。
 - **T18 打分是否恢复**：S7 结束 2 小时后，在服务器上执行：
   ```bash
-  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM analyses WHERE origin='model' AND score IS NOT NULL AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%';"
+  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM analyses WHERE origin='model' AND score IS NOT NULL AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%';"
   ```
   期望大于 0。是 0 就在报告开头标出，不改任何东西。如果这 2 小时里没有新稿件进来，会是 0，所以同时记下 S5 的“发布前 24 小时打分数”作参照。
 
@@ -544,7 +563,7 @@
 
 ### 三、配置变更（不写号码和任何密钥）
 - 备案号三行：已写入 / 未写入
-- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score@a795d9b2da+weights@ae8058ad1d
+- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score@e7d514006c+weights@7b454f00e9
 - .env 备份文件名：
 
 ### 四、发布
@@ -612,6 +631,7 @@ T16 输出原文：
 |---|---|
 | S2 | 是否批准合并计划 PR |
 | S3 | 是否批准合并正式 PR |
+| S11 | 是否批准约 350 次评测调用 |
 | 第 7 节 | 测试不符时，是否回滚 |
 
 评分是否调整、地图是否保留、英文界面何时去掉 noindex，都不是你要问的：前两项 Owner 已有决定，第三项由 Claude 安排。

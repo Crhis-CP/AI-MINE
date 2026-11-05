@@ -1,3 +1,4 @@
+import { MAJOR_COMPANIES } from "@amp/industry/selection";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -96,7 +97,9 @@ const manifest = (cases: ExperimentCase[], scoreModel = "default") =>
       prefilterIdentity: environmentModelMetadata("default")!.configuration_hash!,
       prefilterHash: createHash("sha256").update(promptText("prefilter")).digest("hex"),
       promptHashes: {
-        A: createHash("sha256").update(promptText("selection-score")).digest("hex"),
+        A: createHash("sha256")
+          .update(promptText("selection-score", { majorCompanies: MAJOR_COMPANIES.join("、") }))
+          .digest("hex"),
         B: createHash("sha256").update(promptText("selection-score-b")).digest("hex"),
         AR: createHash("sha256").update(promptText("selection-country-ar")).digest("hex"),
       },
@@ -116,7 +119,7 @@ const outcome = (row: ExperimentCase, variant: "A" | "B" | "AR", selected: boole
 test("historical variants stay isolated while the priority release preserves the production scoring text", () => {
   const a = readFileSync("industry/prompts/selection-score.md", "utf8"),
     b = readFileSync("industry/prompts/selection-score-b.md", "utf8");
-  assert.equal(createHash("sha256").update(a).digest("hex"), "deeb75421d59baa9eadffcc74ce594dfe7ea219d780795a83a9bf8a1cd0cc9c5");
+  assert.equal(createHash("sha256").update(a).digest("hex"), "425a3d406d40911e5ba8d68ba5a63a28b7eff29a2d474092d2ec20b30bb48ab4");
   assert.deepEqual(
     b.split("\n").filter((l) => l.startsWith("|")),
     a.split("\n").filter((l) => l.startsWith("|")),

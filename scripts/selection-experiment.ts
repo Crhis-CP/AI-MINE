@@ -5,7 +5,7 @@ import path from "node:path";
 import { REPO_ROOT } from "@amp/backend/config";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
-import { attentionScore } from "@amp/industry/selection";
+import { attentionScore, MAJOR_COMPANIES } from "@amp/industry/selection";
 import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { loadPool } from "@amp/backend/publication/pool";
 import {
@@ -27,6 +27,8 @@ import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { ExperimentManifest, metrics, countryPreview, attemptSummary, type Experiment, type Outcome, type Variant } from "./selection-experiment-data.ts";
 
 const prompts = { A: "selection-score", B: "selection-score-b", AR: "selection-country-ar" } as const;
+/** Values the score prompts read (the production prompt names the major companies; the others ignore it). */
+const promptValues = { majorCompanies: MAJOR_COMPANIES.join("、") };
 const Prefilter = z.object({ label: z.preprocess(normalizedUppercase, z.enum(["PASS", "BLOCK", "UNKNOWN"])), reason: z.string().max(200).catch("") });
 const restored = (input: AnalyzeInputArticle): AnalyzeInputArticle => ({
   ...input,
@@ -92,7 +94,11 @@ export async function exportCountryCandidates(datasetId: string): Promise<Experi
             modelIdentity,
             prefilterIdentity,
             prefilterHash: sha256(PREFILTER_SYSTEM),
-            promptHashes: { A: sha256(promptText(prompts.A)), B: sha256(promptText(prompts.B)), AR: sha256(promptText(prompts.AR)) },
+            promptHashes: {
+              A: sha256(promptText(prompts.A, promptValues)),
+              B: sha256(promptText(prompts.B, promptValues)),
+              AR: sha256(promptText(prompts.AR, promptValues)),
+            },
           },
         }
       : {}),
@@ -111,7 +117,9 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
   if (!identity) throw new Error("Cannot freeze model configuration");
   const prefilterIdentity = await selectionModelIdentity(prefilterModel);
   if (!prefilterIdentity) throw new Error("Cannot freeze prefilter configuration");
-  const versions = Object.fromEntries(Object.entries(prompts).map(([k, p]) => [k, { version: promptVersion(p), renderedHash: sha256(promptText(p)) }]));
+  const versions = Object.fromEntries(
+    Object.entries(prompts).map(([k, p]) => [k, { version: promptVersion(p), renderedHash: sha256(promptText(p, promptValues)) }]),
+  );
   if (
     !manifest.bindings ||
     manifest.bindings.model !== model ||
@@ -205,7 +213,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
         for (let i = 1; i <= 2; i++) {
           await guardModel();
           const { input, fallbackInput } = await prepareEvaluationInput(restored(row.analysisInput), row.inputFingerprint);
-          const system = promptText(prompts[variant]),
+          const system = promptText(prompts[variant], promptValues),
             user = buildScoreInput(input);
           const special = model === "glm-5.3-flash-selection";
           const result = await observedCall(

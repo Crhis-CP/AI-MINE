@@ -5,6 +5,11 @@
 // gives every file its own cloned database, process and temporary directory before this import.
 import http from "node:http";
 import { initializeDb } from "@amp/backend/db";
+import { SELECTION } from "@amp/industry/selection";
+
+// The invariant tests were written for two score calls per article. Second-score-on-demand (Owner 2026-11-05)
+// has its own tests (tests/selection-score.test.ts); here every article keeps both calls.
+(SELECTION as { secondScoreMargin: number }).secondScoreMargin = 100;
 
 const database = new URL(process.env.DATABASE_URL ?? "postgres://unset/unset").pathname.slice(1);
 if (!/_(test|ci)$/.test(database)) {

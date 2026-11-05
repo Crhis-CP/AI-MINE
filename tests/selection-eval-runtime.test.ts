@@ -143,7 +143,7 @@ test("default evaluation follows the production score route and shares duplicate
     const score = await stub(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       return {
-        choices: [{ message: { content: JSON.stringify(scoreAxes(70)) } }],
+        choices: [{ message: { content: JSON.stringify(scoreAxes(65)) } }],
         usage: { prompt_tokens: 100, completion_tokens: 20 },
       };
     });
@@ -180,7 +180,7 @@ test("a shared unusable score fails every matching case once, then retry usage i
       usage: { prompt_tokens: 10, completion_tokens: 5 },
     }));
     const score = await stub((hit) => ({
-      choices: [{ message: { content: hit === 1 ? "not JSON" : JSON.stringify(scoreAxes(70)) } }],
+      choices: [{ message: { content: hit === 1 ? "not JSON" : JSON.stringify(scoreAxes(65)) } }],
       usage: { prompt_tokens: hit === 1 ? 100 : 300, completion_tokens: 20 },
     }));
     t.after(async () => {
@@ -243,7 +243,7 @@ test("in a production environment the evaluation still scores the draft, before 
       usage: { prompt_tokens: 10, completion_tokens: 5 },
     }));
     const score = await stub(() => ({
-      choices: [{ message: { content: JSON.stringify(scoreAxes(70)) } }],
+      choices: [{ message: { content: JSON.stringify(scoreAxes(65)) } }],
       usage: { prompt_tokens: 100, completion_tokens: 20 },
     }));
     t.after(async () => {
