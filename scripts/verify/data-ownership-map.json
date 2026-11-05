@@ -727,7 +727,6 @@
     ],
     "packages/backend/src/publication/reports.ts": ["public.reports", "public.stories"],
     "packages/backend/src/publication/sitemap.ts": ["public.fact_articles", "public.facts", "public.reports", "public.stories"],
-    "packages/backend/src/publication/story-progress.ts": ["public.fact_articles", "public.facts", "public.sources"],
     "packages/backend/src/publication/stories.ts": [
       "public.fact_articles",
       "public.facts",

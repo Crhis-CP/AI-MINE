@@ -25,6 +25,21 @@ import { siteUrl, storyUrl } from "./links.ts";
 import { serverModules } from "../modules.ts";
 import { SITE } from "@amp/industry/site";
 
+/**
+ * The developments of each story for the feed's progress line: its facts with a currently public report and
+ * the time of their first such report (publication/story-progress.ts orders them, as the story page does).
+ */
+export async function readStoryDevelopmentStarts(storyIds: number[], now: Date, db: Db = sql) {
+  if (!storyIds.length) return [];
+  return db<{ story_id: number; fact_id: number; title: string; first_at: Date }[]>`
+    SELECT f.story_id, f.id AS fact_id, f.title, min(coalesce(p.published_at, p.discovered_at)) AS first_at
+    FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
+    JOIN sources s ON s.id = p.source_id
+    WHERE f.story_id = ANY(${storyIds}::bigint[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()}
+      AND s.participation_mode = 'editorial' AND (NOT p.selected OR p.visible_after <= ${now})
+    GROUP BY f.story_id, f.id, f.title`;
+}
+
 /** All graph associations can have contributed to cached story text; current grants fence old copy too. */
 export async function originalPostAffectedStories(ids: number[], db: Db = sql): Promise<Set<number>> {
   if (!ids.length) return new Set();

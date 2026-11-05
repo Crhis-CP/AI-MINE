@@ -133,8 +133,9 @@ test("configured versions hash actual rendered text, ignoring unused values and 
     for (const key of ['categoryGuide', 'categoryTags', 'jurisdictions'])
       assert.notEqual(version, configuredPromptVersion('structure', { ...values, [key]: values[key] + '合成配置变化' }));
     assert.throws(() => configuredPromptVersion('structure'), /no value/);
-    for (const name of ['prefilter', 'selection-score'])
-      assert.equal(configuredPromptVersion(name, { unused: 'one' }), configuredPromptVersion(name, { unused: 'two' }));
+    // selection-score names the major companies (industry/selection.ts); an unused value still does not count.
+    for (const [name, needed] of [['prefilter', {}], ['selection-score', { majorCompanies: '紫金矿业' }]])
+      assert.equal(configuredPromptVersion(name, { ...needed, unused: 'one' }), configuredPromptVersion(name, { ...needed, unused: 'two' }));
     assert.deepEqual([promptVersion('prefilter'), promptVersion('selection-score'), promptVersion('structure')], before);
   `,
     ],

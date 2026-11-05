@@ -2,9 +2,8 @@
 // story's facts with a currently public report, ordered by first report, as on the story page.
 import type { StoryProgress } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
-import { originalPostAdmissionCondition } from "./items.ts";
 import { readHistoricalBackground } from "./historical-background.ts";
-import { originalPostAffectedStories } from "./stories.ts";
+import { originalPostAffectedStories, readStoryDevelopmentStarts } from "./stories.ts";
 
 export interface ProgressCard {
   id: string;
@@ -19,13 +18,7 @@ export async function loadStoryProgress(cards: ProgressCard[], now: Date, db: Db
   const linked = cards.filter((c) => c.fact_id !== null && c.story_id !== null && c.story_public_id);
   if (!linked.length) return out;
   const storyIds = [...new Set(linked.map((c) => c.story_id!))];
-  const facts = await db<{ story_id: number; fact_id: number; title: string; first_at: Date }[]>`
-    SELECT f.story_id, f.id AS fact_id, f.title, min(coalesce(p.published_at, p.discovered_at)) AS first_at
-    FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
-    JOIN sources s ON s.id = p.source_id
-    WHERE f.story_id = ANY(${storyIds}::bigint[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()}
-      AND s.participation_mode = 'editorial' AND (NOT p.selected OR p.visible_after <= ${now})
-    GROUP BY f.story_id, f.id, f.title`;
+  const facts = await readStoryDevelopmentStarts(storyIds, now, db);
   const withBackground = new Set(
     (
       await db<{ story_public_id: string }[]>`SELECT DISTINCT story_public_id::text FROM publication.story_background_refs
