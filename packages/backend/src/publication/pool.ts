@@ -10,6 +10,7 @@ import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import {
   confirmedSelected,
   categoryCondition,
+  categoryKeys,
   publicationDateCondition,
   jurisdictionCondition,
   newsJurisdictionScope,
@@ -384,7 +385,7 @@ async function loadPoolSourceFacets(query: PoolQuery, names: ReadMatcherValues, 
     SELECT s.id,s.name,count(*) AS count FROM publications p JOIN sources s ON s.id=p.source_id
     WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
       AND (${query.channel}='all' OR (${query.channel}='firstParty' AND p.first_party) OR p.channel=${query.channel})
-      AND (${query.category}::text IS NULL OR p.category=${query.category})
+      AND (${categoryKeys(query.category)}::text[] IS NULL OR p.category=ANY(${categoryKeys(query.category)}::text[]))
       AND (${query.selected ?? false}=false OR (${confirmedSelected()}))
       ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
       AND (${names.tagTags}::text[] IS NULL OR p.tags && ${names.tagTags}::text[] OR (${names.tagText.active} AND ${publicationTextMatches(names.tagText)}))

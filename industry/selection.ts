@@ -23,17 +23,20 @@ export const SELECTION = {
    * 内容类型 → 五轴权重（sig 实质份量、nov 信息增量、cred 证据强度、reson 共振面、act 可用性）。
    * 每行之和为 10，所以总分天然在 0–100。2026-11-05 每行把证据强度的 1 份移给共振面：
    * 官方例行文件证据天然满分，曾把分数抬高；与中国读者的关系才是 Owner 标注里最强的规律。
+   * 2026-11-05 分类重切（ADR-0031）：贸易制裁并入政策监管，用政策监管行；矿山安全与 ESG 原行相同，合为安全环境；
+   * 生产经营、项目建设沿用原“企业与项目”行；会议观点照 AIHOT 观点类（opinion_analysis）的 [1, 3, 1, 4, 1]，
+   * 是评论性内容（日报不把它算作新进展，见 mining-taxonomy.ts 的 commentary）。
    */
   weights: {
     policy_regulation: [3, 1, 1, 3, 2],
-    company_project: [3, 2, 1, 3, 1],
-    commodity_market: [3, 2, 1, 2, 2],
-    capital_ma: [3, 1, 1, 4, 1],
-    supply_trade_controls: [3, 2, 1, 2, 2],
-    esg_community_labor: [4, 1, 1, 4, 0],
-    safety_incident: [4, 1, 1, 4, 0],
-    technology_processing: [4, 3, 1, 2, 0],
+    operations_output: [3, 2, 1, 3, 1],
+    project_development: [3, 2, 1, 3, 1],
     exploration_resource: [4, 3, 1, 2, 0],
+    capital_ma: [3, 1, 1, 4, 1],
+    commodity_market: [3, 2, 1, 2, 2],
+    technology_processing: [4, 3, 1, 2, 0],
+    safety_environment: [4, 1, 1, 4, 0],
+    events_opinion: [1, 3, 1, 4, 1],
   } as Record<string, readonly [number, number, number, number, number]>,
   /**
    * 噪声类型 → 总分上限。只封一个轴压不住总分（煤矿 42 分、钢厂技改 40–55 分曾因其他轴照样加分），

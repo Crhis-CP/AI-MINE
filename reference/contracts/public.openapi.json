@@ -57,14 +57,14 @@
               {
                 "enum": [
                   "policy_regulation",
-                  "company_project",
-                  "commodity_market",
+                  "operations_output",
+                  "project_development",
+                  "exploration_resource",
                   "capital_ma",
-                  "supply_trade_controls",
-                  "esg_community_labor",
-                  "safety_incident",
+                  "commodity_market",
                   "technology_processing",
-                  "exploration_resource"
+                  "safety_environment",
+                  "events_opinion"
                 ],
                 "type": "string"
               },
@@ -321,14 +321,14 @@
               {
                 "enum": [
                   "policy_regulation",
-                  "company_project",
-                  "commodity_market",
+                  "operations_output",
+                  "project_development",
+                  "exploration_resource",
                   "capital_ma",
-                  "supply_trade_controls",
-                  "esg_community_labor",
-                  "safety_incident",
+                  "commodity_market",
                   "technology_processing",
-                  "exploration_resource"
+                  "safety_environment",
+                  "events_opinion"
                 ],
                 "type": "string"
               },
@@ -13646,14 +13646,18 @@
                   {
                     "enum": [
                       "policy_regulation",
-                      "company_project",
-                      "commodity_market",
+                      "operations_output",
+                      "project_development",
+                      "exploration_resource",
                       "capital_ma",
+                      "commodity_market",
+                      "technology_processing",
+                      "safety_environment",
+                      "events_opinion",
+                      "company_project",
                       "supply_trade_controls",
                       "esg_community_labor",
-                      "safety_incident",
-                      "technology_processing",
-                      "exploration_resource"
+                      "safety_incident"
                     ],
                     "type": "string"
                   },
@@ -13894,14 +13898,18 @@
                   {
                     "enum": [
                       "policy_regulation",
-                      "company_project",
-                      "commodity_market",
+                      "operations_output",
+                      "project_development",
+                      "exploration_resource",
                       "capital_ma",
+                      "commodity_market",
+                      "technology_processing",
+                      "safety_environment",
+                      "events_opinion",
+                      "company_project",
                       "supply_trade_controls",
                       "esg_community_labor",
-                      "safety_incident",
-                      "technology_processing",
-                      "exploration_resource"
+                      "safety_incident"
                     ],
                     "type": "string"
                   },
@@ -14380,14 +14388,18 @@
                   {
                     "enum": [
                       "policy_regulation",
-                      "company_project",
-                      "commodity_market",
+                      "operations_output",
+                      "project_development",
+                      "exploration_resource",
                       "capital_ma",
+                      "commodity_market",
+                      "technology_processing",
+                      "safety_environment",
+                      "events_opinion",
+                      "company_project",
                       "supply_trade_controls",
                       "esg_community_labor",
-                      "safety_incident",
-                      "technology_processing",
-                      "exploration_resource"
+                      "safety_incident"
                     ],
                     "type": "string"
                   },
@@ -14628,14 +14640,18 @@
                   {
                     "enum": [
                       "policy_regulation",
-                      "company_project",
-                      "commodity_market",
+                      "operations_output",
+                      "project_development",
+                      "exploration_resource",
                       "capital_ma",
+                      "commodity_market",
+                      "technology_processing",
+                      "safety_environment",
+                      "events_opinion",
+                      "company_project",
                       "supply_trade_controls",
                       "esg_community_labor",
-                      "safety_incident",
-                      "technology_processing",
-                      "exploration_resource"
+                      "safety_incident"
                     ],
                     "type": "string"
                   },
@@ -15374,14 +15390,18 @@
               {
                 "enum": [
                   "policy_regulation",
-                  "company_project",
-                  "commodity_market",
+                  "operations_output",
+                  "project_development",
+                  "exploration_resource",
                   "capital_ma",
+                  "commodity_market",
+                  "technology_processing",
+                  "safety_environment",
+                  "events_opinion",
+                  "company_project",
                   "supply_trade_controls",
                   "esg_community_labor",
-                  "safety_incident",
-                  "technology_processing",
-                  "exploration_resource"
+                  "safety_incident"
                 ],
                 "type": "string"
               },
@@ -15505,14 +15525,18 @@
               {
                 "enum": [
                   "policy_regulation",
-                  "company_project",
-                  "commodity_market",
+                  "operations_output",
+                  "project_development",
+                  "exploration_resource",
                   "capital_ma",
+                  "commodity_market",
+                  "technology_processing",
+                  "safety_environment",
+                  "events_opinion",
+                  "company_project",
                   "supply_trade_controls",
                   "esg_community_labor",
-                  "safety_incident",
-                  "technology_processing",
-                  "exploration_resource"
+                  "safety_incident"
                 ],
                 "type": "string"
               },
@@ -25539,7 +25563,7 @@
   },
   "info": {
     "title": "AI矿策 public",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -26893,14 +26917,18 @@
             "schema": {
               "enum": [
                 "policy_regulation",
-                "company_project",
-                "commodity_market",
+                "operations_output",
+                "project_development",
+                "exploration_resource",
                 "capital_ma",
+                "commodity_market",
+                "technology_processing",
+                "safety_environment",
+                "events_opinion",
+                "company_project",
                 "supply_trade_controls",
                 "esg_community_labor",
-                "safety_incident",
-                "technology_processing",
-                "exploration_resource"
+                "safety_incident"
               ],
               "type": "string"
             }
@@ -27102,14 +27130,18 @@
             "schema": {
               "enum": [
                 "policy_regulation",
-                "company_project",
-                "commodity_market",
+                "operations_output",
+                "project_development",
+                "exploration_resource",
                 "capital_ma",
+                "commodity_market",
+                "technology_processing",
+                "safety_environment",
+                "events_opinion",
+                "company_project",
                 "supply_trade_controls",
                 "esg_community_labor",
-                "safety_incident",
-                "technology_processing",
-                "exploration_resource"
+                "safety_incident"
               ],
               "type": "string"
             }
@@ -27452,14 +27484,18 @@
             "schema": {
               "enum": [
                 "policy_regulation",
-                "company_project",
-                "commodity_market",
+                "operations_output",
+                "project_development",
+                "exploration_resource",
                 "capital_ma",
+                "commodity_market",
+                "technology_processing",
+                "safety_environment",
+                "events_opinion",
+                "company_project",
                 "supply_trade_controls",
                 "esg_community_labor",
-                "safety_incident",
-                "technology_processing",
-                "exploration_resource"
+                "safety_incident"
               ],
               "type": "string"
             }
@@ -27928,14 +27964,18 @@
             "schema": {
               "enum": [
                 "policy_regulation",
-                "company_project",
-                "commodity_market",
+                "operations_output",
+                "project_development",
+                "exploration_resource",
                 "capital_ma",
+                "commodity_market",
+                "technology_processing",
+                "safety_environment",
+                "events_opinion",
+                "company_project",
                 "supply_trade_controls",
                 "esg_community_labor",
-                "safety_incident",
-                "technology_processing",
-                "exploration_resource"
+                "safety_incident"
               ],
               "type": "string"
             }
@@ -28176,14 +28216,18 @@
             "schema": {
               "enum": [
                 "policy_regulation",
-                "company_project",
-                "commodity_market",
+                "operations_output",
+                "project_development",
+                "exploration_resource",
                 "capital_ma",
+                "commodity_market",
+                "technology_processing",
+                "safety_environment",
+                "events_opinion",
+                "company_project",
                 "supply_trade_controls",
                 "esg_community_labor",
-                "safety_incident",
-                "technology_processing",
-                "exploration_resource"
+                "safety_incident"
               ],
               "type": "string"
             }
@@ -29168,14 +29212,18 @@
             "schema": {
               "enum": [
                 "policy_regulation",
-                "company_project",
-                "commodity_market",
+                "operations_output",
+                "project_development",
+                "exploration_resource",
                 "capital_ma",
+                "commodity_market",
+                "technology_processing",
+                "safety_environment",
+                "events_opinion",
+                "company_project",
                 "supply_trade_controls",
                 "esg_community_labor",
-                "safety_incident",
-                "technology_processing",
-                "exploration_resource"
+                "safety_incident"
               ],
               "type": "string"
             }
@@ -30729,14 +30777,18 @@
             "schema": {
               "enum": [
                 "policy_regulation",
-                "company_project",
-                "commodity_market",
+                "operations_output",
+                "project_development",
+                "exploration_resource",
                 "capital_ma",
+                "commodity_market",
+                "technology_processing",
+                "safety_environment",
+                "events_opinion",
+                "company_project",
                 "supply_trade_controls",
                 "esg_community_labor",
-                "safety_incident",
-                "technology_processing",
-                "exploration_resource"
+                "safety_incident"
               ],
               "type": "string"
             }

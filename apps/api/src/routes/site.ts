@@ -16,7 +16,7 @@ import {
   ReportGroupReportsResponse,
 } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { canonicalCategoryFilter, isChannelKey, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
 import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail";
 import { loadPool, SearchBusyError } from "@amp/backend/publication/pool";
@@ -82,7 +82,7 @@ export interface FilterParams {
   selected?: boolean;
   scope?: "all" | "selected";
   channel: ChannelKey;
-  category: CategoryKey | null;
+  category: CategoryFilterKey | null;
   tag: string | null;
   topic: string | null;
   topicTags: string[] | null;
@@ -94,8 +94,9 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
   if (jurisdiction && !validNewsJurisdiction(jurisdiction)) throw new BadRequest("invalid jurisdiction");
   const channel = q.channel ?? "all";
   if (!isChannelKey(channel)) throw new BadRequest("invalid channel");
-  const category = q.category ?? null;
-  if (category !== null && !isCategoryKey(category)) throw new BadRequest("invalid category");
+  // Retired keys from old links keep working (ADR-0031): one successor becomes it, company_project filters both.
+  const category = q.category === undefined ? null : canonicalCategoryFilter(q.category);
+  if (q.category !== undefined && category === null) throw new BadRequest("invalid category");
   const tag = q.tag?.trim() ? q.tag.trim().slice(0, 60) : null;
   const topic = q.topic?.trim() || null;
   let topicTags: string[] | null = null;
@@ -114,7 +115,7 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
   return {
     ...(capability ? { readingGroups: capability } : {}),
     channel,
-    category: category as CategoryKey | null,
+    category,
     tag,
     topic,
     topicTags,

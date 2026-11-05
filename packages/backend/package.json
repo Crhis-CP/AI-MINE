@@ -19,6 +19,7 @@
     "./editorial/analyze": "./src/editorial/analyze.ts",
     "./editorial/models": "./src/editorial/models.ts",
     "./editorial/prompts": "./src/editorial/prompts.ts",
+    "./editorial/reclassify": "./src/editorial/reclassify.ts",
     "./editorial/translate": "./src/editorial/translate.ts",
     "./editorial/writing": "./src/editorial/writing.ts",
     "./events/digest": "./src/events/digest.ts",

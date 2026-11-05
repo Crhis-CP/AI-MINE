@@ -111,7 +111,7 @@ test("a valid received summary retains later conditions and negations instead of
   assert.match(result.summaryZh, /附条件暂停五年/);
   assert.match(result.summaryZh, /60%/);
   const brief = periodPrompt("weekly", "2020-01-01", "2020-01-07", [
-    { itemId: "synthetic", title: "矿企执行状态", summary: result.summaryZh, category: "company_project" } as Candidate,
+    { itemId: "synthetic", title: "矿企执行状态", summary: result.summaryZh, category: "project_development" } as Candidate,
   ]);
   assert.ok(brief.user.includes(condition), "report composition must receive the complete qualified summary");
 });

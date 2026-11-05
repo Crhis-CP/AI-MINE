@@ -120,7 +120,7 @@ test("RSS and both API generations preserve date precision; historical sync neve
   const empty = await selectedSnapshot({ limit: 1000, page: null });
   const f = await fixture(beijingDate(new Date()));
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,score,selected,prompt_version,receipt_ids,output)
-    VALUES(${f.articleId},1,'rule','pass','company_project','合成矿山扩建公告','合成扩建项目的可核对摘要',90,true,${scopeVersion},${[await scopeReceipt(f.articleId)]},${sql.json(scopeOutput)})`;
+    VALUES(${f.articleId},1,'rule','pass','project_development','合成矿山扩建公告','合成扩建项目的可核对摘要',90,true,${scopeVersion},${[await scopeReceipt(f.articleId)]},${sql.json(scopeOutput)})`;
   await confirmGroupingFixture(f.articleId);
   await publishArticle(f.articleId);
   const now = new Date();

@@ -66,7 +66,7 @@ test("period-specific instructions do not fragment the shared report system pref
     itemId: String(id),
     title: `合成事件${id}`,
     summary: `有据可查的合成摘要${id}`,
-    category: "company_project",
+    category: "project_development",
   })) as Candidate[];
   const weekly = periodPrompt("weekly", "2026-10-12", "2026-10-18", entries);
   const monthly = periodPrompt("monthly", "2026-10-01", "2026-10-31", entries.slice(0, 1));

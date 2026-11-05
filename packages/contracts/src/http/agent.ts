@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PUBLIC_API_CATEGORY_KEYS } from "../taxonomy.ts";
+import { CATEGORY_FILTER_KEYS } from "../taxonomy.ts";
 import { isValidDate, isoWeekRange } from "../time.ts";
 import { ProblemResponse } from "./common.ts";
 
@@ -9,7 +9,7 @@ const integer = (max: number, fallback: string) =>
     .regex(/^\d+$/)
     .refine((v) => Number(v) >= 1 && Number(v) <= max)
     .default(fallback);
-const list = { window: z.enum(["24h", "7d"]).default("24h"), category: z.enum(PUBLIC_API_CATEGORY_KEYS).optional(), limit: integer(30, "10") };
+const list = { window: z.enum(["24h", "7d"]).default("24h"), category: z.enum(CATEGORY_FILTER_KEYS).optional(), limit: integer(30, "10") };
 export const AgentLatestQuery = z.strictObject({ ...list, mode: z.enum(["selected", "all"]).default("selected") });
 export const AgentSearchQuery = z.strictObject({
   ...list,

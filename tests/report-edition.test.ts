@@ -46,7 +46,7 @@ async function report(source: string, date: string, title: string, fact?: { id: 
     via: "fetch",
   });
   await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visible_after,selected,eligible,category,score,first_party,representative_priority,fact_id,story_id)
-    VALUES(${articleId},${title},${`${title}的已核实摘要`},${source},'news',${url},${at},${at},${at},${at},${at},${selected},true,'company_project',80,${source === "official"},${source === "official" ? 0 : 3},${fact?.id ?? null},${storyId ?? null})`;
+    VALUES(${articleId},${title},${`${title}的已核实摘要`},${source},'news',${url},${at},${at},${at},${at},${at},${selected},true,'project_development',80,${source === "official"},${source === "official" ? 0 : 3},${fact?.id ?? null},${storyId ?? null})`;
   if (fact) await sql`INSERT INTO fact_articles(article_id,fact_id,role) VALUES(${articleId},${fact.id},'report')`;
   if (selected) await confirmGroupingFixture(articleId);
   return articleId;

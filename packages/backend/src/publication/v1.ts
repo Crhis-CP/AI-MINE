@@ -2,7 +2,7 @@ import { sourceInstant } from "./source-time.ts";
 import { readAllFactApiItems } from "./timeline.ts";
 import { z } from "zod";
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
-import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { toPublicApiCategory, type CategoryFilterKey } from "@amp/contracts/taxonomy";
 import { sql, withCustomPlans, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
@@ -25,7 +25,7 @@ export interface V1ItemsQuery {
   to?: string;
   topicTags?: string[];
   by: "timeline" | "published";
-  category: PublicApiCategoryKey | null;
+  category: CategoryFilterKey | null;
   q: string | null;
   limit: number;
   cursor: string | null;

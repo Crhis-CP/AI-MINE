@@ -1,12 +1,12 @@
 import { apiFetch } from "../lib/http.ts";
 import { useTr } from "../i18n";
 import { SITE, withSubject } from "@amp/industry/site";
-import { data as withStatus, Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { data as withStatus, Link, redirect, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/all";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { isValidDate } from "@amp/contracts/time";
-import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
+import { canonicalCategoryFilter, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
 import { FeedBar, FeedToolbar, SearchField, SourceDateFilters } from "../features/feed/Filters";
@@ -20,7 +20,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
   const channel = isChannelKey(channelParam) ? channelParam : "all";
-  const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
+  const category = categoryParam ? canonicalCategoryFilter(categoryParam) : null;
+  // Old links with a retired category (ADR-0031) move to its successor; company_project stays and filters both.
+  if (categoryParam && category && category !== categoryParam) {
+    url.searchParams.set("category", category);
+    throw redirect(`${url.pathname}${url.search}`, 301);
+  }
   const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
   const q = url.searchParams.get("q")?.trim().slice(0, 200) || null;

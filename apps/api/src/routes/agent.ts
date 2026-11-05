@@ -3,6 +3,7 @@ import { requestNotice, serverModules } from "@amp/backend/modules";
 import type { z } from "zod";
 import { agentRoutes, AgentLatestQuery, AgentSearchQuery, AgentHotQuery, AgentStoryQuery, AgentEmptyQuery } from "@amp/contracts/http/agent";
 import { V1_CACHE_CONTROL } from "@amp/contracts/http-policy";
+import { canonicalCategoryFilter } from "@amp/contracts/taxonomy";
 import { agentGuide, latestAnswer, searchItems, searchAnswer, hotAnswer, storyAnswer, dailyAnswer, reportAnswer } from "@amp/backend/publication/llms";
 import { v1Items } from "@amp/backend/publication/v1";
 import { v1HotTopics, resolveStory, v1Story } from "@amp/backend/publication/stories";
@@ -36,11 +37,11 @@ export function registerAgent(app: FastifyInstance) {
           cache = "public, max-age=300, must-revalidate";
         } else if (name === "agentLatest") {
           const p = query(req, AgentLatestQuery),
-            q = { ...p, category: p.category ?? null, limit: Number(p.limit) };
+            q = { ...p, category: canonicalCategoryFilter(p.category), limit: Number(p.limit) };
           text = latestAnswer(await v1Items({ ...q, by: "timeline", q: null, cursor: null }), q);
         } else if (name === "agentSearch") {
           const q = query(req, AgentSearchQuery);
-          text = searchAnswer(await searchItems(q.q, q.window, q.category ?? null, Number(q.limit)), q);
+          text = searchAnswer(await searchItems(q.q, q.window, canonicalCategoryFilter(q.category), Number(q.limit)), q);
         } else if (name === "agentHot") {
           const q = query(req, AgentHotQuery);
           text = hotAnswer(await v1HotTopics(), Number(q.limit), "http");

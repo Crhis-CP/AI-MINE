@@ -35,3 +35,11 @@ export async function manualRevisionHistory(articleId: string, db: Db = sql) {
   return db`SELECT m.*,(SELECT state FROM editorial.manual_revision_events WHERE revision_id=m.id ORDER BY id DESC LIMIT 1) AS status
     FROM editorial.manual_revisions m WHERE article_id=${articleId} ORDER BY m.id DESC LIMIT 30`;
 }
+
+/** Articles whose category a person set, null included: automatic reclassification leaves them to a person (ADR-0031). */
+export async function manualCategoryArticles(articleIds: string[], db: Db = sql): Promise<Map<string, string | null>> {
+  if (!articleIds.length) return new Map();
+  const rows = await db<{ article_id: string; category: string | null }[]>`
+    SELECT article_id,fields->>'category' AS category FROM editorial_overrides WHERE article_id=ANY(${articleIds}::text[]) AND fields ? 'category'`;
+  return new Map(rows.map((r) => [r.article_id, r.category]));
+}

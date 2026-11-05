@@ -19,7 +19,7 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 //      topics and the event grouping need; it runs beside the scoring.
 // Material with only a title or a feed summary has its article page fetched before it is judged.
 import { z } from "zod";
-import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
+import { CATEGORY_KEYS, toPublicApiCategory, type CategoryKey } from "@amp/contracts/taxonomy";
 import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
 import { attentionScore, MAJOR_COMPANIES, meetsThreshold, NOISE_TYPES, SELECTION, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";
@@ -493,6 +493,30 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     receiptId: res.receiptId,
     reused: res.reused,
   };
+}
+
+/**
+ * The structure step alone, for reclassifying an existing judgement (ADR-0031): the same prompt, model route,
+ * receipt and runtime controls as analysis, so a later analysis of the same revision reuses the receipt.
+ */
+export async function runCategoryStructure(
+  a: AnalyzeInputArticle,
+  opts: Pick<StepOpts, "runtimeControl" | "usagePurpose"> = {},
+): Promise<{ category: CategoryKey | null; model: string; receiptId: number; reused: boolean }> {
+  checkAnalysisRunning();
+  if (awaitsMaterial(a) || (a.translationZh && !a.bodyText && !a.xPost)) throw new Error("material is not ready for a structure request");
+  // The same current-material permit as analyzeArticle: a changed revision or permission stops the request.
+  const fallbackInput = await prepareNewsFallback({
+    root: shutdownSignal.signal,
+    expected: analysisInputIdentity(a),
+    current: async () => {
+      const current = await loadAnalyzeInput(a.id);
+      return current ? analysisInputIdentity(current) : null;
+    },
+    articles: [a],
+  });
+  const s = await runStructure(a, { ...opts, fallbackInput });
+  return { category: toPublicApiCategory(s.category), model: s.model, receiptId: s.receiptId, reused: s.reused };
 }
 
 /** The content understanding; null when the model's content filter declines the material. */

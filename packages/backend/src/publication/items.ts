@@ -6,7 +6,7 @@ import { geographyRecipe, compatibleGeographyRecipes } from "../editorial/geogra
 import type { ReadMatcherValues } from "./mentions.ts";
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
-import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { categoryFilterKeys, isCategoryFilterKey, toPublicApiCategory, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
@@ -166,8 +166,13 @@ export function featuredEntryCondition(now: Date) {
 export function channelCondition(channel: ChannelKey | null | undefined) {
   return sql`AND (${!channel || channel === "all"} OR (${channel === "firstParty"} AND p.first_party) OR (${channel !== "firstParty"} AND p.channel=${channel ?? null}))`;
 }
-export function categoryCondition(category: CategoryKey | null | undefined, _v1 = false) {
-  return sql`AND (${!category} OR p.category=${category ?? null})`;
+/** The stored keys a category filter matches: a retired key covers its successors (ADR-0031). */
+export function categoryKeys(category: string | null | undefined): string[] | null {
+  if (!category) return null;
+  return isCategoryFilterKey(category) ? categoryFilterKeys(category) : [category];
+}
+export function categoryCondition(category: CategoryFilterKey | null | undefined, _v1 = false) {
+  return sql`AND (${!category} OR p.category=ANY(${categoryKeys(category) ?? []}::text[]))`;
 }
 
 export function tagCondition(values: ReadMatcherValues) {
@@ -347,7 +352,7 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
     WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after<=${query.now})
       AND p.eligible AND (${!query.selected} OR (${confirmedSelected()} AND (${countryScope} OR p.seat OR p.article_id=ANY(${replacements}::text[]))))
 
-    AND (${query.category}::text IS NULL OR p.category=${query.category})
+    AND (${categoryKeys(query.category)}::text[] IS NULL OR p.category=ANY(${categoryKeys(query.category)}::text[]))
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))
@@ -370,7 +375,7 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     WHERE ((${query.merged} AND st.merged_into IS NOT NULL) OR (${!query.merged} AND st.merged_into IS NULL))
       AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND (${!query.selected} OR (${confirmedSelected()}))
 
-    AND (${query.category}::text IS NULL OR p.category=${query.category})
+    AND (${categoryKeys(query.category)}::text[] IS NULL OR p.category=ANY(${categoryKeys(query.category)}::text[]))
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))

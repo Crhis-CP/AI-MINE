@@ -5,7 +5,7 @@ export { SiteInformation, OfficialMetalLink } from "./site-information.ts";
 import { z } from "zod";
 import { SourceTimeProjection } from "../time-assertion.ts";
 import { isValidDate } from "../time.ts";
-import { CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
+import { CATEGORY_FILTER_KEYS, CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
 import { Problem, ProblemResponse } from "./common.ts";
 import { policySchemas, policyRoutes } from "./policy.ts";
 import { ModuleParts, ModuleNotice, ModuleBrand } from "./module-outputs.ts";
@@ -127,7 +127,8 @@ export const Freshness = z.strictObject({
 });
 export const SiteFilters = z.strictObject({
   channel: z.enum(CHANNEL_KEYS),
-  category: z.enum(CATEGORY_KEYS).nullable(),
+  // The filter as requested: current keys, or company_project, which filters both of its successors (ADR-0031).
+  category: z.enum(CATEGORY_FILTER_KEYS).nullable(),
   tag: z.string().nullable(),
   topic: z.string().nullable().optional(),
   jurisdiction: z.string().max(16).nullable().optional(),
@@ -227,7 +228,7 @@ export const PoolResponse = PoolResponseCore;
 // Documentation/client parameters only: the live route retains looseQuery and its existing parser.
 export const PoolQuery = z.object({
   channel: z.enum(CHANNEL_KEYS).optional(),
-  category: z.enum(CATEGORY_KEYS).optional(),
+  category: z.enum(CATEGORY_FILTER_KEYS).optional(),
   tag: z.string().optional(),
   topic: z.string().optional(),
   jurisdiction: z.string().max(16).optional(),

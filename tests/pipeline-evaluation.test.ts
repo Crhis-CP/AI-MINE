@@ -29,7 +29,7 @@ const provider = await stub(async (_hit, req) => {
   else if (system.includes("company_context"))
     answer = {
       scope: "single",
-      category: "company_project",
+      category: "project_development",
       tags: [],
       subjects: [],
       fact: null,

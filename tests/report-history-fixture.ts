@@ -39,11 +39,11 @@ export async function historyMaterial(date: string, title: string, clock?: strin
   });
   await sql`UPDATE articles SET source_date_version=1,source_date_state='reliable' WHERE id=${articleId}`;
   const [analysis] = await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh,category)
-    VALUES(${articleId},1,'rule','pass',${title},${`${title}的可靠摘要`},'company_project') RETURNING id`;
+    VALUES(${articleId},1,'rule','pass',${title},${`${title}的可靠摘要`},'project_development') RETURNING id`;
   await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,
       visible_after,selected,eligible,category,score,backfill,analysis_id,source_time,source_date_version,source_time_material_revision,source_date_config_hash)
     VALUES(${articleId},${title},${`${title}的可靠摘要`},${id},'news',${url},${discovered},${at},${at},${at},${discovered},
-      true,true,'company_project',85,true,${analysis.id},${sql.json(sourceTime)},1,1,${hash})`;
+      true,true,'project_development',85,true,${analysis.id},${sql.json(sourceTime)},1,1,${hash})`;
   await confirmGroupingFixture(articleId);
   return articleId;
 }

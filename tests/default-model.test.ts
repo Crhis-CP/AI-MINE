@@ -28,7 +28,7 @@ const provider = await stub((_hit, req) => {
       ? scoreAxes(80)
       : system.includes("内容理解编辑")
         ? {
-            itemType: "company_project",
+            itemType: "project_development",
             authorRole: "principal",
             tags: ["产品更新"],
             editorialJudgment: "理由",
