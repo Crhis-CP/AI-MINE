@@ -14,7 +14,8 @@ const defaultPorts: Ports = {
   materials: newsMaterialBindings,
   permissionVersion: async (id) => (await readCurrentSourcePolicy(id))?.permission_version ?? null,
 };
-export type NewsFallbackInput = (request: { system: string; user: unknown }) => FallbackPermitPort;
+/** The exact request a permit binds: its system prompt, any shared leading material (ChatJsonOptions.prefix) and the step message. */
+export type NewsFallbackInput = (request: { system: string; prefix?: unknown; user: unknown }) => FallbackPermitPort;
 
 /** Quote resources retain the parent's material identity but need their own current URL permission. */
 async function quotedResources(materials: Material[], db: Db = sql, checkAdmission = false) {
@@ -89,7 +90,7 @@ export async function prepareNewsFallback<T>(
   } catch {
     return undefined;
   }
-  const snapshot = (state: typeof initial, request: { system: string; user: unknown }): FallbackMaterialSnapshot => ({
+  const snapshot = (state: typeof initial, request: { system: string; prefix?: unknown; user: unknown }): FallbackMaterialSnapshot => ({
     inputFingerprint: sha256(stableJson({ state, request })),
     manifest: {
       schema_version: 1,

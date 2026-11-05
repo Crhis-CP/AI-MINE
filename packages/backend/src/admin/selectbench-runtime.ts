@@ -1,6 +1,7 @@
-import { config } from "../config.ts";
+import { analysisPromptLayout, config } from "../config.ts";
 import { SELECTION, MAJOR_COMPANIES } from "@amp/industry/selection";
-import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
+import { promptText } from "@amp/backend/editorial/prompts";
+import { promptVersionsFor, scoreStandardVersion } from "@amp/backend/editorial/analyze";
 import * as modelPorts from "@amp/backend/admin/models";
 import { sha256, stableJson } from "../lib/ids.ts";
 import type { Db } from "../db.ts";
@@ -28,18 +29,22 @@ export async function currentSelectionModel(db?: Db, port?: ModelIdentityPort): 
     return { model: "unavailable", configurationHash: null, state: "unknown", reason: "当前模型配置暂不可核实" };
   }
 }
+/** The score standard as the configured prompt layout sends it: a layout switch is a new standard to confirm. */
 export function selectionStandardSnapshot() {
-  const text = promptText("selection-score", { majorCompanies: MAJOR_COMPANIES.join("、") });
+  const text = promptText("selection-score", { majorCompanies: MAJOR_COMPANIES.join("、") }),
+    layout = analysisPromptLayout(),
+    standardVersion = scoreStandardVersion(layout);
   return {
-    standardVersion: promptVersion("selection-score"),
+    standardVersion,
     contentHash: sha256(text),
-    prefilterVersion: promptVersion("prefilter"),
+    prefilterVersion: promptVersionsFor(layout).prefilter,
     thresholdVersion: sha256(stableJson(SELECTION.thresholds)),
     thresholds: SELECTION.thresholds,
     text,
     prefilterText: promptText("prefilter"),
     deploymentConfirmedVersion: config.selectionConfirmedVersion,
-    configuredForCurrent: config.selectionConfirmedVersion === promptVersion("selection-score"),
+    // SELECTION_CONFIRMED_VERSION binds the whole score recipe (prompt in this layout plus weights), as scoringConfirmed reads it.
+    configuredForCurrent: config.selectionConfirmedVersion === promptVersionsFor(layout).score,
     effectiveAt: null,
   };
 }

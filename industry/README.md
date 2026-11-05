@@ -68,6 +68,7 @@
 | `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
 | `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`，其中第 3 条“通行中文名”引用 `rules-domain-names.md`）、防幻觉、答案先行的摘要、自洽的标题 |
 | `identity-context.md` | 把核验过的公司身份事实交给模型 |
+| `analysis-shared.md`、`analysis-step-*.md`、`analysis-material-ack.md`、`analysis-shared-pointer.md` | 共享前缀排布（`ANALYSIS_PROMPT_LAYOUT=shared`，缺省）：每篇文章的各步骤共用同一份系统提示词，它原样引用上面预筛、评分、结构、内容理解、标题摘要、用词修订的规则；正文作为材料只送一份，`analysis-step-*.md` 是每一步最后的简短指令。改任何一份被引用的规则都会让共享排布的版本一起变 |
 | `structure.md`、`safety.md` | 分类、标签、主体与事实的结构化抽取；资料内容一律当作不可信数据 |
 | `group-*.md` | 事件归组：两篇报道的关系（成对与批量判断），以及热度信号挂到哪个事实上；关系定义在 `group-definitions.md` |
 | `story-digest.md` | 事件综述 |
@@ -89,7 +90,7 @@
 换了行业或评分标准就要重新校准（BR-SEL-08）：
 
 1. 按DEC-76由AI整理不同国家、主题、来源及正反边界的资料，并明确标注AI判断的性质；不要求Owner或第二位人工复核者盲标。历史100–200条建议不是新增的人工交付关卡。对所用资料逐条标“该选 / 不该选 / 两可”，存成 `.data/gold.jsonl`（`.data/` 不进 Git，格式见 2.6 节）。多放差一点就该选、差一点就不该选的难例；留一部分作留出集，调提示词只看开发集。
-2. 跑 `node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl --split development --label "说明"`（另有 `--models`、`--n`、`--no-import`）。输出准确率、查准率、查全率，门槛从 40 到 90 每隔 2 分的结果，以及判错的条目；完整报告写到 `.data/eval/`，并导入私有页面的 SelectBench。评测会真实调用模型、产生费用，只在任务卡给的额度内跑。
+2. 跑 `node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl --split development --label "说明"`（另有 `--models`、`--n`、`--no-import`，以及 `--layout shared|separate` 指定评哪种提示词排布，缺省为当前配置）。输出准确率、查准率、查全率，门槛从 40 到 90 每隔 2 分的结果，以及判错的条目；完整报告写到 `.data/eval/`，并导入私有页面的 SelectBench。评测会真实调用模型、产生费用，只在任务卡给的额度内跑。
 3. 先改评分标准，再动门槛：该选没选上，多半是标准没写清它为什么重要；不该选却选上，多半是噪声没压住；门槛只能整体移动。AI负责验证并记录差异，规则调整按Issue #293由Chris确认；上线仍核对受测规则的准确版本绑定，不能让配置意外指向未验证的文本。
 
 ### 2.6 评测样例

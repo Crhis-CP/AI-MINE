@@ -8,6 +8,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { composeStoryDigest } from "@amp/backend/events/digest";
 import { buildArticlePrompt } from "../packages/backend/src/editorial/writing.ts";
+import { SHARED_ANALYSIS_SYSTEM, sharedMaterial } from "../packages/backend/src/editorial/analysis-layout.ts";
 import { periodPrompt } from "../packages/backend/src/reports/period-writing.ts";
 import type { Candidate } from "../packages/backend/src/reports/compose.ts";
 
@@ -76,6 +77,29 @@ test("period-specific instructions do not fragment the shared report system pref
   assert.match(weekly.user, /2026-10-12 至 2026-10-18/);
   assert.match(monthly.user, /无；sections 返回空对象/);
   assert.ok(weekly.user.includes(entries[2]!.summary));
+});
+
+test("the shared analysis prefix is one constant system prompt and a material that ignores the wall clock", (t) => {
+  const article = {
+    id: "cache-synthetic",
+    revision: 1,
+    title: "Synthetic lithium project",
+    url: "https://example.invalid/source/a",
+    author: null,
+    publishedAt: new Date("2026-10-20T08:00Z"),
+    bodyText: "Synthetic project received a conditional permit on the published date.",
+    excerpt: null,
+    bodyStatus: "ok",
+    media: [],
+    source: { name: "Synthetic source", kind: "rss", tier: "T1", firstParty: false },
+  };
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-10-23T15:59:59Z") });
+  const before = sharedMaterial(article).text;
+  t.mock.timers.setTime(Date.parse("2026-10-23T16:00:01Z"));
+  assert.equal(sharedMaterial(article).text, before, "the cached material must not change with the time of the request");
+  assert.notEqual(sharedMaterial({ ...article, bodyText: "Corrected original content." }).text, before);
+  assert.ok(SHARED_ANALYSIS_SYSTEM.length > 0 && !/\{\{/.test(SHARED_ANALYSIS_SYSTEM), "no per-article value reaches the shared system prompt");
+  assert.ok(!SHARED_ANALYSIS_SYSTEM.includes("2026-10-20") && !SHARED_ANALYSIS_SYSTEM.includes(article.title));
 });
 
 test("story updates preserve the existing report prefix, while corrections omit the old digest", async () => {

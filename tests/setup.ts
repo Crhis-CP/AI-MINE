@@ -43,6 +43,10 @@ const PRESET_MODELS: Record<string, string> = {
   TRANSLATE_MODEL: "deepseek-flash",
 };
 for (const [name, model] of Object.entries(PRESET_MODELS)) process.env[name] ??= model;
+// The invariant tests' provider stubs tell the analysis steps apart by each step's own system prompt, the layout they
+// were written for. Production shares one system prompt and material across the steps (ANALYSIS_PROMPT_LAYOUT=shared,
+// the default); tests/analysis-shared-prefix.test.ts covers that layout end to end.
+process.env.ANALYSIS_PROMPT_LAYOUT ??= "separate";
 await initializeDb("test");
 
 /**

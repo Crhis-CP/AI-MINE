@@ -12,7 +12,7 @@ import { CATEGORIES, CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy"
 import { SELECTION } from "@amp/industry/selection";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
+import { analyzeArticle, PROMPT_VERSIONS, promptVersionsFor } from "@amp/backend/editorial/analyze";
 import { configuredPromptVersion, promptVersion } from "@amp/backend/editorial/prompts";
 import { UNDERSTAND_CONFIG } from "@amp/backend/editorial/writing";
 import { normalizeTags } from "../packages/backend/src/editorial/vocabulary.ts";
@@ -81,14 +81,26 @@ test("actual classification, publication and public exits agree on nine keys and
       row.reduce((sum, value) => sum + value, 0),
       10,
     );
-  assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
+  // The per-step layout (ANALYSIS_PROMPT_LAYOUT=separate; these tests' layout, tests/setup.ts).
+  const separate = promptVersionsFor("separate");
+  assert.equal(PROMPT_VERSIONS.prefilter, separate.prefilter);
+  assert.equal(separate.prefilter, "prefilter@f1a5eca242");
   assert.equal(
-    PROMPT_VERSIONS.score,
+    separate.score,
     "selection-score@cc05f8c447+weights@20542a669a",
     "axis output with code weights over the re-cut nine types (Owner 2026-11-05, ADR-0031); production still waits for SELECTION_CONFIRMED_VERSION",
   );
-  assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
-  assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
+  assert.equal(separate.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
+  assert.notEqual(separate.structure, promptVersion("structure"));
+  // The production default (ANALYSIS_PROMPT_LAYOUT=shared): the same rules in one shared system prompt, its own versions.
+  const shared = promptVersionsFor("shared");
+  assert.equal(shared.prefilter, "prefilter-shared@18a02e87fb");
+  assert.equal(
+    shared.score,
+    "selection-score-shared@6cac11186c+weights@20542a669a",
+    "the score rules as the shared layout sends them; SELECTION_CONFIRMED_VERSION must name this value to score in that layout",
+  );
+  for (const step of Object.keys(shared) as Array<keyof typeof shared>) assert.notEqual(shared[step], separate[step], step);
   assert.deepEqual(normalizeTags([]), []);
   assert.deepEqual(normalizeTags(["模型发布", "其他", "invalid"]), []);
   await sql`INSERT INTO sources (id,name,kind,tier,participation_mode,site_fulltext,syndicate_fulltext,next_fetch_at)

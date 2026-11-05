@@ -89,7 +89,7 @@ export function cleanArticleTextForLLM(s: string): string {
 
 // ── The material as the prefilter and the content understanding read it ─────────────────────
 
-function materialQuality(a: AnalyzeInputArticle): string {
+export function materialQuality(a: AnalyzeInputArticle): string {
   if (a.xPost) return "完整原帖（含原帖提供的引用与媒体；链接内容仅在实际取得后提供）";
   if (usableSourceText(a.bodyText)) return a.source.fetchesBody ? "完整正文（抓自原始网页）" : "完整正文（来自 RSS / API 自带的 content 字段）";
   if (usableSourceText(a.excerpt)) return "仅摘要（feed 未提供完整正文）";
@@ -97,19 +97,31 @@ function materialQuality(a: AnalyzeInputArticle): string {
   return "无有效文本";
 }
 
-/** The material as the prefilter and the content understanding read it. */
-export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean; bodyChars?: number } = {}): string {
+/** Who published the material: the source (name, kind, tier, tags) and the author. Never part of the score input. */
+export function publisherLines(a: AnalyzeInputArticle): string[] {
   const lines: string[] = [];
   lines.push(`【来源】${a.source.name}（${a.source.kind}，tier=${a.source.tier || "未分级"}）`);
   if (a.source.tags?.length) lines.push(`【来源标签】${a.source.tags.join(", ")}`);
   if (a.xPost) lines.push(`【作者】${[a.xPost.authorName, a.xPost.handle ? `@${a.xPost.handle}` : null].filter(Boolean).join(" · ")}`);
   else if (a.author) lines.push(`【作者】${a.author}`);
-  lines.push(`【原文时间】${modelSourceDateLabel(a)}`);
+  return lines;
+}
+
+/** The images and videos the material carries, or null. */
+export function mediaLine(a: AnalyzeInputArticle): string | null {
   const media = (a.xPost?.media ?? a.media ?? []) as Array<{ kind?: string }>;
   const images = media.filter((m) => m.kind === "image").length;
   const videos = media.filter((m) => m.kind === "video").length;
   const mediaParts = [images ? `${images} 张图` : null, videos ? `${videos} 个视频` : null].filter(Boolean);
-  if (mediaParts.length) lines.push(`【媒体】${mediaParts.join(" · ")}`);
+  return mediaParts.length ? `【媒体】${mediaParts.join(" · ")}` : null;
+}
+
+/** The material as the prefilter and the content understanding read it. */
+export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean; bodyChars?: number } = {}): string {
+  const lines: string[] = publisherLines(a);
+  lines.push(`【原文时间】${modelSourceDateLabel(a)}`);
+  const media = mediaLine(a);
+  if (media) lines.push(media);
   lines.push(`【原文链接】${a.url}`);
   lines.push(`【标题】${a.title}`);
   const quoted = a.xPost?.quoted?.text ? a.xPost.quoted : null;
@@ -206,7 +218,7 @@ function identityContext(input: TranslateInput) {
   return { allowed: [...allowed].sort(), publisher, owner };
 }
 
-function identityPrompt(input: TranslateInput): string {
+export function identityPrompt(input: TranslateInput): string {
   const ctx = identityContext(input);
   const facts: string[] = [];
   if (ctx.publisher) facts.push(`文档发布域主体=${lexiconName(ctx.publisher) ?? ctx.publisher}`);
@@ -278,11 +290,18 @@ function anchorDate(d: Date | undefined): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
-export function buildArticlePrompt(input: TranslateInput): string {
-  return promptText("summarize-article", {
+/** The title/summary prompt's per-article context besides the title and body: the date anchor, source and identities. */
+export function articlePromptContext(input: TranslateInput) {
+  return {
     publishedDate: input.sourceTime === undefined ? anchorDate(input.publishedAt) : (input.sourceTime?.local_date ?? "未注明"),
     sourceName: sourceName(input.sourceName),
     identity: identityPrompt(input),
+  };
+}
+
+export function buildArticlePrompt(input: TranslateInput): string {
+  return promptText("summarize-article", {
+    ...articlePromptContext(input),
     title: input.title,
     body: input.text ? clampText(cleanArticleTextForLLM(input.text), 6000) : promptText("summarize-article-empty"),
   });
