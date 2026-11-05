@@ -844,3 +844,21 @@
     animation: none;
   }
 }
+
+/* World map circles rise in turn once the counts arrive; still when motion is reduced. */
+.map-bubble {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-bubble-in 420ms var(--ease-out-quart, ease-out) both;
+}
+@keyframes map-bubble-in {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-bubble {
+    animation: none;
+  }
+}

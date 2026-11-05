@@ -2,7 +2,7 @@ import { PhoneBar } from "../../components/shell/PhoneBar";
 import { Sheet } from "../../components/ui/Sheet";
 import { Wordmark } from "../../components/Logo";
 import { SITE } from "@amp/industry/site";
-import { apiFetch } from "../../lib/http.ts";
+import { useJurisdictionChoices } from "./jurisdictions";
 import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
@@ -12,7 +12,6 @@ import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
-import { schemas as publicSchemas } from "@amp/contracts/http/public";
 
 /** The selector describes event/impact geography; publication-source tags are not an input. */
 export function JurisdictionFilter({ base, value }: { base: string; value: string | null }) {
@@ -20,21 +19,10 @@ export function JurisdictionFilter({ base, value }: { base: string; value: strin
     navigation = useNavigation();
   const [draft, setDraft] = useState(value ?? "");
   useEffect(() => setDraft(value ?? ""), [value]);
-  const [choices, setChoices] = useState<{ code: string; label: string; kind: string; news_count: number }[] | null>(null),
-    [failed, setFailed] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    apiFetch("/api/site/jurisdictions", { signal: controller.signal, baseUrl: window.location.origin })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("jurisdictions unavailable");
-        const choices = publicSchemas.PolicyJurisdictionList.parse(await response.json());
-        if (!controller.signal.aborted) setChoices(choices);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
-      });
-    return () => controller.abort();
-  }, []);
+  const { choices, failed } = useJurisdictionChoices();
+  // With scripts a choice applies at once; the button stays for readers without them.
+  const [live, setLive] = useState(false);
+  useEffect(() => setLive(true), []);
   const keep = [...new Set(params.keys())]
     .filter((key) => !["jurisdiction", "page", "cursor", "deep", "anchorAt", "_routes"].includes(key))
     .map((key) => [key, params.get(key)!] as const);
@@ -48,7 +36,10 @@ export function JurisdictionFilter({ base, value }: { base: string; value: strin
         <select
           name="jurisdiction"
           value={draft}
-          onChange={(event) => setDraft(event.currentTarget.value)}
+          onChange={(event) => {
+            setDraft(event.currentTarget.value);
+            event.currentTarget.form?.requestSubmit();
+          }}
           className="max-w-[220px] rounded-md border border-line-strong bg-surface px-3 py-2 text-ink"
         >
           <option value="">全部国家 / 地区</option>
@@ -74,7 +65,11 @@ export function JurisdictionFilter({ base, value }: { base: string; value: strin
           </optgroup>
         </select>
       </label>
-      <button type="submit" disabled={navigation.state === "loading"} className="rounded-md border border-line-strong px-3 py-2 text-ink disabled:opacity-50">
+      <button
+        type="submit"
+        disabled={navigation.state === "loading"}
+        className={`rounded-md border border-line-strong px-3 py-2 text-ink disabled:opacity-50 ${live ? "hidden" : ""}`}
+      >
         筛选
       </button>
       <span className="text-ink-4">

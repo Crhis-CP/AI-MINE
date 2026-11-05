@@ -22,6 +22,8 @@
     "./brand/nameplates/index.json": "./brand/nameplates/index.json",
     "./brand/nameplates/monthly.svg": "./brand/nameplates/monthly.svg",
     "./brand/nameplates/weekly.svg": "./brand/nameplates/weekly.svg",
+    "./brand/world-dots.json": "./brand/world-dots.json",
+    "./brand/world-dots.svg": "./brand/world-dots.svg",
     "./jurisdictions": "./jurisdictions/index.ts",
     "./policy-sources": "./policy-sources.ts",
     "./mining-taxonomy": "./mining-taxonomy.ts",

@@ -172,3 +172,34 @@ export const demoSuggestions = SearchSuggestions.parse({
   topics: [{ slug: "lithium", name: "锂", group: "field" }],
   hot: [{ rank: 1, title: "示例：特许权费新规引发多家矿企重估项目", to: "/story/demo-royalty" }],
 });
+
+/** Synthetic per-country news counts for the world map and the country filter (演示数据). */
+const DEMO_COUNTRY_COUNTS: Array<[string, string, number]> = [
+  ["CN", "中国", 46],
+  ["AU", "澳大利亚", 31],
+  ["CL", "智利", 24],
+  ["AR", "阿根廷", 21],
+  ["CD", "刚果（金）", 17],
+  ["ID", "印度尼西亚", 15],
+  ["PE", "秘鲁", 13],
+  ["CA", "加拿大", 12],
+  ["US", "美国", 11],
+  ["ZA", "南非", 9],
+  ["KZ", "哈萨克斯坦", 6],
+  ["MN", "蒙古", 5],
+  ["ZM", "赞比亚", 5],
+  ["RU", "俄罗斯", 4],
+  ["BO", "玻利维亚", 3],
+  ["ZW", "津巴布韦", 3],
+  ["GH", "加纳", 2],
+  ["SG", "新加坡", 1],
+];
+export const demoJurisdictions = DEMO_COUNTRY_COUNTS.map(([code, label, news_count]) => ({
+  code,
+  label,
+  kind: "country" as const,
+  news_scope: true,
+  policy_scope: true,
+  news_count,
+  policy_count: 0,
+}));

@@ -5,7 +5,17 @@
 //   DEMO_API_PORT=3101 node e2e/demo-api.ts
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
-import { demoContentVersion, demoInformation, demoMeta, demoPool, demoStats, demoSuggestions, demoTimeline, DEMO_ITEMS } from "./demo-reader.ts";
+import {
+  demoContentVersion,
+  demoInformation,
+  demoJurisdictions,
+  demoMeta,
+  demoPool,
+  demoStats,
+  demoSuggestions,
+  demoTimeline,
+  DEMO_ITEMS,
+} from "./demo-reader.ts";
 
 function send(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
@@ -40,7 +50,7 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     case "/api/site/search/suggestions":
       return send(res, 200, demoSuggestions);
     case "/api/site/jurisdictions":
-      return send(res, 200, []);
+      return send(res, 200, demoJurisdictions);
     case "/api/site/items/saved":
       return send(res, 200, { items: DEMO_ITEMS.filter((item) => (q.get("ids") ?? "").split(",").includes(item.id)), unavailableIds: [] });
   }

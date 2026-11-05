@@ -35,7 +35,7 @@ function TopLink({ item }: { item: NavItem }) {
     <Link
       to={to}
       aria-current={active ? "page" : undefined}
-      className={`flex h-10 shrink-0 items-center whitespace-nowrap px-3 text-[15px] transition-colors duration-150 ${
+      className={`flex h-10 shrink-0 items-center whitespace-nowrap px-2.5 text-[14.5px] xl:px-3 xl:text-[15px] transition-colors duration-150 ${
         active ? "font-semibold text-ink shadow-[inset_0_-2px_0_var(--accent)]" : "rounded-control font-medium text-ink-3 hover:bg-bg-sunk hover:text-ink"
       }`}
     >
@@ -90,7 +90,7 @@ function MoreMenu() {
   return (
     <details ref={ref} className="group relative shrink-0">
       <summary
-        className={`flex h-10 cursor-pointer list-none items-center gap-1 px-3 text-[15px] [&::-webkit-details-marker]:hidden ${
+        className={`flex h-10 cursor-pointer list-none items-center gap-1 px-2.5 text-[14.5px] xl:px-3 xl:text-[15px] [&::-webkit-details-marker]:hidden ${
           active ? "font-semibold text-ink shadow-[inset_0_-2px_0_var(--accent)]" : "rounded-control font-medium text-ink-3 hover:bg-bg-sunk hover:text-ink"
         }`}
       >
@@ -123,7 +123,7 @@ export function SiteHeader() {
           ))}
         </svg>
       </div>
-      <div className="site-frame relative flex h-[68px] items-center gap-5">
+      <div className="site-frame relative flex h-[68px] items-center gap-3 xl:gap-5">
         <Link to="/" className="flex shrink-0 items-center text-ink" aria-label={`${SITE.name} 首页`}>
           <Wordmark size={22} />
         </Link>

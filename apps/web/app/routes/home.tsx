@@ -9,6 +9,7 @@ import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
+import { WorldMap } from "../features/feed/WorldMap";
 import { CategoryTabs, JurisdictionFilter, SearchField, FeedBar } from "../features/feed/Filters";
 import { DayList } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
@@ -107,7 +108,13 @@ export default function Home() {
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
       <FeedBar base="/" category={filters.category} channel={filters.channel} jurisdiction={filters.jurisdiction ?? null} />
-      {data.hot && <HotTopics entries={data.hot} cards={data.cards} />}
+      {/* Direction C overview: the hotspot board beside the survey map on desktop; phones keep the board alone. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
+        {data.hot && <HotTopics entries={data.hot} cards={data.cards} />}
+        <div className="hidden lg:block">
+          <WorldMap base={tabsBase} selected={filters.jurisdiction ?? null} />
+        </div>
+      </div>
       <div className="hidden lg:block">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
