@@ -23,7 +23,10 @@ const WINDOW_DAYS = { "1d": 1, "7d": 7, "30d": 30 } as const;
 const maps = new Map<SiteNewsMap["window"], ReturnType<typeof cached<SiteNewsMap>>>();
 export function loadNewsMap(window: SiteNewsMap["window"] = "7d"): Promise<SiteNewsMap> {
   let entry = maps.get(window);
-  if (!entry) maps.set(window, (entry = cached(() => queryNewsMap(window, new Date()), { freshMs: 60_000, maxStaleMs: 60_000 })));
+  if (!entry) {
+    entry = cached(() => queryNewsMap(window, new Date()), { freshMs: 60_000, maxStaleMs: 60_000 });
+    maps.set(window, entry);
+  }
   return entry.get();
 }
 export async function queryNewsMap(window: SiteNewsMap["window"], now: Date): Promise<SiteNewsMap> {
