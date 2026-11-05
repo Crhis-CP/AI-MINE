@@ -1247,6 +1247,15 @@ test("policy pages distinguish basic facts, complete interpretations, unknown da
     const list = await fetch(`${origin}/policies`);
     assert.equal(list.status, 200);
     assert.match(await list.text(), /目标国家|跨国与国际组织/);
+    // The drill-down levels are plain addresses: themes of one jurisdiction, then the documents (“all” never reaches the API).
+    const themesPage = await fetch(`${origin}/policies?jurisdiction=AR`);
+    assert.equal(themesPage.status, 200);
+    const themesHtml = await themesPage.text();
+    assert.match(themesHtml, /选择经营主题/);
+    assert.match(themesHtml, /href="\/policies\?jurisdiction=AR&amp;theme=tax_finance"/);
+    const documents = await fetch(`${origin}/policies?jurisdiction=AR&theme=all`);
+    assert.equal(documents.status, 200);
+    assert.match(await documents.text(), /文书性质/);
     const basic = await fetch(`${origin}/policies/policy-fixture`);
     assert.equal(basic.status, 200);
     const html = await basic.text();

@@ -77,7 +77,19 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     case "/api/site/reports/daily/latest-page":
       return send(res, 200, demoDailyLatestPage);
     case "/api/site/policies":
-      return send(res, 200, demoPolicies(Math.max(1, Number.parseInt(q.get("page") ?? "1", 10) || 1)));
+      return send(
+        res,
+        200,
+        demoPolicies({
+          jurisdiction: q.get("jurisdiction") || undefined,
+          theme: q.get("theme") || undefined,
+          nature: q.get("nature") || undefined,
+          stage: q.get("stage") || undefined,
+          q: q.get("q") || undefined,
+          page: Number.parseInt(q.get("page") ?? "1", 10) || 1,
+          page_size: Number.parseInt(q.get("page_size") ?? "20", 10) || 20,
+        }),
+      );
     case "/api/site/topics":
       return send(res, 200, demoTopics);
     case "/api/site/policies/scope":
