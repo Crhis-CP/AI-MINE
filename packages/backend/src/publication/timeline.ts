@@ -1,4 +1,4 @@
-import { originalPostAdmissionCondition } from "./items.ts";
+import { browseFloorCondition, originalPostAdmissionCondition } from "./items.ts";
 import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { foldableSelectionCondition } from "./scope.ts";
@@ -83,6 +83,7 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
       SELECT p.article_id,${time} AS at,p.representative_priority,p.body_mode,p.score,p.timeline_at,
         CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidence()} AND ${foldableSelectionCondition()} THEN 'f'||p.fact_id::text ELSE 'a'||p.article_id END AS gk
       FROM publications p WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND ${time}<=${query.now}
+        ${browseFloorCondition(!query.selected)}
     ), anchors AS (
       SELECT gk,min(at) AS anchor FROM base GROUP BY gk
     ), ranked AS (

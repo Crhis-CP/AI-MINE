@@ -1,5 +1,5 @@
 import { publicPostSummary } from "./post-view.ts";
-import { originalPostAdmissionCondition } from "./items.ts";
+import { browseFloorCondition, originalPostAdmissionCondition } from "./items.ts";
 import { originalPostAffectedStories } from "./stories.ts";
 export { originalPostAffectedStories } from "./stories.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
@@ -149,7 +149,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   const matchers = readMatcherValues(q.tag, q.topicTags, [], [], newsJurisdictionScope(null).jurisdictionRecipe);
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
   type Member = Pick<ItemRow, "source_id" | "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
-  const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible` : selectedCondition(now);
+  const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible ${browseFloorCondition(true)}` : selectedCondition(now);
   const selected = await sql<Member[]>`
     SELECT p.article_id AS id, p.source_id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
     FROM publications p WHERE p.story_id = ${story.id} AND ${scope} ${filters}`;
@@ -490,7 +490,7 @@ export async function readReportReadingRows(q: ReadingGroupQuery, now: Date, db:
       ${foldableSelectionCondition()} AS foldable,(${searchPartScore(scores)})+(${searchTitleScore(scores)}) AS rel,
       (CASE WHEN p.selected AND p.seat THEN 1000 ELSE 0 END)+coalesce(p.score,0) AS tie
     FROM publications p LEFT JOIN pool_search ps ON ps.article_id=p.article_id LEFT JOIN facts f ON f.id=p.fact_id
-    WHERE ${listedCondition(now)} AND p.eligible AND NOT p.operator_withdrawn
+    WHERE ${listedCondition(now)} AND p.eligible AND NOT p.operator_withdrawn ${browseFloorCondition(!terms.length && !q.selected && q.scope !== "selected" && !q.reportGroupId)}
       AND (${q.reportGroupId ?? null}::uuid IS NULL OR p.article_id IN (SELECT article_id FROM publication.report_group_members WHERE group_id=${q.reportGroupId ?? null}::uuid))
       AND (${!(q.selected || q.scope === "selected")} OR ${confirmedSelected()})
       AND (${q.featuredSince ?? null}::timestamptz IS NULL OR p.timeline_at>=${q.featuredSince ?? null})

@@ -56,6 +56,11 @@ export const SELECTION = {
    * 读者默认看不到，也不会入选，归组只花调用。未打分（模型拒评、尚未定分）的照常归组。
    */
   groupFloor: 20,
+  /**
+   * 浏览下限（Owner 2026-11-05）：没有搜索词的“全部”列表（网页、接口、RSS）默认不显示低于这个分数的稿件；
+   * 精选和未定分的照常显示，搜索仍能搜到全部。
+   */
+  browseFloor: 20,
 } as const;
 
 export const SCORE_AXES = ["sig", "nov", "cred", "reson", "act"] as const;

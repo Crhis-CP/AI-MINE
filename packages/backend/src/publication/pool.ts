@@ -1,4 +1,4 @@
-import { originalPostAdmissionCondition } from "./items.ts";
+import { browseFloorCondition, originalPostAdmissionCondition } from "./items.ts";
 import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { sharedSearch } from "../lib/cache.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
@@ -184,7 +184,7 @@ async function queryPool(
     query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
   );
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(names)} ${topicCondition(names)} ${dateFilter}
-    ${query.selected ? sql`AND ${confirmedSelected()}` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``}
+    ${query.selected ? sql`AND ${confirmedSelected()}` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``} ${browseFloorCondition(!q && !query.selected)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   // A fixed clock (tests, replays) never shares cached totals.

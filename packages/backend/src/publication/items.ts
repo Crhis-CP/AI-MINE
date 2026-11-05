@@ -10,6 +10,7 @@ import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/con
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
+import { SELECTION } from "@amp/industry/selection";
 import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
 import { displayTags, independentSelectedSources } from "./rules.ts";
 import { postFeedView, publicPostSummary } from "./post-view.ts";
@@ -142,6 +143,14 @@ export async function admissionReplacementSeats(now: Date, db: Db = sql): Promis
   const facts = new Map<number, Array<(typeof rows)[number]>>();
   for (const row of rows) facts.set(row.fact_id, [...(facts.get(row.fact_id) ?? []), row]);
   return [...facts.values()].map((members) => pickRepresentative(members).article_id);
+}
+
+/**
+ * The browse floor (Owner 2026-11-05): an unsearched "all" list (web, API, RSS) leaves out items scored below
+ * SELECTION.browseFloor; picks and unscored items stay, and a search still finds everything. Empty when inactive.
+ */
+export function browseFloorCondition(active: boolean) {
+  return active ? sql`AND (p.score IS NULL OR p.score >= ${SELECTION.browseFloor} OR ${confirmedSelected()})` : sql``;
 }
 
 /** Listed items: public, and a selected item only after its release gate. */
@@ -346,6 +355,7 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
   const rows = await db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
     WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after<=${query.now})
       AND p.eligible AND (${!query.selected} OR (${confirmedSelected()} AND (${countryScope} OR p.seat OR p.article_id=ANY(${replacements}::text[]))))
+      ${browseFloorCondition(!query.selected && !matchers.term0.active)}
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
