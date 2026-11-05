@@ -249,14 +249,18 @@ export function jurisdictionCondition(value: string | null, descendants: string[
   // Country filters use evidenced locations; country mentions remain available through text search.
   return sql`AND (${value}::text IS NULL OR ${currentGeographyMatch(value, descendants ?? [], recipe)})`;
 }
-/** Cross-lane facet port: known membership only; unknown also counts partially inspected material. No cache or paid work. */
-export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<string, number>; unknown: number }> {
+/**
+ * Cross-lane facet port: known membership only; unknown also counts partially inspected material. No cache or paid work.
+ * With a range, only items whose archive time (`timeline_at`) falls in it count (the reader's news map).
+ */
+export async function currentNewsJurisdictionCounts(range?: { from: Date; to: Date }): Promise<{ counts: Record<string, number>; unknown: number }> {
   const now = new Date(),
     rows = await sql<{ codes: string[] | null; state: string | null }[]>`
     SELECT g.jurisdictions AS codes, g.state
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
-    WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})`;
+    WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
+      ${publicationDateCondition(range?.from, range?.to)}`;
   const counts = Object.fromEntries(JURISDICTIONS.map((j) => [j.id, 0]));
   let unknown = 0;
   for (const row of rows) {

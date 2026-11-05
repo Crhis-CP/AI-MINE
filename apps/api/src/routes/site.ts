@@ -6,6 +6,8 @@ import {
   policyRoutes,
   PoolResponse,
   SiteMeta,
+  SiteNewsMap,
+  type NewsMapWindow,
   SiteStats,
   TimelineResponse,
   ReportGroupedPoolResponse,
@@ -24,7 +26,7 @@ import { loadDevelopments, loadGroupReports, loadReportGroupReports, readItemRep
 import { loadTopicTags } from "@amp/backend/publication/topics";
 import { loadHotStrip, hotSearchLinks } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
-import { loadSiteStats } from "@amp/backend/site/stats";
+import { loadNewsMap, loadSiteStats } from "@amp/backend/site/stats";
 import { isValidDate } from "@amp/contracts/time";
 import { itemAvailability, savedItems, contentVersion, publicFreshness } from "@amp/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage, topicBrowseLinks } from "@amp/backend/publication/topics";
@@ -135,6 +137,17 @@ export function registerSite(app: FastifyInstance) {
     siteHandler(async (_req, reply) => {
       const data = await policyScope(true);
       return sendJsonWithEtag(_req, reply, data, { etagPrefix: "siteJurisdictions", cacheControl: "no-store" });
+    }),
+  );
+
+  // The news map follows a recent window (the contract rejects any other window with 400).
+  app.get(
+    contracts.siteNewsMap.url,
+    contracts.siteNewsMap,
+    siteHandler(async (req, reply) => {
+      const { window = "7d" } = req.query as { window?: NewsMapWindow };
+      const data = SiteNewsMap.parse(await loadNewsMap(window));
+      return sendJsonWithEtag(req, reply, data, { etagPrefix: "siteNewsMap", cacheControl: "no-store" });
     }),
   );
 

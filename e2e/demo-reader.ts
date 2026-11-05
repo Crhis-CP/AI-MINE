@@ -203,3 +203,18 @@ export const demoJurisdictions = DEMO_COUNTRY_COUNTS.map(([code, label, news_cou
   news_count,
   policy_count: 0,
 }));
+
+/** Synthetic news map per window (演示数据): the last window beside the one before it. */
+export function demoNewsMap(window: "1d" | "7d" | "30d", now = new Date()) {
+  const days = { "1d": 1, "7d": 7, "30d": 30 }[window];
+  const scale = { "1d": 0.08, "7d": 0.35, "30d": 1 }[window];
+  const shift: Record<string, number> = { CL: 2.2, ID: 1.9, CD: 1.6, AU: 0.7, US: 0.6 };
+  const countries = DEMO_COUNTRY_COUNTS.map(([code, label, total]) => {
+    const count = Math.round(total * scale * (shift[code] ?? 1));
+    const previous = Math.round(total * scale);
+    return { code, label, count, previous };
+  })
+    .filter((c) => c.count > 0 || c.previous > 0)
+    .sort((a, b) => b.count - a.count || b.previous - a.previous);
+  return { window, from: new Date(now.getTime() - days * 86_400_000).toISOString(), to: now.toISOString(), countries };
+}

@@ -44,6 +44,22 @@ export const SiteMeta = z.strictObject({
   filings: SiteFilings,
 });
 export type SiteMeta = z.infer<typeof SiteMeta>;
+/** Reader news map windows: the last day, week or month by archive time. */
+export const NewsMapWindow = z.enum(["1d", "7d", "30d"]);
+/**
+ * Country news counts for the reader's map over one window, with the window before it for the trend. Same
+ * membership as the country filter's counts; countries with nothing in either window are left out.
+ */
+export const SiteNewsMap = z.strictObject({
+  window: NewsMapWindow,
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  countries: z.array(
+    z.strictObject({ code: z.string().min(2).max(12), label: z.string().min(1).max(40), count: z.int().nonnegative(), previous: z.int().nonnegative() }),
+  ),
+});
+export type SiteNewsMap = z.infer<typeof SiteNewsMap>;
+export type NewsMapWindow = z.infer<typeof NewsMapWindow>;
 export const SourceAttribution = z.strictObject({
   publishers: z.array(z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }) })),
   license: z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }).nullable() }).nullable(),
@@ -504,6 +520,8 @@ export const schemas = {
   SiteStats,
   SiteFilings,
   SiteMeta,
+  NewsMapWindow,
+  SiteNewsMap,
   FeedbackIdempotencyHeaders,
   StoryFollowupsResponse,
   SourceAttribution,
@@ -627,6 +645,15 @@ export const routes = {
     method: "GET" as const,
     url: "/api/site/meta",
     schema: { operationId: "siteMeta", response: { 200: SiteMeta, 304: z.undefined(), 503: ProblemResponse } },
+  },
+  siteNewsMap: {
+    method: "GET" as const,
+    url: "/api/site/news-map",
+    schema: {
+      operationId: "siteNewsMap",
+      querystring: z.strictObject({ window: NewsMapWindow.optional() }),
+      response: { 200: SiteNewsMap, 304: z.undefined(), 400: ProblemResponse, 503: ProblemResponse },
+    },
   },
   siteMetalPrices: {
     method: "GET" as const,

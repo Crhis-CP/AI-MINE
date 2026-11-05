@@ -300,6 +300,7 @@ if (process.argv.includes("--routes")) {
           "/api/site/jurisdictions",
           "/api/site/meta",
           "/api/site/metal-prices",
+          "/api/site/news-map",
           "/api/site/policies",
           "/api/site/policies/reports",
           "/api/site/policies/reports/{id}",

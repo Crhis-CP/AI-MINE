@@ -137,6 +137,17 @@
     "noDataReason": "行业静态配置与版本，无数据库内容分支"
   },
   {
+    "route": "GET /api/site/news-map",
+    "cases": [
+      {
+        "url": "/api/site/news-map?window=30d",
+        "status": 200,
+        "contains": ["window", "countries"]
+      }
+    ],
+    "fixture": "同一公开法域字典及PR9新闻计数，按归档时间窗口"
+  },
+  {
     "route": "GET /api/site/pool",
     "fixture": "公开eligible投影及联表正文/译文；body-only关键词uniquebodyneedle强制读取pool_search",
     "cases": [

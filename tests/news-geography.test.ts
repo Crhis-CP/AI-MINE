@@ -14,6 +14,7 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { prepareGeographyBackfill } from "@amp/backend/jobs/content";
 import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
+import { queryNewsMap } from "@amp/backend/site/stats";
 import { currentNewsJurisdictionCounts } from "../packages/backend/src/publication/news-geography.ts";
 import {
   validateGeography,
@@ -305,6 +306,24 @@ test("current public counts include child jurisdictions once, never HQ context, 
   assert.equal(counts.counts.CN, before.counts.CN);
   assert.ok(counts.unknown > before.unknown);
   assert.ok(!(await loadPool({ ...filters, now: new Date() })).items.some((i) => i.id === f.articleId));
+});
+test("the news map counts a country inside its archive-time window and moves it to the previous window as it ages", async () => {
+  const body = "智利铜矿扩建项目获批，适用智利新的环境许可规定。",
+    now = new Date();
+  const before = (await queryNewsMap("7d", now)).countries.find((c) => c.code === "CL") ?? { count: 0, previous: 0 };
+  const f = await fixture(body, candidate([assignment("CL", "智利", body)]));
+  await sql`UPDATE publications SET timeline_at=${new Date(now.getTime() - 2 * 86_400_000)} WHERE article_id=${f.articleId}`;
+  let chile = (await queryNewsMap("7d", new Date())).countries.find((c) => c.code === "CL")!;
+  assert.equal(chile.count, before.count + 1);
+  assert.equal(chile.previous, before.previous);
+  await sql`UPDATE publications SET timeline_at=${new Date(now.getTime() - 10 * 86_400_000)} WHERE article_id=${f.articleId}`;
+  chile = (await queryNewsMap("7d", new Date())).countries.find((c) => c.code === "CL")!;
+  assert.equal(chile.count, before.count);
+  assert.equal(chile.previous, before.previous + 1);
+  const map = await app.inject({ method: "GET", url: "/api/site/news-map?window=30d" });
+  assert.equal(map.statusCode, 200);
+  assert.ok(map.json().countries.some((c: { code: string }) => c.code === "CL"));
+  assert.equal((await app.inject({ method: "GET", url: "/api/site/news-map?window=2d" })).statusCode, 400);
 });
 test("unknown, explicit none, old cache coverage, low-priority dry-run and manual evidence remain separate", async () => {
   const none = await fixture("全球金属市场供求综述，不限定具体国家。".repeat(2), candidate([], "none")),

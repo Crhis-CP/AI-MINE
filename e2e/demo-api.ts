@@ -10,6 +10,7 @@ import {
   demoInformation,
   demoJurisdictions,
   demoMeta,
+  demoNewsMap,
   demoPool,
   demoStats,
   demoSuggestions,
@@ -49,6 +50,10 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
       return send(res, 200, demoInformation);
     case "/api/site/search/suggestions":
       return send(res, 200, demoSuggestions);
+    case "/api/site/news-map": {
+      const window = q.get("window") ?? "7d";
+      return window === "1d" || window === "7d" || window === "30d" ? send(res, 200, demoNewsMap(window)) : send(res, 400, { code: "invalid_request" });
+    }
     case "/api/site/jurisdictions":
       return send(res, 200, demoJurisdictions);
     case "/api/site/items/saved":
