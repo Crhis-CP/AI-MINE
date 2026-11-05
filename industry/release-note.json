@@ -10,7 +10,8 @@
       "文章页可切换宋体和黑体，正文每行约 38 个字；列表可用 j / k 键上下切换。",
       "报告刊头换上新标识；法规页把基本信息集中到一张卡片，用测量点连线显示文件所处阶段。",
       "“我的”页分为内容、阅读设置、关于三组，外观开关带文字。",
-      "可以切换到英文界面，全部页面的界面文字都有英文，资讯内容仍为中文。"
+      "可以切换到英文界面，全部页面的界面文字都有英文，资讯内容仍为中文。",
+      "金属价格改为每种金属一张卡片：先看最新价格、涨跌和报价日期，同一金属的其他报价和来源说明展开查看。"
     ]
   },
   "fragments": [
@@ -26,6 +27,7 @@
     "changes/TASK-0521-english-interface.md",
     "changes/TASK-0523-english-everywhere.md",
     "changes/TASK-0529-simpler-ui.md",
-    "changes/TASK-0530-policy-layout.md"
+    "changes/TASK-0530-policy-layout.md",
+    "changes/metals-cards-20261105.md"
   ]
 }
