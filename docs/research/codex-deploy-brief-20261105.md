@@ -249,6 +249,26 @@
 - **失败时：**按铁律 3 处理，失败日志交给 Claude。Claude 会在 `claude/nice-newton-mew572` 上修好并给你新的 `$BRANCH_SHA`，你再从 S3 第一条命令重做，不用重做 S2。
 - **报告里写：**PR 链接、CI 运行链接和结果、`$MAIN`。
 
+### S3 补充：Claude 修订后接着跑（Owner 2026-11-05 授权，照做，不必再问）
+
+Claude 修好后会给你新的 `$BRANCH_SHA`，并说明修订有没有动到 main 上集成卡没列出的文件。
+
+1. **动到了新文件**（这次是 `scripts/docs-check/validate_package.py`）：先发一个补充计划 PR，把新卡放进 main。做法和 S2 一样，只改三处：
+   - 分支名用 `agent/architect/TASK-0528-plan-2`，第一条命令改为 `git switch -c agent/architect/TASK-0528-plan-2 origin/main`；
+   - `git status --short` 应为 ` M tasks/TASK-0528.md` 和 ` M tasks/INDEX.md` 两行；
+   - 标题写 `计划：TASK-0528 补充允许路径`，“做了什么”写“只更新集成卡 TASK-0528 的允许路径并重新生成任务索引，不改代码。”
+
+   等 Owner 批准、合并后，做第 2 步。
+2. **复用原来的正式 PR**（不新开、不强推）：
+   ```bash
+   git fetch origin main claude/nice-newton-mew572
+   git switch agent/architect/TASK-0528-integration
+   git merge --no-ff --no-edit origin/main
+   git merge --no-ff --no-edit origin/claude/nice-newton-mew572
+   git diff --name-only --diff-filter=U
+   ```
+   冲突的处理与 S3 相同：只有 `tasks/INDEX.md` 冲突时重新生成并提交，其他文件冲突就 `git merge --abort` 停下报告。然后跑 S3 的三条合并后检查，通过后 `git push`，原 PR 上的 CI 会自动重跑。之后按 S3 的通过标准继续。
+
 ### S4 取 main 的 CI 制品（30 分钟）
 
 - **目的：**生产只用最终 main 的 CI 制品，不在服务器上构建。
@@ -784,6 +804,7 @@ T16 输出原文：
 |---|---|
 | S2 | 是否批准合并计划 PR |
 | S3 | 是否批准合并正式 PR |
+| S3 补充 | 是否批准合并补充计划 PR |
 | 第 7 节 | 测试不符时，是否回滚 |
 
 评分是否调整、地图是否保留、英文界面何时去掉 noindex，都不是你要问的：前两项 Owner 已有决定，第三项由 Claude 安排。
