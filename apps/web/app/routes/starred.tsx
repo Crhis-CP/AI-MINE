@@ -15,6 +15,7 @@ import { loadParts } from "../../site-modules";
 import { WEB_MODULES } from "@amp/site/modules/web";
 const moduleLists = await loadParts((module) => module.starred);
 import { IconBookmark } from "../components/icons";
+import { buttonClass } from "../components/ui/Controls";
 
 export const headers = () => ({ "Cache-Control": "no-store" });
 export const meta = () => pageMeta({ title: "我的收藏", description: `保存在这台设备上的 ${SITE.name} 收藏。`, path: "/starred", noindex: true });
@@ -139,54 +140,63 @@ export default function StarredPage() {
   return (
     <div className="pb-12">
       <PhoneBar back={{ to: "/more", label: tr("我的") }} title={tr("收藏")} />
+      {/* UI update (Owner 2026-11-05): title with the count, and the file actions as real buttons beside it. */}
       <header className="pb-4 pt-5 lg:pt-1">
-        <h1 data-page-title="" className="text-[24px] font-semibold text-ink">
-          {tr("收藏")}
-        </h1>
-        <p className="mt-2 text-[14px] text-ink-3">
-          {tr("保存在当前浏览器中的阅读清单，最多")}
-          {STARRED_LIMIT}
-          {tr("条。可导出文件带到另一台设备，内容不会自动同步。")}
-        </p>
-        <div className="mt-3 flex gap-4 text-[14px] text-accent">
-          <button type="button" onClick={() => fileRef.current?.click()}>
-            {tr("导入文件")}
-          </button>
-          <button type="button" onClick={doExport}>
-            {tr("导出收藏与已读记录")}
-          </button>
-          {WEB_MODULES.flatMap((module) =>
-            (module.starredImports ?? []).map((entry) => (
-              <button
-                key={`${module.name}:${entry.label}`}
-                type="button"
-                disabled={importing}
-                onClick={async () => {
-                  setImporting(true);
-                  setNotice(null);
-                  try {
-                    const result = await entry.run();
-                    setNotice(result.ok ? result.text : null);
-                    setError(result.ok ? null : result.text);
-                  } catch {
-                    setError(tr("导入未完成，请稍后重试。"));
-                  } finally {
-                    setImporting(false);
-                  }
-                }}
-              >
-                {entry.label}
-              </button>
-            )),
-          )}
-          <input
-            aria-label={tr("导入收藏文件")}
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="sr-only"
-            onChange={(event) => void doImport(event.target.files?.[0])}
-          />
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 data-page-title="" className="flex items-baseline gap-2 text-[24px] font-semibold text-ink">
+              {tr("收藏")}
+              <span className="num text-[15px] font-medium text-ink-4">
+                {references.length} / {STARRED_LIMIT}
+              </span>
+            </h1>
+            <p className="mt-1.5 text-[14px] text-ink-3">
+              {tr("保存在当前浏览器中的阅读清单，最多")}
+              {STARRED_LIMIT}
+              {tr("条。可导出文件带到另一台设备，内容不会自动同步。")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={buttonClass("secondary", "sm")} onClick={() => fileRef.current?.click()}>
+              {tr("导入文件")}
+            </button>
+            <button type="button" className={buttonClass("secondary", "sm")} onClick={doExport}>
+              {tr("导出收藏与已读记录")}
+            </button>
+            {WEB_MODULES.flatMap((module) =>
+              (module.starredImports ?? []).map((entry) => (
+                <button
+                  key={`${module.name}:${entry.label}`}
+                  type="button"
+                  className={buttonClass("secondary", "sm")}
+                  disabled={importing}
+                  onClick={async () => {
+                    setImporting(true);
+                    setNotice(null);
+                    try {
+                      const result = await entry.run();
+                      setNotice(result.ok ? result.text : null);
+                      setError(result.ok ? null : result.text);
+                    } catch {
+                      setError(tr("导入未完成，请稍后重试。"));
+                    } finally {
+                      setImporting(false);
+                    }
+                  }}
+                >
+                  {entry.label}
+                </button>
+              )),
+            )}
+            <input
+              aria-label={tr("导入收藏文件")}
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="sr-only"
+              onChange={(event) => void doImport(event.target.files?.[0])}
+            />
+          </div>
         </div>
       </header>
       {notice && (
@@ -194,7 +204,7 @@ export default function StarredPage() {
           {notice}
         </p>
       )}
-      <p className="text-[13px] text-ink-4">
+      <p className="border-t border-line-soft pt-3 text-[13px] text-ink-4">
         {tr("已收藏")} {references.length} {tr("条；仅保存引用，内容以当前公开版本为准。")}
       </p>
       {error && (
@@ -231,9 +241,11 @@ export default function StarredPage() {
       )}
       {!state.loading && !state.failed && !references.length && (
         <div className="mt-3 rounded-card border border-dashed border-line p-10 text-center">
-          <IconBookmark size={20} className="mx-auto text-ink-4" />
+          <span className="mx-auto grid size-11 place-items-center rounded-full bg-bg-sunk text-accent">
+            <IconBookmark size={20} />
+          </span>
           <p className="mt-3 text-[14px] text-ink-3">{tr("还没有收藏 — 点击资讯旁的书签，即可加入你的阅读清单。")}</p>
-          <Link to="/" className="mt-4 block text-accent">
+          <Link to="/" className={`mt-4 ${buttonClass("primary", "md")}`}>
             {tr("去看精选 →")}
           </Link>
         </div>
@@ -245,9 +257,11 @@ export default function StarredPage() {
             ? [
                 <li key={ref.id}>
                   <FeedItem item={item} showTags />
-                  <p className="mt-1 text-[13px] text-ink-4">
-                    {tr("收藏于")} {fullDateTime(ref.savedAt)}{" "}
-                    <button type="button" className="ml-3 text-accent" onClick={() => remove(ref.id)}>
+                  <p className="mt-1 flex items-center justify-between px-1 text-[13px] text-ink-4">
+                    <span>
+                      {tr("收藏于")} {fullDateTime(ref.savedAt)}
+                    </span>
+                    <button type="button" className={buttonClass("ghost", "sm")} onClick={() => remove(ref.id)}>
                       {tr("移除")}
                     </button>
                   </p>

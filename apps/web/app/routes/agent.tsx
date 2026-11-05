@@ -119,12 +119,13 @@ function Section({ title, children, id }: { title: string; children: ReactNode; 
   );
 }
 
-function Bullets({ items }: { items: ReactNode[] }) {
+/** `cards` lays the items out as a two-column grid of small cards (the MCP tool list, UI update 2026-11-05). */
+function Bullets({ items, cards = false }: { items: ReactNode[]; cards?: boolean }) {
   return (
-    <ul className="space-y-1.5">
+    <ul className={cards ? "grid gap-2 sm:grid-cols-2" : "space-y-1.5"}>
       {items.map((it, i) => (
-        <li key={i} className="flex gap-2">
-          <span className="mt-[11px] size-1 shrink-0 rounded-full bg-ink-4" />
+        <li key={i} className={cards ? "rounded-control border border-line bg-surface px-3.5 py-2.5 leading-[1.7]" : "flex gap-2"}>
+          {!cards && <span className="mt-[11px] size-1 shrink-0 rounded-full bg-ink-4" />}
           <span>{it}</span>
         </li>
       ))}
@@ -157,6 +158,7 @@ function McpTab({ base, tag }: AgentPanelProps) {
       <CodeBlock lang="bash" code={`# Claude Code\nclaude mcp add --transport http ${name} '${url}'\n# Codex\ncodex mcp add ${name} --url '${url}'`} />
       <Section title={tr("连上后应看到这 {mCP_TOOL_COUNT} 个工具", { mCP_TOOL_COUNT: MCP_TOOL_COUNT })}>
         <Bullets
+          cards
           items={[
             <>
               <Mono>{T.latest}</Mono>
