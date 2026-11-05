@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLoaderData, useLocation, useNavigate, useSearchParams } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/agent";
-import { SITE } from "@amp/industry/site";
+import { SITE, withSubject } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES as T, MCP_TOOLS } from "@amp/contracts/mcp";
 import { listPath, pageMeta, siteUrl } from "../lib/seo";
@@ -244,7 +244,7 @@ function RssTab({ base, tag }: AgentPanelProps) {
     ["精选摘要（推荐）", tr("最新 50 条精选摘要，保留标题、站内阅读与原文入口。"), "/feed.xml"],
     ["精选全文", tr("与精选摘要相同的最新 50 条；只对明确允许再分发的来源内联正文。"), "/feed/full.xml"],
     ["最近 7 天全部动态", tr("最近 7 天公开动态，按真实发布时间倒序。"), "/feed/all.xml"],
-    [tr.subject("日报"), `每天 08:00 北京时间发布的${tr.subject("日报")}，保留最近 30 期。`, "/feed/daily.xml"],
+    [tr.subject("日报"), tr.maybe(`每天 08:00 北京时间发布的${withSubject("日报")}，保留最近 30 期。`), "/feed/daily.xml"],
     ["法规政策动态", tr("最近50份当前可公开法规文书的摘要与官方原文入口；日期精度按来源保留，不含全文。"), "/feed/policies.xml"],
   ];
   const categories = CATEGORY_KEYS.join("|");
