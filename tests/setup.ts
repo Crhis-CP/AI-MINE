@@ -23,6 +23,10 @@ process.env.IMG_PROXY_SIGN_SECRET ??= "test-img-secret-0123456789";
 process.env.FEISHU_CONTENT_PUSH_ENABLED = "false";
 process.env.INDEXNOW_SUBMIT_ENABLED = "false";
 process.env.LOG_LEVEL ??= "error";
+// Production leaves both policy restart switches off (DEC-78补充·五项决定 5). These tests were written with the
+// policy archive and model stages available; tests/policy-pilot-switches.test.ts covers the defaults.
+process.env.POLICY_PILOT_ENABLED ??= "true";
+process.env.POLICY_MODEL_STAGES_ENABLED ??= "true";
 // The tests were written against the named model presets the upstream project assigns to each step
 // (each provider is pointed at a local stub by the test that needs it). The open-source default is one
 // model for every step, which tests/default-model.test.ts covers.

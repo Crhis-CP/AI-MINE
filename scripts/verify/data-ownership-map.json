@@ -318,6 +318,22 @@
       "module": "policy",
       "access": "business"
     },
+    "policy.revision_structures": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.revision_provisions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "publication.policy_provision_sets": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.policy_revision_provisions": {
+      "module": "publication",
+      "access": "business"
+    },
     "publication.policy_publication_control": {
       "module": "publication",
       "access": "business"
@@ -848,6 +864,7 @@
     "apps/api/src/routes/admin.ts": "sources",
     "modules/metals/backend/read.ts": "publication",
     "modules/metals/backend/store.ts": "publication",
+    "modules/policy/backend/compare.ts": "publication",
     "modules/policy/backend/domain/automation.ts": "policy",
     "modules/policy/backend/domain/capture.ts": "policy",
     "modules/policy/backend/domain/extraction.ts": "policy",
@@ -857,12 +874,14 @@
     "modules/policy/backend/domain/metadata.ts": "policy",
     "modules/policy/backend/domain/originals.ts": "policy",
     "modules/policy/backend/domain/processing-notice.ts": "policy",
+    "modules/policy/backend/domain/provision-store.ts": "policy",
     "modules/policy/backend/domain/public-state.ts": "policy",
     "modules/policy/backend/domain/quality.ts": "policy",
     "modules/policy/backend/domain/receipt-recovery.ts": "policy",
     "modules/policy/backend/domain/target-evidence.ts": "policy",
     "modules/policy/backend/domain/vision-store.ts": "policy",
     "modules/policy/backend/publication/policies-publish.ts": "publication",
+    "modules/policy/backend/publication/policy-provisions-project.ts": "publication",
     "modules/policy/backend/publication/policy-report-store.ts": "publication",
     "modules/policy/backend/read.ts": "publication",
     "modules/policy/backend/relations.ts": "publication",

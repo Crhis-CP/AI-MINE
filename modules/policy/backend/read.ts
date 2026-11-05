@@ -12,6 +12,7 @@ import { stableJson, sha256 } from "@amp/backend/lib/ids";
 import { encodeCursor, decodeCursor, queryBinding } from "@amp/backend/lib/cursor";
 import { decoratePolicyNavigation, decoratePolicyRelationships, readPolicyThread } from "./relations.ts";
 import { readerPolicyGaps } from "./reader-copy.ts";
+import { policyArchiveEnabled } from "./pilot.ts";
 
 export class PolicyReadError extends Error {
   readonly status: number;
@@ -23,7 +24,7 @@ export class PolicyReadError extends Error {
   }
 }
 type Resource = { url: string; document_type: string | null; attachment: boolean };
-type Edition = {
+export type Edition = {
   id: string;
   policy_id: string;
   native_expression_id: string;
@@ -51,16 +52,16 @@ type Edition = {
   released_at: Date;
   discovered_at: Date | null;
 };
-type View = { row: Edition; card: PolicyCard; complete: boolean; readable: Record<"original" | "official_translation" | "ai_translation", boolean> };
+export type View = { row: Edition; card: PolicyCard; complete: boolean; readable: Record<"original" | "official_translation" | "ai_translation", boolean> };
 const columns =
   () => sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id,e.source_id,e.permission_version,e.policy_version_id,e.original_content_key,e.source_language,e.preferred_source_language,e.expression_ids,e.revision_ids,
  e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.binding_version,q.valid_until,q.revoked,d.withdrawn,d.automatic_excluded,e.released_at,e.discovered_at`;
 const join = () => sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
  LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id`;
-function context() {
+export function context() {
   return { now: Date.now(), permissions: new Map<string, ReturnType<typeof readCurrentPublicPolicy>>(), languageViews: new Map<string, Promise<View[]>>() };
 }
-async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOnly: boolean): Promise<View | null> {
+export async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOnly: boolean): Promise<View | null> {
   if (row.withdrawn || row.automatic_excluded) return null;
   if (currentOnly && (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) !== row.native_revision_id) return null;
   let source = ctx.permissions.get(row.source_id);
@@ -106,7 +107,7 @@ async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOn
       }
     : null;
 }
-async function currentLanguageViews(id: string, ctx: ReturnType<typeof context>, details = false) {
+export async function currentLanguageViews(id: string, ctx: ReturnType<typeof context>, details = false) {
   const key = `${id}:${details}`;
   let cached = ctx.languageViews.get(key);
   if (!cached) {
@@ -259,15 +260,17 @@ export async function policyScope(jurisdictions = false) {
   return {
     items: JURISDICTIONS.filter((j) => j.policy_scope).map((j) => ({ jurisdiction: jurisdiction(j), readable_count: counts.get(j.id) ?? 0 })),
     note: "篇数仅统计当前实际可公开文书；登记范围不代表已完成供稿。",
+    // The reader notice follows the operator's restart switch, not a guess from recent activity.
+    updates: policyArchiveEnabled() ? ("pilot" as const) : ("paused" as const),
   };
 }
-async function editions(id: string, details = false) {
+export async function editions(id: string, details = false) {
   return sql<
     Edition[]
   >`SELECT ${columns()},${details ? sql`e.basic_detail,e.complete_detail,e.reading` : sql`NULL AS basic_detail,NULL AS complete_detail,NULL AS reading`}
  ${join()} WHERE e.policy_id=${id} ORDER BY e.released_at DESC,e.id DESC`;
 }
-async function ensureDocument(id: string) {
+export async function ensureDocument(id: string) {
   const [row] = await sql`SELECT id,withdrawn FROM publication.policy_documents WHERE id=${id}`;
   if (!row) throw new PolicyReadError(404, "policy_not_found");
   if (row.withdrawn) throw new PolicyReadError(410, "policy_withdrawn");

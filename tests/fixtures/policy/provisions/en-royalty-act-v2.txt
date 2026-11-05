@@ -1,0 +1,19 @@
+MINING ROYALTY ACT 2026 (SYNTHETIC TEST SAMPLE, NOT AN OFFICIAL TEXT)
+As amended by the Mining Royalty Amendment Act 2027.
+An Act to provide for the payment of royalty on minerals recovered under a mining lease.
+PART 1
+PRELIMINARY
+Section 1. Short title
+This Act may be cited as the Mining Royalty Act 2026.
+Section 2. Interpretation
+In this Act, "mineral" means any substance occurring naturally in or on the earth that is recovered under a mining lease, and "Minister" means the Minister responsible for mining.
+PART 2
+ROYALTY
+Section 3. Royalty payable
+(1) A holder of a mining lease must pay royalty to the State at the rate of 7 per cent of the value of the mineral recovered.
+(2) Royalty is payable quarterly within 30 days after the end of each quarter.
+(3) Interest accrues on unpaid royalty at the prescribed rate.
+Section 3A. Critical minerals
+Royalty on lithium, cobalt and rare earth elements is payable at the rate of 4 per cent of the value of the mineral recovered.
+Section 5. Commencement
+This Act commences on 1 January 2026.

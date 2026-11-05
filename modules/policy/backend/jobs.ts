@@ -4,7 +4,8 @@ import { workQueues, enqueueOn } from "@amp/backend/jobs/module-queues";
 import { z } from "zod";
 import { CrawlDeferred, CrawlObsolete } from "@amp/backend/acquisition/crawl";
 import { publishPolicyPublication } from "./publication/policies-publish.ts";
-import { config, sourceCollectionEnabled } from "@amp/backend/config";
+import { config } from "@amp/backend/config";
+import { policyArchiveEnabled, policyModelStagesEnabled } from "./pilot.ts";
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
 import { runtimeControlSnapshot } from "@amp/backend/operations/lane-controls";
 import { ensureQueue, recordRun, shutdownSignal } from "@amp/backend/jobs/queue";
@@ -35,9 +36,10 @@ export async function sweepPolicyMaterials() {
   const [collection, processing, publication] = await Promise.all(
     (["collection", "processing", "publication"] as const).map((stage) => runtimeControlSnapshot("policy", [stage])),
   );
-  const collecting = sourceCollectionEnabled("policy") && !collection.paused;
+  const collecting = policyArchiveEnabled() && !collection.paused;
+  // Model stages need their own explicit switch on top of the general model and processing controls.
   const stages = POLICY_STAGES.filter((stage) =>
-    stage === "acquire" ? collecting : stage === "publish" ? !publication.paused : config.modelCallsEnabled && !processing.paused,
+    stage === "acquire" ? collecting : stage === "publish" ? !publication.paused : config.modelCallsEnabled && policyModelStagesEnabled() && !processing.paused,
   );
   const previous = collecting
     ? null
@@ -68,7 +70,7 @@ export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPo
         const data = Job.parse(job);
         return recordRun(`policy.pipeline.${stage}`, async () => {
           try {
-            return await advancePolicyMaterial(data, stage, ports, { root: shutdownSignal.signal, collectionEnabled: sourceCollectionEnabled("policy") });
+            return await advancePolicyMaterial(data, stage, ports, { root: shutdownSignal.signal, collectionEnabled: policyArchiveEnabled() });
           } catch (error) {
             if (shutdownSignal.signal.aborted) throw error;
             if (error instanceof CrawlObsolete) return { status: "obsolete" };

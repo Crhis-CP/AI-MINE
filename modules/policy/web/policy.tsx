@@ -9,6 +9,7 @@ import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
 import { ArticleLayout } from "@amp/web/page";
 import { PolicyReading } from "./features/PolicyReading";
+import { PolicyCompare } from "./features/PolicyCompare";
 import { PolicyBack, PolicyError, Section, timeLabel, policyCache, policyHref, usePolicyRecheck } from "./features/PolicyUI";
 import {
   PolicyAnalysis,
@@ -29,6 +30,11 @@ import {
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   url.searchParams.delete("_routes"); // React Router data transport, not a public query filter.
+  // The page's own comparison choice (from the version history), not a detail filter.
+  const compareFrom = url.searchParams.get("compare_from") || undefined,
+    compareTo = url.searchParams.get("compare_to") || undefined;
+  url.searchParams.delete("compare_from");
+  url.searchParams.delete("compare_to");
   const parsed = PolicyDetailQuery.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   try {
@@ -40,6 +46,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     });
     if (!result.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.status) ? result.status : 503 });
     const policy = publicSchemas.Policy.parse(await result.json());
+    const history = !!parsed.data.document_revision_id;
+    // 逐条对照 is optional: no two comparable versions, or a failed read, only leaves the section out.
+    const comparing = history
+      ? Promise.resolve(null)
+      : apiFetch("/api/site/policies/{id}/compare", {
+          params: { path: { id: policy.id }, query: { from: compareFrom, to: compareTo } },
+          headers: { accept: "application/json", "x-amp-ssr": "1" },
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+          baseUrl: apiBaseFor(),
+        })
+          .then(async (response) => {
+            if (!response.ok) return null;
+            const comparison = publicSchemas.PolicyComparison.safeParse(await response.json());
+            return comparison.success && comparison.data.policy_id === policy.id ? comparison.data : null;
+          })
+          // Never rejects: the loader may already have thrown for the reading, and an aborted request needs no section.
+          .catch(() => null);
     const selected = policy.expressions.find((expression) => expression.id === policy.selected_expression_id);
     let initialReading: ReturnType<typeof publicSchemas.PolicyReadingPage.parse> | null = null;
     let initialReadingFailed = false;
@@ -79,7 +102,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         initialReadingFailed = true;
       }
     }
-    return { policy, history: !!parsed.data.document_revision_id, initialReading, initialReadingFailed };
+    return { policy, history, initialReading, initialReadingFailed, comparison: await comparing, compareRequested: !!(compareFrom || compareTo) };
   } catch (error) {
     if (error && typeof error === "object" && "init" in error) throw error;
     throw withHeaders(null, { status: 503 });
@@ -101,7 +124,7 @@ export default function PolicyPage() {
     <PolicyDocument key={`${data.policy.id}:${data.policy.selected_expression_id}:${data.policy.reading?.document_revision_id}:${data.history}`} {...data} />
   );
 }
-function PolicyDocument({ policy, history, initialReading, initialReadingFailed }: Awaited<ReturnType<typeof loader>>) {
+function PolicyDocument({ policy, history, initialReading, initialReadingFailed, comparison, compareRequested }: Awaited<ReturnType<typeof loader>>) {
   const tr = useTr();
   const [invalid, setInvalid] = useState(false);
   usePolicyRecheck();
@@ -114,7 +137,7 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed 
       </div>
     );
   const current = policy.versions.find((v) => v.id === policy.selected_policy_version_id);
-  const sections = policySections(policy, tr);
+  const sections = policySections(policy, tr, { compare: !!comparison || compareRequested });
   return (
     <div className="pb-12 pt-3 lg:pt-0" data-policy>
       <PolicyToolbar policy={policy} history={history} />
@@ -145,6 +168,7 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed 
         <PolicyAnalysis policy={policy} />
         <PolicyLegal policy={policy} />
         <PolicyGaps policy={policy} />
+        <PolicyCompare key={comparison?.content_version ?? "none"} policyId={policy.id} initial={comparison} requested={compareRequested} />
         <Section id="reading" title={tr("正文阅读")}>
           <PolicyReading
             key={`${policy.selected_expression_id}:${policy.reading?.document_revision_id}`}

@@ -513,6 +513,14 @@
       "dependsOn": ["events/202610270040_report_group_decisions.sql"]
     },
     {
+      "name": "policy/202611051000_policy_provisions.sql",
+      "dependsOn": ["policy/202610120140_policy_material_current.sql"]
+    },
+    {
+      "name": "publication/202611051010_policy_revision_provisions.sql",
+      "dependsOn": ["publication/202610262230_report_group_members.sql"]
+    },
+    {
       "name": "publication/202611051900_metal_price_holds.sql",
       "dependsOn": ["publication/202610231740_metal_price_checks.sql"]
     }

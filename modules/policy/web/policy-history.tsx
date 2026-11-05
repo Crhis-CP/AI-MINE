@@ -81,6 +81,14 @@ function History({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
                   {tr("；该原件留存时核对：")}
                   {timeLabel(item.checked_at)}
                 </p>
+                {!item.current && item.kind !== "ai_translation" && (
+                  <Link
+                    className="mt-2 inline-block text-[13px] text-accent underline-offset-2 hover:underline"
+                    to={`${policyHref(data.policy_id)}?${new URLSearchParams({ compare_from: item.document_revision_id })}#compare`}
+                  >
+                    {tr("与当前版本逐条对照 →")}
+                  </Link>
+                )}
               </li>
             ))}
           </ol>

@@ -843,6 +843,16 @@
     "noDataReason": "固定不存在文书，验证历史公开快照拒绝分支"
   },
   {
+    "route": "GET /api/site/policies/:id/compare",
+    "cases": [
+      {
+        "url": "/api/site/policies/policy-absent/compare",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，验证逐条对照拒绝分支；两版对照在policy-provisions-pipeline测试覆盖"
+  },
+  {
     "route": "GET /api/v1/policies",
     "cases": [
       {

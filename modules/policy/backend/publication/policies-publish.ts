@@ -32,6 +32,7 @@ import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { policyInterpretationQualityRecipe } from "../domain/references.ts";
 import { preparePolicyRelationships, savePolicyRelationships } from "../relations.ts";
 import { basicPolicy, completePolicy, policyCard, readingBlock, type PublicIds } from "./policies-project.ts";
+import { projectPolicyProvisions } from "./policy-provisions-project.ts";
 
 export async function setPolicyPublicationState(id: string, input: { withdrawn?: boolean; paused?: boolean; reason: string; actor: string }) {
   if (!input.reason.trim() || !input.actor.trim()) throw new Error("Publication control needs reason and actor");
@@ -296,6 +297,8 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
    VALUES(${editionId},${contentHash},${policyId},${input.expressionId},${snapshot.revisionId},${snapshot.sourceId},${snapshot.permissionVersion},${ids.version},${snapshot.language},${preferred},
    ${basic.expressions.map((e) => e.id)},${basic.expressions.map((e) => e.document_revision_id)},${db.json(resources)},${db.json(policyCard(Policy.parse(basic)))},${db.json(basic)},
    ${full ? db.json(policyCard(full)) : null},${full ? db.json(full) : null},${db.json(streams)},${full ? currentQuality!.id : null},${meta.discoveredAt},${originalContentKey}) ON CONFLICT(id) DO UPDATE SET quality_id=coalesce(EXCLUDED.quality_id,publication.policy_editions.quality_id),discovered_at=least(publication.policy_editions.discovered_at,EXCLUDED.discovered_at)`;
+    // Deterministic provisions of this revision, when stored and the original may be shown (逐条对照; no model).
+    await projectPolicyProvisions(snapshot.revisionId, db);
     if (full) await savePolicyRelationships(db, policyId, editionId, relationLinks, evidenceIds);
     await db`UPDATE publication.policy_documents SET first_public_at=coalesce(first_public_at,${at}::timestamptz),updated_at=now() WHERE id=${policyId}`;
     return {
