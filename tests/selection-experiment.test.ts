@@ -17,6 +17,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
 import { ExperimentManifest, countryPreview, metrics, attemptSummary, type ExperimentCase, type Outcome } from "../scripts/selection-experiment-data.ts";
 import { runExperiment, exportCountryCandidates, assertIsolatedDatabase } from "../scripts/selection-experiment.ts";
+import { scoreAxes } from "./score-axes.ts";
 
 const requests: Array<{ system: string; user: string }> = [];
 const provider = await stub((_n, req) => {
@@ -28,7 +29,7 @@ const provider = await stub((_n, req) => {
   const content =
     !prefilter && user.includes("BAD_RESPONSE")
       ? "not JSON"
-      : JSON.stringify(prefilter ? { label: "PASS", reason: "合成涉矿材料" } : { attentionScore: system.includes("阿根廷经营视角") ? 80 : 45 });
+      : JSON.stringify(prefilter ? { label: "PASS", reason: "合成涉矿材料" } : scoreAxes(system.includes("阿根廷经营视角") ? 80 : 45));
   return { choices: [{ message: { content }, finish_reason: "stop" }], usage: { prompt_tokens: 12, completion_tokens: 6 } };
 });
 Object.assign(process.env, {
@@ -115,7 +116,7 @@ const outcome = (row: ExperimentCase, variant: "A" | "B" | "AR", selected: boole
 test("historical variants stay isolated while the priority release preserves the production scoring text", () => {
   const a = readFileSync("industry/prompts/selection-score.md", "utf8"),
     b = readFileSync("industry/prompts/selection-score-b.md", "utf8");
-  assert.equal(createHash("sha256").update(a).digest("hex"), "1225e69a41495d0140c552256215f24c410bf57e045034be83d397d90960f4a4");
+  assert.equal(createHash("sha256").update(a).digest("hex"), "deeb75421d59baa9eadffcc74ce594dfe7ea219d780795a83a9bf8a1cd0cc9c5");
   assert.deepEqual(
     b.split("\n").filter((l) => l.startsWith("|")),
     a.split("\n").filter((l) => l.startsWith("|")),

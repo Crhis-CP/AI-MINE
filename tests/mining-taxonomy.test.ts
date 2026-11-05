@@ -9,6 +9,7 @@ import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORIES, CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy";
+import { SELECTION } from "@amp/industry/selection";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
@@ -19,6 +20,7 @@ import { publishArticle } from "@amp/backend/publication/publish";
 
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { buildApp } from "./site-app.ts";
+import { scoreAxes } from "./score-axes.ts";
 
 const source = `mining-category-${tag()}`;
 const app = await buildApp();
@@ -30,7 +32,7 @@ const provider = await stub((_hit, req) => {
   const output = system.includes("范围预筛")
     ? { label: "PASS", reason: "合成矿业范围" }
     : system.includes("事件注意力评分器")
-      ? { attentionScore: 80 }
+      ? scoreAxes(80)
       : system.includes("资料结构化助手")
         ? { category: category === "null" ? null : category, tags: [], subjects: [], fact: null }
         : {
@@ -72,18 +74,19 @@ test("actual classification, publication and public exits agree on nine keys and
     assert.ok(score.includes(line), line);
     assert.ok(understand.includes(line), line);
   }
-  const weights = [...score.matchAll(/^\| ([a-z_]+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|$/gm)];
-  assert.deepEqual(
-    weights.map((row) => row[1]),
-    [...ITEM_TYPES],
-  );
-  for (const row of weights)
+  // The weight table lives in code (industry/selection.ts); the prompt only defines types and axes.
+  assert.deepEqual(Object.keys(SELECTION.weights), [...ITEM_TYPES]);
+  for (const row of Object.values(SELECTION.weights))
     assert.equal(
-      row.slice(2).reduce((sum, value) => sum + Number(value), 0),
+      row.reduce((sum, value) => sum + value, 0),
       10,
     );
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
-  assert.equal(PROMPT_VERSIONS.score, "selection-score@09b414c0c5", "priority release preserves the production scoring version pending Chris decision");
+  assert.equal(
+    PROMPT_VERSIONS.score,
+    "selection-score@a795d9b2da+weights@ae8058ad1d",
+    "axis output with code weights (Owner 2026-11-05); production still waits for SELECTION_CONFIRMED_VERSION",
+  );
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
   assert.deepEqual(normalizeTags([]), []);

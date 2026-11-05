@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
 import { modelSourceDate, modelSourceDateLabel } from "./source-time.ts";
 import { beginMaterialGrouping } from "../content/grouping.ts";
@@ -21,7 +22,7 @@ import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
-import { SELECTION } from "@amp/industry/selection";
+import { attentionScore, SELECTION, type ScoreAxes } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
 import { sql } from "../db.ts";
 import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
@@ -86,7 +87,11 @@ const STRUCTURE_SYSTEM = promptText("structure", STRUCTURE_CONFIG);
 
 export const PROMPT_VERSIONS = {
   prefilter: promptVersion("prefilter"),
-  score: promptVersion("selection-score"),
+  // The score recipe is the prompt plus the weights and cap that turn its axes into the score.
+  score: `${promptVersion("selection-score")}+weights@${createHash("sha256")
+    .update(JSON.stringify([SELECTION.weights, SELECTION.unusableMaterialCap]))
+    .digest("hex")
+    .slice(0, 10)}`,
   understand: configuredPromptVersion("understand", UNDERSTAND_CONFIG),
   summarize: promptVersion("summarize-article", "summarize-article-empty", "identity-context"),
   wording: promptVersion("mend-wording"),
@@ -102,7 +107,7 @@ export const analysisVersionOf = (a: Pick<AnalyzeInputArticle, "xPost">) =>
 
 // ── Scoring ───────────────────────────────────────────────────────────────────────────────
 
-/** Independent score calls per article; their sum decides, their mean (floored) is shown. */
+/** Independent score calls per article; their mean decides and is shown to one decimal. */
 export const SCORE_CALLS = 2;
 
 /**
@@ -143,7 +148,18 @@ const scoreCall = (model: string) => SCORE_CALL[model] ?? { temperature: 0.2, ma
 /** The score prompt: the industry's taste (industry/prompts/selection-score.md). */
 export const SCORE_SYSTEM = promptText("selection-score");
 
-export const ScoreSchema = z.object({ attentionScore: z.coerce.number().int().min(0).max(100) });
+const axis = z.coerce.number().min(0).max(10);
+/** The model judges the type and five axes (0–10, one decimal); code weighs them into the 0–100 score (industry/selection.ts). */
+export const ScoreSchema = z.object({
+  type: z.enum(CATEGORY_KEYS),
+  sig: axis,
+  nov: axis,
+  cred: axis,
+  reson: axis,
+  act: axis,
+  materialUnusable: z.boolean().catch(false).default(false),
+});
+const tenth = (value: number) => Math.round(value * 10) / 10;
 
 const SCORE_TIME = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Asia/Shanghai",
@@ -170,7 +186,7 @@ export function buildScoreInput(a: AnalyzeInputArticle): string {
   let body = a.xPost ? postEvidenceText(a.xPost) : usableSourceText(a.bodyText, a.excerpt).trim();
   if (!body) body = a.title;
   return [
-    "请按系统规则评估以下单篇材料所代表的事件。只输出 attentionScore。",
+    "请按系统规则评估以下单篇材料所代表的事件。只输出内容类型和五轴分。",
     `【原文时间】\n${modelSourceDateLabel(a)}`,
     `【标题】\n${a.title.trim()}`,
     `【完整正文】\n${body.length > MAX_BODY_CHARS ? body.slice(0, MAX_BODY_CHARS) : body}`,
@@ -235,7 +251,16 @@ export interface AnalysisRun {
    * The independent score calls and the tier threshold they are held against; absent when the material
    * is not scored. `refused`: the model's content filter declined it, so it is not selected.
    */
-  scores: { model: string; models?: string[]; threshold: number; values: number[]; receiptIds: number[]; reused: boolean; refused?: boolean } | null;
+  scores: {
+    model: string;
+    models?: string[];
+    threshold: number;
+    values: number[];
+    axes?: ScoreAxes[];
+    receiptIds: number[];
+    reused: boolean;
+    refused?: boolean;
+  } | null;
   /** The reader-facing copy; `verbatim` reserves original-post copy without a writer call. */
   writing: {
     kind: "understand" | "summarize" | "verbatim" | "none";
@@ -344,6 +369,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
   const call = scoreCall(model);
   const input = buildScoreInput(a);
   const values: number[] = [];
+  const axes: ScoreAxes[] = [];
   const receiptIds: number[] = [];
   const models: string[] = [];
   let reused = true;
@@ -370,7 +396,16 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
         runtimeControl: opts.runtimeControl,
       });
       onReceipt?.(res.receiptId);
-      values.push(res.data.attentionScore);
+      const judged: ScoreAxes = {
+        ...res.data,
+        sig: tenth(res.data.sig),
+        nov: tenth(res.data.nov),
+        cred: tenth(res.data.cred),
+        reson: tenth(res.data.reson),
+        act: tenth(res.data.act),
+      };
+      axes.push(judged);
+      values.push(attentionScore(judged));
       models.push(res.model);
       receiptIds.push(res.receiptId);
       reused &&= res.reused;
@@ -380,12 +415,12 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
       // The model's content filter declines the material (Zhipu 1301): not scored, so not selected.
       if (isContentFilter(error)) {
         if (receiptId !== null) receiptIds.push(receiptId);
-        return { model: [...new Set(models)].join("+") || model, models, threshold, values, receiptIds, reused: false, refused: true };
+        return { model: [...new Set(models)].join("+") || model, models, threshold, values, axes, receiptIds, reused: false, refused: true };
       }
       throw error;
     }
   }
-  return { model: [...new Set(models)].join("+"), models, threshold, values, receiptIds, reused };
+  return { model: [...new Set(models)].join("+"), models, threshold, values, axes, receiptIds, reused };
 }
 
 /**
@@ -728,13 +763,13 @@ export function normalizeAnalysis(run: AnalysisRun) {
       : unapprovedCopy || (run.writing ? !titleZh || (!summaryZh && run.writing.kind !== "verbatim") : !run.scores)
         ? "unknown"
         : "pass";
-  // Selected when the two scores add up to twice the tier threshold; the mean, floored,
-  // is the score shown (it never decides a half point on its own).
+  // Selected when the mean of the scores reaches the tier threshold (same as the sum reaching twice it);
+  // that mean, to one decimal, is the score shown.
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
   const sum = values?.length === SCORE_CALLS ? values.reduce((total, v) => total + v, 0) : null;
-  const score = sum === null ? null : Math.floor(sum / SCORE_CALLS);
+  const score = sum === null ? null : tenth(sum / SCORE_CALLS);
   const threshold = run.scores?.threshold ?? null;
-  const selected = relevance === "pass" && sum !== null && threshold !== null && sum >= threshold * SCORE_CALLS;
+  const selected = relevance === "pass" && sum !== null && threshold !== null && tenth(sum) >= threshold * SCORE_CALLS;
   const subjects = run.structure?.subjects ?? [];
   const category = toPublicApiCategory(run.structure?.category ?? null);
   const tags = normalizeTags(run.writing?.tags ?? run.structure?.tags ?? []).filter((t) => !(CATEGORY_TAGS as readonly string[]).includes(t));

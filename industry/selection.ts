@@ -1,6 +1,7 @@
-// 精选的门槛。评分标准本身写在 prompts/selection-score.md；这里只决定“多少分算入选”。
-// 每篇资料由评分模型独立打两次分（0–100），两次之和 ≥ 2 × 门槛才进精选，卡片上显示两次的平均分。
-// 门槛按信源分级区分：官方一手信源的门槛低一些，媒体和个人的高一些。改了门槛或评分提示词，
+// 精选的门槛与总分算法。评分标准（五轴的含义、品味规则、各轴上限）写在 prompts/selection-score.md；
+// 评分模型只给出内容类型和五轴分（0–10，可到一位小数），总分由这里的权重表在代码里算出（0–100，一位小数）。
+// 每篇资料独立打两次分，两次总分的平均 ≥ 门槛才进精选，卡片上显示这个平均分（一位小数）。
+// 门槛按信源分级区分：官方一手信源的门槛低一些，媒体和个人的高一些。改了门槛、权重或评分提示词，
 // AI 负责真实案例与边界验证；规则调整按 Issue #293 由 Chris 确认，生产继续绑定已确认的准确版本。
 
 export const SELECTION = {
@@ -15,4 +16,34 @@ export const SELECTION = {
    * 其余用更便宜的“标题摘要翻译”。
    */
   understandFloor: 50,
+  /**
+   * 内容类型 → 五轴权重（sig 实质份量、nov 信息增量、cred 证据强度、reson 共振面、act 可用性）。
+   * 每行之和为 10，所以总分天然在 0–100。与 Owner 已确认的评分标准表一致，只是从提示词搬到了代码里。
+   */
+  weights: {
+    policy_regulation: [3, 1, 2, 2, 2],
+    company_project: [3, 2, 2, 2, 1],
+    commodity_market: [3, 2, 2, 1, 2],
+    capital_ma: [3, 1, 2, 3, 1],
+    supply_trade_controls: [3, 2, 2, 1, 2],
+    esg_community_labor: [4, 1, 2, 3, 0],
+    safety_incident: [4, 1, 2, 3, 0],
+    technology_processing: [4, 3, 2, 1, 0],
+    exploration_resource: [4, 3, 2, 1, 0],
+  } as Record<string, readonly [number, number, number, number, number]>,
+  /** 标题与正文明显不符、或正文残缺到无法辨认对象动作阶段时，总分不得高于这个数。 */
+  unusableMaterialCap: 30,
 } as const;
+
+export const SCORE_AXES = ["sig", "nov", "cred", "reson", "act"] as const;
+export type ScoreAxes = Record<(typeof SCORE_AXES)[number], number> & { type: string; materialUnusable?: boolean };
+
+const tenth = (value: number) => Math.round(value * 10) / 10;
+
+/** 一次评分的总分：按内容类型的权重加权五轴（各轴先截到 0–10、一位小数），结果保留一位小数。 */
+export function attentionScore(axes: ScoreAxes): number {
+  const weights = SELECTION.weights[axes.type];
+  if (!weights) throw new Error(`Unknown selection type: ${axes.type}`);
+  const total = SCORE_AXES.reduce((sum, axis, i) => sum + tenth(Math.min(10, Math.max(0, axes[axis]))) * weights[i]!, 0);
+  return tenth(axes.materialUnusable ? Math.min(total, SELECTION.unusableMaterialCap) : total);
+}

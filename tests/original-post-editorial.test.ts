@@ -15,6 +15,7 @@ import { prefilterUser, understandUser, translateInputOf, buildArticlePrompt, pa
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { scoreAxes } from "./score-axes.ts";
 
 const T = tag(),
   source = `original-editorial-${T}`;
@@ -38,7 +39,7 @@ const provider = await stub((_n, req) => {
     step === "prefilter"
       ? { label: "PASS", reason: "合成范围" }
       : step === "score"
-        ? { attentionScore: score }
+        ? scoreAxes(score)
         : step === "structure"
           ? { scope: "single", category: "company_project", tags: [], subjects: [], fact: null }
           : step === "understand"

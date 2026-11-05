@@ -10,6 +10,7 @@ import { after, before, test } from "node:test";
 import { sql, closeDb } from "@amp/backend/db";
 import { getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
+import { scoreAxes } from "./score-axes.ts";
 
 const T = tag();
 const SOURCE = `test-analyze-stop-${T}`;
@@ -55,7 +56,7 @@ const provider = await stub(async (_hit, request) => {
     step === "prefilter"
       ? { label: "PASS", reason: "AI model release" }
       : step === "score"
-        ? { attentionScore: 80 }
+        ? scoreAxes(80)
         : step === "structure"
           ? { category: "ai-models", tags: ["模型发布"], subjects: [], fact: { title: "新模型发布" } }
           : {

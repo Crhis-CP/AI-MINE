@@ -202,7 +202,8 @@ export function toItemSummary(row: ItemRow): ItemSummary {
     timelineAt: row.timeline_at.toISOString(),
     category: toPublicApiCategory(row.category),
     tags: displayTags(row.tags),
-    score: row.score === null ? null : Math.round(Number(row.score)),
+    // One decimal: scores are weighted from one-decimal axes (industry/selection.ts).
+    score: row.score === null ? null : Math.round(Number(row.score) * 10) / 10,
     selected: row.selected,
     channel: row.channel,
     story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null,

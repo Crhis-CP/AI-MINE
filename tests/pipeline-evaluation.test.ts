@@ -12,6 +12,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { config } from "@amp/backend/config";
 import { evaluatePipeline } from "../scripts/eval-pipeline.ts";
 import { comparePipelineReports, type PipelineReport } from "../scripts/eval-pipeline-core.ts";
+import { scoreAxes } from "./score-axes.ts";
 
 const directory = mkdtempSync(path.join(tmpdir(), "pipeline-evaluation-"));
 let pauseOnNext = false;
@@ -23,7 +24,7 @@ const provider = await stub(async (_hit, req) => {
     await sql`UPDATE ops.lane_controls SET paused=true,reason='合成运行中暂停',actor='test',expires_at=now()+interval '1 hour',revision=revision+1 WHERE lane='news' AND switch='processing' AND holder='owner'`;
   }
   let answer: unknown;
-  if (system.includes("attentionScore")) answer = { attentionScore: 80 };
+  if (system.includes("attentionScore")) answer = scoreAxes(80);
   else if (system.includes("PASS") && system.includes("BLOCK")) answer = { label: "PASS", reason: "合成材料属于矿业" };
   else if (system.includes("company_context"))
     answer = {

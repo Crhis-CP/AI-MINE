@@ -118,7 +118,7 @@ test("invalid scores, human choices and the seven-day boundary retain their dist
   for (const output of [
     { scores: [80], threshold: 60 },
     { scores: [80, "80"], threshold: 60 },
-    { scores: [80, 80.5], threshold: 60 },
+    { scores: [80, Number.NaN], threshold: 60 },
     { scores: [101, 80], threshold: 60 },
     { scores: [80, 80], threshold: 60, scoreRefused: true },
     { scores: [80, 80], threshold: 60, scoreRefused: "false" },

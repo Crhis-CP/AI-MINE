@@ -8,7 +8,8 @@
       "金属价格列明报价期次、出处与比较基期，报告和法规页面说明资料覆盖范围。",
       "符合条件的国别精选不再因总榜展示名额而遗漏。",
       "原帖内容与引用分别呈现，已有中文译文时可切换查看原文。",
-      "反馈提交和收藏导入遇到问题时，提示更明确，方便保留内容并继续操作。"
+      "反馈提交和收藏导入遇到问题时，提示更明确，方便保留内容并继续操作。",
+      "AI 评分按五个维度计算并保留一位小数，同一档里的强弱更容易分辨。"
     ]
   },
   "fragments": [
@@ -20,6 +21,7 @@
     "changes/TASK-0471-country-selected.md",
     "changes/TASK-0497-original-post-reading.md",
     "changes/TASK-0500-reader-clarity.md",
-    "changes/TASK-0505-report-reading.md"
+    "changes/TASK-0505-report-reading.md",
+    "changes/TASK-0510-score-decimal.md"
   ]
 }

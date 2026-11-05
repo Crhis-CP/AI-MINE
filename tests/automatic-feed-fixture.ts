@@ -2,6 +2,7 @@
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { Reply, stub } from "./setup.ts";
+import { scoreAxes } from "./score-axes.ts";
 
 export const FEED_CASES = [
   { marker: "AUTO_PASS", title: "合成铜矿选矿试验公告", label: "PASS" },
@@ -86,7 +87,7 @@ export async function automaticFeedFixture(
           : step === "prefilter"
             ? { label: sample.label, reason: "合成预筛结果，不评价模型分类质量" }
             : step === "score"
-              ? { attentionScore: sample.score ?? 10 }
+              ? scoreAxes(sample.score ?? 10)
               : step === "structure"
                 ? { category: null, tags: [], subjects: [], scope: "single", fact: null }
                 : step === "group"

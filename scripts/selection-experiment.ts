@@ -5,6 +5,7 @@ import path from "node:path";
 import { REPO_ROOT } from "@amp/backend/config";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
+import { attentionScore } from "@amp/industry/selection";
 import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { loadPool } from "@amp/backend/publication/pool";
 import {
@@ -231,9 +232,9 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
           );
           receipts.add(result.receiptId);
           out.receipts.push(result.receiptId);
-          out.scores.push(result.data.attentionScore);
+          out.scores.push(attentionScore(result.data));
         }
-        out.selected = out.scores.reduce((a, b) => a + b, 0) >= threshold * 2;
+        out.selected = Math.round(out.scores.reduce((a, b) => a + b, 0) * 10) >= threshold * 20;
       } catch (error) {
         rememberError(error);
         out.error = String(error).slice(0, 300);

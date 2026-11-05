@@ -28,11 +28,14 @@ export function recomputeSelection(
     (data.scoreRefused === undefined || data.scoreRefused === false) &&
     Array.isArray(data.scores) &&
     data.scores.length === SCORE_CALLS &&
-    data.scores.every((value) => typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100)
+    data.scores.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100)
       ? (data.scores as number[])
       : null;
   const selected =
-    analysis.relevance === "pass" && values !== null && threshold !== null && values.reduce((sum, value) => sum + value, 0) >= threshold * SCORE_CALLS;
+    analysis.relevance === "pass" &&
+    values !== null &&
+    threshold !== null &&
+    Math.round(values.reduce((sum, value) => sum + value, 0) * 10) >= threshold * SCORE_CALLS * 10;
   return {
     selected,
     evidence: { tier, threshold, thresholdVersion, originalThreshold: original, scores: values, analysisId: analysis.id },

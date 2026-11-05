@@ -26,6 +26,7 @@ import { setVisibility } from "@amp/backend/admin/content";
 import { buildApp } from "./site-app.ts";
 import { SITE } from "@amp/industry/site";
 import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
+import { scoreAxes } from "./score-axes.ts";
 
 const publicApp = await buildApp();
 const T = tag();
@@ -157,7 +158,7 @@ const provider = await stub(async (_hit, req) => {
     }
     if (marker === "SCFAIL") return DROP_RESPONSE;
     if (marker === "SCREFUSED") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
-    return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
+    return answer(scoreAxes(marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10)));
   }
   if (step === "understand") {
     if (marker === "SENSITIVE") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };

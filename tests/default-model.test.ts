@@ -9,6 +9,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle } from "@amp/backend/editorial/analyze";
 import { stopBoss } from "@amp/backend/jobs/queue";
+import { scoreAxes } from "./score-axes.ts";
 
 // Nothing chosen per step: every capability falls back to the `default` model.
 for (const name of Object.keys(process.env)) if (/_MODEL$/.test(name) && name !== "LLM_MODEL" && name !== "EMBEDDING_MODEL") delete process.env[name];
@@ -24,7 +25,7 @@ const provider = await stub((_hit, req) => {
   const content = system.includes("宽召回")
     ? { label: "PASS", reason: "测试" }
     : system.includes("事件注意力评分器")
-      ? { attentionScore: 80 }
+      ? scoreAxes(80)
       : system.includes("内容理解编辑")
         ? {
             itemType: "company_project",
