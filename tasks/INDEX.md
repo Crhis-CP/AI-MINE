@@ -397,9 +397,10 @@
 | [TASK-0525](TASK-0525.md) | T-0101 | M3 | architect | locally_verified | 法规线重启设计稿；评分规则文档随 DEC-78 评分修订更新 | — |
 | [TASK-0526](TASK-0526.md) | T-0101 | M3 | architect | locally_verified | 按清单删除无用代码（架构精简第一批） | — |
 | [TASK-0527](TASK-0527.md) | T-0101 | M3 | architect | locally_verified | 部署脚本中的安装路径和域名改为可配置，删掉代码注释里的个人名 | — |
-| [TASK-0528](TASK-0528.md) | T-0101 | M3 | architect | specified | 第二阶段大版本集成合并（TASK-0508～0530） | — |
+| [TASK-0528](TASK-0528.md) | T-0101 | M3 | architect | specified | 第二阶段大版本集成合并（TASK-0508～0531） | — |
 | [TASK-0529](TASK-0529.md) | T-0101 | M3 | architect | locally_verified | 读者端界面更新：筛选、按钮和排版更简洁，上手更容易 | — |
 | [TASK-0530](TASK-0530.md) | T-0101 | M3 | architect | locally_verified | 分类与评分重设计草案；法规页排版；字体许可核对；演示数据补齐 | — |
+| [TASK-0531](TASK-0531.md) | T-0101 | M3 | architect | locally_verified | 更新日志按读者口径整理：历史条目、待发布说明与隐藏内部条目 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

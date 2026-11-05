@@ -345,7 +345,7 @@
 
 ### S8 上线后服务器测试（60 分钟，见第 6 节）
 
-照第 6 节的 T1～T16 逐条执行，逐条记录。全部执行完再写报告，中途某条不符不停。例外：T1 健康检查失败时立即停止，按第 7 节报告。
+照第 6 节的 T1～T16 和 T19 逐条执行，逐条记录（T17、T18 按各自的说明执行）。全部执行完再写报告，中途某条不符不停。例外：T1 健康检查失败时立即停止，按第 7 节报告。
 
 ### S9 录入 DeepSeek 缓存命中价格（30 分钟）
 
@@ -489,6 +489,7 @@
 | T14 | `curl -s "$S/?category=policy_regulation" \| grep -c '清除筛选'` | 不小于 `1`（筛选面板） |
 | T15 | `curl -s $S/more \| grep -c '阅读设置'` | 不小于 `1` |
 | T16 | 服务器上执行：`cd /opt/aimine && docker compose logs --since 30m api worker web 2>&1 \| grep -iE 'error\|fatal\|unhandled' \| sed -E 's/[0-9]{6,}/<n>/g' \| sort \| uniq -c \| sort -rn \| head -20` | 只记录，不判断；输出交给 Claude |
+| T19 | `curl -s "$S/api/v3/changelog?limit=60" \| python3 -c 'import json,sys;t=[i["title"] for i in json.load(sys.stdin)["items"]];print(t[0]);print("修复部分资讯更新延迟" in t)'` | 第一行 `新标识、新导航与资讯地图`，第二行 `False`（更新日志按读者口径整理后的结果） |
 
 另外两项：
 
@@ -562,6 +563,7 @@
 | T1 | 200 | | 通过 / 不符 |
 | …… | | | |
 | T18 | >0 | | |
+| T19 | 新标识、新导航与资讯地图 / False | | |
 
 T16 输出原文：
 ```
