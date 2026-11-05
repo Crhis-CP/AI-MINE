@@ -11,7 +11,8 @@
       "反馈提交和收藏导入遇到问题时，提示更明确，方便保留内容并继续操作。",
       "AI 评分按五个维度计算并保留一位小数，同一档里的强弱更容易分辨。",
       "网站标识换成五臂星系，浏览器标签、桌面图标和页面顶部一起更新。",
-      "页面改用暖色纸面和金色点缀，英文和数字换用新字体，列表小字加大一号。"
+      "页面改用暖色纸面和金色点缀，英文和数字换用新字体，列表小字加大一号。",
+      "电脑上的栏目移到顶部导航，页面底部新增页脚。"
     ]
   },
   "fragments": [
@@ -26,6 +27,7 @@
     "changes/TASK-0505-report-reading.md",
     "changes/TASK-0510-score-decimal.md",
     "changes/TASK-0512-galaxy-logo.md",
-    "changes/TASK-0514-type-and-colour.md"
+    "changes/TASK-0514-type-and-colour.md",
+    "changes/TASK-0515-top-navigation.md"
   ]
 }

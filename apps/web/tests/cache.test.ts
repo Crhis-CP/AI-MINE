@@ -28,6 +28,8 @@ let metaCalls = 0;
 let metaWithoutFilings = false;
 // Synthetic, obviously fake numbers: the real ones are deployment settings and never live in the repository.
 const FILINGS_FIXTURE = { icp: "京ICP备00000000号-1", publicSecurity: { text: "京公网安备00000000000000号", code: "00000000000000" }, newsLicense: null };
+/** The desktop header's main navigation (content sections and the “更多” menu), in document order. */
+const siteNav = (html: string) => html.slice(html.indexOf("data-site-nav"), html.indexOf("</nav>", html.indexOf("data-site-nav")));
 let privatePageFixtures = false;
 let usagePriceJourney: { record: ReturnType<typeof privateSchemas.UsagePriceRecord.parse>; saved: unknown[] } | null = null;
 let coverageUnavailable = false;
@@ -820,7 +822,7 @@ test("every public page carries the configured filing numbers in the phone foote
   assert.equal(phoneFooters(more).length, 0, "the 更多 page has its own footer instead");
   // Count rendered markup only: the numbers also travel in the layout's hydration data, which is public too.
   const moreMarkup = more.replace(/<script\b[\s\S]*?<\/script>/g, "");
-  assert.equal(moreMarkup.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
+  assert.equal(moreMarkup.split(icp).length - 1, 2, "once in the desktop footer, once in the 更多 page's own footer");
   assert.ok(more.includes(`code=${FILINGS_FIXTURE.publicSecurity.code}`), "the public-security number links to its query page");
   // An API that reports no numbers (unset, or an older release during a rolling update) leaves the footer empty, never invented.
   metaWithoutFilings = true;
@@ -1223,18 +1225,18 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
     priceMode = "full";
   }
   // The installed price module owns its phone tab; the personal tab must not also light up.
-  assert.match(html, /<aside[\s\S]*href="\/metals"[\s\S]*<\/aside>/);
+  assert.match(siteNav(html), /href="\/metals"/);
   const tabbar = html.slice(html.indexOf('aria-label="底部导航"'));
   const phoneTabs = tabbar.slice(0, tabbar.indexOf("</nav>"));
   assert.match(phoneTabs, /<a(?=[^>]*href="\/metals")(?=[^>]*aria-current="page")[^>]*>/);
   assert.equal([...phoneTabs.matchAll(/aria-current="page"/g)].length, 1);
-  // The “更多” page lists it in its own body, not only through the sidebar.
+  // The “更多” page lists it in its own body, not only through the desktop header.
   const more = await (await fetch(`${origin}/more`)).text();
   const body = more.slice(more.indexOf('id="main"'), more.indexOf('aria-label="底部导航"'));
   assert.match(body, /href="\/metals"[^>]*>[\s\S]{0,400}金属价格/);
-  // Right below 收藏, in the sidebar and on the “更多” page (Owner 2026-10-05).
+  // Right below 收藏, in the desktop header and on the “更多” page (Owner 2026-10-05).
   const hrefs = (s: string) => [...s.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-  for (const links of [hrefs(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))), hrefs(body)]) {
+  for (const links of [hrefs(siteNav(html)), hrefs(body)]) {
     assert.ok(links.includes("/starred"), links.join(" "));
     assert.equal(links[links.indexOf("/starred") + 1], "/metals", links.join(" "));
   }
@@ -1279,7 +1281,7 @@ test("installed policy pages retain menu positions and mark thread pages as part
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /合成政策脉络/);
-  const sidebar = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+  const sidebar = siteNav(html);
   assert.match(sidebar, /<a(?=[^>]*href="\/policies")(?=[^>]*aria-current="page")[^>]*>/);
   const links = [...sidebar.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(links[links.indexOf("/daily") + 1], "/policies");

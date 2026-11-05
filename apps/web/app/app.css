@@ -112,8 +112,8 @@
      and centre beyond it (32:9); reading pages fill a 16:9 screen and centre on wider ones. A browser
      window is shorter than its screen (tabs, address bar), so a 16:9 screen gives a window of about 2:1
      and a 21:9 screen one of about 2.7:1. 236px is the sidebar and the main area's padding. */
-  --page-max-wide: max(1200px, calc(270dvh - 236px));
-  --page-max-reading: max(1100px, calc(200dvh - 236px));
+  --page-max-wide: max(1200px, calc(270dvh - 56px));
+  --page-max-reading: max(1100px, calc(200dvh - 56px));
   color-scheme: light;
   --bg: #f9f6f0;
   --bg-sunk: #f2eee6;
@@ -788,4 +788,59 @@
 [data-font="browser"] body,
 [data-font="browser"] .font-sans {
   font-family: inherit;
+}
+
+/* ---------------------------------------------------------------------------
+   Site frame (direction C, DEC-78): the header, the page and the footer share one centred column.
+   Phones: a 640px column with 16px gutters that respect the notch and Dynamic Island in landscape.
+   Desktop: the list width plus 28px gutters. Dual-screen and folded devices keep content off the hinge.
+   --------------------------------------------------------------------------- */
+.site-frame {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 640px;
+  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+}
+@media (min-width: 961px) {
+  .site-frame {
+    max-width: calc(var(--page-max-wide) + 56px);
+    padding-inline: max(28px, env(safe-area-inset-left)) max(28px, env(safe-area-inset-right));
+  }
+}
+/* A page spanning two screens side by side (Surface Duo, folded-open dual screens): the frame keeps clear of the hinge. */
+@media (horizontal-viewport-segments: 2) {
+  .site-main .site-frame {
+    max-width: env(viewport-segment-width 0 0, 640px);
+    margin-inline: 0 auto;
+  }
+}
+
+/* Header contours: seven survey lines drifting slowly in the brand gold; still when motion is reduced. */
+.site-contours {
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  height: 100%;
+  pointer-events: none;
+  animation: contour-drift 90s linear infinite;
+}
+.site-contours path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  opacity: 0.11;
+  vector-effect: non-scaling-stroke;
+}
+[data-theme="dark"] .site-contours path {
+  opacity: 0.18;
+}
+@keyframes contour-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-contours {
+    animation: none;
+  }
 }

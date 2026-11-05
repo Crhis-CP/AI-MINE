@@ -3,7 +3,8 @@ import { Outlet, useNavigation, type ShouldRevalidateFunction } from "react-rout
 import type { ReactNode } from "react";
 import type { Route } from "./+types/public-layout";
 import { ContentVersionGuard } from "../features/feed/ContentVersionGuard";
-import { Sidebar } from "../components/shell/Sidebar";
+import { SiteHeader } from "../components/shell/SiteHeader";
+import { SiteFooter } from "../components/shell/SiteFooter";
 import { MobileTabBar } from "../components/shell/MobileTabBar";
 import { MobileFooter } from "../components/shell/MobileFooter";
 import { BackToTop, NavigationProgress } from "../components/shell/Chrome";
@@ -32,12 +33,12 @@ export async function loader({ request }: Route.LoaderArgs): Promise<SiteMeta> {
 
 export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
-/** Sidebar, main column and phone tab bar around a page (or an error). */
+/** Header, main column and footer (desktop) or phone tab bar around a page (or an error). */
 function SiteShell({ children }: { children: ReactNode }) {
   const navigation = useNavigation();
   return (
     <SearchProvider>
-      <div className="flex min-h-dvh">
+      <div className="flex min-h-dvh flex-col">
         <NavigationProgress active={navigation.state === "loading"} />
         <a
           href="#main"
@@ -45,15 +46,16 @@ function SiteShell({ children }: { children: ReactNode }) {
         >
           跳到正文
         </a>
-        <Sidebar />
-        {/* Mobile shell (≤ 960px): one centred column, the tab bar below. Desktop: the page fills the main area
-          up to the list width (--page-max-wide), centred beyond it. */}
-        <main id="main" className="min-w-0 flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] lg:px-7 lg:pb-[72px] lg:pt-6">
-          <div className="mx-auto w-full max-w-[640px] px-4 lg:max-w-[var(--page-max-wide)] lg:px-0">
+        <SiteHeader />
+        {/* Mobile shell (≤ 960px): one centred column, the tab bar below. Desktop: the page fills the frame under
+          the header up to the list width (--page-max-wide), centred beyond it; the footer closes it. */}
+        <main id="main" className="site-main min-w-0 flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0 lg:pt-7">
+          <div className="site-frame">
             {children}
             <MobileFooter />
           </div>
         </main>
+        <SiteFooter />
         <MobileTabBar />
         <BackToTop />
       </div>
