@@ -167,6 +167,19 @@ export const StoryBackgroundReport = FeedItemSummary.pick({ id: true, title: tru
 export const StoryBackground = z.strictObject({ relation: z.enum(["SAME_OCCURRENCE", "SAME_STORY"]), item: StoryBackgroundReport });
 /** Optional addition: existing StoryDetail producers may omit it until the background consumer is connected. */
 export const StoryBackgroundFields = z.strictObject({ background: z.array(StoryBackground).optional() });
+/** One quantity whose earlier and current values are both stated in the story's reports. */
+export const StoryKeyChange = z.strictObject({
+  item: z.string().trim().min(1).max(40),
+  before: z.string().trim().min(1).max(60),
+  after: z.string().trim().min(1).max(60),
+});
+/** An upcoming milestone whose date the reports state; `when` keeps the reports' wording. */
+export const StoryNextMilestone = z.strictObject({ what: z.string().trim().min(1).max(80), when: z.string().trim().min(1).max(40) });
+/** Optional digest structure; digests written before it existed have neither field. */
+export const StoryDigestFields = z.strictObject({
+  keyChanges: z.array(StoryKeyChange).max(4).optional(),
+  next: z.array(StoryNextMilestone).max(3).optional(),
+});
 export const SavedItems = z.strictObject({ items: z.array(FeedItemSummary), unavailableIds: z.array(z.string()) });
 export const TopicSummary = z.strictObject({
   brand: ModuleBrand.optional(),
@@ -302,7 +315,22 @@ export const ReportGroupInfo = z
   .refine((group) => new Set(group.memberIds).size === group.memberIds.length, "Duplicate reading-group member")
   .refine((group) => group.memberIds.length <= group.reportCount && group.additionalSourceCount < group.reportCount, "Invalid reading-group counts");
 export const ReportGroupDetailFields = z.strictObject({ reportGroup: ReportGroupInfo.nullable().optional() });
-export const ReportGroupedTimelineCard = TimelineCardCore.extend(ReportGroupDetailFields.shape);
+/** Where a card's development sits in its story; present only when the story has more than one development or background. */
+export const StoryProgress = z.strictObject({
+  story: StoryRef,
+  /** Developments with a currently public report, the card's included. */
+  developmentCount: z.int().positive(),
+  /** 1-based chronological position of the card's development. */
+  position: z.int().positive(),
+  /** The development just before the card's, by first report. */
+  previous: z.strictObject({ title: z.string(), at: z.iso.datetime({ offset: true }) }).nullable(),
+  /** The newest development when it is not the card's. */
+  latest: z.strictObject({ title: z.string(), at: z.iso.datetime({ offset: true }) }).nullable(),
+  /** Confirmed historical background reports shown on the story page. */
+  backgroundCount: z.int().nonnegative(),
+});
+export const StoryProgressFields = z.strictObject({ storyProgress: StoryProgress.nullable().optional() });
+export const ReportGroupedTimelineCard = TimelineCardCore.extend(ReportGroupDetailFields.shape).extend(StoryProgressFields.shape);
 export const ReportGroupedTimelineResponse = TimelineResponseCore.extend({ cards: z.array(ReportGroupedTimelineCard) });
 export const ReportGroupedPoolResponse = PoolResponseCore.extend({ cards: z.array(ReportGroupedTimelineCard).optional() });
 
@@ -514,6 +542,9 @@ export const schemas = {
   StoryBackgroundReport,
   StoryBackground,
   StoryBackgroundFields,
+  StoryKeyChange,
+  StoryNextMilestone,
+  StoryDigestFields,
   ...v3Schemas,
   ...siteInformationSchemas,
   ...policySchemas,
@@ -547,6 +578,8 @@ export const schemas = {
   TimelineResponse,
   ReportGroupInfo,
   ReportGroupDetailFields,
+  StoryProgress,
+  StoryProgressFields,
   ReportGroupedTimelineCard,
   ReportGroupedTimelineResponse,
   ReportGroupedPoolResponse,

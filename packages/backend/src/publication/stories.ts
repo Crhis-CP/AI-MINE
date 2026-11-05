@@ -20,7 +20,7 @@ import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/
 import { sql, withCustomPlans, type Db } from "../db.ts";
 import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
-import { storyStatusFor } from "../events/digest.ts";
+import { readDigestDetail, storyStatusFor } from "../events/digest.ts";
 import { siteUrl, storyUrl } from "./links.ts";
 import { serverModules } from "../modules.ts";
 import { SITE } from "@amp/industry/site";
@@ -165,9 +165,10 @@ async function storyContent(storyId: number, now: Date) {
       digest: string | null;
       digest_updated_at: Date | null;
       latest: string | null;
+      digest_detail: unknown;
     }[]
   >`
-    SELECT public_id::text,origin,version,updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale, title, summary, first_report_at, latest_at, digest, digest_updated_at, latest FROM stories WHERE id = ${storyId}`;
+    SELECT public_id::text,origin,version,updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale, title, summary, first_report_at, latest_at, digest, digest_updated_at, latest, digest_detail FROM stories WHERE id = ${storyId}`;
   if (!s) return null;
   const reports = await storyReports(storyId, now);
   if (reports.length === 0) return null;
@@ -188,6 +189,7 @@ async function storyContent(storyId: number, now: Date) {
   if (pending) {
     s.digest = null;
     s.latest = null;
+    s.digest_detail = null;
   }
   if (pending || affected) s.summary = null;
   const developments = facts
@@ -248,6 +250,8 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
     latestAt: latestAt.toISOString(),
     digest: s.digest,
     digestUpdatedAt: s.digest_updated_at?.toISOString() ?? null,
+    // Older digests have no structure; the parts are only shown beside the digest they were written with.
+    ...(s.digest ? readDigestDetail(s.digest_detail) : {}),
     summary: s.summary,
     excerpt: !s.digest && !s.summary && originSummary ? { text: originSummary, sourceName: origin!.source_name } : null,
     latest: s.latest,

@@ -14851,6 +14851,16 @@
                 "type": "null"
               }
             ]
+          },
+          "storyProgress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -14889,6 +14899,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ReportGroupInfoInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storyProgress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryProgressInput"
               },
               {
                 "type": "null"
@@ -16709,6 +16729,46 @@
         ],
         "type": "object"
       },
+      "StoryDigestFields": {
+        "additionalProperties": false,
+        "properties": {
+          "keyChanges": {
+            "items": {
+              "$ref": "#/components/schemas/StoryKeyChange"
+            },
+            "maxItems": 4,
+            "type": "array"
+          },
+          "next": {
+            "items": {
+              "$ref": "#/components/schemas/StoryNextMilestone"
+            },
+            "maxItems": 3,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "StoryDigestFieldsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "keyChanges": {
+            "items": {
+              "$ref": "#/components/schemas/StoryKeyChangeInput"
+            },
+            "maxItems": 4,
+            "type": "array"
+          },
+          "next": {
+            "items": {
+              "$ref": "#/components/schemas/StoryNextMilestoneInput"
+            },
+            "maxItems": 3,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "StoryFollowupsResponse": {
         "additionalProperties": false,
         "properties": {
@@ -17091,6 +17151,294 @@
         "required": [
           "items",
           "more"
+        ],
+        "type": "object"
+      },
+      "StoryKeyChange": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "before": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "item": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "before",
+          "after"
+        ],
+        "type": "object"
+      },
+      "StoryKeyChangeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "before": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "item": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "before",
+          "after"
+        ],
+        "type": "object"
+      },
+      "StoryNextMilestone": {
+        "additionalProperties": false,
+        "properties": {
+          "what": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "when": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "what",
+          "when"
+        ],
+        "type": "object"
+      },
+      "StoryNextMilestoneInput": {
+        "additionalProperties": false,
+        "properties": {
+          "what": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "when": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "what",
+          "when"
+        ],
+        "type": "object"
+      },
+      "StoryProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "backgroundCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "developmentCount": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title",
+                  "at"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "position": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title",
+                  "at"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "story": {
+            "$ref": "#/components/schemas/StoryRef"
+          }
+        },
+        "required": [
+          "story",
+          "developmentCount",
+          "position",
+          "previous",
+          "latest",
+          "backgroundCount"
+        ],
+        "type": "object"
+      },
+      "StoryProgressFields": {
+        "additionalProperties": false,
+        "properties": {
+          "storyProgress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "StoryProgressFieldsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "storyProgress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryProgressInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "StoryProgressInput": {
+        "additionalProperties": false,
+        "properties": {
+          "backgroundCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "developmentCount": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title",
+                  "at"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "position": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title",
+                  "at"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "story": {
+            "$ref": "#/components/schemas/StoryRefInput"
+          }
+        },
+        "required": [
+          "story",
+          "developmentCount",
+          "position",
+          "previous",
+          "latest",
+          "backgroundCount"
         ],
         "type": "object"
       },

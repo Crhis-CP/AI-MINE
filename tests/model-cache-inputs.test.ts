@@ -15,7 +15,25 @@ const requests: Array<{ messages: Array<{ role: string; content: string }> }> = 
 const provider = await stub(async (_hit, req) => {
   requests.push(JSON.parse(req.body));
   return {
-    choices: [{ message: { content: JSON.stringify({ title: "合成事件标题", digest: "只用于测试的上一版合成综述。", latest: "合成变化" }) } }],
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            title: "合成事件标题",
+            digest: "只用于测试的上一版合成综述。",
+            latest: "合成变化",
+            // Grounded, one-sided, ungrounded and malformed entries: only the first of each list may be kept.
+            keyChanges: [
+              { item: "合成指引", before: "1", after: "2" },
+              { item: "只有新值", after: "2" },
+              { item: "报道里没有的数", before: "7", after: "9" },
+              "not an object",
+            ],
+            next: [{ what: "合成节点", when: "第2期" }, { what: "报道里没有的日期", when: "2099年" }, { what: "缺日期" }],
+          }),
+        },
+      },
+    ],
     usage: { prompt_tokens: 10, completion_tokens: 10 },
   };
 });
@@ -82,6 +100,11 @@ test("story updates preserve the existing report prefix, while corrections omit 
     await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact.id},${articleId},'report',1)`;
     assert.equal((await composeStoryDigest(Number(story.id))).updated, true);
   }
+  // The second version read both reports, so "2" is stated there; invalid and ungrounded entries were dropped.
+  const [stored] = await sql<{ digest_detail: unknown }[]>`SELECT digest_detail FROM stories WHERE id=${story.id}`;
+  assert.deepEqual(stored!.digest_detail, { keyChanges: [{ item: "合成指引", before: "1", after: "2" }], next: [{ what: "合成节点", when: "第2期" }] });
+  const versions = await sql<{ digest_detail: unknown }[]>`SELECT digest_detail FROM story_digests WHERE story_id=${story.id} ORDER BY version`;
+  assert.deepEqual(versions[0]!.digest_detail, { keyChanges: [], next: [] }, "the first version only read report 1, which states no 2");
   const first = requests[0]!.messages.at(-1)!.content,
     second = requests[1]!.messages.at(-1)!.content;
   const reportEnd = first.indexOf("合成事实1") + "合成事实1".length;
