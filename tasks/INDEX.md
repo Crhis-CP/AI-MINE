@@ -391,6 +391,8 @@
 | [TASK-0519](TASK-0519.md) | T-0101 | M3 | architect | locally_verified | 报告刊头加入新标识；法规页以测量三角点显示生命周期 | — |
 | [TASK-0520](TASK-0520.md) | T-0101 | M3 | architect | locally_verified | 其他页面统一检查；“我的”页加入正文宋体/黑体设置 | — |
 | [TASK-0521](TASK-0521.md) | T-0101 | M3 | architect | locally_verified | 双语底座：/en 英文界面、类型化词典、语言切换（外壳与资讯地图先行） | — |
+| [TASK-0522](TASK-0522.md) | T-0101 | M3 | architect | locally_verified | 英文界面：首页阅读路径（筛选、热点榜、时间线、卡片、分类、日期） | — |
+| [TASK-0523](TASK-0523.md) | T-0101 | M3 | architect | specified | 英文界面：其余页面迁入词典（Claude 下一轮继续） | TASK-0522 |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

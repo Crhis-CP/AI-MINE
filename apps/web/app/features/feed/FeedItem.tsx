@@ -1,7 +1,7 @@
 // One report in a feed. Desktop (≥ 961px): a white card beside the time rail. Mobile: a compact row
 // with a divider and a short recommendation. One markup serves both layouts.
 import { markRead, useIsRead } from "../../lib/local-state";
-import { useCategoryLabel, useT } from "../../i18n";
+import { useCategoryLabel, useLocale, useT } from "../../i18n";
 import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME } from "../../lib/format";
 import { memo } from "react";
 import { Link } from "react-router";
@@ -36,6 +36,8 @@ export const FeedItem = memo(function FeedItem({
 }: FeedItemProps) {
   const tl = useT().list;
   const cat = useCategoryLabel();
+  // News content is Chinese; on the English interface it is marked so (brief: 中文导读加 lang="zh-CN").
+  const contentLang = useLocale() === "en" ? "zh-CN" : undefined;
   const markedRead = useIsRead(item.id);
   const read = readOverride ?? markedRead;
   const dateOnly =
@@ -49,6 +51,7 @@ export const FeedItem = memo(function FeedItem({
 
   return (
     <article
+      lang={contentLang}
       className="relative min-w-0 lg:card lg:card-hover lg:px-[18px] lg:pb-[14px] lg:pt-[15px]"
       data-item-id={item.id}
       data-member-ids={JSON.stringify(reportGroup?.memberIds ?? group?.memberIds ?? [])}

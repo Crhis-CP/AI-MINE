@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { fmt, useT } from "../../i18n";
+import { fmt, useLocale, useT } from "../../i18n";
 import type { HotStripEntry, ReportGroupedTimelineCard as TimelineCard } from "@amp/contracts/site";
 import { EmptyState } from "../../components/ui/Page";
 import { IconArrowRight, IconMinus, IconTrendDown, IconTrendUp } from "../../components/icons";
@@ -40,6 +40,7 @@ function sourcesUnder(entry: HotStripEntry, cards: TimelineCard[] | undefined, o
  */
 export function HotTopics({ entries, cards }: { entries: HotStripEntry[]; cards?: TimelineCard[] }) {
   const th = useT().hot;
+  const contentLang = useLocale() === "en" ? "zh-CN" : undefined;
   return (
     <section
       aria-labelledby="hot-topics"
@@ -64,7 +65,7 @@ export function HotTopics({ entries, cards }: { entries: HotStripEntry[]; cards?
           {entries.slice(0, 5).map((e, i) => {
             const sources = sourcesUnder(e, cards, th.others);
             return (
-              <li key={e.rank}>
+              <li key={e.rank} lang={contentLang}>
                 <Link
                   to={hrefOf(e)}
                   className="group -mx-2 grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-x-3 rounded-tile px-2 py-2 transition-colors hover:bg-bg-sunk/70 sm:grid-cols-[20px_minmax(0,1fr)_64px_20px] sm:gap-x-4 dark:hover:bg-bg-muted/40"
