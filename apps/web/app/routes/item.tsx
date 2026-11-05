@@ -179,7 +179,7 @@ export default function ItemPage() {
     </button>
   );
   const moreMenu = (
-    <Menu label={tr("更多操作")} trigger={<IconMenu size={17} />}>
+    <Menu label={tr("分享")} trigger={<IconShare size={16} />}>
       {(close) => (
         <>
           <MenuItem

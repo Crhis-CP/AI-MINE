@@ -11,7 +11,7 @@ import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
 import { WorldMap } from "../features/feed/WorldMap";
-import { CategoryTabs, JurisdictionFilter, SearchField, FeedBar } from "../features/feed/Filters";
+import { FeedBar, FeedToolbar } from "../features/feed/Filters";
 import { DayList } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
@@ -117,17 +117,15 @@ export default function Home() {
           <WorldMap base={tabsBase} selected={filters.jurisdiction ?? null} />
         </div>
       </div>
-      <div className="hidden lg:block">
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
-        <div className="mb-5 mt-4 flex items-center justify-between gap-4">
-          <CategoryTabs base={tabsBase} allTo={allTo} category={filters.category} channel={filters.channel} layoutId="home-cat-desk" className="min-w-0" />
-          <SearchField variant="track" keep={{ channel: filters.channel, category: filters.category, jurisdiction: filters.jurisdiction }} />
-        </div>
-      </div>
-
-      <div className="hidden lg:block">
-        <JurisdictionFilter base={tabsBase} value={filters.jurisdiction} />
-      </div>
+      <FeedToolbar
+        title={title}
+        base={tabsBase}
+        allTo={allTo}
+        category={filters.category}
+        channel={filters.channel}
+        jurisdiction={filters.jurisdiction ?? null}
+        layoutId="home-cat-desk"
+      />
 
       {unavailable ? (
         <EmptyState

@@ -10,6 +10,7 @@ export const en: Dict = {
     mainNav: "Main navigation",
     more: "More",
     search: "Search",
+    searchHint: "Search news and policies",
     tabBar: "Tab bar",
     footerNav: "Footer navigation",
     footerNote: "AI-assisted; check the original sources",
@@ -76,6 +77,7 @@ export const en: Dict = {
     sourceScope: "Source type",
     allSources: "All sources",
     firstParty: "First-party",
+    firstPartyHint: "Published by the parties themselves or first reported by the media; no reposts",
     allCategories: "All categories",
     categoryTabs: "News categories",
     anyCategory: "Any category",
@@ -117,6 +119,7 @@ export const en: Dict = {
     dateHelp:
       "Dates follow the Beijing date of the timeline, as the list groups and “today” do; a single date overrides a range, and items whose source date is unconfirmed can still be found by timeline date.",
     advancedFilters: "Source, commodity and date filters",
+    clearAll: "Clear filters",
     comboLabel: "Combined news filters",
   },
   hot: {

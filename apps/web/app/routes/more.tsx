@@ -27,6 +27,10 @@ const tools = WEB_MODULES.flatMap((module) => module.tools ?? []);
 const toolPaths = new Set(tools.map((tool) => tool.to));
 const agentWays = WEB_MODULES.flatMap((module) => module.agentWays ?? []);
 
+/**
+ * Three plain groups (UI update, Owner 2026-11-05): what to read, how it looks, and about the site.
+ * 金属价格 stays right below 收藏 (Owner 2026-10-05).
+ */
 const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
     title: "内容",
@@ -36,34 +40,30 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
         label,
         icon: <Icon size={18} />,
       })),
-      { to: "/topics", label: "主题索引", icon: <IconGrid size={18} /> },
-      {
-        to: "/agent",
-        label: "Agent 接入",
-        icon: <IconPlug size={18} />,
-        detail: agentWays.length ? [...new Set([...agentWays, "MCP", "RSS", "API"])].slice(0, 3).join(" · ") : undefined,
-      },
-    ],
-  },
-  {
-    title: "偏好",
-    rows: [
       { to: "/hot", label: "热点榜", icon: <IconFlame size={18} /> },
+      { to: "/topics", label: "主题索引", icon: <IconGrid size={18} /> },
       { to: "/starred", label: "收藏", icon: <IconBookmark size={18} /> },
       ...MODULE_NAVIGATION.filter((item) => item.moreSection !== "内容" && !toolPaths.has(item.to)).map(({ to, label, icon: Icon }) => ({
         to,
         label,
         icon: <Icon size={18} />,
       })),
+      ...tools,
     ],
   },
-  ...(tools.length ? [{ title: "工具", rows: tools }] : []),
+  { title: "阅读设置", rows: [] },
   {
     title: "关于",
     rows: [
       { to: "/about", label: `关于 ${SITE.name}`, icon: <IconHeart size={18} /> },
       { to: "/changelog", label: "更新日志", icon: <IconHistory size={18} /> },
       { to: "/feedback", label: "意见反馈", icon: <IconMessage size={18} /> },
+      {
+        to: "/agent",
+        label: "Agent 接入",
+        icon: <IconPlug size={18} />,
+        detail: agentWays.length ? [...new Set([...agentWays, "MCP", "RSS", "API"])].slice(0, 3).join(" · ") : undefined,
+      },
     ],
   },
 ];
@@ -113,14 +113,14 @@ export default function MorePage() {
                 </Link>
               </li>
             ))}
-            {g.title === "偏好" && (
+            {g.title === "阅读设置" && (
               <>
                 <li className="flex h-[58px] items-center gap-3 px-4 text-[16px] font-medium text-ink">
                   <span className="text-ink-3">
                     <IconMoon size={18} />
                   </span>
                   <span className="flex-1">{tr("外观")}</span>
-                  <ThemeSwitch className="w-[124px]" />
+                  <ThemeSwitch labelled className="w-[204px]" />
                 </li>
                 <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
                   <span className="w-[18px] text-center text-ink-3" aria-hidden="true">

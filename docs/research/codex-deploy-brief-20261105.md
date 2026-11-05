@@ -1,312 +1,586 @@
-# 交给 Codex：第二阶段大版本的合并、部署与上线后收尾（2026-11-05）
+# 交给 Codex：第二阶段大版本上线、服务器测试与审计报告（2026-11-05 修订版）
 
-> **写给 Codex。**本文由 Claude 写，Owner（Chris）授权交给你执行。
+> **写给 Codex。**本文由 Claude 写，Owner 授权交给你执行。它替代本文件的旧版（旧版里的评分对比、删代码、改部署脚本都已取消或已由 Claude 做完）。
 >
-> **读法：**按 S1、S2…… 的顺序做。每一步都写明了：
-> - **目的**；
-> - **命令**（只跑写出来的命令，每条只跑一次）；
-> - **通过标准**；
-> - **失败时**（只按这里写的处理）；
-> - **产出**（要写进汇报的内容）。
+> **你的分工只有三件事**（Owner 2026-11-05，见决策台账“DEC-78补充·分工、评分与地图”）：
+> 1. 把仓库代码合并并部署上线；
+> 2. 上线后在服务器上测试；
+> 3. 把测试结果写成审计报告交给 Claude。
 >
-> 本文没写的事一律不做。遇到本文没覆盖的情况，按第 2 节的规则停下来汇报，不要自己想办法绕过去。
+> 改代码、删代码、调评分、改界面都由 Claude 负责。你发现问题只记录、只报告，不修。
+>
+> **读法：**
+> - 按 S1、S2…… 的顺序做。每一步都写了目的、命令、通过标准、失败时怎么办、要记进报告的内容。
+> - 命令只跑写出来的，每条只跑一次。
+> - 本文没写的事一律不做；遇到没覆盖的情况，按第 2 节停下。
+> - 命令里的尖括号 `<…>` 是你要替换的值，其余照抄。
 
 ## 0. 一句话
 
-把分支 `claude/nice-newton-mew572`（TASK-0508～0525，基线 `b30daad`）合并到 main，并一次部署到生产。然后只做以下五件收尾的事：
-- 录入缓存价格；
-- 评分新旧对比，经 Owner 确认后切换；
-- 按清单删除无用代码；
-- 部署脚本参数化；
-- 汇报。
+把分支 `claude/nice-newton-mew572`（TASK-0508～0529，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号和新评分版本；发布后跑第 6 节的服务器测试，24 小时后跑评分审计，按第 8 节写审计报告。
 
 ## 1. 范围
 
-**要做的：**本文 S1～S13。
+**要做的：**S1～S10。
 
-**不做的**（看到相关问题只记录、不动手）：
-- 不改读者端的设计、文案或配色，不“顺手优化”任何代码。
-- 不新增或修改测试来让检查通过；不跳过、不禁用、不标记任何测试。
-- 不改评分规则、权重、门槛、提示词；不在 Owner 确认前设置 `SELECTION_CONFIRMED_VERSION`。
+**不做的**（看到相关问题只记进报告）：
+- 不改任何代码、文档、测试、任务卡（S2 复制卡片、S3 重新生成索引除外）。不“顺手优化”。
+- 不新增、修改、跳过、禁用任何测试；检查失败不重跑第二次（第 2 节列出的例外除外）。
+- 不改评分规则、权重、门槛、提示词。`SELECTION_CONFIRMED_VERSION` 只写本文给出的值。
 - 不解除法规线暂停（DEC-71），不启用任何法规采集或模型调用。
-- 不把备案号写进仓库，不改写 git 历史。
-- 不移植上游修复（工作流 6 另行安排），不处理 TASK-0523（英文界面其余页面，由 Claude 做）。
-- 不新开付费服务，不改 DNS，不换域名。
+- 不调用模型做评测或对比（旧版的 S9 已取消）。
+- 不把备案号写进仓库、PR、Issue、聊天或日志；不改写 git 历史；不强推。
+- 不新开付费服务，不改 DNS，不换域名，不改 Caddy、compose 文件和发布脚本。
+- 不处理资讯地图的审图号：Owner 决定不申请，地图照常显示（只有陆地点阵，不画国界）。
 
 ## 2. 铁律（防止循环和跑偏）
 
-1. **同一个错误出现两次就停。**同一步骤里，同一条命令以同样原因失败两次，立刻停止，按第 9 节汇报，不要尝试第三次，也不要换别的办法。
-2. **只允许一次重试，而且只限这三种情况：**
-   - 网络超时；
-   - 拉取镜像或依赖失败；
-   - 第 4 节列出的已知不稳定测试。
+1. **同一个错误出现两次就停。**同一步骤里，一条命令以同样的原因失败两次，立刻停止，按第 8 节写报告，不试第三次，也不换办法。
+2. **只在三种情况下重试一次：**
+   - 网络超时或连接被重置；
+   - 拉取依赖、镜像或 CI 制品失败；
+   - 第 4 节列出的已知不稳定检查。
+
    其他失败不重试。
-3. **不修代码来过检查。**检查失败时，先判断失败是不是来自本分支改过的文件（清单见第 3 节）：
-   - 是：停，汇报给 Claude，附完整日志；
-   - 不是：也停，汇报给 Owner。
-   两种情况都不要自己修。
-4. **每一步限时。**S2 不超过 30 分钟，S5 不超过 120 分钟，S8 不超过 60 分钟，其余每步不超过 30 分钟。超时就停，汇报卡在哪里。
-5. **不扩大检查范围。**每步只跑写出来的命令。不额外跑全量测试、不额外截图、不额外跑浏览器测试、不额外“确认一下”。
-6. **按需读文件。**只读当前步骤需要的文件，不为了“全面了解”通读仓库。
-7. **有疑问就问，不猜。**需要 Owner 决定的地方，本文都标了“等 Owner”。到了那里就停下来问，等到答复再继续，不要按自己的理解先做。
+3. **不修代码来过检查。**检查失败时停下，写报告，附失败阶段名和日志最后 200 行，交给 Claude。不改代码、不改测试、不改配置绕过。
+4. **每步限时：**
 
-## 3. 本次合并包含什么
+   | 步骤 | 时限 |
+   |---|---|
+   | S2、S3 | 各 75 分钟（含等 CI） |
+   | S5 | 60 分钟 |
+   | S6 | 90 分钟 |
+   | S8 | 60 分钟 |
+   | 其余每步 | 30 分钟 |
 
-| 卡片 | 内容 | 影响范围 |
-|---|---|---|
-| TASK-0508 | 备案号、许可证编号改为运行期配置 | API 启动检查、`/api/site/meta`、页脚 |
-| TASK-0509 | 本地演示 API、README 截图 | `e2e/`、文档 |
-| TASK-0510 | 评分改为五轴输出、代码加权、一位小数（**生产要等 S11 才生效**） | 评分、显示 |
-| TASK-0511 | 费用按缓存命中价格计算 | 后台费用 |
-| TASK-0512～0520 | 新 LOGO、字体配色、顶部导航、资讯地图、阅读页、报告与法规页样式 | 读者端 |
-| TASK-0513 | 归组材料限量、历史背景配对合并（降低模型费用） | 归组 |
-| TASK-0517 | 新接口 `GET /api/site/news-map`（契约只增不改） | API、读者端 |
-| TASK-0521、0522 | 英文界面 `/en`（noindex，首页路径已翻译） | 读者端路由 |
-| TASK-0524 | 四语 README | 文档 |
-| TASK-0525 | 法规线重启设计稿、评分规则文档 | 文档 |
+   等 Owner 批准的时间不计在内。超时就停，报告卡在哪里。
+5. **不扩大测试范围。**
+   - 只跑本文写出的命令。
+   - 不额外跑 `npm run check`、`make verify`、浏览器测试，不额外截图，不“再确认一下”。CI 已经跑过完整的 `make verify`，不在本机重跑。
+6. **按需读文件。**只读当前步骤需要的文件，不为“全面了解”通读仓库。
+7. **到“等 Owner”的地方就停下来问。**等到答复再继续，不按自己的理解先做。
+8. **生产上只做本文写出的写操作：**
+   - 编辑 `.env`（S6）；
+   - 运行发布脚本（S7）；
+   - 在后台录入一项价格（S9）。
 
-改过的代码目录：
-- `apps/web/app/**`、`apps/api/src/routes/site.ts`、`apps/api/src/runtime.ts`；
-- `packages/backend/src/{site,publication,events,editorial,media,operations}/**`；
-- `packages/contracts/src/http/public.ts`；
-- `industry/**`、`modules/policy/web/**`；
-- `scripts/{brand-icons,wordmark,world-dots,readme-check}.ts`。
+   其余都只读。
 
-## 4. 已知情况（不要当成新问题处理）
+## 3. 输入
 
-- **不稳定测试：**`apps/web/tests/cache.test.ts` 中一个断言与随机 nonce 有关，偶发失败（表现为 `/888/` 一类不匹配），允许重跑一次。
-- **网页测试要用构建产物：**`npm run check` 的网页测试读取已有的 `apps/web/build`，不会自动重新构建。跑之前必须先执行 `npm run build --workspace @amp/web`，否则会用旧构建，报出假失败。
-- **浏览器路径：**网页测试要能找到 Chromium，或者设置 `E2E_BROWSER_PATH`。执行器上没有浏览器，属于环境问题，按铁律 3 汇报给 Owner，不要去改测试。
-- **英文界面带 noindex：**`/en` 页面带 `noindex`，这是设计如此，不要去掉。
-- **评分暂不生效：**生产在 S11 之前继续用旧评分版本，新提示词版本存在但不生效，这是设计如此。
+- **分支与提交：**`claude/nice-newton-mew572`。Claude 在交接消息里给出它的完整 40 位 SHA，下文记为 `$BRANCH_SHA`。
+- **集成卡：**`tasks/TASK-0528.md`。它的 `allowed_paths` 列出了分支相对 `b30daad` 改动的全部文件。
+- **生产：**
+  - 域名 `aiminingpolicy.com`；
+  - 安装目录 `/opt/aimine`（下文记为 `$ROOT`）；
+  - compose 项目名 `amp`，容器名形如 `amp-api-1`；
+  - 发布入口 `deploy/production-release.sh`，用法见 `docs/runbooks/release-retention.md`“同一制品发布”一节。
+- **生产 `.env` 要写入的值：**
+
+  | 变量 | 值 |
+  |---|---|
+  | `SITE_ICP_FILING` | 原 ICP 备案号全文（取法见 S6） |
+  | `SITE_PUBLIC_SECURITY_FILING` | 原公安联网备案号全文，例如“皖公网安备……号”（取法见 S6） |
+  | `SITE_REQUIRE_FILINGS` | `true` |
+  | `SELECTION_CONFIRMED_VERSION` | `selection-score@a795d9b2da+weights@ae8058ad1d` |
+
+## 4. 已知情况（不要当成新问题）
+
+- **评分版本必须随发布一起改。**
+  - 正式站只在 `SELECTION_CONFIRMED_VERSION` 等于代码里的评分版本时才打分。新代码的版本是上表的值。
+  - 如果只发布、不改 `.env`，新稿件不会打分，精选会停住。所以 S6 要在 S7 之前做。
+  - 反过来，回滚到旧版本时也要把这一行改回旧值（第 7 节）。
+- **备案号改为从 `.env` 读取。**
+  - 新代码里不再有备案号。`SITE_REQUIRE_FILINGS=true` 时缺号，API 会拒绝启动，所以 S6 必须在 S7 之前。
+  - 格式不对时，API 也会拒绝启动；报错只写变量名，不写号码。
+- **英文界面 `/en` 带 `noindex, follow`。**这是设计如此，不要去掉。
+- **资讯地图只画陆地点阵，不画国界。**这是 Owner 的决定。
+- **不稳定检查：**`apps/web/tests/cache.test.ts` 里有一个断言与随机 nonce 有关，偶发失败，表现为 `/888/` 一类的不匹配。CI 里遇到时，允许在 GitHub 上重跑一次失败的作业（Re-run failed jobs）。
+- **TASK-0528 的 `specs` 写的是 DEC-77。**这是有意的，原因写在卡片正文里，不要改。
 
 ## 5. 步骤
 
-### S1 获取并核对分支
+### S1 取得分支并核对（30 分钟）
+
+- **命令（在你的工作副本里）：**
+  ```bash
+  git fetch origin main claude/nice-newton-mew572
+  git rev-parse origin/claude/nice-newton-mew572
+  git rev-parse origin/main
+  git merge-base --is-ancestor b30daad76301c39455a4055d280abd1cfe191380 origin/main && echo base-ok
+  git status --short
+  npm --version
+  ```
+- **通过标准：**
+  - 第 2 行输出等于 `$BRANCH_SHA`；
+  - 出现 `base-ok`；
+  - `git status --short` 没有输出；
+  - npm 是 `11.19.0`。
+
+  第 3 行记为 `$MAIN0`。它可以不等于 `b30daad`：说明 main 在这期间又合并了别的改动，照常继续。
+- **失败时：**
+  - SHA 不一致：停，问 Claude 要最新 SHA，不要自己挑一个；
+  - 没有 `base-ok`：停，报告；
+  - npm 版本不对：按 `package.json` 的 `packageManager` 安装 npm 11.19.0，只装一次。
+- **报告里写：**`$BRANCH_SHA`、`$MAIN0`。
+
+### S2 计划 PR：先把集成卡放进 main（75 分钟，等 Owner）
+
+- **为什么要先放卡：**path-guard 从 PR 的 base 提交读任务卡，所以 TASK-0528 必须先进 main。只改 `tasks/` 的“计划 PR”可以单独通过检查。
+- **命令：**
+  ```bash
+  git switch -c agent/architect/TASK-0528-plan origin/main
+  git checkout origin/claude/nice-newton-mew572 -- tasks/TASK-0528.md
+  npm ci
+  node scripts/verify/tasks.ts --write-index
+  git status --short
+  node scripts/verify/tasks.ts
+  ```
+- **本地通过标准：**
+  - `git status --short` 正好两行：`A  tasks/TASK-0528.md` 和 ` M tasks/INDEX.md`；
+  - 最后一条输出以 `0 problems` 结尾。
+- **然后：**
+  ```bash
+  git add tasks/TASK-0528.md tasks/INDEX.md
+  git commit -m "plan: TASK-0528 第二阶段大版本集成合并"
+  git push -u origin agent/architect/TASK-0528-plan
+  ```
+- **开 PR：**
+  - base `main`，head `agent/architect/TASK-0528-plan`；
+  - 标题：`计划：TASK-0528 第二阶段大版本集成合并`；
+  - 正文按仓库模板 `.github/pull_request_template.md` 填写，其中“任务卡”一行必须写成下面这样（CI 从这一行读卡片）：
+    ```
+    - 任务卡：TASK-0528
+    ```
+    “做了什么”写一句：“只新增集成卡 TASK-0528 并重新生成任务索引，不改代码。”
+- **通过标准：**
+  - CI “make verify (GitHub Actions)”通过；
+  - **停，等 Owner 在 PR 上批准**；批准后按仓库惯例合并。
+- **失败时：**
+  - CI 的 `tasks` 或 `path-guard` 阶段失败：停，报告失败行原文，交给 Claude；
+  - 其他阶段失败：按第 2 节铁律 3 处理。
+- **报告里写：**PR 链接、CI 运行链接、合并后的 main SHA（记为 `$PLAN_MAIN`）。
+
+### S3 正式 PR：集成分支（75 分钟，等 Owner）
 
 - **命令：**
   ```bash
-  git fetch origin claude/nice-newton-mew572 main
-  git checkout claude/nice-newton-mew572
-  git pull --ff-only origin claude/nice-newton-mew572
-  git rev-parse HEAD
-  git status --short
+  git fetch origin main claude/nice-newton-mew572
+  git switch -c agent/architect/TASK-0528-integration origin/main
+  git merge --no-ff --no-edit origin/claude/nice-newton-mew572
+  git diff --name-only --diff-filter=U
   ```
-- **通过：**`git status --short` 没有输出。记下 HEAD 的 40 位 SHA，后面称为 `$SHA`。
-- **失败时：**拉取失败按铁律 2 重试一次；仍失败就停下汇报。
-- **产出：**`$SHA`。
+- **合并结果只有两种是正常的：**
+  1. **合并直接成功：**最后一条命令没有输出。
+  2. **只有 `tasks/INDEX.md` 冲突：**最后一条命令只输出 `tasks/INDEX.md`。这个文件由程序生成，用下面的命令重新生成，就是正确的解决方式：
+     ```bash
+     node scripts/verify/tasks.ts --write-index
+     git add tasks/INDEX.md
+     git commit --no-edit
+     ```
 
-### S2 快速检查（一次）
-
-- **命令：**
+  其他任何文件冲突：执行 `git merge --abort`，停下报告冲突文件清单。不要自己解决。
+- **合并后检查（只跑这三条，都很快）：**
   ```bash
   npm ci
-  npm run build --workspace @amp/web
-  npm run check
+  node scripts/verify/tasks.ts
+  node --input-type=module -e '
+  import { execFileSync } from "node:child_process";
+  import { pathGuard } from "./scripts/verify/path-guard.ts";
+  const base = execFileSync("git", ["merge-base", "origin/main", "HEAD"]).toString().trim();
+  const r = pathGuard(base, "HEAD", "TASK-0528");
+  console.log(r.status); console.log(r.lines.slice(0, 10).join("\n"));'
   ```
-  `npm --version` 必须是 11.19.0。
-- **通过：**最后一行是 `npm run check: passed`。
+- **通过标准：**
+  - 第二条以 `0 problems` 结尾；
+  - 第三条第一行是 `pass`。
+
+  如果 `tasks.ts` 报 `tasks/INDEX.md is stale`，就再执行一次 `node scripts/verify/tasks.ts --write-index`，然后提交，提交说明写 `chore: regenerate tasks/INDEX.md`，再跑这条检查；这一步最多做一次。
+- **推送并开 PR：**
+  ```bash
+  git push -u origin agent/architect/TASK-0528-integration
+  ```
+  - base `main`，head `agent/architect/TASK-0528-integration`；
+  - 标题：`第二阶段大版本：新品牌与方向C读者端、资讯地图、英文界面、评分一位小数、费用优化、界面更新`；
+  - 正文按模板填写，“任务卡”一行写 `- 任务卡：TASK-0528`；
+  - “做了什么”抄下面 6 条：
+    1. 新标识“五臂星系”，暖色纸面配金色，桌面改为顶部导航，加主区页脚（TASK-0512～0515）；
+    2. 首页资讯地图，可按今天、近 7 天、近 30 天切换，点国家即筛选下方列表（TASK-0516、0517）；
+    3. 阅读页、报告页、法规页样式更新，加英文界面 `/en`（TASK-0518～0523）；
+    4. 评分改为五轴打分、由代码加权，保留一位小数；费用按缓存命中计价；归组材料限量（TASK-0510、0511、0513）；
+    5. 备案号改为运行期配置；删除无用代码；部署路径可配置（TASK-0508、0526、0527）；
+    6. 界面更新：筛选合并为一个面板、按钮更清楚（TASK-0529）。
+- **通过标准：**
+  - CI 通过；
+  - **停，等 Owner 批准**，批准后按仓库惯例合并；
+  - 合并后的 main SHA 记为 `$MAIN`。
+- **失败时：**按铁律 3 处理，失败日志交给 Claude。Claude 会在 `claude/nice-newton-mew572` 上修好并给你新的 `$BRANCH_SHA`，你再从 S3 第一条命令重做，不用重做 S2。
+- **报告里写：**PR 链接、CI 运行链接和结果、`$MAIN`。
+
+### S4 取 main 的 CI 制品（30 分钟）
+
+- **目的：**生产只用最终 main 的 CI 制品，不在服务器上构建。
+- **等待：**合并后，main 上会自动跑一次 “make verify (GitHub Actions)”，要等它成功。
+  ```bash
+  gh run list --workflow verify.yml --branch main --limit 5 --json databaseId,headSha,status,conclusion,attempt
+  ```
+  找到 `headSha` 等于 `$MAIN`、`conclusion` 为 `success` 的那一条，把它的 `databaseId` 记为 `$RUN`，`attempt` 记为 `$ATTEMPT`。
+- **读清单哈希（必须从 CI 日志读，不能从下载的文件算）：**
+  ```bash
+  gh run view "$RUN" --log | grep -m1 -o '"manifest_sha256": "[0-9a-f]\{64\}"'
+  ```
+  引号里的 64 位值记为 `$MANIFEST_SHA256`。
+- **下载并核对：**
+  ```bash
+  BUNDLE=<一个新的空目录>
+  gh run download "$RUN" --name "verified-release-$MAIN-attempt-$ATTEMPT" --dir "$BUNDLE"
+  ls "$BUNDLE"
+  sha256sum "$BUNDLE/release-manifest.json"
+  python3 -c 'import json,sys;m=json.load(open(sys.argv[1]))["source"];print(m["sha"]);print(m["tree"]);print(m["sha256"])' "$BUNDLE/release-manifest.json"
+  ```
+- **通过标准：**
+  - `ls` 正好列出 4 个文件：`image.tar.gz`、`release-manifest.json`、`source.tar.gz`、`verify-receipt.json`；
+  - `sha256sum` 的值等于 `$MANIFEST_SHA256`；
+  - python 输出的第 1 行等于 `$MAIN`。第 2 行记为 `$TREE`，第 3 行记为 `$SOURCE_SHA256`。
+- **放到服务器：**用以往发布时的方式和目录，把这 4 个文件原样放到生产服务器上，服务器上的目录记为 `$BUNDLE`。到了服务器上，再执行一次 `sha256sum "$BUNDLE/release-manifest.json"`，结果必须还等于 `$MANIFEST_SHA256`。
 - **失败时：**
-  - 第 4 节列出的不稳定测试失败：只重跑一次 `npm run check`；
-  - 其他失败：停，按铁律 3 汇报。
-- **产出：**`npm run check` 输出的最后 12 行。
+  - 找不到成功的运行：等运行结束，最多等 60 分钟；运行失败就按铁律 3 处理；
+  - 哈希不一致：停，报告。不要重新下载后“换一个对得上的”。
+- **报告里写：**`$RUN`、`$ATTEMPT`、`$MANIFEST_SHA256`、`$TREE`、`$SOURCE_SHA256`、服务器上 `$BUNDLE` 的路径。
 
-### S3 完整验证（独立的非生产执行器）
+### S5 发布前的服务器快照（只读，30 分钟）
 
-- **命令：**按 AGENTS.md 规定，在独立的非生产执行器上对 `$SHA` 跑一次完整的 `make verify`，方式与以往发布相同。
-- **通过：**得到 `make verify` 的通过回执，回执中的 SHA 等于 `$SHA`。
-- **失败时：**与 S2 相同。不稳定测试只重跑一次；其他失败停下汇报，附失败阶段名和最后 200 行日志。
-- **产出：**回执的位置和摘要。
+- **目的：**留一份发布前的状态，供第 8 节报告前后对照。
+- **命令（在生产服务器上）：**
+  ```bash
+  cd /opt/aimine
+  docker compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
+  docker inspect --format '{{.Name}} {{.Config.Image}} {{.RestartCount}}' $(docker compose ps -q)
+  df -h /opt /var/lib/docker
+  free -m
+  curl -s -o /dev/null -w "%{http_code}\n" https://aiminingpolicy.com/api/health
+  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FILTER (WHERE score IS NOT NULL), count(*) FILTER (WHERE selected) FROM analyses WHERE origin='model' AND created_at >= now() - interval '24 hours';"
+  ```
+- **通过标准：**
+  - 所有服务的 State 都是 `running`；
+  - 健康检查返回 `200`；
+  - 磁盘可用不低于 8G。
+- **失败时：**发布前生产已经不正常，就停下报告，不发布。
+- **报告里写：**以上输出原文。最后一条 SQL 的两个数，记作“发布前 24 小时打分数 / 入选数”。
 
-### S4 开 PR，等 Owner 批准合并（等 Owner）
+### S6 写生产 `.env`（30 分钟）
 
-- **做什么：**
-  1. 从 `claude/nice-newton-mew572` 向 `main` 开 PR，标题“第二阶段大版本：新品牌、方向 C 读者端、资讯地图、英文界面底座、评分与费用优化”。
-  2. PR 正文按仓库模板填写，附上第 3 节的表格和 S3 回执。
-  3. **停，等 Owner 在 PR 上批准。**
-- **通过：**Owner 批准后，按仓库惯例合并，合并后 main 的 HEAD 记为 `$MAIN`。
-- **失败时：**出现合并冲突时停下，汇报冲突的文件，不要自己解决冲突。
-- **产出：**PR 链接、`$MAIN`。
-
-### S5 生产配置：备案号（在生产服务器上）
-
-- **目的：**TASK-0508 之后，备案号从代码里移走了。部署前必须先写进生产 `.env`，否则页脚没有号码。如果开关已经打开却没填，API 会拒绝启动。
-- **命令：**
-  1. 在仓库里看原号码（仅在服务器上操作，不要贴进任何聊天、PR 或日志）：
+- **命令（在生产服务器上）：**
+  1. 备份。备份文件里有密钥，不要拷走，也不要打印：
+     ```bash
+     cd /opt/aimine
+     cp -p .env ".env.before-${MAIN:0:12}"
+     grep -c '^SITE_ICP_FILING=\|^SITE_PUBLIC_SECURITY_FILING=\|^SITE_REQUIRE_FILINGS=' .env
+     grep '^SELECTION_CONFIRMED_VERSION=' .env
+     ```
+     第二条输出的数字记下。第三条输出的旧值记为 `$OLD_SCORE_VERSION`，没有输出就记“无”。版本号不是机密，可以写进报告。
+  2. 取备案号原文。在你的工作副本里执行，只看，不复制到聊天、PR、Issue 或日志：
      ```bash
      git show 603a290^:site/site.ts | sed -n '33,37p'
      ```
-  2. 编辑生产 `.env`，新增三行。值与上一步看到的完全相同，公安备案号填全文，例如“X公网安备N号”。
-     ```
-     SITE_ICP_FILING=<ICP 备案号原文>
-     SITE_PUBLIC_SECURITY_FILING=<公安备案号原文>
-     SITE_REQUIRE_FILINGS=true
-     ```
-  3. 确认 api 服务能读到这三个变量：
+     第 2 行引号里的是 ICP 备案号；第 4 行 `text:` 后面引号里的是公安联网备案号全文。
+  3. 编辑 `/opt/aimine/.env`，用编辑器打开，不要用 `echo` 写入，免得号码留在 shell 历史里。
+     - 已有同名行就改值，没有就加在文件末尾。
+     - 结果应当正好有这四行，每个变量各一行：
+       ```
+       SITE_ICP_FILING=<ICP 备案号原文>
+       SITE_PUBLIC_SECURITY_FILING=<公安联网备案号全文>
+       SITE_REQUIRE_FILINGS=true
+       SELECTION_CONFIRMED_VERSION=selection-score@a795d9b2da+weights@ae8058ad1d
+       ```
+  4. 核对（输出里不含号码）：
      ```bash
-     docker compose config | grep -c "SITE_ICP_FILING\|SITE_PUBLIC_SECURITY_FILING\|SITE_REQUIRE_FILINGS"
+     grep -c '^SITE_ICP_FILING=.\+\|^SITE_PUBLIC_SECURITY_FILING=.\+\|^SITE_REQUIRE_FILINGS=true$' .env
+     grep '^SELECTION_CONFIRMED_VERSION=' .env
+     docker compose config --format json | python3 -c 'import json,sys;c=json.load(sys.stdin)["services"];print(*[(s, sorted(k for k in ("SITE_ICP_FILING","SITE_PUBLIC_SECURITY_FILING","SITE_REQUIRE_FILINGS","SELECTION_CONFIRMED_VERSION") if k in c[s].get("environment",{}))) for s in ("api","worker")], sep="\n")'
      ```
-- **通过：**最后一条命令输出不小于 3。
-- **失败时：**输出小于 3，说明 compose 没有把变量传给 api。停下汇报，不要改 compose 文件。
-- **产出：**“备案号已配置”，不要写号码本身。
+- **通过标准：**
+  - 第一条输出 `3`；
+  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score@a795d9b2da+weights@ae8058ad1d`；
+  - 第三条 api 和 worker 两行都列出这 4 个变量名。
+- **注意：**这一步只改文件，不重启任何服务。新值在 S7 发布、容器重建时生效。
+- **失败时：**
+  - 第三条缺变量：说明 compose 没把 `.env` 传给容器。停，用备份恢复（`cp -p ".env.before-${MAIN:0:12}" .env`），报告，不改 compose 文件；
+  - 其他不符：改正一次；仍不对就恢复备份，停下报告。
+- **报告里写：**
+  - “备案号已写入”，不写号码本身；
+  - `$OLD_SCORE_VERSION`；
+  - 新的评分版本；
+  - 备份文件名。
 
-### S6 发布 `$MAIN`
+### S7 发布 `$MAIN`（90 分钟）
 
-- **命令：**用当前获准的正式发布入口 `deploy/production-release.sh`，按 ADR-0017 和以往发布记录的同样流程发布 `$MAIN`：
-  - 导出受测镜像；
-  - 核对回执和制品；
-  - 检查容量；
-  - 持锁导入；
-  - 备份、迁移、切换、健康检查。
-- **通过：**脚本正常结束，健康检查通过。
-- **失败时：**脚本自己会按健康检查失败回退。回退后停下，汇报失败阶段和日志，不要再次发布。
-- **产出：**发布记录的位置、发布的 SHA。
+- **命令（在生产服务器上）：**
+  ```bash
+  VERIFIED_SOURCE=$(mktemp -d)
+  printf '%s  %s\n' "$SOURCE_SHA256" "$BUNDLE/source.tar.gz" | sha256sum -c -
+  tar -xzf "$BUNDLE/source.tar.gz" -C "$VERIFIED_SOURCE"
+  VERIFIED_SOURCE="$VERIFIED_SOURCE/AI-MINE-$MAIN"
+  ls "$VERIFIED_SOURCE/deploy/production-release.sh"
+  bash "$VERIFIED_SOURCE/deploy/production-release.sh" \
+    "$MAIN" "$BUNDLE/source.tar.gz" "$SOURCE_SHA256" \
+    "$BUNDLE" "$MANIFEST_SHA256" "$TREE" 2>&1 | tee "/opt/aimine/.ops/codex-release-${MAIN:0:12}.log"
+  echo "exit=${PIPESTATUS[0]}"
+  ```
+  用以往发布时的同一个用户执行，发布脚本自己会持有 `/opt/aimine/.ops/release.lock`。
+- **通过标准：**最后输出 `exit=0`。
+- **失败时：**
+  - 发布脚本在健康检查失败时会自己回退到上一个版本。不要再发布第二次。
+  - 回退后，旧代码读不到新的评分版本，所以要把 `SELECTION_CONFIRMED_VERSION` 改回 `$OLD_SCORE_VERSION`（原来没有这一行，就删掉这一行），然后执行：
+    ```bash
+    docker compose up -d --no-deps worker
+    ```
+    备案号三行可以保留，旧代码不读它们。
+  - 停下报告：失败阶段（日志里的 `RELEASE_PHASE` 或最后的报错）、日志最后 200 行、journal 文件 `/opt/aimine/.ops/release-${MAIN:0:12}-*.json` 的路径。
+- **报告里写：**
+  - 开始和结束时间（北京时间）；
+  - `exit` 值；
+  - 发布日志路径和 journal 路径；
+  - 日志最后 30 行。
 
-### S7 发布后验收（只做这些）
+### S8 上线后服务器测试（60 分钟，见第 6 节）
 
-把 `https://aiminingpolicy.com` 记为 `$S`，依次执行：
+照第 6 节的 T1～T16 逐条执行，逐条记录。全部执行完再写报告，中途某条不符不停。例外：T1 健康检查失败时立即停止，按第 7 节报告。
 
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" $S/api/health
-curl -s $S/api/site/meta | grep -o '"filings":{"icp":"[^"]*' | head -1 | sed 's/[0-9]/#/g'
-curl -s -o /dev/null -w "%{http_code}\n" "$S/api/site/news-map?window=7d"
-curl -s -o /dev/null -w "%{http_code}\n" "$S/api/site/news-map?window=2d"
-curl -s $S/en | grep -c 'name="robots" content="noindex'
-curl -s $S/ | grep -c 'name="robots"'
-curl -s -o /dev/null -w "%{http_code} %{content_type}\n" $S/icon.png
-curl -s -o /dev/null -w "%{http_code}\n" $S/feed.xml
+### S9 录入 DeepSeek 缓存命中价格（30 分钟）
+
+- **目的：**TASK-0511 之后，费用按缓存命中价计算。价格表里要有这个价格，否则命中部分仍按普通输入价记账。
+- **做法：**
+  1. 打开 DeepSeek 官方价格页 `https://api-docs.deepseek.com/quick_start/pricing`，读出生产所用模型的“输入（缓存命中）”价格，单位是元 / 百万 tokens。页面同时有分时段价格的，各时段的缓存命中价都读。
+  2. 后台打开 `/admin/settings`，找到卡片“费用保护与有效价格”里的“当前登记价格”，在 DeepSeek 那一条的表单里：
+     - 只填“缓存命中输入单价（元 / 百万 token）”；
+     - 表单里有“指定时段价格”的，同时填各时段的“缓存命中（元 / 百万 token）”；
+     - “价格观察日期”填今天；
+     - “价格有效至”不超过观察日期后 45 天；
+     - 其他价格不动。
+  3. 点“确认有效价格”，原因写：`按 DeepSeek 官方价格页 <日期> 录入缓存命中价（TASK-0511）`。
+- **通过标准：**页面提示保存成功，刷新后这一条显示你填的缓存命中价。
+- **失败时：**
+  - 官方页面读不到这个价格，或者表单没有这个输入框：停，报告，不要估价；
+  - 保存时报错：记下原文，停下报告。
+- **报告里写：**
+  - 模型名；
+  - 录入的价格（各时段分别写）；
+  - 官方页面链接和读取时间；
+  - 保存时间。
+
+### S10 24 小时后：评分审计与资源复查（30 分钟）
+
+- **时间：**S7 结束后满 24 小时再做。下文 `<发布时间>` 填 S7 的结束时间，UTC，写成 `2026-11-06 03:00:00+00` 的格式。
+- **命令（在生产服务器上，`cd /opt/aimine`）：**
+  1. 新版本的分数分布：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT count(*) AS scored,
+            count(*) FILTER (WHERE selected) AS selected,
+            round(avg(score), 2) AS mean,
+            min(score) AS min, max(score) AS max,
+            count(DISTINCT score) AS distinct_values,
+            count(*) FILTER (WHERE score <> round(score)) AS with_decimal
+     FROM analyses
+     WHERE origin = 'model' AND score IS NOT NULL
+       AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%'
+       AND created_at >= '<发布时间>';"
+     ```
+  2. 新版本最常见的 10 个分值：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT score, count(*) FROM analyses
+     WHERE origin = 'model' AND score IS NOT NULL
+       AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%'
+       AND created_at >= '<发布时间>'
+     GROUP BY score ORDER BY count(*) DESC, score DESC LIMIT 10;"
+     ```
+  3. 发布前 7 天旧版本的同一组数字，作对照：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT count(*) AS scored,
+            count(*) FILTER (WHERE selected) AS selected,
+            round(avg(score), 2) AS mean,
+            count(DISTINCT score) AS distinct_values
+     FROM analyses
+     WHERE origin = 'model' AND score IS NOT NULL
+       AND prompt_version NOT LIKE '%selection-score@a795d9b2da%'
+       AND created_at >= timestamptz '<发布时间>' - interval '7 days'
+       AND created_at < '<发布时间>';"
+     ```
+  4. 新版本按 5 分一档的分布：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT floor(score / 5) * 5 AS band, count(*) FROM analyses
+     WHERE origin = 'model' AND score IS NOT NULL
+       AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%'
+       AND created_at >= '<发布时间>'
+     GROUP BY band ORDER BY band;"
+     ```
+  5. 资源与重启：
+     ```bash
+     docker compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
+     docker inspect --format '{{.Name}} {{.Config.Image}} {{.RestartCount}}' $(docker compose ps -q)
+     df -h /opt /var/lib/docker
+     free -m
+     ```
+- **判读：**只记录，不下结论、不调整。Claude 看过数字后决定是否修改评分。下面三种情况要在报告开头标出：
+  - 第 1 条 `scored` 为 0，而第 3 条按天折算不为 0：新版本没有在打分，可能是 `.env` 没生效；
+  - 第 1 条 `with_decimal` 为 0，且 `scored` 大于 20：分数没有出现小数；
+  - 第 2 条排第一的分值占 `scored` 的三成以上：分数仍集中在少数值上。
+- **报告里写：**5 组输出原文。
+
+## 6. 上线后服务器测试（S8 用）
+
+在任意能访问公网的机器上执行，先设 `S=https://aiminingpolicy.com`。每条记下“命令、期望、实际、结论”。
+
+| 编号 | 命令 | 期望 |
+|---|---|---|
+| T1 | `curl -s -o /dev/null -w "%{http_code}\n" $S/api/health` | `200` |
+| T2 | `curl -s $S/api/site/meta \| grep -o '"icp":"[^"]*"' \| sed 's/[0-9]/#/g'` | 一行，形如 `"icp":"皖ICP备##########号-#"` |
+| T3 | `curl -s $S/api/site/meta \| grep -o '"publicSecurity":{"text":"[^"]*"' \| sed 's/[0-9]/#/g'` | 一行，形如 `"publicSecurity":{"text":"皖公网安备##############号"` |
+| T4 | `curl -s $S/ \| grep -o 'beian.miit.gov.cn' \| head -1` | `beian.miit.gov.cn`（页脚备案链接） |
+| T5 | `curl -s -o /dev/null -w "%{http_code}\n" "$S/api/site/news-map?window=7d"` | `200` |
+| T6 | `curl -s -o /dev/null -w "%{http_code}\n" "$S/api/site/news-map?window=2d"` | `400` |
+| T7 | `curl -s "$S/api/site/news-map?window=30d" \| python3 -c 'import json,sys;d=json.load(sys.stdin);print(d["window"],len(d["countries"]))'` | `30d` 和一个正整数 |
+| T8 | `curl -s $S/en \| grep -c 'name="robots" content="noindex, follow"'` | `1` |
+| T9 | `curl -s $S/ \| grep -c 'name="robots"'` | `0` |
+| T10 | `curl -s -o /dev/null -w "%{http_code} %{content_type}\n" $S/icon.png` | `200 image/png` |
+| T11 | `curl -s -o /dev/null -w "%{http_code}\n" $S/feed.xml` | `200` |
+| T12 | `curl -s $S/ \| grep -c 'data-site-nav'` | 不小于 `1`（新顶部导航） |
+| T13 | `curl -s $S/ \| grep -c '搜索资讯与法规'` | 不小于 `1`（界面更新已上线） |
+| T14 | `curl -s "$S/?category=policy_regulation" \| grep -c '清除筛选'` | 不小于 `1`（筛选面板） |
+| T15 | `curl -s $S/more \| grep -c '阅读设置'` | 不小于 `1` |
+| T16 | 服务器上执行：`cd /opt/aimine && docker compose logs --since 30m api worker web 2>&1 \| grep -iE 'error\|fatal\|unhandled' \| sed -E 's/[0-9]{6,}/<n>/g' \| sort \| uniq -c \| sort -rn \| head -20` | 只记录，不判断；输出交给 Claude |
+
+另外两项：
+
+- **T17 容器状态**：服务器上执行 S5 的前两条命令。期望：所有服务 `running`，`api`、`worker`、`web` 的镜像都是 `amp-release:${MAIN:0:12}` 或发布脚本切换后的标签，RestartCount 都是 0。只记录实际值。
+- **T18 打分是否恢复**：S7 结束 2 小时后，在服务器上执行：
+  ```bash
+  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM analyses WHERE origin='model' AND score IS NOT NULL AND prompt_version LIKE '%selection-score@a795d9b2da+weights@ae8058ad1d%';"
+  ```
+  期望大于 0。是 0 就在报告开头标出，不改任何东西。如果这 2 小时里没有新稿件进来，会是 0，所以同时记下 S5 的“发布前 24 小时打分数”作参照。
+
+**Owner 手机验收（Owner 做，你只提醒）：**请 Owner 用手机打开首页、一篇文章、“我的”页，看以下几项：
+- 新标识和金色配色；
+- 页脚两个备案号及其链接；
+- 底栏 5 项；
+- “我的”页的三组：内容、阅读设置、关于。
+
+## 7. 回滚
+
+- **发布脚本失败：**脚本会自动回退。按 S7“失败时”把评分版本改回旧值，报告，不再发布。
+- **发布成功，但 T1 失败，或 T2～T15 有 3 条以上不符：**
+  - 不要自行回滚。立即报告，等 Owner 决定。
+  - Owner 要求回滚时，按 ADR-0017 和 `docs/runbooks/release-retention.md` 的回退流程，回到 S5 记下的上一个镜像；
+  - 回退后同样把 `SELECTION_CONFIRMED_VERSION` 改回 `$OLD_SCORE_VERSION`，然后执行 `docker compose up -d --no-deps worker`。
+- **只有评分异常**（S10 标出的情况）：不回滚，不改 `.env`，交给 Claude。
+
+## 8. 审计报告（交给 Claude）
+
+**发两次：**
+1. S8、S9 做完后发**上线报告**；
+2. S10 做完后发**24 小时报告**。
+
+中途按铁律停下时，也用同一格式发，把“结论”写成“停止”。
+
+**发到哪里：**作为评论发在 S3 的正式 PR 上。同时请 Owner 转给 Claude，或直接贴给 Claude。
+
+### 8.1 格式
+
+```markdown
+## 审计报告：<上线报告 / 24 小时报告 / 停止报告>（<北京时间>）
+
+### 一、结论
+- 结论：通过 / 有问题 / 停止
+- 需要 Claude 处理的事：<逐条写；没有写“无”>
+- 需要 Owner 决定的事：<逐条写；没有写“无”>
+
+### 二、版本与制品
+- $BRANCH_SHA：
+- 计划 PR：<链接>，合并后 main：$PLAN_MAIN
+- 正式 PR：<链接>，合并后 main：$MAIN
+- main 的 CI 运行：<链接>，$RUN / $ATTEMPT
+- $MANIFEST_SHA256 / $TREE / $SOURCE_SHA256：
+
+### 三、配置变更（不写号码和任何密钥）
+- 备案号三行：已写入 / 未写入
+- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score@a795d9b2da+weights@ae8058ad1d
+- .env 备份文件名：
+
+### 四、发布
+- 开始 / 结束（北京时间）：
+- exit：
+- 发布日志：/opt/aimine/.ops/codex-release-<12位>.log
+- journal：
+- 日志最后 30 行：
+  ```
+  <原文>
+  ```
+
+### 五、服务器测试
+| 编号 | 期望 | 实际 | 结论 |
+|---|---|---|---|
+| T1 | 200 | | 通过 / 不符 |
+| …… | | | |
+| T18 | >0 | | |
+
+T16 输出原文：
+```
+<原文>
 ```
 
-**通过标准（按顺序对应上面 8 条）：**
+### 六、发布前后对照
+| 项目 | 发布前（S5） | 发布后（T17 / S10） |
+|---|---|---|
+| 各服务状态 | | |
+| RestartCount | | |
+| /opt 可用 | | |
+| /var/lib/docker 可用 | | |
+| 可用内存（MB） | | |
+| 24 小时打分数 / 入选数 | | |
 
-| 命令 | 期望结果 |
-|---|---|
-| `/api/health` | `200` |
-| `/api/site/meta` 的 filings | 能看到被打码的 ICP 前缀，例如 `"filings":{"icp":"皖ICP备####…` |
-| `news-map?window=7d` | `200` |
-| `news-map?window=2d` | `400` |
-| `/en` 的 noindex | `1` |
-| `/` 的 robots | `0` |
-| `/icon.png` | `200 image/png` |
-| `/feed.xml` | `200` |
+### 七、缓存命中价格（S9）
+- 模型、价格（各时段）、官方页面链接、读取时间、保存时间：
 
-- **失败时：**任何一条不符，都停下汇报这一条的完整输出，不要回滚，等 Owner 决定。
-- **最后一步：**请 Owner 用手机打开首页、一篇文章、“我的”页，确认以下几点。这一步由 Owner 做，你不用做：
-  - 新 LOGO；
-  - 金色配色；
-  - 页脚号码和两个备案链接；
-  - 底栏。
-- **产出：**8 条结果，加上“已请 Owner 手机验收”。
+### 八、评分审计（仅 24 小时报告，S10 五组输出原文）
+```
+<原文>
+```
 
-### S8 录入 DeepSeek 缓存命中价格（TASK-0511）
+### 九、没做的和异常
+- 按本文跳过的：
+- 遇到但没处理的：<现象、时间、原文>
+- 第几次失败、停在哪条命令：
+```
 
-- **做什么：**
-  1. 打开 DeepSeek 官方定价页面，读出当前所用模型的“缓存命中”输入价格。高峰、低谷价格不同的，两个都读。
-  2. 在后台“用量保护”的价格表里，填入这个模型的缓存命中价格，并按要求写明操作原因，例如“按官方定价页 2026-11-xx 录入缓存命中价”。
-  3. 只改缓存命中价这一项，其他价格不动。
-- **通过：**后台月度用量里出现“缓存节省”一列，数值不为负。
-- **失败时：**官方页面读不到这个价格，或者后台没有对应的输入框，就停下汇报，不要估算价格。
-- **产出：**录入的价格、官方页面链接、录入时间。
+### 8.2 证据和打码规则
 
-### S9 评分新旧对比（TASK-0510，需要 Owner 批准预算，等 Owner）
+- **每个结论都要附原始输出**，不写“已确认”“正常”这类没有证据的话。输出太长时，保留开头 20 行和结尾 30 行，中间写“（省略 N 行）”。
+- **一律不写进报告的：**
+  - 备案号数字：用 T2、T3 的打码输出；
+  - `.env` 的内容、任何密钥、令牌、Cookie、密码；
+  - 服务器 IP、SSH 用户名、内网地址；
+  - 读者的反馈内容和联系方式。
+- **日志里的长数字**用 T16 的 `sed` 打码。看到疑似密钥（长串字母数字、`sk-` 开头等）就整行删掉，写“（删去一行疑似密钥）”。
+- **时间**一律写北京时间，SQL 里的时间写 UTC，并注明。
+- **不要写猜测原因。**确实需要说明的，写在“九、没做的和异常”，标“推测”。
 
-- **目的：**Owner 要求先对比再上线。只用现有工具和现有样本。
-- **做什么：**
-  1. 先只做计划，不调用模型：
-     ```bash
-     node scripts/selection-experiment.ts --manifest <现有固定样本 manifest> --output /安全位置/plan.json
-     ```
-     把 `plan.json` 中的 `cases` 和 `maximumCalls` 报给 Owner，**等 Owner 批准调用次数和费用上限。**
-  2. Owner 批准后，在 TASK-0510 卡片的 `budget.model_calls` 里写上批准的次数（只改这一个字段，单独提交）。然后在隔离的评测数据库上运行：
-     ```bash
-     node scripts/selection-experiment.ts --manifest <同上> --output /安全位置/result.json --run --max-calls <批准的次数> --task TASK-0510
-     ```
-  3. 给 Owner 一页结果，内容如下：
-     - 新旧分数的分布，以及最常见的三个分值合计占多少；
-     - 入选数量的差异；
-     - 入选结果有变化的稿件清单，附标题和新旧分数。
-- **停止条件：**以下任何一种情况，都停下来汇报给 Claude，不要自己写新工具、新脚本，也不要改评分代码：
-  - 现有工具不能在同一样本上分别跑旧版和新版评分；
-  - 找不到现有的固定样本；
-  - 运行报错。
-- **产出：**结果一页、实际调用次数和费用。
-
-### S10 切换评分版本（等 Owner）
-
-- **前提：**Owner 看过 S9 的结果，明确说“同意切换”。
-- **做什么：**
-  1. 在生产 `.env` 中设置 `SELECTION_CONFIRMED_VERSION=selection-score@a795d9b2da+weights@ae8058ad1d`。
-  2. 只重启读取这个变量的服务，不做完整发布。
-- **通过：**新入选的稿件分数带一位小数，例如 72.4；后台评分记录里的版本号等于上面的值。
-- **失败时：**停下汇报，然后把这一项删掉，恢复原状。
-- **产出：**切换时间、第一条新评分稿件的链接。
-
-### S11 按清单删除无用代码（TASK-0526）
-
-- **范围：**只删 TASK-0526 卡片列出的 5 项，每一项删除前先用 `grep` 确认没有引用。
-- **命令：**
-  1. 删除；
-  2. 在 `apps/api` 里执行 `npm uninstall @resvg/resvg-js`（npm 11.19.0）；
-  3. 按卡片更新 `scripts/verify/boundaries.ts` 的白名单；
-  4. 执行：
-     ```bash
-     npm run build --workspace @amp/web
-     npm run check
-     ```
-- **通过：**`npm run check: passed`。单独开 PR，按正常流程合并。不必为这一项单独部署，随下次发布即可。
-- **失败时：**哪一项删除后引起失败，就把这一项恢复，记录原因，其余项照常。不要为了能删掉而改别的代码。
-- **产出：**删了哪些、保留了哪些及原因。
-
-### S12 部署脚本参数化（TASK-0527）
-
-- **范围：**只改 TASK-0527 卡片列出的文件：
-  - 把 `/opt/aimine` 等安装路径和域名改为环境变量，默认值与现在相同；
-  - 删掉代码注释里的个人名。
-  - 不改任何发布步骤的顺序和逻辑。
-- **命令：**
-  ```bash
-  bash -n deploy/production-release.sh
-  npm run check
-  ```
-- **通过：**语法检查和 `npm run check` 都通过。用默认值时，生成的路径和以前逐字一致，在 PR 里贴一段对照。
-- **失败时：**停下汇报，不要在生产上试运行修改后的脚本。下次正式发布时，再用新脚本走正常流程。
-- **产出：**PR 链接。
-
-### S13 汇报（全部完成或中途停止时）
-
-按第 9 节的格式，在协作 Issue 里发一条汇报。
-
-## 6. 回滚
-
-- **发布失败：**`deploy/production-release.sh` 会自动回退，你只需要汇报。
-- **发布成功但 S7 有问题：**不要自行回滚，汇报后等 Owner 决定。Owner 要求回滚时，按 ADR-0017 的回退流程，回到上一个现役版本。
-- **评分切换（S10）出问题：**删掉 `SELECTION_CONFIRMED_VERSION` 这一行，重启相关服务即可，不需要回滚版本。
-
-## 7. 需要 Owner 决定的事（到了就停下来问）
+## 9. 需要 Owner 决定的事（到了就停下来问）
 
 | 时机 | 问什么 |
 |---|---|
-| S4 | 是否批准合并 |
-| S9 | 评分对比的调用次数和费用上限 |
-| S10 | 看完对比后，是否切换评分 |
-| 任意时间 | 资讯地图的合规：是否申请审图号；或者改为不显示地图（改为不显示需要 Claude 改代码，你不改） |
-| 任意时间 | 英文界面何时去掉 noindex（TASK-0523 完成后） |
+| S2 | 是否批准合并计划 PR |
+| S3 | 是否批准合并正式 PR |
+| 第 7 节 | 测试不符时，是否回滚 |
 
-## 8. 本次之外，留给后续的事（不要现在做）
+评分是否调整、地图是否保留、英文界面何时去掉 noindex，都不是你要问的：前两项 Owner 已有决定，第三项由 Claude 安排。
 
-- TASK-0523：英文界面其余页面（Claude）。
+## 10. 本次之外的事（不要做）
+
 - 法规线重启：等 Owner 解除 DEC-71，按 `docs/design/policy-restart-202611/README.md` 执行。
-- 上游修复移植（工作流 6）：另开任务。
-- 西班牙文、法文 README 的母语审校：Owner 安排人员。
-
-## 9. 汇报格式（每次停下或完成都用这个）
-
-```
-【进度】做到 S__（完成 / 停止）
-【SHA】$SHA = …，$MAIN = …
-【结果】每步一行：S1 通过 / S2 通过 / ……
-【停在哪里】步骤、命令、错误原文（最后 30 行），是第几次失败
-【判断】失败来自本分支改动 / 环境 / 不确定
-【需要谁】Claude / Owner，需要对方做什么
-【没做的】按本文明确跳过的项
-```
+- 上游修复移植（任务书 v2 工作流 6）：另开任务。
+- 西班牙文、法文 README 的母语审校：由 Owner 安排。
+- 评分调整：由 Claude 看过 24 小时报告后决定。

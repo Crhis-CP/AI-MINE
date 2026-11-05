@@ -3,7 +3,7 @@
 // drifting gold contour lines. Phones keep their own header and the tab bar (≤ 960px).
 import { useEffect, useRef } from "react";
 import { Link as PlainLink, useLocation } from "react-router";
-import { otherLanguagePath, useLocale, useT } from "../../i18n";
+import { basePath, otherLanguagePath, useLocale, useT } from "../../i18n";
 import { SITE } from "@amp/industry/site";
 import { UnreadMark } from "../../features/changelog/UnreadMark";
 import { useOpenSearch } from "../../features/search/SearchOverlay";
@@ -12,7 +12,7 @@ import { IconChevronDown, IconSearch } from "../icons";
 import { Wordmark } from "../Logo";
 import { IntentLink as Link } from "../ui/IntentLink";
 import { SIDEBAR, tabIsActive, type NavItem } from "./nav";
-import { ThemeSwitch } from "./ThemeSwitch";
+import { ThemeToggle } from "./ThemeSwitch";
 
 const [CONTENT, ...REST] = SIDEBAR;
 
@@ -27,7 +27,9 @@ const CONTOURS = Array.from({ length: 7 }, (_, k) => {
 
 function useHref(item: NavItem) {
   const { pathname, search } = useLocation();
-  return { to: item.to === "/feedback" ? feedbackPath(pathname, search) : item.to, active: tabIsActive(item, pathname) };
+  // The phone tab 精选 also covers 全部动态; in the desktop row each has its own entry, so 精选 matches exactly.
+  const active = item.to === "/" ? basePath(pathname) === "/" : tabIsActive(item, pathname);
+  return { to: item.to === "/feedback" ? feedbackPath(pathname, search) : item.to, active };
 }
 
 function TopLink({ item }: { item: NavItem }) {
@@ -163,14 +165,15 @@ export function SiteHeader() {
             <button
               type="button"
               onClick={(event) => openSearch("", event.currentTarget)}
-              className="flex size-10 items-center justify-center rounded-control border border-line bg-surface text-ink-3 hover:text-ink"
+              className="flex h-10 items-center gap-2 rounded-control border border-line bg-surface px-3 text-[13.5px] text-ink-4 transition-colors hover:border-line-strong hover:text-ink xl:w-[220px]"
               aria-label={t.shell.search}
             >
-              <IconSearch size={17} />
+              <IconSearch size={16} className="shrink-0" />
+              <span className="hidden truncate xl:inline">{t.shell.searchHint}</span>
             </button>
           )}
           <LanguageSwitch />
-          <ThemeSwitch className="w-[108px]" />
+          <ThemeToggle />
         </div>
       </div>
     </header>

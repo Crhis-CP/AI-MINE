@@ -145,7 +145,7 @@ Owner 选定方向 C 后，对 LOGO 提出新的要求：简洁、有寓意、�
 | 第三轮：卝（朱印、矿井、金文、字标） | [logos-v3/](logos-v3/) | Owner 不采用，原话是“不一定要中国古代文字”。研究摘要保留作参考 |
 | 第四轮：芯锭、山芯、石器·智能、地层·像素 | [logos-v4/](logos-v4/) | Owner 认可第四个“地层·像素”的金色配比，但觉得仍然普通 |
 | 第五轮：在地层·像素基础上演化出阶梯金字塔、方日出土、像素 A | [logos-v5/](logos-v5/) | 选出阶梯金字塔 |
-| **推荐定稿：阶梯金字塔** | [logo-final/](logo-final/)；样式图 [style-boards/logo-final.webp](style-boards/logo-final.webp) | 等 Owner 确认 |
+| **推荐定稿：阶梯金字塔** | [logos-v5/ziggurat-final/](logos-v5/ziggurat-final/)（后来从 `logo-final/` 移到这里；当时的样式图已删除） | 等 Owner 确认 |
 
 Owner 的要求：最终只要一个 LOGO，要有历史感；矿业是人类发展的基础，也是 AI 的根基，所以要把古代和 AI 时代结合起来，简洁大气，一眼就懂。
 

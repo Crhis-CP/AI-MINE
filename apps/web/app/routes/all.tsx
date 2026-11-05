@@ -9,7 +9,7 @@ import { isValidDate } from "@amp/contracts/time";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
-import { CategoryTabs, JurisdictionFilter, SearchField, SourceDateFilters, FeedBar } from "../features/feed/Filters";
+import { FeedBar, FeedToolbar, SearchField, SourceDateFilters } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { HotTopics } from "../features/feed/HotTopics";
@@ -155,19 +155,16 @@ export default function AllPage() {
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
       <FeedBar base="/all" category={f.category} channel={f.channel} jurisdiction={f.jurisdiction ?? null} facets={data.facets} />
-      {/* Desktop, as on 精选: the title, then one filter row with the search field aligned on the right. */}
-      <div className="hidden lg:block">
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title ?? tr.maybe(`全部${withSubject("动态")}`)}</h1>
-        <div className="mb-5 mt-4 flex items-center justify-between gap-4">
-          <CategoryTabs base="/all" category={f.category} channel={f.channel} layoutId="all-cat-desk" className="min-w-0" />
-          <SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />
-        </div>
-      </div>
-
-      <div className="hidden lg:block">
-        <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
-        <SourceDateFilters base="/all" facets={data.facets} />
-      </div>
+      <FeedToolbar
+        title={title ?? tr.maybe(`全部${withSubject("动态")}`)}
+        base="/all"
+        category={f.category}
+        channel={f.channel}
+        jurisdiction={f.jurisdiction ?? null}
+        layoutId="all-cat-desk"
+        search={<SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />}
+        advanced={<SourceDateFilters base="/all" facets={data.facets} flat />}
+      />
       {data.hot && <HotTopics entries={data.hot} />}
       {f.q && (
         <section aria-label={tr("法规政策搜索结果")} className="my-4 rounded-card border border-line px-4 py-3">

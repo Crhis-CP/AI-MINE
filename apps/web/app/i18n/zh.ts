@@ -7,6 +7,7 @@ export const zh = {
     mainNav: "主导航",
     more: "更多",
     search: "搜索",
+    searchHint: "搜索资讯与法规",
     tabBar: "底部导航",
     footerNav: "页脚导航",
     footerNote: "AI 辅助整理，请以原文为准",
@@ -74,6 +75,7 @@ export const zh = {
     sourceScope: "来源属性",
     allSources: "全部来源",
     firstParty: "一手来源",
+    firstPartyHint: "当事方自己发布或媒体首发的报道，不含转载",
     allCategories: "全部分类",
     categoryTabs: "新闻分类",
     anyCategory: "不限分类",
@@ -114,6 +116,7 @@ export const zh = {
     clearThese: "清除这些条件",
     dateHelp: "按时间线的北京日期筛选，与列表分组和“今天”一致；指定日期优先于日期范围，来源日期待核实的内容也可按时间线日期查找。",
     advancedFilters: "来源、矿种与日期筛选",
+    clearAll: "清除筛选",
     comboLabel: "资讯组合筛选",
   },
   hot: {

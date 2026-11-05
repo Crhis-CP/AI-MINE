@@ -7,14 +7,25 @@ import { useJurisdictionChoices } from "./jurisdictions";
 import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Form, Link, useLocation, useNavigate, useNavigation, useSearchParams } from "react-router";
 import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
 
 /** The selector describes event/impact geography; publication-source tags are not an input. */
-export function JurisdictionFilter({ base, value, confirm = false }: { base: string; value: string | null; confirm?: boolean }) {
+export function JurisdictionFilter({
+  base,
+  value,
+  confirm = false,
+  compact = false,
+}: {
+  base: string;
+  value: string | null;
+  confirm?: boolean;
+  /** Inside the desktop filter panel: no visible label or hint line (both stay as the name and the title). */
+  compact?: boolean;
+}) {
   const tf = useT().feed;
   const [params] = useSearchParams(),
     navigation = useNavigation();
@@ -33,20 +44,21 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
     .filter((key) => !["jurisdiction", "page", "cursor", "deep", "anchorAt", "_routes"].includes(key))
     .map((key) => [key, params.get(key)!] as const);
   return (
-    <Form method="get" action={base} className="my-3 flex flex-wrap items-center gap-2 text-[14px]">
+    <Form method="get" action={base} className={`flex flex-wrap items-center gap-2 text-[14px] ${compact ? "" : "my-3"}`}>
       {keep.map(([key, value]) => (
         <input key={key} type="hidden" name={key} value={value} />
       ))}
       <label className="flex items-center gap-2">
-        {tf.country}
+        <span className={compact ? "sr-only" : undefined}>{tf.country}</span>
         <select
           name="jurisdiction"
           value={draft}
+          title={compact ? tf.countryHint : undefined}
           onChange={(event) => {
             setDraft(event.currentTarget.value);
             if (live) event.currentTarget.form?.requestSubmit();
           }}
-          className="max-w-[220px] rounded-md border border-line-strong bg-surface px-3 py-2 text-ink"
+          className={`max-w-[220px] rounded-control border bg-surface px-3 text-ink ${compact ? "h-9 border-line text-[13.5px]" : "border-line-strong py-2"} ${draft ? "border-accent/60 text-accent" : ""}`}
         >
           <option value="">{tf.allCountries}</option>
           {draft && !["unknown", "none"].includes(draft) && !choices?.some((j) => j.code === draft) && <option value={draft}>{tf.currentCountry}</option>}
@@ -78,7 +90,7 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
       >
         {tf.apply}
       </button>
-      <span className="text-ink-4">{failed ? tf.countryFailed : choices ? tf.countryHint : tf.countryLoading}</span>
+      {(!compact || failed) && <span className="text-ink-4">{failed ? tf.countryFailed : choices ? tf.countryHint : tf.countryLoading}</span>}
     </Form>
   );
 }
@@ -108,29 +120,42 @@ function SourceScopeTabs({ base, channel, layoutId }: { base: string; channel: C
       active={channel === "firstParty" ? "firstParty" : "all"}
       items={[
         { key: "all", label: tf.allSources, resetScroll: true, to: hrefWith(base, params, { channel: null }) },
-        { key: "firstParty", label: tf.firstParty, resetScroll: true, to: hrefWith(base, params, { channel: "firstParty" }) },
+        { key: "firstParty", label: tf.firstParty, title: tf.firstPartyHint, resetScroll: true, to: hrefWith(base, params, { channel: "firstParty" }) },
       ]}
     />
   );
 }
 
-export function CategoryTabs({
+/** Filters that narrow a feed; the keys the desktop panel's “清除筛选” drops. */
+const FILTER_KEYS = ["category", "channel", "jurisdiction", "tag", "source", "mineral", "on", "from", "to"] as const;
+
+/**
+ * The desktop feed head (UI update, Owner 2026-11-05): the title with an optional search on one line, then one
+ * filter panel — the categories, and below them the source scope, the region and a single “清除筛选”.
+ * Phones use FeedBar's sheet instead.
+ */
+export function FeedToolbar({
+  title,
   base,
   allTo,
   category,
   channel = "all",
+  jurisdiction,
   layoutId,
-  size = "md",
-  className = "",
+  search,
+  advanced,
 }: {
+  title: ReactNode;
   base: string;
   /** Where “全部” leads when it differs from `base` (the home page while it waits for its first pick). */
   allTo?: string;
   category: CategoryKey | null;
   channel?: ChannelKey;
+  jurisdiction: string | null;
   layoutId: string;
-  size?: "md" | "sm";
-  className?: string;
+  search?: ReactNode;
+  /** The source, commodity and date controls, folded under the panel (全部动态 and topics). */
+  advanced?: ReactNode;
 }) {
   const tf = useT().feed;
   const cat = useCategoryLabel();
@@ -139,10 +164,30 @@ export function CategoryTabs({
     { key: "all", label: tf.allCategories, resetScroll: true, to: hrefWith(allTo ?? base, params, { category: null }) },
     ...CATEGORY_KEYS.map((k) => ({ key: k, label: cat(k), resetScroll: true, to: hrefWith(base, params, { category: k }) })),
   ];
+  const filtered = FILTER_KEYS.some((key) => params.get(key) && !(key === "channel" && params.get(key) === "all"));
   return (
-    <div className={`min-w-0 space-y-2 ${className}`}>
-      <SourceScopeTabs base={base} channel={channel} layoutId={`${layoutId}-source`} />
-      <PillTabs items={items} active={category ?? "all"} layoutId={layoutId} label={tf.categoryTabs} size={size} />
+    <div className="hidden lg:block">
+      <div className="flex min-h-10 items-center justify-between gap-4">
+        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
+        {search}
+      </div>
+      <div className="mb-5 mt-3 rounded-card border border-line bg-surface px-3 py-2.5">
+        <PillTabs items={items} active={category ?? "all"} layoutId={layoutId} label={tf.categoryTabs} />
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft pt-2.5">
+          <SourceScopeTabs base={base} channel={channel} layoutId={`${layoutId}-source`} />
+          <JurisdictionFilter base={base} value={jurisdiction} compact />
+          {filtered && (
+            <Link
+              to={hrefWith(allTo ?? base, params, Object.fromEntries(FILTER_KEYS.map((key) => [key, null])))}
+              className="ml-auto inline-flex h-9 items-center gap-1 rounded-control px-2.5 text-[13.5px] text-ink-3 hover:bg-bg-sunk hover:text-ink"
+            >
+              <IconClose size={13} />
+              {tf.clearAll}
+            </Link>
+          )}
+        </div>
+        {advanced}
+      </div>
     </div>
   );
 }
@@ -512,17 +557,25 @@ export function SearchIconLink() {
 export function SourceDateFilters({
   base,
   facets,
+  flat = false,
 }: {
   base: string;
   facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };
+  /** Folded inside the desktop filter panel rather than as its own bordered box. */
+  flat?: boolean;
 }) {
   const tf = useT().feed;
   const [params] = useSearchParams();
   const controls = ["source", "mineral", "on", "from", "to"];
   const field = "min-w-0 rounded-control border border-line-strong bg-surface px-2 py-2 text-[16px] text-ink sm:text-[14px]";
   return (
-    <details className="my-3 rounded-control border border-line px-3 py-2" open={controls.some((name) => params.get(name)) || undefined}>
-      <summary className="cursor-pointer text-[14px] text-ink-3">{tf.advancedFilters}</summary>
+    <details
+      className={flat ? "group mt-2.5 border-t border-line-soft pt-2" : "my-3 rounded-control border border-line px-3 py-2"}
+      open={controls.some((name) => params.get(name)) || undefined}
+    >
+      <summary className={`cursor-pointer text-ink-3 hover:text-ink ${flat ? "w-fit rounded-control px-1 py-1 text-[13.5px]" : "text-[14px]"}`}>
+        {tf.advancedFilters}
+      </summary>
       <Form key={params.toString()} method="get" action={base} className="mt-3 flex flex-wrap items-end gap-3" aria-label={tf.comboLabel}>
         {[...params]
           .filter(([name]) => ![...controls, "page", "cursor", "_routes"].includes(name))

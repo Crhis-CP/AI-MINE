@@ -16,7 +16,8 @@
       "电脑和平板首页新增资讯地图，可看今天、近 7 天、近 30 天，点击国家即在原地筛选；国家筛选选中即生效。",
       "文章页可切换宋体和黑体，正文每行约 38 个字；列表可用 j / k 键上下切换。",
       "报告刊头加上新标识，法规页用测量点连线显示文件所处阶段。",
-      "可以切换到英文界面，全部页面的界面文字都有英文，资讯内容仍为中文。"
+      "可以切换到英文界面，全部页面的界面文字都有英文，资讯内容仍为中文。",
+      "电脑上的筛选合并为一个面板，搜索框写明可搜内容，深浅色一键切换；“我的”页和法规筛选重新分组，常用的放在前面。"
     ]
   },
   "fragments": [
@@ -39,6 +40,7 @@
     "changes/TASK-0519-report-policy.md",
     "changes/TASK-0520-more-face.md",
     "changes/TASK-0521-english-interface.md",
-    "changes/TASK-0523-english-everywhere.md"
+    "changes/TASK-0523-english-everywhere.md",
+    "changes/TASK-0529-simpler-ui.md"
   ]
 }

@@ -15,6 +15,7 @@ import {
   demoStats,
   demoSuggestions,
   demoTimeline,
+  demoItemDetail,
   DEMO_ITEMS,
 } from "./demo-reader.ts";
 
@@ -59,6 +60,8 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     case "/api/site/items/saved":
       return send(res, 200, { items: DEMO_ITEMS.filter((item) => (q.get("ids") ?? "").split(",").includes(item.id)), unavailableIds: [] });
   }
+  const detail = url.pathname.startsWith("/api/site/items/") ? demoItemDetail(decodeURIComponent(url.pathname.slice("/api/site/items/".length))) : null;
+  if (detail) return send(res, 200, detail);
   return send(res, 404, { code: "not_in_demo" });
 }
 

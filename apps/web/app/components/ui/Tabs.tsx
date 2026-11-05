@@ -53,6 +53,8 @@ export interface TabItem {
   /** A changed filter starts at its first result; ordinary panel switches retain position. */
   resetScroll?: boolean;
   count?: number | null;
+  /** A short hover hint for an option whose name alone may not explain it. */
+  title?: string;
 }
 
 const SIZES = {
@@ -160,7 +162,15 @@ export function PillTabs({
             const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-full font-medium outline-offset-1 transition-colors duration-150 active:scale-[0.98] ${SIZES[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
             const TabLink = t.prefetch === "intent" ? IntentLink : Link;
             return t.to ? (
-              <TabLink key={t.key} to={t.to} replace={t.replace} preventScrollReset={!t.resetScroll} aria-current={on ? "page" : undefined} className={cls}>
+              <TabLink
+                key={t.key}
+                to={t.to}
+                replace={t.replace}
+                preventScrollReset={!t.resetScroll}
+                aria-current={on ? "page" : undefined}
+                title={t.title}
+                className={cls}
+              >
                 {inner}
               </TabLink>
             ) : (

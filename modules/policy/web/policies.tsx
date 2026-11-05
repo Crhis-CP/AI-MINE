@@ -67,71 +67,79 @@ export default function PoliciesPage() {
     return `/policies?${next}`;
   };
   const filterDialog = useRef<HTMLDialogElement>(null);
+  const select = (key: "theme" | "nature" | "stage", label: string, values: Record<string, string>) => (
+    <label key={key} className="space-y-1 text-[12px] text-ink-3">
+      {label}
+      <select name={key} defaultValue={filters[key] ?? ""} className={fieldClass}>
+        <option value="">{tr("全部")}</option>
+        {Object.entries(values).map(([value, name]) => (
+          <option key={value} value={value}>
+            {tr.maybe(name)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  // The common three in one row (UI update, Owner 2026-11-05); the rest fold under “更多条件”, open when any is set.
+  const moreSet = !!(filters.nature || filters.stage || filters.from || filters.to);
   const filterForm = (
     <Form
       key={JSON.stringify(filters)}
       onSubmit={() => filterDialog.current?.close()}
       method="get"
-      className="mt-5 grid gap-3 rounded-card border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4"
+      className="mt-5 rounded-card border border-line bg-surface p-4"
       aria-label={tr("法规筛选")}
     >
-      <label className="space-y-1 text-[12px] text-ink-3">
-        {tr("国家与组织")}
-        <select name="jurisdiction" defaultValue={filters.jurisdiction ?? ""} className={fieldClass}>
-          <option value="">{tr("全部国家与组织")}</option>
-          {[
-            ["country", tr("目标国家")],
-            ["organization", tr("跨国与国际组织")],
-          ].map(([kind, label]) => (
-            <optgroup key={kind} label={label}>
-              {scope?.items
-                .filter((i) => i.jurisdiction.kind === kind)
-                .map((i) => (
-                  <option key={i.jurisdiction.code} value={i.jurisdiction.code}>
-                    {i.jurisdiction.label}
-                  </option>
-                ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      {[
-        ["theme", tr("经营主题"), themes],
-        ["nature", tr("文书性质"), natures],
-        ["stage", tr("制定阶段"), stages],
-      ].map(([key, label, values]) => (
-        <label key={key as string} className="space-y-1 text-[12px] text-ink-3">
-          {label as string}
-          <select name={key as string} defaultValue={filters[key as "theme" | "nature" | "stage"] ?? ""} className={fieldClass}>
-            <option value="">{tr("全部")}</option>
-            {Object.entries(values).map(([value, name]) => (
-              <option key={value} value={value}>
-                {tr.maybe(name as string)}
-              </option>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
+        <label className="space-y-1 text-[12px] text-ink-3">
+          {tr("国家与组织")}
+          <select name="jurisdiction" defaultValue={filters.jurisdiction ?? ""} className={fieldClass}>
+            <option value="">{tr("全部国家与组织")}</option>
+            {[
+              ["country", tr("目标国家")],
+              ["organization", tr("跨国与国际组织")],
+            ].map(([kind, label]) => (
+              <optgroup key={kind} label={label}>
+                {scope?.items
+                  .filter((i) => i.jurisdiction.kind === kind)
+                  .map((i) => (
+                    <option key={i.jurisdiction.code} value={i.jurisdiction.code}>
+                      {i.jurisdiction.label}
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </label>
-      ))}
-      <label className="space-y-1 text-[12px] text-ink-3">
-        {tr("开始日期")}
-        <input type="date" name="from" defaultValue={filters.from} className={fieldClass} />
-      </label>
-      <label className="space-y-1 text-[12px] text-ink-3">
-        {tr("结束日期")}
-        <input type="date" name="to" defaultValue={filters.to} className={fieldClass} />
-      </label>
-      <label className="space-y-1 text-[12px] text-ink-3 lg:col-span-2">
-        {tr("关键词")}
-        <div className="flex gap-2">
-          <input name="q" maxLength={120} defaultValue={filters.q} placeholder={tr("中文名、原文名、文号或机关")} className={fieldClass} />
-          <button className={actionClass} type="submit">
-            {tr("筛选")}
-          </button>
-          <Link to="/policies" className={`${actionClass} whitespace-nowrap`}>
-            {tr("重置")}
-          </Link>
+        {select("theme", tr("经营主题"), themes)}
+        <label className="space-y-1 text-[12px] text-ink-3 sm:col-span-2 lg:col-span-1">
+          {tr("关键词")}
+          <div className="flex gap-2">
+            <input name="q" maxLength={120} defaultValue={filters.q} placeholder={tr("中文名、原文名、文号或机关")} className={fieldClass} />
+            <button className={actionClass} type="submit">
+              {tr("筛选")}
+            </button>
+            <Link to="/policies" className={`${actionClass} whitespace-nowrap`}>
+              {tr("重置")}
+            </Link>
+          </div>
+        </label>
+      </div>
+      <details className="mt-3 border-t border-line-soft pt-2" open={moreSet || undefined}>
+        <summary className="w-fit cursor-pointer py-1 text-[13px] text-ink-3 hover:text-ink">{tr("更多条件")}</summary>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {select("nature", tr("文书性质"), natures)}
+          {select("stage", tr("制定阶段"), stages)}
+          <label className="space-y-1 text-[12px] text-ink-3">
+            {tr("开始日期")}
+            <input type="date" name="from" defaultValue={filters.from} className={fieldClass} />
+          </label>
+          <label className="space-y-1 text-[12px] text-ink-3">
+            {tr("结束日期")}
+            <input type="date" name="to" defaultValue={filters.to} className={fieldClass} />
+          </label>
         </div>
-      </label>
+      </details>
     </Form>
   );
   return (

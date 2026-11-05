@@ -218,3 +218,40 @@ export function demoNewsMap(window: "1d" | "7d" | "30d", now = new Date()) {
     .sort((a, b) => b.count - a.count || b.previous - a.previous);
   return { window, from: new Date(now.getTime() - days * 86_400_000).toISOString(), to: now.toISOString(), countries };
 }
+
+/** One demo article page per demo card: synthetic body, outline and source link, so the reading page can be reviewed. */
+export function demoItemDetail(id: string) {
+  const item = DEMO_ITEMS.find((i) => i.id === id);
+  if (!item) return null;
+  return {
+    ...item,
+    revision: 1,
+    originalTitle: null,
+    source: { id: "demo-source", name: item.source.name, kind: "web_list", firstParty: true },
+    links: { original: "https://example.invalid/demo-source" },
+    discoveredAt: item.publishedAt,
+    story: null,
+    readingMode: "full",
+    author: null,
+    language: "zh",
+    body: {
+      zh: `<h2 id="s1">要点</h2><p>${item.summary}</p><p>演示数据。正文用于检查排版：段落宽度、行高、标题层级与引用样式。</p><h2 id="s2">背景</h2><p>演示数据。此处是第二节正文，说明事件背景和此前进展。</p><blockquote><p>演示数据。引用原文的一段话。</p></blockquote><h2 id="s3">影响</h2><p>演示数据。此处是第三节正文，说明对项目、价格或合规的影响。</p>`,
+      original: null,
+      zhKind: "original",
+      complete: true,
+    },
+    outline: [
+      { id: "s1", text: "要点", level: 2 },
+      { id: "s2", text: "背景", level: 2 },
+      { id: "s3", text: "影响", level: 2 },
+    ],
+    relatedStories: [],
+    indexable: false,
+    group: null,
+    hasTranslation: false,
+    bodyLanguage: "zh",
+    companyContext: [],
+    attribution: null,
+    relatedPolicies: [],
+  };
+}
