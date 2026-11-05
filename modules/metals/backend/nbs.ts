@@ -87,7 +87,7 @@ export function nbsFetcher(registry: MetalPriceRegistry, get: PageGetter = guard
       // release without its table (a redesign or a challenge page) fail the source; none of them reads as "nothing new".
       const page = async (url: string) => {
         if (!onSourceHost(source, url)) throw new Error(`${url} 不在国家统计局登记的主机上或不是 https`);
-        const res = await get(url);
+        const res = await get(url, { retryDropped: true });
         if (!onSourceHost(source, res.url)) throw new Error(`${url} 跳到了 ${res.url}，不在登记的主机上或不是 https`);
         if (res.status !== 200) throw new Error(`${url} 返回 HTTP ${res.status}`);
         return { $: load(res.text()), url: res.url };
