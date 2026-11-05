@@ -93,6 +93,9 @@
 - **备案号改为从 `.env` 读取。**
   - 新代码里不再有备案号。`SITE_REQUIRE_FILINGS=true` 时缺号，API 会拒绝启动，所以 S6 必须在 S7 之前。
   - 格式不对时，API 也会拒绝启动；报错只写变量名，不写号码。
+- **事件页改为“事件脉络”，带一次数据库迁移。**
+  - 新迁移 `database/migrations/events/202611050100_story_digest_detail.sql` 只给 `stories` 和 `story_digests` 各加一个可空的 `digest_detail jsonb` 列，由发布脚本的迁移步骤执行，不改已有数据。
+  - 事件综述的提示词改了（更短，另给“关键变化”和“接下来关注”）。旧综述没有这两项，页面照常显示，只是不出关键变化表；之后有新报道的事件会按新提示词重写，不需要手动重跑。
 - **英文界面 `/en` 带 `noindex, follow`。**这是设计如此，不要去掉。
 - **资讯地图只画陆地点阵，不画国界。**这是 Owner 的决定。
 - **不稳定检查：**`apps/web/tests/cache.test.ts` 里有一个断言与随机 nonce 有关，偶发失败，表现为 `/888/` 一类的不匹配。CI 里遇到时，允许在 GitHub 上重跑一次失败的作业（Re-run failed jobs）。
@@ -345,7 +348,7 @@
 
 ### S8 上线后服务器测试（60 分钟，见第 6 节）
 
-照第 6 节的 T1～T16 和 T19 逐条执行，逐条记录（T17、T18 按各自的说明执行）。全部执行完再写报告，中途某条不符不停。例外：T1 健康检查失败时立即停止，按第 7 节报告。
+照第 6 节的 T1～T16、T19 和 T20 逐条执行，逐条记录（T17、T18 按各自的说明执行）。全部执行完再写报告，中途某条不符不停。例外：T1 健康检查失败时立即停止，按第 7 节报告。
 
 ### S9 录入 DeepSeek 缓存命中价格（30 分钟）
 
@@ -509,6 +512,7 @@
 | T15 | `curl -s $S/more \| grep -c '阅读设置'` | 不小于 `1` |
 | T16 | 服务器上执行：`cd /opt/aimine && docker compose logs --since 30m api worker web 2>&1 \| grep -iE 'error\|fatal\|unhandled' \| sed -E 's/[0-9]{6,}/<n>/g' \| sort \| uniq -c \| sort -rn \| head -20` | 只记录，不判断；输出交给 Claude |
 | T19 | `curl -s "$S/api/v3/changelog?limit=60" \| python3 -c 'import json,sys;t=[i["title"] for i in json.load(sys.stdin)["items"]];print(t[0]);print("修复部分资讯更新延迟" in t)'` | 第一行 `新标识、新导航与资讯地图`，第二行 `False`（更新日志按读者口径整理后的结果） |
+| T20 | `P=$(curl -s $S/api/site/hot \| python3 -c 'import json,sys;print(json.load(sys.stdin)["entries"][0]["story"]["publicId"])'); curl -s $S/story/$P \| grep -c 'id="event-storyline"'` | `1`（事件页的事件脉络；热点榜为空时记“无热点，跳过”） |
 
 另外两项：
 
@@ -583,6 +587,7 @@
 | …… | | | |
 | T18 | >0 | | |
 | T19 | 新标识、新导航与资讯地图 / False | | |
+| T20 | 1 | | |
 
 T16 输出原文：
 ```
