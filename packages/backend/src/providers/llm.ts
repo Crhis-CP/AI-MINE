@@ -596,3 +596,6 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
 export async function markReceiptsCompleted(ids: number[]): Promise<void> {
   for (const id of ids) await completeReceipt(sql, id);
 }
+
+/** Provider off-peak pricing windows (peak-hours.ts) for deferrable model work; modules reach them through this public entry. */
+export { isProviderPeak, nextOffPeakStart } from "./peak-hours.ts";

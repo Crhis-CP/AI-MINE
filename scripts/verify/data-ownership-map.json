@@ -879,6 +879,7 @@
     "modules/policy/backend/domain/quality.ts": "policy",
     "modules/policy/backend/domain/receipt-recovery.ts": "policy",
     "modules/policy/backend/domain/target-evidence.ts": "policy",
+    "modules/policy/backend/domain/translation-memory.ts": "policy",
     "modules/policy/backend/domain/vision-store.ts": "policy",
     "modules/policy/backend/publication/policies-publish.ts": "publication",
     "modules/policy/backend/publication/policy-provisions-project.ts": "publication",

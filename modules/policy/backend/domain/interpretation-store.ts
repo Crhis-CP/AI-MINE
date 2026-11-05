@@ -3,6 +3,7 @@ import { sql } from "@amp/backend/db";
 import { settlePolicyResponse } from "@amp/backend/providers/receipts";
 import { withCurrentPolicyRun, type FulltextRun } from "./fulltext-store.ts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
+import type { PolicyFulltextPlan } from "./processing-plan.ts";
 
 export type InterpretationRun = { id: string; fulltext: FulltextRun; recipeVersion: string };
 export type StageCheckpoint = {
@@ -53,4 +54,18 @@ export async function storedInterpretation(run: InterpretationRun) {
     if (row?.output && sha256(stableJson(row.output)) !== row.content_hash) throw new Error("interpretation_integrity_mismatch");
     return row ?? null;
   });
+}
+
+/**
+ * The last finished interpretation of another fulltext run of the same expression (same document and language) under
+ * this recipe: the basis for interpreting only what changed. `fulltextRunId` pins the basis a stored result used.
+ */
+export async function previousInterpretation(expressionId: string, currentRunId: string, recipeVersion: string, fulltextRunId?: string) {
+  const [row] = await sql<{ id: string; plan: PolicyFulltextPlan; output: Record<string, unknown> | null; content_hash: string | null }[]>`
+    SELECT f.id,f.plan,i.output,i.content_hash FROM policy.interpretation_runs i JOIN policy.fulltext_runs f ON f.id=i.fulltext_run_id
+    WHERE f.expression_id=${expressionId} AND f.id<>${currentRunId} AND i.recipe_version=${recipeVersion}
+      AND i.status IN ('semantic_verified','excluded') AND i.output IS NOT NULL AND (${fulltextRunId ?? null}::text IS NULL OR f.id=${fulltextRunId ?? null})
+    ORDER BY i.updated_at DESC,f.id LIMIT 1`;
+  if (!row?.output || sha256(stableJson(row.output)) !== row.content_hash || row.output.semantic_verified !== true || !row.output.candidate) return null;
+  return { fulltextRunId: row.id, plan: row.plan, output: row.output };
 }

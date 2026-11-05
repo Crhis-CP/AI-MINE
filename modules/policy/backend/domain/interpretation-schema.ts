@@ -15,16 +15,6 @@ const id = text.max(80),
   hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const Quote = z.strictObject({ part_id: id, quote: text.max(200), annotation_id: id.optional() });
 const envelope = { id: hash, input_hash: hash, input_ids: z.array(id).min(1) };
-export const MergeReply = z.strictObject({ ...envelope, summary: text, quotes: z.array(Quote).min(1) });
-export const GroupReply = MergeReply.extend({
-  consistent: z.boolean(),
-  roles: z.array(
-    z.strictObject({
-      part_id: id,
-      roles: z.array(z.enum(["obligation", "definition", "scope", "exception", "commencement", "status", "reference", "other"])).min(1),
-    }),
-  ),
-});
 export const CandidateReply = z.strictObject({
   ...envelope,
   document_title: text,
@@ -58,10 +48,35 @@ export const VerifyReply = z.strictObject({
   ),
   publication_authorized: z.literal(false),
 });
+/**
+ * What one interpret call returns (法规线成本设计 step 2): only judgement, never the bound identity. Code adds the
+ * stage envelope, the official title and number and the empty comparisons, and merges main points and impacts of
+ * earlier chunks or of unchanged provisions; evidence part_id values are the request's short part references.
+ */
+export const InterpretDelta = CandidateReply.pick({
+  title_zh: true,
+  relevance: true,
+  relevance_evidence_ids: true,
+  legal_state: true,
+  publication_events: true,
+  main_points: true,
+  impacts: true,
+  relationships: true,
+  dynamic_zh: true,
+  gaps: true,
+}).extend({
+  evidence: z.array(z.strictObject({ id, part_id: id, quote: text.max(200), annotation_id: id.optional() })).max(64),
+});
+/** The model verifier's answer for the claims code could not decide; quotes use the request's part references. */
+export const VerifyDelta = z.strictObject({
+  judgments: z.array(
+    z.strictObject({ claim_id: id, verdict: z.enum(["supports", "limits", "vetoes", "not_applicable"]), quotes: z.array(Quote), reason: text }),
+  ),
+});
+export type InterpretDelta = z.infer<typeof InterpretDelta>;
+export type VerifyDelta = z.infer<typeof VerifyDelta>;
 export type Quote = z.infer<typeof Quote>;
 export type Candidate = z.infer<typeof CandidateReply>;
-export type Group = z.infer<typeof GroupReply>;
-export type Merge = z.infer<typeof MergeReply>;
 export type Verification = z.infer<typeof VerifyReply>;
 export type Claim = { id: string; path: string; value: unknown; requiresSupport: boolean };
 export type RelatedPolicy = { id: string; citation: string; url: string; jurisdiction: string; qualified: boolean };

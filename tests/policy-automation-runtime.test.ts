@@ -56,7 +56,8 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
   f.setText("Published Regulation: Mining threshold at 10 kg.");
   const ports = { publish, capture: (sourceId: string, materialId: string) => capturePolicyMaterial(sourceId, materialId, f.get) };
   const boss = await getBoss();
-  await registerPolicyJobs(boss, ports);
+  // A fixed off-peak clock (Saturday) so the run never waits for the provider's off-peak window.
+  await registerPolicyJobs(boss, ports, { now: () => new Date("2026-11-07T12:00:00Z") });
   const deadline = Date.now() + 45_000;
   while (Date.now() < deadline) {
     await recordRun("policy.pipeline.sweep", sweepPolicyMaterials);
@@ -73,10 +74,11 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
   assert.equal(visible?.summary, null);
   assert.ok(final.fulltext_run_id);
   assert.ok(published.some((input) => input.fulltextRunId === final.fulltext_run_id));
-  assert.ok(requests.length >= 4);
+  // One translation and one change-based interpretation; code verifies every claim, so no verify or group call.
+  assert.equal(requests.length, 2);
   const rows = await sql`SELECT job,detail FROM job_runs WHERE job LIKE 'policy.pipeline.%' AND status='ok'`;
   assert.ok(rows.some((row) => row.job === "policy.pipeline.fulltext"));
-  assert.ok(rows.some((row) => row.job === "policy.pipeline.interpret" && row.detail.status === "partial"));
+  assert.ok(rows.some((row) => row.job === "policy.pipeline.interpret"));
   assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${f.materialId}`)[0].processing_state, "new");
   await boss.offWork("policy.acquire");
   await boss.offWork("policy.fulltext");
@@ -197,11 +199,15 @@ test("unknown paid outcomes stay blocked across unchanged reacquisition, while a
   assert.equal((await readPolicyWorkflow(f.sourceId, f.materialId))?.status, "pending");
 });
 
-test("vision partial resumes independently, extracted returns to fulltext and remaining catalogue gaps stop the loop", async () => {
+test("vision partial resumes independently, extracted returns to fulltext and remaining catalogue gaps stop the loop", async (t) => {
   const f = await fixture(),
     job = { lane: "policy" as const, sourceId: f.sourceId, materialId: f.materialId };
   await discoverPolicyWorkflows();
   let visionCalls = 0;
+  process.env.POLICY_VISION_ENABLED = "true";
+  t.after(() => {
+    delete process.env.POLICY_VISION_ENABLED;
+  });
   const ports: PolicyAutomationPorts = {
     publish,
     capture: (sourceId, materialId) => capturePolicyMaterial(sourceId, materialId, f.get),
@@ -216,7 +222,11 @@ test("vision partial resumes independently, extracted returns to fulltext and re
   assert.equal(visionCalls, 2);
 });
 
-test("official landing-page metadata binds the linked PDF, and missing actual visual configuration stops without a text-model fallback", async () => {
+test("official landing-page metadata binds the linked PDF, and missing actual visual configuration stops without a text-model fallback", async (t) => {
+  process.env.POLICY_VISION_ENABLED = "true";
+  t.after(() => {
+    delete process.env.POLICY_VISION_ENABLED;
+  });
   const f = await fixture(),
     job = { lane: "policy" as const, sourceId: f.sourceId, materialId: f.materialId };
   f.profile.originalLinkSelector = "a.original";

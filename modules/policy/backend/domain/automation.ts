@@ -16,7 +16,7 @@ import { policyRelationshipCandidates } from "../relations.ts";
 import { runPolicyInterpretation } from "./interpretation-runtime.ts";
 import type { ExtractionProfile } from "./extraction.ts";
 import { structurePolicyRevision } from "./provision-store.ts";
-import { policyModelStagesEnabled } from "../pilot.ts";
+import { policyModelStagesEnabled, policyVisionEnabled } from "../pilot.ts";
 
 export const POLICY_STAGES = ["acquire", "fulltext", "vision", "interpret", "publish"] as const;
 export type PolicyStage = (typeof POLICY_STAGES)[number];
@@ -149,10 +149,14 @@ export async function advancePolicyMaterial(
       return save(row, "interpret", "pending", null, 0);
     }
     if (result.status === "incomplete" && "runId" in result) return save(row, "fulltext", "partial", null, 0);
+    // A scan without a text layer needs vision; it stays manual unless the operator explicitly enabled vision.
+    if (result.status === "incomplete" && row.reason !== "vision_extracted" && !policyVisionEnabled())
+      return stop("acquire", "needs_manual", "扫描件或版面需人工处理；未启用视觉识别");
     if (result.status === "incomplete" && row.reason !== "vision_extracted") return save(row, "vision", "pending", null, 0);
     return stop(runnable.has(result.status) ? "fulltext" : "acquire", result.status, "全文尚未通过完整性要求");
   }
   if (stage === "vision") {
+    if (!policyVisionEnabled()) return stop("acquire", "needs_manual", "扫描件或版面需人工处理；未启用视觉识别");
     const vision = await (ports.vision ?? runPolicyVision)(row.expression_id, profile.extraction, { root: options.root, maxRequests: 2 });
     if (["paused", "waiting_control"].includes(vision.status)) return save(row, "vision", "pending", "运行控制暂停或变化，等待复核", 1);
     if (vision.status === "partial") return save(row, "vision", "partial", null, 0);

@@ -10,7 +10,7 @@ import { createPermitVerifier, type PermitPorts } from "@amp/backend/providers/p
 import { chatJson, ModelPostReceiptGuardError, type ChatJsonResult, type ContentPart, type RegisteredModelTransport } from "@amp/backend/providers/llm";
 import { modelFor } from "@amp/backend/editorial/models";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-import { PolicyModelStagesDisabled, policyModelStagesEnabled } from "./pilot.ts";
+import { PolicyModelStagesDisabled, policyModelStagesEnabled, policyVisionEnabled } from "./pilot.ts";
 
 const Purpose = z.enum(["policy_fulltext", "policy_group", "policy_interpret", "policy_verify", "policy_vision"]);
 export type PolicyPurpose = z.infer<typeof Purpose>;
@@ -121,6 +121,8 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
       if (!policyModelStagesEnabled()) throw new PolicyModelStagesDisabled();
       const ref = Reference.parse(options.input),
         purpose = Purpose.parse(options.purpose);
+      // Scans stay manual unless the operator explicitly enabled vision on top of the model stages.
+      if (purpose === "policy_vision" && !policyVisionEnabled()) throw new PolicyModelStagesDisabled();
       const load = async () => {
         if (ports.root.aborted) throw new Error("Policy gateway root revoked");
         const input = Prepared.parse(await ports.resolve(structuredClone(ref), purpose));

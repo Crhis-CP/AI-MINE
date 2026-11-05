@@ -23,7 +23,7 @@ import { readPolicyOriginal, assertOriginalPermissions } from "../domain/origina
 import { loadPolicyInterpretation } from "../domain/interpretation-runtime.ts";
 import { readPolicyFulltextRun, withCurrentPolicyRun } from "../domain/fulltext-store.ts";
 import { validatePolicyFulltextCandidate, PolicyPartCandidateSchema } from "../domain/fulltext-candidate.ts";
-import { fulltextCheckpoints } from "../domain/fulltext-store.ts";
+import { provenFulltextCandidates } from "../domain/translation-memory.ts";
 import { matchingPolicyQuality } from "../domain/quality.ts";
 import { policyPublicationIdentity, lockPolicyPublicationHead } from "../domain/public-state.ts";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
@@ -64,10 +64,11 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     return pending("stale");
   const interpretation = input.fulltextRunId ? await loadPolicyInterpretation(input.fulltextRunId) : null;
   const excluded = interpretation?.status === "excluded" && interpretation.semantic_verified && interpretation.candidate?.relevance === "excluded";
+  // Proven checkpoints (direct or translation memory) or, for a Chinese original, the original itself.
   const fulltext = loaded
     ? validatePolicyFulltextCandidate(
         loaded.run.plan,
-        (await fulltextCheckpoints(loaded.run)).map((p) => PolicyPartCandidateSchema.parse(p.candidate)),
+        (await provenFulltextCandidates(loaded.run)).candidates.map((c) => PolicyPartCandidateSchema.parse(c)),
       )
     : null;
   const candidate =

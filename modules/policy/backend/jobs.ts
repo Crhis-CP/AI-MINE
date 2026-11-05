@@ -5,7 +5,9 @@ import { z } from "zod";
 import { CrawlDeferred, CrawlObsolete } from "@amp/backend/acquisition/crawl";
 import { publishPolicyPublication } from "./publication/policies-publish.ts";
 import { config } from "@amp/backend/config";
-import { policyArchiveEnabled, policyModelStagesEnabled } from "./pilot.ts";
+import { policyArchiveEnabled, policyModelStagesEnabled, policyVisionEnabled } from "./pilot.ts";
+// Pure off-peak helper (packages/backend/src/providers/peak-hours.ts), re-exported by the existing gateway entry.
+import { isProviderPeak, nextOffPeakStart } from "@amp/backend/providers/llm";
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
 import { runtimeControlSnapshot } from "@amp/backend/operations/lane-controls";
 import { ensureQueue, recordRun, shutdownSignal } from "@amp/backend/jobs/queue";
@@ -15,9 +17,11 @@ import {
   discoverPolicyWorkflows,
   duePolicyWorkflows,
   policyWorkflowFailed,
+  readPolicyWorkflow,
   POLICY_STAGES,
   type PolicyAutomationPorts,
   type PolicyJob,
+  type PolicyStage,
 } from "./domain/automation.ts";
 
 const Job = z.strictObject({
@@ -39,7 +43,11 @@ export async function sweepPolicyMaterials() {
   const collecting = policyArchiveEnabled() && !collection.paused;
   // Model stages need their own explicit switch on top of the general model and processing controls.
   const stages = POLICY_STAGES.filter((stage) =>
-    stage === "acquire" ? collecting : stage === "publish" ? !publication.paused : config.modelCallsEnabled && policyModelStagesEnabled() && !processing.paused,
+    stage === "acquire"
+      ? collecting
+      : stage === "publish"
+        ? !publication.paused
+        : config.modelCallsEnabled && policyModelStagesEnabled() && !processing.paused && (stage !== "vision" || policyVisionEnabled()),
   );
   const previous = collecting
     ? null
@@ -59,7 +67,11 @@ export async function sweepPolicyMaterials() {
   }
   return { ...discovery, enqueued };
 }
-export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPolicyPublication }) {
+/** Stages that can buy a model response. Archive (acquire) and publication never call a model and never wait. */
+export const POLICY_MODEL_STAGES: readonly PolicyStage[] = ["fulltext", "vision", "interpret"];
+export type PolicyQueueOptions = { now?: () => Date };
+export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPolicyPublication }, options: PolicyQueueOptions = {}) {
+  const now = options.now ?? (() => new Date());
   return POLICY_STAGES.map((stage) => {
     const queue: ModuleQueue<PolicyJob> = defineQueue<PolicyJob>({
       name: `policy.${stage}`,
@@ -69,6 +81,25 @@ export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPo
         if (!job) return;
         const data = Job.parse(job);
         return recordRun(`policy.pipeline.${stage}`, async () => {
+          // Off-peak only (法规线成本设计): a model stage picked up in the provider's peak window buys nothing now and is
+          // re-queued for the next off-peak start, when the same request is billed at half price.
+          const at = now();
+          if (
+            POLICY_MODEL_STAGES.includes(stage) &&
+            policyModelStagesEnabled() &&
+            config.modelCallsEnabled &&
+            isProviderPeak(at) &&
+            (await readPolicyWorkflow(data.sourceId, data.materialId))?.stage === stage
+          ) {
+            const retryAt = nextOffPeakStart(at);
+            await deferPolicyWorkflow(data, retryAt);
+            await enqueueOn(
+              queue,
+              { ...data, directoryHash: undefined },
+              { startAfter: retryAt, singletonKey: `${data.sourceId}:${data.materialId}:off-peak:${retryAt.toISOString()}` },
+            );
+            return { status: "deferred", retryAt: retryAt.toISOString(), reason: "provider_peak" };
+          }
           try {
             return await advancePolicyMaterial(data, stage, ports, { root: shutdownSignal.signal, collectionEnabled: policyArchiveEnabled() });
           } catch (error) {
@@ -93,6 +124,6 @@ export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPo
   });
 }
 /** Compatibility for callers supplying isolated automation ports. */
-export function registerPolicyJobs(boss: PgBoss, ports?: PolicyAutomationPorts) {
-  return workQueues(boss, policyQueues(ports));
+export function registerPolicyJobs(boss: PgBoss, ports?: PolicyAutomationPorts, options?: PolicyQueueOptions) {
+  return workQueues(boss, policyQueues(ports, options));
 }
