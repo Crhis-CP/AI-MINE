@@ -15,6 +15,8 @@ import { runPolicyVision } from "./vision-runtime.ts";
 import { policyRelationshipCandidates } from "../relations.ts";
 import { runPolicyInterpretation } from "./interpretation-runtime.ts";
 import type { ExtractionProfile } from "./extraction.ts";
+import { structurePolicyRevision } from "./provision-store.ts";
+import { policyModelStagesEnabled } from "../pilot.ts";
 
 export const POLICY_STAGES = ["acquire", "fulltext", "vision", "interpret", "publish"] as const;
 export type PolicyStage = (typeof POLICY_STAGES)[number];
@@ -28,6 +30,7 @@ export interface PolicyAutomationPorts {
   fulltext?: typeof runPolicyFulltext;
   interpret?: typeof runPolicyInterpretation;
   vision?: (expressionId: string, profile: ExtractionProfile, options: { root: AbortSignal; maxRequests: number }) => Promise<{ status: string }>;
+  structure?: (expressionId: string, profile: ExtractionProfile) => Promise<unknown>;
 }
 type Workflow = {
   source_id: string;
@@ -102,6 +105,11 @@ export async function advancePolicyMaterial(
     row.processing_recipe_hash = processingRecipe;
     const changed = previousRevision !== capture.revisionId || previousProfile !== profileHash || recipeChanged;
     if (changed) row.fulltext_run_id = null;
+    // Structure (no model): provisions of the archived original, stored before publication projects them.
+    if (capture.fulltextAllowed)
+      await (ports.structure ?? structurePolicyRevision)(capture.expressionId, profile.extraction).catch(() => {
+        // A changed head or an unreadable original leaves the revision unstructured; the next recheck retries.
+      });
     const basic = await ports.publish({ expressionId: capture.expressionId });
     if (basic.status === "pending" && basic.reason === "paused" && !capture.fulltextAllowed) return save(row, "publish", "pending", "公开已暂停", 1);
     if (basic.status === "pending" && basic.reason === "withdrawn") return save(row, "acquire", basic.reason, null, interval);
@@ -113,10 +121,12 @@ export async function advancePolicyMaterial(
     }
     const control = await processingControl(capture.expressionId);
     if (control.paused) return save(row, "acquire", "paused", null, interval);
+    // Until the interpretation budget is decided the pilot stops after archive and structure; rechecks keep archiving.
+    if (!policyModelStagesEnabled()) return save(row, "acquire", "structured", "模型阶段未启用；仅存档与结构化", interval);
     if (
       !changed &&
       !runnable.has(previousStatus) &&
-      !["collection_paused", "paused", "needs_configuration", "unavailable", "not_current"].includes(previousStatus)
+      !["collection_paused", "paused", "needs_configuration", "unavailable", "not_current", "structured"].includes(previousStatus)
     )
       return save(row, "acquire", previousStatus, row.reason, interval);
     return save(row, "fulltext", "pending", null, 0);
@@ -124,6 +134,8 @@ export async function advancePolicyMaterial(
   if (!row.expression_id) return save(row, "acquire", "pending", null, 0);
   if ((await processingControl(row.expression_id)).paused) return save(row, "acquire", "paused", null, interval);
   if (["fulltext", "vision", "interpret"].includes(stage) && !config.modelCallsEnabled) return save(row, stage, "pending", "模型调用已暂停", 1);
+  // Already queued model work observes the policy model switch at execution and waits without buying anything.
+  if (["fulltext", "vision", "interpret"].includes(stage) && !policyModelStagesEnabled()) return save(row, stage, "pending", "模型阶段未启用", interval);
   const stop = async (nextStage: PolicyStage, status: string, reason: string) => {
     const result = await save(row, nextStage, status, reason, interval);
     await ports.publish({ expressionId: row.expression_id! });

@@ -1,7 +1,8 @@
 /**
  * The policy reading page in parts (UI update, Owner 2026-11-05: "法规解读的代码也要好好做"). The route keeps
  * loading and version checks; these parts only render the parsed Policy. Order on the page: tools, facts card,
- * at-a-glance card (what it changes, for whom, by when), the analysis, legal status, full text and evidence.
+ * at-a-glance card (what it changes, for whom, by when), the analysis, legal status, the clause-by-clause comparison
+ * (PolicyCompare.tsx, when two versions can be compared), full text and evidence.
  */
 import { useTr } from "@amp/web/i18n";
 import { useState } from "react";
@@ -55,11 +56,12 @@ export function PolicyToolbar({ policy, history }: { policy: Policy; history: bo
 }
 
 /** The sections this document actually has, for both the desktop contents and the phone jump bar. */
-export function policySections(policy: Policy, tr: ReturnType<typeof useTr>) {
+export function policySections(policy: Policy, tr: ReturnType<typeof useTr>, options: { compare?: boolean } = {}) {
   return [
     ["facts", tr("基础事实")],
     ...(policy.interpretation_state === "complete" ? [["analysis", tr("重点解读")]] : []),
     ["legal", tr("法律状态与适用时间")],
+    ...(options.compare ? [["compare", tr("逐条对照")]] : []),
     ["reading", tr("完整正文")],
     ["evidence", tr("原文证据")],
   ] as [string, string][];

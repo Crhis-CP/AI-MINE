@@ -153,7 +153,9 @@ export default function PoliciesPage() {
         <PolicySearch q={filters.q} keep={{ jurisdiction, theme: level === 3 ? (filters.theme ?? (allThemes ? ALL_THEMES : undefined)) : undefined }} />
       </header>
       <p className="mt-4 rounded-control border border-line bg-bg-sunk px-4 py-3 text-[13px] leading-relaxed text-ink-2">
-        {tr("法规政策动态暂时停止更新。已发布内容仍可查阅，恢复时间另行公告。")}{" "}
+        {scope?.updates === "pilot"
+          ? tr("法规政策动态试点范围更新中：新文书先提供原文存档与逐条对照，AI 解读暂不更新。已发布内容仍可查阅。")
+          : tr("法规政策动态暂时停止更新。已发布内容仍可查阅，恢复时间另行公告。")}{" "}
         <Link to="/changelog" className="text-accent underline underline-offset-2">
           {tr("查看公告")}
         </Link>

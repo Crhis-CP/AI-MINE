@@ -15,6 +15,8 @@ import {
   demoPolicies,
   demoPolicy,
   demoPolicyReading,
+  demoPolicyHistory,
+  demoPolicyComparison,
   demoPolicyScope,
   demoInformation,
   demoJurisdictions,
@@ -111,10 +113,17 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     const page = demoTopic(topic[1] ?? "");
     return page ? send(res, 200, page) : send(res, 404, { code: "not_found" });
   }
-  const policy = url.pathname.match(/^\/api\/site\/policies\/([\w-]+)(\/reading)?$/);
+  const policy = url.pathname.match(/^\/api\/site\/policies\/([\w-]+)(?:\/(reading|history|compare))?$/);
   if (policy) {
-    const [, id = "", reading] = policy;
-    const body = reading ? demoPolicyReading(id, q.get("expression_id"), q.get("document_revision_id")) : demoPolicy(id, q.get("expression_id"));
+    const [, id = "", part] = policy;
+    const body =
+      part === "reading"
+        ? demoPolicyReading(id, q.get("expression_id"), q.get("document_revision_id"))
+        : part === "history"
+          ? demoPolicyHistory(id)
+          : part === "compare"
+            ? demoPolicyComparison(id, q.get("from"), q.get("to"))
+            : demoPolicy(id, q.get("expression_id"));
     return body ? send(res, 200, body) : send(res, 404, { code: "not_in_demo" });
   }
   const story = url.pathname.startsWith("/api/site/stories/") ? demoStory(decodeURIComponent(url.pathname.slice("/api/site/stories/".length))) : null;

@@ -8,6 +8,8 @@ import {
   Policy,
   PolicyCard,
   PolicyListResponse,
+  PolicyComparison,
+  PolicyHistoryPage,
   PolicyReadingPage,
   PolicyScopeList,
   PoolResponse,
@@ -30,6 +32,7 @@ import type {
   StoryReportView,
 } from "@amp/contracts/site";
 import { FIXED_TIME } from "./time.ts";
+import { compareProvisions, splitProvisions } from "../modules/policy/backend/domain/provisions.ts";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 
 const at = (minutesAgo: number) => new Date(Date.parse(FIXED_TIME) - minutesAgo * 60_000).toISOString();
@@ -1244,6 +1247,102 @@ export function demoPolicyReading(id: string, expressionId: string | null, revis
     total_blocks: blocks.length,
     blocks,
     next_cursor: null,
+  });
+}
+
+/**
+ * 逐条对照 demo: the royalty regulation's current Spanish original against an earlier consultation draft (演示数据).
+ * The comparison runs through the same deterministic splitter and diff the API uses.
+ */
+const DEMO_DRAFT = {
+  version: "演示征求意见稿",
+  published: "2026-08-18",
+  firstPublic: "2026-08-20T02:00:00Z",
+  text: [
+    "Capítulo I. Disposiciones generales (ejemplo)",
+    "Artículo 1. (Ejemplo) Este reglamento establece los tramos de regalías, el régimen transitorio y los documentos de renovación.",
+    "Capítulo II. Tramos (ejemplo)",
+    "Artículo 3. (Ejemplo) La regalía se cobra con una tasa única sobre el valor de las ventas del trimestre.",
+    "Artículo 4. (Ejemplo) Los pequeños productores quedan exentos de la declaración trimestral.",
+    "Capítulo III. Régimen transitorio (ejemplo)",
+    "Artículo 7. (Ejemplo) Los proyectos con permiso de producción previo mantienen la tasa anterior durante un año.",
+  ],
+};
+function demoPolicyVersions(id: string) {
+  const policy = demoPolicy(id, null);
+  const seed = POLICY_SEEDS.find((s) => s.id === id);
+  if (!policy || !seed?.interpretation) return null;
+  const version = policy.versions[0]!;
+  const entry = (expression: Policy["expressions"][number]) => ({
+    policy_version_id: version.id,
+    expression_id: expression.id,
+    document_revision_id: expression.document_revision_id,
+    language: expression.language,
+    instrument_number: policy.instrument_number,
+    kind: expression.kind,
+    current: true,
+    first_public_at: policy.first_public_at,
+    published_time: policy.published_time,
+    original_version: version.version_label,
+    checked_at: expression.checked_at,
+  });
+  const current = policy.expressions.map(entry);
+  const draft =
+    id === "demo-policy-royalty"
+      ? {
+          ...current.find((e) => e.kind === "original")!,
+          policy_version_id: `${id}-v0`,
+          expression_id: `${id}-v0-original`,
+          document_revision_id: `${id}-v0-original-r1`,
+          current: false,
+          first_public_at: instantAt("site_public", DEMO_DRAFT.firstPublic),
+          published_time: day("published", DEMO_DRAFT.published),
+          original_version: DEMO_DRAFT.version,
+          checked_at: instantAt("checked", DEMO_DRAFT.firstPublic),
+        }
+      : null;
+  return { seed, current, draft };
+}
+export function demoPolicyHistory(id: string) {
+  const versions = demoPolicyVersions(id);
+  if (!versions) return null;
+  return PolicyHistoryPage.parse({
+    content_version: "demo-1",
+    generated_at: FIXED_TIME,
+    policy_id: id,
+    items: [...versions.current, ...(versions.draft ? [versions.draft] : [])],
+    next_cursor: null,
+  });
+}
+export function demoPolicyComparison(id: string, from: string | null, to: string | null) {
+  const versions = demoPolicyVersions(id);
+  if (!versions?.draft) return null;
+  const original = versions.current.find((e) => e.kind === "original")!;
+  const candidates = [original, versions.draft];
+  const pick = (revision: string | null, fallback: (typeof candidates)[number]) =>
+    revision ? candidates.find((c) => c.document_revision_id === revision) : fallback;
+  const toEntry = pick(to, original),
+    fromEntry = pick(from, versions.draft);
+  if (!toEntry || !fromEntry || toEntry === fromEntry) return null;
+  const textOf = (entry: (typeof candidates)[number]) => (entry === original ? versions.seed.interpretation!.blocks.map((b) => b.original) : DEMO_DRAFT.text);
+  const result = compareProvisions(
+    splitProvisions(textOf(fromEntry), { language: "es" }).provisions,
+    splitProvisions(textOf(toEntry), { language: "es" }).provisions,
+  );
+  const side = (p: (typeof result.entries)[number]["from"]) =>
+    p ? { number_key: p.key, label: p.label, path: p.path, heading: p.heading, text: p.text } : null;
+  return PolicyComparison.parse({
+    content_version: `demo-compare-${fromEntry.document_revision_id}-${toEntry.document_revision_id}`,
+    generated_at: FIXED_TIME,
+    policy_id: id,
+    language: "es",
+    method: "deterministic",
+    from: fromEntry,
+    to: toEntry,
+    candidates,
+    counts: result.counts,
+    provisions: result.entries.map((e) => ({ change: e.change, renumbered: e.renumbered, from: side(e.from), to: side(e.to), diff: e.diff })),
+    limitation: "逐条对照由程序按条款编号和文字比对生成，未调用模型，也不是法律意见；条款切分可能有误，以官方原文为准。",
   });
 }
 
