@@ -18,7 +18,6 @@ export function MobileTabBar() {
         {TABBAR.map((tab) => {
           const active = tabIsActive(tab, pathname);
           const Icon = tab.icon;
-          if (/^\/(?:items|story)\/|^\/(?:daily|weekly|monthly)\/(?!archive(?:\/|$))[^/]+$|^\/policies\/(?!reports(?:\?|$))/.test(pathname)) return null;
           return (
             <Link
               key={tab.to}

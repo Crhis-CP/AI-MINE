@@ -3,7 +3,7 @@
 // archive time), sized by its count; a rise over the window before it is marked. A circle filters the list
 // below to that country in place (the page keeps its scroll position); the selected country carries a ring.
 // The dot layer is the cached file from scripts/world-dots.ts (Natural Earth 1:10m land, small islands kept).
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { type NewsMapWindow, SiteNewsMap } from "@amp/contracts/http/public";
 import dotsUrl from "@amp/industry/brand/world-dots.svg?url&no-inline";
@@ -85,7 +85,10 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
   const t = useT().map;
   const locale = useLocale();
   // The English interface names countries itself (the API's labels are Chinese).
-  const regionNames = locale === "en" && typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames(["en"], { type: "region" }) : null;
+  const regionNames = useMemo(
+    () => (locale === "en" && typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames(["en"], { type: "region" }) : null),
+    [locale],
+  );
   const nameOf = (c: { code: string; label: string }) => regionNames?.of(c.code) ?? c.label;
   const [period, setPeriod] = useState<NewsMapWindow>("7d");
   const [map, setMap] = useState<SiteNewsMap | null>(null),

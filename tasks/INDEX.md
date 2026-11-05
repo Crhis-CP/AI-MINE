@@ -395,7 +395,7 @@
 | [TASK-0523](TASK-0523.md) | T-0101 | M3 | architect | specified | 英文界面：其余页面迁入词典（Claude 下一轮继续） | TASK-0522 |
 | [TASK-0524](TASK-0524.md) | T-0101 | M3 | architect | locally_verified | 四语 README：英文源文，中文、西班牙文、法文译本，术语表与一致性检查 | — |
 | [TASK-0525](TASK-0525.md) | T-0101 | M3 | architect | locally_verified | 法规线重启设计稿；评分规则文档随 DEC-78 评分修订更新 | — |
-| [TASK-0526](TASK-0526.md) | T-0101 | M3 | ops | specified | 按清单删除无用代码（架构精简第一批） | — |
+| [TASK-0526](TASK-0526.md) | T-0101 | M3 | architect | locally_verified | 按清单删除无用代码（架构精简第一批） | — |
 | [TASK-0527](TASK-0527.md) | T-0101 | M3 | ops | specified | 部署脚本中的安装路径和域名改为可配置，删掉代码注释里的个人名 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
