@@ -1,5 +1,5 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
-import { setFontPreference, useFontPreference } from "../lib/local-state";
+import { setFontPreference, setReadingFace, useFontPreference, useReadingFace } from "../lib/local-state";
 import { UnreadMark } from "../features/changelog/UnreadMark";
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
@@ -80,6 +80,7 @@ export default function MorePage() {
   const location = useLocation();
   const filings = useSiteFilings();
   const font = useFontPreference();
+  const face = useReadingFace();
   const [fontSaved, setFontSaved] = useState(true);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
@@ -138,6 +139,23 @@ export default function MorePage() {
                       浏览器未能保存，当前页面仍可使用。
                     </p>
                   )}
+                </li>
+                <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
+                  <span className="w-[18px] text-center text-ink-3" style={{ fontFamily: '"Songti SC","STSong","Noto Serif SC",serif' }} aria-hidden="true">
+                    文
+                  </span>
+                  <label htmlFor="reader-face" className="flex-1 font-medium">
+                    正文
+                  </label>
+                  <select
+                    id="reader-face"
+                    value={face ?? "sans"}
+                    onChange={(event) => setReadingFace(event.target.value === "serif" ? "serif" : null)}
+                    className="h-10 max-w-[190px] rounded-control border border-line bg-surface px-2 text-[16px]"
+                  >
+                    <option value="sans">黑体</option>
+                    <option value="serif">宋体</option>
+                  </select>
                 </li>
               </>
             )}
