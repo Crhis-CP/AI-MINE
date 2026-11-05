@@ -66,7 +66,7 @@ const vb = `0 ${top.toFixed(1)} ${width} ${MARK}`;
 /** The mark's inner markup from its master, placed at the left, centred on the name. */
 function markMarkup(file: string) {
   const svg = readFileSync(path.join(BRAND, "source", file), "utf8");
-  const inner = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+  const inner = svg.replace(/^<svg[^>]*>(<title>[^<]*<\/title>)?/, "").replace(/<\/svg>\s*$/, "");
   return `<g transform="translate(0 ${top.toFixed(1)}) scale(${(MARK / 48).toFixed(4)})">${inner}</g>`;
 }
 
@@ -79,7 +79,7 @@ function lockup(markFile: string, stops: string[]) {
   const grad = `<linearGradient id="fw" gradientUnits="userSpaceOnUse" x1="0" y1="${-H}" x2="0" y2="0">${stops
     .map((c, i) => `<stop offset="${i / (stops.length - 1)}" stop-color="${c}"/>`)
     .join("")}</linearGradient>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}"><defs>${grad}</defs>${markMarkup(markFile)}<path fill="url(#fw)" d="${parts.join("")}"/></svg>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}"><title>${SITE.name}</title><defs>${grad}</defs>${markMarkup(markFile)}<path fill="url(#fw)" d="${parts.join("")}"/></svg>\n`;
 }
 
 writeFileSync(path.join(BRAND, "lockup.svg"), lockup("mark.svg", TEXT.light));
