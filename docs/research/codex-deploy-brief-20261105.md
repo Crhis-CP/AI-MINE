@@ -17,7 +17,7 @@
 
 ## 0. 一句话
 
-把分支 `claude/nice-newton-mew572`（TASK-0508～0555，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号和新评分版本；发布后跑第 6 节的服务器测试，再做历史分类重分（S12）和法规线试点（S13），24 小时后跑评分审计，按第 8 节写审计报告。
+把分支 `claude/nice-newton-mew572`（TASK-0508～0556，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号和新评分版本；发布后跑第 6 节的服务器测试，再做历史分类重分（S12）和法规线试点（S13），24 小时后跑评分审计，按第 8 节写审计报告。
 
 ## 1. 范围
 
@@ -85,7 +85,7 @@
   | `SITE_ICP_FILING` | 原 ICP 备案号全文（取法见 S6） |
   | `SITE_PUBLIC_SECURITY_FILING` | 原公安联网备案号全文，例如“皖公网安备……号”（取法见 S6） |
   | `SITE_REQUIRE_FILINGS` | `true` |
-  | `SELECTION_CONFIRMED_VERSION` | `selection-score-shared@60823a02ee+weights@20542a669a` |
+  | `SELECTION_CONFIRMED_VERSION` | `selection-score-shared@a195d5bf17+weights@20542a669a` |
   | `POLICY_PILOT_ENABLED` | `true`，**在 S13 才写入**（恢复法规线的存档和结构化） |
   | `POLICY_MODEL_STAGES_ENABLED` | `true`，**在 S13 才写入**（法规模型步骤，只在非高峰时段调用） |
 
@@ -115,7 +115,8 @@
   - 生产目前用单一 `DATABASE_URL`；如果以后改成按角色登录，迁移后要运行 `scripts/db-roles.ts --apply`，否则 /metals 读不到新表。
   - 上线后某个品种跳变时，运行记录会出现 `pending`，/metals 显示“待下期确认”，下一期记 `released` 或 `discarded`。这是预期行为，不是故障。
 - **分类重切是不兼容的接口变更。**公开 OpenAPI 升到 0.3.0，v3 文档升到 3.1.0；旧分类键在网址、接口和 RSS 里继续可用，返回值只用新键（ADR-0031）。外部用户看到新分类名是预期现象。
-- **评分版本又变了，而且有两种排法。**分类重切改了评分的类型和权重，之后又加了“正文共享前缀”的新排法（`ANALYSIS_PROMPT_LAYOUT`，默认 `shared`）。默认排法的版本是 `selection-score-shared@60823a02ee+weights@20542a669a`，旧排法（`separate`）是 `selection-score@9881743a29+weights@20542a669a`。两者共用同一组权重，所以 S10 的查询按 `+weights@20542a669a` 匹配，两种排法都能查到。以本文为准。
+- **评分版本又变了，而且有两种排法。**分类重切改了评分的类型和权重，之后又加了“正文共享前缀”的新排法（`ANALYSIS_PROMPT_LAYOUT`，默认 `shared`）。默认排法的版本是 `selection-score-shared@a195d5bf17+weights@20542a669a`，旧排法（`separate`）是 `selection-score@9881743a29+weights@20542a669a`。两者共用同一组权重，所以 S10 的查询按 `+weights@20542a669a` 匹配，两种排法都能查到。以本文为准。
+- **巴西补入法域字典（Owner 2026-11-05）。**资讯线国家由 18 个变为 19 个，国家筛选和后台覆盖表会多出“巴西”；法规线仍是 36 个对象。之前存下的地理判断照常有效，不需要重算。评分版本因此是上表的值。
 - **浏览下限：**“全部动态”和接口、RSS 的“全部”列表不再列出 20 分以下的稿件，总数会比发布前少，这是预期现象。
 - **英文界面 `/en` 带 `noindex, follow`。**这是设计如此，不要去掉。
 - **资讯地图只画陆地点阵，不画国界。**这是 Owner 的决定。
@@ -315,7 +316,7 @@
        SITE_ICP_FILING=<ICP 备案号原文>
        SITE_PUBLIC_SECURITY_FILING=<公安联网备案号全文>
        SITE_REQUIRE_FILINGS=true
-       SELECTION_CONFIRMED_VERSION=selection-score-shared@60823a02ee+weights@20542a669a
+       SELECTION_CONFIRMED_VERSION=selection-score-shared@a195d5bf17+weights@20542a669a
        ```
        另外确认文件里**没有** `POLICY_PILOT_ENABLED` 和 `POLICY_MODEL_STAGES_ENABLED` 这两行（有就删掉；法规线的开关在 S13 才写）。
   4. 核对（输出里不含号码）：
@@ -327,7 +328,7 @@
      ```
 - **通过标准：**
   - 第一条输出 `3`；
-  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score-shared@60823a02ee+weights@20542a669a`；
+  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score-shared@a195d5bf17+weights@20542a669a`；
   - 第三条输出 `0`；
   - 最后一条 api 和 worker 两行都列出这 4 个变量名。
 - **注意：**这一步只改文件，不重启任何服务。新值在 S7 发布、容器重建时生效。
@@ -700,7 +701,7 @@
 
 ### 三、配置变更（不写号码和任何密钥）
 - 备案号三行：已写入 / 未写入
-- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score-shared@60823a02ee+weights@20542a669a
+- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score-shared@a195d5bf17+weights@20542a669a
 - .env 备份文件名：
 
 ### 四、发布

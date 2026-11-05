@@ -1,6 +1,6 @@
 {
- "document_version": "2.1.0 (2026-10-01)",
- "purpose": "法域字典（运行用）：一次建全 36 个对象（33 国 + 欧盟/联合国/OECD）加下级法域（中国 14 个省区）；每个对象带 news_scope / policy_scope 与 tier。不是来源运行配置，也不是接通证明",
+ "document_version": "2.2.0 (2026-11-05)",
+ "purpose": "法域字典（运行用）：一次建全 36 个对象（33 国 + 欧盟/联合国/OECD）加下级法域（中国 14 个省区），另有资讯线补充国家巴西（不计入 36）；每个对象带 news_scope / policy_scope 与 tier。不是来源运行配置，也不是接通证明",
  "status_label": "【Owner 决定】2026-09-26（旧ADR-0037:5,16-19@policy；裁决表 DEC-03）；tier 与 background 层级为【设计】；Q-09 已答复（Owner 2026-10-01：资讯线 18 国起步、按实测逐步扩），五国背景层的验收顺序是随答复沿用的默认做法，Owner 可改",
  "evidence_level": "B",
  "authority": "2026-09-26 Owner 批准的 2026-09-24 V2.0 产品范围与旧ADR-0037；范围底表与旧分支 config/policy/scope.json@6d37df8（36 个对象）逐项一致（已脚本核对）",
@@ -12,25 +12,27 @@
  ],
  "counts": {
   "objects": 36,
-  "countries": 33,
+  "countries": 34,
   "organizations": 3,
   "tier_existing18": 18,
   "tier_country_content": 10,
   "tier_background": 5,
   "tier_organization": 3,
-  "news_scope_true_countries": 18,
-  "subdivisions": 14
+  "news_scope_true_countries": 19,
+  "subdivisions": 14,
+  "tier_news_addition": 1
  },
  "tier_definitions": {
   "existing18": "既有 18 国（旧站资讯线历史子集）：研究、取得、内容、持续运行四项都必达",
   "country_content": "10 国（秘鲁、俄罗斯、莫桑比克、津巴布韦、印度尼西亚、坦桑尼亚、委内瑞拉、厄瓜多尔、新加坡、乌兹别克斯坦）：范围依据有国别内容；四项都必达",
   "background": "5 国（英国、伊朗、瑞士、玻利维亚、马里）：范围依据只是背景提及、保留来源研究记录；留在研究（POL-R01～R07）分母内，首批取得/内容/持续运行验收排在其余 28 国和 3 个组织之后；不给背景提及加“发布法域”或新法标签（DEC-03；随 Q-09 答复沿用的默认做法，Owner 可改）",
   "organization": "欧盟、联合国、OECD：单列，不计入国家数；必达；条约或组织文书不等于成员国国内法",
-  "subdivision": "下级法域（中国 14 个省区）：资讯线按原表 236 个目标接入；法规线的地方/部门来源只按发布职责纳入（BR-POL-25），不按行政区数量验收"
+  "subdivision": "下级法域（中国 14 个省区）：资讯线按原表 236 个目标接入；法规线的地方/部门来源只按发布职责纳入（BR-POL-25），不按行政区数量验收",
+  "news_addition": "资讯线补充国家（巴西，Owner 2026-11-05 补入）：只扩资讯线的地理判断、国家筛选与标签；不进法规线 36 个对象的分母，不做法规来源研究与验收"
  },
  "scope_flags": {
-  "news_scope": "资讯线范围：18 国 + 中国 14 个省区为 true；其余 false。资讯线 18 国起步、按实测逐步扩，不随法规线自动扩到 33 国（Owner 2026-10-01 已定，Q-09 已答复；DEC-03）",
-  "policy_scope": "法规线范围：36 个对象全部为 true（阻断不移出分母）；下级法域为 false，其来源按发布职责纳入",
+  "news_scope": "资讯线范围：18 国 + 巴西（Owner 2026-11-05 补入）+ 中国 14 个省区为 true；其余 false。资讯线 18 国起步、按实测逐步扩，不随法规线自动扩到 33 国（Owner 2026-10-01 已定，Q-09 已答复；DEC-03）",
+  "policy_scope": "法规线范围：36 个对象全部为 true（阻断不移出分母）；下级法域为 false，其来源按发布职责纳入；资讯线补充国家（巴西）为 false",
   "policy_first_batch_required": "首批取得/内容/持续运行验收是否必达；只有 background 层为 false"
  },
  "rules": [
@@ -609,6 +611,22 @@
    "workbook_records": 0,
    "workbook_targets": 0,
    "note": "同上"
+  },
+  {
+   "id": "BR",
+   "kind": "country",
+   "name_zh": "巴西",
+   "name_en": "Brazil",
+   "id_system": "ISO 3166-1 alpha-2",
+   "parent": null,
+   "tier": "news_addition",
+   "news_scope": true,
+   "policy_scope": false,
+   "policy_first_batch_required": false,
+   "scope_basis": "Owner 2026-11-05：资讯线补入（铁矿石第二大产国、淡水河谷所在国），用于地理判断、国家筛选与标签；不进法规线 36 个对象",
+   "news_scope_basis": "owner_additional_approved_country_scope",
+   "workbook_records": 0,
+   "workbook_targets": 0
   },
   {
    "id": "EU",

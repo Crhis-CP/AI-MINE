@@ -14,26 +14,29 @@ import {
   TIER_DEFINITIONS,
 } from "@amp/industry/jurisdictions";
 import { checkIndustryData } from "../scripts/verify/industry-data.ts";
+import { compatibleGeographyRecipes, GEOGRAPHY_DICTIONARY } from "../packages/backend/src/editorial/geography.ts";
 
 const read = (name: string) => readFileSync(new URL(`../${name}`, import.meta.url));
 const dictionary = JSON.parse(read("docs/data/jurisdictions-36.json").toString());
 const scope = JSON.parse(read("docs/data/jurisdiction-scope.json").toString());
 const ids = (rows: readonly { id: string }[]) => rows.map((row) => row.id);
 
-test("36 policy objects, 18 news countries and 14 Chinese subdivisions retain every authoritative field", () => {
-  assert.equal(JURISDICTIONS.length, 50);
-  assert.equal(new Set(ids(JURISDICTIONS)).size, 50);
-  assert.equal(COUNTRIES.length, 33);
+test("36 policy objects, 18 + 1 news countries and 14 Chinese subdivisions retain every authoritative field", () => {
+  assert.equal(JURISDICTIONS.length, 51);
+  assert.equal(new Set(ids(JURISDICTIONS)).size, 51);
+  assert.equal(COUNTRIES.length, 34);
   assert.deepEqual(ids(ORGANIZATIONS), ["EU", "UN", "OECD"]);
   assert.equal(POLICY_JURISDICTIONS.length, 36);
-  assert.equal(NEWS_COUNTRIES.length, 18);
+  assert.equal(NEWS_COUNTRIES.length, 19);
   assert.equal(CHINA_SUBDIVISIONS.length, 14);
   assert.deepEqual(ids(JURISDICTIONS), ids(dictionary.jurisdictions));
-  assert.deepEqual(ids(NEWS_COUNTRIES), scope.news_history_subset18);
-  assert.deepEqual(ids(NEWS_COUNTRIES), ids(COUNTRIES.filter((row) => row.tier === "existing18")));
+  // The historical 18 plus Brazil (Owner 2026-11-05: news line only, outside the 36 policy objects).
+  assert.deepEqual(ids(NEWS_COUNTRIES), [...scope.news_history_subset18, "BR"]);
+  assert.deepEqual(ids(NEWS_COUNTRIES), ids(COUNTRIES.filter((row) => row.tier === "existing18" || row.tier === "news_addition")));
+  assert.ok(!POLICY_JURISDICTIONS.some((row) => row.id === "BR"));
   const tierCounts: Record<string, number> = {};
   for (const row of COUNTRIES) tierCounts[row.tier] = (tierCounts[row.tier] ?? 0) + 1;
-  assert.deepEqual(tierCounts, { existing18: 18, country_content: 10, background: 5 });
+  assert.deepEqual(tierCounts, { existing18: 18, country_content: 10, background: 5, news_addition: 1 });
   for (const row of JURISDICTIONS) {
     const original = dictionary.jurisdictions.find((item: { id: string }) => item.id === row.id);
     for (const key of ["id", "kind", "name_zh", "name_en", "id_system", "parent", "tier", "news_scope", "policy_scope", "scope_basis"])
@@ -75,4 +78,11 @@ test("321 records and 320 targets remain byte-identical input mirrors, never ope
   assert.equal(new Set(linked).size, 321);
   assert.deepEqual([...linked].sort(), authority.records.map((row: { record_id: string }) => row.record_id).sort());
   assert.equal(new Set(authority.targets.map((row: { target_id: string }) => row.target_id)).size, 320);
+});
+
+test("adding Brazil keeps geography stored before it compatible (additive dictionary change)", () => {
+  assert.ok(GEOGRAPHY_DICTIONARY.includes("BR=巴西/Brazil"));
+  // The recipe stored with the dictionary before Brazil was added (and the one before the province aliases).
+  for (const before of ["a0565f2db4fe0400ea18bd628daa41d5c6c0e7bd6a189db5ea98d4721e2e56b5", "cb96a6a74fd59e7004f1e439ea51327bc39d6c27d3d1d710248f52a79fef71a4"])
+    assert.ok(compatibleGeographyRecipes().includes(before), before);
 });

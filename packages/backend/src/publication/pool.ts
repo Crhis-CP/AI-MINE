@@ -1,4 +1,4 @@
-import { browseFloorCondition, originalPostAdmissionCondition } from "./items.ts";
+import { browseFloorCondition } from "./items.ts";
 import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { sharedSearch } from "../lib/cache.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
