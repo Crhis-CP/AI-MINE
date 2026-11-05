@@ -13,10 +13,22 @@ import {
   SiteInformation,
   SiteMeta,
   SiteStats,
-  TimelineResponse,
+  ReportGroupedTimelineResponse,
+  StoryDigestFields,
+  StoryProgress,
 } from "@amp/contracts/http/public";
-import type { HotEntryView, HotResponse, ReportCitation, ReportDetail, ReportIndexEntry, ReportNavigationEntry } from "@amp/contracts/site";
+import type {
+  HotEntryView,
+  HotResponse,
+  ReportCitation,
+  ReportDetail,
+  ReportIndexEntry,
+  ReportNavigationEntry,
+  StoryDetail,
+  StoryReportView,
+} from "@amp/contracts/site";
 import { FIXED_TIME } from "./time.ts";
+import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 
 const at = (minutesAgo: number) => new Date(Date.parse(FIXED_TIME) - minutesAgo * 60_000).toISOString();
 
@@ -32,6 +44,17 @@ type Seed = {
   ago: number;
 };
 const SEEDS: Seed[] = [
+  {
+    id: "demo-guidance",
+    title: "示例：某大型铜矿下调2027年产量指引，地下矿区复产推迟",
+    summary: "演示数据。公司将2027年铜产量指引由38–42万吨下调至30–35万吨，C1现金成本指引上调至2.50–3.00美元/磅，地下矿区复产时间推迟至2028年3月末。",
+    reason: "同一事件第三次进展：指引与复产时间表同时改变。",
+    source: "演示来源·公司公告",
+    category: "company_project",
+    tags: ["铜"],
+    selected: true,
+    ago: 20,
+  },
   {
     id: "demo-royalty",
     title: "示例：某国修订矿业特许权费规则，铜、锂项目适用新税率",
@@ -121,14 +144,17 @@ export const demoMeta = SiteMeta.parse({ changelogVersion: null, filings: { icp:
 export const demoContentVersion = ContentVersion.parse({ version: "demo-1", withdrawalVersion: "demo-1" });
 
 export function demoTimeline(filters: { channel: string; category: string | null }) {
-  const cards = DEMO_ITEMS.filter((item) => !filters.category || item.category === filters.category).map((item, index) => ({
+  const cards = DEMO_ITEMS.filter((item) => !filters.category || item.category === filters.category).map((item) => ({
     key: item.id,
     anchorAt: item.timelineAt,
     item,
     group:
-      index === 0 ? { factId: "demo-fact-royalty", story: null, additionalSourceCount: 2, reportCount: 3, developmentCount: 1, memberIds: [item.id] } : null,
+      item.id === "demo-royalty"
+        ? { factId: "demo-fact-royalty", story: null, additionalSourceCount: 2, reportCount: 3, developmentCount: 1, memberIds: [item.id] }
+        : null,
+    ...(item.id === GUIDANCE_REPRESENTATIVE ? { storyProgress: demoGuidanceProgress() } : {}),
   }));
-  return TimelineResponse.parse({
+  return ReportGroupedTimelineResponse.parse({
     filters: { channel: filters.channel, category: filters.category, tag: null, topic: null, jurisdiction: null },
     cards,
     nextCursor: null,
@@ -235,7 +261,7 @@ export function demoNewsMap(window: "1d" | "7d" | "30d", now = new Date()) {
 
 /** One demo article page per demo card: synthetic body, outline and source link, so the reading page can be reviewed. */
 export function demoItemDetail(id: string) {
-  const item = DEMO_ITEMS.find((i) => i.id === id);
+  const item = DEMO_ITEMS.find((i) => i.id === id) ?? guidanceReportItem(id);
   if (!item) return null;
   return {
     ...item,
@@ -294,6 +320,23 @@ type HotSeed = {
   itemId?: string;
 };
 const HOT_SEEDS: HotSeed[] = [
+  {
+    id: "demo-story-guidance",
+    title: "示例：大型铜矿涌水停产后两度调整计划，2027年产量指引下调",
+    summary: "演示数据。地下矿区涌水后部分停产，公司先公布排水进展，再下调2027年产量指引并推迟复产。",
+    latest: "演示数据。2027年产量指引下调至30–35万吨，复产推迟至2028年3月末。",
+    heat: 96.2,
+    trend: "up",
+    trendPct: 44,
+    badges: ["surge", "rising"],
+    sources: ["演示来源·公司公告", "演示来源·财经通讯社"],
+    sourceCount: 8,
+    participants: 26,
+    from: 20,
+    firstAgo: 47 * 60,
+    latestAgo: 20,
+    itemId: "demo-guidance",
+  },
   {
     id: "demo-story-royalty",
     title: "示例：特许权费新规引发多家矿企重估在产项目",
@@ -1189,4 +1232,264 @@ export function demoPolicyReading(id: string, expressionId: string | null, revis
     blocks,
     next_cursor: null,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Story page (演示数据): one event told as three developments, with earlier background, the figures the
+// reports give before and after, and the dated milestones ahead. Served at /api/site/stories/demo-story-guidance.
+// ---------------------------------------------------------------------------
+
+/** A background report whose source gave only its publication date. */
+const datedOnly = (date: string) =>
+  normalizeSourceTime(
+    {
+      meaning: "published",
+      raw: date,
+      local_date: date,
+      local_time: null,
+      timezone: null,
+      utc: null,
+      precision: "date",
+      basis: "原文日期",
+      condition_text: null,
+    },
+    { instantBasis: null, timezoneEvidence: null },
+  );
+const GUIDANCE_STORY = "demo-story-guidance",
+  GUIDANCE_TITLE = "示例：大型铜矿涌水停产后两度调整计划，2027年产量指引下调",
+  GUIDANCE_REPRESENTATIVE = "demo-guidance";
+type DemoReport = { id: string; title: string; summary: string; source: string; official?: boolean; selected?: boolean; ago: number };
+const GUIDANCE_LINE: Array<{ factId: string; title: string; reports: DemoReport[] }> = [
+  {
+    factId: "demo-fact-guidance-1",
+    title: "示例：地下矿区发生涌水，公司暂停部分采矿作业",
+    reports: [
+      {
+        id: "demo-guidance-1a",
+        title: "示例：铜矿东区地下巷道涌水，部分采场暂停作业",
+        summary: "演示数据。公司称涌水发生在东区深部巷道，人员已全部撤离，露天和选厂维持运行，2027年底前恢复地下作业的计划正在评估。",
+        source: "演示来源·公司公告",
+        official: true,
+        ago: 5 * 24 * 60 + 120,
+      },
+      {
+        id: "demo-guidance-1b",
+        title: "示例：涌水事故后，市场关注铜矿今年产量",
+        summary: "演示数据。分析人士称事故影响东区约三成产能，具体损失待公司评估。",
+        source: "演示来源·财经通讯社",
+        ago: 5 * 24 * 60 + 60,
+      },
+    ],
+  },
+  {
+    factId: "demo-fact-guidance-2",
+    title: "示例：公司公布排水进展，维持2027年产量指引",
+    reports: [
+      {
+        id: "demo-guidance-2a",
+        title: "示例：排水完成四成，公司维持2027年铜产量38–42万吨指引",
+        summary: "演示数据。公司表示排水已完成约四成，维持2027年铜产量38–42万吨、C1现金成本2.10–2.50美元/磅的指引，目标2027年底恢复地下作业。",
+        source: "演示来源·公司公告",
+        official: true,
+        selected: true,
+        ago: 3 * 24 * 60 + 90,
+      },
+      {
+        id: "demo-guidance-2b",
+        title: "示例：铜矿排水进度好于预期",
+        summary: "演示数据。报道称新增排水泵已投入使用，日排水能力提高一倍。",
+        source: "演示来源·行业周刊",
+        ago: 3 * 24 * 60 + 30,
+      },
+      {
+        id: "demo-guidance-2c",
+        title: "示例：铜矿维持年度指引，复产目标不变",
+        summary: "演示数据。公司重申2027年底恢复地下作业的目标。",
+        source: "演示来源·地方媒体",
+        ago: 3 * 24 * 60,
+      },
+    ],
+  },
+  {
+    factId: "demo-fact-guidance-3",
+    title: "示例：2027年产量指引下调至30–35万吨，地下复产推迟至2028年3月末",
+    reports: [
+      {
+        id: GUIDANCE_REPRESENTATIVE,
+        title: "示例：某大型铜矿下调2027年产量指引，地下矿区复产推迟",
+        summary:
+          "演示数据。公司将2027年铜产量指引由38–42万吨下调至30–35万吨，C1现金成本指引由2.10–2.50美元/磅上调至2.50–3.00美元/磅，地下矿区复产由2027年底推迟至2028年3月末。",
+        source: "演示来源·公司公告",
+        official: true,
+        selected: true,
+        ago: 20,
+      },
+      {
+        id: "demo-guidance-3b",
+        title: "示例：铜矿下调指引，股价盘中下跌",
+        summary: "演示数据。指引下调后公司股价盘中一度下跌。",
+        source: "演示来源·财经通讯社",
+        ago: 18,
+      },
+      {
+        id: "demo-guidance-3c",
+        title: "示例：复产推迟，分析师下调明年铜供应预测",
+        summary: "演示数据。多家机构下调明年全球铜矿供应增量预测。",
+        source: "演示来源·市场周报",
+        ago: 15,
+      },
+      {
+        id: "demo-guidance-3d",
+        title: "示例：铜矿新指引低于市场预期",
+        summary: "演示数据。新指引区间下沿低于此前市场预期。",
+        source: "演示来源·行业周刊",
+        ago: 12,
+      },
+      {
+        id: "demo-guidance-3e",
+        title: "示例：铜矿所在地政府称将协助排水",
+        summary: "演示数据。地方政府表示将协调电力供应支持排水。",
+        source: "演示来源·地方媒体",
+        ago: 10,
+      },
+      {
+        id: "demo-guidance-3f",
+        title: "示例：冶炼厂关注铜精矿供应缺口",
+        summary: "演示数据。下游冶炼厂开始评估明年原料采购安排。",
+        source: "演示来源·贸易周刊",
+        ago: 8,
+      },
+    ],
+  },
+];
+
+const guidanceReports = (): StoryReportView[] =>
+  GUIDANCE_LINE.flatMap(({ factId, reports }) =>
+    reports.map((r) => ({
+      id: r.id,
+      title: r.title,
+      summary: r.summary,
+      source: { id: `demo-source-${r.source}`, name: r.source, kind: "web_list" as const, firstParty: !!r.official },
+      publishedAt: at(r.ago),
+      originalUrl: `https://example.invalid/${r.id}`,
+      selected: !!r.selected,
+      factId,
+    })),
+  );
+
+/** The story reports open as demo article pages too. */
+function guidanceReportItem(id: string) {
+  const r = guidanceReports().find((report) => report.id === id);
+  if (!r) return undefined;
+  return {
+    id: r.id,
+    title: r.title,
+    summary: r.summary,
+    reason: null,
+    publishedAt: r.publishedAt,
+    timelineAt: r.publishedAt,
+    category: "company_project",
+    tags: ["铜"],
+    score: null,
+    selected: r.selected,
+    channel: "news" as const,
+    source: { name: r.source.name },
+  };
+}
+
+const guidanceDevelopments = () => {
+  const reports = guidanceReports();
+  return GUIDANCE_LINE.map(({ factId, title }) => {
+    const members = reports.filter((r) => r.factId === factId);
+    const first = members.reduce((a, b) => (Date.parse(b.publishedAt) < Date.parse(a.publishedAt) ? b : a));
+    return {
+      factId,
+      title,
+      occurredAt: null,
+      firstReportAt: first.publishedAt,
+      reportCount: members.length,
+      representative: members.find((r) => r.source.firstParty) ?? first,
+    };
+  });
+};
+
+export function demoGuidanceProgress() {
+  const line = guidanceDevelopments();
+  return StoryProgress.parse({
+    story: { publicId: GUIDANCE_STORY, title: GUIDANCE_TITLE },
+    developmentCount: line.length,
+    position: line.length,
+    previous: { title: line.at(-2)!.title, at: line.at(-2)!.firstReportAt },
+    latest: null,
+    backgroundCount: 2,
+  });
+}
+
+export function demoStory(id: string): StoryDetail | null {
+  if (id !== GUIDANCE_STORY) return null;
+  const reports = guidanceReports().sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+  const seed = HOT_SEEDS.find((h) => h.id === GUIDANCE_STORY)!;
+  const detail = StoryDigestFields.parse({
+    keyChanges: [
+      { item: "2027年铜产量指引", before: "38–42万吨", after: "30–35万吨" },
+      { item: "C1现金成本指引", before: "2.10–2.50美元/磅", after: "2.50–3.00美元/磅" },
+      { item: "地下矿区复产", before: "2027年底", after: "2028年3月末" },
+    ],
+    next: [
+      { when: "2026年12月", what: "公司发布排水与地下复产的详细方案" },
+      { when: "2027年2月", what: "公布2026年全年业绩，更新成本指引" },
+    ],
+  });
+  return {
+    publicId: GUIDANCE_STORY,
+    title: GUIDANCE_TITLE,
+    status: "active",
+    reportCount: reports.length,
+    sourceCount: new Set(reports.map((r) => r.source.name)).size,
+    firstReportAt: reports.at(-1)!.publishedAt,
+    latestAt: reports[0]!.publishedAt,
+    digest:
+      "演示数据。这座铜矿的地下矿区九月底发生涌水，部分采场停产。公司起初维持年度指引，但排水和修复耗时超出预期，最新公告下调2027年产量指引、上调成本指引，并把地下复产推迟到2028年3月末。",
+    digestUpdatedAt: at(15),
+    ...detail,
+    summary: null,
+    excerpt: null,
+    latest: "演示数据。2027年产量指引下调至30–35万吨，复产推迟至2028年3月末。",
+    whyHot: { participants48h: seed.participants, newParticipants6h: 7, recentReports24h: 6, observationComplete: true, rank: 1, heat: seed.heat },
+    developments: guidanceDevelopments().reverse(),
+    officialReports: reports.filter((r) => r.source.firstParty),
+    timeline: reports,
+    background: [
+      {
+        relation: "SAME_STORY",
+        item: {
+          id: "demo-guidance-bg-2026",
+          title: "示例：铜矿发布2026年生产计划，地下东区扩产",
+          summary: "演示数据。公司年初公布生产计划，东区深部开拓是增产的主要来源。",
+          source: { name: "演示来源·公司公告" },
+          selected: false,
+          publishedAt: null,
+          sourceTime: datedOnly("2026-01-20"),
+          originalUrl: "https://example.invalid/demo-guidance-bg-2026",
+        },
+      },
+      {
+        relation: "SAME_STORY",
+        item: {
+          id: "demo-guidance-bg-2024",
+          title: "示例：铜矿三期选厂投产，设计处理能力提高一半",
+          summary: "演示数据。三期选厂投产后，矿山进入满负荷爬坡阶段。",
+          source: { name: "演示来源·行业周刊" },
+          selected: false,
+          publishedAt: null,
+          sourceTime: datedOnly("2024-08-15"),
+          originalUrl: "https://example.invalid/demo-guidance-bg-2024",
+        },
+      },
+    ],
+    heat: demoHot.entries[0]!.spark.flatMap((value, hour) =>
+      value === null ? [] : [{ hour: new Date(Date.parse(demoHot.computedAt) - (23 - hour) * 3600_000).toISOString(), heat: value, participants: 0 }],
+    ),
+    related: [{ publicId: "demo-story-copper", title: "示例：铜冶炼加工费降至年内低位", relation: "related", latestAt: at(140) }],
+  };
 }

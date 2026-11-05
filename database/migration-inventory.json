@@ -507,6 +507,10 @@
     {
       "name": "events/202610270040_report_group_decisions.sql",
       "dependsOn": ["events/202610230200_story_background.sql"]
+    },
+    {
+      "name": "events/202611050100_story_digest_detail.sql",
+      "dependsOn": ["events/202610270040_report_group_decisions.sql"]
     }
   ]
 }

@@ -25,6 +25,7 @@ import {
   demoSuggestions,
   demoTimeline,
   demoItemDetail,
+  demoStory,
   DEMO_ITEMS,
 } from "./demo-reader.ts";
 import { demoTopic, demoTopics } from "./demo-topics.ts";
@@ -101,6 +102,8 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     const body = reading ? demoPolicyReading(id, q.get("expression_id"), q.get("document_revision_id")) : demoPolicy(id, q.get("expression_id"));
     return body ? send(res, 200, body) : send(res, 404, { code: "not_in_demo" });
   }
+  const story = url.pathname.startsWith("/api/site/stories/") ? demoStory(decodeURIComponent(url.pathname.slice("/api/site/stories/".length))) : null;
+  if (story) return send(res, 200, story);
   const detail = url.pathname.startsWith("/api/site/items/") ? demoItemDetail(decodeURIComponent(url.pathname.slice("/api/site/items/".length))) : null;
   if (detail) return send(res, 200, detail);
   return send(res, 404, { code: "not_in_demo" });
