@@ -76,6 +76,7 @@ test("monthly physical accounting keeps currencies, actual/estimated/unknown amo
   assert.equal(report.totals.provider_cache_miss_tokens, 200);
   assert.equal(report.totals.cache_pair_reported_calls, 1);
   assert.equal(report.totals.cache_hit_rate, 0);
+  assert.equal(report.totals.provider_cache_saving, undefined, "no cache-priced settlement keeps earlier report hashes unchanged");
   assert.equal(report.totals.token_reported_calls, 2);
   assert.equal(report.by_lane.find((g) => g.key === "unknown")!.totals.calls, 3);
   assert.equal(report.local_reuse.recorded_count, null);

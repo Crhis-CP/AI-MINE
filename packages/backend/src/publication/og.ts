@@ -45,7 +45,7 @@ export async function loadItemShare(id: string): Promise<ItemShareMetadata | nul
     category: toPublicApiCategory(row.category),
     publishedAt: time?.publishedAt ?? null,
     sourceTime: time?.sourceTime ?? null,
-    score: row.score === null ? null : Math.round(Number(row.score)),
+    score: row.score === null ? null : Math.round(Number(row.score) * 10) / 10,
     selected: row.selected,
     timelineAt: row.timeline_at.toISOString(),
     source: { name: row.source_name },

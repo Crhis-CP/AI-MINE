@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
 import { ReadingUpgrade } from "./ReadingUpgrade";
@@ -120,11 +121,12 @@ function Sheen({ vertical = false }: { vertical?: boolean }) {
 }
 
 function Chain({ stations, outlets }: { stations: Station[]; outlets: string[] }) {
+  const tr = useTr();
   const last = stations.length - 1;
   return (
     <div className="mt-8">
       <p className="animate-fade-up text-[13px] font-semibold tracking-wide text-ink-3" style={at(1)}>
-        从采集到发布，一层层接上
+        {tr("从采集到发布，一层层接上")}
       </p>
       <div className="relative mt-5 hidden sm:block">
         <Sheen />
@@ -174,7 +176,7 @@ function Chain({ stations, outlets }: { stations: Station[]; outlets: string[] }
       {outlets.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="animate-fade-up text-[12px] font-semibold text-ink-3" style={at(stations.length + 1)}>
-            公开出去
+            {tr("公开出去")}
           </span>
           {outlets.map((label, i) => (
             <span key={label} className="anim-slide-in-x inline-flex" style={at(stations.length + 1 + i)}>
@@ -191,7 +193,8 @@ function Chain({ stations, outlets }: { stations: Station[]; outlets: string[] }
 
 /** Three beats for the test notice, lit in order with the same dots and stroke as the rewrite. */
 function Beats() {
-  const beats = ["测试上线", "试运行", "还在完善"];
+  const tr = useTr();
+  const beats = ["测试上线", tr("试运行"), tr("还在完善")];
   const last = beats.length - 1;
   return (
     <div className="relative mt-6">

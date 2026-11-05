@@ -34,7 +34,11 @@ test("installed reader additions reach their existing page consumers without rep
     return Response.json({ changelogVersion: "fixture-version" });
   });
   const { loader: metaLoader } = await server.ssrLoadModule(file("../app/routes/public-layout.tsx"));
-  assert.deepEqual(await metaLoader({ request: new Request("https://example.invalid/more") }), { changelogVersion: "fixture-version" });
+  // An API answer without run-time filing numbers keeps the update mark and shows no numbers.
+  assert.deepEqual(await metaLoader({ request: new Request("https://example.invalid/more") }), {
+    changelogVersion: "fixture-version",
+    filings: { icp: null, publicSecurity: null, newsLicense: null },
+  });
   assert.deepEqual(seen, ["/more"], "metadata request receives the module's document context");
   const { SIDEBAR, MORE_PATHS } = await server.ssrLoadModule(file("../app/components/shell/nav.ts"));
   assert.ok(SIDEBAR.some((group: { title: string }) => group.title === "合成扩展导航"));

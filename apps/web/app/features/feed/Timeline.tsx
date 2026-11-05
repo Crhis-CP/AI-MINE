@@ -1,4 +1,5 @@
 import { useReadSet } from "../../lib/local-state";
+import { useLocale, useT } from "../../i18n";
 import { apiFetch } from "../../lib/http.ts";
 // The day-grouped feed (精选 home, topics): a time rail with cards on desktop, dated rows under grey
 // day bars on phones. Keeps its place across back navigation and loads further pages.
@@ -43,8 +44,6 @@ function fromResponse(r: TimelineResponse, unreadOnly = false): ListState {
   return { generatedAt: r.generatedAt, cards: r.cards, nextCursor: r.nextCursor, dayCounts: r.dayCounts, collapsed: [], batches: 1, unreadOnly };
 }
 
-const WEEKDAY_SHORT = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-
 /** Sticky day header: a quiet row on desktop, a grey full-width bar on phones. */
 export function DayHeader({
   day,
@@ -61,18 +60,21 @@ export function DayHeader({
   onToggle?: () => void;
   aside?: React.ReactNode;
 }) {
-  const date = monthDay(day, today);
-  const weekday = beijingWeekday(day);
-  const short = WEEKDAY_SHORT[new Date(`${day}T12:00:00+08:00`).getUTCDay()] ?? "";
+  const tl = useT().list;
+  const english = useLocale() === "en";
+  const noon = new Date(`${day}T12:00:00+08:00`);
+  const date = english ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "Asia/Shanghai" }).format(noon) : monthDay(day, today);
+  const weekday = english ? new Intl.DateTimeFormat("en", { weekday: "long", timeZone: "Asia/Shanghai" }).format(noon) : beijingWeekday(day);
+  const short = tl.weekdays.split(",")[new Date(`${day}T12:00:00+08:00`).getUTCDay()] ?? "";
   const phoneRow = (
     <>
-      <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
-      {day === today && <span className="text-[12.5px] text-ink-4">{date}</span>}
-      <span className="text-[12.5px] text-ink-4">{short}</span>
-      <span className="ml-auto flex items-center gap-1 text-[12.5px] text-ink-4">
+      <span className="text-[15px] font-bold text-ink">{day === today ? tl.today : date}</span>
+      {day === today && <span className="text-[13.5px] text-ink-4">{date}</span>}
+      <span className="text-[13.5px] text-ink-4">{short}</span>
+      <span className="ml-auto flex items-center gap-1 text-[13.5px] text-ink-4">
         {count !== null && (
           <span>
-            <span className="num">{count}</span> 条
+            <span className="num">{count}</span> {tl.items}
           </span>
         )}
         {onToggle && <IconChevronDown size={14} className={`transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} />}
@@ -86,7 +88,7 @@ export function DayHeader({
           type="button"
           onClick={onToggle}
           aria-expanded={!collapsed}
-          aria-label={`${collapsed ? "展开" : "收起"}${date}`}
+          aria-label={`${collapsed ? tl.expand : tl.collapse}${date}`}
           className="flex h-11 w-full items-center gap-2 text-left lg:hidden"
         >
           {phoneRow}
@@ -114,18 +116,18 @@ export function DayHeader({
             type="button"
             onClick={onToggle}
             aria-expanded={!collapsed}
-            aria-label={`${collapsed ? "展开" : "收起"}${date}`}
+            aria-label={`${collapsed ? tl.expand : tl.collapse}${date}`}
             className="grid size-6 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink"
           >
             <IconChevronDown size={14} className={`transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} />
           </button>
         )}
-        <span className="text-[13px] text-ink-4">
+        <span className="text-[14px] text-ink-4">
           {weekday}
           {count !== null && (
             <>
               {" "}
-              · <span className="num">{count}</span> 条
+              · <span className="num">{count}</span> {tl.items}
             </>
           )}
         </span>
@@ -154,6 +156,7 @@ export function TimelineSlot({
   delay?: number;
   dataKey?: string;
 }) {
+  const tl = useT().list;
   // The anchor orders the site timeline. An explicit source instant can prove that midnight is a real clock time.
   const dateOnly = isDateOnlyInstant(at) && !(sourceTime?.utc && Date.parse(sourceTime.utc) === Date.parse(at) && sourceTime.precision !== "date");
   return (
@@ -164,8 +167,8 @@ export function TimelineSlot({
     >
       <time
         dateTime={dateOnly ? beijingDate(at) : at}
-        title={dateOnly ? "按日期归档" : "本站时间线"}
-        className="mono hidden text-ink-4 lg:block lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
+        title={dateOnly ? tl.dateArchive : tl.siteTimeline}
+        className="mono hidden text-ink-4 lg:block lg:pt-[17px] lg:text-[13.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
       >
         {dateOnly ? NO_TIME : beijingTime(at)}
       </time>
@@ -179,6 +182,7 @@ export function TimelineSlot({
 }
 
 export function Timeline({ initial, filters }: { initial: TimelineResponse; filters: TimelineFilters }) {
+  const tl = useT().list;
   const allowedIds = useReaderItemScope();
   const readSet = useReadSet();
   const location = useLocation();
@@ -418,10 +422,10 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       type="button"
       aria-pressed={state.unreadOnly}
       onClick={() => setState((s) => ({ ...s, unreadOnly: !s.unreadOnly }))}
-      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-[12.5px] transition-colors ${state.unreadOnly ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-ink-3 hover:text-ink"}`}
+      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-[13.5px] transition-colors ${state.unreadOnly ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-ink-3 hover:text-ink"}`}
     >
       <span aria-hidden="true" className={`size-3.5 rounded-full border ${state.unreadOnly ? "border-accent bg-accent" : "border-line-strong"}`} />
-      只看未读
+      {tl.unreadOnly}
     </button>
   );
   return (
@@ -430,11 +434,9 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       {days.length === 0 && !loadingMore && (
         <div className="lg:card">
           {state.unreadOnly ? (
-            <EmptyState title={state.nextCursor ? "这批精选都读过了" : "没有未读的精选内容"}>
-              {state.nextCursor ? "可以继续查看更早的未读精选。" : "关掉「只看未读」可以看到全部内容。"}
-            </EmptyState>
+            <EmptyState title={state.nextCursor ? tl.allReadMore : tl.noUnread}>{state.nextCursor ? tl.olderUnread : tl.turnOffUnread}</EmptyState>
           ) : (
-            <EmptyState title="这个筛选下还没有精选内容">换个类别看看，或者去全部动态里找找。</EmptyState>
+            <EmptyState title={tl.noPicksHere}>{tl.tryOther}</EmptyState>
           )}
         </div>
       )}
@@ -463,6 +465,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
                         item={c.item}
                         group={c.group}
                         reportGroup={c.reportGroup}
+                        storyProgress={c.storyProgress}
                         filters={groupFilters}
                         at={c.anchorAt}
                         read={state.unreadOnly ? false : undefined}
@@ -489,7 +492,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   );
 }
 
-/** The foot of a paged list: loading, retry, "加载更多" after a few automatic pages, or the end. */
+/** The foot of a paged list: loading, retry, “load more” after a few automatic pages, or the end. */
 export function FeedEnd({
   loading,
   error,
@@ -505,28 +508,29 @@ export function FeedEnd({
   empty: boolean;
   onMore: () => void;
 }) {
+  const tl = useT().list;
   return (
     <div className="flex justify-center py-6">
       {loading ? (
-        <span className="inline-flex items-center gap-2 text-[12.5px] text-ink-4">
-          <LoadingDots className="text-[14px] text-accent" /> 正在加载
+        <span className="inline-flex items-center gap-2 text-[13.5px] text-ink-4">
+          <LoadingDots className="text-[15px] text-accent" /> {tl.loading}
         </span>
       ) : error ? (
-        <button type="button" onClick={onMore} className="h-9 rounded-full border border-hot/30 px-4 text-[13px] text-hot hover:bg-hot-soft">
-          加载失败，点此重试
+        <button type="button" onClick={onMore} className="h-9 rounded-full border border-hot/30 px-4 text-[14px] text-hot hover:bg-hot-soft">
+          {tl.loadFailed}
         </button>
       ) : hasMore ? (
         manual && (
           <button
             type="button"
             onClick={onMore}
-            className="h-9 rounded-full border border-line-strong bg-surface px-5 text-[13px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
+            className="h-9 rounded-full border border-line-strong bg-surface px-5 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
           >
-            加载更多
+            {tl.loadMore}
           </button>
         )
       ) : (
-        !empty && <span className="text-[12px] text-ink-4">已经到底了</span>
+        !empty && <span className="text-[13px] text-ink-4">{tl.end}</span>
       )}
     </div>
   );

@@ -2,6 +2,7 @@
 import { withSubject } from "@amp/industry/site";
 import { WEB_MODULES } from "@amp/site/modules/web";
 import type { ModuleNavigation } from "../../../modules";
+import { basePath } from "../../i18n";
 import { IconUser, IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconHistory, IconList, IconMessage, IconPlug } from "../icons";
 
 export type NavItem = ModuleNavigation;
@@ -74,7 +75,8 @@ export const MORE_PATHS = [
   "/privacy",
 ];
 
-export function tabIsActive(item: NavItem, pathname: string): boolean {
+export function tabIsActive(item: NavItem, path: string): boolean {
+  const pathname = basePath(path);
   if (item.end) return pathname === item.to || (item.to === "/" && pathname === "/all");
   if (item.to === "/more")
     return !TABBAR.some((tab) => tab.to !== "/more" && tabIsActive(tab, pathname)) && MORE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

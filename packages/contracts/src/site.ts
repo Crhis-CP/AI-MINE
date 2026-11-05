@@ -82,6 +82,9 @@ export type TimelineResponse = import("zod").infer<typeof import("./http/public.
 export type PoolResponse = import("zod").infer<typeof import("./http/public.ts").PoolResponse>;
 export type ReportGroupInfo = import("zod").infer<typeof import("./http/public.ts").ReportGroupInfo>;
 export type ReportGroupDetailFields = import("zod").infer<typeof import("./http/public.ts").ReportGroupDetailFields>;
+export type StoryProgress = import("zod").infer<typeof import("./http/public.ts").StoryProgress>;
+export type StoryKeyChange = import("zod").infer<typeof import("./http/public.ts").StoryKeyChange>;
+export type StoryNextMilestone = import("zod").infer<typeof import("./http/public.ts").StoryNextMilestone>;
 export type ReportGroupedTimelineCard = import("zod").infer<typeof import("./http/public.ts").ReportGroupedTimelineCard>;
 export type ReportGroupedTimelineResponse = import("zod").infer<typeof import("./http/public.ts").ReportGroupedTimelineResponse>;
 export type ReportGroupedPoolResponse = import("zod").infer<typeof import("./http/public.ts").ReportGroupedPoolResponse>;
@@ -217,6 +220,10 @@ export interface StoryDetail {
   latestAt: string | null;
   digest: string | null;
   digestUpdatedAt: string | null;
+  /** Values the reports state before and after the change (≤ 4); absent on digests written before it existed. */
+  keyChanges?: import("zod").infer<typeof import("./http/public.ts").StoryKeyChange>[];
+  /** Upcoming milestones with dates stated in the reports (≤ 3); absent on older digests. */
+  next?: import("zod").infer<typeof import("./http/public.ts").StoryNextMilestone>[];
   /** The story's own factual summary, when it has one. */
   summary: string | null;
   /** Without a digest or summary: the summary of the report the story started from. */

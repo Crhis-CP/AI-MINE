@@ -1,4 +1,5 @@
 import { SITE } from "@amp/industry/site";
+import { useTr } from "../i18n";
 import { pageMeta } from "../lib/seo";
 import { prepareCopy } from "../lib/site-copy";
 import copy from "@amp/industry/pages/privacy.md?raw";
@@ -16,6 +17,7 @@ export function meta() {
 }
 
 export default function PrivacyPage() {
+  const tr = useTr();
   return (
     <CopyPage
       doc={PRIVACY.doc}
@@ -24,8 +26,8 @@ export default function PrivacyPage() {
       footer={
         <LegalFooterLinks
           links={[
-            { to: "/terms", label: "使用规则" },
-            { to: "/feedback", label: "反馈页" },
+            { to: "/terms", label: tr("使用规则") },
+            { to: "/feedback", label: tr("反馈页") },
           ]}
           note={`隐私说明 ${PRIVACY.doc.meta["版本"] ?? ""} · ${PRIVACY.doc.meta["修订日期"] ?? ""}`}
         />

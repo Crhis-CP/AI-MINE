@@ -1,6 +1,6 @@
 // Human-readable answers share the public read layer with machine clients.
 import { SITE, EDITION_TIMES } from "@amp/industry/site";
-import type { PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { categoryFilterKeys, type CategoryFilterKey } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
@@ -15,7 +15,7 @@ export type AgentVia = "http" | "mcp";
 export interface LatestQuery {
   window: AgentWindow;
   mode: "selected" | "all";
-  category: PublicApiCategoryKey | null;
+  category: CategoryFilterKey | null;
   limit: number;
 }
 const WINDOW = { "24h": "过去24小时", "7d": "最近7天" };
@@ -66,7 +66,11 @@ const BRIEF_HINTS = [
 ];
 export function latestAnswer(res: V1ItemsResult, q: LatestQuery) {
   const scope = q.mode === "selected" ? "精选" : "全部公开动态";
-  const category = q.category ? CATEGORY_LABELS[q.category] : null;
+  const category = q.category
+    ? categoryFilterKeys(q.category)
+        .map((key) => CATEGORY_LABELS[key])
+        .join("、")
+    : null;
   return agentAnswer(
     [
       `# ${SITE.name} · ${scope} · ${WINDOW[q.window]}${category ? ` · ${category}` : ""}`,
@@ -79,7 +83,7 @@ export function latestAnswer(res: V1ItemsResult, q: LatestQuery) {
     res.items.length ? BRIEF_HINTS : ["如实告诉用户没有符合条件的结果，可以扩大到7天或全部公开动态；不能用其他内容冒充。", NO_INTERNALS],
   );
 }
-export async function searchItems(q: string, window: AgentWindow, category: PublicApiCategoryKey | null, limit: number, load = v1Items) {
+export async function searchItems(q: string, window: AgentWindow, category: CategoryFilterKey | null, limit: number, load = v1Items) {
   const query = (mode: "selected" | "all") => ({ mode, window, category, limit, q, by: "timeline" as const, cursor: null });
   const selected = await load(query("selected"));
   return selected.items.length ? { res: selected, expanded: false } : { res: await load(query("all")), expanded: true };

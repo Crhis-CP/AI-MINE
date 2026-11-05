@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import {
+  LEGACY_MINING_CATEGORY_KEYS,
+  LEGACY_MINING_CATEGORY_TARGETS,
   MINING_CATEGORY_KEYS,
   MiningCategoryKeySchema,
   MiningCategorySchema,
@@ -65,6 +67,20 @@ test("schemas reject legacy/invalid keys while public normalization preserves on
   const original = { category: "industry", output: { category: "industry" } };
   normalizeMiningCategory(original.category);
   assert.deepEqual(original, { category: "industry", output: { category: "industry" } });
+});
+
+test("ADR-0031 retired keys stay out of the schemas and map to their single successor, 企业与项目 to none", () => {
+  assert.deepEqual(LEGACY_MINING_CATEGORY_KEYS, ["company_project", "supply_trade_controls", "esg_community_labor", "safety_incident"]);
+  for (const key of LEGACY_MINING_CATEGORY_KEYS) {
+    assert.equal(MiningCategorySchema.safeParse(key).success, false);
+    assert.equal(isMiningCategoryKey(key), false);
+    for (const target of LEGACY_MINING_CATEGORY_TARGETS[key]) assert.equal(isMiningCategoryKey(target), true);
+  }
+  assert.equal(normalizeMiningCategory("supply_trade_controls"), "policy_regulation");
+  assert.equal(normalizeMiningCategory("esg_community_labor"), "safety_environment");
+  assert.equal(normalizeMiningCategory("safety_incident"), "safety_environment");
+  assert.equal(normalizeMiningCategory("company_project"), null, "split in two: the model reclassifies it");
+  assert.deepEqual(LEGACY_MINING_CATEGORY_TARGETS.company_project, ["operations_output", "project_development"]);
 });
 
 test("DR-89 gives each category one thematic section and no unknown/country fallback", () => {
@@ -133,8 +149,9 @@ test("configured versions hash actual rendered text, ignoring unused values and 
     for (const key of ['categoryGuide', 'categoryTags', 'jurisdictions'])
       assert.notEqual(version, configuredPromptVersion('structure', { ...values, [key]: values[key] + '合成配置变化' }));
     assert.throws(() => configuredPromptVersion('structure'), /no value/);
-    for (const name of ['prefilter', 'selection-score'])
-      assert.equal(configuredPromptVersion(name, { unused: 'one' }), configuredPromptVersion(name, { unused: 'two' }));
+    // selection-score names the major companies (industry/selection.ts); an unused value still does not count.
+    for (const [name, needed] of [['prefilter', {}], ['selection-score', { majorCompanies: '紫金矿业' }]])
+      assert.equal(configuredPromptVersion(name, { ...needed, unused: 'one' }), configuredPromptVersion(name, { ...needed, unused: 'two' }));
     assert.deepEqual([promptVersion('prefilter'), promptVersion('selection-score'), promptVersion('structure')], before);
   `,
     ],

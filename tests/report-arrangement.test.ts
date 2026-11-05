@@ -18,7 +18,7 @@ function item(id: string, sourceId = id, extra: Partial<EditionEntry> = {}): Edi
       publishedAt: "2026-10-15T01:00:00Z",
       sources: 1,
     },
-    category: "company_project",
+    category: "project_development",
     storyId: null,
     mentions: new Set(),
     sourceIds: new Set([sourceId]),
@@ -51,6 +51,19 @@ test("official action or four-source new facts can lead again; commentary and th
   assert.deepEqual(new Set(issue.flashes.map((e) => e.entry.itemId)), new Set(["commentary", "thin"]));
   assert.equal(issue.stats.followUpsAsFlashes, 2);
   assert.equal(arrangeDaily([thin, commentary]).main.length, 2, "a day containing only follow-ups still has a readable issue");
+});
+test("fresh commentary (会议观点) is not a new development: it leads only when widely covered or alone", () => {
+  const fresh = item("fresh");
+  const talk = item("talk", "talk", { category: "events_opinion", commentary: true, importance: 99 });
+  const widelyCovered = item("forum", "forum", { category: "events_opinion", commentary: true });
+  widelyCovered.entry.sources = 4;
+  const issue = arrangeDaily([talk, widelyCovered, fresh]);
+  assert.deepEqual(new Set(issue.main.map((e) => e.entry.itemId)), new Set(["fresh", "forum"]));
+  assert.deepEqual(
+    issue.flashes.map((e) => e.entry.itemId),
+    ["talk"],
+  );
+  assert.equal(arrangeDaily([talk]).main.length, 1, "a day with only commentary still has a readable issue");
 });
 test("a roundup attaches to the most important mentioned event without mutating the saved candidates", () => {
   const a = item("a", "official", { storyId: 1, importance: 90 }),

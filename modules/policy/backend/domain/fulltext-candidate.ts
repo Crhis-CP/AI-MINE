@@ -16,12 +16,33 @@ export const PolicyPartCandidateSchema = z
   .strictObject({
     partId: hash,
     sourceHash: hash,
-    classification: z.enum(["facts", "reference", "non_operative"]),
+    // translation: the cost-designed reply carries only {sourceHash, zh}; original_reading: a Chinese original is its
+    // own reading text and is accepted by code without a model call. facts/reference/non_operative: earlier replies.
+    classification: z.enum(["facts", "reference", "non_operative", "translation", "original_reading"]),
     facts: z.array(z.strictObject({ statement: text, role: z.enum(roles), quote: text })),
     zh: text.nullable(),
   })
   .refine((part) => (part.classification === "facts" ? part.facts.length > 0 : part.facts.length === 0));
 export type PolicyPartCandidate = z.infer<typeof PolicyPartCandidateSchema>;
+/** Fulltext recipe marker: v2 = translation memory, deduplicated source-only requests, Chinese originals without a call. */
+export const FULLTEXT_CANDIDATE_RECIPE = "candidate-v2";
+export const isChineseOriginal = (language: string) => normalizeSourceLanguage(language)?.split("-")[0] === "zh";
+/**
+ * The candidate one returned reply part stands for, bound to one plan part. The request names sources only by their
+ * hash, so identical text in any document produces the same request bytes and the same reply; the part identity is
+ * added here. Older replies that still carry classification/facts keep them.
+ */
+export function candidateFromReply(reply: Record<string, unknown>, partId: string): Record<string, unknown> {
+  const { partId: _ignored, ...rest } = reply;
+  return "classification" in rest
+    ? { ...rest, partId }
+    : { partId, sourceHash: rest.sourceHash, classification: "translation", facts: [], zh: rest.zh ?? null };
+}
+/** A Chinese original is its own reading text: every part is accepted by code (zh=null), so fulltext costs no call. */
+export function originalReadingCandidates(plan: Pick<PolicyFulltextPlan, "parts" | "context">): PolicyPartCandidate[] | null {
+  if (!isChineseOriginal(plan.context.language)) return null;
+  return plan.parts.map((part) => ({ partId: part.partId, sourceHash: part.sourceHash, classification: "original_reading", facts: [], zh: null }));
+}
 export type CandidateIssue = { partId: string | null; code: string };
 export type CheckedPolicyPart = PolicyPartCandidate & { content: string; contentHash: string };
 export type AssembledPolicyResource = {
@@ -217,7 +238,7 @@ export function validatePolicyFulltextCandidate(plan: PolicyFulltextPlan, candid
         continue;
       }
       const chinese = language.split("-")[0] === "zh";
-      if (chinese ? candidate.zh !== null : candidate.zh === null) {
+      if ((chinese ? candidate.zh !== null : candidate.zh === null) || (candidate.classification === "original_reading" && !chinese)) {
         reject("translation_mode_mismatch");
         continue;
       }

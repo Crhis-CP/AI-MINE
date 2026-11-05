@@ -1,5 +1,6 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
-import { setFontPreference, useFontPreference } from "../lib/local-state";
+import { setFontPreference, setReadingFace, useFontPreference, useReadingFace } from "../lib/local-state";
+import { otherLanguagePath, useLocale, useT, useTr } from "../i18n";
 import { UnreadMark } from "../features/changelog/UnreadMark";
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
@@ -8,6 +9,7 @@ import { feedbackPath } from "../lib/feedback-origin";
 import { pageMeta } from "../lib/seo";
 import { MODULE_NAVIGATION } from "../components/shell/nav";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
+import { FilingLinks, useSiteFilings } from "../components/shell/Filings";
 import { IconBookmark, IconChevronRight, IconFlame, IconGrid, IconHeart, IconHistory, IconMessage, IconMoon, IconPlug } from "../components/icons";
 import { WEB_MODULES } from "@amp/site/modules/web";
 
@@ -25,6 +27,10 @@ const tools = WEB_MODULES.flatMap((module) => module.tools ?? []);
 const toolPaths = new Set(tools.map((tool) => tool.to));
 const agentWays = WEB_MODULES.flatMap((module) => module.agentWays ?? []);
 
+/**
+ * Three plain groups (UI update, Owner 2026-11-05): what to read, how it looks, and about the site.
+ * 金属价格 stays right below 收藏 (Owner 2026-10-05).
+ */
 const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
     title: "内容",
@@ -34,7 +40,24 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
         label,
         icon: <Icon size={18} />,
       })),
+      { to: "/hot", label: "热点榜", icon: <IconFlame size={18} /> },
       { to: "/topics", label: "主题索引", icon: <IconGrid size={18} /> },
+      { to: "/starred", label: "收藏", icon: <IconBookmark size={18} /> },
+      ...MODULE_NAVIGATION.filter((item) => item.moreSection !== "内容" && !toolPaths.has(item.to)).map(({ to, label, icon: Icon }) => ({
+        to,
+        label,
+        icon: <Icon size={18} />,
+      })),
+      ...tools,
+    ],
+  },
+  { title: "阅读设置", rows: [] },
+  {
+    title: "关于",
+    rows: [
+      { to: "/about", label: `关于 ${SITE.name}`, icon: <IconHeart size={18} /> },
+      { to: "/changelog", label: "更新日志", icon: <IconHistory size={18} /> },
+      { to: "/feedback", label: "意见反馈", icon: <IconMessage size={18} /> },
       {
         to: "/agent",
         label: "Agent 接入",
@@ -43,62 +66,46 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
       },
     ],
   },
-  {
-    title: "偏好",
-    rows: [
-      { to: "/hot", label: "热点榜", icon: <IconFlame size={18} /> },
-      { to: "/starred", label: "收藏", icon: <IconBookmark size={18} /> },
-      ...MODULE_NAVIGATION.filter((item) => item.moreSection !== "内容" && !toolPaths.has(item.to)).map(({ to, label, icon: Icon }) => ({
-        to,
-        label,
-        icon: <Icon size={18} />,
-      })),
-    ],
-  },
-  ...(tools.length ? [{ title: "工具", rows: tools }] : []),
-  {
-    title: "关于",
-    rows: [
-      { to: "/about", label: `关于 ${SITE.name}`, icon: <IconHeart size={18} /> },
-      { to: "/changelog", label: "更新日志", icon: <IconHistory size={18} /> },
-      { to: "/feedback", label: "意见反馈", icon: <IconMessage size={18} /> },
-    ],
-  },
 ];
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card overflow-hidden">
-      <div className="px-4 pb-1 pt-3 text-[11.5px] text-ink-4">{title}</div>
+      <div className="px-4 pb-1 pt-3 text-[12.5px] text-ink-4">{title}</div>
       <ul className="divide-y divide-line-soft">{children}</ul>
     </section>
   );
 }
 
 export default function MorePage() {
+  const tr = useTr();
   const location = useLocation();
+  const filings = useSiteFilings();
   const font = useFontPreference();
+  const face = useReadingFace();
+  const t = useT(),
+    locale = useLocale();
   const [fontSaved, setFontSaved] = useState(true);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
-      <PhoneBar title="我的" large />
-      <h1 className="hidden pb-4 pt-5 text-[22px] font-bold text-ink lg:block lg:pt-1">我的</h1>
+      <PhoneBar title={tr("我的")} large />
+      <h1 className="hidden pb-4 pt-5 text-[22px] font-bold text-ink lg:block lg:pt-1">{tr("我的")}</h1>
       <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0 2xl:grid-cols-3">
         {GROUPS.map((g) => (
-          <Group key={g.title} title={g.title}>
+          <Group key={g.title} title={tr.maybe(g.title)}>
             {g.rows.map((r) => (
               <li key={r.to}>
                 <Link
                   to={r.to === "/feedback" ? feedbackPath(location.pathname, location.search) : r.to}
-                  className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
+                  className="flex h-[50px] items-center gap-3 px-4 text-[16px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
                 >
                   <span className="text-ink-3">{r.icon}</span>
                   <span className="flex flex-1 items-center gap-2">
-                    {r.label}
+                    {tr.maybe(r.label)}
                     {r.to === "/changelog" && <UnreadMark />}
                   </span>
                   {r.detail && (
-                    <span className="max-w-[45%] truncate text-[12px] text-ink-4" title={r.detail}>
+                    <span className="max-w-[45%] truncate text-[13px] text-ink-4" title={r.detail}>
                       {r.detail}
                     </span>
                   )}
@@ -106,21 +113,21 @@ export default function MorePage() {
                 </Link>
               </li>
             ))}
-            {g.title === "偏好" && (
+            {g.title === "阅读设置" && (
               <>
-                <li className="flex h-[58px] items-center gap-3 px-4 text-[15px] font-medium text-ink">
+                <li className="flex h-[58px] items-center gap-3 px-4 text-[16px] font-medium text-ink">
                   <span className="text-ink-3">
                     <IconMoon size={18} />
                   </span>
-                  <span className="flex-1">外观</span>
-                  <ThemeSwitch className="w-[124px]" />
+                  <span className="flex-1">{tr("外观")}</span>
+                  <ThemeSwitch labelled className="w-[204px]" />
                 </li>
                 <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
                   <span className="w-[18px] text-center text-ink-3" aria-hidden="true">
                     Aa
                   </span>
                   <label htmlFor="reader-font" className="flex-1 font-medium">
-                    字体
+                    {tr("字体")}
                   </label>
                   <select
                     id="reader-font"
@@ -128,46 +135,57 @@ export default function MorePage() {
                     onChange={(event) => setFontSaved(setFontPreference(event.target.value === "browser" ? "browser" : null))}
                     className="h-10 max-w-[190px] rounded-control border border-line bg-surface px-2 text-[16px]"
                   >
-                    <option value="system">默认字体</option>
-                    <option value="browser">浏览器默认字体</option>
+                    <option value="system">{tr("默认字体")}</option>
+                    <option value="browser">{tr("浏览器默认字体")}</option>
                   </select>
                   {!fontSaved && (
-                    <p role="status" className="w-full text-[13px] text-ink-3">
-                      浏览器未能保存，当前页面仍可使用。
+                    <p role="status" className="w-full text-[14px] text-ink-3">
+                      {tr("浏览器未能保存，当前页面仍可使用。")}
                     </p>
                   )}
+                </li>
+                <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
+                  <span className="w-[18px] text-center text-ink-3" style={{ fontFamily: '"Songti SC","STSong","Noto Serif SC",serif' }} aria-hidden="true">
+                    {tr("文")}
+                  </span>
+                  <label htmlFor="reader-face" className="flex-1 font-medium">
+                    {tr("正文")}
+                  </label>
+                  <select
+                    id="reader-face"
+                    value={face ?? "sans"}
+                    onChange={(event) => setReadingFace(event.target.value === "serif" ? "serif" : null)}
+                    className="h-10 max-w-[190px] rounded-control border border-line bg-surface px-2 text-[16px]"
+                  >
+                    <option value="sans">{tr("黑体")}</option>
+                    <option value="serif">{tr("宋体")}</option>
+                  </select>
                 </li>
               </>
             )}
           </Group>
         ))}
       </div>
-      <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[12px] text-ink-4">
+      <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[13px] text-ink-4">
         <Link to="/terms" className="hover:text-ink-2">
-          使用规则
+          {tr("使用规则")}
         </Link>
         <Link to="/privacy" className="hover:text-ink-2">
-          隐私说明
+          {tr("隐私说明")}
         </Link>
         <a href="/feed.xml" className="hover:text-ink-2">
           RSS
         </a>
-        {SITE.icp && (
-          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-ink-2">
-            {SITE.icp}
-          </a>
-        )}
-        {SITE.publicSecurity && (
-          <a
-            href={`https://beian.mps.gov.cn/#/query/webSearch?code=${SITE.publicSecurity.code}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-ink-2"
-          >
-            {SITE.publicSecurity.text}
-          </a>
-        )}
-        {SITE.newsLicense && <span>互联网新闻信息服务许可证：{SITE.newsLicense}</span>}
+        <FilingLinks filings={filings} linkClassName="hover:text-ink-2" />
+        <Link
+          to={otherLanguagePath(location.pathname, location.search, locale)}
+          hrefLang={locale === "en" ? "zh-CN" : "en"}
+          lang={locale === "en" ? "zh-CN" : "en"}
+          aria-label={t.shell.switchToLabel}
+          className="font-semibold text-ink-3 hover:text-ink-2"
+        >
+          {t.shell.switchTo}
+        </Link>
       </div>
     </div>
   );

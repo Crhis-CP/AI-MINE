@@ -16,8 +16,18 @@ import { promptText, promptVersion } from "../editorial/prompts.ts";
 export const GROUP_BODY_CHARS = 10_000;
 export const LEXICAL_RECALL_MIN = 0.25;
 export const RECALL_TOP_FACTS = 10;
+/** group_article judges at most this many candidate facts, in recall-similarity order (cost bound, Owner 2026-11). */
+export const GROUP_ARTICLE_CANDIDATES = 5;
+/** Only the most similar candidates (and their selected reports) carry the full original text into group_article. */
+export const GROUP_FULL_TEXT_CANDIDATES = 2;
+/** Other group_article reports carry title, stored summary and fact frame plus the head of the original, so verbatim quotes stay possible. */
+export const GROUP_BRIEF_EXCERPT_CHARS = 600;
+/** A brief report with no stored summary gets a longer original excerpt instead. */
+export const GROUP_BRIEF_FALLBACK_CHARS = 1_500;
 export const BATCH_PROMPT_VERSION = promptVersion("group-batch", "group-value");
 export const RELATE_PROMPT_VERSION = promptVersion("group-batch", "group-pair", "group-signal");
+/** Several independent review pairs that share one report A, asked in one request. */
+export const PAIR_BATCH_PROMPT_VERSION = promptVersion("group-pair-batch");
 export const FACT_CONVERGENCE_VERSION = "same-occurrence-canonical-v1";
 
 export const RELATIONS = ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP"] as const;
@@ -73,6 +83,7 @@ export interface Verdict {
 export const BATCH_SYSTEM = `${promptText("group-batch")}\n\n${promptText("group-value")}`;
 export const PAIR_SYSTEM = promptText("group-pair");
 export const SIGNAL_SYSTEM = promptText("group-signal");
+export const PAIR_BATCH_SYSTEM = promptText("group-pair-batch");
 
 const RelationSchema = z.enum(RELATIONS);
 
@@ -172,6 +183,18 @@ export const PairSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
+export const PairBatchSchema = z.object({
+  decisions: z.array(
+    z.object({
+      id: z.string().regex(/^C[1-9]\d*$/),
+      relation: RelationSchema,
+      difference: z.string().max(400).catch(""),
+      evidence,
+      confidence: z.number().min(0).max(1),
+    }),
+  ),
+});
+
 export const SignalSchema = z.object({
   decisions: z.array(z.object({ id: z.string().regex(/^C[1-9]\d*$/), relation: RelationSchema, confidence: z.number().min(0).max(1), evidence })),
 });
@@ -181,14 +204,26 @@ function when(at: Date | null): string {
   return (at.getTime() + 8 * 3600_000) % 86400_000 === 0 ? beijingDate(at) : `${beijingDate(at)} ${beijingTime(at)}`;
 }
 
-export function describeReport(r: ReportView, label: string, extra = ""): string {
+/**
+ * The original evidence line. A brief report keeps the head of its original (verbatim quotes stay
+ * possible) and is labelled as an excerpt, so omitted detail is not read as absent.
+ */
+function originalEvidence(r: ReportView, brief: boolean): string {
+  const text = r.originalText;
+  if (!brief || text === undefined) return `原文证据：${text ?? "（无）"}`;
+  const limit = (r.summary ?? "").trim() ? GROUP_BRIEF_EXCERPT_CHARS : GROUP_BRIEF_FALLBACK_CHARS;
+  if (text.length <= limit) return `原文证据：${text}`;
+  return `原文证据（节选前${limit}字，其余未随附；未随附的内容不等于原文没有）：${text.slice(0, limit)}`;
+}
+
+export function describeReport(r: ReportView, label: string, extra = "", brief = false): string {
   const f = r.frame;
   return [
     `【${label}】${extra}`,
     `标题：${r.title}`,
     r.scope ? `稿件范围：${r.scope === "single" ? "单一报道" : r.scope === "composite" ? "综合稿" : "未确认"}` : null,
     `来源：${r.source}${r.firstParty ? "（当事方/官方）" : ""}｜${r.sourceTimeLabel === undefined ? `发布时间：${when(r.at)}` : `时间信息：${r.sourceTimeLabel}`}`,
-    `原文证据：${r.originalText ?? "（无）"}`,
+    originalEvidence(r, brief),
     `法域：${r.jurisdiction ?? "未知"}`,
     `摘要：${(r.summary ?? "").slice(0, 360) || "（无）"}`,
     f && (f.subject || f.action || f.object)
@@ -201,30 +236,50 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
 
 export const candidateKey = (index: number) => `C${index + 1}`;
 
-export function batchUser(query: ReportView, cands: CandidateView[], queryLabel = "新报道", reading: ReadingContext[] = []): string {
+/**
+ * The query always carries its full original. Candidates after the first `fullTextCandidates` (in
+ * recall order) and the reading background are described briefly (describeReport).
+ */
+export function batchUser(
+  query: ReportView,
+  cands: CandidateView[],
+  queryLabel = "新报道",
+  reading: ReadingContext[] = [],
+  fullTextCandidates = Number.POSITIVE_INFINITY,
+): string {
+  const briefReading = Number.isFinite(fullTextCandidates);
   const list = cands
     .map((c, i) =>
       [
-        describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`),
+        describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`, i >= fullTextCandidates),
         queryLabel !== "新报道"
           ? null
           : c.selected && c.selectedReport
             ? c.selectedReport.articleId && c.selectedReport.articleId === c.report.articleId
               ? "【已公开精选】以上代表报道已向读者展示，增量与该报道比较。"
-              : describeReport(c.selectedReport, "已公开精选", "（增量只与这篇已展示的内容比较）")
+              : describeReport(c.selectedReport, "已公开精选", "（增量只与这篇已展示的内容比较）", i >= fullTextCandidates)
             : "【尚无公开精选】此候选仅用于身份判断，不代表读者已经看过。",
       ]
         .filter(Boolean)
         .join("\n"),
     )
     .join("\n\n");
-  const background = reading.map(({ report }, i) => describeReport(report, `已公开精选阅读背景 R${i + 1}`, "（只比较信息覆盖，不是事实候选）")).join("\n\n");
+  const background = reading
+    .map(({ report }, i) => describeReport(report, `已公开精选阅读背景 R${i + 1}`, "（只比较信息覆盖，不是事实候选）", briefReading))
+    .join("\n\n");
   const inventory = `事实候选数：${cands.length}\n事实候选编号：${JSON.stringify(cands.map((_, i) => candidateKey(i)))}`;
   return `${inventory}\n\n${describeReport(query, queryLabel)}\n\n${list}${background ? `\n\n${background}` : ""}\n\n${queryLabel}与每个候选的关系是什么？${reading.length ? "同时比较已公开精选的覆盖；无事实候选时 decisions=[]。" : ""}`;
 }
 
 export function pairUser(a: ReportView, b: ReportView): string {
   return `${describeReport(a, "报道 A")}\n\n${describeReport(b, "报道 B")}\n\n这两篇报道是什么关系？`;
+}
+
+/** Independent pairs that share report A, each B fully described, answered as one decision per candidate. */
+export function pairBatchUser(a: ReportView, bs: ReportView[]): string {
+  const inventory = `候选数：${bs.length}\n候选编号：${JSON.stringify(bs.map((_, i) => candidateKey(i)))}`;
+  const list = bs.map((b, i) => describeReport(b, `候选 ${candidateKey(i)}（报道 B）`)).join("\n\n");
+  return `${inventory}\n\n${describeReport(a, "报道 A")}\n\n${list}\n\n报道 A 与每个候选分别是什么关系？`;
 }
 
 /** Missing, duplicate and unknown candidate IDs are incomplete answers, never unrelatedness. */
@@ -273,12 +328,14 @@ export function storyForDevelopment(cands: CandidateView[], verdicts: Map<number
   return cands.filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY").sort((a, b) => b.score - a.score)[0] ?? null;
 }
 
-export function looksLikeRoundup(cands: CandidateView[], verdicts: Map<number, Verdict>): boolean {
-  return cands.length > 0 && cands.every((c) => verdicts.get(c.factId)?.relation === "ROUNDUP");
-}
+/**
+ * Confidence a discussion post needs to count as reacting to a fact (heat only). Kept apart from
+ * TIE_MIN_CONFIDENCE on purpose: lowering the tie bar for reposts (TASK-0538) did not change heat attribution.
+ */
+export const REACTION_MIN_CONFIDENCE = 0.8;
 
 /** A discussion post counts for a fact it reports, or one it clearly reacts to. */
-export function signalTarget(cands: CandidateView[], verdicts: Map<number, Verdict>, minReactionConfidence = 0.8): CandidateView | null {
+export function signalTarget(cands: CandidateView[], verdicts: Map<number, Verdict>, minReactionConfidence = REACTION_MIN_CONFIDENCE): CandidateView | null {
   return (
     sameOccurrence(cands, verdicts)[0] ??
     cands
@@ -288,8 +345,14 @@ export function signalTarget(cands: CandidateView[], verdicts: Map<number, Verdi
   );
 }
 
-/** How sure a relation must be before a report counts as evidence that two stories are one. */
-export const TIE_MIN_CONFIDENCE = 0.8;
+/**
+ * How sure a relation must be before a report counts as evidence that two stories are one (consolidate),
+ * before two stories list each other as related, before a composite mentions a fact, before a historical
+ * (late-discovered) report attaches to an existing fact, and before the re-merge pass joins two facts.
+ * Lowered from 0.8 on 2026-11-05: production runs one model for judge and review, and it answers
+ * 0.7–0.75 for many reposts it agrees with, so 0.8 kept obvious same-event pairs apart.
+ */
+export const TIE_MIN_CONFIDENCE = 0.7;
 
 /** A report is firmly tied to a candidate it calls the same occurrence or a direct development of. */
 export function firmlyTied(relation: string | undefined, confidence: number | undefined, minConfidence = TIE_MIN_CONFIDENCE): boolean {
@@ -302,6 +365,104 @@ export function firmlyTied(relation: string | undefined, confidence: number | un
  * 0.75, against 0.964 and 0.896 at 0.8, and on 170 real root pairs the extra merges read as right.
  */
 export const STORY_REVIEW_MIN_CONFIDENCE = 0.75;
+
+/**
+ * Two reports this alike, dated the same Beijing day and naming no conflicting country, need no second
+ * (review) call before their stories merge: the first judgement stands on its own.
+ */
+export const SKIP_REVIEW_MIN_COSINE = 0.92;
+
+/** A pair close enough that the review call is skipped (see SKIP_REVIEW_MIN_COSINE). */
+export function reviewUnneeded(similarity: number, a: Pick<ReportView, "at" | "jurisdiction">, b: Pick<ReportView, "at" | "jurisdiction">): boolean {
+  return (
+    similarity >= SKIP_REVIEW_MIN_COSINE &&
+    !!a.at &&
+    !!b.at &&
+    beijingDate(a.at) === beijingDate(b.at) &&
+    !jurisdictionsConflict(a.jurisdiction, b.jurisdiction)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Document identity: a named document (《…》 law, regulation, notice, catalogue) keeps one identity
+// however many sites repost it and however late. Its key recalls the facts that already carry it over a
+// long window, beside the 14-day similarity recall; the judge still decides the relation.
+// ---------------------------------------------------------------------------
+
+/** Names shorter than this after normalising are too generic to identify a document (《通知》, 《实施方案》). */
+export const DOCUMENT_KEY_MIN_CHARS = 5;
+/** The endings of document names; a book title without one (a newspaper, a book, a film) is no document key. */
+const DOCUMENT_SUFFIX =
+  /(法|法典|条例|规定|办法|细则|决定|决议|通知|意见|方案|规划|目录|名录|清单|标准|公告|指南|纲要|准则|规则|计划|措施|法案|协定|协议|基准|要点|批复|章程|制度|令)$/u;
+const BOOK_TITLE = /《([^《》]{1,120})》/gu;
+
+/**
+ * The normalised identity of a document name: width-folded, without spaces or punctuation, without a
+ * leading 中华人民共和国/中国 and without trailing version notes such as （试行）（2025年修订）（征求意见稿）.
+ * Null when the name is not document-like.
+ */
+export function documentKey(name: string): string | null {
+  let key = name.normalize("NFKC").replace(/\s+/gu, "");
+  for (let before = ""; before !== key; ) {
+    before = key;
+    key = key.replace(/\([^()]*\)$/u, "");
+  }
+  key = key.replace(/^(中华人民共和国|中国)/u, "").replace(/[·・\-—_"'“”‘’、，,。.:：;；!！?？<>〈〉]/gu, "");
+  if ([...key].length < DOCUMENT_KEY_MIN_CHARS || !DOCUMENT_SUFFIX.test(key)) return null;
+  return key;
+}
+
+/** Document keys named in book-title marks across the given titles, without duplicates. */
+export function documentKeys(titles: Array<string | null | undefined>): string[] {
+  const keys = new Set<string>();
+  for (const title of titles)
+    for (const match of (title ?? "").matchAll(BOOK_TITLE)) {
+      const key = documentKey(match[1]!);
+      if (key) keys.add(key);
+    }
+  return [...keys];
+}
+
+/**
+ * A title names the document: one of its book titles has the same key, or it mentions the name without
+ * book-title marks and none of its own book titles is a longer document built on that name (a local
+ * 《某省生态环境法典实施办法》 does not name 《生态环境法典》).
+ */
+export function titleNamesDocument(title: string | null | undefined, key: string): boolean {
+  const text = (title ?? "").normalize("NFKC").replace(/\s+/gu, "");
+  const own = documentKeys([text]);
+  if (own.includes(key)) return true;
+  return text.includes(key) && !own.some((other) => other.includes(key));
+}
+
+/** A title for exact-duplicate checks: width-folded, without spaces, punctuation or a leading 「来源：」 label. */
+export function titleKey(title: string): string {
+  return title
+    .normalize("NFKC")
+    .replace(/^[^：:]{1,12}[：:]/u, "")
+    .replace(/[\s\p{P}\p{S}]/gu, "")
+    .toLowerCase();
+}
+/** Exact-duplicate titles shorter than this are too generic to tie two reports without the judge. */
+export const TITLE_KEY_MIN_CHARS = 8;
+
+/**
+ * A pair the code can tie without asking the model (cost design, Owner 2026-11-05: no model where the
+ * code can decide): near-identical, same Beijing day, no conflicting country (reviewUnneeded), and either
+ * the same normalised title or both naming the same document. Wire copies and same-day reposts of one
+ * notice meet this; anything less certain still goes to the judge.
+ */
+export function certainDuplicate(
+  similarity: number,
+  a: Pick<ReportView, "at" | "jurisdiction" | "title">,
+  b: Pick<ReportView, "at" | "jurisdiction" | "title">,
+): boolean {
+  if (!reviewUnneeded(similarity, a, b)) return false;
+  const ka = titleKey(a.title);
+  if ([...ka].length >= TITLE_KEY_MIN_CHARS && ka === titleKey(b.title)) return true;
+  const keys = documentKeys([a.title]);
+  return keys.length > 0 && keys.every((key) => titleNamesDocument(b.title, key)) && documentKeys([b.title]).every((key) => keys.includes(key));
+}
 
 /** The text a report is embedded with: title and the start of the summary, the same on both sides of a comparison. */
 export function reportText(title: string, summary: string | null | undefined): string {

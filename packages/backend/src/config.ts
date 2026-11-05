@@ -65,7 +65,7 @@ export const config = {
   environmentName: str("AMP_ENVIRONMENT", isProduction ? "production" : "development"),
   // Model calls are live unless explicitly disabled (tests, replays).
   modelCallsEnabled: bool("MODEL_CALLS_ENABLED", true),
-  /** Only Chris's separately approved activation may set the exact literal true. */
+  /** Only the Owner's separately approved activation may set the exact literal true. */
   originalPostAdmissionEnabled: env.ORIGINAL_POST_ADMISSION_ENABLED === "true",
   devAdmin: env.DEV_AUTH_ROLE === "admin" ? { displayName: env.DEV_AUTH_DISPLAY_NAME || "Dev Admin" } : null,
   /** The admin password (at least 12 characters). Feishu sign-in below is optional. */
@@ -79,6 +79,20 @@ export const config = {
     .map((v) => v.trim().toLowerCase())
     .filter(Boolean),
 };
+
+export type AnalysisPromptLayout = "shared" | "separate";
+/**
+ * How the per-article analysis steps lay out their prompts (ANALYSIS_PROMPT_LAYOUT, editorial/analysis-layout.ts):
+ * `shared` (default) sends every step the same leading system prompt and article material, so a provider's prefix
+ * cache bills the body once at the miss price; `separate` is the earlier per-step layout. Read at call time, like the
+ * collection switches below, so an evaluation can run either layout in one process.
+ */
+export function analysisPromptLayout(): AnalysisPromptLayout {
+  const value = env.ANALYSIS_PROMPT_LAYOUT;
+  if (value === undefined || value === "" || value === "shared") return "shared";
+  if (value === "separate") return value;
+  throw new Error(`ANALYSIS_PROMPT_LAYOUT must be "shared" or "separate" (got "${value}")`);
+}
 
 /** Read dynamically so a paused lane is observed before the next queued source starts. */
 export const sourceCollectionEnabled = (lane: "news" | "policy") => env.COLLECT_ENABLED !== "false" && env[`COLLECT_${lane.toUpperCase()}_ENABLED`] !== "false";

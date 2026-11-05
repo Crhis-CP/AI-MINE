@@ -48,7 +48,8 @@ export async function registerEventJobs(boss: PgBoss) {
       // A discussion post comes here straight from collection: record it first (settleNonEditorial).
       if (data.signalOnly && !data.force && !(await settleNonEditorial(data.articleId)).group) return { verdict: "skipped" };
       const result = await groupArticle(data.articleId, { signalOnly: data.signalOnly, force: data.force });
-      if (result.storyId && !result.verdict.startsWith("signal")) {
+      // A late repost attached to its fact adds nothing new to tell: no digest or background refresh.
+      if (result.storyId && !result.verdict.startsWith("signal") && result.verdict !== "historical-attached") {
         await enqueue(QUEUES.digest, { lane: "news", storyId: result.storyId }, { singletonKey: `story:${result.storyId}`, startAfter: 60 });
         await enqueueOn(historyQueue, { lane: "news", articleId: data.articleId }, { singletonKey: data.articleId });
       }
@@ -79,7 +80,18 @@ export async function registerEventJobs(boss: PgBoss) {
     async () => "news" as const,
     async (data) => {
       try {
-        return await composeStoryDigest(data.storyId, { afterCorrection: data.afterCorrection });
+        const result = await composeStoryDigest(data.storyId, { afterCorrection: data.afterCorrection });
+        // A refresh picked up at peak hours waits for the next off-peak start; refreshes queued meanwhile collapse into it.
+        if (result.deferUntil) {
+          const startAfter = result.deferUntil;
+          await enqueue(
+            QUEUES.digest,
+            { lane: "news", storyId: data.storyId },
+            { singletonKey: `story:${data.storyId}:off-peak:${startAfter.toISOString()}`, startAfter },
+          );
+          return { state: "deferred", reason: "provider_peak", retryAt: startAfter.toISOString() };
+        }
+        return result;
       } catch (error) {
         if (isWaiting(error)) {
           await enqueue(

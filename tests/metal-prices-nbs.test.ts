@@ -138,16 +138,21 @@ test("the check gives the reason for each way a period is held back", () => {
     [copper({ value: "0" }), "nbs.copper 的数值 0 不大于 0"],
     [copper({ value: "-108770.0" }), "nbs.copper 的数值 -108770.0 不大于 0"],
     [copper({ value: "1e5" }), "nbs.copper 的数值“1e5”不是数字"],
-    [copper({ value: "176788.0" }), "nbs.copper 是 176788.0，是上一期 110492.5 的 1.60 倍，超出 0.67–1.5 倍"],
-    [copper({ value: "66295.5" }), "nbs.copper 是 66295.5，是上一期 110492.5 的 0.60 倍，超出 0.67–1.5 倍"],
-    // A monthly source (the World Bank, the IMF) may move further: 0.5 to 2 times.
-    [{ ...month, ...copper({ value: "232034.3" }) }, "nbs.copper 是 232034.3，是上一期 110492.5 的 2.10 倍，超出 0.5–2 倍"],
-    [{ ...month, ...copper({ value: "49721.6" }) }, "nbs.copper 是 49721.6，是上一期 110492.5 的 0.45 倍，超出 0.5–2 倍"],
     [{ newest: "2026-09-21" }, "所属期2026年9月中旬比库里最新一期（2026-09-21 开始）旧"],
     [link(offHost), `发布页链接 ${offHost} 不在登记的主机上或不是 https`],
     [link(plainHttp), `发布页链接 ${plainHttp} 不在登记的主机上或不是 https`],
   ];
   for (const [change, reason] of cases) assert.deepEqual(checkPeriod({ ...base, ...change }), { reasons: [reason], notes: [] }, reason);
+  // A value outside the band no longer holds the period: that series alone is held (DEC-78补充 item 4), the rest goes in.
+  const jumps: [Partial<PeriodCheckInput>, string, string][] = [
+    [copper({ value: "176788.0" }), "176788.0", "nbs.copper 是 176788.0，是上一期 110492.5 的 1.60 倍，超出 0.67–1.5 倍"],
+    [copper({ value: "66295.5" }), "66295.5", "nbs.copper 是 66295.5，是上一期 110492.5 的 0.60 倍，超出 0.67–1.5 倍"],
+    // A monthly source (the World Bank, the IMF) may move further: 0.5 to 2 times.
+    [{ ...month, ...copper({ value: "232034.3" }) }, "232034.3", "nbs.copper 是 232034.3，是上一期 110492.5 的 2.10 倍，超出 0.5–2 倍"],
+    [{ ...month, ...copper({ value: "49721.6" }) }, "49721.6", "nbs.copper 是 49721.6，是上一期 110492.5 的 0.45 倍，超出 0.5–2 倍"],
+  ];
+  for (const [change, value, reason] of jumps)
+    assert.deepEqual(checkPeriod({ ...base, ...change }), { reasons: [], notes: [], jumps: [{ key: "nbs.copper", value, was: "110492.5", reason }] }, reason);
   // Under half the rows of the previous period, each missing series named too; series no longer enabled do not count.
   assert.deepEqual(checkPeriod({ ...base, ...four }).reasons, ["只有 5 行，不到上一期仍启用的 11 个品种的一半", ...missingSteel]);
   assert.deepEqual(checkPeriod({ ...base, ...four, items: registry.items.filter((item) => !KEYS.slice(0, 6).includes(item.key)) }).reasons, []);
@@ -175,9 +180,87 @@ test("what is skipped, never holding a period: with nothing stored, the row coun
 test("a series the previous period lacks skips its own ratio alone, noted; not comparing skips the row count and every ratio, with no note", () => {
   const noCopper = new Map([...stored].filter(([key]) => key !== "nbs.copper"));
   const up = rows((all) => all.map((row) => ({ ...row, value: { "nbs.copper": "176788.0", "nbs.zinc": "43187.0" }[row.key] ?? row.value })));
-  const zinc = "nbs.zinc 是 43187.0，是上一期 26991.9 的 1.60 倍，超出 0.67–1.5 倍";
-  assert.deepEqual(checkPeriod({ ...base, ...up, previous: noCopper }), { reasons: [zinc], notes: ["上一期没有 nbs.copper，跳过它的倍数检查"] });
+  const zinc = { key: "nbs.zinc", value: "43187.0", was: "26991.9", reason: "nbs.zinc 是 43187.0，是上一期 26991.9 的 1.60 倍，超出 0.67–1.5 倍" };
+  assert.deepEqual(checkPeriod({ ...base, ...up, previous: noCopper }), { reasons: [], notes: ["上一期没有 nbs.copper，跳过它的倍数检查"], jumps: [zinc] });
   // The refresh passes false for the stored newest period read again unchanged (TASK-0069): 1.6 times is not held, nor is it older than itself.
   for (const change of [up, { previous: undefined }]) assert.deepEqual(checkPeriod({ ...base, ...change, compareWithPrevious: false }), NONE);
   assert.deepEqual(checkPeriod({ ...base, ...four, newest: latest.period.start, compareWithPrevious: false }), { reasons: missingSteel, notes: [] });
+});
+
+// DEC-78补充·五项决定 item 4: a jump holds that metal alone; the next period releases it (the market stayed) or discards it.
+const held = (key: string, value: string, periodStart = "2026-09-01", periodLabel = "2026年9月上旬") => ({ key, periodStart, periodLabel, value });
+const holds = (...list: ReturnType<typeof held>[]) => new Map(list.map((hold) => [hold.key, hold]));
+
+test("a jump holds that series alone: the rest of the period passes and nothing holds the period back", () => {
+  const result = checkPeriod({ ...base, ...copper({ value: "176788.0" }) });
+  assert.deepEqual(result.reasons, []);
+  assert.deepEqual(
+    result.jumps?.map((jump) => jump.key),
+    ["nbs.copper"],
+  );
+  assert.equal(result.releases, undefined);
+});
+
+test("the next period at the held level releases the hold: both go in, whatever the previous stored value says", () => {
+  // 9月上旬 copper (176788.0) was held; 9月中旬 copper at 108770.0 × 1.6 ≈ 174032 stays near it: 0.98 times the held value.
+  const result = checkPeriod({
+    ...base,
+    ...copper({ value: "174032.0" }),
+    holds: holds(held("nbs.copper", "176788.0")),
+    accepted: new Map([["nbs.copper", "110492.5"]]),
+  });
+  assert.deepEqual(result, {
+    reasons: [],
+    notes: [],
+    releases: [
+      {
+        key: "nbs.copper",
+        hold: held("nbs.copper", "176788.0"),
+        reason: "2026年9月中旬 是 174032.0，是被扣下的2026年9月上旬 176788.0 的 0.98 倍，在 0.67–1.5 倍内：新水平得到确认，两期一起入库",
+      },
+    ],
+  });
+});
+
+test("the next period back at the old level discards the hold and is checked against the last value that went in", () => {
+  const hold = held("nbs.copper", "331477.5");
+  const accepted = new Map([["nbs.copper", "110492.5"]]);
+  const back = checkPeriod({ ...base, holds: holds(hold), accepted });
+  const discard = "2026年9月中旬 是 108770.0，是被扣下的2026年9月上旬 331477.5 的 0.33 倍，超出 0.67–1.5 倍：被扣下的值不补入，本期按上次入库的值检查";
+  assert.deepEqual(back, { reasons: [], notes: [], discards: [{ key: "nbs.copper", hold, reason: discard }] });
+  // Away from both the held value and the last one that went in: the old hold is dropped and the new value held instead.
+  const again = checkPeriod({ ...base, ...copper({ value: "60000.0" }), holds: holds(hold), accepted });
+  assert.deepEqual(
+    again.discards?.map((one) => one.key),
+    ["nbs.copper"],
+  );
+  assert.deepEqual(again.jumps, [
+    { key: "nbs.copper", value: "60000.0", was: "110492.5", reason: "nbs.copper 是 60000.0，是上次入库的 110492.5 的 0.54 倍，超出 0.67–1.5 倍" },
+  ]);
+  // A forced period skips the ratio against the store, but the held value is still decided by it.
+  assert.deepEqual(checkPeriod({ ...base, holds: holds(hold), accepted, compareWithPrevious: false }).discards?.[0]?.key, "nbs.copper");
+});
+
+test("the held period read again: the same value stays held, another value or one now within the band replaces it", () => {
+  const same = held("nbs.copper", "176788.0", "2026-09-11", "2026年9月中旬");
+  const up = copper({ value: "176788.0" });
+  assert.deepEqual(checkPeriod({ ...base, ...up, holds: holds(same) }), { reasons: [], notes: [], still: [same] });
+  const other = checkPeriod({ ...base, ...copper({ value: "180000.0" }), holds: holds(same) });
+  assert.deepEqual(
+    [other.jumps?.[0]?.value, other.discards?.[0]?.reason],
+    ["180000.0", "同一期重读为 180000.0，仍超出 0.67–1.5 倍，改按新值扣下：原扣下的 176788.0 作废"],
+  );
+  assert.deepEqual(checkPeriod({ ...base, holds: holds(same) }).discards?.[0]?.reason, "同一期重读为 108770.0，已在 0.67–1.5 倍内：原扣下的 176788.0 作废");
+});
+
+test("structural failures still hold the whole period; most series jumping together is a misread, not the market", () => {
+  // Every value 1000 times the previous one: a unit shift, held whole, nothing held alone.
+  const shifted = rows((all) => all.map((row) => ({ ...row, value: String(Number(row.value) * 1000) })));
+  const result = checkPeriod({ ...base, ...shifted });
+  assert.equal(result.reasons.length, 1);
+  assert.match(result.reasons[0]!, /^11 个品种同时超出 0\.67–1\.5 倍（共比较 11 个），像是读错了而不是行情变化/);
+  assert.equal(result.jumps, undefined);
+  // A missing row or too few rows hold the whole period even with a jump in it.
+  const short = checkPeriod({ ...base, ...rows((all) => all.slice(6).map((row) => (row.key === "nbs.copper" ? { ...row, value: "176788.0" } : row))) });
+  assert.deepEqual(short.reasons, ["只有 5 行，不到上一期仍启用的 11 个品种的一半", ...missingSteel]);
 });

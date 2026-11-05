@@ -387,7 +387,7 @@ verify（PR 必过）**只用假模型、录制响应与黄金集固定夹具，
 
 ## 13. 推荐的 Agent 工作配置
 
-- 根目录 `AGENTS.md`（模板：`templates/root-AGENTS.md`）；`CLAUDE.md`（模板：`templates/CLAUDE.md`）以 `@AGENTS.md` 导入并自带关键规则摘要，供不支持导入的工具使用。
+- 根目录 `AGENTS.md`（模板：`templates/root-AGENTS.md`）；`CLAUDE.md`（模板：`templates/CLAUDE.md`）只是指向 `AGENTS.md` 的兼容入口，不另存规则；这两个根目录文件都与各自模板逐字节一致，改一处要同步另一处。
 - 每个模块目录一个 `README.md`（模板：`templates/module-README.md`）和可选的 `AGENTS.md`（模板：`templates/module-AGENTS.md`）。模块 README 是该模块的**最小上下文包**（移植自 `B:delivery/01-multi-agent-development.md` §2）：目的与非职责、负责的 F-ID、输入输出契约版本、依赖方向、表与事件所有权、状态机、错误码、可运行的测试命令、最小合成例子、局部修改步骤、变更记录。新 Agent 的读取顺序固定为：根 `AGENTS.md` → 当前任务卡 → 本模块 README → 所用契约 → 对应验收用例；**无需全仓扫描**。
 - 提交前钩子（lefthook）只是本地便利，**不是门禁**（ADR-0015）：格式化 + 快速 lint，不跑全量测试。
 - 开发期可为 Agent 提供**只读**的本地数据库查询工具与文档检索；生产环境只读 MCP 只能访问脱敏数据（服务身份，无 SQL 与 shell 能力）。

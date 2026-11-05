@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { createHash } from "node:crypto";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import path from "node:path";
+import type { SiteMeta } from "@amp/contracts/http/public";
 import { config, environmentValue, REPO_ROOT } from "../config.ts";
+import { siteFilings } from "./filings.ts";
+export { assertSiteFilings, FILING_VARIABLES, readSiteFilings, siteFilings } from "./filings.ts";
 
 /** Major notes and their source fragments carry a version; other kinds retain their original date identity. */
 export const CHANGELOG_KINDS = ["重大更新", "更新", "优化", "公告", "下线"] as const;
@@ -101,24 +104,32 @@ export function loadChangelog(): Changelog {
   return existsSync(edits) ? readerChangelogCopy(published, JSON.parse(readFileSync(edits, "utf8"))) : published;
 }
 
-/** Owner-requested reader wording; original release receipts and dates remain an unchanged audit record. */
+/**
+ * Owner-requested reader wording; original release receipts and dates remain an unchanged audit record.
+ * `copy: null` takes a purely internal entry out of the public log (Owner 2026-11-05: the log only carries
+ * changes readers can see), without rewriting it as an empty “例行维护”.
+ */
 export function readerChangelogCopy(
   changelog: Changelog,
-  edits: Array<{ date: string; time: string; title: string; originalCopySha256: string; copy: { title: string; body: string[] } }>,
+  edits: Array<{ date: string; time: string; title: string; originalCopySha256: string; copy: { title: string; body: string[] } | null }>,
 ): Changelog {
-  const releases = changelog.releases.map((release) => {
+  const releases = changelog.releases.flatMap((release) => {
     const original = { date: release.date, time: release.time, title: release.title, body: release.body };
     const hash = createHash("sha256").update(JSON.stringify(original)).digest("hex");
     const edit = edits.find(
       (item) => item.date === release.date && item.time === release.time && item.title === release.title && item.originalCopySha256 === hash,
     );
-    return edit ? { ...release, title: edit.copy.title, body: edit.copy.body } : release;
+    if (!edit) return [release];
+    return edit.copy ? [{ ...release, title: edit.copy.title, body: edit.copy.body }] : [];
   });
-  return validateChangelog({ ...changelog, releases });
+  if (!releases.length) return changelog;
+  const first = releases[0]!;
+  return validateChangelog({ ...changelog, latestVersion: first.time ? `${first.date}T${first.time}` : first.date, releases });
 }
 
-export function siteMeta() {
-  return { changelogVersion: loadChangelog().latestVersion };
+/** Footer filing numbers come from the API's run-time environment; unset numbers are null and not shown. */
+export function siteMeta(): SiteMeta {
+  return { changelogVersion: loadChangelog().latestVersion, filings: siteFilings() };
 }
 
 /** Kept separately so older releases can still read their original release records after rollback. */

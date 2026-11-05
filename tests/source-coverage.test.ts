@@ -33,7 +33,9 @@ test("three matrices preserve exact original exceptions, unresolved gaps and ind
   );
   assert.equal(china.cells.find((c) => c.row === "CN-XZ" && c.column === "finance")!.entries.length, 0);
   const news = result.matrices.find((m) => m.id === "news")!;
-  assert.equal(news.rows.length, 18);
+  // The historical 18 plus Brazil (Owner 2026-11-05), which starts with no listed targets.
+  assert.equal(news.rows.length, 19);
+  assert.ok(news.cells.filter((c) => c.row === "BR").every((c) => c.entries.length === 0));
   const wrong = SOURCE_TARGETS.find((t) => t.record_ids.includes("S16-R062"))!;
   assert.ok(
     !news.cells

@@ -19,6 +19,7 @@ import { z } from "zod";
 import { isValidDate } from "@amp/contracts/time";
 import {
   newsRelationJurisdictions,
+  readDocumentTitleMatches,
   readGroupingEvidencePublications,
   readGroupingSelectionSnapshot,
   readConfirmedGroupingItems,
@@ -43,11 +44,15 @@ import { shutdownSignal } from "../jobs/queue.ts";
 // (regroup_pending) is not evidence for others until it is decided again, so a regroup in discovery
 // order sees what live grouping would have seen. Discussion posts that found no story get another
 // look when a report founds a fact close to them (rematchSignals); history (isHistorical) founds no
-// event. Runs serially (queue concurrency 1).
+// event, but a late repost of a document or near-identical copy attaches to the fact it repeats
+// (historical-attached: no heat, no pick). A named document (《…》) recalls its facts over 24 months.
+// Recent facts left with one report get another pairwise look (remergeSingleReportFacts). Runs
+// serially (queue concurrency 1).
 import { modelFor } from "../editorial/models.ts";
 import { sql, type Db, type Tx } from "../db.ts";
 import { newShortId, newUuid, sha256 } from "../lib/ids.ts";
 import { chatJson, ModelPostReceiptGuardError } from "../providers/llm.ts";
+import { isProviderPeak } from "../providers/peak-hours.ts";
 import { BudgetExceededError, ReceiptBusyError, ReceiptUnknownError, completeReceipt } from "../providers/receipts.ts";
 import { embeddingsAvailable, ensureEmbeddings } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
@@ -140,7 +145,9 @@ import {
 import {
   BATCH_SYSTEM,
   BATCH_PROMPT_VERSION,
+  GROUP_ARTICLE_CANDIDATES,
   GROUP_BODY_CHARS,
+  GROUP_FULL_TEXT_CANDIDATES,
   LEXICAL_RECALL_MIN,
   RECALL_TOP_FACTS,
   ValueBatchSchema,
@@ -157,7 +164,13 @@ import {
   SignalSchema,
   TIE_MIN_CONFIDENCE,
   batchUser,
+  documentKeys,
   firmlyTied,
+  jurisdictionsConflict,
+  reviewUnneeded,
+  certainDuplicate,
+  SKIP_REVIEW_MIN_COSINE,
+  titleNamesDocument,
   lexicalSimilarity,
   pairUser,
   reportText,
@@ -176,7 +189,6 @@ import {
 import { EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "./queues.ts";
 export { EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "./queues.ts";
 
-export const GROUP_PROMPT_VERSION = BATCH_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */
 const RECALL_DAYS = 14;
 const RECALL_MIN_COSINE = 0.6;
@@ -185,6 +197,20 @@ const CONFIRM_BELOW_COSINE = 0.85;
 /** Discussion posts are judged only against clear candidates, and attach without a call when nearly identical. */
 const SIGNAL_MIN_COSINE = 0.72;
 const SIGNAL_TOP_FACTS = 4;
+/**
+ * Facts naming the same document (a 《…》 key, relate.ts documentKeys) are recalled this far back, beside
+ * the 14-day similarity recall: a law reposted for months by other sites meets the fact it started.
+ */
+export const DOCUMENT_RECALL_MONTHS = 24;
+/** At most this many document-key facts join the candidates, the most similar first. */
+export const DOCUMENT_RECALL_TOP_FACTS = 3;
+/** Rows read per document-key query; a widely reposted document still costs one bounded read. */
+const DOCUMENT_RECALL_ROWS = 400;
+/**
+ * A historical (late-discovered) report without a matching document key is compared only with facts this
+ * alike (near-identical content); it may attach to one but never founds an event.
+ */
+export const HISTORICAL_ATTACH_MIN_SIMILARITY = SKIP_REVIEW_MIN_COSINE;
 
 interface ArticleRow {
   id: string;
@@ -280,7 +306,7 @@ async function storyRootFacts(storyIds: number[], db: Db = sql): Promise<Map<num
 }
 
 /** Reports of the recall window that belong to a live fact; those waiting for a regroup only when asked for (the warm-up). */
-async function recallPool(withWaiting = false): Promise<PoolRow[]> {
+async function recallPool(withWaiting = false): Promise<Array<PoolRow & { material_revision: number }>> {
   return qualifiedReports(
     await sql<Omit<PoolRow, "publication_revision">[]>`
     SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title
@@ -448,6 +474,93 @@ async function recallFacts(queryId: string, queryText: string, minScore: number,
   return [...best.values()].sort((a, b) => b.score - a.score).slice(0, top);
 }
 
+/** Similarity of the query text with each report (cosine of stored vectors, else the lexical stand-in). */
+async function similaritiesTo(queryId: string, queryText: string, ids: string[]): Promise<Map<string, number>> {
+  const texts = await reportTexts(ids);
+  const lexical = (id: string) => lexicalSimilarity(queryText, texts.get(id) ?? "");
+  if (!ids.length || !embeddingsAvailable()) return new Map(ids.map((id) => [id, lexical(id)]));
+  const vectors = await vectorsFor([{ id: queryId, text: queryText }, ...ids.map((id) => ({ id, text: texts.get(id) ?? "" })).filter((item) => item.text)]);
+  const mine = vectors.get(queryId);
+  return new Map(
+    ids.map((id) => {
+      const v = vectors.get(id);
+      return [id, mine && v && v.length === mine.length ? cosine32(mine, v) : lexical(id)];
+    }),
+  );
+}
+
+/**
+ * Facts that name one of the query's documents (relate.ts documentKeys), over DOCUMENT_RECALL_MONTHS:
+ * the fact title or a member's public or original title names it. Each fact scores with its most
+ * similar member, so a merge with a dissimilar repost still goes through the review call.
+ */
+async function recallDocumentFacts(queryId: string, keys: string[], queryText: string): Promise<Recalled[]> {
+  if (!keys.length) return [];
+  const since = new Date(Date.now() - DOCUMENT_RECALL_MONTHS * 30 * 86400_000);
+  const patterns = keys.map((key) => `%${key.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+  const names = (title: string | null | undefined) => keys.some((key) => titleNamesDocument(title, key));
+  const published = (await readDocumentTitleMatches(patterns, since, DOCUMENT_RECALL_ROWS)).filter(
+    (row) => row.article_id !== queryId && (names(row.title) || names(row.original_title)),
+  );
+  const rows = await sql<Omit<PoolRow, "publication_revision">[]>`
+    SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title
+    FROM fact_articles fa
+    JOIN facts f ON f.id = fa.fact_id
+    JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
+    WHERE fa.role IN ('primary', 'report') AND fa.article_id <> ${queryId} AND ${trusted("fa")}
+      AND (fa.article_id = ANY(${published.map((row) => row.article_id)}::text[])
+        OR (f.created_at > ${since} AND f.title LIKE ANY(${patterns}::text[])))
+    LIMIT ${DOCUMENT_RECALL_ROWS}`;
+  const named = new Set(published.map((row) => row.article_id));
+  const members = (await qualifiedReports(rows)).filter((row) => named.has(row.article_id) || names(row.fact_title));
+  if (!members.length) return [];
+  const scores = await similaritiesTo(queryId, queryText, [...new Set(members.map((row) => row.article_id))]);
+  const best = new Map<number, Recalled>();
+  for (const row of members) {
+    const score = scores.get(row.article_id) ?? 0;
+    const prev = best.get(row.fact_id);
+    if (!prev || score > prev.score) best.set(row.fact_id, { factId: row.fact_id, storyId: row.story_id, factTitle: row.fact_title, score });
+  }
+  return [...best.values()].sort((a, b) => b.score - a.score || a.factId - b.factId).slice(0, DOCUMENT_RECALL_TOP_FACTS);
+}
+
+/** Similarity of two described reports, on the same embedded text recall uses. */
+async function reportSimilarity(a: ReportView, b: ReportView): Promise<number> {
+  const left = reportText(a.title, a.summary),
+    right = reportText(b.title, b.summary);
+  if (embeddingsAvailable() && a.articleId && b.articleId && a.articleId !== b.articleId) {
+    const vectors = await vectorsFor([
+      { id: a.articleId, text: left },
+      { id: b.articleId, text: right },
+    ]);
+    const x = vectors.get(a.articleId),
+      y = vectors.get(b.articleId);
+    if (x && y && x.length === y.length) return cosine32(x, y);
+  }
+  return lexicalSimilarity(left, right);
+}
+
+/** Two recalls of the same query as one list: a fact found twice keeps its higher score. */
+function mergeRecalled(...lists: Recalled[][]): Recalled[] {
+  const best = new Map<number, Recalled>();
+  for (const r of lists.flat()) {
+    const prev = best.get(r.factId);
+    if (!prev || r.score > prev.score) best.set(r.factId, r);
+  }
+  return [...best.values()].sort((a, b) => b.score - a.score);
+}
+
+/**
+ * What a historical report may attach to: facts naming the same document, and facts with
+ * near-identical content in the recall window (HISTORICAL_ATTACH_MIN_SIMILARITY).
+ */
+async function recallHistoricalAttach(queryId: string, queryText: string, keys: string[]): Promise<Recalled[]> {
+  const near = (await recallFacts(queryId, queryText, HISTORICAL_ATTACH_MIN_SIMILARITY, RECALL_TOP_FACTS)).filter(
+    (r) => r.score >= HISTORICAL_ATTACH_MIN_SIMILARITY,
+  );
+  return mergeRecalled(await recallDocumentFacts(queryId, keys, queryText), near);
+}
+
 /**
  * What the judge sees of a candidate fact: its representative report (first-party first, else the
  * earliest), its size, and whether it started its story (rootFactOf).
@@ -590,7 +703,7 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
   const prepared = await relationInput(
     [query, ...cands.flatMap((c) => [c.report, ...(c.selectedReport ? [c.selectedReport] : [])]), ...reading.map((r) => r.report)],
     BATCH_SYSTEM,
-    () => batchUser(query, cands, "新报道", reading),
+    () => batchUser(query, cands, "新报道", reading, GROUP_FULL_TEXT_CANDIDATES),
     checkContext,
   );
   const res = await chatJson({
@@ -676,7 +789,11 @@ async function assertReadingContext(articleId: string, cands: CandidateView[], r
 }
 
 /** The review model reads both reports on their own; a merge stands only when it agrees. */
-async function confirmMerge(articleId: string, query: ReportView, cand: CandidateView): Promise<{ relation: Relation; confidence: number; receiptId: number }> {
+async function confirmMerge(
+  articleId: string,
+  query: ReportView,
+  cand: CandidateView,
+): Promise<{ relation: Relation; confidence: number; receiptId: number; reused: boolean }> {
   query.articleId = articleId;
   const prepared = await relationInput([query, cand.report], PAIR_SYSTEM, () => pairUser(query, cand.report));
   const res = await chatJson({
@@ -690,7 +807,7 @@ async function confirmMerge(articleId: string, query: ReportView, cand: Candidat
     temperature: 0,
     maxTokens: 2560,
   });
-  return { relation: validatedRelation(query, cand.report, res.data), confidence: res.data.confidence, receiptId: res.receiptId };
+  return { relation: validatedRelation(query, cand.report, res.data), confidence: res.data.confidence, receiptId: res.receiptId, reused: res.reused };
 }
 
 async function judgeSignal(articleId: string, query: ReportView, cands: CandidateView[]): Promise<{ verdicts: Map<number, Verdict>; receiptId: number }> {
@@ -1010,6 +1127,20 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
       out.push({ ...base, merge: false, first: first.relation, second: null, difference: first.difference });
       continue;
     }
+    // Near-identical roots of one Beijing day in no conflicting country need no second call (reviewUnneeded);
+    // the judge filled both reports' original time and country above.
+    if (reviewUnneeded(await reportSimilarity(anchor.report, other.report), anchor.report, other.report)) {
+      if (!opts.dryRun)
+        await mergeStoryInto(
+          other.storyId,
+          anchor.storyId,
+          `同一事件（${first.relation}，近乎相同免复核）：${other.report.title}｜${anchor.report.title}`,
+          "grouping",
+          (tx) => assertRuntimeControl(tx, control),
+        );
+      out.push({ ...base, merge: true, first: first.relation, second: null, difference: first.difference });
+      continue;
+    }
     // The review model reads the pair the other way round.
     const second = await judgeStories("groupReview", other, anchor);
     await completeReceipt(sql, second.receiptId);
@@ -1082,6 +1213,275 @@ export async function linkRelatedStories(): Promise<{ added: number }> {
 }
 
 // ---------------------------------------------------------------------------
+// Re-merge
+// ---------------------------------------------------------------------------
+
+/** Facts founded this recently that still hold exactly one report get another pairwise look. */
+export const REMERGE_WINDOW_HOURS = 72;
+/** A partner fact needs a report at least this similar to the single report (cosine, or the lexical stand-in). */
+export const REMERGE_MIN_COSINE = CONFIRM_BELOW_COSINE;
+/** Model calls one run may start; answers reused from earlier receipts give back their slot. */
+export const REMERGE_MAX_CALLS = 20;
+/** Pairs one run looks at, reused answers included, so a run stays short. */
+const REMERGE_MAX_PAIRS = 200;
+const REMERGE_VERSION = "single-report-remerge-v1";
+
+type SingleReport = ReportMembership & { fact_id: number; story_id: number; fact_title: string; material_revision: number };
+
+export interface RemergeResult {
+  /** Recent facts with exactly one current report. */
+  singles: number;
+  /** Pairs judged (a reused answer included). */
+  pairs: number;
+  /** Model calls started (reused answers excluded). */
+  calls: number;
+  merged: Array<{ articleId: string; fromFactId: number; intoFactId: number }>;
+  /** Merges decided by the duplicate rule (certainDuplicate), with no model call. */
+  ruled?: number;
+  paused?: boolean;
+  /** Why the run stopped early: the call bound, or a waiting model route, budget or control. */
+  stopped?: string;
+  failed?: number;
+  error?: string;
+}
+
+const waitingError = (error: unknown) =>
+  shutdownSignal.signal.aborted ||
+  error instanceof ModelPostReceiptGuardError ||
+  error instanceof BudgetExceededError ||
+  error instanceof ReceiptBusyError ||
+  error instanceof ReceiptUnknownError ||
+  error instanceof RuntimeControlPaused ||
+  error instanceof RuntimeControlStale ||
+  isModelRouteWaiting(error);
+
+/**
+ * Recent facts that still hold one report: the other outlets of the same occurrence were often judged
+ * apart (a strict gate, a candidate missing from that day's recall). Each is paired with the most
+ * similar facts of the recall window (REMERGE_MIN_COSINE, no conflicting country) and the normal pair
+ * judgement decides; on SAME_OCCURRENCE the single report moves into the other fact (a single into a
+ * single: the later fact into the earlier), and a story it leaves empty redirects there. Bounded by
+ * REMERGE_MAX_CALLS; manual memberships, overrides and pending regroups are left alone. The look can wait, so
+ * during the provider's peak hours only rule merges run and pairs that need the judge wait for an off-peak run
+ * (half price; the 72-hour window is far longer than a peak window).
+ */
+export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun?: boolean; now?: Date } = {}): Promise<RemergeResult> {
+  const peak = isProviderPeak(opts.now ?? new Date());
+  const maxCalls = peak ? 0 : Math.max(0, opts.maxCalls ?? REMERGE_MAX_CALLS);
+  const out: RemergeResult = { singles: 0, pairs: 0, calls: 0, merged: [] };
+  let control: RuntimeControlSnapshot;
+  try {
+    await requireRuntimeRunning("news", ["processing", "publication"]);
+    control = await runtimeControlSnapshot("news", ["processing", "publication"]);
+  } catch (error) {
+    if (error instanceof RuntimeControlPaused) return { ...out, paused: true };
+    throw error;
+  }
+  const singles: SingleReport[] = await qualifiedReports(
+    await sql<(ReportMembership & { fact_id: number; story_id: number; fact_title: string })[]>`
+      SELECT fa.article_id, fa.input_revision, fa.manual, f.id AS fact_id, f.story_id, f.title AS fact_title
+      FROM facts f
+      JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL AND st.origin <> 'manual'
+      JOIN fact_articles fa ON fa.fact_id = f.id AND fa.role IN ('primary', 'report') AND NOT fa.manual
+      WHERE f.created_at > now() - make_interval(hours => ${REMERGE_WINDOW_HOURS}) AND NOT f.manual
+        AND NOT EXISTS (SELECT 1 FROM fact_articles o WHERE o.fact_id = f.id AND o.role IN ('primary', 'report') AND o.article_id <> fa.article_id)
+        AND NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = fa.article_id)
+        AND NOT EXISTS (SELECT 1 FROM grouping_overrides o WHERE o.article_id = fa.article_id)
+      ORDER BY f.id`,
+  );
+  out.singles = singles.length;
+  if (!singles.length) return out;
+  const pool = await recallPool();
+  const ids = [...new Set([...singles.map((s) => s.article_id), ...pool.map((r) => r.article_id)])];
+  const texts = await reportTexts(ids);
+  const vectors = embeddingsAvailable()
+    ? await vectorsFor(ids.map((id) => ({ id, text: texts.get(id) ?? "" })).filter((item) => item.text))
+    : new Map<string, Float32Array>();
+  const similarity = (x: string, y: string) => {
+    const a = vectors.get(x),
+      b = vectors.get(y);
+    return a && b && a.length === b.length ? cosine32(a, b) : lexicalSimilarity(texts.get(x) ?? "", texts.get(y) ?? "");
+  };
+  const singleFacts = new Set(singles.map((s) => s.fact_id));
+  type Partner = { fact_id: number; story_id: number; fact_title: string; article_id: string; material_revision: number; score: number };
+  const pairs: Array<{ single: SingleReport; partner: Partner }> = [];
+  for (const single of singles) {
+    const best = new Map<number, Partner>();
+    for (const row of pool) {
+      // A single meets an earlier single from its own side only: the later fact moves into the earlier.
+      if (row.fact_id === single.fact_id || row.article_id === single.article_id || (singleFacts.has(row.fact_id) && row.fact_id > single.fact_id)) continue;
+      const score = similarity(single.article_id, row.article_id);
+      if (score < REMERGE_MIN_COSINE || (best.get(row.fact_id)?.score ?? -1) >= score) continue;
+      best.set(row.fact_id, { ...row, score });
+    }
+    for (const partner of best.values()) pairs.push({ single, partner });
+  }
+  if (!pairs.length) return out;
+  const places = new Map(
+    (
+      await newsRelationJurisdictions([
+        ...new Map(
+          pairs.flatMap((p) => [
+            [p.single.article_id, { id: p.single.article_id, revision: p.single.material_revision }],
+            [p.partner.article_id, { id: p.partner.article_id, revision: p.partner.material_revision }],
+          ]),
+        ).values(),
+      ])
+    ).map((row) => [row.id, row.jurisdiction]),
+  );
+  const ordered = pairs
+    .filter((p) => !jurisdictionsConflict(places.get(p.single.article_id), places.get(p.partner.article_id)))
+    .sort((x, y) => y.partner.score - x.partner.score || x.single.fact_id - y.single.fact_id || x.partner.fact_id - y.partner.fact_id)
+    .slice(0, REMERGE_MAX_PAIRS);
+  const moved = new Set<number>(),
+    grown = new Set<number>();
+  for (const { single, partner } of ordered) {
+    if (moved.has(single.fact_id) || grown.has(single.fact_id) || moved.has(partner.fact_id)) continue;
+    try {
+      const [own] = await candidateViews([{ factId: single.fact_id, storyId: single.story_id, factTitle: single.fact_title, score: 1 }]);
+      const [target] = await candidateViews(
+        [{ factId: partner.fact_id, storyId: partner.story_id, factTitle: partner.fact_title, score: partner.score }],
+        undefined,
+        single.article_id,
+      );
+      if (own?.members !== 1 || own.report.articleId !== single.article_id || !target) continue;
+      out.pairs++;
+      // Certain duplicates (same title or document, same day, near-identical) move without a model call.
+      if (certainDuplicate(partner.score, own.report, target.report)) {
+        const rule = { relation: "SAME_OCCURRENCE" as Relation, confidence: 1, receiptId: null, score: partner.score };
+        if (opts.dryRun || (await moveSingleReport(single, own, target, rule, control))) {
+          out.merged.push({ articleId: single.article_id, fromFactId: single.fact_id, intoFactId: target.factId });
+          out.ruled = (out.ruled ?? 0) + 1;
+          moved.add(single.fact_id);
+          grown.add(target.factId);
+        }
+        continue;
+      }
+      // The call bound holds back only pairs that need the judge; rule merges above still go through.
+      if (out.calls >= maxCalls) {
+        out.stopped = peak ? "peak-hours" : "call-limit";
+        out.pairs--;
+        continue;
+      }
+      out.calls++;
+      const verdict = await confirmMerge(single.article_id, own.report, target);
+      if (verdict.reused) out.calls--;
+      const same = verdict.relation === "SAME_OCCURRENCE" && firmlyTied(verdict.relation, verdict.confidence);
+      if (!same || opts.dryRun) await completeReceipt(sql, verdict.receiptId);
+      if (same && (opts.dryRun || (await moveSingleReport(single, own, target, { ...verdict, score: partner.score }, control)))) {
+        out.merged.push({ articleId: single.article_id, fromFactId: single.fact_id, intoFactId: target.factId });
+        moved.add(single.fact_id);
+        grown.add(target.factId);
+      }
+    } catch (error) {
+      if (waitingError(error)) {
+        out.stopped = String(error).slice(0, 300);
+        break;
+      }
+      // One pair's changed material or permission does not stop the others.
+      out.failed = (out.failed ?? 0) + 1;
+      out.error ??= String(error).slice(0, 300);
+    }
+  }
+  return out;
+}
+
+/** Moves the single report into the target fact when nothing changed since the judgement; false otherwise. */
+async function moveSingleReport(
+  single: SingleReport,
+  own: CandidateView,
+  target: CandidateView,
+  verdict: { relation: Relation; confidence: number; receiptId: number | null; score: number },
+  control: RuntimeControlSnapshot,
+): Promise<boolean> {
+  const moved = await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+    await assertRuntimeControl(tx, control);
+    try {
+      await assertReportInputs([own.report, target.report], tx);
+    } catch (error) {
+      if (error instanceof GroupingSupersededError) return null;
+      throw error;
+    }
+    const rows = await tx<{ article_id: string; role: string; input_revision: number | null; manual: boolean; created_at: Date }[]>`
+      SELECT fa.article_id, fa.role, fa.input_revision, fa.manual, fa.created_at FROM fact_articles fa
+      JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id
+      WHERE fa.fact_id = ${single.fact_id} AND f.story_id = ${single.story_id} AND fa.role IN ('primary', 'report')
+        AND NOT f.manual AND st.merged_into IS NULL AND st.origin <> 'manual'`;
+    const row = rows[0];
+    if (rows.length !== 1 || !row || row.article_id !== single.article_id || row.manual || row.input_revision !== own.report.revision) return null;
+    const [blocked] = await tx`SELECT 1 FROM regroup_pending WHERE article_id = ${single.article_id}
+      UNION ALL SELECT 1 FROM grouping_overrides WHERE article_id = ${single.article_id} LIMIT 1`;
+    if (blocked) return null;
+    const [live] = await tx`SELECT 1 FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id
+      WHERE fa.fact_id = ${target.factId} AND fa.article_id = ${target.report.articleId!} AND f.story_id = ${target.storyId}
+        AND fa.role IN ('primary', 'report') AND st.merged_into IS NULL`;
+    if (!live) return null;
+    await captureEventWithdrawal(tx, single.article_id);
+    const [primary] = await tx`SELECT 1 FROM fact_articles WHERE fact_id = ${target.factId} AND role = 'primary'`;
+    await tx`DELETE FROM fact_articles WHERE fact_id = ${single.fact_id} AND article_id = ${single.article_id}`;
+    await tx`INSERT INTO fact_articles(fact_id, article_id, role, created_at, input_revision)
+      VALUES(${target.factId}, ${single.article_id}, ${primary ? "report" : row.role}, ${row.created_at}, ${row.input_revision})
+      ON CONFLICT(fact_id, article_id) DO NOTHING`;
+    let emptied = false;
+    if (single.story_id !== target.storyId) {
+      const [signal] = await tx<{ source_id: string; kind: "editorial" | "signal"; observed_at: Date }[]>`
+        DELETE FROM story_signals WHERE story_id = ${single.story_id} AND article_id = ${single.article_id} RETURNING source_id, kind, observed_at`;
+      if (signal) await recordSignal(tx, target.storyId, single.article_id, { id: signal.source_id }, signal.kind, signal.observed_at);
+      const [left] = await tx`SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id
+        WHERE f.story_id = ${single.story_id} AND fa.role IN ('primary', 'report') LIMIT 1`;
+      emptied = !left;
+      if (left)
+        await enqueue(
+          QUEUES.digest,
+          { lane: "news", storyId: single.story_id, afterCorrection: true },
+          { singletonKey: `story:${single.story_id}:correction` },
+          tx,
+        );
+    }
+    await recordDecision(
+      tx,
+      single.article_id,
+      target.factId,
+      target.storyId,
+      "remerge",
+      [{ id: target.factId, score: Math.round(verdict.score * 1000) / 1000, relation: verdict.relation, confidence: verdict.confidence }],
+      verdict.receiptId,
+      {
+        revision: own.report.revision!,
+        manifest: {
+          version: 1,
+          recipe: RELATE_PROMPT_VERSION,
+          remerge: {
+            version: REMERGE_VERSION,
+            ...(verdict.receiptId === null ? { rule: "certain-duplicate" } : {}),
+            fromFactId: single.fact_id,
+            fromStoryId: single.story_id,
+            candidateArticleId: target.report.articleId,
+            candidateRevision: target.report.revision,
+          },
+          materialRevision: own.report.revision,
+        },
+      },
+    );
+    await invalidateHistoricalBackgrounds([single.article_id], tx);
+    await enqueue(QUEUES.digest, { lane: "news", storyId: target.storyId }, { singletonKey: `story:${target.storyId}`, startAfter: 60 }, tx);
+    if (verdict.receiptId !== null) await completeReceipt(tx, verdict.receiptId);
+    await publishArticleTx(tx, single.article_id);
+    return { emptied };
+  });
+  if (!moved) {
+    if (verdict.receiptId !== null) await completeReceipt(sql, verdict.receiptId);
+    return false;
+  }
+  if (moved.emptied)
+    await mergeStoryInto(single.story_id, target.storyId, `重新比对为同一次发生：${own.report.title}｜${target.report.title}`, "grouping", (tx) =>
+      assertRuntimeControl(tx, control),
+    );
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Entry
 // ---------------------------------------------------------------------------
 
@@ -1098,7 +1498,9 @@ export interface GroupResult {
     | "skipped"
     | "signal"
     | "signal-unmatched"
-    | "historical";
+    | "historical"
+    /** A late-discovered report attached to an existing fact as one more report (no heat, no pick). */
+    | "historical-attached";
   factId?: number;
   storyId?: number;
   /** Stories compared because this report tied them together (see consolidate). */
@@ -1308,10 +1710,20 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   const an = await readGroupingAnalysis(articleId, a.revision);
   if (!an) throw new GroupingSupersededError("当前材料仍在等待内容分析");
   const analysisHash = groupingAnalysisHash(an);
-  if (historical && !an.selected && !(await groupingSelectionCandidate(articleId, an.id)))
-    return finishGrouping(articleId, input, { addsValue: true, reason: "历史资料按原文时间归档" }, { verdict: "historical" }, analysisHash);
   const parsed = z.object({ scope: z.enum(["single", "composite", "unknown"]).catch("unknown"), fact: FactFrame.optional() }).safeParse(an.output);
-  let composite = parsed.success && parsed.data.scope === "composite";
+  const declaredComposite = parsed.success && parsed.data.scope === "composite";
+  // A named document (《…》) is recalled over a long window; a roundup names many and identifies none.
+  const docKeys = declaredComposite ? [] : documentKeys([an.title_zh, a.title, parsed.success ? parsed.data.fact?.title : null]);
+  // History that is no archive nomination is only compared with what it may attach to: the same document,
+  // or near-identical content. Nothing to attach to: archived by source time without a model call.
+  const archiveOnly = historical && !an.selected && !(await groupingSelectionCandidate(articleId, an.id));
+  const attachRecall =
+    archiveOnly && an.relevance === "pass" && !declaredComposite
+      ? await recallHistoricalAttach(articleId, reportText(an.title_zh || a.title, an.summary_zh), docKeys)
+      : [];
+  if (archiveOnly && !attachRecall.length)
+    return finishGrouping(articleId, input, { addsValue: true, reason: "历史资料按原文时间归档" }, { verdict: "historical" }, analysisHash);
+  let composite = declaredComposite;
   let unresolved = false;
   const frame = parsed.success && !composite ? (parsed.data.fact ?? null) : null;
   const raw = an.output && typeof an.output === "object" ? (an.output as Record<string, unknown>) : {};
@@ -1339,16 +1751,26 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   const exact = sameUrl ? [{ factId: sameUrl.fact_id, storyId: sameUrl.story_id, factTitle: sameUrl.fact_title, score: 1 }] : [];
   const exactViews = await candidateViews(exact, undefined, articleId);
   const selectedSameUrl = exactViews.some((c) => c.selected);
-  const recalled = selectedSameUrl ? exact : await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS);
+  const recalled = selectedSameUrl
+    ? exact
+    : archiveOnly
+      ? attachRecall
+      : mergeRecalled(
+          await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS),
+          composite ? [] : await recallDocumentFacts(articleId, docKeys, reportText(title, an.summary_zh)),
+        );
   if (sameUrl && !recalled.some((r) => r.factId === sameUrl.fact_id)) recalled.unshift(exact[0]!);
-  const cands = selectedSameUrl ? exactViews : await candidateViews(recalled, undefined, articleId);
-  const reading = selectedSameUrl
-    ? []
-    : await recallSelectedBackground(
-        articleId,
-        reportText(title, an.summary_zh),
-        cands.map((c) => c.factId),
-      );
+  // Recall order (same URL first, then similarity) decides which candidates are judged and which carry full text.
+  const cands = selectedSameUrl ? exactViews : (await candidateViews(recalled, undefined, articleId)).slice(0, GROUP_ARTICLE_CANDIDATES);
+  // An archive that is no nomination cannot become a pick: no reading context to compare value with.
+  const reading =
+    selectedSameUrl || archiveOnly
+      ? []
+      : await recallSelectedBackground(
+          articleId,
+          reportText(title, an.summary_zh),
+          cands.map((c) => c.factId),
+        );
   let verdicts = new Map<number, Verdict>(),
     selection = NO_SELECTED_COVERAGE;
   const receipts: number[] = [];
@@ -1421,10 +1843,27 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       if (peers.length && !peers.some((c) => c.score >= CONFIRM_BELOW_COSINE || reviewedSameOccurrence.has(c.factId))) await reviewCandidate(peers[0]!);
     }
   }
+  // History attaches as a report of an existing fact it is firmly the same occurrence as (a repost of
+  // the same document, the same page); it never founds a fact or story, never adds heat and is no pick.
+  let attachTo: { factId: number; storyId: number } | null = null;
+  if (historical && !composite && !unresolved) {
+    if (sameUrl) attachTo = { factId: sameUrl.fact_id, storyId: sameUrl.story_id };
+    else {
+      const [pick] = sameOccurrenceForGrouping(cands, verdicts).filter((c) => firmlyTied("SAME_OCCURRENCE", verdicts.get(c.factId)?.confidence));
+      if (pick) {
+        const confirmed =
+          pick.score >= CONFIRM_BELOW_COSINE ||
+          ((await reviewCandidate(pick)) === "SAME_OCCURRENCE" && firmlyTied("SAME_OCCURRENCE", verdicts.get(pick.factId)?.confidence));
+        if (confirmed) attachTo = { factId: pick.factId, storyId: pick.storyId };
+      }
+    }
+  }
   if (!composite && !unresolved && factId && cands.some((c) => c.factId === factId && c.selected))
     selection = { addsValue: true, reason: "同一新闻的代表报道候选" };
+  if (archiveOnly) selection = { addsValue: true, reason: "历史资料按原文时间归档" };
   if (historical && (selectedSameUrl || sameOccurrence(cands, verdicts).some((candidate) => candidate.selected)))
     selection = { addsValue: false, reason: "同一次发生已有公开精选，历史资料按原文时间归档" };
+  if (attachTo) selection = { addsValue: false, reason: "历史资料并入已有事件，按原文时间归档，不作为新的精选" };
   const decisionCandidates: DecisionCandidate[] = cands.map((c) => ({
     id: c.factId,
     score: Math.round(c.score * 1000) / 1000,
@@ -1449,6 +1888,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       !historical && !composite && !unresolved && convergingFacts.length > 1 && factId === convergingFacts[0]
         ? { version: FACT_CONVERGENCE_VERSION, storyId, canonicalFactId: factId, factIds: convergingFacts }
         : null,
+    historicalAttach: attachTo,
     materialRevision: a.revision,
     analysisHash,
     scope: unresolved ? "unknown" : composite ? "composite" : "single",
@@ -1505,6 +1945,14 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
         await tx`INSERT INTO fact_articles(fact_id,article_id,role,created_at,input_revision)
           VALUES(${candidate.factId},${articleId},'mention',${observedAt},${a.revision}) ON CONFLICT(fact_id,article_id) DO NOTHING`;
       }
+      if (attachTo) {
+        const [live] = await tx`SELECT 1 FROM facts f JOIN stories st ON st.id=f.story_id
+          WHERE f.id=${attachTo.factId} AND f.story_id=${attachTo.storyId} AND st.merged_into IS NULL`;
+        if (!live) throw new GroupingSupersededError("历史资料要并入的事件已经变化");
+        // A report of the fact without story_signals: history adds no heat and does not move the story's time.
+        await tx`INSERT INTO fact_articles(fact_id,article_id,role,created_at,input_revision)
+          VALUES(${attachTo.factId},${articleId},'report',${observedAt},${a.revision}) ON CONFLICT(fact_id,article_id) DO NOTHING`;
+      }
       await captureEventWithdrawal(tx, articleId);
       for (const oldStory of left) {
         await tx`UPDATE stories SET digest=NULL,latest=NULL,digest_updated_at=NULL,version=version+1,updated_at=now()
@@ -1514,9 +1962,9 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       await recordDecision(
         tx,
         articleId,
-        null,
-        null,
-        historical ? "historical" : unresolved ? "standalone" : "roundup",
+        attachTo?.factId ?? null,
+        attachTo?.storyId ?? null,
+        attachTo ? "historical-attached" : historical ? "historical" : unresolved ? "standalone" : "roundup",
         decisionCandidates,
         receipts[0] ?? null,
         {
@@ -1527,7 +1975,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       await finishGroupingTx(tx, articleId, input, selection, receipts[0] ?? null);
       for (const id of receipts) await completeReceipt(tx, id);
       await publishArticleTx(tx, articleId);
-      return { manual: null, factId: null, storyId: null };
+      return { manual: null, factId: attachTo?.factId ?? null, storyId: attachTo?.storyId ?? null };
     }
     const story = storyId ?? (await createStory(tx, newTitle, observedAt));
     const fact = factId ?? (await createFact(tx, story, newTitle, frame, observedAt));
@@ -1546,6 +1994,12 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
     return { manual: null, factId: fact, storyId: story };
   });
   if (written.manual) return { verdict: "manual", factId: written.manual.factId };
+  if (historical && attachTo) {
+    const attached: GroupResult = { verdict: "historical-attached", factId: written.factId!, storyId: written.storyId! };
+    const redirected = await redirectEmptiedStories(articleId, left, written.storyId!, publication);
+    if (redirected.length) attached.redirected = redirected;
+    return attached;
+  }
   if (historical) return { verdict: "historical" };
   if (composite || unresolved) return { verdict: unresolved ? "standalone" : "roundup" };
   const result: GroupResult = { verdict, factId: written.factId!, storyId: written.storyId! };

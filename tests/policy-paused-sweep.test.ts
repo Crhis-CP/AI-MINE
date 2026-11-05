@@ -11,6 +11,8 @@ import { POLICY_STAGES, duePolicyWorkflows, readPolicyWorkflow } from "../module
 import { currentPolicyProcessingRecipe } from "../modules/policy/backend/domain/recipe.ts";
 import { fixture } from "./policy-automation-fixture.ts";
 
+// Vision is explicit on top of the model stages; these control tests cover all four model-side stages.
+process.env.POLICY_VISION_ENABLED = "true";
 const sweep = () => recordRun("policy.pipeline.sweep", sweepPolicyMaterials);
 async function hold(switches: RuntimeSwitch[], action: "pause" | "resume" = "pause") {
   await changeSystemLaneControl({

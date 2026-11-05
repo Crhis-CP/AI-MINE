@@ -1,5 +1,4 @@
 // Run after `npm run build -w @amp/web`. Real production server/router, synthetic HTTP API only.
-import { SITE } from "@amp/industry/site";
 import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -26,6 +25,11 @@ let deadline: number;
 let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
+let metaWithoutFilings = false;
+// Synthetic, obviously fake numbers: the real ones are deployment settings and never live in the repository.
+const FILINGS_FIXTURE = { icp: "京ICP备00000000号-1", publicSecurity: { text: "京公网安备00000000000000号", code: "00000000000000" }, newsLicense: null };
+/** The desktop header's main navigation (content sections and the “更多” menu), in document order. */
+const siteNav = (html: string) => html.slice(html.indexOf("data-site-nav"), html.indexOf("</nav>", html.indexOf("data-site-nav")));
 let privatePageFixtures = false;
 let usagePriceJourney: { record: ReturnType<typeof privateSchemas.UsagePriceRecord.parse>; saved: unknown[] } | null = null;
 let coverageUnavailable = false;
@@ -161,7 +165,7 @@ const siteInformationFixture = publicSchemas.SiteInformation.parse({
 const protectedSiteFixture = {
   siteUrl: "https://public.preview.test",
   siteUrlOrigin: "runtime",
-  icp: { configured: true, origin: "build", footerDisplayed: true, aboutDisplayed: false },
+  icp: { configured: true, origin: "runtime", footerDisplayed: true, aboutDisplayed: false },
   publicSecurity: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
   newsLicense: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
   newsLicenseValidUntil: null,
@@ -597,7 +601,8 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/information") return res.end(JSON.stringify(siteInformationFixture));
   if (url.pathname === "/api/site/meta") {
     metaCalls++;
-    const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
+    const meta = metaWithoutFilings ? { changelogVersion: "2026-09-28T12:00" } : { changelogVersion: "2026-09-28T12:00", filings: FILINGS_FIXTURE };
+    const respond = () => res.end(JSON.stringify(meta));
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
   }
   if (url.pathname === "/api/site/stats") {
@@ -757,6 +762,20 @@ test("public route subsets produce the same complete navigation data; filters st
   assert.notEqual(body, answers[0]);
 });
 
+test("old category links (ADR-0031) move to the successor class; company_project stays and filters both", async () => {
+  for (const [from, to] of [
+    ["/all?category=safety_incident&tag=%E9%93%9C", "/all?category=safety_environment&tag=%E9%93%9C"],
+    ["/?category=supply_trade_controls", "/?category=policy_regulation"],
+    ["/all?category=esg_community_labor", "/all?category=safety_environment"],
+  ] as const) {
+    const res = await fetch(origin + from, { redirect: "manual" });
+    assert.equal(res.status, 301, from);
+    assert.equal(new URL(res.headers.get("location")!, origin).pathname + new URL(res.headers.get("location")!, origin).search, to);
+  }
+  for (const path of ["/?category=company_project", "/all?category=company_project", "/all?category=events_opinion"])
+    assert.equal((await fetch(origin + path, { redirect: "manual" })).status, 200, path);
+});
+
 test("INV-34 public, missing and private pages authorize only this response's nonce", async () => {
   for (const pathname of ["/", "/all", "/about", "/items/footer-page", "/does-not-exist", "/admin/login"]) {
     const get = (method = "GET") =>
@@ -788,9 +807,8 @@ test("INV-34 public, missing and private pages authorize only this response's no
   }
 });
 
-test("every public page carries the ICP filing number in the phone footer; the 更多 page keeps its own", async () => {
-  const icp = SITE.icp!;
-  assert.ok(icp, "the filing number is on file");
+test("every public page carries the configured filing numbers in the phone footer; the 更多 page keeps its own", async () => {
+  const icp = FILINGS_FIXTURE.icp;
   const phoneFooters = (html: string) => html.match(/<footer[^>]*lg:hidden[^>]*>[\s\S]*?<\/footer>/g) ?? [];
   for (const path of ["/", "/all", "/about", "/items/footer-page"]) {
     const res = await fetch(origin + path);
@@ -816,7 +834,21 @@ test("every public page carries the ICP filing number in the phone footer; the �
   await slash.text();
   const more = await (await fetch(`${origin}/more`)).text();
   assert.equal(phoneFooters(more).length, 0, "the 更多 page has its own footer instead");
-  assert.equal(more.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
+  // Count rendered markup only: the numbers also travel in the layout's hydration data, which is public too.
+  const moreMarkup = more.replace(/<script\b[\s\S]*?<\/script>/g, "");
+  assert.equal(moreMarkup.split(icp).length - 1, 2, "once in the desktop footer, once in the 更多 page's own footer");
+  assert.ok(more.includes(`code=${FILINGS_FIXTURE.publicSecurity.code}`), "the public-security number links to its query page");
+  // An API that reports no numbers (unset, or an older release during a rolling update) leaves the footer empty, never invented.
+  metaWithoutFilings = true;
+  try {
+    const home = await fetch(`${origin}/`);
+    assert.equal(home.status, 200);
+    const html = await home.text();
+    assert.equal(phoneFooters(html).length, 0);
+    assert.ok(!html.includes(icp) && !html.includes(FILINGS_FIXTURE.publicSecurity.text));
+  } finally {
+    metaWithoutFilings = false;
+  }
 });
 
 test("HTML and navigation preserve current reading state; cookies do not personalize public results", async () => {
@@ -1150,23 +1182,39 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
     html = await res.text();
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
-  const table = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
-  const text = table.replace(/<[^>]+>/g, "");
-  assert.match(text, /品种报价价格变化规格/);
+  // One card per metal: the headline quote (most frequent source with a price) up front, the others behind “另有 N 个报价”.
+  const grid = html.slice(html.indexOf("data-metal-grid"), html.indexOf('id="metals-sources"'));
+  const text = grid.replace(/<[^>]+>/g, "");
+  const card = (key: string) => {
+    const start = grid.indexOf(`data-metal="${key}"`);
+    return grid.slice(start, grid.indexOf("</li>", grid.indexOf("</details>", start)));
+  };
+  assert.ok(!html.includes("<table"));
   assert.ok(text.includes("对比 合成跨期基期"));
   assert.doesNotMatch(text, /较上周|较上一旬|较上月|较上一交易日|紧挨/);
-  assert.match(table, /scope="rowgroup" rowspan="2"/i);
   for (const value of ["合成甲", "合成乙", "合成报价 a", "甲", "乙", "合成规格", "108,770.0", "64.60", "+1.0%", "−1.6%", "0.0%", "暂缺"])
     assert.ok(text.includes(value), value);
-  assert.match(table, /text-hot[^>]*>\+1.0%/);
-  assert.match(table, /text-ok[^>]*>−1.6%/);
-  assert.match(table, /text-ink-3[^>]*>0.0%/);
-  assert.match(table, /合成报价期/);
-  assert.match(table, /对比/);
-  assert.doesNotMatch(table, /2026-/);
-  assert.match(html, /href="#n1"[^>]*aria-label="见说明第 1 条"/);
+  const first = card("first"),
+    second = card("second");
+  // The daily quote leads; the monthly one is listed inside the card.
+  assert.ok(first.indexOf("108,770.0") < first.indexOf("<details"), "the daily quote is the headline");
+  assert.ok(first.indexOf("64.60") > first.indexOf("<details"), "the monthly quote is among the other quotes");
+  assert.match(first.replace(/<[^>]+>/g, ""), /另有 1 个报价/);
+  assert.ok(second.indexOf("200.0") < second.indexOf("<details") && second.indexOf("暂缺") > second.indexOf("<details"));
+  assert.match(grid, /text-hot[^>]*>\+1.0%/);
+  assert.match(grid, /text-ok[^>]*>−1.6%/);
+  assert.match(grid, /text-ink-3[^>]*>0.0%/);
+  assert.match(grid, /合成报价期/);
+  assert.doesNotMatch(grid, /2026-/);
+  // Footnotes travel with their quote (source, spec and the linked note) instead of numbered references.
+  assert.ok(!html.includes('href="#n1"'));
+  assert.match(first.replace(/<[^>]+>/g, ""), /来源：合成来源甲[\s\S]*合成规格[\s\S]*合成脚注见合成许可/);
+  assert.match(first, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
   assert.match(html, /id="n1"/);
-  assert.match(html, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
+  // Attribution stays in view: every source with its release and the linked note it carries.
+  const sources = html.slice(html.indexOf('id="metals-sources"'), html.indexOf('id="metals-notes"'));
+  assert.match(sources, /href="https:\/\/source.invalid\/release"[^>]*>合成来源甲/);
+  assert.match(sources, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
   assert.ok(html.includes("合成旧期") && html.includes("合成普通说明"));
   assert.ok(!html.slice(html.indexOf("data-metals"), html.indexOf("</article>")).includes("{link}"));
   const links = [...html.matchAll(/<a href="(https:\/\/source.invalid\/official-\d+)"[^>]*>([\s\S]*?)<\/a>/g)];
@@ -1184,6 +1232,7 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
       assert.equal(response.status, mode === "error" ? 503 : 200);
       if (mode === "stale") {
         assert.ok(body.includes("较早期数据"));
+        assert.ok(body.includes("更新延迟"), "a stale source is marked as delayed in the source list");
         assert.ok(!body.includes("数据已陈旧"));
         assert.ok(body.includes("108,770.0"));
       }
@@ -1207,18 +1256,18 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
     priceMode = "full";
   }
   // The installed price module owns its phone tab; the personal tab must not also light up.
-  assert.match(html, /<aside[\s\S]*href="\/metals"[\s\S]*<\/aside>/);
+  assert.match(siteNav(html), /href="\/metals"/);
   const tabbar = html.slice(html.indexOf('aria-label="底部导航"'));
   const phoneTabs = tabbar.slice(0, tabbar.indexOf("</nav>"));
   assert.match(phoneTabs, /<a(?=[^>]*href="\/metals")(?=[^>]*aria-current="page")[^>]*>/);
   assert.equal([...phoneTabs.matchAll(/aria-current="page"/g)].length, 1);
-  // The “更多” page lists it in its own body, not only through the sidebar.
+  // The “更多” page lists it in its own body, not only through the desktop header.
   const more = await (await fetch(`${origin}/more`)).text();
   const body = more.slice(more.indexOf('id="main"'), more.indexOf('aria-label="底部导航"'));
   assert.match(body, /href="\/metals"[^>]*>[\s\S]{0,400}金属价格/);
-  // Right below 收藏, in the sidebar and on the “更多” page (Owner 2026-10-05).
+  // Right below 收藏, in the desktop header and on the “更多” page (Owner 2026-10-05).
   const hrefs = (s: string) => [...s.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-  for (const links of [hrefs(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))), hrefs(body)]) {
+  for (const links of [hrefs(siteNav(html)), hrefs(body)]) {
     assert.ok(links.includes("/starred"), links.join(" "));
     assert.equal(links[links.indexOf("/starred") + 1], "/metals", links.join(" "));
   }
@@ -1229,11 +1278,20 @@ test("policy pages distinguish basic facts, complete interpretations, unknown da
     const list = await fetch(`${origin}/policies`);
     assert.equal(list.status, 200);
     assert.match(await list.text(), /目标国家|跨国与国际组织/);
+    // The drill-down levels are plain addresses: themes of one jurisdiction, then the documents (“all” never reaches the API).
+    const themesPage = await fetch(`${origin}/policies?jurisdiction=AR`);
+    assert.equal(themesPage.status, 200);
+    const themesHtml = await themesPage.text();
+    assert.match(themesHtml, /选择经营主题/);
+    assert.match(themesHtml, /href="\/policies\?jurisdiction=AR&amp;theme=tax_finance"/);
+    const documents = await fetch(`${origin}/policies?jurisdiction=AR&theme=all`);
+    assert.equal(documents.status, 200);
+    assert.match(await documents.text(), /文书性质/);
     const basic = await fetch(`${origin}/policies/policy-fixture`);
     assert.equal(basic.status, 200);
     const html = await basic.text();
     assert.match(html, /决定性附件尚未取得，完整解读不可用/);
-    assert.match(html, /来源发布日期：/);
+    assert.match(html, /来源发布日期<\/dt>/);
     assert.doesNotMatch(html, /id="analysis"/);
     const report = await fetch(`${origin}/policies/reports/report-fixture`);
     assert.equal(report.status, 200);
@@ -1263,7 +1321,7 @@ test("installed policy pages retain menu positions and mark thread pages as part
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /合成政策脉络/);
-  const sidebar = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+  const sidebar = siteNav(html);
   assert.match(sidebar, /<a(?=[^>]*href="\/policies")(?=[^>]*aria-current="page")[^>]*>/);
   const links = [...sidebar.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(links[links.indexOf("/daily") + 1], "/policies");

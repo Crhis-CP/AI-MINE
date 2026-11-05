@@ -1,5 +1,5 @@
 import { sql } from "../db.ts";
-import type { TextMatchValues, ReadMatcherValues, SearchScoreValues } from "./mentions.ts";
+import type { TextMatchValues, SearchScoreValues } from "./mentions.ts";
 
 /** Custom plans fold the bound guard flag, preserving direct trigram scans when no guarded character exists. */
 export function publicationTextMatches(values: TextMatchValues) {
@@ -28,9 +28,6 @@ export function poolDirectTextMatches(values: TextMatchValues) {
     OR CASE WHEN ps.direct IS NULL THEN NULL ELSE EXISTS (SELECT 1 FROM unnest(${values.guardRemovals}::text[],${values.guardLikes}::text[]) AS guards(removal,pattern)
       WHERE regexp_replace(ps.direct,guards.removal,'','gi') ILIKE guards.pattern) END)
     ELSE ps.direct ILIKE ANY(${values.likes}::text[]) OR ps.direct ~* ANY(${values.latin}::text[]) END)`;
-}
-export function topicTextMatches(values: ReadMatcherValues) {
-  return sql`(p.tags && ${values.topicTags ?? []}::text[] OR ${publicationTextMatches(values.topicText)})`;
 }
 export function searchPartScore(values: SearchScoreValues) {
   return sql`(CASE WHEN ps.direct LIKE ${values.term0} THEN 3 ELSE 0 END) + (CASE WHEN ps.body LIKE ${values.term0} THEN 1 ELSE 0 END)

@@ -559,6 +559,24 @@
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
     },
+    "policy.revision_structures": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.revision_provisions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
     "publication.policy_publication_control": {
       "module": "publication",
       "access": "business",
@@ -662,6 +680,24 @@
       "module": "publication",
       "access": "business",
       "publicColumns": ["id", "anchor_policy_id", "created_at"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.policy_provision_sets": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["native_revision_id", "recipe", "numbering", "provisions_hash", "provision_count", "projected_at"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.policy_revision_provisions": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["native_revision_id", "recipe", "ordinal", "provision_key", "label", "path", "heading", "body", "sha256"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
@@ -1308,6 +1344,15 @@
       "module": "publication",
       "access": "business",
       "publicColumns": ["source", "checked_at", "ok", "changed"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.metal_price_holds": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["series_key", "period_start", "period_label", "status"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]

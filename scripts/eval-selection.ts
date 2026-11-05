@@ -1,4 +1,5 @@
 import { prepareEvaluationInput } from "@amp/backend/editorial/analyze";
+import { SELECTION } from "@amp/industry/selection";
 import { missingEvidence } from "@amp/backend/editorial/writing";
 // Checks the selection against your own labelled samples (a "gold set"): each case runs the site's
 // selection steps (editorial/analyze.ts) — the prefilter, then the score prompt twice with every model in
@@ -6,15 +7,17 @@ import { missingEvidence } from "@amp/backend/editorial/writing";
 // decision. A threshold sweep shows what another threshold would have done. The format of the gold file
 // is in industry/README.md (industry/gold.example.jsonl has two made-up cases).
 // Usage: node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl [--models default,deepseek-flash] [--n 200] [--label "..."]
+// [--layout shared|separate]: the prompt layout to evaluate (editorial/analysis-layout.ts), by default the configured
+// ANALYSIS_PROMPT_LAYOUT; run once per layout to compare both on the same labels (their prompt versions differ).
 // Receipts make re-runs free; "either" cases are excluded from decisive metrics. Each run is also
 // imported into SelectBench (admin → SelectBench) with every case, unless --no-import is given.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { REPO_ROOT } from "@amp/backend/config";
+import { analysisPromptLayout, REPO_ROOT } from "@amp/backend/config";
 import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import {
-  SELECTION_PROMPT_VERSION,
+  selectionPromptVersion,
   buildScoreInput,
   normalizeAnalysis,
   runSelectionPrefilter,
@@ -44,9 +47,20 @@ const { values } = parseArgs({
     concurrency: { type: "string", default: "6" },
     seed: { type: "string", default: "7" },
     label: { type: "string" },
+    layout: { type: "string" },
     "no-import": { type: "boolean", default: false },
   },
 });
+if (values.layout !== undefined) {
+  if (values.layout !== "shared" && values.layout !== "separate") throw new Error("--layout must be shared or separate");
+  // Every step, version and SelectBench record of this run reads the layout from here (config.analysisPromptLayout).
+  process.env.ANALYSIS_PROMPT_LAYOUT = values.layout;
+}
+const layout = analysisPromptLayout();
+// Evaluation always takes both scores (production buys the second only near the threshold, TASK-0532). Cases share
+// score results per input across tiers with different thresholds, and the 40–90 sweep needs every case scored the
+// same way, so a threshold-dependent stop would make results depend on case order.
+(SELECTION as { secondScoreMargin: number }).secondScoreMargin = 100;
 
 interface GoldRow {
   caseId: string;
@@ -340,13 +354,20 @@ const outDir = path.join(REPO_ROOT, ".data/eval");
 mkdirSync(outDir, { recursive: true });
 const splitName = safeReportNamePart(values.split!);
 const file = path.join(outDir, `selection-${splitName}-${sample.length}-${Date.now()}.json`);
-const meta = { split: values.split, n: sample.length, seed: Number(values.seed), promptVersion: SELECTION_PROMPT_VERSION, createdAt: new Date().toISOString() };
+const meta = {
+  split: values.split,
+  n: sample.length,
+  seed: Number(values.seed),
+  promptVersion: selectionPromptVersion(layout),
+  layout,
+  createdAt: new Date().toISOString(),
+};
 writeFileSync(file, JSON.stringify({ meta, models: report }, null, 2));
 console.log(`report: ${file}`);
 if (!values["no-import"]) {
   const run = await importSelectBenchRun(
     { meta, models: report },
-    values.label ?? `${values.split} ${sample.length} 条 · ${Object.keys(report).join(" / ")}`,
+    values.label ?? `${values.split} ${sample.length} 条 · ${Object.keys(report).join(" / ")} · ${layout}`,
     "script:eval-selection",
   );
   if (dataset)

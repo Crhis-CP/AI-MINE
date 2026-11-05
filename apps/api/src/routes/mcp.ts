@@ -6,7 +6,7 @@ import { createMcpHandler, McpServer, validateHostHeader } from "@modelcontextpr
 import { AsyncLocalStorage } from "node:async_hooks";
 import { requestNotice, serverModules, type McpNotice } from "@amp/backend/modules";
 import { z } from "zod";
-import { PUBLIC_API_CATEGORY_KEYS } from "@amp/contracts/taxonomy";
+import { CATEGORY_FILTER_KEYS, PUBLIC_API_CATEGORY_KEYS, canonicalCategoryFilter } from "@amp/contracts/taxonomy";
 import { SITE, withSubject } from "@amp/industry/site";
 import { config } from "@amp/backend/config";
 import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
@@ -88,8 +88,9 @@ function safe<A>(tool: string, run: (args: A) => Promise<ReturnType<typeof ok> |
   };
 }
 
+// Retired keys (ADR-0031) are still accepted from existing agents and answered with the current classes.
 const category = z
-  .enum(PUBLIC_API_CATEGORY_KEYS)
+  .enum(CATEGORY_FILTER_KEYS)
   .optional()
   .describe(`Optional category: ${PUBLIC_API_CATEGORY_KEYS.join(", ")}.`);
 
@@ -184,13 +185,17 @@ export function buildMcpServer(): McpServer {
         mode: args.mode,
         window: args.window,
         by: "timeline",
-        category: args.category ?? null,
+        category: canonicalCategoryFilter(args.category),
         q: null,
         limit: args.limit,
         cursor: null,
       } as const;
       const res = await v1Items(query);
-      return ok(latestAnswer(res, { ...args, category: args.category ?? null }), { schemaVersion: 1, query: res.query, items: res.items }, true);
+      return ok(
+        latestAnswer(res, { ...args, category: canonicalCategoryFilter(args.category) }),
+        { schemaVersion: 1, query: res.query, items: res.items },
+        true,
+      );
     }),
   );
 
@@ -206,7 +211,7 @@ export function buildMcpServer(): McpServer {
     safe(T.search, async (args: z.infer<typeof SEARCH_INPUT>) => {
       const q = args.q.trim();
       if ([...q].length < 2) return fail("invalid_request", "搜索词需要 2 到 200 个字符。");
-      const found = await searchItems(q, args.window, args.category ?? null, args.limit),
+      const found = await searchItems(q, args.window, canonicalCategoryFilter(args.category), args.limit),
         res = found.res;
       return ok(searchAnswer(found, { q, window: args.window }), { schemaVersion: 1, query: res.query, items: res.items }, true);
     }),

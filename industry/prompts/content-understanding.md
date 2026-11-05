@@ -11,16 +11,16 @@
 `itemType` 必须九选一，代码名与网站分类相同：
 
 - `policy_regulation`：政策监管
-- `company_project`：企业与项目
-- `commodity_market`：商品与市场
-- `capital_ma`：投资并购
-- `supply_trade_controls`：供应链、贸易与制裁
-- `esg_community_labor`：ESG、社区与劳工
-- `safety_incident`：矿山安全
-- `technology_processing`：技术与冶炼
-- `exploration_resource`：勘探与资源
+- `operations_output`：生产经营
+- `project_development`：项目建设
+- `exploration_resource`：勘探资源
+- `capital_ma`：并购融资
+- `commodity_market`：市场价格
+- `technology_processing`：技术装备
+- `safety_environment`：安全环境
+- `events_opinion`：会议观点
 
-观点、解读、研报和访谈不单列，归到它所讨论的那一类事件。
+会议、讲话、访谈或研报里披露了新的政策、交易、产量、项目等事实时，按那件事归类；只有观点、表态或人事、没有新的事实动作时才归 `events_opinion`。
 
 内容类型与网站分类使用同一套代码名。这一步仍不得打分，也不得判断是否精选。
 
@@ -60,4 +60,4 @@
 
 只返回合法 JSON，不要 Markdown，不要解释。顶层必须且只能包含以下六个字段：
 
-{"itemType":"company_project","authorRole":"principal","tags":["企业与项目"],"editorialJudgment":"原文列出了扩建范围与计划产能，可据此了解项目的建设进度。","titleZh":"某铜矿公布扩建进度","summaryZh":"某铜矿公布扩建范围、计划产能与施工进度。"}
+{"itemType":"project_development","authorRole":"principal","tags":["项目建设"],"editorialJudgment":"原文列出了扩建范围与计划产能，可据此了解项目的建设进度。","titleZh":"某铜矿公布扩建进度","summaryZh":"某铜矿公布扩建范围、计划产能与施工进度。"}

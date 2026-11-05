@@ -1,9 +1,11 @@
 import { useContext } from "react";
 import { titled } from "./lib/seo";
 import { SITE } from "@amp/industry/site";
-import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError, useRouteLoaderData } from "react-router";
+import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation, useRouteError, useRouteLoaderData } from "react-router";
+import { localeOf, useTr } from "./i18n";
 import type { Route } from "./+types/root";
 import "./group.css";
+import brandSans from "./assets/fonts/InstrumentSans_400Regular.woff2?url";
 import { Wordmark } from "./components/Logo";
 import { buttonClass } from "./components/ui/Controls";
 import { NonceContext } from "./lib/csp";
@@ -16,6 +18,8 @@ export function loader() {
 }
 
 export const links: Route.LinksFunction = () => [
+  // The Latin text face (app.css); the other weights and the figures load when first used.
+  { rel: "preload", href: brandSans, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   { rel: "icon", type: "image/png", href: "/icon.png" },
   { rel: "apple-touch-icon", href: "/apple-icon.png" },
@@ -30,14 +34,17 @@ function BootScript({ text }: { text: string }) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const english = localeOf(useLocation().pathname) === "en";
   return (
-    <html lang={SITE.locale} suppressHydrationWarning>
+    <html lang={english ? "en" : SITE.locale} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="amp-release" content={useRouteLoaderData<typeof loader>("root")?.release ?? "dev"} />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf9f6" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#13191c" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f6f0" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15130f" />
+        {/* The English interface stays out of search until its launch (I2); pages keep their Chinese canonical. */}
+        {english && <meta name="robots" content="noindex, follow" />}
         <BootScript text={THEME_BOOT_SCRIPT} />
         {ROOT_MODULES.map((module) => module.root?.bootScript && <BootScript key={module.name} text={module.root.bootScript} />)}
         <Meta />
@@ -68,6 +75,7 @@ export default function App() {
 }
 
 export function ErrorBoundary() {
+  const tr = useTr();
   const error = useRouteError();
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const notFound = status === 404;
@@ -76,16 +84,16 @@ export function ErrorBoundary() {
       <div className="max-w-sm text-center">
         <Wordmark size={28} className="mb-5 text-ink" />
         <div className="mono text-[12px] text-ink-4">{status}</div>
-        <h1 className="mt-1.5 text-[20px] font-bold text-ink">{notFound ? "这里没有内容" : "暂时无法加载"}</h1>
+        <h1 className="mt-1.5 text-[20px] font-bold text-ink">{notFound ? tr("这里没有内容") : tr("暂时无法加载")}</h1>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-3">
-          {notFound ? "你访问的页面不存在，或内容已不再公开。" : "服务暂时繁忙，请稍后再试。已经加载过的内容不受影响。"}
+          {notFound ? tr("你访问的页面不存在，或内容已不再公开。") : tr("服务暂时繁忙，请稍后再试。已经加载过的内容不受影响。")}
         </p>
         <div className="mt-6 flex justify-center gap-2.5">
           <Link reloadDocument to="/" className={buttonClass("primary")}>
-            回到精选
+            {tr("回到精选")}
           </Link>
           <Link reloadDocument to="/all" className={buttonClass("secondary")}>
-            浏览全部动态
+            {tr("浏览全部动态")}
           </Link>
         </div>
       </div>

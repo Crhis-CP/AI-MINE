@@ -1,4 +1,5 @@
 import { apiFetch } from "@amp/web/extension";
+import { useTr } from "@amp/web/i18n";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { Policy } from "@amp/contracts/http/public";
@@ -26,8 +27,9 @@ function scrollTable(event: KeyboardEvent<HTMLElement>) {
   event.currentTarget.scrollBy({ left: delta, behavior: "instant" });
 }
 function Block({ block, language }: { block: Page["blocks"][number]; language: string }) {
+  const tr = useTr();
   const semanticTable = !!block.semantic_html && /<table(?:\s|>)/i.test(block.semantic_html);
-  const tableLabel = `正文表格（${language.startsWith("zh") ? "中文" : language}）`;
+  const tableLabel = `正文表格（${language.startsWith("zh") ? tr("中文") : language}）`;
   const semantic = block.semantic_html ? (
     <div
       className="min-w-0 break-words [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6 [&_table]:min-w-full [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
@@ -63,7 +65,7 @@ function Block({ block, language }: { block: Page["blocks"][number]; language: s
           className="mt-2 overflow-x-auto rounded-control border border-line"
         >
           <table className="min-w-full text-[13px]">
-            <caption className="sr-only">原文表格</caption>
+            <caption className="sr-only">{tr("原文表格")}</caption>
             <tbody>
               {block.table_rows.map((row, i) => (
                 <tr key={JSON.stringify(block.table_rows!.slice(0, i + 1))}>
@@ -80,12 +82,12 @@ function Block({ block, language }: { block: Page["blocks"][number]; language: s
       )}
       {block.source_annotations?.length ? (
         <details className="mt-2 text-[12px] text-ink-3">
-          <summary>原文结构化标注</summary>
+          <summary>{tr("原文结构化标注")}</summary>
           <dl>
             {block.source_annotations.map((a) => (
               <div key={a.annotation_id}>
                 <dt>
-                  {a.name} · {{ self: "本节点", ancestor: "上级节点", descendant: "下级节点" }[a.scope]}
+                  {a.name} · {{ self: tr("本节点"), ancestor: tr("上级节点"), descendant: tr("下级节点") }[a.scope]}
                 </dt>
                 <dd>
                   {a.value} <span className="break-all">（{a.locator}）</span>
@@ -117,6 +119,7 @@ export function PolicyReading({
   initialPage?: Page | null;
   initialFailed?: boolean;
 }) {
+  const tr = useTr();
   const selected = policy.expressions.find((e) => e.id === policy.selected_expression_id);
   const original =
     selected?.kind !== "original"
@@ -237,14 +240,15 @@ export function PolicyReading({
     };
   }, []);
   if (!selected || selected.reading_state === "unavailable" || selected.reading_state === "restricted")
-    return <p className="text-[13px] text-ink-3">暂无可展示的完整正文，请查阅官方原文入口。</p>;
+    return <p className="text-[13px] text-ink-3">{tr("暂无可展示的完整正文，请查阅官方原文入口。")}</p>;
   const current = streams[selected.id] ?? blank(),
     other = original ? streams[original.id] : undefined;
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-ink-3">
         <p>
-          {label(selected)} · 已载入 {current.rows.length} / {current.loaded ? current.total : (policy.reading?.total_blocks ?? 0)} 段内容
+          {tr.maybe(label(selected))} {tr("· 已载入")} {current.rows.length} / {current.loaded ? current.total : (policy.reading?.total_blocks ?? 0)}{" "}
+          {tr("段内容")}
         </p>
         {original && (
           <button
@@ -256,21 +260,21 @@ export function PolicyReading({
               if (!compare) void load(original);
             }}
           >
-            {compare ? "仅看中文" : "对照原文"}
+            {compare ? tr("仅看中文") : tr("对照原文")}
           </button>
         )}
       </div>
       {compare && (
         <div className="mt-3 flex gap-2 md:hidden">
           <button className={actionClass} type="button" aria-pressed={!originalOnPhone} onClick={() => setOriginalOnPhone(false)}>
-            中文
+            {tr("中文")}
           </button>
           <button className={actionClass} type="button" aria-pressed={originalOnPhone} onClick={() => setOriginalOnPhone(true)}>
-            原文
+            {tr("原文")}
           </button>
         </div>
       )}
-      <div className="mt-3 divide-y divide-line-soft">
+      <div className={`mt-3 ${compare ? "divide-y divide-line-soft" : ""}`}>
         {current.rows.map((block) => (
           <div id={`node-${block.block_id}`} key={block.block_id} className={`scroll-mt-20 ${compare ? "md:grid md:grid-cols-2 md:gap-6" : ""}`}>
             <div className={compare && originalOnPhone ? "hidden md:block" : ""}>
@@ -281,7 +285,7 @@ export function PolicyReading({
                 {other?.rows.find((row) => row.block_id === block.block_id) ? (
                   <Block block={other.rows.find((row) => row.block_id === block.block_id)!} language={original!.language} />
                 ) : (
-                  <p className="py-3 text-[12px] text-ink-4">对应原文尚未载入。</p>
+                  <p className="py-3 text-[12px] text-ink-4">{tr("对应原文尚未载入。")}</p>
                 )}
               </div>
             )}
@@ -290,12 +294,12 @@ export function PolicyReading({
       </div>
       {(current.error || other?.error) && (
         <p role="status" className="mt-3 text-[13px] text-amber-ink">
-          {current.rows.length || other?.rows.length ? "暂时无法继续读取，已载入的内容仍保留。请重试。" : "正文暂时无法读取，请重试或查看官方原文。"}
+          {current.rows.length || other?.rows.length ? tr("暂时无法继续读取，已载入的内容仍保留。请重试。") : tr("正文暂时无法读取，请重试或查看官方原文。")}
         </p>
       )}
       {(current.busy || other?.busy) && (
         <p role="status" className="mt-3 text-[13px] text-ink-4">
-          正在读取正文…
+          {tr("正在读取正文…")}
         </p>
       )}
       {current.error || current.next || !current.loaded || (compare && (other?.error || other?.next)) ? (
@@ -308,13 +312,13 @@ export function PolicyReading({
             if (compare && original) void load(original);
           }}
         >
-          {current.error || other?.error ? "重新读取正文" : "继续读取正文"}
+          {current.error || other?.error ? tr("重新读取正文") : tr("继续读取正文")}
         </button>
       ) : (
         <p className="mt-3 text-[12px] text-ink-4">
           {policy.reading?.completeness === "complete" && current.complete && current.rows.length === current.total
-            ? "正文已全部载入。"
-            : "当前可读内容已载入，尚不能视为完整正文。"}
+            ? tr("正文已全部载入。")
+            : tr("当前可读内容已载入，尚不能视为完整正文。")}
         </p>
       )}
     </div>

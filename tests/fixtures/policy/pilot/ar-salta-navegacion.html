@@ -1,0 +1,153 @@
+
+<html lang="es">
+<head>
+<meta Content-Type: 'text/html'><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Boletín Oficial de la Provincia de Salta</title>
+</head>
+<body>
+<div id="accessibility"></div>
+<nav class="navbar sticky-top navbar-expand-lg navbar-dark bg-dark">
+<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo01" aria-controls="navbarTogglerDemo01" aria-expanded="false" aria-label="Toggle navigation">
+<span class="navbar-toggler-icon"></span>
+</button>
+<a class="navbar-brand" href="index.php">
+<img src="images/logo/boletin_cabecera.png" width="" height="" class="d-inline-block align-top" alt="Boletin Oficial - Provincia de Salta">
+</a>
+<div class="collapse navbar-collapse align-self-center" id="navbarTogglerDemo01" >
+<div class="navbar-nav">
+<a class="nav-item nav-link active" href="index.php">Inicio</a>
+<a class="nav-item nav-link" href="edicionesanteriores.php">Ediciones Anteriores</a>
+<li class="nav-item dropdown">
+<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+B&uacutesquedas
+</a>
+<div class="dropdown-menu" aria-labelledby="navbarDropdown">
+<a class="dropdown-item" href="busqueda_leyes.php">Leyes</a>
+<a class="dropdown-item" href="busqueda_decretos.php">Decretos</a>
+<a class="dropdown-item" href="busqueda_decretos_leyes.php">Decretos-Leyes</a>
+<a class="dropdown-item" href="busqueda_decisiones.php">Decisiones Administrativas</a>
+<a class="dropdown-item" href="busqueda_resoluciones_autogestion.php">Resoluciones</a>
+<div class="dropdown-divider"></div>
+<a class="dropdown-item" href="busqueda_avisos.php">Avisos</a>
+</div>
+</li>
+<li class="nav-item dropdown">
+<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+&Iacutendices
+</a>
+<div class="dropdown-menu" aria-labelledby="navbarDropdown">
+<a class="dropdown-item" href="indices.php">&Iacute;ndice de Decretos</a>
+<a class="dropdown-item" href="indices_resoluciones.php">&Iacute;ndice de Resoluciones Delegadas</a>
+<a class="dropdown-item" href="./indiceleyes/INDICE_NUMERICO_LEYES.pdf">&Iacute;ndice Num&eacuterico de Leyes</a>
+<a class="dropdown-item" href="./indicetematicoleyes/INDICE_TEMATICO_LEYES.pdf">&Iacute;ndice Tem&aacutetico de Leyes</a>
+<a class="dropdown-item" href="./indicedecretosleyes/INDICE_DECRETOS-LEYES.pdf">&Iacute;ndice Decretos - Leyes</a>
+<a class="dropdown-item" href="leyes_doble_numeracion.php">Leyes con Doble Numeraci&oacute;n</a>
+<a class="dropdown-item" href="ColeccionGavinoOjedaNew.php">Colecci&oacuten de Gavino Ojeda</a>
+<a class="dropdown-item" href="ColeccionMoulesAnio.php">Colecci&oacuten del Dr. Ra&uacutel Fiore Moul&eacutes</a>
+<a class="dropdown-item" href="compendios.php">Compendios</a>
+<a class="dropdown-item" href="BibliotecaDigital.php">Biblioteca</a>
+</div>
+</li>
+<li class="nav-item dropdown">
+<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+Institucional
+</a>
+<div class="dropdown-menu" aria-labelledby="navbarDropdown">
+<a class="dropdown-item" href="institucional.php">Visi&oacuten y Misi&oacuten </a>
+<div class="dropdown-divider"></div>
+<a class="dropdown-item" href="boletin_descripcion.php">Qu&eacute es el Bolet&iacuten?</a>
+<div class="dropdown-divider"></div>
+<a class="dropdown-item" href="Informe de Gestion 2020-2023.pdf">Informe de Gesti&oacuten 2020-2023</a>
+<div class="dropdown-divider"></div>
+<a class="dropdown-item" href="ingreso.php" target="_blank">Intranet</a>
+</div>
+</li>
+<a class="nav-item nav-link" href="Municipios.php">Municipios</a>
+<a class="nav-item nav-link" href="autoridades.php">Autoridades</a>
+<a class="nav-item nav-link" href="contacto.php">Contacto</a>
+</div>
+</div>
+<section class="container d-none d-md-block">
+<div class="d-flex justify-content-around">
+<img src="images/logo/secretaria_cabecera.png" alt="">
+</div>
+</section>
+</nav>
+<section class="container mt-3 ">
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+<span class="navbar-brand" > Buscar Edición</span>
+<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo02" aria-controls="navbarTogglerDemo02" aria-expanded="false" aria-label="Toggle navigation">
+<i class="fa fa-chevron-down "> </i>
+</button>
+<div class="collapse navbar-collapse" id="navbarTogglerDemo02">
+<form class="form-inline my-2 my-lg-0" action="NavegacionRapida.php" method="post">
+<div class="form-group has-feedback">
+<i class="fa fa-calendar form-control-feedback text-secondary" ></i>
+<input type="text" class="form-control" id="fecha" name="fecha" placeholder="Ingrese fecha...">
+</div>
+<button class="btn btn-dark my-2 my-sm-0 ml-3" name="buscar" id="buscar" type="submit"> <i class="fa fa-search fa-lg"></i> Buscar </button>
+</form>
+</div>
+</nav>
+</section>
+<section class="container mt-3 d-none d-md-block">
+<ul class="nav nav-tabs">
+<li class="nav-item">
+<a class='nav-link active' href=NavegacionRapida.php?cXdlcnR5dGlwbzE9QSZucm9fZWRpY2lvbj0wcXdlcnR5 target='_self'><b> Administrativa</b></a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?cXdlcnR5dGlwbzE9SiZucm9fZWRpY2lvbj0wcXdlcnR5 target='_self'> Judicial</a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?cXdlcnR5dGlwbzE9QyZucm9fZWRpY2lvbj0wcXdlcnR5 target='_self'> Comercial</a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?tipo1=G&nro_edicion=0 target='_self'> General</a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?tipo1=M&nro_edicion=0 target='_self'> Municipal</a>
+</li>
+</ul>
+</section>
+<section class="container mt-3 d-md-none">
+<ul class="nav nav-tabs">
+<li class="nav-item">
+<a class='nav-link active' href=NavegacionRapida.php?cXdlcnR5dGlwbzE9QSZucm9fZWRpY2lvbj0wcXdlcnR5 target='_self'><b> Administ.</b></a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?cXdlcnR5dGlwbzE9SiZucm9fZWRpY2lvbj0wcXdlcnR5 target='_self'> Jud.</a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?cXdlcnR5dGlwbzE9QyZucm9fZWRpY2lvbj0wcXdlcnR5 target='_self'> Comerc.</a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?tipo1=G&nro_edicion=0 target='_self'> Gral.</a>
+</li>
+<li class="nav-item">
+<a class='nav-link' href=NavegacionRapida.php?tipo1=M&nro_edicion=0 target='_self'> Munic.</a>
+</li>
+</ul>
+</section>
+<section class="container mt-4 pt-1">
+<div class="container">
+<div class="align-self-right">
+<a class="btn btn-outline-info px-3 align-self-right" href="NavegacionRapida.php?cXdlcnR5dGlwbzE9QSZucm9fZWRpY2lvbj0yMjMwMnF3ZXJ0eQ==" role="button"><i class="fa fa-reply"></i> Anterior </a><a class="btn btn-outline-info px-3 m-3 align-self-right disabled" href="NavegacionRapida.php?cXdlcnR5dGlwbzE9QSZucm9fZWRpY2lvbj0yMjMwNHF3ZXJ0eQ==" role="button" aria-disabled="true"><i class="fa fa-share"></i> Siguiente</a></div><div class="text-right"><h6><BR>Boletín N° 22303<BR>Salta, Jueves 05 de Noviembre de 2026</h6></div><div class='alert bg-dark text-center text-light mt-3 container'> <h5>SECCI&OacuteN ADMINISTRATIVA</h5> </div> <div class='font-weight-bold mt-3'>DECRETOS</div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MTkvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 719 DEL 26/10/2026 - M.SEG. - RECHAZA RECURSO DE RECONSIDERACIÓN INTERPUESTO POR EL SR. JULIO MARCOS FERNANDO SOSA, EN CONTRA DEL DECRETO Nº 821/2025.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjAvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 720 DEL 26/10/2026 - M.SEG. - RECHAZA RECURSO DE JERÁRQUICO INTERPUESTO POR EL SR. ERNESTO SIMÓN PASTRANA, EN CONTRA DE LA RESOLUCIÓN Nº 527/2026.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjEvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 721 DEL 26/10/2026 - M.SEG. - DISPONE SANCIÓN DE DESTITUCIÓN POR CESANTÍA. CABO JULIO CÉSAR ALZOGARAY. POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjIvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 722 DEL 26/10/2026 - M.SEG. - DISPONE PASE A SITUACIÓN DE RETIRO VOLUNTARIO DE LA SUBOFICIAL MAYOR FLAVIA MARICEL GONZÁLEZ. POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjMvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 723 DEL 26/10/2026 - M.SEG. - DISPONE PASE A SITUACIÓN DE RETIRO VOLUNTARIO DEL SUBOFICIAL PRINCIPAL DARÍO FERNANDO ALBORNOS . POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjQvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 724 DEL 26/10/2026 - M.SEG. - DISPONE PASE A SITUACIÓN DE RETIRO VOLUNTARIO DE LA SUBOFICIAL MAYOR MARISA ALEJANDRA CISNEROS . POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjUvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 725 DEL 26/10/2026 - M.SEG. - DISPONE PASE A SITUACIÓN DE RETIRO VOLUNTARIO DE LA SUBOFICIAL PRINCIPAL CARLA NOELIA VERA . POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjYvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 726 DEL 26/10/2026 - M.SEG. - DISPONE PASE A SITUACIÓN DE RETIRO VOLUNTARIO DEL SUBOFICIAL MAYOR GABRIEL ARNALDO ZERPA. POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjcvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 727 DEL 26/10/2026 - M.SEG. - DISPONE PASE A SITUACIÓN DE RETIRO VOLUNTARIO DEL SUBOFICIAL PRINCIPAL MARIO ALBERTO ORTEGA PLAZA. POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MjgvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 728 DEL 26/10/2026 - M.SEG. - DISPONE PASE A SITUACIÓN DE RETIRO VOLUNTARIO DEL SUBOFICIAL MAYOR ARMANDO DANIEL DÍAZ. POLICÍA DE LA PROVINCIA DE SALTA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MzMvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 733 DEL 02/11/2026 - M.G.J. - ACEPTA LA RENUNCIA DE LA DRA. LILIANA GRACIELA JORGE AL CARGO DE FISCAL PENAL DEL DISTRITO JUDICIAL CENTRO.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MzQvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 734 DEL 02/11/2026 - M.G.J. - DESIGNA AL DR. RAMIRO JAVIER TEJERINA EN EL CARGO DE DEFENSOR PENAL Nº 16 DEL DISTRITO JUDICIAL CENTRO.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9RHw3MzUvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 735 DEL 02/11/2026 - M.G.J. - DESIGNA A LA DRA. MARÍA SOLEDAD PÉREZ, EN EL CARGO DE DEFENSORA OFICIAL CIVIL Nº 2 DEL DISTRITO JUDICIAL DEL SUR.</small></a></div><div class='font-weight-bold mt-3'>DECISIONES ADMINISTRATIVAS</div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3wzOTgvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 398 DEL 29/10/2026 - S.G.G. - ACEPTA LA RENUNCIA DE LA DRA. MARÍA DE LOS DESEMPARADOS TALENS ANGELES, AL CARGO DE VICERRECTORA DE LA UNIVERSIDAD PROVINCIAL DE LA ADMINISTRACIÓN, TECNOLOGÍA Y OFICIOS (UPATECO).</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3wzOTkvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 399 DEL 29/10/2026 - M.S.P. - DESIGNA A LA C.P.N. ROCIO BELEN YLLESCA CARRANZA, EN CARÁCTER DE PERSONAL TEMPORARIO. HOSPITAL DE LA CALDERA. DEJA SIN EFECTO LA FUNCIÓN DE GERENTE ADMINISTRATIVO.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDAvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 400 DEL 29/10/2026 - M.S.P. - DESIGNA AL SR. MARIO DANIEL TOLABA, EN CARÁCTER DE PERSONAL TEMPORARIO. HOSPITAL DE CORONEL MOLDES.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDEvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 401 DEL 29/10/2026 - M.S.P. - DESIGNA AL SR. JULIO ERNESTO RIVADEO, EN CARÁCTER DE PERSONAL TEMPORARIO. HOSPITAL PÚBLICO MATERNO INFANTIL S.E.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDIvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 402 DEL 29/10/2026 - M.P. y M. - DESIGNA AL SR. MAURICIO DIEZ PATRÓN COSTAS, COMO PERSONAL DE APOYO.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDMvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 403 DEL 30/10/2026 - M.SEG. - DESIGNA AL SR. GONZALO EZEQUIEL SOSA, EN EL CARGO DE JEFE DE PROGRAMA. SUBSECRETARÍA DE DEFENSA CIVIL. DEJA SIN EFECTO LA DESIGNACIÓN DEL SR. IGNACIO JOSÉ ORTIZ DE URBINA.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDQvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 404 DEL 30/10/2026 - M.E.y C. - DESIGNA A LA SRA. SOFÍA CESPEDES OCAMPO, COMO ADMINISTRATIVO EN CARÁCTER TEMPORARIO. UNIDAD EDUCATIVA Nº 3141. LOCALIDAD DE SALTA, DEPARTAMENTO CAPITAL.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDUvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 405 DEL 30/10/2026 - M.D.S. - RECTIFICA PARCIALMENTE EL ANEXO III DEL ARTÍCULO 1º DE LA DECISIÓN ADMINISTRATIVA Nº 230/26. HERRERA NILA OFELIA Y OTROS.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDYvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 406 DEL 30/10/2026 - M.D.S. - PRÓRROGA DE CONTRATOS DE SERVICIOS. SRA. CARDOZO TAMARA MYRIAM DEL VALLE Y OTROS.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDcvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 407 DEL 30/10/2026 - M.T y D. - ACEPTA LA RENUNCIA DEL SR. CARLOS GABRIEL RIOBO VILAS, AL CARGO DE DIRECTOR GENERAL DE TURISMO DE REUNIONES.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDgvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 408 DEL 02/11/2026 - M.S.P. - DESIGNA A LA SRA. ANGELA JANET CHAVEZ, EN CARÁCTER DE PERSONAL TEMPORARIO. HOSPITAL DE EL GALPÓN.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MDkvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 409 DEL 02/11/2026 - M.G.J. - DESIGNA A LA SRA. MARIA JOSÉ AVILA TURLETTO, EN EL CARGO DE JEFE DE PROGRAMA DE LA DELEGACIÓN DE TARTAGAL. SUBSECRETARÍA DE TRABAJO.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MTAvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 410 DEL 02/11/2026 - M.G.J. - DESIGNA A LA DRA. VIANEY VISUARA, EN EL CARGO DE DIRECTORA DE JURÍDICO. SUBSECRETARÍA DE REGISTRO DEL ESTADO CIVIL Y CAPACIDAD DE LAS PERSONAS.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MTEvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 411 DEL 02/11/2026 - M.S.P. - DESIGNA A LA LIC. IVON MARTINICH, EN CARÁCTER DE PERSONAL TEMPORARIO.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9Q3w0MTIvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 412 DEL 02/11/2026 - M.S.P. - DESIGNA AL SR. MAXIMILIANO LUIS MARCIAL CRUZ, EN CARÁCTER DE PERSONAL TEMPORARIO. HOSPITAL DE LA CALDERA.</small></a></div><div class='font-weight-bold mt-3'>LICITACIONES PUBLICAS</div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NjYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141966 - SC-JEFATURA DE GABINETE DE MINISTROS Nº 137-0321 LPU26</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NjUmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141965 - SC-MINISTERIO DE SALUD PÚBLICA Nº 108-0322 LPU26</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5MDcmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141907 - MINISTERIO PÚBLICO DE LA DEFENSA - DEFENSORÍA GENERAL DE LA NACIÓN Nº 39/2026</small></a></div><div class='font-weight-bold mt-3'>ADJUDICACIONES SIMPLES</div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5OTgmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141998 - SC-SECRETARÍA DE OBRAS PÚBLICAS Nº 11/2026 - PRORROGA FECHA DE APERTURA</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NjAmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141960 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 182/26 119-1895-ASI26 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NTkmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141959 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 215/26 119-1896-ASI26 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NTgmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141958 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 180/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NTcmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141957 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 61/26 - 119-1898-ASI26 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NTYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141956 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 154/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NTUmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141955 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 132/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5MzkmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141939 - SERVICIO PENITENCIARIO DE LA PROVINCIA DE SALTA N° 104/1-1893-ASI26 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5MzcmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141937 - MINISTERIO DE SALUD PÚBLICA N° 108/2-1737-ASI26 - ADJUDICACIÓN</small></a></div><div class='font-weight-bold mt-3'>CONTRATACIONES ABREVIADAS</div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDcmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141947 - AGUAS DEL NORTE - CO.S.A. YSA. S.A. EXPTE. N° 28823/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDYmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141946 - AGUAS DEL NORTE - CO.S.A. YSA. S.A. EXPTE. N° 28829/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDUmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141945 - AGUAS DEL NORTE - CO.S.A. YSA. S.A. EXPTE. N° 28830/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDQmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141944 - AGUAS DEL NORTE - CO.S.A. YSA. S.A. EXPTE. N° 28831/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDMmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141943 - AGUAS DEL NORTE - CO.S.A. YSA. S.A. EXPTE. N° 28835/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDImZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141942 - AGUAS DEL NORTE - CO.S.A. YSA. S.A. EXPTE. N° 28839/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDEmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141941 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 180/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NDAmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141940 - HOSPITAL PÚBLICO MATERNO INFANTIL SE N° 181/2026 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5MzgmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141938 - MINISTERIO DE SALUD PÚBLICA N° 108-0593-CAB26 - ADJUDICACIÓN</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5MzEmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141931 - MINISTERIO DE SALUD PÚBLICA N° 108/2-0602-CAB26 - ADJUDICACIÓN</small></a></div><div class='font-weight-bold mt-3'>CONCESIONES DE AGUA PUBLICA</div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE5NTImZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141952 - SUBSECRETARÍA DE RECURSOS HÍDRICOS - EXPTE. Nº 0090034-7110/2006-0 - CLUB DE CAMPO SANTA APOLONIA - POZO SRH 63 - DPTO. CERRILLOS.</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE3NTMmZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141753 - SUBSECRETARÍA DE RECURSOS HÍDRICOS - EXPTE. Nº 1080034-175134/2026-0 - FINCA MONTAÑA SOCIEDAD ANÓNIMA - ARROYO LAMPACITO - DPTO. CAFAYATE - SALTA</small></a></div><div><a class='text-justify bg-light text-info' href=instrumento.php?cXdlcnR5dGFibGE9QXwxMDAxNDE3NTImZGF0YT0yMjMwM3F3ZXJ0eQ==><small><i class='fa fa-caret-right'></i> N° 100141752 - SUBSECRETARÍA DE RECURSOS HÍDRICOS - EXPTE .Nº 1080034-175127/2026-0 - FINCA MONTAÑA SOCIEDAD ANÓNIMA - RÍO CHUSCHA -DPTO. CAFAYATE- SALTA</small></a></div><a class="btn btn-outline-info px-3" href="NavegacionRapida.php?cXdlcnR5dGlwbzE9QSZucm9fZWRpY2lvbj0yMjMwMnF3ZXJ0eQ==" role="button"><i class="fa fa-reply"></i> Anterior</a><a class="btn btn-outline-info px-3 m-3" href="NavegacionRapida.php?cXdlcnR5dGlwbzE9QSZucm9fZWRpY2lvbj0yMjMwNHF3ZXJ0eQ==" role="button"><i class="fa fa-share"></i> Siguiente</a></DIV>
+</div>
+</section>
+<footer class="text-muted mt-5">
+<div class="container-fluid bg-dark text-white">
+<section class="container d-none d-md-block ">
+<div class="row py-2">
+<div class="col align-self-center"> <img src="images/logo/nro_wasap.png" alt="" height="50"> </div>
+<div class="col align-self-center">
+<a href="https://boletinoficialsalta.gob.ar/sellos_de_tiempo.php" target="_blank"><img src="images/logo/sellos_de_tiempo.png" alt="" class="img-fluid" width="200"> </a>
+</div>
+</section>
+<section class="container d-md-none">
+<div class="col align-self-center"> <img src="images/logo/nro_wasap.png" alt="" height="50">
+<a href="https://boletinoficialsalta.gob.ar/sellos_de_tiempo.php" target="_blank"><img src="images/logo/sellos_de_tiempo.png" alt="" class="img-fluid" width="200"> </a>
+</div>
+</section>
+</div>
+</footer>
+</body>
+</html>

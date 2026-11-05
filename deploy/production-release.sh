@@ -11,9 +11,15 @@ RELEASE_TREE=${6:?verified source tree required}
 RELEASE_TOOLS=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 RELEASE_ID=${RELEASE_SHA:0:12}
 RELEASE_ATTEMPT=$(date -u +%Y%m%dT%H%M%S%N)
-RELEASE_ROOT=/opt/aimine
-RELEASE_BACKUP=/opt/aimine-backup/release-$RELEASE_ID-$RELEASE_ATTEMPT
-RELEASE_STAGE=/opt/aimine-release-stage/$RELEASE_ID-$RELEASE_ATTEMPT
+# Deployment locations and the public host (DEC-78 open-source deployability). The defaults are the
+# reference production values; another deployment sets these in the release environment.
+AIMINE_ROOT=${AIMINE_ROOT:-/opt/aimine}
+AIMINE_BACKUP_ROOT=${AIMINE_BACKUP_ROOT:-/opt/aimine-backup}
+AIMINE_STAGE_ROOT=${AIMINE_STAGE_ROOT:-/opt/aimine-release-stage}
+AIMINE_HOST=${AIMINE_HOST:-aiminingpolicy.com}
+RELEASE_ROOT=$AIMINE_ROOT
+RELEASE_BACKUP=$AIMINE_BACKUP_ROOT/release-$RELEASE_ID-$RELEASE_ATTEMPT
+RELEASE_STAGE=$AIMINE_STAGE_ROOT/$RELEASE_ID-$RELEASE_ATTEMPT
 RELEASE_JOURNAL=$RELEASE_ROOT/.ops/release-$RELEASE_ID-$RELEASE_ATTEMPT.json
 RELEASE_PREVIOUS_HEALTH=$RELEASE_ROOT/.ops/previous-health-$RELEASE_ID-$RELEASE_ATTEMPT.json
 RELEASE_IMAGE=amp-release:$RELEASE_ID
@@ -36,7 +42,7 @@ cd "$RELEASE_ROOT"
 printf '%s  %s\n' "$RELEASE_ARCHIVE_HASH" "$RELEASE_ARCHIVE" | sha256sum -c -
 python3 -B "$RELEASE_TOOLS/release_artifact.py" verify --directory "$RELEASE_BUNDLE" --sha "$RELEASE_SHA" --tree "$RELEASE_TREE" --manifest-sha256 "$RELEASE_MANIFEST_HASH"
 cmp "$RELEASE_ARCHIVE" "$RELEASE_BUNDLE/source.tar.gz"
-python3 -B "$RELEASE_TOOLS/prepare_capacity.py" --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --lock-fd 9 --apply \
+python3 -B "$RELEASE_TOOLS/prepare_capacity.py" --root "$RELEASE_ROOT" --backup-root "$AIMINE_BACKUP_ROOT" --lock-fd 9 --apply \
   --record "$RELEASE_ROOT/.ops/capacity-preparation-$RELEASE_ID-$RELEASE_ATTEMPT.json"
 persistent_bytes() {
   docker exec amp-worker-1 node --input-type=module -e '
@@ -57,7 +63,7 @@ persistent_bytes() {
 RELEASE_PERSISTENT_BYTES=$(persistent_bytes)
 [[ $RELEASE_PERSISTENT_BYTES =~ ^[0-9]+$ ]]
 # Resource checks run while the old worker is still running. Failure only leaves the evidence receipt.
-python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --persistent-bytes "$RELEASE_PERSISTENT_BYTES" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-import-$RELEASE_ATTEMPT.json"
+python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --root "$RELEASE_ROOT" --backup-root "$AIMINE_BACKUP_ROOT" --manifest "$RELEASE_BUNDLE/release-manifest.json" --persistent-bytes "$RELEASE_PERSISTENT_BYTES" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-import-$RELEASE_ATTEMPT.json"
 phase() {
   RELEASE_PHASE=$1
   python3 - "$RELEASE_JOURNAL" "$RELEASE_SHA" "$RELEASE_PHASE" "$RELEASE_IMAGE" "$RELEASE_BACKUP" <<'PYJ'
@@ -131,7 +137,7 @@ PYE
 health() {
   local expected=$1
   for attempt in $(seq 1 60); do
-    if curl -fsS --max-time 3 -H 'Host: aiminingpolicy.com' http://127.0.0.1:3000/api/health > "$RELEASE_BACKUP/health.json"; then
+    if curl -fsS --max-time 3 -H "Host: $AIMINE_HOST" http://127.0.0.1:3000/api/health > "$RELEASE_BACKUP/health.json"; then
       if python3 - "$RELEASE_BACKUP/health.json" "$expected" <<'PYH'
 import json,sys
 x=json.load(open(sys.argv[1]));assert x.get('ok') is True and x.get('db')=='ok' and x.get('release')==sys.argv[2]
@@ -188,7 +194,7 @@ trap on_exit EXIT
 phase observe_previous
 read_api_topology
 RELEASE_OLD_APIS=("${RELEASE_CURRENT_APIS[@]}")
-curl -fsS --max-time 5 -H 'Host: aiminingpolicy.com' http://127.0.0.1:3000/api/health > "$RELEASE_PREVIOUS_HEALTH"
+curl -fsS --max-time 5 -H "Host: $AIMINE_HOST" http://127.0.0.1:3000/api/health > "$RELEASE_PREVIOUS_HEALTH"
 RELEASE_OLD_VERSION=$(python3 - "$RELEASE_PREVIOUS_HEALTH" <<'PYP'
 import json,sys,re
 x=json.load(open(sys.argv[1]));assert x.get('ok') is True and x.get('db')=='ok' and re.fullmatch('[a-f0-9]{7,40}',x.get('release',''));print(x['release'])
@@ -271,7 +277,7 @@ fi
 require_monitor
 RELEASE_PERSISTENT_BYTES=$(persistent_bytes)
 [[ $RELEASE_PERSISTENT_BYTES =~ ^[0-9]+$ ]]
-python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --phase before_backup --root "$RELEASE_ROOT" --backup-root /opt/aimine-backup --manifest "$RELEASE_BUNDLE/release-manifest.json" --persistent-bytes "$RELEASE_PERSISTENT_BYTES" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-backup-$RELEASE_ATTEMPT.json"
+python3 -B "$RELEASE_TOOLS/release_capacity.py" preflight --phase before_backup --root "$RELEASE_ROOT" --backup-root "$AIMINE_BACKUP_ROOT" --manifest "$RELEASE_BUNDLE/release-manifest.json" --persistent-bytes "$RELEASE_PERSISTENT_BYTES" --record "$RELEASE_ROOT/.ops/preflight-$RELEASE_ID-before-backup-$RELEASE_ATTEMPT.json"
 phase drain_worker
 RELEASE_STOPPED=1
 dc stop -t 480 worker
@@ -328,7 +334,7 @@ phase activate
 dc up -d --no-deps --no-build --pull never --force-recreate "${RELEASE_CURRENT_APIS[@]}" web
 health "$RELEASE_ID"
 for page in / /all /policies /metals /feedback /privacy /api/site/content-version; do
-  code=$(curl -sS -o /dev/null --max-time 15 -H 'Host: aiminingpolicy.com' -w '%{http_code}' "http://127.0.0.1:3000$page")
+  code=$(curl -sS -o /dev/null --max-time 15 -H "Host: $AIMINE_HOST" -w '%{http_code}' "http://127.0.0.1:3000$page")
   [[ $code == 200 ]]
 done
 if [[ $RELEASE_CADDY_CHANGED == 1 ]]; then dc --profile https up -d --no-deps --no-build --pull never --force-recreate caddy; fi

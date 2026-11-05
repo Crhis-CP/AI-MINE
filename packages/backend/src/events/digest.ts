@@ -5,10 +5,14 @@ import { shutdownSignal } from "../jobs/queue.ts";
 // Story digest: rewritten incrementally as reports arrive; contradictions with earlier reporting are
 // stated explicitly. v1 `digest` and `latest` read the same stored version.
 import { z } from "zod";
+import { StoryKeyChange, StoryNextMilestone } from "@amp/contracts/http/public";
+import type { StoryKeyChange as StoryKeyChangeT, StoryNextMilestone as StoryNextMilestoneT } from "@amp/contracts/site";
 import { modelFor } from "../editorial/models.ts";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
+import { isProviderPeak, nextOffPeakStart } from "../providers/peak-hours.ts";
+import { bilingualNames } from "../editorial/bilingual-names.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -18,10 +22,43 @@ export const DIGEST_PROMPT_VERSION = promptVersion("story-digest", "story-digest
 
 const SYSTEM = promptText("story-digest");
 
+/** Numbers in a value, compared as quantities ("2.10" and "2.1" are the same figure). */
+function figures(text: string): number[] {
+  return [...text.normalize("NFKC").matchAll(/\d+(?:[.,]\d+)?/g)].map((m) => Number(m[0].replace(",", ".")));
+}
+
+/** A value is grounded when every figure it carries also appears in the reports the model read. */
+export function groundedIn(source: string, ...values: string[]): boolean {
+  const known = new Set(figures(source));
+  return values.every((value) => figures(value).every((n) => known.has(n)));
+}
+
+/**
+ * Structured digest parts, read leniently: an invalid or ungrounded entry is dropped, never the whole
+ * digest. Stored versions written before these parts existed (null or missing fields) read as empty.
+ */
+export function readDigestDetail(value: unknown, source?: string): { keyChanges: StoryKeyChangeT[]; next: StoryNextMilestoneT[] } {
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const list = <T>(raw: unknown, schema: z.ZodType<T>, keep: (entry: T) => boolean, max: number): T[] =>
+    (Array.isArray(raw) ? raw : [])
+      .flatMap((entry) => {
+        const parsed = schema.safeParse(entry);
+        return parsed.success && keep(parsed.data) ? [parsed.data] : [];
+      })
+      .slice(0, max);
+  return {
+    keyChanges: list(record.keyChanges, StoryKeyChange, (c) => c.before !== c.after && (source === undefined || groundedIn(source, c.before, c.after)), 4),
+    next: list(record.next, StoryNextMilestone, (m) => source === undefined || groundedIn(source, m.when), 3),
+  };
+}
+
 const Schema = z.object({
   title: z.string().max(120).catch(""),
   digest: z.string().min(10).max(2000),
   latest: z.string().max(300).catch(""),
+  // Checked entry by entry after the call (readDigestDetail); a malformed list never fails the paid answer.
+  keyChanges: z.unknown().optional(),
+  next: z.unknown().optional(),
 });
 
 export function storyStatusFor(latestAt: Date | null, now = Date.now()): "active" | "watching" | "settled" {
@@ -32,8 +69,15 @@ export function storyStatusFor(latestAt: Date | null, now = Date.now()): "active
   return "settled";
 }
 
-/** `afterCorrection`: an editor changed a report of this story; rewrite even when older versions lack inputs. */
-export async function composeStoryDigest(storyId: number, opts: { afterCorrection?: boolean } = {}): Promise<{ updated: boolean; version?: number }> {
+/**
+ * `afterCorrection`: an editor changed a report of this story; rewrite even when older versions lack inputs.
+ * A refresh of a story that already has a digest can wait: in the provider's peak hours it returns `deferUntil`
+ * (the next off-peak start, half price) instead of calling. A story's first digest and corrections never wait.
+ */
+export async function composeStoryDigest(
+  storyId: number,
+  opts: { afterCorrection?: boolean; now?: Date } = {},
+): Promise<{ updated: boolean; version?: number; deferUntil?: Date }> {
   const [story] = await sql<
     { id: number; title: string; digest: string | null; version: number; origin: string; updated_at: Date; digest_updated_at: Date | null }[]
   >`
@@ -64,6 +108,8 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
   // Same reports, different content: an editor corrected one. Rewrite from the reports as they are now,
   // without the previous digest, so a corrected fact does not survive as "earlier reports said".
   const corrected = sameReports || opts.afterCorrection === true;
+  const now = opts.now ?? new Date();
+  if (story.digest && !corrected && isProviderPeak(now)) return { updated: false, deferUntil: nextOffPeakStart(now) };
   const known = new Set(last?.article_ids ?? []);
 
   const visible = reports.slice(-40);
@@ -98,16 +144,22 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
     maxTokens: 1200,
   });
   const version = story.version + 1;
+  // Foreign company names as 中文名（原文名）, as in titles and summaries (Owner 2026-11-05).
+  const digest = bilingualNames(res.data.digest),
+    latest = res.data.latest ? bilingualNames(res.data.latest) : null,
+    title = bilingualNames(res.data.title);
+  // Only figures the reports themselves state may appear in the before/after table or the dates to watch.
+  const detail = readDigestDetail(res.data, visible.map((r) => `${r.title} ${(r.summary ?? "").slice(0, 220)}`).join("\n"));
   const written = await sql.begin(async (tx) => {
     await assertRuntimeControl(tx, publication);
     await assertRuntimeControl(tx, processing);
     await lockReportPublications(ids, tx);
     const [currentStory] = await tx<{ version: number }[]>`SELECT version FROM stories WHERE id=${storyId} FOR UPDATE`;
     if (currentStory?.version !== story.version || stableJson(await publicNewsDigestInput(ids, tx)) !== stableJson(expected)) return false;
-    await tx`INSERT INTO story_digests (story_id, version, digest, latest, receipt_id, article_ids, inputs_hash)
-             VALUES (${storyId}, ${version}, ${res.data.digest}, ${res.data.latest || null}, ${res.receiptId}, ${ids}, ${inputsHash})`;
-    await tx`UPDATE stories SET digest = ${res.data.digest}, latest = ${res.data.latest || null}, digest_updated_at = now(),
-               title = CASE WHEN origin = 'manual' OR ${res.data.title} = '' THEN title ELSE ${res.data.title} END,
+    await tx`INSERT INTO story_digests (story_id, version, digest, latest, receipt_id, article_ids, inputs_hash, digest_detail)
+             VALUES (${storyId}, ${version}, ${digest}, ${latest || null}, ${res.receiptId}, ${ids}, ${inputsHash}, ${tx.json(detail as never)})`;
+    await tx`UPDATE stories SET digest = ${digest}, latest = ${latest || null}, digest_detail = ${tx.json(detail as never)}, digest_updated_at = now(),
+               title = CASE WHEN origin = 'manual' OR ${title} = '' THEN title ELSE ${title} END,
                version = ${version}, updated_at = now()
              WHERE id = ${storyId}`;
     await completeReceipt(tx, res.receiptId);

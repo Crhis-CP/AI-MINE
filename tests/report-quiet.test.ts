@@ -42,7 +42,7 @@ async function judged(label: string, at: string, score: number | null = 20) {
     via: "fetch",
   });
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,score,selected,prompt_version,receipt_ids,output)
-    VALUES(${articleId},1,'rule','pass','company_project',${`标题 ${label}`},'普通资讯摘要',${score},false,${scopeVersion},${[await scopeReceipt(articleId)]},${sql.json(scopeOutput)})`;
+    VALUES(${articleId},1,'rule','pass','project_development',${`标题 ${label}`},'普通资讯摘要',${score},false,${scopeVersion},${[await scopeReceipt(articleId)]},${sql.json(scopeOutput)})`;
   assert.equal((await publishArticle(articleId, { now: new Date(at) }))?.selected, false);
   return articleId;
 }

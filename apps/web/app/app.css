@@ -3,15 +3,53 @@
 /* ---------------------------------------------------------------------------
    Design tokens: warm off-white paper, ink text, one accent, hairline borders,
    no gradients. Components use the semantic names below; values change per
-   theme only. The accent is a temporary neutral placeholder (临时) until T-0006
-   settles the palette with the Owner (Q-67).
+   theme only. The accent is the brand gold of the galaxy logo (DEC-78); only the
+   logotype itself (industry/brand/lockup*.svg) carries the gradient.
    --------------------------------------------------------------------------- */
+
+/* Latin letters and figures in the brand faces (SIL OFL 1.1, self-hosted WOFF2 subsets, assets/fonts/OFL.txt);
+   Chinese, and the punctuation Chinese text shares (· — … “ ”), falls through to the system faces, so no
+   Chinese web font is downloaded and Chinese punctuation keeps its width (DEC-78, R2). */
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/InstrumentSans_400Regular.woff2") format("woff2");
+  unicode-range: U+0000-00B6, U+00B8-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+20AC, U+2122, U+2212;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/InstrumentSans_600SemiBold.woff2") format("woff2");
+  unicode-range: U+0000-00B6, U+00B8-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+20AC, U+2122, U+2212;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/InstrumentSans_700Bold.woff2") format("woff2");
+  unicode-range: U+0000-00B6, U+00B8-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+20AC, U+2122, U+2212;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono_500Medium.woff2") format("woff2");
+  unicode-range: U+0000-00B6, U+00B8-00FF, U+2212;
+}
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-sans:
+    "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "HarmonyOS Sans SC", "Microsoft YaHei",
+    sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
   /* Semantic colours. */
   --color-bg: var(--bg);
@@ -74,32 +112,32 @@
      and centre beyond it (32:9); reading pages fill a 16:9 screen and centre on wider ones. A browser
      window is shorter than its screen (tabs, address bar), so a 16:9 screen gives a window of about 2:1
      and a 21:9 screen one of about 2.7:1. 236px is the sidebar and the main area's padding. */
-  --page-max-wide: max(1200px, calc(270dvh - 236px));
-  --page-max-reading: max(1100px, calc(200dvh - 236px));
+  --page-max-wide: max(1200px, calc(270dvh - 56px));
+  --page-max-reading: max(1100px, calc(200dvh - 56px));
   color-scheme: light;
-  --bg: #faf9f6;
-  --bg-sunk: #f3f3ef;
-  --bg-muted: #e9ede9;
+  --bg: #f9f6f0;
+  --bg-sunk: #f2eee6;
+  --bg-muted: #e9e4d9;
   --surface: #ffffff;
-  --surface-2: #fdfdfb;
+  --surface-2: #fdfbf7;
   --raised: #ffffff;
-  --sidebar: #fdfdfb;
-  --daybar: #f0f2ee;
-  --field: #eef1ed;
-  --ink: #202a30;
-  --ink-2: #303c42;
-  --ink-3: #59656b;
-  --ink-4: #657176;
-  --line: #dfe4e1;
-  --line-strong: #d1d9d5;
-  --line-soft: #e9ede9;
-  /* 临时: neutral placeholder accent until T-0006 (Q-67). */
-  --accent: #475569;
-  --accent-ink: #334155;
-  --accent-soft: rgba(71, 85, 105, 0.08);
-  --accent-softer: rgba(71, 85, 105, 0.05);
+  --sidebar: #fcfaf5;
+  --daybar: #f1ece2;
+  --field: #eee9df;
+  --ink: #221e19;
+  --ink-2: #34302a;
+  --ink-3: #5f584e;
+  --ink-4: #6b6459;
+  --line: #e3ddd1;
+  --line-strong: #d6cfc1;
+  --line-soft: #ece7dd;
+  /* Brand gold from the galaxy logo (DEC-78, Owner 2026-11-05): the deep end of its ramp, 5.6:1 on paper. */
+  --accent: #8a5a17;
+  --accent-ink: #6e4710;
+  --accent-soft: rgba(160, 106, 30, 0.1);
+  --accent-softer: rgba(160, 106, 30, 0.06);
   --accent-contrast: #ffffff;
-  --note: #526f72;
+  --note: #5f6a3c;
   --hot: #b3402a;
   --hot-soft: rgba(179, 64, 42, 0.08);
   --amber: #b8873a;
@@ -111,42 +149,42 @@
   --rank-1: #b3402a;
   --rank-2: #a3642f;
   --rank-3: #96702e;
-  --rank-rest: #6b7684;
-  --shadow-card: 0 1px 2px rgba(32, 42, 48, 0.025);
-  --shadow-card-hover: 0 3px 12px rgba(32, 42, 48, 0.055);
-  --shadow-soft: 0 4px 12px rgba(28, 39, 51, 0.06);
-  --shadow-thumb: 0 1px 2px rgba(28, 39, 51, 0.1), 0 1px 1px rgba(28, 39, 51, 0.04);
-  --shadow-pop: 0 12px 32px rgba(28, 39, 51, 0.12);
-  --prose-ink: #26323a;
-  --code-bg: #f6f7f4;
-  --selection: rgba(71, 85, 105, 0.16);
+  --rank-rest: #6b6459;
+  --shadow-card: 0 1px 2px rgba(34, 30, 25, 0.03);
+  --shadow-card-hover: 0 3px 12px rgba(34, 30, 25, 0.06);
+  --shadow-soft: 0 4px 12px rgba(34, 30, 25, 0.06);
+  --shadow-thumb: 0 1px 2px rgba(34, 30, 25, 0.1), 0 1px 1px rgba(34, 30, 25, 0.04);
+  --shadow-pop: 0 12px 32px rgba(34, 30, 25, 0.12);
+  --prose-ink: #2a251f;
+  --code-bg: #f5f1e9;
+  --selection: rgba(160, 106, 30, 0.18);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #13191c;
-  --bg-sunk: #182024;
-  --bg-muted: #202a2f;
-  --surface: #1a2226;
-  --surface-2: #1d272b;
-  --raised: #202a2f;
-  --sidebar: #161e21;
-  --daybar: #182024;
+  --bg: #15130f;
+  --bg-sunk: #1a1814;
+  --bg-muted: #24211b;
+  --surface: #1c1914;
+  --surface-2: #201d18;
+  --raised: #26221c;
+  --sidebar: #181611;
+  --daybar: #1a1814;
   --field: rgba(255, 255, 255, 0.06);
-  --ink: #e7eceb;
-  --ink-2: #d2dada;
-  --ink-3: #a5b0b3;
-  --ink-4: #89979d;
+  --ink: #ece6da;
+  --ink-2: #d9d2c4;
+  --ink-3: #ada595;
+  --ink-4: #948c7d;
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.12);
   --line-soft: rgba(255, 255, 255, 0.06);
-  /* 临时: neutral placeholder accent until T-0006 (Q-67). */
-  --accent: #94a3b8;
-  --accent-ink: #cbd5e1;
-  --accent-soft: rgba(148, 163, 184, 0.12);
-  --accent-softer: rgba(148, 163, 184, 0.06);
+  /* Brand gold, the light end of the logo ramp for dark paper (8.9:1). */
+  --accent: #e2b04f;
+  --accent-ink: #f0ca6e;
+  --accent-soft: rgba(226, 176, 79, 0.13);
+  --accent-softer: rgba(226, 176, 79, 0.07);
   --accent-contrast: #000000;
-  --note: #8fb8a8;
+  --note: #a8b27a;
   --hot: #d86a52;
   --hot-soft: rgba(216, 106, 82, 0.12);
   --amber: #d3b26a;
@@ -158,15 +196,15 @@
   --rank-1: #d86a52;
   --rank-2: #d18a5e;
   --rank-3: #d3b26a;
-  --rank-rest: #7b869a;
+  --rank-rest: #958d80;
   --shadow-card: none;
   --shadow-card-hover: none;
   --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.35);
   --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.45);
-  --prose-ink: #d7dfdf;
-  --code-bg: #10151c;
-  --selection: rgba(148, 163, 184, 0.22);
+  --prose-ink: #ddd6c8;
+  --code-bg: #12100d;
+  --selection: rgba(226, 176, 79, 0.22);
 }
 
 @layer base {
@@ -181,8 +219,8 @@
     background: var(--bg);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
   }
   ::selection {
     background: var(--selection);
@@ -226,10 +264,10 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    height: 1.625rem;
-    padding: 0 0.625rem;
+    min-height: 2rem;
+    padding: 0 0.75rem;
     border-radius: 9999px;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--ink-4);
     background: var(--bg-sunk);
     border: 1px solid var(--line-soft);
@@ -565,6 +603,14 @@
   line-height: 1.8;
   letter-spacing: 0.012em;
   overflow-wrap: anywhere;
+  /* At most about 38 Chinese characters a line (DEC-78 reading page). */
+  max-width: 38em;
+}
+/* The reader's 宋体 choice for long reads: system serif faces only, nothing is downloaded. */
+:root[data-reading="serif"] .prose,
+:root[data-reading="serif"] .reading-serif {
+  font-family: "Songti SC", "STSong", "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif;
+  letter-spacing: 0.02em;
 }
 @media (min-width: 80rem) {
   .prose {
@@ -750,4 +796,77 @@
 [data-font="browser"] body,
 [data-font="browser"] .font-sans {
   font-family: inherit;
+}
+
+/* ---------------------------------------------------------------------------
+   Site frame (direction C, DEC-78): the header, the page and the footer share one centred column.
+   Phones: a 640px column with 16px gutters that respect the notch and Dynamic Island in landscape.
+   Desktop: the list width plus 28px gutters. Dual-screen and folded devices keep content off the hinge.
+   --------------------------------------------------------------------------- */
+.site-frame {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 640px;
+  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+}
+@media (min-width: 961px) {
+  .site-frame {
+    max-width: calc(var(--page-max-wide) + 56px);
+    padding-inline: max(28px, env(safe-area-inset-left)) max(28px, env(safe-area-inset-right));
+  }
+}
+/* A page spanning two screens side by side (Surface Duo, folded-open dual screens): the frame keeps clear of the hinge. */
+@media (horizontal-viewport-segments: 2) {
+  .site-main .site-frame {
+    max-width: env(viewport-segment-width 0 0, 640px);
+    margin-inline: 0 auto;
+  }
+}
+
+/* Header contours: seven survey lines drifting slowly in the brand gold; still when motion is reduced. */
+.site-contours {
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  height: 100%;
+  pointer-events: none;
+  animation: contour-drift 90s linear infinite;
+}
+.site-contours path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  opacity: 0.11;
+  vector-effect: non-scaling-stroke;
+}
+[data-theme="dark"] .site-contours path {
+  opacity: 0.18;
+}
+@keyframes contour-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-contours {
+    animation: none;
+  }
+}
+
+/* World map circles rise in turn once the counts arrive; still when motion is reduced. */
+.map-bubble {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-bubble-in 420ms var(--ease-out-quart, ease-out) both;
+}
+@keyframes map-bubble-in {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-bubble {
+    animation: none;
+  }
 }

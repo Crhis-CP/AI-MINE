@@ -5,6 +5,9 @@ import {
   routes as contracts,
   policyRoutes,
   PoolResponse,
+  SiteMeta,
+  SiteNewsMap,
+  type NewsMapWindow,
   SiteStats,
   TimelineResponse,
   ReportGroupedPoolResponse,
@@ -13,7 +16,7 @@ import {
   ReportGroupReportsResponse,
 } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { canonicalCategoryFilter, isChannelKey, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
 import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail";
 import { loadPool, SearchBusyError } from "@amp/backend/publication/pool";
@@ -23,7 +26,7 @@ import { loadDevelopments, loadGroupReports, loadReportGroupReports, readItemRep
 import { loadTopicTags } from "@amp/backend/publication/topics";
 import { loadHotStrip, hotSearchLinks } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
-import { loadSiteStats } from "@amp/backend/site/stats";
+import { loadNewsMap, loadSiteStats } from "@amp/backend/site/stats";
 import { isValidDate } from "@amp/contracts/time";
 import { itemAvailability, savedItems, contentVersion, publicFreshness } from "@amp/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage, topicBrowseLinks } from "@amp/backend/publication/topics";
@@ -79,7 +82,7 @@ export interface FilterParams {
   selected?: boolean;
   scope?: "all" | "selected";
   channel: ChannelKey;
-  category: CategoryKey | null;
+  category: CategoryFilterKey | null;
   tag: string | null;
   topic: string | null;
   topicTags: string[] | null;
@@ -91,8 +94,9 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
   if (jurisdiction && !validNewsJurisdiction(jurisdiction)) throw new BadRequest("invalid jurisdiction");
   const channel = q.channel ?? "all";
   if (!isChannelKey(channel)) throw new BadRequest("invalid channel");
-  const category = q.category ?? null;
-  if (category !== null && !isCategoryKey(category)) throw new BadRequest("invalid category");
+  // Retired keys from old links keep working (ADR-0031): one successor becomes it, company_project filters both.
+  const category = q.category === undefined ? null : canonicalCategoryFilter(q.category);
+  if (q.category !== undefined && category === null) throw new BadRequest("invalid category");
   const tag = q.tag?.trim() ? q.tag.trim().slice(0, 60) : null;
   const topic = q.topic?.trim() || null;
   let topicTags: string[] | null = null;
@@ -111,7 +115,7 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
   return {
     ...(capability ? { readingGroups: capability } : {}),
     channel,
-    category: category as CategoryKey | null,
+    category,
     tag,
     topic,
     topicTags,
@@ -137,6 +141,17 @@ export function registerSite(app: FastifyInstance) {
     }),
   );
 
+  // The news map follows a recent window (the contract rejects any other window with 400).
+  app.get(
+    contracts.siteNewsMap.url,
+    contracts.siteNewsMap,
+    siteHandler(async (req, reply) => {
+      const { window = "7d" } = req.query as { window?: NewsMapWindow };
+      const data = SiteNewsMap.parse(await loadNewsMap(window));
+      return sendJsonWithEtag(req, reply, data, { etagPrefix: "siteNewsMap", cacheControl: "no-store" });
+    }),
+  );
+
   app.get(
     contracts.siteContentVersion.url,
     contracts.siteContentVersion,
@@ -158,9 +173,10 @@ export function registerSite(app: FastifyInstance) {
     return reply.header("Cache-Control", "no-store").send(await publicFreshness());
   });
   app.get(
-    "/api/site/meta",
+    contracts.siteMeta.url,
+    contracts.siteMeta,
     siteHandler(async (req, reply) => {
-      return sendJsonWithEtag(req, reply, siteMeta(), { etagPrefix: "meta", cacheControl: "public, max-age=60, s-maxage=60" });
+      return sendJsonWithEtag(req, reply, SiteMeta.parse(siteMeta()), { etagPrefix: "meta", cacheControl: "public, max-age=60, s-maxage=60" });
     }),
   );
 

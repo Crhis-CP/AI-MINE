@@ -32,13 +32,13 @@
 - `mcpPrefix`：MCP 站点前缀，现值 `aiminingpolicy`。11个工具名在 contracts 固定，集成测试保证与此前缀一致；修改站点显示配置不会静默重命名工具。
 - `contactEmail`：对外联系邮箱（选填），使用规则、`llms.txt` 与响应头会写。`organization`：结构化数据里的网站运营者。
 - `crawlerName`：抓取信源时在 User-Agent 里报的名字，不能冒用别的站名。现在是 `AIMiningPolicyBot`。
-- `icp`、`publicSecurity`、`newsLicense`：实际登记后展示的 ICP 备案号、公安联网备案号与互联网新闻信息服务许可证编号，按已确认的备案信息配置（页脚本来就公开显示）；没有的写 `null`，页面不显示。`ABOUT` 是关于页文案（“怎么工作”四个环节各配一个站内实时统计数字）；页脚小字 `footerNote` 已删除。
+- 备案号与许可证编号不在这里：ICP 备案号、公安联网备案号与互联网新闻信息服务许可证编号是部署信息，由部署者在 API 的环境变量 `SITE_ICP_FILING`、`SITE_PUBLIC_SECURITY_FILING`、`SITE_NEWS_LICENSE` 中填写，经 `/api/site/meta` 交给页脚与关于页；不填不显示，`SITE_REQUIRE_FILINGS=true` 时缺号码拒绝启动（DEC-78，见 `.env.example`）。`ABOUT` 是关于页文案（“怎么工作”四个环节各配一个站内实时统计数字）；页脚小字 `footerNote` 已删除。
 
 ### 2.2 `taxonomy.ts` 与 `topics.json`
 
 - `CATEGORY_LABELS`、`CHANNEL_LABELS`：显示标签的公开出口；分类/栏目 keys 与顺序在 contracts 固定，离线集成测试逐项对齐，industry 不反向依赖 contracts。
 - `CATEGORIES`：首页与“全部动态”的筛选类别，也用于卡片角标和 RSS 分类订阅。`key` 出现在网址与接口里（`/all?category=`、`/feed/category/<key>.xml`），上线后冻结；`label` 是显示名；`section` 是日报里的分节标题，几个类别可以共用一节；`guide` 告诉模型怎么归类。没归上类的资料放进 `key` 为 `industry` 的类别所在的节，没有这个类别就放最后一节。
-- `ITEM_TYPES`：内容理解一步判定的内容类型。`prompts/content-understanding.md` 列出这些类型，`prompts/selection-score.md` 按类型给评分维度不同的权重，三处在同一个提交里改。`CATEGORY_BY_ITEM_TYPE`：模型漏了分类标签时，按内容类型补一个。
+- `ITEM_TYPES`：内容理解一步判定的内容类型，与九类分类同一套代码（ADR-0031）。`prompts/content-understanding.md` 列出这些类型，`selection.ts` 的 `weights` 按类型给五个评分维度不同的权重（`prompts/selection-score.md` 只写类型和维度的含义），几处在同一个提交里改。
 - `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义写法统一成词表里的标签（黄金→金、刚果(金)→刚果（金）、澳洲→澳大利亚、矿企别名→显示名等）。
 - `ENTITIES`：主要公司与机构，用于公司类主题。`IDENTITY_LEXICON`、`PUBLISHER_DOMAINS`、`IDENTITY_CONTEXT_ALIASES` 防止模型在标题和摘要里写进原文没提到的公司：核验过的身份事实经 `prompts/identity-context.md` 交给模型。
 - `topics.json`：主题目录，分三组：`genre`（国家与地区）、`field`（金属）、`company`（矿企）；组的键为固定契约，页面使用相应中文名称。每个主题用 `tags` 或 `entityId` 决定收哪些内容；`slug` 出现在网址里，上线后冻结。
@@ -63,28 +63,34 @@
 | 文件 | 用途 |
 |---|---|
 | `prefilter.md` | 预筛：是不是本行业的事。宽召回，只拦明显无关的 |
-| `selection-score.md` | 评分标准：0–100 分，同一份标准独立打两次；含内容类型、评分维度与各类型的权重，以及必须正常评价的价值和必须压住的噪声 |
+| `selection-score.md` | 评分标准：读者定义、内容类型、五个评分维度的含义（每个 0–10，可到一位小数）、噪声类型，以及必须正常评价的价值和必须压住的噪声。模型只给类型、各维度分和噪声类型；总分（0–100，一位小数）由 `selection.ts` 的权重和封顶算出。同一份标准最多独立打两次，第一次离门槛较远时只打一次 |
 | `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加四份共用规则（`rules-domain.md`、`rules-anti-hallucination.md`、`rules-self-contained-title.md`、`rules-answer-first-summary.md`）组成 |
 | `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
 | `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`，其中第 3 条“通行中文名”引用 `rules-domain-names.md`）、防幻觉、答案先行的摘要、自洽的标题 |
 | `identity-context.md` | 把核验过的公司身份事实交给模型 |
+| `analysis-shared.md`、`analysis-step-*.md`、`analysis-material-ack.md`、`analysis-shared-pointer.md` | 共享前缀排布（`ANALYSIS_PROMPT_LAYOUT=shared`，缺省）：每篇文章的各步骤共用同一份系统提示词，它原样引用上面预筛、评分、结构、内容理解、标题摘要、用词修订的规则；正文作为材料只送一份，`analysis-step-*.md` 是每一步最后的简短指令。改任何一份被引用的规则都会让共享排布的版本一起变 |
 | `structure.md`、`safety.md` | 分类、标签、主体与事实的结构化抽取；资料内容一律当作不可信数据 |
 | `group-*.md` | 事件归组：两篇报道的关系（成对与批量判断），以及热度信号挂到哪个事实上；关系定义在 `group-definitions.md` |
 | `story-digest.md` | 事件综述 |
 | `report-daily-lead.md`、`report-period.md` | 日报导语，周报与月报 |
-| `translate-body.md` | 全文翻译；只引用 `rules-domain-names.md`（公司与机构的通行中文名，翻译只用这份名单），术语默认值不进翻译，改术语或写作规则不会让已译的全文重译；改 `translate-body.md` 或 `rules-domain-names.md` 会让已存的外文全文全部重译（后者和摘要规则 `rules-domain.md` 第 3 条共用） |
+| `translate-body.md` | 全文翻译；只引用 `rules-domain-names.md`（公司与机构的通行中文名，翻译只用这份名单），术语默认值不进翻译，改术语或写作规则不会让已译的全文重译；改 `translate-body.md` 或 `rules-domain-names.md` 会让已存的外文全文全部重译（后者和摘要规则 `rules-domain.md` 第 3 条共用）。只给标题摘要用的新增名单放在 `rules-domain-names-extra.md`（只由 `rules-domain.md` 引用，不进翻译），改它不会触发重译 |
 
 模板只有两种写法（`packages/backend/src/editorial/prompts.ts`）：`{{名字}}` 是调用方传入的值（另有站名 `siteName`），`{{> 文件名}}` 原样插入另一份提示词。缺值或缺文件直接报错，不会留空。提示词的版本号由名称加它读到的所有文件内容的哈希组成，回执和私有页面的模型页都记着结果出自哪一版；改一个字，版本号就变。
 
 ### 2.5 `selection.ts` 与校准
 
-- `thresholds`：按信源分级的入选门槛。每篇资料独立评分两次，两次之和不低于两倍门槛才入选，页面显示两次的平均分。没有门槛的分级不参与精选。当前配置为 T1 60、T1_5 65、T2 76。达到分数条件后仍须确认归组及信息增量，才正式入选。
+- `thresholds`：按信源分级的入选门槛。每篇资料最多独立评分两次，已打分数之和不低于门槛乘以分数个数（即平均分达到门槛）才入选，页面显示平均分（一位小数）。没有门槛的分级不参与精选。当前配置为 T1 62、T1_5 64、T2 66（Owner 2026-11-05）。达到分数条件后仍须确认归组及信息增量，才正式入选。
+- `weights`：内容类型 → 五个评分维度的权重，每行之和为 10；`attentionScore` 按它算出一次评分的总分。
+- `noiseCaps`：噪声类型 → 总分上限（范围外 30、例行活动 35、单日行情 40、一般政务 40、名单外小矿企例行项目新闻 55）；`unusableMaterialCap`：材料残缺时的上限 30。
+- `secondScoreMargin`：第一次分数与门槛相差超过它（15）时不打第二次。
+- `groupFloor`：低于它（20）的稿件不送归组；未打分的照常归组。
+- `browseFloor`：没有搜索词的“全部”列表（网页、接口、RSS）默认不显示低于它（20）的稿件；精选和未打分的照常显示，搜索仍能搜到全部。
 - `understandFloor`：没入选、但平均分高于它的资料也按入选的写法写（50）。
 
 换了行业或评分标准就要重新校准（BR-SEL-08）：
 
 1. 按DEC-76由AI整理不同国家、主题、来源及正反边界的资料，并明确标注AI判断的性质；不要求Owner或第二位人工复核者盲标。历史100–200条建议不是新增的人工交付关卡。对所用资料逐条标“该选 / 不该选 / 两可”，存成 `.data/gold.jsonl`（`.data/` 不进 Git，格式见 2.6 节）。多放差一点就该选、差一点就不该选的难例；留一部分作留出集，调提示词只看开发集。
-2. 跑 `node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl --split development --label "说明"`（另有 `--models`、`--n`、`--no-import`）。输出准确率、查准率、查全率，门槛从 40 到 90 每隔 2 分的结果，以及判错的条目；完整报告写到 `.data/eval/`，并导入私有页面的 SelectBench。评测会真实调用模型、产生费用，只在任务卡给的额度内跑。
+2. 跑 `node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl --split development --label "说明"`（另有 `--models`、`--n`、`--no-import`，以及 `--layout shared|separate` 指定评哪种提示词排布，缺省为当前配置）。输出准确率、查准率、查全率，门槛从 40 到 90 每隔 2 分的结果，以及判错的条目；完整报告写到 `.data/eval/`，并导入私有页面的 SelectBench。评测会真实调用模型、产生费用，只在任务卡给的额度内跑。
 3. 先改评分标准，再动门槛：该选没选上，多半是标准没写清它为什么重要；不该选却选上，多半是噪声没压住；门槛只能整体移动。AI负责验证并记录差异，规则调整按Issue #293由Chris确认；上线仍核对受测规则的准确版本绑定，不能让配置意外指向未验证的文本。
 
 ### 2.6 评测样例
@@ -119,7 +125,7 @@
 1. **构建期配置**：品牌、分类标签、评分配置、提示词、静态页面与素材随版本构建。分类键由契约定义，行业包提供显示名称、说明和提示词。
 2. **稳定标识**：分类 `key`、主题 `slug`、MCP 工具名和报告周期键出现在网址及公开接口中，修改须走契约变更流程。
 3. **种子与运行配置**：`scripts/seed.ts` 更新同名主题，只插入不存在的来源，新来源默认停用；已有来源及人工权限、启停配置不覆盖。`sources.json` 保存已核实配置，`seed/` 保存研究输入，两者均不能替代生产启用和自然采集证据。运行库中的来源通过后台和受控增量接入维护。
-4. **站点信息**：`site/site.ts` 保存品牌、出刊时间、已确认的备案号码和默认说明；可编辑的网站资料由后台维护。公安备案已由Owner提供官方查询证据，页脚展示随统一发布生效。
+4. **站点信息**：`site/site.ts` 保存品牌、出刊时间和默认说明；备案号与许可证编号由部署者在运行环境中配置，不进仓库；可编辑的网站资料由后台维护。
 5. **更新说明**：`changes/*.md` 按读者/运营分别记录变化；`industry/release-note.json` 只引用读者片段并汇总读者可感知的变化，独立公告同样面向读者。后台操作、费用、模型和技术细节留在内部交付记录，不能混入公开日志。正式发布后按实际健康上线时间登记；历史展示可用 `changelog-copy-edits.json` 精确匹配更正文案，不改原发布回执。隐私和使用规则以Owner已确认正文为准。
 
 ## 法域与原始来源输入
@@ -136,4 +142,4 @@
 
 **2026-10-23 DEC-76：以下A/B/AR与双人盲标为历史实验说明，不再是当前实施或验收前置。全站使用统一选材/评分规则，国别只承担分类、查询与分发；AI负责规则核验和完善。**
 
-`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。权重、双评分与60/65/76门槛不变；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。
+`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。当时实验中权重、双评分与60/65/76门槛不变（这是2026-10-22的配置；现行门槛、权重和评分次数见2.5节）；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。

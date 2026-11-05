@@ -23,11 +23,6 @@
   "apps/web/app/components/ui/Score.tsx": {
     "lint/a11y/useAriaPropsSupportedByRole": 1
   },
-  "apps/web/app/features/admin/charts.tsx": {
-    "lint/a11y/noStaticElementInteractions": 1,
-    "lint/a11y/noSvgWithoutTitle": 2,
-    "lint/suspicious/noArrayIndexKey": 2
-  },
   "apps/web/app/features/admin/ui.tsx": {
     "lint/a11y/noStaticElementInteractions": 1,
     "lint/a11y/useKeyWithClickEvents": 1,
@@ -92,7 +87,6 @@
     "lint/suspicious/noArrayIndexKey": 1
   },
   "apps/web/app/routes/changelog.tsx": {
-    "lint/correctness/noUnusedImports": 1,
     "lint/suspicious/noArrayIndexKey": 3
   },
   "apps/web/app/routes/feedback.tsx": {
@@ -103,11 +97,7 @@
     "lint/correctness/noUnusedImports": 1
   },
   "apps/web/app/routes/hot.tsx": {
-    "lint/a11y/useAriaPropsSupportedByRole": 1,
-    "lint/correctness/noUnusedImports": 1
-  },
-  "apps/web/app/routes/item.tsx": {
-    "lint/correctness/noUnusedImports": 1
+    "lint/a11y/useAriaPropsSupportedByRole": 1
   },
   "apps/web/app/routes/story.tsx": {
     "lint/correctness/useExhaustiveDependencies": 5
@@ -117,9 +107,6 @@
   },
   "apps/worker/src/schedules.ts": {
     "lint/style/noProcessEnv": 1
-  },
-  "industry/brand/logo.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
   },
   "industry/brand/nameplates/archive.svg": {
     "lint/a11y/noSvgWithoutTitle": 1

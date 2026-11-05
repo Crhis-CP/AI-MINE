@@ -5,6 +5,11 @@
 // gives every file its own cloned database, process and temporary directory before this import.
 import http from "node:http";
 import { initializeDb } from "@amp/backend/db";
+import { SELECTION } from "@amp/industry/selection";
+
+// The invariant tests were written for two score calls per article. Second-score-on-demand (Owner 2026-11-05)
+// has its own tests (tests/selection-score.test.ts); here every article keeps both calls.
+(SELECTION as { secondScoreMargin: number }).secondScoreMargin = 100;
 
 const database = new URL(process.env.DATABASE_URL ?? "postgres://unset/unset").pathname.slice(1);
 if (!/_(test|ci)$/.test(database)) {
@@ -18,6 +23,11 @@ process.env.IMG_PROXY_SIGN_SECRET ??= "test-img-secret-0123456789";
 process.env.FEISHU_CONTENT_PUSH_ENABLED = "false";
 process.env.INDEXNOW_SUBMIT_ENABLED = "false";
 process.env.LOG_LEVEL ??= "error";
+// Both policy restart switches default to off; production turns them on in the deploy brief's S13 (DEC-78补充·五项决定 5,
+// no call cap). These tests were written with the policy archive and model stages available; the switches-off paths are
+// covered in tests/policy-provisions-pipeline.test.ts and tests/site-modules.test.ts.
+process.env.POLICY_PILOT_ENABLED ??= "true";
+process.env.POLICY_MODEL_STAGES_ENABLED ??= "true";
 // The tests were written against the named model presets the upstream project assigns to each step
 // (each provider is pointed at a local stub by the test that needs it). The open-source default is one
 // model for every step, which tests/default-model.test.ts covers.
@@ -34,6 +44,10 @@ const PRESET_MODELS: Record<string, string> = {
   TRANSLATE_MODEL: "deepseek-flash",
 };
 for (const [name, model] of Object.entries(PRESET_MODELS)) process.env[name] ??= model;
+// The invariant tests' provider stubs tell the analysis steps apart by each step's own system prompt, the layout they
+// were written for. Production shares one system prompt and material across the steps (ANALYSIS_PROMPT_LAYOUT=shared,
+// the default); tests/analysis-shared-prefix.test.ts covers that layout end to end.
+process.env.ANALYSIS_PROMPT_LAYOUT ??= "separate";
 await initializeDb("test");
 
 /**

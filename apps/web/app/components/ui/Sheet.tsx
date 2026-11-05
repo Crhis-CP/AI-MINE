@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
+import { useTr } from "../../i18n";
 import { IconClose } from "../icons";
 
 /** Native modal focus and Escape handling, with a phone-sized draggable sheet. */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  const tr = useTr();
   const dialog = useRef<HTMLDialogElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -106,7 +108,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
           <h2 id={titleId} className="text-[17px] font-semibold">
             {title}
           </h2>
-          <button type="button" aria-label="关闭" onClick={onClose} className="grid size-10 place-items-center rounded-full hover:bg-bg-sunk">
+          <button type="button" aria-label={tr("关闭")} onClick={onClose} className="grid size-10 place-items-center rounded-full hover:bg-bg-sunk">
             <IconClose size={20} />
           </button>
         </div>

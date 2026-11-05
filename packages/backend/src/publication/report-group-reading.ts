@@ -10,6 +10,7 @@ import { readReportReadingRows } from "./groups.ts";
 import { pickRepresentative, type RepresentativeRow } from "./representative.ts";
 import { loadTimelineFactGroups } from "./timeline.ts";
 import { currentReportMemberships } from "./report-groups.ts";
+import { loadStoryProgress } from "./story-progress.ts";
 
 export interface ReadingGroupQuery extends PoolQuery {
   scope?: "all" | "selected";
@@ -114,9 +115,11 @@ export async function loadReportGroupedPage(q: ReadingGroupQuery, now: Date, db:
       facts.flatMap((g) => g.members.map((member) => member.id)),
       db,
     );
+    const progress = await loadStoryProgress([...rows.values()], now, db);
     const cards: ReportGroupedTimelineCard[] = page.flatMap((g) => {
       const row = rows.get(g.representative.id);
       if (!row) return [];
+      const storyProgress = progress.get(row.id);
       return [
         {
           key: g.key,
@@ -124,6 +127,7 @@ export async function loadReportGroupedPage(q: ReadingGroupQuery, now: Date, db:
           item: toFeedItemSummary(row),
           group: factGroups.get(row.id) ?? null,
           ...(g.reportGroup ? { reportGroup: g.reportGroup } : {}),
+          ...(storyProgress ? { storyProgress } : {}),
         },
       ];
     });

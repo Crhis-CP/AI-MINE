@@ -26,6 +26,7 @@ import { setVisibility } from "@amp/backend/admin/content";
 import { buildApp } from "./site-app.ts";
 import { SITE } from "@amp/industry/site";
 import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
+import { scoreAxes } from "./score-axes.ts";
 
 const publicApp = await buildApp();
 const T = tag();
@@ -91,7 +92,7 @@ const scoreAnswers: Record<string, number[]> = {
   THIN: [70, 70],
   SENSITIVE: [80, 80],
   BARE: [30, 34],
-  VAGUE: [60, 62],
+  VAGUE: [62, 64],
   TITLEONLY: [80, 80],
   REJUDGE: [80, 80, 80, 80],
 };
@@ -157,7 +158,7 @@ const provider = await stub(async (_hit, req) => {
     }
     if (marker === "SCFAIL") return DROP_RESPONSE;
     if (marker === "SCREFUSED") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
-    return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
+    return answer(scoreAxes(marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10)));
   }
   if (step === "understand") {
     if (marker === "SENSITIVE") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
@@ -173,8 +174,8 @@ const provider = await stub(async (_hit, req) => {
   if (step === "structure" && marker === "STFAIL") return new Reply(400, { error: { message: "synthetic invalid structure request" } });
   if (step === "structure")
     return answer({
-      category: "company_project",
-      tags: ["企业与项目", "锂"],
+      category: "project_development",
+      tags: ["项目建设", "锂"],
       subjects: ["zijin", "unknown-co"],
       fact: { title: `事实 ${marker}`, subject: "某公司", action: "发布", object: "模型", occurredAt: null },
     });
@@ -261,14 +262,14 @@ test("every prompt in the pack renders, and carries the site's own name", () => 
 });
 
 test("a selected item: prefilter, two scores, the content understanding and the structure", async () => {
-  assert.equal(tierThreshold("T1"), 60);
+  assert.equal(tierThreshold("T1"), 62);
   const id = await article("CLEAR");
   const res = await analyzeArticle(id);
-  assert.deepEqual([res!.output!.selected, res!.output!.score], [true, 75], "78 + 72 = 150 >= 120");
+  assert.deepEqual([res!.output!.selected, res!.output!.score], [true, 75], "78 + 72 = 150 >= 124");
   assert.deepEqual(calls("CLEAR").sort(), ["prefilter", "score", "score", "structure", "understand"]);
   const r = await row(id);
-  assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "company_project", 5]);
-  assert.deepEqual(r.tags, ["企业与项目", "铜", "紫金矿业"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
+  assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "project_development", 5]);
+  assert.deepEqual(r.tags, ["项目建设", "铜", "紫金矿业"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
   assert.deepEqual(r.subjects, ["zijin"]);
   assert.deepEqual(
     [r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title],
@@ -294,14 +295,14 @@ test("a near-selected item is written like a selected one; below the floor it is
   const summarize = requests.find((q) => q.marker === "LOW" && q.step === "summarize")!;
   assert.equal(summarize.body.messages.length, 1, "the title/summary prompt is one user message");
   assert.equal(summarize.body.response_format, undefined, "answered in its own text format");
-  assert.deepEqual((await row(lowId)).tags, ["企业与项目", "锂", "紫金矿业"], "structure tags");
+  assert.deepEqual((await row(lowId)).tags, ["项目建设", "锂", "紫金矿业"], "structure tags");
 });
 
 test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async () => {
   const off = await analyzeArticle(await article("OFFTOPIC"));
   assert.deepEqual([off!.output!.relevance, off!.output!.selected], ["block", false]);
   assert.deepEqual(calls("OFFTOPIC"), ["prefilter"]);
-  // An UNKNOWN with material is judged and written like a PASS, up to 精选 (60 + 62 ≥ 2 × 60).
+  // An UNKNOWN with material is judged and written like a PASS, up to 精选 (62 + 64 ≥ 2 × 62).
   const vagueId = await article("VAGUE");
   const vague = await analyzeArticle(vagueId);
   assert.deepEqual([vague!.output!.relevance, vague!.output!.selected, vague!.output!.titleZh], ["pass", true, "理解标题 VAGUE"]);

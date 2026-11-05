@@ -28,14 +28,14 @@ import {
 import { QUEUES } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { enqueueSourceFetch, collectionEnabled, type CollectionLane } from "../jobs/source-queues.ts";
-import { POLICY_SOURCES } from "@amp/industry/policy-sources";
+import { ALL_POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { queueProcessing } from "../jobs/content.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { fetchRss } from "./rss.ts";
-import { allowed, fetchDetail, fetchWebList, sourcePublishedAt, type DetailNeed } from "./web-list.ts";
+import { allowed, fetchDetail, fetchWebList, fetchWebListConditional, sourcePublishedAt, type DetailNeed } from "./web-list.ts";
 import { normalizeSourceLanguage, unsupportedConfig, sourceDateConfigHash } from "./config-keys.ts";
-import { fetchJsonList } from "./json-list.ts";
-import { FetchError, type Candidate, type SourceRow } from "./types.ts";
+import { fetchJsonList, fetchJsonListConditional } from "./json-list.ts";
+import { FetchError, type Candidate, type ListingValidator, type SourceRow } from "./types.ts";
 import { toDateCandidate, previewSourceDate } from "./date-extraction.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { beijingDate } from "@amp/contracts/time";
@@ -227,6 +227,17 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         if (!firstImport) nextCursor.rss = rss.validator;
         else delete nextCursor.rss;
         if (rss.notModified) detail = { notModified: true, httpStatus: 304 };
+      } else if (source.lane === "policy" && !d) {
+        // Policy listings are polled for new documents: revalidate with the last stored response's ETag/Last-Modified,
+        // so an unchanged list costs one 304 and stores nothing. Validators are kept only after a stored, non-first run.
+        const previous = firstImport ? null : ((source.cursor?.listing as ListingValidator | undefined) ?? null);
+        const listing = await crawlStep("listing", String(source.config.url), () =>
+          source.kind === "web_list" ? fetchWebListConditional(source, previous) : fetchJsonListConditional(source, previous),
+        );
+        candidates = listing.candidates;
+        if (!firstImport && (listing.validator.etag || listing.validator.lastModified)) nextCursor.listing = listing.validator;
+        else delete nextCursor.listing;
+        if (listing.notModified) detail = { notModified: true, httpStatus: 304 };
       } else if (source.kind === "web_list") candidates = await crawlStep("listing", String(source.config.url), () => fetchWebList(source));
       else candidates = await crawlStep("listing", String(source.config.url), () => fetchJsonList(source));
       found = candidates.length;
@@ -401,7 +412,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
   }
 }
 
-const policyJurisdictions = new Map(POLICY_SOURCES.map((source) => [`policy-${source.id.toLowerCase()}`, source.jurisdiction]));
+const policyJurisdictions = new Map(ALL_POLICY_SOURCES.map((source) => [`policy-${source.id.toLowerCase()}`, source.jurisdiction]));
 /** Each lane receives its own batch; policy countries take turns before any country takes a second slot. */
 export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDULE_BATCH || 40), lane?: CollectionLane): Promise<{ enqueued: number }> {
   if (!lane) {

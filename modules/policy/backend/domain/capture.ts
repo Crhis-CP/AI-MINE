@@ -1,5 +1,5 @@
 import { requireRuntimeRunning, assertRuntimeControl } from "@amp/backend/operations/lane-controls";
-import * as cheerio from "cheerio";
+import type * as cheerio from "cheerio";
 import {
   evaluateSourcePolicy,
   lockCurrentSourcePolicies,
@@ -13,10 +13,11 @@ import { createHash } from "node:crypto";
 import { guardedFetch, type GuardedResponse, type GuardedFetchOptions } from "@amp/backend/lib/http-fetch";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { acquirePolicyOriginal } from "./acquire.ts";
-import { policyProfile } from "./automation-profile.ts";
+import { policyProfile, type PolicyAutomationProfile } from "./automation-profile.ts";
 import { decodeOriginal } from "./extraction.ts";
+import { loadPolicyDocument, PolicyIdentityMismatch, readPolicyIdentityFields, type PolicyIdentityFields } from "./identity-fields.ts";
 import type { PolicyMetadataObservation } from "./metadata.ts";
-import { lookupPolicyOriginalHead, recordPolicyOriginal } from "./originals.ts";
+import { lookupPolicyOriginalExpression, readPolicyOriginal, recordPolicyOriginal } from "./originals.ts";
 
 type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedResponse>;
 /** Captures field locations from the configured official single-document page, never a news classifier. */
@@ -56,22 +57,20 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
   )
     return { status: "metadata_unavailable" as const };
   const observedAt = response.fetchedAt ?? new Date().toISOString(),
-    mediaType = response.headers.get("content-type"),
-    decoded = decodeOriginal(response.body, mediaType),
-    xml = /xml/i.test(mediaType ?? "") && !/html/i.test(mediaType ?? "");
-  if (xml && /<!DOCTYPE|<!ENTITY|\0/i.test(decoded)) return { status: "metadata_unavailable" as const };
-  const $ = xml ? cheerio.load(decoded, { xml: true }) : cheerio.load(decoded);
-  const field = (selector: string) => {
-    const nodes = $(selector);
-    if (nodes.length !== 1) throw new Error("Policy identity field is missing or ambiguous");
-    const raw = nodes.attr("content") ?? nodes.text();
-    if (!raw.trim()) throw new Error("Policy identity field is empty");
-    return { selector, raw: raw.trim() };
-  };
-  const title = field(profile.titleSelector),
-    marker = field(profile.identityMarker.selector);
-  if (!new RegExp(profile.identityMarker.pattern, "u").test(marker.raw)) return { status: "identity" as const };
-  const number = profile.numberSelector ? field(profile.numberSelector) : undefined;
+    mediaType = response.headers.get("content-type");
+  let $: cheerio.CheerioAPI, fields: PolicyIdentityFields;
+  try {
+    $ = loadPolicyDocument(decodeOriginal(response.body, mediaType), mediaType);
+    fields = readPolicyIdentityFields($, profile);
+  } catch (error) {
+    if (!(error instanceof PolicyIdentityMismatch)) throw error;
+    // A wrong document kind (news, notices) is an identity result; a missing or ambiguous field stays a failure.
+    if (/Unsafe XML/.test(error.message)) return { status: "metadata_unavailable" as const };
+    if (/marker|pattern/.test(error.message)) return { status: "identity" as const };
+    throw error;
+  }
+  const { title, marker } = fields,
+    number = fields.number ?? undefined;
   const originalLink = profile.originalLinkSelector ? $(profile.originalLinkSelector) : null;
   if (originalLink && (originalLink.length !== 1 || !originalLink.attr("href"))) return { status: "identity" as const };
   const link = originalLink ? { selector: profile.originalLinkSelector!, raw: originalLink.attr("href")! } : undefined;
@@ -111,29 +110,36 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
     },
     language: profile.language,
     kind: profile.kind,
-    versionKey: profile.versionSelector ? field(profile.versionSelector).raw : null,
+    versionKey: fields.version?.raw ?? null,
   };
-  const expectedHead = await lookupPolicyOriginalHead(input);
+  const head = await lookupPolicyOriginalExpression(input),
+    expectedHead = head.revisionId;
   const fulltextAllowed =
     (await allowed("store_fulltext", officialUrl)) && (await allowed("fetch", officialUrl)) && (await allowed("process_locally", officialUrl));
-  const original = fulltextAllowed
-    ? await acquirePolicyOriginal(
-        { ...input, expectedHead },
-        profile.extraction,
-        async (url, options) => (url === material.url ? response : get(url, options)),
-        runtime,
-      )
-    : await recordPolicyOriginal(
-        {
-          ...input,
-          expectedHead,
-          catalogueClosed: false,
-          resources: [
-            { url: officialUrl, attachment: false, required: true, mediaType: null, state: "missing", body: null, reason: "当前许可仅保存文书基本信息" },
-          ],
-        },
-        runtime,
-      );
+  // Unchanged content costs nothing downstream: when the identity fields, body text and links equal the archived
+  // head's, keep that revision instead of recording volatile page bytes (generation stamps, nonces) or refetching
+  // attachments. Rechecks of unchanged documents therefore create no revision, extraction, structure or version.
+  const unchanged = fulltextAllowed && expectedHead ? await unchangedPolicyHead(head, input, permission.permission_version, fields.fingerprint, profile) : null;
+  const original = unchanged
+    ? unchanged
+    : fulltextAllowed
+      ? await acquirePolicyOriginal(
+          { ...input, expectedHead },
+          profile.extraction,
+          async (url, options) => (url === material.url ? response : get(url, options)),
+          runtime,
+        )
+      : await recordPolicyOriginal(
+          {
+            ...input,
+            expectedHead,
+            catalogueClosed: false,
+            resources: [
+              { url: officialUrl, attachment: false, required: true, mediaType: null, state: "missing", body: null, reason: "当前许可仅保存文书基本信息" },
+            ],
+          },
+          runtime,
+        );
   const metadata: PolicyMetadataObservation = {
     sourceId,
     expressionId: original.expressionId,
@@ -179,7 +185,46 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
     await tx`INSERT INTO policy.metadata_observations(id,expression_id,document_revision_id,source_id,material_id,material_revision,permission_version,observed_at,metadata)
       VALUES(${sha256(stableJson(metadata))},${original.expressionId},${original.revisionId},${sourceId},${materialId},${material.materialRevision},${permission.permission_version},${observedAt},${tx.json(metadata as never)}) ON CONFLICT DO NOTHING`;
   });
-  return { status: "captured" as const, ...original, fulltextAllowed, profileHash };
+  return { status: "captured" as const, ...original, fulltextAllowed, profileHash, unchanged: !!unchanged };
+}
+
+/** The archived head, when its identity, permission and content fingerprint equal the page just read. */
+async function unchangedPolicyHead(
+  head: { instrumentId: string; versionId: string; expressionId: string; revisionId: string | null },
+  input: { sourceId: string; officialTitle: string; identity: Record<string, unknown> },
+  permissionVersion: number,
+  fingerprint: string | null,
+  profile: PolicyAutomationProfile,
+) {
+  if (!fingerprint || !head.revisionId) return null;
+  const snapshot = await readPolicyOriginal(head.expressionId).catch(() => null);
+  const main = snapshot?.resources[0] as { body: Buffer | null; mediaType?: string | null } | undefined;
+  if (
+    !snapshot ||
+    !main?.body ||
+    snapshot.revisionId !== head.revisionId ||
+    snapshot.sourceId !== input.sourceId ||
+    snapshot.permissionVersion !== permissionVersion ||
+    snapshot.manifest.officialTitle !== input.officialTitle ||
+    stableJson(snapshot.manifest.identity) !== stableJson(input.identity) ||
+    snapshot.manifest.resources.some((resource) => resource.required && resource.state !== "acquired")
+  )
+    return null;
+  try {
+    const mediaType = main.mediaType ?? null,
+      previous = readPolicyIdentityFields(loadPolicyDocument(decodeOriginal(main.body, mediaType), mediaType), profile);
+    if (previous.fingerprint !== fingerprint) return null;
+  } catch {
+    return null;
+  }
+  return {
+    instrumentId: head.instrumentId,
+    versionId: head.versionId,
+    expressionId: head.expressionId,
+    revisionId: snapshot.revisionId,
+    created: false,
+    state: snapshot.manifest.state,
+  };
 }
 
 import { withSourceCrawl, crawlFetch } from "@amp/backend/acquisition/crawl";

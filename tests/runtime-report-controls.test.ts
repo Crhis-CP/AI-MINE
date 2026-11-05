@@ -78,7 +78,7 @@ async function seed() {
   const [analysis] = await sql<{ id: number }[]>`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh)
     VALUES(${articleId},1,'rule','pass','合成矿业报告材料','只用于隔离测试') RETURNING id`;
   await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visible_after,selected,eligible,category)
-    VALUES(${articleId},'合成矿业报告材料','只用于隔离测试','runtime-report-source','news','https://example.invalid/runtime-report',${at},${at},${at},${at},${at},true,true,'company_project')`;
+    VALUES(${articleId},'合成矿业报告材料','只用于隔离测试','runtime-report-source','news','https://example.invalid/runtime-report',${at},${at},${at},${at},${at},true,true,'project_development')`;
   await sql`UPDATE publications SET analysis_id=${analysis!.id} WHERE article_id=${articleId}`;
   await confirmGroupingFixture(articleId);
   return articleId;

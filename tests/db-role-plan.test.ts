@@ -138,6 +138,7 @@ test("all current migration tables and serial sequences have one explicit classi
 
       "publication.metal_prices",
       "publication.metal_price_checks",
+      "publication.metal_price_holds",
       "policy.instruments",
       "policy.versions",
       "policy.expressions",
@@ -193,6 +194,10 @@ test("all current migration tables and serial sequences have one explicit classi
       "acquisition.crawl_sessions",
       "acquisition.crawl_requests",
       "acquisition.crawl_checkpoints",
+      "policy.revision_structures",
+      "policy.revision_provisions",
+      "publication.policy_provision_sets",
+      "publication.policy_revision_provisions",
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
@@ -210,7 +215,7 @@ test("all current migration tables and serial sequences have one explicit classi
   );
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 42);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 45);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["events.story_background_proofs"], {
     module: "events",

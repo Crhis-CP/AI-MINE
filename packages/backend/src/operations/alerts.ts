@@ -1,4 +1,5 @@
 import { buildModelCatalog } from "../model-catalog.ts";
+import { OFF_PEAK_WAIT } from "../providers/peak-hours.ts";
 import { DEFAULTS } from "@amp/site/models";
 // Operations alerts. The person reading them is the site owner, not an engineer: each
 // message says what readers see, whether it heals by itself and what, if anything, the owner must do.
@@ -341,7 +342,8 @@ export async function collectFindings(
   }
   if (settled && collecting() && modelsOn() && !newsProcessingPaused && !newsPublicationPaused) {
     const [p] = await sql<{ waiting: number; oldest: Date | null; failed: number }[]>`
-      SELECT count(*) FILTER (WHERE processing_state = 'new' AND discovered_at < now() - interval '2 hours')::int AS waiting,
+      SELECT count(*) FILTER (WHERE processing_state = 'new' AND discovered_at < now() - interval '2 hours'
+               AND NOT coalesce(processing_error = ${OFF_PEAK_WAIT} AND processing_retry_at > now(), false))::int AS waiting,
              min(discovered_at) FILTER (WHERE processing_state = 'new') AS oldest,
              count(*) FILTER (WHERE processing_state = 'failed' AND discovered_at > now() - interval '3 hours')::int AS failed
       FROM articles WHERE processing_state IN ('new', 'failed') AND discovered_at > now() - interval '2 days'`;

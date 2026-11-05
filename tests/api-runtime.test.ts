@@ -52,6 +52,10 @@ test("the unified runtime rejects legacy modes and missing credentials before da
       [undefined, ""].map((value) => [{ ...unifiedEnv, [key]: value }, key] as [NodeJS.ProcessEnv, string]),
     ),
     [{ ...unifiedEnv, ADMIN_PASSWORD: undefined }, "set ADMIN_PASSWORD"],
+    // Filing numbers: required ones missing, or a malformed one, stop start-up without echoing the value.
+    [{ ...unifiedEnv, SITE_REQUIRE_FILINGS: "true" }, "SITE_ICP_FILING is required by SITE_REQUIRE_FILINGS"],
+    [{ ...unifiedEnv, SITE_REQUIRE_FILINGS: "true", SITE_ICP_FILING: "京ICP备00000000号-1" }, "SITE_PUBLIC_SECURITY_FILING is required"],
+    [{ ...unifiedEnv, SITE_ICP_FILING: "PRIVATE_MARKER" }, "SITE_ICP_FILING is not a valid number"],
   ];
   for (const [env, expected] of cases) {
     const result = spawnSync(process.execPath, ENTRY_ARGS, {

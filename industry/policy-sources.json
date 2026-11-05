@@ -40,7 +40,7 @@
         "status": "verified",
         "evidence": "https://flk.npc.gov.cn/search"
       },
-      "notes": "原数据库 robots.txt 禁止自动采集，改读中国人大网“法律文件”列表；该站拒绝 UA 含 Bot 的请求（403，上海同样），本卡不更换UA绕过拒绝。；核对依据：2026-10-08地区A与上海批次1；当前方案不能直接沿用旧回执签收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "原数据库 robots.txt 禁止自动采集，改读中国人大网“法律文件”列表；该站拒绝 UA 含 Bot 的请求（403，上海同样），本卡不更换UA绕过拒绝。；核对依据：2026-10-08地区A与上海批次1；当前方案不能直接沿用旧回执签收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：flk.npc.gov.cn 与 www.npc.gov.cn 在本开发环境连接被重置/握手失败，未取得 robots；保持 blocked，须在正式服务器复核 robots 后再议。",
       "terms": "restricted",
       "hold": null
     },
@@ -54,7 +54,7 @@
         "original": "中国政府网"
       },
       "name": {
-        "zh": "国务院政策文件库",
+        "zh": "国务院政策文件库（国务院文件与行政法规）",
         "original": "国务院政策文件库"
       },
       "type": "policy_documents",
@@ -71,21 +71,21 @@
           "titlePaths": ["TITLE"],
           "urlTemplate": "{raw:URL}",
           "publishedAtPath": "DOCRELPUBTIME",
-          "allowUrlPrefixes": ["https://www.gov.cn/zhengce/"],
+          "allowUrlPrefixes": ["https://www.gov.cn/zhengce/content/"],
           "policyProfile": {
             "version": 1,
             "officialRole": {
               "kind": "official_original",
-              "evidenceUrl": "https://www.gov.cn/zhengce/202610/content_7082820.htm",
-              "basis": "中国政府网最新政策里，网址形如 /zhengce/年月/content_编号.htm 的页面有唯一标题 h1#ti 和唯一正文 div#UCAP-CONTENT。另一种 /zhengce/content/年月/ 版式没有同一标题位置，不纳入本条原件范围。",
-              "singleObjectPattern": "^https://www\\.gov\\.cn/zhengce/\\d{6}/content_\\d+\\.htm$"
+              "evidenceUrl": "https://www.gov.cn/zhengce/content/202610/content_7084279.htm",
+              "basis": "中国政府网“最新政策”JSON 中，网址形如 /zhengce/content/年月/content_编号.htm 的页面是国务院、国务院办公厅文件，包括以国务院令公布的行政法规。2026-11-05 核对国令第849号（事业单位登记管理条例）、第851号（修改和废止部分行政法规的决定）：信息公开表 table.bd1 唯一，逐格列出索引号、发文机关、标题、发文字号、成文日期和发布日期；正文在唯一的 div#UCAP-CONTENT。/zhengce/年月/ 版式是党中央文件和政策发布，不属于本试点的法律、行政法规、部门规章范围。",
+              "singleObjectPattern": "^https://www\\.gov\\.cn/zhengce/content/\\d{6}/content_\\d+\\.htm$"
             },
             "identityMarker": {
-              "selector": "h1#ti",
-              "pattern": "^[\\s\\S]{8,500}$"
+              "selector": "table.bd1 td:has(> b:contains(\"索\")) + td",
+              "pattern": "^\\d{9}/\\d{4}-\\d{5}$"
             },
-            "titleSelector": "h1#ti",
-            "numberSelector": null,
+            "titleSelector": "table.bd1 td:has(> b:contains(\"标\")) + td",
+            "numberSelector": "table.bd1 td:has(> b:contains(\"发文字号\")) + td",
             "originalLinkSelector": null,
             "versionSelector": null,
             "identity": {
@@ -95,15 +95,15 @@
                 "basis": "中国政府网发布的国务院及国办文件，不是从服务器所在地推断。"
               },
               "authority": {
-                "value": "国务院办公厅、中国政府网",
-                "evidenceUrl": "https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
-                "basis": "最新政策 JSON 由中国政府网提供，条目为国务院及国办文件。"
+                "value": "国务院、国务院办公厅",
+                "evidenceUrl": "https://www.gov.cn/zhengce/content/202610/content_7084279.htm",
+                "basis": "单件页信息公开表的“发文机关”栏写明国务院或国务院办公厅；采集范围限 /zhengce/content/ 国务院文件版式。"
               },
               "documentType": null
             },
             "language": "zh-CN",
             "kind": "original",
-            "recheckMinutes": 360,
+            "recheckMinutes": 10080,
             "extraction": {
               "bodySelector": "div#UCAP-CONTENT",
               "attachmentSelector": null,
@@ -123,7 +123,7 @@
         "status": "verified",
         "evidence": "https://sousuo.www.gov.cn/zcwjk/"
       },
-      "notes": "原检索页 robots.txt 全站禁止，改用中国政府网“最新政策”页自带的 JSON（国务院及国办文件）；不含部门文件。；核对依据：2026-10-08地区A，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "原检索页 robots.txt 全站禁止，改用中国政府网“最新政策”页自带的 JSON（国务院及国办文件）；不含部门文件。；核对依据：2026-10-08地区A，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：robots 只禁 /2016*/ 等旧栏目，最新政策 JSON 与 /zhengce/content/ 单件页允许；JSON 带 ETag/Last-Modified，可条件请求。原配置只收 /zhengce/年月/ 版式（党中央文件），漏掉国务院令公布的行政法规与国务院、国办文件，现改收 /zhengce/content/ 版式，以“发文字号”（如国令第851号）作文书编号、索引号作身份标记；复查周期由 6 小时改为 7 天。",
       "terms": "restricted",
       "hold": null
     },
@@ -171,7 +171,7 @@
         "status": "verified",
         "evidence": "https://www.cgs.gov.cn/hdjl/zxjy/202405/t20240521_821009.html"
       },
-      "notes": "原链接是信息公开总目录，改读自然资源部“行政规范性文件”列表；部门规章在 gk.mnr.gov.cn/zc/gz/，研究建议另建一条。；核对依据：2026-10-08地区A，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-10-09 TASK0144本机gk.mnr.gov.cn DNS解析失败，当前未取得目录结构回执；不据此否定其他地域历史可达记录。",
+      "notes": "原链接是信息公开总目录，改读自然资源部“行政规范性文件”列表；部门规章在 gk.mnr.gov.cn/zc/gz/，研究建议另建一条。；核对依据：2026-10-08地区A，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-10-09 TASK0144本机gk.mnr.gov.cn DNS解析失败，当前未取得目录结构回执；不据此否定其他地域历史可达记录。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：gk.mnr.gov.cn、www.mnr.gov.cn 在本开发环境 CONNECT 502，未取得 robots 与目录；仍缺单件页身份配置（policyProfile），取得阶段会停在“缺少配置”，须在正式服务器取样后补。",
       "terms": "restricted",
       "hold": null
     },
@@ -193,9 +193,73 @@
       "duplicate_of": null,
       "website": "https://www.mee.gov.cn/",
       "listed_url": "https://www.mee.gov.cn/gzk/",
-      "entry": "https://www.mee.gov.cn/zcwj/bwj/",
-      "collect": null,
-      "status": "blocked",
+      "entry": "https://www.mee.gov.cn/zcwj/bwj/ling/",
+      "collect": {
+        "kind": "web_list",
+        "config": {
+          "url": "https://www.mee.gov.cn/zcwj/bwj/ling/",
+          "itemSelector": "ul#div > li",
+          "linkSelector": "a[href]",
+          "publishedAtSelector": "span.date",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "YYYY-MM-DD",
+            "language": "zh-CN"
+          },
+          "publishedAtUtcOffset": "+08:00",
+          "allowUrlPrefixes": ["https://www.mee.gov.cn/xxgk2018/xxgk/xxgk02/"],
+          "language": "zh-CN",
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://www.mee.gov.cn/xxgk2018/xxgk/xxgk02/202610/t20261027_1184708.html",
+              "basis": "生态环境部“政策文件—部文件—令”列表只列部令（部门规章）。2026-11-05 核对部令第40号《新化学物质环境管理登记办法》：单件页 meta ColumnName 为“生态环境部令”，ArticleTitle 为规章名称，信息公开栏 li.last 首格为“文号 部令 第40号”，正文在唯一的 .content_body_box。",
+              "singleObjectPattern": "^https://www\\.mee\\.gov\\.cn/xxgk2018/xxgk/xxgk02/\\d{6}/t\\d{8}_\\d+\\.html$"
+            },
+            "identityMarker": {
+              "selector": "meta[name=\"ColumnName\"]",
+              "pattern": "^生态环境部令$"
+            },
+            "titleSelector": "meta[name=\"ArticleTitle\"]",
+            "numberSelector": ".content_top_box li.last > div:first-child",
+            "fieldPatterns": {
+              "number": "(部令\\s*第\\s*\\d+\\s*号)"
+            },
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "CN",
+                "evidenceUrl": "https://www.mee.gov.cn/zcwj/bwj/ling/",
+                "basis": "中华人民共和国生态环境部官方网站的部令栏目。"
+              },
+              "authority": {
+                "value": "生态环境部",
+                "evidenceUrl": "https://www.mee.gov.cn/zcwj/bwj/ling/",
+                "basis": "栏目与单件页“发布机关”均为生态环境部。"
+              },
+              "documentType": {
+                "value": "部门规章",
+                "evidenceUrl": "https://www.mee.gov.cn/zcwj/bwj/ling/",
+                "basis": "部令栏目只公布以生态环境部令形式发布的部门规章。"
+              }
+            },
+            "language": "zh-CN",
+            "kind": "original",
+            "recheckMinutes": 10080,
+            "extraction": {
+              "bodySelector": ".content_body_box",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
+        }
+      },
+      "status": "ready",
       "language": "zh-CN",
       "detail_format": "html_fulltext",
       "themes": ["mineral_rights", "safety_environment"],
@@ -203,9 +267,9 @@
         "status": "verified",
         "evidence": "https://www.mee.gov.cn/gzk/"
       },
-      "notes": "原规章库是现行规章汇编，无日期且漏收修改废止决定，改读生态环境部“部令”列表；每年仅 1–6 件。；按2026-10-08核实报告更正入口；原采集配置和回执保留在task0092-evidence。；核对依据：2026-10-08地区A与上海批次1；当前方案不能直接沿用旧回执签收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "原规章库是现行规章汇编，无日期且漏收修改废止决定，改读生态环境部“部令”列表；每年仅 1–6 件。；按2026-10-08核实报告更正入口；原采集配置和回执保留在task0092-evidence。；核对依据：2026-10-08地区A与上海批次1；当前方案不能直接沿用旧回执签收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：robots.txt 跳转到 404 页（无规则，按允许处理）；部令列表 /zcwj/bwj/ling/ 共 6 页，首页按日期倒序，每年仅 1–6 件；无 ETag/Last-Modified，按复查周期全量读首页。",
       "terms": "restricted",
-      "hold": "核实报告更正的入口/参数尚未重跑，原空跑不覆盖更正方案"
+      "hold": "开发环境已核对部令列表与单件页结构；须在正式服务器空跑（scripts/policy-pilot-discover.ts）确认后解除"
     },
     {
       "id": "CN-005",
@@ -1655,7 +1719,7 @@
         "status": "verified",
         "evidence": "https://www.boletinoficial.gob.ar/seccion/primera"
       },
-      "notes": "读国家公报第一部分当日目录，只留法律、法令、决议等规范类栏目；忙日超过每次 60 条上限，尾部会漏，需提高上限或多次抓。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "读国家公报第一部分当日目录，只留法律、法令、决议等规范类栏目；忙日超过每次 60 条上限，尾部会漏，需提高上限或多次抓。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：www.boletinoficial.gob.ar 在本开发环境连接被关闭，未取得 robots；配置不变，须在正式服务器空跑核对第一部分当日列表数量与单件页标题位置。",
       "terms": "restricted",
       "hold": null
     },
@@ -1812,7 +1876,7 @@
         "status": "verified",
         "evidence": "https://www.argentina.gob.ar/catamarca"
       },
-      "notes": "卡塔马卡省官方公报（身份已由国家政府网链接确认），未配置；全站 Cloudflare 托管验证，页面阅读器与上海服务器均被拦。；核对依据：2026-10-08地区D；未取得匹配当前配置的上海空跑回执。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "卡塔马卡省官方公报（身份已由国家政府网链接确认），未配置；全站 Cloudflare 托管验证，页面阅读器与上海服务器均被拦。；核对依据：2026-10-08地区D；未取得匹配当前配置的上海空跑回执。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：portal.catamarca.gob.ar 的 robots.txt 也返回 Cloudflare 托管验证（403 “Just a moment...”），不绕过；保持 blocked。",
       "terms": "restricted",
       "hold": null
     },
@@ -1871,7 +1935,7 @@
         "kind": "web_list",
         "config": {
           "url": "https://boletinoficialsalta.gob.ar/NavegacionRapida.php",
-          "itemSelector": "a[href^=\"instrumento.php\"]:contains(\" DEL \")",
+          "itemSelector": "a[href^=\"instrumento.php\"]:is(:contains(\" DEL 0\"), :contains(\" DEL 1\"), :contains(\" DEL 2\"), :contains(\" DEL 3\"))",
           "publishedAtRegex": "DEL (\\d{2}/\\d{2}/\\d{4})",
           "publishedAtUtcOffset": "-03:00",
           "sourceDate": {
@@ -1880,7 +1944,51 @@
             "language": "es"
           },
           "allowUrlPrefixes": ["https://boletinoficialsalta.gob.ar/instrumento.php"],
-          "language": "es"
+          "language": "es",
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://boletinoficialsalta.gob.ar/instrumento.php?cXdlcnR5dGFibGE9RHw3MTkvMjYmZGF0YT0yMjMwM3F3ZXJ0eQ==",
+              "basis": "Boletín Oficial de Salta 当期行政部分逐件链接到 instrumento.php 单件页（参数为 base64 编码的“种类|编号/年&期号”）。2026-11-05 核对 Decreto 719/26：标题栏 div.alert h5 为“DECRETO N° 719/26”，摘要在 div.titulo_roboto，期号与日期在 div.text-secondary h6“Publicado en el Boletín N° 22303, el día 05 de Noviembre de 2026.”，正文在唯一的 div.text-justify。",
+              "singleObjectPattern": "^https://boletinoficialsalta\\.gob\\.ar/instrumento\\.php\\?[A-Za-z0-9+/]+=*$"
+            },
+            "identityMarker": {
+              "selector": "div.text-secondary h6",
+              "pattern": "^Publicado en el Bolet[ií]n N° \\d+, el d[ií]a \\d{1,2} de [A-Za-zÁÉÍÓÚáéíóú]+ de \\d{4}\\.?$"
+            },
+            "titleSelector": "div.titulo_roboto",
+            "numberSelector": "div.alert.bg-dark h5",
+            "fieldPatterns": {
+              "number": "^((?:LEY|DECRETO(?:[ -]LEY)?|DECISI[OÓ]N ADMINISTRATIVA|RESOLUCI[OÓ]N(?: [A-ZÁÉÍÓÚÑ.]+)*) N° \\d+/\\d{2,4})$"
+            },
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "AR",
+                "evidenceUrl": "https://boletinoficialsalta.gob.ar/",
+                "basis": "萨尔塔省官方公报，法域按登记为阿根廷（萨尔塔省）。"
+              },
+              "authority": {
+                "value": "萨尔塔省政府",
+                "evidenceUrl": "https://boletinoficialsalta.gob.ar/",
+                "basis": "公报由萨尔塔省政府总秘书处公报局发布。"
+              },
+              "documentType": null
+            },
+            "language": "es",
+            "kind": "original",
+            "recheckMinutes": 10080,
+            "extraction": {
+              "bodySelector": "div.text-justify",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
         }
       },
       "status": "ready",
@@ -1891,7 +1999,7 @@
         "status": "verified",
         "evidence": "https://boletinoficialsalta.gob.ar/"
       },
-      "notes": "原链接是首页，改读“公报栏目”页当期行政部分（已滤掉采购公告）；只列当期，须每天抓。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "原链接是首页，改读“公报栏目”页当期行政部分（已滤掉采购公告）；只列当期，须每天抓。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：robots.txt 404（无规则）；列表与单件页无 ETag/Last-Modified。原列表选择器会把“AGUAS DEL NORTE”等采购公告当作带日期条目，改为只收“ DEL 日/月/年”的法令类条目；补上单件页身份配置（编号如 DECRETO N° 719/26），此前没有 policyProfile，取得阶段只能停在“缺少配置”。",
       "terms": "restricted",
       "hold": null
     },
@@ -1980,6 +2088,50 @@
             },
             "maxPages": 4000,
             "maxRecords": 200000
+          },
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://boletinoficial.jujuy.gob.ar/?p=437475",
+              "basis": "胡胡伊省公报 WordPress 文章一篇一件（Leyes、Decretos、Resoluciones 三类）。2026-11-05 核对 ?p=437475（RESOLUCION Nº 150-E-JUJ-SMH#MM/2026）：分类在 .entry-meta a[rel=category]，正文在唯一的 .entry-content，首段为文书编号；h3.entry-title 只是期号（BOLETIN OFICIAL Nº 132 – 04/11/2026），不作标题。",
+              "singleObjectPattern": "^https://boletinoficial\\.jujuy\\.gob\\.ar/\\?p=\\d+$"
+            },
+            "identityMarker": {
+              "selector": ".entry-meta a[rel=\"category\"]",
+              "pattern": "^(?:Leyes|Decretos|Resoluciones)$"
+            },
+            "titleSelector": ".entry-content > p:first-of-type",
+            "numberSelector": ".entry-content > p:first-of-type",
+            "fieldPatterns": {
+              "number": "^\\s*((?:LEY|DECRETO(?:[- ]ACUERDO)?|RESOLUCI[OÓ]N(?: CONJUNTA)?)\\s+N\\s*[º°o]\\.?\\s*[0-9][0-9A-Za-z#.\\-]*/\\d{4})"
+            },
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "AR",
+                "evidenceUrl": "https://boletinoficial.jujuy.gob.ar/",
+                "basis": "胡胡伊省官方公报，法域按登记为阿根廷（胡胡伊省）。"
+              },
+              "authority": {
+                "value": "胡胡伊省官方公报及印务局",
+                "evidenceUrl": "https://boletinoficial.jujuy.gob.ar/",
+                "basis": "站点由 Dirección Provincial de Boletín Oficial e Imprenta del Estado 发布。"
+              },
+              "documentType": null
+            },
+            "language": "es",
+            "kind": "original",
+            "recheckMinutes": 10080,
+            "extraction": {
+              "bodySelector": ".entry-content",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
           }
         }
       },
@@ -1991,7 +2143,7 @@
         "status": "verified",
         "evidence": "https://boletinoficial.jujuy.gob.ar/?page_id=2017"
       },
-      "notes": "原链接是期次日历，改用公报站 WordPress 接口取法律、法令、决议三类文章（一篇一件）；约六成是土地、抵押、人事等个别行政行为。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-10-09 TASK0144已核官方分类与真实分页结构，配置directoryProfile；大目录尚未取得整轮完整回执，登记可分页不等于已全量覆盖或解读资格。；同轮第115页在发布时间并列边界检出重复，保持失败回执；已按官网实际支持的orderby=id&order=desc固定唯一排序并核对边界两页及复取，不宣称已重新完成全轮。",
+      "notes": "原链接是期次日历，改用公报站 WordPress 接口取法律、法令、决议三类文章（一篇一件）；约六成是土地、抵押、人事等个别行政行为。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-10-09 TASK0144已核官方分类与真实分页结构，配置directoryProfile；大目录尚未取得整轮完整回执，登记可分页不等于已全量覆盖或解读资格。；同轮第115页在发布时间并列边界检出重复，保持失败回执；已按官网实际支持的orderby=id&order=desc固定唯一排序并核对边界两页及复取，不宣称已重新完成全轮。；2026-11-05 法规线试点信源复核（开发环境单次礼貌请求，先取 robots）：robots.txt 404；REST 列表无 ETag/Last-Modified，总数 X-WP-Total 93,476、1,870 页（目录整轮仍未完成）；补上单件页身份配置，此前没有 policyProfile，取得阶段只能停在“缺少配置”。单件页含 WordPress nonce，逐次字节不同，靠内容指纹避免重复修订。",
       "terms": "restricted",
       "hold": null
     },
@@ -6430,6 +6582,106 @@
       "notes": "同一 CELLAR 端点查欧盟委员会 COM 文件（立法提案、通讯、报告）；约三成是例行文件，委员会授权与实施法令在 EU-001。；核对依据：2026-10-08地区C，上海批次C历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
       "terms": "restricted",
       "hold": null
+    }
+  ],
+  "pilot_additions": [
+    {
+      "id": "CN-P01",
+      "jurisdiction": "CN",
+      "level": "national",
+      "subdivision": null,
+      "authority": {
+        "zh": "应急管理部",
+        "original": "中华人民共和国应急管理部"
+      },
+      "name": {
+        "zh": "应急管理部规章（部令）",
+        "original": "应急管理部规章"
+      },
+      "type": "mining_rules",
+      "role": "core",
+      "duplicate_of": null,
+      "website": "https://www.mem.gov.cn/",
+      "listed_url": "https://www.mem.gov.cn/fw/flfgbz/gz/",
+      "entry": "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/index.shtml",
+      "collect": {
+        "kind": "web_list",
+        "config": {
+          "url": "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/index.shtml",
+          "itemSelector": "td.eve",
+          "linkSelector": "p.bt a[href]",
+          "publishedAtRegex": "href=\"\\./\\d{6}/t(\\d{8})_\\d+\\.shtml\"",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "YYYYMMDD",
+            "language": "zh-CN"
+          },
+          "publishedAtUtcOffset": "+08:00",
+          "allowUrlPrefixes": ["https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/"],
+          "language": "zh-CN",
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/202609/t20260904_715240.shtml",
+              "basis": "应急管理部“法律法规标准—规章”页嵌入政府信息公开“规章”列表 gz11，逐件列出现行部令及其公布、修订记录（如“2021年9月13日应急管理部令第7号公布，2026年9月18日应急管理部令第23号修订”）。2026-11-05 核对应急管理部令第22号《煤矿企业安全生产许可证实施办法》：页眉 div.zhenwen.scy_xqlogo > span 为“应急管理部规章”，正文在唯一的 div.zhenwen_neir，正文第二段为公布与施行（或修订）记录。",
+              "singleObjectPattern": "^https://www\\.mem\\.gov\\.cn/gk/zfxxgkpt/fdzdgknr/gz11/\\d{6}/t\\d{8}_\\d+\\.shtml$"
+            },
+            "identityMarker": {
+              "selector": "div.zhenwen.scy_xqlogo > span",
+              "pattern": "^应急管理部规章$"
+            },
+            "titleSelector": "title",
+            "numberSelector": "div.zhenwen_neir .TRS_Editor > p:nth-of-type(2)",
+            "versionSelector": "div.zhenwen_neir .TRS_Editor > p:nth-of-type(2)",
+            "fieldPatterns": {
+              "title": "^(.+?)--中华人民共和国应急管理部$",
+              "number": "\\d{1,2}日([^，。；、（）\\s\\d]{2,30}?令第\\d+号)",
+              "version": "^[\\s\\S]*(\\d{4}年\\d{1,2}月\\d{1,2}日[^，。；、（）\\s\\d]{2,30}?令第\\d+号(?:公布|修订|修正))"
+            },
+            "originalLinkSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "CN",
+                "evidenceUrl": "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/index.shtml",
+                "basis": "中华人民共和国应急管理部官方网站的规章栏目。"
+              },
+              "authority": {
+                "value": "应急管理部",
+                "evidenceUrl": "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/index.shtml",
+                "basis": "规章栏目由应急管理部发布；修订沿用原部令编号作文书编号。"
+              },
+              "documentType": {
+                "value": "部门规章",
+                "evidenceUrl": "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/index.shtml",
+                "basis": "规章栏目只列以应急管理部令公布的部门规章。"
+              }
+            },
+            "language": "zh-CN",
+            "kind": "original",
+            "recheckMinutes": 10080,
+            "extraction": {
+              "bodySelector": "div.zhenwen_neir",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
+        }
+      },
+      "status": "ready",
+      "terms": "restricted",
+      "hold": "开发环境已核对规章列表与单件页结构；须在正式服务器空跑（scripts/policy-pilot-discover.ts）确认后解除",
+      "language": "zh-CN",
+      "detail_format": "html_fulltext",
+      "themes": ["mineral_rights", "safety_environment", "labour_community"],
+      "identity": {
+        "status": "verified",
+        "evidence": "https://www.mem.gov.cn/fw/flfgbz/gz/"
+      },
+      "notes": "法规线试点补充（不在 Owner 156 条清单内）：矿山安全由应急管理部及其管理的国家矿山安全监察局主管，煤矿安全规程、煤矿重大事故隐患判定标准、煤矿企业安全生产许可证实施办法等以应急管理部令公布。；核对依据：2026-11-05 开发环境单次礼貌请求：robots.txt 404（无规则）；规章列表 gz11 共 6 页、每页 15 件，带 ETag/Last-Modified，可条件请求；单件页另有“下载文字版（.wps）/图片版（.pdf）”，HTML 正文即全文，不作附件取得。；全文条款暂按restricted。"
     }
   ]
 }

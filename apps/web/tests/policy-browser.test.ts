@@ -7,7 +7,7 @@ import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import { chromium, expect, type Browser } from "@playwright/test";
-import { Policy, PolicyReadingPage, PolicyReport, PolicyReportList, PolicyScopeList } from "@amp/contracts/http/public";
+import { Policy, PolicyListResponse, PolicyReadingPage, PolicyReport, PolicyReportList, PolicyScopeList } from "@amp/contracts/http/public";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
 
@@ -44,6 +44,31 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/content-version") return answer({ version: "policy-fixture", withdrawalVersion: "policy-fixture" });
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
   if (url.pathname === "/api/site/policies/scope") return answer(scope);
+  if (url.pathname === "/api/site/policies") {
+    // The list's own filters, so the drill-down levels read real counts; one theme fails to show the graceful fallback.
+    if (url.searchParams.get("theme") === "labour_community") {
+      res.statusCode = 503;
+      return answer({ code: "synthetic_count_failure" });
+    }
+    const q = url.searchParams,
+      size = Number(q.get("page_size") ?? 20),
+      page = Number(q.get("page") ?? 1);
+    const items = PolicyListResponse.parse(fixture("list")).items.filter(
+      (card) =>
+        (!q.get("jurisdiction") || card.jurisdictions.some((j) => j.code === q.get("jurisdiction"))) &&
+        (!q.get("theme") || card.themes.some((t) => t.code === q.get("theme"))) &&
+        (!q.get("nature") || card.nature.code === q.get("nature")) &&
+        (!q.get("stage") || card.legal_brief.stage === q.get("stage")),
+    );
+    return answer({
+      ...fixture("list"),
+      items: items.slice((page - 1) * size, page * size),
+      page,
+      page_size: size,
+      total: items.length,
+      has_more: page * size < items.length,
+    });
+  }
   if (url.pathname === "/api/site/policies/reports") return answer(PolicyReportList.parse(fixture("report-list")));
   if (url.pathname === `/api/site/policies/reports/${report.id}`) {
     const edition = Number(url.searchParams.get("edition") ?? 2);
@@ -212,6 +237,54 @@ for (const width of [1440, 390])
     await page.getByRole("link", { name: "查看最新修订", exact: true }).click();
     await expect(page).not.toHaveURL(/edition=/);
     assert.ok(calls.some((call) => call.includes("edition=1") && call.includes("jurisdiction=CN")));
+    assert.deepEqual(errors, []);
+    assert.deepEqual(blocked, []);
+    await context.close();
+  });
+
+for (const width of [1440, 390])
+  test(`policy list drills down from jurisdiction to theme to documents with linkable levels in ${width}px`, { timeout: 60000 }, async () => {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, locale: "zh-CN", timezoneId: "Asia/Shanghai", reducedMotion: "reduce" });
+    const blocked = await isolateBrowser(context, [origin]);
+    const page = await context.newPage(),
+      errors: string[] = [];
+    page.setDefaultTimeout(5000);
+    page.on("pageerror", (error) => errors.push(error.message));
+    const noOverflow = async () => assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await page.goto(`${origin}/policies`);
+    // Level 1: grouped jurisdiction cards; an empty jurisdiction stays listed, dimmed and without a link.
+    await expect(page.getByRole("heading", { name: "目标国家", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "跨国与国际组织", exact: true })).toBeVisible();
+    await expect(page.locator('[data-jurisdiction-card="CN"]')).toContainText("暂无已公开文书");
+    await expect(page.locator('a[data-jurisdiction-card="CN"]')).toHaveCount(0);
+    await noOverflow();
+    await page.locator('a[data-jurisdiction-card="AR"]').click();
+    // Level 2: themes of one jurisdiction with counts from the list's totals; a failed count is hidden, not zero.
+    await expect(page).toHaveURL(/\/policies\?jurisdiction=AR$/);
+    const crumbs = page.getByRole("navigation", { name: "位置" });
+    await expect(crumbs).toContainText("阿根廷");
+    await expect(page.locator('[data-theme-card="all"]')).toContainText("2 份");
+    await expect(page.locator('[data-theme-card="tax_finance"]')).toContainText("1 份");
+    await expect(page.locator('a[data-theme-card="mineral_rights"]')).toHaveCount(0);
+    await expect(page.locator('a[data-theme-card="labour_community"]')).not.toContainText("份");
+    const listCalls = calls.filter((call) => call.startsWith("/api/site/policies?") && call.includes("jurisdiction=AR"));
+    assert.ok(listCalls.length >= 8);
+    await noOverflow();
+    await page.locator('a[data-theme-card="tax_finance"]').click();
+    // Level 3: the documents, narrowed further by chips; every level is an address the back button returns to.
+    await expect(page).toHaveURL(/jurisdiction=AR&theme=tax_finance/);
+    await expect(crumbs).toContainText("财税与资金");
+    await expect(page.getByRole("link", { name: complete.title, exact: true })).toBeVisible();
+    await page.getByRole("navigation", { name: "文书性质" }).getByRole("link", { name: "法规", exact: true }).click();
+    await expect(page).toHaveURL(/nature=regulation/);
+    await expect(page.getByRole("link", { name: complete.title, exact: true })).toBeVisible();
+    await noOverflow();
+    await page.goBack();
+    await expect(page).not.toHaveURL(/nature=/);
+    await crumbs.getByRole("link", { name: "阿根廷", exact: true }).click();
+    await expect(page).toHaveURL(/\/policies\?jurisdiction=AR$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/theme=tax_finance/);
     assert.deepEqual(errors, []);
     assert.deepEqual(blocked, []);
     await context.close();

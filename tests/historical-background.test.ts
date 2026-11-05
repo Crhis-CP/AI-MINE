@@ -19,37 +19,37 @@ import { fixture, article, queryQuote, oldQuote } from "./historical-background-
 let omitEvidence = false,
   mixedProjects = false;
 let beforeReply: (() => Promise<void>) | null = null;
+/** "pair" answers a batched request with a single-pair object, which is unusable as a batch answer. */
+let batchReply: "batch" | "pair" = "batch";
+const batchUsers: string[] = [];
 const provider = await stub(async (_hit, req) => {
   const user = JSON.parse(req.body).messages.at(-1).content;
   const originals = [...user.matchAll(/原文证据：([\s\S]*?)\n法域：/g)].map((m) => m[1].split("\n").at(-1)!);
   await beforeReply?.();
-  return {
-    choices: [
-      {
-        message: {
-          content: JSON.stringify({
-            a: "query",
-            b: "history",
-            relation: "SAME_STORY",
-            confidence: 0.95,
-            evidence: omitEvidence
-              ? null
-              : {
-                  queryQuote: mixedProjects ? queryQuote : originals[0],
-                  candidateQuote: originals[1],
-                  anchor: "Andes",
-                  queryAction: "recibió",
-                  candidateAction: "inició",
-                  queryStage: "approved",
-                  candidateStage: "proposed",
-                  change: "正式批准是后续独立行动",
-                },
-          }),
+  // A history about public consultation is a different occurrence in this synthetic world.
+  const decision = (candidate: string) => ({
+    relation: candidate.includes("consulta") ? "UNRELATED" : "SAME_STORY",
+    confidence: 0.95,
+    evidence: omitEvidence
+      ? null
+      : {
+          queryQuote: mixedProjects ? queryQuote : originals[0],
+          candidateQuote: candidate,
+          anchor: "Andes",
+          queryAction: "recibió",
+          candidateAction: "inició",
+          queryStage: "approved",
+          candidateStage: "proposed",
+          change: "正式批准是后续独立行动",
         },
-      },
-    ],
-    usage: { prompt_tokens: 30, completion_tokens: 30 },
-  };
+  });
+  const batch = user.startsWith("候选数：");
+  if (batch) batchUsers.push(user);
+  const content =
+    batch && batchReply === "batch"
+      ? { decisions: originals.slice(1).map((candidate, i) => ({ id: `C${i + 1}`, difference: "", ...decision(candidate) })) }
+      : { a: "query", b: "history", ...decision(originals[1]) };
+  return { choices: [{ message: { content: JSON.stringify(content) } }], usage: { prompt_tokens: 30, completion_tokens: 30 } };
 });
 process.env.DEEPSEEK_BASE_URL = provider.url;
 process.env.DEEPSEEK_API_KEY = "synthetic-only";
@@ -58,6 +58,8 @@ config.modelCallsEnabled = true;
 beforeEach(async () => {
   omitEvidence = mixedProjects = false;
   beforeReply = null;
+  batchReply = "batch";
+  batchUsers.length = 0;
   await sql`UPDATE publications SET visibility='withdrawn'`;
   await sql`UPDATE ops.lane_controls SET paused=false,revision=revision+1`;
   await installUsageFixtureForModel("deepseek-flash");
@@ -83,6 +85,48 @@ test("a year-old ordinary report becomes background without a fake fact, heat or
   assert.equal(provider.hits() - before, 1);
   assert.equal((await rows(f)).length, 1);
 });
+const proofsByCandidate = async (f: { storyPublicId: string }) =>
+  new Map((await rows(f)).map((r) => [r.proof.candidate.articleId as string, r.proof as { receiptId: number; relation: string }]));
+async function threeCandidates() {
+  const f = await fixture();
+  const second = await article(oldQuote.replace("ambiental", "ambiental complementaria"), true);
+  const other = await article("El proyecto Andes inició la consulta pública mediante una convocatoria documentada.", true);
+  return { f, second, other };
+}
+
+test("independent history pairs are asked in one request and each verdict is recorded for its own candidate", async () => {
+  const { f, second, other } = await threeCandidates(),
+    before = provider.hits();
+  const result = await confirmHistoricalBackground(f.request);
+  assert.equal(provider.hits() - before, 1, "one batched request instead of three pair requests");
+  assert.equal(batchUsers.length, 1);
+  assert.equal(batchUsers[0]!.match(new RegExp(queryQuote, "g"))?.length, 1, "the query original is sent once");
+  assert.deepEqual(result, { examined: 3, linked: 2, unrelated: 1, incomplete: 0 });
+  const proofs = await proofsByCandidate(f);
+  assert.deepEqual([...proofs.keys()].sort(), [f.candidate.id, second.id].sort(), "the unrelated candidate gets no proof");
+  assert.equal(proofs.has(other.id), false);
+  const receipt = proofs.get(f.candidate.id)!.receiptId;
+  assert.equal(proofs.get(second.id)!.receiptId, receipt, "both pairs cite the one paid request");
+  const [paid] = await sql`SELECT status,purpose FROM receipts WHERE id=${receipt}`;
+  assert.deepEqual({ ...paid }, { status: "completed", purpose: "group_review" });
+  assert.equal((await confirmHistoricalBackground(f.request)).linked, 2);
+  assert.equal(provider.hits() - before, 1, "a replay reuses the batch receipt");
+});
+
+test("an unusable batch answer falls back to the per-pair path", async () => {
+  const { f, second } = await threeCandidates(),
+    before = provider.hits();
+  batchReply = "pair";
+  const result = await confirmHistoricalBackground(f.request);
+  assert.equal(provider.hits() - before, 4, "the failed batch and then one request per pair");
+  assert.deepEqual(result, { examined: 3, linked: 2, unrelated: 1, incomplete: 0 });
+  const proofs = await proofsByCandidate(f);
+  assert.deepEqual([...proofs.keys()].sort(), [f.candidate.id, second.id].sort());
+  assert.notEqual(proofs.get(f.candidate.id)!.receiptId, proofs.get(second.id)!.receiptId, "each pair keeps its own receipt");
+  const failed = await sql`SELECT status FROM receipts WHERE subject=${`article:${f.query.id}@1`} AND purpose='group_review' AND status='failed'`;
+  assert.equal(failed.length, 1, "the unusable batch response is rejected, not reused");
+});
+
 test("missing evidence and a mixed-project answer never become a relation", async () => {
   let f = await fixture();
   omitEvidence = true;

@@ -1,0 +1,86 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=1600"><title>AI矿策 · LOGO 定稿方案</title>
+<style>@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_600SemiBold.woff2") format("woff2"); font-weight: 600; }@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_400Regular.woff2") format("woff2"); font-weight: 400 500; }
+* { box-sizing: border-box; } html, body { margin: 0; }
+body { width: 1600px; background: #0B0F12; color: #EEF0F1; font: 15px/1.6 "PingFang SC", "Noto Sans SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.top { display: grid; grid-template-columns: 560px 1fr; gap: 60px; align-items: center; padding: 70px 72px 60px; background: radial-gradient(60% 90% at 25% 40%, #2C230F 0%, #0B0F12 70%); }
+.top img.hero { width: 520px; height: 520px; border-radius: 118px; box-shadow: 0 60px 90px -40px #000, 0 0 0 1px #262B30; }
+.kicker { font: 600 13px/1 "Barlow", sans-serif; letter-spacing: .3em; color: #C8992E; text-transform: uppercase; }
+h1 { margin: 14px 0 0; font-size: 50px; line-height: 1.15; }
+.lead { margin: 18px 0 0; font-size: 20px; line-height: 1.8; color: #C9CED2; }
+.lead b { color: #F0CD72; font-weight: 600; }
+.ages { display: grid; grid-template-columns: repeat(5, auto); justify-content: start; gap: 0 28px; margin-top: 26px; font: 500 14px/1.5 "Barlow", "Noto Sans SC", sans-serif; color: #8F989F; }
+.ages b { display: block; font-size: 20px; color: #EEF0F1; } .ages .now b { color: #F0CD72; }
+.lockrow { display: flex; gap: 20px; margin-top: 30px; align-items: center; }
+.lockrow img { height: 66px; }
+.paper { background: #F4F2EC; color: #12171B; padding: 48px 72px 44px; display: grid; gap: 26px; }
+.grid2 { display: grid; grid-template-columns: 520px 1fr; gap: 26px; }
+.card { background: #fff; border: 1px solid #E2DED5; border-radius: 18px; padding: 22px 24px; display: grid; gap: 14px; align-content: start; }
+.card h2 { margin: 0; font-size: 13px; letter-spacing: .16em; color: #8A8F93; font-weight: 600; }
+.construct img { width: 100%; border-radius: 10px; border: 1px solid #ECEAE5; }
+.meaning { display: grid; gap: 12px; }
+.meaning div { display: grid; grid-template-columns: 120px 1fr; gap: 14px; align-items: start; padding: 12px 0; border-top: 1px solid #ECEAE5; }
+.meaning div:first-child { border-top: 0; }
+.meaning b { font-size: 16px; } .meaning span { color: #4F5A62; font-size: 15px; line-height: 1.75; }
+.vars { display: flex; gap: 18px; align-items: end; flex-wrap: wrap; }
+.vars figure { margin: 0; display: grid; justify-items: center; gap: 6px; font-size: 12px; color: #8A8F93; }
+.md { background: #fff; border: 1px solid #E2DED5; border-radius: 12px; padding: 8px; } .ml { background: #0B0F12; border-radius: 12px; padding: 8px; }
+.locks { display: grid; grid-template-columns: 1.3fr 1.3fr .7fr .7fr; gap: 14px; align-items: stretch; }
+.locks div { border-radius: 14px; padding: 18px; display: grid; place-items: center; } .locks .lt { background: #F7F5F0; border: 1px solid #E2DED5; } .locks .dk { background: #0B0F12; }
+.locks img { max-height: 70px; max-width: 100%; } .locks img.st { max-height: 150px; }
+.scenes { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 22px; }
+.phone { background: linear-gradient(170deg, #3C3424, #121110); border-radius: 26px; padding: 22px 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.phone figure { margin: 0; display: grid; justify-items: center; gap: 5px; color: #F2EFEA; font: 10px/1.2 system-ui, sans-serif; }
+.phone img, .phone .x { width: 52px; height: 52px; border-radius: 12px; } .phone .x { background: rgb(255 255 255 / .16); }
+.tabs { background: #DDE1E3; border-radius: 12px; padding: 8px 8px 2px; }
+.tab { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; margin-bottom: 6px; background: #fff; border-radius: 8px; font: 12px/1 system-ui, sans-serif; } .tab span { flex: 1; } .tab.dim { opacity: .55; }
+.site { border-radius: 10px; overflow: hidden; border: 1px solid #E2DED5; }
+.site .bar { height: 22px; background: #E7E9EA; display: flex; align-items: center; gap: 5px; padding: 0 8px; } .site .bar i { width: 7px; height: 7px; border-radius: 50%; background: #C3C7CA; }
+.site .hd { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff; } .site .hd img { height: 34px; } .site .hd span { font-size: 11px; color: #52616C; } .site .hd span.on { color: #12171B; font-weight: 600; box-shadow: inset 0 -2px 0 #C8992E; }
+.plaque { aspect-ratio: 1.5; border-radius: 6px; display: grid; place-items: center; background: repeating-linear-gradient(90deg, #2B2F33 0 2px, #33383D 2px 4px); box-shadow: inset 0 0 0 4px #1B1E21, inset 0 0 0 6px #4A5056; }
+.plaque img { width: 70%; filter: drop-shadow(0 1px 0 rgb(255 255 255 / .16)) drop-shadow(0 -1px 0 rgb(0 0 0 / .6)); }
+.hat svg { width: 100%; }
+.foot { display: flex; justify-content: space-between; font-size: 12px; color: #8A8F93; border-top: 1px solid #E2DED5; padding-top: 14px; }
+</style></head>
+<body>
+<header class="top"><img class="hero" src="ziggurat-icon-hero.svg" alt="AI矿策 标志：阶梯金字塔">
+<div><div class="kicker">AI Mining Policy · 推荐定稿</div>
+<h1>阶梯金字塔：文明由矿石垒成，AI 位于塔尖</h1>
+<p class="lead">人类文明是一级一级垒起来的，每一级都用矿做成：<b>石器、青铜、铁器、硅</b>。古人用开采的石块建起金字塔，今天的数字世界由像素搭成。标志底部是亿万年形成的<b>地层</b>，上面是层层升起的<b>金色方块</b>，最顶上那块最亮，代表 <b>AI</b>。它说的是：矿业是文明的地基，也是 AI 的地基。</p>
+<div class="ages"><div><b>石器</b>约 330 万年前</div><div><b>青铜</b>约公元前 3300 年</div><div><b>铁器</b>约公元前 1200 年</div><div><b>硅</b>20 世纪 50 年代起</div><div class="now"><b>AI</b>今天，立在塔尖</div></div>
+<div class="lockrow"><img src="ziggurat-lockup-dark.svg" alt="横版组合标"></div></div></header>
+<section class="paper">
+  <div class="grid2">
+    <section class="card construct"><h2>构建网格</h2><img src="ziggurat-construction.svg" alt="构建网格：48 格，方块 6.4，间距 2，中轴对称"><p style="margin:0;color:#4F5A62;font-size:13px">48 格网格：方块边长 6.4、间距 2；1、3、5 三层，中轴对称；两条地层的起伏一致。全部为 SVG 路径，可无限放大。</p></section>
+    <section class="card"><h2>每一部分的意思</h2><div class="meaning">
+      <div><b>两层地层</b><span>深金是基岩，中金是地表：亿万年形成的矿藏，也是人类出发的地方。</span></div>
+      <div><b>1 · 3 · 5 层方块</b><span>既是古代用开采的石块垒起的阶梯金字塔、塔庙，也是数字世界的像素。古代与未来，用的是同一种“砖”。</span></div>
+      <div><b>最亮的塔尖</b><span>古埃及金字塔的塔顶石曾经包金。这里的塔尖代表 AI，它立在整座文明之塔的最上面，而整座塔都建在矿上。</span></div>
+      <div><b>金色配比</b><span>沿用你满意的“深金、中金、浅金”比例：越往下越沉稳，越往上越明亮，从大地到未来。</span></div>
+      <div><b>一眼就懂</b><span>远看是一座金字塔立在大地上，近看是像素。16 像素下仍是清楚的三角轮廓。</span></div>
+    </div></section>
+  </div>
+  <section class="card"><h2>配色与尺寸</h2><div class="vars">
+    <figure><img src="ziggurat-icon-hero.svg" width="120" height="120" alt=""><figcaption>App 图标 · 金属质感</figcaption></figure>
+    <figure><img src="ziggurat-icon-gold-dark.svg" width="120" height="120" alt=""><figcaption>深底 · 平涂金（主标）</figcaption></figure>
+    <figure><img src="ziggurat-glyph-gold-light.svg" width="120" height="120" alt="" style="background:#F5F2EA;border-radius:26px"><figcaption>浅底 · 平涂金</figcaption></figure>
+    <figure><img src="ziggurat-icon-orange.svg" width="120" height="120" alt=""><figcaption>方向 C 配色</figcaption></figure>
+    <figure><div class="md"><img src="ziggurat-glyph-mono-black.svg" width="72" height="72" alt=""></div><figcaption>单色黑</figcaption></figure>
+    <figure><div class="ml"><img src="ziggurat-glyph-mono-white.svg" width="72" height="72" alt=""></div><figcaption>单色白</figcaption></figure>
+    <figure><img src="ziggurat-icon-gold-dark.svg" width="48" height="48" alt=""><figcaption>48</figcaption></figure>
+    <figure><img src="ziggurat-icon-gold-dark.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+    <figure><img src="ziggurat-icon-gold-dark.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+  </div></section>
+  <section class="card"><h2>组合标</h2><div class="locks">
+    <div class="lt"><img src="ziggurat-lockup-light.svg" alt=""></div><div class="dk"><img src="ziggurat-lockup-dark.svg" alt=""></div>
+    <div class="lt"><img class="st" src="ziggurat-lockup-stacked-light.svg" alt=""></div><div class="dk"><img class="st" src="ziggurat-lockup-stacked-dark.svg" alt=""></div>
+  </div></section>
+  <div class="scenes">
+    <section class="card"><h2>手机桌面</h2><div class="phone"><figure><img src="ziggurat-icon-hero.svg" alt=""><figcaption>AI矿策</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure><figure><span class="x"></span><figcaption>其他</figcaption></figure></div></section>
+    <section class="card"><h2>标签页 · 网站页头</h2><div class="tabs"><div class="tab"><img src="ziggurat-icon-gold-dark.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span></div><div class="tab dim"><span>其他网站</span></div></div>
+      <div class="site"><div class="bar"><i></i><i></i><i></i></div><div class="hd"><img src="ziggurat-lockup-light.svg" alt=""><span class="on">精选</span><span>热点</span><span>法规政策</span></div></div></section>
+    <section class="card"><h2>金属铭牌</h2><div class="plaque"><img src="ziggurat-lockup-stacked-dark.svg" alt=""></div></section>
+    <section class="card hat"><h2>安全帽贴标</h2><svg viewBox="0 0 240 150" role="img" aria-label="安全帽贴标"><path d="M36 118 C36 58 74 24 120 24 C166 24 204 58 204 118 Z" fill="#FBFAF7" stroke="#D9D6CF" stroke-width="2"/><path d="M120 24 C112 50 110 84 112 118" fill="none" stroke="#E7E3DB" stroke-width="5"/><path d="M120 24 C128 50 130 84 128 118" fill="none" stroke="#E7E3DB" stroke-width="5"/><rect x="14" y="112" width="212" height="16" rx="8" fill="#F1EFEA" stroke="#D9D6CF" stroke-width="2"/><image href="ziggurat-icon-gold-dark.svg" x="64" y="56" width="40" height="40"/></svg></section>
+  </div>
+  <footer class="foot"><span>AI矿策 · LOGO 推荐定稿 · 阶梯金字塔</span><span>设计稿，只做了相似性自查，未做商标检索 · 时代年份为通行的大致年代</span></footer>
+</section>
+</body></html>

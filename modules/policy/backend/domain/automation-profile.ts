@@ -16,6 +16,11 @@ export const PolicyAutomationProfile = z
     originalLinkSelector: text.nullable(),
     officialLanguageLinksSelector: text.optional(),
     versionSelector: text.nullable(),
+    /**
+     * Optional, per field: a regular expression with one capturing group that takes the stable value (an instrument
+     * number, a revision line) out of a longer official element. Whitespace inside the captured value is collapsed.
+     */
+    fieldPatterns: z.strictObject({ title: text.max(300).optional(), number: text.max(300).optional(), version: text.max(300).optional() }).optional(),
     identity: z.strictObject({ jurisdiction: evidence, authority: evidence, documentType: evidence.nullable() }),
     language: text.refine((value) => normalizeSourceLanguage(value) === value, "A supported explicit source language is required"),
     kind: z.enum(["original", "official_translation"]),
@@ -37,6 +42,15 @@ export const PolicyAutomationProfile = z
         new RegExp(pattern, "u");
       } catch {
         ctx.addIssue({ code: "custom", message: "Identity patterns must be valid, anchored expressions" });
+      }
+    }
+    for (const [field, pattern] of Object.entries(value.fieldPatterns ?? {})) {
+      if (field === "number" && !value.numberSelector) ctx.addIssue({ code: "custom", message: "A number pattern needs a number selector" });
+      if (field === "version" && !value.versionSelector) ctx.addIssue({ code: "custom", message: "A version pattern needs a version selector" });
+      try {
+        if (new RegExp(`${pattern}|`, "u").exec("")!.length !== 2) throw new Error();
+      } catch {
+        ctx.addIssue({ code: "custom", message: "Field patterns must be valid expressions with exactly one capturing group" });
       }
     }
   });

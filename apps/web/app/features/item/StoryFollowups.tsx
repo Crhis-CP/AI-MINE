@@ -1,4 +1,5 @@
 import { apiFetch } from "../../lib/http.ts";
+import { useTr } from "../../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -8,6 +9,7 @@ import { newsSourceDate, shortSourceName } from "../../lib/format";
 
 /** Event developments are read on approach; absence and failed qualification stay distinct. */
 export function StoryFollowups({ story, currentId, currentFactId }: { story: StoryRef; currentId: string; currentFactId?: string }) {
+  const tr = useTr();
   const [state, setState] = useState<{ status: "waiting" | "loading" | "ready" | "error"; items: StoryFollowup[]; more: boolean }>({
     status: "waiting",
     items: [],
@@ -65,31 +67,31 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
   return (
     <section ref={anchor} className="mt-10 border-t border-line pt-5">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-[14px] font-semibold text-ink">事件后续</h2>
-        <MoreLink to={`/story/${story.publicId}`}>查看完整事件</MoreLink>
+        <h2 className="text-[14px] font-semibold text-ink">{tr("事件后续")}</h2>
+        <MoreLink to={`/story/${story.publicId}`}>{tr("查看完整事件")}</MoreLink>
       </div>
       <noscript>
-        <a href={`/story/${story.publicId}`}>查看事件全部后续</a>
+        <a href={`/story/${story.publicId}`}>{tr("查看事件全部后续")}</a>
       </noscript>
       {state.status === "waiting" && (
         <button type="button" onClick={() => retry.current()} className="text-[13px] text-accent">
-          加载事件进展
+          {tr("加载事件进展")}
         </button>
       )}
       {state.status === "loading" && (
         <p role="status" className="text-[13px] text-ink-3">
-          正在读取事件进展…
+          {tr("正在读取事件进展…")}
         </p>
       )}
       {state.status === "error" && (
         <p role="alert" className="text-[13px] text-ink-3">
-          事件进展暂时无法读取。
+          {tr("事件进展暂时无法读取。")}
           <button type="button" onClick={() => retry.current()} className="ml-2 text-accent">
-            重试进展
+            {tr("重试进展")}
           </button>
         </p>
       )}
-      {state.status === "ready" && state.items.length === 0 && <p className="text-[13px] text-ink-3">暂无更多相关进展。</p>}
+      {state.status === "ready" && state.items.length === 0 && <p className="text-[13px] text-ink-3">{tr("暂无更多相关进展。")}</p>}
       {state.status === "ready" && state.items.length > 0 && (
         <ul className="divide-y divide-line-soft">
           {state.items.map((d) => {
@@ -106,7 +108,7 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
                       {date.label} {date.text}
                     </time>
                   ) : (
-                    "原文时间尚未确认"
+                    tr("原文时间尚未确认")
                   )}
                 </p>
                 {d.representative.summary && <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{d.representative.summary}</p>}
@@ -115,7 +117,7 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
           })}
         </ul>
       )}
-      {state.status === "ready" && state.more && <p className="mt-2 text-[12px] text-ink-4">更多进展请查看完整事件。</p>}
+      {state.status === "ready" && state.more && <p className="mt-2 text-[12px] text-ink-4">{tr("更多进展请查看完整事件。")}</p>}
     </section>
   );
 }

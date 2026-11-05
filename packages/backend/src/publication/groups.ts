@@ -1,5 +1,5 @@
 import { publicPostSummary } from "./post-view.ts";
-import { originalPostAdmissionCondition } from "./items.ts";
+import { browseFloorCondition, originalPostAdmissionCondition } from "./items.ts";
 import { originalPostAffectedStories } from "./stories.ts";
 export { originalPostAffectedStories } from "./stories.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
@@ -11,7 +11,7 @@ import { readMatcherValues, searchScoreValues } from "./mentions.ts";
 export type { ReportGroupCandidateReader, ReportGroupMembersReader, ReportGroupProjector } from "@amp/contracts/site";
 // Reading-group expansions: the reports behind "另有 N 家信源报道" and the developments behind
 // "展开 N 条进展". Members must pass the same visibility, pool eligibility and parent-page filters.
-import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";
+import type { CategoryFilterKey, ChannelKey } from "@amp/contracts/taxonomy";
 import type { DevelopmentsResponse, GroupReportsResponse, ReportGroupCandidateReader } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
@@ -45,7 +45,7 @@ import { foldableSelectionCondition } from "./scope.ts";
 export interface GroupReportsQuery {
   factPublicId: string;
   channel: ChannelKey;
-  category: CategoryKey | null;
+  category: CategoryFilterKey | null;
   tag: string | null;
   topicTags: string[] | null;
   cursor: string | null;
@@ -126,7 +126,7 @@ export interface DevelopmentsQuery {
   scope?: "all" | "selected";
   storyPublicId: string;
   channel: ChannelKey;
-  category: CategoryKey | null;
+  category: CategoryFilterKey | null;
   tag: string | null;
   topicTags: string[] | null;
   cursor: string | null;
@@ -149,7 +149,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   const matchers = readMatcherValues(q.tag, q.topicTags, [], [], newsJurisdictionScope(null).jurisdictionRecipe);
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
   type Member = Pick<ItemRow, "source_id" | "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
-  const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible` : selectedCondition(now);
+  const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible ${browseFloorCondition(true)}` : selectedCondition(now);
   const selected = await sql<Member[]>`
     SELECT p.article_id AS id, p.source_id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
     FROM publications p WHERE p.story_id = ${story.id} AND ${scope} ${filters}`;
@@ -248,18 +248,6 @@ export async function reportCandidateRows(start: Date, end: Date) {
       return { ...representative, at: representative.timeline_at };
     });
   });
-}
-
-/** A scored public report proves judging ran; ordinary news is counted here, never included in the daily. */
-export async function dailyJudgedReportCount(start: Date, end: Date): Promise<number> {
-  const [row] = await sql<{ n: number }[]>`
-    SELECT count(*)::int AS n FROM publications p JOIN sources s ON s.id=p.source_id
-    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND p.channel='news' AND s.lane='news'
-      AND s.lane='news' AND s.participation_mode='editorial' AND p.score IS NOT NULL AND NOT p.backfill
-      AND (NOT p.selected OR p.visible_after <= ${end})
-      AND p.timeline_at >= ${start} AND p.timeline_at < ${end}
-      AND (p.first_public_at IS NULL OR p.first_public_at < ${end})`;
-  return row!.n;
 }
 
 /** Thin, current published inputs for deterministic report arrangement; never loads article bodies. */
@@ -490,7 +478,7 @@ export async function readReportReadingRows(q: ReadingGroupQuery, now: Date, db:
       ${foldableSelectionCondition()} AS foldable,(${searchPartScore(scores)})+(${searchTitleScore(scores)}) AS rel,
       (CASE WHEN p.selected AND p.seat THEN 1000 ELSE 0 END)+coalesce(p.score,0) AS tie
     FROM publications p LEFT JOIN pool_search ps ON ps.article_id=p.article_id LEFT JOIN facts f ON f.id=p.fact_id
-    WHERE ${listedCondition(now)} AND p.eligible AND NOT p.operator_withdrawn
+    WHERE ${listedCondition(now)} AND p.eligible AND NOT p.operator_withdrawn ${browseFloorCondition(!terms.length && !q.selected && q.scope !== "selected" && !q.reportGroupId)}
       AND (${q.reportGroupId ?? null}::uuid IS NULL OR p.article_id IN (SELECT article_id FROM publication.report_group_members WHERE group_id=${q.reportGroupId ?? null}::uuid))
       AND (${!(q.selected || q.scope === "selected")} OR ${confirmedSelected()})
       AND (${q.featuredSince ?? null}::timestamptz IS NULL OR p.timeline_at>=${q.featuredSince ?? null})

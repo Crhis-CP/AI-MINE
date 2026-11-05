@@ -29,41 +29,72 @@ export const GeographyCandidate = z.strictObject({
 type Assignment = z.infer<typeof Assignment>;
 type Material = Pick<AnalyzeInputArticle, "title" | "bodyText" | "excerpt" | "bodyStatus" | "xPost">;
 const active = new Set(["event_location", "rule_scope", "affected_location"]);
-export const GEOGRAPHY_DICTIONARY = JURISDICTIONS.map((j) => `${j.id}=${j.name_zh}/${j.name_en}${j.parent ? `(parent:${j.parent})` : ""}`).join("; ");
-const aliases = new Map<string, Set<string>>();
-for (const row of JURISDICTIONS) {
-  const names = new Set([row.name_zh, row.name_en]);
-  if (row.kind === "country")
-    for (const locale of ["en", "zh", "es", "fr", "pt", "ru"]) names.add(new Intl.DisplayNames([locale], { type: "region" }).of(row.id)!);
-  if (row.kind === "subdivision") names.add(row.name_zh.replace(/(?:省|(?:维吾尔)?自治区)$/, ""));
-  if (row.kind === "organization") names.add(row.id);
-  for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([...(aliases.get(name.toLocaleLowerCase()) ?? []), row.id]));
+type DictionaryRow = (typeof JURISDICTIONS)[number];
+const dictionaryText = (rows: readonly DictionaryRow[]) =>
+  rows.map((j) => `${j.id}=${j.name_zh}/${j.name_en}${j.parent ? `(parent:${j.parent})` : ""}`).join("; ");
+/**
+ * Codes added to the dictionary after geography was first stored (Owner 2026-11-05: Brazil, news line only). Adding a
+ * code is additive: an answer given without it is still a valid answer, so recipes from the dictionary before the
+ * addition stay compatible and stored country assignments keep filtering.
+ */
+const ADDED_CODES = new Set(["BR"]);
+const PREVIOUS_ROWS = JURISDICTIONS.filter((j) => !ADDED_CODES.has(j.id));
+export const GEOGRAPHY_DICTIONARY = dictionaryText(JURISDICTIONS);
+const PREVIOUS_DICTIONARY = dictionaryText(PREVIOUS_ROWS);
+type Aliases = Map<string, Set<string>>;
+function baseAliases(rows: readonly DictionaryRow[]): Aliases {
+  const aliases: Aliases = new Map();
+  for (const row of rows) {
+    const names = new Set([row.name_zh, row.name_en]);
+    if (row.kind === "country")
+      for (const locale of ["en", "zh", "es", "fr", "pt", "ru"]) names.add(new Intl.DisplayNames([locale], { type: "region" }).of(row.id)!);
+    if (row.kind === "subdivision") names.add(row.name_zh.replace(/(?:省|(?:维吾尔)?自治区)$/, ""));
+    if (row.kind === "organization") names.add(row.id);
+    for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([...(aliases.get(name.toLocaleLowerCase()) ?? []), row.id]));
+  }
+  for (const [code, names] of Object.entries({
+    US: ["US", "USA", "U.S.", "U.S.A.", "United States of America"],
+    GB: ["UK", "U.K.", "Britain"],
+    CN: ["中华人民共和国", "People's Republic of China"],
+    CD: ["DRC", "DR Congo", "Congo-Kinshasa", "刚果民主共和国"],
+  }))
+    for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
+  return aliases;
 }
-for (const [code, names] of Object.entries({
-  US: ["US", "USA", "U.S.", "U.S.A.", "United States of America"],
-  GB: ["UK", "U.K.", "Britain"],
-  CN: ["中华人民共和国", "People's Republic of China"],
-  CD: ["DRC", "DR Congo", "Congo-Kinshasa", "刚果民主共和国"],
-}))
-  for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
-const digestAliases = () => sha256(stableJson([...aliases].map(([alias, ids]) => [alias, [...ids]])));
-const previousAliasDigest = digestAliases();
 // These unambiguous province names can support a country already chosen by the model; they never infer an event role.
-for (const [code, names] of Object.entries({
-  CA: ["British Columbia", "不列颠哥伦比亚省", "卑诗省"],
-  AU: ["Northern Territory", "New South Wales", "北领地", "新南威尔士州"],
-  AR: ["Catamarca", "Salta", "Jujuy", "卡塔马卡", "萨尔塔", "胡胡伊"],
-}))
-  for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
-const aliasDigest = digestAliases();
-const recipeForAliases = (digest: string, prompt = promptVersion("structure")) =>
-  sha256(stableJson(["news-geography-v1/head12000-tail2000/adaptive-total-32000", prompt, GEOGRAPHY_DICTIONARY, digest]));
+function addProvinces(aliases: Aliases): Aliases {
+  for (const [code, names] of Object.entries({
+    CA: ["British Columbia", "不列颠哥伦比亚省", "卑诗省"],
+    AU: ["Northern Territory", "New South Wales", "北领地", "新南威尔士州"],
+    AR: ["Catamarca", "Salta", "Jujuy", "卡塔马卡", "萨尔塔", "胡胡伊"],
+  }))
+    for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
+  return aliases;
+}
+const digestAliases = (aliases: Aliases) => sha256(stableJson([...aliases].map(([alias, ids]) => [alias, [...ids]])));
+const aliases = baseAliases(JURISDICTIONS);
+const previousAliasDigest = digestAliases(aliases);
+addProvinces(aliases);
+const aliasDigest = digestAliases(aliases);
+const beforeAdded = baseAliases(PREVIOUS_ROWS);
+const beforeAddedPreviousDigest = digestAliases(beforeAdded);
+const beforeAddedDigest = digestAliases(addProvinces(beforeAdded));
+const recipeForAliases = (digest: string, prompt = promptVersion("structure"), dictionary = GEOGRAPHY_DICTIONARY) =>
+  sha256(stableJson(["news-geography-v1/head12000-tail2000/adaptive-total-32000", prompt, dictionary, digest]));
 // The reviewed scope-only prompt change left geography unchanged; this exception expires with the next prompt change.
-const previousStructureRecipe = promptVersion("structure") === "structure@dc56e3f181" ? recipeForAliases(previousAliasDigest, "structure@4502d2ee48") : null;
+const previousStructureRecipe =
+  promptVersion("structure") === "structure@dc56e3f181" ? recipeForAliases(beforeAddedPreviousDigest, "structure@4502d2ee48", PREVIOUS_DICTIONARY) : null;
 export const geographyRecipe = () => recipeForAliases(aliasDigest);
-/** Only this additive vocabulary change is compatible; a different prompt, dictionary or old base still fails closed. */
+/** Only these additive vocabulary changes are compatible; a different prompt, dictionary or old base still fails closed. */
 export const compatibleGeographyRecipes = (recipe = geographyRecipe()) =>
-  recipe === geographyRecipe() ? [recipe, recipeForAliases(previousAliasDigest)] : [recipe];
+  recipe === geographyRecipe()
+    ? [
+        recipe,
+        recipeForAliases(previousAliasDigest),
+        recipeForAliases(beforeAddedDigest, undefined, PREVIOUS_DICTIONARY),
+        recipeForAliases(beforeAddedPreviousDigest, undefined, PREVIOUS_DICTIONARY),
+      ]
+    : [recipe];
 const clip = (value: string, limit: number, tail = false) => {
   const chars = Array.from(value);
   let result = "",

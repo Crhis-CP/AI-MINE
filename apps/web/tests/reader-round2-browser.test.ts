@@ -344,7 +344,10 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   const page = await context.newPage();
   const path = "/all?q=%E9%93%9C&source=mine";
   await page.goto(origin + path);
-  await page.getByRole("navigation", { name: "主导航" }).getByRole("link", { name: "反馈", exact: true }).click();
+  // On desktop 反馈 sits in the header's 更多 menu (DEC-78 top navigation).
+  const nav = page.getByRole("navigation", { name: "主导航" });
+  await nav.getByText("更多", { exact: true }).click();
+  await nav.getByRole("link", { name: "反馈", exact: true }).click();
   await expect(page.getByLabel("关联页面")).toHaveCount(0);
   const content = page.getByLabel("想说点什么？");
   const send = page.getByRole("button", { name: "发送反馈", exact: true });

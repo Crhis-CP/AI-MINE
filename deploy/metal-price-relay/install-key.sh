@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # Host-only setup. No application environment, network, database or model credentials enter this one-shot container.
-key=/opt/aimine/.credentials/price-relay/signing.pem
+key=${AIMINE_ROOT:-/opt/aimine}/.credentials/price-relay/signing.pem
 [[ -f $key && ! -L $key ]]
 image=$(docker inspect --format '{{.Image}}' amp-worker-1)
 docker volume create --label com.docker.compose.project=amp --label com.docker.compose.volume=price-relay-keys amp_price-relay-keys >/dev/null

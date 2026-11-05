@@ -50,7 +50,7 @@ async function analyzed(label: string, timelineAt: string): Promise<string> {
   });
   assert.equal(backfill, false);
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题 ${label}`}, ${`摘要 ${label}`}, 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'project_development', ${`标题 ${label}`}, ${`摘要 ${label}`}, 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
   return articleId;
 }
 

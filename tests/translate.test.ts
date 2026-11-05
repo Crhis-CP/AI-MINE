@@ -89,7 +89,7 @@ async function translateOne(id: string) {
 async function currentJudgement(id: string) {
   const [{ revision }] = await sql`SELECT revision FROM articles WHERE id=${id}`;
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
-    VALUES(${id},${revision},'rule','pass','company_project',${`价格更新-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
+    VALUES(${id},${revision},'rule','pass','project_development',${`价格更新-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
   await confirmGroupingFixture(id);
 }
 

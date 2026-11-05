@@ -100,7 +100,7 @@ export function cochilcoFetcher(registry: MetalPriceRegistry, get: PageGetter = 
       if (!source) throw new Error("登记里没有 Cochilco");
       const request = async (url: string, maxBytes: number) => {
         if (!onSourceHost(source, url)) throw new Error("Cochilco 地址不在登记的 HTTPS 主机上");
-        const response = await get(url, { maxRedirects: 0, maxBytes });
+        const response = await get(url, { maxRedirects: 0, maxBytes, retryDropped: true });
         if (response.status !== 200 || response.url !== url) throw new Error(`Cochilco 请求失败或跳转：${response.status}`);
         return response;
       };

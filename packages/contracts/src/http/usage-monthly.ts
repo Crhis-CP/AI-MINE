@@ -31,6 +31,8 @@ export const UsageTotals = z.strictObject({
   provider_cache_miss_reported_calls: count,
   cache_pair_reported_calls: count,
   cache_hit_rate: z.number().min(0).max(1).nullable(),
+  /** Present only when some settled estimate used a registered cache-hit price: input charged below the full price. */
+  provider_cache_saving: z.strictObject({ currency: z.literal("CNY"), amount: amount, calls: count, hit_tokens: count }).optional(),
 });
 const group = z.strictObject({ key: z.string(), label: z.string(), totals: UsageTotals });
 export const MonthlyUsageReport = z.strictObject({

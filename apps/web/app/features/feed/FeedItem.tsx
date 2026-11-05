@@ -1,18 +1,19 @@
 // One report in a feed. Desktop (≥ 961px): a white card beside the time rail. Mobile: a compact row
 // with a divider and a short recommendation. One markup serves both layouts.
 import { markRead, useIsRead } from "../../lib/local-state";
+import { useCategoryLabel, useLocale, useT } from "../../i18n";
 import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME } from "../../lib/format";
 import { memo } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
-import type { GroupInfo, ReportGroupInfo, FeedItemSummary } from "@amp/contracts/site";
+import type { GroupInfo, ReportGroupInfo, FeedItemSummary, StoryProgress } from "@amp/contracts/site";
 import { XPostFeedView } from "@amp/contracts/http/public";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SelectedBadge } from "../../components/ui/Badge.tsx";
 import { ScoreLabel } from "../../components/ui/Score.tsx";
 import { SourceLine, StarButton, Attribution } from "./parts";
 import { GroupDevelopments, GroupSources, LatestDevelopment, type ReadingGroupFilters } from "./ReadingGroup";
 import { PostAuthor, PostMedia, QuotedPost } from "../item/OriginalPost";
+import { StoryProgressLine } from "./StoryProgressLine";
 
 export interface FeedItemProps {
   item: FeedItemSummary;
@@ -20,6 +21,8 @@ export interface FeedItemProps {
   read?: boolean;
   group?: GroupInfo | null;
   reportGroup?: ReportGroupInfo | null;
+  /** Where this report's development sits in its story, when the story has more than this step. */
+  storyProgress?: StoryProgress | null;
   filters?: ReadingGroupFilters;
   /** Show category and tags under the text (全部动态, topics, search). */
   showTags?: boolean;
@@ -29,11 +32,16 @@ export const FeedItem = memo(function FeedItem({
   item,
   group,
   reportGroup,
+  storyProgress,
   filters,
   at = item.timelineAt,
   read: readOverride,
   showTags = false,
 }: FeedItemProps) {
+  const tl = useT().list;
+  const cat = useCategoryLabel();
+  // News content is Chinese; on the English interface it is marked so (brief: 中文导读加 lang="zh-CN").
+  const contentLang = useLocale() === "en" ? "zh-CN" : undefined;
   const markedRead = useIsRead(item.id);
   const read = readOverride ?? markedRead;
   const dateOnly =
@@ -47,16 +55,17 @@ export const FeedItem = memo(function FeedItem({
 
   return (
     <article
+      lang={contentLang}
       className="relative min-w-0 lg:card lg:card-hover lg:px-[18px] lg:pb-[14px] lg:pt-[15px]"
       data-item-id={item.id}
       data-member-ids={JSON.stringify(reportGroup?.memberIds ?? group?.memberIds ?? [])}
     >
-      <header className="flex min-h-[18px] items-center gap-2 text-[12.5px] leading-[18px] text-ink-4">
+      <header className="flex min-h-[18px] items-center gap-2 text-[13.5px] leading-[18px] text-ink-4">
         <SourceLine item={item} className="text-ink-4" />
-        <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? "按日期归档" : "本站时间线"} className="mono shrink-0 text-[12px] lg:hidden">
+        <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? tl.dateArchive : tl.siteTimeline} className="mono shrink-0 text-[13px] lg:hidden">
           · {dateOnly ? NO_TIME : beijingTime(at)}
         </time>
-        {read && <span className="shrink-0 text-[11px] text-ink-4">已读</span>}
+        {read && <span className="shrink-0 text-[12px] text-ink-4">{tl.read}</span>}
         {item.selected && (
           <span className="hidden lg:inline-flex">
             <SelectedBadge />
@@ -82,15 +91,15 @@ export const FeedItem = memo(function FeedItem({
         </IntentLink>
       </h3>
       <Attribution value={item.attribution} />
-      {item.summary && <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[15px]">{item.summary}</p>}
+      {item.summary && <p className="mt-1.5 line-clamp-2 text-[15.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[16px]">{item.summary}</p>}
       {post && <PostMedia key={item.id} media={post.media} href={`/items/${item.id}`} compact />}
       {post?.quoted && <QuotedPost quoted={post.quoted} compact />}
 
       {(tags.length > 0 || (showTags && item.category)) && (
-        <div className="relative z-10 mt-2 hidden flex-wrap gap-x-2.5 gap-y-1 text-[12px] text-ink-4 lg:flex">
+        <div className="relative z-10 mt-2 hidden flex-wrap gap-x-2.5 gap-y-1 text-[13px] text-ink-4 lg:flex">
           {showTags && item.category && (
             <Link to={`/all?category=${item.category}`} className="hover:text-accent">
-              {CATEGORY_LABELS[item.category]}
+              {cat(item.category)}
             </Link>
           )}
           {tags.map((t) => (
@@ -101,7 +110,7 @@ export const FeedItem = memo(function FeedItem({
         </div>
       )}
 
-      {group && <LatestDevelopment group={group} />}
+      {storyProgress ? <StoryProgressLine progress={storyProgress} /> : group && <LatestDevelopment group={group} />}
       {(showSources || showDevelopments) && (
         <div className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-1">
           {showSources && <GroupSources group={reportGroup ?? group!} filters={filters} parentId={item.id} />}
@@ -111,7 +120,10 @@ export const FeedItem = memo(function FeedItem({
 
       {item.reason && (
         <div className="mt-2.5 lg:mt-3 lg:border-t lg:border-line-soft lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-3 lg:dark:bg-transparent">
-          <p className="line-clamp-1 text-[13px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">推荐理由：{item.reason}</p>
+          <p className="line-clamp-1 text-[14px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">
+            {tl.reason}
+            {item.reason}
+          </p>
         </div>
       )}
     </article>

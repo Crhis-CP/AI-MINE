@@ -1,4 +1,5 @@
 import { PhoneBar } from "../../components/shell/PhoneBar";
+import { useLocale, useTr } from "../../i18n";
 import { useCurrentSection } from "../../lib/motion";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
@@ -22,6 +23,8 @@ export function CopyPage({
   footer?: ReactNode;
   aside?: ReactNode;
 }) {
+  const tr = useTr();
+  const english = useLocale() === "en";
   const [current, go] = useCurrentSection(
     rendered.outline.map((o) => o.id),
     true,
@@ -29,11 +32,11 @@ export function CopyPage({
   );
   const facts = (["版本", "生效日期", "运营主体", "备案号"] as const).filter((k) => doc.meta[k]);
   const info = facts.length > 0 && (
-    <RailSection title="文档信息">
+    <RailSection title={tr("文档信息")}>
       <dl className="space-y-2 text-[12.5px]">
         {facts.map((k) => (
           <div key={k}>
-            <dt className="text-ink-4">{k}</dt>
+            <dt className="text-ink-4">{tr.maybe(k)}</dt>
             <dd className="mt-0.5 text-ink-2">{doc.meta[k]}</dd>
           </div>
         ))}
@@ -41,8 +44,8 @@ export function CopyPage({
     </RailSection>
   );
   const outline = rendered.outline.length > 2 && (
-    <RailSection title="目录">
-      <nav aria-label="目录">
+    <RailSection title={tr("目录")}>
+      <nav aria-label={tr("目录")}>
         <ol className="-ml-px space-y-0.5 border-l border-line">
           {rendered.outline.map((o) => (
             <li key={o.id}>
@@ -66,7 +69,7 @@ export function CopyPage({
   );
   return (
     <>
-      <PhoneBar back={{ to: "/more", label: "我的" }} title={doc.title} />
+      <PhoneBar back={{ to: "/more", label: tr("我的") }} title={doc.title} />
       <ArticleLayout
         left={
           <>
@@ -91,12 +94,13 @@ export function CopyPage({
             <dl className="mt-5 grid grid-cols-1 border-y border-line text-[12.5px] sm:grid-cols-2 lg:hidden">
               {facts.map((k) => (
                 <div key={k} className="flex gap-4 border-b border-line-soft py-2.5 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0">
-                  <dt className="w-16 shrink-0 text-ink-4">{k}</dt>
+                  <dt className="w-16 shrink-0 text-ink-4">{tr.maybe(k)}</dt>
                   <dd className="min-w-0 text-ink-2">{doc.meta[k]}</dd>
                 </div>
               ))}
             </dl>
           )}
+          {english && <p className="mt-6 text-[13.5px] text-ink-3">{tr("本文为中文原文，英文界面不提供译本。")}</p>}
           <div className="prose prose-compact mt-6 lg:mt-8" dangerouslySetInnerHTML={{ __html: rendered.html }} />
           {footer && <div className="mt-12 border-t border-line pt-5 text-[12.5px] text-ink-3">{footer}</div>}
         </article>

@@ -64,9 +64,13 @@ function originalIdentity(value: IdentityInput) {
 }
 /** Compare-and-set acquisition callers must use the identity computed by the original store itself. */
 export async function lookupPolicyOriginalHead(value: IdentityInput): Promise<string | null> {
-  const { expressionId } = originalIdentity(value);
+  return (await lookupPolicyOriginalExpression(value)).revisionId;
+}
+/** The expression the original store would use for this identity, with its current revision (null before the first). */
+export async function lookupPolicyOriginalExpression(value: IdentityInput) {
+  const { instrumentId, versionId, expressionId } = originalIdentity(value);
   const [row] = await sql`SELECT current_revision_id FROM policy.expressions WHERE id=${expressionId}`;
-  return row?.current_revision_id ?? null;
+  return { instrumentId, versionId, expressionId, revisionId: (row?.current_revision_id as string | undefined) ?? null };
 }
 
 export async function recordPolicyOriginal(input: unknown, collectionControl?: RuntimeControlSnapshot) {

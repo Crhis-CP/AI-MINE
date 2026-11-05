@@ -1,6 +1,7 @@
 // A page of reports grouped by Beijing day with the same rail and rows as the home timeline
 // (全部动态, topics, search results, 收藏).
 import { useEffect, useMemo, useState } from "react";
+import { useT } from "../../i18n";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { FeedItemSummary, ReportGroupedTimelineCard } from "@amp/contracts/site";
 import { IconChevronRight } from "../../components/icons";
@@ -84,6 +85,7 @@ export function DayList({
                   item={it}
                   group={cards?.find((card) => card.item.id === it.id)?.group}
                   reportGroup={cards?.find((card) => card.item.id === it.id)?.reportGroup}
+                  storyProgress={cards?.find((card) => card.item.id === it.id)?.storyProgress}
                   at={cards?.find((card) => card.item.id === it.id)?.anchorAt ?? it.timelineAt}
                   filters={cards ? { channel: "all", category: null, tag: null, ...filters, scope: "all" } : undefined}
                   showTags={showTags}
@@ -99,15 +101,16 @@ export function DayList({
 
 /** Numbered pages (the list stays crawlable), with previous / next at the ends. */
 export function Pagination({ page, pageCount, href }: { page: number; pageCount: number; href: (p: number) => string }) {
+  const tl = useT().list;
   const navigate = useNavigate();
   if (pageCount <= 1) return null;
   const pages = [...new Set([1, pageCount, page - 2, page - 1, page, page + 1, page + 2].filter((p) => p >= 1 && p <= pageCount))].sort((a, b) => a - b);
-  const btn = "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-2.5 text-[13px] transition-colors";
+  const btn = "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-2.5 text-[14px] transition-colors";
   return (
-    <nav aria-label="分页" className="mt-6 flex flex-wrap items-center justify-center gap-1">
+    <nav aria-label={tl.pagination} className="mt-6 flex flex-wrap items-center justify-center gap-1">
       {page > 1 && (
         <Link to={href(page - 1)} className={`${btn} border border-line-strong bg-surface px-3 text-ink-3 hover:border-ink-4 hover:text-ink`}>
-          上一页
+          {tl.prevPage}
         </Link>
       )}
       {pages.map((p, i) => (
@@ -124,11 +127,11 @@ export function Pagination({ page, pageCount, href }: { page: number; pageCount:
       ))}
       {page < pageCount && (
         <Link to={href(page + 1)} className={`${btn} gap-0.5 border border-line-strong bg-surface px-3 text-ink-3 hover:border-ink-4 hover:text-ink`}>
-          下一页 <IconChevronRight size={14} />
+          {tl.nextPage} <IconChevronRight size={14} />
         </Link>
       )}
       <form
-        className="ml-2 flex items-center gap-2 text-[13px]"
+        className="ml-2 flex items-center gap-2 text-[14px]"
         onSubmit={(event) => {
           event.preventDefault();
           const value = Number(new FormData(event.currentTarget).get("jump"));
@@ -136,7 +139,7 @@ export function Pagination({ page, pageCount, href }: { page: number; pageCount:
         }}
       >
         <label>
-          跳到第{" "}
+          {tl.jumpTo}{" "}
           <input
             name="jump"
             type="number"
@@ -144,13 +147,13 @@ export function Pagination({ page, pageCount, href }: { page: number; pageCount:
             required
             defaultValue={page}
             key={page}
-            aria-label="跳到第几页"
+            aria-label={tl.jumpLabel}
             className="w-16 rounded-control border border-line bg-surface px-2 py-1"
           />{" "}
-          页
+          {tl.page}
         </label>
         <button type="submit" className={`${btn} border border-line`}>
-          跳转
+          {tl.go}
         </button>
       </form>
     </nav>

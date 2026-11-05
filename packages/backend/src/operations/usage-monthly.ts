@@ -8,6 +8,7 @@ import { capabilities } from "../editorial/models.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { config } from "../config.ts";
 import { usageConfiguration } from "../providers/usage-protection.ts";
+import { MICRO, unitRate } from "../providers/usage-pricing.ts";
 
 type Totals = z.infer<typeof UsageTotals>;
 type Attempt = {
@@ -26,6 +27,7 @@ type Attempt = {
   usage_object: unknown;
   protection_state: string | null;
   reserved_micros: string | null;
+  protection_quote: unknown;
 };
 type Accumulator = {
   totals: Totals;
@@ -33,6 +35,8 @@ type Accumulator = {
   cacheHits: number;
   cacheTotal: number;
   held: { reserved: bigint; unknown: bigint; tracked: number };
+  /** Hit tokens × (input − cache-hit) unit rates of estimates settled with a registered cache price. */
+  saving: { units: bigint; calls: number; hits: number };
 };
 const empty = (): Accumulator => ({
   totals: {
@@ -57,6 +61,7 @@ const empty = (): Accumulator => ({
   cacheHits: 0,
   cacheTotal: 0,
   held: { reserved: 0n, unknown: 0n, tracked: 0 },
+  saving: { units: 0n, calls: 0, hits: 0 },
 });
 const integer = (value: unknown) => (typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null);
 const micro = (value: string | null) =>
@@ -68,6 +73,16 @@ const cacheTokens = (usage: Record<string, unknown> | null) => {
   const values = [usage?.prompt_cache_hit_tokens, usage?.cache_read_input_tokens, details?.cached_tokens].map(integer).filter((n): n is number => n !== null);
   return values.length && new Set(values).size === 1 ? values[0]! : null;
 };
+const rate = (value: unknown) => (typeof value === "string" && /^\d+(?:\.\d{1,2})?$/.test(value) ? unitRate(value) : null);
+/** Only the frozen quote that produced a settled estimate; actual bills and unpriced calls attribute no saving. */
+function cacheSaving(row: Attempt, hits: number | null) {
+  if (hits === null || row.protection_state !== "settled" || row.cost_basis !== "estimated" || row.currency !== "CNY") return null;
+  const quote = row.protection_quote as { price?: Record<string, unknown> | null; rate_window?: Record<string, unknown> | null } | null;
+  const rates = quote?.rate_window ?? quote?.price;
+  const input = rate(rates?.input_per_million_micros),
+    cached = rate(rates?.cache_hit_input_per_million_micros);
+  return input === null || cached === null ? null : BigInt(hits) * (input > cached ? input - cached : 0n);
+}
 function add(acc: Accumulator, row: Attempt) {
   const t = acc.totals;
   t.calls++;
@@ -104,6 +119,12 @@ function add(acc: Accumulator, row: Attempt) {
     acc.cacheTotal += cache + missed;
     t.cache_pair_reported_calls++;
   }
+  const saving = cacheSaving(row, cache);
+  if (saving !== null) {
+    acc.saving.units += saving;
+    acc.saving.calls++;
+    acc.saving.hits += cache!;
+  }
 }
 const finish = (acc: Accumulator): Totals => ({
   ...acc.totals,
@@ -116,6 +137,17 @@ const finish = (acc: Accumulator): Totals => ({
     coverage: acc.held.tracked === acc.totals.calls ? "complete" : acc.held.tracked ? "partial" : "none",
   },
   cache_hit_rate: acc.cacheTotal ? acc.cacheHits / acc.cacheTotal : null,
+  // Omitted without cache-priced settlements so earlier issued months keep their content hash.
+  ...(acc.saving.calls
+    ? {
+        provider_cache_saving: {
+          currency: "CNY" as const,
+          amount: decimal(acc.saving.units / (MICRO * 100n)),
+          calls: acc.saving.calls,
+          hit_tokens: acc.saving.hits,
+        },
+      }
+    : {}),
   amounts: [...acc.amounts]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([currency, cost]) => ({ currency, actual: decimal(cost.actual), estimated: decimal(cost.estimated) })),
@@ -143,7 +175,7 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
   let unassigned = 0;
   for await (const rows of sql<
     Attempt[]
-  >`SELECT a.service,a.model,r.purpose,r.subject,coalesce(r.request->>'lane',r.request->'manifest'->>'lane') AS lane,r.request->'sourceIds' AS source_ids,r.request->>'usage_purpose' AS usage_purpose,r.request->'usage_object' AS usage_object,a.status,a.cost::text,a.currency,a.cost_basis,a.usage,u.state AS protection_state,u.reserved_micros::text AS reserved_micros
+  >`SELECT a.service,a.model,r.purpose,r.subject,coalesce(r.request->>'lane',r.request->'manifest'->>'lane') AS lane,r.request->'sourceIds' AS source_ids,r.request->>'usage_purpose' AS usage_purpose,r.request->'usage_object' AS usage_object,a.status,a.cost::text,a.currency,a.cost_basis,a.usage,u.state AS protection_state,u.reserved_micros::text AS reserved_micros,u.quote AS protection_quote
    FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${start} AND a.started_at<${end} ORDER BY a.id`.cursor(
     500,
   )) {
@@ -259,6 +291,19 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
     ],
   });
 }
+type Report = z.infer<typeof MonthlyUsageReport>;
+const cacheText = (totals: Totals) =>
+  `命中率${totals.cache_hit_rate === null ? "尚无完整记录" : `${(totals.cache_hit_rate * 100).toFixed(1)}%`}（${totals.cache_pair_reported_calls}次完整记录）；` +
+  (totals.provider_cache_saving
+    ? `按登记缓存命中价比全价少计人民币 ${totals.provider_cache_saving.amount}（${totals.provider_cache_saving.calls}次）`
+    : totals.provider_cache_tokens
+      ? "命中部分未按缓存命中价结算（未登记缓存命中价时按全价记账）"
+      : "没有缓存命中价结算");
+/** Provider prompt-cache effect: overall and per capability that reported a hit/miss pair. */
+export const cacheLines = (report: Report) => [
+  `供应商缓存：${cacheText(report.totals)}。`,
+  ...report.by_capability.filter((g) => g.totals.cache_hit_rate !== null || g.totals.provider_cache_saving).map((g) => `· ${g.label}：${cacheText(g.totals)}`),
+];
 const entry = (row: { report: unknown; revision: number; notification_state: string; notification_at: Date | null }) =>
   MonthlyUsageEntry.parse({ ...row, notification_at: row.notification_at?.toISOString() ?? null, updated_after_issue: row.revision > 1 });
 export async function monthlyUsageReports(month?: string) {
@@ -290,6 +335,7 @@ export async function reconcileMonthlyUsage(month: string, now = new Date(), sen
         ...report.totals.amounts.map((a) => `${a.currency}：实际 ${a.actual}；当时估算 ${a.estimated}`),
         `保护记录：${report.totals.protection?.tracked_calls ?? 0}次；仍预留人民币 ${report.totals.protection?.reserved_amount ?? "未记录"}，未知占用 ${report.totals.protection?.unknown_amount ?? "未记录"}；与已花费用分开。`,
         `另有${report.totals.unpriced_calls}次缺少可用费用记录。`,
+        ...cacheLines(report),
         `完整明细：${config.siteUrl}/admin/usage-models/settings`,
       ]);
       state = result === "sent" ? "sent" : "pending";

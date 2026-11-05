@@ -34,9 +34,11 @@ import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUn
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
 import { ModelOutputError } from "../providers/llm.ts";
+import { isProviderPeak, nextOffPeakStart, OFF_PEAK_WAIT } from "../providers/peak-hours.ts";
 import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
 import { ensureQueue, QUEUES, shutdownSignal } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
+import { SELECTION } from "@amp/industry/selection";
 
 /** Minutes to wait after the n-th failed attempt; one more failure after the last ends in "failed". */
 const RETRY_MINUTES = [5, 10, 20, 40, 60, 120, 240, 360];
@@ -127,7 +129,7 @@ export async function groupingQueuePriority(articleId: string, db: Db = sql): Pr
  */
 export async function queueProcessing(
   articleId: string,
-  opts: { step?: Step; attemptTag?: string; db?: Db; lowPriority?: boolean } = {},
+  opts: { step?: Step; attemptTag?: string; db?: Db; lowPriority?: boolean; now?: Date } = {},
 ): Promise<string | null> {
   const db = opts.db ?? sql;
   const r = await route(articleId, db);
@@ -169,6 +171,11 @@ export async function queueProcessing(
     );
   }
   const tagged = !!opts.attemptTag;
+  // History (found long after it was published) can wait: at the provider's peak hours its analysis starts at the
+  // next off-peak start (half price). The retry time keeps the safety net from queueing it earlier.
+  const now = opts.now ?? new Date();
+  const offPeak = r.historical && !tagged && isProviderPeak(now) ? nextOffPeakStart(now) : null;
+  if (offPeak) await db`UPDATE articles SET processing_retry_at=${offPeak}, processing_error=${OFF_PEAK_WAIT} WHERE id=${articleId} AND revision=${r.revision}`;
   return record(
     enqueue(
       QUEUES.analyze,
@@ -176,6 +183,7 @@ export async function queueProcessing(
       {
         singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId,
         priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.live,
+        ...(offPeak ? { startAfter: offPeak } : {}),
       },
       opts.db,
     ),
@@ -199,6 +207,11 @@ export async function settleNonEditorial(articleId: string, expectedRevision?: n
   if (!row) return { group: false };
   await publishArticle(articleId);
   return { group: row.participation_mode === "hot_signal" && !isHistorical(row) };
+}
+
+/** Grouping spends model calls; capped noise below the floor (SELECTION.groupFloor) is not grouped. */
+export function worthGrouping(output: { selected: boolean; score: number | null }): boolean {
+  return output.selected || output.score === null || output.score >= SELECTION.groupFloor;
 }
 
 /** attemptTag makes an explicit re-evaluation a new (paid) request; the same tag reuses its receipt. */
@@ -241,9 +254,9 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
       return { state: "fetching-body" };
     }
     const publication = await publishArticle(articleId);
-    // History is archived but founds no event (isHistorical).
-    if (result.output.relevance === "pass" && publication?.visibility === "public" && !row.historical)
-      await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: PRIORITY.live });
+    // History founds no event but may attach to the fact it reposts (events/group.ts); it waits behind live work.
+    if (result.output.relevance === "pass" && publication?.visibility === "public" && worthGrouping(result.output))
+      await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: row.historical ? PRIORITY.history : PRIORITY.live });
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
@@ -333,8 +346,12 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
       if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
       const publication = await publishArticle(data.articleId);
       const r = await route(data.articleId, sql);
-      if (publication?.visibility === "public" && r && !r.historical)
-        await enqueue(QUEUES.group, { lane: "news", articleId: data.articleId }, { singletonKey: data.articleId, priority: PRIORITY.live });
+      if (publication?.visibility === "public" && r)
+        await enqueue(
+          QUEUES.group,
+          { lane: "news", articleId: data.articleId },
+          { singletonKey: data.articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live },
+        );
       return result;
     } catch (error) {
       if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(data.articleId, error, inputRevision);

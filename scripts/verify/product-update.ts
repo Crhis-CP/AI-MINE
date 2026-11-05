@@ -16,7 +16,7 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
       if (!existsSync(path.join(root, file))) continue;
       const data = JSON.parse(readFileSync(path.join(root, file), "utf8"));
       const notes = file.endsWith("copy-edits.json")
-        ? data.map((edit: { copy: object }) => ({ kind: "优化", ...edit.copy }))
+        ? data.filter((edit: { copy: object | null }) => edit.copy !== null).map((edit: { copy: object }) => ({ kind: "优化", ...edit.copy }))
         : validateChangelog(data).releases;
       for (const { kind, version, title, body } of notes) {
         validateReleaseNote({ kind, title, body, ...(version === undefined ? {} : { version }) });

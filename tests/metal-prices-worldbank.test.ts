@@ -148,7 +148,8 @@ test("recorded workbook keeps raw values, full cell version, source units and ad
   assert.equal(latest.release.releasedOn, null);
   assert.deepEqual(latest.held, []);
   assert.equal(latest.heldSeries, undefined);
-  assert.deepEqual(get.files()[0].opts, { maxRedirects: 0, maxBytes: 4 * 1024 * 1024 });
+  // Bounded, no redirects, and a dropped connection asked once more (modules/metals/AUTOMATION.md).
+  assert.deepEqual(get.files()[0].opts, { maxRedirects: 0, maxBytes: 4 * 1024 * 1024, retryDropped: true });
   const january = parse((p) => {
     p.get(807)!.set("A", "2027M01");
     p.get(806)!.set("A", "2026M12");

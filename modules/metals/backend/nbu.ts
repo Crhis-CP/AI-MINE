@@ -32,7 +32,7 @@ export async function compareCbrWithNbu(registry: MetalPriceRegistry, one: Fetch
   try {
     const url = `https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?date=${one.period.start.replaceAll("-", "")}&json`;
     if (!onSourceHost(source, url)) unavailable("比对主机没有登记");
-    const response = await get(url, { maxRedirects: 0 });
+    const response = await get(url, { maxRedirects: 0, retryDropped: true });
     if (response.url !== url) unavailable("请求发生跳转");
     if (response.status !== 200) unavailable(`HTTP ${response.status}`);
     let data: unknown;

@@ -1,14 +1,15 @@
 import { apiFetch } from "../lib/http.ts";
+import { useTr } from "../i18n";
 import { SITE, withSubject } from "@amp/industry/site";
-import { data as withStatus, Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { data as withStatus, Link, redirect, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/all";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { isValidDate } from "@amp/contracts/time";
-import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
+import { canonicalCategoryFilter, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
-import { CategoryTabs, JurisdictionFilter, SearchField, SourceDateFilters, FeedBar } from "../features/feed/Filters";
+import { FeedBar, FeedToolbar, SearchField, SourceDateFilters } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { HotTopics } from "../features/feed/HotTopics";
@@ -19,7 +20,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
   const channel = isChannelKey(channelParam) ? channelParam : "all";
-  const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
+  const category = categoryParam ? canonicalCategoryFilter(categoryParam) : null;
+  // Old links with a retired category (ADR-0031) move to its successor; company_project stays and filters both.
+  if (categoryParam && category && category !== categoryParam) {
+    url.searchParams.set("category", category);
+    throw redirect(`${url.pathname}${url.search}`, 301);
+  }
   const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
   const q = url.searchParams.get("q")?.trim().slice(0, 200) || null;
@@ -124,15 +130,16 @@ function pageHref(params: URLSearchParams, page: number) {
 }
 
 export default function AllPage() {
+  const tr = useTr();
   const { data, policyMatches, policySearchFailed, filterError } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const navigation = useNavigation();
   if (!data)
     return (
       <div className="pb-12">
-        <h1 className="pt-5 text-[24px] font-semibold text-ink">全部矿业动态</h1>
+        <h1 className="pt-5 text-[24px] font-semibold text-ink">{tr("全部矿业动态")}</h1>
         <p role="alert" className="mt-3 text-[14px] text-hot">
-          {filterError}
+          {filterError && tr.maybe(filterError)}
         </p>
         <SourceDateFilters base="/all" />
       </div>
@@ -147,36 +154,36 @@ export default function AllPage() {
     else sp.delete("tab");
     return `/all?${sp}`;
   };
-  const title = f.q ? `搜索“${f.q}”` : f.tag ? `#${f.tag}` : null;
+  const title = f.q ? tr("搜索“{q}”", { q: f.q }) : f.tag ? `#${f.tag}` : null;
   const updated = new Date(data.freshness).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" });
 
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
       <FeedBar base="/all" category={f.category} channel={f.channel} jurisdiction={f.jurisdiction ?? null} facets={data.facets} />
-      {/* Desktop, as on 精选: the title, then one filter row with the search field aligned on the right. */}
-      <div className="hidden lg:block">
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title ?? `全部${withSubject("动态")}`}</h1>
-        <div className="mb-5 mt-4 flex items-center justify-between gap-4">
-          <CategoryTabs base="/all" category={f.category} channel={f.channel} layoutId="all-cat-desk" className="min-w-0" />
-          <SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />
-        </div>
-      </div>
-
-      <div className="hidden lg:block">
-        <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
-        <SourceDateFilters base="/all" facets={data.facets} />
-      </div>
+      <FeedToolbar
+        title={title ?? tr.maybe(`全部${withSubject("动态")}`)}
+        base="/all"
+        category={f.category}
+        channel={f.channel}
+        jurisdiction={f.jurisdiction ?? null}
+        layoutId="all-cat-desk"
+        search={<SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />}
+        advanced={<SourceDateFilters base="/all" facets={data.facets} flat />}
+      />
       {data.hot && <HotTopics entries={data.hot} />}
       {f.q && (
-        <section aria-label="法规政策搜索结果" className="my-4 rounded-card border border-line px-4 py-3">
+        <section aria-label={tr("法规政策搜索结果")} className="my-4 rounded-card border border-line px-4 py-3">
           <div className="flex justify-between text-[14px]">
-            <h2 className="font-semibold">法规政策{policyMatches ? `（${policyMatches.total} 条）` : ""}</h2>
+            <h2 className="font-semibold">
+              {tr("法规政策")}
+              {policyMatches ? tr("（{total} 条）", { total: policyMatches.total }) : ""}
+            </h2>
             <Link to={`/policies?q=${encodeURIComponent(f.q)}`} className="text-accent">
-              查看全部法规结果 →
+              {tr("查看全部法规结果 →")}
             </Link>
           </div>
           {policySearchFailed ? (
-            <p className="mt-2 text-[13px] text-ink-3">法规结果暂时无法读取，可进入法规栏目重试。</p>
+            <p className="mt-2 text-[13px] text-ink-3">{tr("法规结果暂时无法读取，可进入法规栏目重试。")}</p>
           ) : policyMatches?.items.length ? (
             <ul className="mt-2 divide-y divide-line">
               {policyMatches.items.slice(0, 5).map((policy) => (
@@ -188,25 +195,29 @@ export default function AllPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-[13px] text-ink-3">未找到相符的法规文书。</p>
+            <p className="mt-2 text-[13px] text-ink-3">{tr("未找到相符的法规文书。")}</p>
           )}
         </section>
       )}
       <p className="my-3 text-[12px] text-ink-4">
-        第 {data.page} 页 · 共 {data.total} {data.cards ? "组动态" : "条动态"}
-        {data.reportTotal !== undefined ? ` · ${data.reportTotal} 篇报道` : ""}
+        {tr("第")} {data.page} {tr("页 · 共")} {data.total} {data.cards ? tr("组动态") : tr("条动态")}
+        {data.reportTotal !== undefined ? tr(" · {reportTotal} 篇报道", { reportTotal: data.reportTotal }) : ""}
       </p>
       {f.q && (
         <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2 lg:mt-0">
           <PillTabs
             size="xs"
             layoutId="all-search-sort"
-            label="搜索排序"
+            label={tr("搜索排序")}
             active={f.tab}
-            items={(["time", "relevance"] as const).map((t) => ({ key: t, label: t === "time" ? "最新（标题与摘要）" : "全文相关", to: searchTabHref(t) }))}
+            items={(["time", "relevance"] as const).map((t) => ({
+              key: t,
+              label: t === "time" ? tr("最新（标题与摘要）") : tr("全文相关"),
+              to: searchTabHref(t),
+            }))}
           />
           <span className="text-[12px] text-ink-4">
-            找到 <span className="num">{data.total}</span> 条 · 更新于 <span className="num">{updated}</span>
+            {tr("找到")} <span className="num">{data.total}</span> {tr("条 · 更新于")} <span className="num">{updated}</span>
           </span>
         </div>
       )}
@@ -215,16 +226,16 @@ export default function AllPage() {
         {data.items.length === 0 ? (
           <div className="mt-2 lg:card">
             <EmptyState
-              title="没有找到相关内容"
+              title={tr("没有找到相关内容")}
               action={
                 f.q && f.tab === "time" ? (
                   <Link to={searchTabHref("relevance")} className="text-[13px] font-medium text-accent hover:underline">
-                    试试“全文相关”，连正文一起搜
+                    {tr("试试“全文相关”，连正文一起搜")}
                   </Link>
                 ) : undefined
               }
             >
-              {f.q ? "换个说法，或者去掉筛选再试。" : "这个筛选下暂时没有内容。"}
+              {f.q ? tr("换个说法，或者去掉筛选再试。") : tr("这个筛选下暂时没有内容。")}
             </EmptyState>
           </div>
         ) : (
@@ -234,7 +245,7 @@ export default function AllPage() {
       <Pagination page={data.page} pageCount={data.pageCount} href={(p) => pageHref(params, p)} />
       {data.page > data.pageCount && (
         <Link to={pageHref(params, 1)} className="block py-4 text-center text-accent">
-          回到第 1 页
+          {tr("回到第 1 页")}
         </Link>
       )}
     </div>

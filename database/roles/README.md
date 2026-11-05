@@ -75,3 +75,5 @@ TASK-0110：日期证据表保持worker只读、只插；新表`content.source_d
 正文展示通知函数publication.invalidate_body_presentation按既有触发器规则精确登记：仅允许零参数、trigger返回类型、非SECURITY DEFINER且由引导或migrate角色拥有的版本。不会放行同名重载、未知函数或提权版本，也不增加表权限；真实worker更新可公开正文时通知news读者，public_read继续只读。
 
 TASK-0431：金属价格最近检查采用publication.metal_price_checks的source/checked_at/ok/changed四字段投影，公开角色仅SELECT这些字段，worker可新增/更新，普通角色不能删除。原报价fetched_at保持私有，其他私有列和写拒绝断言不变。真实public_read HTTP矩阵同时核对价格可读；不借用高权限连接兜底。
+
+金属价格单独扣下（DEC-78补充·五项决定第4项）：publication.metal_price_holds归publication，保存跳变后单独扣下的值及放行/作废决定（谁、何时、为什么），只追加或改状态、不删除。公开角色仅SELECT series_key/period_start/period_label/status四列，供价格页标“待下期确认”，读不到被扣数值与理由；worker可读、插、改，private_ops与backup只读，普通角色不能删除。

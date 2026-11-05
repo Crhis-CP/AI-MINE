@@ -3,6 +3,7 @@ import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import type { z } from "zod";
 import { V3ItemCard, type V3ItemsQuery, type V3ReadingQuery } from "@amp/contracts/http/v3";
 import { TimeAssertion, normalizeSourceTime } from "@amp/contracts/time-assertion";
+import { canonicalCategoryFilter } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS, MINERAL_TAGS } from "@amp/industry/taxonomy";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { SITE } from "@amp/industry/site";
@@ -121,7 +122,7 @@ export async function v3Item(id: string, detail = false, now = new Date()) {
     story_id: item.story?.publicId ?? null,
     thread_id: null,
     featured: item.selected,
-    score: item.score === null ? null : Math.floor(item.score),
+    score: item.score === null ? null : Math.round(item.score * 10) / 10,
     independent_source_count: item.group ? item.group.additionalSourceCount + 1 : 1,
     ai_label: ("manualRevisionLabel" in item && item.manualRevisionLabel) || row.manual_body_html ? "ai_assisted_human_edited" : "ai_generated",
     license_note: item.attribution?.notice ?? item.attribution?.license?.name ?? null,
@@ -159,7 +160,7 @@ export async function v3Items(q: z.infer<typeof V3ItemsQuery>, now = new Date())
       mode: q.view === "featured" ? "selected" : "all",
       window: "all",
       by: "timeline",
-      category: q.category ?? null,
+      category: canonicalCategoryFilter(q.category),
       q: q.q ?? null,
       limit: q.limit,
       cursor: q.cursor ?? null,
@@ -176,7 +177,8 @@ export async function v3Items(q: z.infer<typeof V3ItemsQuery>, now = new Date())
   const items = (await Promise.all(listing.items.map((item) => v3Item(item.id, false, now)))).filter((item) => item !== null);
   const facets =
     q.facets === "true"
-      ? (await loadPool({ ...q, channel: "all", category: q.category ?? null, tag: null, selected: q.view === "featured", topicTags, now })).facets
+      ? (await loadPool({ ...q, channel: "all", category: canonicalCategoryFilter(q.category), tag: null, selected: q.view === "featured", topicTags, now }))
+          .facets
       : undefined;
   return { ...(await v3Envelope(now)), items, next_cursor: listing.page.nextCursor, ...(facets ? { facets } : {}) };
 }

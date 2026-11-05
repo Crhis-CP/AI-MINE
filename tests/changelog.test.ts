@@ -29,6 +29,22 @@ test("reader copy edits preserve the original release and apply only to its exac
   assert.deepEqual(readerChangelogCopy(history, [{ ...edit, originalCopySha256: "0".repeat(64) }]), history);
 });
 
+test("a copy edit of null takes a purely internal entry out of the public log; the newest remaining entry names the version", () => {
+  const internal = { date: "2026-10-17", time: "03:09", kind: "优化" as const, title: "合成内部修复", body: ["合成说明"] };
+  const reader = { date: "2026-10-14", time: "10:05", kind: "优化" as const, title: "合成读者变化", body: ["合成读者说明"] };
+  const history = { latestVersion: "2026-10-17T03:09", releases: [internal, reader] };
+  const hash = createHash("sha256")
+    .update(JSON.stringify({ date: internal.date, time: internal.time, title: internal.title, body: internal.body }))
+    .digest("hex");
+  const hidden = readerChangelogCopy(history, [{ date: internal.date, time: internal.time, title: internal.title, originalCopySha256: hash, copy: null }]);
+  assert.deepEqual(
+    hidden.releases.map((r) => r.title),
+    ["合成读者变化"],
+  );
+  assert.equal(hidden.latestVersion, "2026-10-14T10:05");
+  assert.equal(history.releases.length, 2, "the original record is left as it was");
+});
+
 test("the real changelog passes: the first deploy's entries, then the 2.0 launch; no framework sample, no review notes", () => {
   const changelog = validateChangelog(JSON.parse(text));
   assert.deepEqual(loadChangelog(), changelog);
