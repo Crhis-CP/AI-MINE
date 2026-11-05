@@ -1168,23 +1168,39 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
     html = await res.text();
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
-  const table = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
-  const text = table.replace(/<[^>]+>/g, "");
-  assert.match(text, /品种报价价格变化规格/);
+  // One card per metal: the headline quote (most frequent source with a price) up front, the others behind “另有 N 个报价”.
+  const grid = html.slice(html.indexOf("data-metal-grid"), html.indexOf('id="metals-sources"'));
+  const text = grid.replace(/<[^>]+>/g, "");
+  const card = (key: string) => {
+    const start = grid.indexOf(`data-metal="${key}"`);
+    return grid.slice(start, grid.indexOf("</li>", grid.indexOf("</details>", start)));
+  };
+  assert.ok(!html.includes("<table"));
   assert.ok(text.includes("对比 合成跨期基期"));
   assert.doesNotMatch(text, /较上周|较上一旬|较上月|较上一交易日|紧挨/);
-  assert.match(table, /scope="rowgroup" rowspan="2"/i);
   for (const value of ["合成甲", "合成乙", "合成报价 a", "甲", "乙", "合成规格", "108,770.0", "64.60", "+1.0%", "−1.6%", "0.0%", "暂缺"])
     assert.ok(text.includes(value), value);
-  assert.match(table, /text-hot[^>]*>\+1.0%/);
-  assert.match(table, /text-ok[^>]*>−1.6%/);
-  assert.match(table, /text-ink-3[^>]*>0.0%/);
-  assert.match(table, /合成报价期/);
-  assert.match(table, /对比/);
-  assert.doesNotMatch(table, /2026-/);
-  assert.match(html, /href="#n1"[^>]*aria-label="见说明第 1 条"/);
+  const first = card("first"),
+    second = card("second");
+  // The daily quote leads; the monthly one is listed inside the card.
+  assert.ok(first.indexOf("108,770.0") < first.indexOf("<details"), "the daily quote is the headline");
+  assert.ok(first.indexOf("64.60") > first.indexOf("<details"), "the monthly quote is among the other quotes");
+  assert.match(first.replace(/<[^>]+>/g, ""), /另有 1 个报价/);
+  assert.ok(second.indexOf("200.0") < second.indexOf("<details") && second.indexOf("暂缺") > second.indexOf("<details"));
+  assert.match(grid, /text-hot[^>]*>\+1.0%/);
+  assert.match(grid, /text-ok[^>]*>−1.6%/);
+  assert.match(grid, /text-ink-3[^>]*>0.0%/);
+  assert.match(grid, /合成报价期/);
+  assert.doesNotMatch(grid, /2026-/);
+  // Footnotes travel with their quote (source, spec and the linked note) instead of numbered references.
+  assert.ok(!html.includes('href="#n1"'));
+  assert.match(first.replace(/<[^>]+>/g, ""), /来源：合成来源甲[\s\S]*合成规格[\s\S]*合成脚注见合成许可/);
+  assert.match(first, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
   assert.match(html, /id="n1"/);
-  assert.match(html, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
+  // Attribution stays in view: every source with its release and the linked note it carries.
+  const sources = html.slice(html.indexOf('id="metals-sources"'), html.indexOf('id="metals-notes"'));
+  assert.match(sources, /href="https:\/\/source.invalid\/release"[^>]*>合成来源甲/);
+  assert.match(sources, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
   assert.ok(html.includes("合成旧期") && html.includes("合成普通说明"));
   assert.ok(!html.slice(html.indexOf("data-metals"), html.indexOf("</article>")).includes("{link}"));
   const links = [...html.matchAll(/<a href="(https:\/\/source.invalid\/official-\d+)"[^>]*>([\s\S]*?)<\/a>/g)];
@@ -1202,6 +1218,7 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
       assert.equal(response.status, mode === "error" ? 503 : 200);
       if (mode === "stale") {
         assert.ok(body.includes("较早期数据"));
+        assert.ok(body.includes("更新延迟"), "a stale source is marked as delayed in the source list");
         assert.ok(!body.includes("数据已陈旧"));
         assert.ok(body.includes("108,770.0"));
       }

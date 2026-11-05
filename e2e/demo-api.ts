@@ -19,6 +19,7 @@ import {
   demoInformation,
   demoJurisdictions,
   demoMeta,
+  demoMetalPrices,
   demoNewsMap,
   demoPool,
   demoStats,
@@ -70,6 +71,8 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
       return send(res, 200, { items: DEMO_ITEMS.filter((item) => (q.get("ids") ?? "").split(",").includes(item.id)), unavailableIds: [] });
     case "/api/site/hot":
       return send(res, 200, demoHot);
+    case "/api/site/metal-prices":
+      return send(res, 200, demoMetalPrices);
     case "/api/site/reports/daily":
       return send(res, 200, { items: demoDailyArchive });
     case "/api/site/reports/daily/latest-page":

@@ -1,8 +1,10 @@
 // Demo reader data for the local demo API (e2e/demo-api.ts): synthetic, labelled as demo content, and
 // parsed through the public contracts at import so any contract drift fails here first. No production data,
 // no real company or person, no filing numbers.
+import { readFileSync } from "node:fs";
 import {
   ContentVersion,
+  MetalPrices,
   Policy,
   PolicyCard,
   PolicyListResponse,
@@ -1190,3 +1192,165 @@ export function demoPolicyReading(id: string, expressionId: string | null, revis
     next_cursor: null,
   });
 }
+
+// ---- Metal prices (/metals) ----------------------------------------------------------------------------------------
+// The registry's own presentation (sources, quote titles, specs, footnotes and notes) with synthetic numbers and
+// periods: every value below is invented for the demo, none is an official price.
+type DemoQuote = [key: string, value: string | null, percent: string | null];
+const DEMO_METAL_QUOTES: DemoQuote[] = [
+  ["cbr.gold", "2658.4037", "0.6"],
+  ["wb.gold", "2571.37", "3.1"],
+  ["cochilco.copper", "9812.5", "-0.8"],
+  ["mofcom.copper", "78350", "1.2"],
+  ["nbs.copper", "77945.6", "0.9"],
+  ["wb.copper", "9245.18", "2.4"],
+  ["nbs.lithium", "34300", "0.0"],
+  ["cochilco.aluminum", "2610", "0.3"],
+  ["mofcom.aluminum", "20610", "-0.4"],
+  ["nbs.aluminum", "20580.3", "-0.6"],
+  ["wb.aluminum", "2498.55", "1.1"],
+  ["cbr.silver", "31.6218", "1.4"],
+  ["wb.silver", "29.87", "4.2"],
+  ["cbr.platinum", "982.1544", "-0.9"],
+  ["wb.platinum", "951.4", "0.7"],
+  ["cbr.palladium", "1031.7702", "2.2"],
+  ["cochilco.zinc", "2987", "-1.2"],
+  ["mofcom.zinc", "24880", "0.6"],
+  ["nbs.zinc", "24812.5", "0.2"],
+  ["wb.zinc", "2812.4", "3.3"],
+  ["cochilco.lead", "2034.5", "0.4"],
+  ["nbs.lead", null, null],
+  ["wb.lead", "1995.1", "-1.5"],
+  ["cochilco.tin", "32450", "1.9"],
+  ["wb.tin", "31780.25", "2.6"],
+  ["cochilco.nickel", "16230", "-2.3"],
+  ["wb.nickel", "15960.75", "-1.0"],
+  ["wb.iron_ore", "101.85", "-4.4"],
+  ["nbs.sulfuric_acid", "512.3", null],
+];
+type DemoPeriod = [start: string, end: string, label: string];
+const DEMO_PERIODS: Record<string, { tag: string; current: DemoPeriod; previous: DemoPeriod; release: string; url: string }> = {
+  cbr: {
+    tag: "日",
+    current: ["2026-10-02", "2026-10-02", "2026年10月2日定价"],
+    previous: ["2026-10-01", "2026-10-01", "2026年10月1日定价"],
+    release: "演示：俄罗斯银行 2026年10月3日起适用",
+    url: "https://www.cbr.ru/hd_base/metall/metall_base_new/",
+  },
+  cochilco: {
+    tag: "日",
+    current: ["2026-10-02", "2026-10-02", "2026年10月2日"],
+    previous: ["2026-10-01", "2026-10-01", "2026年10月1日"],
+    release: "演示：Cochilco La Rueda 2026-10-02",
+    url: "https://www.cochilco.cl/web/la-rueda-diaria/",
+  },
+  mofcom: {
+    tag: "周",
+    current: ["2026-09-26", "2026-09-26", "2026年9月26日"],
+    previous: ["2026-09-19", "2026-09-19", "2026年9月19日"],
+    release: "演示：商务预报 2026-09-26",
+    url: "https://cif.mofcom.gov.cn/cif/html/dataCenter2021/index.html?jgsczlzdjc_yousejinshu_224011",
+  },
+  nbs: {
+    tag: "旬",
+    current: ["2026-09-21", "2026-09-30", "2026年9月下旬"],
+    previous: ["2026-09-11", "2026-09-20", "2026年9月中旬"],
+    release: "演示：2026年9月下旬流通领域重要生产资料市场价格变动情况",
+    url: "https://www.stats.gov.cn/sj/zxfb/index.html",
+  },
+  worldbank: {
+    tag: "月",
+    current: ["2026-09-01", "2026-09-30", "2026年9月"],
+    previous: ["2026-08-01", "2026-08-31", "2026年8月"],
+    release: "演示：Pink Sheet 2026年10月",
+    url: "https://www.worldbank.org/en/research/commodity-markets",
+  },
+};
+type RegistryNote = { key?: string; text: string; link?: { name: string; url: string } };
+const demoRegistry = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8")) as {
+  sources: { key: string; name: string; frequency: string; delay: string; currency: string; unit?: string; decimals?: number }[];
+  items: { key: string; metal?: string; quote?: string; spec?: string; footnote?: string; unit?: string; convert?: { unit: string; currency: string } }[];
+  metals: { key: string; name: string }[];
+  intro: string;
+  frequencies: { key: string; tag: string; compare: string }[];
+  footnotes: RegistryNote[];
+  notes: RegistryNote[];
+  officialLinks: { name: string; note: string; url: string }[];
+};
+
+function buildDemoMetalPrices() {
+  const sources = demoRegistry.sources.filter((source) => DEMO_PERIODS[source.key]);
+  const refs = new Map<string, number>();
+  const metals = demoRegistry.metals.flatMap((metal) => {
+    const quotes = DEMO_METAL_QUOTES.flatMap(([key, value, percent]) => {
+      const item = demoRegistry.items.find((candidate) => candidate.key === key && candidate.metal === metal.key);
+      if (!item) return [];
+      const source = sources.find((candidate) => key.startsWith(`${candidate.key === "worldbank" ? "wb" : candidate.key}.`))!;
+      const period = DEMO_PERIODS[source.key]!;
+      if (item.footnote && !refs.has(item.footnote)) refs.set(item.footnote, refs.size + 1);
+      const [start, end, label] = period.current;
+      const [previousStart, previousEnd, previousLabel] = period.previous;
+      return [
+        {
+          key,
+          source: source.key,
+          title: item.quote!,
+          spec: item.spec ?? null,
+          footnote: item.footnote ? refs.get(item.footnote)! : null,
+          value,
+          unit: item.convert?.unit ?? item.unit ?? source.unit!,
+          currency: item.convert?.currency ?? source.currency,
+          decimals: source.decimals ?? null,
+          period: value ? { start, end, label } : null,
+          change: value && percent ? { percent, previous: { value: "100", period: { start: previousStart, end: previousEnd, label: previousLabel } } } : null,
+        },
+      ];
+    });
+    return quotes.length ? [{ key: metal.key, name: metal.name, quotes }] : [];
+  });
+  const frequencies = demoRegistry.frequencies.filter((frequency) => sources.some((source) => source.frequency === frequency.key));
+  const notes = [
+    ...[...refs].map(([key, ref]) => {
+      const note = demoRegistry.footnotes.find((candidate) => candidate.key === key)!;
+      return { ref, text: note.text, link: note.link ?? null };
+    }),
+    ...demoRegistry.notes.map((note) => ({
+      ref: null,
+      text: note.text.replaceAll("{tags}", frequencies.map((f) => f.tag).join("、")).replaceAll("{compare}", frequencies.map((f) => f.compare).join("，")),
+      link: note.link ?? null,
+    })),
+    ...sources.map((source) => ({ ref: null, text: `${source.name}：${source.delay}。`, link: null })),
+  ];
+  return MetalPrices.parse({
+    generatedAt: FIXED_TIME,
+    intro: `${demoRegistry.intro}（演示数据：数字均为合成，不是真实报价。）`,
+    // As the API groups them: per frequency, one entry per period label in metal order, the first leading.
+    latest: frequencies.map((frequency) => {
+      const groups = new Map<string, string[]>();
+      for (const metal of metals)
+        for (const quote of metal.quotes) {
+          const source = sources.find((candidate) => candidate.key === quote.source)!;
+          if (source.frequency !== frequency.key || !quote.period) continue;
+          const label = quote.period.label.replace(/^2026年/, "");
+          groups.set(label, [...new Set([...(groups.get(label) ?? []), metal.name])]);
+        }
+      const [head, ...extras] = [...groups];
+      return { tag: frequency.tag, label: head?.[0] ?? null, stale: false, extras: extras.map(([label, names]) => ({ metals: names, label, stale: false })) };
+    }),
+    sources: sources.map((source) => {
+      const period = DEMO_PERIODS[source.key]!;
+      return {
+        key: source.key,
+        name: source.name,
+        tag: period.tag,
+        status: "fresh",
+        latest: { label: period.current[2], release: { label: period.release, url: period.url, date: null } },
+      };
+    }),
+    metals,
+    notes,
+    officialLinks: demoRegistry.officialLinks,
+  });
+}
+/** /api/site/metal-prices for the demo: parsed through the public contract like everything else here. */
+export const demoMetalPrices = buildDemoMetalPrices();
