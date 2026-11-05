@@ -144,21 +144,6 @@ export default function MorePage() {
                   )}
                 </li>
                 <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
-                  <span className="w-[18px] whitespace-nowrap text-center text-[11px] font-semibold tracking-[-0.04em] text-ink-3" aria-hidden="true">
-                    A文
-                  </span>
-                  <span className="flex-1 font-medium">{t.shell.language}</span>
-                  <Link
-                    to={otherLanguagePath(location.pathname, location.search, locale)}
-                    hrefLang={locale === "en" ? "zh-CN" : "en"}
-                    lang={locale === "en" ? "zh-CN" : "en"}
-                    aria-label={t.shell.switchToLabel}
-                    className="flex h-10 items-center rounded-control border border-line bg-surface px-3 text-[15px] font-semibold text-ink-2"
-                  >
-                    {t.shell.switchTo}
-                  </Link>
-                </li>
-                <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
                   <span className="w-[18px] text-center text-ink-3" style={{ fontFamily: '"Songti SC","STSong","Noto Serif SC",serif' }} aria-hidden="true">
                     文
                   </span>
@@ -191,6 +176,15 @@ export default function MorePage() {
           RSS
         </a>
         <FilingLinks filings={filings} linkClassName="hover:text-ink-2" />
+        <Link
+          to={otherLanguagePath(location.pathname, location.search, locale)}
+          hrefLang={locale === "en" ? "zh-CN" : "en"}
+          lang={locale === "en" ? "zh-CN" : "en"}
+          aria-label={t.shell.switchToLabel}
+          className="font-semibold text-ink-3 hover:text-ink-2"
+        >
+          {t.shell.switchTo}
+        </Link>
       </div>
     </div>
   );
