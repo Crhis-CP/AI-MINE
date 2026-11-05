@@ -402,6 +402,7 @@
 | [TASK-0530](TASK-0530.md) | T-0101 | M3 | architect | locally_verified | 分类与评分重设计草案；法规页排版；字体许可核对；演示数据补齐 | — |
 | [TASK-0531](TASK-0531.md) | T-0101 | M3 | architect | locally_verified | 更新日志按读者口径整理：历史条目、待发布说明与隐藏内部条目 | — |
 | [TASK-0532](TASK-0532.md) | T-0101 | M3 | architect | locally_verified | 评分按 Owner 标注改写：中国读者优先、大型矿企名单、小矿企封顶、第二次评分按需 | — |
+| [TASK-0533](TASK-0533.md) | T-0101 | M3 | architect | locally_verified | 主题目录与主题页改版：分组切换、紧凑卡片、栏目切换与筛选面板 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

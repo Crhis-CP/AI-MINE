@@ -27,6 +27,7 @@ import {
   demoItemDetail,
   DEMO_ITEMS,
 } from "./demo-reader.ts";
+import { demoTopic, demoTopics } from "./demo-topics.ts";
 
 function send(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
@@ -76,6 +77,8 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
       return send(res, 200, demoDailyLatestPage);
     case "/api/site/policies":
       return send(res, 200, demoPolicies(Math.max(1, Number.parseInt(q.get("page") ?? "1", 10) || 1)));
+    case "/api/site/topics":
+      return send(res, 200, demoTopics);
     case "/api/site/policies/scope":
       return send(res, 200, demoPolicyScope);
   }
@@ -86,6 +89,11 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     if (list === "months") return send(res, 200, { items: demoDailyIndex.filter((entry) => entry.key.startsWith(key)) });
     const report = demoDailyReport(key);
     return report ? send(res, 200, report) : send(res, 404, { code: "not_in_demo" });
+  }
+  const topic = url.pathname.match(/^\/api\/site\/topics\/([\w-]+)$/);
+  if (topic) {
+    const page = demoTopic(topic[1] ?? "");
+    return page ? send(res, 200, page) : send(res, 404, { code: "not_found" });
   }
   const policy = url.pathname.match(/^\/api\/site\/policies\/([\w-]+)(\/reading)?$/);
   if (policy) {

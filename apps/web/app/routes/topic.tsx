@@ -9,6 +9,7 @@ import type { z } from "zod";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { SearchField, SourceDateFilters, JurisdictionFilter, hrefWith } from "../features/feed/Filters";
+import { PillTabs } from "../components/ui/Tabs";
 import { apiGet, ApiError, contractResult, queryString, loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, titled, siteUrl } from "../lib/seo";
 import { loadParts } from "../../site-modules";
@@ -188,6 +189,9 @@ export default function TopicPage() {
             {tr("条")}
             {picks ? tr("精选") : tr("动态")}
           </span>
+          <span className="num text-[13.5px] text-ink-4">
+            {tr("近 30 天")} {topic.recent ?? 0}
+          </span>
           {topic.related.length > 0 && (
             <span className="flex flex-wrap items-center gap-1.5 text-[13.5px]">
               <span className="text-ink-4">{tr("相关主题")}</span>
@@ -207,28 +211,36 @@ export default function TopicPage() {
         </div>
       ))}
 
-      <p className="mb-3 text-[14px] text-ink-3">
-        {tr("近 30 天")} {topic.recent ?? 0} {tr("条动态")}
-      </p>
-      <nav aria-label={tr("主题栏目")} className="my-4 flex gap-5 text-[15px]">
-        <Link to={hrefWith(base, params, { selected: null })} aria-current={!picks ? "page" : undefined} className="text-accent">
-          {tr("最新动态")}
+      {/* One switch and one filter panel (UI update, Owner 2026-11-05) instead of loose links and stacked forms. */}
+      <div className="my-4 flex flex-wrap items-center justify-between gap-3">
+        <PillTabs
+          label={tr("主题栏目")}
+          layoutId="topic-scope"
+          active={picks ? "picks" : "all"}
+          items={[
+            { key: "all", label: tr("最新动态"), to: hrefWith(base, params, { selected: null }), resetScroll: true },
+            { key: "picks", label: tr("精选"), to: hrefWith(base, params, { selected: "true" }), resetScroll: true },
+          ]}
+        />
+        <Link
+          to={policyLink}
+          className="inline-flex h-9 items-center gap-1 rounded-control border border-line bg-surface px-3 text-[13.5px] font-medium text-accent hover:bg-bg-sunk"
+        >
+          {tr("法规")} →
         </Link>
-        <Link to={hrefWith(base, params, { selected: "true" })} aria-current={picks ? "page" : undefined} className="text-accent">
-          {tr("精选")}
-        </Link>
-        <Link to={policyLink} className="text-accent">
-          {tr("法规")}
-        </Link>
-      </nav>
-      <SearchField
-        action={base}
-        variant="bar"
-        defaultValue={params.get("q") ?? ""}
-        keep={Object.fromEntries([...params].filter(([key]) => !["page", "q"].includes(key)))}
-      />
-      <JurisdictionFilter base={base} value={params.get("jurisdiction")} />
-      <SourceDateFilters base={base} facets={pool.facets} />
+      </div>
+      <div className="mb-5 rounded-card border border-line bg-surface px-3 py-3">
+        <SearchField
+          action={base}
+          variant="bar"
+          defaultValue={params.get("q") ?? ""}
+          keep={Object.fromEntries([...params].filter(([key]) => !["page", "q"].includes(key)))}
+        />
+        <div className="mt-2.5 border-t border-line-soft pt-2.5">
+          <JurisdictionFilter base={base} value={params.get("jurisdiction")} compact />
+        </div>
+        <SourceDateFilters base={base} facets={pool.facets} flat />
+      </div>
       <div className="mb-1 mt-2 flex items-baseline justify-between">
         <h2 className="text-[18px] font-bold text-ink">{picks ? tr("最新精选") : tr("最新动态")}</h2>
         {items.length > 0 && (

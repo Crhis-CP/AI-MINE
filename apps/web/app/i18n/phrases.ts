@@ -805,6 +805,8 @@ export const PHRASES = {
   偏好: "Preferences",
   阅读设置: "Reading settings",
   更多条件: "More conditions",
+  按国家和经营主题查看官方法规: "Official rules by country and business theme",
+  主题分组: "Topic groups",
   "受影响主体：": "Affected party: ",
   发布机关: "Issuing authority",
   文号与性质: "Number and type",
