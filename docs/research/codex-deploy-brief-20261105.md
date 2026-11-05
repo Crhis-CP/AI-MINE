@@ -428,7 +428,33 @@
            ORDER BY article_id, id DESC) latest
      GROUP BY category ORDER BY items DESC;"
      ```
-  6. 资源与重启：
+  6. 归组覆盖：发现于 1–7 天前、已公开的资讯里，有多少已经归入事件（供归组优化参考）：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT count(*) AS public_items,
+            count(*) FILTER (WHERE EXISTS (SELECT 1 FROM fact_articles fa WHERE fa.article_id = p.article_id)) AS grouped
+     FROM publications p JOIN articles a ON a.id = p.article_id
+     WHERE p.visibility = 'public' AND p.eligible
+       AND a.discovered_at >= now() - interval '7 days' AND a.discovered_at < now() - interval '1 day';"
+     ```
+  7. 近 7 天新建事件各有几篇报道：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT reports, count(*) AS facts FROM (
+       SELECT f.id, count(fa.article_id) AS reports FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id
+       WHERE f.created_at >= now() - interval '7 days' GROUP BY f.id) x
+     GROUP BY reports ORDER BY reports;"
+     ```
+  8. 近 7 天各步骤的模型调用次数、失败数、费用和 token（供成本优化参考）：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT purpose, count(*) AS calls, count(*) FILTER (WHERE status = 'failed') AS failed,
+            round(sum(cost), 2) AS cost, max(currency) AS currency,
+            sum((usage->>'prompt_tokens')::bigint) AS tokens_in, sum((usage->>'completion_tokens')::bigint) AS tokens_out
+     FROM receipts WHERE origin = 'live' AND created_at >= now() - interval '7 days'
+     GROUP BY purpose ORDER BY cost DESC NULLS LAST;"
+     ```
+  9. 资源与重启：
      ```bash
      docker compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
      docker inspect --format '{{.Name}} {{.Config.Image}} {{.RestartCount}}' $(docker compose ps -q)
@@ -439,7 +465,7 @@
   - 第 1 条 `scored` 为 0，而第 3 条按天折算不为 0：新版本没有在打分，可能是 `.env` 没生效；
   - 第 1 条 `with_decimal` 为 0，且 `scored` 大于 20：分数没有出现小数；
   - 第 2 条排第一的分值占 `scored` 的三成以上：分数仍集中在少数值上。
-- **报告里写：**6 组输出原文。
+- **报告里写：**9 组输出原文。
 
 ## 6. 上线后服务器测试（S8 用）
 
@@ -555,7 +581,7 @@ T16 输出原文：
 ### 七、缓存命中价格（S9）
 - 模型、价格（各时段）、官方页面链接、读取时间、保存时间：
 
-### 八、评分审计（仅 24 小时报告，S10 六组输出原文）
+### 八、评分、分类、归组与费用审计（仅 24 小时报告，S10 九组输出原文）
 ```
 <原文>
 ```
