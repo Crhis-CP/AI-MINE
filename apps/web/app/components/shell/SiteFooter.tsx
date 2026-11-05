@@ -7,30 +7,33 @@ import { feedbackPath } from "../../lib/feedback-origin";
 import { Wordmark } from "../Logo";
 import { IntentLink as Link } from "../ui/IntentLink";
 import { FilingLinks, useSiteFilings } from "./Filings";
+import { useT } from "../../i18n";
 
 export function SiteFooter() {
   const { pathname, search } = useLocation();
   const filings = useSiteFilings();
+  const t = useT();
   const link = "hover:text-ink-2";
   return (
     <footer className="mt-16 hidden border-t border-line bg-surface-2 lg:block">
       <div className="site-frame flex flex-wrap items-center gap-x-6 gap-y-3 py-6 text-[13px] text-ink-4">
-        <Link to="/" className="shrink-0" aria-label={`${SITE.name} 首页`}>
+        <Link to="/" className="shrink-0" aria-label={`${SITE.name} ${t.shell.home}`}>
           <Wordmark size={17} />
         </Link>
-        <span>AI 辅助整理，请以原文为准</span>
-        <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label="页脚导航">
+        <span>{t.shell.footerNote}</span>
+        {t.shell.contentNote && <span>{t.shell.contentNote}</span>}
+        <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label={t.shell.footerNav}>
           <Link to="/about" className={link}>
-            关于
+            {t.shell.about}
           </Link>
           <Link to="/terms" className={link}>
-            服务条款
+            {t.shell.terms}
           </Link>
           <Link to="/privacy" className={link}>
-            隐私
+            {t.shell.privacy}
           </Link>
           <Link to={feedbackPath(pathname, search)} className={link}>
-            更正与下架
+            {t.shell.corrections}
           </Link>
         </nav>
         <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">

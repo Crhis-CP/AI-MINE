@@ -2,7 +2,8 @@
 // sections in one row, a "更多" menu for the rest, then search and the appearance switch, over slowly
 // drifting gold contour lines. Phones keep their own header and the tab bar (≤ 960px).
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router";
+import { Link as PlainLink, useLocation } from "react-router";
+import { otherLanguagePath, useLocale, useT } from "../../i18n";
 import { SITE } from "@amp/industry/site";
 import { UnreadMark } from "../../features/changelog/UnreadMark";
 import { useOpenSearch } from "../../features/search/SearchOverlay";
@@ -31,6 +32,7 @@ function useHref(item: NavItem) {
 
 function TopLink({ item }: { item: NavItem }) {
   const { to, active } = useHref(item);
+  const t = useT();
   return (
     <Link
       to={to}
@@ -39,13 +41,14 @@ function TopLink({ item }: { item: NavItem }) {
         active ? "font-semibold text-ink shadow-[inset_0_-2px_0_var(--accent)]" : "rounded-control font-medium text-ink-3 hover:bg-bg-sunk hover:text-ink"
       }`}
     >
-      {item.label}
+      {t.nav[item.to] ?? item.label}
     </Link>
   );
 }
 
 function MenuLink({ item }: { item: NavItem }) {
   const { to, active } = useHref(item);
+  const t = useT();
   const Icon = item.icon;
   return (
     <Link
@@ -56,7 +59,7 @@ function MenuLink({ item }: { item: NavItem }) {
       <span className={`flex w-[20px] shrink-0 justify-center ${active ? "text-accent" : "text-ink-4"}`}>
         <Icon size={16} />
       </span>
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <span className="min-w-0 flex-1 truncate">{t.nav[item.to] ?? item.label}</span>
       {item.to === "/changelog" && <UnreadMark />}
     </Link>
   );
@@ -65,6 +68,7 @@ function MenuLink({ item }: { item: NavItem }) {
 /** "更多" as a native disclosure: usable without scripts; closes on navigation, outside clicks and Escape. */
 function MoreMenu() {
   const ref = useRef<HTMLDetailsElement>(null);
+  const t = useT();
   const { pathname, search } = useLocation();
   const active = REST.some((section) => section.items.some((item) => tabIsActive(item, pathname)));
   // biome-ignore lint/correctness/useExhaustiveDependencies: close whenever the location changes.
@@ -94,7 +98,7 @@ function MoreMenu() {
           active ? "font-semibold text-ink shadow-[inset_0_-2px_0_var(--accent)]" : "rounded-control font-medium text-ink-3 hover:bg-bg-sunk hover:text-ink"
         }`}
       >
-        更多
+        {t.shell.more}
         <UnreadMark />
         <IconChevronDown size={14} className="transition-transform duration-150 group-open:rotate-180" />
       </summary>
@@ -112,8 +116,27 @@ function MoreMenu() {
   );
 }
 
+/** The same page in the other interface language; a plain link, so the address is not re-localised. */
+function LanguageSwitch() {
+  const { pathname, search } = useLocation();
+  const locale = useLocale(),
+    t = useT();
+  return (
+    <PlainLink
+      to={otherLanguagePath(pathname, search, locale)}
+      hrefLang={locale === "en" ? "zh-CN" : "en"}
+      lang={locale === "en" ? "zh-CN" : "en"}
+      aria-label={t.shell.switchToLabel}
+      className="flex h-10 items-center rounded-control border border-line bg-surface px-3 text-[13.5px] font-semibold text-ink-3 hover:text-ink"
+    >
+      {t.shell.switchTo}
+    </PlainLink>
+  );
+}
+
 export function SiteHeader() {
   const openSearch = useOpenSearch();
+  const t = useT();
   return (
     <header className="site-header relative hidden border-b border-line bg-surface lg:block">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -124,10 +147,10 @@ export function SiteHeader() {
         </svg>
       </div>
       <div className="site-frame relative flex h-[68px] items-center gap-3 xl:gap-5">
-        <Link to="/" className="flex shrink-0 items-center text-ink" aria-label={`${SITE.name} 首页`}>
+        <Link to="/" className="flex shrink-0 items-center text-ink" aria-label={`${SITE.name} ${t.shell.home}`}>
           <Wordmark size={22} />
         </Link>
-        <nav data-site-nav className="-my-2 flex min-w-0 flex-1 items-center gap-0.5 py-2" aria-label="主导航">
+        <nav data-site-nav className="-my-2 flex min-w-0 flex-1 items-center gap-0.5 py-2" aria-label={t.shell.mainNav}>
           <div className="scrollbar-none flex min-w-0 items-center gap-0.5 overflow-x-auto">
             {CONTENT?.items.map((item) => (
               <TopLink key={item.to} item={item} />
@@ -141,11 +164,12 @@ export function SiteHeader() {
               type="button"
               onClick={(event) => openSearch("", event.currentTarget)}
               className="flex size-10 items-center justify-center rounded-control border border-line bg-surface text-ink-3 hover:text-ink"
-              aria-label="搜索"
+              aria-label={t.shell.search}
             >
               <IconSearch size={17} />
             </button>
           )}
+          <LanguageSwitch />
           <ThemeSwitch className="w-[108px]" />
         </div>
       </div>

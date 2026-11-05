@@ -13,6 +13,7 @@ import { ErrorBoundary as PageError } from "../root";
 import { WEB_MODULES } from "@amp/site/modules/web";
 import { SiteMeta } from "@amp/contracts/http/public";
 import { NO_FILINGS } from "../components/shell/Filings";
+import { useT } from "../i18n";
 
 // Unavailable metadata leaves the navigation unmarked and the footer without numbers; it never invents either.
 export async function loader({ request }: Route.LoaderArgs): Promise<SiteMeta> {
@@ -36,6 +37,7 @@ export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 /** Header, main column and footer (desktop) or phone tab bar around a page (or an error). */
 function SiteShell({ children }: { children: ReactNode }) {
   const navigation = useNavigation();
+  const t = useT();
   return (
     <SearchProvider>
       <div className="flex min-h-dvh flex-col">
@@ -44,7 +46,7 @@ function SiteShell({ children }: { children: ReactNode }) {
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-control focus:bg-surface focus:px-3 focus:py-2"
         >
-          跳到正文
+          {t.shell.skip}
         </a>
         <SiteHeader />
         {/* Mobile shell (≤ 960px): one centred column, the tab bar below. Desktop: the page fills the frame under

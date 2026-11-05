@@ -1,5 +1,6 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { setFontPreference, setReadingFace, useFontPreference, useReadingFace } from "../lib/local-state";
+import { otherLanguagePath, useLocale, useT } from "../i18n";
 import { UnreadMark } from "../features/changelog/UnreadMark";
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
@@ -81,6 +82,8 @@ export default function MorePage() {
   const filings = useSiteFilings();
   const font = useFontPreference();
   const face = useReadingFace();
+  const t = useT(),
+    locale = useLocale();
   const [fontSaved, setFontSaved] = useState(true);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
@@ -139,6 +142,21 @@ export default function MorePage() {
                       浏览器未能保存，当前页面仍可使用。
                     </p>
                   )}
+                </li>
+                <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
+                  <span className="w-[18px] whitespace-nowrap text-center text-[11px] font-semibold tracking-[-0.04em] text-ink-3" aria-hidden="true">
+                    A文
+                  </span>
+                  <span className="flex-1 font-medium">{t.shell.language}</span>
+                  <Link
+                    to={otherLanguagePath(location.pathname, location.search, locale)}
+                    hrefLang={locale === "en" ? "zh-CN" : "en"}
+                    lang={locale === "en" ? "zh-CN" : "en"}
+                    aria-label={t.shell.switchToLabel}
+                    className="flex h-10 items-center rounded-control border border-line bg-surface px-3 text-[15px] font-semibold text-ink-2"
+                  >
+                    {t.shell.switchTo}
+                  </Link>
                 </li>
                 <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
                   <span className="w-[18px] text-center text-ink-3" style={{ fontFamily: '"Songti SC","STSong","Noto Serif SC",serif' }} aria-hidden="true">

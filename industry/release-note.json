@@ -15,7 +15,8 @@
       "电脑上的栏目移到顶部导航，页面底部新增页脚。",
       "电脑和平板首页新增资讯地图，可看今天、近 7 天、近 30 天，点击国家即在原地筛选；国家筛选选中即生效。",
       "文章页可切换宋体和黑体，正文每行约 38 个字；列表可用 j / k 键上下切换。",
-      "报告刊头加上新标识，法规页用测量点连线显示文件所处阶段。"
+      "报告刊头加上新标识，法规页用测量点连线显示文件所处阶段。",
+      "可以切换到英文界面，导航和资讯地图已有英文，资讯内容仍为中文。"
     ]
   },
   "fragments": [
@@ -36,6 +37,7 @@
     "changes/TASK-0517-live-news-map.md",
     "changes/TASK-0518-reading.md",
     "changes/TASK-0519-report-policy.md",
-    "changes/TASK-0520-more-face.md"
+    "changes/TASK-0520-more-face.md",
+    "changes/TASK-0521-english-interface.md"
   ]
 }

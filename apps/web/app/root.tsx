@@ -1,7 +1,8 @@
 import { useContext } from "react";
 import { titled } from "./lib/seo";
 import { SITE } from "@amp/industry/site";
-import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError, useRouteLoaderData } from "react-router";
+import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation, useRouteError, useRouteLoaderData } from "react-router";
+import { localeOf } from "./i18n";
 import type { Route } from "./+types/root";
 import "./group.css";
 import brandSans from "./assets/fonts/InstrumentSans_400Regular.woff2?url";
@@ -33,14 +34,17 @@ function BootScript({ text }: { text: string }) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const english = localeOf(useLocation().pathname) === "en";
   return (
-    <html lang={SITE.locale} suppressHydrationWarning>
+    <html lang={english ? "en" : SITE.locale} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="amp-release" content={useRouteLoaderData<typeof loader>("root")?.release ?? "dev"} />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f6f0" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15130f" />
+        {/* The English interface stays out of search until its launch (I2); pages keep their Chinese canonical. */}
+        {english && <meta name="robots" content="noindex, follow" />}
         <BootScript text={THEME_BOOT_SCRIPT} />
         {ROOT_MODULES.map((module) => module.root?.bootScript && <BootScript key={module.name} text={module.root.bootScript} />)}
         <Meta />
