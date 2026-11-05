@@ -1,4 +1,4 @@
-# 交给 Codex：第二阶段大版本上线、服务器测试与审计报告（2026-11-05 第三版）
+# 交给 Codex：第二阶段大版本上线、服务器测试与审计报告（2026-11-05 最终版）
 
 > **写给 Codex。**本文由 Claude 写，Owner 授权交给你执行。它替代本文件的旧版（旧版里的评分对比、删代码、改部署脚本都已取消或已由 Claude 做完）。
 >
@@ -48,9 +48,12 @@
    | 步骤 | 时限 |
    |---|---|
    | S2、S3 | 各 75 分钟（含等 CI） |
-   | S5 | 60 分钟 |
-   | S6 | 90 分钟 |
+   | S5、S6 | 各 30 分钟 |
+   | S7 | 90 分钟 |
    | S8 | 60 分钟 |
+   | S11 | 90 分钟（不含等非高峰时段） |
+   | S12 | 4 小时（不含等非高峰时段） |
+   | S13 | 2 小时 |
    | 其余每步 | 30 分钟 |
 
    等 Owner 批准的时间不计在内。超时就停，报告卡在哪里。
@@ -228,13 +231,17 @@
   - base `main`，head `agent/architect/TASK-0528-integration`；
   - 标题：`第二阶段大版本：新品牌与方向C读者端、资讯地图、英文界面、评分一位小数、费用优化、界面更新`；
   - 正文按模板填写，“任务卡”一行写 `- 任务卡：TASK-0528`；
-  - “做了什么”抄下面 6 条：
+  - “做了什么”抄下面 10 条：
     1. 新标识“五臂星系”，暖色纸面配金色，桌面改为顶部导航，加主区页脚（TASK-0512～0515）；
     2. 首页资讯地图，可按今天、近 7 天、近 30 天切换，点国家即筛选下方列表（TASK-0516、0517）；
     3. 阅读页、报告页、法规页样式更新，加英文界面 `/en`（TASK-0518～0523）；
     4. 评分改为五轴打分、由代码加权，保留一位小数；费用按缓存命中计价；归组材料限量（TASK-0510、0511、0513）；
     5. 备案号改为运行期配置；删除无用代码；部署路径可配置（TASK-0508、0526、0527）；
-    6. 界面更新：筛选合并为一个面板、按钮更清楚（TASK-0529）。
+    6. 界面更新：筛选合并为一个面板、按钮更清楚；主题、收藏、事件脉络、法规逐层钻取、法规解读“一眼看懂”、金属价格卡片与单品种暂缓（TASK-0529、0533～0537、0542）；
+    7. 评分按 Owner 标注改写；资讯分类按文章量重切为 9 类，旧分类键继续可用；“全部”列表的浏览下限；巴西补入法域字典（TASK-0530～0532、0540、0544、0556）；
+    8. 降本：确定重复直接合并、各步只读需要的正文长度、正文共享前缀、不急的模型任务只在非高峰调用（TASK-0538、0539、0553、0554）；
+    9. 法规线重启：条款切分与逐条对照、条款级翻译记忆、只解读变化条款、试点信源与接口（TASK-0543、0546、0547）；
+    10. 依赖升级、更新日志按读者口径整理、外国矿企写成“中文名（原文名）”、全仓库审计修复与文档同步（TASK-0531、0541、0545、0548～0552、0555）。
 - **通过标准：**
   - CI 通过；
   - **停，等 Owner 批准**，批准后按仓库惯例合并；
@@ -484,19 +491,19 @@
      FROM receipts WHERE origin = 'live' AND created_at >= now() - interval '7 days'
      GROUP BY purpose ORDER BY cost DESC NULLS LAST;"
      ```
-  10. 发布后归组决定的分布（看新规则省下多少调用：`remerge` 里 `rule` 为 `certain-duplicate` 的没有调用模型）：
-     ```bash
-     docker compose exec -T db psql -U amp -d amp -c "
-     SELECT verdict, input_manifest->'remerge'->>'rule' AS rule, count(*), count(receipt_id) AS with_model_call
-     FROM grouping_decisions WHERE created_at >= '<发布时间>'
-     GROUP BY 1, 2 ORDER BY count(*) DESC;"
-     ```
   9. 资源与重启：
      ```bash
      docker compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
      docker inspect --format '{{.Name}} {{.Config.Image}} {{.RestartCount}}' $(docker compose ps -q)
      df -h /opt /var/lib/docker
      free -m
+     ```
+  10. 发布后归组决定的分布（看新规则省下多少调用：`remerge` 里 `rule` 为 `certain-duplicate` 的没有调用模型）：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT verdict, input_manifest->'remerge'->>'rule' AS rule, count(*), count(receipt_id) AS with_model_call
+     FROM grouping_decisions WHERE created_at >= '<发布时间>'
+     GROUP BY 1, 2 ORDER BY count(*) DESC;"
      ```
 - **判读：**只记录，不下结论、不调整。Claude 看过数字后决定是否修改评分。下面三种情况要在报告开头标出：
   - 第 1 条 `scored` 为 0，而第 3 条按天折算不为 0：新版本没有在打分，可能是 `.env` 没生效；
@@ -685,7 +692,7 @@
 ### 8.1 格式
 
 ```markdown
-## 审计报告：<上线报告 / 24 小时报告 / 停止报告>（<北京时间>）
+## 审计报告：<上线报告 / 24 小时报告 / 7 天复查报告 / 停止报告>（<北京时间>）
 
 ### 一、结论
 - 结论：通过 / 有问题 / 停止
