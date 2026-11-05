@@ -100,6 +100,10 @@
   - 归组提示词改了（转载同一文书算同一次发生），所以 `BATCH_PROMPT_VERSION` 和 `RELATE_PROMPT_VERSION` 会变成新值。这是预期，不是故障。
   - 新任务 `events.remerge` 在每小时第 37 分运行：检查近 72 小时只有一篇报道的事件，能确定是同一份稿件的直接合并（不调用模型），其余每轮最多调用模型 20 次。
   - 晚发现的转载会并入原事件，不加热度、不成为精选，决定记为 `historical-attached`。
+- **金属价格新增“只扣下跳变品种”，带一次迁移。**
+  - 迁移 `database/migrations/publication/202611051900_metal_price_holds.sql` 只新增表 `publication.metal_price_holds`，由发布脚本的迁移步骤执行，没有回填。
+  - 生产目前用单一 `DATABASE_URL`；如果以后改成按角色登录，迁移后要运行 `scripts/db-roles.ts --apply`，否则 /metals 读不到新表。
+  - 上线后某个品种跳变时，运行记录会出现 `pending`，/metals 显示“待下期确认”，下一期记 `released` 或 `discarded`。这是预期行为，不是故障。
 - **英文界面 `/en` 带 `noindex, follow`。**这是设计如此，不要去掉。
 - **资讯地图只画陆地点阵，不画国界。**这是 Owner 的决定。
 - **不稳定检查：**`apps/web/tests/cache.test.ts` 里有一个断言与随机 nonce 有关，偶发失败，表现为 `/888/` 一类的不匹配。CI 里遇到时，允许在 GitHub 上重跑一次失败的作业（Re-run failed jobs）。
