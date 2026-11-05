@@ -4905,6 +4905,36 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_tokens": {
                       "anyOf": [
                         {
@@ -5141,6 +5171,36 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_tokens": {
                       "anyOf": [
@@ -5379,6 +5439,36 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_tokens": {
                       "anyOf": [
                         {
@@ -5616,6 +5706,36 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_tokens": {
                       "anyOf": [
                         {
@@ -5852,6 +5972,36 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_tokens": {
                       "anyOf": [
@@ -6248,6 +6398,36 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "provider_cache_saving": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "pattern": "^\\d+(?:\\.\\d+)?$",
+                    "type": "string"
+                  },
+                  "calls": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "const": "CNY",
+                    "type": "string"
+                  },
+                  "hit_tokens": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "currency",
+                  "amount",
+                  "calls",
+                  "hit_tokens"
+                ],
+                "type": "object"
               },
               "provider_cache_tokens": {
                 "anyOf": [
@@ -6499,6 +6679,36 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_tokens": {
                       "anyOf": [
                         {
@@ -6735,6 +6945,36 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_tokens": {
                       "anyOf": [
@@ -6973,6 +7213,36 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_tokens": {
                       "anyOf": [
                         {
@@ -7210,6 +7480,36 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_tokens": {
                       "anyOf": [
                         {
@@ -7446,6 +7746,36 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "provider_cache_saving": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^\\d+(?:\\.\\d+)?$",
+                          "type": "string"
+                        },
+                        "calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "hit_tokens": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "amount",
+                        "calls",
+                        "hit_tokens"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_tokens": {
                       "anyOf": [
@@ -7842,6 +8172,36 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "provider_cache_saving": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "pattern": "^\\d+(?:\\.\\d+)?$",
+                    "type": "string"
+                  },
+                  "calls": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "const": "CNY",
+                    "type": "string"
+                  },
+                  "hit_tokens": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "currency",
+                  "amount",
+                  "calls",
+                  "hit_tokens"
+                ],
+                "type": "object"
               },
               "provider_cache_tokens": {
                 "anyOf": [

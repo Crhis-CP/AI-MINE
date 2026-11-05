@@ -6,7 +6,7 @@ import { beijingDate } from "@amp/contracts/time";
 import { priceQuote, settleQuotedCost, usagePriceId, type Price, type UsageQuote } from "../packages/backend/src/providers/usage-pricing.ts";
 import { authorizeUsageSend, reserveUsageAttempt } from "../packages/backend/src/providers/usage-protection.ts";
 import { paidRequest } from "@amp/backend/providers/receipts";
-import { buildMonthlyUsage } from "../packages/backend/src/operations/usage-monthly.ts";
+import { buildMonthlyUsage, cacheLines } from "../packages/backend/src/operations/usage-monthly.ts";
 
 const price: Price = {
   service: "window-fixture",
@@ -226,4 +226,50 @@ test("retired historical caps do not block repricing and remain recorded; expire
   assert.equal(sent!.submitted, true);
   assert.match(sent!.quote.pricing_issue, /过期/);
   assert.equal(settleQuotedCost(sent!.quote, usage, null), null);
+});
+
+test("settled estimate uses the cache-hit price only when registered; without cache tokens or a cache price it is unchanged", async () => {
+  const q = await at("2026-10-22T23:59:59Z");
+  const plain = { prompt_tokens: 1000, completion_tokens: 100 };
+  const uncached: UsageQuote = { ...q, price: { ...price, cache_hit_input_per_million_micros: null, rate_windows: [] } };
+  // No cache price: hit tokens are reported but the whole input stays at the full input price, as before.
+  assert.equal(settleQuotedCost(uncached, plain, null)?.micros, 2800n);
+  assert.equal(settleQuotedCost(uncached, usage, null)?.micros, 2800n);
+  // Cache price registered: 400 missed × 2 + 600 hit × 0.04 + 100 output × 8 (CNY per million tokens).
+  assert.equal(settleQuotedCost(q, usage, null)?.micros, 1624n);
+  assert.equal(settleQuotedCost(q, { ...usage, prompt_tokens_details: { cached_tokens: 600 } }, null)?.micros, 1624n);
+  // Cache price registered but no hit/miss split reported: amount stays unknown, never a guessed discount.
+  assert.equal(settleQuotedCost(q, plain, null), null);
+});
+
+test("monthly report attributes cache savings only to estimates settled with a registered cache-hit price", async () => {
+  const day = beijingDate(new Date()),
+    tomorrow = beijingDate(new Date(Date.now() + 86400000));
+  const request = (key: string, capability: string) => ({
+    service: input.service,
+    costBounds: input.bounds,
+    purpose: capability,
+    identity: { key },
+    lane: "news" as const,
+    usageContext: { lane: "news" as const, capability, sourceIds: [], object: null },
+  });
+  await store({ ...price, observed_on: day, valid_until: tomorrow, rate_windows: [] });
+  await paidRequest(request("cached", "fixture_cached"), async () => ({ response: { ok: true }, usage }));
+  await store({ ...price, observed_on: day, valid_until: tomorrow, rate_windows: [], cache_hit_input_per_million_micros: null }, 2);
+  await paidRequest(request("full", "fixture_full"), async () => ({ response: { ok: true }, usage }));
+  const report = await buildMonthlyUsage(day.slice(0, 7), new Date(Date.now() + 40 * 86400000));
+  assert.equal(report.totals.amounts[0]!.estimated, "0.004424");
+  assert.deepEqual(report.totals.provider_cache_saving, { currency: "CNY", amount: "0.001176", calls: 1, hit_tokens: 600 });
+  assert.equal(report.totals.cache_hit_rate, 0.6);
+  const cached = report.by_capability.find((g) => g.key === "fixture_cached")!.totals,
+    full = report.by_capability.find((g) => g.key === "fixture_full")!.totals;
+  assert.equal(cached.cache_hit_rate, 0.6);
+  assert.deepEqual(cached.provider_cache_saving, { currency: "CNY", amount: "0.001176", calls: 1, hit_tokens: 600 });
+  assert.equal(full.cache_hit_rate, 0.6);
+  assert.equal(full.provider_cache_saving, undefined);
+  assert.equal(full.amounts[0]!.estimated, "0.002800");
+  const lines = cacheLines(report);
+  assert.match(lines[0]!, /命中率60\.0%.*少计人民币 0\.001176/);
+  assert.ok(lines.some((line) => line.startsWith("· fixture_cached：") && line.includes("0.001176")));
+  assert.ok(lines.some((line) => line.startsWith("· fixture_full：") && line.includes("按全价记账")));
 });
