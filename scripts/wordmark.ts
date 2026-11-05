@@ -43,9 +43,18 @@ chars.forEach((ch, i) => {
   const dx = x - g.box.x1,
     dy = -g.box.y2;
   for (const c of g.path.commands) {
-    if ("x" in c) (c.x += dx), (c.y += dy);
-    if ("x1" in c) (c.x1 += dx), (c.y1 += dy);
-    if ("x2" in c) (c.x2 += dx), (c.y2 += dy);
+    if ("x" in c) {
+      c.x += dx;
+      c.y += dy;
+    }
+    if ("x1" in c) {
+      c.x1 += dx;
+      c.y1 += dy;
+    }
+    if ("x2" in c) {
+      c.x2 += dx;
+      c.y2 += dy;
+    }
   }
   parts.push(g.path.toPathData(2));
   x += g.box.x2 - g.box.x1 + (i < chars.length - 1 ? gap(ch, chars[i + 1]!) : 0);
@@ -76,5 +85,5 @@ function lockup(markFile: string, stops: string[]) {
 writeFileSync(path.join(BRAND, "lockup.svg"), lockup("mark.svg", TEXT.light));
 writeFileSync(path.join(BRAND, "lockup-dark.svg"), lockup("mark-dark.svg", TEXT.dark));
 writeFileSync(path.join(BRAND, "lockup-small.svg"), lockup("mark-small.svg", TEXT.light));
-writeFileSync(path.join(BRAND, "lockup.json"), `${JSON.stringify({ viewBox: vb, aspect: +(width / MARK).toFixed(4), nameHeight: +(H / MARK).toFixed(4) })}\n`);
+writeFileSync(path.join(BRAND, "lockup.json"), `{ "viewBox": "${vb}", "aspect": ${+(width / MARK).toFixed(4)}, "nameHeight": ${+(H / MARK).toFixed(4)} }\n`);
 console.log(`lockup ${vb}`);
