@@ -17,7 +17,7 @@
 
 ## 0. 一句话
 
-把分支 `claude/nice-newton-mew572`（TASK-0508～0544，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号、新评分版本和法规试点开关；发布后跑第 6 节的服务器测试，再做历史分类重分（S12）和法规线试点（S13），24 小时后跑评分审计，按第 8 节写审计报告。
+把分支 `claude/nice-newton-mew572`（TASK-0508～0544，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号和新评分版本；发布后跑第 6 节的服务器测试，再做历史分类重分（S12）和法规线试点（S13），24 小时后跑评分审计，按第 8 节写审计报告。
 
 ## 1. 范围
 
@@ -65,7 +65,7 @@
    - 编辑 `.env`（S6）；
    - 运行发布脚本（S7）；
    - 在后台核对和录入 DeepSeek 价格（S9）；
-   - 服务器评测（S11）、历史分类重分（S12）、法规线试点的后台开关和条款补算（S13）。
+   - 服务器评测（S11）、历史分类重分（S12）、法规线试点的 `.env` 开关、后台开关和条款补算（S13）。
 
    其余都只读。
 
@@ -86,7 +86,7 @@
   | `SITE_PUBLIC_SECURITY_FILING` | 原公安联网备案号全文，例如“皖公网安备……号”（取法见 S6） |
   | `SITE_REQUIRE_FILINGS` | `true` |
   | `SELECTION_CONFIRMED_VERSION` | `selection-score@cc05f8c447+weights@20542a669a` |
-  | `POLICY_PILOT_ENABLED` | `true`（只恢复法规线的存档和结构化，见 S13） |
+  | `POLICY_PILOT_ENABLED` | `true`，**在 S13 才写入**（只恢复法规线的存档和结构化） |
 
 ## 4. 已知情况（不要当成新问题）
 
@@ -304,27 +304,26 @@
      第 2 行引号里的是 ICP 备案号；第 4 行 `text:` 后面引号里的是公安联网备案号全文。
   3. 编辑 `/opt/aimine/.env`，用编辑器打开，不要用 `echo` 写入，免得号码留在 shell 历史里。
      - 已有同名行就改值，没有就加在文件末尾。
-     - 结果应当正好有这五行，每个变量各一行：
+     - 结果应当正好有这四行，每个变量各一行：
        ```
        SITE_ICP_FILING=<ICP 备案号原文>
        SITE_PUBLIC_SECURITY_FILING=<公安联网备案号全文>
        SITE_REQUIRE_FILINGS=true
        SELECTION_CONFIRMED_VERSION=selection-score@cc05f8c447+weights@20542a669a
-       POLICY_PILOT_ENABLED=true
        ```
-       另外确认文件里**没有** `POLICY_MODEL_STAGES_ENABLED=true` 这一行（有就删掉）。
+       另外确认文件里**没有** `POLICY_PILOT_ENABLED` 和 `POLICY_MODEL_STAGES_ENABLED` 这两行（有就删掉；法规线的开关在 S13 才写）。
   4. 核对（输出里不含号码）：
      ```bash
      grep -c '^SITE_ICP_FILING=.\+\|^SITE_PUBLIC_SECURITY_FILING=.\+\|^SITE_REQUIRE_FILINGS=true$' .env
      grep '^SELECTION_CONFIRMED_VERSION=' .env
-     grep -c '^POLICY_PILOT_ENABLED=true$' .env; grep -c '^POLICY_MODEL_STAGES_ENABLED=' .env
-     docker compose config --format json | python3 -c 'import json,sys;c=json.load(sys.stdin)["services"];print(*[(s, sorted(k for k in ("SITE_ICP_FILING","SITE_PUBLIC_SECURITY_FILING","SITE_REQUIRE_FILINGS","SELECTION_CONFIRMED_VERSION","POLICY_PILOT_ENABLED") if k in c[s].get("environment",{}))) for s in ("api","worker")], sep="\n")'
+     grep -c '^POLICY_PILOT_ENABLED=\|^POLICY_MODEL_STAGES_ENABLED=' .env
+     docker compose config --format json | python3 -c 'import json,sys;c=json.load(sys.stdin)["services"];print(*[(s, sorted(k for k in ("SITE_ICP_FILING","SITE_PUBLIC_SECURITY_FILING","SITE_REQUIRE_FILINGS","SELECTION_CONFIRMED_VERSION") if k in c[s].get("environment",{}))) for s in ("api","worker")], sep="\n")'
      ```
 - **通过标准：**
   - 第一条输出 `3`；
   - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score@cc05f8c447+weights@20542a669a`；
-  - 第三条输出 `1`，第四条输出 `0`；
-  - 最后一条 api 和 worker 两行都列出这 5 个变量名。
+  - 第三条输出 `0`；
+  - 最后一条 api 和 worker 两行都列出这 4 个变量名。
 - **注意：**这一步只改文件，不重启任何服务。新值在 S7 发布、容器重建时生效。
 - **失败时：**
   - 第三条缺变量：说明 compose 没把 `.env` 传给容器。停，用备份恢复（`cp -p ".env.before-${MAIN:0:12}" .env`），报告，不改 compose 文件；
@@ -543,8 +542,15 @@
 ### S13 法规线试点：恢复存档和结构化（不调用模型，约 1 小时）
 
 - **背景：**Owner 解除 DEC-71 的暂停（台账第 5 条），先只做不调用模型的存档、结构化和逐条对照（TASK-0543，`modules/policy/README.md`“重启”一节）。解读段预算未定，**不要**设置 `POLICY_MODEL_STAGES_ENABLED`。
-- **前提：**S6 已写入 `POLICY_PILOT_ENABLED=true`，S7 已发布（api 和 worker 已带新环境变量重启）。确认 `.env` 里 `COLLECT_ENABLED`、`COLLECT_POLICY_ENABLED` 不是 `false`。
+- **前提：**S7 已发布，S8 测试通过。确认 `.env` 里 `COLLECT_ENABLED`、`COLLECT_POLICY_ENABLED` 不是 `false`。
 - **步骤：**
+  0. 写开关并重启 api 和 worker（`.env` 先备份）：
+     ```bash
+     cd /opt/aimine && cp -p .env ".env.before-policy-pilot" && printf '\nPOLICY_PILOT_ENABLED=true\n' >> .env
+     grep -c '^POLICY_PILOT_ENABLED=true$' .env
+     docker compose up -d api worker
+     ```
+     第二条应输出 `1`。
   1. 在后台“运行开关”里，把“法规线”的 Owner 暂停恢复，范围选“采集和新的模型处理”。因为模型开关没开，实际只会运行存档、结构化和发布。截一张开关状态的图放进报告（打码账号信息）。
   2. 补算已有版本的条款，先只读，再写入：
      ```bash
@@ -556,7 +562,7 @@
      docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM receipts WHERE purpose LIKE 'policy%' AND created_at >= now() - interval '2 hours';"
      ```
 - **通过标准：**第 2 步两条正常结束；第 3 步输出 `0`；第 6 节 T22 输出 `pilot`。
-- **失败时：**第 3 步不是 0：立即在后台把法规线重新暂停，删掉 `.env` 里的 `POLICY_PILOT_ENABLED` 并重启 api、worker，停下报告。
+- **失败时：**第 3 步不是 0：立即在后台把法规线重新暂停，用 `.env.before-policy-pilot` 恢复 `.env` 并执行 `docker compose up -d api worker`，停下报告。
 - **报告里写：**第 2 步两条的输出原文；第 3 步的数字；开关截图。
 
 ### S14 7 天后：架构效果复查（只读，30 分钟，做完就结束）

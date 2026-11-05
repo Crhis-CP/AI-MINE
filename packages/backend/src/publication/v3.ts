@@ -122,7 +122,7 @@ export async function v3Item(id: string, detail = false, now = new Date()) {
     story_id: item.story?.publicId ?? null,
     thread_id: null,
     featured: item.selected,
-    score: item.score === null ? null : Math.floor(item.score),
+    score: item.score === null ? null : Math.round(item.score * 10) / 10,
     independent_source_count: item.group ? item.group.additionalSourceCount + 1 : 1,
     ai_label: ("manualRevisionLabel" in item && item.manualRevisionLabel) || row.manual_body_html ? "ai_assisted_human_edited" : "ai_generated",
     license_note: item.attribution?.notice ?? item.attribution?.license?.name ?? null,

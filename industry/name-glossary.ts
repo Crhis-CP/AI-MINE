@@ -1,7 +1,8 @@
 /**
  * 外国主体的通行中文名与原文名（Owner 2026-11-05：标题和摘要都用中文，首次出现写“中文名（原文名）”，方便读者）。
  * 只收确有通行中文名的；拿不准的不收，原文照留。`en` 是括注里显示的写法，`aliases` 是原文里常见的其他写法。
- * 提示词里的名单（prompts/rules-domain-names.md）须与这里一致，测试会核对。
+ * 只收外国主体：中国企业用其官方中文名，不括注英文（提示词同此）。提示词里的名单
+ * （prompts/rules-domain-names.md 与 rules-domain-names-extra.md）须与这里一致，测试会核对。
  */
 export interface NameEntry {
   zh: string;
@@ -32,8 +33,7 @@ export const NAME_GLOSSARY: readonly NameEntry[] = [
   { zh: "金田", en: "Gold Fields" },
   { zh: "盎格鲁黄金阿散蒂", en: "AngloGold Ashanti" },
   { zh: "金罗斯", en: "Kinross", aliases: ["Kinross Gold"] },
+  { zh: "西班耶-斯蒂尔沃特", en: "Sibanye-Stillwater" },
   { zh: "托克", en: "Trafigura" },
   { zh: "摩科瑞", en: "Mercuria" },
-  { zh: "洛阳钼业", en: "CMOC" },
-  { zh: "五矿资源", en: "MMG" },
 ];

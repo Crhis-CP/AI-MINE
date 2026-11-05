@@ -24,6 +24,8 @@ test("short Chinese names that are ordinary words never trigger by themselves", 
 });
 
 test("the prompt's name list carries every glossary pair", () => {
-  const list = readFileSync(new URL("../industry/prompts/rules-domain-names.md", import.meta.url), "utf8");
-  for (const { zh, en } of NAME_GLOSSARY.filter((e) => !["洛阳钼业", "五矿资源"].includes(e.zh))) assert.ok(list.includes(`${zh}（${en}）`), `${zh}（${en}）`);
+  const list = ["rules-domain-names.md", "rules-domain-names-extra.md"]
+    .map((name) => readFileSync(new URL(`../industry/prompts/${name}`, import.meta.url), "utf8"))
+    .join("\n");
+  for (const { zh, en } of NAME_GLOSSARY) assert.ok(list.includes(`${zh}（${en}）`), `${zh}（${en}）`);
 });

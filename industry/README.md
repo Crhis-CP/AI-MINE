@@ -72,7 +72,7 @@
 | `group-*.md` | 事件归组：两篇报道的关系（成对与批量判断），以及热度信号挂到哪个事实上；关系定义在 `group-definitions.md` |
 | `story-digest.md` | 事件综述 |
 | `report-daily-lead.md`、`report-period.md` | 日报导语，周报与月报 |
-| `translate-body.md` | 全文翻译；只引用 `rules-domain-names.md`（公司与机构的通行中文名，翻译只用这份名单），术语默认值不进翻译，改术语或写作规则不会让已译的全文重译；改 `translate-body.md` 或 `rules-domain-names.md` 会让已存的外文全文全部重译（后者和摘要规则 `rules-domain.md` 第 3 条共用） |
+| `translate-body.md` | 全文翻译；只引用 `rules-domain-names.md`（公司与机构的通行中文名，翻译只用这份名单），术语默认值不进翻译，改术语或写作规则不会让已译的全文重译；改 `translate-body.md` 或 `rules-domain-names.md` 会让已存的外文全文全部重译（后者和摘要规则 `rules-domain.md` 第 3 条共用）。只给标题摘要用的新增名单放在 `rules-domain-names-extra.md`（只由 `rules-domain.md` 引用，不进翻译），改它不会触发重译 |
 
 模板只有两种写法（`packages/backend/src/editorial/prompts.ts`）：`{{名字}}` 是调用方传入的值（另有站名 `siteName`），`{{> 文件名}}` 原样插入另一份提示词。缺值或缺文件直接报错，不会留空。提示词的版本号由名称加它读到的所有文件内容的哈希组成，回执和私有页面的模型页都记着结果出自哪一版；改一个字，版本号就变。
 

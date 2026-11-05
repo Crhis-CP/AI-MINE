@@ -4,18 +4,18 @@
 // also fixes older copy; text set by hand is never passed here.
 import { NAME_GLOSSARY, type NameEntry } from "@amp/industry/name-glossary";
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** A Chinese name this short is also an ordinary word (大力拓展, 金田村): only the English side triggers it. */
 const SHORT_ZH = 2;
 
 function englishPattern(entry: NameEntry) {
   // Longest spelling first so “BHP Group” wins over “BHP”; Latin word edges only.
-  const spellings = [entry.en, ...(entry.aliases ?? [])].sort((a, b) => b.length - a.length).map(escape);
+  const spellings = [entry.en, ...(entry.aliases ?? [])].sort((a, b) => b.length - a.length).map(escapeRegExp);
   return new RegExp(`(?<![A-Za-z0-9-])(?:${spellings.join("|")})(?![A-Za-z0-9-])`, "g");
 }
 
 const BRACKETED = (entry: NameEntry) =>
-  new RegExp(`${escape(entry.zh)}\\s*[（(]\\s*(?:${[entry.en, ...(entry.aliases ?? [])].map(escape).join("|")})[^）)]{0,20}[）)]`);
+  new RegExp(`${escapeRegExp(entry.zh)}\\s*[（(]\\s*(?:${[entry.en, ...(entry.aliases ?? [])].map(escapeRegExp).join("|")})[^）)]{0,20}[）)]`);
 
 /** One entry applied to the text: first mention “中文（English）”, later English mentions in Chinese. */
 function applyEntry(text: string, entry: NameEntry): string {

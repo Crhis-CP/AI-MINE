@@ -56,7 +56,8 @@ export const V3ItemCard = z.strictObject({
   story_id: text.nullable(),
   thread_id: text.nullable(),
   featured: z.boolean(),
-  score: z.int().min(0).max(100).nullable(),
+  /** One decimal, as on the website (DEC-78 supplement on scoring). */
+  score: z.number().min(0).max(100).nullable(),
   independent_source_count: z.int().nonnegative(),
   ai_label: z.enum(["ai_generated", "ai_assisted_human_edited"]),
   license_note: text.nullable(),

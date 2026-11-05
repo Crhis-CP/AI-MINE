@@ -23,13 +23,13 @@ export const MAX_BODY_CHARS = 60_000;
 /**
  * Per-step body budgets (cost design, Owner 2026-11-05: cut cost by design, not by caps). Input tokens grow
  * with the body and every step re-sends it, so each step reads only what its judgement needs:
- * - the prefilter is a wide scope gate that may BLOCK only on positive evidence, so a lead is enough and a
- *   cut can only make it more lenient (UNKNOWN goes on like PASS);
+ * - the prefilter keeps the whole body: truncating it was not adopted (decision ledger, DEC-78 supplement on
+ *   scoring), since a mixed document's metal-mining part may sit late in the text;
  * - the score judges the event, which news states first; long official documents keep their opening;
  * - understanding writes the copy and reads the most.
  * A cut is said in the text, so no step mistakes a lead for the whole document.
  */
-export const PREFILTER_BODY_CHARS = 4_000;
+export const PREFILTER_BODY_CHARS = MAX_BODY_CHARS;
 export const SCORE_BODY_CHARS = 12_000;
 export const UNDERSTAND_BODY_CHARS = 20_000;
 /** The body within a budget, with a note when it was cut. */

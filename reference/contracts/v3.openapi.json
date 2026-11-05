@@ -6891,7 +6891,7 @@
               {
                 "maximum": 100,
                 "minimum": 0,
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -7635,7 +7635,7 @@
               {
                 "maximum": 100,
                 "minimum": 0,
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -12000,7 +12000,7 @@
                         {
                           "maximum": 100,
                           "minimum": 0,
-                          "type": "integer"
+                          "type": "number"
                         },
                         {
                           "type": "null"
