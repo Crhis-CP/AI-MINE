@@ -236,8 +236,14 @@ export function splitProvisions(input: string | readonly string[], options: { la
   const lines = normalizeProvisionText(typeof input === "string" ? input : input.join("\n"))
     .split("\n")
     .filter(Boolean);
-  const family = chooseFamily(lines, options.language);
-  if (!family) return { numbering: null, provisions: [], preamble: lines.join("\n") };
+  return splitLines(lines, options.language).split;
+}
+
+/** The split plus, for every normalized line, the ordinal of the provision that owns it (-1: preamble/heading lines). */
+function splitLines(lines: string[], language?: string | null): { split: ProvisionSplit; owners: number[] } {
+  const owners: number[] = [];
+  const family = chooseFamily(lines, language);
+  if (!family) return { split: { numbering: null, provisions: [], preamble: lines.join("\n") }, owners: lines.map(() => -1) };
   const open: (Omit<Provision, "text" | "hash" | "heading"> & { lines: string[] })[] = [];
   const preamble: string[] = [];
   let path: { level: number; text: string }[] = [],
@@ -251,6 +257,7 @@ export function splitProvisions(input: string | readonly string[], options: { la
     if (titled && !heading && line.length <= 100 && /\p{Lu}/u.test(line) && line === line.toUpperCase()) {
       titled.text = `${titled.text} ${line}`;
       titled = null;
+      owners.push(-1);
       continue;
     }
     titled = null;
@@ -260,12 +267,14 @@ export function splitProvisions(input: string | readonly string[], options: { la
       path = [{ level: -1, text: line }];
       titled = annexMatch[4]!.trim() ? null : path[0]!;
       last = null;
+      owners.push(-1);
       continue;
     }
     const context = family.context(line);
     if (context) {
       path = [...path.filter((p) => p.level < context.level), context];
       titled = context.text.split(/\s+/).length <= 2 ? context : null;
+      owners.push(-1);
       continue;
     }
     if (heading && (!last || heading.number > last.number || (heading.number === last.number && heading.rank > last.rank))) {
@@ -275,22 +284,49 @@ export function splitProvisions(input: string | readonly string[], options: { la
       used.set(key, seen + 1);
       if (seen) key = `${key}#${seen + 1}`;
       const rest = heading.rest.trim();
+      owners.push(open.length);
       open.push({ ordinal: open.length, key, label: heading.label, path: path.map((p) => p.text), lines: rest ? [rest] : [] });
       continue;
     }
     const current = open.at(-1);
+    owners.push(current ? current.ordinal : -1);
     if (current) current.lines.push(line);
     else preamble.push(line);
   }
   return {
-    numbering: family.numbering,
-    preamble: preamble.join("\n"),
-    provisions: open.map(({ lines: body, ...p }) => {
-      const heading = titleOf(body[0] ?? "", body[1], family.numbering);
-      const text = (heading ? body.slice(1) : body).join("\n");
-      return { ...p, heading, text, hash: hashOf(`${heading ?? ""}\n${text}`) };
-    }),
+    owners,
+    split: {
+      numbering: family.numbering,
+      preamble: preamble.join("\n"),
+      provisions: open.map(({ lines: body, ...p }) => {
+        const heading = titleOf(body[0] ?? "", body[1], family.numbering);
+        const text = (heading ? body.slice(1) : body).join("\n");
+        return { ...p, heading, text, hash: hashOf(`${heading ?? ""}\n${text}`) };
+      }),
+    },
   };
+}
+
+/**
+ * Split ordered source blocks (e.g. the parts of a processing plan, each one or more lines) with the very same rules
+ * as splitProvisions, and say which provisions each block holds. A block that holds no provision line (preamble,
+ * chapter or annex heading) maps to []. Lets code trace any block to 第X条/Artículo N without a model.
+ */
+export function locateProvisionBlocks(blocks: readonly string[], options: { language?: string | null } = {}) {
+  const lines: string[] = [],
+    lineBlock: number[] = [];
+  blocks.forEach((block, index) => {
+    for (const line of normalizeProvisionText(block).split("\n").filter(Boolean)) {
+      lines.push(line);
+      lineBlock.push(index);
+    }
+  });
+  const { split, owners } = splitLines(lines, options.language);
+  const byBlock = blocks.map(() => new Set<number>());
+  owners.forEach((ordinal, line) => {
+    if (ordinal >= 0) byBlock[lineBlock[line]!]!.add(ordinal);
+  });
+  return { split, blocks: byBlock.map((set) => [...set].sort((a, b) => a - b)) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

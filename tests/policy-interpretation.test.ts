@@ -1,6 +1,7 @@
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { policyModelQualification } from "../modules/policy/backend/domain/model-evidence.ts";
 import { stub, gate, tag } from "./setup.ts";
+import { answer, interpretReply, verifyReply } from "./policy-automation-provider.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import { sql, closeDb, initializeDb } from "@amp/backend/db";
@@ -17,128 +18,28 @@ import { grantDateFixture } from "./source-date-fixture.ts";
 
 const root = await initializeDb("test");
 type Payload = ReturnType<typeof JSON.parse>;
-const requests: Payload[] = [],
-  groupReplies: Payload[] = [];
+const requests: Payload[] = [];
 let mode = "pass",
   usage: { prompt_tokens: number; completion_tokens: number } | null = { prompt_tokens: 50, completion_tokens: 20 };
 let beforeResponse = async (_input: Payload) => {};
-const visible = (value: string) => value.replace(/<[^>]+>/g, "");
-function candidate(input: Payload) {
-  const quote = input.root.quotes[0],
-    known = (value: string) => ({ value, basis: "原文", evidence_ids: ["e1"] });
-  const unknown = { value: "unknown", basis: null, evidence_ids: [] };
-  return {
-    id: input.id,
-    input_hash: input.input_hash,
-    input_ids: [input.root.id],
-    document_title: input.identity.title,
-    title_zh: "合成矿业规章",
-    instrument_number: input.identity.number,
-    relevance: "relevant",
-    relevance_evidence_ids: ["e1"],
-    legal_state: {
-      nature: known("regulation"),
-      legislative_stage: known("published"),
-      publication: { ...known("published"), time: null },
-      enforcement: { ...unknown, arrangements: [] },
-      applicability: [],
-      deadlines: [],
-      repeal: unknown,
-    },
-    main_points: [{ text: "矿业阈值规定", clause_ref: quote.node_path ?? "原文", evidence_ids: ["e1"] }],
-    impacts: [
-      {
-        id: "impact1",
-        theme: "safety_environment",
-        region: "AR",
-        legal_actor: "矿权人",
-        affected_actor: "矿权人",
-        activity: "矿业生产",
-        condition: "符合原文条件",
-        effect_mode: "direct",
-        impact: "适用阈值规定",
-        deadline: null,
-        exceptions: "保留原文例外",
-        evidence_ids: ["e1"],
-      },
-    ],
-    relationships: [],
-    dynamic_zh: input.previous_candidate ? "仅在原文条件下适用阈值规定。" : "矿业活动适用阈值规定。",
-    gaps: [],
-    comparisons: [],
-    evidence: [{ id: "e1", part_id: quote.part_id, quote: quote.quote }],
-  };
-}
-function answer(input: Payload): Payload {
-  if (!input.phase)
-    return {
-      parts: input.parts.map((part: Payload) => ({
-        partId: part.partId,
-        sourceHash: part.sourceHash,
-        classification: "facts",
-        facts: [{ statement: "适用量和例外", role: "scope", quote: visible(part.source) }],
-        zh: part.source
-          .replaceAll("Published Regulation: Mining threshold at", "已公布的规章：矿业阈值为")
-          .replaceAll("Exception: mining above", "例外：矿业量超过")
-          .replaceAll("is prohibited.", "被禁止。"),
-      })),
-    };
-  const bound = { id: input.id, input_hash: input.input_hash };
-  if (input.phase === "group") {
-    const result = {
-      ...bound,
-      input_ids: input.parts.map((part: Payload) => part.partId),
-      consistent: true,
-      roles: input.parts.map((part: Payload) => ({ part_id: part.partId, roles: ["scope"] })),
-      summary: "本组全部矿业阈值及文末例外。",
-      quotes: input.parts.slice(0, 2).map((part: Payload) => ({ part_id: part.partId, quote: visible(part.source).slice(0, 200) })),
-    };
-    groupReplies.push(result);
-    return result;
-  }
-  if (input.phase === "merge")
-    return {
-      ...bound,
-      input_ids: input.children.map((child: Payload) => child.id),
-      summary: "全部子组的矿业阈值、条件与例外。",
-      quotes: input.children.flatMap((child: Payload) => child.quotes).slice(0, 2),
-    };
-  if (input.phase === "candidate") return candidate(input);
-  return {
-    ...bound,
-    group_id: input.group_id,
-    candidate_hash: input.candidate_hash,
-    publication_authorized: false,
-    judgments: input.claims.map((claim: Payload) => ({
-      claim_id: claim.id,
-      verdict: claim.requiresSupport ? "supports" : "not_applicable",
-      quotes: claim.requiresSupport ? [{ part_id: input.parts[0].partId, quote: visible(input.parts[0].source).slice(0, 200) }] : [],
-      reason: "合成provider判断",
-    })),
-  };
-}
 const provider = await stub(async (_hit, req) => {
   const body = JSON.parse(req.body),
     input = JSON.parse(body.messages.at(-1).content);
   requests.push(input);
   await beforeResponse(input);
   const output = answer(input);
-  if (["excluded_pass", "excluded_veto"].includes(mode) && input.phase === "candidate") output.relevance = "excluded";
-  if (mode === "excluded_veto" && input.phase === "verify") {
-    const relevance = input.claims.find((claim: Payload) => claim.path === "relevance");
-    output.judgments.find((j: Payload) => j.claim_id === relevance.id).verdict = "vetoes";
+  if (input.phase === "interpret") {
+    if (["excluded_pass", "excluded_veto"].includes(mode)) output.relevance = "excluded";
+    // A number the cited quote does not contain: code cannot decide it, the model verifier must.
+    if (["number_veto", "number_pass", "missing_judgment"].includes(mode)) output.main_points.push({ ...output.main_points[0], text: "上限提高到99吨" });
+    if (mode === "bad_ref") output.evidence[0].part_id = "p99999";
+    if (mode === "bad_quote") output.evidence[0].quote = "Invented text";
   }
-  if (mode === "bad_group" && input.phase === "group") output.input_ids = [];
-  if (mode === "bad_merge" && input.phase === "merge") output.quotes = [groupReplies.at(-1)!.quotes[0]];
-  if (mode === "bad_candidate" && input.phase === "candidate") output.evidence = [{ id: "e1", ...groupReplies.at(-1)!.quotes[0] }];
-  if (mode === "missing_judgment" && input.phase === "verify") output.judgments.pop();
-  if (mode === "public_auth" && input.phase === "verify") output.publication_authorized = true;
-  if (mode === "foreign_verify" && input.phase === "verify") output.judgments[0].quotes = [groupReplies.at(-1)!.quotes[0]];
   if (input.phase === "verify") {
-    const dynamic = input.claims.find((claim: Payload) => claim.path === "dynamic_zh"),
-      item = output.judgments.find((j: Payload) => j.claim_id === dynamic.id);
-    if (mode === "veto_tail" && input.parts.some((part: Payload) => part.source.includes("Exception:"))) item.verdict = "vetoes";
-    if (mode === "limit_once" && !dynamic.value.includes("仅在")) item.verdict = "limits";
+    const verdict = (claim: Payload) =>
+      (mode === "excluded_veto" && claim.path === "relevance") || (mode === "number_veto" && String(claim.value?.text).includes("99")) ? "vetoes" : "supports";
+    Object.assign(output, verifyReply(input, verdict));
+    if (mode === "missing_judgment") output.judgments.pop();
   }
   return {
     id: `synthetic-${requests.length}`,
@@ -154,7 +55,6 @@ beforeEach(() => {
   mode = "pass";
   usage = { prompt_tokens: 50, completion_tokens: 20 };
   beforeResponse = async () => {};
-  groupReplies.length = 0;
 });
 after(async () => {
   await provider.close();
@@ -185,47 +85,51 @@ async function fixture(count = 1) {
         state: "acquired",
         reason: null,
         body: Buffer.from(
-          `<article>${Array.from({ length: count }, (_, i) => `<p>${i === count - 1 && count > 1 ? "Exception: mining above 50 kg is prohibited." : `Published Regulation: Mining threshold at ${i + 10} kg.`}</p>`).join("")}</article>`,
+          `<article>${Array.from({ length: count }, (_, i) => `<p>${i === count - 1 && count > 1 ? `Exception: mining above 50 kg is prohibited in ${sourceId}.` : `Published Regulation ${sourceId}: Mining threshold at ${i + 10} kg.`}</p>`).join("")}</article>`,
         ),
       },
     ],
   };
   const original = await recordPolicyOriginal(value),
-    fulltext = await runPolicyFulltext(original.expressionId, profile, { root, maxRequests: 100 });
+    fulltext = await runPolicyFulltext(original.expressionId, profile, { root, maxRequests: 1000 });
   assert.equal(fulltext.status, "program_validated");
   assert.ok("runId" in fulltext);
   return { sourceId, original, runId: fulltext.runId, value };
 }
+const phases = (from: number) => requests.slice(from).map((r) => r.phase ?? "fulltext");
 
-test("complete bounded chain resumes durable stages, verifies every conclusion against every group, and never grants publication", async () => {
-  const f = await fixture(85),
+test("a first version is interpreted whole but chunk-bounded, verified by code, replayed without sends, and never grants publication", async () => {
+  const f = await fixture(300),
     before = requests.length;
-  const partial = await runPolicyInterpretation(f.runId, { root, maxRequests: 2 });
+  const partial = await runPolicyInterpretation(f.runId, { root, maxRequests: 1 });
   assert.equal(partial.status, "partial");
-  assert.equal(requests.length - before, 2);
+  assert.equal(requests.length - before, 1);
   const complete = await runPolicyInterpretation(f.runId, { root, maxRequests: 100 });
   assert.equal(complete.status, "semantic_verified");
   assert.equal(complete.publication_authorized, false);
   assert.ok("candidate" in complete && complete.candidate);
-  const calls = requests.slice(before),
-    merges = calls.filter((r) => r.phase === "merge"),
-    groups = calls.filter((r) => r.phase === "group");
-  assert.ok(groups.length > 6);
-  assert.ok(merges.every((r) => r.children.length >= 2 && r.children.length <= 6));
-  const verifications = calls.filter((r) => r.phase === "verify");
-  assert.equal(verifications.length, groups.length);
-  assert.ok(verifications.every((r) => r.claims.length === verifications[0].claims.length));
+  const calls = requests.slice(before);
+  // About 22 kB of provision text: a few bounded chunks, one interpret call each; no group, merge or verify call.
+  assert.ok(calls.length >= 2 && phases(before).every((phase) => phase === "interpret"));
+  assert.deepEqual(
+    calls.map((c) => c.chunk),
+    calls.map((_, i) => ({ index: i + 1, count: calls.length })),
+  );
+  assert.equal(calls[0].so_far, null);
+  assert.ok(calls[1].so_far.legal_state, "the second chunk continues from the first one's document fields");
+  assert.ok(calls.every((c) => Buffer.byteLength(JSON.stringify(c.provisions)) < 20_000));
+  assert.ok(complete.decisions.every((d) => d.verdict === "passes"));
+  assert.ok(complete.candidate.main_points.length <= 16 && complete.candidate.main_points.length > 1);
   const after = requests.length,
     loaded = await loadPolicyInterpretation(f.runId);
   assert.equal(loaded!.semantic_verified, true);
   assert.equal(loaded!.contentHash, complete.contentHash);
   assert.equal(requests.length, after);
-  assert.ok(loaded!.modelEvidence.length > groups.length);
   assert.deepEqual(loaded!.models, policyModelQualification(loaded!.modelEvidence).models);
   assert.ok(loaded!.models.length > 0 && loaded!.models.every((key) => /^pmodel1:[a-f0-9]{64}$/u.test(key)));
   assert.equal(loaded!.modelEvidenceComplete, true);
   assert.ok(loaded!.modelEvidence.every((m) => m.requestedModel === "unchanged-stage-model"));
-  const physical = loaded!.modelEvidence[0]!;
+  const physical = loaded!.modelEvidence.at(-1)!;
   await sql`UPDATE receipts SET request=request||${sql.json({ configuration_hash: sha256("logical request is not proof") })} WHERE id=${physical.receiptId}`;
   await sql`DELETE FROM ai.model_attempt_snapshots WHERE attempt_id=${physical.attemptId}::bigint`;
   const missing = await loadPolicyInterpretation(f.runId);
@@ -234,28 +138,49 @@ test("complete bounded chain resumes durable stages, verifies every conclusion a
   assert.equal(requests.length, after, "missing physical evidence does not trigger a paid retry");
 });
 
-test("a late exception veto overrides earlier support; limitations require rewriting and a new full matrix", async () => {
-  const f = await fixture(13);
-  mode = "veto_tail";
+test("only claims code cannot decide reach the model verifier; a vetoed item is dropped without a rewrite call", async () => {
+  const f = await fixture(3),
+    before = requests.length;
+  mode = "number_veto";
   const vetoed = await runPolicyInterpretation(f.runId, { root, maxRequests: 100 });
-  assert.equal(vetoed.status, "semantic_failed");
-  assert.equal(vetoed.semantic_verified, false);
-  assert.ok("verification" in vetoed && vetoed.verification[0]!.decisions.some((d) => d.verdict === "vetoes"));
+  assert.equal(vetoed.status, "semantic_verified");
+  assert.deepEqual(phases(before), ["interpret", "verify"]);
+  assert.deepEqual(
+    requests.at(-1)!.claims.map((c: Payload) => c.value.text),
+    ["上限提高到99吨"],
+    "only the undecidable claim is sent",
+  );
+  assert.ok("candidate" in vetoed && vetoed.candidate && !vetoed.candidate.main_points.some((p) => p.text.includes("99")));
   mode = "pass";
-  const next = await fixture();
-  mode = "limit_once";
-  const fixed = await runPolicyInterpretation(next.runId, { root, maxRequests: 100 });
-  assert.equal(fixed.status, "semantic_verified");
-  assert.ok("verification" in fixed && fixed.verification.length === 2);
-  assert.notEqual(fixed.verification[0]!.candidateHash, fixed.verification[1]!.candidateHash);
-  assert.equal(fixed.publication_authorized, false);
+  const next = await fixture(3),
+    at = requests.length;
+  mode = "number_pass";
+  const kept = await runPolicyInterpretation(next.runId, { root, maxRequests: 100 });
+  assert.equal(kept.status, "semantic_verified");
+  assert.ok("candidate" in kept && kept.candidate?.main_points.some((p) => p.text.includes("99")));
+  assert.deepEqual(phases(at), ["interpret", "verify"]);
 });
 
-test("actual group/child/root inputs bound citations; missing judgments and malformed JSON cannot be retried by rerunning", async () => {
-  for (const failure of ["bad_group", "bad_merge", "bad_candidate", "missing_judgment", "foreign_verify", "bad_json", "public_auth"]) {
+test("excluded relevance is always checked by the model verifier before it may hide a policy", async () => {
+  for (const [choice, expected] of [
+    ["excluded_veto", "semantic_failed"],
+    ["excluded_pass", "excluded"],
+  ]) {
     mode = "pass";
-    groupReplies.length = 0;
-    const f = await fixture(failure === "bad_merge" ? 85 : 13);
+    const f = await fixture(5),
+      before = requests.length;
+    mode = choice!;
+    const result = await runPolicyInterpretation(f.runId, { root, maxRequests: 100 });
+    assert.equal(result.status, expected);
+    assert.deepEqual(phases(before), ["interpret", "verify"]);
+    assert.equal(result.semantic_verified, expected === "excluded");
+  }
+});
+
+test("replies outside the actual input and malformed answers cannot be retried by rerunning", async () => {
+  for (const failure of ["bad_ref", "bad_quote", "missing_judgment", "bad_json"]) {
+    mode = "pass";
+    const f = await fixture(3);
     mode = failure;
     const bad = await runPolicyInterpretation(f.runId, { root, maxRequests: 100 });
     assert.equal(bad.status, "invalid_output", failure);
@@ -265,7 +190,7 @@ test("actual group/child/root inputs bound citations; missing judgments and malf
   }
 });
 
-test("missing usage does not erase valid semantic proof; missing provider identity remains missing evidence", async () => {
+test("missing usage does not erase valid proof; missing provider identity remains missing evidence", async () => {
   const f = await fixture();
   usage = null;
   assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "semantic_verified");
@@ -288,7 +213,7 @@ test("a pause during a real local request keeps its receipt and resumes it witho
     finish = gate(),
     before = requests.length;
   beforeResponse = async (input) => {
-    if (input.phase === "group") {
+    if (input.phase === "interpret") {
       started.open();
       await finish.promise;
     }
@@ -305,7 +230,7 @@ test("a pause during a real local request keeps its receipt and resumes it witho
   assert.ok("runId" in resumed && typeof resumed.runId === "string");
   const result = await runPolicyInterpretation(resumed.runId, { root, maxRequests: 10 });
   assert.equal(result.status, "semantic_verified");
-  assert.equal(requests.slice(before).filter((r) => r.phase === "group").length, 1);
+  assert.equal(requests.slice(before).filter((r) => r.phase === "interpret").length, 1);
 });
 
 test("literal date components, source title, evidence references and law targets cannot be invented", () => {
@@ -323,14 +248,16 @@ test("literal date components, source title, evidence references and law targets
   const plan = built as PolicyFulltextPlan,
     part = plan.parts[0]!;
   const identity = { title: "Synthetic Mining Regulation", number: "fixture-1", jurisdiction: "AR", sequence: 1 };
-  const c = CandidateReply.parse(
-    candidate({
-      id: sha256("c"),
-      input_hash: sha256("input"),
-      identity,
-      root: { id: sha256("root"), quotes: [{ part_id: part.partId, quote: source, node_path: part.nodePath }] },
-    }),
-  );
+  const reply = interpretReply({ mode: "first_version", provisions: [{ label: null, change: "added", parts: [{ ref: part.partId, text: source }] }] });
+  const c = CandidateReply.parse({
+    ...reply,
+    id: sha256("c"),
+    input_hash: sha256("input"),
+    input_ids: [sha256("root")],
+    document_title: identity.title,
+    instrument_number: identity.number,
+    comparisons: [],
+  });
   const date = normalizeSourceTime(
     { meaning: "effective", raw: "2026-10-01", local_date: "2026-10-01", local_time: null, timezone: null, utc: null, basis: "原文", condition_text: null },
     { instantBasis: null, timezoneEvidence: null },
@@ -366,22 +293,4 @@ test("literal date components, source title, evidence references and law targets
       ),
     /coverage_mismatch/,
   );
-});
-
-test("excluded relevance must survive every original-group verification before it may hide a policy", async () => {
-  for (const [choice, expected] of [
-    ["excluded_veto", "semantic_failed"],
-    ["excluded_pass", "excluded"],
-  ]) {
-    const f = await fixture(20),
-      before = requests.length;
-    mode = choice!;
-    const result = await runPolicyInterpretation(f.runId, { root, maxRequests: 100 });
-    assert.equal(result.status, expected);
-    const calls = requests.slice(before);
-    const groups = calls.filter((r) => r.phase === "group");
-    assert.ok(groups.length > 1);
-    assert.equal(calls.filter((r) => r.phase === "verify").length, groups.length);
-    assert.equal(result.semantic_verified, expected === "excluded");
-  }
 });
