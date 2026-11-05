@@ -241,9 +241,9 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
       return { state: "fetching-body" };
     }
     const publication = await publishArticle(articleId);
-    // History is archived but founds no event (isHistorical).
-    if (result.output.relevance === "pass" && publication?.visibility === "public" && !row.historical)
-      await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: PRIORITY.live });
+    // History founds no event but may attach to the fact it reposts (events/group.ts); it waits behind live work.
+    if (result.output.relevance === "pass" && publication?.visibility === "public")
+      await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: row.historical ? PRIORITY.history : PRIORITY.live });
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
@@ -333,8 +333,12 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
       if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
       const publication = await publishArticle(data.articleId);
       const r = await route(data.articleId, sql);
-      if (publication?.visibility === "public" && r && !r.historical)
-        await enqueue(QUEUES.group, { lane: "news", articleId: data.articleId }, { singletonKey: data.articleId, priority: PRIORITY.live });
+      if (publication?.visibility === "public" && r)
+        await enqueue(
+          QUEUES.group,
+          { lane: "news", articleId: data.articleId },
+          { singletonKey: data.articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live },
+        );
       return result;
     } catch (error) {
       if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(data.articleId, error, inputRevision);

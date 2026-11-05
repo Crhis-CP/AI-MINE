@@ -96,6 +96,10 @@
 - **事件页改为“事件脉络”，带一次数据库迁移。**
   - 新迁移 `database/migrations/events/202611050100_story_digest_detail.sql` 只给 `stories` 和 `story_digests` 各加一个可空的 `digest_detail jsonb` 列，由发布脚本的迁移步骤执行，不改已有数据。
   - 事件综述的提示词改了（更短，另给“关键变化”和“接下来关注”）。旧综述没有这两项，页面照常显示，只是不出关键变化表；之后有新报道的事件会按新提示词重写，不需要手动重跑。
+- **归组规则有变化，worker 新增一个每小时任务。**
+  - 归组提示词改了（转载同一文书算同一次发生），所以 `BATCH_PROMPT_VERSION` 和 `RELATE_PROMPT_VERSION` 会变成新值。这是预期，不是故障。
+  - 新任务 `events.remerge` 在每小时第 37 分运行：检查近 72 小时只有一篇报道的事件，能确定是同一份稿件的直接合并（不调用模型），其余每轮最多调用模型 20 次。
+  - 晚发现的转载会并入原事件，不加热度、不成为精选，决定记为 `historical-attached`。
 - **英文界面 `/en` 带 `noindex, follow`。**这是设计如此，不要去掉。
 - **资讯地图只画陆地点阵，不画国界。**这是 Owner 的决定。
 - **不稳定检查：**`apps/web/tests/cache.test.ts` 里有一个断言与随机 nonce 有关，偶发失败，表现为 `/888/` 一类的不匹配。CI 里遇到时，允许在 GitHub 上重跑一次失败的作业（Re-run failed jobs）。
@@ -453,9 +457,18 @@
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT purpose, count(*) AS calls, count(*) FILTER (WHERE status = 'failed') AS failed,
             round(sum(cost), 2) AS cost, max(currency) AS currency,
-            sum((usage->>'prompt_tokens')::bigint) AS tokens_in, sum((usage->>'completion_tokens')::bigint) AS tokens_out
+            sum((usage->>'prompt_tokens')::bigint) AS tokens_in, sum((usage->>'completion_tokens')::bigint) AS tokens_out,
+            sum((usage->>'prompt_cache_hit_tokens')::bigint) AS cache_hit_in,
+            round(100.0 * sum((usage->>'prompt_cache_hit_tokens')::bigint) / nullif(sum((usage->>'prompt_tokens')::bigint), 0), 1) AS cache_hit_pct
      FROM receipts WHERE origin = 'live' AND created_at >= now() - interval '7 days'
      GROUP BY purpose ORDER BY cost DESC NULLS LAST;"
+     ```
+  10. 发布后归组决定的分布（看新规则省下多少调用：`remerge` 里 `rule` 为 `certain-duplicate` 的没有调用模型）：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT verdict, input_manifest->'remerge'->>'rule' AS rule, count(*), count(receipt_id) AS with_model_call
+     FROM grouping_decisions WHERE created_at >= '<发布时间>'
+     GROUP BY 1, 2 ORDER BY count(*) DESC;"
      ```
   9. 资源与重启：
      ```bash
@@ -468,7 +481,7 @@
   - 第 1 条 `scored` 为 0，而第 3 条按天折算不为 0：新版本没有在打分，可能是 `.env` 没生效；
   - 第 1 条 `with_decimal` 为 0，且 `scored` 大于 20：分数没有出现小数；
   - 第 2 条排第一的分值占 `scored` 的三成以上：分数仍集中在少数值上。
-- **报告里写：**9 组输出原文。
+- **报告里写：**10 组输出原文。
 
 ### S11 用 Owner 的标注评测新评分（需 Owner 批准调用，60 分钟）
 
@@ -607,7 +620,7 @@ T16 输出原文：
 ### 七、缓存命中价格（S9）
 - 模型、价格（各时段）、官方页面链接、读取时间、保存时间：
 
-### 八、评分、分类、归组与费用审计（仅 24 小时报告，S10 九组输出原文）
+### 八、评分、分类、归组与费用审计（仅 24 小时报告，S10 十组输出原文）
 ```
 <原文>
 ```

@@ -204,20 +204,29 @@ test("the normal group consumer repairs an announcement, interpretation and dupl
   addsValue = false;
   for (const [id, verdict] of [
     [announcement, "same-fact"],
-    [archive, "historical"],
+    // A late-discovered copy of the same occurrence attaches to its fact as one more report (2026-11-05).
+    [archive, "historical-attached"],
   ]) {
     const job = jobs.find((row) => row.data.articleId === id);
     assert.ok(job);
     assert.equal(((await handlers.get(QUEUES.group)!([{ data: job.data }])) as { verdict: string }).verdict, verdict);
   }
   const rows = await sql`SELECT article_id,fact_id,seat,selected FROM publications WHERE article_id=ANY(${ids})`;
-  assert.equal(new Set(rows.filter((row) => row.article_id !== archive).map((row) => row.fact_id)).size, 1);
+  assert.equal(new Set(rows.map((row) => row.fact_id)).size, 1, "the archive joins the announcement's fact");
   assert.equal(rows.filter((row) => row.seat).length, 1);
   const archived = await publication(archive);
-  assert.deepEqual([archived.visibility, archived.eligible, archived.selected, archived.fact_id, archived.story_id], ["public", true, false, null, null]);
+  const announced = await publication(announcement);
+  assert.deepEqual(
+    [archived.visibility, archived.eligible, archived.selected, archived.fact_id, archived.story_id],
+    ["public", true, false, announced.fact_id, announced.story_id],
+  );
+  assert.equal((await grouping(archive)).selection_adds_value, false, "an attached archive is never a new pick");
   assert.equal(archived.timeline_at.getTime(), archiveBefore.timeline_at.getTime());
   assert.equal(archived.published_at.getTime(), archiveBefore.published_at.getTime());
-  assert.equal((await sql`SELECT 1 FROM fact_articles WHERE article_id=${archive}`).length, 0);
+  assert.deepEqual(
+    (await sql`SELECT role FROM fact_articles WHERE article_id=${archive}`).map((row) => row.role),
+    ["report"],
+  );
   assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${archive}`).length, 0, "archive reading coverage adds no heat");
   assert.equal((await grouping(announcement)).grouping_status, "complete");
   assert.equal((await sql`SELECT 1 FROM regroup_pending WHERE article_id=${announcement}`).length, 0);

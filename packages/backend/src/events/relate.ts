@@ -343,8 +343,14 @@ export function signalTarget(cands: CandidateView[], verdicts: Map<number, Verdi
   );
 }
 
-/** How sure a relation must be before a report counts as evidence that two stories are one. */
-export const TIE_MIN_CONFIDENCE = 0.8;
+/**
+ * How sure a relation must be before a report counts as evidence that two stories are one (consolidate),
+ * before two stories list each other as related, before a composite mentions a fact, before a historical
+ * (late-discovered) report attaches to an existing fact, and before the re-merge pass joins two facts.
+ * Lowered from 0.8 on 2026-11-05: production runs one model for judge and review, and it answers
+ * 0.7–0.75 for many reposts it agrees with, so 0.8 kept obvious same-event pairs apart.
+ */
+export const TIE_MIN_CONFIDENCE = 0.7;
 
 /** A report is firmly tied to a candidate it calls the same occurrence or a direct development of. */
 export function firmlyTied(relation: string | undefined, confidence: number | undefined, minConfidence = TIE_MIN_CONFIDENCE): boolean {
@@ -357,6 +363,104 @@ export function firmlyTied(relation: string | undefined, confidence: number | un
  * 0.75, against 0.964 and 0.896 at 0.8, and on 170 real root pairs the extra merges read as right.
  */
 export const STORY_REVIEW_MIN_CONFIDENCE = 0.75;
+
+/**
+ * Two reports this alike, dated the same Beijing day and naming no conflicting country, need no second
+ * (review) call before their stories merge: the first judgement stands on its own.
+ */
+export const SKIP_REVIEW_MIN_COSINE = 0.92;
+
+/** A pair close enough that the review call is skipped (see SKIP_REVIEW_MIN_COSINE). */
+export function reviewUnneeded(similarity: number, a: Pick<ReportView, "at" | "jurisdiction">, b: Pick<ReportView, "at" | "jurisdiction">): boolean {
+  return (
+    similarity >= SKIP_REVIEW_MIN_COSINE &&
+    !!a.at &&
+    !!b.at &&
+    beijingDate(a.at) === beijingDate(b.at) &&
+    !jurisdictionsConflict(a.jurisdiction, b.jurisdiction)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Document identity: a named document (《…》 law, regulation, notice, catalogue) keeps one identity
+// however many sites repost it and however late. Its key recalls the facts that already carry it over a
+// long window, beside the 14-day similarity recall; the judge still decides the relation.
+// ---------------------------------------------------------------------------
+
+/** Names shorter than this after normalising are too generic to identify a document (《通知》, 《实施方案》). */
+export const DOCUMENT_KEY_MIN_CHARS = 5;
+/** The endings of document names; a book title without one (a newspaper, a book, a film) is no document key. */
+const DOCUMENT_SUFFIX =
+  /(法|法典|条例|规定|办法|细则|决定|决议|通知|意见|方案|规划|目录|名录|清单|标准|公告|指南|纲要|准则|规则|计划|措施|法案|协定|协议|基准|要点|批复|章程|制度|令)$/u;
+const BOOK_TITLE = /《([^《》]{1,120})》/gu;
+
+/**
+ * The normalised identity of a document name: width-folded, without spaces or punctuation, without a
+ * leading 中华人民共和国/中国 and without trailing version notes such as （试行）（2025年修订）（征求意见稿）.
+ * Null when the name is not document-like.
+ */
+export function documentKey(name: string): string | null {
+  let key = name.normalize("NFKC").replace(/\s+/gu, "");
+  for (let before = ""; before !== key; ) {
+    before = key;
+    key = key.replace(/\([^()]*\)$/u, "");
+  }
+  key = key.replace(/^(中华人民共和国|中国)/u, "").replace(/[·・\-—_"'“”‘’、，,。.:：;；!！?？<>〈〉]/gu, "");
+  if ([...key].length < DOCUMENT_KEY_MIN_CHARS || !DOCUMENT_SUFFIX.test(key)) return null;
+  return key;
+}
+
+/** Document keys named in book-title marks across the given titles, without duplicates. */
+export function documentKeys(titles: Array<string | null | undefined>): string[] {
+  const keys = new Set<string>();
+  for (const title of titles)
+    for (const match of (title ?? "").matchAll(BOOK_TITLE)) {
+      const key = documentKey(match[1]!);
+      if (key) keys.add(key);
+    }
+  return [...keys];
+}
+
+/**
+ * A title names the document: one of its book titles has the same key, or it mentions the name without
+ * book-title marks and none of its own book titles is a longer document built on that name (a local
+ * 《某省生态环境法典实施办法》 does not name 《生态环境法典》).
+ */
+export function titleNamesDocument(title: string | null | undefined, key: string): boolean {
+  const text = (title ?? "").normalize("NFKC").replace(/\s+/gu, "");
+  const own = documentKeys([text]);
+  if (own.includes(key)) return true;
+  return text.includes(key) && !own.some((other) => other.includes(key));
+}
+
+/** A title for exact-duplicate checks: width-folded, without spaces, punctuation or a leading 「来源：」 label. */
+export function titleKey(title: string): string {
+  return title
+    .normalize("NFKC")
+    .replace(/^[^：:]{1,12}[：:]/u, "")
+    .replace(/[\s\p{P}\p{S}]/gu, "")
+    .toLowerCase();
+}
+/** Exact-duplicate titles shorter than this are too generic to tie two reports without the judge. */
+export const TITLE_KEY_MIN_CHARS = 8;
+
+/**
+ * A pair the code can tie without asking the model (cost design, Owner 2026-11-05: no model where the
+ * code can decide): near-identical, same Beijing day, no conflicting country (reviewUnneeded), and either
+ * the same normalised title or both naming the same document. Wire copies and same-day reposts of one
+ * notice meet this; anything less certain still goes to the judge.
+ */
+export function certainDuplicate(
+  similarity: number,
+  a: Pick<ReportView, "at" | "jurisdiction" | "title">,
+  b: Pick<ReportView, "at" | "jurisdiction" | "title">,
+): boolean {
+  if (!reviewUnneeded(similarity, a, b)) return false;
+  const ka = titleKey(a.title);
+  if ([...ka].length >= TITLE_KEY_MIN_CHARS && ka === titleKey(b.title)) return true;
+  const keys = documentKeys([a.title]);
+  return keys.length > 0 && keys.every((key) => titleNamesDocument(b.title, key)) && documentKeys([b.title]).every((key) => keys.includes(key));
+}
 
 /** The text a report is embedded with: title and the start of the summary, the same on both sides of a comparison. */
 export function reportText(title: string, summary: string | null | undefined): string {

@@ -19,6 +19,14 @@ import {
   PAIR_BATCH_SYSTEM,
   PairBatchSchema,
   pairBatchUser,
+  certainDuplicate,
+  documentKey,
+  documentKeys,
+  titleNamesDocument,
+  firmlyTied,
+  reviewUnneeded,
+  SKIP_REVIEW_MIN_COSINE,
+  TIE_MIN_CONFIDENCE,
   type ReportView,
   type RelationEvidence,
 } from "../packages/backend/src/events/relate.ts";
@@ -198,4 +206,53 @@ test("batched review pairs map each decision back to its own candidate", () => {
   assert.equal(completeDecisions(answer.decisions.slice(0, 1), 2), false);
   assert.equal(answer.decisions.find((d) => d.id === "C2")!.evidence, null);
   assert.equal(PairBatchSchema.safeParse({ a: "x", b: "y", relation: "SAME_STORY", confidence: 0.9 }).success, false, "a pair answer is not a batch answer");
+});
+
+test("a named document has one key however it is written, and a local measure built on its name is another document", () => {
+  assert.equal(documentKey("中华人民共和国生态环境法典"), "生态环境法典");
+  assert.equal(documentKey("生态环境法典（2026年修订）"), "生态环境法典", "version notes do not split a document");
+  assert.equal(documentKey("矿产资源法(征求意见稿)"), "矿产资源法");
+  assert.equal(documentKey("通知"), null, "a generic name identifies nothing");
+  assert.equal(documentKey("华尔街日报"), null, "a newspaper is no document");
+  assert.deepEqual(documentKeys(["河南省水利厅转载《中华人民共和国生态环境法典》全文", "据《人民日报》报道"]), ["生态环境法典"]);
+  assert.deepEqual(documentKeys(["河南省印发《河南省生态环境法典实施办法》"]), ["河南省生态环境法典实施办法"]);
+  assert.equal(titleNamesDocument("全国人大常委会表决通过生态环境法典", "生态环境法典"), true, "a fact title without book-title marks still names it");
+  assert.equal(titleNamesDocument("学习《生态环境法典》（全文）", "生态环境法典"), true);
+  assert.equal(titleNamesDocument("河南省印发《河南省生态环境法典实施办法》", "生态环境法典"), false);
+  assert.equal(titleNamesDocument("矿产资源目录发布", "生态环境法典"), false);
+});
+
+test("the tie bar is 0.7 and only near-identical same-day pairs in one country skip the review call", () => {
+  assert.equal(TIE_MIN_CONFIDENCE, 0.7);
+  assert.equal(firmlyTied("SAME_OCCURRENCE", 0.72), true);
+  assert.equal(firmlyTied("SAME_STORY", 0.69), false);
+  assert.equal(firmlyTied("UNRELATED", 0.99), false);
+  const day = { at: new Date("2026-11-05T09:00:00+08:00"), jurisdiction: "CN" };
+  assert.equal(SKIP_REVIEW_MIN_COSINE, 0.92);
+  assert.equal(reviewUnneeded(0.95, day, { at: new Date("2026-11-05T23:00:00+08:00"), jurisdiction: "中国" }), true, "one country by any name");
+  assert.equal(reviewUnneeded(0.95, day, { at: new Date("2026-11-05T20:00:00+08:00"), jurisdiction: null }), true, "a blank side is no conflict");
+  assert.equal(reviewUnneeded(0.91, day, day), false);
+  assert.equal(reviewUnneeded(0.95, day, { ...day, at: new Date("2026-11-06T00:30:00+08:00") }), false, "another Beijing day");
+  assert.equal(reviewUnneeded(0.95, day, { ...day, jurisdiction: "CL" }), false, "conflicting countries");
+  assert.equal(reviewUnneeded(0.95, day, { ...day, at: null }), false);
+});
+
+test("only near-identical same-day copies with one title or one named document are tied without the judge", () => {
+  const day = { at: new Date("2026-11-05T09:00:00+08:00"), jurisdiction: "CN" };
+  const t = (title: string, extra: Partial<typeof day> = {}) => ({ ...day, ...extra, title });
+  assert.equal(
+    certainDuplicate(0.95, t("紫金矿业宣布卡莫阿铜矿三期投产"), t("新华社：紫金矿业宣布卡莫阿铜矿三期投产！")),
+    true,
+    "source label and punctuation ignored",
+  );
+  assert.equal(certainDuplicate(0.95, t("学习《中华人民共和国生态环境法典》"), t("《生态环境法典》全文")), true, "one named document");
+  assert.equal(certainDuplicate(0.95, t("《生态环境法典》全文"), t("《河南省生态环境法典实施办法》")), false, "a local measure is another document");
+  assert.equal(certainDuplicate(0.95, t("紫金矿业宣布卡莫阿铜矿三期投产"), t("紫金矿业宣布卡莫阿铜矿三期投产延期")), false, "different titles go to the judge");
+  assert.equal(certainDuplicate(0.9, t("紫金矿业宣布卡莫阿铜矿三期投产"), t("紫金矿业宣布卡莫阿铜矿三期投产")), false, "below 0.92");
+  assert.equal(
+    certainDuplicate(0.99, t("紫金矿业宣布卡莫阿铜矿三期投产"), t("紫金矿业宣布卡莫阿铜矿三期投产", { at: new Date("2026-11-06T09:00:00+08:00") })),
+    false,
+    "another day",
+  );
+  assert.equal(certainDuplicate(0.99, t("矿业新闻"), t("矿业新闻")), false, "too short a title");
 });

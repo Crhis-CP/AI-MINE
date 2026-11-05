@@ -403,6 +403,17 @@ export async function readGroupingEvidencePublications(articleIds: string[], db:
     FROM publications p WHERE article_id=ANY(${articleIds}::text[])`;
 }
 
+/**
+ * News items whose public title contains one of the given LIKE patterns, by original time since `since`:
+ * the publication side of document-identity recall (events/group.ts). Titles only, no text or state.
+ */
+export async function readDocumentTitleMatches(patterns: string[], since: Date, limit: number, db: Db = sql) {
+  if (!patterns.length) return [];
+  return db<{ article_id: string; title: string; original_title: string | null }[]>`SELECT p.article_id,p.title,p.original_title FROM publications p
+    WHERE p.timeline_at>${since} AND (p.title LIKE ANY(${patterns}::text[]) OR p.original_title LIKE ANY(${patterns}::text[]))
+    ORDER BY p.timeline_at DESC,p.article_id LIMIT ${limit}`;
+}
+
 export interface GroupingSelectionSnapshot extends Partial<RepresentativeIdentity> {
   article_id: string;
   source_id: string;
