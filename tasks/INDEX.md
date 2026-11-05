@@ -419,6 +419,7 @@
 | [TASK-0549](TASK-0549.md) | T-0101 | M3 | architect | locally_verified | 标题和摘要用中文，外国矿企首次出现写“中文名（原文名）”：写作规则加代码兜底 | — |
 | [TASK-0550](TASK-0550.md) | T-0101 | M3 | architect | locally_verified | 审计修复第一批：翻译不重译、预筛不截断、法规试点开关时机、分数一位小数统一、台账记录新决定 | — |
 | [TASK-0551](TASK-0551.md) | T-0101 | M3 | architect | locally_verified | 审计修复第二批：浏览下限补齐、可列出条件统一、分类过滤双向、旧分类名显示、归组常量、删除无用导出 | — |
+| [TASK-0552](TASK-0552.md) | T-0101 | M3 | architect | locally_verified | 文档与入口文件按最新决定同步（评分口径、分工、法规线暂停解除、元数据） | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |
