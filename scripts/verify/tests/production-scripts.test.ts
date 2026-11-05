@@ -15,6 +15,7 @@ import { scratch, write } from "./helpers.ts";
 const EXEMPT: Record<string, string> = {
   "brand-icons.ts": "generates the brand icons with sharp, on a development machine",
   "nameplates.ts": "generates the report nameplates with opentype.js, on a development machine",
+  "wordmark.ts": "generates the site lockup with opentype.js, on a development machine",
   "mcp-check.ts": "verify's smoke stage runs it on the executor (scripts/verify/run.ts); smoke.ts itself runs in the image",
   "debrand.ts": "the debranding tool, development machine only; it uses the verify checks and yaml",
 };
