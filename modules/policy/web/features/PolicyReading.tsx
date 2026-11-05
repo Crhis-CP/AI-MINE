@@ -274,7 +274,7 @@ export function PolicyReading({
           </button>
         </div>
       )}
-      <div className="mt-3 divide-y divide-line-soft">
+      <div className={`mt-3 ${compare ? "divide-y divide-line-soft" : ""}`}>
         {current.rows.map((block) => (
           <div id={`node-${block.block_id}`} key={block.block_id} className={`scroll-mt-20 ${compare ? "md:grid md:grid-cols-2 md:gap-6" : ""}`}>
             <div className={compare && originalOnPhone ? "hidden md:block" : ""}>

@@ -124,8 +124,9 @@ export function PolicyCardView({ policy }: { policy: PolicyCard }) {
   return (
     <article className="border-b border-line py-5 last:border-0">
       <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
-        <span className="font-medium text-ink-2">{policy.jurisdictions.map((j) => j.label).join("、")}</span>
-        <span>· {policy.authority.name}</span>
+        <span>
+          <span className="font-medium text-ink-2">{policy.jurisdictions.map((j) => j.label).join("、")}</span> · {policy.authority.name}
+        </span>
         <span className={`rounded-mark px-2 py-0.5 ${complete ? "bg-accent/10 text-accent" : "bg-bg-sunk text-ink-2"}`}>
           {complete ? tr("完整解读") : tr("基本事实")}
         </span>
@@ -176,6 +177,8 @@ export function PolicyCardView({ policy }: { policy: PolicyCard }) {
 }
 export function EvidenceLinks({ ids }: { ids: string[] }) {
   const tr = useTr();
+  // Nothing at all without evidence: an empty inline box after a paragraph adds a blank line.
+  if (!ids.length) return null;
   return (
     <span className="ml-1 inline-flex flex-wrap gap-1">
       {ids.map((id) => (

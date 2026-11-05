@@ -7,6 +7,15 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import {
   demoContentVersion,
+  demoDailyArchive,
+  demoDailyIndex,
+  demoDailyLatestPage,
+  demoDailyReport,
+  demoHot,
+  demoPolicies,
+  demoPolicy,
+  demoPolicyReading,
+  demoPolicyScope,
   demoInformation,
   demoJurisdictions,
   demoMeta,
@@ -59,6 +68,30 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
       return send(res, 200, demoJurisdictions);
     case "/api/site/items/saved":
       return send(res, 200, { items: DEMO_ITEMS.filter((item) => (q.get("ids") ?? "").split(",").includes(item.id)), unavailableIds: [] });
+    case "/api/site/hot":
+      return send(res, 200, demoHot);
+    case "/api/site/reports/daily":
+      return send(res, 200, { items: demoDailyArchive });
+    case "/api/site/reports/daily/latest-page":
+      return send(res, 200, demoDailyLatestPage);
+    case "/api/site/policies":
+      return send(res, 200, demoPolicies(Math.max(1, Number.parseInt(q.get("page") ?? "1", 10) || 1)));
+    case "/api/site/policies/scope":
+      return send(res, 200, demoPolicyScope);
+  }
+  const daily = url.pathname.match(/^\/api\/site\/reports\/daily\/(?:(navigation|months)\/)?([\d-]+)$/);
+  if (daily) {
+    const [, list, key = ""] = daily;
+    if (list === "navigation") return send(res, 200, { items: demoDailyIndex });
+    if (list === "months") return send(res, 200, { items: demoDailyIndex.filter((entry) => entry.key.startsWith(key)) });
+    const report = demoDailyReport(key);
+    return report ? send(res, 200, report) : send(res, 404, { code: "not_in_demo" });
+  }
+  const policy = url.pathname.match(/^\/api\/site\/policies\/([\w-]+)(\/reading)?$/);
+  if (policy) {
+    const [, id = "", reading] = policy;
+    const body = reading ? demoPolicyReading(id, q.get("expression_id"), q.get("document_revision_id")) : demoPolicy(id, q.get("expression_id"));
+    return body ? send(res, 200, body) : send(res, 404, { code: "not_in_demo" });
   }
   const detail = url.pathname.startsWith("/api/site/items/") ? demoItemDetail(decodeURIComponent(url.pathname.slice("/api/site/items/".length))) : null;
   if (detail) return send(res, 200, detail);
