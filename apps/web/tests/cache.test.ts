@@ -1260,7 +1260,7 @@ test("policy pages distinguish basic facts, complete interpretations, unknown da
     assert.equal(basic.status, 200);
     const html = await basic.text();
     assert.match(html, /决定性附件尚未取得，完整解读不可用/);
-    assert.match(html, /来源发布日期：/);
+    assert.match(html, /来源发布日期<\/dt>/);
     assert.doesNotMatch(html, /id="analysis"/);
     const report = await fetch(`${origin}/policies/reports/report-fixture`);
     assert.equal(report.status, 200);

@@ -11,7 +11,7 @@ function useIds() {
     .filter((ref) => ref.type === "policy")
     .map((ref) => ref.id);
 }
-export function PolicySaveButton({ id }: { id: string }) {
+export function PolicySaveButton({ id, className = "text-[13px] text-accent" }: { id: string; className?: string }) {
   const tr = useTr();
   const ids = useIds();
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ export function PolicySaveButton({ id }: { id: string }) {
     <span>
       <button
         type="button"
-        className="text-[13px] text-accent"
+        className={className}
         aria-pressed={ids.includes(id)}
         onClick={() => {
           const result = toggleStar({ type: "policy", id });

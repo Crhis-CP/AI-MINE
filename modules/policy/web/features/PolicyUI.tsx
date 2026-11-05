@@ -116,7 +116,7 @@ export function PolicyBack() {
     }
   }, []);
   return (
-    <Link to={to} className="text-[13px] font-medium text-accent">
+    <Link to={to} className="shrink-0 whitespace-nowrap text-[13px] font-medium text-accent">
       {tr("← 返回法规政策动态")}
     </Link>
   );
