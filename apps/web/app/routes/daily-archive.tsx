@@ -5,7 +5,7 @@ import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { ReportIndexEntry } from "@amp/contracts/site";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
-import { beijingDate, } from "../lib/format";
+import { beijingDate } from "../lib/format";
 import { ReportLayout } from "../features/report/ReportLayout";
 import { archiveGroups } from "../features/report/format";
 import { Rows, SectionPage } from "../features/report/ReportPaper";

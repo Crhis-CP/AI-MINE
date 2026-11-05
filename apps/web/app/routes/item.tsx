@@ -7,7 +7,7 @@ import { ReaderToolbar } from "../features/item/ReaderTools";
 import { useCurrentSection } from "../lib/motion";
 import { markRead } from "../lib/local-state";
 import { ReadingFaceToggle } from "../components/ui/ReadingFace";
-import { SITE, } from "@amp/industry/site";
+import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
 import type { Route } from "./+types/item";

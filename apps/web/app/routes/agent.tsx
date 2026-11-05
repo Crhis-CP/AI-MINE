@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLoaderData, useLocation, useNavigate, useSearchParams } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/agent";
-import { SITE, } from "@amp/industry/site";
+import { SITE } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES as T, MCP_TOOLS } from "@amp/contracts/mcp";
 import { listPath, pageMeta, siteUrl } from "../lib/seo";
