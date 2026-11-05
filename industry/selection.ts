@@ -51,6 +51,11 @@ export const SELECTION = {
   secondScoreMargin: 15,
   /** 标题与正文明显不符、或正文残缺到无法辨认对象动作阶段时，总分不得高于这个数。 */
   unusableMaterialCap: 30,
+  /**
+   * 低于这个分数的稿件不送归组（降本，Owner 2026-11-05）：它们是被封顶的噪声（范围外、例行、残缺），
+   * 读者默认看不到，也不会入选，归组只花调用。未打分（模型拒评、尚未定分）的照常归组。
+   */
+  groupFloor: 20,
 } as const;
 
 export const SCORE_AXES = ["sig", "nov", "cred", "reson", "act"] as const;

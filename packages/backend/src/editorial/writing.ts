@@ -20,7 +20,24 @@ export const UNDERSTAND_SYSTEM = promptText("understand", UNDERSTAND_CONFIG);
 
 /** A body longer than this is cut (whole bodies are sent; a few run past the context). */
 export const MAX_BODY_CHARS = 60_000;
-const capBody = (s: string) => (s.length > MAX_BODY_CHARS ? s.slice(0, MAX_BODY_CHARS) : s);
+/**
+ * Per-step body budgets (cost design, Owner 2026-11-05: cut cost by design, not by caps). Input tokens grow
+ * with the body and every step re-sends it, so each step reads only what its judgement needs:
+ * - the prefilter is a wide scope gate that may BLOCK only on positive evidence, so a lead is enough and a
+ *   cut can only make it more lenient (UNKNOWN goes on like PASS);
+ * - the score judges the event, which news states first; long official documents keep their opening;
+ * - understanding writes the copy and reads the most.
+ * A cut is said in the text, so no step mistakes a lead for the whole document.
+ */
+export const PREFILTER_BODY_CHARS = 4_000;
+export const SCORE_BODY_CHARS = 12_000;
+export const UNDERSTAND_BODY_CHARS = 20_000;
+/** The body within a budget, with a note when it was cut. */
+export function bodyWithin(s: string, budget: number = MAX_BODY_CHARS): string {
+  const limit = Math.min(budget, MAX_BODY_CHARS);
+  return s.length > limit ? `${s.slice(0, limit)}\n……（正文共 ${s.length} 字，此处只给出前 ${limit} 字）` : s;
+}
+const capBody = (s: string, budget?: number) => bodyWithin(s, budget);
 
 // ── Text helpers ─────────────────────────────────────────────────────────────────────────────
 
@@ -81,7 +98,7 @@ function materialQuality(a: AnalyzeInputArticle): string {
 }
 
 /** The material as the prefilter and the content understanding read it. */
-export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean } = {}): string {
+export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean; bodyChars?: number } = {}): string {
   const lines: string[] = [];
   lines.push(`【来源】${a.source.name}（${a.source.kind}，tier=${a.source.tier || "未分级"}）`);
   if (a.source.tags?.length) lines.push(`【来源标签】${a.source.tags.join(", ")}`);
@@ -106,14 +123,14 @@ export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: b
   }
   lines.push("");
   lines.push(opts.annotateQuoted && quoted ? "【正文（作者自己的内容）】" : "【正文】");
-  lines.push(capBody(a.xPost ? a.xPost.text : usableSourceText(a.bodyText, a.excerpt) || "(无正文)"));
+  lines.push(capBody(a.xPost ? a.xPost.text : usableSourceText(a.bodyText, a.excerpt) || "(无正文)", opts.bodyChars));
   lines.push("");
   lines.push(`【材料质量】${materialQuality(a)}`);
   return lines.join("\n");
 }
 
 /** The prefilter's user message: the context as a JSON string (the prompt was tuned on this form). */
-export const prefilterUser = (a: AnalyzeInputArticle) => JSON.stringify(renderContext(a));
+export const prefilterUser = (a: AnalyzeInputArticle) => JSON.stringify(renderContext(a, { bodyChars: PREFILTER_BODY_CHARS }));
 
 /** Nothing to judge beyond the title: wait before any paid step. */
 export function missingEvidence(a: AnalyzeInputArticle): boolean {
@@ -121,7 +138,7 @@ export function missingEvidence(a: AnalyzeInputArticle): boolean {
 }
 
 export const understandUser = (a: AnalyzeInputArticle) =>
-  ["请按系统规则理解以下单篇材料，一次返回全部六个字段。", renderContext(a, { annotateQuoted: true })].join("\n\n");
+  ["请按系统规则理解以下单篇材料，一次返回全部六个字段。", renderContext(a, { annotateQuoted: true, bodyChars: UNDERSTAND_BODY_CHARS })].join("\n\n");
 
 // ── Identity context and guard ────────────────────────────────────────────────────────────────
 

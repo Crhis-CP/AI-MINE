@@ -456,6 +456,7 @@
      ```bash
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT purpose, count(*) AS calls, count(*) FILTER (WHERE status = 'failed') AS failed,
+            round(avg((usage->>'prompt_tokens')::bigint)) AS avg_in, round(avg((usage->>'completion_tokens')::bigint)) AS avg_out,
             round(sum(cost), 2) AS cost, max(currency) AS currency,
             sum((usage->>'prompt_tokens')::bigint) AS tokens_in, sum((usage->>'completion_tokens')::bigint) AS tokens_out,
             sum((usage->>'prompt_cache_hit_tokens')::bigint) AS cache_hit_in,

@@ -727,6 +727,7 @@
     ],
     "packages/backend/src/publication/reports.ts": ["public.reports", "public.stories"],
     "packages/backend/src/publication/sitemap.ts": ["public.fact_articles", "public.facts", "public.reports", "public.stories"],
+    "packages/backend/src/publication/story-progress.ts": ["public.fact_articles", "public.facts", "public.sources"],
     "packages/backend/src/publication/stories.ts": [
       "public.fact_articles",
       "public.facts",
@@ -1016,6 +1017,7 @@
     "packages/backend/src/events/historical-background-store.ts": "events",
     "packages/backend/src/events/report-groups.ts": "events",
     "packages/backend/src/publication/report-groups.ts": "publication",
-    "packages/backend/src/publication/report-group-reading.ts": "publication"
+    "packages/backend/src/publication/report-group-reading.ts": "publication",
+    "packages/backend/src/publication/story-progress.ts": "publication"
   }
 }

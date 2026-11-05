@@ -408,6 +408,7 @@
 | [TASK-0536](TASK-0536.md) | T-0101 | M3 | architect | locally_verified | 法规解读页：拆成组件，新增“一眼看懂”与日期日历，日期改表格，按钮与手机跳转 | — |
 | [TASK-0537](TASK-0537.md) | T-0101 | M3 | architect | locally_verified | 金属价格页改为每种金属一张卡片；中转失败原因写清楚，断线重试一次；自动化诊断 | — |
 | [TASK-0538](TASK-0538.md) | T-0101 | M3 | architect | locally_verified | 归组：转载同一文书归为同一次发生、晚发现转载并入、每小时重并单篇事件（确定副本不调模型） | — |
+| [TASK-0539](TASK-0539.md) | T-0101 | M3 | architect | locally_verified | 降本增效：每一步只读需要的正文长度，低于 20 分不归组，成本评估写入方案 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

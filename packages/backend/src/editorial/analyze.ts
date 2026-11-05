@@ -49,7 +49,8 @@ import {
   needsShortTweetTranslation,
   finalizeCopy,
   looksZh,
-  MAX_BODY_CHARS,
+  bodyWithin,
+  SCORE_BODY_CHARS,
   missingEvidence,
   parseTranslateOutput,
   parseShortPostOutput,
@@ -193,7 +194,7 @@ export function buildScoreInput(a: AnalyzeInputArticle): string {
     "请按系统规则评估以下单篇材料所代表的事件。只输出内容类型、五轴分和噪声类型。",
     `【原文时间】\n${modelSourceDateLabel(a)}`,
     `【标题】\n${a.title.trim()}`,
-    `【完整正文】\n${body.length > MAX_BODY_CHARS ? body.slice(0, MAX_BODY_CHARS) : body}`,
+    `【完整正文】\n${bodyWithin(body, SCORE_BODY_CHARS)}`,
   ].join("\n\n");
 }
 

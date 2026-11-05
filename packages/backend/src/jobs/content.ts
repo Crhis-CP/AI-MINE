@@ -37,6 +37,7 @@ import { ModelOutputError } from "../providers/llm.ts";
 import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
 import { ensureQueue, QUEUES, shutdownSignal } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
+import { SELECTION } from "@amp/industry/selection";
 
 /** Minutes to wait after the n-th failed attempt; one more failure after the last ends in "failed". */
 const RETRY_MINUTES = [5, 10, 20, 40, 60, 120, 240, 360];
@@ -201,6 +202,11 @@ export async function settleNonEditorial(articleId: string, expectedRevision?: n
   return { group: row.participation_mode === "hot_signal" && !isHistorical(row) };
 }
 
+/** Grouping spends model calls; capped noise below the floor (SELECTION.groupFloor) is not grouped. */
+export function worthGrouping(output: { selected: boolean; score: number | null }): boolean {
+  return output.selected || output.score === null || output.score >= SELECTION.groupFloor;
+}
+
 /** attemptTag makes an explicit re-evaluation a new (paid) request; the same tag reuses its receipt. */
 export async function processArticle(articleId: string, opts: { attemptTag?: string; expectedRevision?: number } = {}): Promise<{ state: string }> {
   const [found] = await sql<
@@ -242,7 +248,7 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     }
     const publication = await publishArticle(articleId);
     // History founds no event but may attach to the fact it reposts (events/group.ts); it waits behind live work.
-    if (result.output.relevance === "pass" && publication?.visibility === "public")
+    if (result.output.relevance === "pass" && publication?.visibility === "public" && worthGrouping(result.output))
       await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: row.historical ? PRIORITY.history : PRIORITY.live });
     return { state: result.output.relevance };
   } catch (error) {
