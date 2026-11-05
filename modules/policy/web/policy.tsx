@@ -187,30 +187,43 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed 
           </p>
           <h1 className="mt-3 text-[26px] font-semibold leading-snug text-ink sm:text-[30px]">{policy.title}</h1>
           <p className="mt-3 break-words text-[13px] text-ink-3">{policy.original_title}</p>
-          <p className="mt-2 text-[13px] text-ink-3">{[policy.instrument_number, policy.nature.label, current?.version_label].filter(Boolean).join(" · ")}</p>
-          <dl className="mt-4 grid gap-2 text-[12px] text-ink-3">
-            <div>
-              <dt className="inline">{tr("来源发布日期：")}</dt>
-              <dd className="inline">{timeLabel(policy.published_time)}</dd>
-            </div>
-            <div>
-              <dt className="inline">{tr("本站公开：")}</dt>
-              <dd className="inline">
-                {timeLabel(policy.first_public_at)}
-                {tr("（北京时间）")}
-              </dd>
-            </div>
-            <div>
-              <dt className="inline">{history ? tr("该原件留存时核对") : tr("原文最近核对")}：</dt>
-              <dd className="inline">{timeLabel(policy.source_checked_at)}</dd>
-            </div>
-            {policy.sort_kind === "substantive_change" && (
+          {/* Basic facts in one card (UI update, Owner 2026-11-05): who issued what, where it stands, and the three times. */}
+          <div className="mt-5 rounded-card border border-line bg-surface p-4">
+            <PolicyLifecycle brief={policy.legal_brief} />
+            <dl className="grid gap-x-6 gap-y-2.5 border-t border-line-soft pt-3 text-[13px] sm:grid-cols-2">
+              {[
+                [tr("国家与组织"), policy.jurisdictions.map((j) => j.label).join("、")],
+                [tr("发布机关"), policy.authority.name],
+                [tr("文号与性质"), [policy.instrument_number, policy.nature.label, current?.version_label].filter(Boolean).join(" · ")],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-[12px] text-ink-4">{label}</dt>
+                  <dd className="mt-0.5 text-ink-2">{value}</dd>
+                </div>
+              ))}
               <div>
-                <dt className="inline">{tr("原文确认的变化日期：")}</dt>
-                <dd className="inline">{timeLabel(policy.sort_time)}</dd>
+                <dt className="text-[12px] text-ink-4">{tr("来源发布日期：")}</dt>
+                <dd className="mt-0.5 text-ink-2">{timeLabel(policy.published_time)}</dd>
               </div>
-            )}
-          </dl>
+              <div>
+                <dt className="text-[12px] text-ink-4">{tr("本站公开：")}</dt>
+                <dd className="mt-0.5 text-ink-2">
+                  {timeLabel(policy.first_public_at)}
+                  {tr("（北京时间）")}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] text-ink-4">{history ? tr("该原件留存时核对") : tr("原文最近核对")}：</dt>
+                <dd className="mt-0.5 text-ink-2">{timeLabel(policy.source_checked_at)}</dd>
+              </div>
+              {policy.sort_kind === "substantive_change" && (
+                <div>
+                  <dt className="text-[12px] text-ink-4">{tr("原文确认的变化日期：")}</dt>
+                  <dd className="mt-0.5 text-ink-2">{timeLabel(policy.sort_time)}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
           {policy.is_backfill && <p className="mt-2 text-[12px] text-amber-ink">{tr("补录 · 按原文真实日期呈现")}</p>}
         </header>
         <p
@@ -253,51 +266,37 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed 
             <h3 className="mt-5 text-[15px] font-semibold">{tr("经营影响")}</h3>
             <div className="mt-3 space-y-4">
               {policy.impacts.map((i) => (
-                <div key={i.id} className="rounded-control border border-line p-4 text-[13px] leading-6">
-                  <p className="font-semibold text-ink">
-                    {policy.themes.find((t) => t.code === i.theme)?.label} · {i.effect_mode === "direct" ? tr("直接影响") : tr("间接影响")}
+                <div key={i.id} className="rounded-control border border-line bg-surface p-4 text-[13px] leading-6">
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-mark bg-accent/5 px-2 py-0.5 text-[12px] text-accent">{policy.themes.find((t) => t.code === i.theme)?.label}</span>
+                    <span className="text-[12px] text-ink-4">{i.effect_mode === "direct" ? tr("直接影响") : tr("间接影响")}</span>
                   </p>
-                  <p>
-                    {tr("适用区域：")}
-                    {i.region}
-                  </p>
-                  <p>
-                    {tr("法定主体：")}
-                    {i.legal_actor}
-                    {tr("；受影响主体：")}
-                    {i.affected_actor}
-                  </p>
-                  <p>
-                    {tr("经营活动：")}
-                    {i.activity}
-                  </p>
-                  <p>
-                    {tr("条件：")}
-                    {i.condition}
-                  </p>
-                  <p>
+                  <p className="mt-2 text-[14.5px] leading-7 text-ink">
                     {i.impact}
                     <EvidenceLinks ids={i.evidence_ids} />
                   </p>
-                  {i.exceptions && (
-                    <p>
-                      {tr("例外：")}
-                      {i.exceptions}
-                    </p>
-                  )}
-                  {i.deadline && (
-                    <p>
-                      {tr("期限：")}
-                      {timeLabel(i.deadline)}
-                    </p>
-                  )}
+                  <dl className="mt-3 grid gap-x-5 gap-y-1.5 border-t border-line-soft pt-3 text-ink-3 sm:grid-cols-[auto_1fr]">
+                    {[
+                      [tr("适用区域："), i.region],
+                      [tr("法定主体："), i.legal_actor],
+                      [tr("受影响主体："), i.affected_actor],
+                      [tr("经营活动："), i.activity],
+                      [tr("条件："), i.condition],
+                      ...(i.exceptions ? [[tr("例外："), i.exceptions]] : []),
+                      ...(i.deadline ? [[tr("期限："), timeLabel(i.deadline)]] : []),
+                    ].map(([label, value]) => (
+                      <div key={label} className="contents">
+                        <dt className="text-ink-4">{label}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
               ))}
             </div>
           </Section>
         )}
         <Section id="legal" title={tr("法律状态与适用时间")}>
-          <PolicyLifecycle brief={policy.legal_brief} />
           <dl className="grid gap-3 text-[13px] sm:grid-cols-2">
             {[
               ["文件性质", natures[legal.nature.value], legal.nature.evidence_ids],

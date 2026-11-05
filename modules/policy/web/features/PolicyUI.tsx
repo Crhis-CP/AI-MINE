@@ -117,15 +117,18 @@ export function PolicyBack() {
     </Link>
   );
 }
+/** One policy in the list (UI update, Owner 2026-11-05): where and who, title, summary, one line of facts, then themes. */
 export function PolicyCardView({ policy }: { policy: PolicyCard }) {
   const tr = useTr();
+  const complete = policy.interpretation_state === "complete";
   return (
     <article className="border-b border-line py-5 last:border-0">
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
-        <span>
-          {policy.jurisdictions.map((j) => j.label).join("、")} · {policy.authority.name}
+      <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
+        <span className="font-medium text-ink-2">{policy.jurisdictions.map((j) => j.label).join("、")}</span>
+        <span>· {policy.authority.name}</span>
+        <span className={`rounded-mark px-2 py-0.5 ${complete ? "bg-accent/10 text-accent" : "bg-bg-sunk text-ink-2"}`}>
+          {complete ? tr("完整解读") : tr("基本事实")}
         </span>
-        <span className="rounded-mark bg-bg-sunk px-2 py-0.5 text-ink-2">{policy.interpretation_state === "complete" ? tr("完整解读") : tr("基本事实")}</span>
         {policy.is_backfill && <span className="text-amber-ink">{tr("补录")}</span>}
       </div>
       <h2 className="mt-2 text-[18px] font-semibold leading-relaxed text-ink">
@@ -133,13 +136,13 @@ export function PolicyCardView({ policy }: { policy: PolicyCard }) {
           {policy.title}
         </Link>
       </h2>
-      {policy.summary && <p className="mt-2 max-w-[80ch] text-[14px] leading-6 text-ink-2">{policy.summary}</p>}
-      <p className="mt-2 text-[12px] text-ink-3">
-        {[policy.instrument_number, tr.maybe(policy.nature.label), tr.maybe(stages[policy.legal_brief.stage]), policy.change_kind?.label]
-          .filter(Boolean)
-          .join(" · ")}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-ink-4">
+      {policy.summary && <p className="mt-1.5 line-clamp-3 max-w-[80ch] text-[14px] leading-6 text-ink-2">{policy.summary}</p>}
+      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-4">
+        <span>
+          {[policy.instrument_number, tr.maybe(policy.nature.label), tr.maybe(stages[policy.legal_brief.stage]), policy.change_kind?.label]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
         <span>
           {tr("来源发布日期：")}
           {timeLabel(policy.published_time)}
@@ -149,24 +152,24 @@ export function PolicyCardView({ policy }: { policy: PolicyCard }) {
           {timeLabel(policy.first_public_at)}
           {tr("（北京时间）")}
         </span>
-      </div>
-      {policy.thread_id && (
-        <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="mt-3 inline-block text-[12px] font-medium text-accent">
-          {tr("查看政策脉络 →")}
-        </Link>
-      )}
+      </p>
       {policy.applicability_summary && (
-        <p className="mt-2 text-[12px] text-ink-3">
+        <p className="mt-2 text-[12.5px] text-ink-3">
           {tr("适用条件：")}
           {policy.applicability_summary}
         </p>
       )}
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
         {policy.themes.map((t) => (
-          <span key={t.code} className="rounded-mark bg-accent/5 px-2 py-0.5 text-[11px] text-accent">
+          <span key={t.code} className="rounded-mark bg-accent/5 px-2 py-0.5 text-[11.5px] text-accent">
             {t.label}
           </span>
         ))}
+        {policy.thread_id && (
+          <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="ml-auto text-[12px] font-medium text-accent">
+            {tr("查看政策脉络 →")}
+          </Link>
+        )}
       </div>
     </article>
   );

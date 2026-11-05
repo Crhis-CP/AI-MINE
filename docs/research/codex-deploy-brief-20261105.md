@@ -418,7 +418,17 @@
        AND created_at >= '<发布时间>'
      GROUP BY band ORDER BY band;"
      ```
-  5. 资源与重启：
+  5. 近 30 天各分类的稿件数和入选数（每篇只算最新一次分析；供分类重设计参考，见 `docs/design/taxonomy-scoring-202611/README.md`）：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -c "
+     SELECT category, count(*) AS items, count(*) FILTER (WHERE selected) AS selected
+     FROM (SELECT DISTINCT ON (article_id) article_id, category, selected
+           FROM analyses
+           WHERE origin = 'model' AND created_at >= now() - interval '30 days'
+           ORDER BY article_id, id DESC) latest
+     GROUP BY category ORDER BY items DESC;"
+     ```
+  6. 资源与重启：
      ```bash
      docker compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
      docker inspect --format '{{.Name}} {{.Config.Image}} {{.RestartCount}}' $(docker compose ps -q)
@@ -429,7 +439,7 @@
   - 第 1 条 `scored` 为 0，而第 3 条按天折算不为 0：新版本没有在打分，可能是 `.env` 没生效；
   - 第 1 条 `with_decimal` 为 0，且 `scored` 大于 20：分数没有出现小数；
   - 第 2 条排第一的分值占 `scored` 的三成以上：分数仍集中在少数值上。
-- **报告里写：**5 组输出原文。
+- **报告里写：**6 组输出原文。
 
 ## 6. 上线后服务器测试（S8 用）
 
@@ -545,7 +555,7 @@ T16 输出原文：
 ### 七、缓存命中价格（S9）
 - 模型、价格（各时段）、官方页面链接、读取时间、保存时间：
 
-### 八、评分审计（仅 24 小时报告，S10 五组输出原文）
+### 八、评分审计（仅 24 小时报告，S10 六组输出原文）
 ```
 <原文>
 ```

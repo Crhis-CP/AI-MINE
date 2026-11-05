@@ -1,9 +1,8 @@
-Fonts in this folder are Latin-only subsets (WOFF2) made with fontTools pyftsubset for the design prototypes.
-Each is licensed under the SIL Open Font License, Version 1.1 (full text below). None of these families declares a Reserved Font Name.
+Fonts in this folder are Latin-only subsets (WOFF2) made with fontTools pyftsubset, served by the reader site:
+InstrumentSans_400Regular / 600SemiBold / 700Bold and JetBrainsMono_500Medium.
+Each is licensed under the SIL Open Font License, Version 1.1 (full text below): free to use, embed and
+redistribute, including commercially. Neither family declares a Reserved Font Name.
 
-Copyright 2020 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
-Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)
-Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)
 Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
 Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
 
