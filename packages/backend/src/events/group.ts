@@ -168,6 +168,7 @@ import {
   jurisdictionsConflict,
   reviewUnneeded,
   certainDuplicate,
+  SKIP_REVIEW_MIN_COSINE,
   titleNamesDocument,
   lexicalSimilarity,
   pairUser,
@@ -187,7 +188,6 @@ import {
 import { EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "./queues.ts";
 export { EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "./queues.ts";
 
-export const GROUP_PROMPT_VERSION = BATCH_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */
 const RECALL_DAYS = 14;
 const RECALL_MIN_COSINE = 0.6;
@@ -209,7 +209,7 @@ const DOCUMENT_RECALL_ROWS = 400;
  * A historical (late-discovered) report without a matching document key is compared only with facts this
  * alike (near-identical content); it may attach to one but never founds an event.
  */
-export const HISTORICAL_ATTACH_MIN_SIMILARITY = 0.92;
+export const HISTORICAL_ATTACH_MIN_SIMILARITY = SKIP_REVIEW_MIN_COSINE;
 
 interface ArticleRow {
   id: string;
@@ -1218,7 +1218,7 @@ export async function linkRelatedStories(): Promise<{ added: number }> {
 /** Facts founded this recently that still hold exactly one report get another pairwise look. */
 export const REMERGE_WINDOW_HOURS = 72;
 /** A partner fact needs a report at least this similar to the single report (cosine, or the lexical stand-in). */
-export const REMERGE_MIN_COSINE = 0.85;
+export const REMERGE_MIN_COSINE = CONFIRM_BELOW_COSINE;
 /** Model calls one run may start; answers reused from earlier receipts give back their slot. */
 export const REMERGE_MAX_CALLS = 20;
 /** Pairs one run looks at, reused answers included, so a run stays short. */

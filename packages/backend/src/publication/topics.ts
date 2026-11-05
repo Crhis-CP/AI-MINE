@@ -9,7 +9,16 @@ import { REPO_ROOT } from "../config.ts";
 import { sql } from "../db.ts";
 import { cached, type Cached } from "../lib/cache.ts";
 import { serverModules, type ServerModule } from "../modules.ts";
-import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, topicCondition, newsJurisdictionScope, type ItemRow } from "./items.ts";
+import {
+  ITEM_COLUMNS,
+  ITEM_FROM,
+  listedCondition,
+  toFeedItemSummary,
+  topicCondition,
+  newsJurisdictionScope,
+  type ItemRow,
+  browseFloorCondition,
+} from "./items.ts";
 import { matchesTopicTags, readMatcherValues } from "./mentions.ts";
 
 export interface TopicRow {
@@ -55,7 +64,7 @@ async function readPartIndex(modules: readonly ServerModule[], now: Date): Promi
       SELECT ${ITEM_COLUMNS()},coalesce(p.search_text,'') AS topic_search,module_geo.jurisdictions ${ITEM_FROM()}
       LEFT JOIN publication.news_geography module_geo ON module_geo.article_id=p.article_id AND module_geo.article_revision=a.revision
         AND module_geo.analysis_id IS NOT DISTINCT FROM p.analysis_id AND module_geo.recipe=ANY(${newsJurisdictionScope(null).jurisdictionRecipes}::text[])
-      WHERE ${listedCondition(now)} AND p.eligible ORDER BY p.timeline_at DESC,p.article_id DESC`,
+      WHERE ${listedCondition(now)} AND p.eligible ${browseFloorCondition(true)} ORDER BY p.timeline_at DESC,p.article_id DESC`,
   ]);
   await attachSourcePolicies(rows);
   const summaries = new Map(rows.map((row) => [row.id, toFeedItemSummary(row)]));
@@ -146,7 +155,7 @@ async function queryTopicCounts(): Promise<TopicCount[]> {
       FROM publications p JOIN articles a ON a.id=p.article_id
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision
         AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${newsJurisdictionScope(null).jurisdictionRecipes}::text[])
-      WHERE ${listedCondition(now)} AND p.eligible`,
+      WHERE ${listedCondition(now)} AND p.eligible ${browseFloorCondition(true)}`,
   ]);
   const recentFrom = Date.now() - 30 * 86400_000;
   return topics.map((t) => {
@@ -250,7 +259,7 @@ export async function loadTopicPage(slug: string, page: number, now?: Date): Pro
   const rows = await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${match.topicTags !== null} AND ${listedCondition(at)} AND p.eligible ${topicCondition(match)}
+      WHERE ${match.topicTags !== null} AND ${listedCondition(at)} AND p.eligible ${browseFloorCondition(true)} ${topicCondition(match)}
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
     SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
@@ -262,7 +271,7 @@ export async function loadTopicPage(slug: string, page: number, now?: Date): Pro
   const live = recheck.length
     ? await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id=ANY(${recheck}::text[])
-      AND ${match.topicTags !== null} AND ${listedCondition(at)} AND p.eligible ${topicCondition(match)}
+      AND ${match.topicTags !== null} AND ${listedCondition(at)} AND p.eligible ${browseFloorCondition(true)} ${topicCondition(match)}
     ORDER BY p.timeline_at DESC,p.article_id DESC`
     : [];
   await attachSourcePolicies([...rows, ...live]);

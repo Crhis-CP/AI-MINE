@@ -187,14 +187,6 @@ export function mentionByFold(folded: string): Mention | null {
   return byFold.get(folded) ?? null;
 }
 
-/** Country codes named by title / summary / source / tags text. Not ancestors. */
-export function jurisdictionCodesInText(searchText: string): string[] {
-  if (!searchText) return [];
-  const codes: string[] = [];
-  for (const mention of mentions) if (mention.kind === "country" && textHits(searchText, mention.needles)) codes.push(mention.id);
-  return codes;
-}
-
 export function textHits(searchText: string, needles: Needle[]): boolean {
   if (!searchText) return false;
   const hay = searchText.toLowerCase();

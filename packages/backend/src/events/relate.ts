@@ -328,12 +328,14 @@ export function storyForDevelopment(cands: CandidateView[], verdicts: Map<number
   return cands.filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY").sort((a, b) => b.score - a.score)[0] ?? null;
 }
 
-export function looksLikeRoundup(cands: CandidateView[], verdicts: Map<number, Verdict>): boolean {
-  return cands.length > 0 && cands.every((c) => verdicts.get(c.factId)?.relation === "ROUNDUP");
-}
+/**
+ * Confidence a discussion post needs to count as reacting to a fact (heat only). Kept apart from
+ * TIE_MIN_CONFIDENCE on purpose: lowering the tie bar for reposts (TASK-0538) did not change heat attribution.
+ */
+export const REACTION_MIN_CONFIDENCE = 0.8;
 
 /** A discussion post counts for a fact it reports, or one it clearly reacts to. */
-export function signalTarget(cands: CandidateView[], verdicts: Map<number, Verdict>, minReactionConfidence = 0.8): CandidateView | null {
+export function signalTarget(cands: CandidateView[], verdicts: Map<number, Verdict>, minReactionConfidence = REACTION_MIN_CONFIDENCE): CandidateView | null {
   return (
     sameOccurrence(cands, verdicts)[0] ??
     cands

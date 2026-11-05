@@ -250,18 +250,6 @@ export async function reportCandidateRows(start: Date, end: Date) {
   });
 }
 
-/** A scored public report proves judging ran; ordinary news is counted here, never included in the daily. */
-export async function dailyJudgedReportCount(start: Date, end: Date): Promise<number> {
-  const [row] = await sql<{ n: number }[]>`
-    SELECT count(*)::int AS n FROM publications p JOIN sources s ON s.id=p.source_id
-    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND p.channel='news' AND s.lane='news'
-      AND s.lane='news' AND s.participation_mode='editorial' AND p.score IS NOT NULL AND NOT p.backfill
-      AND (NOT p.selected OR p.visible_after <= ${end})
-      AND p.timeline_at >= ${start} AND p.timeline_at < ${end}
-      AND (p.first_public_at IS NULL OR p.first_public_at < ${end})`;
-  return row!.n;
-}
-
 /** Thin, current published inputs for deterministic report arrangement; never loads article bodies. */
 export interface ReportInputRow {
   id: string;

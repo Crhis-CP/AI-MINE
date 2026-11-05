@@ -7,6 +7,7 @@ import type { ReadMatcherValues } from "./mentions.ts";
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
 import { categoryFilterKeys, isCategoryFilterKey, toPublicApiCategory, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { LEGACY_MINING_CATEGORY_KEYS, LEGACY_MINING_CATEGORY_TARGETS, isLegacyMiningCategoryKey } from "@amp/contracts/mining-taxonomy";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
@@ -175,12 +176,23 @@ export function featuredEntryCondition(now: Date) {
 export function channelCondition(channel: ChannelKey | null | undefined) {
   return sql`AND (${!channel || channel === "all"} OR (${channel === "firstParty"} AND p.first_party) OR (${channel !== "firstParty"} AND p.channel=${channel ?? null}))`;
 }
-/** The stored keys a category filter matches: a retired key covers its successors (ADR-0031). */
+/**
+ * The stored keys a category filter matches (ADR-0031): a retired key covers its successors, and a current key
+ * also covers rows still stored under a retired key whose only successor it is, so filters stay complete until
+ * history is reclassified. A key split in two (company_project) is left to the model reclassification.
+ */
 export function categoryKeys(category: string | null | undefined): string[] | null {
   if (!category) return null;
-  return isCategoryFilterKey(category) ? categoryFilterKeys(category) : [category];
+  if (!isCategoryFilterKey(category)) return [category];
+  const keys: string[] = categoryFilterKeys(category);
+  if (isLegacyMiningCategoryKey(category)) return keys;
+  const retired = LEGACY_MINING_CATEGORY_KEYS.filter((key) => {
+    const targets = LEGACY_MINING_CATEGORY_TARGETS[key];
+    return targets.length === 1 && targets[0] === category;
+  });
+  return [...keys, ...retired];
 }
-export function categoryCondition(category: CategoryFilterKey | null | undefined, _v1 = false) {
+export function categoryCondition(category: CategoryFilterKey | null | undefined) {
   return sql`AND (${!category} OR p.category=ANY(${categoryKeys(category) ?? []}::text[]))`;
 }
 
@@ -384,6 +396,7 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     FROM stories st JOIN publications p ON p.story_id=st.id
     WHERE ((${query.merged} AND st.merged_into IS NOT NULL) OR (${!query.merged} AND st.merged_into IS NULL))
       AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND (${!query.selected} OR (${confirmedSelected()}))
+      ${browseFloorCondition(!query.selected && !matchers.term0.active)}
 
     AND (${categoryKeys(query.category)}::text[] IS NULL OR p.category=ANY(${categoryKeys(query.category)}::text[]))
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})

@@ -1,4 +1,4 @@
-import { browseFloorCondition, originalPostAdmissionCondition } from "./items.ts";
+import { browseFloorCondition, listedCondition, originalPostAdmissionCondition } from "./items.ts";
 import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { foldableSelectionCondition } from "./scope.ts";
@@ -49,8 +49,7 @@ interface GroupRow {
 }
 
 function entryCondition(q: TimelineQuery, now: Date) {
-  if (q.scope === "all")
-    return sql`p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after <= ${now}) AND p.eligible`;
+  if (q.scope === "all") return sql`${listedCondition(now)} AND p.eligible ${browseFloorCondition(true)}`;
   return sql`${selectedCondition(now)} AND (${q.featuredSince ?? null}::timestamptz IS NULL OR p.timeline_at >= ${q.featuredSince ?? null})`;
 }
 
