@@ -28,3 +28,37 @@ TASK0500：公开说明仅表达正文、附件、解读及资料覆盖的实际
 目录新增或变化材料经on.materialDiscovered在同一事务交接，本模块使用实际policy.acquire队列定义与原directory单例键安排后续处理；重复任务视为已接收，无模块接收或入队失败不能提交材料应用结果。定时、手工收集与最终暂停规则保持。
 
 法规工作流轮询按采集、处理、公开三个控制分别筛选到期阶段，并在批次上限前排除暂停阶段，避免其挤占其他允许阶段的名额。采集暂停或采集环境开关关闭时不发现新工作流，成功轮询沿用上次发现游标；明确恢复后从原位置继续。只暂停处理仍可采集，模型调用总开关关闭时不安排全文、视觉和解读阶段；既有已入队任务仍由执行端二次核验暂停、许可与材料版本。该入口不改变资讯线控制。
+
+## 试点信源（2026-11-05 复核）
+
+试点范围按法规线重启设计第 5 节。每个来源的 robots 与许可结论写在 `industry/policy-sources.ts` 的 `POLICY_PILOT`；Owner 156 条清单之外的试点补充来源放在 `industry/policy-sources.json` 的 `pilot_additions`（编号 `CN-P01` 式），与清单一起初始化、启用。下表的 robots 结果来自开发环境的单次礼貌请求，“本环境不可达”只说明开发环境网络，不是网站的答复。
+
+| 来源 | 接口 | 文书身份 | 节奏 | 许可 | 状态 |
+|---|---|---|---|---|---|
+| CN-002 国务院文件与行政法规（中国政府网“最新政策”） | 官方 JSON（带 ETag/Last-Modified） | 发文字号（国令第851号），无文号退回来源+URL | 列表 6 小时，条件请求；单件页 7 天复查 | 官方文件，可存档；公开按后台许可 | 已核对 |
+| CN-004 生态环境部令 | 列表页 `/zcwj/bwj/ling/` | 部令编号（部令 第40号） | 列表 6 小时（无 ETag）；单件 7 天 | 同上 | 待服务器空跑后去掉 hold |
+| CN-P01 应急管理部规章（含煤矿安全） | 列表页 `gz11`（带 ETag） | 首次公布的部令编号作文书，最近一次“公布/修订”记录作版本 | 同上 | 同上 | 待服务器空跑后去掉 hold |
+| CN-003 自然资源部 | 列表页（已有） | 缺单件页身份配置 | — | 同上 | 本环境不可达，须服务器取样补配置 |
+| CN-001 国家法律法规数据库 | 不采集 | — | — | robots 禁止（10-08 记录） | blocked |
+| 国家矿山安全监察局、国务院公报 | 未登记 | — | — | — | 规章已由 CN-P01 覆盖；国务院文件已由 CN-002 覆盖 |
+| AR-001 阿根廷国家公报第一部分 | 当日列表页（已有） | 单件 ID + 日期 | 列表 6 小时 | 官方规范文本 | 本环境不可达，须服务器空跑 |
+| AR-007 萨尔塔省公报 | 当期列表页 | 种类+编号/年（DECRETO N° 719/26） | 列表 6 小时（只列当期）；单件 7 天 | 同上 | 已核对 |
+| AR-005 卡塔马卡省公报 | 不采集 | — | — | robots 也是 Cloudflare 验证页，不绕过 | blocked |
+| AR-008 胡胡伊省公报（对照） | WordPress REST 目录整轮 | post ID；正文首段编号 | 目录整轮；单件 7 天 | 同上 | 已核对 |
+| 国家标准（全国标准信息公共服务平台）、GISTM | 不采集 | 标准号+年代号 / 版本 | 人工登记 | 只存元数据与官方链接 | 本环境不可达 |
+| ICMM | 不采集 | 名称+版本年 | 人工登记 | 条款只许链接首页、非商业转载；只存元数据，深链接需 Owner 决定是否申请许可 | reference_only |
+
+- **这次修了什么**：CN-002 原配置只收 `/zhengce/年月/`（党中央文件），漏掉以国务院令公布的行政法规和国务院、国办文件，现改收 `/zhengce/content/`；AR-007、AR-008 原来没有单件页身份配置，取得阶段只会停在“缺少配置”；AR-007 列表会把“AGUAS DEL NORTE”等采购公告当成法令；CN-004 的更正入口配好了；新增应急管理部规章。
+- **身份字段**：`policyProfile.fieldPatterns`（可选，title/number/version 各一个带一个捕获组的正则）从较长的官方元素里取出文号或修订记录；元数据记录同时保存原文与取出的值。空白的文号格退回“来源+URL”身份。选择器与正则由 `domain/identity-fields.ts` 统一读取，取得阶段和空跑命令用同一份代码。
+- **增量与省钱**：法规线的 `json_list`、单页 `web_list` 列表带上次成功入库响应的 ETag/Last-Modified，304 时不解析、不入库（首次导入不存校验值；配置变化或跳转到别处时重新完整读取）。单件页复查时，若标题、标记、文号、版本、正文文字与链接的指纹和已存档的当前修订一致，就沿用原修订，不存新字节、不取附件、不产生新的提取、条款或公开版本；网页里的生成时间、nonce 等变化不再制造假修订。试点来源单件页复查周期改为 7 天。频率仍由既有礼貌抓取框架控制（robots、同主机至少 2 秒、429/503 退避）。
+- **服务器要核对的事（Codex）**：部署后在 worker 环境依次运行下列命令（只读，不连数据库、不写入、不调模型；每个来源先读 robots，单件页之间至少 3 秒）：
+  - `node scripts/policy-pilot-discover.ts --source CN-002 --detail 2`
+  - `node scripts/policy-pilot-discover.ts --source CN-004 --detail 2`
+  - `node scripts/policy-pilot-discover.ts --source CN-P01 --detail 2`
+  - `node scripts/policy-pilot-discover.ts --source AR-007 --detail 2`
+  - `node scripts/policy-pilot-discover.ts --source AR-008 --detail 2`
+  - `node scripts/policy-pilot-discover.ts --source AR-001 --detail 2`
+  - `node scripts/policy-pilot-discover.ts --source CN-003 --detail 1`（预期“listing_only_no_policyProfile”，把一份单件页地址交回补配置）
+  - 每条应为 `status: "ok"`、`officialDocuments` 大于 0、`details[].status` 为 `identity_ok` 且 `number` 是文号、`provisions` 大于 0。任何 `robots_disallowed`、`identity_failed` 或 `unreachable` 原样贴回协作 Issue，不要改配置绕过。
+  - 已在库里的 CN-002、AR-007、AR-008 是旧配置：`node scripts/seed.ts` 只新增 CN-004、CN-P01，不覆盖已有信源。旧配置要在后台“信源 → 配置草稿 → 预览 → 启用”里换成登记表的新配置，之后 `node scripts/policy-sources.ts enable --ids CN-002,AR-007,AR-008 --dry-run` 才不会报“采集配置与核对表不同”。CN-004、CN-P01 的 hold 要在空跑通过后由 Claude 提交去掉。
+  - 另在服务器上取 `https://flk.npc.gov.cn/robots.txt`、`https://www.chinamine-safety.gov.cn/robots.txt`、`https://std.samr.gov.cn/robots.txt`、`https://globaltailingsreview.org/robots.txt`、`https://www.boletinoficial.gob.ar/robots.txt`，结果贴回 Issue，用于更新 `POLICY_PILOT`。
