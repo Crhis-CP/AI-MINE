@@ -381,6 +381,7 @@
 | [TASK-0509](TASK-0509.md) | T-0101 | M3 | architect | locally_verified | 本地演示 API 与 README 截图重截 | — |
 | [TASK-0510](TASK-0510.md) | T-0101 | M3 | architect | locally_verified | 评分改为五轴输出、代码加权，分数保留一位小数 | — |
 | [TASK-0511](TASK-0511.md) | T-0101 | M3 | architect | locally_verified | 费用核算计入 DeepSeek 缓存命中 | — |
+| [TASK-0512](TASK-0512.md) | T-0101 | M3 | architect | locally_verified | 启用定稿标识“五臂星系”（图标与站名字标） | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |
