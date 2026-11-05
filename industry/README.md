@@ -38,7 +38,7 @@
 
 - `CATEGORY_LABELS`、`CHANNEL_LABELS`：显示标签的公开出口；分类/栏目 keys 与顺序在 contracts 固定，离线集成测试逐项对齐，industry 不反向依赖 contracts。
 - `CATEGORIES`：首页与“全部动态”的筛选类别，也用于卡片角标和 RSS 分类订阅。`key` 出现在网址与接口里（`/all?category=`、`/feed/category/<key>.xml`），上线后冻结；`label` 是显示名；`section` 是日报里的分节标题，几个类别可以共用一节；`guide` 告诉模型怎么归类。没归上类的资料放进 `key` 为 `industry` 的类别所在的节，没有这个类别就放最后一节。
-- `ITEM_TYPES`：内容理解一步判定的内容类型。`prompts/content-understanding.md` 列出这些类型，`prompts/selection-score.md` 按类型给评分维度不同的权重，三处在同一个提交里改。`CATEGORY_BY_ITEM_TYPE`：模型漏了分类标签时，按内容类型补一个。
+- `ITEM_TYPES`：内容理解一步判定的内容类型，与九类分类同一套代码（ADR-0031）。`prompts/content-understanding.md` 列出这些类型，`selection.ts` 的 `weights` 按类型给五个评分维度不同的权重（`prompts/selection-score.md` 只写类型和维度的含义），几处在同一个提交里改。
 - `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义写法统一成词表里的标签（黄金→金、刚果(金)→刚果（金）、澳洲→澳大利亚、矿企别名→显示名等）。
 - `ENTITIES`：主要公司与机构，用于公司类主题。`IDENTITY_LEXICON`、`PUBLISHER_DOMAINS`、`IDENTITY_CONTEXT_ALIASES` 防止模型在标题和摘要里写进原文没提到的公司：核验过的身份事实经 `prompts/identity-context.md` 交给模型。
 - `topics.json`：主题目录，分三组：`genre`（国家与地区）、`field`（金属）、`company`（矿企）；组的键为固定契约，页面使用相应中文名称。每个主题用 `tags` 或 `entityId` 决定收哪些内容；`slug` 出现在网址里，上线后冻结。
@@ -63,7 +63,7 @@
 | 文件 | 用途 |
 |---|---|
 | `prefilter.md` | 预筛：是不是本行业的事。宽召回，只拦明显无关的 |
-| `selection-score.md` | 评分标准：0–100 分，同一份标准独立打两次；含内容类型、评分维度与各类型的权重，以及必须正常评价的价值和必须压住的噪声 |
+| `selection-score.md` | 评分标准：读者定义、内容类型、五个评分维度的含义（每个 0–10，可到一位小数）、噪声类型，以及必须正常评价的价值和必须压住的噪声。模型只给类型、各维度分和噪声类型；总分（0–100，一位小数）由 `selection.ts` 的权重和封顶算出。同一份标准最多独立打两次，第一次离门槛较远时只打一次 |
 | `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加四份共用规则（`rules-domain.md`、`rules-anti-hallucination.md`、`rules-self-contained-title.md`、`rules-answer-first-summary.md`）组成 |
 | `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
 | `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`，其中第 3 条“通行中文名”引用 `rules-domain-names.md`）、防幻觉、答案先行的摘要、自洽的标题 |
@@ -78,7 +78,12 @@
 
 ### 2.5 `selection.ts` 与校准
 
-- `thresholds`：按信源分级的入选门槛。每篇资料独立评分两次，两次之和不低于两倍门槛才入选，页面显示两次的平均分。没有门槛的分级不参与精选。当前配置为 T1 60、T1_5 65、T2 76。达到分数条件后仍须确认归组及信息增量，才正式入选。
+- `thresholds`：按信源分级的入选门槛。每篇资料最多独立评分两次，已打分数之和不低于门槛乘以分数个数（即平均分达到门槛）才入选，页面显示平均分（一位小数）。没有门槛的分级不参与精选。当前配置为 T1 62、T1_5 64、T2 66（Owner 2026-11-05）。达到分数条件后仍须确认归组及信息增量，才正式入选。
+- `weights`：内容类型 → 五个评分维度的权重，每行之和为 10；`attentionScore` 按它算出一次评分的总分。
+- `noiseCaps`：噪声类型 → 总分上限（范围外 30、例行活动 35、单日行情 40、一般政务 40、名单外小矿企例行项目新闻 55）；`unusableMaterialCap`：材料残缺时的上限 30。
+- `secondScoreMargin`：第一次分数与门槛相差超过它（15）时不打第二次。
+- `groupFloor`：低于它（20）的稿件不送归组；未打分的照常归组。
+- `browseFloor`：没有搜索词的“全部”列表（网页、接口、RSS）默认不显示低于它（20）的稿件；精选和未打分的照常显示，搜索仍能搜到全部。
 - `understandFloor`：没入选、但平均分高于它的资料也按入选的写法写（50）。
 
 换了行业或评分标准就要重新校准（BR-SEL-08）：
@@ -136,4 +141,4 @@
 
 **2026-10-23 DEC-76：以下A/B/AR与双人盲标为历史实验说明，不再是当前实施或验收前置。全站使用统一选材/评分规则，国别只承担分类、查询与分发；AI负责规则核验和完善。**
 
-`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。权重、双评分与60/65/76门槛不变；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。
+`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。当时实验中权重、双评分与60/65/76门槛不变（这是2026-10-22的配置；现行门槛、权重和评分次数见2.5节）；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。
