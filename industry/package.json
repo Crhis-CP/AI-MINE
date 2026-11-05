@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./selection": "./selection.ts",
+    "./name-glossary": "./name-glossary.ts",
     "./site": "./site.ts",
     "./taxonomy": "./taxonomy.ts",
     "./pages/privacy.md": "./pages/privacy.md",

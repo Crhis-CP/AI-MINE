@@ -1,2 +1,2 @@
-   - 必和必拓（BHP）/ 力拓（Rio Tinto）/ 嘉能可（Glencore）/ 淡水河谷（Vale）/ 英美资源（Anglo American）/ 自由港麦克莫兰（Freeport-McMoRan）/ 纽蒙特（Newmont）/ 巴里克（Barrick）/ 第一量子（First Quantum）/ 艾芬豪矿业（Ivanhoe Mines）/ 智利国家铜业公司（Codelco）/ 南方铜业（Southern Copper）/ 雅宝（Albemarle）/ 智利化工矿业（SQM）
+   - 必和必拓（BHP）/ 力拓（Rio Tinto）/ 嘉能可（Glencore）/ 淡水河谷（Vale）/ 英美资源（Anglo American）/ 自由港麦克莫兰（Freeport-McMoRan）/ 纽蒙特（Newmont）/ 巴里克（Barrick）/ 第一量子（First Quantum）/ 艾芬豪矿业（Ivanhoe Mines）/ 智利国家铜业公司（Codelco）/ 南方铜业（Southern Copper）/ 雅宝（Albemarle）/ 智利化工矿业（SQM）/ 泰克资源（Teck Resources）/ 安托法加斯塔（Antofagasta）/ 福蒂斯丘（Fortescue）/ 南32（South32）/ 诺里尔斯克镍业（Nornickel）/ 金田（Gold Fields）/ 盎格鲁黄金阿散蒂（AngloGold Ashanti）/ 金罗斯（Kinross）/ 托克（Trafigura）/ 摩科瑞（Mercuria）
    - 中国企业用其官方中文名：紫金矿业、洛阳钼业、江西铜业、铜陵有色、中国五矿、中国铝业、山东黄金、赣锋锂业、天齐锂业、华友钴业

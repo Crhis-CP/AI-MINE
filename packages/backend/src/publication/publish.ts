@@ -1,5 +1,6 @@
 import { isHistorical, newsMaterialBindings, type XPostData } from "../content/materials.ts";
 export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
+import { bilingualNames } from "../editorial/bilingual-names.ts";
 import { groupingAnalysisHash, readQuotedPostTranslation } from "../enrichment/records.ts";
 import { deferHistoricalSelection } from "../events/group.ts";
 import { recomputeSelection } from "./selection-recompute.ts";
@@ -364,13 +365,17 @@ export async function publishArticleTx(
   const isChineseTitle = nativeChinese;
   // Without a written Chinese title, a Chinese original keeps its own title; a foreign one would
   // still be a half-finished card.
-  const zhTitle = analysis?.title_zh?.trim() ? analysis.title_zh : null;
+  // Model-written copy names foreign companies as 中文名（原文名） at first mention (editorial/bilingual-names.ts).
+  const zhTitle = analysis?.title_zh?.trim() ? bilingualNames(analysis.title_zh) : null;
   // A verbatim title/summary is the original full text, not a separately licensed summary.
   const title = pickString(
     f.title,
     post && verbatim ? `${post.authorName || post.handle || source.name}的原帖` : (zhTitle ?? (isChineseTitle ? collapseWhitespace(article.title) : null)),
   );
-  const summary = pickString(f.summary, post && summaryKind !== "summary" ? null : analysis?.summary_zh?.trim() || null);
+  const summary = pickString(
+    f.summary,
+    post && summaryKind !== "summary" ? null : analysis?.summary_zh?.trim() ? bilingualNames(analysis.summary_zh.trim()) : null,
+  );
   if (storedPostView && typeof f.summary === "string" && f.summary.trim()) storedPostView.summaryKind = "summary";
   const sourceExcerpt = summary ? null : excerpt;
   const displaySummary = summary ?? sourceExcerpt;
