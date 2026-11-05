@@ -15,4 +15,6 @@ npm run build --workspace @amp/web
 node e2e/demo-shots.ts
 ```
 
+`reader-en.png` 是英文界面（`/en`），资讯内容仍为中文。
+
 `model-settings.png` 是后台模型表单的旧截图，来自合成表单，不在本脚本范围内。

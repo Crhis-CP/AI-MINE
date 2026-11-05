@@ -17,6 +17,7 @@ const SHOTS = [
   { file: "reader-dark.png", path: "/", viewport: { width: 1440, height: 1000 }, scheme: "dark" },
   { file: "reader-mobile.png", path: "/", viewport: { width: 390, height: 844 }, scheme: "light" },
   { file: "about-flow-dark.png", path: "/about", viewport: { width: 1440, height: 1000 }, scheme: "dark" },
+  { file: "reader-en.png", path: "/en", viewport: { width: 1440, height: 1000 }, scheme: "light" },
 ] as const;
 
 async function freePort() {
