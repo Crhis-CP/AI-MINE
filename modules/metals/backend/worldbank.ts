@@ -95,7 +95,7 @@ export function worldbankFetcher(registry: MetalPriceRegistry, get: PageGetter =
       const request = async (url: string, file = false) => {
         if (!onSourceHost(source, url)) throw new Error("世界银行地址不在登记的 https 主机上");
         // The shared transport does not apply source hosts to each redirect hop: refuse redirects altogether here.
-        const response = await get(url, { maxRedirects: 0, ...(file ? { maxBytes: LIMIT } : {}) });
+        const response = await get(url, { maxRedirects: 0, retryDropped: true, ...(file ? { maxBytes: LIMIT } : {}) });
         if (!onSourceHost(source, response.url) || response.url !== url) throw new Error("世界银行请求发生跳转");
         if (response.status !== 200) throw new Error(`世界银行返回 HTTP ${response.status}`);
         return response;

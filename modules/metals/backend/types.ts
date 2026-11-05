@@ -3,10 +3,14 @@
 // so; later cards add fields, never rename one.
 import type { MetalPriceItem, MetalPriceSource, MetalPriceSourceKey } from "./registry.ts";
 
-/** A page request: guardedFetch in production, fixtures by address in tests. `url` is where any redirects ended. */
+/**
+ * A page request: guardedFetch in production, fixtures by address in tests. `url` is where any redirects ended.
+ * `retryDropped` (GET only) repeats a connection the far end dropped once, as the source listings do; timeouts,
+ * connect failures and HTTP errors are not retried and still fail the source for this run.
+ */
 export type PageGetter = (
   url: string,
-  opts?: { maxBytes?: number; maxRedirects?: number; method?: string; body?: string; headers?: Record<string, string> },
+  opts?: { maxBytes?: number; maxRedirects?: number; method?: string; body?: string; headers?: Record<string, string>; retryDropped?: boolean },
 ) => Promise<{ status: number; url: string; text(): string; body?: Buffer }>;
 
 /** A period as its source names it: calendar days, both ends included. */

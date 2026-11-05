@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { test } from "node:test";
 import { createPriceRelay } from "../deploy/metal-price-relay/handler.ts";
-import { fetchThroughPriceRelay } from "../modules/metals/backend/relay.ts";
+import { fetchCochilco, fetchThroughPriceRelay } from "../modules/metals/backend/relay.ts";
 import { COCHILCO_LIST_PATH, COCHILCO_ORIGIN, PRICE_RELAY_HEADERS as H, priceRelaySigningText } from "@amp/contracts/metal-price-relay";
 import type { guardedFetch } from "@amp/backend/lib/http-fetch";
 
@@ -53,8 +53,64 @@ test("only a timely signed fixed source request reaches the official source", as
   assert.equal(result.text(), "<html>official fixture</html>");
   await assert.rejects(
     fetchThroughPriceRelay(source, endpoint, privateKey, async (...args) => ({ ...(await transport(...args)), body: Buffer.from("tampered") }), now),
-    /verified/,
+    /与原件核对不上/,
   );
+});
+
+test("a relay or direct failure says which way was taken and what to check", async () => {
+  const answer = (status: number) => async () => ({ status, headers: new Headers(), body: Buffer.alloc(0), text: () => "", url: `${endpoint}?resource=x` });
+  // Each relay refusal is told apart: signature or clock, the official site, a version mismatch, the service itself.
+  for (const [status, reason] of [
+    [403, /拒绝了签名[\s\S]*时钟[\s\S]*公钥/],
+    [502, /没取到 Cochilco 原件/],
+    [400, /版本是否一致/],
+    [503, /HTTP 503[\s\S]*停用/],
+  ] as const)
+    await assert.rejects(fetchThroughPriceRelay(source, endpoint, privateKey, answer(status), now), reason);
+  const dropped = async () => {
+    throw new Error("fetch failed");
+  };
+  await assert.rejects(fetchThroughPriceRelay(source, endpoint, privateKey, dropped, now), /连不上海外取件服务 price-fetch\.example：fetch failed/);
+  // The relay request asks a dropped connection once more; the signature window allows it.
+  let options: Parameters<typeof guardedFetch>[1];
+  await fetchThroughPriceRelay(
+    source,
+    endpoint,
+    privateKey,
+    async (url, opts) => {
+      options = opts;
+      return answer(200)().then((r) => ({ ...r, url }));
+    },
+    now,
+  ).catch(() => undefined);
+  assert.equal(options?.retryDropped, true);
+  // A configured relay without its key file, and a direct read with no relay configured, are named as such.
+  const missing = Object.assign(new Error("ENOENT: no such file"), { code: "ENOENT" });
+  await assert.rejects(
+    fetchCochilco(
+      source,
+      {},
+      {
+        relayUrl: endpoint,
+        keyFile: "/run/price-relay/signing.pem",
+        get: dropped,
+        readKey: () => {
+          throw missing;
+        },
+      },
+    ),
+    /已配置海外取件服务，但读不到签名私钥 \/run\/price-relay\/signing\.pem：ENOENT/,
+  );
+  await assert.rejects(
+    fetchCochilco(source, {}, { relayUrl: null, keyFile: "", get: dropped, readKey: () => "" }),
+    /直连 Cochilco 失败（本机没有配置海外取件服务 METAL_PRICE_RELAY_URL）：fetch failed/,
+  );
+  const direct = await fetchCochilco(
+    source,
+    { maxRedirects: 0 },
+    { relayUrl: null, keyFile: "", get: async (url) => ({ ...(await answer(200)()), url }), readKey: () => "" },
+  );
+  assert.equal(direct.url, source);
 });
 
 test("redirect errors and oversized or fake PDF responses cannot become prices", async () => {
