@@ -16,8 +16,18 @@ import { promptText, promptVersion } from "../editorial/prompts.ts";
 export const GROUP_BODY_CHARS = 10_000;
 export const LEXICAL_RECALL_MIN = 0.25;
 export const RECALL_TOP_FACTS = 10;
+/** group_article judges at most this many candidate facts, in recall-similarity order (cost bound, Owner 2026-11). */
+export const GROUP_ARTICLE_CANDIDATES = 5;
+/** Only the most similar candidates (and their selected reports) carry the full original text into group_article. */
+export const GROUP_FULL_TEXT_CANDIDATES = 2;
+/** Other group_article reports carry title, stored summary and fact frame plus the head of the original, so verbatim quotes stay possible. */
+export const GROUP_BRIEF_EXCERPT_CHARS = 600;
+/** A brief report with no stored summary gets a longer original excerpt instead. */
+export const GROUP_BRIEF_FALLBACK_CHARS = 1_500;
 export const BATCH_PROMPT_VERSION = promptVersion("group-batch", "group-value");
 export const RELATE_PROMPT_VERSION = promptVersion("group-batch", "group-pair", "group-signal");
+/** Several independent review pairs that share one report A, asked in one request. */
+export const PAIR_BATCH_PROMPT_VERSION = promptVersion("group-pair-batch");
 export const FACT_CONVERGENCE_VERSION = "same-occurrence-canonical-v1";
 
 export const RELATIONS = ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP"] as const;
@@ -73,6 +83,7 @@ export interface Verdict {
 export const BATCH_SYSTEM = `${promptText("group-batch")}\n\n${promptText("group-value")}`;
 export const PAIR_SYSTEM = promptText("group-pair");
 export const SIGNAL_SYSTEM = promptText("group-signal");
+export const PAIR_BATCH_SYSTEM = promptText("group-pair-batch");
 
 const RelationSchema = z.enum(RELATIONS);
 
@@ -172,6 +183,18 @@ export const PairSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
+export const PairBatchSchema = z.object({
+  decisions: z.array(
+    z.object({
+      id: z.string().regex(/^C[1-9]\d*$/),
+      relation: RelationSchema,
+      difference: z.string().max(400).catch(""),
+      evidence,
+      confidence: z.number().min(0).max(1),
+    }),
+  ),
+});
+
 export const SignalSchema = z.object({
   decisions: z.array(z.object({ id: z.string().regex(/^C[1-9]\d*$/), relation: RelationSchema, confidence: z.number().min(0).max(1), evidence })),
 });
@@ -181,14 +204,26 @@ function when(at: Date | null): string {
   return (at.getTime() + 8 * 3600_000) % 86400_000 === 0 ? beijingDate(at) : `${beijingDate(at)} ${beijingTime(at)}`;
 }
 
-export function describeReport(r: ReportView, label: string, extra = ""): string {
+/**
+ * The original evidence line. A brief report keeps the head of its original (verbatim quotes stay
+ * possible) and is labelled as an excerpt, so omitted detail is not read as absent.
+ */
+function originalEvidence(r: ReportView, brief: boolean): string {
+  const text = r.originalText;
+  if (!brief || text === undefined) return `原文证据：${text ?? "（无）"}`;
+  const limit = (r.summary ?? "").trim() ? GROUP_BRIEF_EXCERPT_CHARS : GROUP_BRIEF_FALLBACK_CHARS;
+  if (text.length <= limit) return `原文证据：${text}`;
+  return `原文证据（节选前${limit}字，其余未随附；未随附的内容不等于原文没有）：${text.slice(0, limit)}`;
+}
+
+export function describeReport(r: ReportView, label: string, extra = "", brief = false): string {
   const f = r.frame;
   return [
     `【${label}】${extra}`,
     `标题：${r.title}`,
     r.scope ? `稿件范围：${r.scope === "single" ? "单一报道" : r.scope === "composite" ? "综合稿" : "未确认"}` : null,
     `来源：${r.source}${r.firstParty ? "（当事方/官方）" : ""}｜${r.sourceTimeLabel === undefined ? `发布时间：${when(r.at)}` : `时间信息：${r.sourceTimeLabel}`}`,
-    `原文证据：${r.originalText ?? "（无）"}`,
+    originalEvidence(r, brief),
     `法域：${r.jurisdiction ?? "未知"}`,
     `摘要：${(r.summary ?? "").slice(0, 360) || "（无）"}`,
     f && (f.subject || f.action || f.object)
@@ -201,30 +236,50 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
 
 export const candidateKey = (index: number) => `C${index + 1}`;
 
-export function batchUser(query: ReportView, cands: CandidateView[], queryLabel = "新报道", reading: ReadingContext[] = []): string {
+/**
+ * The query always carries its full original. Candidates after the first `fullTextCandidates` (in
+ * recall order) and the reading background are described briefly (describeReport).
+ */
+export function batchUser(
+  query: ReportView,
+  cands: CandidateView[],
+  queryLabel = "新报道",
+  reading: ReadingContext[] = [],
+  fullTextCandidates = Number.POSITIVE_INFINITY,
+): string {
+  const briefReading = Number.isFinite(fullTextCandidates);
   const list = cands
     .map((c, i) =>
       [
-        describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`),
+        describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`, i >= fullTextCandidates),
         queryLabel !== "新报道"
           ? null
           : c.selected && c.selectedReport
             ? c.selectedReport.articleId && c.selectedReport.articleId === c.report.articleId
               ? "【已公开精选】以上代表报道已向读者展示，增量与该报道比较。"
-              : describeReport(c.selectedReport, "已公开精选", "（增量只与这篇已展示的内容比较）")
+              : describeReport(c.selectedReport, "已公开精选", "（增量只与这篇已展示的内容比较）", i >= fullTextCandidates)
             : "【尚无公开精选】此候选仅用于身份判断，不代表读者已经看过。",
       ]
         .filter(Boolean)
         .join("\n"),
     )
     .join("\n\n");
-  const background = reading.map(({ report }, i) => describeReport(report, `已公开精选阅读背景 R${i + 1}`, "（只比较信息覆盖，不是事实候选）")).join("\n\n");
+  const background = reading
+    .map(({ report }, i) => describeReport(report, `已公开精选阅读背景 R${i + 1}`, "（只比较信息覆盖，不是事实候选）", briefReading))
+    .join("\n\n");
   const inventory = `事实候选数：${cands.length}\n事实候选编号：${JSON.stringify(cands.map((_, i) => candidateKey(i)))}`;
   return `${inventory}\n\n${describeReport(query, queryLabel)}\n\n${list}${background ? `\n\n${background}` : ""}\n\n${queryLabel}与每个候选的关系是什么？${reading.length ? "同时比较已公开精选的覆盖；无事实候选时 decisions=[]。" : ""}`;
 }
 
 export function pairUser(a: ReportView, b: ReportView): string {
   return `${describeReport(a, "报道 A")}\n\n${describeReport(b, "报道 B")}\n\n这两篇报道是什么关系？`;
+}
+
+/** Independent pairs that share report A, each B fully described, answered as one decision per candidate. */
+export function pairBatchUser(a: ReportView, bs: ReportView[]): string {
+  const inventory = `候选数：${bs.length}\n候选编号：${JSON.stringify(bs.map((_, i) => candidateKey(i)))}`;
+  const list = bs.map((b, i) => describeReport(b, `候选 ${candidateKey(i)}（报道 B）`)).join("\n\n");
+  return `${inventory}\n\n${describeReport(a, "报道 A")}\n\n${list}\n\n报道 A 与每个候选分别是什么关系？`;
 }
 
 /** Missing, duplicate and unknown candidate IDs are incomplete answers, never unrelatedness. */

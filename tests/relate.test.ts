@@ -12,6 +12,13 @@ import {
   verdictsByFact,
   sameOccurrence,
   storyForDevelopment,
+  GROUP_ARTICLE_CANDIDATES,
+  GROUP_BRIEF_EXCERPT_CHARS,
+  GROUP_BRIEF_FALLBACK_CHARS,
+  GROUP_FULL_TEXT_CANDIDATES,
+  PAIR_BATCH_SYSTEM,
+  PairBatchSchema,
+  pairBatchUser,
   type ReportView,
   type RelationEvidence,
 } from "../packages/backend/src/events/relate.ts";
@@ -128,4 +135,67 @@ test("date-only grouping context does not manufacture a midnight publication clo
   const input = batchUser({ ...a, at: new Date("2026-10-15T00:00:00+08:00") }, []);
   assert.match(input, /发布时间：2026-10-15\n/);
   assert.doesNotMatch(input, /发布时间：2026-10-15 00:00/);
+});
+
+test("group_article sends full originals only for the query and the leading candidates; the rest carry summary, frame and an excerpt", () => {
+  const long = (label: string) => `${label} ${"Andes project construction permit detail. ".repeat(80)}`;
+  const report = (label: string, summary: string | null): ReportView => ({ ...a, title: label, summary, originalText: long(label) });
+  const candidate = (n: number, summary: string | null) => ({
+    factId: n,
+    storyId: n,
+    factTitle: `事实${n}`,
+    members: 1,
+    storyRoot: true,
+    score: 1 - n / 10,
+    report: report(`candidate-${n}`, summary),
+  });
+  const cands = [
+    candidate(1, "摘要一"),
+    candidate(2, "摘要二"),
+    candidate(3, "摘要三"),
+    { ...candidate(4, null), selected: true, selectedReport: report("selected-4", "精选摘要") },
+  ];
+  const input = batchUser(report("query", "新稿摘要"), cands, "新报道", [{ report: report("background", null) }], GROUP_FULL_TEXT_CANDIDATES);
+  const block = (label: string) => input.split("\n\n").find((part) => part.includes(`标题：${label}\n`))!;
+  for (const label of ["query", "candidate-1", "candidate-2"]) {
+    assert.ok(block(label).includes(`原文证据：${long(label)}`), `${label} keeps its full original`);
+    assert.doesNotMatch(block(label), /节选/);
+  }
+  assert.ok(block("candidate-3").includes(`原文证据（节选前${GROUP_BRIEF_EXCERPT_CHARS}字`), "a stored summary replaces the full original");
+  assert.ok(block("candidate-3").includes(`${long("candidate-3").slice(0, GROUP_BRIEF_EXCERPT_CHARS)}\n`));
+  assert.ok(!block("candidate-3").includes(long("candidate-3").slice(0, GROUP_BRIEF_EXCERPT_CHARS + 1)));
+  assert.match(block("candidate-3"), /摘要：摘要三\n事实要素：主体=Alpha/);
+  for (const label of ["candidate-4", "background"]) {
+    assert.ok(block(label).includes(`原文证据（节选前${GROUP_BRIEF_FALLBACK_CHARS}字`), `${label} without a summary falls back to a longer excerpt`);
+    assert.ok(!block(label).includes(long(label).slice(0, GROUP_BRIEF_FALLBACK_CHARS + 1)));
+  }
+  assert.ok(block("selected-4").includes(`原文证据（节选前${GROUP_BRIEF_EXCERPT_CHARS}字`), "a later candidate's selected report is brief too");
+  assert.ok(input.length < long("x").length * 5, "three full originals and short excerpts instead of seven full originals");
+  assert.equal(batchUser(a, [candidate(3, "摘要三")]).includes("节选"), false, "other callers keep the full rendering");
+  const short = { ...candidate(3, "摘要三"), report: { ...b, summary: "摘要三" } };
+  assert.ok(
+    batchUser(a, [short, short, short], "新报道", [], GROUP_FULL_TEXT_CANDIDATES).includes(`原文证据：${text}`),
+    "a short original is not labelled as an excerpt",
+  );
+  assert.equal(GROUP_ARTICLE_CANDIDATES, 5);
+});
+
+test("batched review pairs map each decision back to its own candidate", () => {
+  const user = pairBatchUser({ ...a, title: "query" }, [
+    { ...b, title: "B1" },
+    { ...b, title: "B2" },
+  ]);
+  assert.match(user, /^候选数：2\n候选编号：\["C1","C2"\]\n\n【报道 A】\n标题：query/);
+  assert.match(user, /【候选 C1（报道 B）】\n标题：B1[\s\S]*【候选 C2（报道 B）】\n标题：B2/);
+  assert.match(PAIR_BATCH_SYSTEM, /SAME_OCCURRENCE（同一次发生）/);
+  const answer = PairBatchSchema.parse({
+    decisions: [
+      { id: "C2", relation: "UNRELATED", confidence: 0.9, difference: "不同项目" },
+      { id: "C1", relation: "SAME_STORY", confidence: 0.95, difference: "后续批准", evidence },
+    ],
+  });
+  assert.equal(completeDecisions(answer.decisions, 2), true);
+  assert.equal(completeDecisions(answer.decisions.slice(0, 1), 2), false);
+  assert.equal(answer.decisions.find((d) => d.id === "C2")!.evidence, null);
+  assert.equal(PairBatchSchema.safeParse({ a: "x", b: "y", relation: "SAME_STORY", confidence: 0.9 }).success, false, "a pair answer is not a batch answer");
 });

@@ -140,7 +140,9 @@ import {
 import {
   BATCH_SYSTEM,
   BATCH_PROMPT_VERSION,
+  GROUP_ARTICLE_CANDIDATES,
   GROUP_BODY_CHARS,
+  GROUP_FULL_TEXT_CANDIDATES,
   LEXICAL_RECALL_MIN,
   RECALL_TOP_FACTS,
   ValueBatchSchema,
@@ -590,7 +592,7 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
   const prepared = await relationInput(
     [query, ...cands.flatMap((c) => [c.report, ...(c.selectedReport ? [c.selectedReport] : [])]), ...reading.map((r) => r.report)],
     BATCH_SYSTEM,
-    () => batchUser(query, cands, "新报道", reading),
+    () => batchUser(query, cands, "新报道", reading, GROUP_FULL_TEXT_CANDIDATES),
     checkContext,
   );
   const res = await chatJson({
@@ -1341,7 +1343,8 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   const selectedSameUrl = exactViews.some((c) => c.selected);
   const recalled = selectedSameUrl ? exact : await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS);
   if (sameUrl && !recalled.some((r) => r.factId === sameUrl.fact_id)) recalled.unshift(exact[0]!);
-  const cands = selectedSameUrl ? exactViews : await candidateViews(recalled, undefined, articleId);
+  // Recall order (same URL first, then similarity) decides which candidates are judged and which carry full text.
+  const cands = selectedSameUrl ? exactViews : (await candidateViews(recalled, undefined, articleId)).slice(0, GROUP_ARTICLE_CANDIDATES);
   const reading = selectedSameUrl
     ? []
     : await recallSelectedBackground(
