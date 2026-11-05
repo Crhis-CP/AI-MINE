@@ -15,6 +15,7 @@ import {
   Section,
   EvidenceLinks,
   natures,
+  PolicyLifecycle,
   stages,
   stateText,
   timeLabel,
@@ -265,6 +266,7 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed 
           </Section>
         )}
         <Section id="legal" title="法律状态与适用时间">
+          <PolicyLifecycle brief={policy.legal_brief} />
           <dl className="grid gap-3 text-[13px] sm:grid-cols-2">
             {[
               ["文件性质", natures[legal.nature.value], legal.nature.evidence_ids],

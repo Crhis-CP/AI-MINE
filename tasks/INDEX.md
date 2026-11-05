@@ -388,6 +388,7 @@
 | [TASK-0516](TASK-0516.md) | T-0101 | M3 | architect | locally_verified | 首页资讯地图（完整陆地点阵、不画国界）与国家筛选即选即用 | — |
 | [TASK-0517](TASK-0517.md) | T-0101 | M3 | architect | locally_verified | 资讯地图按时间窗口统计并标出增长，点选国家原地筛选下方列表 | — |
 | [TASK-0518](TASK-0518.md) | T-0101 | M3 | architect | locally_verified | 阅读页：正文每行约 38 字、宋体/黑体切换、列表 j/k 快捷键 | — |
+| [TASK-0519](TASK-0519.md) | T-0101 | M3 | architect | locally_verified | 报告刊头加入新标识；法规页以测量三角点显示生命周期 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

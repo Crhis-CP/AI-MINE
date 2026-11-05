@@ -17,6 +17,7 @@ import { SourceAvatar } from "../../components/ui/SourceAvatar";
 import { Halftone } from "./Halftone";
 import { ShareLink } from "../../components/ShareLink";
 import { Nameplate } from "./Nameplate";
+import { Wordmark } from "../../components/Logo";
 import { IssueDots } from "./IssueDots";
 import { EDITION, KIND_LABEL, MOTTO, dateLine, dateMark, headline, issueNumber, metricItems, neighbourLabel, reportPath, shortDay } from "./format";
 
@@ -45,7 +46,10 @@ function Masthead({ report, index, quiet = false }: { report: ReportDetail; inde
             {/* max-w-full: on the narrowest screens the nameplate scales down to its column instead of running under the 报眼. */}
             <Nameplate which={report.kind} className="block h-[54px] w-auto max-w-full @[520px]:h-[74px] @[880px]:h-[98px] @[1040px]:h-[112px]" />
           </h1>
-          <p className="mt-3 text-[11.5px] tracking-[0.36em] text-ink-4 @[880px]:mt-4 @[880px]:text-[12.5px]">{SITE.name.toUpperCase()}</p>
+          {/* The site lockup under the nameplate, as a paper prints its publisher (DEC-78 logo). */}
+          <div className="mt-3 @[880px]:mt-4">
+            <Wordmark size={14} />
+          </div>
         </div>
         {/* 报眼: the box beside the nameplate, as a Chinese daily sets it: the issue and the date in the
             nameplate's dots, and on wider paper the issue calendar beside them. */}

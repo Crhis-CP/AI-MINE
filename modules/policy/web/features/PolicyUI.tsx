@@ -198,3 +198,46 @@ export function PolicyError() {
     </div>
   );
 }
+
+const LIFECYCLE = [
+  { key: "proposed", label: "拟议" },
+  { key: "consultation", label: "征求意见" },
+  { key: "adopted", label: "已通过" },
+  { key: "published", label: "已公布" },
+  { key: "in_force", label: "施行" },
+] as const;
+
+/**
+ * The document's lifecycle as survey points (direction C, DEC-78): only the stage the record states is
+ * marked; the other points are not claimed to have happened (a document may skip consultation), and an
+ * unconfirmed stage marks nothing. Repeal is shown beside the line. The dimensions table below holds the evidence.
+ */
+export function PolicyLifecycle({ brief }: { brief: Policy["legal_brief"] }) {
+  const inForce = brief.in_force === "yes" || brief.in_force === "partial";
+  const current = inForce ? "in_force" : brief.stage;
+  return (
+    <div className="mb-4">
+      <ol className="flex items-start" aria-label="文件生命周期">
+        {LIFECYCLE.map((point, i) => {
+          const on = point.key === current;
+          return (
+            <li key={point.key} className="relative flex flex-1 flex-col items-center text-center" aria-current={on ? "step" : undefined}>
+              {i > 0 && <span aria-hidden="true" className="absolute right-1/2 top-[9px] h-px w-full bg-line-strong" />}
+              <svg viewBox="0 0 20 18" className={`relative size-5 ${on ? "text-accent" : "text-ink-4"}`} aria-hidden="true" focusable="false">
+                <path d="M10 2 L18 16 H2 Z" className={on ? "fill-current" : "fill-surface stroke-current"} strokeWidth={1.4} strokeLinejoin="round" />
+                <circle cx="10" cy="11.5" r="1.6" className={on ? "fill-surface" : "fill-current"} />
+              </svg>
+              <span className={`mt-1 text-[12.5px] ${on ? "font-semibold text-ink" : "text-ink-4"}`}>
+                {point.key === "in_force" && brief.in_force === "partial" ? "部分施行" : point.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-2 text-[12.5px] text-ink-4">
+        {current === "unknown" ? "所处阶段尚未确认；" : "只标出原文确认的当前阶段；"}
+        {brief.repeal === "repealed" ? "本文件已废止。" : brief.repeal === "partly_repealed" ? "本文件部分废止。" : "依据见下表。"}
+      </p>
+    </div>
+  );
+}
