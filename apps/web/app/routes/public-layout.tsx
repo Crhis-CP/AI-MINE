@@ -7,7 +7,7 @@ import { SiteHeader } from "../components/shell/SiteHeader";
 import { SiteFooter } from "../components/shell/SiteFooter";
 import { MobileTabBar } from "../components/shell/MobileTabBar";
 import { MobileFooter } from "../components/shell/MobileFooter";
-import { BackToTop, NavigationProgress } from "../components/shell/Chrome";
+import { BackToTop, ListKeys, NavigationProgress } from "../components/shell/Chrome";
 import { apiGet } from "../lib/api.server";
 import { ErrorBoundary as PageError } from "../root";
 import { WEB_MODULES } from "@amp/site/modules/web";
@@ -58,6 +58,7 @@ function SiteShell({ children }: { children: ReactNode }) {
         <SiteFooter />
         <MobileTabBar />
         <BackToTop />
+        <ListKeys />
       </div>
     </SearchProvider>
   );

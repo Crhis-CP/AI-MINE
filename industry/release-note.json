@@ -13,7 +13,8 @@
       "网站标识换成五臂星系，浏览器标签、桌面图标和页面顶部一起更新。",
       "页面改用暖色纸面和金色点缀，英文和数字换用新字体，列表小字加大一号。",
       "电脑上的栏目移到顶部导航，页面底部新增页脚。",
-      "电脑和平板首页新增资讯地图，可看今天、近 7 天、近 30 天，点击国家即在原地筛选；国家筛选选中即生效。"
+      "电脑和平板首页新增资讯地图，可看今天、近 7 天、近 30 天，点击国家即在原地筛选；国家筛选选中即生效。",
+      "文章页可切换宋体和黑体，正文每行约 38 个字；列表可用 j / k 键上下切换。"
     ]
   },
   "fragments": [
@@ -31,6 +32,7 @@
     "changes/TASK-0514-type-and-colour.md",
     "changes/TASK-0515-top-navigation.md",
     "changes/TASK-0516-news-map.md",
-    "changes/TASK-0517-live-news-map.md"
+    "changes/TASK-0517-live-news-map.md",
+    "changes/TASK-0518-reading.md"
   ]
 }

@@ -603,6 +603,14 @@
   line-height: 1.8;
   letter-spacing: 0.012em;
   overflow-wrap: anywhere;
+  /* At most about 38 Chinese characters a line (DEC-78 reading page). */
+  max-width: 38em;
+}
+/* The reader's 宋体 choice for long reads: system serif faces only, nothing is downloaded. */
+:root[data-reading="serif"] .prose,
+:root[data-reading="serif"] .reading-serif {
+  font-family: "Songti SC", "STSong", "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif;
+  letter-spacing: 0.02em;
 }
 @media (min-width: 80rem) {
   .prose {

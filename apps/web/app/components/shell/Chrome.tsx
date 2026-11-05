@@ -51,3 +51,35 @@ export function BackToTop() {
     </button>
   );
 }
+
+/**
+ * j / k move to the next or previous item on a list page (the item titles, `.feed-title`), as feed
+ * readers do; ignored while typing, with modifier keys, or when the page has no list.
+ */
+export function ListKeys() {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || (event.key !== "j" && event.key !== "k")) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable=''], [contenteditable='true'], dialog[open]")) return;
+      const titles = [...document.querySelectorAll<HTMLElement>("#main .feed-title")].filter((el) => el.getClientRects().length > 0);
+      if (!titles.length) return;
+      const current = titles.indexOf(document.activeElement as HTMLElement);
+      let next: number;
+      if (current >= 0) next = current + (event.key === "j" ? 1 : -1);
+      else {
+        // Nothing focused yet: start from the first title below the top of the screen.
+        const below = titles.findIndex((el) => el.getBoundingClientRect().top > 64);
+        next = event.key === "j" ? Math.max(0, below) : Math.max(0, (below < 0 ? titles.length : below) - 1);
+      }
+      const el = titles[Math.min(titles.length - 1, Math.max(0, next))];
+      if (!el) return;
+      event.preventDefault();
+      el.focus({ preventScroll: true });
+      el.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  return null;
+}

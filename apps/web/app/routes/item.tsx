@@ -5,6 +5,7 @@ import { Sheet } from "../components/ui/Sheet";
 import { ReaderToolbar } from "../features/item/ReaderTools";
 import { useCurrentSection } from "../lib/motion";
 import { markRead } from "../lib/local-state";
+import { ReadingFaceToggle } from "../components/ui/ReadingFace";
 import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
@@ -226,6 +227,7 @@ export default function ItemPage() {
         {originalLabel} <IconExternal size={13} />
       </a>
       <StarButton item={item} size={32} />
+      {bodyHtml && <ReadingFaceToggle />}
       {moreMenu}
     </div>
   );
@@ -394,7 +396,7 @@ export default function ItemPage() {
           {item.summary && (
             <section className="mt-7 xl:mt-8">
               <div className="mb-2 text-[13px] font-semibold text-accent">{summaryOnly ? "摘要" : "AI 导读"}</div>
-              <p className="text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
+              <p className="reading-serif max-w-[38em] text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
             </section>
           )}
 
