@@ -1313,6 +1313,15 @@
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
     },
+    "publication.metal_price_holds": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["series_key", "period_start", "period_label", "status"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
     "enrichment.quote_translations": {
       "module": "enrichment",
       "access": "business",

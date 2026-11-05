@@ -55,6 +55,18 @@ export function headlineIndex(prices: MetalPrices, metal: Metal): number {
   return order[0]!.index;
 }
 
+/**
+ * The opening words of a held quote's footnote (backend/read.ts HELD_MARK): its newest value jumped too far and waits
+ * for the next period, so the quote still shows the last value that went in.
+ */
+export const HELD_MARK = "待下期确认";
+
+/** Whether the quote's newest value is held back alone, waiting for the next period to confirm it. */
+export function isHeld(prices: Pick<MetalPrices, "notes">, quote: Quote): boolean {
+  if (quote.footnote === null) return false;
+  return prices.notes.some((note) => note.ref === quote.footnote && note.text.startsWith(`${HELD_MARK}：`));
+}
+
 /** A decimal string with thousands separators; `decimals` fixes the places, else the published digits are kept. */
 export function priceText(value: string, decimals: number | null): string {
   if (decimals !== null) {

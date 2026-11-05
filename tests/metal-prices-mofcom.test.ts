@@ -20,7 +20,7 @@ const fixture = (id: string) => readFileSync(new URL(`./fixtures/metal-prices/mo
 const NOW = new Date("2026-10-09T00:00:00Z");
 after(() => closeDb());
 beforeEach(async () => {
-  await sql`TRUNCATE publication.metal_prices`;
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_holds`;
 });
 function pages(edit: (id: string, text: string) => string = (_, text) => text, response: Partial<Awaited<ReturnType<PageGetter>>> = {}) {
   const calls: Parameters<PageGetter>[] = [];
@@ -105,7 +105,7 @@ test("recorded requests preserve two newest single-date periods and unrounded nu
   assert.equal(later.length, 3);
 });
 
-test("first refresh stores six original values; repeated week touches only; revised excessive price holds the whole week", async () => {
+test("first refresh stores six original values; repeated week touches only; a revised excessive price holds that metal alone", async () => {
   assert.equal((await run()).inserted, 6);
   const first = await snapshot();
   assert.equal((await run(pages().get, new Date(NOW.getTime() + 1000))).touched, 3);
@@ -115,9 +115,18 @@ test("first refresh stores six original values; repeated week touches only; revi
     first.map(({ fetched_at: _, ...row }) => row),
   );
   const result = await run(pages((id, text) => (id === "224011" ? text.replace('"DATA":"111975"', '"DATA":"228194.4"') : text)).get);
-  assert.equal(result.ok, false);
-  assert.match(result.periods[0].held!, /倍/);
-  assert.deepEqual(await snapshot(), again);
+  // The week's other metals are read again as usual; copper keeps its stored value and waits for the next week.
+  assert.equal(result.ok, true);
+  assert.equal(result.periods[0].held, null);
+  assert.deepEqual(
+    result.periods[0].pending?.map(({ key, value }) => [key, value]),
+    [["mofcom.copper", "228194.4"]],
+  );
+  assert.match(result.periods[0].pending![0]!.reason, /倍/);
+  assert.deepEqual(
+    (await snapshot()).map(({ fetched_at: _, ...row }) => row),
+    again.map(({ fetched_at: _, ...row }) => row),
+  );
 });
 
 test("missing value or mismatched name holds only that metal; unit drift holds the whole period", async () => {
