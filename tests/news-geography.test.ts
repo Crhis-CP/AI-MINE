@@ -7,7 +7,7 @@ import { after, test } from "node:test";
 import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle, ANALYZE_PROMPT_VERSION } from "@amp/backend/editorial/analyze";
+import { analyzeArticle, analyzePromptVersion } from "@amp/backend/editorial/analyze";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { setVisibility } from "@amp/backend/admin/content";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -129,7 +129,7 @@ async function fixture(body: string, geo: unknown = undefined) {
   if (geo !== undefined) {
     const checked = validateGeography(geo, { ...material(body), title: input.title });
     await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,title_zh,summary_zh,selected,output)
-      VALUES(${articleId},1,'model','synthetic-only',${ANALYZE_PROMPT_VERSION},'pass',${input.title},'合成测试导读，说明矿业项目与经营活动，仅供本地工程验证。',false,${sql.json({ scores: null, geography: checked })})`;
+      VALUES(${articleId},1,'model','synthetic-only',${analyzePromptVersion()},'pass',${input.title},'合成测试导读，说明矿业项目与经营活动，仅供本地工程验证。',false,${sql.json({ scores: null, geography: checked })})`;
   }
   await publishArticle(articleId);
   return { articleId, input };

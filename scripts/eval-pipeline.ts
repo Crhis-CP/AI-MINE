@@ -16,8 +16,8 @@ import { closeDb, initializeDb } from "@amp/backend/db";
 import { selectionDatasetManifest } from "@amp/backend/admin/selectbench";
 import { currentModelConfiguration } from "@amp/backend/admin/models";
 import {
-  ANALYZE_PROMPT_VERSION,
-  SELECTION_PROMPT_VERSION,
+  analyzePromptVersion,
+  selectionPromptVersion,
   scoringConfirmed,
   evaluationInputFingerprint,
   normalizeAnalysis,
@@ -73,8 +73,8 @@ export async function evaluatePipeline(options: { dataset: string; output: strin
     datasetId: dataset.id,
     datasetVersion: dataset.version,
     inputManifest: sha256(stableJson(identities)),
-    ruleHash: sha256(stableJson([SELECTION, SELECTION_PROMPT_VERSION, scoringConfirmed()])),
-    promptVersion: ANALYZE_PROMPT_VERSION,
+    ruleHash: sha256(stableJson([SELECTION, selectionPromptVersion(), scoringConfirmed()])),
+    promptVersion: analyzePromptVersion(),
     release: process.env.AMP_RELEASE ?? "dev",
     synthetic: dataset.synthetic,
     startedAt: new Date().toISOString(),

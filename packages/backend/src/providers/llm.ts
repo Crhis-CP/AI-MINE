@@ -140,6 +140,13 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   subject: string;
   promptVersion: string;
   system: string;
+  /**
+   * A leading material several requests share (the shared analysis layout): the request is sent as
+   * [system, user(material), assistant(acknowledgement), user(user)], so every request on the same material starts
+   * with the same bytes and a provider's prefix cache covers them. The constant assistant turn keeps the roles
+   * alternating for providers that refuse two user messages in a row. The receipt identity covers every message.
+   */
+  prefix?: ChatPrefix;
   user: string | ContentPart[];
   schema: S;
   temperature?: number;
@@ -155,6 +162,20 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
   json?: boolean;
   parse?: (content: string) => unknown;
+}
+
+export interface ChatPrefix {
+  material: string;
+  acknowledgement: string;
+}
+
+/**
+ * Every user-side text of a request as one string, for its identity and request summary: the user message alone
+ * (unchanged for requests without a prefix), or the material, the acknowledgement and the step message.
+ */
+export function chatUserText(opts: { prefix?: ChatPrefix; user: string | ContentPart[] }): string {
+  const user = typeof opts.user === "string" ? opts.user : JSON.stringify(opts.user);
+  return opts.prefix ? `${opts.prefix.material}\n\n${opts.prefix.acknowledgement}\n\n${user}` : user;
 }
 
 export interface ChatJsonResult<T> {
@@ -250,14 +271,24 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
 
   const temperature = opts.temperature ?? 0.2;
   const maxTokens = Math.max(opts.maxTokens ?? 1500, opts.registeredProbe ? 16 : 512) + (spec.key.endsWith("-think") ? 4000 : 0);
-  const userText = typeof opts.user === "string" ? opts.user : JSON.stringify(opts.user);
+  const stepText = typeof opts.user === "string" ? opts.user : JSON.stringify(opts.user);
+  // The identity and summary cover the material and acknowledgement too: with a prefix the step message alone can be
+  // the same for many materials.
+  const userText = chatUserText(opts);
+  const layout = opts.prefix ? { layout: "prefix-v1" } : {};
   const body: Record<string, unknown> = {
     model: spec.model,
     messages: [
       // A prompt given as one user message (the title/summary prompts) has no system message.
       ...(opts.system ? [{ role: "system", content: opts.system }] : []),
+      ...(opts.prefix
+        ? [
+            { role: "user", content: opts.prefix.material },
+            { role: "assistant", content: opts.prefix.acknowledgement },
+          ]
+        : []),
       // Multimodal parts go through as parts; plain objects are sent as JSON text.
-      { role: "user", content: typeof opts.user === "string" || Array.isArray(opts.user) ? opts.user : userText },
+      { role: "user", content: typeof opts.user === "string" || Array.isArray(opts.user) ? opts.user : stepText },
     ],
     temperature,
     max_tokens: maxTokens,
@@ -348,6 +379,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       ...imageTransport,
       ...(registered ? registeredIdentity : {}),
       ...(opts.policyContext ? { policy: opts.policyContext } : {}),
+      ...layout,
       model: spec.model,
       promptVersion: opts.promptVersion,
       system: sha256(opts.system),
@@ -362,6 +394,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       ...registeredIdentity,
       ...imageTransport,
       ...(opts.policyContext ? { policy: opts.policyContext } : {}),
+      ...layout,
       model: spec.model,
       promptVersion: opts.promptVersion,
       system: sha256(opts.system),
@@ -379,6 +412,8 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       ...registeredSummary,
       ...imageTransport,
       ...(opts.policyContext ?? {}),
+      ...layout,
+      ...(opts.prefix ? { prefixHash: sha256(`${opts.prefix.material}\n\n${opts.prefix.acknowledgement}`), stepHash: sha256(stepText) } : {}),
       promptVersion: opts.promptVersion,
       systemHash: sha256(opts.system),
       userHash: sha256(userText),

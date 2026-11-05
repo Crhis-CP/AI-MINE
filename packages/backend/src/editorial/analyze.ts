@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
 import { modelSourceDate, modelSourceDateLabel } from "./source-time.ts";
 import { beginMaterialGrouping } from "../content/grouping.ts";
@@ -7,8 +6,9 @@ import { ModelContentFiltered } from "../providers/model-fallback.ts";
 import { evaluateSourcePolicy, readCurrentSourcePolicy } from "../admin/sources.ts";
 import { prepareNewsFallback, lockNewsProcessingPermissions, type NewsFallbackInput } from "../providers/news-fallback.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
-// analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
-// (industry/prompts/):
+// analyzeArticle: the judging and writing steps, each with its own rules from the industry pack
+// (industry/prompts/), laid out per ANALYSIS_PROMPT_LAYOUT (analysis-layout.ts: one shared system prompt and material
+// for every step by default, or each step's own prompt):
 // Missing material waits before any model request.
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
 //      item; UNKNOWN goes on like PASS;
@@ -20,12 +20,12 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 // Material with only a title or a feed summary has its article page fetched before it is judged.
 import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory, type CategoryKey } from "@amp/contracts/taxonomy";
-import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
-import { attentionScore, MAJOR_COMPANIES, meetsThreshold, NOISE_TYPES, SELECTION, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";
-import { config, isProduction } from "../config.ts";
+import { attentionScore, meetsThreshold, NOISE_TYPES, SELECTION, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";
+import { analysisPromptLayout, config, isProduction, type AnalysisPromptLayout } from "../config.ts";
 import { sql } from "../db.ts";
-import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
+import { chatJson, chatUserText, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ChatPrefix, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { collapseWhitespace, normalizedUppercase, usableSourceText, originalPostCopy } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
@@ -42,6 +42,7 @@ import { pageFetchable } from "../content/extract.ts";
 import { commitProcessingResult } from "../content/materials.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import {
+  articlePromptContext,
   buildArticlePrompt,
   buildShortTweetPrompt,
   buildLongTweetPrompt,
@@ -56,55 +57,68 @@ import {
   parseShortPostOutput,
   PREFILTER_SYSTEM,
   prefilterUser,
+  publisherLines,
   translateInputOf,
   UNDERSTAND_SYSTEM,
-  UNDERSTAND_CONFIG,
   understandUser,
   type IdentityGuard,
 } from "./writing.ts";
-import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
-import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } from "./prompts.ts";
-import { GEOGRAPHY_DICTIONARY, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
+import { CATEGORY_TAGS, ENTITIES, ITEM_TYPES, normalizeTags } from "./vocabulary.ts";
+import { currentPrefilter, promptText, promptVersion } from "./prompts.ts";
+import { geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
+import {
+  MEND_CONFIG,
+  promptVersionsFor,
+  SCORE_CONFIG,
+  scoreStandardVersion,
+  SHARED_ANALYSIS_SYSTEM,
+  sharedMaterial,
+  sharedRequest,
+  sharedSystemWithScoreRules,
+  STRUCTURE_CONFIG,
+  type AnalysisStep,
+} from "./analysis-layout.ts";
 import { stableJson } from "../lib/ids.ts";
 import { LEGACY_SUMMARY_MIN_CHARS, originalPostInputBlocked, verbatimAdmissionRequired } from "../lib/original-post-admission.ts";
 
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 
-const ZH_COUNT = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
-
-/** The structure step's prompt (it writes nothing a reader sees), filled from the pack's vocabulary. */
-const STRUCTURE_CONFIG = {
-  categoryCount: ZH_COUNT[CATEGORIES.length] ?? String(CATEGORIES.length),
-  categoryGuide: CATEGORY_GUIDE,
-  categoryTags: CATEGORY_TAGS.join("、"),
-  topicTags: TOPIC_TAGS.join("、"),
-  entityTags: ENTITY_TAGS.join("、"),
-  jurisdictions: GEOGRAPHY_DICTIONARY,
-  entities: Object.entries(ENTITIES)
-    .map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`)
-    .join("，"),
-};
 const STRUCTURE_SYSTEM = promptText("structure", STRUCTURE_CONFIG);
 
-export const PROMPT_VERSIONS = {
-  prefilter: promptVersion("prefilter"),
-  // The score recipe is the prompt plus the weights and cap that turn its axes into the score.
-  score: `${promptVersion("selection-score")}+weights@${createHash("sha256")
-    .update(JSON.stringify([SELECTION.weights, SELECTION.unusableMaterialCap, SELECTION.noiseCaps, MAJOR_COMPANIES]))
-    .digest("hex")
-    .slice(0, 10)}`,
-  understand: configuredPromptVersion("understand", UNDERSTAND_CONFIG),
-  summarize: promptVersion("summarize-article", "summarize-article-empty", "identity-context"),
-  wording: promptVersion("mend-wording"),
-  structure: configuredPromptVersion("structure", STRUCTURE_CONFIG),
-} as const;
+/**
+ * Every step's prompt version in the configured layout (ANALYSIS_PROMPT_LAYOUT, read on each access); the layouts'
+ * versions differ, so receipts and judgements say which layout produced them. promptVersionsFor names one layout.
+ */
+export const PROMPT_VERSIONS: Readonly<Record<AnalysisStep, string>> = {
+  get prefilter() {
+    return promptVersionsFor(analysisPromptLayout()).prefilter;
+  },
+  get score() {
+    return promptVersionsFor(analysisPromptLayout()).score;
+  },
+  get understand() {
+    return promptVersionsFor(analysisPromptLayout()).understand;
+  },
+  get summarize() {
+    return promptVersionsFor(analysisPromptLayout()).summarize;
+  },
+  get wording() {
+    return promptVersionsFor(analysisPromptLayout()).wording;
+  },
+  get structure() {
+    return promptVersionsFor(analysisPromptLayout()).structure;
+  },
+};
+export { promptVersionsFor, scoreStandardVersion };
+/** The selection steps' prompts (prefilter and score), as stored on each judgement. */
+export const selectionPromptVersion = (layout: AnalysisPromptLayout = analysisPromptLayout()) =>
+  [promptVersionsFor(layout).prefilter, promptVersionsFor(layout).score].join("+");
 /** Every step's prompt, as stored on each judgement. */
-export const SELECTION_PROMPT_VERSION = [PROMPT_VERSIONS.prefilter, PROMPT_VERSIONS.score].join("+");
-export const ANALYZE_PROMPT_VERSION = Object.values(PROMPT_VERSIONS).join("+");
+export const analyzePromptVersion = (layout: AnalysisPromptLayout = analysisPromptLayout()) => Object.values(promptVersionsFor(layout)).join("+");
 const POST_SUMMARIZE_PROMPT_VERSION = () =>
   promptVersion("summarize-short-post", "summarize-short-post-quoted", "summarize-long-post", "summarize-long-post-quoted", "identity-context");
-export const analysisVersionOf = (a: Pick<AnalyzeInputArticle, "xPost">) =>
-  a.xPost ? `${ANALYZE_PROMPT_VERSION}+${POST_SUMMARIZE_PROMPT_VERSION()}` : ANALYZE_PROMPT_VERSION;
+export const analysisVersionOf = (a: Pick<AnalyzeInputArticle, "xPost">, layout: AnalysisPromptLayout = analysisPromptLayout()) =>
+  a.xPost ? `${analyzePromptVersion(layout)}+${POST_SUMMARIZE_PROMPT_VERSION()}` : analyzePromptVersion(layout);
 
 // ── Scoring ───────────────────────────────────────────────────────────────────────────────
 
@@ -150,7 +164,7 @@ const SCORE_CALL: Record<string, { temperature: number; maxTokens: number; timeo
 const scoreCall = (model: string) => SCORE_CALL[model] ?? { temperature: 0.2, maxTokens: 1024, timeoutMs: 120_000 };
 
 /** The score prompt: the industry's taste (industry/prompts/selection-score.md). */
-export const SCORE_SYSTEM = promptText("selection-score", { majorCompanies: MAJOR_COMPANIES.join("、") });
+export const SCORE_SYSTEM = promptText("selection-score", SCORE_CONFIG);
 
 const axis = z.coerce.number().min(0).max(10);
 /** The model judges the type and five axes (0–10, one decimal); code weighs them into the 0–100 score (industry/selection.ts). */
@@ -183,20 +197,61 @@ export function scoreInputTime(at: Date): string {
   return `${SCORE_TIME.format(at).replace(" ", "T")}${ms ? `.${String(ms).padStart(3, "0")}` : ""}+08:00`;
 }
 
+/** One analysis request in a layout: the system prompt, the shared material (shared layout only) and the step message. */
+type StepRequest = { system: string; prefix?: ChatPrefix; user: string };
+const layoutOf = (opts: { layout?: AnalysisPromptLayout }) => opts.layout ?? analysisPromptLayout();
+/** The source and link lines the prefilter and the content understanding read in the shared layout's step message. */
+const publisherContext = (a: AnalyzeInputArticle) => [...publisherLines(a), `【原文链接】${a.url}`].join("\n");
+
 /**
  * The score input: no publisher hints, the confirmed original date with its actual precision, the
- * original title (items are scored before any Chinese copy exists) and the whole body.
+ * original title (items are scored before any Chinese copy exists) and the whole body. The shared layout's material
+ * carries no publisher either, and its score instruction adds none.
  */
-export function buildScoreInput(a: AnalyzeInputArticle): string {
+function scoreRequest(a: AnalyzeInputArticle, layout: AnalysisPromptLayout): StepRequest {
+  if (layout === "shared") return sharedRequest(sharedMaterial(a), "score");
   let body = a.xPost ? postEvidenceText(a.xPost) : usableSourceText(a.bodyText, a.excerpt).trim();
   if (!body) body = a.title;
-  return [
-    "请按系统规则评估以下单篇材料所代表的事件。只输出内容类型、五轴分和噪声类型。",
-    `【原文时间】\n${modelSourceDateLabel(a)}`,
-    `【标题】\n${a.title.trim()}`,
-    `【完整正文】\n${bodyWithin(body, SCORE_BODY_CHARS)}`,
-  ].join("\n\n");
+  return {
+    system: SCORE_SYSTEM,
+    user: [
+      "请按系统规则评估以下单篇材料所代表的事件。只输出内容类型、五轴分和噪声类型。",
+      `【原文时间】\n${modelSourceDateLabel(a)}`,
+      `【标题】\n${a.title.trim()}`,
+      `【完整正文】\n${bodyWithin(body, SCORE_BODY_CHARS)}`,
+    ].join("\n\n"),
+  };
 }
+/** Everything the scorer reads besides the system prompt, as one text (its request's userHash; SelectBench's sample input). */
+export const buildScoreInput = (a: AnalyzeInputArticle, layout: AnalysisPromptLayout = analysisPromptLayout()) => chatUserText(scoreRequest(a, layout));
+
+function prefilterRequest(a: AnalyzeInputArticle, layout: AnalysisPromptLayout): StepRequest {
+  return layout === "shared"
+    ? sharedRequest(sharedMaterial(a), "prefilter", { context: publisherContext(a) })
+    : { system: PREFILTER_SYSTEM, user: prefilterUser(a) };
+}
+/** The system prompt a selection step sends in a layout. */
+export const selectionSystem = (step: "prefilter" | "score", layout: AnalysisPromptLayout = analysisPromptLayout()) =>
+  layout === "shared" ? SHARED_ANALYSIS_SYSTEM : step === "prefilter" ? PREFILTER_SYSTEM : SCORE_SYSTEM;
+
+/**
+ * A selection step's request as production sends it, for evaluations that send it themselves; `scoreRules` replaces
+ * the score rules (a rules experiment), leaving the rest of the layout as it is.
+ */
+export function selectionStepRequest(
+  step: "prefilter" | "score",
+  a: AnalyzeInputArticle,
+  layout: AnalysisPromptLayout = analysisPromptLayout(),
+  scoreRules?: string,
+): StepRequest {
+  if (step === "prefilter") return prefilterRequest(a, layout);
+  const request = scoreRequest(a, layout);
+  if (scoreRules === undefined) return request;
+  return { ...request, system: layout === "shared" ? sharedSystemWithScoreRules(scoreRules) : scoreRules };
+}
+
+/** Everything the prefilter reads besides the system prompt, as one text (its request's userHash). */
+export const prefilterInput = (a: AnalyzeInputArticle, layout: AnalysisPromptLayout = analysisPromptLayout()) => chatUserText(prefilterRequest(a, layout));
 
 // ── Step outputs ──────────────────────────────────────────────────────────────────────────
 
@@ -313,6 +368,8 @@ type StepOpts = {
   scoreModel?: string;
   runtimeControl?: RuntimeControlSnapshot;
   fallbackInput?: NewsFallbackInput;
+  /** The prompt layout of every step; defaults to the configured one (ANALYSIS_PROMPT_LAYOUT). */
+  layout?: AnalysisPromptLayout;
 };
 type ReceiptObserver = (receiptId: number) => void;
 export class AnalysisInterruptedError extends Error {}
@@ -330,16 +387,17 @@ const tagged = (attemptTag: string | undefined, step: string) => [attemptTag, st
 async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["prefilter"]>> {
   const model = await modelFor("prefilter");
   checkAnalysisRunning();
+  const layout = layoutOf(opts),
+    request = prefilterRequest(a, layout);
   const res = await chatJson({
     model,
     purpose: "prefilter_article",
     subject: subjectOf(a),
     sourceIds: a.sourceId ? [a.sourceId] : [],
-    promptVersion: PROMPT_VERSIONS.prefilter,
-    system: PREFILTER_SYSTEM,
-    user: prefilterUser(a),
+    promptVersion: promptVersionsFor(layout).prefilter,
+    ...request,
     usagePurpose: opts.usagePurpose,
-    fallbackPermit: opts.fallbackInput?.({ system: PREFILTER_SYSTEM, user: prefilterUser(a) }),
+    fallbackPermit: opts.fallbackInput?.(request),
     schema: PrefilterSchema,
     temperature: 0,
     maxTokens: 512,
@@ -372,7 +430,8 @@ export async function runSelectionPrefilter(
 async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOpts, onReceipt?: ReceiptObserver): Promise<NonNullable<AnalysisRun["scores"]>> {
   const model = opts.scoreModel ?? (await modelFor("score"));
   const call = scoreCall(model);
-  const input = buildScoreInput(a);
+  const layout = layoutOf(opts),
+    request = scoreRequest(a, layout);
   const values: number[] = [];
   const axes: ScoreAxes[] = [];
   const receiptIds: number[] = [];
@@ -387,11 +446,10 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
         purpose: "score_article",
         subject: subjectOf(a),
         sourceIds: a.sourceId ? [a.sourceId] : [],
-        promptVersion: PROMPT_VERSIONS.score,
-        system: SCORE_SYSTEM,
-        user: input,
+        promptVersion: promptVersionsFor(layout).score,
+        ...request,
         usagePurpose: opts.usagePurpose,
-        fallbackPermit: opts.fallbackInput?.({ system: SCORE_SYSTEM, user: input }),
+        fallbackPermit: opts.fallbackInput?.(request),
         schema: ScoreSchema,
         temperature: call.temperature,
         maxTokens: call.maxTokens,
@@ -446,34 +504,39 @@ export async function runSelectionScores(
 async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["structure"]>> {
   const model = await modelFor("structure");
   checkAnalysisRunning();
-  const inputFor = (material: ReturnType<typeof geographyMaterial>) =>
-    stableJson({
-      source: { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty },
-      url: a.url,
-      sourceTime: modelSourceDate(a),
-      segments: material.segments,
-      complete_material: material.complete,
-    });
-  let material = geographyMaterial(a),
-    user = inputFor(material),
-    overflow = Buffer.byteLength(STRUCTURE_SYSTEM + user) - 32000;
-  if (overflow > 0) {
-    const bodyBudget = 22000 - overflow - 128;
-    if (bodyBudget < 1024) throw new ModelOutputError("Bounded structure metadata exceeds capacity");
-    material = geographyMaterial(a, bodyBudget);
-    user = inputFor(material);
+  const layout = layoutOf(opts);
+  const source = { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty };
+  let request: StepRequest, material: ReturnType<typeof geographyMaterial>;
+  if (layout === "shared") {
+    // The evidence segments are numbered in the shared material at the full geography budget; the step message holds
+    // the metadata that is no geography evidence.
+    const shared = sharedMaterial(a);
+    material = shared.geography;
+    request = sharedRequest(shared, "structure", { context: stableJson({ source, url: a.url, complete_material: material.complete }) });
+  } else {
+    const inputFor = (m: ReturnType<typeof geographyMaterial>) =>
+      stableJson({ source, url: a.url, sourceTime: modelSourceDate(a), segments: m.segments, complete_material: m.complete });
+    material = geographyMaterial(a);
+    let user = inputFor(material),
+      overflow = Buffer.byteLength(STRUCTURE_SYSTEM + user) - 32000;
+    if (overflow > 0) {
+      const bodyBudget = 22000 - overflow - 128;
+      if (bodyBudget < 1024) throw new ModelOutputError("Bounded structure metadata exceeds capacity");
+      material = geographyMaterial(a, bodyBudget);
+      user = inputFor(material);
+    }
+    if (Buffer.byteLength(STRUCTURE_SYSTEM + user) > 32000) throw new ModelOutputError("Bounded structure input exceeds capacity");
+    request = { system: STRUCTURE_SYSTEM, user };
   }
-  if (Buffer.byteLength(STRUCTURE_SYSTEM + user) > 32000) throw new ModelOutputError("Bounded structure input exceeds capacity");
   const res = await chatJson({
     model,
     purpose: "structure_article",
     subject: subjectOf(a),
     sourceIds: a.sourceId ? [a.sourceId] : [],
-    promptVersion: PROMPT_VERSIONS.structure,
-    system: STRUCTURE_SYSTEM,
-    user,
+    promptVersion: promptVersionsFor(layout).structure,
+    ...request,
     usagePurpose: opts.usagePurpose,
-    fallbackPermit: opts.fallbackInput?.({ system: STRUCTURE_SYSTEM, user }),
+    fallbackPermit: opts.fallbackInput?.(request),
     schema: StructureSchema,
     temperature: 0.2,
     maxTokens: 1500,
@@ -522,19 +585,27 @@ export async function runCategoryStructure(
 /** The content understanding; null when the model's content filter declines the material. */
 async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<AnalysisRun["writing"]> {
   const model = await modelFor("understand");
-  const text = understandUser(a);
+  const layout = layoutOf(opts);
+  const quoted = a.xPost?.quoted?.text
+    ? `\n【引用说明】资料正文中“[引用 ${a.xPost.quoted.handle ? `@${a.xPost.quoted.handle}` : "原帖"}]：”之后是作者转发/引用的他人内容，不是作者本人的产出。`
+    : "";
+  const { user: text, ...lead }: StepRequest =
+    layout === "shared"
+      ? sharedRequest(sharedMaterial(a), "understand", { context: publisherContext(a) + quoted })
+      : { system: UNDERSTAND_SYSTEM, user: understandUser(a) };
   const call = (image: ContentPart | null) => {
     checkAnalysisRunning();
+    // The image goes with the step message, after the shared leading messages.
+    const request = { ...lead, user: image ? [{ type: "text" as const, text }, image] : text };
     return chatJson({
       model,
       purpose: "understand_article",
       subject: subjectOf(a),
       sourceIds: a.sourceId ? [a.sourceId] : [],
-      promptVersion: PROMPT_VERSIONS.understand,
-      system: UNDERSTAND_SYSTEM,
-      user: image ? [{ type: "text", text }, image] : text,
+      promptVersion: promptVersionsFor(layout).understand,
+      ...request,
       usagePurpose: opts.usagePurpose,
-      fallbackPermit: opts.fallbackInput?.({ system: UNDERSTAND_SYSTEM, user: image ? [{ type: "text", text }, image] : text }),
+      fallbackPermit: opts.fallbackInput?.(request),
       beforeRequest: image
         ? async () => {
             const url = firstInputImage(a)?.url;
@@ -592,7 +663,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
   };
 }
 
-export const MEND_SYSTEM = promptText("mend-wording", { reasonLabel: "推荐理由" });
+export const MEND_SYSTEM = promptText("mend-wording", MEND_CONFIG);
 const MendSchema = z.object({ titleZh: z.string().trim().min(1), summaryZh: z.string().trim().min(1), reasonZh: z.string().trim().nullable().catch(null) });
 
 /**
@@ -614,6 +685,8 @@ async function mendWording(a: AnalyzeInputArticle, w: NonNullable<AnalysisRun["w
     `中文稿：\n${JSON.stringify({ titleZh: w.titleZh, summaryZh: w.summaryZh, reasonZh: w.reasonZh })}`,
     `问题：\n${problems.map((p) => `- ${p}`).join("\n")}`,
   ].join("\n\n");
+  const layout = layoutOf(opts);
+  const request: StepRequest = layout === "shared" ? sharedRequest(sharedMaterial(a), "wording", { draft: user }) : { system: MEND_SYSTEM, user };
   checkAnalysisRunning();
   let res: Awaited<ReturnType<typeof chatJson<typeof MendSchema>>>;
   try {
@@ -624,10 +697,9 @@ async function mendWording(a: AnalyzeInputArticle, w: NonNullable<AnalysisRun["w
       model: await modelFor("wording"),
       purpose: "mend_wording",
       subject: subjectOf(a),
-      promptVersion: PROMPT_VERSIONS.wording,
-      system: MEND_SYSTEM,
-      user,
-      fallbackPermit: opts.fallbackInput?.({ system: MEND_SYSTEM, user }),
+      promptVersion: promptVersionsFor(layout).wording,
+      ...request,
+      fallbackPermit: opts.fallbackInput?.(request),
       schema: MendSchema,
       temperature: 0.1,
       maxTokens: 2048,
@@ -683,18 +755,26 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
   const shortTranslation = short && (await mayStorePostTranslation(a));
   const model = await modelFor("summarize");
-  const user = shortTranslation ? buildShortTweetPrompt(t) : a.xPost ? buildLongTweetPrompt(t) : buildArticlePrompt(t);
+  const layout = layoutOf(opts);
+  // Posts keep their own prompts in both layouts (the post inline; the short-post translation is bound to them).
+  const request: StepRequest = a.xPost
+    ? { system: "", user: shortTranslation ? buildShortTweetPrompt(t) : buildLongTweetPrompt(t) }
+    : layout === "shared"
+      ? sharedRequest(sharedMaterial(a), "summarize", {
+          ...articlePromptContext(t),
+          emptyBody: t.text ? "" : `\n${promptText("summarize-article-empty")}`,
+        })
+      : { system: "", user: buildArticlePrompt(t) };
   checkAnalysisRunning();
   const res = await chatJson({
     model,
     purpose: "summarize_article",
     subject: subjectOf(a),
     sourceIds: a.sourceId ? [a.sourceId] : [],
-    promptVersion: a.xPost ? POST_SUMMARIZE_PROMPT_VERSION() : PROMPT_VERSIONS.summarize,
-    system: "",
-    user,
+    promptVersion: a.xPost ? POST_SUMMARIZE_PROMPT_VERSION() : promptVersionsFor(layout).summarize,
+    ...request,
     usagePurpose: opts.usagePurpose,
-    fallbackPermit: opts.fallbackInput?.({ system: "", user }),
+    fallbackPermit: opts.fallbackInput?.(request),
     ...(shortTranslation
       ? {
           beforeRequest: async () => {
@@ -737,6 +817,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
  */
 export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { stages?: "selection" | "all" } = {}): Promise<AnalysisRun> {
   checkAnalysisRunning();
+  opts = { ...opts, layout: layoutOf(opts) };
   if (awaitsMaterial(a)) return { prefilter: null, scores: null, writing: null, structure: null };
   const prefilter = await runSelectionPrefilter(a, opts);
   return finishAnalysis(a, prefilter, opts);
@@ -847,10 +928,13 @@ const isCompleteJudgement = (output: unknown) => !!output && typeof output === "
  */
 export async function analyzeArticle(articleId: string, opts: StepOpts = {}, afterScope?: () => Promise<unknown>): Promise<AnalyzeResult | null> {
   const runtimeControl = await runtimeControlSnapshot("news", ["processing"]);
-  opts = { ...opts, runtimeControl };
+  // One layout for every step of this run, and for the versions it records.
+  const layout = layoutOf(opts),
+    versions = promptVersionsFor(layout);
+  opts = { ...opts, runtimeControl, layout };
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
-  const analysisVersion = analysisVersionOf(input);
+  const analysisVersion = analysisVersionOf(input, layout);
   if (opts.expectedRevision !== undefined && input.revision !== opts.expectedRevision)
     return { analysisId: null, stale: true, output: null, receiptIds: [], reused: true };
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
@@ -888,9 +972,12 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       ORDER BY input_revision DESC, id DESC LIMIT 1`;
         const settled =
           latest?.input_revision === input.revision && isCompleteJudgement(latest.output) && latest.relevance !== "block" && prefilter.label !== "BLOCK";
-        if (!settled && (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))) {
+        if (
+          !settled &&
+          (currentPrefilter(latest, input.revision, versions.prefilter) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))
+        ) {
           await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
-        VALUES (${articleId}, ${input.revision}, 'model', ${prefilter.model}, ${PROMPT_VERSIONS.prefilter}, ${[prefilter.receiptId]},
+        VALUES (${articleId}, ${input.revision}, 'model', ${prefilter.model}, ${versions.prefilter}, ${[prefilter.receiptId]},
           ${prefilter.label.toLowerCase()}, false, ${tx.json({ prefilter: { label: prefilter.label, reason: prefilter.reason } })})`;
         }
         await completeReceipt(tx, prefilter.receiptId);

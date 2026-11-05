@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { prefilterUser } from "@amp/backend/editorial/writing";
+import { prefilterInput } from "@amp/backend/editorial/analyze";
 import { sql, type Db } from "../db.ts";
 import { requireOwner, type AdminPrincipal } from "./auth.ts";
 import { SelectionRunEvidence } from "@amp/contracts/http/private";
@@ -179,14 +179,21 @@ export async function loadSelectionRunEvidence(runId: string, db: Db, modelPort?
             r.status === "completed" &&
             r.purpose === "prefilter_article" &&
             r.request.promptVersion === meta!.prefilterVersion &&
-            r.request.userHash ===
-              sha256(
-                prefilterUser({
-                  ...sample.hidden_input,
-                  publishedAt: sample.hidden_input.publishedAt ? new Date(String(sample.hidden_input.publishedAt)) : null,
-                  discoveredAt: sample.hidden_input.discoveredAt ? new Date(String(sample.hidden_input.discoveredAt)) : null,
-                }),
-              ),
+            // The version names the layout; the input is rendered in either layout to match it.
+            (["shared", "separate"] as const).some(
+              (layout) =>
+                r.request.userHash ===
+                sha256(
+                  prefilterInput(
+                    {
+                      ...sample.hidden_input,
+                      publishedAt: sample.hidden_input.publishedAt ? new Date(String(sample.hidden_input.publishedAt)) : null,
+                      discoveredAt: sample.hidden_input.discoveredAt ? new Date(String(sample.hidden_input.discoveredAt)) : null,
+                    },
+                    layout,
+                  ),
+                ),
+            ),
         );
       if (!blocked && scores.length !== 2) {
         issues.push("评分缺少同一输入、标准与模型配置的两次独立完成回执");

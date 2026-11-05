@@ -11,7 +11,7 @@ import { promptText } from "@amp/backend/editorial/prompts";
 import { environmentModelMetadata } from "@amp/backend/providers/llm";
 import { config } from "@amp/backend/config";
 import { publishArticle } from "@amp/backend/publication/publish";
-import { ANALYZE_PROMPT_VERSION } from "@amp/backend/editorial/analyze";
+import { analyzePromptVersion } from "@amp/backend/editorial/analyze";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -71,7 +71,7 @@ async function sample(marker = tag(), suffix = ""): Promise<ExperimentCase> {
     { title: input.title, bodyText: body, excerpt: null, bodyStatus: "ok" },
   );
   await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,title_zh,summary_zh,selected,output)
-    VALUES(${input.id},${input.revision},'model','synthetic',${ANALYZE_PROMPT_VERSION},'pass',${input.title},${body},false,${sql.json({ scores: null, geography })})`;
+    VALUES(${input.id},${input.revision},'model','synthetic',${analyzePromptVersion()},'pass',${input.title},${body},false,${sql.json({ scores: null, geography })})`;
   await publishArticle(input.id);
   return {
     caseId: input.id,

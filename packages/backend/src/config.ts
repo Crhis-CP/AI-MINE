@@ -80,6 +80,20 @@ export const config = {
     .filter(Boolean),
 };
 
+export type AnalysisPromptLayout = "shared" | "separate";
+/**
+ * How the per-article analysis steps lay out their prompts (ANALYSIS_PROMPT_LAYOUT, editorial/analysis-layout.ts):
+ * `shared` (default) sends every step the same leading system prompt and article material, so a provider's prefix
+ * cache bills the body once at the miss price; `separate` is the earlier per-step layout. Read at call time, like the
+ * collection switches below, so an evaluation can run either layout in one process.
+ */
+export function analysisPromptLayout(): AnalysisPromptLayout {
+  const value = env.ANALYSIS_PROMPT_LAYOUT;
+  if (value === undefined || value === "" || value === "shared") return "shared";
+  if (value === "separate") return value;
+  throw new Error(`ANALYSIS_PROMPT_LAYOUT must be "shared" or "separate" (got "${value}")`);
+}
+
 /** Read dynamically so a paused lane is observed before the next queued source starts. */
 export const sourceCollectionEnabled = (lane: "news" | "policy") => env.COLLECT_ENABLED !== "false" && env[`COLLECT_${lane.toUpperCase()}_ENABLED`] !== "false";
 export function sourceCollectionConcurrency(lane: "news" | "policy"): number {

@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import path from "node:path";
-import { REPO_ROOT } from "@amp/backend/config";
+import { analysisPromptLayout, REPO_ROOT } from "@amp/backend/config";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { attentionScore, MAJOR_COMPANIES } from "@amp/industry/selection";
@@ -12,16 +12,19 @@ import {
   loadAnalyzeInput,
   prepareEvaluationInput,
   evaluationInputFingerprint,
-  buildScoreInput,
   ScoreSchema,
   draftTierThreshold,
+  promptVersionsFor,
+  scoreStandardVersion,
+  selectionStepRequest,
+  selectionSystem,
   type AnalyzeInputArticle,
 } from "@amp/backend/editorial/analyze";
-import { PREFILTER_SYSTEM, prefilterUser, missingEvidence } from "@amp/backend/editorial/writing";
+import { missingEvidence } from "@amp/backend/editorial/writing";
 import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
 import { modelFor } from "@amp/backend/editorial/models";
 import { selectionModelIdentity } from "@amp/backend/admin/selectbench";
-import { chatJson, type ChatJsonOptions } from "@amp/backend/providers/llm";
+import { chatJson, chatUserText, type ChatJsonOptions } from "@amp/backend/providers/llm";
 import { normalizedUppercase } from "@amp/backend/lib/text";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { ExperimentManifest, metrics, countryPreview, attemptSummary, type Experiment, type Outcome, type Variant } from "./selection-experiment-data.ts";
@@ -30,6 +33,15 @@ const prompts = { A: "selection-score", B: "selection-score-b", AR: "selection-c
 /** Values the score prompts read (the production prompt names the major companies; the others ignore it). */
 const promptValues = { majorCompanies: MAJOR_COMPANIES.join("、") };
 const Prefilter = z.object({ label: z.preprocess(normalizedUppercase, z.enum(["PASS", "BLOCK", "UNKNOWN"])), reason: z.string().max(200).catch("") });
+/**
+ * A rules variant's version in the configured prompt layout (ANALYSIS_PROMPT_LAYOUT): in the shared layout the variant
+ * replaces only the score section of the shared system prompt, so its version covers that whole prompt.
+ */
+const variantVersion = (prompt: string) => {
+  if (analysisPromptLayout() === "separate") return promptVersion(prompt);
+  const system = selectionSystem("score", "shared").split(promptText(prompts.A, promptValues)).join(promptText(prompt, promptValues));
+  return `${prompt}-shared@${sha256(stableJson([scoreStandardVersion("shared"), system])).slice(0, 10)}`;
+};
 const restored = (input: AnalyzeInputArticle): AnalyzeInputArticle => ({
   ...input,
   publishedAt: input.publishedAt ? new Date(input.publishedAt) : null,
@@ -93,7 +105,7 @@ export async function exportCountryCandidates(datasetId: string): Promise<Experi
             prefilterModel,
             modelIdentity,
             prefilterIdentity,
-            prefilterHash: sha256(PREFILTER_SYSTEM),
+            prefilterHash: sha256(selectionSystem("prefilter")),
             promptHashes: {
               A: sha256(promptText(prompts.A, promptValues)),
               B: sha256(promptText(prompts.B, promptValues)),
@@ -126,7 +138,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
     manifest.bindings.prefilterModel !== prefilterModel ||
     manifest.bindings.modelIdentity !== identity ||
     manifest.bindings.prefilterIdentity !== prefilterIdentity ||
-    manifest.bindings.prefilterHash !== sha256(PREFILTER_SYSTEM) ||
+    manifest.bindings.prefilterHash !== sha256(selectionSystem("prefilter")) ||
     (Object.keys(prompts) as Variant[]).some((v) => manifest.bindings!.promptHashes[v] !== versions[v]!.renderedHash)
   )
     throw new Error("Frozen prompt/model bindings are missing or changed; do not silently rerun a different experiment");
@@ -151,7 +163,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
       if (typeof (error as { receiptId?: unknown })?.receiptId !== "number") {
         const matches = await sql<{ id: number }[]>`SELECT id FROM receipts WHERE purpose=${options.purpose}
           AND request->>'configuration_hash'=${configurationHash} AND request->>'promptVersion'=${options.promptVersion}
-          AND request->>'systemHash'=${sha256(options.system)} AND request->>'userHash'=${sha256(String(options.user))}
+          AND request->>'systemHash'=${sha256(options.system)} AND request->>'userHash'=${sha256(chatUserText(options))}
           AND request->>'temperature'=${String(options.temperature)} AND request->>'maxTokens'=${String(Math.max(options.maxTokens ?? 1500, 512) + (options.model.endsWith("-think") ? 4000 : 0))}
           AND logical_key LIKE ${`%:${options.attemptTag ?? "0"}`}`;
         if (matches.length === 1) receipts.add(Number(matches[0]!.id));
@@ -170,7 +182,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
     try {
       await guardModel();
       const { input, fallbackInput } = await prepareEvaluationInput(restored(row.analysisInput), row.inputFingerprint);
-      const user = prefilterUser(input);
+      const request = selectionStepRequest("prefilter", input);
       const result = await observedCall(
         {
           model: prefilterModel,
@@ -179,14 +191,13 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
           usagePurpose: "evaluation",
           subject: `article:${input.id}@${input.revision}`,
           sourceIds: [input.sourceId!],
-          system: PREFILTER_SYSTEM,
-          user,
-          promptVersion: promptVersion("prefilter"),
+          ...request,
+          promptVersion: promptVersionsFor(analysisPromptLayout()).prefilter,
           schema: Prefilter,
           temperature: 0,
           maxTokens: 512,
           maxPhysicalAttempts: 1,
-          fallbackPermit: fallbackInput({ system: PREFILTER_SYSTEM, user }),
+          fallbackPermit: fallbackInput(request),
           beforeRequest: guardModel,
         },
         prefilterIdentity,
@@ -213,8 +224,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
         for (let i = 1; i <= 2; i++) {
           await guardModel();
           const { input, fallbackInput } = await prepareEvaluationInput(restored(row.analysisInput), row.inputFingerprint);
-          const system = promptText(prompts[variant], promptValues),
-            user = buildScoreInput(input);
+          const request = selectionStepRequest("score", input, analysisPromptLayout(), promptText(prompts[variant], promptValues));
           const special = model === "glm-5.3-flash-selection";
           const result = await observedCall(
             {
@@ -224,16 +234,15 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
               usagePurpose: "evaluation",
               subject: `article:${input.id}@${input.revision}`,
               sourceIds: [input.sourceId!],
-              system,
-              user,
-              promptVersion: promptVersion(prompts[variant]),
+              ...request,
+              promptVersion: variantVersion(prompts[variant]),
               schema: ScoreSchema,
               temperature: special ? 1 : 0.2,
               maxTokens: special ? 65536 : 1024,
               timeoutMs: special ? 180000 : 120000,
               maxPhysicalAttempts: 1,
               attemptTag: `score-${i}`,
-              fallbackPermit: fallbackInput({ system, user }),
+              fallbackPermit: fallbackInput(request),
               beforeRequest: guardModel,
             },
             identity,
