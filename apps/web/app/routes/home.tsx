@@ -1,4 +1,5 @@
 import { apiFetch } from "../lib/http.ts";
+import { useT } from "../i18n";
 import { SITE, withSubject } from "@amp/industry/site";
 import { Link, data as withHeaders, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/home";
@@ -100,8 +101,9 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 }
 
 export default function Home() {
+  const tf = useT().feed;
   const { data, waiting, unavailable, latest, filters } = useLoaderData<typeof loader>();
-  const title = filters.tag ? `#${filters.tag}` : latest ? "最新动态" : "精选";
+  const title = filters.tag ? `#${filters.tag}` : latest ? tf.latest : tf.picks;
   // While there are no picks, “全部” stays on this page and the other tabs lead to 全部动态, where the items are.
   const tabsBase = waiting ? "/all" : "/";
   const allTo = waiting ? "/" : undefined;
@@ -129,36 +131,36 @@ export default function Home() {
 
       {unavailable ? (
         <EmptyState
-          title="精选暂时无法读取"
+          title={tf.picksUnavailable}
           action={
             <Link to="/all" className="text-[13px] font-medium text-accent hover:underline">
-              查看全部矿业动态
+              {tf.viewAll}
             </Link>
           }
         >
-          请稍后重试，或先浏览全部矿业动态。
+          {tf.retryOrAll}
         </EmptyState>
       ) : latest ? (
         <div className="mt-2">
-          <p className="mb-2 text-[13px] text-ink-3">精选还没开始，先看最新动态。</p>
+          <p className="mb-2 text-[13px] text-ink-3">{tf.picksNotStarted}</p>
           <DayList items={latest.items} cards={latest.cards} filters={latest.filters} todayCount={latest.todayCount} showTags />
           {latest.pageCount > 1 && (
             <div className="mt-4 text-center">
-              <MoreLink to="/all?page=2">更多动态</MoreLink>
+              <MoreLink to="/all?page=2">{tf.moreNews}</MoreLink>
             </div>
           )}
         </div>
       ) : waiting ? (
         <div className="lg:card">
           <EmptyState
-            title="暂时没有符合条件的精选"
+            title={tf.noPicks}
             action={
               <Link to="/all" className="text-[13px] font-medium text-accent hover:underline">
-                查看全部矿业动态
+                {tf.viewAll}
               </Link>
             }
           >
-            当前可在全部矿业动态中阅读已收录资讯。
+            {tf.noPicksHint}
           </EmptyState>
         </div>
       ) : (

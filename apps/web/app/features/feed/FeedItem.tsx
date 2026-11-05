@@ -1,13 +1,13 @@
 // One report in a feed. Desktop (≥ 961px): a white card beside the time rail. Mobile: a compact row
 // with a divider and a short recommendation. One markup serves both layouts.
 import { markRead, useIsRead } from "../../lib/local-state";
+import { useCategoryLabel, useT } from "../../i18n";
 import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME } from "../../lib/format";
 import { memo } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
 import type { GroupInfo, ReportGroupInfo, FeedItemSummary } from "@amp/contracts/site";
 import { XPostFeedView } from "@amp/contracts/http/public";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SelectedBadge } from "../../components/ui/Badge.tsx";
 import { ScoreLabel } from "../../components/ui/Score.tsx";
 import { SourceLine, StarButton, Attribution } from "./parts";
@@ -34,6 +34,8 @@ export const FeedItem = memo(function FeedItem({
   read: readOverride,
   showTags = false,
 }: FeedItemProps) {
+  const tl = useT().list;
+  const cat = useCategoryLabel();
   const markedRead = useIsRead(item.id);
   const read = readOverride ?? markedRead;
   const dateOnly =
@@ -53,10 +55,10 @@ export const FeedItem = memo(function FeedItem({
     >
       <header className="flex min-h-[18px] items-center gap-2 text-[13.5px] leading-[18px] text-ink-4">
         <SourceLine item={item} className="text-ink-4" />
-        <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? "按日期归档" : "本站时间线"} className="mono shrink-0 text-[13px] lg:hidden">
+        <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? tl.dateArchive : tl.siteTimeline} className="mono shrink-0 text-[13px] lg:hidden">
           · {dateOnly ? NO_TIME : beijingTime(at)}
         </time>
-        {read && <span className="shrink-0 text-[12px] text-ink-4">已读</span>}
+        {read && <span className="shrink-0 text-[12px] text-ink-4">{tl.read}</span>}
         {item.selected && (
           <span className="hidden lg:inline-flex">
             <SelectedBadge />
@@ -90,7 +92,7 @@ export const FeedItem = memo(function FeedItem({
         <div className="relative z-10 mt-2 hidden flex-wrap gap-x-2.5 gap-y-1 text-[13px] text-ink-4 lg:flex">
           {showTags && item.category && (
             <Link to={`/all?category=${item.category}`} className="hover:text-accent">
-              {CATEGORY_LABELS[item.category]}
+              {cat(item.category)}
             </Link>
           )}
           {tags.map((t) => (
@@ -111,7 +113,10 @@ export const FeedItem = memo(function FeedItem({
 
       {item.reason && (
         <div className="mt-2.5 lg:mt-3 lg:border-t lg:border-line-soft lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-3 lg:dark:bg-transparent">
-          <p className="line-clamp-1 text-[14px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">推荐理由：{item.reason}</p>
+          <p className="line-clamp-1 text-[14px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">
+            {tl.reason}
+            {item.reason}
+          </p>
         </div>
       )}
     </article>

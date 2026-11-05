@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { fmt, useT } from "../../i18n";
 import type { HotStripEntry, ReportGroupedTimelineCard as TimelineCard } from "@amp/contracts/site";
 import { EmptyState } from "../../components/ui/Page";
 import { IconArrowRight, IconMinus, IconTrendDown, IconTrendUp } from "../../components/icons";
@@ -12,15 +13,16 @@ function hrefOf(e: HotStripEntry): string {
 
 /** Where the heat is heading, as a small arrow (a "新" mark for a story new to the ranking). */
 function TrendMark({ trend }: { trend: HotStripEntry["trend"] }) {
-  if (trend === "up") return <IconTrendUp size={14} strokeWidth={2.2} className="text-hot" aria-label="热度上升" />;
-  if (trend === "down") return <IconTrendDown size={14} strokeWidth={2.2} className="text-ink-4" aria-label="热度回落" />;
-  if (trend === "new") return <span className="rounded-full bg-accent-soft px-1.5 text-[11.5px] font-semibold leading-4 text-accent">新</span>;
+  const th = useT().hot;
+  if (trend === "up") return <IconTrendUp size={14} strokeWidth={2.2} className="text-hot" aria-label={th.up} />;
+  if (trend === "down") return <IconTrendDown size={14} strokeWidth={2.2} className="text-ink-4" aria-label={th.down} />;
+  if (trend === "new") return <span className="rounded-full bg-accent-soft px-1.5 text-[11.5px] font-semibold leading-4 text-accent">{th.new}</span>;
   if (trend === "unknown") return null; // sources behind on collection: no comparison to show
-  return <IconMinus size={14} strokeWidth={2.2} className="text-ink-4" aria-label="热度持平" />;
+  return <IconMinus size={14} strokeWidth={2.2} className="text-ink-4" aria-label={th.flat} />;
 }
 
 /** Representative source already on this page's featured card, plus how many other outlets folded under it. */
-function sourcesUnder(entry: HotStripEntry, cards: TimelineCard[] | undefined): string | null {
+function sourcesUnder(entry: HotStripEntry, cards: TimelineCard[] | undefined, others_: string): string | null {
   const card = cards?.find(
     (item) =>
       (entry.itemId != null && (item.item.id === entry.itemId || item.reportGroup?.memberIds.includes(entry.itemId))) ||
@@ -29,7 +31,7 @@ function sourcesUnder(entry: HotStripEntry, cards: TimelineCard[] | undefined): 
   if (!card?.item.source.name) return null;
   const group = card.reportGroup ?? card.group;
   const others = group && group.reportCount > 1 ? group.additionalSourceCount : 0;
-  return others > 0 ? `${card.item.source.name} · 另有 ${others} 家来源` : card.item.source.name;
+  return others > 0 ? fmt(others_, { source: card.item.source.name, count: others }) : card.item.source.name;
 }
 
 /**
@@ -37,6 +39,7 @@ function sourcesUnder(entry: HotStripEntry, cards: TimelineCard[] | undefined): 
  * empty state when nothing qualifies. The whole row lights up on hover.
  */
 export function HotTopics({ entries, cards }: { entries: HotStripEntry[]; cards?: TimelineCard[] }) {
+  const th = useT().hot;
   return (
     <section
       aria-labelledby="hot-topics"
@@ -48,18 +51,18 @@ export function HotTopics({ entries, cards }: { entries: HotStripEntry[]; cards?
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-hot opacity-40" />
             <span className="relative inline-flex size-2 rounded-full bg-hot" />
           </span>
-          热点榜
+          {th.title}
         </h2>
         <Link to="/hot" className="group inline-flex items-center gap-1 text-[13.5px] text-ink-3 transition-colors hover:text-accent">
-          完整榜单 <IconArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+          {th.full} <IconArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-0.5" />
         </Link>
       </div>
       {entries.length === 0 ? (
-        <EmptyState title="暂时没有热点">还没有足够多来源共同讨论的事件。</EmptyState>
+        <EmptyState title={th.emptyTitle}>{th.empty}</EmptyState>
       ) : (
         <ol>
           {entries.slice(0, 5).map((e, i) => {
-            const sources = sourcesUnder(e, cards);
+            const sources = sourcesUnder(e, cards, th.others);
             return (
               <li key={e.rank}>
                 <Link
@@ -75,8 +78,8 @@ export function HotTopics({ entries, cards }: { entries: HotStripEntry[]; cards?
                   </span>
                   <span className="flex items-center justify-end gap-2.5 sm:contents">
                     {Number.isFinite(e.heat) && e.heat > 0 ? (
-                      <span className="whitespace-nowrap text-right text-[13.5px] text-ink-4" title="热度指数">
-                        <span className="num text-[14.5px] font-semibold text-ink-2">{Math.round(e.heat)}</span> 热度
+                      <span className="whitespace-nowrap text-right text-[13.5px] text-ink-4" title={th.heatIndex}>
+                        <span className="num text-[14.5px] font-semibold text-ink-2">{Math.round(e.heat)}</span> {th.heat}
                       </span>
                     ) : (
                       <span />

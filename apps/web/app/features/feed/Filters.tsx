@@ -1,4 +1,5 @@
 import { PhoneBar } from "../../components/shell/PhoneBar";
+import { fmt, useCategoryLabel, useT } from "../../i18n";
 import { Sheet } from "../../components/ui/Sheet";
 import { Wordmark } from "../../components/Logo";
 import { SITE } from "@amp/industry/site";
@@ -9,12 +10,12 @@ import { addRecentSearch } from "../../lib/local-state";
 import { useEffect, useRef, useState } from "react";
 import { Form, Link, useLocation, useNavigate, useNavigation, useSearchParams } from "react-router";
 import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
 
 /** The selector describes event/impact geography; publication-source tags are not an input. */
 export function JurisdictionFilter({ base, value, confirm = false }: { base: string; value: string | null; confirm?: boolean }) {
+  const tf = useT().feed;
   const [params] = useSearchParams(),
     navigation = useNavigation();
   const [draft, setDraft] = useState(value ?? "");
@@ -34,7 +35,7 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
         <input key={key} type="hidden" name={key} value={value} />
       ))}
       <label className="flex items-center gap-2">
-        国家 / 地区
+        {tf.country}
         <select
           name="jurisdiction"
           value={draft}
@@ -44,12 +45,12 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
           }}
           className="max-w-[220px] rounded-md border border-line-strong bg-surface px-3 py-2 text-ink"
         >
-          <option value="">全部国家 / 地区</option>
-          {draft && !["unknown", "none"].includes(draft) && !choices?.some((j) => j.code === draft) && <option value={draft}>当前国家条件</option>}
+          <option value="">{tf.allCountries}</option>
+          {draft && !["unknown", "none"].includes(draft) && !choices?.some((j) => j.code === draft) && <option value={draft}>{tf.currentCountry}</option>}
           {[
-            { label: "国家", kind: "country" },
-            { label: "中国省区", kind: "subdivision" },
-            { label: "国际组织", kind: "organization" },
+            { label: tf.groupCountry, kind: "country" },
+            { label: tf.groupSubdivision, kind: "subdivision" },
+            { label: tf.groupOrganization, kind: "organization" },
           ].map(({ label, kind }) => (
             <optgroup key={kind} label={label}>
               {(choices ?? [])
@@ -61,9 +62,9 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
                 ))}
             </optgroup>
           ))}
-          <optgroup label="其他归属">
-            <option value="unknown">国家尚未完全确定</option>
-            <option value="none">未限定国家</option>
+          <optgroup label={tf.groupOther}>
+            <option value="unknown">{tf.countryUnknown}</option>
+            <option value="none">{tf.countryNone}</option>
           </optgroup>
         </select>
       </label>
@@ -72,11 +73,9 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
         disabled={navigation.state === "loading"}
         className={`rounded-md border border-line-strong px-3 py-2 text-ink disabled:opacity-50 ${live ? "hidden" : ""}`}
       >
-        筛选
+        {tf.apply}
       </button>
-      <span className="text-ink-4">
-        {failed ? "国家选项暂时不可用，当前筛选仍保留。" : choices ? "按事件或影响地区 · 数字为已识别资讯数" : "正在读取国家选项…"}
-      </span>
+      <span className="text-ink-4">{failed ? tf.countryFailed : choices ? tf.countryHint : tf.countryLoading}</span>
     </Form>
   );
 }
@@ -96,16 +95,17 @@ export function hrefWith(base: string, params: URLSearchParams, patch: Record<st
 
 /** Source attributes and subject categories combine through the existing query contract. */
 function SourceScopeTabs({ base, channel, layoutId }: { base: string; channel: ChannelKey; layoutId: string }) {
+  const tf = useT().feed;
   const [params] = useSearchParams();
   return (
     <PillTabs
       size="sm"
-      label="来源属性"
+      label={tf.sourceScope}
       layoutId={layoutId}
       active={channel === "firstParty" ? "firstParty" : "all"}
       items={[
-        { key: "all", label: "全部来源", resetScroll: true, to: hrefWith(base, params, { channel: null }) },
-        { key: "firstParty", label: "一手来源", resetScroll: true, to: hrefWith(base, params, { channel: "firstParty" }) },
+        { key: "all", label: tf.allSources, resetScroll: true, to: hrefWith(base, params, { channel: null }) },
+        { key: "firstParty", label: tf.firstParty, resetScroll: true, to: hrefWith(base, params, { channel: "firstParty" }) },
       ]}
     />
   );
@@ -129,15 +129,17 @@ export function CategoryTabs({
   size?: "md" | "sm";
   className?: string;
 }) {
+  const tf = useT().feed;
+  const cat = useCategoryLabel();
   const [params] = useSearchParams();
   const items = [
-    { key: "all", label: "全部分类", resetScroll: true, to: hrefWith(allTo ?? base, params, { category: null }) },
-    ...CATEGORY_KEYS.map((k) => ({ key: k, label: CATEGORY_LABELS[k], resetScroll: true, to: hrefWith(base, params, { category: k }) })),
+    { key: "all", label: tf.allCategories, resetScroll: true, to: hrefWith(allTo ?? base, params, { category: null }) },
+    ...CATEGORY_KEYS.map((k) => ({ key: k, label: cat(k), resetScroll: true, to: hrefWith(base, params, { category: k }) })),
   ];
   return (
     <div className={`min-w-0 space-y-2 ${className}`}>
       <SourceScopeTabs base={base} channel={channel} layoutId={`${layoutId}-source`} />
-      <PillTabs items={items} active={category ?? "all"} layoutId={layoutId} label="新闻分类" size={size} />
+      <PillTabs items={items} active={category ?? "all"} layoutId={layoutId} label={tf.categoryTabs} size={size} />
     </div>
   );
 }
@@ -156,6 +158,9 @@ export function FeedBar({
   jurisdiction: string | null;
   facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };
 }) {
+  const tf = useT().feed;
+  const cat = useCategoryLabel();
+  const homeLabel = useT().shell.home;
   const [params] = useSearchParams();
   const location = useLocation();
   const [sheetKey, setSheetKey] = useState<string | null>(null);
@@ -190,26 +195,26 @@ export function FeedBar({
       ...(to === "/" ? { source: null, mineral: null, on: null, from: null, to: null, selected: null } : {}),
     });
   const choices = [
-    { key: "all", label: "不限分类", to: hrefWith(base, params, { category: null }) },
-    ...CATEGORY_KEYS.map((key) => ({ key, label: CATEGORY_LABELS[key], to: hrefWith(base, params, { category: key }) })),
+    { key: "all", label: tf.anyCategory, to: hrefWith(base, params, { category: null }) },
+    ...CATEGORY_KEYS.map((key) => ({ key, label: cat(key), to: hrefWith(base, params, { category: key }) })),
   ];
   const chips = [
-    ...(channel === "firstParty" ? [{ key: "channel", label: "一手来源", patch: { channel: null } }] : []),
-    ...(category ? [{ key: "category", label: CATEGORY_LABELS[category], patch: { category: null } }] : []),
+    ...(channel === "firstParty" ? [{ key: "channel", label: tf.firstParty, patch: { channel: null } }] : []),
+    ...(category ? [{ key: "category", label: cat(category), patch: { category: null } }] : []),
     ...["tag", "jurisdiction", "source", "mineral", "on", "from", "to"].flatMap((key) => {
       const value = params.get(key);
       if (!value) return [];
       const label =
         key === "jurisdiction"
-          ? "地区筛选"
+          ? tf.chipRegion
           : key === "source"
-            ? "来源筛选"
+            ? tf.chipSource
             : key === "tag"
               ? `#${value}`
               : key === "from"
-                ? `自${value}`
+                ? fmt(tf.chipFrom, { value })
                 : key === "to"
-                  ? `至${value}`
+                  ? fmt(tf.chipTo, { value })
                   : value;
       return [{ key, label, patch: { [key]: null } }];
     }),
@@ -235,14 +240,14 @@ export function FeedBar({
                   navigate(-1);
                 }
               }}
-              aria-label="返回动态"
+              aria-label={tf.backToFeed}
               className="flex min-h-11 items-center px-1 text-[16px] text-accent"
             >
               <IconChevronLeft size={23} />
-              返回
+              {tf.back}
             </Link>
           ) : (
-            <Link to="/" aria-label={`${SITE.name} 首页`} className="flex h-11 items-center px-2.5">
+            <Link to="/" aria-label={`${SITE.name} ${homeLabel}`} className="flex h-11 items-center px-2.5">
               <Wordmark size={17} />
             </Link>
           )
@@ -251,7 +256,7 @@ export function FeedBar({
           query ? (
             <button
               type="button"
-              aria-label={`修改搜索：${query}`}
+              aria-label={fmt(tf.editSearch, { query })}
               className="flex h-9 min-w-0 items-center gap-2 rounded-full bg-bg-sunk px-3 text-left text-[15px]"
               onClick={(event) => search?.(query, event.currentTarget)}
             >
@@ -262,11 +267,11 @@ export function FeedBar({
             <PillTabs
               size="sm"
               layoutId="feed-scope"
-              label="看精选或全部"
+              label={tf.scope}
               active={base === "/" ? "featured" : "all"}
               items={[
-                { key: "featured", label: "精选", to: scope("/") },
-                { key: "all", label: "全部", to: scope("/all") },
+                { key: "featured", label: tf.picks, to: scope("/") },
+                { key: "all", label: tf.all, to: scope("/all") },
               ]}
             />
           )
@@ -275,7 +280,7 @@ export function FeedBar({
           <>
             <button
               type="button"
-              aria-label={filtered ? "筛选（已选）" : "筛选"}
+              aria-label={filtered ? tf.filterActive : tf.filter}
               aria-expanded={sheet}
               onClick={() => setSheet(true)}
               className={`relative grid size-11 shrink-0 place-items-center rounded-full transition-colors active:bg-bg-sunk ${filtered ? "text-accent" : "text-ink-2"}`}
@@ -292,7 +297,7 @@ export function FeedBar({
           {chips.map((chip) => (
             <Link
               key={chip.key}
-              aria-label={`取消筛选：${chip.label}`}
+              aria-label={fmt(tf.clearFilter, { label: chip.label })}
               to={hrefWith(base, params, chip.patch)}
               className="inline-flex min-h-10 max-w-full items-center gap-1 rounded-full bg-accent-soft px-3 text-[14px] text-accent"
             >
@@ -302,7 +307,7 @@ export function FeedBar({
           ))}
         </div>
       )}
-      <Sheet open={sheet} onClose={() => setSheet(false)} title="筛选">
+      <Sheet open={sheet} onClose={() => setSheet(false)} title={tf.filter}>
         {sheet && (
           <>
             <SourceScopeTabs base={base} channel={channel} layoutId="phone-source-scope" />
@@ -311,7 +316,7 @@ export function FeedBar({
               <SourceDateFilters base="/all" facets={facets} />
             ) : (
               <Link to={scope("/all")} className="block py-3 text-[14px] text-accent">
-                按来源、矿种或日期查找 →
+                {tf.moreFilters}
               </Link>
             )}
             <ul className="divide-y divide-line-soft">
@@ -366,6 +371,7 @@ export function SearchField({
   variant?: "track" | "bar";
   autoFocus?: boolean;
 }) {
+  const tf = useT().feed;
   const [value, setValue] = useState(defaultValue);
   const navigation = useNavigation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -390,14 +396,14 @@ export function SearchField({
       >
         {hidden}
         <label className="relative flex-1">
-          <span className="sr-only">搜索标题、摘要与正文</span>
+          <span className="sr-only">{tf.searchAll}</span>
           <IconSearch size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             ref={inputRef}
             name="q"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="搜索标题、摘要…"
+            placeholder={tf.searchPlaceholder}
             maxLength={200}
             autoComplete="off"
             enterKeyHint="search"
@@ -406,7 +412,7 @@ export function SearchField({
           {value && (
             <button
               type="button"
-              aria-label="清空"
+              aria-label={tf.clear}
               onClick={() => {
                 setValue("");
                 inputRef.current?.focus();
@@ -421,7 +427,7 @@ export function SearchField({
           type="submit"
           className={`h-11 shrink-0 rounded-full bg-accent px-5 text-[15.5px] font-semibold text-accent-contrast transition-[background-color,transform] active:scale-[0.98] ${searching ? "opacity-60" : ""}`}
         >
-          搜索
+          {tf.search}
         </button>
       </Form>
     );
@@ -439,7 +445,7 @@ export function SearchField({
     >
       {hidden}
       <label htmlFor="site-search" className="sr-only">
-        搜索标题、摘要与正文
+        {tf.searchAll}
       </label>
       <IconSearch
         size={16}
@@ -451,7 +457,7 @@ export function SearchField({
         name="q"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="搜索标题、摘要…"
+        placeholder={tf.searchPlaceholder}
         maxLength={200}
         autoComplete="off"
         className="h-[42px] w-full rounded-full bg-bg-sunk pl-10 pr-10 text-[15px] text-ink outline-none ring-1 ring-inset ring-line-soft transition-[background-color,box-shadow] placeholder:text-ink-4 hover:ring-line-strong focus:bg-surface focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:ring-accent dark:bg-bg-muted/60 dark:focus:bg-surface"
@@ -459,7 +465,7 @@ export function SearchField({
       {value ? (
         <button
           type="button"
-          aria-label="清空"
+          aria-label={tf.clear}
           onClick={() => {
             setValue("");
             inputRef.current?.focus();
@@ -479,6 +485,7 @@ export function SearchField({
 
 /** Mobile home: the search icon at the end of the category row opens search on 全部动态. */
 export function SearchIconLink() {
+  const tf = useT().feed;
   const [params] = useSearchParams();
   const openSearch = useOpenSearch();
   return (
@@ -490,7 +497,7 @@ export function SearchIconLink() {
           openSearch(params.get("q") ?? "", event.currentTarget);
         }
       }}
-      aria-label="搜索"
+      aria-label={tf.search}
       className="flex size-11 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
     >
       <IconSearch size={19} />
@@ -506,24 +513,25 @@ export function SourceDateFilters({
   base: string;
   facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };
 }) {
+  const tf = useT().feed;
   const [params] = useSearchParams();
   const controls = ["source", "mineral", "on", "from", "to"];
   const field = "min-w-0 rounded-control border border-line-strong bg-surface px-2 py-2 text-[16px] text-ink sm:text-[14px]";
   return (
     <details className="my-3 rounded-control border border-line px-3 py-2" open={controls.some((name) => params.get(name)) || undefined}>
-      <summary className="cursor-pointer text-[14px] text-ink-3">来源、矿种与日期筛选</summary>
-      <Form key={params.toString()} method="get" action={base} className="mt-3 flex flex-wrap items-end gap-3" aria-label="资讯组合筛选">
+      <summary className="cursor-pointer text-[14px] text-ink-3">{tf.advancedFilters}</summary>
+      <Form key={params.toString()} method="get" action={base} className="mt-3 flex flex-wrap items-end gap-3" aria-label={tf.comboLabel}>
         {[...params]
           .filter(([name]) => ![...controls, "page", "cursor", "_routes"].includes(name))
           .map(([name, value]) => (
             <input key={name} type="hidden" name={name} value={value} />
           ))}
         <label className="flex max-w-full flex-col gap-1 text-[13px] text-ink-3">
-          来源
+          {tf.source}
           <select name="source" defaultValue={params.get("source") ?? ""} className={field}>
-            <option value="">全部来源</option>
+            <option value="">{tf.allSources}</option>
             {params.get("source") && !facets?.sources.some((source) => source.id === params.get("source")) && (
-              <option value={params.get("source")!}>当前来源（暂无匹配）</option>
+              <option value={params.get("source")!}>{tf.currentSourceNoMatch}</option>
             )}
             {facets?.sources.map((source) => (
               <option key={source.id} value={source.id}>
@@ -533,9 +541,9 @@ export function SourceDateFilters({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-[13px] text-ink-3">
-          矿种
+          {tf.commodity}
           <select name="mineral" defaultValue={params.get("mineral") ?? ""} className={field}>
-            <option value="">全部矿种</option>
+            <option value="">{tf.allCommodities}</option>
             {params.get("mineral") && !facets?.minerals.includes(params.get("mineral")!) && (
               <option value={params.get("mineral")!}>{params.get("mineral")}</option>
             )}
@@ -547,9 +555,9 @@ export function SourceDateFilters({
           </select>
         </label>
         {[
-          ["on", "指定日期"],
-          ["from", "开始日期"],
-          ["to", "结束日期"],
+          ["on", tf.dateOn],
+          ["from", tf.dateFrom],
+          ["to", tf.dateTo],
         ].map(([name, label]) => (
           <label key={name} className="flex flex-col gap-1 text-[13px] text-ink-3">
             {label}
@@ -557,14 +565,12 @@ export function SourceDateFilters({
           </label>
         ))}
         <button type="submit" className={`${field} text-accent`}>
-          应用筛选
+          {tf.applyFilters}
         </button>
         <Link to={hrefWith(base, params, { source: null, mineral: null, on: null, from: null, to: null })} className="py-2 text-[14px] text-ink-3">
-          清除这些条件
+          {tf.clearThese}
         </Link>
-        <p className="w-full text-[13px] text-ink-4">
-          按时间线的北京日期筛选，与列表分组和“今天”一致；指定日期优先于日期范围，来源日期待核实的内容也可按时间线日期查找。
-        </p>
+        <p className="w-full text-[13px] text-ink-4">{tf.dateHelp}</p>
       </Form>
     </details>
   );

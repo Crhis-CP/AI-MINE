@@ -1,5 +1,6 @@
 // Small building blocks shared by feed items, detail pages and lists.
 import { useState } from "react";
+import { useT } from "../../i18n";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { IconBookmark } from "../../components/icons";
 import { toggleStar, useIsStarred } from "../../lib/local-state";
@@ -19,6 +20,7 @@ export function StarButton({
   size?: number;
   className?: string;
 }) {
+  const tl = useT().list;
   const starred = useIsStarred(item.id);
   const [pulse, setPulse] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +30,8 @@ export function StarButton({
       <button
         type="button"
         aria-pressed={on}
-        aria-label={on ? "取消收藏" : "收藏"}
-        title={on ? "取消收藏" : "收藏"}
+        aria-label={on ? tl.unsave : tl.save}
+        title={on ? tl.unsave : tl.save}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -55,12 +57,13 @@ export function StarButton({
 
 /** Attribution is supplied by the publication permission projection, never guessed from a host. */
 export function Attribution({ value, full = false }: { value: FeedItemSummary["attribution"]; full?: boolean }) {
+  const tl = useT().list;
   if (!value) return null;
   return (
     <div className="relative z-10 my-2 text-[13px] leading-relaxed text-ink-3">
       {value.publishers.length > 0 && (
         <p>
-          来源署名：
+          {tl.attribution}
           {value.publishers.map((publisher, i) => (
             <span key={`${publisher.url}:${publisher.name}`}>
               {i > 0 ? "、" : ""}
@@ -75,7 +78,7 @@ export function Attribution({ value, full = false }: { value: FeedItemSummary["a
         <>
           {value.license && (
             <p>
-              许可：
+              {tl.license}
               {value.license.url ? (
                 <a href={value.license.url} target="_blank" rel="noopener noreferrer" className="text-accent">
                   {value.license.name}
@@ -88,7 +91,7 @@ export function Attribution({ value, full = false }: { value: FeedItemSummary["a
           {value.notice && <p>{value.notice}</p>}
           {value.legalUrl && (
             <a href={value.legalUrl} target="_blank" rel="noopener noreferrer" className="text-accent">
-              查看来源官网最新法律信息
+              {tl.legalInfo}
             </a>
           )}
         </>

@@ -1,6 +1,7 @@
 // The reader interface in Chinese (the default addresses) or English (the same addresses under /en),
 // from typed dictionaries (DEC-78). Content is not translated; only the interface is.
 import { useLocation } from "react-router";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { en } from "./en.ts";
 import { zh } from "./zh.ts";
 
@@ -51,4 +52,10 @@ export function fmt(text: string, values: Record<string, string | number>): stri
 
 export function dictFor(locale: Locale): Dict {
   return DICTS[locale];
+}
+
+/** A news category's name in the interface language. */
+export function useCategoryLabel(): (key: string) => string {
+  const locale = useLocale();
+  return (key) => (locale === "en" ? en.categories[key] : undefined) ?? (CATEGORY_LABELS as Record<string, string>)[key] ?? key;
 }
