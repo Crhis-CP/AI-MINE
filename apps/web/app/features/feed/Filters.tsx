@@ -39,7 +39,7 @@ export function JurisdictionFilter({ base, value }: { base: string; value: strin
     .filter((key) => !["jurisdiction", "page", "cursor", "deep", "anchorAt", "_routes"].includes(key))
     .map((key) => [key, params.get(key)!] as const);
   return (
-    <Form method="get" action={base} className="my-3 flex flex-wrap items-center gap-2 text-[13px]">
+    <Form method="get" action={base} className="my-3 flex flex-wrap items-center gap-2 text-[14px]">
       {keep.map(([key, value]) => (
         <input key={key} type="hidden" name={key} value={value} />
       ))}
@@ -239,7 +239,7 @@ export function FeedBar({
                 }
               }}
               aria-label="返回动态"
-              className="flex min-h-11 items-center px-1 text-[15px] text-accent"
+              className="flex min-h-11 items-center px-1 text-[16px] text-accent"
             >
               <IconChevronLeft size={23} />
               返回
@@ -255,7 +255,7 @@ export function FeedBar({
             <button
               type="button"
               aria-label={`修改搜索：${query}`}
-              className="flex h-9 min-w-0 items-center gap-2 rounded-full bg-bg-sunk px-3 text-left text-[14px]"
+              className="flex h-9 min-w-0 items-center gap-2 rounded-full bg-bg-sunk px-3 text-left text-[15px]"
               onClick={(event) => search?.(query, event.currentTarget)}
             >
               <IconSearch size={16} className="shrink-0" />
@@ -297,7 +297,7 @@ export function FeedBar({
               key={chip.key}
               aria-label={`取消筛选：${chip.label}`}
               to={hrefWith(base, params, chip.patch)}
-              className="inline-flex min-h-10 max-w-full items-center gap-1 rounded-full bg-accent-soft px-3 text-[13px] text-accent"
+              className="inline-flex min-h-10 max-w-full items-center gap-1 rounded-full bg-accent-soft px-3 text-[14px] text-accent"
             >
               <span className="truncate">{chip.label}</span>
               <IconClose size={14} />
@@ -313,7 +313,7 @@ export function FeedBar({
             {base === "/all" ? (
               <SourceDateFilters base="/all" facets={facets} />
             ) : (
-              <Link to={scope("/all")} className="block py-3 text-[13px] text-accent">
+              <Link to={scope("/all")} className="block py-3 text-[14px] text-accent">
                 按来源、矿种或日期查找 →
               </Link>
             )}
@@ -324,7 +324,7 @@ export function FeedBar({
                     to={choice.to}
                     onClick={() => setSheet(false)}
                     aria-current={active === choice.key ? "true" : undefined}
-                    className={`flex min-h-11 items-center justify-between rounded-tile px-2 text-[15px] active:bg-bg-sunk ${active === choice.key ? "font-semibold text-accent" : "text-ink-2"}`}
+                    className={`flex min-h-11 items-center justify-between rounded-tile px-2 text-[16px] active:bg-bg-sunk ${active === choice.key ? "font-semibold text-accent" : "text-ink-2"}`}
                   >
                     {choice.label}
                     {active === choice.key && <span aria-hidden="true">✓</span>}
@@ -404,7 +404,7 @@ export function SearchField({
             maxLength={200}
             autoComplete="off"
             enterKeyHint="search"
-            className="h-11 w-full rounded-full border border-line-strong bg-surface pl-10 pr-9 text-[16px] lg:text-[15px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-4 focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+            className="h-11 w-full rounded-full border border-line-strong bg-surface pl-10 pr-9 text-[16px] lg:text-[16px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-4 focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]"
           />
           {value && (
             <button
@@ -422,7 +422,7 @@ export function SearchField({
         </label>
         <button
           type="submit"
-          className={`h-11 shrink-0 rounded-full bg-accent px-5 text-[14.5px] font-semibold text-accent-contrast transition-[background-color,transform] active:scale-[0.98] ${searching ? "opacity-60" : ""}`}
+          className={`h-11 shrink-0 rounded-full bg-accent px-5 text-[15.5px] font-semibold text-accent-contrast transition-[background-color,transform] active:scale-[0.98] ${searching ? "opacity-60" : ""}`}
         >
           搜索
         </button>
@@ -457,7 +457,7 @@ export function SearchField({
         placeholder="搜索标题、摘要…"
         maxLength={200}
         autoComplete="off"
-        className="h-[42px] w-full rounded-full bg-bg-sunk pl-10 pr-10 text-[14px] text-ink outline-none ring-1 ring-inset ring-line-soft transition-[background-color,box-shadow] placeholder:text-ink-4 hover:ring-line-strong focus:bg-surface focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:ring-accent dark:bg-bg-muted/60 dark:focus:bg-surface"
+        className="h-[42px] w-full rounded-full bg-bg-sunk pl-10 pr-10 text-[15px] text-ink outline-none ring-1 ring-inset ring-line-soft transition-[background-color,box-shadow] placeholder:text-ink-4 hover:ring-line-strong focus:bg-surface focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:ring-accent dark:bg-bg-muted/60 dark:focus:bg-surface"
       />
       {value ? (
         <button
@@ -472,7 +472,7 @@ export function SearchField({
           <IconClose size={13} />
         </button>
       ) : (
-        <kbd className="mono pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-mark border border-line-strong bg-surface px-1.5 text-[10.5px] leading-4 text-ink-4 lg:block">
+        <kbd className="mono pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-mark border border-line-strong bg-surface px-1.5 text-[11.5px] leading-4 text-ink-4 lg:block">
           /
         </kbd>
       )}
@@ -511,17 +511,17 @@ export function SourceDateFilters({
 }) {
   const [params] = useSearchParams();
   const controls = ["source", "mineral", "on", "from", "to"];
-  const field = "min-w-0 rounded-control border border-line-strong bg-surface px-2 py-2 text-[16px] text-ink sm:text-[13px]";
+  const field = "min-w-0 rounded-control border border-line-strong bg-surface px-2 py-2 text-[16px] text-ink sm:text-[14px]";
   return (
     <details className="my-3 rounded-control border border-line px-3 py-2" open={controls.some((name) => params.get(name)) || undefined}>
-      <summary className="cursor-pointer text-[13px] text-ink-3">来源、矿种与日期筛选</summary>
+      <summary className="cursor-pointer text-[14px] text-ink-3">来源、矿种与日期筛选</summary>
       <Form key={params.toString()} method="get" action={base} className="mt-3 flex flex-wrap items-end gap-3" aria-label="资讯组合筛选">
         {[...params]
           .filter(([name]) => ![...controls, "page", "cursor", "_routes"].includes(name))
           .map(([name, value]) => (
             <input key={name} type="hidden" name={name} value={value} />
           ))}
-        <label className="flex max-w-full flex-col gap-1 text-[12px] text-ink-3">
+        <label className="flex max-w-full flex-col gap-1 text-[13px] text-ink-3">
           来源
           <select name="source" defaultValue={params.get("source") ?? ""} className={field}>
             <option value="">全部来源</option>
@@ -535,7 +535,7 @@ export function SourceDateFilters({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-[12px] text-ink-3">
+        <label className="flex flex-col gap-1 text-[13px] text-ink-3">
           矿种
           <select name="mineral" defaultValue={params.get("mineral") ?? ""} className={field}>
             <option value="">全部矿种</option>
@@ -554,7 +554,7 @@ export function SourceDateFilters({
           ["from", "开始日期"],
           ["to", "结束日期"],
         ].map(([name, label]) => (
-          <label key={name} className="flex flex-col gap-1 text-[12px] text-ink-3">
+          <label key={name} className="flex flex-col gap-1 text-[13px] text-ink-3">
             {label}
             <input type="date" name={name} defaultValue={params.get(name!) ?? ""} className={field} />
           </label>
@@ -562,10 +562,10 @@ export function SourceDateFilters({
         <button type="submit" className={`${field} text-accent`}>
           应用筛选
         </button>
-        <Link to={hrefWith(base, params, { source: null, mineral: null, on: null, from: null, to: null })} className="py-2 text-[13px] text-ink-3">
+        <Link to={hrefWith(base, params, { source: null, mineral: null, on: null, from: null, to: null })} className="py-2 text-[14px] text-ink-3">
           清除这些条件
         </Link>
-        <p className="w-full text-[12px] text-ink-4">
+        <p className="w-full text-[13px] text-ink-4">
           按时间线的北京日期筛选，与列表分组和“今天”一致；指定日期优先于日期范围，来源日期待核实的内容也可按时间线日期查找。
         </p>
       </Form>

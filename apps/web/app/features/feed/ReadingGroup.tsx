@@ -152,7 +152,7 @@ function Toggle({ open, onToggle, children }: { open: boolean; onToggle: () => v
         e.stopPropagation();
         onToggle();
       }}
-      className="relative z-10 inline-flex items-center gap-0.5 text-[12.5px] text-ink-4 transition-colors hover:text-accent"
+      className="relative z-10 inline-flex items-center gap-0.5 text-[13.5px] text-ink-4 transition-colors hover:text-accent"
     >
       {children}
       <IconChevronDown size={13} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
@@ -193,13 +193,13 @@ function LoadState({
     );
   if (error)
     return (
-      <button type="button" onClick={onRetry} className="py-1 text-[12.5px] text-hot">
+      <button type="button" onClick={onRetry} className="py-1 text-[13.5px] text-hot">
         暂时无法加载，点此重试
       </button>
     );
   if (next && !loading)
     return (
-      <button type="button" onClick={onMore} className="py-1 text-[12.5px] text-accent hover:underline">
+      <button type="button" onClick={onMore} className="py-1 text-[13.5px] text-accent hover:underline">
         加载更多
       </button>
     );
@@ -238,12 +238,12 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo | 
       <Panel open={open}>
         <ul className="divide-y divide-line-soft">
           {others.map((r) => (
-            <li key={r.id} className="flex items-baseline gap-2 py-1.5 text-[13px]">
+            <li key={r.id} className="flex items-baseline gap-2 py-1.5 text-[14px]">
               <span className="w-[108px] shrink-0 truncate text-ink-4">{shortSourceName(r.source.name)}</span>
               <Link to={`/items/${r.id}`} onClick={() => markRead(r.id)} className="min-w-0 flex-1 truncate text-ink-2 hover:text-accent">
                 {r.title}
               </Link>
-              <span className={`shrink-0 text-[11px] ${readSet.has(r.id) ? "text-ink-4" : "text-accent"}`}>{readSet.has(r.id) ? "已读" : "未读"}</span>
+              <span className={`shrink-0 text-[12px] ${readSet.has(r.id) ? "text-ink-4" : "text-accent"}`}>{readSet.has(r.id) ? "已读" : "未读"}</span>
               <a href={r.originalUrl} target="_blank" rel="noopener noreferrer" aria-label="打开原文" className="shrink-0 text-ink-4 hover:text-accent">
                 <IconArrowUpRight size={13} />
               </a>
@@ -261,7 +261,7 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo | 
         {fact && group.story && (
           <Link
             to={`/story/${group.story.publicId}`}
-            className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"
+            className="mt-1 inline-flex items-center gap-0.5 py-1 text-[13.5px] font-medium text-accent hover:text-accent-ink"
           >
             查看完整事件 <IconArrowUpRight size={12} />
           </Link>
@@ -304,10 +304,10 @@ export function GroupDevelopments({
               <span
                 className={`absolute -left-[13.5px] top-[7px] size-[7px] rounded-full ring-2 ring-bg-sunk dark:ring-bg-muted ${d.representative.id === parentId ? "bg-accent" : "bg-line-strong"}`}
               />
-              <Link to={`/items/${d.representative.id}`} className="block text-[13px] leading-snug text-ink-2 hover:text-accent">
+              <Link to={`/items/${d.representative.id}`} className="block text-[14px] leading-snug text-ink-2 hover:text-accent">
                 {d.title}
               </Link>
-              <div className="mt-0.5 text-[11.5px] text-ink-4">
+              <div className="mt-0.5 text-[12.5px] text-ink-4">
                 {shortSourceName(d.representative.source.name)} ·{" "}
                 <span className="num">{newsSourceDate(d.representative.sourceTime, d.representative.publishedAt)?.text ?? "原文时间尚未确认"}</span>
                 {d.reportCount > 1 ? ` · ${d.reportCount} 篇报道` : ""}
@@ -325,7 +325,7 @@ export function GroupDevelopments({
         />
         <Link
           to={`/story/${group.story.publicId}`}
-          className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"
+          className="mt-1 inline-flex items-center gap-0.5 py-1 text-[13.5px] font-medium text-accent hover:text-accent-ink"
         >
           查看完整事件 <IconArrowUpRight size={12} />
         </Link>
@@ -338,7 +338,7 @@ export function GroupDevelopments({
 export function LatestDevelopment({ group }: { group: GroupInfo }) {
   if (!group.latestDevelopment || group.developmentCount <= 1) return null;
   return (
-    <p className="relative z-10 mt-2.5 flex items-baseline gap-1.5 text-[13px] leading-relaxed">
+    <p className="relative z-10 mt-2.5 flex items-baseline gap-1.5 text-[14px] leading-relaxed">
       <span className="shrink-0 font-medium text-accent">最新进展</span>
       <span className="num shrink-0 text-ink-4">{sourceMonthDayTime(group.latestDevelopment.at)}</span>
       <span className="line-clamp-1 text-ink-3">{group.latestDevelopment.title}</span>

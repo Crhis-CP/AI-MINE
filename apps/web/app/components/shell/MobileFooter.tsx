@@ -10,7 +10,7 @@ export function MobileFooter() {
   const filings = useSiteFilings();
   if (pathname.replace(/\/+$/, "") === "/more" || !hasFilings(filings)) return null;
   return (
-    <footer className="mt-10 flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-line-soft pb-2 pt-4 text-center text-[11px] text-ink-4 lg:hidden">
+    <footer className="mt-10 flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-line-soft pb-2 pt-4 text-center text-[12px] text-ink-4 lg:hidden">
       <FilingLinks filings={filings} linkClassName="hover:text-ink-3" />
     </footer>
   );

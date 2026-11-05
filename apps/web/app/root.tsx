@@ -4,6 +4,7 @@ import { SITE } from "@amp/industry/site";
 import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError, useRouteLoaderData } from "react-router";
 import type { Route } from "./+types/root";
 import "./group.css";
+import brandSans from "./assets/fonts/InstrumentSans_400Regular.woff2?url";
 import { Wordmark } from "./components/Logo";
 import { buttonClass } from "./components/ui/Controls";
 import { NonceContext } from "./lib/csp";
@@ -16,6 +17,8 @@ export function loader() {
 }
 
 export const links: Route.LinksFunction = () => [
+  // The Latin text face (app.css); the other weights and the figures load when first used.
+  { rel: "preload", href: brandSans, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   { rel: "icon", type: "image/png", href: "/icon.png" },
   { rel: "apple-touch-icon", href: "/apple-icon.png" },
@@ -36,8 +39,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="amp-release" content={useRouteLoaderData<typeof loader>("root")?.release ?? "dev"} />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf9f6" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#13191c" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f6f0" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15130f" />
         <BootScript text={THEME_BOOT_SCRIPT} />
         {ROOT_MODULES.map((module) => module.root?.bootScript && <BootScript key={module.name} text={module.root.bootScript} />)}
         <Meta />

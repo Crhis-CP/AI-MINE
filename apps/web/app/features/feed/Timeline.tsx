@@ -66,10 +66,10 @@ export function DayHeader({
   const short = WEEKDAY_SHORT[new Date(`${day}T12:00:00+08:00`).getUTCDay()] ?? "";
   const phoneRow = (
     <>
-      <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
-      {day === today && <span className="text-[12.5px] text-ink-4">{date}</span>}
-      <span className="text-[12.5px] text-ink-4">{short}</span>
-      <span className="ml-auto flex items-center gap-1 text-[12.5px] text-ink-4">
+      <span className="text-[15px] font-bold text-ink">{day === today ? "今天" : date}</span>
+      {day === today && <span className="text-[13.5px] text-ink-4">{date}</span>}
+      <span className="text-[13.5px] text-ink-4">{short}</span>
+      <span className="ml-auto flex items-center gap-1 text-[13.5px] text-ink-4">
         {count !== null && (
           <span>
             <span className="num">{count}</span> 条
@@ -120,7 +120,7 @@ export function DayHeader({
             <IconChevronDown size={14} className={`transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`} />
           </button>
         )}
-        <span className="text-[13px] text-ink-4">
+        <span className="text-[14px] text-ink-4">
           {weekday}
           {count !== null && (
             <>
@@ -165,7 +165,7 @@ export function TimelineSlot({
       <time
         dateTime={dateOnly ? beijingDate(at) : at}
         title={dateOnly ? "按日期归档" : "本站时间线"}
-        className="mono hidden text-ink-4 lg:block lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
+        className="mono hidden text-ink-4 lg:block lg:pt-[17px] lg:text-[13.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
       >
         {dateOnly ? NO_TIME : beijingTime(at)}
       </time>
@@ -418,7 +418,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       type="button"
       aria-pressed={state.unreadOnly}
       onClick={() => setState((s) => ({ ...s, unreadOnly: !s.unreadOnly }))}
-      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-[12.5px] transition-colors ${state.unreadOnly ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-ink-3 hover:text-ink"}`}
+      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-[13.5px] transition-colors ${state.unreadOnly ? "border-accent/40 bg-accent-soft text-accent" : "border-line bg-surface text-ink-3 hover:text-ink"}`}
     >
       <span aria-hidden="true" className={`size-3.5 rounded-full border ${state.unreadOnly ? "border-accent bg-accent" : "border-line-strong"}`} />
       只看未读
@@ -508,11 +508,11 @@ export function FeedEnd({
   return (
     <div className="flex justify-center py-6">
       {loading ? (
-        <span className="inline-flex items-center gap-2 text-[12.5px] text-ink-4">
-          <LoadingDots className="text-[14px] text-accent" /> 正在加载
+        <span className="inline-flex items-center gap-2 text-[13.5px] text-ink-4">
+          <LoadingDots className="text-[15px] text-accent" /> 正在加载
         </span>
       ) : error ? (
-        <button type="button" onClick={onMore} className="h-9 rounded-full border border-hot/30 px-4 text-[13px] text-hot hover:bg-hot-soft">
+        <button type="button" onClick={onMore} className="h-9 rounded-full border border-hot/30 px-4 text-[14px] text-hot hover:bg-hot-soft">
           加载失败，点此重试
         </button>
       ) : hasMore ? (
@@ -520,13 +520,13 @@ export function FeedEnd({
           <button
             type="button"
             onClick={onMore}
-            className="h-9 rounded-full border border-line-strong bg-surface px-5 text-[13px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
+            className="h-9 rounded-full border border-line-strong bg-surface px-5 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
           >
             加载更多
           </button>
         )
       ) : (
-        !empty && <span className="text-[12px] text-ink-4">已经到底了</span>
+        !empty && <span className="text-[13px] text-ink-4">已经到底了</span>
       )}
     </div>
   );

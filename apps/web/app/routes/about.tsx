@@ -60,7 +60,7 @@ function Figure({ n, unit }: { n: number; unit: string }) {
   return (
     <div className="flex items-baseline gap-1.5">
       <span className="num text-[30px] font-black leading-none tracking-[-0.03em] text-ink xl:text-[36px]">{f.value}</span>
-      <span className="text-[13px] text-ink-3">
+      <span className="text-[14px] text-ink-3">
         {f.unit}
         {unit}
       </span>
@@ -122,10 +122,10 @@ function Latest({ item, className = "" }: { item: NonNullable<SiteStats["latest"
   if (!item) return null;
   return (
     <Link to={`/items/${item.id}`} className={`group block ${className}`}>
-      <span className="text-[11px] font-semibold tracking-[0.2em] text-accent">最近精选</span>
+      <span className="text-[12px] font-semibold tracking-[0.2em] text-accent">最近精选</span>
       <span key={item.id} className="animate-fade-up mt-1.5 block">
-        <span className="line-clamp-2 text-[13.5px] font-semibold leading-[1.55] text-ink group-hover:text-accent">{item.title}</span>
-        <span className="mt-1 block truncate text-[12px] text-ink-4">{item.source}</span>
+        <span className="line-clamp-2 text-[14.5px] font-semibold leading-[1.55] text-ink group-hover:text-accent">{item.title}</span>
+        <span className="mt-1 block truncate text-[13px] text-ink-4">{item.source}</span>
       </span>
     </Link>
   );
@@ -221,7 +221,7 @@ export default function AboutPage() {
             </button>
           </p>
         )}
-        <p className="mb-3 text-[12px] font-semibold tracking-wide text-ink-3">流程示意</p>
+        <p className="mb-3 text-[13px] font-semibold tracking-wide text-ink-3">流程示意</p>
         {sources.length > 0 ? (
           <SignalRiver sources={sources} focus={focus} onArrive={onArrive} className="h-[230px] sm:h-[300px] lg:h-[360px] 2xl:h-[420px]">
             <Latest item={latest[at % Math.max(1, latest.length)]} className="absolute left-[75%] top-[calc(42%+42px)] hidden w-[25%] px-6 lg:block" />
@@ -242,12 +242,12 @@ export default function AboutPage() {
               className={`border-line py-6 ${STAGE_CELL[i]}`}
             >
               <div className="flex items-baseline gap-2.5">
-                <span className="num text-[12px] font-bold tracking-[0.12em] text-accent">{s.no}</span>
+                <span className="num text-[13px] font-bold tracking-[0.12em] text-accent">{s.no}</span>
                 <h3 className="text-[17px] font-bold text-ink">{s.title}</h3>
               </div>
               {s.figure && <div className="mt-4">{s.figure}</div>}
-              <p className="mt-3 text-[14px] leading-[1.8] text-ink-3">{s.text}</p>
-              {s.note && <p className="mt-3 text-[12px] text-ink-4">{s.note}</p>}
+              <p className="mt-3 text-[15px] leading-[1.8] text-ink-3">{s.text}</p>
+              {s.note && <p className="mt-3 text-[13px] text-ink-4">{s.note}</p>}
             </li>
           ))}
         </ol>
@@ -273,7 +273,7 @@ export default function AboutPage() {
         </section>
       )}
 
-      <p className="mt-16 well rounded-card px-5 py-4 text-[13px] leading-[1.85] text-ink-3">
+      <p className="mt-16 well rounded-card px-5 py-4 text-[14px] leading-[1.85] text-ink-3">
         {ABOUT.copyright}
         <Link to="/feedback" className="text-accent hover:underline">
           反馈页
@@ -281,9 +281,9 @@ export default function AboutPage() {
         联系我们。
       </p>
 
-      {filings.newsLicense && <p className="mt-4 text-[12.5px] text-ink-4">互联网新闻信息服务许可证：{filings.newsLicense}</p>}
+      {filings.newsLicense && <p className="mt-4 text-[13.5px] text-ink-4">互联网新闻信息服务许可证：{filings.newsLicense}</p>}
 
-      <footer className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5 text-[12.5px] text-ink-4">
+      <footer className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5 text-[13.5px] text-ink-4">
         <nav className="flex gap-5" aria-label="规则与隐私">
           <Link to="/terms" className="transition-colors hover:text-accent">
             使用规则

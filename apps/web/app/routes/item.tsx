@@ -169,7 +169,7 @@ export default function ItemPage() {
     <button
       type="button"
       onClick={back}
-      className="-ml-1.5 inline-flex h-8 items-center gap-1.5 rounded-full px-1.5 text-[14px] text-ink-2 transition-colors hover:text-ink lg:text-[13px] lg:text-ink-3"
+      className="-ml-1.5 inline-flex h-8 items-center gap-1.5 rounded-full px-1.5 text-[15px] text-ink-2 transition-colors hover:text-ink lg:text-[14px] lg:text-ink-3"
     >
       <IconArrowLeft size={16} /> 返回
     </button>
@@ -221,7 +221,7 @@ export default function ItemPage() {
         href={item.links.original}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
+        className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 text-[13.5px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
       >
         {originalLabel} <IconExternal size={13} />
       </a>
@@ -240,28 +240,28 @@ export default function ItemPage() {
   // under the facts (or under the notes when only the right rail shows).
   const facts = (
     <RailSection title="来源">
-      <div className="text-[14px] font-semibold leading-snug text-ink">{item.source.name}</div>
-      <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
-      <div className="mt-3 text-[12px] text-ink-4">
+      <div className="text-[15px] font-semibold leading-snug text-ink">{item.source.name}</div>
+      <div className="mt-1 text-[13.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
+      <div className="mt-3 text-[13px] text-ink-4">
         {sourceDate?.label ?? "发布时间"}
         {sourceDate && !sourceDate.dateOnly ? " · 北京时间" : ""}
       </div>
       {sourceDate && publishedAttr ? (
         <>
-          <time dateTime={publishedAttr} className="mono mt-0.5 block text-[12.5px] text-ink-2">
+          <time dateTime={publishedAttr} className="mono mt-0.5 block text-[13.5px] text-ink-2">
             {sourceDate.text}
           </time>
           {!dateOnly && publishedIso && (
-            <div className="mt-0.5 text-[12px] text-ink-4" suppressHydrationWarning>
+            <div className="mt-0.5 text-[13px] text-ink-4" suppressHydrationWarning>
               {Date.parse(publishedIso) <= Date.now() ? relativeTime(publishedIso) : "原文标注"}
             </div>
           )}
         </>
       ) : (
         <>
-          <div className="mt-0.5 text-[12.5px] text-ink-2">尚未确认</div>
-          <div className="mt-3 text-[12px] text-ink-4">收录时间</div>
-          <time dateTime={item.discoveredAt} className="mono mt-0.5 block text-[12.5px] text-ink-2">
+          <div className="mt-0.5 text-[13.5px] text-ink-2">尚未确认</div>
+          <div className="mt-3 text-[13px] text-ink-4">收录时间</div>
+          <time dateTime={item.discoveredAt} className="mono mt-0.5 block text-[13.5px] text-ink-2">
             {fullDateTime(item.discoveredAt)}
           </time>
         </>
@@ -282,7 +282,7 @@ export default function ItemPage() {
                   event.preventDefault();
                   goToSection(o.id);
                 }}
-                className={`-ml-px block border-l py-1 text-[12.5px] leading-snug transition-colors hover:border-accent hover:text-ink ${readingAnchor === o.id ? "border-accent text-accent" : "border-transparent text-ink-3"} ${o.level > 2 ? "pl-5" : "pl-3"}`}
+                className={`-ml-px block border-l py-1 text-[13.5px] leading-snug transition-colors hover:border-accent hover:text-ink ${readingAnchor === o.id ? "border-accent text-accent" : "border-transparent text-ink-3"} ${o.level > 2 ? "pl-5" : "pl-3"}`}
               >
                 {o.text}
               </a>
@@ -297,7 +297,7 @@ export default function ItemPage() {
       {item.reason && !summaryOnly ? (
         <RailSection title="推荐理由">
           {verdict && <div className="mb-3">{verdict}</div>}
-          <p className="text-[13.5px] leading-[1.8] text-ink-2">{item.reason}</p>
+          <p className="text-[14.5px] leading-[1.8] text-ink-2">{item.reason}</p>
         </RailSection>
       ) : (
         verdict && <RailSection title="AI 评分">{verdict}</RailSection>
@@ -347,8 +347,8 @@ export default function ItemPage() {
       >
         <div className="hidden lg:block 2xl:hidden">{backButton}</div>
         <article className="pb-6 pt-6 lg:pt-2 2xl:pt-1">
-          {item.manualRevisionLabel && <p className="mb-3 text-[12px] text-ink-3">{item.manualRevisionLabel}</p>}
-          <div className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-3 2xl:hidden">
+          {item.manualRevisionLabel && <p className="mb-3 text-[13px] text-ink-3">{item.manualRevisionLabel}</p>}
+          <div className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] text-ink-3 2xl:hidden">
             <span className="font-semibold text-ink-2">{item.source.name}</span>
             {item.author && <span>· {item.author}</span>}
             <span>·</span>
@@ -384,24 +384,24 @@ export default function ItemPage() {
           <h1 className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">
             {item.title}
           </h1>
-          {item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
+          {item.originalTitle && <p className="mt-2.5 text-[15px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
           {item.x && <PostAuthor post={item.x} />}
 
-          <p className="mt-2 text-[12px] text-ink-4">
+          <p className="mt-2 text-[13px] text-ink-4">
             本站公开 {item.firstPublicAt ? <time dateTime={item.firstPublicAt}>{fullDateTime(item.firstPublicAt)}</time> : "时间未记录"}
           </p>
           <Attribution value={item.attribution} />
           {item.summary && (
             <section className="mt-7 xl:mt-8">
-              <div className="mb-2 text-[12px] font-semibold text-accent">{summaryOnly ? "摘要" : "AI 导读"}</div>
+              <div className="mb-2 text-[13px] font-semibold text-accent">{summaryOnly ? "摘要" : "AI 导读"}</div>
               <p className="text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
             </section>
           )}
 
           {item.reason && !summaryOnly && (
             <section className="mt-6 border-t border-line pt-4 lg:hidden">
-              <div className="mb-1 text-[12px] font-semibold text-ink-3">推荐理由</div>
-              <p className="text-[15px] leading-[1.75] text-ink-2">{item.reason}</p>
+              <div className="mb-1 text-[13px] font-semibold text-ink-3">推荐理由</div>
+              <p className="text-[16px] leading-[1.75] text-ink-2">{item.reason}</p>
             </section>
           )}
 
@@ -416,7 +416,7 @@ export default function ItemPage() {
           )}
 
           {!bodyHtml && (
-            <section className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3" aria-label="正文状态">
+            <section className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[14.5px] leading-relaxed text-ink-3" aria-label="正文状态">
               <h2 className="font-semibold">
                 {item.readingState === "pending" ? "正文正在补齐" : item.readingState === "restricted" || summaryOnly ? "本站仅提供中文导读" : "本站暂无正文"}
               </h2>
@@ -436,7 +436,7 @@ export default function ItemPage() {
           {((item.body && bodyHtml) || (item.x && hasTranslation)) && (
             <section id="article-body" className="mt-9 scroll-mt-16 border-t border-line pt-4 xl:mt-10">
               <div className="mb-6 flex items-center justify-between gap-3">
-                <span className="text-[12px] text-ink-4">{bodyLabel ?? "引用"}</span>
+                <span className="text-[13px] text-ink-4">{bodyLabel ?? "引用"}</span>
                 {hasTranslation && (
                   <PillTabs
                     size="xs"
@@ -451,7 +451,7 @@ export default function ItemPage() {
                 )}
               </div>
               {hasTranslation && lang === "zh" && item.body && !item.body.complete && (
-                <p className="mb-5 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">译文尚不完整，完整内容请切换到原文。</p>
+                <p className="mb-5 rounded-control bg-bg-sunk px-3 py-2 text-[14px] text-ink-3">译文尚不完整，完整内容请切换到原文。</p>
               )}
               {bodyHtml && <ArticleBody key={`${itemKey}:${lang}`} html={bodyHtml} />}
             </section>
@@ -459,7 +459,7 @@ export default function ItemPage() {
           {item.x && <PostMedia key={itemKey} media={item.x.media} href={item.links.original} />}
           {item.x?.quoted && <QuotedPost quoted={item.x.quoted} language={lang} />}
 
-          <p id="article-source" className="mt-8 scroll-mt-16 text-[13px] text-ink-4">
+          <p id="article-source" className="mt-8 scroll-mt-16 text-[14px] text-ink-4">
             来源：
             <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="text-ink-3 hover:text-accent">
               {item.source.name}
@@ -468,11 +468,11 @@ export default function ItemPage() {
           </p>
 
           <Attribution value={item.attribution} full />
-          <p className="mt-3 text-[12px] leading-relaxed text-ink-4">
+          <p className="mt-3 text-[13px] leading-relaxed text-ink-4">
             原始来源可追溯；中文内容由 AI 辅助生成或翻译{item.manualRevisionLabel ? "，并经人工修订" : ""}，核对细节请看原文。
           </p>
           <RelatedCoverage value={item.eventCoverage} currentId={item.id} />
-          <Link to={feedbackPath(currentLocation.pathname, currentLocation.search)} className="mt-4 inline-block text-[13px] text-accent">
+          <Link to={feedbackPath(currentLocation.pathname, currentLocation.search)} className="mt-4 inline-block text-[14px] text-accent">
             内容有误？告诉我们
           </Link>
           {!!item.companyContext?.length && (
@@ -481,12 +481,12 @@ export default function ItemPage() {
               <ul className="mt-3 space-y-4">
                 {item.companyContext.map((company) => (
                   <li key={`${company.name}:${company.originalName}`}>
-                    <h3 className="text-[14px] font-semibold">
+                    <h3 className="text-[15px] font-semibold">
                       {company.name}
                       {company.originalName && company.originalName !== company.name ? `（${company.originalName}）` : ""}
                     </h3>
-                    {company.description && <p className="mt-1 text-[14px] leading-relaxed text-ink-3">{company.description}</p>}
-                    <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] text-ink-4">
+                    {company.description && <p className="mt-1 text-[15px] leading-relaxed text-ink-3">{company.description}</p>}
+                    <p className="mt-1 flex flex-wrap gap-x-3 text-[13px] text-ink-4">
                       资料出处：
                       {company.sources.map((source) => (
                         <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" className="text-accent">
@@ -505,11 +505,11 @@ export default function ItemPage() {
               <ul className="mt-3 space-y-3">
                 {item.relatedPolicies.map((policy) => (
                   <li key={policy.id}>
-                    <Link to={`/policies/${encodeURIComponent(policy.id)}`} className="text-[14px] text-accent">
+                    <Link to={`/policies/${encodeURIComponent(policy.id)}`} className="text-[15px] text-accent">
                       {policy.title}
                     </Link>
                     {(policy.jurisdiction || policy.documentNumber) && (
-                      <p className="mt-1 text-[12px] text-ink-4">{[policy.jurisdiction, policy.documentNumber].filter(Boolean).join(" · ")}</p>
+                      <p className="mt-1 text-[13px] text-ink-4">{[policy.jurisdiction, policy.documentNumber].filter(Boolean).join(" · ")}</p>
                     )}
                   </li>
                 ))}
@@ -535,11 +535,11 @@ export default function ItemPage() {
 
           {related.length > 0 && (
             <section className="mt-8">
-              <h2 className="mb-2 text-[14px] font-semibold text-ink">相关事件</h2>
+              <h2 className="mb-2 text-[15px] font-semibold text-ink">相关事件</h2>
               <ul className="divide-y divide-line-soft">
                 {related.map((s) => (
                   <li key={s.publicId}>
-                    <Link to={`/story/${s.publicId}`} className="block py-2.5 text-[14px] text-ink-2 hover:text-accent">
+                    <Link to={`/story/${s.publicId}`} className="block py-2.5 text-[15px] text-ink-2 hover:text-accent">
                       {s.title}
                     </Link>
                   </li>
@@ -574,7 +574,7 @@ export default function ItemPage() {
                     }}
                   >
                     <span className="flex-1">{entry.text}</span>
-                    {readingAnchor === entry.id && <span className="text-[12px] text-accent">正在读</span>}
+                    {readingAnchor === entry.id && <span className="text-[13px] text-accent">正在读</span>}
                   </a>
                 </li>
               ))}
@@ -623,7 +623,7 @@ export default function ItemPage() {
       {toast && (
         <div
           role="status"
-          className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-[13px] text-bg shadow-[var(--shadow-pop)] lg:bottom-8"
+          className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-[14px] text-bg shadow-[var(--shadow-pop)] lg:bottom-8"
         >
           {toast}
         </div>

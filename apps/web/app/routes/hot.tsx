@@ -44,7 +44,7 @@ const pad = (rank: number) => String(rank).padStart(2, "0");
 function Voices({ e }: { e: HotEntryView }) {
   const names = e.sourceNames.slice(0, 2).map(shortSourceName);
   return (
-    <span className="min-w-0 text-[12.5px] leading-snug text-ink-4">
+    <span className="min-w-0 text-[13.5px] leading-snug text-ink-4">
       {/* Lines break between the phrases, never inside one. */}
       <span className="whitespace-nowrap">
         {names.length > 0 && <span className="text-ink-3">{names.join("、")}</span>}
@@ -85,7 +85,7 @@ function HeatPanel({ e }: { e: HotEntryView }) {
   const peakAt = e.spark.findIndex((v) => v === peak);
   return (
     <div className="order-first flex aspect-[2/1] flex-col rounded-panel bg-accent-softer p-4 ring-1 ring-inset ring-line-soft xl:order-none xl:aspect-[16/10] dark:bg-accent-soft">
-      <div className="flex items-baseline justify-between text-[11.5px] text-ink-4">
+      <div className="flex items-baseline justify-between text-[12.5px] text-ink-4">
         <span className="font-semibold text-ink-3">24 小时热度</span>
         <span>
           峰值 <span className="mono text-ink-2">{Math.round(peak)}</span>
@@ -93,7 +93,7 @@ function HeatPanel({ e }: { e: HotEntryView }) {
         </span>
       </div>
       <Sparkline values={e.spark} area stretch className="mt-2 min-h-0 w-full flex-1 text-accent" />
-      <div className="mt-2 flex justify-between text-[11px] text-ink-4">
+      <div className="mt-2 flex justify-between text-[12px] text-ink-4">
         <span>24 小时前</span>
         <span>现在</span>
       </div>
@@ -107,7 +107,7 @@ function Lead({ e }: { e: HotEntryView }) {
   return (
     <article className="card card-hover group relative flex flex-col overflow-hidden p-5 sm:p-6">
       <div className="flex items-center gap-2.5">
-        <span className={`mono text-[12px] font-bold tracking-[0.16em] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
+        <span className={`mono text-[13px] font-bold tracking-[0.16em] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
         <Badges e={e} />
         <Delta trend={e.trend} pct={e.trendPct} className="ml-auto" />
       </div>
@@ -116,7 +116,7 @@ function Lead({ e }: { e: HotEntryView }) {
           <h2 className="text-[21px] font-bold leading-[1.4] tracking-[-0.01em] text-ink sm:text-[23px] lg:text-[25px] lg:leading-[1.38]">
             <StoryLink e={e} className="group-hover:text-accent" />
           </h2>
-          {e.summary && <p className="mt-3 line-clamp-3 text-[14px] leading-[1.75] text-ink-3">{e.summary}</p>}
+          {e.summary && <p className="mt-3 line-clamp-3 text-[15px] leading-[1.75] text-ink-3">{e.summary}</p>}
         </div>
         {panel && <HeatPanel e={e} />}
       </div>
@@ -125,8 +125,8 @@ function Lead({ e }: { e: HotEntryView }) {
       <div className="mt-auto flex flex-wrap items-end gap-x-6 gap-y-4 pt-5">
         <div className="min-w-0 flex-[1_1_18rem] space-y-2.5">
           {e.latest && (
-            <p className="line-clamp-2 text-[13px] leading-[1.7] text-ink-2">
-              <span className="mr-2 text-[12px] font-semibold text-accent">最新进展</span>
+            <p className="line-clamp-2 text-[14px] leading-[1.7] text-ink-2">
+              <span className="mr-2 text-[13px] font-semibold text-accent">最新进展</span>
               {e.latest}
             </p>
           )}
@@ -138,7 +138,7 @@ function Lead({ e }: { e: HotEntryView }) {
           {!panel && <Sparkline values={e.spark} area className="h-10 w-[140px] text-accent" />}
           <div className="text-right">
             <div className="mono text-[34px] font-semibold leading-none tracking-[-0.03em] text-ink">{Math.round(e.heat)}</div>
-            <div className="mt-1 text-[11.5px] text-ink-4">热度指数</div>
+            <div className="mt-1 text-[12.5px] text-ink-4">热度指数</div>
           </div>
         </div>
       </div>
@@ -151,17 +151,17 @@ function Runner({ e }: { e: HotEntryView }) {
   return (
     <article className="card card-hover group relative flex flex-col px-5 py-4">
       <div className="flex items-center gap-2.5">
-        <span className={`mono text-[12px] font-bold tracking-[0.16em] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
+        <span className={`mono text-[13px] font-bold tracking-[0.16em] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
         <Badges e={e} />
         <Delta trend={e.trend} pct={e.trendPct} className="ml-auto" />
       </div>
       <h2 className="mt-2.5 line-clamp-2 text-[16px] font-[650] leading-[1.5] text-ink">
         <StoryLink e={e} className="group-hover:text-accent" />
       </h2>
-      {e.summary && <p className="mt-1.5 line-clamp-2 text-[13px] leading-[1.7] text-ink-3 lg:line-clamp-1">{e.summary}</p>}
+      {e.summary && <p className="mt-1.5 line-clamp-2 text-[14px] leading-[1.7] text-ink-3 lg:line-clamp-1">{e.summary}</p>}
       <div className="mt-auto flex items-end justify-between gap-4 pt-3">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="text-[12px] text-ink-4">
+          <span className="text-[13px] text-ink-4">
             <span className="whitespace-nowrap">
               <span className="num">{e.sourceCount}</span> 个来源
             </span>{" "}
@@ -188,7 +188,7 @@ function Row({ e }: { e: HotEntryView }) {
         {pad(e.rank)}
       </span>
       <div className="min-w-0">
-        <h3 className="text-[15px] font-[650] leading-[1.55] text-ink">
+        <h3 className="text-[16px] font-[650] leading-[1.55] text-ink">
           <StoryLink e={e} className="group-hover:text-accent" />
           {e.badges.length > 0 && (
             <span className="ml-2 inline-flex translate-y-[-2px] gap-1 align-middle">
@@ -196,9 +196,9 @@ function Row({ e }: { e: HotEntryView }) {
             </span>
           )}
         </h3>
-        {e.summary && <p className="mt-0.5 line-clamp-2 text-[13px] leading-[1.65] text-ink-4 lg:line-clamp-1">{e.summary}</p>}
+        {e.summary && <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.65] text-ink-4 lg:line-clamp-1">{e.summary}</p>}
         <div className="mt-2 flex items-center gap-2.5 lg:hidden">
-          <span className="text-[12px] text-ink-4">
+          <span className="text-[13px] text-ink-4">
             <span className="num">{e.sourceCount}</span> 个来源
           </span>
           <span className="ml-auto flex items-center gap-2">
@@ -208,7 +208,7 @@ function Row({ e }: { e: HotEntryView }) {
         </div>
       </div>
       <div className="hidden items-center gap-2.5 lg:flex">
-        <span className="whitespace-nowrap text-[12px] text-ink-4">
+        <span className="whitespace-nowrap text-[13px] text-ink-4">
           <span className="num">{e.sourceCount}</span> 个来源
         </span>
       </div>
@@ -246,7 +246,7 @@ export default function HotPage() {
                 method.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
               }
             }}
-            className="flex h-11 items-center gap-1 px-3 text-[14px] text-accent"
+            className="flex h-11 items-center gap-1 px-3 text-[15px] text-accent"
           >
             <IconInfo size={17} />
             怎么算
@@ -255,7 +255,7 @@ export default function HotPage() {
       />
       <header className="hidden flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-5 pt-1 lg:flex">
         <div>
-          <div className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.08em] text-hot">
+          <div className="flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] text-hot">
             <span className="relative flex size-2" aria-hidden="true">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-hot opacity-30" />
               <span className="relative inline-flex size-2 rounded-full bg-hot" />
@@ -263,12 +263,12 @@ export default function HotPage() {
             实时热度
           </div>
           <h1 className="mt-1.5 text-[24px] font-bold leading-[1.3] tracking-[-0.01em] text-ink lg:text-[26px]">{withSubject("热点榜")}</h1>
-          <p className="mt-1.5 text-[13.5px] text-ink-3">
+          <p className="mt-1.5 text-[14.5px] text-ink-3">
             过去 {hot.windowHours} 小时，{withSubject("领域")}讨论最多的 {hot.entries.length || 10} 件事
           </p>
         </div>
         {hot.computedAt && (
-          <p className="text-[12px] text-ink-4">
+          <p className="text-[13px] text-ink-4">
             <span className="num">{monthDayTime(hot.computedAt)}</span> 更新 · 按讨论热度排序
           </p>
         )}
@@ -294,13 +294,13 @@ export default function HotPage() {
           {others.length > 0 && (
             <section aria-label="其余热点" className="mt-6 lg:mt-7">
               <div className="mb-3 flex items-baseline justify-between px-1">
-                <h2 className="text-[15px] font-semibold text-ink">
+                <h2 className="text-[16px] font-semibold text-ink">
                   继续看{" "}
                   <span className="num font-normal text-ink-4">
                     No.{pad(others[0]!.rank)}–{pad(others[others.length - 1]!.rank)}
                   </span>
                 </h2>
-                <span className="hidden text-[12px] text-ink-4 lg:block">参与者 · 24 小时走势 · 热度指数</span>
+                <span className="hidden text-[13px] text-ink-4 lg:block">参与者 · 24 小时走势 · 热度指数</span>
               </div>
               <ol className="card divide-y divide-line-soft overflow-hidden">
                 {others.map((e) => (
@@ -312,7 +312,7 @@ export default function HotPage() {
         </>
       )}
 
-      <details id="hot-method" className="disclosure group/method mt-8 text-[12px] text-ink-4">
+      <details id="hot-method" className="disclosure group/method mt-8 text-[13px] text-ink-4">
         <summary className="flex items-center gap-1.5 py-1 transition-colors hover:text-ink-2">
           <IconInfo size={15} />
           热度是怎么算的？

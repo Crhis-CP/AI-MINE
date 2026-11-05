@@ -170,7 +170,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
   return (
     <>
       {!policyPage && status !== "idle" && status !== "checking" && (
-        <div role="status" className="my-2 flex items-center gap-3 rounded-control bg-bg-sunk px-3 py-2 text-[12px] text-ink-3">
+        <div role="status" className="my-2 flex items-center gap-3 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">
           {status === "withdrawn"
             ? "公开内容已调整，正在核对当前页面…"
             : status === "failed"

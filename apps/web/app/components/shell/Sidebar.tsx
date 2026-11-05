@@ -17,7 +17,7 @@ function SideLink({ item }: { item: NavItem }) {
     <Link
       to={item.to === "/feedback" ? feedbackPath(pathname, search) : item.to}
       aria-current={isActive ? "page" : undefined}
-      className={`flex h-10 items-center gap-2.5 rounded-control px-2.5 text-[14px] transition-colors duration-150 ${
+      className={`flex h-10 items-center gap-2.5 rounded-control px-2.5 text-[15px] transition-colors duration-150 ${
         isActive ? "bg-accent/10 font-semibold text-ink dark:bg-accent-soft" : "font-medium text-ink-3 hover:bg-bg-sunk hover:text-ink"
       }`}
     >
@@ -40,7 +40,7 @@ export function Sidebar() {
       <nav className="-mx-1 flex-1 overflow-y-auto px-1" aria-label="主导航">
         {SIDEBAR.map((section) => (
           <div key={section.title}>
-            <div className="px-2.5 pb-1 pt-3.5 text-[11px] text-ink-4">{section.title}</div>
+            <div className="px-2.5 pb-1 pt-3.5 text-[12px] text-ink-4">{section.title}</div>
             <div className="flex flex-col gap-1">
               {section.items.map((item) => (
                 <SideLink key={item.to} item={item} />
@@ -53,9 +53,9 @@ export function Sidebar() {
         <ThemeSwitch className="mx-1" />
         <FilingLinks
           filings={filings}
-          linkClassName="block px-2 text-[10px] text-ink-4 hover:text-ink-3"
+          linkClassName="block px-2 text-[11.5px] text-ink-4 hover:text-ink-3"
           licenseAs="p"
-          licenseClassName="px-2 text-[10px] text-ink-4"
+          licenseClassName="px-2 text-[11.5px] text-ink-4"
         />
       </div>
     </aside>

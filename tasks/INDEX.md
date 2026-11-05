@@ -383,6 +383,7 @@
 | [TASK-0511](TASK-0511.md) | T-0101 | M3 | architect | locally_verified | 费用核算计入 DeepSeek 缓存命中 | — |
 | [TASK-0512](TASK-0512.md) | T-0101 | M3 | architect | locally_verified | 启用定稿标识“五臂星系”（图标与站名字标） | — |
 | [TASK-0513](TASK-0513.md) | T-0101 | M3 | architect | locally_verified | 归组送审材料限量，历史背景配对合并为一次调用 | — |
+| [TASK-0514](TASK-0514.md) | T-0101 | M3 | architect | locally_verified | 字体、字号、配色随新标识统一，分享图与海报换新品牌 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

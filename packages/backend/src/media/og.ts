@@ -1,5 +1,6 @@
 // 1200×630 share images. satori lays out text with Noto Sans SC (assets/og-fonts) and emits glyphs
 // as paths, so rasterising with sharp needs no system fonts. Output is cached on disk by content.
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -8,7 +9,7 @@ import sharp from "sharp";
 import { SITE } from "@amp/industry/site";
 import { config, REPO_ROOT } from "@amp/backend/config";
 
-export const OG_TEMPLATE_VERSION = "og-2026-10-02.1";
+export const OG_TEMPLATE_VERSION = "og-2026-11-05.1";
 const WIDTH = 1200;
 const HEIGHT = 630;
 const CACHE_DIR = path.join(config.dataDir, "ogcache");
@@ -37,14 +38,17 @@ export function fonts() {
 /** The site's host as shown on cards. */
 export const SITE_HOST = new URL(config.siteUrl).host;
 
-const [, NAME_LEAD = "", NAME_REST = ""] = /^([A-Za-z0-9]*)(.*)$/su.exec(SITE.name) ?? [];
+/** The site lockup (industry/brand/lockup*.svg, scripts/wordmark.ts): galaxy mark and gold name, as on the site. */
+const LOCKUP = (() => {
+  const dir = path.join(REPO_ROOT, "industry/brand");
+  const uri = (file: string) => `data:image/svg+xml;base64,${readFileSync(path.join(dir, file)).toString("base64")}`;
+  const { aspect } = JSON.parse(readFileSync(path.join(dir, "lockup.json"), "utf8")) as { aspect: number };
+  return { light: uri("lockup.svg"), dark: uri("lockup-dark.svg"), aspect };
+})();
 
-/** The site name as a wordmark, as on the site: the Latin lead in the text colour, the rest in the accent (PG-00). */
-export function nameMark(size: number, color: string, accent: string): Node {
-  return h("div", { display: "flex", alignItems: "center", fontSize: size, fontWeight: 700, letterSpacing: 0.5 }, [
-    h("div", { display: "flex", color }, NAME_LEAD),
-    h("div", { display: "flex", color: accent }, NAME_REST),
-  ]);
+/** The lockup `height` px tall, in its light-paper or dark-paper cut. */
+export function nameMark(height: number, paper: "light" | "dark"): Node {
+  return h("img", { width: Math.round(height * LOCKUP.aspect), height }, undefined, { src: LOCKUP[paper], alt: SITE.name });
 }
 
 export type Node = { type: string; props: Record<string, unknown> & { style?: Record<string, unknown>; children?: unknown } };
@@ -53,8 +57,8 @@ export const h = (type: string, style: Record<string, unknown>, children?: unkno
   props: { style, children, ...extra },
 });
 
-// 临时 (T-0006, Q-67): brand is a neutral placeholder until the palette is settled.
-const BRAND = "#cbd5e1";
+// Brand gold of the galaxy logo on warm charcoal (DEC-78), as the site's dark theme.
+const BRAND = "#e2b04f";
 const ACCENTS = { brand: BRAND, hot: "#ff7a5f", amber: "#e2b454" } as const;
 
 function clamp(text: string, max: number) {
@@ -75,16 +79,16 @@ async function tree(card: OgCard): Promise<Node> {
       flexDirection: "column",
       padding: "64px 72px",
       fontFamily: "Noto Sans SC",
-      color: "#e6eded",
-      backgroundColor: "#0a1012",
-      // 临时 (T-0006, Q-67): the two glows use the placeholder slates.
+      color: "#ece6da",
+      backgroundColor: "#15130f",
+      // Two warm-gold glows, the logo's core light.
       backgroundImage:
-        "radial-gradient(circle at 88% 8%, rgba(148,163,184,0.22), rgba(10,16,18,0) 46%), radial-gradient(circle at 0% 100%, rgba(71,85,105,0.35), rgba(10,16,18,0) 50%)",
+        "radial-gradient(circle at 88% 8%, rgba(240,202,110,0.18), rgba(21,19,15,0) 46%), radial-gradient(circle at 0% 100%, rgba(160,106,30,0.28), rgba(21,19,15,0) 50%)",
     },
     [
       h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" }, [
-        nameMark(34, "#e6eded", BRAND),
-        h("div", { display: "flex", fontSize: 24, color: "#82939a" }, SITE_HOST),
+        nameMark(46, "dark"),
+        h("div", { display: "flex", fontSize: 24, color: "#948c7d" }, SITE_HOST),
       ]),
       h("div", { display: "flex", marginTop: 56, alignItems: "center" }, [
         h("div", { width: 10, height: 10, borderRadius: 999, backgroundColor: accent, marginRight: 14 }),
@@ -95,12 +99,12 @@ async function tree(card: OgCard): Promise<Node> {
           "div",
           { display: "flex", flexDirection: "column", flex: 1 },
           [
-            h("div", { display: "flex", fontSize: titleSize, fontWeight: 700, lineHeight: 1.25, color: "#ffffff" }, title),
+            h("div", { display: "flex", fontSize: titleSize, fontWeight: 700, lineHeight: 1.25, color: "#fbf7ef" }, title),
             // Long titles take three lines; the summary then gets one line so nothing reaches the footer.
             card.subtitle
               ? h(
                   "div",
-                  { display: "flex", marginTop: 22, fontSize: 28, lineHeight: 1.5, color: "#b1bec0" },
+                  { display: "flex", marginTop: 22, fontSize: 28, lineHeight: 1.5, color: "#ada595" },
                   clamp(card.subtitle, [...title].length > 40 ? 26 : [...title].length > 24 ? 50 : 78),
                 )
               : null,
@@ -108,7 +112,7 @@ async function tree(card: OgCard): Promise<Node> {
         ),
       ]),
       card.meta
-        ? h("div", { display: "flex", fontSize: 24, color: "#82939a", borderTop: "1px solid rgba(230,237,237,0.12)", paddingTop: 22 }, clamp(card.meta, 70))
+        ? h("div", { display: "flex", fontSize: 24, color: "#948c7d", borderTop: "1px solid rgba(236,230,218,0.12)", paddingTop: 22 }, clamp(card.meta, 70))
         : null,
     ].filter(Boolean),
   );

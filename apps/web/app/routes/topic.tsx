@@ -179,13 +179,13 @@ export default function TopicPage() {
             <MoreLink to="/topics">全部主题</MoreLink>
           </span>
         </div>
-        <p className="mt-1 max-w-[640px] text-[13px] leading-relaxed text-ink-3">{topic.definition}</p>
+        <p className="mt-1 max-w-[640px] text-[14px] leading-relaxed text-ink-3">{topic.definition}</p>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          <span className="text-[12.5px] text-ink-4">
+          <span className="text-[13.5px] text-ink-4">
             <span className="num mr-1 text-[20px] font-bold text-ink">{pool.total.toLocaleString("zh-CN")}</span>条{picks ? "精选" : "动态"}
           </span>
           {topic.related.length > 0 && (
-            <span className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+            <span className="flex flex-wrap items-center gap-1.5 text-[13.5px]">
               <span className="text-ink-4">相关主题</span>
               {topic.related.map((r) => (
                 <Link key={r.slug} to={`/topics/${r.slug}`} className="chip">
@@ -203,8 +203,8 @@ export default function TopicPage() {
         </div>
       ))}
 
-      <p className="mb-3 text-[13px] text-ink-3">近 30 天 {topic.recent ?? 0} 条动态</p>
-      <nav aria-label="主题栏目" className="my-4 flex gap-5 text-[14px]">
+      <p className="mb-3 text-[14px] text-ink-3">近 30 天 {topic.recent ?? 0} 条动态</p>
+      <nav aria-label="主题栏目" className="my-4 flex gap-5 text-[15px]">
         <Link to={hrefWith(base, params, { selected: null })} aria-current={!picks ? "page" : undefined} className="text-accent">
           最新动态
         </Link>
@@ -226,7 +226,7 @@ export default function TopicPage() {
       <div className="mb-1 mt-2 flex items-baseline justify-between">
         <h2 className="text-[18px] font-bold text-ink">{picks ? "最新精选" : "最新动态"}</h2>
         {items.length > 0 && (
-          <span className="num text-[12px] text-ink-4">
+          <span className="num text-[13px] text-ink-4">
             第 {first}–{last} 条 · 共 {pool.total.toLocaleString("zh-CN")} 条
           </span>
         )}

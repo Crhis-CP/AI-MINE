@@ -70,7 +70,7 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card overflow-hidden">
-      <div className="px-4 pb-1 pt-3 text-[11.5px] text-ink-4">{title}</div>
+      <div className="px-4 pb-1 pt-3 text-[12.5px] text-ink-4">{title}</div>
       <ul className="divide-y divide-line-soft">{children}</ul>
     </section>
   );
@@ -92,7 +92,7 @@ export default function MorePage() {
               <li key={r.to}>
                 <Link
                   to={r.to === "/feedback" ? feedbackPath(location.pathname, location.search) : r.to}
-                  className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
+                  className="flex h-[50px] items-center gap-3 px-4 text-[16px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
                 >
                   <span className="text-ink-3">{r.icon}</span>
                   <span className="flex flex-1 items-center gap-2">
@@ -100,7 +100,7 @@ export default function MorePage() {
                     {r.to === "/changelog" && <UnreadMark />}
                   </span>
                   {r.detail && (
-                    <span className="max-w-[45%] truncate text-[12px] text-ink-4" title={r.detail}>
+                    <span className="max-w-[45%] truncate text-[13px] text-ink-4" title={r.detail}>
                       {r.detail}
                     </span>
                   )}
@@ -110,7 +110,7 @@ export default function MorePage() {
             ))}
             {g.title === "偏好" && (
               <>
-                <li className="flex h-[58px] items-center gap-3 px-4 text-[15px] font-medium text-ink">
+                <li className="flex h-[58px] items-center gap-3 px-4 text-[16px] font-medium text-ink">
                   <span className="text-ink-3">
                     <IconMoon size={18} />
                   </span>
@@ -134,7 +134,7 @@ export default function MorePage() {
                     <option value="browser">浏览器默认字体</option>
                   </select>
                   {!fontSaved && (
-                    <p role="status" className="w-full text-[13px] text-ink-3">
+                    <p role="status" className="w-full text-[14px] text-ink-3">
                       浏览器未能保存，当前页面仍可使用。
                     </p>
                   )}
@@ -144,7 +144,7 @@ export default function MorePage() {
           </Group>
         ))}
       </div>
-      <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[12px] text-ink-4">
+      <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[13px] text-ink-4">
         <Link to="/terms" className="hover:text-ink-2">
           使用规则
         </Link>

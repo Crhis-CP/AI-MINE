@@ -136,8 +136,8 @@ export default function StarredPage() {
         <h1 data-page-title="" className="text-[24px] font-semibold text-ink">
           收藏
         </h1>
-        <p className="mt-2 text-[13px] text-ink-3">保存在当前浏览器中的阅读清单，最多{STARRED_LIMIT}条。可导出文件带到另一台设备，内容不会自动同步。</p>
-        <div className="mt-3 flex gap-4 text-[13px] text-accent">
+        <p className="mt-2 text-[14px] text-ink-3">保存在当前浏览器中的阅读清单，最多{STARRED_LIMIT}条。可导出文件带到另一台设备，内容不会自动同步。</p>
+        <div className="mt-3 flex gap-4 text-[14px] text-accent">
           <button type="button" onClick={() => fileRef.current?.click()}>
             导入文件
           </button>
@@ -179,23 +179,23 @@ export default function StarredPage() {
         </div>
       </header>
       {notice && (
-        <p role="status" className="mb-3 text-[13px] text-ink-3">
+        <p role="status" className="mb-3 text-[14px] text-ink-3">
           {notice}
         </p>
       )}
-      <p className="text-[12px] text-ink-4">已收藏 {references.length} 条；仅保存引用，内容以当前公开版本为准。</p>
+      <p className="text-[13px] text-ink-4">已收藏 {references.length} 条；仅保存引用，内容以当前公开版本为准。</p>
       {error && (
-        <p role="alert" className="mt-3 text-[13px] text-hot">
+        <p role="alert" className="mt-3 text-[14px] text-hot">
           {error}
         </p>
       )}
       {state.loading && (
-        <p role="status" className="mt-3 text-[13px]">
+        <p role="status" className="mt-3 text-[14px]">
           正在读取收藏…
         </p>
       )}
       {state.failed && (
-        <p role="alert" className="mt-3 text-[13px]">
+        <p role="alert" className="mt-3 text-[14px]">
           部分收藏暂时无法更新，保留上次成功读取的内容。
           <button type="button" onClick={() => retry.current()} className="ml-2 text-accent">
             重试
@@ -203,7 +203,7 @@ export default function StarredPage() {
         </p>
       )}
       {state.unavailable.length > 0 && (
-        <div role="status" className="my-3 rounded-control bg-bg-sunk p-3 text-[13px]">
+        <div role="status" className="my-3 rounded-control bg-bg-sunk p-3 text-[14px]">
           {state.unavailable.length} 条收藏当前不可查看，已停止展示。
           <button
             type="button"
@@ -219,7 +219,7 @@ export default function StarredPage() {
       {!state.loading && !state.failed && !references.length && (
         <div className="mt-3 rounded-card border border-dashed border-line p-10 text-center">
           <IconBookmark size={20} className="mx-auto text-ink-4" />
-          <p className="mt-3 text-[13px] text-ink-3">还没有收藏 — 点击资讯旁的书签，即可加入你的阅读清单。</p>
+          <p className="mt-3 text-[14px] text-ink-3">还没有收藏 — 点击资讯旁的书签，即可加入你的阅读清单。</p>
           <Link to="/" className="mt-4 block text-accent">
             去看精选 →
           </Link>
@@ -232,7 +232,7 @@ export default function StarredPage() {
             ? [
                 <li key={ref.id}>
                   <FeedItem item={item} showTags />
-                  <p className="mt-1 text-[12px] text-ink-4">
+                  <p className="mt-1 text-[13px] text-ink-4">
                     收藏于 {fullDateTime(ref.savedAt)}{" "}
                     <button type="button" className="ml-3 text-accent" onClick={() => remove(ref.id)}>
                       移除

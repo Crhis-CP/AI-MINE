@@ -45,7 +45,7 @@ export function StarButton({
         </span>
       </button>
       {error && (
-        <span role="alert" className="relative z-20 text-[12px] text-hot">
+        <span role="alert" className="relative z-20 text-[13px] text-hot">
           {error}
         </span>
       )}
@@ -57,7 +57,7 @@ export function StarButton({
 export function Attribution({ value, full = false }: { value: FeedItemSummary["attribution"]; full?: boolean }) {
   if (!value) return null;
   return (
-    <div className="relative z-10 my-2 text-[12px] leading-relaxed text-ink-3">
+    <div className="relative z-10 my-2 text-[13px] leading-relaxed text-ink-3">
       {value.publishers.length > 0 && (
         <p>
           来源署名：

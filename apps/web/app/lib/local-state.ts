@@ -235,7 +235,7 @@ export function setFontPreference(pref: FontPreference): boolean {
 export function useFontPreference(): FontPreference {
   return useSyncExternalStore(subscribeFont, getFontPreference, () => null);
 }
-const THEME_COLOR = { light: "#faf9f6", dark: "#13191c" } as const;
+const THEME_COLOR = { light: "#f9f6f0", dark: "#15130f" } as const;
 export function applyTheme(theme: "light" | "dark", followsSystem: boolean) {
   document.documentElement.setAttribute("data-theme", theme);
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))

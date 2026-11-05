@@ -51,12 +51,12 @@ export const FeedItem = memo(function FeedItem({
       data-item-id={item.id}
       data-member-ids={JSON.stringify(reportGroup?.memberIds ?? group?.memberIds ?? [])}
     >
-      <header className="flex min-h-[18px] items-center gap-2 text-[12.5px] leading-[18px] text-ink-4">
+      <header className="flex min-h-[18px] items-center gap-2 text-[13.5px] leading-[18px] text-ink-4">
         <SourceLine item={item} className="text-ink-4" />
-        <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? "按日期归档" : "本站时间线"} className="mono shrink-0 text-[12px] lg:hidden">
+        <time dateTime={dateOnly ? beijingDate(at) : at} title={dateOnly ? "按日期归档" : "本站时间线"} className="mono shrink-0 text-[13px] lg:hidden">
           · {dateOnly ? NO_TIME : beijingTime(at)}
         </time>
-        {read && <span className="shrink-0 text-[11px] text-ink-4">已读</span>}
+        {read && <span className="shrink-0 text-[12px] text-ink-4">已读</span>}
         {item.selected && (
           <span className="hidden lg:inline-flex">
             <SelectedBadge />
@@ -82,12 +82,12 @@ export const FeedItem = memo(function FeedItem({
         </IntentLink>
       </h3>
       <Attribution value={item.attribution} />
-      {item.summary && <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[15px]">{item.summary}</p>}
+      {item.summary && <p className="mt-1.5 line-clamp-2 text-[15.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[16px]">{item.summary}</p>}
       {post && <PostMedia key={item.id} media={post.media} href={`/items/${item.id}`} compact />}
       {post?.quoted && <QuotedPost quoted={post.quoted} compact />}
 
       {(tags.length > 0 || (showTags && item.category)) && (
-        <div className="relative z-10 mt-2 hidden flex-wrap gap-x-2.5 gap-y-1 text-[12px] text-ink-4 lg:flex">
+        <div className="relative z-10 mt-2 hidden flex-wrap gap-x-2.5 gap-y-1 text-[13px] text-ink-4 lg:flex">
           {showTags && item.category && (
             <Link to={`/all?category=${item.category}`} className="hover:text-accent">
               {CATEGORY_LABELS[item.category]}
@@ -111,7 +111,7 @@ export const FeedItem = memo(function FeedItem({
 
       {item.reason && (
         <div className="mt-2.5 lg:mt-3 lg:border-t lg:border-line-soft lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-3 lg:dark:bg-transparent">
-          <p className="line-clamp-1 text-[13px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">推荐理由：{item.reason}</p>
+          <p className="line-clamp-1 text-[14px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">推荐理由：{item.reason}</p>
         </div>
       )}
     </article>

@@ -30,9 +30,9 @@ export function articlePoster(item: ItemShareMetadata): ArticlePoster {
     score: item.selected ? item.score : null,
   };
 }
-const TEMPLATE = "article-poster-20261017.1";
-const INK = "#1f2937",
-  ACCENT = "#475569";
+const TEMPLATE = "article-poster-20261105.1";
+const INK = "#221e19",
+  ACCENT = "#8a5a17";
 const trim = (value: string, limit: number) => {
   const chars = [...value.replace(/\s+/g, " ").trim()];
   return chars.length > limit ? `${chars.slice(0, limit - 1).join("")}…` : chars.join("");
@@ -52,11 +52,11 @@ async function view(poster: ArticlePoster): Promise<Node> {
       padding: "76px 80px 64px",
       fontFamily: "Noto Sans SC",
       color: INK,
-      backgroundColor: "#faf9f6",
+      backgroundColor: "#f9f6f0",
     },
     [
       h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" }, [
-        nameMark(48, INK, ACCENT),
+        nameMark(64, "light"),
         h("div", { display: "flex", fontSize: 25, color: ACCENT }, poster.date ?? ""),
       ]),
       h(
@@ -68,7 +68,7 @@ async function view(poster: ArticlePoster): Promise<Node> {
         ].filter(Boolean),
       ),
       h("div", { display: "flex", marginTop: 30, fontSize: length > 48 ? 58 : length > 30 ? 66 : 76, fontWeight: 700, lineHeight: 1.3 }, title),
-      summary ? h("div", { display: "flex", marginTop: 34, fontSize: 33, lineHeight: 1.65, color: "#374151" }, summary) : null,
+      summary ? h("div", { display: "flex", marginTop: 34, fontSize: 33, lineHeight: 1.65, color: "#34302a" }, summary) : null,
       h("div", { display: "flex", marginTop: 32, fontSize: 26, color: ACCENT }, trim(`来源：${poster.source}`, 40)),
       h("div", { display: "flex", flex: 1 }),
       h("div", { display: "flex", alignItems: "center", padding: "32px 36px", borderRadius: 24, backgroundColor: "#ffffff" }, [
@@ -79,7 +79,7 @@ async function view(poster: ArticlePoster): Promise<Node> {
           h("div", { display: "flex", marginTop: 20, fontSize: 24, color: ACCENT }, SITE_HOST),
         ]),
       ]),
-      h("div", { display: "flex", justifyContent: "center", marginTop: 32, fontSize: 22, color: "#64748b" }, `${SITE.name} · AI 辅助整理，请核对原文`),
+      h("div", { display: "flex", justifyContent: "center", marginTop: 32, fontSize: 22, color: "#6b6459" }, `${SITE.name} · AI 辅助整理，请核对原文`),
     ].filter(Boolean),
   );
 }

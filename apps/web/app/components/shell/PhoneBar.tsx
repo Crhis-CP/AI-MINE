@@ -103,7 +103,7 @@ export function PhoneBar({
           <h1 data-page-title="" className="text-[30px] font-bold leading-[1.25] tracking-[-0.01em] text-ink">
             {title}
           </h1>
-          {sub && <div className="mt-1 text-[12.5px] leading-relaxed text-ink-4">{sub}</div>}
+          {sub && <div className="mt-1 text-[13.5px] leading-relaxed text-ink-4">{sub}</div>}
         </div>
       )}
     </>
