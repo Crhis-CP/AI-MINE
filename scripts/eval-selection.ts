@@ -1,4 +1,5 @@
 import { prepareEvaluationInput } from "@amp/backend/editorial/analyze";
+import { SELECTION } from "@amp/industry/selection";
 import { missingEvidence } from "@amp/backend/editorial/writing";
 // Checks the selection against your own labelled samples (a "gold set"): each case runs the site's
 // selection steps (editorial/analyze.ts) — the prefilter, then the score prompt twice with every model in
@@ -56,6 +57,10 @@ if (values.layout !== undefined) {
   process.env.ANALYSIS_PROMPT_LAYOUT = values.layout;
 }
 const layout = analysisPromptLayout();
+// Evaluation always takes both scores (production buys the second only near the threshold, TASK-0532). Cases share
+// score results per input across tiers with different thresholds, and the 40–90 sweep needs every case scored the
+// same way, so a threshold-dependent stop would make results depend on case order.
+(SELECTION as { secondScoreMargin: number }).secondScoreMargin = 100;
 
 interface GoldRow {
   caseId: string;

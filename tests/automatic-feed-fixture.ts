@@ -87,7 +87,7 @@ export async function automaticFeedFixture(
           : step === "prefilter"
             ? { label: sample.label, reason: "合成预筛结果，不评价模型分类质量" }
             : step === "score"
-              ? scoreAxes(sample.score ?? 10)
+              ? scoreAxes(sample.score ?? 30)
               : step === "structure"
                 ? { category: null, tags: [], subjects: [], scope: "single", fact: null }
                 : step === "group"

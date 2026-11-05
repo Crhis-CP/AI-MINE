@@ -59,7 +59,7 @@ Owner在本次会话中确认以下事项：
 4. **金属价格：**某种金属价格跳变时只扣下这一种，不再卡住整期；下一期确认新水平后自动放行。
 5. **法规线：**解除 DEC-71 的暂停，按 `docs/design/policy-restart-202611/README.md` 重启，先做不调用模型的存档、结构化和逐条对照。解读段的预算另定，未定之前不调用模型。
 
-分类重切改变了评分的类型和权重，评分版本随之改为 `selection-score@cc05f8c447+weights@20542a669a`（TASK-0544），部署时以这个值写入 `SELECTION_CONFIRMED_VERSION`，取代上文“评分按 Owner 标注改写”一段里的版本号。
+分类重切改变了评分的类型和权重（TASK-0544），之后又改为正文共享前缀的排法，评分版本随之改为 `selection-score-shared@60823a02ee+weights@20542a669a`（默认的共享前缀排法；旧排法 `selection-score@9881743a29+weights@20542a669a`），部署时以前者写入 `SELECTION_CONFIRMED_VERSION`，取代上文各段里的版本号。
 
 Owner 同时要求降本增效靠算法、架构和代码设计，不靠单纯压低上限：能用代码确定的不调模型，需要模型的环节保留。评估与已改内容见上述方案第五节（TASK-0539）。
 

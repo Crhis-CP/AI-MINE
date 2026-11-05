@@ -65,7 +65,7 @@
    - 编辑 `.env`（S6）；
    - 运行发布脚本（S7）；
    - 在后台核对和录入 DeepSeek 价格（S9）；
-   - 服务器评测（S11）、历史分类重分（S12）、法规线试点的 `.env` 开关、后台开关和条款补算（S13）。
+   - 服务器评测和按规则选定排法（S11，可能改 `.env` 两行）、历史分类重分（S12）、法规线试点的 `.env` 开关、后台开关和条款补算（S13）。
 
    其余都只读。
 
@@ -85,7 +85,7 @@
   | `SITE_ICP_FILING` | 原 ICP 备案号全文（取法见 S6） |
   | `SITE_PUBLIC_SECURITY_FILING` | 原公安联网备案号全文，例如“皖公网安备……号”（取法见 S6） |
   | `SITE_REQUIRE_FILINGS` | `true` |
-  | `SELECTION_CONFIRMED_VERSION` | `selection-score@cc05f8c447+weights@20542a669a` |
+  | `SELECTION_CONFIRMED_VERSION` | `selection-score-shared@60823a02ee+weights@20542a669a` |
   | `POLICY_PILOT_ENABLED` | `true`，**在 S13 才写入**（只恢复法规线的存档和结构化） |
 
 ## 4. 已知情况（不要当成新问题）
@@ -109,7 +109,7 @@
   - 生产目前用单一 `DATABASE_URL`；如果以后改成按角色登录，迁移后要运行 `scripts/db-roles.ts --apply`，否则 /metals 读不到新表。
   - 上线后某个品种跳变时，运行记录会出现 `pending`，/metals 显示“待下期确认”，下一期记 `released` 或 `discarded`。这是预期行为，不是故障。
 - **分类重切是不兼容的接口变更。**公开 OpenAPI 升到 0.3.0，v3 文档升到 3.1.0；旧分类键在网址、接口和 RSS 里继续可用，返回值只用新键（ADR-0031）。外部用户看到新分类名是预期现象。
-- **评分版本又变了一次。**分类重切改了评分的类型和权重，所以版本是 `selection-score@cc05f8c447+weights@20542a669a`，不是上一版任务书里的值；以本文为准。
+- **评分版本又变了，而且有两种排法。**分类重切改了评分的类型和权重，之后又加了“正文共享前缀”的新排法（`ANALYSIS_PROMPT_LAYOUT`，默认 `shared`）。默认排法的版本是 `selection-score-shared@60823a02ee+weights@20542a669a`，旧排法（`separate`）是 `selection-score@9881743a29+weights@20542a669a`。两者共用同一组权重，所以 S10 的查询按 `+weights@20542a669a` 匹配，两种排法都能查到。以本文为准。
 - **浏览下限：**“全部动态”和接口、RSS 的“全部”列表不再列出 20 分以下的稿件，总数会比发布前少，这是预期现象。
 - **英文界面 `/en` 带 `noindex, follow`。**这是设计如此，不要去掉。
 - **资讯地图只画陆地点阵，不画国界。**这是 Owner 的决定。
@@ -309,7 +309,7 @@
        SITE_ICP_FILING=<ICP 备案号原文>
        SITE_PUBLIC_SECURITY_FILING=<公安联网备案号全文>
        SITE_REQUIRE_FILINGS=true
-       SELECTION_CONFIRMED_VERSION=selection-score@cc05f8c447+weights@20542a669a
+       SELECTION_CONFIRMED_VERSION=selection-score-shared@60823a02ee+weights@20542a669a
        ```
        另外确认文件里**没有** `POLICY_PILOT_ENABLED` 和 `POLICY_MODEL_STAGES_ENABLED` 这两行（有就删掉；法规线的开关在 S13 才写）。
   4. 核对（输出里不含号码）：
@@ -321,7 +321,7 @@
      ```
 - **通过标准：**
   - 第一条输出 `3`；
-  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score@cc05f8c447+weights@20542a669a`；
+  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score-shared@60823a02ee+weights@20542a669a`；
   - 第三条输出 `0`；
   - 最后一条 api 和 worker 两行都列出这 4 个变量名。
 - **注意：**这一步只改文件，不重启任何服务。新值在 S7 发布、容器重建时生效。
@@ -404,7 +404,7 @@
             count(*) FILTER (WHERE score <> round(score)) AS with_decimal
      FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%'
+       AND prompt_version LIKE '%+weights@20542a669a%'
        AND created_at >= '<发布时间>';"
      ```
   2. 新版本最常见的 10 个分值：
@@ -412,7 +412,7 @@
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT score, count(*) FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%'
+       AND prompt_version LIKE '%+weights@20542a669a%'
        AND created_at >= '<发布时间>'
      GROUP BY score ORDER BY count(*) DESC, score DESC LIMIT 10;"
      ```
@@ -425,7 +425,7 @@
             count(DISTINCT score) AS distinct_values
      FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version NOT LIKE '%selection-score@cc05f8c447%'
+       AND prompt_version NOT LIKE '%+weights@20542a669a%'
        AND created_at >= timestamptz '<发布时间>' - interval '7 days'
        AND created_at < '<发布时间>';"
      ```
@@ -434,7 +434,7 @@
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT floor(score / 5) * 5 AS band, count(*) FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%'
+       AND prompt_version LIKE '%+weights@20542a669a%'
        AND created_at >= '<发布时间>'
      GROUP BY band ORDER BY band;"
      ```
@@ -497,23 +497,28 @@
   - 第 2 条排第一的分值占 `scored` 的三成以上：分数仍集中在少数值上。
 - **报告里写：**10 组输出原文。
 
-### S11 用 Owner 的标注评测新评分（Owner 已批准，60 分钟）
+### S11 用 Owner 的标注评测新评分，并选定排法（Owner 已批准，90 分钟）
 
-- **目的：**评分标准已按 Owner 对 119 篇线上文章的标注改写。上线后用这批标注，在服务器上测新标准选得准不准。结果写进 24 小时报告，交给 Claude 决定是否再调门槛。
-- **已批准：**Owner 2026-11-05 批准（台账“DEC-78补充·五项决定与降本原则”第 1 条）。约 350 次模型调用（116 篇 × 预筛 1 次 + 评分最多 2 次）。S7 发布成功、S8 测试通过后即可做，不必等 24 小时。
+- **目的：**评分标准已按 Owner 对 119 篇线上文章的标注改写，又新加了“正文共享前缀”排法（省输入费用）。上线后用这批标注在服务器上把两种排法各测一次，按下面写定的规则选一种，结果写进 24 小时报告。
+- **已批准：**Owner 2026-11-05 批准服务器评测，并要求实现正文共享前缀（台账“DEC-78补充”）。每种排法约 350 次模型调用（116 篇能在库里找到，每篇预筛 1 次 + 评分 2 次），共约 700 次。S7 发布成功、S8 测试通过后即可做，不必等 24 小时。
 - **在非高峰时段运行**（北京时间工作日 12:00–14:00、18:00 至次日 09:00，或周末全天），价格是高峰的一半。
 - **命令（在生产服务器上）：**
   ```bash
   cd /opt/aimine
   docker compose exec -T worker node scripts/gold-from-labels.ts --out /tmp/gold-owner-20261105.jsonl
-  docker compose exec -T worker node scripts/eval-selection.ts --gold /tmp/gold-owner-20261105.jsonl --n 116 --label "Owner 标注 2026-11-05 · 新评分标准"
+  docker compose exec -T worker node scripts/eval-selection.ts --gold /tmp/gold-owner-20261105.jsonl --n 116 --layout shared --label "Owner 标注 2026-11-05 · 共享前缀"
+  docker compose exec -T worker node scripts/eval-selection.ts --gold /tmp/gold-owner-20261105.jsonl --n 116 --layout separate --label "Owner 标注 2026-11-05 · 旧排法"
   ```
-  第一条只读数据库、不调用模型，输出写了多少条、哪些编号没找到；第二条调用模型，输出准确率、查准率、查全率、F1，以及门槛 40–90 的扫描结果。
-- **通过标准：**两条命令都正常结束。第一条报告“没找到”的编号不超过 10 个。
-- **失败时：**任何报错原样记录，停下报告，不重跑第二次，不改脚本。
+  第一条只读数据库、不调用模型。后两条各输出一行 JSON（含 `f1`、`precision`、`recall`）和门槛 40–90 的扫描表。
+- **选定排法（照做，不另判断）：**
+  - 共享前缀的 `f1` 不低于旧排法的 `f1` 减 0.03：保持默认，什么都不改。
+  - 否则改用旧排法：编辑 `.env`（先备份），加一行 `ANALYSIS_PROMPT_LAYOUT=separate`，把 `SELECTION_CONFIRMED_VERSION` 改成 `selection-score@9881743a29+weights@20542a669a`，然后执行 `docker compose up -d api worker`。
+- **通过标准：**三条命令都正常结束；第一条报告“没找到”的编号不超过 10 个。
+- **失败时：**任何报错原样记录，停下报告，不重跑，不改脚本。
 - **报告里写：**
   - 第一条的输出原文；
-  - 第二条输出的指标和门槛扫描表原文；
+  - 两次评测各自的 JSON 行和扫描表原文；
+  - 选定的排法，以及是否改了 `.env`；
   - 实际调用次数和费用；
   - 报告文件路径（`.data/eval/` 下）。
 
@@ -617,7 +622,7 @@
 - **T17 容器状态**：服务器上执行 S5 的前两条命令。期望：所有服务 `running`，`api`、`worker`、`web` 的镜像都是 `amp-release:${MAIN:0:12}` 或发布脚本切换后的标签，RestartCount 都是 0。只记录实际值。
 - **T18 打分是否恢复**：S7 结束 2 小时后，在服务器上执行：
   ```bash
-  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM analyses WHERE origin='model' AND score IS NOT NULL AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%';"
+  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM analyses WHERE origin='model' AND score IS NOT NULL AND prompt_version LIKE '%+weights@20542a669a%';"
   ```
   期望大于 0。是 0 就在报告开头标出，不改任何东西。如果这 2 小时里没有新稿件进来，会是 0，所以同时记下 S5 的“发布前 24 小时打分数”作参照。
 
@@ -668,7 +673,7 @@
 
 ### 三、配置变更（不写号码和任何密钥）
 - 备案号三行：已写入 / 未写入
-- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score@cc05f8c447+weights@20542a669a
+- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score-shared@60823a02ee+weights@20542a669a
 - .env 备份文件名：
 
 ### 四、发布
@@ -716,7 +721,7 @@ T16 输出原文：
 ```
 
 ### 八之二、S11 评测、S12 重分类、S13 法规试点
-- S11：指标、门槛扫描表、调用次数和费用（原文）
+- S11：两种排法的指标、扫描表、选定结果、调用次数和费用（原文）
 - S12：预估、直接换算、各批结果、调用次数和费用（原文）
 - S13：补算输出、法规模型调用数、开关截图
 

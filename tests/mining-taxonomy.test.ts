@@ -87,17 +87,17 @@ test("actual classification, publication and public exits agree on nine keys and
   assert.equal(separate.prefilter, "prefilter@f1a5eca242");
   assert.equal(
     separate.score,
-    "selection-score@cc05f8c447+weights@20542a669a",
+    "selection-score@9881743a29+weights@20542a669a",
     "axis output with code weights over the re-cut nine types (Owner 2026-11-05, ADR-0031); production still waits for SELECTION_CONFIRMED_VERSION",
   );
   assert.equal(separate.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(separate.structure, promptVersion("structure"));
   // The production default (ANALYSIS_PROMPT_LAYOUT=shared): the same rules in one shared system prompt, its own versions.
   const shared = promptVersionsFor("shared");
-  assert.equal(shared.prefilter, "prefilter-shared@18a02e87fb");
+  assert.equal(shared.prefilter, "prefilter-shared@c7c53fe256");
   assert.equal(
     shared.score,
-    "selection-score-shared@6cac11186c+weights@20542a669a",
+    "selection-score-shared@60823a02ee+weights@20542a669a",
     "the score rules as the shared layout sends them; SELECTION_CONFIRMED_VERSION must name this value to score in that layout",
   );
   for (const step of Object.keys(shared) as Array<keyof typeof shared>) assert.notEqual(shared[step], separate[step], step);

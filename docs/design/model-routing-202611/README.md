@@ -48,7 +48,7 @@
      - 共享的步骤：预筛、评分（每次都相同）、结构抽取、内容理解、文章的标题摘要、用词修订。X 原帖的标题摘要（短帖、长帖、短帖译文）仍用原来的写法，因为它们把原帖写在提示词里，已保存的原帖译文也绑定这套提示词；归组不在本次范围。
      - 评分仍然“看不到来源”：材料里不写来源名称、分级、一手性、作者和链接，评分的本步指令也不补；预筛、内容理解、结构抽取和标题摘要需要的来源信息写在各自的本步指令里。
      - 正文只按一个上限送：所有步骤读同一份材料，最多 2 万字（开头和结尾两段按结构抽取核对国家引文的原分段给出，中间部分接在后面，超出时注明省略了多少字）。所以在共享排布下，预筛不再读全文（`separate` 下预筛仍读全文），评分从 1.2 万字、简短摘要从 6000 字放宽到 2 万字。结构抽取的国家引文仍逐字核对原分段。
-     - 版本：两种排布的提示词版本不同，记在回执和判断记录里。评分版本：`separate` 为 `selection-score@cc05f8c447+weights@20542a669a`，`shared` 为 `selection-score-shared@6cac11186c+weights@20542a669a`；`SELECTION_CONFIRMED_VERSION` 须填所用排布的版本。评测脚本 `scripts/eval-selection.ts --layout shared|separate` 可在同一份标注上分别跑两种排布。
+     - 版本：两种排布的提示词版本不同，记在回执和判断记录里。评分版本：`separate` 为 `selection-score-shared@60823a02ee+weights@20542a669a`（默认的共享前缀排法；旧排法为 `selection-score@9881743a29+weights@20542a669a`），`shared` 为 `selection-score-shared@60823a02ee+weights@20542a669a`；`SELECTION_CONFIRMED_VERSION` 须填所用排布的版本。评测脚本 `scripts/eval-selection.ts --layout shared|separate` 可在同一份标注上分别跑两种排布。
      - 每篇文章的输入 token 估算（DeepSeek 文档口径：英文约 0.3 token/字符，中文约 0.6 token/字；命中按未命中价的 1/50 折算；“折算”= 未命中 + 命中÷50；输出不变）：
 
        | 情形 | 原排布 未命中 | 原排布 命中 | 原排布 折算 | 共享 未命中 | 共享 命中 | 共享 折算 | 变化 |

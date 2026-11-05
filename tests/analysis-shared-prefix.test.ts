@@ -266,7 +266,7 @@ test("the layouts' versions differ, and the score's release gate follows the con
     separate = promptVersionsFor("separate");
   for (const step of Object.keys(separate) as Array<keyof typeof separate>) assert.notEqual(shared[step], separate[step], step);
   assert.match(shared.score, /^selection-score-shared@[0-9a-f]{10}\+weights@[0-9a-f]{10}$/);
-  assert.equal(separate.score, "selection-score@cc05f8c447+weights@20542a669a");
+  assert.equal(separate.score, "selection-score@9881743a29+weights@20542a669a");
   process.env.ANALYSIS_PROMPT_LAYOUT = "shared";
   assert.equal(PROMPT_VERSIONS.score, shared.score);
   assert.equal(scoringConfirmed(true, shared.score), true);

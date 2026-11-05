@@ -119,7 +119,7 @@ const outcome = (row: ExperimentCase, variant: "A" | "B" | "AR", selected: boole
 test("historical variants stay isolated while the priority release preserves the production scoring text", () => {
   const a = readFileSync("industry/prompts/selection-score.md", "utf8"),
     b = readFileSync("industry/prompts/selection-score-b.md", "utf8");
-  assert.equal(createHash("sha256").update(a).digest("hex"), "3352aab85f0cf0c6491f86d0517a884bc9d875b769c36dda00a3b746eca8b726");
+  assert.equal(createHash("sha256").update(a).digest("hex"), "bce4374306b64f4a6763af941561b50948afabecf6afd124b5a8a158e1bdfb80");
   assert.deepEqual(
     b.split("\n").filter((l) => l.startsWith("|")),
     a.split("\n").filter((l) => l.startsWith("|")),

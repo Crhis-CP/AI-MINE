@@ -627,7 +627,7 @@ AIHOT 原来还有产品发布（2-2-1-2-3）、提示词或工具（1-2-1-2-4�
   - 噪声层（获奖、参会、空预告、泛宣传）误入精选：0 条；“必须正常评价”层中的重大政策法规、重大事故被压到门槛以下的“关键漏选”单独报告。
 - **规则来源（AI矿策）**：Owner 2026-10-01 答复（Q-06，DEC-10；原话“这种 AI 评分要学习 AIHOT……改之前先给我看一下”）与总原则（DEC-64）；业务规则 BR-SEL-02（精选漏斗）、BR-SEL-07（分数与推荐理由的展示）、BR-SEL-08（校准；留出集检查记录为 ENT-84 精选校准记录）、BR-SEL-09（矿业版评分标准的 Owner 审阅关卡）；任务 `enrichment.score`、T-0323；验收 T-160；旧ADR-0036:13@main（准入边界：纯一般获奖、参会、空预告和泛宣传不因发布方身份准入）；旧站历史：ED-02 的 55/75 公式与 `PIT-INT-01`（模型布尔值一票否决导致精选全空）只作历史教训，**公式作废**。
 - **实现基础（AIHOT，沿用；DEC-78 补充，Owner 2026-11-05 起按下列现状）**：
-  - `industry/prompts/selection-score.md`：读者定义、新九类内容类型、五轴含义、两张清单、噪声类型与事件口径校正；输出内容类型、五轴分（一位小数）、`materialUnusable` 与 `noise`，不输出总分。现行评分版本 `selection-score@cc05f8c447+weights@20542a669a`（TASK-0544），部署时写入 `SELECTION_CONFIRMED_VERSION`。
+  - `industry/prompts/selection-score.md`：读者定义、新九类内容类型、五轴含义、两张清单、噪声类型与事件口径校正；输出内容类型、五轴分（一位小数）、`materialUnusable` 与 `noise`，不输出总分。现行评分版本 `selection-score-shared@60823a02ee+weights@20542a669a`（默认的共享前缀排法；旧排法为 `selection-score@9881743a29+weights@20542a669a`）（TASK-0544），部署时写入 `SELECTION_CONFIRMED_VERSION`。
   - `industry/selection.ts`：门槛 `{ T1: 62, T1_5: 64, T2: 66 }`、类型权重 `weights`、噪声封顶 `noiseCaps`、`secondScoreMargin: 15`、材料不足上限 30、`groupFloor: 20`、`browseFloor: 20`、`understandFloor: 50`；`attentionScore` 由代码算总分（一位小数），`meetsThreshold` 判定入选，`scoreMean` 算显示分。
   - `packages/backend/src/editorial/analyze.ts`：`SCORE_CALLS = 2`，顺序调用，第一次离门槛超过 15 分即停（`scoreSettled`）；入选 = 已打分数之和 ≥ 门槛 × 分数个数；显示分 = 平均，一位小数；内容过滤拒答记 `refused`；无门槛的分级不评分。
   - `apps/web/app/components/ui/Score.tsx`、`features/feed/FeedItem.tsx`、`components/ui/Badge.tsx`：分数小标签（85 / 70 分档、手机只显示数字、没有评分返回空）与“精选”标记，见上“展示”。
