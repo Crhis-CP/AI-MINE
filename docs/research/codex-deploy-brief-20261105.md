@@ -1,4 +1,4 @@
-# 交给 Codex：第二阶段大版本上线、服务器测试与审计报告（2026-11-05 修订版）
+# 交给 Codex：第二阶段大版本上线、服务器测试与审计报告（2026-11-05 第三版）
 
 > **写给 Codex。**本文由 Claude 写，Owner 授权交给你执行。它替代本文件的旧版（旧版里的评分对比、删代码、改部署脚本都已取消或已由 Claude 做完）。
 >
@@ -17,18 +17,18 @@
 
 ## 0. 一句话
 
-把分支 `claude/nice-newton-mew572`（TASK-0508～0529，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号和新评分版本；发布后跑第 6 节的服务器测试，24 小时后跑评分审计，按第 8 节写审计报告。
+把分支 `claude/nice-newton-mew572`（TASK-0508～0544，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号、新评分版本和法规试点开关；发布后跑第 6 节的服务器测试，再做历史分类重分（S12）和法规线试点（S13），24 小时后跑评分审计，按第 8 节写审计报告。
 
 ## 1. 范围
 
-**要做的：**S1～S11（S11 需 Owner 先批准模型调用）。
+**要做的：**S1～S13。S11 的评测调用和 S12 的重分类调用 Owner 已批准（决策台账“DEC-78补充·五项决定与降本原则”第 1、2 条）。
 
 **不做的**（看到相关问题只记进报告）：
 - 不改任何代码、文档、测试、任务卡（S2 复制卡片、S3 重新生成索引除外）。不“顺手优化”。
 - 不新增、修改、跳过、禁用任何测试；检查失败不重跑第二次（第 2 节列出的例外除外）。
 - 不改评分规则、权重、门槛、提示词。`SELECTION_CONFIRMED_VERSION` 只写本文给出的值。
-- 不解除法规线暂停（DEC-71），不启用任何法规采集或模型调用。
-- 除 S11（Owner 批准后）外，不调用模型做评测或对比。
+- 法规线只按 S13 恢复存档和结构化（不调用模型）；**不设置** `POLICY_MODEL_STAGES_ENABLED`，不启用任何法规模型用途。
+- 除 S11、S12 外，不调用模型做评测、对比或重算。
 - 不把备案号写进仓库、PR、Issue、聊天或日志；不改写 git 历史；不强推。
 - 不新开付费服务，不改 DNS，不换域名，不改 Caddy、compose 文件和发布脚本。
 - 不处理资讯地图的审图号：Owner 决定不申请，地图照常显示（只有陆地点阵，不画国界）。
@@ -82,7 +82,8 @@
   | `SITE_ICP_FILING` | 原 ICP 备案号全文（取法见 S6） |
   | `SITE_PUBLIC_SECURITY_FILING` | 原公安联网备案号全文，例如“皖公网安备……号”（取法见 S6） |
   | `SITE_REQUIRE_FILINGS` | `true` |
-  | `SELECTION_CONFIRMED_VERSION` | `selection-score@e7d514006c+weights@7b454f00e9` |
+  | `SELECTION_CONFIRMED_VERSION` | `selection-score@cc05f8c447+weights@20542a669a` |
+  | `POLICY_PILOT_ENABLED` | `true`（只恢复法规线的存档和结构化，见 S13） |
 
 ## 4. 已知情况（不要当成新问题）
 
@@ -104,6 +105,9 @@
   - 迁移 `database/migrations/publication/202611051900_metal_price_holds.sql` 只新增表 `publication.metal_price_holds`，由发布脚本的迁移步骤执行，没有回填。
   - 生产目前用单一 `DATABASE_URL`；如果以后改成按角色登录，迁移后要运行 `scripts/db-roles.ts --apply`，否则 /metals 读不到新表。
   - 上线后某个品种跳变时，运行记录会出现 `pending`，/metals 显示“待下期确认”，下一期记 `released` 或 `discarded`。这是预期行为，不是故障。
+- **分类重切是不兼容的接口变更。**公开 OpenAPI 升到 0.3.0，v3 文档升到 3.1.0；旧分类键在网址、接口和 RSS 里继续可用，返回值只用新键（ADR-0031）。外部用户看到新分类名是预期现象。
+- **评分版本又变了一次。**分类重切改了评分的类型和权重，所以版本是 `selection-score@cc05f8c447+weights@20542a669a`，不是上一版任务书里的值；以本文为准。
+- **浏览下限：**“全部动态”和接口、RSS 的“全部”列表不再列出 20 分以下的稿件，总数会比发布前少，这是预期现象。
 - **英文界面 `/en` 带 `noindex, follow`。**这是设计如此，不要去掉。
 - **资讯地图只画陆地点阵，不画国界。**这是 Owner 的决定。
 - **不稳定检查：**`apps/web/tests/cache.test.ts` 里有一个断言与随机 nonce 有关，偶发失败，表现为 `/888/` 一类的不匹配。CI 里遇到时，允许在 GitHub 上重跑一次失败的作业（Re-run failed jobs）。
@@ -297,23 +301,27 @@
      第 2 行引号里的是 ICP 备案号；第 4 行 `text:` 后面引号里的是公安联网备案号全文。
   3. 编辑 `/opt/aimine/.env`，用编辑器打开，不要用 `echo` 写入，免得号码留在 shell 历史里。
      - 已有同名行就改值，没有就加在文件末尾。
-     - 结果应当正好有这四行，每个变量各一行：
+     - 结果应当正好有这五行，每个变量各一行：
        ```
        SITE_ICP_FILING=<ICP 备案号原文>
        SITE_PUBLIC_SECURITY_FILING=<公安联网备案号全文>
        SITE_REQUIRE_FILINGS=true
-       SELECTION_CONFIRMED_VERSION=selection-score@e7d514006c+weights@7b454f00e9
+       SELECTION_CONFIRMED_VERSION=selection-score@cc05f8c447+weights@20542a669a
+       POLICY_PILOT_ENABLED=true
        ```
+       另外确认文件里**没有** `POLICY_MODEL_STAGES_ENABLED=true` 这一行（有就删掉）。
   4. 核对（输出里不含号码）：
      ```bash
      grep -c '^SITE_ICP_FILING=.\+\|^SITE_PUBLIC_SECURITY_FILING=.\+\|^SITE_REQUIRE_FILINGS=true$' .env
      grep '^SELECTION_CONFIRMED_VERSION=' .env
-     docker compose config --format json | python3 -c 'import json,sys;c=json.load(sys.stdin)["services"];print(*[(s, sorted(k for k in ("SITE_ICP_FILING","SITE_PUBLIC_SECURITY_FILING","SITE_REQUIRE_FILINGS","SELECTION_CONFIRMED_VERSION") if k in c[s].get("environment",{}))) for s in ("api","worker")], sep="\n")'
+     grep -c '^POLICY_PILOT_ENABLED=true$' .env; grep -c '^POLICY_MODEL_STAGES_ENABLED=' .env
+     docker compose config --format json | python3 -c 'import json,sys;c=json.load(sys.stdin)["services"];print(*[(s, sorted(k for k in ("SITE_ICP_FILING","SITE_PUBLIC_SECURITY_FILING","SITE_REQUIRE_FILINGS","SELECTION_CONFIRMED_VERSION","POLICY_PILOT_ENABLED") if k in c[s].get("environment",{}))) for s in ("api","worker")], sep="\n")'
      ```
 - **通过标准：**
   - 第一条输出 `3`；
-  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score@e7d514006c+weights@7b454f00e9`；
-  - 第三条 api 和 worker 两行都列出这 4 个变量名。
+  - 第二条输出正好是 `SELECTION_CONFIRMED_VERSION=selection-score@cc05f8c447+weights@20542a669a`；
+  - 第三条输出 `1`，第四条输出 `0`；
+  - 最后一条 api 和 worker 两行都列出这 5 个变量名。
 - **注意：**这一步只改文件，不重启任何服务。新值在 S7 发布、容器重建时生效。
 - **失败时：**
   - 第三条缺变量：说明 compose 没把 `.env` 传给容器。停，用备份恢复（`cp -p ".env.before-${MAIN:0:12}" .env`），报告，不改 compose 文件；
@@ -356,7 +364,7 @@
 
 ### S8 上线后服务器测试（60 分钟，见第 6 节）
 
-照第 6 节的 T1～T16、T19 和 T20 逐条执行，逐条记录（T17、T18 按各自的说明执行）。全部执行完再写报告，中途某条不符不停。例外：T1 健康检查失败时立即停止，按第 7 节报告。
+照第 6 节的 T1～T16、T19～T22 逐条执行（T22 在 S13 后再测一次），逐条记录（T17、T18 按各自的说明执行）。全部执行完再写报告，中途某条不符不停。例外：T1 健康检查失败时立即停止，按第 7 节报告。
 
 ### S9 录入 DeepSeek 缓存命中价格（30 分钟）
 
@@ -395,7 +403,7 @@
             count(*) FILTER (WHERE score <> round(score)) AS with_decimal
      FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%'
+       AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%'
        AND created_at >= '<发布时间>';"
      ```
   2. 新版本最常见的 10 个分值：
@@ -403,7 +411,7 @@
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT score, count(*) FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%'
+       AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%'
        AND created_at >= '<发布时间>'
      GROUP BY score ORDER BY count(*) DESC, score DESC LIMIT 10;"
      ```
@@ -416,7 +424,7 @@
             count(DISTINCT score) AS distinct_values
      FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version NOT LIKE '%selection-score@e7d514006c%'
+       AND prompt_version NOT LIKE '%selection-score@cc05f8c447%'
        AND created_at >= timestamptz '<发布时间>' - interval '7 days'
        AND created_at < '<发布时间>';"
      ```
@@ -425,7 +433,7 @@
      docker compose exec -T db psql -U amp -d amp -c "
      SELECT floor(score / 5) * 5 AS band, count(*) FROM analyses
      WHERE origin = 'model' AND score IS NOT NULL
-       AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%'
+       AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%'
        AND created_at >= '<发布时间>'
      GROUP BY band ORDER BY band;"
      ```
@@ -488,10 +496,10 @@
   - 第 2 条排第一的分值占 `scored` 的三成以上：分数仍集中在少数值上。
 - **报告里写：**10 组输出原文。
 
-### S11 用 Owner 的标注评测新评分（需 Owner 批准调用，60 分钟）
+### S11 用 Owner 的标注评测新评分（Owner 已批准，60 分钟）
 
 - **目的：**评分标准已按 Owner 对 119 篇线上文章的标注改写。上线后用这批标注，在服务器上测新标准选得准不准。结果写进 24 小时报告，交给 Claude 决定是否再调门槛。
-- **先问 Owner：**在正式 PR 上留言请 Owner 批准，说明这一步约 350 次模型调用（116 篇 × 预筛 1 次 + 评分最多 2 次），费用按 S9 录入的价格估算后写明。批准后再做；不批准就跳过，在报告里写“未做”。
+- **已批准：**Owner 2026-11-05 批准（台账“DEC-78补充·五项决定与降本原则”第 1 条）。约 350 次模型调用（116 篇 × 预筛 1 次 + 评分最多 2 次）。S7 发布成功、S8 测试通过后即可做，不必等 24 小时。
 - **命令（在生产服务器上）：**
   ```bash
   cd /opt/aimine
@@ -506,6 +514,47 @@
   - 第二条输出的指标和门槛扫描表原文；
   - 实际调用次数和费用；
   - 报告文件路径（`.data/eval/` 下）。
+
+### S12 历史文章按新分类重分（Owner 已批准，分批，约 2～4 小时）
+
+- **背景：**分类换成按文章量切分的 9 类（TASK-0544、ADR-0031）。新文章由 DeepSeek 按新分类归类；历史文章用脚本处理：能直接换算的不调模型，原“企业与项目”和没有分类的公开稿件重跑一次结构步骤。上线到本步做完之前，原“企业与项目”的稿件暂时不显示分类，这是预期现象。
+- **命令（在生产服务器上，`cd /opt/aimine`）：**
+  1. 只读预估：
+     ```bash
+     docker compose exec -T worker node scripts/reclassify-categories.ts
+     ```
+     记下 `need the model` 一行和预估调用数。**预估超过 5000 次时停下问 Owner**，不超过就继续。
+  2. 直接换算（不调模型）：
+     ```bash
+     docker compose exec -T worker node scripts/reclassify-categories.ts --apply-mapped
+     ```
+  3. 模型重分，每批 200 篇，重复执行，直到输出的 `need the model: … (public: 0)` 括号里为 0（只处理公开稿件，括号外的数字不必为 0）：
+     ```bash
+     docker compose exec -T worker node scripts/reclassify-categories.ts --apply-model --limit 200
+     ```
+     中途遇到暂停、预算或模型路由报错，脚本会自己停下；记录原文，停下报告，不改设置。
+  4. 再跑一次第 1 条，确认 `need the model` 一行括号里 `public: 0`。
+- **通过标准：**第 4 条 `public: 0`；没有报错。
+- **报告里写：**第 1、2、4 条的输出原文；第 3 条执行了几批、最后一批的输出原文、实际调用次数和费用（按 S9 价格）。
+
+### S13 法规线试点：恢复存档和结构化（不调用模型，约 1 小时）
+
+- **背景：**Owner 解除 DEC-71 的暂停（台账第 5 条），先只做不调用模型的存档、结构化和逐条对照（TASK-0543，`modules/policy/README.md`“重启”一节）。解读段预算未定，**不要**设置 `POLICY_MODEL_STAGES_ENABLED`。
+- **前提：**S6 已写入 `POLICY_PILOT_ENABLED=true`，S7 已发布（api 和 worker 已带新环境变量重启）。确认 `.env` 里 `COLLECT_ENABLED`、`COLLECT_POLICY_ENABLED` 不是 `false`。
+- **步骤：**
+  1. 在后台“运行开关”里，把“法规线”的 Owner 暂停恢复，范围选“采集和新的模型处理”。因为模型开关没开，实际只会运行存档、结构化和发布。截一张开关状态的图放进报告（打码账号信息）。
+  2. 补算已有版本的条款，先只读，再写入：
+     ```bash
+     docker compose exec -T worker node scripts/policy-provisions-backfill.ts
+     docker compose exec -T worker node scripts/policy-provisions-backfill.ts --apply
+     ```
+  3. 核对没有法规模型调用（应输出 0）：
+     ```bash
+     docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM receipts WHERE purpose LIKE 'policy%' AND created_at >= now() - interval '2 hours';"
+     ```
+- **通过标准：**第 2 步两条正常结束；第 3 步输出 `0`；第 6 节 T22 输出 `pilot`。
+- **失败时：**第 3 步不是 0：立即在后台把法规线重新暂停，删掉 `.env` 里的 `POLICY_PILOT_ENABLED` 并重启 api、worker，停下报告。
+- **报告里写：**第 2 步两条的输出原文；第 3 步的数字；开关截图。
 
 ## 6. 上线后服务器测试（S8 用）
 
@@ -531,13 +580,15 @@
 | T16 | 服务器上执行：`cd /opt/aimine && docker compose logs --since 30m api worker web 2>&1 \| grep -iE 'error\|fatal\|unhandled' \| sed -E 's/[0-9]{6,}/<n>/g' \| sort \| uniq -c \| sort -rn \| head -20` | 只记录，不判断；输出交给 Claude |
 | T19 | `curl -s "$S/api/v3/changelog?limit=60" \| python3 -c 'import json,sys;t=[i["title"] for i in json.load(sys.stdin)["items"]];print(t[0]);print("修复部分资讯更新延迟" in t)'` | 第一行 `新标识、新导航与资讯地图`，第二行 `False`（更新日志按读者口径整理后的结果） |
 | T20 | `P=$(curl -s $S/api/site/hot \| python3 -c 'import json,sys;print(json.load(sys.stdin)["entries"][0]["story"]["publicId"])'); curl -s $S/story/$P \| grep -c 'id="event-storyline"'` | `1`（事件页的事件脉络；热点榜为空时记“无热点，跳过”） |
+| T21 | `curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "$S/all?category=safety_incident"` | `301`，跳转地址含 `category=safety_environment`（旧分类键仍可用） |
+| T22 | `curl -s $S/api/site/policies/scope \| python3 -c 'import json,sys;print(json.load(sys.stdin).get("updates"))'` | S13 之前为 `paused`，S13 之后为 `pilot` |
 
 另外两项：
 
 - **T17 容器状态**：服务器上执行 S5 的前两条命令。期望：所有服务 `running`，`api`、`worker`、`web` 的镜像都是 `amp-release:${MAIN:0:12}` 或发布脚本切换后的标签，RestartCount 都是 0。只记录实际值。
 - **T18 打分是否恢复**：S7 结束 2 小时后，在服务器上执行：
   ```bash
-  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM analyses WHERE origin='model' AND score IS NOT NULL AND prompt_version LIKE '%selection-score@e7d514006c+weights@7b454f00e9%';"
+  docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM analyses WHERE origin='model' AND score IS NOT NULL AND prompt_version LIKE '%selection-score@cc05f8c447+weights@20542a669a%';"
   ```
   期望大于 0。是 0 就在报告开头标出，不改任何东西。如果这 2 小时里没有新稿件进来，会是 0，所以同时记下 S5 的“发布前 24 小时打分数”作参照。
 
@@ -585,7 +636,7 @@
 
 ### 三、配置变更（不写号码和任何密钥）
 - 备案号三行：已写入 / 未写入
-- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score@e7d514006c+weights@7b454f00e9
+- SELECTION_CONFIRMED_VERSION：<旧值> → selection-score@cc05f8c447+weights@20542a669a
 - .env 备份文件名：
 
 ### 四、发布
@@ -606,6 +657,8 @@
 | T18 | >0 | | |
 | T19 | 新标识、新导航与资讯地图 / False | | |
 | T20 | 1 | | |
+| T21 | 301 / safety_environment | | |
+| T22 | paused → pilot | | |
 
 T16 输出原文：
 ```
@@ -629,6 +682,11 @@ T16 输出原文：
 ```
 <原文>
 ```
+
+### 八之二、S11 评测、S12 重分类、S13 法规试点
+- S11：指标、门槛扫描表、调用次数和费用（原文）
+- S12：预估、直接换算、各批结果、调用次数和费用（原文）
+- S13：补算输出、法规模型调用数、开关截图
 
 ### 九、没做的和异常
 - 按本文跳过的：
@@ -654,14 +712,14 @@ T16 输出原文：
 |---|---|
 | S2 | 是否批准合并计划 PR |
 | S3 | 是否批准合并正式 PR |
-| S11 | 是否批准约 350 次评测调用 |
+| S12 | 只读预估超过 5000 次调用时，是否继续 |
 | 第 7 节 | 测试不符时，是否回滚 |
 
 评分是否调整、地图是否保留、英文界面何时去掉 noindex，都不是你要问的：前两项 Owner 已有决定，第三项由 Claude 安排。
 
 ## 10. 本次之外的事（不要做）
 
-- 法规线重启：等 Owner 解除 DEC-71，按 `docs/design/policy-restart-202611/README.md` 执行。
+- 法规线的解读段（`POLICY_MODEL_STAGES_ENABLED`）和新来源适配器：等 Owner 定预算、Claude 写好任务卡后另做。
 - 上游修复移植（任务书 v2 工作流 6）：另开任务。
 - 西班牙文、法文 README 的母语审校：由 Owner 安排。
 - 评分调整：由 Claude 看过 24 小时报告后决定。

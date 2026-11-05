@@ -414,6 +414,7 @@
 | [TASK-0542](TASK-0542.md) | T-0101 | M3 | architect | locally_verified | 金属价格：单一品种跳变只扣下该品种，下一期确认后自动放行或丢弃 | — |
 | [TASK-0543](TASK-0543.md) | T-0101 | M3 | architect | locally_verified | 法规线重启第 1、4 步：条款切分与逐条对照（不调用模型）、试点开关、读者端“逐条对照” | — |
 | [TASK-0544](TASK-0544.md) | T-0101 | M3 | architect | locally_verified | 分类按文章量重切为 9 类；旧分类键在网址、接口和 RSS 里继续可用；历史重分类脚本 | — |
+| [TASK-0545](TASK-0545.md) | T-0101 | M3 | architect | locally_verified | 部署任务书第三版：新评分版本、法规试点开关、历史分类重分与法规试点两步、已批准的服务器评测 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |
