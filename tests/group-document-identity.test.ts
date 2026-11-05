@@ -15,6 +15,9 @@ import { consolidate, groupArticle, remergeSingleReportFacts } from "@amp/backen
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 
+/** Saturday noon UTC: off-peak, so the re-merge pass may call the judge. */
+const offPeak = new Date("2026-11-07T12:00:00Z");
+
 const T = tag();
 process.env.EMBEDDINGS_ENABLED = "false";
 
@@ -217,11 +220,15 @@ test("the re-merge pass joins two single-report facts of one occurrence and resp
   const ours = new Set([y1, y2, z1, z2]);
 
   mode = "same";
-  const first = await remergeSingleReportFacts({ maxCalls: 1 });
+  // Peak hours (Monday 02:00 UTC): judged pairs wait for an off-peak run.
+  const peak = await remergeSingleReportFacts({ now: new Date("2026-11-02T02:00:00Z") });
+  assert.equal(peak.calls, 0);
+  assert.equal(peak.merged.filter((m) => ours.has(m.articleId)).length, 0);
+  const first = await remergeSingleReportFacts({ maxCalls: 1, now: offPeak });
   assert.equal(first.calls, 1);
   assert.equal(first.stopped, "call-limit");
   assert.equal(first.merged.filter((m) => ours.has(m.articleId)).length, 1);
-  const second = await remergeSingleReportFacts();
+  const second = await remergeSingleReportFacts({ now: offPeak });
   assert.equal(second.merged.filter((m) => ours.has(m.articleId)).length, 1, "the other pair merges on the next run");
   assert.ok(second.calls <= 1, "the merged pair is not judged again");
 
@@ -238,7 +245,7 @@ test("the re-merge pass joins two single-report facts of one occurrence and resp
     const [signal] = await sql<{ story_id: number }[]>`SELECT story_id FROM story_signals WHERE article_id = ${later}`;
     assert.equal(Number(signal!.story_id), Number(rows[0]!.story_id), "the heat evidence moved with the report");
   }
-  const third = await remergeSingleReportFacts();
+  const third = await remergeSingleReportFacts({ now: offPeak });
   assert.equal(third.merged.filter((m) => ours.has(m.articleId)).length, 0);
   assert.equal(third.calls, 0, "nothing left to pay for");
   mode = "content";
@@ -252,7 +259,7 @@ test("same-day copies with one title merge by rule in the re-merge pass, with no
   const a1 = await article({ name: "丙媒体", title, summary, publishedAt: at });
   const a2 = await article({ name: "丁媒体", title, summary, publishedAt: at });
   for (const id of [a1, a2]) assert.equal((await groupArticle(id)).verdict, "new-story");
-  const result = await remergeSingleReportFacts({ maxCalls: 0 });
+  const result = await remergeSingleReportFacts({ maxCalls: 0, now: new Date("2026-11-02T02:00:00Z") });
   assert.ok(
     result.merged.some((m) => m.articleId === a2),
     "merged although no call was allowed",

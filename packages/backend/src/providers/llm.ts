@@ -598,4 +598,4 @@ export async function markReceiptsCompleted(ids: number[]): Promise<void> {
 }
 
 /** Provider off-peak pricing windows (peak-hours.ts) for deferrable model work; modules reach them through this public entry. */
-export { isProviderPeak, nextOffPeakStart } from "./peak-hours.ts";
+export { isProviderPeak, nextOffPeakStart, OFF_PEAK_WAIT } from "./peak-hours.ts";

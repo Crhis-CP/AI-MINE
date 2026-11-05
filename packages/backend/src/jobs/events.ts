@@ -80,7 +80,18 @@ export async function registerEventJobs(boss: PgBoss) {
     async () => "news" as const,
     async (data) => {
       try {
-        return await composeStoryDigest(data.storyId, { afterCorrection: data.afterCorrection });
+        const result = await composeStoryDigest(data.storyId, { afterCorrection: data.afterCorrection });
+        // A refresh picked up at peak hours waits for the next off-peak start; refreshes queued meanwhile collapse into it.
+        if (result.deferUntil) {
+          const startAfter = result.deferUntil;
+          await enqueue(
+            QUEUES.digest,
+            { lane: "news", storyId: data.storyId },
+            { singletonKey: `story:${data.storyId}:off-peak:${startAfter.toISOString()}`, startAfter },
+          );
+          return { state: "deferred", reason: "provider_peak", retryAt: startAfter.toISOString() };
+        }
+        return result;
       } catch (error) {
         if (isWaiting(error)) {
           await enqueue(

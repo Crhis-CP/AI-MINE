@@ -1,5 +1,6 @@
 /**
- * Provider peak/off-peak pricing windows, for model work that can wait (policy model stages; later deferrable news jobs).
+ * Provider peak/off-peak pricing windows, for model work that can wait: policy model stages, and on the news line the
+ * re-merge look, story digest refreshes and the analysis of history.
  *
  * Source: DeepSeek's official API pricing page (api-docs.deepseek.com, “Models & Pricing”), checked 2026-11-05: calls
  * made off-peak are billed at half the peak rate. Peak is Monday–Friday 01:00–04:00 and 06:00–10:00 UTC (Beijing
@@ -37,3 +38,6 @@ export function nextOffPeakStart(now: Date): Date {
   const peak = peakWindow(now);
   return peak ? new Date(peak.dayStart + peak.window.endHour * HOUR) : new Date(now.getTime());
 }
+
+/** The processing note on material that waits for the next off-peak start on purpose (alerts do not count it as stuck). */
+export const OFF_PEAK_WAIT = "off_peak: 等到模型非高峰时段处理";

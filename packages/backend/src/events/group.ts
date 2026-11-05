@@ -52,6 +52,7 @@ import { modelFor } from "../editorial/models.ts";
 import { sql, type Db, type Tx } from "../db.ts";
 import { newShortId, newUuid, sha256 } from "../lib/ids.ts";
 import { chatJson, ModelPostReceiptGuardError } from "../providers/llm.ts";
+import { isProviderPeak } from "../providers/peak-hours.ts";
 import { BudgetExceededError, ReceiptBusyError, ReceiptUnknownError, completeReceipt } from "../providers/receipts.ts";
 import { embeddingsAvailable, ensureEmbeddings } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
@@ -1260,10 +1261,13 @@ const waitingError = (error: unknown) =>
  * similar facts of the recall window (REMERGE_MIN_COSINE, no conflicting country) and the normal pair
  * judgement decides; on SAME_OCCURRENCE the single report moves into the other fact (a single into a
  * single: the later fact into the earlier), and a story it leaves empty redirects there. Bounded by
- * REMERGE_MAX_CALLS; manual memberships, overrides and pending regroups are left alone.
+ * REMERGE_MAX_CALLS; manual memberships, overrides and pending regroups are left alone. The look can wait, so
+ * during the provider's peak hours only rule merges run and pairs that need the judge wait for an off-peak run
+ * (half price; the 72-hour window is far longer than a peak window).
  */
-export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun?: boolean } = {}): Promise<RemergeResult> {
-  const maxCalls = Math.max(0, opts.maxCalls ?? REMERGE_MAX_CALLS);
+export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun?: boolean; now?: Date } = {}): Promise<RemergeResult> {
+  const peak = isProviderPeak(opts.now ?? new Date());
+  const maxCalls = peak ? 0 : Math.max(0, opts.maxCalls ?? REMERGE_MAX_CALLS);
   const out: RemergeResult = { singles: 0, pairs: 0, calls: 0, merged: [] };
   let control: RuntimeControlSnapshot;
   try {
@@ -1355,7 +1359,7 @@ export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun
       }
       // The call bound holds back only pairs that need the judge; rule merges above still go through.
       if (out.calls >= maxCalls) {
-        out.stopped = "call-limit";
+        out.stopped = peak ? "peak-hours" : "call-limit";
         out.pairs--;
         continue;
       }

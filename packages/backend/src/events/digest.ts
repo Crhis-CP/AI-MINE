@@ -11,6 +11,7 @@ import { modelFor } from "../editorial/models.ts";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
+import { isProviderPeak, nextOffPeakStart } from "../providers/peak-hours.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -67,8 +68,15 @@ export function storyStatusFor(latestAt: Date | null, now = Date.now()): "active
   return "settled";
 }
 
-/** `afterCorrection`: an editor changed a report of this story; rewrite even when older versions lack inputs. */
-export async function composeStoryDigest(storyId: number, opts: { afterCorrection?: boolean } = {}): Promise<{ updated: boolean; version?: number }> {
+/**
+ * `afterCorrection`: an editor changed a report of this story; rewrite even when older versions lack inputs.
+ * A refresh of a story that already has a digest can wait: in the provider's peak hours it returns `deferUntil`
+ * (the next off-peak start, half price) instead of calling. A story's first digest and corrections never wait.
+ */
+export async function composeStoryDigest(
+  storyId: number,
+  opts: { afterCorrection?: boolean; now?: Date } = {},
+): Promise<{ updated: boolean; version?: number; deferUntil?: Date }> {
   const [story] = await sql<
     { id: number; title: string; digest: string | null; version: number; origin: string; updated_at: Date; digest_updated_at: Date | null }[]
   >`
@@ -99,6 +107,8 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
   // Same reports, different content: an editor corrected one. Rewrite from the reports as they are now,
   // without the previous digest, so a corrected fact does not survive as "earlier reports said".
   const corrected = sameReports || opts.afterCorrection === true;
+  const now = opts.now ?? new Date();
+  if (story.digest && !corrected && isProviderPeak(now)) return { updated: false, deferUntil: nextOffPeakStart(now) };
   const known = new Set(last?.article_ids ?? []);
 
   const visible = reports.slice(-40);

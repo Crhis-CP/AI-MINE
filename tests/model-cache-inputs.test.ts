@@ -122,7 +122,16 @@ test("story updates preserve the existing report prefix, while corrections omit 
     await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visible_after,eligible)
       VALUES(${articleId},${`合成报道${index}`},${`合成事实${index}`},${source},'news',${`https://example.invalid/${source}/${index}`},${at},${at},${at},${at},${at},true)`;
     await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact.id},${articleId},'report',1)`;
-    assert.equal((await composeStoryDigest(Number(story.id))).updated, true);
+    if (index === 2) {
+      // At peak hours (Monday 02:30 UTC) a refresh waits for the next off-peak start and makes no request.
+      const before = provider.hits();
+      const waiting = await composeStoryDigest(Number(story.id), { now: new Date("2026-11-02T02:30:00Z") });
+      assert.equal(waiting.updated, false);
+      assert.equal(waiting.deferUntil?.toISOString(), "2026-11-02T04:00:00.000Z");
+      assert.equal(provider.hits(), before);
+    }
+    // Saturday noon UTC is off-peak: the refresh is written now.
+    assert.equal((await composeStoryDigest(Number(story.id), { now: new Date("2026-11-07T12:00:00Z") })).updated, true);
   }
   // The second version read both reports, so "2" is stated there; invalid and ungrounded entries were dropped.
   const [stored] = await sql<{ digest_detail: unknown }[]>`SELECT digest_detail FROM stories WHERE id=${story.id}`;

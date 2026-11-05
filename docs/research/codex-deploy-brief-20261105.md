@@ -17,7 +17,7 @@
 
 ## 0. 一句话
 
-把分支 `claude/nice-newton-mew572`（TASK-0508～0544，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号和新评分版本；发布后跑第 6 节的服务器测试，再做历史分类重分（S12）和法规线试点（S13），24 小时后跑评分审计，按第 8 节写审计报告。
+把分支 `claude/nice-newton-mew572`（TASK-0508～0554，基线 main `b30daad`）经集成卡 TASK-0528 合并进 main，用 main 的 CI 制品一次发布到生产；发布前在生产 `.env` 写入备案号和新评分版本；发布后跑第 6 节的服务器测试，再做历史分类重分（S12）和法规线试点（S13），24 小时后跑评分审计，按第 8 节写审计报告。
 
 ## 1. 范围
 
@@ -27,7 +27,7 @@
 - 不改任何代码、文档、测试、任务卡（S2 复制卡片、S3 重新生成索引除外）。不“顺手优化”。
 - 不新增、修改、跳过、禁用任何测试；检查失败不重跑第二次（第 2 节列出的例外除外）。
 - 不改评分规则、权重、门槛、提示词。`SELECTION_CONFIRMED_VERSION` 只写本文给出的值。
-- 法规线只按 S13 恢复存档和结构化（不调用模型）；**不设置** `POLICY_MODEL_STAGES_ENABLED`，不启用任何法规模型用途。
+- 法规线只按 S13 做信源空跑、恢复存档、结构化和模型步骤（`POLICY_PILOT_ENABLED`、`POLICY_MODEL_STAGES_ENABLED`，Owner 决定不设调用上限）；不设置 `POLICY_VISION_ENABLED`，不手动触发任何解读。
 - 除 S11、S12 外，不调用模型做评测、对比或重算。
 - 不把备案号写进仓库、PR、Issue、聊天或日志；不改写 git 历史；不强推。
 - 不新开付费服务，不改 DNS，不换域名，不改 Caddy、compose 文件和发布脚本。
@@ -65,7 +65,7 @@
    - 编辑 `.env`（S6）；
    - 运行发布脚本（S7）；
    - 在后台核对和录入 DeepSeek 价格（S9）；
-   - 服务器评测和按规则选定排法（S11，可能改 `.env` 两行）、历史分类重分（S12）、法规线试点的 `.env` 开关、后台开关和条款补算（S13）。
+   - 服务器评测和按规则选定排法（S11，可能改 `.env` 两行）、历史分类重分（S12）、法规线试点的 `seed.ts`、三个信源的配置替换、`.env` 两个开关、后台开关和条款补算（S13）。
 
    其余都只读。
 
@@ -86,7 +86,8 @@
   | `SITE_PUBLIC_SECURITY_FILING` | 原公安联网备案号全文，例如“皖公网安备……号”（取法见 S6） |
   | `SITE_REQUIRE_FILINGS` | `true` |
   | `SELECTION_CONFIRMED_VERSION` | `selection-score-shared@60823a02ee+weights@20542a669a` |
-  | `POLICY_PILOT_ENABLED` | `true`，**在 S13 才写入**（只恢复法规线的存档和结构化） |
+  | `POLICY_PILOT_ENABLED` | `true`，**在 S13 才写入**（恢复法规线的存档和结构化） |
+  | `POLICY_MODEL_STAGES_ENABLED` | `true`，**在 S13 才写入**（法规模型步骤，只在非高峰时段调用） |
 
 ## 4. 已知情况（不要当成新问题）
 
@@ -104,6 +105,11 @@
   - 归组提示词改了（转载同一文书算同一次发生），所以 `BATCH_PROMPT_VERSION` 和 `RELATE_PROMPT_VERSION` 会变成新值。这是预期，不是故障。
   - 新任务 `events.remerge` 在每小时第 37 分运行：检查近 72 小时只有一篇报道的事件，能确定是同一份稿件的直接合并（不调用模型），其余每轮最多调用模型 20 次。
   - 晚发现的转载会并入原事件，不加热度、不成为精选，决定记为 `historical-attached`。
+- **非高峰排期（DeepSeek 非高峰半价：北京时间工作日 9～12 点、14～18 点之外）。**以下等待都是设计如此，不是故障，不要手动触发：
+  - `events.remerge` 在高峰时段只做规则合并，需要模型判断的配对等到非高峰那一轮（运行结果里 `stopped` 为 `peak-hours`）；
+  - 已有综述的事件在高峰时段不刷新综述，任务结果为 `deferred`，在下一个非高峰时段写；首份综述和人工更正后的重写不等；
+  - 历史补录（发现时已发布超过 48 小时的旧稿）在高峰时段排到非高峰再分析，文章的处理说明为 `off_peak: 等到模型非高峰时段处理`，“内容卡住”告警不计它们；
+  - 法规模型步骤（S13 之后）同样只在非高峰调用，任务结果为 `deferred`、原因 `provider_peak`。
 - **金属价格新增“只扣下跳变品种”，带一次迁移。**
   - 迁移 `database/migrations/publication/202611051900_metal_price_holds.sql` 只新增表 `publication.metal_price_holds`，由发布脚本的迁移步骤执行，没有回填。
   - 生产目前用单一 `DATABASE_URL`；如果以后改成按角色登录，迁移后要运行 `scripts/db-roles.ts --apply`，否则 /metals 读不到新表。
@@ -544,31 +550,52 @@
 - **通过标准：**第 4 条 `public: 0`；没有报错。
 - **报告里写：**第 1、2、4 条的输出原文；第 3 条执行了几批、最后一批的输出原文、实际调用次数和费用（按 S9 价格）。
 
-### S13 法规线试点：恢复存档和结构化（不调用模型，约 1 小时）
+### S13 法规线试点：信源空跑、恢复存档和解读（约 2 小时）
 
-- **背景：**Owner 解除 DEC-71 的暂停（台账第 5 条），先只做不调用模型的存档、结构化和逐条对照（TASK-0543，`modules/policy/README.md`“重启”一节）。解读段预算未定，**不要**设置 `POLICY_MODEL_STAGES_ENABLED`。
+- **背景：**Owner 解除 DEC-71 的暂停（台账第 5 条），并决定法规解读不设调用上限、靠设计降本（台账“DEC-78补充·五项决定与降本原则”）。本步恢复存档、结构化、逐条对照（TASK-0543）和模型步骤（TASK-0546：条款级翻译记忆、只解读变化条款、程序核对引文）；信源和接口已按 TASK-0547 修好。模型步骤只在 DeepSeek 非高峰时段发出调用，高峰时取到的任务自动排到下一个非高峰时段，不用你安排时间。详见 `modules/policy/README.md`。
 - **前提：**S7 已发布，S8 测试通过。确认 `.env` 里 `COLLECT_ENABLED`、`COLLECT_POLICY_ENABLED` 不是 `false`。
 - **步骤：**
-  0. 写开关并重启 api 和 worker（`.env` 先备份）：
+  1. 信源空跑（只读：不连数据库、不写入、不调模型；每个来源先读 robots，单件页之间至少 3 秒），逐条执行，每条只跑一次：
      ```bash
-     cd /opt/aimine && cp -p .env ".env.before-policy-pilot" && printf '\nPOLICY_PILOT_ENABLED=true\n' >> .env
-     grep -c '^POLICY_PILOT_ENABLED=true$' .env
+     cd /opt/aimine
+     for id in CN-002 CN-004 CN-P01 AR-007 AR-008 AR-001; do docker compose exec -T worker node scripts/policy-pilot-discover.ts --source $id --detail 2; done
+     docker compose exec -T worker node scripts/policy-pilot-discover.ts --source CN-003 --detail 1
+     for u in https://flk.npc.gov.cn/robots.txt https://www.chinamine-safety.gov.cn/robots.txt https://std.samr.gov.cn/robots.txt https://globaltailingsreview.org/robots.txt https://www.boletinoficial.gob.ar/robots.txt; do echo "== $u"; curl -sS -m 20 -A "AIMineBot/1.0" "$u" | head -40; done
+     ```
+     前 6 条应为 `status: "ok"`、`officialDocuments` 大于 0、`details[].status` 为 `identity_ok`、`provisions` 大于 0；CN-003 预期 `listing_only_no_policyProfile`。任何 `robots_disallowed`、`identity_failed`、`unreachable` 只原样记进报告，**不要改配置绕过**，继续下一步（CN-004、CN-P01 本来就保持 hold，等 Claude 看空跑结果再去掉）。
+  2. 新增试点信源，再把库里的旧配置换成登记表的新配置：
+     ```bash
+     docker compose exec -T worker node scripts/seed.ts
+     ```
+     `seed.ts` 只新增 CN-004、CN-P01，不覆盖已有信源。然后在后台“信源”里，对 CN-002、AR-007、AR-008 各做一次“配置草稿 → 预览 → 启用”（草稿内容用 `industry/policy-sources.json` 里该编号的 `config`）。第 1 步空跑结果不是 `ok` 的来源跳过这一步。换完执行一次只读核对：
+     ```bash
+     docker compose exec -T worker node scripts/policy-sources.ts enable --ids CN-002,AR-007,AR-008 --dry-run
+     ```
+     应不再出现“采集配置与核对表不同”。
+  3. 写两个开关并重启 api 和 worker（`.env` 先备份）：
+     ```bash
+     cd /opt/aimine && cp -p .env ".env.before-policy-pilot" && printf '\nPOLICY_PILOT_ENABLED=true\nPOLICY_MODEL_STAGES_ENABLED=true\n' >> .env
+     grep -c '^POLICY_PILOT_ENABLED=true$\|^POLICY_MODEL_STAGES_ENABLED=true$' .env
      docker compose up -d api worker
      ```
-     第二条应输出 `1`。
-  1. 在后台“运行开关”里，把“法规线”的 Owner 暂停恢复，范围选“采集和新的模型处理”。因为模型开关没开，实际只会运行存档、结构化和发布。截一张开关状态的图放进报告（打码账号信息）。
-  2. 补算已有版本的条款，先只读，再写入：
+     第二条应输出 `2`。**不要**设置 `POLICY_VISION_ENABLED`（扫描件标为“需人工”）。
+  4. 在后台“运行开关”里，把“法规线”的 Owner 暂停恢复，范围选“采集和新的模型处理”。截一张开关状态的图放进报告（打码账号信息）。
+  5. 补算已有版本的条款，先只读，再写入：
      ```bash
      docker compose exec -T worker node scripts/policy-provisions-backfill.ts
      docker compose exec -T worker node scripts/policy-provisions-backfill.ts --apply
      ```
-  3. 核对没有法规模型调用（应输出 0）：
+  6. 和 S10 一起（发布后 24 小时）只读核对一次：法规模型调用全部发生在非高峰时段（第一列应为 `0`），以及调用量：
      ```bash
-     docker compose exec -T db psql -U amp -d amp -At -c "SELECT count(*) FROM receipts WHERE purpose LIKE 'policy%' AND created_at >= now() - interval '2 hours';"
+     docker compose exec -T db psql -U amp -d amp -At -c "
+     SELECT count(*) FILTER (WHERE extract(isodow FROM created_at AT TIME ZONE 'UTC') BETWEEN 1 AND 5
+                               AND (extract(hour FROM created_at AT TIME ZONE 'UTC') BETWEEN 1 AND 3 OR extract(hour FROM created_at AT TIME ZONE 'UTC') BETWEEN 6 AND 9)) AS at_peak,
+            count(*) AS total, string_agg(DISTINCT purpose, ',') AS purposes
+     FROM receipts WHERE purpose LIKE 'policy%' AND created_at >= now() - interval '24 hours';"
      ```
-- **通过标准：**第 2 步两条正常结束；第 3 步输出 `0`；第 6 节 T22 输出 `pilot`。
-- **失败时：**第 3 步不是 0：立即在后台把法规线重新暂停，用 `.env.before-policy-pilot` 恢复 `.env` 并执行 `docker compose up -d api worker`，停下报告。
-- **报告里写：**第 2 步两条的输出原文；第 3 步的数字；开关截图。
+- **通过标准：**第 3 步输出 `2`；第 5 步两条正常结束；第 6 步第一列为 `0`；第 6 节 T22 输出 `pilot`。
+- **失败时：**第 6 步第一列不是 0：在 `.env` 删掉 `POLICY_MODEL_STAGES_ENABLED=true` 一行并执行 `docker compose up -d api worker`（存档和结构化照常），停下报告。第 5 步报错：照原样记进报告，不重跑。
+- **不要做：**不为“看效果”手动触发解读，不重抓、不重算、不对比调用次数；完整解读对外公开还要 Owner 对新配方做一次质量放行，那不是你的事。
 
 ### S14 7 天后：架构效果复查（只读，30 分钟，做完就结束）
 
@@ -723,7 +750,7 @@ T16 输出原文：
 ### 八之二、S11 评测、S12 重分类、S13 法规试点
 - S11：两种排法的指标、扫描表、选定结果、调用次数和费用（原文）
 - S12：预估、直接换算、各批结果、调用次数和费用（原文）
-- S13：补算输出、法规模型调用数、开关截图
+- S13：信源空跑与 robots 输出原文、配置核对输出、补算输出、法规模型调用（高峰时段数、总数、用途）、开关截图
 
 ### 九、没做的和异常
 - 按本文跳过的：
@@ -755,7 +782,7 @@ T16 输出原文：
 
 ## 10. 本次之外的事（不要做）
 
-- 法规线的解读段（`POLICY_MODEL_STAGES_ENABLED`）和新来源适配器：等 Owner 定预算、Claude 写好任务卡后另做。
+- 去掉 CN-004、CN-P01 的 hold、按空跑结果修信源配置：由 Claude 看过报告后提交，你只记录。
 - 上游修复移植（任务书 v2 工作流 6）：另开任务。
 - 西班牙文、法文 README 的母语审校：由 Owner 安排。
 - 评分调整：由 Claude 看过 24 小时报告后决定。

@@ -397,7 +397,7 @@
 | [TASK-0525](TASK-0525.md) | T-0101 | M3 | architect | locally_verified | 法规线重启设计稿；评分规则文档随 DEC-78 评分修订更新 | — |
 | [TASK-0526](TASK-0526.md) | T-0101 | M3 | architect | locally_verified | 按清单删除无用代码（架构精简第一批） | — |
 | [TASK-0527](TASK-0527.md) | T-0101 | M3 | architect | locally_verified | 部署脚本中的安装路径和域名改为可配置，删掉代码注释里的个人名 | — |
-| [TASK-0528](TASK-0528.md) | T-0101 | M3 | architect | specified | 第二阶段大版本集成合并（TASK-0508～0553） | — |
+| [TASK-0528](TASK-0528.md) | T-0101 | M3 | architect | specified | 第二阶段大版本集成合并（TASK-0508～0554） | — |
 | [TASK-0529](TASK-0529.md) | T-0101 | M3 | architect | locally_verified | 读者端界面更新：筛选、按钮和排版更简洁，上手更容易 | — |
 | [TASK-0530](TASK-0530.md) | T-0101 | M3 | architect | locally_verified | 分类与评分重设计草案；法规页排版；字体许可核对；演示数据补齐 | — |
 | [TASK-0531](TASK-0531.md) | T-0101 | M3 | architect | locally_verified | 更新日志按读者口径整理：历史条目、待发布说明与隐藏内部条目 | — |
@@ -423,6 +423,7 @@
 | [TASK-0551](TASK-0551.md) | T-0101 | M3 | architect | locally_verified | 审计修复第二批：浏览下限补齐、可列出条件统一、分类过滤双向、旧分类名显示、归组常量、删除无用导出 | — |
 | [TASK-0552](TASK-0552.md) | T-0101 | M3 | architect | locally_verified | 文档与入口文件按最新决定同步（评分口径、分工、法规线暂停解除、元数据） | — |
 | [TASK-0553](TASK-0553.md) | T-0101 | M3 | architect | locally_verified | 正文共享前缀：逐篇分析各步共用可缓存的前缀（ANALYSIS_PROMPT_LAYOUT），评测两种排法按规则选定 | — |
+| [TASK-0554](TASK-0554.md) | T-0101 | M3 | architect | locally_verified | 资讯侧非高峰调度：再合并只在非高峰调用模型，综述刷新和历史补录分析排到非高峰 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

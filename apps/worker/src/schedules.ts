@@ -37,7 +37,8 @@ export const SCHEDULES: Scheduled[] = [
   { name: "stories.status", cron: "7 * * * *", run: refreshStoryStatuses },
   { name: "events.membership-repair", cron: "*/2 * * * *", run: () => recoverPendingGroupings() },
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
-  // Recent facts left with one report get one bounded pairwise look an hour (at most 40 model calls).
+  // Recent facts left with one report get one bounded pairwise look an hour (at most 20 model calls, none at
+  // the provider's peak hours: rule merges still run then, judged pairs wait for the next off-peak run).
   { name: "events.remerge", cron: "37 * * * *", run: () => remergeSingleReportFacts() },
   { name: "reports.correction-sweep", cron: "*/5 * * * *", run: () => enqueuePendingReportCorrections(20) },
   { name: "reports.catch-up", cron: "*/30 * * * *", missed: "once", run: () => catchUpReports() },
