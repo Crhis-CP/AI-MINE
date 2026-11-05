@@ -415,6 +415,7 @@
 | [TASK-0543](TASK-0543.md) | T-0101 | M3 | architect | locally_verified | 法规线重启第 1、4 步：条款切分与逐条对照（不调用模型）、试点开关、读者端“逐条对照” | — |
 | [TASK-0544](TASK-0544.md) | T-0101 | M3 | architect | locally_verified | 分类按文章量重切为 9 类；旧分类键在网址、接口和 RSS 里继续可用；历史重分类脚本 | — |
 | [TASK-0545](TASK-0545.md) | T-0101 | M3 | architect | locally_verified | 部署任务书第三版：新评分版本、法规试点开关、历史分类重分与法规试点两步、已批准的服务器评测 | — |
+| [TASK-0546](TASK-0546.md) | T-0101 | M3 | architect | locally_verified | 法规线模型步骤按设计降本：条款级翻译记忆、只解读变化条款、程序核对引文、只在非高峰运行 | — |
 | [TASK-0548](TASK-0548.md) | T-0101 | M3 | architect | locally_verified | 模型选择与成本评估；部署任务书：非高峰时段运行、不过度测试、7 天复查 | — |
 | [TASK-0549](TASK-0549.md) | T-0101 | M3 | architect | locally_verified | 标题和摘要用中文，外国矿企首次出现写“中文名（原文名）”：写作规则加代码兜底 | — |
 | [TASK-0550](TASK-0550.md) | T-0101 | M3 | architect | locally_verified | 审计修复第一批：翻译不重译、预筛不截断、法规试点开关时机、分数一位小数统一、台账记录新决定 | — |
