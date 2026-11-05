@@ -85,6 +85,7 @@ export function DayList({
                   item={it}
                   group={cards?.find((card) => card.item.id === it.id)?.group}
                   reportGroup={cards?.find((card) => card.item.id === it.id)?.reportGroup}
+                  storyProgress={cards?.find((card) => card.item.id === it.id)?.storyProgress}
                   at={cards?.find((card) => card.item.id === it.id)?.anchorAt ?? it.timelineAt}
                   filters={cards ? { channel: "all", category: null, tag: null, ...filters, scope: "all" } : undefined}
                   showTags={showTags}

@@ -10,7 +10,8 @@
       "文章页可切换宋体和黑体，正文每行约 38 个字；列表可用 j / k 键上下切换。",
       "报告刊头换上新标识；法规页把基本信息集中到一张卡片，用测量点连线显示文件所处阶段。",
       "“我的”页分为内容、阅读设置、关于三组，外观开关带文字。",
-      "可以切换到英文界面，全部页面的界面文字都有英文，资讯内容仍为中文。"
+      "可以切换到英文界面，全部页面的界面文字都有英文，资讯内容仍为中文。",
+      "事件页按进展排成“事件脉络”，同一进展的多家报道收在一起；综述更短，并列出关键数字的前后变化和接下来关注的日期；精选里持续发展的事件会提示第几次进展。"
     ]
   },
   "fragments": [
@@ -26,6 +27,7 @@
     "changes/TASK-0521-english-interface.md",
     "changes/TASK-0523-english-everywhere.md",
     "changes/TASK-0529-simpler-ui.md",
-    "changes/TASK-0530-policy-layout.md"
+    "changes/TASK-0530-policy-layout.md",
+    "changes/story-storyline-20261105.md"
   ]
 }

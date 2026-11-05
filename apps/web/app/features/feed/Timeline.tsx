@@ -465,6 +465,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
                         item={c.item}
                         group={c.group}
                         reportGroup={c.reportGroup}
+                        storyProgress={c.storyProgress}
                         filters={groupFilters}
                         at={c.anchorAt}
                         read={state.unreadOnly ? false : undefined}

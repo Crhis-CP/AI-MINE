@@ -7,10 +7,11 @@ import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
-import { beijingDate, isDateOnlyInstant, NO_TIME, newsSourceDate, shortSourceName, sourceMonthDayTime } from "../lib/format";
+import { beijingDate, isDateOnlyInstant, NO_TIME, newsSourceDate, sourceMonthDayTime } from "../lib/format";
 import { ShareLink } from "../components/ShareLink";
 import { StorySaveButton } from "../features/story/StorySaved";
 import { HeatChart } from "../features/story/HeatChart";
+import { KeyChanges, Storyline } from "../features/story/Storyline";
 import { Badge, SelectedBadge } from "../components/ui/Badge.tsx";
 import { PillTabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Controls";
@@ -58,7 +59,7 @@ const STATUS = {
 } as const;
 
 // Section anchors keep the old page's ids so shared links still land in the right place.
-const SECTIONS = { overview: "event-overview", reports: "event-reports", heat: "event-heat" } as const;
+const SECTIONS = { overview: "event-overview", storyline: "event-storyline", reports: "event-reports", heat: "event-heat" } as const;
 type SectionKey = keyof typeof SECTIONS;
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -197,7 +198,9 @@ export default function StoryPage() {
   const status = STATUS[story.status];
   // A settled story nobody watched (history pages) has no heat to explain or chart.
   const observed = story.status !== "settled" || story.heat.length > 0 || story.whyHot.participants48h > 0 || story.whyHot.rank !== null;
-  const sectionKeys: SectionKey[] = observed ? ["overview", "reports", "heat"] : ["overview", "reports"];
+  // The line has a node whenever there is a development, earlier background or a dated milestone ahead.
+  const hasLine = story.developments.length > 0 || !!story.background?.length || !!story.next?.length;
+  const sectionKeys: SectionKey[] = ["overview", ...(hasLine ? (["storyline"] as const) : []), "reports", ...(observed ? (["heat"] as const) : [])];
   const [activeSection, goSection] = useActiveSection(sectionKeys);
   const counts = {
     all: story.timeline.length,
@@ -285,7 +288,8 @@ export default function StoryPage() {
           onSelect={(k) => goSection(k as SectionKey)}
           items={[
             { key: "overview", label: tr("事件概览") },
-            { key: "reports", label: tr("报道时间线"), count: story.reportCount },
+            ...(hasLine ? [{ key: "storyline", label: tr("事件脉络"), count: story.developments.length || undefined }] : []),
+            { key: "reports", label: tr("全部报道"), count: story.reportCount },
             ...(observed ? [{ key: "heat", label: tr("热度走势") }] : []),
           ]}
         />
@@ -303,9 +307,10 @@ export default function StoryPage() {
                     {overview.note}
                   </p>
                 )}
+                {story.digest && !!story.keyChanges?.length && <KeyChanges changes={story.keyChanges} />}
               </>
             ) : (
-              <p className="text-[14.5px] text-ink-4">{tr("还没有综述，先看下面的报道时间线。")}</p>
+              <p className="text-[14.5px] text-ink-4">{tr("还没有综述，先看下面的事件脉络。")}</p>
             )}
             {story.latest && (
               <div className="-mx-5 mt-5 border-t border-line-soft px-5 pt-4 lg:-mx-6 lg:px-6">
@@ -325,37 +330,21 @@ export default function StoryPage() {
             )}
           </Panel>
 
-          {story.developments.length > 1 && (
-            <Panel title={tr("事件进展")} right={tr("{developments} 个进展", { developments: story.developments.length })} className="order-3">
-              <ol className="relative space-y-4 pl-5 before:absolute before:bottom-2 before:left-[3px] before:top-2 before:w-px before:bg-line">
-                {story.developments.map((d, i) => (
-                  <li key={d.factId} className="relative">
-                    <span
-                      className={`absolute -left-5 top-[7px] size-[7px] rounded-full ring-4 ring-surface ${i === 0 ? "bg-accent" : "bg-line-strong"}`}
-                      aria-hidden="true"
-                    />
-                    <div className="num text-[13px] text-ink-4">
-                      {sourceMonthDayTime(d.firstReportAt)} · {d.reportCount} {tr("篇报道")}
-                    </div>
-                    <Link
-                      to={`/items/${d.representative.id}`}
-                      className="mt-0.5 block text-[16px] font-semibold leading-snug text-ink transition-colors hover:text-accent"
-                    >
-                      {d.title}
-                    </Link>
-                    <div className="mt-0.5 truncate text-[13.5px] text-ink-4">
-                      {shortSourceName(d.representative.source.name)}：{d.representative.title}
-                    </div>
-                  </li>
-                ))}
-              </ol>
+          {hasLine && (
+            <Panel
+              id={SECTIONS.storyline}
+              title={tr("事件脉络")}
+              sub={story.developments.length > 1 ? tr("{developments} 个进展，按时间先后", { developments: story.developments.length }) : undefined}
+              className="order-2"
+            >
+              <Storyline story={story} />
             </Panel>
           )}
 
           <Panel
             id={SECTIONS.reports}
-            title={tr("报道时间线")}
-            sub={tr("沿着报道，了解事件的不同侧面。")}
+            title={tr("全部报道")}
+            sub={tr("按时间查看每一篇报道。")}
             className="order-4"
             right={
               <Select value={order} onChange={(e) => setOrder(e.target.value as "desc" | "asc")} aria-label={tr("排序")}>
@@ -397,30 +386,6 @@ export default function StoryPage() {
             )}
           </Panel>
 
-          {!!story.background?.length && (
-            <Panel title={tr("历史背景")} sub={tr("最多展示10条相关背景报道；原文发布日期不代表事件发生日期。")} className="order-4">
-              <ul className="divide-y divide-line-soft">
-                {story.background.map(({ relation, item }) => {
-                  const date = newsSourceDate(item.sourceTime, item.publishedAt);
-                  return (
-                    <li key={item.id} className="py-3">
-                      <div className="text-[13px] text-ink-4">
-                        {relation === "SAME_OCCURRENCE" ? tr("同次事项") : tr("同一事件脉络")} · {date?.text ?? tr("原文日期待核实")} · {item.source.name}
-                      </div>
-                      <Link to={`/items/${item.id}`} className="mt-1 block text-[16px] font-semibold text-ink">
-                        {item.title}
-                      </Link>
-                      {item.summary && <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{item.summary}</p>}
-                      <a href={item.originalUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[13px] text-accent">
-                        {tr("核对原文")}
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Panel>
-          )}
-
           {observed && (
             <Panel id={SECTIONS.heat} title={tr("本事件热度走势")} className="order-5">
               <HeatChart points={story.heat} />
@@ -444,7 +409,7 @@ export default function StoryPage() {
           )}
         </div>
 
-        <aside className="order-2 flex min-w-0 flex-col gap-4 lg:order-none lg:gap-5">
+        <aside className="order-3 flex min-w-0 flex-col gap-4 lg:order-none lg:gap-5">
           {observed && (
             <RailCard title={tr("为什么热")}>
               <p className="text-[13.5px] leading-[1.75] text-ink-3">

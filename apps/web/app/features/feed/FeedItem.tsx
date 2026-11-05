@@ -6,13 +6,14 @@ import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME } from "../../lib/
 import { memo } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
-import type { GroupInfo, ReportGroupInfo, FeedItemSummary } from "@amp/contracts/site";
+import type { GroupInfo, ReportGroupInfo, FeedItemSummary, StoryProgress } from "@amp/contracts/site";
 import { XPostFeedView } from "@amp/contracts/http/public";
 import { SelectedBadge } from "../../components/ui/Badge.tsx";
 import { ScoreLabel } from "../../components/ui/Score.tsx";
 import { SourceLine, StarButton, Attribution } from "./parts";
 import { GroupDevelopments, GroupSources, LatestDevelopment, type ReadingGroupFilters } from "./ReadingGroup";
 import { PostAuthor, PostMedia, QuotedPost } from "../item/OriginalPost";
+import { StoryProgressLine } from "./StoryProgressLine";
 
 export interface FeedItemProps {
   item: FeedItemSummary;
@@ -20,6 +21,8 @@ export interface FeedItemProps {
   read?: boolean;
   group?: GroupInfo | null;
   reportGroup?: ReportGroupInfo | null;
+  /** Where this report's development sits in its story, when the story has more than this step. */
+  storyProgress?: StoryProgress | null;
   filters?: ReadingGroupFilters;
   /** Show category and tags under the text (全部动态, topics, search). */
   showTags?: boolean;
@@ -29,6 +32,7 @@ export const FeedItem = memo(function FeedItem({
   item,
   group,
   reportGroup,
+  storyProgress,
   filters,
   at = item.timelineAt,
   read: readOverride,
@@ -106,7 +110,7 @@ export const FeedItem = memo(function FeedItem({
         </div>
       )}
 
-      {group && <LatestDevelopment group={group} />}
+      {storyProgress ? <StoryProgressLine progress={storyProgress} /> : group && <LatestDevelopment group={group} />}
       {(showSources || showDevelopments) && (
         <div className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-1">
           {showSources && <GroupSources group={reportGroup ?? group!} filters={filters} parentId={item.id} />}
