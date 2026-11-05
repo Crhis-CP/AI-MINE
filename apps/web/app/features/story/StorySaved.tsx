@@ -1,4 +1,5 @@
 import { apiFetch } from "../../lib/http.ts";
+import { useTr } from "../../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -6,6 +7,7 @@ import { removeStar, toggleStar, useIsStarred, useStarred } from "../../lib/loca
 import { fullDateTime } from "../../lib/format";
 
 export function StorySaveButton({ id }: { id: string }) {
+  const tr = useTr();
   const saved = useIsStarred(id, "story");
   const [error, setError] = useState<string | null>(null);
   return (
@@ -19,7 +21,7 @@ export function StorySaveButton({ id }: { id: string }) {
           setError(result.ok ? null : result.message);
         }}
       >
-        {saved ? "已收藏事件" : "收藏事件"}
+        {saved ? tr("已收藏事件") : tr("收藏事件")}
       </button>
       {error && (
         <span role="alert" className="ml-2 text-[12px] text-hot">
@@ -36,6 +38,7 @@ const empty = (scope: string, busy = false): Reading => ({ scope, items: [], mis
 
 /** Saved identity stays unchanged on merges; all display text comes from the current qualified API. */
 export function StorySavedList() {
+  const tr = useTr();
   const refs = useStarred().filter((ref) => ref.type === "story");
   const selected = refs.map((ref) => ref.id).join(",");
   const [reading, setReading] = useState<Reading>(() => empty(""));
@@ -106,8 +109,8 @@ export function StorySavedList() {
     setError(result.ok ? null : result.message);
   };
   return (
-    <section aria-label="事件收藏" className="mt-7 border-t border-line pt-5">
-      <h2 className="text-[18px] font-semibold">事件收藏</h2>
+    <section aria-label={tr("事件收藏")} className="mt-7 border-t border-line pt-5">
+      <h2 className="text-[18px] font-semibold">{tr("事件收藏")}</h2>
       {error && (
         <p role="alert" className="mt-2 text-[13px] text-hot">
           {error}
@@ -115,14 +118,14 @@ export function StorySavedList() {
       )}
       {state.busy && (
         <p role="status" className="mt-3 text-[13px] text-ink-3">
-          正在核对事件收藏…
+          {tr("正在核对事件收藏…")}
         </p>
       )}
       {state.failed.length > 0 && (
         <p role="alert" className="mt-3 text-[13px] text-ink-3">
-          部分事件暂时无法确认，已停止显示旧内容。
+          {tr("部分事件暂时无法确认，已停止显示旧内容。")}
           <button type="button" onClick={() => retry.current()} className="ml-2 text-accent">
-            重试事件收藏
+            {tr("重试事件收藏")}
           </button>
         </p>
       )}
@@ -137,15 +140,17 @@ export function StorySavedList() {
                     {current.title}
                   </Link>
                   {current.summary && <p className="mt-1 text-[13px] text-ink-3">{current.summary}</p>}
-                  {current.id !== ref.id && <p className="mt-1 text-[12px] text-ink-4">此事件已合并，链接指向当前事件。</p>}
+                  {current.id !== ref.id && <p className="mt-1 text-[12px] text-ink-4">{tr("此事件已合并，链接指向当前事件。")}</p>}
                 </>
               ) : (
-                !state.busy && <p className="text-[13px] text-ink-3">{state.missing.includes(ref.id) ? "此事件当前不可查看。" : "此事件暂时无法确认。"}</p>
+                !state.busy && (
+                  <p className="text-[13px] text-ink-3">{state.missing.includes(ref.id) ? tr("此事件当前不可查看。") : tr("此事件暂时无法确认。")}</p>
+                )
               )}
               <p className="mt-1 text-[12px] text-ink-4">
-                收藏于 {fullDateTime(ref.savedAt)}{" "}
+                {tr("收藏于")} {fullDateTime(ref.savedAt)}{" "}
                 <button type="button" className="ml-3 text-accent" onClick={() => remove(ref.id)}>
-                  移除事件收藏
+                  {tr("移除事件收藏")}
                 </button>
               </p>
             </li>

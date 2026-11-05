@@ -392,7 +392,7 @@
 | [TASK-0520](TASK-0520.md) | T-0101 | M3 | architect | locally_verified | 其他页面统一检查；“我的”页加入正文宋体/黑体设置 | — |
 | [TASK-0521](TASK-0521.md) | T-0101 | M3 | architect | locally_verified | 双语底座：/en 英文界面、类型化词典、语言切换（外壳与资讯地图先行） | — |
 | [TASK-0522](TASK-0522.md) | T-0101 | M3 | architect | locally_verified | 英文界面：首页阅读路径（筛选、热点榜、时间线、卡片、分类、日期） | — |
-| [TASK-0523](TASK-0523.md) | T-0101 | M3 | architect | specified | 英文界面：其余页面迁入词典（Claude 下一轮继续） | TASK-0522 |
+| [TASK-0523](TASK-0523.md) | T-0101 | M3 | architect | locally_verified | 英文界面：其余页面全部迁入词典 | TASK-0522 |
 | [TASK-0524](TASK-0524.md) | T-0101 | M3 | architect | locally_verified | 四语 README：英文源文，中文、西班牙文、法文译本，术语表与一致性检查 | — |
 | [TASK-0525](TASK-0525.md) | T-0101 | M3 | architect | locally_verified | 法规线重启设计稿；评分规则文档随 DEC-78 评分修订更新 | — |
 | [TASK-0526](TASK-0526.md) | T-0101 | M3 | architect | locally_verified | 按清单删除无用代码（架构精简第一批） | — |

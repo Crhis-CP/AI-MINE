@@ -1,4 +1,5 @@
 import type { SiteFilings } from "@amp/contracts/http/public";
+import { useTr } from "../../i18n";
 import { useRouteLoaderData } from "react-router";
 
 export const NO_FILINGS: SiteFilings = { icp: null, publicSecurity: null, newsLicense: null };
@@ -27,6 +28,7 @@ export function FilingLinks({
   licenseClassName?: string;
   licenseAs?: "span" | "p";
 }) {
+  const tr = useTr();
   return (
     <>
       {filings.icp && (
@@ -44,7 +46,12 @@ export function FilingLinks({
           {filings.publicSecurity.text}
         </a>
       )}
-      {filings.newsLicense && <License className={licenseClassName}>互联网新闻信息服务许可证：{filings.newsLicense}</License>}
+      {filings.newsLicense && (
+        <License className={licenseClassName}>
+          {tr("互联网新闻信息服务许可证：")}
+          {filings.newsLicense}
+        </License>
+      )}
     </>
   );
 }

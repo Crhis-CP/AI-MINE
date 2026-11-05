@@ -87,7 +87,6 @@
     "lint/suspicious/noArrayIndexKey": 1
   },
   "apps/web/app/routes/changelog.tsx": {
-    "lint/correctness/noUnusedImports": 1,
     "lint/suspicious/noArrayIndexKey": 3
   },
   "apps/web/app/routes/feedback.tsx": {
@@ -98,11 +97,7 @@
     "lint/correctness/noUnusedImports": 1
   },
   "apps/web/app/routes/hot.tsx": {
-    "lint/a11y/useAriaPropsSupportedByRole": 1,
-    "lint/correctness/noUnusedImports": 1
-  },
-  "apps/web/app/routes/item.tsx": {
-    "lint/correctness/noUnusedImports": 1
+    "lint/a11y/useAriaPropsSupportedByRole": 1
   },
   "apps/web/app/routes/story.tsx": {
     "lint/correctness/useExhaustiveDependencies": 5

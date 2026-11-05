@@ -1,4 +1,5 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
+import { useTr } from "../i18n";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import { apiGet } from "../lib/api.server";
@@ -31,27 +32,29 @@ const GROUPS = [
 ] as const;
 
 export default function TopicsPage() {
+  const tr = useTr();
   const { topics: allTopics } = useLoaderData<typeof loader>();
   const topics = allTopics.filter((topic) => topic.total > 0);
   const picks = topics[0]?.basis !== "all";
   return (
     <div className="pb-10">
-      <PhoneBar back={{ to: "/more", label: "我的" }} title="主题" />
+      <PhoneBar back={{ to: "/more", label: tr("我的") }} title={tr("主题")} />
       <header className="pb-2 pt-5 lg:pt-1">
         <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
-          按主题看矿业
+          {tr("按主题看矿业")}
         </h1>
         <p className="mt-1.5 text-[14px] leading-relaxed text-ink-3">
-          按国家与地区、金属、矿企浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期{picks ? "焦点与精选" : "动态"}。
+          {tr("按国家与地区、金属、矿企浏览")} <span className="num">{topics.length}</span> {tr("个主题，持续汇集近期")}
+          {picks ? tr("焦点与精选") : tr("动态")}。
         </p>
       </header>
       {GROUPS.filter((group) => topics.some((topic) => topic.group === group.key)).map((g) => (
         <section key={g.key} aria-labelledby={`topics-${g.key}`} className="pt-8">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <h2 id={`topics-${g.key}`} className="text-[16px] font-bold text-ink">
-              {g.name}
+              {tr.maybe(g.name)}
             </h2>
-            <p className="text-[13px] text-ink-4">{g.blurb}</p>
+            <p className="text-[13px] text-ink-4">{tr.maybe(g.blurb)}</p>
           </div>
           <ul className="mt-3.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {topics
@@ -61,7 +64,7 @@ export default function TopicsPage() {
                 <li key={t.slug}>
                   <Link
                     to={`/topics/${t.slug}`}
-                    aria-label={`查看${t.name}相关${picks ? "精选文章" : "动态"}`}
+                    aria-label={`查看${t.name}相关${picks ? tr("精选文章") : tr("动态")}`}
                     className="card card-hover group flex h-full flex-col px-5 py-[18px]"
                   >
                     <span className="flex items-center gap-2.5 text-[16px] font-bold text-ink transition-colors group-hover:text-accent">
@@ -70,8 +73,8 @@ export default function TopicsPage() {
                     </span>
                     <span className="mt-1.5 line-clamp-2 flex-1 text-[13.5px] leading-[1.7] text-ink-3">{t.definition}</span>
                     <span className="mono mt-3 text-[12.5px] text-accent">
-                      近 30 天 {t.recent} 条{picks ? "精选" : "动态"}{" "}
-                      <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                      {tr("近 30 天")} {t.recent} {tr("条")}
+                      {picks ? tr("精选") : tr("动态")} <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
                     </span>
                   </Link>
                 </li>
@@ -80,9 +83,9 @@ export default function TopicsPage() {
         </section>
       ))}
       <section className="mt-8 border-t border-line pt-5">
-        <h2 className="text-[16px] font-bold">法律监管</h2>
+        <h2 className="text-[16px] font-bold">{tr("法律监管")}</h2>
         <Link to="/policies" className="mt-3 inline-block text-[15px] text-accent">
-          查看法规政策动态 →
+          {tr("查看法规政策动态 →")}
         </Link>
       </section>
     </div>

@@ -39,6 +39,7 @@
     "./admin-format": "./app/features/admin/format.ts",
     "./page": "./app/components/ui/Page.tsx",
     "./pagination": "./app/features/feed/DayList.tsx",
-    "./local-state": "./app/lib/local-state.ts"
+    "./local-state": "./app/lib/local-state.ts",
+    "./i18n": "./app/i18n/index.ts"
   }
 }

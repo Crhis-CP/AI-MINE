@@ -1,5 +1,5 @@
 import { PhoneBar } from "../../components/shell/PhoneBar";
-import { fmt, useCategoryLabel, useT } from "../../i18n";
+import { fmt, useCategoryLabel, useLocale, useT, useTr } from "../../i18n";
 import { Sheet } from "../../components/ui/Sheet";
 import { Wordmark } from "../../components/Logo";
 import { SITE } from "@amp/industry/site";
@@ -7,7 +7,7 @@ import { useJurisdictionChoices } from "./jurisdictions";
 import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Form, Link, useLocation, useNavigate, useNavigation, useSearchParams } from "react-router";
 import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
@@ -21,6 +21,9 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
   const [draft, setDraft] = useState(value ?? "");
   useEffect(() => setDraft(value ?? ""), [value]);
   const { choices, failed } = useJurisdictionChoices();
+  const tr = useTr();
+  const english = useLocale() === "en";
+  const regionNames = useMemo(() => (english && typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames(["en"], { type: "region" }) : null), [english]);
   // On a page a choice applies at once; the button stays for readers without scripts, and in the phone
   // sheet (`confirm`), where filters are composed and then applied together.
   const [mounted, setMounted] = useState(false);
@@ -57,7 +60,7 @@ export function JurisdictionFilter({ base, value, confirm = false }: { base: str
                 .filter((j) => j.kind === kind)
                 .map((j) => (
                   <option key={j.code} value={j.code}>
-                    {j.label}（{j.news_count}）
+                    {j.kind === "country" ? (regionNames?.of(j.code) ?? j.label) : tr.maybe(j.label)}（{j.news_count}）
                   </option>
                 ))}
             </optgroup>

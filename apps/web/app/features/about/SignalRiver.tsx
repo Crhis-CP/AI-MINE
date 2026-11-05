@@ -7,7 +7,8 @@
 // Theme-aware, paused off screen; reduced motion draws it still. The canvas only illustrates: what it
 // says is also written in the page.
 import { useEffect, useRef, type ReactNode } from "react";
-import { withSubject } from "@amp/industry/site";
+import { useTr } from "../../i18n";
+
 import { EDITION } from "../report/format";
 import { watchAppearance } from "../../lib/local-state";
 import { reducedMotion } from "../../lib/motion";
@@ -291,6 +292,7 @@ export function SignalRiver({
   className?: string;
   children?: ReactNode;
 }) {
+  const tr = useTr();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -484,7 +486,7 @@ export function SignalRiver({
       const p = L.paper;
       if (x >= p.x - 8 && x <= p.x + p.w + 8 && y >= p.y - 8 && y <= p.y + p.h + 8) {
         hover = { s: null, bundle: null, paper: true };
-        place(x, y, withSubject("日报"), EDITION.daily);
+        place(x, y, tr.subject("日报"), EDITION.daily);
         redraw();
         return;
       }
@@ -507,10 +509,10 @@ export function SignalRiver({
       const b = L.bundles[s.bundle]!;
       if (x < L.x2) {
         hover = { s: best, bundle: null, paper: false };
-        place(x, y, s.source ? s.source.name : "资讯来源", s.source?.heatOnly ? "市场讨论来源" : "资讯来源");
+        place(x, y, s.source ? s.source.name : tr("资讯来源"), s.source?.heatOnly ? tr("市场讨论来源") : tr("资讯来源"));
       } else {
         hover = { s: null, bundle: s.bundle, paper: false };
-        place(x, y, x < L.gate ? "报道整理" : b.kept ? "精选" : "筛选", "流程示意");
+        place(x, y, x < L.gate ? tr("报道整理") : b.kept ? tr("精选") : tr("筛选"), tr("流程示意"));
       }
       redraw();
     };
@@ -559,7 +561,7 @@ export function SignalRiver({
       wrap.removeEventListener("pointermove", onMove);
       wrap.removeEventListener("pointerleave", onLeave);
     };
-  }, [sources]);
+  }, [sources, tr.subject, tr]);
 
   return (
     <div ref={wrapRef} className={`relative ${className}`}>

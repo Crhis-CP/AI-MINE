@@ -1,6 +1,6 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { setFontPreference, setReadingFace, useFontPreference, useReadingFace } from "../lib/local-state";
-import { otherLanguagePath, useLocale, useT } from "../i18n";
+import { otherLanguagePath, useLocale, useT, useTr } from "../i18n";
 import { UnreadMark } from "../features/changelog/UnreadMark";
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
@@ -78,6 +78,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function MorePage() {
+  const tr = useTr();
   const location = useLocation();
   const filings = useSiteFilings();
   const font = useFontPreference();
@@ -87,11 +88,11 @@ export default function MorePage() {
   const [fontSaved, setFontSaved] = useState(true);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
-      <PhoneBar title="我的" large />
-      <h1 className="hidden pb-4 pt-5 text-[22px] font-bold text-ink lg:block lg:pt-1">我的</h1>
+      <PhoneBar title={tr("我的")} large />
+      <h1 className="hidden pb-4 pt-5 text-[22px] font-bold text-ink lg:block lg:pt-1">{tr("我的")}</h1>
       <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0 2xl:grid-cols-3">
         {GROUPS.map((g) => (
-          <Group key={g.title} title={g.title}>
+          <Group key={g.title} title={tr.maybe(g.title)}>
             {g.rows.map((r) => (
               <li key={r.to}>
                 <Link
@@ -100,7 +101,7 @@ export default function MorePage() {
                 >
                   <span className="text-ink-3">{r.icon}</span>
                   <span className="flex flex-1 items-center gap-2">
-                    {r.label}
+                    {tr.maybe(r.label)}
                     {r.to === "/changelog" && <UnreadMark />}
                   </span>
                   {r.detail && (
@@ -118,7 +119,7 @@ export default function MorePage() {
                   <span className="text-ink-3">
                     <IconMoon size={18} />
                   </span>
-                  <span className="flex-1">外观</span>
+                  <span className="flex-1">{tr("外观")}</span>
                   <ThemeSwitch className="w-[124px]" />
                 </li>
                 <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
@@ -126,7 +127,7 @@ export default function MorePage() {
                     Aa
                   </span>
                   <label htmlFor="reader-font" className="flex-1 font-medium">
-                    字体
+                    {tr("字体")}
                   </label>
                   <select
                     id="reader-font"
@@ -134,21 +135,21 @@ export default function MorePage() {
                     onChange={(event) => setFontSaved(setFontPreference(event.target.value === "browser" ? "browser" : null))}
                     className="h-10 max-w-[190px] rounded-control border border-line bg-surface px-2 text-[16px]"
                   >
-                    <option value="system">默认字体</option>
-                    <option value="browser">浏览器默认字体</option>
+                    <option value="system">{tr("默认字体")}</option>
+                    <option value="browser">{tr("浏览器默认字体")}</option>
                   </select>
                   {!fontSaved && (
                     <p role="status" className="w-full text-[14px] text-ink-3">
-                      浏览器未能保存，当前页面仍可使用。
+                      {tr("浏览器未能保存，当前页面仍可使用。")}
                     </p>
                   )}
                 </li>
                 <li className="flex min-h-[58px] flex-wrap items-center gap-3 px-4 py-2 text-[16px] text-ink">
                   <span className="w-[18px] text-center text-ink-3" style={{ fontFamily: '"Songti SC","STSong","Noto Serif SC",serif' }} aria-hidden="true">
-                    文
+                    {tr("文")}
                   </span>
                   <label htmlFor="reader-face" className="flex-1 font-medium">
-                    正文
+                    {tr("正文")}
                   </label>
                   <select
                     id="reader-face"
@@ -156,8 +157,8 @@ export default function MorePage() {
                     onChange={(event) => setReadingFace(event.target.value === "serif" ? "serif" : null)}
                     className="h-10 max-w-[190px] rounded-control border border-line bg-surface px-2 text-[16px]"
                   >
-                    <option value="sans">黑体</option>
-                    <option value="serif">宋体</option>
+                    <option value="sans">{tr("黑体")}</option>
+                    <option value="serif">{tr("宋体")}</option>
                   </select>
                 </li>
               </>
@@ -167,10 +168,10 @@ export default function MorePage() {
       </div>
       <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[13px] text-ink-4">
         <Link to="/terms" className="hover:text-ink-2">
-          使用规则
+          {tr("使用规则")}
         </Link>
         <Link to="/privacy" className="hover:text-ink-2">
-          隐私说明
+          {tr("隐私说明")}
         </Link>
         <a href="/feed.xml" className="hover:text-ink-2">
           RSS

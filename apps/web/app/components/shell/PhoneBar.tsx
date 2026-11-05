@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router";
+import { useTr } from "../../i18n";
 import { IconChevronLeft } from "../icons";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -20,6 +21,7 @@ export function PhoneBar({
   large?: boolean;
   sub?: ReactNode;
 }) {
+  const tr = useTr();
   const { key } = useLocation(),
     navigate = useNavigate();
   const [hasPrevious, setHasPrevious] = useState(false),
@@ -78,7 +80,7 @@ export function PhoneBar({
                 className="flex h-11 min-w-11 items-center gap-0.5 pl-1 pr-2 text-[16px] text-accent active:opacity-50"
               >
                 <IconChevronLeft size={24} />
-                <span className="max-w-[7em] truncate">{hasPrevious ? "返回" : back.label}</span>
+                <span className="max-w-[7em] truncate">{hasPrevious ? tr("返回") : back.label}</span>
               </button>
             ) : (
               leading

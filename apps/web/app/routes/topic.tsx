@@ -1,4 +1,5 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
+import { useTr } from "../i18n";
 import { BrandMark } from "../components/BrandMark";
 import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
@@ -152,6 +153,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export default function TopicPage() {
+  const tr = useTr();
   const { data, pool, policyLink } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const { topic, items, page, pageCount } = data;
@@ -168,7 +170,7 @@ export default function TopicPage() {
   const last = first + items.length - 1;
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
-      <PhoneBar back={{ to: "/topics", label: "全部主题" }} title={topic.name} />
+      <PhoneBar back={{ to: "/topics", label: tr("全部主题") }} title={topic.name} />
       <header className="pb-4 pt-5 lg:pt-1">
         <div className="flex items-start justify-between gap-4">
           <h1 data-page-title="" className="flex items-center gap-2.5 text-[22px] font-bold leading-[1.35] text-ink">
@@ -176,17 +178,19 @@ export default function TopicPage() {
             {topic.name}
           </h1>
           <span className="hidden pt-2 lg:block">
-            <MoreLink to="/topics">全部主题</MoreLink>
+            <MoreLink to="/topics">{tr("全部主题")}</MoreLink>
           </span>
         </div>
         <p className="mt-1 max-w-[640px] text-[14px] leading-relaxed text-ink-3">{topic.definition}</p>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <span className="text-[13.5px] text-ink-4">
-            <span className="num mr-1 text-[20px] font-bold text-ink">{pool.total.toLocaleString("zh-CN")}</span>条{picks ? "精选" : "动态"}
+            <span className="num mr-1 text-[20px] font-bold text-ink">{pool.total.toLocaleString("zh-CN")}</span>
+            {tr("条")}
+            {picks ? tr("精选") : tr("动态")}
           </span>
           {topic.related.length > 0 && (
             <span className="flex flex-wrap items-center gap-1.5 text-[13.5px]">
-              <span className="text-ink-4">相关主题</span>
+              <span className="text-ink-4">{tr("相关主题")}</span>
               {topic.related.map((r) => (
                 <Link key={r.slug} to={`/topics/${r.slug}`} className="chip">
                   {r.name}
@@ -203,16 +207,18 @@ export default function TopicPage() {
         </div>
       ))}
 
-      <p className="mb-3 text-[14px] text-ink-3">近 30 天 {topic.recent ?? 0} 条动态</p>
-      <nav aria-label="主题栏目" className="my-4 flex gap-5 text-[15px]">
+      <p className="mb-3 text-[14px] text-ink-3">
+        {tr("近 30 天")} {topic.recent ?? 0} {tr("条动态")}
+      </p>
+      <nav aria-label={tr("主题栏目")} className="my-4 flex gap-5 text-[15px]">
         <Link to={hrefWith(base, params, { selected: null })} aria-current={!picks ? "page" : undefined} className="text-accent">
-          最新动态
+          {tr("最新动态")}
         </Link>
         <Link to={hrefWith(base, params, { selected: "true" })} aria-current={picks ? "page" : undefined} className="text-accent">
-          精选
+          {tr("精选")}
         </Link>
         <Link to={policyLink} className="text-accent">
-          法规
+          {tr("法规")}
         </Link>
       </nav>
       <SearchField
@@ -224,23 +230,23 @@ export default function TopicPage() {
       <JurisdictionFilter base={base} value={params.get("jurisdiction")} />
       <SourceDateFilters base={base} facets={pool.facets} />
       <div className="mb-1 mt-2 flex items-baseline justify-between">
-        <h2 className="text-[18px] font-bold text-ink">{picks ? "最新精选" : "最新动态"}</h2>
+        <h2 className="text-[18px] font-bold text-ink">{picks ? tr("最新精选") : tr("最新动态")}</h2>
         {items.length > 0 && (
           <span className="num text-[13px] text-ink-4">
-            第 {first}–{last} 条 · 共 {pool.total.toLocaleString("zh-CN")} 条
+            {tr("第 {first}–{last} 条 · 共 {total} 条", { first, last, total: pool.total.toLocaleString("zh-CN") })}
           </span>
         )}
       </div>
       {items.length === 0 ? (
         <div className="lg:card">
-          <EmptyState title={picks ? "这个主题暂时还没有精选内容" : "这个主题暂时还没有内容"} />
+          <EmptyState title={picks ? tr("这个主题暂时还没有精选内容") : tr("这个主题暂时还没有内容")} />
         </div>
       ) : (
         <DayList items={items} cards={pool.cards} filters={pool.filters} />
       )}
       {page > pageCount && (
         <Link to={href(1)} className="block py-4 text-center text-accent">
-          回到第 1 页
+          {tr("回到第 1 页")}
         </Link>
       )}
       <Pagination page={page} pageCount={pageCount} href={href} />

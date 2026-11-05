@@ -1,12 +1,13 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
+import { useTr, useDateFormat } from "../i18n";
 import { scrollBehavior } from "../lib/motion";
-import { SITE, withSubject } from "@amp/industry/site";
+import { withSubject } from "@amp/industry/site";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { HotEntryView, HotResponse } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
-import { monthDayTime, shortSourceName } from "../lib/format";
+import { shortSourceName } from "../lib/format";
 import { Badge } from "../components/ui/Badge.tsx";
 import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
@@ -42,26 +43,32 @@ const pad = (rank: number) => String(rank).padStart(2, "0");
 
 /** "两家来源名称等 4 个来源 · 7 个独立参与方". */
 function Voices({ e }: { e: HotEntryView }) {
+  const tr = useTr();
   const names = e.sourceNames.slice(0, 2).map(shortSourceName);
   return (
     <span className="min-w-0 text-[13.5px] leading-snug text-ink-4">
       {/* Lines break between the phrases, never inside one. */}
       <span className="whitespace-nowrap">
         {names.length > 0 && <span className="text-ink-3">{names.join("、")}</span>}
-        {e.sourceCount > names.length ? ` 等 ${e.sourceCount} 个来源` : names.length ? " 报道" : `${e.sourceCount} 个来源`}
+        {e.sourceCount > names.length
+          ? tr(" 等 {sourceCount} 个来源", { sourceCount: e.sourceCount })
+          : names.length
+            ? tr(" 报道")
+            : tr("{sourceCount} 个来源", { sourceCount: e.sourceCount })}
       </span>
       <span className="mx-1.5 text-line-strong">·</span>
       <span className="whitespace-nowrap">
-        <span className="num">{e.participantCount}</span> 个独立参与方
+        <span className="num">{e.participantCount}</span> {tr("个独立参与方")}
       </span>
     </span>
   );
 }
 
 function Badges({ e }: { e: HotEntryView }) {
+  const tr = useTr();
   return e.badges.map((b) => (
-    <Badge key={b} tone={BADGES[b].tone} title={BADGES[b].hint}>
-      {BADGES[b].label}
+    <Badge key={b} tone={BADGES[b].tone} title={tr.maybe(BADGES[b].hint)}>
+      {tr.maybe(BADGES[b].label)}
     </Badge>
   ));
 }
@@ -80,22 +87,23 @@ function StoryLink({ e, className }: { e: HotEntryView; className: string }) {
  * peaked. Without enough comparable hours the text takes the width.
  */
 function HeatPanel({ e }: { e: HotEntryView }) {
+  const tr = useTr();
   const seen = e.spark.filter((v): v is number => v !== null);
   const peak = Math.max(...seen);
   const peakAt = e.spark.findIndex((v) => v === peak);
   return (
     <div className="order-first flex aspect-[2/1] flex-col rounded-panel bg-accent-softer p-4 ring-1 ring-inset ring-line-soft xl:order-none xl:aspect-[16/10] dark:bg-accent-soft">
       <div className="flex items-baseline justify-between text-[12.5px] text-ink-4">
-        <span className="font-semibold text-ink-3">24 小时热度</span>
+        <span className="font-semibold text-ink-3">{tr("24 小时热度")}</span>
         <span>
-          峰值 <span className="mono text-ink-2">{Math.round(peak)}</span>
-          {peakAt >= 0 && <span> · {peakAt === e.spark.length - 1 ? "当前" : `${e.spark.length - 1 - peakAt} 小时前`}</span>}
+          {tr("峰值")} <span className="mono text-ink-2">{Math.round(peak)}</span>
+          {peakAt >= 0 && <span> · {peakAt === e.spark.length - 1 ? tr("当前") : tr("{peakAt} 小时前", { peakAt: e.spark.length - 1 - peakAt })}</span>}
         </span>
       </div>
       <Sparkline values={e.spark} area stretch className="mt-2 min-h-0 w-full flex-1 text-accent" />
       <div className="mt-2 flex justify-between text-[12px] text-ink-4">
-        <span>24 小时前</span>
-        <span>现在</span>
+        <span>{tr("24 小时前")}</span>
+        <span>{tr("现在")}</span>
       </div>
     </div>
   );
@@ -103,6 +111,7 @@ function HeatPanel({ e }: { e: HotEntryView }) {
 
 /** No. 1: the event people are talking about most, with its digest, latest turn and day of heat. */
 function Lead({ e }: { e: HotEntryView }) {
+  const tr = useTr();
   const panel = e.spark.filter((v) => v !== null).length >= 3;
   return (
     <article className="card card-hover group relative flex flex-col overflow-hidden p-5 sm:p-6">
@@ -126,7 +135,7 @@ function Lead({ e }: { e: HotEntryView }) {
         <div className="min-w-0 flex-[1_1_18rem] space-y-2.5">
           {e.latest && (
             <p className="line-clamp-2 text-[14px] leading-[1.7] text-ink-2">
-              <span className="mr-2 text-[13px] font-semibold text-accent">最新进展</span>
+              <span className="mr-2 text-[13px] font-semibold text-accent">{tr("最新进展")}</span>
               {e.latest}
             </p>
           )}
@@ -138,7 +147,7 @@ function Lead({ e }: { e: HotEntryView }) {
           {!panel && <Sparkline values={e.spark} area className="h-10 w-[140px] text-accent" />}
           <div className="text-right">
             <div className="mono text-[34px] font-semibold leading-none tracking-[-0.03em] text-ink">{Math.round(e.heat)}</div>
-            <div className="mt-1 text-[12.5px] text-ink-4">热度指数</div>
+            <div className="mt-1 text-[12.5px] text-ink-4">{tr("热度指数")}</div>
           </div>
         </div>
       </div>
@@ -148,6 +157,7 @@ function Lead({ e }: { e: HotEntryView }) {
 
 /** No. 2 and 3: the same card, smaller, without the side panel. */
 function Runner({ e }: { e: HotEntryView }) {
+  const tr = useTr();
   return (
     <article className="card card-hover group relative flex flex-col px-5 py-4">
       <div className="flex items-center gap-2.5">
@@ -163,11 +173,11 @@ function Runner({ e }: { e: HotEntryView }) {
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-[13px] text-ink-4">
             <span className="whitespace-nowrap">
-              <span className="num">{e.sourceCount}</span> 个来源
+              <span className="num">{e.sourceCount}</span> {tr("个来源")}
             </span>{" "}
             ·{" "}
             <span className="whitespace-nowrap">
-              <span className="num">{e.participantCount}</span> 个独立参与方
+              <span className="num">{e.participantCount}</span> {tr("个独立参与方")}
             </span>
           </span>
         </div>
@@ -182,9 +192,13 @@ function Runner({ e }: { e: HotEntryView }) {
 
 /** No. 4–10: a row each, with a line of the digest, the source count, the day of heat and the index. */
 function Row({ e }: { e: HotEntryView }) {
+  const tr = useTr();
   return (
     <li className="group relative grid grid-cols-[30px_minmax(0,1fr)] items-start gap-x-3 px-4 py-3 transition-colors hover:bg-bg-sunk/70 sm:px-5 lg:grid-cols-[44px_minmax(0,1fr)_auto_104px_76px] lg:items-center lg:gap-x-6 lg:px-6 lg:py-3.5 dark:hover:bg-bg-muted/40">
-      <span className={`mono text-[16px] font-semibold leading-[24px] lg:text-[17px] ${rankColor(e.rank)}`} aria-label={`热度排名第 ${e.rank} 位`}>
+      <span
+        className={`mono text-[16px] font-semibold leading-[24px] lg:text-[17px] ${rankColor(e.rank)}`}
+        aria-label={tr("热度排名第 {rank} 位", { rank: e.rank })}
+      >
         {pad(e.rank)}
       </span>
       <div className="min-w-0">
@@ -199,7 +213,7 @@ function Row({ e }: { e: HotEntryView }) {
         {e.summary && <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.65] text-ink-4 lg:line-clamp-1">{e.summary}</p>}
         <div className="mt-2 flex items-center gap-2.5 lg:hidden">
           <span className="text-[13px] text-ink-4">
-            <span className="num">{e.sourceCount}</span> 个来源
+            <span className="num">{e.sourceCount}</span> {tr("个来源")}
           </span>
           <span className="ml-auto flex items-center gap-2">
             <span className="mono text-[17px] font-semibold leading-none text-ink">{Math.round(e.heat)}</span>
@@ -209,7 +223,7 @@ function Row({ e }: { e: HotEntryView }) {
       </div>
       <div className="hidden items-center gap-2.5 lg:flex">
         <span className="whitespace-nowrap text-[13px] text-ink-4">
-          <span className="num">{e.sourceCount}</span> 个来源
+          <span className="num">{e.sourceCount}</span> {tr("个来源")}
         </span>
       </div>
       <Sparkline values={e.spark} className="hidden h-7 w-[104px] text-accent lg:block" />
@@ -222,6 +236,8 @@ function Row({ e }: { e: HotEntryView }) {
 }
 
 export default function HotPage() {
+  const df = useDateFormat();
+  const tr = useTr();
   const { hot } = useLoaderData<typeof loader>();
   const [lead, ...rest] = hot.entries;
   const runners = rest.slice(0, 2);
@@ -229,11 +245,15 @@ export default function HotPage() {
   return (
     <div className="pb-10">
       <PhoneBar
-        title="热点"
+        title={tr("热点")}
         large
         sub={
           <>
-            过去{hot.windowHours}小时 · {hot.entries.length}个热点{hot.computedAt && <> · {monthDayTime(hot.computedAt)}更新</>}
+            {tr("过去")}
+            {hot.windowHours}
+            {tr("小时 ·")} {hot.entries.length}
+            {tr("个热点")}
+            {hot.computedAt && <> · {tr("{time} 更新", { time: df.monthDayTime(hot.computedAt) })}</>}
           </>
         }
         actions={
@@ -249,7 +269,7 @@ export default function HotPage() {
             className="flex h-11 items-center gap-1 px-3 text-[15px] text-accent"
           >
             <IconInfo size={17} />
-            怎么算
+            {tr("怎么算")}
           </button>
         }
       />
@@ -260,27 +280,31 @@ export default function HotPage() {
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-hot opacity-30" />
               <span className="relative inline-flex size-2 rounded-full bg-hot" />
             </span>
-            实时热度
+            {tr("实时热度")}
           </div>
-          <h1 className="mt-1.5 text-[24px] font-bold leading-[1.3] tracking-[-0.01em] text-ink lg:text-[26px]">{withSubject("热点榜")}</h1>
+          <h1 className="mt-1.5 text-[24px] font-bold leading-[1.3] tracking-[-0.01em] text-ink lg:text-[26px]">{tr.subject("热点榜")}</h1>
           <p className="mt-1.5 text-[14.5px] text-ink-3">
-            过去 {hot.windowHours} 小时，{withSubject("领域")}讨论最多的 {hot.entries.length || 10} 件事
+            {tr("过去 {hours} 小时，{subject}讨论最多的 {count} 件事", {
+              hours: hot.windowHours,
+              subject: tr.subject("领域"),
+              count: hot.entries.length || 10,
+            })}
           </p>
         </div>
         {hot.computedAt && (
           <p className="text-[13px] text-ink-4">
-            <span className="num">{monthDayTime(hot.computedAt)}</span> 更新 · 按讨论热度排序
+            <span className="num">{df.monthDayTime(hot.computedAt)}</span> {tr("更新 · 按讨论热度排序")}
           </p>
         )}
       </header>
 
       {!lead ? (
         <div className="card rounded-sheet">
-          <EmptyState title="暂时没有热点">还没有足够多来源共同讨论的事件。</EmptyState>
+          <EmptyState title={tr("暂时没有热点")}>{tr("还没有足够多来源共同讨论的事件。")}</EmptyState>
         </div>
       ) : (
         <>
-          <section aria-label="热度前三" className="grid gap-3 lg:grid-cols-12 lg:gap-4">
+          <section aria-label={tr("热度前三")} className="grid gap-3 lg:grid-cols-12 lg:gap-4">
             <div className="grid lg:col-span-7 lg:row-span-2 xl:col-span-8">
               <Lead e={lead} />
             </div>
@@ -292,15 +316,15 @@ export default function HotPage() {
           </section>
 
           {others.length > 0 && (
-            <section aria-label="其余热点" className="mt-6 lg:mt-7">
+            <section aria-label={tr("其余热点")} className="mt-6 lg:mt-7">
               <div className="mb-3 flex items-baseline justify-between px-1">
                 <h2 className="text-[16px] font-semibold text-ink">
-                  继续看{" "}
+                  {tr("继续看")}{" "}
                   <span className="num font-normal text-ink-4">
                     No.{pad(others[0]!.rank)}–{pad(others[others.length - 1]!.rank)}
                   </span>
                 </h2>
-                <span className="hidden text-[13px] text-ink-4 lg:block">参与者 · 24 小时走势 · 热度指数</span>
+                <span className="hidden text-[13px] text-ink-4 lg:block">{tr("参与者 · 24 小时走势 · 热度指数")}</span>
               </div>
               <ol className="card divide-y divide-line-soft overflow-hidden">
                 {others.map((e) => (
@@ -315,26 +339,28 @@ export default function HotPage() {
       <details id="hot-method" className="disclosure group/method mt-8 text-[13px] text-ink-4">
         <summary className="flex items-center gap-1.5 py-1 transition-colors hover:text-ink-2">
           <IconInfo size={15} />
-          热度是怎么算的？
+          {tr("热度是怎么算的？")}
           <span className="ml-auto inline-flex items-center gap-0.5">
-            <span className="group-open/method:hidden">了解榜单</span>
-            <span className="hidden group-open/method:inline">收起</span>
+            <span className="group-open/method:hidden">{tr("了解榜单")}</span>
+            <span className="hidden group-open/method:inline">{tr("收起")}</span>
             <IconChevronDown size={13} className="transition-transform duration-200 group-open/method:rotate-180" />
           </span>
         </summary>
         <div className="max-w-[760px] space-y-2 pb-2 pl-[21px] pt-2 leading-[1.75] text-ink-3">
-          <p>热度来自参与同一事件的独立账号与机构，重复采集只算一次，并按 24 小时半衰期衰减。它衡量讨论活跃程度，不是报道质量评分。</p>
-          <p>榜单统计过去 48 小时。趋势只比较持续覆盖的同一组信源；它反映我们的监测范围，不代表全网人数。缺少可比历史时，不展示趋势线。</p>
+          <p>{tr("热度来自参与同一事件的独立账号与机构，重复采集只算一次，并按 24 小时半衰期衰减。它衡量讨论活跃程度，不是报道质量评分。")}</p>
+          <p>{tr("榜单统计过去 48 小时。趋势只比较持续覆盖的同一组信源；它反映我们的监测范围，不代表全网人数。缺少可比历史时，不展示趋势线。")}</p>
           <p>
-            信源名单只展示可公开阅读的报道来源；讨论参与者还包括只计入热度的账号与机构。同一机构的多个渠道可能合并计数，因此参与者不一定多于信源数。点击事件可查看各方报道与观点。
+            {tr(
+              "信源名单只展示可公开阅读的报道来源；讨论参与者还包括只计入热度的账号与机构。同一机构的多个渠道可能合并计数，因此参与者不一定多于信源数。点击事件可查看各方报道与观点。",
+            )}
           </p>
           <dl className="flex flex-wrap gap-x-5 gap-y-1.5 pt-1">
             {Object.values(BADGES).map((b) => (
               <div key={b.label} className="flex items-center gap-1.5">
                 <dt>
-                  <Badge tone={b.tone}>{b.label}</Badge>
+                  <Badge tone={b.tone}>{tr.maybe(b.label)}</Badge>
                 </dt>
-                <dd>{b.hint}</dd>
+                <dd>{tr.maybe(b.hint)}</dd>
               </div>
             ))}
           </dl>

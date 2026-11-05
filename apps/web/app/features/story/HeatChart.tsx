@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
+import { useTr, useDateFormat } from "../../i18n";
 import type { HeatPoint } from "@amp/contracts/site";
-import { monthDayTime } from "../../lib/format";
 import { useEntrance } from "../../lib/hydration";
 
 const HOUR = 3600 * 1000;
@@ -19,6 +19,8 @@ function niceStep(max: number): number {
  * instead of being drawn as zero; with fewer than three observed hours there is no chart.
  */
 export function HeatChart({ points }: { points: HeatPoint[] }) {
+  const df = useDateFormat();
+  const tr = useTr();
   const [active, setActive] = useState<number | null>(null);
   const entrance = useEntrance();
   const series = useMemo(() => {
@@ -71,7 +73,7 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
     return { seen, last, peak, change, ticks, x, y, base, line, area, labels };
   }, [series]);
   if (!geometry) {
-    return <p className="rounded-tile bg-bg-sunk px-4 py-8 text-center text-[13px] text-ink-4">还没有足够的连续观测数据，暂不绘制趋势。</p>;
+    return <p className="rounded-tile bg-bg-sunk px-4 py-8 text-center text-[13px] text-ink-4">{tr("还没有足够的连续观测数据，暂不绘制趋势。")}</p>;
   }
   const { seen, last, peak, change, ticks, x, y, base, line, area, labels } = geometry;
   const cur = active !== null ? seen[active] : null;
@@ -87,11 +89,12 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
   return (
     <div>
       <p className="text-[12.5px] text-ink-3">
-        当前热度 <b className="num font-semibold text-ink">{Math.round(last.p!.heat)}</b>
+        {tr("当前热度")} <b className="num font-semibold text-ink">{Math.round(last.p!.heat)}</b>
         <span className="mx-1.5 text-ink-4">·</span>
-        可比范围峰值 <b className="num font-semibold text-ink">{Math.round(peak.p!.heat)}</b>
-        <span className="num text-ink-4">（{monthDayTime(new Date(peak.t).toISOString())}）</span>
-        <span className="mx-1.5 text-ink-4">·</span>近 24 小时可比范围变化{" "}
+        {tr("可比范围峰值")} <b className="num font-semibold text-ink">{Math.round(peak.p!.heat)}</b>
+        <span className="num text-ink-4">（{df.monthDayTime(new Date(peak.t).toISOString())}）</span>
+        <span className="mx-1.5 text-ink-4">·</span>
+        {tr("近 24 小时可比范围变化")}{" "}
         <b className={`num font-semibold ${change === null ? "text-ink-4" : change > 0 ? "text-hot" : "text-ink"}`}>
           {change === null ? "–" : `${change > 0 ? "+" : ""}${change}%`}
         </b>
@@ -101,7 +104,7 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
           viewBox={`0 0 ${W} ${H}`}
           className="block h-auto w-full touch-pan-y select-none outline-none"
           role="img"
-          aria-label={`热度走势：当前 ${Math.round(last.p!.heat)}，峰值 ${Math.round(peak.p!.heat)}`}
+          aria-label={tr("热度走势：当前 {heat}，峰值 {heat2}", { heat: Math.round(last.p!.heat), heat2: Math.round(peak.p!.heat) })}
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === "ArrowRight") setActive((a) => Math.min(seen.length - 1, a === null ? seen.length - 1 : a + 1));
@@ -153,7 +156,7 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
             </g>
           )}
           {labels.map((t, i) => {
-            const [d, hm] = monthDayTime(new Date(t).toISOString()).split(" ");
+            const [d, hm] = df.monthDayTime(new Date(t).toISOString()).split(" ");
             return (
               <text
                 key={t}
@@ -177,17 +180,17 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
             className="pointer-events-none absolute top-1 z-10 -translate-x-1/2 whitespace-nowrap rounded-control border border-line bg-raised px-2.5 py-1.5 text-[12px] shadow-[var(--shadow-pop)]"
             style={{ left: `${Math.min(88, Math.max(12, (x(cur.t) / W) * 100))}%` }}
           >
-            <div className="num text-ink-4">{monthDayTime(new Date(cur.t).toISOString())}</div>
+            <div className="num text-ink-4">{df.monthDayTime(new Date(cur.t).toISOString())}</div>
             <div className="text-ink-2">
-              热度 <b className="num font-semibold text-ink">{cur.p!.heat.toFixed(1)}</b>
+              {tr("热度")} <b className="num font-semibold text-ink">{cur.p!.heat.toFixed(1)}</b>
               <span className="mx-1 text-ink-4">·</span>
-              <span className="num">{cur.p!.participants}</span> 位参与者
+              <span className="num">{cur.p!.participants}</span> {tr("位参与者")}
             </div>
           </div>
         )}
       </div>
       <p className="mt-3 text-[12px] leading-relaxed text-ink-4">
-        趋势仅比较持续完整观测到的相同主体，范围可能小于当前热度统计。移动指针或点击图表查看每小时热度；键盘可用左右方向键切换。
+        {tr("趋势仅比较持续完整观测到的相同主体，范围可能小于当前热度统计。移动指针或点击图表查看每小时热度；键盘可用左右方向键切换。")}
       </p>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useTr } from "../../i18n";
 import { IconMonitor, IconMoon, IconSun } from "../icons";
 import { applyTheme, resolvedTheme, setThemePreference, useThemePreference, type ThemePreference } from "../../lib/local-state";
 
@@ -12,6 +13,7 @@ const OPTIONS: Array<{ key: Choice; label: string; icon: ReactNode }> = [
 
 /** Three-way appearance switch (dark / follow the system / light) with a sliding thumb. */
 export function ThemeSwitch({ className = "" }: { className?: string }) {
+  const tr = useTr();
   const pref = useThemePreference();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -30,7 +32,11 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
   };
 
   return (
-    <div role="radiogroup" aria-label="外观" className={`relative grid h-[34px] grid-cols-3 rounded-full border border-line bg-bg-sunk p-[3px] ${className}`}>
+    <div
+      role="radiogroup"
+      aria-label={tr("外观")}
+      className={`relative grid h-[34px] grid-cols-3 rounded-full border border-line bg-bg-sunk p-[3px] ${className}`}
+    >
       <span
         aria-hidden="true"
         className="absolute inset-y-[3px] left-[3px] w-[calc((100%-6px)/3)] rounded-full border border-line bg-surface shadow-[var(--shadow-card)] transition-transform duration-200 ease-[var(--ease-out-quart)]"
@@ -42,12 +48,12 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
           type="button"
           role="radio"
           aria-checked={current === o.key}
-          title={o.label}
+          title={tr.maybe(o.label)}
           onClick={() => choose(o.key)}
           className={`relative z-10 flex items-center justify-center rounded-full transition-colors duration-150 ${current === o.key ? "text-ink" : "text-ink-4 hover:text-ink-2"}`}
         >
           {o.icon}
-          <span className="sr-only">{o.label}</span>
+          <span className="sr-only">{tr.maybe(o.label)}</span>
         </button>
       ))}
     </div>

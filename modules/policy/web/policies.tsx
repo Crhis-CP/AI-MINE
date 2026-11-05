@@ -1,4 +1,5 @@
 import { apiFetch } from "@amp/web/extension";
+import { useTr } from "@amp/web/i18n";
 import { useRef } from "react";
 import { Form, Link, data as withHeaders, useLoaderData, useSearchParams } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
@@ -55,6 +56,7 @@ export function meta({ location }: MetaArgs<typeof loader>) {
   });
 }
 export default function PoliciesPage() {
+  const tr = useTr();
   const { listing, scope, filters, error } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   usePolicyListReturn();
@@ -71,15 +73,15 @@ export default function PoliciesPage() {
       onSubmit={() => filterDialog.current?.close()}
       method="get"
       className="mt-5 grid gap-3 rounded-card border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4"
-      aria-label="法规筛选"
+      aria-label={tr("法规筛选")}
     >
       <label className="space-y-1 text-[12px] text-ink-3">
-        国家与组织
+        {tr("国家与组织")}
         <select name="jurisdiction" defaultValue={filters.jurisdiction ?? ""} className={fieldClass}>
-          <option value="">全部国家与组织</option>
+          <option value="">{tr("全部国家与组织")}</option>
           {[
-            ["country", "目标国家"],
-            ["organization", "跨国与国际组织"],
+            ["country", tr("目标国家")],
+            ["organization", tr("跨国与国际组织")],
           ].map(([kind, label]) => (
             <optgroup key={kind} label={label}>
               {scope?.items
@@ -94,39 +96,39 @@ export default function PoliciesPage() {
         </select>
       </label>
       {[
-        ["theme", "经营主题", themes],
-        ["nature", "文书性质", natures],
-        ["stage", "制定阶段", stages],
+        ["theme", tr("经营主题"), themes],
+        ["nature", tr("文书性质"), natures],
+        ["stage", tr("制定阶段"), stages],
       ].map(([key, label, values]) => (
         <label key={key as string} className="space-y-1 text-[12px] text-ink-3">
           {label as string}
           <select name={key as string} defaultValue={filters[key as "theme" | "nature" | "stage"] ?? ""} className={fieldClass}>
-            <option value="">全部</option>
+            <option value="">{tr("全部")}</option>
             {Object.entries(values).map(([value, name]) => (
               <option key={value} value={value}>
-                {name}
+                {tr.maybe(name as string)}
               </option>
             ))}
           </select>
         </label>
       ))}
       <label className="space-y-1 text-[12px] text-ink-3">
-        开始日期
+        {tr("开始日期")}
         <input type="date" name="from" defaultValue={filters.from} className={fieldClass} />
       </label>
       <label className="space-y-1 text-[12px] text-ink-3">
-        结束日期
+        {tr("结束日期")}
         <input type="date" name="to" defaultValue={filters.to} className={fieldClass} />
       </label>
       <label className="space-y-1 text-[12px] text-ink-3 lg:col-span-2">
-        关键词
+        {tr("关键词")}
         <div className="flex gap-2">
-          <input name="q" maxLength={120} defaultValue={filters.q} placeholder="中文名、原文名、文号或机关" className={fieldClass} />
+          <input name="q" maxLength={120} defaultValue={filters.q} placeholder={tr("中文名、原文名、文号或机关")} className={fieldClass} />
           <button className={actionClass} type="submit">
-            筛选
+            {tr("筛选")}
           </button>
           <Link to="/policies" className={`${actionClass} whitespace-nowrap`}>
-            重置
+            {tr("重置")}
           </Link>
         </div>
       </label>
@@ -134,42 +136,46 @@ export default function PoliciesPage() {
   );
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-10 pt-5 lg:pt-0" data-policies>
-      <h1 className="text-[24px] font-semibold text-ink">法规政策动态</h1>
-      <p className="mt-2 text-[14px] text-ink-3">按国家与经营主题阅读官方规则、完整中文和原文证据。</p>
+      <h1 className="text-[24px] font-semibold text-ink">{tr("法规政策动态")}</h1>
+      <p className="mt-2 text-[14px] text-ink-3">{tr("按国家与经营主题阅读官方规则、完整中文和原文证据。")}</p>
       <p className="mt-4 rounded-control border border-line bg-bg-sunk px-4 py-3 text-[13px] leading-relaxed text-ink-2">
-        法规政策动态暂时停止更新。已发布内容仍可查阅，恢复时间另行公告。{" "}
+        {tr("法规政策动态暂时停止更新。已发布内容仍可查阅，恢复时间另行公告。")}{" "}
         <Link to="/changelog" className="text-accent underline underline-offset-2">
-          查看公告
+          {tr("查看公告")}
         </Link>
       </p>
       <PolicyTabs />
       <button type="button" className={`${actionClass} mt-4 lg:hidden`} onClick={() => filterDialog.current?.showModal()}>
-        筛选法规
+        {tr("筛选法规")}
       </button>
       <div className="hidden lg:block">{filterForm}</div>
-      <dialog ref={filterDialog} aria-label="筛选法规" className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none bg-bg p-4 text-ink backdrop:bg-ink/40">
+      <dialog
+        ref={filterDialog}
+        aria-label={tr("筛选法规")}
+        className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none bg-bg p-4 text-ink backdrop:bg-ink/40"
+      >
         <div className="flex items-center justify-between">
-          <h2 className="text-[20px] font-semibold">筛选法规</h2>
+          <h2 className="text-[20px] font-semibold">{tr("筛选法规")}</h2>
           <button type="button" className={actionClass} onClick={() => filterDialog.current?.close()}>
-            关闭
+            {tr("关闭")}
           </button>
         </div>
         {filterForm}
       </dialog>
       {!scope ? (
         <p className="mt-3 text-[13px] text-amber-ink">
-          国家选项暂时无法读取。
+          {tr("国家选项暂时无法读取。")}
           <Link to="." className="underline">
-            重新读取
+            {tr("重新读取")}
           </Link>
         </p>
       ) : (
         <details className="mt-4 rounded-control bg-bg-sunk px-4 py-3 text-[12px] text-ink-3">
-          <summary className="cursor-pointer font-medium">范围与当前可读篇数 · 篇数不代表覆盖完成率</summary>
+          <summary className="cursor-pointer font-medium">{tr("范围与当前可读篇数 · 篇数不代表覆盖完成率")}</summary>
           <p className="mt-3">{scope.note}</p>
           {[
-            ["country", "目标国家"],
-            ["organization", "跨国与国际组织"],
+            ["country", tr("目标国家")],
+            ["organization", tr("跨国与国际组织")],
           ].map(([kind, label]) => (
             <section key={kind} className="mt-3">
               <h2 className="font-semibold">{label}</h2>
@@ -178,7 +184,7 @@ export default function PoliciesPage() {
                   .filter((i) => i.jurisdiction.kind === kind)
                   .map((i) => (
                     <li key={i.jurisdiction.code}>
-                      {i.jurisdiction.label}：{i.readable_count} 份
+                      {i.jurisdiction.label}：{i.readable_count} {tr("份")}
                     </li>
                   ))}
               </ul>
@@ -188,12 +194,12 @@ export default function PoliciesPage() {
       )}
       {listing && (
         <p className="mt-5 text-[12px] text-ink-4">
-          第 {listing.page} 页 · 共 {listing.total} 份文书
+          {tr("第")} {listing.page} {tr("页 · 共")} {listing.total} {tr("份文书")}
         </p>
       )}
       {error ? (
-        <EmptyState title={error === 400 ? "筛选参数有误" : "暂时无法读取政策法规"}>
-          {error === 400 ? "请调整筛选条件后重试，其他已填写的条件仍保留。" : "请稍后重新读取；读取失败不代表没有新法规。"}
+        <EmptyState title={error === 400 ? tr("筛选参数有误") : tr("暂时无法读取政策法规")}>
+          {error === 400 ? tr("请调整筛选条件后重试，其他已填写的条件仍保留。") : tr("请稍后重新读取；读取失败不代表没有新法规。")}
         </EmptyState>
       ) : listing?.items.length ? (
         <div>
@@ -202,7 +208,7 @@ export default function PoliciesPage() {
           ))}
         </div>
       ) : (
-        <EmptyState title="当前筛选暂无已公开法规">可调整国家、主题或搜索词查看其他内容；不能据此判断有关法域没有新法规。</EmptyState>
+        <EmptyState title={tr("当前筛选暂无已公开法规")}>{tr("可调整国家、主题或搜索词查看其他内容；不能据此判断有关法域没有新法规。")}</EmptyState>
       )}
       {listing && <Pagination page={listing.page} pageCount={Math.max(1, Math.ceil(listing.total / listing.page_size))} href={href} />}
       {listing && listing.total > listing.page_size && (
@@ -213,7 +219,7 @@ export default function PoliciesPage() {
               <input key={k} type="hidden" name={k} value={String(v)} />
             ))}
           <label>
-            跳到第{" "}
+            {tr("跳到第")}{" "}
             <input
               name="page"
               type="number"
@@ -222,10 +228,10 @@ export default function PoliciesPage() {
               defaultValue={listing.page}
               className="w-16 rounded-control border border-line bg-surface px-2 py-1"
             />{" "}
-            页
+            {tr("页")}
           </label>
           <button type="submit" className={actionClass}>
-            跳转
+            {tr("跳转")}
           </button>
         </Form>
       )}

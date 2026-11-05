@@ -1,6 +1,6 @@
 import { SearchProvider } from "../features/search/SearchOverlay";
-import { Outlet, useNavigation, type ShouldRevalidateFunction } from "react-router";
-import type { ReactNode } from "react";
+import { Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
+import { useEffect, type ReactNode } from "react";
 import type { Route } from "./+types/public-layout";
 import { ContentVersionGuard } from "../features/feed/ContentVersionGuard";
 import { SiteHeader } from "../components/shell/SiteHeader";
@@ -13,7 +13,7 @@ import { ErrorBoundary as PageError } from "../root";
 import { WEB_MODULES } from "@amp/site/modules/web";
 import { SiteMeta } from "@amp/contracts/http/public";
 import { NO_FILINGS } from "../components/shell/Filings";
-import { useT } from "../i18n";
+import { localeOf, useT, useTr } from "../i18n";
 
 // Unavailable metadata leaves the navigation unmarked and the footer without numbers; it never invents either.
 export async function loader({ request }: Route.LoaderArgs): Promise<SiteMeta> {
@@ -38,6 +38,18 @@ export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 function SiteShell({ children }: { children: ReactNode }) {
   const navigation = useNavigation();
   const t = useT();
+  const tr = useTr();
+  const { pathname, search } = useLocation();
+  // English pages keep their Chinese <title> from each route's meta (they are noindex); the tab shows it in English.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a search change can change the title.
+  useEffect(() => {
+    if (localeOf(pathname) !== "en" || navigation.state !== "idle") return;
+    const english = document.title
+      .split(" · ")
+      .map((part) => tr.maybe(part))
+      .join(" · ");
+    if (english !== document.title) document.title = english;
+  }, [pathname, search, navigation.state, tr]);
   return (
     <SearchProvider>
       <div className="flex min-h-dvh flex-col">

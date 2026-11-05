@@ -1,3 +1,4 @@
+import { useTr } from "../../i18n";
 // The small 24-hour heat line beside a hot-list entry. Hours without a comparable snapshot break the
 // line rather than being drawn as zero; with fewer than three observed hours nothing is drawn. `area`
 // lays a faint wash of the line's colour under it (the lead card); the size comes from the class, and
@@ -13,6 +14,7 @@ export function Sparkline({
   area?: boolean;
   stretch?: boolean;
 }) {
+  const tr = useTr();
   const W = 104;
   const H = 32;
   const pad = 3;
@@ -41,7 +43,7 @@ export function Sparkline({
       preserveAspectRatio={stretch ? "none" : undefined}
       className={`overflow-visible ${className}`}
       role="img"
-      aria-label={`近 24 小时热度走势${gaps ? "，部分时段缺少可比数据" : ""}`}
+      aria-label={`近 24 小时热度走势${gaps ? tr("，部分时段缺少可比数据") : ""}`}
     >
       {area &&
         runs.map((pts) => {

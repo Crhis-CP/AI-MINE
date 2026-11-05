@@ -1,4 +1,5 @@
 import { apiFetch } from "@amp/web/extension";
+import { useTr } from "@amp/web/i18n";
 import { useEffect, useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
@@ -35,9 +36,13 @@ function priceText(value: string, decimals: number | null) {
 const Tag = ({ value }: { value: string }) => (
   <span className="mr-1.5 inline-block rounded-mark bg-bg-muted px-1.5 py-0.5 text-[10px] leading-none text-ink-3">{value}</span>
 );
-const NewWindow = () => <span className="sr-only">（在新窗口打开）</span>;
+function NewWindow() {
+  const tr = useTr();
+  return <span className="sr-only">{tr("（在新窗口打开）")}</span>;
+}
 
 export default function MetalsPage() {
+  const tr = useTr();
   const { prices: initialPrices } = useLoaderData<typeof loader>();
   const [prices, setPrices] = useState(initialPrices);
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -96,59 +101,59 @@ export default function MetalsPage() {
   const tags = new Map(prices?.sources.map((source) => [source.key, source.tag]));
   return (
     <article data-metals className="mx-auto max-w-[var(--page-max-reading)] pb-10">
-      <h1 className="pb-2 pt-5 text-[22px] font-bold text-ink lg:pt-1 lg:text-[24px] lg:font-semibold">金属价格</h1>
+      <h1 className="pb-2 pt-5 text-[22px] font-bold text-ink lg:pt-1 lg:text-[24px] lg:font-semibold">{tr("金属价格")}</h1>
       {!prices ? (
-        <p className="mt-4 text-[14px] text-ink-3">价格数据暂时无法读取</p>
+        <p className="mt-4 text-[14px] text-ink-3">{tr("价格数据暂时无法读取")}</p>
       ) : (
         <>
           <p className="text-[14px] leading-relaxed text-ink-3">{prices.intro}</p>
           <p className={`mt-2 text-[12px] ${refreshFailed ? "text-amber-ink" : "text-ink-4"}`} role="status">
-            {refreshFailed ? "更新暂时失败，仍显示上次读取的结果。" : "按官方最新公布的期次展示；尚未发布新报价时保留上一期。"}
+            {refreshFailed ? tr("更新暂时失败，仍显示上次读取的结果。") : tr("按官方最新公布的期次展示；尚未发布新报价时保留上一期。")}
           </p>
           {!hasData ? (
-            <p className="mt-5 text-[14px] text-ink-3">暂无可显示的报价</p>
+            <p className="mt-5 text-[14px] text-ink-3">{tr("暂无可显示的报价")}</p>
           ) : (
             <>
-              <section aria-label="最新一期" className="mt-5 rounded-control bg-bg-sunk px-3 py-2.5 text-[12px] leading-6 text-ink-3">
-                <span className="mr-3 text-ink-4">最新一期</span>
+              <section aria-label={tr("最新一期")} className="mt-5 rounded-control bg-bg-sunk px-3 py-2.5 text-[12px] leading-6 text-ink-3">
+                <span className="mr-3 text-ink-4">{tr("最新一期")}</span>
                 {prices.latest.map((period) => (
                   <span key={period.tag} className="mr-4 inline-block">
                     <Tag value={period.tag} />
-                    {period.label ?? "暂无可显示的报价"}
-                    {period.stale && <span className="ml-1 text-amber-ink">较早期数据</span>}
+                    {period.label ?? tr("暂无可显示的报价")}
+                    {period.stale && <span className="ml-1 text-amber-ink">{tr("较早期数据")}</span>}
                     {period.extras.map((extra) => (
                       <span key={extra.label}>
                         （{extra.metals.join("、")} {extra.label}
-                        {extra.stale && " 较早期数据"}）
+                        {extra.stale && tr(" 较早期数据")}）
                       </span>
                     ))}
                   </span>
                 ))}
               </section>
               <section
-                aria-label="金属价格表"
+                aria-label={tr("金属价格表")}
                 // biome-ignore lint/a11y/noNoninteractiveTabindex: This scroll region must be keyboard reachable.
                 tabIndex={0}
                 className="mt-4 overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline-accent"
               >
                 <table className="w-full table-fixed border-collapse text-[12px] sm:text-[14px]">
-                  <caption className="sr-only">按品种分组的官方机构报价。涨跌按各行所示的实际基期比较</caption>
+                  <caption className="sr-only">{tr("按品种分组的官方机构报价。涨跌按各行所示的实际基期比较")}</caption>
                   <thead className="bg-bg-sunk text-left text-[11px] font-medium text-ink-3 sm:text-[12px]">
                     <tr>
                       <th scope="col" className="w-11 px-2 py-2.5 sm:w-[10%] sm:px-4">
-                        品种
+                        {tr("品种")}
                       </th>
                       <th scope="col" className="px-2 py-2.5 sm:w-[24%] sm:px-4">
-                        报价
+                        {tr("报价")}
                       </th>
                       <th scope="col" className="w-24 px-2 py-2.5 text-right sm:w-[18%] sm:px-4">
-                        价格
+                        {tr("价格")}
                       </th>
-                      <th scope="col" title="按各行所示的实际基期比较，可能跨越停发期" className="w-[5.25rem] px-1 py-2.5 text-right sm:w-[20%] sm:px-4">
-                        变化
+                      <th scope="col" title={tr("按各行所示的实际基期比较，可能跨越停发期")} className="w-[5.25rem] px-1 py-2.5 text-right sm:w-[20%] sm:px-4">
+                        {tr("变化")}
                       </th>
                       <th scope="col" className="hidden px-4 py-2.5 sm:table-cell sm:w-[28%]">
-                        规格
+                        {tr("规格")}
                       </th>
                     </tr>
                   </thead>
@@ -174,7 +179,11 @@ export default function MetalsPage() {
                                     {part}
                                     {i === parts.length - 1 && quote.footnote !== null && (
                                       <sup className="ml-0.5">
-                                        <a href={`#n${quote.footnote}`} aria-label={`见说明第 ${quote.footnote} 条`} className="text-accent hover:underline">
+                                        <a
+                                          href={`#n${quote.footnote}`}
+                                          aria-label={tr("见说明第 {footnote} 条", { footnote: quote.footnote })}
+                                          className="text-accent hover:underline"
+                                        >
                                           {quote.footnote}
                                         </a>
                                       </sup>
@@ -187,7 +196,7 @@ export default function MetalsPage() {
                             </td>
                             <td className="px-2 py-3 text-right align-top sm:px-4">
                               <span className={`mono tabular-nums whitespace-nowrap ${quote.value === null ? "text-ink-4" : "font-semibold text-ink"}`}>
-                                {quote.value === null ? "暂缺" : priceText(quote.value, quote.decimals)}
+                                {quote.value === null ? tr("暂缺") : priceText(quote.value, quote.decimals)}
                               </span>
                               <span className="mt-1 block text-[10px] leading-4 text-ink-4 sm:text-[11px]">{quote.unit}</span>
                             </td>
@@ -199,13 +208,17 @@ export default function MetalsPage() {
                                   {shown}
                                 </span>
                               )}
-                              {quote.change && <span className="mt-1 block text-[10px] leading-4 text-ink-4">对比 {quote.change.previous.period.label}</span>}
+                              {quote.change && (
+                                <span className="mt-1 block text-[10px] leading-4 text-ink-4">
+                                  {tr("对比")} {quote.change.previous.period.label}
+                                </span>
+                              )}
                               {quote.value !== null && !quote.change && (
                                 <span
                                   className="mt-0.5 block whitespace-nowrap text-[10px] font-normal leading-tight text-ink-4 sm:text-[11px]"
-                                  title="缺少可比的上一期报价，暂不显示涨跌"
+                                  title={tr("缺少可比的上一期报价，暂不显示涨跌")}
                                 >
-                                  暂无可比上期
+                                  {tr("暂无可比上期")}
                                 </span>
                               )}
                             </td>
@@ -218,7 +231,7 @@ export default function MetalsPage() {
                 </table>
               </section>
               <details className="mt-4 text-[12px] leading-6 text-ink-3">
-                <summary className="cursor-pointer">查看来源与报价日期</summary>
+                <summary className="cursor-pointer">{tr("查看来源与报价日期")}</summary>
                 <ul className="mt-2 space-y-1">
                   {prices.sources
                     .filter((source) => source.latest)
@@ -234,7 +247,7 @@ export default function MetalsPage() {
               </details>
               <section className="mt-7" aria-labelledby="metals-notes">
                 <h2 id="metals-notes" className="text-[15px] font-semibold text-ink">
-                  说明
+                  {tr("说明")}
                 </h2>
                 <ol className="mt-2 list-decimal space-y-2 pl-5 text-[12px] leading-relaxed text-ink-3">
                   {prices.notes.map((note, index) => {
@@ -259,7 +272,7 @@ export default function MetalsPage() {
           {prices.officialLinks.length > 0 && (
             <section className="mt-7" aria-labelledby="metals-official-links">
               <h2 id="metals-official-links" className="text-[15px] font-semibold text-ink">
-                官方查询入口
+                {tr("官方查询入口")}
               </h2>
               <ul className="mt-3 space-y-2.5 text-[13px] leading-relaxed">
                 {prices.officialLinks.map((entry) => (
@@ -278,7 +291,7 @@ export default function MetalsPage() {
         </>
       )}
       <Link to="/all?category=commodity_market" className="mt-7 inline-block text-[14px] font-medium text-accent hover:underline">
-        浏览矿业市场动态 →
+        {tr("浏览矿业市场动态 →")}
       </Link>
     </article>
   );

@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { titled } from "./lib/seo";
 import { SITE } from "@amp/industry/site";
 import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation, useRouteError, useRouteLoaderData } from "react-router";
-import { localeOf } from "./i18n";
+import { localeOf, useTr } from "./i18n";
 import type { Route } from "./+types/root";
 import "./group.css";
 import brandSans from "./assets/fonts/InstrumentSans_400Regular.woff2?url";
@@ -75,6 +75,7 @@ export default function App() {
 }
 
 export function ErrorBoundary() {
+  const tr = useTr();
   const error = useRouteError();
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const notFound = status === 404;
@@ -83,16 +84,16 @@ export function ErrorBoundary() {
       <div className="max-w-sm text-center">
         <Wordmark size={28} className="mb-5 text-ink" />
         <div className="mono text-[12px] text-ink-4">{status}</div>
-        <h1 className="mt-1.5 text-[20px] font-bold text-ink">{notFound ? "这里没有内容" : "暂时无法加载"}</h1>
+        <h1 className="mt-1.5 text-[20px] font-bold text-ink">{notFound ? tr("这里没有内容") : tr("暂时无法加载")}</h1>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-3">
-          {notFound ? "你访问的页面不存在，或内容已不再公开。" : "服务暂时繁忙，请稍后再试。已经加载过的内容不受影响。"}
+          {notFound ? tr("你访问的页面不存在，或内容已不再公开。") : tr("服务暂时繁忙，请稍后再试。已经加载过的内容不受影响。")}
         </p>
         <div className="mt-6 flex justify-center gap-2.5">
           <Link reloadDocument to="/" className={buttonClass("primary")}>
-            回到精选
+            {tr("回到精选")}
           </Link>
           <Link reloadDocument to="/all" className={buttonClass("secondary")}>
-            浏览全部动态
+            {tr("浏览全部动态")}
           </Link>
         </div>
       </div>

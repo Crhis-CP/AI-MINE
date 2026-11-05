@@ -1,4 +1,5 @@
 import { apiFetch } from "../../lib/http.ts";
+import { useTr } from "../../i18n";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigation, useRevalidator } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -12,6 +13,7 @@ export function useReaderItemScope() {
 
 /** New arrivals wait for the reader; withdrawals refresh every public reading surface immediately. */
 export function ContentVersionGuard({ children }: { children: ReactNode }) {
+  const tr = useTr();
   const location = useLocation();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
@@ -172,20 +174,20 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       {!policyPage && status !== "idle" && status !== "checking" && (
         <div role="status" className="my-2 flex items-center gap-3 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">
           {status === "withdrawn"
-            ? "公开内容已调整，正在核对当前页面…"
+            ? tr("公开内容已调整，正在核对当前页面…")
             : status === "failed"
-              ? "暂时无法确认最新内容"
+              ? tr("暂时无法确认最新内容")
               : status === "updated"
-                ? "已核对撤回和修订内容"
-                : "有新的矿业动态"}
+                ? tr("已核对撤回和修订内容")
+                : tr("有新的矿业动态")}
           {status === "failed" && (
             <button type="button" onClick={() => retry.current()} className="text-accent">
-              重试
+              {tr("重试")}
             </button>
           )}
           {(status === "new" || status === "updated") && (
             <button type="button" onClick={loadLatest} className="text-accent">
-              加载最新
+              {tr("加载最新")}
             </button>
           )}
         </div>
@@ -193,7 +195,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       <ReaderItemScope.Provider value={allowedIds?.routeKey === routeKey ? allowedIds.ids : null}>
         <section
           key={generation}
-          aria-label="阅读内容"
+          aria-label={tr("阅读内容")}
           aria-busy={!policyPage && (status === "checking" || status === "withdrawn")}
           hidden={!policyPage && status === "withdrawn"}
         >

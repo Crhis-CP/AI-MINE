@@ -99,3 +99,30 @@ export function newsSourceDate(time: import("@amp/contracts/time-assertion").Tim
     dateOnly: false,
   };
 }
+
+const BEIJING = "Asia/Shanghai";
+/** The same helpers in the interface language: Chinese as above, English through Intl in Beijing time. */
+export function dateFormatFor(english: boolean) {
+  if (!english) return { relativeTime, monthDayTime, monthDay: (date: string) => monthDayLabel(date), weekday: beijingWeekday };
+  const day = (date: string) => new Date(`${date}T12:00:00+08:00`);
+  return {
+    relativeTime(iso: string, now = Date.now()): string {
+      const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
+      if (s < 60) return "just now";
+      const m = Math.round(s / 60);
+      if (m < 60) return `${m} min ago`;
+      const h = Math.round(m / 60);
+      if (h < 24) return `${h} h ago`;
+      const d = Math.round(h / 24);
+      if (d < 30) return `${d} d ago`;
+      return beijingDate(iso);
+    },
+    monthDayTime: (iso: string) =>
+      `${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: BEIJING }).format(new Date(iso))} ${beijingTime(iso)}`,
+    monthDay: (date: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: BEIJING }).format(day(date)),
+    weekday: (date: string) => new Intl.DateTimeFormat("en", { weekday: "long", timeZone: BEIJING }).format(day(date)),
+  };
+}
+function monthDayLabel(date: string): string {
+  return `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日`;
+}

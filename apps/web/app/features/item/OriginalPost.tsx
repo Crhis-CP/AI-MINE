@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTr } from "../../i18n";
 import type { MediaView, XPostDetailView, XPostFeedView } from "@amp/contracts/site";
 import { ArticleBody } from "./ArticleBody";
 
@@ -11,6 +12,7 @@ const localSrcSet = (value?: string) =>
     .join(",") || undefined;
 
 export function PostAuthor({ post }: { post: XPostFeedView }) {
+  const tr = useTr();
   return (
     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-3">
       {localImage(post.avatarUrl) && (
@@ -27,7 +29,7 @@ export function PostAuthor({ post }: { post: XPostFeedView }) {
           }}
         />
       )}
-      <span className="break-words font-semibold">{post.authorName || (post.handle ? `@${post.handle}` : "原帖作者未提供")}</span>
+      <span className="break-words font-semibold">{post.authorName || (post.handle ? `@${post.handle}` : tr("原帖作者未提供"))}</span>
       {post.authorName && post.handle && <span className="break-all text-ink-4">@{post.handle}</span>}
     </div>
   );
@@ -42,11 +44,12 @@ export function QuotedPost({
   language?: "zh" | "original";
   compact?: boolean;
 }) {
+  const tr = useTr();
   const translated = language === "zh" && !!quoted.translation?.trim();
   return (
     <figure className={`mt-3 min-w-0 rounded-control border border-line-soft px-3 py-2 ${compact ? "text-[13px]" : "text-[15px]"}`}>
       <figcaption className="flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-ink-4">
-        <span>{translated ? "引用 · AI 翻译" : "引用 · 原文"}</span>
+        <span>{translated ? tr("引用 · AI 翻译") : tr("引用 · 原文")}</span>
         <span className="break-words font-semibold text-ink-2">{quoted.authorName || `@${quoted.handle}`}</span>
         {quoted.authorName && quoted.handle && <span className="break-all">@{quoted.handle}</span>}
       </figcaption>
@@ -55,7 +58,7 @@ export function QuotedPost({
       </blockquote>
       {!compact && "url" in quoted && (
         <a href={quoted.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[13px] text-accent">
-          打开被引用的原帖
+          {tr("打开被引用的原帖")}
         </a>
       )}
     </figure>
@@ -63,6 +66,7 @@ export function QuotedPost({
 }
 
 export function PostMedia({ media, href, compact = false }: { media: MediaView[]; href: string; compact?: boolean }) {
+  const tr = useTr();
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   if (!media.length) return null;
   const unique = [...new Map(media.map((entry) => [`${entry.kind}:${entry.url}`, entry])).values()];
@@ -80,7 +84,7 @@ export function PostMedia({ media, href, compact = false }: { media: MediaView[]
               data-full-src={entry.kind === "image" && localImage(entry.fullUrl) ? entry.fullUrl : undefined}
               width={entry.width ?? undefined}
               height={entry.height ?? undefined}
-              alt={entry.alt ?? "原帖图片"}
+              alt={entry.alt ?? tr("原帖图片")}
               loading="lazy"
               decoding="async"
               onError={() => setFailed((current) => ({ ...current, [preview]: true }))}
@@ -92,7 +96,9 @@ export function PostMedia({ media, href, compact = false }: { media: MediaView[]
               {fallback || entry.kind === "video" ? (
                 <a href={href} target={compact ? undefined : "_blank"} rel="noopener noreferrer" className="block text-[13px] leading-relaxed text-accent">
                   {image}
-                  <span className="block px-3 py-2">{fallback ? (compact ? "媒体暂不可用，查看原帖" : "媒体暂不可用，打开原文查看") : "在原文播放视频"}</span>
+                  <span className="block px-3 py-2">
+                    {fallback ? (compact ? tr("媒体暂不可用，查看原帖") : tr("媒体暂不可用，打开原文查看")) : tr("在原文播放视频")}
+                  </span>
                 </a>
               ) : (
                 image
@@ -103,7 +109,7 @@ export function PostMedia({ media, href, compact = false }: { media: MediaView[]
       </div>
       {compact && unique.length > shown.length && (
         <a href={href} className="relative z-10 mt-1 inline-block text-[12px] text-accent">
-          查看全部 {unique.length} 项媒体
+          {tr("查看全部")} {unique.length} {tr("项媒体")}
         </a>
       )}
     </ArticleBody>

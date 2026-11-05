@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useTr } from "../../i18n";
 import { Link } from "react-router";
 import { IntentLink } from "./IntentLink";
 import { IconChevronLeft, IconChevronRight } from "../icons";
@@ -86,6 +87,7 @@ export function PillTabs({
   fill?: boolean;
   className?: string;
 }) {
+  const tr = useTr();
   const links = items.some((t) => t.to);
   const wrapper = useRef<HTMLDivElement>(null),
     viewport = useRef<HTMLDivElement>(null);
@@ -126,7 +128,7 @@ export function PillTabs({
       {scroll.overflow && (
         <button
           type="button"
-          aria-label={`${label ?? "选项"}向左滚动`}
+          aria-label={`${label ?? tr("选项")}向左滚动`}
           disabled={!scroll.left}
           onClick={() => move(-1)}
           className="hidden size-9 shrink-0 place-items-center rounded-full border border-line text-ink-3 disabled:opacity-30 lg:grid"
@@ -172,7 +174,7 @@ export function PillTabs({
       {scroll.overflow && (
         <button
           type="button"
-          aria-label={`${label ?? "选项"}向右滚动`}
+          aria-label={`${label ?? tr("选项")}向右滚动`}
           disabled={!scroll.right}
           onClick={() => move(1)}
           className="hidden size-9 shrink-0 place-items-center rounded-full border border-line text-ink-3 disabled:opacity-30 lg:grid"

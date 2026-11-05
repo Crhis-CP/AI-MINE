@@ -1,7 +1,8 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
+import { useTr } from "../i18n";
 import { useEffect } from "react";
 import { setChangelogSeen } from "../lib/local-state";
-import { SITE, withSubject } from "@amp/industry/site";
+import { SITE } from "@amp/industry/site";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import { apiGet } from "../lib/api.server";
@@ -77,6 +78,7 @@ function ReleaseBody({ lines }: { lines: string[] }) {
 }
 
 export default function ChangelogPage() {
+  const tr = useTr();
   const data = useLoaderData<typeof loader>();
   const first = data.releases[0];
   const version = first ? first.date + (first.time ? `T${first.time}` : "") : null;
@@ -95,8 +97,8 @@ export default function ChangelogPage() {
 
   const aside = (
     <>
-      <AsideCard title="按月份" className="hidden lg:block">
-        <nav aria-label="按月份" className="-mx-2 -mb-1">
+      <AsideCard title={tr("按月份")} className="hidden lg:block">
+        <nav aria-label={tr("按月份")} className="-mx-2 -mb-1">
           {[...months.entries()].map(([month, m]) => {
             const [y, mo] = month.split("-").map(Number) as [number, number];
             return (
@@ -105,28 +107,31 @@ export default function ChangelogPage() {
                 href={`#d-${m.first}`}
                 className="flex items-center justify-between rounded-control px-2 py-2 text-[13.5px] text-ink-2 transition-colors hover:bg-bg-sunk hover:text-ink"
               >
-                {y} 年 {mo} 月<span className="num text-[12px] text-ink-4">{m.count} 条</span>
+                {tr("{y} 年 {mo} 月", { y, mo })}
+                <span className="num text-[12px] text-ink-4">
+                  {m.count} {tr("条")}
+                </span>
               </a>
             );
           })}
         </nav>
       </AsideCard>
-      <AsideCard title="有想法或遇到问题">
-        <p className="text-[13px] leading-[1.75] text-ink-3">想要的功能、用着不顺的地方，都可以在反馈页告诉我们。</p>
+      <AsideCard title={tr("有想法或遇到问题")}>
+        <p className="text-[13px] leading-[1.75] text-ink-3">{tr("想要的功能、用着不顺的地方，都可以在反馈页告诉我们。")}</p>
         <Link to="/feedback" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
-          去反馈 <IconChevronRight size={14} />
+          {tr("去反馈")} <IconChevronRight size={14} />
         </Link>
       </AsideCard>
     </>
   );
 
   return (
-    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="更新日志" />} aside={aside}>
+    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: tr("我的") }} title={tr("更新日志")} />} aside={aside}>
       <header className="pb-6">
         <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
-          更新日志
+          {tr("更新日志")}
         </h1>
-        <p className="mt-1.5 text-[13px] text-ink-3">新功能、调整、下线，都写在这里。</p>
+        <p className="mt-1.5 text-[13px] text-ink-3">{tr("新功能、调整、下线，都写在这里。")}</p>
       </header>
       <div className="space-y-4">
         {[...groups.entries()].map(([date, releases]) => {
