@@ -3,8 +3,8 @@
 /* ---------------------------------------------------------------------------
    Design tokens: warm off-white paper, ink text, one accent, hairline borders,
    no gradients. Components use the semantic names below; values change per
-   theme only. The accent is a temporary neutral placeholder (临时) until T-0006
-   settles the palette with the Owner (Q-67).
+   theme only. The accent is the brand gold of the galaxy logo (DEC-78); only the
+   logotype itself (industry/brand/lockup*.svg) carries the gradient.
    --------------------------------------------------------------------------- */
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
@@ -93,11 +93,11 @@
   --line: #dfe4e1;
   --line-strong: #d1d9d5;
   --line-soft: #e9ede9;
-  /* 临时: neutral placeholder accent until T-0006 (Q-67). */
-  --accent: #475569;
-  --accent-ink: #334155;
-  --accent-soft: rgba(71, 85, 105, 0.08);
-  --accent-softer: rgba(71, 85, 105, 0.05);
+  /* Brand gold from the galaxy logo (DEC-78, Owner 2026-11-05): the deep end of its ramp, 5.6:1 on paper. */
+  --accent: #8a5a17;
+  --accent-ink: #6e4710;
+  --accent-soft: rgba(160, 106, 30, 0.1);
+  --accent-softer: rgba(160, 106, 30, 0.06);
   --accent-contrast: #ffffff;
   --note: #526f72;
   --hot: #b3402a;
@@ -140,11 +140,11 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.12);
   --line-soft: rgba(255, 255, 255, 0.06);
-  /* 临时: neutral placeholder accent until T-0006 (Q-67). */
-  --accent: #94a3b8;
-  --accent-ink: #cbd5e1;
-  --accent-soft: rgba(148, 163, 184, 0.12);
-  --accent-softer: rgba(148, 163, 184, 0.06);
+  /* Brand gold, the light end of the logo ramp for dark paper (8.9:1). */
+  --accent: #e2b04f;
+  --accent-ink: #f0ca6e;
+  --accent-soft: rgba(226, 176, 79, 0.13);
+  --accent-softer: rgba(226, 176, 79, 0.07);
   --accent-contrast: #000000;
   --note: #8fb8a8;
   --hot: #d86a52;
