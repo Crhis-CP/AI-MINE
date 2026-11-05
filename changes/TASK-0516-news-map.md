@@ -1,5 +1,5 @@
 ---
-type: 新增
+type: 更新
 audience: 读者
 title: 首页新增资讯地图
 highlights:

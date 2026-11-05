@@ -70,31 +70,41 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
           </Link>
         )}
       </div>
-      <svg viewBox={`0 0 ${frame.width} ${frame.height}`} className="block h-auto w-full" role="group" aria-label="按国家查看资讯：圆点越大，已识别资讯越多">
-        <use href={`${dotsUrl}#dots`} className="stroke-ink-4 opacity-40" />
-        {countries.map((c, i) => {
-          const [x, y] = project(POINTS[c.code]!);
-          const r = radius(c.news_count);
-          const on = selected === c.code;
-          return (
-            <Link
-              key={c.code}
-              to={hrefWith(base, params, { jurisdiction: c.code })}
-              aria-label={`${c.label}，${c.news_count} 条资讯`}
-              aria-current={on ? "true" : undefined}
-            >
-              <title>{`${c.label} · ${c.news_count}`}</title>
-              {on && <circle cx={x} cy={y} r={r + 2.2} className="fill-none stroke-accent" strokeWidth={0.7} />}
-              <circle cx={x} cy={y} r={r} className="map-bubble fill-accent" style={{ animationDelay: `${0.08 + i * 0.05}s` }} fillOpacity={on ? 0.95 : 0.7} />
-              {(labelled.has(c.code) || on) && (
-                <text x={x + r + 1.8} y={y + 2.4} className="fill-ink-2 text-[7px] font-semibold">
-                  {c.label}
-                </text>
-              )}
-            </Link>
-          );
-        })}
-      </svg>
+      <nav aria-label="按国家查看资讯：圆点越大，已识别资讯越多">
+        <svg viewBox={`0 0 ${frame.width} ${frame.height}`} className="block h-auto w-full" aria-hidden={countries.length === 0 ? true : undefined}>
+          <title>资讯地图</title>
+          <use href={`${dotsUrl}#dots`} className="stroke-ink-4 opacity-40" />
+          {countries.map((c, i) => {
+            const [x, y] = project(POINTS[c.code]!);
+            const r = radius(c.news_count);
+            const on = selected === c.code;
+            return (
+              <Link
+                key={c.code}
+                to={hrefWith(base, params, { jurisdiction: c.code })}
+                aria-label={`${c.label}，${c.news_count} 条资讯`}
+                aria-current={on ? "true" : undefined}
+              >
+                <title>{`${c.label} · ${c.news_count}`}</title>
+                {on && <circle cx={x} cy={y} r={r + 2.2} className="fill-none stroke-accent" strokeWidth={0.7} />}
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={r}
+                  className="map-bubble fill-accent"
+                  style={{ animationDelay: `${0.08 + i * 0.05}s` }}
+                  fillOpacity={on ? 0.95 : 0.7}
+                />
+                {(labelled.has(c.code) || on) && (
+                  <text x={x + r + 1.8} y={y + 2.4} className="fill-ink-2 text-[7px] font-semibold">
+                    {c.label}
+                  </text>
+                )}
+              </Link>
+            );
+          })}
+        </svg>
+      </nav>
       <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-4">
         {failed ? "国家数据暂时不可用。" : choices ? "按事件或影响地区统计；点击圆点筛选该国资讯。" : "正在读取国家数据…"}
         地图只示意陆地分布，不表示国界。

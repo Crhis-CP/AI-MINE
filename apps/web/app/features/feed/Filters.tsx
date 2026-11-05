@@ -14,15 +14,17 @@ import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../compon
 import { PillTabs } from "../../components/ui/Tabs";
 
 /** The selector describes event/impact geography; publication-source tags are not an input. */
-export function JurisdictionFilter({ base, value }: { base: string; value: string | null }) {
+export function JurisdictionFilter({ base, value, confirm = false }: { base: string; value: string | null; confirm?: boolean }) {
   const [params] = useSearchParams(),
     navigation = useNavigation();
   const [draft, setDraft] = useState(value ?? "");
   useEffect(() => setDraft(value ?? ""), [value]);
   const { choices, failed } = useJurisdictionChoices();
-  // With scripts a choice applies at once; the button stays for readers without them.
-  const [live, setLive] = useState(false);
-  useEffect(() => setLive(true), []);
+  // On a page a choice applies at once; the button stays for readers without scripts, and in the phone
+  // sheet (`confirm`), where filters are composed and then applied together.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const live = mounted && !confirm;
   const keep = [...new Set(params.keys())]
     .filter((key) => !["jurisdiction", "page", "cursor", "deep", "anchorAt", "_routes"].includes(key))
     .map((key) => [key, params.get(key)!] as const);
@@ -38,7 +40,7 @@ export function JurisdictionFilter({ base, value }: { base: string; value: strin
           value={draft}
           onChange={(event) => {
             setDraft(event.currentTarget.value);
-            event.currentTarget.form?.requestSubmit();
+            if (live) event.currentTarget.form?.requestSubmit();
           }}
           className="max-w-[220px] rounded-md border border-line-strong bg-surface px-3 py-2 text-ink"
         >
@@ -304,7 +306,7 @@ export function FeedBar({
         {sheet && (
           <>
             <SourceScopeTabs base={base} channel={channel} layoutId="phone-source-scope" />
-            <JurisdictionFilter base={base} value={jurisdiction} />
+            <JurisdictionFilter base={base} value={jurisdiction} confirm />
             {base === "/all" ? (
               <SourceDateFilters base="/all" facets={facets} />
             ) : (
