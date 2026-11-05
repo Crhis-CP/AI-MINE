@@ -65,7 +65,7 @@ export const config = {
   environmentName: str("AMP_ENVIRONMENT", isProduction ? "production" : "development"),
   // Model calls are live unless explicitly disabled (tests, replays).
   modelCallsEnabled: bool("MODEL_CALLS_ENABLED", true),
-  /** Only Chris's separately approved activation may set the exact literal true. */
+  /** Only the Owner's separately approved activation may set the exact literal true. */
   originalPostAdmissionEnabled: env.ORIGINAL_POST_ADMISSION_ENABLED === "true",
   devAdmin: env.DEV_AUTH_ROLE === "admin" ? { displayName: env.DEV_AUTH_DISPLAY_NAME || "Dev Admin" } : null,
   /** The admin password (at least 12 characters). Feishu sign-in below is optional. */
