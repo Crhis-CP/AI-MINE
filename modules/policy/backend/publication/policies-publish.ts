@@ -16,7 +16,7 @@ export async function policyPublicId(kind: string, internalId: string, db: Db = 
 }
 
 import { Policy } from "@amp/contracts/http/public";
-import { POLICY_SOURCES } from "@amp/industry/policy-sources";
+import { ALL_POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { policyProcessingNotice } from "../domain/processing-notice.ts";
 import { readPolicyMetadataObservation } from "../domain/metadata.ts";
 import { readPolicyOriginal, assertOriginalPermissions } from "../domain/originals.ts";
@@ -292,7 +292,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     basic.sections = [];
     basic.relationships = [];
     basic.evidence = [];
-    const preferred = POLICY_SOURCES.find((s) => `policy-${s.id.toLowerCase()}` === snapshot.sourceId)?.language ?? null;
+    const preferred = ALL_POLICY_SOURCES.find((s) => `policy-${s.id.toLowerCase()}` === snapshot.sourceId)?.language ?? null;
     await db`INSERT INTO publication.policy_editions(id,content_hash,policy_id,native_expression_id,native_revision_id,source_id,permission_version,policy_version_id,source_language,preferred_source_language,
    expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id,discovered_at,original_content_key)
    VALUES(${editionId},${contentHash},${policyId},${input.expressionId},${snapshot.revisionId},${snapshot.sourceId},${snapshot.permissionVersion},${ids.version},${snapshot.language},${preferred},

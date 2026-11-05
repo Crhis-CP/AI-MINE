@@ -6,7 +6,17 @@ import { crawlFetch as guardedFetch, crawlExternal, crawlReadKey } from "../acqu
 import { collapseWhitespace } from "../lib/text.ts";
 import { readable, type ExtractedBody } from "../content/extract.ts";
 import { jinaRead } from "../providers/jina.ts";
-import { FetchError, type Candidate, type SourceRow } from "./types.ts";
+import {
+  conditionalListingHeaders,
+  FetchError,
+  listingNotModified,
+  listingValidator,
+  type Candidate,
+  type ConditionalListing,
+  type ListingValidator,
+  type SourceRow,
+} from "./types.ts";
+import { sha256, stableJson } from "../lib/ids.ts";
 import { observeSourceDate, previewSourceDate, toDateCandidate } from "./date-extraction.ts";
 import { readLabeledPublicationDate } from "./labeled-date.ts";
 import { sourcePublishedAt } from "./published-at.ts";
@@ -161,7 +171,10 @@ function absolute(href: string | undefined, base: string): string | null {
   }
 }
 
-async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJina: boolean; base: string }> {
+async function fetchListingText(
+  source: SourceRow,
+  conditional?: { previous: ListingValidator | null; configHash: string },
+): Promise<{ text: string; viaJina: boolean; base: string; validator?: ListingValidator; notModified?: boolean }> {
   const url = String(source.config.url ?? "");
   if (!url) throw new FetchError("url missing");
   if (url.startsWith(JINA_PREFIX)) {
@@ -180,17 +193,28 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     );
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
-  const res = await guardedFetch(url, {
-    headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", ...languageHeaders(source.config.acceptLanguage) },
-    timeoutMs: 25_000,
-    retryDropped: true,
-  });
-  if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
+  const usable = conditional?.previous?.configHash === conditional?.configHash ? (conditional?.previous ?? null) : null;
+  const read = (validators: ListingValidator | null) =>
+    guardedFetch(url, {
+      headers: {
+        accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+        ...languageHeaders(source.config.acceptLanguage),
+        ...conditionalListingHeaders(validators),
+      },
+      timeoutMs: 25_000,
+      retryDropped: true,
+    });
+  let res = await read(usable);
+  // A redirect may have changed destinations, whose validators are unrelated to the old ones.
+  if (res.status === 304 && usable && res.url !== usable.responseUrl) res = await read(null);
   const base = source.config.baseUrl ?? url;
+  const validator = conditional ? listingValidator(conditional.configHash, res, usable) : undefined;
+  if (listingNotModified(res, usable)) return { text: "", viaJina: false, base, validator, notModified: true };
+  if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
   // Some listings are filled in by script from JSON that carries the list HTML (MOFCOM's page units
   // answer {"data":{"html":"<ul>…"}}): read that string, then parse it like any page.
   const path = source.config.htmlJsonPath;
-  if (!path) return { text: res.text(), viaJina: false, base };
+  if (!path) return { text: res.text(), viaJina: false, base, validator };
   let html: unknown;
   try {
     html = getPath(JSON.parse(res.text()), String(path));
@@ -198,7 +222,7 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     throw new FetchError("htmlJsonPath: the listing is not JSON");
   }
   if (typeof html !== "string") throw new FetchError(`htmlJsonPath: no string at ${path}`);
-  return { text: html, viaJina: false, base };
+  return { text: html, viaJina: false, base, validator };
 }
 
 export function fromMarkdown(md: string, base: string, source: SourceRow): Candidate[] {
@@ -317,6 +341,22 @@ export function formPageRequest(html: string, baseUrl: string, selector: string,
     return { url: action.href, method: "GET" as const, body: undefined, contentType: undefined };
   }
   return { url: action.href, method: "POST" as const, body: fields.toString(), contentType: "application/x-www-form-urlencoded" };
+}
+
+/**
+ * One direct, single-page HTML listing revalidated with the previous response's ETag/Last-Modified. Reader-rendered,
+ * form-paginated listings have no single validator and are read as before.
+ */
+export async function fetchWebListConditional(source: SourceRow, previous: ListingValidator | null): Promise<ConditionalListing> {
+  const url = String(source.config.url ?? "");
+  const configHash = sha256(stableJson(source.config));
+  if (url.startsWith(JINA_PREFIX) || source.config.pageForm || source.config.parseMode === "markdown")
+    return { candidates: await fetchWebList(source), validator: { configHash, responseUrl: url, etag: null, lastModified: null }, notModified: false };
+  const listing = await fetchListingText(source, { previous, configHash });
+  if (listing.notModified) return { candidates: [], validator: listing.validator!, notModified: true };
+  const out = fromHtml(listing.text, listing.base, source);
+  if (out.length === 0) throw new FetchError("no items matched (html)");
+  return { candidates: out, validator: listing.validator!, notModified: false };
 }
 
 export async function fetchWebList(source: SourceRow): Promise<Candidate[]> {

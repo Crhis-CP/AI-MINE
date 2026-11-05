@@ -29,6 +29,35 @@ export type Candidate = Omit<MaterialInput, "sourceId" | "via"> & {
   categories?: string[];
 };
 
+/**
+ * Conditional-request validators of one listing response. Saved in the source cursor only after a stored run, so a
+ * 304 never hides a list that was not yet stored; a config change or a redirect to another address starts plain.
+ */
+export interface ListingValidator {
+  configHash: string;
+  responseUrl: string;
+  etag: string | null;
+  lastModified: string | null;
+}
+export type ConditionalListing = { candidates: Candidate[]; validator: ListingValidator; notModified: boolean };
+export function conditionalListingHeaders(previous: ListingValidator | null): Record<string, string> {
+  return {
+    ...(previous?.etag ? { "if-none-match": previous.etag } : {}),
+    ...(previous?.lastModified ? { "if-modified-since": previous.lastModified } : {}),
+  };
+}
+type ListingResponse = { status: number; url: string; headers: Headers };
+export function listingValidator(configHash: string, res: ListingResponse, previous: ListingValidator | null): ListingValidator {
+  return {
+    configHash,
+    responseUrl: res.url,
+    etag: res.headers.get("etag") ?? (res.status === 304 ? (previous?.etag ?? null) : null),
+    lastModified: res.headers.get("last-modified") ?? (res.status === 304 ? (previous?.lastModified ?? null) : null),
+  };
+}
+export const listingNotModified = (res: ListingResponse, previous: ListingValidator | null) =>
+  res.status === 304 && !!previous && !!(previous.etag || previous.lastModified) && res.url === previous.responseUrl;
+
 export class FetchError extends Error {
   readonly status: number | null;
   constructor(message: string, status: number | null = null) {

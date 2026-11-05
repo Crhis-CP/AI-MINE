@@ -5,8 +5,18 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     // The handoff documents, the upstream lock and the reference spec are kept byte for byte, and so are the metal
-    // price fixtures cut from the official sources' pages and files (TASK-0044).
-    "includes": ["**", "!docs", "!upstream", "!reference", "!package-lock.json", "!tests/fixtures/metal-prices", "!industry/source-targets.json"]
+    // price fixtures cut from the official sources' pages and files (TASK-0044) and the policy pilot pages saved from official
+    // gazettes and ministries (法规线试点信源, 2026-11-05).
+    "includes": [
+      "**",
+      "!docs",
+      "!upstream",
+      "!reference",
+      "!package-lock.json",
+      "!tests/fixtures/metal-prices",
+      "!tests/fixtures/policy/pilot",
+      "!industry/source-targets.json"
+    ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 160 },
   "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" } },
