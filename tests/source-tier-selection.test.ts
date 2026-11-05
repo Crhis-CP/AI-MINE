@@ -171,12 +171,14 @@ test("a newly nominated archive waits for ordinary grouping and duplicate covera
     1,
   );
   const result = await groupArticle(archive.articleId);
-  assert.equal(result.verdict, "historical");
+  // The same page found late attaches to the live copy's fact as one more report (2026-11-05), still without a seat.
+  assert.equal(result.verdict, "historical-attached");
   const completed = await projection(archive.articleId);
   assert.deepEqual(
-    [completed.selection_candidate, completed.selected, completed.seat, completed.fact_id, completed.story_id],
-    [true, false, false, null, null],
+    [completed.selection_candidate, completed.selected, completed.seat, Number(completed.fact_id), Number(completed.story_id)],
+    [true, false, false, Number(fact!.id), Number(story!.id)],
   );
+  assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${archive.articleId}`).length, 0, "history adds no heat");
   assert.equal(completed.timeline_at.getTime(), timeline.getTime());
   assert.equal((await sql`SELECT grouping_status FROM articles WHERE id=${archive.articleId}`)[0]!.grouping_status, "complete");
   assert.deepEqual(await sql`SELECT * FROM analyses WHERE id=${archive.analysisId}`, analysisBefore);

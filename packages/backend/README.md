@@ -274,6 +274,8 @@ Cochilco 可通过 `METAL_PRICE_RELAY_URL` 使用限定来源的 HTTPS 取件服
 
 事件召回先核对当前材料修订、自动归属确认、综述范围和明确撤回，再取前10个事实；代表稿、根事实、同URL候选及落库校验沿用同一资格。单篇向量缓存随 publication revision 重新读取公开标题和摘要，文本哈希未变时复用原向量与回执，避免纯元数据变化重复购买；材料修订仍由独立的归属与输入围栏核对。
 
+2026-11-05 同一事件归组放宽：标题中《…》文书名规范化为文书键（`relate.documentKeys`，去“中华人民共和国”前缀与版本括注，过短或非文书后缀不计），按事实标题及`publication/publish.readDocumentTitleMatches`的公开/原始标题在24个月内另召回至多3个事实，与14天向量召回合并后仍由模型判断。历史稿（发现晚于来源时间48小时）不再一律跳过：同文书键或近乎相同（≥0.92）的已有事实经判断为同一次发生（置信度≥`TIE_MIN_CONFIDENCE`，低相似度仍复核）时，作为该事实的普通报道并入（verdict `historical-attached`），不写story_signals、不改事件时间、不建事实或事件、不成为精选，backfill仍不进报告窗口。`TIE_MIN_CONFIDENCE`由0.8降为0.7；`consolidate`在两根稿相似度≥`SKIP_REVIEW_MIN_COSINE`(0.92)、北京同日且法域不冲突时免第二次复核。`remergeSingleReportFacts`每小时（`events.remerge`）检查近72小时仅一篇报道的事实，与召回窗口中相似度≥0.85且法域不冲突的事实逐对复用常规配对判断，同一次发生时把单篇移入对方事实（单篇对单篇时较晚者并入较早者），清空的旧事件转址；每轮新调用至多40次、复用回执不计，人工归属、独立决定和待重归组不动，决定记为`remerge`。
+
 
 精选出口：发布事务同时结算同事实的唯一seat及selected_state/selected_ledger；代表稿替换、撤回、恢复和人工独立都重新选择受影响的旧、新事实。API/RSS精选与推送使用seat，网站保留完整报道组。代表稿优先级由发布端读取来源身份计算，落入publications.representative_priority；公开读者不读取私有来源配置。旧数据默认3（未证明更高优先级），由重建投影补齐。
 

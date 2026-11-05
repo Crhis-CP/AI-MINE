@@ -915,6 +915,7 @@ export async function lockReportPublications(ids: string[], db: Db) {
 
 export {
   newsRelationJurisdictions,
+  readDocumentTitleMatches,
   publicNewsDigestInput,
   readGroupingSelectionSnapshot,
   readConfirmedGroupingItems,
