@@ -5,7 +5,7 @@ import { Link, data as withHeaders, redirect, useLoaderData } from "react-router
 import type { Route } from "./+types/home";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
-import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
+import { canonicalCategoryFilter, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Timeline } from "../features/feed/Timeline";
@@ -23,7 +23,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
   const channel = isChannelKey(channelParam) ? channelParam : "all";
-  const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
+  const category = categoryParam ? canonicalCategoryFilter(categoryParam) : null;
+  // Old links with a retired category (ADR-0031) move to its successor; company_project stays and filters both.
+  if (categoryParam && category && category !== categoryParam) {
+    url.searchParams.set("category", category);
+    throw redirect(`${url.pathname}${url.search}`, 301);
+  }
   const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
   const upstream = new Headers();

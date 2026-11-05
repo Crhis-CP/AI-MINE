@@ -21,14 +21,14 @@ export const CHANNEL_LABELS: Record<"all" | "news" | "firstParty", string> = {
  */
 export const ITEM_TYPES = [
   "policy_regulation",
-  "company_project",
-  "commodity_market",
-  "capital_ma",
-  "supply_trade_controls",
-  "esg_community_labor",
-  "safety_incident",
-  "technology_processing",
+  "operations_output",
+  "project_development",
   "exploration_resource",
+  "capital_ma",
+  "commodity_market",
+  "technology_processing",
+  "safety_environment",
+  "events_opinion",
 ] as const;
 
 // ── 标签词表 ────────────────────────────────────────────────────────────────────────────

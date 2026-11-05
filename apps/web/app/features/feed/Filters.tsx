@@ -9,7 +9,7 @@ import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Form, Link, useLocation, useNavigate, useNavigation, useSearchParams } from "react-router";
-import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { CATEGORY_KEYS, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
 
@@ -149,7 +149,7 @@ export function FeedToolbar({
   base: string;
   /** Where “全部” leads when it differs from `base` (the home page while it waits for its first pick). */
   allTo?: string;
-  category: CategoryKey | null;
+  category: CategoryFilterKey | null;
   channel?: ChannelKey;
   jurisdiction: string | null;
   layoutId: string;
@@ -201,7 +201,7 @@ export function FeedBar({
   facets,
 }: {
   base: "/" | "/all";
-  category: CategoryKey | null;
+  category: CategoryFilterKey | null;
   channel: ChannelKey;
   jurisdiction: string | null;
   facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };

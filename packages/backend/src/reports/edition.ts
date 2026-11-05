@@ -11,6 +11,7 @@ import {
   sourceReportIssue,
   type ReportInputRow,
 } from "../publication/groups.ts";
+import { isCommentaryCategory } from "@amp/industry/mining-taxonomy";
 import { pickRepresentative } from "../publication/representative.ts";
 import { sql } from "../db.ts";
 import { relatedReport, reportImportance, type EditionEntry } from "./arrangement.ts";
@@ -156,7 +157,7 @@ export async function dailyEdition(date: string, start: Date, end: Date) {
       ),
       authority: rep.representative_priority,
       previous,
-      commentary: false,
+      commentary: isCommentaryCategory(rep.category),
       importance: reportImportance({
         score: Math.max(...facts.flatMap((fact) => fact.rows.map((row) => row.score ?? 0))),
         participants:

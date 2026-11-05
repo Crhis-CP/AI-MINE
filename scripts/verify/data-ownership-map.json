@@ -934,6 +934,7 @@
     "packages/backend/src/editorial/report-exclusions.ts": "editorial",
     "packages/backend/src/editorial/translate.ts": "enrichment",
     "packages/backend/src/editorial/post-translation.ts": "enrichment",
+    "packages/backend/src/editorial/reclassify.ts": "enrichment",
     "packages/backend/src/editorial/translation-store.ts": "enrichment",
     "packages/backend/src/editorial/withdrawals.ts": "editorial",
     "packages/backend/src/enrichment/records.ts": "enrichment",

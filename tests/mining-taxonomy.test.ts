@@ -84,8 +84,8 @@ test("actual classification, publication and public exits agree on nine keys and
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
   assert.equal(
     PROMPT_VERSIONS.score,
-    "selection-score@e7d514006c+weights@7b454f00e9",
-    "axis output with code weights (Owner 2026-11-05); production still waits for SELECTION_CONFIRMED_VERSION",
+    "selection-score@cc05f8c447+weights@20542a669a",
+    "axis output with code weights over the re-cut nine types (Owner 2026-11-05, ADR-0031); production still waits for SELECTION_CONFIRMED_VERSION",
   );
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));

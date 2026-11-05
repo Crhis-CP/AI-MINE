@@ -413,6 +413,7 @@
 | [TASK-0541](TASK-0541.md) | T-0101 | M3 | architect | locally_verified | 依赖小版本升级（只取发布满两周的同主版本），React Router 与 pg-boss 暂缓 | — |
 | [TASK-0542](TASK-0542.md) | T-0101 | M3 | architect | locally_verified | 金属价格：单一品种跳变只扣下该品种，下一期确认后自动放行或丢弃 | — |
 | [TASK-0543](TASK-0543.md) | T-0101 | M3 | architect | locally_verified | 法规线重启第 1、4 步：条款切分与逐条对照（不调用模型）、试点开关、读者端“逐条对照” | — |
+| [TASK-0544](TASK-0544.md) | T-0101 | M3 | architect | locally_verified | 分类按文章量重切为 9 类；旧分类键在网址、接口和 RSS 里继续可用；历史重分类脚本 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

@@ -1,5 +1,5 @@
 {
-  "reference/contracts/public.openapi.json": "fea130198f186bfe5c4f1ea21b3106b3c2da9f9053d09083ea396d0c2a8588fb",
-  "reference/contracts/v3.openapi.json": "5c7bb14827c386abd1978e345f1263c41d7b4478532c2d4138ee135f8283581a",
-  "reference/contracts/private.openapi.json": "498a9166bee4e27894ef88648448ce462db9a8288ee5d7481683690cc33f1ff7"
+  "reference/contracts/public.openapi.json": "b1548a4591445a57512444f7bb3c9c0c1500c39de0b4e432d8cb7e0b10a7b3ad",
+  "reference/contracts/v3.openapi.json": "cc2973b0dd2d47fef758588552fb97b73dde24ea41d53a08ce4e631f513b65cf",
+  "reference/contracts/private.openapi.json": "64a8725d58eae15d63322d0fbafa34232ac2204547813c951de405bc6f6ebdc3"
 }

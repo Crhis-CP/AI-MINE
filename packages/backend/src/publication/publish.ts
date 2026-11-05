@@ -28,7 +28,7 @@ import { requireRuntimeRunning, assertRuntimeControl, RuntimeControlPaused, Runt
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
 // Rebuilding only re-reads stored results; it never calls a model.
-import { renameCategoryTags } from "@amp/industry/mining-taxonomy";
+import { categoryLedTags } from "@amp/industry/mining-taxonomy";
 import { SITE } from "@amp/industry/site";
 import { toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { one, sql, type Tx, type Db } from "../db.ts";
@@ -375,10 +375,11 @@ export async function publishArticleTx(
   const sourceExcerpt = summary ? null : excerpt;
   const displaySummary = summary ?? sourceExcerpt;
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
-  // Tags set by hand stay as they are; analysed ones show renamed categories by their current name (TASK-0041).
+  // Tags set by hand stay as they are; analysed ones lead with the published category's current name, so names
+  // retired by a rename (TASK-0041) or the re-cut (ADR-0031) never outlive their category.
   const tags = z
     .array(z.string())
-    .parse(Array.isArray(f.tags) ? f.tags : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
+    .parse(Array.isArray(f.tags) ? f.tags : categoryLedTags(category, [...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
   const recomputed = analysis && typeof f.selected !== "boolean" ? recomputeSelection(analysis, source.tier, article.timeline_at, now, previous) : null;
@@ -879,6 +880,18 @@ export async function newsCompositionPublications(articleIds: string[]) {
     SELECT p.article_id,p.analysis_id,p.revision,p.source_id,p.title,p.summary,p.category,m.material_revision AS manual_material_revision,m.state AS manual_state FROM publications p
     LEFT JOIN publication.manual_copies m ON m.article_id=p.article_id
     WHERE p.article_id=ANY(${articleIds}::text[]) AND p.visibility='public' AND p.eligible AND p.channel='news' ORDER BY p.article_id`;
+}
+
+/**
+ * Category re-cut (ADR-0031): publications that still carry a retired key or category name and the current public
+ * total. Republishing them reads what is stored and calls no model.
+ */
+export async function retiredCategoryPublications(keys: readonly string[], names: readonly string[]) {
+  const rows = await sql<{ article_id: string }[]>`
+    SELECT article_id FROM publications WHERE channel='news' AND ((category IS NOT NULL AND category <> ALL(${keys as string[]}::text[])) OR tags && ${names as string[]}::text[])
+    ORDER BY article_id`;
+  const [total] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM publications WHERE visibility='public' AND eligible AND channel='news'`;
+  return { articleIds: rows.map((r) => r.article_id), publicNews: total?.n ?? 0 };
 }
 
 /** Report corrections preserve the issue's references while resolving their current public facts. */

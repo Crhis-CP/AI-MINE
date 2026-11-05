@@ -2,7 +2,7 @@ import { ReportReading } from "./report-reading.ts";
 import { z } from "zod";
 import { ModuleNotice } from "./module-outputs.ts";
 import { TimeAssertion } from "../time-assertion.ts";
-import { CATEGORY_KEYS } from "../taxonomy.ts";
+import { CATEGORY_FILTER_KEYS } from "../taxonomy.ts";
 import {
   Policy,
   PolicyCard,
@@ -243,7 +243,7 @@ export const V3CursorQuery = z.strictObject(cursor);
 const filters = {
   view: z.enum(["all", "featured"]).default("all"),
   q: text.trim().min(1).max(200).optional(),
-  category: z.enum(CATEGORY_KEYS).optional(),
+  category: z.enum(CATEGORY_FILTER_KEYS).optional(),
   jurisdiction: text.optional(),
   mineral: text.optional(),
   source: text.optional(),

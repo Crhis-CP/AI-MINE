@@ -41,7 +41,7 @@ const provider = await stub((_n, req) => {
       : step === "score"
         ? scoreAxes(score)
         : step === "structure"
-          ? { scope: "single", category: "company_project", tags: [], subjects: [], fact: null }
+          ? { scope: "single", category: "project_development", tags: [], subjects: [], fact: null }
           : step === "understand"
             ? {
                 itemType: "policy_regulation",

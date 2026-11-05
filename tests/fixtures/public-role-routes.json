@@ -1255,7 +1255,7 @@
       {
         "url": "/openapi-v3.json",
         "status": 200,
-        "contains": ["3.0.0", "/api/v3/items"]
+        "contains": ["3.1.0", "/api/v3/items"]
       }
     ],
     "noDataReason": "与实际Zod路由注册表一起生成的匿名API规范，无数据库操作"

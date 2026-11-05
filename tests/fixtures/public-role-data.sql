@@ -44,7 +44,7 @@ UPDATE translations tr SET recipe='__TRANSLATION_RECIPE__',
 FROM articles a WHERE tr.article_id=a.id AND a.id IN (SELECT id FROM pr9_cases);
 INSERT INTO publications (article_id,title,original_title,summary,reason,category,tags,score,source_id,channel,url,
                          published_at,discovered_at,timeline_at,sort_at,visibility,eligible,selected,visible_after,body_mode,syndicate,indexable,first_party)
-SELECT id,'PR9 已发布 '||id,'PR9 原稿 '||id,'PR9 synthetic summary '||id,'PR9 fixture selection','company_project',ARRAY['PR9','行业动态'],82,
+SELECT id,'PR9 已发布 '||id,'PR9 原稿 '||id,'PR9 synthetic summary '||id,'PR9 fixture selection','operations_output',ARRAY['PR9','行业动态'],82,
        source_id,'news','https://source.example.test/'||id,now()-interval '2 hours',now()-interval '2 hours',now()-interval '2 hours',now()-interval '2 hours',
        visibility,eligible,selected,CASE WHEN id='pr9-future' THEN now()+interval '1 hour' ELSE now()-interval '1 hour' END,
        body,body='full',visibility='public' AND mode='editorial' AND eligible,source_id='pr9-editorial'

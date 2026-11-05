@@ -9,8 +9,11 @@ test("weighted axes give a one-decimal score instead of a few habitual integers"
   // policy_regulation weights [3,1,2,2,2]
   assert.equal(attentionScore({ type: "policy_regulation", sig: 6.4, nov: 5.8, cred: 7.1, reson: 6.2, act: 5.5 }), 61.7);
   assert.equal(attentionScore({ type: "policy_regulation", sig: 6.6, nov: 5.8, cred: 7.1, reson: 6.2, act: 5.5 }), 62.3);
-  assert.equal(attentionScore({ type: "safety_incident", sig: 10, nov: 10, cred: 10, reson: 10, act: 10 }), 100);
-  assert.equal(attentionScore({ type: "company_project", sig: 9, nov: 9, cred: 9, reson: 9, act: 9, materialUnusable: true }), SELECTION.unusableMaterialCap);
+  assert.equal(attentionScore({ type: "safety_environment", sig: 10, nov: 10, cred: 10, reson: 10, act: 10 }), 100);
+  assert.equal(
+    attentionScore({ type: "project_development", sig: 9, nov: 9, cred: 9, reson: 9, act: 9, materialUnusable: true }),
+    SELECTION.unusableMaterialCap,
+  );
   assert.throws(() => attentionScore({ type: "unknown", sig: 5, nov: 5, cred: 5, reson: 5, act: 5 }));
   assert.equal(ScoreSchema.safeParse({ type: "capital_ma", sig: 11, nov: 5, cred: 5, reson: 5, act: 5 }).success, false);
 });
@@ -29,7 +32,7 @@ test("the shown score is the one-decimal mean; reaching the threshold exactly se
 });
 
 test("noise types cap the total in code; the model cannot lift a capped item past its cap", () => {
-  const high = { type: "company_project", sig: 9, nov: 9, cred: 9, reson: 9, act: 9 };
+  const high = { type: "project_development", sig: 9, nov: 9, cred: 9, reson: 9, act: 9 };
   assert.equal(attentionScore({ ...high, noise: "none" }), 90);
   assert.equal(attentionScore({ ...high, noise: "out_of_scope" }), SELECTION.noiseCaps.out_of_scope);
   assert.equal(attentionScore({ ...high, noise: "event_routine" }), SELECTION.noiseCaps.event_routine);

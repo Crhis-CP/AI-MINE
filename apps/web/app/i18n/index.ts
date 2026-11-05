@@ -2,6 +2,7 @@
 // from typed dictionaries (DEC-78). Content is not translated; only the interface is.
 import { useMemo } from "react";
 import { useLocation } from "react-router";
+import { categoryFilterKeys, isCategoryFilterKey } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { withSubject } from "@amp/industry/site";
 import { en } from "./en.ts";
@@ -58,10 +59,16 @@ export function dictFor(locale: Locale): Dict {
   return DICTS[locale];
 }
 
-/** A news category's name in the interface language. */
+/** A news category's name in the interface language; a retired key (ADR-0031) names the classes it now covers. */
 export function useCategoryLabel(): (key: string) => string {
   const locale = useLocale();
-  return (key) => (locale === "en" ? en.categories[key] : undefined) ?? (CATEGORY_LABELS as Record<string, string>)[key] ?? key;
+  const one = (key: string) => (locale === "en" ? en.categories[key] : undefined) ?? (CATEGORY_LABELS as Record<string, string>)[key] ?? key;
+  return (key) =>
+    isCategoryFilterKey(key)
+      ? categoryFilterKeys(key)
+          .map(one)
+          .join(locale === "en" ? " / " : "、")
+      : one(key);
 }
 
 export type { Phrase };

@@ -1,7 +1,7 @@
-// Public API v1 (long-term). Field shapes follow reference/public-v1.openapi.json 2.0.0 (the paths stay /api/v1).
+// Public API v1 (long-term). Field shapes follow reference/public-v1.openapi.json 2.1.0 (the paths stay /api/v1).
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { V1_CACHE_CONTROL } from "@amp/contracts/http-policy";
-import { PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { CATEGORY_FILTER_KEYS, canonicalCategoryFilter, type CategoryFilterKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
 import { SearchBusyError } from "@amp/backend/publication/pool";
 import { selectedChanges, selectedSnapshot, SnapshotRequiredError, v1Items } from "@amp/backend/publication/v1";
@@ -72,7 +72,9 @@ export function registerV1(app: FastifyInstance) {
       const window = enumParam(q.window, "window", ["24h", "7d"] as const, "7d");
       const by = enumParam(q.by, "by", ["timeline", "published"] as const, "timeline");
       const category =
-        q.category === undefined ? null : enumParam<PublicApiCategoryKey>(q.category, "category", PUBLIC_API_CATEGORY_KEYS, PUBLIC_API_CATEGORY_KEYS[0]);
+        q.category === undefined
+          ? null
+          : canonicalCategoryFilter(enumParam<CategoryFilterKey>(q.category, "category", CATEGORY_FILTER_KEYS, CATEGORY_FILTER_KEYS[0]));
       let search: string | null = null;
       if (q.q !== undefined) {
         search = q.q.trim();

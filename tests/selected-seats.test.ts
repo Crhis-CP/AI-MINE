@@ -39,7 +39,7 @@ async function material(tier: "T1" | "T2", fact: number) {
     publishedAt: new Date(Date.now() - 60000),
   });
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,score,selected,prompt_version,receipt_ids,output)
-    VALUES(${articleId},1,'rule','pass','company_project',${`合成铜矿项目 ${sourceId}`},'合成项目公布新的建设计划',${tier === "T1" ? 70 : 90},true,${scopeVersion},${[await scopeReceipt(articleId)]},${sql.json(scopeOutput)})`;
+    VALUES(${articleId},1,'rule','pass','project_development',${`合成铜矿项目 ${sourceId}`},'合成项目公布新的建设计划',${tier === "T1" ? 70 : 90},true,${scopeVersion},${[await scopeReceipt(articleId)]},${sql.json(scopeOutput)})`;
   await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact},${articleId},'report',1)`;
   await confirmGroupingFixture(articleId);
   return articleId;

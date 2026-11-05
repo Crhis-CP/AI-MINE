@@ -762,6 +762,20 @@ test("public route subsets produce the same complete navigation data; filters st
   assert.notEqual(body, answers[0]);
 });
 
+test("old category links (ADR-0031) move to the successor class; company_project stays and filters both", async () => {
+  for (const [from, to] of [
+    ["/all?category=safety_incident&tag=%E9%93%9C", "/all?category=safety_environment&tag=%E9%93%9C"],
+    ["/?category=supply_trade_controls", "/?category=policy_regulation"],
+    ["/all?category=esg_community_labor", "/all?category=safety_environment"],
+  ] as const) {
+    const res = await fetch(origin + from, { redirect: "manual" });
+    assert.equal(res.status, 301, from);
+    assert.equal(new URL(res.headers.get("location")!, origin).pathname + new URL(res.headers.get("location")!, origin).search, to);
+  }
+  for (const path of ["/?category=company_project", "/all?category=company_project", "/all?category=events_opinion"])
+    assert.equal((await fetch(origin + path, { redirect: "manual" })).status, 200, path);
+});
+
 test("INV-34 public, missing and private pages authorize only this response's nonce", async () => {
   for (const pathname of ["/", "/all", "/about", "/items/footer-page", "/does-not-exist", "/admin/login"]) {
     const get = (method = "GET") =>

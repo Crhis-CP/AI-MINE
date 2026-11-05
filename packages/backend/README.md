@@ -589,3 +589,5 @@ TASK0503依据Owner默认关闭决定，使用唯一 `ORIGINAL_POST_ADMISSION_EN
 `readReportIdentityDecision`经已声明只读口重核当前双方绑定，只有真实完成的same_report能交给publication投影。人工独立或重新归组在同一事务清除阅读关系；每个成员直接比较固定锚点，不能因共享中间成员推导合并。材料、公开修订或许可变化先使旧公开关系失效，再沿原group队列和两分钟归组恢复有界续接；模型暂停保留当前有效关系，阻止新付费比较。新增有效候选或真实材料变化可能增加调用量，不能把首次到达估算当成固定总额。
 
 TASK-0507将报道比较的结构解析与证据业务校验分开：网关保存可解析的已付响应；是否有必要的双方引文、是否逐字出现在当前原文中，均在写入完成决定和投影前检查。证据不成立时保留真实回执并等待，不合并、不伪造`insufficient`；相同输入重试、反向比较和重启只复用已收到的回答，不因本地证据判定重复购买。真实材料或配方变化仍使用新的输入身份，明确未计费拒绝与未知计费恢复保持既有机制。
+
+分类重切（ADR-0031，Owner 2026-11-05）：九类代码与退役代码映射在contracts，结构化与评分直接用新九类；发布投影把一对一的退役代码换成新代码，`company_project`在重判前不显示分类，公开标签以当前分类名开头。`editorial/reclassify`（enrichment）只改各稿件最新判断的分类与首个标签并在`output.categoryReclassification`留下原值、方式、配方与回执，人工设置的分类经`editorial/manual-revisions.manualCategoryArticles`排除；需要模型的稿件经`analyze.runCategoryStructure`重跑结构化步骤，沿用同一材料许可、处理暂停、请求次数控制与回执复用，不重评分、不改写导读或归组输入。`publication/publish.retiredCategoryPublications`列出仍带退役代码或旧分类名的公开记录供无模型重发。运行入口`scripts/reclassify-categories.ts`：默认只读统计，`--apply-mapped`不调模型，`--apply-model --limit N`分批、可续接。

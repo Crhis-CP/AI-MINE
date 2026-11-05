@@ -69,7 +69,9 @@ export function arrangeDaily(entries: EditionEntry[]) {
         },
       };
     });
-  const earnsMain = (e: EditionEntry) => !e.previous || (e.authority < 3 && !e.commentary) || e.entry.sources >= FOLLOW_UP_SOURCES;
+  // Commentary (会议观点, upstream "commentary") is not a new development: like a thin follow-up it leads only when widely covered
+  // or when the day has nothing else.
+  const earnsMain = (e: EditionEntry) => (!e.previous && !e.commentary) || (e.authority < 3 && !e.commentary) || e.entry.sources >= FOLLOW_UP_SOURCES;
   const hasFreshOrSubstantial = live.some(earnsMain);
   const main: EditionEntry[] = [],
     rest: EditionEntry[] = [];

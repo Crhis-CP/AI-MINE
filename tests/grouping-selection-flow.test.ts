@@ -117,7 +117,7 @@ async function article(title: string, scope: "single" | "composite" | null = "si
     ...(daysAgo && !lateDiscovery ? { discoveredAt: new Date(Date.now() - daysAgo * 86400000) } : {}),
   });
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,score,selected,prompt_version,receipt_ids,output)
-    VALUES(${material.articleId},1,'rule','pass','company_project',${title},${`${title}，披露项目建设范围和数量。`},80,true,${scopeVersion},${[await scopeReceipt(material.articleId)]},
+    VALUES(${material.articleId},1,'rule','pass','project_development',${title},${`${title}，披露项目建设范围和数量。`},80,true,${scopeVersion},${[await scopeReceipt(material.articleId)]},
       ${sql.json({ ...scopeOutput, ...(scope ? { scope } : {}), fact: scope !== "composite" ? { title: "甲矿项目", subject: "甲矿企", object: "甲矿项目", action: "建设" } : null })})`;
   await publishArticle(material.articleId);
   return material.articleId;

@@ -54,7 +54,7 @@ test("configured independent sources keep selected cards and seats without chang
       discoveredAt: at(minutes),
     });
     await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
-      VALUES(${id},1,'rule','pass','company_project',${`合成铜矿建设进展 ${n}`},'合成铜矿公布新的建设计划','合成项目有新进展',80,${state !== "ordinary"},${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
+      VALUES(${id},1,'rule','pass','project_development',${`合成铜矿建设进展 ${n}`},'合成铜矿公布新的建设计划','合成项目有新进展',80,${state !== "ordinary"},${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
     await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${id},'report',1)`;
     if (state !== "pending") await confirmGroupingFixture(id);
     if (state === "low-value") await sql`UPDATE articles SET selection_adds_value=false WHERE id=${id}`;

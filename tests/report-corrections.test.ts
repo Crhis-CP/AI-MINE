@@ -73,7 +73,7 @@ async function fixture() {
       publishedAt: new Date(),
     });
     await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh,category,selected,score,output)
-      VALUES(${m.articleId},1,'rule','pass',${`合成${source}项目产量为100吨`},'现有旧摘要错误记载项目本期产量为100吨。','company_project',true,90,'{}')`;
+      VALUES(${m.articleId},1,'rule','pass',${`合成${source}项目产量为100吨`},'现有旧摘要错误记载项目本期产量为100吨。','project_development',true,90,'{}')`;
     await publishArticle(m.articleId);
     members.push(m.articleId);
   }

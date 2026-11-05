@@ -32,7 +32,7 @@ for (const [audience, contracts] of [
   app.setValidatorCompiler(validatorCompiler);
   try {
     await app.register(swagger, {
-      openapi: { openapi: "3.1.0", info: { title: `AI矿策 ${audience}`, version: audience === "private" ? "0.3.0" : "0.2.0" } },
+      openapi: { openapi: "3.1.0", info: { title: `AI矿策 ${audience}`, version: audience === "private" ? "0.4.0" : "0.3.0" } },
       convertConstToEnum: false,
       transform: createJsonSchemaTransform({ schemaRegistry: registry }),
       transformObject: createJsonSchemaTransformObject({ schemaRegistry: registry }),
@@ -106,7 +106,7 @@ for (const [audience, contracts] of [
       const schemas = Object.fromEntries([...used].map((name) => [name, source.components.schemas[name]]));
       outputs.set(
         "reference/contracts/v3.openapi.json",
-        `${JSON.stringify(ordered({ openapi: "3.1.0", info: { title: "AI矿策公开 API", version: "3.0.0" }, paths, components: { schemas } }), null, 2)}\n`,
+        `${JSON.stringify(ordered({ openapi: "3.1.0", info: { title: "AI矿策公开 API", version: "3.1.0" }, paths, components: { schemas } }), null, 2)}\n`,
       );
     }
   } finally {

@@ -1,5 +1,5 @@
 /** A score-model answer whose weighted score is exactly `score` (every row of weights sums to 10). */
-export const scoreAxes = (score: number, type = "company_project") => ({
+export const scoreAxes = (score: number, type = "project_development") => ({
   type,
   sig: score / 10,
   nov: score / 10,

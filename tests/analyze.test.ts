@@ -174,8 +174,8 @@ const provider = await stub(async (_hit, req) => {
   if (step === "structure" && marker === "STFAIL") return new Reply(400, { error: { message: "synthetic invalid structure request" } });
   if (step === "structure")
     return answer({
-      category: "company_project",
-      tags: ["企业与项目", "锂"],
+      category: "project_development",
+      tags: ["项目建设", "锂"],
       subjects: ["zijin", "unknown-co"],
       fact: { title: `事实 ${marker}`, subject: "某公司", action: "发布", object: "模型", occurredAt: null },
     });
@@ -268,8 +268,8 @@ test("a selected item: prefilter, two scores, the content understanding and the 
   assert.deepEqual([res!.output!.selected, res!.output!.score], [true, 75], "78 + 72 = 150 >= 124");
   assert.deepEqual(calls("CLEAR").sort(), ["prefilter", "score", "score", "structure", "understand"]);
   const r = await row(id);
-  assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "company_project", 5]);
-  assert.deepEqual(r.tags, ["企业与项目", "铜", "紫金矿业"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
+  assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "project_development", 5]);
+  assert.deepEqual(r.tags, ["项目建设", "铜", "紫金矿业"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
   assert.deepEqual(r.subjects, ["zijin"]);
   assert.deepEqual(
     [r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title],
@@ -295,7 +295,7 @@ test("a near-selected item is written like a selected one; below the floor it is
   const summarize = requests.find((q) => q.marker === "LOW" && q.step === "summarize")!;
   assert.equal(summarize.body.messages.length, 1, "the title/summary prompt is one user message");
   assert.equal(summarize.body.response_format, undefined, "answered in its own text format");
-  assert.deepEqual((await row(lowId)).tags, ["企业与项目", "锂", "紫金矿业"], "structure tags");
+  assert.deepEqual((await row(lowId)).tags, ["项目建设", "锂", "紫金矿业"], "structure tags");
 });
 
 test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async () => {
