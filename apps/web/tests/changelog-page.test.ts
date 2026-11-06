@@ -124,4 +124,7 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   // The 2.0 notice has no showcase of its own and keeps its paragraphs, and its steps are drawn as a chain.
   assert.match(page, /合成说明。/);
   for (const step of ["收集", "筛选", "发布", "合成筛选说明。", "合成订阅"]) assert.match(page, new RegExp(step), step);
+  // Above the steps, the flow from many sources to the few worth reading, with what each stage does.
+  assert.match(page, /很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。/);
+  for (const tag of ["多个来源一起收", "无关、重复的筛掉", "同一件事合成一页", "挑出值得看的"]) assert.match(page, new RegExp(tag), tag);
 });

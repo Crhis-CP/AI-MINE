@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
+import { AggregationFlow } from "./AggregationFlow";
 import { ReadingUpgrade } from "./ReadingUpgrade";
 import { Showcase202611 } from "./Showcase202611";
 
@@ -199,6 +200,7 @@ function Chain({ stations, outlets }: { stations: Station[]; outlets: string[] }
       <p className="animate-fade-up text-[13px] font-semibold tracking-wide text-ink-3" style={at(1)}>
         {tr("从采集到发布，一层层接上")}
       </p>
+      <AggregationFlow />
       <div className="relative mt-5 hidden sm:block">
         {/* The quiet track the gold line is drawn over, badge to badge. */}
         <span className="absolute left-[10%] right-[10%] top-[19px] h-[2px] rounded-full bg-line-soft" aria-hidden="true" />
