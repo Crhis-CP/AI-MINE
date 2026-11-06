@@ -126,9 +126,10 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   // The 2.0 notice has no showcase of its own and keeps its paragraphs, and its steps are drawn as a chain.
   assert.match(page, /合成说明。/);
   for (const step of ["收集", "筛选", "归并", "精选", "发布", "合成筛选说明。", "合成订阅"]) assert.match(page, new RegExp(step), step);
-  // Five steps are threaded on one gathering line: many threads in, a few out, each step's card numbered as on the line.
+  // Five steps are threaded on one gathering line: many threads run into one band that narrows; each step numbered as on it.
   assert.match(page, /很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。/);
-  assert.ok((page.match(/<path[^>]*class="anim-draw fill-none (?:stroke-accent|stroke-ink-4)"/g)?.length ?? 0) >= 26, "the threads are drawn");
+  assert.ok((page.match(/<path[^>]*class="anim-draw fill-none stroke-accent"/g)?.length ?? 0) >= 16, "the source threads are drawn");
+  assert.match(page, /<path d="M100 66[^"]*" fill="url\(#[\w-]*-band\)"/, "they run into one band");
   for (const n of ["01", "02", "03", "04", "05"]) assert.match(page, new RegExp(`>${n}<`), n);
   // The server sends the still line: news starts moving only after the browser says the reader allows motion.
   assert.doesNotMatch(page, /<animateMotion/);
