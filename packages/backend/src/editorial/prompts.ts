@@ -47,12 +47,23 @@ export function promptText(name: string, values: Record<string, string> = {}): s
   });
 }
 
-/** `name@hash` over the files a prompt reads, so any edit shows up as a new version. */
+const versions = new Map<string, string>();
+
+/**
+ * `name@hash` over the files a prompt reads, so any edit shows up as a new version. Files are read once per process
+ * (see `raw`), so a version is computed once too: public reads check recipes on every request.
+ */
 export function promptVersion(...names: string[]): string {
-  const used = [...new Set(names.flatMap((n) => expand(n).used))].sort();
-  const hash = createHash("sha256");
-  for (const n of used) hash.update(`${n}\n${raw(n)}\n`);
-  return `${names.join("+")}@${hash.digest("hex").slice(0, 10)}`;
+  const key = names.join("\n");
+  let version = versions.get(key);
+  if (version === undefined) {
+    const used = [...new Set(names.flatMap((n) => expand(n).used))].sort();
+    const hash = createHash("sha256");
+    for (const n of used) hash.update(`${n}\n${raw(n)}\n`);
+    version = `${names.join("+")}@${hash.digest("hex").slice(0, 10)}`;
+    versions.set(key, version);
+  }
+  return version;
 }
 
 export const quoteTranslationRecipe = () => `post-quote-v1:${promptVersion("translate-post")}`;

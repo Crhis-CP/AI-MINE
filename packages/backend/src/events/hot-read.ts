@@ -58,59 +58,65 @@ async function queryLatestHotRanking(): Promise<HotRanking | null> {
   const [row] = await sql<{ id: number; computed_at: Date; rule_version: string; entries: HotEntry[]; evidence: Record<string, unknown> | null }[]>`
     SELECT id, computed_at, rule_version, entries, evidence FROM hot_rankings WHERE published ORDER BY computed_at DESC,id DESC LIMIT 1`;
   if (!row) return null;
-  const admissionAffected = await originalPostAffectedStories(row.entries.map((entry) => Number(entry.storyId)));
-  const representatives = new Map(
-    (await reportPublicInputs(row.entries.flatMap((entry) => (entry.representativeItemId ? [entry.representativeItemId] : [])))).map((value) => [
-      value.id,
-      value,
-    ]),
-  );
-  const current = await sql<
-    {
-      id: number;
-      public_id: string;
-      title: string;
-      merged_into: number | null;
-      origin: string;
-      version: number;
-      updated_at: Date;
-      digest_updated_at: Date | null;
-      text_stale: boolean;
-    }[]
-  >`
-    SELECT id,public_id::text,title,merged_into,origin,version,updated_at,digest_updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale FROM stories WHERE id=ANY(${row.entries.map((entry) => entry.storyId)}::bigint[])`;
   const now = new Date();
-  const signals = await publicParticipation(
-    row.entries.map((entry) => entry.storyId),
-    now,
-    new Date(now.getTime() - 48 * 3600000),
-  );
+  // The four current checks depend only on the stored ranking: read them together, not one after another.
+  const [admissionAffected, inputs, current, signals] = await Promise.all([
+    originalPostAffectedStories(row.entries.map((entry) => Number(entry.storyId))),
+    reportPublicInputs(row.entries.flatMap((entry) => (entry.representativeItemId ? [entry.representativeItemId] : []))),
+    sql<
+      {
+        id: number;
+        public_id: string;
+        title: string;
+        merged_into: number | null;
+        origin: string;
+        version: number;
+        updated_at: Date;
+        digest_updated_at: Date | null;
+        text_stale: boolean;
+      }[]
+    >`
+    SELECT id,public_id::text,title,merged_into,origin,version,updated_at,digest_updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale FROM stories WHERE id=ANY(${row.entries.map((entry) => entry.storyId)}::bigint[])`,
+    publicParticipation(
+      row.entries.map((entry) => entry.storyId),
+      now,
+      new Date(now.getTime() - 48 * 3600000),
+    ),
+  ]);
+  const representatives = new Map(inputs.map((value) => [value.id, value]));
   const valid = new Set(
     row.entries
       .filter((entry) => !!entry.evidenceHash && participationHash(signals.filter((signal) => signal.story_id === entry.storyId)) === entry.evidenceHash)
       .map((entry) => entry.storyId),
   );
   const byId = new Map(current.map((story) => [Number(story.id), story]));
-  const entries = (
-    await Promise.all(
-      row.entries.map(async (entry) => {
-        if (!valid.has(Number(entry.storyId)) || admissionAffected.has(Number(entry.storyId))) return [];
-        const story = byId.get(Number(entry.storyId));
-        if (!story || story.merged_into || !entry.representativeItemId || representatives.get(entry.representativeItemId)?.story_id !== Number(entry.storyId))
-          return [];
-        const facts = await sql<{ public_id: string }[]>`SELECT public_id FROM facts WHERE story_id=${story.id}`;
-        const safeTitle =
-          storyTextNeedsRefresh(story) ||
-          (story.origin === "manual" &&
-            (await storyWithdrawalAffected(
-              story.id,
-              story.public_id,
-              facts.map((f) => f.public_id),
-            )));
-        return [{ ...entry, title: safeTitle ? representatives.get(entry.representativeItemId)!.title : story.title }];
-      }),
-    )
-  ).flat();
+  const shown = row.entries.flatMap((entry) => {
+    if (!valid.has(Number(entry.storyId)) || admissionAffected.has(Number(entry.storyId))) return [];
+    const story = byId.get(Number(entry.storyId));
+    if (!story || story.merged_into || !entry.representativeItemId || representatives.get(entry.representativeItemId)?.story_id !== Number(entry.storyId))
+      return [];
+    return [{ entry, story, representative: representatives.get(entry.representativeItemId)! }];
+  });
+  // Only an operator-written story title can be affected by a withdrawal of its facts; their ids are read in one statement.
+  const manual = shown.filter(({ story }) => !storyTextNeedsRefresh(story) && story.origin === "manual").map(({ story }) => story.id);
+  const facts = manual.length
+    ? Map.groupBy(await sql<{ story_id: number; public_id: string }[]>`SELECT story_id,public_id FROM facts WHERE story_id=ANY(${manual}::bigint[])`, (fact) =>
+        Number(fact.story_id),
+      )
+    : new Map<number, { story_id: number; public_id: string }[]>();
+  const entries = await Promise.all(
+    shown.map(async ({ entry, story, representative }) => {
+      const safeTitle =
+        storyTextNeedsRefresh(story) ||
+        (story.origin === "manual" &&
+          (await storyWithdrawalAffected(
+            story.id,
+            story.public_id,
+            (facts.get(Number(story.id)) ?? []).map((f) => f.public_id),
+          )));
+      return { ...entry, title: safeTitle ? representative.title : story.title };
+    }),
+  );
   return { id: row.id, computedAt: row.computed_at.toISOString(), ruleVersion: row.rule_version, entries, coverage: row.evidence };
 }
 

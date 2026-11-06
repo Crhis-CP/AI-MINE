@@ -380,8 +380,11 @@ export {
   readCurrentPublicPolicy,
   readCurrentPublicPolicies,
   publicProcessingAllowed,
+  publicProcessingAllowedBy,
   lockCurrentSourcePolicies,
   evaluateSourcePolicy,
+  evaluatePublicSourcePolicy,
+  type PublicSourcePolicy,
 } from "../sources/permission-store.ts";
 export { parseSourceDate } from "../sources/date-extraction.ts";
 

@@ -8,6 +8,8 @@ import { newShortId } from "@amp/backend/lib/ids";
 import { policyCurrentPublicRecords, PolicyReadError } from "./read.ts";
 
 type PublicRecord = Awaited<ReturnType<typeof policyCurrentPublicRecords>>[number];
+/** A request's own reading; without one, the shared current snapshot. */
+type Reading = Parameters<typeof policyCurrentPublicRecords>[0];
 type Target = PublicRecord & { citation: string; url: string; jurisdiction: string };
 async function targets(run: FulltextRun) {
   const jurisdiction = run.snapshot.manifest.identity.jurisdiction,
@@ -71,8 +73,8 @@ type Edge = {
   target_citation: string;
   evidence_ids: string[];
 };
-async function graph() {
-  const records = new Map((await policyCurrentPublicRecords()).map((r) => [r.card.id, r]));
+async function graph(ctx?: Reading) {
+  const records = new Map((await policyCurrentPublicRecords(ctx)).map((r) => [r.card.id, r]));
   const stored = await sql<
     Edge[]
   >`SELECT source_edition_id,source_policy_id,target_edition_id,target_policy_id,target_original_key,relation,target_citation,evidence_ids FROM publication.policy_relations`;
@@ -112,9 +114,10 @@ async function graph() {
   };
   return { records, stored, edges, threads, component, thread };
 }
-export async function decoratePolicyNavigation<T extends PolicyCard>(cards: T[]): Promise<T[]> {
+/** With the list's own reading, the navigation agrees with the list and reuses its permission and head reads. */
+export async function decoratePolicyNavigation<T extends PolicyCard>(cards: T[], ctx?: Reading): Promise<T[]> {
   if (!cards.length) return cards;
-  const current = await graph();
+  const current = await graph(ctx);
   for (const card of cards) card.thread_id = current.thread(card.id);
   return cards;
 }

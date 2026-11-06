@@ -153,6 +153,27 @@ test("an invalid anchor, public revision or permission unfolds immediately and c
   assert.equal((await sql`SELECT count(*)::int AS n FROM publication.report_group_members WHERE group_id=${f.groupId}`)[0]!.n, 0);
 });
 
+test("membership checks use the permissions read with the members, not two statements per member", async () => {
+  const first = await fixture(),
+    second = await fixture();
+  let statements = 0;
+  const counted = new Proxy(sql, {
+    apply(target, self, args) {
+      if (Array.isArray(args[0]) && Object.hasOwn(args[0], "raw")) statements++;
+      return Reflect.apply(target, self, args);
+    },
+  });
+  const read = async (ids: string[]) => {
+    statements = 0;
+    const members = await currentReportMemberships(ids, counted, now);
+    return { members: members.size, statements };
+  };
+  const one = await read(first.ids),
+    both = await read([...first.ids, ...second.ids]);
+  assert.deepEqual([one.members, both.members], [3, 6]);
+  assert.equal(both.statements, one.statements);
+});
+
 test("the real public role reads grouped cards without permission to read private model proofs", async (t) => {
   const f = await publicRoleFixture(t),
     sessions = await f.login(),

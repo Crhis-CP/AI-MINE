@@ -84,17 +84,19 @@ const recipeForAliases = (digest: string, prompt = promptVersion("structure"), d
 // The reviewed scope-only prompt change left geography unchanged; this exception expires with the next prompt change.
 const previousStructureRecipe =
   promptVersion("structure") === "structure@dc56e3f181" ? recipeForAliases(beforeAddedPreviousDigest, "structure@4502d2ee48", PREVIOUS_DICTIONARY) : null;
-export const geographyRecipe = () => recipeForAliases(aliasDigest);
+// Prompt files are read once per process, so these hashes never change while it runs. Every public news read names
+// them (often several times per request), and each one hashes the whole dictionary: compute them once.
+let recipes: string[] | undefined;
+const currentRecipes = () =>
+  (recipes ??= [
+    recipeForAliases(aliasDigest),
+    recipeForAliases(previousAliasDigest),
+    recipeForAliases(beforeAddedDigest, undefined, PREVIOUS_DICTIONARY),
+    recipeForAliases(beforeAddedPreviousDigest, undefined, PREVIOUS_DICTIONARY),
+  ]);
+export const geographyRecipe = () => currentRecipes()[0]!;
 /** Only these additive vocabulary changes are compatible; a different prompt, dictionary or old base still fails closed. */
-export const compatibleGeographyRecipes = (recipe = geographyRecipe()) =>
-  recipe === geographyRecipe()
-    ? [
-        recipe,
-        recipeForAliases(previousAliasDigest),
-        recipeForAliases(beforeAddedDigest, undefined, PREVIOUS_DICTIONARY),
-        recipeForAliases(beforeAddedPreviousDigest, undefined, PREVIOUS_DICTIONARY),
-      ]
-    : [recipe];
+export const compatibleGeographyRecipes = (recipe = geographyRecipe()) => (recipe === geographyRecipe() ? [...currentRecipes()] : [recipe]);
 const clip = (value: string, limit: number, tail = false) => {
   const chars = Array.from(value);
   let result = "",

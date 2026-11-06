@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { Policy, PolicyCard, PolicyReadingBlock, PolicyReadingPage, type PolicyHistoryPage, PolicyJurisdiction } from "@amp/contracts/http/public";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { sql } from "@amp/backend/db";
-import { readCurrentPublicPolicy, evaluateSourcePolicy, publicProcessingAllowed } from "@amp/backend/admin/sources";
+import { readCurrentPublicPolicies, evaluatePublicSourcePolicy, publicProcessingAllowedBy, type PublicSourcePolicy } from "@amp/backend/admin/sources";
 import { stableJson, sha256 } from "@amp/backend/lib/ids";
 import { encodeCursor, decodeCursor, queryBinding } from "@amp/backend/lib/cursor";
 import { decoratePolicyNavigation, decoratePolicyRelationships, readPolicyThread } from "./relations.ts";
@@ -58,37 +58,68 @@ const columns =
  e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.binding_version,q.valid_until,q.revoked,d.withdrawn,d.automatic_excluded,e.released_at,e.discovered_at`;
 const join = () => sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
  LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id`;
+/**
+ * One request's consistent reading: a clock, and each source permission, expression head and document's language
+ * views read at most once. Lists fill it a page of documents at a time with one statement per kind of row.
+ */
 export function context() {
-  return { now: Date.now(), permissions: new Map<string, ReturnType<typeof readCurrentPublicPolicy>>(), languageViews: new Map<string, Promise<View[]>>() };
-}
-export async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOnly: boolean): Promise<View | null> {
-  if (row.withdrawn || row.automatic_excluded) return null;
-  if (currentOnly && (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) !== row.native_revision_id) return null;
-  let source = ctx.permissions.get(row.source_id);
-  if (!source) {
-    source = readCurrentPublicPolicy(row.source_id);
-    ctx.permissions.set(row.source_id, source);
-  }
-  const policy = await source;
-  if (!policy) return null;
-  const allowed = async (
-    capability: "public_summary" | "public_excerpt" | "public_original_fulltext" | "public_translation",
-    resources = row.public_resources,
-  ) => {
-    for (const resource of resources) {
-      const check = await evaluateSourcePolicy(
-        { source_id: row.source_id, expected_permission_version: policy.permission_version, lane: "policy", capability, resource },
-        ctx.now,
-      );
-      if (check.decision !== "allow") return false;
-    }
-    return resources.length > 0;
+  return {
+    now: Date.now(),
+    permissions: new Map<string, Promise<PublicSourcePolicy | null>>(),
+    heads: new Map<string, Promise<string | null>>(),
+    languageViews: new Map<string, Promise<View[]>>(),
   };
+}
+type Context = ReturnType<typeof context>;
+
+/** Every key gets a promise before any is awaited; a failed read rejects for whoever awaits it and is never left unobserved. */
+function share<T>(cache: Map<string, Promise<T>>, keys: string[], load: (missing: string[]) => Promise<Map<string, T>>, absent: T) {
+  const missing = [...new Set(keys)].filter((key) => !cache.has(key));
+  if (missing.length) {
+    const batch = load(missing);
+    for (const key of missing) {
+      const value = batch.then((found) => (found.has(key) ? found.get(key)! : absent));
+      value.catch(() => {});
+      cache.set(key, value);
+    }
+  }
+  return Promise.all(keys.map((key) => cache.get(key)!));
+}
+async function sourcePolicy(ctx: Context, sourceId: string) {
+  const [policy] = await share(ctx.permissions, [sourceId], readCurrentPublicPolicies, null);
+  return policy!;
+}
+/** Current revision per native expression, as `currentPolicyHeads` answers it, read once per request. */
+async function headsFor(ctx: Context, expressionIds: string[]) {
+  const heads = await share(ctx.heads, expressionIds, currentPolicyHeads, null);
+  return new Map(expressionIds.map((id, i) => [id, heads[i]!]));
+}
+function preloadPermissions(ctx: Context, sourceIds: string[]) {
+  const ids = [...new Set(sourceIds)];
+  // The permission batch reads at most 100 sources; the views await these promises when they check each edition.
+  for (let i = 0; i < ids.length; i += 100) void share(ctx.permissions, ids.slice(i, i + 100), readCurrentPublicPolicies, null).catch(() => {});
+}
+
+export async function eligible(row: Edition, ctx: Context, currentOnly: boolean): Promise<View | null> {
+  if (row.withdrawn || row.automatic_excluded) return null;
+  if (currentOnly && (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) !== row.native_revision_id) return null;
+  const policy = await sourcePolicy(ctx, row.source_id);
+  if (!policy) return null;
+  const allowed = (capability: "public_summary" | "public_excerpt" | "public_original_fulltext" | "public_translation", resources = row.public_resources) =>
+    resources.length > 0 &&
+    resources.every(
+      (resource) =>
+        evaluatePublicSourcePolicy(
+          policy,
+          { source_id: row.source_id, expected_permission_version: policy.permission_version, lane: "policy", capability, resource },
+          ctx.now,
+        ).decision === "allow",
+    );
   const main = row.public_resources.slice(0, 1);
-  if (!(await allowed("public_summary", main)) && !(await allowed("public_excerpt", main))) return null;
-  const originalAllowed = await allowed("public_original_fulltext"),
-    translationAllowed = await allowed("public_translation");
-  const processingAllowed = (await Promise.all(row.public_resources.map((r) => publicProcessingAllowed(row.source_id, r, ctx.now)))).every(Boolean);
+  if (!allowed("public_summary", main) && !allowed("public_excerpt", main)) return null;
+  const originalAllowed = allowed("public_original_fulltext"),
+    translationAllowed = allowed("public_translation");
+  const processingAllowed = row.public_resources.map((r) => publicProcessingAllowedBy(policy, r, ctx.now)).every(Boolean);
   const expiredQuality =
     row.quality_id !== null &&
     (row.binding_version !== POLICY_MODEL_BINDING_VERSION || row.revoked || !row.valid_until || row.valid_until.getTime() <= ctx.now);
@@ -107,45 +138,95 @@ export async function eligible(row: Edition, ctx: ReturnType<typeof context>, cu
       }
     : null;
 }
-export async function currentLanguageViews(id: string, ctx: ReturnType<typeof context>, details = false) {
-  const key = `${id}:${details}`;
-  let cached = ctx.languageViews.get(key);
-  if (!cached) {
-    cached = (async () => {
-      const byLanguage = new Map<string, View>();
-      const rows = await editions(id, details),
-        heads = await currentPolicyHeads(rows.map((row) => row.native_expression_id));
-      const considered = new Set<string>();
-      // A current original's newest projection blocks its older translations even when its own qualification has expired.
-      for (const row of rows) {
-        if (byLanguage.has(row.source_language) || considered.has(row.native_expression_id) || heads.get(row.native_expression_id) !== row.native_revision_id)
-          continue;
-        considered.add(row.native_expression_id);
-        const view = await eligible(row, ctx, false);
-        if (view) byLanguage.set(row.source_language, view);
-      }
-      const order = policyLanguageOrder(
-        [...byLanguage.values()].map(({ row }) => ({ sourceLanguage: row.source_language, preferredSourceLanguage: row.preferred_source_language })),
-      );
-      return order.map((language) => byLanguage.get(language)!);
-    })();
-    ctx.languageViews.set(key, cached);
+/** One document's readable editions, one per source language, in reading order. */
+async function languageViewsOf(rows: Edition[], ctx: Context) {
+  const byLanguage = new Map<string, View>();
+  const heads = await headsFor(
+    ctx,
+    rows.map((row) => row.native_expression_id),
+  );
+  const considered = new Set<string>();
+  // A current original's newest projection blocks its older translations even when its own qualification has expired.
+  for (const row of rows) {
+    if (byLanguage.has(row.source_language) || considered.has(row.native_expression_id) || heads.get(row.native_expression_id) !== row.native_revision_id)
+      continue;
+    considered.add(row.native_expression_id);
+    const view = await eligible(row, ctx, false);
+    if (view) byLanguage.set(row.source_language, view);
   }
-  return cached;
+  const order = policyLanguageOrder(
+    [...byLanguage.values()].map(({ row }) => ({ sourceLanguage: row.source_language, preferredSourceLanguage: row.preferred_source_language })),
+  );
+  return order.map((language) => byLanguage.get(language)!);
 }
-async function* currentViews(ctx: ReturnType<typeof context>, details = false) {
+/** Language views for many documents with one editions read, one head read and one permission read per hundred sources. */
+async function loadLanguageViews(ids: string[], ctx: Context, details: boolean) {
+  const keyOf = (id: string) => `${id}:${details}`;
+  const idOf = new Map(ids.map((id) => [keyOf(id), id]));
+  const views = await share(
+    ctx.languageViews,
+    ids.map(keyOf),
+    async (keys) => {
+      const rows = await editionsOf(
+        keys.map((key) => idOf.get(key)!),
+        details,
+      );
+      // Start both reads for the whole page; each document's check below then waits on them instead of querying.
+      preloadPermissions(
+        ctx,
+        rows.map((row) => row.source_id),
+      );
+      void headsFor(
+        ctx,
+        rows.map((row) => row.native_expression_id),
+      ).catch(() => {});
+      const byDocument = Map.groupBy(rows, (row) => row.policy_id);
+      const found = new Map<string, View[]>();
+      for (const key of keys) found.set(key, await languageViewsOf(byDocument.get(idOf.get(key)!) ?? [], ctx));
+      return found;
+    },
+    [],
+  );
+  return new Map(ids.map((id, i) => [id, views[i]!]));
+}
+export async function currentLanguageViews(id: string, ctx: Context, details = false) {
+  return (await loadLanguageViews([id], ctx, details)).get(id)!;
+}
+async function* currentViews(ctx: Context, details = false) {
   let after = "";
   while (true) {
     const documents = await sql<
       { policy_id: string }[]
     >`SELECT DISTINCT policy_id FROM publication.policy_editions WHERE policy_id>${after} ORDER BY policy_id LIMIT 100`;
+    const views = await loadLanguageViews(
+      documents.map((document) => document.policy_id),
+      ctx,
+      details,
+    );
     for (const document of documents) {
-      const view = (await currentLanguageViews(document.policy_id, ctx, details))[0];
+      const view = views.get(document.policy_id)![0];
       if (view) yield view;
     }
     if (documents.length < 100) return;
     after = documents.at(-1)!.policy_id;
   }
+}
+/**
+ * Every current document's first language view, read once for all requests that arrive while it is being read (a
+ * jurisdiction page asks for nine lists and the scope at once). It is dropped as soon as it settles, so no answer
+ * is older than a read that was already under way when its request arrived.
+ */
+let pendingSnapshot: Promise<{ ctx: Context; views: View[] }> | null = null;
+function currentSnapshot() {
+  pendingSnapshot ??= (async () => {
+    const ctx = context(),
+      views: View[] = [];
+    for await (const view of currentViews(ctx)) views.push(view);
+    return { ctx, views };
+  })().finally(() => {
+    pendingSnapshot = null;
+  });
+  return pendingSnapshot;
 }
 /** Only complete, currently qualified Chinese reading text participates; card metadata retains its independent basic-facts eligibility. */
 function fullChineseMatches(view: View, query: string) {
@@ -196,7 +277,9 @@ function policyOrder(card: PolicyCard) {
     : `0:${card.first_public_at.utc ?? card.first_public_at.local_date ?? ""}`;
 }
 export async function listPolicies(q: Filters & { page?: number; page_size?: number; cursor?: string; limit?: number }, cursorMode = false) {
-  const ctx = context(),
+  // A search reads reading text; every other list filters the shared current snapshot.
+  const shared = q.q ? null : await currentSnapshot();
+  const ctx = shared?.ctx ?? context(),
     page = q.page ?? 1,
     size = q.page_size ?? q.limit ?? 20,
     { page: _p, page_size: _s, cursor: _c, limit: _l, ...filters } = q;
@@ -208,7 +291,7 @@ export async function listPolicies(q: Filters & { page?: number; page_size?: num
     items: PolicyCard[] = [],
     hash = createHash("sha256");
   let total = 0;
-  for await (const view of currentViews(ctx, !!filters.q)) {
+  for await (const view of shared?.views ?? currentViews(ctx, true)) {
     const languages = await currentLanguageViews(view.card.id, ctx, !!filters.q);
     if (
       !languages.some(
@@ -225,10 +308,11 @@ export async function listPolicies(q: Filters & { page?: number; page_size?: num
     items.sort((a, b) => (policyOrder(a) === policyOrder(b) ? (a.id < b.id ? 1 : a.id > b.id ? -1 : 0) : policyOrder(a) < policyOrder(b) ? 1 : -1));
     if (items.length > offset + size + 1) items.pop();
   }
-  const selected = items.slice(offset, offset + size),
+  // Navigation decoration writes to the cards; the snapshot's own cards stay as read.
+  const selected = items.slice(offset, offset + size).map((card) => ({ ...card })),
     last = selected.at(-1),
     hasMore = items.length > offset + size;
-  await decoratePolicyNavigation(selected);
+  await decoratePolicyNavigation(selected, ctx);
   const base = { content_version: hash.digest("hex"), generated_at: new Date(ctx.now).toISOString(), items: selected };
   return cursorMode
     ? { ...base, next_cursor: hasMore && last ? encodeCursor("pol-list", { key: policyOrder(last), id: last.id, binding }) : null }
@@ -237,7 +321,7 @@ export async function listPolicies(q: Filters & { page?: number; page_size?: num
 
 export async function policyScope(jurisdictions = false) {
   const counts = new Map<string, number>();
-  for await (const view of currentViews(context()))
+  for (const view of (await currentSnapshot()).views)
     for (const code of new Set(view.card.jurisdictions.flatMap((j) => [j.code, ...(j.parent ? [j.parent] : [])])))
       counts.set(code, (counts.get(code) ?? 0) + 1);
   const jurisdiction = (j: (typeof JURISDICTIONS)[number]): z.infer<typeof PolicyJurisdiction> =>
@@ -265,10 +349,14 @@ export async function policyScope(jurisdictions = false) {
   };
 }
 export async function editions(id: string, details = false) {
+  return editionsOf([id], details);
+}
+/** Each document's editions newest first, documents in id order. */
+async function editionsOf(ids: string[], details: boolean) {
   return sql<
     Edition[]
   >`SELECT ${columns()},${details ? sql`e.basic_detail,e.complete_detail,e.reading` : sql`NULL AS basic_detail,NULL AS complete_detail,NULL AS reading`}
- ${join()} WHERE e.policy_id=${id} ORDER BY e.released_at DESC,e.id DESC`;
+ ${join()} WHERE e.policy_id=ANY(${ids}::text[]) ORDER BY e.policy_id,e.released_at DESC,e.id DESC`;
 }
 export async function ensureDocument(id: string) {
   const [row] = await sql`SELECT id,withdrawn FROM publication.policy_documents WHERE id=${id}`;
@@ -292,7 +380,7 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
     if (!view) continue;
     const detail = Policy.parse(structuredClone(view.complete ? row.complete_detail : row.basic_detail));
     detail.gaps = readerPolicyGaps(detail);
-    const current = (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
+    const current = (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     for (const version of detail.versions) version.current = current;
     const expression = q.expression_id
       ? detail.expressions.find((e) => e.id === q.expression_id)
@@ -379,7 +467,7 @@ export async function policyReading(id: string, q: { expression_id: string; docu
   for (const row of await editions(id, true)) {
     if (!row.expression_ids.includes(q.expression_id) || !row.revision_ids.includes(q.document_revision_id)) continue;
     if (token && (token.edition !== row.id || token.version !== row.policy_version_id)) throw new PolicyReadError(409, "policy_changed");
-    if (token?.historical !== true && (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) !== row.native_revision_id)
+    if (token?.historical !== true && (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) !== row.native_revision_id)
       throw new PolicyReadError(409, "policy_changed");
     const view = await eligible(row, ctx, false),
       stream = row.reading?.[q.expression_id];
@@ -423,7 +511,7 @@ export async function policyHistory(id: string, q: { cursor?: string; limit: num
     const view = await eligible(row, ctx, false);
     if (!view) continue;
     const detail = Policy.parse(view.complete ? row.complete_detail : row.basic_detail);
-    const current = (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
+    const current = (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     for (const expression of detail.expressions)
       items.push({
         policy_version_id: row.policy_version_id,
@@ -461,12 +549,20 @@ export async function policyPublicMembers(editionIds: string[]) {
   >`SELECT ${columns()},e.basic_detail,e.complete_detail,NULL AS reading ${join()} WHERE e.id IN ${sql([...new Set(editionIds)])}`;
   const out = [];
   const ctx = context();
+  preloadPermissions(
+    ctx,
+    rows.map((row) => row.source_id),
+  );
+  void headsFor(
+    ctx,
+    rows.map((row) => row.native_expression_id),
+  ).catch(() => {});
   for (const row of rows) {
     const view = await eligible(row, ctx, false);
     if (!view) continue;
     const policy = Policy.parse(view.complete ? row.complete_detail : row.basic_detail),
       selected = policy.expressions.find((e) => e.id === policy.selected_expression_id);
-    const current = (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
+    const current = (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     out.push({
       editionId: row.id,
       originalRevisionKey: row.original_content_key ?? row.native_revision_id,
@@ -510,16 +606,19 @@ export async function policyPublicVersions() {
 /** Current qualified metadata for sitemap generation; no body, permission state or private identity leaves this port. */
 export async function policyDiscoveryEntries() {
   const entries: { id: string; lastModified: Date }[] = [];
-  for await (const view of currentViews(context())) if (view.card.summary) entries.push({ id: view.card.id, lastModified: view.row.released_at });
+  for (const view of (await currentSnapshot()).views) if (view.card.summary) entries.push({ id: view.card.id, lastModified: view.row.released_at });
   return entries;
 }
 
 export const policyThread = readPolicyThread;
 
-/** Internal current identity candidates. No private originals or model evidence; no navigation decoration recursion. */
-export async function policyCurrentPublicRecords() {
+/**
+ * Internal current identity candidates. No private originals or model evidence; no navigation decoration recursion.
+ * Without a request reading of its own, this is the shared current snapshot (news item pages ask on every view).
+ */
+export async function policyCurrentPublicRecords(ctx?: Context) {
   const out = [];
-  for await (const view of currentViews(context()))
+  for await (const view of ctx ? currentViews(ctx) : (await currentSnapshot()).views)
     out.push({
       editionId: view.row.id,
       expressionId: view.row.native_expression_id,

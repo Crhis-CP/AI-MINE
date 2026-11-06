@@ -176,7 +176,7 @@
     "lint/suspicious/noImplicitAnyLet": 1
   },
   "packages/backend/src/publication/reports.ts": {
-    "lint/suspicious/noExplicitAny": 19
+    "lint/suspicious/noExplicitAny": 18
   },
   "packages/backend/src/site/meta.ts": {
     "lint/style/noProcessEnv": 1
