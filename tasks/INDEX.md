@@ -426,6 +426,11 @@
 | [TASK-0554](TASK-0554.md) | T-0101 | M3 | architect | locally_verified | 资讯侧非高峰调度：再合并只在非高峰调用模型，综述刷新和历史补录分析排到非高峰 | — |
 | [TASK-0555](TASK-0555.md) | T-0101 | M3 | architect | locally_verified | 全仓库审计收尾：统一开关读取、分类键单一来源、选中门槛说明、中文名（原文名）覆盖综述与报告 | — |
 | [TASK-0556](TASK-0556.md) | T-0101 | M3 | architect | locally_verified | 巴西补入法域字典（资讯线补充国家），评分版本随之更新，已存地理判断保持有效 | — |
+| [TASK-0557](TASK-0557.md) | T-0101 | M3 | architect | locally_verified | 更新日志全部改成读者口径；2026.11 定为重大更新，以资讯地图为主角展示 | — |
+| [TASK-0558](TASK-0558.md) | T-0101 | M3 | architect | locally_verified | 读者页面提速：法规列表、法规详情、资讯详情、精选、全部动态、日报和热榜的服务端读取改为成批读取，去掉逐条查询与串行等待 | — |
+| [TASK-0559](TASK-0559.md) | T-0101 | M3 | architect | locally_verified | 搜索结果与各处图标统一用五臂星系：补齐图标尺寸、可遮罩图标、RSS 频道图与站名结构化数据 | — |
+| [TASK-0560](TASK-0560.md) | T-0101 | M3 | architect | locally_verified | 多 Agent 协作架构第一步：任务卡索引不再提交，国家别名一张表，删除死代码，分步方案 | — |
+| [TASK-0561](TASK-0561.md) | T-0101 | M3 | architect | locally_verified | 第二阶段后续发布集成：更新日志读者口径与 2026.11 展示、页面提速、各处图标、多 Agent 协作第一步（TASK-0557～0560） | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |
