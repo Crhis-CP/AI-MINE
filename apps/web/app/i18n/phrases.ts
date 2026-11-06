@@ -137,7 +137,6 @@ export const PHRASES = {
   正文改用宋体: "Use serif (宋体) for the text",
   黑: "Sans",
   宋: "Serif",
-  本次更新使用指南: "Guide to this update",
   已修订: "Revised",
   相关报道: "Related coverage",
   代表稿: "Representative report",
@@ -783,18 +782,7 @@ export const PHRASES = {
   公告: "Notice",
   下线: "Retired",
   测试上线: "Test launch",
-  回看每一期: "Revisit every issue",
-  打开矿业日报: "Open the daily brief",
-  "从日期目录进入历史报告，查看首次出刊与最近修订。晚到报道归入对应期次。":
-    "Enter past reports from the date index and see the first issue and latest revision. Late reports go into the matching issue.",
-  接着往下读: "Pick up where you left off",
-  继续浏览精选: "Keep browsing picks",
-  "进入详情后返回，继续此前的分页位置。切换主题时，数量与当前筛选一致。":
-    "Coming back from an article returns you to your place in the list. Topic counts match the current filters.",
-  看清是哪一期: "Know which period",
   查看金属价格: "See metal prices",
-  "每项报价附实际数据期，旧期报价单独提示更新延迟，便于继续核对原始来源。":
-    "Each price shows its actual data period; older prices are flagged as delayed, so you can check the original source.",
   版本: "Version",
   修订日期: "Revised",
   关于: "About",
@@ -1083,9 +1071,6 @@ export const PHRASES = {
   金属价格卡片: "Metal price cards",
   "每种金属一张卡片，先看最新价格和涨跌；报价异常跳动时只暂缓那一种。":
     "One card per metal with the latest price and change first; an unusual jump holds back only that metal.",
-  读起来更顺: "Easier reading",
-  "标题摘要都是中文，外国矿企写成“必和必拓（BHP）”；可换宋体或黑体，也可切到英文界面。":
-    "Chinese titles and summaries with foreign miners named like “必和必拓（BHP）”; switch between serif and sans, or to the English interface.",
   按分类浏览: "Browse by category",
   "本次全部 {n} 项变化": "All {n} changes in this update",
 } as const satisfies Record<string, string>;

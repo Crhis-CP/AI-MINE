@@ -117,28 +117,6 @@ function MetalCard({ base, held }: { base: number; held: Phrase }) {
   );
 }
 
-/** Reading: the bilingual company name, the two typefaces and the English switch. */
-function Reading({ base }: { base: number }) {
-  return (
-    <div className="flex h-full flex-col justify-center gap-2">
-      <span className="anim-fade-in text-[15px] font-bold text-ink" style={delay(base)}>
-        必和必拓（BHP）
-      </span>
-      <span className="flex items-center gap-1.5">
-        {["宋", "黑", "EN"].map((label, i) => (
-          <span
-            key={label}
-            className={`anim-pop-in grid h-7 min-w-7 place-items-center rounded-full px-2 text-[12px] font-semibold ${i === 0 ? "bg-accent text-white" : "bg-accent-soft text-accent"} ${i === 0 ? "font-serif" : ""}`}
-            style={delay(base + 200 + i * 120)}
-          >
-            {label}
-          </span>
-        ))}
-      </span>
-    </div>
-  );
-}
-
 export function Showcase202611() {
   const tr = useTr();
   const mapTitle = useT().map.title;
@@ -168,7 +146,7 @@ export function Showcase202611() {
           <WorldMap base="/" selected={null} hint={tr("鼠标移到圆点上看是哪个国家，点一下去首页看该国资讯。")} />
         </div>
       </div>
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-3 sm:grid-cols-2">
         <Tile index={0} title="资讯分成新的 9 类" text="按文章量重新划分，每一类都有足够的内容；以前收藏的分类链接照常能用。" to="/all" action="按分类浏览">
           <Categories base={1000} />
         </Tile>
@@ -186,15 +164,6 @@ export function Showcase202611() {
         </Tile>
         <Tile index={3} title="金属价格卡片" text="每种金属一张卡片，先看最新价格和涨跌；报价异常跳动时只暂缓那一种。" to="/metals" action="查看金属价格">
           <MetalCard base={1420} held="待下期确认" />
-        </Tile>
-        <Tile
-          index={4}
-          title="读起来更顺"
-          text="标题摘要都是中文，外国矿企写成“必和必拓（BHP）”；可换宋体或黑体，也可切到英文界面。"
-          to="/more"
-          action="阅读设置"
-        >
-          <Reading base={1560} />
         </Tile>
       </ul>
     </section>

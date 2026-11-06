@@ -213,10 +213,11 @@ test("the reader changelog standard keeps small fixes out and its 2026-11-06 cle
     assert.equal(at(date, time)?.title, title);
     assert.equal(at(date, time)?.copy, null, title);
   }
-  // The 10-19 entry is folded into the 10-20 one; the 10-21 one is no major update; the policies line says it is back.
+  // The 10-19 entry is folded into the 10-20 one; the 10-21 one is no major update. The policies line has not resumed
+  // yet, so no entry says it has: its resume notice is written when it does.
   assert.match(at("2026-10-20", "03:37")?.copy?.body[0] ?? "", /同一份公告和它的官方解读/);
   assert.equal(at("2026-10-21", "14:18")?.copy?.kind, "优化");
-  assert.ok(at("2026-11-06", "11:21")?.copy?.body.some((line) => line.startsWith("法规政策动态恢复更新")));
+  assert.ok(!at("2026-11-06", "11:21")?.copy?.body.some((line) => line.includes("恢复更新")));
   const titles = validateChangelog(read("changelog.json")).releases.map((r) => r.title);
   for (const gone of ["只写日期的文章不再显示 00:00", "手机上每个页面都显示备案号"]) assert.ok(!titles.includes(gone), gone);
   // Every entry left is within the standard's limits: a title of at most 24 characters and at least one line.
