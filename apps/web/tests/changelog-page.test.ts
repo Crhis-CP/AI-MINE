@@ -130,4 +130,6 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   assert.match(page, /很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。/);
   assert.ok((page.match(/<path[^>]*class="anim-draw fill-none (?:stroke-accent|stroke-ink-4)"/g)?.length ?? 0) >= 26, "the threads are drawn");
   for (const n of ["01", "02", "03", "04", "05"]) assert.match(page, new RegExp(`>${n}<`), n);
+  // The server sends the still line: news starts moving only after the browser says the reader allows motion.
+  assert.doesNotMatch(page, /<animateMotion/);
 });

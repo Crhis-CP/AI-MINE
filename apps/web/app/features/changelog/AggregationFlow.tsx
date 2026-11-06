@@ -3,7 +3,8 @@
 // the rest draw together; at 归并 they twist into a few strands, one story each; at 精选 the strands narrow to two
 // bright lines; at 发布 one line runs on to where readers read. Each step's badge sits on the line where it narrows,
 // its card below; news keeps flowing along the threads. No counts are drawn: the narrowing tells the scale.
-// SVG animation from a fixed seed, so the server and the browser draw the same; reduced motion keeps the still line.
+// SVG animation from a fixed seed, so the server and the browser draw the same. The server and the first render draw the
+// still line; the news starts moving only once the browser says the reader allows motion (CSS cannot stop SMIL).
 import { useEffect, useState } from "react";
 import { useTr } from "../../i18n";
 
@@ -74,16 +75,17 @@ const NEWS = LINES.flatMap((line, i) =>
   })),
 );
 
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(false);
+/** False on the server and on the first render; true once the browser says the reader has not asked for less motion. */
+function useMotionAllowed() {
+  const [allowed, setAllowed] = useState(false);
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduced(query.matches);
+    const update = () => setAllowed(!query.matches);
     update();
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
-  return reduced;
+  return allowed;
 }
 
 const STEP_ICONS: Record<string, string> = {
@@ -97,7 +99,7 @@ const STEP_ICONS: Record<string, string> = {
 /** One gathering line with the steps threaded on it; their cards below light their place on the line. */
 export function Convergence({ stations, outlets }: { stations: FlowStation[]; outlets: string[] }) {
   const tr = useTr();
-  const reduced = useReducedMotion();
+  const moving = useMotionAllowed();
   const [active, setActive] = useState<number | null>(null);
   const lit = (i: number) => active === i;
   return (
@@ -156,7 +158,7 @@ export function Convergence({ stations, outlets }: { stations: FlowStation[]; ou
             style={{ animationDelay: "2000ms", animationDuration: "500ms" }}
           />
           {/* News moving along the threads: faint on the dropped ones, bright on the way out. */}
-          {!reduced &&
+          {moving &&
             NEWS.map((n) => (
               <circle key={n.key} r={n.through ? 4.2 : 2.6} className={n.through ? "fill-hot" : n.line.kept ? "fill-accent" : "fill-ink-4"} opacity={0}>
                 <animateMotion path={n.through ? n.line.ride : n.line.d} dur={`${n.dur}s`} begin={`${n.begin}s`} repeatCount="indefinite" />
