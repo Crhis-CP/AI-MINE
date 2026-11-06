@@ -12,7 +12,7 @@
   4. 验收：05-quality/06-acceptance-scenarios.md 的 T 编号唯一；07-traceability.json 引用的 T/页面存在
   5. 上游来源：归档在交接包原件里时，tar.gz 成员哈希与 aihot-source-manifest.json 一致（流式校验）；
      在仓库里时（归档不入库），upstream/aihot.lock.json 与清单逐文件一致
-  6. 数据：data/source-targets-320.json 与 .csv 记录数一致；原表 321 条；法域字典 36 个对象
+  6. 数据：data/source-targets-320.json 与 .csv 记录数一致；原表 321 条；法域字典 36 个法规线对象（另有资讯线补充国家）
   7. 追踪表：05-quality/07-traceability.json 自带检查项（无落点功能、未定义编号等）必须为空
   8. 敏感信息：扫描疑似 IPv4、邮箱、令牌与本机用户目录路径（作为警告列出）
 相对交接包原件的改动：默认根目录是仓库的 docs/；不再写 evidence/package-validation.json；第 1 项扩到仓库
@@ -275,9 +275,17 @@ def check_data() -> None:
     if jp.exists():
         items = json.loads(jp.read_text(encoding="utf-8")).get("jurisdictions", [])
         top = [x for x in items if x.get("kind") in ("country", "organization")]
-        counts["jurisdiction_objects"] = len(top)
+        # 36 是法规线对象数；资讯线补充国家（巴西，Owner 2026-11-05）在字典里但不计入 36。
+        policy = [x for x in top if x.get("policy_scope")]
+        additions = [x for x in top if x.get("tier") == "news_addition"]
+        counts["jurisdiction_objects"] = len(policy)
+        counts["jurisdiction_news_additions"] = len(additions)
         counts["jurisdiction_subdivisions"] = len(items) - len(top)
-        check(len(top) == 36, f"法域字典应有 36 个对象（33 国 + 3 组织），实际 {len(top)}")
+        check(len(policy) == 36, f"法域字典应有 36 个法规线对象（33 国 + 3 组织），实际 {len(policy)}")
+        check(
+            len(top) == len(policy) + len(additions) and all(not x.get("policy_scope") and x.get("news_scope") for x in additions),
+            "法域字典里不计入 36 的国家只能是资讯线补充国家（tier news_addition，news_scope 为真、policy_scope 为假）",
+        )
 
 
 def check_traceability() -> None:
