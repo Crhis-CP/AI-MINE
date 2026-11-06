@@ -100,3 +100,19 @@ test("frequency coverage and footnote references cannot drift from the displayed
   ];
   for (const [i, value] of cases.entries()) assert.equal(MetalPrices.safeParse(value).success, false, `invalid presentation case ${i}`);
 });
+
+test("a converted price (TASK-0572) is optional and needs a price and a rate from a listed source dated no later than the period", () => {
+  const converted = { value: "1503", unit: "美元/吨", currency: "USD", rate: { source: "test", name: "合成汇率", date: "2026-09-18", label: "合成汇率日" } };
+  const cny = { currency: "CNY", unit: "元/吨" };
+  assert.ok(MetalPrices.safeParse(withQuote({ ...cny, converted })).success);
+  assert.ok(MetalPrices.safeParse(withQuote({ ...cny, converted: null })).success);
+  assert.ok(MetalPrices.safeParse(valid).success, "absent stays valid for older payloads");
+  for (const bad of [
+    { ...cny, converted: { ...converted, rate: { ...converted.rate, date: "2026-09-21" } } },
+    { ...cny, converted: { ...converted, rate: { ...converted.rate, source: "elsewhere" } } },
+    { ...cny, converted: { ...converted, value: "0" } },
+    { converted },
+    { ...cny, converted, value: null, period: null, change: null },
+  ])
+    assert.equal(MetalPrices.safeParse(withQuote(bad)).success, false, JSON.stringify(bad));
+});
