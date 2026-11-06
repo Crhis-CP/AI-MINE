@@ -7,7 +7,7 @@ import { publishPolicyPublication } from "./publication/policies-publish.ts";
 import { config } from "@amp/backend/config";
 import { policyArchiveEnabled, policyModelStagesEnabled, policyVisionEnabled } from "./pilot.ts";
 // Pure off-peak helper (packages/backend/src/providers/peak-hours.ts), re-exported by the existing gateway entry.
-import { isProviderPeak, nextOffPeakStart } from "@amp/backend/providers/llm";
+import { offPeakWait } from "@amp/backend/providers/llm";
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
 import { runtimeControlSnapshot } from "@amp/backend/operations/lane-controls";
 import { ensureQueue, recordRun, shutdownSignal } from "@amp/backend/jobs/queue";
@@ -71,7 +71,7 @@ export async function sweepPolicyMaterials() {
 export const POLICY_MODEL_STAGES: readonly PolicyStage[] = ["fulltext", "vision", "interpret"];
 export type PolicyQueueOptions = { now?: () => Date };
 export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPolicyPublication }, options: PolicyQueueOptions = {}) {
-  const now = options.now ?? (() => new Date());
+  const now = options.now;
   return POLICY_STAGES.map((stage) => {
     const queue: ModuleQueue<PolicyJob> = defineQueue<PolicyJob>({
       name: `policy.${stage}`,
@@ -83,15 +83,8 @@ export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPo
         return recordRun(`policy.pipeline.${stage}`, async () => {
           // Off-peak only (法规线成本设计): a model stage picked up in the provider's peak window buys nothing now and is
           // re-queued for the next off-peak start, when the same request is billed at half price.
-          const at = now();
-          if (
-            POLICY_MODEL_STAGES.includes(stage) &&
-            policyModelStagesEnabled() &&
-            config.modelCallsEnabled &&
-            isProviderPeak(at) &&
-            (await readPolicyWorkflow(data.sourceId, data.materialId))?.stage === stage
-          ) {
-            const retryAt = nextOffPeakStart(at);
+          const retryAt = POLICY_MODEL_STAGES.includes(stage) && policyModelStagesEnabled() && config.modelCallsEnabled ? offPeakWait(now?.()) : null;
+          if (retryAt && (await readPolicyWorkflow(data.sourceId, data.materialId))?.stage === stage) {
             await deferPolicyWorkflow(data, retryAt);
             await enqueueOn(
               queue,

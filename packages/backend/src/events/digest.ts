@@ -11,7 +11,7 @@ import { modelFor } from "../editorial/models.ts";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
-import { isProviderPeak, nextOffPeakStart } from "../providers/peak-hours.ts";
+import { offPeakWait } from "../providers/peak-hours.ts";
 import { bilingualNames } from "../editorial/bilingual-names.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { completeReceipt } from "../providers/receipts.ts";
@@ -108,8 +108,8 @@ export async function composeStoryDigest(
   // Same reports, different content: an editor corrected one. Rewrite from the reports as they are now,
   // without the previous digest, so a corrected fact does not survive as "earlier reports said".
   const corrected = sameReports || opts.afterCorrection === true;
-  const now = opts.now ?? new Date();
-  if (story.digest && !corrected && isProviderPeak(now)) return { updated: false, deferUntil: nextOffPeakStart(now) };
+  const deferUntil = story.digest && !corrected ? offPeakWait(opts.now) : null;
+  if (deferUntil) return { updated: false, deferUntil };
   const known = new Set(last?.article_ids ?? []);
 
   const visible = reports.slice(-40);

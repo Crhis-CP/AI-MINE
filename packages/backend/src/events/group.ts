@@ -52,7 +52,7 @@ import { modelFor } from "../editorial/models.ts";
 import { sql, type Db, type Tx } from "../db.ts";
 import { newShortId, newUuid, sha256 } from "../lib/ids.ts";
 import { chatJson, ModelPostReceiptGuardError } from "../providers/llm.ts";
-import { isProviderPeak } from "../providers/peak-hours.ts";
+import { offPeakWait } from "../providers/peak-hours.ts";
 import { BudgetExceededError, ReceiptBusyError, ReceiptUnknownError, completeReceipt } from "../providers/receipts.ts";
 import { embeddingsAvailable, ensureEmbeddings } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
@@ -1266,7 +1266,7 @@ const waitingError = (error: unknown) =>
  * (half price; the 72-hour window is far longer than a peak window).
  */
 export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun?: boolean; now?: Date } = {}): Promise<RemergeResult> {
-  const peak = isProviderPeak(opts.now ?? new Date());
+  const peak = offPeakWait(opts.now) !== null;
   const maxCalls = peak ? 0 : Math.max(0, opts.maxCalls ?? REMERGE_MAX_CALLS);
   const out: RemergeResult = { singles: 0, pairs: 0, calls: 0, merged: [] };
   let control: RuntimeControlSnapshot;

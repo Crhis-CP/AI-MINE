@@ -7,8 +7,9 @@
  * 09:00–12:00 and 14:00–18:00, so the UTC weekday is also the Beijing weekday); every other hour, weekends included,
  * is off-peak. Chinese public holidays are not modelled: a holiday that falls on a weekday is treated like any other
  * weekday (its windows count as peak), which can only delay work, never move a paid call into a peak hour.
- * Update the constants below if the pricing page changes. Pure functions: no clock, database or network.
+ * Update the constants below if the pricing page changes. No database or network; only offPeakWait reads the clock.
  */
+import { environmentValue } from "../config.ts";
 
 /** Weekdays (UTC, `Date#getUTCDay`) on which the peak windows apply: Monday to Friday. */
 export const PROVIDER_PEAK_WEEKDAYS: readonly number[] = Object.freeze([1, 2, 3, 4, 5]);
@@ -37,6 +38,17 @@ export function isProviderPeak(now: Date): boolean {
 export function nextOffPeakStart(now: Date): Date {
   const peak = peakWindow(now);
   return peak ? new Date(peak.dayStart + peak.window.endHour * HOUR) : new Date(now.getTime());
+}
+
+/**
+ * When work that can wait should start: null to go ahead now, otherwise the next off-peak start. A time the caller
+ * passes (a test, a replay) is always judged; the wall clock is judged unless OFF_PEAK_DEFERRAL is "off", which the
+ * test setup sets so tests about something else do not depend on the time of day they run.
+ */
+export function offPeakWait(at?: Date): Date | null {
+  if (!at && environmentValue("OFF_PEAK_DEFERRAL") === "off") return null;
+  const now = at ?? new Date();
+  return isProviderPeak(now) ? nextOffPeakStart(now) : null;
 }
 
 /** The processing note on material that waits for the next off-peak start on purpose (alerts do not count it as stuck). */
