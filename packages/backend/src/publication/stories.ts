@@ -19,7 +19,7 @@ import { loadTopicTags } from "./topics.ts";
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { sql, withCustomPlans, type Db } from "../db.ts";
 import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
-import { storiesWithdrawalAffected, storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
+import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 import { readDigestDetail, storyStatusFor } from "../events/digest.ts";
 import { TITLE_KEY_MIN_CHARS, titleKey } from "../events/relate.ts";
 import { siteUrl, storyUrl } from "./links.ts";
@@ -113,6 +113,20 @@ export function storyLine<R extends LineReport>(rows: R[]) {
     /** Every fact with a listed report to the index of its development. */
     developmentOfFact: new Map(rows.map((r) => [r.fact_id, index.get(developmentFact(r.fact_id))!])),
   };
+}
+
+/**
+ * storyWithdrawalAffected for many stories in one statement (same conditions): the stories whose text may describe
+ * withdrawn material. Read here, where story and fact rows are this module's read model.
+ */
+export async function storiesWithdrawalAffected(storyIds: number[], db: Db = sql): Promise<Set<number>> {
+  if (!storyIds.length) return new Set();
+  const rows = await db<{ id: number }[]>`SELECT st.id FROM stories st WHERE st.id = ANY(${storyIds}::bigint[]) AND (
+    EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND
+      ((w.target_type='story' AND w.target_key=st.public_id::text) OR
+       (w.target_type='event' AND w.target_key IN (SELECT f.public_id::text FROM facts f WHERE f.story_id=st.id))))
+    OR EXISTS(SELECT 1 FROM publications p WHERE p.story_id=st.id AND p.visibility='withdrawn'))`;
+  return new Set(rows.map((r) => Number(r.id)));
 }
 
 /**

@@ -3,8 +3,7 @@
 import type { StoryProgress } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
 import { readHistoricalBackground } from "./historical-background.ts";
-import { developmentTitle, originalPostAffectedStories, readStoryReportLines, storyLine } from "./stories.ts";
-import { storiesWithdrawalAffected } from "./withdrawals.ts";
+import { developmentTitle, originalPostAffectedStories, readStoryReportLines, storiesWithdrawalAffected, storyLine } from "./stories.ts";
 
 export interface ProgressCard {
   id: string;
