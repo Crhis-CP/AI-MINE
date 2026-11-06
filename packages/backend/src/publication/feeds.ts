@@ -74,6 +74,9 @@ const FEEDS: Record<"selected" | "selectedFull" | "all" | "daily", FeedMeta> = {
   },
 };
 
+/** The channel image: the app icon at RSS 2.0's largest width, 144 px (industry/brand/icon-144.png, scripts/brand-icons.ts). */
+export const FEED_IMAGE = { path: "/icon-144.png", size: 144 } as const;
+
 /** RSS <author> needs an address; a no-reply one on the site's own domain. */
 const AUTHOR = `noreply@${new URL(config.siteUrl).hostname}`;
 
@@ -110,6 +113,13 @@ function channel(
     <link>${escapeXml(siteUrl(meta.homePath))}</link>
     <description>${escapeXml(meta.description)}</description>
     <language>zh-CN</language>
+    <image>
+      <url>${escapeXml(siteUrl(FEED_IMAGE.path))}</url>
+      <title>${escapeXml(meta.title)}</title>
+      <link>${escapeXml(siteUrl(meta.homePath))}</link>
+      <width>${FEED_IMAGE.size}</width>
+      <height>${FEED_IMAGE.size}</height>
+    </image>
     <atom:link href="${escapeXml(siteUrl(meta.selfPath))}" rel="self" type="application/rss+xml" />
     <ttl>${meta.ttl}</ttl>
     <generator>${escapeXml(`${SITE.name} (${siteUrl("/agent")})`)}</generator>

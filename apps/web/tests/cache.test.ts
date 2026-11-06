@@ -776,6 +776,23 @@ test("old category links (ADR-0031) move to the successor class; company_project
     assert.equal((await fetch(origin + path, { redirect: "manual" })).status, 200, path);
 });
 
+test("a press-time prefetch of an uncached page's data may answer the click; every other read stays uncached", async () => {
+  for (const purpose of [{ "Sec-Purpose": "prefetch" }, { Purpose: "prefetch" }, { "X-moz": "prefetch" }] as Array<Record<string, string>>) {
+    const prefetched = await fetch(`${origin}/all.data`, { headers: purpose });
+    assert.equal(prefetched.status, 200);
+    assert.equal(prefetched.headers.get("Cache-Control"), "private, max-age=5", JSON.stringify(purpose));
+    assert.equal(prefetched.headers.get("X-Accel-Expires"), "0", "never kept by a shared cache");
+    await prefetched.arrayBuffer();
+  }
+  const read = await fetch(`${origin}/all.data`);
+  assert.equal(read.headers.get("Cache-Control"), "private, no-store");
+  await read.arrayBuffer();
+  // HTML is never prefetched this way, and private pages keep their rule.
+  const html = await fetch(`${origin}/all`, { headers: { "Sec-Purpose": "prefetch" } });
+  assert.equal(html.headers.get("Cache-Control"), "private, no-store");
+  await html.arrayBuffer();
+});
+
 test("INV-34 public, missing and private pages authorize only this response's nonce", async () => {
   for (const pathname of ["/", "/all", "/about", "/items/footer-page", "/does-not-exist", "/admin/login"]) {
     const get = (method = "GET") =>

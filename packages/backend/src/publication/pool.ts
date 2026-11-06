@@ -299,25 +299,48 @@ async function queryPool(
     return { rows, total: Number(n) };
   };
 
-  const negotiated =
-    query.readingGroups === "reports-v1"
-      ? await (q ? withSearchCapacity : withCustomPlans)((db) =>
-          loadReportGroupedPage({ ...query, scope: query.selected ? "selected" : "all", offset, limit: POOL_PAGE_SIZE }, now, db),
-        )
-      : null;
+  const grouping = query.readingGroups === "reports-v1";
+  const today = beijingDate(now);
+  const readMeta = async () =>
+    one(
+      await sql<{ today_count: number; updated_at: Date | null }[]>`
+    SELECT (SELECT count(*) FROM publications p
+      WHERE ${listedCondition(now)} AND p.eligible AND p.timeline_at >= ${beijingMidnight(today)} ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}) AS today_count,
+      (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`,
+    );
+  // Freshness and source facets do not depend on the page: browsing reads them alongside it, while a search keeps
+  // them behind its capacity admission, as before.
+  const side = () =>
+    Promise.all([
+      readMeta(),
+      loadPoolSourceFacets(
+        query,
+        readMatcherValues(
+          query.tag,
+          query.topicTags,
+          query.jurisdictionCodes ?? [],
+          terms,
+          query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
+        ),
+        matchers,
+        now,
+        query.jurisdictionCodes ?? [],
+        query.jurisdictionRecipe ?? "",
+      ),
+    ]);
+  const early = q ? null : side();
+  early?.catch(() => {});
+  const negotiated = grouping
+    ? await (q ? withSearchCapacity : withCustomPlans)((db) =>
+        loadReportGroupedPage({ ...query, scope: query.selected ? "selected" : "all", offset, limit: POOL_PAGE_SIZE }, now, db),
+      )
+    : null;
   const { rows, total } = negotiated
     ? { rows: [] as ItemRow[], total: negotiated.reportTotal }
     : q
       ? await withSearchCapacity(run)
       : await withCustomPlans(run);
   await attachSourcePolicies(rows);
-  const today = beijingDate(now);
-  const meta = one(
-    await sql<{ today_count: number; updated_at: Date | null }[]>`
-    SELECT (SELECT count(*) FROM publications p
-      WHERE ${listedCondition(now)} AND p.eligible AND p.timeline_at >= ${beijingMidnight(today)} ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}) AS today_count,
-      (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`,
-  );
 
   const unfiltered =
     !q &&
@@ -332,22 +355,9 @@ async function queryPool(
     !from &&
     !to &&
     !query.selected;
-  const [legacyGrouped, sourceFacets] = await Promise.all([
+  const [legacyGrouped, [meta, sourceFacets]] = await Promise.all([
     !negotiated && unfiltered ? loadTimeline({ ...query, scope: "all", offset, limit: POOL_PAGE_SIZE, now }) : null,
-    loadPoolSourceFacets(
-      query,
-      readMatcherValues(
-        query.tag,
-        query.topicTags,
-        query.jurisdictionCodes ?? [],
-        terms,
-        query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
-      ),
-      matchers,
-      now,
-      query.jurisdictionCodes ?? [],
-      query.jurisdictionRecipe ?? "",
-    ),
+    early ?? side(),
   ]);
   const grouped = negotiated ?? legacyGrouped;
   return {

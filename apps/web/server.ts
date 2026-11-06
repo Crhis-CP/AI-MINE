@@ -28,6 +28,12 @@ const CLIENT_DIR = {
 };
 /** Browsers keep a page at most this long, so a withdrawal reaches them within minutes. */
 const BROWSER_MAX_SECONDS = 300;
+/** How long a browser may keep data it fetched on a link press, to answer the click that follows. */
+const PREFETCH_REUSE_SECONDS = 5;
+/** A browser prefetch (`<link rel="prefetch">`): Chromium sends Sec-Purpose / Purpose, Firefox X-moz. */
+function prefetchRequest(req: import("node:http").IncomingMessage): boolean {
+  return [req.headers["sec-purpose"], req.headers.purpose, req.headers["x-moz"]].some((value) => /\bprefetch\b/i.test(String(value ?? "")));
+}
 
 const TYPES: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
@@ -110,7 +116,22 @@ function pageCache(req: import("node:http").IncomingMessage, res: import("node:h
     const outgoing = typeof messageOrHeaders === "string" ? headers : messageOrHeaders;
     for (const [name, value] of Object.entries(outgoing ?? {})) if (value !== undefined) res.setHeader(name, value);
     const cc = String(res.getHeader("Cache-Control") ?? "");
-    if (!publicRead || status !== 200 || res.hasHeader("Set-Cookie") || !cc || /(?:private|no-store)/i.test(cc)) {
+    // A link pressed a moment ago fetched this page's data ahead of the click (IntentLink). A page that is never
+    // stored for freshness (withdrawals apply on the next read) would make the browser drop that answer and ask
+    // again on the click: two reads and no head start. Only that press-time answer may be kept, privately and for
+    // PREFETCH_REUSE_SECONDS; every other read of the page stays uncached.
+    if (
+      publicRead &&
+      status === 200 &&
+      !res.hasHeader("Set-Cookie") &&
+      url.pathname.endsWith(".data") &&
+      prefetchRequest(req) &&
+      /^\s*no-store\s*$/i.test(cc)
+    ) {
+      res.removeHeader("Expires");
+      res.setHeader("Cache-Control", `private, max-age=${PREFETCH_REUSE_SECONDS}`);
+      res.setHeader("X-Accel-Expires", "0");
+    } else if (!publicRead || status !== 200 || res.hasHeader("Set-Cookie") || !cc || /(?:private|no-store)/i.test(cc)) {
       res.removeHeader("Expires");
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Accel-Expires", "0");

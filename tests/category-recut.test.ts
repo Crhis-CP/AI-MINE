@@ -35,6 +35,12 @@ const provider = await stub((_hit, req) => {
   if (!system.includes("资料结构化助手")) throw new Error("only the structure step may be asked");
   structureCalls += 1;
   const marker = /MARK=([a-z_]+)/.exec(user)?.[1] ?? "none";
+  // MARK=cutoff: an answer cut off at the length limit (the case that stopped the production run on 2026-11-06).
+  if (marker === "cutoff")
+    return {
+      choices: [{ message: { content: '{"scope":"single","category":' }, finish_reason: "length" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    };
   const output = { scope: "single", category: marker === "none" ? null : marker, tags: [], subjects: [], fact: null };
   return { choices: [{ message: { content: JSON.stringify(output) } }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } };
 });
@@ -214,4 +220,24 @@ test("the script reports, maps without a model, then reclassifies only what need
   assert.equal(structureCalls, 3, "nothing is asked twice");
   assert.equal((await judgement(byHand)).category, "company_project", "a category set by a person is never touched");
   assert.equal((await published(byHand)).category, "capital_ma");
+});
+
+test("an answer cut off at the length limit leaves the item without a category and is not asked again", async () => {
+  const cutoff = await analysed("company_project", ["企业与项目", "铜"], "cutoff");
+  const script = fileURLToPath(new URL("../scripts/reclassify-categories.ts", import.meta.url));
+  const run = async (...args: string[]) => (await promisify(execFile)(process.execPath, [script, ...args], { env: process.env, encoding: "utf8" })).stdout;
+  const calls = structureCalls;
+  const first = await run("--apply-model", "--limit", "5");
+  assert.match(first, /unusable model answer, left without a category/);
+  assert.match(first, /1 unusable answers/);
+  const note = (await judgement(cutoff)).output.categoryReclassification as { unusable?: boolean; recipe: string; to: string | null };
+  assert.deepEqual([note.unusable, note.recipe, note.to], [true, PROMPT_VERSIONS.structure, null]);
+  assert.equal((await judgement(cutoff)).category, null);
+  assert.equal((await published(cutoff)).category, null);
+  const asked = structureCalls - calls;
+  assert.ok(asked >= 1);
+  // The next batch does not start on it again: nothing left for the model, no new request.
+  const again = await run("--apply-model", "--limit", "5");
+  assert.match(again, /need the model: 0/);
+  assert.equal(structureCalls - calls, asked, "not asked again under the same recipe");
 });

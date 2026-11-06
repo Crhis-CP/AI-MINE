@@ -610,6 +610,61 @@
     ]
   },
   {
+    "route": "GET /icon-96.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/icon-96.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /icon-144.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/icon-144.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /icon-maskable.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/icon-maskable.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /apple-touch-icon.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/apple-touch-icon.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /apple-touch-icon-precomposed.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/apple-touch-icon-precomposed.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
     "route": "GET /icon.png",
     "noDataReason": "静态品牌PNG资源，无数据库内容分支",
     "cases": [

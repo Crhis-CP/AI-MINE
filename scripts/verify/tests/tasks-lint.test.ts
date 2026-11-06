@@ -117,7 +117,7 @@ test("live and accepted task states require usable evidence references", () => {
   assert.deepEqual(checkCard("TASK-0042.md", card(`${valid}\nstatus: locally_verified\nevidence: []`), k), []);
 });
 
-test("index detects missing cards and changed states without depending on commit history", () => {
+test("the local index lists every card and its state, without depending on commit history", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "aimine-task-index-"));
   try {
     mkdirSync(path.join(root, "tasks"));
@@ -125,15 +125,13 @@ test("index detects missing cards and changed states without depending on commit
     writeFileSync(path.join(root, "lanes.yaml"), "lanes: {web: {}}\n");
     writeFileSync(path.join(root, "docs/06-agents/02-roadmap-and-wbs.md"), "T-0001 AC-M0-08\n");
     writeFileSync(path.join(root, "tasks/TASK-0042.md"), card(valid));
-    assert.match(checkTasks(root).problems.join("\n"), /INDEX.md is stale/);
-    writeFileSync(path.join(root, "tasks/INDEX.md"), renderIndex(root));
+    // No committed index to keep in step: the check needs only the cards.
     assert.deepEqual(checkTasks(root).problems, []);
+    assert.match(renderIndex(root), /\[TASK-0042\]/);
     writeFileSync(path.join(root, "tasks/TASK-0042.md"), card(`${valid}\nstatus: locally_verified`));
-    assert.match(checkTasks(root).problems.join("\n"), /INDEX.md is stale/);
-    writeFileSync(path.join(root, "tasks/INDEX.md"), renderIndex(root));
+    assert.match(renderIndex(root), /locally_verified/);
     writeFileSync(path.join(root, "tasks/TASK-0043.md"), card(valid.replace("TASK-0042", "TASK-0043")));
-    assert.match(checkTasks(root).problems.join("\n"), /INDEX.md is stale/);
-    writeFileSync(path.join(root, "tasks/INDEX.md"), renderIndex(root));
+    assert.match(renderIndex(root), /\[TASK-0043\]/);
     assert.deepEqual(checkTasks(root).problems, []);
     assert.equal(renderIndex(root), renderIndex(root));
   } finally {

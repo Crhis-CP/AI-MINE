@@ -50,12 +50,11 @@ export const zh = {
     navLabel: "按国家筛选下方资讯：圆点越大，该时段资讯越多",
     showingOnly: "下方只看：",
     clear: "取消",
-    hint: "点击圆点，下方列表只看该国资讯。",
+    hint: "圆点越大消息越多；鼠标移到圆点上显示国家，点一下只看该国资讯。",
     noBorders: "只示意陆地分布，不表示国界。",
     bubble: "{label}，{span} {count} 条",
     bubbleRise: "，比前一时段增加",
     bubbleSelected: "（已选，再点取消）",
-    bubbleTitle: "{label} · {span} {count} 条（前一时段 {previous} 条）",
     currentCount: "（{span} {count} 条）",
   },
   feed: {

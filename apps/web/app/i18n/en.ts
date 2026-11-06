@@ -52,12 +52,11 @@ export const en: Dict = {
     navLabel: "Filter the list below by country: larger dots mean more news in this period",
     showingOnly: "Showing only: ",
     clear: "Clear",
-    hint: "Select a dot to show only that country's news below.",
+    hint: "Bigger dots mean more news; point at a dot to see the country, select it to show only that country's news.",
     noBorders: "Land only; no borders are shown.",
     bubble: "{label}, {count} items in the {span}",
     bubbleRise: ", up on the previous period",
     bubbleSelected: " (selected; select again to clear)",
-    bubbleTitle: "{label} · {count} items in the {span} ({previous} in the period before)",
     currentCount: " ({count} in the {span})",
   },
   feed: {

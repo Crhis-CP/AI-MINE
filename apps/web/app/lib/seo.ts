@@ -2,6 +2,7 @@
 // and wording come from the industry pack (industry/site.ts); its address from SITE_URL.
 import type { MetaDescriptor } from "react-router";
 import { SITE } from "@amp/industry/site";
+import { LOGO_PATH } from "./icons.ts";
 
 /**
  * The site's address: SITE_URL while rendering on the server (what crawlers and share previews read),
@@ -82,7 +83,7 @@ export function organizationLd() {
     "@type": "Organization",
     name: SITE.organization.name,
     url: base,
-    logo: `${base}/icon.png`,
+    logo: `${base}${LOGO_PATH}`,
     ...(founder
       ? {
           founder: {
@@ -94,6 +95,11 @@ export function organizationLd() {
         }
       : {}),
   };
+}
+
+/** The site's name for search results, on the home page: its url is the canonical home address. */
+export function websiteLd() {
+  return { "@context": "https://schema.org", "@type": "WebSite", name: SITE.name, url: `${siteUrl()}/` };
 }
 
 export function breadcrumbLd(items: Array<{ name: string; path: string }>) {

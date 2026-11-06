@@ -11,6 +11,7 @@ import { categoryLedTags } from "@amp/industry/mining-taxonomy";
 import { sql, type Db } from "../db.ts";
 import { assertRuntimeControl, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { ModelContentFiltered } from "../providers/model-fallback.ts";
+import { ModelOutputError } from "../providers/llm.ts";
 import { lockNewsProcessingPermissions } from "../providers/news-fallback.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { awaitsMaterial, PROMPT_VERSIONS, runCategoryStructure } from "./analyze.ts";
@@ -67,7 +68,16 @@ export async function categoryJudgementsToReview(db: Db = sql): Promise<Category
     ORDER BY analysis_id DESC`;
 }
 
-type Note = { from: string | null; to: CategoryKey | null; method: "mapped" | "model"; recipe?: string; receiptId?: number; refused?: true };
+type Note = {
+  from: string | null;
+  to: CategoryKey | null;
+  method: "mapped" | "model";
+  recipe?: string;
+  receiptId?: number;
+  refused?: true;
+  /** The answer was unusable (cut off at the length limit, or not the asked shape): no category, not asked again under this recipe. */
+  unusable?: true;
+};
 
 /** Writes a category onto the judgement it was planned for; a newer judgement or a changed category wins. */
 async function writeCategory(tx: Db, row: CategoryJudgement, note: Note): Promise<boolean> {
@@ -87,6 +97,7 @@ export async function applyMappedCategory(row: CategoryJudgement, to: CategoryKe
 
 export type ModelReclassification =
   | { outcome: "updated" | "superseded"; category: CategoryKey | null; receiptId: number; reused: boolean }
+  | { outcome: "unusable"; written: boolean }
   | { outcome: "skipped"; reason: "missing" | "revision" | "material" };
 
 /**
@@ -104,6 +115,23 @@ export async function reclassifyCategoryWithModel(row: CategoryJudgement): Promi
   try {
     result = await runCategoryStructure(input, { runtimeControl });
   } catch (error) {
+    // An unusable answer (cut off at the length limit, or not the asked shape) is noted like a refusal: the item keeps
+    // no category and is not asked again under this recipe, so a later batch does not start on it again.
+    if (error instanceof ModelOutputError) {
+      const written = await sql.begin(async (tx) => {
+        await lockNewsProcessingPermissions([row.article_id], tx);
+        await assertRuntimeControl(tx, runtimeControl);
+        return writeCategory(tx, row, {
+          from: row.category,
+          to: null,
+          method: "model",
+          recipe,
+          ...(error.receiptId ? { receiptId: error.receiptId } : {}),
+          unusable: true,
+        });
+      });
+      return { outcome: "unusable", written };
+    }
     if (!(error instanceof ModelContentFiltered)) throw error;
     const written = await sql.begin(async (tx) => {
       await lockNewsProcessingPermissions([row.article_id], tx);

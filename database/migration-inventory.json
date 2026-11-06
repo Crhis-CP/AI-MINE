@@ -523,6 +523,10 @@
     {
       "name": "publication/202611051900_metal_price_holds.sql",
       "dependsOn": ["publication/202610231740_metal_price_checks.sql"]
+    },
+    {
+      "name": "acquisition/202611061000_directory_binding_material.sql",
+      "dependsOn": ["acquisition/202610091100_directory_scans.sql"]
     }
   ]
 }

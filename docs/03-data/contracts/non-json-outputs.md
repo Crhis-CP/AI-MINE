@@ -28,12 +28,14 @@
 | `/og/{id}.png` | `image/png` | `public, max-age=0, must-revalidate` | 候选（不排期） | 条目、报告、法规文书的分享卡片 |
 | `/api/mcp` | MCP（Streamable HTTP） | `no-store` | 切换前完成（M3） | 公开只读 MCP |
 | `/openapi-v3.json` | `application/json` | `public, max-age=3600` | 切换前完成（M3） | OpenAPI 3.1，由 Zod 生成 |
+| `/favicon.ico`、`/icon-96.png`、`/icon-144.png`、`/icon-192.png`、`/icon.png`、`/icon-maskable.png`、`/apple-icon.png`、`/logo.svg` | `image/*` | `public, max-age=86400, stale-while-revalidate=604800` | 切换前完成（M3） | 站点图标（五臂星系，DEC-78）：`scripts/brand-icons.ts` 从母版生成；页面头部、网页应用清单、RSS 频道图与 Organization 结构化数据引用它们；`/apple-touch-icon.png`、`/apple-touch-icon-precomposed.png` 提供与 `/apple-icon.png` 相同的文件 |
+| `/manifest.webmanifest` | `application/manifest+json` | `public, max-age=86400` | 切换前完成（M3） | 网页应用清单：192、512 像素图标与一枚 maskable 方形图标 |
 
 当前公开版本无法确认时，RSS、站点地图返回 503，带 `Retry-After` 与 `Cache-Control: no-store`，不返回空 feed 冒充正常。【设计】（取自 `apps/api/src/routes/static.ts:112-120`（AIHOT）的 503 做法）
 
 ## 2. RSS 规则
 
-1. **频道**：`title`“AI矿策 · 全部矿业动态”（其余各路同形）、`link` 指向对应栏目页、`description`、`language=zh-CN`。【已实现未验证】（旧 `services/live_pipeline/reader.py:917-928@main`）
+1. **频道**：`title`“AI矿策 · 全部矿业动态”（其余各路同形）、`link` 指向对应栏目页、`description`、`language=zh-CN`。【已实现未验证】（旧 `services/live_pipeline/reader.py:917-928@main`）频道图 `image` 为站点图标 `/icon-144.png`（144×144，RSS 2.0 允许的最大宽度），标题与链接同频道。【设计】（Owner 2026-11-06）
 2. **条目**：取最近 50 条；`title`＝中文标题；`link`＝本站详情页 `/items/{id}`（法规为 `/policies/{id}`，日报为对应刊期地址 `/daily/{出刊日}`，周报、月报同理，BR-TIME-09）；`source url`＝原文链接、文字为发布方名。【已实现未验证】（`reader.py:929-948@main`）
 3. **描述**：固定为“据〔发布方链接〕原文整理：”加导读首段；多个发布方按序列出；只有日期的条目前置“来源发布日期：YYYY-MM-DD（仅提供日期）。”；末尾固定一句“内容由 AI 辅助生成/翻译，以原文为准。”。【已实现未验证】（署名句式与日期前置：`services/live_pipeline/attribution.py:40-59@main`；AI 标注句为本包新增，DEC-38）
 4. **时间**：分钟及以上精度输出 `pubDate`；**只有日期的条目输出 `dc:date`，不输出 `pubDate`**，也不补时分（INV-06）。【已实现未验证】（`reader.py:937-944@main`）

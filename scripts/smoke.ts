@@ -38,6 +38,13 @@ const MACHINE: Array<[path: string, type: RegExp]> = [
   ["/og/site.png", /image\/png/],
   ["/icon.png", /image\/png/],
   ["/favicon.ico", /icon/],
+  // The icons the page head, the web manifest and the RSS channel name (tests/site-icons.test.ts).
+  ["/icon-96.png", /image\/png/],
+  ["/icon-144.png", /image\/png/],
+  ["/icon-192.png", /image\/png/],
+  ["/icon-maskable.png", /image\/png/],
+  ["/apple-icon.png", /image\/png/],
+  ["/apple-touch-icon.png", /image\/png/],
 ];
 
 let failed = 0;

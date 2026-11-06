@@ -4,7 +4,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { type Changelog, loadChangelog, validateChangelog, readerChangelogCopy } from "@amp/backend/site/meta";
+import {
+  type Changelog,
+  type ChangelogCopyEdit,
+  loadChangelog,
+  publishedNoteRewrite,
+  readerChangelogCopy,
+  readerWordingProblem,
+  validateChangelog,
+  validateReleaseNote,
+} from "@amp/backend/site/meta";
 import { createHash } from "node:crypto";
 
 const text = readFileSync(new URL("../industry/changelog.json", import.meta.url), "utf8");
@@ -55,23 +64,18 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
     [
       ["2026-10-14", "00:19", "阅读、反馈与日报体验更新"],
-      ["2026-10-10", undefined, "金属价格增加了锂"],
-      ["2026-10-10", undefined, "金属价格把金、铜、锂放在前面"],
-      ["2026-10-10", undefined, "金属价格写明比的是哪一期"],
-      ["2026-10-10", undefined, "按国家、矿种和公司能筛到更多稿"],
+      ["2026-10-10", undefined, "金属价格页开始显示官方报价"],
+      ["2026-10-10", undefined, "按国家、矿种和公司筛选更全"],
       ["2026-10-10", undefined, "外文稿先显示中文导读"],
       ["2026-10-10", undefined, "目前是测试版"],
       ["2026-10-10", undefined, "新闻按原始发布日期显示"],
       ["2026-10-10", undefined, "没有大事的期不再留空"],
       ["2026-10-10", undefined, "精选入口只留近三个月"],
-      ["2026-10-10", undefined, "金属价格：电脑上列宽更匀"],
       ["2026-10-10", undefined, "首页换回精选"],
-      ["2026-10-10", undefined, "金属价格页开始显示官方报价"],
       ["2026-10-10", undefined, "法规政策动态可以按国家查看"],
       ["2026-10-06", undefined, "首页先展示最新矿业动态"],
       ["2026-10-06", undefined, "金属价格：侧栏新增入口"],
-      ["2026-10-06", undefined, "带 www 的网址也能打开本站"],
-      ["2026-10-06", undefined, "只写日期的稿子：只显示日期，旧稿归到原来那天"],
+      ["2026-10-06", undefined, "只写日期的文章不再显示 00:00"],
       ["2026-10-06", undefined, "全部动态更聚焦金属矿业"],
       ["2026-10-06", undefined, "两个分类改名：矿山安全、技术与冶炼"],
       ["2026-10-06", undefined, "事件进展更便于连续查阅"],
@@ -150,4 +154,53 @@ test("bad files are refused with the field named", () => {
     breakIt(c);
     assert.throws(() => validateChangelog(c), message, name);
   }
+});
+
+const hashOf = (r: { date: string; time?: string; title: string; body: string[] }) =>
+  createHash("sha256")
+    .update(JSON.stringify({ date: r.date, time: r.time, title: r.title, body: r.body }))
+    .digest("hex");
+
+test("a copy edit can restate a registered release as a major update with its version", () => {
+  const registered = { date: "2026-11-06", time: "11:21", kind: "更新" as const, title: "合成大改版", body: ["合成一", "合成二"] };
+  const history = { latestVersion: "2026-11-06T11:21", releases: [registered] };
+  const edit: ChangelogCopyEdit = {
+    date: registered.date,
+    time: registered.time,
+    title: registered.title,
+    originalCopySha256: hashOf(registered),
+    copy: { kind: "重大更新", version: "2026.11", title: "合成主角上线", body: ["合成导语", "合成一"] },
+  };
+  const [shown] = readerChangelogCopy(history, [edit]).releases;
+  assert.deepEqual([shown!.kind, shown!.version, shown!.title], ["重大更新", "2026.11", "合成主角上线"]);
+  assert.equal(history.releases[0]!.kind, "更新", "the registered record is left as it was");
+});
+
+test("every public changelog line reads as a reader update, and the shipped note's public words are its rewrite", () => {
+  const read = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
+  const edits: ChangelogCopyEdit[] = read("changelog-copy-edits.json");
+  const lines = [
+    ...validateChangelog(read("changelog.json")).releases.map((r) => [r.title, ...r.body]),
+    ...edits.flatMap((e) => (e.copy ? [[e.copy.title, ...e.copy.body]] : [])),
+  ];
+  for (const entry of lines) assert.equal(readerWordingProblem(entry), null, entry[0]);
+  for (const e of edits)
+    if (e.copy)
+      validateReleaseNote({ kind: e.copy.kind ?? "优化", title: e.copy.title, body: e.copy.body, ...(e.copy.version ? { version: e.copy.version } : {}) });
+  // The pending note is either one already published (readers see its rewrite) or reader-clean as written.
+  const note = read("release-note.json").note;
+  if (!publishedNoteRewrite(note, edits)) assert.equal(readerWordingProblem([note.title, ...note.body]), null);
+  // The 2026-11-06 release shows as the 2026.11 major update, led by the news map.
+  const major = edits.find((e) => e.date === "2026-11-06" && e.time === "11:21")?.copy;
+  assert.deepEqual([major?.kind, major?.version], ["重大更新", "2026.11"]);
+  assert.ok(
+    major?.body.some((line) => line.includes("资讯地图")),
+    "the news map leads the release",
+  );
+});
+
+test("the reader wording check names technical words and lets reader sentences through", () => {
+  assert.match(readerWordingProblem(["按内容实际涉及地区筛选，背景提及仍可通过全文搜索查找"]) ?? "", /背景提及/);
+  assert.match(readerWordingProblem(["列表可用 j / k 键上下切换"]) ?? "", /j \/ k/);
+  assert.equal(readerWordingProblem(["首页新增资讯地图，点一个国家就只看这个国家的资讯。"]), null);
 });

@@ -80,7 +80,8 @@ function readMap(period: NewsMapWindow): Promise<SiteNewsMap> {
 /** A rise worth marking: at least two more than the window before, and half again as many. */
 const rising = (c: SiteNewsMap["countries"][number]) => c.count - c.previous >= 2 && c.count >= c.previous * 1.5;
 
-export function WorldMap({ base, selected }: { base: string; selected: string | null }) {
+/** `hint` replaces the line under the map where clicking a circle does something else (e.g. the changelog's preview). */
+export function WorldMap({ base, selected, hint }: { base: string; selected: string | null; hint?: string }) {
   const [params] = useSearchParams();
   const t = useT().map;
   const locale = useLocale();
@@ -93,6 +94,8 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
   const [period, setPeriod] = useState<NewsMapWindow>("7d");
   const [map, setMap] = useState<SiteNewsMap | null>(null),
     [failed, setFailed] = useState(false);
+  // Names stay hidden: one appears beside the dot under the pointer or keyboard focus, and beside the selected country.
+  const [hovered, setHovered] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     setFailed(false);
@@ -108,7 +111,6 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
   const countries = (shown?.countries ?? []).filter((c) => c.count > 0 && POINTS[c.code]);
   const max = Math.max(1, ...countries.map((c) => c.count));
   const radius = (n: number) => 1.6 + 4.4 * Math.sqrt(n / max);
-  const labelled = new Set(countries.slice(0, 5).map((c) => c.code));
   const total = countries.reduce((sum, c) => sum + c.count, 0);
   const riser = [...countries].filter(rising).sort((a, b) => b.count - b.previous - (a.count - a.previous))[0];
   const current = selected ? shown?.countries.find((c) => c.code === selected) : undefined;
@@ -137,7 +139,7 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
               ? `${span} · ${t.empty}`
               : `${span} · ${countries.length} ${t.countries} · ${total} ${t.items}${riser ? ` · ${t.rising}${nameOf(riser)}` : ""}`}
       </p>
-      <nav aria-label={t.navLabel}>
+      <nav aria-label={t.navLabel} className="relative">
         <svg viewBox={`0 0 ${frame.width} ${frame.height}`} className="block h-auto w-full" aria-hidden={countries.length === 0 ? true : undefined}>
           <title>{t.title}</title>
           <use href={`${dotsUrl}#dots`} className="stroke-ink-4 opacity-40" />
@@ -151,29 +153,66 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
                 key={`${period}-${c.code}`}
                 to={hrefWith(base, params, { jurisdiction: on ? null : c.code })}
                 preventScrollReset
+                className="map-dot-link"
                 aria-label={`${fmt(t.bubble, { label: nameOf(c), span, count: c.count })}${up ? t.bubbleRise : ""}${on ? t.bubbleSelected : ""}`}
                 aria-current={on ? "true" : undefined}
+                onMouseEnter={() => setHovered(c.code)}
+                onMouseLeave={() => setHovered((code) => (code === c.code ? null : code))}
+                onFocus={() => setHovered(c.code)}
+                onBlur={() => setHovered((code) => (code === c.code ? null : code))}
               >
-                <title>{fmt(t.bubbleTitle, { label: nameOf(c), span, count: c.count, previous: c.previous })}</title>
-                {on && <circle cx={x} cy={y} r={r + 2.2} className="fill-none stroke-accent" strokeWidth={0.7} />}
+                {/* A soft ring keeps breathing out of each dot, out of step with its neighbours; a fast riser's ring is hot. */}
                 <circle
                   cx={x}
                   cy={y}
                   r={r}
-                  className="map-bubble fill-accent"
-                  style={{ animationDelay: `${0.06 + i * 0.04}s` }}
-                  fillOpacity={on ? 0.95 : 0.7}
+                  className={`map-pulse fill-none ${up ? "stroke-hot" : "stroke-accent"}`}
+                  strokeWidth={0.6}
+                  style={{ animationDelay: `${0.6 + ((i * 0.53) % 3.2)}s` }}
                 />
-                {(labelled.has(c.code) || on) && (
-                  <text x={x + r + 1.8} y={y + 2.4} className="fill-ink-2 text-[7px] font-semibold">
-                    {nameOf(c)}
-                    {up && <tspan className="fill-hot">↑</tspan>}
-                  </text>
-                )}
+                {on && <circle cx={x} cy={y} r={r + 2.2} className="fill-none stroke-accent" strokeWidth={0.7} />}
+                {/* An invisible target a little larger than the smallest dots, so they are easy to point at and tap. */}
+                <circle cx={x} cy={y} r={Math.max(r + 1.2, 3.6)} className="fill-transparent" />
+                <g className="map-dot">
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={r}
+                    className={`map-bubble ${up ? "fill-hot" : "fill-accent"}`}
+                    style={{ animationDelay: `${0.06 + i * 0.04}s` }}
+                    fillOpacity={on || hovered === c.code ? 0.95 : 0.7}
+                  />
+                </g>
               </Link>
             );
           })}
         </svg>
+        {/* The name sits beside its dot as ordinary text over the map, so it reads at the same size on a phone and a
+            desktop; it flips to the left of the dot near the right edge. Screen readers get it from the link's label. */}
+        {countries
+          .filter((c) => c.code === hovered || c.code === selected)
+          .map((c) => {
+            const [x, y] = project(POINTS[c.code]!);
+            const gap = `${((radius(c.count) * 1.3) / frame.width) * 100}% + 6px`;
+            const left = x > frame.width * 0.8;
+            return (
+              <span
+                key={`label-${c.code}`}
+                aria-hidden="true"
+                className="map-label pointer-events-none absolute z-10 -translate-y-1/2 whitespace-nowrap rounded-full border border-line bg-surface px-2 py-0.5 text-[12px] font-semibold leading-[1.5] text-ink shadow-sm"
+                style={{
+                  top: `${(y / frame.height) * 100}%`,
+                  ...(left ? { right: `calc(${100 - (x / frame.width) * 100}% + ${gap})` } : { left: `calc(${(x / frame.width) * 100}% + ${gap})` }),
+                }}
+              >
+                {nameOf(c)}
+                <span className="ml-1 font-normal text-ink-3">
+                  {c.count} {t.items}
+                </span>
+                {rising(c) && <span className="ml-0.5 text-hot">↑</span>}
+              </span>
+            );
+          })}
       </nav>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12.5px] leading-[1.6] text-ink-4">
         {selected ? (
@@ -186,7 +225,7 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
             </Link>
           </span>
         ) : (
-          <span>{t.hint}</span>
+          <span>{hint ?? t.hint}</span>
         )}
         <span>{t.noBorders}</span>
       </div>

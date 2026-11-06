@@ -114,14 +114,16 @@ export async function readCurrentPublicPolicies(sourceIds: string[], db: Db = sq
   return result;
 }
 
+export type PublicSourcePolicy = z.infer<typeof PublicPolicy>;
+type Resource = z.infer<typeof EvaluateSourcePolicyInputSchema>["resource"];
+
 /** Only the minimum eligibility projection is readable here, never the private processing permission evidence. */
-export async function publicProcessingAllowed(
-  sourceId: string,
-  resource: z.infer<typeof EvaluateSourcePolicyInputSchema>["resource"],
-  now = Date.now(),
-  db: Db = sql,
-) {
-  const policy = await readCurrentPublicPolicy(sourceId, db);
+export async function publicProcessingAllowed(sourceId: string, resource: Resource, now = Date.now(), db: Db = sql) {
+  return publicProcessingAllowedBy(await readCurrentPublicPolicy(sourceId, db), resource, now);
+}
+
+/** The same check over a projection the caller already read in this request (one consistent permission read for a whole list). */
+export function publicProcessingAllowedBy(policy: PublicSourcePolicy | null, resource: Resource, now = Date.now()) {
   if (
     policy?.processing?.decision !== "allow" ||
     policy.conditions.length ||
@@ -178,14 +180,50 @@ export async function lockCurrentSourcePolicies(tx: Tx, expected: readonly { sou
   return result;
 }
 
+type Evaluation = z.infer<typeof SourcePolicyEvaluationSchema>;
+const absentFor = (input: z.infer<typeof EvaluateSourcePolicyInputSchema>) => ({
+  source_id: input.source_id,
+  lane: input.lane,
+  capability: input.capability,
+  permission_version: null,
+  scope: null,
+  expires_at: null,
+});
+
 /** Real current-state query. Unproved conditions are never converted into an allow decision. */
-export async function evaluateSourcePolicy(value: unknown, now?: number, db: Db = sql): Promise<z.infer<typeof SourcePolicyEvaluationSchema>> {
+export async function evaluateSourcePolicy(value: unknown, now?: number, db: Db = sql): Promise<Evaluation> {
   const input = EvaluateSourcePolicyInputSchema.parse(value);
-  const absent = { source_id: input.source_id, lane: input.lane, capability: input.capability, permission_version: null, scope: null, expires_at: null };
+  const publicPurpose = publicPurposes.some((purpose) => purpose === input.capability);
+  let full: SourcePolicy | null, published: PublicSourcePolicy | null;
+  try {
+    full = publicPurpose ? null : await readCurrentSourcePolicy(input.source_id, db);
+    published = publicPurpose ? await readCurrentPublicPolicy(input.source_id, db) : null;
+  } catch {
+    return { ...absentFor(input), decision: "unknown", reason: "verification_unavailable" };
+  }
+  return decide(input, full, published, now);
+}
+
+/**
+ * The same public-purpose decision over a public projection the caller already read in this request
+ * (readCurrentPublicPolicies), so a list checks every document against one permission read instead of one query per check.
+ */
+export function evaluatePublicSourcePolicy(published: PublicSourcePolicy | null, value: unknown, now?: number): Evaluation {
+  const input = EvaluateSourcePolicyInputSchema.parse(value);
+  if (!publicPurposes.some((purpose) => purpose === input.capability)) throw new Error("Only public purposes are decided from the public projection");
+  if (published && published.source_id !== input.source_id) throw new Error("Public source policy belongs to another source");
+  return decide(input, null, published, now);
+}
+
+function decide(
+  input: z.infer<typeof EvaluateSourcePolicyInputSchema>,
+  full: SourcePolicy | null,
+  published: PublicSourcePolicy | null,
+  now?: number,
+): Evaluation {
+  const absent = absentFor(input);
   try {
     const publicPurpose = publicPurposes.find((purpose) => purpose === input.capability);
-    const full = publicPurpose ? null : await readCurrentSourcePolicy(input.source_id, db);
-    const published = publicPurpose ? await readCurrentPublicPolicy(input.source_id, db) : null;
     const policy = full ?? published;
     if (!policy) return { ...absent, decision: "unknown", reason: "missing_policy" };
     const context = { ...absent, permission_version: policy.permission_version, scope: policy.scope, expires_at: policy.expires_at };

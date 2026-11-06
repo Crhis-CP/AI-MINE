@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
-import { validateChangelog, validateReleaseNote } from "../../packages/backend/src/site/meta.ts";
+import {
+  type ChangelogCopyEdit,
+  publishedNoteRewrite,
+  readerWordingProblem,
+  validateChangelog,
+  validateReleaseNote,
+} from "../../packages/backend/src/site/meta.ts";
 
 /** Check the reader note and its source fragments before a release can reach production. */
 export function checkProductUpdate(root: string, changed: string[], previousManifest: string | null = null): string[] {
@@ -12,6 +18,18 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
     const manifest = JSON.parse(readFileSync(filename, "utf8"));
     validateReleaseNote(manifest.note);
     if (manifest.announcement !== undefined) validateReleaseNote(manifest.announcement);
+    const editsFile = path.join(root, "industry/changelog-copy-edits.json");
+    const edits: ChangelogCopyEdit[] = existsSync(editsFile) ? JSON.parse(readFileSync(editsFile, "utf8")) : [];
+    // A note already published and rewritten is shown only in its rewritten words (a repeat registers as internal
+    // maintenance), so the strict reader check applies to that rewrite; any other note must pass it as written.
+    const notePublished = publishedNoteRewrite(manifest.note, edits) !== null;
+    const readerWords = (where: string, lines: string[]) => {
+      const problem = readerWordingProblem(lines);
+      if (problem) throw new Error(`${where}: ${problem}`);
+    };
+    if (!notePublished) readerWords("industry/release-note.json", [manifest.note.title, ...manifest.note.body]);
+    if (manifest.announcement !== undefined && publishedNoteRewrite(manifest.announcement, edits) === null)
+      readerWords("industry/release-note.json announcement", [manifest.announcement.title, ...manifest.announcement.body]);
     for (const file of ["industry/changelog.json", "industry/changelog-copy-edits.json"]) {
       if (!existsSync(path.join(root, file))) continue;
       const data = JSON.parse(readFileSync(path.join(root, file), "utf8"));
@@ -20,6 +38,7 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
         : validateChangelog(data).releases;
       for (const { kind, version, title, body } of notes) {
         validateReleaseNote({ kind, title, body, ...(version === undefined ? {} : { version }) });
+        readerWords(`${file} “${title}”`, [title, ...body]);
         if (title === "例行维护") throw new Error(`${file}: 纯维护记录不进入读者日志`);
       }
     }
@@ -61,8 +80,11 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
         body: fragment.highlights,
         ...(fragment.version === undefined ? {} : { version: fragment.version }),
       };
-      if (fragment.audience === "读者") validateReleaseNote(note);
-      else {
+      if (fragment.audience === "读者") {
+        validateReleaseNote(note);
+        // New reader fragments, and those of a note not yet published, use reader words throughout.
+        if (changedFragments.includes(file) || (!notePublished && manifest.fragments.includes(file))) readerWords(file, [note.title, ...note.body]);
+      } else {
         validateChangelog({ latestVersion: "2026-01-01", releases: [{ ...note, date: "2026-01-01" }] });
         if ([...fragment.title].length > 24) throw new Error(`${file}: title exceeds 24 characters`);
       }

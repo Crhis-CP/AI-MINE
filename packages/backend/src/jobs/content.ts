@@ -34,7 +34,7 @@ import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUn
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
 import { ModelOutputError } from "../providers/llm.ts";
-import { isProviderPeak, nextOffPeakStart, OFF_PEAK_WAIT } from "../providers/peak-hours.ts";
+import { OFF_PEAK_WAIT, offPeakWait } from "../providers/peak-hours.ts";
 import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
 import { ensureQueue, QUEUES, shutdownSignal } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
@@ -173,8 +173,7 @@ export async function queueProcessing(
   const tagged = !!opts.attemptTag;
   // History (found long after it was published) can wait: at the provider's peak hours its analysis starts at the
   // next off-peak start (half price). The retry time keeps the safety net from queueing it earlier.
-  const now = opts.now ?? new Date();
-  const offPeak = r.historical && !tagged && isProviderPeak(now) ? nextOffPeakStart(now) : null;
+  const offPeak = r.historical && !tagged ? offPeakWait(opts.now) : null;
   if (offPeak) await db`UPDATE articles SET processing_retry_at=${offPeak}, processing_error=${OFF_PEAK_WAIT} WHERE id=${articleId} AND revision=${r.revision}`;
   return record(
     enqueue(

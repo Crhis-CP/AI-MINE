@@ -82,9 +82,16 @@ function manifest() {
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icon.png", sizes: "512x512", type: "image/png" },
+      // A full square with the mark inside the safe zone, for launchers that cut icons to their own shape.
+      { src: "/icon-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
+
+/** Icon files in industry/brand/ (made by scripts/brand-icons.ts), each served at the site root under its own name. */
+const ICON_FILES = ["favicon.ico", "icon.png", "icon-192.png", "icon-144.png", "icon-96.png", "icon-maskable.png", "apple-icon.png", "logo.svg"];
+/** The addresses Safari and link previews try for a touch icon without reading the page: the same file as apple-icon.png. */
+const TOUCH_ICON_ALIASES = ["apple-touch-icon.png", "apple-touch-icon-precomposed.png"];
 
 /** The OpenAPI document with this deployment's name, address and categories. */
 let openApi: string | null = null;
@@ -189,7 +196,8 @@ export function registerStatic(app: FastifyInstance) {
   }
 
   // Icons from the industry pack (industry/brand/).
-  for (const icon of ["favicon.ico", "icon.png", "icon-192.png", "apple-icon.png", "logo.svg"]) {
-    app.get(`/${icon}`, (req, reply) => sendFile(req, reply, path.join(BRAND, icon), { cacheControl: "public, max-age=86400, stale-while-revalidate=604800" }));
-  }
+  const iconCache = "public, max-age=86400, stale-while-revalidate=604800";
+  for (const icon of ICON_FILES) app.get(`/${icon}`, (req, reply) => sendFile(req, reply, path.join(BRAND, icon), { cacheControl: iconCache }));
+  for (const alias of TOUCH_ICON_ALIASES)
+    app.get(`/${alias}`, (req, reply) => sendFile(req, reply, path.join(BRAND, "apple-icon.png"), { cacheControl: iconCache }));
 }

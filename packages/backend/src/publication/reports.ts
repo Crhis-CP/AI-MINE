@@ -125,21 +125,21 @@ async function availability(ids: string[], machine = false): Promise<Map<string,
   }
   return out;
 }
-/** Missing projections are unconfirmed and therefore unavailable, like explicitly withdrawn ones. */
-export async function unavailableIds(ids: string[]): Promise<Set<string>> {
-  const unique = [...new Set(ids.filter(Boolean))];
-  if (!unique.length) return new Set();
-  const current = await availability(unique);
-  return new Set(unique.filter((id) => !current.get(id)?.available));
-}
-
 /** Directory/feed metadata only: citation summaries and full report prose stay in the detail read. */
 export async function reportIndexRows(kind: ReportKind, limit: number) {
+  return (await readReportIndex(kind, limit)).rows;
+}
+
+/**
+ * The directory rows and the current availability of every item they cite, read once. Missing projections are
+ * unconfirmed and therefore unavailable, like explicitly withdrawn ones.
+ */
+async function readReportIndex(kind: ReportKind, limit: number) {
   const rows = await sql<{ key: string; content: Record<string, any>; generated_at: Date }[]>`
     SELECT key,content,generated_at FROM reports r WHERE kind=${kind}
       AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)
     ORDER BY key DESC LIMIT ${limit}`;
-  const current = await availability([
+  const cited = [
     ...new Set(
       rows.flatMap((r) =>
         reportCitations(r.content)
@@ -147,13 +147,14 @@ export async function reportIndexRows(kind: ReportKind, limit: number) {
           .filter((id): id is string => !!id),
       ),
     ),
-  ]);
-  return rows.map((r) => ({ ...r, content: currentReportContent(r.content, current) }));
+  ];
+  const current = await availability(cited);
+  return { rows: rows.map((r) => ({ ...r, content: currentReportContent(r.content, current) })), cited, current };
 }
 
 /**
  * A report's headline for indexes and feeds: its lead, else the first cited item that is still public.
- * `gone` must cover withdrawn candidates before the first public title (see {@link unavailableHeadlineIds}).
+ * `gone` must cover withdrawn candidates before the first public title, as {@link reportIndex} reads them for every citation.
  */
 export function reportHeadline(content: Record<string, any>, kind: "daily" | "periodic", gone: Set<string>): string | null {
   const removed = !!content.correctionPending || reportCitations(content).some((i) => i.itemId && gone.has(i.itemId));
@@ -191,16 +192,6 @@ function reportCitations(content: {
     ...(content.flashes ?? []),
   ];
   return [...entries, ...entries.flatMap((entry) => entry.related ?? [])];
-}
-
-/** Every source of synthesized prose must still be public, including flashes and later citations. */
-export async function unavailableHeadlineIds(rows: Array<{ content: Record<string, any> }>, _kind: "daily" | "periodic"): Promise<Set<string>> {
-  return unavailableIds(
-    rows
-      .flatMap((r) => reportCitations(r.content))
-      .map((i) => i.itemId)
-      .filter((id): id is string => !!id),
-  );
 }
 
 function staleCitation(raw: Record<string, unknown>, current: Map<string, Availability>) {
@@ -381,9 +372,11 @@ export async function loadReport(kind: ReportKind, key: string, machine = false)
  */
 const INDEX_LIMIT = 400;
 export async function reportIndex(kind: ReportKind) {
-  // A failed current qualification must never fall back to a directory with withdrawn prose.
-  const rows = await reportIndexRows(kind, INDEX_LIMIT);
-  return { rows, gone: await unavailableHeadlineIds(rows, kind === "daily" ? "daily" : "periodic") };
+  // A failed current qualification must never fall back to a directory with withdrawn prose. Every source of synthesized
+  // prose must still be public, including flashes and later citations; `gone` comes from the same availability read as
+  // the rewritten content, so each cited item is hydrated once, not twice.
+  const { rows, cited, current } = await readReportIndex(kind, INDEX_LIMIT);
+  return { rows, gone: new Set(cited.filter((id) => !current.get(id)?.available)) };
 }
 
 export async function listReports(kind: ReportKind, limit = INDEX_LIMIT): Promise<ReportIndexEntry[]> {

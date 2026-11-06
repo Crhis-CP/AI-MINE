@@ -1053,6 +1053,32 @@ export const PHRASES = {
   "与当前版本逐条对照 →": "Compare with the current version →",
   "法规政策动态试点范围更新中：新文书先提供原文存档与逐条对照，AI 解读暂不更新。已发布内容仍可查阅。":
     "Policy & regulation is updating for the pilot scope: new documents come with the archived original and a clause-by-clause comparison; AI interpretation is not being updated yet. Published content remains available.",
+  // The 2026.11 major update's showcase on the changelog (features/changelog/Showcase202611.tsx).
+  本次更新亮点: "Highlights of this update",
+  本次主角: "The headline feature",
+  一眼看到矿业新闻发生在哪里: "See at a glance where mining news is happening",
+  "鼠标移到圆点上看是哪个国家，点一下去首页看该国资讯。": "Point at a dot to see the country; select it to see that country's news on the home page.",
+  "首页顶部的地图按国家标出今天、近 7 天、近 30 天的资讯：圆点越大消息越多，涨得快的标成红色；鼠标移到圆点上才显示国家名，点一下，下面就只看这个国家。":
+    "The map at the top of the home page marks each country's news for today, the last 7 days or the last 30 days: bigger dots mean more news and fast risers turn red. Point at a dot to see the country's name; select it to see only that country's news below.",
+  去首页看地图: "Open the map",
+  "资讯分成新的 9 类": "News in nine new categories",
+  "按文章量重新划分，每一类都有足够的内容；以前收藏的分类链接照常能用。":
+    "Redrawn by article volume so every category has enough to read; saved category links still work.",
+  "同一件事按进展排开，多家报道收在一起，关键数字的变化和接下来要关注的日期一目了然。":
+    "One story laid out by its developments, with every outlet's report together and the key figures and dates to watch at a glance.",
+  看热点事件: "See trending stories",
+  法规逐条对照: "Clause-by-clause comparison",
+  "先选国家、再选主题，一层层找到法规；新旧版本逐条标出新增、修改和删除。":
+    "Pick a country, then a topic, to find a regulation; old and new versions are compared clause by clause.",
+  打开法规政策: "Open regulations",
+  金属价格卡片: "Metal price cards",
+  "每种金属一张卡片，先看最新价格和涨跌；报价异常跳动时只暂缓那一种。":
+    "One card per metal with the latest price and change first; an unusual jump holds back only that metal.",
+  读起来更顺: "Easier reading",
+  "标题摘要都是中文，外国矿企写成“必和必拓（BHP）”；可换宋体或黑体，也可切到英文界面。":
+    "Chinese titles and summaries with foreign miners named like “必和必拓（BHP）”; switch between serif and sans, or to the English interface.",
+  按分类浏览: "Browse by category",
+  "本次全部 {n} 项变化": "All {n} changes in this update",
 } as const satisfies Record<string, string>;
 
 export type Phrase = keyof typeof PHRASES;
