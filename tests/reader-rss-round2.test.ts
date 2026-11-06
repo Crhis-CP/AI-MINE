@@ -28,6 +28,11 @@ test("every RSS item preserves publisher attribution and AI labels while full te
     assert.match(res.body, /<amp:content-id>/);
     assert.equal(res.headers["cache-control"], "public, max-age=0, s-maxage=0, must-revalidate");
     assert.match(res.body, /<ttl>1<\/ttl>/);
+    // The channel image is the app icon (tests/site-icons.test.ts), titled and linked as the channel.
+    const xml = res.body.replace(/>\s+</g, "><");
+    const [, title, link] = /<channel><title>([^<]+)<\/title><link>([^<]+)<\/link>/.exec(xml) ?? [];
+    const image = `<image><url>${new URL(link!).origin}/icon-144.png</url><title>${title}</title><link>${link}</link><width>144</width><height>144</height></image>`;
+    assert.ok(xml.includes(image), route);
     if (route.includes("/full")) assert.match(res.body, /<content:encoded>/);
     else assert.doesNotMatch(res.body, /<content:encoded>/);
   }
