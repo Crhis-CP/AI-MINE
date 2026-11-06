@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { correctsIssue, keepDailyLead } from "../packages/backend/src/reports/reconcile.ts";
-import type { StoredReportContent } from "../packages/backend/src/reports/references.ts";
+import { reportMemberIds, storedReportEntries, type StoredReportContent } from "../packages/backend/src/reports/references.ts";
 
 const entry = (itemId: string, title = `标题${itemId}`) => ({ itemId, title, summary: `导读${itemId}` });
 const issue = (lead: string, ids: string[]): StoredReportContent => ({
@@ -39,4 +39,17 @@ test("joining reports is not a correction; a story readers saw going is", () => 
   assert.equal(correctsIssue(before, { ...issue("a", ["a", "b"]), overview: "改写的综述" }), false, "only the overview changed");
   assert.equal(correctsIssue(before, issue("a", ["a"])), true, "a story readers saw is gone");
   assert.equal(correctsIssue({ ...before, correctionPending: true }, issue("a", ["a", "b"])), true, "a pending correction");
+});
+
+test("a damaged stored issue reads as empty instead of stopping its repair", () => {
+  // Same class as the catch-up repair of a corrupt month: every reader of stored content goes through these helpers.
+  for (const damaged of [
+    { themes: "broken" },
+    { sections: [null, { items: "x" }], flashes: {} },
+    { sourceMemberIds: "a" },
+  ] as unknown as StoredReportContent[]) {
+    assert.deepEqual(storedReportEntries(damaged), []);
+    assert.deepEqual(reportMemberIds(damaged), []);
+    assert.equal(correctsIssue(damaged, issue("a", ["a"])), false, "filling a damaged issue is a repair, not a correction");
+  }
 });
