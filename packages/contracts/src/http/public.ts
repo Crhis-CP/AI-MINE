@@ -111,12 +111,7 @@ export const XPostView = z.strictObject({
 export const XPostDetailView = XPostView.omit({ text: true, translation: true });
 export const XPostFeedView = XPostDetailView.extend({ quoted: XPostQuotedView.omit({ url: true }).nullable() });
 export const XPostDetailFields = z.strictObject({ x: XPostDetailView.nullable().optional() });
-/**
- * `version` moves with every reader-visible change, `withdrawalVersion` with every change to something already
- * public (an update, withdrawal or regrouping, including revisions), and `arrivalVersion` only with new arrivals
- * and timed releases, so a page can tell "something new to load" from "check what is shown".
- */
-export const ContentVersion = z.strictObject({ version: z.string(), withdrawalVersion: z.string(), arrivalVersion: z.string().optional() });
+export const ContentVersion = z.strictObject({ version: z.string(), withdrawalVersion: z.string() });
 export const Freshness = z.strictObject({
   generated_at: z.iso.datetime(),
   release: z.string(),

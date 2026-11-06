@@ -25,7 +25,8 @@ test("public references and version watermarks change atomically on withdrawal; 
   await f.admin`UPDATE publications SET visibility='withdrawn' WHERE article_id=${id}`;
   const after = await contentVersion();
   assert.notEqual(after.withdrawalVersion, before.withdrawalVersion);
-  assert.equal(after.arrivalVersion, before.arrivalVersion, "a withdrawal or revision is not something new to load");
+  assert.equal(after.version, before.version, "a withdrawal or revision is not something new to load");
+  assert.deepEqual(Object.keys(after).sort(), ["version", "withdrawalVersion"], "pages opened before a release still parse the answer");
   assert.deepEqual(await savedItems([id]), { items: [], unavailableIds: [id] });
   await assert.rejects(recordScheduledCheck("news"));
   const fresh = await publicFreshness();
@@ -41,7 +42,6 @@ test("public references and version watermarks change atomically on withdrawal; 
   const waiting = await contentVersion(now);
   const released = await contentVersion(new Date(future.getTime() + 1));
   assert.notEqual(waiting.version, released.version, "time-based release must notify readers even without another write");
-  assert.notEqual(waiting.arrivalVersion, released.arrivalVersion, "a timed release is something new to load");
   assert.equal(waiting.withdrawalVersion, released.withdrawalVersion);
 });
 

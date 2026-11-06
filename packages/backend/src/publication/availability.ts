@@ -22,17 +22,21 @@ export async function savedItems(ids: string[]) {
   return { items, unavailableIds };
 }
 
+/**
+ * `withdrawalVersion` moves with every change to something already public (an update, withdrawal or regrouping,
+ * revisions included); `version` moves only when there is something new to load (an arrival or a timed release),
+ * so an open page tells "check what is shown" from "offer 加载最新" (Owner 2026-11-06). Every change to a published
+ * row moves both watermark counters and an insert moves `version` alone, so their difference counts the arrivals.
+ * The response keeps its two fields, so pages opened before this release keep working.
+ */
 export async function contentVersion(now = new Date()) {
-  // Every change to a published row moves both counters; an insert (a new arrival) moves `version` alone, so their
-  // difference, with the timed releases, moves only when there is something new to load.
-  const [row] = await sql<{ version: string; withdrawal_version: string; arrivals: string }[]>`
-    SELECT version::text,withdrawal_version::text,(version-withdrawal_version)::text AS arrivals FROM publication.read_watermarks WHERE lane='news'`;
+  const [row] = await sql<{ arrivals: string; withdrawal_version: string }[]>`
+    SELECT (version-withdrawal_version)::text AS arrivals,withdrawal_version::text FROM publication.read_watermarks WHERE lane='news'`;
   if (!row) throw new Error("Public watermarks unavailable");
   const pending = await pendingReleaseCount(now);
   return {
-    version: originalPostReadVersion(sha256(`${row.version}:${pending}`)),
+    version: originalPostReadVersion(sha256(`arrivals:${row.arrivals}:${pending}`)),
     withdrawalVersion: originalPostReadVersion(row.withdrawal_version),
-    arrivalVersion: originalPostReadVersion(sha256(`arrivals:${row.arrivals}:${pending}`)),
   };
 }
 

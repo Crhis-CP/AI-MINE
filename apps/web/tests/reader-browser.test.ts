@@ -761,42 +761,49 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
 });
 
-test("an article opened from a copy fetched just before its withdrawal is checked and taken down", { timeout: 30000 }, async (t) => {
-  withdrawn = false;
-  added = false;
-  const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, locale: "zh-CN" });
-  t.after(async () => {
+for (const change of ["unavailable", "summary-only"] as const) {
+  test(`an article opened from a copy fetched just before it became ${change} is checked and read again`, { timeout: 30000 }, async (t) => {
     withdrawn = false;
-    t.diagnostic(`last reader phase: ${phase}`);
-    await context.close();
+    added = false;
+    const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, locale: "zh-CN" });
+    t.after(async () => {
+      withdrawn = false;
+      withdrawnAs = "unavailable";
+      t.diagnostic(`last reader phase: ${phase}`);
+      await context.close();
+    });
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await openQualifiedReader(page);
+    // The copy a press on the link fetched (it may be reused for a few seconds); then the article is taken down or
+    // cut to a summary, so the full text in that copy may no longer be shown.
+    phase = "stale copy: fetch";
+    const copy = await page.request.get(`${origin}/items/fixture-a.data`);
+    assert.equal(copy.status(), 200);
+    const body = await copy.body(),
+      contentType = copy.headers()["content-type"]!;
+    withdrawnAs = change;
+    withdrawn = true;
+    // The click is answered with that copy once, as a browser reusing its press-time prefetch would (routed answers
+    // bypass the browser cache here, so the reuse is played directly); everything after it reaches the server.
+    let reused = false;
+    await page.route("**/items/fixture-a.data*", (route) => {
+      if (reused || route.request().headers()["sec-purpose"]) return route.continue();
+      reused = true;
+      return route.fulfill({ status: 200, contentType, body });
+    });
+    const asked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/items/availability");
+    phase = "stale copy: open";
+    await page.locator('[data-item-id="fixture-a"] h3 a').first().click();
+    await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    // The page's first check asks about the article itself and, as it may no longer show that copy, reads it again.
+    phase = "stale copy: asked";
+    const reread = page.waitForRequest((request) => new URL(request.url()).pathname === "/items/fixture-a.data" && !request.headers()["sec-purpose"]);
+    assert.ok(new URL((await asked).url()).searchParams.get("ids")?.split(",").includes("fixture-a"), "the article itself is asked about");
+    await reread;
+    if (change === "unavailable") await expect(page.getByRole("heading", { level: 1, name: detail.title, exact: true })).toHaveCount(0);
   });
-  await isolateBrowser(context, [origin]);
-  const page = await context.newPage();
-  await openQualifiedReader(page);
-  // The copy a press on the link fetched (it may be reused for a few seconds), then the article is withdrawn.
-  phase = "stale copy: fetch";
-  const copy = await page.request.get(`${origin}/items/fixture-a.data`);
-  assert.equal(copy.status(), 200);
-  const body = await copy.body(),
-    contentType = copy.headers()["content-type"]!;
-  withdrawn = true;
-  // The click is answered with that copy once, as a browser reusing its press-time prefetch would (routed answers bypass
-  // the browser cache here, so the reuse is played directly); everything after it reaches the server.
-  let reused = false;
-  await page.route("**/items/fixture-a.data*", (route) => {
-    if (reused || route.request().headers()["sec-purpose"]) return route.continue();
-    reused = true;
-    return route.fulfill({ status: 200, contentType, body });
-  });
-  const asked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/items/availability");
-  phase = "stale copy: open";
-  await page.locator('[data-item-id="fixture-a"] h3 a').first().click();
-  await expect(page).toHaveURL(`${origin}/items/fixture-a`);
-  // The page's first check asks about the article itself, finds it gone and reads the page again.
-  phase = "stale copy: asked";
-  assert.ok(new URL((await asked).url()).searchParams.get("ids")?.split(",").includes("fixture-a"), "the article itself is asked about");
-  await expect(page.getByRole("heading", { level: 1, name: detail.title, exact: true })).toHaveCount(0);
-});
+}
 
 async function loadFourTimelinePages(page: Page) {
   const viewport = page.viewportSize()!;
