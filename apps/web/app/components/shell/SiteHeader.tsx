@@ -1,12 +1,13 @@
 // The desktop header (direction C "survey map", DEC-78, Owner 2026-11-05): the lockup, the content
-// sections in one row, a "更多" menu for the rest, then search and the appearance switch, over slowly
+// sections in one row, a "更多" menu for the rest, then a search field and the appearance switch, over slowly
 // drifting gold contour lines. Phones keep their own header and the tab bar (≤ 960px).
 import { useEffect, useRef } from "react";
 import { Link as PlainLink, useLocation } from "react-router";
 import { basePath, otherLanguagePath, useLocale, useT, useTr } from "../../i18n";
 import { SITE } from "@amp/industry/site";
 import { UnreadMark } from "../../features/changelog/UnreadMark";
-import { useOpenSearch } from "../../features/search/SearchOverlay";
+import { Form } from "../../i18n/navigation";
+import { addRecentSearch } from "../../lib/local-state";
 import { feedbackPath } from "../../lib/feedback-origin";
 import { IconChevronDown, IconSearch } from "../icons";
 import { Wordmark } from "../Logo";
@@ -119,6 +120,49 @@ function MoreMenu() {
   );
 }
 
+/**
+ * Search right in the header (TASK-0568: the button here opened the phone search layer, which does not show on
+ * a desktop, so it did nothing). A plain GET form to 全部动态, which searches the news and lists matching
+ * policies above them; it keeps the /en prefix and works without scripts.
+ */
+function HeaderSearch() {
+  const t = useT();
+  return (
+    <Form
+      action="/all"
+      method="get"
+      role="search"
+      className="group relative"
+      onSubmit={(event) => {
+        const input = event.currentTarget.elements.namedItem("q") as HTMLInputElement | null;
+        const query = input?.value.trim() ?? "";
+        if (!query) {
+          event.preventDefault();
+          input?.focus();
+          return;
+        }
+        if (input) input.value = query;
+        addRecentSearch(query);
+      }}
+    >
+      <label htmlFor="header-search" className="sr-only">
+        {t.shell.search}
+      </label>
+      <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4 group-focus-within:text-ink-3" />
+      <input
+        id="header-search"
+        name="q"
+        type="search"
+        maxLength={200}
+        autoComplete="off"
+        enterKeyHint="search"
+        placeholder={t.shell.searchHint}
+        className="h-10 w-[150px] rounded-control border border-line bg-surface pl-9 pr-3 text-[13.5px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-4 hover:border-line-strong focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] xl:w-[220px]"
+      />
+    </Form>
+  );
+}
+
 /** The same page in the other interface language; a plain link, so the address is not re-localised. */
 function LanguageSwitch() {
   const { pathname, search } = useLocation();
@@ -138,7 +182,6 @@ function LanguageSwitch() {
 }
 
 export function SiteHeader() {
-  const openSearch = useOpenSearch();
   const t = useT();
   return (
     <header className="site-header relative hidden border-b border-line bg-surface lg:block">
@@ -162,17 +205,7 @@ export function SiteHeader() {
           {REST.length > 0 && <MoreMenu />}
         </nav>
         <div className="flex shrink-0 items-center gap-2.5">
-          {openSearch && (
-            <button
-              type="button"
-              onClick={(event) => openSearch("", event.currentTarget)}
-              className="flex h-10 items-center gap-2 rounded-control border border-line bg-surface px-3 text-[13.5px] text-ink-4 transition-colors hover:border-line-strong hover:text-ink xl:w-[220px]"
-              aria-label={t.shell.search}
-            >
-              <IconSearch size={16} className="shrink-0" />
-              <span className="hidden truncate xl:inline">{t.shell.searchHint}</span>
-            </button>
-          )}
+          <HeaderSearch />
           <LanguageSwitch />
           <ThemeToggle />
         </div>

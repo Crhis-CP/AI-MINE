@@ -42,12 +42,14 @@ const changelog = {
   ],
 };
 let web: ChildProcess;
+/** What the synthetic API serves; one test swaps in the real hand-written file. */
+let served: { latestVersion: string; releases: Array<{ date: string; time?: string; title: string }> } = changelog;
 let origin: string;
 let logs = "";
 const api = createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
-  if (req.url === "/api/site/changelog") return res.end(JSON.stringify(changelog));
-  if (req.url === "/api/site/meta") return res.end(JSON.stringify({ changelogVersion: changelog.latestVersion }));
+  if (req.url === "/api/site/changelog") return res.end(JSON.stringify(served));
+  if (req.url === "/api/site/meta") return res.end(JSON.stringify({ changelogVersion: served.latestVersion }));
   res.statusCode = 404;
   res.end(JSON.stringify({ code: "not_found" }));
 });
@@ -147,7 +149,7 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   assert.match(page, />重大更新 2026\.11</);
   assert.match(page, /本次主角/);
   assert.match(page, /id="world-map"/, "the home page's own map is embedded");
-  assert.match(page, /鼠标移到圆点上看是哪个国家，点一下去首页看该国资讯。/, "with a hint that fits this page");
+  assert.match(page, /鼠标移到圆点上看是哪个国家，点一下看该国这段时间的全部资讯。/, "with a hint that fits this page");
   // The lead line shows; the six other lines are listed in a folded section with their count.
   assert.match(page, /合成导语。/);
   assert.match(page, /<details[^>]*>[\s\S]*本次全部 <!-- -->6<!-- --> 项变化|<details[^>]*>[\s\S]*本次全部 6 项变化/);
@@ -164,4 +166,32 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   // It moves like a running console, all in CSS so reduced motion keeps it still; no SVG animation CSS could not stop.
   for (const motion of ["flow-comet", "flow-node", "flow-scan-card", "flow-spin", "flow-sweep"]) assert.match(page, new RegExp(`class="${motion}`), motion);
   assert.doesNotMatch(page, /<animate(?:Motion)?\b/);
+});
+
+test("the real hand-written entries show the time they went live; the rest show none, never 00:00", async () => {
+  // Owner 2026-11-07: every update should show its time. TASK-0568 backfilled the entries the repository has a time for.
+  served = JSON.parse(await readFile(new URL("../../../industry/changelog.json", import.meta.url), "utf8"));
+  try {
+    const page = (await (await fetch(`${origin}/changelog`)).text()).replace(/<script\b[\s\S]*?<\/script>/g, "");
+    // The list row of an entry (notices such as the launch and the beta notice are drawn apart, with their own time).
+    const row = (title: string) => {
+      const at = page.indexOf(title);
+      assert.ok(at > 0, title);
+      const start = page.lastIndexOf("<li", at);
+      return start >= 0 && !page.slice(start, at).includes("</li>") ? page.slice(start, at) : null;
+    };
+    const timed = served.releases.filter((r) => r.time);
+    assert.ok(timed.length >= 9, "the backfilled entries carry a time");
+    for (const r of timed) {
+      const shown = row(r.title);
+      if (shown !== null) assert.match(shown, new RegExp(`>${r.time}<`), `${r.title} shows ${r.time}`);
+    }
+    for (const r of served.releases.filter((r) => !r.time)) {
+      const shown = row(r.title);
+      if (shown !== null) assert.doesNotMatch(shown, />\d{2}:\d{2}</, `${r.title} has no time on record`);
+    }
+    assert.doesNotMatch(page, />00:00</);
+  } finally {
+    served = changelog;
+  }
 });

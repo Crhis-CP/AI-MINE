@@ -15,6 +15,7 @@ import { prepareGeographyBackfill } from "@amp/backend/jobs/content";
 import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { queryNewsMap } from "@amp/backend/site/stats";
+import { addDays, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { currentNewsJurisdictionCounts } from "../packages/backend/src/publication/news-geography.ts";
 import {
   validateGeography,
@@ -320,6 +321,22 @@ test("the news map counts a country inside its archive-time window and moves it 
   chile = (await queryNewsMap("7d", new Date())).countries.find((c) => c.code === "CL")!;
   assert.equal(chile.count, before.count);
   assert.equal(chile.previous, before.previous + 1);
+  // TASK-0568: a window starts at a Beijing midnight, so a country's count is what 全部动态 lists from that date on.
+  const week = await queryNewsMap("7d", now);
+  assert.equal(week.from, beijingMidnight(addDays(beijingDate(now), -6)).toISOString());
+  const start = new Date(week.from).getTime();
+  await sql`UPDATE publications SET timeline_at=${new Date(start + 60_000)} WHERE article_id=${f.articleId}`;
+  chile = (await queryNewsMap("7d", now)).countries.find((c) => c.code === "CL")!;
+  assert.equal(chile.count, before.count + 1, "the first minute of the window's first day counts");
+  const pool = () => loadPool({ channel: "all", category: null, tag: null, now: new Date(), jurisdiction: "CL", from: beijingDate(week.from) });
+  assert.ok(
+    (await pool()).items.some((i) => i.id === f.articleId),
+    "全部动态 from that date lists it",
+  );
+  await sql`UPDATE publications SET timeline_at=${new Date(start - 60_000)} WHERE article_id=${f.articleId}`;
+  chile = (await queryNewsMap("7d", now)).countries.find((c) => c.code === "CL")!;
+  assert.equal(chile.count, before.count, "the minute before it belongs to the window before");
+  assert.ok(!(await pool()).items.some((i) => i.id === f.articleId), "全部动态 from that date leaves it out too");
   const map = await app.inject({ method: "GET", url: "/api/site/news-map?window=30d" });
   assert.equal(map.statusCode, 200);
   assert.ok(map.json().countries.some((c: { code: string }) => c.code === "CL"));

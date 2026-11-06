@@ -1079,9 +1079,10 @@ export const PHRASES = {
   本次更新亮点: "Highlights of this update",
   本次主角: "The headline feature",
   一眼看到矿业新闻发生在哪里: "See at a glance where mining news is happening",
-  "鼠标移到圆点上看是哪个国家，点一下去首页看该国资讯。": "Point at a dot to see the country; select it to see that country's news on the home page.",
-  "首页顶部的地图按国家标出今天、近 7 天、近 30 天的资讯：圆点越大消息越多，涨得快的标成红色；鼠标移到圆点上才显示国家名，点一下，下面就只看这个国家。":
-    "The map at the top of the home page marks each country's news for today, the last 7 days or the last 30 days: bigger dots mean more news and fast risers turn red. Point at a dot to see the country's name; select it to see only that country's news below.",
+  "鼠标移到圆点上看是哪个国家，点一下看该国这段时间的全部资讯。":
+    "Point at a dot to see the country; select it to see all of that country's news in this period.",
+  "首页顶部的地图按国家标出今天、近 7 天、近 30 天的资讯：圆点越大消息越多，涨得快的标成红色；鼠标移到圆点上才显示国家名，点一下就打开这个国家这段时间的全部资讯。":
+    "The map at the top of the home page marks each country's news for today, the last 7 days or the last 30 days: bigger dots mean more news and fast risers turn red. Point at a dot to see the country's name; select it to open all of that country's news in this period.",
   去首页看地图: "Open the map",
   "资讯分成新的 9 类": "News in nine new categories",
   "按文章量重新划分，每一类都有足够的内容；以前收藏的分类链接照常能用。":

@@ -117,10 +117,11 @@ export default function Home() {
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
       <FeedBar base="/" category={filters.category} channel={filters.channel} jurisdiction={filters.jurisdiction ?? null} />
-      {/* Direction C overview: the hotspot board beside the survey map on desktop; phones keep the board alone. */}
+      {/* Direction C overview: the hotspot board beside the survey map on desktop; phones and tablets show the
+          map under the board (TASK-0568: it used to be desktop only). */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
         {data.hot && <HotTopics entries={data.hot} cards={data.cards} />}
-        <div className="hidden lg:block">
+        <div className="min-w-0">
           <WorldMap base={tabsBase} selected={filters.jurisdiction ?? null} />
         </div>
       </div>

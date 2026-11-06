@@ -7,6 +7,10 @@ import { SiteHeader } from "../components/shell/SiteHeader";
 import { SiteFooter } from "../components/shell/SiteFooter";
 import { MobileTabBar } from "../components/shell/MobileTabBar";
 import { MobileFooter } from "../components/shell/MobileFooter";
+import { PhoneFallbackBar } from "../components/shell/PhoneBar";
+import { Wordmark } from "../components/Logo";
+import { Link } from "../i18n/navigation";
+import { SITE } from "@amp/industry/site";
 import { BackToTop, ListKeys, NavigationProgress } from "../components/shell/Chrome";
 import { apiGet } from "../lib/api.server";
 import { ErrorBoundary as PageError } from "../root";
@@ -65,6 +69,13 @@ function SiteShell({ children }: { children: ReactNode }) {
           the header up to the list width (--page-max-wide), centred beyond it; the footer closes it. */}
         <main id="main" className="site-main min-w-0 flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0 lg:pt-7">
           <div className="site-frame">
+            <PhoneFallbackBar
+              home={
+                <Link to="/" aria-label={`${SITE.name} ${t.shell.home}`} className="flex h-11 items-center px-2.5 text-ink">
+                  <Wordmark size={17} />
+                </Link>
+              }
+            />
             {children}
             <MobileFooter />
           </div>

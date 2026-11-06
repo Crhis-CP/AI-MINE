@@ -2,9 +2,14 @@ import { useLocation } from "react-router";
 import { useTr } from "../../i18n";
 import { useNavigate } from "../../i18n/navigation";
 import { IconChevronLeft } from "../icons";
+import { ThemeToggle } from "./ThemeSwitch";
 import { useEffect, useState, type ReactNode } from "react";
 
-/** A shared phone header; sticky dates below it use the same 48px offset. */
+/**
+ * A shared phone header; sticky dates below it use the same 48px offset. It always ends with the light/dark
+ * switch, so every phone page has it in reach (TASK-0568); pages without this header get the shell's
+ * PhoneFallbackBar instead.
+ */
 export function PhoneBar({
   leading,
   center,
@@ -98,7 +103,10 @@ export function PhoneBar({
                 </span>
               ))}
           </div>
-          <div className="flex min-w-0 items-center justify-end">{actions}</div>
+          <div className="flex min-w-0 items-center justify-end">
+            {actions}
+            <ThemeToggle compact />
+          </div>
         </div>
       </header>
       {large && title && (
@@ -110,5 +118,19 @@ export function PhoneBar({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The phone top row of a page that has no PhoneBar of its own (reports, policies, prices, an event, a
+ * not-found page): the site's mark home and the light/dark switch. It scrolls away with the page, and the
+ * stylesheet hides it wherever the page draws its own top bar (`[data-phone-bar]`).
+ */
+export function PhoneFallbackBar({ home }: { home: ReactNode }) {
+  return (
+    <div data-phone-fallback-bar="" className="-mx-2.5 flex h-12 items-center justify-between lg:hidden">
+      {home}
+      <ThemeToggle compact />
+    </div>
   );
 }

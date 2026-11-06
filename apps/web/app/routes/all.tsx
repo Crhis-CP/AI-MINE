@@ -171,6 +171,7 @@ export default function AllPage() {
         layoutId="all-cat-desk"
         search={<SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />}
         advanced={<SourceDateFilters base="/all" facets={data.facets} flat />}
+        countryChips
       />
       {data.hot && <HotTopics entries={data.hot} />}
       {f.q && (

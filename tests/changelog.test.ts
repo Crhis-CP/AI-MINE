@@ -8,6 +8,7 @@ import {
   type Changelog,
   type ChangelogCopyEdit,
   loadChangelog,
+  mergeReleaseRecords,
   publishedNoteRewrite,
   readerChangelogCopy,
   readerWordingProblem,
@@ -57,41 +58,82 @@ test("a copy edit of null takes a purely internal entry out of the public log; t
 test("the real changelog passes: the first deploy's entries, then the 2.0 launch; no framework sample, no review notes", () => {
   const changelog = validateChangelog(JSON.parse(text));
   assert.deepEqual(loadChangelog(), changelog);
-  // The first deploy after the launch, written before the deploy with its Beijing date alone, above the launch of the
-  // same day: the four entries of the Owner's preview that ship with it, then one for each other change readers will see with it.
-  // Owner 2026-11-06 (the reader changelog standard): two small fixes of that deploy are out of the log.
+  // Owner 2026-11-07: every update shows its time. TASK-0568 gave the hand-written entries the Beijing time of the
+  // event the repository records: the 2026-10-06 deploy of main 6290287 at 04:15Z (TASK-0038 delivery record), the
+  // PR #207 branch commits that put the 2026-10-10 entries in (603e29a65d at 20:07Z on 10-09, recorded as “already on
+  // the site”; b69b8f68ca at 02:54Z, which switched 精选 on). Entries without such a record keep their date alone (PG-13):
+  // the six of 2026-10-10 first entered the repository on 2026-10-12, and the old site's records live in the old repository.
   const launchAt = changelog.releases.findIndex((r) => r.kind === "重大更新");
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
     [
       ["2026-10-14", "00:19", "阅读、反馈与日报体验更新"],
-      ["2026-10-10", undefined, "金属价格页开始显示官方报价"],
       ["2026-10-10", undefined, "按国家、矿种和公司筛选更全"],
       ["2026-10-10", undefined, "外文稿先显示中文导读"],
       ["2026-10-10", undefined, "目前是测试版"],
       ["2026-10-10", undefined, "新闻按原始发布日期显示"],
       ["2026-10-10", undefined, "没有大事的期不再留空"],
       ["2026-10-10", undefined, "精选入口只留近三个月"],
-      ["2026-10-10", undefined, "首页换回精选"],
-      ["2026-10-10", undefined, "法规政策动态可以按国家查看"],
-      ["2026-10-06", undefined, "首页先展示最新矿业动态"],
-      ["2026-10-06", undefined, "金属价格：侧栏新增入口"],
-      ["2026-10-06", undefined, "全部动态更聚焦金属矿业"],
-      ["2026-10-06", undefined, "两个分类改名：矿山安全、技术与冶炼"],
-      ["2026-10-06", undefined, "事件进展更便于连续查阅"],
+      ["2026-10-10", "10:54", "首页换回精选"],
+      ["2026-10-10", "04:07", "金属价格页开始显示官方报价"],
+      ["2026-10-10", "04:07", "法规政策动态可以按国家查看"],
+      ["2026-10-06", "12:15", "首页先展示最新矿业动态"],
+      ["2026-10-06", "12:15", "金属价格：侧栏新增入口"],
+      ["2026-10-06", "12:15", "全部动态更聚焦金属矿业"],
+      ["2026-10-06", "12:15", "两个分类改名：矿山安全、技术与冶炼"],
+      ["2026-10-06", "12:15", "事件进展更便于连续查阅"],
     ],
   );
   const launch = changelog.releases[launchAt]!;
   assert.deepEqual([launch.date, launch.time, launch.kind, launch.version], ["2026-10-06", "02:50", "重大更新", "2.0"]);
   assert.equal(changelog.latestVersion, "2026-10-14T00:19");
   assert.ok(!changelog.releases.some((r) => r.date === "2026-10-01"));
-  // Only the launch has a time; the old site's records and the thanks have their dates alone.
+  // The entries still without a time are exactly those without a recorded event time; none is padded to 00:00.
   assert.deepEqual(
-    changelog.releases.filter((r) => r.time !== undefined).map((r) => r.date),
-    ["2026-10-14", "2026-10-06"],
+    changelog.releases.filter((r) => r.time === undefined).map((r) => r.date),
+    ["2026-10-10", "2026-10-10", "2026-10-10", "2026-10-10", "2026-10-10", "2026-10-10", "2026-09-21", "2026-09-16", "2026-09-15", "2026-09-15", "2026-09-15"],
   );
+  assert.ok(!changelog.releases.some((r) => r.time === "00:00"));
   assert.equal(changelog.releases.at(-1)!.date, "2026-09-15");
   assert.doesNotMatch(text, /来历|"note"/);
+});
+
+test("the backfilled times leave every copy edit on its registered release", () => {
+  // Copy edits match a registered release on date, time, title and the hash of its original words (meta.ts). Each
+  // edit's release is merged here beside the hand-written entries, now timed: every edit still applies, a null one
+  // still takes its release out, and no hand-written entry is matched or changed by any edit.
+  const read = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
+  const edits: ChangelogCopyEdit[] = read("changelog-copy-edits.json");
+  const base = validateChangelog(read("changelog.json"));
+  const registered = edits.map((edit, i) => ({ date: edit.date, time: edit.time, kind: "优化" as const, title: edit.title, body: [`合成原文 ${i}`] }));
+  const rebound = edits.map((edit, i) => {
+    const r = registered[i]!;
+    const hash = createHash("sha256")
+      .update(JSON.stringify({ date: r.date, time: r.time, title: r.title, body: r.body }))
+      .digest("hex");
+    return { ...edit, originalCopySha256: hash };
+  });
+  const merged = mergeReleaseRecords(
+    base,
+    registered.map((release, i) => ({ sha: String(i).padStart(40, "0"), publishedAt: `${release.date}T00:00:00.000Z`, noteHash: "0".repeat(64), release })),
+  );
+  const shown = readerChangelogCopy(merged, rebound);
+  for (const edit of edits) {
+    const at = shown.releases.filter((r) => r.date === edit.date && r.time === edit.time);
+    if (edit.copy === null) assert.ok(!at.some((r) => r.title === edit.title), `${edit.title} stays out of the log`);
+    else
+      assert.ok(
+        at.some((r) => r.title === edit.copy!.title),
+        `${edit.title} shows as ${edit.copy.title}`,
+      );
+  }
+  for (const release of base.releases)
+    assert.ok(
+      shown.releases.some((r) => JSON.stringify(r) === JSON.stringify(release)),
+      release.title,
+    );
+  for (const edit of edits)
+    assert.ok(!base.releases.some((r) => r.date === edit.date && r.time === edit.time && r.title === edit.title), `${edit.title} is not a hand-written entry`);
 });
 
 /** A small valid changelog to break one field at a time. */

@@ -223,7 +223,7 @@ export function Showcase202611() {
           <p className="mt-1 text-[16px] font-bold leading-[1.5] text-ink-2">{tr("一眼看到矿业新闻发生在哪里")}</p>
           <p className="mt-2 text-[13.5px] leading-[1.8] text-ink-3">
             {tr(
-              "首页顶部的地图按国家标出今天、近 7 天、近 30 天的资讯：圆点越大消息越多，涨得快的标成红色；鼠标移到圆点上才显示国家名，点一下，下面就只看这个国家。",
+              "首页顶部的地图按国家标出今天、近 7 天、近 30 天的资讯：圆点越大消息越多，涨得快的标成红色；鼠标移到圆点上才显示国家名，点一下就打开这个国家这段时间的全部资讯。",
             )}
           </p>
           <Link
@@ -234,7 +234,7 @@ export function Showcase202611() {
           </Link>
         </div>
         <div className="min-w-0 [&>section]:mb-0">
-          <WorldMap base="/" selected={null} hint={tr("鼠标移到圆点上看是哪个国家，点一下去首页看该国资讯。")} />
+          <WorldMap base="/" selected={null} hint={tr("鼠标移到圆点上看是哪个国家，点一下看该国这段时间的全部资讯。")} />
         </div>
       </div>
       <ul className="grid gap-3 sm:grid-cols-2">
