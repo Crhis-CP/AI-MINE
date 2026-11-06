@@ -28,6 +28,7 @@ import { RelatedCoverage } from "../features/item/RelatedCoverage";
 import { feedbackPath } from "../lib/feedback-origin";
 import { StoryFollowups } from "../features/item/StoryFollowups";
 import { IconArrowLeft, IconCopy, IconExternal, IconMenu, IconShare } from "../components/icons";
+import { ThemeToggle } from "../components/shell/ThemeSwitch";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const item = await loadOr404(
@@ -329,9 +330,10 @@ export default function ItemPage() {
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
       {item.body && <ReadingProgress />}
 
-      <div className="sticky top-0 z-30 -mx-4 flex h-12 items-center gap-1.5 border-b border-line-soft bg-bg/95 px-4 backdrop-blur lg:hidden">
+      <div data-phone-bar="" className="sticky top-0 z-30 -mx-4 flex h-12 items-center gap-1.5 border-b border-line-soft bg-bg/95 px-4 backdrop-blur lg:hidden">
         {backButton}
         <span className="flex-1" />
+        <ThemeToggle compact />
         <button
           type="button"
           aria-label={tr("更多操作")}

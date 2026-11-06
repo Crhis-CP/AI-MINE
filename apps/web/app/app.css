@@ -1036,6 +1036,10 @@
 .map-label {
   animation: amp-fade-in 140ms ease-out both;
 }
+/* The shell's phone top row stands in only where a page has no top bar of its own (TASK-0568). */
+.site-main:has([data-phone-bar]) [data-phone-fallback-bar] {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .map-bubble,
   .map-pulse,

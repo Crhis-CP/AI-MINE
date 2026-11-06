@@ -1,18 +1,22 @@
 // The survey map above the feed (direction C, DEC-78): land as dots, no borders and no names (Owner
 // 2026-11-05), and one gold circle per country with news in the chosen window (today, 7 or 30 days by
-// archive time), sized by its count; a rise over the window before it is marked. A circle filters the list
-// below to that country in place (the page keeps its scroll position); the selected country carries a ring.
+// archive time), sized by its count; a rise over the window before it is marked. A circle opens 全部动态 for
+// that country from the window's first day, so the list there is the news its count stands for (TASK-0568:
+// on the home page it used to filter 精选, which held far fewer). The selected country carries a ring.
 // The dot layer is the cached file from scripts/world-dots.ts (Natural Earth 1:10m land, small islands kept).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { type NewsMapWindow, SiteNewsMap } from "@amp/contracts/http/public";
 import dotsUrl from "@amp/industry/brand/world-dots.svg?url&no-inline";
 import frame from "@amp/industry/brand/world-dots.json";
 import { PillTabs } from "../../components/ui/Tabs";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
+import { useNavigate } from "../../i18n/navigation";
 import { apiFetch } from "../../lib/http.ts";
 import { hrefWith } from "./Filters";
-import { fmt, useLocale, useT } from "../../i18n";
+import { beijingDate } from "@amp/contracts/time";
+import { fmt, useT } from "../../i18n";
+import { useRegionName } from "./jurisdictions";
 
 /**
  * A point inside each covered country (longitude, latitude), chosen on land and away from borders so
@@ -80,17 +84,44 @@ function readMap(period: NewsMapWindow): Promise<SiteNewsMap> {
 /** A rise worth marking: at least two more than the window before, and half again as many. */
 const rising = (c: SiteNewsMap["countries"][number]) => c.count - c.previous >= 2 && c.count >= c.previous * 1.5;
 
-/** `hint` replaces the line under the map where clicking a circle does something else (e.g. the changelog's preview). */
+/** 全部动态 for one country over the map's window: the same items its count is made of. */
+export function countryNewsPath(code: string, map: Pick<SiteNewsMap, "from"> | null) {
+  const sp = new URLSearchParams({ jurisdiction: code });
+  if (map) sp.set("from", beijingDate(map.from));
+  return `/all?${sp}`;
+}
+
+/** How far from a circle (in map units, about 13px on a 390px phone) a finger may land and still choose it. */
+const TOUCH_REACH = 14;
+
+/**
+ * The country a tap at map point (x, y) means: the nearest drawn circle within reach, so on a phone a finger
+ * need not hit the small dot itself, and between close neighbours (Chile, Argentina, Peru) the nearer one wins.
+ */
+export function nearestCountry(x: number, y: number, codes: readonly string[]): string | null {
+  let best: string | null = null,
+    gap = TOUCH_REACH;
+  for (const code of codes) {
+    const [cx, cy] = project(POINTS[code]!);
+    const d = Math.hypot(cx - x, cy - y);
+    if (d <= gap) {
+      best = code;
+      gap = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * `selected` is the country the page below is filtered by, and `base` that page, for the “取消” link; a circle
+ * itself always opens 全部动态. `hint` replaces the line under the map (e.g. the changelog's preview).
+ */
 export function WorldMap({ base, selected, hint }: { base: string; selected: string | null; hint?: string }) {
   const [params] = useSearchParams();
   const t = useT().map;
-  const locale = useLocale();
-  // The English interface names countries itself (the API's labels are Chinese).
-  const regionNames = useMemo(
-    () => (locale === "en" && typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames(["en"], { type: "region" }) : null),
-    [locale],
-  );
-  const nameOf = (c: { code: string; label: string }) => regionNames?.of(c.code) ?? c.label;
+  const nameOf = useRegionName();
+  const navigate = useNavigate();
+  const pointer = useRef<string>("mouse");
   const [period, setPeriod] = useState<NewsMapWindow>("7d");
   const [map, setMap] = useState<SiteNewsMap | null>(null),
     [failed, setFailed] = useState(false);
@@ -109,6 +140,7 @@ export function WorldMap({ base, selected, hint }: { base: string; selected: str
   }, [period]);
   const shown = map?.window === period ? map : null;
   const countries = (shown?.countries ?? []).filter((c) => c.count > 0 && POINTS[c.code]);
+  const codes = countries.map((c) => c.code);
   const max = Math.max(1, ...countries.map((c) => c.count));
   const radius = (n: number) => 1.6 + 4.4 * Math.sqrt(n / max);
   const total = countries.reduce((sum, c) => sum + c.count, 0);
@@ -140,7 +172,23 @@ export function WorldMap({ base, selected, hint }: { base: string; selected: str
               : `${span} · ${countries.length} ${t.countries} · ${total} ${t.items}${riser ? ` · ${t.rising}${nameOf(riser)}` : ""}`}
       </p>
       <nav aria-label={t.navLabel} className="relative">
-        <svg viewBox={`0 0 ${frame.width} ${frame.height}`} className="block h-auto w-full" aria-hidden={countries.length === 0 ? true : undefined}>
+        {/* A touch that misses every circle chooses the nearest one within reach (TASK-0568: the dots were too
+            small to tap). Keyboard and screen-reader users have the links themselves. */}
+        <svg
+          viewBox={`0 0 ${frame.width} ${frame.height}`}
+          className="block h-auto w-full"
+          aria-hidden={countries.length === 0 ? true : undefined}
+          onPointerDown={(event) => {
+            pointer.current = event.pointerType;
+          }}
+          onClick={(event) => {
+            if (pointer.current === "mouse" || (event.target as Element).closest("a") || !shown) return;
+            const box = event.currentTarget.getBoundingClientRect();
+            const scale = frame.width / box.width;
+            const code = nearestCountry((event.clientX - box.left) * scale, (event.clientY - box.top) * scale, codes);
+            if (code) navigate(countryNewsPath(code, shown));
+          }}
+        >
           <title>{t.title}</title>
           <use href={`${dotsUrl}#dots`} className="stroke-ink-4 opacity-40" />
           {countries.map((c, i) => {
@@ -151,8 +199,7 @@ export function WorldMap({ base, selected, hint }: { base: string; selected: str
             return (
               <Link
                 key={`${period}-${c.code}`}
-                to={hrefWith(base, params, { jurisdiction: on ? null : c.code })}
-                preventScrollReset
+                to={countryNewsPath(c.code, shown)}
                 className="map-dot-link"
                 aria-label={`${fmt(t.bubble, { label: nameOf(c), span, count: c.count })}${up ? t.bubbleRise : ""}${on ? t.bubbleSelected : ""}`}
                 aria-current={on ? "true" : undefined}
@@ -223,6 +270,11 @@ export function WorldMap({ base, selected, hint }: { base: string; selected: str
             <Link to={hrefWith(base, params, { jurisdiction: null })} preventScrollReset className="ml-2 text-accent hover:underline">
               {t.clear}
             </Link>
+            {current && current.count > 0 && (
+              <Link to={countryNewsPath(current.code, shown)} className="ml-3 text-accent hover:underline">
+                {fmt(t.viewAll, { span, count: current.count })}
+              </Link>
+            )}
           </span>
         ) : (
           <span>{hint ?? t.hint}</span>

@@ -1,13 +1,13 @@
 import { PhoneBar } from "../../components/shell/PhoneBar";
-import { fmt, useCategoryLabel, useLocale, useLocalize, useT, useTagLabel, useTr } from "../../i18n";
+import { fmt, useCategoryLabel, useLocalize, useT, useTagLabel, useTr } from "../../i18n";
 import { Sheet } from "../../components/ui/Sheet";
 import { Wordmark } from "../../components/Logo";
 import { SITE } from "@amp/industry/site";
-import { useJurisdictionChoices } from "./jurisdictions";
+import { type JurisdictionChoice, useJurisdictionChoices, useRegionName } from "./jurisdictions";
 import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigation, useSearchParams } from "react-router";
 import { Form, Link, useNavigate } from "../../i18n/navigation";
 import { CATEGORY_KEYS, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
@@ -34,8 +34,7 @@ export function JurisdictionFilter({
   useEffect(() => setDraft(value ?? ""), [value]);
   const { choices, failed } = useJurisdictionChoices();
   const tr = useTr();
-  const english = useLocale() === "en";
-  const regionNames = useMemo(() => (english && typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames(["en"], { type: "region" }) : null), [english]);
+  const nameOf = useRegionName();
   // On a page a choice applies at once; the button stays for readers without scripts, and in the phone
   // sheet (`confirm`), where filters are composed and then applied together.
   const [mounted, setMounted] = useState(false);
@@ -53,6 +52,7 @@ export function JurisdictionFilter({
         <span className={compact ? "sr-only" : undefined}>{tf.country}</span>
         <select
           name="jurisdiction"
+          data-country-select=""
           value={draft}
           title={compact ? tf.countryHint : undefined}
           onChange={(event) => {
@@ -73,7 +73,7 @@ export function JurisdictionFilter({
                 .filter((j) => j.kind === kind)
                 .map((j) => (
                   <option key={j.code} value={j.code}>
-                    {j.kind === "country" ? (regionNames?.of(j.code) ?? j.label) : tr.maybe(j.label)}
+                    {nameOf(j)}
                     {tr("（{value}）", { value: j.news_count })}
                   </option>
                 ))}
@@ -108,6 +108,76 @@ export function hrefWith(base: string, params: URLSearchParams, patch: Record<st
   sp.delete("cursor");
   const s = sp.toString();
   return s ? `${base}?${s}` : base;
+}
+
+/** The countries with the most identified news, first; a filter for another country keeps its own chip. */
+export function topCountries(choices: readonly JurisdictionChoice[], current: string | null, limit = 8) {
+  const top = choices
+    .filter((j) => j.kind === "country" && j.news_count > 0)
+    .sort((a, b) => b.news_count - a.news_count || a.code.localeCompare(b.code))
+    .slice(0, limit);
+  const chosen = current && !top.some((j) => j.code === current) ? choices.find((j) => j.code === current) : undefined;
+  return chosen ? [chosen, ...top] : top;
+}
+
+/**
+ * One tap for the countries with the most news (TASK-0568: the country was only in a select or the phone
+ * sheet). Each chip keeps the other conditions; the chosen one is marked and takes the filter off again;
+ * “更多国家…” opens the full list (`onMore`). Shown once the list has loaded, like the select's options.
+ */
+export function CountryChips({ base, value, onMore, className = "" }: { base: string; value: string | null; onMore: () => void; className?: string }) {
+  const tf = useT().feed;
+  const [params] = useSearchParams();
+  const { choices } = useJurisdictionChoices();
+  const nameOf = useRegionName();
+  if (!choices) return null;
+  const shown = topCountries(choices, value);
+  if (!shown.length) return null;
+  return (
+    <nav
+      aria-label={tf.countryRow}
+      className={`scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 ${className}`}
+    >
+      {shown.map((j) => {
+        const on = j.code === value;
+        const name = nameOf(j);
+        return (
+          <Link
+            key={j.code}
+            to={hrefWith(base, params, { jurisdiction: on ? null : j.code })}
+            aria-current={on ? "true" : undefined}
+            aria-label={on ? fmt(tf.clearFilter, { label: name }) : undefined}
+            className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13.5px] transition-colors ${
+              on ? "bg-accent-soft font-semibold text-accent ring-1 ring-inset ring-accent/40" : "bg-bg-sunk text-ink-2 hover:text-ink"
+            }`}
+          >
+            {name}
+            <span className={`num text-[12px] ${on ? "text-accent" : "text-ink-4"}`}>{j.news_count}</span>
+            {on && <IconClose size={13} />}
+          </Link>
+        );
+      })}
+      <button
+        type="button"
+        onClick={onMore}
+        className="inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[13.5px] text-accent hover:bg-bg-sunk"
+      >
+        {tf.moreCountries}
+      </button>
+    </nav>
+  );
+}
+
+/** Opens the desktop country select (the full list); where the list cannot be opened from a script, it is focused. */
+function openCountrySelect() {
+  const select = [...document.querySelectorAll<HTMLSelectElement>("select[data-country-select]")].find((el) => el.getClientRects().length > 0);
+  if (!select) return;
+  select.focus();
+  try {
+    select.showPicker?.();
+  } catch {
+    // Not allowed here or not supported for a select: focus is enough.
+  }
 }
 
 /** Source attributes and subject categories combine through the existing query contract. */
@@ -146,6 +216,7 @@ export function FeedToolbar({
   layoutId,
   search,
   advanced,
+  countryChips = false,
 }: {
   title: ReactNode;
   base: string;
@@ -158,6 +229,8 @@ export function FeedToolbar({
   search?: ReactNode;
   /** The source, commodity and date controls, folded under the panel (全部动态 and topics). */
   advanced?: ReactNode;
+  /** The top countries as chips under the panel (全部动态). */
+  countryChips?: boolean;
 }) {
   const tf = useT().feed;
   const cat = useCategoryLabel();
@@ -190,6 +263,7 @@ export function FeedToolbar({
         </div>
         {advanced}
       </div>
+      {countryChips && <CountryChips base={base} value={jurisdiction} onMore={openCountrySelect} className="-mt-2 mb-4" />}
     </div>
   );
 }
@@ -254,7 +328,8 @@ export function FeedBar({
     ...(category ? [{ key: "category", label: cat(category), patch: { category: null } }] : []),
     ...["tag", "jurisdiction", "source", "mineral", "on", "from", "to"].flatMap((key) => {
       const value = params.get(key);
-      if (!value) return [];
+      // On 全部动态 the country row below marks the chosen country itself.
+      if (!value || (key === "jurisdiction" && base === "/all")) return [];
       const label =
         key === "jurisdiction"
           ? tf.chipRegion
@@ -358,6 +433,7 @@ export function FeedBar({
           ))}
         </div>
       )}
+      {base === "/all" && <CountryChips base={base} value={jurisdiction} onMore={() => setSheet(true)} className="py-2 lg:hidden" />}
       <Sheet open={sheet} onClose={() => setSheet(false)} title={tf.filter}>
         {sheet && (
           <>
