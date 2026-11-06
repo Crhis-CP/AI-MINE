@@ -187,13 +187,14 @@ test("every public changelog line reads as a reader update, and the shipped note
   for (const e of edits)
     if (e.copy)
       validateReleaseNote({ kind: e.copy.kind ?? "优化", title: e.copy.title, body: e.copy.body, ...(e.copy.version ? { version: e.copy.version } : {}) });
-  // The note in the repo is the one already published on 2026-11-06; readers see its rewrite, a major update.
+  // The pending note is either one already published (readers see its rewrite) or reader-clean as written.
   const note = read("release-note.json").note;
-  const rewrite = publishedNoteRewrite(note, edits);
-  assert.ok(rewrite?.copy, "the shipped note has a reader rewrite");
-  assert.deepEqual([rewrite.copy.kind, rewrite.copy.version], ["重大更新", "2026.11"]);
+  if (!publishedNoteRewrite(note, edits)) assert.equal(readerWordingProblem([note.title, ...note.body]), null);
+  // The 2026-11-06 release shows as the 2026.11 major update, led by the news map.
+  const major = edits.find((e) => e.date === "2026-11-06" && e.time === "11:21")?.copy;
+  assert.deepEqual([major?.kind, major?.version], ["重大更新", "2026.11"]);
   assert.ok(
-    rewrite.copy.body.some((line) => line.includes("资讯地图")),
+    major?.body.some((line) => line.includes("资讯地图")),
     "the news map leads the release",
   );
 });
