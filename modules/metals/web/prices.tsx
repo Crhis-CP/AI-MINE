@@ -1,5 +1,5 @@
 import { apiFetch, IconChevronDown, IconExternal, Link, pageMeta } from "@amp/web/extension";
-import { useTr } from "@amp/web/i18n";
+import { type Phrase, useLocale, useTr } from "@amp/web/i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { data as withHeaders, useLoaderData } from "react-router";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
@@ -92,6 +92,30 @@ function Price({ quote, lead = false }: { quote: Quote; lead?: boolean }) {
   );
 }
 
+/** Converted units with their own wording, so English reads “≈ US$13,624/t” rather than the Chinese unit. */
+const APPROX: Record<string, Phrase> = { "美元/吨": "约 {value} 美元/吨" };
+
+/**
+ * The published price in another currency, under it (TASK-0572): “约 13,624 美元/吨（按10月30日人民币汇率中间价折算）”.
+ * The rate's date is the one the API used (the quote's period end or the latest day before); none, nothing is shown.
+ */
+function Converted({ prices, quote, lead = false }: { prices: MetalPrices; quote: Quote; lead?: boolean }) {
+  const tr = useTr();
+  const english = useLocale() === "en";
+  const converted = quote.converted;
+  if (!converted || quote.value === null) return null;
+  const value = priceText(converted.value, null);
+  const phrase = APPROX[converted.unit];
+  const date = english ? converted.rate.date : shortLabel(prices, converted.rate.label);
+  return (
+    <span data-converted="" className={`block leading-[1.5] text-ink-3 ${lead ? "mt-1 text-[12.5px]" : "mt-0.5 text-[12px]"}`}>
+      <span className="tabular-nums">{phrase ? tr(phrase, { value }) : tr("约 {value} {unit}", { value, unit: tr.maybe(converted.unit) })}</span>
+      {english ? " " : ""}
+      <span className="text-[11px] text-ink-4">{tr("（按{date}{name}折算）", { date, name: tr.maybe(converted.rate.name) })}</span>
+    </span>
+  );
+}
+
 /** The site's colours for price moves: red up, green down (as the notes say), grey flat. */
 const TONE = { up: "bg-hot-soft text-hot", down: "bg-ok-soft text-ok", flat: "bg-bg-sunk text-ink-3" } as const;
 function Change({ prices, quote }: { prices: MetalPrices; quote: Quote }) {
@@ -179,6 +203,7 @@ function MetalCard({ prices, metal }: { prices: MetalPrices; metal: Metal }) {
       <p className="text-[12px] leading-[18px] text-ink-3">{quote.title}</p>
       <div className="mt-2.5">
         <Price quote={quote} lead />
+        <Converted prices={prices} quote={quote} lead />
       </div>
       <div className="mt-1.5 min-h-5">
         <Change prices={prices} quote={quote} />
@@ -204,6 +229,7 @@ function MetalCard({ prices, metal }: { prices: MetalPrices; metal: Metal }) {
                     <Price quote={other} />
                     <Period prices={prices} metal={metal} quote={other} />
                   </div>
+                  <Converted prices={prices} quote={other} />
                   <div className="mt-1">
                     <Change prices={prices} quote={other} />
                   </div>

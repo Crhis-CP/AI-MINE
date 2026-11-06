@@ -16,12 +16,21 @@ export const METAL_PRICE_HOSTS = [
   "bank.gov.ua",
   "cif.mofcom.gov.cn",
   "www.cochilco.cl",
+  "www.safe.gov.cn",
 ] as const;
 
-const SOURCE_KEYS = ["nbs", "worldbank", "imf", "cbr", "mofcom", "cochilco"] as const;
+const SOURCE_KEYS = ["nbs", "worldbank", "imf", "cbr", "mofcom", "cochilco", "safe"] as const;
 export type MetalPriceSourceKey = (typeof SOURCE_KEYS)[number];
 /** Series key prefix and period type of each source: the same pairs publication.metal_prices checks. */
-const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = { nbs: "nbs", worldbank: "wb", imf: "imf", cbr: "cbr", mofcom: "mofcom", cochilco: "cochilco" };
+const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = {
+  nbs: "nbs",
+  worldbank: "wb",
+  imf: "imf",
+  cbr: "cbr",
+  mofcom: "mofcom",
+  cochilco: "cochilco",
+  safe: "safe",
+};
 const PERIOD_TYPE: Record<MetalPriceSourceKey, "ten_day" | "month" | "day" | "week"> = {
   nbs: "ten_day",
   worldbank: "month",
@@ -29,6 +38,7 @@ const PERIOD_TYPE: Record<MetalPriceSourceKey, "ten_day" | "month" | "day" | "we
   cbr: "day",
   mofcom: "week",
   cochilco: "day",
+  safe: "day",
 };
 
 const text = z.string().regex(/\S/, "must not be blank");
@@ -36,8 +46,33 @@ const texts = z.array(text).min(1);
 const https = z.url({ protocol: /^https$/ });
 /** Absent means enabled: a source or series is stopped by writing false. */
 const enabled = z.boolean().default(true);
+/** A positive decimal written as text, so a factor is never a rounded JavaScript number. */
+const factor = z
+  .string()
+  .regex(/^\d+(?:\.\d+)?$/)
+  .refine((value) => /[1-9]/.test(value), "must be positive");
+/**
+ * TASK-0572: the price is also shown converted into another currency, below the published one, which stays first and
+ * unchanged. value × factor ÷ rate, rounded to `decimals`, with the rate series' value of the quote's period end or of
+ * the latest day before it no more than `withinDays` earlier (a rate published later is never used; none in that
+ * window, no conversion is shown). The rate is a `rate: true` series of any source quoted in the price's currency.
+ */
+const Secondary = z.strictObject({
+  rate: text,
+  factor,
+  unit: text,
+  currency: z.enum(["CNY", "USD"]),
+  decimals: z.int().min(0).max(6),
+  withinDays: z.int().min(0).max(31),
+});
 /** Written on a source, these are the defaults of its items. */
-const itemDefaults = { benchmark: text.optional(), deliveryBasis: text.optional(), unit: text.optional(), sourceUnit: text.optional() };
+const itemDefaults = {
+  benchmark: text.optional(),
+  deliveryBasis: text.optional(),
+  unit: text.optional(),
+  sourceUnit: text.optional(),
+  secondary: Secondary.optional(),
+};
 
 const Source = z.strictObject({
   key: z.enum(SOURCE_KEYS),
@@ -59,7 +94,7 @@ const Source = z.strictObject({
 });
 
 const Item = z.strictObject({
-  key: z.string().regex(/^(nbs|wb|imf|cbr|mofcom|cochilco)\.[a-z0-9_]+$/),
+  key: z.string().regex(/^(nbs|wb|imf|cbr|mofcom|cochilco|safe)\.[a-z0-9_]+$/),
   source: z.enum(SOURCE_KEYS),
   /** The product name as the source writes it, matched exactly after normalizeSourceName. */
   sourceName: text,
@@ -76,10 +111,7 @@ const Item = z.strictObject({
   convert: z
     .strictObject({
       rate: text,
-      factor: z
-        .string()
-        .regex(/^\d+(?:\.\d+)?$/)
-        .refine((value) => /[1-9]/.test(value), "must be positive"),
+      factor,
       unit: text,
       currency: z.enum(["CNY", "USD"]),
     })
@@ -129,6 +161,17 @@ const Registry = z
         if (links !== (row.link ? 1 : 0) || /[{}]/.test(remainder)) issue([field, i, "text"], "invalid placeholder or link");
       }
     }
+    // A converted price needs a rate series quoted in the price's own currency, and lands in another currency.
+    // A registry narrowed to other sources (as tests do) may leave the rate's whole source out: that converts nothing.
+    const checkSecondary = (secondary: z.infer<typeof Secondary>, currency: string, path: (string | number)[]) => {
+      const rate = items.find((candidate) => candidate.key === secondary.rate);
+      const rateSource = sources.find((candidate) => candidate.key === rate?.source);
+      const named = SOURCE_KEYS.find((key) => secondary.rate.startsWith(`${SERIES_PREFIX[key]}.`));
+      if (!rate && named !== undefined && !sources.some((candidate) => candidate.key === named)) return;
+      if (!rate?.rate || rateSource?.currency !== currency) issue([...path, "rate"], "must reference a rate quoted in the price's currency");
+      if (secondary.currency === currency) issue([...path, "currency"], "must differ from the price's currency");
+    };
+    for (const [i, source] of sources.entries()) if (source.secondary) checkSecondary(source.secondary, source.currency, ["sources", i, "secondary"]);
     for (const [i, source] of sources.entries()) {
       if (sources.findIndex((other) => other.key === source.key) !== i) issue(["sources", i, "key"], `duplicate source ${source.key}`);
       if (source.frequency !== PERIOD_TYPE[source.key]) issue(["sources", i, "frequency"], `${source.key} publishes ${PERIOD_TYPE[source.key]} prices`);
@@ -150,8 +193,10 @@ const Registry = z
         continue;
       }
       if (item.rate)
-        for (const field of ["metal", "quote", "spec", "footnote", "convert"] as const)
+        for (const field of ["metal", "quote", "spec", "footnote", "convert", "secondary"] as const)
           if (item[field] !== undefined) issue(["items", i, field], "a rate cannot carry quote presentation or conversion");
+      if (item.secondary) checkSecondary(item.secondary, source.currency, ["items", i, "secondary"]);
+      if (item.convert && (item.secondary ?? source.secondary)) issue(["items", i, "secondary"], "a converted quote cannot also carry a second conversion");
       if (item.convert) {
         const rate = items.find((candidate) => candidate.key === item.convert!.rate);
         if (!rate?.rate || rate.source !== item.source) issue(["items", i, "convert", "rate"], "must reference a rate on the same source");
@@ -170,7 +215,7 @@ const Registry = z
   // Fill the source defaults into its items; absent optional values become null.
   .transform(({ sources, items, ...presentation }) => ({
     ...presentation,
-    sources: sources.map(({ benchmark, deliveryBasis, unit, sourceUnit, decimals, ...source }) => ({
+    sources: sources.map(({ benchmark, deliveryBasis, unit, sourceUnit, secondary, decimals, ...source }) => ({
       ...source,
       decimals: decimals ?? null,
     })),
@@ -180,6 +225,8 @@ const Registry = z
         ...item,
         grade: item.grade ?? null,
         convert: item.convert ?? null,
+        // Rates are never displayed, so a source's default conversion does not reach them.
+        secondary: item.rate ? null : (item.secondary ?? source.secondary ?? null),
         metal: item.metal ?? null,
         quote: item.quote ?? null,
         spec: item.spec ?? null,
