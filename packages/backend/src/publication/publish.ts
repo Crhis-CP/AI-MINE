@@ -57,6 +57,7 @@ import {
 } from "./rules.ts";
 import { foldableSelectionCondition } from "./scope.ts";
 import { projectNewsGeography } from "./news-geography.ts";
+import { projectNewsLinks } from "./news-link-index.ts";
 import { withXArticle } from "../editorial/input.ts";
 import { analysisVersionOf } from "../editorial/analyze.ts";
 import { quoteTranslatable, quoteTranslationRecipe } from "../editorial/post-translation.ts";
@@ -646,6 +647,8 @@ export async function publishArticleTx(
     IS DISTINCT FROM (${sourceTime ? tx.json(sourceTime) : null},${article.revision},${Number(article.source_date_version)},${timeConfigHash})`;
   await tx`UPDATE publications SET company_context=${tx.json(companyContext as never)} WHERE article_id=${articleId} AND company_context IS DISTINCT FROM ${tx.json(companyContext as never)}`;
   const geographyChanged = await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
+  // Explicit outbound links of this body, for the news/policy navigation; readers apply the public state themselves.
+  await projectNewsLinks(tx, article);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
   if (eligible) {
     const body = !post && bodyMode === "full" ? (article.body_text ?? "").slice(0, 12000).toLowerCase() : "";

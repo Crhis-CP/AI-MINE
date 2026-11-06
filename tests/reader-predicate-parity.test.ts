@@ -29,7 +29,12 @@ test("fixed bound predicates preserve aliases, guarded mineral names and literal
   await sql`UPDATE articles SET body_html='https://example.invalid/literal%_path' WHERE id=${`${source}-0`}`;
   await sql`UPDATE articles SET body_html='https://example.invalid/literalAXpath' WHERE id=${`${source}-1`}`;
   assert.deepEqual(
-    (await readPublicNewsLinkCandidates(null, "https://example.invalid/literal%_path")).map((row) => row.id),
+    (
+      await readPublicNewsLinkCandidates(
+        "https://example.invalid/literal%_path",
+        texts.map((_, i) => `${source}-${i}`),
+      )
+    ).map((row) => row.id),
     [`${source}-0`],
     "official URL percent and underscore remain literal substring characters",
   );

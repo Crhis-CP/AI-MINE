@@ -26,6 +26,7 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { itemUrl } from "@amp/backend/publication/links";
 import { publishArticle, republishSource } from "@amp/backend/publication/publish";
+import { relatedNewsForPolicy } from "@amp/backend/publication/news-links";
 import { computeHotRanking } from "@amp/backend/events/hot";
 import { latestHotRanking } from "@amp/backend/events/hot-read";
 import { effectiveWatermark } from "@amp/backend/publication/v1";
@@ -134,6 +135,21 @@ test("site reading sends one language per page, and the original page goes with 
   assert.equal(original.outline[0].text, "Original heading");
   await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   assert.equal((await get(`/api/site/items/${id}/original`)).status, 404);
+});
+
+test("publishing stores the body's explicit links in the same transaction, for policy pages (TASK-0567)", async () => {
+  const id = await article();
+  const decree = `https://gov.example.invalid/${T}/decree`;
+  await sql`UPDATE articles SET body_html=${`<p>${BODY}</p><p><a href="${decree}#art-1">decree</a> <a href="/relative">r</a> <a href="mailto:a@example.invalid">m</a></p>`} WHERE id=${id}`;
+  await publishArticle(id, released());
+  const [row] = await sql<{ article_revision: number; urls: string[] }[]>`SELECT article_revision,urls FROM publication.news_links WHERE article_id=${id}`;
+  assert.deepEqual([row?.article_revision, row?.urls], [1, [decree]]);
+  assert.deepEqual(
+    (await relatedNewsForPolicy(decree)).map((x) => x.id),
+    [id],
+  );
+  await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
+  assert.deepEqual(await relatedNewsForPolicy(decree), []);
 });
 
 test("body pictures reach the item page and the full feed only as links, and the image proxy is closed", async () => {

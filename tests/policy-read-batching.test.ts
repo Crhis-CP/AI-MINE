@@ -10,6 +10,8 @@ import { appendSourcePolicy } from "../packages/backend/src/sources/permission-s
 import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import { listPolicies, policyCurrentPublicRecords, policyDetail, policyScope } from "../modules/policy/backend/read.ts";
+import { relatedPoliciesForNews } from "../packages/backend/src/publication/news-policy-links.ts";
+import { repairNewsLinks } from "../packages/backend/src/publication/news-link-index.ts";
 
 const access = createDatabaseAccess("test", { DATABASE_URL: process.env.DATABASE_URL, DATABASE_POOL_MAX: "4" }, () => {});
 const db = access.dbFor("worker");
@@ -161,6 +163,40 @@ test("a policy detail reads its own document only: no scan of every current docu
   await source("f", 5);
   const after = await counting(detail);
   assert.equal(after.statements, before.statements);
+  await db`UPDATE publication.policy_documents SET withdrawn=true WHERE id LIKE 'pol_%'`;
+});
+
+test("a report page reads only the policies its links cite, not every current document (TASK-0567)", async () => {
+  const cited = await source("g", 3);
+  const at = new Date("2026-11-01T08:00:00Z"),
+    body = `<p>Under <a href="https://g.gov.invalid/decree/1#art-2">the decree</a>, not <a href="https://g.gov.invalid/other">this</a>.</p>`;
+  await db`INSERT INTO sources(id,name,kind,config) VALUES('policy-links-news','News','rss','{}')`;
+  await db`INSERT INTO articles(id,source_id,identity_key,url,title,language,published_at,discovered_at,timeline_at,body_html,raw)
+    VALUES('policy-links-report','policy-links-news','policy-links-report','https://news.example.invalid/r','r','en',${at},${at},${at},${body},'{}')`;
+  await db`INSERT INTO publications(article_id,title,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,selected,tags,search_text)
+    VALUES('policy-links-report','r','policy-links-news','news','https://news.example.invalid/r',${at},${at},${at},${at},'public',true,false,${[]},'r')`;
+  const related = () => relatedPoliciesForNews("policy-links-report");
+  const unread = await counting(related);
+  assert.deepEqual(
+    unread.value.map((p) => p.id),
+    [cited[1]],
+  );
+  const read = texts.join("\n");
+  assert.ok(!read.includes("SELECT DISTINCT policy_id FROM publication.policy_editions WHERE policy_id>"), "no reading of every current document");
+  assert.ok(read.includes("split_part(basic_card->>'original_url'"), "the cited documents are looked up by their official URL");
+  // Five more documents elsewhere change nothing about the reads; with the links read, the body is not read either.
+  await source("h", 5);
+  assert.equal((await counting(related)).statements, unread.statements);
+  await repairNewsLinks();
+  const indexed = await counting(related);
+  assert.deepEqual(
+    indexed.value.map((p) => p.id),
+    [cited[1]],
+  );
+  assert.equal(indexed.statements, unread.statements);
+  // A withdrawn document leaves the report page at once.
+  await db`UPDATE publication.policy_documents SET withdrawn=true WHERE id=${cited[1]!}`;
+  assert.deepEqual(await related(), []);
   await db`UPDATE publication.policy_documents SET withdrawn=true WHERE id LIKE 'pol_%'`;
 });
 

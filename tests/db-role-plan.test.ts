@@ -181,6 +181,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "policy.vision_pages",
       "policy.vision_stages",
       "publication.news_geography",
+      "publication.news_links",
       "ops.operational_snapshots",
       "acquisition.directory_scans",
       "acquisition.directory_pages",
@@ -215,7 +216,7 @@ test("all current migration tables and serial sequences have one explicit classi
   );
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 45);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 46);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["events.story_background_proofs"], {
     module: "events",

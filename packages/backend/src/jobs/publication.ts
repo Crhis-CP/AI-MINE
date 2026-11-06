@@ -63,3 +63,4 @@ export async function registerPublicationJobs(boss: PgBoss) {
 }
 
 export { repairPublicationTimes } from "../publication/publish.ts";
+export { repairNewsLinks } from "../publication/news-link-index.ts";
