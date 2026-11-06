@@ -102,7 +102,7 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   assert.match(page, />重大更新 2026\.11</);
   assert.match(page, /本次主角/);
   assert.match(page, /id="world-map"/, "the home page's own map is embedded");
-  assert.match(page, /点一个圆，去首页看这个国家的资讯。/, "with a hint that fits this page");
+  assert.match(page, /鼠标移到圆点上看是哪个国家，点一下去首页看该国资讯。/, "with a hint that fits this page");
   // The lead line shows; the six other lines are listed in a folded section with their count.
   assert.match(page, /合成导语。/);
   assert.match(page, /<details[^>]*>[\s\S]*本次全部 <!-- -->6<!-- --> 项变化|<details[^>]*>[\s\S]*本次全部 6 项变化/);
