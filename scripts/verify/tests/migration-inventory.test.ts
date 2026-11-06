@@ -660,6 +660,18 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["acquisition"],
         dependsOn: ["0038_publication_source_excerpt.sql", "acquisition/202610091100_directory_scans.sql"],
       },
+      {
+        name: "publication/202611061200_news_links.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610090500_policy_publication.sql"],
+      },
+      {
+        name: "content/202611061201_news_links_body_hook.sql",
+        module: "content",
+        schemas: ["content"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202611061200_news_links.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

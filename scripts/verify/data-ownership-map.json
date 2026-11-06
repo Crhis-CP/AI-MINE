@@ -378,6 +378,10 @@
       "module": "publication",
       "access": "business"
     },
+    "publication.news_links": {
+      "module": "publication",
+      "access": "business"
+    },
     "publication.news_geography": {
       "module": "publication",
       "access": "business"
@@ -998,6 +1002,7 @@
     "packages/backend/src/publication/items.ts": "publication",
     "packages/backend/src/publication/llms.ts": "publication",
     "packages/backend/src/publication/news-geography.ts": "publication",
+    "packages/backend/src/publication/news-link-index.ts": "publication",
     "packages/backend/src/publication/og.ts": "publication",
     "packages/backend/src/publication/operational-snapshot.ts": "publication",
     "packages/backend/src/publication/pool.ts": "publication",

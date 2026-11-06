@@ -703,6 +703,15 @@
         "worker": ["SELECT", "INSERT"]
       }
     },
+    "publication.news_links": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["article_id", "urls"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
     "publication.news_geography": {
       "module": "publication",
       "access": "business",
