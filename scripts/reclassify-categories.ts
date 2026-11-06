@@ -117,6 +117,13 @@ try {
           result.skipped += 1;
           continue;
         }
+        if (done.outcome === "unusable") {
+          // Noted on the item: it keeps no category and later batches do not start on it again.
+          result.failed += 1;
+          console.log(`  ${row.article_id}: unusable model answer, left without a category`);
+          if (done.written) await publishArticle(row.article_id);
+          continue;
+        }
         if (done.reused) result.reused += 1;
         else result.requests += 1;
         if (done.outcome === "superseded") {
