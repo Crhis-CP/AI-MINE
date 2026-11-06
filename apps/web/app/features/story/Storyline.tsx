@@ -102,7 +102,7 @@ function DevelopmentNode({
           >
             <span className="shrink-0 font-medium text-ink-2">{countLabel}</span>
             <span className="min-w-0 truncate">
-              {lead.source.firstParty ? `${tr("官方一手")}：` : ""}
+              {lead.source.firstParty ? tr("官方一手：") : ""}
               {[...new Set(reports.map((r) => shortSourceName(r.source.name)))].slice(0, 3).join(" · ")}
             </span>
             <span className="shrink-0">· {open ? tl.collapse : tl.expand}</span>

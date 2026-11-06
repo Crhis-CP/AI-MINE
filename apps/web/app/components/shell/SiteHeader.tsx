@@ -3,7 +3,7 @@
 // drifting gold contour lines. Phones keep their own header and the tab bar (≤ 960px).
 import { useEffect, useRef } from "react";
 import { Link as PlainLink, useLocation } from "react-router";
-import { basePath, otherLanguagePath, useLocale, useT } from "../../i18n";
+import { basePath, otherLanguagePath, useLocale, useT, useTr } from "../../i18n";
 import { SITE } from "@amp/industry/site";
 import { UnreadMark } from "../../features/changelog/UnreadMark";
 import { useOpenSearch } from "../../features/search/SearchOverlay";
@@ -71,6 +71,7 @@ function MenuLink({ item }: { item: NavItem }) {
 function MoreMenu() {
   const ref = useRef<HTMLDetailsElement>(null);
   const t = useT();
+  const tr = useTr();
   const { pathname, search } = useLocation();
   const active = REST.some((section) => section.items.some((item) => tabIsActive(item, pathname)));
   // biome-ignore lint/correctness/useExhaustiveDependencies: close whenever the location changes.
@@ -107,7 +108,7 @@ function MoreMenu() {
       <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-56 rounded-card border border-line bg-raised p-1.5 shadow-[var(--shadow-pop)]">
         {REST.map((section) => (
           <div key={section.title} className="[&+&]:mt-1.5 [&+&]:border-t [&+&]:border-line-soft [&+&]:pt-1.5">
-            {REST.length > 1 && <div className="px-2.5 pb-1 pt-1 text-[12px] text-ink-4">{section.title}</div>}
+            {REST.length > 1 && <div className="px-2.5 pb-1 pt-1 text-[12px] text-ink-4">{tr.maybe(section.title)}</div>}
             {section.items.map((item) => (
               <MenuLink key={item.to} item={item} />
             ))}

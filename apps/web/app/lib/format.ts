@@ -103,8 +103,11 @@ export function newsSourceDate(time: import("@amp/contracts/time-assertion").Tim
 const BEIJING = "Asia/Shanghai";
 /** The same helpers in the interface language: Chinese as above, English through Intl in Beijing time. */
 export function dateFormatFor(english: boolean) {
-  if (!english) return { relativeTime, monthDayTime, monthDay: (date: string) => monthDayLabel(date), weekday: beijingWeekday };
+  if (!english) return { relativeTime, monthDayTime, sourceMonthDayTime, monthDay: (date: string) => monthDayLabel(date), weekday: beijingWeekday };
   const day = (date: string) => new Date(`${date}T12:00:00+08:00`);
+  const enMonthDay = (date: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: BEIJING }).format(day(date));
+  const enMonthDayTime = (iso: string) =>
+    `${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: BEIJING }).format(new Date(iso))} ${beijingTime(iso)}`;
   return {
     relativeTime(iso: string, now = Date.now()): string {
       const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
@@ -117,9 +120,10 @@ export function dateFormatFor(english: boolean) {
       if (d < 30) return `${d} d ago`;
       return beijingDate(iso);
     },
-    monthDayTime: (iso: string) =>
-      `${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: BEIJING }).format(new Date(iso))} ${beijingTime(iso)}`,
-    monthDay: (date: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: BEIJING }).format(day(date)),
+    monthDayTime: enMonthDayTime,
+    /** "Sep 24 10:51", or "Sep 24" alone when the source gave only the date. */
+    sourceMonthDayTime: (iso: string) => (isDateOnlyInstant(iso) ? enMonthDay(beijingDate(iso)) : enMonthDayTime(iso)),
+    monthDay: enMonthDay,
     weekday: (date: string) => new Intl.DateTimeFormat("en", { weekday: "long", timeZone: BEIJING }).format(day(date)),
   };
 }

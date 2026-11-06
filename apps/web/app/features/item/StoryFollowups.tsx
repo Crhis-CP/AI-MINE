@@ -1,7 +1,7 @@
 import { apiFetch } from "../../lib/http.ts";
-import { useTr } from "../../i18n";
+import { useLocalize, useTr } from "../../i18n";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "../../i18n/navigation";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { StoryFollowup, StoryRef } from "@amp/contracts/site";
 import { MoreLink } from "../../components/ui/Page";
@@ -10,6 +10,7 @@ import { newsSourceDate, shortSourceName } from "../../lib/format";
 /** Event developments are read on approach; absence and failed qualification stay distinct. */
 export function StoryFollowups({ story, currentId, currentFactId }: { story: StoryRef; currentId: string; currentFactId?: string }) {
   const tr = useTr();
+  const localize = useLocalize();
   const [state, setState] = useState<{ status: "waiting" | "loading" | "ready" | "error"; items: StoryFollowup[]; more: boolean }>({
     status: "waiting",
     items: [],
@@ -71,7 +72,7 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
         <MoreLink to={`/story/${story.publicId}`}>{tr("查看完整事件")}</MoreLink>
       </div>
       <noscript>
-        <a href={`/story/${story.publicId}`}>{tr("查看事件全部后续")}</a>
+        <a href={localize(`/story/${story.publicId}`)}>{tr("查看事件全部后续")}</a>
       </noscript>
       {state.status === "waiting" && (
         <button type="button" onClick={() => retry.current()} className="text-[13px] text-accent">

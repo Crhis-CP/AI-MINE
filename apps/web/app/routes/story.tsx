@@ -1,5 +1,5 @@
 import { SITE } from "@amp/industry/site";
-import { useTr, useDateFormat } from "../i18n";
+import { localizedFrom, useTr, useDateFormat } from "../i18n";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { redirect, useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
@@ -7,7 +7,7 @@ import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
-import { beijingDate, isDateOnlyInstant, NO_TIME, newsSourceDate, sourceMonthDayTime } from "../lib/format";
+import { beijingDate, isDateOnlyInstant, NO_TIME, newsSourceDate } from "../lib/format";
 import { ShareLink } from "../components/ShareLink";
 import { StorySaveButton } from "../features/story/StorySaved";
 import { HeatChart } from "../features/story/HeatChart";
@@ -24,7 +24,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   });
   if (res.status === 308) {
     const target = (await res.json()) as { mergedInto: string };
-    throw redirect(`/story/${target.mergedInto}`, 308);
+    throw redirect(localizedFrom(request.url, `/story/${target.mergedInto}`), 308);
   }
   if (res.status === 404) throw routeData({ message: "not_found" }, { status: 404 });
   if (!res.ok) throw routeData({ message: "unavailable" }, { status: 503 });
@@ -132,11 +132,6 @@ function useActiveSection(keys: SectionKey[]): [SectionKey, (k: SectionKey) => v
   return [active, go];
 }
 
-function dayLabelOf(day: string): string {
-  const [, m, d] = day.split("-").map(Number) as [number, number, number];
-  return `${m}月${d}日`;
-}
-
 /** One report on the story timeline: time, source and marks, title, a summary that opens on demand. */
 function TimelineRow({ r }: { r: StoryReportView }) {
   const tr = useTr();
@@ -152,7 +147,7 @@ function TimelineRow({ r }: { r: StoryReportView }) {
     <li className="grid gap-x-3 border-b border-line-soft py-4 last:border-b-0 lg:grid-cols-[48px_minmax(0,1fr)]">
       <time
         dateTime={sourceDate?.dateTime}
-        title={sourceDate ? `${sourceDate.label}：${sourceDate.text}` : tr("原文时间尚未确认")}
+        title={sourceDate ? tr("{label}：{text}", { label: tr.maybe(sourceDate.label), text: sourceDate.text }) : tr("原文时间尚未确认")}
         className="mono text-[13px] leading-[20px] text-ink-4"
       >
         {sourceDate?.clock ?? NO_TIME}
@@ -272,8 +267,7 @@ export default function StoryPage() {
           {story.latestAt && (
             <span className="inline-flex items-center gap-1.5" suppressHydrationWarning>
               <IconClock size={15} className="text-ink-4" />
-              {isDateOnlyInstant(story.latestAt) ? sourceMonthDayTime(story.latestAt) : df.relativeTime(story.latestAt)}
-              {tr("更新")}
+              {tr("{time}更新", { time: isDateOnlyInstant(story.latestAt) ? df.sourceMonthDayTime(story.latestAt) : df.relativeTime(story.latestAt) })}
             </span>
           )}
         </div>
@@ -316,7 +310,7 @@ export default function StoryPage() {
               <div className="-mx-5 mt-5 border-t border-line-soft px-5 pt-4 lg:-mx-6 lg:px-6">
                 <div className="flex items-center gap-2.5 text-[13px]">
                   <span className="font-semibold text-ink">{tr("最新进展")}</span>
-                  {story.latestAt && <span className="num text-ink-4">{sourceMonthDayTime(story.latestAt)}</span>}
+                  {story.latestAt && <span className="num text-ink-4">{df.sourceMonthDayTime(story.latestAt)}</span>}
                 </div>
                 {newest ? (
                   <Link to={`/items/${newest.id}`} className="group mt-1.5 inline text-[15px] leading-[1.7] text-ink-2 transition-colors hover:text-accent">
@@ -370,7 +364,7 @@ export default function StoryPage() {
             ) : (
               days.map(({ day, rows }) => (
                 <div key={day}>
-                  <div className="pb-0.5 pt-5 text-[15px] font-semibold text-ink">{dayLabelOf(day)}</div>
+                  <div className="pb-0.5 pt-5 text-[15px] font-semibold text-ink">{df.monthDay(day)}</div>
                   <ol>
                     {rows.map((r) => (
                       <TimelineRow key={r.id} r={r} />
@@ -462,7 +456,7 @@ export default function StoryPage() {
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-4">{tr("最早报道")}</dt>
                   <dd className="num text-ink-2">
-                    <time dateTime={story.firstReportAt}>{sourceMonthDayTime(story.firstReportAt)}</time>
+                    <time dateTime={story.firstReportAt}>{df.sourceMonthDayTime(story.firstReportAt)}</time>
                   </dd>
                 </div>
               )}
@@ -470,7 +464,7 @@ export default function StoryPage() {
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-4">{tr("最近更新")}</dt>
                   <dd className="num text-ink-2">
-                    <time dateTime={story.latestAt}>{sourceMonthDayTime(story.latestAt)}</time>
+                    <time dateTime={story.latestAt}>{df.sourceMonthDayTime(story.latestAt)}</time>
                   </dd>
                 </div>
               )}

@@ -1,7 +1,7 @@
 // The reader interface in Chinese (the default addresses) or English (the same addresses under /en),
 // from typed dictionaries (DEC-78). Content is not translated; only the interface is.
-import { useMemo } from "react";
-import { useLocation } from "react-router";
+import { useCallback, useMemo } from "react";
+import { useLocation, type Path, type To } from "react-router";
 import { categoryFilterKeys, isCategoryFilterKey } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { withSubject } from "@amp/industry/site";
@@ -36,6 +36,18 @@ export function localizedPath(to: string, locale: Locale): string {
   return to === "/" ? "/en" : to.startsWith("/?") || to.startsWith("/#") ? `/en${to.slice(1)}` : `/en${to}`;
 }
 
+/** A router target (an address, or a path object with a pathname) in the given language. */
+export function localizeTo<T extends To>(to: T, locale: Locale): T {
+  if (typeof to === "string") return localizedPath(to, locale) as T;
+  const path = to as Partial<Path>;
+  return (path.pathname ? { ...path, pathname: localizedPath(path.pathname, locale) } : to) as T;
+}
+
+/** An internal address in the language of the page at `from` (in a loader: the request's URL), for redirects. */
+export function localizedFrom(from: string, to: string): string {
+  return localizedPath(to, localeOf(new URL(from, "http://page.local").pathname));
+}
+
 /** The same page in the other language. */
 export function otherLanguagePath(pathname: string, search: string, locale: Locale): string {
   const base = basePath(pathname);
@@ -44,6 +56,15 @@ export function otherLanguagePath(pathname: string, search: string, locale: Loca
 
 export function useLocale(): Locale {
   return localeOf(useLocation().pathname);
+}
+
+/**
+ * Internal addresses in the current page's language: under /en a reader stays in English wherever a link, a
+ * form, a navigation or a share link takes them (i18n/navigation.tsx wraps the router's own for this).
+ */
+export function useLocalize(): <T extends To>(to: T) => T {
+  const locale = useLocale();
+  return useCallback(<T extends To>(to: T): T => localizeTo(to, locale), [locale]);
 }
 
 export function useT(): Dict {
@@ -69,6 +90,15 @@ export function useCategoryLabel(): (key: string) => string {
           .map(one)
           .join(locale === "en" ? " / " : "、")
       : one(key);
+}
+
+/** Category keys by their Chinese names: the model tags an item with its category's name as well. */
+const CATEGORY_BY_NAME = new Map(Object.entries(CATEGORY_LABELS as Record<string, string>).map(([key, label]) => [label, key]));
+
+/** A tag as the interface shows it: in English a category's name reads as the English category (the filter keeps the tag). */
+export function useTagLabel(): (tag: string) => string {
+  const english = useLocale() === "en";
+  return useCallback((tag: string) => (english ? en.categories[CATEGORY_BY_NAME.get(tag) ?? ""] : undefined) ?? tag, [english]);
 }
 
 export type { Phrase };

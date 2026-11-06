@@ -7,7 +7,7 @@ import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { beijingDate } from "../lib/format";
 import { ReportLayout } from "../features/report/ReportLayout";
-import { archiveGroups } from "../features/report/format";
+import { useReportFormat } from "../features/report/format";
 import { Rows, SectionPage } from "../features/report/ReportPaper";
 import { Nameplate } from "../features/report/Nameplate";
 
@@ -32,15 +32,16 @@ export function headers() {
 export default function DailyArchive() {
   const df = useDateFormat();
   const tr = useTr();
+  const rf = useReportFormat();
   const { index, today } = useLoaderData<typeof loader>();
-  const months = archiveGroups("daily", index);
+  const months = rf.archiveGroups("daily", index);
   return (
     <ReportLayout kind="daily" index={index} current={null} today={today}>
       <div className="@container">
         <header className="pt-5 lg:pt-0">
           <div className="flex items-center justify-between gap-4 text-[12px] text-ink-4">
             <span>
-              {SITE.name} · {tr.subject("日报")}
+              {SITE.name} · {rf.name.daily}
             </span>
             <span>
               {tr("共")} <span className="num">{index.length}</span> {tr("期")}
@@ -49,7 +50,8 @@ export default function DailyArchive() {
           <div className="py-6 @[880px]:py-8">
             <h1 id="report-start">
               <span className="sr-only">{tr("日报合订本")}</span>
-              <Nameplate which="archive" className="block h-[50px] w-auto @[520px]:h-[70px] @[880px]:h-[98px]" />
+              {/* max-w-full: the longer English nameplate scales down to a phone's column. */}
+              <Nameplate which="archive" className="block h-[50px] w-auto max-w-full @[520px]:h-[70px] @[880px]:h-[98px]" />
             </h1>
           </div>
           <div aria-hidden="true" className="border-t border-line-strong" />
@@ -67,7 +69,7 @@ export default function DailyArchive() {
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[15px] font-bold leading-[1.55] text-ink transition-colors group-hover:text-accent">
-                      {e.title ?? `${tr.subject("日报")} ${e.key}`}
+                      {e.title ?? `${rf.name.daily} ${e.key}`}
                     </span>
                     <span className="mt-1 block text-[12px] text-ink-4">
                       <span className="num">{e.count}</span> {tr("件大事")}

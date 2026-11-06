@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link } from "../../i18n/navigation";
 import { IconChevronRight } from "../icons";
 
 /**

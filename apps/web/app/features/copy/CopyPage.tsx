@@ -2,7 +2,7 @@ import { PhoneBar } from "../../components/shell/PhoneBar";
 import { useLocale, useTr } from "../../i18n";
 import { useCurrentSection } from "../../lib/motion";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link } from "../../i18n/navigation";
 import type { CopyDocument, RenderedCopy } from "../../lib/markdown";
 import { ArticleLayout, RailSection } from "../../components/ui/Page";
 

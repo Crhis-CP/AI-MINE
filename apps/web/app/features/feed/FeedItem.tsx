@@ -1,10 +1,10 @@
 // One report in a feed. Desktop (≥ 961px): a white card beside the time rail. Mobile: a compact row
 // with a divider and a short recommendation. One markup serves both layouts.
 import { markRead, useIsRead } from "../../lib/local-state";
-import { useCategoryLabel, useLocale, useT } from "../../i18n";
+import { useCategoryLabel, useLocale, useT, useTagLabel } from "../../i18n";
 import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME } from "../../lib/format";
 import { memo } from "react";
-import { Link } from "react-router";
+import { Link } from "../../i18n/navigation";
 import { IntentLink } from "../../components/ui/IntentLink";
 import type { GroupInfo, ReportGroupInfo, FeedItemSummary, StoryProgress } from "@amp/contracts/site";
 import { XPostFeedView } from "@amp/contracts/http/public";
@@ -40,6 +40,7 @@ export const FeedItem = memo(function FeedItem({
 }: FeedItemProps) {
   const tl = useT().list;
   const cat = useCategoryLabel();
+  const tagLabel = useTagLabel();
   // News content is Chinese; on the English interface it is marked so (brief: 中文导读加 lang="zh-CN").
   const contentLang = useLocale() === "en" ? "zh-CN" : undefined;
   const markedRead = useIsRead(item.id);
@@ -104,7 +105,7 @@ export const FeedItem = memo(function FeedItem({
           )}
           {tags.map((t) => (
             <Link key={t} to={`/all?tag=${encodeURIComponent(t)}`} className="hover:text-accent">
-              #{t}
+              #{tagLabel(t)}
             </Link>
           ))}
         </div>

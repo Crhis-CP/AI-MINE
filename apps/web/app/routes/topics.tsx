@@ -56,7 +56,8 @@ export default function TopicsPage() {
         </h1>
         <p className="mt-1.5 text-[14px] leading-relaxed text-ink-3">
           {tr("按国家与地区、金属、矿企浏览")} <span className="num">{topics.length}</span> {tr("个主题，持续汇集近期")}
-          {picks ? tr("焦点与精选") : tr("动态")}。
+          {picks ? tr("焦点与精选") : tr("动态")}
+          {tr("。")}
         </p>
       </header>
       {groups.length > 1 && (
@@ -86,7 +87,7 @@ export default function TopicsPage() {
                 <Link
                   to={`/topics/${t.slug}`}
                   title={t.definition}
-                  aria-label={`查看${t.name}相关${picks ? tr("精选文章") : tr("动态")}`}
+                  aria-label={tr("查看{name}相关{what}", { name: t.name, what: picks ? tr("精选文章") : tr("动态") })}
                   className="card card-hover group flex h-full flex-col gap-2 px-4 py-3.5"
                 >
                   <span className="flex min-w-0 items-center gap-2 text-[15.5px] font-semibold text-ink transition-colors group-hover:text-accent">

@@ -3,7 +3,7 @@ import { useTr } from "../i18n";
 import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "../i18n/navigation";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { pageMeta } from "../lib/seo";
@@ -209,7 +209,7 @@ export default function StarredPage() {
       </p>
       {error && (
         <p role="alert" className="mt-3 text-[14px] text-hot">
-          {error}
+          {tr.maybe(error)}
         </p>
       )}
       {state.loading && (

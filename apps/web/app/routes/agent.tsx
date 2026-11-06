@@ -1,7 +1,8 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
-import { useTr } from "../i18n";
+import { useLocalize, useTr } from "../i18n";
 import { useEffect, useState, type ReactNode } from "react";
-import { useLoaderData, useLocation, useNavigate, useSearchParams } from "react-router";
+import { useLoaderData, useLocation, useSearchParams } from "react-router";
+import { useNavigate } from "../i18n/navigation";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/agent";
 import { SITE, withSubject } from "@amp/industry/site";
@@ -24,7 +25,7 @@ const MCP_VERSION = "2.1.0";
 const AGENT_PARTS = (await loadParts((module) => module.agent)).map(({ name, part }) => ({ ...part, moduleName: name }));
 const TAG = AGENT_PARTS.find((part) => part.tag)?.tag;
 const useTag = TAG?.useValue ?? (() => null);
-const GUIDE_CLIENTS = [...new Set(AGENT_PARTS.flatMap((part) => part.guideClients ?? []))].filter(Boolean).join("、");
+const GUIDE_CLIENTS = [...new Set(AGENT_PARTS.flatMap((part) => part.guideClients ?? []))].filter(Boolean);
 const toolNames = new Set<string>(Object.values(T));
 const MODULE_TOOLS = AGENT_PARTS.flatMap((part) => part.tools ?? []).filter((tool) => {
   if (!tool.name.trim() || toolNames.has(tool.name)) return false;
@@ -207,7 +208,9 @@ function McpTab({ base, tag }: AgentPanelProps) {
             </>,
             ...MODULE_TOOLS.map((tool) => (
               <>
-                <Mono>{tool.name}</Mono>：{tool.does}
+                <Mono>{tool.name}</Mono>
+                {tr("：")}
+                {tool.does}
                 {tr("；示例提问：")}
                 {tool.ask}
               </>
@@ -343,7 +346,10 @@ function ApiTab({ base, tag }: AgentPanelProps) {
             <Bullets
               items={part.api.rows.map(([path, does, often]) => (
                 <>
-                  <Mono>{path}</Mono>：{does}（{often}）
+                  <Mono>{path}</Mono>
+                  {tr("：")}
+                  {does}
+                  {tr("（{value}）", { value: often })}
                 </>
               ))}
             />
@@ -392,7 +398,9 @@ function ApiTab({ base, tag }: AgentPanelProps) {
             tr("5xx：指数退避，暂停展示尚未重新核对的内容。"),
             ...AGENT_PARTS.flatMap((part) => part.apiErrors ?? []).map(([status, what]) => (
               <>
-                <Mono>{status}</Mono>：{what}
+                <Mono>{status}</Mono>
+                {tr("：")}
+                {what}
               </>
             )),
           ]}
@@ -408,6 +416,7 @@ export default function AgentPage() {
   const [params] = useSearchParams();
   const pageLocation = useLocation();
   const navigate = useNavigate();
+  const localize = useLocalize();
   const [tab, setTab] = useState<TabKey>(tabKey(params.get("tab")));
   const tag = useTag();
   const props = { base, tag, now };
@@ -487,7 +496,9 @@ export default function AgentPage() {
           </span>
         </div>
       </header>
-      {AGENT_PARTS.map((part) => (part.Banner ? <part.Banner key={part.moduleName} {...props} href={anchorHref} open={open} /> : null))}
+      {AGENT_PARTS.map((part) =>
+        part.Banner ? <part.Banner key={part.moduleName} {...props} href={(id: string) => localize(anchorHref(id))} open={open} /> : null,
+      )}
       {TAG && <TAG.Note />}
 
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] lg:hidden">
@@ -503,10 +514,11 @@ export default function AgentPage() {
         lang="text"
         code={tr("请先阅读 {base}/api/v1/agent，按说明查找矿业资讯、热点或报告。只使用返回的公开资料，保留来源和链接。", { base })}
       />
-      {GUIDE_CLIENTS && (
+      {GUIDE_CLIENTS.length > 0 && (
         <p className="mt-2 text-[13px] text-ink-3">
           {tr("使用同一份接入说明的客户端：")}
-          {GUIDE_CLIENTS}。
+          {GUIDE_CLIENTS.join(tr("、"))}
+          {tr("。")}
         </p>
       )}
       <div className="sticky top-12 z-20 -mx-4 mt-7 bg-bg/90 px-4 py-2 backdrop-blur-md lg:top-0 lg:mx-0 lg:px-0">

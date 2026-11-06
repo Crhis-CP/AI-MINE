@@ -43,7 +43,7 @@ export function Sparkline({
       preserveAspectRatio={stretch ? "none" : undefined}
       className={`overflow-visible ${className}`}
       role="img"
-      aria-label={`近 24 小时热度走势${gaps ? tr("，部分时段缺少可比数据") : ""}`}
+      aria-label={`${tr("近 24 小时热度走势")}${gaps ? tr("，部分时段缺少可比数据") : ""}`}
     >
       {area &&
         runs.map((pts) => {

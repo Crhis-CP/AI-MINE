@@ -2,7 +2,8 @@
 // (全部动态, topics, search results, 收藏).
 import { useEffect, useMemo, useState } from "react";
 import { useT } from "../../i18n";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
+import { Link, useNavigate } from "../../i18n/navigation";
 import type { FeedItemSummary, ReportGroupedTimelineCard } from "@amp/contracts/site";
 import { IconChevronRight } from "../../components/icons";
 import { beijingDate } from "../../lib/format";

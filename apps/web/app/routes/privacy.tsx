@@ -29,7 +29,7 @@ export default function PrivacyPage() {
             { to: "/terms", label: tr("使用规则") },
             { to: "/feedback", label: tr("反馈页") },
           ]}
-          note={`隐私说明 ${PRIVACY.doc.meta["版本"] ?? ""} · ${PRIVACY.doc.meta["修订日期"] ?? ""}`}
+          note={`${tr("隐私说明")} ${PRIVACY.doc.meta["版本"] ?? ""} · ${PRIVACY.doc.meta["修订日期"] ?? ""}`}
         />
       }
     />

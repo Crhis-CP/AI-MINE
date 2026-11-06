@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTr } from "../../i18n";
+import { useLocalize, useTr } from "../../i18n";
 import type { MediaView, XPostDetailView, XPostFeedView } from "@amp/contracts/site";
 import { ArticleBody } from "./ArticleBody";
 
@@ -65,8 +65,10 @@ export function QuotedPost({
   );
 }
 
-export function PostMedia({ media, href, compact = false }: { media: MediaView[]; href: string; compact?: boolean }) {
+export function PostMedia({ media, href: to, compact = false }: { media: MediaView[]; href: string; compact?: boolean }) {
   const tr = useTr();
+  // The article page (an internal address) in the page's language; the original post's address as it is.
+  const href = useLocalize()(to);
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   if (!media.length) return null;
   const unique = [...new Map(media.map((entry) => [`${entry.kind}:${entry.url}`, entry])).values()];

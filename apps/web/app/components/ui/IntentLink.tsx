@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, PrefetchPageLinks, useHref, useLocation, type LinkProps } from "react-router";
-import { localeOf, localizedPath } from "../../i18n";
+import { useLocalize } from "../../i18n";
 
 /** A press can anticipate navigation; hovering or scrolling past a link cannot. */
 export function IntentLink({ onPointerDown, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, ...rest }: Omit<LinkProps, "prefetch">) {
   const location = useLocation();
-  // Under /en, site addresses stay in English (DEC-78 bilingual base).
-  const locale = localeOf(location.pathname);
-  const props = typeof rest.to === "string" ? { ...rest, to: localizedPath(rest.to, locale) } : rest;
+  // Under /en, site addresses stay in English (DEC-78 bilingual base; the same rule as i18n/navigation's Link).
+  const localize = useLocalize();
+  const to = useMemo(() => localize(rest.to), [localize, rest.to]);
+  const props = { ...rest, to };
   const href = useHref(props.to);
   const [pressedOn, setPressedOn] = useState<string | null>(null);
   const target = new URL(href, "http://page.local");

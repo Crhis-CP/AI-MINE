@@ -5,9 +5,9 @@ import { watchAppearance } from "../../lib/local-state";
 // on a canvas in the same dot language as the nameplate; the archive column is the accessible way
 // to the same issues.
 import { useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router";
 import type { ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
-import { KIND_PATH, periodGrid } from "./format";
+import { useNavigate } from "../../i18n/navigation";
+import { KIND_PATH, useReportFormat } from "./format";
 
 const ROW = 20;
 const TAU = Math.PI * 2;
@@ -25,7 +25,8 @@ export function IssueDots({
   index: ReportNavigationEntry[];
   className?: string;
 }) {
-  const grid = useMemo(() => periodGrid(kind, reportKey, index), [kind, reportKey, index]);
+  const rf = useReportFormat();
+  const grid = useMemo(() => rf.periodGrid(kind, reportKey, index), [rf, kind, reportKey, index]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
   const rows = Math.ceil(grid.cells.length / grid.columns);

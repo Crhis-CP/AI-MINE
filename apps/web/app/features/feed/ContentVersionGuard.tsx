@@ -1,5 +1,5 @@
 import { apiFetch } from "../../lib/http.ts";
-import { fmt, useTr } from "../../i18n";
+import { basePath, fmt, useTr } from "../../i18n";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigation, useNavigationType, useRevalidator } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -43,8 +43,8 @@ async function availability(ids: string[], signal: AbortSignal) {
   return new Map<string, Availability>(answers.flat());
 }
 
-/** The item an article page shows (`/items/:id` and its original view): it is checked like the cards on a list. */
-const pageItem = (pathname: string) => pathname.match(/^\/items\/([^/]+)/)?.[1] ?? null;
+/** The item an article page shows (`/items/:id` and its original view, in either language): it is checked like the cards on a list. */
+const pageItem = (pathname: string) => basePath(pathname).match(/^\/items\/([^/]+)/)?.[1] ?? null;
 
 /**
  * New arrivals wait for the reader; a withdrawal removes what this page shows of it (reader pages, rule 10).
@@ -81,8 +81,10 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
   const article = useRef<{ visit: typeof visit; state: Availability } | null>(null);
   const interaction = useRef(0);
   const position = useRef<{ key: string; snapshot: ListSnapshot<null>; interaction: number } | null>(null);
-  const pagedList = location.pathname === "/all";
-  const savedPage = /^\/starred(?:\/|$)/.test(location.pathname);
+  // Sections are matched without the language prefix: /en/all is the same list as /all.
+  const section = basePath(location.pathname);
+  const pagedList = section === "/all";
+  const savedPage = /^\/starred(?:\/|$)/.test(section);
   useEffect(() => {
     const interrupt = () => interaction.current++;
     const events = ["pointerdown", "wheel", "touchstart", "keydown"] as const;
@@ -132,7 +134,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     return restoreAnchor(pending.snapshot.anchor, pending.snapshot.scrollY, pending.snapshot.keyboardFocus);
   }, [location.key, visit, checkedVisit, revalidator.state, status]);
   const policyPage = !/^\/(?:$|all(?:\/|$)|hot(?:\/|$)|items\/|story\/|topics(?:\/|$)|starred(?:\/|$)|daily(?:\/|$)|weekly(?:\/|$)|monthly(?:\/|$))/.test(
-    location.pathname,
+    section,
   );
   useEffect(() => {
     // A new page starts without the last page's notices; what still applies is found again by its first check.

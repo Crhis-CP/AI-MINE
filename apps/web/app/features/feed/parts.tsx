@@ -1,6 +1,6 @@
 // Small building blocks shared by feed items, detail pages and lists.
 import { useState } from "react";
-import { useT } from "../../i18n";
+import { useT, useTr } from "../../i18n";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { IconBookmark } from "../../components/icons";
 import { toggleStar, useIsStarred } from "../../lib/local-state";
@@ -21,6 +21,7 @@ export function StarButton({
   className?: string;
 }) {
   const tl = useT().list;
+  const tr = useTr();
   const starred = useIsStarred(item.id);
   const [pulse, setPulse] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function StarButton({
       </button>
       {error && (
         <span role="alert" className="relative z-20 text-[13px] text-hot">
-          {error}
+          {tr.maybe(error)}
         </span>
       )}
     </>
@@ -58,6 +59,7 @@ export function StarButton({
 /** Attribution is supplied by the publication permission projection, never guessed from a host. */
 export function Attribution({ value, full = false }: { value: FeedItemSummary["attribution"]; full?: boolean }) {
   const tl = useT().list;
+  const tr = useTr();
   if (!value) return null;
   return (
     <div className="relative z-10 my-2 text-[13px] leading-relaxed text-ink-3">
@@ -66,7 +68,7 @@ export function Attribution({ value, full = false }: { value: FeedItemSummary["a
           {tl.attribution}
           {value.publishers.map((publisher, i) => (
             <span key={`${publisher.url}:${publisher.name}`}>
-              {i > 0 ? "、" : ""}
+              {i > 0 ? tr("、") : ""}
               <a href={publisher.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
                 {publisher.name}
               </a>

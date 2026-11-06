@@ -49,7 +49,7 @@ function Voices({ e }: { e: HotEntryView }) {
     <span className="min-w-0 text-[13.5px] leading-snug text-ink-4">
       {/* Lines break between the phrases, never inside one. */}
       <span className="whitespace-nowrap">
-        {names.length > 0 && <span className="text-ink-3">{names.join("、")}</span>}
+        {names.length > 0 && <span className="text-ink-3">{names.join(tr("、"))}</span>}
         {e.sourceCount > names.length
           ? tr(" 等 {sourceCount} 个来源", { sourceCount: e.sourceCount })
           : names.length
@@ -249,10 +249,7 @@ export default function HotPage() {
         large
         sub={
           <>
-            {tr("过去")}
-            {hot.windowHours}
-            {tr("小时 ·")} {hot.entries.length}
-            {tr("个热点")}
+            {tr("过去{hours}小时 · {count}个热点", { hours: hot.windowHours, count: hot.entries.length })}
             {hot.computedAt && <> · {tr("{time} 更新", { time: df.monthDayTime(hot.computedAt) })}</>}
           </>
         }
