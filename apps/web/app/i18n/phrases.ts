@@ -43,11 +43,6 @@ export const PHRASES = {
   "从采集到发布，一层层接上": "From collection to publication, one layer at a time",
   "很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。":
     "News from many sources comes in, is filtered and merged layer by layer, and only the small part worth reading is kept.",
-  多个来源一起收: "Many sources, gathered",
-  "无关、重复的筛掉": "Unrelated and repeats dropped",
-  同一件事合成一页: "One story, one page",
-  挑出值得看的: "The ones worth reading",
-  "网页、手机、订阅都能看": "On the web, phone and feeds",
   公开出去: "Published",
   试运行: "Trial run",
   还在完善: "Still improving",

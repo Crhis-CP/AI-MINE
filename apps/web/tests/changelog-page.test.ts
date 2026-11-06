@@ -31,7 +31,9 @@ const changelog = {
         "- 要点：合成内容",
         "**收集 合成甲**：合成收集说明。",
         "**筛选 合成乙**：合成筛选说明。",
-        "**发布 合成丙**：合成发布说明。",
+        "**归并 合成丙**：合成归并说明。",
+        "**精选 合成丁**：合成精选说明。",
+        "**发布 合成戊**：合成发布说明。",
         "出口：合成网页、合成订阅",
       ],
     },
@@ -123,8 +125,9 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   for (const to of ["/all", "/hot", "/policies", "/metals", "/more"]) assert.match(page, new RegExp(`href="${to}"`), to);
   // The 2.0 notice has no showcase of its own and keeps its paragraphs, and its steps are drawn as a chain.
   assert.match(page, /合成说明。/);
-  for (const step of ["收集", "筛选", "发布", "合成筛选说明。", "合成订阅"]) assert.match(page, new RegExp(step), step);
-  // Above the steps, the flow from many sources to the few worth reading, with what each stage does.
+  for (const step of ["收集", "筛选", "归并", "精选", "发布", "合成筛选说明。", "合成订阅"]) assert.match(page, new RegExp(step), step);
+  // Five steps are threaded on one gathering line: many threads in, a few out, each step's card numbered as on the line.
   assert.match(page, /很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。/);
-  for (const tag of ["多个来源一起收", "无关、重复的筛掉", "同一件事合成一页", "挑出值得看的"]) assert.match(page, new RegExp(tag), tag);
+  assert.ok((page.match(/<path[^>]*class="anim-draw fill-none (?:stroke-accent|stroke-ink-4)"/g)?.length ?? 0) >= 26, "the threads are drawn");
+  for (const n of ["01", "02", "03", "04", "05"]) assert.match(page, new RegExp(`>${n}<`), n);
 });
