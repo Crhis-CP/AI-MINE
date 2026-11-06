@@ -10,7 +10,7 @@ import { EmptyState } from "../components/ui/Page";
 import { ReportLayout } from "../features/report/ReportLayout";
 import { ReportPaper } from "../features/report/ReportPaper";
 import { expectedReportKey } from "../features/report/report-period";
-import { KIND_LABEL, kindFromPath } from "../features/report/format";
+import { KIND_LABEL, kindFromPath, useReportFormat } from "../features/report/format";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const kind = kindFromPath(new URL(request.url).pathname);
@@ -36,19 +36,19 @@ export function headers() {
 
 export default function ReportLatestPage() {
   const tr = useTr();
+  const format = useReportFormat();
   const { kind, report, index, today, expected } = useLoaderData<typeof loader>();
   return (
     <ReportLayout kind={kind} index={index} current={report?.key ?? null} today={today}>
       {report && report.key < expected && (
         <p role="status" className="mb-4 rounded-control bg-bg-sunk px-4 py-3 text-[13px] text-ink-3">
-          {tr("按出刊安排，")}
-          {expected} {tr("期尚未发布；以下为最近一期。")}
+          {tr("按出刊安排，{key} 期尚未发布；以下为最近一期。", { key: expected })}
         </p>
       )}
       {report ? (
         <ReportPaper report={report} index={index} />
       ) : (
-        <EmptyState title={tr("还没有发布{kind}", { kind: withSubject(KIND_LABEL[kind]) })}>{tr("第一期发布后会出现在这里。")}</EmptyState>
+        <EmptyState title={tr("还没有发布{kind}", { kind: format.name[kind] })}>{tr("第一期发布后会出现在这里。")}</EmptyState>
       )}
     </ReportLayout>
   );

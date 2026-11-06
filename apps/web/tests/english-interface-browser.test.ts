@@ -363,11 +363,7 @@ async function chineseChrome(page: Page): Promise<string[]> {
     .filter((text) => CJK.test(["AI矿策", "切换到中文", "中文", "(宋体)"].reduce((rest, name) => rest.replaceAll(name, ""), text)))
     .filter((text) => !PENDING.some((pending) => pending.test(text)));
 }
-/**
- * Known Chinese left in parts this change does not own: the report's coverage line closes with a full-width
- * bracket (ReportPaper's meta lines, reworked with its corrections block in a parallel change). Remove when fixed.
- */
-const PENDING = [/^）$/];
+const PENDING: RegExp[] = [];
 
 test("the interface chrome of English pages has no Chinese outside the content", { timeout: 60000 }, async () => {
   for (const width of [390, 1440]) {

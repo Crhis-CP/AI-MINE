@@ -481,8 +481,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
         <p>
           {tr("覆盖时间：")}
           {fullDateTime(report.windowStart)} {tr("至")} {fullDateTime(report.windowEnd)}
-          {tr("（北京时间")}
-          {daily ? "" : tr("，结束时刻不含")}）
+          {daily ? tr("（北京时间）") : tr("（北京时间，结束时刻不含）")}
         </p>
         {daily && (
           <p className="pt-1 text-[13px] text-ink-2">
