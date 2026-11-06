@@ -1,8 +1,8 @@
 // Stage `tasks` (docs/06-agents/01-parallel-development-rules.md §6.3; tasks/_template.md): every task card
 // has the required fields, in the allowed shapes, and points at things that exist (its lane in lanes.yaml,
-// its work package in the roadmap, its spec IDs in docs/). tasks/INDEX.md is generated from the cards on
-// the integration branch and included with task changes; never edited by hand:
-//   node scripts/verify/tasks.ts --write-index
+// its work package in the roadmap, its spec IDs in docs/). The index of cards is generated locally on demand and
+// not committed (2026-11-06, TASK-0560: a committed index was the file parallel changes collided on most):
+//   node scripts/verify/tasks.ts --write-index    → tasks/INDEX.md (git-ignored)
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
@@ -116,9 +116,6 @@ export function checkTasks(root = ROOT): { cards: number; problems: string[] } {
   const k = known(root);
   const files = cardFiles(root);
   const problems = files.flatMap((f) => checkCard(f, readFileSync(path.join(root, "tasks", f), "utf8"), k));
-  const index = path.join(root, "tasks/INDEX.md");
-  if (!existsSync(index) || readFileSync(index, "utf8") !== renderIndex(root))
-    problems.push("tasks/INDEX.md is stale; run node scripts/verify/tasks.ts --write-index");
   return { cards: files.length, problems };
 }
 
@@ -136,7 +133,7 @@ export function renderIndex(root = ROOT): string {
   return [
     "# 任务卡索引",
     "",
-    "> 生成文件，不要手改：`node scripts/verify/tasks.ts --write-index`（随任务卡在整合分支生成并提交；规则文件第 6.3 节）。",
+    "> 本地生成，不提交：`node scripts/verify/tasks.ts --write-index`（规则文件第 6.3 节）。",
     "",
     "| 卡 | 任务包 | 关 | 泳道 | 状态 | 标题 | 依赖 |",
     "|---|---|---|---|---|---|---|",

@@ -27,3 +27,6 @@ fontsource-noto-sans-sc-*.tgz
 # Local Python verification bytecode.
 __pycache__/
 *.py[cod]
+
+# The task-card index is generated locally on demand (node scripts/verify/tasks.ts --write-index), not committed.
+tasks/INDEX.md

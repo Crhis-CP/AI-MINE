@@ -4,7 +4,7 @@
 #   make verify [TASK=TASK-nnnn] [SHA=<40 hex>]    every check, a receipt in .verify/receipts/
 #   make check                                     the fast subset (same as npm run check), no receipt
 #   make release-check / make nightly              skeletons: they fail until their stages exist
-#   make tasks-index                               regenerate tasks/INDEX.md (integrator, on main)
+#   make tasks-index                               write tasks/INDEX.md locally (git-ignored, not committed)
 # Settings are environment variables; see scripts/verify/README.md.
 
 .PHONY: verify check release-check local-release-check nightly tasks-index

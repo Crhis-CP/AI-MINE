@@ -10,7 +10,7 @@
 // "prefer no" refused half of the true merges (measured 2026-09-28 on 370 labelled pairs).
 import { z } from "zod";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
-import { JURISDICTIONS } from "@amp/industry/jurisdictions";
+import { COUNTRY_ALIASES, JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 
 export const GROUP_BODY_CHARS = 10_000;
@@ -120,12 +120,8 @@ for (const row of JURISDICTIONS) {
   const country = countryOf(row);
   for (const name of [row.id, row.name_zh, row.name_en]) countryByName.set(name.toLocaleLowerCase(), country);
 }
-for (const [name, country] of [
-  ["中国", "CN"],
-  ["中华人民共和国", "CN"],
-  ["china", "CN"],
-] as const)
-  countryByName.set(name.toLocaleLowerCase(), country);
+// The same other names reader search knows (DRC, 澳洲, 印尼 …), so one country under two names is not a conflict.
+for (const [country, names] of Object.entries(COUNTRY_ALIASES)) for (const name of names) countryByName.set(name.toLocaleLowerCase(), country);
 
 /** Country of a stored code or a plain name. A province and its country are the same country. */
 export function countryKey(value: string | null | undefined): string | null {

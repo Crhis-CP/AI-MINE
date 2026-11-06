@@ -3,7 +3,7 @@
 // summary, source name or display tags (publications.search_text) say so.
 // Full article bodies are not a filter hit. Withdrawn and ineligible rows stay out
 // because every caller still applies its own visibility condition.
-import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
+import { COUNTRY_ALIASES, JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
 import { ENTITIES, MINERAL_TAGS, TAG_SYNONYMS } from "@amp/industry/taxonomy";
 const FOLD_DROP = /[\s（）()【】[\]「」『』·・,，.。\-‐‑–—_/]/g;
 const SHORT_LATIN = new Set(["drc", "uk", "eu", "un"]);
@@ -12,20 +12,6 @@ const CHAR_GUARDS: Record<string, string[]> = {
   金: ["刚果（金）", "刚果(金)", "金属", "资金", "基金", "紫金"],
   银: ["银行"],
   铁: ["地铁", "铁路"],
-};
-const COUNTRY_EXTRAS: Record<string, string[]> = {
-  US: ["USA", "U.S.A.", "United States of America"],
-  GB: ["UK", "U.K.", "Britain"],
-  CN: ["中华人民共和国"],
-  CD: ["DRC", "DR Congo", "Congo-Kinshasa", "刚果民主共和国"],
-  AU: ["澳洲"],
-  ID: ["印尼"],
-  KG: ["吉尔吉斯"],
-  KZ: ["哈萨克"],
-  TJ: ["塔吉克"],
-  UZ: ["乌兹别克"],
-  RU: ["俄罗斯联邦"],
-  MN: ["蒙古国"],
 };
 const MINERAL_ENGLISH: Record<string, string[]> = {
   铜: ["copper"],
@@ -94,7 +80,7 @@ for (const row of JURISDICTIONS) {
   addAlias(draft, row.name_en);
   if (row.kind === "subdivision") addAlias(draft, row.name_zh.replace(/(?:省|(?:维吾尔)?自治区)$/, ""));
   if (row.kind === "organization") addAlias(draft, row.id);
-  for (const extra of COUNTRY_EXTRAS[row.id] ?? []) addAlias(draft, extra);
+  for (const extra of COUNTRY_ALIASES[row.id] ?? []) addAlias(draft, extra);
   drafts.push(draft);
   countryById.set(row.id, draft);
   countryByName.set(row.name_zh, draft);

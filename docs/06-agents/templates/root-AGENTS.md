@@ -105,6 +105,6 @@ make release-check                 # 尚未实现的制品/SBOM/签名入口；�
 
 ## 8. 中断与续接
 
-本轮在统一整合分支保存检查点并维护一份草稿 PR，随提交更新任务卡的“交付记录 / 未完成项”。新会话只读任务卡 + 分支 + 模块 README 即可接力，不依赖聊天；进度看 `tasks/INDEX.md`。并行度与额度由集成人调度，卡粒度 ≤400 行有效改动。
+本轮在统一整合分支保存检查点并维护一份草稿 PR，随提交更新任务卡的“交付记录 / 未完成项”。新会话只读任务卡 + 分支 + 模块 README 即可接力，不依赖聊天；进度看任务卡（索引在本地用 `node scripts/verify/tasks.ts --write-index` 生成，不提交）。并行度与额度由集成人调度，卡粒度 ≤400 行有效改动。
 
 详细协作规则：`docs/06-agents/01-parallel-development-rules.md`；路线图：`docs/06-agents/02-roadmap-and-wbs.md`。
