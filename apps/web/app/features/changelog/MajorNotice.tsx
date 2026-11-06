@@ -3,7 +3,6 @@ import { useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
 import { Convergence } from "./AggregationFlow";
-import { ReadingUpgrade } from "./ReadingUpgrade";
 import { Showcase202611 } from "./Showcase202611";
 
 /**
@@ -11,7 +10,6 @@ import { Showcase202611 } from "./Showcase202611";
  * line leads, the showcase follows, and the remaining lines are listed after it (folded away when there are many).
  */
 const SHOWCASES: Record<string, () => ReactNode> = {
-  "2026.10": ReadingUpgrade,
   "2026.11": Showcase202611,
 };
 const FOLD_AFTER = 5;
