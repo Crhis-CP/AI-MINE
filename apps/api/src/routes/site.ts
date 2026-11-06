@@ -208,8 +208,7 @@ export function registerSite(app: FastifyInstance) {
       if (!Number.isSafeInteger(page) || page < 1) throw new BadRequest("invalid page");
       const search = q.q?.trim() ? q.q.trim().slice(0, 200) : null;
       const tab = q.tab === "relevance" ? "relevance" : "time";
-      const data = await loadPool({ ...filters, q: search, tab, page });
-      if (
+      const unfiltered =
         !search &&
         !filters.category &&
         !filters.tag &&
@@ -221,9 +220,10 @@ export function registerSite(app: FastifyInstance) {
         !filters.from &&
         !filters.to &&
         !filters.selected &&
-        filters.channel === "all"
-      )
-        data.hot = (await loadHotStrip()) ?? [];
+        filters.channel === "all";
+      // The hotspot board does not depend on the page: read it alongside, as the timeline does.
+      const [data, hot] = await Promise.all([loadPool({ ...filters, q: search, tab, page }), unfiltered ? loadHotStrip() : null]);
+      if (unfiltered) data.hot = hot ?? [];
       (filters.readingGroups ? ReportGroupedPoolResponse : PoolResponse).parse(JSON.parse(JSON.stringify(data))); // Validate wire values without changing the original bytes.
       const { generatedAt: _, ...content } = data;
       return sendJsonWithEtag(req, reply, data, {

@@ -213,16 +213,17 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<ReportGrouped
   const now = q.now ?? new Date();
   q = { ...q, featuredSince: beijingMidnight(addCalendarMonths(beijingDate(now), -3)) };
   if (q.readingGroups === "reports-v1") {
-    const { cards, total, dayCounts, nextCursor } = await loadReportGroupedPage(
-      { ...q, scope: q.scope ?? "selected", featuredSince: q.scope === "all" ? undefined : q.featuredSince },
-      now,
-    );
+    // The release deadline is independent of the page: read it alongside, as the ungrouped timeline does.
+    const [{ cards, total, dayCounts, nextCursor }, refreshAt] = await Promise.all([
+      loadReportGroupedPage({ ...q, scope: q.scope ?? "selected", featuredSince: q.scope === "all" ? undefined : q.featuredSince }, now),
+      nextRelease(q, now),
+    ]);
     return {
       cards,
       total,
       dayCounts,
       nextCursor,
-      refreshAt: await nextRelease(q, now),
+      refreshAt,
       filters: { channel: q.channel, category: q.category, tag: q.tag, topic: q.topic ?? null, ...(q.jurisdiction ? { jurisdiction: q.jurisdiction } : {}) },
     };
   }

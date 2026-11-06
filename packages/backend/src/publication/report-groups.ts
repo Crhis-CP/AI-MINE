@@ -7,7 +7,7 @@ import {
   type ReportGroupProjector,
 } from "@amp/contracts/site";
 import { publicMaterialVersions } from "../content/grouping.ts";
-import { evaluateSourcePolicy, publicProcessingAllowed } from "@amp/backend/admin/sources";
+import { evaluatePublicSourcePolicy, publicProcessingAllowedBy, type PublicSourcePolicy } from "@amp/backend/admin/sources";
 import { sql, type Db } from "../db.ts";
 import { stableJson } from "../lib/ids.ts";
 import { fetchItemsByIds } from "./items.ts";
@@ -52,18 +52,17 @@ export async function currentReportMemberships(ids: string[], db: Db = sql, now 
       valid.set(id, false);
       continue;
     }
-    const version = (row.source_policy as { permission_version?: number } | null)?.permission_version;
+    // fetchItemsByIds attached each source's public permission in this same read; checking against it costs no query per member.
+    const policy = row.source_policy as PublicSourcePolicy | null;
     const resource = { url: row.url, attachment: false, document_type: null };
     valid.set(
       id,
-      !!version &&
-        (await publicProcessingAllowed(row.source_id, resource, now.getTime(), db)) &&
-        (
-          await evaluateSourcePolicy(
-            { source_id: row.source_id, lane: "news", capability: "public_summary", expected_permission_version: version, resource },
-            now.getTime(),
-            db,
-          )
+      !!policy?.permission_version &&
+        publicProcessingAllowedBy(policy, resource, now.getTime()) &&
+        evaluatePublicSourcePolicy(
+          policy,
+          { source_id: row.source_id, lane: "news", capability: "public_summary", expected_permission_version: policy.permission_version, resource },
+          now.getTime(),
         ).decision === "allow",
     );
   }
