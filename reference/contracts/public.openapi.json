@@ -10,6 +10,9 @@
       "ContentVersion": {
         "additionalProperties": false,
         "properties": {
+          "arrivalVersion": {
+            "type": "string"
+          },
           "version": {
             "type": "string"
           },
@@ -26,6 +29,9 @@
       "ContentVersionInput": {
         "additionalProperties": false,
         "properties": {
+          "arrivalVersion": {
+            "type": "string"
+          },
           "version": {
             "type": "string"
           },

@@ -23,11 +23,17 @@ export async function savedItems(ids: string[]) {
 }
 
 export async function contentVersion(now = new Date()) {
-  const [row] = await sql<{ version: string; withdrawal_version: string }[]>`
-    SELECT version::text,withdrawal_version::text FROM publication.read_watermarks WHERE lane='news'`;
+  // Every change to a published row moves both counters; an insert (a new arrival) moves `version` alone, so their
+  // difference, with the timed releases, moves only when there is something new to load.
+  const [row] = await sql<{ version: string; withdrawal_version: string; arrivals: string }[]>`
+    SELECT version::text,withdrawal_version::text,(version-withdrawal_version)::text AS arrivals FROM publication.read_watermarks WHERE lane='news'`;
   if (!row) throw new Error("Public watermarks unavailable");
   const pending = await pendingReleaseCount(now);
-  return { version: originalPostReadVersion(sha256(`${row.version}:${pending}`)), withdrawalVersion: originalPostReadVersion(row.withdrawal_version) };
+  return {
+    version: originalPostReadVersion(sha256(`${row.version}:${pending}`)),
+    withdrawalVersion: originalPostReadVersion(row.withdrawal_version),
+    arrivalVersion: originalPostReadVersion(sha256(`arrivals:${row.arrivals}:${pending}`)),
+  };
 }
 
 export async function publicFreshness() {

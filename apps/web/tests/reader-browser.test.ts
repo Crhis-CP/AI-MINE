@@ -25,6 +25,8 @@ let historicalBackground = true;
 let readerWithdrawalVersion = "1";
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
+// How the availability API reports the withdrawn fixture: gone, or moved to "summary only" (no longer listed).
+let withdrawnAs: "unavailable" | "summary-only" = "unavailable";
 let withdrawn = false,
   added = false;
 const now = new Date().toISOString();
@@ -276,7 +278,7 @@ const api = createServer((req, res) => {
         (url.searchParams.get("ids") ?? "")
           .split(",")
           .filter(Boolean)
-          .map((id) => [id, withdrawn && id === "fixture-a" ? "unavailable" : "public"]),
+          .map((id) => [id, withdrawn && id === "fixture-a" ? withdrawnAs : "public"]),
       ),
     );
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
@@ -692,10 +694,16 @@ test("a combined withdrawal and arrival removes the old card while the new card 
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   await openQualifiedReader(page);
+  // An editor made the card "summary only": it leaves every list, as a withdrawal does.
+  withdrawnAs = "summary-only";
+  t.after(() => {
+    withdrawnAs = "unavailable";
+  });
   withdrawn = true;
   added = true;
   await checkVersionOnFocus(page, "2");
   await expect(page.getByText("有 1 条内容已撤回，已从列表移除", { exact: false })).toBeVisible();
+  await expect(page.getByText("有新的矿业动态", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toBeVisible();
@@ -739,6 +747,18 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   await again;
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
   assert.equal(reloads, 0);
+  // News arriving together with another unrelated change is still offered, and still waits for the reader.
+  added = true;
+  readerWithdrawalVersion = "3";
+  const both = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  assert.deepEqual(await (await both).json(), { version: "2", withdrawalVersion: "3" });
+  await expect(page.getByText("有新的矿业动态", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
+  assert.equal(reloads, 0);
+  await page.getByRole("button", { name: "加载最新", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
 });
 
 async function loadFourTimelinePages(page: Page) {
