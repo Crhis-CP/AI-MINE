@@ -59,6 +59,7 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   assert.deepEqual(loadChangelog(), changelog);
   // The first deploy after the launch, written before the deploy with its Beijing date alone, above the launch of the
   // same day: the four entries of the Owner's preview that ship with it, then one for each other change readers will see with it.
+  // Owner 2026-11-06 (the reader changelog standard): two small fixes of that deploy are out of the log.
   const launchAt = changelog.releases.findIndex((r) => r.kind === "重大更新");
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
@@ -75,11 +76,9 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
       ["2026-10-10", undefined, "法规政策动态可以按国家查看"],
       ["2026-10-06", undefined, "首页先展示最新矿业动态"],
       ["2026-10-06", undefined, "金属价格：侧栏新增入口"],
-      ["2026-10-06", undefined, "只写日期的文章不再显示 00:00"],
       ["2026-10-06", undefined, "全部动态更聚焦金属矿业"],
       ["2026-10-06", undefined, "两个分类改名：矿山安全、技术与冶炼"],
       ["2026-10-06", undefined, "事件进展更便于连续查阅"],
-      ["2026-10-06", undefined, "手机上每个页面都显示备案号"],
     ],
   );
   const launch = changelog.releases[launchAt]!;
@@ -199,12 +198,29 @@ test("every public changelog line reads as a reader update, and the shipped note
   );
 });
 
-test("small fixes stay out of the reader changelog: the published “少提示‘加载最新’” entry is taken out", () => {
-  // Owner 2026-11-06: “这个更新应该不需要吧？” — the registered record stays; readers no longer see it.
-  const edits: ChangelogCopyEdit[] = JSON.parse(readFileSync(new URL("../industry/changelog-copy-edits.json", import.meta.url), "utf8"));
-  const hidden = edits.find((e) => e.date === "2026-11-07" && e.time === "00:52");
-  assert.equal(hidden?.title, "少提示“加载最新”，站名改为 AI-MINE");
-  assert.equal(hidden?.copy, null);
+test("the reader changelog standard keeps small fixes out and its 2026-11-06 clean-up holds", () => {
+  // Owner 2026-11-06: “这个更新应该不需要吧？”, then the standard (docs/01-product/11-changelog-standard.md) and
+  // “旧条目也按你的建议处理”. Registered records stay as they were; readers no longer see these.
+  const read = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
+  const edits: ChangelogCopyEdit[] = read("changelog-copy-edits.json");
+  const at = (date: string, time: string) => edits.find((e) => e.date === date && e.time === time);
+  for (const [date, time, title] of [
+    ["2026-11-07", "00:52", "少提示“加载最新”，站名改为 AI-MINE"],
+    ["2026-11-06", "20:59", "主屏幕和订阅器里的图标换成新标志"],
+    ["2026-10-14", "07:45", "反馈字数要求更清楚"],
+    ["2026-10-19", "23:23", "优化精选归组与文章更新"],
+  ] as const) {
+    assert.equal(at(date, time)?.title, title);
+    assert.equal(at(date, time)?.copy, null, title);
+  }
+  // The 10-19 entry is folded into the 10-20 one; the 10-21 one is no major update; the policies line says it is back.
+  assert.match(at("2026-10-20", "03:37")?.copy?.body[0] ?? "", /同一份公告和它的官方解读/);
+  assert.equal(at("2026-10-21", "14:18")?.copy?.kind, "优化");
+  assert.ok(at("2026-11-06", "11:21")?.copy?.body.some((line) => line.startsWith("法规政策动态恢复更新")));
+  const titles = validateChangelog(read("changelog.json")).releases.map((r) => r.title);
+  for (const gone of ["只写日期的文章不再显示 00:00", "手机上每个页面都显示备案号"]) assert.ok(!titles.includes(gone), gone);
+  // Every entry left is within the standard's limits: a title of at most 24 characters and at least one line.
+  for (const r of validateChangelog(read("changelog.json")).releases) assert.ok([...r.title].length <= 24 && r.body.length > 0, r.title);
 });
 
 test("the reader wording check names technical words and lets reader sentences through", () => {

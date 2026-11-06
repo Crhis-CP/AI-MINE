@@ -526,6 +526,51 @@
  * round the pick, a sheen sweeps the screen, outlets ping; each card sets its own --edge, --edge-hi and --glow.
  * With reduced motion they all stay still or hidden (below).
  */
+/* The pipeline screen's colours: white by day, bright navy by night (Owner 2026-11-06). */
+.flow-screen {
+  --fs-bg: radial-gradient(120% 90% at 50% 0%, #ffffff 0%, #f1f5fb 72%);
+  --fs-border: rgb(15 23 42 / 0.1);
+  --fs-shadow: inset 0 1px 0 rgb(255 255 255), 0 18px 44px -26px rgb(15 23 42 / 0.3);
+  --fs-grid: rgb(15 23 42 / 0.07);
+  --fs-halo-cool: 0.1;
+  --fs-halo-warm: 0.12;
+  --fs-ink: #0f172a;
+  --fs-ink-soft: rgb(15 23 42 / 0.58);
+  --fs-card: rgb(255 255 255 / 0.95);
+  --fs-chip: rgb(15 23 42 / 0.03);
+  --fs-chip-line: rgb(15 23 42 / 0.13);
+  --fs-sheen: rgb(8 145 178 / 0.08);
+  --fs-cyan: #0891b2;
+  --fs-cyan-head: #0e7490;
+  --fs-violet: #7c3aed;
+  --fs-violet-head: #6d28d9;
+  --fs-gold: #c2870f;
+  --fs-gold-head: #a16207;
+  --fs-rose: #e11d48;
+  --fs-rose-head: #be123c;
+}
+[data-theme="dark"] .flow-screen {
+  --fs-bg: radial-gradient(120% 90% at 50% 0%, #24365f 0%, #152241 72%);
+  --fs-border: rgb(255 255 255 / 0.13);
+  --fs-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 24px 60px -28px rgb(0 0 0 / 0.55);
+  --fs-grid: rgb(156 194 255 / 0.09);
+  --fs-halo-cool: 0.16;
+  --fs-halo-warm: 0.2;
+  --fs-ink: #f1f5f9;
+  --fs-ink-soft: rgb(226 232 240 / 0.66);
+  --fs-card: rgb(21 34 65 / 0.92);
+  --fs-chip: rgb(255 255 255 / 0.06);
+  --fs-chip-line: rgb(255 255 255 / 0.16);
+  --fs-sheen: rgb(255 241 201 / 0.07);
+  --fs-cyan: #22d3ee;
+  --fs-cyan-head: #e6fcff;
+  --fs-violet: #a78bfa;
+  --fs-violet-head: #f2edff;
+  --fs-gold: #f5c451;
+  --fs-gold-head: #fff4d1;
+  --fs-rose: #fb7185;
+  --fs-rose-head: #ffe4e8;
+}
 @keyframes flow-comet {
   from {
     stroke-dashoffset: var(--from);

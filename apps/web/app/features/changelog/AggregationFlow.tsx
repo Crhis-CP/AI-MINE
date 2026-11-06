@@ -1,13 +1,14 @@
-// How the site picks what readers see, drawn as a working pipeline on a dark screen (Owner 2026-11-06: “穿起来，一条
+// How the site picks what readers see, drawn as a working pipeline on a console-like screen (Owner 2026-11-06: “穿起来，一条
 // 收束线”, then “充满科技感的动态设计”, “更炫酷科技化，学习网上风格” — the dark product-pipeline look of developer and
-// payments sites). Labelled sources send lanes into five glass step cards in turn; at 筛选 two lanes turn off into a
+// payments sites; “白天可以是白色，晚上再这个颜色…亮度高一些”). Labelled sources send lanes into five glass step cards in turn; at 筛选 two lanes turn off into a
 // bin for the off-topic and repeated; the lanes thin from card to card, 5 → 3 → 2 → 1, and 发布 opens to the outlets.
 // Comets race along the lanes, a wave of light passes through the cards, a scan reads 筛选, a gradient border turns
 // round 精选, a sheen sweeps the screen. The colours run cool to warm: news comes in cyan, turns violet as it is sorted
 // and merged, and leaves as the site's gold, like ore refined to metal. The words for each step sit under the screen.
 // No counts are drawn: the thinning of the lanes tells the scale.
-// Drawn from fixed numbers, so the server and the browser draw the same. All motion is CSS (app.css, flow-*), so a
-// reader who asks for less motion gets the still screen; the screen is decoration, the steps' words carry the content.
+// The screen is white by day and bright navy by night (colours on `.flow-screen` in app.css). Drawn from fixed numbers,
+// so the server and the browser draw the same. All motion is CSS (app.css, flow-*), so a reader who asks for less
+// motion gets the still screen; the screen is decoration, the steps' words carry the content.
 import { useId, useState } from "react";
 import { type Phrase, useTr } from "../../i18n";
 
@@ -35,13 +36,23 @@ interface Layout {
   outlets: Box[];
 }
 
-/** The screen's colours: news comes in cool cyan, turns violet as it is sorted and merged, and leaves as the site's gold. */
-const CYAN = "#22d3ee",
-  VIOLET = "#a78bfa",
-  GOLD = "#f5c451",
-  ROSE = "#fb7185";
-/** The near-white each colour burns to at a comet's head. */
-const HOT: Record<string, string> = { [CYAN]: "#e6fcff", [VIOLET]: "#f2edff", [GOLD]: "#fff4d1", [ROSE]: "#ffe4e8" };
+/**
+ * The screen's colours, set per theme on `.flow-screen` in app.css (white by day, bright navy by night): news comes in
+ * cyan, turns violet as it is sorted and merged, and leaves as the site's gold; what 筛选 lets go is rose.
+ */
+const CYAN = "var(--fs-cyan)",
+  VIOLET = "var(--fs-violet)",
+  GOLD = "var(--fs-gold)",
+  ROSE = "var(--fs-rose)";
+/** The colour each one takes at a comet's head: deeper by day, near-white by night. */
+const HOT: Record<string, string> = {
+  [CYAN]: "var(--fs-cyan-head)",
+  [VIOLET]: "var(--fs-violet-head)",
+  [GOLD]: "var(--fs-gold-head)",
+  [ROSE]: "var(--fs-rose-head)",
+};
+/** A colour at some strength over whatever is behind it. */
+const mix = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 /** Each step's colour: 采集 and 筛选 cyan, 归并 violet, 精选 and 发布 gold. */
 const STEP_COLOR = [CYAN, CYAN, VIOLET, GOLD, GOLD] as const;
 /** The colour of the lanes leaving each step for the next. */
@@ -140,22 +151,20 @@ function Comet({ lane: { d, len }, i, ms, color, filter }: { lane: Lane; i: numb
         d={d}
         className="flow-comet"
         fill="none"
-        stroke={color}
         strokeWidth={2}
         strokeLinecap="round"
         opacity={0.55}
         strokeDasharray={`${tail} ${len + 80}`}
-        style={motion(tail, -len)}
+        style={{ ...motion(tail, -len), stroke: color }}
       />
       <path
         d={d}
         className="flow-comet"
         fill="none"
-        stroke={HOT[color] ?? "#fff"}
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeDasharray={`${head} ${len + 80}`}
-        style={motion(head, -len - (tail - head))}
+        style={{ ...motion(head, -len - (tail - head)), stroke: HOT[color] ?? color }}
       />
     </g>
   );
@@ -201,7 +210,7 @@ function Pipeline({
       <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" aria-hidden="true">
         <defs>
           <pattern id={`${key}-grid`} width={24} height={24} patternUnits="userSpaceOnUse">
-            <path d="M24 0H0V24" fill="none" stroke="#9cc2ff" strokeOpacity={0.06} strokeWidth={1} />
+            <path d="M24 0H0V24" fill="none" strokeWidth={1} style={{ stroke: "var(--fs-grid)" }} />
           </pattern>
           <radialGradient id={`${key}-fade`} cx="50%" cy="45%" r="70%">
             <stop offset="0.35" stopColor="#fff" stopOpacity={1} />
@@ -211,12 +220,12 @@ function Pipeline({
             <rect width={W} height={H} fill={`url(#${key}-fade)`} />
           </mask>
           <radialGradient id={`${key}-halo`} cx="80%" cy="50%" r="40%">
-            <stop offset="0" stopColor={GOLD} stopOpacity={0.2} />
-            <stop offset="1" stopColor={GOLD} stopOpacity={0} />
+            <stop offset="0" style={{ stopColor: GOLD, stopOpacity: "var(--fs-halo-warm)" }} />
+            <stop offset="1" style={{ stopColor: GOLD, stopOpacity: 0 }} />
           </radialGradient>
           <radialGradient id={`${key}-cool`} cx="22%" cy="50%" r="45%">
-            <stop offset="0" stopColor={CYAN} stopOpacity={0.14} />
-            <stop offset="1" stopColor={CYAN} stopOpacity={0} />
+            <stop offset="0" style={{ stopColor: CYAN, stopOpacity: "var(--fs-halo-cool)" }} />
+            <stop offset="1" style={{ stopColor: CYAN, stopOpacity: 0 }} />
           </radialGradient>
           <filter id={`${key}-bloom`} filterUnits="userSpaceOnUse" x={-20} y={-20} width={W + 40} height={H + 40}>
             <feGaussianBlur stdDeviation={2.4} result="blur" />
@@ -237,14 +246,13 @@ function Pipeline({
             pathLength={1}
             className="anim-draw"
             fill="none"
-            stroke={l.color}
-            strokeOpacity={0.3}
+            strokeOpacity={0.32}
             strokeWidth={1}
-            style={{ animationDelay: `${200 + i * 30}ms`, animationDuration: "900ms" }}
+            style={{ stroke: l.color, animationDelay: `${200 + i * 30}ms`, animationDuration: "900ms" }}
           />
         ))}
         {all.drop.map((l) => (
-          <path key={l.d} d={l.d} fill="none" stroke={ROSE} strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 4" />
+          <path key={l.d} d={l.d} fill="none" strokeOpacity={0.45} strokeWidth={1} strokeDasharray="3 4" style={{ stroke: ROSE }} />
         ))}
         {/* Comets racing the lanes: steady from the sources, quicker as the stream narrows, ember into the bin. */}
         {all.sources.map((l, i) => (
@@ -263,7 +271,10 @@ function Pipeline({
       {/* The sources, each with its signal light. */}
       {layout.sources.map((box, i) => (
         <div key={SOURCES[i]} className="absolute -translate-x-1/2 -translate-y-1/2" style={place(layout, box)}>
-          <div className="flex size-full items-center justify-center gap-1.5 rounded-md border border-white/12 bg-white/[0.04] text-[11px] font-semibold whitespace-nowrap text-white/75">
+          <div
+            className="flex size-full items-center justify-center gap-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap"
+            style={{ borderColor: "var(--fs-chip-line)", background: "var(--fs-chip)", color: "var(--fs-ink-soft)" }}
+          >
             <span
               className="flow-blink size-1.5 shrink-0 rounded-full"
               style={{ background: CYAN, animationDelay: `${Math.round(jitter(i + 90) * 1400)}ms` }}
@@ -280,20 +291,21 @@ function Pipeline({
         const color = STEP_COLOR[i] ?? GOLD;
         const body = (
           <div
-            className="flow-node relative flex size-full items-center justify-center gap-1.5 overflow-hidden rounded-[9px] border bg-[#0b1222]/90 px-2"
+            className="flow-node relative flex size-full items-center justify-center gap-1.5 overflow-hidden rounded-[9px] border px-2"
             style={{
               animationDelay: `${i * 360}ms`,
-              ["--edge" as string]: `${color}59`,
+              ["--edge" as string]: mix(color, 40),
               ["--edge-hi" as string]: HOT[color],
-              ["--glow" as string]: `${color}80`,
-              borderColor: lit ? HOT[color] : `${color}59`,
-              boxShadow: lit ? `0 0 26px ${color}99` : undefined,
+              ["--glow" as string]: mix(color, 50),
+              background: "var(--fs-card)",
+              borderColor: lit ? HOT[color] : mix(color, 40),
+              boxShadow: lit ? `0 0 26px ${mix(color, 60)}` : undefined,
             }}
           >
             {i === 1 && (
               <span
                 className="flow-scan-card pointer-events-none absolute inset-0"
-                style={{ background: `linear-gradient(180deg, transparent 40%, ${CYAN}55 50%, transparent 60%)` }}
+                style={{ background: `linear-gradient(180deg, transparent 40%, ${mix(CYAN, 33)} 50%, transparent 60%)` }}
               />
             )}
             <svg
@@ -301,7 +313,7 @@ function Pipeline({
               className="relative size-4 shrink-0"
               aria-hidden="true"
               fill="none"
-              stroke={color}
+              style={{ stroke: color }}
               strokeWidth={1.9}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -309,8 +321,10 @@ function Pipeline({
               {STEP_ICONS[station.name] ? <path d={STEP_ICONS[station.name]} /> : <circle cx={12} cy={12} r={5} />}
             </svg>
             <span className="relative flex min-w-0 flex-col leading-tight">
-              <span className="whitespace-nowrap text-[13px] font-bold text-white/95">{station.name}</span>
-              <span className="mono hidden text-[8.5px] tracking-[0.14em] lg:block" style={{ color: `${color}aa` }}>
+              <span className="whitespace-nowrap text-[13px] font-bold" style={{ color: "var(--fs-ink)" }}>
+                {station.name}
+              </span>
+              <span className="mono hidden text-[8.5px] tracking-[0.14em] lg:block" style={{ color: mix(color, 75) }}>
                 {CODES[i] ?? ""}
               </span>
             </span>
@@ -340,7 +354,7 @@ function Pipeline({
       <div className="absolute -translate-x-1/2 -translate-y-1/2" style={place(layout, layout.bin)}>
         <div
           className="flex size-full items-center justify-center gap-1 rounded-md border text-[10.5px] font-semibold whitespace-nowrap"
-          style={{ borderColor: `${ROSE}55`, background: `${ROSE}12`, color: `${ROSE}dd` }}
+          style={{ borderColor: mix(ROSE, 40), background: mix(ROSE, 8), color: ROSE }}
         >
           <span>✕</span>
           {tr("无关 · 重复")}
@@ -351,7 +365,7 @@ function Pipeline({
           <span className="flow-ping absolute inset-0 rounded-md border" style={{ borderColor: GOLD, animationDelay: `${600 + k * 500}ms` }} />
           <div
             className="relative flex size-full items-center justify-center rounded-md border text-[11px] font-bold whitespace-nowrap"
-            style={{ borderColor: `${GOLD}aa`, background: `${GOLD}1f`, color: HOT[GOLD], boxShadow: `0 0 14px ${GOLD}33` }}
+            style={{ borderColor: mix(GOLD, 70), background: mix(GOLD, 12), color: HOT[GOLD], boxShadow: `0 0 14px ${mix(GOLD, 22)}` }}
           >
             {outlets[k] ?? ""}
           </div>
@@ -371,20 +385,20 @@ export function Convergence({ stations, outlets }: { stations: FlowStation[]; ou
       <p className="animate-fade-up max-w-[40em] text-[14px] leading-[1.8] text-ink-2">
         {tr("很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。")}
       </p>
-      {/* The screen: dark in either theme, like a running console. It is decoration: the words below carry the steps. */}
+      {/* The screen, like a running console: white by day, bright navy by night. It is decoration: the words below carry the steps. */}
       <div
-        className="animate-fade-up relative mt-5 overflow-hidden rounded-2xl border border-white/10 shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_24px_60px_-28px_rgb(0_0_0/0.55)]"
-        style={{ background: "radial-gradient(120% 90% at 50% 0%, #121c36 0%, #070b16 62%)" }}
+        className="flow-screen animate-fade-up relative mt-5 overflow-hidden rounded-2xl border"
+        style={{ background: "var(--fs-bg)", borderColor: "var(--fs-border)", boxShadow: "var(--fs-shadow)" }}
         aria-hidden="true"
       >
         <span
           className="pointer-events-none absolute inset-x-8 top-0 h-px"
-          style={{ background: `linear-gradient(90deg, transparent, ${CYAN}88, ${VIOLET}88, ${GOLD}88, transparent)` }}
+          style={{ background: `linear-gradient(90deg, transparent, ${mix(CYAN, 55)}, ${mix(VIOLET, 55)}, ${mix(GOLD, 55)}, transparent)` }}
         />
-        <div className="mono flex items-center justify-between px-4 pt-3 text-[10.5px] tracking-[0.16em] text-white/45">
+        <div className="mono flex items-center justify-between px-4 pt-3 text-[10.5px] tracking-[0.16em]" style={{ color: "var(--fs-ink-soft)" }}>
           <span className="flex items-center gap-2">
             <span className="flow-blink size-1.5 rounded-full" style={{ background: CYAN }} />
-            <span style={{ color: `${CYAN}dd` }}>PIPELINE</span>
+            <span style={{ color: CYAN }}>PIPELINE</span>
             <span>/ {tr("资讯处理流程")}</span>
           </span>
           <span className="hidden sm:inline">01 → 05</span>
@@ -398,7 +412,7 @@ export function Convergence({ stations, outlets }: { stations: FlowStation[]; ou
         {/* A sheen sweeping the screen now and then. */}
         <span
           className="flow-sweep pointer-events-none absolute inset-y-0 left-0 w-1/4"
-          style={{ background: "linear-gradient(90deg, transparent, rgb(255 241 201 / 0.06), transparent)" }}
+          style={{ background: "linear-gradient(90deg, transparent, var(--fs-sheen), transparent)" }}
         />
       </div>
       {/* The steps' words, in order under the screen. */}
