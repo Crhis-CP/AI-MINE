@@ -1098,6 +1098,30 @@ export const PHRASES = {
     "One card per metal with the latest price and change first; an unusual jump holds back only that metal.",
   按分类浏览: "Browse by category",
   "本次全部 {n} 项变化": "All {n} changes in this update",
+  // Before/after comparisons of the 2026.11 redesign (features/changelog/BeforeAfter.tsx).
+  改版前后: "Before and after",
+  改版前: "Before",
+  改版后: "After",
+  文章页: "Article page",
+  "改版前：{label}": "Before: {label}",
+  "改版后：{label}": "After: {label}",
+  "拖动比较改版前后：{label}": "Drag to compare before and after: {label}",
+  "同一页面、同一份演示数据；拖动画面中间的把手，比较改版前和改版后。":
+    "The same page with the same demo data: drag the handle in the middle to compare before and after.",
+  "新标识“五臂星系”": "The new five-arm galaxy mark",
+  "金色的五臂星系标识和字标，取代原来的方块文字标识。": "A gold five-arm galaxy mark and wordmark replace the old square text logo.",
+  "栏目移到顶部，首页有了资讯地图": "Sections at the top and a news map on the home page",
+  "电脑上的栏目从左侧移到页面顶部，页面改为暖色纸面配金色；首页顶部是资讯地图。":
+    "On a computer the sections moved from the left to the top, the pages turned warm paper and gold, and the news map leads the home page.",
+  "资讯分为 9 类，筛选合进一个面板": "Nine categories and one filter panel",
+  "分类按文章量重新划分；分类、来源和国家筛选放在同一个面板里。":
+    "Categories were redrawn by article volume; category, source and country filters sit in one panel.",
+  "标题和摘要统一用中文，AI 评分保留一位小数；正文可以切换宋体和黑体。":
+    "Titles and summaries are in Chinese, AI scores keep one decimal, and the body text switches between serif and sans.",
+  "同一件事按进展先后排开，同一进展的多家报道收在一起。": "One story laid out by its developments, with every outlet's report on a development together.",
+  "先选国家或组织，再选主题，一层层找到法规。": "Pick a country or organisation, then a topic, to find a regulation.",
+  "手机上的“我的”": "“Me” on a phone",
+  "分为内容、阅读设置、关于三组，还可以切换到英文界面。": "Grouped into content, reading settings and about, with a switch to the English interface.",
   // Policy pages: reader wording for dates, parts, themes, reports and notices.
   未归入主题: "No theme yet",
   "经营主题随完整解读给出；尚未完成解读的文书先列在“未归入主题”。":
