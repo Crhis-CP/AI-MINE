@@ -122,11 +122,13 @@ TASK-0129运行控制：`operations/lane-controls.ts`提供27条分线/阶段/�
 
 `site/stats`转发`loadSiteInformation(db?)`公开只读口；`admin/settings`转发`readManagedSiteInformation(principal)`、`saveSiteInformation(principal,input,commandKey)`及`protectedSiteInformation(now?)`。新增资料只有关于正文/联系邮箱/联系页面/官方入口，初始值复用当前ABOUT.lead与价格登记清单，不在GET建库。保存先在private_ops事务取得当前Owner能力共享锁，再锁单例资料、验证revision并同事务写公开记录、同一命令不重复执行的记录与前后审计。public_read只读资料表明确列，不可读取命令表或写入。
 
-关于页读取/api/site/information并重新核验缓存；已有价格接口只替换officialLinks，不改变报价来源/字段/采集许可，价格页仍每5分钟与重新可见/聚焦时刷新。联系邮箱同时用于已有security.txt与llms.txt路径，空值不展示、不回退旧值。保护信息仅核程序当前配置存在性及展示策略，不代表已经在线核验资质。当前ICP/公安/新闻许可读取现有构建常量，保留原展示，明确来源；NEWS_LICENSE_VALID_UNTIL是新增受控运行日期（YYYY-MM-DD），缺失/无效分别展示未记录/无法核对，余天按北京时间算。后台不能修改该日期或号码，未自动启用任何新的通知/部署动作。
+关于页读取/api/site/information并重新核验缓存；已有价格接口只替换officialLinks，不改变报价来源/字段/采集许可，价格页仍每5分钟与重新可见/聚焦时刷新。联系邮箱同时用于已有security.txt与llms.txt路径，空值不展示、不回退旧值。保护信息仅核程序当前配置存在性及展示策略，不代表已经在线核验资质。ICP/公安/新闻许可编号由`site/filings.ts`从API运行环境读取（`SITE_ICP_FILING`、`SITE_PUBLIC_SECURITY_FILING`、`SITE_NEWS_LICENSE`），经`/api/site/meta`交给页脚；格式不对或在`SITE_REQUIRE_FILINGS=true`下缺号码时API拒绝启动，错误只写变量名；保护信息来源记为runtime；NEWS_LICENSE_VALID_UNTIL是新增受控运行日期（YYYY-MM-DD），缺失/无效分别展示未记录/无法核对，余天按北京时间算。后台不能修改该日期或号码，未自动启用任何新的通知/部署动作。
 
 TASK-0139费用保护：`admin/settings`既有入口转发usageProtectionOverview/changeUsageProtection/changeUsagePrice/recoverUsageBreaker；读取仍为管理员，三个写口在同事务requireOwner并校验版本和记录理由。`providers/usage-protection.ts`内部readUsageProtection(db?)可复用调用方只读事务，提供配置/价格/真实已开范围/缺项，未计价金额不填0。`admin/models`内部规范身份读取modelConfigurationIdentity(key,db?)/currentModelConfiguration(capability,db?)仅返回key/service/requestedModel/configuration_hash，不暴露密钥或质量资格。
 
 paidRequest先免费复用回执，再按已核CNY价格做保守预留；chatJson每次实际attempt绑定非秘密transport配置hash。旧无hash unknown/pending不能因迁移而变新key重复付费，已有received可免费接续。重复输入、单对象、日总异常按明确lane/能力/来源/对象持久熔断；未知费用仍占用，Owner只恢复所选范围，人工/部署/system暂停互不释放。历史taskBudget固定任务金额上界已退役（TASK-0482）；当前不设累计金额上限，见文末退役说明。usageProtectionTick与usageMonthly由现有worker调度，HTTP不运行模型、发送通知或补算费用。
+
+供应商提示缓存计价：费用只按“用量与模型密钥”里登记的价格结算（`providers/usage-pricing.ts`的settleQuotedCost）；chatJson按模型接入单价算出的估算不入账，结算失败时保持未知。价格登记了“缓存命中输入单价”且供应商同时报告命中/未命中token（DeepSeek为`prompt_cache_hit_tokens`/`prompt_cache_miss_tokens`）并与`prompt_tokens`守恒时，命中部分按命中价、未命中部分按输入价；未登记命中价则全部输入按输入价记账，会高于供应商账单。代码不内置供应商默认价（文档中的DeepSeek价格只是带观察日期的估算输入，且分空闲/高峰时段）：Owner应按DeepSeek官方价格页当前的“输入（缓存命中）”价在价格登记中填写，峰谷价用时段价格各自填写命中价（时段未填不继承基础折扣）。月报各分组的`cache_hit_rate`及仅在存在命中价结算时出现的`provider_cache_saving`（命中token×（输入价−命中价），取冻结报价）展示缓存效果，月报推送按能力列出；周报暂未加入缓存口径。
 
 ### TASK-0148 按环节主备
 
@@ -204,7 +206,7 @@ TASK-0327补齐SQL值入口验证：审计筛选只接受文本与正整数页�
 
 ### 日报无新增精选（TASK-0334）
 
-日报仍只取精选；当期已有公开合格报道完成评分，但没有新鲜精选时，保存零条目的当天日报及“今日无大事发生”说明，不调模型。dailyJudgedReportCount仅计数确认评分已执行，普通资讯不进入报告。没有评分依据的刊期待补刊；补刊只在实际保存后报告成功。零条目刊期同样幂等，历史期不因后来内容变更而重写；周月报规则不变。
+日报仍只取精选；当期已有公开合格报道完成评分，但没有新鲜精选时，保存零条目的当天日报及“今日无大事发生”说明，不调模型。普通资讯不进入报告。没有评分依据的刊期待补刊；补刊只在实际保存后报告成功。零条目刊期同样幂等，历史期不因后来内容变更而重写；周月报规则不变。
 
 本次维护（TASK-0343/0344/0346）：成功发布后的读者更新记录由 `site/meta` 合并静态历史与 `/data/site/release-notes.json`；公开输出不包含内部版本标识。主机共享发布锁串行登记，失败保留待补记，不回滚健康网站。反馈来源仍自动随提交保存，表单不显示内部路径。
 
@@ -264,7 +266,9 @@ Cochilco 可通过 `METAL_PRICE_RELAY_URL` 使用限定来源的 HTTPS 取件服
 正式发布在模型写入方停止后准备加密主密钥，仅在不存在旧加密接入时生成；已经存在的有效密钥原样保留，缺失或冲突的旧密钥拒绝自动替换。回退环境同时保留解密能力，并另外保存修改前的环境备份。该步骤只在最终发布执行，本地验证不接触生产秘密。
 
 
-评分输入在正文空白或只有标点时使用有效摘要。来源分级变更沿既有重投入口，对时间线最近7天且记录门槛已变化的条目复用保存的两次合法评分；采用当前已确认门槛，人工精选选择优先，不修改原分析或付费回执。缺少旧门槛记录时保留原判断，不从显示分推断；已重算提名离开时间窗后保持，不因改回原分级复活。新获提名的历史稿若旧归组仅做日期归档，先转为待归组并由现有补排恢复，正式覆盖比较完成后才可占精选席位。
+评分输入在正文空白或只有标点时使用有效摘要。来源分级变更沿既有重投入口，对时间线最近7天且记录门槛已变化的条目复用保存的合法评分（一到两次：第一次离门槛15分以外只打一次）；采用当前已确认门槛，人工精选选择优先，不修改原分析或付费回执。缺少旧门槛记录时保留原判断，不从显示分推断；已重算提名离开时间窗后保持，不因改回原分级复活。新获提名的历史稿若旧归组仅做日期归档，先转为待归组并由现有补排恢复，正式覆盖比较完成后才可占精选席位。
+
+归组下限与浏览下限（Owner 2026-11-05，数值在 `industry/selection.ts`）：`jobs/content.worthGrouping` 不把低于 `groupFloor`（20）分的已打分稿送归组，已入选和未打分的照常归组；`publication/items.browseFloorCondition` 让没有搜索词的“全部”列表（网页、接口与 RSS 共用的时间线、事件组和来源列表查询）默认不显示低于 `browseFloor`（20）分的稿件，已确认的精选和未打分的照常显示，搜索仍能搜到全部。分数在库里保留一位小数，入选按已打分数之和不低于门槛乘以分数个数判断。
 
 归组与精选确认：`events/group` 同时记录关系、材料/分析输入证据和新增信息判断，`publication/publish` 仅接受当前修订的明确确认；已打分候选继续作为普通动态等待，时间经过不构成确认。公告及配套解读即使另一天发布，解释同一已发布文本的既定分类、数量或安排仍属同一次发生；后发、篇幅更长或摘要省略细节本身不是新进展，须有可核对的独立新行动或结果。综合稿只能提及事件，旧缺失范围需明确补判。国家标签、对象别名及阶段标签不替代原文关系判断。
 
@@ -273,6 +277,8 @@ Cochilco 可通过 `METAL_PRICE_RELAY_URL` 使用限定来源的 HTTPS 取件服
 `events/recovery` 经既有事件入口提供持久分批补排，领取和队列写入同一事务，等待时间存于 content；每两分钟调度，普通待处理补排单批默认50条、上限100条。其中，最近14天发现、当前修订已完成的旧配方 SAME_STORY 分裂席位，以及尚未比较覆盖的旧 historical 无回执独立席位，合计每轮最多重审5篇，并占用同一批次额度；只读当前公开席位和必要身份，正式消费者决定结果。停用来源、人工归属、独立决定、撤回、暂停、有效队列和未知回执保持原限制，旧评分、回执、尝试和费用保留。修订、分析及显式归组请求的输入变化会拒绝旧回答；已有相同输入回执仍复用，不重新评分。
 
 事件召回先核对当前材料修订、自动归属确认、综述范围和明确撤回，再取前10个事实；代表稿、根事实、同URL候选及落库校验沿用同一资格。单篇向量缓存随 publication revision 重新读取公开标题和摘要，文本哈希未变时复用原向量与回执，避免纯元数据变化重复购买；材料修订仍由独立的归属与输入围栏核对。
+
+2026-11-05 同一事件归组放宽：标题中《…》文书名规范化为文书键（`relate.documentKeys`，去“中华人民共和国”前缀与版本括注，过短或非文书后缀不计），按事实标题及`publication/publish.readDocumentTitleMatches`的公开/原始标题在24个月内另召回至多3个事实，与14天向量召回合并后仍由模型判断。历史稿（发现晚于来源时间48小时）不再一律跳过：同文书键或近乎相同（≥0.92）的已有事实经判断为同一次发生（置信度≥`TIE_MIN_CONFIDENCE`，低相似度仍复核）时，作为该事实的普通报道并入（verdict `historical-attached`），不写story_signals、不改事件时间、不建事实或事件、不成为精选，backfill仍不进报告窗口。`TIE_MIN_CONFIDENCE`由0.8降为0.7；`consolidate`在两根稿相似度≥`SKIP_REVIEW_MIN_COSINE`(0.92)、北京同日且法域不冲突时免第二次复核。`remergeSingleReportFacts`每小时（`events.remerge`）检查近72小时仅一篇报道的事实，与召回窗口中相似度≥0.85且法域不冲突的事实逐对复用常规配对判断，同一次发生时把单篇移入对方事实（单篇对单篇时较晚者并入较早者），清空的旧事件转址；每轮新调用至多20次、复用回执不计；同一北京日、相似度≥0.92、法域不冲突且规范化标题相同或指向同一文书的副本（`relate.certainDuplicate`）直接合并，不调用模型，决定清单记`rule: certain-duplicate`；人工归属、独立决定和待重归组不动，决定记为`remerge`。
 
 
 精选出口：发布事务同时结算同事实的唯一seat及selected_state/selected_ledger；代表稿替换、撤回、恢复和人工独立都重新选择受影响的旧、新事实。API/RSS精选与推送使用seat，网站保留完整报道组。代表稿优先级由发布端读取来源身份计算，落入publications.representative_priority；公开读者不读取私有来源配置。旧数据默认3（未证明更高优先级），由重建投影补齐。
@@ -585,3 +591,5 @@ TASK0503依据Owner默认关闭决定，使用唯一 `ORIGINAL_POST_ADMISSION_EN
 `readReportIdentityDecision`经已声明只读口重核当前双方绑定，只有真实完成的same_report能交给publication投影。人工独立或重新归组在同一事务清除阅读关系；每个成员直接比较固定锚点，不能因共享中间成员推导合并。材料、公开修订或许可变化先使旧公开关系失效，再沿原group队列和两分钟归组恢复有界续接；模型暂停保留当前有效关系，阻止新付费比较。新增有效候选或真实材料变化可能增加调用量，不能把首次到达估算当成固定总额。
 
 TASK-0507将报道比较的结构解析与证据业务校验分开：网关保存可解析的已付响应；是否有必要的双方引文、是否逐字出现在当前原文中，均在写入完成决定和投影前检查。证据不成立时保留真实回执并等待，不合并、不伪造`insufficient`；相同输入重试、反向比较和重启只复用已收到的回答，不因本地证据判定重复购买。真实材料或配方变化仍使用新的输入身份，明确未计费拒绝与未知计费恢复保持既有机制。
+
+分类重切（ADR-0031，Owner 2026-11-05）：九类代码与退役代码映射在contracts，结构化与评分直接用新九类；发布投影把一对一的退役代码换成新代码，`company_project`在重判前不显示分类，公开标签以当前分类名开头。`editorial/reclassify`（enrichment）只改各稿件最新判断的分类与首个标签并在`output.categoryReclassification`留下原值、方式、配方与回执，人工设置的分类经`editorial/manual-revisions.manualCategoryArticles`排除；需要模型的稿件经`analyze.runCategoryStructure`重跑结构化步骤，沿用同一材料许可、处理暂停、请求次数控制与回执复用，不重评分、不改写导读或归组输入。`publication/publish.retiredCategoryPublications`列出仍带退役代码或旧分类名的公开记录供无模型重发。运行入口`scripts/reclassify-categories.ts`：默认只读统计，`--apply-mapped`不调模型，`--apply-model --limit N`分批、可续接。

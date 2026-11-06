@@ -377,7 +377,55 @@
 | [TASK-0505](TASK-0505.md) | T-0101 | M3 | architect | locally_verified | 同事件多来源网页与HTTP完整接线 | — |
 | [TASK-0506](TASK-0506.md) | T-0101 | M3 | architect | locally_verified | 报道来源展开保留父列表搜索模式 | — |
 | [TASK-0507](TASK-0507.md) | T-0101 | M3 | architect | locally_verified | 复用报道比较的已付响应并纠正费用提醒 | — |
+| [TASK-0508](TASK-0508.md) | T-0101 | M3 | architect | locally_verified | 开源清理：备案号与许可证编号改为运行期配置 | — |
+| [TASK-0509](TASK-0509.md) | T-0101 | M3 | architect | locally_verified | 本地演示 API 与 README 截图重截 | — |
+| [TASK-0510](TASK-0510.md) | T-0101 | M3 | architect | locally_verified | 评分改为五轴输出、代码加权，分数保留一位小数 | — |
+| [TASK-0511](TASK-0511.md) | T-0101 | M3 | architect | locally_verified | 费用核算计入 DeepSeek 缓存命中 | — |
+| [TASK-0512](TASK-0512.md) | T-0101 | M3 | architect | locally_verified | 启用定稿标识“五臂星系”（图标与站名字标） | — |
+| [TASK-0513](TASK-0513.md) | T-0101 | M3 | architect | locally_verified | 归组送审材料限量，历史背景配对合并为一次调用 | — |
+| [TASK-0514](TASK-0514.md) | T-0101 | M3 | architect | locally_verified | 字体、字号、配色随新标识统一，分享图与海报换新品牌 | — |
+| [TASK-0515](TASK-0515.md) | T-0101 | M3 | architect | locally_verified | 桌面改为方向 C 顶部导航与主区页脚，适配 iPhone 与折叠屏 | — |
+| [TASK-0516](TASK-0516.md) | T-0101 | M3 | architect | locally_verified | 首页资讯地图（完整陆地点阵、不画国界）与国家筛选即选即用 | — |
+| [TASK-0517](TASK-0517.md) | T-0101 | M3 | architect | locally_verified | 资讯地图按时间窗口统计并标出增长，点选国家原地筛选下方列表 | — |
+| [TASK-0518](TASK-0518.md) | T-0101 | M3 | architect | locally_verified | 阅读页：正文每行约 38 字、宋体/黑体切换、列表 j/k 快捷键 | — |
+| [TASK-0519](TASK-0519.md) | T-0101 | M3 | architect | locally_verified | 报告刊头加入新标识；法规页以测量三角点显示生命周期 | — |
+| [TASK-0520](TASK-0520.md) | T-0101 | M3 | architect | locally_verified | 其他页面统一检查；“我的”页加入正文宋体/黑体设置 | — |
+| [TASK-0521](TASK-0521.md) | T-0101 | M3 | architect | locally_verified | 双语底座：/en 英文界面、类型化词典、语言切换（外壳与资讯地图先行） | — |
+| [TASK-0522](TASK-0522.md) | T-0101 | M3 | architect | locally_verified | 英文界面：首页阅读路径（筛选、热点榜、时间线、卡片、分类、日期） | — |
+| [TASK-0523](TASK-0523.md) | T-0101 | M3 | architect | locally_verified | 英文界面：其余页面全部迁入词典 | — |
+| [TASK-0524](TASK-0524.md) | T-0101 | M3 | architect | locally_verified | 四语 README：英文源文，中文、西班牙文、法文译本，术语表与一致性检查 | — |
+| [TASK-0525](TASK-0525.md) | T-0101 | M3 | architect | locally_verified | 法规线重启设计稿；评分规则文档随 DEC-78 评分修订更新 | — |
+| [TASK-0526](TASK-0526.md) | T-0101 | M3 | architect | locally_verified | 按清单删除无用代码（架构精简第一批） | — |
+| [TASK-0527](TASK-0527.md) | T-0101 | M3 | architect | locally_verified | 部署脚本中的安装路径和域名改为可配置，删掉代码注释里的个人名 | — |
 | [TASK-0528](TASK-0528.md) | T-0101 | M3 | architect | specified | 第二阶段大版本集成合并（TASK-0508～0556） | — |
+| [TASK-0529](TASK-0529.md) | T-0101 | M3 | architect | locally_verified | 读者端界面更新：筛选、按钮和排版更简洁，上手更容易 | — |
+| [TASK-0530](TASK-0530.md) | T-0101 | M3 | architect | locally_verified | 分类与评分重设计草案；法规页排版；字体许可核对；演示数据补齐 | — |
+| [TASK-0531](TASK-0531.md) | T-0101 | M3 | architect | locally_verified | 更新日志按读者口径整理：历史条目、待发布说明与隐藏内部条目 | — |
+| [TASK-0532](TASK-0532.md) | T-0101 | M3 | architect | locally_verified | 评分按 Owner 标注改写：中国读者优先、大型矿企名单、小矿企封顶、第二次评分按需 | — |
+| [TASK-0533](TASK-0533.md) | T-0101 | M3 | architect | locally_verified | 主题目录、主题页、收藏与 Agent 页改版：分组切换、紧凑卡片、按钮与筛选面板 | — |
+| [TASK-0534](TASK-0534.md) | T-0101 | M3 | architect | locally_verified | 事件页改为事件脉络；综述结构化（关键变化、接下来关注）；精选卡片显示事件进展 | — |
+| [TASK-0535](TASK-0535.md) | T-0101 | M3 | architect | locally_verified | 法规政策动态改为逐层卡片：国家或组织 → 经营主题 → 文书 | — |
+| [TASK-0536](TASK-0536.md) | T-0101 | M3 | architect | locally_verified | 法规解读页：拆成组件，新增“一眼看懂”与日期日历，日期改表格，按钮与手机跳转 | — |
+| [TASK-0537](TASK-0537.md) | T-0101 | M3 | architect | locally_verified | 金属价格页改为每种金属一张卡片；中转失败原因写清楚，断线重试一次；自动化诊断 | — |
+| [TASK-0538](TASK-0538.md) | T-0101 | M3 | architect | locally_verified | 归组：转载同一文书归为同一次发生、晚发现转载并入、每小时重并单篇事件（确定副本不调模型） | — |
+| [TASK-0539](TASK-0539.md) | T-0101 | M3 | architect | locally_verified | 降本增效：每一步只读需要的正文长度，低于 20 分不归组，成本评估写入方案 | — |
+| [TASK-0540](TASK-0540.md) | T-0101 | M3 | architect | locally_verified | 浏览下限：没有搜索词的“全部”列表（网页、接口、RSS）默认不显示低于 20 分的稿件 | — |
+| [TASK-0541](TASK-0541.md) | T-0101 | M3 | architect | locally_verified | 依赖小版本升级（只取发布满两周的同主版本），React Router 与 pg-boss 暂缓 | — |
+| [TASK-0542](TASK-0542.md) | T-0101 | M3 | architect | locally_verified | 金属价格：单一品种跳变只扣下该品种，下一期确认后自动放行或丢弃 | — |
+| [TASK-0543](TASK-0543.md) | T-0101 | M3 | architect | locally_verified | 法规线重启第 1、4 步：条款切分与逐条对照（不调用模型）、试点开关、读者端“逐条对照” | — |
+| [TASK-0544](TASK-0544.md) | T-0101 | M3 | architect | locally_verified | 分类按文章量重切为 9 类；旧分类键在网址、接口和 RSS 里继续可用；历史重分类脚本 | — |
+| [TASK-0545](TASK-0545.md) | T-0101 | M3 | architect | locally_verified | 部署任务书第三版：新评分版本、法规试点开关、历史分类重分与法规试点两步、已批准的服务器评测 | — |
+| [TASK-0546](TASK-0546.md) | T-0101 | M3 | architect | locally_verified | 法规线模型步骤按设计降本：条款级翻译记忆、只解读变化条款、程序核对引文、只在非高峰运行 | — |
+| [TASK-0547](TASK-0547.md) | T-0101 | M3 | architect | locally_verified | 法规试点信源与接口：核对过的采集配置、身份字段、条件请求列表、内容指纹、只读空跑 | — |
+| [TASK-0548](TASK-0548.md) | T-0101 | M3 | architect | locally_verified | 模型选择与成本评估；部署任务书：非高峰时段运行、不过度测试、7 天复查 | — |
+| [TASK-0549](TASK-0549.md) | T-0101 | M3 | architect | locally_verified | 标题和摘要用中文，外国矿企首次出现写“中文名（原文名）”：写作规则加代码兜底 | — |
+| [TASK-0550](TASK-0550.md) | T-0101 | M3 | architect | locally_verified | 审计修复第一批：翻译不重译、预筛不截断、法规试点开关时机、分数一位小数统一、台账记录新决定 | — |
+| [TASK-0551](TASK-0551.md) | T-0101 | M3 | architect | locally_verified | 审计修复第二批：浏览下限补齐、可列出条件统一、分类过滤双向、旧分类名显示、归组常量、删除无用导出 | — |
+| [TASK-0552](TASK-0552.md) | T-0101 | M3 | architect | locally_verified | 文档与入口文件按最新决定同步（评分口径、分工、法规线暂停解除、元数据） | — |
+| [TASK-0553](TASK-0553.md) | T-0101 | M3 | architect | locally_verified | 正文共享前缀：逐篇分析各步共用可缓存的前缀（ANALYSIS_PROMPT_LAYOUT），评测两种排法按规则选定 | — |
+| [TASK-0554](TASK-0554.md) | T-0101 | M3 | architect | locally_verified | 资讯侧非高峰调度：再合并只在非高峰调用模型，综述刷新和历史补录分析排到非高峰 | — |
+| [TASK-0555](TASK-0555.md) | T-0101 | M3 | architect | locally_verified | 全仓库审计收尾：统一开关读取、分类键单一来源、选中门槛说明、中文名（原文名）覆盖综述与报告 | — |
+| [TASK-0556](TASK-0556.md) | T-0101 | M3 | architect | locally_verified | 巴西补入法域字典（资讯线补充国家），评分版本随之更新，已存地理判断保持有效 | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — |

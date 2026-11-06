@@ -74,7 +74,7 @@ test("current source evidence permits a genuine same-occurrence runtime join", a
       via: "fetch",
     });
     await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,prompt_version,receipt_ids,output)
-    VALUES(${m.articleId},1,'rule','pass','company_project','甲矿业项目建设获得批准',${quote},${scopeVersion},${[await scopeReceipt(m.articleId)]},${sql.json({ ...scopeOutput, scope: "single", fact: { title: "甲项目批准", subject: "甲矿业", object: "甲项目", action: "批准" } })})`;
+    VALUES(${m.articleId},1,'rule','pass','project_development','甲矿业项目建设获得批准',${quote},${scopeVersion},${[await scopeReceipt(m.articleId)]},${sql.json({ ...scopeOutput, scope: "single", fact: { title: "甲项目批准", subject: "甲矿业", object: "甲项目", action: "批准" } })})`;
     await publishArticle(m.articleId);
     await sql`UPDATE publication.news_geography SET primary_jurisdiction='CN',jurisdictions=ARRAY['CN'],state='identified' WHERE article_id=${m.articleId}`;
     return m.articleId;

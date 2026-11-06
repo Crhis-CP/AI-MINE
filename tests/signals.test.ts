@@ -13,6 +13,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle, detachArticleFromFactTx } from "@amp/backend/events/group";
 import { queueProcessing, settleNonEditorial } from "@amp/backend/jobs/content";
+import { OFF_PEAK_WAIT } from "@amp/backend/providers/llm";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 
@@ -144,8 +145,19 @@ test("a discussion post that came before any report is grouped again when a repo
 
 test("history waits behind live work and founds no event; a new source's post from today is news", async () => {
   const old = await report("old", { title: `旧闻 ${T}`, backfill: "first-import", publishedAt: new Date(Date.now() - 30 * 86_400_000) });
-  await queueProcessing(old, { step: "analyze" });
+  // Saturday noon UTC (off-peak): history is queued at once, behind live work.
+  await queueProcessing(old, { step: "analyze", now: new Date("2026-11-07T12:00:00Z") });
   assert.deepEqual([(await job(old))?.name, (await job(old))?.priority], ["content.analyze", -2]);
+  // At the provider's peak hours (Monday 02:30 UTC) history waits for the next off-peak start; the sweep waits too.
+  const older = await report("older", { title: `更旧的闻 ${T}`, backfill: "first-import", publishedAt: new Date(Date.now() - 40 * 86_400_000) });
+  await queueProcessing(older, { step: "analyze", now: new Date("2026-11-02T02:30:00Z") });
+  const [waiting] = await sql<{ start_after: Date }[]>`SELECT start_after FROM pgboss.job WHERE name='content.analyze' AND singleton_key=${older}`;
+  assert.equal(waiting?.start_after.toISOString(), "2026-11-02T04:00:00.000Z");
+  const [held] = await sql<
+    { processing_retry_at: Date; processing_error: string }[]
+  >`SELECT processing_retry_at, processing_error FROM articles WHERE id=${older}`;
+  assert.equal(held?.processing_retry_at.toISOString(), "2026-11-02T04:00:00.000Z");
+  assert.equal(held?.processing_error, OFF_PEAK_WAIT);
   assert.equal((await groupArticle(old)).verdict, "historical");
   assert.equal((await sql`SELECT 1 FROM fact_articles WHERE article_id = ${old}`).length, 0);
 

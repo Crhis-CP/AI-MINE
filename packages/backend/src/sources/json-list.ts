@@ -5,7 +5,17 @@ import { staticLiteralJson } from "./static-literal.ts";
 import { credential } from "../config.ts";
 import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
-import { FetchError, type Candidate, type SourceRow } from "./types.ts";
+import {
+  conditionalListingHeaders,
+  FetchError,
+  listingNotModified,
+  listingValidator,
+  type Candidate,
+  type ConditionalListing,
+  type ListingValidator,
+  type SourceRow,
+} from "./types.ts";
+import { sha256, stableJson } from "../lib/ids.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
 import { feedPublishedAt } from "./published-at.ts";
 
@@ -159,6 +169,11 @@ function embeddedJson(html: string, source: SourceRow): unknown {
 }
 
 export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
+  return (await fetchJsonListConditional(source, null)).candidates;
+}
+
+/** A GET listing may be revalidated with the previous response's ETag/Last-Modified; 304 means nothing changed. */
+export async function fetchJsonListConditional(source: SourceRow, previous: ListingValidator | null): Promise<ConditionalListing> {
   let observedAt = new Date().toISOString();
   const c = source.config;
   const url = String(c.url ?? "");
@@ -167,16 +182,25 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
     const token = credential("collectors", "GITHUB_TOKEN");
     if (token) headers.authorization = `Bearer ${token}`;
   }
-  const res = await guardedFetch(url, {
-    retryDropped: true,
-    method: c.method ?? "GET",
-    headers: c.bodyJson ? { ...headers, "content-type": "application/json" } : headers,
-    body: c.bodyJson ? JSON.stringify(c.bodyJson) : undefined,
-    timeoutMs: 25_000,
-  });
+  const method = c.method ?? "GET",
+    configHash = sha256(stableJson(c)),
+    usable = method === "GET" && previous?.configHash === configHash ? previous : null;
+  const read = (validators: ListingValidator | null) =>
+    guardedFetch(url, {
+      retryDropped: true,
+      method,
+      headers: c.bodyJson ? { ...headers, "content-type": "application/json" } : { ...headers, ...conditionalListingHeaders(validators) },
+      body: c.bodyJson ? JSON.stringify(c.bodyJson) : undefined,
+      timeoutMs: 25_000,
+    });
+  let res = await read(usable);
+  // A redirect may have changed destinations, whose validators are unrelated to the old ones.
+  if (res.status === 304 && usable && res.url !== usable.responseUrl) res = await read(null);
+  const validator = listingValidator(configHash, res, usable);
+  if (listingNotModified(res, usable)) return { candidates: [], validator, notModified: true };
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
   observedAt = res.fetchedAt ?? observedAt;
-  return jsonListDocument(res.text(), source, observedAt).candidates;
+  return { candidates: jsonListDocument(res.text(), source, observedAt).candidates, validator, notModified: false };
 }
 
 /** The same raw parse and item mapping, with the original source items retained for structural receipts. */

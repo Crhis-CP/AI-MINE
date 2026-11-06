@@ -1,19 +1,25 @@
-// Synthetic source-sensitive provider reply for local automation tests only.
+// Synthetic source-sensitive provider replies for local policy tests only (never a real model).
 type Payload = ReturnType<typeof JSON.parse>;
-const visible = (value: string) => value.replace(/<[^>]+>/g, "");
-function candidate(input: Payload) {
-  const quote = input.root.quotes[0],
-    known = (value: string) => ({ value, basis: "原文", evidence_ids: ["e1"] });
+
+/** A literal translation stand-in: keeps markup, numbers and dates, adds Han text to every text node. */
+export function translate(part: { format: string; source: string }) {
+  return part.format === "html" ? part.source.replace(/>([^<]*\S[^<]*)</g, (_m, text: string) => `>译文：${text}<`) : `译文：${part.source}`;
+}
+export function fulltextReply(input: Payload) {
+  return { parts: input.parts.map((part: Payload) => ({ sourceHash: part.sourceHash, zh: translate(part) })) };
+}
+/** One interpret delta citing the first part of every provision in the request (no numbers, so code can verify it). */
+export function interpretReply(input: Payload) {
+  // At most 16 main points per reply, as the schema allows.
+  const provisions = input.provisions.filter((p: Payload) => p.parts.length).slice(0, 16);
+  const evidence = provisions.map((p: Payload, index: number) => ({ id: `e${index + 1}`, part_id: p.parts[0].ref, quote: p.parts[0].text.slice(0, 200) }));
+  const first = evidence[0]?.id;
+  const known = (value: string) => ({ value, basis: "原文", evidence_ids: [first] });
   const unknown = { value: "unknown", basis: null, evidence_ids: [] };
   return {
-    id: input.id,
-    input_hash: input.input_hash,
-    input_ids: [input.root.id],
-    document_title: input.identity.title,
     title_zh: "合成矿业规章",
-    instrument_number: input.identity.number,
     relevance: "relevant",
-    relevance_evidence_ids: ["e1"],
+    relevance_evidence_ids: [first],
     legal_state: {
       nature: known("regulation"),
       legislative_stage: known("published"),
@@ -23,7 +29,11 @@ function candidate(input: Payload) {
       deadlines: [],
       repeal: unknown,
     },
-    main_points: [{ text: "矿业阈值规定", clause_ref: quote.node_path ?? "原文", evidence_ids: ["e1"] }],
+    main_points: provisions.map((p: Payload, index: number) => ({
+      text: p.change === "modified" ? "条款要求已修改" : "矿业规定要点",
+      clause_ref: p.label ?? "原文",
+      evidence_ids: [evidence[index].id],
+    })),
     impacts: [
       {
         id: "impact1",
@@ -34,63 +44,33 @@ function candidate(input: Payload) {
         activity: "矿业生产",
         condition: "符合原文条件",
         effect_mode: "direct",
-        impact: "适用阈值规定",
+        impact: "适用原文规定",
         deadline: null,
         exceptions: "保留原文例外",
-        evidence_ids: ["e1"],
+        evidence_ids: [first],
       },
     ],
     relationships: [],
-    dynamic_zh: input.previous_candidate ? "仅在原文条件下适用阈值规定。" : "矿业活动适用阈值规定。",
+    dynamic_zh: input.mode === "amendment" ? "本次修订改变了相关条款。" : "矿业活动适用本规定。",
     gaps: [],
-    comparisons: [],
-    evidence: [{ id: "e1", part_id: quote.part_id, quote: quote.quote }],
+    evidence,
+  };
+}
+export function verifyReply(input: Payload, verdict: (claim: Payload) => string = () => "supports") {
+  return {
+    judgments: input.claims.map((claim: Payload) => {
+      const value = verdict(claim);
+      return {
+        claim_id: claim.id,
+        verdict: value,
+        quotes: value === "not_applicable" ? [] : [{ part_id: input.parts[0].ref, quote: input.parts[0].text.slice(0, 200) }],
+        reason: "合成provider判断",
+      };
+    }),
   };
 }
 export function answer(input: Payload): Payload {
-  if (!input.phase)
-    return {
-      parts: input.parts.map((part: Payload) => ({
-        partId: part.partId,
-        sourceHash: part.sourceHash,
-        classification: "facts",
-        facts: [{ statement: "适用量和例外", role: "scope", quote: visible(part.source) }],
-        zh: part.source
-          .replaceAll("Published Regulation: Mining threshold at", "已公布的规章：矿业阈值为")
-          .replaceAll("Exception: mining above", "例外：矿业量超过")
-          .replaceAll("is prohibited.", "被禁止。"),
-      })),
-    };
-  const bound = { id: input.id, input_hash: input.input_hash };
-  if (input.phase === "group") {
-    const result = {
-      ...bound,
-      input_ids: input.parts.map((part: Payload) => part.partId),
-      consistent: true,
-      roles: input.parts.map((part: Payload) => ({ part_id: part.partId, roles: ["scope"] })),
-      summary: "本组全部矿业阈值及文末例外。",
-      quotes: input.parts.slice(0, 2).map((part: Payload) => ({ part_id: part.partId, quote: visible(part.source).slice(0, 200) })),
-    };
-    return result;
-  }
-  if (input.phase === "merge")
-    return {
-      ...bound,
-      input_ids: input.children.map((child: Payload) => child.id),
-      summary: "全部子组的矿业阈值、条件与例外。",
-      quotes: input.children.flatMap((child: Payload) => child.quotes).slice(0, 2),
-    };
-  if (input.phase === "candidate") return candidate(input);
-  return {
-    ...bound,
-    group_id: input.group_id,
-    candidate_hash: input.candidate_hash,
-    publication_authorized: false,
-    judgments: input.claims.map((claim: Payload) => ({
-      claim_id: claim.id,
-      verdict: claim.requiresSupport ? "supports" : "not_applicable",
-      quotes: claim.requiresSupport ? [{ part_id: input.parts[0].partId, quote: visible(input.parts[0].source).slice(0, 200) }] : [],
-      reason: "合成provider判断",
-    })),
-  };
+  if (!input.phase) return fulltextReply(input);
+  if (input.phase === "interpret") return interpretReply(input);
+  return verifyReply(input);
 }

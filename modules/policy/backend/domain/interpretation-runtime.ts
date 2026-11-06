@@ -1,5 +1,5 @@
 import { isModelRouteWaiting } from "@amp/backend/providers/model-fallback";
-import { currentInterpretationQualification } from "./fallback-quality.ts";
+import { currentInterpretationQualification, currentInterpretationRecipe } from "./fallback-quality.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "@amp/backend/operations/lane-controls";
 import { z } from "zod";
 import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput } from "../provider.ts";
@@ -14,22 +14,29 @@ import {
 } from "@amp/backend/providers/receipts";
 import { SourcePolicyConflict } from "@amp/backend/admin/sources";
 import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
-import { readPolicyFulltextRun, fulltextCheckpoints, assertPolicyRunCurrent, PolicyRunStaleError, type FulltextRun } from "./fulltext-store.ts";
+import { readPolicyFulltextRun, assertPolicyRunCurrent, PolicyRunStaleError, type FulltextRun } from "./fulltext-store.ts";
 import { validatePolicyFulltextCandidate } from "./fulltext-candidate.ts";
-import { executePolicyInterpretation, InterpretationCapacityError, type InterpretationStage, type InterpretationOutput } from "./interpretation-engine.ts";
-import type { RelatedPolicy } from "./interpretation-schema.ts";
+import { provenFulltextCandidates } from "./translation-memory.ts";
+import {
+  executePolicyInterpretation,
+  InterpretationCapacityError,
+  type InterpretationStage,
+  type InterpretationOutput,
+  type PreviousInterpretation,
+} from "./interpretation-engine.ts";
+import { CandidateReply, type RelatedPolicy } from "./interpretation-schema.ts";
 import {
   beginInterpretation,
   interpretationStages,
   saveInterpretationStage,
   finishInterpretation,
+  previousInterpretation,
   storedInterpretation,
   type StageCheckpoint,
 } from "./interpretation-store.ts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 
-const PROMPTS = ["policy-group-check", "policy-group-merge", "policy-interpret", "policy-verify"] as const;
-export const interpretationRecipe = () => sha256(stableJson(["policy-interpretation-1", ...PROMPTS.map((name) => promptVersion(name))]));
+export const interpretationRecipe = currentInterpretationRecipe;
 type Proof = NonNullable<Awaited<ReturnType<typeof readPolicyResponse>>>;
 import { policyModelEvidence, policyModelQualification, type ModelEvidence } from "./model-evidence.ts";
 export type { ModelEvidence } from "./model-evidence.ts";
@@ -78,31 +85,11 @@ function decoded(proof: Proof) {
 async function currentFulltext(runId: string) {
   const loaded = await readPolicyFulltextRun(runId);
   if (!loaded) return null;
-  const checkpoints = await fulltextCheckpoints(loaded.run),
-    candidates: unknown[] = [],
-    models: ModelEvidence[] = [];
-  const proofs = new Map<number, Proof>();
-  for (const point of checkpoints) {
-    const proof = proofs.get(point.receiptId) ?? (await readPolicyResponse({ receiptId: point.receiptId, attemptId: point.attemptId }));
-    if (!proof || proof.attemptId !== point.attemptId || proof.purpose !== "policy_fulltext") throw new StageBlocked("blocked_unknown");
-    proofs.set(point.receiptId, proof);
-    const artifacts = (proof.request.manifest as { upstream_artifacts?: { kind: string; id: string; version: string; content_hash: string }[] })
-      ?.upstream_artifacts;
-    if (
-      !artifacts?.some(
-        (artifact) =>
-          artifact.kind === "policy_part" &&
-          artifact.id === point.partId &&
-          artifact.content_hash === point.sourceHash &&
-          artifact.version === loaded.run.recipeHash,
-      )
-    )
-      throw new StageBlocked("invalid_fulltext_proof");
-    const raw = decoded(proof) as { parts?: unknown[] };
-    if (!raw.parts?.some((part) => stableJson(part) === stableJson(point.candidate))) throw new StageBlocked("invalid_fulltext_proof");
-    candidates.push(point.candidate);
-  }
-  for (const proof of proofs.values()) models.push(policyModelEvidence(proof));
+  // Direct checkpoints and translation-memory reuse are proved by their real receipts; a Chinese original needs none.
+  const proven = await provenFulltextCandidates(loaded.run);
+  if (proven.unknown) throw new StageBlocked("blocked_unknown");
+  if (proven.unproven) throw new StageBlocked("invalid_fulltext_proof");
+  const models: ModelEvidence[] = proven.proofs.map((proof) => policyModelEvidence(proof));
   if (loaded.run.plan.context.visualRunId) {
     const { loadPolicyVisionProof } = await import("./vision-runtime.ts"),
       visual = await loadPolicyVisionProof(loaded.run.plan.context.visualRunId);
@@ -115,9 +102,31 @@ async function currentFulltext(runId: string) {
       throw new StageBlocked("invalid_fulltext_proof");
     models.push(...visual.modelEvidence);
   }
-  const fulltext = validatePolicyFulltextCandidate(loaded.run.plan, candidates);
+  const fulltext = validatePolicyFulltextCandidate(loaded.run.plan, proven.candidates);
   if (fulltext.status !== "program_validated") throw new StageBlocked("fulltext_incomplete");
   return { run: loaded.run, fulltext, models };
+}
+/** The basis interpretation and the physical model evidence behind what it carries into this revision. */
+async function basisFor(run: FulltextRun, recipeVersion: string, pinned?: string) {
+  const found = await previousInterpretation(run.plan.context.expressionId, run.id, recipeVersion, pinned);
+  if (!found) {
+    if (pinned) throw new StageBlocked("invalid_checkpoint");
+    return null;
+  }
+  const candidate = CandidateReply.safeParse(found.output.candidate);
+  if (!candidate.success) return null;
+  const previous: PreviousInterpretation = {
+    fulltextRunId: found.fulltextRunId,
+    plan: found.plan,
+    candidate: candidate.data,
+    verifiedClaims: Array.isArray(found.output.verifiedClaims) ? (found.output.verifiedClaims as string[]) : [],
+  };
+  const models: ModelEvidence[] = [];
+  for (const item of (found.output.modelEvidence ?? []) as ModelEvidence[]) {
+    const proof = await readPolicyResponse({ receiptId: item.receiptId, attemptId: item.attemptId });
+    models.push(proof ? policyModelEvidence(proof) : { ...item, configurationHash: null });
+  }
+  return { previous, models };
 }
 function prepared(run: FulltextRun, recipeVersion: string, stage: InterpretationStage): PreparedPolicyInput {
   const resources = [...new Set(stage.parts.map((part) => part.resourceUrl))].map((url) => {
@@ -194,7 +203,11 @@ async function runInterpretation(
     ? { id: sha256(stableJson([run.id, recipeVersion])), fulltext: run, recipeVersion }
     : await beginInterpretation(run, recipeVersion);
   const saved = new Map((await interpretationStages(storage)).map((row) => [row.stage_id, row]));
-  const models = [...loaded.models],
+  // A stored result pins the basis it was computed from, so a replay rebuilds the very same stage inputs.
+  const stored = await storedInterpretation(storage);
+  const pinned = (stored?.output?.changes as { basis?: string | null } | undefined)?.basis ?? undefined;
+  const basis = await basisFor(run, recipeVersion, pinned);
+  const models = [...loaded.models, ...(basis?.models ?? [])],
     inflight = new Map<string, InterpretationStage>();
   const gateway = createPolicyGateway({
     fallbackPolicy: {
@@ -277,7 +290,9 @@ async function runInterpretation(
           jurisdiction: run.snapshot.manifest.identity.jurisdiction,
           sequence: run.snapshot.sequence,
         },
+        context: { authority: run.snapshot.manifest.identity.authority ?? null, documentType: run.snapshot.manifest.identity.documentType ?? null },
         related,
+        previous: basis?.previous ?? null,
       },
       call,
     );

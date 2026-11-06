@@ -1,4 +1,5 @@
 import { apiFetch } from "@amp/web/extension";
+import { useTr } from "@amp/web/i18n";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -34,6 +35,7 @@ export function meta({ location }: MetaArgs<typeof loader>) {
   return pageMeta({ title: "法规周报与月报", path: location.pathname + location.search });
 }
 export default function PolicyReportsPage() {
+  const tr = useTr();
   const { listing, query, scope } = useLoaderData<typeof loader>(),
     { kind } = query;
   const filters = new URLSearchParams();
@@ -44,7 +46,7 @@ export default function PolicyReportsPage() {
   usePolicyRecheck();
   return (
     <article className="mx-auto max-w-[var(--page-max-reading)] pb-10 pt-5">
-      <h1 className="text-[24px] font-semibold">法规政策动态</h1>
+      <h1 className="text-[24px] font-semibold">{tr("法规政策动态")}</h1>
       <PolicyTabs active={kind} />
       <PolicyReportFilters query={query} jurisdictions={scope?.items.map((row) => row.jurisdiction) ?? []} />
       {listing.items.length ? (
@@ -63,12 +65,12 @@ export default function PolicyReportsPage() {
           ))}
         </ul>
       ) : (
-        <EmptyState title={`暂未生成可公开的法规${kind === "weekly" ? "周报" : "月报"}`}>没有汇总不代表有关法域没有新法规。</EmptyState>
+        <EmptyState title={`暂未生成可公开的法规${kind === "weekly" ? tr("周报") : tr("月报")}`}>{tr("没有汇总不代表有关法域没有新法规。")}</EmptyState>
       )}
       {(listing.page > 1 || listing.has_more) && (
-        <nav aria-label="法规汇总分页" className="mt-5 flex justify-between text-[13px] text-accent">
-          {listing.page > 1 ? <Link to={pageHref(listing.page - 1)}>上一页</Link> : <span />}
-          {listing.has_more && <Link to={pageHref(listing.page + 1)}>下一页</Link>}
+        <nav aria-label={tr("法规汇总分页")} className="mt-5 flex justify-between text-[13px] text-accent">
+          {listing.page > 1 ? <Link to={pageHref(listing.page - 1)}>{tr("上一页")}</Link> : <span />}
+          {listing.has_more && <Link to={pageHref(listing.page + 1)}>{tr("下一页")}</Link>}
         </nav>
       )}
     </article>

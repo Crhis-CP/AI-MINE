@@ -1,6 +1,6 @@
 // Explicit worker-side operations for the reviewed policy catalogue. Importing this file does nothing.
 import { setTimeout as delay } from "node:timers/promises";
-import { POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
+import { ALL_POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
 import { audit } from "@amp/backend/admin/auth";
 import { evaluateSourcePolicy, previewSource, requestSourcePreview, runSourcePreview, readCurrentSourcePolicy, updateSource } from "@amp/backend/admin/sources";
 import { closeDb, sql, initializeDb } from "@amp/backend/db";
@@ -24,7 +24,7 @@ export function selectPolicySources(entries: readonly PolicySource[], options: P
   return selected.slice(0, limit);
 }
 
-export async function listPolicySources(entries: readonly PolicySource[] = POLICY_SOURCES) {
+export async function listPolicySources(entries: readonly PolicySource[] = ALL_POLICY_SOURCES) {
   const saved = await sql<{ id: string; enabled: boolean; health: string; last_ok_at: Date | null }[]>`
     SELECT id,enabled,health,last_ok_at FROM sources WHERE lane='policy' ORDER BY id`;
   return entries.map((entry) => ({
@@ -170,14 +170,14 @@ if (import.meta.main) {
   try {
     const { command, options } = parsePolicySourceArgs(process.argv.slice(2));
     if (command === "enable") {
-      const chosen = selectPolicySources(POLICY_SOURCES, options);
+      const chosen = selectPolicySources(ALL_POLICY_SOURCES, options);
       console.log("本批清单（每6小时检查一次；现场预览通过后才启用）：");
       for (const entry of chosen) console.log(`${entry.id} ${entry.jurisdiction} ${entry.authority.zh} · ${entry.name.zh}`);
     }
     await initializeDb("worker");
     if (command === "list") console.log(JSON.stringify(await listPolicySources(), null, 2));
     else {
-      const result = await enablePolicySources(POLICY_SOURCES, options);
+      const result = await enablePolicySources(ALL_POLICY_SOURCES, options);
       console.log(JSON.stringify(result, null, 2));
       if (!result.ok) process.exitCode = 1;
     }

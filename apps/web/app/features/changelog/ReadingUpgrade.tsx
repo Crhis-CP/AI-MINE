@@ -1,4 +1,5 @@
 import { IntentLink as Link } from "../../components/ui/IntentLink";
+import { useTr } from "../../i18n";
 
 const GUIDES = [
   { title: "回看每一期", to: "/daily", action: "打开矿业日报", text: "从日期目录进入历史报告，查看首次出刊与最近修订。晚到报道归入对应期次。" },
@@ -8,8 +9,9 @@ const GUIDES = [
 
 /** Reading instructions with simple interface diagrams; no fabricated articles or market values. */
 export function ReadingUpgrade() {
+  const tr = useTr();
   return (
-    <section className="mt-7 grid gap-3 sm:grid-cols-3" aria-label="本次更新使用指南">
+    <section className="mt-7 grid gap-3 sm:grid-cols-3" aria-label={tr("本次更新使用指南")}>
       {GUIDES.map((guide, index) => (
         <section key={guide.to} className="rounded-control border border-line bg-bg-sunk p-4">
           <svg viewBox="0 0 200 108" className="mb-4 w-full text-accent" aria-hidden="true">
@@ -19,7 +21,7 @@ export function ReadingUpgrade() {
                 <path d="M41 30h72M41 44h50M41 57h62M41 70h40" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                 <rect x="99" y="62" width="75" height="30" rx="15" fill="currentColor" />
                 <text x="136" y="82" textAnchor="middle" fontSize="12" fill="white">
-                  已修订
+                  {tr("已修订")}
                 </text>
               </>
             ) : index === 1 ? (
@@ -43,10 +45,10 @@ export function ReadingUpgrade() {
               </>
             )}
           </svg>
-          <h3 className="text-[16px] font-bold text-ink">{guide.title}</h3>
-          <p className="mt-2 text-[13px] leading-7 text-ink-3">{guide.text}</p>
+          <h3 className="text-[16px] font-bold text-ink">{tr.maybe(guide.title)}</h3>
+          <p className="mt-2 text-[13px] leading-7 text-ink-3">{tr.maybe(guide.text)}</p>
           <Link to={guide.to} className="mt-3 inline-flex min-h-10 items-center text-[13px] font-semibold text-accent">
-            {guide.action} →
+            {tr.maybe(guide.action)} →
           </Link>
         </section>
       ))}

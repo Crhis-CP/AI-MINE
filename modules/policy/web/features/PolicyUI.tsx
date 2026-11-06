@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useTr } from "@amp/web/i18n";
 import { Link, isRouteErrorResponse, useLocation, useRevalidator, useRouteError } from "react-router";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
 import { EmptyState } from "@amp/web/page";
@@ -34,19 +35,24 @@ export const timeLabel = (value: { label: string; precision: string } | null) =>
 export const policyCache = () => ({ "Cache-Control": "no-store" });
 
 export function PolicyTabs({ active = "policies" }: { active?: string }) {
+  const tr = useTr();
   const location = useLocation(),
     current = new URLSearchParams(location.search);
   const preserve = (to: string) => {
     const target = new URL(to, "https://site.invalid");
-    for (const key of ["jurisdiction", "theme"]) if (current.get(key)) target.searchParams.set(key, current.get(key)!);
+    // The list's own “all themes” value is not a theme; the reports take only real filters.
+    for (const key of ["jurisdiction", "theme"]) {
+      const value = current.get(key);
+      if (value && !(key === "theme" && value === "all")) target.searchParams.set(key, value);
+    }
     return target.pathname + target.search;
   };
   return (
-    <nav aria-label="法规栏目" className="mt-4 flex gap-5 border-b border-line pb-3 text-[14px]">
+    <nav aria-label={tr("法规栏目")} className="mt-4 flex gap-5 border-b border-line pb-3 text-[14px]">
       {[
-        ["policies", "/policies", "法规解读"],
-        ["weekly", "/policies/reports?kind=weekly", "周报"],
-        ["monthly", "/policies/reports?kind=monthly", "月报"],
+        ["policies", "/policies", tr("法规解读")],
+        ["weekly", "/policies/reports?kind=weekly", tr("周报")],
+        ["monthly", "/policies/reports?kind=monthly", tr("月报")],
       ].map(([key, to, label]) => (
         <Link
           key={key}
@@ -99,6 +105,7 @@ export function usePolicyListReturn() {
   }, [location.pathname, location.search]);
 }
 export function PolicyBack() {
+  const tr = useTr();
   const [to, setTo] = useState("/policies");
   useEffect(() => {
     try {
@@ -109,56 +116,78 @@ export function PolicyBack() {
     }
   }, []);
   return (
-    <Link to={to} className="text-[13px] font-medium text-accent">
-      ← 返回法规政策动态
+    <Link to={to} className="shrink-0 whitespace-nowrap text-[13px] font-medium text-accent">
+      {tr("← 返回法规政策动态")}
     </Link>
   );
 }
+/** One policy in the list (UI update, Owner 2026-11-05): where and who, title, summary, one line of facts, then themes. */
 export function PolicyCardView({ policy }: { policy: PolicyCard }) {
+  const tr = useTr();
+  const complete = policy.interpretation_state === "complete";
   return (
     <article className="border-b border-line py-5 last:border-0">
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
+      <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
         <span>
-          {policy.jurisdictions.map((j) => j.label).join("、")} · {policy.authority.name}
+          <span className="font-medium text-ink-2">{policy.jurisdictions.map((j) => j.label).join("、")}</span> · {policy.authority.name}
         </span>
-        <span className="rounded-mark bg-bg-sunk px-2 py-0.5 text-ink-2">{policy.interpretation_state === "complete" ? "完整解读" : "基本事实"}</span>
-        {policy.is_backfill && <span className="text-amber-ink">补录</span>}
+        <span className={`rounded-mark px-2 py-0.5 ${complete ? "bg-accent/10 text-accent" : "bg-bg-sunk text-ink-2"}`}>
+          {complete ? tr("完整解读") : tr("基本事实")}
+        </span>
+        {policy.is_backfill && <span className="text-amber-ink">{tr("补录")}</span>}
       </div>
       <h2 className="mt-2 text-[18px] font-semibold leading-relaxed text-ink">
         <Link id={`policy-${policy.id}`} to={policyHref(policy.id)} onClick={() => rememberPolicyList(policy.id)} className="hover:text-accent">
           {policy.title}
         </Link>
       </h2>
-      {policy.summary && <p className="mt-2 max-w-[80ch] text-[14px] leading-6 text-ink-2">{policy.summary}</p>}
-      <p className="mt-2 text-[12px] text-ink-3">
-        {[policy.instrument_number, policy.nature.label, stages[policy.legal_brief.stage], policy.change_kind?.label].filter(Boolean).join(" · ")}
+      {policy.summary && <p className="mt-1.5 line-clamp-3 max-w-[80ch] text-[14px] leading-6 text-ink-2">{policy.summary}</p>}
+      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-4">
+        <span>
+          {[policy.instrument_number, tr.maybe(policy.nature.label), tr.maybe(stages[policy.legal_brief.stage]), policy.change_kind?.label]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+        <span>
+          {tr("来源发布日期：")}
+          {timeLabel(policy.published_time)}
+        </span>
+        <span>
+          {tr("本站公开：")}
+          {timeLabel(policy.first_public_at)}
+          {tr("（北京时间）")}
+        </span>
       </p>
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-ink-4">
-        <span>来源发布日期：{timeLabel(policy.published_time)}</span>
-        <span>本站公开：{timeLabel(policy.first_public_at)}（北京时间）</span>
-      </div>
-      {policy.thread_id && (
-        <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="mt-3 inline-block text-[12px] font-medium text-accent">
-          查看政策脉络 →
-        </Link>
+      {policy.applicability_summary && (
+        <p className="mt-2 text-[12.5px] text-ink-3">
+          {tr("适用条件：")}
+          {policy.applicability_summary}
+        </p>
       )}
-      {policy.applicability_summary && <p className="mt-2 text-[12px] text-ink-3">适用条件：{policy.applicability_summary}</p>}
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
         {policy.themes.map((t) => (
-          <span key={t.code} className="rounded-mark bg-accent/5 px-2 py-0.5 text-[11px] text-accent">
+          <span key={t.code} className="rounded-mark bg-accent/5 px-2 py-0.5 text-[11.5px] text-accent">
             {t.label}
           </span>
         ))}
+        {policy.thread_id && (
+          <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="ml-auto text-[12px] font-medium text-accent">
+            {tr("查看政策脉络 →")}
+          </Link>
+        )}
       </div>
     </article>
   );
 }
 export function EvidenceLinks({ ids }: { ids: string[] }) {
+  const tr = useTr();
+  // Nothing at all without evidence: an empty inline box after a paragraph adds a blank line.
+  if (!ids.length) return null;
   return (
     <span className="ml-1 inline-flex flex-wrap gap-1">
       {ids.map((id) => (
-        <a key={id} href={`#evidence-${id}`} className="text-[11px] text-accent underline" aria-label={`查看证据 ${id}`}>
-          证据
+        <a key={id} href={`#evidence-${id}`} className="text-[11px] text-accent underline" aria-label={tr("查看证据 {id}", { id })}>
+          {tr("证据")}
         </a>
       ))}
     </span>
@@ -181,20 +210,71 @@ export function stateText(policy: Policy) {
   return policy.gaps.find((gap) => gap !== "完整解读尚不可用") ?? "已核实基本事实；完整解读暂不可用";
 }
 export function PolicyError() {
+  const tr = useTr();
   const error = useRouteError();
   const status = isRouteErrorResponse(error) ? error.status : 503;
   const title =
-    status === 400 ? "筛选参数有误" : status === 404 || status === 410 ? "这篇法规当前不可查看" : status === 409 ? "内容已更新" : "暂时无法读取政策法规";
+    status === 400
+      ? tr("筛选参数有误")
+      : status === 404 || status === 410
+        ? tr("这篇法规当前不可查看")
+        : status === 409
+          ? tr("内容已更新")
+          : tr("暂时无法读取政策法规");
   return (
     <div className="pt-5">
-      <h1 className="text-[22px] font-semibold">法规政策动态</h1>
+      <h1 className="text-[22px] font-semibold">{tr("法规政策动态")}</h1>
       <EmptyState title={title} action={<PolicyBack />}>
         {status === 404 || status === 410
-          ? "内容可能已经更新或撤回。请返回列表查看当前内容。"
+          ? tr("内容可能已经更新或撤回。请返回列表查看当前内容。")
           : status === 409
-            ? "请从当前列表重新浏览，避免混用不同版本。"
-            : "可以重新读取，或返回法规政策动态列表。"}
+            ? tr("请从当前列表重新浏览，避免混用不同版本。")
+            : tr("可以重新读取，或返回法规政策动态列表。")}
       </EmptyState>
+    </div>
+  );
+}
+
+const LIFECYCLE = [
+  { key: "proposed", label: "拟议" },
+  { key: "consultation", label: "征求意见" },
+  { key: "adopted", label: "已通过" },
+  { key: "published", label: "已公布" },
+  { key: "in_force", label: "施行" },
+] as const;
+
+/**
+ * The document's lifecycle as survey points (direction C, DEC-78): only the stage the record states is
+ * marked; the other points are not claimed to have happened (a document may skip consultation), and an
+ * unconfirmed stage marks nothing. Repeal is shown beside the line. The dimensions table below holds the evidence.
+ */
+export function PolicyLifecycle({ brief }: { brief: Policy["legal_brief"] }) {
+  const tr = useTr();
+  const inForce = brief.in_force === "yes" || brief.in_force === "partial";
+  const current = inForce ? "in_force" : brief.stage;
+  return (
+    <div className="mb-4">
+      <ol className="flex items-start" aria-label={tr("文件生命周期")}>
+        {LIFECYCLE.map((point, i) => {
+          const on = point.key === current;
+          return (
+            <li key={point.key} className="relative flex flex-1 flex-col items-center text-center" aria-current={on ? "step" : undefined}>
+              {i > 0 && <span aria-hidden="true" className="absolute right-1/2 top-[9px] h-px w-full bg-line-strong" />}
+              <svg viewBox="0 0 20 18" className={`relative size-5 ${on ? "text-accent" : "text-ink-4"}`} aria-hidden="true" focusable="false">
+                <path d="M10 2 L18 16 H2 Z" className={on ? "fill-current" : "fill-surface stroke-current"} strokeWidth={1.4} strokeLinejoin="round" />
+                <circle cx="10" cy="11.5" r="1.6" className={on ? "fill-surface" : "fill-current"} />
+              </svg>
+              <span className={`mt-1 text-[12.5px] ${on ? "font-semibold text-ink" : "text-ink-4"}`}>
+                {point.key === "in_force" && brief.in_force === "partial" ? tr("部分施行") : tr(point.label)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-2 text-[12.5px] text-ink-4">
+        {current === "unknown" ? tr("所处阶段尚未确认；") : tr("只标出原文确认的当前阶段；")}
+        {brief.repeal === "repealed" ? tr("本文件已废止。") : brief.repeal === "partly_repealed" ? tr("本文件部分废止。") : tr("依据见下表。")}
+      </p>
     </div>
   );
 }

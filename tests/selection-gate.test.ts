@@ -36,7 +36,7 @@ test("production scores only with the scoring prompt version the Owner confirmed
   assert.equal(scoringConfirmed(true, "selection-score@0000000000"), false, "a confirmation of another version does not carry over");
   assert.equal(scoringConfirmed(true, PROMPT_VERSIONS.score), true);
   // Evaluations decide with the draft's thresholds in any environment (scripts/eval-selection.ts).
-  assert.deepEqual([draftTierThreshold("T1"), draftTierThreshold("T1_5"), draftTierThreshold("T2"), draftTierThreshold("EXCLUDE_MP")], [60, 65, 76, null]);
+  assert.deepEqual([draftTierThreshold("T1"), draftTierThreshold("T1_5"), draftTierThreshold("T2"), draftTierThreshold("EXCLUDE_MP")], [62, 64, 66, null]);
 });
 
 test("the production pipeline sends no score request until this exact version is confirmed (a production process)", () => {
@@ -84,6 +84,6 @@ test("the production pipeline sends no score request until this exact version is
   assert.equal(unconfirmed.renominated, false, "source tier recomputation uses the same Owner confirmation gate");
   assert.equal(run("selection-score@0000000000").threshold, null, "another version's confirmation does not carry over");
   const confirmed = run(unconfirmed.version);
-  assert.equal(confirmed.threshold, 60, "the confirmed version scores with the tier threshold");
+  assert.equal(confirmed.threshold, 62, "the confirmed version scores with the tier threshold");
   assert.equal(confirmed.renominated, true);
 });

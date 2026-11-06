@@ -17,19 +17,9 @@ export const CHANNEL_LABELS: Record<"all" | "news" | "firstParty", string> = {
 
 /**
  * 内容理解一步给每篇资料判的“内容类型”（写在 prompts/content-understanding.md 里，改了类型要同步改那份提示词）。
- * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
+ * 评分时模型只判类型和五轴分，各类型的五轴权重在 industry/selection.ts 里，由代码加权（不在提示词里）。
  */
-export const ITEM_TYPES = [
-  "policy_regulation",
-  "company_project",
-  "commodity_market",
-  "capital_ma",
-  "supply_trade_controls",
-  "esg_community_labor",
-  "safety_incident",
-  "technology_processing",
-  "exploration_resource",
-] as const;
+export const ITEM_TYPES = MINING_CATEGORIES.map((c) => c.key);
 
 // ── 标签词表 ────────────────────────────────────────────────────────────────────────────
 

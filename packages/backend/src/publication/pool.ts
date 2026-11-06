@@ -1,4 +1,4 @@
-import { originalPostAdmissionCondition } from "./items.ts";
+import { browseFloorCondition } from "./items.ts";
 import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { sharedSearch } from "../lib/cache.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
@@ -10,6 +10,7 @@ import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import {
   confirmedSelected,
   categoryCondition,
+  categoryKeys,
   publicationDateCondition,
   jurisdictionCondition,
   newsJurisdictionScope,
@@ -184,7 +185,7 @@ async function queryPool(
     query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
   );
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(names)} ${topicCondition(names)} ${dateFilter}
-    ${query.selected ? sql`AND ${confirmedSelected()}` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``}
+    ${query.selected ? sql`AND ${confirmedSelected()}` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``} ${browseFloorCondition(!q && !query.selected)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   // A fixed clock (tests, replays) never shares cached totals.
@@ -382,9 +383,9 @@ async function loadPoolSourceFacets(query: PoolQuery, names: ReadMatcherValues, 
   return withCustomPlans(
     async (db) => db<{ id: string; name: string; count: number }[]>`
     SELECT s.id,s.name,count(*) AS count FROM publications p JOIN sources s ON s.id=p.source_id
-    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
+    WHERE ${listedCondition(now)} AND p.eligible ${browseFloorCondition(!names.term0.active && !query.selected)}
       AND (${query.channel}='all' OR (${query.channel}='firstParty' AND p.first_party) OR p.channel=${query.channel})
-      AND (${query.category}::text IS NULL OR p.category=${query.category})
+      AND (${categoryKeys(query.category)}::text[] IS NULL OR p.category=ANY(${categoryKeys(query.category)}::text[]))
       AND (${query.selected ?? false}=false OR (${confirmedSelected()}))
       ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
       AND (${names.tagTags}::text[] IS NULL OR p.tags && ${names.tagTags}::text[] OR (${names.tagText.active} AND ${publicationTextMatches(names.tagText)}))

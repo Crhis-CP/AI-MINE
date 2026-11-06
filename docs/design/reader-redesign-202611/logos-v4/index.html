@@ -1,0 +1,109 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=1600"><title>AI矿策 · LOGO 第四轮</title>
+<style>@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_600SemiBold.woff2") format("woff2"); font-weight: 600; }@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_400Regular.woff2") format("woff2"); font-weight: 400 500; }
+* { box-sizing: border-box; } html, body { margin: 0; }
+body { width: 1600px; background: #0B0F12; color: #EEF0F1; font: 15px/1.6 "PingFang SC", "Noto Sans SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.top { padding: 64px 64px 36px; background: radial-gradient(70% 120% at 50% 0%, #2A2210 0%, #0B0F12 70%); }
+.kicker { font: 600 13px/1 "Barlow", sans-serif; letter-spacing: .3em; color: #C8992E; text-transform: uppercase; }
+h1 { margin: 12px 0 0; font-size: 44px; line-height: 1.2; letter-spacing: .01em; }
+.lead { margin: 14px 0 0; color: #AEB6BC; font-size: 18px; max-width: 58em; line-height: 1.75; }
+.ages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin-top: 30px; border-top: 1px solid #2B3136; }
+.ages div { padding: 16px 14px 0; border-left: 1px solid #2B3136; }
+.ages div:first-child { border-left: 0; padding-left: 0; }
+.ages b { display: block; font-size: 22px; } .ages span { font: 500 13px/1.4 "Barlow", sans-serif; color: #8F989F; letter-spacing: .04em; }
+.ages .now b { color: #E3B654; }
+.heroes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; padding: 30px 64px 40px; }
+.heroes figure { margin: 0; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.heroes img { width: 300px; height: 300px; border-radius: 68px; box-shadow: 0 40px 60px -30px #000, 0 0 0 1px #262B30; }
+.heroes h2 { margin: 0; font-size: 26px; } .heroes .en { font: 600 12px/1 "Barlow", sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #8F989F; }
+.paper { background: #F4F2EC; color: #12171B; padding: 44px 64px 40px; display: grid; gap: 24px; }
+.row { display: grid; grid-template-columns: 300px minmax(0, 1fr) 470px; gap: 26px; align-items: center; background: #fff; border: 1px solid #E2DED5; border-radius: 18px; padding: 20px 22px; }
+.row h3 { margin: 0 0 6px; font-size: 22px; } .row p { margin: 0; color: #4F5A62; font-size: 14px; line-height: 1.75; }
+.vars { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; }
+.vars figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: #8A8F93; }
+.mono-d { background: #fff; border: 1px solid #E2DED5; border-radius: 10px; padding: 6px; } .mono-l { background: #0B0F12; border-radius: 10px; padding: 6px; }
+.locks { display: grid; gap: 10px; } .locks div { border-radius: 12px; padding: 12px 16px; } .locks .lt { background: #F7F5F0; border: 1px solid #E2DED5; } .locks .dk { background: #0B0F12; }
+.locks img { height: 54px; display: block; }
+.mock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.card { background: #fff; border: 1px solid #E2DED5; border-radius: 18px; padding: 18px; display: grid; gap: 12px; align-content: start; }
+.card h4 { margin: 0; font-size: 13px; letter-spacing: .14em; color: #8A8F93; font-weight: 600; }
+.phone { background: linear-gradient(170deg, #3C3424, #121110); border-radius: 26px; padding: 22px 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.phone figure { margin: 0; display: grid; justify-items: center; gap: 5px; color: #F2EFEA; font: 10px/1.2 system-ui, sans-serif; }
+.phone img { width: 52px; height: 52px; border-radius: 12px; }
+.phone .x { width: 52px; height: 52px; border-radius: 12px; background: rgb(255 255 255 / .16); }
+.tabs { background: #DDE1E3; border-radius: 12px; padding: 8px 8px 2px; }
+.tab { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; margin-bottom: 6px; background: #fff; border-radius: 8px; font: 12px/1 system-ui, sans-serif; } .tab span { flex: 1; }
+.plaques { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.plaque { aspect-ratio: 1.4; border-radius: 6px; display: grid; place-items: center; background: repeating-linear-gradient(90deg, #2B2F33 0 2px, #33383D 2px 4px); box-shadow: inset 0 0 0 3px #1B1E21, inset 0 0 0 5px #4A5056; }
+.plaque img { width: 46%; filter: drop-shadow(0 1px 0 rgb(255 255 255 / .18)) drop-shadow(0 -1px 0 rgb(0 0 0 / .6)); }
+.site { border-radius: 10px; overflow: hidden; border: 1px solid #E2DED5; }
+.site .bar { height: 22px; background: #E7E9EA; display: flex; align-items: center; gap: 5px; padding: 0 8px; } .site .bar i { width: 7px; height: 7px; border-radius: 50%; background: #C3C7CA; }
+.site .hd { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fff; border-bottom: 1px solid #ECEAE5; }
+.site .hd img { height: 30px; } .site .hd span { font-size: 11px; color: #52616C; }
+.site .hd span.on { color: #12171B; font-weight: 600; box-shadow: inset 0 -2px 0 #E8590C; }
+.foot { display: flex; justify-content: space-between; font-size: 12px; color: #8A8F93; border-top: 1px solid #E2DED5; padding-top: 14px; }
+</style></head>
+<body>
+<header class="top"><div class="kicker">AI Mining Policy · Logo Round 4</div>
+<h1>从石器到芯片：矿业是文明的地基，也是 AI 的地基</h1>
+<p class="lead">人类的时代都以材料命名：石器、青铜、铁器，今天是硅。AI 芯片里的硅、铜、镓、锗、稀土，同样都来自矿。这一轮的每个标志，都是一个人人认得的“古老的矿”，加上一个人人认得的“AI 符号”：简洁大气，一眼就懂。</p>
+<div class="ages"><div><b>石器</b><span>约 330 万年前</span></div><div><b>青铜</b><span>约公元前 3300 年</span></div><div><b>铁器</b><span>约公元前 1200 年</span></div><div><b>硅</b><span>20 世纪 50 年代起</span></div><div class="now"><b>AI</b><span>今天 · 一切仍从矿开始</span></div></div></header>
+<section class="heroes"><figure><img src="ingot-chip-icon-hero.svg" alt="芯锭"><span class="en">Ingot · Chip</span><h2>芯锭</h2></figure><figure><img src="mountain-die-icon-hero.svg" alt="山芯"><span class="en">Mountain · Die</span><h2>山芯</h2></figure><figure><img src="hand-axe-icon-hero.svg" alt="石器·智能"><span class="en">Hand axe · Neural</span><h2>石器·智能</h2></figure><figure><img src="strata-pixels-icon-hero.svg" alt="地层·像素"><span class="en">Strata · Pixels</span><h2>地层·像素</h2></figure></section>
+<section class="paper">
+<section class="row">
+  <div><h3>芯锭</h3><p>俯视的一块金锭，四边斜面清晰可见；两侧伸出芯片引脚，金锭就成了一枚芯片。金锭是几千年来人类冶炼和财富的象征，芯片是 AI 的心脏：从矿到智能，一眼就懂。</p></div>
+  <div class="vars">
+    <figure><img src="ingot-chip-icon-gold-dark.svg" width="84" height="84" alt=""><figcaption>深底 · 平涂金</figcaption></figure>
+    <figure><img src="ingot-chip-glyph-gold-light.svg" width="84" height="84" alt="" style="background:#F5F2EA;border-radius:16px"><figcaption>浅底 · 平涂金</figcaption></figure>
+    <figure><img src="ingot-chip-icon-orange.svg" width="84" height="84" alt=""><figcaption>方向 C 配色</figcaption></figure>
+    <figure><div class="mono-d"><img src="ingot-chip-glyph-mono-black.svg" width="48" height="48" alt=""></div><figcaption>单色黑</figcaption></figure>
+    <figure><div class="mono-l"><img src="ingot-chip-glyph-mono-white.svg" width="48" height="48" alt=""></div><figcaption>单色白</figcaption></figure>
+    <figure><img src="ingot-chip-icon-gold-dark.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+    <figure><img src="ingot-chip-icon-gold-dark.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+  </div>
+  <div class="locks"><div class="lt"><img src="ingot-chip-lockup-light.svg" alt=""></div><div class="dk"><img src="ingot-chip-lockup-dark.svg" alt=""></div></div>
+</section><section class="row">
+  <div><h3>山芯</h3><p>一枚芯片，芯片中央是一座金色的山。山代表矿藏与大地，芯片代表算力与 AI：AI 的根基就在山里的矿。图形方正大气，远看是芯片，近看是群山。</p></div>
+  <div class="vars">
+    <figure><img src="mountain-die-icon-gold-dark.svg" width="84" height="84" alt=""><figcaption>深底 · 平涂金</figcaption></figure>
+    <figure><img src="mountain-die-glyph-gold-light.svg" width="84" height="84" alt="" style="background:#F5F2EA;border-radius:16px"><figcaption>浅底 · 平涂金</figcaption></figure>
+    <figure><img src="mountain-die-icon-orange.svg" width="84" height="84" alt=""><figcaption>方向 C 配色</figcaption></figure>
+    <figure><div class="mono-d"><img src="mountain-die-glyph-mono-black.svg" width="48" height="48" alt=""></div><figcaption>单色黑</figcaption></figure>
+    <figure><div class="mono-l"><img src="mountain-die-glyph-mono-white.svg" width="48" height="48" alt=""></div><figcaption>单色白</figcaption></figure>
+    <figure><img src="mountain-die-icon-gold-dark.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+    <figure><img src="mountain-die-icon-gold-dark.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+  </div>
+  <div class="locks"><div class="lt"><img src="mountain-die-lockup-light.svg" alt=""></div><div class="dk"><img src="mountain-die-lockup-dark.svg" alt=""></div></div>
+</section><section class="row">
+  <div><h3>石器·智能</h3><p>人类第一件工具是打制的石器手斧，距今约一百七十万年，比任何文字都早；石面上长出一条带节点的线路，像神经网络的枝杈。从石头到智能，概括了人类的整部历史。</p></div>
+  <div class="vars">
+    <figure><img src="hand-axe-icon-gold-dark.svg" width="84" height="84" alt=""><figcaption>深底 · 平涂金</figcaption></figure>
+    <figure><img src="hand-axe-glyph-gold-light.svg" width="84" height="84" alt="" style="background:#F5F2EA;border-radius:16px"><figcaption>浅底 · 平涂金</figcaption></figure>
+    <figure><img src="hand-axe-icon-orange.svg" width="84" height="84" alt=""><figcaption>方向 C 配色</figcaption></figure>
+    <figure><div class="mono-d"><img src="hand-axe-glyph-mono-black.svg" width="48" height="48" alt=""></div><figcaption>单色黑</figcaption></figure>
+    <figure><div class="mono-l"><img src="hand-axe-glyph-mono-white.svg" width="48" height="48" alt=""></div><figcaption>单色白</figcaption></figure>
+    <figure><img src="hand-axe-icon-gold-dark.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+    <figure><img src="hand-axe-icon-gold-dark.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+  </div>
+  <div class="locks"><div class="lt"><img src="hand-axe-lockup-light.svg" alt=""></div><div class="dk"><img src="hand-axe-lockup-dark.svg" alt=""></div></div>
+</section><section class="row">
+  <div><h3>地层·像素</h3><p>底部是起伏的地层，代表亿万年形成的矿藏和人类的过去；往上，地层变成一格格像素，阶梯式升起，代表数据与 AI 的未来。底下是大地，上面是数字世界。</p></div>
+  <div class="vars">
+    <figure><img src="strata-pixels-icon-gold-dark.svg" width="84" height="84" alt=""><figcaption>深底 · 平涂金</figcaption></figure>
+    <figure><img src="strata-pixels-glyph-gold-light.svg" width="84" height="84" alt="" style="background:#F5F2EA;border-radius:16px"><figcaption>浅底 · 平涂金</figcaption></figure>
+    <figure><img src="strata-pixels-icon-orange.svg" width="84" height="84" alt=""><figcaption>方向 C 配色</figcaption></figure>
+    <figure><div class="mono-d"><img src="strata-pixels-glyph-mono-black.svg" width="48" height="48" alt=""></div><figcaption>单色黑</figcaption></figure>
+    <figure><div class="mono-l"><img src="strata-pixels-glyph-mono-white.svg" width="48" height="48" alt=""></div><figcaption>单色白</figcaption></figure>
+    <figure><img src="strata-pixels-icon-gold-dark.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+    <figure><img src="strata-pixels-icon-gold-dark.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+  </div>
+  <div class="locks"><div class="lt"><img src="strata-pixels-lockup-light.svg" alt=""></div><div class="dk"><img src="strata-pixels-lockup-dark.svg" alt=""></div></div>
+</section>
+<div class="mock">
+  <section class="card"><h4>手机桌面</h4><div class="phone"><figure><img src="ingot-chip-icon-hero.svg" alt=""><figcaption>芯锭</figcaption></figure><figure><img src="mountain-die-icon-hero.svg" alt=""><figcaption>山芯</figcaption></figure><figure><img src="hand-axe-icon-hero.svg" alt=""><figcaption>石器·智能</figcaption></figure><figure><img src="strata-pixels-icon-hero.svg" alt=""><figcaption>地层·像素</figcaption></figure><figure><span class="x"></span><figcaption>其他应用</figcaption></figure><figure><span class="x"></span><figcaption>其他应用</figcaption></figure><figure><span class="x"></span><figcaption>其他应用</figcaption></figure><figure><span class="x"></span><figcaption>其他应用</figcaption></figure></div></section>
+  <section class="card"><h4>浏览器标签页（16px）</h4><div class="tabs"><div class="tab"><img src="ingot-chip-icon-gold-dark.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span></div><div class="tab"><img src="mountain-die-icon-gold-dark.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span></div><div class="tab"><img src="hand-axe-icon-gold-dark.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span></div><div class="tab"><img src="strata-pixels-icon-gold-dark.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span></div></div></section>
+  <section class="card"><h4>网站页头（方向 C）</h4><div class="site"><div class="bar"><i></i><i></i><i></i></div><div class="hd"><img src="ingot-chip-lockup-light.svg" alt=""><span class="on">精选</span><span>热点</span><span>法规政策</span></div></div><div class="site"><div class="bar"><i></i><i></i><i></i></div><div class="hd"><img src="mountain-die-lockup-light.svg" alt=""><span class="on">精选</span><span>热点</span><span>法规政策</span></div></div><div class="site"><div class="bar"><i></i><i></i><i></i></div><div class="hd"><img src="hand-axe-lockup-light.svg" alt=""><span class="on">精选</span><span>热点</span><span>法规政策</span></div></div><div class="site"><div class="bar"><i></i><i></i><i></i></div><div class="hd"><img src="strata-pixels-lockup-light.svg" alt=""><span class="on">精选</span><span>热点</span><span>法规政策</span></div></div></section>
+  <section class="card"><h4>金属铭牌（矿区大门、办公室）</h4><div class="plaques"><div class="plaque"><img src="ingot-chip-glyph-gold-light.svg" alt=""></div><div class="plaque"><img src="mountain-die-glyph-gold-light.svg" alt=""></div><div class="plaque"><img src="hand-axe-glyph-gold-light.svg" alt=""></div><div class="plaque"><img src="strata-pixels-glyph-gold-light.svg" alt=""></div></div></section>
+</div>
+<footer class="foot"><span>AI矿策 · 读者端改版 · LOGO 第四轮</span><span>设计稿，只做了相似性自查，未做商标检索 · 时代年份为通行的大致年代</span></footer>
+</section>
+</body></html>

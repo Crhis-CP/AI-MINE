@@ -45,7 +45,7 @@ test("multiple entry points of one owner count once, and owner corrections repai
       discoveredAt: new Date(now.getTime() - 60000),
     });
     await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,selected,prompt_version,receipt_ids,output)
-      VALUES(${articleId},1,'rule','pass','company_project','合成矿企发布新项目','合成的新项目披露',false,${scopeVersion},${[await scopeReceipt(articleId)]},${sql.json(scopeOutput)})`;
+      VALUES(${articleId},1,'rule','pass','project_development','合成矿企发布新项目','合成的新项目披露',false,${scopeVersion},${[await scopeReceipt(articleId)]},${sql.json(scopeOutput)})`;
     await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${articleId},'report',1)`;
     await confirmGroupingFixture(articleId);
     await publishArticle(articleId);

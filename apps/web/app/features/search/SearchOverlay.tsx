@@ -1,4 +1,5 @@
 import type { SearchSuggestions } from "@amp/contracts/site";
+import { useTr } from "../../i18n";
 import { loadSearchNavigation } from "./navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Form, Link, useLocation, useNavigation } from "react-router";
@@ -10,6 +11,7 @@ export const useOpenSearch = () => useContext(SearchContext);
 
 /** One phone search layer; native modality keeps focus and pointer events inside it. */
 export function SearchProvider({ children }: { children: ReactNode }) {
+  const tr = useTr();
   const panel = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -78,7 +80,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
       {children}
       <dialog
         ref={panel}
-        aria-label="搜索"
+        aria-label={tr("搜索")}
         onKeyDown={(event) => {
           if (event.key !== "Tab") return;
           const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("a[href],button,input,select,textarea,[tabindex]")).filter(
@@ -118,7 +120,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
           }}
         >
           <label className="relative min-w-0 flex-1">
-            <span className="sr-only">搜索标题、摘要与正文</span>
+            <span className="sr-only">{tr("搜索标题、摘要与正文")}</span>
             <IconSearch size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
             <input
               ref={input}
@@ -127,12 +129,12 @@ export function SearchProvider({ children }: { children: ReactNode }) {
               maxLength={200}
               autoComplete="off"
               enterKeyHint="search"
-              placeholder="搜索标题、摘要与正文"
+              placeholder={tr("搜索标题、摘要与正文")}
               className="h-11 w-full rounded-full border border-line-strong bg-surface pl-10 pr-3 text-[16px] text-ink outline-none focus:border-accent"
             />
           </label>
           <button type="button" onClick={close} className="h-11 shrink-0 px-2 text-[16px] text-accent">
-            取消
+            {tr("取消")}
           </button>
         </Form>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(24px,env(safe-area-inset-bottom))]">
@@ -142,15 +144,15 @@ export function SearchProvider({ children }: { children: ReactNode }) {
             </p>
           )}
           {recent.length > 0 && (
-            <section aria-label="最近搜索">
+            <section aria-label={tr("最近搜索")}>
               <div className="flex items-center justify-between">
-                <h2 className="text-[14px] font-semibold text-ink-3">最近搜索</h2>
+                <h2 className="text-[14px] font-semibold text-ink-3">{tr("最近搜索")}</h2>
                 <button
                   type="button"
                   className="min-h-11 px-2 text-[13px] text-ink-3"
-                  onClick={() => setNotice(clearRecentSearches() ? null : "浏览器暂时无法清除记录，请稍后重试。")}
+                  onClick={() => setNotice(clearRecentSearches() ? null : tr("浏览器暂时无法清除记录，请稍后重试。"))}
                 >
-                  清除记录
+                  {tr("清除记录")}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -169,15 +171,15 @@ export function SearchProvider({ children }: { children: ReactNode }) {
           )}
           {navigationFailed && (
             <p role="status" className="mt-5 text-[13px] text-ink-3">
-              主题与热点暂时无法读取。
+              {tr("主题与热点暂时无法读取。")}
               <button type="button" className="ml-2 min-h-11 text-accent" onClick={refreshNavigation}>
-                重试导航
+                {tr("重试导航")}
               </button>
             </p>
           )}
           {companies.length > 0 && (
-            <section className="mt-5" aria-label="按主题找">
-              <h2 className="text-[14px] font-semibold text-ink-3">按主题找</h2>
+            <section className="mt-5" aria-label={tr("按主题找")}>
+              <h2 className="text-[14px] font-semibold text-ink-3">{tr("按主题找")}</h2>
               <div className="mt-3 flex flex-wrap gap-2">
                 {companies.map((topic) => (
                   <Link
@@ -192,8 +194,8 @@ export function SearchProvider({ children }: { children: ReactNode }) {
             </section>
           )}
           {!!more?.hot.length && (
-            <section className="mt-5" aria-label="正在热议">
-              <h2 className="text-[14px] font-semibold text-ink-3">正在热议</h2>
+            <section className="mt-5" aria-label={tr("正在热议")}>
+              <h2 className="text-[14px] font-semibold text-ink-3">{tr("正在热议")}</h2>
               <ol className="mt-2 divide-y divide-line-soft">
                 {more.hot.map((entry) => (
                   <li key={entry.to}>
@@ -206,12 +208,12 @@ export function SearchProvider({ children }: { children: ReactNode }) {
               </ol>
             </section>
           )}
-          <nav aria-label="按内容查找" className="mt-6 flex gap-4 text-[14px] text-accent">
+          <nav aria-label={tr("按内容查找")} className="mt-6 flex gap-4 text-[14px] text-accent">
             <Link to="/topics" className="py-3">
-              按矿业主题找
+              {tr("按矿业主题找")}
             </Link>
             <Link to="/hot" className="py-3">
-              查看热点榜
+              {tr("查看热点榜")}
             </Link>
           </nav>
         </div>

@@ -5,7 +5,7 @@ export { SiteInformation, OfficialMetalLink } from "./site-information.ts";
 import { z } from "zod";
 import { SourceTimeProjection } from "../time-assertion.ts";
 import { isValidDate } from "../time.ts";
-import { CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
+import { CATEGORY_FILTER_KEYS, CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
 import { Problem, ProblemResponse } from "./common.ts";
 import { policySchemas, policyRoutes } from "./policy.ts";
 import { ModuleParts, ModuleNotice, ModuleBrand } from "./module-outputs.ts";
@@ -31,6 +31,35 @@ export const SiteStats = z.strictObject({
     .optional(),
 });
 export type SiteStats = z.infer<typeof SiteStats>;
+/** Filing and licence numbers set by the deployer at run time (DEC-78); null means not configured and not shown. */
+export const SiteFilings = z.strictObject({
+  icp: z.string().min(1).max(80).nullable(),
+  publicSecurity: z.strictObject({ text: z.string().min(1).max(80), code: z.string().regex(/^\d{10,20}$/) }).nullable(),
+  newsLicense: z.string().min(1).max(80).nullable(),
+});
+export type SiteFilings = z.infer<typeof SiteFilings>;
+/** Reader shell metadata: the latest product-update version and the footer filing numbers. */
+export const SiteMeta = z.strictObject({
+  changelogVersion: z.string().min(1).max(40).nullable(),
+  filings: SiteFilings,
+});
+export type SiteMeta = z.infer<typeof SiteMeta>;
+/** Reader news map windows: the last day, week or month by archive time. */
+export const NewsMapWindow = z.enum(["1d", "7d", "30d"]);
+/**
+ * Country news counts for the reader's map over one window, with the window before it for the trend. Same
+ * membership as the country filter's counts; countries with nothing in either window are left out.
+ */
+export const SiteNewsMap = z.strictObject({
+  window: NewsMapWindow,
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  countries: z.array(
+    z.strictObject({ code: z.string().min(2).max(12), label: z.string().min(1).max(40), count: z.int().nonnegative(), previous: z.int().nonnegative() }),
+  ),
+});
+export type SiteNewsMap = z.infer<typeof SiteNewsMap>;
+export type NewsMapWindow = z.infer<typeof NewsMapWindow>;
 export const SourceAttribution = z.strictObject({
   publishers: z.array(z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }) })),
   license: z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }).nullable() }).nullable(),
@@ -98,7 +127,8 @@ export const Freshness = z.strictObject({
 });
 export const SiteFilters = z.strictObject({
   channel: z.enum(CHANNEL_KEYS),
-  category: z.enum(CATEGORY_KEYS).nullable(),
+  // The filter as requested: current keys, or company_project, which filters both of its successors (ADR-0031).
+  category: z.enum(CATEGORY_FILTER_KEYS).nullable(),
   tag: z.string().nullable(),
   topic: z.string().nullable().optional(),
   jurisdiction: z.string().max(16).nullable().optional(),
@@ -138,6 +168,19 @@ export const StoryBackgroundReport = FeedItemSummary.pick({ id: true, title: tru
 export const StoryBackground = z.strictObject({ relation: z.enum(["SAME_OCCURRENCE", "SAME_STORY"]), item: StoryBackgroundReport });
 /** Optional addition: existing StoryDetail producers may omit it until the background consumer is connected. */
 export const StoryBackgroundFields = z.strictObject({ background: z.array(StoryBackground).optional() });
+/** One quantity whose earlier and current values are both stated in the story's reports. */
+export const StoryKeyChange = z.strictObject({
+  item: z.string().trim().min(1).max(40),
+  before: z.string().trim().min(1).max(60),
+  after: z.string().trim().min(1).max(60),
+});
+/** An upcoming milestone whose date the reports state; `when` keeps the reports' wording. */
+export const StoryNextMilestone = z.strictObject({ what: z.string().trim().min(1).max(80), when: z.string().trim().min(1).max(40) });
+/** Optional digest structure; digests written before it existed have neither field. */
+export const StoryDigestFields = z.strictObject({
+  keyChanges: z.array(StoryKeyChange).max(4).optional(),
+  next: z.array(StoryNextMilestone).max(3).optional(),
+});
 export const SavedItems = z.strictObject({ items: z.array(FeedItemSummary), unavailableIds: z.array(z.string()) });
 export const TopicSummary = z.strictObject({
   brand: ModuleBrand.optional(),
@@ -185,7 +228,7 @@ export const PoolResponse = PoolResponseCore;
 // Documentation/client parameters only: the live route retains looseQuery and its existing parser.
 export const PoolQuery = z.object({
   channel: z.enum(CHANNEL_KEYS).optional(),
-  category: z.enum(CATEGORY_KEYS).optional(),
+  category: z.enum(CATEGORY_FILTER_KEYS).optional(),
   tag: z.string().optional(),
   topic: z.string().optional(),
   jurisdiction: z.string().max(16).optional(),
@@ -273,7 +316,22 @@ export const ReportGroupInfo = z
   .refine((group) => new Set(group.memberIds).size === group.memberIds.length, "Duplicate reading-group member")
   .refine((group) => group.memberIds.length <= group.reportCount && group.additionalSourceCount < group.reportCount, "Invalid reading-group counts");
 export const ReportGroupDetailFields = z.strictObject({ reportGroup: ReportGroupInfo.nullable().optional() });
-export const ReportGroupedTimelineCard = TimelineCardCore.extend(ReportGroupDetailFields.shape);
+/** Where a card's development sits in its story; present only when the story has more than one development or background. */
+export const StoryProgress = z.strictObject({
+  story: StoryRef,
+  /** Developments with a currently public report, the card's included. */
+  developmentCount: z.int().positive(),
+  /** 1-based chronological position of the card's development. */
+  position: z.int().positive(),
+  /** The development just before the card's, by first report. */
+  previous: z.strictObject({ title: z.string(), at: z.iso.datetime({ offset: true }) }).nullable(),
+  /** The newest development when it is not the card's. */
+  latest: z.strictObject({ title: z.string(), at: z.iso.datetime({ offset: true }) }).nullable(),
+  /** Confirmed historical background reports shown on the story page. */
+  backgroundCount: z.int().nonnegative(),
+});
+export const StoryProgressFields = z.strictObject({ storyProgress: StoryProgress.nullable().optional() });
+export const ReportGroupedTimelineCard = TimelineCardCore.extend(ReportGroupDetailFields.shape).extend(StoryProgressFields.shape);
 export const ReportGroupedTimelineResponse = TimelineResponseCore.extend({ cards: z.array(ReportGroupedTimelineCard) });
 export const ReportGroupedPoolResponse = PoolResponseCore.extend({ cards: z.array(ReportGroupedTimelineCard).optional() });
 
@@ -485,10 +543,17 @@ export const schemas = {
   StoryBackgroundReport,
   StoryBackground,
   StoryBackgroundFields,
+  StoryKeyChange,
+  StoryNextMilestone,
+  StoryDigestFields,
   ...v3Schemas,
   ...siteInformationSchemas,
   ...policySchemas,
   SiteStats,
+  SiteFilings,
+  SiteMeta,
+  NewsMapWindow,
+  SiteNewsMap,
   FeedbackIdempotencyHeaders,
   StoryFollowupsResponse,
   SourceAttribution,
@@ -514,6 +579,8 @@ export const schemas = {
   TimelineResponse,
   ReportGroupInfo,
   ReportGroupDetailFields,
+  StoryProgress,
+  StoryProgressFields,
   ReportGroupedTimelineCard,
   ReportGroupedTimelineResponse,
   ReportGroupedPoolResponse,
@@ -607,6 +674,20 @@ export const routes = {
     method: "GET" as const,
     url: "/api/site/stats",
     schema: { operationId: "siteStats", response: { 200: SiteStats, 304: z.undefined(), 503: ProblemResponse } },
+  },
+  siteMeta: {
+    method: "GET" as const,
+    url: "/api/site/meta",
+    schema: { operationId: "siteMeta", response: { 200: SiteMeta, 304: z.undefined(), 503: ProblemResponse } },
+  },
+  siteNewsMap: {
+    method: "GET" as const,
+    url: "/api/site/news-map",
+    schema: {
+      operationId: "siteNewsMap",
+      querystring: z.strictObject({ window: NewsMapWindow.optional() }),
+      response: { 200: SiteNewsMap, 304: z.undefined(), 400: ProblemResponse, 503: ProblemResponse },
+    },
   },
   siteMetalPrices: {
     method: "GET" as const,

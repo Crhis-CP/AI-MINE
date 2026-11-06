@@ -304,6 +304,10 @@ export const PolicyCursorResponse = z.strictObject({ ...envelope, items: z.array
 export const PolicyScopeList = z.strictObject({
   items: z.array(z.strictObject({ jurisdiction: PolicyJurisdiction, readable_count: z.int().nonnegative() })),
   note: text,
+  updates: z
+    .enum(["paused", "pilot"])
+    .optional()
+    .describe("paused: updates stopped; pilot: the operator resumed archive and structure for the pilot scope (no model)"),
 });
 export const PolicyJurisdictionList = z.array(
   PolicyJurisdiction.extend({ news_scope: z.boolean(), policy_scope: z.boolean(), news_count: z.int().nonnegative(), policy_count: z.int().nonnegative() }),
@@ -336,6 +340,57 @@ export const PolicyHistoryEntry = z.strictObject({
   checked_at: TimeAssertion.nullable(),
 });
 export const PolicyHistoryPage = z.strictObject({ ...envelope, policy_id: id, items: z.array(PolicyHistoryEntry), next_cursor: z.string().nullable() });
+/** One provision of one revision as split by the deterministic recipe (第X条, Artículo N, Article/Section N). */
+export const PolicyProvisionText = z.strictObject({
+  number_key: text.describe("Alignment key: number and suffix (12, 12bis, 8-1, 3A), annex-prefixed inside an annex"),
+  label: text,
+  path: z.array(text).describe("Chapter context, outermost first"),
+  heading: z.string().nullable(),
+  text: z.string(),
+});
+export const PolicyDiffSpan = z.strictObject({ op: z.enum(["equal", "insert", "delete"]), text: z.string() });
+export const PolicyProvisionChange = z
+  .strictObject({
+    change: z.enum(["added", "modified", "removed", "unchanged"]),
+    renumbered: z.boolean().describe("Same or modified provision under another number"),
+    from: PolicyProvisionText.nullable(),
+    to: PolicyProvisionText.nullable(),
+    diff: z
+      .array(PolicyDiffSpan)
+      .nullable()
+      .describe("Modified provisions only: character diff for CJK, word diff for Latin text, over the heading line (when present) and text"),
+  })
+  .superRefine((value, ctx) => {
+    const sides = { added: [false, true], removed: [true, false], modified: [true, true], unchanged: [true, true] }[value.change];
+    if (!!value.from !== sides[0] || !!value.to !== sides[1] || (value.change === "modified") !== !!value.diff)
+      ctx.addIssue({ code: "custom", message: "change type must match its sides and diff" });
+  });
+/** Clause-by-clause comparison of two public revisions in one language, computed by code on read (no model). */
+export const PolicyComparison = z
+  .strictObject({
+    ...envelope,
+    policy_id: id,
+    language: text,
+    method: z.literal("deterministic"),
+    from: PolicyHistoryEntry,
+    to: PolicyHistoryEntry,
+    candidates: z.array(PolicyHistoryEntry).max(50).describe("Readable revisions of this language that can be compared, newest first"),
+    counts: z.strictObject({
+      added: z.int().nonnegative(),
+      modified: z.int().nonnegative(),
+      removed: z.int().nonnegative(),
+      unchanged: z.int().nonnegative(),
+    }),
+    provisions: z.array(PolicyProvisionChange).max(5000),
+    limitation: text,
+  })
+  .superRefine((value, ctx) => {
+    if (value.from.document_revision_id === value.to.document_revision_id) ctx.addIssue({ code: "custom", message: "a comparison needs two revisions" });
+    for (const change of ["added", "modified", "removed", "unchanged"] as const)
+      if (value.provisions.filter((p) => p.change === change).length !== value.counts[change])
+        ctx.addIssue({ code: "custom", message: "counts must match provisions" });
+  });
+export const PolicyComparisonQuery = z.strictObject({ from: id.optional(), to: id.optional() });
 export const PolicyThread = z.strictObject({
   id,
   title: text,
@@ -479,6 +534,7 @@ export const policyRoutes = {
   sitePolicy: route("sitePolicy", "/api/site/policies/:id", Policy, PolicyDetailQuery),
   sitePolicyReading: route("sitePolicyReading", "/api/site/policies/:id/reading", PolicyReadingPage, PolicyReadingQuery),
   sitePolicyHistory: route("sitePolicyHistory", "/api/site/policies/:id/history", PolicyHistoryPage, PolicyHistoryQuery),
+  sitePolicyCompare: route("sitePolicyCompare", "/api/site/policies/:id/compare", PolicyComparison, PolicyComparisonQuery),
   sitePolicyReports: route("sitePolicyReports", "/api/site/policies/reports", PolicyReportList, PolicyReportQuery),
   sitePolicyReport: route("sitePolicyReport", "/api/site/policies/reports/:id", PolicyReport, PolicyReportDetailQuery),
   sitePolicyThread: route("sitePolicyThread", "/api/site/policy-threads/:id", PolicyThread),
@@ -508,6 +564,10 @@ export const policySchemas = {
   PolicyReadingPage,
   PolicyHistoryEntry,
   PolicyHistoryPage,
+  PolicyProvisionText,
+  PolicyDiffSpan,
+  PolicyProvisionChange,
+  PolicyComparison,
   PolicyThread,
   PolicyReportCard,
   PolicyReport,

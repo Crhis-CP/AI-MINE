@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTr } from "../../i18n";
 import { IconArrowLeft, IconArrowRight, IconClose } from "../../components/icons";
 
 type Picture = { src: string; alt: string; fallbackSrc: string };
 /** Enhance only the permitted, sanitised body already returned by the public API. */
 export function ArticleBody({ html, children }: { html?: string; children?: ReactNode }) {
+  const tr = useTr();
   const root = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [viewer, setViewer] = useState<{ pictures: Picture[]; index: number } | null>(null);
@@ -25,7 +27,7 @@ export function ArticleBody({ html, children }: { html?: string; children?: Reac
         });
         image.setAttribute("role", "button");
         image.setAttribute("tabindex", "0");
-        image.setAttribute("aria-label", image.alt ? `查看大图：${image.alt}` : "查看大图");
+        image.setAttribute("aria-label", image.alt ? tr("查看大图：{alt}", { alt: image.alt }) : tr("查看大图"));
         image.style.cursor = "zoom-in";
       }
     };
@@ -64,7 +66,7 @@ export function ArticleBody({ html, children }: { html?: string; children?: Reac
         image.style.cursor = previous.cursor;
       }
     };
-  }, [html, children]);
+  }, [html, children, tr]);
   const opened = viewer !== null;
   useEffect(() => {
     const element = dialog.current;
@@ -86,7 +88,7 @@ export function ArticleBody({ html, children }: { html?: string; children?: Reac
       {children ? <div ref={root}>{children}</div> : <div ref={root} className="prose" dangerouslySetInnerHTML={{ __html: html ?? "" }} />}
       <dialog
         ref={dialog}
-        aria-label="文章图片"
+        aria-label={tr("文章图片")}
         onCancel={(event) => {
           event.preventDefault();
           setViewer(null);
@@ -133,7 +135,7 @@ export function ArticleBody({ html, children }: { html?: string; children?: Reac
         )}
         <button
           type="button"
-          aria-label="关闭图片"
+          aria-label={tr("关闭图片")}
           onClick={() => setViewer(null)}
           className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-white/15"
         >
@@ -143,7 +145,7 @@ export function ArticleBody({ html, children }: { html?: string; children?: Reac
           <>
             <button
               type="button"
-              aria-label="上一张"
+              aria-label={tr("上一张")}
               onClick={() => step(-1)}
               className="absolute left-3 top-1/2 grid size-11 place-items-center rounded-full bg-black/50"
             >
@@ -151,7 +153,7 @@ export function ArticleBody({ html, children }: { html?: string; children?: Reac
             </button>
             <button
               type="button"
-              aria-label="下一张"
+              aria-label={tr("下一张")}
               onClick={() => step(1)}
               className="absolute right-3 top-1/2 grid size-11 place-items-center rounded-full bg-black/50"
             >

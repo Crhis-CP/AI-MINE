@@ -2,7 +2,7 @@ import { ReportReading } from "./report-reading.ts";
 import { z } from "zod";
 import { ModuleNotice } from "./module-outputs.ts";
 import { TimeAssertion } from "../time-assertion.ts";
-import { CATEGORY_KEYS } from "../taxonomy.ts";
+import { CATEGORY_FILTER_KEYS } from "../taxonomy.ts";
 import {
   Policy,
   PolicyCard,
@@ -56,7 +56,8 @@ export const V3ItemCard = z.strictObject({
   story_id: text.nullable(),
   thread_id: text.nullable(),
   featured: z.boolean(),
-  score: z.int().min(0).max(100).nullable(),
+  /** One decimal, as on the website (DEC-78 supplement on scoring). */
+  score: z.number().min(0).max(100).nullable(),
   independent_source_count: z.int().nonnegative(),
   ai_label: z.enum(["ai_generated", "ai_assisted_human_edited"]),
   license_note: text.nullable(),
@@ -243,7 +244,7 @@ export const V3CursorQuery = z.strictObject(cursor);
 const filters = {
   view: z.enum(["all", "featured"]).default("all"),
   q: text.trim().min(1).max(200).optional(),
-  category: z.enum(CATEGORY_KEYS).optional(),
+  category: z.enum(CATEGORY_FILTER_KEYS).optional(),
   jurisdiction: text.optional(),
   mineral: text.optional(),
   source: text.optional(),

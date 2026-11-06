@@ -233,6 +233,7 @@ export function industrySourceIds(root: string): string[] {
   const news = JSON.parse(readFileSync(path.join(root, "industry/sources.json"), "utf8")) as { sources: SeedIdentity[] };
   const policy = JSON.parse(readFileSync(path.join(root, "industry/policy-sources.json"), "utf8")) as {
     sources: Array<{ id: string; status: string; collect: Omit<SeedIdentity, "id"> | null }>;
+    pilot_additions?: Array<{ id: string; status: string; collect: Omit<SeedIdentity, "id"> | null }>;
   };
   if (!Array.isArray(news.sources) || !Array.isArray(policy.sources)) throw new Error("Seed catalogues must contain source arrays");
   const sources = new Map<string, SeedIdentity>();
@@ -253,7 +254,7 @@ export function industrySourceIds(root: string): string[] {
     identity(entry);
     if (!sources.has(entry.id)) sources.set(entry.id, entry);
   }
-  for (const entry of policy.sources) {
+  for (const entry of [...policy.sources, ...(policy.pilot_additions ?? [])]) {
     if (!entry.collect || !["ready", "needs_overseas"].includes(entry.status)) continue;
     if (typeof entry.id !== "string" || !entry.id.trim()) throw new Error("Invalid policy seed identity");
     const source = { ...entry.collect, id: `policy-${entry.id.toLowerCase()}` },

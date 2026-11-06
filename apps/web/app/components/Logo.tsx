@@ -1,21 +1,30 @@
-// The site's wordmark (its name from industry/site.ts, set in type: a Latin lead in the text colour and
-// the rest in the accent, so "AI矿策" reads AI + 矿策, PG-00) and the dots used as the loader.
+// The site's wordmark: the five-arm galaxy mark and the site name (industry/site.ts) set as one gold logotype
+// (industry/brand/lockup*.svg, made by scripts/wordmark.ts; DEC-78 logo, Owner 2026-11-05: the name in
+// gradient gold, the mark no smaller than the name). Cached SVG files, not inlined paths; the theme picks
+// the light or dark cut, and below 24px the small-size cut (deeper gold, solid core) serves both. Also the loader dots.
 import { SITE } from "@amp/industry/site";
+import lockupDark from "@amp/industry/brand/lockup-dark.svg?url&no-inline";
+import lockup from "@amp/industry/brand/lockup.json";
+import lockupSmall from "@amp/industry/brand/lockup-small.svg?url&no-inline";
+import lockupLight from "@amp/industry/brand/lockup.svg?url&no-inline";
 
-const [, LEAD = "", REST = ""] = /^([A-Za-z0-9]*)(.*)$/su.exec(SITE.name) ?? [];
-
+/** `size` is the type size the name stands in for; the lockup is drawn a little taller so the mark leads. */
 export function Wordmark({ size = 22, className = "" }: { size?: number; className?: string }) {
+  const height = Math.round(size * 1.3);
+  const width = Math.round(height * lockup.aspect);
+  const img = (src: string, extra = "") => (
+    <img src={src} width={width} height={height} alt="" aria-hidden="true" decoding="async" className={`block ${extra}`} />
+  );
   return (
-    <span
-      className={`inline-flex items-center font-black leading-none tracking-[-0.03em] ${className}`}
-      style={{ fontSize: size }}
-      aria-label={SITE.name}
-      role="img"
-    >
-      <span aria-hidden="true">{LEAD}</span>
-      <span aria-hidden="true" className="text-accent">
-        {REST}
-      </span>
+    <span className={`inline-flex shrink-0 items-center ${className}`} aria-label={SITE.name} role="img">
+      {height < 24 ? (
+        img(lockupSmall)
+      ) : (
+        <>
+          {img(lockupLight, "dark:hidden")}
+          {img(lockupDark, "hidden dark:block")}
+        </>
+      )}
     </span>
   );
 }

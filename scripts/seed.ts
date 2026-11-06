@@ -6,7 +6,7 @@ import path from "node:path";
 import { REPO_ROOT } from "@amp/backend/config";
 import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { seedTopics } from "@amp/backend/publication/topics";
-import { POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
+import { ALL_POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
 import { createSource, validateSourceCreate } from "@amp/backend/admin/sources";
 import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
 
@@ -98,7 +98,7 @@ if (import.meta.main) {
       const { sources } = JSON.parse(readFileSync(path.join(REPO_ROOT, "industry/sources.json"), "utf8")) as { sources: SeedSource[] };
       const added = await seedSources(sources);
       console.log(`sources: ${added} added (disabled), ${sources.length - added} already there`);
-      const policies = await seedPolicySources(POLICY_SOURCES);
+      const policies = await seedPolicySources(ALL_POLICY_SOURCES);
       console.log(`法规信源（全部停用）：${JSON.stringify(policies)}`);
       for (const duplicate of policies.duplicates) console.log(`与现有信源同址，未建：${duplicate.id} → ${duplicate.existingId}`);
     }

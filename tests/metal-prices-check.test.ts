@@ -31,7 +31,10 @@ const registry = {
 const parsed = parseMetalPriceRegistry(registry);
 const get = async (url: string) => ({ status: 200, url, text: () => (url === NBS_LIST_URL ? list : url.includes("1965293") ? early : mid) });
 const [first, second] = await nbsFetcher(parsed, get).fetch(async () => "2026-09-01");
-const high: FetchedPeriod = { ...second, rows: second.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "232034.25" } : row)) };
+// Every series at 2.1 times 9月上旬: most series jumping at once is a misread, so the period is held whole and only
+// --force-period stores it. A single series jumping is held alone instead (tests/metal-prices-refresh.test.ts).
+const before = new Map(first.rows.map((row) => [row.key, row.value]));
+const high: FetchedPeriod = { ...second, rows: second.rows.map((row) => ({ ...row, value: (Number(before.get(row.key)) * 2.1).toFixed(2) })) };
 const force = { periodStart: second.period.start, held: [second.period.label] };
 const options = { registry, now: NOW, source: "nbs" };
 const fetchers = (...periods: FetchedPeriod[]) => ({ nbs: () => ({ sourceKeys: ["nbs" as const], fetch: async () => periods }) });
@@ -49,7 +52,7 @@ async function recorded(fn: () => ReturnType<typeof run>, job = "metals.prices")
 }
 after(() => closeDb());
 beforeEach(async () => {
-  await sql`TRUNCATE publication.metal_prices, job_runs`;
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_holds, job_runs`;
 });
 
 test("dry-run reports inserts, touches and revisions with both tables byte-for-byte unchanged", async () => {
@@ -229,4 +232,23 @@ test("the no-argument script reads scheduled notes and leaves both tables unchan
   assert.match(output.stdout, /nbs 上次成功/);
   assert.deepEqual(await snapshot(), before);
   console.log(output.stdout.trim());
+});
+
+test("a single metal held after a jump is not a held period: --force-period refuses it, the hold stays and the run succeeds", async () => {
+  await recorded(() => run([first]));
+  const copper = { ...second, rows: second.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "232034.25" } : row)) };
+  const result = await recorded(() => run([copper]));
+  assert.deepEqual([result.nbs.ok, result.nbs.periods[0].held, result.nbs.inserted], [true, null, 10]);
+  assert.deepEqual(
+    result.nbs.periods[0].pending?.map((one) => one.key),
+    ["nbs.copper"],
+  );
+  const held = (await readMetalPriceRuns(NOW)).sources.nbs.held;
+  assert.deepEqual(held, []);
+  await assert.rejects(
+    recorded(() => run([copper], { force: { ...force, held } }), "metals.prices.manual"),
+    /没对上/,
+  );
+  const [open] = await sql`SELECT status, held_by FROM publication.metal_price_holds`;
+  assert.deepEqual([open!.status, open!.held_by], ["held", "metals.prices"]);
 });

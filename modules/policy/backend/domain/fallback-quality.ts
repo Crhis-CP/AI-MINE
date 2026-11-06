@@ -2,17 +2,17 @@ import { sql, type Db } from "@amp/backend/db";
 import { promptVersion } from "@amp/backend/editorial/prompts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
+import { FULLTEXT_CANDIDATE_RECIPE } from "./fulltext-candidate.ts";
 
 export type PolicyFallbackContext = { language: string; fulltextRecipe: string; interpretationRecipe: string };
-export const currentInterpretationRecipe = () =>
-  sha256(
-    stableJson(["policy-interpretation-1", ...["policy-group-check", "policy-group-merge", "policy-interpret", "policy-verify"].map((n) => promptVersion(n))]),
-  );
+/** Interpretation recipe 2 (法规线成本设计): deterministic grouping and verification, change-only interpret calls. */
+export const INTERPRETATION_PROMPTS = ["policy-interpret", "policy-verify"] as const;
+export const currentInterpretationRecipe = () => sha256(stableJson(["policy-interpretation-2", ...INTERPRETATION_PROMPTS.map((n) => promptVersion(n))]));
 export const currentInterpretationQualification = () => `${currentInterpretationRecipe()}/explicit-reference-2/${POLICY_MODEL_BINDING_VERSION}`;
 /** Read the same existing Owner release. No fallback-specific quality bypass or automatic grant. */
 export async function policyFallbackQuality(modelKey: string, context?: PolicyFallbackContext, sourceIds: readonly string[] = [], db: Db = sql) {
   const { policyVisionRecipe } = await import("./vision-runtime.ts");
-  const currentText = `${promptVersion("policy-fulltext")}/candidate-v1`,
+  const currentText = `${promptVersion("policy-fulltext")}/${FULLTEXT_CANDIDATE_RECIPE}`,
     currentVision = `${currentText}/vision:${policyVisionRecipe()}`;
   if (context && (context.interpretationRecipe !== currentInterpretationQualification() || ![currentText, currentVision].includes(context.fulltextRecipe)))
     return null;

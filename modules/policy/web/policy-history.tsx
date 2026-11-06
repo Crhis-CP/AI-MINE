@@ -1,4 +1,5 @@
 import { apiFetch } from "@amp/web/extension";
+import { useTr } from "@amp/web/i18n";
 import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
@@ -25,6 +26,7 @@ export default function PolicyHistoryPage() {
   return <History key={initial.content_version} initial={initial} />;
 }
 function History({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
+  const tr = useTr();
   const [data, setData] = useState(initial),
     [failed, setFailed] = useState(false),
     [invalid, setInvalid] = useState(false),
@@ -53,10 +55,10 @@ function History({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
   return (
     <article className="mx-auto max-w-[var(--page-max-reading)] pb-10 pt-5">
       <PolicyBack />
-      <h1 className="mt-5 text-[24px] font-semibold">法规版本记录</h1>
-      <p className="mt-3 text-[13px] leading-6 text-ink-3">保留本站各次公开版本的正文与解读。仅显示仍具备公开资格的版本，不等同于完整法定沿革。</p>
+      <h1 className="mt-5 text-[24px] font-semibold">{tr("法规版本记录")}</h1>
+      <p className="mt-3 text-[13px] leading-6 text-ink-3">{tr("保留本站各次公开版本的正文与解读。仅显示仍具备公开资格的版本，不等同于完整法定沿革。")}</p>
       {invalid ? (
-        <p className="mt-6">内容已更新，请返回列表重新浏览。</p>
+        <p className="mt-6">{tr("内容已更新，请返回列表重新浏览。")}</p>
       ) : (
         <>
           <ol className="mt-5 divide-y divide-line">
@@ -69,19 +71,32 @@ function History({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
                   {item.original_version}
                 </Link>
                 <p className="mt-2 text-[13px] text-ink-3">
-                  {item.language} · {item.instrument_number ?? "文号尚未确认"} · {item.current ? "当前可读版本" : "历史公开快照"}
+                  {item.language} · {item.instrument_number ?? tr("文号尚未确认")} · {item.current ? tr("当前可读版本") : tr("历史公开快照")}
                 </p>
                 <p className="mt-2 text-[12px] text-ink-4">
-                  本站公开：{timeLabel(item.first_public_at)}；原文公布：{timeLabel(item.published_time)}；该原件留存时核对：{timeLabel(item.checked_at)}
+                  {tr("本站公开：")}
+                  {timeLabel(item.first_public_at)}
+                  {tr("；原文公布：")}
+                  {timeLabel(item.published_time)}
+                  {tr("；该原件留存时核对：")}
+                  {timeLabel(item.checked_at)}
                 </p>
+                {!item.current && item.kind !== "ai_translation" && (
+                  <Link
+                    className="mt-2 inline-block text-[13px] text-accent underline-offset-2 hover:underline"
+                    to={`${policyHref(data.policy_id)}?${new URLSearchParams({ compare_from: item.document_revision_id })}#compare`}
+                  >
+                    {tr("与当前版本逐条对照 →")}
+                  </Link>
+                )}
               </li>
             ))}
           </ol>
-          {!data.items.length && <p className="mt-5 text-[14px] text-ink-3">暂无可公开的历史版本。</p>}
-          {failed && <p className="mt-3 text-[13px] text-amber-ink">暂时无法继续读取，已有记录仍保留。</p>}
+          {!data.items.length && <p className="mt-5 text-[14px] text-ink-3">{tr("暂无可公开的历史版本。")}</p>}
+          {failed && <p className="mt-3 text-[13px] text-amber-ink">{tr("暂时无法继续读取，已有记录仍保留。")}</p>}
           {data.next_cursor && (
             <button type="button" disabled={busy} onClick={() => void more()} className={`${actionClass} mt-5`}>
-              继续查看版本记录
+              {tr("继续查看版本记录")}
             </button>
           )}
         </>

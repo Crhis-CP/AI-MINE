@@ -125,10 +125,6 @@ async function availability(ids: string[], machine = false): Promise<Map<string,
   }
   return out;
 }
-export async function currentPublicReferenceTitles(ids: string[]): Promise<Map<string, string>> {
-  return new Map([...(await availability(ids))].filter(([, value]) => value.available).map(([id, value]) => [id, value.title]));
-}
-
 /** Missing projections are unconfirmed and therefore unavailable, like explicitly withdrawn ones. */
 export async function unavailableIds(ids: string[]): Promise<Set<string>> {
   const unique = [...new Set(ids.filter(Boolean))];

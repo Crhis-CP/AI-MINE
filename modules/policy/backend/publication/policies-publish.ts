@@ -16,14 +16,14 @@ export async function policyPublicId(kind: string, internalId: string, db: Db = 
 }
 
 import { Policy } from "@amp/contracts/http/public";
-import { POLICY_SOURCES } from "@amp/industry/policy-sources";
+import { ALL_POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { policyProcessingNotice } from "../domain/processing-notice.ts";
 import { readPolicyMetadataObservation } from "../domain/metadata.ts";
 import { readPolicyOriginal, assertOriginalPermissions } from "../domain/originals.ts";
 import { loadPolicyInterpretation } from "../domain/interpretation-runtime.ts";
 import { readPolicyFulltextRun, withCurrentPolicyRun } from "../domain/fulltext-store.ts";
 import { validatePolicyFulltextCandidate, PolicyPartCandidateSchema } from "../domain/fulltext-candidate.ts";
-import { fulltextCheckpoints } from "../domain/fulltext-store.ts";
+import { provenFulltextCandidates } from "../domain/translation-memory.ts";
 import { matchingPolicyQuality } from "../domain/quality.ts";
 import { policyPublicationIdentity, lockPolicyPublicationHead } from "../domain/public-state.ts";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
@@ -32,6 +32,7 @@ import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { policyInterpretationQualityRecipe } from "../domain/references.ts";
 import { preparePolicyRelationships, savePolicyRelationships } from "../relations.ts";
 import { basicPolicy, completePolicy, policyCard, readingBlock, type PublicIds } from "./policies-project.ts";
+import { projectPolicyProvisions } from "./policy-provisions-project.ts";
 
 export async function setPolicyPublicationState(id: string, input: { withdrawn?: boolean; paused?: boolean; reason: string; actor: string }) {
   if (!input.reason.trim() || !input.actor.trim()) throw new Error("Publication control needs reason and actor");
@@ -63,10 +64,11 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     return pending("stale");
   const interpretation = input.fulltextRunId ? await loadPolicyInterpretation(input.fulltextRunId) : null;
   const excluded = interpretation?.status === "excluded" && interpretation.semantic_verified && interpretation.candidate?.relevance === "excluded";
+  // Proven checkpoints (direct or translation memory) or, for a Chinese original, the original itself.
   const fulltext = loaded
     ? validatePolicyFulltextCandidate(
         loaded.run.plan,
-        (await fulltextCheckpoints(loaded.run)).map((p) => PolicyPartCandidateSchema.parse(p.candidate)),
+        (await provenFulltextCandidates(loaded.run)).candidates.map((c) => PolicyPartCandidateSchema.parse(c)),
       )
     : null;
   const candidate =
@@ -290,12 +292,14 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     basic.sections = [];
     basic.relationships = [];
     basic.evidence = [];
-    const preferred = POLICY_SOURCES.find((s) => `policy-${s.id.toLowerCase()}` === snapshot.sourceId)?.language ?? null;
+    const preferred = ALL_POLICY_SOURCES.find((s) => `policy-${s.id.toLowerCase()}` === snapshot.sourceId)?.language ?? null;
     await db`INSERT INTO publication.policy_editions(id,content_hash,policy_id,native_expression_id,native_revision_id,source_id,permission_version,policy_version_id,source_language,preferred_source_language,
    expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id,discovered_at,original_content_key)
    VALUES(${editionId},${contentHash},${policyId},${input.expressionId},${snapshot.revisionId},${snapshot.sourceId},${snapshot.permissionVersion},${ids.version},${snapshot.language},${preferred},
    ${basic.expressions.map((e) => e.id)},${basic.expressions.map((e) => e.document_revision_id)},${db.json(resources)},${db.json(policyCard(Policy.parse(basic)))},${db.json(basic)},
    ${full ? db.json(policyCard(full)) : null},${full ? db.json(full) : null},${db.json(streams)},${full ? currentQuality!.id : null},${meta.discoveredAt},${originalContentKey}) ON CONFLICT(id) DO UPDATE SET quality_id=coalesce(EXCLUDED.quality_id,publication.policy_editions.quality_id),discovered_at=least(publication.policy_editions.discovered_at,EXCLUDED.discovered_at)`;
+    // Deterministic provisions of this revision, when stored and the original may be shown (逐条对照; no model).
+    await projectPolicyProvisions(snapshot.revisionId, db);
     if (full) await savePolicyRelationships(db, policyId, editionId, relationLinks, evidenceIds);
     await db`UPDATE publication.policy_documents SET first_public_at=coalesce(first_public_at,${at}::timestamptz),updated_at=now() WHERE id=${policyId}`;
     return {

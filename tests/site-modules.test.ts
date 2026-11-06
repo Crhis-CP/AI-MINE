@@ -24,6 +24,10 @@ test("installed mining extensions retain the existing price timer and respect co
 test("policy schedules are installed as a unit and collection-off leaves no source timer", () => {
   installModules(SERVER_MODULES);
   process.env.COLLECT_ENABLED = "true";
+  // Directory scans belong to the archive stage: off until the operator resumes the policy pilot.
+  delete process.env.POLICY_PILOT_ENABLED;
+  assert.ok(!scheduledTasks([]).some((task) => task.name === "policy.sources.schedule"));
+  process.env.POLICY_PILOT_ENABLED = "true";
   const schedules = scheduledTasks([]);
   assert.equal(schedules.find((task) => task.name === "policy.pipeline.sweep")?.cron, "* * * * *");
   assert.equal(schedules.find((task) => task.name === "policy.reports")?.missed, "once");

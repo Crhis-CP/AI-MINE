@@ -11,7 +11,7 @@ import { promptVersion } from "../editorial/prompts.ts";
 // RSS feeds. GUID = article id (isPermaLink=false), <link> = the site's page, pubDate = source
 // publication time. Summary feeds never carry content:encoded; full feeds inline bodies only for
 // sources that explicitly allow redistribution. Titles come from the site's name and categories.
-import { PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { categoryFilterKeys, isCategoryFilterKey, type CategoryFilterKey, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SITE, withSubject } from "@amp/industry/site";
 import { config } from "../config.ts";
@@ -20,7 +20,7 @@ import { sql } from "../db.ts";
 import type { FeedNotice } from "../modules.ts";
 import { escapeXml } from "../lib/text.ts";
 import { reportHeadline, reportIndex, reportLeadParagraph } from "./reports.ts";
-import { selectedCondition, type ItemRow } from "./items.ts";
+import { categoryKeys, selectedCondition, type ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { listPolicies } from "./policies.ts";
 import { readAllFactApiItems } from "./timeline.ts";
@@ -204,15 +204,15 @@ export type ItemFeedKind = "selected" | "selected-full" | "all";
 // Like the live feeds, items are the newest by their original publish time (the pubDate shown):
 // 50 per feed; a category feed holds only its last 7 days (by original publish time).
 
-function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now: Date, replacements: string[]) {
+function feedScope(kind: ItemFeedKind, category: CategoryFilterKey | null, now: Date, replacements: string[]) {
   return sql`p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after <= ${now}) AND (
     (${kind} = 'all' AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
       AND coalesce(p.published_at, p.discovered_at) <= ${now}) OR
-    (${kind} <> 'all' AND ${selectedCondition(now)} AND (p.seat OR p.article_id=ANY(${replacements}::text[])) AND (${category}::text IS NULL OR p.category = ${category})
+    (${kind} <> 'all' AND ${selectedCondition(now)} AND (p.seat OR p.article_id=ANY(${replacements}::text[])) AND (${categoryKeys(category)}::text[] IS NULL OR p.category = ANY(${categoryKeys(category)}::text[]))
       AND (${category}::text IS NULL OR coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)})))`;
 }
 
-export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date(), notice?: FeedNotice | null): Promise<string> {
+export async function itemFeed(kind: ItemFeedKind, category: CategoryFilterKey | null, now = new Date(), notice?: FeedNotice | null): Promise<string> {
   const includeContent = kind === "selected-full";
   const replacements = kind === "all" ? [] : await admissionReplacementSeats(now);
   const allIds =
@@ -281,7 +281,10 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
   }
   let meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number };
   if (category) {
-    const label = CATEGORY_LABELS[category] ?? category;
+    // A retired slug keeps its subscribers' address and is titled by what it now covers (ADR-0031).
+    const label = categoryFilterKeys(category)
+      .map((key) => CATEGORY_LABELS[key])
+      .join("、");
     meta = {
       title: includeContent ? `${SITE.name} — ${label}全文` : `${SITE.name} — ${label}`,
       description: includeContent
@@ -327,8 +330,9 @@ export async function dailyFeed(notice?: FeedNotice | null): Promise<string> {
   return channel({ title: m.title, description: m.description, homePath: m.homePath, selfPath: m.path, ttl: m.pollHintMinutes }, items, notice);
 }
 
-export function isFeedCategory(v: string): v is PublicApiCategoryKey {
-  return (PUBLIC_API_CATEGORY_KEYS as readonly string[]).includes(v);
+/** Category feed slugs: the current keys and the retired ones that old subscriptions still use. */
+export function isFeedCategory(v: string): v is CategoryFilterKey {
+  return isCategoryFilterKey(v);
 }
 
 /** Summary-only policy syndication; qualifications and withdrawals are evaluated for every read. */

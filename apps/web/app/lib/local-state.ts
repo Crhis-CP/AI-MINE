@@ -8,6 +8,7 @@ export const KEYS = {
   recentSearches: "amp-recent-searches",
   theme: "amp-theme",
   font: "amp-font",
+  readingFace: "amp-reading-face",
   changelogSeen: "amp-changelog-seen-version",
   feedbackDraft: "amp-feedback-draft-v1",
 } as const;
@@ -66,6 +67,7 @@ function emit(key?: string) {
 function onStorage(event: StorageEvent) {
   if (event.storageArea && event.storageArea !== storage("local")) return;
   if (event.key === null || event.key === KEYS.font) unsavedFont = undefined;
+  if (event.key === null || event.key === KEYS.readingFace) unsavedReadingFace = undefined;
   if (event.key === null || event.key === KEYS.changelogSeen) unsavedChangelogSeen = undefined;
   if (event.key === null) cache.clear();
   else {
@@ -235,7 +237,23 @@ export function setFontPreference(pref: FontPreference): boolean {
 export function useFontPreference(): FontPreference {
   return useSyncExternalStore(subscribeFont, getFontPreference, () => null);
 }
-const THEME_COLOR = { light: "#faf9f6", dark: "#13191c" } as const;
+/** Long reads in the system serif (宋体/明朝) instead of the sans; nothing is downloaded. */
+export type ReadingFace = "serif" | null;
+let unsavedReadingFace: ReadingFace | undefined;
+const subscribeReadingFace = subscribeKey(KEYS.readingFace);
+export function getReadingFace(): ReadingFace {
+  return unsavedReadingFace !== undefined ? unsavedReadingFace : readRaw(KEYS.readingFace) === "serif" ? "serif" : null;
+}
+export function setReadingFace(face: ReadingFace): boolean {
+  const saved = writeRaw(KEYS.readingFace, face);
+  unsavedReadingFace = saved ? undefined : face;
+  emit(KEYS.readingFace);
+  return saved;
+}
+export function useReadingFace(): ReadingFace {
+  return useSyncExternalStore(subscribeReadingFace, getReadingFace, () => null);
+}
+const THEME_COLOR = { light: "#f9f6f0", dark: "#15130f" } as const;
 export function applyTheme(theme: "light" | "dark", followsSystem: boolean) {
   document.documentElement.setAttribute("data-theme", theme);
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))
@@ -244,9 +262,13 @@ export function applyTheme(theme: "light" | "dark", followsSystem: boolean) {
 export function useAppearanceSync() {
   const font = useFontPreference(),
     theme = useThemePreference();
+  const face = useReadingFace();
   useEffect(() => {
     document.documentElement.setAttribute("data-font", font ?? getFontPreference() ?? "system");
   }, [font]);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-reading", face ?? getReadingFace() ?? "sans");
+  }, [face]);
   useEffect(() => {
     const current = theme ?? getThemePreference();
     applyTheme(resolvedTheme(current), current === null);
@@ -268,7 +290,7 @@ export function watchAppearance(onChange: (change: "theme" | "font") => void): (
 }
 
 /** Set local appearance before the first paint, including legacy quoted theme values. */
-export const THEME_BOOT_SCRIPT = `(function(){var f='system';try{f=localStorage.getItem('${KEYS.font}')==='browser'?'browser':'system'}catch(e){}document.documentElement.setAttribute('data-font',f);try{var t=localStorage.getItem('${KEYS.theme}');if(t==='"light"'||t==='"dark"')t=JSON.parse(t);if(t==='light'||t==='dark'){document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=t==='dark'?'${THEME_COLOR.dark}':'${THEME_COLOR.light}'})}else{t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){var f='system',r='sans';try{f=localStorage.getItem('${KEYS.font}')==='browser'?'browser':'system';r=localStorage.getItem('${KEYS.readingFace}')==='serif'?'serif':'sans'}catch(e){}document.documentElement.setAttribute('data-font',f);document.documentElement.setAttribute('data-reading',r);try{var t=localStorage.getItem('${KEYS.theme}');if(t==='"light"'||t==='"dark"')t=JSON.parse(t);if(t==='light'||t==='dark'){document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=t==='dark'?'${THEME_COLOR.dark}':'${THEME_COLOR.light}'})}else{t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
 
 const CHANGELOG_VERSION = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?$/;
 let unsavedChangelogSeen: string | undefined;

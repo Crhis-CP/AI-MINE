@@ -23,6 +23,7 @@ import { renderPolicyPdf, PDF_RENDER_RECIPE, VisionCapacityError, type PageImage
 import { checkVisionPage, checkVisionVerification, assembleVisionNodes, type VisionPageCandidate, type VisionVerification } from "./vision-schema.ts";
 import { createVisionRun, storedVisionRun, visionCheckpoints, saveVisionStage, finishVision, visionRunReference, type VisionRun } from "./vision-store.ts";
 import { policyModelEvidence, policyVisionContentHash, type ModelEvidence } from "./model-evidence.ts";
+import { FULLTEXT_CANDIDATE_RECIPE } from "./fulltext-candidate.ts";
 
 const EXTRACT = "policy-vision-extract",
   VERIFY = "policy-vision-check";
@@ -191,7 +192,7 @@ export async function runPolicyVision(
     const gateway = createPolicyGateway({
       fallbackPolicy: {
         language: current.snapshot.language,
-        fulltextRecipe: `${promptVersion("policy-fulltext")}/candidate-v1/vision:${recipe}`,
+        fulltextRecipe: `${promptVersion("policy-fulltext")}/${FULLTEXT_CANDIDATE_RECIPE}/vision:${recipe}`,
         interpretationRecipe: currentInterpretationQualification(),
       },
       runtimeControl: run!.runtimeControl,

@@ -15,8 +15,8 @@
     "@react-router/node": "8.4.0",
     "isbot": "5.2.2",
     "motion": "13.4.4",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-router": "8.4.0",
     "zod": "4.6.7",
     "@amp/site": "*"
@@ -27,7 +27,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "tailwindcss": "4.3.3",
-    "vite": "8.3.3"
+    "vite": "8.3.5"
   },
   "exports": {
     "./extension": "./extension.ts",
@@ -39,6 +39,7 @@
     "./admin-format": "./app/features/admin/format.ts",
     "./page": "./app/components/ui/Page.tsx",
     "./pagination": "./app/features/feed/DayList.tsx",
-    "./local-state": "./app/lib/local-state.ts"
+    "./local-state": "./app/lib/local-state.ts",
+    "./i18n": "./app/i18n/index.ts"
   }
 }

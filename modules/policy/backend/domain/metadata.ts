@@ -29,8 +29,9 @@ export interface PolicyMetadataObservation {
     profileHash: string;
     officialRole: { kind: "official_original"; evidenceUrl: string; basis: string; singleObjectPattern: string };
     fields: {
-      originalTitle: { selector: string; raw: string };
-      documentNumber?: { selector: string; raw: string };
+      /** With a configured field pattern, `raw` is the captured value and `text` the element's full text. */
+      originalTitle: { selector: string; raw: string; text?: string; pattern?: string };
+      documentNumber?: { selector: string; raw: string; text?: string; pattern?: string };
       identityMarker: { selector: string; raw: string; pattern: string };
       officialUrl?: { selector: string; raw: string };
       authority: { value: string; evidenceUrl: string; basis: string };
@@ -90,7 +91,9 @@ export async function readPolicyMetadataObservation(expressionId: string): Promi
     metadata.originalTitle !== metadata.provenance.fields.originalTitle.raw ||
     metadata.provenance.fields.identityMarker.selector !== configured.profile.identityMarker.selector ||
     metadata.provenance.fields.identityMarker.pattern !== configured.profile.identityMarker.pattern ||
-    !new RegExp(configured.profile.identityMarker.pattern, "u").test(metadata.provenance.fields.identityMarker.raw)
+    !new RegExp(configured.profile.identityMarker.pattern, "u").test(metadata.provenance.fields.identityMarker.raw) ||
+    metadata.provenance.fields.originalTitle.pattern !== configured.profile.fieldPatterns?.title ||
+    (metadata.provenance.fields.documentNumber && metadata.provenance.fields.documentNumber.pattern !== configured.profile.fieldPatterns?.number)
   )
     return null;
   const allowed = await evaluateSourcePolicy({

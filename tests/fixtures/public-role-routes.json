@@ -131,10 +131,21 @@
       {
         "url": "/api/site/meta",
         "status": 200,
-        "contains": ["changelogVersion"]
+        "contains": ["changelogVersion", "filings"]
       }
     ],
     "noDataReason": "行业静态配置与版本，无数据库内容分支"
+  },
+  {
+    "route": "GET /api/site/news-map",
+    "cases": [
+      {
+        "url": "/api/site/news-map?window=30d",
+        "status": 200,
+        "contains": ["window", "countries"]
+      }
+    ],
+    "fixture": "同一公开法域字典及PR9新闻计数，按归档时间窗口"
   },
   {
     "route": "GET /api/site/pool",
@@ -832,6 +843,16 @@
     "noDataReason": "固定不存在文书，验证历史公开快照拒绝分支"
   },
   {
+    "route": "GET /api/site/policies/:id/compare",
+    "cases": [
+      {
+        "url": "/api/site/policies/policy-absent/compare",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，验证逐条对照拒绝分支；两版对照在policy-provisions-pipeline测试覆盖"
+  },
+  {
     "route": "GET /api/v1/policies",
     "cases": [
       {
@@ -1234,7 +1255,7 @@
       {
         "url": "/openapi-v3.json",
         "status": 200,
-        "contains": ["3.0.0", "/api/v3/items"]
+        "contains": ["3.1.0", "/api/v3/items"]
       }
     ],
     "noDataReason": "与实际Zod路由注册表一起生成的匿名API规范，无数据库操作"

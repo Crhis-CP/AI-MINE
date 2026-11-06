@@ -1,5 +1,6 @@
 // Publication rules. Each rule is defined once here and used by every exit.
 import { serverModules } from "../modules.ts";
+import { renameCategoryTags } from "@amp/industry/mining-taxonomy";
 
 /** Presentation only; source IDs never change admission or fact membership. */
 export function independentSelectedSources(): string[] {
@@ -64,7 +65,10 @@ export function isIndexable(p: { visibility: string; hasSummary: boolean; select
   return p.visibility === "public" && p.hasSummary && p.seoExcludedAt === null && (p.selected || p.seoIndexedAt !== null);
 }
 
-/** Display tags exclude internal entity markers. */
+/**
+ * Display tags exclude internal entity markers and show retired category names under their current names
+ * (ADR-0031); stored tags, including ones set by hand, are not rewritten.
+ */
 export function displayTags(tags: string[]): string[] {
-  return tags.filter((t) => !t.startsWith("entity:"));
+  return renameCategoryTags(tags.filter((t) => !t.startsWith("entity:")));
 }

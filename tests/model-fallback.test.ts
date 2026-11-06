@@ -8,6 +8,7 @@ import { createPolicyGateway } from "../modules/policy/backend/provider.ts";
 import { installPolicyQualityRelease, revokePolicyQualityRelease } from "../modules/policy/backend/domain/quality.ts";
 import { modelConfigurationIdentity } from "../packages/backend/src/admin/models.ts";
 import { currentInterpretationQualification } from "../modules/policy/backend/domain/fallback-quality.ts";
+import { FULLTEXT_CANDIDATE_RECIPE } from "../modules/policy/backend/domain/fulltext-candidate.ts";
 import { policyModelQualificationKey } from "../modules/policy/backend/domain/model-evidence.ts";
 import { promptVersion } from "../packages/backend/src/editorial/prompts.ts";
 import { tag } from "./setup.ts";
@@ -388,7 +389,7 @@ test("policy gateway requires the alternate's own physical-model quality release
     connectionId: f.backup.id,
     connectionRevision: 1,
   })!;
-  const fulltextRecipe = `${promptVersion("policy-fulltext")}/candidate-v1`,
+  const fulltextRecipe = `${promptVersion("policy-fulltext")}/${FULLTEXT_CANDIDATE_RECIPE}`,
     interpretationRecipe = currentInterpretationQualification();
   const release = await installPolicyQualityRelease({
     sourceIds: [f.source],

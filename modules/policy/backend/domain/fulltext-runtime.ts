@@ -4,38 +4,56 @@ import { RuntimeControlPaused, RuntimeControlStale } from "@amp/backend/operatio
 import { z } from "zod";
 import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
 import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput } from "../provider.ts";
-import { extractJson, ModelOutputError } from "@amp/backend/providers/llm";
+import { ModelOutputError } from "@amp/backend/providers/llm";
 import { readPolicyPartResponses, ReceiptBusyError, ReceiptUnknownError, PolicyPartLimitError, ProviderRejectedError } from "@amp/backend/providers/receipts";
+import { normalizeSourceLanguage } from "@amp/backend/sources/config-keys";
 import { readPolicyOriginal } from "./originals.ts";
 import { extractPolicyOriginal, type ExtractionProfile } from "./extraction.ts";
-import { buildPolicyFulltextPlan, type PolicyPart } from "./processing-plan.ts";
-import { validatePolicyFulltextCandidate, PolicyPartCandidateSchema } from "./fulltext-candidate.ts";
+import { buildPolicyFulltextPlan, POLICY_PLAN_LIMITS, type PolicyPart } from "./processing-plan.ts";
+import {
+  candidateFromReply,
+  FULLTEXT_CANDIDATE_RECIPE,
+  originalReadingCandidates,
+  validatePolicyFulltextCandidate,
+  PolicyPartCandidateSchema,
+} from "./fulltext-candidate.ts";
 import {
   assertPolicyRunCurrent,
   beginPolicyFulltext,
-  fulltextCheckpoints,
   finishPolicyFulltext,
   saveFulltextResponse,
   PolicyRunStaleError,
   type FulltextRun,
 } from "./fulltext-store.ts";
+import { fulltextReplyParts, provenFulltextCandidates, requestedSource, reuseRememberedTranslations } from "./translation-memory.ts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 
 const PROMPT = "policy-fulltext";
-function responseParts(response: unknown): unknown[] {
-  const parsed = z
-    .object({ choices: z.array(z.object({ message: z.object({ content: z.string() }), finish_reason: z.string().nullable().optional() })) })
-    .safeParse(response);
-  const choice = parsed.success ? parsed.data.choices[0] : null;
-  if (!choice || (choice.finish_reason && choice.finish_reason !== "stop")) return [];
-  try {
-    const value = extractJson(choice.message.content) as { parts?: unknown };
-    return Array.isArray(value?.parts) ? value.parts : [];
-  } catch {
-    return [];
+export const policyFulltextRecipeVersion = (vision?: string) => `${promptVersion(PROMPT)}/${FULLTEXT_CANDIDATE_RECIPE}${vision ? `/vision:${vision}` : ""}`;
+/**
+ * Memory key of a run: language and recipe only. No document identity, so byte-identical text translated under the
+ * same prompt is reusable across revisions and documents (法规线成本设计 step 1).
+ */
+const recipeFor = (plan: FulltextRun["plan"]) =>
+  sha256(stableJson(["policy-fulltext-memory-1", normalizeSourceLanguage(plan.context.language) ?? plan.context.language, plan.context.recipeVersion]));
+/** Unique sources (first occurrence order) packed under the plan's per-request limits. */
+function batches(parts: PolicyPart[]) {
+  const unique = [...new Map(parts.map((part) => [part.sourceHash, part])).values()],
+    out: PolicyPart[][] = [];
+  let group: PolicyPart[] = [],
+    bytes = 0;
+  for (const part of unique) {
+    if (group.length && (group.length === POLICY_PLAN_LIMITS.requestParts || bytes + part.byteLength > POLICY_PLAN_LIMITS.requestBytes)) {
+      out.push(group);
+      group = [];
+      bytes = 0;
+    }
+    group.push(part);
+    bytes += part.byteLength;
   }
+  if (group.length) out.push(group);
+  return out;
 }
-const recipeFor = (plan: FulltextRun["plan"]) => sha256(stableJson([plan.context.language, plan.context.identityHash, plan.context.recipeVersion]));
 
 /** An explicit worker invocation, not a scheduler: bounded new sends resume from real paid receipts and checkpoints. */
 export async function runPolicyFulltext(expressionId: string, profileValue: ExtractionProfile, options: { root: AbortSignal; maxRequests?: number }) {
@@ -45,7 +63,7 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
   const snapshot = await readPolicyOriginal(expressionId);
   if (!snapshot) throw new Error("Policy original missing");
   const extraction = await extractPolicyOriginal(expressionId, profile);
-  const recipeVersion = `${promptVersion(PROMPT)}/candidate-v1${extraction.visualProof ? `/vision:${extraction.visualProof.recipe}` : ""}`;
+  const recipeVersion = policyFulltextRecipeVersion(extraction.visualProof?.recipe);
   const plan = buildPolicyFulltextPlan(extraction, {
     sourceId: snapshot.sourceId,
     expressionId,
@@ -92,11 +110,11 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
       },
       usageObject: { kind: "policy", id: original.versionId },
       system: promptText(PROMPT),
+      // Only the language and the unique sources: no title, identity, part or node identifiers, so identical text
+      // yields byte-identical requests in every document (and a stable prefix for the provider's input cache).
       user: stableJson({
-        officialTitle: original.manifest.officialTitle,
-        identity: original.manifest.identity,
-        language: plan.context.language,
-        parts: parts.map((p) => ({ partId: p.partId, sourceHash: p.sourceHash, nodePath: p.nodePath, format: p.format, source: p.source })),
+        language: normalizeSourceLanguage(plan.context.language) ?? plan.context.language,
+        parts: [...new Map(parts.map((p) => [p.sourceHash, { sourceHash: p.sourceHash, format: p.format, source: p.source }])).values()],
       }),
       promptVersion: promptVersion(PROMPT),
       recipeVersion,
@@ -114,64 +132,56 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
     },
   });
   const recover = async () => {
+    const original = originalReadingCandidates(plan);
+    if (original) return validatePolicyFulltextCandidate(plan, original);
     const responses = await readPolicyPartResponses(
       plan.parts.map((p) => p.partId),
       run.recipeHash,
     );
-    const requested = (response: (typeof responses)[number], part: { partId: string; sourceHash: string }) =>
-      response.request.manifest?.upstream_artifacts?.some(
-        (a) => a.kind === "policy_part" && a.id === part.partId && a.content_hash === part.sourceHash && a.version === run.recipeHash,
-      ) === true;
     for (const response of responses) {
-      const raw = responseParts(response.response),
-        parsed = raw
-          .map((x) => PolicyPartCandidateSchema.safeParse(x))
-          .filter((x) => x.success)
-          .map((x) => x.data!);
-      const candidates = parsed.filter(
-        (p) => requested(response, p) && plan.parts.some((expected) => expected.partId === p.partId && expected.sourceHash === p.sourceHash),
-      );
+      const artifacts = (response.request.manifest?.upstream_artifacts ?? []).filter((a) => a.kind === "policy_part" && a.version === run.recipeHash);
+      const requested = plan.parts.filter((p) => artifacts.some((a) => a.id === p.partId && a.content_hash === p.sourceHash));
+      const replies = fulltextReplyParts(response.response);
+      const candidates = requested.flatMap((part) => {
+        const reply = replies.find((r) => r.sourceHash === part.sourceHash);
+        const parsed = reply && PolicyPartCandidateSchema.safeParse(candidateFromReply(reply, part.partId));
+        return parsed?.success && requestedSource(response.request, part.sourceHash, run.recipeHash) ? [parsed.data] : [];
+      });
       const checked = validatePolicyFulltextCandidate(plan, candidates);
       const accepted = checked.accepted.map((p) => ({ partId: p.partId, sourceHash: p.sourceHash, candidate: candidates.find((c) => c.partId === p.partId)! }));
       const samePlan = response.request.manifest?.upstream_artifacts?.every((a) => a.manifest_id === plan.manifestHash);
-      await saveFulltextResponse(run, response, accepted, samePlan ? raw.length > 0 && accepted.length === raw.length : null);
+      await saveFulltextResponse(
+        run,
+        response,
+        accepted,
+        samePlan ? requested.length > 0 && requested.every((p) => accepted.some((a) => a.partId === p.partId)) : null,
+      );
     }
-    const checkpoints = await fulltextCheckpoints(run);
     // A stored candidate still needs both its immutable source binding and the actual paid response.
-    const usable = checkpoints.filter((p) =>
-      responses.some(
-        (r) =>
-          r.receiptId === p.receiptId &&
-          r.attemptId === p.attemptId &&
-          requested(r, p) &&
-          responseParts(r.response).some((c) => stableJson(c) === stableJson(p.candidate)),
-      ),
-    );
-    return validatePolicyFulltextCandidate(
-      plan,
-      usable.map((p) => p.candidate),
-    );
+    return validatePolicyFulltextCandidate(plan, (await provenFulltextCandidates(run)).candidates);
   };
   try {
     let checked = await recover();
-    for (const request of plan.requests) {
-      while (request.partIds.some((id) => !checked.accepted.some((p) => p.partId === id)) && requests < max) {
-        const parts = plan.parts.filter((p) => request.partIds.includes(p.partId) && !checked.accepted.some((done) => done.partId === p.partId));
-        const id = sha256(stableJson([plan.context, parts.map((p) => p.partId)]));
-        requestParts.set(id, parts);
-        requests++;
-        try {
-          await gateway.chat({
-            input: { id, version: run.id },
-            purpose: "policy_fulltext",
-            schema: z.object({ parts: z.array(z.unknown()) }),
-            maxTokens: 4096,
-          });
-        } catch (error) {
-          if (!(error instanceof ModelOutputError)) throw error;
-        }
-        checked = await recover();
+    const missing = () => plan.parts.filter((p) => !checked.accepted.some((done) => done.partId === p.partId));
+    // Translation memory first: byte-identical sources already paid for in any revision or document cost nothing.
+    if (missing().length && (await reuseRememberedTranslations(run, missing()))) checked = await recover();
+    while (missing().length && requests < max) {
+      const sources = new Set(batches(missing())[0]!.map((p) => p.sourceHash)),
+        parts = missing().filter((p) => sources.has(p.sourceHash));
+      const id = sha256(stableJson([plan.context, parts.map((p) => p.partId)]));
+      requestParts.set(id, parts);
+      requests++;
+      try {
+        await gateway.chat({
+          input: { id, version: run.id },
+          purpose: "policy_fulltext",
+          schema: z.object({ parts: z.array(z.unknown()) }),
+          maxTokens: 4096,
+        });
+      } catch (error) {
+        if (!(error instanceof ModelOutputError)) throw error;
       }
+      checked = await recover();
     }
     await finishPolicyFulltext(run, checked, checked.status === "program_validated");
     return { ...checked, runId: run.id, requestsAttempted: requests, acceptedParts: checked.accepted.length, totalParts: plan.parts.length };

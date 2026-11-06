@@ -87,7 +87,7 @@ test("source tier republication uses the saved pair, preserves analysis and rele
   assert.equal((await republishSource(f.source)).failed, 0);
   assert.equal((await projection(f.articleId)).selected, false, "the raw mean 65.5 fails T2 despite the stored display score 99");
   const [decision] = await sql`SELECT after FROM audit_log WHERE subject=${`article:${f.articleId}`} AND action='selection.recompute' ORDER BY id DESC LIMIT 1`;
-  assert.equal(decision!.after.threshold, 76);
+  assert.equal(decision!.after.threshold, 66);
   assert.match(decision!.after.thresholdVersion, /^selection-thresholds@/);
   assert.equal(decision!.after.promptVersion, "analysis@synthetic");
   await tier(f.source, "T1_5");
@@ -116,9 +116,10 @@ test("invalid scores, human choices and the seven-day boundary retain their dist
   const a = { id: 1, selected: false, relevance: "pass", output: { scores: [64, 66], threshold: 76 } };
   assert.equal(recomputeSelection(a, "T1_5", at, now)?.selected, true, "exactly seven days and the raw 130 sum still qualify");
   for (const output of [
-    { scores: [80], threshold: 60 },
+    { scores: [], threshold: 60 },
+    { scores: [80, 80, 80], threshold: 60 },
     { scores: [80, "80"], threshold: 60 },
-    { scores: [80, 80.5], threshold: 60 },
+    { scores: [80, Number.NaN], threshold: 60 },
     { scores: [101, 80], threshold: 60 },
     { scores: [80, 80], threshold: 60, scoreRefused: true },
     { scores: [80, 80], threshold: 60, scoreRefused: "false" },
@@ -126,6 +127,9 @@ test("invalid scores, human choices and the seven-day boundary retain their dist
   ]) {
     assert.equal(recomputeSelection({ ...a, selected: true, output }, "T2", now, now)?.selected, false);
   }
+  // A single recorded score was far from the threshold when taken (second score on demand) and stands for itself.
+  assert.equal(recomputeSelection({ ...a, output: { scores: [80], threshold: 60 } }, "T2", now, now)?.selected, true);
+  assert.equal(recomputeSelection({ ...a, output: { scores: [40], threshold: 60 } }, "T2", now, now)?.selected, false);
   assert.equal(recomputeSelection({ ...a, output: {} }, "T2", now, now), null, "legacy judgments are not inferred from a display score");
   const f = await fixture("T1", true, { scores: [65, 66], threshold: 60 });
   await tier(f.source, "T2");
@@ -171,12 +175,14 @@ test("a newly nominated archive waits for ordinary grouping and duplicate covera
     1,
   );
   const result = await groupArticle(archive.articleId);
-  assert.equal(result.verdict, "historical");
+  // The same page found late attaches to the live copy's fact as one more report (2026-11-05), still without a seat.
+  assert.equal(result.verdict, "historical-attached");
   const completed = await projection(archive.articleId);
   assert.deepEqual(
-    [completed.selection_candidate, completed.selected, completed.seat, completed.fact_id, completed.story_id],
-    [true, false, false, null, null],
+    [completed.selection_candidate, completed.selected, completed.seat, Number(completed.fact_id), Number(completed.story_id)],
+    [true, false, false, Number(fact!.id), Number(story!.id)],
   );
+  assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${archive.articleId}`).length, 0, "history adds no heat");
   assert.equal(completed.timeline_at.getTime(), timeline.getTime());
   assert.equal((await sql`SELECT grouping_status FROM articles WHERE id=${archive.articleId}`)[0]!.grouping_status, "complete");
   assert.deepEqual(await sql`SELECT * FROM analyses WHERE id=${archive.analysisId}`, analysisBefore);

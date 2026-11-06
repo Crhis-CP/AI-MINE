@@ -6,10 +6,12 @@ import { geographyRecipe, compatibleGeographyRecipes } from "../editorial/geogra
 import type { ReadMatcherValues } from "./mentions.ts";
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
-import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { categoryFilterKeys, isCategoryFilterKey, toPublicApiCategory, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { LEGACY_MINING_CATEGORY_KEYS, LEGACY_MINING_CATEGORY_TARGETS, isLegacyMiningCategoryKey } from "@amp/contracts/mining-taxonomy";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
+import { SELECTION } from "@amp/industry/selection";
 import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
 import { displayTags, independentSelectedSources } from "./rules.ts";
 import { postFeedView, publicPostSummary } from "./post-view.ts";
@@ -121,6 +123,13 @@ export const ITEM_FROM = () => sql`
 /** Both flags are written together only by the current confirmed publication projection.
  * Legacy selected=true rows have selection_candidate=false until that projection is rebuilt.
  * Non-representative confirmed members remain selected; seat is a separate distribution choice.
+ *
+ * The selection gates, and which one each read uses:
+ * - confirmedSelected() (this): reader-facing 精选 lists, the browse floor's exception and public counts.
+ * - `NOT p.selected OR p.visible_after <= now`: the release delay only. A pick is held back until its release
+ *   time on every list; this says nothing about whether it is a pick.
+ * - bare `p.selected`: reads of a recent window (report candidates, the next-release time, full-text
+ *   translation of picks) where the current projection writes both flags together; admin counts.
  */
 export function confirmedSelected() {
   return sql`p.selected AND p.selection_candidate`;
@@ -142,6 +151,14 @@ export async function admissionReplacementSeats(now: Date, db: Db = sql): Promis
   const facts = new Map<number, Array<(typeof rows)[number]>>();
   for (const row of rows) facts.set(row.fact_id, [...(facts.get(row.fact_id) ?? []), row]);
   return [...facts.values()].map((members) => pickRepresentative(members).article_id);
+}
+
+/**
+ * The browse floor (Owner 2026-11-05): an unsearched "all" list (web, API, RSS) leaves out items scored below
+ * SELECTION.browseFloor; picks and unscored items stay, and a search still finds everything. Empty when inactive.
+ */
+export function browseFloorCondition(active: boolean) {
+  return active ? sql`AND (p.score IS NULL OR p.score >= ${SELECTION.browseFloor} OR ${confirmedSelected()})` : sql``;
 }
 
 /** Listed items: public, and a selected item only after its release gate. */
@@ -166,8 +183,24 @@ export function featuredEntryCondition(now: Date) {
 export function channelCondition(channel: ChannelKey | null | undefined) {
   return sql`AND (${!channel || channel === "all"} OR (${channel === "firstParty"} AND p.first_party) OR (${channel !== "firstParty"} AND p.channel=${channel ?? null}))`;
 }
-export function categoryCondition(category: CategoryKey | null | undefined, _v1 = false) {
-  return sql`AND (${!category} OR p.category=${category ?? null})`;
+/**
+ * The stored keys a category filter matches (ADR-0031): a retired key covers its successors, and a current key
+ * also covers rows still stored under a retired key whose only successor it is, so filters stay complete until
+ * history is reclassified. A key split in two (company_project) is left to the model reclassification.
+ */
+export function categoryKeys(category: string | null | undefined): string[] | null {
+  if (!category) return null;
+  if (!isCategoryFilterKey(category)) return [category];
+  const keys: string[] = categoryFilterKeys(category);
+  if (isLegacyMiningCategoryKey(category)) return keys;
+  const retired = LEGACY_MINING_CATEGORY_KEYS.filter((key) => {
+    const targets = LEGACY_MINING_CATEGORY_TARGETS[key];
+    return targets.length === 1 && targets[0] === category;
+  });
+  return [...keys, ...retired];
+}
+export function categoryCondition(category: CategoryFilterKey | null | undefined) {
+  return sql`AND (${!category} OR p.category=ANY(${categoryKeys(category) ?? []}::text[]))`;
 }
 
 export function tagCondition(values: ReadMatcherValues) {
@@ -202,7 +235,8 @@ export function toItemSummary(row: ItemRow): ItemSummary {
     timelineAt: row.timeline_at.toISOString(),
     category: toPublicApiCategory(row.category),
     tags: displayTags(row.tags),
-    score: row.score === null ? null : Math.round(Number(row.score)),
+    // One decimal: scores are weighted from one-decimal axes (industry/selection.ts).
+    score: row.score === null ? null : Math.round(Number(row.score) * 10) / 10,
     selected: row.selected,
     channel: row.channel,
     story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null,
@@ -248,14 +282,18 @@ export function jurisdictionCondition(value: string | null, descendants: string[
   // Country filters use evidenced locations; country mentions remain available through text search.
   return sql`AND (${value}::text IS NULL OR ${currentGeographyMatch(value, descendants ?? [], recipe)})`;
 }
-/** Cross-lane facet port: known membership only; unknown also counts partially inspected material. No cache or paid work. */
-export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<string, number>; unknown: number }> {
+/**
+ * Cross-lane facet port: known membership only; unknown also counts partially inspected material. No cache or paid work.
+ * With a range, only items whose archive time (`timeline_at`) falls in it count (the reader's news map).
+ */
+export async function currentNewsJurisdictionCounts(range?: { from: Date; to: Date }): Promise<{ counts: Record<string, number>; unknown: number }> {
   const now = new Date(),
     rows = await sql<{ codes: string[] | null; state: string | null }[]>`
     SELECT g.jurisdictions AS codes, g.state
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
-    WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})`;
+    WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
+      ${publicationDateCondition(range?.from, range?.to)}`;
   const counts = Object.fromEntries(JURISDICTIONS.map((j) => [j.id, 0]));
   let unknown = 0;
   for (const row of rows) {
@@ -341,8 +379,9 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
   const rows = await db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS()},${sort} AS sort_at ${API_ITEM_FROM()}
     WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND (NOT p.selected OR p.visible_after<=${query.now})
       AND p.eligible AND (${!query.selected} OR (${confirmedSelected()} AND (${countryScope} OR p.seat OR p.article_id=ANY(${replacements}::text[]))))
+      ${browseFloorCondition(!query.selected && !matchers.term0.active)}
 
-    AND (${query.category}::text IS NULL OR p.category=${query.category})
+    AND (${categoryKeys(query.category)}::text[] IS NULL OR p.category=ANY(${categoryKeys(query.category)}::text[]))
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))
@@ -364,8 +403,9 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     FROM stories st JOIN publications p ON p.story_id=st.id
     WHERE ((${query.merged} AND st.merged_into IS NOT NULL) OR (${!query.merged} AND st.merged_into IS NULL))
       AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND (${!query.selected} OR (${confirmedSelected()}))
+      ${browseFloorCondition(!query.selected && !matchers.term0.active)}
 
-    AND (${query.category}::text IS NULL OR p.category=${query.category})
+    AND (${categoryKeys(query.category)}::text[] IS NULL OR p.category=ANY(${categoryKeys(query.category)}::text[]))
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
     ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))
@@ -396,6 +436,17 @@ export async function readGroupingEvidencePublications(articleIds: string[], db:
     SELECT article_id,revision,(visibility='withdrawn' OR operator_withdrawn OR (${originalPostAdmissionCondition()}) IS FALSE) AS withdrawn,
     (extract(epoch from coalesce(published_at,discovered_at))*1000000)::bigint::text AS order_time
     FROM publications p WHERE article_id=ANY(${articleIds}::text[])`;
+}
+
+/**
+ * News items whose public title contains one of the given LIKE patterns, by original time since `since`:
+ * the publication side of document-identity recall (events/group.ts). Titles only, no text or state.
+ */
+export async function readDocumentTitleMatches(patterns: string[], since: Date, limit: number, db: Db = sql) {
+  if (!patterns.length) return [];
+  return db<{ article_id: string; title: string; original_title: string | null }[]>`SELECT p.article_id,p.title,p.original_title FROM publications p
+    WHERE p.timeline_at>${since} AND (p.title LIKE ANY(${patterns}::text[]) OR p.original_title LIKE ANY(${patterns}::text[]))
+    ORDER BY p.timeline_at DESC,p.article_id LIMIT ${limit}`;
 }
 
 export interface GroupingSelectionSnapshot extends Partial<RepresentativeIdentity> {

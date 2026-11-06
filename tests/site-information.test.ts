@@ -5,7 +5,6 @@ import { test } from "node:test";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { sha256 } from "@amp/backend/lib/ids";
 import { config } from "@amp/backend/config";
-import { SITE } from "@amp/industry/site";
 import { SiteInformation, MetalPrices } from "@amp/contracts/http/public";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { buildApp } from "./site-app.ts";
@@ -38,12 +37,19 @@ test("Owner saves public site fields with session CSRF CAS idempotency and atomi
     admin = await identity("site-admin", "admin");
   assert.equal((await app.inject({ url: "/api/admin/site", headers: base })).statusCode, 401);
   assert.equal((await app.inject({ url: "/api/admin/site", headers: admin })).statusCode, 403);
+  // Filing numbers are run-time settings: the admin page reports that one is configured, never the number itself.
+  const icpFixture = "京ICP备00000000号-1";
+  process.env.SITE_ICP_FILING = icpFixture;
+  delete process.env.SITE_PUBLIC_SECURITY_FILING;
+  t.after(() => delete process.env.SITE_ICP_FILING);
   const initial = await app.inject({ url: "/api/admin/site", headers: owner });
   assert.equal(initial.statusCode, 200, initial.body);
   assert.equal(initial.json().information.revision, 0);
-  assert.equal(initial.json().protected.icp.configured, !!SITE.icp);
+  assert.deepEqual(initial.json().protected.icp, { configured: true, origin: "runtime", footerDisplayed: true, aboutDisplayed: false });
+  assert.equal(initial.json().protected.publicSecurity.configured, false);
+  assert.equal(initial.json().protected.productionFilingConfigured, false);
   assert.equal(initial.json().protected.newsLicenseValidUntil, null);
-  if (SITE.icp) assert.ok(!initial.body.includes(SITE.icp));
+  assert.ok(!initial.body.includes(icpFixture));
   assert.ok(!("name" in initial.json().information));
   const payload = {
     expected_revision: 0,
@@ -114,6 +120,7 @@ test("Owner saves public site fields with session CSRF CAS idempotency and atomi
 test("protected expiry reads only the recorded date, uses Beijing days and never invents missing licence information", async () => {
   const { protectedSiteInformation } = await import("../packages/backend/src/site/protected-information.ts");
   delete process.env.NEWS_LICENSE_VALID_UNTIL;
+  delete process.env.SITE_NEWS_LICENSE;
   assert.equal(protectedSiteInformation().newsLicenseDateState, "not_recorded");
   process.env.NEWS_LICENSE_VALID_UNTIL = "2026-02-30";
   assert.equal(protectedSiteInformation().newsLicenseDateState, "invalid");
@@ -122,6 +129,9 @@ test("protected expiry reads only the recorded date, uses Beijing days and never
   const state = protectedSiteInformation(new Date("2026-10-09T16:01:00Z"));
   assert.equal(state.remainingDays, 0);
   assert.equal(state.newsLicenseValidUntil, "2026-10-10");
-  assert.equal(state.newsLicense.configured, !!SITE.newsLicense);
+  assert.equal(state.newsLicense.configured, false);
+  process.env.SITE_NEWS_LICENSE = "00000000000";
+  assert.deepEqual(protectedSiteInformation().newsLicense, { configured: true, origin: "runtime", footerDisplayed: true, aboutDisplayed: true });
+  delete process.env.SITE_NEWS_LICENSE;
   delete process.env.NEWS_LICENSE_VALID_UNTIL;
 });

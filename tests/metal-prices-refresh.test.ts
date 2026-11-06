@@ -3,7 +3,7 @@ import { SERVER_MODULES } from "../site/modules/server.ts";
 // Metal prices, refresh and store (TASK-0069): the bureau's pages come from the cropped fixtures by address (no network,
 // no model, a fixed clock) into a temporary database. A period is stored as published or held back whole on the fetcher's
 // reasons or the check's, a held new period keeps later ones waiting, a failing source fails alone, and the return value
-// is the run record.
+// is the run record. A price jump holds that series alone until the next period releases or discards it (DEC-78补充 item 4).
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -21,7 +21,7 @@ import type { FetchContext, FetchedPeriod } from "../modules/metals/backend/type
 
 after(() => closeDb());
 beforeEach(async () => {
-  await sql`TRUNCATE publication.metal_prices`;
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_holds`;
 });
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/nbs/${name}.html`, import.meta.url), "utf8");
@@ -82,6 +82,11 @@ const record = (ok: boolean, periods: MetalPricePeriodRun[], now = NOW) => {
 const NO_PREVIOUS = ["没有上一期"];
 const COPPER_UP = { [MID]: mid.replace(">108770.0<", ">176788.0<") };
 const COPPER_REASON = "nbs.copper 是 176788.0，是上一期 110492.5 的 1.60 倍，超出 0.67–1.5 倍";
+const COPPER_PENDING = [{ key: "nbs.copper", value: "176788.0", reason: COPPER_REASON }];
+const holdRows = async () => [
+  ...(await sql`SELECT series_key, period_start::text, value::text, compared_value::text, held_by, status, decided_by, decided_period, decision
+                FROM publication.metal_price_holds ORDER BY held_at, series_key`),
+];
 const table = async () => [
   ...(await sql`SELECT series_key, period_start::text, release_label, value::text, first_fetched_at, fetched_at FROM publication.metal_prices
                 ORDER BY period_start, release_label, series_key`),
@@ -137,17 +142,81 @@ test("a revised version: the next period is compared with the previous period's 
   const rows = sep1!.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "176788.0" } : row));
   await storePeriod(parsed.sources[0], parsed.items, { ...sep1!, rows, release: { ...sep1!.release, label: `${sep1!.release.label}（修订）` } }, LATER);
   const reason = "nbs.copper 是 108770.0，是上一期 176788.0 的 0.62 倍，超出 0.67–1.5 倍";
-  assert.deepEqual(await run({}, LATER), record(false, [period(SEP1, { touched: 11 }), period(SEP2, { held: reason })], LATER));
+  const pending = [{ key: "nbs.copper", value: "108770.0", reason }];
+  assert.deepEqual(await run({}, LATER), record(true, [period(SEP1, { touched: 11 }), period(SEP2, { inserted: 10, pending })], LATER));
 });
 
-test("a new period failing a check is held back whole and the next one waits for it, the store unchanged; they go in once it passes", async () => {
+test("a new period held back whole on a structural reason keeps the next one waiting, the store unchanged; they go in once it passes", async () => {
   await run({ [NBS_LIST_URL]: earlyList });
   const before = await table();
   const sep1 = period(SEP1, { touched: 11 });
-  const held = [sep1, period(SEP2, { held: COPPER_REASON }), period(SEP3, { held: `等 ${SEP2}` })];
-  assert.deepEqual(await run({ [NBS_LIST_URL]: lateList, ...COPPER_UP }), record(false, held));
+  const price = /<table[\s\S]*<\/table>/.exec(mid)![0];
+  const copy = { [MID]: mid.replace(price, () => price + price.replace(">108770.0<", ">108800.0<")) };
+  const reason = "价格表第 2 份与第 1 份不同：第 1 份是“nbs.copper 吨 108770.0”，第 2 份是“nbs.copper 吨 108800.0”";
+  const held = [sep1, period(SEP2, { held: reason }), period(SEP3, { held: `等 ${SEP2}` })];
+  assert.deepEqual(await run({ [NBS_LIST_URL]: lateList, ...copy }), record(false, held));
   assert.deepEqual(await table(), before);
   assert.deepEqual(await run({ [NBS_LIST_URL]: lateList }), record(true, [sep1, period(SEP2, { inserted: 11 }), period(SEP3, { inserted: 11 })]));
+});
+
+test("a jump holds that metal alone: the rest of its period goes in and the next period is not kept waiting", async () => {
+  await run({ [NBS_LIST_URL]: earlyList });
+  const result = await run({ [MID]: COPPER_UP[MID] });
+  assert.deepEqual(result, record(true, [period(SEP1, { touched: 11 }), period(SEP2, { inserted: 10, pending: COPPER_PENDING })]));
+  assert.equal((await values("2026-09-11")).has("nbs.copper"), false);
+  assert.deepEqual(await holdRows(), [
+    {
+      series_key: "nbs.copper",
+      period_start: "2026-09-11",
+      value: "176788.0",
+      compared_value: "110492.5",
+      held_by: "metals.prices",
+      status: "held",
+      decided_by: null,
+      decided_period: null,
+      decision: null,
+    },
+  ]);
+  // Read again with the same value, it stays held: no second hold, the rest only touched.
+  const again = record(
+    true,
+    [period(SEP2, { touched: 10, pending: [{ ...COPPER_PENDING[0]!, reason: "同一期再次读到同一数值，仍待下期确认", again: true }] })],
+    LATER,
+  );
+  assert.deepEqual(await run({ [MID]: COPPER_UP[MID] }, LATER), again);
+  assert.equal((await holdRows()).length, 1);
+});
+
+test("the next period near the held value releases it with no one stepping in: both periods' values go in, the decision recorded", async () => {
+  await run({ [NBS_LIST_URL]: earlyList });
+  await run({ [MID]: COPPER_UP[MID] });
+  // 9月下旬 copper stays near the new level (0.98 times the held value).
+  const late = mid.replaceAll(SEP2, SEP3).replace(">108770.0<", ">174032.0<");
+  const result = await run({ [NBS_LIST_URL]: lateList, [MID]: COPPER_UP[MID], [LATE]: late }, LATER);
+  const reason = "2026年9月下旬 是 174032.0，是被扣下的2026年9月中旬 176788.0 的 0.98 倍，在 0.67–1.5 倍内：新水平得到确认，两期一起入库";
+  const sep2 = period(SEP2, { touched: 10, pending: [{ ...COPPER_PENDING[0]!, reason: "同一期再次读到同一数值，仍待下期确认", again: true }] });
+  const released = [{ key: "nbs.copper", period: SEP2, value: "176788.0", reason }];
+  assert.deepEqual(result, record(true, [sep2, period(SEP3, { inserted: 11, released })], LATER));
+  assert.deepEqual([(await values("2026-09-11")).get("nbs.copper"), (await values("2026-09-21")).get("nbs.copper")], ["176788.0", "174032.0"]);
+  const [hold] = await holdRows();
+  assert.deepEqual([hold!.status, hold!.decided_by, hold!.decided_period, hold!.decision], ["released", "metals.prices", SEP3, reason]);
+  // The released row keeps the version it was read from and when it was first fetched.
+  const [row] = await sql`SELECT release_label, first_fetched_at FROM publication.metal_prices WHERE series_key = 'nbs.copper' AND period_start = '2026-09-11'`;
+  assert.deepEqual([row!.release_label, row!.first_fetched_at], [SEP2 + TAIL, NOW]);
+});
+
+test("the next period back at the old level discards the held value and is checked against the last value that went in", async () => {
+  await run({ [NBS_LIST_URL]: earlyList });
+  await run({ [MID]: COPPER_UP[MID] });
+  const result = await run({ [NBS_LIST_URL]: lateList, [MID]: COPPER_UP[MID] }, LATER);
+  const reason = "2026年9月下旬 是 108770.0，是被扣下的2026年9月中旬 176788.0 的 0.62 倍，超出 0.67–1.5 倍：被扣下的值不补入，本期按上次入库的值检查";
+  const discarded = [{ key: "nbs.copper", period: SEP2, value: "176788.0", reason }];
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.periods[1], period(SEP3, { inserted: 11, discarded }));
+  assert.equal((await values("2026-09-11")).has("nbs.copper"), false);
+  assert.equal((await values("2026-09-21")).get("nbs.copper"), "108770.0");
+  const [hold] = await holdRows();
+  assert.deepEqual([hold!.status, hold!.decided_by, hold!.decided_period, hold!.decision], ["discarded", "metals.prices", SEP3, reason]);
 });
 
 test("the stored newest period failing when read again keeps its rows and holds nothing back: the next period is stored", async () => {
@@ -168,9 +237,11 @@ test("a period stored by force, copper at 1.6 times the one before, read again u
   assert.deepEqual(await run(COPPER_UP, LATER), record(true, [period(SEP2, { touched: 11 })], LATER));
   const moved = before.map((row) => (row.period_start === "2026-09-11" ? { ...row, fetched_at: LATER } : row));
   assert.deepEqual(await table(), moved);
-  // Once any value changes, every check applies again: copper's ratio holds the period back.
+  // Once any value changes, every check applies again; copper, already in the table at this value, is not held again.
   const zinc = { [MID]: COPPER_UP[MID].replace(">26257.5<", ">26300.0<") };
-  assert.deepEqual(await run(zinc, LATER), record(false, [period(SEP2, { held: COPPER_REASON })], LATER));
+  const changed = [{ key: "nbs.zinc", before: "26257.5", after: "26300.0" }];
+  assert.deepEqual(await run(zinc, LATER), record(true, [period(SEP2, { touched: 10, changed })], LATER));
+  assert.deepEqual(await holdRows(), []);
 });
 
 test("a second copy of the price table differing by one number holds the period back whole through the refresh, naming the row", async () => {
@@ -293,15 +364,25 @@ test("two sources are requested at a time, the third once both are back; one fai
   assert.deepEqual([now, await fetchedAt("imf", "R1"), await fetchedAt("worldbank", "R1"), await fetchedAt("imf", "R2")], [LATER, LATER, null, null]);
 });
 
-test("a monthly source: a value at 2.1 or 0.45 times the month before holds the month back whole, the store unchanged; 2 and 0.5 times go in", async () => {
+test("a monthly source: a value at 2.1 or 0.45 times the month before holds that series alone, the rest going in; 2 and 0.5 times go in", async () => {
   await imfRun(JUNE);
-  const before = await table();
   const july = (a: string, b: string) => month("2026-07", "R2", { "imf.a": a, "imf.b": b });
-  const held = (reason: string) => record(false, [period("2026-07", { version: "R2", held: reason })]);
-  assert.deepEqual(await imfRun(july("21", "100")), held("imf.a 是 21，是上一期 10 的 2.10 倍，超出 0.5–2 倍"));
-  assert.deepEqual(await imfRun(july("10", "45")), held("imf.b 是 45，是上一期 100 的 0.45 倍，超出 0.5–2 倍"));
-  assert.deepEqual(await table(), before);
+  const pending = (key: string, value: string, reason: string) =>
+    record(true, [period("2026-07", { version: "R2", inserted: 1, pending: [{ key, value, reason }] })]);
+  assert.deepEqual(await imfRun(july("21", "100")), pending("imf.a", "21", "imf.a 是 21，是上一期 10 的 2.10 倍，超出 0.5–2 倍"));
+  assert.deepEqual(await values("2026-07-01"), new Map([["imf.b", "100"]]));
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_holds`;
+  await imfRun(JUNE);
+  assert.deepEqual(await imfRun(july("10", "45")), pending("imf.b", "45", "imf.b 是 45，是上一期 100 的 0.45 倍，超出 0.5–2 倍"));
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_holds`;
+  await imfRun(JUNE);
   assert.deepEqual(await imfRun(july("20", "50")), record(true, [period("2026-07", { version: "R2", inserted: 2 })]));
+  // Both series jumping at once is read as a misread: the month is held whole, as before.
+  await sql`TRUNCATE publication.metal_prices, publication.metal_price_holds`;
+  await imfRun(JUNE);
+  const both = await imfRun(july("21", "45"));
+  assert.equal(both.ok, false);
+  assert.match(both.periods[0]!.held!, /^2 个品种同时超出 0\.5–2 倍（共比较 2 个），像是读错了而不是行情变化/);
 });
 
 test("a series held back alone: the rest of its month goes in, the record lists it, the source did not succeed; with all held back the month is held whole", async () => {

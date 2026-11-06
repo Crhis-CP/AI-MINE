@@ -1,3 +1,4 @@
+import { MAJOR_COMPANIES } from "@amp/industry/selection";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -10,13 +11,14 @@ import { promptText } from "@amp/backend/editorial/prompts";
 import { environmentModelMetadata } from "@amp/backend/providers/llm";
 import { config } from "@amp/backend/config";
 import { publishArticle } from "@amp/backend/publication/publish";
-import { ANALYZE_PROMPT_VERSION } from "@amp/backend/editorial/analyze";
+import { analyzePromptVersion } from "@amp/backend/editorial/analyze";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
 import { ExperimentManifest, countryPreview, metrics, attemptSummary, type ExperimentCase, type Outcome } from "../scripts/selection-experiment-data.ts";
 import { runExperiment, exportCountryCandidates, assertIsolatedDatabase } from "../scripts/selection-experiment.ts";
+import { scoreAxes } from "./score-axes.ts";
 
 const requests: Array<{ system: string; user: string }> = [];
 const provider = await stub((_n, req) => {
@@ -28,7 +30,7 @@ const provider = await stub((_n, req) => {
   const content =
     !prefilter && user.includes("BAD_RESPONSE")
       ? "not JSON"
-      : JSON.stringify(prefilter ? { label: "PASS", reason: "合成涉矿材料" } : { attentionScore: system.includes("阿根廷经营视角") ? 80 : 45 });
+      : JSON.stringify(prefilter ? { label: "PASS", reason: "合成涉矿材料" } : scoreAxes(system.includes("阿根廷经营视角") ? 80 : 45));
   return { choices: [{ message: { content }, finish_reason: "stop" }], usage: { prompt_tokens: 12, completion_tokens: 6 } };
 });
 Object.assign(process.env, {
@@ -69,7 +71,7 @@ async function sample(marker = tag(), suffix = ""): Promise<ExperimentCase> {
     { title: input.title, bodyText: body, excerpt: null, bodyStatus: "ok" },
   );
   await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,title_zh,summary_zh,selected,output)
-    VALUES(${input.id},${input.revision},'model','synthetic',${ANALYZE_PROMPT_VERSION},'pass',${input.title},${body},false,${sql.json({ scores: null, geography })})`;
+    VALUES(${input.id},${input.revision},'model','synthetic',${analyzePromptVersion()},'pass',${input.title},${body},false,${sql.json({ scores: null, geography })})`;
   await publishArticle(input.id);
   return {
     caseId: input.id,
@@ -95,7 +97,9 @@ const manifest = (cases: ExperimentCase[], scoreModel = "default") =>
       prefilterIdentity: environmentModelMetadata("default")!.configuration_hash!,
       prefilterHash: createHash("sha256").update(promptText("prefilter")).digest("hex"),
       promptHashes: {
-        A: createHash("sha256").update(promptText("selection-score")).digest("hex"),
+        A: createHash("sha256")
+          .update(promptText("selection-score", { majorCompanies: MAJOR_COMPANIES.join("、") }))
+          .digest("hex"),
         B: createHash("sha256").update(promptText("selection-score-b")).digest("hex"),
         AR: createHash("sha256").update(promptText("selection-country-ar")).digest("hex"),
       },
@@ -115,7 +119,7 @@ const outcome = (row: ExperimentCase, variant: "A" | "B" | "AR", selected: boole
 test("historical variants stay isolated while the priority release preserves the production scoring text", () => {
   const a = readFileSync("industry/prompts/selection-score.md", "utf8"),
     b = readFileSync("industry/prompts/selection-score-b.md", "utf8");
-  assert.equal(createHash("sha256").update(a).digest("hex"), "1225e69a41495d0140c552256215f24c410bf57e045034be83d397d90960f4a4");
+  assert.equal(createHash("sha256").update(a).digest("hex"), "bce4374306b64f4a6763af941561b50948afabecf6afd124b5a8a158e1bdfb80");
   assert.deepEqual(
     b.split("\n").filter((l) => l.startsWith("|")),
     a.split("\n").filter((l) => l.startsWith("|")),

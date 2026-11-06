@@ -218,7 +218,7 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
         if (
           w.name === "@amp/backend" &&
           pkg === "@amp/policy" &&
-          !/^packages\/backend\/src\/(publication\/(policies|policies-reports|policy-language|policy-relations|policy-report-job)|policy\/(fallback-quality|model-evidence|quality|receipt-recovery|target-evidence)|jobs\/policy)\.ts$/.test(
+          !/^packages\/backend\/src\/(publication\/(policies|policies-reports|policy-report-job)|policy\/(fallback-quality|model-evidence|quality|receipt-recovery|target-evidence)|jobs\/policy)\.ts$/.test(
             f,
           )
         )

@@ -1,0 +1,128 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=1600"><title>AI矿策 · LOGO 第三轮</title>
+<style>@font-face { font-family: "Barlow"; src: url("../shared/fonts/Barlow_600SemiBold.woff2") format("woff2"); font-weight: 600; }
+* { box-sizing: border-box; } html, body { margin: 0; }
+body { width: 1600px; background: #F3F2EF; color: #12171B; font: 15px/1.6 "PingFang SC", "Noto Sans SC", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.wrap { padding: 52px 60px 40px; display: grid; gap: 24px; }
+h1 { margin: 0; font-size: 36px; letter-spacing: .01em; } .lead { margin: 8px 0 0; color: #4F5A62; font-size: 16px; max-width: 66em; }
+.two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 24px; }
+.card { background: #fff; border: 1px solid #DEDCD6; border-radius: 18px; padding: 22px 24px; display: grid; gap: 14px; align-content: start; }
+.card h2 { margin: 0; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: #8A8F93; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 8px; border-top: 1px solid #ECEAE5; }
+th { color: #12171B; white-space: nowrap; width: 18%; font-weight: 700; }
+td.l { color: #A0301A; font-weight: 600; width: 30%; }
+.rules { display: flex; flex-wrap: wrap; gap: 8px; } .rules span { background: #F6F4EF; border: 1px solid #E5E1D8; border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+.src { font-size: 12px; color: #8A8F93; }
+.origin { display: grid; grid-template-columns: 170px 1fr; gap: 18px; align-items: center; }
+.origin img { width: 160px; }
+.q { font-family: "Songti SC", "Noto Serif SC", serif; font-size: 17px; line-height: 1.8; margin: 0; }
+.q b { color: #A0301A; }
+.q small { display: block; font-family: "PingFang SC", "Noto Sans SC", sans-serif; font-size: 12px; color: #8A8F93; }
+.grid4 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.concept { display: grid; grid-template-columns: 210px 1fr; gap: 20px; align-items: start; }
+.hero { width: 200px; height: 200px; background: #F7F6F2; border-radius: 16px; display: grid; place-items: center; border: 1px solid #ECEAE5; }
+.hero img { width: 150px; height: 150px; }
+.concept h3 { margin: 0; font-size: 24px; } .concept .en { font: 600 12px/1 "Barlow", sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #8A8F93; }
+.concept p { margin: 8px 0 12px; color: #4F5A62; font-size: 14px; line-height: 1.75; }
+.vars { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.vars figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: #8A8F93; }
+.md { background: #fff; border: 1px solid #DEDCD6; border-radius: 10px; padding: 6px; } .ml { background: #0B0F12; border-radius: 10px; padding: 6px; }
+.locks { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.locks div { border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; } .locks .lt { background: #F7F6F2; border: 1px solid #ECEAE5; } .locks .dk { background: #0B0F12; }
+.locks img { height: 44px; max-width: 100%; }
+.wm { display: grid; gap: 14px; }
+.wm .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wm .row div { border-radius: 14px; padding: 18px; display: flex; align-items: center; justify-content: center; }
+.wm img.big { height: 88px; } .wm img.huge { height: 96px; }
+.colors { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.sw { display: grid; grid-template-columns: 120px 1fr; gap: 18px; align-items: center; }
+.sw i { display: block; height: 120px; border-radius: 16px; }
+.sw h3 { margin: 0; font-size: 20px; } .sw code { font: 600 13px/1 "Barlow", monospace; color: #8A8F93; } .sw p { margin: 6px 0 0; color: #4F5A62; font-size: 14px; }
+.scenes { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 24px; }
+.tabs { background: #DDE1E3; border-radius: 12px; padding: 8px 8px 2px; }
+.tab { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; margin-bottom: 6px; background: #fff; border-radius: 9px; font: 13px/1 system-ui, sans-serif; } .tab span { flex: 1; } .tab b { font: 600 11px/1 system-ui; color: #8A9196; }
+.home { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 22px; border-radius: 22px; background: linear-gradient(160deg, #3A3530, #17140F); }
+.home figure { margin: 0; display: grid; justify-items: center; gap: 6px; color: #F2EFEA; font: 12px/1.2 system-ui, sans-serif; }
+.home img { width: 62px; height: 62px; border-radius: 15px; box-shadow: 0 8px 16px -8px rgb(0 0 0 / .7); }
+.mast { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-radius: 12px; background: #FBFAF7; border-bottom: 3px solid #C2381F; }
+.mast img { height: 46px; } .mast span { font: 600 14px/1.3 "Noto Serif SC", serif; color: #12171B; text-align: right; }
+.bizcard { width: 100%; aspect-ratio: 1.75; background: #fff; border-radius: 10px; box-shadow: 0 18px 30px -18px rgb(0 0 0 / .45); padding: 20px 22px; display: grid; align-content: space-between; border: 1px solid #ECEAE5; }
+.bizcard img { height: 44px; } .bizcard p { margin: 0; font-size: 12px; color: #4F5A62; line-height: 1.6; }
+.foot { display: flex; justify-content: space-between; font-size: 12px; color: #8A8F93; border-top: 1px solid #DEDCD6; padding-top: 14px; }
+</style></head>
+<body><main class="wrap">
+<header><h1>AI矿策 · LOGO 第三轮：卝</h1>
+<p class="lead">向国际矿业巨头学做法：寓意来自名字与历史；只用一个能占为己有的颜色；主标识平涂，安全帽、矿车、印刷品上都能用；字标往往比图形更长寿；几十年不变。文化锚点是“卝”，它是“礦（矿）”的古字。</p></header>
+<div class="two">
+  <section class="card"><h2>向矿业巨头学什么（只写可核实的事实，不展示对方标识）</h2>
+    <table>
+      <tr><th>力拓 Rio Tinto</th><td>名字意为“红河”；1873 年起家于收购西班牙韦尔瓦省的古铜矿；标识以红色为主</td><td class="l">名字背后有矿业历史，颜色有出处</td></tr>
+      <tr><th>必和必拓 BHP</th><td>2017 年去掉 Billiton，回到几代人熟悉的老名字；改用粗体大写字标，橙色沿用 2001 年的标识</td><td class="l">传承胜过求新；字标为主</td></tr>
+      <tr><th>淡水河谷 Vale</th><td>2007 年起用 Vale 这个名字；标识为 V 形，配绿色与黄色</td><td class="l">一个符号加国家色彩</td></tr>
+      <tr><th>艾芬豪 Ivanhoe</th><td>母公司标识未找到官方释义；合资公司卡莫阿铜业 2021 年的标识中，底部是矿石堆，K 的尾笔呼应汉字“人”，红色取自三国国旗</td><td class="l">图形里可以叠几层文化含义</td></tr>
+      <tr><th>紫金矿业、中国五矿</th><td>未查到官方的标识释义</td><td class="l">只作参考</td></tr>
+    </table>
+    <div class="rules"><span>寓意来自名字与历史</span><span>一个能占为己有的颜色</span><span>主标平涂</span><span>字标长寿</span><span>几十年不变</span></div>
+    <div class="src">资料来源：维基百科、Fox Business、Engineering News 等公开报道（2026-11-04 检索）。</div>
+  </section>
+  <section class="card"><h2>文化锚点：卝</h2>
+    <div class="origin"><img src="glyph-guan-serif.svg" alt="卝 字">
+      <div><p class="q">《说文解字》：“<b>卝</b>，古文礦。《周禮》有<b>卝人</b>。”</p>
+        <p class="q">《周礼·地官》：“卝人，掌金玉锡石之地，而为之厉禁以守之。”</p>
+        <p class="q">郑玄注：“金玉未成器曰礦。”<small>引文经汉典（zdic）转引核对，正式使用前再对照原典。</small></p></div></div>
+    <p style="margin:0;color:#4F5A62;font-size:14px;line-height:1.75">三千年前，“卝人”就是专门看守矿产之地的官员。AI矿策替读者看守全球矿产与矿业法规的变化，正是今天的卝人。字形上，两笔竖画贯穿上下，左右各伸出一短横，像地面被一口竖井穿透，天然就是一口矿井。</p>
+  </section>
+</div>
+<div class="grid4"><section class="card concept">
+  <div class="hero"><img src="seal-flat-cinnabar.svg" alt="卝 · 朱印"></div>
+  <div><span class="en">Seal</span><h3>卝 · 朱印</h3><p>一方朱砂印，白文“卝”。朱砂是矿物，自古做印泥；印章代表信用与背书，正是资讯服务的根本。“卝人”是《周礼》中掌管矿产之地的官职，AI矿策就是今天的卝人。</p>
+    <div class="vars">
+      <figure><img src="seal-app-cinnabar.svg" width="72" height="72" alt=""><figcaption>App · 朱砂</figcaption></figure>
+      <figure><img src="seal-app-orange.svg" width="72" height="72" alt=""><figcaption>App · 测量桩橙</figcaption></figure>
+      <figure><div class="md"><img src="seal-mono-black.svg" width="44" height="44" alt=""></div><figcaption>单色黑</figcaption></figure>
+      <figure><div class="ml"><img src="seal-mono-white.svg" width="44" height="44" alt=""></div><figcaption>单色白</figcaption></figure>
+      <figure><img src="seal-app-cinnabar.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+      <figure><img src="seal-app-cinnabar.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+    </div></div>
+  <div class="locks"><div class="lt"><img src="seal-lockup-cinnabar-light.svg" alt=""></div><div class="dk"><img src="seal-lockup-cinnabar-dark.svg" alt=""></div></div>
+</section><section class="card concept">
+  <div class="hero"><img src="shaft-flat-cinnabar.svg" alt="卝 · 矿井"></div>
+  <div><span class="en">Shaft</span><h3>卝 · 矿井</h3><p>把“卝”读作地面线被一口竖井穿透：两笔竖画是井壁，两笔短横是地表，井底是一枚金锭。意思是向下深挖，把价值带上来。</p>
+    <div class="vars">
+      <figure><img src="shaft-app-cinnabar.svg" width="72" height="72" alt=""><figcaption>App · 朱砂</figcaption></figure>
+      <figure><img src="shaft-app-orange.svg" width="72" height="72" alt=""><figcaption>App · 测量桩橙</figcaption></figure>
+      <figure><div class="md"><img src="shaft-mono-black.svg" width="44" height="44" alt=""></div><figcaption>单色黑</figcaption></figure>
+      <figure><div class="ml"><img src="shaft-mono-white.svg" width="44" height="44" alt=""></div><figcaption>单色白</figcaption></figure>
+      <figure><img src="shaft-app-cinnabar.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+      <figure><img src="shaft-app-cinnabar.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+    </div></div>
+  <div class="locks"><div class="lt"><img src="shaft-lockup-cinnabar-light.svg" alt=""></div><div class="dk"><img src="shaft-lockup-cinnabar-dark.svg" alt=""></div></div>
+</section><section class="card concept">
+  <div class="hero"><img src="bronze-flat-cinnabar.svg" alt="卝 · 金文"></div>
+  <div><span class="en">Bronze</span><h3>卝 · 金文</h3><p>用青铜铭文的笔意写“卝”：笔画中间饱满、两端收尖，带着三千年的青铜气质，同时足够简洁，可以做现代图标。</p>
+    <div class="vars">
+      <figure><img src="bronze-app-cinnabar.svg" width="72" height="72" alt=""><figcaption>App · 朱砂</figcaption></figure>
+      <figure><img src="bronze-app-orange.svg" width="72" height="72" alt=""><figcaption>App · 测量桩橙</figcaption></figure>
+      <figure><div class="md"><img src="bronze-mono-black.svg" width="44" height="44" alt=""></div><figcaption>单色黑</figcaption></figure>
+      <figure><div class="ml"><img src="bronze-mono-white.svg" width="44" height="44" alt=""></div><figcaption>单色白</figcaption></figure>
+      <figure><img src="bronze-app-cinnabar.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure>
+      <figure><img src="bronze-app-cinnabar.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure>
+    </div></div>
+  <div class="locks"><div class="lt"><img src="bronze-lockup-cinnabar-light.svg" alt=""></div><div class="dk"><img src="bronze-lockup-cinnabar-dark.svg" alt=""></div></div>
+</section><section class="card wm"><div><span class="en" style="font:600 12px/1 Barlow,sans-serif;letter-spacing:.16em;color:#8A8F93">WORDMARK</span><h3 style="margin:0;font-size:24px">字标优先</h3>
+<p style="margin:8px 0 0;color:#4F5A62;font-size:14px;line-height:1.75">学必和必拓、力拓，以字标为主：“矿”字里“石”的“口”中放一枚金块，在文字里藏下矿；配字距拉开的英文大写和一枚小朱印。</p></div>
+<div class="row"><div style="background:#F7F6F2;border:1px solid #ECEAE5"><img class="big" src="wordmark-cinnabar-light.svg" alt="字标 + 朱印"></div><div style="background:#0B0F12"><img class="big" src="wordmark-cinnabar-dark.svg" alt="字标 + 朱印 深色"></div></div>
+<div class="row"><div style="background:#F7F6F2;border:1px solid #ECEAE5"><img class="huge" src="wordmark-only-light.svg" alt="字标：矿字的口中嵌一条金锭"></div><div style="background:#F7F6F2;border:1px solid #ECEAE5"><img class="big" src="wordmark-orange-light.svg" alt="字标 + 测量桩橙印"></div></div>
+</section></div>
+<section class="card"><h2>主色二选一（辅色：平涂金 #C8992E，深墨底 #0B0F12）</h2><div class="colors">
+  <div class="sw"><i style="background:#C2381F"></i><div><h3>朱砂</h3><code>#C2381F</code><p>朱砂（硫化汞）本身是一种矿物，自古用来做印泥，有中国文化底蕴，也有“盖章背书”的意思。选它的话，方向 C 的强调色统一改为朱砂。</p></div></div>
+  <div class="sw"><i style="background:#E8590C"></i><div><h3>测量桩橙</h3><code>#E8590C</code><p>沿用方向 C 现在的强调色，取自勘探现场的测量桩，更有现代工业感。</p></div></div>
+</div></section>
+<div class="scenes">
+  <section class="card"><h2>浏览器标签页 · 手机桌面</h2><div class="tabs"><div class="tab"><img src="seal-app-cinnabar.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span><b>卝·朱印</b></div><div class="tab"><img src="seal-app-orange.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span><b>朱印·橙</b></div><div class="tab"><img src="shaft-app-cinnabar.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span><b>卝·矿井</b></div><div class="tab"><img src="bronze-app-cinnabar.svg" width="16" height="16" alt=""><span>AI矿策 — 全球矿业资讯</span><b>卝·金文</b></div></div><div class="home"><figure><img src="seal-app-cinnabar.svg" alt=""><figcaption>朱印</figcaption></figure><figure><img src="seal-app-orange.svg" alt=""><figcaption>朱印·橙</figcaption></figure><figure><img src="shaft-app-cinnabar.svg" alt=""><figcaption>矿井</figcaption></figure><figure><img src="bronze-app-cinnabar.svg" alt=""><figcaption>金文</figcaption></figure></div></section>
+  <section class="card"><h2>日报刊头 · 名片</h2><div class="mast"><img src="wordmark-cinnabar-light.svg" alt=""><span>矿业日报<br>2026-11-04</span></div>
+    <div class="bizcard"><img src="wordmark-cinnabar-light.svg" alt=""><p>全球矿业资讯 · 中文阅读，原文可查<br>aiminingpolicy.com</p></div></section>
+  <section class="card"><h2>安全帽贴标</h2><svg viewBox="0 0 240 150" width="100%" role="img" aria-label="安全帽贴标示意"><path d="M36 118 C36 58 74 24 120 24 C166 24 204 58 204 118 Z" fill="#FBFAF7" stroke="#D9D6CF" stroke-width="2"/><path d="M120 24 C112 50 110 84 112 118" fill="none" stroke="#E7E3DB" stroke-width="5"/><path d="M120 24 C128 50 130 84 128 118" fill="none" stroke="#E7E3DB" stroke-width="5"/><rect x="14" y="112" width="212" height="16" rx="8" fill="#F1EFEA" stroke="#D9D6CF" stroke-width="2"/><image href="seal-flat-cinnabar.svg" x="70" y="58" width="36" height="36"/><image href="seal-flat-cinnabar.svg" x="140" y="62" width="0" height="0"/></svg><p style="margin:0;color:#4F5A62;font-size:13px">主标识用平涂，贴在安全帽、矿车、工装上依然清楚，这是矿业品牌必须过的一关。</p></section>
+</div>
+<footer class="foot"><span>AI矿策 · 读者端改版 · LOGO 第三轮</span><span>设计稿，只做了相似性自查，未做商标检索</span></footer>
+</main></body></html>

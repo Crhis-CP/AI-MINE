@@ -1,7 +1,8 @@
 // Each enabled price source reads the
 // periods from the newest stored one on (TASK-0057), and each is checked, then stored or held back whole on the fetcher's
 // reasons or the check's; a failing source fails alone. The return value is the run record the schedule keeps in
-// job_runs.detail.
+// job_runs.detail. A price jump holds that series alone and the next period releases or discards it (DEC-78补充 item 4):
+// those decisions are written with the period, kept in publication.metal_price_holds and listed in the record.
 import { checkPeriod } from "./check.ts";
 import { cbrFetcher } from "./cbr.ts";
 import { cochilcoFetcher } from "./cochilco.ts";
@@ -9,15 +10,19 @@ import { mofcomFetcher } from "./mofcom.ts";
 import { nbsFetcher } from "./nbs.ts";
 import { loadMetalPriceRegistry, type MetalPriceSource, type MetalPriceSourceKey, parseMetalPriceRegistry } from "./registry.ts";
 import {
+  acceptedValues,
   fetchedAt,
+  type HoldDecisions,
   latestValues,
   newestStart,
+  openHolds,
   previousValues,
   previewLatestValues,
   previewPeriod,
   storedValues,
   storePeriod,
   storePriceCheck,
+  type StoredHold,
 } from "./store.ts";
 import type { FetchedPeriod, PageGetter } from "./types.ts";
 import { worldbankFetcher } from "./worldbank.ts";
@@ -46,6 +51,15 @@ export interface MetalPricePeriodRun {
   notes: string[];
   /** Series the fetcher held back alone, with its reasons (TASK-0046); present only then, and the source did not succeed. */
   heldSeries?: { key: string; reason: string }[];
+  /**
+   * Series held back alone after a price jump, waiting for the next period (待下期确认); the period's other series are
+   * stored and the source still succeeds. Present only then; `again` marks a hold of this period already on record.
+   */
+  pending?: { key: string; value: string; reason: string; again?: true }[];
+  /** Earlier holds this period confirmed: the held value went in with this one. */
+  released?: { key: string; period: string; value: string; reason: string }[];
+  /** Earlier holds this period did not confirm (or a held period read again differently): the held value was dropped. */
+  discarded?: { key: string; period: string; value: string; reason: string }[];
 }
 
 /** One source of the run record; TASK-0071's digest reads it, so later cards add fields only. */
@@ -79,6 +93,8 @@ export async function refreshMetalPrices(
     source?: string;
     dryRun?: boolean;
     force?: { periodStart: string; held: string[] };
+    /** Who decides holds and releases in the audit table: the schedule's job name unless a manual run says otherwise. */
+    by?: string;
   } = {},
 ) {
   // A bad registry throws here, so the schedule records a failed run rather than skipping entries.
@@ -118,6 +134,8 @@ export async function refreshMetalPrices(
       if (twice.length) throw new Error(`同一所属期抓到不止一份，不猜哪份为准：${twice.map((one) => `${one.period.label} ${one.release.url}`).join("、")}`);
       let waiting: string | null = null;
       const projected = new Map<string, Map<string, string>>();
+      // The source's open holds, kept up to date as each period decides them (in a dry run only here, never in the table).
+      const holds = await openHolds(source.key);
       for (const one of fetched) {
         const entry = blank(one);
         if (one.heldSeries?.length) entry.heldSeries = one.heldSeries;
@@ -143,7 +161,24 @@ export async function refreshMetalPrices(
         const known = stored.size ? stored : await latestValues(source.key, one.period.start);
         const unchanged = one.period.start === newest && rows.length === kept.length && rows.every((row) => known.get(row.key) === row.value);
         const compareWithPrevious = !unchanged && one.period.start !== opts.force?.periodStart;
-        const { reasons, notes } = checkPeriod({ fetched: { ...one, rows }, source, items: kept, previous, newest, compareWithPrevious, now });
+        // A series held in an earlier period is decided against the held value, else against the last value that went in.
+        const earlier = kept.filter((item) => (holds.get(item.key)?.periodStart ?? one.period.start) < one.period.start).map((item) => item.key);
+        const accepted = await acceptedValues(source.key, one.period.start, earlier);
+        for (const [start, values] of [...projected].sort(([a], [b]) => a.localeCompare(b)))
+          for (const key of earlier) if (start < one.period.start && values.has(key)) accepted.set(key, values.get(key)!);
+        const check = checkPeriod({
+          fetched: { ...one, rows },
+          source,
+          items: kept,
+          previous,
+          newest,
+          compareWithPrevious,
+          holds,
+          accepted,
+          current: known,
+          now,
+        });
+        const { reasons, notes } = check;
         entry.notes = [...(one.notes ?? []), ...notes];
         const held = [...one.held, ...(kept.length ? [] : ["这一期启用的品种全被单独扣下"]), ...reasons];
         if (held.length) {
@@ -154,9 +189,52 @@ export async function refreshMetalPrices(
           if (source.frequency !== "day" && (!newest || one.period.start > newest)) waiting = one.period.label;
           continue;
         }
-        if (unchanged && !stored.size) entry.notes.push("和库里已有的一样，不另存");
-        else Object.assign(entry, opts.dryRun ? await previewPeriod(source, kept, { ...one, rows }) : await storePeriod(source, kept, { ...one, rows }, now));
-        if (opts.dryRun) projected.set(one.period.start, await previewLatestValues(source.key, { ...one, rows: unchanged && !stored.size ? [] : rows }, now));
+        // Jumps and holds still waiting stay out of the price table; everything else of the period goes in.
+        const aside = new Set([...(check.jumps ?? []).map((jump) => jump.key), ...(check.still ?? []).map((hold) => hold.key)]);
+        const repeat = unchanged && !stored.size;
+        const storing = repeat ? [] : kept.filter((item) => !aside.has(item.key));
+        const storedRows = rows.filter((row) => storing.some((item) => item.key === row.key));
+        const series = (key: string) => kept.find((item) => item.key === key)!;
+        const decisions: HoldDecisions = {
+          by: opts.by ?? "metals.prices",
+          period: one.period.label,
+          hold: (check.jumps ?? []).map(({ key, value, was, reason }) => ({ item: series(key), value, was, reason })),
+          release: (check.releases ?? []).map(({ key, reason }) => ({ item: series(key), hold: holds.get(key)!, reason })),
+          discard: (check.discards ?? []).map(({ key, reason }) => ({ hold: holds.get(key)!, reason })),
+        };
+        const pending = [
+          ...(check.still ?? []).map((hold) => ({ key: hold.key, value: hold.value, reason: "同一期再次读到同一数值，仍待下期确认", again: true as const })),
+          ...decisions.hold.map(({ item, value, reason }) => ({ key: item.key, value, reason })),
+        ];
+        const decided = (list: { hold: StoredHold; reason: string }[]) =>
+          list.map(({ hold, reason }) => ({ key: hold.key, period: hold.periodLabel, value: hold.value, reason }));
+        if (pending.length) entry.pending = pending;
+        if (decisions.release.length) entry.released = decided(decisions.release);
+        if (decisions.discard.length) entry.discarded = decided(decisions.discard);
+        const decides = decisions.hold.length + decisions.release.length + decisions.discard.length > 0;
+        if (repeat) entry.notes.push("和库里已有的一样，不另存");
+        if (opts.dryRun) {
+          if (!repeat) Object.assign(entry, await previewPeriod(source, storing, { ...one, rows: storedRows }));
+          projected.set(one.period.start, await previewLatestValues(source.key, { ...one, rows: storedRows }, now));
+          // A released value is in the store from here on, as far as the later periods of this preview are concerned.
+          for (const { hold } of decisions.release) {
+            const values = projected.get(hold.periodStart) ?? (await latestValues(source.key, hold.periodStart));
+            projected.set(hold.periodStart, values.set(hold.key, hold.value));
+          }
+        } else if (!repeat || decides) Object.assign(entry, await storePeriod(source, storing, { ...one, rows: storedRows }, now, decisions));
+        for (const { hold } of [...decisions.discard, ...decisions.release]) holds.delete(hold.key);
+        for (const { item, value } of decisions.hold)
+          holds.set(item.key, {
+            key: item.key,
+            periodStart: one.period.start,
+            periodEnd: one.period.end,
+            periodLabel: one.period.label,
+            value,
+            releaseLabel: one.release.label,
+            releaseUrl: one.release.url,
+            releasedOn: one.release.releasedOn,
+            heldAt: now,
+          });
         run.inserted += entry.inserted;
         run.touched += entry.touched;
       }

@@ -1,5 +1,6 @@
 // Moving between reports: the archive column on desktop, a tab row and recent-issue chips on phones.
 import { useEffect, useState } from "react";
+import { useTr } from "../../i18n";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
 import type { ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
 import { PillTabs } from "../../components/ui/Tabs";
@@ -8,11 +9,12 @@ import { KINDS, KIND_LABEL, KIND_PATH, archiveGroups, archiveMark, chipLabel, re
 
 /** 日报 / 周报 / 月报 as the site's pill switch, spread across the column. */
 function KindSwitch({ kind }: { kind: ReportKind }) {
+  const tr = useTr();
   return (
     <PillTabs
       fill
       layoutId="report-kind"
-      label="切换日报、周报、月报"
+      label={tr("切换日报、周报、月报")}
       active={kind}
       items={KINDS.map((k) => ({ key: k, label: KIND_LABEL[k], to: KIND_PATH[k] }))}
     />
@@ -21,6 +23,7 @@ function KindSwitch({ kind }: { kind: ReportKind }) {
 
 /** Desktop archive column: every issue of this kind, grouped, the current one highlighted. */
 export function ReportArchive({ kind, index, current }: { kind: ReportKind; index: ReportNavigationEntry[]; current: string | null }) {
+  const tr = useTr();
   const groups = archiveGroups(kind, index);
   const openId = groups.find((g) => g.entries.some((e) => e.key === current))?.id ?? groups[0]?.id;
   return (
@@ -28,8 +31,8 @@ export function ReportArchive({ kind, index, current }: { kind: ReportKind; inde
       <div className="pb-4 pt-8">
         <KindSwitch kind={kind} />
       </div>
-      <div className="border-b border-line-strong pb-2 pl-1 text-[11.5px] font-semibold tracking-[0.3em] text-ink">往期</div>
-      <nav aria-label={`${KIND_LABEL[kind]}历史`} className="scrollbar-thin -mr-3 flex-1 overflow-y-auto pb-6 pr-3">
+      <div className="border-b border-line-strong pb-2 pl-1 text-[11.5px] font-semibold tracking-[0.3em] text-ink">{tr("往期")}</div>
+      <nav aria-label={tr("{kind}历史", { kind: KIND_LABEL[kind] })} className="scrollbar-thin -mr-3 flex-1 overflow-y-auto pb-6 pr-3">
         {groups.map((g) => (
           <ArchiveGroup key={g.id} g={g} kind={kind} current={current} initiallyOpen={g.id === openId} />
         ))}
@@ -39,7 +42,7 @@ export function ReportArchive({ kind, index, current }: { kind: ReportKind; inde
           to="/daily/archive"
           className="flex h-12 shrink-0 items-center justify-between border-t border-line pl-1 pr-1.5 text-[12.5px] font-medium text-ink-2 transition-colors hover:text-accent"
         >
-          日报合订本 <IconChevronRight size={14} />
+          {tr("日报合订本")} <IconChevronRight size={14} />
         </Link>
       )}
     </aside>
@@ -58,6 +61,7 @@ function ArchiveGroup({
   current: string | null;
   initiallyOpen: boolean;
 }) {
+  const tr = useTr();
   const [open, setOpen] = useState(initiallyOpen);
   useEffect(() => setOpen(initiallyOpen), [initiallyOpen]);
   const [loaded, setLoaded] = useState<ReportNavigationEntry[] | null>(null);
@@ -110,7 +114,7 @@ function ArchiveGroup({
       )}
       {kind === "daily" && !open && (
         <noscript>
-          <a href="/daily/archive">查看完整日报归档</a>
+          <a href="/daily/archive">{tr("查看完整日报归档")}</a>
         </noscript>
       )}
     </details>
@@ -119,6 +123,7 @@ function ArchiveGroup({
 
 /** Phone header: kind tabs, then the three latest issues and a way further back. */
 export function ReportPhoneNav({ kind, index, current, today }: { kind: ReportKind; index: ReportNavigationEntry[]; current: string | null; today: string }) {
+  const tr = useTr();
   const recent = index.slice(0, 3);
   const earlier = kind === "daily" ? "/daily/archive" : "#report-history";
   const chip = "inline-flex h-9 shrink-0 items-center rounded-full border px-4 text-[13px] transition-colors";
@@ -127,7 +132,7 @@ export function ReportPhoneNav({ kind, index, current, today }: { kind: ReportKi
       <PillTabs
         fill
         layoutId="report-kind-phone"
-        label="切换日报、周报、月报"
+        label={tr("切换日报、周报、月报")}
         active={kind}
         items={KINDS.map((k) => ({ key: k, label: KIND_LABEL[k], to: KIND_PATH[k] }))}
       />
@@ -148,7 +153,7 @@ export function ReportPhoneNav({ kind, index, current, today }: { kind: ReportKi
           })}
           {index.length > 3 && (
             <Link to={earlier} className={`${chip} border-line-strong bg-surface text-ink-2 active:bg-bg-sunk`}>
-              更早
+              {tr("更早")}
             </Link>
           )}
         </div>

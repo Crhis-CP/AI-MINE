@@ -1,10 +1,11 @@
 import { SITE, withSubject } from "@amp/industry/site";
+import { useTr, useDateFormat } from "../i18n";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { ReportIndexEntry } from "@amp/contracts/site";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
-import { beijingDate, beijingWeekday } from "../lib/format";
+import { beijingDate } from "../lib/format";
 import { ReportLayout } from "../features/report/ReportLayout";
 import { archiveGroups } from "../features/report/format";
 import { Rows, SectionPage } from "../features/report/ReportPaper";
@@ -29,6 +30,8 @@ export function headers() {
 }
 
 export default function DailyArchive() {
+  const df = useDateFormat();
+  const tr = useTr();
   const { index, today } = useLoaderData<typeof loader>();
   const months = archiveGroups("daily", index);
   return (
@@ -37,15 +40,15 @@ export default function DailyArchive() {
         <header className="pt-5 lg:pt-0">
           <div className="flex items-center justify-between gap-4 text-[12px] text-ink-4">
             <span>
-              {SITE.name} · {withSubject("日报")}
+              {SITE.name} · {tr.subject("日报")}
             </span>
             <span>
-              共 <span className="num">{index.length}</span> 期
+              {tr("共")} <span className="num">{index.length}</span> {tr("期")}
             </span>
           </div>
           <div className="py-6 @[880px]:py-8">
             <h1 id="report-start">
-              <span className="sr-only">日报合订本</span>
+              <span className="sr-only">{tr("日报合订本")}</span>
               <Nameplate which="archive" className="block h-[50px] w-auto @[520px]:h-[70px] @[880px]:h-[98px]" />
             </h1>
           </div>
@@ -60,14 +63,14 @@ export default function DailyArchive() {
                     <span className="num text-[24px] font-black leading-none tracking-[-0.03em] text-ink transition-colors group-hover:text-accent">
                       {e.key.slice(8, 10)}
                     </span>
-                    <span className="mt-1.5 text-[10.5px] leading-none text-ink-4">{beijingWeekday(e.key).replace("星期", "周")}</span>
+                    <span className="mt-1.5 text-[10.5px] leading-none text-ink-4">{df.weekday(e.key).replace("星期", "周").slice(0, 3)}</span>
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[15px] font-bold leading-[1.55] text-ink transition-colors group-hover:text-accent">
-                      {e.title ?? `${withSubject("日报")} ${e.key}`}
+                      {e.title ?? `${tr.subject("日报")} ${e.key}`}
                     </span>
                     <span className="mt-1 block text-[12px] text-ink-4">
-                      <span className="num">{e.count}</span> 件大事
+                      <span className="num">{e.count}</span> {tr("件大事")}
                     </span>
                   </span>
                 </Link>

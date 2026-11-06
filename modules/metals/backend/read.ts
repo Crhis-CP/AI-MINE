@@ -6,6 +6,14 @@ import { sql } from "@amp/backend/db";
 import { loadMetalPriceRegistry, parseMetalPriceRegistry, type MetalPriceItem } from "./registry.ts";
 
 type Item = MetalPriceItem;
+
+/**
+ * The opening words of the footnote a quote gets while its newest value is held back alone (DEC-78补充 item 4); the page
+ * shows them as a mark beside the period (web/quotes.ts HELD_MARK is the same text).
+ */
+export const HELD_MARK = "待下期确认";
+const heldText = (label: string) =>
+  `${HELD_MARK}：${label}公布的这一报价较上一期变动超出常规范围，暂不更新，这里仍是上一期已核对的数值；下一期公布后自动确认或更正。`;
 interface Price {
   start: string;
   end: string;
@@ -45,8 +53,11 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         );
       }),
   );
-  const selected = await sql.begin("read only isolation level repeatable read", async (tx) => {
+  const [selected, held] = await sql.begin("read only isolation level repeatable read", async (tx) => {
     const out = new Map<string, Price>();
+    // Values held back alone are not in the price table: the quote keeps its last value, marked as waiting.
+    const holds = await tx<{ series_key: string; period_label: string }[]>`
+      SELECT series_key, period_label FROM publication.metal_price_holds WHERE status = 'held'`;
     for (const item of ordered) {
       const source = sources.find((s) => s.key === item.source)!;
       const convert = item.convert;
@@ -82,7 +93,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         throw new Error(`Price unit/currency mismatch: ${item.key}`);
       out.set(item.key, row);
     }
-    return out;
+    return [out, new Map(holds.map((hold) => [hold.series_key, hold.period_label]))] as const;
   });
   const today = beijingDate(now),
     yearPrefix = `${today.slice(0, 4)}年`;
@@ -119,6 +130,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
     };
   });
   const references = new Map<string, number>();
+  const heldNotes = new Map<string, { text: string; link: { name: string; url: string } | null }>();
   const metals = registry.metals.flatMap((metal) => {
     const quotes = ordered
       .filter((item) => item.metal === metal.key)
@@ -126,7 +138,14 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         const source = sources.find((s) => s.key === item.source)!,
           row = selected.get(item.key),
           convert = item.convert;
-        if (item.footnote && !references.has(item.footnote)) references.set(item.footnote, references.size + 1);
+        // A held quote (or one converted with a held rate) gets its own footnote, its registered one following the mark.
+        const hold = held.get(item.key) ?? (convert ? held.get(convert.rate) : undefined);
+        const footnote = hold === undefined ? item.footnote : `held:${item.key}`;
+        if (hold !== undefined && footnote) {
+          const own = registry.footnotes.find((note) => note.key === item.footnote);
+          heldNotes.set(footnote, { text: own ? `${heldText(hold)}${own.text}` : heldText(hold), link: own?.link ?? null });
+        }
+        if (footnote && !references.has(footnote)) references.set(footnote, references.size + 1);
         const compared =
           row?.previous_value &&
           row.previous_end !== null &&
@@ -139,7 +158,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
           source: item.source,
           title: item.quote!,
           spec: item.spec,
-          footnote: item.footnote ? references.get(item.footnote)! : null,
+          footnote: footnote ? references.get(footnote)! : null,
           value: row?.value ?? null,
           unit: convert?.unit ?? item.unit,
           currency: convert?.currency ?? source.currency,
@@ -172,7 +191,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
     return { tag: frequency.tag, label: head?.label ?? null, stale: head?.stale ?? false, extras: extras.map(({ end: _end, ...rest }) => rest) };
   });
   const notes: MetalPrices["notes"] = [...references].map(([key, ref]) => {
-    const note = registry.footnotes.find((n) => n.key === key)!;
+    const note = heldNotes.get(key) ?? registry.footnotes.find((n) => n.key === key)!;
     return { ref, text: note.text, link: note.link ?? null };
   });
   for (const note of registry.notes)

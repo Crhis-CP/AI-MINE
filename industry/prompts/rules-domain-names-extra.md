@@ -1,0 +1,1 @@
+   - 泰克资源（Teck Resources）/ 安托法加斯塔（Antofagasta）/ 福蒂斯丘（Fortescue）/ 南32（South32）/ 诺里尔斯克镍业（Nornickel）/ 金田（Gold Fields）/ 盎格鲁黄金阿散蒂（AngloGold Ashanti）/ 金罗斯（Kinross）/ 西班耶-斯蒂尔沃特（Sibanye-Stillwater）/ 托克（Trafigura）/ 摩科瑞（Mercuria）

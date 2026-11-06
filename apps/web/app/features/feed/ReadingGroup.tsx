@@ -1,4 +1,5 @@
 import { markRead, useReadSet } from "../../lib/local-state";
+import { fmt, useT } from "../../i18n";
 // Reading-group expansions on a feed item: the other sources of the card's fact ("另有 N 家信源报道")
 // and the event's developments ("展开 N 条进展"). Each loads on first open and pages on demand.
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -152,7 +153,7 @@ function Toggle({ open, onToggle, children }: { open: boolean; onToggle: () => v
         e.stopPropagation();
         onToggle();
       }}
-      className="relative z-10 inline-flex items-center gap-0.5 text-[12.5px] text-ink-4 transition-colors hover:text-accent"
+      className="relative z-10 inline-flex items-center gap-0.5 text-[13.5px] text-ink-4 transition-colors hover:text-accent"
     >
       {children}
       <IconChevronDown size={13} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
@@ -183,6 +184,7 @@ function LoadState({
   onRetry: () => void;
   empty: boolean;
 }) {
+  const tl = useT().list;
   if (loading && empty)
     return (
       <div className="space-y-2 py-1">
@@ -193,14 +195,14 @@ function LoadState({
     );
   if (error)
     return (
-      <button type="button" onClick={onRetry} className="py-1 text-[12.5px] text-hot">
-        暂时无法加载，点此重试
+      <button type="button" onClick={onRetry} className="py-1 text-[13.5px] text-hot">
+        {tl.groupRetry}
       </button>
     );
   if (next && !loading)
     return (
-      <button type="button" onClick={onMore} className="py-1 text-[12.5px] text-accent hover:underline">
-        加载更多
+      <button type="button" onClick={onMore} className="py-1 text-[13.5px] text-accent hover:underline">
+        {tl.loadMore}
       </button>
     );
   return null;
@@ -208,6 +210,7 @@ function LoadState({
 
 /** "另有 N 家信源报道": other reports of the fact the card stands for. */
 export function GroupSources({ group, filters, parentId }: { group: GroupInfo | ReportGroupInfo; filters?: ReadingGroupFilters; parentId: string }) {
+  const tl = useT().list;
   const readSet = useReadSet();
   const fact = "factId" in group;
   const id = fact ? group.factId : group.id;
@@ -223,7 +226,7 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo | 
     },
   );
   const others = state.items.filter((r) => r.id !== parentId);
-  const label = group.additionalSourceCount > 0 ? `另有 ${group.additionalSourceCount} 家信源报道` : `${group.reportCount} 篇报道`;
+  const label = group.additionalSourceCount > 0 ? fmt(tl.moreSources, { count: group.additionalSourceCount }) : fmt(tl.reports, { count: group.reportCount });
   return (
     <div>
       <Toggle
@@ -238,13 +241,13 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo | 
       <Panel open={open}>
         <ul className="divide-y divide-line-soft">
           {others.map((r) => (
-            <li key={r.id} className="flex items-baseline gap-2 py-1.5 text-[13px]">
+            <li key={r.id} className="flex items-baseline gap-2 py-1.5 text-[14px]">
               <span className="w-[108px] shrink-0 truncate text-ink-4">{shortSourceName(r.source.name)}</span>
               <Link to={`/items/${r.id}`} onClick={() => markRead(r.id)} className="min-w-0 flex-1 truncate text-ink-2 hover:text-accent">
                 {r.title}
               </Link>
-              <span className={`shrink-0 text-[11px] ${readSet.has(r.id) ? "text-ink-4" : "text-accent"}`}>{readSet.has(r.id) ? "已读" : "未读"}</span>
-              <a href={r.originalUrl} target="_blank" rel="noopener noreferrer" aria-label="打开原文" className="shrink-0 text-ink-4 hover:text-accent">
+              <span className={`shrink-0 text-[12px] ${readSet.has(r.id) ? "text-ink-4" : "text-accent"}`}>{readSet.has(r.id) ? tl.read : tl.unread}</span>
+              <a href={r.originalUrl} target="_blank" rel="noopener noreferrer" aria-label={tl.openOriginal} className="shrink-0 text-ink-4 hover:text-accent">
                 <IconArrowUpRight size={13} />
               </a>
             </li>
@@ -261,9 +264,9 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo | 
         {fact && group.story && (
           <Link
             to={`/story/${group.story.publicId}`}
-            className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"
+            className="mt-1 inline-flex items-center gap-0.5 py-1 text-[13.5px] font-medium text-accent hover:text-accent-ink"
           >
-            查看完整事件 <IconArrowUpRight size={12} />
+            {tl.fullEvent} <IconArrowUpRight size={12} />
           </Link>
         )}
       </Panel>
@@ -281,6 +284,7 @@ export function GroupDevelopments({
   filters?: TimelineFilters;
   parentId: string;
 }) {
+  const tl = useT().list;
   const { open, setOpen, state, load } = useGroupState<Development>(
     `developments|${group.story.publicId}|${parentId}`,
     (cursor) => `/api/site/stories/${encodeURIComponent(group.story.publicId)}/developments?${filterParams(filters, cursor)}`,
@@ -295,7 +299,7 @@ export function GroupDevelopments({
           if (!open && !state.loaded && !state.loading) void load(null);
         }}
       >
-        展开 {group.developmentCount} 条进展
+        {fmt(tl.showDevelopments, { count: group.developmentCount })}
       </Toggle>
       <Panel open={open}>
         <ol className="relative space-y-2 py-1 pl-3.5 before:absolute before:bottom-2 before:left-[3px] before:top-2 before:w-px before:bg-line">
@@ -304,13 +308,13 @@ export function GroupDevelopments({
               <span
                 className={`absolute -left-[13.5px] top-[7px] size-[7px] rounded-full ring-2 ring-bg-sunk dark:ring-bg-muted ${d.representative.id === parentId ? "bg-accent" : "bg-line-strong"}`}
               />
-              <Link to={`/items/${d.representative.id}`} className="block text-[13px] leading-snug text-ink-2 hover:text-accent">
+              <Link to={`/items/${d.representative.id}`} className="block text-[14px] leading-snug text-ink-2 hover:text-accent">
                 {d.title}
               </Link>
-              <div className="mt-0.5 text-[11.5px] text-ink-4">
+              <div className="mt-0.5 text-[12.5px] text-ink-4">
                 {shortSourceName(d.representative.source.name)} ·{" "}
-                <span className="num">{newsSourceDate(d.representative.sourceTime, d.representative.publishedAt)?.text ?? "原文时间尚未确认"}</span>
-                {d.reportCount > 1 ? ` · ${d.reportCount} 篇报道` : ""}
+                <span className="num">{newsSourceDate(d.representative.sourceTime, d.representative.publishedAt)?.text ?? tl.sourceTimeUnknown}</span>
+                {d.reportCount > 1 ? ` · ${fmt(tl.reports, { count: d.reportCount })}` : ""}
               </div>
             </li>
           ))}
@@ -325,9 +329,9 @@ export function GroupDevelopments({
         />
         <Link
           to={`/story/${group.story.publicId}`}
-          className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"
+          className="mt-1 inline-flex items-center gap-0.5 py-1 text-[13.5px] font-medium text-accent hover:text-accent-ink"
         >
-          查看完整事件 <IconArrowUpRight size={12} />
+          {tl.fullEvent} <IconArrowUpRight size={12} />
         </Link>
       </Panel>
     </div>
@@ -336,10 +340,11 @@ export function GroupDevelopments({
 
 /** "最新进展 · 9月27日 01:21 · …": why a folded event card sits where it does. */
 export function LatestDevelopment({ group }: { group: GroupInfo }) {
+  const tl = useT().list;
   if (!group.latestDevelopment || group.developmentCount <= 1) return null;
   return (
-    <p className="relative z-10 mt-2.5 flex items-baseline gap-1.5 text-[13px] leading-relaxed">
-      <span className="shrink-0 font-medium text-accent">最新进展</span>
+    <p className="relative z-10 mt-2.5 flex items-baseline gap-1.5 text-[14px] leading-relaxed">
+      <span className="shrink-0 font-medium text-accent">{tl.latestDevelopment}</span>
       <span className="num shrink-0 text-ink-4">{sourceMonthDayTime(group.latestDevelopment.at)}</span>
       <span className="line-clamp-1 text-ink-3">{group.latestDevelopment.title}</span>
     </p>

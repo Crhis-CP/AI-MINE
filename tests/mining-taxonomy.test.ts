@@ -9,9 +9,11 @@ import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORIES, CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy";
+import { MINING_CATEGORY_KEYS } from "@amp/contracts/mining-taxonomy";
+import { SELECTION } from "@amp/industry/selection";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
+import { analyzeArticle, PROMPT_VERSIONS, promptVersionsFor } from "@amp/backend/editorial/analyze";
 import { configuredPromptVersion, promptVersion } from "@amp/backend/editorial/prompts";
 import { UNDERSTAND_CONFIG } from "@amp/backend/editorial/writing";
 import { normalizeTags } from "../packages/backend/src/editorial/vocabulary.ts";
@@ -19,6 +21,7 @@ import { publishArticle } from "@amp/backend/publication/publish";
 
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { buildApp } from "./site-app.ts";
+import { scoreAxes } from "./score-axes.ts";
 
 const source = `mining-category-${tag()}`;
 const app = await buildApp();
@@ -30,7 +33,7 @@ const provider = await stub((_hit, req) => {
   const output = system.includes("范围预筛")
     ? { label: "PASS", reason: "合成矿业范围" }
     : system.includes("事件注意力评分器")
-      ? { attentionScore: 80 }
+      ? scoreAxes(80)
       : system.includes("资料结构化助手")
         ? { category: category === "null" ? null : category, tags: [], subjects: [], fact: null }
         : {
@@ -67,25 +70,40 @@ test("actual classification, publication and public exits agree on nine keys and
     ITEM_TYPES,
     CATEGORIES.map((category) => category.key),
   );
+  // The public contract keeps its own copy (contracts do not depend on industry data): it must stay the same list.
+  assert.deepEqual([...MINING_CATEGORY_KEYS], [...ITEM_TYPES]);
   for (const category of CATEGORIES) {
     const line = `- \`${category.key}\`：${category.label}`;
     assert.ok(score.includes(line), line);
     assert.ok(understand.includes(line), line);
   }
-  const weights = [...score.matchAll(/^\| ([a-z_]+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|$/gm)];
-  assert.deepEqual(
-    weights.map((row) => row[1]),
-    [...ITEM_TYPES],
-  );
-  for (const row of weights)
+  // The weight table lives in code (industry/selection.ts); the prompt only defines types and axes.
+  assert.deepEqual(Object.keys(SELECTION.weights), [...ITEM_TYPES]);
+  for (const row of Object.values(SELECTION.weights))
     assert.equal(
-      row.slice(2).reduce((sum, value) => sum + Number(value), 0),
+      row.reduce((sum, value) => sum + value, 0),
       10,
     );
-  assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
-  assert.equal(PROMPT_VERSIONS.score, "selection-score@09b414c0c5", "priority release preserves the production scoring version pending Chris decision");
-  assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
-  assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
+  // The per-step layout (ANALYSIS_PROMPT_LAYOUT=separate; these tests' layout, tests/setup.ts).
+  const separate = promptVersionsFor("separate");
+  assert.equal(PROMPT_VERSIONS.prefilter, separate.prefilter);
+  assert.equal(separate.prefilter, "prefilter@f1a5eca242");
+  assert.equal(
+    separate.score,
+    "selection-score@9881743a29+weights@20542a669a",
+    "axis output with code weights over the re-cut nine types (Owner 2026-11-05, ADR-0031); production still waits for SELECTION_CONFIRMED_VERSION",
+  );
+  assert.equal(separate.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
+  assert.notEqual(separate.structure, promptVersion("structure"));
+  // The production default (ANALYSIS_PROMPT_LAYOUT=shared): the same rules in one shared system prompt, its own versions.
+  const shared = promptVersionsFor("shared");
+  assert.equal(shared.prefilter, "prefilter-shared@aa4cb4ab1b");
+  assert.equal(
+    shared.score,
+    "selection-score-shared@a195d5bf17+weights@20542a669a",
+    "the score rules as the shared layout sends them; SELECTION_CONFIRMED_VERSION must name this value to score in that layout",
+  );
+  for (const step of Object.keys(shared) as Array<keyof typeof shared>) assert.notEqual(shared[step], separate[step], step);
   assert.deepEqual(normalizeTags([]), []);
   assert.deepEqual(normalizeTags(["模型发布", "其他", "invalid"]), []);
   await sql`INSERT INTO sources (id,name,kind,tier,participation_mode,site_fulltext,syndicate_fulltext,next_fetch_at)

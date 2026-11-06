@@ -93,7 +93,7 @@ async function article(body = BODY, language?: string, sourceId = SOURCE, confir
     publishedAt: new Date(),
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题${n}-${T}`}, ${`合成摘要 SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'project_development', ${`标题${n}-${T}`}, ${`合成摘要 SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
   if (confirmed) await completeMaterialGrouping(articleId, 1, { addsValue: true, reason: "合成已确认精选" }, null);
   const [source] = await sql`SELECT site_fulltext FROM sources WHERE id=${sourceId}`;
   if (source?.site_fulltext && body && !isChineseOriginal(language ?? null, body)) await translateFixture(articleId);

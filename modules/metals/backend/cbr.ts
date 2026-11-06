@@ -36,7 +36,7 @@ export function cbrFetcher(registry: MetalPriceRegistry, get: PageGetter = guard
       if (!source) throw new Error("登记里没有俄罗斯银行");
       const request = async (url: string, root: "Metall" | "ValCurs") => {
         if (!onSourceHost(source, url) || new URL(url).hostname !== "www.cbr.ru") throw new Error("俄罗斯银行地址不在登记的 https 主机上");
-        const response = await get(url, { maxRedirects: 0 });
+        const response = await get(url, { maxRedirects: 0, retryDropped: true });
         if (response.url !== url) throw new Error("俄罗斯银行请求发生跳转");
         if (response.status !== 200) throw new Error(`俄罗斯银行返回 HTTP ${response.status}`);
         const text = response.text();

@@ -20,7 +20,24 @@ export const UNDERSTAND_SYSTEM = promptText("understand", UNDERSTAND_CONFIG);
 
 /** A body longer than this is cut (whole bodies are sent; a few run past the context). */
 export const MAX_BODY_CHARS = 60_000;
-const capBody = (s: string) => (s.length > MAX_BODY_CHARS ? s.slice(0, MAX_BODY_CHARS) : s);
+/**
+ * Per-step body budgets (cost design, Owner 2026-11-05: cut cost by design, not by caps). Input tokens grow
+ * with the body and every step re-sends it, so each step reads only what its judgement needs:
+ * - the prefilter keeps the whole body: truncating it was not adopted (decision ledger, DEC-78 supplement on
+ *   scoring), since a mixed document's metal-mining part may sit late in the text;
+ * - the score judges the event, which news states first; long official documents keep their opening;
+ * - understanding writes the copy and reads the most.
+ * A cut is said in the text, so no step mistakes a lead for the whole document.
+ */
+export const PREFILTER_BODY_CHARS = MAX_BODY_CHARS;
+export const SCORE_BODY_CHARS = 12_000;
+export const UNDERSTAND_BODY_CHARS = 20_000;
+/** The body within a budget, with a note when it was cut. */
+export function bodyWithin(s: string, budget: number = MAX_BODY_CHARS): string {
+  const limit = Math.min(budget, MAX_BODY_CHARS);
+  return s.length > limit ? `${s.slice(0, limit)}\n……（正文共 ${s.length} 字，此处只给出前 ${limit} 字）` : s;
+}
+const capBody = (s: string, budget?: number) => bodyWithin(s, budget);
 
 // ── Text helpers ─────────────────────────────────────────────────────────────────────────────
 
@@ -72,7 +89,7 @@ export function cleanArticleTextForLLM(s: string): string {
 
 // ── The material as the prefilter and the content understanding read it ─────────────────────
 
-function materialQuality(a: AnalyzeInputArticle): string {
+export function materialQuality(a: AnalyzeInputArticle): string {
   if (a.xPost) return "完整原帖（含原帖提供的引用与媒体；链接内容仅在实际取得后提供）";
   if (usableSourceText(a.bodyText)) return a.source.fetchesBody ? "完整正文（抓自原始网页）" : "完整正文（来自 RSS / API 自带的 content 字段）";
   if (usableSourceText(a.excerpt)) return "仅摘要（feed 未提供完整正文）";
@@ -80,19 +97,31 @@ function materialQuality(a: AnalyzeInputArticle): string {
   return "无有效文本";
 }
 
-/** The material as the prefilter and the content understanding read it. */
-export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean } = {}): string {
+/** Who published the material: the source (name, kind, tier, tags) and the author. Never part of the score input. */
+export function publisherLines(a: AnalyzeInputArticle): string[] {
   const lines: string[] = [];
   lines.push(`【来源】${a.source.name}（${a.source.kind}，tier=${a.source.tier || "未分级"}）`);
   if (a.source.tags?.length) lines.push(`【来源标签】${a.source.tags.join(", ")}`);
   if (a.xPost) lines.push(`【作者】${[a.xPost.authorName, a.xPost.handle ? `@${a.xPost.handle}` : null].filter(Boolean).join(" · ")}`);
   else if (a.author) lines.push(`【作者】${a.author}`);
-  lines.push(`【原文时间】${modelSourceDateLabel(a)}`);
+  return lines;
+}
+
+/** The images and videos the material carries, or null. */
+export function mediaLine(a: AnalyzeInputArticle): string | null {
   const media = (a.xPost?.media ?? a.media ?? []) as Array<{ kind?: string }>;
   const images = media.filter((m) => m.kind === "image").length;
   const videos = media.filter((m) => m.kind === "video").length;
   const mediaParts = [images ? `${images} 张图` : null, videos ? `${videos} 个视频` : null].filter(Boolean);
-  if (mediaParts.length) lines.push(`【媒体】${mediaParts.join(" · ")}`);
+  return mediaParts.length ? `【媒体】${mediaParts.join(" · ")}` : null;
+}
+
+/** The material as the prefilter and the content understanding read it. */
+export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean; bodyChars?: number } = {}): string {
+  const lines: string[] = publisherLines(a);
+  lines.push(`【原文时间】${modelSourceDateLabel(a)}`);
+  const media = mediaLine(a);
+  if (media) lines.push(media);
   lines.push(`【原文链接】${a.url}`);
   lines.push(`【标题】${a.title}`);
   const quoted = a.xPost?.quoted?.text ? a.xPost.quoted : null;
@@ -106,14 +135,14 @@ export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: b
   }
   lines.push("");
   lines.push(opts.annotateQuoted && quoted ? "【正文（作者自己的内容）】" : "【正文】");
-  lines.push(capBody(a.xPost ? a.xPost.text : usableSourceText(a.bodyText, a.excerpt) || "(无正文)"));
+  lines.push(capBody(a.xPost ? a.xPost.text : usableSourceText(a.bodyText, a.excerpt) || "(无正文)", opts.bodyChars));
   lines.push("");
   lines.push(`【材料质量】${materialQuality(a)}`);
   return lines.join("\n");
 }
 
 /** The prefilter's user message: the context as a JSON string (the prompt was tuned on this form). */
-export const prefilterUser = (a: AnalyzeInputArticle) => JSON.stringify(renderContext(a));
+export const prefilterUser = (a: AnalyzeInputArticle) => JSON.stringify(renderContext(a, { bodyChars: PREFILTER_BODY_CHARS }));
 
 /** Nothing to judge beyond the title: wait before any paid step. */
 export function missingEvidence(a: AnalyzeInputArticle): boolean {
@@ -121,7 +150,7 @@ export function missingEvidence(a: AnalyzeInputArticle): boolean {
 }
 
 export const understandUser = (a: AnalyzeInputArticle) =>
-  ["请按系统规则理解以下单篇材料，一次返回全部六个字段。", renderContext(a, { annotateQuoted: true })].join("\n\n");
+  ["请按系统规则理解以下单篇材料，一次返回全部六个字段。", renderContext(a, { annotateQuoted: true, bodyChars: UNDERSTAND_BODY_CHARS })].join("\n\n");
 
 // ── Identity context and guard ────────────────────────────────────────────────────────────────
 
@@ -189,7 +218,7 @@ function identityContext(input: TranslateInput) {
   return { allowed: [...allowed].sort(), publisher, owner };
 }
 
-function identityPrompt(input: TranslateInput): string {
+export function identityPrompt(input: TranslateInput): string {
   const ctx = identityContext(input);
   const facts: string[] = [];
   if (ctx.publisher) facts.push(`文档发布域主体=${lexiconName(ctx.publisher) ?? ctx.publisher}`);
@@ -261,11 +290,18 @@ function anchorDate(d: Date | undefined): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
-export function buildArticlePrompt(input: TranslateInput): string {
-  return promptText("summarize-article", {
+/** The title/summary prompt's per-article context besides the title and body: the date anchor, source and identities. */
+export function articlePromptContext(input: TranslateInput) {
+  return {
     publishedDate: input.sourceTime === undefined ? anchorDate(input.publishedAt) : (input.sourceTime?.local_date ?? "未注明"),
     sourceName: sourceName(input.sourceName),
     identity: identityPrompt(input),
+  };
+}
+
+export function buildArticlePrompt(input: TranslateInput): string {
+  return promptText("summarize-article", {
+    ...articlePromptContext(input),
     title: input.title,
     body: input.text ? clampText(cleanArticleTextForLLM(input.text), 6000) : promptText("summarize-article-empty"),
   });

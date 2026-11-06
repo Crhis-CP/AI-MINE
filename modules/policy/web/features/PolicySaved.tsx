@@ -1,4 +1,5 @@
 import { apiFetch } from "@amp/web/extension";
+import { useTr } from "@amp/web/i18n";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -10,21 +11,22 @@ function useIds() {
     .filter((ref) => ref.type === "policy")
     .map((ref) => ref.id);
 }
-export function PolicySaveButton({ id }: { id: string }) {
+export function PolicySaveButton({ id, className = "text-[13px] text-accent" }: { id: string; className?: string }) {
+  const tr = useTr();
   const ids = useIds();
   const [error, setError] = useState<string | null>(null);
   return (
     <span>
       <button
         type="button"
-        className="text-[13px] text-accent"
+        className={className}
         aria-pressed={ids.includes(id)}
         onClick={() => {
           const result = toggleStar({ type: "policy", id });
           setError(result.ok ? null : result.message);
         }}
       >
-        {ids.includes(id) ? "已收藏法规" : "收藏法规"}
+        {ids.includes(id) ? tr("已收藏法规") : tr("收藏法规")}
       </button>
       {error && (
         <span role="alert" className="ml-2 text-[12px] text-hot">
@@ -35,6 +37,7 @@ export function PolicySaveButton({ id }: { id: string }) {
   );
 }
 export function PolicySavedList() {
+  const tr = useTr();
   const ids = useIds(),
     [items, setItems] = useState<Policy[]>([]),
     [busy, setBusy] = useState(false),
@@ -83,11 +86,11 @@ export function PolicySavedList() {
   }, [selected]);
   if (!ids.length) return null;
   return (
-    <section className="mt-7 border-t border-line pt-5" aria-label="法规收藏">
-      <h2 className="text-[18px] font-semibold">法规收藏</h2>
-      <p className="mt-2 text-[12px] text-ink-4">仅显示当前仍可公开的文书；收藏身份保存在本机。</p>
-      {busy && <p className="mt-3 text-[13px]">正在核对当前可用内容…</p>}
-      {unavailable && <p className="mt-3 text-[13px] text-ink-3">部分法规当前不可查看，已停止显示未确认的内容。</p>}
+    <section className="mt-7 border-t border-line pt-5" aria-label={tr("法规收藏")}>
+      <h2 className="text-[18px] font-semibold">{tr("法规收藏")}</h2>
+      <p className="mt-2 text-[12px] text-ink-4">{tr("仅显示当前仍可公开的文书；收藏身份保存在本机。")}</p>
+      {busy && <p className="mt-3 text-[13px]">{tr("正在核对当前可用内容…")}</p>}
+      {unavailable && <p className="mt-3 text-[13px] text-ink-3">{tr("部分法规当前不可查看，已停止显示未确认的内容。")}</p>}
       <ul className="mt-3 divide-y divide-line">
         {items.map((p) => (
           <li key={p.id} className="flex items-start justify-between gap-3 py-3">
@@ -104,7 +107,7 @@ export function PolicySavedList() {
             .filter((id) => !items.some((item) => item.id === id))
             .map((id) => (
               <li key={id} className="flex justify-between py-2">
-                <span>此收藏当前不可查看</span>
+                <span>{tr("此收藏当前不可查看")}</span>
                 <PolicySaveButton id={id} />
               </li>
             ))}

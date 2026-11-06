@@ -1,15 +1,17 @@
 import { apiFetch } from "../lib/http.ts";
+import { useT } from "../i18n";
 import { SITE, withSubject } from "@amp/industry/site";
 import { Link, data as withHeaders, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/home";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
-import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
+import { canonicalCategoryFilter, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
-import { CategoryTabs, JurisdictionFilter, SearchField, FeedBar } from "../features/feed/Filters";
+import { WorldMap } from "../features/feed/WorldMap";
+import { FeedBar, FeedToolbar } from "../features/feed/Filters";
 import { DayList } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
@@ -21,7 +23,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
   const channel = isChannelKey(channelParam) ? channelParam : "all";
-  const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
+  const category = categoryParam ? canonicalCategoryFilter(categoryParam) : null;
+  // Old links with a retired category (ADR-0031) move to its successor; company_project stays and filters both.
+  if (categoryParam && category && category !== categoryParam) {
+    url.searchParams.set("category", category);
+    throw redirect(`${url.pathname}${url.search}`, 301);
+  }
   const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
   const upstream = new Headers();
@@ -99,59 +106,64 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 }
 
 export default function Home() {
+  const tf = useT().feed;
   const { data, waiting, unavailable, latest, filters } = useLoaderData<typeof loader>();
-  const title = filters.tag ? `#${filters.tag}` : latest ? "最新动态" : "精选";
+  const title = filters.tag ? `#${filters.tag}` : latest ? tf.latest : tf.picks;
   // While there are no picks, “全部” stays on this page and the other tabs lead to 全部动态, where the items are.
   const tabsBase = waiting ? "/all" : "/";
   const allTo = waiting ? "/" : undefined;
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
       <FeedBar base="/" category={filters.category} channel={filters.channel} jurisdiction={filters.jurisdiction ?? null} />
-      {data.hot && <HotTopics entries={data.hot} cards={data.cards} />}
-      <div className="hidden lg:block">
-        <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
-        <div className="mb-5 mt-4 flex items-center justify-between gap-4">
-          <CategoryTabs base={tabsBase} allTo={allTo} category={filters.category} channel={filters.channel} layoutId="home-cat-desk" className="min-w-0" />
-          <SearchField variant="track" keep={{ channel: filters.channel, category: filters.category, jurisdiction: filters.jurisdiction }} />
+      {/* Direction C overview: the hotspot board beside the survey map on desktop; phones keep the board alone. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
+        {data.hot && <HotTopics entries={data.hot} cards={data.cards} />}
+        <div className="hidden lg:block">
+          <WorldMap base={tabsBase} selected={filters.jurisdiction ?? null} />
         </div>
       </div>
-
-      <div className="hidden lg:block">
-        <JurisdictionFilter base={tabsBase} value={filters.jurisdiction} />
-      </div>
+      <FeedToolbar
+        title={title}
+        base={tabsBase}
+        allTo={allTo}
+        category={filters.category}
+        channel={filters.channel}
+        jurisdiction={filters.jurisdiction ?? null}
+        layoutId="home-cat-desk"
+      />
 
       {unavailable ? (
         <EmptyState
-          title="精选暂时无法读取"
+          title={tf.picksUnavailable}
           action={
             <Link to="/all" className="text-[13px] font-medium text-accent hover:underline">
-              查看全部矿业动态
+              {tf.viewAll}
             </Link>
           }
         >
-          请稍后重试，或先浏览全部矿业动态。
+          {tf.retryOrAll}
         </EmptyState>
       ) : latest ? (
         <div className="mt-2">
-          <p className="mb-2 text-[13px] text-ink-3">精选还没开始，先看最新动态。</p>
+          <p className="mb-2 text-[13px] text-ink-3">{tf.picksNotStarted}</p>
           <DayList items={latest.items} cards={latest.cards} filters={latest.filters} todayCount={latest.todayCount} showTags />
           {latest.pageCount > 1 && (
             <div className="mt-4 text-center">
-              <MoreLink to="/all?page=2">更多动态</MoreLink>
+              <MoreLink to="/all?page=2">{tf.moreNews}</MoreLink>
             </div>
           )}
         </div>
       ) : waiting ? (
         <div className="lg:card">
           <EmptyState
-            title="暂时没有符合条件的精选"
+            title={tf.noPicks}
             action={
               <Link to="/all" className="text-[13px] font-medium text-accent hover:underline">
-                查看全部矿业动态
+                {tf.viewAll}
               </Link>
             }
           >
-            当前可在全部矿业动态中阅读已收录资讯。
+            {tf.noPicksHint}
           </EmptyState>
         </div>
       ) : (

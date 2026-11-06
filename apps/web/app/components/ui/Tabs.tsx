@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useTr } from "../../i18n";
 import { Link } from "react-router";
 import { IntentLink } from "./IntentLink";
 import { IconChevronLeft, IconChevronRight } from "../icons";
@@ -52,6 +53,8 @@ export interface TabItem {
   /** A changed filter starts at its first result; ordinary panel switches retain position. */
   resetScroll?: boolean;
   count?: number | null;
+  /** A short hover hint for an option whose name alone may not explain it. */
+  title?: string;
 }
 
 const SIZES = {
@@ -86,6 +89,7 @@ export function PillTabs({
   fill?: boolean;
   className?: string;
 }) {
+  const tr = useTr();
   const links = items.some((t) => t.to);
   const wrapper = useRef<HTMLDivElement>(null),
     viewport = useRef<HTMLDivElement>(null);
@@ -126,7 +130,7 @@ export function PillTabs({
       {scroll.overflow && (
         <button
           type="button"
-          aria-label={`${label ?? "选项"}向左滚动`}
+          aria-label={`${label ?? tr("选项")}向左滚动`}
           disabled={!scroll.left}
           onClick={() => move(-1)}
           className="hidden size-9 shrink-0 place-items-center rounded-full border border-line text-ink-3 disabled:opacity-30 lg:grid"
@@ -158,7 +162,15 @@ export function PillTabs({
             const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-full font-medium outline-offset-1 transition-colors duration-150 active:scale-[0.98] ${SIZES[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
             const TabLink = t.prefetch === "intent" ? IntentLink : Link;
             return t.to ? (
-              <TabLink key={t.key} to={t.to} replace={t.replace} preventScrollReset={!t.resetScroll} aria-current={on ? "page" : undefined} className={cls}>
+              <TabLink
+                key={t.key}
+                to={t.to}
+                replace={t.replace}
+                preventScrollReset={!t.resetScroll}
+                aria-current={on ? "page" : undefined}
+                title={t.title}
+                className={cls}
+              >
                 {inner}
               </TabLink>
             ) : (
@@ -172,7 +184,7 @@ export function PillTabs({
       {scroll.overflow && (
         <button
           type="button"
-          aria-label={`${label ?? "选项"}向右滚动`}
+          aria-label={`${label ?? tr("选项")}向右滚动`}
           disabled={!scroll.right}
           onClick={() => move(1)}
           className="hidden size-9 shrink-0 place-items-center rounded-full border border-line text-ink-3 disabled:opacity-30 lg:grid"

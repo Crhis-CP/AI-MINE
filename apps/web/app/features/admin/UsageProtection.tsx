@@ -295,7 +295,10 @@ function PriceForm({ data, existing }: { data: Data; existing?: Price }) {
         <Field label="计费依据链接（HTTPS）">
           <Input type="url" readOnly={option?.registered} value={draft.basis} onChange={(e) => set("basis", e.target.value)} />
         </Field>
-        <Field label="缓存命中输入单价（元 / 百万 token）" hint="留空沿用总输入单价；0表示有依据的免费缓存。">
+        <Field
+          label="缓存命中输入单价（元 / 百万 token）"
+          hint="按供应商价格页填写（如 DeepSeek 的“输入（缓存命中）”）；留空则命中部分按总输入单价记账；0表示有依据的免费缓存。"
+        >
           <Input value={draft.cache} onChange={(e) => set("cache", e.target.value)} inputMode="decimal" />
         </Field>
         <Field label="价格观察日期">
@@ -502,7 +505,7 @@ export function UsageProtection({ data }: { data: Data | null }) {
                 </a>
                 <span className="ml-2 text-ink-3">
                   {p.price.input_per_million_micros !== null
-                    ? `输入 ${yuanRate(p.price.input_per_million_micros)} / 输出 ${yuanRate(p.price.output_per_million_micros)} 元每百万 token`
+                    ? `输入 ${yuanRate(p.price.input_per_million_micros)}${p.price.cache_hit_input_per_million_micros != null ? `（缓存命中 ${yuanRate(p.price.cache_hit_input_per_million_micros)}）` : "（未登记缓存命中价）"} / 输出 ${yuanRate(p.price.output_per_million_micros)} 元每百万 token`
                     : `按次 ${p.price.per_request_micros === null ? "费用尚须回执核实" : money(p.price.per_request_micros)}`}
                 </span>
               </li>

@@ -1,7 +1,7 @@
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
-import { stripTags } from "@amp/backend/lib/text";
+import { translate } from "./policy-automation-provider.ts";
 import { after, test } from "node:test";
 import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
@@ -13,14 +13,9 @@ import type { PolicyOriginalInput } from "../modules/policy/backend/domain/types
 import { grantDateFixture } from "./source-date-fixture.ts";
 
 const root = await initializeDb("test");
-type Part = { partId: string; sourceHash: string; source: string; format: string };
-let transform = (part: Part) => ({
-  partId: part.partId,
-  sourceHash: part.sourceHash,
-  classification: "facts",
-  facts: [{ statement: "许可适用条件", role: "scope", quote: stripTags(part.source) }],
-  zh: part.source.replaceAll("Permit applies at", "许可适用量为"),
-});
+// Requests name sources by hash only (translation memory); replies are {sourceHash, zh}.
+type Part = { sourceHash: string; source: string; format: string };
+let transform = (part: Part): Record<string, unknown> => ({ sourceHash: part.sourceHash, zh: translate(part) });
 let beforeResponse = async () => {};
 let extraParts: Part[] = [];
 let usage: { prompt_tokens: number; completion_tokens: number } | null = { prompt_tokens: 50, completion_tokens: 20 };
@@ -62,7 +57,8 @@ async function original(count = 1) {
         attachment: false,
         required: true,
         state: "acquired",
-        body: Buffer.from(`<article>${Array.from({ length: count }, (_, i) => `<p>Permit applies at ${i + 10} kg.</p>`).join("")}</article>`),
+        // The source id keeps every fixture's text distinct, so translation memory does not answer across tests.
+        body: Buffer.from(`<article>${Array.from({ length: count }, (_, i) => `<p>Permit ${id} applies at ${i + 10} kg.</p>`).join("")}</article>`),
         reason: null,
       },
     ],
@@ -84,7 +80,7 @@ test("complete originals resume by checkpoint and real responses; actual resourc
   assert.equal(second.status, "program_validated");
   assert.equal("acceptedParts" in second && second.acceptedParts, 13);
   assert.equal(requests.length - before, 2);
-  const [checkpoint] = await sql`SELECT receipt_id,attempt_id FROM policy.fulltext_parts WHERE part_id=${requests[before]!.parts[0]!.partId}`;
+  const [checkpoint] = await sql`SELECT receipt_id,attempt_id FROM policy.fulltext_parts WHERE source_hash=${requests[before]!.parts[0]!.sourceHash}`;
   const receipt = await readPolicyResponse({ receiptId: checkpoint!.receipt_id, attemptId: checkpoint!.attempt_id });
   assert.equal(receipt?.purpose, "policy_fulltext");
   assert.equal(receipt?.knownUsage, true);
@@ -102,7 +98,7 @@ test("complete originals resume by checkpoint and real responses; actual resourc
     }
   assert.equal(
     (
-      await sql`SELECT count(*)::int n FROM policy.fulltext_parts WHERE part_id IN ${sql(requests.slice(before).flatMap((r) => r.parts.map((p) => p.partId)))}`
+      await sql`SELECT count(*)::int n FROM policy.fulltext_parts WHERE source_hash IN ${sql(requests.slice(before).flatMap((r) => r.parts.map((p) => p.sourceHash)))}`
     )[0]!.n,
     13,
   );
@@ -137,7 +133,12 @@ test("two known paid failures remain capped after regrouping and another origina
     const revision = await recordPolicyOriginal({
       ...f.value,
       expectedHead: f.record.revisionId,
-      resources: [{ ...f.value.resources[0]!, body: Buffer.from("<article><p>Permit applies at 10 kg.</p><p>Permit applies at 30 kg.</p></article>") }],
+      resources: [
+        {
+          ...f.value.resources[0]!,
+          body: Buffer.from(`<article><p>Permit ${f.value.sourceId} applies at 10 kg.</p><p>Permit ${f.value.sourceId} applies at 30 kg.</p></article>`),
+        },
+      ],
     });
     assert.equal((await readPolicyOriginal(revision.expressionId))!.sequence, 2);
     const capped = await runPolicyFulltext(revision.expressionId, profile, { root, maxRequests: 2 });
@@ -164,7 +165,10 @@ test("pause while paid work is in flight leaves receipts but no promoted checkpo
   assert.equal((await pending).status, "stale");
   beforeResponse = async () => {};
   assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root })).status, "paused");
-  assert.equal((await sql`SELECT count(*)::int n FROM policy.fulltext_parts WHERE part_id IN ${sql(requests[before]!.parts.map((p) => p.partId))}`)[0]!.n, 0);
+  assert.equal(
+    (await sql`SELECT count(*)::int n FROM policy.fulltext_parts WHERE source_hash IN ${sql(requests[before]!.parts.map((p) => p.sourceHash))}`)[0]!.n,
+    0,
+  );
   await setPolicyProcessingPaused(f.record.expressionId, { expectedVersion: 2, paused: false, reason: "synthetic resume", actor: "test" });
   assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root })).status, "program_validated");
   assert.equal(requests.length - before, 1);
@@ -206,7 +210,7 @@ test("a newer immutable original rejects the in-flight old result and uses the a
   const next = await recordPolicyOriginal({
     ...f.value,
     expectedHead: f.record.revisionId,
-    resources: [{ ...f.value.resources[0]!, body: Buffer.from("<article><p>Permit applies at 25 kg.</p></article>") }],
+    resources: [{ ...f.value.resources[0]!, body: Buffer.from(`<article><p>Permit ${f.value.sourceId} applies at 25 kg.</p></article>`) }],
   });
   finish.open();
   assert.equal((await pending).status, "stale");
@@ -232,7 +236,7 @@ test("a model cannot smuggle an unrequested part of the same plan into a paid ch
     const partial = await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 1 });
     assert.equal(partial.status, "incomplete");
     assert.equal("acceptedParts" in partial && partial.acceptedParts, 12);
-    assert.equal((await sql`SELECT count(*)::int n FROM policy.fulltext_parts WHERE part_id=${extraParts[0]!.partId}`)[0]!.n, 0);
+    assert.equal((await sql`SELECT count(*)::int n FROM policy.fulltext_parts WHERE source_hash=${extraParts[0]!.sourceHash}`)[0]!.n, 0);
   } finally {
     beforeResponse = async () => {};
     extraParts = [];

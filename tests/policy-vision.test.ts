@@ -157,6 +157,8 @@ const provider = await stub(async (_hit, req) => {
     usage,
   };
 });
+// Vision is an explicit operator choice on top of the policy model stages (法规线成本设计).
+process.env.POLICY_VISION_ENABLED = "true";
 Object.assign(process.env, {
   LLM_BASE_URL: `${provider.url}/v1`,
   LLM_API_KEY: "synthetic-only",

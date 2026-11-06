@@ -11,7 +11,7 @@ import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
-import { linkRelatedStories, recoverPendingGroupings } from "@amp/backend/events/group";
+import { linkRelatedStories, recoverPendingGroupings, remergeSingleReportFacts } from "@amp/backend/events/group";
 import { enqueuePendingReportCorrections, catchUpReports } from "@amp/backend/reports/compose";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
@@ -37,6 +37,9 @@ export const SCHEDULES: Scheduled[] = [
   { name: "stories.status", cron: "7 * * * *", run: refreshStoryStatuses },
   { name: "events.membership-repair", cron: "*/2 * * * *", run: () => recoverPendingGroupings() },
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
+  // Recent facts left with one report get one bounded pairwise look an hour (at most 20 model calls, none at
+  // the provider's peak hours: rule merges still run then, judged pairs wait for the next off-peak run).
+  { name: "events.remerge", cron: "37 * * * *", run: () => remergeSingleReportFacts() },
   { name: "reports.correction-sweep", cron: "*/5 * * * *", run: () => enqueuePendingReportCorrections(20) },
   { name: "reports.catch-up", cron: "*/30 * * * *", missed: "once", run: () => catchUpReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },

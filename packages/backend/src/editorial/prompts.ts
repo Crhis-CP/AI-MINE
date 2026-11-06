@@ -57,9 +57,16 @@ export function promptVersion(...names: string[]): string {
 
 export const quoteTranslationRecipe = () => `post-quote-v1:${promptVersion("translate-post")}`;
 
-/** Existing analysis evidence is reusable only for this material revision and scope wording. */
-export function currentPrefilter(analysis: { input_revision: number; prompt_version: string | null; output: unknown } | undefined, revision: number) {
-  if (analysis?.input_revision !== revision || !analysis.prompt_version?.split("+").includes(promptVersion("prefilter"))) return null;
+/**
+ * Existing analysis evidence is reusable only for this material revision and scope wording (`version`: the prefilter's
+ * version in the analysis prompt layout in use).
+ */
+export function currentPrefilter(
+  analysis: { input_revision: number; prompt_version: string | null; output: unknown } | undefined,
+  revision: number,
+  version = promptVersion("prefilter"),
+) {
+  if (analysis?.input_revision !== revision || !analysis.prompt_version?.split("+").includes(version)) return null;
   const output = analysis.output as { prefilter?: { label?: unknown } } | null;
   const label = output?.prefilter?.label;
   return label === "PASS" || label === "BLOCK" || label === "UNKNOWN" ? label : null;

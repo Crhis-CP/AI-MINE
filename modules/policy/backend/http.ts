@@ -6,11 +6,13 @@ import {
   PolicyDetailQuery,
   PolicyReadingQuery,
   PolicyHistoryQuery,
+  PolicyComparisonQuery,
   PolicyReportQuery,
   PolicyReportDetailQuery,
 } from "@amp/contracts/http/public";
 import { listPolicies, policyScope, policyDetail, policyReading, policyHistory, policyThread, PolicyReadError } from "./read.ts";
 import { listPolicyReports, policyReport } from "./reports.ts";
+import { policyComparison } from "./compare.ts";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
 import { applyPublicHeaders, sendJsonWithEtag, sendProblem } from "@amp/backend/http";
 
@@ -23,6 +25,7 @@ export function registerPolicies(app: FastifyInstance) {
     publicPolicy: (id, q) => policyDetail(id, PolicyDetailQuery.parse(q), true),
     sitePolicyReading: (id, q) => policyReading(id, PolicyReadingQuery.parse(q)),
     sitePolicyHistory: (id, q) => policyHistory(id, PolicyHistoryQuery.parse(q)),
+    sitePolicyCompare: (id, q) => policyComparison(id, PolicyComparisonQuery.parse(q)),
     publicPolicyHistory: (id, q) => policyHistory(id, PolicyHistoryQuery.parse(q)),
     sitePolicyThread: (id) => policyThread(id),
     sitePolicyReports: (_id, q) => listPolicyReports(PolicyReportQuery.parse(q)),

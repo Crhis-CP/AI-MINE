@@ -1,4 +1,5 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
+import { useTr } from "../i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { useLoaderData, useLocation, useNavigate, useSearchParams } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
@@ -118,12 +119,13 @@ function Section({ title, children, id }: { title: string; children: ReactNode; 
   );
 }
 
-function Bullets({ items }: { items: ReactNode[] }) {
+/** `cards` lays the items out as a two-column grid of small cards (the MCP tool list, UI update 2026-11-05). */
+function Bullets({ items, cards = false }: { items: ReactNode[]; cards?: boolean }) {
   return (
-    <ul className="space-y-1.5">
+    <ul className={cards ? "grid gap-2 sm:grid-cols-2" : "space-y-1.5"}>
       {items.map((it, i) => (
-        <li key={i} className="flex gap-2">
-          <span className="mt-[11px] size-1 shrink-0 rounded-full bg-ink-4" />
+        <li key={i} className={cards ? "rounded-control border border-line bg-surface px-3.5 py-2.5 leading-[1.7]" : "flex gap-2"}>
+          {!cards && <span className="mt-[11px] size-1 shrink-0 rounded-full bg-ink-4" />}
           <span>{it}</span>
         </li>
       ))}
@@ -136,79 +138,101 @@ function Mono({ children }: { children: ReactNode }) {
 }
 
 function McpTab({ base, tag }: AgentPanelProps) {
+  const tr = useTr();
   const url = addressOf(base, "/api/mcp", tag);
   const name = SITE.mcpPrefix;
   return (
     <>
-      <h2 className="text-[20px] font-bold text-ink">加一个地址，Agent 直接调用 {MCP_TOOL_COUNT} 个工具</h2>
+      <h2 className="text-[20px] font-bold text-ink">
+        {tr("加一个地址，Agent 直接调用")} {MCP_TOOL_COUNT} {tr("个工具")}
+      </h2>
       <p className="mt-2 text-[14.5px] text-ink-3">
-        适合支持远程 MCP 的 Agent 与开发工具。标准 Streamable HTTP，匿名只读，不需要 token；工具返回简洁文字与同一份结构化数据。
+        {tr("适合支持远程 MCP 的 Agent 与开发工具。标准 Streamable HTTP，匿名只读，不需要 token；工具返回简洁文字与同一份结构化数据。")}
       </p>
       <div className="mt-6 flex items-center gap-2 rounded-card border border-line bg-surface p-3">
         <code className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{url}</code>
         <CopyButton text={url} className="!text-ink-3" />
       </div>
       {TAG && <p className="mt-2 text-[13px] text-ink-3">{TAG.mcp}</p>}
-      <CodeBlock title="通用 MCP 配置" lang="json" code={JSON.stringify({ mcpServers: { [name]: { type: "http", url } } }, null, 2)} />
+      <CodeBlock title={tr("通用 MCP 配置")} lang="json" code={JSON.stringify({ mcpServers: { [name]: { type: "http", url } } }, null, 2)} />
       <CodeBlock lang="bash" code={`# Claude Code\nclaude mcp add --transport http ${name} '${url}'\n# Codex\ncodex mcp add ${name} --url '${url}'`} />
-      <Section title={`连上后应看到这 ${MCP_TOOL_COUNT} 个工具`}>
+      <Section title={tr("连上后应看到这 {mCP_TOOL_COUNT} 个工具", { mCP_TOOL_COUNT: MCP_TOOL_COUNT })}>
         <Bullets
+          cards
           items={[
             <>
-              <Mono>{T.latest}</Mono>：过去 24 小时或最近 7 天的精选／全部资讯
+              <Mono>{T.latest}</Mono>
+              {tr("：过去 24 小时或最近 7 天的精选／全部资讯")}
             </>,
             <>
-              <Mono>{T.search}</Mono>：搜索最近 7 天的公司、产品、人物或话题
+              <Mono>{T.search}</Mono>
+              {tr("：搜索最近 7 天的公司、产品、人物或话题")}
             </>,
             <>
-              <Mono>{T.hot}</Mono>：当前热点榜与事件排名
+              <Mono>{T.hot}</Mono>
+              {tr("：当前热点榜与事件排名")}
             </>,
             <>
-              <Mono>{T.story}</Mono>：一个热点事件的时间线与持续更新的综述
+              <Mono>{T.story}</Mono>
+              {tr("：一个热点事件的时间线与持续更新的综述")}
             </>,
             <>
-              <Mono>{T.daily}</Mono>：最新或指定日期的{withSubject("日报")}
+              <Mono>{T.daily}</Mono>
+              {tr("：最新或指定日期的")}
+              {tr.subject("日报")}
             </>,
             <>
-              <Mono>{T.item}</Mono>：公开资讯详情，正文仅在允许站外再分发时返回
+              <Mono>{T.item}</Mono>
+              {tr("：公开资讯详情，正文仅在允许站外再分发时返回")}
             </>,
             <>
-              <Mono>{T.report}</Mono>：资讯日报、周报与月报
+              <Mono>{T.report}</Mono>
+              {tr("：资讯日报、周报与月报")}
             </>,
             <>
-              <Mono>{T.topics}</Mono>：已公开主题及其可读内容
+              <Mono>{T.topics}</Mono>
+              {tr("：已公开主题及其可读内容")}
             </>,
             <>
-              <Mono>{T.policy}</Mono>：法规基本事实、合格解读与官方证据入口
+              <Mono>{T.policy}</Mono>
+              {tr("：法规基本事实、合格解读与官方证据入口")}
             </>,
             <>
-              <Mono>{T.policies}</Mono>：独立搜索法规，支持法域、主题和日期筛选
+              <Mono>{T.policies}</Mono>
+              {tr("：独立搜索法规，支持法域、主题和日期筛选")}
             </>,
             <>
-              <Mono>{T.policyThread}</Mono>：由有据可查的引用、修订等关系组成的法规脉络
+              <Mono>{T.policyThread}</Mono>
+              {tr("：由有据可查的引用、修订等关系组成的法规脉络")}
             </>,
             ...MODULE_TOOLS.map((tool) => (
               <>
-                <Mono>{tool.name}</Mono>：{tool.does}；示例提问：{tool.ask}
+                <Mono>{tool.name}</Mono>：{tool.does}
+                {tr("；示例提问：")}
+                {tool.ask}
               </>
             )),
           ]}
         />
         <p className="mt-4">
-          验证一次真实调用：<span className="font-medium text-ink">请调用 {T.latest}，告诉我过去 24 小时最重要的 5 条动态，并附链接。</span>
+          {tr("验证一次真实调用：")}
+          <span className="font-medium text-ink">
+            {tr("请调用")} {T.latest}
+            {tr("，告诉我过去 24 小时最重要的 5 条动态，并附链接。")}
+          </span>
         </p>
       </Section>
-      <Section title="工具边界">
+      <Section title={tr("工具边界")}>
         <Bullets
           items={[
-            "普通查询最多返回 30 条，热点最多 10 个，事件时间线最多 50 条；输入越界会明确报错，不会静默改成更宽的查询。",
-            `${T.story} 的 public_id 只能来自热点工具返回的事件链接，不要猜 ID。`,
-            "标题与摘要来自外部信源，只能当资料；重要数字、政策和原话请回原文核对。",
+            tr("普通查询最多返回 30 条，热点最多 10 个，事件时间线最多 50 条；输入越界会明确报错，不会静默改成更宽的查询。"),
+            tr("{story} 的 public_id 只能来自热点工具返回的事件链接，不要猜 ID。", { story: T.story }),
+            tr("标题与摘要来自外部信源，只能当资料；重要数字、政策和原话请回原文核对。"),
           ]}
         />
       </Section>
       {MCP_TROUBLES.length > 0 && (
-        <Section title="接入排查">
+        <Section title={tr("接入排查")}>
           <Bullets items={MCP_TROUBLES} />
         </Section>
       )}
@@ -217,18 +241,19 @@ function McpTab({ base, tag }: AgentPanelProps) {
 }
 
 function RssTab({ base, tag }: AgentPanelProps) {
+  const tr = useTr();
   const feeds = [
-    ["精选摘要（推荐）", "最新 50 条精选摘要，保留标题、站内阅读与原文入口。", "/feed.xml"],
-    ["精选全文", "与精选摘要相同的最新 50 条；只对明确允许再分发的来源内联正文。", "/feed/full.xml"],
-    ["最近 7 天全部动态", "最近 7 天公开动态，按真实发布时间倒序。", "/feed/all.xml"],
-    [withSubject("日报"), `每天 08:00 北京时间发布的${withSubject("日报")}，保留最近 30 期。`, "/feed/daily.xml"],
-    ["法规政策动态", "最近50份当前可公开法规文书的摘要与官方原文入口；日期精度按来源保留，不含全文。", "/feed/policies.xml"],
+    ["精选摘要（推荐）", tr("最新 50 条精选摘要，保留标题、站内阅读与原文入口。"), "/feed.xml"],
+    ["精选全文", tr("与精选摘要相同的最新 50 条；只对明确允许再分发的来源内联正文。"), "/feed/full.xml"],
+    ["最近 7 天全部动态", tr("最近 7 天公开动态，按真实发布时间倒序。"), "/feed/all.xml"],
+    [tr.subject("日报"), tr.maybe(`每天 08:00 北京时间发布的${withSubject("日报")}，保留最近 30 期。`), "/feed/daily.xml"],
+    ["法规政策动态", tr("最近50份当前可公开法规文书的摘要与官方原文入口；日期精度按来源保留，不含全文。"), "/feed/policies.xml"],
   ];
   const categories = CATEGORY_KEYS.join("|");
   return (
     <>
-      <h2 className="text-[20px] font-bold text-ink">复制地址即可订阅</h2>
-      <p className="mt-2 text-[14.5px] text-ink-3">兼容主流 RSS 2.0 阅读器与 n8n、Zapier 这类自动化工具。第一次接入选精选摘要。</p>
+      <h2 className="text-[20px] font-bold text-ink">{tr("复制地址即可订阅")}</h2>
+      <p className="mt-2 text-[14.5px] text-ink-3">{tr("兼容主流 RSS 2.0 阅读器与 n8n、Zapier 这类自动化工具。第一次接入选精选摘要。")}</p>
       {RSS_LEAD && <p className="mt-2 text-[13.5px] text-ink-3">{RSS_LEAD}</p>}
       <div className="mt-6 space-y-3">
         {feeds.map(([name, desc, path]) => {
@@ -236,8 +261,8 @@ function RssTab({ base, tag }: AgentPanelProps) {
           return (
             <div key={path} className="card p-4">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[15px] font-semibold text-ink">{name}</span>
-                <CopyButton text={url} label="复制地址" className="!text-ink-3" />
+                <span className="text-[15px] font-semibold text-ink">{tr.maybe(name)}</span>
+                <CopyButton text={url} label={tr("复制地址")} className="!text-ink-3" />
               </div>
               <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{desc}</p>
               <code className="mt-2 block truncate font-mono text-[12.5px] text-ink-4">{url}</code>
@@ -246,17 +271,17 @@ function RssTab({ base, tag }: AgentPanelProps) {
         })}
       </div>
       {TAG && <p className="mt-3 text-[13px] text-ink-3">{TAG.rss}</p>}
-      <Section title="给阅读器和 Agent 的约定">
+      <Section title={tr("给阅读器和 Agent 的约定")}>
         <Bullets
           items={[
-            "支持 ETag 条件请求，未变化时返回 304；建议每 30 分钟或更慢轮询。",
-            "条目 link 指向站内阅读页，第三方原文在 description 中。",
-            "全文是白名单：只有明确允许再分发的来源内联 content:encoded，其余一律只给摘要。",
+            tr("支持 ETag 条件请求，未变化时返回 304；建议每 30 分钟或更慢轮询。"),
+            tr("条目 link 指向站内阅读页，第三方原文在 description 中。"),
+            tr("全文是白名单：只有明确允许再分发的来源内联 content:encoded，其余一律只给摘要。"),
             <>
-              分类订阅 <Mono>{`/feed/category/{${categories}}.xml`}</Mono>
+              {tr("分类订阅")} <Mono>{`/feed/category/{${categories}}.xml`}</Mono>
             </>,
             <>
-              分类全文 <Mono>{`/feed/full/category/{${categories}}.xml`}</Mono>
+              {tr("分类全文")} <Mono>{`/feed/full/category/{${categories}}.xml`}</Mono>
             </>,
           ]}
         />
@@ -266,38 +291,39 @@ function RssTab({ base, tag }: AgentPanelProps) {
 }
 
 function ApiTab({ base, tag }: AgentPanelProps) {
+  const tr = useTr();
   const curl = TAG && tag ? `curl -A ${shellQuote(TAG.userAgent(tag))}` : "curl";
   const [recipe, setRecipe] = useState(RECIPES[0]?.key ?? "");
   const selectedRecipe = RECIPES.find((candidate) => candidate.key === recipe);
   const endpoints: Array<[string, string]> = [
-    ["/api/v3/items", "当前公开资讯；支持精选、分类、来源、日期和关键词筛选"],
-    ["/api/v3/items/{id}/reading", "许可允许的正文分段与阅读依据"],
-    ["/api/v3/hot", "当前热点榜，机器出口提供名次"],
-    ["/api/v3/events/{id}", "事件详情与当前公开报道"],
-    ["/api/v3/stories/{id}", "发展线与相关事件"],
-    ["/api/v3/reports", "日报、周报、月报目录；详情使用列表返回的报告ID"],
-    ["/api/v3/policies", "当前可公开的法规政策"],
-    ["/api/v3/featured/snapshot", "当前全部精选；首次完整同步"],
-    ["/api/v3/featured/changes", "精选的新增、更正与撤选；按游标同步"],
+    ["/api/v3/items", tr("当前公开资讯；支持精选、分类、来源、日期和关键词筛选")],
+    ["/api/v3/items/{id}/reading", tr("许可允许的正文分段与阅读依据")],
+    ["/api/v3/hot", tr("当前热点榜，机器出口提供名次")],
+    ["/api/v3/events/{id}", tr("事件详情与当前公开报道")],
+    ["/api/v3/stories/{id}", tr("发展线与相关事件")],
+    ["/api/v3/reports", tr("日报、周报、月报目录；详情使用列表返回的报告ID")],
+    ["/api/v3/policies", tr("当前可公开的法规政策")],
+    ["/api/v3/featured/snapshot", tr("当前全部精选；首次完整同步")],
+    ["/api/v3/featured/changes", tr("精选的新增、更正与撤选；按游标同步")],
   ];
   return (
     <>
-      <h2 className="text-[20px] font-bold text-ink">匿名 GET，不需要 token</h2>
+      <h2 className="text-[20px] font-bold text-ink">{tr("匿名 GET，不需要 token")}</h2>
       <p className="mt-2 text-[14.5px] text-ink-3">
-        浏览器跨域、curl 和默认 HTTP SDK 都可以直接用。临时查最近内容用 items；长期维护全部精选用一次快照加增量游标。字段与错误码以{" "}
+        {tr("浏览器跨域、curl 和默认 HTTP SDK 都可以直接用。临时查最近内容用 items；长期维护全部精选用一次快照加增量游标。字段与错误码以")}{" "}
         <a href="/openapi-v3.json" className="text-accent hover:underline">
           OpenAPI 3.1
         </a>{" "}
-        为准。
+        {tr("为准。")}
       </p>
-      <CodeBlock title="第一个请求" lang="bash" code={`${curl} '${base}/api/v3/items?view=featured&limit=20'`} />
+      <CodeBlock title={tr("第一个请求")} lang="bash" code={`${curl} '${base}/api/v3/items?view=featured&limit=20'`} />
       <div className="overflow-x-auto rounded-card border border-line bg-surface">
         <table className="w-full min-w-[560px] text-left text-[13.5px]">
           <thead className="bg-bg-sunk text-ink-3">
             <tr>
-              <th className="px-3 py-2 font-medium">方法</th>
-              <th className="px-3 py-2 font-medium">路径</th>
-              <th className="px-3 py-2 font-medium">说明</th>
+              <th className="px-3 py-2 font-medium">{tr("方法")}</th>
+              <th className="px-3 py-2 font-medium">{tr("路径")}</th>
+              <th className="px-3 py-2 font-medium">{tr("说明")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -324,29 +350,32 @@ function ApiTab({ base, tag }: AgentPanelProps) {
           </Section>
         ) : null,
       )}
-      <Section title="先知道这几件事">
+      <Section title={tr("先知道这几件事")}>
         <Bullets
           items={[
-            "items 默认返回全部公开动态；只读精选时明确传 view=featured。",
-            "列表使用 next_cursor 翻页；完整精选用 snapshot 首次拿全，changes 按保存的 cursor 只取变化。",
-            "items 不带正文：返回摘要、推荐理由、站内阅读页与原文链接。",
-            "没有推送通道：按响应的 s-maxage 带 If-None-Match 轮询，没变化时是 304。",
-            "错误响应是 JSON；反馈时附上 request_id 即可定位。",
+            tr("items 默认返回全部公开动态；只读精选时明确传 view=featured。"),
+            tr("列表使用 next_cursor 翻页；完整精选用 snapshot 首次拿全，changes 按保存的 cursor 只取变化。"),
+            tr("items 不带正文：返回摘要、推荐理由、站内阅读页与原文链接。"),
+            tr("没有推送通道：按响应的 s-maxage 带 If-None-Match 轮询，没变化时是 304。"),
+            tr("错误响应是 JSON；反馈时附上 request_id 即可定位。"),
           ]}
         />
       </Section>
-      <Section title="维护全部精选：一次快照，之后只拉变化">
+      <Section title={tr("维护全部精选：一次快照，之后只拉变化")}>
         <CodeBlock
           lang="bash"
-          code={`# 首次：分页拿当前全部精选，保存第一页响应里的 cursor（逐页相同）\n${curl} '${base}/api/v3/featured/snapshot?limit=500'\n# has_more 为 true 就带 next_page 继续翻\n${curl} '${base}/api/v3/featured/snapshot?limit=500&page=<上一页的 next_page>'\n# 翻完之后：原样回传 cursor，只拿新增、修改和撤选\n${curl} '${base}/api/v3/featured/changes?cursor=<第一页响应的 cursor>&limit=100'`}
+          code={tr(
+            "# 首次：分页拿当前全部精选，保存第一页响应里的 cursor（逐页相同）\n{curl} '{base}/api/v3/featured/snapshot?limit=500'\n# has_more 为 true 就带 next_page 继续翻\n{curl} '{base}/api/v3/featured/snapshot?limit=500&page=<上一页的 next_page>'\n# 翻完之后：原样回传 cursor，只拿新增、修改和撤选\n{curl} '{base}/api/v3/featured/changes?cursor=<第一页响应的 cursor>&limit=100'",
+            { curl, base },
+          )}
         />
-        <p>每页成功应用后再保存新 cursor。返回 409 snapshot_required 时重新取一次快照即可，接口不会静默漏数。</p>
+        <p>{tr("每页成功应用后再保存新 cursor。返回 409 snapshot_required 时重新取一次快照即可，接口不会静默漏数。")}</p>
       </Section>
       {RECIPES.length > 0 && (
-        <Section title="更多用法">
+        <Section title={tr("更多用法")}>
           <PillTabs
             layoutId="agent-module-recipe"
-            label="更多用法"
+            label={tr("更多用法")}
             active={recipe}
             onSelect={setRecipe}
             items={RECIPES.map(({ key, label }) => ({ key, label }))}
@@ -354,13 +383,13 @@ function ApiTab({ base, tag }: AgentPanelProps) {
           {selectedRecipe && <selectedRecipe.Body base={base} curl={curl} />}
         </Section>
       )}
-      <Section title="错误与恢复" id="agent-api-recovery">
+      <Section title={tr("错误与恢复")} id="agent-api-recovery">
         <Bullets
           items={[
-            "400：参数不合法；按 OpenAPI 修正，不要自动改成更宽的查询。",
-            "409 snapshot_required：增量游标无法安全续传，重新取一次完整快照。",
-            "429：遵守 Retry-After，不要增加并发重试。",
-            "5xx：指数退避，暂停展示尚未重新核对的内容。",
+            tr("400：参数不合法；按 OpenAPI 修正，不要自动改成更宽的查询。"),
+            tr("409 snapshot_required：增量游标无法安全续传，重新取一次完整快照。"),
+            tr("429：遵守 Retry-After，不要增加并发重试。"),
+            tr("5xx：指数退避，暂停展示尚未重新核对的内容。"),
             ...AGENT_PARTS.flatMap((part) => part.apiErrors ?? []).map(([status, what]) => (
               <>
                 <Mono>{status}</Mono>：{what}
@@ -374,6 +403,7 @@ function ApiTab({ base, tag }: AgentPanelProps) {
 }
 
 export default function AgentPage() {
+  const tr = useTr();
   const { healthy, base, now } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const pageLocation = useLocation();
@@ -419,41 +449,41 @@ export default function AgentPage() {
   const pill = "inline-flex h-6 items-center rounded-mark border border-line bg-surface px-2 text-[11.5px] text-ink-3";
   const aside = (
     <>
-      <AsideCard title="接入资源" className="hidden lg:block">
-        <nav aria-label="接入资源" className="-mx-2 -mb-1">
+      <AsideCard title={tr("接入资源")} className="hidden lg:block">
+        <nav aria-label={tr("接入资源")} className="-mx-2 -mb-1">
           {RESOURCES.map(([l, h, note]) => (
             <a key={h} href={h} className="group flex items-start gap-2 rounded-control px-2 py-2 transition-colors hover:bg-bg-sunk">
               <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] text-ink-2 group-hover:text-ink">{l}</span>
-                <span className="mt-0.5 block text-[12px] text-ink-4">{note}</span>
+                <span className="block text-[13.5px] text-ink-2 group-hover:text-ink">{tr.maybe(l)}</span>
+                <span className="mt-0.5 block text-[12px] text-ink-4">{tr.maybe(note)}</span>
               </span>
               <IconArrowUpRight size={13} className="mt-1 shrink-0 text-ink-4" />
             </a>
           ))}
         </nav>
       </AsideCard>
-      <AsideCard title="没接上？">
-        <p className="text-[13px] leading-[1.75] text-ink-3">把客户端、版本和报错写在反馈页，别发 token 或本地文件。</p>
+      <AsideCard title={tr("没接上？")}>
+        <p className="text-[13px] leading-[1.75] text-ink-3">{tr("把客户端、版本和报错写在反馈页，别发 token 或本地文件。")}</p>
         <Link to="/feedback" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
-          去反馈 <IconChevronRight size={14} />
+          {tr("去反馈")} <IconChevronRight size={14} />
         </Link>
       </AsideCard>
     </>
   );
   return (
-    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: "我的" }} title="Agent 接入" />} aside={aside}>
+    <ReadingLayout phoneBar={<PhoneBar back={{ to: "/more", label: tr("我的") }} title={tr("Agent 接入")} />} aside={aside}>
       <header>
         <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">
-          让 Agent 直接使用 {SITE.name}
+          {tr("让 Agent 直接使用")} {SITE.name}
         </h1>
-        <p className="mt-1.5 text-[13px] text-ink-3">中文答案、MCP、RSS 和 REST API 都是匿名只读，无需 API Key。</p>
+        <p className="mt-1.5 text-[13px] text-ink-3">{tr("中文答案、MCP、RSS 和 REST API 都是匿名只读，无需 API Key。")}</p>
         <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
-          <span className={pill}>匿名只读</span>
+          <span className={pill}>{tr("匿名只读")}</span>
           <span className={`${pill} mono`}>API v3</span>
           <span className={`${pill} mono`}>MCP {MCP_VERSION}</span>
           <span className={`${pill} gap-1.5 ${healthy ? "text-ok" : "text-hot"}`}>
             <span className={`size-1.5 rounded-full ${healthy ? "bg-ok" : "bg-hot"}`} />
-            {healthy ? "服务正常" : "服务异常"}
+            {healthy ? tr("服务正常") : tr("服务异常")}
           </span>
         </div>
       </header>
@@ -463,21 +493,26 @@ export default function AgentPage() {
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] lg:hidden">
         {RESOURCES.map(([l, h]) => (
           <a key={h} href={h} className="inline-flex items-center gap-1 text-ink-2 transition-colors hover:text-accent">
-            {l} <IconArrowUpRight size={12} className="text-ink-4" />
+            {tr.maybe(l)} <IconArrowUpRight size={12} className="text-ink-4" />
           </a>
         ))}
       </div>
 
       <CodeBlock
-        title="交给能读取网页的 Agent"
+        title={tr("交给能读取网页的 Agent")}
         lang="text"
-        code={`请先阅读 ${base}/api/v1/agent，按说明查找矿业资讯、热点或报告。只使用返回的公开资料，保留来源和链接。`}
+        code={tr("请先阅读 {base}/api/v1/agent，按说明查找矿业资讯、热点或报告。只使用返回的公开资料，保留来源和链接。", { base })}
       />
-      {GUIDE_CLIENTS && <p className="mt-2 text-[13px] text-ink-3">使用同一份接入说明的客户端：{GUIDE_CLIENTS}。</p>}
+      {GUIDE_CLIENTS && (
+        <p className="mt-2 text-[13px] text-ink-3">
+          {tr("使用同一份接入说明的客户端：")}
+          {GUIDE_CLIENTS}。
+        </p>
+      )}
       <div className="sticky top-12 z-20 -mx-4 mt-7 bg-bg/90 px-4 py-2 backdrop-blur-md lg:top-0 lg:mx-0 lg:px-0">
         <PillTabs
           layoutId="agent-tab"
-          label="接入方式"
+          label={tr("接入方式")}
           active={tab}
           onSelect={(k: string) => select(k as TabKey)}
           items={TABS.map((t) => ({ key: t.key, label: t.label }))}

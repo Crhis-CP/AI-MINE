@@ -21,7 +21,11 @@ UNIFIED_APP_NAMES = {"/amp-web-1", "/amp-api-1", "/amp-worker-1"}
 REPOS = {"amp-app", "amp-release", "amp-rollback", "amp-retained"}
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}\Z")
 SOCKET = "unix:///var/run/docker.sock"
-OPS = Path("/opt/aimine/.ops")
+# Deployment locations and the public host; defaults are the reference production values (DEC-78).
+ROOT = os.environ.get("AIMINE_ROOT", "/opt/aimine")
+BACKUP_ROOT = os.environ.get("AIMINE_BACKUP_ROOT", "/opt/aimine-backup")
+HOST = os.environ.get("AIMINE_HOST", "aiminingpolicy.com")
+OPS = Path(ROOT) / ".ops"
 
 
 def docker(*args):
@@ -70,7 +74,7 @@ def current_release(containers, now, minimum_uptime=600):
 
 
 def health():
-    request = urllib.request.Request("http://127.0.0.1:3000/api/health", headers={"Host": "aiminingpolicy.com"})
+    request = urllib.request.Request("http://127.0.0.1:3000/api/health", headers={"Host": HOST})
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *args, **kwargs):
             return None
@@ -324,7 +328,8 @@ def remove_expired_recovery(root, window, evidence_path):
         save(evidence_path, evidence)
     return evidence["removed"]
 
-def quality_blockers(release, path="/opt/aimine/.ops/release-quality-gate.json"):
+def quality_blockers(release, path=None):
+    path = path or str(OPS / "release-quality-gate.json")
     path = Path(path)
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
         return ["Quality acceptance record missing or invalid"]
@@ -402,7 +407,7 @@ def execute(args):
     managed = state["managed_images"]
     result = {"current": state["history"][0], "history": state["history"], "release": release}
     if args.apply:
-        retry_pending("/opt/aimine", result["release"])
+        retry_pending(ROOT, result["release"])
     quality_pending = quality_blockers(result["release"])
     if quality_pending:
         print(json.dumps({"status": "blocked", "reasons": quality_pending, **result}), flush=True)
@@ -503,7 +508,7 @@ def main():
     parser.add_argument("--automatic", action="store_true")
     parser.add_argument("--seed", action="append", default=[], help="Initial exact rollback image ID (up to two)")
     parser.add_argument("--state-dir", default="/var/lib/aimine-maintenance")
-    parser.add_argument("--backup-dir", default="/opt/aimine-backup")
+    parser.add_argument("--backup-dir", default=BACKUP_ROOT)
     args = parser.parse_args()
     if args.apply:
         # Same lock used by production release operations. Never hold the app's database locks.
