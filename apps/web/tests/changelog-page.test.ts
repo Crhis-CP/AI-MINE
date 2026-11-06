@@ -126,11 +126,13 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   // The 2.0 notice has no showcase of its own and keeps its paragraphs, and its steps are drawn as a chain.
   assert.match(page, /合成说明。/);
   for (const step of ["收集", "筛选", "归并", "精选", "发布", "合成筛选说明。", "合成订阅"]) assert.match(page, new RegExp(step), step);
-  // Five steps are threaded on one gathering line: many lines come in and close to one; each step numbered under its stretch.
+  // Five steps on a dark pipeline screen: labelled sources feed glass step cards, lanes thin from card to card, what
+  // 筛选 lets go turns off into a bin; the words for each step sit under the screen, numbered with their codes.
   assert.match(page, /很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。/);
-  assert.ok((page.match(/<path d="M0 [^"]*"[^>]*stroke="url\(#[\w-]*-beam\)"/g)?.length ?? 0) >= 30, "many lines come in");
-  assert.ok((page.match(/<path d="M0 [^"]*990 100"[^>]*stroke="url\(#[\w-]*-beam\)"/g)?.length ?? 0) >= 1, "and close to one line out");
+  for (const source of ["部委", "协会", "矿企", "媒体", "交易所", "海外", "无关 · 重复", "PIPELINE"]) assert.match(page, new RegExp(source), source);
+  for (const code of ["INPUT", "FILTER", "MERGE", "SELECT", "OUTPUT"]) assert.match(page, new RegExp(`>${code}<`), code);
   for (const n of ["01", "02", "03", "04", "05"]) assert.match(page, new RegExp(`>${n}<`), n);
-  // The server sends the still line: news starts moving only after the browser says the reader allows motion.
-  assert.doesNotMatch(page, /<animateMotion/);
+  // It moves like a running console, all in CSS so reduced motion keeps it still; no SVG animation CSS could not stop.
+  for (const motion of ["flow-comet", "flow-node", "flow-scan-card", "flow-spin", "flow-sweep"]) assert.match(page, new RegExp(`class="${motion}`), motion);
+  assert.doesNotMatch(page, /<animate(?:Motion)?\b/);
 });
