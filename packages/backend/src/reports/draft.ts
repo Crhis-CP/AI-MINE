@@ -5,9 +5,12 @@ import { REPORT_VERSION, reportSection, SECTION_ORDER, periodGroups, type writeP
 import type { Candidate } from "./compose.ts";
 
 /** Prepare a rule issue without changing its publication or revision. */
-export async function dailyDraft(date: string, start: Date, end: Date) {
+export async function dailyDraft(date: string, start: Date, end: Date, keepLead: string | null = null) {
   const edition = await dailyEdition(date, start, end);
-  const arranged = arrangeDaily(edition.entries.filter((entry) => reportSection(entry.category)));
+  const arranged = arrangeDaily(
+    edition.entries.filter((entry) => reportSection(entry.category)),
+    keepLead,
+  );
   arranged.flashes = [...arranged.flashes, ...edition.entries.filter((entry) => !reportSection(entry.category))].slice(0, 10);
   const perSection = new Map<string, typeof arranged.main>();
   for (const entry of arranged.main) {

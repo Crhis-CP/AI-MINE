@@ -19,7 +19,7 @@ import { loadTopicTags } from "./topics.ts";
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { sql, withCustomPlans, type Db } from "../db.ts";
 import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
-import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
+import { storiesWithdrawalAffected, storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 import { readDigestDetail, storyStatusFor } from "../events/digest.ts";
 import { TITLE_KEY_MIN_CHARS, titleKey } from "../events/relate.ts";
 import { siteUrl, storyUrl } from "./links.ts";
@@ -113,6 +113,16 @@ export function storyLine<R extends LineReport>(rows: R[]) {
     /** Every fact with a listed report to the index of its development. */
     developmentOfFact: new Map(rows.map((r) => [r.fact_id, index.get(developmentFact(r.fact_id))!])),
   };
+}
+
+/**
+ * What readers see as a development's title. A fact's title was written from one of its reports and is not rewritten when
+ * that report is withdrawn or loses its original-post grant, so a story touched by either (`guarded`) names each
+ * development after its earliest report that is still public. Story page, hot list and feed cards all read titles here.
+ */
+export function developmentTitle(factTitle: string, members: { title: string; at: Date }[], guarded: boolean) {
+  if (!guarded) return factTitle;
+  return [...members].sort((a, b) => a.at.getTime() - b.at.getTime())[0]?.title ?? "";
 }
 
 /** Each story's listed reports for the feed's progress line, chosen as on the story page (storyReports). */
@@ -306,7 +316,7 @@ async function storyContent(storyId: number, now: Date) {
       const rep = pickRepresentative(members);
       return {
         factId: f.public_id,
-        title: admissionAffected ? rep.title : f.title,
+        title: developmentTitle(f.title, members, admissionAffected || affected),
         occurredAt: f.occurred_at?.toISOString() ?? null,
         firstReportAt: d.first.toISOString(),
         reportCount: members.length,
@@ -398,16 +408,17 @@ async function sparklines(storyIds: number[], at: Date): Promise<Map<number, Arr
   return out;
 }
 
-/** Each story's newest development title (storyLine); null for a story whose fact titles may describe withdrawn grants. */
-async function newestDevelopments(storyIds: number[], now: Date): Promise<Map<number, string | null>> {
+/** Each story's newest development title (storyLine), named as on the story page (developmentTitle). Exported for tests. */
+export async function newestDevelopments(storyIds: number[], now: Date): Promise<Map<number, string>> {
   const ids = [...new Set(storyIds)];
   if (!ids.length) return new Map();
-  const [rows, affected] = await Promise.all([readStoryReportLines(ids, now), originalPostAffectedStories(ids)]);
-  const out = new Map<number, string | null>();
+  const [rows, admission, withdrawn] = await Promise.all([readStoryReportLines(ids, now), originalPostAffectedStories(ids), storiesWithdrawalAffected(ids)]);
+  const out = new Map<number, string>();
   for (const id of ids) {
     const own = rows.filter((r) => r.story_id === id);
     const last = storyLine(own).developments.at(-1);
-    if (last) out.set(id, affected.has(id) ? null : (own.find((r) => r.fact_id === last.factId)?.fact_title ?? null));
+    const factTitle = own.find((r) => r.fact_id === last?.factId)?.fact_title ?? "";
+    if (last) out.set(id, developmentTitle(factTitle, last.members, admission.has(id) || withdrawn.has(id)));
   }
   return out;
 }

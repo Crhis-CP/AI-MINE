@@ -27,21 +27,6 @@ type Report = {
   generated_at: Date;
 };
 /**
- * A past daily issue keeps the story it led with while that story is still in it (Owner 2026-11-06: past issues kept
- * changing under readers): late reports join the issue without taking its front page.
- */
-export function keepDailyLead(previous: StoredReportContent | undefined, next: StoredReportContent): StoredReportContent {
-  const id = typeof previous?.leadItemId === "string" ? previous.leadItemId : null;
-  if (!id || id === next.leadItemId) return next;
-  const entry = (next.sections ?? []).flatMap((section) => section.items ?? []).find((item) => item.itemId === id);
-  if (!entry || typeof entry.title !== "string") return next;
-  const highlights = [next.leadItemId, ...(Array.isArray(next.highlights) ? next.highlights : [])]
-    .filter((other): other is string => typeof other === "string" && other !== id)
-    .slice(0, 3);
-  return { ...next, leadItemId: id, lead: { title: entry.title, leadParagraph: entry.summary }, highlights };
-}
-
-/**
  * Whether a revision corrects what readers already saw: a story the issue showed is gone, or a correction is pending.
  * Late reports joining an issue, or its overview being rewritten, are not corrections (Owner 2026-11-06: “日报里面老是有
  * 修订这种不应该出现的出现”); those revisions stay in the internal revision record only.
@@ -84,9 +69,10 @@ function sameFacts(a: StoredReportContent, b: StoredReportContent) {
     return false;
   }
 }
-async function prepare(kind: ReportKind, key: string) {
+/** `keepLead`: the story a published daily issue leads with stays its lead while still in it (arrangeDaily). */
+async function prepare(kind: ReportKind, key: string, keepLead: string | null = null) {
   const range = periodWindow(kind, key);
-  if (kind === "daily") return { ...(await dailyDraft(key, range.from, range.until)), range, top: [], period: null };
+  if (kind === "daily") return { ...(await dailyDraft(key, range.from, range.until, keepLead)), range, top: [], period: null };
   const period = await periodEntries(range.start, range.end),
     top = period.entries.slice(0, kind === "weekly" ? 20 : 30);
   return {
@@ -129,8 +115,7 @@ export async function reconcileReport(kind: ReportKind, key: string) {
       return { status: "withdrawn" };
     }
     const publication = await requireRuntimeRunning("news", ["publication"]);
-    const prepared = await prepare(kind, key);
-    if (kind === "daily" && old) prepared.content = keepDailyLead(old.content, prepared.content as StoredReportContent) as typeof prepared.content;
+    const prepared = await prepare(kind, key, kind === "daily" && typeof old?.content?.leadItemId === "string" ? old.content.leadItemId : null);
     const hash = sha256(stableJson(facts(prepared.content)));
     const pending = kind === "daily" ? Number((prepared.content as { generator?: { pendingSelections?: number } }).generator?.pendingSelections ?? 0) : 0;
     if (prepared.waiting && (!old || pending > 0)) {

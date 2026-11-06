@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { closeDb, sql } from "@amp/backend/db";
 import { schemas } from "@amp/contracts/http/public";
 import { loadPool } from "@amp/backend/publication/pool";
-import { loadStoryDetail, v1Story } from "@amp/backend/publication/stories";
+import { loadStoryDetail, newestDevelopments, v1Story } from "@amp/backend/publication/stories";
 import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/groups";
 import { storyAnswer } from "../packages/backend/src/publication/agent.ts";
 import { groundedIn, namesCalendarDate, readDigestDetail } from "@amp/backend/events/digest";
@@ -69,6 +69,30 @@ test("a card later on a story's line names its step and the development before i
   const cards = schemas.ReportGroupedPoolResponse.parse(JSON.parse(JSON.stringify(page))).cards!;
   assert.equal(cards.length, 3);
   assert.deepEqual(cards.map((c) => c.storyProgress?.position).sort(), [1, 2, 3]);
+});
+
+test("a fact named by a report later withdrawn is named after its public report on every surface", async () => {
+  // Codex review (#350): fact titles are written from a report and not rewritten when it is withdrawn.
+  const f = await story(2);
+  const [source] = await sql<{ source_id: string }[]>`SELECT source_id FROM publications WHERE article_id=${f.ids[1]!}`;
+  const id = `${f.key}-public`,
+    at = new Date(now.getTime() - 3600000),
+    url = `https://example.invalid/${id}`;
+  await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at,language,body_text,raw)
+    VALUES(${id},${source!.source_id},${id},${url},'合成公开报道：产量指引下调',${at},${at},'zh','合成正文','{}')`;
+  await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visibility,eligible,selected,search_text,tags,fact_id,story_id)
+    VALUES(${id},'合成公开报道：产量指引下调','合成公开导读',${source!.source_id},'news',${url},${at},${at},${at},${at},'public',true,false,${f.key},${[f.key]},${f.factIds[1]!},${f.story.id})`;
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${f.factIds[1]!},${id},'report',1)`;
+  const card = { id: f.ids[0]!, fact_id: f.factIds[0]!, story_id: f.story.id, story_public_id: f.story.public_id, story_title: "合成事件" };
+  // Nothing withdrawn: the fact's own title everywhere.
+  assert.equal((await loadStoryProgress([card], now)).get(f.ids[0]!)!.latest?.title, "合成进展2");
+  assert.equal((await newestDevelopments([f.story.id], now)).get(f.story.id), "合成进展2");
+  await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${f.ids[1]!}`;
+  const named = "合成公开报道：产量指引下调";
+  assert.equal((await loadStoryDetail(f.story.id, now))!.developments[0]!.title, named, "story page");
+  assert.equal((await newestDevelopments([f.story.id], now)).get(f.story.id), named, "hot list");
+  assert.equal((await loadStoryProgress([card], now)).get(f.ids[0]!)!.latest?.title, named, "feed card");
+  assert.equal((await v1Story(f.story.id))!.story.latest, named, "API and agent");
 });
 
 test("a single development without background carries no progress hint", async () => {

@@ -3,7 +3,8 @@
 import type { StoryProgress } from "@amp/contracts/site";
 import { sql, type Db } from "../db.ts";
 import { readHistoricalBackground } from "./historical-background.ts";
-import { originalPostAffectedStories, readStoryReportLines, storyLine } from "./stories.ts";
+import { developmentTitle, originalPostAffectedStories, readStoryReportLines, storyLine } from "./stories.ts";
+import { storiesWithdrawalAffected } from "./withdrawals.ts";
 
 export interface ProgressCard {
   id: string;
@@ -27,6 +28,8 @@ export async function loadStoryProgress(cards: ProgressCard[], now: Date, db: Db
   );
   // Fact titles of stories whose original-post grants changed may describe material no longer shown: stay quiet.
   const affected = await originalPostAffectedStories(storyIds, db);
+  // A withdrawn report may have named its fact: those stories' developments are named after public reports.
+  const withdrawn = await storiesWithdrawalAffected(storyIds, db);
   const background = new Map<string, number>();
   for (const publicId of withBackground) background.set(publicId, (await readHistoricalBackground(publicId, db)).length);
   const lines = new Map(
@@ -43,7 +46,9 @@ export async function loadStoryProgress(cards: ProgressCard[], now: Date, db: Db
     const index = developmentOf.get(card.id) ?? developmentOfFact.get(card.fact_id!) ?? -1;
     const backgroundCount = background.get(card.story_public_id!) ?? 0;
     if (index < 0 || (developments.length <= 1 && backgroundCount === 0)) continue;
-    const point = (d: (typeof developments)[number] | undefined) => (d ? { title: titles.get(d.factId) ?? "", at: d.first.toISOString() } : null);
+    const guarded = withdrawn.has(card.story_id!);
+    const point = (d: (typeof developments)[number] | undefined) =>
+      d ? { title: developmentTitle(titles.get(d.factId) ?? "", d.members, guarded), at: d.first.toISOString() } : null;
     out.set(card.id, {
       story: { publicId: card.story_public_id!, title: card.story_title ?? "" },
       developmentCount: developments.length,
