@@ -521,43 +521,53 @@
 }
 
 /*
- * The changelog's gathering line (TASK-0564): short lights race along the lines, a scan sweeps the filter stretch,
- * rings ping where strands join and at the outlets, a reticle turns on the bright point. With reduced motion they
- * all stay still or hidden (below).
+ * The changelog's pipeline screen (TASK-0564): comets race along the lanes (each lane sets --from, --to and
+ * --flow-ms), a wave of light passes through the step cards, a scan reads the filter card, a gradient border turns
+ * round the pick, a sheen sweeps the screen, outlets ping. With reduced motion they all stay still or hidden (below).
  */
-@keyframes flow-pulse {
+@keyframes flow-comet {
   from {
-    stroke-dashoffset: 0.06;
+    stroke-dashoffset: var(--from);
   }
   to {
-    stroke-dashoffset: -1;
+    stroke-dashoffset: var(--to);
   }
 }
-@keyframes flow-relay {
-  0% {
-    stroke-dashoffset: 0.12;
-  }
-  22%,
-  100% {
-    stroke-dashoffset: -1;
-  }
-}
-@keyframes flow-scan {
+@keyframes flow-node {
   0%,
+  34%,
   100% {
-    transform: translate(0, 0);
+    border-color: rgb(226 176 79 / 0.35);
+    box-shadow: 0 0 0 0 rgb(226 176 79 / 0);
   }
-  50% {
-    transform: translate(var(--flow-scan-x, 0), var(--flow-scan-y, 0));
+  12% {
+    border-color: rgb(255 236 190 / 0.95);
+    box-shadow: 0 0 22px 0 rgb(226 176 79 / 0.5);
+  }
+}
+@keyframes flow-scan-card {
+  from {
+    transform: translateY(-110%);
+  }
+  to {
+    transform: translateY(110%);
+  }
+}
+@keyframes flow-sweep {
+  from {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(420%) skewX(-18deg);
   }
 }
 @keyframes flow-ping {
   from {
     transform: scale(1);
-    opacity: 0.9;
+    opacity: 0.8;
   }
   to {
-    transform: scale(4.2);
+    transform: scale(1.3);
     opacity: 0;
   }
 }
@@ -566,29 +576,32 @@
     transform: rotate(360deg);
   }
 }
-.flow-pulse {
-  stroke-dasharray: 0.06 2;
-  stroke-dashoffset: 0.06;
-  animation: flow-pulse var(--flow-ms, 4s) linear infinite;
+@keyframes flow-blink {
+  50% {
+    opacity: 0.2;
+  }
 }
-.flow-relay {
-  stroke-dasharray: 0.12 2;
-  stroke-dashoffset: 0.12;
-  animation: flow-relay var(--flow-ms, 5s) linear infinite;
+.flow-comet {
+  stroke-dashoffset: var(--from);
+  animation: flow-comet var(--flow-ms, 2s) linear infinite;
 }
-.flow-scan {
-  animation: flow-scan 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+.flow-node {
+  animation: flow-node 3.6s ease-in-out infinite;
+}
+.flow-scan-card {
+  animation: flow-scan-card 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+.flow-sweep {
+  animation: flow-sweep 7s ease-in-out infinite;
 }
 .flow-ping {
-  transform-box: fill-box;
-  transform-origin: center;
-  opacity: 0;
-  animation: flow-ping 2.4s var(--ease-out-quart) infinite;
+  animation: flow-ping 2.2s var(--ease-out-quart) infinite;
 }
 .flow-spin {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: flow-spin 10s linear infinite;
+  animation: flow-spin 3.2s linear infinite;
+}
+.flow-blink {
+  animation: flow-blink 1.4s steps(2, jump-none) infinite;
 }
 
 /* A light that keeps traveling the notice line after the entrance has finished. */
@@ -656,14 +669,16 @@
   .notice-sheen,
   .notice-sheen-y,
   .notice-breathe,
-  .flow-pulse,
-  .flow-relay,
-  .flow-scan,
+  .flow-comet,
+  .flow-scan-card,
+  .flow-sweep,
   .flow-ping {
     animation: none;
     opacity: 0;
   }
-  .flow-spin {
+  .flow-node,
+  .flow-spin,
+  .flow-blink {
     animation: none;
   }
 }

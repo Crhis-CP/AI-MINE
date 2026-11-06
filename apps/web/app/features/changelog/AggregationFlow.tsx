@@ -1,18 +1,14 @@
-// The site's steps as one gathering line (Owner 2026-11-06: “穿起来，一条收束线”, many in and a few out, drawn with care).
-// Drawn like the site's survey map: fine hairlines, evenly spaced, in the brand's gold. Each step has its own stretch of
-// the line, set off by dashed survey marks, with its words right under it (beside it on a phone, where the line runs
-// down the page):
-//   采集  many lines come in across the whole height;
-//   筛选  the outer lines turn away and fade, the rest draw in;
-//   归并  the lines that tell the same story run together, a few strands;
-//   精选  the strands close to a bright point;
-//   发布  from that point the line opens to where readers read.
-// No counts are drawn: the closing of the lines tells the scale. Drawn from fixed numbers, so the server and the browser
-// draw the same. It moves like an instrument at work (Owner 2026-11-06: “充满科技感的动态设计”): short lights race along
-// the lines, a scan sweeps the filter stretch, rings ping where strands join and at the outlets, a reticle turns on the
-// bright point. All of it is CSS (app.css, flow-*), so a reader who asks for less motion gets the still drawing.
+// How the site picks what readers see, drawn as a working pipeline on a dark screen (Owner 2026-11-06: “穿起来，一条
+// 收束线”, then “充满科技感的动态设计”, “更炫酷科技化，学习网上风格” — the dark product-pipeline look of developer and
+// payments sites). Labelled sources send lanes into five glass step cards in turn; at 筛选 two lanes turn off into a
+// bin for the off-topic and repeated; the lanes thin from card to card, 5 → 3 → 2 → 1, and 发布 opens to the outlets.
+// Comets race along the lanes, a wave of light passes through the cards, a scan reads 筛选, a gradient border turns
+// round 精选, a sheen sweeps the screen. The words for each step sit under the screen. No counts are drawn: the
+// thinning of the lanes tells the scale.
+// Drawn from fixed numbers, so the server and the browser draw the same. All motion is CSS (app.css, flow-*), so a
+// reader who asks for less motion gets the still screen; the screen is decoration, the steps' words carry the content.
 import { useId, useState } from "react";
-import { useTr } from "../../i18n";
+import { type Phrase, useTr } from "../../i18n";
 
 export interface FlowStation {
   name: string;
@@ -20,394 +16,391 @@ export interface FlowStation {
   text: string;
 }
 
-const W = 1000,
-  H = 200,
-  MID = 100,
-  /** How far from the middle a line at the edge sits, in the wide drawing. */
-  SPREAD = 88;
-const LINES = 36;
-/** Lines this close to the middle are kept at 筛选; the outer ones turn away. */
-const KEEP = 0.58;
-/** Where the line closes to a point, inside 发布. */
-const FOCUS = 880;
+type Side = "l" | "r" | "t" | "b";
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+interface Layout {
+  W: number;
+  H: number;
+  /** Which way the lanes run from step to step: across on a wide screen, down on a phone. */
+  across: boolean;
+  sources: Box[];
+  steps: Box[];
+  bin: Box;
+  outlets: Box[];
+}
 
-type Point = readonly [number, number];
+const GOLD = "#e2b04f",
+  GOLD_HI = "#fff1c9",
+  EMBER = "#e0705a";
+const SOURCES = ["部委", "协会", "矿企", "媒体", "交易所", "海外"] as const satisfies readonly Phrase[];
+const CODES = ["INPUT", "FILTER", "MERGE", "SELECT", "OUTPUT"] as const;
+/** How many lanes leave each step for the next: the stream thins as it goes. */
+const LANES = [5, 3, 2, 1] as const;
+
+const WIDE: Layout = {
+  W: 1000,
+  H: 330,
+  across: true,
+  sources: SOURCES.map((_, i) => ({ x: 48, y: 50 + i * 46, w: 68, h: 26 })),
+  steps: [195, 360, 525, 690, 850].map((x) => ({ x, y: 165, w: 100, h: 50 })),
+  bin: { x: 360, y: 292, w: 118, h: 28 },
+  outlets: [105, 165, 225].map((y) => ({ x: 956, y, w: 64, h: 28 })),
+};
+const TALL: Layout = {
+  W: 360,
+  H: 800,
+  across: false,
+  sources: SOURCES.map((_, i) => ({ x: 70 + (i % 3) * 110, y: 44 + Math.floor(i / 3) * 40, w: 92, h: 28 })),
+  steps: [205, 330, 455, 580, 705].map((y) => ({ x: 180, y, w: 128, h: 50 })),
+  bin: { x: 312, y: 392, w: 84, h: 28 },
+  outlets: [70, 180, 290].map((x) => ({ x, y: 775, w: 92, h: 28 })),
+};
+
+const OUT: Record<Side, readonly [number, number]> = { l: [-1, 0], r: [1, 0], t: [0, -1], b: [0, 1] };
 const f = (n: number) => Number(n.toFixed(1));
 
-interface Line {
-  kept: boolean;
-  /** Along the line (0–1000) and across it (−1 to 1). */
-  points: Point[];
+/** A point on a box's edge, `offset` along that edge from its middle. */
+function edge(box: Box, side: Side, offset = 0): [number, number] {
+  if (side === "l" || side === "r") return [box.x + (side === "r" ? box.w / 2 : -box.w / 2), box.y + offset];
+  return [box.x + offset, box.y + (side === "b" ? box.h / 2 : -box.h / 2)];
 }
 
-const GEOMETRY: Line[] = Array.from({ length: LINES }, (_, i) => {
-  const o = -1 + (2 * (i + 0.5)) / LINES;
-  if (Math.abs(o) > KEEP) {
-    const away = Math.sign(o) * Math.min(1.16, Math.abs(o) * 1.28);
-    return {
-      kept: false,
-      points: [
-        [0, o],
-        [200, o * 0.9],
-        [350, away],
-      ],
-    };
-  }
-  const u = o / KEEP;
+interface Lane {
+  d: string;
+  /** A little over the lane's length, for its comet's dashes. */
+  len: number;
+}
+
+/** A lane leaving one box by one side and entering another by another, bending smoothly between. */
+function lane(from: Box, fromSide: Side, fromOffset: number, to: Box, toSide: Side, toOffset: number): Lane {
+  const [x0, y0] = edge(from, fromSide, fromOffset);
+  const [x1, y1] = edge(to, toSide, toOffset);
+  const reach = Math.hypot(x1 - x0, y1 - y0);
+  const pull = reach * 0.5;
+  const [ox, oy] = OUT[fromSide];
+  const [ix, iy] = OUT[toSide];
   return {
-    kept: true,
-    points: [
-      [0, o],
-      [200, o * 0.86],
-      [400, u * 0.36],
-      [600, (Math.round(u * 2) / 2) * 0.27],
-      [800, Math.round(u) * 0.07],
-      [FOCUS, 0],
-      [990, Math.round(u) * 0.3],
-    ],
+    d: `M${f(x0)} ${f(y0)} C${f(x0 + ox * pull)} ${f(y0 + oy * pull)} ${f(x1 + ix * pull)} ${f(y1 + iy * pull)} ${f(x1)} ${f(y1)}`,
+    len: Math.round(reach * 1.25),
   };
-});
-
-/** A smooth run through the points, level at each one, so the line crosses every step mark straight. */
-function run(points: readonly Point[]): string {
-  let d = `M${f(points[0]![0])} ${f(points[0]![1])}`;
-  for (let i = 1; i < points.length; i++) {
-    const [x0, y0] = points[i - 1]!;
-    const [x1, y1] = points[i]!;
-    const mid = (x0 + x1) / 2;
-    d += ` C${f(mid)} ${f(y0)} ${f(mid)} ${f(y1)} ${f(x1)} ${f(y1)}`;
-  }
-  return d;
-}
-/** The same, running down the page: level across, so the pieces of a phone's rail join without a kink. */
-function runDown(points: readonly Point[]): string {
-  let d = `M${f(points[0]![0])} ${f(points[0]![1])}`;
-  for (let i = 1; i < points.length; i++) {
-    const [x0, y0] = points[i - 1]!;
-    const [x1, y1] = points[i]!;
-    const mid = (y0 + y1) / 2;
-    d += ` C${f(x0)} ${f(mid)} ${f(x1)} ${f(mid)} ${f(x1)} ${f(y1)}`;
-  }
-  return d;
 }
 
-const WIDE = GEOMETRY.map((line) => ({ ...line, d: run(line.points.map(([x, p]) => [x, MID + p * SPREAD] as Point)) }));
+const spread = (k: number, n: number, gap: number) => (k - (n - 1) / 2) * gap;
 
-/** Where a line sits across at any point along it, for cutting the phone's rail into the steps' stretches. */
-function across(points: readonly Point[], x: number): number {
-  for (let i = 1; i < points.length; i++) {
-    const [x0, p0] = points[i - 1]!;
-    const [x1, p1] = points[i]!;
-    if (x <= x1) {
-      const t = (x - x0) / (x1 - x0);
-      return p0 + (p1 - p0) * t * t * (3 - 2 * t);
-    }
-  }
-  return points.at(-1)![1];
+function lanes(layout: Layout) {
+  const { across, sources, steps, bin, outlets } = layout;
+  const [enter, leave]: [Side, Side] = across ? ["l", "r"] : ["t", "b"];
+  return {
+    sources: sources.map((source, i) => lane(source, leave, 0, steps[0]!, enter, spread(i, sources.length, across ? 6 : 8))),
+    main: LANES.flatMap((n, j) => Array.from({ length: n }, (_, k) => lane(steps[j]!, leave, spread(k, n, 9), steps[j + 1]!, enter, spread(k, n, 5)))),
+    drop: [0, 1].map((k) => lane(steps[1]!, across ? "b" : "r", spread(k, 2, across ? 18 : 12), bin, "t", spread(k, 2, 18))),
+    out: outlets.map((outlet, k) => lane(steps[4]!, leave, spread(k, 3, 8), outlet, enter, 0)),
+  };
 }
 
-/** The colour of the line along its way: a quiet warm grey that turns to gold and ends bright. */
-const TONE: readonly { color: string; opacity: number }[] = [
-  { color: "var(--ink-4)", opacity: 0.5 },
-  { color: "var(--ink-4)", opacity: 0.6 },
-  { color: "var(--accent)", opacity: 0.6 },
-  { color: "var(--accent)", opacity: 0.8 },
-  { color: "var(--accent)", opacity: 1 },
-  { color: "var(--accent)", opacity: 1 },
-];
+/** A pseudo-random number from an index, so the comets start at different points but render the same each time. */
+const jitter = (i: number) => {
+  const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
 
-/** What each step does, as an instrument would label it. */
-const CODES = ["INPUT", "FILTER", "MERGE", "SELECT", "OUTPUT"] as const;
-/** Where the strands that tell the same story run together, at the end of 归并. */
-const JOINS = [-1, -0.5, 0, 0.5, 1].map((k) => MID + k * 0.27 * SPREAD);
-const OUTLETS = [-1, 0, 1].map((k) => MID + k * 0.3 * SPREAD);
-
-/** A phone's rail: the line's stretch for one step, running down beside its words. */
-function Rail({ step, id }: { step: number; id: string }) {
-  const from = step * 200,
-    to = from + 200;
-  const half = 26;
-  const toRail = (x: number, p: number): Point => [28 + p * half, (x - from) / 2];
-  const lines = GEOMETRY.filter((_, i) => i % 2 === 0).flatMap((line) => {
-    const end = line.points.at(-1)![0];
-    if (end <= from) return [];
-    const inside = line.points.filter(([x]) => x > from && x < Math.min(to, end));
-    const last = Math.min(to, end);
-    const points = [toRail(from, across(line.points, from)), ...inside.map(([x, p]) => toRail(x, p)), toRail(last, across(line.points, last))];
-    return [{ kept: line.kept, d: runDown(points) }];
+/** A comet on a lane: a bright head leading a fading tail, both racing the lane's length. */
+function Comet({ lane: { d, len }, i, ms, color, filter }: { lane: Lane; i: number; ms: number; color: string; filter: string }) {
+  const tail = 34,
+    head = 6;
+  const delay = `${(-jitter(i) * ms).toFixed(0)}ms`;
+  const motion = (from: number, to: number) => ({
+    ["--from" as string]: `${from}`,
+    ["--to" as string]: `${to}`,
+    ["--flow-ms" as string]: `${Math.round(ms)}ms`,
+    animationDelay: delay,
   });
-  const relayed = lines.filter((line, k) => line.kept && k % 3 === 1);
   return (
-    <svg viewBox="0 0 56 100" preserveAspectRatio="none" className="absolute inset-y-0 left-0 h-full w-14" aria-hidden="true">
-      <defs>
-        <linearGradient id={`${id}-rail-${step}`} x1="0" y1="0" x2="0" y2="100" gradientUnits="userSpaceOnUse">
-          <stop offset="0" style={{ stopColor: TONE[step]!.color, stopOpacity: TONE[step]!.opacity }} />
-          <stop offset="1" style={{ stopColor: TONE[step + 1]!.color, stopOpacity: TONE[step + 1]!.opacity }} />
-        </linearGradient>
-        <linearGradient id={`${id}-rail-fade-${step}`} x1="0" y1="0" x2="0" y2="100" gradientUnits="userSpaceOnUse">
-          <stop offset={step === 0 ? "0" : "0.15"} stopColor="white" stopOpacity={step === 0 ? 0 : 1} />
-          <stop offset={step === 0 ? "0.35" : "0.6"} stopColor="white" stopOpacity={step === 0 ? 1 : 0} />
-        </linearGradient>
-        <mask id={`${id}-rail-mask-${step}`} maskUnits="userSpaceOnUse" x="-10" y="-10" width="76" height="120">
-          <rect x="-10" y="-10" width="76" height="120" fill={`url(#${id}-rail-fade-${step})`} />
-        </mask>
-      </defs>
-      <g mask={step === 0 ? `url(#${id}-rail-mask-${step})` : undefined}>
-        {lines.map((line) => (
-          <path
-            key={line.d}
-            d={line.d}
-            fill="none"
-            stroke={`url(#${id}-rail-${step})`}
-            strokeWidth={line.kept ? 0.9 : 0.7}
-            vectorEffect="non-scaling-stroke"
-            mask={!line.kept && step === 1 ? `url(#${id}-rail-mask-${step})` : undefined}
-          />
-        ))}
-      </g>
-      {step === 1 && (
-        <line
-          x1={2}
-          x2={54}
-          y1={6}
-          y2={6}
-          className="flow-scan stroke-accent"
-          strokeWidth={1}
-          opacity={0.7}
-          vectorEffect="non-scaling-stroke"
-          style={{ ["--flow-scan-y" as string]: "62px" }}
-        />
-      )}
-      {/* Lights hand on from one step to the next, down the rail. */}
-      {relayed.map((line, k) => (
-        <path
-          key={`pulse-${line.d}`}
-          d={line.d}
-          pathLength={1}
-          className="flow-relay stroke-accent"
-          fill="none"
-          strokeWidth={1.6}
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-          style={{ ["--flow-ms" as string]: "6s", animationDelay: `${step * 1.2 + k * 0.5}s` }}
-        />
-      ))}
-    </svg>
+    <g filter={filter}>
+      <path
+        d={d}
+        className="flow-comet"
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        opacity={0.55}
+        strokeDasharray={`${tail} ${len + 80}`}
+        style={motion(tail, -len)}
+      />
+      <path
+        d={d}
+        className="flow-comet"
+        fill="none"
+        stroke={GOLD_HI}
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeDasharray={`${head} ${len + 80}`}
+        style={motion(head, -len - (tail - head))}
+      />
+    </g>
   );
 }
 
-/** One gathering line with the steps threaded on it; their words light their stretch of the line. */
-export function Convergence({ stations, outlets }: { stations: FlowStation[]; outlets: string[] }) {
+const STEP_ICONS: Record<string, string> = {
+  采集: "M4 13l2-7h12l2 7v5H4z M4 13h5l1.5 2h3l1.5-2h5",
+  筛选: "M4 5h16l-6 7.5V18l-4 2v-7.5z",
+  归并: "M6 4v3a5 5 0 0 0 5 5h1 M18 4v3a5 5 0 0 1-5 5h-1 M12 12v8",
+  精选: "M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z",
+  发布: "M4 11.5l16-7-5.5 16-3.2-6.3z M11.3 14.2l3.5-3.5",
+};
+
+/** Where a box sits on the screen, as a share of it, so the HTML labels ride the drawing at any width. */
+const place = (layout: Layout, box: Box) => ({
+  left: `${(box.x / layout.W) * 100}%`,
+  top: `${(box.y / layout.H) * 100}%`,
+  width: `${(box.w / layout.W) * 100}%`,
+  height: `${(box.h / layout.H) * 100}%`,
+});
+
+/** One drawing of the pipeline, across or down. */
+function Pipeline({
+  layout,
+  stations,
+  outlets,
+  active,
+  id,
+}: {
+  layout: Layout;
+  stations: FlowStation[];
+  outlets: string[];
+  active: number | null;
+  id: string;
+}) {
   const tr = useTr();
-  const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const [active, setActive] = useState<number | null>(null);
-  const kept = WIDE.filter((line) => line.kept);
-  const dropped = WIDE.filter((line) => !line.kept);
+  const all = lanes(layout);
+  const key = `${id}-${layout.across ? "w" : "t"}`;
+  const bloom = `url(#${key}-bloom)`;
+  const { W, H } = layout;
   return (
-    <figure className="mt-3" onMouseLeave={() => setActive(null)}>
-      <p className="animate-fade-up max-w-[40em] text-[14px] leading-[1.8] text-ink-2">
-        {tr("很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。")}
-      </p>
-      {/* Wide screens: the line across, each step's stretch set off by survey marks, its words under it. */}
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-7 hidden h-auto w-full overflow-visible sm:block" aria-hidden="true">
+    <div className="relative" style={{ aspectRatio: `${W} / ${H}` }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" aria-hidden="true">
         <defs>
-          <linearGradient id={`${id}-beam`} gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={W} y2={0}>
-            {TONE.map((tone, i) => (
-              <stop key={`${tone.color}${tone.opacity}`} offset={i / (TONE.length - 1)} style={{ stopColor: tone.color, stopOpacity: tone.opacity }} />
-            ))}
-          </linearGradient>
-          {/* Lines come in faint at the left edge; the ones 筛选 lets go fade as they turn away. */}
-          <linearGradient id={`${id}-in`} gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={90} y2={0}>
-            <stop offset="0" stopColor="white" stopOpacity={0} />
-            <stop offset="1" stopColor="white" stopOpacity={1} />
-          </linearGradient>
-          <linearGradient id={`${id}-out`} gradientUnits="userSpaceOnUse" x1={200} y1={0} x2={350} y2={0}>
-            <stop offset="0" stopColor="white" stopOpacity={1} />
-            <stop offset="1" stopColor="white" stopOpacity={0} />
-          </linearGradient>
-          <mask id={`${id}-in-mask`} maskUnits="userSpaceOnUse" x={-10} y={-10} width={W + 20} height={H + 20}>
-            <rect x={-10} y={-10} width={W + 20} height={H + 20} fill={`url(#${id}-in)`} />
+          <pattern id={`${key}-grid`} width={24} height={24} patternUnits="userSpaceOnUse">
+            <path d="M24 0H0V24" fill="none" stroke="#fff" strokeOpacity={0.05} strokeWidth={1} />
+          </pattern>
+          <radialGradient id={`${key}-fade`} cx="50%" cy="45%" r="70%">
+            <stop offset="0.35" stopColor="#fff" stopOpacity={1} />
+            <stop offset="1" stopColor="#fff" stopOpacity={0} />
+          </radialGradient>
+          <mask id={`${key}-vignette`}>
+            <rect width={W} height={H} fill={`url(#${key}-fade)`} />
           </mask>
-          <mask id={`${id}-out-mask`} maskUnits="userSpaceOnUse" x={-10} y={-10} width={W + 20} height={H + 20}>
-            <rect x={-10} y={-10} width={W + 20} height={H + 20} fill={`url(#${id}-out)`} />
-          </mask>
-          <filter id={`${id}-bloom`} filterUnits="userSpaceOnUse" x={-20} y={-20} width={W + 40} height={H + 40}>
-            <feGaussianBlur stdDeviation={2.2} result="blur" />
+          <radialGradient id={`${key}-halo`} cx="55%" cy="50%" r="55%">
+            <stop offset="0" stopColor={GOLD} stopOpacity={0.16} />
+            <stop offset="1" stopColor={GOLD} stopOpacity={0} />
+          </radialGradient>
+          <filter id={`${key}-bloom`} filterUnits="userSpaceOnUse" x={-20} y={-20} width={W + 40} height={H + 40}>
+            <feGaussianBlur stdDeviation={2.4} result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <pattern id={`${id}-grid`} width={20} height={20} patternUnits="userSpaceOnUse">
-            <circle cx={10} cy={10} r={0.9} className="fill-ink-4" opacity={0.28} />
-          </pattern>
-          <linearGradient id={`${id}-scan`} gradientUnits="objectBoundingBox" x1={0} y1={0} x2={1} y2={0}>
-            <stop offset="0" style={{ stopColor: "var(--accent)", stopOpacity: 0 }} />
-            <stop offset="1" style={{ stopColor: "var(--accent)", stopOpacity: 0.22 }} />
-          </linearGradient>
-          <radialGradient id={`${id}-glow`}>
-            <stop offset="0" style={{ stopColor: "var(--accent)", stopOpacity: 0.45 }} />
-            <stop offset="1" style={{ stopColor: "var(--accent)", stopOpacity: 0 }} />
-          </radialGradient>
         </defs>
-        {active !== null && <rect x={active * 200} y={0} width={200} height={H} className="fill-accent-softer" />}
-        {/* A faint instrument grid and a ruler along the bottom. */}
-        <rect x={0} y={0} width={W} height={H} fill={`url(#${id}-grid)`} />
-        {Array.from({ length: 51 }, (_, k) => k * 20).map((x) => (
-          <line
-            key={`tick-${x}`}
-            x1={x + 0.5}
-            x2={x + 0.5}
-            y1={H}
-            y2={x % 100 === 0 ? H - 7 : H - 3.5}
-            className="stroke-ink-4"
-            strokeWidth={0.8}
-            opacity={0.45}
+        <rect width={W} height={H} fill={`url(#${key}-halo)`} />
+        <rect width={W} height={H} fill={`url(#${key}-grid)`} mask={`url(#${key}-vignette)`} />
+        {/* The lanes, faint, drawn in as the screen opens. */}
+        {[...all.sources, ...all.main, ...all.out].map((l, i) => (
+          <path
+            key={l.d}
+            d={l.d}
+            pathLength={1}
+            className="anim-draw"
+            fill="none"
+            stroke={GOLD}
+            strokeOpacity={0.28}
+            strokeWidth={1}
+            style={{ animationDelay: `${200 + i * 30}ms`, animationDuration: "900ms" }}
           />
         ))}
-        {/* The survey marks between the steps. */}
-        {[0, 200, 400, 600, 800].map((x) => (
-          <line key={x} x1={x + 0.5} x2={x + 0.5} y1={0} y2={H} className="stroke-ink-4" strokeWidth={1} strokeDasharray="2 5" opacity={0.35} />
+        {all.drop.map((l) => (
+          <path key={l.d} d={l.d} fill="none" stroke={EMBER} strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 4" />
         ))}
-        <g mask={`url(#${id}-in-mask)`}>
-          <g mask={`url(#${id}-out-mask)`}>
-            {dropped.map((line, i) => (
-              <path
-                key={line.d}
-                d={line.d}
-                pathLength={1}
-                className="anim-draw"
-                fill="none"
-                stroke={`url(#${id}-beam)`}
-                strokeWidth={0.75}
-                style={{ animationDelay: `${i * 14}ms`, animationDuration: "900ms" }}
-              />
-            ))}
-          </g>
-          {kept.map((line, i) => (
-            <path
-              key={line.d}
-              d={line.d}
-              pathLength={1}
-              className="anim-draw"
-              fill="none"
-              stroke={`url(#${id}-beam)`}
-              strokeWidth={0.9}
-              style={{ animationDelay: `${120 + i * 14}ms`, animationDuration: "1800ms" }}
-            />
-          ))}
-        </g>
-        {/* Lights racing along the lines: on the lines let go they fade with them; the rest run all the way out. */}
-        <g filter={`url(#${id}-bloom)`}>
-          <g mask={`url(#${id}-out-mask)`}>
-            {dropped
-              .filter((_, k) => k % 2 === 0)
-              .map((line, k) => (
-                <path
-                  key={`pulse-${line.d}`}
-                  d={line.d}
-                  pathLength={1}
-                  className="flow-pulse stroke-ink-4"
-                  fill="none"
-                  strokeWidth={1.4}
-                  strokeLinecap="round"
-                  style={{ ["--flow-ms" as string]: "2.6s", animationDelay: `${-((k * 0.83) % 2.6)}s` }}
-                />
-              ))}
-          </g>
-          {kept.map((line, k) => (
-            <path
-              key={`pulse-${line.d}`}
-              d={line.d}
-              pathLength={1}
-              className="flow-pulse stroke-accent"
-              fill="none"
-              strokeWidth={1.4}
-              strokeLinecap="round"
-              style={{ ["--flow-ms" as string]: `${4 + (k % 4) * 0.45}s`, animationDelay: `${-((k * 1.13) % 5)}s` }}
-            />
-          ))}
-        </g>
-        {/* 筛选: a scan sweeps the stretch, reading each piece as it goes by. */}
-        <g className="flow-scan" style={{ ["--flow-scan-x" as string]: "186px" }}>
-          <rect x={196} y={4} width={16} height={H - 12} fill={`url(#${id}-scan)`} />
-          <line x1={212} x2={212} y1={4} y2={H - 8} className="stroke-accent" strokeWidth={1} opacity={0.7} />
-        </g>
-        {/* 归并: where the strands of one story run together, a ring pings. */}
-        {JOINS.map((y, k) => (
-          <g key={`join-${y}`}>
-            <circle cx={600} cy={y} r={2.2} className="flow-ping fill-none stroke-accent" strokeWidth={0.8} style={{ animationDelay: `${k * 0.42}s` }} />
-            <circle cx={600} cy={y} r={1.8} className="fill-accent" />
-          </g>
+        {/* Comets racing the lanes: steady from the sources, quicker as the stream narrows, ember into the bin. */}
+        {all.sources.map((l, i) => (
+          <Comet key={`c-${l.d}`} lane={l} i={i} ms={2600 + jitter(i + 40) * 1400} color={GOLD} filter={bloom} />
         ))}
-        {/* 精选: the bright point, with a reticle turning on it. */}
-        <g className="animate-fade-up" style={{ animationDelay: "1500ms" }}>
-          <circle cx={FOCUS} cy={MID} r={18} fill={`url(#${id}-glow)`} />
-          <circle cx={FOCUS} cy={MID} r={13} className="flow-spin fill-none stroke-accent" strokeWidth={0.9} strokeDasharray="3 4.2" />
-          {[0, 90, 180, 270].map((deg) => (
-            <line
-              key={deg}
-              x1={FOCUS}
-              x2={FOCUS}
-              y1={MID - 17}
-              y2={MID - 22}
-              className="stroke-accent"
-              strokeWidth={1}
-              transform={`rotate(${deg} ${FOCUS} ${MID})`}
-            />
-          ))}
-          <circle cx={FOCUS} cy={MID} r={3} className="fill-accent" />
-          <circle cx={FOCUS} cy={MID} r={3} className="flow-ping fill-none stroke-accent" strokeWidth={0.8} />
-          {/* 发布: the ends it opens to send their signal out. */}
-          {OUTLETS.map((y, k) => (
-            <g key={`out-${y}`}>
-              <circle cx={990} cy={y} r={2.6} className="flow-ping fill-none stroke-accent" strokeWidth={0.8} style={{ animationDelay: `${0.6 + k * 0.5}s` }} />
-              <circle cx={990} cy={y} r={2.6} className="fill-accent" />
-            </g>
-          ))}
-        </g>
+        {all.main.map((l, i) => (
+          <Comet key={`c-${l.d}`} lane={l} i={i + 10} ms={1500 + jitter(i + 60) * 700} color={GOLD} filter={bloom} />
+        ))}
+        {all.drop.map((l, i) => (
+          <Comet key={`c-${l.d}`} lane={l} i={i + 30} ms={1900} color={EMBER} filter={bloom} />
+        ))}
+        {all.out.map((l, i) => (
+          <Comet key={`c-${l.d}`} lane={l} i={i + 40} ms={1300 + i * 150} color={GOLD} filter={bloom} />
+        ))}
       </svg>
-      {/* The steps' words: under their stretch on a wide screen; on a phone the line runs down beside them. */}
-      <ol className="mt-4 grid sm:mt-0 sm:grid-cols-5">
+      {/* The sources, each with its signal light. */}
+      {layout.sources.map((box, i) => (
+        <div key={SOURCES[i]} className="absolute -translate-x-1/2 -translate-y-1/2" style={place(layout, box)}>
+          <div className="flex size-full items-center justify-center gap-1.5 rounded-md border border-white/12 bg-white/[0.04] text-[11px] font-semibold whitespace-nowrap text-white/75">
+            <span
+              className="flow-blink size-1.5 shrink-0 rounded-full"
+              style={{ background: GOLD, animationDelay: `${Math.round(jitter(i + 90) * 1400)}ms` }}
+            />
+            {tr(SOURCES[i]!)}
+          </div>
+        </div>
+      ))}
+      {/* The steps: glass cards a wave of light passes through; 筛选 is read by a scan, 精选 has a turning border. */}
+      {layout.steps.map((box, i) => {
+        const station = stations[i];
+        if (!station) return null;
+        const lit = active === i;
+        const body = (
+          <div
+            className="flow-node relative flex size-full items-center justify-center gap-1.5 overflow-hidden rounded-[9px] border bg-[#15120d]/90 px-2"
+            style={{
+              animationDelay: `${i * 360}ms`,
+              borderColor: lit ? GOLD_HI : "rgb(226 176 79 / 0.35)",
+              boxShadow: lit ? "0 0 26px rgb(226 176 79 / 0.6)" : undefined,
+            }}
+          >
+            {i === 1 && (
+              <span
+                className="flow-scan-card pointer-events-none absolute inset-0"
+                style={{ background: `linear-gradient(180deg, transparent 40%, ${GOLD}55 50%, transparent 60%)` }}
+              />
+            )}
+            <svg
+              viewBox="0 0 24 24"
+              className="relative size-4 shrink-0"
+              aria-hidden="true"
+              fill="none"
+              stroke={GOLD}
+              strokeWidth={1.9}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              {STEP_ICONS[station.name] ? <path d={STEP_ICONS[station.name]} /> : <circle cx={12} cy={12} r={5} />}
+            </svg>
+            <span className="relative flex min-w-0 flex-col leading-tight">
+              <span className="whitespace-nowrap text-[13px] font-bold text-white/95">{station.name}</span>
+              <span className="mono hidden text-[8.5px] tracking-[0.14em] lg:block" style={{ color: `${GOLD}aa` }}>
+                {CODES[i] ?? ""}
+              </span>
+            </span>
+          </div>
+        );
+        return (
+          <div
+            key={station.name}
+            className="anim-pop-in absolute -translate-x-1/2 -translate-y-1/2"
+            style={{ ...place(layout, box), animationDelay: `${300 + i * 140}ms` }}
+          >
+            {i === 3 ? (
+              <div className="relative size-full overflow-hidden rounded-[10px] p-px">
+                <span
+                  className="flow-spin absolute left-1/2 top-1/2 aspect-square w-[180%] -translate-x-1/2 -translate-y-1/2"
+                  style={{ background: `conic-gradient(from 0deg, transparent 0 62%, ${GOLD} 78%, ${GOLD_HI} 84%, transparent 92%)` }}
+                />
+                <div className="relative size-full">{body}</div>
+              </div>
+            ) : (
+              body
+            )}
+          </div>
+        );
+      })}
+      {/* What 筛选 lets go, and where 发布 sends the rest. */}
+      <div className="absolute -translate-x-1/2 -translate-y-1/2" style={place(layout, layout.bin)}>
+        <div
+          className="flex size-full items-center justify-center gap-1 rounded-md border text-[10.5px] font-semibold whitespace-nowrap"
+          style={{ borderColor: `${EMBER}55`, background: `${EMBER}12`, color: `${EMBER}dd` }}
+        >
+          <span>✕</span>
+          {tr("无关 · 重复")}
+        </div>
+      </div>
+      {layout.outlets.map((box, k) => (
+        <div key={`${box.x}-${box.y}`} className="absolute -translate-x-1/2 -translate-y-1/2" style={place(layout, box)}>
+          <span className="flow-ping absolute inset-0 rounded-md border" style={{ borderColor: GOLD, animationDelay: `${600 + k * 500}ms` }} />
+          <div
+            className="relative flex size-full items-center justify-center rounded-md border text-[11px] font-bold whitespace-nowrap"
+            style={{ borderColor: `${GOLD}aa`, background: `${GOLD}1f`, color: GOLD_HI, boxShadow: `0 0 14px ${GOLD}33` }}
+          >
+            {outlets[k] ?? ""}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The pipeline screen with the steps' words under it; a step's words light its card on the screen. */
+export function Convergence({ stations, outlets }: { stations: FlowStation[]; outlets: string[] }) {
+  const tr = useTr();
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const [active, setActive] = useState<number | null>(null);
+  return (
+    <figure className="mt-3" onMouseLeave={() => setActive(null)}>
+      <p className="animate-fade-up max-w-[40em] text-[14px] leading-[1.8] text-ink-2">
+        {tr("很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。")}
+      </p>
+      {/* The screen: dark in either theme, like a running console. It is decoration: the words below carry the steps. */}
+      <div
+        className="animate-fade-up relative mt-5 overflow-hidden rounded-2xl border border-white/10 shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_24px_60px_-28px_rgb(0_0_0/0.55)]"
+        style={{ background: "radial-gradient(120% 90% at 50% 0%, #1d1810 0%, #0c0a07 60%)" }}
+        aria-hidden="true"
+      >
+        <div className="mono flex items-center justify-between px-4 pt-3 text-[10.5px] tracking-[0.16em] text-white/45">
+          <span className="flex items-center gap-2">
+            <span className="flow-blink size-1.5 rounded-full" style={{ background: GOLD }} />
+            <span style={{ color: `${GOLD}cc` }}>PIPELINE</span>
+            <span>/ {tr("资讯处理流程")}</span>
+          </span>
+          <span className="hidden sm:inline">01 → 05</span>
+        </div>
+        <div className="hidden px-2 pb-3 sm:block">
+          <Pipeline layout={WIDE} stations={stations} outlets={outlets} active={active} id={id} />
+        </div>
+        <div className="px-2 pb-3 sm:hidden">
+          <Pipeline layout={TALL} stations={stations} outlets={outlets} active={null} id={id} />
+        </div>
+        {/* A sheen sweeping the screen now and then. */}
+        <span
+          className="flow-sweep pointer-events-none absolute inset-y-0 left-0 w-1/4"
+          style={{ background: "linear-gradient(90deg, transparent, rgb(255 241 201 / 0.06), transparent)" }}
+        />
+      </div>
+      {/* The steps' words, in order under the screen. */}
+      <ol className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-5">
         {stations.map((station, i) => (
           <li
             key={station.name}
-            className="animate-fade-up relative grid grid-cols-[56px_minmax(0,1fr)] gap-4 border-t border-dashed border-ink-4/30 sm:block sm:border-t-0 sm:border-l sm:pl-4 sm:pr-3"
-            style={{ animationDelay: `${300 + i * 160}ms` }}
+            className="animate-fade-up border-l-2 pl-3 transition-colors duration-200"
+            style={{ animationDelay: `${300 + i * 120}ms`, borderColor: active === i ? GOLD : "var(--line)" }}
             onMouseEnter={() => setActive(i)}
             onFocus={() => setActive(i)}
           >
-            <div className="relative sm:hidden" aria-hidden="true">
-              <Rail step={i} id={id} />
-              {i === stations.length - 1 && (
-                <span className="absolute left-7 top-[40%] grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center">
-                  <span className="flow-spin absolute inset-0 rounded-full border border-dashed border-accent" />
-                  <span className="size-[7px] rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" />
-                </span>
-              )}
+            <div className="mono flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em]" aria-hidden="true">
+              <span className="text-accent">{String(i + 1).padStart(2, "0")}</span>
+              <span className="text-ink-4">{`/ ${CODES[i] ?? ""}`}</span>
             </div>
-            <div className="pb-6 pt-4 sm:pb-2 sm:pt-4">
-              <div className="mono flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em]" aria-hidden="true">
-                <span className="text-accent">{String(i + 1).padStart(2, "0")}</span>
-                <span className="text-ink-4">/</span>
-                <span className="text-ink-4">{CODES[i] ?? ""}</span>
-              </div>
-              <div className={`mt-1 text-[17px] font-black tracking-wide transition-colors duration-200 ${active === i ? "text-accent" : "text-ink"}`}>
-                {station.name}
-              </div>
-              <div className="mt-0.5 text-[12.5px] font-semibold text-ink-2">{station.kicker}</div>
-              <p className="mt-2 text-[13px] leading-[1.75] text-ink-3">{station.text}</p>
-              {i === stations.length - 1 && outlets.length > 0 && (
-                <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] font-semibold text-accent">
-                  {outlets.map((label, k) => (
-                    <span key={label} className="inline-flex items-center gap-2">
-                      {k > 0 && <span className="size-1 rounded-full bg-accent/50" aria-hidden="true" />}
-                      {label}
-                    </span>
-                  ))}
-                </p>
-              )}
-            </div>
+            <div className={`mt-1 text-[16px] font-black transition-colors duration-200 ${active === i ? "text-accent" : "text-ink"}`}>{station.name}</div>
+            <div className="mt-0.5 text-[12.5px] font-semibold text-ink-2">{station.kicker}</div>
+            <p className="mt-1.5 text-[13px] leading-[1.75] text-ink-3">{station.text}</p>
+            {i === stations.length - 1 && outlets.length > 0 && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] font-semibold text-accent">
+                {outlets.map((label, k) => (
+                  <span key={label} className="inline-flex items-center gap-2">
+                    {k > 0 && <span className="size-1 rounded-full bg-accent/50" aria-hidden="true" />}
+                    {label}
+                  </span>
+                ))}
+              </p>
+            )}
           </li>
         ))}
       </ol>

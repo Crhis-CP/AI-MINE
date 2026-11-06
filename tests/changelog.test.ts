@@ -199,6 +199,14 @@ test("every public changelog line reads as a reader update, and the shipped note
   );
 });
 
+test("small fixes stay out of the reader changelog: the published “少提示‘加载最新’” entry is taken out", () => {
+  // Owner 2026-11-06: “这个更新应该不需要吧？” — the registered record stays; readers no longer see it.
+  const edits: ChangelogCopyEdit[] = JSON.parse(readFileSync(new URL("../industry/changelog-copy-edits.json", import.meta.url), "utf8"));
+  const hidden = edits.find((e) => e.date === "2026-11-07" && e.time === "00:52");
+  assert.equal(hidden?.title, "少提示“加载最新”，站名改为 AI-MINE");
+  assert.equal(hidden?.copy, null);
+});
+
 test("the reader wording check names technical words and lets reader sentences through", () => {
   assert.match(readerWordingProblem(["按内容实际涉及地区筛选，背景提及仍可通过全文搜索查找"]) ?? "", /背景提及/);
   assert.match(readerWordingProblem(["列表可用 j / k 键上下切换"]) ?? "", /j \/ k/);

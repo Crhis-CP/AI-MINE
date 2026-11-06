@@ -44,6 +44,13 @@ export const PHRASES = {
   "很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。":
     "News from many sources comes in, is filtered and merged layer by layer, and only the small part worth reading is kept.",
   公开出去: "Published",
+  资讯处理流程: "How news is processed",
+  部委: "Ministries",
+  协会: "Associations",
+  媒体: "Media",
+  交易所: "Exchanges",
+  海外: "Overseas",
+  "无关 · 重复": "Off-topic · repeats",
   试运行: "Trial run",
   还在完善: "Still improving",
   原帖作者未提供: "Post author not provided",
