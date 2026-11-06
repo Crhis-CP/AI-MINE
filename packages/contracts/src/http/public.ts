@@ -506,6 +506,14 @@ export const MetalPrices = z
   });
 export type MetalPrices = z.infer<typeof MetalPrices>;
 
+/**
+ * First-party page-view beacon (TASK-0571): a reader page sends this JSON as text/plain (navigator.sendBeacon) to
+ * VISIT_BEACON_PATH once per page shown. No cookie or stored browser identifier; always answered 204 without a body.
+ * referrer is sent only with the first page of a load (document.referrer), and only its host is ever kept.
+ */
+export const VISIT_BEACON_PATH = "/api/site/visit";
+export const VisitBeacon = z.strictObject({ path: z.string().min(1).max(512), referrer: z.string().max(2048).nullish() });
+
 /** A stable client submission identity, not a credential. */
 /** Shared submission limits; activated by the unified reader and worker release. */
 export const FEEDBACK_LIMITS = {

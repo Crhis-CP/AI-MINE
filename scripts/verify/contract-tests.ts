@@ -412,6 +412,7 @@ if (process.argv.includes("--routes")) {
           "/api/admin/usage-protection",
           "/api/admin/usage/reports",
           "/api/admin/usage/reports/{month}",
+          "/api/admin/visits",
           "/api/admin/withdrawals/actions",
           "/api/admin/withdrawals/preview",
           "/api/auth/options",
