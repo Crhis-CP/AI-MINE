@@ -109,10 +109,9 @@
 
 ### 2.7 `brand/`
 
-- `logo.svg`、`icon.png`（512）、`icon-192.png`、`apple-icon.png`（180）、`favicon.ico`：站点图标，由 api 在站点根路径提供。图案是站名里的第一个汉字（“矿”）；换站名后用 `node scripts/brand-icons.ts <字体包目录>` 重新生成。品牌配色与当前站点保持一致。
-- `nameplates/`：报头字 SVG。换站名或行业词后用 `node scripts/nameplates.ts <字体包目录> [行业词]` 重新生成。现在的报头字是“矿业日报”“矿业周报”“矿业月报”与“日报合订本”：行业词用 PG-06 的报告名“矿业”，先于 `site.ts` 的 `subject`（它由 TASK-0010 改）。
-- 两个脚本用同一个字体包，取法写在脚本开头；画出的是 Noto Sans SC Black 的字形轮廓（SIL OFL 1.1，见根目录 `NOTICE`）。
-- 网页左上角的站名字标在 `apps/web/app/components/Logo.tsx`：用文字排出站名，前面的拉丁字母用正文色，其余用强调色。
+- 站点图标：`favicon.ico`（16/32/48，小尺寸标）、`icon-96.png`、`icon-144.png`（RSS 频道图）、`icon-192.png`、`icon.png`（512）、`apple-icon.png`（180，不透明方形，系统自己切圆角）、`icon-maskable.png`（512，安卓遮罩用，标志在安全区内）和 `logo.svg`，由 api 在站点根路径提供，页面头部、网页应用清单、RSS 与结构化数据引用它们。图案是五臂星系（DEC-78），全部由 `node scripts/brand-icons.ts` 从 `source/` 的母版生成，不手工绘制；`tests/site-icons.test.ts` 核对文件与母版渲染一致、尺寸与各处声明一致。
+- `nameplates/`：报头字 SVG。换站名或行业词后用 `node scripts/nameplates.ts <字体包目录> [行业词]` 重新生成。现在的报头字是“矿业日报”“矿业周报”“矿业月报”与“日报合订本”：行业词用 PG-06 的报告名“矿业”，先于 `site.ts` 的 `subject`（它由 TASK-0010 改）。字体包取法写在脚本开头；画出的是 Noto Sans SC Black 的字形轮廓（SIL OFL 1.1，见根目录 `NOTICE`）。
+- 网页左上角的站名字标是 `lockup*.svg`（星系标加渐变金色站名，`scripts/wordmark.ts` 生成），由 `apps/web/app/components/Logo.tsx` 显示。
 
 ## 3. 包外的硬编码
 

@@ -7,7 +7,7 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { canonicalCategoryFilter, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
-import { listPath, organizationLd, pageMeta } from "../lib/seo";
+import { listPath, organizationLd, pageMeta, websiteLd } from "../lib/seo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
 import { WorldMap } from "../features/feed/WorldMap";
@@ -98,7 +98,7 @@ function loadLatest(signal: AbortSignal) {
 export function meta({ loaderData }: Route.MetaArgs) {
   const f = loaderData?.filters;
   const path = listPath("/", { channel: f && f.channel !== "all" ? f.channel : null, category: f?.category, tag: f?.tag, jurisdiction: f?.jurisdiction });
-  return pageMeta({ path, jsonLd: path === "/" ? organizationLd() : undefined });
+  return pageMeta({ path, jsonLd: path === "/" ? [organizationLd(), websiteLd()] : undefined });
 }
 
 export function headers({ loaderHeaders }: Route.HeadersArgs) {

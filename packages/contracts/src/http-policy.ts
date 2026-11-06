@@ -109,7 +109,7 @@ export const API_OWNED_PATTERNS: RegExp[] = [
   /^\/(llms\.txt|robots\.txt|sitemap\.xml|manifest\.webmanifest)$/,
   /^\/sitemaps\//,
   /^\/\.well-known\//,
-  /^\/(favicon\.ico|icon\.png|icon-192\.png|apple-icon\.png|logo\.svg)$/,
+  /^\/(favicon\.ico|icon\.png|icon-(?:96|144|192|maskable)\.png|apple-icon\.png|apple-touch-icon(?:-precomposed)?\.png|logo\.svg)$/,
   /^\/og\//,
   /^\/[0-9a-f]{32}\.txt$/,
 ];

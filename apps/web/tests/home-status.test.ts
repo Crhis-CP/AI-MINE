@@ -5,6 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { createServer } from "vite";
+import { LOGO_PATH } from "../app/lib/icons.ts";
 
 const server = await createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, appType: "custom" });
 after(() => server.close());
@@ -60,4 +61,17 @@ test("the real home loader distinguishes failed observations from confirmed empt
       router.dispose();
     }
   }
+});
+
+test("only the unfiltered home page carries the Organization and WebSite data that name the site in search results", () => {
+  const structured = (f: object) =>
+    route.meta({ loaderData: { filters: f } }).find((m: object) => "script:ld+json" in m)?.["script:ld+json"] as Array<Record<string, string>> | undefined;
+  const [organization, website, ...rest] = structured(filters) ?? [];
+  assert.equal(rest.length, 0);
+  assert.equal(organization?.["@type"], "Organization");
+  assert.ok(organization?.logo?.endsWith(LOGO_PATH), "the logo is the icon tests/site-icons.test.ts checks");
+  assert.equal(website?.["@type"], "WebSite");
+  assert.equal(website?.name, organization?.name);
+  assert.equal(website?.url, `${organization?.url}/`);
+  assert.equal(structured({ ...filters, tag: "铜" }), undefined);
 });

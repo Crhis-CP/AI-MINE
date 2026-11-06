@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import { ICON_LINKS } from "./lib/icons";
 import { titled } from "./lib/seo";
 import { SITE } from "@amp/industry/site";
 import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation, useRouteError, useRouteLoaderData } from "react-router";
@@ -20,9 +21,7 @@ export function loader() {
 export const links: Route.LinksFunction = () => [
   // The Latin text face (app.css); the other weights and the figures load when first used.
   { rel: "preload", href: brandSans, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
-  { rel: "icon", href: "/favicon.ico", sizes: "any" },
-  { rel: "icon", type: "image/png", href: "/icon.png" },
-  { rel: "apple-touch-icon", href: "/apple-icon.png" },
+  ...ICON_LINKS,
   { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "alternate", type: "application/rss+xml", title: `${SITE.name} — 精选`, href: "/feed.xml" },
 ];
