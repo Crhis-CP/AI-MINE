@@ -31,7 +31,7 @@ const READER_ID = /^[a-zA-Z0-9_-]{1,80}$/;
  * The IDs among these that this page may no longer show, 100 per request. Lists, events and reports show only public
  * items, so "summary only" counts as gone there; saved items keep it (their page still opens).
  */
-async function withdrawnAmong(ids: string[], signal: AbortSignal, keepSummaryOnly: boolean) {
+async function withdrawnAmong(ids: string[], signal: AbortSignal, keepSummaryOnly: (id: string) => boolean) {
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
   const answers = await Promise.all(
@@ -39,12 +39,14 @@ async function withdrawnAmong(ids: string[], signal: AbortSignal, keepSummaryOnl
       const result = await apiFetch(`/api/site/items/availability?ids=${chunk.join(",")}`, { cache: "no-store", signal, baseUrl: window.location.origin });
       if (!result.ok) throw new Error("availability unavailable");
       const value = (await result.json()) as Record<string, unknown>;
-      return chunk.filter((id) => value[id] !== "public" && !(keepSummaryOnly && value[id] === "summary-only"));
+      return chunk.filter((id) => value[id] !== "public" && !(keepSummaryOnly(id) && value[id] === "summary-only"));
     }),
   );
   return answers.flat();
 }
 
+/** The item an article page shows (`/items/:id` and its original view): it is checked like the cards on a list. */
+const pageItem = (pathname: string) => pathname.match(/^\/items\/([^/]+)/)?.[1] ?? null;
 /** New arrivals and timed releases (older APIs only report the combined version). */
 const arrivalsOf = (value: { version: string; arrivalVersion?: string }) => value.arrivalVersion ?? value.version;
 
@@ -173,9 +175,11 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         let reread = false;
         if (value.withdrawalVersion !== previous.withdrawals) {
           const screen = onScreen();
-          const ids = [...screen.ids].filter((id) => READER_ID.test(id));
-          // A page without cards (an article, a report) is read again unless it was just read; a list asks which of its cards went.
-          const gone = ids.length ? await withdrawnAmong(ids, controller.signal, savedPage) : freshPage ? [] : null;
+          // Even an article just opened is asked about: its data may be a copy fetched when the link was pressed.
+          const own = pageItem(location.pathname);
+          const ids = [...new Set([...screen.ids, ...(own ? [own] : [])])].filter((id) => READER_ID.test(id));
+          // The article itself and saved items open in summary; everything else here is listed only when public.
+          const gone = ids.length ? await withdrawnAmong(ids, controller.signal, (id) => savedPage || id === own) : null;
           if (controller.signal.aborted) return;
           if (gone && !gone.length) {
             // Nothing on this page went: keep reading undisturbed.
@@ -188,14 +192,15 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
               if (snapshot) position.current = { key: location.key, snapshot, interaction: interaction.current };
             }
             if (screen.ids.size) setAllowedIds({ routeKey, ids: screen.ids });
-            setStatus("withdrawn");
+            // Say so only when something here went; a page with nothing to ask about is read again quietly.
+            setStatus(gone?.length ? "withdrawn" : "checking");
             await ref.current.revalidate();
             if (controller.signal.aborted) return;
             reread = true;
             setGeneration((n) => n + 1);
             seen.current = { ...previous, withdrawals: value.withdrawalVersion };
-            // The server named what this page may no longer show; the re-read has taken it out.
-            removed.current += gone?.length ?? 0;
+            // The server named what this page may no longer show; the re-read has taken the cards among it out.
+            removed.current += gone?.filter((id) => screen.ids.has(id)).length ?? 0;
             setRemovedCount(removed.current);
           }
         }
@@ -234,7 +239,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       window.removeEventListener("pageshow", check);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [policyPage, routeKey, pagedList, savedPage, location.key, visit, navigationType]);
+  }, [policyPage, routeKey, pagedList, savedPage, location.key, location.pathname, visit, navigationType]);
   const loadLatest = async () => {
     const position = window.scrollY;
     setAllowedIds(null);
