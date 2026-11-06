@@ -26,6 +26,32 @@ type Report = {
   origin: string;
   generated_at: Date;
 };
+/**
+ * A past daily issue keeps the story it led with while that story is still in it (Owner 2026-11-06: past issues kept
+ * changing under readers): late reports join the issue without taking its front page.
+ */
+export function keepDailyLead(previous: StoredReportContent | undefined, next: StoredReportContent): StoredReportContent {
+  const id = typeof previous?.leadItemId === "string" ? previous.leadItemId : null;
+  if (!id || id === next.leadItemId) return next;
+  const entry = (next.sections ?? []).flatMap((section) => section.items ?? []).find((item) => item.itemId === id);
+  if (!entry || typeof entry.title !== "string") return next;
+  const highlights = [next.leadItemId, ...(Array.isArray(next.highlights) ? next.highlights : [])]
+    .filter((other): other is string => typeof other === "string" && other !== id)
+    .slice(0, 3);
+  return { ...next, leadItemId: id, lead: { title: entry.title, leadParagraph: entry.summary }, highlights };
+}
+
+/**
+ * Whether a revision corrects what readers already saw: a story the issue showed is gone, or a correction is pending.
+ * Late reports joining an issue, or its overview being rewritten, are not corrections (Owner 2026-11-06: “日报里面老是有
+ * 修订这种不应该出现的出现”); those revisions stay in the internal revision record only.
+ */
+export function correctsIssue(previous: StoredReportContent, next: StoredReportContent) {
+  if (previous.correctionPending) return true;
+  const kept = new Set(reportMemberIds(next));
+  return reportMemberIds(previous).some((id) => !kept.has(id));
+}
+
 /** Only factual selection and structure invalidate paid prose. Receipt reuse handles unchanged prompts. */
 function facts(content: StoredReportContent) {
   const clean = (value: unknown): unknown =>
@@ -103,8 +129,9 @@ export async function reconcileReport(kind: ReportKind, key: string) {
       return { status: "withdrawn" };
     }
     const publication = await requireRuntimeRunning("news", ["publication"]);
-    const prepared = await prepare(kind, key),
-      hash = sha256(stableJson(facts(prepared.content)));
+    const prepared = await prepare(kind, key);
+    if (kind === "daily" && old) prepared.content = keepDailyLead(old.content, prepared.content as StoredReportContent) as typeof prepared.content;
+    const hash = sha256(stableJson(facts(prepared.content)));
     const pending = kind === "daily" ? Number((prepared.content as { generator?: { pendingSelections?: number } }).generator?.pendingSelections ?? 0) : 0;
     if (prepared.waiting && (!old || pending > 0)) {
       await settle("retry", "waiting", "仍在等待本期合格材料；系统会继续核对。", hash);
@@ -187,13 +214,14 @@ export async function reconcileReport(kind: ReportKind, key: string) {
         stableJson(latest.content.overview ?? null) !== stableJson(content.overview ?? null);
       if (changed) {
         const revision = (latest?.revision ?? 0) + 1;
-        const reason = latest ? "已依据补充或更正后的公开报道修订本期内容。" : "已根据可靠来源日期补齐本期内容。";
         const previous = Array.isArray(latest?.content?.corrections) ? latest.content.corrections : [];
+        const correction =
+          latest && correctsIssue(latest.content, content) ? [{ revision, reason: "已依据当前公开报道完成本期更正。", at: new Date().toISOString() }] : [];
         const revised = {
           ...content,
           correctionPending: false,
           sourceMemberIds: ids,
-          corrections: latest ? [...previous, { revision, reason, at: new Date().toISOString() }] : [],
+          corrections: latest ? [...previous, ...correction] : [],
         };
         if (latest) {
           await tx`INSERT INTO report_revisions(report_id,revision,content,generated_at,reason)

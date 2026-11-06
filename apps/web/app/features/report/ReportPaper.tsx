@@ -246,6 +246,40 @@ interface Page {
 }
 
 /** A daily without an editors' lead leads with its first highlight (else its first story). */
+/**
+ * Corrections, kept to one quiet line: the latest correction and when it was made, earlier ones folded away. Only real
+ * corrections reach here; late reports joining an issue are not shown as corrections (Owner 2026-11-06).
+ */
+function Corrections({ list }: { list: NonNullable<ReportDetail["corrections"]> }) {
+  const tr = useTr();
+  const latest = list.at(-1)!;
+  const earlier = list.slice(0, -1).reverse();
+  return (
+    <section aria-labelledby="report-corrections" className="my-4 border-l-2 border-line pl-3 text-[12.5px] leading-relaxed text-ink-3">
+      <p>
+        <span id="report-corrections" className="font-semibold text-ink-2">
+          {tr("更正说明")}
+        </span>
+        {" · "}
+        <time dateTime={latest.at}>{fullDateTime(latest.at)}</time>
+        {tr("（北京时间）")} {latest.reason}
+      </p>
+      {earlier.length > 0 && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-ink-4">{tr("此前另有 {n} 次更正", { n: earlier.length })}</summary>
+          <ol className="mt-1 space-y-1">
+            {earlier.map(({ revision, reason, at }) => (
+              <li key={`${revision}-${at}`}>
+                <time dateTime={at}>{fullDateTime(at)}</time> {reason}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function leadStoryOf(report: ReportDetail): ReportCitation | null {
   if (report.leadItemId) return report.stories.find((entry) => entry.itemId === report.leadItemId && entry.available) ?? null;
   if (report.lead || report.kind !== "daily") return null;
@@ -468,7 +502,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
           {report.lastRevisedAt && (
             <>
               {" "}
-              {tr("· 最近修订")} {fullDateTime(report.lastRevisedAt)}
+              {tr("· 最近更新")} {fullDateTime(report.lastRevisedAt)}
             </>
           )}{" "}
           ·{" "}
@@ -484,24 +518,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
           {tr("· AI 辅助生成")}
         </p>
       </div>
-      {!!report.corrections?.length && (
-        <section aria-labelledby="report-corrections" className="my-5 rounded-control border border-line bg-bg-sunk px-4 py-3">
-          <h2 id="report-corrections" className="text-[14px] font-semibold text-ink">
-            {tr("更正说明")}
-          </h2>
-          <ol className="mt-2 space-y-3">
-            {report.corrections.map(({ revision, reason, at }) => (
-              <li key={`${revision}-${at}`}>
-                <p className="text-[12px] text-ink-4">
-                  {tr("修订版本")} {revision} · <time dateTime={at}>{fullDateTime(at)}</time>
-                  {tr("（北京时间）")}
-                </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{reason}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
+      {!!report.corrections?.length && <Corrections list={report.corrections} />}
       {count === 0 && report.flashes.length === 0 ? (
         quiet ? (
           <section aria-label={tr("本期说明")} className="py-12 @[880px]:py-16">

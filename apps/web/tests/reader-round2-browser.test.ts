@@ -420,7 +420,8 @@ test("daily, weekly and monthly report pages show public correction notes, witho
   for (const path of ["/daily/2026-10-12", "/weekly/2026-W41", "/monthly/2026-10"]) {
     await page.goto(origin + path);
     const notes = page.getByRole("region", { name: "更正说明" });
-    await expect(notes).toContainText("修订版本 2");
+    // One quiet line: when and why, without revision numbers (Owner 2026-11-06).
+    await expect(notes).not.toContainText("修订版本");
     await expect(notes).toContainText("2026-10-12 09:30");
     await expect(notes).toContainText("部分引用已更新，报告已同步更正。");
     await expect(notes.locator("time")).toHaveAttribute("datetime", "2026-10-12T01:30:00Z");

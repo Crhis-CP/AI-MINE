@@ -15,6 +15,8 @@ const PUBLIC_CORRECTION_REASONS = new Set([
   "引用报道的公开状态已恢复，本期内容已重新核对。",
   "已依据当前公开报道完成本期更正。",
 ]);
+/** What the re-check wrote when late reports joined an issue (until 2026-11-07); joining is not a correction readers see. */
+const SUPPLEMENT_REASONS = new Set(["已依据补充或更正后的公开报道修订本期内容。", "已根据可靠来源日期补齐本期内容。"]);
 function publicCorrections(value: unknown): Array<{ revision: number; reason: string; at: string }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((raw) => {
@@ -27,7 +29,8 @@ function publicCorrections(value: unknown): Array<{ revision: number; reason: st
       row.revision < 2 ||
       typeof row.reason !== "string" ||
       typeof row.at !== "string" ||
-      !Number.isFinite(Date.parse(row.at))
+      !Number.isFinite(Date.parse(row.at)) ||
+      SUPPLEMENT_REASONS.has(row.reason)
     )
       return [];
     return [

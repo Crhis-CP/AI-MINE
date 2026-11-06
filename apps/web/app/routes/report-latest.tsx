@@ -1,6 +1,6 @@
 import { SITE, withSubject } from "@amp/industry/site";
 import { useTr } from "../i18n";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
 import type { Route } from "./+types/report-latest";
 import type { ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
@@ -39,9 +39,6 @@ export default function ReportLatestPage() {
   const { kind, report, index, today, expected } = useLoaderData<typeof loader>();
   return (
     <ReportLayout kind={kind} index={index} current={report?.key ?? null} today={today}>
-      <Link to="/policies" className="mb-4 block text-[13px] text-accent">
-        {tr("法规政策动态 →")}
-      </Link>
       {report && report.key < expected && (
         <p role="status" className="mb-4 rounded-control bg-bg-sunk px-4 py-3 text-[13px] text-ink-3">
           {tr("按出刊安排，")}
