@@ -155,7 +155,10 @@ export function Showcase202611() {
           <p className="mt-2 text-[13.5px] leading-[1.8] text-ink-3">
             {tr("首页顶部的地图按国家标出今天、近 7 天、近 30 天的资讯，圆越大消息越多，涨得快的会标出来。点一个国家，下面就只看这个国家。")}
           </p>
-          <Link to="/" className="mt-3 inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-ink px-4 text-[13px] font-semibold text-bg transition hover:bg-hot hover:text-white">
+          <Link
+            to="/"
+            className="mt-3 inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-ink px-4 text-[13px] font-semibold text-bg transition hover:bg-hot hover:text-white"
+          >
             {tr("去首页看地图")} →
           </Link>
         </div>
