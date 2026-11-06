@@ -166,6 +166,8 @@ test("non-empty event, development, report and topic projections resolve their c
       { revision: 2, reason: "PRIVATE_FREEFORM_REASON", at: "2026-10-11T01:30:00Z" },
       { revision: 3, reason: "引用报道已更正，本期内容随之更新。", at: "2026-10-12T01:30:00Z", actor: "PRIVATE_ACTOR", audit_reason: "PRIVATE_AUDIT_REASON" },
       { revision: -1, reason: "PRIVATE_INVALID_ROW", at: "not-a-date" },
+      // Late reports joining the issue were once written as a revision; they are not a correction readers see.
+      { revision: 4, reason: "已依据补充或更正后的公开报道修订本期内容。", at: "2026-10-12T02:30:00Z" },
     ],
     lead: { title: "报告标题", leadParagraph: "报告导语" },
     sections: [

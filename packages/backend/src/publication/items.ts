@@ -1,4 +1,4 @@
-import { CURRENT_SOURCE_TIME, publicSourceTime, sourceInstant } from "./source-time.ts";
+import { CURRENT_SOURCE_TIME, publicSourceTime, readerAnchor, sourceInstant } from "./source-time.ts";
 import { attachRepresentativePriority, pickRepresentative, type RepresentativeIdentity } from "./representative.ts";
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
@@ -16,6 +16,8 @@ import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates
 import { displayTags, independentSelectedSources } from "./rules.ts";
 import { postFeedView, publicPostSummary } from "./post-view.ts";
 import { config } from "../config.ts";
+import { placeholderClockSources } from "../content/date-evidence.ts";
+import { midnightClock } from "../sources/date-extraction.ts";
 
 export interface ItemRow {
   post_summary_kind?: string | null;
@@ -232,7 +234,7 @@ export function toItemSummary(row: ItemRow): ItemSummary {
     sourceTime: publicSourceTime(row.source_time),
     firstPublicAt: row.first_public_at?.toISOString() ?? null,
     discoveredAt: row.discovered_at.toISOString(),
-    timelineAt: row.timeline_at.toISOString(),
+    timelineAt: readerAnchor(row.timeline_at, row.published_at, row.source_time).toISOString(),
     category: toPublicApiCategory(row.category),
     tags: displayTags(row.tags),
     // One decimal: scores are weighted from one-decimal axes (industry/selection.ts).
@@ -521,12 +523,26 @@ export async function publicTimeMetadata(ids: string[], db: Db = sql) {
   );
 }
 
-/** Current material/configuration mismatches, newest first; an acknowledged unknown date is not retried forever. */
+/**
+ * Current material/configuration mismatches, newest first; an acknowledged unknown date is not retried forever.
+ * Then projections that still show a placeholder midnight as a clock (content/date-evidence placeholderClockSources):
+ * re-projected once, they read as dates.
+ */
 export async function pendingSourceTimeProjectionIds(limit: number) {
   const rows = await sql<
     { article_id: string }[]
   >`SELECT p.article_id FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     WHERE s.lane='news' AND (p.source_time_material_revision IS DISTINCT FROM a.revision OR p.source_date_version IS DISTINCT FROM a.source_date_version OR p.source_date_config_hash IS DISTINCT FROM s.source_date_config_hash)
     ORDER BY p.timeline_at DESC,p.article_id LIMIT ${limit}`;
-  return rows.map((row) => row.article_id);
+  const ids = rows.map((row) => row.article_id);
+  if (ids.length >= limit) return ids;
+  const midnights = (
+    await sql<{ article_id: string; source_id: string; precision: "minute" | "second"; local_time: string }[]>`
+    SELECT p.article_id,p.source_id,p.source_time->>'precision' AS precision,p.source_time->>'local_time' AS local_time
+    FROM publications p JOIN sources s ON s.id=p.source_id
+    WHERE s.lane='news' AND p.source_time->>'precision' IN ('minute','second') AND p.source_time->>'local_time' LIKE '00:00%'
+    ORDER BY p.timeline_at DESC,p.article_id`
+  ).filter(midnightClock);
+  const placeholders = await placeholderClockSources(midnights.map((row) => row.source_id));
+  return [...new Set([...ids, ...midnights.filter((row) => placeholders.has(row.source_id)).map((row) => row.article_id)])].slice(0, limit);
 }

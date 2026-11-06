@@ -40,8 +40,13 @@ export function relatedReport(entry: ReportEntry): RelatedReport {
   };
 }
 
-/** Rule arrangement: shared-event roundups become related reading; thin follow-ups become flashes when fresh news exists. */
-export function arrangeDaily(entries: EditionEntry[]) {
+/**
+ * Rule arrangement: shared-event roundups become related reading; thin follow-ups become flashes when fresh news exists.
+ * `keepLead` is the story a published issue already leads with (Owner 2026-11-06: past issues kept changing under
+ * readers): while it is still in the issue it is placed first, inside the per-source quota, so late reports join the
+ * issue without taking its front page or pushing it into the flashes.
+ */
+export function arrangeDaily(entries: EditionEntry[], keepLead: string | null = null) {
   const ranked = [...entries].sort((a, b) => b.importance - a.importance || a.entry.itemId.localeCompare(b.entry.itemId));
   const stories = new Map(ranked.filter((e) => e.storyId !== null).map((e) => [e.storyId!, e]));
   const attachments = new Map<EditionEntry, EditionEntry[]>();
@@ -76,9 +81,10 @@ export function arrangeDaily(entries: EditionEntry[]) {
   const main: EditionEntry[] = [],
     rest: EditionEntry[] = [];
   const perSource = new Map<string, number>();
-  for (const entry of live) {
+  const kept = keepLead ? live.find((e) => e.entry.itemId === keepLead) : undefined;
+  for (const entry of kept ? [kept, ...live.filter((e) => e !== kept)] : live) {
     const count = perSource.get(entry.entry.sourceId) ?? 0;
-    if (main.length < MAIN_ENTRIES && count < PER_SOURCE && (!hasFreshOrSubstantial || earnsMain(entry))) {
+    if (entry === kept || (main.length < MAIN_ENTRIES && count < PER_SOURCE && (!hasFreshOrSubstantial || earnsMain(entry)))) {
       main.push(entry);
       perSource.set(entry.entry.sourceId, count + 1);
     } else rest.push(entry);

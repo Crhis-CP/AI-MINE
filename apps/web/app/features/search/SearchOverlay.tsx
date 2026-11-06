@@ -2,7 +2,8 @@ import type { SearchSuggestions } from "@amp/contracts/site";
 import { useTr } from "../../i18n";
 import { loadSearchNavigation } from "./navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Form, Link, useLocation, useNavigation } from "react-router";
+import { useLocation, useNavigation } from "react-router";
+import { Form, Link } from "../../i18n/navigation";
 import { addRecentSearch, clearRecentSearches, useRecentSearches } from "../../lib/local-state";
 import { IconSearch } from "../../components/icons";
 

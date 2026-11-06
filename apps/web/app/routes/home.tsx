@@ -1,7 +1,8 @@
 import { apiFetch } from "../lib/http.ts";
-import { useT } from "../i18n";
+import { localizedFrom, useT, useTagLabel } from "../i18n";
 import { SITE, withSubject } from "@amp/industry/site";
-import { Link, data as withHeaders, redirect, useLoaderData } from "react-router";
+import { data as withHeaders, redirect, useLoaderData } from "react-router";
+import { Link } from "../i18n/navigation";
 import type { Route } from "./+types/home";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
@@ -19,7 +20,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q");
   // Search lives on /all; keep the parameters so old links still land on results.
-  if (q && q.trim()) throw redirect(`/all${url.search}`);
+  if (q && q.trim()) throw redirect(localizedFrom(request.url, `/all${url.search}`));
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
   const channel = isChannelKey(channelParam) ? channelParam : "all";
@@ -107,8 +108,9 @@ export function headers({ loaderHeaders }: Route.HeadersArgs) {
 
 export default function Home() {
   const tf = useT().feed;
+  const tagLabel = useTagLabel();
   const { data, waiting, unavailable, latest, filters } = useLoaderData<typeof loader>();
-  const title = filters.tag ? `#${filters.tag}` : latest ? tf.latest : tf.picks;
+  const title = filters.tag ? `#${tagLabel(filters.tag)}` : latest ? tf.latest : tf.picks;
   // While there are no picks, “全部” stays on this page and the other tabs lead to 全部动态, where the items are.
   const tabsBase = waiting ? "/all" : "/";
   const allTo = waiting ? "/" : undefined;

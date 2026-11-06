@@ -33,6 +33,21 @@ export function groundedIn(source: string, ...values: string[]): boolean {
   return values.every((value) => figures(value).every((n) => known.has(n)));
 }
 
+const MONTHS_EN =
+  /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
+
+/**
+ * "接下来关注" lists dated milestones: a `when` must name a calendar year (not a decade such as
+ * "2030年代中期" or "mid-2030s") or a calendar month. A phase ("第2期"), a span counted from the report
+ * ("2个工作日内", "未来几年") or a quarter without its year is no date a reader can place.
+ */
+export function namesCalendarDate(when: string): boolean {
+  const text = when.normalize("NFKC");
+  const year = /(?<!\d)(?:19|20)\d{2}(?!\d)(?!\s*(?:年代|'?s\b))/.test(text);
+  const month = /(?<![\d.])(?:1[0-2]|0?[1-9])\s*月/.test(text) || MONTHS_EN.test(text);
+  return year || month;
+}
+
 /**
  * Structured digest parts, read leniently: an invalid or ungrounded entry is dropped, never the whole
  * digest. Stored versions written before these parts existed (null or missing fields) read as empty.
@@ -48,7 +63,7 @@ export function readDigestDetail(value: unknown, source?: string): { keyChanges:
       .slice(0, max);
   return {
     keyChanges: list(record.keyChanges, StoryKeyChange, (c) => c.before !== c.after && (source === undefined || groundedIn(source, c.before, c.after)), 4),
-    next: list(record.next, StoryNextMilestone, (m) => source === undefined || groundedIn(source, m.when), 3),
+    next: list(record.next, StoryNextMilestone, (m) => namesCalendarDate(m.when) && (source === undefined || groundedIn(source, m.when)), 3),
   };
 }
 

@@ -1,17 +1,19 @@
 import { copyText } from "../lib/clipboard";
-import { useTr } from "../i18n";
+import { useLocalize, useTr } from "../i18n";
 import { useState } from "react";
 
 /** A successful clipboard write is required; cancellation of the system share sheet is neutral. */
 export function ShareLink({ path, title }: { path: string; title: string }) {
   const tr = useTr();
+  // What is shared from the English interface opens in English.
+  const localize = useLocalize();
   const [message, setMessage] = useState<{ text: string; failed: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const run = async (share: boolean) => {
     if (busy) return;
     setBusy(true);
     setMessage(null);
-    const url = new URL(path, window.location.origin).href;
+    const url = new URL(localize(path), window.location.origin).href;
     const system = share && !!navigator.share && window.matchMedia("(pointer: coarse)").matches;
     try {
       if (system) await navigator.share({ title, url });

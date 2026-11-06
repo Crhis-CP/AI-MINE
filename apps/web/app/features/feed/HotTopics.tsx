@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link } from "../../i18n/navigation";
 import { fmt, useLocale, useT } from "../../i18n";
 import type { HotStripEntry, ReportGroupedTimelineCard as TimelineCard } from "@amp/contracts/site";
 import { EmptyState } from "../../components/ui/Page";

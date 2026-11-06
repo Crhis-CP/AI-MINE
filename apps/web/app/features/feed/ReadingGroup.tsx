@@ -1,14 +1,15 @@
 import { markRead, useReadSet } from "../../lib/local-state";
-import { fmt, useT } from "../../i18n";
+import { fmt, useDateFormat, useT } from "../../i18n";
 // Reading-group expansions on a feed item: the other sources of the card's fact ("另有 N 家信源报道")
 // and the event's developments ("展开 N 条进展"). Each loads on first open and pages on demand.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
+import { Link } from "../../i18n/navigation";
 import { Collapse } from "../../components/ui/Presence.tsx";
 import type { Development, GroupInfo, ReportGroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
 import { ReportGroupReportsResponse } from "@amp/contracts/http/public";
 import { IconArrowUpRight, IconChevronDown } from "../../components/icons";
-import { shortSourceName, sourceMonthDayTime, newsSourceDate } from "../../lib/format";
+import { shortSourceName, newsSourceDate } from "../../lib/format";
 import { isReload } from "./restore";
 import { sessionCache } from "./session-cache";
 
@@ -341,11 +342,12 @@ export function GroupDevelopments({
 /** "最新进展 · 9月27日 01:21 · …": why a folded event card sits where it does. */
 export function LatestDevelopment({ group }: { group: GroupInfo }) {
   const tl = useT().list;
+  const df = useDateFormat();
   if (!group.latestDevelopment || group.developmentCount <= 1) return null;
   return (
     <p className="relative z-10 mt-2.5 flex items-baseline gap-1.5 text-[14px] leading-relaxed">
       <span className="shrink-0 font-medium text-accent">{tl.latestDevelopment}</span>
-      <span className="num shrink-0 text-ink-4">{sourceMonthDayTime(group.latestDevelopment.at)}</span>
+      <span className="num shrink-0 text-ink-4">{df.sourceMonthDayTime(group.latestDevelopment.at)}</span>
       <span className="line-clamp-1 text-ink-3">{group.latestDevelopment.title}</span>
     </p>
   );

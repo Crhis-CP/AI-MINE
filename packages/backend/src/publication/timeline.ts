@@ -9,6 +9,8 @@ import { loadReportGroupedPage } from "./report-group-reading.ts";
 import type { GroupInfo, TimelineCard, TimelineFilters, ReportGroupedTimelineResponse } from "@amp/contracts/site";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql, type Db } from "../db.ts";
+import { readerAnchor } from "./source-time.ts";
+import { foldCopies } from "./stories.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
   selectedCondition,
@@ -110,8 +112,21 @@ async function groupPool(q: TimelineQuery, now: Date, factIds: number[], db: Db 
     q.jurisdictionRecipe ?? newsJurisdictionScope(q.jurisdiction).jurisdictionRecipe,
   );
   if (!factIds.length) return [];
-  return db<{ story_id: number | null; fact_id: number; article_id: string; source_id: string; at: Date }[]>`
-    SELECT DISTINCT f.story_id, f.id AS fact_id, p.article_id, p.source_id, p.timeline_at AS at
+  return db<
+    {
+      story_id: number | null;
+      fact_id: number;
+      article_id: string;
+      source_id: string;
+      at: Date;
+      reported_at: Date;
+      title: string;
+      original_title: string | null;
+      first_party: boolean;
+    }[]
+  >`
+    SELECT DISTINCT f.story_id, f.id AS fact_id, p.article_id, p.source_id, p.timeline_at AS at, coalesce(p.published_at, p.discovered_at) AS reported_at,
+      p.title, p.original_title, p.first_party
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     WHERE f.id IN ${sql(factIds)} AND fa.role IN ('primary', 'report')
       AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
@@ -143,7 +158,10 @@ export async function loadTimelineFactGroups(
   const factInfo = new Map(facts.map((fact) => [fact.id, fact.public_id]));
   return new Map(
     representatives.map((row): [string, GroupInfo | null] => {
-      const reports = pool.filter((report) => report.fact_id === row.fact_id);
+      // A copy of a report already counted (one syndicated article, two outlets) is not another report.
+      const reports = foldCopies(
+        pool.filter((report) => report.fact_id === row.fact_id).map((report) => ({ ...report, id: report.article_id, at: report.reported_at })),
+      );
       const reportCount = new Set(reports.map((report) => report.article_id)).size;
       if (reportCount <= 1) return [row.id, null];
       return [
@@ -297,7 +315,17 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<ReportGrouped
   );
   const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt }) => {
     const row = rows.get(id);
-    return row ? [{ key, anchorAt, item: toFeedItemSummary(row), group: factGroups.get(id) ?? null }] : [];
+    // The time column shows the anchor: a date-only source day stays a date (readerAnchor).
+    return row
+      ? [
+          {
+            key,
+            anchorAt: readerAnchor(new Date(anchorAt), row.published_at, row.source_time).toISOString(),
+            item: toFeedItemSummary(row),
+            group: factGroups.get(id) ?? null,
+          },
+        ]
+      : [];
   });
 
   // Day header counts for the days on this page, over the full grouped set.

@@ -1,6 +1,6 @@
 import { publicPostSummary } from "./post-view.ts";
 import { browseFloorCondition, originalPostAdmissionCondition } from "./items.ts";
-import { originalPostAffectedStories } from "./stories.ts";
+import { foldCopies, originalPostAffectedStories, readStoryReportLines, storyLine } from "./stories.ts";
 export { originalPostAffectedStories } from "./stories.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 export { fetchItemsByIds } from "./items.ts";
@@ -64,6 +64,8 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
     {
       id: string;
       title: string;
+      original_title: string | null;
+      at: Date;
       summary: string | null;
       timeline_at: Date;
       url: string;
@@ -77,12 +79,13 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
       source_policy?: unknown;
     }[]
   >`
-    SELECT p.article_id AS id, p.title, coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, (${confirmedSelected()}) AS selected,
+    SELECT p.article_id AS id, p.title, p.original_title, coalesce(p.published_at, p.discovered_at) AS at,
+           coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, (${confirmedSelected()}) AS selected,
            s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party,p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind
     FROM publications p JOIN sources s ON s.id = p.source_id
     WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible
       AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
-    ORDER BY p.timeline_at DESC, p.article_id ASC`;
+    ORDER BY p.timeline_at DESC, p.article_id ASC`.then(foldCopies);
   if (members.length === 0) return { kind: "not_found" };
   await attachSourcePolicies(members);
   for (const member of members) Object.assign(member, publicPostSummary(member, now.getTime()));
@@ -154,18 +157,24 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
     SELECT p.article_id AS id, p.source_id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
     FROM publications p WHERE p.story_id = ${story.id} AND ${scope} ${filters}`;
   if (selected.length === 0) return { kind: "not_found" };
-  const counts = new Map(
-    (
-      await sql<{ fact_id: number; n: number }[]>`
-      SELECT fa.fact_id, count(DISTINCT p.article_id)::int AS n
-      FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
-      WHERE f.story_id = ${story.id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
-      GROUP BY fa.fact_id`
-    ).map((c) => [c.fact_id, c.n]),
-  );
+  // The story page's line: a fact split off for a copy of another fact's report is that development, not a second one.
+  const line = storyLine(await readStoryReportLines([story.id], now));
+  const development = (fact: number) => {
+    const index = line.developmentOfFact.get(fact);
+    return index === undefined ? fact : line.developments[index]!.factId;
+  };
+  const reported = await sql<{ fact_id: number; id: string; title: string; original_title: string | null; first_party: boolean; at: Date }[]>`
+    SELECT DISTINCT fa.fact_id, p.article_id AS id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at
+    FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
+    WHERE f.story_id = ${story.id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}`;
+  const counts = new Map<number, number>();
+  for (const fact of new Set(reported.map((r) => development(r.fact_id)))) {
+    const rows = [...new Map(reported.filter((r) => development(r.fact_id) === fact).map((r) => [r.id, r])).values()];
+    counts.set(fact, foldCopies(rows).length);
+  }
   await attachRepresentativePriority(selected);
   const byFact = new Map<number, Member[]>();
-  for (const r of selected) if (r.fact_id !== null) byFact.set(r.fact_id, [...(byFact.get(r.fact_id) ?? []), r]);
+  for (const r of selected) if (r.fact_id !== null) byFact.set(development(r.fact_id), [...(byFact.get(development(r.fact_id)) ?? []), r]);
   if (byFact.size === 0) return { kind: "not_found" };
   const facts = await sql<{ id: number; public_id: string; title: string; occurred_at: Date | null }[]>`
     SELECT id, public_id, title, occurred_at FROM facts WHERE id IN ${sql([...byFact.keys()])}`;

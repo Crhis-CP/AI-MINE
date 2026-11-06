@@ -30,7 +30,12 @@ const provider = await stub(async (_hit, req) => {
               { item: "报道里没有的数", before: "7", after: "9" },
               "not an object",
             ],
-            next: [{ what: "合成节点", when: "第2期" }, { what: "报道里没有的日期", when: "2099年" }, { what: "缺日期" }],
+            next: [
+              { what: "合成节点", when: "2月" },
+              { what: "没有日期的阶段", when: "第2期" },
+              { what: "报道里没有的日期", when: "2099年" },
+              { what: "缺日期" },
+            ],
           }),
         },
       },
@@ -133,9 +138,9 @@ test("story updates preserve the existing report prefix, while corrections omit 
     // Saturday noon UTC is off-peak: the refresh is written now.
     assert.equal((await composeStoryDigest(Number(story.id), { now: new Date("2026-11-07T12:00:00Z") })).updated, true);
   }
-  // The second version read both reports, so "2" is stated there; invalid and ungrounded entries were dropped.
+  // The second version read both reports, so "2" is stated there; invalid, ungrounded and undated ("第2期") entries were dropped.
   const [stored] = await sql<{ digest_detail: unknown }[]>`SELECT digest_detail FROM stories WHERE id=${story.id}`;
-  assert.deepEqual(stored!.digest_detail, { keyChanges: [{ item: "合成指引", before: "1", after: "2" }], next: [{ what: "合成节点", when: "第2期" }] });
+  assert.deepEqual(stored!.digest_detail, { keyChanges: [{ item: "合成指引", before: "1", after: "2" }], next: [{ what: "合成节点", when: "2月" }] });
   const versions = await sql<{ digest_detail: unknown }[]>`SELECT digest_detail FROM story_digests WHERE story_id=${story.id} ORDER BY version`;
   assert.deepEqual(versions[0]!.digest_detail, { keyChanges: [], next: [] }, "the first version only read report 1, which states no 2");
   const first = requests[0]!.messages.at(-1)!.content,

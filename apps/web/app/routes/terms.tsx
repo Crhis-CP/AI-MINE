@@ -31,7 +31,7 @@ export default function TermsPage() {
             { to: "/agent", label: tr("Agent 接入页") },
             ...WEB_MODULES.flatMap((module) => module.termsLinks ?? []),
           ]}
-          note={`使用规则 ${TERMS.doc.meta["版本"] ?? ""} · ${TERMS.doc.meta["修订日期"] ?? ""}`}
+          note={`${tr("使用规则")} ${TERMS.doc.meta["版本"] ?? ""} · ${TERMS.doc.meta["修订日期"] ?? ""}`}
         />
       }
     />

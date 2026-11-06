@@ -4,7 +4,8 @@ import { otherLanguagePath, useLocale, useT, useTr } from "../i18n";
 import { UnreadMark } from "../features/changelog/UnreadMark";
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router";
+import { Link as PlainLink, useLocation } from "react-router";
+import { Link } from "../i18n/navigation";
 import { feedbackPath } from "../lib/feedback-origin";
 import { pageMeta } from "../lib/seo";
 import { MODULE_NAVIGATION } from "../components/shell/nav";
@@ -177,7 +178,8 @@ export default function MorePage() {
           RSS
         </a>
         <FilingLinks filings={filings} linkClassName="hover:text-ink-2" />
-        <Link
+        {/* The language switch leaves the language, so its address is not re-localised. */}
+        <PlainLink
           to={otherLanguagePath(location.pathname, location.search, locale)}
           hrefLang={locale === "en" ? "zh-CN" : "en"}
           lang={locale === "en" ? "zh-CN" : "en"}
@@ -185,7 +187,7 @@ export default function MorePage() {
           className="font-semibold text-ink-3 hover:text-ink-2"
         >
           {t.shell.switchTo}
-        </Link>
+        </PlainLink>
       </div>
     </div>
   );

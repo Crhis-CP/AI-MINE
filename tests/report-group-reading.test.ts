@@ -38,11 +38,13 @@ async function fixture(count = 3) {
     const id = `${key}-${n}`,
       source = sources[n % 3]!,
       at = new Date(now.getTime() - (n + 1) * 60000),
-      url = `https://example.invalid/${id}`;
+      url = `https://example.invalid/${id}`,
+      // Each outlet's own headline: the same headline on the same day would be one report's copies (copyGroups).
+      title = `合成同阶段矿业报道 第${n + 1}篇`;
     await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at,language,body_text,raw)
-      VALUES(${id},${source},${id},${url},'合成同阶段矿业报道',${at},${at},'zh','合成正文','{}')`;
+      VALUES(${id},${source},${id},${url},${title},${at},${at},'zh','合成正文','{}')`;
     await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,timeline_at,sort_at,visibility,eligible,selected,search_text,tags,representative_priority)
-      VALUES(${id},'合成同阶段矿业报道','合成公开导读',${source},'news',${url},${at},${at},${at},'public',true,false,${`${key} 共同主题 铜矿`},${[key, "铜"]},${n === 0 ? 0 : 3})`;
+      VALUES(${id},${title},'合成公开导读',${source},'news',${url},${at},${at},${at},'public',true,false,${`${key} 共同主题 铜矿`},${[key, "铜"]},${n === 0 ? 0 : 3})`;
     await sql`INSERT INTO pool_search(article_id,direct,body) VALUES(${id},${`${key} 共同主题 铜矿`},'合成正文')`;
     ids.push(id);
   }

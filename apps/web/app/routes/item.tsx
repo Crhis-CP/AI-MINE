@@ -1,5 +1,5 @@
 import { ArticleBody } from "../features/item/ArticleBody";
-import { useTr, useDateFormat } from "../i18n";
+import { useTr, useDateFormat, useLocalize, useTagLabel } from "../i18n";
 import { PostAuthor, PostMedia, QuotedPost } from "../features/item/OriginalPost";
 import { SharePoster } from "../features/item/SharePoster";
 import { Sheet } from "../components/ui/Sheet";
@@ -9,7 +9,8 @@ import { markRead } from "../lib/local-state";
 import { ReadingFaceToggle } from "../components/ui/ReadingFace";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
-import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
+import { useLoaderData, useLocation } from "react-router";
+import { Link, useNavigate } from "../i18n/navigation";
 import type { Route } from "./+types/item";
 import { XPostDetailFields, ReportGroupDetailFields } from "@amp/contracts/http/public";
 import type { ReportGroupedSiteItemDetail as SiteItemDetail } from "@amp/contracts/site";
@@ -101,8 +102,8 @@ function hostOf(url: string): string {
   }
 }
 
-async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">): Promise<"shared" | "copied" | null> {
-  const url = `${siteUrl()}/items/${item.id}`;
+async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">, path: string): Promise<"shared" | "copied" | null> {
+  const url = `${siteUrl()}${path}`;
   try {
     if (navigator.share && matchMedia("(pointer: coarse)").matches) {
       await navigator.share({ title: item.title, url });
@@ -124,6 +125,9 @@ export default function ItemPage() {
   }, [item.id]);
   const currentLocation = useLocation();
   const navigate = useNavigate();
+  const tagLabel = useTagLabel();
+  // The article's address in this page's language: what is shared from the English interface opens in English.
+  const itemPath = useLocalize()(`/items/${item.id}`);
   const hasTranslation = item.hasTranslation || !!item.x?.quoted?.translation?.trim();
   const lang = item.bodyLanguage;
   const [toast, setToast] = useState<string | null>(null);
@@ -137,7 +141,7 @@ export default function ItemPage() {
     return () => clearTimeout(t);
   }, [toast]);
   const share = async () => {
-    const r = await shareOrCopy(item);
+    const r = await shareOrCopy(item, itemPath);
     if (r === "copied") setToast(tr("链接已复制"));
   };
 
@@ -205,7 +209,7 @@ export default function ItemPage() {
             onSelect={async () => {
               close();
               try {
-                await navigator.clipboard.writeText(`${siteUrl()}/items/${item.id}`);
+                await navigator.clipboard.writeText(`${siteUrl()}${itemPath}`);
                 setToast(tr("链接已复制"));
               } catch {
                 // clipboard unavailable
@@ -312,7 +316,7 @@ export default function ItemPage() {
           <div className="flex flex-wrap gap-1.5">
             {item.tags.slice(0, 8).map((t) => (
               <Link key={t} to={`/all?tag=${encodeURIComponent(t)}`} className="chip">
-                #{t}
+                #{tagLabel(t)}
               </Link>
             ))}
           </div>
@@ -499,7 +503,7 @@ export default function ItemPage() {
                   <li key={`${company.name}:${company.originalName}`}>
                     <h3 className="text-[15px] font-semibold">
                       {company.name}
-                      {company.originalName && company.originalName !== company.name ? `（${company.originalName}）` : ""}
+                      {company.originalName && company.originalName !== company.name ? tr("（{value}）", { value: company.originalName }) : ""}
                     </h3>
                     {company.description && <p className="mt-1 text-[15px] leading-relaxed text-ink-3">{company.description}</p>}
                     <p className="mt-1 flex flex-wrap gap-x-3 text-[13px] text-ink-4">
@@ -537,7 +541,7 @@ export default function ItemPage() {
             <div className="mt-4 flex flex-wrap gap-1.5 lg:hidden">
               {item.tags.slice(0, 6).map((t) => (
                 <Link key={t} to={`/all?tag=${encodeURIComponent(t)}`} className="chip">
-                  #{t}
+                  #{tagLabel(t)}
                 </Link>
               ))}
             </div>
@@ -627,7 +631,7 @@ export default function ItemPage() {
               onClick={async () => {
                 setSheet(null);
                 try {
-                  await navigator.clipboard.writeText(`${siteUrl()}/items/${item.id}`);
+                  await navigator.clipboard.writeText(`${siteUrl()}${itemPath}`);
                   setToast(tr("链接已复制"));
                 } catch {
                   setToast(tr("暂时无法复制，请使用浏览器分享。"));

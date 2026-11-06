@@ -2,6 +2,7 @@ import type { ReportGroupInfo, ReportGroupedTimelineCard, ReportGroupReportsResp
 import type { PoolQuery } from "./pool.ts";
 import { beijingDate } from "@amp/contracts/time";
 import { sql, type Db } from "../db.ts";
+import { readerAnchor } from "./source-time.ts";
 import { queryBinding, decodeCursor, encodeCursor, InvalidCursorError } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
 import { withSearchCapacity } from "./pool.ts";
@@ -123,7 +124,7 @@ export async function loadReportGroupedPage(q: ReadingGroupQuery, now: Date, db:
       return [
         {
           key: g.key,
-          anchorAt: new Date(g.anchor).toISOString(),
+          anchorAt: readerAnchor(new Date(g.anchor), row.published_at, row.source_time).toISOString(),
           item: toFeedItemSummary(row),
           group: factGroups.get(row.id) ?? null,
           ...(g.reportGroup ? { reportGroup: g.reportGroup } : {}),

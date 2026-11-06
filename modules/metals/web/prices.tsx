@@ -1,7 +1,7 @@
-import { apiFetch, IconChevronDown, IconExternal, pageMeta } from "@amp/web/extension";
+import { apiFetch, IconChevronDown, IconExternal, Link, pageMeta } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, data as withHeaders, useLoaderData } from "react-router";
+import { data as withHeaders, useLoaderData } from "react-router";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { schemas as publicSchemas, type MetalPrices } from "@amp/contracts/http/public";
 import { apiBaseFor, contractResult } from "@amp/web/extension.server";
@@ -138,7 +138,8 @@ function QuoteInfo({ prices, quote }: { prices: MetalPrices; quote: Quote }) {
   return (
     <div className="mt-1 space-y-0.5 text-[11.5px] leading-[1.6] text-ink-4">
       <p>
-        {tr("来源")}：
+        {tr("来源")}
+        {tr("：")}
         {source.latest ? (
           <External href={source.latest.release.url} title={source.latest.release.label}>
             {source.name}
@@ -232,8 +233,7 @@ function LatestLine({ prices }: { prices: MetalPrices }) {
           {period.stale && <span className="ml-1 text-amber-ink">{tr("较早期数据")}</span>}
           {period.extras.map((extra) => (
             <span key={extra.label} className="text-ink-4">
-              （{extra.metals.join("、")} {extra.label}
-              {extra.stale && tr(" 较早期数据")}）
+              {tr("（{value}）", { value: `${extra.metals.join(tr("、"))} ${extra.label}${extra.stale ? tr(" 较早期数据") : ""}` })}
             </span>
           ))}
         </span>

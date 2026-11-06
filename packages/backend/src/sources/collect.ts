@@ -36,7 +36,7 @@ import { allowed, fetchDetail, fetchWebList, fetchWebListConditional, sourcePubl
 import { normalizeSourceLanguage, unsupportedConfig, sourceDateConfigHash } from "./config-keys.ts";
 import { fetchJsonList, fetchJsonListConditional } from "./json-list.ts";
 import { FetchError, type Candidate, type ListingValidator, type SourceRow } from "./types.ts";
-import { toDateCandidate, previewSourceDate } from "./date-extraction.ts";
+import { toDateCandidate, previewSourceDate, placeholderClock, midnightClock, dateOnlyObservation } from "./date-extraction.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { beijingDate } from "@amp/contracts/time";
 
@@ -77,6 +77,23 @@ export function noiseFiltered(c: Candidate, source: SourceRow): boolean {
   const hay = `${title}\n${(c.excerpt ?? "").toLowerCase()}`;
   if (has(hay, f.keepIfMatches)) return false;
   return has(title, f.dropMarkersTitleOnly) || has(hay, f.dropMarkers);
+}
+
+/**
+ * A news listing that stamps every entry with the same midnight (placeholderClock) prints a date column: each
+ * entry is observed as its date alone and anchored like any date-only source, never at that midnight's clock.
+ * One midnight among real times is left as stated.
+ */
+export function readListingDays<C extends Candidate>(candidates: C[], source: Pick<SourceRow, "lane" | "kind" | "config">): C[] {
+  if (source.lane !== "news") return candidates;
+  const times = candidates.map((c) => (c.sourceDateObservation ? previewSourceDate(c.sourceDateObservation) : null));
+  if (!placeholderClock(times)) return candidates;
+  const offset = source.kind === "web_list" ? source.config.publishedAtUtcOffset : undefined;
+  return candidates.map((c, i) => {
+    const time = times[i];
+    const observation = c.sourceDateObservation && midnightClock(time) ? dateOnlyObservation(c.sourceDateObservation, time!.local_date!) : null;
+    return observation ? { ...c, sourceDateObservation: observation, publishedAt: sourcePublishedAt(previewSourceDate(observation), offset) } : c;
+  });
 }
 
 function rewriteUrl(c: Candidate, source: SourceRow): Candidate {
@@ -240,6 +257,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         if (listing.notModified) detail = { notModified: true, httpStatus: 304 };
       } else if (source.kind === "web_list") candidates = await crawlStep("listing", String(source.config.url), () => fetchWebList(source));
       else candidates = await crawlStep("listing", String(source.config.url), () => fetchJsonList(source));
+      candidates = readListingDays(candidates, source);
       found = candidates.length;
       candidates = candidates
         .filter((c) => allowed(c.url, source))

@@ -1,5 +1,6 @@
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { useTr } from "../../i18n";
+import { useNavigate } from "../../i18n/navigation";
 import { IconChevronLeft } from "../icons";
 import { useEffect, useState, type ReactNode } from "react";
 

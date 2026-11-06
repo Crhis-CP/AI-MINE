@@ -1,7 +1,7 @@
 import { apiFetch } from "../../lib/http.ts";
 import { useTr } from "../../i18n";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "../../i18n/navigation";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { removeStar, toggleStar, useIsStarred, useStarred } from "../../lib/local-state";
 import { fullDateTime } from "../../lib/format";
@@ -25,7 +25,7 @@ export function StorySaveButton({ id }: { id: string }) {
       </button>
       {error && (
         <span role="alert" className="ml-2 text-[12px] text-hot">
-          {error}
+          {tr.maybe(error)}
         </span>
       )}
     </span>
@@ -113,7 +113,7 @@ export function StorySavedList() {
       <h2 className="text-[18px] font-semibold">{tr("事件收藏")}</h2>
       {error && (
         <p role="alert" className="mt-2 text-[13px] text-hot">
-          {error}
+          {tr.maybe(error)}
         </p>
       )}
       {state.busy && (

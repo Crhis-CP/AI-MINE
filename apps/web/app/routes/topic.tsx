@@ -1,9 +1,10 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
-import { useTr } from "../i18n";
+import { localizedFrom, useTr } from "../i18n";
 import { BrandMark } from "../components/BrandMark";
 import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
-import { Link, redirect, useLoaderData, useSearchParams } from "react-router";
+import { redirect, useLoaderData, useSearchParams } from "react-router";
+import { Link } from "../i18n/navigation";
 import type { Route } from "./+types/topic";
 import type { z } from "zod";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
@@ -38,7 +39,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const page = params.page ? Number(params.page) : Math.max(1, Number.parseInt(search.get("page") ?? "1", 10) || 1);
   if (params.page !== undefined && (!/^\d+$/.test(params.page) || page < 1)) throw new Response("Not found", { status: 404 });
   // Page 1 lives at the topic's own address (308).
-  if (params.page === "1") throw redirect(`/topics/${encodeURIComponent(params.slug)}`, 308);
+  if (params.page === "1") throw redirect(localizedFrom(request.url, `/topics/${encodeURIComponent(params.slug)}`), 308);
   const topicPath = `/api/site/topics/${encodeURIComponent(params.slug)}`;
   const readTopic = async (wanted: number) =>
     publicSchemas.TopicPage.parse(

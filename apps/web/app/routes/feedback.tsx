@@ -3,7 +3,8 @@ import { useTr } from "../i18n";
 import { FEEDBACK_LIMITS, FeedbackSubmissionFields } from "@amp/contracts/http/public";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
+import { Link } from "../i18n/navigation";
 import { Presence } from "../components/ui/Presence.tsx";
 import { pageMeta } from "../lib/seo";
 import { localFeedbackOrigin } from "../lib/feedback-origin";
@@ -297,7 +298,7 @@ export default function FeedbackPage() {
             <Link to="/privacy" className="text-accent hover:underline">
               {tr("隐私说明")}
             </Link>
-            。
+            {tr("。")}
           </p>
           <button
             type="submit"

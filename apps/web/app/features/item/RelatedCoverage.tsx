@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link } from "../../i18n/navigation";
 import { useTr } from "../../i18n";
 import type { ItemDetail } from "@amp/contracts/site";
 import { newsSourceDate, fullDateTime } from "../../lib/format";

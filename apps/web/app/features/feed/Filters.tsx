@@ -1,5 +1,5 @@
 import { PhoneBar } from "../../components/shell/PhoneBar";
-import { fmt, useCategoryLabel, useLocale, useT, useTr } from "../../i18n";
+import { fmt, useCategoryLabel, useLocale, useLocalize, useT, useTagLabel, useTr } from "../../i18n";
 import { Sheet } from "../../components/ui/Sheet";
 import { Wordmark } from "../../components/Logo";
 import { SITE } from "@amp/industry/site";
@@ -8,7 +8,8 @@ import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Form, Link, useLocation, useNavigate, useNavigation, useSearchParams } from "react-router";
+import { useLocation, useNavigation, useSearchParams } from "react-router";
+import { Form, Link, useNavigate } from "../../i18n/navigation";
 import { CATEGORY_KEYS, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
@@ -72,7 +73,8 @@ export function JurisdictionFilter({
                 .filter((j) => j.kind === kind)
                 .map((j) => (
                   <option key={j.code} value={j.code}>
-                    {j.kind === "country" ? (regionNames?.of(j.code) ?? j.label) : tr.maybe(j.label)}（{j.news_count}）
+                    {j.kind === "country" ? (regionNames?.of(j.code) ?? j.label) : tr.maybe(j.label)}
+                    {tr("（{value}）", { value: j.news_count })}
                   </option>
                 ))}
             </optgroup>
@@ -208,6 +210,7 @@ export function FeedBar({
 }) {
   const tf = useT().feed;
   const cat = useCategoryLabel();
+  const tagLabel = useTagLabel();
   const homeLabel = useT().shell.home;
   const [params] = useSearchParams();
   const location = useLocation();
@@ -258,7 +261,7 @@ export function FeedBar({
           : key === "source"
             ? tf.chipSource
             : key === "tag"
-              ? `#${value}`
+              ? `#${tagLabel(value)}`
               : key === "from"
                 ? fmt(tf.chipFrom, { value })
                 : key === "to"
@@ -422,13 +425,14 @@ export function SearchField({
   const tf = useT().feed;
   const [value, setValue] = useState(defaultValue);
   const navigation = useNavigation();
+  const target = useLocalize()(action);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => setValue(defaultValue), [defaultValue]);
   useSlashFocus(inputRef);
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus();
   }, [autoFocus]);
-  const searching = navigation.state === "loading" && navigation.location?.pathname === action && !!new URLSearchParams(navigation.location.search).get("q");
+  const searching = navigation.state === "loading" && navigation.location?.pathname === target && !!new URLSearchParams(navigation.location.search).get("q");
   const hidden = Object.entries(keep).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null));
 
   if (variant === "bar") {
@@ -565,6 +569,7 @@ export function SourceDateFilters({
   flat?: boolean;
 }) {
   const tf = useT().feed;
+  const tr = useTr();
   const [params] = useSearchParams();
   const controls = ["source", "mineral", "on", "from", "to"];
   const field = "min-w-0 rounded-control border border-line-strong bg-surface px-2 py-2 text-[16px] text-ink sm:text-[14px]";
@@ -591,7 +596,8 @@ export function SourceDateFilters({
             )}
             {facets?.sources.map((source) => (
               <option key={source.id} value={source.id}>
-                {source.name}（{source.count}）
+                {source.name}
+                {tr("（{value}）", { value: source.count })}
               </option>
             ))}
           </select>

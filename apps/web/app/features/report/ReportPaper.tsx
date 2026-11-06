@@ -5,7 +5,6 @@
 // Rules are hairlines in two weights: line-strong closes the masthead and underlines a page's heading
 // and the neighbours; line parts stories, columns and list rows. Nothing is set in solid ink. Stories
 // sit in rows of two whose rules run across the page, each story as tall as its neighbour.
-import { SITE, withSubject } from "@amp/industry/site";
 import { useTr } from "../../i18n";
 import type { ReactNode } from "react";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
@@ -20,7 +19,7 @@ import { ShareLink } from "../../components/ShareLink";
 import { Nameplate } from "./Nameplate";
 import { Wordmark } from "../../components/Logo";
 import { IssueDots } from "./IssueDots";
-import { EDITION, KIND_LABEL, MOTTO, dateLine, dateMark, headline, issueNumber, metricItems, neighbourLabel, reportPath, shortDay } from "./format";
+import { issueNumber, reportPath, useReportFormat } from "./format";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const keyOf = (c: ReportCitation) => c.itemId ?? c.title;
@@ -29,21 +28,22 @@ const LINK = "inline-flex min-h-7 items-center gap-0.5 font-medium transition-co
 
 function Masthead({ report, index, quiet = false }: { report: ReportDetail; index: ReportNavigationEntry[]; quiet?: boolean }) {
   const tr = useTr();
+  const rf = useReportFormat();
   const issue = issueNumber(index, report.key);
-  const mark = dateMark(report.kind, report.key);
+  const mark = rf.dateMark(report.kind, report.key);
   return (
     <header className="pt-5 lg:pt-0">
       <div className="flex items-center justify-between gap-4 text-[12px] text-ink-4">
-        <span className="num">{dateLine(report.kind, report.key)}</span>
-        <span className="hidden tracking-[0.3em] @[640px]:inline">{MOTTO[report.kind]}</span>
-        <span>{EDITION[report.kind]}</span>
+        <span className="num">{rf.dateLine(report.kind, report.key)}</span>
+        <span className={`hidden @[640px]:inline ${rf.english ? "uppercase tracking-[0.12em]" : "tracking-[0.3em]"}`}>{rf.motto[report.kind]}</span>
+        <span>{rf.edition[report.kind]}</span>
       </div>
 
       <div className="flex items-stretch justify-between gap-5 py-6 @[880px]:gap-10 @[880px]:py-8">
         <div className="flex min-w-0 flex-col justify-center">
           <h1 id="report-start">
             <span className="sr-only">
-              {withSubject(KIND_LABEL[report.kind])} · {dateLine(report.kind, report.key)}
+              {rf.name[report.kind]} · {rf.dateLine(report.kind, report.key)}
             </span>
             {/* max-w-full: on the narrowest screens the nameplate scales down to its column instead of running under the 报眼. */}
             <Nameplate which={report.kind} className="block h-[54px] w-auto max-w-full @[520px]:h-[74px] @[880px]:h-[98px] @[1040px]:h-[112px]" />
@@ -58,9 +58,7 @@ function Masthead({ report, index, quiet = false }: { report: ReportDetail; inde
         <div className="flex shrink-0 items-stretch well rounded-panel">
           <div className="flex w-[112px] flex-col items-center justify-center px-2 py-3 text-center @[880px]:w-[150px] @[880px]:py-4">
             {issue && (
-              <span className="text-[11px] tracking-[0.2em] text-ink-4">
-                {tr("第")} {issue} 期
-              </span>
+              <span className={`text-[11px] text-ink-4 ${rf.english ? "tracking-[0.08em]" : "tracking-[0.2em]"}`}>{tr("第 {n} 期", { n: issue })}</span>
             )}
             <Halftone
               seed={`${report.kind}-${report.key}-date`}
@@ -84,8 +82,8 @@ function Masthead({ report, index, quiet = false }: { report: ReportDetail; inde
         <div aria-hidden="true" className="border-t border-line-strong" />
       ) : (
         <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1.5 border-y border-line-strong py-3">
-          {metricItems(report.metrics).map((m) => (
-            <span key={m.unit} className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+          {rf.metricItems(report.metrics).map((m) => (
+            <span key={m.key} className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
               <span className="num text-[22px] font-bold leading-none tracking-[-0.02em] text-ink @[880px]:text-[24px]">{m.value}</span>
               <span className="text-[12px] text-ink-4">{m.unit}</span>
             </span>
@@ -137,7 +135,7 @@ function RelatedReading({ c }: { c: ReportCitation }) {
     <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-ink-3">
       {((c.sources && c.sources > 1) || c.followUp) && (
         <div className="flex flex-wrap gap-x-3 gap-y-1">
-          {c.sources && c.sources > 1 ? <span>{c.sources} 家来源报道</span> : null}
+          {c.sources && c.sources > 1 ? <span>{tr("{sources} 家来源报道", { sources: c.sources })}</span> : null}
           {c.followUp && (
             <Link className="underline underline-offset-4 hover:text-accent" to={`/daily/${c.followUp}`}>
               {tr("此前报道 ·")} {c.followUp}
@@ -147,10 +145,7 @@ function RelatedReading({ c }: { c: ReportCitation }) {
       )}
       {!!c.related?.length && (
         <details>
-          <summary className="cursor-pointer py-1 hover:text-accent">
-            {tr("相关进展与报道（")}
-            {c.related.length}）
-          </summary>
+          <summary className="cursor-pointer py-1 hover:text-accent">{tr("相关进展与报道（{count}）", { count: c.related.length })}</summary>
           <ul className="mt-1 space-y-2 border-l border-line pl-3">
             {c.related.map((entry, index) => (
               <li key={entry.itemId ?? index} className="[overflow-wrap:anywhere]">
@@ -176,6 +171,7 @@ function RelatedReading({ c }: { c: ReportCitation }) {
 /** One story: source, headline, at most four lines of summary, and the original at the foot. */
 function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean; className?: string }) {
   const tr = useTr();
+  const rf = useReportFormat();
   const sourceDate = newsSourceDate(c.sourceTime, c.publishedAt);
   return (
     <article id={anchorOf(c) ?? undefined} className={`flex min-w-0 scroll-mt-6 flex-col py-6 ${className}`}>
@@ -183,9 +179,7 @@ function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean
         <Source c={c} />
         {dated && sourceDate && (
           <time dateTime={sourceDate.dateTime} className="num ml-auto shrink-0 text-ink-4">
-            {sourceDate.dateOnly
-              ? tr("{slice}月{slice2}日", { slice: Number(sourceDate.dateTime.slice(5, 7)), slice2: Number(sourceDate.dateTime.slice(8, 10)) })
-              : shortDay(sourceDate.dateTime)}
+            {sourceDate.dateOnly ? rf.day(sourceDate.dateTime) : rf.shortDay(sourceDate.dateTime)}
           </time>
         )}
       </div>
@@ -246,6 +240,40 @@ interface Page {
 }
 
 /** A daily without an editors' lead leads with its first highlight (else its first story). */
+/**
+ * Corrections, kept to one quiet line: the latest correction and when it was made, earlier ones folded away. Only real
+ * corrections reach here; late reports joining an issue are not shown as corrections (Owner 2026-11-06).
+ */
+function Corrections({ list }: { list: NonNullable<ReportDetail["corrections"]> }) {
+  const tr = useTr();
+  const latest = list.at(-1)!;
+  const earlier = list.slice(0, -1).reverse();
+  return (
+    <section aria-labelledby="report-corrections" className="my-4 border-l-2 border-line pl-3 text-[12.5px] leading-relaxed text-ink-3">
+      <p>
+        <span id="report-corrections" className="font-semibold text-ink-2">
+          {tr("更正说明")}
+        </span>
+        {" · "}
+        <time dateTime={latest.at}>{fullDateTime(latest.at)}</time>
+        {tr("（北京时间）")} {latest.reason}
+      </p>
+      {earlier.length > 0 && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-ink-4">{tr("此前另有 {n} 次更正", { n: earlier.length })}</summary>
+          <ol className="mt-1 space-y-1">
+            {earlier.map(({ revision, reason, at }) => (
+              <li key={`${revision}-${at}`}>
+                <time dateTime={at}>{fullDateTime(at)}</time> {reason}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function leadStoryOf(report: ReportDetail): ReportCitation | null {
   if (report.leadItemId) return report.stories.find((entry) => entry.itemId === report.leadItemId && entry.available) ?? null;
   if (report.lead || report.kind !== "daily") return null;
@@ -276,14 +304,16 @@ function pagesOf(report: ReportDetail, leadStory: ReportCitation | null): Page[]
 /** The front page: the lead beside a column of today's highlights and the index of pages. */
 function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; pages: Page[]; leadStory: ReportCitation | null; count: number }) {
   const tr = useTr();
+  const rf = useReportFormat();
   const daily = report.kind === "daily";
-  const title = report.lead?.title ?? leadStory?.title ?? headline(report.kind, report.key, count);
+  const title = report.lead?.title ?? leadStory?.title ?? rf.headline(report.kind, report.key, count);
   const dek = report.lead?.leadParagraph ?? leadStory?.summary ?? report.overview;
   const highlights = report.highlights.filter((h) => !leadStory || keyOf(h) !== keyOf(leadStory)).slice(0, 3);
   const inPage = new Set(pages.flatMap((p) => p.items.map((c) => c.itemId)).filter(Boolean));
   const period = daily ? tr("今日") : report.kind === "weekly" ? tr("本周") : tr("本月");
   const index = [
-    ...pages.map((p) => ({ id: p.id, label: p.label, n: tr("{items} 件", { items: p.items.length }) })),
+    // Section names are the report's fixed pages ("企业与项目"), named in the interface language.
+    ...pages.map((p) => ({ id: p.id, label: tr.maybe(p.label), n: tr("{items} 件", { items: p.items.length }) })),
     ...(report.flashes.length > 0 ? [{ id: "s-flash", label: tr("快讯"), n: tr("{flashes} 条", { flashes: report.flashes.length }) }] : []),
   ];
 
@@ -360,14 +390,15 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
   );
 }
 
-/** A page of the report: its number in the accent beside its name. */
+/** A page of the report: its number in the accent beside its name (a fixed section name in the interface language). */
 export function SectionPage({ id, no, label, children }: { id: string; no?: number; label: string; children: ReactNode }) {
+  const tr = useTr();
   return (
     <section id={id} aria-labelledby={`${id}-t`} className="scroll-mt-6 pt-12 @[880px]:pt-16">
       <header className="flex items-baseline gap-3 border-b border-line-strong pb-3 @[880px]:gap-4">
         {no !== undefined && <span className="num text-[26px] font-black leading-none tracking-[-0.03em] text-accent @[880px]:text-[30px]">{pad(no)}</span>}
         <h2 id={`${id}-t`} className="min-w-0 text-[24px] font-black leading-[1.25] tracking-[-0.02em] text-ink @[880px]:text-[28px]">
-          {label}
+          {tr.maybe(label)}
         </h2>
       </header>
       {children}
@@ -380,7 +411,8 @@ const COLUMNS = "@[760px]:columns-2 @[760px]:gap-x-12 @[760px]:[column-rule:1px_
 
 function Neighbours({ report, index }: { report: ReportDetail; index: ReportNavigationEntry[] }) {
   const tr = useTr();
-  const titleOf = (key: string) => index.find((e) => e.key === key)?.title ?? `${withSubject(KIND_LABEL[report.kind])} · ${key}`;
+  const rf = useReportFormat();
+  const titleOf = (key: string) => index.find((e) => e.key === key)?.title ?? `${rf.name[report.kind]} · ${key}`;
   const cell = "group flex min-w-0 flex-col py-6";
   const title = "mt-2.5 line-clamp-2 text-[16px] font-bold leading-[1.5] text-ink transition-colors group-hover:text-accent @[880px]:text-[18px]";
   return (
@@ -388,7 +420,7 @@ function Neighbours({ report, index }: { report: ReportDetail; index: ReportNavi
       {report.prev ? (
         <Link to={reportPath(report.kind, report.prev)} className={`${cell} pr-5 @[880px]:pr-10`}>
           <span className="inline-flex items-center gap-1 text-[12px] text-ink-4">
-            <IconArrowLeft size={13} /> {neighbourLabel(report.kind, report.prev, "prev")}
+            <IconArrowLeft size={13} /> {rf.neighbourLabel(report.kind, report.prev, "prev")}
           </span>
           <span className={title}>{titleOf(report.prev)}</span>
         </Link>
@@ -398,7 +430,7 @@ function Neighbours({ report, index }: { report: ReportDetail; index: ReportNavi
       {report.next ? (
         <Link to={reportPath(report.kind, report.next)} className={`${cell} items-end border-l border-line pl-5 text-right @[880px]:pl-10`}>
           <span className="inline-flex items-center gap-1 text-[12px] text-ink-4">
-            {neighbourLabel(report.kind, report.next, "next")} <IconArrowRight size={13} />
+            {rf.neighbourLabel(report.kind, report.next, "next")} <IconArrowRight size={13} />
           </span>
           <span className={title}>{titleOf(report.next)}</span>
         </Link>
@@ -410,22 +442,19 @@ function Neighbours({ report, index }: { report: ReportDetail; index: ReportNavi
 }
 
 function History({ report, index }: { report: ReportDetail; index: ReportNavigationEntry[] }) {
-  const tr = useTr();
+  const rf = useReportFormat();
   const others = index.filter((e) => e.key !== report.key).slice(0, 12);
   if (others.length === 0) return null;
   return (
     <section id="report-history" className="scroll-mt-6 pt-12">
-      <Kicker>
-        {tr("往期")}
-        {withSubject(KIND_LABEL[report.kind])}
-      </Kicker>
+      <Kicker>{rf.pastHeading(report.kind)}</Kicker>
       <ul className="mt-3">
         {others.map((e) => (
           <li key={e.key}>
             <Link to={reportPath(report.kind, e.key)} className="group flex items-baseline gap-4 border-b border-line py-3">
               <span className="num w-[76px] shrink-0 text-[12.5px] text-ink-4">{e.key}</span>
               <span className="min-w-0 flex-1 truncate text-[14px] text-ink-2 transition-colors group-hover:text-accent">
-                {e.title ?? `${SITE.name} ${KIND_LABEL[report.kind]} · ${e.key}`}
+                {e.title ?? rf.untitled(report.kind, e.key)}
               </span>
             </Link>
           </li>
@@ -452,8 +481,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
         <p>
           {tr("覆盖时间：")}
           {fullDateTime(report.windowStart)} {tr("至")} {fullDateTime(report.windowEnd)}
-          {tr("（北京时间")}
-          {daily ? "" : tr("，结束时刻不含")}）
+          {daily ? tr("（北京时间）") : tr("（北京时间，结束时刻不含）")}
         </p>
         {daily && (
           <p className="pt-1 text-[13px] text-ink-2">
@@ -468,7 +496,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
           {report.lastRevisedAt && (
             <>
               {" "}
-              {tr("· 最近修订")} {fullDateTime(report.lastRevisedAt)}
+              {tr("· 最近更新")} {fullDateTime(report.lastRevisedAt)}
             </>
           )}{" "}
           ·{" "}
@@ -484,24 +512,7 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
           {tr("· AI 辅助生成")}
         </p>
       </div>
-      {!!report.corrections?.length && (
-        <section aria-labelledby="report-corrections" className="my-5 rounded-control border border-line bg-bg-sunk px-4 py-3">
-          <h2 id="report-corrections" className="text-[14px] font-semibold text-ink">
-            {tr("更正说明")}
-          </h2>
-          <ol className="mt-2 space-y-3">
-            {report.corrections.map(({ revision, reason, at }) => (
-              <li key={`${revision}-${at}`}>
-                <p className="text-[12px] text-ink-4">
-                  {tr("修订版本")} {revision} · <time dateTime={at}>{fullDateTime(at)}</time>
-                  {tr("（北京时间）")}
-                </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{reason}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
+      {!!report.corrections?.length && <Corrections list={report.corrections} />}
       {count === 0 && report.flashes.length === 0 ? (
         quiet ? (
           <section aria-label={tr("本期说明")} className="py-12 @[880px]:py-16">
@@ -551,18 +562,25 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
 
       <Neighbours report={report} index={index} />
       {!daily && <History report={report} index={index} />}
-      <footer className="py-10 text-center">
-        <div className="text-[13px] font-semibold tracking-[0.6em] text-ink-4">{tr("（本期完）")}</div>
-        <p className="mt-3 text-[12px] text-ink-4">
-          {SITE.name} {KIND_LABEL[report.kind]}
-          {tr("由编辑系统根据公开来源自动")}
-          {daily ? tr("编辑") : tr("综合")}
-          {tr("，每条均附原文 ·")}{" "}
-          <Link to={daily ? "/daily/archive" : "#report-history"} className="font-medium text-ink-3 transition-colors hover:text-accent">
-            {daily ? tr("日报合订本") : tr("往期{kind}", { kind: KIND_LABEL[report.kind] })}
-          </Link>
-        </p>
-      </footer>
+      <Colophon report={report} />
     </article>
+  );
+}
+
+/** The end of the issue: who made it and where the earlier issues are. */
+function Colophon({ report }: { report: ReportDetail }) {
+  const tr = useTr();
+  const rf = useReportFormat();
+  const daily = report.kind === "daily";
+  return (
+    <footer className="py-10 text-center">
+      <div className={`text-[13px] font-semibold text-ink-4 ${rf.english ? "uppercase tracking-[0.3em]" : "tracking-[0.6em]"}`}>{tr("（本期完）")}</div>
+      <p className="mt-3 text-[12px] text-ink-4">
+        {rf.colophon(report.kind)}{" "}
+        <Link to={daily ? "/daily/archive" : "#report-history"} className="font-medium text-ink-3 transition-colors hover:text-accent">
+          {daily ? tr("日报合订本") : rf.pastLink(report.kind)}
+        </Link>
+      </p>
+    </footer>
   );
 }

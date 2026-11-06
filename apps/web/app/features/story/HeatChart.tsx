@@ -92,7 +92,7 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
         {tr("当前热度")} <b className="num font-semibold text-ink">{Math.round(last.p!.heat)}</b>
         <span className="mx-1.5 text-ink-4">·</span>
         {tr("可比范围峰值")} <b className="num font-semibold text-ink">{Math.round(peak.p!.heat)}</b>
-        <span className="num text-ink-4">（{df.monthDayTime(new Date(peak.t).toISOString())}）</span>
+        <span className="num text-ink-4">{tr("（{value}）", { value: df.monthDayTime(new Date(peak.t).toISOString()) })}</span>
         <span className="mx-1.5 text-ink-4">·</span>
         {tr("近 24 小时可比范围变化")}{" "}
         <b className={`num font-semibold ${change === null ? "text-ink-4" : change > 0 ? "text-hot" : "text-ink"}`}>

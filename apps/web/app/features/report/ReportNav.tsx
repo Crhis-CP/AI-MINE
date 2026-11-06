@@ -1,22 +1,23 @@
 // Moving between reports: the archive column on desktop, a tab row and recent-issue chips on phones.
 import { useEffect, useState } from "react";
-import { useTr } from "../../i18n";
+import { useLocalize, useTr } from "../../i18n";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
 import type { ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
 import { PillTabs } from "../../components/ui/Tabs";
 import { IconChevronRight } from "../../components/icons";
-import { KINDS, KIND_LABEL, KIND_PATH, archiveGroups, archiveMark, chipLabel, reportPath } from "./format";
+import { KINDS, KIND_PATH, reportPath, useReportFormat, type ArchiveGroup as ArchiveGroupData } from "./format";
 
 /** 日报 / 周报 / 月报 as the site's pill switch, spread across the column. */
 function KindSwitch({ kind }: { kind: ReportKind }) {
   const tr = useTr();
+  const rf = useReportFormat();
   return (
     <PillTabs
       fill
       layoutId="report-kind"
       label={tr("切换日报、周报、月报")}
       active={kind}
-      items={KINDS.map((k) => ({ key: k, label: KIND_LABEL[k], to: KIND_PATH[k] }))}
+      items={KINDS.map((k) => ({ key: k, label: rf.label[k], to: KIND_PATH[k] }))}
     />
   );
 }
@@ -24,7 +25,8 @@ function KindSwitch({ kind }: { kind: ReportKind }) {
 /** Desktop archive column: every issue of this kind, grouped, the current one highlighted. */
 export function ReportArchive({ kind, index, current }: { kind: ReportKind; index: ReportNavigationEntry[]; current: string | null }) {
   const tr = useTr();
-  const groups = archiveGroups(kind, index);
+  const rf = useReportFormat();
+  const groups = rf.archiveGroups(kind, index);
   const openId = groups.find((g) => g.entries.some((e) => e.key === current))?.id ?? groups[0]?.id;
   return (
     <aside className="sticky top-0 hidden h-dvh w-[280px] shrink-0 flex-col border-r border-line bg-[color-mix(in_srgb,var(--sidebar)_50%,var(--surface))] pl-5 pr-3 lg:flex dark:bg-[color-mix(in_srgb,var(--sidebar)_50%,var(--bg))]">
@@ -32,7 +34,7 @@ export function ReportArchive({ kind, index, current }: { kind: ReportKind; inde
         <KindSwitch kind={kind} />
       </div>
       <div className="border-b border-line-strong pb-2 pl-1 text-[11.5px] font-semibold tracking-[0.3em] text-ink">{tr("往期")}</div>
-      <nav aria-label={tr("{kind}历史", { kind: KIND_LABEL[kind] })} className="scrollbar-thin -mr-3 flex-1 overflow-y-auto pb-6 pr-3">
+      <nav aria-label={tr("{kind}历史", { kind: rf.label[kind] })} className="scrollbar-thin -mr-3 flex-1 overflow-y-auto pb-6 pr-3">
         {groups.map((g) => (
           <ArchiveGroup key={g.id} g={g} kind={kind} current={current} initiallyOpen={g.id === openId} />
         ))}
@@ -50,18 +52,10 @@ export function ReportArchive({ kind, index, current }: { kind: ReportKind; inde
 }
 
 /** Closed daily months keep only keys; titles load when opened, and the full archive is SSR. */
-function ArchiveGroup({
-  g,
-  kind,
-  current,
-  initiallyOpen,
-}: {
-  g: ReturnType<typeof archiveGroups>[number];
-  kind: ReportKind;
-  current: string | null;
-  initiallyOpen: boolean;
-}) {
+function ArchiveGroup({ g, kind, current, initiallyOpen }: { g: ArchiveGroupData; kind: ReportKind; current: string | null; initiallyOpen: boolean }) {
   const tr = useTr();
+  const rf = useReportFormat();
+  const localize = useLocalize();
   const [open, setOpen] = useState(initiallyOpen);
   useEffect(() => setOpen(initiallyOpen), [initiallyOpen]);
   const [loaded, setLoaded] = useState<ReportNavigationEntry[] | null>(null);
@@ -77,7 +71,7 @@ function ArchiveGroup({
     return () => controller.abort();
   }, [open, kind, g.id, loaded]);
   const entries = loaded ?? g.entries;
-  const mark = (key: string) => archiveMark(kind, key);
+  const mark = (key: string) => rf.archiveMark(kind, key);
   return (
     <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="disclosure group/month border-b border-line">
       <summary className="flex h-11 items-center gap-1.5 pl-1 pr-1.5 text-[13px] text-ink transition-colors hover:text-accent">
@@ -104,7 +98,7 @@ function ArchiveGroup({
                   <span
                     className={`line-clamp-2 min-w-0 text-[12.5px] leading-[18px] transition-colors ${on ? "font-semibold text-ink" : "text-ink-2 group-hover:text-ink"}`}
                   >
-                    {e.title ?? `${KIND_LABEL[kind]} ${e.key}`}
+                    {e.title ?? `${rf.label[kind]} ${e.key}`}
                   </span>
                 </Link>
               </li>
@@ -114,7 +108,7 @@ function ArchiveGroup({
       )}
       {kind === "daily" && !open && (
         <noscript>
-          <a href="/daily/archive">{tr("查看完整日报归档")}</a>
+          <a href={localize("/daily/archive")}>{tr("查看完整日报归档")}</a>
         </noscript>
       )}
     </details>
@@ -124,6 +118,7 @@ function ArchiveGroup({
 /** Phone header: kind tabs, then the three latest issues and a way further back. */
 export function ReportPhoneNav({ kind, index, current, today }: { kind: ReportKind; index: ReportNavigationEntry[]; current: string | null; today: string }) {
   const tr = useTr();
+  const rf = useReportFormat();
   const recent = index.slice(0, 3);
   const earlier = kind === "daily" ? "/daily/archive" : "#report-history";
   const chip = "inline-flex h-9 shrink-0 items-center rounded-full border px-4 text-[13px] transition-colors";
@@ -134,7 +129,7 @@ export function ReportPhoneNav({ kind, index, current, today }: { kind: ReportKi
         layoutId="report-kind-phone"
         label={tr("切换日报、周报、月报")}
         active={kind}
-        items={KINDS.map((k) => ({ key: k, label: KIND_LABEL[k], to: KIND_PATH[k] }))}
+        items={KINDS.map((k) => ({ key: k, label: rf.label[k], to: KIND_PATH[k] }))}
       />
       {recent.length > 0 && (
         <div className="scrollbar-none -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -147,7 +142,7 @@ export function ReportPhoneNav({ kind, index, current, today }: { kind: ReportKi
                 aria-current={on ? "page" : undefined}
                 className={`${chip} ${on ? "border-ink bg-ink font-semibold text-bg" : "border-line-strong bg-surface text-ink-2 active:bg-bg-sunk"}`}
               >
-                {chipLabel(kind, e.key, index, today)}
+                {rf.chipLabel(kind, e.key, index, today)}
               </Link>
             );
           })}

@@ -1,7 +1,8 @@
 import { apiFetch } from "../lib/http.ts";
-import { useTr } from "../i18n";
+import { basePath, useTagLabel, useTr } from "../i18n";
 import { SITE, withSubject } from "@amp/industry/site";
-import { data as withStatus, Link, redirect, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { data as withStatus, redirect, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { Link } from "../i18n/navigation";
 import type { Route } from "./+types/all";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
@@ -131,6 +132,7 @@ function pageHref(params: URLSearchParams, page: number) {
 
 export default function AllPage() {
   const tr = useTr();
+  const tagLabel = useTagLabel();
   const { data, policyMatches, policySearchFailed, filterError } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const navigation = useNavigation();
@@ -145,7 +147,7 @@ export default function AllPage() {
       </div>
     );
   const f = data.filters;
-  const busy = navigation.state === "loading" && navigation.location?.pathname === "/all";
+  const busy = navigation.state === "loading" && !!navigation.location && basePath(navigation.location.pathname) === "/all";
   const keep = Object.fromEntries([...params].filter(([key]) => !["q", "page", "cursor", "search"].includes(key)));
   const searchTabHref = (tab: "time" | "relevance") => {
     const sp = new URLSearchParams(params);
@@ -154,7 +156,7 @@ export default function AllPage() {
     else sp.delete("tab");
     return `/all?${sp}`;
   };
-  const title = f.q ? tr("搜索“{q}”", { q: f.q }) : f.tag ? `#${f.tag}` : null;
+  const title = f.q ? tr("搜索“{q}”", { q: f.q }) : f.tag ? `#${tagLabel(f.tag)}` : null;
   const updated = new Date(data.freshness).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" });
 
   return (
