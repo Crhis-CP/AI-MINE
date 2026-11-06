@@ -25,15 +25,31 @@ const Nonblank = z.string().refine((value) => value.trim().length > 0, "Evidence
 const UtcInstant = z.iso.datetime().refine((value) => Number.isFinite(Date.parse(value)), "Invalid UTC instant");
 const LocalTime = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/);
 const fraction = (value: string) => (value.split(".")[1] ?? "").replace(/Z$/, "").replace(/0+$/, "");
-const IanaTimezone = z.string().refine((value) => {
-  if (!/^(?:UTC|[A-Za-z_+-]+\/[A-Za-z0-9_+/-]+)$/.test(value)) return false;
+// Building a formatter costs about 50 µs and a zoned time is checked three times per parse, so a list of policy cards
+// spent most of its time here. Formatters of accepted zones are kept (a bounded set); rejected names are never kept.
+const zoneFormatters = new Map<string, Intl.DateTimeFormat>();
+function zoneFormatter(zone: string): Intl.DateTimeFormat | null {
+  const known = zoneFormatters.get(zone);
+  if (known) return known;
+  if (!/^(?:UTC|[A-Za-z_+-]+\/[A-Za-z0-9_+/-]+)$/.test(zone)) return null;
   try {
-    new Intl.DateTimeFormat("en", { timeZone: value });
-    return true;
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    if (zoneFormatters.size < 1000) zoneFormatters.set(zone, formatter);
+    return formatter;
   } catch {
-    return false;
+    return null;
   }
-}, "Invalid IANA timezone");
+}
+const IanaTimezone = z.string().refine((value) => zoneFormatter(value) !== null, "Invalid IANA timezone");
 
 /** Parsed source components; acquisition must preserve raw text and establish the parsing basis. */
 export const SourceTimeParts = z.strictObject({
@@ -75,16 +91,9 @@ export const TimeAssertion = SourceTimeParts.extend({
       if (time.precision === "second" && time.local_time.length < 8) reject();
       if (time.precision === "second" && fraction(time.local_time) !== fraction(time.utc)) reject();
       if (time.timezone) {
-        const parts = new Intl.DateTimeFormat("en-CA", {
-          timeZone: time.timezone,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hourCycle: "h23",
-        }).formatToParts(new Date(time.utc));
+        const formatter = zoneFormatter(time.timezone);
+        if (!formatter) return reject();
+        const parts = formatter.formatToParts(new Date(time.utc));
         const at = (kind: string) => parts.find((part) => part.type === kind)!.value;
         const date = `${at("year")}-${at("month")}-${at("day")}`,
           clock = `${at("hour")}:${at("minute")}:${at("second")}`;
