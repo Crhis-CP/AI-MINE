@@ -36,6 +36,15 @@ interface Price {
   previous_rate_currency: string | null;
   percent: string | null;
 }
+/** A quote's price in another currency (TASK-0572), with the rate it was converted with. */
+interface Converted {
+  value: string;
+  unit: string;
+  currency: "CNY" | "USD";
+  rate: { source: string; name: string; date: string; label: string };
+}
+/** The newest stored day of a rate series: what a source that only gives rates is fresh or stale by. */
+type RateDay = Pick<Price, "start" | "end" | "label" | "release" | "url" | "date">;
 
 export async function loadMetalPrices(now = new Date(), input?: unknown): Promise<MetalPrices> {
   const registry = input === undefined ? loadMetalPriceRegistry() : parseMetalPriceRegistry(input);
@@ -53,8 +62,12 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         );
       }),
   );
-  const [selected, held] = await sql.begin("read only isolation level repeatable read", async (tx) => {
+  // The rate series a conversion may use: enabled, of an enabled source (a stopped rate source just shows no conversion).
+  const rates = registry.items.filter((item) => item.rate && item.enabled && sources.some((s) => s.key === item.source));
+  const [selected, held, converted, rateDays] = await sql.begin("read only isolation level repeatable read", async (tx) => {
     const out = new Map<string, Price>();
+    const conversions = new Map<string, Converted>();
+    const days = new Map<string, RateDay>();
     // Values held back alone are not in the price table: the quote keeps its last value, marked as waiting.
     const holds = await tx<{ series_key: string; period_label: string }[]>`
       SELECT series_key, period_label FROM publication.metal_price_holds WHERE status = 'held'`;
@@ -92,18 +105,53 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       )
         throw new Error(`Price unit/currency mismatch: ${item.key}`);
       out.set(item.key, row);
+      // The rate of the quote's period end, or of the latest day before it within the window; never a later one.
+      const secondary = item.secondary;
+      const by = secondary ? rates.find((candidate) => candidate.key === secondary.rate) : undefined;
+      if (!secondary || !by) continue;
+      const [rated] = await tx<{ date: string; label: string; unit: string; currency: string; value: string }[]>`
+        SELECT period_start::text AS date, period_label AS label, unit, currency,
+          pg_catalog.round(${row.value}::numeric * ${secondary.factor}::numeric / value, ${secondary.decimals})::text AS value
+        FROM publication.metal_prices
+        WHERE series_key = ${by.key} AND period_start <= ${row.end}::date AND period_start >= ${row.end}::date - ${secondary.withinDays}::int
+        ORDER BY period_start DESC, first_fetched_at DESC, released_on DESC NULLS LAST, release_label DESC
+        LIMIT 1`;
+      if (!rated) continue;
+      if (rated.unit !== by.unit || rated.currency !== sources.find((s) => s.key === by.source)!.currency)
+        throw new Error(`Rate unit/currency mismatch: ${by.key}`);
+      // A price that rounds to nothing in the other currency is not shown as zero.
+      if (/[1-9]/.test(rated.value))
+        conversions.set(item.key, {
+          value: rated.value,
+          unit: secondary.unit,
+          currency: secondary.currency,
+          rate: { source: by.source, name: by.benchmark, date: rated.date, label: rated.label },
+        });
     }
-    return [out, new Map(holds.map((hold) => [hold.series_key, hold.period_label]))] as const;
+    // A source that only gives rates (the RMB central parity) is listed with its newest stored day.
+    for (const rate of rates) {
+      if (items.some((item) => item.source === rate.source) || days.has(rate.source)) continue;
+      const [day] = await tx<RateDay[]>`
+        SELECT period_start::text AS start, period_end::text AS end, period_label AS label, release_label AS release,
+          release_url AS url, released_on::text AS date
+        FROM publication.metal_prices WHERE series_key = ${rate.key}
+        ORDER BY period_start DESC, first_fetched_at DESC, released_on DESC NULLS LAST, release_label DESC
+        LIMIT 1`;
+      if (day) days.set(rate.source, day);
+    }
+    return [out, new Map(holds.map((hold) => [hold.series_key, hold.period_label])), conversions, days] as const;
   });
   const today = beijingDate(now),
     yearPrefix = `${today.slice(0, 4)}年`;
   const stalePeriod = (end: string, days: number) => new Date(Date.parse(end) + days * 86400_000).toISOString().slice(0, 10) < today;
   const releaseNotes: MetalPrices["notes"] = [];
   const presentationSources = sources.map((source) => {
-    const rows = items
+    const day = rateDays.get(source.key);
+    const rows: RateDay[] = items
       .filter((item) => item.source === source.key)
       .map((item) => selected.get(item.key))
       .filter((row): row is Price => !!row);
+    if (day) rows.push(day);
     rows.sort((a, b) => b.end.localeCompare(a.end));
     const newest = rows[0];
     releaseNotes.push({
@@ -170,6 +218,9 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
                 previous: { value: row!.previous_value!, period: { start: row!.previous_start!, end: row!.previous_end!, label: row!.previous_label! } },
               }
             : null,
+          // Only quotes registered with a conversion whose rate is in use carry the field; null while no rate of the
+          // window is stored. A stopped or unregistered rate source leaves the published price alone, as before.
+          ...(item.secondary && rates.some((rate) => rate.key === item.secondary!.rate) ? { converted: converted.get(item.key) ?? null } : {}),
         };
       });
     return quotes.length ? [{ ...metal, quotes }] : [];
