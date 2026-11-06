@@ -12,16 +12,42 @@ import { beijingDate, isDateOnlyInstant, newsSourceDate, shortSourceName } from 
 /** Background items shown before "展开其余". */
 const BACKGROUND_PREVIEW = 3;
 
-function useNodeDate() {
-  const df = useDateFormat();
-  return (iso: string) => (isDateOnlyInstant(iso) ? df.monthDay(beijingDate(iso)) : df.monthDayTime(iso));
-}
-
 /** Official first-party reports lead, then the order they were published in. */
 export function developmentReports(timeline: StoryReportView[], factId: string): StoryReportView[] {
   return timeline
     .filter((r) => r.factId === factId)
     .sort((a, b) => Number(b.source.firstParty) - Number(a.source.firstParty) || Date.parse(a.publishedAt) - Date.parse(b.publishedAt));
+}
+
+/** The story's developments oldest first; the API lists them newest first, and its order settles a tie. */
+export function storyDevelopments(story: Pick<StoryDetail, "developments">): StoryFactView[] {
+  return story.developments
+    .map((d, i) => ({ d, i }))
+    .sort((a, b) => Date.parse(a.d.firstReportAt) - Date.parse(b.d.firstReportAt) || b.i - a.i)
+    .map(({ d }) => d);
+}
+
+/**
+ * An instant on the story page (when a development or the story was first or last reported) as precise as the
+ * report it belongs to: a report whose source gave only a date shows that date, never a clock (AGENTS.md 12).
+ */
+export function reportInstant(iso: string, reports: StoryReportView[]): { dateTime: string; date: string | null } {
+  const report = reports.find((r) => Date.parse(r.publishedAt) === Date.parse(iso));
+  const source = report ? newsSourceDate(report.sourceTime, report.publishedAt) : null;
+  if (source?.dateOnly) return { dateTime: source.dateTime, date: source.dateTime };
+  if (!source && isDateOnlyInstant(iso)) return { dateTime: beijingDate(iso), date: beijingDate(iso) };
+  return { dateTime: iso, date: null };
+}
+
+/** "11月5日 02:24", or "11月5日" alone when the report it comes from gave only a date. */
+export function ReportInstant({ iso, reports, className }: { iso: string; reports: StoryReportView[]; className?: string }) {
+  const df = useDateFormat();
+  const at = reportInstant(iso, reports);
+  return (
+    <time dateTime={at.dateTime} className={className}>
+      {at.date ? df.monthDay(at.date) : df.monthDayTime(iso)}
+    </time>
+  );
 }
 
 function Marker({ tone }: { tone: "latest" | "past" | "context" | "ahead" }) {
@@ -71,7 +97,6 @@ function DevelopmentNode({
 }) {
   const tr = useTr();
   const tl = useT().list;
-  const when = useNodeDate();
   const [open, setOpen] = useState(false);
   const sources = new Set(reports.map((r) => r.source.id)).size;
   const countLabel = sources === d.reportCount ? tr("{count} 家报道", { count: d.reportCount }) : `${d.reportCount} ${tr("篇报道")}`;
@@ -80,9 +105,7 @@ function DevelopmentNode({
     <li className="relative pb-7 pl-7 last:pb-0" data-development={d.factId}>
       <Marker tone={latest ? "latest" : "past"} />
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-[20px] text-ink-4">
-        <time dateTime={d.firstReportAt} className="num font-semibold text-ink-2">
-          {when(d.firstReportAt)}
-        </time>
+        <ReportInstant iso={d.firstReportAt} reports={reports} className="num font-semibold text-ink-2" />
         {total > 1 && <span>{tr("第 {n} 个进展", { n: position })}</span>}
         {latest && total > 1 && <Badge tone="accent">{tr("最新")}</Badge>}
       </div>
@@ -187,7 +210,7 @@ function NextNode({ next }: { next: StoryNextMilestone[] }) {
 /** The main column of the story page: background → developments (oldest first) → what comes next. */
 export function Storyline({ story }: { story: StoryDetail }) {
   const tr = useTr();
-  const developments = [...story.developments].sort((a, b) => Date.parse(a.firstReportAt) - Date.parse(b.firstReportAt));
+  const developments = storyDevelopments(story);
   return (
     <ol className="relative before:absolute before:bottom-3 before:left-[5px] before:top-3 before:w-px before:bg-line">
       {!!story.background?.length && <BackgroundNode background={story.background} />}

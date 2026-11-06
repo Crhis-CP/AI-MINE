@@ -21,23 +21,111 @@ import { sql, withCustomPlans, type Db } from "../db.ts";
 import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 import { readDigestDetail, storyStatusFor } from "../events/digest.ts";
+import { TITLE_KEY_MIN_CHARS, titleKey } from "../events/relate.ts";
 import { siteUrl, storyUrl } from "./links.ts";
+import { readerAnchor } from "./source-time.ts";
 import { serverModules } from "../modules.ts";
 import { SITE } from "@amp/industry/site";
+import { beijingDate } from "@amp/contracts/time";
+
+/** The fact a report is listed under when it is linked to several: its primary fact, then a report link, then the oldest fact. */
+const listedFact = () => sql`(fa.role = 'primary') DESC, (fa.role = 'report') DESC, f.id`;
+
+/** What the copy rule needs of a report: when it appeared, its headlines and whether it is the official copy. */
+export interface CopyCandidate {
+  id: string;
+  at: Date;
+  title: string;
+  original_title: string | null;
+  first_party: boolean;
+}
 
 /**
- * The developments of each story for the feed's progress line: its facts with a currently public report and
- * the time of their first such report (publication/story-progress.ts orders them, as the story page does).
+ * Copies of one report: a wire copy, a reprint, the same article stored twice under another address. They carry
+ * the same headline (the source's own, else ours) on the same Beijing day, the exact-duplicate rule grouping uses
+ * (events/relate.ts certainDuplicate); headlines too short to tell reports apart never tie. Each group lists the
+ * copy to keep first: an official one, then the earliest. Every reader list that shows reports uses this.
  */
-export async function readStoryDevelopmentStarts(storyIds: number[], now: Date, db: Db = sql) {
+export function copyGroups<R extends CopyCandidate>(rows: R[]): R[][] {
+  const itemOf = (r: R) => {
+    const key = titleKey(r.original_title || r.title);
+    return [...key].length >= TITLE_KEY_MIN_CHARS ? `${beijingDate(r.at)}|${key}` : `report:${r.id}`;
+  };
+  const items = new Map<string, R[]>();
+  for (const r of rows) items.set(itemOf(r), [...(items.get(itemOf(r)) ?? []), r]);
+  return [...items.values()].map((copies) =>
+    [...copies].sort((a, b) => Number(b.first_party) - Number(a.first_party) || a.at.getTime() - b.at.getTime() || a.id.localeCompare(b.id)),
+  );
+}
+
+/** One row per report, copies folded (copyGroups), in the order given. */
+export function foldCopies<R extends CopyCandidate>(rows: R[]): R[] {
+  const kept = new Set(copyGroups(rows).map((copies) => copies[0]!));
+  return rows.filter((r) => kept.has(r));
+}
+
+/** What a story's line needs of each report: its fact as well. */
+export interface LineReport extends CopyCandidate {
+  fact_id: number;
+}
+
+/**
+ * A story's line of developments, the same on the story page and on feed cards. Copies of one report
+ * (copyGroups) are one item, kept once. Facts that carry copies of one item are one development, named by the
+ * fact of its earliest report. Developments run oldest first by first report; on the same instant the fact
+ * founded later is the later step.
+ */
+export function storyLine<R extends LineReport>(rows: R[]) {
+  const items = copyGroups(rows);
+  const joined = new Map<number, number>();
+  const root = (fact: number): number => {
+    const up = joined.get(fact);
+    if (up === undefined || up === fact) return fact;
+    const top = root(up);
+    joined.set(fact, top);
+    return top;
+  };
+  for (const copies of items)
+    for (const copy of copies.slice(1)) {
+      const a = root(copies[0]!.fact_id),
+        b = root(copy.fact_id);
+      if (a !== b) joined.set(Math.max(a, b), Math.min(a, b));
+    }
+  const kept = items.map((copies) => copies[0]!);
+  const earliest = new Map<number, R>();
+  for (const r of kept) {
+    const set = root(r.fact_id),
+      seen = earliest.get(set);
+    if (!seen || r.at < seen.at || (r.at.getTime() === seen.at.getTime() && r.fact_id < seen.fact_id)) earliest.set(set, r);
+  }
+  const developmentFact = (fact: number) => earliest.get(root(fact))!.fact_id;
+  const members = new Map<number, R[]>();
+  for (const r of kept) members.set(developmentFact(r.fact_id), [...(members.get(developmentFact(r.fact_id)) ?? []), r]);
+  const developments = [...members]
+    .map(([factId, reports]) => ({ factId, members: reports, first: new Date(Math.min(...reports.map((r) => r.at.getTime()))) }))
+    .sort((a, b) => a.first.getTime() - b.first.getTime() || a.factId - b.factId);
+  const index = new Map(developments.map((d, i) => [d.factId, i]));
+  return {
+    /** Oldest first; members are the kept copies. */
+    developments,
+    /** Every listed report, kept or folded, to the index of its development. */
+    developmentOf: new Map(rows.map((r) => [r.id, index.get(developmentFact(r.fact_id))!])),
+    /** Every fact with a listed report to the index of its development. */
+    developmentOfFact: new Map(rows.map((r) => [r.fact_id, index.get(developmentFact(r.fact_id))!])),
+  };
+}
+
+/** Each story's listed reports for the feed's progress line, chosen as on the story page (storyReports). */
+export async function readStoryReportLines(storyIds: number[], now: Date, db: Db = sql) {
   if (!storyIds.length) return [];
-  return db<{ story_id: number; fact_id: number; title: string; first_at: Date }[]>`
-    SELECT f.story_id, f.id AS fact_id, f.title, min(coalesce(p.published_at, p.discovered_at)) AS first_at
+  return db<(LineReport & { story_id: number; fact_title: string })[]>`
+    SELECT DISTINCT ON (f.story_id, p.article_id) f.story_id, p.article_id AS id, f.id AS fact_id, f.title AS fact_title, p.title, p.original_title,
+      p.first_party, coalesce(p.published_at, p.discovered_at) AS at
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
     WHERE f.story_id = ANY(${storyIds}::bigint[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()}
       AND s.participation_mode = 'editorial' AND (NOT p.selected OR p.visible_after <= ${now})
-    GROUP BY f.story_id, f.id, f.title`;
+    ORDER BY f.story_id, p.article_id, ${listedFact()}`;
 }
 
 /** All graph associations can have contributed to cached story text; current grants fence old copy too. */
@@ -100,7 +188,7 @@ export async function resolveStory(publicId: string): Promise<StoryLookup> {
   return { kind: "found", storyId: s!.id, publicId };
 }
 
-interface ReportRow {
+interface ReportRow extends LineReport {
   sourceTime?: import("@amp/contracts/time-assertion").TimeAssertion | null;
   id: string;
   title: string;
@@ -131,7 +219,7 @@ interface ReportRow {
  */
 async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
   const rows = await sql<ReportRow[]>`
-    SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary,
+    SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.original_title, p.summary,
       CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, (${confirmedSelected()}) AS selected, p.score, p.body_mode, p.timeline_at,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
       p.first_party, f.public_id AS fact_public_id, f.id AS fact_id,p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind
@@ -139,7 +227,7 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     JOIN sources s ON s.id = p.source_id
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
-    ORDER BY p.article_id, (fa.role = 'primary') DESC`;
+    ORDER BY p.article_id, ${listedFact()}`;
   await attachSourcePolicies(rows);
   for (const row of rows) {
     if (!row.is_original_post) continue;
@@ -185,14 +273,17 @@ async function storyContent(storyId: number, now: Date) {
   >`
     SELECT public_id::text,origin,version,updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale, title, summary, first_report_at, latest_at, digest, digest_updated_at, latest, digest_detail FROM stories WHERE id = ${storyId}`;
   if (!s) return null;
-  const reports = await storyReports(storyId, now);
-  if (reports.length === 0) return null;
-  reports.sort((a, b) => b.at.getTime() - a.at.getTime());
-
-  const byFact = new Map<number, ReportRow[]>();
-  for (const r of reports) byFact.set(r.fact_id, [...(byFact.get(r.fact_id) ?? []), r]);
+  const listed = await storyReports(storyId, now);
+  if (listed.length === 0) return null;
   const facts = await sql<{ id: number; public_id: string; title: string; occurred_at: Date | null; created_at: Date }[]>`
     SELECT id, public_id, title, occurred_at, created_at FROM facts WHERE story_id = ${storyId}`;
+  const factRow = new Map(facts.map((f) => [f.id, f]));
+  // Copies of one report are listed once, under the development that carries it (storyLine).
+  const line = storyLine(listed);
+  const reports = line.developments.flatMap((d) =>
+    d.members.map((r) => ({ ...r, fact_id: d.factId, fact_public_id: factRow.get(d.factId)?.public_id ?? r.fact_public_id })),
+  );
+  reports.sort((a, b) => b.at.getTime() - a.at.getTime());
   const admissionAffected = (await originalPostAffectedStories([storyId])).has(storyId);
   const pending = storyTextNeedsRefresh(s) || admissionAffected,
     affected = await storyWithdrawalAffected(
@@ -207,22 +298,22 @@ async function storyContent(storyId: number, now: Date) {
     s.digest_detail = null;
   }
   if (pending || affected) s.summary = null;
-  const developments = facts
-    .filter((f) => byFact.has(f.id))
-    .map((f) => {
-      const members = byFact.get(f.id)!;
+  // Newest first; the story page and feed cards read the same line oldest first.
+  const developments = line.developments
+    .map((d) => {
+      const f = factRow.get(d.factId)!;
+      const members = reports.filter((r) => r.fact_id === d.factId);
       const rep = pickRepresentative(members);
-      const first = members.reduce((m, r) => (r.at < m ? r.at : m), members[0]!.at);
       return {
         factId: f.public_id,
         title: admissionAffected ? rep.title : f.title,
         occurredAt: f.occurred_at?.toISOString() ?? null,
-        firstReportAt: first.toISOString(),
+        firstReportAt: d.first.toISOString(),
         reportCount: members.length,
         representative: rep,
       };
     })
-    .sort((a, b) => Date.parse(b.firstReportAt) - Date.parse(a.firstReportAt));
+    .reverse();
 
   return { s, reports, developments };
 }
@@ -307,6 +398,20 @@ async function sparklines(storyIds: number[], at: Date): Promise<Map<number, Arr
   return out;
 }
 
+/** Each story's newest development title (storyLine); null for a story whose fact titles may describe withdrawn grants. */
+async function newestDevelopments(storyIds: number[], now: Date): Promise<Map<number, string | null>> {
+  const ids = [...new Set(storyIds)];
+  if (!ids.length) return new Map();
+  const [rows, affected] = await Promise.all([readStoryReportLines(ids, now), originalPostAffectedStories(ids)]);
+  const out = new Map<number, string | null>();
+  for (const id of ids) {
+    const own = rows.filter((r) => r.story_id === id);
+    const last = storyLine(own).developments.at(-1);
+    if (last) out.set(id, affected.has(id) ? null : (own.find((r) => r.fact_id === last.factId)?.fact_title ?? null));
+  }
+  return out;
+}
+
 export async function loadHot(): Promise<HotResponse> {
   const ranking = await latestHotRanking();
   if (!ranking) return { computedAt: null, ruleVersion: null, windowHours: 48, entries: [] };
@@ -318,6 +423,10 @@ export async function loadHot(): Promise<HotResponse> {
     ),
     rankingExtras(ranking),
   ]);
+  const newest = await newestDevelopments(
+    ranking.entries.map((e) => e.storyId),
+    new Date(),
+  );
   return {
     computedAt: ranking.computedAt,
     ruleVersion: ranking.ruleVersion,
@@ -343,7 +452,8 @@ export async function loadHot(): Promise<HotResponse> {
           : null,
         spark: sparks.get(e.storyId) ?? [],
         summary: text.summary,
-        latest: text.latest,
+        // The same 最新进展 as the story page: the newest development of its line, not a separately written sentence.
+        latest: newest.has(e.storyId) ? newest.get(e.storyId)! : text.latest,
       };
     }),
   };
@@ -410,7 +520,8 @@ export async function v1Story(storyId: number) {
       reportCount: reports.length,
       firstReportAt: (s.first_report_at ?? reports[reports.length - 1]!.at).toISOString(),
       latestAt: latestAt.toISOString(),
-      latest: s.latest ?? developments[0]?.title ?? s.title,
+      // The story page's 最新进展: the newest development of the line.
+      latest: developments[0]?.title ?? s.latest ?? s.title,
       digest: s.digest,
       digestUpdatedAt: s.digest_updated_at?.toISOString() ?? null,
       reports: reports.slice(0, 50).map((r) => ({
@@ -418,7 +529,8 @@ export async function v1Story(storyId: number) {
         title: r.title,
         summary: r.summary,
         source: { name: r.source_name, firstParty: r.first_party },
-        publishedAt: r.at.toISOString(),
+        // A report whose source gave only a date sits at the start of that day in Beijing (BR-TIME-01), never at a stored foreign midnight.
+        publishedAt: readerAnchor(r.at, r.at, r.sourceTime).toISOString(),
         links: { original: r.url },
       })),
       storyline: neighbors.filter((n) => n.relation === "storyline"),

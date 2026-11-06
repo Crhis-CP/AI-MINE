@@ -1,5 +1,6 @@
 import { originalPostAdmissionCondition } from "./items.ts";
 import { originalPostAffectedStories } from "./groups.ts";
+import { foldCopies, readStoryReportLines, storyLine } from "./stories.ts";
 import { CURRENT_SOURCE_TIME } from "./source-time.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import { compatibleGeographyRecipes } from "../editorial/geography.ts";
@@ -147,11 +148,14 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
 
   let group: ItemDetail["group"] = null;
   if (row.fact_id) {
-    const [g] = await sql<{ public_id: string; reports: number; sources: number }[]>`
-      SELECT f.public_id, count(p.article_id) AS reports, count(DISTINCT p.source_id) AS sources
+    // Copies of one report (copyGroups) count once, as in the list the group opens.
+    const members = foldCopies(
+      await sql<{ public_id: string; id: string; source_id: string; title: string; original_title: string | null; first_party: boolean; at: Date }[]>`
+      SELECT f.public_id, p.article_id AS id, p.source_id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at
       FROM facts f JOIN publications p ON p.fact_id = f.id
-      WHERE f.id = ${row.fact_id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now})
-      GROUP BY f.public_id`;
+      WHERE f.id = ${row.fact_id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now})`,
+    );
+    const g = members.length ? { public_id: members[0]!.public_id, reports: members.length, sources: new Set(members.map((m) => m.source_id)).size } : null;
     const [dev] = await sql<{ n: number }[]>`
       SELECT count(DISTINCT other.id) AS n FROM facts f
       JOIN facts other ON other.story_id = f.story_id AND other.id <> f.id
@@ -204,17 +208,23 @@ async function eventCoverage(storyId: number, now: Date, machine: boolean): Prom
     WHERE p.story_id=${storyId} AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.timeline_at ASC,p.article_id ASC`;
-  if (rows.length < 2) return null;
-  await attachSourcePolicies(rows);
-  await attachRepresentativePriority(rows);
-  const facts = new Map<string, (typeof rows)[number][]>();
-  for (const row of rows) {
-    const key = row.fact_id === null ? row.id : String(row.fact_id);
-    facts.set(key, [...(facts.get(key) ?? []), row]);
+  // Copies of one report count once; "最新进展" is the development the story page marks as the newest.
+  const kept = foldCopies(rows.map((row) => Object.assign(row, { at: row.published_at ?? row.discovered_at })));
+  if (kept.length < 2) return null;
+  await attachSourcePolicies(kept);
+  await attachRepresentativePriority(kept);
+  const line = storyLine(await readStoryReportLines([storyId], now));
+  let latest = kept.filter((row) => line.developmentOf.get(row.id) === line.developments.length - 1);
+  if (!latest.length) {
+    const facts = new Map<string, (typeof kept)[number][]>();
+    for (const row of kept) {
+      const key = row.fact_id === null ? row.id : String(row.fact_id);
+      facts.set(key, [...(facts.get(key) ?? []), row]);
+    }
+    latest = [...facts.values()].sort((a, b) => Math.min(...b.map((r) => r.sort_at.getTime())) - Math.min(...a.map((r) => r.sort_at.getTime())))[0]!;
   }
-  const latest = [...facts.values()].sort((a, b) => Math.min(...b.map((r) => r.sort_at.getTime())) - Math.min(...a.map((r) => r.sort_at.getTime())))[0]!;
   const project = (row: (typeof rows)[number]) => toItemSummary(machine ? { ...row, summary: row.machine_summary } : row);
-  return { representative: project(pickRepresentative(rows)), latest: project(pickRepresentative(latest)), reportCount: rows.length };
+  return { representative: project(pickRepresentative(kept)), latest: project(pickRepresentative(latest)), reportCount: kept.length };
 }
 
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */

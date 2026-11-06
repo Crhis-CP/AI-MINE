@@ -7,11 +7,11 @@ import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
-import { beijingDate, isDateOnlyInstant, NO_TIME, newsSourceDate } from "../lib/format";
+import { beijingDate, NO_TIME, newsSourceDate } from "../lib/format";
 import { ShareLink } from "../components/ShareLink";
 import { StorySaveButton } from "../features/story/StorySaved";
 import { HeatChart } from "../features/story/HeatChart";
-import { KeyChanges, Storyline } from "../features/story/Storyline";
+import { KeyChanges, ReportInstant, Storyline, developmentReports, reportInstant, storyDevelopments } from "../features/story/Storyline";
 import { Badge, SelectedBadge } from "../components/ui/Badge.tsx";
 import { PillTabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Controls";
@@ -193,6 +193,10 @@ export default function StoryPage() {
   const status = STATUS[story.status];
   // A settled story nobody watched (history pages) has no heat to explain or chart.
   const observed = story.status !== "settled" || story.heat.length > 0 || story.whyHot.participants48h > 0 || story.whyHot.rank !== null;
+  // "为什么热" explains current attention: a place on the board, new parties in six hours or recent reports.
+  // A story with none of them has nothing to explain, so the card is left out rather than filled with zeros.
+  const why = story.whyHot;
+  const hot = why.rank !== null || why.newParticipants6h > 0 || why.recentReports24h > 0;
   // The line has a node whenever there is a development, earlier background or a dated milestone ahead.
   const hasLine = story.developments.length > 0 || !!story.background?.length || !!story.next?.length;
   const sectionKeys: SectionKey[] = ["overview", ...(hasLine ? (["storyline"] as const) : []), "reports", ...(observed ? (["heat"] as const) : [])];
@@ -216,7 +220,10 @@ export default function StoryPage() {
     }
     return out;
   }, [story.timeline, filter, order]);
-  const newest = story.timeline.reduce<StoryReportView | null>((a, b) => (!a || Date.parse(b.publishedAt) > Date.parse(a.publishedAt) ? b : a), null);
+  // The newest step of the line below: its title, when it was first reported and its representative report,
+  // all from that one development.
+  const latestStep = storyDevelopments(story).at(-1);
+  const updated = story.latestAt ? reportInstant(story.latestAt, story.timeline) : null;
   const overview = story.digest
     ? {
         label: tr("AI 综述"),
@@ -264,10 +271,10 @@ export default function StoryPage() {
             <IconUsers size={15} className="text-ink-4" />
             <b className="num font-semibold text-ink">{story.sourceCount}</b> {tr("个报道来源")}
           </span>
-          {story.latestAt && (
+          {story.latestAt && updated && (
             <span className="inline-flex items-center gap-1.5" suppressHydrationWarning>
               <IconClock size={15} className="text-ink-4" />
-              {tr("{time}更新", { time: isDateOnlyInstant(story.latestAt) ? df.sourceMonthDayTime(story.latestAt) : df.relativeTime(story.latestAt) })}
+              {tr("{time}更新", { time: updated.date ? df.monthDay(updated.date) : df.relativeTime(story.latestAt) })}
             </span>
           )}
         </div>
@@ -306,20 +313,19 @@ export default function StoryPage() {
             ) : (
               <p className="text-[14.5px] text-ink-4">{tr("还没有综述，先看下面的事件脉络。")}</p>
             )}
-            {story.latest && (
-              <div className="-mx-5 mt-5 border-t border-line-soft px-5 pt-4 lg:-mx-6 lg:px-6">
+            {latestStep && (
+              <div className="-mx-5 mt-5 border-t border-line-soft px-5 pt-4 lg:-mx-6 lg:px-6" data-latest-development={latestStep.factId}>
                 <div className="flex items-center gap-2.5 text-[13px]">
                   <span className="font-semibold text-ink">{tr("最新进展")}</span>
-                  {story.latestAt && <span className="num text-ink-4">{df.sourceMonthDayTime(story.latestAt)}</span>}
+                  <ReportInstant iso={latestStep.firstReportAt} reports={developmentReports(story.timeline, latestStep.factId)} className="num text-ink-4" />
                 </div>
-                {newest ? (
-                  <Link to={`/items/${newest.id}`} className="group mt-1.5 inline text-[15px] leading-[1.7] text-ink-2 transition-colors hover:text-accent">
-                    {story.latest}
-                    <IconChevronRight size={14} className="ml-0.5 inline -translate-y-px text-ink-4 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                ) : (
-                  <p className="mt-1.5 text-[15px] leading-[1.7] text-ink-2">{story.latest}</p>
-                )}
+                <Link
+                  to={`/items/${latestStep.representative.id}`}
+                  className="group mt-1.5 inline text-[15px] leading-[1.7] text-ink-2 transition-colors hover:text-accent"
+                >
+                  {latestStep.title}
+                  <IconChevronRight size={14} className="ml-0.5 inline -translate-y-px text-ink-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
               </div>
             )}
           </Panel>
@@ -404,26 +410,38 @@ export default function StoryPage() {
         </div>
 
         <aside className="order-3 flex min-w-0 flex-col gap-4 lg:order-none lg:gap-5">
-          {observed && (
+          {observed && hot && (
             <RailCard title={tr("为什么热")}>
-              <p className="text-[13.5px] leading-[1.75] text-ink-3">
-                {tr("过去 48 小时，已观察到")} <b className="num font-semibold text-ink">{story.whyHot.participants48h}</b>{" "}
-                {tr("个独立主体参与讨论或报道，最近 6 小时新增")} <b className="num font-semibold text-ink">{story.whyHot.newParticipants6h}</b> {tr("个。")}
-              </p>
-              {!story.whyHot.observationComplete && (
-                <p className="mt-2 text-[13px] leading-relaxed text-ink-4">{tr("部分信源观测不完整，以上仅为已观察到的参与。")}</p>
-              )}
-              <p className="mt-2 text-[13px] text-ink-4">
-                <span className="num">{story.whyHot.recentReports24h}</span> {tr("篇近期报道")}
-                {story.whyHot.rank && (
-                  <>
-                    <span className="mx-1">·</span>
-                    <Link to="/hot" className="text-accent hover:underline">
-                      {tr("热点榜第")} {story.whyHot.rank} {tr("名")}
-                    </Link>
-                  </>
+              <div className="space-y-2">
+                {why.participants48h > 0 && (
+                  <p className="text-[13.5px] leading-[1.75] text-ink-3">
+                    {tr("过去 48 小时，已观察到")} <b className="num font-semibold text-ink">{why.participants48h}</b>{" "}
+                    {why.newParticipants6h > 0 ? (
+                      <>
+                        {tr("个独立主体参与讨论或报道，最近 6 小时新增")} <b className="num font-semibold text-ink">{why.newParticipants6h}</b> {tr("个。")}
+                      </>
+                    ) : (
+                      tr("个独立主体参与讨论或报道。")
+                    )}
+                  </p>
                 )}
-              </p>
+                {!why.observationComplete && <p className="text-[13px] leading-relaxed text-ink-4">{tr("部分信源观测不完整，以上仅为已观察到的参与。")}</p>}
+                {(why.recentReports24h > 0 || why.rank !== null) && (
+                  <p className="text-[13px] text-ink-4">
+                    {why.recentReports24h > 0 && (
+                      <>
+                        <span className="num">{why.recentReports24h}</span> {tr("篇近期报道")}
+                      </>
+                    )}
+                    {why.recentReports24h > 0 && why.rank !== null && <span className="mx-1">·</span>}
+                    {why.rank !== null && (
+                      <Link to="/hot" className="text-accent hover:underline">
+                        {tr("热点榜第")} {why.rank} {tr("名")}
+                      </Link>
+                    )}
+                  </p>
+                )}
+              </div>
             </RailCard>
           )}
           {story.officialReports.length > 0 && (
@@ -456,7 +474,7 @@ export default function StoryPage() {
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-4">{tr("最早报道")}</dt>
                   <dd className="num text-ink-2">
-                    <time dateTime={story.firstReportAt}>{df.sourceMonthDayTime(story.firstReportAt)}</time>
+                    <ReportInstant iso={story.firstReportAt} reports={story.timeline} />
                   </dd>
                 </div>
               )}
@@ -464,7 +482,7 @@ export default function StoryPage() {
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-4">{tr("最近更新")}</dt>
                   <dd className="num text-ink-2">
-                    <time dateTime={story.latestAt}>{df.sourceMonthDayTime(story.latestAt)}</time>
+                    <ReportInstant iso={story.latestAt} reports={story.timeline} />
                   </dd>
                 </div>
               )}

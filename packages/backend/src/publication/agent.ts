@@ -23,6 +23,8 @@ const NO_INTERNALS = "不要向读者展示接口地址、参数、工具名等�
 const linkText = (value: string) => value.replace(/([[\]])/g, "\\$1");
 const link = (title: string, url: string) => `[${linkText(title)}](${url})`;
 const stamp = (value: string) => `${beijingDate(value)} ${beijingTime(value)}`;
+/** A story report's time: a report whose source gave only a date is placed at the start of that Beijing day (v1Story) and reads as the date alone. */
+const reportStamp = (value: string) => (beijingTime(value) === "00:00" && Date.parse(value) % 60_000 === 0 ? beijingDate(value) : stamp(value));
 const agentUrl = (path = "") => siteUrl(`/api/v1/agent${path}`);
 
 /** The boundary separates external material from the site's presentation hints. */
@@ -139,7 +141,7 @@ export function storyAnswer(story: NonNullable<Awaited<ReturnType<typeof v1Story
       "",
       "报道时间线（北京时间）：",
       ...reports.map(
-        (r, i) => `${i + 1}. ${stamp(r.publishedAt)} · ${r.source.name}${r.source.firstParty ? "（一手）" : ""} · ${link(r.title, itemUrl(r.id))}`,
+        (r, i) => `${i + 1}. ${reportStamp(r.publishedAt)} · ${r.source.name}${r.source.firstParty ? "（一手）" : ""} · ${link(r.title, itemUrl(r.id))}`,
       ),
       ...(neighbours.length
         ? ["", "相关事件：", ...neighbours.map((r) => `${r.title}：${via === "http" ? agentUrl(`/stories/${r.publicId}`) : `public_id=${r.publicId}`}`)]

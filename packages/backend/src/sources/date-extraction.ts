@@ -6,6 +6,7 @@ import {
   SourceDateObservationInput,
   type SourceDateCandidate,
   SourceTimeParts,
+  type TimeAssertion,
   normalizeSourceTime,
 } from "@amp/contracts/time-assertion";
 import { sourceDateConfigHash, sourceDateProfile } from "./config-keys.ts";
@@ -292,6 +293,78 @@ function parseRawDate(source: UnboundInput, validate: (value: UnboundResult) => 
     if (error instanceof ZodError) return unknown("invalid_time");
     throw error;
   }
+}
+
+type Clock = Pick<TimeAssertion, "precision" | "local_date" | "local_time">;
+const MIDNIGHT = /^00:00(?::00(?:\.0+)?)?$/;
+
+/** A clock reading of exactly the start of the day, in the zone the source itself states. */
+export function midnightClock(time: Pick<TimeAssertion, "precision" | "local_time"> | null | undefined): boolean {
+  return !!time && (time.precision === "minute" || time.precision === "second") && MIDNIGHT.test(time.local_time ?? "");
+}
+
+/** Fewer clock readings than this, or readings all on one day, never make a placeholder: one real midnight stays real. */
+export const PLACEHOLDER_CLOCK_READINGS = 3;
+
+/**
+ * A source whose every clock reading is the same midnight, over several days, prints a date with a fixed
+ * time (its system keeps only the day: RSS pubDate "Thu, 05 Nov 2026 00:00:00 +0000" on every entry). That
+ * clock says nothing, so only the date is the source's (AGENTS.md 12, BR-TIME-01): it is never shown as 08:00.
+ */
+export function placeholderClock(times: Array<Clock | null | undefined>): boolean {
+  const clocks = times.filter((time): time is Clock => !!time && (time.precision === "minute" || time.precision === "second"));
+  return clocks.length >= PLACEHOLDER_CLOCK_READINGS && new Set(clocks.map((time) => time.local_date)).size >= 2 && clocks.every(midnightClock);
+}
+
+/** The date a placeholder clock stands for: the day the source states, with no clock, instant or zone. */
+export function placeholderDate(time: TimeAssertion): TimeAssertion {
+  return normalizeSourceTime(
+    {
+      meaning: time.meaning,
+      raw: time.raw,
+      basis: time.basis,
+      condition_text: time.condition_text,
+      local_date: time.local_date,
+      local_time: null,
+      utc: null,
+      timezone: null,
+      precision: "date",
+    },
+    { instantBasis: null, timezoneEvidence: null },
+  );
+}
+
+// The date part of a stamped field, read alone with the parser's existing formats (ISO date; RFC 2822 day month year).
+const DATE_PARTS = [
+  { part: /(?<!\d)\d{4}-\d{2}-\d{2}(?=[T ]\d{2}:\d{2})/, format: "iso8601", formatPattern: null, language: null },
+  {
+    part: /(?<!\d)\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}(?=\s+\d{2}:\d{2})/i,
+    format: "declared",
+    formatPattern: "D MMM YYYY",
+    language: "en",
+  },
+] as const;
+
+/**
+ * The same field observed as the date it carries: the date part becomes the raw reading and the whole field
+ * stays its excerpt, so the evidence still shows what the source printed. Null when no date part reads as `day`.
+ */
+export function dateOnlyObservation(observation: SourceDateObservationInput, day: string): SourceDateObservationInput | null {
+  for (const { part, format, formatPattern, language } of DATE_PARTS) {
+    const found = part.exec(observation.raw)?.[0];
+    if (!found || !observation.excerpt.includes(found)) continue;
+    const next = SourceDateObservationInput.parse({
+      ...observation,
+      raw: found,
+      format,
+      formatPattern,
+      language,
+      basis: `${observation.basis}; every entry of the listing carries the same midnight, so only its date is read`.slice(0, 500),
+    });
+    const time = previewSourceDate(next);
+    if (time?.precision === "date" && time.local_date === day) return next;
+  }
+  return null;
 }
 
 /** A display/window hint only, never material identity or publication admission. */

@@ -20,7 +20,7 @@ import { sql, type Db, type Tx, type Sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { sourceDateVerdict } from "./source-time.ts";
-import { sourceDateReadingsAgree } from "../sources/date-extraction.ts";
+import { midnightClock, placeholderClock, placeholderDate, sourceDateReadingsAgree } from "../sources/date-extraction.ts";
 
 type DateResult = Pick<MaterialUpdateResult, "revision" | "sourceTimeChanged" | "metadataChanged" | "sourceDateVersion" | "sourceDateOutcome">;
 const ABSENT_LISTING_FIELD = "listing publication field absent";
@@ -267,6 +267,22 @@ export async function materialDateHeads(sourceId: string, urls: string[], db: Db
     SELECT id, url, revision, source_date_version FROM articles WHERE source_id = ${sourceId} AND url IN ${db(urls)}`;
 }
 
+/**
+ * Sources whose selected clock readings are all one midnight over several days (placeholderClock): what they
+ * stamp is a date. Readings stored before collection recognised such a listing keep their evidence unchanged;
+ * this reads them as the source means them.
+ */
+export async function placeholderClockSources(sourceIds: string[], db: Db = sql): Promise<Set<string>> {
+  const ids = [...new Set(sourceIds)];
+  if (!ids.length) return new Set();
+  const rows = await db<{ source_id: string; precision: "minute" | "second"; local_date: string | null; local_time: string | null }[]>`
+    SELECT a.source_id, o.result->'evidence'->'time'->>'precision' AS precision, o.result->'evidence'->'time'->>'local_date' AS local_date,
+      o.result->'evidence'->'time'->>'local_time' AS local_time
+    FROM articles a JOIN content.source_date_observations o ON o.id=a.source_date_observation_id
+    WHERE a.source_id=ANY(${ids}::text[]) AND a.source_date_state='reliable' AND o.result->'evidence'->'time'->>'precision' IN ('minute','second')`;
+  return new Set(ids.filter((id) => placeholderClock(rows.filter((row) => row.source_id === id))));
+}
+
 /** Selected source date evidence only. Publication receives no locator, excerpt, permission record or parser state. */
 export async function materialSourceTime(
   binding: { articleId: string; sourceId: string; revision: number; configHash: string },
@@ -283,5 +299,8 @@ export async function materialSourceTime(
     WHERE a.id=${binding.articleId} AND a.source_id=${binding.sourceId} AND a.revision=${binding.revision} AND a.source_date_version=${dateVersion}
       AND a.source_date_state='reliable' AND o.article_id=a.id AND o.source_id=a.source_id AND o.revision=a.revision AND o.config_hash=${binding.configHash}`;
   const verdict = sourceDateVerdict("news", row?.result?.evidence, binding, now);
-  return verdict.status === "reliable" ? verdict.time : null;
+  if (verdict.status !== "reliable") return null;
+  // A midnight that every reading of the source repeats is its date column, not a time of day.
+  if (midnightClock(verdict.time) && (await placeholderClockSources([binding.sourceId], db)).has(binding.sourceId)) return placeholderDate(verdict.time);
+  return verdict.time;
 }

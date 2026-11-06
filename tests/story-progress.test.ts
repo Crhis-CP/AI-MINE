@@ -7,8 +7,10 @@ import { randomUUID } from "node:crypto";
 import { closeDb, sql } from "@amp/backend/db";
 import { schemas } from "@amp/contracts/http/public";
 import { loadPool } from "@amp/backend/publication/pool";
-import { loadStoryDetail } from "@amp/backend/publication/stories";
-import { groundedIn, readDigestDetail } from "@amp/backend/events/digest";
+import { loadStoryDetail, v1Story } from "@amp/backend/publication/stories";
+import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/groups";
+import { storyAnswer } from "../packages/backend/src/publication/agent.ts";
+import { groundedIn, namesCalendarDate, readDigestDetail } from "@amp/backend/events/digest";
 import { loadStoryProgress } from "../packages/backend/src/publication/story-progress.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
@@ -88,12 +90,15 @@ test("story detail exposes stored key changes and milestones beside the digest, 
         { item: "合成指引", before: "1", after: "2" },
         { item: "缺原值", after: "3" },
       ],
-      next: [{ what: "合成节点", when: "第2期" }],
+      next: [
+        { what: "合成节点", when: "2027年2月" },
+        { what: "合成远期目标", when: "2030年代中期" },
+      ],
     })}
     WHERE id=${f.story.id}`;
   const detail = await loadStoryDetail(f.story.id, now);
   assert.deepEqual(detail?.keyChanges, [{ item: "合成指引", before: "1", after: "2" }]);
-  assert.deepEqual(detail?.next, [{ what: "合成节点", when: "第2期" }]);
+  assert.deepEqual(detail?.next, [{ what: "合成节点", when: "2027年2月" }], "a stored digest's undated entry is not listed as a dated milestone");
   assert.equal(detail?.developments.length, 2);
   await sql`UPDATE stories SET digest_detail=NULL WHERE id=${f.story.id}`;
   const legacy = await loadStoryDetail(f.story.id, now);
@@ -126,4 +131,207 @@ test("structured digest parts are read entry by entry and grounded in the report
   assert.equal(readDigestDetail({ keyChanges: Array.from({ length: 6 }, (_, n) => ({ item: `项${n}`, before: "旧", after: "新" })) }).keyChanges.length, 4);
   assert.ok(groundedIn("由2.1美元", "2.10美元"));
   assert.ok(!groundedIn("由2.1美元", "2.15美元"));
+});
+
+test("接下来关注 keeps only milestones with a calendar date; decades, phases and spans counted from the report are left out", () => {
+  const next = (when: string) => readDigestDetail({ next: [{ what: "合成节点", when }] }).next.length === 1;
+  for (const dated of ["2027年2月28日", "2026年12月", "11月中旬", "2028年3月末", "2027年一季度", "Q1 2027", "by March 2027", "2030年前"])
+    assert.ok(next(dated), dated);
+  for (const undated of ["2030年代中期", "mid-2030s", "2个工作日内", "5个工作日内", "第2期", "未来几年", "3个月内", "一季度", "近期"])
+    assert.ok(!next(undated), undated);
+  assert.ok(namesCalendarDate("２０２７年"), "full-width digits are read as digits");
+  // An undated entry does not take a dated one's place among the three shown.
+  const many = readDigestDetail({
+    next: [
+      { what: "远期", when: "2030年代中期" },
+      { what: "甲", when: "2026年12月" },
+      { what: "乙", when: "2个工作日内" },
+      { what: "丙", when: "2027年1月" },
+      { what: "丁", when: "2027年2月" },
+    ],
+  }).next;
+  assert.deepEqual(
+    many.map((m) => m.what),
+    ["甲", "丙", "丁"],
+  );
+});
+
+/**
+ * One story as stored by grouping: the official release and a media reprint of it (same headline, same day),
+ * two outlets carrying one syndicated article, a fact split off for a reprint of another fact's report, and a
+ * fact reached only through a mention. Reports are a day apart, oldest first.
+ */
+async function storyWithCopies() {
+  const key = `copies-${tag()}`;
+  const sources = ["official", "media-a", "media-b", "media-c", "media-d", "media-e"].map((name) => `${key}-${name}`);
+  for (const source of sources) {
+    await sql`INSERT INTO sources(id,name,kind,config,first_party) VALUES(${source},${source},'rss','{}',${source.endsWith("official")})`;
+    await grantDateFixture(source, ["https://example.invalid/article"]);
+  }
+  const [s] = await sql<{ id: number; public_id: string }[]>`INSERT INTO stories(public_id,title,first_report_at,latest_at)
+    VALUES(${randomUUID()},'合成事件：铜企虚报产量',${now},${now}) RETURNING id,public_id::text`;
+  const fact = async (title: string) =>
+    (
+      await sql<
+        { id: number; public_id: string }[]
+      >`INSERT INTO facts(public_id,story_id,title) VALUES(${randomUUID()},${s!.id},${title}) RETURNING id,public_id`
+    )[0]!;
+  const facts = {
+    meeting: await fact("合成进展：股东大会通报虚报"),
+    audit: await fact("合成进展：审计查出虚报产量"),
+    experts: await fact("合成进展：部长宣布专家组"),
+    reprint: await fact("合成进展：专家组消息转载"),
+    mention: await fact("合成进展：只被顺带提到"),
+  };
+  const report = async (
+    id: string,
+    f: { id: number },
+    source: string,
+    at: string,
+    title: string,
+    originalTitle: string,
+    role: "primary" | "report" | "mention" = "primary",
+  ) => {
+    const url = `https://example.invalid/${key}-${id}`,
+      when = new Date(at),
+      articleId = `${key}-${id}`;
+    await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at,language,body_text,raw)
+      VALUES(${articleId},${source},${articleId},${url},${title},${when},${when},'zh','合成正文','{}')`;
+    await sql`INSERT INTO publications(article_id,title,original_title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visibility,eligible,selected,search_text,tags,fact_id,story_id,first_party)
+      VALUES(${articleId},${title},${originalTitle},'合成公开导读',${source},'news',${url},${when},${when},${when},${when},'public',true,false,${key},${[key]},${f.id},${s!.id},${source.endsWith("official")})`;
+    await sql`INSERT INTO pool_search(article_id,direct,body) VALUES(${articleId},${key},'合成正文')`;
+    await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${f.id},${articleId},${role},1)`;
+    return articleId;
+  };
+  const [official, media, a, b] = sources.slice(0, 4) as [string, string, string, string];
+  const ids = {
+    // The official release (a date alone: the start of its Beijing day) and a media reprint of it the same day.
+    release: await report("release", facts.meeting, official, "2026-11-01T16:00:00Z", "合成公司：股东大会支持整改", "Junta respalda medidas de Sintética"),
+    reprint: await report(
+      "reprint",
+      facts.meeting,
+      media,
+      "2026-11-02T00:00:00Z",
+      "合成媒体：股东大会回应虚报",
+      "Junta respalda medidas de Sintética",
+      "report",
+    ),
+    analysis: await report("analysis", facts.meeting, b, "2026-11-02T05:00:00Z", "合成媒体：查出虚增产量", "Sintética detecta producción inflada", "report"),
+    // One syndicated article, carried by two outlets on the same Beijing day.
+    syndicated: await report("syndicated", facts.audit, a, "2026-11-02T10:00:00Z", "合成：被查出虚报产量", "El escándalo de la producción sintética"),
+    syndicatedCopy: await report(
+      "syndicated-copy",
+      facts.audit,
+      sources[4]!,
+      "2026-11-02T13:00:00Z",
+      "合成：被查出虚报产量",
+      "El escándalo de la producción sintética",
+      "report",
+    ),
+    experts: await report("experts", facts.experts, media, "2026-11-03T02:00:00Z", "合成：部长宣布专家组", "Ministro anuncia grupo de expertos sintético"),
+    // A reprint of the experts report that grouping put into a fact of its own.
+    expertsCopy: await report(
+      "experts-copy",
+      facts.reprint,
+      sources[5]!,
+      "2026-11-03T03:00:00Z",
+      "合成：部长宣布专家组（转载）",
+      "Ministro anuncia grupo de expertos sintético",
+    ),
+  };
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${facts.mention.id},${ids.analysis},'mention',1)`;
+  return { key, story: s!, facts, ids };
+}
+
+test("copies of one report are listed once, and a fact split off for a copy is not a development of its own", async () => {
+  const f = await storyWithCopies();
+  const detail = (await loadStoryDetail(f.story.id, now))!;
+  // The official release keeps its place over the reprint; one copy of the syndicated article and of the experts report.
+  assert.deepEqual(detail.timeline.map((r) => r.id).sort(), [f.ids.release, f.ids.analysis, f.ids.syndicated, f.ids.experts].sort());
+  assert.equal(detail.reportCount, 4);
+  assert.equal(detail.sourceCount, 4);
+  assert.equal(new Set(detail.timeline.map((r) => `${r.title}|${r.publishedAt.slice(0, 10)}`)).size, detail.timeline.length, "no headline twice");
+  // Three developments, newest first: the split-off reprint joined its original, the mention-only fact is none.
+  assert.deepEqual(
+    detail.developments.map((d) => [d.factId, d.reportCount]),
+    [
+      [f.facts.experts.public_id, 1],
+      [f.facts.audit.public_id, 1],
+      [f.facts.meeting.public_id, 2],
+    ],
+  );
+  assert.equal(detail.developments[0]!.representative.id, f.ids.experts);
+  for (const r of detail.timeline)
+    assert.ok(
+      detail.developments.some((d) => d.factId === r.factId),
+      "every listed report sits under a listed development",
+    );
+  assert.equal(detail.officialReports.length, 1);
+});
+
+test("feed cards place a report on the same line the story page shows: same count, same order, the same form for every card", async () => {
+  const f = await storyWithCopies();
+  const detail = (await loadStoryDetail(f.story.id, now))!;
+  const line = [...detail.developments].reverse();
+  const card = (id: string, fact: { id: number }) => ({
+    id,
+    fact_id: fact.id,
+    story_id: f.story.id,
+    story_public_id: f.story.public_id,
+    story_title: "合成事件",
+  });
+  const progress = await loadStoryProgress(
+    [
+      card(f.ids.reprint, f.facts.meeting),
+      card(f.ids.analysis, f.facts.meeting),
+      card(f.ids.syndicatedCopy, f.facts.audit),
+      card(f.ids.expertsCopy, f.facts.reprint),
+      card(f.ids.experts, f.facts.experts),
+    ],
+    now,
+  );
+  // Before: the mention-only fact and the split-off reprint each counted as a development (5 against the page's 4).
+  for (const id of [f.ids.reprint, f.ids.analysis, f.ids.syndicatedCopy, f.ids.expertsCopy, f.ids.experts])
+    assert.equal(progress.get(id)?.developmentCount, line.length, id);
+  const position = (id: string) => progress.get(id)!.position;
+  assert.deepEqual([f.ids.reprint, f.ids.syndicatedCopy, f.ids.expertsCopy, f.ids.experts].map(position), [1, 2, 3, 3]);
+  assert.equal(line[position(f.ids.analysis) - 1]!.factId, f.facts.meeting.public_id);
+  assert.equal(progress.get(f.ids.experts)!.previous?.title, "合成进展：审计查出虚报产量");
+  assert.equal(progress.get(f.ids.reprint)!.latest?.title, "合成进展：部长宣布专家组");
+  assert.equal(progress.get(f.ids.experts)!.latest, null);
+});
+
+test("every other list of the same reports folds copies and split facts the same way, and names the same newest development", async () => {
+  const f = await storyWithCopies();
+  const filters = { channel: "all" as const, category: null, tag: null, topicTags: null, cursor: null, revision: null };
+  // A fact group's report list (feed cards and article pages open it): the syndicated article once.
+  const group = await loadGroupReports({ ...filters, factPublicId: f.facts.audit.public_id, take: 20 });
+  assert.equal(group.kind, "ok");
+  if (group.kind === "ok")
+    assert.deepEqual(
+      group.body.reports.map((r) => r.id),
+      [f.ids.syndicated],
+    );
+  const meeting = await loadGroupReports({ ...filters, factPublicId: f.facts.meeting.public_id, take: 20 });
+  if (meeting.kind === "ok") assert.deepEqual(meeting.body.reports.map((r) => r.id).sort(), [f.ids.release, f.ids.analysis].sort(), "the official copy stays");
+  // The article page's follow-ups: three developments, the split-off reprint not a fourth.
+  const developments = await loadDevelopments({ ...filters, scope: "all", storyPublicId: f.story.public_id, take: 10 });
+  assert.equal(developments.kind, "ok");
+  if (developments.kind === "ok")
+    assert.deepEqual(
+      developments.body.developments.map((d) => [d.factId, d.reportCount]),
+      [
+        [f.facts.experts.public_id, 1],
+        [f.facts.audit.public_id, 1],
+        [f.facts.meeting.public_id, 2],
+      ],
+    );
+  // The machine story (API, MCP, agent): the same newest development, and no clock for a date-only report.
+  const machine = (await v1Story(f.story.id))!;
+  assert.equal(machine.story.latest, "合成进展：部长宣布专家组");
+  assert.equal(machine.story.reports.length, 4);
+  const answer = storyAnswer(machine.story, 10, "http");
+  assert.match(answer, /最新进展：合成进展：部长宣布专家组/);
+  assert.match(answer, /\d\. 2026-11-02 · \S+official/, "the official release gave only its date");
+  assert.doesNotMatch(answer, / 00:00 · /);
 });
