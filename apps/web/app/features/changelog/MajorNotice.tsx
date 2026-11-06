@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
+import { Convergence } from "./AggregationFlow";
 import { ReadingUpgrade } from "./ReadingUpgrade";
 import { Showcase202611 } from "./Showcase202611";
 
@@ -120,78 +121,142 @@ function Dot({ step, current }: { step: number; current: boolean }) {
   );
 }
 
-function Sheen({ vertical = false }: { vertical?: boolean }) {
+/** A small line drawing for each step a notice names; any other step gets a plain ring. */
+const STEP_ICONS: Record<string, string> = {
+  采集: "M4 13l2-7h12l2 7v5H4z M4 13h5l1.5 2h3l1.5-2h5",
+  筛选: "M4 5h16l-6 7.5V18l-4 2v-7.5z",
+  归并: "M6 4v3a5 5 0 0 0 5 5h1 M18 4v3a5 5 0 0 1-5 5h-1 M12 12v8",
+  精选: "M12 3.5l2.6 5.3 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z",
+  发布: "M4 11.5l16-7-5.5 16-3.2-6.3z M11.3 14.2l3.5-3.5",
+};
+function StepIcon({ name }: { name: string }) {
+  const d = STEP_ICONS[name];
   return (
-    <div
-      className={`pointer-events-none absolute overflow-hidden ${vertical ? "bottom-1 left-[5px] top-1 w-[3px]" : "left-[4%] right-[4%] top-[5px] h-[3px]"}`}
+    <svg
+      viewBox="0 0 24 24"
+      className="size-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
+      {d ? <path d={d} /> : <circle cx={12} cy={12} r={5} />}
+    </svg>
+  );
+}
+
+/** The step's badge on the line: its icon in a gold ring that pops in when the line reaches it; the last one breathes. */
+function Badge({ step, name, current }: { step: number; name: string; current: boolean }) {
+  return (
+    <span className="relative grid size-10 shrink-0 place-items-center" style={at(step)}>
+      {current && <span className="notice-breathe absolute inset-0 rounded-full bg-hot/40" aria-hidden="true" />}
+      <span
+        className="anim-pop-in relative grid size-10 place-items-center rounded-full border-2 border-accent bg-surface text-accent shadow-sm transition duration-200 group-hover/step:scale-110 group-hover/step:border-hot group-hover/step:bg-hot group-hover/step:text-white"
+        style={at(step)}
+      >
+        <StepIcon name={name} />
+      </span>
+    </span>
+  );
+}
+
+/** A light that keeps travelling the line; `badge` places it through the centres of the step badges. */
+function Sheen({ vertical = false, badge = false }: { vertical?: boolean; badge?: boolean }) {
+  const place = badge
+    ? vertical
+      ? "bottom-5 left-[19px] top-5 w-[3px]"
+      : "left-[10%] right-[10%] top-[19px] h-[3px]"
+    : vertical
+      ? "bottom-1 left-[5px] top-1 w-[3px]"
+      : "left-[4%] right-[4%] top-[5px] h-[3px]";
+  return (
+    <div className={`pointer-events-none absolute overflow-hidden ${place}`} aria-hidden="true">
       <div className={vertical ? "notice-sheen-y h-1/4 w-full" : "notice-sheen h-full w-1/4"} />
+    </div>
+  );
+}
+
+/** One step's words: number, name, what it does for the reader. */
+function StepCard({ index, station }: { index: number; station: Station }) {
+  return (
+    <div className="h-full rounded-control border border-line-soft bg-bg-sunk/60 px-3.5 py-3 transition duration-200 group-hover/step:-translate-y-1 group-hover/step:border-accent group-hover/step:bg-accent-soft/60 group-hover/step:shadow-sm">
+      <div className="flex items-baseline gap-2">
+        <span className="mono text-[11px] font-semibold text-ink-4">{String(index + 1).padStart(2, "0")}</span>
+        <span className="text-[16px] font-black text-ink">{station.name}</span>
+      </div>
+      <div className="mt-0.5 text-[12.5px] font-semibold text-accent group-hover/step:text-hot">{station.kicker}</div>
+      <p className="mt-2 text-[12.5px] leading-[1.7] text-ink-3">{station.text}</p>
     </div>
   );
 }
 
 function Chain({ stations, outlets }: { stations: Station[]; outlets: string[] }) {
   const tr = useTr();
-  const last = stations.length - 1;
   return (
     <div className="mt-8">
       <p className="animate-fade-up text-[13px] font-semibold tracking-wide text-ink-3" style={at(1)}>
         {tr("从采集到发布，一层层接上")}
       </p>
+      {stations.length === 5 ? <Convergence stations={stations} outlets={outlets} /> : <ChainSteps stations={stations} outlets={outlets} />}
+    </div>
+  );
+}
+
+/** Any other number of steps: badges on a drawn line, cards below. */
+function ChainSteps({ stations, outlets }: { stations: Station[]; outlets: string[] }) {
+  const tr = useTr();
+  const last = stations.length - 1;
+  return (
+    <div>
       <div className="relative mt-5 hidden sm:block">
-        <Sheen />
-        <ol className="grid items-start" style={{ gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))` }}>
+        {/* The quiet track the gold line is drawn over, badge to badge. */}
+        <span className="absolute left-[10%] right-[10%] top-[19px] h-[2px] rounded-full bg-line-soft" aria-hidden="true" />
+        <Sheen badge />
+        <ol className="relative grid items-stretch" style={{ gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))` }}>
           {stations.map((station, i) => (
-            <li key={station.name} className="group/step min-w-0">
-              <div className="flex h-3.5 items-center">
+            <li key={station.name} className="group/step flex min-w-0 flex-col">
+              <div className="flex h-10 items-center">
                 <span className="min-w-0 flex-1">{i > 0 && <Draw delayMs={(i - 1) * STEP_MS + 180} />}</span>
-                <Dot step={i + 1} current={i === last} />
+                <Badge step={i + 1} name={station.name} current={i === last} />
                 <span className="min-w-0 flex-1">{i < last && <Draw delayMs={i * STEP_MS + 180} />}</span>
               </div>
-              <div className="animate-fade-up mt-3" style={at(i + 1)}>
-                <div className="rounded-control px-2 py-2 transition duration-200 group-hover/step:-translate-y-1 group-hover/step:bg-accent-soft">
-                  <div className="text-[15px] font-black text-ink">{station.name}</div>
-                  <div className="mt-0.5 text-[12.5px] font-semibold text-accent group-hover/step:text-hot">{station.kicker}</div>
-                  <p className="mt-1.5 text-[12.5px] leading-[1.65] text-ink-3">{station.text}</p>
-                </div>
+              <div className="animate-fade-up mt-3 flex-1 px-1.5" style={at(i + 1)}>
+                <StepCard index={i} station={station} />
               </div>
             </li>
           ))}
         </ol>
       </div>
       <div className="relative mt-4 sm:hidden">
-        <Sheen vertical />
-        <ol>
+        <Sheen vertical badge />
+        <ol className="relative">
           {stations.map((station, i) => (
-            <li key={station.name} className="group/step grid grid-cols-[14px_minmax(0,1fr)] gap-x-3">
+            <li key={station.name} className="group/step grid grid-cols-[40px_minmax(0,1fr)] gap-x-3">
               <div className="flex flex-col items-center">
-                <Dot step={i + 1} current={i === last} />
+                <Badge step={i + 1} name={station.name} current={i === last} />
                 {i < last && (
-                  <span className="my-1 h-10">
+                  <span className="my-1 min-h-6 flex-1">
                     <Draw vertical delayMs={i * STEP_MS + 180} />
                   </span>
                 )}
               </div>
               <div className={`animate-fade-up ${i < last ? "pb-3" : ""}`} style={at(i + 1)}>
-                <div className="rounded-control px-2 py-1.5 transition duration-200 group-hover/step:bg-accent-soft">
-                  <div className="text-[15px] font-black text-ink">{station.name}</div>
-                  <div className="text-[12.5px] font-semibold text-accent group-hover/step:text-hot">{station.kicker}</div>
-                  <p className="mt-1 text-[13px] leading-[1.7] text-ink-3">{station.text}</p>
-                </div>
+                <StepCard index={i} station={station} />
               </div>
             </li>
           ))}
         </ol>
       </div>
       {outlets.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           <span className="animate-fade-up text-[12px] font-semibold text-ink-3" style={at(stations.length + 1)}>
-            {tr("公开出去")}
+            {tr("公开出去")} →
           </span>
           {outlets.map((label, i) => (
             <span key={label} className="anim-slide-in-x inline-flex" style={at(stations.length + 1 + i)}>
-              <span className="rounded-full bg-ink px-3 py-1 text-[12.5px] font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-hot">
+              <span className="rounded-full border border-accent/50 bg-accent-soft px-3 py-1 text-[12.5px] font-semibold text-accent transition duration-200 hover:-translate-y-0.5 hover:border-hot hover:bg-hot hover:text-white">
                 {label}
               </span>
             </span>

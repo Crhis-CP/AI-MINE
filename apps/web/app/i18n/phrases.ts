@@ -41,6 +41,8 @@ export const PHRASES = {
   "趋势仅比较持续完整观测到的相同主体，范围可能小于当前热度统计。移动指针或点击图表查看每小时热度；键盘可用左右方向键切换。":
     "The trend only compares the same continuously observed participants, so its range can be narrower than the current heat count. Move the pointer or select the chart to see each hour; with a keyboard, use the left and right arrow keys.",
   "从采集到发布，一层层接上": "From collection to publication, one layer at a time",
+  "很多来源的消息进来，层层筛掉、合并，最后留下值得看的那一小部分。":
+    "News from many sources comes in, is filtered and merged layer by layer, and only the small part worth reading is kept.",
   公开出去: "Published",
   试运行: "Trial run",
   还在完善: "Still improving",

@@ -204,3 +204,16 @@ test("the reader wording check names technical words and lets reader sentences t
   assert.match(readerWordingProblem(["列表可用 j / k 键上下切换"]) ?? "", /j \/ k/);
   assert.equal(readerWordingProblem(["首页新增资讯地图，点一个国家就只看这个国家的资讯。"]), null);
 });
+
+test("the 2.0 notice keeps its five steps, so the changelog draws how news is collected, filtered and published", () => {
+  // Owner 2026-11-06: readers learn the site's steps from this notice (drawn as a lit chain), without scoring details.
+  const notice = loadChangelog().releases.find((r) => r.kind === "重大更新" && r.version === "2.0");
+  assert.ok(notice, "the 2.0 notice is published");
+  const steps = notice.body.map((line) => /^\*\*(\S+)\s+(.+?)\*\*[：:]\s*(.+)$/.exec(line)?.[1]).filter(Boolean);
+  assert.deepEqual(steps, ["采集", "筛选", "归并", "精选", "发布"]);
+  assert.ok(
+    notice.body.some((line) => /^出口[：:]/.test(line)),
+    "where readers find it",
+  );
+  assert.ok(!notice.body.some((line) => /评分|分数|\d+\s*分/.test(line)), "no scoring details");
+});
