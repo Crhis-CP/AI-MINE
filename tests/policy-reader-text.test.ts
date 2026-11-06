@@ -49,6 +49,28 @@ test("a source clock of exactly midnight is the date column of an official list"
   assert.equal(readerSourceTime(null), null);
 });
 
+test("a card shows a source midnight as its date but keeps the stored instant as its order key", async () => {
+  // Codex review #352: same-day documents and list cursors stay ordered by the stored instant.
+  const f = await fixture();
+  const captured = await capturePolicyMaterial(f.sourceId, f.materialId, f.get);
+  if (captured.status !== "captured") return assert.fail("material should be captured");
+  const result = await publishPolicyPublication({ expressionId: captured.expressionId });
+  if (result.status !== "published") return assert.fail("basic facts should be published");
+  const [stored] = await policyCurrentPublicRecords();
+  const card = stored!.card;
+  const midnight = {
+    ...card.published_time,
+    local_date: "2026-10-15",
+    local_time: "00:00:00",
+    utc: "2026-10-15T03:00:00.000Z",
+    precision: "second" as const,
+    raw: "2026-10-15T00:00:00-03:00",
+  };
+  const read = readerCard({ ...card, published_time: midnight, sort_time: midnight });
+  assert.equal(read.published_time.precision, "date", "readers see the date");
+  assert.equal(read.sort_time?.utc, "2026-10-15T03:00:00.000Z", "the order key keeps the instant");
+});
+
 test("every policy outlet reads the cleaned title, the date alone, the product's theme names and reader version words", async () => {
   const f = await fixture();
   const captured = await capturePolicyMaterial(f.sourceId, f.materialId, f.get);

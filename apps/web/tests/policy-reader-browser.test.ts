@@ -163,6 +163,8 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
   if (url.pathname === "/api/site/policies/scope") return answer(scope);
   if (url.pathname === "/api/site/policies") {
+    // Like the API, a theme matches on every current language version of a document, not only the card shown.
+    const otherLanguageThemes: Record<string, string[]> = { "pol-cn-dateonly": ["safety_environment"] };
     const q = url.searchParams,
       size = Number(q.get("page_size") ?? 20),
       page = Number(q.get("page") ?? 1);
@@ -171,7 +173,7 @@ const api = createServer((req, res) => {
       .filter(
         (c) =>
           (!q.get("jurisdiction") || c.jurisdictions.some((j) => j.code === q.get("jurisdiction"))) &&
-          (!q.get("theme") || c.themes.some((t) => t.code === q.get("theme"))),
+          (!q.get("theme") || c.themes.some((t) => t.code === q.get("theme")) || !!otherLanguageThemes[c.id]?.includes(q.get("theme")!)),
       );
     return answer({ ...fixture("list"), items: items.slice((page - 1) * size, page * size), page, page_size: size, total: items.length });
   }
@@ -287,17 +289,19 @@ for (const width of [1440, 390])
       await expect(page).toHaveURL(/jurisdiction=US$/);
       await expect(page.getByText("美国暂无已公开文书", { exact: true })).toBeVisible();
       await expect(page.locator("[data-theme-card]")).toHaveCount(0);
-      // China: two public documents and no theme yet (themes come with a finished interpretation): not a dead grid.
+      // China: two public documents. One has a theme only in another language version, which the API matches (Codex
+      // review #352): it counts under that theme and is not listed as without a theme; the other has none yet.
       await page.goto(`${origin}/policies?jurisdiction=CN`);
       await expect(page.locator('[data-theme-card="all"]')).toContainText("2 份");
-      await expect(page.locator('a[data-theme-card="none"]')).toContainText("2 份");
-      await expect(page.locator('[data-empty-list="themes"] [data-empty-item]')).toHaveCount(7);
+      await expect(page.locator('[data-theme-card="safety_environment"]')).toContainText("1 份");
+      await expect(page.locator('a[data-theme-card="none"]')).toContainText("1 份");
+      await expect(page.locator('[data-empty-list="themes"] [data-empty-item]')).toHaveCount(6);
       assert.ok(!(await visibleText(page)).includes("暂无已公开文书"), "no dead theme tiles");
       await noOverflow(page);
       await page.locator('a[data-theme-card="none"]').click();
       await expect(page).toHaveURL(/jurisdiction=CN&theme=none/);
-      await expect(page.locator("[data-policy-card]")).toHaveCount(2);
-      await expect(page.getByText("共 2 份文书", { exact: false })).toBeVisible();
+      await expect(page.locator("[data-policy-card]")).toHaveCount(1);
+      await expect(page.getByText("共 1 份文书", { exact: false })).toBeVisible();
       assert.deepEqual(errors, []);
       assert.deepEqual(blocked, []);
     } finally {

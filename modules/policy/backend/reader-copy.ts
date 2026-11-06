@@ -118,7 +118,8 @@ export function readerCard<T extends PolicyCard>(card: T): T {
   return {
     ...card,
     published_time: readerSourceTime(card.published_time),
-    sort_time: readerSourceTime(card.sort_time),
+    // The order key keeps the stored instant: same-day documents and list cursors stay ordered as stored (Codex review
+    // #352). Readers never see it as a clock: pages show a source midnight as its date (policyClock).
     title: readerText(placeholder ? card.original_title : card.title),
     original_title: readerText(card.original_title),
     instrument_number: card.instrument_number === null ? null : readerText(card.instrument_number),

@@ -81,35 +81,42 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   let listing: Promise<Listing>;
   let themeCounts: Promise<{ counts: Record<ThemeKey, number | null>; unthemed: number | null }> | null = null;
+  /**
+   * Each theme's documents as the API returns them: the API matches a theme on every current language version of a
+   * document, not only the card shown, so counts and “not yet given a theme” come from these answers, not from the shown
+   * cards' own themes (Codex review #352). A theme that fails or has too many to read keeps its total (or no count).
+   */
+  const byThemeAnswer = async (params: Record<string, unknown>) => {
+    const answers = await Promise.allSettled(
+      themeKeys.map(async (theme) => {
+        const every = await everyCard({ ...params, theme });
+        return every
+          ? { total: every.first.total, ids: every.items.map((card) => card.id) }
+          : { total: (await list({ ...params, theme, page_size: 1 })).total, ids: [] };
+      }),
+    );
+    return {
+      counts: Object.fromEntries(themeKeys.map((key, i) => [key, answers[i]!.status === "fulfilled" ? answers[i].value.total : null])) as Record<
+        ThemeKey,
+        number | null
+      >,
+      ids: new Set(answers.flatMap((answer) => (answer.status === "fulfilled" ? answer.value.ids : []))),
+    };
+  };
+  /** Documents of no theme: none on the card shown and none in any theme's answer (equal to the API's rule when all answer). */
+  const withoutTheme = <T extends { id: string; themes: unknown[] }>(cards: T[], ids: Set<string>) =>
+    cards.filter((card) => card.themes.length === 0 && !ids.has(card.id));
   if (level === 2) {
-    // The themes of one jurisdiction are counted from its documents themselves, so the documents no theme has been
-    // given yet (themes come with a finished interpretation) are counted too and the theme step is never a dead end.
+    // The themes of one jurisdiction are counted with the documents no theme has been given yet (themes come with a
+    // finished interpretation), so the theme step is never a dead end.
     listing = list({ jurisdiction: query.jurisdiction, page_size: 3 });
-    themeCounts = everyCard({ jurisdiction: query.jurisdiction })
-      .then(async (all) => {
-        if (all)
-          return {
-            counts: Object.fromEntries(themeKeys.map((key) => [key, all.items.filter((card) => card.themes.some((t) => t.code === key)).length])) as Record<
-              ThemeKey,
-              number
-            >,
-            unthemed: all.items.filter((card) => card.themes.length === 0).length,
-          };
-        // Too many to read: each theme's own total, and no “not yet given a theme” group.
-        const totals = await Promise.allSettled(themeKeys.map((theme) => list({ jurisdiction: query.jurisdiction, theme, page_size: 1 })));
-        return {
-          counts: Object.fromEntries(themeKeys.map((key, i) => [key, totals[i]!.status === "fulfilled" ? totals[i].value.total : null])) as Record<
-            ThemeKey,
-            number | null
-          >,
-          unthemed: null,
-        };
-      })
+    themeCounts = Promise.all([everyCard({ jurisdiction: query.jurisdiction }).catch(() => null), byThemeAnswer({ jurisdiction: query.jurisdiction })])
+      .then(([all, byTheme]) => ({ counts: byTheme.counts, unthemed: all ? withoutTheme(all.items, byTheme.ids).length : null }))
       .catch(() => ({ counts: Object.fromEntries(themeKeys.map((key) => [key, null])) as Record<ThemeKey, null>, unthemed: null }));
   } else if (noTheme) {
-    listing = everyCard(filters).then((all) => {
+    listing = Promise.all([everyCard(filters), byThemeAnswer(filters)]).then(([all, byTheme]) => {
       if (!all) throw new Error("too many documents to list without a theme");
-      const items = all.items.filter((card) => card.themes.length === 0);
+      const items = withoutTheme(all.items, byTheme.ids);
       return {
         ...all.first,
         items: items.slice((query.page - 1) * query.page_size, query.page * query.page_size),
