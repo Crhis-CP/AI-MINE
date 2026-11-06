@@ -20,7 +20,21 @@ const changelog = {
       title: "合成的地图版本",
       body: ["合成导语。", "合成一。", "合成二。", "合成三。", "合成四。", "合成五。", "合成六。"],
     },
-    { date: "2026-10-06", time: "02:50", kind: "重大更新", version: "2.0", title: "合成的大版本", body: ["合成说明。", "- 要点：合成内容"] },
+    {
+      date: "2026-10-06",
+      time: "02:50",
+      kind: "重大更新",
+      version: "2.0",
+      title: "合成的大版本",
+      body: [
+        "合成说明。",
+        "- 要点：合成内容",
+        "**收集 合成甲**：合成收集说明。",
+        "**筛选 合成乙**：合成筛选说明。",
+        "**发布 合成丙**：合成发布说明。",
+        "出口：合成网页、合成订阅",
+      ],
+    },
     { date: "2026-09-15", kind: "公告", title: "合成的只有日期的条目", body: ["合成说明。"] },
   ],
 };
@@ -107,6 +121,7 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   assert.match(page, /合成导语。/);
   assert.match(page, /<details[^>]*>[\s\S]*本次全部 <!-- -->6<!-- --> 项变化|<details[^>]*>[\s\S]*本次全部 6 项变化/);
   for (const to of ["/all", "/hot", "/policies", "/metals", "/more"]) assert.match(page, new RegExp(`href="${to}"`), to);
-  // The 2.0 notice has no showcase of its own and keeps its paragraphs.
+  // The 2.0 notice has no showcase of its own and keeps its paragraphs, and its steps are drawn as a chain.
   assert.match(page, /合成说明。/);
+  for (const step of ["收集", "筛选", "发布", "合成筛选说明。", "合成订阅"]) assert.match(page, new RegExp(step), step);
 });
