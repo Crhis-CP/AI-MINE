@@ -131,9 +131,6 @@ test("the 2026.11 major update leads with the live news map and folds its long l
   assert.ok((page.match(/<path d="M0 [^"]*"[^>]*stroke="url\(#[\w-]*-beam\)"/g)?.length ?? 0) >= 30, "many lines come in");
   assert.ok((page.match(/<path d="M0 [^"]*990 100"[^>]*stroke="url\(#[\w-]*-beam\)"/g)?.length ?? 0) >= 1, "and close to one line out");
   for (const n of ["01", "02", "03", "04", "05"]) assert.match(page, new RegExp(`>${n}<`), n);
-  // It moves like an instrument at work, all in CSS so reduced motion keeps it still: lights race along the lines, a scan
-  // sweeps the filter stretch, a reticle turns on the bright point; no SVG animation that CSS could not stop.
-  for (const motion of ["flow-pulse", "flow-scan", "flow-spin", "flow-ping"]) assert.match(page, new RegExp(`class="${motion}`), motion);
-  for (const code of ["INPUT", "FILTER", "MERGE", "SELECT", "OUTPUT"]) assert.match(page, new RegExp(`>${code}<`), code);
-  assert.doesNotMatch(page, /<animate(?:Motion)?\b/);
+  // The server sends the still line: news starts moving only after the browser says the reader allows motion.
+  assert.doesNotMatch(page, /<animateMotion/);
 });

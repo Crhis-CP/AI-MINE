@@ -520,77 +520,6 @@
   animation: amp-draw 900ms var(--ease-out-quart) both;
 }
 
-/*
- * The changelog's gathering line (TASK-0564): short lights race along the lines, a scan sweeps the filter stretch,
- * rings ping where strands join and at the outlets, a reticle turns on the bright point. With reduced motion they
- * all stay still or hidden (below).
- */
-@keyframes flow-pulse {
-  from {
-    stroke-dashoffset: 0.06;
-  }
-  to {
-    stroke-dashoffset: -1;
-  }
-}
-@keyframes flow-relay {
-  0% {
-    stroke-dashoffset: 0.12;
-  }
-  22%,
-  100% {
-    stroke-dashoffset: -1;
-  }
-}
-@keyframes flow-scan {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(var(--flow-scan-x, 0), var(--flow-scan-y, 0));
-  }
-}
-@keyframes flow-ping {
-  from {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  to {
-    transform: scale(4.2);
-    opacity: 0;
-  }
-}
-@keyframes flow-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.flow-pulse {
-  stroke-dasharray: 0.06 2;
-  stroke-dashoffset: 0.06;
-  animation: flow-pulse var(--flow-ms, 4s) linear infinite;
-}
-.flow-relay {
-  stroke-dasharray: 0.12 2;
-  stroke-dashoffset: 0.12;
-  animation: flow-relay var(--flow-ms, 5s) linear infinite;
-}
-.flow-scan {
-  animation: flow-scan 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-}
-.flow-ping {
-  transform-box: fill-box;
-  transform-origin: center;
-  opacity: 0;
-  animation: flow-ping 2.4s var(--ease-out-quart) infinite;
-}
-.flow-spin {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: flow-spin 10s linear infinite;
-}
-
 /* A light that keeps traveling the notice line after the entrance has finished. */
 @keyframes notice-sheen {
   from {
@@ -655,16 +584,9 @@
   }
   .notice-sheen,
   .notice-sheen-y,
-  .notice-breathe,
-  .flow-pulse,
-  .flow-relay,
-  .flow-scan,
-  .flow-ping {
+  .notice-breathe {
     animation: none;
     opacity: 0;
-  }
-  .flow-spin {
-    animation: none;
   }
 }
 
