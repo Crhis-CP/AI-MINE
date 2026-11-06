@@ -41,9 +41,9 @@ export function listPath(path: string, params: Record<string, string | number | 
   return qs ? `${path}?${qs}` : path;
 }
 
-/** "Title · Site". */
+/** "Title · Site", with the name readers see in tabs and search results. */
 export function titled(title: string): string {
-  return `${title} · ${SITE.name}`;
+  return `${title} · ${SITE.webName}`;
 }
 
 export function pageMeta(input: PageMetaInput): MetaDescriptor[] {
@@ -56,7 +56,7 @@ export function pageMeta(input: PageMetaInput): MetaDescriptor[] {
     { title },
     { name: "description", content: description },
     { tagName: "link", rel: "canonical", href: url },
-    { property: "og:site_name", content: SITE.name },
+    { property: "og:site_name", content: SITE.webName },
     { property: "og:type", content: input.type ?? "website" },
     { property: "og:title", content: input.title ?? HOME_TITLE },
     { property: "og:description", content: description },
@@ -81,7 +81,8 @@ export function organizationLd() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: SITE.organization.name,
+    name: SITE.webName,
+    alternateName: SITE.organization.name,
     url: base,
     logo: `${base}${LOGO_PATH}`,
     ...(founder
@@ -97,9 +98,9 @@ export function organizationLd() {
   };
 }
 
-/** The site's name for search results, on the home page: its url is the canonical home address. */
+/** The site's name for search results, on the home page (the Chinese name as its alternate): its url is the canonical home address. */
 export function websiteLd() {
-  return { "@context": "https://schema.org", "@type": "WebSite", name: SITE.name, url: `${siteUrl()}/` };
+  return { "@context": "https://schema.org", "@type": "WebSite", name: SITE.webName, alternateName: SITE.name, url: `${siteUrl()}/` };
 }
 
 export function breadcrumbLd(items: Array<{ name: string; path: string }>) {

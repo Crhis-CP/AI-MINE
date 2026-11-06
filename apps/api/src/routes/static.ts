@@ -70,8 +70,8 @@ function robotsTxt(): string {
 
 function manifest() {
   return {
-    name: `${SITE.name} — ${SITE.tagline}`,
-    short_name: SITE.name,
+    name: `${SITE.webName} — ${SITE.tagline}`,
+    short_name: SITE.webName,
     description: SITE.description,
     lang: SITE.locale,
     start_url: "/",

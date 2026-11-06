@@ -1,7 +1,7 @@
 import { apiFetch } from "../../lib/http.ts";
-import { useTr } from "../../i18n";
+import { fmt, useTr } from "../../i18n";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigation, useRevalidator } from "react-router";
+import { useLocation, useNavigation, useNavigationType, useRevalidator } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { readSnapshot, restoreAnchor, saveSnapshot, type ListSnapshot } from "./restore";
 
@@ -11,16 +11,59 @@ export function useReaderItemScope() {
   return useContext(ReaderItemScope);
 }
 
-/** New arrivals wait for the reader; withdrawals refresh every public reading surface immediately. */
+/** Card IDs on screen, and those plus the member IDs of grouped cards. */
+function onScreen() {
+  const cards = new Set<string>(),
+    ids = new Set<string>();
+  for (const node of document.querySelectorAll<HTMLElement>("[data-item-id]")) {
+    const id = node.dataset.itemId;
+    if (id) {
+      cards.add(id);
+      ids.add(id);
+    }
+    try {
+      const members: unknown = JSON.parse(node.dataset.memberIds ?? "[]");
+      if (Array.isArray(members)) for (const member of members) if (typeof member === "string") ids.add(member);
+    } catch {
+      // A malformed member list adds nothing; the card's own ID is still checked.
+    }
+  }
+  return { cards, ids };
+}
+const READER_ID = /^[a-zA-Z0-9_-]{1,80}$/;
+/** The IDs among these that the server no longer shows (withdrawn, taken down or no longer public), 100 per request. */
+async function withdrawnAmong(ids: string[], signal: AbortSignal) {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  const answers = await Promise.all(
+    chunks.map(async (chunk) => {
+      const result = await apiFetch(`/api/site/items/availability?ids=${chunk.join(",")}`, { cache: "no-store", signal, baseUrl: window.location.origin });
+      if (!result.ok) throw new Error("availability unavailable");
+      const value = (await result.json()) as Record<string, unknown>;
+      return chunk.filter((id) => value[id] !== "public" && value[id] !== "summary-only");
+    }),
+  );
+  return answers.flat();
+}
+
+/**
+ * New arrivals wait for the reader; a withdrawal removes what this page shows of it (reader pages, rule 10).
+ * The withdrawal counter moves many times an hour for changes elsewhere (any withdrawal, report regrouping), so a
+ * change first asks whether anything on this page was withdrawn: if not, the page stays exactly as it is.
+ */
 export function ContentVersionGuard({ children }: { children: ReactNode }) {
   const tr = useTr();
   const location = useLocation();
   const navigation = useNavigation();
+  const navigationType = useNavigationType();
   const revalidator = useRevalidator();
   const routeKey = location.pathname + location.search;
   const ref = useRef(revalidator);
   ref.current = revalidator;
-  const [status, setStatus] = useState<"idle" | "checking" | "new" | "updated" | "failed" | "withdrawn">("idle");
+  const [status, setStatus] = useState<"idle" | "checking" | "new" | "removed" | "failed" | "withdrawn">("idle");
+  const [removedCount, setRemovedCount] = useState(0);
+  // The notice that waits with pendingVersion: new arrivals, or cards removed after a withdrawal.
+  const pendingNotice = useRef<"new" | "removed">("new");
   const [generation, setGeneration] = useState(0);
   const [allowedIds, setAllowedIds] = useState<{ routeKey: string; ids: Set<string> } | null>(null);
   const retry = useRef<() => void>(() => {});
@@ -29,6 +72,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
   // Returning to the same history key still needs this visit's check, not its earlier result.
   const visit = useMemo(() => ({ key: location.key }), [location.key]);
   const [checkedVisit, setCheckedVisit] = useState<typeof visit | null>(null);
+  const checkedFor = useRef<typeof visit | null>(null);
   const interaction = useRef(0);
   const position = useRef<{ key: string; snapshot: ListSnapshot<null>; interaction: number } | null>(null);
   const pagedList = location.pathname === "/all";
@@ -84,13 +128,18 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     location.pathname,
   );
   useEffect(() => {
+    // A new page starts without the last page's notices; what still applies is found again by its first check.
     setAllowedIds(null);
+    pendingVersion.current = null;
+    setStatus("idle");
     if (policyPage) return;
     const controller = new AbortController();
     let pending = false;
     const check = async () => {
       if (pending || document.visibilityState !== "visible") return;
       pending = true;
+      // The first check after a link or address change: the loader has just read this page fresh.
+      const freshPage = checkedFor.current !== visit && navigationType !== "POP";
       setStatus((old) => (old === "idle" ? "checking" : old));
       try {
         const result = await apiFetch("/api/site/content-version", {
@@ -102,45 +151,59 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         const value = publicSchemas.ContentVersion.parse(await result.json());
         if (controller.signal.aborted) return;
         const previous = baseline.current;
-        if (!previous || value.withdrawalVersion !== previous.withdrawalVersion) {
-          // Hiding the old page can clamp scrollY to zero. Retain its item anchor until the
-          // fresh loader and visible subtree commit; a reader interaction cancels the return.
-          if (previous && pagedList && (!position.current || position.current.interaction !== interaction.current)) {
+        if (previous && value.withdrawalVersion !== previous.withdrawalVersion) {
+          const screen = onScreen();
+          const ids = [...screen.ids].filter((id) => READER_ID.test(id));
+          // A page without cards (an article, a report) is read again unless it was just read; a list asks which of its cards went.
+          const gone = ids.length ? await withdrawnAmong(ids, controller.signal) : freshPage ? [] : null;
+          if (controller.signal.aborted) return;
+          if (gone && !gone.length) {
+            // Nothing on this page was withdrawn: keep reading undisturbed.
+            baseline.current = value;
+            setStatus(pendingVersion.current ? pendingNotice.current : "idle");
+            return;
+          }
+          // Hiding nothing, re-read the page in place; cards that are gone drop out, new ones wait for the reader.
+          if (pagedList && (!position.current || position.current.interaction !== interaction.current)) {
             saveSnapshot(location.key, null, "[data-item-id]");
             const snapshot = readSnapshot<null>(location.key);
             if (snapshot) position.current = { key: location.key, snapshot, interaction: interaction.current };
           }
-          const visible = previous
-            ? new Set(
-                [...document.querySelectorAll<HTMLElement>("[data-item-id]")].flatMap((node) => {
-                  const ids = node.dataset.itemId ? [node.dataset.itemId] : [];
-                  try {
-                    const members: unknown = JSON.parse(node.dataset.memberIds ?? "[]");
-                    return Array.isArray(members) ? [...ids, ...members.filter((id): id is string => typeof id === "string")] : ids;
-                  } catch {
-                    return ids;
-                  }
-                }),
-              )
-            : null;
-          if (visible?.size) setAllowedIds({ routeKey, ids: visible });
-          setStatus(previous ? "withdrawn" : "checking");
+          if (screen.ids.size) setAllowedIds({ routeKey, ids: screen.ids });
+          setStatus("withdrawn");
           await ref.current.revalidate();
           if (controller.signal.aborted) return;
-          // Initial loader refreshes update in place. Replacing the live subtree here can discard
-          // a pointer-down target before its click. Only actual withdrawals invalidate local views.
-          if (previous) setGeneration((n) => n + 1);
+          setGeneration((n) => n + 1);
           baseline.current = value;
-          pendingVersion.current = visible?.size ? value : null;
-          setStatus(visible?.size ? "updated" : "idle");
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          if (controller.signal.aborted) return;
+          const left = onScreen().cards;
+          const removed = Math.max(gone?.length ?? 0, [...screen.cards].filter((id) => !left.has(id)).length);
+          setRemovedCount(removed);
+          pendingVersion.current = screen.ids.size ? value : null;
+          pendingNotice.current = "removed";
+          setStatus(screen.ids.size ? "removed" : "idle");
+        } else if (!previous || (freshPage && value.version !== previous.version)) {
+          // The page's own loader data is current: the first visit refreshes once in place, a new page just records it.
+          if (!previous) {
+            setStatus("checking");
+            await ref.current.revalidate();
+            if (controller.signal.aborted) return;
+          }
+          baseline.current = value;
+          setStatus("idle");
         } else if (value.version !== previous.version) {
           pendingVersion.current = value;
+          pendingNotice.current = "new";
           setStatus("new");
-        } else setStatus(pendingVersion.current ? "updated" : "idle");
+        } else setStatus(pendingVersion.current ? pendingNotice.current : "idle");
       } catch {
         if (!controller.signal.aborted) setStatus("failed");
       } finally {
-        if (!controller.signal.aborted) setCheckedVisit(visit);
+        if (!controller.signal.aborted) {
+          checkedFor.current = visit;
+          setCheckedVisit(visit);
+        }
         pending = false;
       }
     };
@@ -159,13 +222,14 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       window.removeEventListener("pageshow", check);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [policyPage, routeKey, pagedList, location.key, visit]);
+  }, [policyPage, routeKey, pagedList, location.key, visit, navigationType]);
   const loadLatest = async () => {
     const position = window.scrollY;
     setAllowedIds(null);
     await ref.current.revalidate();
     if (pendingVersion.current) baseline.current = pendingVersion.current;
     pendingVersion.current = null;
+    setRemovedCount(0);
     setStatus("idle");
     requestAnimationFrame(() => window.scrollTo({ top: position, behavior: "instant" }));
   };
@@ -174,18 +238,18 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       {!policyPage && status !== "idle" && status !== "checking" && (
         <div role="status" className="my-2 flex items-center gap-3 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">
           {status === "withdrawn"
-            ? tr("公开内容已调整，正在核对当前页面…")
+            ? tr("正在更新当前页面…")
             : status === "failed"
               ? tr("暂时无法确认最新内容")
-              : status === "updated"
-                ? tr("已核对撤回和修订内容")
+              : status === "removed"
+                ? fmt(tr("有 {count} 条内容已撤回，已从列表移除"), { count: removedCount })
                 : tr("有新的矿业动态")}
           {status === "failed" && (
             <button type="button" onClick={() => retry.current()} className="text-accent">
               {tr("重试")}
             </button>
           )}
-          {(status === "new" || status === "updated") && (
+          {(status === "new" || status === "removed") && (
             <button type="button" onClick={loadLatest} className="text-accent">
               {tr("加载最新")}
             </button>
@@ -193,12 +257,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         </div>
       )}
       <ReaderItemScope.Provider value={allowedIds?.routeKey === routeKey ? allowedIds.ids : null}>
-        <section
-          key={generation}
-          aria-label={tr("阅读内容")}
-          aria-busy={!policyPage && (status === "checking" || status === "withdrawn")}
-          hidden={!policyPage && status === "withdrawn"}
-        >
+        <section key={generation} aria-label={tr("阅读内容")} aria-busy={!policyPage && (status === "checking" || status === "withdrawn")}>
           {children}
         </section>
       </ReaderItemScope.Provider>

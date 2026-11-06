@@ -72,6 +72,8 @@ test("only the unfiltered home page carries the Organization and WebSite data th
   assert.ok(organization?.logo?.endsWith(LOGO_PATH), "the logo is the icon tests/site-icons.test.ts checks");
   assert.equal(website?.["@type"], "WebSite");
   assert.equal(website?.name, organization?.name);
+  assert.equal(website?.name, "AI-MINE", "search results name the site AI-MINE (Owner 2026-11-06)");
+  assert.equal(website?.alternateName, "AI矿策");
   assert.equal(website?.url, `${organization?.url}/`);
   assert.equal(structured({ ...filters, tag: "铜" }), undefined);
 });

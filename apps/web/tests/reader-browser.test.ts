@@ -270,6 +270,15 @@ const api = createServer((req, res) => {
       releases: changelogVersion ? [{ date: changelogVersion.slice(0, 10), time: "12:30", kind: "优化", title: "合成阅读更新", body: ["改进阅读体验。"] }] : [],
     });
   if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion });
+  if (url.pathname === "/api/site/items/availability")
+    return answer(
+      Object.fromEntries(
+        (url.searchParams.get("ids") ?? "")
+          .split(",")
+          .filter(Boolean)
+          .map((id) => [id, withdrawn && id === "fixture-a" ? "unavailable" : "public"]),
+      ),
+    );
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
   if (url.pathname === "/api/site/stories/synthetic-story")
     return answer({
@@ -686,11 +695,50 @@ test("a combined withdrawal and arrival removes the old card while the new card 
   withdrawn = true;
   added = true;
   await checkVersionOnFocus(page, "2");
-  await expect(page.getByText("已核对撤回和修订内容", { exact: false })).toBeVisible();
+  await expect(page.getByText("有 1 条内容已撤回，已从列表移除", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "加载最新" }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
+  await expect(page.getByText("已从列表移除", { exact: false })).toHaveCount(0);
+});
+
+test("a withdrawal elsewhere on the site leaves the open page, its position and its notices untouched", { timeout: 30000 }, async (t) => {
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, locale: "zh-CN" });
+  t.after(async () => {
+    readerWithdrawalVersion = "1";
+    t.diagnostic(`last reader phase: ${phase}`);
+    await context.close();
+  });
+  await isolateBrowser(context, [origin]);
+  const page = await context.newPage();
+  await openQualifiedReader(page);
+  let reloads = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/all.data") reloads++;
+  });
+  // Another article was withdrawn or a report regrouped: the counter moves, nothing on this page is affected.
+  readerWithdrawalVersion = "2";
+  const checked = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
+  const asked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/items/availability");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  assert.deepEqual(await (await checked).json(), { version: "1", withdrawalVersion: "2" });
+  assert.ok(new URL((await asked).url()).searchParams.get("ids")?.split(",").includes("fixture-a"), "the page asks about the cards it shows");
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+  await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+  await expect(page.getByText("已撤回", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("正在更新当前页面", { exact: false })).toHaveCount(0);
+  assert.equal(reloads, 0, "nothing on this page changed, so it is not read again");
+  // A later check with no change keeps it that way.
+  const again = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await again;
+  await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+  assert.equal(reloads, 0);
 });
 
 async function loadFourTimelinePages(page: Page) {
