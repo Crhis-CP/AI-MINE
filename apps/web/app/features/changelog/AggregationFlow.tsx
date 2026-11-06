@@ -3,8 +3,9 @@
 // payments sites). Labelled sources send lanes into five glass step cards in turn; at 筛选 two lanes turn off into a
 // bin for the off-topic and repeated; the lanes thin from card to card, 5 → 3 → 2 → 1, and 发布 opens to the outlets.
 // Comets race along the lanes, a wave of light passes through the cards, a scan reads 筛选, a gradient border turns
-// round 精选, a sheen sweeps the screen. The words for each step sit under the screen. No counts are drawn: the
-// thinning of the lanes tells the scale.
+// round 精选, a sheen sweeps the screen. The colours run cool to warm: news comes in cyan, turns violet as it is sorted
+// and merged, and leaves as the site's gold, like ore refined to metal. The words for each step sit under the screen.
+// No counts are drawn: the thinning of the lanes tells the scale.
 // Drawn from fixed numbers, so the server and the browser draw the same. All motion is CSS (app.css, flow-*), so a
 // reader who asks for less motion gets the still screen; the screen is decoration, the steps' words carry the content.
 import { useId, useState } from "react";
@@ -34,9 +35,17 @@ interface Layout {
   outlets: Box[];
 }
 
-const GOLD = "#e2b04f",
-  GOLD_HI = "#fff1c9",
-  EMBER = "#e0705a";
+/** The screen's colours: news comes in cool cyan, turns violet as it is sorted and merged, and leaves as the site's gold. */
+const CYAN = "#22d3ee",
+  VIOLET = "#a78bfa",
+  GOLD = "#f5c451",
+  ROSE = "#fb7185";
+/** The near-white each colour burns to at a comet's head. */
+const HOT: Record<string, string> = { [CYAN]: "#e6fcff", [VIOLET]: "#f2edff", [GOLD]: "#fff4d1", [ROSE]: "#ffe4e8" };
+/** Each step's colour: 采集 and 筛选 cyan, 归并 violet, 精选 and 发布 gold. */
+const STEP_COLOR = [CYAN, CYAN, VIOLET, GOLD, GOLD] as const;
+/** The colour of the lanes leaving each step for the next. */
+const LANE_COLOR = [CYAN, VIOLET, VIOLET, GOLD] as const;
 const SOURCES = ["部委", "协会", "矿企", "媒体", "交易所", "海外"] as const satisfies readonly Phrase[];
 const CODES = ["INPUT", "FILTER", "MERGE", "SELECT", "OUTPUT"] as const;
 /** How many lanes leave each step for the next: the stream thins as it goes. */
@@ -96,10 +105,15 @@ function lanes(layout: Layout) {
   const { across, sources, steps, bin, outlets } = layout;
   const [enter, leave]: [Side, Side] = across ? ["l", "r"] : ["t", "b"];
   return {
-    sources: sources.map((source, i) => lane(source, leave, 0, steps[0]!, enter, spread(i, sources.length, across ? 6 : 8))),
-    main: LANES.flatMap((n, j) => Array.from({ length: n }, (_, k) => lane(steps[j]!, leave, spread(k, n, 9), steps[j + 1]!, enter, spread(k, n, 5)))),
-    drop: [0, 1].map((k) => lane(steps[1]!, across ? "b" : "r", spread(k, 2, across ? 18 : 12), bin, "t", spread(k, 2, 18))),
-    out: outlets.map((outlet, k) => lane(steps[4]!, leave, spread(k, 3, 8), outlet, enter, 0)),
+    sources: sources.map((source, i) => ({ ...lane(source, leave, 0, steps[0]!, enter, spread(i, sources.length, across ? 6 : 8)), color: CYAN })),
+    main: LANES.flatMap((n, j) =>
+      Array.from({ length: n }, (_, k) => ({
+        ...lane(steps[j]!, leave, spread(k, n, 9), steps[j + 1]!, enter, spread(k, n, 5)),
+        color: LANE_COLOR[j] ?? GOLD,
+      })),
+    ),
+    drop: [0, 1].map((k) => ({ ...lane(steps[1]!, across ? "b" : "r", spread(k, 2, across ? 18 : 12), bin, "t", spread(k, 2, 18)), color: ROSE })),
+    out: outlets.map((outlet, k) => ({ ...lane(steps[4]!, leave, spread(k, 3, 8), outlet, enter, 0), color: GOLD })),
   };
 }
 
@@ -137,7 +151,7 @@ function Comet({ lane: { d, len }, i, ms, color, filter }: { lane: Lane; i: numb
         d={d}
         className="flow-comet"
         fill="none"
-        stroke={GOLD_HI}
+        stroke={HOT[color] ?? "#fff"}
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeDasharray={`${head} ${len + 80}`}
@@ -187,7 +201,7 @@ function Pipeline({
       <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" aria-hidden="true">
         <defs>
           <pattern id={`${key}-grid`} width={24} height={24} patternUnits="userSpaceOnUse">
-            <path d="M24 0H0V24" fill="none" stroke="#fff" strokeOpacity={0.05} strokeWidth={1} />
+            <path d="M24 0H0V24" fill="none" stroke="#9cc2ff" strokeOpacity={0.06} strokeWidth={1} />
           </pattern>
           <radialGradient id={`${key}-fade`} cx="50%" cy="45%" r="70%">
             <stop offset="0.35" stopColor="#fff" stopOpacity={1} />
@@ -196,9 +210,13 @@ function Pipeline({
           <mask id={`${key}-vignette`}>
             <rect width={W} height={H} fill={`url(#${key}-fade)`} />
           </mask>
-          <radialGradient id={`${key}-halo`} cx="55%" cy="50%" r="55%">
-            <stop offset="0" stopColor={GOLD} stopOpacity={0.16} />
+          <radialGradient id={`${key}-halo`} cx="80%" cy="50%" r="40%">
+            <stop offset="0" stopColor={GOLD} stopOpacity={0.2} />
             <stop offset="1" stopColor={GOLD} stopOpacity={0} />
+          </radialGradient>
+          <radialGradient id={`${key}-cool`} cx="22%" cy="50%" r="45%">
+            <stop offset="0" stopColor={CYAN} stopOpacity={0.14} />
+            <stop offset="1" stopColor={CYAN} stopOpacity={0} />
           </radialGradient>
           <filter id={`${key}-bloom`} filterUnits="userSpaceOnUse" x={-20} y={-20} width={W + 40} height={H + 40}>
             <feGaussianBlur stdDeviation={2.4} result="blur" />
@@ -208,6 +226,7 @@ function Pipeline({
             </feMerge>
           </filter>
         </defs>
+        <rect width={W} height={H} fill={`url(#${key}-cool)`} />
         <rect width={W} height={H} fill={`url(#${key}-halo)`} />
         <rect width={W} height={H} fill={`url(#${key}-grid)`} mask={`url(#${key}-vignette)`} />
         {/* The lanes, faint, drawn in as the screen opens. */}
@@ -218,27 +237,27 @@ function Pipeline({
             pathLength={1}
             className="anim-draw"
             fill="none"
-            stroke={GOLD}
-            strokeOpacity={0.28}
+            stroke={l.color}
+            strokeOpacity={0.3}
             strokeWidth={1}
             style={{ animationDelay: `${200 + i * 30}ms`, animationDuration: "900ms" }}
           />
         ))}
         {all.drop.map((l) => (
-          <path key={l.d} d={l.d} fill="none" stroke={EMBER} strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 4" />
+          <path key={l.d} d={l.d} fill="none" stroke={ROSE} strokeOpacity={0.4} strokeWidth={1} strokeDasharray="3 4" />
         ))}
         {/* Comets racing the lanes: steady from the sources, quicker as the stream narrows, ember into the bin. */}
         {all.sources.map((l, i) => (
-          <Comet key={`c-${l.d}`} lane={l} i={i} ms={2600 + jitter(i + 40) * 1400} color={GOLD} filter={bloom} />
+          <Comet key={`c-${l.d}`} lane={l} i={i} ms={2600 + jitter(i + 40) * 1400} color={l.color} filter={bloom} />
         ))}
         {all.main.map((l, i) => (
-          <Comet key={`c-${l.d}`} lane={l} i={i + 10} ms={1500 + jitter(i + 60) * 700} color={GOLD} filter={bloom} />
+          <Comet key={`c-${l.d}`} lane={l} i={i + 10} ms={1500 + jitter(i + 60) * 700} color={l.color} filter={bloom} />
         ))}
         {all.drop.map((l, i) => (
-          <Comet key={`c-${l.d}`} lane={l} i={i + 30} ms={1900} color={EMBER} filter={bloom} />
+          <Comet key={`c-${l.d}`} lane={l} i={i + 30} ms={1900} color={l.color} filter={bloom} />
         ))}
         {all.out.map((l, i) => (
-          <Comet key={`c-${l.d}`} lane={l} i={i + 40} ms={1300 + i * 150} color={GOLD} filter={bloom} />
+          <Comet key={`c-${l.d}`} lane={l} i={i + 40} ms={1300 + i * 150} color={l.color} filter={bloom} />
         ))}
       </svg>
       {/* The sources, each with its signal light. */}
@@ -247,7 +266,7 @@ function Pipeline({
           <div className="flex size-full items-center justify-center gap-1.5 rounded-md border border-white/12 bg-white/[0.04] text-[11px] font-semibold whitespace-nowrap text-white/75">
             <span
               className="flow-blink size-1.5 shrink-0 rounded-full"
-              style={{ background: GOLD, animationDelay: `${Math.round(jitter(i + 90) * 1400)}ms` }}
+              style={{ background: CYAN, animationDelay: `${Math.round(jitter(i + 90) * 1400)}ms` }}
             />
             {tr(SOURCES[i]!)}
           </div>
@@ -258,19 +277,23 @@ function Pipeline({
         const station = stations[i];
         if (!station) return null;
         const lit = active === i;
+        const color = STEP_COLOR[i] ?? GOLD;
         const body = (
           <div
-            className="flow-node relative flex size-full items-center justify-center gap-1.5 overflow-hidden rounded-[9px] border bg-[#15120d]/90 px-2"
+            className="flow-node relative flex size-full items-center justify-center gap-1.5 overflow-hidden rounded-[9px] border bg-[#0b1222]/90 px-2"
             style={{
               animationDelay: `${i * 360}ms`,
-              borderColor: lit ? GOLD_HI : "rgb(226 176 79 / 0.35)",
-              boxShadow: lit ? "0 0 26px rgb(226 176 79 / 0.6)" : undefined,
+              ["--edge" as string]: `${color}59`,
+              ["--edge-hi" as string]: HOT[color],
+              ["--glow" as string]: `${color}80`,
+              borderColor: lit ? HOT[color] : `${color}59`,
+              boxShadow: lit ? `0 0 26px ${color}99` : undefined,
             }}
           >
             {i === 1 && (
               <span
                 className="flow-scan-card pointer-events-none absolute inset-0"
-                style={{ background: `linear-gradient(180deg, transparent 40%, ${GOLD}55 50%, transparent 60%)` }}
+                style={{ background: `linear-gradient(180deg, transparent 40%, ${CYAN}55 50%, transparent 60%)` }}
               />
             )}
             <svg
@@ -278,7 +301,7 @@ function Pipeline({
               className="relative size-4 shrink-0"
               aria-hidden="true"
               fill="none"
-              stroke={GOLD}
+              stroke={color}
               strokeWidth={1.9}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -287,7 +310,7 @@ function Pipeline({
             </svg>
             <span className="relative flex min-w-0 flex-col leading-tight">
               <span className="whitespace-nowrap text-[13px] font-bold text-white/95">{station.name}</span>
-              <span className="mono hidden text-[8.5px] tracking-[0.14em] lg:block" style={{ color: `${GOLD}aa` }}>
+              <span className="mono hidden text-[8.5px] tracking-[0.14em] lg:block" style={{ color: `${color}aa` }}>
                 {CODES[i] ?? ""}
               </span>
             </span>
@@ -303,7 +326,7 @@ function Pipeline({
               <div className="relative size-full overflow-hidden rounded-[10px] p-px">
                 <span
                   className="flow-spin absolute left-1/2 top-1/2 aspect-square w-[180%] -translate-x-1/2 -translate-y-1/2"
-                  style={{ background: `conic-gradient(from 0deg, transparent 0 62%, ${GOLD} 78%, ${GOLD_HI} 84%, transparent 92%)` }}
+                  style={{ background: `conic-gradient(from 0deg, transparent 0 55%, ${VIOLET} 70%, ${GOLD} 82%, ${HOT[GOLD]} 86%, transparent 94%)` }}
                 />
                 <div className="relative size-full">{body}</div>
               </div>
@@ -317,7 +340,7 @@ function Pipeline({
       <div className="absolute -translate-x-1/2 -translate-y-1/2" style={place(layout, layout.bin)}>
         <div
           className="flex size-full items-center justify-center gap-1 rounded-md border text-[10.5px] font-semibold whitespace-nowrap"
-          style={{ borderColor: `${EMBER}55`, background: `${EMBER}12`, color: `${EMBER}dd` }}
+          style={{ borderColor: `${ROSE}55`, background: `${ROSE}12`, color: `${ROSE}dd` }}
         >
           <span>✕</span>
           {tr("无关 · 重复")}
@@ -328,7 +351,7 @@ function Pipeline({
           <span className="flow-ping absolute inset-0 rounded-md border" style={{ borderColor: GOLD, animationDelay: `${600 + k * 500}ms` }} />
           <div
             className="relative flex size-full items-center justify-center rounded-md border text-[11px] font-bold whitespace-nowrap"
-            style={{ borderColor: `${GOLD}aa`, background: `${GOLD}1f`, color: GOLD_HI, boxShadow: `0 0 14px ${GOLD}33` }}
+            style={{ borderColor: `${GOLD}aa`, background: `${GOLD}1f`, color: HOT[GOLD], boxShadow: `0 0 14px ${GOLD}33` }}
           >
             {outlets[k] ?? ""}
           </div>
@@ -351,13 +374,17 @@ export function Convergence({ stations, outlets }: { stations: FlowStation[]; ou
       {/* The screen: dark in either theme, like a running console. It is decoration: the words below carry the steps. */}
       <div
         className="animate-fade-up relative mt-5 overflow-hidden rounded-2xl border border-white/10 shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_24px_60px_-28px_rgb(0_0_0/0.55)]"
-        style={{ background: "radial-gradient(120% 90% at 50% 0%, #1d1810 0%, #0c0a07 60%)" }}
+        style={{ background: "radial-gradient(120% 90% at 50% 0%, #121c36 0%, #070b16 62%)" }}
         aria-hidden="true"
       >
+        <span
+          className="pointer-events-none absolute inset-x-8 top-0 h-px"
+          style={{ background: `linear-gradient(90deg, transparent, ${CYAN}88, ${VIOLET}88, ${GOLD}88, transparent)` }}
+        />
         <div className="mono flex items-center justify-between px-4 pt-3 text-[10.5px] tracking-[0.16em] text-white/45">
           <span className="flex items-center gap-2">
-            <span className="flow-blink size-1.5 rounded-full" style={{ background: GOLD }} />
-            <span style={{ color: `${GOLD}cc` }}>PIPELINE</span>
+            <span className="flow-blink size-1.5 rounded-full" style={{ background: CYAN }} />
+            <span style={{ color: `${CYAN}dd` }}>PIPELINE</span>
             <span>/ {tr("资讯处理流程")}</span>
           </span>
           <span className="hidden sm:inline">01 → 05</span>
@@ -380,7 +407,7 @@ export function Convergence({ stations, outlets }: { stations: FlowStation[]; ou
           <li
             key={station.name}
             className="animate-fade-up border-l-2 pl-3 transition-colors duration-200"
-            style={{ animationDelay: `${300 + i * 120}ms`, borderColor: active === i ? GOLD : "var(--line)" }}
+            style={{ animationDelay: `${300 + i * 120}ms`, borderColor: active === i ? "var(--accent)" : "var(--line)" }}
             onMouseEnter={() => setActive(i)}
             onFocus={() => setActive(i)}
           >

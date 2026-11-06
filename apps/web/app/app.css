@@ -523,7 +523,8 @@
 /*
  * The changelog's pipeline screen (TASK-0564): comets race along the lanes (each lane sets --from, --to and
  * --flow-ms), a wave of light passes through the step cards, a scan reads the filter card, a gradient border turns
- * round the pick, a sheen sweeps the screen, outlets ping. With reduced motion they all stay still or hidden (below).
+ * round the pick, a sheen sweeps the screen, outlets ping; each card sets its own --edge, --edge-hi and --glow.
+ * With reduced motion they all stay still or hidden (below).
  */
 @keyframes flow-comet {
   from {
@@ -537,12 +538,12 @@
   0%,
   34%,
   100% {
-    border-color: rgb(226 176 79 / 0.35);
-    box-shadow: 0 0 0 0 rgb(226 176 79 / 0);
+    border-color: var(--edge);
+    box-shadow: 0 0 0 0 transparent;
   }
   12% {
-    border-color: rgb(255 236 190 / 0.95);
-    box-shadow: 0 0 22px 0 rgb(226 176 79 / 0.5);
+    border-color: var(--edge-hi);
+    box-shadow: 0 0 22px 0 var(--glow);
   }
 }
 @keyframes flow-scan-card {
