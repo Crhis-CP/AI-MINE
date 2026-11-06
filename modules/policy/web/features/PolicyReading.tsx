@@ -1,5 +1,6 @@
 import { apiFetch } from "@amp/web/extension";
-import { useTr } from "@amp/web/i18n";
+import { useTr, type Tr } from "@amp/web/i18n";
+import { usePolicyText, type PolicyText } from "./reader";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { Policy } from "@amp/contracts/http/public";
@@ -9,14 +10,16 @@ type Page = ReturnType<typeof publicSchemas.PolicyReadingPage.parse>;
 type Expression = Policy["expressions"][number];
 type Stream = { rows: Page["blocks"]; total: number; next: string | null; loaded: boolean; busy: boolean; error: boolean; complete: boolean };
 const blank = (): Stream => ({ rows: [], total: 0, next: null, loaded: false, busy: false, error: false, complete: false });
-function label(expression: Expression) {
+/** What a reading stream is, its language by name (“西班牙语原文”, not “原文 · es”). */
+function label(expression: Expression, tr: Tr, text: PolicyText) {
+  const language = text.language(expression.language) ?? expression.language;
   return expression.kind === "ai_translation"
-    ? "AI 翻译（非官方译文）"
+    ? tr("AI 翻译（非官方译文）")
     : expression.kind === "official_translation"
-      ? `官方译本 ${expression.language}（发布机关：${expression.issuing_body}）`
+      ? tr("{language}官方译本（发布机关：{body}）", { language, body: expression.issuing_body ?? "" })
       : expression.language.startsWith("zh")
-        ? "正文"
-        : `原文 · ${expression.language}`;
+        ? tr("正文")
+        : tr("{language}原文", { language });
 }
 /** A focused wide table scrolls predictably; keys inside links or controls retain their native meaning. */
 function scrollTable(event: KeyboardEvent<HTMLElement>) {
@@ -28,8 +31,9 @@ function scrollTable(event: KeyboardEvent<HTMLElement>) {
 }
 function Block({ block, language }: { block: Page["blocks"][number]; language: string }) {
   const tr = useTr();
+  const text = usePolicyText();
   const semanticTable = !!block.semantic_html && /<table(?:\s|>)/i.test(block.semantic_html);
-  const tableLabel = `正文表格（${language.startsWith("zh") ? tr("中文") : language}）`;
+  const tableLabel = tr("正文表格（{language}）", { language: language.startsWith("zh") ? tr("中文") : (text.language(language) ?? language) });
   const semantic = block.semantic_html ? (
     <div
       className="min-w-0 break-words [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6 [&_table]:min-w-full [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
@@ -120,6 +124,7 @@ export function PolicyReading({
   initialFailed?: boolean;
 }) {
   const tr = useTr();
+  const text = usePolicyText();
   const selected = policy.expressions.find((e) => e.id === policy.selected_expression_id);
   const original =
     selected?.kind !== "original"
@@ -247,7 +252,7 @@ export function PolicyReading({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-ink-3">
         <p>
-          {tr.maybe(label(selected))} {tr("· 已载入")} {current.rows.length} / {current.loaded ? current.total : (policy.reading?.total_blocks ?? 0)}{" "}
+          {label(selected, tr, text)} {tr("· 已载入")} {current.rows.length} / {current.loaded ? current.total : (policy.reading?.total_blocks ?? 0)}{" "}
           {tr("段内容")}
         </p>
         {original && (

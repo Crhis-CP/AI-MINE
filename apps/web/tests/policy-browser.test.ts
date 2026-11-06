@@ -217,7 +217,8 @@ for (const width of [1440, 390])
       await expect(page.locator('#node-same-source-part [lang="zh-CN"] del')).toBeVisible();
       await expect(page.locator('#node-same-source-part [lang="en"] del')).toBeHidden();
     }
-    await page.getByRole("navigation", { name: "阅读语言" }).getByRole("link", { name: "原文 en", exact: true }).click();
+    // Languages are named, not coded (“英语原文”, not “原文 en”).
+    await page.getByRole("navigation", { name: "阅读语言" }).getByRole("link", { name: "英语原文", exact: true }).click();
     await expect(page).toHaveURL(/expression_id=expression-en/);
     await expect(page.locator('#node-same-source-part [lang="en"] del')).toBeVisible();
     await page.goto(`${origin}/policies/${basic.id}`);
@@ -231,11 +232,17 @@ for (const width of [1440, 390])
     await expect(page).toHaveURL(/theme=mineral_rights/);
     await page.getByRole("link", { name: report.title, exact: true }).click();
     await expect(page).toHaveURL(/jurisdiction=CN/);
-    await page.getByRole("link", { name: "核对上一修订版", exact: true }).click();
-    await expect(page).toHaveURL(/edition=1/);
-    await expect(page).toHaveURL(/theme=mineral_rights/);
-    await page.getByRole("link", { name: "查看最新修订", exact: true }).click();
+    // Readers see one quiet correction line, not the compilation's revisions (no revision links, no edition number).
+    await expect(page.getByRole("navigation", { name: "报告修订版本" })).toHaveCount(0);
+    await expect(page.locator("[data-report-correction]")).toHaveText("更正说明 · 本期有 1 份文书因来源撤回或公开资格变化已移除。");
+    await expect(page.getByText(/第\s*2\s*版/)).toHaveCount(0);
+    await expect(page.getByText("本次新增", { exact: false })).toHaveCount(0);
+    // An old link to an earlier compilation still opens, says so once, and leads to the current issue with the filters kept.
+    await page.goto(`${origin}/policies/reports/${report.id}?jurisdiction=CN&theme=mineral_rights&edition=1`);
+    await expect(page.locator("[data-report-earlier]")).toContainText("这是本期较早的一版。");
+    await page.getByRole("link", { name: "查看本期当前内容", exact: true }).click();
     await expect(page).not.toHaveURL(/edition=/);
+    await expect(page).toHaveURL(/theme=mineral_rights/);
     assert.ok(calls.some((call) => call.includes("edition=1") && call.includes("jurisdiction=CN")));
     assert.deepEqual(errors, []);
     assert.deepEqual(blocked, []);
@@ -252,24 +259,31 @@ for (const width of [1440, 390])
     page.on("pageerror", (error) => errors.push(error.message));
     const noOverflow = async () => assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await page.goto(`${origin}/policies`);
-    // Level 1: grouped jurisdiction cards; an empty jurisdiction stays listed, dimmed and without a link.
+    // Level 1: cards only for places with documents, grouped by kind; the empty ones are one line of links.
     await expect(page.getByRole("heading", { name: "目标国家", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "跨国与国际组织", exact: true })).toBeVisible();
-    await expect(page.locator('[data-jurisdiction-card="CN"]')).toContainText("暂无已公开文书");
-    await expect(page.locator('a[data-jurisdiction-card="CN"]')).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "跨国与国际组织", exact: true })).toHaveCount(0);
+    await expect(page.locator("[data-jurisdiction-card]")).toHaveCount(1);
+    await expect(page.locator('[data-empty-list="jurisdictions"]')).toContainText("暂无已公开文书：");
+    await expect(page.locator('a[data-empty-item="CN"]')).toHaveText("中国");
+    await expect(page.getByText("暂无已公开文书", { exact: true })).toHaveCount(0);
     await noOverflow();
     await page.locator('a[data-jurisdiction-card="AR"]').click();
-    // Level 2: themes of one jurisdiction with counts from the list's totals; a failed count is hidden, not zero.
+    // Level 2: themes counted from the jurisdiction's own documents; a document without a theme is under “未归入主题”.
     await expect(page).toHaveURL(/\/policies\?jurisdiction=AR$/);
     const crumbs = page.getByRole("navigation", { name: "位置" });
     await expect(crumbs).toContainText("阿根廷");
     await expect(page.locator('[data-theme-card="all"]')).toContainText("2 份");
     await expect(page.locator('[data-theme-card="tax_finance"]')).toContainText("1 份");
+    await expect(page.locator('a[data-theme-card="none"]')).toContainText("1 份");
     await expect(page.locator('a[data-theme-card="mineral_rights"]')).toHaveCount(0);
-    await expect(page.locator('a[data-theme-card="labour_community"]')).not.toContainText("份");
-    const listCalls = calls.filter((call) => call.startsWith("/api/site/policies?") && call.includes("jurisdiction=AR"));
-    assert.ok(listCalls.length >= 8);
+    await expect(page.locator('[data-empty-list="themes"] [data-empty-item="mineral_rights"]')).toHaveText("矿权");
     await noOverflow();
+    await page.locator('a[data-theme-card="none"]').click();
+    await expect(page).toHaveURL(/jurisdiction=AR&theme=none/);
+    await expect(crumbs).toContainText("未归入主题");
+    await expect(page.getByRole("link", { name: basic.title, exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: complete.title, exact: true })).toHaveCount(0);
+    await page.goBack();
     await page.locator('a[data-theme-card="tax_finance"]').click();
     // Level 3: the documents, narrowed further by chips; every level is an address the back button returns to.
     await expect(page).toHaveURL(/jurisdiction=AR&theme=tax_finance/);

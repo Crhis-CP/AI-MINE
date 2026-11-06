@@ -1,14 +1,16 @@
-import { apiFetch } from "@amp/web/extension";
+import { apiFetch, Link } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
 import { useState } from "react";
-import { Link, data as withHeaders, useLoaderData } from "react-router";
+import { data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyReportDetailQuery } from "@amp/contracts/http/public";
 import { PolicyReportFilters } from "./features/PolicyReportFilters";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
-import { PolicyError, policyCache, PolicyTabs, Section, timeLabel, policyHref, actionClass, usePolicyRecheck } from "./features/PolicyUI";
+import { PolicyError, policyCache, PolicyTabs, Section, policyHref, actionClass, useKnownLabels, usePolicyRecheck } from "./features/PolicyUI";
+import { policyTitle, usePolicyText } from "./features/reader";
+import { beijingDate, beijingTime } from "@amp/contracts/time";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const parsed = PolicyReportDetailQuery.safeParse(
     Object.fromEntries([...new URL(request.url).searchParams].filter(([key, value]) => key !== "_routes" && value !== "")),
@@ -33,6 +35,8 @@ export default function PolicyReportPage() {
 }
 function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>>["report"]; query: Awaited<ReturnType<typeof loader>>["query"] }) {
   const tr = useTr();
+  const text = usePolicyText();
+  const known = useKnownLabels();
   const [report, setReport] = useState(initial),
     [failed, setFailed] = useState(false),
     [invalid, setInvalid] = useState(false),
@@ -87,8 +91,11 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
   const filters = new URLSearchParams();
   if (query.jurisdiction) filters.set("jurisdiction", query.jurisdiction);
   if (query.theme) filters.set("theme", query.theme);
-  const editionHref = (edition?: number) =>
-    `/policies/reports/${encodeURIComponent(report.id)}?${new URLSearchParams({ ...Object.fromEntries(filters), ...(edition ? { edition: String(edition) } : {}) })}`;
+  const currentHref = `/policies/reports/${encodeURIComponent(report.id)}${filters.size ? `?${filters}` : ""}`;
+  // Readers see corrections, not the compilation's revisions (Owner 2026-11-06, as for the daily): the one thing worth
+  // a line is documents that left this issue after it was out (a withdrawal or a lost permission). Documents joining
+  // a later compilation, and the revision numbers themselves, stay in the internal record.
+  const removed = report.edition > 1 && report.change && report.change.reason !== "initial" ? report.change.removed : 0;
   const kinds = { domestic: tr("境内"), foreign: tr("境外"), organizations: tr("欧盟与国际组织") };
   const labels = {
     period_change: tr("期间内来源变化"),
@@ -96,7 +103,10 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
     backfill: tr("补录"),
     interpretation_update: tr("解读更新"),
   };
-  const systemTime = (v: string) => new Date(v).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
+  const day = (v: string) => beijingDate(v);
+  const moment = (v: string) => `${beijingDate(v)} ${beijingTime(v)}`;
+  /** The period as days: it starts at 00:00 of its first day and ends before 00:00 of the day after its last. */
+  const lastDay = (v: string) => beijingDate(new Date(Date.parse(v) - 1).toISOString());
   if (invalid)
     return (
       <div className="pt-6">
@@ -117,33 +127,35 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
       <h1 className="mt-4 text-[26px] font-semibold">{report.title}</h1>
       <PolicyTabs active={report.type === "policy_weekly" ? "weekly" : "monthly"} />
       <PolicyReportFilters query={query} jurisdictions={report.coverage.map((row) => row.jurisdiction)} />
-      <nav aria-label={tr("报告修订版本")} className="mt-3 flex gap-4 text-[13px] text-accent">
-        {report.edition > 1 && report.correction_of && <Link to={editionHref(report.edition - 1)}>{tr("核对上一修订版")}</Link>}
-        {query.edition && <Link to={editionHref()}>{tr("查看最新修订")}</Link>}
-      </nav>
-      {report.change && (
-        <p className="mt-2 text-[12px] text-ink-3">
-          {tr("本次新增")} {report.change.added} {tr("条版本记录，移除")} {report.change.removed} {tr("条；")}
-          {report.change.reason === "initial" ? tr("首次汇编") : tr("本期收录内容或资料覆盖情况已更新")}。
+      {query.edition ? (
+        // An old link to an earlier compilation still opens; the reader is told so once and offered the current issue.
+        <p className="mt-3 text-[12.5px] text-ink-3" data-report-earlier>
+          {tr("这是本期较早的一版。")}{" "}
+          <Link to={currentHref} className="text-accent underline underline-offset-2">
+            {tr("查看本期当前内容")}
+          </Link>
         </p>
-      )}
+      ) : removed > 0 ? (
+        <p className="mt-3 border-l-2 border-line pl-3 text-[12.5px] leading-relaxed text-ink-3" data-report-correction>
+          <span className="font-semibold text-ink-2">{tr("更正说明")}</span>
+          {" · "}
+          {tr("本期有 {n} 份文书因来源撤回或公开资格变化已移除。", { n: removed })}
+        </p>
+      ) : null}
       <p className="mt-4 text-[13px] text-ink-3">
-        {tr("覆盖期间：")}
-        {systemTime(report.period_start)} {tr("至")} {systemTime(report.period_end)}
-        {tr("（北京时间，结束时刻不含）")}
+        {tr("覆盖期间：{from} 至 {to}（北京时间）", { from: day(report.period_start), to: lastDay(report.period_end) })}
       </p>
       <p className="mt-2 text-[12px] text-ink-4">
-        {tr("出刊：")}
-        {systemTime(report.issued_at)} {tr("· 第")} {report.edition} {tr("版 ·")} {report.item_count} {tr("份文书")}
+        {text.join([tr("出刊 {time}", { time: moment(report.issued_at) }), tr("{n} 份文书", { n: report.item_count })])}
       </p>
-      <p className="mt-3 text-[13px] leading-6 text-ink-3">{report.coverage_note}</p>
+      <p className="mt-3 text-[13px] leading-6 text-ink-3">{text.coverage(report.coverage_note)}</p>
       {report.groups.map((group) => (
         <Section key={group.kind} title={kinds[group.kind]}>
           {group.documents.map(({ policy, versions }) => (
             <div key={policy.id} className="mb-5">
-              <h3 className="text-[17px] font-semibold">{policy.title}</h3>
+              <h3 className="text-[17px] font-semibold">{policyTitle(policy).title}</h3>
               <p className="mt-1 text-[12px] text-ink-3">
-                {policy.jurisdictions.map((j) => j.label).join("、")} · {policy.themes.map((t) => t.label).join("、")}
+                {text.join([text.places(policy.jurisdictions), policy.themes.map((t) => known.theme(t.code, t.label)).join(text.english ? ", " : "、")])}
               </p>
               {versions.length > 1 && (
                 <p className="mt-2 text-[12px] text-ink-4">
@@ -153,23 +165,23 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
               {versions.map((v) => (
                 <div key={`${v.expression_id}:${v.document_revision_id}`} className="mt-3 border-l-2 border-line pl-3 text-[13px] leading-6">
                   <p>
-                    {tr.maybe(labels[v.label])} · {timeLabel(v.published_time)} · {v.instrument_number ?? tr("文号尚未确认")} · {v.language}
+                    {text.join([
+                      tr.maybe(labels[v.label]),
+                      text.date(v.published_time) && tr("来源发布 {date}", { date: text.date(v.published_time)! }),
+                      v.instrument_number,
+                      text.language(v.language),
+                    ])}
                   </p>
-                  <p>
-                    {tr("原文版本：")}
-                    {v.original_version}
-                    {tr("；本站公开：")}
-                    {timeLabel(v.first_public_at)}
-                    {tr("；原件留存核对：")}
-                    {timeLabel(v.checked_at)}
+                  <p className="text-ink-3">
+                    {text.join([
+                      text.archiveCopy(v.original_version) ? null : v.original_version,
+                      text.date(v.first_public_at) &&
+                        (v.public_after_period_end
+                          ? tr("期末后公开 {date}", { date: text.date(v.first_public_at)! })
+                          : tr("本站公开 {date}", { date: text.date(v.first_public_at)! })),
+                    ])}
                   </p>
-                  {v.public_after_period_end && (
-                    <p>
-                      {tr("期末后公开：")}
-                      {timeLabel(v.first_public_at)}
-                    </p>
-                  )}
-                  <p>{v.summary}</p>
+                  {v.summary && <p>{v.summary}</p>}
                   {v.main_points?.length ? (
                     <ul className="mt-2 list-disc pl-5">
                       {v.main_points.map((point) => (
@@ -202,10 +214,10 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
                           {impact.exceptions}
                         </p>
                       )}
-                      {impact.deadline && (
+                      {text.dateTime(impact.deadline) && (
                         <p>
                           {tr("期限：")}
-                          {timeLabel(impact.deadline)}
+                          {text.dateTime(impact.deadline)}
                         </p>
                       )}
                     </div>
@@ -240,9 +252,12 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
           report.pending_interpretations.map((p) => (
             <p key={p.id} className="mb-2 text-[13px]">
               <Link to={policyHref(p.id)} className="text-accent">
-                {p.title}
-              </Link>{" "}
-              · {p.authority.name} · {timeLabel(p.published_time)} {tr("· 基本事实")}
+                {policyTitle(p).title}
+              </Link>
+              <span className="text-ink-3">
+                {" · "}
+                {text.join([p.authority.name, text.date(p.published_time) && tr("来源发布 {date}", { date: text.date(p.published_time)! })])}
+              </span>
             </p>
           ))
         ) : (
@@ -260,7 +275,7 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
         </button>
       )}
       <footer className="mt-6 border-t border-line pt-3 text-[12px] text-ink-4">
-        {report.limitation} {tr("· AI 辅助生成/翻译")}
+        {tr.maybe(report.limitation)} {tr("· AI 辅助生成/翻译")}
       </footer>
     </article>
   );

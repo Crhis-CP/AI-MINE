@@ -1,17 +1,20 @@
 // Layered browsing for the policy list (Owner 2026-11-05): country or organisation → business theme → documents,
 // each level a plain link with its state in the address, so every level can be shared and Back returns to it.
-// Search stays available but secondary. Only presentation: the list and scope endpoints are unchanged.
-import type { ReactNode } from "react";
-import { Form, Link } from "react-router";
+// Search stays available but secondary. Places and themes with documents come first as cards; those without any
+// are one compact line of names (still links), so an empty catalogue never fills the page with dead tiles.
+import { Fragment, type ReactNode } from "react";
 import { useTr } from "@amp/web/i18n";
-import { IconChevronRight, IconSearch, PillTabs } from "@amp/web/extension";
+import { Form, IconChevronRight, IconSearch, Link, PillTabs } from "@amp/web/extension";
 import type { PolicyCard } from "@amp/contracts/http/public";
-import { themes, timeLabel } from "./PolicyUI";
+import { themes } from "./PolicyUI";
+import { policyTitle, usePolicyText } from "./reader";
 
 export type ThemeKey = keyof typeof themes;
 export const themeKeys = Object.keys(themes) as ThemeKey[];
 /** The web-only value for “every theme, as a list”; it never reaches the API. */
 export const ALL_THEMES = "all";
+/** The web-only value for “documents not yet given a theme” (themes come with a finished interpretation); never sent to the API. */
+export const NO_THEME = "none";
 
 export type ScopeItem = { jurisdiction: { code: string; label: string; kind: string }; readable_count: number };
 
@@ -48,51 +51,67 @@ export function Breadcrumb({ items }: { items: { label: string; to?: string }[] 
 
 const cardBase = "flex h-full min-w-0 flex-col rounded-card border p-3.5";
 const linkCard = `${cardBase} border-line bg-surface card-hover`;
-const quietCard = `${cardBase} border-line-soft bg-bg-sunk text-ink-4`;
 
-/** Level 1: the jurisdictions of one group, readable ones first; empty ones stay listed, dimmed, without a link. */
+/** The names that have nothing yet, on one quiet line; each still opens its own page. */
+export function EmptyNames({ label, items, testId }: { label: string; items: { key: string; name: string; to?: string }[]; testId: string }) {
+  if (!items.length) return null;
+  return (
+    <p className="mt-3 text-[12.5px] leading-6 text-ink-4" data-empty-list={testId}>
+      <span className="mr-1">{label}</span>
+      {items.map((item, i) => (
+        // A line breaks between names, never inside one.
+        <Fragment key={item.key}>
+          {i > 0 && <span aria-hidden="true">{" · "}</span>}
+          {item.to ? (
+            <Link
+              to={item.to}
+              className="whitespace-nowrap text-ink-3 underline decoration-line-strong underline-offset-2 hover:text-accent"
+              data-empty-item={item.key}
+            >
+              {item.name}
+            </Link>
+          ) : (
+            <span className="whitespace-nowrap" data-empty-item={item.key}>
+              {item.name}
+            </span>
+          )}
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
+/** Level 1: the jurisdictions of one group that have documents, as cards, newest document named on each. */
 export function JurisdictionCards({ items, latest }: { items: ScopeItem[]; latest: Map<string, PolicyCard> }) {
   const tr = useTr();
-  const ordered = [...items.filter((i) => i.readable_count > 0), ...items.filter((i) => i.readable_count === 0)];
+  const text = usePolicyText();
   return (
     <ul className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-      {ordered.map(({ jurisdiction, readable_count }) => {
+      {items.map(({ jurisdiction, readable_count }) => {
         const recent = latest.get(jurisdiction.code);
-        const date = recent ? timeLabel(recent.sort_time ?? recent.published_time) : null;
-        const head = (
-          <span className="flex min-w-0 items-center gap-2.5">
-            <span
-              aria-hidden="true"
-              className={`grid h-8 min-w-8 shrink-0 place-items-center rounded-tile px-1.5 text-[11px] font-semibold tracking-wide ${
-                readable_count ? "bg-accent-softer text-accent" : "bg-bg-muted text-ink-4"
-              }`}
-            >
-              {jurisdiction.code.slice(0, 4)}
-            </span>
-            <span className={`min-w-0 truncate text-[15px] font-semibold ${readable_count ? "text-ink" : "text-ink-3"}`}>{jurisdiction.label}</span>
-          </span>
-        );
+        const date = recent ? text.date(recent.sort_time ?? recent.published_time) : null;
         return (
           <li key={jurisdiction.code} className="min-w-0">
-            {readable_count ? (
-              <Link to={policiesHref({ jurisdiction: jurisdiction.code })} className={linkCard} data-jurisdiction-card={jurisdiction.code}>
-                {head}
-                <span className="mt-3 text-[13px] text-ink-2">
-                  <span className="num text-[17px] font-semibold text-ink">{readable_count}</span> {tr("份可读文书")}
+            <Link to={policiesHref({ jurisdiction: jurisdiction.code })} className={linkCard} data-jurisdiction-card={jurisdiction.code}>
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="grid h-8 min-w-8 shrink-0 place-items-center rounded-tile bg-accent-softer px-1.5 text-[11px] font-semibold tracking-wide text-accent"
+                >
+                  {jurisdiction.code.slice(0, 4)}
                 </span>
-                {recent && date && date !== "尚未确认" && (
-                  <span className="mt-1 block min-w-0 truncate text-[12px] text-ink-4" title={recent.title}>
-                    {tr("最近 {date}", { date })}
-                    <span className="hidden sm:inline"> · {recent.title}</span>
-                  </span>
-                )}
-              </Link>
-            ) : (
-              <div className={quietCard} data-jurisdiction-card={jurisdiction.code}>
-                {head}
-                <span className="mt-3 text-[12.5px]">{tr("暂无已公开文书")}</span>
-              </div>
-            )}
+                <span className="min-w-0 truncate text-[15px] font-semibold text-ink">{text.place(jurisdiction)}</span>
+              </span>
+              <span className="mt-3 text-[13px] text-ink-2">
+                <span className="num text-[17px] font-semibold text-ink">{readable_count}</span> {tr("份可读文书")}
+              </span>
+              {recent && date && (
+                <span className="mt-1 block min-w-0 truncate text-[12px] text-ink-4" title={policyTitle(recent).title}>
+                  {tr("最近 {date}", { date })}
+                  <span className="hidden sm:inline"> · {policyTitle(recent).title}</span>
+                </span>
+              )}
+            </Link>
           </li>
         );
       })}
@@ -100,8 +119,21 @@ export function JurisdictionCards({ items, latest }: { items: ScopeItem[]; lates
   );
 }
 
-/** Level 2: “all themes” and the seven business themes of one jurisdiction, with counts when they could be read. */
-export function ThemeCards({ jurisdiction, total, counts }: { jurisdiction: string; total: number | null; counts: Record<string, number | null> | null }) {
+/**
+ * Level 2: “all themes”, the themes that have documents, and the documents no theme has been given yet (themes come
+ * with a finished interpretation); themes without documents are one line. Counts are left out when they could not be read.
+ */
+export function ThemeCards({
+  jurisdiction,
+  total,
+  counts,
+  unthemed,
+}: {
+  jurisdiction: string;
+  total: number | null;
+  counts: Record<string, number | null> | null;
+  unthemed: number | null;
+}) {
   const tr = useTr();
   const count = (n: number | null | undefined) =>
     n === null || n === undefined ? null : (
@@ -109,44 +141,29 @@ export function ThemeCards({ jurisdiction, total, counts }: { jurisdiction: stri
         <span className="num text-[17px] font-semibold text-ink">{n}</span> {tr("份")}
       </span>
     );
+  const card = (key: string, label: string, n: number | null | undefined, extra = "") => (
+    <li key={key} className="min-w-0">
+      <Link to={policiesHref({ jurisdiction, theme: key })} className={`${linkCard} ${extra}`} data-theme-card={key}>
+        <span className="flex items-center justify-between gap-2 text-[15px] font-semibold text-ink">
+          <span className="min-w-0">{label}</span>
+          <IconChevronRight size={16} className="shrink-0 text-ink-4" />
+        </span>
+        {count(n)}
+      </Link>
+    </li>
+  );
+  const filled = themeKeys.filter((key) => counts?.[key] !== 0);
+  const empty = themeKeys.filter((key) => counts?.[key] === 0);
   return (
-    <ul className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-      <li className="min-w-0">
-        <Link
-          to={policiesHref({ jurisdiction, theme: ALL_THEMES })}
-          className={`${cardBase} card-hover border-accent/30 bg-accent-softer`}
-          data-theme-card={ALL_THEMES}
-        >
-          <span className="flex items-center justify-between gap-2 text-[15px] font-semibold text-ink">
-            {tr("全部主题")}
-            <IconChevronRight size={16} className="shrink-0 text-accent" />
-          </span>
-          {count(total)}
-        </Link>
-      </li>
-      {themeKeys.map((key) => {
-        const n = counts?.[key];
-        const label = tr.maybe(themes[key]);
-        return (
-          <li key={key} className="min-w-0">
-            {n === 0 ? (
-              <div className={quietCard} data-theme-card={key}>
-                <span className="text-[15px] font-semibold text-ink-3">{label}</span>
-                <span className="mt-3 text-[12.5px]">{tr("暂无已公开文书")}</span>
-              </div>
-            ) : (
-              <Link to={policiesHref({ jurisdiction, theme: key })} className={linkCard} data-theme-card={key}>
-                <span className="flex items-center justify-between gap-2 text-[15px] font-semibold text-ink">
-                  <span className="min-w-0">{label}</span>
-                  <IconChevronRight size={16} className="shrink-0 text-ink-4" />
-                </span>
-                {count(n)}
-              </Link>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+        {card(ALL_THEMES, tr("全部主题"), total, "!border-accent/30 !bg-accent-softer")}
+        {filled.map((key) => card(key, tr.maybe(themes[key]), counts?.[key]))}
+        {!!unthemed && card(NO_THEME, tr("未归入主题"), unthemed)}
+      </ul>
+      {!!unthemed && <p className="mt-2 text-[12px] text-ink-4">{tr("经营主题随完整解读给出；尚未完成解读的文书先列在“未归入主题”。")}</p>}
+      <EmptyNames label={tr("暂无文书的主题：")} testId="themes" items={empty.map((key) => ({ key, name: tr.maybe(themes[key]) }))} />
+    </>
   );
 }
 

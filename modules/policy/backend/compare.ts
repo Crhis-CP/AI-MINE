@@ -12,6 +12,7 @@ import type { z } from "zod";
 import { compareProvisions, PROVISION_RECIPE, type Provision, type ProvisionComparison } from "./domain/provisions.ts";
 import { currentPolicyHeads } from "./domain/public-state.ts";
 import { context, editions, eligible, ensureDocument, PolicyReadError, type Edition } from "./read.ts";
+import { readerPolicy } from "./reader-copy.ts";
 
 type Entry = z.infer<typeof PolicyHistoryEntry>;
 type Candidate = { row: Edition; entry: Entry; provisionsHash: string };
@@ -43,7 +44,7 @@ async function compared(from: Candidate, to: Candidate) {
 /** Readable revisions with provisions, one per native revision (its newest eligible edition), newest first. */
 async function candidates(id: string) {
   const ctx = context(),
-    rows = await editions(id, true);
+    rows = await editions(id, "detail");
   if (!rows.length) return { rows, list: [] as Candidate[] };
   const sets = await sql<
     { native_revision_id: string; provisions_hash: string }[]
@@ -58,7 +59,7 @@ async function candidates(id: string) {
     const view = await eligible(row, ctx, false);
     // The comparison shows original text, so it follows the original's reading permission.
     if (!view?.readable.original) continue;
-    const detail = Policy.parse(view.complete ? row.complete_detail : row.basic_detail);
+    const detail = readerPolicy(Policy.parse(view.complete ? row.complete_detail : row.basic_detail));
     const expression = detail.expressions.find((e) => e.kind !== "ai_translation" && e.language === row.source_language) ?? detail.expressions[0];
     const version = detail.versions.find((v) => v.id === row.policy_version_id);
     if (!expression || !version) continue;

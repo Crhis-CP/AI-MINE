@@ -1,7 +1,7 @@
-import { apiFetch } from "@amp/web/extension";
+import { apiFetch, Link } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
 import { useState } from "react";
-import { Link, data as withHeaders, useLoaderData } from "react-router";
+import { data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyDetailQuery } from "@amp/contracts/http/public";
@@ -10,7 +10,8 @@ import { pageMeta } from "@amp/web/extension";
 import { ArticleLayout } from "@amp/web/page";
 import { PolicyReading } from "./features/PolicyReading";
 import { PolicyCompare } from "./features/PolicyCompare";
-import { PolicyBack, PolicyError, Section, timeLabel, policyCache, policyHref, usePolicyRecheck } from "./features/PolicyUI";
+import { PolicyBack, PolicyError, Section, policyCache, policyHref, useKnownLabels, usePolicyRecheck } from "./features/PolicyUI";
+import { usePolicyText } from "./features/reader";
 import {
   PolicyAnalysis,
   PolicyEvidence,
@@ -24,6 +25,7 @@ import {
   PolicyReadingState,
   PolicyToc,
   PolicyToolbar,
+  hasReading,
   policySections,
 } from "./features/PolicyDetail";
 
@@ -126,6 +128,9 @@ export default function PolicyPage() {
 }
 function PolicyDocument({ policy, history, initialReading, initialReadingFailed, comparison, compareRequested }: Awaited<ReturnType<typeof loader>>) {
   const tr = useTr();
+  const text = usePolicyText();
+  const known = useKnownLabels();
+  const nature = known.nature(policy.nature.code, policy.nature.label);
   const [invalid, setInvalid] = useState(false);
   usePolicyRecheck();
   if (invalid)
@@ -144,7 +149,7 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed,
       {history && (
         <p className="mb-5 rounded-control bg-bg-sunk p-3 text-[13px] text-ink-3">
           {tr("历史公开快照 ·")} {current?.current ? tr("亦为当前可读版本") : tr("非当前公开版本")}
-          {tr("。本站于")} {timeLabel(policy.first_public_at)} {tr("公开的正文与解读，不代表完整法定沿革。")}
+          {tr("。本站于")} {text.date(policy.first_public_at)} {tr("公开的正文与解读，不代表完整法定沿革。")}
           <Link to={policyHref(policy.id)} className="ml-2 text-accent underline">
             {tr("查看当前可读版本")}
           </Link>
@@ -153,9 +158,9 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed,
       <ArticleLayout
         left={
           <div className="space-y-2 text-[12px] text-ink-3">
-            <p>{policy.jurisdictions.map((j) => j.label).join("、")}</p>
+            <p>{text.places(policy.jurisdictions)}</p>
             <p>{policy.authority.name}</p>
-            <p>{policy.nature.label}</p>
+            {nature && <p>{nature}</p>}
           </div>
         }
         right={<PolicyToc sections={sections} />}
@@ -169,16 +174,19 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed,
         <PolicyLegal policy={policy} />
         <PolicyGaps policy={policy} />
         <PolicyCompare key={comparison?.content_version ?? "none"} policyId={policy.id} initial={comparison} requested={compareRequested} />
-        <Section id="reading" title={tr("正文阅读")}>
-          <PolicyReading
-            key={`${policy.selected_expression_id}:${policy.reading?.document_revision_id}`}
-            policy={policy}
-            history={history}
-            initialPage={initialReading}
-            initialFailed={initialReadingFailed}
-            onInvalid={() => setInvalid(true)}
-          />
-        </Section>
+        {/* Without text this site may show there is nothing to read here; the official original is the page's main action. */}
+        {hasReading(policy) && (
+          <Section id="reading" title={tr("正文阅读")}>
+            <PolicyReading
+              key={`${policy.selected_expression_id}:${policy.reading?.document_revision_id}`}
+              policy={policy}
+              history={history}
+              initialPage={initialReading}
+              initialFailed={initialReadingFailed}
+              onInvalid={() => setInvalid(true)}
+            />
+          </Section>
+        )}
         <PolicyEvidence policy={policy} />
         <PolicyLinks policy={policy} />
         <PolicyFooter policy={policy} />

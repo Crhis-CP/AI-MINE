@@ -63,7 +63,12 @@ test("basic facts expose a known missing decisive attachment without publishing 
   const expression = detail.expressions[0]!;
   for (const query of [{}, { expression_id: expression.id, document_revision_id: expression.document_revision_id }]) {
     const shown = await policyDetail(result.policyId, query);
-    assert.deepEqual(shown.gaps, ["完整解读暂不可用，可先查看基本事实和官方原文。", "附件清单尚未完整。", "决定性附件尚未取得：annex.pdf", custom]);
+    assert.deepEqual(shown.gaps, [
+      "完整解读暂不可用，可先查看基本事实和官方原文。",
+      "官方原文可能还有附件，本站尚未全部列出，请以官方原文为准。",
+      "决定性附件尚未取得：annex.pdf",
+      custom,
+    ]);
     assert.deepEqual(shown.impacts, []);
   }
   assert.deepEqual((await sql`SELECT basic_detail FROM publication.policy_editions WHERE id=${stored!.id}`)[0]!.basic_detail, legacy);

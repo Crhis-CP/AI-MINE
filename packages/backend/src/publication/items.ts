@@ -322,12 +322,17 @@ export async function publicNewsDigestInput(ids: string[], db: Db = sql) {
 }
 
 /** Current public news source links, for explicit news/policy navigation only. */
-export async function readPublicNewsLinkCandidates(articleId: string | null, officialUrl: string | null) {
+/**
+ * Public news that may link an official URL. `among` limits the read to the given articles: a policy page re-checks
+ * the reports it found earlier this way instead of scanning every article body again (no index covers the bodies).
+ */
+export async function readPublicNewsLinkCandidates(articleId: string | null, officialUrl: string | null, among: string[] | null = null) {
   const urlPattern = officialUrl === null ? null : `%${officialUrl.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
   return sql<{ id: string; title: string; body_html: string }[]>`SELECT p.article_id AS id,p.title,a.body_html
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'
       AND (${articleId}::text IS NULL OR p.article_id=${articleId})
+      AND (${among}::text[] IS NULL OR p.article_id=ANY(${among}::text[]))
       AND (${officialUrl}::text IS NULL OR a.body_html LIKE ${urlPattern})
       AND (NOT p.selected OR p.visible_after<=now())
     ORDER BY p.timeline_at DESC,p.article_id DESC LIMIT 100`;

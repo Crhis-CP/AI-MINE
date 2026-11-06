@@ -9,18 +9,21 @@ import { sourcePolicyExample } from "./permission-fixture.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
-import { listPolicies, policyCurrentPublicRecords, policyScope } from "../modules/policy/backend/read.ts";
+import { listPolicies, policyCurrentPublicRecords, policyDetail, policyScope } from "../modules/policy/backend/read.ts";
 
 const access = createDatabaseAccess("test", { DATABASE_URL: process.env.DATABASE_URL, DATABASE_POOL_MAX: "4" }, () => {});
 const db = access.dbFor("worker");
 // Every tagged statement (and fragment) the reads build through the shared driver handle.
 let statements = 0;
+/** The text of every tagged statement and fragment since the last reset. */
+let texts: string[] = [];
 /** The next statement whose text includes `text` waits for `gate`; `reached` fires when it starts waiting. */
 let held: { text: string; reached: () => void; gate: Promise<void> } | null = null;
 const counted = new Proxy(db, {
   apply(target, self, args) {
     if (Array.isArray(args[0]) && Object.hasOwn(args[0], "raw")) {
       statements++;
+      texts.push((args[0] as string[]).join("?"));
       if (held && (args[0] as string[]).join("?").includes(held.text)) {
         const { reached, gate } = held;
         held = null;
@@ -135,9 +138,31 @@ async function readable(code: string) {
 async function counting<T>(read: () => Promise<T>) {
   await read(); // prepared statements and module state
   statements = 0;
+  texts = [];
   const value = await read();
   return { value, statements };
 }
+
+test("a policy detail reads its own document only: no scan of every current document and no stored reading text", async () => {
+  const [mine] = await source("e", 1);
+  const detail = () => policyDetail(mine!);
+  const before = await counting(detail);
+  assert.equal(before.value.id, mine);
+  const read = texts.join("\n");
+  // The current snapshot walks every document id; the relations of a document without links read no other document.
+  assert.ok(!read.includes("SELECT DISTINCT policy_id FROM publication.policy_editions"), "the detail does not read every current document");
+  // The page reads the text a block at a time; the detail only needs how many blocks there are.
+  assert.ok(read.includes("jsonb_each(e.reading)"), "the reading text is summarised in the database");
+  assert.ok(!/e\.complete_detail,e\.reading\b/.test(read), "no edition's whole reading text is carried through the detail");
+  // Finding the reports that link the document reads every public article body; a repeat view re-checks the reports
+  // found (none here) instead of scanning all bodies again.
+  assert.ok(!read.includes("a.body_html LIKE"), "a repeat view does not scan every article body");
+  // Five more documents elsewhere change nothing about one document's reads.
+  await source("f", 5);
+  const after = await counting(detail);
+  assert.equal(after.statements, before.statements);
+  await db`UPDATE publication.policy_documents SET withdrawn=true WHERE id LIKE 'pol_%'`;
+});
 
 test("public policy lists read a page of documents with a fixed number of statements, shared by requests that arrive together", async () => {
   const first = [...(await source("a", 1)), ...(await source("b", 1))];

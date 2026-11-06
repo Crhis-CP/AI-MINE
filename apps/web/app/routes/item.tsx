@@ -529,7 +529,9 @@ export default function ItemPage() {
                       {policy.title}
                     </Link>
                     {(policy.jurisdiction || policy.documentNumber) && (
-                      <p className="mt-1 text-[13px] text-ink-4">{[policy.jurisdiction, policy.documentNumber].filter(Boolean).join(" · ")}</p>
+                      <p className="mt-1 text-[13px] text-ink-4">
+                        {[policy.jurisdiction && tr.maybe(policy.jurisdiction), policy.documentNumber].filter(Boolean).join(" · ")}
+                      </p>
                     )}
                   </li>
                 ))}

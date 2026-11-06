@@ -1,11 +1,12 @@
-import { apiFetch } from "@amp/web/extension";
+import { apiFetch, Link } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
-import { Link, data as withHeaders, useLoaderData } from "react-router";
+import { data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
-import { PolicyBack, PolicyCardView, PolicyError, policyCache, policyHref, timeLabel, usePolicyRecheck } from "./features/PolicyUI";
+import { PolicyBack, PolicyCardList, PolicyError, policyCache, policyHref, usePolicyRecheck } from "./features/PolicyUI";
+import { policyTitle, usePolicyText } from "./features/reader";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const result = await apiFetch("/api/site/policy-threads/{id}", {
     params: { path: { id: params.id! } },
@@ -22,6 +23,7 @@ export function meta({ params }: MetaArgs<typeof loader>) {
 }
 export default function PolicyThreadPage() {
   const tr = useTr();
+  const text = usePolicyText();
   const thread = useLoaderData<typeof loader>();
   usePolicyRecheck();
   return (
@@ -29,10 +31,10 @@ export default function PolicyThreadPage() {
       <PolicyBack />
       <header className="mb-7 mt-5 border-b border-line pb-6">
         <p className="mb-2 text-[12px] font-medium tracking-wide text-accent">
-          {thread.jurisdictions.map((j) => j.label).join(" · ")} {tr("· 原文明示关系")}
+          {thread.jurisdictions.map(text.place).join(" · ")} {tr("· 原文明示关系")}
         </p>
-        <h1 className="text-[28px] font-semibold leading-tight text-ink">{thread.title}</h1>
-        <p className="mt-3 max-w-[70ch] text-[14px] leading-7 text-ink-3">{thread.summary}</p>
+        <h1 className="text-[28px] font-semibold leading-tight text-ink">{tr.maybe(thread.title)}</h1>
+        {thread.summary && <p className="mt-3 max-w-[70ch] text-[14px] leading-7 text-ink-3">{tr.maybe(thread.summary)}</p>}
         <p className="mt-3 text-[12px] text-ink-4">{tr("不是完整法定沿革。每份文书的效力、适用条件和施行安排，请进入文书分别查看。")}</p>
       </header>
       <nav aria-label={tr("政策文书脉络")} className="mb-8">
@@ -43,12 +45,12 @@ export default function PolicyThreadPage() {
               <li key={stage.policy_id ?? stage.event_id ?? stage.relation} className="relative pb-6 last:pb-0">
                 <span aria-hidden="true" className="absolute -left-[29px] top-1.5 h-2 w-2 rounded-full bg-accent" />
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px] text-ink-3">
-                  <time>{stage.time.precision === "unknown" ? tr("来源日期尚未确认") : timeLabel(stage.time)}</time>
-                  <span className="rounded-mark bg-accent/5 px-2 py-0.5 text-accent">{stage.relation}</span>
+                  {text.date(stage.time) && <time dateTime={text.date(stage.time)!}>{text.dateTime(stage.time)}</time>}
+                  <span className="rounded-mark bg-accent/5 px-2 py-0.5 text-accent">{tr.maybe(stage.relation)}</span>
                 </div>
                 {policy && (
                   <Link className="mt-2 block text-[16px] font-semibold leading-7 hover:text-accent" to={policyHref(policy.id)}>
-                    {policy.title}
+                    {policyTitle(policy).title}
                   </Link>
                 )}
                 {policy?.instrument_number && <p className="mt-1 text-[12px] text-ink-4">{policy.instrument_number}</p>}
@@ -64,9 +66,7 @@ export default function PolicyThreadPage() {
             {thread.policies.length} {tr("份")}
           </span>
         </h2>
-        {thread.policies.map((policy) => (
-          <PolicyCardView key={policy.id} policy={policy} />
-        ))}
+        <PolicyCardList items={thread.policies} />
       </section>
     </article>
   );

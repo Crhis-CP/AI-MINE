@@ -1,9 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useTr } from "@amp/web/i18n";
-import { Link, isRouteErrorResponse, useLocation, useRevalidator, useRouteError } from "react-router";
+import { basePath, useTr } from "@amp/web/i18n";
+import { Link } from "@amp/web/extension";
+import { isRouteErrorResponse, useLocation, useRevalidator, useRouteError } from "react-router";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
 import { EmptyState } from "@amp/web/page";
+import { groupParts, policyTitle, usePolicyText } from "./reader";
 
+/** The seven business themes (docs/01-product/10-policy-service.md §2.3); the read layer gives cards the same names. */
 export const themes = {
   investment_company: "投资与公司",
   mineral_rights: "矿权",
@@ -31,7 +34,6 @@ export const actionClass =
   "shrink-0 whitespace-nowrap rounded-control border border-line-strong bg-surface px-3 py-2 text-[13px] font-medium text-accent hover:bg-bg-sunk";
 const returnKey = "amp-policy-list-return-v1";
 export const policyHref = (id: string) => `/policies/${encodeURIComponent(id)}`;
-export const timeLabel = (value: { label: string; precision: string } | null) => (!value || value.precision === "unknown" ? "尚未确认" : value.label);
 export const policyCache = () => ({ "Cache-Control": "no-store" });
 
 export function PolicyTabs({ active = "policies" }: { active?: string }) {
@@ -40,10 +42,10 @@ export function PolicyTabs({ active = "policies" }: { active?: string }) {
     current = new URLSearchParams(location.search);
   const preserve = (to: string) => {
     const target = new URL(to, "https://site.invalid");
-    // The list's own “all themes” value is not a theme; the reports take only real filters.
+    // The list's own “all themes” and “no theme” values are not themes; the reports take only real filters.
     for (const key of ["jurisdiction", "theme"]) {
       const value = current.get(key);
-      if (value && !(key === "theme" && value === "all")) target.searchParams.set(key, value);
+      if (value && !(key === "theme" && (value === "all" || value === "none"))) target.searchParams.set(key, value);
     }
     return target.pathname + target.search;
   };
@@ -109,54 +111,85 @@ export function PolicyBack() {
   const [to, setTo] = useState("/policies");
   useEffect(() => {
     try {
-      const path = JSON.parse(sessionStorage.getItem(returnKey) ?? "null")?.path;
-      if (path === "/policies" || path?.startsWith("/policies?")) setTo(path);
+      const path: unknown = JSON.parse(sessionStorage.getItem(returnKey) ?? "null")?.path;
+      // The list as the reader left it, in either interface language (the link keeps the page's own language).
+      if (typeof path === "string") {
+        const [pathname = "", search = ""] = path.split(/(?=\?)/);
+        if (basePath(pathname) === "/policies") setTo(`/policies${search}`);
+      }
     } catch {
       /* Default list. */
     }
   }, []);
   return (
     <Link to={to} className="shrink-0 whitespace-nowrap text-[13px] font-medium text-accent">
-      {tr("← 返回法规政策动态")}
+      <span className="sm:hidden">{tr("← 返回")}</span>
+      <span className="hidden sm:inline">{tr("← 返回法规政策动态")}</span>
     </Link>
   );
 }
-/** One policy in the list (UI update, Owner 2026-11-05): where and who, title, summary, one line of facts, then themes. */
-export function PolicyCardView({ policy }: { policy: PolicyCard }) {
+
+/** A known nature or stage in the interface language; an unconfirmed one is left out rather than printed. */
+export function useKnownLabels() {
   const tr = useTr();
+  return {
+    nature: (code: string, label?: string) => (code === "unknown" ? null : tr.maybe(natures[code as keyof typeof natures] ?? label ?? code)),
+    stage: (code: string) => (code === "unknown" ? null : tr.maybe(stages[code as keyof typeof stages] ?? code)),
+    theme: (code: string, label?: string) => tr.maybe(themes[code as keyof typeof themes] ?? label ?? code),
+  };
+}
+
+/** One policy in the list: where and who, the title once, the summary, one line of known facts, then themes. */
+export function PolicyCardView({ policy, parts = [] }: { policy: PolicyCard; parts?: PolicyCard[] }) {
+  const tr = useTr();
+  const text = usePolicyText();
+  const known = useKnownLabels();
   const complete = policy.interpretation_state === "complete";
+  const read = policyTitle(policy);
+  const published = text.date(policy.published_time);
+  const shown = text.date(policy.first_public_at);
+  const facts = [
+    read.number,
+    known.nature(policy.nature.code, policy.nature.label),
+    known.stage(policy.legal_brief.stage),
+    policy.change_kind ? tr.maybe(policy.change_kind.label) : null,
+  ];
   return (
-    <article className="border-b border-line py-5 last:border-0">
+    <article className="border-b border-line py-5 last:border-0" data-policy-card={policy.id}>
       <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
         <span>
-          <span className="font-medium text-ink-2">{policy.jurisdictions.map((j) => j.label).join("、")}</span> · {policy.authority.name}
+          <span className="font-medium text-ink-2">{text.places(policy.jurisdictions)}</span> · {policy.authority.name}
         </span>
-        <span className={`rounded-mark px-2 py-0.5 ${complete ? "bg-accent/10 text-accent" : "bg-bg-sunk text-ink-2"}`}>
-          {complete ? tr("完整解读") : tr("基本事实")}
-        </span>
+        {/* Only a finished interpretation is worth a mark; “basic facts” is every other card and says nothing. */}
+        {complete && <span className="rounded-mark bg-accent/10 px-2 py-0.5 text-accent">{tr("完整解读")}</span>}
         {policy.is_backfill && <span className="text-amber-ink">{tr("补录")}</span>}
       </div>
       <h2 className="mt-2 text-[18px] font-semibold leading-relaxed text-ink">
         <Link id={`policy-${policy.id}`} to={policyHref(policy.id)} onClick={() => rememberPolicyList(policy.id)} className="hover:text-accent">
-          {policy.title}
+          {read.title}
         </Link>
+        {read.part && parts.length <= 1 && (
+          <span className="ml-2 whitespace-nowrap align-middle text-[12px] font-normal text-ink-4">
+            {tr("第 {n}/{of} 部分", { n: read.part.n, of: read.part.of })}
+          </span>
+        )}
       </h2>
+      {read.original && <p className="mt-1 break-words text-[12.5px] text-ink-4">{read.original}</p>}
+      {parts.length > 1 && (
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-3">
+          <span>{tr("本文书分 {of} 部分公布：", { of: policyTitle(parts[0]!).part?.of ?? parts.length })}</span>
+          {parts.map((part) => (
+            <Link key={part.id} to={policyHref(part.id)} onClick={() => rememberPolicyList(part.id)} className="text-accent hover:underline">
+              {tr("第 {n} 部分", { n: policyTitle(part).part?.n ?? 0 })}
+            </Link>
+          ))}
+        </p>
+      )}
       {policy.summary && <p className="mt-1.5 line-clamp-3 max-w-[80ch] text-[14px] leading-6 text-ink-2">{policy.summary}</p>}
       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-4">
-        <span>
-          {[policy.instrument_number, tr.maybe(policy.nature.label), tr.maybe(stages[policy.legal_brief.stage]), policy.change_kind?.label]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
-        <span>
-          {tr("来源发布日期：")}
-          {timeLabel(policy.published_time)}
-        </span>
-        <span>
-          {tr("本站公开：")}
-          {timeLabel(policy.first_public_at)}
-          {tr("（北京时间）")}
-        </span>
+        {facts.some(Boolean) && <span>{text.join(facts)}</span>}
+        {published && <span>{tr("来源发布 {date}", { date: published })}</span>}
+        {shown && <span>{tr("本站公开 {date}", { date: shown })}</span>}
       </p>
       {policy.applicability_summary && (
         <p className="mt-2 text-[12.5px] text-ink-3">
@@ -164,21 +197,35 @@ export function PolicyCardView({ policy }: { policy: PolicyCard }) {
           {policy.applicability_summary}
         </p>
       )}
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        {policy.themes.map((t) => (
-          <span key={t.code} className="rounded-mark bg-accent/5 px-2 py-0.5 text-[11.5px] text-accent">
-            {t.label}
-          </span>
-        ))}
-        {policy.thread_id && (
-          <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="ml-auto text-[12px] font-medium text-accent">
-            {tr("查看政策脉络 →")}
-          </Link>
-        )}
-      </div>
+      {(policy.themes.length > 0 || policy.thread_id) && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {policy.themes.map((t) => (
+            <span key={t.code} className="rounded-mark bg-accent/5 px-2 py-0.5 text-[11.5px] text-accent">
+              {known.theme(t.code, t.label)}
+            </span>
+          ))}
+          {policy.thread_id && (
+            <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="ml-auto text-[12px] font-medium text-accent">
+              {tr("查看政策脉络 →")}
+            </Link>
+          )}
+        </div>
+      )}
     </article>
   );
 }
+
+/** A list of cards, the parts of one split document (“P1/3”, “P2/3”…) shown once with a link to each part. */
+export function PolicyCardList({ items }: { items: PolicyCard[] }) {
+  return (
+    <div>
+      {groupParts(items).map(({ card, parts }) => (
+        <PolicyCardView key={card.id} policy={card} parts={parts} />
+      ))}
+    </div>
+  );
+}
+
 export function EvidenceLinks({ ids }: { ids: string[] }) {
   const tr = useTr();
   // Nothing at all without evidence: an empty inline box after a paragraph adds a blank line.
@@ -207,7 +254,7 @@ export function stateText(policy: Policy) {
   if (policy.attachment_inventory.some((a) => a.decisive && a.status === "missing")) return "决定性附件尚未取得，完整解读不可用";
   if (policy.reading && ["pending", "in_progress"].includes(policy.reading.state)) return "中文正文尚未提供，可先查看官方原文";
   if (policy.interpretation_state === "withheld" || policy.interpretation_state === "partial") return "完整解读暂不可用";
-  return policy.gaps.find((gap) => gap !== "完整解读尚不可用") ?? "已核实基本事实；完整解读暂不可用";
+  return "已核实基本事实；完整解读暂不可用";
 }
 export function PolicyError() {
   const tr = useTr();
@@ -245,13 +292,15 @@ const LIFECYCLE = [
 
 /**
  * The document's lifecycle as survey points (direction C, DEC-78): only the stage the record states is
- * marked; the other points are not claimed to have happened (a document may skip consultation), and an
- * unconfirmed stage marks nothing. Repeal is shown beside the line. The dimensions table below holds the evidence.
+ * marked; the other points are not claimed to have happened (a document may skip consultation). A record that
+ * states no stage shows no line at all: five empty points would only say “unknown” five times. Repeal is shown
+ * beside the line. The dimensions table below holds the evidence.
  */
 export function PolicyLifecycle({ brief }: { brief: Policy["legal_brief"] }) {
   const tr = useTr();
   const inForce = brief.in_force === "yes" || brief.in_force === "partial";
   const current = inForce ? "in_force" : brief.stage;
+  if (current === "unknown") return null;
   return (
     <div className="mb-4">
       <ol className="flex items-start" aria-label={tr("文件生命周期")}>
@@ -272,7 +321,7 @@ export function PolicyLifecycle({ brief }: { brief: Policy["legal_brief"] }) {
         })}
       </ol>
       <p className="mt-2 text-[12.5px] text-ink-4">
-        {current === "unknown" ? tr("所处阶段尚未确认；") : tr("只标出原文确认的当前阶段；")}
+        {tr("只标出原文确认的当前阶段；")}
         {brief.repeal === "repealed" ? tr("本文件已废止。") : brief.repeal === "partly_repealed" ? tr("本文件部分废止。") : tr("依据见下表。")}
       </p>
     </div>

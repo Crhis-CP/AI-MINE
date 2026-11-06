@@ -1,6 +1,7 @@
-import { Form } from "react-router";
+import { Form } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
 import { themes, fieldClass, actionClass } from "./PolicyUI";
+import { usePolicyText } from "./reader";
 export function PolicyReportFilters({
   query,
   jurisdictions,
@@ -9,6 +10,7 @@ export function PolicyReportFilters({
   query: { kind?: string; jurisdiction?: string; theme?: string; edition?: number };
 }) {
   const tr = useTr();
+  const text = usePolicyText();
   return (
     <Form method="get" className="mt-5 flex flex-wrap items-end gap-3" aria-label={tr("法规汇总筛选")}>
       {query.kind && <input type="hidden" name="kind" value={query.kind} />}
@@ -19,7 +21,7 @@ export function PolicyReportFilters({
           <option value="">{tr("全部国家与组织")}</option>
           {jurisdictions.map((j) => (
             <option key={j.code} value={j.code}>
-              {j.label}
+              {text.place(j)}
             </option>
           ))}
         </select>
@@ -30,7 +32,7 @@ export function PolicyReportFilters({
           <option value="">{tr("全部经营主题")}</option>
           {Object.entries(themes).map(([key, label]) => (
             <option key={key} value={key}>
-              {label}
+              {tr.maybe(label)}
             </option>
           ))}
         </select>
