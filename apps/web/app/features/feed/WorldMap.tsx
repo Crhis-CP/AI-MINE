@@ -80,7 +80,8 @@ function readMap(period: NewsMapWindow): Promise<SiteNewsMap> {
 /** A rise worth marking: at least two more than the window before, and half again as many. */
 const rising = (c: SiteNewsMap["countries"][number]) => c.count - c.previous >= 2 && c.count >= c.previous * 1.5;
 
-export function WorldMap({ base, selected }: { base: string; selected: string | null }) {
+/** `hint` replaces the line under the map where clicking a circle does something else (e.g. the changelog's preview). */
+export function WorldMap({ base, selected, hint }: { base: string; selected: string | null; hint?: string }) {
   const [params] = useSearchParams();
   const t = useT().map;
   const locale = useLocale();
@@ -186,7 +187,7 @@ export function WorldMap({ base, selected }: { base: string; selected: string | 
             </Link>
           </span>
         ) : (
-          <span>{t.hint}</span>
+          <span>{hint ?? t.hint}</span>
         )}
         <span>{t.noBorders}</span>
       </div>

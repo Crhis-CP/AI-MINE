@@ -32,6 +32,22 @@ import {
   DEMO_ITEMS,
 } from "./demo-reader.ts";
 import { demoTopic, demoTopics } from "./demo-topics.ts";
+import { readFileSync } from "node:fs";
+import { type ChangelogCopyEdit, mergeReleaseRecords, readerChangelogCopy, validateChangelog, validateReleaseNote } from "@amp/backend/site/meta";
+
+/**
+ * The changelog as production shows it after the 2026-11-06 release: the history file, the release note registered
+ * at 11:21 that day, and the reader rewrites. (Production's other registered releases live only on its server.)
+ */
+function demoChangelog() {
+  const file = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
+  const note = validateReleaseNote(file("release-note.json").note);
+  const registered = { ...note, date: "2026-11-06", time: "11:21" };
+  const merged = mergeReleaseRecords(validateChangelog(file("changelog.json")), [
+    { sha: "0".repeat(40), publishedAt: "2026-11-06T03:21:00.000Z", noteHash: "0".repeat(64), release: registered },
+  ]);
+  return readerChangelogCopy(merged, file("changelog-copy-edits.json") as ChangelogCopyEdit[]);
+}
 
 function send(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
@@ -53,6 +69,8 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
       return send(res, 200, { ok: true });
     case "/api/site/meta":
       return send(res, 200, demoMeta);
+    case "/api/site/changelog":
+      return send(res, 200, demoChangelog());
     case "/api/site/content-version":
       return send(res, 200, demoContentVersion);
     case "/api/site/timeline":

@@ -109,10 +109,7 @@ export function loadChangelog(): Changelog {
  * `copy: null` takes a purely internal entry out of the public log (Owner 2026-11-05: the log only carries
  * changes readers can see), without rewriting it as an empty “例行维护”.
  */
-export function readerChangelogCopy(
-  changelog: Changelog,
-  edits: Array<{ date: string; time: string; title: string; originalCopySha256: string; copy: { title: string; body: string[] } | null }>,
-): Changelog {
+export function readerChangelogCopy(changelog: Changelog, edits: readonly ChangelogCopyEdit[]): Changelog {
   const releases = changelog.releases.flatMap((release) => {
     const original = { date: release.date, time: release.time, title: release.title, body: release.body };
     const hash = createHash("sha256").update(JSON.stringify(original)).digest("hex");
@@ -120,7 +117,15 @@ export function readerChangelogCopy(
       (item) => item.date === release.date && item.time === release.time && item.title === release.title && item.originalCopySha256 === hash,
     );
     if (!edit) return [release];
-    return edit.copy ? [{ ...release, title: edit.copy.title, body: edit.copy.body }] : [];
+    if (!edit.copy) return [];
+    const { kind, version, title, body } = edit.copy;
+    const next: ChangelogRelease = { ...release, title, body };
+    if (kind) {
+      next.kind = kind;
+      if (version === undefined) delete next.version;
+      else next.version = version;
+    }
+    return [next];
   });
   if (!releases.length) return changelog;
   const first = releases[0]!;
@@ -156,6 +161,42 @@ export function validateReleaseNote(value: unknown): ReleaseNote {
   )
     throw new Error("公开更新说明只写读者变化，技术和后台运维内容请保留在内部交付记录");
   return note;
+}
+
+/**
+ * Words that mark a public changelog line as written for engineers rather than readers (Owner 2026-11-06: the log
+ * still read as technical after the first clean-up). The public API and RSS are reader features (for subscribers and
+ * agents), so they may be named. Stricter than validateReleaseNote, which the deploy also runs on
+ * the note it registers; this one guards every line readers see: the history file, the rewritten copies and any
+ * note not yet published.
+ */
+const READER_JARGON = /名额|口径|背景提及|补译|首尾空白|域名|\bwww\b|撤下|基期|\bj\s*\/\s*k\b/i;
+export function readerWordingProblem(lines: readonly string[]): string | null {
+  const hit = READER_JARGON.exec(lines.join("\n"));
+  return hit ? `“${hit[0]}”是技术或内部用语，公开更新日志请写成读者能直接看懂的话` : null;
+}
+
+/** The reader-facing copy edits (industry/changelog-copy-edits.json); `copy: null` takes an entry out of the log. */
+export type ChangelogCopyEdit = {
+  date: string;
+  time: string;
+  title: string;
+  originalCopySha256: string;
+  /** `kind` (with `version` on 重大更新) may also be restated, e.g. a release registered as 更新 that was a major one. */
+  copy: { title: string; body: string[]; kind?: ChangelogRelease["kind"]; version?: string } | null;
+};
+
+/** The copy edit that rewrites this note as it was registered on publication, if it was published and rewritten. */
+export function publishedNoteRewrite(note: Pick<ReleaseNote, "title" | "body">, edits: readonly ChangelogCopyEdit[]): ChangelogCopyEdit | null {
+  return (
+    edits.find(
+      (edit) =>
+        edit.title === note.title &&
+        createHash("sha256")
+          .update(JSON.stringify({ date: edit.date, time: edit.time, title: note.title, body: note.body }))
+          .digest("hex") === edit.originalCopySha256,
+    ) ?? null
+  );
 }
 
 export function readReleaseRecords(filename: string): ReleaseRecord[] {

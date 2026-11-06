@@ -10,8 +10,16 @@ import { fileURLToPath } from "node:url";
 import { webEnvironment } from "../runtime-env.ts";
 
 const changelog = {
-  latestVersion: "2026-10-06T02:50",
+  latestVersion: "2026-11-06T11:21",
   releases: [
+    {
+      date: "2026-11-06",
+      time: "11:21",
+      kind: "重大更新",
+      version: "2026.11",
+      title: "合成的地图版本",
+      body: ["合成导语。", "合成一。", "合成二。", "合成三。", "合成四。", "合成五。", "合成六。"],
+    },
     { date: "2026-10-06", time: "02:50", kind: "重大更新", version: "2.0", title: "合成的大版本", body: ["合成说明。", "- 要点：合成内容"] },
     { date: "2026-09-15", kind: "公告", title: "合成的只有日期的条目", body: ["合成说明。"] },
   ],
@@ -79,11 +87,26 @@ test("a date-only entry has no time on the page; a major update shows its versio
   // The page itself, without the scripts (the serialized loader data among them).
   const page = html.replace(/<script\b[\s\S]*?<\/script>/g, "");
   assert.match(page, />02:50</);
+  assert.match(page, />11:21</);
   assert.match(page, />重大更新 2\.0</);
   assert.match(page, /id="d-2026-10-06"/, "a feature-only day remains the month navigation target");
   assert.match(page, /合成的只有日期的条目/);
   assert.match(page, /2026 年 9 月 15 日/);
   assert.doesNotMatch(page, /00:00|undefined/);
-  // One time on the page: the major update's; the date-only entry renders none.
-  assert.equal(page.match(/>\d{2}:\d{2}</g)?.length, 1);
+  // Two times on the page: the two major updates'; the date-only entry renders none.
+  assert.equal(page.match(/>\d{2}:\d{2}</g)?.length, 2);
+});
+
+test("the 2026.11 major update leads with the live news map and folds its long list of changes", async () => {
+  const page = (await (await fetch(`${origin}/changelog`)).text()).replace(/<script\b[\s\S]*?<\/script>/g, "");
+  assert.match(page, />重大更新 2026\.11</);
+  assert.match(page, /本次主角/);
+  assert.match(page, /id="world-map"/, "the home page's own map is embedded");
+  assert.match(page, /点一个圆，去首页看这个国家的资讯。/, "with a hint that fits this page");
+  // The lead line shows; the six other lines are listed in a folded section with their count.
+  assert.match(page, /合成导语。/);
+  assert.match(page, /<details[^>]*>[\s\S]*本次全部 <!-- -->6<!-- --> 项变化|<details[^>]*>[\s\S]*本次全部 6 项变化/);
+  for (const to of ["/all", "/hot", "/policies", "/metals", "/more"]) assert.match(page, new RegExp(`href="${to}"`), to);
+  // The 2.0 notice has no showcase of its own and keeps its paragraphs.
+  assert.match(page, /合成说明。/);
 });

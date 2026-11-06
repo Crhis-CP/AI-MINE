@@ -1,8 +1,19 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
 import { ReadingUpgrade } from "./ReadingUpgrade";
+import { Showcase202611 } from "./Showcase202611";
+
+/**
+ * A major update's own showcase, by version (not by title, which the reader copy may rewrite). With one, the first
+ * line leads, the showcase follows, and the remaining lines are listed after it (folded away when there are many).
+ */
+const SHOWCASES: Record<string, () => ReactNode> = {
+  "2026.10": ReadingUpgrade,
+  "2026.11": Showcase202611,
+};
+const FOLD_AFTER = 5;
 
 interface Release {
   date: string;
@@ -225,6 +236,7 @@ export function FeatureNotice({ release }: { release: Release }) {
   const parts = parseFeature(release.body);
   const label = release.version ? `${release.kind} ${release.version}` : release.kind;
   const test = release.kind === "公告" && release.title === "目前是测试版";
+  const Showcase = release.version ? SHOWCASES[release.version] : undefined;
   return (
     <section className="card scroll-mt-6 px-5 py-5 sm:px-7 sm:py-6">
       <header className="animate-fade-up flex items-baseline justify-between gap-4">
@@ -246,32 +258,76 @@ export function FeatureNotice({ release }: { release: Release }) {
         {release.title}
       </h2>
       {test && <Beats />}
-      {release.title === "历史报告与连续阅读升级" && <ReadingUpgrade />}
-      <div className="mt-4 max-w-[42em] space-y-3 text-[15px] leading-[1.85] text-ink-2">
-        {parts.paragraphs.map((p, i) => (
-          <p key={p} className="animate-fade-up" style={at((test ? 4 : 1) + i * 0.6)}>
-            <Inline text={p} />
-          </p>
-        ))}
-        {parts.lede && (
-          <p className="animate-fade-up text-ink-3" style={at(test ? 5 : 2)}>
-            {parts.lede}
-          </p>
-        )}
-        {parts.bullets.length > 0 && (
-          <ul className="space-y-1.5 text-[14px] text-ink-3">
-            {parts.bullets.map((b, i) => (
-              <li key={b} className="animate-fade-up flex gap-2" style={at(2 + i)}>
-                <span className="mt-[11px] size-1 shrink-0 rounded-full bg-hot" aria-hidden="true" />
-                <span>
-                  <Inline text={b} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {Showcase ? (
+        <ShowcaseBody lines={parts.paragraphs} showcase={<Showcase />} />
+      ) : (
+        <div className="mt-4 max-w-[42em] space-y-3 text-[15px] leading-[1.85] text-ink-2">
+          {parts.paragraphs.map((p, i) => (
+            <p key={p} className="animate-fade-up" style={at((test ? 4 : 1) + i * 0.6)}>
+              <Inline text={p} />
+            </p>
+          ))}
+          {parts.lede && (
+            <p className="animate-fade-up text-ink-3" style={at(test ? 5 : 2)}>
+              {parts.lede}
+            </p>
+          )}
+          {parts.bullets.length > 0 && (
+            <ul className="space-y-1.5 text-[14px] text-ink-3">
+              {parts.bullets.map((b, i) => (
+                <li key={b} className="animate-fade-up flex gap-2" style={at(2 + i)}>
+                  <span className="mt-[11px] size-1 shrink-0 rounded-full bg-hot" aria-hidden="true" />
+                  <span>
+                    <Inline text={b} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {parts.stations.length > 0 && <Chain stations={parts.stations} outlets={parts.outlets} />}
     </section>
+  );
+}
+
+/** The lead line, the showcase, then every change of the release as a list (folded when long). */
+function ShowcaseBody({ lines, showcase }: { lines: string[]; showcase: ReactNode }) {
+  const tr = useTr();
+  const [lead, ...rest] = lines;
+  const list = (
+    <ul className="mt-3 space-y-2 text-[14px] leading-[1.8] text-ink-2">
+      {rest.map((line) => (
+        <li key={line} className="flex gap-2.5">
+          <span className="mt-[11px] size-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+          <span>
+            <Inline text={line} />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <>
+      {lead && (
+        <p className="animate-fade-up mt-4 max-w-[42em] text-[15.5px] leading-[1.85] text-ink-2" style={at(1)}>
+          <Inline text={lead} />
+        </p>
+      )}
+      {showcase}
+      {rest.length > 0 &&
+        (rest.length > FOLD_AFTER ? (
+          <details className="group/all mt-5 max-w-[46em] rounded-control border border-line px-4 py-3">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+              {tr("本次全部 {n} 项变化", { n: rest.length })}
+              <span className="text-[12.5px] font-normal text-accent group-open/all:hidden">{tr("展开")}</span>
+              <span className="hidden text-[12.5px] font-normal text-accent group-open/all:inline">{tr("收起")}</span>
+            </summary>
+            {list}
+          </details>
+        ) : (
+          <div className="mt-5 max-w-[46em]">{list}</div>
+        ))}
+    </>
   );
 }
