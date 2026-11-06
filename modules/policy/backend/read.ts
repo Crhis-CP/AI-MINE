@@ -212,21 +212,22 @@ async function* currentViews(ctx: Context, details = false) {
   }
 }
 /**
- * Every current document's first language view, read once for all requests that arrive while it is being read (a
- * jurisdiction page asks for nine lists and the scope at once). It is dropped as soon as it settles, so no answer
- * is older than a read that was already under way when its request arrived.
+ * Every current document's first language view, read once for the requests that arrive together (a jurisdiction
+ * page asks for nine lists and the scope at once). A request joins only a reading that has not started: the reading
+ * starts on the next turn of the event loop, after every request gathered for it has arrived, so each answer
+ * includes everything committed before its request arrived, a withdrawal included, exactly as a read of its own
+ * would. A request arriving once the reading is under way gathers for the next one; nothing is kept afterwards.
  */
-let pendingSnapshot: Promise<{ ctx: Context; views: View[] }> | null = null;
+let gathering: Promise<{ ctx: Context; views: View[] }> | null = null;
 function currentSnapshot() {
-  pendingSnapshot ??= (async () => {
+  gathering ??= new Promise<void>((start) => setImmediate(start)).then(async () => {
+    gathering = null;
     const ctx = context(),
       views: View[] = [];
     for await (const view of currentViews(ctx)) views.push(view);
     return { ctx, views };
-  })().finally(() => {
-    pendingSnapshot = null;
   });
-  return pendingSnapshot;
+  return gathering;
 }
 /** Only complete, currently qualified Chinese reading text participates; card metadata retains its independent basic-facts eligibility. */
 function fullChineseMatches(view: View, query: string) {

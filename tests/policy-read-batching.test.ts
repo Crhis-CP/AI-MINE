@@ -15,9 +15,19 @@ const access = createDatabaseAccess("test", { DATABASE_URL: process.env.DATABASE
 const db = access.dbFor("worker");
 // Every tagged statement (and fragment) the reads build through the shared driver handle.
 let statements = 0;
+/** The next statement whose text includes `text` waits for `gate`; `reached` fires when it starts waiting. */
+let held: { text: string; reached: () => void; gate: Promise<void> } | null = null;
 const counted = new Proxy(db, {
   apply(target, self, args) {
-    if (Array.isArray(args[0]) && Object.hasOwn(args[0], "raw")) statements++;
+    if (Array.isArray(args[0]) && Object.hasOwn(args[0], "raw")) {
+      statements++;
+      if (held && (args[0] as string[]).join("?").includes(held.text)) {
+        const { reached, gate } = held;
+        held = null;
+        reached();
+        return gate.then(() => Reflect.apply(target, self, args));
+      }
+    }
     return Reflect.apply(target, self, args);
   },
 });
@@ -129,7 +139,7 @@ async function counting<T>(read: () => Promise<T>) {
   return { value, statements };
 }
 
-test("public policy lists read a page of documents with a fixed number of statements, shared while a read is under way", async () => {
+test("public policy lists read a page of documents with a fixed number of statements, shared by requests that arrive together", async () => {
   const first = [...(await source("a", 1)), ...(await source("b", 1))];
   const list = () => page({}),
     scope = () => policyScope(),
@@ -161,4 +171,20 @@ test("public policy lists read a page of documents with a fixed number of statem
   await db`UPDATE acquisition.directory_records SET role='history' WHERE scan_id='scan-c' AND record_id='record-0'`;
   assert.equal((await list()).total, 4);
   assert.equal(await readable("AR"), 4);
+  // A reading already under way never answers a request that arrives after a withdrawal commits: that request reads
+  // again. The first reading is held after it has read the editions (withdrawn still false) and before its next statement.
+  let release!: () => void, reached!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve)),
+    holding = new Promise<void>((resolve) => (reached = resolve));
+  held = { text: "FROM policy.expressions WHERE id=ANY", reached, gate };
+  const underway = list();
+  await holding;
+  await db`UPDATE publication.policy_documents SET withdrawn=true WHERE id=${more[2]!}`;
+  const arrived = list();
+  release();
+  const answer = await arrived;
+  assert.equal(answer.total, 3);
+  assert.ok(!answer.items.some((item) => item.id === more[2]));
+  await underway;
+  assert.equal(await readable("AR"), 3);
 });
