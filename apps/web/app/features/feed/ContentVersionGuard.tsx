@@ -1,7 +1,7 @@
 import { apiFetch } from "../../lib/http.ts";
-import { useTr } from "../../i18n";
+import { fmt, useTr } from "../../i18n";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigation, useRevalidator } from "react-router";
+import { useLocation, useNavigation, useNavigationType, useRevalidator } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { readSnapshot, restoreAnchor, saveSnapshot, type ListSnapshot } from "./restore";
 
@@ -11,27 +11,78 @@ export function useReaderItemScope() {
   return useContext(ReaderItemScope);
 }
 
-/** New arrivals wait for the reader; withdrawals refresh every public reading surface immediately. */
+/** The IDs of the cards on screen and of their grouped members. */
+function onScreen() {
+  const ids = new Set<string>();
+  for (const node of document.querySelectorAll<HTMLElement>("[data-item-id]")) {
+    const id = node.dataset.itemId;
+    if (id) ids.add(id);
+    try {
+      const members: unknown = JSON.parse(node.dataset.memberIds ?? "[]");
+      if (Array.isArray(members)) for (const member of members) if (typeof member === "string") ids.add(member);
+    } catch {
+      // A malformed member list adds nothing; the card's own ID is still checked.
+    }
+  }
+  return { ids };
+}
+const READER_ID = /^[a-zA-Z0-9_-]{1,80}$/;
+type Availability = "public" | "summary-only" | "unavailable";
+/** What the server lets readers see of each ID now, 100 IDs per request; an ID it does not answer for is unavailable. */
+async function availability(ids: string[], signal: AbortSignal) {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  const answers = await Promise.all(
+    chunks.map(async (chunk) => {
+      const result = await apiFetch(`/api/site/items/availability?ids=${chunk.join(",")}`, { cache: "no-store", signal, baseUrl: window.location.origin });
+      if (!result.ok) throw new Error("availability unavailable");
+      const value = (await result.json()) as Record<string, unknown>;
+      return chunk.map((id) => [id, value[id] === "public" || value[id] === "summary-only" ? value[id] : "unavailable"] as const);
+    }),
+  );
+  return new Map<string, Availability>(answers.flat());
+}
+
+/** The item an article page shows (`/items/:id` and its original view): it is checked like the cards on a list. */
+const pageItem = (pathname: string) => pathname.match(/^\/items\/([^/]+)/)?.[1] ?? null;
+
+/**
+ * New arrivals wait for the reader; a withdrawal removes what this page shows of it (reader pages, rule 10).
+ * The withdrawal counter moves many times an hour for changes elsewhere (any update to a published item, any
+ * withdrawal or regrouping), so a change first asks whether anything on this page went: if not, the page stays
+ * exactly as it is. New arrivals are told apart by their own version, so an unrelated change never hides them.
+ */
 export function ContentVersionGuard({ children }: { children: ReactNode }) {
   const tr = useTr();
   const location = useLocation();
   const navigation = useNavigation();
+  const navigationType = useNavigationType();
   const revalidator = useRevalidator();
   const routeKey = location.pathname + location.search;
   const ref = useRef(revalidator);
   ref.current = revalidator;
-  const [status, setStatus] = useState<"idle" | "checking" | "new" | "updated" | "failed" | "withdrawn">("idle");
+  const [status, setStatus] = useState<"idle" | "checking" | "notice" | "failed" | "withdrawn">("idle");
+  // The notice: items removed from this page, and new arrivals waiting for "加载最新".
+  const [removedCount, setRemovedCount] = useState(0);
+  const removed = useRef(0);
+  const [arrivalsWaiting, setArrivalsWaiting] = useState(false);
   const [generation, setGeneration] = useState(0);
   const [allowedIds, setAllowedIds] = useState<{ routeKey: string; ids: Set<string> } | null>(null);
   const retry = useRef<() => void>(() => {});
-  const baseline = useRef<{ version: string; withdrawalVersion: string } | null>(null);
-  const pendingVersion = useRef<{ version: string; withdrawalVersion: string } | null>(null);
+  // What the reader has: the withdrawal version this page was checked against and the arrivals it has loaded.
+  const seen = useRef<{ withdrawals: string; arrivals: string } | null>(null);
+  // Arrivals the server has and the page does not show yet; recorded as seen when the reader loads them.
+  const pendingArrivals = useRef<string | null>(null);
   // Returning to the same history key still needs this visit's check, not its earlier result.
   const visit = useMemo(() => ({ key: location.key }), [location.key]);
   const [checkedVisit, setCheckedVisit] = useState<typeof visit | null>(null);
+  const checkedFor = useRef<typeof visit | null>(null);
+  // What this visit last confirmed the article page may show (full text or summary).
+  const article = useRef<{ visit: typeof visit; state: Availability } | null>(null);
   const interaction = useRef(0);
   const position = useRef<{ key: string; snapshot: ListSnapshot<null>; interaction: number } | null>(null);
   const pagedList = location.pathname === "/all";
+  const savedPage = /^\/starred(?:\/|$)/.test(location.pathname);
   useEffect(() => {
     const interrupt = () => interaction.current++;
     const events = ["pointerdown", "wheel", "touchstart", "keydown"] as const;
@@ -84,13 +135,21 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     location.pathname,
   );
   useEffect(() => {
+    // A new page starts without the last page's notices; what still applies is found again by its first check.
     setAllowedIds(null);
+    pendingArrivals.current = null;
+    removed.current = 0;
+    setRemovedCount(0);
+    setArrivalsWaiting(false);
+    setStatus("idle");
     if (policyPage) return;
     const controller = new AbortController();
     let pending = false;
     const check = async () => {
       if (pending || document.visibilityState !== "visible") return;
       pending = true;
+      // The first check after a link or address change: the loader has just read this page fresh.
+      const freshPage = checkedFor.current !== visit && navigationType !== "POP";
       setStatus((old) => (old === "idle" ? "checking" : old));
       try {
         const result = await apiFetch("/api/site/content-version", {
@@ -101,46 +160,75 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         if (!result.ok) throw new Error("version unavailable");
         const value = publicSchemas.ContentVersion.parse(await result.json());
         if (controller.signal.aborted) return;
-        const previous = baseline.current;
-        if (!previous || value.withdrawalVersion !== previous.withdrawalVersion) {
-          // Hiding the old page can clamp scrollY to zero. Retain its item anchor until the
-          // fresh loader and visible subtree commit; a reader interaction cancels the return.
-          if (previous && pagedList && (!position.current || position.current.interaction !== interaction.current)) {
-            saveSnapshot(location.key, null, "[data-item-id]");
-            const snapshot = readSnapshot<null>(location.key);
-            if (snapshot) position.current = { key: location.key, snapshot, interaction: interaction.current };
-          }
-          const visible = previous
-            ? new Set(
-                [...document.querySelectorAll<HTMLElement>("[data-item-id]")].flatMap((node) => {
-                  const ids = node.dataset.itemId ? [node.dataset.itemId] : [];
-                  try {
-                    const members: unknown = JSON.parse(node.dataset.memberIds ?? "[]");
-                    return Array.isArray(members) ? [...ids, ...members.filter((id): id is string => typeof id === "string")] : ids;
-                  } catch {
-                    return ids;
-                  }
-                }),
-              )
-            : null;
-          if (visible?.size) setAllowedIds({ routeKey, ids: visible });
-          setStatus(previous ? "withdrawn" : "checking");
+        const previous = seen.current;
+        if (!previous) {
+          // The first visit refreshes the server-rendered page once in place.
+          setStatus("checking");
           await ref.current.revalidate();
           if (controller.signal.aborted) return;
-          // Initial loader refreshes update in place. Replacing the live subtree here can discard
-          // a pointer-down target before its click. Only actual withdrawals invalidate local views.
-          if (previous) setGeneration((n) => n + 1);
-          baseline.current = value;
-          pendingVersion.current = visible?.size ? value : null;
-          setStatus(visible?.size ? "updated" : "idle");
-        } else if (value.version !== previous.version) {
-          pendingVersion.current = value;
-          setStatus("new");
-        } else setStatus(pendingVersion.current ? "updated" : "idle");
+          seen.current = { withdrawals: value.withdrawalVersion, arrivals: value.version };
+          setStatus("idle");
+          return;
+        }
+        let reread = false;
+        if (value.withdrawalVersion !== previous.withdrawals) {
+          const screen = onScreen();
+          // Even an article just opened is asked about: its data may be a copy fetched when the link was pressed.
+          const ownId = pageItem(location.pathname);
+          const own = ownId && READER_ID.test(ownId) ? ownId : null;
+          const ids = [...new Set([...screen.ids, ...(own ? [own] : [])])].filter((id) => READER_ID.test(id));
+          const answer = ids.length ? await availability(ids, controller.signal) : null;
+          if (controller.signal.aborted) return;
+          // Cards are listed only when public (saved items also in summary): the others went.
+          const gone = answer
+            ? [...screen.ids].filter((id) => answer.has(id) && answer.get(id) !== "public" && !(savedPage && answer.get(id) === "summary-only"))
+            : null;
+          // The article is read again when what it may show differs from what this visit confirmed: taken down, or cut
+          // to a summary while its full text may be on screen (first seen in summary, it is read once to be sure).
+          const ownState = own ? answer?.get(own) : undefined;
+          const confirmed = article.current?.visit === visit ? article.current.state : null;
+          const ownChanged = ownState !== undefined && (ownState === "unavailable" || (confirmed === null ? ownState !== "public" : ownState !== confirmed));
+          if (own && ownState) article.current = { visit, state: ownState };
+          if (gone && !gone.length && !ownChanged) {
+            // Nothing on this page went: keep reading undisturbed.
+            seen.current = { ...previous, withdrawals: value.withdrawalVersion };
+          } else {
+            // Hiding nothing, re-read the page in place; what went drops out, anything new waits for the reader.
+            if (pagedList && (!position.current || position.current.interaction !== interaction.current)) {
+              saveSnapshot(location.key, null, "[data-item-id]");
+              const snapshot = readSnapshot<null>(location.key);
+              if (snapshot) position.current = { key: location.key, snapshot, interaction: interaction.current };
+            }
+            if (screen.ids.size) setAllowedIds({ routeKey, ids: screen.ids });
+            // Say so only when something here went; anything else is read again quietly.
+            setStatus(gone?.length || ownState === "unavailable" ? "withdrawn" : "checking");
+            await ref.current.revalidate();
+            if (controller.signal.aborted) return;
+            reread = true;
+            setGeneration((n) => n + 1);
+            seen.current = { ...previous, withdrawals: value.withdrawalVersion };
+            // The server named the cards this page may no longer show; the re-read has taken them out.
+            removed.current += gone?.length ?? 0;
+            setRemovedCount(removed.current);
+          }
+        }
+        const arrivals = value.version;
+        if (arrivals !== seen.current!.arrivals) {
+          // A page just opened by a link already shows them; otherwise they wait for "加载最新".
+          if (freshPage && !reread) seen.current = { ...seen.current!, arrivals };
+          else pendingArrivals.current = arrivals;
+        }
+        // A re-read with nothing new to hold back shows the page as loaded, so later pages of the list are not filtered.
+        if (reread && pendingArrivals.current === null) setAllowedIds(null);
+        setArrivalsWaiting(pendingArrivals.current !== null);
+        setStatus(removed.current > 0 || pendingArrivals.current !== null ? "notice" : "idle");
       } catch {
         if (!controller.signal.aborted) setStatus("failed");
       } finally {
-        if (!controller.signal.aborted) setCheckedVisit(visit);
+        if (!controller.signal.aborted) {
+          checkedFor.current = visit;
+          setCheckedVisit(visit);
+        }
         pending = false;
       }
     };
@@ -159,13 +247,16 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       window.removeEventListener("pageshow", check);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [policyPage, routeKey, pagedList, location.key, visit]);
+  }, [policyPage, routeKey, pagedList, savedPage, location.key, location.pathname, visit, navigationType]);
   const loadLatest = async () => {
     const position = window.scrollY;
     setAllowedIds(null);
     await ref.current.revalidate();
-    if (pendingVersion.current) baseline.current = pendingVersion.current;
-    pendingVersion.current = null;
+    if (pendingArrivals.current && seen.current) seen.current = { ...seen.current, arrivals: pendingArrivals.current };
+    pendingArrivals.current = null;
+    removed.current = 0;
+    setRemovedCount(0);
+    setArrivalsWaiting(false);
     setStatus("idle");
     requestAnimationFrame(() => window.scrollTo({ top: position, behavior: "instant" }));
   };
@@ -173,19 +264,22 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     <>
       {!policyPage && status !== "idle" && status !== "checking" && (
         <div role="status" className="my-2 flex items-center gap-3 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">
-          {status === "withdrawn"
-            ? tr("公开内容已调整，正在核对当前页面…")
-            : status === "failed"
-              ? tr("暂时无法确认最新内容")
-              : status === "updated"
-                ? tr("已核对撤回和修订内容")
-                : tr("有新的矿业动态")}
+          {status === "withdrawn" ? (
+            tr("正在更新当前页面…")
+          ) : status === "failed" ? (
+            tr("暂时无法确认最新内容")
+          ) : (
+            <>
+              {removedCount > 0 && <span>{fmt(tr("有 {count} 条内容已撤回，已从列表移除"), { count: removedCount })}</span>}
+              {arrivalsWaiting && <span>{tr("有新的矿业动态")}</span>}
+            </>
+          )}
           {status === "failed" && (
             <button type="button" onClick={() => retry.current()} className="text-accent">
               {tr("重试")}
             </button>
           )}
-          {(status === "new" || status === "updated") && (
+          {status === "notice" && arrivalsWaiting && (
             <button type="button" onClick={loadLatest} className="text-accent">
               {tr("加载最新")}
             </button>
@@ -193,12 +287,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         </div>
       )}
       <ReaderItemScope.Provider value={allowedIds?.routeKey === routeKey ? allowedIds.ids : null}>
-        <section
-          key={generation}
-          aria-label={tr("阅读内容")}
-          aria-busy={!policyPage && (status === "checking" || status === "withdrawn")}
-          hidden={!policyPage && status === "withdrawn"}
-        >
+        <section key={generation} aria-label={tr("阅读内容")} aria-busy={!policyPage && (status === "checking" || status === "withdrawn")}>
           {children}
         </section>
       </ReaderItemScope.Provider>

@@ -62,7 +62,9 @@ after(async () => {
 });
 const profile = { bodySelector: "article", attachmentSelector: null, maxBytes: 2_000_000, maxResources: 8, maxPages: 40, maxTextBytes: 2_000_000 };
 async function fixture(count = 1) {
-  const sourceId = `interpret-${tag()}`,
+  // No digits in the ID: it is quoted in the provisions, and a number there (say "99") would let code decide a
+  // claim these tests send to the model verifier.
+  const sourceId = `interpret-${tag().replace(/\d/g, (d) => "abcdefghij"[Number(d)]!)}`,
     url = `https://source.invalid/${sourceId}`;
   await sql`INSERT INTO sources(id,name,kind,lane,enabled) VALUES(${sourceId},${sourceId},'external','policy',false)`;
   await grantDateFixture(sourceId, [url]);

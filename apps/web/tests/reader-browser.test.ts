@@ -25,6 +25,8 @@ let historicalBackground = true;
 let readerWithdrawalVersion = "1";
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
+// How the availability API reports the withdrawn fixture: gone, or moved to "summary only" (no longer listed).
+let withdrawnAs: "unavailable" | "summary-only" = "unavailable";
 let withdrawn = false,
   added = false;
 const now = new Date().toISOString();
@@ -270,6 +272,15 @@ const api = createServer((req, res) => {
       releases: changelogVersion ? [{ date: changelogVersion.slice(0, 10), time: "12:30", kind: "优化", title: "合成阅读更新", body: ["改进阅读体验。"] }] : [],
     });
   if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion });
+  if (url.pathname === "/api/site/items/availability")
+    return answer(
+      Object.fromEntries(
+        (url.searchParams.get("ids") ?? "")
+          .split(",")
+          .filter(Boolean)
+          .map((id) => [id, withdrawn && id === "fixture-a" ? withdrawnAs : "public"]),
+      ),
+    );
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
   if (url.pathname === "/api/site/stories/synthetic-story")
     return answer({
@@ -683,15 +694,116 @@ test("a combined withdrawal and arrival removes the old card while the new card 
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   await openQualifiedReader(page);
+  // An editor made the card "summary only": it leaves every list, as a withdrawal does.
+  withdrawnAs = "summary-only";
+  t.after(() => {
+    withdrawnAs = "unavailable";
+  });
   withdrawn = true;
   added = true;
   await checkVersionOnFocus(page, "2");
-  await expect(page.getByText("已核对撤回和修订内容", { exact: false })).toBeVisible();
+  await expect(page.getByText("有 1 条内容已撤回，已从列表移除", { exact: false })).toBeVisible();
+  await expect(page.getByText("有新的矿业动态", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "加载最新" }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
+  await expect(page.getByText("已从列表移除", { exact: false })).toHaveCount(0);
 });
+
+test("a withdrawal elsewhere on the site leaves the open page, its position and its notices untouched", { timeout: 30000 }, async (t) => {
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, locale: "zh-CN" });
+  t.after(async () => {
+    readerWithdrawalVersion = "1";
+    t.diagnostic(`last reader phase: ${phase}`);
+    await context.close();
+  });
+  await isolateBrowser(context, [origin]);
+  const page = await context.newPage();
+  await openQualifiedReader(page);
+  let reloads = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/all.data") reloads++;
+  });
+  // Another article was withdrawn or a report regrouped: the counter moves, nothing on this page is affected.
+  readerWithdrawalVersion = "2";
+  const checked = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
+  const asked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/items/availability");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  assert.deepEqual(await (await checked).json(), { version: "1", withdrawalVersion: "2" });
+  assert.ok(new URL((await asked).url()).searchParams.get("ids")?.split(",").includes("fixture-a"), "the page asks about the cards it shows");
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+  await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+  await expect(page.getByText("已撤回", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("正在更新当前页面", { exact: false })).toHaveCount(0);
+  assert.equal(reloads, 0, "nothing on this page changed, so it is not read again");
+  // A later check with no change keeps it that way.
+  const again = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await again;
+  await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+  assert.equal(reloads, 0);
+  // News arriving together with another unrelated change is still offered, and still waits for the reader.
+  added = true;
+  readerWithdrawalVersion = "3";
+  const both = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  assert.deepEqual(await (await both).json(), { version: "2", withdrawalVersion: "3" });
+  await expect(page.getByText("有新的矿业动态", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
+  assert.equal(reloads, 0);
+  await page.getByRole("button", { name: "加载最新", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+});
+
+for (const change of ["unavailable", "summary-only"] as const) {
+  test(`an article opened from a copy fetched just before it became ${change} is checked and read again`, { timeout: 30000 }, async (t) => {
+    withdrawn = false;
+    added = false;
+    const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, locale: "zh-CN" });
+    t.after(async () => {
+      withdrawn = false;
+      withdrawnAs = "unavailable";
+      t.diagnostic(`last reader phase: ${phase}`);
+      await context.close();
+    });
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await openQualifiedReader(page);
+    // The copy a press on the link fetched (it may be reused for a few seconds); then the article is taken down or
+    // cut to a summary, so the full text in that copy may no longer be shown.
+    phase = "stale copy: fetch";
+    const copy = await page.request.get(`${origin}/items/fixture-a.data`);
+    assert.equal(copy.status(), 200);
+    const body = await copy.body(),
+      contentType = copy.headers()["content-type"]!;
+    withdrawnAs = change;
+    withdrawn = true;
+    // The click is answered with that copy once, as a browser reusing its press-time prefetch would (routed answers
+    // bypass the browser cache here, so the reuse is played directly); everything after it reaches the server.
+    let reused = false;
+    await page.route("**/items/fixture-a.data*", (route) => {
+      if (reused || route.request().headers()["sec-purpose"]) return route.continue();
+      reused = true;
+      return route.fulfill({ status: 200, contentType, body });
+    });
+    const asked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/items/availability");
+    phase = "stale copy: open";
+    await page.locator('[data-item-id="fixture-a"] h3 a').first().click();
+    await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    // The page's first check asks about the article itself and, as it may no longer show that copy, reads it again.
+    phase = "stale copy: asked";
+    const reread = page.waitForRequest((request) => new URL(request.url()).pathname === "/items/fixture-a.data" && !request.headers()["sec-purpose"]);
+    assert.ok(new URL((await asked).url()).searchParams.get("ids")?.split(",").includes("fixture-a"), "the article itself is asked about");
+    await reread;
+    if (change === "unavailable") await expect(page.getByRole("heading", { level: 1, name: detail.title, exact: true })).toHaveCount(0);
+  });
+}
 
 async function loadFourTimelinePages(page: Page) {
   const viewport = page.viewportSize()!;
