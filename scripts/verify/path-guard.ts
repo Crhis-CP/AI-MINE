@@ -39,6 +39,7 @@ export interface Card {
 }
 
 const INTEGRATOR = "architect";
+const NOT_ALLOWED = "not in the task card's allowed_paths";
 
 /** Reads a task card's YAML front matter (between the first two `---` lines). */
 export function parseCard(text: string): Record<string, unknown> {
@@ -62,7 +63,7 @@ export function ownedPaths(lanes: Lanes, lane: string): string[] {
 /** Why `file` is outside what `card` may write, or null when it may be written. */
 export function judge(file: string, card: Card, lanes: Lanes): string | null {
   if (matchesAny(file, lanes.generated ?? [])) return null;
-  if (!matchesAny(file, card.allowed_paths)) return "not in the task card's allowed_paths";
+  if (!matchesAny(file, card.allowed_paths)) return NOT_ALLOWED;
   if (card.lane === INTEGRATOR) return null;
   const approved = Boolean(card.integration_owner?.trim());
   // Integrator-only areas first: they win over a lane's own paths (contracts owns src/**, but not src/common/**).
@@ -133,5 +134,16 @@ export function pathGuard(base: string, head: string, task: string | null, root 
     const why = judge(f, card, lanes);
     return why ? [`${f}: ${why}`] : [];
   });
+  // PIT-108: the card on this branch may already list a file the base card does not. Say what to do about it.
+  const headText = lines.length ? tryGit(["show", `${head}:tasks/${task}.md`], root) : null;
+  if (headText !== null) {
+    const headPaths = (parseCard(headText).allowed_paths as unknown[] | undefined)?.map(String) ?? [];
+    const widened = changed.filter((f) => judge(f, card, lanes) === NOT_ALLOWED && matchesAny(f, headPaths));
+    if (widened.length)
+      lines.push(
+        `tasks/${task}.md on this branch lists ${widened.join(", ")}, but path-guard reads the card on the base commit: ` +
+          `land that card change first in a PR that changes only tasks/${task}.md, then merge the base into this branch (PIT-108)`,
+      );
+  }
   return { status: lines.length ? "fail" : "pass", lines: lines.length ? lines : [`${changed.length} changed files within ${task} (lane ${card.lane})`] };
 }
