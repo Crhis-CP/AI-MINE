@@ -743,11 +743,6 @@ export const PHRASES = {
   "新一期报价较上一期变动超出常规范围，暂显示上一期已核对的数值，下一期公布后自动确认或更正":
     "The newest price moved more than usual from the previous period, so the last checked price is shown; the next release confirms or corrects it automatically",
   "按各报价所示的实际基期比较，可能跨越停发期": "Compared with the base period shown for each price; may span a pause in publication",
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: “US$” is literal text before the {value} placeholder, not a template.
-  "约 {value} 美元/吨": "≈ US${value}/t",
-  "约 {value} {unit}": "≈ {value} {unit}",
-  "（按{date}{name}折算）": "({name} of {date})",
-  人民币汇率中间价: "RMB central parity",
   各金属最新报价: "Latest price of each metal",
   "另有 {count} 个报价": "Other prices: {count}",
   来源与规格: "Source and specification",

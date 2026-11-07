@@ -38,9 +38,8 @@ export function checkPeriod({
   if (!onSourceHost(source, release.url)) reasons.push(`发布页链接 ${release.url} 不在登记的主机上或不是 https`);
   // Period averages need a completed period; published daily fixings may belong to today.
   const today = beijingDate(now);
-  // Daily fetchers (Bank of Russia, Cochilco, the RMB central parity) verify the source date: a fixing of today may be
-  // published today; a future one is still refused.
-  if (period.end > today || (period.end === today && source.frequency !== "day"))
+  // These daily fetchers verify the source date; a future fixing is still refused.
+  if (period.end > today || (period.end === today && !["cochilco", "cbr"].includes(source.key)))
     reasons.push(`所属期${period.label}还没结束（最后一天 ${period.end}，北京时间今天 ${today}）`);
   // With nothing stored for the source (the first run) there is nothing to be older than.
   if (newest && period.start < newest) reasons.push(`所属期${period.label}比库里最新一期（${newest} 开始）旧`);

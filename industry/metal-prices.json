@@ -19,8 +19,7 @@
       ],
       "benchmark": "全国流通领域市场价格",
       "unit": "元/吨",
-      "sourceUnit": "吨",
-      "secondary": { "rate": "safe.usd", "factor": "100", "unit": "美元/吨", "currency": "USD", "decimals": 0, "withinDays": 14 }
+      "sourceUnit": "吨"
     },
     {
       "key": "mofcom",
@@ -44,8 +43,7 @@
       ],
       "benchmark": "商务预报公布的全国价格",
       "unit": "元/吨",
-      "sourceUnit": "元/吨",
-      "secondary": { "rate": "safe.usd", "factor": "100", "unit": "美元/吨", "currency": "USD", "decimals": 0, "withinDays": 14 }
+      "sourceUnit": "元/吨"
     },
     {
       "key": "worldbank",
@@ -111,31 +109,6 @@
       "benchmark": "Cochilco 日报列示的 LME 现货报价",
       "unit": "美元/吨",
       "sourceUnit": "US$/TM"
-    },
-    {
-      "key": "safe",
-      "name": "国家外汇管理局",
-      "section": "domestic",
-      "frequency": "day",
-      "currency": "CNY",
-      "delay": "人民币汇率中间价每个交易日北京时间 9:15 公布，周末和法定节假日不公布；本站只用它把国内报价折算成美元/吨",
-      "staleDays": 14,
-      "hosts": ["www.safe.gov.cn"],
-      "officialUrl": "https://www.safe.gov.cn/safe/rmbhlzjj/index.html",
-      "terms": { "name": "国家外汇管理局网站法律声明", "url": "https://www.safe.gov.cn/safe/flsm/index.html" },
-      "attribution": [
-        "信息来源：国家外汇管理局网站 https://www.safe.gov.cn/safe/rmbhlzjj/index.html",
-        "该页注明数据来源于中国外汇交易中心；人民币汇率中间价由中国人民银行授权中国外汇交易中心每个交易日公布"
-      ],
-      "license": [
-        "国家外汇管理局网站法律声明：本网资料未经特殊注明的，版权属国家外汇管理局；不得商业性转载；经许可的媒体、网站可以非商业性转载，并注明“信息来源：国家外汇管理局网站”。本站免费、没有广告，没有取得单独许可，按 Owner 2026-11-07 同意接入人民币汇率中间价的决定使用；用途或条款变了要重新核对。",
-        "本站只取美元一项中间价，用来把国内报价折算成美元/吨并注明所用日期，不另列中间价表。",
-        "中国货币网（中国外汇交易中心）的法律声明不允许未经书面授权用电子抓取方式获取它的内容，所以本站不从中国货币网取数。",
-        "库里存它公布的原数（元/100美元）；页面上的“约 X 美元/吨”是本站换算并取整到 1 美元的参考值，国内报价照发布的原数显示。"
-      ],
-      "benchmark": "人民币汇率中间价",
-      "unit": "元/100美元",
-      "sourceUnit": "元/100美元"
     }
   ],
   "items": [
@@ -493,13 +466,6 @@
       "metal": "nickel",
       "quote": "国际 · LME 现货价",
       "footnote": "cochilco"
-    },
-    {
-      "key": "safe.usd",
-      "source": "safe",
-      "sourceName": "美元",
-      "name": "美元",
-      "rate": true
     }
   ],
   "metals": [
@@ -559,11 +525,6 @@
       "sources": ["mofcom"]
     },
     {
-      "text": "国内报价下面的“约 X 美元/吨”是本站按人民币对美元汇率中间价换算的参考值，取整到 1 美元：用报价所属期最后一天的中间价，那天没有公布（周末、节假日）就用之前最近一个交易日的，不用之后的；之前 14 天内都没有中间价就不换算。国内报价本身照发布的原数显示。中间价由中国外汇交易中心公布，本站转自国家外汇管理局网站的{link}（信息来源：国家外汇管理局网站）。",
-      "link": { "name": "人民币汇率中间价", "url": "https://www.safe.gov.cn/safe/rmbhlzjj/index.html" },
-      "sources": ["safe"]
-    },
-    {
       "text": "国际价格来自世界银行每月发布的大宗商品价格（Pink Sheet，按 {link} 许可使用），表中是它公布的月平均价；铜、铝、锌、铅、锡、镍是它写明的 LME 结算价。品种名称与规格由本站翻译，数值保留两位小数。",
       "link": { "name": "CC BY 4.0", "url": "https://creativecommons.org/licenses/by/4.0/" },
       "sources": ["worldbank"]
@@ -577,11 +538,6 @@
       "name": "商务部 商务预报",
       "note": "铜、铝、锌的全国价格，每周更新。",
       "url": "https://cif.mofcom.gov.cn/cif/html/dataCenter2021/index.html?jgsczlzdjc_yousejinshu_224011"
-    },
-    {
-      "name": "国家外汇管理局 人民币汇率中间价",
-      "note": "人民币对美元等货币的每日中间价，数据来源于中国外汇交易中心。",
-      "url": "https://www.safe.gov.cn/safe/rmbhlzjj/index.html"
     },
     { "name": "世界银行 大宗商品价格", "note": "每月发布的大宗商品价格（Pink Sheet）。", "url": "https://www.worldbank.org/en/research/commodity-markets" },
     { "name": "IMF 初级商品价格", "note": "国际货币基金组织每月发布的初级商品价格数据。", "url": "https://www.imf.org/en/research/commodity-prices" },

@@ -53,12 +53,7 @@ test("CBR registration keeps four converted quotes and a hidden raw rate, with t
   );
   assert.ok(registry.officialLinks.every((link) => !link.url.includes("cbr.ru")));
   assert.doesNotMatch(JSON.stringify({ source, items, footnote }), /LBMA|伦敦金价|伦敦定盘价|平均|月均|均价|XAU|XAG|XPT|XPD|UAH|NBUStatService/);
-  assert.ok(registry.items.filter((i) => i.source !== "cbr").every((i) => i.convert === null));
-  // The only other rate is the RMB central parity (TASK-0572), which converts nothing in place.
-  assert.deepEqual(
-    registry.items.filter((i) => i.source !== "cbr" && i.rate).map((i) => i.key),
-    ["safe.usd"],
-  );
+  assert.ok(registry.items.filter((i) => i.source !== "cbr").every((i) => i.convert === null && i.rate === false));
 });
 
 test("bad conversions and rate presentation reject the entire registry and name the field", () => {

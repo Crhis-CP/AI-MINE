@@ -1678,31 +1678,10 @@ const DEMO_PERIODS: Record<string, { tag: string; current: DemoPeriod; previous:
     release: "演示：Pink Sheet 2026年10月",
     url: "https://www.worldbank.org/en/research/commodity-markets",
   },
-  safe: {
-    tag: "日",
-    current: ["2026-10-02", "2026-10-02", "2026年10月2日"],
-    previous: ["2026-10-01", "2026-10-01", "2026年10月1日"],
-    release: "演示：国家外汇管理局 人民币汇率中间价 2026-10-02",
-    url: "https://www.safe.gov.cn/safe/rmbhlzjj/index.html",
-  },
 };
-/** Invented RMB central parities (元/100美元), newest first: the domestic quotes take the latest on or before their period end. */
-const DEMO_PARITIES: [date: string, value: string, label: string][] = [
-  ["2026-09-30", "711.02", "2026年9月30日"],
-  ["2026-09-25", "710.84", "2026年9月25日"],
-];
 type RegistryNote = { key?: string; text: string; link?: { name: string; url: string } };
 const demoRegistry = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8")) as {
-  sources: {
-    key: string;
-    name: string;
-    frequency: string;
-    delay: string;
-    currency: string;
-    unit?: string;
-    decimals?: number;
-    secondary?: { factor: string; unit: string; currency: string };
-  }[];
+  sources: { key: string; name: string; frequency: string; delay: string; currency: string; unit?: string; decimals?: number }[];
   items: { key: string; metal?: string; quote?: string; spec?: string; footnote?: string; unit?: string; convert?: { unit: string; currency: string } }[];
   metals: { key: string; name: string }[];
   intro: string;
@@ -1711,18 +1690,6 @@ const demoRegistry = JSON.parse(readFileSync(new URL("../industry/metal-prices.j
   notes: RegistryNote[];
   officialLinks: { name: string; note: string; url: string }[];
 };
-
-/** A domestic demo quote in 美元/吨, rounded to whole dollars as the site's read does; null without a price. */
-function demoConverted(secondary: { factor: string; unit: string; currency: string }, value: string | null, end: string) {
-  const parity = DEMO_PARITIES.find(([date]) => date <= end);
-  if (!value || !parity) return null;
-  return {
-    value: String(Math.round((Number(value) * Number(secondary.factor)) / Number(parity[1]))),
-    unit: secondary.unit,
-    currency: secondary.currency,
-    rate: { source: "safe", name: "人民币汇率中间价", date: parity[0], label: parity[2] },
-  };
-}
 
 function buildDemoMetalPrices() {
   const sources = demoRegistry.sources.filter((source) => DEMO_PERIODS[source.key]);
@@ -1749,7 +1716,6 @@ function buildDemoMetalPrices() {
           decimals: source.decimals ?? null,
           period: value ? { start, end, label } : null,
           change: value && percent ? { percent, previous: { value: "100", period: { start: previousStart, end: previousEnd, label: previousLabel } } } : null,
-          ...(source.secondary ? { converted: demoConverted(source.secondary, value, end) } : {}),
         },
       ];
     });
