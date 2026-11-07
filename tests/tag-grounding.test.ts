@@ -52,3 +52,8 @@ test("a mineral in a language the wordings do not cover is kept; a company is st
   assert.equal(tagGrounded("锂", "Proyecto de litio en Catamarca", "es"), true);
   assert.equal(tagGrounded("锂", "Proyecto de cobre en Catamarca", "es"), false);
 });
+
+test("Spanish and Portuguese aluminium are both found (Codex review #380)", () => {
+  assert.equal(tagGrounded("铝", "La producción de aluminio creció.", "es"), true);
+  assert.equal(tagGrounded("铝", "A produção de alumínio aumentou.", "pt"), true);
+});

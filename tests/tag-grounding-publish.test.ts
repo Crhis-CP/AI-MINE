@@ -58,7 +58,7 @@ test("a company and a mineral the material never names are not published; the re
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output, tags, subjects)
     VALUES (${articleId}, 1, 'rule', 'pass', 'events_opinion', ${`比尔·盖茨私人访问智利Chuquicamata铜矿${T}`}, ${`盖茨参观了智利国家铜业公司的铜矿 GUIDE-${T}`}, '理由', 40, false,
-      ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)}, ${["铜", "锂", "智利", "紫金矿业"]}, ${["codelco"]})`;
+      ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)}, ${["铜", "锂", "智利", "紫金矿业"]}, ${["codelco", "zijin"]})`;
   await completeMaterialGrouping(articleId, 1, { addsValue: false, reason: "合成归组" }, null);
   await publishArticle(articleId, { releasedAt: new Date(Date.now() - 60_000) });
   const [row] = await sql<{ tags: string[]; search_text: string }[]>`SELECT tags, search_text FROM publications WHERE article_id=${articleId}`;
@@ -67,12 +67,19 @@ test("a company and a mineral the material never names are not published; the re
   assert.ok(!row.tags.includes("锂"), "lithium is not in the material");
   assert.ok(row.tags.includes("铜") && row.tags.includes("智利"), `copper (cobre) and the country stay: ${row.tags.join(",")}`);
   assert.ok(!row.search_text.includes("紫金"), "the company filter's search text no longer names Zijin");
+  assert.ok(!row.search_text.split(/\s+/).includes("zijin"), "nor the ungrounded subject id (Codex review #380)");
+  assert.ok(row.search_text.split(/\s+/).includes("codelco"), "the grounded subject stays searchable");
+  assert.ok(!row.tags.includes("entity:zijin"));
 
   // A row stored before the rule: the sweep finds it and republishing removes the tag.
   await sql`UPDATE publications SET tags = array_append(tags, '紫金矿业') WHERE article_id=${articleId}`;
+  await sql`UPDATE publications SET search_text = search_text || ' zijin' WHERE article_id=${articleId}`;
   const found = (await ungroundedTagPublications(null, 100_000)).find((r) => r.articleId === articleId);
-  assert.deepEqual(found?.dropped, ["紫金矿业"]);
+  assert.deepEqual(found?.dropped, ["紫金矿业", "entity:zijin"], "the stale tag and the stale searchable subject are both found");
   await publishArticle(articleId);
-  const [fixed] = await sql<{ tags: string[] }[]>`SELECT tags FROM publications WHERE article_id=${articleId}`;
+  const [fixed] = await sql<{ tags: string[]; search_text: string }[]>`SELECT tags, search_text FROM publications WHERE article_id=${articleId}`;
   assert.ok(!fixed!.tags.includes("紫金矿业"));
+  assert.ok(!fixed!.search_text.split(/\s+/).includes("zijin"));
+  const again = (await ungroundedTagPublications(null, 100_000)).find((r) => r.articleId === articleId);
+  assert.deepEqual(again?.dropped, [], "a second sweep finds nothing left");
 });

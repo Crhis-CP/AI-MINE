@@ -27,7 +27,7 @@ const MINERAL_EVIDENCE: Record<string, RegExp> = {
   铁矿石: /\bmineral de hierro\b|\bmin[eé]rio de ferro\b|\bhierro\b|\bferro\b/i,
   铁: /\bhierro\b|\bferro\b/i,
   铝土矿: /\bbauxita\b/i,
-  铝: /\balumin[ií]o\b/i,
+  铝: /\balum[ií]nio\b/i,
   稀土: /\btierras raras\b|\bterras raras\b/i,
   钨: /\btungsteno\b|\bwolframio\b|\btungst[eê]nio\b/i,
   锑: /\bantimonio\b|\bantim[oô]nio\b/i,

@@ -397,25 +397,24 @@ export async function publishArticleTx(
   // Tags set by hand stay as they are; analysed ones lead with the published category's current name, so names
   // retired by a rename (TASK-0041) or the re-cut (ADR-0031) never outlive their category.
   // A company or mineral the analysis tagged must be named in the material itself (TASK-0584); hand-set tags stay.
+  const grounding = groundingText([
+    article.title,
+    article.body_text,
+    article.excerpt,
+    article.x_post?.text,
+    article.x_post?.quoted?.text,
+    article.x_article?.title,
+    article.x_article?.text,
+    source.name,
+  ]);
+  // The subjects the material names; the search text below uses the same list (Codex review #380).
+  const subjects = (analysis?.subjects ?? []).filter((s) => tagGrounded(`entity:${s}`, grounding, article.language));
   const tags = z
     .array(z.string())
     .parse(
       Array.isArray(f.tags)
         ? f.tags
-        : groundTags(
-            categoryLedTags(category, [...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]),
-            groundingText([
-              article.title,
-              article.body_text,
-              article.excerpt,
-              article.x_post?.text,
-              article.x_post?.quoted?.text,
-              article.x_article?.title,
-              article.x_article?.text,
-              source.name,
-            ]),
-            article.language,
-          ),
+        : groundTags(categoryLedTags(category, [...(analysis?.tags ?? []), ...subjects.map((s) => `entity:${s}`)]), grounding, article.language),
     );
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
@@ -554,7 +553,7 @@ export async function publishArticleTx(
     seoExcludedAt: previous?.seo_excluded_at ?? null,
   });
   const searchText = collapseWhitespace(
-    [title, originalTitle, displaySummary, source.name, ...displayTags(tags), ...(analysis?.subjects ?? [])].filter(Boolean).join(" "),
+    [title, originalTitle, displaySummary, source.name, ...displayTags(tags), ...subjects].filter(Boolean).join(" "),
   ).toLowerCase();
 
   // Independent selected articles retain their arrival and never date the ordinary reading group.
@@ -951,6 +950,8 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
     {
       article_id: string;
       tags: string[];
+      search_text: string;
+      subjects: string[];
       title: string;
       body_text: string | null;
       excerpt: string | null;
@@ -959,8 +960,9 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
       x_article: { title?: string; text?: string } | null;
       source_name: string;
     }[]
-  >`SELECT p.article_id, p.tags, a.title, a.body_text, a.excerpt, a.language, a.x_post, a.x_article, s.name AS source_name
-    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=a.source_id
+  >`SELECT p.article_id, p.tags, p.search_text, coalesce(an.subjects, '{}') AS subjects, a.title, a.body_text, a.excerpt, a.language, a.x_post,
+      a.x_article, s.name AS source_name
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=a.source_id LEFT JOIN analyses an ON an.id=p.analysis_id
     WHERE p.channel='news' AND (${afterId}::text IS NULL OR p.article_id > ${afterId}::text)
     ORDER BY p.article_id LIMIT ${limit}`;
   return rows.map((row) => {
@@ -974,7 +976,11 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
       row.x_article?.text,
       row.source_name,
     ]);
-    return { articleId: row.article_id, dropped: row.tags.filter((tag) => !tagGrounded(tag, text, row.language)) };
+    // Stored tags, and analysed subjects still written into the search text (Codex review #380); after a republish
+    // neither remains, so a second run finds nothing.
+    const inSearch = row.subjects.filter((id) => row.search_text.split(/\s+/).includes(id.toLowerCase())).map((id) => `entity:${id}`);
+    const candidates = [...new Set([...row.tags, ...inSearch])];
+    return { articleId: row.article_id, dropped: candidates.filter((tag) => !tagGrounded(tag, text, row.language)) };
   });
 }
 
