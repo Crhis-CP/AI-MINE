@@ -584,7 +584,17 @@ TASK0503依据Owner默认关闭决定，使用唯一 `ORIGINAL_POST_ADMISSION_EN
 
 ### 精选按事件只出现一次（TASK-0570）
 
-`readingGroups=reports-v1`的精选读法（`scope=selected`或`selected=true`，且没有搜索词）在事实组之上再按事件折叠：同一事件（未合并的`p.story_id`）的多张事实卡合成一张，代表该事件最新一次进展（按事件页的`storyLine`判断进展，转载拆出的事实算同一次进展），位置取这次进展在列表里首次出现的时间；`GroupInfo.developmentCount`是折叠进来的进展数，`memberIds`含全部折叠成员，“另有 N 家来源报道”仍按卡片所代表的那次进展计。只是展示层：事实、事件、入选、分数和报道组都不改；报道组卡、独立来源席位卡和逐篇卡不并入事件卡。全部矿业动态和搜索仍按事实成卡，每次进展留在自己的日期里。
+`readingGroups=reports-v1`的精选读法（`scope=selected`或`selected=true`，且没有搜索词）在事实组之上再按事件折叠：同一事件（未合并的`p.story_id`）的多张事实卡合成一张，代表该事件最新一次进展（按事件页的`storyLine`判断进展，转载拆出的事实算同一次进展），位置取这次进展在列表里首次出现的时间；`GroupInfo.developmentCount`是折叠进来的进展数，`memberIds`含全部折叠成员，“另有 N 家来源报道”仍按卡片所代表的那次进展计。只是展示层：事实、事件、入选、分数和报道组都不改；报道组卡、独立来源席位卡和逐篇卡不并入事件卡。全部矿业动态和搜索仍按事实成卡，每次进展留在自己的日期里。TASK-0575 起，挂到事件下的报道组（`publication.report_group_stories`）也并入该事件的卡：与卡片代表的那次进展是同一次发生的，计入“另有 N 家来源报道”和来源展开；自成一次进展的，计入`developmentCount`并在展开的进展里出现；事件在列表里只有报道组、没有事实卡时，报道组保持自己的卡。
+
+### 事件不再一分为多（TASK-0575）
+
+`events/story-merge.ts`（经`events/group`导出）。根因：新稿只挂到事件开头那条事实（`relate.storyForDevelopment`只认根事实），召回只看14天、开头最先移出窗口，持续一个月以上的事件后续进展另起新事件；`consolidate`只比较两个开头。
+
+- `sweepStoryMerges`（worker `stories.merge`，每小时第27分）：候选对 = 入库排队的事件对 + 两边都未合并的`story_links`相关对 + 闸门对（近`MERGE_WINDOW_DAYS`=45天有报道的未合并事件中，主体相同——报道`entity:*`标签最多者，没有时取根事实主体——且类别相同——报道类别最多者——、较晚事件开始距较早事件最新报道不超过45天、两个根报道的已存向量余弦≥0.6，无向量时用词面相似度≥`LEXICAL_RECALL_MIN`；不另买向量）。判断较早事件的最新事实（`storyEndFacts`/`storyFactView`）对较晚事件的根事实，沿用`judgeStories`：`group_story`判为同一次发生或进展且≥`TIE_MIN_CONFIDENCE`，再由`group_story_review`反向复核且≥`STORY_REVIEW_MIN_CONFIDENCE`，两次都同意才经`mergeStoryInto`把较晚事件并入较早事件（别名转址、撤回快照、重发布、事件文字刷新）。每轮至多`MERGE_MAX_JUDGEMENTS`=20对；高峰时段（`offPeakWait`）与资讯线暂停时不判断；`origin='manual'`或含人工事实的事件记`skipped`不送模型；根或最新事实为综合稿的不合并。每次结果写`events.story_merge_decisions`（`queued`/`merged`/`different`/`skipped`，含两次关系、置信度、回执、输入键）；输入键由两边所判事实与代表报道的身份和修订、配方版本组成，未变的`different`/`skipped`不再付费。每轮最后运行`attachReportGroupsToStories`。
+- 入库排队（`group.ts decide`）：新稿对另一事件的非根事实判为SAME_STORY且≥0.7时（根规则不挂、原先另起新事件），在写入同一事务里`queueStoryMergePairs`把（该事件，新稿所在事件）排为`queued`，下一轮优先判断；入库不多调用模型，`GroupResult.queuedMerges`记数。
+- `attachReportGroupsToStories`（无模型）：读者可见（≥2个当前成员）的报道组，若成员自己当前修订的最新归组决定（不含`roundup`）在候选里以SAME_OCCURRENCE/SAME_STORY且≥0.7连到恰好一个未合并事件的事实，就投影到`publication.report_group_stories`：有同一次发生的连到那条事实，否则作为该事件里的独立一次进展（读侧用负数键`reportGroupDevelopmentKey`、公开键`rg-<group>`）；连到两个事件的不挂。不用`fact_articles`的`mention`行：它只为综合稿写入且包含ROUNDUP答案，表示“综合稿列出了它”，不表示报道就是这件事。读侧：`publication/stories`（事件页的报道与进展线、`readStoryReportLines`）、`publication/groups`（进展展开`loadDevelopments`、来源展开`loadGroupReports`）、`report-group-reading`精选折叠。
+- `measureStoryDuplicates`（worker `stories.duplicates`，每天06:47）：疑似重复事件对数 = 候选对中未被已有答案定案（内容未变的`different`）且不含人工锁定的数目；无事件归属的共同报道数 = 读者可见报道组减已挂靠数。写`events.story_duplicate_metrics`（北京日），运维快照`publication`数据集多两行（`suspected_duplicate_story_pairs`、`report_groups_without_story`）；`duplicateStoryFindings`在疑似对数超过`ALERT_DUPLICATE_STORY_PAIRS`（默认10）时给每日提醒，统计超过两天未更新也提醒。
+- 回填：`scripts/story-merge-backfill.ts`默认试算（`planStoryMergeBackfill`：候选、已定案、待判对数，调用次数下限=待判对数、上限=两倍，按近30天事件判断回执的平均单价估算费用；不调用模型、不写入），`--apply`按轮调用`applyStoryMergeBackfill`（每轮20对，遇高峰/暂停/模型等待即停，可重跑续接）。
 
 ### 普通复合稿的报道身份（TASK-0501）
 
