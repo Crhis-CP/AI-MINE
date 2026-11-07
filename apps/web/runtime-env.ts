@@ -45,6 +45,12 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "PRIVATE_HOST",
     "WEB_ROUTE_GROUP",
     "TRUST_PROXY",
+    // Per-visitor request limits (TASK-0583); defaults apply when unset.
+    "RATE_LIMIT",
+    "RATE_LIMIT_PAGE",
+    "RATE_LIMIT_API",
+    "RATE_LIMIT_WRITE",
+    "CLIENT_IP_HEADER",
   ];
   return Object.fromEntries(allowed.filter((name) => env[name] !== undefined).map((name) => [name, env[name]!]));
 }
