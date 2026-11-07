@@ -4,6 +4,7 @@ import { createDatabaseAccess } from "@amp/backend/db";
 import { installTestConnections } from "./direct-db-fixture.ts";
 import { mergeRelated, relatedNewsForPolicy } from "../packages/backend/src/publication/news-policy-links.ts";
 import { looseUrlKeys, repairNewsLinks } from "../packages/backend/src/publication/news-link-index.ts";
+import { officialHref } from "../modules/policy/backend/publication/policies-project.ts";
 
 // TASK-0567: the reports that link an official URL come from publication.news_links, not from reading every
 // public article body; reports whose links are not read yet are still found, and the public state applies at once.
@@ -115,4 +116,13 @@ test("lookup keys cover case, the default port, a trailing slash and percent-enc
   const keys = looseUrlKeys("https://gov.example.invalid/ley%201/");
   for (const stored of ["https://GOV.example.invalid:443/ley 1", "https://gov.example.invalid/ley%201", "https://gov.example.invalid/ley 1/"])
     assert.ok(keys.includes(stored.toLowerCase()), stored);
+});
+
+test("a stored official address is written the way a cited link is read, so dot segments and IDN hosts still match", () => {
+  // Codex review #355 (P2): the card keeps the parsed spelling; the lookup keys of the clean link then contain it.
+  const stored = officialHref("https://GOV.Example.invalid:443/a/../decree/7");
+  assert.equal(stored, "https://gov.example.invalid/decree/7");
+  assert.ok(looseUrlKeys("https://gov.example.invalid/decree/7").includes(stored));
+  assert.equal(officialHref("https://bücher.example.invalid/ley"), "https://xn--bcher-kva.example.invalid/ley");
+  assert.equal(officialHref("not a url"), "not a url");
 });

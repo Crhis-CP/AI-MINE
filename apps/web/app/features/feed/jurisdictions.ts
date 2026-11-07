@@ -1,9 +1,10 @@
 // The public jurisdiction list with news counts, read once per page view and shared by the country
 // filter and the world map (both only render it after hydration; the list is not part of the HTML).
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { z } from "zod";
 import { apiFetch } from "../../lib/http.ts";
+import { useLocale, useTr } from "../../i18n";
 
 export type JurisdictionChoice = z.infer<typeof publicSchemas.PolicyJurisdictionList>[number];
 
@@ -35,4 +36,16 @@ export function useJurisdictionChoices(): { choices: JurisdictionChoice[] | null
     };
   }, []);
   return { choices, failed };
+}
+
+/**
+ * A place's name in the interface language: the English interface names countries itself (the API's labels
+ * are Chinese) and other kinds through the phrase list. Shared by the country filter, the country chips and
+ * the news map (TASK-0568).
+ */
+export function useRegionName(): (place: { code: string; label: string; kind?: string }) => string {
+  const english = useLocale() === "en";
+  const tr = useTr();
+  const names = useMemo(() => (english && typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames(["en"], { type: "region" }) : null), [english]);
+  return useCallback((place) => ((place.kind ?? "country") === "country" ? (names?.of(place.code) ?? place.label) : tr.maybe(place.label)), [names, tr]);
 }

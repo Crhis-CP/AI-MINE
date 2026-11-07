@@ -62,10 +62,12 @@ export function ThemeSwitch({ className = "", labelled = false }: { className?: 
 }
 
 /**
- * One button for the desktop header (UI update, Owner 2026-11-05): it switches between light and dark from
- * whatever is showing now. “跟随系统” stays on the 我的 page, in the three-way switch above.
+ * One button that switches between light and dark from whatever is showing now (UI update, Owner 2026-11-05).
+ * “跟随系统” stays on the 我的 page, in the three-way switch above. In the desktop header it carries a visible
+ * tooltip; `compact` is the round icon of the phone top bars (TASK-0568: on phones it used to be found only
+ * under 我的 › 阅读设置).
  */
-export function ThemeToggle() {
+export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const tr = useTr();
   const pref = useThemePreference();
   const [shown, setShown] = useState<"light" | "dark" | null>(null);
@@ -89,15 +91,38 @@ export function ThemeToggle() {
     else apply();
   };
   const label = shown === "dark" ? tr("切换到浅色") : tr("切换到深色");
+  const icon = shown === "dark" ? <IconSun size={compact ? 19 : 17} /> : <IconMoon size={compact ? 19 : 17} />;
+  if (compact)
+    return (
+      <button
+        type="button"
+        data-theme-toggle=""
+        onClick={toggle}
+        aria-label={label}
+        title={label}
+        className="grid size-10 shrink-0 place-items-center rounded-full text-ink-3 transition-colors active:bg-bg-sunk"
+      >
+        {icon}
+      </button>
+    );
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={label}
-      title={label}
-      className="flex size-10 items-center justify-center rounded-control border border-line bg-surface text-ink-3 transition-colors hover:text-ink"
-    >
-      {shown === "dark" ? <IconSun size={17} /> : <IconMoon size={17} />}
-    </button>
+    <span className="group/theme relative inline-flex">
+      <button
+        type="button"
+        data-theme-toggle=""
+        onClick={toggle}
+        aria-label={label}
+        className="flex size-10 items-center justify-center rounded-control border border-line bg-surface text-ink-3 transition-colors hover:text-ink"
+      >
+        {icon}
+      </button>
+      {/* The name shows at once under the pointer or keyboard focus; the button carries it as its label too. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-50 whitespace-nowrap rounded-control bg-ink px-2 py-1 text-[12px] text-bg opacity-0 shadow-[var(--shadow-pop)] transition-opacity duration-150 group-hover/theme:opacity-100 group-has-[:focus-visible]/theme:opacity-100"
+      >
+        {label}
+      </span>
+    </span>
   );
 }
