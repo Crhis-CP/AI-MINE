@@ -132,6 +132,7 @@ test("receipt schemas stay in explicit private registration without global leaka
     "recoverUsageBreaker",
     "usageMonthlyList",
     "usageMonthlyDetail",
+    "adminVisits",
     "modelRegistry",
     "createModelConnection",
     "updateModelConnection",
