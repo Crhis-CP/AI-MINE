@@ -6,6 +6,7 @@ import { processingOperationalSnapshot, currentAnalyzedMaterials } from "../cont
 import { acquisitionOperationalSnapshot } from "../acquisition/operational-snapshot.ts";
 import { usageOperationalSnapshot, evaluationsOperationalSnapshot, protectionOperationalSnapshot } from "../providers/operational-snapshot.ts";
 import { publicationOperationalSnapshot } from "../publication/operational-snapshot.ts";
+import { storyDuplicateSnapshotRows } from "../events/story-merge.ts";
 import { accountsOperationalSnapshot, auditOperationalSnapshot } from "../admin/operational-snapshot.ts";
 import { feedbackOperationalSnapshot } from "../feedback/operational-snapshot.ts";
 import { storeOperationalSnapshot, recordOperationalSnapshotFailure } from "./read-snapshots.ts";
@@ -53,7 +54,8 @@ const readers = {
   acquisition: acquisitionOperationalSnapshot,
   usage: usageOperationalSnapshot,
   protection: protectionOperationalSnapshot,
-  publication: publicationOperationalSnapshot,
+  // The publication counts, plus the latest duplicate-event measurement as two more news rows (TASK-0575).
+  publication: async () => [...(await publicationOperationalSnapshot()), ...(await storyDuplicateSnapshotRows())],
   audit: auditOperationalSnapshot,
   accounts: accountsOperationalSnapshot,
   feedback: feedbackOperationalSnapshot,

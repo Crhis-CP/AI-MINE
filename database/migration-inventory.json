@@ -535,6 +535,14 @@
     {
       "name": "content/202611061201_news_links_body_hook.sql",
       "dependsOn": ["publication/202611061200_news_links.sql"]
+    },
+    {
+      "name": "events/202611071200_story_merge_sweep.sql",
+      "dependsOn": ["events/202611050100_story_digest_detail.sql"]
+    },
+    {
+      "name": "publication/202611071201_report_group_stories.sql",
+      "dependsOn": ["publication/202610262230_report_group_members.sql", "publication/202611061200_news_links.sql"]
     }
   ]
 }

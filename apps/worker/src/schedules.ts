@@ -11,7 +11,13 @@ import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
-import { linkRelatedStories, recoverPendingGroupings, remergeSingleReportFacts } from "@amp/backend/events/group";
+import {
+  linkRelatedStories,
+  measureStoryDuplicates,
+  recoverPendingGroupings,
+  remergeSingleReportFacts,
+  sweepStoryMerges,
+} from "@amp/backend/events/group";
 import { enqueuePendingReportCorrections, catchUpReports } from "@amp/backend/reports/compose";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
@@ -42,6 +48,11 @@ export const SCHEDULES: Scheduled[] = [
   // Recent facts left with one report get one bounded pairwise look an hour (at most 20 model calls, none at
   // the provider's peak hours: rule merges still run then, judged pairs wait for the next off-peak run).
   { name: "events.remerge", cron: "37 * * * *", run: () => remergeSingleReportFacts() },
+  // One event, one story (TASK-0575): queued, related and gate pairs of live stories are judged earlier-latest against
+  // later-root (at most 20 pairs, none at peak hours), and report groups are attached to their story (no model).
+  { name: "stories.merge", cron: "27 * * * *", run: () => sweepStoryMerges() },
+  // The daily count of suspected duplicate events and of report groups with no story (ops snapshot, ops.alerts).
+  { name: "stories.duplicates", cron: "47 6 * * *", missed: "once", run: () => measureStoryDuplicates() },
   { name: "reports.correction-sweep", cron: "*/5 * * * *", run: () => enqueuePendingReportCorrections(20) },
   { name: "reports.catch-up", cron: "*/30 * * * *", missed: "once", run: () => catchUpReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },

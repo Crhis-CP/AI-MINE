@@ -3,6 +3,16 @@ export type { ReportGroupDecisionReader } from "@amp/contracts/site";
 export { readReportIdentityDecision, compareReportGroup } from "./report-groups.ts";
 import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
+import { queueStoryMergePairs } from "./story-merge.ts";
+export {
+  sweepStoryMerges,
+  planStoryMerges,
+  attachReportGroupsToStories,
+  measureStoryDuplicates,
+  storyDuplicateSnapshotRows,
+  duplicateStoryFindings,
+  MERGE_MAX_JUDGEMENTS,
+} from "./story-merge.ts";
 export type { HistoricalBackgroundReferencesReader } from "@amp/contracts/site";
 export { readHistoricalBackgroundReferences } from "./historical-background-store.ts";
 import { readGroupingAnalysis, groupingAnalysisHash, groupingScopeInputs } from "../enrichment/records.ts";
@@ -289,20 +299,45 @@ async function qualifiedReports<T extends ReportMembership>(rows: T[], db: Db = 
 
 /** Empty facts do not start a story; trusted report time wins, then fact ID. */
 async function storyRootFacts(storyIds: number[], db: Db = sql): Promise<Map<number, number>> {
+  return new Map([...(await storyEndFacts(storyIds, db))].map(([story, ends]) => [story, ends.root.factId]));
+}
+
+/** A story's first or newest fact by trusted report time, and the report that time comes from. */
+export interface StoryEnd {
+  factId: number;
+  articleId: string;
+  revision: number;
+  /** Microseconds since the epoch (publication order time). */
+  at: bigint;
+}
+
+/**
+ * Each story's root fact (its earliest trusted report; rootFactOf) and its latest fact (the fact of its newest
+ * trusted report). Ties go to the lower fact ID for the root and to the higher one for the latest.
+ */
+export async function storyEndFacts(storyIds: number[], db: Db = sql): Promise<Map<number, { root: StoryEnd; latest: StoryEnd }>> {
   if (!storyIds.length) return new Map();
   const rows = await db<(ReportMembership & { story_id: number; fact_id: number })[]>`
     SELECT y.story_id,y.id AS fact_id,z.article_id,z.input_revision,z.manual FROM facts y
     JOIN fact_articles z ON z.fact_id=y.id AND z.role IN ('primary','report')
     WHERE y.story_id=ANY(${storyIds}) AND (z.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=z.article_id))`;
   const members = await qualifiedReports(rows, db);
-  const roots = new Map<number, { factId: number; at: bigint }>();
+  const ends = new Map<number, { root: StoryEnd; latest: StoryEnd }>();
   for (const member of members) {
     if (member.order_time === null) continue;
     const at = BigInt(member.order_time);
-    const before = roots.get(member.story_id);
-    if (!before || at < before.at || (at === before.at && member.fact_id < before.factId)) roots.set(member.story_id, { factId: member.fact_id, at });
+    const story = Number(member.story_id),
+      fact = Number(member.fact_id);
+    const end: StoryEnd = { factId: fact, articleId: member.article_id, revision: member.material_revision, at };
+    const before = ends.get(story);
+    if (!before) {
+      ends.set(story, { root: end, latest: end });
+      continue;
+    }
+    if (at < before.root.at || (at === before.root.at && fact < before.root.factId)) before.root = end;
+    if (at > before.latest.at || (at === before.latest.at && fact > before.latest.factId)) before.latest = end;
   }
-  return new Map([...roots].map(([story, root]) => [story, root.factId]));
+  return ends;
 }
 
 /** Reports of the recall window that belong to a live fact; those waiting for a regroup only when asked for (the warm-up). */
@@ -976,10 +1011,10 @@ async function sameUrlFact(a: ArticleRow): Promise<PoolRow | null> {
 // Consolidation
 // ---------------------------------------------------------------------------
 
-interface StoryRoot {
+export interface StoryRoot {
   storyId: number;
   at: Date;
-  /** The story started as a multi-topic digest: never merged. */
+  /** The story (or, for storyFactView, the fact) started as a multi-topic digest: never merged. */
   roundup: boolean;
   report: ReportView;
 }
@@ -989,6 +1024,15 @@ async function storyRoot(storyId: number, db?: Db): Promise<StoryRoot | null> {
   if (!db) return sql.begin("isolation level repeatable read read only", (tx) => storyRoot(storyId, tx));
   const root = (await storyRootFacts([storyId], db)).get(storyId);
   if (root === undefined) return null;
+  return storyFactView(storyId, root, db);
+}
+
+/**
+ * One fact of a story as the story judgement sees it (storyRoot's shape): when the fact started, whether it started
+ * as a roundup, and its representative report. The story merge sweep (story-merge.ts) reads a story's newest fact here.
+ */
+export async function storyFactView(storyId: number, root: number, db?: Db): Promise<StoryRoot | null> {
+  if (!db) return sql.begin("isolation level repeatable read read only", (tx) => storyFactView(storyId, root, tx));
   const members = await db<ReportMembership[]>`SELECT article_id,input_revision,manual FROM fact_articles fa
     WHERE fact_id=${root} AND role IN ('primary','report') AND ${trusted("fa")}`;
   const qualified = await qualifiedReports(members, db);
@@ -1040,7 +1084,7 @@ async function storyRoot(storyId: number, db?: Db): Promise<StoryRoot | null> {
   };
 }
 
-async function judgeStories(
+export async function judgeStories(
   capability: "group" | "groupReview",
   a: StoryRoot,
   b: StoryRoot,
@@ -1076,7 +1120,7 @@ async function judgeStories(
   return { relation: verdict, confidence: res.data.confidence, difference: res.data.difference, receiptId: res.receiptId };
 }
 
-async function liveStory(id: number): Promise<number | null> {
+export async function liveStory(id: number): Promise<number | null> {
   let current = id;
   for (let hops = 0; hops < 20; hops++) {
     const [st] = await sql<{ merged_into: number | null }[]>`SELECT merged_into FROM stories WHERE id = ${current}`;
@@ -1245,7 +1289,7 @@ export interface RemergeResult {
   error?: string;
 }
 
-const waitingError = (error: unknown) =>
+export const waitingError = (error: unknown) =>
   shutdownSignal.signal.aborted ||
   error instanceof ModelPostReceiptGuardError ||
   error instanceof BudgetExceededError ||
@@ -1511,6 +1555,8 @@ export interface GroupResult {
   /** Earlier discussion posts close to the fact this report founded, grouped again (rematchSignals). */
   rematched?: number;
   rematchError?: string;
+  /** Stories this report firmly continues through a non-root fact, queued for the merge sweep (story-merge.ts). */
+  queuedMerges?: number;
 }
 
 export interface GroupOptions {
@@ -1988,10 +2034,28 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
     await tx`INSERT INTO fact_articles(fact_id,article_id,role,created_at,input_revision) VALUES(${fact},${articleId},${role},${observedAt},${a.revision}) ON CONFLICT(fact_id,article_id) DO NOTHING`;
     await recordSignal(tx, story, articleId, source, "editorial", observedAt);
     await recordDecision(tx, articleId, fact, story, verdict, decisionCandidates, receipts[0] ?? null, { revision: a.revision, manifest });
+    // A firm development of a fact that did not start its story (the root-only rule keeps the report out of it) is not a
+    // reason to leave the event split: the pair is queued for the hourly merge sweep, which judges the earlier story's
+    // newest fact against the later root (story-merge.ts). No model call here.
+    const developmentOfLaterFact = cands.filter(
+      (c) =>
+        c.storyId !== story &&
+        !c.storyRoot &&
+        verdicts.get(c.factId)?.relation === "SAME_STORY" &&
+        firmlyTied(verdicts.get(c.factId)?.relation, verdicts.get(c.factId)?.confidence),
+    );
+    const queuedMerges = developmentOfLaterFact.length
+      ? await queueStoryMergePairs(
+          story,
+          developmentOfLaterFact.map((c) => c.storyId),
+          articleId,
+          tx,
+        )
+      : 0;
     await finishGroupingTx(tx, articleId, input, selection, receipts[0] ?? null);
     for (const id of receipts) await completeReceipt(tx, id);
     await publishArticleTx(tx, articleId);
-    return { manual: null, factId: fact, storyId: story };
+    return { manual: null, factId: fact, storyId: story, queuedMerges };
   });
   if (written.manual) return { verdict: "manual", factId: written.manual.factId };
   if (historical && attachTo) {
@@ -2003,6 +2067,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   if (historical) return { verdict: "historical" };
   if (composite || unresolved) return { verdict: unresolved ? "standalone" : "roundup" };
   const result: GroupResult = { verdict, factId: written.factId!, storyId: written.storyId! };
+  if ("queuedMerges" in written && written.queuedMerges) result.queuedMerges = written.queuedMerges;
 
   // Other stories this report is firmly tied to: one story may have grown two roots. Best effort:
   // the report's own decision is written; a failed comparison is reported in the job's result.

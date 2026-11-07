@@ -21,6 +21,7 @@ import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAl
 import { loadReport, type ReportKind } from "../publication/reports.ts";
 import { dailyReportQualification, periodReportQualification } from "../reports/compose.ts";
 import { loadHot } from "../publication/stories.ts";
+import { duplicateStoryFindings } from "../events/story-merge.ts";
 import { backupConfigured } from "./backup.ts";
 
 // The metal price runs, for TASK-0076's check script: the backend's entries are frozen, so they go out through this one.
@@ -400,6 +401,23 @@ export async function collectFindings(
     }
   }
   out.push(...(await providerFindings()));
+
+  // One event split into several stories (TASK-0575): the daily count of suspected duplicate pairs, above its threshold.
+  try {
+    out.push(...(await duplicateStoryFindings(now)));
+    observeCheck?.("events.duplicate-stories");
+  } catch {
+    const finding: Finding = {
+      key: "events.duplicate-stories",
+      level: "digest",
+      title: "疑似重复事件的统计暂时读不出来",
+      impact: "不影响读者页面；重复事件的跟进晚一些。",
+      heals: "下一次检查会重试",
+      action: "持续出现时查看 stories.duplicates 的运行记录",
+    };
+    incompleteChecks.add(finding);
+    out.push(finding);
+  }
 
   // Content-group pushes the Feishu webhook refused (a removed bot, a changed address); nothing resends them.
   const [refused] = await sql<{ n: number; target: string | null; response: string | null }[]>`

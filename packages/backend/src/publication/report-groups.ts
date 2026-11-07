@@ -158,3 +158,106 @@ export const projectReportGroup: ReportGroupProjector<Db> = async (input, db) =>
   if (changed) await db`UPDATE publication.read_watermarks SET version=version+1 WHERE lane='news'`;
   return changed;
 };
+
+/** Every report group with at least two current members (the groups readers can see), for the story attachment pass. */
+export async function readCurrentReportGroups(db: Db = sql, now = new Date()): Promise<Array<{ groupId: string; memberIds: string[] }>> {
+  const ids = (await db<{ article_id: string }[]>`SELECT article_id FROM publication.report_group_members ORDER BY article_id`).map((r) => r.article_id);
+  const groups = new Map<string, string[]>();
+  for (const [articleId, member] of await currentReportMemberships(ids, db, now)) groups.set(member.groupId, [...(groups.get(member.groupId) ?? []), articleId]);
+  return [...groups]
+    .filter(([, members]) => members.length > 1)
+    .map(([groupId, memberIds]) => ({ groupId, memberIds: memberIds.sort() }))
+    .sort((a, b) => a.groupId.localeCompare(b.groupId));
+}
+
+/** Where a report group sits in a story: the same occurrence as one of its facts, or a development of its own. */
+export interface ReportGroupStory {
+  groupId: string;
+  storyId: number;
+  /** The fact the group reports (SAME_OCCURRENCE); null for a development of its own (SAME_STORY). */
+  factId: number | null;
+  relation: "SAME_OCCURRENCE" | "SAME_STORY";
+  /** The member decisions this rests on (article, fact, relation, confidence), kept for audit. */
+  basis: unknown;
+}
+
+/**
+ * Replaces the report group → story projection with the given rows (events/story-merge.ts attachReportGroupsToStories
+ * computes them from grouping evidence with no model call). Readers' caches move only when a row changed.
+ */
+export async function projectReportGroupStories(rows: ReportGroupStory[], db: Db = sql): Promise<{ attached: number; changed: number }> {
+  const run = async (tx: Db) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+    const removed = await tx`DELETE FROM publication.report_group_stories WHERE group_id<>ALL(${rows.map((r) => r.groupId)}::uuid[])`;
+    let changed = removed.count;
+    for (const r of rows) {
+      const written = await tx`INSERT INTO publication.report_group_stories(lane,group_id,story_id,fact_id,relation,basis)
+        VALUES('news',${r.groupId},${r.storyId},${r.factId},${r.relation},${tx.json(r.basis as never)})
+        ON CONFLICT(group_id) DO UPDATE SET story_id=EXCLUDED.story_id,fact_id=EXCLUDED.fact_id,relation=EXCLUDED.relation,basis=EXCLUDED.basis,updated_at=pg_catalog.clock_timestamp()
+        WHERE (report_group_stories.story_id,report_group_stories.fact_id,report_group_stories.relation)
+          IS DISTINCT FROM (EXCLUDED.story_id,EXCLUDED.fact_id,EXCLUDED.relation)`;
+      changed += written.count;
+    }
+    if (changed) await tx`UPDATE publication.read_watermarks SET version=version+1 WHERE lane='news'`;
+    return { attached: rows.length, changed };
+  };
+  return db === sql ? sql.begin(run) : run(db);
+}
+
+/** The stories report groups are attached to (projectReportGroupStories). */
+export async function readReportGroupStories(groupIds: string[], db: Db = sql): Promise<Map<string, ReportGroupStory>> {
+  if (!groupIds.length) return new Map();
+  const rows = await db<{ group_id: string; story_id: number; fact_id: number | null; relation: ReportGroupStory["relation"]; basis: unknown }[]>`
+    SELECT group_id::text,story_id,fact_id,relation,basis FROM publication.report_group_stories WHERE group_id=ANY(${groupIds}::uuid[])`;
+  return new Map(
+    rows.map((r) => [
+      r.group_id,
+      { groupId: r.group_id, storyId: Number(r.story_id), factId: r.fact_id === null ? null : Number(r.fact_id), relation: r.relation, basis: r.basis },
+    ]),
+  );
+}
+
+/**
+ * A development a report group forms on its own (SAME_STORY) has no fact: story lines key it by this negative number,
+ * stable per group, so storyLine and the 精选 fold treat it like a fact that has no row in facts.
+ */
+export function reportGroupDevelopmentKey(groupId: string): number {
+  return -(Number.parseInt(groupId.replaceAll("-", "").slice(0, 12), 16) + 1);
+}
+
+/** The public key of a report group's own development (the story page's development key; there is no fact page). */
+export const reportGroupDevelopmentId = (groupId: string) => `rg-${groupId}`;
+
+/**
+ * The current members of the report groups attached to the given stories (two or more still current), each with the
+ * fact it is listed under: the attached fact, or the group's own development key (reportGroupDevelopmentKey).
+ */
+export async function attachedReportGroupMembers(storyIds: number[], db: Db = sql, now = new Date()) {
+  if (!storyIds.length) return [];
+  const attached = await db<{ group_id: string; story_id: number; fact_id: number | null }[]>`
+    SELECT group_id::text,story_id,fact_id FROM publication.report_group_stories WHERE story_id=ANY(${storyIds}::bigint[])`;
+  if (!attached.length) return [];
+  const stored = await db<{ article_id: string }[]>`
+    SELECT article_id FROM publication.report_group_members WHERE group_id=ANY(${attached.map((a) => a.group_id)}::uuid[])`;
+  const current = await currentReportMemberships(
+    stored.map((r) => r.article_id),
+    db,
+    now,
+  );
+  const byGroup = new Map(attached.map((a) => [a.group_id, a]));
+  const out: Array<{ story_id: number; article_id: string; group_id: string; fact_id: number; fact_public_id: string | null }> = [];
+  for (const [articleId, member] of current) {
+    const a = byGroup.get(member.groupId);
+    if (!a) continue;
+    out.push({
+      story_id: Number(a.story_id),
+      article_id: articleId,
+      group_id: a.group_id,
+      fact_id: a.fact_id === null ? reportGroupDevelopmentKey(a.group_id) : Number(a.fact_id),
+      fact_public_id: a.fact_id === null ? reportGroupDevelopmentId(a.group_id) : null,
+    });
+  }
+  const sizes = new Map<string, number>();
+  for (const row of out) sizes.set(row.group_id, (sizes.get(row.group_id) ?? 0) + 1);
+  return out.filter((row) => (sizes.get(row.group_id) ?? 0) > 1).sort((x, y) => x.article_id.localeCompare(y.article_id));
+}

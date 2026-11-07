@@ -479,6 +479,16 @@ export async function readGroupingEvidencePublications(articleIds: string[], db:
 }
 
 /**
+ * Category, tags and public wording of reports, for the story merge sweep's candidate gate (events/story-merge.ts):
+ * metadata only, no body text, no state.
+ */
+export async function readStoryGateProfiles(articleIds: string[], db: Db = sql) {
+  if (!articleIds.length) return [];
+  return db<{ article_id: string; category: string | null; tags: string[]; title: string; summary: string | null }[]>`
+    SELECT article_id,category,tags,title,summary FROM publications p WHERE article_id=ANY(${articleIds}::text[])`;
+}
+
+/**
  * News items whose public title contains one of the given LIKE patterns, by original time since `since`:
  * the publication side of document-identity recall (events/group.ts). Titles only, no text or state.
  */

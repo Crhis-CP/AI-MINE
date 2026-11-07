@@ -950,7 +950,7 @@ export async function publishedStoryId(articleId: string, tx: Tx): Promise<numbe
   return row?.story_id ?? null;
 }
 
-export { readGroupingEvidencePublications } from "./items.ts";
+export { readGroupingEvidencePublications, readStoryGateProfiles } from "./items.ts";
 
 /** Bounded server maintenance for existing records. Only time fields and their sync projection change; no model call or re-scoring. */
 export async function repairPublicationTimes(limit = 100) {
