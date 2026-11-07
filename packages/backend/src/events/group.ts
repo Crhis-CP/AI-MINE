@@ -12,6 +12,9 @@ export {
   storyDuplicateSnapshotRows,
   duplicateStoryFindings,
   MERGE_MAX_JUDGEMENTS,
+  planStoryMergeBackfill,
+  applyStoryMergeBackfill,
+  BACKFILL_DAYS,
 } from "./story-merge.ts";
 export type { HistoricalBackgroundReferencesReader } from "@amp/contracts/site";
 export { readHistoricalBackgroundReferences } from "./historical-background-store.ts";

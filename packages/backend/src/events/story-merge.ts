@@ -466,6 +466,74 @@ async function judgePair(a: StoryRoot, b: StoryRoot) {
 }
 
 // ---------------------------------------------------------------------------
+// One-off backfill (scripts/story-merge-backfill.ts)
+// ---------------------------------------------------------------------------
+
+/** Stories with a report in the last BACKFILL_DAYS days are swept once (Owner 2026-11-07: about 30 days of content). */
+export const BACKFILL_DAYS = 30;
+
+export interface BackfillPlan {
+  days: number;
+  /** Candidate pairs, those an earlier answer already settles, and those that would be judged. */
+  pairs: number;
+  settled: number;
+  pending: number;
+  byOrigin: Record<string, number>;
+  /** Model calls: at least one per pending pair (the judge), at most two (judge and review). */
+  calls: { min: number; max: number };
+  /** Report groups readers see, and how many of them the model-free attachment would place in a story. */
+  reportGroups: number;
+}
+
+/** Dry run: what the backfill would judge and roughly what it costs. No model call, no write. */
+export async function planStoryMergeBackfill(opts: { days?: number; now?: Date } = {}): Promise<BackfillPlan> {
+  const days = opts.days ?? BACKFILL_DAYS;
+  const plan = await planStoryMerges({ days, now: opts.now, gateOrigin: "backfill" });
+  const pending = plan.filter((c) => !c.settled);
+  const byOrigin: Record<string, number> = {};
+  for (const c of pending) byOrigin[c.origin] = (byOrigin[c.origin] ?? 0) + 1;
+  const { readCurrentReportGroups } = await import("@amp/backend/publication/groups");
+  return {
+    days,
+    pairs: plan.length,
+    settled: plan.length - pending.length,
+    pending: pending.length,
+    byOrigin,
+    calls: { min: pending.length, max: pending.length * 2 },
+    reportGroups: (await readCurrentReportGroups()).length,
+  };
+}
+
+/**
+ * Apply: sweeps in rounds of MERGE_MAX_JUDGEMENTS until no pair is left or a round stops early (peak hours, a paused
+ * lane, a waiting model route). Every answer is stored, so running it again resumes where it stopped.
+ */
+export async function applyStoryMergeBackfill(opts: { days?: number; rounds?: number; now?: Date; onRound?: (round: StoryMergeResult) => void } = {}) {
+  const totals = { rounds: 0, judged: 0, merged: 0, different: 0, skipped: 0, failed: 0, stopped: null as string | null };
+  for (let round = 0; round < (opts.rounds ?? 1000); round++) {
+    const result = await sweepStoryMerges({ days: opts.days ?? BACKFILL_DAYS, origin: "backfill", now: opts.now });
+    totals.rounds++;
+    totals.judged += result.judged;
+    totals.merged += result.merged.length;
+    totals.different += result.different;
+    totals.skipped += result.skipped;
+    totals.failed += result.failed ?? 0;
+    opts.onRound?.(result);
+    if (result.paused) {
+      totals.stopped = "paused";
+      break;
+    }
+    if (result.stopped && result.stopped !== "call-limit") {
+      totals.stopped = result.stopped;
+      break;
+    }
+    // A round that settled nothing: every remaining pair is settled, or fails on its own material (left for the hourly run).
+    if (!result.merged.length && !result.different && !result.skipped) break;
+  }
+  return totals;
+}
+
+// ---------------------------------------------------------------------------
 // Report groups → stories (no model call)
 // ---------------------------------------------------------------------------
 
