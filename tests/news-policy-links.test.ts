@@ -111,8 +111,8 @@ test("a report found both by the index and among unread bodies is listed once, n
   ]);
 });
 
-test("loose URL keys ignore case, the default port, a trailing slash and percent-encoding", () => {
-  assert.deepEqual(looseUrlKeys("https://gov.example.invalid/decree/7"), ["https://gov.example.invalid/decree/7"]);
-  assert.ok(looseUrlKeys("https://gov.example.invalid/ley%201/").includes("https://gov.example.invalid/ley 1"));
-  assert.deepEqual(looseUrlKeys("http://GOV.example.invalid:80/"), ["http://gov.example.invalid"]);
+test("lookup keys cover case, the default port, a trailing slash and percent-encoding", () => {
+  const keys = looseUrlKeys("https://gov.example.invalid/ley%201/");
+  for (const stored of ["https://GOV.example.invalid:443/ley 1", "https://gov.example.invalid/ley%201", "https://gov.example.invalid/ley 1/"])
+    assert.ok(keys.includes(stored.toLowerCase()), stored);
 });

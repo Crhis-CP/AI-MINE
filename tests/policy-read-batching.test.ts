@@ -183,7 +183,7 @@ test("a report page reads only the policies its links cite, not every current do
   );
   const read = texts.join("\n");
   assert.ok(!read.includes("SELECT DISTINCT policy_id FROM publication.policy_editions WHERE policy_id>"), "no reading of every current document");
-  assert.ok(read.includes("split_part(basic_card->>'original_url'"), "the cited documents are looked up by their official URL");
+  assert.ok(read.includes("lower(split_part(basic_card->>'original_url'"), "the cited documents are looked up by their official URL");
   // Five more documents elsewhere change nothing about the reads; with the links read, the body is not read either.
   await source("h", 5);
   assert.equal((await counting(related)).statements, unread.statements);

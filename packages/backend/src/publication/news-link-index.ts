@@ -28,24 +28,28 @@ export function canonicalLink(value: string) {
 }
 
 /**
- * Loose lookup keys for a canonical link: lower case, no fragment, no default port, no trailing slash, plus the
- * percent-decoded spelling. Stored official URLs are not normalised (any spelling the source used), so the policy
- * index (`policy_editions_*_url`, the same expression in SQL) is matched on these keys to find candidates; the exact
- * canonicalLink comparison still decides (Codex review #355).
+ * Lookup keys for a canonical link: every lower-case spelling a stored official URL may use for it — with or without
+ * the default port, with or without a trailing slash, percent-encoded or not. Stored official URLs are not normalised
+ * (any spelling the source used); the policy index is lower(url without fragment), so these keys find the candidates
+ * and the exact canonicalLink comparison still decides (Codex review #355).
  */
 export function looseUrlKeys(link: string) {
-  const loose = (value: string) =>
-    value
-      .split("#")[0]!
-      .replace(/^(https:\/\/[^/]+):443(\/|$)/i, "$1$2")
-      .replace(/^(http:\/\/[^/]+):80(\/|$)/i, "$1$2")
-      .toLowerCase()
-      .replace(/\/+$/, "");
-  const keys = new Set([loose(link)]);
+  const spellings = new Set([link]);
   try {
-    keys.add(loose(decodeURI(link)));
+    spellings.add(decodeURI(link));
   } catch {
-    // A malformed escape keeps only the encoded key.
+    // A malformed escape keeps only the encoded spelling.
+  }
+  const keys = new Set<string>();
+  for (const spelling of spellings) {
+    const port = spelling.replace(/^(https?):\/\/([^/]+)/i, (_whole, scheme: string, host: string) =>
+      /:\d+$/.test(host) ? `${scheme}://${host}` : `${scheme}://${host}:${scheme.toLowerCase() === "https" ? 443 : 80}`,
+    );
+    for (const value of [spelling, port]) {
+      const lower = value.toLowerCase();
+      keys.add(lower);
+      keys.add(lower.endsWith("/") ? lower.replace(/\/+$/, "") : `${lower}/`);
+    }
   }
   return [...keys];
 }

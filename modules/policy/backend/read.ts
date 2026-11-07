@@ -661,14 +661,14 @@ const publicRecord = (view: View) => ({
  * URLs in another form check the returned card's `original_url` themselves.
  */
 /**
- * The documents whose official URL matches one of the loose keys (looseUrlKeys in the news link index: lower case, no
- * fragment, default port or trailing slash), through the expression indexes policy_editions_*_url. Callers compare
+ * The documents whose official URL matches one of the loose keys (looseUrlKeys in the news link index: every lower-case
+ * spelling of a cited link with or without default port, trailing slash and percent-encoding), through the lower-case indexes policy_editions_*_url. Callers compare
  * the exact canonical link afterwards; this only narrows the candidates.
  */
 export async function policyPublicRecordsByOriginalUrl(keys: string[], ctx: Context = context()) {
   if (!keys.length) return [];
   const documents = await sql<{ policy_id: string }[]>`SELECT DISTINCT policy_id FROM publication.policy_editions
-    WHERE rtrim(lower(regexp_replace(regexp_replace(split_part(basic_card->>'original_url','#',1),'^(https://[^/]+):443(/|$)','\\1\\2'),'^(http://[^/]+):80(/|$)','\\1\\2')),'/')=ANY(${keys}::text[]) OR rtrim(lower(regexp_replace(regexp_replace(split_part(complete_card->>'original_url','#',1),'^(https://[^/]+):443(/|$)','\\1\\2'),'^(http://[^/]+):80(/|$)','\\1\\2')),'/')=ANY(${keys}::text[])
+    WHERE lower(split_part(basic_card->>'original_url','#',1))=ANY(${keys}::text[]) OR lower(split_part(complete_card->>'original_url','#',1))=ANY(${keys}::text[])
     ORDER BY policy_id`;
   const records = await policyPublicRecordsOf(
     documents.map((row) => row.policy_id),
