@@ -1,13 +1,14 @@
 // Removes company and mineral tags the material never names from published news (TASK-0584, Owner 2026-11-07:
 // 紫金矿业 showed a Codelco story). New analyses are grounded when they are published; this handles history by
-// republishing each affected item, which applies the same grounding. The republish refreshes the projection only:
-// it queues no translation or other paid work (Codex review #380, PIT-112), and no model is called. Tags a person
-// set stay. The dry run prints each example's original title and language so a removal can be checked by hand.
+// updating only the stored tags and search text of each affected item (regroundPublicationTags): no publish runs,
+// so selection, grouping, notifications and translation are untouched and nothing is queued (Codex review #380,
+// PIT-112); no model is called. Tags a person set stay and are not counted. The dry run prints each example's
+// original title and language so a removal can be checked by hand.
 //   node scripts/ground-tags.ts            --dry-run (default): counts per tag and a few examples, writes nothing
 //   node scripts/ground-tags.ts --apply    republishes every affected item, resumable (it pages by article id)
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { republishProjectionOnly, ungroundedTagPublications } from "@amp/backend/publication/publish";
+import { regroundPublicationTags, ungroundedTagPublications } from "@amp/backend/publication/publish";
 
 const args = process.argv.slice(2);
 if (args.some((a) => a !== "--dry-run" && a !== "--apply") || args.length > 1) {
@@ -33,10 +34,10 @@ try {
       affected += 1;
       for (const tag of row.dropped) counts.set(tag, (counts.get(tag) ?? 0) + 1);
       if (examples.length < 20) examples.push(`${row.articleId} [${row.language ?? "?"}] ${row.title.slice(0, 80)} → ${row.dropped.join(", ")}`);
-      if (apply) await republishProjectionOnly(row.articleId);
+      if (apply) await regroundPublicationTags(row.articleId);
     }
   }
-  console.log(`${apply ? "republished" : "would republish"} ${affected} of ${scanned} news publications`);
+  console.log(`${apply ? "updated" : "would update"} ${affected} of ${scanned} news publications (tags and search text only)`);
   for (const [tag, n] of [...counts].sort((a, b) => b[1] - a[1])) console.log(`${String(n).padStart(6)}  ${tag}`);
   if (examples.length) console.log(`examples:\n  ${examples.join("\n  ")}`);
 } finally {

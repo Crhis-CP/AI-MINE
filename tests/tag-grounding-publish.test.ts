@@ -1,5 +1,5 @@
 // Publishing keeps only the company and mineral tags the material names (TASK-0584), and the history sweep finds
-// and republishes rows stored before that rule. No model is called: the analysis is written by the test.
+// and updates the tags and search text of rows stored before that rule. No model is called: the analysis is written by the test.
 import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
@@ -11,7 +11,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { saveSourcePolicy } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { publishArticle, republishProjectionOnly, ungroundedTagPublications } from "@amp/backend/publication/publish";
+import { publishArticle, regroundPublicationTags, ungroundedTagPublications } from "@amp/backend/publication/publish";
 import { SOURCE_PURPOSES } from "@amp/contracts/source-policy";
 
 const T = tag();
@@ -71,18 +71,26 @@ test("a company and a mineral the material never names are not published; the re
   assert.ok(row.search_text.split(/\s+/).includes("codelco"), "the grounded subject stays searchable");
   assert.ok(!row.tags.includes("entity:zijin"));
 
-  // A row stored before the rule: the sweep finds it and republishing removes the tag.
+  // A row stored before the rule: the sweep finds it and removes the tag and the searchable subject.
   await sql`UPDATE publications SET tags = array_append(tags, '紫金矿业') WHERE article_id=${articleId}`;
   await sql`UPDATE publications SET search_text = search_text || ' zijin' WHERE article_id=${articleId}`;
   const found = (await ungroundedTagPublications(null, 100_000)).find((r) => r.articleId === articleId);
   assert.deepEqual(found?.dropped, ["紫金矿业", "entity:zijin"], "the stale tag and the stale searchable subject are both found");
-  // The sweep republishes the projection only: no translation job is queued, though a normal publish of the same
-  // untranslated item would queue one (Codex review #380, PIT-112).
+  // The sweep changes only tags and search text: no publish runs, so no job of any kind is queued and selection and
+  // grouping stay as they were (Codex review #380, PIT-112). A normal publish of the same item would queue a translation.
+  const jobs = async () => (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM pgboss.job WHERE data->>'articleId'=${articleId}`)[0]!.n;
   const translateJobs = async () =>
     (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM pgboss.job WHERE name='content.translate' AND data->>'articleId'=${articleId}`)[0]!.n;
-  await sql`DELETE FROM pgboss.job WHERE name='content.translate' AND data->>'articleId'=${articleId}`;
-  await republishProjectionOnly(articleId);
-  assert.equal(await translateJobs(), 0, "the sweep queued no paid translation");
+  await sql`DELETE FROM pgboss.job WHERE data->>'articleId'=${articleId}`;
+  const state = async () =>
+    (
+      await sql<{ selected: boolean; selection_candidate: boolean; grouping_status: string; analysis_id: number | null }[]>`
+        SELECT p.selected, p.selection_candidate, a.grouping_status, p.analysis_id FROM publications p JOIN articles a ON a.id=p.article_id WHERE p.article_id=${articleId}`
+    )[0];
+  const before = await state();
+  assert.deepEqual(await regroundPublicationTags(articleId), ["紫金矿业", "entity:zijin"]);
+  assert.equal(await jobs(), 0, "the sweep queued nothing");
+  assert.deepEqual(await state(), before, "selection, grouping and the analysis binding are untouched");
   const [fixed] = await sql<{ tags: string[]; search_text: string }[]>`SELECT tags, search_text FROM publications WHERE article_id=${articleId}`;
   assert.ok(!fixed!.tags.includes("紫金矿业"));
   assert.ok(!fixed!.search_text.split(/\s+/).includes("zijin"));
@@ -94,7 +102,8 @@ test("a company and a mineral the material never names are not published; the re
 
   // Tags a person set are kept by publish and are never reported as a removal.
   await sql`INSERT INTO editorial_overrides (article_id, fields) VALUES (${articleId}, ${sql.json({ tags: ["紫金矿业", "铜"] })})`;
-  await republishProjectionOnly(articleId);
+  await publishArticle(articleId);
+  assert.deepEqual(await regroundPublicationTags(articleId), [], "a hand-set tag is never removed by the sweep");
   const [manual] = await sql<{ tags: string[] }[]>`SELECT tags FROM publications WHERE article_id=${articleId}`;
   assert.ok(manual!.tags.includes("紫金矿业"), "a hand-set tag stays");
   const manualSweep = (await ungroundedTagPublications(null, 100_000)).find((r) => r.articleId === articleId);

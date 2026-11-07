@@ -252,12 +252,58 @@ export async function publishArticle(articleId: string, options: PublishOptions 
 }
 
 /**
- * Republishes to refresh the stored projection (tags, search text, listings) without queuing any paid work: the
- * translation that a normal publish may queue for an untranslated item is handed to a callback that does nothing
- * (TASK-0584, Codex review #380; PIT-112). For history sweeps that must not add model calls.
+ * Removes, from one stored publication, the company and mineral tags and the searchable subjects its material does
+ * not name (TASK-0584). Only `publications.tags`, `publications.search_text` and `pool_search.direct` change: no
+ * publish runs, so selection, grouping, notifications and translation are untouched and nothing is queued (Codex
+ * review #380; PIT-112). Tags a person set stay. Returns what was removed (empty when nothing was).
  */
-export async function republishProjectionOnly(articleId: string, options: PublishOptions = {}): Promise<PublishResult | null> {
-  return sql.begin((tx) => publishArticleTx(tx, articleId, options, () => undefined));
+export async function regroundPublicationTags(articleId: string): Promise<string[]> {
+  return sql.begin(async (tx) => {
+    const [row] = await tx<
+      {
+        tags: string[];
+        search_text: string;
+        subjects: string[];
+        manual_tags: boolean;
+        title: string;
+        body_text: string | null;
+        excerpt: string | null;
+        language: string | null;
+        x_post: XPostData | null;
+        x_article: { title?: string; text?: string } | null;
+        source_name: string;
+      }[]
+    >`SELECT p.tags, p.search_text, coalesce(an.subjects, '{}') AS subjects,
+        coalesce(jsonb_typeof(eo.fields->'tags')='array', false) AS manual_tags,
+        a.title, a.body_text, a.excerpt, a.language, a.x_post, a.x_article, s.name AS source_name
+      FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=a.source_id
+      LEFT JOIN analyses an ON an.id=p.analysis_id LEFT JOIN editorial_overrides eo ON eo.article_id=p.article_id
+      WHERE p.article_id=${articleId} AND p.channel='news' FOR UPDATE OF p`;
+    if (!row) return [];
+    const text = groundingText([
+      row.title,
+      row.body_text,
+      row.excerpt,
+      row.x_post?.text,
+      row.x_post?.quoted?.text,
+      row.x_article?.title,
+      row.x_article?.text,
+      row.source_name,
+    ]);
+    const removedTags = row.manual_tags ? [] : row.tags.filter((tag) => !tagGrounded(tag, text, row.language));
+    const removedSubjects = row.subjects.filter((id) => !tagGrounded(`entity:${id}`, text, row.language)).map((id) => id.toLowerCase());
+    // The search text is the space-joined title, summary, source name, display tags and subjects (see publish): drop
+    // exactly the words the removed tags and subjects contributed.
+    const dropWords = new Set([...displayTags(removedTags).map((tag) => tag.toLowerCase()), ...removedSubjects]);
+    const words = row.search_text.split(" ");
+    const kept = words.filter((word) => !dropWords.has(word));
+    if (!removedTags.length && kept.length === words.length) return [];
+    const tags = row.tags.filter((tag) => !removedTags.includes(tag));
+    const searchText = kept.join(" ");
+    await tx`UPDATE publications SET tags=${tags}, search_text=${searchText}, updated_at=now() WHERE article_id=${articleId}`;
+    await tx`UPDATE pool_search SET direct=${searchText} WHERE article_id=${articleId} AND direct IS DISTINCT FROM ${searchText}`;
+    return [...removedTags, ...removedSubjects.filter((id) => words.includes(id)).map((id) => `entity:${id}`)];
+  });
 }
 
 /** Grouping reads the effective nomination only when it belongs to the same saved analysis. */
