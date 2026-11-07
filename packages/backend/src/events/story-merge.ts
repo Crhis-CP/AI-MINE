@@ -25,7 +25,7 @@ import { readStoryGateProfiles } from "@amp/backend/publication/publish";
 import { newsMaterialBindings } from "@amp/backend/content/materials";
 import { sql, type Db } from "../db.ts";
 import { environmentValue } from "../config.ts";
-import { sha256, stableJson } from "../lib/ids.ts";
+import { newUuid, sha256, stableJson } from "../lib/ids.ts";
 import { offPeakWait } from "../providers/peak-hours.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { EMBEDDING_MODEL } from "../providers/embeddings.ts";
@@ -127,7 +127,7 @@ async function latestDecisions(pairs: Array<[number, number]>, db: Db = sql): Pr
     }[]
   >`SELECT DISTINCT ON (d.low_story_id,d.high_story_id) d.low_story_id,d.high_story_id,d.outcome,d.input_key,d.earlier_fact_id,d.later_fact_id,d.created_at
     FROM events.story_merge_decisions d JOIN unnest(${low}::bigint[],${high}::bigint[]) AS p(lo,hi) ON d.low_story_id=p.lo AND d.high_story_id=p.hi
-    WHERE d.outcome<>'queued' ORDER BY d.low_story_id,d.high_story_id,d.id DESC`;
+    WHERE d.outcome<>'queued' ORDER BY d.low_story_id,d.high_story_id,d.created_at DESC,d.id DESC`;
   return new Map(
     rows.map((r) => [
       pairKey(Number(r.low_story_id), Number(r.high_story_id)),
@@ -162,9 +162,9 @@ async function recordDecision(
   },
   db: Db = sql,
 ) {
-  await db`INSERT INTO events.story_merge_decisions(low_story_id,high_story_id,earlier_story_id,origin,outcome,reason,input_key,earlier_fact_id,later_fact_id,
+  await db`INSERT INTO events.story_merge_decisions(id,low_story_id,high_story_id,earlier_story_id,origin,outcome,reason,input_key,earlier_fact_id,later_fact_id,
       first_relation,first_confidence,second_relation,second_confidence,receipt_ids,detail)
-    VALUES(${Math.min(row.a, row.b)},${Math.max(row.a, row.b)},${row.earlier ?? null},${row.origin},${row.outcome},${row.reason ?? null},${row.inputKey ?? null},
+    VALUES(${newUuid()},${Math.min(row.a, row.b)},${Math.max(row.a, row.b)},${row.earlier ?? null},${row.origin},${row.outcome},${row.reason ?? null},${row.inputKey ?? null},
       ${row.earlierFactId ?? null},${row.laterFactId ?? null},${row.first?.relation ?? null},${row.first ? Math.round(row.first.confidence * 1000) / 1000 : null},
       ${row.second?.relation ?? null},${row.second ? Math.round(row.second.confidence * 1000) / 1000 : null},${row.receiptIds ?? []}::bigint[],
       ${row.detail === undefined ? null : db.json(row.detail as never)})`;
@@ -178,7 +178,7 @@ export async function queueStoryMergePairs(storyId: number, others: number[], ar
   let queued = 0;
   for (const other of [...new Set(others)].filter((id) => id !== storyId).sort((a, b) => a - b)) {
     const [last] = await db<{ outcome: Outcome; recent: boolean }[]>`SELECT outcome,created_at>now()-make_interval(days=>${QUEUE_DAYS}) AS recent
-      FROM events.story_merge_decisions WHERE low_story_id=${Math.min(storyId, other)} AND high_story_id=${Math.max(storyId, other)} ORDER BY id DESC LIMIT 1`;
+      FROM events.story_merge_decisions WHERE low_story_id=${Math.min(storyId, other)} AND high_story_id=${Math.max(storyId, other)} ORDER BY created_at DESC,id DESC LIMIT 1`;
     if (last?.outcome === "queued" && last.recent) continue;
     await recordDecision({ a: storyId, b: other, origin: "intake", outcome: "queued", reason: "非根事实的同一事件进展", detail: { articleId } }, db);
     queued++;
@@ -284,7 +284,7 @@ export async function planStoryMerges(opts: { days?: number; now?: Date; gateOri
   const open = await sql<{ low_story_id: number; high_story_id: number; outcome: string }[]>`
     SELECT DISTINCT ON (low_story_id,high_story_id) low_story_id,high_story_id,outcome FROM events.story_merge_decisions
     WHERE (low_story_id,high_story_id) IN (SELECT low_story_id,high_story_id FROM events.story_merge_decisions WHERE outcome='queued'
-      AND created_at>now()-make_interval(days=>${QUEUE_DAYS})) ORDER BY low_story_id,high_story_id,id DESC`;
+      AND created_at>now()-make_interval(days=>${QUEUE_DAYS})) ORDER BY low_story_id,high_story_id,created_at DESC,id DESC`;
   for (const row of open.filter((r) => r.outcome === "queued")) {
     const [a, b] = [await liveStory(Number(row.low_story_id)), await liveStory(Number(row.high_story_id))];
     if (a !== null && b !== null) add(a, b, "intake");

@@ -152,7 +152,7 @@ const live = async (id: number) => (await sql<{ merged_into: number | null }[]>`
 const decisionsFor = (a: number, b: number) =>
   sql<{ origin: string; outcome: string; first_relation: string | null; second_relation: string | null; reason: string | null; receipt_ids: number[] }[]>`
     SELECT origin,outcome,first_relation,second_relation,reason,receipt_ids FROM events.story_merge_decisions
-    WHERE low_story_id=${Math.min(a, b)} AND high_story_id=${Math.max(a, b)} ORDER BY id`;
+    WHERE low_story_id=${Math.min(a, b)} AND high_story_id=${Math.max(a, b)} ORDER BY created_at, id`;
 
 const now = Date.now();
 const ago = (days: number) => new Date(now - days * DAY);

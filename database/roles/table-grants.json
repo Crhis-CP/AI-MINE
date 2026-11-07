@@ -1452,7 +1452,6 @@
     "sources.source_config_drafts_id_seq": "sources.source_config_drafts",
     "sources.source_previews_id_seq": "sources.source_previews",
     "sources.source_config_activations_id_seq": "sources.source_config_activations",
-    "editorial.withdrawal_records_id_seq": "editorial.withdrawal_records",
-    "events.story_merge_decisions_id_seq": "events.story_merge_decisions"
+    "editorial.withdrawal_records_id_seq": "editorial.withdrawal_records"
   }
 }
