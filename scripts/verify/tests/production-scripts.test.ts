@@ -18,6 +18,7 @@ const EXEMPT: Record<string, string> = {
   "wordmark.ts": "generates the site lockup with opentype.js, on a development machine",
   "mcp-check.ts": "verify's smoke stage runs it on the executor (scripts/verify/run.ts); smoke.ts itself runs in the image",
   "debrand.ts": "the debranding tool, development machine only; it uses the verify checks and yaml",
+  "check-handoff-sql.ts": "plans a hand-off's SQL against a test database before it is posted (TASK-0581), development machine only; it uses postgres",
 };
 const DATA = /\.(?:json|md|txt|csv|svg|png|ico)$/i;
 // A whole `import type … from` (or `export type … from`) is erased before it runs; `import { type X }` is not.
