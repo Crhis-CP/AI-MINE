@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { createDatabaseAccess } from "@amp/backend/db";
 import { installTestConnections } from "./direct-db-fixture.ts";
-import { relatedNewsForPolicy } from "../packages/backend/src/publication/news-policy-links.ts";
-import { repairNewsLinks } from "../packages/backend/src/publication/news-link-index.ts";
+import { mergeRelated, relatedNewsForPolicy } from "../packages/backend/src/publication/news-policy-links.ts";
+import { looseUrlKeys, repairNewsLinks } from "../packages/backend/src/publication/news-link-index.ts";
 
 // TASK-0567: the reports that link an official URL come from publication.news_links, not from reading every
 // public article body; reports whose links are not read yet are still found, and the public state applies at once.
@@ -100,4 +100,19 @@ test("policy pages find linking reports by index, and the public state and body 
   // Deleting a publication takes its links row with it.
   await db`DELETE FROM publications WHERE article_id='links-b'`;
   assert.equal((await db`SELECT 1 FROM publication.news_links WHERE article_id='links-b'`).length, 0);
+});
+
+test("a report found both by the index and among unread bodies is listed once, newest first (Codex review #355)", () => {
+  const a = { id: "a", title: "A", timeline_at: new Date("2026-11-02T00:00:00Z") },
+    b = { id: "b", title: "B", timeline_at: new Date("2026-11-01T00:00:00Z") };
+  assert.deepEqual(mergeRelated([a, b], [a]), [
+    { id: "a", title: "A" },
+    { id: "b", title: "B" },
+  ]);
+});
+
+test("loose URL keys ignore case, the default port, a trailing slash and percent-encoding", () => {
+  assert.deepEqual(looseUrlKeys("https://gov.example.invalid/decree/7"), ["https://gov.example.invalid/decree/7"]);
+  assert.ok(looseUrlKeys("https://gov.example.invalid/ley%201/").includes("https://gov.example.invalid/ley 1"));
+  assert.deepEqual(looseUrlKeys("http://GOV.example.invalid:80/"), ["http://gov.example.invalid"]);
 });

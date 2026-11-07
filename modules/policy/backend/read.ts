@@ -660,10 +660,15 @@ const publicRecord = (view: View) => ({
  * order): an indexed lookup of those documents, never a reading of every current document. Callers that compare
  * URLs in another form check the returned card's `original_url` themselves.
  */
-export async function policyPublicRecordsByOriginalUrl(urls: string[], ctx: Context = context()) {
-  if (!urls.length) return [];
+/**
+ * The documents whose official URL matches one of the loose keys (looseUrlKeys in the news link index: lower case, no
+ * fragment, default port or trailing slash), through the expression indexes policy_editions_*_url. Callers compare
+ * the exact canonical link afterwards; this only narrows the candidates.
+ */
+export async function policyPublicRecordsByOriginalUrl(keys: string[], ctx: Context = context()) {
+  if (!keys.length) return [];
   const documents = await sql<{ policy_id: string }[]>`SELECT DISTINCT policy_id FROM publication.policy_editions
-    WHERE split_part(basic_card->>'original_url','#',1)=ANY(${urls}::text[]) OR split_part(complete_card->>'original_url','#',1)=ANY(${urls}::text[])
+    WHERE rtrim(lower(regexp_replace(regexp_replace(split_part(basic_card->>'original_url','#',1),'^(https://[^/]+):443(/|$)','\\1\\2'),'^(http://[^/]+):80(/|$)','\\1\\2')),'/')=ANY(${keys}::text[]) OR rtrim(lower(regexp_replace(regexp_replace(split_part(complete_card->>'original_url','#',1),'^(https://[^/]+):443(/|$)','\\1\\2'),'^(http://[^/]+):80(/|$)','\\1\\2')),'/')=ANY(${keys}::text[])
     ORDER BY policy_id`;
   const records = await policyPublicRecordsOf(
     documents.map((row) => row.policy_id),

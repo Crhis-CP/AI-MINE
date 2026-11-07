@@ -200,6 +200,26 @@ test("a report page reads only the policies its links cite, not every current do
   await db`UPDATE publication.policy_documents SET withdrawn=true WHERE id LIKE 'pol_%'`;
 });
 
+test("a stored official URL in another spelling is still found by the report that cites it (Codex review #355)", async () => {
+  const [doc] = await source("k", 1);
+  // The source stored the official URL with an upper-case host and the default port; the report links the plain URL.
+  await db`UPDATE publication.policy_editions SET basic_card=jsonb_set(basic_card,'{original_url}','"https://K.GOV.INVALID:443/decree/0"'),
+    complete_card=jsonb_set(complete_card,'{original_url}','"https://K.GOV.INVALID:443/decree/0"') WHERE policy_id=${doc!}`;
+  const at = new Date("2026-11-01T09:00:00Z"),
+    body = `<p>See <a href="https://k.gov.invalid/decree/0">the decree</a>.</p>`;
+  await db`INSERT INTO sources(id,name,kind,config) VALUES('policy-links-news-k','News','rss','{}') ON CONFLICT DO NOTHING`;
+  await db`INSERT INTO articles(id,source_id,identity_key,url,title,language,published_at,discovered_at,timeline_at,body_html,raw)
+    VALUES('policy-links-report-k','policy-links-news-k','policy-links-report-k','https://news.example.invalid/k','k','en',${at},${at},${at},${body},'{}')`;
+  await db`INSERT INTO publications(article_id,title,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,selected,tags,search_text)
+    VALUES('policy-links-report-k','k','policy-links-news-k','news','https://news.example.invalid/k',${at},${at},${at},${at},'public',true,false,${[]},'k')`;
+  await repairNewsLinks();
+  assert.deepEqual(
+    (await relatedPoliciesForNews("policy-links-report-k")).map((p) => p.id),
+    [doc],
+  );
+  await db`UPDATE publication.policy_documents SET withdrawn=true WHERE id LIKE 'pol_%'`;
+});
+
 test("public policy lists read a page of documents with a fixed number of statements, shared by requests that arrive together", async () => {
   const first = [...(await source("a", 1)), ...(await source("b", 1))];
   const list = () => page({}),

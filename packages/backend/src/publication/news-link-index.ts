@@ -28,6 +28,29 @@ export function canonicalLink(value: string) {
 }
 
 /**
+ * Loose lookup keys for a canonical link: lower case, no fragment, no default port, no trailing slash, plus the
+ * percent-decoded spelling. Stored official URLs are not normalised (any spelling the source used), so the policy
+ * index (`policy_editions_*_url`, the same expression in SQL) is matched on these keys to find candidates; the exact
+ * canonicalLink comparison still decides (Codex review #355).
+ */
+export function looseUrlKeys(link: string) {
+  const loose = (value: string) =>
+    value
+      .split("#")[0]!
+      .replace(/^(https:\/\/[^/]+):443(\/|$)/i, "$1$2")
+      .replace(/^(http:\/\/[^/]+):80(\/|$)/i, "$1$2")
+      .toLowerCase()
+      .replace(/\/+$/, "");
+  const keys = new Set([loose(link)]);
+  try {
+    keys.add(loose(decodeURI(link)));
+  } catch {
+    // A malformed escape keeps only the encoded key.
+  }
+  return [...keys];
+}
+
+/**
  * Keeps publication.news_links current for one article, read under the caller's lock on the article row. A row whose
  * links were read at this revision is current: any later change of the body clears it (database trigger), so the
  * body is only parsed again after a new revision or a body change.

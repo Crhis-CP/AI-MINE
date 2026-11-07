@@ -329,16 +329,16 @@ const newsLinkPublic = () => sql`p.visibility='public' AND ${originalPostAdmissi
   AND (NOT p.selected OR p.visible_after<=now())`;
 
 /** Public news whose stored links include the URL: a lookup in the links index; no article body is read. */
-export async function readPublicNewsLinking(url: string, limit: number) {
-  return sql<{ id: string; title: string; timeline_at: Date }[]>`SELECT p.article_id AS id,p.title,p.timeline_at
+export async function readPublicNewsLinking(url: string, limit: number, db: Db = sql) {
+  return db<{ id: string; title: string; timeline_at: Date }[]>`SELECT p.article_id AS id,p.title,p.timeline_at
     FROM publication.news_links l JOIN publications p ON p.article_id=l.article_id JOIN sources s ON s.id=p.source_id
     WHERE l.urls @> ARRAY[${url}::text] AND ${newsLinkPublic()}
     ORDER BY p.timeline_at DESC,p.article_id DESC LIMIT ${limit}`;
 }
 
 /** Public news whose links have not been read yet (the publication.news-links repair has them queued). */
-export async function readPublicNewsLinksPending() {
-  const rows = await sql<{ id: string }[]>`SELECT p.article_id AS id
+export async function readPublicNewsLinksPending(db: Db = sql) {
+  const rows = await db<{ id: string }[]>`SELECT p.article_id AS id
     FROM publication.news_links l JOIN publications p ON p.article_id=l.article_id JOIN sources s ON s.id=p.source_id
     WHERE l.urls IS NULL AND ${newsLinkPublic()}`;
   return rows.map((row) => row.id);
@@ -357,9 +357,9 @@ export async function readPublicNewsLinks(articleId: string) {
  * Public news among `among` whose body contains the URL: only for reports whose links are not read yet, so the
  * caller passes those articles; the body text is a candidate test, the caller confirms the explicit link.
  */
-export async function readPublicNewsLinkCandidates(officialUrl: string, among: string[]) {
+export async function readPublicNewsLinkCandidates(officialUrl: string, among: string[], db: Db = sql) {
   const urlPattern = `%${officialUrl.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
-  return sql<{ id: string; title: string; timeline_at: Date; body_html: string }[]>`SELECT p.article_id AS id,p.title,p.timeline_at,a.body_html
+  return db<{ id: string; title: string; timeline_at: Date; body_html: string }[]>`SELECT p.article_id AS id,p.title,p.timeline_at,a.body_html
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     WHERE p.article_id=ANY(${among}::text[]) AND ${newsLinkPublic()} AND a.body_html LIKE ${urlPattern}
     ORDER BY p.timeline_at DESC,p.article_id DESC LIMIT 100`;

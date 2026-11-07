@@ -31,6 +31,7 @@ CREATE TRIGGER news_links_queue AFTER INSERT ON public.publications
   FOR EACH ROW EXECUTE FUNCTION publication.queue_news_links();
 -- Existing publications start unread: no article body is read here; the repair job reads them in small batches.
 INSERT INTO publication.news_links(article_id) SELECT article_id FROM public.publications;
--- Policy documents by official URL without fragment, for a report page's cited policies (one lookup per page view).
-CREATE INDEX policy_editions_basic_url ON publication.policy_editions (split_part(basic_card->>'original_url','#',1));
-CREATE INDEX policy_editions_complete_url ON publication.policy_editions (split_part(complete_card->>'original_url','#',1));
+-- Policy documents by a loose official-URL key (lower case, no fragment, default port or trailing slash), for a report
+-- page's cited policies; the reader compares the exact canonical link afterwards (looseUrlKeys in news-link-index.ts).
+CREATE INDEX policy_editions_basic_url ON publication.policy_editions (rtrim(lower(regexp_replace(regexp_replace(split_part(basic_card->>'original_url','#',1),'^(https://[^/]+):443(/|$)','\1\2'),'^(http://[^/]+):80(/|$)','\1\2')),'/'));
+CREATE INDEX policy_editions_complete_url ON publication.policy_editions (rtrim(lower(regexp_replace(regexp_replace(split_part(complete_card->>'original_url','#',1),'^(https://[^/]+):443(/|$)','\1\2'),'^(http://[^/]+):80(/|$)','\1\2')),'/'));
