@@ -282,7 +282,9 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     }
     expect(blocked).toEqual([probe]);
     expect(errors).toEqual([]);
-    expect(site.calls.every((c) => c.method === "GET")).toBe(true);
+    // Reader pages stay read-only; the one write a page makes is the first-party page-view beacon (TASK-0571).
+    const writes = site.calls.filter((c) => c.method !== "GET").map((c) => `${c.method} ${new URL(c.path, site.publicOrigin).pathname}`);
+    expect(writes.every((w) => w === "POST /api/site/visit")).toBe(true);
   } finally {
     console.info(JSON.stringify({ project: info.project.name, browser: browser.version(), axeEngines, manualReview, blocked, errors, violations }));
     await info.attach("browser-evidence", {

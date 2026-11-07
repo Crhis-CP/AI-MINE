@@ -71,6 +71,10 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const tr = useTr();
   const pref = useThemePreference();
   const [shown, setShown] = useState<"light" | "dark" | null>(null);
+  // From now on this button answers taps; until then the boot script did (THEME_BOOT_SCRIPT).
+  useEffect(() => {
+    (window as Window & { __ampThemeReady?: boolean }).__ampThemeReady = true;
+  }, []);
   useEffect(() => {
     setShown(resolvedTheme(pref ?? null));
     if (pref) return;
