@@ -10,6 +10,7 @@ import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { webHostPolicy } from "./host-policy.ts";
+import { bucketFor, clientAddress, guardLimits, MAX_URL_LENGTH, RateLimiter, refuse, securityHeaders } from "./request-guard.ts";
 
 assertWebEnvironment();
 const hostPolicy = webHostPolicy();
@@ -22,6 +23,11 @@ const HOST = process.env.WEB_HOST || "127.0.0.1";
  * limits (sign-in attempts, feedback).
  */
 const TRUST_PROXY = process.env.TRUST_PROXY === "true";
+/** Per-visitor request limits and the headers every response carries (TASK-0583). */
+const LIMITS = guardLimits();
+const limiter = LIMITS ? new RateLimiter(LIMITS) : null;
+const SECURITY_HEADERS = securityHeaders(process.env.SITE_URL);
+let sharedAddressWarned = false;
 const CLIENT_DIR = {
   public: path.resolve(import.meta.dirname, "build/public/client"),
   private: path.resolve(import.meta.dirname, "build/private/client"),
@@ -161,12 +167,28 @@ function pageCache(req: import("node:http").IncomingMessage, res: import("node:h
 }
 
 async function handle(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
+  const raw = req.url ?? "/";
+  if (raw.length > MAX_URL_LENGTH) return refuse(res, 414);
   const group = hostPolicy(req, res);
   if (!group) return;
-  const raw = req.url ?? "/";
   const qi = raw.indexOf("?");
   const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
   const search = qi >= 0 ? raw.slice(qi) : "";
+
+  if (limiter) {
+    const bucket = bucketFor(req.method, pathname, isApiOwned(pathname), /\.[a-z0-9]+$/i.test(pathname) && !pathname.endsWith(".data"));
+    const visitor = clientAddress(req, TRUST_PROXY);
+    if (bucket && visitor.distinct) {
+      const taken = limiter.take(visitor.address, bucket);
+      if (!taken.ok) return refuse(res, 429, taken.retryAfter);
+    } else if (bucket && !sharedAddressWarned) {
+      // A private address is the server's own (or, behind a proxy that is not trusted, the proxy shared by every
+      // visitor). Say once that requests go unlimited, so a production setup without TRUST_PROXY=true is noticed.
+      sharedAddressWarned = true;
+      console.warn(JSON.stringify({ level: "warn", msg: "rate limit skipped for a private address; behind a proxy set TRUST_PROXY=true" }));
+    }
+  }
 
   // In the two-host configuration, private-page links to reader pages leave the private origin.
   if (group === "private" && (req.method === "GET" || req.method === "HEAD") && /^(?:\/|\/all|\/(?:items|story)\/[^/]+)$/.test(pathname)) {
@@ -188,11 +210,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   if (isApiOwned(pathname)) {
     // The visitor's address, decided here: the one the trusted proxy saw (the last X-Forwarded-For
     // entry), or this connection's own. Both headers carry only that.
-    const forwarded = String(req.headers["x-forwarded-for"] ?? "")
-      .split(",")
-      .map((v) => v.trim())
-      .filter(Boolean);
-    const client = TRUST_PROXY && forwarded.length ? forwarded[forwarded.length - 1]! : (req.socket.remoteAddress ?? "");
+    const client = clientAddress(req, TRUST_PROXY).address;
     const target = new URL(apiBaseFor());
     const headers = { ...apiForwardHeaders(raw, req.headers), "x-forwarded-for": client, "x-real-ip": client };
     const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
@@ -217,6 +235,9 @@ process.on("unhandledRejection", (reason) => {
 });
 
 server.keepAliveTimeout = 65_000;
+// A client that sends its headers or body too slowly (a slow-connection attack) is cut off instead of holding a socket.
+server.headersTimeout = 30_000;
+server.requestTimeout = 120_000;
 server.listen(PORT, HOST, () =>
   console.log(JSON.stringify({ level: "info", msg: "web started", port: (server.address() as import("node:net").AddressInfo).port, pid: process.pid })),
 );
