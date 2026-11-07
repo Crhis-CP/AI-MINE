@@ -1,3 +1,4 @@
+import { groundTags, groundingText, tagGrounded } from "./tag-grounding.ts";
 import { isHistorical, newsMaterialBindings, type XPostData } from "../content/materials.ts";
 export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
 import { bilingualNames } from "../editorial/bilingual-names.ts";
@@ -395,9 +396,27 @@ export async function publishArticleTx(
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
   // Tags set by hand stay as they are; analysed ones lead with the published category's current name, so names
   // retired by a rename (TASK-0041) or the re-cut (ADR-0031) never outlive their category.
+  // A company or mineral the analysis tagged must be named in the material itself (TASK-0584); hand-set tags stay.
   const tags = z
     .array(z.string())
-    .parse(Array.isArray(f.tags) ? f.tags : categoryLedTags(category, [...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
+    .parse(
+      Array.isArray(f.tags)
+        ? f.tags
+        : groundTags(
+            categoryLedTags(category, [...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]),
+            groundingText([
+              article.title,
+              article.body_text,
+              article.excerpt,
+              article.x_post?.text,
+              article.x_post?.quoted?.text,
+              article.x_article?.title,
+              article.x_article?.text,
+              source.name,
+            ]),
+            article.language,
+          ),
+    );
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
   const recomputed = analysis && typeof f.selected !== "boolean" ? recomputeSelection(analysis, source.tier, article.timeline_at, now, previous) : null;
@@ -921,6 +940,42 @@ export async function retiredCategoryPublications(keys: readonly string[], names
     ORDER BY article_id`;
   const [total] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM publications WHERE visibility='public' AND eligible AND channel='news'`;
   return { articleIds: rows.map((r) => r.article_id), publicNews: total?.n ?? 0 };
+}
+
+/**
+ * News publications whose stored tags name a company or mineral the material does not (TASK-0584), a page at a time
+ * after `afterId`. Republishing them applies the grounding; tags a person set are kept by publishArticle itself.
+ */
+export async function ungroundedTagPublications(afterId: string | null, limit: number) {
+  const rows = await sql<
+    {
+      article_id: string;
+      tags: string[];
+      title: string;
+      body_text: string | null;
+      excerpt: string | null;
+      language: string | null;
+      x_post: XPostData | null;
+      x_article: { title?: string; text?: string } | null;
+      source_name: string;
+    }[]
+  >`SELECT p.article_id, p.tags, a.title, a.body_text, a.excerpt, a.language, a.x_post, a.x_article, s.name AS source_name
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=a.source_id
+    WHERE p.channel='news' AND (${afterId}::text IS NULL OR p.article_id > ${afterId}::text)
+    ORDER BY p.article_id LIMIT ${limit}`;
+  return rows.map((row) => {
+    const text = groundingText([
+      row.title,
+      row.body_text,
+      row.excerpt,
+      row.x_post?.text,
+      row.x_post?.quoted?.text,
+      row.x_article?.title,
+      row.x_article?.text,
+      row.source_name,
+    ]);
+    return { articleId: row.article_id, dropped: row.tags.filter((tag) => !tagGrounded(tag, text, row.language)) };
+  });
 }
 
 /** Report corrections preserve the issue's references while resolving their current public facts. */

@@ -1,0 +1,67 @@
+// A company or mineral tag must be written in the material itself (TASK-0584, Owner 2026-11-07: choosing 紫金矿业
+// showed 《比尔·盖茨私人访问智利 Chuquicamata 铜矿》, whose original never names Zijin). The structure step may
+// only pick tags from a whitelist, but nothing checked that the material names what it picked; the company and
+// mineral filters read the stored tags and search text built from them. Here every company and mineral tag the
+// analysis gave is kept only when the original title, body, excerpt or source name contains one of its aliases
+// (companies by the guarded identity lexicon, minerals by the filter aliases plus other-language wordings).
+// Category tags, country tags (country filters read the quoted geography assignments, not tags) and tags a person
+// set are left as they are.
+import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
+import { mentionByTag, textHits } from "./mentions.ts";
+
+/**
+ * Other wordings that name a mineral, used to keep a tag and never to add one. The filter's own aliases are Chinese
+ * and English, and deliberately narrow (bare "lead" is the English verb); many sources write in Spanish or
+ * Portuguese. Languages not listed here cannot prove a mineral absent, so their mineral tags are kept.
+ */
+const MINERAL_EVIDENCE: Record<string, RegExp> = {
+  铜: /\bcobre\b/i,
+  金: /\boro\b|\bouro\b|\baur[ií]fer/i,
+  银: /\bplata\b|\bprata\b/i,
+  锌: /\bzinco?\b/i,
+  铅: /\blead[\s-](?:zinc|concentrate|ore|smelter|smelting|price|prices|production|output|mine|mines|metal|ingot|acid)\b|\bzinc[\s-]lead\b|\bpb\b|\bplomo\b|\bchumbo\b/i,
+  锂: /\bl[ií]tio\b/i,
+  镍: /\bn[ií]quel\b/i,
+  钴: /\bcobalto\b/i,
+  钼: /\bmolibd[eê]nio\b|\bmolibdeno\b/i,
+  铁矿石: /\bmineral de hierro\b|\bmin[eé]rio de ferro\b|\bhierro\b|\bferro\b/i,
+  铁: /\bhierro\b|\bferro\b/i,
+  铝土矿: /\bbauxita\b/i,
+  铝: /\balumin[ií]o\b/i,
+  稀土: /\btierras raras\b|\bterras raras\b/i,
+  钨: /\btungsteno\b|\bwolframio\b|\btungst[eê]nio\b/i,
+  锑: /\bantimonio\b|\bantim[oô]nio\b/i,
+  锡: /\bestaño\b|\bestanho\b/i,
+  锰: /\bmanganeso\b|\bmangan[eê]s\b/i,
+  铬: /\bcromo\b/i,
+  铂族金属: /\bplatino\b|\bpaladio\b|\bplatina\b|\bpal[aá]dio\b/i,
+};
+/** Languages whose mineral wordings are covered (filter aliases plus MINERAL_EVIDENCE). */
+const MINERAL_LANGUAGES = new Set(["zh", "en", "es", "pt"]);
+
+/** The text a tag must be found in: what the source wrote, never the model's own copy. */
+export function groundingText(parts: Array<string | null | undefined>): string {
+  return parts.filter((p): p is string => typeof p === "string" && p.trim().length > 0).join("\n");
+}
+
+/**
+ * Whether a tag stays: anything that is not a company or mineral stays; those two need evidence in the text. A
+ * company is found with the identity lexicon (the guarded patterns that also check AI copy: 力拓 inside 大力拓展 is
+ * not Rio Tinto). `language` is the material's language; a mineral in an uncovered language is kept.
+ */
+export function tagGrounded(tag: string, text: string, language?: string | null): boolean {
+  const mention = mentionByTag(tag);
+  if (!mention || mention.kind === "country") return true;
+  if (mention.kind === "company") {
+    const lexicon = IDENTITY_LEXICON.find((entry) => entry.id === mention.id);
+    return lexicon ? lexicon.patterns.some((pattern) => pattern.test(text)) : textHits(text, mention.needles);
+  }
+  const base = (language ?? "").toLowerCase().split(/[-_]/)[0]!;
+  if (base && !MINERAL_LANGUAGES.has(base)) return true;
+  return textHits(text, mention.needles) || !!MINERAL_EVIDENCE[mention.label]?.test(text);
+}
+
+/** The analysed tags that the material supports, in their original order. */
+export function groundTags(tags: readonly string[], text: string, language?: string | null): string[] {
+  return tags.filter((tag) => tagGrounded(tag, text, language));
+}
