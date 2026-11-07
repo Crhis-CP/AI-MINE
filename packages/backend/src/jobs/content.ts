@@ -29,7 +29,8 @@ import {
 } from "@amp/backend/admin/sources";
 import { bodyReadingKey } from "../content/body-reading-key.ts";
 import { usableSourceText } from "../lib/text.ts";
-import { publishArticle, prepareTranslation, articleWithdrawalHeld } from "../publication/publish.ts";
+import { publishArticle, prepareTranslationRun, translationSelectedNow, articleWithdrawalHeld } from "../publication/publish.ts";
+import { translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
@@ -324,54 +325,100 @@ async function materialRevision(articleId: string): Promise<number | undefined> 
   return (await sql<{ revision: number }[]>`SELECT revision FROM articles WHERE id=${articleId}`)[0]?.revision;
 }
 
+/** Tests and replays pass the time to judge; the worker judges the wall clock (see offPeakWait). */
+export type JobClock = { now?: () => Date };
+
+/**
+ * A translation that is not selected now and was picked up (or reached a segment) in the provider's peak hours waits
+ * for the next off-peak start in a new job on the same queue (TASK-0579). A queue that gives no acceptance throws, so
+ * pg-boss retries this job and it judges again; a key already waiting for the same start already covers it.
+ */
+async function deferTranslation(articleId: string, until: Date) {
+  const queued = await enqueue(QUEUES.translate, { articleId, lane: "news" }, translationDeferralOptions(articleId, until));
+  if (queued === undefined) throw new Error("translation deferral was not accepted by the queue");
+  return { state: "deferred_peak", until: until.toISOString() };
+}
+
+/** One content.translate job. Exported for tests; the worker registers it below. */
+export async function runTranslationJob(data: { articleId: string }, clock: JobClock = {}) {
+  const inputRevision = await materialRevision(data.articleId);
+  if (inputRevision === undefined) return { state: "missing" };
+  try {
+    const prepared = await prepareTranslationRun(data.articleId);
+    if (prepared === null) return { state: "not-needed-or-not-permitted" };
+    // Judged when the job is taken, from the publication as it is now, before any paid step (the quote, the body).
+    const consumed = translationPeakWait(prepared.selected, clock.now?.());
+    if (consumed) return await deferTranslation(data.articleId, consumed);
+    const beforePaidSegment = async () => {
+      const until = translationPeakWait(false, clock.now?.());
+      return until && !(await translationSelectedNow(data.articleId)) ? until : null;
+    };
+    const result = await translateArticle(data.articleId, prepared.revision, { beforePaidSegment });
+    if (result.reason === "deferred_peak" && result.until) return await deferTranslation(data.articleId, result.until);
+    if (result.status === "skipped" && ["no_post_text", "quote_not_permitted", "post_admission_disabled"].includes(result.reason ?? "")) {
+      await publishArticle(data.articleId);
+      return result;
+    }
+    if (result.reason === "attempts_exhausted") return result;
+    if (result.status !== "translated" && ["text_limit", "pending_capacity"].includes(result.reason ?? "")) {
+      await publishArticle(data.articleId);
+      return result;
+    }
+    if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
+    const publication = await publishArticle(data.articleId);
+    const r = await route(data.articleId, sql);
+    if (publication?.visibility === "public" && r)
+      await enqueue(
+        QUEUES.group,
+        { lane: "news", articleId: data.articleId },
+        { singletonKey: data.articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live },
+      );
+    return result;
+  } catch (error) {
+    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(data.articleId, error, inputRevision);
+    throw error;
+  }
+}
+
+/**
+ * History's analysis is queued for the next off-peak start when it arrives in a peak hour (queueProcessing), but a
+ * backlog or a retry can still pick the job up in a later peak hour. Judged again when the job is taken (TASK-0579):
+ * it then waits like an article whose model calls are paused, through its retry time and the five-minute safety net,
+ * which queues it again once that time has passed. Explicit re-evaluations (attemptTag) never wait.
+ */
+async function historicalAnalysisWait(articleId: string, revision: number, at?: Date): Promise<Date | null> {
+  const until = offPeakWait(at);
+  if (!until) return null;
+  const r = await route(articleId, sql);
+  if (!r?.historical || r.signal || r.revision !== revision) return null;
+  const waiting = await sql`UPDATE articles SET processing_retry_at=${until}, processing_error=${OFF_PEAK_WAIT}, processing_queued_at=NULL
+    WHERE id=${articleId} AND revision=${revision} AND processing_state='new'`;
+  return waiting.count ? until : null;
+}
+
+/** One content.analyze job. Exported for tests; the worker registers it below. */
+export async function runAnalysisJob(data: { articleId: string; attemptTag?: string }, clock: JobClock = {}) {
+  const { articleId, attemptTag } = data;
+  const inputRevision = await materialRevision(articleId);
+  if (inputRevision === undefined) return { state: "missing" };
+  try {
+    const until = attemptTag ? null : await historicalAnalysisWait(articleId, inputRevision, clock.now?.());
+    if (until) return { state: "deferred_peak", until: until.toISOString() };
+    const result = await processArticle(articleId, { attemptTag, expectedRevision: inputRevision });
+    if (result.state !== "unknown-receipt") {
+      await sql`UPDATE articles SET processing_attempts = 0, processing_retry_at = NULL, processing_queued_at = NULL WHERE id = ${articleId} AND revision=${inputRevision}`;
+    }
+    return result;
+  } catch (error) {
+    return afterFailure(articleId, error, inputRevision);
+  }
+}
+
 export async function registerContentJobs(boss: PgBoss, concurrency = Number(process.env.ANALYZE_CONCURRENCY || 6)) {
   await ensureQueue(QUEUES.translate);
-  await work(boss, QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, async (data) => {
-    const inputRevision = await materialRevision(data.articleId);
-    if (inputRevision === undefined) return { state: "missing" };
-    try {
-      const revision = await prepareTranslation(data.articleId);
-      if (revision === null) return { state: "not-needed-or-not-permitted" };
-      const result = await translateArticle(data.articleId, revision);
-      if (result.status === "skipped" && ["no_post_text", "quote_not_permitted", "post_admission_disabled"].includes(result.reason ?? "")) {
-        await publishArticle(data.articleId);
-        return result;
-      }
-      if (result.reason === "attempts_exhausted") return result;
-      if (result.status !== "translated" && ["text_limit", "pending_capacity"].includes(result.reason ?? "")) {
-        await publishArticle(data.articleId);
-        return result;
-      }
-      if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
-      const publication = await publishArticle(data.articleId);
-      const r = await route(data.articleId, sql);
-      if (publication?.visibility === "public" && r)
-        await enqueue(
-          QUEUES.group,
-          { lane: "news", articleId: data.articleId },
-          { singletonKey: data.articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live },
-        );
-      return result;
-    } catch (error) {
-      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(data.articleId, error, inputRevision);
-      throw error;
-    }
-  });
+  await work(boss, QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) => runTranslationJob(data));
   await ensureQueue(QUEUES.analyze);
-  await work(boss, QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, async (data) => {
-    const { articleId, attemptTag } = data;
-    const inputRevision = await materialRevision(articleId);
-    if (inputRevision === undefined) return { state: "missing" };
-    try {
-      const result = await processArticle(articleId, { attemptTag, expectedRevision: inputRevision });
-      if (result.state !== "unknown-receipt") {
-        await sql`UPDATE articles SET processing_attempts = 0, processing_retry_at = NULL, processing_queued_at = NULL WHERE id = ${articleId} AND revision=${inputRevision}`;
-      }
-      return result;
-    } catch (error) {
-      return afterFailure(articleId, error, inputRevision);
-    }
-  });
+  await work(boss, QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) => runAnalysisJob(data));
 }
 
 /**

@@ -1266,8 +1266,10 @@ const waitingError = (error: unknown) =>
  * (half price; the 72-hour window is far longer than a peak window).
  */
 export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun?: boolean; now?: Date } = {}): Promise<RemergeResult> {
-  const peak = offPeakWait(opts.now) !== null;
-  const maxCalls = peak ? 0 : Math.max(0, opts.maxCalls ?? REMERGE_MAX_CALLS);
+  // Judged before every judge call, not only at the start (TASK-0579): a run that starts just before a peak window
+  // must not keep calling into it.
+  const peakNow = () => offPeakWait(opts.now) !== null;
+  const maxCalls = Math.max(0, opts.maxCalls ?? REMERGE_MAX_CALLS);
   const out: RemergeResult = { singles: 0, pairs: 0, calls: 0, merged: [] };
   let control: RuntimeControlSnapshot;
   try {
@@ -1358,7 +1360,8 @@ export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun
         continue;
       }
       // The call bound holds back only pairs that need the judge; rule merges above still go through.
-      if (out.calls >= maxCalls) {
+      const peak = peakNow();
+      if (peak || out.calls >= maxCalls) {
         out.stopped = peak ? "peak-hours" : "call-limit";
         out.pairs--;
         continue;
