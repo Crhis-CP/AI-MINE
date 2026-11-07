@@ -168,6 +168,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.story_background_refs",
       "publication.withdrawal_members",
       "publication.withdrawal_targets",
+      "publication.withdrawn_reasons",
       "reports.calendar",
       "reports.correction_jobs",
       "reports.reconciliation_commands",

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "@amp/backend/lib/url";
 import { crawlFetch } from "../acquisition/crawl.ts";
-import type { GuardedFetchOptions, GuardedResponse } from "../lib/http-fetch.ts";
+import { ACCEPT, type GuardedFetchOptions, type GuardedResponse } from "../lib/http-fetch.ts";
 import { getPath, jsonListDocument, parseSourceJson, rawDateAt } from "./json-list.ts";
 import { linkPageNumber } from "./directory-links.ts";
 import { htmlListDocument } from "./web-list.ts";
@@ -113,8 +113,11 @@ export function directoryRequest(source: SourceRow, profile: DirectoryProfile, p
 }
 export async function readDirectoryPage(source: SourceRow, profile: DirectoryProfile, page: number, probeKey?: string): Promise<DirectoryPage> {
   const request = directoryRequest(source, profile, page);
+  // Honest Accept per source kind; a configured header still wins.
   const headers: Record<string, string> = Object.fromEntries(
-    Object.entries(source.config.headers ?? {}).filter(([key]) => !["if-none-match", "if-modified-since"].includes(key.toLowerCase())),
+    Object.entries({ accept: source.kind === "json_list" ? ACCEPT.json : ACCEPT.html, ...(source.config.headers ?? {}) }).filter(
+      ([key]) => !["if-none-match", "if-modified-since"].includes(key.toLowerCase()),
+    ),
   ) as Record<string, string>;
   const options: GuardedFetchOptions = {
     method: source.config.method ?? (request.body ? "POST" : "GET"),

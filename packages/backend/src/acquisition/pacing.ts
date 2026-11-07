@@ -34,20 +34,35 @@ export class CrawlDeferred extends Error {
   readonly retryAt: Date;
   readonly reservationId: string;
   readonly reason: string;
+  /** Concrete cause behind the reason (timeout, dns_temporary, robots_http_503 ...); stored on the run. */
+  readonly causeCode?: string;
   sessionId?: string;
-  constructor(retryAt: Date, reservationId: string, reason: string) {
+  constructor(retryAt: Date, reservationId: string, reason: string, causeCode?: string) {
     super(`crawl_deferred: ${reason}`);
     this.retryAt = retryAt;
     this.reservationId = reservationId;
     this.reason = reason;
+    if (causeCode) this.causeCode = causeCode;
+  }
+}
+/** A transport failure that waiting will not heal (no such domain, invalid certificate, blocked address).
+ * It fails the run so the source's fail count and backoff apply, instead of deferring forever. */
+export class CrawlTransportFailed extends Error {
+  readonly transportCause: string;
+  constructor(transportCause: string, host: string) {
+    super(`transport_${transportCause}: ${host}`);
+    this.transportCause = transportCause;
   }
 }
 export class CrawlObsolete extends Error {}
 export class CrawlBlocked extends Error {
   readonly code: string;
-  constructor(code: string) {
-    super(code);
+  /** Optional operator hint, e.g. the new address of a redirect that left the configured host. */
+  readonly detail?: string;
+  constructor(code: string, detail?: string) {
+    super(detail ? `${code}: ${detail}` : code);
     this.code = code;
+    if (detail) this.detail = detail;
   }
 }
 export async function openCrawlSession(scope: string, sourceId: string, binding: string, expectedSessionId?: string) {
@@ -88,17 +103,71 @@ export async function saveCrawlCheckpoint(sessionId: string, name: string, value
     await tx`INSERT INTO acquisition.crawl_checkpoints(session_id,name,value) VALUES(${sessionId},${name},${tx.json(value as never)}) ON CONFLICT DO NOTHING`;
   });
 }
+export type RobotsObservation = {
+  /** Status of the last good observation; 0 when no good copy was ever read. */
+  status: number;
+  body: string;
+  observed_at: Date;
+  expires_at: Date;
+  retry_at: Date | null;
+  /** robots_unavailable while the current read is failing; any other code blocks the origin (challenge ...). */
+  error: string | null;
+  final_url: string | null;
+  warning: string | null;
+  failure_since: Date | null;
+  failure_count: number;
+  failure_reason: string | null;
+};
 export async function robotsObservation(origin: string) {
-  const [row] = await sql<
-    { status: number; body: string; expires_at: Date; retry_at: Date | null; error: string | null }[]
-  >`SELECT status,body,expires_at,retry_at,error FROM acquisition.robots_observations WHERE origin=${origin}`;
+  const [row] = await sql<RobotsObservation[]>`
+    SELECT status,body,observed_at,expires_at,retry_at,error,final_url,warning,failure_since,failure_count,failure_reason
+    FROM acquisition.robots_observations WHERE origin=${origin}`;
   return row ?? null;
 }
-export async function saveRobots(origin: string, status: number, body: string, now: Date, retryAt: Date | null, error: string | null) {
+/** A completed robots read: a good copy, or an RFC 9309 "unavailable" 4xx (allow all). Ends any failure streak. */
+export async function saveRobots(
+  origin: string,
+  status: number,
+  body: string,
+  now: Date,
+  retryAt: Date | null,
+  error: string | null,
+  extra: { finalUrl?: string | null; warning?: string | null } = {},
+) {
   const expires = new Date(now.getTime() + (retryAt ? Math.max(1, retryAt.getTime() - now.getTime()) : 86400_000));
+  await sql`INSERT INTO acquisition.robots_observations(origin,status,body,observed_at,expires_at,retry_at,error,final_url,warning,failure_since,failure_count,failure_reason)
+    VALUES(${origin},${status},${body},${now},${expires},${retryAt},${error},${extra.finalUrl ?? null},${extra.warning ?? null},NULL,0,NULL)
+    ON CONFLICT(origin) DO UPDATE SET status=EXCLUDED.status,body=EXCLUDED.body,observed_at=EXCLUDED.observed_at,expires_at=EXCLUDED.expires_at,
+      retry_at=EXCLUDED.retry_at,error=EXCLUDED.error,final_url=EXCLUDED.final_url,warning=EXCLUDED.warning,failure_since=NULL,failure_count=0,failure_reason=NULL`;
+}
+/** A blocking code (challenge page ...) holds the origin for a day. The last good copy stays stored but is not used. */
+export async function saveRobotsBlocked(origin: string, now: Date, code: string) {
+  const expires = new Date(now.getTime() + 86400_000);
   await sql`INSERT INTO acquisition.robots_observations(origin,status,body,observed_at,expires_at,retry_at,error)
-    VALUES(${origin},${status},${body},${now},${expires},${retryAt},${error})
-    ON CONFLICT(origin) DO UPDATE SET status=EXCLUDED.status,body=EXCLUDED.body,observed_at=EXCLUDED.observed_at,expires_at=EXCLUDED.expires_at,retry_at=EXCLUDED.retry_at,error=EXCLUDED.error`;
+    VALUES(${origin},0,'',${now},${expires},NULL,${code})
+    ON CONFLICT(origin) DO UPDATE SET expires_at=EXCLUDED.expires_at,retry_at=NULL,error=EXCLUDED.error`;
+}
+/** Waits after consecutive robots read failures: 5 min, 15 min, 1 h, then every 6 h. */
+export const ROBOTS_FAILURE_BACKOFF_MS = [300_000, 900_000, 3_600_000, 21_600_000] as const;
+/**
+ * A robots read that failed (5xx, 429, network). The failure is stored beside the last good copy, never over it
+ * (RFC 9309 §2.3.1.4): status/body/observed_at keep the good copy, failure_* describe the current streak.
+ */
+export async function saveRobotsFailure(origin: string, now: Date, reason: string, notBefore?: Date) {
+  return sql.begin(async (tx) => {
+    const [old] = await tx<{ error: string | null; failure_count: number }[]>`
+      SELECT error,failure_count FROM acquisition.robots_observations WHERE origin=${origin} FOR UPDATE`;
+    const count = (old?.error === "robots_unavailable" ? Number(old.failure_count) : 0) + 1,
+      wait = ROBOTS_FAILURE_BACKOFF_MS[Math.min(count, ROBOTS_FAILURE_BACKOFF_MS.length) - 1]!,
+      retryAt = new Date(Math.max(now.getTime() + wait, notBefore?.getTime() ?? 0));
+    await tx`INSERT INTO acquisition.robots_observations(origin,status,body,observed_at,expires_at,retry_at,error,failure_since,failure_count,failure_reason)
+      VALUES(${origin},0,'',${now},${retryAt},${retryAt},'robots_unavailable',${now},${count},${reason})
+      ON CONFLICT(origin) DO UPDATE SET expires_at=EXCLUDED.expires_at,retry_at=EXCLUDED.retry_at,error='robots_unavailable',
+        failure_since=CASE WHEN robots_observations.error='robots_unavailable'
+          THEN coalesce(robots_observations.failure_since,EXCLUDED.failure_since) ELSE EXCLUDED.failure_since END,
+        failure_count=EXCLUDED.failure_count,failure_reason=EXCLUDED.failure_reason`;
+    return { retryAt, count };
+  });
 }
 /** Durable FIFO reservation and one actual active request across every lane/source on the same hostname. */
 export async function claimCrawlRequest(
@@ -171,7 +240,16 @@ export async function finishCrawlRequest(input: {
     await tx`UPDATE acquisition.crawl_hosts SET last_finished=${finished},lease_token=NULL,lease_until='1970-01-01T00:00:00Z',cooldown_until=CASE WHEN ${coolHost} THEN greatest(cooldown_until,${input.retryAt ?? new Date(0)}) ELSE cooldown_until END WHERE host=${input.host}`;
     await tx`UPDATE acquisition.crawl_requests SET state=${input.blocked ? "blocked" : input.retryAt ? "pending" : "done"},status=${input.status ?? null},
       fetched_at=${input.fetchedAt ?? null},headers=${sql.json(input.headers ?? {})},body=${input.body ?? null},error=${input.blocked ?? null},ready_at=greatest(ready_at,${input.retryAt ?? new Date(0)}),lease_token=NULL,updated_at=now() WHERE id=${input.id} AND lease_token=${input.token}`;
+    // Any HTTP response ends the host's run of transport failures.
+    if (input.status !== undefined)
+      await tx`UPDATE acquisition.crawl_hosts SET transport_failures=0,transport_cause=NULL WHERE host=${input.host} AND transport_failures>0`;
   });
+}
+/** Count one more consecutive transport failure on a host; the caller derives its backoff from the count. */
+export async function recordHostTransportFailure(host: string, cause: string) {
+  const [row] = await sql<{ transport_failures: number }[]>`UPDATE acquisition.crawl_hosts
+    SET transport_failures=transport_failures+1,transport_cause=${cause} WHERE host=${host} RETURNING transport_failures`;
+  return Number(row?.transport_failures ?? 1);
 }
 
 export async function crawlClock() {

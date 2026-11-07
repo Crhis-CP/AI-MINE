@@ -2,8 +2,8 @@ import { sql } from "../db.ts";
 
 /** Only the current source-collection binding can explain a present wait. */
 export async function sourceCollectionWaits(until: Date) {
-  const rows = await sql<{ source_id: string; observed_at: Date; reason: string; retry_at: string | null }[]>`
-    SELECT s.source_id,r.started_at AS observed_at,r.detail->>'reason' AS reason,r.detail->>'retryAt' AS retry_at
+  const rows = await sql<{ source_id: string; observed_at: Date; reason: string; cause: string | null; retry_at: string | null }[]>`
+    SELECT s.source_id,r.started_at AS observed_at,r.detail->>'reason' AS reason,r.detail->>'cause' AS cause,r.detail->>'retryAt' AS retry_at
     FROM acquisition.crawl_sessions s CROSS JOIN LATERAL (
       SELECT status,started_at,finished_at,detail FROM fetch_runs
       WHERE source_id=s.source_id AND started_at>=s.updated_at AND started_at<=${until}
@@ -37,4 +37,38 @@ export async function sourcePresentationFailures() {
     FROM fetch_runs CROSS JOIN LATERAL jsonb_array_elements(detail->'presentationFailures') failure
     WHERE detail ? 'presentationFailures'
     ORDER BY source_id,failure->>'url',id DESC`;
+}
+
+/** Deferred runs of one source for the same reason immediately before a run, ignoring host-pacing waits between them. */
+export async function consecutiveDeferrals(sourceId: string, beforeRunId: number, reason: string) {
+  const rows = await sql<{ status: string; state: string | null; reason: string | null }[]>`
+    SELECT status,detail->>'state' AS state,detail->>'reason' AS reason FROM fetch_runs
+    WHERE source_id=${sourceId} AND id<${beforeRunId} ORDER BY started_at DESC,id DESC LIMIT 60`;
+  let count = 0;
+  for (const row of rows) {
+    const deferred = row.status === "skipped" && row.state === "deferred";
+    if (deferred && row.reason === "host_pacing") continue;
+    if (!deferred || row.reason !== reason) break;
+    count++;
+  }
+  return count;
+}
+
+export type RobotsState = {
+  origin: string;
+  status: number;
+  observed_at: Date;
+  warning: string | null;
+  final_url: string | null;
+  failing: boolean;
+  failure_since: Date | null;
+  failure_count: number;
+  failure_reason: string | null;
+};
+/** Robots read state per origin, for source health: current failure streak and the good copy it falls back on. */
+export async function robotsStates(origins: string[]) {
+  if (!origins.length) return [];
+  return sql<RobotsState[]>`
+    SELECT origin,status,observed_at,warning,final_url,error='robots_unavailable' AS failing,failure_since,failure_count,failure_reason
+    FROM acquisition.robots_observations WHERE origin=ANY(${origins}::text[])`;
 }

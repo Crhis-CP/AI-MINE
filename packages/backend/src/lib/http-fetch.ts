@@ -87,9 +87,51 @@ export const DEFAULT_UA = `Mozilla/5.0 (compatible; ${SITE.crawlerName}/1.0; +${
 
 export const DROPPED_RETRY = { afterMs: 3000 };
 
+/** What each collector request honestly asks for. The user agent stays DEFAULT_UA; nothing imitates a browser. */
+export const ACCEPT = {
+  html: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+  feed: "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5",
+  json: "application/json, */*;q=0.5",
+  robots: "text/plain, */*;q=0.5",
+} as const;
+
 export function droppedConnection(error: unknown): boolean {
   const code = (error as { cause?: { code?: string } })?.cause?.code ?? (error as { code?: string })?.code;
   return ["UND_ERR_SOCKET", "ECONNRESET", "EPIPE"].includes(code ?? "");
+}
+
+/** Causes that waiting does not heal: the run fails (fail count, backoff) instead of deferring. */
+export const PERMANENT_TRANSPORT_CAUSES = new Set(["dns_not_found", "certificate_invalid", "address_blocked"]);
+const TRANSPORT_CODES: [RegExp, string][] = [
+  [/^ENOTFOUND$/, "dns_not_found"],
+  [/^(EAI_AGAIN|EAI_FAIL|ESERVFAIL|ETIMEOUT_DNS)$/, "dns_temporary"],
+  [
+    /^(CERT_|ERR_TLS_CERT_ALTNAME_INVALID$|DEPTH_ZERO_SELF_SIGNED_CERT$|SELF_SIGNED_CERT_IN_CHAIN$|UNABLE_TO_VERIFY_LEAF_SIGNATURE$|UNABLE_TO_GET_ISSUER_CERT|HOSTNAME_MISMATCH$)/,
+    "certificate_invalid",
+  ],
+  [/^(ERR_SSL_|EPROTO$|ERR_TLS_)/, "tls_handshake"],
+  [/^(ETIMEDOUT|ESOCKETTIMEDOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT|TimeoutError)$/, "timeout"],
+  [/^(ECONNRESET|UND_ERR_SOCKET|EPIPE|ECONNABORTED|UND_ERR_CLOSED)$/, "connection_reset"],
+  [/^ECONNREFUSED$/, "connection_refused"],
+  [/^(EHOSTUNREACH|ENETUNREACH|EHOSTDOWN|ENETDOWN)$/, "network_unreachable"],
+  [/^EBLOCKED$/, "address_blocked"],
+];
+/**
+ * Classify a pre-response transport error for collectors: the first code found along the cause chain (undici wraps
+ * the socket/TLS/DNS error in "fetch failed"), or the error name for aborts by the request deadline.
+ */
+export function transportCause(error: unknown): string {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current && typeof current === "object"; depth++) {
+    const e = current as { code?: unknown; name?: unknown; message?: unknown; cause?: unknown };
+    for (const value of [e.code, e.name]) if (typeof value === "string") for (const [pattern, cause] of TRANSPORT_CODES) if (pattern.test(value)) return cause;
+    if (typeof e.message === "string") {
+      if (/^Blocked (host|private address|protocol)/.test(e.message)) return "address_blocked";
+      if (/proxy/i.test(e.message)) return "proxy_error";
+    }
+    current = e.cause;
+  }
+  return "other";
 }
 
 export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}): Promise<GuardedResponse> {

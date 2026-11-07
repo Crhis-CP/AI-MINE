@@ -26,6 +26,10 @@ export function parseRobots(body: string, token: string): RobotsRules {
     invalidDelay = delays.some((v) => !/^\d+(?:\.\d+)?$/.test(v) || !Number.isSafeInteger(Math.ceil(Number(v) * 1000)) || Number(v) * 1000 > 2147483647);
   return { rules: selected.flatMap((g) => g.rules), delayMs: invalidDelay ? 0 : Math.max(0, ...delays.map((v) => Math.ceil(Number(v) * 1000))), invalidDelay };
 }
+/** Whether a robots body has at least one RFC 9309 record line; text without any is treated as an empty file. */
+export function robotsRecognized(body: string) {
+  return /^\s*(?:user-agent|allow|disallow|crawl-delay|sitemap)\s*:/im.test(body.replace(/^\uFEFF/, ""));
+}
 function canonical(value: string, pattern = false) {
   return [...value]
     .map((c) => (c === "$" ? "%24" : c === "*" && !pattern ? "%2A" : c.codePointAt(0)! > 127 ? encodeURIComponent(c) : c))

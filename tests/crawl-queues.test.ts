@@ -17,7 +17,8 @@ const server = http.createServer((req, res) => {
   requests.push({ path, at: Date.now() });
   if (path === "/robots.txt") {
     res.writeHead(200, { "content-type": "text/plain" });
-    res.end("User-agent: *\nCrawl-delay: 2");
+    // Longer than the 5 s in-process wait, so the queue deferral path still runs.
+    res.end("User-agent: *\nCrawl-delay: 6");
     return;
   }
   res.writeHead(200, { "content-type": "application/rss+xml" });
@@ -33,7 +34,7 @@ after(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await closeDb();
 });
-test("actual news/policy consumers finish deferred reservations without sleeping or reporting false failure/success", async () => {
+test("actual news/policy consumers finish deferred reservations with only short in-process waits and no false failure/success", async () => {
   const boss = await getBoss();
   await registerSourceJobs(boss);
   for (const lane of ["news", "policy"] as const) {
@@ -41,7 +42,7 @@ test("actual news/policy consumers finish deferred reservations without sleeping
     await grantDateFixture(`crawl-${lane}`, [base]);
     await enqueueSourceFetch(lane, { sourceId: `crawl-${lane}` });
   }
-  const deadline = Date.now() + 25_000;
+  const deadline = Date.now() + 40_000;
   for (;;) {
     const [count] =
       await sql`SELECT (SELECT count(*) FROM articles WHERE source_id IN ('crawl-news','crawl-policy'))::int n,(SELECT count(*) FROM fetch_runs WHERE source_id IN ('crawl-news','crawl-policy') AND status='ok')::int finished`;
@@ -50,7 +51,7 @@ test("actual news/policy consumers finish deferred reservations without sleeping
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   assert.equal(requests.filter((row) => row.path === "/robots.txt").length, 1);
-  for (let i = 1; i < requests.length; i++) assert.ok(requests[i]!.at - requests[i - 1]!.at >= 1950, "same host must respect 2s minimum");
+  for (let i = 1; i < requests.length; i++) assert.ok(requests[i]!.at - requests[i - 1]!.at >= 5950, "same host must respect its 6 s Crawl-delay");
   const runs =
     await sql`SELECT status,new_count,detail,extract(epoch FROM finished_at-started_at) AS seconds FROM fetch_runs WHERE source_id IN ('crawl-news','crawl-policy')`;
   assert.equal(runs.filter((row) => row.status === "failed").length, 0);
@@ -61,7 +62,8 @@ test("actual news/policy consumers finish deferred reservations without sleeping
   );
   const deferred = runs.filter((row) => row.detail?.state === "deferred");
   assert.ok(deferred.length > 0);
-  assert.ok(deferred.every((row) => row.status === "skipped" && row.seconds < 1));
+  // A run sleeps only bounded short host waits (≤5 s each, at most three) before it hands the rest to the queue.
+  assert.ok(deferred.every((row) => row.status === "skipped" && row.seconds < 16));
 });
 
 test("extraction recovery respects a durable delay and restores a lost job once it is due", async () => {

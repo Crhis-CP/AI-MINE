@@ -24,7 +24,7 @@ import {
   SourceCollectionPaused,
 } from "@amp/backend/admin/sources";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
-import { languageHeaders } from "../lib/http-fetch.ts";
+import { ACCEPT, languageHeaders } from "../lib/http-fetch.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
@@ -126,7 +126,12 @@ export async function extractFromUrl(
   // Older programs treat every saved body as complete; they must not consume a partial PDF result.
   const direct = await crawlStep(`${BODY_READER_RECIPE}:${url}`, url, async () => {
     try {
-      const res = await guardedFetch(url, { headers: languageHeaders(opts.acceptLanguage), timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
+      const res = await guardedFetch(url, {
+        headers: { accept: ACCEPT.html, ...languageHeaders(opts.acceptLanguage) },
+        timeoutMs: 20_000,
+        maxBytes: 6 * 1024 * 1024,
+        retryDropped: true,
+      });
       if (isSignInRedirect(url, res.url)) return { authenticationRequired: true as const };
       if (res.status === 200 && res.body.subarray(0, 5).toString("ascii") === "%PDF-") {
         const text = await readPdfText(res.body);

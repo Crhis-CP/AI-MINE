@@ -1,4 +1,4 @@
-import { languageHeaders } from "../lib/http-fetch.ts";
+import { ACCEPT, languageHeaders } from "../lib/http-fetch.ts";
 // RSS 2.0 / Atom / RDF feeds.
 import { XMLParser } from "fast-xml-parser";
 import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
@@ -137,7 +137,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   const configHash = sha256(stableJson(source.config));
   const previous = !opts.force && source.cursor?.rss?.configHash === configHash ? (source.cursor.rss as RssValidator) : null;
   const plainHeaders = {
-    accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8",
+    accept: ACCEPT.feed,
     ...languageHeaders(source.config.acceptLanguage),
   };
   const headers: Record<string, string> = { ...plainHeaders };

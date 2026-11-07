@@ -15,7 +15,7 @@ import { representativePriority, pickRepresentative } from "./representative.ts"
 import { representativeSourceIdentities } from "../sources/representative-input.ts";
 import { z } from "zod";
 import { verifiedCompanyContext } from "./reader-context.ts";
-import { articleWithdrawalHeld } from "./withdrawals.ts";
+import { articleWithdrawalHeld, recordWithdrawnReason, withdrawnReason } from "./withdrawals.ts";
 export {
   applyWithdrawalProjection,
   policyReportWithdrawalSnapshot,
@@ -409,10 +409,17 @@ export async function publishArticleTx(
   const readingReady = !!language && (nativeChinese || chineseCopy);
   const withdrawnByGroup = await articleWithdrawalHeld(tx, articleId, membership?.fact_public_id ?? null, membership?.story_public_id ?? null);
   const operatorWithdrawn = withdrawnByGroup || override?.visibility === "withdrawn" || override?.fields.relevance === "block";
-  const visibility =
-    !admissionAllowed || operatorWithdrawn || source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady
-      ? "withdrawn"
-      : (override?.visibility ?? "public");
+  const hiddenBecause = withdrawnReason({
+    admissionAllowed,
+    operatorWithdrawn,
+    isolated: source.participation_mode === "isolated",
+    admitted,
+    hasMaterial,
+    language: !!language,
+    chineseCopy,
+    readingReady,
+  });
+  const visibility = hiddenBecause ? "withdrawn" : (override?.visibility ?? "public");
   const eligible =
     admissionAllowed &&
     readingReady &&
@@ -649,6 +656,7 @@ export async function publishArticleTx(
   const geographyChanged = await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // Explicit outbound links of this body, for the news/policy navigation; readers apply the public state themselves.
   await projectNewsLinks(tx, article);
+  await recordWithdrawnReason(tx, articleId, hiddenBecause);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
   if (eligible) {
     const body = !post && bodyMode === "full" ? (article.body_text ?? "").slice(0, 12000).toLowerCase() : "";

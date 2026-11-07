@@ -23,7 +23,12 @@ export function normalizeSourceLanguage(value: unknown): string | null {
   }
 }
 
-export const SourceCrawlProfile = z.strictObject({ sensitive: z.boolean().optional(), minimumIntervalSeconds: z.number().min(2).max(86400).optional() });
+/** Per-source crawl manners. timeoutSeconds overrides the request timeout (default 20-25 s) for slow sites, up to 60 s. */
+export const SourceCrawlProfile = z.strictObject({
+  sensitive: z.boolean().optional(),
+  minimumIntervalSeconds: z.number().min(2).max(86400).optional(),
+  timeoutSeconds: z.number().min(5).max(60).optional(),
+});
 
 const preservationRules = z
   .array(
@@ -120,7 +125,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
 
 // Objects with fixed keys (headers and bodyJson are request data, free-form).
 const NESTED: Record<string, string[]> = {
-  crawlProfile: ["sensitive", "minimumIntervalSeconds"],
+  crawlProfile: ["sensitive", "minimumIntervalSeconds", "timeoutSeconds"],
   _amp: ["initialBackfillLimit", "initialBackfillMonths"],
   ingestNoiseFilter: ["dropMarkers", "dropMarkersTitleOnly", "keepIfMatches"],
   itemUrlPrefixRewrite: ["from", "to"],

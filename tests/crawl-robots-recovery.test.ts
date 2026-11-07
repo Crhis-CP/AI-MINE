@@ -4,6 +4,7 @@ import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { readSourceDateContext } from "@amp/backend/admin/sources";
 import { crawlFetch, withSourceCrawl, CrawlDeferred, CrawlBlocked } from "../packages/backend/src/acquisition/crawl.ts";
+import { ROBOTS_FAILURE_BACKOFF_MS } from "../packages/backend/src/acquisition/pacing.ts";
 import type { GuardedResponse } from "../packages/backend/src/lib/http-fetch.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
@@ -59,9 +60,8 @@ for (const failure of [
   { status: 500, body: "temporarily unavailable" },
   { status: 502, body: "bad gateway" },
   { status: 504, body: "gateway timeout" },
-  { status: 200, body: "<!doctype html><html><body>temporarily unavailable</body></html>" },
 ]) {
-  test(`robots ${failure.status} ${failure.status === 200 ? "HTML" : "failure"} is fetched again after retry expiry in the same session`, async () => {
+  test(`robots ${failure.status} failure is fetched again after retry expiry in the same session`, async () => {
     const f = await fixture();
     let robotsRequests = 0,
       contentRequests = 0;
@@ -85,7 +85,7 @@ for (const failure of [
   });
 }
 
-test("repeated robots HTTP failures reuse one reservation and move the retry deadline forward", async () => {
+test("repeated robots HTTP failures reuse one reservation and back off 5 min, 15 min, 1 h", async () => {
   const f = await fixture();
   let requests = 0;
   const run = () =>
@@ -96,7 +96,7 @@ test("repeated robots HTTP failures reuse one reservation and move the retry dea
     });
   for (let n = 0; n < 3; n++) {
     const error = await deferred(run, "robots_unavailable");
-    assert.equal(error.retryAt.getTime(), f.now() + 300_000);
+    assert.equal(error.retryAt.getTime(), f.now() + ROBOTS_FAILURE_BACKOFF_MS[n]!);
     assert.equal(requests, n + 1);
     f.advance(error.retryAt.getTime());
   }
@@ -127,7 +127,6 @@ test("robots recovery keeps new redirect checkpoints across a host delay longer 
 const boundaries: { name: string; status: number; body: string; headers: Record<string, string>; code: string }[] = [
   { name: "disallow", status: 200, body: "User-agent: *\nDisallow: /article", headers: {}, code: "robots_disallowed" },
   { name: "challenge", status: 200, body: "<html><title>Just a moment</title></html>", headers: { "content-type": "text/html" }, code: "crawl_challenge" },
-  { name: "cross-host redirect", status: 302, body: "", headers: { location: "https://other.invalid/robots.txt" }, code: "robots_redirect_not_approved" },
 ];
 for (const boundary of boundaries) {
   test(`fresh robots recovery still refuses ${boundary.name} before content is requested`, async () => {
@@ -144,16 +143,21 @@ for (const boundary of boundaries) {
   });
 }
 
-test("a fresh robots 403 remains unavailable and never fetches content", async () => {
+test("a fresh robots 403 after a failure means unavailable: content is allowed (RFC 9309 §2.3.1.3)", async () => {
   const f = await fixture();
-  let requests = 0;
+  let requests = 0,
+    content = 0;
   const run = () =>
     f.run(async (url) => {
-      assert.ok(url.endsWith("/robots.txt"));
+      if (!url.endsWith("/robots.txt")) {
+        content++;
+        return reply(url, 200, "Allowed after 403");
+      }
       return reply(url, ++requests === 1 ? 502 : 403);
     });
   f.advance((await deferred(run, "robots_unavailable")).retryAt.getTime());
-  const again = await deferred(run, "robots_unavailable");
+  const page = await resume(f, run);
+  assert.equal(page.text(), "Allowed after 403");
   assert.equal(requests, 2);
-  assert.equal(again.retryAt.getTime(), f.now() + 300_000);
+  assert.equal(content, 1);
 });

@@ -378,6 +378,10 @@
       "module": "publication",
       "access": "business"
     },
+    "publication.withdrawn_reasons": {
+      "module": "publication",
+      "access": "business"
+    },
     "publication.news_links": {
       "module": "publication",
       "access": "business"

@@ -152,6 +152,53 @@ test("publishing stores the body's explicit links in the same transaction, for p
   assert.deepEqual(await relatedNewsForPolicy(decree), []);
 });
 
+test("every automatic non-public state stores its reason, public removes it, and the ops snapshot counts them (TASK-0574)", async () => {
+  const reasonOf = async (id: string) =>
+    (await sql<{ reason: string }[]>`SELECT reason FROM publication.withdrawn_reasons WHERE article_id=${id}`)[0]?.reason ?? null;
+  const ISOLATED = `${SOURCE}-isolated`;
+  await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
+            VALUES (${ISOLATED}, 'Test isolated', 'rss', 'T1', 'isolated', true, false, '2100-01-01') ON CONFLICT DO NOTHING`;
+  const material = async (name: string, fields: Partial<Parameters<typeof upsertMaterial>[0]> = {}, sourceId = SOURCE) =>
+    (
+      await upsertMaterial({
+        sourceId,
+        url: `https://example.com/${T}-withdrawn-${name}`,
+        title: `${name} ${T}`,
+        bodyText: BODY,
+        bodyHtml: `<p>${BODY}</p>`,
+        language: "en",
+        bodyStatus: "ok",
+        via: "fetch",
+        publishedAt: new Date(),
+        ...fields,
+      })
+    ).articleId;
+  const shown = await article();
+  await publishArticle(shown, released());
+  assert.equal(await reasonOf(shown), null, "a public item has no stored reason");
+  await setVisibility(shown, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
+  assert.equal(await reasonOf(shown), "manual");
+  const blocked = await material("blocked");
+  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
+            VALUES (${blocked}, 1, 'rule', 'block', 'project_development', ${`拦截-${T}`}, ${`拦截摘要-${T}`}, '理由', 10, false, ${scopeVersion}, ${[await scopeReceipt(blocked)]}, ${sql.json(scopeOutput)})`;
+  const cases: [string, string][] = [
+    [await material("not-ready"), "not_ready"],
+    [await material("no-language", { language: undefined }), "language_unknown"],
+    [await material("no-material", { bodyText: undefined, bodyHtml: undefined, bodyStatus: "pending" }), "no_material"],
+    [blocked, "blocked"],
+    [await material("isolated", {}, ISOLATED), "non_editorial"],
+  ];
+  for (const [id, reason] of cases) {
+    await publishArticle(id);
+    assert.equal((await sql`SELECT visibility FROM publications WHERE article_id=${id}`)[0]?.visibility, "withdrawn");
+    assert.equal(await reasonOf(id), reason, `${reason} is stored for ${id}`);
+  }
+  const { publicationOperationalSnapshot } = await import("../packages/backend/src/publication/operational-snapshot.ts");
+  const states = new Set((await publicationOperationalSnapshot()).map((row) => `${row.kind}:${row.state}`));
+  for (const reason of ["manual", "not_ready", "language_unknown", "no_material", "blocked", "non_editorial"])
+    assert.ok(states.has(`news:withdrawn_7d:${reason}`), `ops snapshot counts ${reason}`);
+});
+
 test("body pictures reach the item page and the full feed only as links, and the image proxy is closed", async () => {
   const id = await article();
   const picture = `https://example.com/${T}.png?a=1&amp;b=2`;

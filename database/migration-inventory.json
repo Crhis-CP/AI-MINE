@@ -535,6 +535,14 @@
     {
       "name": "content/202611061201_news_links_body_hook.sql",
       "dependsOn": ["publication/202611061200_news_links.sql"]
+    },
+    {
+      "name": "acquisition/202611071000_robots_failures.sql",
+      "dependsOn": ["acquisition/202610090900_host_pacing.sql"]
+    },
+    {
+      "name": "publication/202611071010_withdrawn_reasons.sql",
+      "dependsOn": ["publication/202611061200_news_links.sql"]
     }
   ]
 }

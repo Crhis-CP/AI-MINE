@@ -2,9 +2,9 @@
 
 `withSourceCrawl(source, scope, run)` 建立一次逻辑采集的持久上下文；`crawlFetch(url, options)` 在上下文中复用既有 guardedFetch，逐个真实请求实施 robots 与同hostname节流。不同端口/业务线共用主机租约，robots按origin缓存。没有上下文的 guardedFetch/model transport 保持原行为。已有采集、正文、法规取得与私有预览入口已接上下文，不新增调度器或包出口。
 
-`source.config.crawlProfile` 可设 `sensitive` 和 `minimumIntervalSeconds`（2–86400秒，纳入已有配置审计）；默认2秒、敏感10秒，与robots Crawl-delay取大者。无效Crawl-delay阻止内容访问，不静默当0。生产预约与完成间隔使用数据库实际时钟；`options.now/get`只供隔离测试注入。完成后再留间隔，避免不同worker时钟偏差或响应耗时削弱约束。
+`source.config.crawlProfile` 可设 `sensitive`、`minimumIntervalSeconds`（2–86400秒）和 `timeoutSeconds`（5–60秒，覆盖该来源每次请求的超时，默认沿用调用处的20–25秒；纳入已有配置审计）；默认2秒、敏感10秒，与robots Crawl-delay取大者。无效Crawl-delay阻止内容访问，不静默当0。生产预约与完成间隔使用数据库实际时钟；`options.now/get`只供隔离测试注入。完成后再留间隔，避免不同worker时钟偏差或响应耗时削弱约束。
 
-robots缓存24小时，404允许；暂不可取得保留明确延后。匹配规则按RFC9309实现分组、最长路径、Allow同长优先、通配与编码；读取仍服从项目较严格的同主机、最多2跳、不降级约束。403、明确验证页、robots禁止与跨主机跳转不走其他路径绕过；不换UA、不登录、不执行来源脚本。429/503的Retry-After写入共享主机冷却。
+robots按RFC9309 §2.3.1处理（TASK-0574）：2xx解析，HTML页面或没有任何规则行的文本按空文件（允许）并记warning；4xx（含401/403/410/412）为“不可用”，全部允许，缓存24小时；5xx、429和网络失败沿用上次成功副本（读取后30天内），没有可用副本则延后，退避5分钟、15分钟、1小时，之后每6小时；失败与成功副本分列保存（failure_since/count/reason），从不覆盖副本；robots跳转最多跟5次，可跨主机，记录final_url。30天后不自动放行，来源健康列为“robots 长期无法读取”交人工逐个决定。匹配规则按RFC9309实现分组、最长路径、Allow同长优先、通配与编码。内容请求仍限同主机、不降级；跨主机跳转报crawl_redirect_host_changed并附新地址供人工改配置。明确验证页（含robots.txt上的）与robots禁止不走其他路径绕过；不换UA、不登录、不执行来源脚本。429/503的Retry-After写入共享主机冷却。
 
 robots失败的等待到期后，在原会话、原预约重新读取；过期观测前取得的响应不再作为本次探测缓存，避免源站已恢复却继续回放旧HTTP错误。到期后新取得的跳转步骤在等待主机请求间隔时仍可继续复用；正文缓存与实际取得时间保持原有语义。
 
@@ -53,3 +53,10 @@ TASK0144补充真实WordPress目录家族：`pageNumber: {kind:"link_neighbors",
 ## 出站解析与跳转
 
 经出站代理的公开抓取使用同一代理取得 DNS 结果，并把通过地址检查的 IP 固定为 CONNECT 目标；原网站的 Host 与 TLS 校验名称保持不变。解析等待受请求总时限约束，所有返回地址均须通过检查，私网、元数据、保留及基准测试网段一律拒绝。直连在建立连接时重新验证实际地址；生产不开放私网来源例外。公开请求可按现有规则跳转；含请求正文或非公开自定义请求头的跳转限原始 origin，避免把凭据交给其他网站。
+
+## 连接可靠性（TASK-0574）
+
+- **连接原因**：响应前的错误按错误链归类（dns_not_found、dns_temporary、certificate_invalid、tls_handshake、timeout、connection_reset、connection_refused、network_unreachable、address_blocked、proxy_error、other），写入 `CrawlDeferred.causeCode` 和采集记录 `detail.cause`。域名不存在、证书无效、非公网地址属于等待不会好转的原因：抛 `CrawlTransportFailed`，该次采集记失败，进入既有失败计数和退避。其余按主机连续失败次数退避（1、2、4……最多30分钟），收到任何HTTP响应即清零（`crawl_hosts.transport_failures`）。GET允许一次断连重试（guardedFetch的retryDropped），主机租约按两次请求时长预留。
+- **连续等待上限**：同一来源连续5次因robots或连接等待（中间的主机间隔等待不计），第5次记为失败采集，错误为 `deferral_limit <reason> (<cause>): 5 consecutive waits`，来源健康显示原因；限流（HTTP 429/503）与主机间隔仍只等待。
+- **短间隔进程内等待**：主机需要等待不超过5秒时在本进程内等待后重取同一预约（最多3轮），超过5秒仍交队列 startAfter；每主机同时只有一个请求不变。robots读取等待后先复查其他来源是否已存好同一origin的副本。注入虚拟时钟的测试默认不等待，除非显式传入 `sleep`。
+- **如实的Accept**：HTML列表与正文 `text/html,application/xhtml+xml;q=0.9,*/*;q=0.8`；RSS/Atom `application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5`；JSON `application/json, */*;q=0.5`；robots `text/plain, */*;q=0.5`（常量 `ACCEPT`）。UA仍是本站爬虫名称，不模仿浏览器。

@@ -68,3 +68,41 @@ export async function storyWithdrawalAffected(storyId: number, publicId: string,
     OR EXISTS(SELECT 1 FROM publications WHERE story_id=${storyId} AND visibility='withdrawn') AS affected`;
   return row!.affected;
 }
+
+/** Why a news publication is not public, first match wins (TASK-0574). Stored for operators; readers never see it. */
+export const WITHDRAWN_REASONS = ["manual", "original_post_not_admitted", "non_editorial", "blocked", "no_material", "language_unknown", "not_ready"] as const;
+export type WithdrawnReason = (typeof WITHDRAWN_REASONS)[number];
+export function withdrawnReason(state: {
+  /** Original-post admission (when required) allows projecting this post. */
+  admissionAllowed: boolean;
+  /** Operator withdrawal, operator relevance block, or a withdrawn event/story group. */
+  operatorWithdrawn: boolean;
+  /** The source is isolated (never published). */
+  isolated: boolean;
+  /** The scope judgement is not BLOCK. */
+  admitted: boolean;
+  hasMaterial: boolean;
+  /** The material has a known language. */
+  language: boolean;
+  /** A Chinese title and guide (or an admitted verbatim post) exist. */
+  chineseCopy: boolean;
+  readingReady: boolean;
+}): WithdrawnReason | null {
+  if (state.operatorWithdrawn) return "manual";
+  if (!state.admissionAllowed) return "original_post_not_admitted";
+  if (state.isolated) return "non_editorial";
+  if (!state.admitted) return "blocked";
+  if (!state.hasMaterial) return "no_material";
+  if (!state.language) return "language_unknown";
+  if (!state.chineseCopy || !state.readingReady) return "not_ready";
+  return null;
+}
+/** Keep the stored reason in step with the publication row written in the same transaction. */
+export async function recordWithdrawnReason(tx: Db, articleId: string, reason: WithdrawnReason | null) {
+  if (!reason) {
+    await tx`DELETE FROM publication.withdrawn_reasons WHERE article_id=${articleId}`;
+    return;
+  }
+  await tx`INSERT INTO publication.withdrawn_reasons(article_id,reason) VALUES(${articleId},${reason})
+    ON CONFLICT(article_id) DO UPDATE SET reason=EXCLUDED.reason,updated_at=now() WHERE withdrawn_reasons.reason IS DISTINCT FROM EXCLUDED.reason`;
+}

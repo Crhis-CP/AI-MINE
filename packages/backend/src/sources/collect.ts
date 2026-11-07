@@ -409,12 +409,20 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         error: error instanceof SourceCollectionPaused ? "source-paused" : "lane-control-changed",
       };
     }
+    let message: string | null = null;
     if (error instanceof CrawlDeferred) {
-      await deferSourceFetch(sourceId, error.retryAt);
-      await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),detail=${sql.json({ state: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason })} WHERE id=${run!.id}`;
-      throw error;
+      const detail = { state: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason, ...(error.causeCode ? { cause: error.causeCode } : {}) };
+      // Robots and connection waits stop being silent after five in a row: this run is recorded as failed with its
+      // cause, so fail_count, backoff and source health show it. The crawl session ends; the host's own wait stands.
+      const repeated = CAPPED_DEFERRALS.has(error.reason) ? (await consecutiveDeferrals(sourceId, run!.id, error.reason)) + 1 : 0;
+      if (repeated < DEFERRAL_FAILURE_AFTER) {
+        await deferSourceFetch(sourceId, error.retryAt);
+        await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),detail=${sql.json(detail)} WHERE id=${run!.id}`;
+        throw error;
+      }
+      message = `deferral_limit ${error.reason}${error.causeCode ? ` (${error.causeCode})` : ""}: ${repeated} consecutive waits`;
     }
-    const message = failureMessage(error);
+    message ??= failureMessage(error);
     const budget = error instanceof BudgetExceededError;
     await sql`
       UPDATE sources SET last_fetch_at = now(),
@@ -490,6 +498,10 @@ export async function adaptIntervals(): Promise<{ updated: number }> {
 }
 
 import { deferSourceFetch } from "@amp/backend/admin/sources";
+import { consecutiveDeferrals } from "../acquisition/source-health.ts";
+/** Waits that become a failed run after this many in a row (host pacing and rate limits stay plain waits). */
+const CAPPED_DEFERRALS = new Set(["robots_unavailable", "transport_unavailable"]);
+export const DEFERRAL_FAILURE_AFTER = 5;
 import { withSourceCrawl, crawlStep, crawlFulltextAllowed, CrawlDeferred, CrawlBlocked, CrawlObsolete } from "../acquisition/crawl.ts";
 async function pacedCollectSource(
   sourceId: string,
