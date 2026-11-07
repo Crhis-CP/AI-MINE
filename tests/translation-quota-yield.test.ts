@@ -18,6 +18,9 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { SOURCE_PURPOSES } from "@amp/contracts/source-policy";
 import { QUOTA_RECHECK_MS, translationQuotaWait } from "../packages/backend/src/editorial/translation-quota.ts";
+import { modelFor } from "../packages/backend/src/editorial/models.ts";
+import { translateArticle } from "../packages/backend/src/editorial/translate.ts";
+import { prepareTranslationRun } from "../packages/backend/src/publication/publish.ts";
 
 const T = tag();
 let hits = 0;
@@ -206,4 +209,32 @@ test("only the quota of the current translation route is judged: a former provid
   assert.equal(await translationQuotaWait(false, OFF_PEAK), null, "the current route has room; the former provider is not judged");
   const item = await article();
   assert.equal(((await runTranslationJob({ articleId: item }, at(OFF_PEAK))) as { status?: string }).status, "translated");
+});
+
+test("each paid segment is judged against the model it is paid with, fixed when the run started", async () => {
+  // A route switched mid-body (Codex review #372): the rest of the body is still paid with the model the run started
+  // with, so that model's quota is the one judged before each segment.
+  const item = await article({ paragraphs: 3 });
+  const prepared = await prepareTranslationRun(item);
+  assert.ok(prepared);
+  const route = await modelFor("translate");
+  const judged: string[] = [];
+  const result = await translateArticle(item, prepared.revision, {
+    beforePaidSegment: async (model) => {
+      judged.push(model);
+      return null;
+    },
+  });
+  assert.equal(result.status, "translated");
+  assert.ok(judged.length >= 1, "every paid segment is judged");
+  assert.ok(
+    judged.every((model) => model === route),
+    "with the model the run is paying with",
+  );
+  // That model's quota at half use holds a segment, whatever the route is now.
+  const service = await quota();
+  await perHour(service, await usedHour(service));
+  assert.ok(await translationQuotaWait(false, OFF_PEAK, route));
+  await perHour(service, (await usedHour(service)) * 10);
+  assert.equal(await translationQuotaWait(false, OFF_PEAK, route), null);
 });

@@ -14,14 +14,16 @@ export const QUOTA_RECHECK_MS = 20 * 60_000;
 
 /**
  * When a translation that is not selected must wait for quota, the time to judge again; null to go ahead. The quota
- * judged is the one the current translation route will draw on (the model chosen for "translate" now, so switching
- * provider in the admin moves the check with it; Codex review #372). Only when that cannot be resolved does it fall
- * back to every quota translation drew on in the last day. `at` is the caller's clock for the returned time; the
+ * judged is the one the request will draw on: before a paid segment, the model that segment is paid with (`model`,
+ * fixed when the run started, so a route switched mid-body does not move the check away from it); when a job is
+ * taken, the current translation route (the model chosen for "translate" now, so switching provider in the admin
+ * moves the check with it; Codex review #372). Only when that cannot be resolved does it fall back to every quota
+ * translation drew on in the last day. `at` is the caller's clock for the returned time; the
  * windows are counted by the database clock, as the quota check itself counts them.
  */
-export async function translationQuotaWait(selected: boolean, at?: Date): Promise<Date | null> {
+export async function translationQuotaWait(selected: boolean, at?: Date, model?: string): Promise<Date | null> {
   if (selected) return null;
-  const current = await currentTranslationService();
+  const current = await translationService(model);
   const services = current === null ? await recentTranslationServices() : [current];
   let held = false;
   for (const service of services) {
@@ -54,10 +56,10 @@ async function recentTranslationServices(): Promise<string[]> {
   return rows.map((row) => row.service);
 }
 
-/** The quota service the current translation route draws on, or null when it cannot be resolved now. */
-async function currentTranslationService(): Promise<string | null> {
+/** The quota service `model` (or else the current translation route) draws on, or null when it cannot be resolved now. */
+async function translationService(model?: string): Promise<string | null> {
   try {
-    return await modelService(await modelFor("translate"), sql);
+    return await modelService(model ?? (await modelFor("translate")), sql);
   } catch {
     return null;
   }

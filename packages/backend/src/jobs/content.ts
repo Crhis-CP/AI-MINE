@@ -369,8 +369,8 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
     const ahead = await freshSelection(data.articleId, prepared.selected);
     const consumed = translationPeakWait(ahead, clock.now?.()) ?? (await translationQuotaWait(ahead, clock.now?.()));
     if (consumed) return await deferTranslation(data.articleId, consumed);
-    const beforePaidSegment = async () => {
-      const until = translationPeakWait(false, clock.now?.()) ?? (await translationQuotaWait(false, clock.now?.()));
+    const beforePaidSegment = async (model: string) => {
+      const until = translationPeakWait(false, clock.now?.()) ?? (await translationQuotaWait(false, clock.now?.(), model));
       return until && !(await freshSelection(data.articleId, await translationSelectedNow(data.articleId))) ? until : null;
     };
     const result = await translateArticle(data.articleId, prepared.revision, { beforePaidSegment });
