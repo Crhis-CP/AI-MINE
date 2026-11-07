@@ -71,6 +71,10 @@ test("foreign material is public once it has a Chinese title and guide; a full t
     assert.match(detail.summary, /合成模型导读/);
     assert.ok(detail.links.original);
     assert.equal(detail.body?.zh ?? null, null, "a held translation is not shown as Chinese body text");
+    // While the translation is made, the reading page shows the original (TASK-0569).
+    assert.equal(detail.readingState, "pending");
+    assert.equal(detail.bodyLanguage, "original");
+    assert.match(detail.body?.original ?? "", /_FIRST/);
     assert.equal(detail.body?.complete ?? false, false);
   }
   const withdrawn = rows.find((row) => row.title.includes("FOREIGN_WITHDRAWN"))!;
@@ -87,30 +91,32 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   await f.reader.inject("/feed.xml");
   assert.equal(f.calls.filter((call) => call.step === "translate").length, before, "reader requests never progress the held translation");
   release.open();
-  await f.until("selected translation complete", async () => {
-    const selected = (await f.rows()).find((row) => row.selected);
-    if (!selected) return false;
-    const res = await f.reader.inject(`/api/site/items/${selected.id}`);
-    return res.statusCode === 200 && res.json().body?.complete === true;
+  // Every admitted public item is translated (Owner 2026-11-07, TASK-0569): the selected one at once, the other at a
+  // lower priority in the same queue. The withdrawn one is never translated.
+  await f.until("translations complete", async () => {
+    for (const row of (await f.rows()).filter((row) => row.id !== withdrawn.id)) {
+      const res = await f.reader.inject(`/api/site/items/${row.id}`);
+      if (res.statusCode !== 200 || res.json().body?.complete !== true) return false;
+    }
+    return true;
   });
   for (const row of (await f.rows()).filter((row) => row.id !== withdrawn.id)) {
     const res = await f.reader.inject(`/api/site/items/${row.id}`);
     assert.equal(res.statusCode, 200, res.body);
     const body = res.json().body;
-    assert.equal(body.complete, row.selected);
-    if (row.selected) assert.match(body.zh, /末段条件与例外/);
-    else assert.equal(body.zh, null);
+    assert.equal(body.complete, true);
+    assert.match(body.zh, /末段条件与例外/);
     assert.equal(body.original, null);
     assert.equal(row.selected, row.title.includes("FOREIGN_SELECTED"));
   }
-  assert.ok(!f.calls.some((call) => call.marker === "FOREIGN_LOW" && call.step === "translate"));
+  assert.ok(f.calls.some((call) => call.marker === "FOREIGN_LOW" && call.step === "translate"));
   assert.equal((await f.reader.inject(`/api/site/items/${withdrawn.id}`)).statusCode, 404);
   assert.ok(!f.calls.some((call) => call.marker === "FOREIGN_WITHDRAWN" && call.step === "translate"));
   const calls = f.calls.filter((call) => call.step === "translate");
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 4);
   const [receipts] =
     await f.sql`SELECT count(*)::int AS n FROM receipts WHERE purpose='translate_body' AND status='completed' AND response_attempt_id IS NOT NULL`;
-  assert.equal(receipts.n, 2);
+  assert.equal(receipts.n, 4);
   // Drain current work while leaving future jobs intact; gateway configuration and the provider stay enabled.
   await f.stopWorkers();
   assert.equal(shutdownSignal.signal.aborted, false, "reader observation does not disable the model gateway");

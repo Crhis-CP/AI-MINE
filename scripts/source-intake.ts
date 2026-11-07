@@ -62,7 +62,9 @@ export function prepareIntake(plan: Plan, catalog: Record<string, unknown>[]) {
       interval_minutes: seed.interval_minutes,
       first_party: seed.first_party,
       tags: seed.tags ?? [],
-      site_fulltext: false,
+      // News full text and its Chinese translation are shown on our own pages (Owner 2026-11-07, TASK-0569);
+      // off-site redistribution stays off.
+      site_fulltext: true,
       syndicate_fulltext: false,
       permission_scope: { hosts, path_prefixes: ["/"], document_types: [], excluded_content: [] },
       attachments_in_scope: false,

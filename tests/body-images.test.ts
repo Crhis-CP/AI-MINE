@@ -88,7 +88,11 @@ test("real public_read detail and full RSS reject unproved translations and tigh
   const detail = async (original = false) => {
     const response = await app.request(`/api/site/items/${id}${original ? "/original" : ""}`);
     assert.equal(response.status, 200);
-    return (await response.json()) as { body: { zh: string | null; original: string | null; complete: boolean } | null };
+    return (await response.json()) as {
+      body: { zh: string | null; original: string | null; complete: boolean } | null;
+      bodyLanguage: string;
+      readingState: string;
+    };
   };
   const feedItem = async () => {
     const response = await app.request("/feed/full.xml");
@@ -97,7 +101,11 @@ test("real public_read detail and full RSS reject unproved translations and tigh
   };
   const pending = await detail();
   assert.equal(pending.body!.zh, null, "replay complete=true is not model completeness evidence");
-  assert.equal(pending.body!.original, null, "the default Chinese page does not substitute English");
+  // While the translation is pending the reading page shows the authorized original and says so (TASK-0569); it is
+  // never passed off as the Chinese text.
+  assert.ok(pending.body!.original!.includes(`ORIGINAL_BODY_${id}`));
+  assert.equal(pending.bodyLanguage, "original");
+  assert.equal(pending.readingState, "pending");
   assert.equal(pending.body!.complete, false);
   assert.ok((await detail(true)).body!.original!.includes(`ORIGINAL_BODY_${id}`));
   const pendingFeed = await feedItem();

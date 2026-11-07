@@ -17,6 +17,7 @@ import { originalPostCopy } from "../lib/text.ts";
 import { originalPostInputBlocked, originalPostAdmissionRequired } from "../lib/original-post-admission.ts";
 import { currentEvaluationDerivedInput } from "./input.ts";
 import { config } from "../config.ts";
+import { BACKFILL_TRANSLATION_MAX_DAYS, LIVE_TRANSLATION_DAYS, translationJobOptions } from "./translation-schedule.ts";
 export { shield, unshield } from "./translation-readiness.ts";
 
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
@@ -119,44 +120,87 @@ export async function translateArticle(articleId: string, expectedRevision: numb
 
 const RepairCursor = z.object({ cursor: z.strictObject({ version: z.literal(1), afterId: z.string().min(1).max(128).nullable() }) });
 
+export interface TranslationScanOptions {
+  limit?: number;
+  budgetMs?: number;
+  /**
+   * Backfill (scripts/translate-backfill.ts): every admitted public item found within this many days, selected or
+   * not, starting after `afterId` instead of the cron's stored cursor. Without it this is the cron repair: selected
+   * items of any age plus non-selected ones still inside the live window (translation-schedule.ts).
+   */
+  backfillDays?: number;
+  afterId?: string | null;
+  /** False only counts (dry run): nothing is queued. */
+  enqueue?: boolean;
+  now?: Date;
+}
+
 /** Bounded keyset repair, independent of age. recordRun persists progress; workers recheck eligibility. */
-export async function translatePending(opts: { limit?: number; budgetMs?: number } = {}) {
+export async function translatePending(opts: TranslationScanOptions = {}) {
   const started = Date.now();
   const limit = opts.limit ?? 30;
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new RangeError("translation repair limit must be from 1 to 1000");
-  const previous = RepairCursor.safeParse(await latestSuccessfulRunResult("content.translate"));
-  let afterId = previous.success ? previous.data.cursor.afterId : null;
+  const backfill = opts.backfillDays !== undefined;
+  if (backfill && (!Number.isSafeInteger(opts.backfillDays) || opts.backfillDays! < 1 || opts.backfillDays! > BACKFILL_TRANSLATION_MAX_DAYS))
+    throw new RangeError(`translation backfill days must be from 1 to ${BACKFILL_TRANSLATION_MAX_DAYS}`);
+  const since = new Date((opts.now ?? new Date()).getTime() - (opts.backfillDays ?? LIVE_TRANSLATION_DAYS) * 86_400_000);
+  const previous = backfill ? null : RepairCursor.safeParse(await latestSuccessfulRunResult("content.translate"));
+  let afterId = backfill ? (opts.afterId ?? null) : previous?.success ? previous.data.cursor.afterId : null;
   const bodyPending = sql`(a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh' AND
     (tr.article_id IS NULL OR (tr.origin <> 'source' AND (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE}))))`;
   const quotePending = sql`(p.x_post->>'quoteRecipe' IS NOT NULL AND (qt.quote_url IS NULL
     OR p.x_post_revision IS DISTINCT FROM a.revision OR p.x_post->>'quoteRecipe' IS DISTINCT FROM ${quoteTranslationRecipe()}
     OR p.x_post#>>'{view,quoted,translation}' IS DISTINCT FROM qt.text_zh))`;
-  const rows = await sql<(TranslationCandidate & { body_pending: boolean; quote_pending: boolean; post_text: string | null; article_text: string | null })[]>`
-    SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason,${bodyPending} AS body_pending,
-      ${quotePending} AS quote_pending,a.x_post->>'text' AS post_text,a.x_article->>'text' AS article_text
+  const rows = await sql<
+    (TranslationCandidate & {
+      selected: boolean;
+      body_pending: boolean;
+      quote_pending: boolean;
+      post_text: string | null;
+      article_text: string | null;
+      html_chars: number;
+    })[]
+  >`
+    SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason,p.selected,${bodyPending} AS body_pending,
+      ${quotePending} AS quote_pending,a.x_post->>'text' AS post_text,a.x_article->>'text' AS article_text,
+      coalesce(length(a.body_html),0)::int AS html_chars
     FROM publications p JOIN articles a ON a.id = p.article_id
     LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh'
     LEFT JOIN translation_attempts ta ON ta.article_id=p.article_id AND ta.revision=a.revision
     LEFT JOIN enrichment.quote_translations qt ON qt.source_id=a.source_id AND qt.quote_url=a.x_post->'quoted'->>'url'
       AND qt.text_hash=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(a.x_post->'quoted'->>'text','UTF8')),'hex') AND qt.recipe=${quoteTranslationRecipe()}
-    WHERE p.selected AND p.visibility='public' AND p.body_mode = 'full'
+    WHERE p.visibility='public' AND p.body_mode = 'full'
+      AND (p.selected OR (p.eligible AND a.discovered_at >= ${since}
+        AND (NOT p.selection_candidate OR (a.grouping_status = 'complete' AND a.grouping_input_revision = a.revision))))
+      AND (${!backfill} OR a.discovered_at >= ${since})
       AND p.article_id > ${afterId ?? ""}
       AND (${bodyPending} OR ${quotePending})
     ORDER BY p.article_id LIMIT ${limit}`;
   const recovered = await translationRecoveryScopes(rows);
   let enqueued = 0,
-    scanned = 0;
+    scanned = 0,
+    due = 0;
+  const dueHtmlChars: number[] = [];
   for (const row of rows) {
     if (shutdownSignal.signal.aborted || Date.now() - started >= (opts.budgetMs ?? 4 * 60_000)) break;
     const bodyNeeded = row.body_pending && !originalPostCopy(row.post_text === null ? null : { text: row.post_text }, "", { text: row.article_text ?? "" });
     if (row.quote_pending || (bodyNeeded && !stopReason(row, recovered.has(`article:${row.article_id}@${row.revision}`)))) {
-      const queued = await enqueue(QUEUES.translate, { articleId: row.article_id, lane: "news" }, { singletonKey: row.article_id });
-      if (queued === undefined) break; // An expired producer gives no durable acceptance evidence.
-      if (queued) enqueued++;
+      due++;
+      if (bodyNeeded) dueHtmlChars.push(row.html_chars);
+      if (opts.enqueue !== false) {
+        const queued = await enqueue(
+          QUEUES.translate,
+          { articleId: row.article_id, lane: "news" },
+          translationJobOptions(row.article_id, row.selected, opts.now),
+        );
+        if (queued === undefined) break; // An expired producer gives no durable acceptance evidence.
+        if (queued) enqueued++;
+      }
     }
     scanned++;
     afterId = row.article_id; // null means an existing durable singleton, so it must not starve later ids.
   }
-  if (scanned === rows.length && rows.length < limit) afterId = null;
-  return { enqueued, scanned, cursor: { version: 1 as const, afterId } };
+  const done = scanned === rows.length && rows.length < limit;
+  if (done) afterId = null;
+  return { enqueued, scanned, due, dueHtmlChars, done, cursor: { version: 1 as const, afterId } };
 }

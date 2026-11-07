@@ -74,10 +74,12 @@ TASK-0021来源加入与真实evaluate：来源创建严格要求明确permissio
 RSS/RDF的`dc:date`始终保留原串与定位，默认publicationBasis=other，不自动作为发布时间。需逐源明确`publishedAtField:"dc:date"`，并给sourceDate.meaning/publicationBasis/basis语义依据，才按声明解析和判定；显式字段缺失时不切换依据。默认网页日期只取head页面级元数据或绑定当前URL的Article类itemscope；侧栏、其他文章和无身份的microdata不属于本稿，显式selector规则保持。公众号首次窗口同样先严格解析，不能用Number把未识别的原串提前转成旧日期。
 
 
+资讯原文全文与中文全文翻译（TASK-0569，Owner 2026-11-07，DEC-78补充·新闻原文全文与中文译文）：所有已收录公开的资讯都翻译。精选稿立即入`content.translate`（singletonKey=稿件ID，优先级0）；其余稿件进同一队列，singletonKey=`later:<稿件ID>`、优先级-2，模型高峰时段`startAfter`到下一非高峰（`editorial/translation-schedule.ts`）；等待归组的精选候选在归组定下后再入队。实时链路只自动排“发现时间在2天内”的非精选稿，更早的由`scripts/translate-backfill.ts`（默认30天、先预估、`--apply --limit N`分批、`--after`续跑）经`translatePending({backfillDays})`补投；worker的`prepareTranslation`对两者同样复核许可、撤回与当前修订。资讯信源的站内全文与译文由`admin/sources.openNewsFulltext`（`scripts/open-news-fulltext.ts`）按后台同一路径打开：新许可版本+`owner_declared`证据、`site_fulltext=true`、审计与来源重发布，`syndicate_fulltext`不动；有来源异议、法律要求或负责人逐源关闭的来源保持关闭。阅读页在译文未就绪时以`readingState=pending`给出原文（`siteItemDetail`），机器出口不回退。
+
 旧`translateArticle`/`translatePending`已切到严格单段`{text}`运行器，提示词与适配同片生效。完整当前配方才结束补漏；部分结果依实际attempt检查点续接，unknown/停机不写终态，整篇操作记录不再充当付费次数上限。现在由逐稿content.translate消费，cron只补投递；不以selected/public作为翻译前置。新外文在当前完整中文就绪前不公开，已公开稿重处理期间正文待补齐，人工撤回仍优先。
 
 
-详情与全文RSS复检当前修订/配方/原文、完整manifest、段顺序/hash及六类坏段；默认中文阅读不回退英文，原文入口仍受当前全文许可约束。source标签的旧派生中文版尚无真实写入/完整性证明端口，保持未证明；原生中文材料不受此影响。RSS只在当前site与syndication均允许时内联已验证中文，不读取私有段表。当前普通/入选外文都经来源队列、严格逐段调用和公开门；长单元拆分/前文参考及一次截断替代任务仍待后续，不把当前pending截断状态说成已完成。
+详情与全文RSS复检当前修订/配方/原文、完整manifest、段顺序/hash及六类坏段；默认中文阅读在译文未就绪时显示获准的原文并标明（TASK-0569），不把原文当作中文；原文入口仍受当前全文许可约束。source标签的旧派生中文版尚无真实写入/完整性证明端口，保持未证明；原生中文材料不受此影响。RSS只在当前site与syndication均允许时内联已验证中文，不读取私有段表。当前普通/入选外文都经来源队列、严格逐段调用和公开门；长单元拆分/前文参考及一次截断替代任务仍待后续，不把当前pending截断状态说成已完成。
 
 R-03/R-10最小接线：collectSource支持config.language明确声明，经BCP47/运行时语言注册数据规范化后写既有材料language；没有明确语言时不进入付费处理或公开，不以单个汉字推断。中文主语言zh含繁体变体无需翻译，已知非zh才入队。新正文修订明确language:null会清空旧语言，省略字段才保留。没有实现自动语言检测，也不会改写既有重复材料的语言或对声明变更全量回填；需受控元数据修订的历史材料仍是明确余项。私有建源继续使用SourcePolicy 0.3的显式scope/附件声明，不能用旧0.2请求或测试SQL补造加入依据。
 

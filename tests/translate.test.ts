@@ -75,7 +75,7 @@ const material = (price: string) =>
 async function detail(id: string, original = false) {
   const res = await app.inject({ method: "GET", url: `/api/site/items/${id}${original ? "/original" : ""}` });
   assert.equal(res.statusCode, 200);
-  return JSON.parse(res.body) as { body: { zh: string | null; original: string | null; complete: boolean } };
+  return JSON.parse(res.body) as { body: { zh: string | null; original: string | null; complete: boolean }; readingState: string };
 }
 
 async function translateOne(id: string) {
@@ -141,7 +141,9 @@ test("a text corrected while its translation was running is translated again, an
   assert.deepEqual([...attempts], [...previousAttempts], "a superseded response cannot overwrite or consume revision attempts");
   const stale = await detail(id);
   assert.equal(stale.body.zh, null, "a translation of the old wording is not shown");
-  assert.equal(stale.body.original, null, "the default Chinese page stays pending");
+  // The default page shows the current original while the corrected text is translated (TASK-0569).
+  assert.ok(stale.body.original?.includes("twenty"), "the default page shows the current original while the translation is pending");
+  assert.equal(stale.readingState, "pending");
   assert.ok((await detail(id, true)).body.original?.includes("twenty"), "the explicit original route retains current permitted source text");
 
   await currentJudgement(id);
@@ -423,7 +425,7 @@ for (const finalStatus of ["translated", "partial"] as const)
     }
   });
 
-test("unselected foreign articles are public without entering the translation queue", async () => {
+test("unselected foreign articles are public and wait in the translation queue at a lower priority", async () => {
   const { articleId } = await upsertMaterial({
     sourceId: SOURCE,
     url: `${URL_}-unselected`,
@@ -440,9 +442,16 @@ test("unselected foreign articles are public without entering the translation qu
   const published = await publishArticle(articleId);
   assert.equal(published?.visibility, "public");
   assert.equal(published?.selected, false);
-  assert.equal(await prepareTranslation(articleId), null);
+  // Every admitted public item is translated (Owner 2026-11-07, TASK-0569): the worker accepts it, and it waits behind
+  // selected items under its own key. The repair does not queue it twice.
+  assert.notEqual(await prepareTranslation(articleId), null);
   await translatePending();
-  assert.equal((await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`)[0].n, 0);
+  const jobs = await sql<{ singleton_key: string; priority: number }[]>`
+    SELECT singleton_key,priority FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
+  assert.deepEqual(
+    jobs.map((j) => [j.singleton_key, j.priority]),
+    [[`later:${articleId}`, -2]],
+  );
 });
 
 for (const recovery of ["automatic", "manual"] as const)

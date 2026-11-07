@@ -228,16 +228,19 @@ async function eventCoverage(storyId: number, now: Date, machine: boolean): Prom
 }
 
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */
-export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDetail {
+export function siteItemDetail(detail: ItemDetail, original = false, opts: { originalWhilePending?: boolean } = {}): SiteItemDetail {
   const hasTranslation = (!!detail.body?.zh && detail.body.zhKind === "translation" && !!detail.body.original) || !!detail.x?.quoted?.translation;
-  const bodyLanguage = original && (detail.body?.original || detail.x) ? "original" : "zh";
+  // While a foreign article's Chinese translation is still being made, the reading page shows the original text
+  // (readingState stays "pending", so the page can say the translation is on its way). TASK-0569.
+  const pendingOriginal = !original && opts.originalWhilePending !== false && detail.readingState === "pending" && !detail.body?.zh && !!detail.body?.original;
+  const bodyLanguage = (original || pendingOriginal) && (detail.body?.original || detail.x) ? "original" : "zh";
   const originalHtml = detail.body?.original ?? (detail.body?.zhKind === "original" ? detail.body.zh : null);
   const selectedHtml = bodyLanguage === "zh" ? detail.body?.zh : originalHtml;
   return {
     ...detail,
     hasTranslation,
     bodyLanguage,
-    readingState: selectedHtml ? "available" : detail.readingState,
+    readingState: selectedHtml && !pendingOriginal ? "available" : detail.readingState,
     body: detail.body
       ? { ...detail.body, zh: bodyLanguage === "zh" ? detail.body.zh : null, original: bodyLanguage === "original" ? originalHtml : null }
       : null,
@@ -249,7 +252,7 @@ export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDe
 export async function machineItemDetail(id: string, language: "zh" | "original" = "zh", now = new Date()) {
   const found = await loadItemDetail(id, now, true);
   if (found.kind !== "found" || (found.row.release_gated && (!found.row.visible_after || found.row.visible_after > now))) return null;
-  const { score: _score, ...view } = siteItemDetail(found.detail, language === "original"),
+  const { score: _score, ...view } = siteItemDetail(found.detail, language === "original", { originalWhilePending: false }),
     allowed = found.row.syndicate && found.row.source_syndicate_fulltext && found.row.source_site_fulltext && view.readingMode === "full";
   const quoteHtml = allowed ? postQuoteHtml(view.x, language === "original") : "";
   const baseHtml = view.body?.zh ?? view.body?.original ?? null;

@@ -41,6 +41,7 @@ import { looksZh } from "../editorial/writing.ts";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT } from "../editorial/translation-readiness.ts";
 import { readStoredTranslation } from "../editorial/translation-store.ts";
+import { liveTranslationWindow, translationJobOptions } from "../editorial/translation-schedule.ts";
 import { itemUrl } from "./links.ts";
 import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
@@ -462,8 +463,12 @@ export async function publishArticleTx(
   }
   if (!quotedTranslation && storedPostView && !quoteNeedsTranslation) storedPostView.quoteRecipe = null;
   const noMainText = originalPostCopy(post, article.url) !== null;
+  // Full-text translation covers every admitted public editorial item, not only the selected ones (Owner 2026-11-07,
+  // TASK-0569). Selected items are queued at once; the rest wait in the same queue at a lower priority and off-peak.
+  // The live pipeline queues a non-selected item only while it is fresh; older ones come from the bounded backfill,
+  // which the worker accepts through this same check (forTranslation).
   const needsTranslation =
-    selected &&
+    (selected || eligible) &&
     visibility === "public" &&
     !!language &&
     admitted &&
@@ -476,9 +481,14 @@ export async function publishArticleTx(
       quoteNeedsTranslation) &&
     source.participation_mode === "editorial" &&
     (!override?.visibility || override.visibility === "public");
+  // A selection candidate still waiting for its grouping is queued once the grouping settles it (publish runs again
+  // then), so a soon-selected item does not also get a low-priority job.
+  const selectionSettled =
+    !selectionCandidate || (article.grouping_status === "complete" && article.grouping_input_revision === article.revision && !waitingForCoverage);
   if (needsTranslation) {
     if (forTranslation) forTranslation(article.revision);
-    else await enqueue(QUEUES.translate, { articleId, lane: "news" }, { singletonKey: articleId }, tx);
+    else if (selected || (selectionSettled && liveTranslationWindow(article.discovered_at, now)))
+      await enqueue(QUEUES.translate, { articleId, lane: "news" }, translationJobOptions(articleId, selected, options.now), tx);
   }
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ? bilingualNames(analysis.reason_zh) : null) : null;
   const syndicate = mayRedistribute(source, bodyMode);
