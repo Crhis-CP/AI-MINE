@@ -18,6 +18,7 @@ import { WEB_MODULES } from "@amp/site/modules/web";
 import { SiteMeta } from "@amp/contracts/http/public";
 import { NO_FILINGS } from "../components/shell/Filings";
 import { localeOf, useT, useTr } from "../i18n";
+import { useVisitBeacon } from "../lib/visit-beacon";
 
 // Unavailable metadata leaves the navigation unmarked and the footer without numbers; it never invents either.
 export async function loader({ request }: Route.LoaderArgs): Promise<SiteMeta> {
@@ -90,6 +91,8 @@ function SiteShell({ children }: { children: ReactNode }) {
 }
 
 export default function PublicLayout() {
+  // Counts reader pages for the admin's 访问概况; error pages (the boundary below) are not counted.
+  useVisitBeacon();
   return (
     <SiteShell>
       <ContentVersionGuard>

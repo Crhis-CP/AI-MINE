@@ -346,6 +346,7 @@ const protectedApi = async (req: IncomingMessage, res: ServerResponse) => {
         }),
       );
     if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
+    if (req.url === "/api/admin/visits") return res.end(JSON.stringify(visitOverviewFixture));
     if (req.url === "/api/admin/content/grouping-fixture") {
       const at = "2026-10-15T08:00:00Z";
       return res.end(
@@ -1824,6 +1825,71 @@ test("six private groups reuse existing capabilities and old bookmarks have only
         assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/settings"));
       }
     }
+  } finally {
+    privatePageFixtures = false;
+  }
+});
+
+// TASK-0571: 访问概况 renders the overview contract — cards, both 30-day series, months, pages, sources, devices.
+const visitDays = Array.from({ length: 30 }, (_, i) => {
+  const day = new Date(Date.UTC(2026, 9, 9 + i)).toISOString().slice(0, 10);
+  return { day, visitors: i < 20 ? null : 100 + i, page_views: i < 20 ? 0 : 300 + i, english_views: i < 20 ? 0 : 7 };
+});
+const visitOverviewFixture = {
+  generated_at: "2026-11-07T02:00:00Z",
+  today: "2026-11-07",
+  since: "2026-10-29",
+  cards: {
+    today: { visitors: 129, page_views: 329 },
+    yesterday: { visitors: 128, page_views: 328 },
+    week_average: { visitors: 125, page_views: 325, days: 7 },
+    this_month: { visitors: 731, page_views: 2296 },
+    last_month: { visitors: 412, page_views: 1200 },
+  },
+  days: visitDays,
+  months: Array.from({ length: 12 }, (_, i) => ({
+    month: `${2025 + Math.floor((11 + i) / 12)}-${String(((11 + i) % 12) + 1).padStart(2, "0")}`,
+    visitors: i < 10 ? null : 400 + i,
+    page_views: i < 10 ? 0 : 1000,
+  })),
+  pages: {
+    week: [{ route: "/items/:id", path: "/items/visit-fixture", views: 88, title: "合成热门文章" }],
+    month: [{ route: "/all", path: "/all", views: 140, title: null }],
+  },
+  sections: [{ route: "/all", views: 140 }],
+  referrers: { week: [{ host: "baidu.com", views: 31 }], month: [{ host: "baidu.com", views: 60 }] },
+  devices: [
+    { device: "phone", views: 200, visitor_days: 90 },
+    { device: "desktop", views: 100, visitor_days: 40 },
+  ],
+};
+
+test("访问概况 renders the overview contract with cards, charts and tables, privately", async () => {
+  privatePageFixtures = true;
+  try {
+    const res = await fetchWithHost(origin + "/admin/visits", PRIVATE_HOST);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    for (const text of [
+      "今日访客",
+      "昨日访客",
+      "近 7 天日均访客",
+      "本月访客（月活）",
+      "上月访客",
+      "近 30 天日访客与浏览量",
+      "近 12 个月月访客",
+      "合成热门文章",
+      "baidu.com",
+      "手机",
+      "统计自 2026-10-29 起",
+    ])
+      assert.ok(html.includes(text), text);
+    assert.match(html, />129</);
+    assert.match(html, />731</);
+    assert.match(html, /67(?:<!-- -->)?%/);
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store");
+    const reader = await fetch(origin + "/admin/visits");
+    assert.notEqual(reader.status, 200, "the public host never serves the admin page");
   } finally {
     privatePageFixtures = false;
   }

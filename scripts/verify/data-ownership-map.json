@@ -450,6 +450,38 @@
       "module": "platform/ops",
       "access": "business"
     },
+    "ops.visit_salts": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.visit_day_keys": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.visit_month_keys": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.visit_days": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.visit_pages": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.visit_referrers": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.visit_devices": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.visit_months": {
+      "module": "platform/ops",
+      "access": "business"
+    },
     "acquisition.directory_scans": {
       "module": "acquisition",
       "access": "business"
@@ -894,6 +926,7 @@
     "modules/site-admin/backend/information.ts": "publication",
     "modules/site-admin/backend/source-export.ts": "identity",
     "modules/site-admin/backend/target-catalogue.ts": "sources",
+    "modules/site-admin/backend/visits.ts": "ops",
     "packages/backend/src/acquisition/directory-membership.ts": "acquisition",
     "packages/backend/src/acquisition/directory-read.ts": "acquisition",
     "packages/backend/src/acquisition/directory-store.ts": "acquisition",

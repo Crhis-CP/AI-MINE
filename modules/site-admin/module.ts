@@ -1,7 +1,13 @@
 import { defineModule } from "@amp/contracts/modules";
 export default defineModule({
   name: "site-admin",
+  apiPaths: [/^\/api\/site\/visit$/],
   adminPages: [
+    {
+      path: "admin/visits",
+      file: "web/admin/visits.tsx",
+      id: "routes/admin/visits",
+    },
     {
       path: "admin/account",
       file: "web/admin/account.tsx",

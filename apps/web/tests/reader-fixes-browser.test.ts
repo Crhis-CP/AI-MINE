@@ -289,6 +289,36 @@ test("the desktop header searches 全部动态 in the page's language", { timeou
   }
 });
 
+test("a tap on the light/dark switch while the page is still loading is not lost, and counts once", { timeout: 60000 }, async () => {
+  // TASK-0568 Q4: on a phone, /daily took long enough to start that a tap on the switch before then did nothing.
+  const { context, page } = await open(390, true);
+  try {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // Hold the page's scripts back so the tap lands before the page's own code runs.
+    await page.route(/\/assets\/.*\.js(\?.*)?$/, async (route) => {
+      await gate;
+      await route.continue();
+    });
+    await page.goto(`${origin}/all`, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.locator("[data-theme-toggle]").filter({ visible: true }).tap();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    assert.equal(await page.evaluate(() => localStorage.getItem("amp-theme")), "dark", "the choice is kept for the next page");
+    release();
+    const toggle = page.locator("[data-theme-toggle]").filter({ visible: true });
+    // Once the page's own code runs, the switch shows the state the tap chose, and the tap was not replayed.
+    await expect(toggle).toHaveAttribute("aria-label", "切换到浅色");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await toggle.tap();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  } finally {
+    await context.close();
+  }
+});
+
 test("every phone page has the light/dark switch at the top, and the desktop one names itself", { timeout: 90000 }, async () => {
   const { context, page, errors } = await open(390, true);
   try {

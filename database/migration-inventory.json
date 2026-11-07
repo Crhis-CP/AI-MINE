@@ -539,6 +539,10 @@
     {
       "name": "publication/202611071000_metal_prices_safe.sql",
       "dependsOn": ["publication/202610131500_metal_prices_cochilco.sql"]
+    },
+    {
+      "name": "platform/ops/202611071000_visit_stats.sql",
+      "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
     }
   ]
 }

@@ -7,6 +7,7 @@ export default defineWebModule({
       {
         group: "站点管理",
         items: [
+          { to: "/admin/visits", label: "访问概况", end: true },
           { to: "/admin/site", label: "网站资料", owner: true },
           { to: "/admin/accounts", label: "账号", owner: true, end: true },
         ],
