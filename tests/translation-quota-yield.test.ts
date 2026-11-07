@@ -193,3 +193,17 @@ test("an old selected item reached by a republication is backlog: it waits for q
   await perHour(service, (await usedHour(service)) * 10);
   assert.equal(((await runTranslationJob({ articleId: old }, at(OFF_PEAK))) as { status?: string }).status, "translated");
 });
+
+test("only the quota of the current translation route is judged: a former provider over its share does not hold translation", async () => {
+  // A provider translation used before (Codex review #372): stopped, and with a translate_body attempt in the last day.
+  await sql`INSERT INTO budgets(service,per_minute,per_hour,per_day,note) VALUES('former-provider',100,0,0,'test') ON CONFLICT(service) DO UPDATE SET per_hour=0, per_day=0`;
+  const [receipt] = await sql<{ id: number }[]>`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,response,attempts)
+    VALUES(${`former-${T}`},'former-provider','former-model','translate_body',${`article:former-${T}@1`},'received',${sql.json({})},${sql.json({ ok: true })},1) RETURNING id`;
+  await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status,response) VALUES(${receipt!.id},1,'former-provider','former-model','received',${sql.json({ ok: true })})`;
+  const service = await quota();
+  assert.notEqual(service, "former-provider");
+  await perHour(service, (await usedHour(service)) * 10);
+  assert.equal(await translationQuotaWait(false, OFF_PEAK), null, "the current route has room; the former provider is not judged");
+  const item = await article();
+  assert.equal(((await runTranslationJob({ articleId: item }, at(OFF_PEAK))) as { status?: string }).status, "translated");
+});

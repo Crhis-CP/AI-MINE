@@ -30,8 +30,8 @@ import {
 import { bodyReadingKey } from "../content/body-reading-key.ts";
 import { usableSourceText } from "../lib/text.ts";
 import { publishArticle, prepareTranslationRun, translationSelectedNow, articleWithdrawalHeld } from "../publication/publish.ts";
-import { translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
-import { freshSelection, translationQuotaWait } from "../editorial/translation-quota.ts";
+import { LIVE_TRANSLATION_DAYS, translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
+import { translationQuotaWait } from "../editorial/translation-quota.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
@@ -339,6 +339,21 @@ async function deferTranslation(articleId: string, until: Date) {
   const queued = await enqueue(QUEUES.translate, { articleId, lane: "news" }, translationDeferralOptions(articleId, until));
   if (queued === undefined) throw new Error("translation deferral was not accepted by the queue");
   return { state: "deferred_peak", until: until.toISOString() };
+}
+
+/**
+ * Whether a selected item still goes ahead of the quota and peak-hour waits: only while it is fresh (found within the
+ * live translation window). Opening a source's full text republishes its history, and selected items from weeks ago
+ * would otherwise all be translated at once, at any hour and past any share of the quota (2026-11-07: six such jobs
+ * from mid-October were among the requests that kept the hourly quota full). An old selected item is backlog and
+ * waits like any other background translation; it is still translated, only not ahead of core steps. The database
+ * clock judges freshness, as it records discovery.
+ */
+export async function freshSelection(articleId: string, selected: boolean): Promise<boolean> {
+  if (!selected) return false;
+  const [row] = await sql<{ fresh: boolean }[]>`
+    SELECT discovered_at > now() - make_interval(days => ${LIVE_TRANSLATION_DAYS}) AS fresh FROM articles WHERE id = ${articleId}`;
+  return row?.fresh === true;
 }
 
 /** One content.translate job. Exported for tests; the worker registers it below. */
