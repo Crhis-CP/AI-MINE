@@ -5,7 +5,7 @@ import { explicitPolicyReference } from "./domain/references.ts";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
 import { sql, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";
-import { policyCurrentPublicRecords, PolicyReadError } from "./read.ts";
+import { policyCurrentPublicRecords, policyPublicRecordsOf, PolicyReadError } from "./read.ts";
 
 type PublicRecord = Awaited<ReturnType<typeof policyCurrentPublicRecords>>[number];
 /** A request's own reading; without one, the shared current snapshot. */
@@ -73,11 +73,30 @@ type Edge = {
   target_citation: string;
   evidence_ids: string[];
 };
-async function graph(ctx?: Reading) {
-  const records = new Map((await policyCurrentPublicRecords(ctx)).map((r) => [r.card.id, r]));
+/**
+ * The current relation graph around the given documents. Only documents that a stored relation can reach from them
+ * are read (a document without relations reads none); every edge is still checked against both ends' current records,
+ * so the threads and links are exactly those of the whole graph for these documents.
+ */
+async function graph(focus: string[], ctx?: Reading) {
   const stored = await sql<
     Edge[]
   >`SELECT source_edition_id,source_policy_id,target_edition_id,target_policy_id,target_original_key,relation,target_citation,evidence_ids FROM publication.policy_relations`;
+  const reachable = new Set(focus),
+    pending = [...focus];
+  while (pending.length) {
+    const id = pending.pop()!;
+    for (const e of stored)
+      for (const [a, b] of [
+        [e.source_policy_id, e.target_policy_id],
+        [e.target_policy_id, e.source_policy_id],
+      ] as const)
+        if (a === id && !reachable.has(b)) {
+          reachable.add(b);
+          pending.push(b);
+        }
+  }
+  const records = stored.length ? await policyPublicRecordsOf([...reachable], ctx) : new Map<string, PublicRecord>();
   const edges = stored.filter((e) => {
     const source = records.get(e.source_policy_id),
       target = records.get(e.target_policy_id);
@@ -117,16 +136,25 @@ async function graph(ctx?: Reading) {
 /** With the list's own reading, the navigation agrees with the list and reuses its permission and head reads. */
 export async function decoratePolicyNavigation<T extends PolicyCard>(cards: T[], ctx?: Reading): Promise<T[]> {
   if (!cards.length) return cards;
-  const current = await graph(ctx);
+  const current = await graph(
+    cards.map((card) => card.id),
+    ctx,
+  );
   for (const card of cards) card.thread_id = current.thread(card.id);
   return cards;
 }
-export async function decoratePolicyRelationships(detail: Policy, editionId: string) {
-  const current = await graph(),
+export async function decoratePolicyRelationships(detail: Policy, editionId: string, ctx?: Reading) {
+  // Only a current complete interpretation carries relations or a thread, so nothing else reads the graph at all.
+  if (detail.interpretation_state !== "complete") {
+    detail.thread_id = null;
+    detail.relationships = [];
+    return detail;
+  }
+  const current = await graph([detail.id], ctx),
     record = current.records.get(detail.id);
   detail.thread_id = current.thread(detail.id);
   // An explicit historical edition does not borrow relationships from a newer original or interpretation.
-  if (!record || record.editionId !== editionId || detail.interpretation_state !== "complete") {
+  if (!record || record.editionId !== editionId) {
     detail.thread_id = null;
     detail.relationships = [];
     return detail;
@@ -139,7 +167,9 @@ export async function decoratePolicyRelationships(detail: Policy, editionId: str
   return detail;
 }
 export async function readPolicyThread(id: string) {
-  const current = await graph(),
+  const [thread] = await sql<{ anchor_policy_id: string }[]>`SELECT anchor_policy_id FROM publication.policy_threads WHERE id=${id}`;
+  if (!thread) throw new PolicyReadError(404, "policy_thread_not_found");
+  const current = await graph([thread.anchor_policy_id]),
     anchor = current.threads.find((t) => t.id === id);
   if (!anchor || !current.records.has(anchor.anchor_policy_id)) throw new PolicyReadError(404, "policy_thread_not_found");
   const ids = current.component(anchor.anchor_policy_id);

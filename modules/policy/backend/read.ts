@@ -11,7 +11,7 @@ import { readCurrentPublicPolicies, evaluatePublicSourcePolicy, publicProcessing
 import { stableJson, sha256 } from "@amp/backend/lib/ids";
 import { encodeCursor, decodeCursor, queryBinding } from "@amp/backend/lib/cursor";
 import { decoratePolicyNavigation, decoratePolicyRelationships, readPolicyThread } from "./relations.ts";
-import { readerPolicyGaps } from "./reader-copy.ts";
+import { readerCard, readerPolicy } from "./reader-copy.ts";
 import { policyArchiveEnabled } from "./pilot.ts";
 
 export class PolicyReadError extends Error {
@@ -42,7 +42,11 @@ export type Edition = {
   complete_card: unknown;
   basic_detail?: unknown;
   complete_detail?: unknown;
-  reading?: Record<string, { revision: string; language: string; mode: "original" | "official_translation" | "ai_translation"; blocks: unknown[] }>;
+  /** A `detail` read leaves the blocks out and says how many there are in `block_count`; a `full` read has them. */
+  reading?: Record<
+    string,
+    { revision: string; language: string; mode: "original" | "official_translation" | "ai_translation"; blocks: unknown[]; block_count?: number }
+  >;
   quality_id: string | null;
   binding_version: string | null;
   valid_until: Date | null;
@@ -128,7 +132,7 @@ export async function eligible(row: Edition, ctx: Context, currentOnly: boolean)
   return card
     ? {
         row,
-        card: PolicyCard.parse(card),
+        card: readerCard(PolicyCard.parse(card)),
         complete,
         readable: {
           original: originalAllowed && !expiredQuality,
@@ -160,7 +164,7 @@ async function languageViewsOf(rows: Edition[], ctx: Context) {
   return order.map((language) => byLanguage.get(language)!);
 }
 /** Language views for many documents with one editions read, one head read and one permission read per hundred sources. */
-async function loadLanguageViews(ids: string[], ctx: Context, details: boolean) {
+async function loadLanguageViews(ids: string[], ctx: Context, details: EditionRead) {
   const keyOf = (id: string) => `${id}:${details}`;
   const idOf = new Map(ids.map((id) => [keyOf(id), id]));
   const views = await share(
@@ -189,10 +193,16 @@ async function loadLanguageViews(ids: string[], ctx: Context, details: boolean) 
   );
   return new Map(ids.map((id, i) => [id, views[i]!]));
 }
-export async function currentLanguageViews(id: string, ctx: Context, details = false) {
+export async function currentLanguageViews(id: string, ctx: Context, details: EditionRead = "card") {
   return (await loadLanguageViews([id], ctx, details)).get(id)!;
 }
-async function* currentViews(ctx: Context, details = false) {
+/** Current language views of the given documents only, keyed by document: a reading of a few documents, never of all. */
+export async function currentLanguageViewsOf(ids: string[], ctx: Context, details: EditionRead = "card") {
+  const views = new Map<string, View[]>();
+  for (let i = 0; i < ids.length; i += 100) for (const [id, found] of await loadLanguageViews(ids.slice(i, i + 100), ctx, details)) views.set(id, found);
+  return views;
+}
+async function* currentViews(ctx: Context, details: EditionRead = "card") {
   let after = "";
   while (true) {
     const documents = await sql<
@@ -292,8 +302,8 @@ export async function listPolicies(q: Filters & { page?: number; page_size?: num
     items: PolicyCard[] = [],
     hash = createHash("sha256");
   let total = 0;
-  for await (const view of shared?.views ?? currentViews(ctx, true)) {
-    const languages = await currentLanguageViews(view.card.id, ctx, !!filters.q);
+  for await (const view of shared?.views ?? currentViews(ctx, "full")) {
+    const languages = await currentLanguageViews(view.card.id, ctx, filters.q ? "full" : "card");
     if (
       !languages.some(
         (language) =>
@@ -349,16 +359,31 @@ export async function policyScope(jurisdictions = false) {
     updates: policyArchiveEnabled() ? ("pilot" as const) : ("paused" as const),
   };
 }
-export async function editions(id: string, details = false) {
-  return editionsOf([id], details);
+/**
+ * How much of an edition a read needs: `card` the card only; `detail` the details and, of the reading text, only
+ * which revision, language and mode it is and how many blocks it has; `full` the reading text itself (search and the
+ * reading pages). A detail page never carries every edition's whole text through the request.
+ */
+export type EditionRead = "card" | "detail" | "full";
+export async function editions(id: string, read: EditionRead = "card") {
+  return editionsOf([id], read);
 }
-/** Each document's editions newest first, documents in id order. */
-async function editionsOf(ids: string[], details: boolean) {
-  return sql<
-    Edition[]
-  >`SELECT ${columns()},${details ? sql`e.basic_detail,e.complete_detail,e.reading` : sql`NULL AS basic_detail,NULL AS complete_detail,NULL AS reading`}
- ${join()} WHERE e.policy_id=ANY(${ids}::text[]) ORDER BY e.policy_id,e.released_at DESC,e.id DESC`;
+function editionsOf(ids: string[], read: EditionRead) {
+  return editionRows(ids, read !== "card", read === "full");
 }
+/** Each document's editions newest first, documents in id order; without `text` the reading text is summarised in the database. */
+async function editionRows(ids: string[], details: boolean, text: boolean) {
+  return sql<Edition[]>`SELECT ${columns()},${details ? sql`e.basic_detail,e.complete_detail` : sql`NULL AS basic_detail,NULL AS complete_detail`},${
+    details
+      ? text
+        ? sql`e.reading`
+        : sql`(SELECT jsonb_object_agg(r.key,(r.value-'blocks')||jsonb_build_object('blocks','[]'::jsonb,'block_count',
+  CASE WHEN jsonb_typeof(r.value->'blocks')='array' THEN jsonb_array_length(r.value->'blocks') ELSE 0 END)) FROM jsonb_each(e.reading) r)`
+      : sql`NULL`
+  } AS reading ${join()} WHERE e.policy_id=ANY(${ids}::text[]) ORDER BY e.policy_id,e.released_at DESC,e.id DESC`;
+}
+/** The number of reading blocks of a stream, whichever way it was read. */
+const blockCount = (stream: NonNullable<Edition["reading"]>[string]) => stream.block_count ?? stream.blocks.length;
 export async function ensureDocument(id: string) {
   const [row] = await sql`SELECT id,withdrawn FROM publication.policy_documents WHERE id=${id}`;
   if (!row) throw new PolicyReadError(404, "policy_not_found");
@@ -369,7 +394,7 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
   await ensureDocument(id);
   const historical = !!q.document_revision_id,
     ctx = context();
-  const candidates = historical ? await editions(id, true) : (await currentLanguageViews(id, ctx, true)).map((view) => view.row);
+  const candidates = historical ? await editions(id, "detail") : (await currentLanguageViews(id, ctx, "detail")).map((view) => view.row);
   for (const row of candidates) {
     if (
       (q.policy_version_id && q.policy_version_id !== row.policy_version_id) ||
@@ -379,8 +404,7 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
       continue;
     const view = await eligible(row, ctx, !historical);
     if (!view) continue;
-    const detail = Policy.parse(structuredClone(view.complete ? row.complete_detail : row.basic_detail));
-    detail.gaps = readerPolicyGaps(detail);
+    const detail = readerPolicy(Policy.parse(structuredClone(view.complete ? row.complete_detail : row.basic_detail)));
     const current = (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     for (const version of detail.versions) version.current = current;
     const expression = q.expression_id
@@ -402,8 +426,8 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
           language: reading.language,
           expression_id: expression.id,
           document_revision_id: reading.revision,
-          total_blocks: reading.blocks.length,
-          completed_blocks: reading.blocks.length,
+          total_blocks: blockCount(reading),
+          completed_blocks: blockCount(reading),
           blocks: [],
           next_cursor: machine
             ? null
@@ -433,7 +457,7 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
         const other = await eligible(sibling, ctx, true);
         if (!other) continue;
         languages.add(sibling.source_language);
-        const siblingDetail = Policy.parse(other.complete ? sibling.complete_detail : sibling.basic_detail);
+        const siblingDetail = readerPolicy(Policy.parse(other.complete ? sibling.complete_detail : sibling.basic_detail));
         for (const expression of siblingDetail.expressions) {
           if (represented.has(expression.id)) continue;
           const stream = sibling.reading?.[expression.id];
@@ -447,8 +471,11 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
         }
       }
     }
-    if (!historical) detail.related_items = await relatedNewsForPolicy(detail.original_url);
-    return Policy.parse(await decoratePolicyRelationships(detail, row.id));
+    // Related reports and the relations to other documents are independent reads; neither waits for the other, and
+    // the relations read only the documents this one is linked to (never every current document).
+    const [related] = await Promise.all([historical ? null : relatedNewsForPolicy(detail.original_url), decoratePolicyRelationships(detail, row.id, ctx)]);
+    if (related) detail.related_items = related;
+    return Policy.parse(detail);
   }
   throw new PolicyReadError(404, "policy_not_found");
 }
@@ -465,7 +492,7 @@ export async function policyReading(id: string, q: { expression_id: string; docu
   )
     throw new PolicyReadError(400, "invalid_cursor");
   const ctx = context();
-  for (const row of await editions(id, true)) {
+  for (const row of await editions(id, "full")) {
     if (!row.expression_ids.includes(q.expression_id) || !row.revision_ids.includes(q.document_revision_id)) continue;
     if (token && (token.edition !== row.id || token.version !== row.policy_version_id)) throw new PolicyReadError(409, "policy_changed");
     if (token?.historical !== true && (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) !== row.native_revision_id)
@@ -508,10 +535,10 @@ export async function policyHistory(id: string, q: { cursor?: string; limit: num
   await ensureDocument(id);
   const ctx = context(),
     items: z.infer<typeof PolicyHistoryPage>["items"] = [];
-  for (const row of await editions(id, true)) {
+  for (const row of await editions(id, "detail")) {
     const view = await eligible(row, ctx, false);
     if (!view) continue;
-    const detail = Policy.parse(view.complete ? row.complete_detail : row.basic_detail);
+    const detail = readerPolicy(Policy.parse(view.complete ? row.complete_detail : row.basic_detail));
     const current = (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     for (const expression of detail.expressions)
       items.push({
@@ -561,7 +588,7 @@ export async function policyPublicMembers(editionIds: string[]) {
   for (const row of rows) {
     const view = await eligible(row, ctx, false);
     if (!view) continue;
-    const policy = Policy.parse(view.complete ? row.complete_detail : row.basic_detail),
+    const policy = readerPolicy(Policy.parse(view.complete ? row.complete_detail : row.basic_detail)),
       selected = policy.expressions.find((e) => e.id === policy.selected_expression_id);
     const current = (await headsFor(ctx, [row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     out.push({
@@ -619,12 +646,18 @@ export const policyThread = readPolicyThread;
  */
 export async function policyCurrentPublicRecords(ctx?: Context) {
   const out = [];
-  for await (const view of ctx ? currentViews(ctx) : (await currentSnapshot()).views)
-    out.push({
-      editionId: view.row.id,
-      expressionId: view.row.native_expression_id,
-      originalKey: view.row.original_content_key ?? view.row.native_revision_id,
-      card: view.card,
-    });
+  for await (const view of ctx ? currentViews(ctx) : (await currentSnapshot()).views) out.push(publicRecord(view));
   return out;
+}
+const publicRecord = (view: View) => ({
+  editionId: view.row.id,
+  expressionId: view.row.native_expression_id,
+  originalKey: view.row.original_content_key ?? view.row.native_revision_id,
+  card: view.card,
+});
+/** The same current identity records for the given documents only (a document with none is absent), read with one request reading. */
+export async function policyPublicRecordsOf(ids: string[], ctx: Context = context()) {
+  const records = new Map<string, ReturnType<typeof publicRecord>>();
+  for (const [id, views] of await currentLanguageViewsOf([...new Set(ids)], ctx)) if (views[0]) records.set(id, publicRecord(views[0]));
+  return records;
 }

@@ -9,7 +9,8 @@ import { useTr } from "@amp/web/i18n";
 import { useId, useState } from "react";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { z } from "zod";
-import { Section, timeLabel } from "./PolicyUI";
+import { Section } from "./PolicyUI";
+import { usePolicyText } from "./reader";
 
 export type PolicyComparisonData = z.infer<typeof publicSchemas.PolicyComparison>;
 type Change = PolicyComparisonData["provisions"][number];
@@ -112,6 +113,7 @@ function ProvisionCard({ change }: { change: Change }) {
 /** The comparison section; null when the document has no two comparable versions and none was asked for. */
 export function PolicyCompare({ policyId, initial, requested }: { policyId: string; initial: PolicyComparisonData | null; requested: boolean }) {
   const tr = useTr();
+  const text = usePolicyText();
   const ids = useId();
   const [data, setData] = useState(initial);
   const [showUnchanged, setShowUnchanged] = useState(false);
@@ -124,7 +126,7 @@ export function PolicyCompare({ policyId, initial, requested }: { policyId: stri
       </Section>
     ) : null;
   const versionLabel = (entry: Entry) =>
-    `${entry.original_version} · ${tr("本站公开")} ${timeLabel(entry.first_public_at)}${entry.current ? tr("（当前）") : ""}`;
+    `${text.version(entry.original_version)} · ${tr("本站公开")} ${text.date(entry.first_public_at) ?? ""}${entry.current ? tr("（当前）") : ""}`;
   const load = async (from: string, to: string) => {
     if (busy || from === to) return;
     setBusy(true);

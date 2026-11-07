@@ -1,12 +1,30 @@
 // The 2026.11 major update's showcase (Owner 2026-11-06: the news map leads the notice, and the notice shows what is
 // new instead of listing it). The map is the home page's own live map, so its circles are today's real counts and a
 // circle opens the home feed for that country; the five tiles below draw small interface sketches, never real
-// articles or prices. Motion is the site's shared entrance set and stops when the reader asks for reduced motion.
+// articles or prices. Below them every change is shown as the old and the new screen of the same page (Owner
+// 2026-11-06: “这些应该用图片说，以前什么样子现在什么样子”). Motion stops when the reader asks for reduced motion.
 import type { CSSProperties, ReactNode } from "react";
 import { CATEGORIES } from "@amp/industry/taxonomy";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
 import { type Phrase, useCategoryLabel, useT, useTr } from "../../i18n";
 import { WorldMap } from "../feed/WorldMap";
+import { BeforeAfter, type Comparison } from "./BeforeAfter";
+import logoBefore from "./compare-202611/logo-before.webp?url&no-inline";
+import logoAfter from "./compare-202611/logo-after.webp?url&no-inline";
+import homeBefore from "./compare-202611/home-before.webp?url&no-inline";
+import homeAfter from "./compare-202611/home-after.webp?url&no-inline";
+import allBefore from "./compare-202611/all-before.webp?url&no-inline";
+import allAfter from "./compare-202611/all-after.webp?url&no-inline";
+import itemBefore from "./compare-202611/item-before.webp?url&no-inline";
+import itemAfter from "./compare-202611/item-after.webp?url&no-inline";
+import storylineBefore from "./compare-202611/storyline-before.webp?url&no-inline";
+import storylineAfter from "./compare-202611/storyline-after.webp?url&no-inline";
+import policiesBefore from "./compare-202611/policies-before.webp?url&no-inline";
+import policiesAfter from "./compare-202611/policies-after.webp?url&no-inline";
+import metalsBefore from "./compare-202611/metals-before.webp?url&no-inline";
+import metalsAfter from "./compare-202611/metals-after.webp?url&no-inline";
+import moreBefore from "./compare-202611/more-before.webp?url&no-inline";
+import moreAfter from "./compare-202611/more-after.webp?url&no-inline";
 
 const delay = (ms: number): CSSProperties => ({ animationDelay: `${ms}ms` });
 
@@ -117,6 +135,79 @@ function MetalCard({ base, held }: { base: number; held: Phrase }) {
   );
 }
 
+const desktop = { width: 1200, height: 690 };
+/** Same page, same demo data and same viewport in the 2026-10-29 release and in 2026.11 (browser screenshots). */
+const CHANGES: { title: Phrase; text: Phrase; image: Comparison; side?: "mark" | "phone" }[] = [
+  {
+    title: "新标识“五臂星系”",
+    text: "金色的五臂星系标识和字标，取代原来的方块文字标识。",
+    image: { before: logoBefore, after: logoAfter, width: 600, height: 200 },
+    side: "mark",
+  },
+  {
+    title: "栏目移到顶部，首页有了资讯地图",
+    text: "电脑上的栏目从左侧移到页面顶部，页面改为暖色纸面配金色；首页顶部是资讯地图。",
+    image: { before: homeBefore, after: homeAfter, ...desktop },
+  },
+  {
+    title: "资讯分为 9 类，筛选合进一个面板",
+    text: "分类按文章量重新划分；分类、来源和国家筛选放在同一个面板里。",
+    image: { before: allBefore, after: allAfter, ...desktop },
+  },
+  {
+    title: "文章页",
+    text: "标题和摘要统一用中文，AI 评分保留一位小数；正文可以切换宋体和黑体。",
+    image: { before: itemBefore, after: itemAfter, ...desktop },
+  },
+  {
+    title: "事件脉络",
+    text: "同一件事按进展先后排开，同一进展的多家报道收在一起。",
+    image: { before: storylineBefore, after: storylineAfter, ...desktop },
+  },
+  {
+    title: "法规政策动态",
+    text: "先选国家或组织，再选主题，一层层找到法规。",
+    image: { before: policiesBefore, after: policiesAfter, ...desktop },
+  },
+  {
+    title: "金属价格卡片",
+    text: "每种金属一张卡片，先看最新价格和涨跌；报价异常跳动时只暂缓那一种。",
+    image: { before: metalsBefore, after: metalsAfter, ...desktop },
+  },
+  {
+    title: "手机上的“我的”",
+    text: "分为内容、阅读设置、关于三组，还可以切换到英文界面。",
+    image: { before: moreBefore, after: moreAfter, width: 780, height: 1688 },
+    side: "phone",
+  },
+];
+
+/** Every change as the old and the new screen of the same page, the handle in the middle. */
+function Changes() {
+  const tr = useTr();
+  return (
+    <section className="space-y-3" aria-label={tr("改版前后")}>
+      <div>
+        <h3 className="text-[18px] font-bold text-ink">{tr("改版前后")}</h3>
+        <p className="mt-1 text-[13px] leading-[1.75] text-ink-3">{tr("同一页面、同一份演示数据；拖动画面中间的把手，比较改版前和改版后。")}</p>
+      </div>
+      <ol className="space-y-6">
+        {CHANGES.map((change) => (
+          <li key={change.title} className="grid gap-3 lg:grid-cols-[minmax(0,14em)_minmax(0,1fr)] lg:items-start">
+            <div>
+              <h4 className="text-[15.5px] font-bold text-ink">{tr(change.title)}</h4>
+              <p className="mt-1 text-[13px] leading-[1.75] text-ink-3">{tr(change.text)}</p>
+            </div>
+            <div className={change.side === "phone" ? "w-full max-w-[460px]" : "min-w-0"}>
+              <BeforeAfter value={change.image} label={tr(change.title)} side={!!change.side} />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 export function Showcase202611() {
   const tr = useTr();
   const mapTitle = useT().map.title;
@@ -166,6 +257,7 @@ export function Showcase202611() {
           <MetalCard base={1420} held="待下期确认" />
         </Tile>
       </ul>
+      <Changes />
     </section>
   );
 }

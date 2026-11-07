@@ -1,12 +1,13 @@
-import { apiFetch } from "@amp/web/extension";
+import { apiFetch, Link } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
 import { useState } from "react";
-import { Link, data as withHeaders, useLoaderData } from "react-router";
+import { data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
-import { PolicyBack, PolicyError, policyCache, policyHref, timeLabel, actionClass, usePolicyRecheck } from "./features/PolicyUI";
+import { PolicyBack, PolicyError, policyCache, policyHref, actionClass, usePolicyRecheck } from "./features/PolicyUI";
+import { usePolicyText } from "./features/reader";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const result = await apiFetch("/api/site/policies/{id}/history", {
     params: { path: { id: params.id! }, query: { limit: 20 } },
@@ -27,6 +28,7 @@ export default function PolicyHistoryPage() {
 }
 function History({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
   const tr = useTr();
+  const text = usePolicyText();
   const [data, setData] = useState(initial),
     [failed, setFailed] = useState(false),
     [invalid, setInvalid] = useState(false),
@@ -68,18 +70,17 @@ function History({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
                   className="font-semibold text-accent"
                   to={`${policyHref(data.policy_id)}?${new URLSearchParams({ policy_version_id: item.policy_version_id, expression_id: item.expression_id, document_revision_id: item.document_revision_id })}`}
                 >
-                  {item.original_version}
+                  {text.version(item.original_version)}
                 </Link>
                 <p className="mt-2 text-[13px] text-ink-3">
-                  {item.language} · {item.instrument_number ?? tr("文号尚未确认")} · {item.current ? tr("当前可读版本") : tr("历史公开快照")}
+                  {text.join([text.language(item.language), item.instrument_number, item.current ? tr("当前可读版本") : tr("历史公开快照")])}
                 </p>
                 <p className="mt-2 text-[12px] text-ink-4">
-                  {tr("本站公开：")}
-                  {timeLabel(item.first_public_at)}
-                  {tr("；原文公布：")}
-                  {timeLabel(item.published_time)}
-                  {tr("；该原件留存时核对：")}
-                  {timeLabel(item.checked_at)}
+                  {text.join([
+                    text.date(item.first_public_at) && tr("本站公开 {date}", { date: text.date(item.first_public_at)! }),
+                    text.date(item.published_time) && tr("来源发布 {date}", { date: text.date(item.published_time)! }),
+                    text.date(item.checked_at) && tr("原件核对 {date}", { date: text.date(item.checked_at)! }),
+                  ])}
                 </p>
                 {!item.current && item.kind !== "ai_translation" && (
                   <Link

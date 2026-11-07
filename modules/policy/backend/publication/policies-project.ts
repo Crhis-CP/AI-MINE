@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { policySemanticHtml } from "../domain/semantic-html.ts";
+import { POLICY_THEME_LABELS } from "../reader-copy.ts";
 import { Policy, PolicyCard, PolicyReadingBlock } from "@amp/contracts/http/public";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
@@ -165,15 +166,8 @@ const natureLabels = {
   judgment: "裁决",
   unknown: "尚未确认",
 };
-const themeLabels = {
-  investment_company: "投资与公司",
-  mineral_rights: "矿业权",
-  land_construction: "土地与建设",
-  safety_environment: "安全与环境",
-  labour_community: "劳动与社区",
-  tax_finance: "税务与金融",
-  trade_transport: "贸易与运输",
-};
+// The product's own theme names (docs/01-product/10-policy-service.md §2.3), shared with the read layer and the pages.
+const themeLabels = POLICY_THEME_LABELS;
 function refs(value: unknown, map: Record<string, string>): unknown {
   if (Array.isArray(value)) return value.map((v) => refs(v, map));
   if (!value || typeof value !== "object") return value;

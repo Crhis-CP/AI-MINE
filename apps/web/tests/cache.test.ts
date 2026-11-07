@@ -1308,7 +1308,8 @@ test("policy pages distinguish basic facts, complete interpretations, unknown da
     assert.equal(basic.status, 200);
     const html = await basic.text();
     assert.match(html, /决定性附件尚未取得，完整解读不可用/);
-    assert.match(html, /来源发布日期<\/dt>/);
+    // An unknown source date is left out, not printed as a placeholder.
+    assert.doesNotMatch(html, /来源发布<\/dt>|>尚未确认</);
     assert.doesNotMatch(html, /id="analysis"/);
     const report = await fetch(`${origin}/policies/reports/report-fixture`);
     assert.equal(report.status, 200);
@@ -1377,8 +1378,8 @@ test("policy reading retains pages on failure, aligns original nodes and removes
     policyMode = "full";
     await page.getByRole("button", { name: "重新读取正文" }).click();
     await expect(page.getByText("正文已全部载入。", { exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "原文 en", exact: true }).click();
-    await expect(page.getByText(/原文 · en · 已载入 1 \/ 2/)).toBeVisible();
+    await page.getByRole("link", { name: "英语原文", exact: true }).click();
+    await expect(page.getByText(/英语原文 · 已载入 1 \/ 2/)).toBeVisible();
     policyMode = "withdrawn";
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(page.getByText("这篇法规当前不可查看", { exact: true })).toBeVisible();

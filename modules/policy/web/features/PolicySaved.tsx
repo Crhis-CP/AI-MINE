@@ -1,10 +1,11 @@
 import { apiFetch } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "@amp/web/extension";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { Policy } from "@amp/contracts/http/public";
 import { policyHref } from "./PolicyUI";
+import { policyTitle } from "./reader";
 import { toggleStar, useStarred } from "@amp/web/local-state";
 function useIds() {
   return useStarred()
@@ -95,7 +96,7 @@ export function PolicySavedList() {
         {items.map((p) => (
           <li key={p.id} className="flex items-start justify-between gap-3 py-3">
             <Link to={policyHref(p.id)} className="text-[14px] text-accent">
-              {p.title}
+              {policyTitle(p).title}
             </Link>
             <PolicySaveButton id={p.id} />
           </li>

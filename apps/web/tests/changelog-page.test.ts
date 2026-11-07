@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
@@ -94,6 +95,34 @@ after(async () => {
   }
   api.closeAllConnections();
   await new Promise<void>((resolve) => api.close(() => resolve()));
+});
+
+test("the 2026.11 notice shows each change as the old and the new screen of the same page", async () => {
+  // Owner 2026-11-06: “这些应该用图片说，以前 logo 什么样子现在什么样子”.
+  const page = (await (await fetch(`${origin}/changelog`)).text()).replace(/<script\b[\s\S]*?<\/script>/g, "");
+  const section = page.match(/<section[^>]*aria-label="改版前后"[\s\S]*?<\/ol>/)?.[0] ?? "";
+  assert.ok(section, "the before/after section is on the page");
+  assert.equal(section.match(/<li\b/g)?.length, 8, "one row per change");
+  // Page screens are stacked with a handle (a range input); the mark and the phone screens stand side by side.
+  assert.equal(section.match(/type="range"/g)?.length, 6);
+  for (const label of ["新标识“五臂星系”", "事件脉络", "法规政策动态", "金属价格卡片", "手机上的“我的”"]) assert.match(section, new RegExp(label), label);
+  const sources = [...section.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]!);
+  assert.equal(sources.length, 16, "a before and an after picture for every change");
+  for (const src of new Set(sources)) {
+    const res = await fetch(new URL(src, origin));
+    assert.equal(res.status, 200, src);
+    assert.match(res.headers.get("content-type") ?? "", /image\/webp/, src);
+  }
+  assert.match(section, /alt="改版前：新标识“五臂星系”"/);
+  const english = (await (await fetch(`${origin}/en/changelog`)).text()).replace(/<script\b[\s\S]*?<\/script>/g, "");
+  assert.match(english, /aria-label="Before and after"/);
+  assert.match(english, />Before</);
+});
+
+test("the published 2026.11 copy names no company as an example", async () => {
+  // Owner 2026-11-06: “不要说必和必拓这些举例”.
+  const edits = await readFile(new URL("../../../industry/changelog-copy-edits.json", import.meta.url), "utf8");
+  assert.doesNotMatch(edits, /必和必拓|BHP/);
 });
 
 test("a date-only entry has no time on the page; a major update shows its version", async () => {

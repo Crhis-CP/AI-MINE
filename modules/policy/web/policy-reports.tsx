@@ -1,6 +1,6 @@
-import { apiFetch } from "@amp/web/extension";
+import { apiFetch, Link } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
-import { Link, data as withHeaders, useLoaderData } from "react-router";
+import { data as withHeaders, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyReportQuery } from "@amp/contracts/http/public";
@@ -9,6 +9,7 @@ import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
 import { EmptyState } from "@amp/web/page";
 import { PolicyTabs, PolicyError, policyCache, usePolicyRecheck } from "./features/PolicyUI";
+import { usePolicyText } from "./features/reader";
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url),
     parsed = PolicyReportQuery.safeParse({
@@ -36,6 +37,7 @@ export function meta({ location }: MetaArgs<typeof loader>) {
 }
 export default function PolicyReportsPage() {
   const tr = useTr();
+  const text = usePolicyText();
   const { listing, query, scope } = useLoaderData<typeof loader>(),
     { kind } = query;
   const filters = new URLSearchParams();
@@ -59,13 +61,15 @@ export default function PolicyReportsPage() {
               >
                 {report.title}
               </Link>
-              <p className="mt-2 text-[13px] text-ink-3">{report.summary}</p>
-              <p className="mt-2 text-[12px] text-ink-4">{report.coverage_note}</p>
+              {report.summary && <p className="mt-2 text-[13px] text-ink-3">{report.summary}</p>}
+              <p className="mt-2 text-[12px] text-ink-4">{text.coverage(report.coverage_note)}</p>
             </li>
           ))}
         </ul>
       ) : (
-        <EmptyState title={`暂未生成可公开的法规${kind === "weekly" ? tr("周报") : tr("月报")}`}>{tr("没有汇总不代表有关法域没有新法规。")}</EmptyState>
+        <EmptyState title={kind === "weekly" ? tr("暂未生成可公开的法规周报") : tr("暂未生成可公开的法规月报")}>
+          {tr("没有汇总不代表有关法域没有新法规。")}
+        </EmptyState>
       )}
       {(listing.page > 1 || listing.has_more) && (
         <nav aria-label={tr("法规汇总分页")} className="mt-5 flex justify-between text-[13px] text-accent">
