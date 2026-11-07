@@ -143,7 +143,7 @@ export async function loadTimelineFactGroups(
   representatives: ItemRow[],
   candidateIds: string[],
   db: Db = sql,
-  folds: Map<string, { factIds: number[]; developmentCount: number }> = new Map(),
+  folds: Map<string, { factIds: number[]; developmentCount: number; memberIds?: string[]; extraReports?: Array<{ articleId: string; sourceId: string }> }> = new Map(),
 ): Promise<Map<string, GroupInfo | null>> {
   const factIds = [...new Set(representatives.flatMap((row) => (row.fact_id === null ? [] : [row.fact_id])))];
   if (!factIds.length) return new Map();
@@ -167,8 +167,12 @@ export async function loadTimelineFactGroups(
       const reports = foldCopies(
         pool.filter((report) => report.fact_id === row.fact_id).map((report) => ({ ...report, id: report.article_id, at: report.reported_at })),
       );
-      const reportCount = new Set(reports.map((report) => report.article_id)).size;
-      const fold = folds.get(row.id),
+      const fold = folds.get(row.id);
+      // An attached report group of the same development (TASK-0575) adds its outlets to "另有 N 家来源报道".
+      const extra = (fold?.extraReports ?? []).filter((report) => !reports.some((r) => r.article_id === report.articleId));
+      const reportCount = new Set([...reports.map((report) => report.article_id), ...extra.map((report) => report.articleId)]).size;
+      const sources = [...reports.map((report) => report.source_id), ...extra.map((report) => report.sourceId)];
+      const
         facts = new Set(fold?.factIds ?? [row.fact_id!]),
         developmentCount = fold?.developmentCount ?? 1;
       if (reportCount <= 1 && developmentCount <= 1) return [row.id, null];
@@ -177,9 +181,9 @@ export async function loadTimelineFactGroups(
         {
           factId: factInfo.get(row.fact_id!) ?? String(row.fact_id),
           story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null,
-          additionalSourceCount: new Set(reports.filter((report) => report.source_id !== row.source_id).map((report) => report.source_id)).size,
+          additionalSourceCount: new Set(sources.filter((source) => source !== row.source_id)).size,
           reportCount,
-          memberIds: [...new Set(currentMembers.filter((member) => facts.has(member.fact_id)).map((member) => member.id))],
+          memberIds: [...new Set([...currentMembers.filter((member) => facts.has(member.fact_id)).map((member) => member.id), ...(fold?.memberIds ?? [])])],
           developmentCount,
           latestDevelopment: null,
         },

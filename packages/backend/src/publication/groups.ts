@@ -16,6 +16,7 @@ export {
   reportGroupDevelopmentId,
 } from "./report-groups.ts";
 export type { ReportGroupStory } from "./report-groups.ts";
+import { attachedReportGroupMembers } from "./report-groups.ts";
 export { loadReportGroupReports, readItemReportGroup } from "./report-group-reading.ts";
 export type { ReportGroupReportsInput, ReportGroupReportsResult } from "./report-group-reading.ts";
 import { readMatcherValues, searchScoreValues } from "./mentions.ts";
@@ -67,8 +68,13 @@ export interface GroupReportsQuery {
 export type GroupReportsResult = { kind: "ok"; body: GroupReportsResponse } | { kind: "not_found" } | { kind: "changed" };
 
 export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): Promise<GroupReportsResult> {
-  const [fact] = await sql<{ id: number }[]>`SELECT id FROM facts WHERE public_id = ${q.factPublicId}`;
+  const [fact] = await sql<{ id: number; story_id: number | null }[]>`SELECT id, story_id FROM facts WHERE public_id = ${q.factPublicId}`;
   if (!fact) return { kind: "not_found" };
+  // Report groups attached to this fact (TASK-0575: the same report from more outlets) are listed with its reports.
+  const attached =
+    fact.story_id === null
+      ? []
+      : (await attachedReportGroupMembers([Number(fact.story_id)], sql, now)).filter((m) => m.fact_id === Number(fact.id)).map((m) => m.article_id);
   const matchers = readMatcherValues(q.tag, q.topicTags, [], [], newsJurisdictionScope(null).jurisdictionRecipe);
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
   const members = await sql<
@@ -94,7 +100,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
            coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, (${confirmedSelected()}) AS selected,
            s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party,p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind
     FROM publications p JOIN sources s ON s.id = p.source_id
-    WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible
+    WHERE (p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) OR p.article_id = ANY(${attached}::text[])) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible
       AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
     ORDER BY p.timeline_at DESC, p.article_id ASC`.then(foldCopies);
   if (members.length === 0) return { kind: "not_found" };
@@ -164,12 +170,18 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
   type Member = Pick<ItemRow, "source_id" | "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
   const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible ${browseFloorCondition(true)}` : selectedCondition(now);
+  // Report groups attached to the story (TASK-0575) count as its reports, under their fact or their own development.
+  const attachedMembers = await attachedReportGroupMembers([story.id], sql, now);
+  const attachedFact = new Map(attachedMembers.map((m) => [m.article_id, m.fact_id]));
+  const attachedIds = [...attachedFact.keys()];
   const selected = await sql<Member[]>`
     SELECT p.article_id AS id, p.source_id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
-    FROM publications p WHERE p.story_id = ${story.id} AND ${scope} ${filters}`;
+    FROM publications p WHERE (p.story_id = ${story.id} OR p.article_id = ANY(${attachedIds}::text[])) AND ${scope} ${filters}`;
+  for (const r of selected) if (attachedFact.has(r.id) && r.fact_id === null) r.fact_id = attachedFact.get(r.id)!;
   if (selected.length === 0) return { kind: "not_found" };
   // The story page's line: a fact split off for a copy of another fact's report is that development, not a second one.
-  const line = storyLine(await readStoryReportLines([story.id], now));
+  const lineRows = await readStoryReportLines([story.id], now);
+  const line = storyLine(lineRows);
   const development = (fact: number) => {
     const index = line.developmentOfFact.get(fact);
     return index === undefined ? fact : line.developments[index]!.factId;
@@ -178,6 +190,12 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
     SELECT DISTINCT fa.fact_id, p.article_id AS id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     WHERE f.story_id = ${story.id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}`;
+  if (attachedIds.length)
+    for (const r of await sql<{ id: string; title: string; original_title: string | null; first_party: boolean; at: Date }[]>`
+      SELECT p.article_id AS id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at FROM publications p
+      WHERE p.article_id = ANY(${attachedIds}::text[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible
+        AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}`)
+      reported.push({ ...r, fact_id: attachedFact.get(r.id)! });
   const counts = new Map<number, number>();
   for (const fact of new Set(reported.map((r) => development(r.fact_id)))) {
     const rows = [...new Map(reported.filter((r) => development(r.fact_id) === fact).map((r) => [r.id, r])).values()];
@@ -187,8 +205,17 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   const byFact = new Map<number, Member[]>();
   for (const r of selected) if (r.fact_id !== null) byFact.set(development(r.fact_id), [...(byFact.get(development(r.fact_id)) ?? []), r]);
   if (byFact.size === 0) return { kind: "not_found" };
-  const facts = await sql<{ id: number; public_id: string; title: string; occurred_at: Date | null }[]>`
-    SELECT id, public_id, title, occurred_at FROM facts WHERE id IN ${sql([...byFact.keys()])}`;
+  const realFacts = [...byFact.keys()].filter((id) => id > 0);
+  const facts: { id: number; public_id: string; title: string; occurred_at: Date | null }[] = realFacts.length
+    ? await sql<{ id: number; public_id: string; title: string; occurred_at: Date | null }[]>`
+        SELECT id, public_id, title, occurred_at FROM facts WHERE id IN ${sql(realFacts)}`
+    : [];
+  // An attached report group's own development (a negative key) has no fact row; the line names it.
+  for (const id of byFact.keys())
+    if (id < 0) {
+      const named = lineRows.find((r) => r.fact_id === id);
+      facts.push({ id, public_id: attachedMembers.find((m) => m.fact_id === id)?.fact_public_id ?? String(id), title: named?.fact_title ?? "", occurred_at: null });
+    }
   const list = facts
     .map((f) => {
       const rows = byFact.get(f.id)!;
@@ -225,7 +252,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       ? (
           await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${sql(page.map((d) => d.representativeId))}
-      AND p.story_id = ${story.id} AND ${scope} ${filters}`
+      AND (p.story_id = ${story.id} OR p.article_id = ANY(${attachedIds}::text[])) AND ${scope} ${filters}`
         ).map((row) => [row.id, row])
       : [],
   );

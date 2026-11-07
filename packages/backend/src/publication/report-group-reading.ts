@@ -13,6 +13,7 @@ import { loadTimelineFactGroups } from "./timeline.ts";
 import { currentReportMemberships } from "./report-groups.ts";
 import { loadStoryProgress } from "./story-progress.ts";
 import { readStoryReportLines, storyLine } from "./stories.ts";
+import { readReportGroupStories } from "./report-groups.ts";
 
 export interface ReadingGroupQuery extends PoolQuery {
   scope?: "all" | "selected";
@@ -49,6 +50,10 @@ interface Plan {
 export interface StoryFold {
   factIds: number[];
   developmentCount: number;
+  /** Members of report groups attached to the story (TASK-0575) folded into this card. */
+  memberIds?: string[];
+  /** Those of them that report the card's own development: more outlets of the same report. */
+  extraReports?: Array<{ articleId: string; sourceId: string }>;
 }
 
 /** 精选 lists events: once per event (PG-02), a search keeps its matching reports apart. */
@@ -63,12 +68,19 @@ function foldsStories(q: ReadingGroupQuery) {
  * Display only: which facts and stories exist, and what is selected, is unchanged.
  */
 async function foldStories(list: Plan[], now: Date, db: Db): Promise<Plan[]> {
+  // A report group attached to a story (TASK-0575, no fact of its own) folds into that story's card like a fact does.
+  const attached = await readReportGroupStories(
+    list.filter((plan) => plan.key.startsWith("r")).map((plan) => plan.key.slice(1)),
+    db,
+  );
+  const storyOf = (plan: Plan) => (plan.key.startsWith("f") ? plan.representative.story_id : (attached.get(plan.key.slice(1))?.storyId ?? null));
   const byStory = new Map<number, Plan[]>();
   for (const plan of list) {
-    const story = plan.key.startsWith("f") ? plan.representative.story_id : null;
+    const story = storyOf(plan);
     if (story !== null && story !== undefined) byStory.set(Number(story), [...(byStory.get(Number(story)) ?? []), plan]);
   }
-  const stories = [...byStory].filter(([, plans]) => plans.length > 1);
+  // The card stands for a fact: a story that shows only report groups here keeps their own cards.
+  const stories = [...byStory].filter(([, plans]) => plans.length > 1 && plans.some((plan) => plan.key.startsWith("f")));
   if (!stories.length) return list;
   const lines = await readStoryReportLines(
     stories.map(([id]) => id),
@@ -78,19 +90,33 @@ async function foldStories(list: Plan[], now: Date, db: Db): Promise<Plan[]> {
   const replaced = new Map<Plan, Plan | null>();
   for (const [id, plans] of stories) {
     const line = storyLine(lines.filter((r) => Number(r.story_id) === id));
+    const facts = plans.filter((plan) => plan.key.startsWith("f")),
+      groups = plans.filter((plan) => plan.key.startsWith("r"));
     const factOf = (plan: Plan) => Number(plan.key.slice(1));
     // A fact the story page does not list (no public editorial report) is its own development, ranked below the listed ones.
-    const step = (plan: Plan) => line.developmentOfFact.get(factOf(plan)) ?? -1;
-    const development = (plan: Plan) => (step(plan) < 0 ? `x${factOf(plan)}` : `d${step(plan)}`);
-    const newest = development([...plans].sort((a, b) => step(b) - step(a) || b.anchor - a.anchor || b.key.localeCompare(a.key))[0]!);
-    const current = plans.filter((plan) => development(plan) === newest).sort((a, b) => a.anchor - b.anchor || a.key.localeCompare(b.key));
+    // An attached report group sits where the story line lists its members (its fact, or a development of its own).
+    const step = (plan: Plan) =>
+      plan.key.startsWith("f") ? (line.developmentOfFact.get(factOf(plan)) ?? -1) : (line.developmentOf.get(plan.representative.id) ?? -1);
+    const development = (plan: Plan) => (step(plan) >= 0 ? `d${step(plan)}` : plan.key.startsWith("f") ? `x${factOf(plan)}` : `g${plan.key.slice(1)}`);
+    const newest = development([...facts].sort((a, b) => step(b) - step(a) || b.anchor - a.anchor || b.key.localeCompare(a.key))[0]!);
+    const current = facts.filter((plan) => development(plan) === newest).sort((a, b) => a.anchor - b.anchor || a.key.localeCompare(b.key));
+    const sameReport = groups.filter((plan) => development(plan) === newest);
     const card: Plan = {
       key: current[0]!.key,
       anchor: current[0]!.anchor,
       members: plans.flatMap((plan) => plan.members),
       representative: pickRepresentative(current.flatMap((plan) => plan.members)),
       reportGroup: null,
-      story: { factIds: plans.map(factOf), developmentCount: new Set(plans.map(development)).size },
+      story: {
+        factIds: facts.map(factOf),
+        developmentCount: new Set(plans.map(development)).size,
+        ...(groups.length
+          ? {
+              memberIds: groups.flatMap((plan) => plan.members.map((m) => m.id)),
+              extraReports: sameReport.flatMap((plan) => plan.members.map((m) => ({ articleId: m.id, sourceId: m.source_id }))),
+            }
+          : {}),
+      },
     };
     for (const plan of plans) replaced.set(plan, plan === current[0] ? card : null);
   }

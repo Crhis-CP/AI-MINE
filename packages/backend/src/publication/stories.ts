@@ -26,6 +26,7 @@ import { siteUrl, storyUrl } from "./links.ts";
 import { readerAnchor } from "./source-time.ts";
 import { serverModules } from "../modules.ts";
 import { SITE } from "@amp/industry/site";
+import { attachedReportGroupMembers } from "./report-groups.ts";
 import { beijingDate } from "@amp/contracts/time";
 
 /** The fact a report is listed under when it is linked to several: its primary fact, then a report link, then the oldest fact. */
@@ -142,7 +143,7 @@ export function developmentTitle(factTitle: string, members: { title: string; at
 /** Each story's listed reports for the feed's progress line, chosen as on the story page (storyReports). */
 export async function readStoryReportLines(storyIds: number[], now: Date, db: Db = sql) {
   if (!storyIds.length) return [];
-  return db<(LineReport & { story_id: number; fact_title: string })[]>`
+  const own = await db<(LineReport & { story_id: number; fact_title: string })[]>`
     SELECT DISTINCT ON (f.story_id, p.article_id) f.story_id, p.article_id AS id, f.id AS fact_id, f.title AS fact_title, p.title, p.original_title,
       p.first_party, coalesce(p.published_at, p.discovered_at) AS at
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
@@ -150,6 +151,49 @@ export async function readStoryReportLines(storyIds: number[], now: Date, db: Db
     WHERE f.story_id = ANY(${storyIds}::bigint[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()}
       AND s.participation_mode = 'editorial' AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY f.story_id, p.article_id, ${listedFact()}`;
+  const attached = await attachedStoryReports(storyIds, now, own, db);
+  if (!attached.length) return own;
+  const rows = await db<{ id: string; title: string; original_title: string | null; first_party: boolean; at: Date }[]>`
+    SELECT p.article_id AS id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at
+    FROM publications p JOIN sources s ON s.id = p.source_id
+    WHERE p.article_id = ANY(${attached.map((a) => a.article_id)}::text[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()}
+      AND s.participation_mode = 'editorial' AND (NOT p.selected OR p.visible_after <= ${now})`;
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const extra = attached.flatMap((a) => {
+    const r = byId.get(a.article_id);
+    return r ? [{ ...r, story_id: a.story_id, fact_id: a.fact_id, fact_title: a.fact_title ?? "" }] : [];
+  });
+  // A development of its own is named after its earliest report, as a fact is named after the report that founded it.
+  for (const row of extra)
+    if (!row.fact_title)
+      row.fact_title = [...extra].filter((r) => r.fact_id === row.fact_id).sort((x, y) => x.at.getTime() - y.at.getTime())[0]!.title;
+  return [...own, ...extra];
+}
+
+/**
+ * Report groups attached to these stories (TASK-0575, publication.report_group_stories): their current members not already
+ * listed, under the fact they report or under the group's own development (a negative key, reportGroupDevelopmentKey).
+ */
+async function attachedStoryReports(storyIds: number[], now: Date, listed: Array<{ story_id: number; id: string }>, db: Db) {
+  const members = await attachedReportGroupMembers(storyIds, db, now);
+  if (!members.length) return [];
+  const seen = new Set(listed.map((r) => `${Number(r.story_id)}:${r.id}`));
+  const fresh = members.filter((m) => !seen.has(`${m.story_id}:${m.article_id}`));
+  const factIds = [...new Set(fresh.filter((m) => m.fact_id > 0).map((m) => m.fact_id))];
+  const facts = factIds.length
+    ? new Map(
+        (
+          await db<{ id: number; story_id: number | null; public_id: string; title: string }[]>`
+            SELECT id, story_id, public_id, title FROM facts WHERE id = ANY(${factIds}::bigint[])`
+        ).map((f) => [Number(f.id), f]),
+      )
+    : new Map<number, { id: number; story_id: number | null; public_id: string; title: string }>();
+  // A fact that has since left the story (a regroup) no longer carries the group; the next projection moves it.
+  return fresh.flatMap((m) => {
+    if (m.fact_id < 0) return [{ ...m, fact_title: null as string | null, fact_public_id: m.fact_public_id! }];
+    const fact = facts.get(m.fact_id);
+    return fact && Number(fact.story_id) === m.story_id ? [{ ...m, fact_title: fact.title as string | null, fact_public_id: fact.public_id }] : [];
+  });
 }
 
 /** All graph associations can have contributed to cached story text; current grants fence old copy too. */
@@ -252,6 +296,26 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.article_id, ${listedFact()}`;
+  // Report groups attached to this story (TASK-0575) are listed with it, under their fact or their own development.
+  const attached = await attachedStoryReports(
+    [storyId],
+    now,
+    rows.map((r) => ({ story_id: storyId, id: r.id })),
+    sql,
+  );
+  if (attached.length) {
+    const extra = await sql<ReportRow[]>`
+      SELECT p.article_id AS id, p.title, p.original_title, p.summary,
+        CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, (${confirmedSelected()}) AS selected, p.score, p.body_mode, p.timeline_at,
+        coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
+        p.first_party, p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind
+      FROM publications p JOIN sources s ON s.id = p.source_id
+      WHERE p.article_id = ANY(${attached.map((a) => a.article_id)}::text[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()}
+        AND s.participation_mode = 'editorial' AND (NOT p.selected OR p.visible_after <= ${now})`;
+    const place = new Map(attached.map((a) => [a.article_id, a]));
+    for (const row of extra) Object.assign(row, { fact_id: place.get(row.id)!.fact_id, fact_public_id: place.get(row.id)!.fact_public_id });
+    rows.push(...extra);
+  }
   await attachSourcePolicies(rows);
   for (const row of rows) {
     if (!row.is_original_post) continue;
@@ -325,8 +389,13 @@ async function storyContent(storyId: number, now: Date) {
   // Newest first; the story page and feed cards read the same line oldest first.
   const developments = line.developments
     .map((d) => {
-      const f = factRow.get(d.factId)!;
       const members = reports.filter((r) => r.fact_id === d.factId);
+      // An attached report group's own development has no fact row: it is named after its earliest report.
+      const f = factRow.get(d.factId) ?? {
+        public_id: members[0]!.fact_public_id,
+        title: [...members].sort((a, b) => a.at.getTime() - b.at.getTime())[0]!.title,
+        occurred_at: null,
+      };
       const rep = pickRepresentative(members);
       return {
         factId: f.public_id,
