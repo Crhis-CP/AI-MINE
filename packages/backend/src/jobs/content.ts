@@ -31,6 +31,7 @@ import { bodyReadingKey } from "../content/body-reading-key.ts";
 import { usableSourceText } from "../lib/text.ts";
 import { publishArticle, prepareTranslationRun, translationSelectedNow, articleWithdrawalHeld } from "../publication/publish.ts";
 import { translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
+import { freshSelection, translationQuotaWait } from "../editorial/translation-quota.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
@@ -330,7 +331,8 @@ export type JobClock = { now?: () => Date };
 
 /**
  * A translation that is not selected now and was picked up (or reached a segment) in the provider's peak hours waits
- * for the next off-peak start in a new job on the same queue (TASK-0579). A queue that gives no acceptance throws, so
+ * for the next off-peak start in a new job on the same queue (TASK-0579); one held for model quota (TASK-0580) waits
+ * the same way until it judges again. The state keeps the name `deferred_peak` for both (it is the same deferral). A queue that gives no acceptance throws, so
  * pg-boss retries this job and it judges again; a key already waiting for the same start already covers it.
  */
 async function deferTranslation(articleId: string, until: Date) {
@@ -347,11 +349,14 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
     const prepared = await prepareTranslationRun(data.articleId);
     if (prepared === null) return { state: "not-needed-or-not-permitted" };
     // Judged when the job is taken, from the publication as it is now, before any paid step (the quote, the body).
-    const consumed = translationPeakWait(prepared.selected, clock.now?.());
+    // The same moments also judge the model quota (TASK-0580): background translation leaves half of it to core steps.
+    // Only a fresh selected item goes ahead of both waits; an old selected item reached by a republication is backlog.
+    const ahead = await freshSelection(data.articleId, prepared.selected);
+    const consumed = translationPeakWait(ahead, clock.now?.()) ?? (await translationQuotaWait(ahead, clock.now?.()));
     if (consumed) return await deferTranslation(data.articleId, consumed);
     const beforePaidSegment = async () => {
-      const until = translationPeakWait(false, clock.now?.());
-      return until && !(await translationSelectedNow(data.articleId)) ? until : null;
+      const until = translationPeakWait(false, clock.now?.()) ?? (await translationQuotaWait(false, clock.now?.()));
+      return until && !(await freshSelection(data.articleId, await translationSelectedNow(data.articleId))) ? until : null;
     };
     const result = await translateArticle(data.articleId, prepared.revision, { beforePaidSegment });
     if (result.reason === "deferred_peak" && result.until) return await deferTranslation(data.articleId, result.until);
