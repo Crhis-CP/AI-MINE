@@ -34,6 +34,26 @@ export function translationJobOptions(articleId: string, selected: boolean, at?:
   return { singletonKey: `later:${articleId}`, priority: PRIORITY.later, ...(wait ? { startAfter: wait } : {}) };
 }
 
+/**
+ * The enqueue-time wait above is not enough on its own (TASK-0579, Codex review #362): a backlog or a retry can pick a
+ * waiting job up in a peak hour, and a long body's segments can run into one. So the worker judges again when it takes
+ * the job and before every paid segment: an item that is not selected at that moment waits for the next off-peak start
+ * (null: go ahead). Selection is read then, so an item selected while it waited is translated at once.
+ */
+export function translationPeakWait(selected: boolean, at?: Date): Date | null {
+  return selected ? null : offPeakWait(at);
+}
+
+/**
+ * Queue options for the job that takes over from one that waited (same payload, same queue). The key carries the
+ * off-peak start, so it never equals the running job's key: that one was either queued under `later:<id>` / `<id>`
+ * or under an earlier off-peak start, which has passed. Jobs waiting for the same start collapse into one; a cron
+ * repair duplicate under `later:<id>` is harmless, as it finds the translation complete and makes no model call.
+ */
+export function translationDeferralOptions(articleId: string, until: Date) {
+  return { singletonKey: `later:${articleId}:off-peak:${until.toISOString()}`, priority: PRIORITY.later, startAfter: until };
+}
+
 /** Rough tokens per Chinese character and per character of other text (HTML, Latin script) for the provider's tokenizer. */
 const TOKENS_PER_HAN = 0.6;
 const CHARS_PER_TOKEN = 3.5;

@@ -37,8 +37,16 @@ const assertRunning = () => {
   if (shutdownSignal.signal.aborted) throw new TranslationInterruptedError("worker shutting down");
 };
 
+export interface TranslationRunOptions {
+  /**
+   * Asked before every paid segment: a time means stop now and resume then (TASK-0579, a non-selected item in the
+   * provider's peak hours). Saved segments stay checkpoints, so the next run pays only for the rest.
+   */
+  beforePaidSegment?: () => Promise<Date | null>;
+}
+
 /** Caller verifies scope/source permission first. Paid work never holds a content transaction. */
-export async function runBodyTranslation(articleId: string, recipe: TranslationRecipe, expectedRevision?: number) {
+export async function runBodyTranslation(articleId: string, recipe: TranslationRecipe, expectedRevision?: number, options: TranslationRunOptions = {}) {
   assertRunning();
   const body = await readCurrentBody(articleId);
   if (!body || !normalizeSourceLanguage(body.language)) return { status: "skipped" as const, revision: body?.revision, reason: "language_unidentified" };
@@ -78,6 +86,8 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     assertRunning();
     const checkpoint = saved.find((row) => row.index === segment.index && row.sourceHash === segment.sourceHash);
     if (checkpoint?.state === "complete") continue;
+    const until = await options.beforePaidSegment?.();
+    if (until) return { status: "deferred" as const, revision: body.revision, until };
     const part = shield(segment.html).html;
     const user = JSON.stringify({ text: part, ...(segment.reference ? { referenceOnly: segment.reference } : {}) });
     let reply: ChatJsonResult<unknown>;
