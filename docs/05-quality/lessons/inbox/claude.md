@@ -29,3 +29,10 @@
 - 怎么核实的：#373 head 7866b99 的 path-guard 日志只有这一行失败；revert 后净改动只剩 TASK-0580 一行。
 - 以后怎么防：一个计划 PR 只改一张卡；另一张卡等前一个合并后单独开。整理时并入 PIT-108（path-guard 读 base 的卡）。
 - 证据：看板 6710360854、6710411995；#373 提交 9f6fc07。
+
+### 2026-11-07 scripts/ 顶层的新脚本会被当成生产镜像要跑的脚本
+- 现象：#375 新增 `scripts/check-handoff-sql.ts`（用 `postgres`），CI 的 `production-scripts.test.ts` 判它“生产镜像没装 postgres”。
+- 根因：`scripts/` 顶层的每个脚本默认都会进生产镜像，只能用根 `dependencies` 里的包；只在开发机用的脚本要登记进该测试的 `EXEMPT` 名单。
+- 怎么核实的：CI 日志的断言内容；本地登记后该测试 4 项通过。
+- 以后怎么防：新增 `scripts/*.ts` 时先想清楚它在哪里跑。开发机专用的就在任务卡里同时列上 `scripts/verify/tests/production-scripts.test.ts` 并登记；本地先跑一次这条测试。
+- 证据：#375 评论 6711451239。
