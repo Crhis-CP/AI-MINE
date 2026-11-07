@@ -80,8 +80,8 @@ export function basicPolicy(meta: PolicyMetadataObservation, ids: PublicIds, at:
     summary: null,
     applicability_summary: null,
     thread_id: null,
-    original_url: meta.officialUrl,
-    attributions: [{ name: meta.authority, url: meta.officialUrl }],
+    original_url: officialHref(meta.officialUrl),
+    attributions: [{ name: meta.authority, url: officialHref(meta.officialUrl) }],
     ai_label: "ai_generated",
     legal_state: {
       nature: unknown,
@@ -315,4 +315,16 @@ export function readingBlock(id: string, content: string, format: "text" | "html
     evidence_ids,
     links,
   });
+}
+
+/**
+ * The official address as a URL parser writes it (dot segments resolved, host lower-cased and in ASCII, default port
+ * dropped), so the stored card and the news-link index compare the same spelling (Codex review #355, P2).
+ */
+export function officialHref(value: string) {
+  try {
+    return new URL(value).href;
+  } catch {
+    return value;
+  }
 }
