@@ -103,7 +103,18 @@ export function newsSourceDate(time: import("@amp/contracts/time-assertion").Tim
 const BEIJING = "Asia/Shanghai";
 /** The same helpers in the interface language: Chinese as above, English through Intl in Beijing time. */
 export function dateFormatFor(english: boolean) {
-  if (!english) return { relativeTime, monthDayTime, sourceMonthDayTime, monthDay: (date: string) => monthDayLabel(date), weekday: beijingWeekday };
+  if (!english)
+    return {
+      relativeTime,
+      monthDayTime,
+      sourceMonthDayTime,
+      monthDay: (date: string) => monthDayLabel(date),
+      weekday: beijingWeekday,
+      /** "2026 年 11 月 7 日" over "周六": a day's heading in a dated list (the changelog). */
+      dayHeading: (date: string) => ({ label: fullDateLabel(date), weekday: beijingWeekday(date).replace("星期", "周") }),
+      /** "2026 年 11 月" for a YYYY-MM key. */
+      monthName: (month: string) => `${month.slice(0, 4)} 年 ${Number(month.slice(5, 7))} 月`,
+    };
   const day = (date: string) => new Date(`${date}T12:00:00+08:00`);
   const enMonthDay = (date: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: BEIJING }).format(day(date));
   const enMonthDayTime = (iso: string) =>
@@ -125,7 +136,19 @@ export function dateFormatFor(english: boolean) {
     sourceMonthDayTime: (iso: string) => (isDateOnlyInstant(iso) ? enMonthDay(beijingDate(iso)) : enMonthDayTime(iso)),
     monthDay: enMonthDay,
     weekday: (date: string) => new Intl.DateTimeFormat("en", { weekday: "long", timeZone: BEIJING }).format(day(date)),
+    /** "Nov 7, 2026" over "Sat". */
+    dayHeading: (date: string) => ({
+      label: new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: BEIJING }).format(day(date)),
+      weekday: new Intl.DateTimeFormat("en", { weekday: "short", timeZone: BEIJING }).format(day(date)),
+    }),
+    /** "November 2026" for a YYYY-MM key. */
+    monthName: (month: string) => new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: BEIJING }).format(day(`${month}-15`)),
   };
+}
+/** "2026 年 11 月 7 日". */
+function fullDateLabel(date: string): string {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  return `${y} 年 ${m} 月 ${d} 日`;
 }
 function monthDayLabel(date: string): string {
   return `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日`;

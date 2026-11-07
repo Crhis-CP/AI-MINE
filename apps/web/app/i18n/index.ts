@@ -36,6 +36,15 @@ export function localizedPath(to: string, locale: Locale): string {
   return to === "/" ? "/en" : to.startsWith("/?") || to.startsWith("/#") ? `/en${to.slice(1)}` : `/en${to}`;
 }
 
+/**
+ * The internal links of a rendered HTML fragment (the site's own Markdown copy: terms, privacy) in the given
+ * language, by the same rule as localizedPath: under /en, `href="/feedback"` becomes `href="/en/feedback"`.
+ */
+export function localizeHtmlLinks(html: string, locale: Locale): string {
+  if (locale === "zh") return html;
+  return html.replace(/(<a\b[^>]*?\shref=")([^"]*)"/g, (_whole, head: string, href: string) => `${head}${localizedPath(href, locale)}"`);
+}
+
 /** A router target (an address, or a path object with a pathname) in the given language. */
 export function localizeTo<T extends To>(to: T, locale: Locale): T {
   if (typeof to === "string") return localizedPath(to, locale) as T;

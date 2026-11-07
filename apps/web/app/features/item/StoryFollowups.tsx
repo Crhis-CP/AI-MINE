@@ -106,7 +106,7 @@ export function StoryFollowups({ story, currentId, currentFactId }: { story: Sto
                   {shortSourceName(d.representative.source.name)} ·{" "}
                   {date ? (
                     <time dateTime={date.dateTime}>
-                      {date.label} {date.text}
+                      {tr.maybe(date.label)} {date.text}
                     </time>
                   ) : (
                     tr("原文时间尚未确认")

@@ -1,7 +1,7 @@
 import { PhoneBar } from "../../components/shell/PhoneBar";
-import { useLocale, useTr } from "../../i18n";
+import { localizeHtmlLinks, useLocale, useTr } from "../../i18n";
 import { useCurrentSection } from "../../lib/motion";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link } from "../../i18n/navigation";
 import type { CopyDocument, RenderedCopy } from "../../lib/markdown";
 import { ArticleLayout, RailSection } from "../../components/ui/Page";
@@ -24,7 +24,10 @@ export function CopyPage({
   aside?: ReactNode;
 }) {
   const tr = useTr();
-  const english = useLocale() === "en";
+  const locale = useLocale();
+  const english = locale === "en";
+  // Links inside the copy ("[反馈页](/feedback)") keep a reader of the English interface under /en.
+  const html = useMemo(() => localizeHtmlLinks(rendered.html, locale), [rendered.html, locale]);
   const [current, go] = useCurrentSection(
     rendered.outline.map((o) => o.id),
     true,
@@ -101,7 +104,7 @@ export function CopyPage({
             </dl>
           )}
           {english && <p className="mt-6 text-[13.5px] text-ink-3">{tr("本文为中文原文，英文界面不提供译本。")}</p>}
-          <div className="prose prose-compact mt-6 lg:mt-8" dangerouslySetInnerHTML={{ __html: rendered.html }} />
+          <div className="prose prose-compact mt-6 lg:mt-8" dangerouslySetInnerHTML={{ __html: html }} />
           {footer && <div className="mt-12 border-t border-line pt-5 text-[12.5px] text-ink-3">{footer}</div>}
         </article>
       </ArticleLayout>

@@ -72,10 +72,25 @@ function report(kind: Kind, at: number) {
     ],
   });
   const market = cite(`${entry.key}-market`, `合成市场报道 ${entry.key}`, { firstParty: false });
-  const sections = [
-    { label: "企业与项目", summary: null, items: [lead, more] },
-    { label: "市场与技术", summary: null, items: [market] },
-  ];
+  // The September monthly lost a citation: the API keeps one page under its fixed "仍公开的报道", marks the
+  // withdrawn story with its fixed title and names the correction with one of its fixed reasons
+  // (publication/reports.ts); the interface names those in its own language (TASK-0573).
+  const withdrawnIssue = kind === "monthly" && entry.key === "2026-09";
+  const gone = {
+    ...cite(`${entry.key}-gone`, "已撤回的报道"),
+    summary: null,
+    sourceName: "",
+    sourceUrl: "",
+    sourceId: null,
+    publishedAt: null,
+    available: false,
+  };
+  const sections = withdrawnIssue
+    ? [{ label: "仍公开的报道", summary: null, items: [lead, more, market, gone] }]
+    : [
+        { label: "企业与项目", summary: null, items: [lead, more] },
+        { label: "市场与技术", summary: null, items: [market] },
+      ];
   return {
     kind,
     key: entry.key,
@@ -89,7 +104,8 @@ function report(kind: Kind, at: number) {
     lead: { title: entry.title, leadParagraph: "合成导语" },
     leadItemId: lead.itemId,
     overview: null,
-    highlights: [more],
+    highlights: withdrawnIssue ? [more, gone] : [more],
+    ...(withdrawnIssue ? { corrections: [{ revision: 2, reason: "部分引用已撤回，本期仅保留仍可公开的内容。", at: "2026-10-02T02:00:00Z" }] } : {}),
     sections,
     stories: sections.flatMap((s) => s.items.map((item) => ({ ...item, label: s.label }))),
     flashes: [],
@@ -176,6 +192,17 @@ const item = {
   bodyLanguage: "zh",
 };
 
+// The changelog: a major update with its version, an improvement, and a date-only notice; titles and bodies are content.
+const changelog = {
+  latestVersion: "2026-11-07T06:52",
+  releases: [
+    { date: "2026-11-07", time: "06:52", kind: "优化", title: "合成优化标题", body: ["合成优化说明。", "- 合成要点"] },
+    { date: "2026-11-07", time: "02:10", kind: "更新", title: "合成更新标题", body: ["合成更新说明。"] },
+    { date: "2026-10-06", time: "02:50", kind: "重大更新", version: "2.0", title: "合成大版本", body: ["合成大版本说明。"] },
+    { date: "2026-09-15", kind: "公告", title: "合成公告标题", body: ["合成公告说明。"] },
+  ],
+};
+
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
   res.setHeader("content-type", "application/json");
@@ -194,6 +221,7 @@ const api = createServer((req, res) => {
       ),
     );
   if (path === "/api/site/jurisdictions") return send([]);
+  if (path === "/api/site/changelog") return send(changelog);
   const reports = /^\/api\/site\/reports\/(daily|weekly|monthly)(?:\/(latest-page|navigation\/[^/]+|months\/[^/]+|[^/]+))?$/.exec(path);
   if (reports) {
     const kind = reports[1] as Kind;
@@ -381,6 +409,9 @@ test("the interface chrome of English pages has no Chinese outside the content",
         "/en/hot",
         "/en/more",
         "/en/nothing-here",
+        "/en/about",
+        "/en/feedback",
+        "/en/agent",
       ]) {
         await page.goto(`${origin}${path}`);
         await expect(page.locator("html")).toHaveAttribute("lang", "en");
@@ -651,4 +682,117 @@ test("the English story page and news cards use English dates, word order and pu
   } finally {
     await context.close();
   }
+});
+
+test("terms, privacy and about link only to English pages, the copy's own links included", { timeout: 60000 }, async () => {
+  // The audit's A1: "[反馈页](/feedback)" inside the terms copy took a reader of /en/terms to the Chinese page.
+  for (const width of [390, 1440]) {
+    const { context, page, errors, blocked } = await open(width);
+    try {
+      for (const path of ["/en/terms", "/en/privacy", "/en/about"]) {
+        await page.goto(`${origin}${path}`);
+        await expect(page.locator("html")).toHaveAttribute("lang", "en");
+        assert.deepEqual(await chineseAddresses(page), [], `${path} at ${width}px links only to English pages`);
+      }
+      await page.goto(`${origin}/en/terms`);
+      const copy = page.locator(".prose");
+      await expect(copy.getByRole("link", { name: "反馈页" })).toHaveAttribute("href", "/en/feedback");
+      await expect(copy.getByRole("link", { name: "更新日志" })).toHaveAttribute("href", "/en/changelog");
+      await expect(copy.getByRole("link", { name: "隐私说明" })).toHaveAttribute("href", "/en/privacy");
+      await copy.getByRole("link", { name: "反馈页" }).click();
+      await expect(page).toHaveURL(`${origin}/en/feedback`);
+      await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      assert.deepEqual(errors, []);
+      assert.deepEqual(blocked, []);
+    } finally {
+      await context.close();
+    }
+  }
+  // The Chinese copy keeps its Chinese addresses.
+  const { context, page } = await open(1440);
+  try {
+    await page.goto(`${origin}/terms`);
+    await expect(page.locator(".prose").getByRole("link", { name: "反馈页" })).toHaveAttribute("href", "/feedback");
+  } finally {
+    await context.close();
+  }
+});
+
+test("the English changelog names its days, months and kinds of update in English", { timeout: 60000 }, async () => {
+  // The audit's A2: "2026 年 11 月 7 日 周六" over the English changelog.
+  for (const width of [390, 1440]) {
+    const { context, page, errors } = await open(width);
+    try {
+      await page.goto(`${origin}/en/changelog`);
+      await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      assert.deepEqual(await chineseChrome(page), [], `/en/changelog at ${width}px`);
+      assert.deepEqual(await chineseAddresses(page), [], `/en/changelog at ${width}px links only to English pages`);
+      const day = page.locator("#d-2026-11-07 h2");
+      await expect(day).toContainText("Nov 7, 2026");
+      await expect(day).toContainText("Sat");
+      await expect(page.locator("#d-2026-11-07")).toContainText("Improvement");
+      await expect(page.locator("#d-2026-11-07")).toContainText("Update");
+      await expect(page.locator("#d-2026-10-06")).toContainText("Major update 2.0");
+      await expect(page.locator("#d-2026-10-06")).toContainText("Oct 6, 2026 Tue");
+      await expect(page.locator("#d-2026-09-15")).toContainText("Notice");
+      if (width === 1440) {
+        const months = page.getByRole("navigation", { name: "By month" });
+        assert.deepEqual(
+          (await months.getByRole("link").allInnerTexts()).map((text) => text.replace(/\s+/g, " ").trim()),
+          ["November 2026 2 items", "October 2026 1 items", "September 2026 1 items"],
+        );
+      }
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  }
+  // The Chinese changelog is unchanged.
+  const { context, page } = await open(1440);
+  try {
+    await page.goto(`${origin}/changelog`);
+    await expect(page.locator("#d-2026-11-07 h2")).toContainText("2026 年 11 月 7 日");
+    await expect(page.locator("#d-2026-11-07 h2")).toContainText("周六");
+    await expect(page.locator("#d-2026-10-06")).toContainText("重大更新 2.0");
+    await expect(page.getByRole("navigation", { name: "按月份" })).toContainText("2026 年 11 月");
+  } finally {
+    await context.close();
+  }
+});
+
+test("an English issue with a withdrawn citation names the API's fixed labels in English", { timeout: 60000 }, async () => {
+  // The audit's A2: "仍公开的报道" as a section of /en/monthly/2026-10 once one of its citations was withdrawn.
+  for (const width of [390, 1440]) {
+    const { context, page, errors } = await open(width);
+    try {
+      await page.goto(`${origin}/en/monthly/2026-09`);
+      await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      assert.deepEqual(await chineseChrome(page), [], `/en/monthly/2026-09 at ${width}px`);
+      await expect(page.getByRole("heading", { name: "Coverage still public" })).toBeVisible();
+      await expect(page.getByText("Withdrawn report").first()).toBeVisible();
+      await expect(page.locator("#report-corrections").locator("..")).toContainText("Some citations were withdrawn");
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  }
+  const { context, page } = await open(1440);
+  try {
+    await page.goto(`${origin}/monthly/2026-09`);
+    await expect(page.getByRole("heading", { name: "仍公开的报道" })).toBeVisible();
+    await expect(page.getByText("已撤回的报道").first()).toBeVisible();
+    await expect(page.locator("#report-corrections").locator("..")).toContainText("部分引用已撤回，本期仅保留仍可公开的内容。");
+  } finally {
+    await context.close();
+  }
+});
+
+test("every time meaning and every fixed report label the API sends has an English phrase", async () => {
+  const { PHRASES } = await import("../app/i18n/phrases.ts");
+  const { TIME_MEANINGS } = await import("@amp/contracts/time-assertion");
+  const fixed = [...Object.values(TIME_MEANINGS), "发布时间", "仍公开的报道", "已撤回的报道"];
+  assert.deepEqual(
+    fixed.filter((text) => !(text in PHRASES)),
+    [],
+  );
 });

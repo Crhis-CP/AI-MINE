@@ -1,4 +1,4 @@
-import { beijingWeekday } from "../../lib/format";
+import { useLocale } from "../../i18n";
 
 /** Release notes carry a little Markdown: **bold** runs. */
 export function Inline({ text }: { text: string }) {
@@ -17,7 +17,22 @@ export function Inline({ text }: { text: string }) {
   );
 }
 
-export function dateHeading(date: string): { label: string; weekday: string } {
-  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
-  return { label: `${y} 年 ${m} 月 ${d} 日`, weekday: beijingWeekday(date).replace("星期", "周") };
+export type ReleaseKind = "重大更新" | "更新" | "优化" | "公告" | "下线";
+
+/** A release's kind in English. Its own table: the phrase "更新" elsewhere reads as "updated", not as a kind. */
+const KIND_EN: Record<ReleaseKind, string> = {
+  重大更新: "Major update",
+  更新: "Update",
+  优化: "Improvement",
+  公告: "Notice",
+  下线: "Retired",
+};
+
+/** A release's kind label in the interface language, with the major update's version after it ("重大更新 2026.11"). */
+export function useReleaseKind(): (release: { kind: ReleaseKind; version?: string }) => string {
+  const english = useLocale() === "en";
+  return ({ kind, version }) => {
+    const label = english ? KIND_EN[kind] : kind;
+    return version ? `${label} ${version}` : label;
+  };
 }

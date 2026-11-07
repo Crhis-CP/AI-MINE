@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useTr } from "../../i18n";
+import { useDateFormat, useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
-import { Inline, dateHeading } from "./text";
+import { Inline, type ReleaseKind, useReleaseKind } from "./text";
 import { Convergence } from "./AggregationFlow";
 import { Showcase202611 } from "./Showcase202611";
 
@@ -17,7 +17,7 @@ const FOLD_AFTER = 5;
 interface Release {
   date: string;
   time?: string;
-  kind: "重大更新" | "更新" | "优化" | "公告" | "下线";
+  kind: ReleaseKind;
   version?: string;
   title: string;
   body: string[];
@@ -295,9 +295,9 @@ function Beats() {
 
 /** Announcement page. Steps light in order, then a light keeps traveling the line. Hover lifts one step. */
 export function FeatureNotice({ release }: { release: Release }) {
-  const h = dateHeading(release.date);
+  const h = useDateFormat().dayHeading(release.date);
   const parts = parseFeature(release.body);
-  const label = release.version ? `${release.kind} ${release.version}` : release.kind;
+  const label = useReleaseKind()(release);
   const test = release.kind === "公告" && release.title === "目前是测试版";
   const Showcase = release.version ? SHOWCASES[release.version] : undefined;
   return (

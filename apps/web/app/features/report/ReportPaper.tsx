@@ -5,7 +5,7 @@
 // Rules are hairlines in two weights: line-strong closes the masthead and underlines a page's heading
 // and the neighbours; line parts stories, columns and list rows. Nothing is set in solid ink. Stories
 // sit in rows of two whose rules run across the page, each story as tall as its neighbour.
-import { useTr } from "../../i18n";
+import { type Tr, useTr } from "../../i18n";
 import type { ReactNode } from "react";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
 import type { ReportCitation, ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
@@ -23,6 +23,8 @@ import { issueNumber, reportPath, useReportFormat } from "./format";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const keyOf = (c: ReportCitation) => c.itemId ?? c.title;
+/** A story's title as shown: a withdrawn story carries the API's fixed "已撤回的报道", named in the interface language. */
+const titleOf = (c: ReportCitation, tr: Tr) => (c.available ? c.title : tr.maybe(c.title));
 const anchorOf = (c: ReportCitation) => (c.itemId ? `r-${c.itemId}` : null);
 const LINK = "inline-flex min-h-7 items-center gap-0.5 font-medium transition-colors hover:text-accent";
 
@@ -202,7 +204,7 @@ function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean
         </>
       ) : (
         <p className="mt-3 text-[14px] leading-relaxed text-ink-4">
-          <span className="line-through">{c.title}</span> {tr("· 该报道当前不可公开阅读。")}
+          <span className="line-through">{titleOf(c, tr)}</span> {tr("· 该报道当前不可公开阅读。")}
         </p>
       )}
     </article>
@@ -256,7 +258,7 @@ function Corrections({ list }: { list: NonNullable<ReportDetail["corrections"]> 
         </span>
         {" · "}
         <time dateTime={latest.at}>{fullDateTime(latest.at)}</time>
-        {tr("（北京时间）")} {latest.reason}
+        {tr("（北京时间）")} {tr.maybe(latest.reason)}
       </p>
       {earlier.length > 0 && (
         <details className="mt-1">
@@ -264,7 +266,7 @@ function Corrections({ list }: { list: NonNullable<ReportDetail["corrections"]> 
           <ol className="mt-1 space-y-1">
             {earlier.map(({ revision, reason, at }) => (
               <li key={`${revision}-${at}`}>
-                <time dateTime={at}>{fullDateTime(at)}</time> {reason}
+                <time dateTime={at}>{fullDateTime(at)}</time> {tr.maybe(reason)}
               </li>
             ))}
           </ol>
@@ -359,7 +361,7 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
                     <Link to={to} className="group flex gap-3.5 border-b border-line py-4">
                       <span className="num w-6 shrink-0 text-[26px] font-black leading-[0.95] tracking-[-0.03em] text-accent">{i + 1}</span>
                       <span className="min-w-0">
-                        <span className="block text-[15px] font-bold leading-[1.55] text-ink transition-colors group-hover:text-accent">{h.title}</span>
+                        <span className="block text-[15px] font-bold leading-[1.55] text-ink transition-colors group-hover:text-accent">{titleOf(h, tr)}</span>
                         <span className="mt-1.5 block truncate text-[12px] text-ink-4">{shortSourceName(h.sourceName)}</span>
                       </span>
                     </Link>
@@ -547,10 +549,10 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
                 <span className="min-w-0">
                   {f.itemId ? (
                     <Link to={`/items/${f.itemId}`} className="text-ink transition-colors hover:text-accent">
-                      {f.title}
+                      {titleOf(f, tr)}
                     </Link>
                   ) : (
-                    <span className="text-ink">{f.title}</span>
+                    <span className="text-ink">{titleOf(f, tr)}</span>
                   )}
                   <span className="ml-2 text-[12px] text-ink-4">{shortSourceName(f.sourceName)}</span>
                 </span>

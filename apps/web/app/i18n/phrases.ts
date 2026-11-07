@@ -163,6 +163,16 @@ export const PHRASES = {
   政策与安全: "Policy & safety",
   企业与项目: "Companies & projects",
   市场与技术: "Markets & technology",
+  // Fixed words the report API writes into an issue (publication/reports.ts), named in the interface language at
+  // render (TASK-0573): the one page an issue keeps once a citation is withdrawn, a withdrawn story's title and
+  // the public correction reasons.
+  仍公开的报道: "Coverage still public",
+  已撤回的报道: "Withdrawn report",
+  "引用报道已更正，本期内容随之更新。": "A cited report was corrected, and this issue was updated with it.",
+  "部分引用已撤回，本期仅保留仍可公开的内容。": "Some citations were withdrawn; this issue keeps only what can still be public.",
+  "引用报道的公开状态已恢复，本期内容已重新核对。": "A cited report is public again, and this issue was checked again.",
+  "已依据当前公开报道完成本期更正。": "This issue was corrected against the reports public now.",
+  "本期内容已更正，请以当前版本为准。": "This issue was corrected; the current version stands.",
   "（{value}）": " ({value})",
   "{label}：{text}": "{label}: {text}",
   // Punctuation between interface parts: tr("：") / tr("、") instead of a literal full-width mark in the markup.
@@ -914,7 +924,6 @@ export const PHRASES = {
   较早期数据: "earlier data",
   对比: "vs",
   "{time} 更新": "updated {time}",
-  "{y} 年 {mo} 月": "{mo}/{y} ",
   "第 {first}–{last} 条 · 共 {total} 条": "{first}–{last} of {total}",
   "过去 {hours} 小时，{subject}讨论最多的 {count} 件事": "The {count} most-discussed {subject} events of the past {hours} hours",
   "；已沿用文件中的外观设置": "; the appearance setting in the file was applied",
@@ -1188,6 +1197,13 @@ export const PHRASES = {
   正式刊发: "Formally published",
   签署: "Signed",
   汇编: "Compiled",
+  // The rest of the time meanings (contracts TIME_MEANINGS), the label over a source time.
+  生效: "Effective",
+  到期: "Expires",
+  事件发生: "Event",
+  本站发现: "Found by this site",
+  上传: "Uploaded",
+  原文核对: "Checked against the original",
   // Country and organisation names for the policy pages' English interface (industry/jurisdictions name_en).
   中国: "China",
   美国: "United States",

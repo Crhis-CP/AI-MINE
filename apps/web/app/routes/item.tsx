@@ -253,7 +253,7 @@ export default function ItemPage() {
       <div className="text-[15px] font-semibold leading-snug text-ink">{item.source.name}</div>
       <div className="mt-1 text-[13.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
       <div className="mt-3 text-[13px] text-ink-4">
-        {sourceDate?.label ?? tr("发布时间")}
+        {sourceDate ? tr.maybe(sourceDate.label) : tr("发布时间")}
         {sourceDate && !sourceDate.dateOnly ? tr(" · 北京时间") : ""}
       </div>
       {sourceDate && publishedAttr ? (

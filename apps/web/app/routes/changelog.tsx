@@ -1,5 +1,5 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
-import { useTr } from "../i18n";
+import { useDateFormat, useTr } from "../i18n";
 import { useEffect } from "react";
 import { setChangelogSeen } from "../lib/local-state";
 import { SITE } from "@amp/industry/site";
@@ -10,7 +10,7 @@ import { pageMeta } from "../lib/seo";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
 import { IconChevronRight } from "../components/icons";
 import { FeatureNotice } from "../features/changelog/MajorNotice";
-import { Inline, dateHeading } from "../features/changelog/text";
+import { Inline, type ReleaseKind, useReleaseKind } from "../features/changelog/text";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -21,7 +21,7 @@ interface Release {
   date: string;
   /** Absent when the record has only a date: no time is shown, never 00:00 (PG-13). */
   time?: string;
-  kind: "重大更新" | "更新" | "优化" | "公告" | "下线";
+  kind: ReleaseKind;
   /** Only on 重大更新, shown after the kind ("重大更新 2.0"). */
   version?: string;
   title: string;
@@ -79,6 +79,8 @@ function ReleaseBody({ lines }: { lines: string[] }) {
 
 export default function ChangelogPage() {
   const tr = useTr();
+  const df = useDateFormat();
+  const kindLabel = useReleaseKind();
   const data = useLoaderData<typeof loader>();
   const first = data.releases[0];
   const version = first ? first.date + (first.time ? `T${first.time}` : "") : null;
@@ -100,14 +102,13 @@ export default function ChangelogPage() {
       <AsideCard title={tr("按月份")} className="hidden lg:block">
         <nav aria-label={tr("按月份")} className="-mx-2 -mb-1">
           {[...months.entries()].map(([month, m]) => {
-            const [y, mo] = month.split("-").map(Number) as [number, number];
             return (
               <a
                 key={month}
                 href={`#d-${m.first}`}
                 className="flex items-center justify-between rounded-control px-2 py-2 text-[13.5px] text-ink-2 transition-colors hover:bg-bg-sunk hover:text-ink"
               >
-                {tr("{y} 年 {mo} 月", { y, mo })}
+                {df.monthName(month)}
                 <span className="num text-[12px] text-ink-4">
                   {m.count} {tr("条")}
                 </span>
@@ -135,7 +136,7 @@ export default function ChangelogPage() {
       </header>
       <div className="space-y-4">
         {[...groups.entries()].map(([date, releases]) => {
-          const h = dateHeading(date);
+          const h = df.dayHeading(date);
           const features = releases.filter(isFeatureNotice);
           const plain = releases.filter((r) => !isFeatureNotice(r));
           return (
@@ -163,7 +164,7 @@ export default function ChangelogPage() {
                             className={`inline-flex items-center gap-1.5 text-[11.5px] ${r.kind === "重大更新" ? "font-semibold text-hot" : "text-ink-4"} ${r.time ? "sm:mt-1.5" : ""}`}
                           >
                             <span className={`size-1.5 rounded-full ${KIND_DOT[r.kind]}`} aria-hidden="true" />
-                            {r.version ? `${r.kind} ${r.version}` : r.kind}
+                            {kindLabel(r)}
                           </span>
                         </div>
                         <article className="min-w-0 sm:border-l sm:border-line sm:pl-8">
