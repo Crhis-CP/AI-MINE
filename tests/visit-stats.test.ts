@@ -242,6 +242,10 @@ test("a salt from a rolled-back write is not reused: the next write creates and 
   assert.equal(hit(now, "203.0.113.50", CHROME, "/all"), true);
   await flushVisits(now);
   const stored = await sql<{ period: string; salt: Buffer }[]>`SELECT period, salt FROM ops.visit_salts WHERE starts_on >= '2027-01-01' ORDER BY 1`;
-  assert.deepEqual(stored.map((r) => r.period), ["day", "month"], "the second write stored both salts");
+  assert.deepEqual(
+    stored.map((r) => r.period),
+    ["day", "month"],
+    "the second write stored both salts",
+  );
   assert.equal(await count("visit_day_keys", "day = '2027-01-10'"), 1);
 });
