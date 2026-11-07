@@ -45,12 +45,21 @@ export function guardLimits(env: Environment = process.env): GuardLimits | null 
   };
 }
 
+/**
+ * A hashed build file (`/assets/…`, `/admin/assets/…` on the private host): the only files the web process serves
+ * from disk. Any other path with an extension (feeds, sitemaps, robots.txt, icons, or a probe for `/x.php`) is an
+ * api or page request that may reach the database, so it is counted (Codex review #379).
+ */
+export function buildAsset(pathname: string): boolean {
+  return /^\/(?:admin\/)?assets\//.test(pathname);
+}
+
 /** The bucket a request is counted against; null for build files, which are never counted. */
 export function bucketFor(method: string | undefined, pathname: string, apiOwned: boolean, staticFile: boolean): Bucket | null {
   const read = method === "GET" || method === "HEAD";
   if (!read) return "write";
-  if (staticFile) return null;
-  return apiOwned || pathname.startsWith("/api/") ? "api" : "page";
+  if (apiOwned || pathname.startsWith("/api/")) return "api";
+  return staticFile ? null : "page";
 }
 
 function privateAddress(address: string): boolean {

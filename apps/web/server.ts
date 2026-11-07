@@ -10,7 +10,7 @@ import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { webHostPolicy } from "./host-policy.ts";
-import { bucketFor, clientAddress, guardLimits, MAX_URL_LENGTH, RateLimiter, refuse, securityHeaders } from "./request-guard.ts";
+import { bucketFor, buildAsset, clientAddress, guardLimits, MAX_URL_LENGTH, RateLimiter, refuse, securityHeaders } from "./request-guard.ts";
 
 assertWebEnvironment();
 const hostPolicy = webHostPolicy();
@@ -177,7 +177,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   const search = qi >= 0 ? raw.slice(qi) : "";
 
   if (limiter) {
-    const bucket = bucketFor(req.method, pathname, isApiOwned(pathname), /\.[a-z0-9]+$/i.test(pathname) && !pathname.endsWith(".data"));
+    const bucket = bucketFor(req.method, pathname, isApiOwned(pathname), buildAsset(pathname));
     const visitor = clientAddress(req, TRUST_PROXY);
     if (bucket && visitor.distinct) {
       const taken = limiter.take(visitor.address, bucket);

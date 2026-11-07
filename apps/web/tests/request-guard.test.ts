@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { webEnvironment } from "../runtime-env.ts";
-import { bucketFor, clientAddress, guardLimits, RateLimiter, securityHeaders } from "../request-guard.ts";
+import { bucketFor, buildAsset, clientAddress, guardLimits, RateLimiter, securityHeaders } from "../request-guard.ts";
 
 const request = (remoteAddress: string, forwarded?: string) =>
   ({ headers: forwarded ? { "x-forwarded-for": forwarded } : {}, socket: { remoteAddress } }) as unknown as IncomingMessage;
@@ -45,6 +45,12 @@ test("build files are not counted; writes of any kind are; pages and api reads a
   assert.equal(bucketFor("GET", "/api/site/news", true, false), "api");
   assert.equal(bucketFor("POST", "/api/site/visit", true, false), "write");
   assert.equal(bucketFor("POST", "/assets/x.js", false, true), "write", "a write to a file path is still a write");
+  assert.equal(bucketFor("GET", "/feed.xml", true, buildAsset("/feed.xml")), "api", "a feed reads the database: counted (Codex review #379)");
+  assert.equal(bucketFor("GET", "/sitemaps/1.xml", true, buildAsset("/sitemaps/1.xml")), "api");
+  assert.equal(bucketFor("GET", "/wp-login.php", false, buildAsset("/wp-login.php")), "page", "a probe with an extension is counted");
+  assert.equal(buildAsset("/assets/app-1a2b.js"), true);
+  assert.equal(buildAsset("/admin/assets/app-1a2b.js"), true);
+  assert.equal(buildAsset("/robots.txt"), false);
 });
 
 test("the visitor address: the proxy's record only when trusted; private addresses are never limited", () => {
@@ -142,6 +148,12 @@ test("over its api limit a visitor gets 429 with Retry-After and the api is not 
   assert.equal(apiHits - before, 3, "the refused request never reached the api");
   assert.equal((await get("/api/site/news", "203.0.113.21")).status, 200, "another visitor passes");
   assert.equal((await get("/api/site/news", "10.0.0.4")).status, 200, "the server's own checks are not limited");
+});
+
+test("a dynamic path with an extension (a feed or sitemap) is limited like any api read", async () => {
+  const answers = [];
+  for (let i = 0; i < 4; i++) answers.push((await get("/sitemap.xml", "203.0.113.50")).status);
+  assert.equal(answers[3], 429, `statuses ${answers.join(",")}`);
 });
 
 test("writes have their own tighter limit", async () => {
