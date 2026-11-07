@@ -32,6 +32,11 @@ test("widening the card inside the same PR does not help: the base version count
   const r = pathGuard(base, head, "TASK-0042", dir);
   assert.equal(r.status, "fail");
   assert.ok(r.lines.includes("package.json: not in the task card's allowed_paths"));
+  // PIT-108: the failure says what to do: land the card change first in a card-only PR.
+  assert.ok(
+    r.lines.some((l) => l.includes("lists package.json") && l.includes("changes only tasks/TASK-0042.md")),
+    r.lines.join("\n"),
+  );
 });
 
 test("changes inside the card and the lane pass; a missing card fails; a base without lanes.yaml is the bootstrap", () => {
