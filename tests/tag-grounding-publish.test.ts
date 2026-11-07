@@ -11,7 +11,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { saveSourcePolicy } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { publishArticle, ungroundedTagPublications } from "@amp/backend/publication/publish";
+import { publishArticle, republishProjectionOnly, ungroundedTagPublications } from "@amp/backend/publication/publish";
 import { SOURCE_PURPOSES } from "@amp/contracts/source-policy";
 
 const T = tag();
@@ -76,10 +76,19 @@ test("a company and a mineral the material never names are not published; the re
   await sql`UPDATE publications SET search_text = search_text || ' zijin' WHERE article_id=${articleId}`;
   const found = (await ungroundedTagPublications(null, 100_000)).find((r) => r.articleId === articleId);
   assert.deepEqual(found?.dropped, ["紫金矿业", "entity:zijin"], "the stale tag and the stale searchable subject are both found");
-  await publishArticle(articleId);
+  // The sweep republishes the projection only: no translation job is queued, though a normal publish of the same
+  // untranslated item would queue one (Codex review #380, PIT-112).
+  const translateJobs = async () =>
+    (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM pgboss.job WHERE name='content.translate' AND data->>'articleId'=${articleId}`)[0]!.n;
+  await sql`DELETE FROM pgboss.job WHERE name='content.translate' AND data->>'articleId'=${articleId}`;
+  await republishProjectionOnly(articleId);
+  assert.equal(await translateJobs(), 0, "the sweep queued no paid translation");
   const [fixed] = await sql<{ tags: string[]; search_text: string }[]>`SELECT tags, search_text FROM publications WHERE article_id=${articleId}`;
   assert.ok(!fixed!.tags.includes("紫金矿业"));
   assert.ok(!fixed!.search_text.split(/\s+/).includes("zijin"));
   const again = (await ungroundedTagPublications(null, 100_000)).find((r) => r.articleId === articleId);
   assert.deepEqual(again?.dropped, [], "a second sweep finds nothing left");
+  assert.equal(again?.language, "es");
+  await publishArticle(articleId);
+  assert.equal(await translateJobs(), 1, "a normal publish of this item would queue a translation: the check above is meaningful");
 });

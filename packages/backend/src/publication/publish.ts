@@ -251,6 +251,15 @@ export async function publishArticle(articleId: string, options: PublishOptions 
   return sql.begin((tx) => publishArticleTx(tx, articleId, options));
 }
 
+/**
+ * Republishes to refresh the stored projection (tags, search text, listings) without queuing any paid work: the
+ * translation that a normal publish may queue for an untranslated item is handed to a callback that does nothing
+ * (TASK-0584, Codex review #380; PIT-112). For history sweeps that must not add model calls.
+ */
+export async function republishProjectionOnly(articleId: string, options: PublishOptions = {}): Promise<PublishResult | null> {
+  return sql.begin((tx) => publishArticleTx(tx, articleId, options, () => undefined));
+}
+
 /** Grouping reads the effective nomination only when it belongs to the same saved analysis. */
 export async function groupingSelectionCandidate(articleId: string, analysisId: number, db: Db = sql) {
   const [row] = await db<{ selection_candidate: boolean }[]>`SELECT selection_candidate FROM publications
@@ -980,7 +989,12 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
     // neither remains, so a second run finds nothing.
     const inSearch = row.subjects.filter((id) => row.search_text.split(/\s+/).includes(id.toLowerCase())).map((id) => `entity:${id}`);
     const candidates = [...new Set([...row.tags, ...inSearch])];
-    return { articleId: row.article_id, dropped: candidates.filter((tag) => !tagGrounded(tag, text, row.language)) };
+    return {
+      articleId: row.article_id,
+      title: row.title,
+      language: row.language,
+      dropped: candidates.filter((tag) => !tagGrounded(tag, text, row.language)),
+    };
   });
 }
 
