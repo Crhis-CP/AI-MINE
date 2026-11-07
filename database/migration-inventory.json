@@ -535,6 +535,10 @@
     {
       "name": "content/202611061201_news_links_body_hook.sql",
       "dependsOn": ["publication/202611061200_news_links.sql"]
+    },
+    {
+      "name": "publication/202611071000_metal_prices_safe.sql",
+      "dependsOn": ["publication/202610131500_metal_prices_cochilco.sql"]
     }
   ]
 }
