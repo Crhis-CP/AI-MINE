@@ -8,10 +8,10 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { webEnvironment } from "../runtime-env.ts";
-import { bucketFor, buildAsset, clientAddress, guardLimits, RateLimiter, securityHeaders } from "../request-guard.ts";
+import { bucketFor, buildAsset, clientAddress, clientHeaderName, guardLimits, RateLimiter, securityHeaders } from "../request-guard.ts";
 
-const request = (remoteAddress: string, forwarded?: string) =>
-  ({ headers: forwarded ? { "x-forwarded-for": forwarded } : {}, socket: { remoteAddress } }) as unknown as IncomingMessage;
+const request = (remoteAddress: string, forwarded?: string, extra: Record<string, string> = {}) =>
+  ({ headers: { ...(forwarded ? { "x-forwarded-for": forwarded } : {}), ...extra }, socket: { remoteAddress } }) as unknown as IncomingMessage;
 
 test("each visitor gets its own window per bucket; over the limit it waits for the window to end", () => {
   let now = 1_000_000;
@@ -68,10 +68,34 @@ test("the visitor address: the proxy's record only when trusted; private address
   assert.equal(clientAddress(request("172.18.0.5", "2001:db8::1"), true).distinct, true);
 });
 
-test("limits come from the environment and can be switched off", () => {
-  assert.deepEqual(guardLimits({}), { page: 240, api: 600, write: 30, windowMs: 60_000 });
-  assert.deepEqual(guardLimits({ RATE_LIMIT_PAGE: "5", RATE_LIMIT_WRITE: "x" }), { page: 5, api: 600, write: 30, windowMs: 60_000 });
-  assert.equal(guardLimits({ RATE_LIMIT: "off" }), null);
+test("limiting is on only when the deployment says where the visitor address comes from (Codex review #379)", () => {
+  assert.equal(guardLimits({}), null, "behind a CDN with nothing configured, the last forwarded entry is a shared edge node");
+  assert.equal(guardLimits({ TRUST_PROXY: "true" }), null);
+  assert.deepEqual(guardLimits({ CLIENT_IP_HEADER: "eo-connecting-ip" }), { page: 240, api: 600, write: 30, windowMs: 60_000 });
+  assert.deepEqual(guardLimits({ RATE_LIMIT: "on", RATE_LIMIT_PAGE: "5", RATE_LIMIT_WRITE: "x" }), { page: 5, api: 600, write: 30, windowMs: 60_000 });
+  assert.equal(guardLimits({ RATE_LIMIT: "off", CLIENT_IP_HEADER: "eo-connecting-ip" }), null, "off always wins");
+  assert.equal(clientHeaderName({ CLIENT_IP_HEADER: " EO-Connecting-IP " }), "eo-connecting-ip");
+  assert.equal(clientHeaderName({ CLIENT_IP_HEADER: "bad header" }), null);
+});
+
+test("the CDN's client-address header is read only from our own proxy, and must be an address", () => {
+  const header = "eo-connecting-ip";
+  assert.deepEqual(clientAddress(request("172.18.0.5", "198.51.100.77", { [header]: "203.0.113.60" }), true, header), {
+    address: "203.0.113.60",
+    distinct: true,
+  });
+  assert.deepEqual(
+    clientAddress(request("203.0.113.99", undefined, { [header]: "198.51.100.1" }), false, header),
+    { address: "203.0.113.99", distinct: true },
+    "a visitor connecting directly cannot name another address through the header",
+  );
+  assert.deepEqual(
+    clientAddress(request("172.18.0.5", "198.51.100.77"), true, header),
+    { address: "172.18.0.5", distinct: false },
+    "missing header: not limited",
+  );
+  assert.equal(clientAddress(request("172.18.0.5", undefined, { [header]: "not-an-ip" }), true, header).distinct, false);
+  assert.equal(clientAddress(request("172.18.0.5", undefined, { [header]: "10.0.0.8" }), true, header).distinct, false);
 });
 
 test("HSTS only for an https site, without forcing other hosts under the domain", () => {
@@ -101,6 +125,7 @@ before(async () => {
       SITE_URL: "https://example.com",
       PRIVATE_HOST: "private.localhost",
       TRUST_PROXY: "true",
+      CLIENT_IP_HEADER: "eo-connecting-ip",
       RATE_LIMIT_PAGE: "2",
       RATE_LIMIT_API: "3",
       RATE_LIMIT_WRITE: "1",
@@ -131,8 +156,14 @@ after(async () => {
   api.close();
 });
 
+// The test connects from loopback, standing for the proxy: the CDN header names the visitor, and every request
+// carries the same CDN edge node in X-Forwarded-For, which must not merge visitors.
 const get = (path: string, visitor: string, init: RequestInit = {}) =>
-  fetch(`${origin}${path}`, { ...init, headers: { host: "example.com", "x-forwarded-for": visitor, ...(init.headers ?? {}) }, redirect: "manual" });
+  fetch(`${origin}${path}`, {
+    ...init,
+    headers: { host: "example.com", "x-forwarded-for": "198.51.100.200", "eo-connecting-ip": visitor, ...(init.headers ?? {}) },
+    redirect: "manual",
+  });
 
 test("over its api limit a visitor gets 429 with Retry-After and the api is not reached; others still pass", async () => {
   const before = apiHits;

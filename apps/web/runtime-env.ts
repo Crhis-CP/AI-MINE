@@ -50,6 +50,7 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "RATE_LIMIT_PAGE",
     "RATE_LIMIT_API",
     "RATE_LIMIT_WRITE",
+    "CLIENT_IP_HEADER",
   ];
   return Object.fromEntries(allowed.filter((name) => env[name] !== undefined).map((name) => [name, env[name]!]));
 }

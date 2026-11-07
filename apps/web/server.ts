@@ -10,7 +10,7 @@ import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { webHostPolicy } from "./host-policy.ts";
-import { bucketFor, buildAsset, clientAddress, guardLimits, MAX_URL_LENGTH, RateLimiter, refuse, securityHeaders } from "./request-guard.ts";
+import { bucketFor, buildAsset, clientAddress, clientHeaderName, guardLimits, MAX_URL_LENGTH, RateLimiter, refuse, securityHeaders } from "./request-guard.ts";
 
 assertWebEnvironment();
 const hostPolicy = webHostPolicy();
@@ -26,6 +26,10 @@ const TRUST_PROXY = process.env.TRUST_PROXY === "true";
 /** Per-visitor request limits and the headers every response carries (TASK-0583). */
 const LIMITS = guardLimits();
 const limiter = LIMITS ? new RateLimiter(LIMITS) : null;
+/** The client-address header a CDN in front sets (CLIENT_IP_HEADER); also what the api's own per-visitor limits see. */
+const CLIENT_HEADER = clientHeaderName();
+if (!limiter && TRUST_PROXY && process.env.RATE_LIMIT !== "off")
+  console.warn(JSON.stringify({ level: "warn", msg: "rate limit off: behind a CDN set CLIENT_IP_HEADER (or RATE_LIMIT=on behind a single proxy)" }));
 const SECURITY_HEADERS = securityHeaders(process.env.SITE_URL);
 let sharedAddressWarned = false;
 const CLIENT_DIR = {
@@ -178,7 +182,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
 
   if (limiter) {
     const bucket = bucketFor(req.method, pathname, isApiOwned(pathname), buildAsset(pathname));
-    const visitor = clientAddress(req, TRUST_PROXY);
+    const visitor = clientAddress(req, TRUST_PROXY, CLIENT_HEADER);
     if (bucket && visitor.distinct) {
       const taken = limiter.take(visitor.address, bucket);
       if (!taken.ok) return refuse(res, 429, taken.retryAfter);
@@ -210,7 +214,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   if (isApiOwned(pathname)) {
     // The visitor's address, decided here: the one the trusted proxy saw (the last X-Forwarded-For
     // entry), or this connection's own. Both headers carry only that.
-    const client = clientAddress(req, TRUST_PROXY).address;
+    const client = clientAddress(req, TRUST_PROXY, CLIENT_HEADER).address;
     const target = new URL(apiBaseFor());
     const headers = { ...apiForwardHeaders(raw, req.headers), "x-forwarded-for": client, "x-real-ip": client };
     const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {

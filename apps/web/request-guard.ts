@@ -34,9 +34,17 @@ const positive = (value: string | undefined, fallback: number) => {
   return Number.isInteger(n) && n > 0 ? n : fallback;
 };
 
-/** Limits from the environment (RATE_LIMIT_PAGE / _API / _WRITE per minute), or null when RATE_LIMIT=off. */
+/**
+ * Limits from the environment (RATE_LIMIT_PAGE / _API / _WRITE per minute), or null when limiting is off. Limiting
+ * needs a per-visitor address, so it is on only when the deployment says where that address comes from:
+ * CLIENT_IP_HEADER (the client-address header a CDN in front sets) or RATE_LIMIT=on (served directly, or behind a
+ * single proxy whose X-Forwarded-For entry is the visitor). Behind a CDN without CLIENT_IP_HEADER, the last
+ * X-Forwarded-For entry is a CDN edge node shared by many readers (Codex review #379), so nothing is limited.
+ * RATE_LIMIT=off always wins.
+ */
 export function guardLimits(env: Environment = process.env): GuardLimits | null {
   if (env.RATE_LIMIT === "off") return null;
+  if (env.RATE_LIMIT !== "on" && !clientHeaderName(env)) return null;
   return {
     page: positive(env.RATE_LIMIT_PAGE, DEFAULT_LIMITS.page),
     api: positive(env.RATE_LIMIT_API, DEFAULT_LIMITS.api),
@@ -72,18 +80,34 @@ function privateAddress(address: string): boolean {
   return lower === "::1" || lower === "::" || lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("fe80:");
 }
 
+/** The configured client-address header (lower case, a plain header name), or null. */
+export function clientHeaderName(env: Environment = process.env): string | null {
+  const name = (env.CLIENT_IP_HEADER ?? "").trim().toLowerCase();
+  return /^[a-z0-9-]{1,64}$/.test(name) ? name : null;
+}
+
 /**
- * The visitor's address and whether it names one outside visitor. Behind a trusted proxy it is the last
- * X-Forwarded-For entry (the address the proxy saw); otherwise the connection's own. A private or loopback address
- * is never limited: without a trusted proxy it is the proxy itself, shared by every visitor; with one it is the
- * server's own checks (release and health probes), which the proxy records truthfully and no outsider can claim.
+ * The visitor's address and whether it names one outside visitor.
+ * - CLIENT_IP_HEADER set: its value, read only on a connection from our own proxy (a private address). The CDN sets
+ *   it; deploy it only where the origin accepts traffic from the CDN alone, or a visitor reaching the origin
+ *   directly could name any address. A proxied request without the header is not limited.
+ * - Otherwise behind a trusted proxy: the last X-Forwarded-For entry (the address that proxy saw).
+ * - Otherwise: the connection's own address.
+ * A private or loopback result is never limited: it is the proxy itself, or the server's own checks.
  */
-export function clientAddress(req: IncomingMessage, trustProxy: boolean): { address: string; distinct: boolean } {
+export function clientAddress(req: IncomingMessage, trustProxy: boolean, clientHeader: string | null = null): { address: string; distinct: boolean } {
+  const peer = req.socket.remoteAddress ?? "";
+  if (clientHeader && peer && privateAddress(peer)) {
+    const raw = req.headers[clientHeader];
+    const value = (Array.isArray(raw) ? raw[0] : raw)?.split(",")[0]?.trim() ?? "";
+    if (!value || !isIP(value)) return { address: peer, distinct: false };
+    return { address: value, distinct: !privateAddress(value) };
+  }
   const forwarded = String(req.headers["x-forwarded-for"] ?? "")
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
-  const address = trustProxy && forwarded.length ? forwarded[forwarded.length - 1]! : (req.socket.remoteAddress ?? "");
+  const address = trustProxy && forwarded.length ? forwarded[forwarded.length - 1]! : peer;
   return { address, distinct: address !== "" && !privateAddress(address) };
 }
 
