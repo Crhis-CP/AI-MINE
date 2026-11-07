@@ -21,7 +21,7 @@ import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
 import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots, usageProtectionTick } from "@amp/backend/operations/reports";
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
-import { repairPublicationTimes } from "@amp/backend/jobs/publication";
+import { repairNewsLinks, repairPublicationTimes } from "@amp/backend/jobs/publication";
 
 const collecting = process.env.COLLECT_ENABLED !== "false";
 
@@ -29,6 +29,8 @@ export const SCHEDULES: Scheduled[] = [
   { name: "sources.preview-recovery", cron: "*/5 * * * *", run: () => recoverSourcePreviews(100) },
   { name: "ops.read-snapshots", cron: "*/2 * * * *", run: refreshOperationalSnapshots },
   { name: "publication.source-time", cron: "* * * * *", run: () => repairPublicationTimes(100) },
+  // Reads the outbound links of reports whose links are not read yet (the backfill after TASK-0567, then body changes).
+  { name: "publication.news-links", cron: "* * * * *", run: () => repairNewsLinks() },
   { name: "content.sweep", cron: "*/5 * * * *", run: sweepUnprocessed },
   // Repair missing per-item translation dispatch; this cron never calls a model itself.
   { name: "content.translate", cron: "*/5 * * * *", run: () => translatePending() },

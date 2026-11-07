@@ -10,7 +10,7 @@ import { categoryFilterKeys, isCategoryFilterKey, toPublicApiCategory, type Cate
 import { LEGACY_MINING_CATEGORY_KEYS, LEGACY_MINING_CATEGORY_TARGETS, isLegacyMiningCategoryKey } from "@amp/contracts/mining-taxonomy";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
-import { sql, type Db } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { SELECTION } from "@amp/industry/selection";
 import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates.ts";
 import { displayTags, independentSelectedSources } from "./rules.ts";
@@ -321,21 +321,54 @@ export async function publicNewsDigestInput(ids: string[], db: Db = sql) {
     WHERE article_id=ANY(${ids}::text[]) AND visibility='public' AND ${originalPostAdmissionCondition()} AND eligible ORDER BY article_id`;
 }
 
-/** Current public news source links, for explicit news/policy navigation only. */
 /**
- * Public news that may link an official URL. `among` limits the read to the given articles: a policy page re-checks
- * the reports it found earlier this way instead of scanning every article body again (no index covers the bodies).
+ * Public news for explicit news/policy navigation: the current public state, applied on every read, so a withdrawn
+ * or hidden report disappears at once. The links themselves come from publication.news_links (TASK-0567).
  */
-export async function readPublicNewsLinkCandidates(articleId: string | null, officialUrl: string | null, among: string[] | null = null) {
-  const urlPattern = officialUrl === null ? null : `%${officialUrl.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
-  return sql<{ id: string; title: string; body_html: string }[]>`SELECT p.article_id AS id,p.title,a.body_html
+const newsLinkPublic = () => sql`p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'
+  AND (NOT p.selected OR p.visible_after<=now())`;
+
+/** Public news whose stored links include the URL: a lookup in the links index; no article body is read. */
+export async function readPublicNewsLinking(url: string, limit: number, db: Db = sql) {
+  return db<{ id: string; title: string; timeline_at: Date }[]>`SELECT p.article_id AS id,p.title,p.timeline_at
+    FROM publication.news_links l JOIN publications p ON p.article_id=l.article_id JOIN sources s ON s.id=p.source_id
+    WHERE l.urls @> ARRAY[${url}::text] AND ${newsLinkPublic()}
+    ORDER BY p.timeline_at DESC,p.article_id DESC LIMIT ${limit}`;
+}
+
+/** Public news whose links have not been read yet (the publication.news-links repair has them queued). */
+export async function readPublicNewsLinksPending(db: Db = sql) {
+  const rows = await db<{ id: string }[]>`SELECT p.article_id AS id
+    FROM publication.news_links l JOIN publications p ON p.article_id=l.article_id JOIN sources s ON s.id=p.source_id
+    WHERE l.urls IS NULL AND ${newsLinkPublic()}`;
+  return rows.map((row) => row.id);
+}
+
+/** One public report's explicit links as stored, or its body while they have not been read yet. */
+export async function readPublicNewsLinks(articleId: string) {
+  const [row] = await sql<{ urls: string[] | null; body_html: string | null }[]>`SELECT l.urls,CASE WHEN l.urls IS NULL THEN a.body_html END AS body_html
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
-    WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'
-      AND (${articleId}::text IS NULL OR p.article_id=${articleId})
-      AND (${among}::text[] IS NULL OR p.article_id=ANY(${among}::text[]))
-      AND (${officialUrl}::text IS NULL OR a.body_html LIKE ${urlPattern})
-      AND (NOT p.selected OR p.visible_after<=now())
+    LEFT JOIN publication.news_links l ON l.article_id=p.article_id
+    WHERE p.article_id=${articleId} AND ${newsLinkPublic()}`;
+  return row ?? null;
+}
+
+/**
+ * Public news among `among` whose body contains the URL: only for reports whose links are not read yet, so the
+ * caller passes those articles; the body text is a candidate test, the caller confirms the explicit link.
+ */
+export async function readPublicNewsLinkCandidates(officialUrl: string, among: string[], db: Db = sql) {
+  const urlPattern = `%${officialUrl.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+  return db<{ id: string; title: string; timeline_at: Date; body_html: string }[]>`SELECT p.article_id AS id,p.title,p.timeline_at,a.body_html
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
+    WHERE p.article_id=ANY(${among}::text[]) AND ${newsLinkPublic()} AND a.body_html LIKE ${urlPattern}
     ORDER BY p.timeline_at DESC,p.article_id DESC LIMIT 100`;
+}
+
+/** The current body of each article, share-locked until the caller's transaction ends (link projection repair). */
+export async function newsLinkBodies(ids: string[], tx: Tx) {
+  return tx<{ id: string; revision: number; body_html: string | null }[]>`SELECT id,revision,body_html FROM articles
+    WHERE id=ANY(${ids}::text[]) ORDER BY id FOR SHARE`;
 }
 
 /** Beijing day bounds apply to the timeline; source dates and their precision remain unchanged. */

@@ -147,6 +147,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.metal_price_holds",
       "publication.metal_prices",
       "publication.news_geography",
+      "publication.news_links",
       "publication.policy_documents",
       "publication.policy_editions",
       "publication.policy_ids",

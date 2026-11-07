@@ -655,6 +655,27 @@ const publicRecord = (view: View) => ({
   originalKey: view.row.original_content_key ?? view.row.native_revision_id,
   card: view.card,
 });
+/**
+ * Current identity records of the documents whose official URL, without its fragment, is one of `urls` (in document
+ * order): an indexed lookup of those documents, never a reading of every current document. Callers that compare
+ * URLs in another form check the returned card's `original_url` themselves.
+ */
+/**
+ * The documents whose official URL matches one of the loose keys (looseUrlKeys in the news link index: every lower-case
+ * spelling of a cited link with or without default port, trailing slash and percent-encoding), through the lower-case indexes policy_editions_*_url. Callers compare
+ * the exact canonical link afterwards; this only narrows the candidates.
+ */
+export async function policyPublicRecordsByOriginalUrl(keys: string[], ctx: Context = context()) {
+  if (!keys.length) return [];
+  const documents = await sql<{ policy_id: string }[]>`SELECT DISTINCT policy_id FROM publication.policy_editions
+    WHERE lower(split_part(basic_card->>'original_url','#',1))=ANY(${keys}::text[]) OR lower(split_part(complete_card->>'original_url','#',1))=ANY(${keys}::text[])
+    ORDER BY policy_id`;
+  const records = await policyPublicRecordsOf(
+    documents.map((row) => row.policy_id),
+    ctx,
+  );
+  return documents.flatMap((row) => records.get(row.policy_id) ?? []);
+}
 /** The same current identity records for the given documents only (a document with none is absent), read with one request reading. */
 export async function policyPublicRecordsOf(ids: string[], ctx: Context = context()) {
   const records = new Map<string, ReturnType<typeof publicRecord>>();
