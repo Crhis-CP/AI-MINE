@@ -1057,6 +1057,7 @@
     "packages/backend/src/events/historical-background.ts": "events",
     "packages/backend/src/events/historical-background-store.ts": "events",
     "packages/backend/src/events/report-groups.ts": "events",
+    "packages/backend/src/events/story-merge.ts": "events",
     "packages/backend/src/publication/report-groups.ts": "publication",
     "packages/backend/src/publication/report-group-reading.ts": "publication",
     "packages/backend/src/publication/story-progress.ts": "publication"

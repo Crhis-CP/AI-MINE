@@ -38,7 +38,13 @@ try {
       days,
       onRound: (round) =>
         console.log(
-          JSON.stringify({ judged: round.judged, merged: round.merged.length, different: round.different, skipped: round.skipped, stopped: round.stopped ?? null }),
+          JSON.stringify({
+            judged: round.judged,
+            merged: round.merged.length,
+            different: round.different,
+            skipped: round.skipped,
+            stopped: round.stopped ?? null,
+          }),
         ),
     });
     const groups = await attachReportGroupsToStories();

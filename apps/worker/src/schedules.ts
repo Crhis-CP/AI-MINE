@@ -11,13 +11,7 @@ import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
-import {
-  linkRelatedStories,
-  measureStoryDuplicates,
-  recoverPendingGroupings,
-  remergeSingleReportFacts,
-  sweepStoryMerges,
-} from "@amp/backend/events/group";
+import { linkRelatedStories, measureStoryDuplicates, recoverPendingGroupings, remergeSingleReportFacts, sweepStoryMerges } from "@amp/backend/events/group";
 import { enqueuePendingReportCorrections, catchUpReports } from "@amp/backend/reports/compose";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";

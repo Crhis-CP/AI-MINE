@@ -1022,20 +1022,19 @@ export interface StoryRoot {
   report: ReportView;
 }
 
-/** A story's root (rootFactOf), when it started, and the report that stands for it. */
-async function storyRoot(storyId: number, db?: Db): Promise<StoryRoot | null> {
-  if (!db) return sql.begin("isolation level repeatable read read only", (tx) => storyRoot(storyId, tx));
-  const root = (await storyRootFacts([storyId], db)).get(storyId);
-  if (root === undefined) return null;
-  return storyFactView(storyId, root, db);
-}
-
 /**
  * One fact of a story as the story judgement sees it (storyRoot's shape): when the fact started, whether it started
  * as a roundup, and its representative report. The story merge sweep (story-merge.ts) reads a story's newest fact here.
  */
-export async function storyFactView(storyId: number, root: number, db?: Db): Promise<StoryRoot | null> {
-  if (!db) return sql.begin("isolation level repeatable read read only", (tx) => storyFactView(storyId, root, tx));
+export async function storyFactView(storyId: number, factId: number, db?: Db): Promise<StoryRoot | null> {
+  return storyRoot(storyId, db, factId);
+}
+
+/** A story's root (rootFactOf) or the given fact of it: when it started, and the report that stands for it. */
+async function storyRoot(storyId: number, db?: Db, factId?: number): Promise<StoryRoot | null> {
+  if (!db) return sql.begin("isolation level repeatable read read only", (tx) => storyRoot(storyId, tx, factId));
+  const root = factId ?? (await storyRootFacts([storyId], db)).get(storyId);
+  if (root === undefined) return null;
   const members = await db<ReportMembership[]>`SELECT article_id,input_revision,manual FROM fact_articles fa
     WHERE fact_id=${root} AND role IN ('primary','report') AND ${trusted("fa")}`;
   const qualified = await qualifiedReports(members, db);

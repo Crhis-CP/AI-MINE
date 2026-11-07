@@ -140,8 +140,11 @@ async function refreshStorySpans(storyIds: number[]) {
 }
 const storyOf = async (id: string) =>
   Number(
-    (await sql<{ story_id: number }[]>`SELECT f.story_id FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id WHERE fa.article_id=${id} AND fa.role IN ('primary','report')`)[0]
-      ?.story_id ?? 0,
+    (
+      await sql<
+        { story_id: number }[]
+      >`SELECT f.story_id FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id WHERE fa.article_id=${id} AND fa.role IN ('primary','report')`
+    )[0]?.story_id ?? 0,
   );
 const factOf = async (id: string) =>
   Number((await sql<{ fact_id: number }[]>`SELECT fact_id FROM fact_articles WHERE article_id=${id} AND role IN ('primary','report')`)[0]?.fact_id ?? 0);
@@ -170,21 +173,45 @@ test("the live split is rebuilt: three stories of one scandal, a report group in
   ids.c1 = await article({ title: "智利国家铜业公司董事会就虚报产量问责高管", spec: scandal("accountability", "S3"), category: SCANDAL, publishedAt: recent });
   crossSplit.set(`${"智利国家铜业公司董事会就虚报产量问责高管"}|${"智利国家铜业公司审计确认部分矿山虚报产量"}`, { relation: "SAME_STORY", confidence: 0.85 });
   // Same company, not this event.
-  ids.spill = await article({ title: "智利国家铜业公司一座尾矿库发生泄漏", spec: { family: "spill", dev: "spill", split: "P" }, category: SCANDAL, publishedAt: recent });
-  ids.q9 = await article({ title: "智利国家铜业公司公布9月铜产量月报", spec: { family: "sep", dev: "sep", split: "Q9" }, category: SCANDAL, publishedAt: recent });
-  ids.q10 = await article({ title: "智利国家铜业公司公布10月铜产量月报", spec: { family: "oct", dev: "oct", split: "Q10" }, category: SCANDAL, publishedAt: recent });
-  ids.bond = await article({ title: "智利国家铜业公司发行十年期美元债券", spec: { family: "bond", dev: "bond", split: "R" }, category: "capital_ma", publishedAt: recent });
+  ids.spill = await article({
+    title: "智利国家铜业公司一座尾矿库发生泄漏",
+    spec: { family: "spill", dev: "spill", split: "P" },
+    category: SCANDAL,
+    publishedAt: recent,
+  });
+  ids.q9 = await article({
+    title: "智利国家铜业公司公布9月铜产量月报",
+    spec: { family: "sep", dev: "sep", split: "Q9" },
+    category: SCANDAL,
+    publishedAt: recent,
+  });
+  ids.q10 = await article({
+    title: "智利国家铜业公司公布10月铜产量月报",
+    spec: { family: "oct", dev: "oct", split: "Q10" },
+    category: SCANDAL,
+    publishedAt: recent,
+  });
+  ids.bond = await article({
+    title: "智利国家铜业公司发行十年期美元债券",
+    spec: { family: "bond", dev: "bond", split: "R" },
+    category: "capital_ma",
+    publishedAt: recent,
+  });
   const results: Record<string, Awaited<ReturnType<typeof groupArticle>>> = {};
   for (const key of ["a1", "a2", "b1", "b2", "c1", "spill", "q9", "q10", "bond"]) results[key] = await groupArticle(ids[key]!);
   assert.equal(results.a2!.verdict, "new-fact-in-story");
   assert.equal(results.b2!.verdict, "new-fact-in-story");
   assert.equal(results.c1!.verdict, "new-story", "the audit fact is not the root of its story: the root-only rule does not attach");
   assert.equal(results.c1!.queuedMerges, 1, "the firm development of a non-root fact is queued for the sweep, not dropped");
-  for (const [key, split] of Object.entries({ a1: "S1", b1: "S2", c1: "S3", spill: "P", q9: "Q9", q10: "Q10", bond: "R" })) stories[split] = await storyOf(ids[key]!);
+  for (const [key, split] of Object.entries({ a1: "S1", b1: "S2", c1: "S3", spill: "P", q9: "Q9", q10: "Q10", bond: "R" }))
+    stories[split] = await storyOf(ids[key]!);
   assert.equal(new Set(Object.values(stories)).size, 7, "seven stories, three of them one event");
   assert.equal(await storyOf(ids.a2!), stories.S1);
   assert.equal(await storyOf(ids.b2!), stories.S2);
-  assert.ok((results.c1!.consolidated ?? []).every((c) => !c.merge), "root against root (meeting vs accountability) did not see one story");
+  assert.ok(
+    (results.c1!.consolidated ?? []).every((c) => !c.merge),
+    "root against root (meeting vs accountability) did not see one story",
+  );
   assert.deepEqual(
     (await decisionsFor(stories.S2!, stories.S3!)).map((d) => [d.origin, d.outcome]),
     [["intake", "queued"]],
@@ -222,7 +249,9 @@ test("the live split is rebuilt: three stories of one scandal, a report group in
     });
     const [anchor] = await newsMaterialBindings([ids.g1!]);
     const anchorPolicy = await readCurrentSourcePolicy(anchor!.source_id);
-    const revisions = await sql<{ article_id: string; revision: number }[]>`SELECT article_id,revision FROM publications WHERE article_id IN ${sql([ids[key]!, ids.g1!])}`;
+    const revisions = await sql<
+      { article_id: string; revision: number }[]
+    >`SELECT article_id,revision FROM publications WHERE article_id IN ${sql([ids[key]!, ids.g1!])}`;
     const rev = (id: string) => revisions.find((r) => r.article_id === id)!.revision;
     await sql`INSERT INTO publication.report_group_members(lane,article_id,group_id,anchor_article_id,article_binding,anchor_binding,article_publication_revision,anchor_publication_revision,recipe,input_fingerprint)
       VALUES('news',${ids[key]!},${groupId},${ids.g1!},${sql.json(binding(ids[key]!, material, policy!.permission_version))},${sql.json(binding(ids.g1!, anchor, anchorPolicy!.permission_version))},
@@ -231,7 +260,8 @@ test("the live split is rebuilt: three stories of one scandal, a report group in
   ids.group = groupId;
 
   // The live dates: the earlier roots are long out of the 14-day recall.
-  for (const [key, days] of Object.entries({ a1: 29, a2: 23, b1: 17, b2: 9, c1: 2, spill: 20, q9: 30, q10: 7, bond: 12, g1: 3, g2: 3 })) await backdate(ids[key]!, ago(days));
+  for (const [key, days] of Object.entries({ a1: 29, a2: 23, b1: 17, b2: 9, c1: 2, spill: 20, q9: 30, q10: 7, bond: 12, g1: 3, g2: 3 }))
+    await backdate(ids[key]!, ago(days));
   await refreshStorySpans(Object.values(stories));
   // A related link between the spill and the scandal (reports mentioned both): a candidate, never a merge.
   await sql`INSERT INTO story_links(story_id,other_id,relation) VALUES(${stories.P!},${stories.S1!},'related'),(${stories.S1!},${stories.P!},'related')`;
@@ -331,7 +361,13 @@ test("the sweep ends with ONE story: report group attached, redirects kept, nega
   const own = detail.developments.find((d) => d.factId === `rg-${ids.group}`);
   assert.ok(own, "the story page lists the report group as a development");
   assert.equal(own.reportCount, 2);
-  assert.deepEqual(detail.timeline.filter((r) => r.factId === `rg-${ids.group}`).map((r) => r.id).sort(), [ids.g1!, ids.g2!].sort());
+  assert.deepEqual(
+    detail.timeline
+      .filter((r) => r.factId === `rg-${ids.group}`)
+      .map((r) => r.id)
+      .sort(),
+    [ids.g1!, ids.g2!].sort(),
+  );
   assert.equal(detail.developments.length, 6, "five facts and the report group");
 });
 
@@ -374,7 +410,12 @@ test("a review that disagrees keeps the stories apart; a story a person holds is
     const out: number[] = [];
     phase = "build";
     for (const [i, title] of titles.entries()) {
-      const id = await article({ title, spec: { family, dev: `d${i}`, split: `${family}${i}` }, category: "project_development", publishedAt: new Date(now - 3600_000) });
+      const id = await article({
+        title,
+        spec: { family, dev: `d${i}`, split: `${family}${i}` },
+        category: "project_development",
+        publishedAt: new Date(now - 3600_000),
+      });
       await groupArticle(id);
       await backdate(id, ago(10 - i * 5));
       out.push(await storyOf(id));

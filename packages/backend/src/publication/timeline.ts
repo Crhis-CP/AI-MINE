@@ -143,7 +143,10 @@ export async function loadTimelineFactGroups(
   representatives: ItemRow[],
   candidateIds: string[],
   db: Db = sql,
-  folds: Map<string, { factIds: number[]; developmentCount: number; memberIds?: string[]; extraReports?: Array<{ articleId: string; sourceId: string }> }> = new Map(),
+  folds: Map<
+    string,
+    { factIds: number[]; developmentCount: number; memberIds?: string[]; extraReports?: Array<{ articleId: string; sourceId: string }> }
+  > = new Map(),
 ): Promise<Map<string, GroupInfo | null>> {
   const factIds = [...new Set(representatives.flatMap((row) => (row.fact_id === null ? [] : [row.fact_id])))];
   if (!factIds.length) return new Map();
@@ -172,8 +175,7 @@ export async function loadTimelineFactGroups(
       const extra = (fold?.extraReports ?? []).filter((report) => !reports.some((r) => r.article_id === report.articleId));
       const reportCount = new Set([...reports.map((report) => report.article_id), ...extra.map((report) => report.articleId)]).size;
       const sources = [...reports.map((report) => report.source_id), ...extra.map((report) => report.sourceId)];
-      const
-        facts = new Set(fold?.factIds ?? [row.fact_id!]),
+      const facts = new Set(fold?.factIds ?? [row.fact_id!]),
         developmentCount = fold?.developmentCount ?? 1;
       if (reportCount <= 1 && developmentCount <= 1) return [row.id, null];
       return [

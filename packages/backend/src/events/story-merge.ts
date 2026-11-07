@@ -24,12 +24,19 @@ import { beijingDate } from "@amp/contracts/time";
 import { readStoryGateProfiles } from "@amp/backend/publication/publish";
 import { newsMaterialBindings } from "@amp/backend/content/materials";
 import { sql, type Db } from "../db.ts";
+import { environmentValue } from "../config.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { offPeakWait } from "../providers/peak-hours.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { EMBEDDING_MODEL } from "../providers/embeddings.ts";
 import type { Finding } from "../notify/feishu.ts";
-import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot, RuntimeControlPaused, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
+import {
+  assertRuntimeControl,
+  requireRuntimeRunning,
+  runtimeControlSnapshot,
+  RuntimeControlPaused,
+  type RuntimeControlSnapshot,
+} from "../operations/lane-controls.ts";
 import { firmlyTied, lexicalSimilarity, LEXICAL_RECALL_MIN, RELATE_PROMPT_VERSION, reportText, STORY_REVIEW_MIN_CONFIDENCE, type Relation } from "./relate.ts";
 import { mergeStoryInto } from "./merge.ts";
 import { judgeStories, liveStory, storyEndFacts, storyFactView, waitingError, type StoryEnd, type StoryRoot } from "./group.ts";
@@ -52,7 +59,7 @@ const QUEUE_DAYS = 30;
  */
 export const DUPLICATE_PAIRS_ALERT_DEFAULT = 10;
 const duplicateAlertThreshold = () => {
-  const raw = Number(process.env.ALERT_DUPLICATE_STORY_PAIRS);
+  const raw = Number(environmentValue("ALERT_DUPLICATE_STORY_PAIRS") ?? Number.NaN);
   return Number.isInteger(raw) && raw >= 0 ? raw : DUPLICATE_PAIRS_ALERT_DEFAULT;
 };
 
@@ -214,7 +221,10 @@ async function storyProfiles(storyIds: number[], ends: Map<number, { root: Story
     const own = members.filter((m) => Number(m.story_id) === id);
     const tags = own.flatMap((m) => (profiles.get(m.article_id)?.tags ?? []).filter((t) => t.startsWith("entity:")));
     const root = ends.get(id)?.root;
-    const subject = own.find((m) => Number(m.fact_id) === root?.factId)?.subject?.trim().toLowerCase();
+    const subject = own
+      .find((m) => Number(m.fact_id) === root?.factId)
+      ?.subject?.trim()
+      .toLowerCase();
     out.set(id, {
       id,
       origin: s.origin,
@@ -332,11 +342,7 @@ export async function planStoryMerges(opts: { days?: number; now?: Date; gateOri
     });
   }
   return out.sort(
-    (x, y) =>
-      ORIGIN_ORDER[x.origin] - ORIGIN_ORDER[y.origin] ||
-      (y.similarity ?? 0) - (x.similarity ?? 0) ||
-      x.earlier - y.earlier ||
-      x.later - y.later,
+    (x, y) => ORIGIN_ORDER[x.origin] - ORIGIN_ORDER[y.origin] || (y.similarity ?? 0) - (x.similarity ?? 0) || x.earlier - y.earlier || x.later - y.later,
   );
 }
 
@@ -393,7 +399,15 @@ export async function sweepStoryMerges(opts: { maxJudgements?: number; now?: Dat
   const gone = new Set<number>();
   for (const c of pending) {
     if (gone.has(c.earlier) || gone.has(c.later)) continue;
-    const base = { a: c.earlier, b: c.later, earlier: c.earlier, origin: c.origin, inputKey: c.inputKey, earlierFactId: c.earlierLatest.factId, laterFactId: c.laterRoot.factId };
+    const base = {
+      a: c.earlier,
+      b: c.later,
+      earlier: c.earlier,
+      origin: c.origin,
+      inputKey: c.inputKey,
+      earlierFactId: c.earlierLatest.factId,
+      laterFactId: c.laterRoot.factId,
+    };
     if (held.has(c.earlier) || held.has(c.later)) {
       await recordDecision({ ...base, outcome: "skipped", reason: "人工锁定的事件不自动合并" });
       out.skipped++;
@@ -454,7 +468,12 @@ async function judgePair(a: StoryRoot, b: StoryRoot) {
   const first = await judgeStories("group", a, b);
   await completeReceipt(sql, first.receiptId);
   if (!firmlyTied(first.relation, first.confidence))
-    return { merge: false, first: { relation: first.relation, confidence: first.confidence, receiptId: first.receiptId }, second: null, difference: first.difference };
+    return {
+      merge: false,
+      first: { relation: first.relation, confidence: first.confidence, receiptId: first.receiptId },
+      second: null,
+      difference: first.difference,
+    };
   const second = await judgeStories("groupReview", b, a);
   await completeReceipt(sql, second.receiptId);
   return {
@@ -541,7 +560,13 @@ const CandidateAnswer = (value: unknown) =>
   Array.isArray(value)
     ? value.flatMap((c) =>
         c && typeof c === "object" && "id" in c && "relation" in c
-          ? [{ factId: Number((c as { id: unknown }).id), relation: String((c as { relation: unknown }).relation), confidence: Number((c as { confidence?: unknown }).confidence ?? 0) }]
+          ? [
+              {
+                factId: Number((c as { id: unknown }).id),
+                relation: String((c as { relation: unknown }).relation),
+                confidence: Number((c as { confidence?: unknown }).confidence ?? 0),
+              },
+            ]
           : [],
       )
     : [];
@@ -588,9 +613,7 @@ export async function attachReportGroupsToStories(db: Db = sql): Promise<{ attac
       if (stories.length > 1) ambiguous++;
       continue;
     }
-    const same = own
-      .filter((t) => t.relation === "SAME_OCCURRENCE")
-      .sort((x, y) => y.confidence - x.confidence || x.factId - y.factId)[0];
+    const same = own.filter((t) => t.relation === "SAME_OCCURRENCE").sort((x, y) => y.confidence - x.confidence || x.factId - y.factId)[0];
     rows.push({
       groupId: group.groupId,
       storyId: stories[0]!,
@@ -628,7 +651,10 @@ export async function measureStoryDuplicates(now = new Date()): Promise<Duplicat
   const attach = await attachReportGroupsToStories();
   const ids = [...new Set(suspected.slice(0, 10).flatMap((c) => [c.earlier, c.later]))];
   const publicIds = new Map(
-    (await sql<{ id: number; public_id: string }[]>`SELECT id,public_id::text FROM stories WHERE id=ANY(${ids}::bigint[])`).map((r) => [Number(r.id), r.public_id]),
+    (await sql<{ id: number; public_id: string }[]>`SELECT id,public_id::text FROM stories WHERE id=ANY(${ids}::bigint[])`).map((r) => [
+      Number(r.id),
+      r.public_id,
+    ]),
   );
   const result: DuplicateMeasurement = {
     day: beijingDate(now),
@@ -643,7 +669,9 @@ export async function measureStoryDuplicates(now = new Date()): Promise<Duplicat
 }
 
 async function latestMeasurement() {
-  const [row] = await sql<{ day: string; suspected_pairs: number; unattached_report_groups: number; detail: { examples?: DuplicateMeasurement["examples"] }; measured_at: Date }[]>`
+  const [row] = await sql<
+    { day: string; suspected_pairs: number; unattached_report_groups: number; detail: { examples?: DuplicateMeasurement["examples"] }; measured_at: Date }[]
+  >`
     SELECT day::text,suspected_pairs,unattached_report_groups,detail,measured_at FROM events.story_duplicate_metrics ORDER BY day DESC LIMIT 1`;
   return row ?? null;
 }

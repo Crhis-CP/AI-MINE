@@ -165,8 +165,7 @@ export async function readStoryReportLines(storyIds: number[], now: Date, db: Db
   });
   // A development of its own is named after its earliest report, as a fact is named after the report that founded it.
   for (const row of extra)
-    if (!row.fact_title)
-      row.fact_title = [...extra].filter((r) => r.fact_id === row.fact_id).sort((x, y) => x.at.getTime() - y.at.getTime())[0]!.title;
+    if (!row.fact_title) row.fact_title = [...extra].filter((r) => r.fact_id === row.fact_id).sort((x, y) => x.at.getTime() - y.at.getTime())[0]!.title;
   return [...own, ...extra];
 }
 

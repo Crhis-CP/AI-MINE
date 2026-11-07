@@ -163,7 +163,8 @@ export const projectReportGroup: ReportGroupProjector<Db> = async (input, db) =>
 export async function readCurrentReportGroups(db: Db = sql, now = new Date()): Promise<Array<{ groupId: string; memberIds: string[] }>> {
   const ids = (await db<{ article_id: string }[]>`SELECT article_id FROM publication.report_group_members ORDER BY article_id`).map((r) => r.article_id);
   const groups = new Map<string, string[]>();
-  for (const [articleId, member] of await currentReportMemberships(ids, db, now)) groups.set(member.groupId, [...(groups.get(member.groupId) ?? []), articleId]);
+  for (const [articleId, member] of await currentReportMemberships(ids, db, now))
+    groups.set(member.groupId, [...(groups.get(member.groupId) ?? []), articleId]);
   return [...groups]
     .filter(([, members]) => members.length > 1)
     .map(([groupId, memberIds]) => ({ groupId, memberIds: memberIds.sort() }))

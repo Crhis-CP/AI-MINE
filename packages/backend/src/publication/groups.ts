@@ -214,7 +214,12 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   for (const id of byFact.keys())
     if (id < 0) {
       const named = lineRows.find((r) => r.fact_id === id);
-      facts.push({ id, public_id: attachedMembers.find((m) => m.fact_id === id)?.fact_public_id ?? String(id), title: named?.fact_title ?? "", occurred_at: null });
+      facts.push({
+        id,
+        public_id: attachedMembers.find((m) => m.fact_id === id)?.fact_public_id ?? String(id),
+        title: named?.fact_title ?? "",
+        occurred_at: null,
+      });
     }
   const list = facts
     .map((f) => {
