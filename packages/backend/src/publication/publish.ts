@@ -259,20 +259,31 @@ export async function groupingSelectionCandidate(articleId: string, analysisId: 
 
 /** Worker rechecks current scope, source licence and withdrawal before any translation request. */
 export async function prepareTranslation(articleId: string): Promise<number | null> {
-  let revision: number | null = null;
+  return (await prepareTranslationRun(articleId))?.revision ?? null;
+}
+
+/** The same check, also saying whether the item is selected as this run judged it (TASK-0579: who may pay peak prices). */
+export async function prepareTranslationRun(articleId: string): Promise<{ revision: number; selected: boolean } | null> {
+  let prepared: { revision: number; selected: boolean } | null = null;
   await sql.begin((tx) =>
-    publishArticleTx(tx, articleId, {}, (current) => {
-      revision = current;
+    publishArticleTx(tx, articleId, {}, (revision, selected) => {
+      prepared = { revision, selected };
     }),
   );
-  return revision;
+  return prepared;
+}
+
+/** Whether the item is selected in its current publication; read between paid translation segments (TASK-0579). */
+export async function translationSelectedNow(articleId: string): Promise<boolean> {
+  const [row] = await sql<{ selected: boolean }[]>`SELECT selected FROM publications WHERE article_id=${articleId}`;
+  return row?.selected === true;
 }
 
 export async function publishArticleTx(
   tx: Tx,
   articleId: string,
   options: PublishOptions = {},
-  forTranslation?: (revision: number) => void,
+  forTranslation?: (revision: number, selected: boolean) => void,
 ): Promise<PublishResult | null> {
   // All publication and membership changes use the same short transaction fence, before material locks.
   // Settling a representative may update a peer publication, but never locks the peer's material.
@@ -486,7 +497,7 @@ export async function publishArticleTx(
   const selectionSettled =
     !selectionCandidate || (article.grouping_status === "complete" && article.grouping_input_revision === article.revision && !waitingForCoverage);
   if (needsTranslation) {
-    if (forTranslation) forTranslation(article.revision);
+    if (forTranslation) forTranslation(article.revision, selected);
     else if (selected || (selectionSettled && liveTranslationWindow(article.discovered_at, now)))
       await enqueue(QUEUES.translate, { articleId, lane: "news" }, translationJobOptions(articleId, selected, options.now), tx);
   }

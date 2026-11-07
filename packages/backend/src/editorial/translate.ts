@@ -8,7 +8,7 @@ import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { promptText, promptVersion } from "./prompts.ts";
 import { TRANSLATION_MANIFEST_FORMAT, isChineseOriginal } from "./translation-readiness.ts";
 import { releasedTranslationScopes } from "../providers/receipts.ts";
-import { runBodyTranslation } from "./translation-runtime.ts";
+import { runBodyTranslation, type TranslationRunOptions } from "./translation-runtime.ts";
 import { retryableTranslationScopes } from "./translation-store.ts";
 import { translatePostQuote, quoteTranslationRecipe } from "./post-translation.ts";
 import { loadAnalyzeInput } from "./input.ts";
@@ -32,6 +32,8 @@ export interface TranslateResult {
   revision?: number;
   segments?: number;
   reason?: string;
+  /** With reason "deferred_peak": the off-peak start the rest of the body waits for. */
+  until?: Date;
 }
 
 type AttemptState = { attempts: number | null; outcome: string | null; reason: string | null };
@@ -59,7 +61,7 @@ async function bodyTranslationStop(articleId: string, revision: number): Promise
 }
 
 /** Called only after the worker obtains a current revision from publication.prepareTranslation. */
-export async function translateArticle(articleId: string, expectedRevision: number): Promise<TranslateResult> {
+export async function translateArticle(articleId: string, expectedRevision: number, options: TranslationRunOptions = {}): Promise<TranslateResult> {
   const input = await loadAnalyzeInput(articleId);
   if (!input || input.revision !== expectedRevision) return { articleId, status: "partial", revision: expectedRevision, reason: "input_changed" };
   const writing = input.xPost && !config.originalPostAdmissionEnabled ? await currentEvaluationDerivedInput(articleId, expectedRevision) : null;
@@ -100,8 +102,12 @@ export async function translateArticle(articleId: string, expectedRevision: numb
       system: SYSTEM_BODY,
     },
     expectedRevision,
+    options,
   );
   if (translated.status === "stale") return { articleId, status: "partial", revision: translated.revision, reason: "input_changed" };
+  // Stopped between segments to wait for the off-peak price: not an attempt, so nothing is counted against the item.
+  if (translated.status === "deferred")
+    return { articleId, status: "partial", revision: translated.revision, reason: "deferred_peak", until: translated.until };
   if ((quote === "ready" || quote === "partial") && translated.status === "translated")
     return {
       articleId,
