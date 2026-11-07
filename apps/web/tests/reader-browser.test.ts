@@ -839,12 +839,26 @@ for (const scenario of ["arrivals", "revision check", "reader scroll during chec
     const link = page.locator('[data-item-id="fixture-a"] h3 a');
     await page.keyboard.press("PageDown");
     await page.waitForTimeout(200);
-    await page.mouse.move(800, 500);
-    await page.mouse.wheel(0, (await link.evaluate((node) => node.getBoundingClientRect().top)) - 350);
-    await expect.poll(async () => Math.abs((await link.evaluate((node) => node.getBoundingClientRect().top)) - 350)).toBeLessThan(30);
-    await link.hover();
-    const top = await link.evaluate((node) => node.getBoundingClientRect().top);
-    assert.ok(top > 72 && top < 800, "the selected article is in the reader's viewport before opening it");
+    // Wheel the article to about 350px, then point at it. CI saw the article outside the viewport right after
+    // the hover twice (#358), which nine local runs and 36 runs under load never reproduced; a hover that has to
+    // scroll (something covered the link) moves it. So the placement is retried and the last attempt says where
+    // the link was and what covered it.
+    let top = 0,
+      seen = "";
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await page.mouse.move(800, 500);
+      await page.mouse.wheel(0, (await link.evaluate((node) => node.getBoundingClientRect().top)) - 350);
+      await expect.poll(async () => Math.abs((await link.evaluate((node) => node.getBoundingClientRect().top)) - 350)).toBeLessThan(30);
+      await link.hover();
+      [top, seen] = await link.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + 5, box.top + 5);
+        const covered = hit && hit !== node && !node.contains(hit) ? `${hit.tagName}.${String((hit as HTMLElement).className).slice(0, 60)}` : "none";
+        return [box.top, `scrollY=${Math.round(scrollY)} covered=${covered}`] as const;
+      });
+      if (top > 72 && top < 800) break;
+    }
+    assert.ok(top > 72 && top < 800, `the selected article is in the reader's viewport before opening it (top=${top} ${seen})`);
     await link.click();
     await expect(page).toHaveURL(`${origin}/items/fixture-a`);
     // The router can update the address before the detail subtree replaces the list.

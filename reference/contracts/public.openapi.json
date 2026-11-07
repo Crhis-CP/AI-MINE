@@ -1685,6 +1685,69 @@
                           }
                         ]
                       },
+                      "converted": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "currency": {
+                                "enum": [
+                                  "CNY",
+                                  "USD"
+                                ],
+                                "type": "string"
+                              },
+                              "rate": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "date": {
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "source",
+                                  "name",
+                                  "date",
+                                  "label"
+                                ],
+                                "type": "object"
+                              },
+                              "unit": {
+                                "pattern": "\\S",
+                                "type": "string"
+                              },
+                              "value": {
+                                "pattern": "^\\d+(?:\\.\\d+)?$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "unit",
+                              "currency",
+                              "rate"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "currency": {
                         "enum": [
                           "CNY",
@@ -2140,6 +2203,69 @@
                             "required": [
                               "percent",
                               "previous"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "converted": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "currency": {
+                                "enum": [
+                                  "CNY",
+                                  "USD"
+                                ],
+                                "type": "string"
+                              },
+                              "rate": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "date": {
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "source",
+                                  "name",
+                                  "date",
+                                  "label"
+                                ],
+                                "type": "object"
+                              },
+                              "unit": {
+                                "pattern": "\\S",
+                                "type": "string"
+                              },
+                              "value": {
+                                "pattern": "^\\d+(?:\\.\\d+)?$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "unit",
+                              "currency",
+                              "rate"
                             ],
                             "type": "object"
                           },

@@ -423,6 +423,20 @@ export const MetalPrices = z
                     previous: z.strictObject({ value: priceValue, period: pricePeriod }),
                   })
                   .nullable(),
+                /**
+                 * The same price in another currency, beside the published one (TASK-0572: a 元/吨 quote also in 美元/吨),
+                 * converted with the exchange rate published on the quote's period end or the latest day before it; the
+                 * rate is never one published later. Absent or null: no such rate, nothing is shown.
+                 */
+                converted: z
+                  .strictObject({
+                    value: priceValue,
+                    unit: priceText,
+                    currency: z.enum(["CNY", "USD"]),
+                    rate: z.strictObject({ source: priceText, name: priceText, date: z.iso.date(), label: priceText }),
+                  })
+                  .nullable()
+                  .optional(),
               }),
             )
             .min(1),
@@ -475,6 +489,12 @@ export const MetalPrices = z
         if (!source) issue([...path, "source"], "unknown source");
         if ((quote.value === null) !== (quote.period === null)) issue([...path, "period"], "price and period must be present together");
         if (quote.change && quote.value === null) issue([...path, "change"], "a comparison requires a price");
+        if (quote.converted) {
+          if (quote.value === null || quote.period === null) issue([...path, "converted"], "a conversion requires a price");
+          else if (quote.converted.rate.date > quote.period.end) issue([...path, "converted", "rate", "date"], "the rate must not be later than the period");
+          if (quote.converted.currency === quote.currency) issue([...path, "converted", "currency"], "a conversion changes the currency");
+          if (!data.sources.some((s) => s.key === quote.converted!.rate.source)) issue([...path, "converted", "rate", "source"], "unknown rate source");
+        }
         if (source?.status === "empty" && quote.value !== null) issue([...path, "value"], "an empty source has no price");
         if (quote.footnote !== null) {
           if (!refs.has(quote.footnote)) issue([...path, "footnote"], "unknown footnote");
