@@ -40,9 +40,10 @@ const assertRunning = () => {
 export interface TranslationRunOptions {
   /**
    * Asked before every paid segment: a time means stop now and resume then (TASK-0579, a non-selected item in the
-   * provider's peak hours). Saved segments stay checkpoints, so the next run pays only for the rest.
+   * provider's peak hours). Saved segments stay checkpoints, so the next run pays only for the rest. `model` is the
+   * model this segment will be paid with (fixed when the run starts), so a quota check judges the quota it draws on.
    */
-  beforePaidSegment?: () => Promise<Date | null>;
+  beforePaidSegment?: (model: string) => Promise<Date | null>;
 }
 
 /** Caller verifies scope/source permission first. Paid work never holds a content transaction. */
@@ -86,7 +87,7 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     assertRunning();
     const checkpoint = saved.find((row) => row.index === segment.index && row.sourceHash === segment.sourceHash);
     if (checkpoint?.state === "complete") continue;
-    const until = await options.beforePaidSegment?.();
+    const until = await options.beforePaidSegment?.(recipe.model);
     if (until) return { status: "deferred" as const, revision: body.revision, until };
     const part = shield(segment.html).html;
     const user = JSON.stringify({ text: part, ...(segment.reference ? { referenceOnly: segment.reference } : {}) });
