@@ -108,3 +108,10 @@ Owner 原话：“你负责修改代码和管控 codex，所以 codex 负责部�
 7. 证书剩余天数。
 
 禁止：压测、暴力扫描、写入数据、登录爆破、对第三方站点做任何测试。
+
+## 八、项目记忆（Owner 2026-11-07）
+
+- 纠错当场记：Claude 写 `docs/05-quality/lessons/inbox/claude.md`；Codex 在看板报告的纠错（Owner 纠正、交接写错导致阻塞、事实错误）由 Claude 记进 `inbox/codex.md` 并注明看板评论 id。各写各的文件，不共写。
+- 定期整理：每合并 5 个 PR 或每周日，Claude 开整理卡，核实后收进 `docs/05-quality/02-pitfalls.md`，更新 `lessons/INDEX.md`；Codex 只读复核其中它报告的事实。整理报告写新增、合并、复发次数与 INDEX 行数。
+- 双方开工前读 `docs/05-quality/lessons/INDEX.md`；交接里的 SQL 先用 `scripts/check-handoff-sql.ts` 在测试库上核对（PIT-109），通过标准里的数字写明出处（PIT-110）。
+- 冲突判定见 `docs/05-quality/lessons/README.md`：与 Owner 决定冲突的交 Owner，技术冲突按证据裁决。
