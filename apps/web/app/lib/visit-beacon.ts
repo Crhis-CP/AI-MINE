@@ -18,10 +18,25 @@ function send(path: string, referrer: string | null) {
   }
 }
 
+// A page whose own route shows an error (a missing or withdrawn policy, a failed read) is not a page view. Such
+// errors are drawn by child route error boundaries inside the reader layout, so those boundaries mark the page with
+// useNotAPageView(). React runs a child's effects before its parent's in the same commit, so the mark is set before
+// the layout's beacon effect reads (and clears) it. The layout's own error boundary never mounts the beacon at all.
+let notAPageView: string | null = null;
+export function useNotAPageView() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    notAPageView = pathname;
+  }, [pathname]);
+}
+
 export function useVisitBeacon() {
   const { pathname } = useLocation();
   const first = useRef(true);
   useEffect(() => {
+    const skip = notAPageView === pathname;
+    notAPageView = null;
+    if (skip) return;
     const referrer = first.current ? document.referrer || null : null;
     first.current = false;
     // A prerendered page counts only once the reader actually opens it.

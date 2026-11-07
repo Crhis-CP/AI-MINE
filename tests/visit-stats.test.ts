@@ -9,7 +9,7 @@ import { beijingDate, addDays } from "@amp/contracts/time";
 import { VisitOverview } from "@amp/contracts/http/private";
 import { installModules, serverModules } from "@amp/backend/modules";
 import { buildApp } from "./site-app.ts";
-import { countVisits, flushVisits, recordVisit, visitOverview } from "../modules/site-admin/backend/visits.ts";
+import { countVisits, flushVisits, recordVisit, visitOverview, visitWriteStats } from "../modules/site-admin/backend/visits.ts";
 
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
@@ -225,4 +225,23 @@ test("the beacon answers 204 and counts only reader pages; the overview needs a 
   assert.deepEqual(again.cards.yesterday, { visitors: 12, page_views: 40 });
   assert.equal(again.cards.week_average.days, 1);
   assert.equal(again.cards.week_average.visitors, 12);
+});
+
+test("a salt from a rolled-back write is not reused: the next write creates and stores the salt it uses", async () => {
+  // Beijing 2027-01-10 10:00: a day and month no earlier test touched.
+  const now = at("2027-01-10T02:00:00Z");
+  await sql.unsafe(`CREATE FUNCTION ops.fail_visit_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected'; END $$;
+    CREATE TRIGGER fail_visit_write BEFORE INSERT ON ops.visit_days FOR EACH ROW EXECUTE FUNCTION ops.fail_visit_write();`);
+  const failedBefore = visitWriteStats.failedWrites;
+  assert.equal(hit(now, "203.0.113.50", CHROME, "/all"), true);
+  await flushVisits(now);
+  assert.equal(visitWriteStats.failedWrites, failedBefore + 1, "the injected failure dropped the batch");
+  assert.equal(await count("visit_salts", "starts_on >= '2027-01-01'"), 0, "the salt rolled back with the write");
+  await sql.unsafe(`DROP TRIGGER fail_visit_write ON ops.visit_days; DROP FUNCTION ops.fail_visit_write();`);
+
+  assert.equal(hit(now, "203.0.113.50", CHROME, "/all"), true);
+  await flushVisits(now);
+  const stored = await sql<{ period: string; salt: Buffer }[]>`SELECT period, salt FROM ops.visit_salts WHERE starts_on >= '2027-01-01' ORDER BY 1`;
+  assert.deepEqual(stored.map((r) => r.period), ["day", "month"], "the second write stored both salts");
+  assert.equal(await count("visit_day_keys", "day = '2027-01-10'"), 1);
 });

@@ -3,7 +3,7 @@ import { basePath, useTr } from "@amp/web/i18n";
 import { Link } from "@amp/web/extension";
 import { isRouteErrorResponse, useLocation, useRevalidator, useRouteError } from "react-router";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
-import { EmptyState } from "@amp/web/page";
+import { EmptyState, useNotAPageView } from "@amp/web/page";
 import { groupParts, policyTitle, usePolicyText } from "./reader";
 
 /** The seven business themes (docs/01-product/10-policy-service.md §2.3); the read layer gives cards the same names. */
@@ -259,6 +259,7 @@ export function stateText(policy: Policy) {
 export function PolicyError() {
   const tr = useTr();
   const error = useRouteError();
+  useNotAPageView();
   const status = isRouteErrorResponse(error) ? error.status : 503;
   const title =
     status === 400

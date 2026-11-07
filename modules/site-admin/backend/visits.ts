@@ -140,14 +140,18 @@ export async function flushVisits(now = new Date()): Promise<void> {
   await writing;
 }
 
-/** The salt of a period. Only the current period's salt is ever created; a past one that is gone stays gone. */
-async function saltFor(tx: Db, period: "day" | "month", startsOn: string, current: boolean): Promise<Buffer | null> {
+/**
+ * The salt of a period. Only the current period's salt is ever created; a past one that is gone stays gone. A salt
+ * read inside the write is only noted in `committed`; the caller caches it once the transaction has committed, so a
+ * rolled-back salt never outlives its transaction (another process would create a different one, splitting visitors).
+ */
+async function saltFor(tx: Db, period: "day" | "month", startsOn: string, current: boolean, committed: Map<string, Buffer>): Promise<Buffer | null> {
   const cacheKey = `${period}:${startsOn}`;
   const cached = saltCache.get(cacheKey);
   if (cached) return cached;
   if (current) await tx`INSERT INTO ops.visit_salts(period,starts_on,salt) VALUES(${period},${startsOn}::date,${randomBytes(32)}) ON CONFLICT DO NOTHING`;
   const [row] = await tx<{ salt: Buffer }[]>`SELECT salt FROM ops.visit_salts WHERE period=${period} AND starts_on=${startsOn}::date`;
-  if (row && current) saltCache.set(cacheKey, row.salt);
+  if (row && current) committed.set(cacheKey, row.salt);
   return row?.salt ?? null;
 }
 
@@ -155,13 +159,14 @@ async function writeBatch(current: Batch, now: Date): Promise<void> {
   const today = beijingDate(now),
     thisMonth = monthOf(today);
   for (const key of saltCache.keys()) if (key !== `day:${today}` && key !== `month:${thisMonth}`) saltCache.delete(key);
+  const committed = new Map<string, Buffer>();
   await sql.begin(async (tx) => {
     const dayKeys: { day: string; visitor: string; device: VisitDevice }[] = [],
       monthKeys: { month: string; visitor: string }[] = [];
     const salts = new Map<string, Buffer | null>();
     const salt = async (period: "day" | "month", startsOn: string, isCurrent: boolean) => {
       const key = `${period}:${startsOn}`;
-      if (!salts.has(key)) salts.set(key, await saltFor(tx, period, startsOn, isCurrent));
+      if (!salts.has(key)) salts.set(key, await saltFor(tx, period, startsOn, isCurrent, committed));
       return salts.get(key)!;
     };
     for (const { day, device, address, userAgent } of current.identities.values()) {
@@ -198,6 +203,7 @@ async function writeBatch(current: Batch, now: Date): Promise<void> {
         SELECT * FROM unnest(${monthKeys.map((k) => k.month)}::date[],${monthKeys.map((k) => k.visitor)}::text[])
         ON CONFLICT DO NOTHING`;
   });
+  for (const [key, value] of committed) saltCache.set(key, value);
 }
 
 /**

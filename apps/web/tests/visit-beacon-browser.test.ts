@@ -128,3 +128,21 @@ test("each reader page shown sends one beacon; nothing is stored in the browser;
   assert.deepEqual(errors, []);
   assert.deepEqual(blocked, []);
 });
+
+test("a page whose own route shows an error is not counted; the next real page is", { timeout: 60000 }, async (t) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  t.after(() => context.close());
+  const blocked = await isolateBrowser(context, [origin]),
+    page = await context.newPage();
+  const start = beacons.length;
+  // A policy the api does not have: the policy route's own error boundary draws inside the reader layout.
+  const response = await page.goto(`${origin}/policies/no-such-policy`, { waitUntil: "networkidle" });
+  assert.equal(response?.status(), 404);
+  await expect(page.getByText("这篇法规当前不可查看")).toBeVisible();
+  await page.waitForTimeout(500);
+  assert.equal(beacons.length, start, "the error page sent no beacon");
+  await page.goto(`${origin}/privacy`, { waitUntil: "networkidle" });
+  await expect.poll(() => beacons.length).toBe(start + 1);
+  assert.equal(beacons.at(-1)!.body.path, "/privacy");
+  assert.deepEqual(blocked, []);
+});

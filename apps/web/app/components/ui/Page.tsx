@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "../../i18n/navigation";
 import { IconChevronRight } from "../icons";
 
+/** Route error boundaries call this so the page they draw is not counted as a page view (TASK-0571). */
+export { useNotAPageView } from "../../lib/visit-beacon";
+
 /**
  * The reading template, one of the site's two page widths (the other is the full-width feeds and
  * boards): a main column and an aside (300px, 340px on wide screens) in a container that fills a 16:9
