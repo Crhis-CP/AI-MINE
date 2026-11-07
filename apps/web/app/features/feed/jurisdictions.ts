@@ -26,13 +26,22 @@ export function useJurisdictionChoices(): { choices: JurisdictionChoice[] | null
   const [choices, setChoices] = useState<JurisdictionChoice[] | null>(null),
     [failed, setFailed] = useState(false);
   useEffect(() => {
-    let live = true;
-    load().then(
-      (list) => live && setChoices(list),
-      () => live && setFailed(true),
-    );
+    let live = true,
+      timer: ReturnType<typeof setTimeout> | undefined;
+    // Like the news map: one quiet retry before the select and the chips give up (TASK-0568 Q2).
+    const attempt = (retries: number) =>
+      load().then(
+        (list) => live && setChoices(list),
+        () => {
+          if (!live) return;
+          if (retries > 0) timer = setTimeout(() => attempt(retries - 1), 2500);
+          else setFailed(true);
+        },
+      );
+    attempt(1);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, []);
   return { choices, failed };

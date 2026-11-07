@@ -311,6 +311,99 @@ export async function createSource(input: unknown, actor: string, opts: { lane?:
   });
 }
 
+/** Evidence text recorded when news full text is opened by the Owner decision of 2026-11-07. */
+export const NEWS_FULLTEXT_BASIS_ZH =
+  "Owner 2026-11-07 决定（DEC-78补充·新闻原文全文与中文译文）：资讯线第三方媒体在本站页面直接放原文全文加中文全文翻译，接受版权和新闻信息服务许可的风险，推翻 2026-10-05 的收紧；站外再分发全文仍关闭。";
+const FULLTEXT_PURPOSES = ["public_original_fulltext", "public_translation"] as const;
+const RESTRICTING_EVIDENCE = ["source_objection", "owner_instruction", "legal_requirement"];
+
+export type NewsFulltextStatus = "opened" | "would_open" | "already_open" | "kept_tightened" | "needs_review" | "missing_policy";
+
+/**
+ * Opens site full text and its Chinese translation for news-lane editorial sources (Owner 2026-11-07, overturning the
+ * 2026-10-05 tightening of DEC-40). It does what the admin source page does, one source per transaction: a new
+ * permission version with both purposes allowed and an `owner_declared` evidence entry, `site_fulltext = true`, an
+ * audit row for each, and a republication of the source's articles. Off-site redistribution (`syndicate_fulltext`) is
+ * not touched. Idempotent; a dry run (apply=false) writes nothing.
+ *
+ * Per-source tightening still wins: a source objection or legal requirement, or an owner instruction that closed full
+ * text or translation for this source, keeps the source closed and is listed (includeOwnerClosed reopens only the last
+ * kind). Policies with conditions, excluded content or an expiry are listed for review instead of being changed.
+ * Closing a source again from the admin page (site_fulltext=false) records an owner instruction, so a later run keeps
+ * it closed.
+ */
+export async function openNewsFulltext(actor: string, opts: { apply?: boolean; includeOwnerClosed?: boolean; reason?: string } = {}) {
+  if (!actor.trim()) throw new Error("Actor is required");
+  const reason = opts.reason?.trim() || NEWS_FULLTEXT_BASIS_ZH;
+  const candidates = await sql<{ id: string; name: string }[]>`
+    SELECT id,name FROM sources WHERE lane='news' AND participation_mode='editorial' AND archived_at IS NULL ORDER BY id`;
+  const [archived] = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM sources WHERE lane='news' AND participation_mode='editorial' AND archived_at IS NOT NULL`;
+  const results: { id: string; name: string; status: NewsFulltextStatus; basis?: string[] }[] = [];
+  for (const candidate of candidates) {
+    results.push(
+      await sql.begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${candidate.id}))`;
+        const [source] = await tx<{ id: string; name: string; lane: string; participation_mode: string; archived_at: Date | null; site_fulltext: boolean }[]>`
+          SELECT id,name,lane,participation_mode,archived_at,site_fulltext FROM sources WHERE id=${candidate.id} FOR UPDATE`;
+        const row = { id: candidate.id, name: candidate.name };
+        if (source?.lane !== "news" || source.participation_mode !== "editorial" || source.archived_at)
+          return { ...row, status: "needs_review" as const, basis: ["source changed while the run was in progress"] };
+        const current = await readCurrentSourcePolicy(source.id, tx);
+        if (!current) return { ...row, status: "missing_policy" as const };
+        const allowed = FULLTEXT_PURPOSES.every((purpose) => current.permissions[purpose] === "allow");
+        if (allowed && source.site_fulltext) return { ...row, status: "already_open" as const };
+        const restricting = current.evidence.filter(
+          (e) =>
+            RESTRICTING_EVIDENCE.includes(e.kind) &&
+            (e.kind !== "owner_instruction" || e.capabilities.some((c) => (FULLTEXT_PURPOSES as readonly string[]).includes(c))),
+        );
+        const blocking = restricting.filter((e) => e.kind !== "owner_instruction" || !opts.includeOwnerClosed);
+        if (blocking.length) return { ...row, status: "kept_tightened" as const, basis: blocking.map((e) => `${e.kind}: ${e.basis_zh}`) };
+        if (current.conditions.length || current.scope.excluded_content.length || current.expires_at !== null)
+          return { ...row, status: "needs_review" as const, basis: ["conditions, excluded content or an expiry on the current permission"] };
+        if (!opts.apply) return { ...row, status: "would_open" as const };
+        const at = new Date().toISOString();
+        if (!allowed) {
+          const change = await appendSourcePolicy(tx, current.permission_version, {
+            ...current,
+            permission_version: current.permission_version + 1,
+            reviewed_by: actor,
+            reviewed_at: at,
+            permissions: { ...current.permissions, public_original_fulltext: "allow", public_translation: "allow" },
+            evidence: [
+              ...current.evidence,
+              {
+                kind: "owner_declared",
+                url: null,
+                checked_at: at,
+                valid_until: null,
+                basis_zh: NEWS_FULLTEXT_BASIS_ZH,
+                capabilities: [...FULLTEXT_PURPOSES],
+                scope: current.scope,
+              },
+            ],
+          });
+          await audit(actor, "source.permission", `source:${source.id}`, reason, change.before, change.after, undefined, tx);
+        }
+        if (!source.site_fulltext) {
+          await tx`UPDATE sources SET site_fulltext=true, updated_at=now() WHERE id=${source.id}`;
+          await audit(actor, "source.update", `source:${source.id}`, reason, { site_fulltext: false }, { site_fulltext: true }, undefined, tx);
+        }
+        await queueSourceRepublication(source.id, actor, tx);
+        return { ...row, status: "opened" as const };
+      }),
+    );
+  }
+  const counts = Object.fromEntries(
+    (["opened", "would_open", "already_open", "kept_tightened", "needs_review", "missing_policy"] as const).map((status) => [
+      status,
+      results.filter((r) => r.status === status).length,
+    ]),
+  );
+  return { applied: !!opts.apply, counts, archivedSkipped: archived?.n ?? 0, sources: results };
+}
+
 export async function fetchNow(id: string, actor: string, principal?: AdminPrincipal) {
   return sql.begin(async (tx) => {
     if (principal) await requireOwner(principal, tx);

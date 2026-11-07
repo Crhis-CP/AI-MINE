@@ -77,8 +77,11 @@ test("incremental intake previews before enabling, resumes without duplicating a
   );
   const before = (await sourceDetail(source.id))!;
   assert.equal(before.source.enabled, true);
-  assert.equal(before.source.site_fulltext, false);
-  assert.equal(before.permission?.permissions.public_original_fulltext, "deny");
+  // News intake opens site full text and translation (Owner 2026-11-07, TASK-0569); redistribution stays off.
+  assert.equal(before.source.site_fulltext, true);
+  assert.equal(before.source.syndicate_fulltext, false);
+  assert.equal(before.permission?.permissions.public_original_fulltext, "allow");
+  assert.equal(before.permission?.permissions.public_translation, "allow");
   const count = (await sql`SELECT count(*)::int AS n FROM sources.source_previews WHERE source_id=${source.id}`)[0]!.n;
   await applyIntakeEntry(prepared!, actor, true, output);
   assert.equal(outcomes.pop(), "enabled_preview_passed");

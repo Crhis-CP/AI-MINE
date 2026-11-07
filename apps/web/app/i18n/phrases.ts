@@ -552,6 +552,14 @@ export const PHRASES = {
   正文语言: "Text language",
   引用语言: "Quote language",
   "译文尚不完整，完整内容请切换到原文。": "The translation is incomplete; switch to the original for the full text.",
+  中文译文: "Chinese translation",
+  "中文译文生成中，先为你显示原文。": "The Chinese translation is being made; the original is shown for now.",
+  版权与翻译说明: "Copyright and translation note",
+  "作者：": "Author: ",
+  查看原文: "View the original",
+  "版权归原作者或来源所有。": "Copyright belongs to the original author or source.",
+  "中文为 AI 翻译，仅供参考，以原文为准；版权归原作者或来源所有。":
+    "The Chinese is an AI translation for reference only; the original prevails. Copyright belongs to the original author or source.",
   "来源：": "Source: ",
   "原始来源可追溯；中文内容由 AI 辅助生成或翻译": "The original source is traceable; the Chinese content is written or translated with AI assistance ",
   "，并经人工修订": ", and revised by an editor",
@@ -787,8 +795,8 @@ export const PHRASES = {
     "Writes Chinese titles, summaries and key facts, and picks the changes that matter for mining operations, projects and markets.",
   "按北京时间每天 08:00 出日报，周一 10:00 出周报，每月 1 日 10:30 出月报，把重要变化放在一起，方便集中回顾。":
     "Publishes a daily brief at 08:00 Beijing time, a weekly brief on Mondays at 10:00 and a monthly brief on the 1st at 10:30, gathering the important changes for one read.",
-  "AI矿策 是聚合摘要和阅读索引，原文版权归各来源所有。如果你是来源方，希望更正、下架或调整展示方式，可以通过":
-    "AI矿策 is an aggregated summary and reading index; copyright in the originals belongs to each source. If you own a source and want a correction, a takedown or a change in how it is shown, use the",
+  "AI矿策 整理各来源的资讯，提供原文与 AI 中文译文阅读，原文版权归原作者或来源所有。如果你是来源方，希望更正、下架或调整展示方式，可以通过":
+    "AI矿策 organises news from its sources and offers the original text with an AI Chinese translation; copyright belongs to the original author or source. If you own a source and want a correction, a takedown or a change in how it is shown, use the",
   "本文为中文原文，英文界面不提供译本。": "This document is in Chinese; the English interface does not provide a translation.",
   "AI-MINE — 全球矿业资讯、法规政策与金属价格": "AI-MINE — Global mining news, policy and metal prices",
   我的收藏: "Saved",

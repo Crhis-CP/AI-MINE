@@ -103,6 +103,38 @@ function hostOf(url: string): string {
   }
 }
 
+/**
+ * Under every body on our own page: whose text it is, where the original is, and how to read the AI translation
+ * (Owner 2026-11-07, DEC-78补充·新闻原文全文与中文译文, TASK-0569).
+ */
+function BodyNotice({ item, chineseOriginal }: { item: Pick<SiteItemDetail, "source" | "author" | "links">; chineseOriginal: boolean }) {
+  const tr = useTr();
+  return (
+    <aside
+      data-body-notice
+      aria-label={tr("版权与翻译说明")}
+      className="mt-8 rounded-control border border-line px-4 py-3 text-[13.5px] leading-relaxed text-ink-3"
+    >
+      <p className="break-words">
+        {tr("来源：")}
+        <span className="text-ink-2">{item.source.name}</span>
+        {item.author ? (
+          <>
+            {" · "}
+            {tr("作者：")}
+            <span className="text-ink-2">{item.author}</span>
+          </>
+        ) : null}
+        {" · "}
+        <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="text-accent">
+          {tr("查看原文")}
+        </a>
+      </p>
+      <p className="mt-1">{chineseOriginal ? tr("版权归原作者或来源所有。") : tr("中文为 AI 翻译，仅供参考，以原文为准；版权归原作者或来源所有。")}</p>
+    </aside>
+  );
+}
+
 async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">, path: string): Promise<"shared" | "copied" | null> {
   const url = `${siteUrl()}${path}`;
   try {
@@ -147,11 +179,14 @@ export default function ItemPage() {
   };
 
   const bodyHtml = lang === "zh" ? (item.body?.zh ?? item.body?.original) : (item.body?.original ?? item.body?.zh);
+  // A foreign article whose Chinese translation is still being made opens on its original text (TASK-0569).
+  const translationPending = item.readingState === "pending" && lang === "original" && !!item.body?.original && item.body.zhKind !== "original";
+  const chineseOriginal = item.body?.zhKind === "original";
   const bodyLabel = !item.body
     ? null
     : lang === "zh" && item.body.zhKind === "translation"
       ? tr("正文 · AI 翻译")
-      : lang === "original" && hasTranslation
+      : lang === "original" || chineseOriginal
         ? tr("正文 · 原文")
         : tr("正文");
   // The source's own date. Finding the page is not a publication date (收录时间 stays labeled as such).
@@ -464,7 +499,7 @@ export default function ItemPage() {
                     label={bodyHtml ? tr("正文语言") : tr("引用语言")}
                     active={lang}
                     items={[
-                      { key: "zh", label: tr("中文"), prefetch: "intent", replace: true, to: `/items/${item.id}` },
+                      { key: "zh", label: bodyHtml ? tr("中文译文") : tr("中文"), prefetch: "intent", replace: true, to: `/items/${item.id}` },
                       { key: "original", label: tr("原文"), prefetch: "intent", replace: true, to: `/items/${item.id}/original` },
                     ]}
                   />
@@ -473,7 +508,13 @@ export default function ItemPage() {
               {hasTranslation && lang === "zh" && item.body && !item.body.complete && (
                 <p className="mb-5 rounded-control bg-bg-sunk px-3 py-2 text-[14px] text-ink-3">{tr("译文尚不完整，完整内容请切换到原文。")}</p>
               )}
+              {translationPending && (
+                <p data-translation-pending className="mb-5 rounded-control bg-bg-sunk px-3 py-2 text-[14px] text-ink-3">
+                  {tr("中文译文生成中，先为你显示原文。")}
+                </p>
+              )}
               {bodyHtml && <ArticleBody key={`${itemKey}:${lang}`} html={bodyHtml} />}
+              {item.body && bodyHtml && <BodyNotice item={item} chineseOriginal={chineseOriginal} />}
             </section>
           )}
           {item.x && <PostMedia key={itemKey} media={item.x.media} href={item.links.original} />}
