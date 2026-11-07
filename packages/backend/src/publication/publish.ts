@@ -959,6 +959,7 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
     {
       article_id: string;
       tags: string[];
+      manual_tags: boolean;
       search_text: string;
       subjects: string[];
       title: string;
@@ -969,9 +970,11 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
       x_article: { title?: string; text?: string } | null;
       source_name: string;
     }[]
-  >`SELECT p.article_id, p.tags, p.search_text, coalesce(an.subjects, '{}') AS subjects, a.title, a.body_text, a.excerpt, a.language, a.x_post,
+  >`SELECT p.article_id, p.tags, p.search_text, coalesce(an.subjects, '{}') AS subjects,
+      coalesce(jsonb_typeof(eo.fields->'tags')='array', false) AS manual_tags, a.title, a.body_text, a.excerpt, a.language, a.x_post,
       a.x_article, s.name AS source_name
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=a.source_id LEFT JOIN analyses an ON an.id=p.analysis_id
+    LEFT JOIN editorial_overrides eo ON eo.article_id=p.article_id
     WHERE p.channel='news' AND (${afterId}::text IS NULL OR p.article_id > ${afterId}::text)
     ORDER BY p.article_id LIMIT ${limit}`;
   return rows.map((row) => {
@@ -988,7 +991,8 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
     // Stored tags, and analysed subjects still written into the search text (Codex review #380); after a republish
     // neither remains, so a second run finds nothing.
     const inSearch = row.subjects.filter((id) => row.search_text.split(/\s+/).includes(id.toLowerCase())).map((id) => `entity:${id}`);
-    const candidates = [...new Set([...row.tags, ...inSearch])];
+    // Tags a person set are kept by publish, so they are never a removal (Codex review #380).
+    const candidates = [...new Set([...(row.manual_tags ? [] : row.tags), ...inSearch])];
     return {
       articleId: row.article_id,
       title: row.title,

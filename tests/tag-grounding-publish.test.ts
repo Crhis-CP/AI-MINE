@@ -91,4 +91,12 @@ test("a company and a mineral the material never names are not published; the re
   assert.equal(again?.language, "es");
   await publishArticle(articleId);
   assert.equal(await translateJobs(), 1, "a normal publish of this item would queue a translation: the check above is meaningful");
+
+  // Tags a person set are kept by publish and are never reported as a removal.
+  await sql`INSERT INTO editorial_overrides (article_id, fields) VALUES (${articleId}, ${sql.json({ tags: ["紫金矿业", "铜"] })})`;
+  await republishProjectionOnly(articleId);
+  const [manual] = await sql<{ tags: string[] }[]>`SELECT tags FROM publications WHERE article_id=${articleId}`;
+  assert.ok(manual!.tags.includes("紫金矿业"), "a hand-set tag stays");
+  const manualSweep = (await ungroundedTagPublications(null, 100_000)).find((r) => r.articleId === articleId);
+  assert.deepEqual(manualSweep?.dropped, [], "and is not counted as a removal");
 });
