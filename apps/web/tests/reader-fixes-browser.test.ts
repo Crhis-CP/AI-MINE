@@ -21,6 +21,8 @@ const today = beijingDate(now);
 /** The map's window starts at a Beijing midnight, as the API computes it. */
 const windowFrom = (days: number) => beijingMidnight(addDays(today, 1 - days)).toISOString();
 const pools: URLSearchParams[] = [];
+/** Reads to answer with 503 before answering normally: a service restarting or a flaky connection. */
+const failing = { map: 0, jurisdictions: 0 };
 
 const JURISDICTIONS = [
   ["CL", "智利", 40],
@@ -55,6 +57,12 @@ const api = createServer((req, res) => {
       dayCounts: {},
       generatedAt: now.toISOString(),
     });
+  if ((path === "/api/site/news-map" && failing.map > 0) || (path === "/api/site/jurisdictions" && failing.jurisdictions > 0)) {
+    if (path === "/api/site/news-map") failing.map--;
+    else failing.jurisdictions--;
+    res.statusCode = 503;
+    return send({ error: "unavailable" });
+  }
   if (path === "/api/site/news-map") {
     const window = (url.searchParams.get("window") ?? "7d") as "1d" | "7d" | "30d";
     const days = { "1d": 1, "7d": 7, "30d": 30 }[window];
@@ -227,6 +235,31 @@ test("phones and tablets show the news map, and a country opens all its news of 
     );
   } finally {
     await english.context.close();
+  }
+});
+
+test("a map or country list read that fails once is read again, so the dots and chips still appear", { timeout: 60000 }, async () => {
+  // TASK-0568 went live while the service restarted; a first read that failed left the phone map empty.
+  failing.map = 1;
+  failing.jurisdictions = 1;
+  const { context, page } = await open(390, true);
+  try {
+    await page.goto(origin);
+    const map = page.getByRole("region", { name: "资讯地图" });
+    await expect(map.getByRole("link", { name: /智利/ })).toBeVisible({ timeout: 15000 });
+    assert.equal(failing.map, 0, "the first map read did fail");
+    await expect(map.getByText("地图数据暂时不可用。")).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+  failing.jurisdictions = 1;
+  const desktop = await open(1440, false);
+  try {
+    await desktop.page.goto(`${origin}/all`);
+    await expect(desktop.page.getByRole("navigation", { name: "按国家查看" }).getByRole("link", { name: /智利/ })).toBeVisible({ timeout: 15000 });
+    assert.equal(failing.jurisdictions, 0, "the first country-list read did fail");
+  } finally {
+    await desktop.context.close();
   }
 });
 

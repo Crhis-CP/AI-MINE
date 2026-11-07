@@ -64,6 +64,9 @@ const WINDOWS: NewsMapWindow[] = ["1d", "7d", "30d"];
 
 /** One read per window per page view; a failed read can be tried again by switching windows. */
 const reads = new Map<NewsMapWindow, Promise<SiteNewsMap>>();
+/** How long the map and the country list wait before reading again after a failed read. */
+const RETRY_MS = 2500;
+
 function readMap(period: NewsMapWindow): Promise<SiteNewsMap> {
   let read = reads.get(period);
   if (!read) {
@@ -128,14 +131,24 @@ export function WorldMap({ base, selected, hint }: { base: string; selected: str
   // Names stay hidden: one appears beside the dot under the pointer or keyboard focus, and beside the selected country.
   const [hovered, setHovered] = useState<string | null>(null);
   useEffect(() => {
-    let live = true;
+    let live = true,
+      timer: ReturnType<typeof setTimeout> | undefined;
     setFailed(false);
-    readMap(period).then(
-      (data) => live && setMap(data),
-      () => live && setFailed(true),
-    );
+    // One quiet retry: a read that fails while the service restarts (TASK-0568 Q2) or on a flaky connection would
+    // otherwise leave the map empty until the reader changes the window.
+    const attempt = (retries: number) =>
+      readMap(period).then(
+        (data) => live && setMap(data),
+        () => {
+          if (!live) return;
+          if (retries > 0) timer = setTimeout(() => attempt(retries - 1), RETRY_MS);
+          else setFailed(true);
+        },
+      );
+    attempt(1);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [period]);
   const shown = map?.window === period ? map : null;
