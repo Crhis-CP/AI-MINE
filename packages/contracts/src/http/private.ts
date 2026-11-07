@@ -39,6 +39,8 @@ import { runtimeControlSchemas, runtimeControlRoutes } from "./runtime-controls.
 export { LaneControl, LaneControlsResponse, LaneControlActionRequest } from "./runtime-controls.ts";
 export { MonthlyUsageReport, MonthlyUsageEntry, MonthlyUsageList, UsageMonth, UsageTotals } from "./usage-monthly.ts";
 import { usageMonthlySchemas, usageMonthlyRoutes } from "./usage-monthly.ts";
+import { visitSchemas, visitRoutes } from "./visits.ts";
+export { VisitOverview, VisitDevice } from "./visits.ts";
 import { z } from "zod";
 import { AdminNavigationCounts, AdminModuleRuns } from "./module-outputs.ts";
 export { AdminNavigationCounts, AdminModuleRuns } from "./module-outputs.ts";
@@ -230,6 +232,7 @@ export const schemas = {
   ...accountSchemas,
   ...usageProtectionSchemas,
   ...usageMonthlySchemas,
+  ...visitSchemas,
   ...modelRegistrySchemas,
   ...modelFallbackSchemas,
   ...runtimeControlSchemas,
@@ -271,6 +274,7 @@ export const routes = {
   ...accountRoutes,
   ...usageProtectionRoutes,
   ...usageMonthlyRoutes,
+  ...visitRoutes,
   ...modelRegistryRoutes,
   ...modelFallbackRoutes,
   ...runtimeControlRoutes,
