@@ -11,6 +11,7 @@ import { tag, stub } from "./setup.ts";
 import { runBodyTranslation } from "../packages/backend/src/editorial/translation-runtime.ts";
 import { TRANSLATION_MANIFEST_FORMAT } from "../packages/backend/src/editorial/translation-readiness.ts";
 import { translationJobOptions, translationTokenEstimate, promptTokenEstimate } from "../packages/backend/src/editorial/translation-schedule.ts";
+import { translationBudgetUnits, translationSourceManifest } from "../packages/backend/src/editorial/translation-readiness.ts";
 import { promptVersion, promptText } from "@amp/backend/editorial/prompts";
 import { translatePending } from "@amp/backend/editorial/translate";
 import assert from "node:assert/strict";
@@ -245,9 +246,11 @@ test("translation covers every admitted public item: selected at once, the rest 
   // The cron repair leaves the older item alone; the backfill counts it in a dry run and queues it on apply.
   await translatePending({ limit: 1000 });
   assert.equal((await jobs(old)).length, 0);
-  const dry = await translatePending({ limit: 1000, backfillDays: 30, enqueue: false });
+  const dry = await translatePending({ limit: 1000, backfillDays: 30, enqueue: false, estimateSystemTokens: 1000 });
   assert.ok(dry.due >= 2, JSON.stringify(dry));
   assert.equal(dry.enqueued, 0);
+  assert.ok(dry.estimate.calls >= 1 && dry.estimate.input >= dry.estimate.calls * 1030, "the dry run plans the due bodies segment by segment");
+  assert.equal((await translatePending({ limit: 1000, backfillDays: 30, enqueue: false })).estimate.calls, 0, "without the option no body is read");
   assert.equal((await jobs(old)).length, 0, "a dry run queues nothing");
   const run = await translatePending({ limit: 1000, backfillDays: 30 });
   assert.ok(run.done);
@@ -267,9 +270,18 @@ test("queue options and the cost-report estimate", () => {
   assert.deepEqual(translationJobOptions("b", false, new Date("2026-11-08T02:00:00Z")), { singletonKey: "later:b", priority: -2 });
   const system = promptTokenEstimate(promptText("translate-body"));
   assert.ok(system > 300 && system < 3000, String(system));
-  const typical = translationTokenEstimate(6000, system);
-  assert.equal(typical.calls, 2);
-  assert.equal(typical.input, 2 * (system + 30) + Math.ceil(6000 / 3.5));
-  assert.equal(typical.output, 1800 + 20);
-  assert.equal(translationTokenEstimate(500_000, system).calls, Math.ceil(60_000 / 3600), "text beyond the limit is not translated");
+  // Codex review #362: the estimate follows the worker's plan, one request per manifest segment.
+  const paragraph = (i: number) => `<p>Paragraph ${i} of a mining report with enough words to be a real block of text in the article body.</p>`;
+  const short = Array.from({ length: 20 }, (_, i) => paragraph(i)).join("");
+  const manifest = translationSourceManifest(short);
+  const typical = translationTokenEstimate(short, system);
+  assert.equal(typical.calls, manifest.segments.length, "one request per segment the worker would send");
+  assert.equal(typical.calls, 20, "twenty short paragraphs are twenty requests, not two");
+  assert.ok(typical.input >= 20 * (system + 30) + Math.ceil(short.length / 3.5), "every request carries the system prompt");
+  assert.equal(typical.cachedPrefix, 19 * system);
+  assert.equal(translationTokenEstimate("", system).calls, 0, "no body, no request");
+  const long = Array.from({ length: 900 }, (_, i) => paragraph(i)).join("");
+  const capped = translationTokenEstimate(long, system);
+  assert.equal(capped.calls, translationSourceManifest(long).segments.filter((seg) => translationBudgetUnits(long).has(seg.unitIndex)).length);
+  assert.ok(capped.calls < 900, "text beyond the 60,000-character budget is not translated");
 });

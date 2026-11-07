@@ -17,7 +17,7 @@ import { originalPostCopy } from "../lib/text.ts";
 import { originalPostInputBlocked, originalPostAdmissionRequired } from "../lib/original-post-admission.ts";
 import { currentEvaluationDerivedInput } from "./input.ts";
 import { config } from "../config.ts";
-import { BACKFILL_TRANSLATION_MAX_DAYS, LIVE_TRANSLATION_DAYS, translationJobOptions } from "./translation-schedule.ts";
+import { BACKFILL_TRANSLATION_MAX_DAYS, LIVE_TRANSLATION_DAYS, translationJobOptions, translationTokenEstimate } from "./translation-schedule.ts";
 export { shield, unshield } from "./translation-readiness.ts";
 
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
@@ -133,11 +133,18 @@ export interface TranslationScanOptions {
   /** False only counts (dry run): nothing is queued. */
   enqueue?: boolean;
   now?: Date;
+  /**
+   * The cost report (scripts/translate-backfill.ts): with the system prompt's token estimate, each due body is read and
+   * planned segment by segment like the worker does (translationTokenEstimate). The live repair leaves it unset and
+   * never loads body HTML.
+   */
+  estimateSystemTokens?: number;
 }
 
 /** Bounded keyset repair, independent of age. recordRun persists progress; workers recheck eligibility. */
 export async function translatePending(opts: TranslationScanOptions = {}) {
   const started = Date.now();
+  const estimating = opts.estimateSystemTokens !== undefined;
   const limit = opts.limit ?? 30;
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new RangeError("translation repair limit must be from 1 to 1000");
   const backfill = opts.backfillDays !== undefined;
@@ -159,11 +166,12 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
       post_text: string | null;
       article_text: string | null;
       html_chars: number;
+      body_html: string | null;
     })[]
   >`
     SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason,p.selected,${bodyPending} AS body_pending,
       ${quotePending} AS quote_pending,a.x_post->>'text' AS post_text,a.x_article->>'text' AS article_text,
-      coalesce(length(a.body_html),0)::int AS html_chars
+      coalesce(length(a.body_html),0)::int AS html_chars,CASE WHEN ${estimating} THEN a.body_html END AS body_html
     FROM publications p JOIN articles a ON a.id = p.article_id
     LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh'
     LEFT JOIN translation_attempts ta ON ta.article_id=p.article_id AND ta.revision=a.revision
@@ -181,12 +189,22 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
     scanned = 0,
     due = 0;
   const dueHtmlChars: number[] = [];
+  const estimate = { calls: 0, input: 0, output: 0, cachedPrefix: 0 };
   for (const row of rows) {
     if (shutdownSignal.signal.aborted || Date.now() - started >= (opts.budgetMs ?? 4 * 60_000)) break;
     const bodyNeeded = row.body_pending && !originalPostCopy(row.post_text === null ? null : { text: row.post_text }, "", { text: row.article_text ?? "" });
     if (row.quote_pending || (bodyNeeded && !stopReason(row, recovered.has(`article:${row.article_id}@${row.revision}`)))) {
       due++;
-      if (bodyNeeded) dueHtmlChars.push(row.html_chars);
+      if (bodyNeeded) {
+        dueHtmlChars.push(row.html_chars);
+        if (estimating && row.body_html) {
+          const each = translationTokenEstimate(row.body_html, opts.estimateSystemTokens!);
+          estimate.calls += each.calls;
+          estimate.input += each.input;
+          estimate.output += each.output;
+          estimate.cachedPrefix += each.cachedPrefix;
+        }
+      }
       if (opts.enqueue !== false) {
         const queued = await enqueue(
           QUEUES.translate,
@@ -202,5 +220,5 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
   }
   const done = scanned === rows.length && rows.length < limit;
   if (done) afterId = null;
-  return { enqueued, scanned, due, dueHtmlChars, done, cursor: { version: 1 as const, afterId } };
+  return { enqueued, scanned, due, dueHtmlChars, estimate, done, cursor: { version: 1 as const, afterId } };
 }

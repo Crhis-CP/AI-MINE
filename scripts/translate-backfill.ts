@@ -11,7 +11,7 @@
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { translatePending } from "@amp/backend/editorial/translate";
-import { BACKFILL_TRANSLATION_MAX_DAYS, promptTokenEstimate, translationTokenEstimate } from "../packages/backend/src/editorial/translation-schedule.ts";
+import { BACKFILL_TRANSLATION_MAX_DAYS, promptTokenEstimate } from "../packages/backend/src/editorial/translation-schedule.ts";
 import { promptText } from "../packages/backend/src/editorial/prompts.ts";
 
 const args = process.argv.slice(2);
@@ -47,20 +47,26 @@ try {
     htmlChars = 0,
     calls = 0,
     input = 0,
-    output = 0;
+    output = 0,
+    cached = 0;
   for (;;) {
     const page = Math.min(1000, apply ? limit! - enqueued : 1000);
     if (page < 1) break;
-    const result = await translatePending({ limit: page, backfillDays: days, afterId: cursor, enqueue: apply, budgetMs: 10 * 60_000 });
+    const result = await translatePending({
+      limit: page,
+      backfillDays: days,
+      afterId: cursor,
+      enqueue: apply,
+      budgetMs: 10 * 60_000,
+      estimateSystemTokens: systemTokens,
+    });
     due += result.due;
     enqueued += result.enqueued;
-    for (const chars of result.dueHtmlChars) {
-      const each = translationTokenEstimate(chars, systemTokens);
-      htmlChars += chars;
-      calls += each.calls;
-      input += each.input;
-      output += each.output;
-    }
+    for (const chars of result.dueHtmlChars) htmlChars += chars;
+    calls += result.estimate.calls;
+    input += result.estimate.input;
+    output += result.estimate.output;
+    cached += result.estimate.cachedPrefix;
     cursor = result.cursor.afterId;
     if (result.done || cursor === null || result.scanned === 0) break;
   }
@@ -72,7 +78,7 @@ try {
         itemsNeedingTranslation: due,
         queued: enqueued,
         bodyHtmlChars: htmlChars,
-        estimate: { systemPromptTokens: systemTokens, requests: calls, inputTokens: input, outputTokens: output },
+        estimate: { systemPromptTokens: systemTokens, requests: calls, inputTokens: input, cacheableInputTokens: cached, outputTokens: output },
         next: cursor ? `--after ${cursor}` : null,
       },
       null,
