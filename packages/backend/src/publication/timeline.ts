@@ -3,8 +3,9 @@ import { originalPostReadVersion } from "../lib/original-post-admission.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { foldableSelectionCondition } from "./scope.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
-// Reports of the same fact share a card and its first appearance. New developments in the same
-// story remain separate cards; changing the representative never brings an old fact back to today.
+// Reports of the same fact share a card and its first appearance. In 精选's reading groups a story's
+// developments also fold into one card (report-group-reading.ts); elsewhere they remain separate cards.
+// Changing the representative never brings an old fact back to today.
 import { loadReportGroupedPage } from "./report-group-reading.ts";
 import type { GroupInfo, TimelineCard, TimelineFilters, ReportGroupedTimelineResponse } from "@amp/contracts/site";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
@@ -132,13 +133,17 @@ async function groupPool(q: TimelineQuery, now: Date, factIds: number[], db: Db 
       AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
 }
 
-/** Existing fact cards count every readable source, while read marks cover current selected members. */
+/**
+ * Existing fact cards count every readable source, while read marks cover current selected members. A folded story
+ * card (keyed by its representative) counts the sources of its own development and marks every folded fact's members.
+ */
 export async function loadTimelineFactGroups(
   q: TimelineQuery,
   now: Date,
   representatives: ItemRow[],
   candidateIds: string[],
   db: Db = sql,
+  folds: Map<string, { factIds: number[]; developmentCount: number }> = new Map(),
 ): Promise<Map<string, GroupInfo | null>> {
   const factIds = [...new Set(representatives.flatMap((row) => (row.fact_id === null ? [] : [row.fact_id])))];
   if (!factIds.length) return new Map();
@@ -163,7 +168,10 @@ export async function loadTimelineFactGroups(
         pool.filter((report) => report.fact_id === row.fact_id).map((report) => ({ ...report, id: report.article_id, at: report.reported_at })),
       );
       const reportCount = new Set(reports.map((report) => report.article_id)).size;
-      if (reportCount <= 1) return [row.id, null];
+      const fold = folds.get(row.id),
+        facts = new Set(fold?.factIds ?? [row.fact_id!]),
+        developmentCount = fold?.developmentCount ?? 1;
+      if (reportCount <= 1 && developmentCount <= 1) return [row.id, null];
       return [
         row.id,
         {
@@ -171,8 +179,8 @@ export async function loadTimelineFactGroups(
           story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null,
           additionalSourceCount: new Set(reports.filter((report) => report.source_id !== row.source_id).map((report) => report.source_id)).size,
           reportCount,
-          memberIds: [...new Set(currentMembers.filter((member) => member.fact_id === row.fact_id).map((member) => member.id))],
-          developmentCount: 1,
+          memberIds: [...new Set(currentMembers.filter((member) => facts.has(member.fact_id)).map((member) => member.id))],
+          developmentCount,
           latestDevelopment: null,
         },
       ];

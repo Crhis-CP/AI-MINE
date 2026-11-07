@@ -482,11 +482,12 @@ export async function readReportReadingRows(q: ReadingGroupQuery, now: Date, db:
     to = on ?? (q.to && isValidDate(q.to) ? q.to : null);
   return db<
     ReadingRow[]
-  >`SELECT p.article_id AS id,p.revision,p.source_id,p.fact_id,f.public_id AS fact_public_id,p.sort_at,p.timeline_at,p.body_mode,p.score,p.representative_priority,
+  >`SELECT p.article_id AS id,p.revision,p.source_id,p.fact_id,f.public_id AS fact_public_id,st.id AS story_id,p.sort_at,p.timeline_at,p.body_mode,p.score,p.representative_priority,
       EXISTS(SELECT 1 FROM fact_articles fa WHERE fa.fact_id=p.fact_id AND fa.article_id=p.article_id AND fa.role IN ('primary','report')) AS own_fact,
       ${foldableSelectionCondition()} AS foldable,(${searchPartScore(scores)})+(${searchTitleScore(scores)}) AS rel,
       (CASE WHEN p.selected AND p.seat THEN 1000 ELSE 0 END)+coalesce(p.score,0) AS tie
     FROM publications p LEFT JOIN pool_search ps ON ps.article_id=p.article_id LEFT JOIN facts f ON f.id=p.fact_id
+      LEFT JOIN stories st ON st.id=p.story_id AND st.merged_into IS NULL
     WHERE ${listedCondition(now)} AND p.eligible AND NOT p.operator_withdrawn ${browseFloorCondition(!terms.length && !q.selected && q.scope !== "selected" && !q.reportGroupId)}
       AND (${q.reportGroupId ?? null}::uuid IS NULL OR p.article_id IN (SELECT article_id FROM publication.report_group_members WHERE group_id=${q.reportGroupId ?? null}::uuid))
       AND (${!(q.selected || q.scope === "selected")} OR ${confirmedSelected()})

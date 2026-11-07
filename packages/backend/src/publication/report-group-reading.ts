@@ -12,6 +12,7 @@ import { pickRepresentative, type RepresentativeRow } from "./representative.ts"
 import { loadTimelineFactGroups } from "./timeline.ts";
 import { currentReportMemberships } from "./report-groups.ts";
 import { loadStoryProgress } from "./story-progress.ts";
+import { readStoryReportLines, storyLine } from "./stories.ts";
 
 export interface ReadingGroupQuery extends PoolQuery {
   scope?: "all" | "selected";
@@ -30,6 +31,7 @@ export interface ReadingRow extends RepresentativeRow {
   sort_at: Date;
   fact_id: number | null;
   fact_public_id: string | null;
+  story_id: number | null;
   own_fact: boolean;
   foldable: boolean;
   rel: number;
@@ -41,6 +43,61 @@ interface Plan {
   members: ReadingRow[];
   representative: ReadingRow;
   reportGroup: ReportGroupInfo | null;
+  /** A story's folded event card: every fact it stands for and how many developments they are. */
+  story?: StoryFold;
+}
+export interface StoryFold {
+  factIds: number[];
+  developmentCount: number;
+}
+
+/** 精选 lists events: once per event (PG-02), a search keeps its matching reports apart. */
+function foldsStories(q: ReadingGroupQuery) {
+  return (q.scope === "selected" || !!q.selected) && !q.q?.trim();
+}
+
+/**
+ * One card per story (PG-02 "同一事件在页上只出现一次"): the fact cards of a story fold into one card of its newest
+ * development, placed where that development first appeared; the older ones open under it ("展开 N 条进展"). Facts
+ * that the story page counts as one development (copies of one report, storyLine) are one development here too.
+ * Display only: which facts and stories exist, and what is selected, is unchanged.
+ */
+async function foldStories(list: Plan[], now: Date, db: Db): Promise<Plan[]> {
+  const byStory = new Map<number, Plan[]>();
+  for (const plan of list) {
+    const story = plan.key.startsWith("f") ? plan.representative.story_id : null;
+    if (story !== null && story !== undefined) byStory.set(Number(story), [...(byStory.get(Number(story)) ?? []), plan]);
+  }
+  const stories = [...byStory].filter(([, plans]) => plans.length > 1);
+  if (!stories.length) return list;
+  const lines = await readStoryReportLines(
+    stories.map(([id]) => id),
+    now,
+    db,
+  );
+  const replaced = new Map<Plan, Plan | null>();
+  for (const [id, plans] of stories) {
+    const line = storyLine(lines.filter((r) => Number(r.story_id) === id));
+    const factOf = (plan: Plan) => Number(plan.key.slice(1));
+    // A fact the story page does not list (no public editorial report) is its own development, ranked below the listed ones.
+    const step = (plan: Plan) => line.developmentOfFact.get(factOf(plan)) ?? -1;
+    const development = (plan: Plan) => (step(plan) < 0 ? `x${factOf(plan)}` : `d${step(plan)}`);
+    const newest = development([...plans].sort((a, b) => step(b) - step(a) || b.anchor - a.anchor || b.key.localeCompare(a.key))[0]!);
+    const current = plans.filter((plan) => development(plan) === newest).sort((a, b) => a.anchor - b.anchor || a.key.localeCompare(b.key));
+    const card: Plan = {
+      key: current[0]!.key,
+      anchor: current[0]!.anchor,
+      members: plans.flatMap((plan) => plan.members),
+      representative: pickRepresentative(current.flatMap((plan) => plan.members)),
+      reportGroup: null,
+      story: { factIds: plans.map(factOf), developmentCount: new Set(plans.map(development)).size },
+    };
+    for (const plan of plans) replaced.set(plan, plan === current[0] ? card : null);
+  }
+  return list.flatMap((plan) => {
+    const next = replaced.get(plan);
+    return next === undefined ? [plan] : next ? [next] : [];
+  });
 }
 
 function reportInfo(id: string, members: ReadingRow[], representative: ReadingRow): ReportGroupInfo {
@@ -64,7 +121,7 @@ async function plans(q: ReadingGroupQuery, now: Date, db: Db) {
     const key = groupId ? `r${groupId}` : row.foldable && row.own_fact && row.fact_id !== null ? `f${row.fact_id}` : `a${row.id}`;
     grouped.set(key, [...(grouped.get(key) ?? []), row]);
   }
-  const list: Plan[] = [...grouped].map(([key, members]) => {
+  let list: Plan[] = [...grouped].map(([key, members]) => {
     const representative = pickRepresentative(members);
     return {
       key,
@@ -74,6 +131,7 @@ async function plans(q: ReadingGroupQuery, now: Date, db: Db) {
       reportGroup: key.startsWith("r") && members.length > 1 ? reportInfo(key.slice(1), members, representative) : null,
     };
   });
+  if (foldsStories(q)) list = await foldStories(list, now, db);
   list.sort(
     (a, b) =>
       (q.q && q.tab === "relevance"
@@ -115,6 +173,7 @@ export async function loadReportGroupedPage(q: ReadingGroupQuery, now: Date, db:
       facts.flatMap((g) => (rows.get(g.representative.id) ? [rows.get(g.representative.id)!] : [])),
       facts.flatMap((g) => g.members.map((member) => member.id)),
       db,
+      new Map(facts.flatMap((g) => (g.story ? [[g.representative.id, g.story] as const] : []))),
     );
     const progress = await loadStoryProgress([...rows.values()], now, db);
     const cards: ReportGroupedTimelineCard[] = page.flatMap((g) => {
