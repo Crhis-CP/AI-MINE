@@ -66,3 +66,18 @@ test("the filter audit finds a company or mineral that only the AI copy names (T
   assert.deepEqual(ungroundedFilterHits("锂 价格", [], "Proyecto de cobre en Catamarca", "es"), ["锂"], "a mineral only the copy names");
   assert.deepEqual(ungroundedFilterHits("锂 价格", [], "Медь подорожала", "ru"), [], "an uncovered language cannot prove a mineral absent");
 });
+
+test("dry-run review 2026-11-08: trade words and single-commodity companies keep a correct mineral tag", () => {
+  assert.equal(tagGrounded("铁", "SSAB tops profit expectations as EU import curbs boost steel prices", "en"), true);
+  assert.equal(tagGrounded("铁矿石", "World Steel cuts 2026 demand outlook", "en"), false, "iron ore stays strict");
+  assert.equal(tagGrounded("铝", "Hydro sees global alumina surplus narrowing", "en"), true);
+  assert.equal(tagGrounded("铬", "Chrome ore production rose in the quarter", "en"), true);
+  assert.equal(tagGrounded("铅", "Record silver output, with zinc and lead below forecast", "en"), true);
+  assert.equal(tagGrounded("铅", "The company will lead the consortium", "en"), false);
+  assert.equal(tagGrounded("锂", "Spodumene concentrate shipments resumed", "en"), true);
+  assert.equal(tagGrounded("稀土", "A new rare-earth processing hub", "en"), true);
+  assert.equal(tagGrounded("铜", "Codelco desvincula a ocho ejecutivos tras nuevos hallazgos", "es"), true, "a copper producer's story");
+  assert.equal(tagGrounded("铜", "Universidad de Atacama lanza doctorado en minería sostenible", "es"), false);
+  assert.equal(tagGrounded("金", "Barrick names a new chief financial officer", "en"), true);
+  assert.equal(tagGrounded("锂", "Barrick names a new chief financial officer", "en"), false);
+});
