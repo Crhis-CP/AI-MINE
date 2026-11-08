@@ -10,7 +10,20 @@ import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { webHostPolicy } from "./host-policy.ts";
-import { bucketFor, buildAsset, clientAddress, clientHeaderName, guardLimits, MAX_URL_LENGTH, RateLimiter, refuse, securityHeaders } from "./request-guard.ts";
+import {
+  bucketFor,
+  buildAsset,
+  clientAddress,
+  clientHeaderName,
+  guardLimits,
+  MAX_URL_LENGTH,
+  OriginTally,
+  originEnforced,
+  originSecret,
+  RateLimiter,
+  refuse,
+  securityHeaders,
+} from "./request-guard.ts";
 
 assertWebEnvironment();
 const hostPolicy = webHostPolicy();
@@ -28,8 +41,19 @@ const LIMITS = guardLimits();
 const limiter = LIMITS ? new RateLimiter(LIMITS) : null;
 /** The client-address header a CDN in front sets (CLIENT_IP_HEADER); also what the api's own per-visitor limits see. */
 const CLIENT_HEADER = clientHeaderName();
+/** The secret the CDN adds when it fetches from us (TASK-0586): the client-address header is believed only with it. */
+const ORIGIN_SECRET = originSecret();
+const ORIGIN_ENFORCED = originEnforced();
+if (CLIENT_HEADER && !ORIGIN_SECRET)
+  console.warn(JSON.stringify({ level: "warn", msg: "CLIENT_IP_HEADER is ignored without ORIGIN_SECRET (the secret header the CDN adds)" }));
 if (!limiter && TRUST_PROXY && process.env.RATE_LIMIT !== "off")
-  console.warn(JSON.stringify({ level: "warn", msg: "rate limit off: behind a CDN set CLIENT_IP_HEADER (or RATE_LIMIT=on behind a single proxy)" }));
+  console.warn(
+    JSON.stringify({ level: "warn", msg: "rate limit off: behind a CDN set CLIENT_IP_HEADER and ORIGIN_SECRET (or RATE_LIMIT=on behind a single proxy)" }),
+  );
+/** How requests arrived, logged hourly, so the CDN setup can be checked without an access log. */
+const tally = new OriginTally();
+if (CLIENT_HEADER || ORIGIN_SECRET)
+  setInterval(() => console.log(JSON.stringify({ level: "info", msg: "origin check", window: "1h", ...tally.take() })), 3_600_000).unref();
 const SECURITY_HEADERS = securityHeaders(process.env.SITE_URL);
 let sharedAddressWarned = false;
 const CLIENT_DIR = {
@@ -180,9 +204,14 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
   const search = qi >= 0 ? raw.slice(qi) : "";
 
+  const visitor = clientAddress(req, TRUST_PROXY, CLIENT_HEADER, ORIGIN_SECRET);
+  if (CLIENT_HEADER || ORIGIN_SECRET) {
+    const sealed = tally.count(req, CLIENT_HEADER, ORIGIN_SECRET, visitor.distinct);
+    // ORIGIN_ENFORCE=on: only the CDN may fetch from the outside; the server's own checks (private addresses) pass.
+    if (ORIGIN_ENFORCED && !sealed && visitor.distinct) return refuse(res, 403);
+  }
   if (limiter) {
     const bucket = bucketFor(req.method, pathname, isApiOwned(pathname), buildAsset(pathname));
-    const visitor = clientAddress(req, TRUST_PROXY, CLIENT_HEADER);
     if (bucket && visitor.distinct) {
       const taken = limiter.take(visitor.address, bucket);
       if (!taken.ok) return refuse(res, 429, taken.retryAfter);
@@ -214,9 +243,11 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   if (isApiOwned(pathname)) {
     // The visitor's address, decided here: the one the trusted proxy saw (the last X-Forwarded-For
     // entry), or this connection's own. Both headers carry only that.
-    const client = clientAddress(req, TRUST_PROXY, CLIENT_HEADER).address;
+    const client = visitor.address;
     const target = new URL(apiBaseFor());
-    const headers = { ...apiForwardHeaders(raw, req.headers), "x-forwarded-for": client, "x-real-ip": client };
+    const headers: import("node:http").IncomingHttpHeaders = { ...apiForwardHeaders(raw, req.headers), "x-forwarded-for": client, "x-real-ip": client };
+    // The CDN's secret stays here: the api never needs it.
+    if (ORIGIN_SECRET) delete headers[ORIGIN_SECRET.header];
     const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
