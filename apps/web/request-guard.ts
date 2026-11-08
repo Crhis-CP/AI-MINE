@@ -3,6 +3,7 @@
 // the oversized-URL refusal live here once. Static build files are not counted: one page load fetches many of them.
 // A shared CDN or firewall in front (still an Owner decision) would absorb large floods; this guard keeps one
 // visitor from monopolising the server and the database meanwhile.
+import { createHash, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
@@ -37,20 +38,88 @@ const positive = (value: string | undefined, fallback: number) => {
 /**
  * Limits from the environment (RATE_LIMIT_PAGE / _API / _WRITE per minute), or null when limiting is off. Limiting
  * needs a per-visitor address, so it is on only when the deployment says where that address comes from:
- * CLIENT_IP_HEADER (the client-address header a CDN in front sets) or RATE_LIMIT=on (served directly, or behind a
- * single proxy whose X-Forwarded-For entry is the visitor). Behind a CDN without CLIENT_IP_HEADER, the last
- * X-Forwarded-For entry is a CDN edge node shared by many readers (Codex review #379), so nothing is limited.
- * RATE_LIMIT=off always wins.
+ * CLIENT_IP_HEADER together with ORIGIN_SECRET (the CDN's client-address header, believed only on requests that
+ * carry the secret the CDN adds when it fetches from us, TASK-0586), or RATE_LIMIT=on (served directly, or behind a
+ * single proxy whose X-Forwarded-For entry is the visitor). Behind a CDN without them, the last X-Forwarded-For entry
+ * is a CDN edge node shared by many readers (Codex review #379), so nothing is limited. RATE_LIMIT=off always wins.
  */
 export function guardLimits(env: Environment = process.env): GuardLimits | null {
   if (env.RATE_LIMIT === "off") return null;
-  if (env.RATE_LIMIT !== "on" && !clientHeaderName(env)) return null;
+  if (env.RATE_LIMIT !== "on" && !(clientHeaderName(env) && originSecret(env))) return null;
   return {
     page: positive(env.RATE_LIMIT_PAGE, DEFAULT_LIMITS.page),
     api: positive(env.RATE_LIMIT_API, DEFAULT_LIMITS.api),
     write: positive(env.RATE_LIMIT_WRITE, DEFAULT_LIMITS.write),
     windowMs: DEFAULT_LIMITS.windowMs,
   };
+}
+
+/**
+ * RATE_LIMIT_OBSERVE=on: count against the limits but refuse nothing, logging hourly how many requests would have
+ * been refused and from how many visitors (never which). Owner 2026-11-08: confirm that limiting never stops a
+ * normal reader before it is switched on; readers behind one shared address (an office, a mobile carrier) are the
+ * case to watch.
+ */
+export function rateLimitObserved(env: Environment = process.env): boolean {
+  return env.RATE_LIMIT_OBSERVE === "on";
+}
+
+/** Requests that would have been refused in observe mode, per bucket, and the distinct visitors behind them. */
+export class ObserveTally {
+  private readonly refused: Record<Bucket, number> = { page: 0, api: 0, write: 0 };
+  private readonly visitors = new Set<string>();
+  record(address: string, bucket: Bucket) {
+    this.refused[bucket] += 1;
+    if (this.visitors.size < MAX_TRACKED) this.visitors.add(address);
+  }
+  /** The counts so far (addresses are counted, never returned), then zero. */
+  take() {
+    const out = {
+      would_refuse_page: this.refused.page,
+      would_refuse_api: this.refused.api,
+      would_refuse_write: this.refused.write,
+      visitors: this.visitors.size,
+    };
+    this.refused.page = this.refused.api = this.refused.write = 0;
+    this.visitors.clear();
+    return out;
+  }
+}
+
+/** The secret request header the CDN adds when it fetches from this site (TASK-0586). */
+export interface OriginSecret {
+  header: string;
+  digest: Buffer;
+}
+/** Default name of the secret header; ORIGIN_SECRET_HEADER may name another. */
+export const ORIGIN_SECRET_HEADER = "x-origin-auth";
+
+/**
+ * The CDN's shared secret (ORIGIN_SECRET, at least 32 characters) and its header, or null. The EdgeOne free plan
+ * publishes no origin-pull address list (Codex 2026-11-07), so the origin cannot tell the CDN apart by address; a
+ * header only the CDN adds can. Only a digest is kept, so a comparison takes the same time whatever the input.
+ */
+export function originSecret(env: Environment = process.env): OriginSecret | null {
+  const value = env.ORIGIN_SECRET ?? "";
+  if (value.length < 32 || /\s/.test(value)) return null;
+  // An empty value (docker-compose passes unset variables as "") means the default name (Codex review #387).
+  const header = (env.ORIGIN_SECRET_HEADER?.trim() || ORIGIN_SECRET_HEADER).toLowerCase();
+  if (!/^[a-z0-9-]{1,64}$/.test(header)) return null;
+  return { header, digest: createHash("sha256").update(value).digest() };
+}
+
+/** Whether the request carries the CDN's secret. */
+export function fromOrigin(req: IncomingMessage, secret: OriginSecret | null): boolean {
+  if (!secret) return false;
+  const raw = req.headers[secret.header];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) return false;
+  return timingSafeEqual(createHash("sha256").update(value).digest(), secret.digest);
+}
+
+/** ORIGIN_ENFORCE=on: requests from outside that lack the secret are refused (the origin answers the CDN alone). */
+export function originEnforced(env: Environment = process.env): boolean {
+  return env.ORIGIN_ENFORCE === "on" && originSecret(env) !== null;
 }
 
 /**
@@ -88,16 +157,21 @@ export function clientHeaderName(env: Environment = process.env): string | null 
 
 /**
  * The visitor's address and whether it names one outside visitor.
- * - CLIENT_IP_HEADER set: its value, read only on a connection from our own proxy (a private address). The CDN sets
- *   it; deploy it only where the origin accepts traffic from the CDN alone, or a visitor reaching the origin
- *   directly could name any address. A proxied request without the header is not limited.
+ * - CLIENT_IP_HEADER set and the request carries the CDN's secret, on a connection from our own proxy (a private
+ *   address): the header's value. Without the secret the header is ignored, so a visitor reaching the origin
+ *   directly cannot name another address (Codex 2026-11-07): it is counted by the address our proxy saw.
  * - Otherwise behind a trusted proxy: the last X-Forwarded-For entry (the address that proxy saw).
  * - Otherwise: the connection's own address.
  * A private or loopback result is never limited: it is the proxy itself, or the server's own checks.
  */
-export function clientAddress(req: IncomingMessage, trustProxy: boolean, clientHeader: string | null = null): { address: string; distinct: boolean } {
+export function clientAddress(
+  req: IncomingMessage,
+  trustProxy: boolean,
+  clientHeader: string | null = null,
+  secret: OriginSecret | null = null,
+): { address: string; distinct: boolean } {
   const peer = req.socket.remoteAddress ?? "";
-  if (clientHeader && peer && privateAddress(peer)) {
+  if (clientHeader && peer && privateAddress(peer) && fromOrigin(req, secret)) {
     const raw = req.headers[clientHeader];
     const value = (Array.isArray(raw) ? raw[0] : raw)?.split(",")[0]?.trim() ?? "";
     if (!value || !isIP(value)) return { address: peer, distinct: false };
@@ -109,6 +183,39 @@ export function clientAddress(req: IncomingMessage, trustProxy: boolean, clientH
     .filter(Boolean);
   const address = trustProxy && forwarded.length ? forwarded[forwarded.length - 1]! : peer;
   return { address, distinct: address !== "" && !privateAddress(address) };
+}
+
+/**
+ * Whether a request comes from outside this server: a public visitor address, or anything our proxy forwarded (it
+ * always adds X-Forwarded-For). Only a direct connection from a private address without that header is the
+ * server's own check. Without this, TRUST_PROXY=false behind Caddy would make every outside request look like the
+ * proxy itself (Codex review #387).
+ */
+export function fromOutside(req: IncomingMessage, visitor: { distinct: boolean }): boolean {
+  return visitor.distinct || req.headers["x-forwarded-for"] !== undefined;
+}
+
+/**
+ * Hourly counts of how requests arrived, written to the log so the deployment can check the CDN setup without an
+ * access log: with the secret, with the client-address header, and from outside without the secret.
+ */
+export class OriginTally {
+  withSecret = 0;
+  withClientHeader = 0;
+  outsideWithoutSecret = 0;
+  count(req: IncomingMessage, clientHeader: string | null, secret: OriginSecret | null, outside: boolean) {
+    const sealed = fromOrigin(req, secret);
+    if (sealed) this.withSecret += 1;
+    if (clientHeader && req.headers[clientHeader] !== undefined) this.withClientHeader += 1;
+    if (outside && !sealed) this.outsideWithoutSecret += 1;
+    return sealed;
+  }
+  /** The counts so far, then zero. */
+  take() {
+    const out = { with_secret: this.withSecret, with_client_header: this.withClientHeader, outside_without_secret: this.outsideWithoutSecret };
+    this.withSecret = this.withClientHeader = this.outsideWithoutSecret = 0;
+    return out;
+  }
 }
 
 /** Fixed-window counters per visitor and bucket, bounded in memory. */
@@ -171,10 +278,10 @@ export function securityHeaders(siteUrl: string | undefined): Record<string, str
 }
 
 /** Answers a refused request: plain text, never cached, with the wait when it is a rate limit. */
-export function refuse(res: ServerResponse, status: 414 | 429, retryAfter?: number) {
+export function refuse(res: ServerResponse, status: 403 | 414 | 429, retryAfter?: number) {
   res.statusCode = status;
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "private, no-store");
   if (retryAfter !== undefined) res.setHeader("Retry-After", String(retryAfter));
-  res.end(status === 429 ? "请求过于频繁，请稍后再试。Too many requests, please retry later." : "URI too long");
+  res.end(status === 429 ? "请求过于频繁，请稍后再试。Too many requests, please retry later." : status === 403 ? "Forbidden" : "URI too long");
 }

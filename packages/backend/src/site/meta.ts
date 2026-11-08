@@ -170,7 +170,11 @@ export function validateReleaseNote(value: unknown): ReleaseNote {
  * the note it registers; this one guards every line readers see: the history file, the rewritten copies and any
  * note not yet published.
  */
-const READER_JARGON = /名额|口径|背景提及|补译|首尾空白|域名|\bwww\b|撤下|基期|\bj\s*\/\s*k\b/i;
+// Internal words, plus the technical ones the changelog standard names (Owner 2026-11-07: the security note said “只走
+// HTTPS”“连接”; readers should read “安全防护更强了”). Latin words match whole, so “AI” stays usable; RSS and the public
+// API are reader features (for people who build on the site), so they stay allowed.
+const READER_JARGON =
+  /名额|口径|背景提及|补译|首尾空白|域名|\bwww\b|撤下|基期|\bj\s*\/\s*k\b|\bhttps?\b|\bcdn\b|\bjson\b|\bsql\b|\bhsts\b|服务器|数据库|接口|缓存|部署|限流|并发|请求头|请求|连接|嵌入|后端|前端|代码|脚本|队列|字段|超时|重试|阈值|哈希|模型/i;
 export function readerWordingProblem(lines: readonly string[]): string | null {
   const hit = READER_JARGON.exec(lines.join("\n"));
   return hit ? `“${hit[0]}”是技术或内部用语，公开更新日志请写成读者能直接看懂的话` : null;

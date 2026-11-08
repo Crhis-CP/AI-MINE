@@ -5,8 +5,11 @@ export function webEnvironmentProblems(env: Environment = process.env): string[]
   return Object.keys(env)
     .filter((name) => {
       if (env[name] === undefined) return false;
+      // ORIGIN_SECRET is the one secret web holds by design (TASK-0586): the value the CDN adds when it fetches from
+      // us, which only proves a request came through the CDN. It opens no database, model or account.
       const credential =
-        /^(DATABASE_URL|PG|POSTGRES_)/.test(name) || /_(KEY|SECRET|SECRET_ID|TOKEN|PASSWORD|WEBHOOK_URL)$/.test(name) || name === "AMP_CREDENTIALS_DIR";
+        name !== "ORIGIN_SECRET" &&
+        (/^(DATABASE_URL|PG|POSTGRES_)/.test(name) || /_(KEY|SECRET|SECRET_ID|TOKEN|PASSWORD|WEBHOOK_URL)$/.test(name) || name === "AMP_CREDENTIALS_DIR");
       // Same boundary as platform/config: a process-wide proxy is refused. EGRESS_PROXY_URL is not
       // used by web; holding it must not take the site down when the shared environment sets it.
       const unsafe =
@@ -50,7 +53,12 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "RATE_LIMIT_PAGE",
     "RATE_LIMIT_API",
     "RATE_LIMIT_WRITE",
+    "RATE_LIMIT_OBSERVE",
     "CLIENT_IP_HEADER",
+    // The secret header the CDN adds when it fetches from us (TASK-0586).
+    "ORIGIN_SECRET",
+    "ORIGIN_SECRET_HEADER",
+    "ORIGIN_ENFORCE",
     // Search-console ownership codes shown on the home page (TASK-0590).
     "GOOGLE_SITE_VERIFICATION",
     "BING_SITE_VERIFICATION",

@@ -162,6 +162,11 @@ for (const mention of mentions) {
   for (const alias of mention.aliases) indexAlias(mention, alias);
 }
 
+/** Every company and mineral the filters know (for the filter-hit audit, TASK-0589). */
+export function filterMentions(): readonly Mention[] {
+  return mentions.filter((m) => m.kind !== "country");
+}
+
 export function mentionByTag(tag: string): Mention | null {
   const exact = byExact.get(tag) ?? byExact.get(tag.toLowerCase());
   if (exact) return exact;

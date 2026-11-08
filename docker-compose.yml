@@ -87,6 +87,16 @@ services:
       API_BASE_URL: http://api:3001
       PRIVATE_HOST: ${PRIVATE_HOST:-private.localhost}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      # Per-visitor limits and the CDN's client address (TASK-0583/0586): empty means off.
+      RATE_LIMIT: ${RATE_LIMIT:-}
+      RATE_LIMIT_PAGE: ${RATE_LIMIT_PAGE:-}
+      RATE_LIMIT_API: ${RATE_LIMIT_API:-}
+      RATE_LIMIT_WRITE: ${RATE_LIMIT_WRITE:-}
+      RATE_LIMIT_OBSERVE: ${RATE_LIMIT_OBSERVE:-}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
+      ORIGIN_SECRET: ${ORIGIN_SECRET:-}
+      ORIGIN_SECRET_HEADER: ${ORIGIN_SECRET_HEADER:-}
+      ORIGIN_ENFORCE: ${ORIGIN_ENFORCE:-}
       # Search-console ownership codes for the home page (TASK-0590): empty means none.
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       BING_SITE_VERIFICATION: ${BING_SITE_VERIFICATION:-}
