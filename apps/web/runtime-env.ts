@@ -51,6 +51,10 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "RATE_LIMIT_API",
     "RATE_LIMIT_WRITE",
     "CLIENT_IP_HEADER",
+    // Search-console ownership codes shown on the home page (TASK-0590).
+    "GOOGLE_SITE_VERIFICATION",
+    "BING_SITE_VERIFICATION",
+    "BAIDU_SITE_VERIFICATION",
   ];
   return Object.fromEntries(allowed.filter((name) => env[name] !== undefined).map((name) => [name, env[name]!]));
 }

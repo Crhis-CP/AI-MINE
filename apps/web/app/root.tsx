@@ -15,8 +15,19 @@ import { THEME_BOOT_SCRIPT, useAppearanceSync } from "./lib/local-state";
 import { useHydratedFlag } from "./lib/hydration";
 import { ROOT_MODULES } from "../root-modules";
 
+/** Search-console ownership codes (TASK-0590): set in the deployment, shown on the home page only. */
+const VERIFICATION = [
+  ["google-site-verification", "GOOGLE_SITE_VERIFICATION"],
+  ["msvalidate.01", "BING_SITE_VERIFICATION"],
+  ["baidu-site-verification", "BAIDU_SITE_VERIFICATION"],
+] as const;
+
 export function loader() {
-  return { release: process.env.AMP_RELEASE || "dev" };
+  const verification = VERIFICATION.flatMap(([name, variable]) => {
+    const value = (process.env[variable] ?? "").trim();
+    return /^[A-Za-z0-9_.-]{1,120}$/.test(value) ? [{ name, content: value }] : [];
+  });
+  return { release: process.env.AMP_RELEASE || "dev", verification };
 }
 
 export const links: Route.LinksFunction = () => [
@@ -34,17 +45,20 @@ function BootScript({ text }: { text: string }) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const english = localeOf(useLocation().pathname) === "en";
+  const { pathname } = useLocation();
+  const english = localeOf(pathname) === "en";
+  const rootData = useRouteLoaderData<typeof loader>("root");
   return (
     <html lang={english ? "en" : SITE.locale} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="amp-release" content={useRouteLoaderData<typeof loader>("root")?.release ?? "dev"} />
+        <meta name="amp-release" content={rootData?.release ?? "dev"} />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f6f0" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15130f" />
-        {/* The English interface stays out of search until its launch (I2); pages keep their Chinese canonical. */}
-        {english && <meta name="robots" content="noindex, follow" />}
+        {/* Both interfaces are searchable (Owner 2026-11-08, TASK-0590): each page names its own language version and
+          the other one (lib/seo.ts); pages that should stay out of search still say so themselves. */}
+        {(pathname === "/" || pathname === "/en") && rootData?.verification?.map((tag) => <meta key={tag.name} name={tag.name} content={tag.content} />)}
         <BootScript text={THEME_BOOT_SCRIPT} />
         {ROOT_MODULES.map((module) => module.root?.bootScript && <BootScript key={module.name} text={module.root.bootScript} />)}
         <Meta />

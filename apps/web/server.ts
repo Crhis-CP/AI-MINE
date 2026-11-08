@@ -1,6 +1,7 @@
 // Production web server: built client assets, the shared redirect table and SSR. Api-owned paths are
 // proxied to the api process, so one port serves the whole site; a reverse proxy in front may also send
 // them to the api directly.
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer, request as httpRequest } from "node:http";
@@ -68,6 +69,9 @@ const ssr = {
   public: createRequestListener({ build: publicBuild, mode: "production" }),
   private: createRequestListener({ build: privateBuild, mode: "production" }),
 };
+/** The path of the request being rendered: page metadata reads it to name the page's language (TASK-0590). */
+const renderingPath = new AsyncLocalStorage<string>();
+(globalThis as { __ampRequestPath?: () => string | undefined }).__ampRequestPath = () => renderingPath.getStore();
 
 class BadRequest extends Error {}
 
@@ -231,7 +235,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   const assetPath = group === "private" && pathname.startsWith("/admin/assets/") ? pathname.slice("/admin".length) : pathname;
   if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(CLIENT_DIR[group], assetPath, res))) return;
   pageCache(req, res);
-  return ssr[group](req, res);
+  return renderingPath.run(pathname, () => ssr[group](req, res));
 }
 
 process.on("unhandledRejection", (reason) => {

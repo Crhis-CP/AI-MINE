@@ -87,6 +87,10 @@ services:
       API_BASE_URL: http://api:3001
       PRIVATE_HOST: ${PRIVATE_HOST:-private.localhost}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      # Search-console ownership codes for the home page (TASK-0590): empty means none.
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      BING_SITE_VERIFICATION: ${BING_SITE_VERIFICATION:-}
+      BAIDU_SITE_VERIFICATION: ${BAIDU_SITE_VERIFICATION:-}
       WEB_HOST: 0.0.0.0
       WEB_PORT: "3000"
     ports:
