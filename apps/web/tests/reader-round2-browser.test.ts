@@ -250,6 +250,16 @@ test("detail shows honest body states, first-public evidence, representative/lat
     await expect(page.getByText("来源署名：", { exact: false })).toHaveCount(0);
     await expect(page.getByRole("link", { name: source.name, exact: true }).first()).toHaveAttribute("href", summary.links.original);
   }
+  // Wide screens show the source in the facts rail instead of the top line: there too the name opens the original
+  // (Codex review #395).
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto(`${origin}/items/pending`);
+  const rail = page.locator('section:has(> h2:text-is("来源"))');
+  const wideSource = rail.getByRole("link", { name: source.name, exact: true });
+  await expect(wideSource).toBeVisible();
+  await expect(wideSource).toHaveAttribute("href", summary.links.original);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${origin}/items/pending`);
   const coverage = page.getByRole("region", { name: "相关报道" });
   await expect(coverage.getByText("代表稿", { exact: true })).toBeVisible();
   await expect(coverage.getByText("最新进展", { exact: true })).toBeVisible();

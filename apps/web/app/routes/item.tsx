@@ -285,7 +285,19 @@ export default function ItemPage() {
   // under the facts (or under the notes when only the right rail shows).
   const facts = (
     <RailSection title={tr("来源")}>
-      <div className="text-[15px] font-semibold leading-snug text-ink">{item.source.name}</div>
+      {/* The wide-screen rail is where ≥2xl readers find the source: its name opens the original, as in the top line. */}
+      {soleCredit(item) ? (
+        <a
+          href={soleCredit(item)!.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-[15px] font-semibold leading-snug text-ink hover:text-accent hover:underline"
+        >
+          {item.source.name}
+        </a>
+      ) : (
+        <div className="text-[15px] font-semibold leading-snug text-ink">{item.source.name}</div>
+      )}
       <div className="mt-1 text-[13.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
       <div className="mt-3 text-[13px] text-ink-4">
         {sourceDate?.label ?? tr("发布时间")}
