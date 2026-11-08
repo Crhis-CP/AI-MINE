@@ -27,7 +27,8 @@ export function loader() {
     const value = (process.env[variable] ?? "").trim();
     return /^[A-Za-z0-9_.-]{1,120}$/.test(value) ? [{ name, content: value }] : [];
   });
-  return { release: process.env.AMP_RELEASE || "dev", verification };
+  // Only when one is set: the root data otherwise stays exactly the release (module-parts.test.ts).
+  return { release: process.env.AMP_RELEASE || "dev", ...(verification.length ? { verification } : {}) };
 }
 
 export const links: Route.LinksFunction = () => [
