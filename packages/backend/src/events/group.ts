@@ -48,6 +48,7 @@ import { shutdownSignal } from "../jobs/queue.ts";
 // (historical-attached: no heat, no pick). A named document (《…》) recalls its facts over 24 months.
 // Recent facts left with one report get another pairwise look (remergeSingleReportFacts). Runs
 // serially (queue concurrency 1).
+import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
 import { modelFor } from "../editorial/models.ts";
 import { sql, type Db, type Tx } from "../db.ts";
 import { newShortId, newUuid, sha256 } from "../lib/ids.ts";
@@ -166,6 +167,8 @@ import {
   batchUser,
   documentKeys,
   firmlyTied,
+  keyFacts,
+  sharesKeyFact,
   jurisdictionsConflict,
   reviewUnneeded,
   certainDuplicate,
@@ -211,6 +214,13 @@ const DOCUMENT_RECALL_ROWS = 400;
  * alike (near-identical content); it may attach to one but never founds an event.
  */
 export const HISTORICAL_ATTACH_MIN_SIMILARITY = SKIP_REVIEW_MIN_COSINE;
+/**
+ * Reports this recent that name the same party with the same amount as the query (relate.ts sharesKeyFact) go
+ * before the judge even when their wording is too different for the similarity recall (TASK-0578: one Rio Tinto
+ * investment in five separate events). They are put first among the judged candidates; the judge still decides.
+ */
+export const KEY_FACT_RECALL_HOURS = 72;
+export const KEY_FACT_TOP_FACTS = 3;
 
 interface ArticleRow {
   id: string;
@@ -548,6 +558,44 @@ function mergeRecalled(...lists: Recalled[][]): Recalled[] {
     if (!prev || r.score > prev.score) best.set(r.factId, r);
   }
   return [...best.values()].sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Facts of the last KEY_FACT_RECALL_HOURS whose reports share a key fact with the query: the same company or Latin
+ * name and the same amount. Scored with the ordinary similarity, so a merge below CONFIRM_BELOW_COSINE is still
+ * reviewed; recall only makes sure the pair is judged.
+ */
+async function recallKeyFacts(queryId: string, queryText: string): Promise<Recalled[]> {
+  const mine = keyFacts(queryText, IDENTITY_LEXICON);
+  if (!mine.names.size || !mine.quantities.size) return [];
+  const rows = await qualifiedReports(
+    await sql<Omit<PoolRow, "publication_revision">[]>`
+    SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title
+    FROM fact_articles fa
+    JOIN facts f ON f.id = fa.fact_id
+    JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
+    JOIN articles a ON a.id = fa.article_id
+    WHERE fa.role IN ('primary', 'report') AND fa.article_id <> ${queryId} AND ${trusted("fa")}
+      AND a.discovered_at > now() - make_interval(hours => ${KEY_FACT_RECALL_HOURS})`,
+  );
+  if (!rows.length) return [];
+  const texts = await reportTexts([...new Set(rows.map((row) => row.article_id))]);
+  const matched = rows.filter((row) => sharesKeyFact(mine, keyFacts(texts.get(row.article_id) ?? "", IDENTITY_LEXICON)));
+  if (!matched.length) return [];
+  const scores = await similaritiesTo(queryId, queryText, [...new Set(matched.map((row) => row.article_id))]);
+  const best = new Map<number, Recalled>();
+  for (const row of matched) {
+    const score = scores.get(row.article_id) ?? 0;
+    const prev = best.get(row.fact_id);
+    if (!prev || score > prev.score) best.set(row.fact_id, { factId: row.fact_id, storyId: row.story_id, factTitle: row.fact_title, score });
+  }
+  return [...best.values()].sort((a, b) => b.score - a.score || a.factId - b.factId).slice(0, KEY_FACT_TOP_FACTS);
+}
+
+/** Key-fact matches first (they would otherwise fall outside the judged few), then the rest in similarity order. */
+export function keyFactsFirst<T extends { factId: number }>(keyed: T[], recalled: T[]): T[] {
+  const first = new Set(keyed.map((r) => r.factId));
+  return [...keyed, ...recalled.filter((r) => !first.has(r.factId))];
 }
 
 /**
@@ -1305,7 +1353,17 @@ export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun
     return a && b && a.length === b.length ? cosine32(a, b) : lexicalSimilarity(texts.get(x) ?? "", texts.get(y) ?? "");
   };
   const singleFacts = new Set(singles.map((s) => s.fact_id));
-  type Partner = { fact_id: number; story_id: number; fact_title: string; article_id: string; material_revision: number; score: number };
+  // The same party with the same amount is judged even below REMERGE_MIN_COSINE (TASK-0578); the judge decides.
+  const facts = new Map(ids.map((id) => [id, keyFacts(texts.get(id) ?? "", IDENTITY_LEXICON)]));
+  const keyed = (x: string, y: string) => sharesKeyFact(facts.get(x)!, facts.get(y)!);
+  const recentPool = new Set(
+    (
+      await sql<
+        { id: string }[]
+      >`SELECT id FROM articles WHERE id = ANY(${ids}::text[]) AND discovered_at > now() - make_interval(hours => ${KEY_FACT_RECALL_HOURS})`
+    ).map((row) => row.id),
+  );
+  type Partner = { fact_id: number; story_id: number; fact_title: string; article_id: string; material_revision: number; score: number; keyed?: boolean };
   const pairs: Array<{ single: SingleReport; partner: Partner }> = [];
   for (const single of singles) {
     const best = new Map<number, Partner>();
@@ -1313,8 +1371,9 @@ export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun
       // A single meets an earlier single from its own side only: the later fact moves into the earlier.
       if (row.fact_id === single.fact_id || row.article_id === single.article_id || (singleFacts.has(row.fact_id) && row.fact_id > single.fact_id)) continue;
       const score = similarity(single.article_id, row.article_id);
-      if (score < REMERGE_MIN_COSINE || (best.get(row.fact_id)?.score ?? -1) >= score) continue;
-      best.set(row.fact_id, { ...row, score });
+      const tied = score >= REMERGE_MIN_COSINE || (recentPool.has(row.article_id) && keyed(single.article_id, row.article_id));
+      if (!tied || (best.get(row.fact_id)?.score ?? -1) >= score) continue;
+      best.set(row.fact_id, { ...row, score, keyed: score < REMERGE_MIN_COSINE });
     }
     for (const partner of best.values()) pairs.push({ single, partner });
   }
@@ -1333,7 +1392,14 @@ export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun
   );
   const ordered = pairs
     .filter((p) => !jurisdictionsConflict(places.get(p.single.article_id), places.get(p.partner.article_id)))
-    .sort((x, y) => y.partner.score - x.partner.score || x.single.fact_id - y.single.fact_id || x.partner.fact_id - y.partner.fact_id)
+    // Similar pairs first, then key-fact pairs (each needs the judge; within the hourly call bound).
+    .sort(
+      (x, y) =>
+        Number(!!x.partner.keyed) - Number(!!y.partner.keyed) ||
+        y.partner.score - x.partner.score ||
+        x.single.fact_id - y.single.fact_id ||
+        x.partner.fact_id - y.partner.fact_id,
+    )
     .slice(0, REMERGE_MAX_PAIRS);
   const moved = new Set<number>(),
     grown = new Set<number>();
@@ -1758,9 +1824,12 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
     ? exact
     : archiveOnly
       ? attachRecall
-      : mergeRecalled(
-          await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS),
-          composite ? [] : await recallDocumentFacts(articleId, docKeys, reportText(title, an.summary_zh)),
+      : keyFactsFirst(
+          composite ? [] : await recallKeyFacts(articleId, reportText(title, an.summary_zh)),
+          mergeRecalled(
+            await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS),
+            composite ? [] : await recallDocumentFacts(articleId, docKeys, reportText(title, an.summary_zh)),
+          ),
         );
   if (sameUrl && !recalled.some((r) => r.factId === sameUrl.fact_id)) recalled.unshift(exact[0]!);
   // Recall order (same URL first, then similarity) decides which candidates are judged and which carry full text.
