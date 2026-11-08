@@ -1,12 +1,12 @@
 // The reader interface in Chinese (the default addresses) or English (the same addresses under /en),
 // from typed dictionaries (DEC-78). Content is not translated; only the interface is.
-import { useCallback, useMemo } from "react";
+import { use, useCallback, useMemo } from "react";
 import { useLocation, type Path, type To } from "react-router";
 import { categoryFilterKeys, isCategoryFilterKey } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { withSubject } from "@amp/industry/site";
 import { en } from "./en.ts";
-import { PHRASES, type Phrase } from "./phrases.ts";
+import type { Phrase } from "./phrases.ts";
 import { dateFormatFor } from "../lib/format";
 import { zh } from "./zh.ts";
 
@@ -102,6 +102,26 @@ export function useTagLabel(): (tag: string) => string {
 }
 
 export type { Phrase };
+
+/**
+ * The English phrase list (phrases.ts, about 80 KB) is only needed by the English interface, so Chinese pages do
+ * not download it (TASK-0593). The server registers it at start (entry.server.tsx); in the browser an English page
+ * fetches it on first use: hydration and a switch to English wait for it, Chinese pages never ask.
+ */
+let english: Readonly<Record<Phrase, string>> | null = null;
+let englishLoading: Promise<void> | null = null;
+export function registerEnglishPhrases(phrases: Readonly<Record<Phrase, string>>): void {
+  english = phrases;
+}
+export function loadEnglishPhrases(): Promise<void> {
+  englishLoading ??= import("./phrases.ts").then((module) => registerEnglishPhrases(module.PHRASES));
+  return englishLoading;
+}
+function englishPhrases(): Readonly<Record<Phrase, string>> {
+  if (!english) throw new Error("English phrases are not loaded");
+  return english;
+}
+
 /** A phrase in the given language, with {name} placeholders filled; `.subject` adds the industry word in Chinese. */
 export type Tr = ((phrase: Phrase, values?: Record<string, string | number>) => string) & {
   subject: (noun: Phrase) => string;
@@ -110,18 +130,20 @@ export type Tr = ((phrase: Phrase, values?: Record<string, string | number>) => 
 };
 export function trFor(locale: Locale): Tr {
   const tr = ((phrase: Phrase, values?: Record<string, string | number>) => {
-    const text: string = locale === "en" ? PHRASES[phrase] : phrase;
+    const text: string = locale === "en" ? englishPhrases()[phrase] : phrase;
     return values ? fmt(text, values) : text;
   }) as Tr;
   // “矿业日报”: Chinese puts the industry word before the noun; the English entry already reads as a name.
-  tr.subject = (noun) => (locale === "en" ? PHRASES[noun] : withSubject(noun));
-  tr.maybe = (text) => (locale === "en" ? ((PHRASES as Record<string, string>)[text] ?? text) : text);
+  tr.subject = (noun) => (locale === "en" ? englishPhrases()[noun] : withSubject(noun));
+  tr.maybe = (text) => (locale === "en" ? ((englishPhrases() as Record<string, string>)[text] ?? text) : text);
   return tr;
 }
 
 /** The phrase translator for the current page (Chinese keys, English values). */
 export function useTr(): Tr {
   const locale = useLocale();
+  // Suspends (keeping the page on screen) until the English phrases have arrived; never on Chinese pages.
+  if (locale === "en" && !english) use(loadEnglishPhrases());
   // One translator per language, so it can sit in effect dependencies without re-running them.
   return useMemo(() => trFor(locale), [locale]);
 }
