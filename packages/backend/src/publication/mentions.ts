@@ -8,10 +8,23 @@ import { ENTITIES, MINERAL_TAGS, TAG_SYNONYMS } from "@amp/industry/taxonomy";
 const FOLD_DROP = /[\s（）()【】[\]「」『』·・,，.。\-‐‑–—_/]/g;
 const SHORT_LATIN = new Set(["drc", "uk", "eu", "un"]);
 /** Single-character minerals that also sit inside unrelated words. Strip those words, then look. */
+// Everyday words that contain a one-character metal name. Without them, choosing 金 also showed stories whose
+// Chinese copy only said 现金 or 金额 (TASK-0592: the 2026-11-08 filter audit found 435 such 金 hits).
 const CHAR_GUARDS: Record<string, string[]> = {
-  金: ["刚果（金）", "刚果(金)", "金属", "资金", "基金", "紫金"],
-  银: ["银行"],
-  铁: ["地铁", "铁路"],
+  金: [
+    ..."刚果（金） 刚果(金) 金属 资金 基金 紫金".split(" "),
+    // money
+    ..."现金 金额 金融 美金 租金 奖金 薪金 押金 保证金 本金 赔偿金 补偿金 罚金 违约金 佣金 定金 订金 年金 养老金 退休金 公积金 准备金 税金 股金 补助金 奖学金 金钱 金主".split(
+      " ",
+    ),
+    // other words, places and companies (中金黄金 still reads 黄金 once 中金 is removed)
+    ..."合金 冶金 五金 白金 金砖 金牌 金奖 金色 金字塔 金三角 金秋 黄金周 黄金时期 金沙萨 金边 金山 金川 金诚信 金钼 金风 中金公司 中金".split(" "),
+  ],
+  银: "银行 美银 银团 银河 银川 银联 银保监".split(" "),
+  铁: "地铁 铁路 高铁 铁道 铁塔 钛铁矿".split(" "),
+  锡: ["无锡"],
+  铜: ["铜牌"],
+  铅: ["铅笔"],
 };
 const MINERAL_ENGLISH: Record<string, string[]> = {
   铜: ["copper"],

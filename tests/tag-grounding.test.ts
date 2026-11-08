@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { regroundedProjection } from "../packages/backend/src/publication/publish.ts";
 import { groundTags, groundingText, tagGrounded, ungroundedFilterHits } from "../packages/backend/src/publication/tag-grounding.ts";
+import { mentionByTag, textHits } from "../packages/backend/src/publication/mentions.ts";
 
 const gates = groundingText([
   "Bill Gates realizó visita privada a Chuquicamata",
@@ -94,4 +95,26 @@ test("the audit checks what the filters still show after the clean-up, not the r
   assert.deepEqual(ungroundedFilterHits(after.searchText, after.tags, text, "es"), ["锂"]);
   const clean = regroundedProjection({ ...row, search_text: "智利 铜 产量 锂" }, text);
   assert.deepEqual(ungroundedFilterHits(clean.searchText, clean.tags, text, "es"), [], "nothing left once the tag word was the only mention");
+});
+
+test("filter audit 2026-11-08: everyday words with a metal character do not put a story under that metal (TASK-0592)", () => {
+  const hits = (tag: string, text: string) => textHits(text, mentionByTag(tag)!.needles);
+  // The 435 金 hits: the Chinese copy said 现金、金额、金融… and never meant gold.
+  for (const text of [
+    "泰克资源利润大增，现金流创新高",
+    "交易金额约 19 亿美元",
+    "向国际货币基金组织提交金融路线图",
+    "派发股息与特别奖金",
+    "冶金设备与合金部件制造商",
+  ])
+    assert.equal(hits("金", text), false, text);
+  for (const text of ["黄金产量创纪录", "金价再创新高", "铜金矿项目", "中金黄金发布公告", "黄金期货成交放量"]) assert.equal(hits("金", text), true, text);
+  assert.equal(hits("银", "美银证券全球金属会议"), false);
+  assert.equal(hits("银", "白银产量"), true);
+  assert.equal(hits("铁", "肯梅尔的钛铁矿产量"), false);
+  assert.equal(hits("铁", "铁矿石发运量"), true);
+  assert.equal(hits("锡", "无锡一家电池厂"), false);
+  // Bauxite is aluminium's ore: a bauxite story stays under 铝.
+  assert.equal(tagGrounded("铝", "Rio Tinto’s US$1.9b bauxite bet secures future of Weipa", "en"), true);
+  assert.equal(tagGrounded("铝", "Inversión en bauxita", "es"), true);
 });
