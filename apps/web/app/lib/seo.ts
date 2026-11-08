@@ -2,7 +2,7 @@
 // and wording come from the industry pack (industry/site.ts); its address from SITE_URL.
 import type { MetaDescriptor } from "react-router";
 import { SITE } from "@amp/industry/site";
-import { localeOf, localizedPath, trFor, type Locale } from "../i18n";
+import { basePath, localeOf, localizedPath, trFor, type Locale } from "../i18n";
 import { LOGO_PATH } from "./icons.ts";
 
 /**
@@ -77,6 +77,13 @@ export function titled(title: string): string {
   return `${title} · ${SITE.webName}`;
 }
 
+/** An address without its /en prefix, query and fragment kept ("/en/daily?d=1" → "/daily?d=1", "/en" → "/"). */
+export function chinesePath(path: string): string {
+  const cut = path.search(/[?#]/);
+  const pathname = cut < 0 ? path : path.slice(0, cut);
+  return basePath(pathname) + (cut < 0 ? "" : path.slice(cut));
+}
+
 export function pageMeta(input: PageMetaInput): MetaDescriptor[] {
   const base = siteUrl();
   const locale = requestLocale();
@@ -84,8 +91,11 @@ export function pageMeta(input: PageMetaInput): MetaDescriptor[] {
   const tr = trFor(locale);
   // Each language is its own page in search: the English page names itself (canonical) and both versions point
   // at each other (hreflang), with Chinese as the default for other languages.
-  const zhUrl = `${base}${input.path}`;
-  const enUrl = `${base}${localizedPath(input.path, "en")}`;
+  // Pages that pass their own address (location.pathname) may already carry /en: strip it first, so the Chinese
+  // address never keeps the prefix and both alternates stay distinct (Codex review #393).
+  const zhPath = chinesePath(input.path);
+  const zhUrl = `${base}${zhPath}`;
+  const enUrl = `${base}${localizedPath(zhPath, "en")}`;
   const title = localTitle(input.title ? (input.rawTitle ? input.title : titled(input.title)) : HOME_TITLE, locale);
   const shortTitle = localTitle(input.title ?? HOME_TITLE, locale);
   const description = english ? (input.description ? tr.maybe(input.description) : SITE_DESCRIPTION_EN) : (input.description ?? SITE_DESCRIPTION);

@@ -682,6 +682,13 @@ test("search engines see each language as its own page, linked to the other (TAS
   const enDaily = await head("/en/daily/2026-11-06");
   assert.equal(path(canonical(enDaily)), "/en/daily/2026-11-06");
   assert.doesNotMatch(enDaily, /<title>矿业日报/, "a dated title is English too");
+  // Pages that pass their own address (/en/daily passes location.pathname) still point at the Chinese page
+  // (Codex review #393: every alternate used to name the English page itself).
+  const latest = await head("/en/daily");
+  assert.equal(path(canonical(latest)), "/en/daily");
+  assert.equal(path(alternate(latest, "zh-CN")), "/daily");
+  assert.equal(path(alternate(latest, "en")), "/en/daily");
+  assert.equal(path(alternate(latest, "x-default")), "/daily");
 
   // A page that stays out of search keeps saying so, without language links.
   const item = await head("/en/items/en-item");
