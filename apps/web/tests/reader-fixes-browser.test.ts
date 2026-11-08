@@ -416,3 +416,69 @@ test("a chosen country can be read as 精选 or 全部, keeping the other condit
     await english.context.close();
   }
 });
+
+test("foldables, small and large phones, landscape and tablets: no sideways scroll and the country switch fits the screen", { timeout: 120000 }, async () => {
+  // Owner 2026-11-08: “手机端考虑到那种折叠屏……还有 iPhone 最新版……这些适配性”. Widths of real devices in CSS pixels.
+  const devices: [string, number, number][] = [
+    ["Galaxy Z Fold cover", 344, 882],
+    ["iPhone SE", 375, 667],
+    ["Galaxy Z Flip", 412, 914],
+    ["iPhone Pro Max", 440, 956],
+    ["iPad mini", 744, 1133],
+    ["Galaxy Z Fold open", 884, 1104],
+    ["iPhone landscape", 932, 430],
+    ["iPad landscape", 1180, 820],
+  ];
+  for (const [name, width, height] of devices) {
+    const touch = width < 1024;
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce", hasTouch: touch, isMobile: touch });
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    try {
+      for (const path of ["/", "/all?jurisdiction=PE", "/hot"]) {
+        await page.goto(`${origin}${path}`);
+        await expect(page.locator("#main")).toBeVisible();
+        assert.ok((await overflow(page)) <= 1, `${name} ${width}×${height} ${path}: no sideways scroll`);
+      }
+      // The 精选 | 全部 switch for the chosen country is on screen and fully inside it.
+      await page.goto(`${origin}/all?jurisdiction=PE`);
+      const picks = page
+        .locator("[data-country-scope], nav[aria-label='看精选或全部']")
+        .filter({ visible: true })
+        .getByRole("link", { name: "精选", exact: true })
+        .first();
+      await expect(picks).toBeVisible();
+      const box = await picks.boundingBox();
+      assert.ok(box && box.x >= 0 && box.x + box.width <= width + 1, `${name}: the switch is inside the screen (${JSON.stringify(box)})`);
+      await page.screenshot({ path: `.verify/device-${width}x${height}.png` });
+      assert.deepEqual(errors, [], name);
+    } finally {
+      await context.close();
+    }
+  }
+});
+
+test("a dual-screen or unfolded device spanning the hinge keeps content off the fold", { timeout: 60000 }, async () => {
+  // A vertical fold in the middle of a 1114×705 spanned viewport (Chromium's display-feature emulation): the
+  // horizontal-viewport-segments rule in app.css keeps the reading column clear of the hinge.
+  const context = await browser.newContext({ viewport: { width: 1114, height: 705 }, reducedMotion: "reduce" });
+  await isolateBrowser(context, [origin]);
+  const page = await context.newPage();
+  try {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setDisplayFeaturesOverride" as never, { features: [{ orientation: "vertical", offset: 540, maskLength: 34 }] } as never);
+    await page.goto(`${origin}/all`);
+    const segments = await page.evaluate(() => matchMedia("(horizontal-viewport-segments: 2)").matches);
+    assert.ok((await overflow(page)) <= 1, "no sideways scroll when spanned");
+    await page.screenshot({ path: ".verify/device-spanned-1114x705.png" });
+    // Older Chromium may not emulate segments; then only the no-overflow check applies.
+    if (segments) {
+      const heading = await page.getByRole("heading", { level: 1 }).first().boundingBox();
+      assert.ok(heading && (heading.x + heading.width <= 540 || heading.x >= 574), `the page title stays off the hinge (${JSON.stringify(heading)})`);
+    }
+  } finally {
+    await context.close();
+  }
+});
