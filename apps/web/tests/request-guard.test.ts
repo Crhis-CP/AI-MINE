@@ -14,6 +14,7 @@ import {
   clientAddress,
   clientHeaderName,
   guardLimits,
+  fromOutside,
   ObserveTally,
   OriginTally,
   originEnforced,
@@ -135,6 +136,16 @@ test("the CDN's secret: long enough, a plain header name, enforcement only with 
   assert.equal(originSecret({ ORIGIN_SECRET: `${SECRET} space` }), null);
   assert.equal(originSecret({ ORIGIN_SECRET: SECRET, ORIGIN_SECRET_HEADER: "bad header" }), null);
   assert.equal(originSecret({ ORIGIN_SECRET: SECRET, ORIGIN_SECRET_HEADER: " X-My-Key " })?.header, "x-my-key");
+  assert.equal(
+    originSecret({ ORIGIN_SECRET: SECRET, ORIGIN_SECRET_HEADER: "" })?.header,
+    "x-origin-auth",
+    "docker-compose passes an unset name as an empty string: the default applies (Codex review #387)",
+  );
+  // Behind Caddy with TRUST_PROXY=false every request has a private peer; what Caddy forwarded is still outside.
+  const viaProxy = request("172.18.0.5", "203.0.113.80");
+  assert.equal(fromOutside(viaProxy, clientAddress(viaProxy, false)), true, "a proxied request is outside even when the proxy is not trusted");
+  const ownCheck = request("127.0.0.1");
+  assert.equal(fromOutside(ownCheck, clientAddress(ownCheck, false)), false, "a direct local check is the server's own");
   assert.equal(originEnforced({ ORIGIN_ENFORCE: "on" }), false, "nothing to enforce without a secret");
   assert.equal(originEnforced({ ORIGIN_ENFORCE: "on", ORIGIN_SECRET: SECRET }), true);
   const tally = new OriginTally();
@@ -190,6 +201,8 @@ before(async () => {
       TRUST_PROXY: "true",
       CLIENT_IP_HEADER: "eo-connecting-ip",
       ORIGIN_SECRET: SECRET,
+      // As docker-compose passes it when unset (Codex review #387).
+      ORIGIN_SECRET_HEADER: "",
       ORIGIN_ENFORCE: "on",
       RATE_LIMIT_PAGE: "2",
       RATE_LIMIT_API: "3",

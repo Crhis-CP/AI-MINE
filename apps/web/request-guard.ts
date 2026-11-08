@@ -102,7 +102,8 @@ export const ORIGIN_SECRET_HEADER = "x-origin-auth";
 export function originSecret(env: Environment = process.env): OriginSecret | null {
   const value = env.ORIGIN_SECRET ?? "";
   if (value.length < 32 || /\s/.test(value)) return null;
-  const header = (env.ORIGIN_SECRET_HEADER ?? ORIGIN_SECRET_HEADER).trim().toLowerCase();
+  // An empty value (docker-compose passes unset variables as "") means the default name (Codex review #387).
+  const header = (env.ORIGIN_SECRET_HEADER?.trim() || ORIGIN_SECRET_HEADER).toLowerCase();
   if (!/^[a-z0-9-]{1,64}$/.test(header)) return null;
   return { header, digest: createHash("sha256").update(value).digest() };
 }
@@ -182,6 +183,16 @@ export function clientAddress(
     .filter(Boolean);
   const address = trustProxy && forwarded.length ? forwarded[forwarded.length - 1]! : peer;
   return { address, distinct: address !== "" && !privateAddress(address) };
+}
+
+/**
+ * Whether a request comes from outside this server: a public visitor address, or anything our proxy forwarded (it
+ * always adds X-Forwarded-For). Only a direct connection from a private address without that header is the
+ * server's own check. Without this, TRUST_PROXY=false behind Caddy would make every outside request look like the
+ * proxy itself (Codex review #387).
+ */
+export function fromOutside(req: IncomingMessage, visitor: { distinct: boolean }): boolean {
+  return visitor.distinct || req.headers["x-forwarded-for"] !== undefined;
 }
 
 /**

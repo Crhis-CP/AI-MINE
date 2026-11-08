@@ -15,7 +15,9 @@ import {
   buildAsset,
   clientAddress,
   clientHeaderName,
+  fromOutside,
   guardLimits,
+  ORIGIN_SECRET_HEADER,
   MAX_URL_LENGTH,
   ObserveTally,
   OriginTally,
@@ -211,9 +213,10 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
 
   const visitor = clientAddress(req, TRUST_PROXY, CLIENT_HEADER, ORIGIN_SECRET);
   if (CLIENT_HEADER || ORIGIN_SECRET) {
-    const sealed = tally.count(req, CLIENT_HEADER, ORIGIN_SECRET, visitor.distinct);
-    // ORIGIN_ENFORCE=on: only the CDN may fetch from the outside; the server's own checks (private addresses) pass.
-    if (ORIGIN_ENFORCED && !sealed && visitor.distinct) return refuse(res, 403);
+    const outside = fromOutside(req, visitor);
+    const sealed = tally.count(req, CLIENT_HEADER, ORIGIN_SECRET, outside);
+    // ORIGIN_ENFORCE=on: only the CDN may fetch from the outside; the server's own direct checks pass.
+    if (ORIGIN_ENFORCED && !sealed && outside) return refuse(res, 403);
   }
   if (limiter) {
     const bucket = bucketFor(req.method, pathname, isApiOwned(pathname), buildAsset(pathname));
@@ -255,6 +258,8 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
     const target = new URL(apiBaseFor());
     const headers: import("node:http").IncomingHttpHeaders = { ...apiForwardHeaders(raw, req.headers), "x-forwarded-for": client, "x-real-ip": client };
     // The CDN's secret stays here: the api never needs it.
+    // Removed whether or not a secret is configured, so it never reaches the api even while the setup is incomplete.
+    delete headers[ORIGIN_SECRET_HEADER];
     if (ORIGIN_SECRET) delete headers[ORIGIN_SECRET.header];
     const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
