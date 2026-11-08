@@ -59,6 +59,10 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "ORIGIN_SECRET",
     "ORIGIN_SECRET_HEADER",
     "ORIGIN_ENFORCE",
+    // Search-console ownership codes shown on the home page (TASK-0590).
+    "GOOGLE_SITE_VERIFICATION",
+    "BING_SITE_VERIFICATION",
+    "BAIDU_SITE_VERIFICATION",
   ];
   return Object.fromEntries(allowed.filter((name) => env[name] !== undefined).map((name) => [name, env[name]!]));
 }

@@ -97,6 +97,10 @@ services:
       ORIGIN_SECRET: ${ORIGIN_SECRET:-}
       ORIGIN_SECRET_HEADER: ${ORIGIN_SECRET_HEADER:-}
       ORIGIN_ENFORCE: ${ORIGIN_ENFORCE:-}
+      # Search-console ownership codes for the home page (TASK-0590): empty means none.
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      BING_SITE_VERIFICATION: ${BING_SITE_VERIFICATION:-}
+      BAIDU_SITE_VERIFICATION: ${BAIDU_SITE_VERIFICATION:-}
       WEB_HOST: 0.0.0.0
       WEB_PORT: "3000"
     ports:
