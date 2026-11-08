@@ -220,8 +220,10 @@ test("phones and tablets show the news map, and a country opens all its news of 
     await expect(page).toHaveURL(`${origin}/all?jurisdiction=CL&from=${addDays(today, -29)}`);
     assert.equal(pools.at(-1)?.get("jurisdiction"), "CL");
     assert.equal(pools.at(-1)?.get("from"), addDays(today, -29));
-    // The country stays marked on 全部动态 and can be taken off there.
-    await expect(page.getByRole("navigation", { name: "按国家查看" }).getByRole("link", { name: "取消筛选：智利" })).toBeVisible();
+    // The country stays marked on 全部动态 by name and can be taken off there; 精选 for the same country is one tap
+    // away in the phone bar (TASK-0587).
+    await expect(page.getByRole("link", { name: "取消筛选：智利" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "看精选或全部" }).getByRole("link", { name: "精选" })).toHaveAttribute("href", "/?jurisdiction=CL");
   } finally {
     await context.close();
   }
@@ -256,7 +258,7 @@ test("a map or country list read that fails once is read again, so the dots and 
   const desktop = await open(1440, false);
   try {
     await desktop.page.goto(`${origin}/all`);
-    await expect(desktop.page.getByRole("navigation", { name: "按国家查看" }).getByRole("link", { name: /智利/ })).toBeVisible({ timeout: 15000 });
+    await expect(desktop.page.locator("select[data-country-select] option", { hasText: "智利" }).first()).toBeAttached({ timeout: 15000 });
     assert.equal(failing.jurisdictions, 0, "the first country-list read did fail");
   } finally {
     await desktop.context.close();
@@ -370,29 +372,34 @@ test("every phone page has the light/dark switch at the top, and the desktop one
   }
 });
 
-test("全部动态 offers the top countries as chips that keep the other conditions", { timeout: 60000 }, async () => {
+test("a chosen country can be read as 精选 or 全部, keeping the other conditions; no second row of country chips", { timeout: 60000 }, async () => {
+  // Owner 2026-11-07: the chip row repeated the country select and the map; from the map a reader wants 精选 or 全部.
   for (const width of [1280, 390]) {
     const { context, page, errors } = await open(width, width < 961);
     try {
       await page.goto(`${origin}/all?category=commodity_market`);
-      const row = page.getByRole("navigation", { name: "按国家查看" }).filter({ visible: true });
-      await expect(row.getByRole("link")).toHaveCount(8);
-      await expect(row.getByRole("link").first()).toContainText("智利");
-      await expect(row.getByRole("link").first()).toContainText("40");
-      await expect(row.getByRole("link", { name: /蒙古/ })).toHaveCount(0);
-      await page.screenshot({ path: `.verify/reader-fixes-all-${width}.png` });
-      await row.getByRole("link", { name: /秘鲁/ }).click();
-      await expect(page).toHaveURL(`${origin}/all?category=commodity_market&jurisdiction=PE`);
-      const chosen = row.getByRole("link", { name: "取消筛选：秘鲁" });
-      await expect(chosen).toHaveAttribute("aria-current", "true");
-      await chosen.click();
-      await expect(page).toHaveURL(`${origin}/all?category=commodity_market`);
-      // A country outside the top eight keeps a chip of its own while it is chosen.
-      await page.goto(`${origin}/all?jurisdiction=MN`);
-      await expect(row.getByRole("link", { name: "取消筛选：蒙古" })).toBeVisible();
-      await row.getByRole("button", { name: "更多国家…" }).click();
-      if (width < 961) await expect(page.getByRole("dialog", { name: "筛选", exact: true }).getByRole("combobox", { name: "国家 / 地区" })).toBeVisible();
-      else await expect(page.locator("select[data-country-select]").filter({ visible: true })).toBeFocused();
+      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "按国家查看" })).toHaveCount(0);
+      await page.goto(`${origin}/all?category=commodity_market&jurisdiction=PE`);
+      if (width >= 961) {
+        const scope = page.locator("[data-country-scope]").filter({ visible: true });
+        await expect(scope).toContainText("秘鲁");
+        const picks = scope.getByRole("link", { name: "精选", exact: true });
+        await expect(picks).toHaveAttribute("href", "/?category=commodity_market&jurisdiction=PE");
+        await expect(scope.getByRole("link", { name: "全部", exact: true })).toHaveAttribute("aria-current", /page|true/);
+        await page.screenshot({ path: `.verify/reader-fixes-all-${width}.png` });
+        await picks.click();
+        await expect(page).toHaveURL(`${origin}/?category=commodity_market&jurisdiction=PE`);
+        await page.locator("[data-country-scope]").filter({ visible: true }).getByRole("link", { name: "全部", exact: true }).click();
+        await expect(page).toHaveURL(`${origin}/all?category=commodity_market&jurisdiction=PE`);
+      } else {
+        await expect(page.getByRole("link", { name: "取消筛选：秘鲁" })).toBeVisible();
+        await expect(page.getByRole("navigation", { name: "看精选或全部" }).getByRole("link", { name: "精选" })).toHaveAttribute(
+          "href",
+          "/?category=commodity_market&jurisdiction=PE",
+        );
+        await page.screenshot({ path: `.verify/reader-fixes-all-${width}.png` });
+      }
       assert.ok((await overflow(page)) <= 1, `no sideways scroll at ${width}px`);
       assert.deepEqual(errors, []);
     } finally {
@@ -401,10 +408,10 @@ test("全部动态 offers the top countries as chips that keep the other conditi
   }
   const english = await open(1280);
   try {
-    await english.page.goto(`${origin}/en/all`);
-    const row = english.page.getByRole("navigation", { name: "By country" });
-    await expect(row.getByRole("link", { name: /Chile/ })).toHaveAttribute("href", "/en/all?jurisdiction=CL");
-    await expect(row.getByRole("button", { name: "More countries…" })).toBeVisible();
+    await english.page.goto(`${origin}/en/all?jurisdiction=CL`);
+    const scope = english.page.locator("[data-country-scope]").filter({ visible: true });
+    await expect(scope).toContainText("Chile");
+    await expect(scope.getByRole("link", { name: "Picks", exact: true })).toHaveAttribute("href", /^\/en\/?\?jurisdiction=CL$/);
   } finally {
     await english.context.close();
   }

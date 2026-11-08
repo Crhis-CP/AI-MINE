@@ -23,7 +23,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (q && q.trim()) throw redirect(localizedFrom(request.url, `/all${url.search}`));
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
-  const channel = isChannelKey(channelParam) ? channelParam : "all";
+  // The first-party switch is gone (TASK-0587, Owner 2026-11-07): an old ?channel=firstParty link opens the whole list.
+  const channel = isChannelKey(channelParam) && channelParam !== "firstParty" ? channelParam : "all";
   const category = categoryParam ? canonicalCategoryFilter(categoryParam) : null;
   // Old links with a retired category (ADR-0031) move to its successor; company_project stays and filters both.
   if (categoryParam && category && category !== categoryParam) {
@@ -116,7 +117,7 @@ export default function Home() {
   const allTo = waiting ? "/" : undefined;
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
-      <FeedBar base="/" category={filters.category} channel={filters.channel} jurisdiction={filters.jurisdiction ?? null} />
+      <FeedBar base="/" category={filters.category} jurisdiction={filters.jurisdiction ?? null} />
       {/* Direction C overview: the hotspot board beside the survey map on desktop; phones and tablets show the
           map under the board (TASK-0568: it used to be desktop only). */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
@@ -130,7 +131,7 @@ export default function Home() {
         base={tabsBase}
         allTo={allTo}
         category={filters.category}
-        channel={filters.channel}
+       
         jurisdiction={filters.jurisdiction ?? null}
         layoutId="home-cat-desk"
       />

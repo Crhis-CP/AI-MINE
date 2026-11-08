@@ -641,10 +641,9 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await openQualifiedReader(page);
   added = true;
   await checkVersionOnFocus(page, "1");
-  await expect(page.getByRole("button", { name: "加载最新" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
-  await page.getByRole("button", { name: "加载最新" }).click();
+  // At the top of a live list the new card simply appears (TASK-0587, Owner 2026-11-07: “慢慢的浮现出来”).
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "加载最新" })).toHaveCount(0);
   await openQualifiedReader(page, "/starred", "2");
   await expect(page.getByText("已读", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
@@ -683,7 +682,7 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   assert.deepEqual(blocked, []);
 });
 
-test("a combined withdrawal and arrival removes the old card while the new card waits for explicit loading", { timeout: 30000 }, async (t) => {
+test("a combined withdrawal and arrival removes the old card and, at the top of a live list, shows the new card at once", { timeout: 30000 }, async (t) => {
   withdrawn = false;
   added = false;
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN" });
@@ -703,13 +702,37 @@ test("a combined withdrawal and arrival removes the old card while the new card 
   added = true;
   await checkVersionOnFocus(page, "2");
   await expect(page.getByText("有 1 条内容已撤回，已从列表移除", { exact: false })).toBeVisible();
-  await expect(page.getByText("有新的矿业动态", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "加载最新" }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
-  await expect(page.getByText("已从列表移除", { exact: false })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "加载最新" })).toHaveCount(0);
+});
+
+test("further down a live list, arrivals wait behind a small button that goes back to the top and shows them", { timeout: 30000 }, async (t) => {
+  deepTimeline = true;
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "zh-CN" });
+  t.after(async () => {
+    deepTimeline = false;
+    added = false;
+    await context.close();
+  });
+  await isolateBrowser(context, [origin]);
+  const page = await context.newPage();
+  await openQualifiedReader(page, "/");
+  await page.mouse.wheel(0, 1600);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(400);
+  added = true;
+  await checkVersionOnFocus(page, "1");
+  const pill = page.getByRole("button", { name: "↑ 有新资讯", exact: true });
+  await expect(pill).toBeVisible();
+  assert.ok((await page.evaluate(() => window.scrollY)) > 400, "the page did not move under the reader");
+  await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+  await pill.click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(240);
+  await expect(pill).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "更新后的矿业动态" }).first()).toBeVisible();
 });
 
 test("a withdrawal elsewhere on the site leaves the open page, its position and its notices untouched", { timeout: 30000 }, async (t) => {
@@ -747,18 +770,15 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   await again;
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
   assert.equal(reloads, 0);
-  // News arriving together with another unrelated change is still offered, and still waits for the reader.
+  // News arriving together with another unrelated change still shows up: at the top of a live list, at once.
   added = true;
   readerWithdrawalVersion = "3";
   const both = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   assert.deepEqual(await (await both).json(), { version: "2", withdrawalVersion: "3" });
-  await expect(page.getByText("有新的矿业动态", { exact: false })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
-  assert.equal(reloads, 0);
-  await page.getByRole("button", { name: "加载最新", exact: true }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+  await expect(page.getByText("已撤回", { exact: false })).toHaveCount(0);
 });
 
 for (const change of ["unavailable", "summary-only"] as const) {
@@ -944,8 +964,9 @@ for (const width of [390, 1440]) {
     await loadFourTimelinePages(page);
     added = true;
     await checkVersionOnFocus(page, "1");
-    await page.getByRole("button", { name: "加载最新", exact: true }).click();
-    await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+    // Four pages down, the arrival waits behind “↑ 有新资讯” (TASK-0587); the button shows it.
+    await page.getByRole("button", { name: "↑ 有新资讯", exact: true }).click();
+    await expect(page.getByRole("button", { name: "↑ 有新资讯", exact: true })).toHaveCount(0);
     const link = page.locator('[data-card-key="fixture-a"] h3 a');
     // Forty old cards can still exist while the new loader data is committing.
     // The refreshed last card proves that all four fresh pages have rendered.
@@ -1316,17 +1337,17 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     await expect(sheet).not.toBeVisible();
     await expect(page.getByRole("link", { name: "取消筛选：项目建设", exact: true })).toBeVisible();
     assert.equal(new URL(page.url()).searchParams.get("jurisdiction"), "none");
+    // The source-scope switch is gone (TASK-0587, Owner 2026-11-07: aggregated news needs no “一手来源” filter).
     await bar.getByRole("button", { name: "筛选（已选）" }).click();
-    await sheet.getByRole("link", { name: "一手来源", exact: true }).click();
-    await expect(page).toHaveURL(/channel=firstParty/);
+    await expect(sheet.getByRole("link", { name: "一手来源", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await expect(sheet).not.toBeVisible();
-    await expect(page.getByRole("link", { name: "取消筛选：一手来源", exact: true })).toBeVisible();
     assert.equal(new URL(page.url()).searchParams.get("category"), "project_development");
     filterPhase = "remove category";
     await page.getByRole("link", { name: "取消筛选：项目建设", exact: true }).click();
     await expect(page).not.toHaveURL(/category=/);
     await expect(page.getByRole("link", { name: "取消筛选：项目建设", exact: true })).toHaveCount(0);
-    assert.equal(new URL(page.url()).searchParams.get("channel"), "firstParty");
+    assert.equal(new URL(page.url()).searchParams.get("jurisdiction"), "none");
     await bar.getByRole("button", { name: "筛选（已选）" }).click();
     await sheet.getByRole("link", { name: "项目建设", exact: true }).click();
     await expect(page).toHaveURL(/category=project_development/);
@@ -1346,9 +1367,7 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(sheet).not.toBeVisible();
     await expect(page.getByRole("combobox", { name: "国家 / 地区" })).toBeVisible();
-    await expect(
-      page.getByRole("navigation", { name: "来源属性" }).filter({ visible: true }).getByRole("link", { name: "一手来源", exact: true }),
-    ).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("navigation", { name: "来源属性" })).toHaveCount(0);
     const categories = page.getByRole("navigation", { name: "新闻分类" }).filter({ visible: true });
     const naturalSize = await categories.evaluate((node) => ({
       trackWidth: node.scrollWidth,
@@ -1370,8 +1389,13 @@ test("phone feed scope and sheet preserve mining filters and close on desktop re
     filterPhase = "desktop category";
     await categories.getByRole("link", { name: "政策监管", exact: true }).click();
     await expect(page).toHaveURL(/category=policy_regulation/);
-    assert.equal(new URL(page.url()).searchParams.get("channel"), "firstParty");
     assert.equal(new URL(page.url()).searchParams.get("jurisdiction"), "none");
+    filterPhase = "old first-party link";
+    // An old link with ?channel=firstParty still opens the list (the condition is simply not applied).
+    const old = await page.goto(`${origin}/all?channel=firstParty`);
+    assert.equal(old?.status(), 200);
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "取消筛选：一手来源", exact: true })).toHaveCount(0);
   } finally {
     releaseChoices();
     await context.close();

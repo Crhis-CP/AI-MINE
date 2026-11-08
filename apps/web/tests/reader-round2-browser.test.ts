@@ -246,6 +246,9 @@ test("detail shows honest body states, first-public evidence, representative/lat
     await expect(page.getByRole("region", { name: "正文状态" })).toContainText(label!);
     await expect(page.getByRole("link", { name: "打开来源原文", exact: true })).toHaveAttribute("href", summary.links.original);
     await expect(page.getByText(id === "unknown" ? /本站公开 时间未记录/ : /本站公开.*2026-10-12/)).toBeVisible();
+    // The one credited publisher is the source itself: its name is the credit and the link, said once (TASK-0587).
+    await expect(page.getByText("来源署名：", { exact: false })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: source.name, exact: true }).first()).toHaveAttribute("href", summary.links.original);
   }
   const coverage = page.getByRole("region", { name: "相关报道" });
   await expect(coverage.getByText("代表稿", { exact: true })).toBeVisible();
