@@ -12,7 +12,7 @@ import { RuntimeControlPaused, RuntimeControlStale, runtimeControlSnapshot, asse
 import { needsGeographyAnalysis } from "../editorial/geography.ts";
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
-import { config, sourceCollectionEnabled } from "../config.ts";
+import { config, englishCopyEnabled, sourceCollectionEnabled } from "../config.ts";
 import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
@@ -29,8 +29,17 @@ import {
 } from "@amp/backend/admin/sources";
 import { bodyReadingKey } from "../content/body-reading-key.ts";
 import { usableSourceText } from "../lib/text.ts";
-import { publishArticle, prepareTranslationRun, translationSelectedNow, articleWithdrawalHeld } from "../publication/publish.ts";
-import { LIVE_TRANSLATION_DAYS, translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
+import {
+  publishArticle,
+  prepareTranslationRun,
+  translationSelectedNow,
+  articleWithdrawalHeld,
+  englishCopyCandidate,
+  refreshEnglishCopy,
+} from "../publication/publish.ts";
+import { LIVE_TRANSLATION_DAYS, englishCopyDeferralOptions, translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
+import { writeEnglishCopy } from "../editorial/english-copy.ts";
+import { readEnglishCopy } from "../enrichment/records.ts";
 import { translationQuotaWait } from "../editorial/translation-quota.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
@@ -400,6 +409,41 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
   }
 }
 
+/** An English-copy job that waits (peak hours, the background quota share, a paused lane) continues in a new job. */
+async function deferEnglishCopy(articleId: string, until: Date) {
+  const queued = await enqueue(QUEUES.translate, { articleId, lane: "news", english: true }, englishCopyDeferralOptions(articleId, until));
+  if (queued === undefined) throw new Error("English copy deferral was not accepted by the queue");
+  return { state: "deferred_peak", until: until.toISOString() };
+}
+/** A paused news lane: look again after this long, without using up the job's retries. */
+const ENGLISH_PAUSE_WAIT_MS = 30 * 60_000;
+
+/**
+ * One English title and summary (content.translate with `english`, TASK-0595). Nothing is paid unless EN_COPY_ENABLED
+ * is the exact literal true. It waits like a background translation: through the provider's peak hours and while
+ * background work has used its share of the model quota, unless the item is a fresh selection (TASK-0579/0580).
+ * A copy that already exists for the current input is only shown, at no cost.
+ */
+export async function runEnglishCopyJob(data: { articleId: string }, clock: JobClock = {}) {
+  if (!englishCopyEnabled()) return { state: "disabled" };
+  try {
+    const candidate = await englishCopyCandidate(data.articleId);
+    if (!candidate) return { state: "not_needed" };
+    if (!(await readEnglishCopy(data.articleId, candidate.input.hash))) {
+      const ahead = await freshSelection(data.articleId, candidate.selected);
+      const wait = translationPeakWait(ahead, clock.now?.()) ?? (await translationQuotaWait(ahead, clock.now?.()));
+      if (wait) return await deferEnglishCopy(data.articleId, wait);
+    }
+    const outcome = await writeEnglishCopy(data.articleId);
+    if (outcome === "written" || outcome === "ready") await refreshEnglishCopy(data.articleId);
+    return { state: outcome };
+  } catch (error) {
+    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + ENGLISH_PAUSE_WAIT_MS));
+    throw error;
+  }
+}
+
 /**
  * History's analysis is queued for the next off-peak start when it arrives in a peak hour (queueProcessing), but a
  * backlog or a retry can still pick the job up in a later peak hour. Judged again when the job is taken (TASK-0579):
@@ -436,7 +480,9 @@ export async function runAnalysisJob(data: { articleId: string; attemptTag?: str
 
 export async function registerContentJobs(boss: PgBoss, concurrency = Number(process.env.ANALYZE_CONCURRENCY || 6)) {
   await ensureQueue(QUEUES.translate);
-  await work(boss, QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) => runTranslationJob(data));
+  await work(boss, QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) =>
+    data.english ? runEnglishCopyJob(data) : runTranslationJob(data),
+  );
   await ensureQueue(QUEUES.analyze);
   await work(boss, QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) => runAnalysisJob(data));
 }
