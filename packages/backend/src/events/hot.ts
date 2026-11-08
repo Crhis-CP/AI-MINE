@@ -9,10 +9,25 @@ import { pickRepresentative } from "../publication/representative.ts";
 import { sql } from "../db.ts";
 import { tierRank, type HotEntry } from "./hot-read.ts";
 
-export const HOT_RULE_VERSION = "heat-v2-current-48h-halflife24h";
+export const HOT_RULE_VERSION = "heat-v3-48h-weekend72h-halflife24h";
 const WINDOW_HOURS = 48;
+/**
+ * Over the weekend overseas mining media mostly stop publishing, so a 48-hour window empties the list. On Beijing
+ * Saturday, Sunday and Monday the window covers 72 hours (Owner 2026-11-08, TASK-0599). The half-life stays 24 hours,
+ * so older reports still count for less; the list is never padded — fewer than 10 qualified events show fewer.
+ */
+const WEEKEND_WINDOW_HOURS = 72;
 const HALF_LIFE_HOURS = 24;
 const MIN_PARTICIPANTS = 2;
+/** Evidence is read this much further back than the window, for the comparison six hours earlier. */
+const LOOKBACK_MARGIN_HOURS = 6;
+
+/** The window for a ranking computed at `at`: 72 hours on Beijing Saturday, Sunday and Monday, else 48. */
+export function hotWindowHours(at: Date): number {
+  const beijingDay = new Date(at.getTime() + 8 * 3600000).getUTCDay();
+  return beijingDay === 6 || beijingDay === 0 || beijingDay === 1 ? WEEKEND_WINDOW_HOURS : WINDOW_HOURS;
+}
+const lookbackFrom = (at: Date) => new Date(at.getTime() - (hotWindowHours(at) + LOOKBACK_MARGIN_HOURS) * 3600000);
 
 interface HeatRow {
   story_id: number;
@@ -58,7 +73,7 @@ export function behindSources(clocks: SourceClock[], at: number, grace: boolean)
 
 type HeatEvidence = Awaited<ReturnType<typeof reportEventEvidence>>["signals"];
 async function currentHeatEvidence(at: Date, storyIds?: number[], includeHistory = false): Promise<HeatEvidence> {
-  const from = new Date(at.getTime() - 54 * 3600000);
+  const from = lookbackFrom(at);
   const ids =
     storyIds ??
     (await sql<{ story_id: number }[]>`SELECT DISTINCT story_id FROM story_signals WHERE observed_at>${from} AND observed_at<=${at}`).map(
@@ -80,8 +95,9 @@ async function heatRows(at: Date, behind: string[] = [], storyIds?: number[], su
     source_since: row.source_since.toISOString(),
   }));
   const prev = new Date(at.getTime() - 6 * 3600000);
-  const nowFrom = new Date(at.getTime() - WINDOW_HOURS * 3600000),
-    prevFrom = new Date(prev.getTime() - WINDOW_HOURS * 3600000);
+  const windowHours = hotWindowHours(at);
+  const nowFrom = new Date(at.getTime() - windowHours * 3600000),
+    prevFrom = new Date(prev.getTime() - windowHours * 3600000);
   const decayNow = sql`power(0.5, extract(epoch FROM (${at}::timestamptz - last_at)) / 3600.0 / ${HALF_LIFE_HOURS})`;
   const decayPrev = sql`power(0.5, extract(epoch FROM (${prev}::timestamptz - last_prev)) / 3600.0 / ${HALF_LIFE_HOURS})`;
   const comparable = sql`NOT behind AND NOT late`;
@@ -122,9 +138,7 @@ export function heatIndex(heat: number): number {
 export async function computeHotRanking(at = new Date()): Promise<{ id: number; entries: number }> {
   const control = await requireRuntimeRunning("news", ["publication"]);
   const observedStories = (
-    await sql<
-      { story_id: number }[]
-    >`SELECT DISTINCT story_id FROM story_signals WHERE observed_at>${new Date(at.getTime() - 54 * 3600000)} AND observed_at<=${at}`
+    await sql<{ story_id: number }[]>`SELECT DISTINCT story_id FROM story_signals WHERE observed_at>${lookbackFrom(at)} AND observed_at<=${at}`
   ).map((row) => row.story_id);
   const qualified = await currentHeatEvidence(at, observedStories, true);
   const evidence = [...new Map(qualified.map((row) => [`${row.story_id}:${row.article_id}`, row])).values()];
@@ -150,7 +164,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       rep = pickRepresentative(selected.length ? selected : leading);
     const participantsByKey = new Map<string, { name: string; kind: "editorial" | "signal"; tier: string; at: Date }>();
     for (const signal of evidence
-      .filter((signal) => Number(signal.story_id) === Number(r.story_id) && signal.observed_at.getTime() > at.getTime() - WINDOW_HOURS * 3600000)
+      .filter((signal) => Number(signal.story_id) === Number(r.story_id) && signal.observed_at.getTime() > at.getTime() - hotWindowHours(at) * 3600000)
       .sort((a, b) => Number(b.kind === "editorial") - Number(a.kind === "editorial") || b.observed_at.getTime() - a.observed_at.getTime())) {
       if (!participantsByKey.has(signal.participant_key))
         participantsByKey.set(signal.participant_key, { name: signal.source_name, kind: signal.kind, tier: signal.source_tier, at: signal.observed_at });
@@ -207,7 +221,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
     await assertRuntimeControl(tx, control);
     await projectParticipation(tx, observedStories, evidence, at);
     const [saved] = await tx<{ id: number }[]>`INSERT INTO hot_rankings(computed_at,rule_version,entries,evidence,published)
-      VALUES(${at},${HOT_RULE_VERSION},${tx.json(entries as never)},${tx.json({ windowHours: WINDOW_HOURS, halfLifeHours: HALF_LIFE_HOURS, minParticipants: MIN_PARTICIPANTS, candidates: rows.length })},true) RETURNING id`;
+      VALUES(${at},${HOT_RULE_VERSION},${tx.json(entries as never)},${tx.json({ windowHours: hotWindowHours(at), halfLifeHours: HALF_LIFE_HOURS, minParticipants: MIN_PARTICIPANTS, candidates: rows.length })},true) RETURNING id`;
     return saved!;
   });
   // Keep a bounded history of rankings.
@@ -243,7 +257,7 @@ export async function snapshotHeat(at = new Date()): Promise<{ stories: number; 
   let repaired = 0;
   const stale = await sql<{ hour: Date; stories: number[] }[]>`
     SELECT hour, array_agg(story_id) AS stories FROM story_heat_hourly
-    WHERE NOT complete AND hour < ${hour} AND hour > ${new Date(hour.getTime() - WINDOW_HOURS * 3600000)} GROUP BY hour ORDER BY hour`;
+    WHERE NOT complete AND hour < ${hour} AND hour > ${new Date(hour.getTime() - hotWindowHours(hour) * 3600000)} GROUP BY hour ORDER BY hour`;
   for (const s of stale) {
     const wanted = new Set(s.stories.map(Number));
     for (const r of await heatRows(s.hour, behindSources(clocks, s.hour.getTime(), false), s.stories.map(Number))) {
@@ -262,7 +276,7 @@ export async function backfillStoryHeat(storyId: number, hours = 7 * 24): Promis
     { first: Date | null; last: Date | null }[]
   >`SELECT min(observed_at) AS first, max(observed_at) AS last FROM story_signals WHERE story_id = ${storyId}`;
   if (!s?.first) return 0;
-  const end = Math.floor(Math.min(Date.now(), (s.last?.getTime() ?? Date.now()) + WINDOW_HOURS * 3600000) / 3600000) * 3600000;
+  const end = Math.floor(Math.min(Date.now(), (s.last?.getTime() ?? Date.now()) + WEEKEND_WINDOW_HOURS * 3600000) / 3600000) * 3600000;
   const start = Math.max(Math.floor(s.first.getTime() / 3600000) * 3600000, end - hours * 3600000);
   const clocks = await sourceClocks();
   let n = 0;
