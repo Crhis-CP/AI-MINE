@@ -42,11 +42,20 @@ test("a clearly higher score wins the seat over the publisher order (Owner 2026-
   assert.equal(pickRepresentative([{ ...welcome, score: 64 }, substance]).id, "welcome", "within 3 points the T1 publisher still leads");
   assert.equal(pickRepresentative([{ ...welcome, score: 63.5 }, substance]).id, "substance", "exactly 3 points ahead counts as clearly better");
   assert.equal(
-    pickRepresentative([{ ...base, id: "summary-only", score: 80, body_mode: "summary" }, { ...base, id: "full", score: 78 }]).id,
+    pickRepresentative([
+      { ...base, id: "summary-only", score: 80, body_mode: "summary" },
+      { ...base, id: "full", score: 78 },
+    ]).id,
     "full",
     "within the lead, full text still comes before score",
   );
-  assert.equal(pickRepresentative([{ ...base, id: "unscored", score: null }, { ...base, id: "scored", score: 2 }]).id, "scored");
+  assert.equal(
+    pickRepresentative([
+      { ...base, id: "unscored", score: null },
+      { ...base, id: "scored", score: 2 },
+    ]).id,
+    "scored",
+  );
   assert.equal(pickRepresentative([{ ...base, id: "only", score: null }]).id, "only");
 });
 
