@@ -438,8 +438,17 @@ export async function publishArticleTx(
       : "summary"
     : bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
   // A Chinese original with full-text permission is guided by a deterministic excerpt until the model writes (BR-ENR-06).
+  // The permission is the source's, not the body's status: text read from a PDF stays "unconfirmed" (content/extract.ts)
+  // and is not shown as the full body, but its opening is still the source's own words (TASK-0594: exchange
+  // announcements were left out whenever the model's copy came back empty).
   const excerpt =
-    !post && admitted && nativeChinese && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
+    !post &&
+    admitted &&
+    nativeChinese &&
+    source.site_fulltext &&
+    (article.body_status === "ok" || article.body_status === "unconfirmed") &&
+    usableSourceText(article.body_text) &&
+    collapseWhitespace(article.body_text!).length >= 20
       ? `来源摘录：${Array.from(collapseWhitespace(article.body_text!)).slice(0, 400).join("")}（根据来源正文整理，保留原始材料供核对）`
       : null;
   const isChineseTitle = nativeChinese;

@@ -15,7 +15,7 @@ import { after, before, beforeEach, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold, StructureSchema, normalizeAnalysis, runAnalysis, loadAnalyzeInput } from "@amp/backend/editorial/analyze";
-import { afterFailure, processArticle, queueProcessing } from "@amp/backend/jobs/content";
+import { afterFailure, incompleteCopyCandidates, processArticle, queueProcessing, resumeIncompleteCopy } from "@amp/backend/jobs/content";
 import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
 import { promptText } from "@amp/backend/editorial/prompts";
@@ -42,6 +42,8 @@ interface Req {
 }
 const requests: Req[] = [];
 // A test can hold a marker's score answer: `asked` fires when the request arrives, the answer waits for `release`.
+// Empty-summary answers the title/summary prompt still gives a marker (TASK-0594); Infinity for every answer.
+const emptySummaries = new Map<string, number>();
 const scoreHolds = new Map<string, { asked: () => void; release: Promise<void> }>();
 // A test can make the prefilter answer a marker differently on a later judgement.
 const prefilterLabels = new Map<string, string>();
@@ -83,6 +85,10 @@ const MARKERS = [
   "TRIMMED",
   "EARLY",
   "REJUDGE",
+  "COPYGAP",
+  "COPYDEAD",
+  "COPYZH",
+  "COPYLEGACY",
   ...mining.map(([m]) => m),
 ];
 const scoreAnswers: Record<string, number[]> = {
@@ -179,6 +185,11 @@ const provider = await stub(async (_hit, req) => {
       subjects: ["zijin", "unknown-co"],
       fact: { title: `事实 ${marker}`, subject: "某公司", action: "发布", object: "模型", occurredAt: null },
     });
+  const empty = emptySummaries.get(marker) ?? 0;
+  if (empty > 0) {
+    emptySummaries.set(marker, empty - 1);
+    return answer(`title_zh: 翻译标题 ${marker}\nsummary_zh:`);
+  }
   return answer(`title_zh: 翻译标题 ${marker}\nsummary_zh: 翻译摘要 ${marker}。第二句补充影响。`);
 });
 for (const env of ["DASHSCOPE_BASE_URL", "ZHIPU_BASE_URL", "DEEPSEEK_BASE_URL"]) process.env[env] = `${provider.url}/v1`;
@@ -832,4 +843,100 @@ test("an unrun analysis has no model judgement or invented score", () => {
   const out = normalizeAnalysis({ prefilter: null, scores: null, writing: null, structure: null });
   assert.deepEqual([out.relevance, out.selected, out.score, out.scoreModel], ["unknown", false, null, null]);
   assert.deepEqual([out.titleZh, out.summaryZh, out.geography], ["", "", null]);
+});
+
+// TASK-0594: copy that came back without a summary used to end as "analyzed" and never reached readers.
+const processing = async (id: string) =>
+  (
+    await sql<{ processing_state: string; processing_error: string | null; processing_retry_at: Date | null }[]>`
+    SELECT processing_state, processing_error, processing_retry_at FROM articles WHERE id = ${id}`
+  )[0]!;
+
+test("TASK-0594: empty model copy is written again under a new receipt; the judging steps are reused", async () => {
+  assert.deepEqual(parseTranslateOutput("title_zh: 标题\nsummary_zh:"), { titleZh: "标题", summaryZh: "", bodyZh: "" }, "an empty label is no summary");
+  emptySummaries.set("COPYGAP", 1);
+  const id = await article("COPYGAP");
+  const first = await processArticle(id);
+  assert.equal(first.state, "copy-retry");
+  const waiting = await processing(id);
+  assert.equal(waiting.processing_state, "new", "not settled as analyzed: the safety net picks it up again");
+  assert.match(waiting.processing_error!, /^copy_incomplete: /);
+  const wait = waiting.processing_retry_at!.getTime() - Date.now();
+  assert.ok(wait > 25 * 60_000 && wait <= 30 * 60_000, "the rewrite waits its own time");
+  assert.equal((await projection(id)).visibility, "withdrawn", "a foreign item without a summary stays off the site meanwhile");
+  const judged = calls("COPYGAP").filter((s) => s !== "summarize");
+  assert.equal(calls("COPYGAP").filter((s) => s === "summarize").length, 1);
+  const second = await processArticle(id);
+  assert.equal(second.state, "pass");
+  assert.deepEqual(
+    calls("COPYGAP").filter((s) => s !== "summarize"),
+    judged,
+    "only the writing is asked again",
+  );
+  assert.equal(calls("COPYGAP").filter((s) => s === "summarize").length, 2);
+  const r = await row(id);
+  assert.deepEqual([r.relevance, r.title_zh, r.output.copyAttempt], ["pass", "翻译标题 COPYGAP", 1]);
+  assert.equal((await projection(id)).visibility, "public");
+  const writes = await sql`SELECT logical_key FROM receipts WHERE subject = ${`article:${id}@1`} AND purpose = 'summarize_article'`;
+  assert.equal(new Set(writes.map((w) => w.logical_key)).size, 2, "the rewrite does not reuse the empty answer");
+  const hits = provider.hits();
+  assert.equal((await analyzeArticle(id))!.output!.relevance, "pass");
+  assert.equal(provider.hits(), hits, "judging the revision again reuses the copy that worked");
+});
+
+test("TASK-0594: copy that stays empty ends in failed with its reason, after two rewrites", async () => {
+  emptySummaries.set("COPYDEAD", Number.POSITIVE_INFINITY);
+  const id = await article("COPYDEAD");
+  assert.equal((await processArticle(id)).state, "copy-retry");
+  assert.equal((await processArticle(id)).state, "copy-retry");
+  assert.ok((await processing(id)).processing_retry_at!.getTime() - Date.now() > 170 * 60_000, "the second rewrite waits longer");
+  assert.equal((await processArticle(id)).state, "copy-failed");
+  const failed = await processing(id);
+  assert.equal(failed.processing_state, "failed");
+  assert.match(failed.processing_error!, /^copy_incomplete: 模型 3 次/);
+  assert.equal(calls("COPYDEAD").filter((s) => s === "summarize").length, 3);
+  emptySummaries.delete("COPYDEAD");
+});
+
+test("TASK-0594: a Chinese original read from a PDF goes public on its own excerpt when the copy comes back empty", async () => {
+  emptySummaries.set("COPYZH", Number.POSITIVE_INFINITY);
+  await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
+  const body = "山东黄金矿业股份有限公司关于子公司金矿扩产项目获得批复的公告，附产量与投资额。".repeat(6);
+  // content/extract.ts keeps PDF text "unconfirmed": not shown as the full body, but the source's own words.
+  const id = await article("COPYZH", { title: `山东黄金：关于金矿扩产的公告 ${T}`, language: "zh-CN", bodyText: `COPYZH：${body}`, bodyStatus: "unconfirmed" });
+  assert.equal((await processArticle(id)).state, "copy-retry");
+  const p = await projection(id);
+  assert.equal(p.visibility, "public");
+  assert.equal(p.summary, null);
+  assert.ok(p.source_excerpt.startsWith("来源摘录：COPYZH：山东黄金"));
+  const [pub] = await sql`SELECT body_mode FROM publications WHERE article_id = ${id}`;
+  assert.equal(pub!.body_mode, "summary", "the PDF text itself is still not shown as the full body");
+  // Without full-text permission there is no excerpt: it waits for the rewrite.
+  await sql`UPDATE sources SET site_fulltext = false WHERE id = ${SOURCE}`;
+  await publishArticle(id);
+  assert.equal((await projection(id)).visibility, "withdrawn");
+  emptySummaries.delete("COPYZH");
+});
+
+test("TASK-0594: items left behind before rewrites existed are found and handed back once", async () => {
+  emptySummaries.set("COPYLEGACY", 1);
+  const id = await article("COPYLEGACY");
+  await processArticle(id);
+  // What the old program left: analyzed, with the empty copy as its last judgement.
+  await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${id}`;
+  const found = async () => {
+    for (let after: string | null = null; ; ) {
+      const page = await incompleteCopyCandidates(after, 500);
+      if (!page.length) return undefined;
+      const hit = page.find((c) => c.id === id);
+      if (hit) return hit;
+      after = page[page.length - 1]!.id;
+    }
+  };
+  assert.equal((await found())?.writer, "summarize");
+  assert.equal(await resumeIncompleteCopy(id), true);
+  assert.equal((await processing(id)).processing_state, "new");
+  assert.equal(await found(), undefined, "a queued item is not found again");
+  assert.equal(await resumeIncompleteCopy(id), false);
+  assert.equal((await processArticle(id)).state, "pass", "the rewrite writes the copy");
 });

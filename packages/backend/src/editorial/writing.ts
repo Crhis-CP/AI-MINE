@@ -364,8 +364,9 @@ export function parseTranslateOutput(text: string): { titleZh: string; summaryZh
       bodyLine = i;
     }
   }
-  // A title without a labelled summary or body: the lines after it are the summary.
-  if (titleZh && !summaryZh && bodyLine < 0 && titleLine >= 0) {
+  // A title without a labelled summary or body: the lines after it are the summary. A summary label left empty is an
+  // empty summary, never the label itself as the summary (TASK-0594).
+  if (titleZh && !summaryZh && summaryLine < 0 && bodyLine < 0 && titleLine >= 0) {
     const rest = lines
       .slice(titleLine + 1)
       .map((l) => l.trim())
