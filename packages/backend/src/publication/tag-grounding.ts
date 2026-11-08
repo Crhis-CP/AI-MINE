@@ -7,7 +7,7 @@
 // Category tags, country tags (country filters read the quoted geography assignments, not tags) and tags a person
 // set are left as they are.
 import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
-import { mentionByTag, textHits } from "./mentions.ts";
+import { filterMentions, mentionByTag, textHits } from "./mentions.ts";
 
 /**
  * Other wordings that name a mineral, used to keep a tag and never to add one. The filter's own aliases are Chinese
@@ -64,4 +64,20 @@ export function tagGrounded(tag: string, text: string, language?: string | null)
 /** The analysed tags that the material supports, in their original order. */
 export function groundTags(tags: readonly string[], text: string, language?: string | null): string[] {
   return tags.filter((tag) => tagGrounded(tag, text, language));
+}
+
+/**
+ * The companies and minerals whose filter shows this item (a stored tag, or a hit in the search text, which also
+ * holds the AI title and summary) although the material never names them (TASK-0589, Owner 2026-11-07: “这一类的问题
+ * 希望都不要再犯……还有可能没有我抽到的”). Grounded tags are fixed at publish time; this finds the same mistake
+ * arriving through the AI copy instead. Read-only: it is counted, not changed.
+ */
+export function ungroundedFilterHits(searchText: string, tags: readonly string[], text: string, language?: string | null): string[] {
+  const out: string[] = [];
+  for (const mention of filterMentions()) {
+    const tagged = tags.includes(mention.label) || tags.includes(`entity:${mention.id}`);
+    if (!tagged && !textHits(searchText, mention.needles)) continue;
+    if (!tagGrounded(mention.kind === "company" ? `entity:${mention.id}` : mention.label, text, language)) out.push(mention.label);
+  }
+  return out;
 }

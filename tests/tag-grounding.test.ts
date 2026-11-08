@@ -2,7 +2,7 @@
 // 智利 Chuquicamata 铜矿》 under 紫金矿业 although its original never names Zijin.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groundTags, groundingText, tagGrounded } from "../packages/backend/src/publication/tag-grounding.ts";
+import { groundTags, groundingText, tagGrounded, ungroundedFilterHits } from "../packages/backend/src/publication/tag-grounding.ts";
 
 const gates = groundingText([
   "Bill Gates realizó visita privada a Chuquicamata",
@@ -56,4 +56,13 @@ test("a mineral in a language the wordings do not cover is kept; a company is st
 test("Spanish and Portuguese aluminium are both found (Codex review #380)", () => {
   assert.equal(tagGrounded("铝", "La producción de aluminio creció.", "es"), true);
   assert.equal(tagGrounded("铝", "A produção de alumínio aumentou.", "pt"), true);
+});
+
+test("the filter audit finds a company or mineral that only the AI copy names (TASK-0589)", () => {
+  // The AI summary in the search text says 紫金矿业 although the Spanish original never does; copper is named (cobre).
+  const search = "比尔·盖茨私人访问智利 Chuquicamata 铜矿 紫金矿业 同类项目 Reporte Minero";
+  assert.deepEqual(ungroundedFilterHits(search, ["铜"], gates, "es"), ["紫金矿业"]);
+  assert.deepEqual(ungroundedFilterHits("Codelco 铜矿", ["铜", "entity:codelco"], gates, "es"), [], "named in the material: nothing to report");
+  assert.deepEqual(ungroundedFilterHits("锂 价格", [], "Proyecto de cobre en Catamarca", "es"), ["锂"], "a mineral only the copy names");
+  assert.deepEqual(ungroundedFilterHits("锂 价格", [], "Медь подорожала", "ru"), [], "an uncovered language cannot prove a mineral absent");
 });

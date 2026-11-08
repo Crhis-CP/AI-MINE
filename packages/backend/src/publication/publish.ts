@@ -1,4 +1,4 @@
-import { groundTags, groundingText, tagGrounded } from "./tag-grounding.ts";
+import { groundTags, groundingText, tagGrounded, ungroundedFilterHits } from "./tag-grounding.ts";
 import { isHistorical, newsMaterialBindings, type XPostData } from "../content/materials.ts";
 export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
 import { bilingualNames } from "../editorial/bilingual-names.ts";
@@ -1044,6 +1044,8 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
       title: row.title,
       language: row.language,
       dropped: candidates.filter((tag) => !tagGrounded(tag, text, row.language)),
+      // Filters that still show the item for a company or mineral the material never names (TASK-0589).
+      filterOnly: ungroundedFilterHits(row.search_text, row.manual_tags ? [] : row.tags, text, row.language),
     };
   });
 }
