@@ -1,8 +1,8 @@
 {
   "note": {
     "kind": "优化",
-    "title": "网站加了一层安全防护",
-    "body": ["所有页面只走 HTTPS，不允许被其他网站嵌入；异常超长的网址和发送过慢的连接会被直接拒绝。"]
+    "title": "按矿企、金属筛选更准了",
+    "body": ["一条资讯只有在原文里确实提到某家矿企或某种金属时，才会出现在它的筛选结果里；之前少量误标的公司和金属标签已统一去掉。"]
   },
-  "fragments": ["changes/TASK-0583-request-guard.md"]
+  "fragments": ["changes/TASK-0584-tag-grounding.md"]
 }
