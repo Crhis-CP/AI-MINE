@@ -8,8 +8,24 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { webEnvironment } from "../runtime-env.ts";
-import { bucketFor, buildAsset, clientAddress, clientHeaderName, guardLimits, RateLimiter, securityHeaders } from "../request-guard.ts";
+import {
+  bucketFor,
+  buildAsset,
+  clientAddress,
+  clientHeaderName,
+  guardLimits,
+  fromOutside,
+  ObserveTally,
+  OriginTally,
+  originEnforced,
+  originSecret,
+  RateLimiter,
+  rateLimitObserved,
+  securityHeaders,
+} from "../request-guard.ts";
 
+const SECRET = "s3cret-origin-value-for-tests-0123456789";
+const sealed = { "x-origin-auth": SECRET };
 const request = (remoteAddress: string, forwarded?: string, extra: Record<string, string> = {}) =>
   ({ headers: { ...(forwarded ? { "x-forwarded-for": forwarded } : {}), ...extra }, socket: { remoteAddress } }) as unknown as IncomingMessage;
 
@@ -71,31 +87,87 @@ test("the visitor address: the proxy's record only when trusted; private address
 test("limiting is on only when the deployment says where the visitor address comes from (Codex review #379)", () => {
   assert.equal(guardLimits({}), null, "behind a CDN with nothing configured, the last forwarded entry is a shared edge node");
   assert.equal(guardLimits({ TRUST_PROXY: "true" }), null);
-  assert.deepEqual(guardLimits({ CLIENT_IP_HEADER: "eo-connecting-ip" }), { page: 240, api: 600, write: 30, windowMs: 60_000 });
+  assert.equal(guardLimits({ CLIENT_IP_HEADER: "eo-connecting-ip" }), null, "the header alone is not believed (TASK-0586)");
+  assert.deepEqual(guardLimits({ CLIENT_IP_HEADER: "eo-connecting-ip", ORIGIN_SECRET: SECRET }), { page: 240, api: 600, write: 30, windowMs: 60_000 });
   assert.deepEqual(guardLimits({ RATE_LIMIT: "on", RATE_LIMIT_PAGE: "5", RATE_LIMIT_WRITE: "x" }), { page: 5, api: 600, write: 30, windowMs: 60_000 });
-  assert.equal(guardLimits({ RATE_LIMIT: "off", CLIENT_IP_HEADER: "eo-connecting-ip" }), null, "off always wins");
+  assert.equal(guardLimits({ RATE_LIMIT: "off", CLIENT_IP_HEADER: "eo-connecting-ip", ORIGIN_SECRET: SECRET }), null, "off always wins");
   assert.equal(clientHeaderName({ CLIENT_IP_HEADER: " EO-Connecting-IP " }), "eo-connecting-ip");
   assert.equal(clientHeaderName({ CLIENT_IP_HEADER: "bad header" }), null);
 });
 
-test("the CDN's client-address header is read only from our own proxy, and must be an address", () => {
+test("the CDN's client-address header is believed only with the CDN's secret, from our own proxy, and must be an address", () => {
   const header = "eo-connecting-ip";
-  assert.deepEqual(clientAddress(request("172.18.0.5", "198.51.100.77", { [header]: "203.0.113.60" }), true, header), {
+  const secret = originSecret({ ORIGIN_SECRET: SECRET });
+  assert.deepEqual(clientAddress(request("172.18.0.5", "198.51.100.77", { [header]: "203.0.113.60", ...sealed }), true, header, secret), {
     address: "203.0.113.60",
     distinct: true,
   });
   assert.deepEqual(
-    clientAddress(request("203.0.113.99", undefined, { [header]: "198.51.100.1" }), false, header),
+    clientAddress(request("172.18.0.5", "198.51.100.77", { [header]: "203.0.113.60" }), true, header, secret),
+    { address: "198.51.100.77", distinct: true },
+    "without the secret (someone reaching the origin directly) the header is ignored: counted by the address our proxy saw (Codex 2026-11-07)",
+  );
+  assert.deepEqual(
+    clientAddress(request("172.18.0.5", "198.51.100.77", { [header]: "203.0.113.60", "x-origin-auth": `${SECRET}x` }), true, header, secret),
+    { address: "198.51.100.77", distinct: true },
+    "a wrong secret is no secret",
+  );
+  assert.deepEqual(
+    clientAddress(request("172.18.0.5", "198.51.100.77", { [header]: "203.0.113.60", ...sealed }), true, header, null),
+    { address: "198.51.100.77", distinct: true },
+    "no secret configured: the header is never believed",
+  );
+  assert.deepEqual(
+    clientAddress(request("203.0.113.99", undefined, { [header]: "198.51.100.1", ...sealed }), false, header, secret),
     { address: "203.0.113.99", distinct: true },
     "a visitor connecting directly cannot name another address through the header",
   );
   assert.deepEqual(
-    clientAddress(request("172.18.0.5", "198.51.100.77"), true, header),
+    clientAddress(request("172.18.0.5", undefined, sealed), true, header, secret),
     { address: "172.18.0.5", distinct: false },
     "missing header: not limited",
   );
-  assert.equal(clientAddress(request("172.18.0.5", undefined, { [header]: "not-an-ip" }), true, header).distinct, false);
-  assert.equal(clientAddress(request("172.18.0.5", undefined, { [header]: "10.0.0.8" }), true, header).distinct, false);
+  assert.equal(clientAddress(request("172.18.0.5", undefined, { [header]: "not-an-ip", ...sealed }), true, header, secret).distinct, false);
+  assert.equal(clientAddress(request("172.18.0.5", undefined, { [header]: "10.0.0.8", ...sealed }), true, header, secret).distinct, false);
+});
+
+test("the CDN's secret: long enough, a plain header name, enforcement only with a secret, and an hourly tally", () => {
+  assert.equal(originSecret({ ORIGIN_SECRET: "short" }), null);
+  assert.equal(originSecret({ ORIGIN_SECRET: `${SECRET} space` }), null);
+  assert.equal(originSecret({ ORIGIN_SECRET: SECRET, ORIGIN_SECRET_HEADER: "bad header" }), null);
+  assert.equal(originSecret({ ORIGIN_SECRET: SECRET, ORIGIN_SECRET_HEADER: " X-My-Key " })?.header, "x-my-key");
+  assert.equal(
+    originSecret({ ORIGIN_SECRET: SECRET, ORIGIN_SECRET_HEADER: "" })?.header,
+    "x-origin-auth",
+    "docker-compose passes an unset name as an empty string: the default applies (Codex review #387)",
+  );
+  // Behind Caddy with TRUST_PROXY=false every request has a private peer; what Caddy forwarded is still outside.
+  const viaProxy = request("172.18.0.5", "203.0.113.80");
+  assert.equal(fromOutside(viaProxy, clientAddress(viaProxy, false)), true, "a proxied request is outside even when the proxy is not trusted");
+  const ownCheck = request("127.0.0.1");
+  assert.equal(fromOutside(ownCheck, clientAddress(ownCheck, false)), false, "a direct local check is the server's own");
+  assert.equal(originEnforced({ ORIGIN_ENFORCE: "on" }), false, "nothing to enforce without a secret");
+  assert.equal(originEnforced({ ORIGIN_ENFORCE: "on", ORIGIN_SECRET: SECRET }), true);
+  const tally = new OriginTally();
+  const secret = originSecret({ ORIGIN_SECRET: SECRET });
+  tally.count(request("172.18.0.5", "198.51.100.7", { "eo-connecting-ip": "203.0.113.1", ...sealed }), "eo-connecting-ip", secret, true);
+  tally.count(request("172.18.0.5", "198.51.100.8"), "eo-connecting-ip", secret, true);
+  tally.count(request("127.0.0.1"), "eo-connecting-ip", secret, false);
+  assert.deepEqual(tally.take(), { with_secret: 1, with_client_header: 1, outside_without_secret: 1 });
+  assert.deepEqual(tally.take(), { with_secret: 0, with_client_header: 0, outside_without_secret: 0 });
+});
+
+test("observe mode counts what would be refused, per bucket and visitor, and never says who (Owner 2026-11-08)", () => {
+  assert.equal(rateLimitObserved({ RATE_LIMIT_OBSERVE: "on" }), true);
+  assert.equal(rateLimitObserved({}), false);
+  const tally = new ObserveTally();
+  tally.record("203.0.113.1", "page");
+  tally.record("203.0.113.1", "page");
+  tally.record("203.0.113.2", "api");
+  const out = tally.take();
+  assert.deepEqual(out, { would_refuse_page: 2, would_refuse_api: 1, would_refuse_write: 0, visitors: 2 });
+  assert.ok(!JSON.stringify(out).includes("203.0.113"), "no address is reported");
+  assert.deepEqual(tally.take(), { would_refuse_page: 0, would_refuse_api: 0, would_refuse_write: 0, visitors: 0 });
 });
 
 test("HSTS only for an https site, without forcing other hosts under the domain", () => {
@@ -109,8 +181,10 @@ let web: ChildProcess;
 let origin = "";
 let logs = "";
 let apiHits = 0;
-const api = createServer((_req, res) => {
+let lastApiHeaders: Record<string, unknown> = {};
+const api = createServer((req, res) => {
   apiHits += 1;
+  lastApiHeaders = req.headers;
   res.setHeader("Content-Type", "application/json");
   res.end("{}");
 });
@@ -126,6 +200,10 @@ before(async () => {
       PRIVATE_HOST: "private.localhost",
       TRUST_PROXY: "true",
       CLIENT_IP_HEADER: "eo-connecting-ip",
+      ORIGIN_SECRET: SECRET,
+      // As docker-compose passes it when unset (Codex review #387).
+      ORIGIN_SECRET_HEADER: "",
+      ORIGIN_ENFORCE: "on",
       RATE_LIMIT_PAGE: "2",
       RATE_LIMIT_API: "3",
       RATE_LIMIT_WRITE: "1",
@@ -161,7 +239,7 @@ after(async () => {
 const get = (path: string, visitor: string, init: RequestInit = {}) =>
   fetch(`${origin}${path}`, {
     ...init,
-    headers: { host: "example.com", "x-forwarded-for": "198.51.100.200", "eo-connecting-ip": visitor, ...(init.headers ?? {}) },
+    headers: { host: "example.com", "x-forwarded-for": "198.51.100.200", "eo-connecting-ip": visitor, ...sealed, ...(init.headers ?? {}) },
     redirect: "manual",
   });
 
@@ -203,4 +281,25 @@ test("every response carries the security headers, refusals included; oversized 
     assert.equal(response.headers.get("x-frame-options"), "DENY");
   }
   assert.equal((await get(`/?q=${"a".repeat(9000)}`, "203.0.113.42")).status, 414);
+});
+
+test("only the CDN may fetch from outside: no secret, 403; the api never sees the secret; the server's own checks pass", async () => {
+  const direct = await fetch(`${origin}/api/site/news`, { headers: { host: "example.com", "x-forwarded-for": "203.0.113.70" }, redirect: "manual" });
+  assert.equal(direct.status, 403, "someone reaching the origin directly");
+  assert.equal(direct.headers.get("x-content-type-options"), "nosniff", "refusals carry the security headers too");
+  const forged = await fetch(`${origin}/api/site/news`, {
+    headers: {
+      host: "example.com",
+      "x-forwarded-for": "203.0.113.71",
+      "eo-connecting-ip": "203.0.113.20",
+      "x-origin-auth": "guess-guess-guess-guess-guess-guess",
+    },
+    redirect: "manual",
+  });
+  assert.equal(forged.status, 403, "a guessed secret is refused");
+  assert.equal((await get("/api/site/news", "203.0.113.72")).status, 200);
+  assert.equal(lastApiHeaders["x-origin-auth"], undefined, "the secret stays in the web process");
+  assert.equal(lastApiHeaders["x-forwarded-for"], "203.0.113.72", "the api sees the visitor the CDN named");
+  const own = await fetch(`${origin}/api/site/news`, { headers: { host: "example.com" }, redirect: "manual" });
+  assert.equal(own.status, 200, "the server's own check from a private address");
 });
