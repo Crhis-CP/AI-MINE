@@ -167,7 +167,6 @@ export default function AllPage() {
         title={title ?? tr.maybe(`全部${withSubject("动态")}`)}
         base="/all"
         category={f.category}
-       
         jurisdiction={f.jurisdiction ?? null}
         layoutId="all-cat-desk"
         search={<SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />}

@@ -1,6 +1,5 @@
 import { apiFetch } from "../lib/http.ts";
 import { localizedFrom, useT, useTagLabel } from "../i18n";
-import { SITE, withSubject } from "@amp/industry/site";
 import { data as withHeaders, redirect, useLoaderData } from "react-router";
 import { Link } from "../i18n/navigation";
 import type { Route } from "./+types/home";
@@ -20,7 +19,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q");
   // Search lives on /all; keep the parameters so old links still land on results.
-  if (q && q.trim()) throw redirect(localizedFrom(request.url, `/all${url.search}`));
+  if (q?.trim()) throw redirect(localizedFrom(request.url, `/all${url.search}`));
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
   // The first-party switch is gone (TASK-0587, Owner 2026-11-07): an old ?channel=firstParty link opens the whole list.
@@ -131,7 +130,6 @@ export default function Home() {
         base={tabsBase}
         allTo={allTo}
         category={filters.category}
-       
         jurisdiction={filters.jurisdiction ?? null}
         layoutId="home-cat-desk"
       />

@@ -390,7 +390,7 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   await page.getByRole("button", { name: /提交|发送/ }).click();
   await expect(page.getByRole("heading", { name: "收到了，谢谢你" })).toBeVisible();
   assert.notEqual(feedbackKeys[2], feedbackKeys[3], "an edited payload starts a new submission identity");
-  assert.ok(submitted.includes(origin + "/items/none?view=detail"), "the hidden origin still reaches the inbox");
+  assert.ok(submitted.includes(`${origin}/items/none?view=detail`), "the hidden origin still reaches the inbox");
   await context.close();
 });
 
