@@ -1,3 +1,4 @@
+import { groundTags, groundingText, tagGrounded } from "./tag-grounding.ts";
 import { isHistorical, newsMaterialBindings, type XPostData } from "../content/materials.ts";
 export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
 import { bilingualNames } from "../editorial/bilingual-names.ts";
@@ -250,6 +251,61 @@ export async function publishArticle(articleId: string, options: PublishOptions 
   return sql.begin((tx) => publishArticleTx(tx, articleId, options));
 }
 
+/**
+ * Removes, from one stored publication, the company and mineral tags and the searchable subjects its material does
+ * not name (TASK-0584). Only `publications.tags`, `publications.search_text` and `pool_search.direct` change: no
+ * publish runs, so selection, grouping, notifications and translation are untouched and nothing is queued (Codex
+ * review #380; PIT-112). Tags a person set stay. Returns what was removed (empty when nothing was).
+ */
+export async function regroundPublicationTags(articleId: string): Promise<string[]> {
+  return sql.begin(async (tx) => {
+    const [row] = await tx<
+      {
+        tags: string[];
+        search_text: string;
+        subjects: string[];
+        manual_tags: boolean;
+        title: string;
+        body_text: string | null;
+        excerpt: string | null;
+        language: string | null;
+        x_post: XPostData | null;
+        x_article: { title?: string; text?: string } | null;
+        source_name: string;
+      }[]
+    >`SELECT p.tags, p.search_text, coalesce(an.subjects, '{}') AS subjects,
+        coalesce(jsonb_typeof(eo.fields->'tags')='array', false) AS manual_tags,
+        a.title, a.body_text, a.excerpt, a.language, a.x_post, a.x_article, s.name AS source_name
+      FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=a.source_id
+      LEFT JOIN analyses an ON an.id=p.analysis_id LEFT JOIN editorial_overrides eo ON eo.article_id=p.article_id
+      WHERE p.article_id=${articleId} AND p.channel='news' FOR UPDATE OF p`;
+    if (!row) return [];
+    const text = groundingText([
+      row.title,
+      row.body_text,
+      row.excerpt,
+      row.x_post?.text,
+      row.x_post?.quoted?.text,
+      row.x_article?.title,
+      row.x_article?.text,
+      row.source_name,
+    ]);
+    const removedTags = row.manual_tags ? [] : row.tags.filter((tag) => !tagGrounded(tag, text, row.language));
+    const removedSubjects = row.subjects.filter((id) => !tagGrounded(`entity:${id}`, text, row.language)).map((id) => id.toLowerCase());
+    // The search text is the space-joined title, summary, source name, display tags and subjects (see publish): drop
+    // exactly the words the removed tags and subjects contributed.
+    const dropWords = new Set([...displayTags(removedTags).map((tag) => tag.toLowerCase()), ...removedSubjects]);
+    const words = row.search_text.split(" ");
+    const kept = words.filter((word) => !dropWords.has(word));
+    if (!removedTags.length && kept.length === words.length) return [];
+    const tags = row.tags.filter((tag) => !removedTags.includes(tag));
+    const searchText = kept.join(" ");
+    await tx`UPDATE publications SET tags=${tags}, search_text=${searchText}, updated_at=now() WHERE article_id=${articleId}`;
+    await tx`UPDATE pool_search SET direct=${searchText} WHERE article_id=${articleId} AND direct IS DISTINCT FROM ${searchText}`;
+    return [...removedTags, ...removedSubjects.filter((id) => words.includes(id)).map((id) => `entity:${id}`)];
+  });
+}
+
 /** Grouping reads the effective nomination only when it belongs to the same saved analysis. */
 export async function groupingSelectionCandidate(articleId: string, analysisId: number, db: Db = sql) {
   const [row] = await db<{ selection_candidate: boolean }[]>`SELECT selection_candidate FROM publications
@@ -395,9 +451,26 @@ export async function publishArticleTx(
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
   // Tags set by hand stay as they are; analysed ones lead with the published category's current name, so names
   // retired by a rename (TASK-0041) or the re-cut (ADR-0031) never outlive their category.
+  // A company or mineral the analysis tagged must be named in the material itself (TASK-0584); hand-set tags stay.
+  const grounding = groundingText([
+    article.title,
+    article.body_text,
+    article.excerpt,
+    article.x_post?.text,
+    article.x_post?.quoted?.text,
+    article.x_article?.title,
+    article.x_article?.text,
+    source.name,
+  ]);
+  // The subjects the material names; the search text below uses the same list (Codex review #380).
+  const subjects = (analysis?.subjects ?? []).filter((s) => tagGrounded(`entity:${s}`, grounding, article.language));
   const tags = z
     .array(z.string())
-    .parse(Array.isArray(f.tags) ? f.tags : categoryLedTags(category, [...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
+    .parse(
+      Array.isArray(f.tags)
+        ? f.tags
+        : groundTags(categoryLedTags(category, [...(analysis?.tags ?? []), ...subjects.map((s) => `entity:${s}`)]), grounding, article.language),
+    );
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
   const recomputed = analysis && typeof f.selected !== "boolean" ? recomputeSelection(analysis, source.tier, article.timeline_at, now, previous) : null;
@@ -535,7 +608,7 @@ export async function publishArticleTx(
     seoExcludedAt: previous?.seo_excluded_at ?? null,
   });
   const searchText = collapseWhitespace(
-    [title, originalTitle, displaySummary, source.name, ...displayTags(tags), ...(analysis?.subjects ?? [])].filter(Boolean).join(" "),
+    [title, originalTitle, displaySummary, source.name, ...displayTags(tags), ...subjects].filter(Boolean).join(" "),
   ).toLowerCase();
 
   // Independent selected articles retain their arrival and never date the ordinary reading group.
@@ -921,6 +994,58 @@ export async function retiredCategoryPublications(keys: readonly string[], names
     ORDER BY article_id`;
   const [total] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM publications WHERE visibility='public' AND eligible AND channel='news'`;
   return { articleIds: rows.map((r) => r.article_id), publicNews: total?.n ?? 0 };
+}
+
+/**
+ * News publications whose stored tags name a company or mineral the material does not (TASK-0584), a page at a time
+ * after `afterId`. Republishing them applies the grounding; tags a person set are kept by publishArticle itself.
+ */
+export async function ungroundedTagPublications(afterId: string | null, limit: number) {
+  const rows = await sql<
+    {
+      article_id: string;
+      tags: string[];
+      manual_tags: boolean;
+      search_text: string;
+      subjects: string[];
+      title: string;
+      body_text: string | null;
+      excerpt: string | null;
+      language: string | null;
+      x_post: XPostData | null;
+      x_article: { title?: string; text?: string } | null;
+      source_name: string;
+    }[]
+  >`SELECT p.article_id, p.tags, p.search_text, coalesce(an.subjects, '{}') AS subjects,
+      coalesce(jsonb_typeof(eo.fields->'tags')='array', false) AS manual_tags, a.title, a.body_text, a.excerpt, a.language, a.x_post,
+      a.x_article, s.name AS source_name
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=a.source_id LEFT JOIN analyses an ON an.id=p.analysis_id
+    LEFT JOIN editorial_overrides eo ON eo.article_id=p.article_id
+    WHERE p.channel='news' AND (${afterId}::text IS NULL OR p.article_id > ${afterId}::text)
+    ORDER BY p.article_id LIMIT ${limit}`;
+  return rows.map((row) => {
+    const text = groundingText([
+      row.title,
+      row.body_text,
+      row.excerpt,
+      row.x_post?.text,
+      row.x_post?.quoted?.text,
+      row.x_article?.title,
+      row.x_article?.text,
+      row.source_name,
+    ]);
+    // Stored tags, and analysed subjects still written into the search text (Codex review #380); after a republish
+    // neither remains, so a second run finds nothing.
+    const inSearch = row.subjects.filter((id) => row.search_text.split(/\s+/).includes(id.toLowerCase())).map((id) => `entity:${id}`);
+    // Tags a person set are kept by publish, so they are never a removal (Codex review #380).
+    const candidates = [...new Set([...(row.manual_tags ? [] : row.tags), ...inSearch])];
+    return {
+      articleId: row.article_id,
+      title: row.title,
+      language: row.language,
+      dropped: candidates.filter((tag) => !tagGrounded(tag, text, row.language)),
+    };
+  });
 }
 
 /** Report corrections preserve the issue's references while resolving their current public facts. */

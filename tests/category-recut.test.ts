@@ -25,7 +25,8 @@ import { publishArticle } from "@amp/backend/publication/publish";
 
 const T = tag();
 const SOURCE = `test-category-recut-${T}`;
-const BODY = "合成的矿业稿件正文，用于检验分类重切以后，旧分类的稿件在网站上显示新分类，内容足够长。".repeat(3);
+// The body names the metals the analyses tag: company and mineral tags must be in the material (TASK-0584).
+const BODY = "合成的矿业稿件正文，涉及铜矿、锂矿和金矿，用于检验分类重切以后，旧分类的稿件在网站上显示新分类，内容足够长。".repeat(3);
 
 let structureCalls = 0;
 const provider = await stub((_hit, req) => {
