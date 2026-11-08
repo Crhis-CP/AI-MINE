@@ -38,7 +38,8 @@ try {
     scanned += page.length;
     for (const row of page) {
       if (audit) {
-        const after = row.filterOnly.filter((label) => !row.dropped.some((tag) => tag === label));
+        // filterOnly is computed on what the clean-up leaves (Codex review #390): hits that remain after --apply.
+        const after = row.filterOnly;
         if (after.length) {
           filterAffected += 1;
           for (const label of after) filterCounts.set(label, (filterCounts.get(label) ?? 0) + 1);
@@ -56,7 +57,7 @@ try {
   for (const [tag, n] of [...counts].sort((a, b) => b[1] - a[1])) console.log(`${String(n).padStart(6)}  ${tag}`);
   if (examples.length) console.log(`examples:\n  ${examples.join("\n  ")}`);
   if (audit) {
-    console.log(`filters still showing an unnamed company or mineral (other than the tags above): ${filterAffected} of ${scanned}`);
+    console.log(`filters that would still show an unnamed company or mineral after the clean-up: ${filterAffected} of ${scanned}`);
     for (const [label, n] of [...filterCounts].sort((a, b) => b[1] - a[1])) console.log(`${String(n).padStart(6)}  ${label}`);
     if (filterExamples.length) console.log(`examples:\n  ${filterExamples.join("\n  ")}`);
   }

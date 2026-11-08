@@ -2,6 +2,7 @@
 // 智利 Chuquicamata 铜矿》 under 紫金矿业 although its original never names Zijin.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { regroundedProjection } from "../packages/backend/src/publication/publish.ts";
 import { groundTags, groundingText, tagGrounded, ungroundedFilterHits } from "../packages/backend/src/publication/tag-grounding.ts";
 
 const gates = groundingText([
@@ -80,4 +81,17 @@ test("dry-run review 2026-11-08: trade words and single-commodity companies keep
   assert.equal(tagGrounded("铜", "Universidad de Atacama lanza doctorado en minería sostenible", "es"), false);
   assert.equal(tagGrounded("金", "Barrick names a new chief financial officer", "en"), true);
   assert.equal(tagGrounded("锂", "Barrick names a new chief financial officer", "en"), false);
+});
+
+test("the audit checks what the filters still show after the clean-up, not the removals subtracted (Codex review #390)", () => {
+  // The original names copper only; the stored tags add lithium and the AI summary says 锂价上涨. The clean-up removes
+  // the 锂 tag and its own search word, but the summary's 锂价上涨 stays, so the lithium filter still shows the item.
+  const text = "Codelco eleva su producción de cobre";
+  const row = { tags: ["铜", "锂"], search_text: "智利 铜 产量 锂价上涨 锂", subjects: [], manual_tags: false, language: "es" };
+  const after = regroundedProjection(row, text);
+  assert.deepEqual(after.tags, ["铜"]);
+  assert.equal(after.searchText, "智利 铜 产量 锂价上涨");
+  assert.deepEqual(ungroundedFilterHits(after.searchText, after.tags, text, "es"), ["锂"]);
+  const clean = regroundedProjection({ ...row, search_text: "智利 铜 产量 锂" }, text);
+  assert.deepEqual(ungroundedFilterHits(clean.searchText, clean.tags, text, "es"), [], "nothing left once the tag word was the only mention");
 });

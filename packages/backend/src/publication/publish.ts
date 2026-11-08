@@ -257,6 +257,25 @@ export async function publishArticle(articleId: string, options: PublishOptions 
  * publish runs, so selection, grouping, notifications and translation are untouched and nothing is queued (Codex
  * review #380; PIT-112). Tags a person set stay. Returns what was removed (empty when nothing was).
  */
+/**
+ * The tags and search text an item keeps once ungrounded company and mineral tags (and analysed subjects) are taken
+ * out — what regroundPublicationTags writes, computed without writing, so the audit can check what the filters would
+ * still show afterwards (Codex review #390).
+ */
+export function regroundedProjection(
+  row: { tags: string[]; search_text: string; subjects: string[]; manual_tags: boolean; language: string | null },
+  text: string,
+) {
+  const removedTags = row.manual_tags ? [] : row.tags.filter((tag) => !tagGrounded(tag, text, row.language));
+  const removedSubjects = row.subjects.filter((id) => !tagGrounded(`entity:${id}`, text, row.language)).map((id) => id.toLowerCase());
+  // The search text is the space-joined title, summary, source name, display tags and subjects (see publish): drop
+  // exactly the words the removed tags and subjects contributed.
+  const dropWords = new Set([...displayTags(removedTags).map((tag) => tag.toLowerCase()), ...removedSubjects]);
+  const words = row.search_text.split(" ");
+  const kept = words.filter((word) => !dropWords.has(word));
+  return { tags: row.tags.filter((tag) => !removedTags.includes(tag)), searchText: kept.join(" "), removedTags, removedSubjects, words, kept };
+}
+
 export async function regroundPublicationTags(articleId: string): Promise<string[]> {
   return sql.begin(async (tx) => {
     const [row] = await tx<
@@ -290,16 +309,8 @@ export async function regroundPublicationTags(articleId: string): Promise<string
       row.x_article?.text,
       row.source_name,
     ]);
-    const removedTags = row.manual_tags ? [] : row.tags.filter((tag) => !tagGrounded(tag, text, row.language));
-    const removedSubjects = row.subjects.filter((id) => !tagGrounded(`entity:${id}`, text, row.language)).map((id) => id.toLowerCase());
-    // The search text is the space-joined title, summary, source name, display tags and subjects (see publish): drop
-    // exactly the words the removed tags and subjects contributed.
-    const dropWords = new Set([...displayTags(removedTags).map((tag) => tag.toLowerCase()), ...removedSubjects]);
-    const words = row.search_text.split(" ");
-    const kept = words.filter((word) => !dropWords.has(word));
+    const { tags, searchText, removedTags, removedSubjects, words, kept } = regroundedProjection(row, text);
     if (!removedTags.length && kept.length === words.length) return [];
-    const tags = row.tags.filter((tag) => !removedTags.includes(tag));
-    const searchText = kept.join(" ");
     await tx`UPDATE publications SET tags=${tags}, search_text=${searchText}, updated_at=now() WHERE article_id=${articleId}`;
     await tx`UPDATE pool_search SET direct=${searchText} WHERE article_id=${articleId} AND direct IS DISTINCT FROM ${searchText}`;
     return [...removedTags, ...removedSubjects.filter((id) => words.includes(id)).map((id) => `entity:${id}`)];
@@ -1044,8 +1055,12 @@ export async function ungroundedTagPublications(afterId: string | null, limit: n
       title: row.title,
       language: row.language,
       dropped: candidates.filter((tag) => !tagGrounded(tag, text, row.language)),
-      // Filters that still show the item for a company or mineral the material never names (TASK-0589).
-      filterOnly: ungroundedFilterHits(row.search_text, row.manual_tags ? [] : row.tags, text, row.language),
+      // Filters that would still show the item for a company or mineral the material never names once the clean-up
+      // has run: checked on the projection the clean-up leaves, not by subtracting its removals (Codex review #390).
+      filterOnly: (() => {
+        const after = regroundedProjection(row, text);
+        return ungroundedFilterHits(after.searchText, row.manual_tags ? [] : after.tags, text, row.language);
+      })(),
     };
   });
 }
