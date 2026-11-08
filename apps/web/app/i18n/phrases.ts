@@ -21,6 +21,7 @@ export const PHRASES = {
   "有 {count} 条内容已撤回，已从列表移除": "{count} withdrawn items were removed from this list",
   有新的矿业动态: "New mining news",
   加载最新: "Load latest",
+  "↑ 有新资讯": "↑ New stories",
   阅读内容: "Reading content",
   目录: "Contents",
   生效日期: "Effective date",
