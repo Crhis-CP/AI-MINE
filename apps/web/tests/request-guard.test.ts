@@ -14,10 +14,12 @@ import {
   clientAddress,
   clientHeaderName,
   guardLimits,
+  ObserveTally,
   OriginTally,
   originEnforced,
   originSecret,
   RateLimiter,
+  rateLimitObserved,
   securityHeaders,
 } from "../request-guard.ts";
 
@@ -142,6 +144,19 @@ test("the CDN's secret: long enough, a plain header name, enforcement only with 
   tally.count(request("127.0.0.1"), "eo-connecting-ip", secret, false);
   assert.deepEqual(tally.take(), { with_secret: 1, with_client_header: 1, outside_without_secret: 1 });
   assert.deepEqual(tally.take(), { with_secret: 0, with_client_header: 0, outside_without_secret: 0 });
+});
+
+test("observe mode counts what would be refused, per bucket and visitor, and never says who (Owner 2026-11-08)", () => {
+  assert.equal(rateLimitObserved({ RATE_LIMIT_OBSERVE: "on" }), true);
+  assert.equal(rateLimitObserved({}), false);
+  const tally = new ObserveTally();
+  tally.record("203.0.113.1", "page");
+  tally.record("203.0.113.1", "page");
+  tally.record("203.0.113.2", "api");
+  const out = tally.take();
+  assert.deepEqual(out, { would_refuse_page: 2, would_refuse_api: 1, would_refuse_write: 0, visitors: 2 });
+  assert.ok(!JSON.stringify(out).includes("203.0.113"), "no address is reported");
+  assert.deepEqual(tally.take(), { would_refuse_page: 0, would_refuse_api: 0, would_refuse_write: 0, visitors: 0 });
 });
 
 test("HSTS only for an https site, without forcing other hosts under the domain", () => {

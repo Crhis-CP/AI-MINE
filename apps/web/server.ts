@@ -17,10 +17,12 @@ import {
   clientHeaderName,
   guardLimits,
   MAX_URL_LENGTH,
+  ObserveTally,
   OriginTally,
   originEnforced,
   originSecret,
   RateLimiter,
+  rateLimitObserved,
   refuse,
   securityHeaders,
 } from "./request-guard.ts";
@@ -39,6 +41,9 @@ const TRUST_PROXY = process.env.TRUST_PROXY === "true";
 /** Per-visitor request limits and the headers every response carries (TASK-0583). */
 const LIMITS = guardLimits();
 const limiter = LIMITS ? new RateLimiter(LIMITS) : null;
+/** Observe mode (RATE_LIMIT_OBSERVE=on): count, log hourly, refuse nothing (Owner 2026-11-08). */
+const OBSERVE = limiter && rateLimitObserved() ? new ObserveTally() : null;
+if (OBSERVE) setInterval(() => console.log(JSON.stringify({ level: "info", msg: "rate limit observe", window: "1h", ...OBSERVE.take() })), 3_600_000).unref();
 /** The client-address header a CDN in front sets (CLIENT_IP_HEADER); also what the api's own per-visitor limits see. */
 const CLIENT_HEADER = clientHeaderName();
 /** The secret the CDN adds when it fetches from us (TASK-0586): the client-address header is believed only with it. */
@@ -214,7 +219,10 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
     const bucket = bucketFor(req.method, pathname, isApiOwned(pathname), buildAsset(pathname));
     if (bucket && visitor.distinct) {
       const taken = limiter.take(visitor.address, bucket);
-      if (!taken.ok) return refuse(res, 429, taken.retryAfter);
+      if (!taken.ok) {
+        if (!OBSERVE) return refuse(res, 429, taken.retryAfter);
+        OBSERVE.record(visitor.address, bucket);
+      }
     } else if (bucket && !sharedAddressWarned) {
       // A private address is the server's own (or, behind a proxy that is not trusted, the proxy shared by every
       // visitor). Say once that requests go unlimited, so a production setup without TRUST_PROXY=true is noticed.

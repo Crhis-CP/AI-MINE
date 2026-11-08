@@ -54,6 +54,38 @@ export function guardLimits(env: Environment = process.env): GuardLimits | null 
   };
 }
 
+/**
+ * RATE_LIMIT_OBSERVE=on: count against the limits but refuse nothing, logging hourly how many requests would have
+ * been refused and from how many visitors (never which). Owner 2026-11-08: confirm that limiting never stops a
+ * normal reader before it is switched on; readers behind one shared address (an office, a mobile carrier) are the
+ * case to watch.
+ */
+export function rateLimitObserved(env: Environment = process.env): boolean {
+  return env.RATE_LIMIT_OBSERVE === "on";
+}
+
+/** Requests that would have been refused in observe mode, per bucket, and the distinct visitors behind them. */
+export class ObserveTally {
+  private readonly refused: Record<Bucket, number> = { page: 0, api: 0, write: 0 };
+  private readonly visitors = new Set<string>();
+  record(address: string, bucket: Bucket) {
+    this.refused[bucket] += 1;
+    if (this.visitors.size < MAX_TRACKED) this.visitors.add(address);
+  }
+  /** The counts so far (addresses are counted, never returned), then zero. */
+  take() {
+    const out = {
+      would_refuse_page: this.refused.page,
+      would_refuse_api: this.refused.api,
+      would_refuse_write: this.refused.write,
+      visitors: this.visitors.size,
+    };
+    this.refused.page = this.refused.api = this.refused.write = 0;
+    this.visitors.clear();
+    return out;
+  }
+}
+
 /** The secret request header the CDN adds when it fetches from this site (TASK-0586). */
 export interface OriginSecret {
   header: string;

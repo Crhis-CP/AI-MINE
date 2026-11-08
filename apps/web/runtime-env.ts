@@ -53,6 +53,7 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "RATE_LIMIT_PAGE",
     "RATE_LIMIT_API",
     "RATE_LIMIT_WRITE",
+    "RATE_LIMIT_OBSERVE",
     "CLIENT_IP_HEADER",
     // The secret header the CDN adds when it fetches from us (TASK-0586).
     "ORIGIN_SECRET",
