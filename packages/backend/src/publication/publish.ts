@@ -1008,6 +1008,16 @@ export async function retiredCategoryPublications(keys: readonly string[], names
 }
 
 /**
+ * Of these articles, the ones readers can see now (TASK-0598 backfill count: model copy once written from a few
+ * characters; if a read again still finds under 20 characters, the next analysis waits and this withdraws them).
+ */
+export async function publicArticleIds(ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await sql<{ article_id: string }[]>`SELECT article_id FROM publications WHERE article_id=ANY(${ids}::text[]) AND visibility='public'`;
+  return new Set(rows.map((r) => r.article_id));
+}
+
+/**
  * News publications whose stored tags name a company or mineral the material does not (TASK-0584), a page at a time
  * after `afterId`. Republishing them applies the grounding; tags a person set are kept by publishArticle itself.
  */

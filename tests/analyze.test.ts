@@ -710,14 +710,20 @@ test("material a hot_signal source never had judged stays out once the source be
   assert.equal(provider.hits(), hits, "nothing was judged or paid for");
 });
 
-test("empty and punctuation-only source text cannot be replaced by high-score model writing", async () => {
-  for (const [i, text] of [null, " \n\t", "。！？……", "产能10万吨"].entries()) {
+test("empty, punctuation-only and under-20-character source text cannot be replaced by high-score model writing", async () => {
+  // Under 20 characters as the writer reads it is a title-only card: it waits for material (Owner 2026-11-08, TASK-0598).
+  const texts = [null, " \n\t", "。！？……", "产能10万吨", "产能10万吨，铜矿建设公告已获批准并开工建设"];
+  for (const [i, text] of texts.entries()) {
+    const usable = i === 4;
     const id = await article(`empty-${i}`, { title: `EMPTYCASE 铜矿建设公告 ${T}-${i}`, bodyText: text, excerpt: null, language: "zh", bodyStatus: "none" });
+    const before = calls("EMPTYCASE").length;
     const analyzed = await analyzeArticle(id);
-    assert.equal(analyzed!.output!.score, i === 3 ? 80 : null, "no paid score without usable evidence");
-    assert.equal(!!analyzed!.output!.summaryZh, i === 3, "no generated copy without usable evidence");
+    assert.equal(analyzed!.output!.score, usable ? 80 : null, "no paid score without usable evidence");
+    assert.equal(!!analyzed!.output!.summaryZh, usable, "no generated copy without usable evidence");
+    assert.equal(!!analyzed!.awaitingBody, !usable, "the content job reads the body again");
+    if (!usable) assert.deepEqual([analyzed!.receiptIds, calls("EMPTYCASE").length], [[], before], "no model request");
     await publishArticle(id);
-    assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, i === 3 ? 200 : 404);
+    assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, usable ? 200 : 404);
   }
 });
 

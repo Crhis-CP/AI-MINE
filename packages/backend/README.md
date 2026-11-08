@@ -500,6 +500,12 @@ editorial/analyze的AnalysisRun允许prefilter=null，表示未进行预筛，�
 
 当前文章材料只有标题、正文/摘要均不可用时，runAnalysis和analyzeArticle在预筛前等待，保存无模型/回执的unknown结果；正常材料修订后沿原队列续接。页面抓正文、有效预筛后的中文原文提前公开、权限/暂停及修订围栏保持。评测同样先等材料，记为未判定/等待，不计入正确拒选或准确率。原帖路径由下述TASK0493/0495—0498消费者接通；真实固定样本比较仍待完成，不能以本片回归宣称整个模型迁移完成。
 
+### 只有标题的资讯：重读正文，读不到不上（TASK-0598）
+
+Owner 2026-11-08（DEC-78补充·只抓到标题的资讯）：文章（不含原帖）的材料按写作步骤的口径（有字母或数字的正文，否则摘要，去掉首尾空白）不到 20 字时，`awaitsMaterial` 在预筛前等待，与“一个字都没有”同样零调用（`lib/original-post-admission.ts` 的 `articleMaterialTooShort`）。`processArticle` 随后交给 `jobs/body-reread.ts` 的 `settleShortBody`：稿件留在 `analyzed`，`processing_error` 记“body_retry: 正文不足 20 字，等待第 n 次重读”，`processing_retry_at` 为 30 分钟、3 小时、12 小时后；`sweepUnprocessed` 的 `resumeBodyRereads` 每 5 分钟最多取 50 条到期稿件，核对信源仍是资讯编辑来源、页面可抓、权限允许（fetch、store_metadata、process_locally、store_fulltext），记 `content.body-reread` 审计后按低优先级排入普通正文抽取（站点限速与 robots 照常）。第 3 次重读后仍不足 20 字，稿件转 `failed`，原因“body_unreadable: 正文读取失败（重读 3 次）｜信源：名称”；页面不能重读或权限不允许的立即以对应原因失败；信源暂停的顺延 1 小时。运行页“处理失败”按原因归类，原因带信源名，因此按信源列出；在内容诊断页重新抽取会开始新的一轮（计数从上一次 `content.body-unreadable` 之后算）。读取配置变化时的自动续接（`resumeMaterialWaits`）对 1–19 字的等待同样适用。
+
+一次性补读：`node scripts/body-reread-backfill.ts` 默认预演，按信源列出 `analyzed` 且不足 20 字的资讯条数、读者当前可见的条数，以及重读后需要付费分析的估算（每条 1–7 次模型请求：预筛 1，评分最多 2，结构化 1，写作最多 2，措辞修正最多 1；归组与精选全文翻译另计；“预计能读到”按信源近 14 天是否有读到正文的稿件判断）。`--apply --limit N` 最多为 N 条记 `content.body-backfill` 审计并把下一次重读设为现在（模型高峰时段则为下一个非高峰起点）；这些稿件读到正文后的分析排在实时内容之后，并在非高峰时段进行（`queueProcessing` 的 `offPeak` 与 `historicalAnalysisWait`）。人工下架或修订的稿件不处理；重复执行只处理剩下的候选。
+
 ### 固定样本只读清单（TASK-0475）
 
 admin/selectbench入口复用selectionDatasetManifest，供内部比较器读取未标注样本：label为null，保留样本/材料修订、输入哈希、整组version及current失效标记，不写标签或调用模型。返回的原输入不能直接送外部模型；消费者仍须通过prepareEvaluationInput重核材料和许可。端口没有HTTP路由，不改变gold导出或评分确认；无参考答案的比较不得宣称准确率。

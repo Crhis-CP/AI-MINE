@@ -79,7 +79,7 @@ import {
   type AnalysisStep,
 } from "./analysis-layout.ts";
 import { stableJson } from "../lib/ids.ts";
-import { LEGACY_SUMMARY_MIN_CHARS, originalPostInputBlocked, verbatimAdmissionRequired } from "../lib/original-post-admission.ts";
+import { articleMaterialTooShort, LEGACY_SUMMARY_MIN_CHARS, originalPostInputBlocked, verbatimAdmissionRequired } from "../lib/original-post-admission.ts";
 
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 
@@ -359,7 +359,15 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return !a.xPost && a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
 
-export const awaitsMaterial = (a: AnalyzeInputArticle) => originalPostInputBlocked(a.xPost) || (missingEvidence(a) && !originalPostCopy(a.xPost, a.url));
+/**
+ * Waits for material before any paid step: a blocked post, nothing but a title, or an article (not a post) with fewer
+ * characters than the writer needs (Owner 2026-11-08, TASK-0598: 重新抓正文，抓不到就不上). The content job reads such
+ * an article's body again on a schedule and, if it stays short, marks it failed (jobs/body-reread.ts).
+ */
+export const awaitsMaterial = (a: AnalyzeInputArticle) =>
+  originalPostInputBlocked(a.xPost) ||
+  (missingEvidence(a) && !originalPostCopy(a.xPost, a.url)) ||
+  (!a.xPost && articleMaterialTooShort(a.bodyText, a.excerpt));
 
 type StepOpts = {
   expectedRevision?: number;
@@ -914,6 +922,8 @@ export interface AnalyzeResult {
   stale: boolean;
   /** The article page is to be fetched first; nothing was committed. */
   needsBody?: boolean;
+  /** An article (not a post) committed as waiting for material: under 20 characters, nothing paid. */
+  awaitingBody?: boolean;
   output: ReturnType<typeof normalizeAnalysis> | null;
   receiptIds: number[];
   reused: boolean;
@@ -1062,7 +1072,8 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       },
     );
     const reused = (run.prefilter?.reused ?? true) && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
-    return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };
+    const awaitingBody = !input.xPost && !run.prefilter && awaitsMaterial(input);
+    return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused, ...(awaitingBody ? { awaitingBody } : {}) };
   } catch (error) {
     if (!(error instanceof ModelPostReceiptGuardError)) throw error;
     const current = await loadAnalyzeInput(articleId);
