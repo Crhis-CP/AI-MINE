@@ -270,6 +270,31 @@ test("the reader wording check names technical words and lets reader sentences t
   assert.match(readerWordingProblem(["按内容实际涉及地区筛选，背景提及仍可通过全文搜索查找"]) ?? "", /背景提及/);
   assert.match(readerWordingProblem(["列表可用 j / k 键上下切换"]) ?? "", /j \/ k/);
   assert.equal(readerWordingProblem(["首页新增资讯地图，点一个国家就只看这个国家的资讯。"]), null);
+  // Owner 2026-11-07 on the security note: “不要说这些东西……所有网站只走什么什么……还是有些技术用语”.
+  for (const [line, word] of [
+    ["所有页面只走 HTTPS，不允许被其他网站嵌入。", "HTTPS"],
+    ["异常超长的网址和发送过慢的连接会被直接拒绝。", "连接"],
+    ["服务器负担更小，页面打开更快。", "服务器"],
+    ["缓存命中率更高。", "缓存"],
+  ] as const)
+    assert.match(readerWordingProblem([line]) ?? "", new RegExp(word), line);
+  for (const line of ["AI 导读下面就是正文。", "RSS 与公开 API 支持按国家查找资讯。", "网站安全防护更强了"])
+    assert.equal(readerWordingProblem([line]), null, line);
+});
+
+test("the 2026-11-08 security note is shown in reader words", () => {
+  const read = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
+  const edits: ChangelogCopyEdit[] = read("changelog-copy-edits.json");
+  const registered = {
+    kind: "优化" as const,
+    date: "2026-11-08",
+    time: "06:41",
+    title: "网站加了一层安全防护",
+    body: ["所有页面只走 HTTPS，不允许被其他网站嵌入；异常超长的网址和发送过慢的连接会被直接拒绝。"],
+  };
+  const [shown] = readerChangelogCopy({ latestVersion: "2026-11-08T06:41", releases: [registered] }, edits).releases;
+  assert.equal(shown?.title, "网站安全防护更强了");
+  assert.equal(readerWordingProblem([shown!.title, ...shown!.body]), null);
 });
 
 test("the 2.0 notice keeps its five steps, so the changelog draws how news is collected, filtered and published", () => {
