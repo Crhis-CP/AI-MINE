@@ -13,12 +13,39 @@ export function liveList(section: string, search: string): boolean {
 }
 /** Within this many pixels of the top, arrivals are shown at once; further down they wait behind a small button. */
 export const LIVE_TOP = 240;
+/**
+ * What can arrive on a list: article cards (`data-item-id`) and, on the hot list, event cards. A hot card is the
+ * article or row its event link stretches over; its key is “story:<id>”, kept apart from the article IDs the
+ * withdrawal check asks about (Codex review #395).
+ */
+function arrivals(root: ParentNode, hot: boolean): Array<[string, HTMLElement]> {
+  const out: Array<[string, HTMLElement]> = [];
+  for (const node of root.querySelectorAll<HTMLElement>("[data-item-id]")) if (node.dataset.itemId) out.push([node.dataset.itemId, node]);
+  if (!hot) return out;
+  const cards = new Set<HTMLElement>();
+  for (const link of root.querySelectorAll<HTMLAnchorElement>('a[href*="/story/"]')) {
+    const id = /\/story\/([^/?#]+)/.exec(link.getAttribute("href") ?? "")?.[1];
+    const card = link.closest<HTMLElement>("article, li");
+    if (!id || !card || cards.has(card)) continue;
+    cards.add(card);
+    out.push([`story:${id}`, card]);
+  }
+  return out;
+}
+/** Whether the page is the hot list (/hot or /en/hot). */
+export const onHotList = (pathname: string) => /^(?:\/en)?\/hot\/?$/.test(pathname);
+const currentHot = () => typeof location !== "undefined" && onHotList(location.pathname);
+
+/** The cards on screen now, by arrival key; read before a reload so the new ones can be told apart. */
+export function arrivalKeys(root: ParentNode = document, hot = currentHot()): Set<string> {
+  return new Set(arrivals(root, hot).map(([key]) => key));
+}
+
 /** Marks the cards that were not on screen before, so they fade in; the mark goes once the animation ends. */
-export function markArrivals(before: ReadonlySet<string>, root: ParentNode = document) {
+export function markArrivals(before: ReadonlySet<string>, root: ParentNode = document, hot = currentHot()) {
   let count = 0;
-  for (const node of root.querySelectorAll<HTMLElement>("[data-item-id]")) {
-    const id = node.dataset.itemId;
-    if (!id || before.has(id)) continue;
+  for (const [id, node] of arrivals(root, hot)) {
+    if (before.has(id)) continue;
     count++;
     node.dataset.arrived = "";
     node.addEventListener("animationend", () => delete node.dataset.arrived, { once: true });

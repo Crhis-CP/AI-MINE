@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { useLocation, useNavigation, useNavigationType, useRevalidator } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { readSnapshot, restoreAnchor, saveSnapshot, type ListSnapshot } from "./restore";
-import { LIVE_TOP, liveList, markArrivals } from "./live";
+import { LIVE_TOP, arrivalKeys, liveList, markArrivals } from "./live";
 
 const ReaderItemScope = createContext<Set<string> | null>(null);
 /** Withdrawal refreshes can update/remove current cards; new arrivals wait for an explicit reload. */
@@ -270,7 +270,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     if (revealing.current) return;
     revealing.current = true;
     try {
-      const before = onScreen().ids;
+      const before = arrivalKeys();
       setAllowedIds(null);
       await ref.current.revalidate();
       if (pendingArrivals.current && seen.current) seen.current = { ...seen.current, arrivals: pendingArrivals.current };
