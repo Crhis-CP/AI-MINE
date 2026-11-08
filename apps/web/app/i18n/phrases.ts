@@ -801,7 +801,7 @@ export const PHRASES = {
   "本文为中文原文，英文界面不提供译本。": "This document is in Chinese; the English interface does not provide a translation.",
   "访问统计：本站自己统计访问量，不用 Cookie，不接第三方统计；把网络地址和浏览器信息做成当天（日活）和当月（月活）的匿名哈希，盐每天、每月更换并销毁，原始地址不保存；只保留按天、按月的汇总数字。":
     "Visit statistics: this site counts its own visits, with no cookies and no third-party analytics. Your network address and browser details are turned into an anonymous hash for the day (daily visitors) and for the month (monthly visitors); the salt changes every day and every month and is destroyed, and the original address is never stored. Only daily and monthly totals are kept.",
-  "AI-MINE — 全球矿业资讯、法规政策与金属价格": "AI-MINE — Global mining news, policy and metal prices",
+  "AI-MINE（AI矿策）— 全球矿业资讯、法规政策与金属价格": "AI-MINE (AI Mining Policy) — Global mining news, policy and metal prices",
   我的收藏: "Saved",
   政策脉络: "Policy thread",
   法规周报与月报: "Policy weekly and monthly summaries",
