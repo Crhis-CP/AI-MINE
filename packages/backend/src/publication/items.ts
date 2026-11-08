@@ -300,11 +300,16 @@ export async function currentNewsJurisdictionCounts(range?: { from: Date; to: Da
   let unknown = 0;
   for (const row of rows) {
     if (!row.state || row.state === "unknown" || row.state === "partial") unknown += 1;
-    const hit = new Set<string>();
-    for (const code of row.codes ?? []) for (const j of JURISDICTIONS) if (jurisdictionDescendants(j.id).includes(code)) hit.add(j.id);
-    for (const id of hit) counts[id] = (counts[id] ?? 0) + 1;
+    for (const id of jurisdictionHits(row.codes ?? [])) counts[id] = (counts[id] ?? 0) + 1;
   }
   return { counts, unknown };
+}
+
+/** The jurisdictions whose country filter shows an item with these evidenced codes (as currentGeographyMatch). */
+export function jurisdictionHits(codes: readonly string[]): string[] {
+  const hit = new Set<string>();
+  for (const code of codes) for (const j of JURISDICTIONS) if (jurisdictionDescendants(j.id).includes(code)) hit.add(j.id);
+  return [...hit];
 }
 
 /** Public evidence used by the event judge, bound to the caller's current material revisions. */

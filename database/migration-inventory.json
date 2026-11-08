@@ -543,6 +543,10 @@
     {
       "name": "platform/ops/202611071000_visit_stats.sql",
       "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
+    },
+    {
+      "name": "platform/ops/202611081000_reader_interest.sql",
+      "dependsOn": ["platform/ops/202611071000_visit_stats.sql"]
     }
   ]
 }

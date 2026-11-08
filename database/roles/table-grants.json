@@ -902,7 +902,8 @@
       "access": "business",
       "publicColumns": [],
       "permissions": {
-        "private_ops": ["SELECT", "INSERT", "UPDATE"]
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
       }
     },
     "ops.visit_referrers": {
@@ -929,6 +930,33 @@
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ops.reader_interest_days": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "DELETE"]
+      }
+    },
+    "ops.reader_interest_items": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "DELETE"]
+      }
+    },
+    "ops.reader_interest_facets": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "DELETE"]
       }
     },
     "acquisition.directory_scans": {

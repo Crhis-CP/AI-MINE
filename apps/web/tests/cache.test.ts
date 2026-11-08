@@ -1862,6 +1862,34 @@ const visitOverviewFixture = {
     { device: "phone", views: 200, visitor_days: 90 },
     { device: "desktop", views: 100, visitor_days: 40 },
   ],
+  interest: {
+    since: "2026-10-30",
+    week: {
+      days: 7,
+      item_views: 120,
+      classified_views: 110,
+      category: [{ key: "commodity_market", label: "合成市场分类", views: 60 }],
+      mineral: [{ key: "铜", label: "铜", views: 45 }],
+      company: [{ key: "zijin", label: "合成兴趣公司", views: 30 }],
+      country: [{ key: "AR", label: "阿根廷", views: 25 }],
+      page: [
+        { key: "/topics/copper", label: "铜", views: 12 },
+        { key: "/all", label: "/all", views: 9 },
+      ],
+      items: [{ article_id: "interest-fixture", title: "合成兴趣文章", category: "commodity_market", views: 40 }],
+    },
+    month: {
+      days: 9,
+      item_views: 150,
+      classified_views: 130,
+      category: [],
+      mineral: [],
+      company: [],
+      country: [],
+      page: [],
+      items: [{ article_id: "gone-fixture", title: null, category: null, views: 3 }],
+    },
+  },
 };
 
 test("访问概况 renders the overview contract with cards, charts and tables, privately", async () => {
@@ -1882,6 +1910,15 @@ test("访问概况 renders the overview contract with cards, charts and tables, 
       "baidu.com",
       "手机",
       "统计自 2026-10-29 起",
+      // TASK-0596: 读者兴趣记录 under the same page, last 7 days by default.
+      "读者兴趣记录",
+      "记录自 2026-10-30 起",
+      "合成市场分类",
+      "合成兴趣公司",
+      "阿根廷",
+      "专题 · 铜",
+      "全部矿业动态",
+      "合成兴趣文章",
     ])
       assert.ok(html.includes(text), text);
     assert.match(html, />129</);
