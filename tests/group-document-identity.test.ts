@@ -14,6 +14,8 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { consolidate, groupArticle, remergeSingleReportFacts } from "@amp/backend/events/group";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
+import { loadTimeline } from "@amp/backend/publication/timeline";
+import { itemFeed } from "@amp/backend/publication/feeds";
 
 /** Saturday noon UTC: off-peak, so the re-merge pass may call the judge. */
 const offPeak = new Date("2026-11-07T12:00:00Z");
@@ -293,4 +295,67 @@ test("near-identical story roots of one Beijing day merge without the second rev
   const [merged] = await sql<{ merged_into: number | null }[]>`SELECT merged_into FROM stories WHERE id = ${Math.max(s1, s2)}`;
   assert.equal(Number(merged!.merged_into), Math.min(s1, s2));
   mode = "content";
+});
+
+test("reports naming the same party and amount in different words are judged together, live and in the re-merge pass", async () => {
+  const at = new Date(Date.now() - 3600_000);
+  const party = `Tarn${Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("")}`;
+  const report = async (name: string, title: string) => article({ name, title, summary: `${randomText()}${randomText()}。`, publishedAt: at });
+  // Different wording, the same party and amount: too far apart for the similarity recall (TASK-0578).
+  mode = "apart";
+  const k1 = await report("戊媒体", `${party}批准1.44亿美元推进${randomText()}`);
+  const k2 = await report("己媒体", `${randomText()}：${party}拨款1.44亿美元用于${randomText()}`);
+  const other = await report("庚媒体", `${party}批准2.5亿美元推进${randomText()}`);
+  for (const id of [k1, k2, other]) assert.equal((await groupArticle(id)).verdict, "new-story");
+
+  mode = "same";
+  // The live judgement sees the key-fact match: a third wording joins the first fact.
+  const k3 = await report("辛媒体", `${randomText()}，${party}确认1.44亿美元${randomText()}`);
+  const live = await groupArticle(k3);
+  assert.equal(live.verdict, "same-fact");
+  assert.ok((await factOf(k1)).concat(await factOf(k2)).includes(live.factId!), "joined a fact with the same party and amount");
+
+  // The hourly pass judges the remaining single with the same party and amount; a different amount is never paired.
+  const result = await remergeSingleReportFacts({ now: offPeak });
+  const [f1] = await factOf(k1);
+  assert.deepEqual(await factOf(k2), [f1], "the paraphrased duplicate moved into the earlier fact");
+  assert.ok(!result.merged.some((m) => m.articleId === other), "a different amount stays apart");
+  assert.notDeepEqual(await factOf(other), [f1]);
+  mode = "content";
+});
+
+test("three selected reports of one fact are one 精选 entry; the per-article selected flag stays on each", async () => {
+  const at = new Date(Date.now() - 3600_000);
+  const party = `Resol${Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("")}`;
+  mode = "same";
+  const ids: string[] = [];
+  for (const [i, name] of ["壬媒体", "癸媒体", "子媒体"].entries()) {
+    const id = await article({ name, title: `力拓批准1.44亿美元投资推进${party}铜矿项目${"甲乙丙"[i]}`, summary: `${randomText()}。`, publishedAt: at });
+    assert.equal((await groupArticle(id)).verdict, i === 0 ? "new-story" : "same-fact");
+    ids.push(id);
+  }
+  mode = "content";
+  const rows = await sql<{ article_id: string; fact_id: number; selected: boolean; seat: boolean }[]>`
+    SELECT article_id, fact_id, selected, seat FROM publications WHERE article_id IN ${sql(ids)}`;
+  assert.equal(new Set(rows.map((r) => Number(r.fact_id))).size, 1, "all three in one fact");
+  // A raw "WHERE selected" query (Codex S3) lists all three: selected is per article by design; seat picks one.
+  assert.ok(rows.every((r) => r.selected));
+  assert.equal(rows.filter((r) => r.seat).length, 1);
+  const seat = rows.find((r) => r.seat)!.article_id;
+
+  const query = { readingGroups: "reports-v1" as const, scope: "selected" as const, channel: "all", category: null, tag: null, limit: 40 };
+  const ours = (cards: Array<{ item: { id: string }; group?: { memberIds?: string[] } | null }>) =>
+    cards.filter((c) => ids.includes(c.item.id) || c.group?.memberIds?.some((m) => ids.includes(m)));
+  const home = ours((await loadTimeline(query as never)).cards as never);
+  assert.equal(home.length, 1, "home 精选 shows the fact once");
+  assert.equal(home[0]!.item.id, seat, "the card is the representative");
+  assert.deepEqual([...(home[0]!.group?.memberIds ?? [])].sort(), [...ids].sort(), "the other reports are inside the event card");
+  const legacy = ours((await loadTimeline({ ...query, readingGroups: undefined } as never)).cards as never);
+  assert.equal(legacy.length, 1, "the ungrouped timeline folds by fact too");
+  const rss = [...(await itemFeed("selected", null)).matchAll(/<amp:content-id>([^<]+)<\/amp:content-id>/g)].map((m) => m[1]);
+  assert.deepEqual(
+    rss.filter((id) => ids.includes(id!)),
+    [seat],
+    "the 精选 feed carries only the seat",
+  );
 });

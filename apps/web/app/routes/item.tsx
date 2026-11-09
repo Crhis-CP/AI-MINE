@@ -22,7 +22,7 @@ import { ScoreLabel } from "../components/ui/Score.tsx";
 import { PillTabs } from "../components/ui/Tabs";
 import { ArticleLayout, RailSection } from "../components/ui/Page";
 import { Menu, MenuItem } from "../components/ui/Menu.tsx";
-import { StarButton, Attribution } from "../features/feed/parts";
+import { StarButton, Attribution, soleCredit } from "../features/feed/parts";
 import { GroupSources } from "../features/feed/ReadingGroup";
 import { RelatedCoverage } from "../features/item/RelatedCoverage";
 import { feedbackPath } from "../lib/feedback-origin";
@@ -296,7 +296,19 @@ export default function ItemPage() {
   // under the facts (or under the notes when only the right rail shows).
   const facts = (
     <RailSection title={tr("来源")}>
-      <div className="text-[15px] font-semibold leading-snug text-ink">{item.source.name}</div>
+      {/* The wide-screen rail is where ≥2xl readers find the source: its name opens the original, as in the top line. */}
+      {soleCredit(item) ? (
+        <a
+          href={soleCredit(item)!.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-[15px] font-semibold leading-snug text-ink hover:text-accent hover:underline"
+        >
+          {item.source.name}
+        </a>
+      ) : (
+        <div className="text-[15px] font-semibold leading-snug text-ink">{item.source.name}</div>
+      )}
       <div className="mt-1 text-[13.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
       <div className="mt-3 text-[13px] text-ink-4">
         {sourceDate?.label ?? tr("发布时间")}
@@ -411,7 +423,13 @@ export default function ItemPage() {
         <article className="pb-6 pt-6 lg:pt-2 2xl:pt-1">
           {item.manualRevisionLabel && <p className="mb-3 text-[13px] text-ink-3">{item.manualRevisionLabel}</p>}
           <div className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] text-ink-3 2xl:hidden">
-            <span className="font-semibold text-ink-2">{item.source.name}</span>
+            {soleCredit(item) ? (
+              <a href={soleCredit(item)!.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink-2 hover:text-accent hover:underline">
+                {item.source.name}
+              </a>
+            ) : (
+              <span className="font-semibold text-ink-2">{item.source.name}</span>
+            )}
             {item.author && <span>· {item.author}</span>}
             <span>·</span>
             {sourceDate && publishedAttr ? (
@@ -453,7 +471,7 @@ export default function ItemPage() {
           <p className="mt-2 text-[13px] text-ink-4">
             {tr("本站公开")} {item.firstPublicAt ? <time dateTime={item.firstPublicAt}>{fullDateTime(item.firstPublicAt)}</time> : tr("时间未记录")}
           </p>
-          <Attribution value={item.attribution} />
+          <Attribution value={item.attribution} publishers={!soleCredit(item)} />
           {copy.summary && (
             <section className="mt-7 xl:mt-8">
               <div className="mb-2 text-[13px] font-semibold text-accent">{summaryOnly ? tr("摘要") : tr("AI 导读")}</div>
@@ -540,7 +558,7 @@ export default function ItemPage() {
             <span> · {hostOf(item.links.original)}</span>
           </p>
 
-          <Attribution value={item.attribution} full />
+          <Attribution value={item.attribution} full publishers={!soleCredit(item)} />
           <p className="mt-3 text-[13px] leading-relaxed text-ink-4">
             {tr("原始来源可追溯；中文内容由 AI 辅助生成或翻译")}
             {item.manualRevisionLabel ? tr("，并经人工修订") : ""}

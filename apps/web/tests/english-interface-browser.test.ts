@@ -290,6 +290,8 @@ before(async () => {
       TRUST_PROXY: "false",
       API_BASE_URL: base,
       PRIVATE_API_BASE_URL: base,
+      GOOGLE_SITE_VERIFICATION: "google-code_123",
+      BAIDU_SITE_VERIFICATION: "codeva-abc123",
     }),
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -701,4 +703,54 @@ test("English pages use an item's English title and summary; without them, and o
   } finally {
     await context.close();
   }
+});
+
+test("search engines see each language as its own page, linked to the other (TASK-0590)", async () => {
+  // Owner 2026-11-08: “希望全球的用户都能在搜索引擎上也能搜索到”. Before: /en carried the Chinese title and a canonical
+  // pointing at the Chinese page, and the English interface was marked noindex, so search engines folded it away.
+  const head = async (path: string) => {
+    const html = await (await fetch(`${origin}${path}`)).text();
+    return html.slice(0, html.indexOf("</head>"));
+  };
+  const attr = (html: string, pattern: RegExp) => pattern.exec(html)?.[1] ?? null;
+  const canonical = (html: string) => attr(html, /<link rel="canonical" href="([^"]+)"/);
+  const alternate = (html: string, lang: string) => attr(html, new RegExp(`<link rel="alternate" hrefLang="${lang}" href="([^"]+)"`));
+  const path = (url: string | null) => (url ? new URL(url).pathname : null);
+
+  const en = await head("/en/all");
+  assert.equal(path(canonical(en)), "/en/all", "the English page names itself");
+  assert.match(en, /<title>All mining news · AI-MINE<\/title>/);
+  assert.match(en, /<meta property="og:locale" content="en_US"/);
+  assert.doesNotMatch(en, /name="robots" content="noindex/, "the English interface is searchable");
+  assert.equal(path(alternate(en, "zh-CN")), "/all");
+  assert.equal(path(alternate(en, "en")), "/en/all");
+  assert.equal(path(alternate(en, "x-default")), "/all", "Chinese is the default");
+
+  const zh = await head("/daily/2026-11-06");
+  assert.equal(path(canonical(zh)), "/daily/2026-11-06");
+  assert.equal(path(alternate(zh, "en")), "/en/daily/2026-11-06");
+  const enDaily = await head("/en/daily/2026-11-06");
+  assert.equal(path(canonical(enDaily)), "/en/daily/2026-11-06");
+  assert.doesNotMatch(enDaily, /<title>矿业日报/, "a dated title is English too");
+  // Pages that pass their own address (/en/daily passes location.pathname) still point at the Chinese page
+  // (Codex review #393: every alternate used to name the English page itself).
+  const latest = await head("/en/daily");
+  assert.equal(path(canonical(latest)), "/en/daily");
+  assert.equal(path(alternate(latest, "zh-CN")), "/daily");
+  assert.equal(path(alternate(latest, "en")), "/en/daily");
+  assert.equal(path(alternate(latest, "x-default")), "/daily");
+
+  // A page that stays out of search keeps saying so, without language links.
+  const item = await head("/en/items/en-item");
+  assert.equal(path(canonical(item)), "/en/items/en-item");
+  assert.match(item, /name="robots" content="noindex/);
+  assert.equal(alternate(item, "en"), null);
+
+  // Ownership codes for the search consoles, on the home page only (shown even while this fixture has no home data).
+  for (const home of [await head("/"), await head("/en")]) {
+    assert.match(home, /<meta name="google-site-verification" content="google-code_123"/);
+    assert.match(home, /<meta name="baidu-site-verification" content="codeva-abc123"/);
+    assert.doesNotMatch(home, /msvalidate\.01/, "an unset code is not shown");
+  }
+  assert.doesNotMatch(en, /site-verification/);
 });

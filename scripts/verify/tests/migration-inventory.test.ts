@@ -685,6 +685,18 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610131500_metal_prices_cochilco.sql"],
       },
       {
+        name: "events/202611071400_report_group_check_outcome.sql",
+        module: "events",
+        schemas: ["events"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "events/202610270040_report_group_decisions.sql"],
+      },
+      {
+        name: "sources/202611071401_public_processing_projection.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202610120500_public_attribution_links.sql"],
+      },
+      {
         name: "enrichment/202611081000_english_copies.sql",
         module: "enrichment",
         schemas: ["enrichment"],

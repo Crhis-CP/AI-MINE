@@ -16,11 +16,9 @@ export async function submitIndexNow(now = new Date()) {
   const stories = await sql<
     { public_id: string }[]
   >`SELECT public_id::text FROM stories WHERE merged_into IS NULL AND created_at > ${since} AND created_at <= ${now} LIMIT 500`;
-  const urls = [
-    ...items.map((i) => siteUrl(`/items/${i.id}`)),
-    ...reports.map((r) => siteUrl(`/${r.kind}/${r.key}`)),
-    ...stories.map((s) => siteUrl(`/story/${s.public_id}`)),
-  ].slice(0, MAX_URLS);
+  // Each page in both interfaces (TASK-0590): the English address is a page of its own in search.
+  const paths = [...items.map((i) => `/items/${i.id}`), ...reports.map((r) => `/${r.kind}/${r.key}`), ...stories.map((s) => `/story/${s.public_id}`)];
+  const urls = paths.flatMap((path) => [siteUrl(path), siteUrl(`/en${path}`)]).slice(0, MAX_URLS);
   let status: "sent" | "disabled" | "empty" | "failed" = urls.length ? "disabled" : "empty";
   let httpStatus: number | null = null;
   const key = config.indexNowKey;
