@@ -16,7 +16,9 @@ test("module sitemap entries follow current visibility without overriding core p
   const entry = { loc: "/fixture-module?a=1&b=2", lastmod: new Date("2026-10-24T01:02:03Z"), changefreq: "daily", priority: 0.4 };
   installModules([{ name: "fixture", sitemap: { entries: async () => (visible ? [entry, entry, { loc: "/all", priority: 0.1 }] : []) } }]);
   const first = await sitemapXml();
-  assert.equal(first.match(/\/fixture-module\?a=1&amp;b=2/g)?.length, 1);
+  // Listed once per language (TASK-0590): the Chinese address and its English twin, each a single <loc>.
+  assert.equal(first.match(/(?<!\/en)\/fixture-module\?a=1&amp;b=2<\/loc>/g)?.length, 1);
+  assert.equal(first.match(/\/en\/fixture-module\?a=1&amp;b=2<\/loc>/g)?.length, 1);
   assert.match(first, /<lastmod>2026-10-24T01:02:03.000Z<\/lastmod>/);
   assert.match(first, /\/all<\/loc>[\s\S]*?<priority>0.9<\/priority>/);
   visible = false;

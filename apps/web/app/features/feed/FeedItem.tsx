@@ -10,7 +10,7 @@ import type { GroupInfo, ReportGroupInfo, FeedItemSummary, StoryProgress } from 
 import { XPostFeedView } from "@amp/contracts/http/public";
 import { SelectedBadge } from "../../components/ui/Badge.tsx";
 import { ScoreLabel } from "../../components/ui/Score.tsx";
-import { SourceLine, StarButton, Attribution } from "./parts";
+import { SourceLine, StarButton, Attribution, soleCredit } from "./parts";
 import { GroupDevelopments, GroupSources, LatestDevelopment, type ReadingGroupFilters } from "./ReadingGroup";
 import { PostAuthor, PostMedia, QuotedPost } from "../item/OriginalPost";
 import { StoryProgressLine } from "./StoryProgressLine";
@@ -91,7 +91,7 @@ export const FeedItem = memo(function FeedItem({
           {item.title}
         </IntentLink>
       </h3>
-      <Attribution value={item.attribution} />
+      <Attribution value={item.attribution} publishers={!soleCredit(item)} />
       {item.summary && <p className="mt-1.5 line-clamp-2 text-[15.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[16px]">{item.summary}</p>}
       {post && <PostMedia key={item.id} media={post.media} href={`/items/${item.id}`} compact />}
       {post?.quoted && <QuotedPost quoted={post.quoted} compact />}

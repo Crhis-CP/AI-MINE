@@ -104,13 +104,39 @@ async function entriesForSitemap(): Promise<Entry[]> {
 
 export class SitemapPageNotFound extends Error {}
 
+/** Addresses that are not reader pages have no English version (the web's SHARED rule in i18n/index.ts). */
+const SHARED = /^\/(?:api|feed|admin|rss|og|media|v1|v3|mcp)(?:[/?#.]|$)|\.(?:xml|json|png|svg|ico|txt)(?:[?#]|$)/;
+/** The English interface's address of a reader page, or null when the page has one address in every language. */
+export function englishLoc(loc: string): string | null {
+  if (SHARED.test(loc) || loc === "/en" || loc.startsWith("/en/")) return null;
+  return loc === "/" ? "/en" : loc.startsWith("/?") ? `/en${loc.slice(1)}` : `/en${loc}`;
+}
+
+type SitemapUrl = Entry & { alternates?: { zh: string; en: string } };
+/**
+ * Every reader page twice, Chinese and English, each naming both versions and Chinese as the default
+ * (TASK-0590, Owner 2026-11-08: readers worldwide should find the site): Google's sitemap form of hreflang.
+ */
+function withLanguages(entries: Entry[]): SitemapUrl[] {
+  return entries.flatMap((entry) => {
+    const en = englishLoc(entry.loc);
+    if (!en) return [entry];
+    const alternates = { zh: entry.loc, en };
+    return [
+      { ...entry, alternates },
+      { ...entry, loc: en, alternates },
+    ];
+  });
+}
+
 /** Split instead of silently dropping entries after the single-file capacity. */
-export function renderSitemap(entries: Entry[], page?: number, capacity = MAX_URLS): string {
+export function renderSitemap(pageEntries: Entry[], page?: number, capacity = MAX_URLS): string {
   if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > MAX_URLS) throw new Error("Invalid sitemap capacity");
+  const entries = withLanguages(pageEntries);
   const pages = Math.max(1, Math.ceil(entries.length / capacity));
   if (page !== undefined && (!Number.isSafeInteger(page) || page < 1 || page > pages)) throw new SitemapPageNotFound("Sitemap page not found");
   if (page === undefined && pages > 1)
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemaps/0.9">\n${Array.from(
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Array.from(
       { length: pages },
       (_, i) => `<sitemap><loc>${escapeXml(siteUrl(`/sitemaps/${i + 1}.xml`))}</loc></sitemap>`,
     ).join("\n")}\n</sitemapindex>\n`;
@@ -122,10 +148,17 @@ export function renderSitemap(entries: Entry[], page?: number, capacity = MAX_UR
       if (e.lastmod) parts.push(`<lastmod>${e.lastmod.toISOString()}</lastmod>`);
       if (e.changefreq) parts.push(`<changefreq>${e.changefreq}</changefreq>`);
       if (e.priority !== undefined) parts.push(`<priority>${e.priority}</priority>`);
+      if (e.alternates)
+        for (const [lang, loc] of [
+          ["zh-CN", e.alternates.zh],
+          ["en", e.alternates.en],
+          ["x-default", e.alternates.zh],
+        ] as const)
+          parts.push(`<xhtml:link rel="alternate" hreflang="${lang}" href="${escapeXml(siteUrl(loc))}"/>`);
       return `<url>\n${parts.join("\n")}\n</url>`;
     })
     .join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemaps/0.9">\n${body}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
 }
 
 export async function sitemapXml(page?: number): Promise<string> {

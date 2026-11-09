@@ -14,6 +14,16 @@ import { fetchItemsByIds } from "./items.ts";
 import { readReportMembershipHolds, readReportCandidateRows } from "./groups.ts";
 import { promptVersion } from "../editorial/prompts.ts";
 
+/**
+ * projectReportGroup wrote the pair but readers' current view does not hold it (for example a source permission
+ * projection that denies public processing). Deterministic for unchanged inputs: callers record it, never retry it.
+ */
+export class ReportGroupNotPublic extends Error {
+  constructor() {
+    super("Report-group projection lost its current public binding");
+  }
+}
+
 interface StoredMember {
   article_id: string;
   group_id: string;
@@ -154,7 +164,9 @@ export const projectReportGroup: ReportGroupProjector<Db> = async (input, db) =>
         IS DISTINCT FROM (EXCLUDED.group_id,EXCLUDED.article_binding,EXCLUDED.anchor_binding,EXCLUDED.article_publication_revision,EXCLUDED.anchor_publication_revision,EXCLUDED.recipe)`;
     changed ||= result.count > 0;
   }
-  if (!(await currentReportMemberships(ids, db)).has(p.article.articleId)) throw new Error("Report-group projection lost its current public binding");
+  // The event-stage proof passed but readers' own view (public state, permission projection) cannot show the pair; the
+  // caller's transaction rolls back the rows above and records the outcome instead of retrying it (TASK-0578).
+  if (!(await currentReportMemberships(ids, db)).has(p.article.articleId)) throw new ReportGroupNotPublic();
   if (changed) await db`UPDATE publication.read_watermarks SET version=version+1 WHERE lane='news'`;
   return changed;
 };

@@ -246,7 +246,20 @@ test("detail shows honest body states, first-public evidence, representative/lat
     await expect(page.getByRole("region", { name: "正文状态" })).toContainText(label!);
     await expect(page.getByRole("link", { name: "打开来源原文", exact: true })).toHaveAttribute("href", summary.links.original);
     await expect(page.getByText(id === "unknown" ? /本站公开 时间未记录/ : /本站公开.*2026-10-12/)).toBeVisible();
+    // The one credited publisher is the source itself: its name is the credit and the link, said once (TASK-0587).
+    await expect(page.getByText("来源署名：", { exact: false })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: source.name, exact: true }).first()).toHaveAttribute("href", summary.links.original);
   }
+  // Wide screens show the source in the facts rail instead of the top line: there too the name opens the original
+  // (Codex review #395).
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto(`${origin}/items/pending`);
+  const rail = page.locator('section:has(> h2:text-is("来源"))');
+  const wideSource = rail.getByRole("link", { name: source.name, exact: true });
+  await expect(wideSource).toBeVisible();
+  await expect(wideSource).toHaveAttribute("href", summary.links.original);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${origin}/items/pending`);
   const coverage = page.getByRole("region", { name: "相关报道" });
   await expect(coverage.getByText("代表稿", { exact: true })).toBeVisible();
   await expect(coverage.getByText("最新进展", { exact: true })).toBeVisible();
@@ -387,7 +400,7 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   await page.getByRole("button", { name: /提交|发送/ }).click();
   await expect(page.getByRole("heading", { name: "收到了，谢谢你" })).toBeVisible();
   assert.notEqual(feedbackKeys[2], feedbackKeys[3], "an edited payload starts a new submission identity");
-  assert.ok(submitted.includes(origin + "/items/none?view=detail"), "the hidden origin still reaches the inbox");
+  assert.ok(submitted.includes(`${origin}/items/none?view=detail`), "the hidden origin still reaches the inbox");
   await context.close();
 });
 
