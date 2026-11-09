@@ -3,14 +3,14 @@ import { fmt, useCategoryLabel, useLocalize, useT, useTagLabel, useTr } from "..
 import { Sheet } from "../../components/ui/Sheet";
 import { Wordmark } from "../../components/Logo";
 import { SITE } from "@amp/industry/site";
-import { type JurisdictionChoice, useJurisdictionChoices, useRegionName } from "./jurisdictions";
+import { useJurisdictionChoices, useRegionName } from "./jurisdictions";
 import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigation, useSearchParams } from "react-router";
 import { Form, Link, useNavigate } from "../../i18n/navigation";
-import { CATEGORY_KEYS, type CategoryFilterKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { CATEGORY_KEYS, type CategoryFilterKey } from "@amp/contracts/taxonomy";
 import { IconClose, IconSearch, IconFilter, IconChevronLeft } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
 
@@ -110,91 +110,37 @@ export function hrefWith(base: string, params: URLSearchParams, patch: Record<st
   return s ? `${base}?${s}` : base;
 }
 
-/** The countries with the most identified news, first; a filter for another country keeps its own chip. */
-export function topCountries(choices: readonly JurisdictionChoice[], current: string | null, limit = 8) {
-  const top = choices
-    .filter((j) => j.kind === "country" && j.news_count > 0)
-    .sort((a, b) => b.news_count - a.news_count || a.code.localeCompare(b.code))
-    .slice(0, limit);
-  const chosen = current && !top.some((j) => j.code === current) ? choices.find((j) => j.code === current) : undefined;
-  return chosen ? [chosen, ...top] : top;
-}
-
 /**
- * One tap for the countries with the most news (TASK-0568: the country was only in a select or the phone
- * sheet). Each chip keeps the other conditions; the chosen one is marked and takes the filter off again;
- * “更多国家…” opens the full list (`onMore`). Shown once the list has loaded, like the select's options.
+ * 精选 or 全部 for the chosen country (TASK-0587, Owner 2026-11-07: from the map “既可以选择全部，也可以选择精选”).
+ * Both lists take the same country; 精选 has no source, commodity or date filters, so those stay on 全部.
  */
-export function CountryChips({ base, value, onMore, className = "" }: { base: string; value: string | null; onMore: () => void; className?: string }) {
+export function CountryScope({ base, jurisdiction, className = "" }: { base: string; jurisdiction: string | null; className?: string }) {
   const tf = useT().feed;
   const [params] = useSearchParams();
   const { choices } = useJurisdictionChoices();
   const nameOf = useRegionName();
-  if (!choices) return null;
-  const shown = topCountries(choices, value);
-  if (!shown.length) return null;
+  if (!jurisdiction) return null;
+  const choice = choices?.find((j) => j.code === jurisdiction);
+  const name = choice ? nameOf(choice) : null;
+  const drop = { q: null, tab: null, search: null } as const;
   return (
-    <nav
-      aria-label={tf.countryRow}
-      className={`scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 ${className}`}
-    >
-      {shown.map((j) => {
-        const on = j.code === value;
-        const name = nameOf(j);
-        return (
-          <Link
-            key={j.code}
-            to={hrefWith(base, params, { jurisdiction: on ? null : j.code })}
-            aria-current={on ? "true" : undefined}
-            aria-label={on ? fmt(tf.clearFilter, { label: name }) : undefined}
-            className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13.5px] transition-colors ${
-              on ? "bg-accent-soft font-semibold text-accent ring-1 ring-inset ring-accent/40" : "bg-bg-sunk text-ink-2 hover:text-ink"
-            }`}
-          >
-            {name}
-            <span className={`num text-[12px] ${on ? "text-accent" : "text-ink-4"}`}>{j.news_count}</span>
-            {on && <IconClose size={13} />}
-          </Link>
-        );
-      })}
-      <button
-        type="button"
-        onClick={onMore}
-        className="inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[13.5px] text-accent hover:bg-bg-sunk"
-      >
-        {tf.moreCountries}
-      </button>
-    </nav>
-  );
-}
-
-/** Opens the desktop country select (the full list); where the list cannot be opened from a script, it is focused. */
-function openCountrySelect() {
-  const select = [...document.querySelectorAll<HTMLSelectElement>("select[data-country-select]")].find((el) => el.getClientRects().length > 0);
-  if (!select) return;
-  select.focus();
-  try {
-    select.showPicker?.();
-  } catch {
-    // Not allowed here or not supported for a select: focus is enough.
-  }
-}
-
-/** Source attributes and subject categories combine through the existing query contract. */
-function SourceScopeTabs({ base, channel, layoutId }: { base: string; channel: ChannelKey; layoutId: string }) {
-  const tf = useT().feed;
-  const [params] = useSearchParams();
-  return (
-    <PillTabs
-      size="sm"
-      label={tf.sourceScope}
-      layoutId={layoutId}
-      active={channel === "firstParty" ? "firstParty" : "all"}
-      items={[
-        { key: "all", label: tf.allSources, resetScroll: true, to: hrefWith(base, params, { channel: null }) },
-        { key: "firstParty", label: tf.firstParty, title: tf.firstPartyHint, resetScroll: true, to: hrefWith(base, params, { channel: "firstParty" }) },
-      ]}
-    />
+    <div data-country-scope="" className={`flex items-center gap-2 text-[13.5px] text-ink-3 ${className}`}>
+      {name && <span className="font-semibold text-ink-2">{name}</span>}
+      <PillTabs
+        size="sm"
+        label={tf.countryScope}
+        layoutId="country-scope"
+        active={base === "/all" ? "all" : "featured"}
+        items={[
+          {
+            key: "featured",
+            label: tf.picks,
+            to: hrefWith("/", params, { ...drop, source: null, mineral: null, on: null, from: null, to: null, selected: null }),
+          },
+          { key: "all", label: tf.all, to: hrefWith("/all", params, drop) },
+        ]}
+      />
+    </div>
   );
 }
 
@@ -211,26 +157,21 @@ export function FeedToolbar({
   base,
   allTo,
   category,
-  channel = "all",
   jurisdiction,
   layoutId,
   search,
   advanced,
-  countryChips = false,
 }: {
   title: ReactNode;
   base: string;
   /** Where “全部” leads when it differs from `base` (the home page while it waits for its first pick). */
   allTo?: string;
   category: CategoryFilterKey | null;
-  channel?: ChannelKey;
   jurisdiction: string | null;
   layoutId: string;
   search?: ReactNode;
   /** The source, commodity and date controls, folded under the panel (全部动态 and topics). */
   advanced?: ReactNode;
-  /** The top countries as chips under the panel (全部动态). */
-  countryChips?: boolean;
 }) {
   const tf = useT().feed;
   const cat = useCategoryLabel();
@@ -239,7 +180,7 @@ export function FeedToolbar({
     { key: "all", label: tf.allCategories, resetScroll: true, to: hrefWith(allTo ?? base, params, { category: null }) },
     ...CATEGORY_KEYS.map((k) => ({ key: k, label: cat(k), resetScroll: true, to: hrefWith(base, params, { category: k }) })),
   ];
-  const filtered = FILTER_KEYS.some((key) => params.get(key) && !(key === "channel" && params.get(key) === "all"));
+  const filtered = FILTER_KEYS.some((key) => key !== "channel" && params.get(key));
   return (
     <div className="hidden lg:block">
       <div className="flex min-h-10 items-center justify-between gap-4">
@@ -249,8 +190,8 @@ export function FeedToolbar({
       <div className="mb-5 mt-3 rounded-card border border-line bg-surface px-3 py-2.5">
         <PillTabs items={items} active={category ?? "all"} layoutId={layoutId} label={tf.categoryTabs} />
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft pt-2.5">
-          <SourceScopeTabs base={base} channel={channel} layoutId={`${layoutId}-source`} />
           <JurisdictionFilter base={base} value={jurisdiction} compact />
+          <CountryScope base={base} jurisdiction={jurisdiction} />
           {filtered && (
             <Link
               to={hrefWith(allTo ?? base, params, Object.fromEntries(FILTER_KEYS.map((key) => [key, null])))}
@@ -263,7 +204,6 @@ export function FeedToolbar({
         </div>
         {advanced}
       </div>
-      {countryChips && <CountryChips base={base} value={jurisdiction} onMore={openCountrySelect} className="-mt-2 mb-4" />}
     </div>
   );
 }
@@ -272,13 +212,11 @@ export function FeedToolbar({
 export function FeedBar({
   base,
   category,
-  channel,
   jurisdiction,
   facets,
 }: {
   base: "/" | "/all";
   category: CategoryFilterKey | null;
-  channel: ChannelKey;
   jurisdiction: string | null;
   facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };
 }) {
@@ -289,6 +227,8 @@ export function FeedBar({
   const [params] = useSearchParams();
   const location = useLocation();
   const [sheetKey, setSheetKey] = useState<string | null>(null);
+  const { choices: regions } = useJurisdictionChoices();
+  const regionName = useRegionName();
   const sheet = sheetKey === location.key;
   const setSheet = (open: boolean) => setSheetKey(open ? location.key : null);
   const search = useOpenSearch();
@@ -296,8 +236,7 @@ export function FeedBar({
   const legacyOpened = useRef(false);
   const query = params.get("q");
   const active = category ?? "all";
-  const filtered =
-    channel === "firstParty" || active !== "all" || ["jurisdiction", "tag", "source", "mineral", "on", "from", "to"].some((key) => params.get(key));
+  const filtered = active !== "all" || ["jurisdiction", "tag", "source", "mineral", "on", "from", "to"].some((key) => params.get(key));
   useEffect(() => {
     const media = matchMedia("(min-width: 961px)");
     const close = () => {
@@ -324,15 +263,17 @@ export function FeedBar({
     ...CATEGORY_KEYS.map((key) => ({ key, label: cat(key), to: hrefWith(base, params, { category: key }) })),
   ];
   const chips = [
-    ...(channel === "firstParty" ? [{ key: "channel", label: tf.firstParty, patch: { channel: null } }] : []),
     ...(category ? [{ key: "category", label: cat(category), patch: { category: null } }] : []),
     ...["tag", "jurisdiction", "source", "mineral", "on", "from", "to"].flatMap((key) => {
       const value = params.get(key);
-      // On 全部动态 the country row below marks the chosen country itself.
-      if (!value || (key === "jurisdiction" && base === "/all")) return [];
+      if (!value) return [];
       const label =
         key === "jurisdiction"
-          ? tf.chipRegion
+          ? (() => {
+              // The chosen country by name (the chip row that named it is gone, TASK-0587).
+              const region = regions?.find((j) => j.code === value);
+              return region ? regionName(region) : tf.chipRegion;
+            })()
           : key === "source"
             ? tf.chipSource
             : key === "tag"
@@ -433,11 +374,9 @@ export function FeedBar({
           ))}
         </div>
       )}
-      {base === "/all" && <CountryChips base={base} value={jurisdiction} onMore={() => setSheet(true)} className="py-2 lg:hidden" />}
       <Sheet open={sheet} onClose={() => setSheet(false)} title={tf.filter}>
         {sheet && (
           <>
-            <SourceScopeTabs base={base} channel={channel} layoutId="phone-source-scope" />
             <JurisdictionFilter base={base} value={jurisdiction} confirm />
             {base === "/all" ? (
               <SourceDateFilters base="/all" facets={facets} />

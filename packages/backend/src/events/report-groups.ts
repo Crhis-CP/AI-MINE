@@ -16,6 +16,7 @@ import { fetchItemsByIds } from "@amp/backend/publication/groups";
 import { readGroupingEvidencePublications } from "@amp/backend/publication/publish";
 import { config } from "../config.ts";
 import { chatJson, ModelOutputError } from "../providers/llm.ts";
+import { ModelContentFiltered } from "../providers/model-fallback.ts";
 import { completeReceipt, receiptWaitingForRecovery } from "../providers/receipts.ts";
 import { requireRuntimeRunning, assertRuntimeControl, RuntimeControlPaused } from "../operations/lane-controls.ts";
 import { modelFor } from "../editorial/models.ts";
@@ -28,6 +29,17 @@ const bindingHash = (article: ReportMaterialBinding, anchor: ReportMaterialBindi
 const RECALL_DAYS = 14;
 const RECALL_LIMIT = 1000;
 const ANCHORS_PER_RUN = 3;
+/**
+ * How a comparison ended when retrying the same inputs cannot change the result (TASK-0578), recorded once on the
+ * article's check instead of failing the events.group job: not_public, readers' own view cannot show the confirmed pair
+ * (projectReportGroup's ReportGroupNotPublic); unusable_answer, the paid answer fails local validation (quotes absent
+ * from the inputs, no attempt identity, unparsable) or the provider refused it (content filter), replayed from its receipt
+ * on every retry; superseded, the group or its anchor moved between planning and writing.
+ */
+export type ReportGroupOutcome = "not_public" | "unusable_answer" | "superseded";
+/** Reader-state outcomes can clear without the compared inputs changing (a permission projection repaired): looked at again after this. */
+export const REPORT_GROUP_RECHECK_HOURS = 24;
+const RECHECKED: readonly (ReportGroupOutcome | null)[] = ["not_public", "superseded"];
 
 /** Only current public, confirmed materials with no current human grouping/content hold can supply a comparison. */
 async function currentMaterials(ids: string[], db: Db = sql) {
@@ -169,6 +181,8 @@ interface Checkpoint {
   publication_versions: Array<[string, number]>;
   group_id: string | null;
   state: "complete" | "waiting";
+  outcome: ReportGroupOutcome | null;
+  outcome_at: Date | null;
 }
 type Candidate = { material: Material; groupId: string | null };
 
@@ -194,8 +208,10 @@ async function plan(articleId: string, db: Db = sql, material?: Material) {
   const candidates: Candidate[] = ranked
     .flatMap((row) => (materials.has(row.id) && !materials.get(row.id)!.hasFact ? [{ material: materials.get(row.id)!, groupId: row.groupId }] : []))
     .slice(0, ANCHORS_PER_RUN);
-  const [checked] = await db<Checkpoint[]>`SELECT article_binding,recipe,candidate_bindings,publication_versions,group_id,state
+  const [checked] = await db<Checkpoint[]>`SELECT article_binding,recipe,candidate_bindings,publication_versions,group_id,state,outcome,outcome_at
     FROM events.report_group_checks WHERE article_id=${articleId}`;
+  const due =
+    !!checked?.outcome_at && RECHECKED.includes(checked.outcome) && checked.outcome_at.getTime() <= Date.now() - REPORT_GROUP_RECHECK_HOURS * 3600_000;
   const bindings = candidates.map((row) => ({ binding: row.material.binding, groupId: row.groupId }));
   const versions: Array<[string, number]> = [query, ...candidates.map((row) => row.material)].map((row) => [row.binding.articleId, row.item.revision]);
   return {
@@ -207,6 +223,7 @@ async function plan(articleId: string, db: Db = sql, material?: Material) {
     currentGroupId: checked?.group_id ?? rows.find((row) => row.anchorArticleId === articleId)?.groupId ?? null,
     unchanged:
       checked?.state === "complete" &&
+      !due &&
       checked.recipe === reportGroupRecipe() &&
       stableJson(checked.article_binding) === stableJson(query.binding) &&
       stableJson(checked.candidate_bindings) === stableJson(bindings) &&
@@ -214,16 +231,33 @@ async function plan(articleId: string, db: Db = sql, material?: Material) {
   };
 }
 
-async function saveCheck(articleId: string, prepared: Awaited<ReturnType<typeof plan>>, state: "complete" | "waiting", groupId: string | null, db: Db = sql) {
-  await db`INSERT INTO events.report_group_checks(article_id,article_binding,recipe,candidate_bindings,publication_versions,group_id,state)
-    VALUES(${articleId},${JSON.stringify(prepared?.query.binding ?? null)}::jsonb,${reportGroupRecipe()},${db.json(prepared?.bindings ?? [])},${db.json(prepared?.versions ?? [])},${groupId},${state})
+/**
+ * outcome "keep" leaves a recorded outcome and its time as they are (the recovery pass found nothing changed).
+ * The binding goes in through db.json: a JSON.stringify'd text parameter is encoded again for the jsonb column and was
+ * stored as a JSON string, so plan() never found a check unchanged and the recovery pass re-sent every article (TASK-0578).
+ */
+async function saveCheck(
+  articleId: string,
+  prepared: Awaited<ReturnType<typeof plan>>,
+  state: "complete" | "waiting",
+  groupId: string | null,
+  db: Db = sql,
+  outcome: ReportGroupOutcome | null | "keep" = null,
+) {
+  const keep = outcome === "keep",
+    value = keep ? null : outcome;
+  await db`INSERT INTO events.report_group_checks(article_id,article_binding,recipe,candidate_bindings,publication_versions,group_id,state,outcome,outcome_at)
+    VALUES(${articleId},coalesce(${db.json(prepared?.query.binding ?? null)},'null'::jsonb),${reportGroupRecipe()},${db.json(prepared?.bindings ?? [])},${db.json(prepared?.versions ?? [])},${groupId},${state},
+      ${value}::text,CASE WHEN ${value}::text IS NULL THEN NULL ELSE pg_catalog.clock_timestamp() END)
     ON CONFLICT(article_id) DO UPDATE SET article_binding=EXCLUDED.article_binding,recipe=EXCLUDED.recipe,candidate_bindings=EXCLUDED.candidate_bindings,
-      publication_versions=EXCLUDED.publication_versions,group_id=EXCLUDED.group_id,state=EXCLUDED.state,checked_at=pg_catalog.clock_timestamp()`;
+      publication_versions=EXCLUDED.publication_versions,group_id=EXCLUDED.group_id,state=EXCLUDED.state,
+      outcome=CASE WHEN ${keep}::boolean THEN report_group_checks.outcome ELSE EXCLUDED.outcome END,
+      outcome_at=CASE WHEN ${keep}::boolean THEN report_group_checks.outcome_at ELSE EXCLUDED.outcome_at END,checked_at=pg_catalog.clock_timestamp()`;
 }
 
 /** Separate from fact/selection judgement, including an already-kept or roundup result. */
 export async function compareReportGroup(articleId: string) {
-  const { projectReportGroup, readReportGroupMembers } = await import("@amp/backend/publication/groups");
+  const { projectReportGroup, readReportGroupMembers, ReportGroupNotPublic } = await import("@amp/backend/publication/groups");
   const { relationInput, GroupingSupersededError } = await import("./group.ts");
   const publication = await requireRuntimeRunning("news", ["publication"]);
   const material = (await currentMaterials([articleId])).get(articleId);
@@ -246,7 +280,8 @@ export async function compareReportGroup(articleId: string) {
     }
   }
   if (prepared.unchanged) return { examined: 0, matched: false, state: "checked" };
-  let examined = 0;
+  let examined = 0,
+    unusable = false;
   for (const candidate of candidates) {
     const anchor = candidate.material,
       recipe = reportGroupRecipe(),
@@ -322,7 +357,7 @@ export async function compareReportGroup(articleId: string) {
           maxTokens: 2560,
           runtimeControl: control,
         });
-        if (!reply.attemptId) throw new GroupingSupersededError("报道比较缺少真实模型尝试身份");
+        if (!reply.attemptId) throw new ModelOutputError("报道比较缺少真实模型尝试身份", reply.receiptId);
         // Invalid evidence blocks grouping, but cannot authorize buying the same paid JSON answer again.
         const evidence = reply.data.evidence;
         if (reply.data.relation === "same_report" && !evidence) throw new ModelOutputError("Same report needs both original quotes", reply.receiptId);
@@ -362,6 +397,13 @@ export async function compareReportGroup(articleId: string) {
         const receiptId = error && typeof error === "object" && "receiptId" in error && typeof error.receiptId === "number" ? error.receiptId : null;
         await sql`UPDATE events.report_group_decisions SET state='waiting',receipt_id=coalesce(${receiptId},receipt_id),updated_at=pg_catalog.clock_timestamp()
           WHERE input_fingerprint=${fingerprint} AND binding_hash=${key} AND state<>'complete'`;
+        // The paid answer (or the provider's content-filter refusal) stays on its receipt and the same inputs replay it the
+        // same way: settle this pair (recorded below) and go on, instead of failing the job for a retry that changes nothing.
+        if (error instanceof ModelOutputError || error instanceof ModelContentFiltered) {
+          examined++;
+          unusable = true;
+          continue;
+        }
         await saveCheck(articleId, prepared, "waiting", null);
         throw error;
       }
@@ -369,18 +411,41 @@ export async function compareReportGroup(articleId: string) {
     examined++;
     if (decision.relation === "same_report") {
       const groupId = candidate.groupId ?? crypto.randomUUID();
-      const changed = await sql.begin(async (tx) => {
-        await assertRuntimeControl(tx, publication);
-        return projectReportGroup({ articleId, projection: { ...request, groupId } }, tx);
-      });
+      let changed: boolean;
+      try {
+        changed = await sql.begin(async (tx) => {
+          await assertRuntimeControl(tx, publication);
+          return projectReportGroup({ articleId, projection: { ...request, groupId } }, tx);
+        });
+      } catch (error) {
+        if (!(error instanceof ReportGroupNotPublic)) throw error;
+        // Rolled back; the article keeps its event grouping. Another anchor would buy a comparison readers cannot see either.
+        await saveCheck(articleId, prepared, "complete", null, sql, "not_public");
+        return { examined, matched: false, state: "not-public" };
+      }
       const members = await readReportGroupMembers(groupId, sql);
-      if (!members.some((row) => row.article.articleId === articleId)) throw new GroupingSupersededError("报道组投影的当前绑定未成立");
+      if (!members.some((row) => row.article.articleId === articleId)) {
+        await saveCheck(articleId, prepared, "complete", null, sql, "superseded");
+        return { examined, matched: false, state: "superseded" };
+      }
       await saveCheck(articleId, prepared, "complete", groupId);
       return { examined, matched: true, changed, state: "confirmed" };
     }
   }
-  await saveCheck(articleId, prepared, "complete", null);
-  return { examined, matched: false, state: "checked" };
+  await saveCheck(articleId, prepared, "complete", null, sql, unusable ? "unusable_answer" : null);
+  return { examined, matched: false, state: unusable ? "unusable-answer" : "checked" };
+}
+
+/**
+ * Recorded outcomes of the comparisons the recovery pass still looks at (the recall window), by kind: one row per
+ * article, so the count is of articles, not of attempts (stories.duplicates stores it with the daily measurement).
+ */
+export async function reportGroupOutcomeCounts(db: Db = sql): Promise<Record<ReportGroupOutcome, number>> {
+  const rows = await db<{ outcome: ReportGroupOutcome; count: number }[]>`SELECT outcome,count(*)::int AS count FROM events.report_group_checks
+    WHERE outcome IS NOT NULL AND checked_at>=now()-make_interval(days=>${RECALL_DAYS}) GROUP BY outcome`;
+  const counts: Record<ReportGroupOutcome, number> = { not_public: 0, unusable_answer: 0, superseded: 0 };
+  for (const row of rows) counts[row.outcome] = Number(row.count);
+  return counts;
 }
 
 /** The existing two-minute repair calls this bounded pass; metadata-only changes never buy a fresh request. */
@@ -408,7 +473,7 @@ export async function recoverReportGroupings(limit = 50) {
       continue;
     }
     if (prepared.unchanged) {
-      await saveCheck(row.article_id, prepared, "complete", prepared.checked?.group_id ?? null);
+      await saveCheck(row.article_id, prepared, "complete", prepared.checked?.group_id ?? null, sql, "keep");
       continue;
     }
     if (!prepared.candidates.length && !prepared.currentGroupId) {

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { useLocation, useNavigation, useNavigationType, useRevalidator } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { readSnapshot, restoreAnchor, saveSnapshot, type ListSnapshot } from "./restore";
+import { LIVE_TOP, arrivalKeys, liveList, markArrivals } from "./live";
 
 const ReaderItemScope = createContext<Set<string> | null>(null);
 /** Withdrawal refreshes can update/remove current cards; new arrivals wait for an explicit reload. */
@@ -84,6 +85,10 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
   // Sections are matched without the language prefix: /en/all is the same list as /all.
   const section = basePath(location.pathname);
   const pagedList = section === "/all";
+  const live = liveList(section, location.search);
+  // Arrivals held behind the “↑ 有新资讯” button while the reader is further down a live list.
+  const [arrivalsAbove, setArrivalsAbove] = useState(false);
+  const revealing = useRef(false);
   const savedPage = /^\/starred(?:\/|$)/.test(section);
   useEffect(() => {
     const interrupt = () => interaction.current++;
@@ -143,6 +148,7 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     removed.current = 0;
     setRemovedCount(0);
     setArrivalsWaiting(false);
+    setArrivalsAbove(false);
     setStatus("idle");
     if (policyPage) return;
     const controller = new AbortController();
@@ -222,6 +228,15 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         }
         // A re-read with nothing new to hold back shows the page as loaded, so later pages of the list are not filtered.
         if (reread && pendingArrivals.current === null) setAllowedIds(null);
+        if (live && pendingArrivals.current !== null) {
+          // A live list shows them: at once near the top, behind “↑ 有新资讯” further down.
+          if (window.scrollY < LIVE_TOP) await revealRef.current();
+          else setArrivalsAbove(true);
+          if (controller.signal.aborted) return;
+          setArrivalsWaiting(false);
+          setStatus(removed.current > 0 ? "notice" : "idle");
+          return;
+        }
         setArrivalsWaiting(pendingArrivals.current !== null);
         setStatus(removed.current > 0 || pendingArrivals.current !== null ? "notice" : "idle");
       } catch {
@@ -249,7 +264,39 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
       window.removeEventListener("pageshow", check);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [policyPage, routeKey, pagedList, savedPage, location.key, location.pathname, visit, navigationType]);
+  }, [policyPage, routeKey, pagedList, savedPage, live, location.key, location.pathname, visit, navigationType]);
+  // Shows the arrivals the server has in place, and lets the new cards fade in.
+  const reveal = async () => {
+    if (revealing.current) return;
+    revealing.current = true;
+    try {
+      const before = arrivalKeys();
+      setAllowedIds(null);
+      await ref.current.revalidate();
+      if (pendingArrivals.current && seen.current) seen.current = { ...seen.current, arrivals: pendingArrivals.current };
+      pendingArrivals.current = null;
+      setArrivalsAbove(false);
+      requestAnimationFrame(() => markArrivals(before));
+    } finally {
+      revealing.current = false;
+    }
+  };
+  const revealRef = useRef(reveal);
+  revealRef.current = reveal;
+  // Scrolling back near the top shows what arrived meanwhile.
+  useEffect(() => {
+    if (!arrivalsAbove) return;
+    const near = () => {
+      if (window.scrollY < LIVE_TOP) void revealRef.current();
+    };
+    window.addEventListener("scroll", near, { passive: true });
+    return () => window.removeEventListener("scroll", near);
+  }, [arrivalsAbove]);
+  const toTop = () => {
+    const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "instant" });
+    if (!smooth) void revealRef.current();
+  };
   const loadLatest = async () => {
     const position = window.scrollY;
     setAllowedIds(null);
@@ -287,6 +334,15 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
             </button>
           )}
         </div>
+      )}
+      {!policyPage && live && arrivalsAbove && (
+        <button
+          type="button"
+          onClick={toTop}
+          className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+60px)] z-40 -translate-x-1/2 rounded-full bg-accent px-4 py-2 text-[13.5px] font-semibold text-accent-contrast shadow-lg lg:top-20"
+        >
+          {tr("↑ 有新资讯")}
+        </button>
       )}
       <ReaderItemScope.Provider value={allowedIds?.routeKey === routeKey ? allowedIds.ids : null}>
         <section key={generation} aria-label={tr("阅读内容")} aria-busy={!policyPage && (status === "checking" || status === "withdrawn")}>
