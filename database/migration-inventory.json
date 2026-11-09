@@ -545,6 +545,14 @@
       "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
     },
     {
+      "name": "events/202611071400_report_group_check_outcome.sql",
+      "dependsOn": ["events/202610270040_report_group_decisions.sql"]
+    },
+    {
+      "name": "sources/202611071401_public_processing_projection.sql",
+      "dependsOn": ["sources/202610120500_public_attribution_links.sql"]
+    },
+    {
       "name": "platform/ops/202611081000_reader_interest.sql",
       "dependsOn": ["platform/ops/202611071000_visit_stats.sql"]
     }

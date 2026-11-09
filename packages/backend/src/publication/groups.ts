@@ -4,7 +4,7 @@ import { foldCopies, originalPostAffectedStories, readStoryReportLines, storyLin
 export { originalPostAffectedStories } from "./stories.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 export { fetchItemsByIds } from "./items.ts";
-export { readReportGroupCandidates, readReportGroupMembers, projectReportGroup } from "./report-groups.ts";
+export { readReportGroupCandidates, readReportGroupMembers, projectReportGroup, ReportGroupNotPublic } from "./report-groups.ts";
 export { loadReportGroupReports, readItemReportGroup } from "./report-group-reading.ts";
 export type { ReportGroupReportsInput, ReportGroupReportsResult } from "./report-group-reading.ts";
 import { readMatcherValues, searchScoreValues } from "./mentions.ts";
