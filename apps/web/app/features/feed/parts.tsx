@@ -6,8 +6,28 @@ import { IconBookmark } from "../../components/icons";
 import { toggleStar, useIsStarred } from "../../lib/local-state";
 
 /** The source's name, e.g. "IT之家". */
-export function SourceLine({ item, className = "" }: { item: Pick<FeedItemSummary, "source">; className?: string }) {
+export function SourceLine({ item, className = "" }: { item: Pick<FeedItemSummary, "source" | "attribution">; className?: string }) {
+  const credit = soleCredit(item);
+  // When the only credited publisher is the source named here, the name itself is the credit and its link
+  // (TASK-0587, Owner 2026-11-07: the card said the same source twice).
+  if (credit)
+    return (
+      <a
+        href={credit.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`relative z-10 min-w-0 truncate hover:text-accent hover:underline ${className}`}
+      >
+        {item.source.name}
+      </a>
+    );
   return <span className={`min-w-0 truncate ${className}`}>{item.source.name}</span>;
+}
+
+/** The credited publisher when there is exactly one and it is the source itself; null when the credit adds a name. */
+export function soleCredit(item: Pick<FeedItemSummary, "source" | "attribution">) {
+  const publishers = item.attribution?.publishers ?? [];
+  return publishers.length === 1 && publishers[0]!.name.trim() === item.source.name.trim() ? publishers[0]! : null;
 }
 
 /** Bookmark toggle kept in this browser (收藏). */
@@ -57,13 +77,24 @@ export function StarButton({
 }
 
 /** Attribution is supplied by the publication permission projection, never guessed from a host. */
-export function Attribution({ value, full = false }: { value: FeedItemSummary["attribution"]; full?: boolean }) {
+export function Attribution({
+  value,
+  full = false,
+  publishers = true,
+}: {
+  value: FeedItemSummary["attribution"];
+  full?: boolean;
+  /** False where the source name next to it already credits and links the one publisher (see SourceLine). */
+  publishers?: boolean;
+}) {
   const tl = useT().list;
   const tr = useTr();
   if (!value) return null;
+  const extra = full && (value.license || value.notice || value.legalUrl);
+  if (!publishers && !extra) return null;
   return (
     <div className="relative z-10 my-2 text-[13px] leading-relaxed text-ink-3">
-      {value.publishers.length > 0 && (
+      {publishers && value.publishers.length > 0 && (
         <p>
           {tl.attribution}
           {value.publishers.map((publisher, i) => (

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import { industrySourceIds, seedSourceMismatch } from "../run.ts";
 import { ROOT } from "../lib.ts";
@@ -46,9 +48,9 @@ test("seed evidence requires exact IDs, including equal-count substitutions and 
   assert.equal(seedSourceMismatch([], "[]"), null);
 });
 
-test("current catalogues require 455 news plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
+test("current catalogues require 474 news (455 plus 19 added for TASK-0588) plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
   const ids = industrySourceIds(ROOT);
-  assert.equal(ids.length, 538);
+  assert.equal(ids.length, 557);
   assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 83);
   assert.equal(new Set(ids).size, ids.length);
 });
@@ -66,4 +68,18 @@ test("importable seed helpers do not change direct verify CLI refusal of unfinis
   const result = spawnSync(process.execPath, ["scripts/verify/run.ts", "--release-check"], { cwd: ROOT, encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /make release-check:.*not implemented yet/);
+});
+
+test("news catalogue has no two sources on the same kind and entry URL (createSource dedupes on these, TASK-0588)", () => {
+  const { sources } = JSON.parse(readFileSync(join(ROOT, "industry/sources.json"), "utf8")) as {
+    sources: { id: string; kind: string; config: { feedUrl?: string; url?: string } }[];
+  };
+  const seen = new Map<string, string>();
+  for (const source of sources) {
+    const entry = source.config.feedUrl ?? source.config.url;
+    if (!entry) continue;
+    const key = `${source.kind} ${entry}`;
+    assert.equal(seen.get(key), undefined, `${source.id} repeats ${seen.get(key)} (${key})`);
+    seen.set(key, source.id);
+  }
 });
