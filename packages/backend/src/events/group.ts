@@ -316,10 +316,10 @@ async function storyRootFacts(storyIds: number[], db: Db = sql): Promise<Map<num
 }
 
 /** Reports of the recall window that belong to a live fact; those waiting for a regroup only when asked for (the warm-up). */
-async function recallPool(withWaiting = false): Promise<Array<PoolRow & { material_revision: number }>> {
+async function recallPool(withWaiting = false): Promise<Array<PoolRow & { material_revision: number; discovered_at: Date }>> {
   return qualifiedReports(
-    await sql<Omit<PoolRow, "publication_revision">[]>`
-    SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title
+    await sql<(Omit<PoolRow, "publication_revision"> & { discovered_at: Date })[]>`
+    SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title, a.discovered_at
     FROM fact_articles fa
     JOIN facts f ON f.id = fa.fact_id
     JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
@@ -568,16 +568,9 @@ function mergeRecalled(...lists: Recalled[][]): Recalled[] {
 async function recallKeyFacts(queryId: string, queryText: string): Promise<Recalled[]> {
   const mine = keyFacts(queryText, IDENTITY_LEXICON);
   if (!mine.names.size || !mine.quantities.size) return [];
-  const rows = await qualifiedReports(
-    await sql<Omit<PoolRow, "publication_revision">[]>`
-    SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title
-    FROM fact_articles fa
-    JOIN facts f ON f.id = fa.fact_id
-    JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
-    JOIN articles a ON a.id = fa.article_id
-    WHERE fa.role IN ('primary', 'report') AND fa.article_id <> ${queryId} AND ${trusted("fa")}
-      AND a.discovered_at > now() - make_interval(hours => ${KEY_FACT_RECALL_HOURS})`,
-  );
+  // The recall pool already carries discovery time (one read of articles for all recall); the key-fact window is its last hours.
+  const since = Date.now() - KEY_FACT_RECALL_HOURS * 3600_000;
+  const rows = (await recallPool()).filter((row) => row.article_id !== queryId && row.discovered_at.getTime() > since);
   if (!rows.length) return [];
   const texts = await reportTexts([...new Set(rows.map((row) => row.article_id))]);
   const matched = rows.filter((row) => sharesKeyFact(mine, keyFacts(texts.get(row.article_id) ?? "", IDENTITY_LEXICON)));
@@ -1356,13 +1349,8 @@ export async function remergeSingleReportFacts(opts: { maxCalls?: number; dryRun
   // The same party with the same amount is judged even below REMERGE_MIN_COSINE (TASK-0578); the judge decides.
   const facts = new Map(ids.map((id) => [id, keyFacts(texts.get(id) ?? "", IDENTITY_LEXICON)]));
   const keyed = (x: string, y: string) => sharesKeyFact(facts.get(x)!, facts.get(y)!);
-  const recentPool = new Set(
-    (
-      await sql<
-        { id: string }[]
-      >`SELECT id FROM articles WHERE id = ANY(${ids}::text[]) AND discovered_at > now() - make_interval(hours => ${KEY_FACT_RECALL_HOURS})`
-    ).map((row) => row.id),
-  );
+  const recentSince = Date.now() - KEY_FACT_RECALL_HOURS * 3600_000;
+  const recentPool = new Set(pool.filter((row) => row.discovered_at.getTime() > recentSince).map((row) => row.article_id));
   type Partner = { fact_id: number; story_id: number; fact_title: string; article_id: string; material_revision: number; score: number; keyed?: boolean };
   const pairs: Array<{ single: SingleReport; partner: Partner }> = [];
   for (const single of singles) {
