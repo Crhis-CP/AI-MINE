@@ -478,3 +478,183 @@ export function lexicalSimilarity(a: string, b: string): number {
   for (const x of g) if (h.has(x)) inter++;
   return inter / Math.min(g.size, h.size);
 }
+
+// ---------------------------------------------------------------------------
+// Key facts: the same company or named project with the same amount (TASK-0578)
+// ---------------------------------------------------------------------------
+
+/**
+ * Words a capitalised Latin name in copy often is without naming anything in particular. A single
+ * Latin word counts as a name only when it is long enough and not one of these.
+ */
+const NAME_STOPWORDS = new Set(
+  [
+    "mining",
+    "mines",
+    "minerals",
+    "metals",
+    "resources",
+    "copper",
+    "gold",
+    "silver",
+    "lithium",
+    "nickel",
+    "cobalt",
+    "group",
+    "limited",
+    "company",
+    "corporation",
+    "holdings",
+    "project",
+    "projects",
+    "energy",
+    "global",
+    "international",
+    "national",
+    "million",
+    "billion",
+    "update",
+    "news",
+    "report",
+    "quarter",
+    "first",
+    "second",
+    "third",
+    "fourth",
+  ].map((w) => w.toLowerCase()),
+);
+const MAGNITUDE: Record<string, number> = {
+  万亿: 1e12,
+  千亿: 1e11,
+  百亿: 1e10,
+  十亿: 1e9,
+  亿: 1e8,
+  千万: 1e7,
+  百万: 1e6,
+  十万: 1e5,
+  万: 1e4,
+  crore: 1e7,
+  lakh: 1e5,
+  thousand: 1e3,
+  k: 1e3,
+  million: 1e6,
+  mn: 1e6,
+  m: 1e6,
+  billion: 1e9,
+  bn: 1e9,
+  b: 1e9,
+};
+const CURRENCY: Array<[RegExp, string]> = [
+  [/^(?:美元|美金|usd|us\$|\$)$/i, "usd"],
+  [/^(?:人民币|元|rmb|cny)$/i, "cny"],
+  [/^(?:欧元|eur|€)$/i, "eur"],
+  [/^(?:澳元|aud|a\$)$/i, "aud"],
+  [/^(?:加元|cad|c\$)$/i, "cad"],
+  [/^(?:英镑|gbp|£)$/i, "gbp"],
+  [/^(?:卢比|rupees?|inr|rs\.?|₹)$/i, "inr"],
+  [/^(?:兰特|zar|rand)$/i, "zar"],
+  [/^(?:比索|pesos?)$/i, "peso"],
+  [/^(?:雷亚尔|brl|reais)$/i, "brl"],
+];
+/** An amount: an optional currency sign or leading ISO code (USD 144 million), a number, an optional magnitude, an optional unit (currency, %, tonnes, ounces). */
+const QUANTITY =
+  /(us\$|a\$|c\$|\$|€|£|₹|\brs\.?|\b(?:usd|aud|cad|eur|gbp|cny|rmb|inr|zar|brl)(?=\s*\d))?\s*(\d+(?:[.,]\d+)*)\s*(万亿|千亿|百亿|十亿|亿|千万|百万|十万|万|crore|lakh|thousand|million|billion|mn|bn|[kmb](?![a-z]))?\s*(美元|美金|人民币|欧元|澳元|加元|英镑|卢比|兰特|比索|雷亚尔|元|usd|rmb|cny|eur|aud|cad|gbp|inr|zar|brl|rupees?|pesos?|reais|%|％|percent|吨|万吨|盎司|tonnes?|tons?|ounces?|oz)?/gi;
+
+function currencyOf(sign: string | undefined, unit: string | undefined): string | null {
+  for (const raw of [sign, unit]) {
+    if (!raw) continue;
+    const hit = CURRENCY.find(([pattern]) => pattern.test(raw));
+    if (hit) return hit[1];
+  }
+  return null;
+}
+
+/** Three significant figures, so 1.44亿 and 144 million meet. */
+function sig3(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  return Number(value.toPrecision(3)).toString();
+}
+
+/**
+ * The amounts a text states, normalised: money by currency and value, percentages, tonnes and ounces. A bare
+ * number counts only with a magnitude (a 亿, a million); plain years, dates and counts do not.
+ */
+export function keyQuantities(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of text.matchAll(QUANTITY)) {
+    const [, sign, digits, magnitudeRaw, unitRaw] = m;
+    if (!digits) continue;
+    const magnitude = magnitudeRaw ? (MAGNITUDE[magnitudeRaw.toLowerCase()] ?? 1) : 1;
+    const unit = unitRaw?.toLowerCase();
+    // 1,000 or 1.44: a comma between groups of three is a thousands separator, otherwise a decimal point.
+    const number = /,\d{3}(?!\d)/.test(digits) ? Number(digits.replace(/,/g, "")) : Number(digits.replace(",", "."));
+    if (!Number.isFinite(number)) continue;
+    const currency = currencyOf(sign, unit);
+    if (currency) {
+      out.add(`${currency}:${sig3(number * magnitude)}`);
+      continue;
+    }
+    if (unit && /^(?:%|％|percent)$/.test(unit)) {
+      out.add(`pct:${sig3(number)}`);
+      continue;
+    }
+    if (unit && /^(?:吨|tonnes?|tons?)$/.test(unit)) {
+      out.add(`t:${sig3(number * magnitude)}`);
+      continue;
+    }
+    if (unit === "万吨") {
+      out.add(`t:${sig3(number * 1e4 * magnitude)}`);
+      continue;
+    }
+    if (unit && /^(?:盎司|ounces?|oz)$/.test(unit)) {
+      out.add(`oz:${sig3(number * magnitude)}`);
+      continue;
+    }
+    if (magnitudeRaw) out.add(`n:${sig3(number * magnitude)}`);
+  }
+  return out;
+}
+
+/**
+ * The parties a text names: companies of the identity lexicon (guarded, in either language) and Latin proper
+ * names the Chinese copy keeps as written (Resolution Copper, AngloGold Ashanti, Syerston).
+ */
+export function keyNames(text: string, lexicon: ReadonlyArray<{ id: string; patterns: RegExp[] }>): Set<string> {
+  const out = new Set<string>();
+  for (const entry of lexicon) if (entry.patterns.some((pattern) => pattern.test(text))) out.add(`co:${entry.id}`);
+  for (const m of text.matchAll(/\b[A-Z][A-Za-z]+(?:[ -][A-Z][A-Za-z]+)*\b/g)) {
+    const words = m[0].split(/[ -]/).filter((w) => !NAME_STOPWORDS.has(w.toLowerCase()));
+    if (!words.length) continue;
+    const phrase = words.join(" ").toLowerCase();
+    if (words.length >= 2 || (words[0]!.length >= 5 && !/^[A-Z]+$/.test(words[0]!))) out.add(`nm:${phrase}`);
+    // Each long word on its own too: "Resolution Copper Mining" and "Resolution Copper" share "resolution".
+    for (const word of words) if (word.length >= 6 && !/^[A-Z]+$/.test(word)) out.add(`nm:${word.toLowerCase()}`);
+  }
+  return out;
+}
+
+export interface KeyFacts {
+  names: Set<string>;
+  quantities: Set<string>;
+}
+
+export function keyFacts(text: string, lexicon: ReadonlyArray<{ id: string; patterns: RegExp[] }>): KeyFacts {
+  return { names: keyNames(text, lexicon), quantities: keyQuantities(text) };
+}
+
+/**
+ * Two reports likely of one occurrence: they name the same party and state the same amount ("力拓批准1.44亿美元投资
+ * Resolution Copper" and "Rio Tinto approves US$144 million for Resolution Copper"). Only a reason to put the pair
+ * before the judge; it never merges on its own.
+ */
+export function sharesKeyFact(a: KeyFacts, b: KeyFacts): boolean {
+  let name = false;
+  for (const n of a.names)
+    if (b.names.has(n)) {
+      name = true;
+      break;
+    }
+  if (!name) return false;
+  for (const q of a.quantities) if (b.quantities.has(q)) return true;
+  return false;
+}

@@ -1,0 +1,210 @@
+{
+  "batch": "source-intake-20261108",
+  "scope": "news",
+  "identity_patches": [
+    {
+      "id": "exp-20261014-evolution-mining",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "evolution-mining",
+      "expected_entry_hosts": [
+        "evolutionmining.com"
+      ]
+    },
+    {
+      "id": "rpl-sigmalithiumresources",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sigma-lithium",
+      "expected_entry_hosts": [
+        "sigmalithiumcorp.com"
+      ]
+    },
+    {
+      "id": "exp-20261014-australian-mining-review",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "australian-mining-review",
+      "expected_entry_hosts": [
+        "australianminingreview.com.au"
+      ]
+    },
+    {
+      "id": "exp-20261014-african-mining-market",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "african-mining-market",
+      "expected_entry_hosts": [
+        "africanminingmarket.com"
+      ]
+    }
+  ],
+  "production_applied": false,
+  "natural_collection_accepted": false,
+  "entries": [
+    {
+      "id": "rpl-torexgold",
+      "target_config_hash": "5738cb09ba6bfaff6ff1ccf2394395632427d268e52aa33882aadfdcd107a9c2",
+      "expected_config_hash": "780fa5c3b10c3c9d7a1117f3e065310ab6afff81ff518be56a9e699a10c8801f",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "torex",
+      "expected_existing": true
+    },
+    {
+      "id": "yn-nr-notices",
+      "target_config_hash": "7d97faa7a5f0fdcd1ca12055da92f6d887a3354b7b6d02d4ffb43359c4007298",
+      "expected_config_hash": "e5af42ccf39d802d52f51920f730867dd1641924beb6be98cadf2e4007861d68",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "yunnan-dnr",
+      "expected_existing": true
+    },
+    {
+      "id": "exp-20261108-gunnison-rss",
+      "target_config_hash": "38c37c6721d9f6128272e2be6a014fe0c20ef5984036e6cc28c7a3b4a3c65d72",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gunnison",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-strikepoint",
+      "target_config_hash": "e85e6555f01139f0aa224234928deecc6a27f708323810cc7f860d8a815c0fa4",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "strikepoint-gold",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-mining-and-business",
+      "target_config_hash": "bdbb648c7ae0bdae89b5ef81ff09775bf4b4677bd71c4b67aea238fe16c8c124",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mining-and-business",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-euromines",
+      "target_config_hash": "f71edc5d1a72cdf972e315e20f7548a9fc6d2d8748f983a4ac5caa17be7b02fc",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "euromines",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-mining-news-north",
+      "target_config_hash": "e75b39aabb4f3e5e4bf68b84f975bc4f97fe18882676f88384f5b6cf2cab4043",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mining-news-north",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-paydirt",
+      "target_config_hash": "13b78a20508d8102efb51e916116e1e418ee2ef1e3993b89928e8837761ed941",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "paydirt",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-sandfire",
+      "target_config_hash": "90bfd63b3625a12c1d6fc8d35b10b0c6154627838e889ca15eeb77dce7d90330",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sandfire",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-revista-minerios",
+      "target_config_hash": "be585c10c6f5643fb42f7349290809bef2c0f522a55bd7f2e277f5202378d017",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "revista-minerios",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-mineria-peru",
+      "target_config_hash": "a318a06f398aef36507efee7c65f9ac5c138e371902d7332d3fc47fa5111a186",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mineria-peru",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-prn-mining",
+      "target_config_hash": "06e5d4045cc2e95ffe79f5a8a3fe154efae6a855987b38a1630321480e915924",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pr-newswire",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-miningfeeds",
+      "target_config_hash": "f8bab2087c593b5a481111b15cd3e0398edd33306967977d62aed73d255381f7",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "miningfeeds",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-mexico-minero",
+      "target_config_hash": "8fa3896b71ff4d42e7d47339699ec666ce0719b9a5b7e164be1c15a7f3f24fce",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mexico-minero",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-brasil-mineral",
+      "target_config_hash": "b8162c6379899e0f161271926db2be9100bb9411da11996fbfc072b97fc680e2",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "brasil-mineral",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-canadian-mining-magazine",
+      "target_config_hash": "0f64a01132ae4a615b2143eea563154d1718d1991a59a72771d6a7c31c00191a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "canadian-mining-magazine",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-mineria-argentina",
+      "target_config_hash": "733faf86ed2b5fb3b0c21d27a88d1375dd8d14217afa766189af223931b33ba6",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mineria-argentina",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-mining-newswire",
+      "target_config_hash": "ece8f63bf4f6085ca2bf4c47ee686bcaeb955b05a38e724f4a328e3f4253a0c0",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "miningnewswire",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-rare-earth-exchanges",
+      "target_config_hash": "1572b567490021218717de8ba7b1f9a132eeb867eb700f34e0614e4a554394cd",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "rare-earth-exchanges",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-pan-american-silver",
+      "target_config_hash": "b5410e9d2bf1256622d6ef88a8e1a48b6afb615f9dc9981e04b3c061d1a0ddc2",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pan-american-silver",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261108-cnmn-key-news",
+      "target_config_hash": "cd48e9d35cd7cc2a87b614eb886afd3272bd936021fb89f2dacf8097570f812a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "china-nonferrous-metals-news",
+      "expected_existing": false
+    }
+  ]
+}
