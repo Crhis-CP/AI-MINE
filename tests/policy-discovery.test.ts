@@ -43,3 +43,19 @@ test("the sitemap names both language versions of a page, Chinese as the default
   assert.equal(englishLoc("/api/site/news"), null);
   assert.equal(englishLoc("/topics/copper?page=2"), "/en/topics/copper?page=2");
 });
+
+test("the sitemap and its index use the protocol's namespace, so search engines read them (TASK-0597)", () => {
+  // Codex 2026-11-08: the live sitemap declared http://www.sitemaps.org/schemas/sitemaps/0.9 (an extra “s”); a reader
+  // that expects the standard namespace found 0 addresses. The protocol's is …/schemas/sitemap/0.9.
+  const entries = Array.from({ length: 3 }, (_, n) => ({ loc: `/policies/p${n}`, lastmod: new Date("2026-10-09T00:00:00Z") }));
+  const standard = 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"';
+  const index = renderSitemap(entries, undefined, 2);
+  const page = renderSitemap(entries, 1, 2);
+  const single = renderSitemap(entries);
+  for (const xml of [index, page, single]) {
+    assert.ok(xml.includes(standard), xml.slice(0, 160));
+    assert.ok(!xml.includes("schemas/sitemaps/"), "no plural spelling");
+  }
+  assert.match(index, /<sitemapindex xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
+  assert.match(single, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9" xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml">/);
+});
