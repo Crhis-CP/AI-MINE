@@ -1,6 +1,40 @@
 {
   "batch": "source-intake-20261108",
   "scope": "news",
+  "identity_patches": [
+    {
+      "id": "exp-20261014-evolution-mining",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "evolution-mining",
+      "expected_entry_hosts": [
+        "evolutionmining.com"
+      ]
+    },
+    {
+      "id": "rpl-sigmalithiumresources",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "sigma-lithium",
+      "expected_entry_hosts": [
+        "sigmalithiumcorp.com"
+      ]
+    },
+    {
+      "id": "exp-20261014-australian-mining-review",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "australian-mining-review",
+      "expected_entry_hosts": [
+        "australianminingreview.com.au"
+      ]
+    },
+    {
+      "id": "exp-20261014-african-mining-market",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "african-mining-market",
+      "expected_entry_hosts": [
+        "africanminingmarket.com"
+      ]
+    }
+  ],
   "production_applied": false,
   "natural_collection_accepted": false,
   "entries": [
@@ -45,35 +79,11 @@
       "expected_existing": false
     },
     {
-      "id": "exp-20261108-evolution-mining",
-      "target_config_hash": "0a8d25e84cf14a8e9adfe47861ebae1769538b8b7cef5d6f85b910fe882abe76",
-      "expected_config_hash": null,
-      "expected_owner_entity_id": null,
-      "owner_entity_id": "evolution-mining",
-      "expected_existing": false
-    },
-    {
       "id": "exp-20261108-euromines",
       "target_config_hash": "f71edc5d1a72cdf972e315e20f7548a9fc6d2d8748f983a4ac5caa17be7b02fc",
       "expected_config_hash": null,
       "expected_owner_entity_id": null,
       "owner_entity_id": "euromines",
-      "expected_existing": false
-    },
-    {
-      "id": "exp-20261108-sigma-lithium",
-      "target_config_hash": "e54ca86f94d9b8ad0bbd05ed480c2d4ba3349fd966ca8e709fec78c0fddd7f0c",
-      "expected_config_hash": null,
-      "expected_owner_entity_id": null,
-      "owner_entity_id": "sigma-lithium",
-      "expected_existing": false
-    },
-    {
-      "id": "exp-20261108-australian-mining-review",
-      "target_config_hash": "676f294d575c6f9a9c7ae809c84a8bccf2cd25ab759eaed57a857ffe2cf49c39",
-      "expected_config_hash": null,
-      "expected_owner_entity_id": null,
-      "owner_entity_id": "australian-mining-review",
       "expected_existing": false
     },
     {
@@ -130,14 +140,6 @@
       "expected_config_hash": null,
       "expected_owner_entity_id": null,
       "owner_entity_id": "miningfeeds",
-      "expected_existing": false
-    },
-    {
-      "id": "exp-20261108-african-mining-market",
-      "target_config_hash": "50c2aae9c4a09676a736966ae52251d4392bfd9c10de4cb951b8f187d1e06580",
-      "expected_config_hash": null,
-      "expected_owner_entity_id": null,
-      "owner_entity_id": "african-mining-market",
       "expected_existing": false
     },
     {
