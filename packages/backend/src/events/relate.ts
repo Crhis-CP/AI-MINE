@@ -556,9 +556,9 @@ const CURRENCY: Array<[RegExp, string]> = [
   [/^(?:比索|pesos?)$/i, "peso"],
   [/^(?:雷亚尔|brl|reais)$/i, "brl"],
 ];
-/** An amount: an optional currency sign, a number, an optional magnitude, an optional unit (currency, %, tonnes, ounces). */
+/** An amount: an optional currency sign or leading ISO code (USD 144 million), a number, an optional magnitude, an optional unit (currency, %, tonnes, ounces). */
 const QUANTITY =
-  /(us\$|a\$|c\$|\$|€|£|₹|\brs\.?)?\s*(\d+(?:[.,]\d+)*)\s*(万亿|千亿|百亿|十亿|亿|千万|百万|十万|万|crore|lakh|thousand|million|billion|mn|bn|[kmb](?![a-z]))?\s*(美元|美金|人民币|欧元|澳元|加元|英镑|卢比|兰特|比索|雷亚尔|元|usd|rmb|cny|eur|aud|cad|gbp|inr|zar|brl|rupees?|pesos?|reais|%|％|percent|吨|万吨|盎司|tonnes?|tons?|ounces?|oz)?/gi;
+  /(us\$|a\$|c\$|\$|€|£|₹|\brs\.?|\b(?:usd|aud|cad|eur|gbp|cny|rmb|inr|zar|brl)(?=\s*\d))?\s*(\d+(?:[.,]\d+)*)\s*(万亿|千亿|百亿|十亿|亿|千万|百万|十万|万|crore|lakh|thousand|million|billion|mn|bn|[kmb](?![a-z]))?\s*(美元|美金|人民币|欧元|澳元|加元|英镑|卢比|兰特|比索|雷亚尔|元|usd|rmb|cny|eur|aud|cad|gbp|inr|zar|brl|rupees?|pesos?|reais|%|％|percent|吨|万吨|盎司|tonnes?|tons?|ounces?|oz)?/gi;
 
 function currencyOf(sign: string | undefined, unit: string | undefined): string | null {
   for (const raw of [sign, unit]) {

@@ -17,6 +17,9 @@ test("amounts normalise across languages, magnitudes and spacing; years and plai
   assert.deepEqual([...keyQuantities("预计2027年全球铜矿产量回升3.4%至2408万吨")], ["pct:3.4", "t:24100000"]);
   assert.deepEqual([...keyQuantities("2026年第三季度，公司拥有12座矿山")], [], "a year and a count are not amounts");
   assert.deepEqual([...keyQuantities("India approves Rs 1,500 crore")], ["inr:15000000000"]);
+  assert.deepEqual([...keyQuantities("Rio Tinto approves USD 144 million for Resolution Copper")], ["usd:144000000"], "a leading ISO code is the currency");
+  assert.deepEqual([...keyQuantities("Northern Star commits AUD 144 million")], ["aud:144000000"], "a different currency keeps its own key");
+  assert.deepEqual([...keyQuantities("AUD144m capex")], ["aud:144000000"]);
   assert.deepEqual([...keyQuantities("output in the years 2025 and 2026")], [], "the rs in years is not a rupee sign");
 });
 
