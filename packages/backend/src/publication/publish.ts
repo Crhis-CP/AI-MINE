@@ -247,6 +247,14 @@ async function appendLedger(tx: Tx, articleId: string, op: "upsert" | "remove", 
   return next;
 }
 
+/** Each listed article's current publication visibility (none when it was never published); read-only (TASK-0594). */
+export async function publicationVisibilities(articleIds: readonly string[]): Promise<Map<string, string>> {
+  if (!articleIds.length) return new Map();
+  const rows = await sql<{ article_id: string; visibility: string }[]>`
+    SELECT article_id, visibility FROM publications WHERE article_id=ANY(${[...articleIds]}::text[])`;
+  return new Map(rows.map((r) => [r.article_id, r.visibility]));
+}
+
 export async function publishArticle(articleId: string, options: PublishOptions = {}): Promise<PublishResult | null> {
   return sql.begin((tx) => publishArticleTx(tx, articleId, options));
 }

@@ -941,6 +941,29 @@ async function incompleteCopies(articleId: string, revision: number): Promise<nu
   return rows.filter((r) => incompleteModelCopy(r.writer, r.title_zh, r.summary_zh)).length;
 }
 
+/**
+ * The latest judgement of each article's given revision when it is unknown and its model copy came back without a
+ * Chinese title or summary (TASK-0594; scripts/resume-copy.ts). Read-only; the article side is read by jobs/content.ts.
+ */
+export async function incompleteCopyJudgements(
+  articles: ReadonlyArray<{ id: string; revision: number }>,
+): Promise<Map<string, { writer: string; promptVersion: string | null }>> {
+  if (!articles.length) return new Map();
+  const rows = await sql<
+    { article_id: string; input_revision: number; relevance: string | null; writer: string | null; prompt_version: string | null; blank: boolean }[]
+  >`
+    SELECT DISTINCT ON (article_id, input_revision) article_id, input_revision, relevance, output->>'writer' AS writer, prompt_version,
+      (coalesce(trim(title_zh),'')='' OR coalesce(trim(summary_zh),'')='') AS blank
+    FROM analyses WHERE article_id=ANY(${articles.map((a) => a.id)}::text[])
+    ORDER BY article_id, input_revision, id DESC`;
+  const revision = new Map(articles.map((a) => [a.id, a.revision]));
+  const found = new Map<string, { writer: string; promptVersion: string | null }>();
+  for (const r of rows)
+    if (revision.get(r.article_id) === r.input_revision && r.relevance === "unknown" && (r.writer === "understand" || r.writer === "summarize") && r.blank)
+      found.set(r.article_id, { writer: r.writer, promptVersion: r.prompt_version });
+  return found;
+}
+
 /** A judgement that went past the prefilter (it carries the scores, even when there were none to give). */
 const isCompleteJudgement = (output: unknown) => !!output && typeof output === "object" && "scores" in output;
 

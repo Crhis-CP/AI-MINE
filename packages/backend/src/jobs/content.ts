@@ -12,10 +12,11 @@ import { RuntimeControlPaused, RuntimeControlStale, runtimeControlSnapshot, asse
 import { needsGeographyAnalysis } from "../editorial/geography.ts";
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
+import { sourceParticipants } from "../sources/participants.ts";
 import { config, sourceCollectionEnabled } from "../config.ts";
 import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
-import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
+import { analyzeArticle, AnalysisInterruptedError, incompleteCopyJudgements } from "../editorial/analyze.ts";
 import { isHistorical, readCurrentBody, resetMaterialProcessing } from "../content/materials.ts";
 import { recordedMaterialWaits, readGroupingAnalysis } from "../enrichment/records.ts";
 import { beginMaterialGrouping, EDITORIAL_RESUME_PENDING } from "../content/grouping.ts";
@@ -29,7 +30,7 @@ import {
 } from "@amp/backend/admin/sources";
 import { bodyReadingKey } from "../content/body-reading-key.ts";
 import { usableSourceText } from "../lib/text.ts";
-import { publishArticle, prepareTranslationRun, translationSelectedNow, articleWithdrawalHeld } from "../publication/publish.ts";
+import { publishArticle, prepareTranslationRun, translationSelectedNow, articleWithdrawalHeld, publicationVisibilities } from "../publication/publish.ts";
 import { LIVE_TRANSLATION_DAYS, translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
 import { translationQuotaWait } from "../editorial/translation-quota.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
@@ -786,25 +787,34 @@ export interface IncompleteCopyCandidate {
  * Items under a manual control are left out: a rewrite would pay for copy a person decides.
  */
 export async function incompleteCopyCandidates(afterId: string | null, limit: number): Promise<IncompleteCopyCandidate[]> {
-  const rows = await sql<IncompleteCopyCandidate[]>`
-    SELECT a.id, a.source_id AS "sourceId", a.language, a.title, an.output->>'writer' AS writer, an.prompt_version AS "promptVersion", p.visibility
-    FROM articles a
-    JOIN sources s ON s.id=a.source_id AND s.lane='news' AND s.participation_mode='editorial'
-    JOIN LATERAL (SELECT relevance, title_zh, summary_zh, output, prompt_version FROM analyses x
-      WHERE x.article_id=a.id AND x.input_revision=a.revision ORDER BY x.id DESC LIMIT 1) an ON true
-    LEFT JOIN publications p ON p.article_id=a.id
-    WHERE a.processing_state='analyzed' AND a.id > ${afterId ?? ""}
-      AND an.relevance='unknown' AND an.output->>'writer' IN ('understand','summarize')
-      AND (coalesce(btrim(an.title_zh),'')='' OR coalesce(btrim(an.summary_zh),'')='')
-    ORDER BY a.id LIMIT ${limit}`;
-  if (!rows.length) return rows;
-  const excluded = new Set(
-    await manualProcessingExclusions(
-      rows.map((r) => r.id),
-      sql,
-    ),
-  );
-  return rows.filter((r) => !excluded.has(r.id));
+  // Each module reads its own records: analysed articles here; their sources, latest judgements and publications through
+  // those modules. Pages of analysed articles are scanned in id order until `limit` items are found.
+  const matched: Array<Omit<IncompleteCopyCandidate, "visibility">> = [];
+  let cursor = afterId ?? "";
+  while (matched.length < limit) {
+    const articles = await sql<{ id: string; sourceId: string; language: string | null; title: string; revision: number }[]>`
+      SELECT id, source_id AS "sourceId", language, title, revision FROM articles
+      WHERE processing_state='analyzed' AND id > ${cursor} ORDER BY id LIMIT 500`;
+    if (!articles.length) break;
+    cursor = articles[articles.length - 1]!.id;
+    const editorial = new Set(
+      (await sourceParticipants([...new Set(articles.map((a) => a.sourceId))]))
+        .filter((s) => s.lane === "news" && s.participation_mode === "editorial")
+        .map((s) => s.id),
+    );
+    const scoped = articles.filter((a) => editorial.has(a.sourceId));
+    const judged = await incompleteCopyJudgements(scoped);
+    for (const a of scoped) {
+      const copy = judged.get(a.id);
+      if (copy && matched.length < limit)
+        matched.push({ id: a.id, sourceId: a.sourceId, language: a.language, title: a.title, writer: copy.writer, promptVersion: copy.promptVersion });
+    }
+  }
+  if (!matched.length) return [];
+  const ids = matched.map((r) => r.id);
+  const [visibility, excluded] = await Promise.all([publicationVisibilities(ids), manualProcessingExclusions(ids, sql)]);
+  const skip = new Set(excluded);
+  return matched.filter((r) => !skip.has(r.id)).map((r) => ({ ...r, visibility: visibility.get(r.id) ?? null }));
 }
 
 /** Hands one such item back to processing at low priority; its next analysis asks the writer anew (incompleteCopies). */
