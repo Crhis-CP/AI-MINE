@@ -153,6 +153,10 @@ test("translation checks find lost numbers, units, renamed companies, lost links
   assert.deepEqual(missingNumbers(source, "产量增长12.5%，达到120万盎司，品位2.1克/吨，价值35亿美元。"), []);
   assert.deepEqual(missingNumbers(source, "产量增长12.5%，达到120万盎司，价值35亿美元。"), ["2.1"]);
   assert.deepEqual(missingNumbers("La producción alcanzó 1.234,5 toneladas", "产量达到1234.5吨"), [], "a Spanish decimal comma");
+  assert.deepEqual(missingNumbers("a US$3.5 billion expansion", "35亿美元的扩建"), [], "the whole value meets");
+  assert.deepEqual(missingNumbers("a US$3.5 billion expansion", "3.5万美元的扩建"), ["3.5"], "a wrong scale is caught even with the digits kept");
+  assert.deepEqual(missingNumbers("a US$3.5 billion expansion", "3.5美元的扩建"), ["3.5"], "a dropped scale is caught");
+  assert.deepEqual(missingNumbers("a US$3.5 billion expansion", "3.5 billion 美元的扩建"), [], "an English scale word left in place");
   assert.deepEqual(missingUnits(source, "产量增长12.5%，达到120万盎司，品位2.1克/吨，价值35亿美元。"), []);
   assert.deepEqual(missingUnits(source, "产量增长12.5，达到120万，品位2.1，价值35亿。"), ["%", "g/t", "oz", "US$"]);
   assert.deepEqual(missingUnits("C$40 million", "4000万加元"), []);

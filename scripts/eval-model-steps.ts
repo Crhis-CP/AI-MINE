@@ -286,6 +286,16 @@ interface Meter {
   budget: TokenBudget;
   usage: Usage;
   receiptIds: number[];
+  /** Errors already seen in this run (design §6: the same error twice stops it), shared with translation segments. */
+  seen: Set<string>;
+  stopped: () => boolean;
+}
+/** A translation segment failed with an error this run has already seen. */
+class RepeatedError extends Error {}
+/** Records a segment failure; the second of the same kind stops the run. */
+function noteSegmentError(meter: Meter, message: string) {
+  if (meter.seen.has(message)) throw new RepeatedError(message);
+  meter.seen.add(message);
 }
 /** One paid call within the cap: refused before sending when the cap could be passed, measured from its receipts after. */
 async function metered<T>(meter: Meter, call: (onReceipt: (id: number) => void) => Promise<T>): Promise<T> {
@@ -335,6 +345,7 @@ async function translateCase(
   // Translation-only models take no system prompt and answer in plain text (site/models.ts, jsonMode false).
   const plain = MODELS[model]?.jsonMode === false;
   for (const leaf of leaves) {
+    if (meter.stopped()) break;
     const part = shield(leaf.html).html;
     const user = plain ? part : JSON.stringify({ text: part, ...(leaf.reference ? { referenceOnly: leaf.reference } : {}) });
     const system = plain ? "" : SYSTEM;
@@ -389,6 +400,7 @@ async function translateCase(
       if (error instanceof CapReached) segments.pop(); // never sent
       if (error instanceof CapReached || REFUSED.test(message) || /unknown|未知/i.test(message)) throw error;
       segment.error = message;
+      noteSegmentError(meter, message);
       continue;
     }
     segment.finishReason = reply.finishReason;
@@ -397,6 +409,7 @@ async function translateCase(
       segment.candidate = typeof raw?.text === "string" ? raw.text : null;
     } catch {
       segment.error = "unparsable JSON";
+      noteSegmentError(meter, segment.error);
     }
   }
 }
@@ -413,7 +426,7 @@ async function judge(
     try {
       await translateCase(model, c, meter, runtimeControl, segments);
     } catch (error) {
-      if (error instanceof CapReached && segments.length) Object.assign(error, { partial: { segments } });
+      if ((error instanceof CapReached || error instanceof RepeatedError) && segments.length) Object.assign(error, { partial: { segments } });
       throw error;
     }
     return { segments };
@@ -484,12 +497,21 @@ async function runStep() {
         stop("processing_control_changed");
         break;
       }
-      const meter: Meter = { budget, usage: emptyUsage(), receiptIds: [] };
+      const meter: Meter = { budget, usage: emptyUsage(), receiptIds: [], seen: errors, stopped: () => file.stopReason !== null };
       const result: CaseResult = { ...c, candidate: null, error: null, receiptIds: [], usage: emptyUsage() };
       try {
         result.candidate = await judge(step, model, c, meter, controls);
       } catch (error) {
         const message = String(error instanceof Error ? error.message : error).slice(0, 300);
+        if (error instanceof RepeatedError) {
+          // Completed segments are kept; no further call is made.
+          stop("repeated_error");
+          result.candidate = (error as RepeatedError & { partial?: Candidate }).partial ?? null;
+          result.error = message;
+          file.cases.push({ ...result, receiptIds: meter.receiptIds, usage: meter.usage });
+          save(out, file);
+          continue;
+        }
         if (error instanceof CapReached) {
           stop("token_cap");
           result.candidate = (error as CapReached & { partial?: Candidate }).partial ?? null;

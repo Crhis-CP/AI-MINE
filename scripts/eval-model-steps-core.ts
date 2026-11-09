@@ -213,25 +213,30 @@ function readings(raw: string): number[] {
   return [...new Set([plain, latin].filter(Number.isFinite))];
 }
 /** Each number in the source text with every value it may stand for (a scale word after it multiplies it). */
-export function sourceNumbers(text: string): Array<{ raw: string; values: number[] }> {
+export function sourceNumbers(text: string): Array<{ raw: string; values: number[]; scaled: boolean }> {
   return [...text.matchAll(/\d+(?:[.,]\d+)*/g)].map((m) => {
-    const after = text.slice(m.index! + m[0].length).replace(/^\s+/, "");
-    const scale = SCALE.find(([re]) => re.test(after))?.[1] ?? 1;
+    const scale = scaleAfter(text, m.index! + m[0].length);
     const base = readings(m[0]);
-    return { raw: m[0], values: [...base, ...(scale === 1 ? [] : base.map((v) => v * scale))] };
+    // With a scale word only the whole value counts: “3.5 billion” is not matched by a bare 3.5 (3.5万 would pass).
+    return { raw: m[0], values: scale === 1 ? base : base.map((v) => v * scale), scaled: scale !== 1 };
   });
+}
+function scaleAfter(text: string, end: number): number {
+  return SCALE.find(([re]) => re.test(text.slice(end).replace(/^\s+/, "")))?.[1] ?? 1;
 }
 /** The values written in the translation, “35亿” and “210万” read as whole numbers. */
 export function translatedNumbers(text: string): number[] {
   return [...text.matchAll(/(\d+(?:[.,]\d+)*)\s*(万亿|百万|亿|万|千)?/g)].flatMap((m) => {
     const base = readings(m[1]!);
-    return m[2] ? [...base, ...base.map((v) => v * ZH_SCALE[m[2]!]!)] : base;
+    // A scale (中文 or an English word left in place) gives only the whole value.
+    const scale = m[2] ? ZH_SCALE[m[2]!]! : scaleAfter(text, m.index! + m[0].length);
+    return scale === 1 ? base : base.map((v) => v * scale);
   });
 }
 export function missingNumbers(source: string, translated: string): string[] {
   const found = translatedNumbers(translated);
   return sourceNumbers(source)
-    .filter((n) => !translated.includes(n.raw) && !n.values.some((v) => found.some((f) => near(v, f))))
+    .filter((n) => !(!n.scaled && translated.includes(n.raw)) && !n.values.some((v) => found.some((f) => near(v, f))))
     .map((n) => n.raw);
 }
 

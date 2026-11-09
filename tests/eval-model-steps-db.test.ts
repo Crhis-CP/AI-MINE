@@ -221,6 +221,13 @@ test("translation replay compares with the stored DeepSeek segments and writes n
   const bailian = await stub((_hit, req) => {
     const body = JSON.parse(req.body);
     requests.push(body);
+    if (body.model === "qwen-flash")
+      // A JSON-mode candidate that answers in plain text: every segment fails the same way.
+      return {
+        model: "qwen-flash",
+        choices: [{ message: { content: "not json" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 30, completion_tokens: 3 },
+      };
     return {
       model: "qwen-mt-flash",
       choices: [{ message: { content: translateText(body.messages[0].content, "文") }, finish_reason: "stop" }],
@@ -292,6 +299,26 @@ test("translation replay compares with the stored DeepSeek segments and writes n
       SELECT subject, request->>'usage_purpose' AS purpose FROM receipts WHERE id = ANY(${result.cases[0].receiptIds}::bigint[])`;
     assert.equal(receipts.length, 2);
     assert.ok(receipts.every((r) => r.subject.startsWith(`evaluation:article:${articleId}@`) && r.purpose === "evaluation"));
+
+    // The same segment error twice stops the run: two calls, then nothing more for the second case.
+    await installUsageFixtureForModel("qwen-flash");
+    requests.length = 0;
+    const twice = path.join(dir, "translate-twice", "samples.json");
+    mkdirSync(path.dirname(twice), { recursive: true });
+    writeFileSync(
+      twice,
+      JSON.stringify({ format: "model-bakeoff-samples-v1", seed: "1", steps: { prefilter: [], score: [], structure: [], translate: [item, item] } }),
+    );
+    const repeated = await node(
+      ["scripts/eval-model-steps.ts", "run", "--step", "translate", "--model", "qwen-flash", "--sample", twice, "--token-cap", "100000"],
+      { DASHSCOPE_BASE_URL: `${bailian.url}/v1`, DASHSCOPE_API_KEY: "test-key" },
+    );
+    assert.equal(requests.length, 2, repeated.stdout);
+    const twiceFile = readdirSync(path.dirname(twice)).find((f) => f.startsWith("translate-qwen-flash-"))!;
+    const stopped = JSON.parse(readFileSync(path.join(path.dirname(twice), twiceFile), "utf8"));
+    assert.equal(stopped.stopReason, "repeated_error");
+    assert.equal(stopped.cases.length, 1, "the second case is never called");
+    assert.equal(stopped.cases[0].candidate.segments.length, 2, "completed segments are kept");
   } finally {
     await deepseek.close();
     await bailian.close();
