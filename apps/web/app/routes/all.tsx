@@ -20,7 +20,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const channelParam = url.searchParams.get("channel") ?? "all";
   const categoryParam = url.searchParams.get("category");
-  const channel = isChannelKey(channelParam) ? channelParam : "all";
+  // The first-party switch is gone (TASK-0587, Owner 2026-11-07): an old ?channel=firstParty link opens the whole list.
+  const channel = isChannelKey(channelParam) && channelParam !== "firstParty" ? channelParam : "all";
   const category = categoryParam ? canonicalCategoryFilter(categoryParam) : null;
   // Old links with a retired category (ADR-0031) move to its successor; company_project stays and filters both.
   if (categoryParam && category && category !== categoryParam) {
@@ -161,17 +162,15 @@ export default function AllPage() {
 
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
-      <FeedBar base="/all" category={f.category} channel={f.channel} jurisdiction={f.jurisdiction ?? null} facets={data.facets} />
+      <FeedBar base="/all" category={f.category} jurisdiction={f.jurisdiction ?? null} facets={data.facets} />
       <FeedToolbar
         title={title ?? tr.maybe(`全部${withSubject("动态")}`)}
         base="/all"
         category={f.category}
-        channel={f.channel}
         jurisdiction={f.jurisdiction ?? null}
         layoutId="all-cat-desk"
         search={<SearchField variant="track" defaultValue={f.q ?? ""} keep={keep} />}
         advanced={<SourceDateFilters base="/all" facets={data.facets} flat />}
-        countryChips
       />
       {data.hot && <HotTopics entries={data.hot} />}
       {f.q && (
