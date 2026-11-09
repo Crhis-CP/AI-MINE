@@ -20,6 +20,8 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 // Material with only a title or a feed summary has its article page fetched before it is judged.
 import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory, type CategoryKey } from "@amp/contracts/taxonomy";
+/** For scripts that run in the production image, which installs @amp/backend but not @amp/contracts (scripts/eval-model-steps.ts). */
+export { toPublicApiCategory };
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
 import { attentionScore, meetsThreshold, NOISE_TYPES, SELECTION, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";

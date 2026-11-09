@@ -11,7 +11,6 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { REPO_ROOT } from "@amp/backend/config";
 import { closeDb, initializeDb, sql } from "@amp/backend/db";
 import { importSelectBenchRun } from "@amp/backend/admin/selectbench";
@@ -25,6 +24,7 @@ import {
   runSelectionPrefilter,
   runSelectionScores,
   runSelectionStructure,
+  toPublicApiCategory,
 } from "@amp/backend/editorial/analyze";
 import { promptText } from "@amp/backend/editorial/prompts";
 import { TRANSLATE_PROMPT_VERSION } from "@amp/backend/editorial/translate";
