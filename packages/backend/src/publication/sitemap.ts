@@ -136,7 +136,7 @@ export function renderSitemap(pageEntries: Entry[], page?: number, capacity = MA
   const pages = Math.max(1, Math.ceil(entries.length / capacity));
   if (page !== undefined && (!Number.isSafeInteger(page) || page < 1 || page > pages)) throw new SitemapPageNotFound("Sitemap page not found");
   if (page === undefined && pages > 1)
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemaps/0.9">\n${Array.from(
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Array.from(
       { length: pages },
       (_, i) => `<sitemap><loc>${escapeXml(siteUrl(`/sitemaps/${i + 1}.xml`))}</loc></sitemap>`,
     ).join("\n")}\n</sitemapindex>\n`;
@@ -158,7 +158,7 @@ export function renderSitemap(pageEntries: Entry[], page?: number, capacity = MA
       return `<url>\n${parts.join("\n")}\n</url>`;
     })
     .join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemaps/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
 }
 
 export async function sitemapXml(page?: number): Promise<string> {

@@ -184,10 +184,11 @@ test("invalid report evidence retains its paid answer across retries, reverse co
       [a, b] = f.ids as [string, string],
       before = provider.hits();
     evidenceMode = mode;
-    const evidenceError = /Quotes must occur|Same report needs/;
-    await assert.rejects(compareReportGroup(b), evidenceError);
-    await assert.rejects(compareReportGroup(b), evidenceError);
-    await assert.rejects(compareReportGroup(a), evidenceError);
+    // TASK-0578: the rejected answer settles the comparison (recorded once) instead of failing the job for a retry.
+    assert.equal((await compareReportGroup(b)).state, "unusable-answer");
+    assert.equal((await compareReportGroup(b)).state, "checked");
+    assert.equal((await compareReportGroup(a)).state, "unusable-answer");
+    await sql`DELETE FROM events.report_group_checks WHERE article_id=${b}`;
     const restart = await promisify(execFile)(
       process.execPath,
       [
@@ -195,12 +196,13 @@ test("invalid report evidence retains its paid answer across retries, reverse co
         "-e",
         `await import('./tests/setup.ts');
       const {compareReportGroup}=await import('@amp/backend/events/group');const {closeDb}=await import('@amp/backend/db');
-      try {await compareReportGroup(process.argv[1]);process.exitCode=1;} catch(error){console.log(error.constructor.name);} finally {await closeDb();}`,
+      try {console.log((await compareReportGroup(process.argv[1])).state);} catch(error){console.log(error.constructor.name);process.exitCode=1;} finally {await closeDb();}`,
         b,
       ],
       { env: process.env },
     );
-    assert.match(restart.stdout, /ModelOutputError/);
+    assert.match(restart.stdout, /unusable-answer/);
+    assert.equal((await sql`SELECT outcome FROM events.report_group_checks WHERE article_id=${b}`)[0]!.outcome, "unusable_answer");
     assert.equal(provider.hits(), before + 1, "local evidence rejection never buys a replacement answer");
     const waits = await sql`SELECT state,receipt_id,decision FROM events.report_group_decisions WHERE article_id=ANY(${f.ids}::text[])`;
     assert.ok(waits.length >= 2 && waits.every((row) => row.state === "waiting" && row.decision === null));
