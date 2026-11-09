@@ -118,6 +118,9 @@ export function loadEnglishPhrases(): Promise<void> {
   return englishLoading;
 }
 function englishPhrases(): Readonly<Record<Phrase, string>> {
+  // Route meta functions (lib/seo.ts) translate titles while <Meta> renders, without useTr: on an English page's
+  // first render in the browser they wait for the phrases the same way useTr does.
+  if (!english) use(loadEnglishPhrases());
   if (!english) throw new Error("English phrases are not loaded");
   return english;
 }
