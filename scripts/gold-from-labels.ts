@@ -4,16 +4,23 @@
 //   node scripts/gold-from-labels.ts --out .data/gold-owner-20261105.jsonl
 // Cases alternate between the development and holdout splits by their number, so the rules are tuned on one
 // half and checked on the other. Labels marked “either” are kept (they do not count toward accuracy).
+// Each row carries the current analysis input and its fingerprint: eval-selection.ts only judges a case still bound to
+// the same source and material revision (prepareEvaluationInput). --labels/--candidates name other files (tests).
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { closeDb, initializeDb, sql } from "@amp/backend/db";
+import { evaluationInputFingerprint, loadAnalyzeInput } from "@amp/backend/editorial/analyze";
 
-const { values } = parseArgs({ options: { out: { type: "string" } } });
+const { values } = parseArgs({ options: { out: { type: "string" }, labels: { type: "string" }, candidates: { type: "string" } } });
 if (!values.out) throw new Error("usage: node scripts/gold-from-labels.ts --out <file.jsonl>");
 const dir = path.join(import.meta.dirname, "../industry/selection-gold");
-const labels = JSON.parse(readFileSync(path.join(dir, "owner-20261105-labels.json"), "utf8")) as { select: number[]; reject: number[]; either?: number[] };
-const candidates = JSON.parse(readFileSync(path.join(dir, "owner-20261105-candidates.json"), "utf8")) as Array<{ n: number; id: string }>;
+const labels = JSON.parse(readFileSync(values.labels ?? path.join(dir, "owner-20261105-labels.json"), "utf8")) as {
+  select: number[];
+  reject: number[];
+  either?: number[];
+};
+const candidates = JSON.parse(readFileSync(values.candidates ?? path.join(dir, "owner-20261105-candidates.json"), "utf8")) as Array<{ n: number; id: string }>;
 const decision = new Map<number, "select" | "reject" | "either">([
   ...labels.select.map((n) => [n, "select"] as const),
   ...labels.reject.map((n) => [n, "reject"] as const),
@@ -43,7 +50,8 @@ try {
     >`SELECT a.title, a.language, a.published_at, a.discovered_at, a.body_text, a.excerpt,
              s.name AS source_name, s.kind, s.tier, s.first_party
       FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${c.id}`;
-    if (!a) {
+    const input = a ? await loadAnalyzeInput(c.id) : null;
+    if (!a || !input) {
       missing.push(c.n);
       continue;
     }
@@ -52,6 +60,8 @@ try {
     rows.push(
       JSON.stringify({
         caseId: `owner-20261105-${String(c.n).padStart(3, "0")}`,
+        analysisInput: input,
+        inputFingerprint: evaluationInputFingerprint(input),
         material: {
           title: a.title,
           originalTitle: null,
