@@ -196,7 +196,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       trendPct: pct === null ? null : Math.round(pct * 1000) / 10,
       badges,
       evidenceHash: participationHash(
-        evidence.filter((signal) => signal.story_id === r.story_id && signal.observed_at.getTime() > at.getTime() - 48 * 3600000),
+        evidence.filter((signal) => signal.story_id === r.story_id && signal.observed_at.getTime() > at.getTime() - hotWindowHours(at) * 3600000),
       ),
       participantCount: Number(r.participants),
       sourceCount: Number(r.editorial_participants),
