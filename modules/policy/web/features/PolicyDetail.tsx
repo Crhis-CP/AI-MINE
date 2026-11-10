@@ -444,7 +444,7 @@ export function PolicyLegal({ policy }: { policy: Policy }) {
     adoption: tr("立法机关通过"),
     promulgation: tr("行政颁布"),
     entry_into_force: tr("施行日期"),
-    repeal: tr("被修改或废止"),
+    repeal: tr("已废止"),
   };
   const groups: [string, Arrangement[]][] = [
     [tr("施行安排"), legal.enforcement.arrangements],

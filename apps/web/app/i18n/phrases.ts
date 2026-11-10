@@ -1209,7 +1209,6 @@ export const PHRASES = {
   立法机关通过: "Passed by the legislature",
   行政颁布: "Promulgated",
   施行日期: "Entry into force",
-  被修改或废止: "Amended or repealed",
   来源更新: "Source updated",
   来源登记: "Source registered",
   公开阅览: "Public inspection",

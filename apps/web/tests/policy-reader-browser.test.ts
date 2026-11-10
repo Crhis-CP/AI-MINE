@@ -139,6 +139,45 @@ const documents = [
     }),
   ),
 ];
+/** TASK-0576: an Argentine law whose procedure the program read from the gazette text (not in the list; opened directly). */
+const ruleDate = (meaning: "event" | "signed" | "published" | "effective", date: string, basis: string) =>
+  normalizeSourceTime(
+    { meaning, raw: date, local_date: date, local_time: null, timezone: null, utc: null, precision: "date", basis, condition_text: null },
+    { instantBasis: null, timezoneEvidence: null },
+  );
+const arLawBase = policyDocument({
+  id: "pol-ar-law",
+  code: "AR",
+  title: "Ley 27.801 RÉGIMEN DE INVERSIONES MINERAS",
+  original: "Ley 27.801 RÉGIMEN DE INVERSIONES MINERAS",
+  number: "27.801",
+  authority: "合成阿根廷国家公报",
+  language: "es",
+  published: sourceDate("2026-11-04", null),
+});
+const lawBrief = { stage: "published", in_force: "unknown", repeal: "unknown" } as const;
+const arLaw = Policy.parse({
+  ...arLawBase,
+  nature: { code: "law", label: "法律" },
+  legal_brief: lawBrief,
+  versions: arLawBase.versions.map((v) => ({ ...v, legal_brief: lawBrief })),
+  legal_state: {
+    ...arLawBase.legal_state,
+    nature: { value: "law", basis: "程序从公报原文抽取：Ley（法律）", evidence_ids: [] },
+    legislative_stage: { value: "published", basis: "程序从公报原文抽取：官方来源已正式公布的Ley（法律）", evidence_ids: [] },
+    publication: { value: "published", basis: "程序从公报原文抽取：官方来源公布", evidence_ids: [], time: sourceDate("2026-11-04", null) },
+  },
+  dates: [
+    { ...sourceDate("2026-11-04", null), event_kind: "original_publication", occurrence: "occurred" },
+    { ...ruleDate("event", "2026-10-28", "程序从公报原文抽取：立法机关通过（Sancionada）"), event_kind: "adoption", occurrence: "occurred" },
+    { ...ruleDate("signed", "2026-11-03", "程序从公报原文抽取：行政颁布（Promulgada）"), event_kind: "promulgation", occurrence: "occurred" },
+    {
+      ...ruleDate("effective", "2026-11-13", "原文未写明施行日；按阿根廷《民商法典》第5条一般规则推算（公布后第八日届满，次日起施行），不是原文所写"),
+      event_kind: "entry_into_force",
+      occurrence: "planned",
+    },
+  ],
+});
 const card = (policy: Policy) => PolicyCard.parse(Object.fromEntries(Object.keys(PolicyCard.shape).map((key) => [key, policy[key as keyof Policy]])));
 const counts: Record<string, number> = { CN: 2, AR: 3 };
 const scope = PolicyScopeList.parse({
@@ -179,7 +218,7 @@ const api = createServer((req, res) => {
   }
   if (url.pathname === "/api/site/policies/reports") return answer(PolicyReportList.parse(fixture("report-list")));
   if (url.pathname === `/api/site/policies/reports/${report.id}`) return answer(report);
-  const detail = documents.find((d) => url.pathname === `/api/site/policies/${d.id}`);
+  const detail = [...documents, arLaw].find((d) => url.pathname === `/api/site/policies/${d.id}`);
   if (detail) return answer(detail);
   res.statusCode = 404;
   answer({ code: "not_found" });
@@ -431,6 +470,36 @@ test("a policy report in English shows no revision churn", { timeout: 30000 }, a
     await expect(page.locator("[data-report-correction]")).toHaveCount(0);
     await expect(page.locator("[data-report-earlier]")).toHaveCount(0);
     assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
+  }
+});
+
+test("an Argentine law shows its procedure read from the gazette: passed, promulgated, published, in force (computed), in Chinese and English", {
+  timeout: 30000,
+}, async () => {
+  const { context, page, errors, blocked } = await open(390);
+  try {
+    await page.goto(`${origin}/policies/pol-ar-law`);
+    const steps = page.locator('ol[aria-label="文件生命周期"] > li');
+    await expect(steps).toHaveCount(4);
+    assert.deepEqual(
+      (await steps.allInnerTexts()).map((s) => s.replace(/\s+/g, " ").trim()),
+      ["国会通过（Sancionada） 2026-10-28", "行政颁布（Promulgada） 2026-11-03", "公报公布 2026-11-04", "施行 2026-11-13（推算）"],
+    );
+    await expect(steps.nth(2)).toHaveAttribute("aria-current", "step");
+    await expect(page.locator("main")).toContainText("施行日原文未写明，按阿根廷《民商法典》第5条推算");
+    await noOverflow(page);
+    await page.goto(`${origin}/en/policies/pol-ar-law`);
+    const english = page.locator('ol[aria-label="Document life cycle"] > li');
+    await expect(english).toHaveCount(4);
+    const texts = await english.allInnerTexts();
+    assert.match(texts[0]!, /Passed by Congress \(Sancionada\)/);
+    assert.match(texts[1]!, /Promulgated \(Promulgada\)/);
+    assert.match(texts[2]!, /Published in the gazette/);
+    assert.match(texts[3]!, /In force[\s\S]*\(computed\)/);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(blocked, []);
   } finally {
     await context.close();
   }
