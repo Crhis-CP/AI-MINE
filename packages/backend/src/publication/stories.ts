@@ -455,7 +455,8 @@ export async function loadHot(): Promise<HotResponse> {
   return {
     computedAt: ranking.computedAt,
     ruleVersion: ranking.ruleVersion,
-    windowHours: 48,
+    // The window the ranking was computed with: 72 hours on Beijing weekends, else 48 (TASK-0599).
+    windowHours: Number(ranking.coverage?.windowHours) || 48,
     entries: ranking.entries.map((e) => {
       const text = extras.text(e);
       return {

@@ -80,7 +80,8 @@ async function queryLatestHotRanking(): Promise<HotRanking | null> {
     publicParticipation(
       row.entries.map((entry) => entry.storyId),
       now,
-      new Date(now.getTime() - 48 * 3600000),
+      // The ranking's own window (TASK-0599: 72 hours on Beijing Sat–Mon): a withdrawal anywhere in it changes the hash.
+      new Date(now.getTime() - rankingWindowHours(row.evidence) * 3600000),
     ),
   ]);
   const representatives = new Map(inputs.map((value) => [value.id, value]));
@@ -200,4 +201,10 @@ export async function storyParticipation(storyId: number, now = new Date()) {
 /** Search follows the same current public evidence and withdrawal checks as the hot board. */
 export async function hotSearchLinks() {
   return (await loadHotStrip()).map(({ rank, title, storyPublicId }) => ({ rank, title, to: `/story/${storyPublicId}` }));
+}
+
+/** The window a stored ranking was computed over; rankings stored before TASK-0599 used 48 hours. */
+export function rankingWindowHours(evidence: Record<string, unknown> | null): number {
+  const hours = Number(evidence?.windowHours);
+  return Number.isFinite(hours) && hours > 0 ? hours : 48;
 }

@@ -191,3 +191,26 @@ test("publication pause stops a new ranking and resuming allows the same evidenc
   await changeSystemLaneControl({ ...control, action: "resume", expected: { publication: 1 } });
   assert.ok((await computeHotRanking(now)).id);
 });
+
+test("a weekend ranking's evidence hash covers its whole 72-hour window, so withdrawing a 60-hour-old report invalidates it (TASK-0599)", async () => {
+  const { publicParticipation, participationHash } = await import("../packages/backend/src/events/participation-read.ts");
+  const { rankingWindowHours } = await import("../packages/backend/src/events/hot-read.ts");
+  const f = await fixture();
+  const old = await addReport(f.storyId, f.factId, 60);
+  // 2026-10-18 01:00 UTC is Sunday 09:00 in Beijing: the window is 72 hours.
+  const weekend = new Date("2026-10-18T01:00:00Z");
+  const offset = weekend.getTime() - now.getTime();
+  await sql`UPDATE story_signals SET observed_at=observed_at + ${`${offset} milliseconds`}::interval WHERE story_id=${f.storyId}`;
+  const result = await computeHotRanking(weekend);
+  const [row] = await sql<{ entries: Array<{ storyId: number; evidenceHash: string; participantCount: number }>; evidence: Record<string, unknown> }[]>`
+    SELECT entries, evidence FROM hot_rankings WHERE id=${result.id}`;
+  const entry = row!.entries.find((value) => value.storyId === f.storyId)!;
+  assert.equal(entry.participantCount, 3, "the 60-hour-old report counts on a weekend");
+  const windowHours = rankingWindowHours(row!.evidence);
+  assert.equal(windowHours, 72);
+  const hashAt = async () => participationHash(await publicParticipation([f.storyId], weekend, new Date(weekend.getTime() - windowHours * 3600000)));
+  assert.equal(await hashAt(), entry.evidenceHash, "read and write use the same window");
+  await sql`UPDATE publications SET visibility='withdrawn',revision=revision+1 WHERE article_id=${old}`;
+  assert.notEqual(await hashAt(), entry.evidenceHash, "the withdrawal inside 48–72 hours changes the hash");
+  assert.equal(rankingWindowHours(null), 48, "rankings stored before TASK-0599 keep 48 hours");
+});
