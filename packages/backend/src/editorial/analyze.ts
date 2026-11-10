@@ -20,6 +20,8 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 // Material with only a title or a feed summary has its article page fetched before it is judged.
 import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory, type CategoryKey } from "@amp/contracts/taxonomy";
+/** For scripts that run in the production image, which installs @amp/backend but not @amp/contracts (scripts/eval-model-steps.ts). */
+export { toPublicApiCategory };
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
 import { attentionScore, meetsThreshold, NOISE_TYPES, SELECTION, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";
@@ -368,6 +370,9 @@ type StepOpts = {
   /** A rewrite of copy that came back without a usable Chinese title or summary: the writing steps ask anew (TASK-0594). */
   copyAttempt?: number;
   scoreModel?: string;
+  /** Evaluation only (scripts/eval-model-steps.ts): another model for this one step; production keeps its route. */
+  prefilterModel?: string;
+  structureModel?: string;
   runtimeControl?: RuntimeControlSnapshot;
   fallbackInput?: NewsFallbackInput;
   /** The prompt layout of every step; defaults to the configured one (ANALYSIS_PROMPT_LAYOUT). */
@@ -387,9 +392,14 @@ const subjectOf = (a: AnalyzeInputArticle) => `article:${a.id}@${a.revision}`;
 const tagged = (attemptTag: string | undefined, step: string) => [attemptTag, step].filter(Boolean).join(":") || undefined;
 /** The writing steps' tag: a rewrite gets its own receipt, so the empty answer it replaces is not reused. */
 const writingTag = (opts: StepOpts, step: string) => tagged(opts.attemptTag, opts.copyAttempt ? `copy-${opts.copyAttempt}:${step}` : step);
+const stepModel = (override: string | undefined, opts: StepOpts, step: "prefilter" | "structure") => {
+  if (override === undefined) return modelFor(step);
+  if (opts.usagePurpose !== "evaluation") throw new Error("A per-step model override is for evaluation only");
+  return override;
+};
 
 async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["prefilter"]>> {
-  const model = await modelFor("prefilter");
+  const model = await stepModel(opts.prefilterModel, opts, "prefilter");
   checkAnalysisRunning();
   const layout = layoutOf(opts),
     request = prefilterRequest(a, layout);
@@ -506,7 +516,7 @@ export async function runSelectionScores(
 }
 
 async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["structure"]>> {
-  const model = await modelFor("structure");
+  const model = await stepModel(opts.structureModel, opts, "structure");
   checkAnalysisRunning();
   const layout = layoutOf(opts);
   const source = { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty };
@@ -560,6 +570,24 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     receiptId: res.receiptId,
     reused: res.reused,
   };
+}
+
+/** The structure step with its full result, exposed like runSelectionPrefilter for step evaluations. */
+export async function runSelectionStructure(
+  a: AnalyzeInputArticle,
+  opts: StepOpts = {},
+  onReceipt?: ReceiptObserver,
+): Promise<NonNullable<AnalysisRun["structure"]>> {
+  if (originalPostInputBlocked(a.xPost)) throw new Error("原帖新增准入尚未开启，等待可用正文");
+  try {
+    const result = await runStructure(a, opts);
+    onReceipt?.(result.receiptId);
+    return result;
+  } catch (error) {
+    const receiptId = observableReceiptId(error);
+    if (receiptId !== null) onReceipt?.(receiptId);
+    throw error;
+  }
 }
 
 /**
