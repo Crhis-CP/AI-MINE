@@ -57,7 +57,7 @@ test("pilot conclusions cover every pilot source, name real entries and record r
     assert.ok(addition.hold, `${addition.id}: waits for the production dry run`);
   }
   const ids = POLICY_PILOT.map((p) => p.sourceId).filter(Boolean);
-  for (const id of ["CN-001", "CN-002", "CN-003", "CN-004", "CN-P01", "AR-001", "AR-005", "AR-007", "AR-008"]) assert.ok(ids.includes(id), id);
+  for (const id of ["CN-001", "CN-002", "CN-003", "CN-004", "CN-P01", "AR-001", "AR-005", "AR-007", "AR-008", "AR-P01"]) assert.ok(ids.includes(id), id);
   for (const group of ["cn_national", "cn_mining_authority", "ar_national", "ar_province", "standards"])
     assert.ok(
       POLICY_PILOT.some((p) => p.group === group),
@@ -224,6 +224,58 @@ test("AR-008 Jujuy reads the act number from the post, not the issue heading", (
   assert.equal(split.numbering, "es");
   assert.equal(split.provisions.length, 3);
   assert.match(split.provisions[0]!.label, /^ART[ÍI]CULO 1/i);
+});
+
+test("AR-P01 SAIJ lists mining legislation from the official JSON search, province in the title, no rulings (TASK-0603)", () => {
+  const s = entry("AR-P01");
+  assert.equal(s.publisher_kind, "official_law_database");
+  assert.equal(s.collect!.kind, "json_list");
+  assert.doesNotThrow(() => assertSupportedConfig(s.collect!.kind, s.collect!.config));
+  assert.equal(s.entry, s.collect!.config.url, "entry equals the checked config");
+  const query = new URL(s.entry).searchParams;
+  assert.equal(query.get("f"), "Total|Tipo de Documento/Legislación|Fecha|Jurisdicción", "only the legislation facet");
+  assert.equal(query.get("s"), "fecha-rango|DESC");
+  assert.doesNotMatch(s.entry, /jurisprudencia|doctrina|sumario|fallo/i);
+  assert.equal(s.collect!.config.policyProfile, undefined, "the detail page loads its text by script; acquisition waits for a JSON reader");
+  assert.match(s.hold!, /view-document/);
+  const pilot = POLICY_PILOT.find((p) => p.sourceId === "AR-P01")!;
+  assert.equal(pilot.robots.result, "allowed");
+  assert.equal(pilot.state, "needs_server_verification");
+
+  const listing = jsonListDocument(fixture("ar-saij-busqueda.json"), row(s), "2026-11-10T02:45:00Z").candidates;
+  assert.deepEqual(
+    listing.map((c) => [c.title, c.sourceDateObservation?.raw]),
+    [
+      [
+        "Resolución 5921 ARCA — Procedimiento. Sistema Integral de Retenciones Electrónicas (SIRE). Incorporación de regímenes de retención y/o percepción del IVA. Resoluciones Generales Nros. 3.726 y 4.523. Norma modificatoria y complementaria",
+        "2026-11-02",
+      ],
+      ["Decreto 1304 (Nacional) — Renuncia al cargo de Secretario de Coordinación de Energía y Minería", "2026-10-29"],
+      ["Ley 9739 (Mendoza) — Declaración de Impacto Ambiental para el Proyecto denominado Cobre San Romeleo", "2026-10-21"],
+      [
+        "Decreto 2162 (Mendoza) — Fideicomiso para el desarrollo de Malargue y del Polo logístico y de servicios Pata Mora y fomento a la actividad minera",
+        "2026-10-07",
+      ],
+      [
+        "Ley 8561 (Salta) — Protección fitosanitaria de la banana Musa spp. resguardando el estatus sanitario frente al riesgo de introducción y dispersión de plagas cuarentenarias ausentes en el territorio de la provincia",
+        "2026-10-06",
+      ],
+      [
+        "Resolución 5909 ARCA — Ventanilla Única de Comercio Exterior Argentino (VUCEA). Régimen de Inversiones para la Actividad Minera. Declaración jurada de destino minero. Decreto N° 2.686/93 y sus modificatorios. Su incorporación",
+        "2026-10-01",
+      ],
+      ["Decreto 482 (Nacional) — Modificación de la Reglamentación del Régimen de Inversiones para la Actividad Minera", "2026-06-22"],
+    ],
+  );
+  assert.equal(
+    listing[2]!.url,
+    "https://www.saij.gob.ar/9739-local-mendoza-declaracion-impacto-ambiental-para-proyecto-denominado-cobre-san-romeleo-lpm0009739-2026-10-21/123456789-0abc-defg-937-9000mvorpyel",
+  );
+  assert.equal((listing[2]!.raw as { externalId: unknown }).externalId, "123456789-0abc-defg-937-9000mvorpyel");
+  for (const c of listing) {
+    assert.ok(allowed(c.url, row(s)), c.url);
+    assert.match(c.url, /^https:\/\/www\.saij\.gob\.ar\/[a-z0-9-]+\/[a-z0-9-]+$/, "detail pages carry the uuid segment");
+  }
 });
 
 test("a blank number cell falls back to URL identity; a missing title stays an error", () => {

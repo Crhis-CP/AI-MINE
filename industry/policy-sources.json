@@ -6830,6 +6830,65 @@
         "evidence": "https://www.mem.gov.cn/fw/flfgbz/gz/"
       },
       "notes": "法规线试点补充（不在 Owner 156 条清单内）：矿山安全由应急管理部及其管理的国家矿山安全监察局主管，煤矿安全规程、煤矿重大事故隐患判定标准、煤矿企业安全生产许可证实施办法等以应急管理部令公布。；核对依据：2026-11-05 开发环境单次礼貌请求：robots.txt 404（无规则）；规章列表 gz11 共 6 页、每页 15 件，带 ETag/Last-Modified，可条件请求；单件页另有“下载文字版（.wps）/图片版（.pdf）”，HTML 正文即全文，不作附件取得。；全文条款暂按restricted。"
+    },
+    {
+      "id": "AR-P01",
+      "jurisdiction": "AR",
+      "level": "national",
+      "subdivision": null,
+      "authority": {
+        "zh": "阿根廷司法部",
+        "original": "Ministerio de Justicia de la Nación"
+      },
+      "name": {
+        "zh": "阿根廷法律信息系统（SAIJ）矿业相关立法",
+        "original": "SAIJ — Sistema Argentino de Información Jurídica"
+      },
+      "type": "law_database",
+      "publisher_kind": "official_law_database",
+      "role": "supplement",
+      "duplicate_of": null,
+      "website": "https://www.saij.gob.ar/",
+      "listed_url": "https://www.saij.gob.ar/",
+      "entry": "https://www.saij.gob.ar/busqueda?r=texto%3Aminer%C3%ADa%20OR%20texto%3Aminero%20OR%20texto%3Aminera%20OR%20texto%3Alitio&o=0&p=25&f=Total%7CTipo%20de%20Documento%2FLegislaci%C3%B3n%7CFecha%7CJurisdicci%C3%B3n&s=fecha-rango%7CDESC&v=detallada",
+      "collect": {
+        "kind": "json_list",
+        "config": {
+          "url": "https://www.saij.gob.ar/busqueda?r=texto%3Aminer%C3%ADa%20OR%20texto%3Aminero%20OR%20texto%3Aminera%20OR%20texto%3Alitio&o=0&p=25&f=Total%7CTipo%20de%20Documento%2FLegislaci%C3%B3n%7CFecha%7CJurisdicci%C3%B3n&s=fecha-rango%7CDESC&v=detallada",
+          "itemsPath": "searchResults.documentResultList",
+          "itemJsonPath": "documentAbstract",
+          "includeValues": {
+            "path": "document.metadata.document-content-type",
+            "values": ["legislacion"]
+          },
+          "titleTemplate": [
+            "{raw:document.content.tipo-norma.texto} {raw:document.content.numero-norma} ({raw:document.content.provincia}) — {raw:document.content.titulo-norma}",
+            "{raw:document.content.tipo-norma.texto} {raw:document.content.numero-norma} ({raw:document.content.jurisdiccion.descripcion}) — {raw:document.content.titulo-norma}",
+            "{raw:document.content.tipo-norma.texto} {raw:document.content.numero} {raw:document.content.organismo-emisor.sigla} — {raw:document.content.asunto}"
+          ],
+          "titlePaths": ["document.content.titulo-norma", "document.content.asunto", "document.content.nombre-coloquial"],
+          "summaryPaths": ["document.content.sumario"],
+          "publishedAtPath": "document.content.fecha",
+          "urlTemplate": "https://www.saij.gob.ar/{document.metadata.friendly-url.description}/{document.metadata.uuid}",
+          "externalIdPath": "document.metadata.uuid",
+          "allowUrlPrefixes": ["https://www.saij.gob.ar/"],
+          "crawlProfile": {
+            "minimumIntervalSeconds": 10
+          },
+          "language": "es"
+        }
+      },
+      "status": "ready",
+      "terms": "restricted",
+      "hold": "开发环境已核对 robots 与检索接口；须在正式服务器空跑（node scripts/policy-pilot-discover.ts --source AR-P01）确认后解除。单件页正文由网页脚本从 /view-document 接口（JSON）载入，取得阶段目前只读 HTML/XML，尚无 policyProfile：启用后只到“发现条目”，不会进入存档、判定与公开，接正文须另开任务",
+      "language": "es",
+      "detail_format": "metadata_only",
+      "themes": ["investment_company", "mineral_rights", "land_construction", "safety_environment", "labour_community", "tax_finance", "trade_transport"],
+      "identity": {
+        "status": "verified",
+        "evidence": "https://www.saij.gob.ar/"
+      },
+      "notes": "法规线补充（不在 Owner 156 条清单内；Owner 2026-11-09 要求接入 SAIJ，TASK-0603）：SAIJ 是阿根廷司法部的官方法律数据库，收录国家与各省法律、法令、决议。本条只读“立法”（legislación）一类，不收判例、判决摘要与学说；检索词为 minería、minero、minera、litio（四词 OR），按日期从新到旧每次取 25 件。省级法规的省名在条目字段 provincia 与单件网址中（如 …-local-mendoza-…），标题写成“种类 编号（省名）— 标题”；全国性法规写“（Nacional）”；国家机关决议（如 ARCA 总决议）没有法域字段，写“决议 编号 机关缩写 — 事由”。日期取 fecha（法规本身的日期，省法律多为通过日，不是公报刊登日；刊登日在 publicacion-codificada 字段，格式为“YYYY MM DD”，现有日期解析不支持）。；核对依据：2026-11-10 开发环境礼貌请求共 7 次：robots.txt 允许 /busqueda 与单件页，禁 /convert-html-to-pdf、/descarga-archivo、/*resource/kbee:、/archivo.php、/index.php、/urls、/_pdf；检索接口返回 JSON，documentAbstract 为 JSON 字符串，无 ETag/Last-Modified；四词检索立法类共 3,373 件（只用 minería 为 2,233 件）。单件页须带 uuid 段（https://www.saij.gob.ar/<friendly-url>/<uuid>），只写 friendly-url 返回 403；单件页 HTML 不含正文，正文与逐条条文在 /view-document?guid=<uuid> 的 JSON 中。；全文条款暂按restricted。"
     }
   ]
 }

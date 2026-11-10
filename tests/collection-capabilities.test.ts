@@ -159,3 +159,54 @@ test("an unzoned JSON timestamp retains its calendar date without inventing an i
   assert.equal(time?.utc, null);
   assert.equal(time?.local_time, null);
 });
+
+test("an item holding its record as a JSON string is parsed before paths, filters and title templates read it (TASK-0603)", () => {
+  const row = source("json_list", {
+    url: "https://registry.example/search",
+    itemsPath: "results",
+    itemJsonPath: "abstract",
+    includeValues: { path: "meta.kind", values: ["legislation"] },
+    titleTemplate: [
+      "{raw:content.type} {raw:content.number} ({raw:content.province}) — {raw:content.title}",
+      "{raw:content.type} {raw:content.number} — {raw:content.title}",
+    ],
+    titlePaths: ["content.subject"],
+    urlTemplate: "https://registry.example/{meta.slug}/{meta.id}",
+    externalIdPath: "meta.id",
+    publishedAtPath: "content.date",
+  });
+  assert.doesNotThrow(() => assertSupportedConfig("json_list", row.config));
+  const record = (meta: Record<string, unknown>, content: Record<string, unknown>) => ({ score: 1, abstract: JSON.stringify({ meta, content }) });
+  const body = (results: unknown[]) => JSON.stringify({ results });
+  const parsed = jsonListDocument(
+    body([
+      record(
+        { kind: "legislation", slug: "9739-local-mendoza", id: "u-1" },
+        { type: "Ley", number: 9739, province: "Mendoza", title: "Cobre", date: "2026-10-21" },
+      ),
+      record({ kind: "legislation", slug: "1304-nacional", id: "u-2" }, { type: "Decreto", number: 1304, title: "Renuncia", date: "2026-10-29" }),
+      record({ kind: "legislation", slug: "rs-5909", id: "u-3" }, { type: "Resolución", subject: "Régimen minero", date: "2026-10-01" }),
+      record({ kind: "jurisprudencia", slug: "fallo", id: "u-4" }, { type: "Sentencia", number: 1, title: "Fallo", date: "2026-10-30" }),
+      { score: 1, abstract: "{not json" },
+      { score: 1 },
+    ]),
+    row,
+    "2026-11-10T00:00:00Z",
+  ).candidates;
+  assert.deepEqual(
+    parsed.map((c) => [c.title, c.url, c.sourceDateObservation?.raw, (c.raw as { externalId: unknown }).externalId]),
+    [
+      ["Ley 9739 (Mendoza) — Cobre", "https://registry.example/9739-local-mendoza/u-1", "2026-10-21", "u-1"],
+      ["Decreto 1304 — Renuncia", "https://registry.example/1304-nacional/u-2", "2026-10-29", "u-2"],
+      ["Régimen minero", "https://registry.example/rs-5909/u-3", "2026-10-01", "u-3"],
+    ],
+    "court rulings are filtered out; malformed or missing strings are skipped; the first complete template wins",
+  );
+  assert.match(parsed[0]!.sourceDateObservation!.locator, /^json\.items\[0\]\.abstract\(json\)\.content\.date$/);
+  // A page where no item carries a parsable record is a failure, not an empty listing, even with a filter configured.
+  assert.throws(() => jsonListDocument(body([{ abstract: "[1]" }, { abstract: 3 }]), row, "2026-11-10T00:00:00Z"), /no item carried JSON at abstract/);
+  for (const titleTemplate of ["", [], [""], ["{a}", 3]])
+    assert.throws(() => assertSupportedConfig("json_list", { ...row.config, titleTemplate }), /titleTemplate/, JSON.stringify(titleTemplate));
+  assert.throws(() => assertSupportedConfig("json_list", { ...row.config, itemJsonPath: "" }), /itemJsonPath/);
+  assert.throws(() => assertSupportedConfig("rss", { feedUrl: "https://registry.example/feed", itemJsonPath: "abstract" }), /itemJsonPath/);
+});
