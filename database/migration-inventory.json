@@ -551,6 +551,10 @@
     {
       "name": "sources/202611071401_public_processing_projection.sql",
       "dependsOn": ["sources/202610120500_public_attribution_links.sql"]
+    },
+    {
+      "name": "publication/202611071300_policy_instrument_gate.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
     }
   ]
 }

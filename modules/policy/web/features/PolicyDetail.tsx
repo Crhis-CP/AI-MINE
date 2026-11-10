@@ -161,7 +161,7 @@ export function PolicyFacts({ policy, history }: { policy: Policy; history: bool
         </p>
       )}
       <div className="mt-5 rounded-card border border-line bg-surface p-4">
-        <PolicyLifecycle brief={policy.legal_brief} />
+        <PolicyLifecycle policy={policy} />
         <dl className="grid grid-cols-[6.5em_minmax(0,1fr)] gap-x-3 gap-y-2 text-[13px] sm:grid-cols-[6.5em_minmax(0,1fr)_6.5em_minmax(0,1fr)]">
           {rows
             .filter((row): row is [string, string] => !!row[1])
@@ -423,7 +423,8 @@ export function PolicyAnalysis({ policy }: { policy: Policy }) {
   );
 }
 
-const CHANGE_MEANINGS = ["published", "updated", "signed", "registered", "formally_published", "compiled", "public_inspection"];
+// "event" carries a legislature's adoption read from the gazette text (event_kind adoption, TASK-0576).
+const CHANGE_MEANINGS = ["published", "updated", "signed", "registered", "formally_published", "compiled", "public_inspection", "event"];
 
 /** The legal state the record confirms: only the known status values and the groups that have rows; nothing when none. */
 export function PolicyLegal({ policy }: { policy: Policy }) {
@@ -435,7 +436,16 @@ export function PolicyLegal({ policy }: { policy: Policy }) {
   if (!content.any) return null;
   const labels = { published: tr("已公布"), not_published: tr("尚未公布"), unknown: tr("尚未确认"), repealed: tr("已废止"), partly_repealed: tr("部分废止") };
   const occurrence = { occurred: tr("原文确认已发生"), planned: tr("计划"), conditional: tr("附条件"), unknown: null };
-  const events = { original_publication: tr("首次公布"), substantive_change: tr("实质变化"), registration: tr("登记"), other: tr("其他日期事件") };
+  const events = {
+    original_publication: tr("首次公布"),
+    substantive_change: tr("实质变化"),
+    registration: tr("登记"),
+    other: tr("其他日期事件"),
+    adoption: tr("立法机关通过"),
+    promulgation: tr("行政颁布"),
+    entry_into_force: tr("施行日期"),
+    repeal: tr("被修改或废止"),
+  };
   const groups: [string, Arrangement[]][] = [
     [tr("施行安排"), legal.enforcement.arrangements],
     [tr("适用范围与时间"), legal.applicability],

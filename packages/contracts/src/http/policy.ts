@@ -66,7 +66,10 @@ export const PolicySourceAnnotation = z.strictObject({
   locator: text,
 });
 export const PolicyDate = TimeAssertion.safeExtend({
-  event_kind: z.enum(["original_publication", "substantive_change", "registration", "other"]).optional(),
+  // adoption / promulgation / entry_into_force / repeal: additive (TASK-0576) for procedures read from the official text by rules.
+  event_kind: z
+    .enum(["original_publication", "substantive_change", "registration", "other", "adoption", "promulgation", "entry_into_force", "repeal"])
+    .optional(),
   occurrence: z.enum(["occurred", "planned"]).optional(),
 });
 export const PolicyEvidence = z.strictObject({
