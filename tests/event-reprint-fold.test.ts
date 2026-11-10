@@ -263,16 +263,19 @@ test("reprints of one policy and one speech fold into one featured item with sta
   assert.equal(rows.find((r) => r.article_id === speechOfficial)!.title, "习近平就推动中非矿业合作提出4点主张");
 
   const timeline = await loadTimeline({ channel: "all", category: null, tag: null, now: new Date() });
-  const ours = new Set([catalogReprint, catalogOfficial, speechReprint, speechOfficial, lone]);
+  // A report clearly ahead on score (3 points or more) takes the seat even over the first-party publisher
+  // (Owner 2026-11-08, TASK-0591): the catalogue's 90-point copy leads the ministry's 72, the Chilean compilation's
+  // 70 leads the ministry's 62. Each event still shows once, with the other reports stacked under it.
+  const ours = new Set([catalogReprint, catalogOfficial, speechReprint, speechOfficial, speechChile, lone]);
   const cards = timeline.cards.filter((card) => ours.has(card.item.id));
-  assert.deepEqual(cards.map((card) => card.item.id).sort(), [catalogOfficial, speechOfficial, lone].sort());
-  const catalogCard = cards.find((card) => card.item.id === catalogOfficial)!;
-  const speechCard = cards.find((card) => card.item.id === speechOfficial)!;
-  assert.equal(catalogCard.item.title, "自然资源部会同国家发展改革委公布优化调整后的《矿产资源目录》");
-  assert.equal(catalogCard.item.score, 72);
+  assert.deepEqual(cards.map((card) => card.item.id).sort(), [catalogReprint, speechChile, lone].sort());
+  const catalogCard = cards.find((card) => card.item.id === catalogReprint)!;
+  const speechCard = cards.find((card) => card.item.id === speechChile)!;
+  assert.equal(catalogCard.item.title, "自然资源部会同国家发展改革委发布《矿产资源目录》，共174个矿种、119个亚矿种");
+  assert.equal(catalogCard.item.score, 90);
   assert.ok(catalogCard.group && catalogCard.group.additionalSourceCount >= 1 && catalogCard.group.reportCount >= 2);
-  assert.equal(speechCard.item.title, "习近平就推动中非矿业合作提出4点主张");
-  assert.equal(speechCard.item.score, 62);
+  assert.equal(speechCard.item.title, "智利媒体编译中非矿业合作4点主张");
+  assert.equal(speechCard.item.score, 70);
   assert.ok(speechCard.group && speechCard.group.additionalSourceCount >= 1 && speechCard.group.reportCount >= 2);
   assert.equal(cards.find((card) => card.item.id === lone)!.group, null);
 
