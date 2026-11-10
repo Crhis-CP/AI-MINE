@@ -1150,7 +1150,16 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
     const reused = (run.prefilter?.reused ?? true) && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
     const awaitingBody = !input.xPost && !run.prefilter && awaitsMaterial(input);
     const copyIncomplete = out.relevance !== "block" && incompleteModelCopy(w?.kind, out.titleZh, out.summaryZh);
-    return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused, copyIncomplete, copyAttempt, ...(awaitingBody ? { awaitingBody } : {}) };
+    return {
+      analysisId: committed.value,
+      stale: committed.stale,
+      output: out,
+      receiptIds,
+      reused,
+      copyIncomplete,
+      copyAttempt,
+      ...(awaitingBody ? { awaitingBody } : {}),
+    };
   } catch (error) {
     if (!(error instanceof ModelPostReceiptGuardError)) throw error;
     const current = await loadAnalyzeInput(articleId);
