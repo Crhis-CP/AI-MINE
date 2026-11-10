@@ -8,6 +8,11 @@ import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 import { contentSecurityPolicy, NonceContext } from "./lib/csp";
+import { registerEnglishPhrases } from "./i18n";
+import { PHRASES } from "./i18n/phrases";
+
+// The server renders either language at once; browsers fetch the English phrases only for English pages (TASK-0593).
+registerEnglishPhrases(PHRASES);
 
 export const streamTimeout = 5_000;
 
