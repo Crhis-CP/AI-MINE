@@ -4,7 +4,8 @@ type News = { lane: "news" };
 export type SourceFetchData = { sourceId: string; force?: boolean; crawlSessionId?: string; scheduled?: boolean };
 export interface JobData {
   "content.analyze": News & { articleId: string; attemptTag?: string };
-  "content.translate": News & { articleId: string };
+  /** english: the item's English title and summary instead of its body (TASK-0595); omitted for body translation. */
+  "content.translate": News & { articleId: string; english?: true };
   "content.extract-body": News & {
     articleId: string;
     crawlSessionId?: string;
