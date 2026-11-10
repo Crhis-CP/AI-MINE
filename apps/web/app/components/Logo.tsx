@@ -12,8 +12,10 @@ import lockupLight from "@amp/industry/brand/lockup.svg?url&no-inline";
 export function Wordmark({ size = 22, className = "" }: { size?: number; className?: string }) {
   const height = Math.round(size * 1.3);
   const width = Math.round(height * lockup.aspect);
+  // Lazy: every page carries the light, dark and small cuts (header, phone bar, footer) but shows one or two;
+  // a cut hidden by the theme or the screen size is then never downloaded (TASK-0593: 2 of 3 files, about 23 KB).
   const img = (src: string, extra = "") => (
-    <img src={src} width={width} height={height} alt="" aria-hidden="true" decoding="async" className={`block ${extra}`} />
+    <img src={src} width={width} height={height} alt="" aria-hidden="true" loading="lazy" decoding="async" className={`block ${extra}`} />
   );
   return (
     <span className={`inline-flex shrink-0 items-center ${className}`} aria-label={SITE.name} role="img">
