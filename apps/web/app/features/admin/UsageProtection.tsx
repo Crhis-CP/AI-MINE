@@ -64,6 +64,13 @@ function ConfigForm({ data }: { data: Data }) {
           ...configFields.map((f) => [f.key, f.unit === "money" ? decimal(String(seed.breaker[f.key]), 6) : String(seed.breaker[f.key])]),
           ["warning", String(Number(seed.breaker.warning_ratio) * 100)],
           ["step", decimal(seed.usage_notice.step_micros, 6)],
+          [
+            "reminder",
+            (() => {
+              const line = seed.usage_notice.reminder_micros ?? data.initial_config?.usage_notice.reminder_micros;
+              return line ? decimal(line, 6) : "";
+            })(),
+          ],
           ["time", seed.usage_report.push_time],
           ["unknown_amount", decimal(seed.unknown_alert.amount_micros, 6)],
           ["unknown_age", String(seed.unknown_alert.oldest_age_seconds)],
@@ -82,6 +89,8 @@ function ConfigForm({ data }: { data: Data }) {
     if (!/^\d+(?:\.\d{1,4})?$/.test(draft.warning ?? "")) throw new Error("预警比例须为百分数，最多4位小数。");
     next.breaker.warning_ratio = decimal((BigInt(micros(draft.warning!)) / 100n).toString(), 6);
     next.usage_notice.step_micros = micros(draft.step!);
+    if (draft.reminder?.trim()) next.usage_notice.reminder_micros = micros(draft.reminder.trim());
+    else delete next.usage_notice.reminder_micros;
     next.usage_report.push_time = draft.time!;
     next.unknown_alert = { amount_micros: micros(draft.unknown_amount!), oldest_age_seconds: Number(draft.unknown_age) };
     return privateSchemas.UsageProtectionConfig.parse(next);
@@ -101,6 +110,9 @@ function ConfigForm({ data }: { data: Data }) {
         </Field>
         <Field label="月内用量提示步长（元，只提示）">
           <Input value={draft.step ?? ""} onChange={(e) => setDraft({ ...draft, step: e.target.value })} inputMode="decimal" />
+        </Field>
+        <Field label="每月提醒线（元，只提醒，不停止）">
+          <Input value={draft.reminder ?? ""} onChange={(e) => setDraft({ ...draft, reminder: e.target.value })} inputMode="decimal" />
         </Field>
         <Field label="月报推送时刻（北京时间）">
           <Input type="time" value={draft.time ?? ""} onChange={(e) => setDraft({ ...draft, time: e.target.value })} />

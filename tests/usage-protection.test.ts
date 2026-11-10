@@ -274,6 +274,38 @@ test("unknown keeps its reservation; known unbilled release adjusts only its amo
   assert.equal((await readUsageProtection()).events.filter((e) => e.kind === "usage_notice").length, 2);
   await charge("new-work-after-notice", "1");
 });
+test("the monthly reminder line is announced once when crossed and stops nothing; a stored config without it uses the repo default (TASK-0605)", async () => {
+  // A configuration stored before TASK-0605 has no reminder line; the repository default (¥400) applies.
+  const { reminder_micros: _line, ...notice } = defaults.usage_notice;
+  const stored = { ...structuredClone(defaults), usage_notice: notice };
+  stored.breaker.daily_no_history_micros = "10000000000";
+  stored.breaker.news_object_micros = "10000000000";
+  await changeUsageProtection({ expected_version: 0, config: stored, reason: "synthetic pre-0605 config", high_risk_confirmed: true }, owner);
+  await charge("reminder-a", "350000000");
+  let notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0]!.payload.reminder_micros, undefined, "¥350 is below the line");
+  await charge("reminder-b", "100000000");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 2);
+  assert.equal(notices[0]!.payload.reminder_micros, "400000000");
+  assert.equal(notices[0]!.payload.crossed_through_micros, "400000000");
+  const messages: Array<{ title: string; lines: string[] }> = [];
+  await deliverUsageProtectionEvents(new Date(), async (title, lines) => {
+    messages.push({ title, lines });
+    return "sent";
+  });
+  const line = messages.find((m) => m.title === "用量提示：本月已超过提醒线");
+  assert.ok(line, "the crossing notice says so in its title");
+  assert.ok(line.lines.some((l) => l.includes("每月400.0元提醒线") && l.includes("不会自动停止")));
+  // Spending goes on; the next ¥100 step is an ordinary notice without the line.
+  const before = calls;
+  await charge("reminder-c", "100000000");
+  assert.equal(calls, before + 1, "the request after the line still runs");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 3);
+  assert.equal(notices[0]!.payload.reminder_micros, undefined);
+});
 test("Owner recovery has version CAS and never releases a system/deployment/Owner pause", async () => {
   await install();
   await charge("obj", "6000000", { object: "a" });
