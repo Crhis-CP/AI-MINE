@@ -89,6 +89,8 @@ const MARKERS = [
   "COPYDEAD",
   "COPYZH",
   "COPYLEGACY",
+  "COPYHELD",
+  "COPYOPEN",
   ...mining.map(([m]) => m),
 ];
 const scoreAnswers: Record<string, number[]> = {
@@ -939,4 +941,30 @@ test("TASK-0594: items left behind before rewrites existed are found and handed 
   assert.equal(await found(), undefined, "a queued item is not found again");
   assert.equal(await resumeIncompleteCopy(id), false);
   assert.equal((await processArticle(id)).state, "pass", "the rewrite writes the copy");
+});
+
+test("TASK-0594: an item an operator withdrew is skipped without ending the scan for later items", async () => {
+  emptySummaries.set("COPYHELD", 1);
+  const held = await article("COPYHELD");
+  await processArticle(held);
+  await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${held}`;
+  await sql`INSERT INTO editorial_overrides(article_id, visibility) VALUES(${held}, 'withdrawn')
+    ON CONFLICT (article_id) DO UPDATE SET visibility='withdrawn'`;
+  emptySummaries.set("COPYOPEN", 1);
+  const open = await article("COPYOPEN");
+  await processArticle(open);
+  await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${open}`;
+  // Limit 1: before the fix a page whose only match was the held item came back empty after filtering, and the
+  // caller took that as the end of the scan.
+  let foundOpen = false;
+  for (let after: string | null = null; ; ) {
+    const page = await incompleteCopyCandidates(after, 1);
+    if (!page.length) break;
+    assert.notEqual(page[0]!.id, held, "a withdrawn item is never handed back");
+    if (page[0]!.id === open) foundOpen = true;
+    after = page[page.length - 1]!.id;
+  }
+  assert.ok(foundOpen, "the scan reaches the open item whichever side of the held one it sorts");
+  emptySummaries.delete("COPYHELD");
+  emptySummaries.delete("COPYOPEN");
 });

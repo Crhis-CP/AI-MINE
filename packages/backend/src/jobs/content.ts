@@ -802,7 +802,15 @@ export async function incompleteCopyCandidates(afterId: string | null, limit: nu
         .filter((s) => s.lane === "news" && s.participation_mode === "editorial")
         .map((s) => s.id),
     );
-    const scoped = articles.filter((a) => editorial.has(a.sourceId));
+    // Manual controls are excluded page by page, before counting toward `limit`: a page held entirely by operators
+    // must not end the scan while later pages still have candidates (Codex review, TASK-0594).
+    const held = new Set(
+      await manualProcessingExclusions(
+        articles.map((a) => a.id),
+        sql,
+      ),
+    );
+    const scoped = articles.filter((a) => editorial.has(a.sourceId) && !held.has(a.id));
     const judged = await incompleteCopyJudgements(scoped);
     for (const a of scoped) {
       const copy = judged.get(a.id);
@@ -812,9 +820,8 @@ export async function incompleteCopyCandidates(afterId: string | null, limit: nu
   }
   if (!matched.length) return [];
   const ids = matched.map((r) => r.id);
-  const [visibility, excluded] = await Promise.all([publicationVisibilities(ids), manualProcessingExclusions(ids, sql)]);
-  const skip = new Set(excluded);
-  return matched.filter((r) => !skip.has(r.id)).map((r) => ({ ...r, visibility: visibility.get(r.id) ?? null }));
+  const visibility = await publicationVisibilities(ids);
+  return matched.map((r) => ({ ...r, visibility: visibility.get(r.id) ?? null }));
 }
 
 /** Hands one such item back to processing at low priority; its next analysis asks the writer anew (incompleteCopies). */
