@@ -28,7 +28,8 @@ const MINERAL_EVIDENCE: Record<string, RegExp> = {
   // Steel is how the iron trade is mostly written about (dry run 2026-11-08: SSAB, World Steel); iron ore stays strict.
   铁: /\bhierro\b|\bferro\b|\bsteel(?:s|making|maker|makers)?\b|钢|\bacero\b|\baço\b/i,
   铝土矿: /\bbauxita\b/i,
-  铝: /\balum[ií]nio\b|\balumina\b|氧化铝|\balúmina\b/i,
+  // Bauxite is aluminium's ore: a bauxite story belongs under 铝 too (filter audit 2026-11-08: Weipa, bauxite investment).
+  铝: /\balum[ií]nio\b|\balumina\b|氧化铝|\balúmina\b|\bbauxit[ea]\b|铝土矿/i,
   稀土: /\btierras raras\b|\bterras raras\b|\brare[\s-]earths?\b/i,
   钨: /\btungsteno\b|\bwolframio\b|\btungst[eê]nio\b/i,
   锑: /\bantimonio\b|\bantim[oô]nio\b/i,
