@@ -168,6 +168,11 @@ test("body pictures after the first are marked lazy; one the body already marks 
     '<p><img src="a"></p><IMG loading="lazy" decoding="async" src="b"><img loading="eager" src="c"><imgx><img loading="lazy" decoding="async"/>',
   );
   assert.equal(lazyBodyImages("<p>没有图片</p>"), "<p>没有图片</p>");
+  assert.equal(
+    lazyBodyImages('<img loading="eager" src="a"><img src="b">'),
+    '<img loading="eager" src="a"><img loading="lazy" decoding="async" src="b">',
+    "a first picture with its own setting still counts as the first",
+  );
 });
 
 test("an article page renders its first body picture eagerly and the rest lazily", async () => {

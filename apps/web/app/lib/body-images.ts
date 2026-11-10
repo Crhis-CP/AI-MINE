@@ -5,5 +5,9 @@
  */
 export function lazyBodyImages(html: string): string {
   let seen = 0;
-  return html.replace(/<img(?=[\s/>])(?![^>]*\sloading=)/gi, (tag) => (seen++ === 0 ? tag : `${tag} loading="lazy" decoding="async"`));
+  // Every picture counts toward the position, also one that keeps its own setting: the first in the body is the one
+  // that may be on screen.
+  return html.replace(/<img(?=[\s/>])([^>]*)/gi, (tag, rest: string) =>
+    seen++ === 0 || /\sloading=/i.test(rest) ? tag : tag.replace(/^<img/i, (open) => `${open} loading="lazy" decoding="async"`),
+  );
 }
