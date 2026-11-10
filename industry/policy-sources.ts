@@ -10,6 +10,13 @@ export const POLICY_SOURCE_TERMS = ["open", "reuse", "exempt", "restricted", "no
 /** core: an independent publisher; supplement: fills a gap; reference: consolidated text only, not new documents; duplicate: same documents as another entry. */
 export const POLICY_SOURCE_ROLES = ["core", "supplement", "reference", "duplicate"] as const;
 export const POLICY_SOURCE_TYPES = ["official_gazette", "law_database", "mining_rules", "related_rules", "local_rules", "policy_documents"] as const;
+/**
+ * Who publishes what an entry reads (TASK-0576, Owner 2026-11-07): the policy line only takes instruments from official
+ * publishers. Every entry names one; a missing or other value fails loading, so a private aggregator or a news site cannot
+ * be registered as a policy source. A private database found behind an entry is kept only as reference_only, not collected.
+ */
+export const POLICY_PUBLISHER_KINDS = ["official_gazette", "legislature", "government", "ministry", "regulator", "court", "official_law_database"] as const;
+export type PolicyPublisherKind = (typeof POLICY_PUBLISHER_KINDS)[number];
 /** The seven business themes (docs/01-product/10-policy-service.md §2.3). */
 export const POLICY_THEMES = [
   "investment_company",
@@ -29,6 +36,7 @@ export interface PolicySource {
   authority: { zh: string; original: string };
   name: { zh: string; original: string };
   type: (typeof POLICY_SOURCE_TYPES)[number];
+  publisher_kind: PolicyPublisherKind;
   role: (typeof POLICY_SOURCE_ROLES)[number];
   duplicate_of: string | null;
   website: string;
@@ -47,14 +55,28 @@ export interface PolicySource {
   notes: string | null;
 }
 
-export const POLICY_SOURCES: readonly PolicySource[] = Object.freeze((data.sources as unknown as PolicySource[]).map((source) => Object.freeze(source)));
+/** Loading rejects an entry without an allowed publisher kind; the list is data, so the check runs on every import. */
+export function assertPolicyPublisherKinds(entries: readonly { id: string; publisher_kind?: unknown }[]) {
+  for (const entry of entries)
+    if (!POLICY_PUBLISHER_KINDS.includes(entry.publisher_kind as PolicyPublisherKind))
+      throw new Error(
+        `policy source ${entry.id}: publisher_kind ${JSON.stringify(entry.publisher_kind ?? null)} is not one of ${POLICY_PUBLISHER_KINDS.join(", ")}`,
+      );
+  return entries;
+}
+
+export const POLICY_SOURCES: readonly PolicySource[] = Object.freeze(
+  (assertPolicyPublisherKinds(data.sources) as unknown as PolicySource[]).map((source) => Object.freeze(source)),
+);
 
 /**
  * Pilot additions (法规线重启设计 §5): official sources the restart pilot needs that are not in the Owner's 156-entry list.
  * Numbered <jurisdiction>-P<nn> so they never collide with the Owner's numbering; seeded and enabled like the catalogue.
  */
 export const POLICY_PILOT_ADDITIONS: readonly PolicySource[] = Object.freeze(
-  ((data as { pilot_additions?: unknown[] }).pilot_additions as unknown as PolicySource[]).map((source) => Object.freeze(source)),
+  (assertPolicyPublisherKinds((data as unknown as { pilot_additions: { id: string }[] }).pilot_additions) as unknown as PolicySource[]).map((source) =>
+    Object.freeze(source),
+  ),
 );
 /** Everything the seeder, the scheduler and the operator scripts may know about: the Owner's list, then pilot additions. */
 export const ALL_POLICY_SOURCES: readonly PolicySource[] = Object.freeze([...POLICY_SOURCES, ...POLICY_PILOT_ADDITIONS]);
