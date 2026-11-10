@@ -367,6 +367,8 @@ type StepOpts = {
   expectedRevision?: number;
   usagePurpose?: "production" | "evaluation";
   attemptTag?: string;
+  /** A rewrite of copy that came back without a usable Chinese title or summary: the writing steps ask anew (TASK-0594). */
+  copyAttempt?: number;
   scoreModel?: string;
   /** Evaluation only (scripts/eval-model-steps.ts): another model for this one step; production keeps its route. */
   prefilterModel?: string;
@@ -388,6 +390,8 @@ function checkAnalysisRunning() {
 
 const subjectOf = (a: AnalyzeInputArticle) => `article:${a.id}@${a.revision}`;
 const tagged = (attemptTag: string | undefined, step: string) => [attemptTag, step].filter(Boolean).join(":") || undefined;
+/** The writing steps' tag: a rewrite gets its own receipt, so the empty answer it replaces is not reused. */
+const writingTag = (opts: StepOpts, step: string) => tagged(opts.attemptTag, opts.copyAttempt ? `copy-${opts.copyAttempt}:${step}` : step);
 const stepModel = (override: string | undefined, opts: StepOpts, step: "prefilter" | "structure") => {
   if (override === undefined) return modelFor(step);
   if (opts.usagePurpose !== "evaluation") throw new Error("A per-step model override is for evaluation only");
@@ -654,7 +658,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
       temperature: 0.2,
       maxTokens: 16_384,
       timeoutMs: 180_000,
-      attemptTag: tagged(opts.attemptTag, "understand"),
+      attemptTag: writingTag(opts, "understand"),
       runtimeControl: opts.runtimeControl,
     });
   };
@@ -731,7 +735,7 @@ async function mendWording(a: AnalyzeInputArticle, w: NonNullable<AnalysisRun["w
       schema: MendSchema,
       temperature: 0.1,
       maxTokens: 2048,
-      attemptTag: tagged(opts.attemptTag, "wording"),
+      attemptTag: writingTag(opts, "wording"),
     });
   } catch (error) {
     // An answer that is not the copy asked for, or a refusal the same request would meet again (each provider words
@@ -815,7 +819,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     parse: shortTranslation ? parseShortPostOutput : parseTranslateOutput,
     temperature: 0.2,
     maxTokens: 2048,
-    attemptTag: tagged(opts.attemptTag, "summarize"),
+    attemptTag: writingTag(opts, "summarize"),
     runtimeControl: opts.runtimeControl,
   });
   const p = res.data;
@@ -945,6 +949,47 @@ export interface AnalyzeResult {
   output: ReturnType<typeof normalizeAnalysis> | null;
   receiptIds: number[];
   reused: boolean;
+  /** A model wrote the copy but left the Chinese title or summary empty; the job asks for a rewrite (TASK-0594). */
+  copyIncomplete?: boolean;
+  /** How many earlier copies of this revision came back incomplete (the rewrite's number). */
+  copyAttempt?: number;
+}
+
+/** Copy the model writers (not a verbatim post, not the no-material case) return without a usable title or summary. */
+const incompleteModelCopy = (writer: unknown, titleZh: string | null, summaryZh: string | null) =>
+  (writer === "understand" || writer === "summarize") && (!titleZh?.trim() || !summaryZh?.trim());
+
+/**
+ * Earlier judgements of this revision whose model copy came back incomplete. Each rewrite asks under the next number,
+ * and a complete copy leaves the count where it was, so judging the revision again reuses the copy that worked.
+ */
+async function incompleteCopies(articleId: string, revision: number): Promise<number> {
+  const rows = await sql<{ writer: string | null; title_zh: string | null; summary_zh: string | null }[]>`
+    SELECT output->>'writer' AS writer, title_zh, summary_zh FROM analyses WHERE article_id=${articleId} AND input_revision=${revision}`;
+  return rows.filter((r) => incompleteModelCopy(r.writer, r.title_zh, r.summary_zh)).length;
+}
+
+/**
+ * The latest judgement of each article's given revision when it is unknown and its model copy came back without a
+ * Chinese title or summary (TASK-0594; scripts/resume-copy.ts). Read-only; the article side is read by jobs/content.ts.
+ */
+export async function incompleteCopyJudgements(
+  articles: ReadonlyArray<{ id: string; revision: number }>,
+): Promise<Map<string, { writer: string; promptVersion: string | null }>> {
+  if (!articles.length) return new Map();
+  const rows = await sql<
+    { article_id: string; input_revision: number; relevance: string | null; writer: string | null; prompt_version: string | null; blank: boolean }[]
+  >`
+    SELECT DISTINCT ON (article_id, input_revision) article_id, input_revision, relevance, output->>'writer' AS writer, prompt_version,
+      (coalesce(trim(title_zh),'')='' OR coalesce(trim(summary_zh),'')='') AS blank
+    FROM analyses WHERE article_id=ANY(${articles.map((a) => a.id)}::text[])
+    ORDER BY article_id, input_revision, id DESC`;
+  const revision = new Map(articles.map((a) => [a.id, a.revision]));
+  const found = new Map<string, { writer: string; promptVersion: string | null }>();
+  for (const r of rows)
+    if (revision.get(r.article_id) === r.input_revision && r.relevance === "unknown" && (r.writer === "understand" || r.writer === "summarize") && r.blank)
+      found.set(r.article_id, { writer: r.writer, promptVersion: r.prompt_version });
+  return found;
 }
 
 /** A judgement that went past the prefilter (it carries the scores, even when there were none to give). */
@@ -968,8 +1013,10 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
   checkAnalysisRunning();
+  const copyAttempt = await incompleteCopies(articleId, input.revision);
   opts = {
     ...opts,
+    copyAttempt,
     fallbackInput:
       awaitsMaterial(input) || (input.translationZh && !input.bodyText && !input.xPost)
         ? undefined
@@ -1033,6 +1080,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       ...(input.xPost && out.summaryZh && (w?.kind === "summarize" || w?.kind === "understand") ? { postSummaryKind: "summary" } : {}),
       ...(w?.postTranslation ? { postTranslation: { ...w.postTranslation, inputRevision: input.revision, receiptId: w.receiptIds[0] } } : {}),
       ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
+      ...(copyAttempt ? { copyAttempt } : {}),
       scope: out.scope,
       fact: out.fact,
       geography: out.geography,
@@ -1090,7 +1138,8 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       },
     );
     const reused = (run.prefilter?.reused ?? true) && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
-    return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };
+    const copyIncomplete = out.relevance !== "block" && incompleteModelCopy(w?.kind, out.titleZh, out.summaryZh);
+    return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused, copyIncomplete, copyAttempt };
   } catch (error) {
     if (!(error instanceof ModelPostReceiptGuardError)) throw error;
     const current = await loadAnalyzeInput(articleId);
