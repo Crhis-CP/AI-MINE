@@ -60,6 +60,49 @@ export const PRESETS: Record<string, ModelPreset> = {
     extra: { enable_thinking: false },
     jsonMode: true,
   },
+  // TASK-0601 model comparison on Bailian (DASHSCOPE_*), reasoning off; referenced by no step until the Owner decides.
+  "qwen-flash": {
+    service: "dashscope",
+    model: "qwen-flash",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { enable_thinking: false },
+    jsonMode: true,
+  },
+  "qwen3.7-flash-2026-07-15": {
+    service: "dashscope",
+    model: "qwen3.7-flash-2026-07-15",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { enable_thinking: false },
+    jsonMode: true,
+  },
+  // A stronger Qwen for the 5% spot-check role; reasoning off like the flash presets.
+  "qwen3.7-plus": {
+    service: "dashscope",
+    model: "qwen3.7-plus",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { enable_thinking: false },
+    jsonMode: true,
+  },
+  // Translation-only models: no system prompt, no JSON mode; plain text in and out (no reasoning to switch off).
+  "qwen-mt-flash": {
+    service: "dashscope",
+    model: "qwen-mt-flash",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { translation_options: { source_lang: "auto", target_lang: "Chinese" } },
+    jsonMode: false,
+  },
+  "qwen-mt-lite": {
+    service: "dashscope",
+    model: "qwen-mt-lite",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { translation_options: { source_lang: "auto", target_lang: "Chinese" } },
+    jsonMode: false,
+  },
   "mimo-v2.6-flash": {
     service: "mimo",
     model: "mimo-v2.6-flash",
