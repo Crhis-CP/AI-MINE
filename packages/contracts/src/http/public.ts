@@ -67,6 +67,12 @@ export const SourceAttribution = z.strictObject({
   legalUrl: z.url({ protocol: /^https?$/ }).nullable(),
 });
 
+/**
+ * The English title and summary of a news item for the English interface (TASK-0595, Owner 2026-11-08). Optional and
+ * additive: absent means the English pages show the Chinese copy as before; machine exits (v1, RSS, MCP) never carry it.
+ */
+export const EnglishCopy = z.strictObject({ title: z.string().min(1), summary: z.string().min(1) });
+
 const postMediaUrl = z.union([z.url({ protocol: /^https?$/ }), z.string().regex(/^\/(?!\/)[^\\\s]*$/)]);
 const postMediaSourceSet = z.string().refine(
   (value) =>
@@ -157,6 +163,7 @@ const FeedItemSummaryCore = z.strictObject({
   source: z.strictObject({ name: z.string() }),
   attribution: SourceAttribution.nullable().optional(),
   x: XPostFeedView.nullable().optional(),
+  english: EnglishCopy.optional(),
 });
 export const SourceDatedFeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.shape);
 export const FeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.partial().shape);
@@ -585,6 +592,7 @@ export const schemas = {
   FeedbackIdempotencyHeaders,
   StoryFollowupsResponse,
   SourceAttribution,
+  EnglishCopy,
   MediaView,
   XPostQuotedView,
   XPostView,
