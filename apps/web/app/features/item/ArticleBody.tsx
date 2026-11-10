@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTr } from "../../i18n";
 import { IconArrowLeft, IconArrowRight, IconClose } from "../../components/icons";
+import { lazyBodyImages } from "../../lib/body-images";
 
 type Picture = { src: string; alt: string; fallbackSrc: string };
 /** Enhance only the permitted, sanitised body already returned by the public API. */
@@ -82,10 +83,11 @@ export function ArticleBody({ html, children }: { html?: string; children?: Reac
   const step = (direction: number) =>
     setViewer((current) => current && { ...current, index: (current.index + direction + current.pictures.length) % current.pictures.length });
   const picture = viewer?.pictures[viewer.index];
+  const body = useMemo(() => lazyBodyImages(html ?? ""), [html]);
   return (
     <>
       {/* HTML is sanitised by the publication layer; no extra material is fetched here. */}
-      {children ? <div ref={root}>{children}</div> : <div ref={root} className="prose" dangerouslySetInnerHTML={{ __html: html ?? "" }} />}
+      {children ? <div ref={root}>{children}</div> : <div ref={root} className="prose" dangerouslySetInnerHTML={{ __html: body }} />}
       <dialog
         ref={dialog}
         aria-label={tr("文章图片")}
