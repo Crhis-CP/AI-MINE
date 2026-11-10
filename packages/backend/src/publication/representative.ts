@@ -53,7 +53,9 @@ export const REPRESENTATIVE_SCORE_LEAD = 3;
  */
 export function pickRepresentative<T extends RepresentativeRow>(rows: T[]): T {
   const top = Math.max(...rows.map((row) => Number(row.score ?? 0)));
-  const close = rows.filter((row) => top - Number(row.score ?? 0) < REPRESENTATIVE_SCORE_LEAD);
+  // Compared in hundredths, like the numeric scores SQL compares: 66.1 − 63.1 is a 3-point lead, not 2.9999….
+  const lead = (row: T) => Math.round((top - Number(row.score ?? 0)) * 100);
+  const close = rows.filter((row) => lead(row) < REPRESENTATIVE_SCORE_LEAD * 100);
   return [...close].sort(
     (a, b) =>
       representativePriority(a) - representativePriority(b) ||
