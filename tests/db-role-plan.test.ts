@@ -106,6 +106,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "sources.source_previews",
       "sources.source_config_activations",
       "enrichment.translation_segments",
+      "enrichment.english_copies",
       "enrichment.quote_translations",
       "sources.source_policy_current",
       "sources.source_policy_versions",

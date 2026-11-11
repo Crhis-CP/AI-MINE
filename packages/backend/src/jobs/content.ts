@@ -12,10 +12,11 @@ import { RuntimeControlPaused, RuntimeControlStale, runtimeControlSnapshot, asse
 import { needsGeographyAnalysis } from "../editorial/geography.ts";
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
-import { config, sourceCollectionEnabled } from "../config.ts";
+import { sourceParticipants } from "../sources/participants.ts";
+import { config, englishCopyEnabled, sourceCollectionEnabled } from "../config.ts";
 import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
-import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
+import { analyzeArticle, AnalysisInterruptedError, incompleteCopyJudgements } from "../editorial/analyze.ts";
 import { isHistorical, readCurrentBody, resetMaterialProcessing } from "../content/materials.ts";
 import { recordedMaterialWaits, readGroupingAnalysis } from "../enrichment/records.ts";
 import { beginMaterialGrouping, EDITORIAL_RESUME_PENDING } from "../content/grouping.ts";
@@ -29,15 +30,35 @@ import {
 } from "@amp/backend/admin/sources";
 import { bodyReadingKey } from "../content/body-reading-key.ts";
 import { usableSourceText } from "../lib/text.ts";
-import { publishArticle, prepareTranslationRun, translationSelectedNow, articleWithdrawalHeld } from "../publication/publish.ts";
-import { LIVE_TRANSLATION_DAYS, translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
+import {
+  publishArticle,
+  prepareTranslationRun,
+  translationSelectedNow,
+  articleWithdrawalHeld,
+  publicationVisibilities,
+  englishCopyCandidate,
+  refreshEnglishCopy,
+} from "../publication/publish.ts";
+import { LIVE_TRANSLATION_DAYS, englishCopyDeferralOptions, translationDeferralOptions, translationPeakWait } from "../editorial/translation-schedule.ts";
+import { writeEnglishCopy } from "../editorial/english-copy.ts";
+import { readEnglishCopy } from "../enrichment/records.ts";
 import { translationQuotaWait } from "../editorial/translation-quota.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
 import { ModelOutputError } from "../providers/llm.ts";
 import { OFF_PEAK_WAIT, offPeakWait } from "../providers/peak-hours.ts";
-import { originalPostInputBlocked } from "../lib/original-post-admission.ts";
+import { articleMaterialTooShort, originalPostInputBlocked } from "../lib/original-post-admission.ts";
+import {
+  BODY_REREAD_BATCH,
+  BODY_REREAD_DELAYS_MINUTES,
+  BODY_REREAD_NOTE,
+  bodyBackfilled,
+  bodyRereadsInCycle,
+  failUnreadableBody,
+  recordBodyReread,
+  settleShortBody,
+} from "./body-reread.ts";
 import { ensureQueue, QUEUES, shutdownSignal } from "./queue.ts";
 import { enqueueJob as enqueue, work } from "./module-queues.ts";
 import { SELECTION } from "@amp/industry/selection";
@@ -48,6 +69,13 @@ const RETRY_MINUTES = [5, 10, 20, 40, 60, 120, 240, 360];
 const MAX_OUTPUT_FAILURES = 3;
 /** Extraction gives up after this many errors and the article is judged on what it has. */
 const MAX_EXTRACT_FAILURES = 3;
+/**
+ * Minutes before each rewrite of copy that came back without a usable Chinese title or summary (TASK-0594). Each is a
+ * new paid writing request; the judging steps reuse their receipts. After the last, the article ends in "failed" with
+ * its reason on the runs page, where the owner can queue it again (requeueFailed asks under the next number).
+ */
+const COPY_RETRY_MINUTES = [30, 180];
+export const COPY_INCOMPLETE = "copy_incomplete";
 /** While model calls are switched off, a waiting article looks again this often. */
 const MODELS_OFF_WAIT_SECONDS = 3600;
 /** A queued article whose job left no trace for this long is queued again. */
@@ -131,7 +159,7 @@ export async function groupingQueuePriority(articleId: string, db: Db = sql): Pr
  */
 export async function queueProcessing(
   articleId: string,
-  opts: { step?: Step; attemptTag?: string; db?: Db; lowPriority?: boolean; now?: Date } = {},
+  opts: { step?: Step; attemptTag?: string; db?: Db; lowPriority?: boolean; offPeak?: boolean; now?: Date } = {},
 ): Promise<string | null> {
   const db = opts.db ?? sql;
   const r = await route(articleId, db);
@@ -173,9 +201,10 @@ export async function queueProcessing(
     );
   }
   const tagged = !!opts.attemptTag;
-  // History (found long after it was published) can wait: at the provider's peak hours its analysis starts at the
-  // next off-peak start (half price). The retry time keeps the safety net from queueing it earlier.
-  const offPeak = r.historical && !tagged ? offPeakWait(opts.now) : null;
+  // History (found long after it was published, or an old article the body backfill read again) can wait: at the
+  // provider's peak hours its analysis starts at the next off-peak start (half price). The retry time keeps the safety
+  // net from queueing it earlier.
+  const offPeak = (r.historical || opts.offPeak) && !tagged ? offPeakWait(opts.now) : null;
   if (offPeak) await db`UPDATE articles SET processing_retry_at=${offPeak}, processing_error=${OFF_PEAK_WAIT} WHERE id=${articleId} AND revision=${r.revision}`;
   return record(
     enqueue(
@@ -255,9 +284,13 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
       return { state: "fetching-body" };
     }
     const publication = await publishArticle(articleId);
+    // Under 20 characters of material: nothing was paid. Its body is read again on a schedule; after the last read it
+    // fails with its reason (Owner 2026-11-08, TASK-0598). It stays hidden from readers either way (no Chinese copy).
+    if (result.awaitingBody) return { state: await settleShortBody(articleId, found.revision) };
     // History founds no event but may attach to the fact it reposts (events/group.ts); it waits behind live work.
     if (result.output.relevance === "pass" && publication?.visibility === "public" && worthGrouping(result.output))
       await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: row.historical ? PRIORITY.history : PRIORITY.live });
+    if (result.copyIncomplete) return copyRewrite(articleId, found.revision, result.copyAttempt ?? 0);
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
@@ -272,6 +305,26 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     }
     throw error;
   }
+}
+
+/**
+ * Copy a model wrote without a usable Chinese title or summary used to end the article as "analyzed": nothing judged
+ * it again and it never reached readers (2026-11-08: about 517 items). It now waits and is written again (the safety
+ * net queues it once its time has come), and after the last rewrite ends in "failed" with the reason shown.
+ */
+async function copyRewrite(articleId: string, revision: number, attempt: number): Promise<{ state: string; retryAt?: Date }> {
+  const minutes = COPY_RETRY_MINUTES[attempt];
+  if (minutes === undefined) {
+    const rows = await sql`UPDATE articles SET processing_state='failed', processing_retry_at=NULL, processing_queued_at=NULL,
+        processing_error=${`${COPY_INCOMPLETE}: 模型 ${attempt + 1} 次都没有写出完整的中文标题和导读`}
+      WHERE id=${articleId} AND revision=${revision} AND processing_state='analyzed' RETURNING id`;
+    return { state: rows.length ? "copy-failed" : "stale" };
+  }
+  const retryAt = new Date(Date.now() + minutes * 60_000);
+  const rows = await sql`UPDATE articles SET processing_state='new', processing_retry_at=${retryAt}, processing_queued_at=NULL,
+      processing_error=${`${COPY_INCOMPLETE}: 中文标题或导读为空，${minutes} 分钟后重写（第 ${attempt + 1} 次）`}
+    WHERE id=${articleId} AND revision=${revision} AND processing_state='analyzed' RETURNING id`;
+  return rows.length ? { state: "copy-retry", retryAt } : { state: "stale" };
 }
 
 /** Waits and retries for passing trouble; marks "failed" for refusals and exhausted retries. */
@@ -400,6 +453,41 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
   }
 }
 
+/** An English-copy job that waits (peak hours, the background quota share, a paused lane) continues in a new job. */
+async function deferEnglishCopy(articleId: string, until: Date) {
+  const queued = await enqueue(QUEUES.translate, { articleId, lane: "news", english: true }, englishCopyDeferralOptions(articleId, until));
+  if (queued === undefined) throw new Error("English copy deferral was not accepted by the queue");
+  return { state: "deferred_peak", until: until.toISOString() };
+}
+/** A paused news lane: look again after this long, without using up the job's retries. */
+const ENGLISH_PAUSE_WAIT_MS = 30 * 60_000;
+
+/**
+ * One English title and summary (content.translate with `english`, TASK-0595). Nothing is paid unless EN_COPY_ENABLED
+ * is the exact literal true. It waits like a background translation: through the provider's peak hours and while
+ * background work has used its share of the model quota, unless the item is a fresh selection (TASK-0579/0580).
+ * A copy that already exists for the current input is only shown, at no cost.
+ */
+export async function runEnglishCopyJob(data: { articleId: string }, clock: JobClock = {}) {
+  if (!englishCopyEnabled()) return { state: "disabled" };
+  try {
+    const candidate = await englishCopyCandidate(data.articleId);
+    if (!candidate) return { state: "not_needed" };
+    if (!(await readEnglishCopy(data.articleId, candidate.input.hash))) {
+      const ahead = await freshSelection(data.articleId, candidate.selected);
+      const wait = translationPeakWait(ahead, clock.now?.()) ?? (await translationQuotaWait(ahead, clock.now?.()));
+      if (wait) return await deferEnglishCopy(data.articleId, wait);
+    }
+    const outcome = await writeEnglishCopy(data.articleId);
+    if (outcome === "written" || outcome === "ready") await refreshEnglishCopy(data.articleId);
+    return { state: outcome };
+  } catch (error) {
+    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + ENGLISH_PAUSE_WAIT_MS));
+    throw error;
+  }
+}
+
 /**
  * History's analysis is queued for the next off-peak start when it arrives in a peak hour (queueProcessing), but a
  * backlog or a retry can still pick the job up in a later peak hour. Judged again when the job is taken (TASK-0579):
@@ -410,7 +498,7 @@ async function historicalAnalysisWait(articleId: string, revision: number, at?: 
   const until = offPeakWait(at);
   if (!until) return null;
   const r = await route(articleId, sql);
-  if (!r?.historical || r.signal || r.revision !== revision) return null;
+  if (!r || r.signal || r.revision !== revision || !(r.historical || (await bodyBackfilled(articleId)))) return null;
   const waiting = await sql`UPDATE articles SET processing_retry_at=${until}, processing_error=${OFF_PEAK_WAIT}, processing_queued_at=NULL
     WHERE id=${articleId} AND revision=${revision} AND processing_state='new'`;
   return waiting.count ? until : null;
@@ -425,7 +513,10 @@ export async function runAnalysisJob(data: { articleId: string; attemptTag?: str
     const until = attemptTag ? null : await historicalAnalysisWait(articleId, inputRevision, clock.now?.());
     if (until) return { state: "deferred_peak", until: until.toISOString() };
     const result = await processArticle(articleId, { attemptTag, expectedRevision: inputRevision });
-    if (result.state !== "unknown-receipt") {
+    // A scheduled body read keeps its due time; a rewrite keeps its own wait time (copyRewrite).
+    if (result.state === "awaiting-body")
+      await sql`UPDATE articles SET processing_attempts = 0, processing_queued_at = NULL WHERE id = ${articleId} AND revision=${inputRevision}`;
+    else if (result.state !== "unknown-receipt" && result.state !== "copy-retry") {
       await sql`UPDATE articles SET processing_attempts = 0, processing_retry_at = NULL, processing_queued_at = NULL WHERE id = ${articleId} AND revision=${inputRevision}`;
     }
     return result;
@@ -436,9 +527,16 @@ export async function runAnalysisJob(data: { articleId: string; attemptTag?: str
 
 export async function registerContentJobs(boss: PgBoss, concurrency = Number(process.env.ANALYZE_CONCURRENCY || 6)) {
   await ensureQueue(QUEUES.translate);
-  await work(boss, QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) => runTranslationJob(data));
+  await work(boss, QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) =>
+    data.english ? runEnglishCopyJob(data) : runTranslationJob(data),
+  );
   await ensureQueue(QUEUES.analyze);
   await work(boss, QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) => runAnalysisJob(data));
+}
+
+/** An old article the body backfill read again (TASK-0598) is history: its paid analysis waits behind live work and off-peak. */
+async function analysisAfterRead(articleId: string): Promise<{ step: "analyze"; lowPriority?: boolean; offPeak?: boolean }> {
+  return (await bodyBackfilled(articleId)) ? { step: "analyze", lowPriority: true, offPeak: true } : { step: "analyze" };
 }
 
 /**
@@ -495,7 +593,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
       const changed = await sql`UPDATE articles SET processing_error = NULL, processing_retry_at = NULL, processing_queued_at = NULL
           WHERE id = ${articleId} AND revision=${resultRevision} AND processing_state = 'new' RETURNING id`;
       if (!changed.length) return { state: "stale-or-settled" };
-      await queueProcessing(articleId, { step: "analyze" });
+      await queueProcessing(articleId, await analysisAfterRead(articleId));
       return { state };
     } catch (error) {
       if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(articleId, error, inputRevision);
@@ -504,7 +602,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
         const waiting = await recordExtractDeferral(articleId, error, inputRevision);
         if (waiting === "stale") return { state: "stale" };
         if (waiting === "unconfirmed") {
-          await queueProcessing(articleId, { step: "analyze" });
+          await queueProcessing(articleId, await analysisAfterRead(articleId));
           return { state: "unconfirmed" };
         }
         await enqueue(
@@ -525,7 +623,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
       const changed = await sql`UPDATE articles SET body_status = 'unconfirmed', processing_attempts = 0, processing_retry_at = NULL
           WHERE id = ${articleId} AND revision=${inputRevision} AND processing_state = 'new' AND body_status = 'pending' RETURNING id`;
       if (!changed.length) return { state: "stale-or-settled" };
-      await queueProcessing(articleId, { step: "analyze" });
+      await queueProcessing(articleId, await analysisAfterRead(articleId));
       return { state: "unconfirmed" };
     }
   });
@@ -549,6 +647,7 @@ async function resumeMaterialWaits(): Promise<number> {
     try {
       resumed += await sql.begin(async (tx) => {
         await tx`SET LOCAL statement_timeout='2s'`;
+        await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
         await assertRuntimeControl(tx, control);
         const [identity] = await tx<{ source_id: string }[]>`SELECT source_id FROM articles WHERE id=${wait.article_id}`;
         if (!identity) return 0;
@@ -571,11 +670,13 @@ async function resumeMaterialWaits(): Promise<number> {
         if (
           !current ||
           current.source_id !== source.id ||
+          (await manualProcessingExclusions([wait.article_id], tx)).length > 0 ||
           (current.original_post && originalPostInputBlocked({ text: current.body_text ?? "" })) ||
           !normalizeSourceLanguage(current.language) ||
           !pageFetchable(current.url, source.kind) ||
-          usableSourceText(current.body_text) ||
-          usableSourceText(current.excerpt)
+          (current.original_post
+            ? usableSourceText(current.body_text) || usableSourceText(current.excerpt)
+            : !articleMaterialTooShort(current.body_text, current.excerpt))
         )
           return 0;
         const permission = await readCurrentSourcePolicy(source.id, tx);
@@ -612,6 +713,89 @@ async function resumeMaterialWaits(): Promise<number> {
     }
   }
   return resumed;
+}
+
+/** A scheduled read needs what a material resume needs: fetching, storing and processing the page under the current permission. */
+async function rereadPermitted(tx: Db, source: NonNullable<Awaited<ReturnType<typeof readSourceDateContext>>>, url: string): Promise<boolean> {
+  const permission = await readCurrentSourcePolicy(source.id, tx);
+  if (!permission) return false;
+  for (const capability of ["fetch", "store_metadata", "process_locally", "store_fulltext"] as const) {
+    const allowed = await evaluateSourcePolicy(
+      {
+        source_id: source.id,
+        expected_permission_version: permission.permission_version,
+        lane: "news",
+        capability,
+        resource: { url, document_type: source.config.policyProfile?.identity?.documentType?.value ?? null, attachment: false },
+      },
+      undefined,
+      tx,
+    );
+    if (allowed.decision !== "allow") return false;
+  }
+  return true;
+}
+/**
+ * Scheduled body reads that came due (TASK-0598, jobs/body-reread.ts): each read is recorded, then queued at low
+ * priority through ordinary extraction, so host pacing, robots and the source's permissions apply as on any first read.
+ * An article whose page cannot be read again (not a fetchable page, or the source no longer permits it) fails now; one
+ * whose source is paused waits an hour; one that left news processing stops waiting.
+ */
+async function resumeBodyRereads(): Promise<number> {
+  if (!sourceCollectionEnabled("news")) return 0;
+  const control = await runtimeControlSnapshot("news", ["collection"]);
+  if (control.paused) return 0;
+  const due = await sql<{ id: string }[]>`SELECT id FROM articles
+    WHERE processing_state='analyzed' AND processing_error LIKE ${`${BODY_REREAD_NOTE}%`} AND processing_retry_at <= now()
+    ORDER BY processing_retry_at, id LIMIT ${BODY_REREAD_BATCH}`;
+  let queued = 0;
+  for (const { id } of due) {
+    try {
+      queued += await sql.begin(async (tx) => {
+        await tx`SET LOCAL statement_timeout='2s'`;
+        // Manual publication takes this fence before the material lock as well.
+        await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+        await assertRuntimeControl(tx, control);
+        const [identity] = await tx<{ source_id: string }[]>`SELECT source_id FROM articles WHERE id=${id}`;
+        if (!identity) return 0;
+        await lockSourceCollectionActive(tx, identity.source_id);
+        const source = await readSourceDateContext(identity.source_id, tx);
+        const [current] = await tx<{ revision: number; url: string; body_text: string | null; excerpt: string | null }[]>`
+          SELECT revision,url,body_text,excerpt FROM articles
+          WHERE id=${id} AND source_id=${identity.source_id} AND processing_state='analyzed' AND x_post IS NULL
+            AND processing_error LIKE ${`${BODY_REREAD_NOTE}%`} AND processing_retry_at <= now() FOR UPDATE`;
+        if (!current) return 0;
+        if (
+          source?.lane !== "news" ||
+          source.participation_mode !== "editorial" ||
+          !articleMaterialTooShort(current.body_text, current.excerpt) ||
+          (await manualProcessingExclusions([id], tx)).length
+        ) {
+          await tx`UPDATE articles SET processing_error=NULL,processing_retry_at=NULL WHERE id=${id} AND revision=${current.revision}`;
+          return 0;
+        }
+        const article = { id, revision: current.revision, sourceName: source.name },
+          rereads = await bodyRereadsInCycle(id, tx);
+        const cause = !pageFetchable(current.url, source.kind) ? "unfetchable" : (await rereadPermitted(tx, source, current.url)) ? null : "not_permitted";
+        if (cause || rereads >= BODY_REREAD_DELAYS_MINUTES.length) {
+          await failUnreadableBody(tx, article, rereads, cause ?? undefined);
+          return 0;
+        }
+        await recordBodyReread(tx, id, rereads + 1, current.revision);
+        await resetMaterialProcessing(id, true, tx);
+        return (await queueProcessing(id, { step: "extract", lowPriority: true, db: tx })) ? 1 : 0;
+      });
+    } catch (error) {
+      if (error instanceof SourceCollectionPaused) {
+        await sql`UPDATE articles SET processing_retry_at=now() + interval '1 hour'
+          WHERE id=${id} AND processing_state='analyzed' AND processing_error LIKE ${`${BODY_REREAD_NOTE}%`}`;
+        continue;
+      }
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) break;
+      throw error;
+    }
+  }
+  return queued;
 }
 
 let editorialResumeCursor = "";
@@ -696,7 +880,7 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
       AND (processing_queued_at IS NULL OR processing_queued_at < now() - ${QUEUED_STALE}::interval)
     ORDER BY discovered_at DESC LIMIT 500`;
   for (const r of rows) await queueProcessing(r.id);
-  return { enqueued: rows.length + (await resumeMaterialWaits()) + (await resumeEditorialSources()) };
+  return { enqueued: rows.length + (await resumeMaterialWaits()) + (await resumeBodyRereads()) + (await resumeEditorialSources()) };
 }
 
 /**
@@ -739,6 +923,72 @@ export async function requeueFailed(group: string | null): Promise<{ requeued: n
     RETURNING id`;
   for (const r of rows.slice(0, 500)) await queueProcessing(r.id);
   return { requeued: rows.length };
+}
+
+/** One item whose model copy came back incomplete before rewrites existed (TASK-0594); see scripts/resume-copy.ts. */
+export interface IncompleteCopyCandidate {
+  id: string;
+  sourceId: string;
+  language: string | null;
+  title: string;
+  writer: string;
+  promptVersion: string | null;
+  visibility: string | null;
+}
+
+/**
+ * Editorial news items left "analyzed" with incomplete model copy on their current revision, paged by id. Read-only.
+ * Items under a manual control are left out: a rewrite would pay for copy a person decides.
+ */
+export async function incompleteCopyCandidates(afterId: string | null, limit: number): Promise<IncompleteCopyCandidate[]> {
+  // Each module reads its own records: analysed articles here; their sources, latest judgements and publications through
+  // those modules. Pages of analysed articles are scanned in id order until `limit` items are found.
+  const matched: Array<Omit<IncompleteCopyCandidate, "visibility">> = [];
+  let cursor = afterId ?? "";
+  while (matched.length < limit) {
+    const articles = await sql<{ id: string; sourceId: string; language: string | null; title: string; revision: number }[]>`
+      SELECT id, source_id AS "sourceId", language, title, revision FROM articles
+      WHERE processing_state='analyzed' AND id > ${cursor} ORDER BY id LIMIT 500`;
+    if (!articles.length) break;
+    cursor = articles[articles.length - 1]!.id;
+    const editorial = new Set(
+      (await sourceParticipants([...new Set(articles.map((a) => a.sourceId))]))
+        .filter((s) => s.lane === "news" && s.participation_mode === "editorial")
+        .map((s) => s.id),
+    );
+    // Manual controls are excluded page by page, before counting toward `limit`: a page held entirely by operators
+    // must not end the scan while later pages still have candidates (Codex review, TASK-0594).
+    const held = new Set(
+      await manualProcessingExclusions(
+        articles.map((a) => a.id),
+        sql,
+      ),
+    );
+    const scoped = articles.filter((a) => editorial.has(a.sourceId) && !held.has(a.id));
+    const judged = await incompleteCopyJudgements(scoped);
+    for (const a of scoped) {
+      const copy = judged.get(a.id);
+      if (copy && matched.length < limit)
+        matched.push({ id: a.id, sourceId: a.sourceId, language: a.language, title: a.title, writer: copy.writer, promptVersion: copy.promptVersion });
+    }
+  }
+  if (!matched.length) return [];
+  const ids = matched.map((r) => r.id);
+  const visibility = await publicationVisibilities(ids);
+  return matched.map((r) => ({ ...r, visibility: visibility.get(r.id) ?? null }));
+}
+
+/** Hands one such item back to processing at low priority; its next analysis asks the writer anew (incompleteCopies). */
+export async function resumeIncompleteCopy(articleId: string): Promise<boolean> {
+  return sql.begin(async (tx) => {
+    const [a] = await tx<{ revision: number }[]>`SELECT revision FROM articles WHERE id=${articleId} AND processing_state='analyzed' FOR UPDATE`;
+    if (!a || (await manualProcessingExclusions([articleId], tx)).length) return false;
+    await tx`UPDATE articles SET processing_state='new', processing_attempts=0, processing_retry_at=NULL, processing_queued_at=NULL,
+      processing_error=${`${COPY_INCOMPLETE}: 补写此前没有写完的中文标题和导读`} WHERE id=${articleId} AND revision=${a.revision}`;
+    // A job already held for this article (or none accepted) leaves it "new": the safety net queues it within minutes.
+    await queueProcessing(articleId, { lowPriority: true, db: tx });
+    return true;
+  });
 }
 
 // Policy processing shares only this frozen composition entry; its queues and state remain separate.

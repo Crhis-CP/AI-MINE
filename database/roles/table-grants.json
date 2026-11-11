@@ -1474,6 +1474,15 @@
         "worker": ["SELECT", "INSERT"]
       }
     },
+    "enrichment.english_copies": {
+      "module": "enrichment",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
     "publication.report_group_members": {
       "module": "publication",
       "access": "business",

@@ -54,6 +54,22 @@ export function translationDeferralOptions(articleId: string, until: Date) {
   return { singletonKey: `later:${articleId}:off-peak:${until.toISOString()}`, priority: PRIORITY.later, startAfter: until };
 }
 
+/**
+ * Queue options for an item's English title and summary (TASK-0595): the same queue, priorities and off-peak wait as
+ * body translation, under keys of their own so the two never collapse into one job. The worker judges peak hours and
+ * the background quota share again when it takes the job (jobs/content.ts runEnglishCopyJob).
+ */
+export function englishCopyJobOptions(articleId: string, selected: boolean, at?: Date) {
+  if (selected) return { singletonKey: `en:${articleId}`, priority: PRIORITY.selected };
+  const wait = offPeakWait(at);
+  return { singletonKey: `en-later:${articleId}`, priority: PRIORITY.later, ...(wait ? { startAfter: wait } : {}) };
+}
+
+/** The job that takes over from an English-copy job that waited (see translationDeferralOptions). */
+export function englishCopyDeferralOptions(articleId: string, until: Date) {
+  return { singletonKey: `en-later:${articleId}:off-peak:${until.toISOString()}`, priority: PRIORITY.later, startAfter: until };
+}
+
 /** Rough tokens per Chinese character and per character of other text (HTML, Latin script) for the provider's tokenizer. */
 const TOKENS_PER_HAN = 0.6;
 const CHARS_PER_TOKEN = 3.5;

@@ -128,7 +128,8 @@ export function MonthlyUsage({ entries, pushTime = "09:00" }: { entries: Entry[]
         不同币种分别显示；{r.totals.unpriced_calls}次调用尝试缺少可用金额，未补成0，也不按当前价格回填。费用记录仅作核对，不设置周度或月度金额上限。
       </p>
       <p className="mt-2 text-[12px] leading-5 text-ink-3">
-        统一输入、输出单价的估算未单独计入缓存命中和峰谷优惠，不等于供应商账单；历史金额保留原依据。服务器、存储、抓取等未记录费用不在此合计中。
+        调用时的估算不等于供应商账单：2026-11-06
+        起登记了缓存命中价的模型按命中价计入缓存部分；此前的记录按全价估算，约比账单高一倍，历史金额保留原依据。峰谷优惠不单独计入。服务器、存储、抓取等未记录费用不在此合计中。
       </p>
       <section className="mt-4 rounded-control border border-line p-3">
         <h3 className="text-[13px] font-semibold">本期调用仍占用的金额 · 人民币</h3>

@@ -10,7 +10,17 @@ import { relatedPoliciesForNews } from "./news-policy-links.ts";
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
 import { linkBodyImages } from "../content/sanitize.ts";
 import { sql, type Db } from "../db.ts";
-import { ITEM_COLUMNS, ITEM_FROM, confirmedSelected, fetchItemsByIds, jurisdictionHits, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
+import {
+  ITEM_COLUMNS,
+  ITEM_FROM,
+  confirmedSelected,
+  englishCopyOf,
+  fetchItemsByIds,
+  jurisdictionHits,
+  selectedCondition,
+  toItemSummary,
+  type ItemRow,
+} from "./items.ts";
 import { filterHits } from "./mentions.ts";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { ARTICLE_ID_PATTERN, toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
@@ -89,6 +99,9 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
   if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return { kind: "not_found" };
 
   const summary = toItemSummary(machine ? { ...row, summary: row.machine_summary } : row);
+  // The English interface's title and summary (TASK-0595): the website's detail only, never the machine one.
+  const englishCopy = machine ? null : englishCopyOf(row);
+  const english = englishCopy ? { english: englishCopy } : {};
   if (row.visibility === "summary-only") {
     const detail: ItemDetail = {
       ...summary,
@@ -105,6 +118,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
       relatedStories: [],
       indexable: false,
       group: null,
+      ...english,
     };
     return { kind: "found", detail, row };
   }
@@ -201,6 +215,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     indexable: row.indexable,
     group,
     ...(row.is_original_post ? { x: post ?? null } : {}),
+    ...english,
   };
   return { kind: "found", detail, row };
 }

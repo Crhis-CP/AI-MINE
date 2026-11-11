@@ -722,6 +722,10 @@
       "module": "enrichment",
       "access": "business"
     },
+    "enrichment.english_copies": {
+      "module": "enrichment",
+      "access": "business"
+    },
     "publication.report_group_members": {
       "module": "publication",
       "access": "business"
@@ -985,6 +989,7 @@
     "packages/backend/src/editorial/report-exclusions.ts": "editorial",
     "packages/backend/src/editorial/translate.ts": "enrichment",
     "packages/backend/src/editorial/translation-quota.ts": "ai-gateway",
+    "packages/backend/src/editorial/english-copy.ts": "enrichment",
     "packages/backend/src/editorial/post-translation.ts": "enrichment",
     "packages/backend/src/editorial/reclassify.ts": "enrichment",
     "packages/backend/src/editorial/translation-store.ts": "enrichment",
@@ -1003,6 +1008,7 @@
     "packages/backend/src/feedback/operational-snapshot.ts": "feedback",
     "packages/backend/src/ingest/items.ts": "acquisition",
     "packages/backend/src/jobs/content.ts": "content",
+    "packages/backend/src/jobs/body-reread.ts": "content",
     "packages/backend/src/jobs/operational-snapshot.ts": "queue",
     "packages/backend/src/jobs/publication.ts": "publication",
     "packages/backend/src/jobs/module-queues.ts": "queue",
