@@ -1,9 +1,15 @@
 import { config } from "../config.ts";
-import { isEmptyOrLinkOnly } from "./text.ts";
+import { isEmptyOrLinkOnly, usableSourceText } from "./text.ts";
 import { sha256 } from "./ids.ts";
 
-/** Existing summarize fallback threshold, not a new general material requirement. */
+/** The summarize fallback threshold; since 2026-11-08 also the least material an article (not a post) is judged on. */
 export const LEGACY_SUMMARY_MIN_CHARS = 20;
+/**
+ * An article's material as the writer reads it (the body when it has a letter or digit, else the excerpt, trimmed) is
+ * shorter than the writer needs: it waits for material and no paid step is bought (Owner 2026-11-08, TASK-0598).
+ */
+export const articleMaterialTooShort = (bodyText: string | null | undefined, excerpt: string | null | undefined) =>
+  usableSourceText(bodyText, excerpt).trim().length < LEGACY_SUMMARY_MIN_CHARS;
 type Post = { text: string } | null | undefined;
 
 export const originalPostInputBlocked = (post: Post) => !config.originalPostAdmissionEnabled && !!post && isEmptyOrLinkOnly(post.text);

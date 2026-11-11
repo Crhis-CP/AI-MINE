@@ -723,14 +723,20 @@ test("material a hot_signal source never had judged stays out once the source be
   assert.equal(provider.hits(), hits, "nothing was judged or paid for");
 });
 
-test("empty and punctuation-only source text cannot be replaced by high-score model writing", async () => {
-  for (const [i, text] of [null, " \n\t", "。！？……", "产能10万吨"].entries()) {
+test("empty, punctuation-only and under-20-character source text cannot be replaced by high-score model writing", async () => {
+  // Under 20 characters as the writer reads it is a title-only card: it waits for material (Owner 2026-11-08, TASK-0598).
+  const texts = [null, " \n\t", "。！？……", "产能10万吨", "产能10万吨，铜矿建设公告已获批准并开工建设"];
+  for (const [i, text] of texts.entries()) {
+    const usable = i === 4;
     const id = await article(`empty-${i}`, { title: `EMPTYCASE 铜矿建设公告 ${T}-${i}`, bodyText: text, excerpt: null, language: "zh", bodyStatus: "none" });
+    const before = calls("EMPTYCASE").length;
     const analyzed = await analyzeArticle(id);
-    assert.equal(analyzed!.output!.score, i === 3 ? 80 : null, "no paid score without usable evidence");
-    assert.equal(!!analyzed!.output!.summaryZh, i === 3, "no generated copy without usable evidence");
+    assert.equal(analyzed!.output!.score, usable ? 80 : null, "no paid score without usable evidence");
+    assert.equal(!!analyzed!.output!.summaryZh, usable, "no generated copy without usable evidence");
+    assert.equal(!!analyzed!.awaitingBody, !usable, "the content job reads the body again");
+    if (!usable) assert.deepEqual([analyzed!.receiptIds, calls("EMPTYCASE").length], [[], before], "no model request");
     await publishArticle(id);
-    assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, i === 3 ? 200 : 404);
+    assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, usable ? 200 : 404);
   }
 });
 
@@ -945,15 +951,17 @@ test("TASK-0594: items left behind before rewrites existed are found and handed 
 
 test("TASK-0594: an item an operator withdrew is skipped without ending the scan for later items", async () => {
   emptySummaries.set("COPYHELD", 1);
-  const held = await article("COPYHELD");
-  await processArticle(held);
-  await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${held}`;
+  emptySummaries.set("COPYOPEN", 1);
+  const first = await article("COPYHELD");
+  const second = await article("COPYOPEN");
+  for (const id of [first, second]) {
+    await processArticle(id);
+    await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${id}`;
+  }
+  // Ids are random. The bug only shows when the withdrawn item sorts first, so withdraw the smaller id.
+  const [held, open] = first < second ? [first, second] : [second, first];
   await sql`INSERT INTO editorial_overrides(article_id, visibility) VALUES(${held}, 'withdrawn')
     ON CONFLICT (article_id) DO UPDATE SET visibility='withdrawn'`;
-  emptySummaries.set("COPYOPEN", 1);
-  const open = await article("COPYOPEN");
-  await processArticle(open);
-  await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${open}`;
   // Limit 1: before the fix a page whose only match was the held item came back empty after filtering, and the
   // caller took that as the end of the scan.
   let foundOpen = false;
@@ -964,7 +972,7 @@ test("TASK-0594: an item an operator withdrew is skipped without ending the scan
     if (page[0]!.id === open) foundOpen = true;
     after = page[page.length - 1]!.id;
   }
-  assert.ok(foundOpen, "the scan reaches the open item whichever side of the held one it sorts");
+  assert.ok(foundOpen, "the scan reaches the open item that sorts after the withdrawn one");
   emptySummaries.delete("COPYHELD");
   emptySummaries.delete("COPYOPEN");
 });

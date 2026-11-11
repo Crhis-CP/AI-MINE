@@ -41,8 +41,15 @@ export const FeedItem = memo(function FeedItem({
   const tl = useT().list;
   const cat = useCategoryLabel();
   const tagLabel = useTagLabel();
-  // News content is Chinese; on the English interface it is marked so (brief: 中文导读加 lang="zh-CN").
-  const contentLang = useLocale() === "en" ? "zh-CN" : undefined;
+  // On the English interface a card shows the item's English title and summary when it has them (TASK-0595, Owner
+  // 2026-11-08); otherwise its Chinese copy, marked as Chinese (brief: 中文导读加 lang="zh-CN").
+  const english = useLocale() === "en";
+  const copy = english ? (item.english ?? null) : null;
+  const title = copy?.title ?? item.title;
+  const summary = copy?.summary ?? item.summary;
+  const contentLang = english && !copy ? "zh-CN" : undefined;
+  // The recommendation stays Chinese: marked so under an English title.
+  const reasonLang = copy ? "zh-CN" : undefined;
   const markedRead = useIsRead(item.id);
   const read = readOverride ?? markedRead;
   const dateOnly =
@@ -88,11 +95,11 @@ export const FeedItem = memo(function FeedItem({
 
       <h3 className={`mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] ${read ? "text-ink-3" : "text-ink"}`}>
         <IntentLink onClick={() => markRead(item.id)} to={`/items/${item.id}`} className="feed-title after:absolute after:inset-0 after:content-['']">
-          {item.title}
+          {title}
         </IntentLink>
       </h3>
       <Attribution value={item.attribution} publishers={!soleCredit(item)} />
-      {item.summary && <p className="mt-1.5 line-clamp-2 text-[15.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[16px]">{item.summary}</p>}
+      {summary && <p className="mt-1.5 line-clamp-2 text-[15.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[16px]">{summary}</p>}
       {post && <PostMedia key={item.id} media={post.media} href={`/items/${item.id}`} compact />}
       {post?.quoted && <QuotedPost quoted={post.quoted} compact />}
 
@@ -123,7 +130,7 @@ export const FeedItem = memo(function FeedItem({
         <div className="mt-2.5 lg:mt-3 lg:border-t lg:border-line-soft lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-3 lg:dark:bg-transparent">
           <p className="line-clamp-1 text-[14px] leading-[1.65] text-ink-3 lg:line-clamp-none lg:leading-[1.75] lg:text-note">
             {tl.reason}
-            {item.reason}
+            <span lang={reasonLang}>{item.reason}</span>
           </p>
         </div>
       )}

@@ -103,6 +103,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "editorial.manual_revisions",
       "editorial.withdrawal_records",
       "editorial.withdrawal_restorations",
+      "enrichment.english_copies",
       "enrichment.quote_translations",
       "enrichment.translation_segments",
       "events.report_group_checks",

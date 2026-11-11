@@ -440,7 +440,7 @@ export async function fetchDetail(
       contentDocument(html);
       if (need.body && /html/.test(res.headers.get("content-type") ?? "")) {
         try {
-          body = readable(html, res.url, { preserve: source.config.detail?.preserve });
+          body = readable(html, res.url, { preserve: source.config.detail?.preserve, reveal: source.config.detail?.reveal });
         } catch {
           /* A failed extraction must not discard the detail metadata. */
         }

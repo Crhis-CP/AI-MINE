@@ -8,6 +8,13 @@ export async function readQuotedPostTranslation(sourceId: string, quote: { url: 
   return row?.text_zh ?? null;
 }
 
+/** The English title and summary written from this exact input (TASK-0595), or null when none is. */
+export async function readEnglishCopy(articleId: string, inputHash: string, db: Db = sql): Promise<{ title: string; summary: string } | null> {
+  const [row] = await db<{ title_en: string; summary_en: string }[]>`SELECT title_en, summary_en FROM enrichment.english_copies
+    WHERE article_id=${articleId} AND input_hash=${inputHash}`;
+  return row ? { title: row.title_en, summary: row.summary_en } : null;
+}
+
 /** Known complete no-material outcomes, including the former paid-prefilter-only form. */
 export async function recordedMaterialWaits(db: Db, articleId?: string) {
   return db<{ article_id: string; input_revision: number; oldest_at: Date }[]>`
