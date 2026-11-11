@@ -504,6 +504,8 @@ editorial/analyze的AnalysisRun允许prefilter=null，表示未进行预筛，�
 
 Owner 2026-11-08（DEC-78补充·只抓到标题的资讯）：文章（不含原帖）的材料按写作步骤的口径（有字母或数字的正文，否则摘要，去掉首尾空白）不到 20 字时，`awaitsMaterial` 在预筛前等待，与“一个字都没有”同样零调用（`lib/original-post-admission.ts` 的 `articleMaterialTooShort`）。`processArticle` 随后交给 `jobs/body-reread.ts` 的 `settleShortBody`：稿件留在 `analyzed`，`processing_error` 记“body_retry: 正文不足 20 字，等待第 n 次重读”，`processing_retry_at` 为 30 分钟、3 小时、12 小时后；`sweepUnprocessed` 的 `resumeBodyRereads` 每 5 分钟最多取 50 条到期稿件，核对信源仍是资讯编辑来源、页面可抓、权限允许（fetch、store_metadata、process_locally、store_fulltext），记 `content.body-reread` 审计后按低优先级排入普通正文抽取（站点限速与 robots 照常）。第 3 次重读后仍不足 20 字，稿件转 `failed`，原因“body_unreadable: 正文读取失败（重读 3 次）｜信源：名称”；页面不能重读或权限不允许的立即以对应原因失败；信源暂停的顺延 1 小时。运行页“处理失败”按原因归类，原因带信源名，因此按信源列出；在内容诊断页重新抽取会开始新的一轮（计数从上一次 `content.body-unreadable` 之后算）。读取配置变化时的自动续接（`resumeMaterialWaits`）对 1–19 字的等待同样适用。
 
+自动等待结算、到期重读与读取配置变化后的续接先取得人工发布共用锁，再在同一事务中核对人工修订/下架/仅摘要控制；等待期间新增人工控制即结束自动重读，不改变原材料或人工稿。正文最终不可读时，同一事务重建公开投影：旧模型导读不能使已失败的短稿继续出现在公开列表、搜索与订阅中；后续明确的人工内容修订仍优先。
+
 一次性补读：`node scripts/body-reread-backfill.ts` 默认预演，按信源列出 `analyzed` 且不足 20 字的资讯条数、读者当前可见的条数，以及重读后需要付费分析的估算（每条 1–7 次模型请求：预筛 1，评分最多 2，结构化 1，写作最多 2，措辞修正最多 1；归组与精选全文翻译另计；“预计能读到”按信源近 14 天是否有读到正文的稿件判断）。`--apply --limit N` 最多为 N 条记 `content.body-backfill` 审计并把下一次重读设为现在（模型高峰时段则为下一个非高峰起点）；这些稿件读到正文后的分析排在实时内容之后，并在非高峰时段进行（`queueProcessing` 的 `offPeak` 与 `historicalAnalysisWait`）。人工下架或修订的稿件不处理；重复执行只处理剩下的候选。
 
 ### 固定样本只读清单（TASK-0475）

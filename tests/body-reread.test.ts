@@ -12,7 +12,10 @@ import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { failureGroupSql, queueProcessing, runAnalysisJob, sweepUnprocessed } from "@amp/backend/jobs/content";
 import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
-import { rerun } from "@amp/backend/admin/content";
+import { overrideFields, rerun } from "@amp/backend/admin/content";
+import { publishArticle } from "@amp/backend/publication/publish";
+import { v3Item } from "@amp/backend/publication/v1";
+import { itemFeed } from "@amp/backend/publication/feeds";
 import { awaitsMaterial, loadAnalyzeInput } from "@amp/backend/editorial/analyze";
 import { runsOverview } from "@amp/backend/admin/runs";
 import { readCurrentSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
@@ -27,6 +30,7 @@ import {
   bodyUnreadableReason,
   nextBodyReread,
   settleShortBody,
+  scheduleBodyBackfill,
 } from "../packages/backend/src/jobs/body-reread.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
@@ -280,4 +284,115 @@ test("the backfill dry run counts per source with a paid estimate; apply schedul
   const [job] = await sql`SELECT priority,start_after FROM pgboss.job WHERE name=${QUEUES.analyze} AND data->>'articleId'=${a}`;
   assert.equal(job!.priority, -2);
   assert.equal(new Date(job!.start_after).toISOString(), "2026-11-09T04:00:00.000Z");
+});
+
+test("a manual revision made during the wait stops rereading; a concurrent withdrawal wins before the material reset", async () => {
+  const src = await source();
+  const revised = await article(src, "Copper update.");
+  await runAnalysisJob({ articleId: revised });
+  const fields = { title: "人工核对的铜矿更新", summary: "人工根据原文核对的中文导读，保留人工修订。" };
+  await overrideFields(
+    revised,
+    {
+      fields,
+      reason: "synthetic manual revision",
+      version: 0,
+      command: "publish",
+      source_revision: 1,
+      source_checked: true,
+      facts_checked: true,
+      evidence_quote: "Copper update.",
+    },
+    "synthetic-owner",
+  );
+  const before = await sql`SELECT title,summary,visibility FROM publications WHERE article_id=${revised}`;
+  await makeDue(revised);
+  await sweepUnprocessed();
+  assert.equal(await audits(revised, "content.body-reread"), 0);
+  assert.equal((await row(revised)).revision, 1);
+  assert.equal((await row(revised)).processing_retry_at, null, "manual control ends the automatic wait");
+  assert.equal(await settleShortBody(revised, 1), "stale", "settling cannot restart a manually controlled wait");
+  assert.deepEqual(await sql`SELECT title,summary,visibility FROM publications WHERE article_id=${revised}`, before);
+  assert.equal((await sql`SELECT state FROM publication.manual_copies WHERE article_id=${revised}`)[0]!.state, "active");
+  await sql`UPDATE sources SET config=config || ${sql.json({ acceptLanguage: "en-GB" })} WHERE id=${src}`;
+  await sweepUnprocessed();
+  assert.equal(await audits(revised, "content.body-resume"), 0, "a new reading configuration cannot bypass manual control either");
+  assert.equal((await row(revised)).processing_state, "analyzed");
+
+  const withdrawn = await article(src, "Copper update.");
+  await runAnalysisJob({ articleId: withdrawn });
+  await makeDue(withdrawn);
+  let sweeping: Promise<unknown> | undefined;
+  try {
+    await sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+      sweeping = sweepUnprocessed();
+      // The due-list read has finished when its transaction waits for the same fence used by manual edits.
+      const deadline = Date.now() + 10_000;
+      for (;;) {
+        const [waiter] = await sql`SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE datname=current_database() AND wait_event='advisory' AND query LIKE '%withdrawal-membership%'`;
+        if (waiter!.n) break;
+        assert.ok(Date.now() < deadline, "rereading must acquire the manual-publication fence before resetting material");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      await tx`INSERT INTO editorial_overrides(article_id,fields,visibility,updated_by)
+        VALUES(${withdrawn},'{}','withdrawn','synthetic-owner')`;
+    });
+  } finally {
+    await sweeping;
+  }
+  assert.equal(await audits(withdrawn, "content.body-reread"), 0);
+  assert.equal((await row(withdrawn)).body_status, "unconfirmed");
+  assert.equal((await row(withdrawn)).processing_retry_at, null);
+  assert.equal((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.extractBody} AND data->>'articleId'=${withdrawn}`).length, 0);
+  assert.equal(await receipts(), 0);
+});
+
+test("an unreadable historical public short article is withdrawn from the public projection; later manual copy still wins", async () => {
+  const src = await source();
+  const id = await article(src, "Copper update.", `https://mp.weixin.qq.com/s/legacy-${T}`);
+  await sql`UPDATE articles SET processing_state='analyzed' WHERE id=${id}`;
+  await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,selected,score,title_zh,summary_zh,output)
+    VALUES(${id},1,'model','pass',false,70,'旧模型生成的铜矿标题','旧模型仅凭很短材料写出的中文导读。',${sql.json({ writer: "summarize" })})`;
+  await publishArticle(id);
+  assert.equal((await sql`SELECT visibility FROM publications WHERE article_id=${id}`)[0]!.visibility, "public");
+  assert.ok(await v3Item(id), "public API includes the old model copy before rereading");
+  assert.ok((await itemFeed("all", null)).includes(id), "RSS includes it before rereading");
+  assert.ok(await scheduleBodyBackfill({ id, revision: 1, sourceId: src, sourceName: NAME }));
+  await makeDue(id);
+  await sweepUnprocessed();
+  assert.equal((await row(id)).processing_state, "failed");
+  assert.match((await row(id)).processing_error, /body_unreadable:.*来源页面不能重读/);
+  const [publication] = await sql`SELECT visibility,eligible FROM publications WHERE article_id=${id}`;
+  assert.deepEqual([publication!.visibility, publication!.eligible], ["withdrawn", false]);
+  assert.equal((await sql`SELECT article_id FROM pool_search WHERE article_id=${id}`).length, 0);
+  assert.equal(await v3Item(id), null, "public API follows the same withdrawn projection");
+  assert.ok(!(await itemFeed("all", null)).includes(id), "RSS follows the same withdrawn projection");
+  await publishArticle(id);
+  assert.equal(
+    (await sql`SELECT visibility FROM publications WHERE article_id=${id}`)[0]!.visibility,
+    "withdrawn",
+    "normal reprojection cannot revive old model copy",
+  );
+  await overrideFields(
+    id,
+    {
+      fields: { title: "人工核对的铜矿标题", summary: "人工核对后的铜矿导读，按原文保留必要说明。" },
+      reason: "synthetic reviewed correction",
+      version: 0,
+      command: "publish",
+      source_revision: 1,
+      source_checked: true,
+      facts_checked: true,
+      evidence_quote: "Copper update.",
+    },
+    "synthetic-owner",
+  );
+  assert.equal(
+    (await sql`SELECT visibility FROM publications WHERE article_id=${id}`)[0]!.visibility,
+    "public",
+    "explicit manual copy outranks the automatic failure",
+  );
+  assert.equal(await receipts(), 0);
 });

@@ -600,6 +600,7 @@ async function resumeMaterialWaits(): Promise<number> {
     try {
       resumed += await sql.begin(async (tx) => {
         await tx`SET LOCAL statement_timeout='2s'`;
+        await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
         await assertRuntimeControl(tx, control);
         const [identity] = await tx<{ source_id: string }[]>`SELECT source_id FROM articles WHERE id=${wait.article_id}`;
         if (!identity) return 0;
@@ -622,6 +623,7 @@ async function resumeMaterialWaits(): Promise<number> {
         if (
           !current ||
           current.source_id !== source.id ||
+          (await manualProcessingExclusions([wait.article_id], tx)).length > 0 ||
           (current.original_post && originalPostInputBlocked({ text: current.body_text ?? "" })) ||
           !normalizeSourceLanguage(current.language) ||
           !pageFetchable(current.url, source.kind) ||
@@ -704,6 +706,8 @@ async function resumeBodyRereads(): Promise<number> {
     try {
       queued += await sql.begin(async (tx) => {
         await tx`SET LOCAL statement_timeout='2s'`;
+        // Manual publication takes this fence before the material lock as well.
+        await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
         await assertRuntimeControl(tx, control);
         const [identity] = await tx<{ source_id: string }[]>`SELECT source_id FROM articles WHERE id=${id}`;
         if (!identity) return 0;
@@ -714,7 +718,12 @@ async function resumeBodyRereads(): Promise<number> {
           WHERE id=${id} AND source_id=${identity.source_id} AND processing_state='analyzed' AND x_post IS NULL
             AND processing_error LIKE ${`${BODY_REREAD_NOTE}%`} AND processing_retry_at <= now() FOR UPDATE`;
         if (!current) return 0;
-        if (source?.lane !== "news" || source.participation_mode !== "editorial" || !articleMaterialTooShort(current.body_text, current.excerpt)) {
+        if (
+          source?.lane !== "news" ||
+          source.participation_mode !== "editorial" ||
+          !articleMaterialTooShort(current.body_text, current.excerpt) ||
+          (await manualProcessingExclusions([id], tx)).length
+        ) {
           await tx`UPDATE articles SET processing_error=NULL,processing_retry_at=NULL WHERE id=${id} AND revision=${current.revision}`;
           return 0;
         }

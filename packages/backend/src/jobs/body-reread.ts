@@ -5,7 +5,8 @@
 // Readers never see these articles and never cause a read. The sweep that performs the reads is in jobs/content.ts
 // (it needs the processing queue); this file holds the schedule, the settling of an analysis that waited, and the
 // one-off backfill of the articles that were judged on a title before this rule (scripts/body-reread-backfill.ts).
-import { sql, type Db } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
+import { publishArticleTx } from "../publication/publish.ts";
 import { audit, auditedCommandsSince, previousAuditedCommand } from "../admin/auth.ts";
 import { manualProcessingExclusions } from "@amp/backend/admin/content";
 import { readSourceDateContext } from "@amp/backend/admin/sources";
@@ -65,9 +66,9 @@ export async function recordBodyReread(db: Db, articleId: string, attempt: numbe
   );
 }
 
-/** Ends the waiting: failed with the reason, hidden from readers as before (no Chinese copy), retried from its diagnosis page. */
+/** Ends the waiting and refreshes the public projection in the caller's publication-fenced transaction. */
 export async function failUnreadableBody(
-  db: Db,
+  db: Tx,
   article: { id: string; revision: number; sourceName: string },
   rereads: number,
   cause?: UnreadableCause,
@@ -87,6 +88,7 @@ export async function failUnreadableBody(
     undefined,
     db,
   );
+  await publishArticleTx(db, article.id);
   return true;
 }
 
@@ -96,10 +98,11 @@ export async function failUnreadableBody(
  */
 export async function settleShortBody(articleId: string, revision: number, now = new Date()): Promise<"awaiting-body" | "body-unreadable" | "stale"> {
   return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     const [a] = await tx<{ source_id: string; body_text: string | null; excerpt: string | null }[]>`
       SELECT source_id,body_text,excerpt FROM articles
       WHERE id=${articleId} AND revision=${revision} AND processing_state='analyzed' AND x_post IS NULL FOR UPDATE`;
-    if (!a || !articleMaterialTooShort(a.body_text, a.excerpt)) return "stale";
+    if (!a || !articleMaterialTooShort(a.body_text, a.excerpt) || (await manualProcessingExclusions([articleId], tx)).length) return "stale";
     const rereads = await bodyRereadsInCycle(articleId, tx);
     const due = nextBodyReread(rereads, now);
     if (!due) {
