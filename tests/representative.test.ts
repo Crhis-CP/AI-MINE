@@ -19,10 +19,10 @@ test("publisher identity uses exact unambiguous mining names, not mentions or a 
   assert.equal(representativePriority({ publisher_role: "organization", owner_entity_id: "zijin", fact_subject: "嘉能可" }), 3);
   assert.equal(representativePriority({ publisher_role: "organization", owner_entity_id: "zijin", fact_subject: "紫金矿业、未登记的主体" }), 3);
   const base = { body_mode: "summary", score: 70, timeline_at: new Date(0) };
-  const wrongFlag = { ...base, id: "a", first_party: true, score: 99 };
+  const wrongFlag = { ...base, id: "a", first_party: true, score: 72 };
   const verified = { ...base, id: "b", publisher_role: "organization", owner_entity_id: "zijin", fact_subject: "紫金矿业" };
   assert.equal(pickRepresentative([wrongFlag, verified]).id, "b");
-  assert.equal(pickRepresentative([verified, { ...base, id: "c", source_tier: "T1", score: 60 }]).id, "c");
+  assert.equal(pickRepresentative([verified, { ...base, id: "c", source_tier: "T1", score: 68 }]).id, "c");
   assert.equal(
     pickRepresentative([
       { ...base, id: "z" },
@@ -31,6 +31,40 @@ test("publisher identity uses exact unambiguous mining names, not mentions or a 
     "a",
     "ties do not depend on database row order",
   );
+});
+
+test("a clearly higher score wins the seat over the publisher order (Owner 2026-11-08, TASK-0591)", () => {
+  const base = { body_mode: "full", timeline_at: new Date(0) };
+  // The Canada budget event: an association's welcome note (T1, 62.3) and the report with the substance (66.5).
+  const welcome = { ...base, id: "welcome", source_tier: "T1", score: 62.3 };
+  const substance = { ...base, id: "substance", score: 66.5 };
+  assert.equal(pickRepresentative([welcome, substance]).id, "substance", "4.2 points ahead is clearly better");
+  assert.equal(pickRepresentative([{ ...welcome, score: 64 }, substance]).id, "welcome", "within 3 points the T1 publisher still leads");
+  assert.equal(pickRepresentative([{ ...welcome, score: 63.5 }, substance]).id, "substance", "exactly 3 points ahead counts as clearly better");
+  assert.equal(
+    pickRepresentative([
+      { ...welcome, score: 63.1 },
+      { ...substance, score: 66.1 },
+    ]).id,
+    "substance",
+    "66.1 against 63.1 is exactly 3 points, as SQL's numeric comparison sees it, not 2.9999… in floating point",
+  );
+  assert.equal(
+    pickRepresentative([
+      { ...base, id: "summary-only", score: 80, body_mode: "summary" },
+      { ...base, id: "full", score: 78 },
+    ]).id,
+    "full",
+    "within the lead, full text still comes before score",
+  );
+  assert.equal(
+    pickRepresentative([
+      { ...base, id: "unscored", score: null },
+      { ...base, id: "scored", score: 2 },
+    ]).id,
+    "scored",
+  );
+  assert.equal(pickRepresentative([{ ...base, id: "only", score: null }]).id, "only");
 });
 
 test("identity enrichment reads each fact's subject and source metadata before choosing the representative", async () => {
@@ -47,7 +81,7 @@ test("identity enrichment reads each fact's subject and source metadata before c
     return rows.map((r) => ({ ...r, ...sources.get(r.source_id), fact_subject: facts.get(r.fact_id) ?? null }));
   };
   const rows = await enrich([
-    { ...base, article_id: "reporter", source_id: reporter, score: 90 },
+    { ...base, article_id: "reporter", source_id: reporter, score: 67 },
     { ...base, article_id: "official", source_id: official, score: 65 },
   ]);
   assert.equal(pickRepresentative(rows).article_id, "official");
