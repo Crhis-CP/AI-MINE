@@ -293,7 +293,8 @@
         "itemSelector": "ul.xw-list-1 > li",
         "linkSelector": "a[href]",
         "titleSelector": "a",
-        "allowUrlPrefixes": ["https://zjt.fujian.gov.cn/"]
+        "allowUrlPrefixes": ["https://zjt.fujian.gov.cn/"],
+        "detail": { "reveal": ["div.tabs_bd > div.word_con"] }
       },
       "tier": "T1",
       "first_party": true,

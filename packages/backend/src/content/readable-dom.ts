@@ -268,8 +268,33 @@ function preserveWidgets(document: Doc, rules: PreserveRule[]) {
   }
 }
 
-export function prepareReadableDocument(document: Doc, rules: PreserveRule[] = []): void {
+/**
+ * A source can declare the element that holds its text version when the page only shows it after a script
+ * runs (TASK-0598: a "文字版" tab hidden by an inline style beside a scanned "全真版" viewer). Only the matched
+ * element loses what hides it, its hidden attribute and inline display/visibility; what hides its own
+ * children stays, and nothing on the page is executed.
+ */
+function revealDeclared(document: Doc, selectors: string[]) {
+  for (const selector of selectors) {
+    for (const el of document.querySelectorAll(selector)) {
+      el.removeAttribute("hidden");
+      const style = el.getAttribute("style");
+      if (style === null) continue;
+      const kept = String(style)
+        .split(";")
+        .filter((declaration: string) => {
+          const name = declaration.slice(0, declaration.indexOf(":")).trim().toLowerCase();
+          return declaration.includes(":") && name !== "display" && name !== "visibility";
+        });
+      if (kept.length) el.setAttribute("style", kept.join(";"));
+      else el.removeAttribute("style");
+    }
+  }
+}
+
+export function prepareReadableDocument(document: Doc, rules: PreserveRule[] = [], reveal: string[] = []): void {
   settleStreamedContent(document);
+  revealDeclared(document, reveal);
   settleInlineVisibility(document);
   preserveWidgets(document, rules);
   describeFigureDrawings(document);
