@@ -409,6 +409,9 @@ export async function freshSelection(articleId: string, selected: boolean): Prom
   return row?.fresh === true;
 }
 
+/** A paused news lane: a translation or English-copy job looks again after this long, without using up its retries. */
+const PAUSE_WAIT_MS = 30 * 60_000;
+
 /** One content.translate job. Exported for tests; the worker registers it below. */
 export async function runTranslationJob(data: { articleId: string }, clock: JobClock = {}) {
   const inputRevision = await materialRevision(data.articleId);
@@ -448,7 +451,10 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
       );
     return result;
   } catch (error) {
-    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(data.articleId, error, inputRevision);
+    // A paused lane only postpones the translation. The article is already analysed: afterFailure would set it back
+    // to "new" and the sweep would pay for its whole analysis again (TASK-0608).
+    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+      return deferTranslation(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS));
     throw error;
   }
 }
@@ -459,8 +465,6 @@ async function deferEnglishCopy(articleId: string, until: Date) {
   if (queued === undefined) throw new Error("English copy deferral was not accepted by the queue");
   return { state: "deferred_peak", until: until.toISOString() };
 }
-/** A paused news lane: look again after this long, without using up the job's retries. */
-const ENGLISH_PAUSE_WAIT_MS = 30 * 60_000;
 
 /**
  * One English title and summary (content.translate with `english`, TASK-0595). Nothing is paid unless EN_COPY_ENABLED
@@ -483,7 +487,7 @@ export async function runEnglishCopyJob(data: { articleId: string }, clock: JobC
     return { state: outcome };
   } catch (error) {
     if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
-      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + ENGLISH_PAUSE_WAIT_MS));
+      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS));
     throw error;
   }
 }
