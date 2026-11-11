@@ -718,6 +718,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
           "enrichment/202611081000_english_copies.sql",
         ],
       },
+      {
+        name: "ai-gateway/202611121000_swipe_calibration.sql",
+        module: "ai-gateway",
+        schemas: ["ai"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610180700_model_service_circuits.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

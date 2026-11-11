@@ -71,6 +71,7 @@ const privateRoutes = [
     route("admin/usage-models", "routes/admin/models-redirect.tsx"),
     route("admin/usage-models/reconciliation", "routes/admin/reconciliation-redirect.tsx"),
     route("admin/usage-models/settings", "routes/admin/settings-redirect.tsx"),
+    route("admin/swipe", "routes/admin/swipe.tsx"),
     route("admin/selectbench", "routes/admin/selectbench.tsx"),
     route("admin/selectbench/:runId", "routes/admin/selectbench-run.tsx"),
     ...moduleAdminPages,

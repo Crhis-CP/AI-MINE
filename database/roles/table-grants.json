@@ -1201,6 +1201,22 @@
         "worker": ["SELECT"]
       }
     },
+    "ai.swipe_cards": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.swipe_answers": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"]
+      }
+    },
     "ai.model_fallback_routes": {
       "module": "ai-gateway",
       "access": "business",

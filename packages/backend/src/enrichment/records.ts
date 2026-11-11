@@ -42,6 +42,25 @@ export async function prefilterAuditAnalysisCopies(ids: number[], db: Db = sql) 
   return db<{ id: number; title_zh: string | null; summary_zh: string | null }[]>`SELECT id,title_zh,summary_zh FROM analyses WHERE id=ANY(${ids}::bigint[])`;
 }
 
+export interface SwipeJudgment {
+  article_id: string;
+  analysis_id: number;
+  relevance: string | null;
+  selected: boolean | null;
+  score: string | null;
+  threshold: string | null;
+  scores: number[] | null;
+  category: string | null;
+  title_zh: string | null;
+  summary_zh: string | null;
+}
+/** The latest judgment of each article analysed since `since`, for the swipe calibration desk (read-only). */
+export async function swipeJudgments(since: Date, db: Db = sql) {
+  return db<SwipeJudgment[]>`SELECT DISTINCT ON(article_id) article_id,id AS analysis_id,relevance,selected,score,
+    output->>'threshold' AS threshold,output->'scores' AS scores,category,title_zh,summary_zh
+    FROM analyses WHERE created_at>=${since} ORDER BY article_id,input_revision DESC,id DESC`;
+}
+
 export interface GroupingAnalysis {
   id: number;
   input_revision: number;

@@ -169,6 +169,8 @@ test("all current migration tables and serial sequences have one explicit classi
       "ai.usage_observation",
       "ai.local_reuse_daily",
       "ai.usage_monthly_reports",
+      "ai.swipe_cards",
+      "ai.swipe_answers",
       "publication.policy_editions",
       "policy.interpretation_runs",
       "policy.interpretation_stages",
