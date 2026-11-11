@@ -5764,7 +5764,11 @@
               "original_publication",
               "substantive_change",
               "registration",
-              "other"
+              "other",
+              "adoption",
+              "promulgation",
+              "entry_into_force",
+              "repeal"
             ],
             "type": "string"
           },
@@ -6243,7 +6247,11 @@
               "original_publication",
               "substantive_change",
               "registration",
-              "other"
+              "other",
+              "adoption",
+              "promulgation",
+              "entry_into_force",
+              "repeal"
             ],
             "type": "string"
           },

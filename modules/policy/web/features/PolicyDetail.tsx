@@ -471,7 +471,8 @@ export function PolicyLegal({ policy }: { policy: Policy }) {
             rows={content.changes.map((t) => ({
               key: `${t.meaning}:${t.raw}`,
               when: text.dateTime(t) ?? "",
-              what: t.event_kind ? events[t.event_kind] : tr.maybe(t.meaning_label),
+              // Kinds added to the contract before their labels (TASK-0576) fall back to the source wording.
+              what: (t.event_kind && t.event_kind in events ? events[t.event_kind as keyof typeof events] : null) ?? tr.maybe(t.meaning_label),
               note: text.join([
                 t.occurrence ? (t.occurrence === "occurred" ? tr("已发生") : tr("计划")) : null,
                 t.condition_text ? tr("条件：{condition_text}", { condition_text: t.condition_text }) : null,
