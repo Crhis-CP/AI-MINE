@@ -306,6 +306,52 @@ test("the monthly reminder line is announced once when crossed and stops nothing
   assert.equal(notices.length, 3);
   assert.equal(notices[0]!.payload.reminder_micros, undefined);
 });
+test("an explicitly disabled monthly reminder stays off while ordinary step notices and requests continue (TASK-0605)", async () => {
+  const disabled = { ...structuredClone(defaults), usage_notice: { ...defaults.usage_notice, reminder_micros: "0" } };
+  const saved = await changeUsageProtection({ expected_version: 0, config: disabled, reason: "synthetic cleared reminder", high_risk_confirmed: true }, owner);
+  assert.equal(saved.config.usage_notice.reminder_micros, "0");
+  assert.equal((await usageConfiguration())?.config.usage_notice.reminder_micros, "0", "off survives a configuration read");
+  await assert.rejects(
+    changeUsageProtection(
+      {
+        expected_version: 1,
+        config: { ...disabled, usage_notice: { ...disabled.usage_notice, step_micros: "0" } },
+        reason: "invalid zero step",
+        high_risk_confirmed: true,
+      },
+      owner,
+    ),
+    "only the optional reminder can be disabled; the notice step stays positive",
+  );
+  await charge("disabled-reminder-a", "450000000");
+  await charge("disabled-reminder-b", "50000000");
+  assert.equal(calls, 2, "crossing the default reminder does not stop requests");
+  const notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 2, "ordinary ¥100-step notices continue");
+  assert.deepEqual(notices.map((e) => e.payload.crossed_through_micros).sort(), ["400000000", "500000000"]);
+  assert.ok(
+    notices.every((e) => e.payload.reminder_micros === undefined),
+    "explicit off never falls back to ¥400",
+  );
+});
+test("a reminder between notice steps fires at its own line and does not move later step notices (TASK-0605)", async () => {
+  const betweenSteps = { ...structuredClone(defaults), usage_notice: { ...defaults.usage_notice, reminder_micros: "350000000" } };
+  await changeUsageProtection({ expected_version: 0, config: betweenSteps, reason: "synthetic non-step reminder", high_risk_confirmed: true }, owner);
+  await charge("between-steps-a", "349000000");
+  let notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0]!.payload.reminder_micros, undefined);
+  await charge("between-steps-b", "1000000");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 2);
+  assert.equal(notices[0]!.payload.reminder_micros, "350000000");
+  assert.equal(notices[0]!.payload.crossed_through_micros, "350000000");
+  await charge("between-steps-c", "50000000");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 3);
+  assert.equal(notices[0]!.payload.crossed_through_micros, "400000000");
+  assert.equal(notices[0]!.payload.reminder_micros, undefined, "the monthly reminder is not repeated at the next step");
+});
 test("Owner recovery has version CAS and never releases a system/deployment/Owner pause", async () => {
   await install();
   await charge("obj", "6000000", { object: "a" });

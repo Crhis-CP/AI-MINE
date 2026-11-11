@@ -68,7 +68,7 @@ function ConfigForm({ data }: { data: Data }) {
             "reminder",
             (() => {
               const line = seed.usage_notice.reminder_micros ?? data.initial_config?.usage_notice.reminder_micros;
-              return line ? decimal(line, 6) : "";
+              return line && line !== "0" ? decimal(line, 6) : "";
             })(),
           ],
           ["time", seed.usage_report.push_time],
@@ -89,8 +89,7 @@ function ConfigForm({ data }: { data: Data }) {
     if (!/^\d+(?:\.\d{1,4})?$/.test(draft.warning ?? "")) throw new Error("预警比例须为百分数，最多4位小数。");
     next.breaker.warning_ratio = decimal((BigInt(micros(draft.warning!)) / 100n).toString(), 6);
     next.usage_notice.step_micros = micros(draft.step!);
-    if (draft.reminder?.trim()) next.usage_notice.reminder_micros = micros(draft.reminder.trim());
-    else delete next.usage_notice.reminder_micros;
+    next.usage_notice.reminder_micros = draft.reminder?.trim() ? micros(draft.reminder.trim()) : "0";
     next.usage_report.push_time = draft.time!;
     next.unknown_alert = { amount_micros: micros(draft.unknown_amount!), oldest_age_seconds: Number(draft.unknown_age) };
     return privateSchemas.UsageProtectionConfig.parse(next);
