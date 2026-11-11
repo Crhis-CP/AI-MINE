@@ -1,5 +1,5 @@
 // 访问概况 (TASK-0571): the site's own visit statistics — daily and monthly visitors, page views, the most read pages,
-// referring sites and devices. Counts only; the page never sees an address, a browser string or a visitor key.
+// referring sites and devices, and the 读者兴趣记录 (TASK-0596). Counts only; the page never sees an address, a browser string or a visitor key.
 import { apiFetch } from "@amp/web/extension";
 import { useState, type ReactNode } from "react";
 import { SITE } from "@amp/industry/site";
@@ -167,6 +167,75 @@ function pageLabel(page: Overview["pages"]["week"][number]) {
   );
 }
 
+const INTEREST_NOTE =
+  "每天凌晨把前一天的文章浏览按分类、矿种、公司、国家和地区汇总，并记下当天最常读的 50 篇和列表、专题页的浏览，长期保存，作为了解读者的参考；前期访问少，数字不一定准，不据此自动改变选材。一篇文章同时属于几个矿种或公司时，每一项都计入。";
+
+function interestPageLabel(row: { key: string; label: string }) {
+  return row.key.startsWith("/topics/") && row.label !== row.key ? `专题 · ${row.label}` : (ROUTES[row.key] ?? row.label);
+}
+
+/**
+ * 读者兴趣记录 (TASK-0596): complete days only, summed by the filters the site already has. A reference for
+ * understanding readers; it changes nothing on the site.
+ */
+function Interest({ interest }: { interest: NonNullable<Overview["interest"]> }) {
+  const [range, setRange] = useState<"week" | "month">("week");
+  const r = interest[range];
+  const rows = (list: Array<{ key: string; label: string; views: number }>, label = (row: { key: string; label: string }) => row.label) =>
+    list.map((row) => ({ key: row.key, label: label(row), views: row.views }));
+  const empty = "这段时间还没有记录";
+  return (
+    <Card title="读者兴趣记录" right={<Range value={range} onChange={setRange} />} className="mt-5">
+      <p className="mb-4 text-[12.5px] text-ink-3">
+        {INTEREST_NOTE}
+        {interest.since ? ` 记录自 ${interest.since} 起；` : " "}
+        {r.days ? `这段时间有 ${r.days} 天记录，文章浏览 ${number(r.item_views)}，其中 ${number(r.classified_views)} 来自现在仍可阅读的文章。` : ""}
+      </p>
+      {r.days ? (
+        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+          <section>
+            <h3 className="mb-2 text-[13px] font-medium text-ink-2">分类</h3>
+            <Ranked empty={empty} rows={rows(r.category)} />
+          </section>
+          <section>
+            <h3 className="mb-2 text-[13px] font-medium text-ink-2">矿种</h3>
+            <Ranked empty={empty} rows={rows(r.mineral)} />
+          </section>
+          <section>
+            <h3 className="mb-2 text-[13px] font-medium text-ink-2">公司</h3>
+            <Ranked empty={empty} rows={rows(r.company)} />
+          </section>
+          <section>
+            <h3 className="mb-2 text-[13px] font-medium text-ink-2">国家和地区</h3>
+            <Ranked empty={empty} rows={rows(r.country)} />
+          </section>
+          <section>
+            <h3 className="mb-2 text-[13px] font-medium text-ink-2">列表与专题页</h3>
+            <Ranked empty={empty} rows={rows(r.page, interestPageLabel)} />
+          </section>
+          <section>
+            <h3 className="mb-2 text-[13px] font-medium text-ink-2">最常读的文章</h3>
+            <Ranked
+              empty={empty}
+              rows={r.items.map((item) => ({
+                key: item.article_id,
+                label: (
+                  <a href={`/items/${item.article_id}`} target="_blank" rel="noopener noreferrer" className="hover:text-accent">
+                    {item.title ?? `文章 ${item.article_id}（已不可阅读）`}
+                  </a>
+                ),
+                views: item.views,
+              }))}
+            />
+          </section>
+        </div>
+      ) : (
+        <Empty>{interest.since ? empty : "还没有记录：每天凌晨记录前一天，第一份记录在统计开始后的第二天出现。"}</Empty>
+      )}
+    </Card>
+  );
+}
+
 export default function Visits({ loaderData }: { loaderData: Overview }) {
   const o = loaderData,
     [pagesRange, setPagesRange] = useState<"week" | "month">("week"),
@@ -294,6 +363,7 @@ export default function Visits({ loaderData }: { loaderData: Overview }) {
           <p className="mt-3 text-[12px] text-ink-4">按浏览器自报的类型区分；部分 iPad 自报为电脑，会算作电脑。</p>
         </Card>
       </div>
+      {o.interest && <Interest interest={o.interest} />}
     </AdminPage>
   );
 }

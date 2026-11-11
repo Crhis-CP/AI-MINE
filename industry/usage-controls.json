@@ -10,7 +10,7 @@
     "lookback_days": 7,
     "warning_ratio": "0.7"
   },
-  "usage_notice": { "step_micros": "100000000" },
+  "usage_notice": { "step_micros": "100000000", "reminder_micros": "400000000" },
   "usage_report": { "push_time": "09:00" },
   "unknown_alert": { "amount_micros": "10000000", "oldest_age_seconds": 86400 }
 }

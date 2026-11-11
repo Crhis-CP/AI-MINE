@@ -79,3 +79,5 @@ TASK-0431：金属价格最近检查采用publication.metal_price_checks的sourc
 金属价格单独扣下（DEC-78补充·五项决定第4项）：publication.metal_price_holds归publication，保存跳变后单独扣下的值及放行/作废决定（谁、何时、为什么），只追加或改状态、不删除。公开角色仅SELECT series_key/period_start/period_label/status四列，供价格页标“待下期确认”，读不到被扣数值与理由；worker可读、插、改，private_ops与backup只读，普通角色不能删除。
 
 第一方访问统计（TASK-0571）：`ops.visit_salts`、`ops.visit_day_keys`、`ops.visit_month_keys`归platform/ops，private_ops（api写信标批次）只读/插入，worker（统计任务）只读/删除；`ops.visit_days`、`ops.visit_devices`由private_ops累加浏览量、worker写入访客数，`ops.visit_pages`、`ops.visit_referrers`只由private_ops读写，`ops.visit_months`由worker写、private_ops只读。全部无公开列，public_read/auth/feedback_write/ops_read无权；backup只读。表里只有HMAC标识与汇总数字，没有网络地址或浏览器字符串。
+
+读者兴趣记录（TASK-0596）：`ops.reader_interest_days`、`ops.reader_interest_items`、`ops.reader_interest_facets`归platform/ops，worker（每日记录任务）可读、插入、删除（重记一天时整天替换），private_ops（后台访问概况）只读；为此worker对`ops.visit_pages`增加只读。全部无公开列，public_read/auth/feedback_write/ops_read无权；表里只有按天汇总的浏览数、文章编号与当时的标题，没有任何访客数据。

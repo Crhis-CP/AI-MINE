@@ -103,6 +103,7 @@ export async function applyPresentationRefresh(
         runtimeControl: control,
         acceptLanguage: source.config.acceptLanguage,
         preserve: source.config.detail?.preserve,
+        reveal: source.config.detail?.reveal,
       });
       return page && { ...page, images: body.media.length ? body.media : page.images };
     },

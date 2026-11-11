@@ -1,5 +1,5 @@
 import { ArticleBody } from "../features/item/ArticleBody";
-import { useTr, useDateFormat, useLocalize, useTagLabel } from "../i18n";
+import { localeOf, useLocale, useTr, useDateFormat, useLocalize, useTagLabel } from "../i18n";
 import { PostAuthor, PostMedia, QuotedPost } from "../features/item/OriginalPost";
 import { SharePoster } from "../features/item/SharePoster";
 import { Sheet } from "../components/ui/Sheet";
@@ -42,12 +42,22 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return { item };
 }
 
-export function meta({ loaderData }: Route.MetaArgs) {
+/**
+ * The title and summary in the page's language: on the English interface the item's English copy when it has one
+ * (TASK-0595, Owner 2026-11-08), otherwise its Chinese copy as before.
+ */
+function readerCopy(item: Pick<SiteItemDetail, "title" | "summary" | "english">, english: boolean) {
+  const copy = english ? (item.english ?? null) : null;
+  return { title: copy?.title ?? item.title, summary: copy?.summary ?? item.summary };
+}
+
+export function meta({ loaderData, location }: Route.MetaArgs) {
   if (!loaderData) return [{ title: titled("内容不存在") }, { name: "robots", content: "noindex" }];
   const { item } = loaderData;
+  const copy = readerCopy(item, localeOf(location.pathname) === "en");
   return pageMeta({
-    title: item.title,
-    description: item.summary ?? undefined,
+    title: copy.title,
+    description: copy.summary ?? undefined,
     path: `/items/${item.id}`,
     image: `/og/items/${item.id}.png`,
     type: "article",
@@ -55,7 +65,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     jsonLd: breadcrumbLd([
       { name: SITE.name, path: "/" },
       { name: item.selected ? "精选" : "全部动态", path: item.selected ? "/" : "/all" },
-      { name: item.title, path: `/items/${item.id}` },
+      { name: copy.title, path: `/items/${item.id}` },
     ]),
   });
 }
@@ -161,6 +171,7 @@ export default function ItemPage() {
   const tagLabel = useTagLabel();
   // The article's address in this page's language: what is shared from the English interface opens in English.
   const itemPath = useLocalize()(`/items/${item.id}`);
+  const copy = readerCopy(item, useLocale() === "en");
   const hasTranslation = item.hasTranslation || !!item.x?.quoted?.translation?.trim();
   const lang = item.bodyLanguage;
   const [toast, setToast] = useState<string | null>(null);
@@ -451,19 +462,20 @@ export default function ItemPage() {
             )}
           </div>
           <h1 className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">
-            {item.title}
+            {copy.title}
           </h1>
-          {item.originalTitle && <p className="mt-2.5 text-[15px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
+          {/* An English original's own title is the English title: not repeated under it. */}
+          {item.originalTitle && item.originalTitle !== copy.title && <p className="mt-2.5 text-[15px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
           {item.x && <PostAuthor post={item.x} />}
 
           <p className="mt-2 text-[13px] text-ink-4">
             {tr("本站公开")} {item.firstPublicAt ? <time dateTime={item.firstPublicAt}>{fullDateTime(item.firstPublicAt)}</time> : tr("时间未记录")}
           </p>
           <Attribution value={item.attribution} publishers={!soleCredit(item)} />
-          {item.summary && (
+          {copy.summary && (
             <section className="mt-7 xl:mt-8">
               <div className="mb-2 text-[13px] font-semibold text-accent">{summaryOnly ? tr("摘要") : tr("AI 导读")}</div>
-              <p className="reading-serif max-w-[38em] text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
+              <p className="reading-serif max-w-[38em] text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{copy.summary}</p>
             </section>
           )}
 

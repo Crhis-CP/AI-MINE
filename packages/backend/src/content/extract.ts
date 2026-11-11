@@ -45,7 +45,7 @@ export interface ExtractedBody {
 
 const MIN_BODY_CHARS = 200;
 
-export function readable(html: string, url: string, rules: { preserve?: PreserveRule[] } = {}): ExtractedBody | null {
+export function readable(html: string, url: string, rules: { preserve?: PreserveRule[]; reveal?: string[] } = {}): ExtractedBody | null {
   let document: ReturnType<typeof contentDocument>;
   try {
     document = contentDocument(html);
@@ -60,7 +60,7 @@ export function readable(html: string, url: string, rules: { preserve?: Preserve
   } catch {
     // no head
   }
-  prepareReadableDocument(document, rules.preserve);
+  prepareReadableDocument(document, rules.preserve, rules.reveal);
   const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], {
     charThreshold: MIN_BODY_CHARS,
     keepClasses: false,
@@ -121,6 +121,7 @@ export async function extractFromUrl(
     runtimeControl?: RuntimeControlSnapshot;
     acceptLanguage?: string;
     preserve?: PreserveRule[];
+    reveal?: string[];
   },
 ): Promise<ExtractedBody | null> {
   // Older programs treat every saved body as complete; they must not consume a partial PDF result.
@@ -217,6 +218,7 @@ async function extractArticleBody(
       runtimeControl: control,
       acceptLanguage: source.config.acceptLanguage,
       preserve: source.config.detail?.preserve,
+      reveal: source.config.detail?.reveal,
     });
   } catch (error) {
     if (!(error instanceof CrawlDeferred) || error.reason === "source_reader_pending")

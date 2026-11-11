@@ -176,6 +176,19 @@ const item = {
   bodyLanguage: "zh",
 };
 
+// An item with its English title and summary (TASK-0595): the English pages show them, the Chinese pages do not.
+const ENGLISH = { title: "Synthetic copper expansion approved", summary: "Synthetic English summary of the approval." };
+const englishCard = { ...card("en-b"), title: "合成动态 英文版", reason: "合成推荐理由", selected: true, english: ENGLISH };
+const englishItem = {
+  ...item,
+  ...card("en-item-english"),
+  title: "合成铜矿扩建获批",
+  summary: "合成导读：扩建获批。",
+  originalTitle: "Ampliación sintética aprobada",
+  language: "es",
+  english: ENGLISH,
+};
+
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
   res.setHeader("content-type", "application/json");
@@ -214,7 +227,7 @@ const api = createServer((req, res) => {
         q: url.searchParams.get("q"),
         tab: "time",
       },
-      items: [card("en-a")],
+      items: [card("en-a"), englishCard],
       hot: [{ rank: 1, title: "合成热点事件", heat: 12, trend: "up", storyPublicId: "en-story", itemId: null }],
       facets: { sources: [{ id: "fixture-source", name: "合成来源", count: 12 }], minerals: ["合成矿种"] },
       page: Number(url.searchParams.get("page") || 1),
@@ -258,6 +271,7 @@ const api = createServer((req, res) => {
     return send({ mergedInto: "en-story" });
   }
   if (path === "/api/site/items/en-item") return send(item);
+  if (path === "/api/site/items/en-item-english") return send(englishItem);
   res.statusCode = 404;
   send({ code: "not_found" });
 });
@@ -649,6 +663,42 @@ test("the English story page and news cards use English dates, word order and pu
       `/all?tag=${encodeURIComponent("市场价格")}`,
     );
     assert.deepEqual(await page.locator('select[name="source"] option').allTextContents(), ["全部来源", "合成来源（12）"]);
+    assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
+  }
+});
+
+test("English pages use an item's English title and summary; without them, and on Chinese pages, the Chinese copy", { timeout: 60000 }, async () => {
+  const { context, page, errors } = await open(1440);
+  try {
+    await page.goto(`${origin}/en/all`);
+    const translated = page.locator('[data-item-id="en-b"]');
+    await expect(translated.getByRole("heading", { name: ENGLISH.title })).toBeVisible();
+    await expect(translated).toContainText(ENGLISH.summary);
+    await expect(translated).not.toContainText("合成动态 英文版");
+    // English content is no longer marked Chinese; the recommendation, still Chinese, is.
+    assert.equal(await translated.getAttribute("lang"), null);
+    await expect(translated.locator('[lang="zh-CN"]')).toHaveText("合成推荐理由");
+    // An item without an English copy keeps the Chinese copy, marked Chinese.
+    await expect(page.locator('[data-item-id="en-a"]')).toHaveAttribute("lang", "zh-CN");
+    await expect(page.locator('[data-item-id="en-a"]')).toContainText("合成动态 en-a");
+
+    await page.goto(`${origin}/en/items/en-item-english`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(ENGLISH.title);
+    await expect(page.getByRole("main")).toContainText(ENGLISH.summary);
+    await expect(page.getByRole("main")).toContainText("Ampliación sintética aprobada");
+    await expect(page).toHaveTitle(new RegExp(`^${ENGLISH.title}`));
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", ENGLISH.summary);
+
+    // The Chinese interface is unchanged.
+    await page.goto(`${origin}/all`);
+    await expect(page.locator('[data-item-id="en-b"]').getByRole("heading", { name: "合成动态 英文版" })).toBeVisible();
+    await expect(page.locator('[data-item-id="en-b"]')).not.toContainText(ENGLISH.title);
+    await page.goto(`${origin}/items/en-item-english`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("合成铜矿扩建获批");
+    await expect(page.getByRole("main")).toContainText("合成导读：扩建获批。");
+    await expect(page).toHaveTitle(/^合成铜矿扩建获批/);
     assert.deepEqual(errors, []);
   } finally {
     await context.close();
