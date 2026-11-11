@@ -41,9 +41,22 @@ export type RepresentativeRow = Partial<RepresentativeIdentity> & {
   timeline_at: Date;
 };
 
-/** T1, verified publisher, full text, score, then first appearance and a stable id. */
+/**
+ * A report scoring this many points (or more) above another is clearly better: it wins the seat even over a
+ * T1 or verified publisher (Owner 2026-11-08, TASK-0591). Within this lead the publisher order still decides.
+ */
+export const REPRESENTATIVE_SCORE_LEAD = 3;
+
+/**
+ * Reports clearly below the event's best score drop out first; among the rest: T1, verified publisher,
+ * full text, score, then first appearance and a stable id. `readAllFactApiItems` ranks the same way in SQL.
+ */
 export function pickRepresentative<T extends RepresentativeRow>(rows: T[]): T {
-  return [...rows].sort(
+  const top = Math.max(...rows.map((row) => Number(row.score ?? 0)));
+  // Compared in hundredths, like the numeric scores SQL compares: 66.1 − 63.1 is a 3-point lead, not 2.9999….
+  const lead = (row: T) => Math.round((top - Number(row.score ?? 0)) * 100);
+  const close = rows.filter((row) => lead(row) < REPRESENTATIVE_SCORE_LEAD * 100);
+  return [...close].sort(
     (a, b) =>
       representativePriority(a) - representativePriority(b) ||
       Number(b.body_mode === "full") - Number(a.body_mode === "full") ||

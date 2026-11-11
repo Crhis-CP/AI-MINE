@@ -48,9 +48,9 @@ test("seed evidence requires exact IDs, including equal-count substitutions and 
   assert.equal(seedSourceMismatch([], "[]"), null);
 });
 
-test("current catalogues require 474 news (455 plus 19 added for TASK-0588) plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
+test("current catalogues require 473 news (455 plus 19 added for TASK-0588, less the cnmn duplicate dropped in TASK-0602) plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
   const ids = industrySourceIds(ROOT);
-  assert.equal(ids.length, 557);
+  assert.equal(ids.length, 556);
   assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 83);
   assert.equal(new Set(ids).size, ids.length);
 });

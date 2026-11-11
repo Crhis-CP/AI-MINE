@@ -68,7 +68,7 @@ function binding(q: TimelineQuery): string {
   );
 }
 
-import { attachRepresentativePriority, pickRepresentative, type RepresentativeRow } from "./representative.ts";
+import { attachRepresentativePriority, pickRepresentative, REPRESENTATIVE_SCORE_LEAD, type RepresentativeRow } from "./representative.ts";
 export { pickRepresentative } from "./representative.ts";
 
 /** Only a report still belonging to its fact can share that fact's card. Mentions stay independent. */
@@ -86,10 +86,10 @@ export async function readAllFactApiItems(db: Db, query: PublicApiReadScope): Pr
       FROM publications p WHERE p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after<=${query.now}) AND ${time}<=${query.now}
         ${browseFloorCondition(!query.selected)}
     ), anchors AS (
-      SELECT gk,min(at) AS anchor FROM base GROUP BY gk
+      SELECT gk,min(at) AS anchor,max(coalesce(score,0)) AS best_score FROM base GROUP BY gk
     ), ranked AS (
-      SELECT DISTINCT ON(gk) gk,article_id FROM base
-      ORDER BY gk,representative_priority,(body_mode='full') DESC,coalesce(score,0) DESC,timeline_at,article_id COLLATE "C"
+      SELECT DISTINCT ON(gk) gk,article_id FROM base JOIN anchors USING(gk)
+      ORDER BY gk,best_score-coalesce(score,0)>=${REPRESENTATIVE_SCORE_LEAD}::numeric,representative_priority,(body_mode='full') DESC,coalesce(score,0) DESC,timeline_at,article_id COLLATE "C"
     ), page AS MATERIALIZED (
       SELECT article_id,anchor FROM ranked JOIN anchors USING(gk)
       WHERE (${query.windowStart}::timestamptz IS NULL OR anchor>=${query.windowStart})
