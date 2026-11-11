@@ -945,15 +945,17 @@ test("TASK-0594: items left behind before rewrites existed are found and handed 
 
 test("TASK-0594: an item an operator withdrew is skipped without ending the scan for later items", async () => {
   emptySummaries.set("COPYHELD", 1);
-  const held = await article("COPYHELD");
-  await processArticle(held);
-  await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${held}`;
+  emptySummaries.set("COPYOPEN", 1);
+  const first = await article("COPYHELD");
+  const second = await article("COPYOPEN");
+  for (const id of [first, second]) {
+    await processArticle(id);
+    await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${id}`;
+  }
+  // Ids are random. The bug only shows when the withdrawn item sorts first, so withdraw the smaller id.
+  const [held, open] = first < second ? [first, second] : [second, first];
   await sql`INSERT INTO editorial_overrides(article_id, visibility) VALUES(${held}, 'withdrawn')
     ON CONFLICT (article_id) DO UPDATE SET visibility='withdrawn'`;
-  emptySummaries.set("COPYOPEN", 1);
-  const open = await article("COPYOPEN");
-  await processArticle(open);
-  await sql`UPDATE articles SET processing_state='analyzed', processing_error=NULL, processing_retry_at=NULL WHERE id=${open}`;
   // Limit 1: before the fix a page whose only match was the held item came back empty after filtering, and the
   // caller took that as the end of the scan.
   let foundOpen = false;
@@ -964,7 +966,7 @@ test("TASK-0594: an item an operator withdrew is skipped without ending the scan
     if (page[0]!.id === open) foundOpen = true;
     after = page[page.length - 1]!.id;
   }
-  assert.ok(foundOpen, "the scan reaches the open item whichever side of the held one it sorts");
+  assert.ok(foundOpen, "the scan reaches the open item that sorts after the withdrawn one");
   emptySummaries.delete("COPYHELD");
   emptySummaries.delete("COPYOPEN");
 });

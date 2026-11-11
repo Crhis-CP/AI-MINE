@@ -18,12 +18,15 @@ const CHAR_GUARDS: Record<string, string[]> = {
       " ",
     ),
     // other words, places and companies (中金黄金 still reads 黄金 once 中金 is removed)
-    ..."合金 冶金 五金 白金 金砖 金牌 金奖 金色 金字塔 金三角 金秋 黄金周 黄金时期 金沙萨 金边 金山 金川 金诚信 金钼 金风 中金公司 中金".split(" "),
+    ..."合金 冶金 五金 白金 金砖 金牌 金银铜牌 金奖 金色 金字塔 金三角 金秋 黄金周 黄金时期 金沙萨 金边 金山 金川 金诚信 金钼 金风 中金公司 中金".split(" "),
+    // diamond (TASK-0604: 金刚石钻探 is diamond drilling, Codex found it under 金 on 2026-11-10)
+    ..."金刚石 金刚钻 金刚砂".split(" "),
   ],
-  银: "银行 美银 银团 银河 银川 银联 银保监".split(" "),
+  银: "银行 美银 银团 银河 银川 银联 银保监 金银铜牌".split(" "),
   铁: "地铁 铁路 高铁 铁道 铁塔 钛铁矿".split(" "),
   锡: ["无锡"],
-  铜: ["铜牌"],
+  // Only the medal sense. 铜牌价 (copper price board) and 阴极铜牌号 (copper grade) are copper (TASK-0604, Codex #406 P2).
+  铜: "获铜牌 获得铜牌 夺铜牌 夺得铜牌 摘铜 枚铜牌 铜牌得主 铜牌榜 金银铜牌".split(" "),
   铅: ["铅笔"],
 };
 const MINERAL_ENGLISH: Record<string, string[]> = {
