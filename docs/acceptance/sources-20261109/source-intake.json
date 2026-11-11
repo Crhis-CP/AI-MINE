@@ -1,0 +1,25 @@
+{
+  "batch": "source-intake-20261109",
+  "scope": "news",
+  "production_applied": false,
+  "natural_collection_accepted": false,
+  "basis": "TASK-0588 剩余项按生产只读事实修订（看板 6734620803、6738507195）",
+  "entries": [
+    {
+      "id": "exp-20261014-african-mining-market",
+      "target_config_hash": "f237ba99fb82bb967ac432bab4e082c31b8e73c2b16a6645f0f039306ad4df38",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "africanminingmarket.com",
+      "expected_existing": false
+    },
+    {
+      "id": "rpl-torexgold",
+      "target_config_hash": "5738cb09ba6bfaff6ff1ccf2394395632427d268e52aa33882aadfdcd107a9c2",
+      "expected_config_hash": "780fa5c3b10c3c9d7a1117f3e065310ab6afff81ff518be56a9e699a10c8801f",
+      "expected_owner_entity_id": "torexgold.com",
+      "owner_entity_id": "torexgold.com",
+      "expected_existing": true
+    }
+  ]
+}
