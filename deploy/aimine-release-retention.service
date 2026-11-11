@@ -5,6 +5,7 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
+EnvironmentFile=-/etc/aimine/release.env
 ExecStart=/usr/bin/python3 /usr/local/lib/aimine-maintenance/release-retention.py --apply --automatic
 TimeoutStartSec=15min
 Nice=15
