@@ -16440,6 +16440,10 @@
           "usage_notice": {
             "additionalProperties": false,
             "properties": {
+              "reminder_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
               "step_micros": {
                 "pattern": "^(0|[1-9]\\d{0,17})$",
                 "type": "string"
@@ -16553,6 +16557,10 @@
           "usage_notice": {
             "additionalProperties": false,
             "properties": {
+              "reminder_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
               "step_micros": {
                 "pattern": "^(0|[1-9]\\d{0,17})$",
                 "type": "string"
