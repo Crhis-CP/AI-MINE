@@ -92,3 +92,12 @@ TASK0500：公开说明仅表达正文、附件、解读及资料覆盖的实际
   - 每条应为 `status: "ok"`、`officialDocuments` 大于 0、`details[].status` 为 `identity_ok` 且 `number` 是文号、`provisions` 大于 0。任何 `robots_disallowed`、`identity_failed` 或 `unreachable` 原样贴回协作 Issue，不要改配置绕过。
   - 已在库里的 CN-002、AR-007、AR-008 是旧配置：`node scripts/seed.ts` 只新增 CN-004、CN-P01，不覆盖已有信源。旧配置要在后台“信源 → 配置草稿 → 预览 → 启用”里换成登记表的新配置，之后 `node scripts/policy-sources.ts enable --ids CN-002,AR-007,AR-008 --dry-run` 才不会报“采集配置与核对表不同”。CN-004、CN-P01 的 hold 要在空跑通过后由 Claude 提交去掉。
   - 另在服务器上取 `https://flk.npc.gov.cn/robots.txt`、`https://www.chinamine-safety.gov.cn/robots.txt`、`https://std.samr.gov.cn/robots.txt`、`https://globaltailingsreview.org/robots.txt`、`https://www.boletinoficial.gob.ar/robots.txt`，结果贴回 Issue，用于更新 `POLICY_PILOT`。
+
+## 后台控制（TASK-0610）
+
+后台“法规文书”页（`/admin/policies`）列出已有公开记录的文书，可按标题或编号查找。Owner 可以对单份文书做两件事，都必须写原因并记入审计：
+
+- **下架 / 恢复公开**：读者端每次读取都看 `withdrawn`，下架后立即返回“已下架”，列表、脉络和报告里不再出现，不需要重新发布。
+- **暂停更新 / 恢复更新**：`publishing_paused` 为真时，这份文书的新版本不发布，读者已经看到的内容保留。
+
+整条法规线的暂停仍在后台“运行控制”里（`lane-controls`），不在这一页。

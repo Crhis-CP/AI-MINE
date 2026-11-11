@@ -4,6 +4,7 @@ import { policyQueues, sweepPolicyMaterials } from "./backend/jobs.ts";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { composePolicyReports } from "./backend/publication/policy-report-job.ts";
 import { registerPolicies } from "./backend/http.ts";
+import { registerPolicyAdmin } from "./backend/admin-http.ts";
 import { policyArchiveEnabled } from "./backend/pilot.ts";
 
 const queues = policyQueues();
@@ -12,6 +13,7 @@ const acquisition = queues.find((queue) => queue.name === "policy.acquire")!;
 export default defineServerModule({
   name: "policy",
   http: registerPolicies,
+  admin: { http: registerPolicyAdmin },
   queues,
   on: {
     async materialDiscovered(data, tx) {
