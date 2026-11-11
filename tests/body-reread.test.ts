@@ -327,7 +327,7 @@ test("a manual revision made during the wait stops rereading; a concurrent withd
     await sql.begin(async (tx) => {
       await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
       sweeping = sweepUnprocessed();
-      // The due-list read has finished when its transaction waits for the same fence used by manual edits.
+      // The resume scan has read its candidates when it waits for the same fence used by manual edits.
       const deadline = Date.now() + 10_000;
       for (;;) {
         const [waiter] = await sql`SELECT count(*)::int AS n FROM pg_stat_activity
