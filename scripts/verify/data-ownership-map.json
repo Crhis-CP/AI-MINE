@@ -995,6 +995,7 @@
     "packages/backend/src/feedback/operational-snapshot.ts": "feedback",
     "packages/backend/src/ingest/items.ts": "acquisition",
     "packages/backend/src/jobs/content.ts": "content",
+    "packages/backend/src/jobs/body-reread.ts": "content",
     "packages/backend/src/jobs/operational-snapshot.ts": "queue",
     "packages/backend/src/jobs/publication.ts": "publication",
     "packages/backend/src/jobs/module-queues.ts": "queue",

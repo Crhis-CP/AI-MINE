@@ -118,3 +118,16 @@ test("filter audit 2026-11-08: everyday words with a metal character do not put 
   assert.equal(tagGrounded("铝", "Rio Tinto’s US$1.9b bauxite bet secures future of Weipa", "en"), true);
   assert.equal(tagGrounded("铝", "Inversión en bauxita", "es"), true);
 });
+
+test("diamond drilling is not gold; copper price boards and copper grades stay copper (TASK-0604)", () => {
+  const hits = (tag: string, text: string) => textHits(text, mentionByTag(tag)!.needles);
+  // Codex 2026-11-10: “启动金刚石钻探” showed under 金 on /all.
+  for (const text of ["URU Metals 在 Limpopo Zeb 镍矿项目启动金刚石钻探", "金刚钻机进场", "金刚砂磨料"]) assert.equal(hits("金", text), false, text);
+  for (const text of ["金矿项目启动金刚石钻探", "金刚石钻探见到高品位金矿化", "金价上涨带动金刚石钻探需求"]) assert.equal(hits("金", text), true, text);
+  // Codex #406 P2: only the medal sense of 铜牌 is excluded.
+  for (const text of ["今日长江现货铜牌价上涨", "阴极铜牌号与质量要求"]) assert.equal(hits("铜", text), true, text);
+  for (const text of ["中国选手获铜牌", "她是本届铜牌得主", "金银铜牌总数第一"]) assert.equal(hits("铜", text), false, text);
+  assert.equal(hits("金", "金银铜牌总数第一"), false);
+  assert.equal(hits("铜", "金银铜矿项目"), true, "a gold-silver-copper mine is still copper");
+  assert.equal(tagGrounded("铜", "今日长江现货铜牌价上涨", "zh"), true);
+});

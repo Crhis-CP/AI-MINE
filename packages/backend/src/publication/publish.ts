@@ -28,6 +28,7 @@ export {
 } from "./withdrawals.ts";
 export type { WithdrawalTarget } from "./withdrawals.ts";
 import { manualRevisionState } from "../editorial/manual-revisions.ts";
+import { articleMaterialTooShort } from "../lib/original-post-admission.ts";
 import { requireRuntimeRunning, assertRuntimeControl, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
@@ -105,6 +106,7 @@ interface ArticleRow {
   grouping_input_revision: number | null;
   selection_adds_value: boolean | null;
   processing_state: string;
+  processing_error: string | null;
 }
 
 interface AnalysisRow {
@@ -455,7 +457,7 @@ export async function publishArticleTx(
   await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
   const [article] = await tx<ArticleRow[]>`
     SELECT id, revision, source_id, source_date_version, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, body_html, excerpt, x_post, x_article, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state
+           body_text, body_html, excerpt, x_post, x_article, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state, processing_error
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -518,7 +520,18 @@ export async function publishArticleTx(
     ON CONFLICT(article_id) DO UPDATE SET manual_revision_id=EXCLUDED.manual_revision_id,material_revision=EXCLUDED.material_revision,body_html=EXCLUDED.body_html,label=EXCLUDED.label,state=EXCLUDED.state
     WHERE (manual_copies.manual_revision_id,manual_copies.material_revision,manual_copies.body_html,manual_copies.state)
       IS DISTINCT FROM (EXCLUDED.manual_revision_id,EXCLUDED.material_revision,EXCLUDED.body_html,EXCLUDED.state)`;
-  const hasMaterial = !!usableSourceText(article.body_text, article.excerpt) || postReady;
+  // Legacy short articles can still have model copy. A failed reread must not republish it (TASK-0598).
+  // Explicit manual content and visibility keep their priority over the automatic material failure.
+  const manualContent =
+    (Object.keys(override?.fields ?? {}).length > 0 || manual.manualRevisionId !== null) && manual.state !== "superseded" && manual.state !== "withdrawn";
+  const failedBody =
+    !post &&
+    article.processing_state === "failed" &&
+    article.processing_error?.startsWith("body_unreadable:") &&
+    articleMaterialTooShort(article.body_text, article.excerpt) &&
+    !manualContent &&
+    override?.visibility !== "summary-only";
+  const hasMaterial = (!!usableSourceText(article.body_text, article.excerpt) || postReady) && !failedBody;
   const language = normalizeSourceLanguage(article.language);
   const nativeChinese = isChineseOriginal(language);
   // Wide admission (BR-SEL-01): only a BLOCK keeps an item out. PASS, UNKNOWN and "not judged yet" go on;
@@ -1118,6 +1131,16 @@ export async function retiredCategoryPublications(keys: readonly string[], names
     ORDER BY article_id`;
   const [total] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM publications WHERE visibility='public' AND eligible AND channel='news'`;
   return { articleIds: rows.map((r) => r.article_id), publicNews: total?.n ?? 0 };
+}
+
+/**
+ * Of these articles, the ones readers can see now (TASK-0598 backfill count: model copy once written from a few
+ * characters; if a read again still finds under 20 characters, the next analysis waits and this withdraws them).
+ */
+export async function publicArticleIds(ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await sql<{ article_id: string }[]>`SELECT article_id FROM publications WHERE article_id=ANY(${ids}::text[]) AND visibility='public'`;
+  return new Set(rows.map((r) => r.article_id));
 }
 
 /**
