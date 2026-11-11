@@ -703,6 +703,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "enrichment/202610260846_quote_translations.sql"],
       },
       {
+        name: "platform/ops/202611081000_reader_interest.sql",
+        module: "platform/ops",
+        schemas: ["ops"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "platform/ops/202611071000_visit_stats.sql"],
+      },
+      {
         name: "publication/202611081001_publication_english_copy.sql",
         module: "publication",
         schemas: ["publication"],

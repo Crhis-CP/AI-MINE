@@ -11,3 +11,7 @@ server.admin.http注册网站资料和来源对账/覆盖接口，仅进入统�
 读者页面每显示一页（首次打开和站内跳转），浏览器向`/api/site/visit`发一次信标（`VisitBeacon`：页面路径和首次打开时的来源）；不设Cookie、不在浏览器保存标识，查询条件不发送。server.http注册信标，总是204。backend/visit-rules只做判断：爬虫与脚本、预加载、后台/接口/文件/未知地址不计；按路由归类（内容页保留自己的地址，其余只记路由），来源只留域名且排除本站，设备分手机/平板/电脑。backend/visits在api进程内存累计，每10秒一个事务批量写入，失败即丢弃并计数，不影响页面。
 
 访客标识是网络地址加浏览器信息在当天盐与当月盐下的HMAC（22位）；盐只存`ops.visit_salts`，只为当前日/月创建，统计任务`ops.visit-count`（worker，每10分钟）在日/月结束后删除。同一任务把标识集合计成日访客、设备访客与月访客，日标识在后天、月标识在次月2日删除，长期只留`ops.visit_days/pages/referrers/devices/months`的汇总数字。admin.http的`GET /api/admin/visits`（`VisitOverview`）供负责人与管理员读取，今日与本月访客由标识集合实时计数；后台页`/admin/visits`在“站点管理”第一项。
+
+## 读者兴趣记录（TASK-0596）
+
+Owner 2026-11-07要求每天保存读者读得最多的内容和兴趣分布，长期留作了解读者的参考（“前期肯定不准，但是这就是作为一个数据参考”），改精选规则仍由Owner决定。backend/reader-interest的任务`ops.reader-interest`（worker，每小时第25分）在北京时间过零点15分后把前一天`ops.visit_pages`里的文章浏览按读者筛选自己的归类汇总：分类、矿种、公司、国家和地区（引擎公开函数`readerInterestFacts`，与列表筛选同一套规则：分类按列表显示的类，矿种和公司按标签或搜索文本命中，国家按当前地点证据），另记当天浏览最多的50篇文章（当时的标题和分类）和列表、专题页的浏览，存入`ops.reader_interest_days/items/facets`。同一天重记会整天替换；不调用模型，不含任何访客数据，只有数字；长期保存，与`visit_pages`是否保留无关。已撤回或不再有阅读页的文章只计入文章浏览总数，不归入任何分类。较早的日子用`node scripts/reader-interest-backfill.ts`（默认只预演，`--apply`写入，可中断续跑）。后台“访问概况”页末尾显示近7天、近30天的记录。

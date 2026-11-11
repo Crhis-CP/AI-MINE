@@ -482,6 +482,18 @@
       "module": "platform/ops",
       "access": "business"
     },
+    "ops.reader_interest_days": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.reader_interest_items": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.reader_interest_facets": {
+      "module": "platform/ops",
+      "access": "business"
+    },
     "acquisition.directory_scans": {
       "module": "acquisition",
       "access": "business"
@@ -931,6 +943,7 @@
     "modules/site-admin/backend/source-export.ts": "identity",
     "modules/site-admin/backend/target-catalogue.ts": "sources",
     "modules/site-admin/backend/visits.ts": "ops",
+    "modules/site-admin/backend/reader-interest.ts": "ops",
     "packages/backend/src/acquisition/directory-membership.ts": "acquisition",
     "packages/backend/src/acquisition/directory-read.ts": "acquisition",
     "packages/backend/src/acquisition/directory-store.ts": "acquisition",

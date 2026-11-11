@@ -10,7 +10,20 @@ import { relatedPoliciesForNews } from "./news-policy-links.ts";
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
 import { linkBodyImages } from "../content/sanitize.ts";
 import { sql, type Db } from "../db.ts";
-import { ITEM_COLUMNS, ITEM_FROM, confirmedSelected, englishCopyOf, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
+import {
+  ITEM_COLUMNS,
+  ITEM_FROM,
+  confirmedSelected,
+  englishCopyOf,
+  fetchItemsByIds,
+  jurisdictionHits,
+  selectedCondition,
+  toItemSummary,
+  type ItemRow,
+} from "./items.ts";
+import { filterHits } from "./mentions.ts";
+import { JURISDICTIONS } from "@amp/industry/jurisdictions";
+import { ARTICLE_ID_PATTERN, toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
 import type { CategoryKey } from "@amp/contracts/taxonomy";
@@ -306,6 +319,55 @@ export async function publicItemMetadata(id: string, db: Db = sql) {
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
       WHERE p.article_id=${id} AND ${originalPostAdmissionCondition()}`;
   return meta ?? null;
+}
+
+export interface ReaderInterestFacet {
+  key: string;
+  label: string;
+}
+export interface ReaderInterestFacts {
+  id: string;
+  title: string;
+  category: PublicApiCategoryKey | null;
+  minerals: ReaderInterestFacet[];
+  companies: ReaderInterestFacet[];
+  countries: ReaderInterestFacet[];
+}
+
+/**
+ * 读者兴趣记录 (TASK-0596): what the reader filters show each article under, for articles that still have a page.
+ * Category as the lists show it; a mineral or company when its filter shows the article (stored tag or alias in the
+ * search text, filterHits); a jurisdiction when its country filter does (current geography evidence,
+ * jurisdictionHits). The title is the one the lists show. Read-only, no model.
+ */
+export async function readerInterestFacts(ids: readonly string[], db: Db = sql): Promise<Map<string, ReaderInterestFacts>> {
+  const out = new Map<string, ReaderInterestFacts>();
+  const clean = [...new Set(ids.filter((id) => ARTICLE_ID_PATTERN.test(id)))];
+  const names = new Map(JURISDICTIONS.map((j) => [j.id, j.name_zh]));
+  for (let at = 0; at < clean.length; at += 500) {
+    const chunk = clean.slice(at, at + 500);
+    const items = await fetchItemsByIds(chunk, db);
+    const extra = await db<{ id: string; search_text: string; jurisdictions: string[] | null }[]>`
+      SELECT p.article_id AS id,p.search_text,g.jurisdictions FROM publications p JOIN articles a ON a.id=p.article_id
+        LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=ANY(${compatibleGeographyRecipes()}::text[])
+      WHERE p.article_id=ANY(${chunk}::text[])`;
+    const facts = new Map(extra.map((row) => [row.id, row]));
+    for (const id of chunk) {
+      const row = items.get(id);
+      if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) continue;
+      const fact = facts.get(id);
+      const hits = filterHits(row.tags ?? [], fact?.search_text ?? "");
+      out.set(id, {
+        id,
+        title: row.title,
+        category: toPublicApiCategory(row.category),
+        minerals: hits.filter((m) => m.kind === "mineral").map((m) => ({ key: m.label, label: m.label })),
+        companies: hits.filter((m) => m.kind === "company").map((m) => ({ key: m.id, label: m.label })),
+        countries: jurisdictionHits(fact?.jurisdictions ?? []).map((code) => ({ key: code, label: names.get(code) ?? code })),
+      });
+    }
+  }
+  return out;
 }
 
 export interface SelectedDeliveryCandidate {

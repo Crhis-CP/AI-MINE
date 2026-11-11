@@ -15,6 +15,7 @@ import { addCalendarMonths, addDays, beijingDate } from "@amp/contracts/time";
 import { VisitOverview } from "@amp/contracts/http/private";
 import { sql, type Db } from "@amp/backend/db";
 import { savedItems } from "@amp/backend/publication/availability";
+import { readerInterestOverview } from "./reader-interest.ts";
 import { deviceClass, isBot, isPrefetch, monthOf, readerPage, referrerHost, visitorKey, type VisitDevice } from "./visit-rules.ts";
 
 export const FLUSH_MS = 10_000;
@@ -257,7 +258,7 @@ export async function visitOverview(now = new Date()): Promise<VisitOverview> {
     FROM generate_series(${from12}::date,${thisMonth}::date,interval '1 month') AS m
     LEFT JOIN ops.visit_months s ON s.month=m::date LEFT JOIN live l ON l.month=m::date LEFT JOIN views w ON w.month=m::date
     ORDER BY m`;
-  const [pagesWeek, pagesMonth, sections, referrersWeek, referrersMonth, devices, [first]] = await Promise.all([
+  const [pagesWeek, pagesMonth, sections, referrersWeek, referrersMonth, devices, [first], interest] = await Promise.all([
     topPages(from7),
     topPages(from30),
     sql<{ route: string; views: number }[]>`SELECT route,sum(views)::bigint AS views FROM ops.visit_pages WHERE day >= ${from30}::date
@@ -268,6 +269,7 @@ export async function visitOverview(now = new Date()): Promise<VisitOverview> {
       SELECT device,sum(views)::bigint AS views,coalesce(sum(visitors),0)::bigint AS visitor_days FROM ops.visit_devices
       WHERE day >= ${from30}::date GROUP BY device ORDER BY views DESC,device`,
     sql<{ since: string | null }[]>`SELECT pg_catalog.to_char(min(day),'YYYY-MM-DD') AS since FROM ops.visit_days WHERE page_views > 0`,
+    readerInterestOverview(today),
   ]);
   const titles = await itemTitles([...pagesWeek, ...pagesMonth]);
   const withTitles = (rows: { route: string; path: string; views: number }[]) =>
@@ -303,6 +305,7 @@ export async function visitOverview(now = new Date()): Promise<VisitOverview> {
       month: referrersMonth.map((r) => ({ host: r.host, views: Number(r.views) })),
     },
     devices: devices.map((d) => ({ device: d.device, views: Number(d.views), visitor_days: Number(d.visitor_days) })),
+    interest,
   });
 }
 

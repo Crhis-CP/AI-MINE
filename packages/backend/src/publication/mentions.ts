@@ -183,6 +183,14 @@ export function filterMentions(): readonly Mention[] {
   return mentions.filter((m) => m.kind !== "country");
 }
 
+/**
+ * The companies and minerals whose filter shows an item: a stored tag (the label, or entity:id for a company) or an
+ * alias hit in its search text, as tagCondition and topicCondition read it.
+ */
+export function filterHits(tags: readonly string[], searchText: string): Mention[] {
+  return filterMentions().filter((m) => tags.includes(m.label) || tags.includes(`entity:${m.id}`) || textHits(searchText, m.needles));
+}
+
 export function mentionByTag(tag: string): Mention | null {
   const exact = byExact.get(tag) ?? byExact.get(tag.toLowerCase());
   if (exact) return exact;
