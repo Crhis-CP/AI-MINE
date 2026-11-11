@@ -2,7 +2,9 @@ import { groundTags, groundingText, tagGrounded, ungroundedFilterHits } from "./
 import { isHistorical, newsMaterialBindings, type XPostData } from "../content/materials.ts";
 export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
 import { bilingualNames } from "../editorial/bilingual-names.ts";
-import { groupingAnalysisHash, readQuotedPostTranslation } from "../enrichment/records.ts";
+import { groupingAnalysisHash, readEnglishCopy, readQuotedPostTranslation } from "../enrichment/records.ts";
+import { englishCopyInput, type EnglishCopyInput } from "../editorial/english-copy-input.ts";
+import { englishCopyEnabled } from "../config.ts";
 import { deferHistoricalSelection } from "../events/group.ts";
 import { recomputeSelection } from "./selection-recompute.ts";
 import { audit } from "../admin/auth.ts";
@@ -43,7 +45,7 @@ import { looksZh } from "../editorial/writing.ts";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT } from "../editorial/translation-readiness.ts";
 import { readStoredTranslation } from "../editorial/translation-store.ts";
-import { liveTranslationWindow, translationJobOptions } from "../editorial/translation-schedule.ts";
+import { englishCopyJobOptions, liveTranslationWindow, translationJobOptions } from "../editorial/translation-schedule.ts";
 import { itemUrl } from "./links.ts";
 import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
@@ -325,6 +327,94 @@ export async function regroundPublicationTags(articleId: string): Promise<string
     await tx`UPDATE pool_search SET direct=${searchText} WHERE article_id=${articleId} AND direct IS DISTINCT FROM ${searchText}`;
     return [...removedTags, ...removedSubjects.filter((id) => words.includes(id)).map((id) => `entity:${id}`)];
   });
+}
+
+interface EnglishCopyRow {
+  title: string;
+  summary: string | null;
+  original_title: string | null;
+  is_original_post: boolean;
+  visibility: string;
+  eligible: boolean;
+  language: string | null;
+}
+const englishSource = (row: EnglishCopyRow) =>
+  englishCopyInput({
+    title: row.title,
+    summary: row.summary,
+    originalTitle: row.original_title,
+    language: row.language,
+    isOriginalPost: row.is_original_post,
+    visibility: row.visibility,
+    eligible: row.eligible,
+  });
+
+/** Sets the stored English copy that matches the publication as it is now (or none); says whether one is missing. */
+async function projectEnglishCopy(tx: Tx, articleId: string, language: string | null): Promise<{ missing: boolean }> {
+  const [row] = await tx<(Omit<EnglishCopyRow, "language"> & { title_en: string | null; summary_en: string | null })[]>`
+    SELECT title, summary, original_title, is_original_post, visibility, eligible, title_en, summary_en FROM publications WHERE article_id=${articleId}`;
+  if (!row) return { missing: false };
+  const input = englishSource({ ...row, language });
+  const copy = input ? await readEnglishCopy(articleId, input.hash, tx) : null;
+  const title = copy?.title ?? null,
+    summary = copy?.summary ?? null;
+  if (row.title_en !== title || row.summary_en !== summary)
+    await tx`UPDATE publications SET title_en=${title}, summary_en=${summary} WHERE article_id=${articleId}`;
+  return { missing: !!input && !copy };
+}
+
+/**
+ * After a copy is written: show it, without a full publish (no revision, ledger, event or queue change; the reader
+ * caches follow the publication row's own change).
+ */
+export async function refreshEnglishCopy(articleId: string): Promise<void> {
+  await sql.begin(async (tx) => {
+    const [row] = await tx<{ language: string | null }[]>`SELECT a.language FROM publications p JOIN articles a ON a.id=p.article_id
+      WHERE p.article_id=${articleId} AND p.channel='news' FOR UPDATE OF p`;
+    if (row) await projectEnglishCopy(tx, articleId, row.language);
+  });
+}
+
+export interface EnglishCopyCandidate {
+  articleId: string;
+  /** The material revision the publication was made from. */
+  revision: number;
+  sourceId: string;
+  selected: boolean;
+  input: EnglishCopyInput;
+}
+
+/** A public news item that gets an English copy, with its current input; null when it gets none. Worker only. */
+export async function englishCopyCandidate(articleId: string, db: Db = sql): Promise<EnglishCopyCandidate | null> {
+  const [row] = await db<(EnglishCopyRow & { revision: number; source_id: string; selected: boolean })[]>`
+    SELECT p.title, p.summary, p.original_title, p.is_original_post, p.visibility, p.eligible, p.selected, p.source_id, a.language, a.revision
+    FROM publications p JOIN articles a ON a.id=p.article_id WHERE p.article_id=${articleId} AND p.channel='news'`;
+  const input = row ? englishSource(row) : null;
+  return row && input ? { articleId, revision: row.revision, sourceId: row.source_id, selected: row.selected, input } : null;
+}
+
+/**
+ * Public news items still showing the Chinese copy on the English pages, newest first (by discovery), after the
+ * cursor: the backfill's page (scripts/en-copy-backfill.ts). Read-only.
+ */
+export async function englishCopyBackfillPage(before: { at: Date; id: string } | null, limit: number) {
+  const at = before?.at ?? new Date("9999-12-31T00:00:00Z"),
+    id = before?.id ?? "~";
+  const rows = await sql<(EnglishCopyRow & { article_id: string; discovered_at: Date; selected: boolean })[]>`
+    SELECT p.article_id, p.discovered_at, p.selected, p.title, p.summary, p.original_title, p.is_original_post, p.visibility, p.eligible, a.language
+    FROM publications p JOIN articles a ON a.id=p.article_id
+    WHERE p.channel='news' AND p.visibility='public' AND p.eligible AND p.title_en IS NULL AND p.summary IS NOT NULL AND NOT p.is_original_post
+      AND (p.discovered_at < ${at} OR (p.discovered_at = ${at} AND p.article_id < ${id}))
+    ORDER BY p.discovered_at DESC, p.article_id DESC LIMIT ${limit}`;
+  const last = rows.at(-1);
+  return {
+    items: rows.flatMap((row) => {
+      const input = englishSource(row);
+      return input ? [{ articleId: row.article_id, discoveredAt: row.discovered_at, selected: row.selected, input }] : [];
+    }),
+    /** Where the next page starts; null after the last page. */
+    next: last && rows.length === limit ? { at: last.discovered_at, id: last.article_id } : null,
+  };
 }
 
 /** Grouping reads the effective nomination only when it belongs to the same saved analysis. */
@@ -781,6 +871,12 @@ export async function publishArticleTx(
     WHERE article_id=${articleId} AND (source_time,source_time_material_revision,source_date_version,source_date_config_hash)
     IS DISTINCT FROM (${sourceTime ? tx.json(sourceTime) : null},${article.revision},${Number(article.source_date_version)},${timeConfigHash})`;
   await tx`UPDATE publications SET company_context=${tx.json(companyContext as never)} WHERE article_id=${articleId} AND company_context IS DISTINCT FROM ${tx.json(companyContext as never)}`;
+  // The English title and summary (TASK-0595) follow the copy just written: shown only while made from this exact
+  // Chinese copy. A missing one is queued while the item is fresh; older items come from scripts/en-copy-backfill.ts,
+  // so republishing a source never queues its history for paid calls (PIT-112).
+  const english = await projectEnglishCopy(tx, articleId, article.language);
+  if (english.missing && englishCopyEnabled() && liveTranslationWindow(article.discovered_at, now))
+    await enqueue(QUEUES.translate, { articleId, lane: "news", english: true }, englishCopyJobOptions(articleId, selected, options.now), tx);
   const geographyChanged = await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // Explicit outbound links of this body, for the news/policy navigation; readers apply the public state themselves.
   await projectNewsLinks(tx, article);

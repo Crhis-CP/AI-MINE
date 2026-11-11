@@ -94,6 +94,13 @@ export function analysisPromptLayout(): AnalysisPromptLayout {
   throw new Error(`ANALYSIS_PROMPT_LAYOUT must be "shared" or "separate" (got "${value}")`);
 }
 
+/**
+ * Paid English titles and summaries for the English interface (EN_COPY_ENABLED, TASK-0595, Owner 2026-11-08). Off
+ * unless the exact literal true: then public news items are queued for one small model call each. Copies already
+ * written are shown either way (reading them costs nothing). Read at call time, like the switches below.
+ */
+export const englishCopyEnabled = () => env.EN_COPY_ENABLED === "true";
+
 /** Read dynamically so a paused lane is observed before the next queued source starts. */
 export const sourceCollectionEnabled = (lane: "news" | "policy") => env.COLLECT_ENABLED !== "false" && env[`COLLECT_${lane.toUpperCase()}_ENABLED`] !== "false";
 export function sourceCollectionConcurrency(lane: "news" | "policy"): number {

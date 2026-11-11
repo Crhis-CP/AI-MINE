@@ -58,7 +58,12 @@ export const CAPABILITIES = {
     default: DEFAULTS.report ?? "default",
     purposes: ["report_lead", "report_daily", "report_weekly", "report_monthly"],
   },
-  translate: { label: "精选全文翻译", env: "TRANSLATE_MODEL", default: DEFAULTS.translate ?? "default", purposes: ["translate_body"] },
+  translate: {
+    label: "全文翻译；英文界面的英文标题与摘要",
+    env: "TRANSLATE_MODEL",
+    default: DEFAULTS.translate ?? "default",
+    purposes: ["translate_body", "english_copy"],
+  },
   policy_fulltext: {
     label: "法规全文事实与完整中文",
     env: "POLICY_FULLTEXT_MODEL",
