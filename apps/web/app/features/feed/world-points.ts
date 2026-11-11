@@ -1,0 +1,40 @@
+// Where each covered country is drawn on the world dot map and on the admin globe.
+/**
+ * A point inside each covered country (longitude, latitude), chosen on land and away from borders so
+ * the circle reads as that country. Countries missing here are listed by the filter but not drawn.
+ */
+export const WORLD_POINTS: Record<string, readonly [number, number]> = {
+  CN: [104, 34.5],
+  US: [-99, 39],
+  CA: [-104, 57],
+  AU: [134, -25],
+  AR: [-65, -34],
+  CL: [-70.6, -27],
+  PE: [-75, -9.5],
+  BO: [-64.5, -17],
+  EC: [-78.4, -1.6],
+  CO: [-73.5, 4],
+  VE: [-66, 7],
+  GY: [-58.9, 5],
+  SR: [-55.9, 4.1],
+  GH: [-1.2, 7.9],
+  ML: [-2, 17],
+  CD: [23.5, -3],
+  ZM: [27.8, -13.5],
+  ZW: [29.8, -19],
+  MZ: [35.3, -17.5],
+  TZ: [34.8, -6.3],
+  ZA: [24.5, -29.5],
+  GB: [-1.8, 52.8],
+  CH: [8.2, 46.8],
+  RS: [20.8, 44],
+  RU: [96, 62],
+  KZ: [67, 48],
+  UZ: [63.5, 41.4],
+  KG: [74.6, 41.4],
+  TJ: [71, 38.8],
+  MN: [103.5, 46.8],
+  IR: [54, 32.5],
+  ID: [113.5, -1.5],
+  SG: [103.82, 1.35],
+};
