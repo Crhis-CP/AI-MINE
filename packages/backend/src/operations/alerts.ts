@@ -370,7 +370,7 @@ export async function collectFindings(
       });
     }
     observeCheck?.("content.process");
-    // Daily is composed at 08:00, weekly Monday 10:00, monthly the 1st 10:30; catch-up is hourly.
+    // Daily is composed at 08:00, weekly Monday 10:00, monthly the 1st 10:30; catch-up runs every 30 minutes.
     // The daily existence read stays here so its data-ownership site does not move.
     for (const issue of dueReports(now)) {
       if (issue.kind === "daily") {
