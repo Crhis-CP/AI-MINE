@@ -339,16 +339,28 @@ async function evaluateDaily(db: Db, configuration: Configuration, now: Date) {
     covered += BigInt(g.amount);
   }
 }
+let repoReminder: Promise<string | null> | undefined;
+/** The monthly reminder line in the repository template; a stored configuration from before TASK-0605 has none. */
+function defaultReminderMicros() {
+  repoReminder ??= readFile(path.join(REPO_ROOT, "industry/usage-controls.json"), "utf8")
+    .then((text) => UsageProtectionConfig.parse(JSON.parse(text)).usage_notice.reminder_micros ?? null)
+    .catch(() => null);
+  return repoReminder;
+}
 async function evaluateNotices(db: Db, configuration: Configuration, now: Date) {
   const month = beijingDate(now).slice(0, 7),
-    step = BigInt(configuration.config.usage_notice.step_micros);
+    step = BigInt(configuration.config.usage_notice.step_micros),
+    reminder = BigInt(configuration.config.usage_notice.reminder_micros ?? (await defaultReminderMicros()) ?? "0");
   const [total] = await db<{ amount: string }[]>`SELECT (settled_micros+unknown_micros)::text AS amount FROM ai.usage_sums WHERE kind='month' AND key=${month}`;
-  const amount = BigInt(total?.amount ?? "0"),
-    threshold = (amount / step) * step;
+  const amount = BigInt(total?.amount ?? "0");
   const [prior] = await db<
     { notified_micros: string; last_total_micros: string }[]
   >`SELECT notified_micros::text,last_total_micros::text FROM ai.usage_notice_progress WHERE month=${month}`;
   const old = BigInt(prior?.notified_micros ?? "0");
+  // The monthly reminder line (Owner 2026-11-09: ¥400) is announced once in the notice that crosses it; it stops nothing.
+  const crossed = reminder > 0n && amount >= reminder && old < reminder;
+  const stepped = (amount / step) * step,
+    threshold = crossed && reminder > stepped ? reminder : stepped;
   if (threshold <= old) return;
   const groups = await db<
     { kind: string; context: Record<string, unknown>; micros: string }[]
@@ -361,6 +373,7 @@ async function evaluateNotices(db: Db, configuration: Configuration, now: Date) 
     crossed_through_micros: threshold.toString(),
     step_micros: step.toString(),
     top: groups.filter((r, i, all) => all.slice(0, i).filter((p) => p.kind === r.kind).length < 3),
+    ...(crossed ? { reminder_micros: reminder.toString() } : {}),
     notice: "这只是提示，没有暂停任何处理",
   });
   await db`INSERT INTO ai.usage_notice_progress(month,notified_micros,last_total_micros) VALUES(${month},${threshold.toString()},${amount.toString()}) ON CONFLICT(month) DO UPDATE SET notified_micros=EXCLUDED.notified_micros,last_total_micros=EXCLUDED.last_total_micros,updated_at=now()`;

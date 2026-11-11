@@ -54,7 +54,8 @@ export async function deliverUsageProtectionEvents(now = new Date(), send: Sende
     };
     let state: "sent" | "pending" | "disabled" | "unknown" = "unknown";
     try {
-      const sent = await send(titles[g.kind] ?? "用量保护", [
+      const reminder = g.kind === "usage_notice" && g.payloads.some((p) => typeof p.reminder_micros === "string");
+      const sent = await send(reminder ? "用量提示：本月已超过提醒线" : (titles[g.kind] ?? "用量保护"), [
         `范围：${g.lane ?? "全站记账"}${g.capability ? ` / ${g.capability}` : ""}`,
         ...g.payloads.flatMap((p) => usageEventLines(g.kind, p)),
         g.kind === "warning"
@@ -108,6 +109,9 @@ function usageEventLines(kind: string, p: Record<string, unknown>): string[] {
   }
   if (kind === "usage_notice")
     return [
+      ...(typeof p.reminder_micros === "string"
+        ? [`本月已超过每月${money(p.reminder_micros)}提醒线：只提醒，不会自动停止任何处理。记账金额是估算，以供应商账单为准。`]
+        : []),
       `本月累计${money(p.cumulative_micros)}，距上次提示增加${money(p.increment_micros)}。`,
       `已跨过${money(p.previous_threshold_micros)}之后至${money(p.crossed_through_micros)}的提示档位。`,
       ...(Array.isArray(p.top)
