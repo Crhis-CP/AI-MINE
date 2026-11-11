@@ -1,4 +1,5 @@
 import { FEEDBACK_LIMITS } from "@amp/contracts/http/public";
+import { invalidInput } from "./invalid.ts";
 import { feedbackEmailKey } from "../operations/feedback.ts";
 import { beijingDate, beijingMidnight, addDays } from "@amp/contracts/time";
 import { sendAlert } from "../notify/deliver.ts";
@@ -79,7 +80,7 @@ export async function updateFeedback(id: number, input: { status?: string; note?
 
 /** Refuses further feedback from one source (an unreadable hash of IP and browser family). */
 export async function banSource(sourceHash: string, reason: string, actor: string, expiresAt?: string | null) {
-  if (!reason.trim()) throw new Error("reason is required");
+  if (!reason.trim()) throw invalidInput("reason is required");
   const until = expiresAt ? new Date(expiresAt) : null;
   if (until && (!Number.isFinite(until.getTime()) || until.getTime() <= Date.now())) throw new Conflict("暂停截止时间必须在将来");
   await sql`INSERT INTO feedback_bans(source_hash,reason,created_by,expires_at) VALUES(${sourceHash},${reason},${actor},${until})
@@ -120,7 +121,7 @@ export async function feedbackScreenshot(id: number): Promise<string | null> {
 
 /** Removes the sender's material (text, email, page, screenshot) and keeps only the handling record. */
 export async function eraseFeedback(id: number, reason: string, actor: string) {
-  if (!reason.trim()) throw new Error("reason is required");
+  if (!reason.trim()) throw invalidInput("reason is required");
   const row = await sql.begin(async (tx) => {
     const [record] = await tx<{ screenshot_key: string | null }[]>`SELECT screenshot_key FROM feedback WHERE id=${id} FOR UPDATE`;
     if (!record) return null;

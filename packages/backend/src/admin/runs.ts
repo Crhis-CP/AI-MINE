@@ -1,4 +1,5 @@
 import { resumePolicyAfterReceipt } from "../policy/receipt-recovery.ts";
+import { invalidInput } from "./invalid.ts";
 import { recoverUnknownOnce } from "../providers/unknown-recovery.ts";
 import { releaseUnknownReceiptUnbilled, MANUAL_UNBILLED_NOTE_PREFIX } from "@amp/backend/providers/receipts";
 import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/content/materials";
@@ -244,7 +245,7 @@ export async function autoReleaseUnknownReceipts(now = Date.now()) {
 
 /** Failed articles (one failure group, or all of the last 30 days) back into processing. */
 export async function requeueFailedArticles(input: { group: string | null; reason: string }, actor: string) {
-  if (!input.reason?.trim()) throw new Error("reason is required");
+  if (!input.reason?.trim()) throw invalidInput("reason is required");
   const result = await requeueFailed(input.group);
   await audit(actor, "processing.requeue", input.group ? `failure:${input.group.slice(0, 80)}` : "failure:all", input.reason, null, result);
   return result;
@@ -252,7 +253,7 @@ export async function requeueFailedArticles(input: { group: string | null; reaso
 
 /** An in-doubt delivery: confirmed as arrived, given up, or sent again after checking the group. */
 export async function resolveDelivery(id: number, input: { outcome: "sent" | "drop" | "resend"; note: string }, actor: string) {
-  if (!input.note?.trim()) throw new Error("note is required");
+  if (!input.note?.trim()) throw invalidInput("note is required");
   const [before] = await sql<
     { status: string; version: string; abandoned_at: Date | null }[]
   >`SELECT status, abandoned_at, updated_at::text AS version FROM deliveries WHERE id = ${id}`;
