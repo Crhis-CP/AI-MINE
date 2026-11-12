@@ -12,6 +12,32 @@ STOP = re.search(r"stop_api_containers\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
 
 
 class TopologyTests(unittest.TestCase):
+    def test_release_checks_never_use_a_hardcoded_host_port(self):
+        self.assertNotIn("127.0.0.1:3000", SCRIPT)
+
+    def test_health_retries_a_temporarily_unavailable_port_mapping(self):
+        resolver = re.search(r"web_origin\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        health = re.search(r"health\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        with tempfile.TemporaryDirectory() as folder:
+            command = r'''set -e
+dc() {
+  printf 'port\n' >> "$RELEASE_BACKUP/attempts"
+  [[ $(wc -l < "$RELEASE_BACKUP/attempts") -gt 1 ]] || return 1
+  printf '127.0.0.1:43123\n'
+}
+sleep() { [[ $1 == 2 ]]; printf 'sleep\n' >> "$RELEASE_BACKUP/waits"; }
+curl() {
+  [[ "$*" == *"http://127.0.0.1:43123/api/health" ]] || return 1
+  printf '{"ok":true,"db":"ok","release":"1234567"}\n'
+}
+''' + resolver + '\n' + health + '\nhealth 1234567'
+            result = subprocess.run(["bash", "-c", command],
+                env={"PATH": os.environ["PATH"], "RELEASE_BACKUP": folder, "AIMINE_HOST": "synthetic.invalid"},
+                capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((Path(folder) / "attempts").read_text().splitlines(), ["port", "port"])
+            self.assertEqual((Path(folder) / "waits").read_text().splitlines(), ["sleep"])
+
     def test_web_origin_uses_the_actual_single_loopback_mapping(self):
         resolver = re.search(r"web_origin\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
         for address, expected in [("127.0.0.1:3000", "http://127.0.0.1:3000"), ("127.0.0.1:43123", "http://127.0.0.1:43123"),
@@ -30,12 +56,18 @@ class TopologyTests(unittest.TestCase):
             for name in ["install", "systemctl"]:
                 p = binary / name; p.write_text('#!/bin/sh\nprintf "%s\\n" "' + name + ' $*" >> "$CALLS"\n'); p.chmod(0o755)
             calls = Path(folder) / "calls"
-            result = subprocess.run(["bash", "-c", "set -e\n" + section], env={"PATH": str(binary) + ":" + os.defpath, "RELEASE_STAGE": "/synthetic", "CALLS": str(calls)}, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            commands = calls.read_text().splitlines()
-            self.assertIn("install -m 0644 /synthetic/deploy/aimine-release-retention.service /etc/systemd/system/aimine-release-retention.service", commands)
-            self.assertIn("install -m 0644 /synthetic/deploy/aimine-release-retention.timer /etc/systemd/system/aimine-release-retention.timer", commands)
-            self.assertEqual([c for c in commands if c.startswith("systemctl ")], ["systemctl daemon-reload"])
+            p = binary / "cmp"
+            p.write_text('#!/bin/sh\ncase " $CHANGED_UNITS " in *" ${2##*.} "*) exit 1;; *) exit 0;; esac\n')
+            p.chmod(0o755)
+            for changed in ["", "service", "timer", "service timer"]:
+                with self.subTest(changed=changed):
+                    calls.write_text("")
+                    result = subprocess.run(["bash", "-c", "set -e\n" + section], env={"PATH": str(binary) + ":" + os.defpath, "RELEASE_STAGE": "/synthetic", "CALLS": str(calls), "CHANGED_UNITS": changed}, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    commands = calls.read_text().splitlines()
+                    for unit in ["service", "timer"]:
+                        self.assertEqual(f"install -m 0644 /synthetic/deploy/aimine-release-retention.{unit} /etc/systemd/system/aimine-release-retention.{unit}" in commands, unit in changed.split())
+                    self.assertEqual([c for c in commands if c.startswith("systemctl ")], ["systemctl daemon-reload"] if changed else [])
         service = Path(__file__).with_name("aimine-release-retention.service").read_text()
         self.assertIn("EnvironmentFile=-/etc/aimine/release.env", service)
 

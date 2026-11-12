@@ -144,9 +144,8 @@ web_origin() {
 }
 health() {
   local expected=$1 origin
-  origin=$(web_origin) || return 1
   for attempt in $(seq 1 60); do
-    if curl -fsS --noproxy '*' --max-time 3 -H "Host: $AIMINE_HOST" "$origin/api/health" > "$RELEASE_BACKUP/health.json"; then
+    if origin=$(web_origin) && curl -fsS --noproxy '*' --max-time 3 -H "Host: $AIMINE_HOST" "$origin/api/health" > "$RELEASE_BACKUP/health.json"; then
       if python3 - "$RELEASE_BACKUP/health.json" "$expected" <<'PYH'
 import json,sys
 x=json.load(open(sys.argv[1]));assert x.get('ok') is True and x.get('db')=='ok' and x.get('release')==sys.argv[2]
@@ -275,9 +274,14 @@ PYQ
 install -m 0644 "$RELEASE_STAGE/deploy/recovery_bindings.py" /usr/local/lib/aimine-maintenance/recovery_bindings.py
 install -m 0644 "$RELEASE_STAGE/deploy/release_changelog.py" /usr/local/lib/aimine-maintenance/release_changelog.py
 install -m 0755 "$RELEASE_STAGE/deploy/release-retention.py" /usr/local/lib/aimine-maintenance/release-retention.py
-install -m 0644 "$RELEASE_STAGE/deploy/aimine-release-retention.service" /etc/systemd/system/aimine-release-retention.service
-install -m 0644 "$RELEASE_STAGE/deploy/aimine-release-retention.timer" /etc/systemd/system/aimine-release-retention.timer
-systemctl daemon-reload
+RELEASE_UNITS_CHANGED=0
+for unit in aimine-release-retention.service aimine-release-retention.timer; do
+  if ! cmp -s "$RELEASE_STAGE/deploy/$unit" "/etc/systemd/system/$unit"; then
+    install -m 0644 "$RELEASE_STAGE/deploy/$unit" "/etc/systemd/system/$unit"
+    RELEASE_UNITS_CHANGED=1
+  fi
+done
+if [[ $RELEASE_UNITS_CHANGED == 1 ]]; then systemctl daemon-reload; fi
 # Finish any older healthy version's note before changing its running code.
 if [[ -f "$RELEASE_ROOT/.ops/changelog-pending.json" ]]; then
   python3 - "$RELEASE_ROOT" "$RELEASE_OLD_VERSION" <<'PYN'
