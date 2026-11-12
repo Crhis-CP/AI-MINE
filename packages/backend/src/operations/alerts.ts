@@ -1,4 +1,7 @@
 import { accountOutOfMoney } from "../providers/provider-errors.ts";
+import { BALANCE_FLOOR_YUAN, BALANCE_WARN_DAYS, lowBalances } from "../providers/account-balance.ts";
+// The worker schedules the reading through this module: the backend package takes no new exports.
+export { readAccountBalances } from "../providers/account-balance.ts";
 import { buildModelCatalog } from "../model-catalog.ts";
 import { OFF_PEAK_WAIT } from "../providers/peak-hours.ts";
 import { DEFAULTS } from "@amp/site/models";
@@ -589,6 +592,26 @@ async function providerFindings(): Promise<Finding[]> {
         ? `去${providerConsole(p.service)}充值；到账后约 10 分钟内自动接着处理，这段时间积压的文章会自动补上`
         : `去${providerConsole(p.service)}看账号和密钥状态；恢复后系统会自动继续`,
       detail: `最近 1 小时被拒 ${p.n} 次：${p.last}`,
+    });
+  }
+  // Before it runs dry (TASK-0631): what is left pays for fewer than three days at the recent daily spend.
+  for (const low of await lowBalances()) {
+    if (out.some((f) => f.key === `provider.refused.${low.service}`)) continue;
+    const left = `¥${low.yuan.toFixed(2)}`;
+    out.push({
+      key: `provider.balance.${low.service}`,
+      level: "today",
+      title:
+        low.days === null
+          ? `${providerName(low.service)} 余额只剩 ${left}`
+          : `${providerName(low.service)} 余额只剩 ${left}，按最近用量约够 ${low.days < 1 ? "不到 1" : Math.floor(low.days)} 天`,
+      impact: "现在一切正常。余额用完后新内容会暂时进不了网站，充值后自动恢复",
+      heals: "不会，需要充值",
+      action: `去${providerConsole(low.service)}充值；到账后半小时内这条提醒自动关闭，不用转给 AI`,
+      detail:
+        low.daily === null
+          ? `余额 ${left}；还没有花费记录，低于 ¥${BALANCE_FLOOR_YUAN} 时提醒`
+          : `余额 ${left}；最近 7 天日均花费 ¥${low.daily.toFixed(2)}；不足 ${BALANCE_WARN_DAYS} 天时提醒`,
     });
   }
   // The meter in providers/receipts.ts (checkBudget) stops a service while its live calls of the past hour or day reach the
