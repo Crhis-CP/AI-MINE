@@ -67,7 +67,7 @@ evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile s
 11. 提示词只放 `industry/prompts/<能力>/`，评测集放 `evals/<能力>/`；代码里不写提示词正文。
 12. 时间：只有日期的来源不补时分；报告周期、用量月份、“今天”按北京时间；旧文不进入“今天”。
 13. 不提交密钥、`.env`、真实生产数据；测试与 `verify` 不访问外网与真实模型（真实评测是显式任务，任务卡写 `budget`）。
-14. 没有真实数据就显示诚实空态；不造假数据，不写未经验证的完成声明；精选与热点采用确认归组、信息增量和独立来源规则；AI负责评分评估并记录差异，评分或规则调整生效前按Issue #293由Chris确认；没有评分的条目什么都不显示（不显示 0 或占位）；数据不足时只显示诚实空态。
+14. 没有真实数据就显示诚实空态；不造假数据，不写未经验证的完成声明；精选与热点采用确认归组、信息增量和独立来源规则；AI负责评分评估并记录差异，评分或规则调整生效前按Issue #348由Chris确认；没有评分的条目什么都不显示（不显示 0 或占位）；数据不足时只显示诚实空态。
 15. 外文资讯完成中文标题、导读与必要分析后可公开，精选须等待归组确认；获准的精选全文由后台翻译，部分翻译如实标注。法规特有完整性要求保留；不编造译名；详情、报告、RSS、API 标注“AI 辅助生成/翻译”。
 16. 读者更新日志按《读者更新日志标准》（`docs/01-product/11-changelog-standard.md`）判断写不写、怎么写：读者用得上的变化附 `audience: 读者` 的 `changes/*.md` 片段并更新 `industry/release-note.json`，用平实中文写给读者，不写提交号与技术细节；小的视觉调整、读者察觉不到的修复和内部工作只附 `audience: 运营` 片段，不进读者更新日志；拿不准就不写，在 PR 说明里写明理由交 Owner 决定。
 
@@ -76,7 +76,7 @@ evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile s
 ```bash
 npm ci     # 按固定锁安装；禁用依赖安装脚本并保留一天新版本等待
 npm run check                         # 快速子集：类型、Biome、边界、契约漂移、受影响工作区测试（提交前必跑）
-npm test -- --filter @amp/<module>   # 只测你的模块（node:test，自动使用临时库）
+npm test -- tests/<文件>.test.ts      # 只跑指定测试文件（node:test，自动使用临时库）
 npm run e2e                           # Playwright + axe（桌面 + 手机）
 npm run contracts:gen                 # 重新生成对外 OpenAPI 文档
 make verify                        # 合并前必过：在独立执行器上对 PR 最终 SHA 运行，产出回执

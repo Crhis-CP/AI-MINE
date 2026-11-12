@@ -51,12 +51,6 @@ export function isoWeekRange(key: string): [string, string] {
   return [ymd(monday), ymd(new Date(monday.getTime() + 6 * 86400000))];
 }
 
-/** First and last day of a month key such as 2026-08. */
-export function monthRange(key: string): [string, string] {
-  const [y, m] = key.split("-").map(Number) as [number, number];
-  return [`${key}-01`, ymd(new Date(Date.UTC(y, m, 0)))];
-}
-
 /** "这一天的 4 件矿业大事" / "本周的 12 件矿业大事" / "8 月的 20 件矿业大事"; "The day's 4 major mining events". */
 export function headline(kind: ReportKind, key: string, count: number, english = false): string {
   if (english) {

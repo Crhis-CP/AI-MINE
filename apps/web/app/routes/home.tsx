@@ -1,6 +1,5 @@
 import { apiFetch } from "../lib/http.ts";
 import { localizedFrom, useT, useTagLabel } from "../i18n";
-import { SITE, withSubject } from "@amp/industry/site";
 import { data as withHeaders, redirect, useLoaderData } from "react-router";
 import { Link } from "../i18n/navigation";
 import type { Route } from "./+types/home";
@@ -33,7 +32,6 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
   const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
-  const upstream = new Headers();
   const query = {
     readingGroups: "reports-v1",
     channel: channel === "all" ? undefined : channel,
@@ -51,9 +49,6 @@ export async function loader({ request }: Route.LoaderArgs) {
         baseUrl: apiBaseFor(),
       }).then(async (result) => {
         const body = await contractResult(result, publicSchemas.ReportGroupedTimelineResponse);
-        result.headers.forEach((value, name) => {
-          upstream.set(name, value);
-        });
         return body;
       }),
     { signal: request.signal },

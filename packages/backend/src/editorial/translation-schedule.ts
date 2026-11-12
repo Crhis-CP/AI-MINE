@@ -73,8 +73,6 @@ export function englishCopyDeferralOptions(articleId: string, until: Date) {
 /** Rough tokens per Chinese character and per character of other text (HTML, Latin script) for the provider's tokenizer. */
 const TOKENS_PER_HAN = 0.6;
 const CHARS_PER_TOKEN = 3.5;
-/** Body HTML beyond this is not translated (translationBudgetUnits) and shows as a partial translation. */
-export const TRANSLATION_TEXT_LIMIT = 60_000;
 /** Token estimate for a prompt text (mostly Chinese). */
 export function promptTokenEstimate(text: string): number {
   const han = [...text.matchAll(/\p{Script=Han}/gu)].length;

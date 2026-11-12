@@ -71,10 +71,6 @@ function jsonLdDates($: cheerio.CheerioAPI, url: string, keepFragment = false): 
   return values;
 }
 
-export function jsonLdPublished($: cheerio.CheerioAPI, _html: string, url?: string): string | null {
-  return url ? (jsonLdDates($, url)[0]?.raw ?? null) : null;
-}
-
 function detailDate(text: string, url: string, source: SourceRow, $: cheerio.CheerioAPI | null, observedAt: string): SourceDateObservationInput {
   const d = source.config.detail ?? {},
     candidates: SourceDateObservationInput[] = [];
