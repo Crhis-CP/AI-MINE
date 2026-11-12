@@ -13,7 +13,8 @@ type Counts = Record<string, Record<string, number>>;
 interface Diagnostic {
   severity: string;
   category: string;
-  location?: { path?: string };
+  message?: string;
+  location?: { path?: string; start?: { line: number; column: number } };
 }
 
 export function countWarnings(diagnostics: readonly Diagnostic[]): Counts {
@@ -50,7 +51,6 @@ export function compareWarnings(now: Counts, baseline: Counts): string[] {
 
 async function lintCounts(log: Log, env: NodeJS.ProcessEnv, command: "ci" | "lint"): Promise<{ code: number; counts: Counts | null }> {
   const r = await capture("npm", ["exec", "--", "biome", command, "--reporter=json", "--max-diagnostics=none", "--colors=off", "."], { log, env });
-  if (r.code !== 0) log.line(r.stdout);
   try {
     const report = JSON.parse(r.stdout) as { summary?: { diagnosticsNotPrinted?: number }; diagnostics?: Diagnostic[] };
     if (
@@ -59,6 +59,13 @@ async function lintCounts(log: Log, env: NodeJS.ProcessEnv, command: "ci" | "lin
       !report.diagnostics.every((d) => typeof d?.severity === "string" && typeof d.category === "string")
     )
       throw new Error("Incomplete diagnostic report");
+    for (const d of report.diagnostics) {
+      if (d.severity !== "error") continue;
+      const start = d.location?.start;
+      log.line(
+        `${d.location?.path ?? "(workspace)"}${start ? `:${start.line}:${start.column}` : ""}: ${d.category}: ${d.message?.replace(/[\r\n]+/g, " ") ?? ""}`,
+      );
+    }
     return { code: r.code, counts: countWarnings(report.diagnostics) };
   } catch {
     log.line(`biome ${command} did not produce a complete JSON report (exit ${r.code})`);

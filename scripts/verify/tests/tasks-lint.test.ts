@@ -74,10 +74,15 @@ test("one Biome scan retains formatting, lint, baseline and complete-report fail
     Object.entries(rules).flatMap(([category, count]) => Array.from({ length: count }, () => ({ severity: "warning", category, location: { path: file } }))),
   );
   const report = (items: unknown = diagnostics, hidden = 0) => JSON.stringify({ summary: { diagnosticsNotPrinted: hidden }, diagnostics: items });
+  const errorReport = (category: string) =>
+    report([
+      ...diagnostics,
+      { severity: "error", category, message: "first line\nsecond line", location: { path: "fixture.ts", start: { line: 2, column: 3 } } },
+    ]);
   const cases = [
     { name: "valid", stdout: report(), code: 0, failure: null },
-    { name: "format", stdout: report(), code: 1, failure: /biome ci failed/ },
-    { name: "lint error", stdout: report(), code: 1, failure: /biome ci failed/ },
+    { name: "format", stdout: errorReport("format"), code: 1, failure: /biome ci failed/ },
+    { name: "lint error", stdout: errorReport("lint/suspicious/noDebugger"), code: 1, failure: /biome ci failed/ },
     { name: "warnings increased", stdout: report([...diagnostics, diagnostics[0]]), code: 0, failure: /lint warnings differ/ },
     { name: "warnings decreased", stdout: report(diagnostics.slice(1)), code: 0, failure: /lint warnings differ/ },
     { name: "invalid JSON", stdout: "not JSON", code: 0, failure: /could not count/ },
@@ -94,10 +99,23 @@ test("one Biome scan retains formatting, lint, baseline and complete-report fail
     for (const fixture of cases) {
       const calls = path.join(directory, "calls");
       writeFileSync(calls, "");
-      const log = { file: path.join(directory, "log"), line: (_line: string) => {} };
+      const lines: string[] = [];
+      const log = {
+        file: path.join(directory, "log"),
+        line: (line: string) => {
+          lines.push(line);
+        },
+      };
       const problems = await formatLint(log, { PATH: directory, CALLS: calls, REPORT: fixture.stdout, EXIT_CODE: String(fixture.code) });
       if (fixture.failure) assert.match(problems.join("\n"), fixture.failure, fixture.name);
       else assert.deepEqual(problems, [], fixture.name);
+      if (fixture.name === "format" || fixture.name === "lint error") {
+        const category = fixture.name === "format" ? "format" : "lint/suspicious/noDebugger";
+        assert.deepEqual(
+          lines.filter((line) => !line.startsWith("$ npm ")),
+          [`fixture.ts:2:3: ${category}: first line second line`],
+        );
+      }
       assert.deepEqual(
         readFileSync(calls, "utf8")
           .trim()
