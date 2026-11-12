@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 spec = importlib.util.spec_from_file_location("retention", Path(__file__).with_name("release-retention.py"))
 m = importlib.util.module_from_spec(spec)
@@ -29,6 +29,22 @@ def fixture():
 
 
 class RetentionTests(unittest.TestCase):
+    def test_health_reads_the_actual_port_and_keeps_direct_host_check(self):
+        for port in [3000, 43123]:
+            with self.subTest(port=port), patch.object(m, "docker", return_value=f"127.0.0.1:{port}") as docker, patch.object(m.urllib.request, "build_opener") as build:
+                response = MagicMock(); response.__enter__.return_value.read.return_value = b'{"ok":true,"db":"ok","release":"aaaaaaaaaaaa"}'
+                build.return_value.open.return_value = response
+                self.assertEqual(m.health(), "a" * 12)
+                docker.assert_called_once_with("port", "amp-web-1", "3000/tcp")
+                request = build.return_value.open.call_args.args[0]
+                self.assertEqual(request.full_url, f"http://127.0.0.1:{port}/api/health")
+                self.assertEqual(request.get_header("Host"), m.HOST)
+                self.assertEqual(build.call_args.args[0].proxies, {})
+        for address in ["", "127.0.0.1:0", "127.0.0.1:65536", "0.0.0.0:3000", "127.0.0.1:3000\n127.0.0.1:3001"]:
+            with self.subTest(address=address), patch.object(m, "docker", return_value=address), patch.object(m.urllib.request, "build_opener") as build:
+                with self.assertRaisesRegex(RuntimeError, "Invalid local web endpoint"): m.health()
+                build.assert_not_called()
+
     def backup(self, root, suffix, previous, candidate, persistent=False):
         directory = root / ("release-" + f"{suffix:012x}")
         directory.mkdir()
