@@ -74,7 +74,7 @@ const NIGHT = {
   "--v-gold2": "#f6d48a",
 } as CSSProperties;
 const CSS = `
-.vz{color:var(--v-ink);background:radial-gradient(900px 500px at 50% -80px,rgba(226,176,79,.16),transparent 70%),radial-gradient(700px 500px at 100% 40%,rgba(111,214,232,.06),transparent 70%),var(--v-bg)}
+.vz{color:var(--v-ink)}
 .vz-grid{background-image:linear-gradient(rgba(226,176,79,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(226,176,79,.045) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 20%,#000 20%,transparent 75%)}
 .vz-card{position:relative;background:var(--v-panel);border:1px solid var(--v-line);border-radius:16px;box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -24px rgba(0,0,0,.9);animation:vz-rise .7s cubic-bezier(.25,1,.5,1) both;transition:transform .25s cubic-bezier(.25,1,.5,1),border-color .25s}
 .vz-card:hover{border-color:rgba(226,176,79,.45)}
@@ -466,7 +466,7 @@ export default function Visits({ loaderData: o }: { loaderData: Overview }) {
   return (
     <div className="mx-auto w-full max-w-[1320px] px-3 pb-24 pt-4 sm:px-6 lg:px-8 lg:pt-6">
       <style>{CSS}</style>
-      <div className="vz relative overflow-hidden rounded-[22px] px-3.5 pb-10 pt-5 sm:px-7 sm:pt-7" style={NIGHT} data-visits-screen>
+      <div className="vz relative" style={NIGHT} data-visits-screen>
         <div aria-hidden="true" className="vz-grid pointer-events-none absolute inset-0" />
         <header className="relative mb-[18px] flex flex-wrap items-end justify-between gap-4">
           <div>
