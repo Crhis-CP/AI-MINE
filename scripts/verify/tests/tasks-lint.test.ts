@@ -2,11 +2,11 @@
 // baseline are stopped, and so are counts below it until the baseline is rewritten.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { compareWarnings } from "../lint.ts";
+import { BASELINE_FILE, compareWarnings, formatLint } from "../lint.ts";
 import { checkCard, checkTasks, known, renderIndex } from "../tasks.ts";
 
 const k = known();
@@ -65,6 +65,51 @@ test("lint warnings may only go down, and the baseline follows", () => {
   assert.deepEqual(compareWarnings({ "a.ts": { "lint/x": 1 } }, baseline), [
     "a.ts: lint/x down from 2 to 1 — rewrite the list: node scripts/verify/lint.ts --write",
   ]);
+});
+
+test("one Biome scan retains formatting, lint, baseline and complete-report failures", async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "aimine-single-biome-"));
+  const baseline = JSON.parse(readFileSync(BASELINE_FILE, "utf8")) as Record<string, Record<string, number>>;
+  const diagnostics = Object.entries(baseline).flatMap(([file, rules]) =>
+    Object.entries(rules).flatMap(([category, count]) => Array.from({ length: count }, () => ({ severity: "warning", category, location: { path: file } }))),
+  );
+  const report = (items: unknown = diagnostics, hidden = 0) => JSON.stringify({ summary: { diagnosticsNotPrinted: hidden }, diagnostics: items });
+  const cases = [
+    { name: "valid", stdout: report(), code: 0, failure: null },
+    { name: "format", stdout: report(), code: 1, failure: /biome ci failed/ },
+    { name: "lint error", stdout: report(), code: 1, failure: /biome ci failed/ },
+    { name: "warnings increased", stdout: report([...diagnostics, diagnostics[0]]), code: 0, failure: /lint warnings differ/ },
+    { name: "warnings decreased", stdout: report(diagnostics.slice(1)), code: 0, failure: /lint warnings differ/ },
+    { name: "invalid JSON", stdout: "not JSON", code: 0, failure: /could not count/ },
+    { name: "missing diagnostics", stdout: "{}", code: 0, failure: /could not count/ },
+    { name: "malformed diagnostics", stdout: report([{}]), code: 0, failure: /could not count/ },
+    { name: "truncated diagnostics", stdout: report(diagnostics, 1), code: 0, failure: /could not count/ },
+  ];
+  try {
+    writeFileSync(
+      path.join(directory, "npm"),
+      `#!${process.execPath}\nconst fs = require("node:fs"); fs.appendFileSync(process.env.CALLS, JSON.stringify(process.argv.slice(2)) + "\\n"); process.stdout.write(process.env.REPORT); process.exit(Number(process.env.EXIT_CODE));\n`,
+      { mode: 0o755 },
+    );
+    for (const fixture of cases) {
+      const calls = path.join(directory, "calls");
+      writeFileSync(calls, "");
+      const log = { file: path.join(directory, "log"), line: (_line: string) => {} };
+      const problems = await formatLint(log, { PATH: directory, CALLS: calls, REPORT: fixture.stdout, EXIT_CODE: String(fixture.code) });
+      if (fixture.failure) assert.match(problems.join("\n"), fixture.failure, fixture.name);
+      else assert.deepEqual(problems, [], fixture.name);
+      assert.deepEqual(
+        readFileSync(calls, "utf8")
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line)),
+        [["exec", "--", "biome", "ci", "--reporter=json", "--max-diagnostics=none", "--colors=off", "."]],
+        fixture.name,
+      );
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("environment reads are warned only in the approved backend scope", () => {
