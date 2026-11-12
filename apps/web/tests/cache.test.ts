@@ -1702,7 +1702,13 @@ test("retired search pages stay absent while canonical admin navigation includes
     ]) {
       assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
     }
-    assert.doesNotMatch(html, /同批样本对比|Codex|888/);
+    // Only what the operator can read: asset addresses carry a content hash that may spell anything (TASK-0626).
+    const shown = html
+      .replace(/<script\b[\s\S]*?<\/script>/g, "")
+      .replace(/<link\b[^>]*>/g, "")
+      .replace(/\s(?:src|href|srcset|integrity)="[^"]*"/g, "");
+    assert.doesNotMatch(shown, /同批样本对比|Codex|888/);
+    assert.match(shown, /模型与评测/);
     assert.ok(
       privateCalls
         .slice(before)
