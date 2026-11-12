@@ -748,6 +748,9 @@ export const PHRASES = {
   暂缺: "Missing",
   "缺少可比的上一期报价，暂不显示涨跌": "No comparable previous price, so no change is shown",
   暂无可比上期: "No comparable previous period",
+  "全球金属矿业 · 一眼看清": "Global metal mining, at a glance",
+  重看开场动画: "Replay the opening",
+  跳过: "Skip",
   待下期确认: "Awaiting next period",
   "新一期报价较上一期变动超出常规范围，暂显示上一期已核对的数值，下一期公布后自动确认或更正":
     "The newest price moved more than usual from the previous period, so the last checked price is shown; the next release confirms or corrects it automatically",
