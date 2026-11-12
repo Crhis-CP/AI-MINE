@@ -132,9 +132,70 @@ export function deviceClass(userAgent: string): VisitDevice {
   return "desktop";
 }
 
-/** The anonymous key of one visitor in one salt's period: 22 base64url characters (132 bits) of an HMAC. */
+/**
+ * The network a visitor is on, for counting people rather than connections (TASK-0622). An IPv4 address is kept
+ * whole. An IPv6 address is cut to its first 64 bits: phones and laptops change the rest every few hours or on every
+ * reconnection (privacy addresses), which made one reader look like a new visitor each time. An IPv4 address written
+ * the IPv6 way (::ffff:203.0.113.7) is the IPv4 address.
+ */
+export function visitorNetwork(address: string): string {
+  const value = address
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/%.*$/, "");
+  const mapped = /^(?:::ffff:|0{1,4}(?::0{1,4}){4}:ffff:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(value);
+  if (mapped) return mapped[1]!;
+  if (!value.includes(":")) return value;
+  const [head = "", tail] = value.split("::", 2);
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups = tail === undefined ? left : [...left, ...Array<string>(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right];
+  if (groups.length < 4 || groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group) && !group.includes("."))) return value;
+  return `${groups
+    .slice(0, 4)
+    .map((group) => group.replace(/^0+(?=.)/, ""))
+    .join(":")}::/64`;
+}
+
+/**
+ * The device behind a browser string, as coarsely as the operating system and the device class (TASK-0622). The full
+ * string differs between the browsers of one phone, and inside one app from one opening to the next (WeChat writes
+ * the network type and its own build into it), so hashing it counted one reader several times. The version is left
+ * out on purpose: browsers freeze or reduce it differently (Chrome reports “Android 10; K” on every Android phone,
+ * WeChat the real version and model), so it would split the same phone again.
+ */
+export function visitorDevice(userAgent: string): string {
+  const system = /iPhone|iPad|iPod/i.test(userAgent)
+    ? "ios"
+    : /HarmonyOS|OpenHarmony/i.test(userAgent)
+      ? "harmony"
+      : /Android/i.test(userAgent)
+        ? "android"
+        : /Windows/i.test(userAgent)
+          ? "windows"
+          : /Macintosh|Mac OS X/i.test(userAgent)
+            ? "mac"
+            : /CrOS/i.test(userAgent)
+              ? "chromeos"
+              : /Linux|X11/i.test(userAgent)
+                ? "linux"
+                : "other";
+  return `${system}:${deviceClass(userAgent)}`;
+}
+
+/**
+ * The anonymous key of one visitor in one salt's period: 22 base64url characters (132 bits) of an HMAC over the
+ * visitor's network and device. One person on one device and one network is one visitor whichever browser or app
+ * opens the page. Two people with the same kind of device on the same network (a household, an office) count as
+ * one, and one person who moves between Wi-Fi and mobile data counts as two: without a cookie or another stored
+ * identifier, which this site does not use, neither can be told apart.
+ */
 export function visitorKey(salt: Uint8Array, address: string, userAgent: string): string {
-  return createHmac("sha256", salt).update(`${address}\n${userAgent}`).digest("base64url").slice(0, 22);
+  return createHmac("sha256", salt)
+    .update(`${visitorNetwork(address)}\n${visitorDevice(userAgent)}`)
+    .digest("base64url")
+    .slice(0, 22);
 }
 
 /** First day of the Beijing month a Beijing date is in. */

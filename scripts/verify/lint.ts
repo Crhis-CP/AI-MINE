@@ -5,7 +5,7 @@
 //   node scripts/verify/lint.ts --write     rewrite the list from the current tree
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { capture, type Log, ROOT, run } from "./lib.ts";
+import { capture, type Log, ROOT } from "./lib.ts";
 
 export const BASELINE_FILE = "scripts/verify/lint-baseline.json";
 type Counts = Record<string, Record<string, number>>;
@@ -13,7 +13,8 @@ type Counts = Record<string, Record<string, number>>;
 interface Diagnostic {
   severity: string;
   category: string;
-  location?: { path?: string };
+  message?: string;
+  location?: { path?: string; start?: { line: number; column: number } };
 }
 
 export function countWarnings(diagnostics: readonly Diagnostic[]): Counts {
@@ -48,23 +49,37 @@ export function compareWarnings(now: Counts, baseline: Counts): string[] {
   return out.sort();
 }
 
-async function lintCounts(log: Log, env: NodeJS.ProcessEnv): Promise<Counts | null> {
-  const r = await capture("npm", ["exec", "--", "biome", "lint", "--reporter=json", "--max-diagnostics=none", "--colors=off", "."], { log, env });
+async function lintCounts(log: Log, env: NodeJS.ProcessEnv, command: "ci" | "lint"): Promise<{ code: number; counts: Counts | null }> {
+  const r = await capture("npm", ["exec", "--", "biome", command, "--reporter=json", "--max-diagnostics=none", "--colors=off", "."], { log, env });
   try {
-    return countWarnings((JSON.parse(r.stdout) as { diagnostics: Diagnostic[] }).diagnostics);
+    const report = JSON.parse(r.stdout) as { summary?: { diagnosticsNotPrinted?: number }; diagnostics?: Diagnostic[] };
+    if (
+      report.summary?.diagnosticsNotPrinted !== 0 ||
+      !Array.isArray(report.diagnostics) ||
+      !report.diagnostics.every((d) => typeof d?.severity === "string" && typeof d.category === "string")
+    )
+      throw new Error("Incomplete diagnostic report");
+    for (const d of report.diagnostics) {
+      if (d.severity !== "error") continue;
+      const start = d.location?.start;
+      log.line(
+        `${d.location?.path ?? "(workspace)"}${start ? `:${start.line}:${start.column}` : ""}: ${d.category}: ${d.message?.replace(/[\r\n]+/g, " ") ?? ""}`,
+      );
+    }
+    return { code: r.code, counts: countWarnings(report.diagnostics) };
   } catch {
-    log.line(`biome lint did not produce a JSON report (exit ${r.code})`);
-    return null;
+    log.line(`biome ${command} did not produce a complete JSON report (exit ${r.code})`);
+    return { code: r.code, counts: null };
   }
 }
 
-/** The stage: `biome ci`, then the warning counts against the baseline. Returns the problems found. */
+/** One `biome ci` report supplies both the exit status and warning counts. */
 export async function formatLint(log: Log, env: NodeJS.ProcessEnv): Promise<string[]> {
   const problems: string[] = [];
-  if ((await run("npm", ["exec", "--", "biome", "ci", "--colors=off", "."], { log, env })) !== 0) {
+  const { code, counts: now } = await lintCounts(log, env, "ci");
+  if (code !== 0) {
     problems.push("biome ci failed (formatting or a lint error); run npm exec -- biome check --write . and fix the rest");
   }
-  const now = await lintCounts(log, env);
   if (!now) return [...problems, "could not count the lint warnings"];
   const baseline = JSON.parse(readFileSync(path.join(ROOT, BASELINE_FILE), "utf8")) as Counts;
   const diff = compareWarnings(now, baseline);
@@ -75,7 +90,7 @@ export async function formatLint(log: Log, env: NodeJS.ProcessEnv): Promise<stri
 
 if (import.meta.main && process.argv.includes("--write")) {
   const log = { file: "/dev/stderr", line: (t: string) => process.stderr.write(`${t}\n`) };
-  const counts = await lintCounts(log, process.env);
+  const { counts } = await lintCounts(log, process.env, "lint");
   if (!counts) process.exit(1);
   writeFileSync(path.join(ROOT, BASELINE_FILE), `${JSON.stringify(counts, null, 2)}\n`);
   const total = Object.values(counts).reduce((n, f) => n + Object.values(f).reduce((a, b) => a + b, 0), 0);

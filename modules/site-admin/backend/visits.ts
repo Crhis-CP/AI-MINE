@@ -4,7 +4,8 @@
 //
 // - The api records a page-view beacon in process memory and writes the batch every FLUSH_MS (one transaction);
 //   page rendering never waits for it, and a failed write is dropped and counted, never retried or surfaced.
-// - A visitor is an HMAC of the client address and browser string under a random salt of the Beijing day (daily
+// - A visitor is an HMAC of the client's network and device kind (visit-rules.ts: visitorNetwork, visitorDevice;
+//   TASK-0622 made both coarse, so one reader in two browsers is one visitor) under a random salt of the Beijing day (daily
 //   visitors) and of the Beijing month (monthly visitors). Salts live only in ops.visit_salts and are never sent
 //   anywhere; the count job deletes a salt once its day or month is over, and the api never re-creates a past one.
 //   The raw address and browser string stay in this process's memory until the next write, at most FLUSH_MS.
@@ -16,7 +17,18 @@ import { VisitOverview } from "@amp/contracts/http/private";
 import { sql, type Db } from "@amp/backend/db";
 import { savedItems } from "@amp/backend/publication/availability";
 import { readerInterestOverview } from "./reader-interest.ts";
-import { deviceClass, isBot, isPrefetch, monthOf, readerPage, referrerHost, visitorKey, type VisitDevice } from "./visit-rules.ts";
+import {
+  deviceClass,
+  isBot,
+  isPrefetch,
+  monthOf,
+  readerPage,
+  referrerHost,
+  visitorDevice,
+  visitorKey,
+  visitorNetwork,
+  type VisitDevice,
+} from "./visit-rules.ts";
 
 export const FLUSH_MS = 10_000;
 /** Distinct visitors held between two writes; beyond it a view still counts, its visitor does not. */
@@ -105,7 +117,8 @@ export function recordVisit(hit: VisitHit): boolean {
   deviceRow.views += 1;
   batch.devices.set(deviceKey, deviceRow);
 
-  const identity = `${day}\n${hit.address}\n${hit.userAgent}`;
+  // One entry per visitor, not per browser string: the key is what visitorKey hashes.
+  const identity = `${day}\n${visitorNetwork(hit.address)}\n${visitorDevice(hit.userAgent)}`;
   if (!batch.identities.has(identity) && batch.identities.size < MAX_IDENTITIES)
     batch.identities.set(identity, { day, device, address: hit.address, userAgent: hit.userAgent });
 
