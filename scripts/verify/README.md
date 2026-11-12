@@ -43,7 +43,7 @@ make verify TASK=TASK-0002
 |---|---|---|---|
 | `install` | `npm ci`，且锁文件不被改动 | 能访问 npm 源 | Install |
 | `toolchain` | 固定 npm 版本、根 package-lock.json 与显式 workspaces；`.npmrc` 保留一天等待并禁用安装脚本；镜像使用 npm ci、构建后 prune 开发依赖，保留 NPM_REGISTRY、镜像摘要和只读工作流要求 | — | — |
-| `format-lint` | `biome ci` 通过；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增 | — | — |
+| `format-lint` | 单次 `biome ci --reporter=json --max-diagnostics=none` 同时检查退出状态和完整告警；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增；缺失、无效或截断的报告失败 | — | — |
 | `typecheck` | `npm run typecheck`（含 `scripts/`） | — | Typecheck |
 | `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少 | — | — |
 | `data-ownership` | 表归属与授权分类一致；跨模块 SQL 分位置只减不增；publication 显式读模型、附录拆分文件与未知位置分别记账 | — | — |
