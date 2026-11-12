@@ -50,9 +50,11 @@ function readingGroups(q: Record<string, string>): "reports-v1" | undefined {
 export function cacheUntil(reply: FastifyReply, defaultSeconds: number, refreshAt: string | null, now = Date.now()) {
   let seconds = defaultSeconds;
   if (refreshAt) seconds = Math.max(0, Math.min(seconds, Math.floor((Date.parse(refreshAt) - now) / 1000)));
-  reply.header("Cache-Control", seconds > 0 ? `public, max-age=${seconds}, s-maxage=${seconds}` : "no-cache");
+  // At the release instant itself nothing may keep the old page; the caller sets this same value again with the ETag.
+  const cacheControl = seconds > 0 ? `public, max-age=${seconds}, s-maxage=${seconds}` : "no-cache";
+  reply.header("Cache-Control", cacheControl);
   reply.header("X-Accel-Expires", `@${Math.floor(now / 1000) + seconds}`);
-  return `public, max-age=${seconds}, s-maxage=${seconds}`;
+  return cacheControl;
 }
 
 export function siteHandler(fn: Handler): Handler {

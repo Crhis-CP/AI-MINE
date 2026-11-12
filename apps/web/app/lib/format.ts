@@ -2,16 +2,6 @@ import { beijingDate, beijingTime, beijingWeekday } from "@amp/contracts/time";
 
 export { beijingDate, beijingTime, beijingWeekday };
 
-export function dayLabel(date: string, today: string): string {
-  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
-  const base = `${m}月${d}日`;
-  if (date === today) return `今天 · ${base}`;
-  const diff = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86400000);
-  if (diff === 1) return `昨天 · ${base}`;
-  if (y !== Number(today.slice(0, 4))) return `${y}年${base}`;
-  return base;
-}
-
 export function relativeTime(iso: string, now = Date.now()): string {
   const t = Date.parse(iso);
   const s = Math.max(0, Math.round((now - t) / 1000));

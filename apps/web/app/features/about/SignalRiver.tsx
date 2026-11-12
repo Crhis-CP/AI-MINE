@@ -7,9 +7,9 @@
 // Theme-aware, paused off screen; reduced motion draws it still. The canvas only illustrates: what it
 // says is also written in the page.
 import { useEffect, useRef, type ReactNode } from "react";
-import { useTr } from "../../i18n";
+import { useLocale, useTr } from "../../i18n";
 
-import { EDITION } from "../report/format";
+import { reportFormat } from "../report/format";
 import { watchAppearance } from "../../lib/local-state";
 import { reducedMotion } from "../../lib/motion";
 
@@ -293,6 +293,7 @@ export function SignalRiver({
   children?: ReactNode;
 }) {
   const tr = useTr();
+  const english = useLocale() === "en";
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -486,7 +487,7 @@ export function SignalRiver({
       const p = L.paper;
       if (x >= p.x - 8 && x <= p.x + p.w + 8 && y >= p.y - 8 && y <= p.y + p.h + 8) {
         hover = { s: null, bundle: null, paper: true };
-        place(x, y, tr.subject("日报"), EDITION.daily);
+        place(x, y, reportFormat(english).name.daily, reportFormat(english).edition.daily);
         redraw();
         return;
       }
@@ -561,7 +562,7 @@ export function SignalRiver({
       wrap.removeEventListener("pointermove", onMove);
       wrap.removeEventListener("pointerleave", onLeave);
     };
-  }, [sources, tr.subject, tr]);
+  }, [sources, tr, english]);
 
   return (
     <div ref={wrapRef} className={`relative ${className}`}>
