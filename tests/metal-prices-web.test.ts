@@ -3,7 +3,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MetalPrices } from "@amp/contracts/http/public";
-import { changeText, headlineIndex, isBehind, licenceNotes, priceText, shortLabel } from "../modules/metals/web/quotes.ts";
+import {
+  changeText,
+  headlineIndex,
+  isBehind,
+  licenceNotes,
+  priceText,
+  shortLabel,
+  trendPoints,
+  trendRanges,
+  trendScale,
+  trendStepped,
+  trendWindow,
+  TREND_MIN_BAND,
+  type Quote,
+} from "../modules/metals/web/quotes.ts";
 
 const period = (end: string, label: string) => ({ start: end, end, label });
 function prices(overrides: { dayStale?: boolean; dayValue?: string | null } = {}) {
@@ -96,4 +110,35 @@ test("periods, prices, changes and licences read as published", () => {
     ["CC BY 4.0"],
   );
   assert.deepEqual(licenceNotes(data.notes, data.sources[1]!), []);
+});
+
+test("a trend line shows only stored periods, offers only ranges that add something, and never exaggerates a small move", () => {
+  // TASK-0627: the Owner found the preview's ups and downs misleading; the scale keeps a move's height honest.
+  const day = (n: number) => new Date(Date.UTC(2026, 9, 1) + n * 86400_000).toISOString().slice(0, 10);
+  const history = Array.from({ length: 40 }, (_, i) => ({ period: { start: day(i), end: day(i), label: `第${i}天` }, value: String(10000 + i) }));
+  const quote = { history } as unknown as Quote;
+  const points = trendPoints(quote);
+  assert.equal(points.length, 40);
+  assert.equal(trendWindow(points, 31).length, 32, "the latest day and the 31 before it");
+  assert.deepEqual(
+    trendRanges(points).map((range) => range.key),
+    ["1m", "3m"],
+    "a year would show nothing more than three months",
+  );
+  assert.deepEqual(
+    trendRanges(points.slice(-10)).map((range) => range.key),
+    ["1m"],
+  );
+  assert.deepEqual(trendRanges(points.slice(-1)), [], "one period is not a trend");
+  assert.deepEqual(trendPoints({ history: undefined } as unknown as Quote), []);
+  // A 0.4% move may fill at most a tenth of the height; a 20% move uses nearly all of it.
+  const flat = trendScale([10000, 10040]);
+  assert.ok((10040 - 10000) / (flat.max - flat.min) < 0.11);
+  assert.ok(flat.max - flat.min >= 10020 * TREND_MIN_BAND);
+  const wide = trendScale([10000, 12000]);
+  assert.ok((12000 - 10000) / (wide.max - wide.min) > 0.9);
+  assert.ok(wide.min < 10000 && wide.max > 12000);
+  assert.deepEqual(trendScale([5, 5]).max > 5, true);
+  assert.equal(trendStepped(points), false);
+  assert.equal(trendStepped([{ start: "2026-09-01", end: "2026-09-30", label: "9月", value: 1 }]), true);
 });

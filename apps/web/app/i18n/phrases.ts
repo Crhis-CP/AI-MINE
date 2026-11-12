@@ -748,6 +748,13 @@ export const PHRASES = {
   暂缺: "Missing",
   "缺少可比的上一期报价，暂不显示涨跌": "No comparable previous price, so no change is shown",
   暂无可比上期: "No comparable previous period",
+  "{metal}价格走势：{from} 至 {to}，共 {count} 期": "{metal} price trend: {from} to {to}, {count} periods",
+  每期一个价: "one price per period",
+  每次公布一个价: "one price per release",
+  "{count} 期": "{count} periods",
+  "1个月": "1M",
+  "3个月": "3M",
+  "1年": "1Y",
   待下期确认: "Awaiting next period",
   "新一期报价较上一期变动超出常规范围，暂显示上一期已核对的数值，下一期公布后自动确认或更正":
     "The newest price moved more than usual from the previous period, so the last checked price is shown; the next release confirms or corrects it automatically",

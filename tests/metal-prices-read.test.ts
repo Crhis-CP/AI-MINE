@@ -324,3 +324,27 @@ test("site-only price HTTP matches the reader, ignores generation time in ETags,
   assert.equal(failed.statusCode, 503);
   assert.match(String(failed.headers["cache-control"]), /no-store/);
 });
+
+test("a quote carries its earlier periods for the trend line: oldest first, current last, never a row in another unit", async () => {
+  // TASK-0627 (Owner 2026-11-12, a reader's suggestion): each metal shows how its price moved, from stored periods only.
+  await seed("wb.copper", "2026-06-01", "2026-06-30", "9500.5");
+  await seed("wb.copper", "2026-07-01", "2026-07-31", "1", { unit: "broken" });
+  await seed("wb.copper", "2026-08-01", "2026-08-31", "9700");
+  // A revision of the same period: the newest version is the one in the line.
+  await seed("wb.copper", "2026-09-01", "2026-09-30", "9800", { first_fetched_at: new Date(NOW.getTime() - 3600_000), release_label: "First" });
+  await seed("wb.copper", "2026-09-01", "2026-09-30", "9900", { release_label: "Revised" });
+  await seed("wb.nickel", "2026-09-01", "2026-09-30", "15000");
+  const data = await read();
+  const copper = quote(data, "wb.copper");
+  assert.deepEqual(
+    copper.history?.map((point) => [point.period.start, point.value]),
+    [
+      ["2026-06-01", "9500.5"],
+      ["2026-08-01", "9700"],
+      ["2026-09-01", "9900"],
+    ],
+  );
+  assert.equal(copper.history!.at(-1)!.value, copper.value);
+  assert.equal(copper.history!.at(-1)!.period.label, copper.period!.label);
+  assert.equal("history" in quote(data, "wb.nickel"), false, "one period is not a trend");
+});
