@@ -6,27 +6,27 @@ import { type MetalPriceRegistry, onSourceHost } from "./registry.ts";
 import { compareCbrWithNbu } from "./nbu.ts";
 import type { FetchedPeriod, Fetcher, PageGetter } from "./types.ts";
 
-const xml = new XMLParser({ ignoreAttributes: false, parseTagValue: false, trimValues: false, isArray: (name) => ["Record", "Valute"].includes(name) });
-const HOST = "https://www.cbr.ru";
-const number = /^\d+(,\d+)?$/;
-const offsetDay = (day: string, offset: number) => new Date(Date.parse(`${day}T00:00:00Z`) + offset * 86400_000).toISOString().slice(0, 10);
-const requested = (day: string) => day.split("-").reverse().join("/");
-const label = (day: string) => {
+export const xml = new XMLParser({ ignoreAttributes: false, parseTagValue: false, trimValues: false, isArray: (name) => ["Record", "Valute"].includes(name) });
+export const HOST = "https://www.cbr.ru";
+export const number = /^\d+(,\d+)?$/;
+export const offsetDay = (day: string, offset: number) => new Date(Date.parse(`${day}T00:00:00Z`) + offset * 86400_000).toISOString().slice(0, 10);
+export const requested = (day: string) => day.split("-").reverse().join("/");
+export const label = (day: string) => {
   const [year, month, date] = day.split("-");
   return `${year}年${Number(month)}月${Number(date)}日`;
 };
-const metalUrl = (from: string, to: string) => `${HOST}/scripts/xml_metall.asp?date_req1=${requested(from)}&date_req2=${requested(to)}`;
+export const metalUrl = (from: string, to: string) => `${HOST}/scripts/xml_metall.asp?date_req1=${requested(from)}&date_req2=${requested(to)}`;
 
 /** XML dates are effective days; the fixing day is the previous calendar day, including across weekends. */
-function effectiveDay(value: unknown): string {
+export function effectiveDay(value: unknown): string {
   if (typeof value !== "string" || !/^\d{2}\.\d{2}\.[1-9]\d{3}$/.test(value)) throw new Error("俄罗斯银行 Date 不是 DD.MM.YYYY 日期");
   const day = value.split(".").reverse().join("-");
   if (!Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0, 10) !== day) throw new Error("俄罗斯银行 Date 不是真实日期");
   return day;
 }
-const rawText = (value: unknown) => (typeof value === "string" ? value : "");
-type Metal = { "@_Date"?: unknown; "@_Code"?: string; Buy?: unknown; Sell?: unknown };
-type Rate = { CharCode?: string; Nominal?: unknown; Value?: unknown };
+export const rawText = (value: unknown) => (typeof value === "string" ? value : "");
+export type Metal = { "@_Date"?: unknown; "@_Code"?: string; Buy?: unknown; Sell?: unknown };
+export type Rate = { CharCode?: string; Nominal?: unknown; Value?: unknown };
 
 export function cbrFetcher(registry: MetalPriceRegistry, get: PageGetter = guardedFetch): Fetcher {
   return {
