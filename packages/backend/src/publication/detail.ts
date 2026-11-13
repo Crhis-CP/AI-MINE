@@ -57,6 +57,7 @@ interface DetailRow extends ItemRow {
 }
 
 export type DetailResult = { kind: "found"; detail: ItemDetail; row: DetailRow } | { kind: "not_found" };
+export type DetailReadCache = Map<string, Promise<ItemDetail["eventCoverage"]>>;
 
 /** A body picture's link ("查看配图…", linkBodyImages) does not name the heading it sits in. */
 const PICTURE_LINK = /<a\b(?:[^>"']|"[^"]*"|'[^']*')*>查看配图[^<]*<\/a>/g;
@@ -94,7 +95,7 @@ async function loadRow(id: string): Promise<DetailRow | null> {
  * Public detail (rules.hasItemPage): items the lists leave out (low relevance, merged duplicates, no
  * Chinese summary yet) keep a noindex page; withdrawn and hot_signal items are a 404.
  */
-export async function loadItemDetail(id: string, now = new Date(), machine = false): Promise<DetailResult> {
+export async function loadItemDetail(id: string, now = new Date(), machine = false, coverage?: DetailReadCache): Promise<DetailResult> {
   const row = await loadRow(id);
   if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return { kind: "not_found" };
 
@@ -202,7 +203,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
             ? "pending"
             : "unavailable",
     firstPublicAt: row.first_public_at?.toISOString() ?? null,
-    eventCoverage: row.story_id ? await eventCoverage(row.story_id, now, machine) : null,
+    eventCoverage: row.story_id ? await requestEventCoverage(row.story_id, now, machine, coverage) : null,
     manualRevisionLabel: row.manual_revision_label,
     companyContext: await publicCompanyContext(id),
     relatedPolicies: await relatedPoliciesForNews(id),
@@ -221,6 +222,16 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
 }
 
 /** Current public event members: first-party representation and the latest distinct fact stay separate. */
+function requestEventCoverage(storyId: number, now: Date, machine: boolean, cache?: DetailReadCache) {
+  const key = `${storyId}:${machine}`;
+  let pending = cache?.get(key);
+  if (!pending) {
+    pending = eventCoverage(storyId, now, machine);
+    cache?.set(key, pending);
+  }
+  return pending;
+}
+
 async function eventCoverage(storyId: number, now: Date, machine: boolean): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
   const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary ${ITEM_FROM()}
     WHERE p.story_id=${storyId} AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'

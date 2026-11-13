@@ -9,7 +9,8 @@ import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { SITE } from "@amp/industry/site";
 import { sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
-import { loadItemDetail, publicItemMetadata } from "./detail.ts";
+import { mapLimit } from "../lib/concurrency.ts";
+import { loadItemDetail, publicItemMetadata, type DetailReadCache } from "./detail.ts";
 import { loadPool } from "./pool.ts";
 import { loadTopicTags } from "./topics.ts";
 import { v1Items, selectedSnapshot, selectedChanges, effectiveWatermark, pendingReleaseCount } from "./v1.ts";
@@ -54,8 +55,8 @@ export async function v3Version(now = new Date()) {
   return { ...envelope, content_version: row?.available ? envelope.content_version : null, state: row?.available ? "available" : "empty" };
 }
 
-export async function v3Item(id: string, detail = false, now = new Date()) {
-  const found = await loadItemDetail(id, now);
+export async function v3Item(id: string, detail = false, now = new Date(), coverage?: DetailReadCache) {
+  const found = await loadItemDetail(id, now, false, coverage);
   if (found.kind !== "found" || (found.row.release_gated && (!found.row.visible_after || found.row.visible_after > now))) return null;
   const { row, detail: item } = found;
   const meta = await publicItemMetadata(id);
@@ -174,7 +175,8 @@ export async function v3Items(q: z.infer<typeof V3ItemsQuery>, now = new Date())
     },
     now,
   );
-  const items = (await Promise.all(listing.items.map((item) => v3Item(item.id, false, now)))).filter((item) => item !== null);
+  const coverage: DetailReadCache = new Map();
+  const items = (await mapLimit(listing.items, 4, (item) => v3Item(item.id, false, now, coverage))).filter((item) => item !== null);
   const facets =
     q.facets === "true"
       ? (await loadPool({ ...q, channel: "all", category: canonicalCategoryFilter(q.category), tag: null, selected: q.view === "featured", topicTags, now }))
@@ -189,8 +191,10 @@ export async function v3ItemReading(id: string, q: z.infer<typeof V3ReadingQuery
   return { ...(await v3Envelope()), ...readingPage(found, q) };
 }
 export async function v3Snapshot(q: { limit: number; page?: string }) {
-  const result = await selectedSnapshot({ limit: q.limit, page: q.page ?? null, fields: "default" });
-  const items = (await Promise.all(result.items.map((item) => v3Item(item.id)))).filter((item) => item?.featured);
+  const now = new Date(),
+    coverage: DetailReadCache = new Map();
+  const result = await selectedSnapshot({ limit: q.limit, page: q.page ?? null, fields: "default" }, now);
+  const items = (await mapLimit(result.items, 4, (item) => v3Item(item.id, false, now, coverage))).filter((item) => item?.featured);
   return {
     ...(await v3Envelope()),
     as_of: result.asOf,
@@ -202,15 +206,15 @@ export async function v3Snapshot(q: { limit: number; page?: string }) {
   };
 }
 export async function v3Changes(q: { limit: number; cursor: string }) {
-  const result = await selectedChanges(q);
-  const changes = await Promise.all(
-    result.changes.map(async (change) => {
-      if (change.op === "remove") return { op: "remove" as const, changed_at: change.changedAt, id: change.id };
-      const item = await v3Item(change.item.id);
-      return item?.featured
-        ? { op: "upsert" as const, changed_at: change.changedAt, item }
-        : { op: "remove" as const, changed_at: change.changedAt, id: change.item.id };
-    }),
-  );
+  const now = new Date(),
+    coverage: DetailReadCache = new Map();
+  const result = await selectedChanges(q, now);
+  const changes = await mapLimit(result.changes, 4, async (change) => {
+    if (change.op === "remove") return { op: "remove" as const, changed_at: change.changedAt, id: change.id };
+    const item = await v3Item(change.item.id, false, now, coverage);
+    return item?.featured
+      ? { op: "upsert" as const, changed_at: change.changedAt, item }
+      : { op: "remove" as const, changed_at: change.changedAt, id: change.item.id };
+  });
   return { ...(await v3Envelope()), cursor: result.cursor, count: changes.length, has_more: result.hasMore, changes };
 }
