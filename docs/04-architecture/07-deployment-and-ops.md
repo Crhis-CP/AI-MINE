@@ -71,6 +71,8 @@
 
 ### 2.3 网络分段【设计】
 
+当前版本化编排已落地数据库隔离：`db` 仅连接内部网络 `db`；`setup/api/worker` 同时连接 `default` 与 `db`，`web/caddy` 仅连接 `default`。实际生效由发布后的网络验收确认，下表继续保留完整分段设计。
+
 纵深防御，也是 SSRF 的第二道闸（`06-security-and-access.md` 6.3）：
 
 | 网络 | 成员 | 出网 |
