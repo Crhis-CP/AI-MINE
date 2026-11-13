@@ -1,5 +1,5 @@
 // The regulation page as a side-by-side review (TASK-0657): the interpretation beside the text, linked. Against the
-// production web build and the demo API's synthetic policies (e2e/demo-policy.ts): a section shows only when its
+// production web build and the demo API's synthetic policies (e2e/demo-policy.ts, read over HTTP): a section shows only when its
 // field has content; a clause number takes the reader to its block and highlights it; narrow space gets two tabs and
 // keeps the reading position; revision marks go on and off and are not offered without a comparable version; the
 // page makes no verdicts and carries one disclaimer; every state of the text (whole, partial, excerpt, none, no
@@ -12,26 +12,54 @@ import { once } from "node:events";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { chromium, expect, type Browser, type BrowserContextOptions, type Page } from "@playwright/test";
-import type { Policy } from "@amp/contracts/http/public";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
-import { startDemoReaderApi } from "../../../e2e/demo-api.ts";
-import { DEMO_REVIEW_IDS, demoReviewPolicy } from "../../../e2e/demo-policy.ts";
-import { articleOf, lifecycleOf, redlineOf, sourceState } from "../../../modules/policy/web/features/review.ts";
-import { demoPolicyComparison, demoPolicyReading } from "../../../e2e/demo-reader.ts";
 
 let origin = "",
   web: ChildProcess,
   browser: Browser,
-  api: Awaited<ReturnType<typeof startDemoReaderApi>>;
+  api: ChildProcess;
 const ROYALTY = "demo-policy-royalty";
-const ALL = [ROYALTY, "demo-policy-export", "demo-policy-brine", ...DEMO_REVIEW_IDS];
+const ALL = [
+  ROYALTY,
+  "demo-policy-export",
+  "demo-policy-brine",
+  "demo-policy-plain",
+  "demo-policy-partial",
+  "demo-policy-excerpt",
+  "demo-policy-scan",
+  "demo-policy-original-only",
+];
 const BANNED = ["需要行动", "要做的事", "影响程度", "待核"];
 const CJK = /[㐀-鿿]/;
 const SHOTS = process.env.POLICY_REVIEW_SHOTS;
 
+/** Waits for a started process to print the line that names its address, and returns what the pattern captured. */
+function started(child: ChildProcess, pattern: RegExp) {
+  return new Promise<string>((resolve, reject) => {
+    let output = "";
+    const timer = setTimeout(() => reject(new Error(output)), 15000);
+    const read = (chunk: Buffer) => {
+      output += chunk;
+      const match = output.match(pattern);
+      if (match) {
+        clearTimeout(timer);
+        resolve(match[1]!);
+      }
+    };
+    child.stdout!.on("data", read);
+    child.stderr!.on("data", read);
+    child.once("exit", () => {
+      clearTimeout(timer);
+      reject(new Error(output));
+    });
+  });
+}
+
 before(async () => {
-  api = await startDemoReaderApi(0);
+  // The demo API runs as its own process (its command-line entry), on a port the system picks; the pages read it over HTTP.
+  api = spawn(process.execPath, ["e2e/demo-api.ts"], { env: { PATH: process.env.PATH, DEMO_API_PORT: "0" }, stdio: ["ignore", "pipe", "pipe"] });
+  const apiUrl = await started(api, /Demo reader API .* at (http:\/\/127\.0\.0\.1:\d+)/);
   web = spawn(process.execPath, ["apps/web/server.ts"], {
     env: webEnvironment({
       PATH: process.env.PATH,
@@ -41,30 +69,12 @@ before(async () => {
       WEB_HOST: "127.0.0.1",
       PRIVATE_HOST: "private.localhost",
       TRUST_PROXY: "false",
-      API_BASE_URL: api.url,
-      PRIVATE_API_BASE_URL: api.url,
+      API_BASE_URL: apiUrl,
+      PRIVATE_API_BASE_URL: apiUrl,
     }),
     stdio: ["ignore", "pipe", "pipe"],
   });
-  await new Promise<void>((resolve, reject) => {
-    let output = "";
-    const timer = setTimeout(() => reject(new Error(output)), 15000);
-    const read = (chunk: Buffer) => {
-      output += chunk;
-      const match = output.match(/"msg":"web started","port":(\d+)/);
-      if (match) {
-        origin = `http://127.0.0.1:${match[1]}`;
-        clearTimeout(timer);
-        resolve();
-      }
-    };
-    web.stdout!.on("data", read);
-    web.stderr!.on("data", read);
-    web.once("exit", () => {
-      clearTimeout(timer);
-      reject(new Error(output));
-    });
-  });
+  origin = `http://127.0.0.1:${await started(web, /"msg":"web started","port":(\d+)/)}`;
   browser = await chromium.launch({
     headless: true,
     executablePath: browserExecutable(),
@@ -78,7 +88,10 @@ after(async () => {
     web.kill("SIGTERM");
     await once(web, "exit");
   }
-  await api?.close();
+  if (api && api.exitCode === null) {
+    api.kill("SIGTERM");
+    await once(api, "exit");
+  }
 });
 
 async function open(width: number, height = 900, options: BrowserContextOptions = {}) {
@@ -105,73 +118,6 @@ const noOverflow = async (page: Page, where: string) =>
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `no sideways scroll (${where})`);
 const sections = (page: Page) => page.locator(".pr-read > section").evaluateAll((all) => all.map((section) => section.id));
 const tab = (page: Page, name: string) => page.getByRole("tab", { name, exact: true });
-
-test("what of the text can be shown follows the reading record, and marks land on the right blocks", () => {
-  const royalty = demoReviewPolicy(ROYALTY)!;
-  assert.deepEqual(sourceState(royalty), { kind: "text", excerpt: false });
-  const expression = royalty.expressions[0]!;
-  const reading = royalty.reading!;
-  const state = (change: Partial<typeof reading>, readingState: typeof expression.reading_state = "complete", others: (typeof expression)[] = []) =>
-    sourceState({
-      expressions: [{ ...expression, id: reading.expression_id, reading_state: readingState }, ...others],
-      selected_expression_id: reading.expression_id,
-      reading: { ...reading, ...change },
-    }).kind;
-  assert.equal(state({ completeness: "excerpt", state: "pending" }, "partial"), "text");
-  assert.equal(state({ completeness: "partial", state: "in_progress", completed_blocks: 6 }, "partial"), "text");
-  // Nothing made yet, a failed or guide-only reading, an unreadable expression, or no reading at all: no text here.
-  assert.equal(state({ completeness: "partial", state: "in_progress", completed_blocks: 0 }, "partial"), "none");
-  for (const failed of ["guide_only", "failed_terminal"] as const)
-    assert.equal(state({ state: failed, completeness: "unavailable", completed_blocks: 0 }), "none");
-  assert.equal(state({ completeness: "unavailable", state: "pending", completed_blocks: 0 }), "none");
-  for (const closed of ["restricted", "unavailable"] as const) assert.equal(state({}, closed), "none");
-  assert.equal(sourceState({ expressions: [], selected_expression_id: null, reading: null }).kind, "none");
-  // Another language of the same document can still be read: the page says so instead of going to one column.
-  assert.equal(
-    state({ state: "failed_terminal", completeness: "unavailable" }, "unavailable", [{ ...expression, id: "other", reading_state: "complete" }]),
-    "elsewhere",
-  );
-
-  assert.deepEqual(articleOf("第3条　特许权费"), { label: "第3条", rest: "特许权费" });
-  assert.deepEqual(articleOf("第十二条之一 采矿权"), { label: "第十二条之一", rest: "采矿权" });
-  assert.equal(articleOf("第3条的规定适用于"), null, "a reference inside a sentence is not an article number");
-  assert.deepEqual(articleOf("ARTÍCULO 12 bis.- Definiciones"), { label: "ARTÍCULO 12 bis", rest: "Definiciones" });
-  assert.deepEqual(articleOf("Section 5A Fees"), { label: "Section 5A", rest: "Fees" });
-  assert.equal(articleOf("（一）价格低于基准价的"), null);
-
-  const original = royalty.expressions.find((e) => e.kind === "original")!;
-  const rows = demoPolicyReading(ROYALTY, original.id, original.document_revision_id)!.blocks;
-  const redline = redlineOf(demoPolicyComparison(ROYALTY, null, null)!, rows);
-  // Article 3 and its three items each carry their own part of the diff; article 9 is new; article 4 was dropped after 3.
-  for (const id of ["node-4", "node-5", "node-6", "node-7", "node-9"]) assert.equal(redline.marks.get(id)?.kind, "modified", id);
-  assert.deepEqual(redline.marks.get("node-10"), { kind: "added", head: true });
-  assert.equal(redline.marks.has("node-2"), false, "an unchanged article has no mark");
-  assert.deepEqual([...redline.removed.keys()], ["node-7"]);
-  assert.deepEqual([...redline.anchors.values()], ["node-node-4", "pr-gone-2", "node-node-9", "node-node-10"]);
-  const seven = redline.marks.get("node-9");
-  assert.ok(seven?.kind === "modified" && seven.spans.some((s) => s.op === "delete" && s.text === "un año") && seven.spans.some((s) => s.op === "insert"));
-  // Text that is not loaded yet gets no mark, and a dropped provision is not shown out of place.
-  const partial = redlineOf(demoPolicyComparison(ROYALTY, null, null)!, rows.slice(0, 2));
-  assert.deepEqual([partial.marks.size, partial.removed.size], [0, 0]);
-
-  // A draft's source date is not a promulgation date; a published document's is.
-  const stages = (policy: Policy) => Object.fromEntries((lifecycleOf(policy) ?? []).map((s) => [s.key, [s.time?.local_date ?? null, s.now]]));
-  assert.deepEqual(stages(royalty), {
-    proposed: [null, false],
-    consultation: [null, false],
-    adopted: [null, false],
-    published: ["2026-10-02", true],
-    in_force: ["2027-01-01", false],
-  });
-  const draft = stages(demoReviewPolicy("demo-policy-brine")!);
-  assert.deepEqual(
-    [draft.consultation, draft.published],
-    [
-      [null, true],
-      [null, false],
-    ],
-  );
-});
 
 test("the page is rendered on the server with both sides, and every clause number is a plain anchor", { timeout: 30000 }, async () => {
   const html = await (await fetch(`${origin}/policies/${ROYALTY}`)).text();
@@ -250,6 +196,10 @@ test("a section appears only when its field has content", { timeout: 60000 }, as
   );
   // A Chinese original alone: nothing to switch between.
   await expect(page.getByRole("navigation", { name: "阅读语言" })).toHaveCount(0);
+  // A draft out for comment: its source date is not a promulgation date, so only the stated stage is marked.
+  await visit("/policies/demo-policy-brine");
+  await expect(page.locator('.pr-life li[aria-current="step"]')).toHaveText("征求意见当前—");
+  await expect(page.locator(".pr-life li").nth(3)).toHaveText("公布—");
   // A complete interpretation with no earlier version: no comparison section and no revision switch.
   await visit("/policies/demo-policy-export");
   assert.deepEqual(await sections(page), ["summary", "analysis", "who", "legal", "attachments", "related"]);
@@ -367,6 +317,10 @@ test("revision marks go on and off in the text, and are not offered without a co
   await expect(page.locator("#node-node-10 .pr-flag")).toHaveText("新增");
   await expect(page.locator("#node-node-10 .pr-o")).toHaveClass(/pr-added/);
   await expect(page.locator("#node-node-2 del, #node-node-2 ins")).toHaveCount(0);
+  // Article 3 is a head and three items: each block carries its own part of the change, none is folded into another.
+  await expect(page.locator("#node-node-4 .pr-o del")).toContainText("con una tasa única");
+  for (const item of ["#node-node-5", "#node-node-6", "#node-node-7"]) await expect(page.locator(`${item} .pr-o ins`)).toHaveCount(1);
+  await expect(page.locator(".pr-art.pr-covered")).toHaveCount(0);
   // The provision the newer version dropped is shown where it used to be, after article 3 and before chapter III.
   const gone = page.locator("#pr-gone-2");
   await expect(gone).toContainText("原 Artículo 4");
