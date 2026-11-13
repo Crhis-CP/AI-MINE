@@ -406,7 +406,7 @@ export async function collectFindings(
         });
     }
   }
-  out.push(...(await providerFindings()));
+  out.push(...(await providerFindings(observeCheck, now)));
 
   // Content-group pushes the Feishu webhook refused (a removed bot, a changed address); nothing resends them.
   const [refused] = await sql<{ n: number; target: string | null; response: string | null }[]>`
@@ -573,7 +573,7 @@ export const providerStops = (service: string) => PROVIDERS[service]?.stops ?? "
 export const providerConsole = (service: string) => PROVIDERS[service]?.where ?? `${service} 后台`;
 
 /** Paid services that refuse us (no balance, a dead key), and services the request meter stopped for an hour or a day. */
-async function providerFindings(): Promise<Finding[]> {
+async function providerFindings(observeCheck?: (key: string) => void, now = Date.now()): Promise<Finding[]> {
   const out: Finding[] = [];
   const refused = await sql<{ service: string; n: number; last: string }[]>`
     SELECT service, count(*)::int AS n, (array_agg(left(error, 200) ORDER BY started_at DESC))[1] AS last FROM receipt_attempts
@@ -595,7 +595,10 @@ async function providerFindings(): Promise<Finding[]> {
     });
   }
   // Before it runs dry (TASK-0631): what is left pays for fewer than three days at the recent daily spend.
-  for (const low of await lowBalances()) {
+  const balances = await lowBalances(now);
+  // Only a fresh reading can close a balance warning; a provider that stopped answering keeps it open (TASK-0641).
+  for (const service of balances.fresh) observeCheck?.(`provider.balance.${service}`);
+  for (const low of balances.low) {
     if (out.some((f) => f.key === `provider.refused.${low.service}`)) continue;
     const left = `¥${low.yuan.toFixed(2)}`;
     out.push({
@@ -609,9 +612,10 @@ async function providerFindings(): Promise<Finding[]> {
       heals: "不会，需要充值",
       action: `去${providerConsole(low.service)}充值；到账后半小时内这条提醒自动关闭，不用转给 AI`,
       detail:
-        low.daily === null
+        (low.daily === null
           ? `余额 ${left}；还没有花费记录，低于 ¥${BALANCE_FLOOR_YUAN} 时提醒`
-          : `余额 ${left}；最近 7 天日均花费 ¥${low.daily.toFixed(2)}；不足 ${BALANCE_WARN_DAYS} 天时提醒`,
+          : `余额 ${left}；最近 7 天日均花费 ¥${low.daily.toFixed(2)}；不足 ${BALANCE_WARN_DAYS} 天时提醒`) +
+        (low.accounts > 1 ? `；共 ${low.accounts} 个在用账户，这是余额最少的那个` : ""),
     });
   }
   // The meter in providers/receipts.ts (checkBudget) stops a service while its live calls of the past hour or day reach the
@@ -719,6 +723,7 @@ export async function checkAlerts(now = Date.now()) {
     // Startup grace, disabled work and manual pauses supply no recovery evidence.
     if (key.startsWith("report.") && !checked.has(key.split(".")[1]!)) continue;
     if (key === "content.process" && !checked.has(key)) continue;
+    if (key.startsWith("provider.balance.") && !checked.has(key)) continue;
     if (key.startsWith("hot.") && !checked.has("hot")) continue;
     // Entries without a level predate this scheme (2026-09-29) and close without a message.
     if (state[key]!.level) {
