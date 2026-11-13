@@ -77,7 +77,11 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     case "/api/site/timeline":
       return send(res, 200, demoTimeline(filters));
     case "/api/site/pool":
-      return send(res, 200, demoPool({ ...filters, q: q.get("q"), tab: q.get("tab") === "relevance" ? "relevance" : "time" }));
+      return send(
+        res,
+        200,
+        demoPool({ ...filters, q: q.get("q"), tab: q.get("tab") === "relevance" ? "relevance" : "time", jurisdiction: q.get("jurisdiction") }),
+      );
     case "/api/site/stats":
       return send(res, 200, demoStats);
     case "/api/site/information":

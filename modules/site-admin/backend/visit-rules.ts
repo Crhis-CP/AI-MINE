@@ -144,14 +144,24 @@ export function visitorNetwork(address: string): string {
     .toLowerCase()
     .replace(/^\[|\]$/g, "")
     .replace(/%.*$/, "");
-  const mapped = /^(?:::ffff:|0{1,4}(?::0{1,4}){4}:ffff:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(value);
-  if (mapped) return mapped[1]!;
   if (!value.includes(":")) return value;
   const [head = "", tail] = value.split("::", 2);
   const left = head ? head.split(":") : [];
   const right = tail ? tail.split(":") : [];
-  const groups = tail === undefined ? left : [...left, ...Array<string>(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right];
+  // A dotted quad at the end stands for two groups.
+  const width = left.length + right.length + ((right.at(-1) ?? left.at(-1) ?? "").includes(".") ? 1 : 0);
+  const groups = tail === undefined ? left : [...left, ...Array<string>(Math.max(0, 8 - width)).fill("0"), ...right];
   if (groups.length < 4 || groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group) && !group.includes("."))) return value;
+  // An IPv4 address carried in IPv6 (::ffff:a.b.c.d, also written ::ffff:hhhh:hhhh) is that IPv4 address, however
+  // it is spelled: the same reader must not be one visitor by one spelling and another by the other (TASK-0629).
+  const dotted = groups.at(-1)!.includes(".") ? groups.at(-1)! : null;
+  const full = dotted ? groups.length === 7 : groups.length === 8;
+  if (full && groups.slice(0, 5).every((group) => /^0{1,4}$/.test(group)) && groups[5] === "ffff") {
+    if (dotted) return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(dotted) ? dotted : value;
+    const high = Number.parseInt(groups[6]!, 16),
+      low = Number.parseInt(groups[7]!, 16);
+    return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
+  }
   return `${groups
     .slice(0, 4)
     .map((group) => group.replace(/^0+(?=.)/, ""))

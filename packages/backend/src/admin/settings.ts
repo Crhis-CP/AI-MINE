@@ -1,6 +1,7 @@
 // Operator settings: notification targets (switching a group on records enabled_at so older content is
 // never back-filled) and per-service request budgets (the circuit breaker paid calls check before sending).
 import { sql } from "../db.ts";
+import { invalidInput } from "./invalid.ts";
 import { audit, requireOwner, type AdminPrincipal } from "./auth.ts";
 export { monthlyUsageReports } from "../operations/usage-monthly.ts";
 
@@ -23,9 +24,9 @@ export async function updateBudget(
 ) {
   return sql.begin(async (tx) => {
     if (principal) await requireOwner(principal, tx);
-    if (!input.reason?.trim()) throw new Error("reason is required");
+    if (!input.reason?.trim()) throw invalidInput("reason is required");
     for (const v of [input.perMinute, input.perHour, input.perDay])
-      if (!Number.isInteger(v) || v < 0) throw new Error("budgets are non-negative integers (0 stops the service)");
+      if (!Number.isInteger(v) || v < 0) throw invalidInput("budgets are non-negative integers (0 stops the service)");
     const [before] = await tx`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
     const [after] = await tx`
     INSERT INTO budgets (service, per_minute, per_hour, per_day, note) VALUES (${service}, ${input.perMinute}, ${input.perHour}, ${input.perDay}, ${input.reason})
