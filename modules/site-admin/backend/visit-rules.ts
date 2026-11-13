@@ -47,7 +47,14 @@ const STATIC = new Set([
  * kept as its "path" (a content page, so the admin can list the most read ones); otherwise path is the route itself.
  * Order matters: the first match wins.
  */
-const DYNAMIC: ReadonlyArray<{ route: string; pattern: RegExp; keep: boolean }> = [
+/**
+ * The countries with a page (TASK-0634), the same list as apps/web/app/features/region/home-country.ts HOME_COUNTRIES
+ * (a test keeps the two equal). Any other code is the not-found page and is not counted.
+ */
+export const COUNTRY_PAGES: readonly string[] = ["CN", "AR"];
+
+const DYNAMIC: ReadonlyArray<{ route: string; pattern: RegExp; keep: boolean; valid?: (segment: string) => boolean }> = [
+  { route: "/country/:code", pattern: /^\/country\/([^/]+)$/, keep: true, valid: (code) => COUNTRY_PAGES.includes(code) },
   { route: "/items/:id/original", pattern: /^\/items\/([^/]+)\/original$/, keep: false },
   { route: "/items/:id", pattern: /^\/items\/([^/]+)$/, keep: true },
   { route: "/story/:id", pattern: /^\/story\/([^/]+)$/, keep: true },
@@ -89,10 +96,10 @@ export function readerPage(raw: string): VisitPage | null {
   }
   if (/^\/(?:admin|api)(?:\/|$)/i.test(pathname) || /\.[^/]*$/.test(pathname)) return null;
   if (STATIC.has(pathname)) return { route: pathname, path: pathname, english };
-  for (const { route, pattern, keep } of DYNAMIC) {
+  for (const { route, pattern, keep, valid } of DYNAMIC) {
     const match = pattern.exec(pathname);
     if (!match) continue;
-    if (!SEGMENT.test(match[1]!)) return null;
+    if (!SEGMENT.test(match[1]!) || (valid && !valid(match[1]!))) return null;
     return { route, path: keep ? pathname : route, english };
   }
   return null;
