@@ -1,15 +1,20 @@
-// The hot list's window (TASK-0599, Owner 2026-11-08): 48 hours, but 72 on Beijing Saturday, Sunday and Monday,
-// when overseas mining media publish little and a 48-hour window leaves the list nearly empty.
+// The hot list's window (TASK-0642, Owner 2026-11-13): 72 hours every day, and every qualified event listed.
+// Until then the window was 48 hours, 72 only on Beijing Saturday to Monday (TASK-0599), and the list stopped at 10.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { hotWindowHours } from "../packages/backend/src/events/hot.ts";
+import { HOT_MAX_ENTRIES, HOT_RULE_VERSION, hotWindowHours } from "../packages/backend/src/events/hot.ts";
 
-test("the hot window is 72 hours on Beijing Saturday, Sunday and Monday, else 48", () => {
-  // 2026-11-06 is a Friday. Times are UTC; Beijing is UTC+8.
-  assert.equal(hotWindowHours(new Date("2026-11-06T15:59:00Z")), 48, "Friday 23:59 Beijing");
-  assert.equal(hotWindowHours(new Date("2026-11-06T16:00:00Z")), 72, "Saturday 00:00 Beijing");
-  assert.equal(hotWindowHours(new Date("2026-11-08T12:00:00Z")), 72, "Sunday 20:00 Beijing");
-  assert.equal(hotWindowHours(new Date("2026-11-09T15:59:00Z")), 72, "Monday 23:59 Beijing");
-  assert.equal(hotWindowHours(new Date("2026-11-09T16:00:00Z")), 48, "Tuesday 00:00 Beijing");
-  assert.equal(hotWindowHours(new Date("2026-11-11T04:00:00Z")), 48, "Wednesday noon Beijing");
+test("the hot window is 72 hours on every day of the week", () => {
+  // 2026-11-09 is a Monday. Times are UTC; Beijing is UTC+8.
+  for (let day = 0; day < 7; day++) {
+    for (const hour of [0, 4, 15, 16, 23]) {
+      const at = new Date(Date.UTC(2026, 10, 9 + day, hour, 30));
+      assert.equal(hotWindowHours(at), 72, at.toISOString());
+    }
+  }
+});
+
+test("the rule version names the 72-hour window and the uncapped list", () => {
+  assert.equal(HOT_RULE_VERSION, "heat-v4-72h-halflife24h-all");
+  assert.ok(HOT_MAX_ENTRIES >= 50, "the list is bounded only against runaway data");
 });

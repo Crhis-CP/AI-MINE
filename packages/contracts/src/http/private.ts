@@ -40,6 +40,8 @@ export { LaneControl, LaneControlsResponse, LaneControlActionRequest } from "./r
 export { MonthlyUsageReport, MonthlyUsageEntry, MonthlyUsageList, UsageMonth, UsageTotals } from "./usage-monthly.ts";
 import { usageMonthlySchemas, usageMonthlyRoutes } from "./usage-monthly.ts";
 import { visitSchemas, visitRoutes } from "./visits.ts";
+import { policyAdminSchemas, policyAdminRoutes } from "./policy-admin.ts";
+export { AdminPolicyDocument, AdminPolicyList, AdminPolicyQuery, AdminPolicyPublicationChange } from "./policy-admin.ts";
 export { VisitOverview, VisitDevice, ReaderInterest } from "./visits.ts";
 import { z } from "zod";
 import { AdminNavigationCounts, AdminModuleRuns } from "./module-outputs.ts";
@@ -227,6 +229,7 @@ export const schemas = {
   ...sourceCoverageSchemas,
   ...sourceTargetsSchemas,
   ...siteInformationPrivateSchemas,
+  ...policyAdminSchemas,
   ...selectionCalibrationSchemas,
 
   ...accountSchemas,
@@ -269,6 +272,7 @@ export const routes = {
   ...sourceCoverageRoutes,
   ...sourceTargetsRoutes,
   ...siteInformationPrivateRoutes,
+  ...policyAdminRoutes,
   ...selectionCalibrationRoutes,
 
   ...accountRoutes,

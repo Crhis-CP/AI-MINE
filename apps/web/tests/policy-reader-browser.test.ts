@@ -265,7 +265,8 @@ test("new policy date kinds keep date meaning labels before dedicated labels shi
     );
     for (const prefix of ["", "/en"]) {
       await page.goto(`${origin}${prefix}/policies/${document.id}`);
-      const rows = page.locator("#legal li");
+      // The dated records sit in the 时间 section of the review page (TASK-0657), one row each.
+      const rows = page.locator("#legal [data-pr-record]");
       await expect(rows).toHaveCount(kinds.length);
       for (const row of await rows.all()) await expect(row).toContainText(prefix ? "Source published" : "来源发布");
     }

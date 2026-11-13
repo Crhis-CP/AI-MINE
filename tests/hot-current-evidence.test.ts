@@ -13,15 +13,16 @@ after(async () => {
   await closeDb();
 });
 const now = new Date("2026-10-16T01:00:00Z");
-async function fixture() {
-  const [story] = await sql`INSERT INTO stories(public_id,title,first_report_at,latest_at) VALUES(${randomUUID()},'合成矿山扩建',${now},${now}) RETURNING id`;
+// `base` is the fixture's clock: the fixed test time, or the real time for exits that validate against the present.
+async function fixture(base = now) {
+  const [story] = await sql`INSERT INTO stories(public_id,title,first_report_at,latest_at) VALUES(${randomUUID()},'合成矿山扩建',${base},${base}) RETURNING id`;
   const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${randomUUID()},${story!.id},'合成扩建获批') RETURNING id`;
   const ids = [];
   for (let i = 0; i < 2; i++) {
     const source = randomUUID(),
-      at = new Date(now.getTime() - 3600000),
+      at = new Date(base.getTime() - 3600000),
       url = `https://example.invalid/${source}`;
-    await sql`INSERT INTO sources(id,name,kind,tier,participation_mode,created_at,last_ok_at) VALUES(${source},${`合成来源${i}`},'rss','T2','editorial','2020-01-01',${now})`;
+    await sql`INSERT INTO sources(id,name,kind,tier,participation_mode,created_at,last_ok_at) VALUES(${source},${`合成来源${i}`},'rss','T2','editorial','2020-01-01',${base})`;
     const { articleId } = await upsertMaterial({
       sourceId: source,
       url,
@@ -82,9 +83,10 @@ async function addReport(storyId: number, factId: number, hoursAgo: number, tier
   await sql`INSERT INTO story_signals(story_id,article_id,participant_key,source_id,kind,observed_at) VALUES(${storyId},${articleId},${`source:${source}`},${source},'editorial',${at})`;
   return articleId;
 }
-test("trend comparison includes attention 48 to 54 hours ago instead of incorrectly calling the event new", async () => {
+// The window is 72 hours every day (TASK-0642); the comparison six hours earlier reaches 72 to 78 hours back.
+test("trend comparison includes attention 72 to 78 hours ago instead of incorrectly calling the event new", async () => {
   const f = await fixture();
-  await addReport(f.storyId, f.factId, 50);
+  await addReport(f.storyId, f.factId, 74);
   const row = await ranking(f.storyId);
   assert.equal(row!.participantCount, 2);
   assert.equal(row!.trend, "up");
@@ -96,6 +98,33 @@ test("a single authoritative follow-up cannot replace the most widely reported f
   const row = await ranking(f.storyId);
   assert.notEqual(row!.representativeItemId, one);
   assert.ok(f.ids.some((item) => item.articleId === row!.representativeItemId));
+});
+
+// TASK-0642: the page lists every qualified event; the public API and MCP keep the top ten. The public exits check a
+// ranking against the present, so this case runs on the real clock, where the fixed-date fixtures above are out of window.
+test("eleven qualified events: the page shows all eleven, the machine exit stops at ten", async () => {
+  const { loadHot, v1HotTopics, V1_HOT_LIMIT } = await import("@amp/backend/publication/stories");
+  const real = new Date();
+  const made = [];
+  for (let i = 0; i < 11; i++) made.push((await fixture(real)).storyId);
+  await computeHotRanking(real);
+  const identities = await sql`SELECT public_id::text AS id FROM stories WHERE id = ANY(${made})`;
+  const page = await loadHot();
+  assert.deepEqual(
+    page.entries.map((entry) => entry.story.publicId).sort(),
+    identities.map((row) => row.id as string).sort(),
+    "none of the eleven is cut from the page",
+  );
+  assert.deepEqual(
+    page.entries.map((entry) => entry.rank),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    "ranks run on past ten",
+  );
+  assert.equal(page.windowHours, 72);
+  const v1 = await v1HotTopics();
+  assert.equal(V1_HOT_LIMIT, 10);
+  assert.equal(v1.items.length, 10);
+  assert.equal(v1.count, 10);
 });
 
 test("event details share the published participation snapshot and a withdrawn member invalidates the old board immediately", async () => {

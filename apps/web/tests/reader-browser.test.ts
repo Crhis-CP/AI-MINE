@@ -23,6 +23,7 @@ let deepTimeline = false;
 let deepPool = false;
 let historicalBackground = true;
 let readerWithdrawalVersion = "1";
+let delayNextVersionBody = false;
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
 // How the availability API reports the withdrawn fixture: gone, or moved to "summary only" (no longer listed).
@@ -271,7 +272,17 @@ const api = createServer((req, res) => {
     return answer({
       releases: changelogVersion ? [{ date: changelogVersion.slice(0, 10), time: "12:30", kind: "优化", title: "合成阅读更新", body: ["改进阅读体验。"] }] : [],
     });
-  if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion });
+  if (url.pathname === "/api/site/content-version") {
+    const value = { version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion };
+    if (delayNextVersionBody) {
+      delayNextVersionBody = false;
+      res.writeHead(200);
+      res.write('{"version":');
+      setTimeout(() => res.end(JSON.stringify(value.version) + ',"withdrawalVersion":' + JSON.stringify(value.withdrawalVersion) + "}"), 500);
+      return;
+    }
+    return answer(value);
+  }
   if (url.pathname === "/api/site/items/availability")
     return answer(
       Object.fromEntries(
@@ -541,13 +552,33 @@ async function openQualifiedReader(page: Page, path = "/all", expectedVersion = 
   }
 }
 
-async function checkVersionOnFocus(page: Page, withdrawalVersion: string) {
-  const checked = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
-  phase = "focus version response";
-  await page.bringToFront();
-  await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  assert.deepEqual(await (await checked).json(), { version: "2", withdrawalVersion });
+async function checkVersionOnFocus(page: Page, withdrawalVersion: string, expectedVersion = "2") {
+  const versionUrl = `${origin}/api/site/content-version`;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const holdVersion = async (route: Route) => {
+    await gate;
+    await route.continue();
+  };
+  await page.route(versionUrl, holdVersion, { times: 1 });
+  const checked = page.waitForResponse((response) => response.url() === versionUrl);
+  void checked.catch(() => {});
+  try {
+    phase = "focus version: checking";
+    await page.bringToFront();
+    await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
+    release();
+    phase = "focus version: completed";
+    assert.deepEqual(await (await checked).json(), { version: expectedVersion, withdrawalVersion });
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+  } finally {
+    release();
+    await page.unroute(versionUrl, holdVersion);
+  }
 }
 
 test("mobile controls, content refresh, saved withdrawal and system theme work in the production build", { timeout: 60000 }, async (t) => {
@@ -741,6 +772,7 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, locale: "zh-CN" });
   t.after(async () => {
     readerWithdrawalVersion = "1";
+    delayNextVersionBody = false;
     t.diagnostic(`last reader phase: ${phase}`);
     await context.close();
   });
@@ -753,10 +785,8 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   });
   // Another article was withdrawn or a report regrouped: the counter moves, nothing on this page is affected.
   readerWithdrawalVersion = "2";
-  const checked = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
   const asked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/items/availability");
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  assert.deepEqual(await (await checked).json(), { version: "1", withdrawalVersion: "2" });
+  await checkVersionOnFocus(page, "2", "1");
   assert.ok(new URL((await asked).url()).searchParams.get("ids")?.split(",").includes("fixture-a"), "the page asks about the cards it shows");
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
@@ -765,17 +795,15 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   await expect(page.getByText("正在更新当前页面", { exact: false })).toHaveCount(0);
   assert.equal(reloads, 0, "nothing on this page changed, so it is not read again");
   // A later check with no change keeps it that way.
-  const again = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await again;
+  // Headers can arrive while JSON is still streaming; a new focus must wait for the current check to finish.
+  delayNextVersionBody = true;
+  await checkVersionOnFocus(page, "2", "1");
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
   assert.equal(reloads, 0);
   // News arriving together with another unrelated change still shows up: at the top of a live list, at once.
   added = true;
   readerWithdrawalVersion = "3";
-  const both = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  assert.deepEqual(await (await both).json(), { version: "2", withdrawalVersion: "3" });
+  await checkVersionOnFocus(page, "3");
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
   await expect(page.getByText("已撤回", { exact: false })).toHaveCount(0);

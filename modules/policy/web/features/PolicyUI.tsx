@@ -226,20 +226,6 @@ export function PolicyCardList({ items }: { items: PolicyCard[] }) {
   );
 }
 
-export function EvidenceLinks({ ids }: { ids: string[] }) {
-  const tr = useTr();
-  // Nothing at all without evidence: an empty inline box after a paragraph adds a blank line.
-  if (!ids.length) return null;
-  return (
-    <span className="ml-1 inline-flex flex-wrap gap-1">
-      {ids.map((id) => (
-        <a key={id} href={`#evidence-${id}`} className="text-[11px] text-accent underline" aria-label={tr("查看证据 {id}", { id })}>
-          {tr("证据")}
-        </a>
-      ))}
-    </span>
-  );
-}
 export function Section({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
   return (
     <section id={id} className="mt-7 scroll-mt-20 border-t border-line pt-5">
@@ -279,52 +265,6 @@ export function PolicyError() {
             ? tr("请从当前列表重新浏览，避免混用不同版本。")
             : tr("可以重新读取，或返回法规政策动态列表。")}
       </EmptyState>
-    </div>
-  );
-}
-
-const LIFECYCLE = [
-  { key: "proposed", label: "拟议" },
-  { key: "consultation", label: "征求意见" },
-  { key: "adopted", label: "已通过" },
-  { key: "published", label: "已公布" },
-  { key: "in_force", label: "施行" },
-] as const;
-
-/**
- * The document's lifecycle as survey points (direction C, DEC-78): only the stage the record states is
- * marked; the other points are not claimed to have happened (a document may skip consultation). A record that
- * states no stage shows no line at all: five empty points would only say “unknown” five times. Repeal is shown
- * beside the line. The dimensions table below holds the evidence.
- */
-export function PolicyLifecycle({ brief }: { brief: Policy["legal_brief"] }) {
-  const tr = useTr();
-  const inForce = brief.in_force === "yes" || brief.in_force === "partial";
-  const current = inForce ? "in_force" : brief.stage;
-  if (current === "unknown") return null;
-  return (
-    <div className="mb-4">
-      <ol className="flex items-start" aria-label={tr("文件生命周期")}>
-        {LIFECYCLE.map((point, i) => {
-          const on = point.key === current;
-          return (
-            <li key={point.key} className="relative flex flex-1 flex-col items-center text-center" aria-current={on ? "step" : undefined}>
-              {i > 0 && <span aria-hidden="true" className="absolute right-1/2 top-[9px] h-px w-full bg-line-strong" />}
-              <svg viewBox="0 0 20 18" className={`relative size-5 ${on ? "text-accent" : "text-ink-4"}`} aria-hidden="true" focusable="false">
-                <path d="M10 2 L18 16 H2 Z" className={on ? "fill-current" : "fill-surface stroke-current"} strokeWidth={1.4} strokeLinejoin="round" />
-                <circle cx="10" cy="11.5" r="1.6" className={on ? "fill-surface" : "fill-current"} />
-              </svg>
-              <span className={`mt-1 text-[12.5px] ${on ? "font-semibold text-ink" : "text-ink-4"}`}>
-                {point.key === "in_force" && brief.in_force === "partial" ? tr("部分施行") : tr(point.label)}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      <p className="mt-2 text-[12.5px] text-ink-4">
-        {tr("只标出原文确认的当前阶段；")}
-        {brief.repeal === "repealed" ? tr("本文件已废止。") : brief.repeal === "partly_repealed" ? tr("本文件部分废止。") : tr("依据见下表。")}
-      </p>
     </div>
   );
 }
