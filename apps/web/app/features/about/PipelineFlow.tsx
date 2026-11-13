@@ -205,7 +205,7 @@ function stagesOf(stats: SiteStats | null, tr: Tr): Stage[] {
                   : o.name === "日报"
                     ? tr("每天北京时间 {time} 出刊，另有周报、月报", { time: EDITION_TIMES.daily })
                     : o.name === "热点榜"
-                      ? tr("48 小时内多家来源都在报道的前 10 件")
+                      ? tr("72 小时内多家来源都在报道的事件")
                       : o.name === "全部"
                         ? tr("收录的全部动态，可按国家、类别筛选")
                         : tr("各国法规政策的新变化")}

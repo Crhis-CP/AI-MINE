@@ -347,7 +347,7 @@ export const PHRASES = {
   "首页先给你看所在国家的最新消息，也可以换成别的国家。": "The home page first shows the latest from your country, and you can switch to another.",
   "过了精选线的事件，附推荐理由": "Events above the pick line, with the reason they were picked",
   "每天北京时间 {time} 出刊，另有周报、月报": "Out every day at {time} Beijing time, plus weekly and monthly reports",
-  "48 小时内多家来源都在报道的前 10 件": "The top 10 events several sources reported in the last 48 hours",
+  "72 小时内多家来源都在报道的事件": "Events several sources reported in the last 72 hours",
   "收录的全部动态，可按国家、类别筛选": "Everything collected, filterable by country and category",
   各国法规政策的新变化: "New changes in laws and policies worldwide",
   "{count} 个资讯来源": "{count} news sources",
