@@ -74,10 +74,14 @@ function MoreMenu() {
   const t = useT();
   const tr = useTr();
   const { pathname, search } = useLocation();
+  const previousLocation = useRef({ pathname, search });
   const active = REST.some((section) => section.items.some((item) => tabIsActive(item, pathname)));
-  // biome-ignore lint/correctness/useExhaustiveDependencies: close whenever the location changes.
+  // Preserve a native open state across hydration; close it on later location changes.
   useEffect(() => {
-    if (ref.current) ref.current.open = false;
+    if (previousLocation.current.pathname !== pathname || previousLocation.current.search !== search) {
+      if (ref.current) ref.current.open = false;
+      previousLocation.current = { pathname, search };
+    }
   }, [pathname, search]);
   useEffect(() => {
     const close = (event: Event) => {

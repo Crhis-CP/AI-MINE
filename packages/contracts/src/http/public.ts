@@ -444,6 +444,16 @@ export const MetalPrices = z
                   })
                   .nullable()
                   .optional(),
+                /**
+                 * Earlier periods of the same quote, oldest first, the current one last (TASK-0627: a trend line under
+                 * the price). Same unit and currency as `value` (converted the same way where the quote is converted);
+                 * one point per published period, never interpolated. Absent: fewer than two comparable periods.
+                 */
+                history: z
+                  .array(z.strictObject({ period: pricePeriod, value: priceValue }))
+                  .min(2)
+                  .max(400)
+                  .optional(),
               }),
             )
             .min(1),
