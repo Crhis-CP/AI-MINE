@@ -9,6 +9,7 @@ import { useSearchParams } from "react-router";
 import { type NewsMapWindow, SiteNewsMap } from "@amp/contracts/http/public";
 import dotsUrl from "@amp/industry/brand/world-dots.svg?url&no-inline";
 import frame from "@amp/industry/brand/world-dots.json";
+import { WORLD_POINTS as POINTS } from "./world-points";
 import { PillTabs } from "../../components/ui/Tabs";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
 import { useNavigate } from "../../i18n/navigation";
@@ -17,46 +18,6 @@ import { hrefWith } from "./Filters";
 import { beijingDate } from "@amp/contracts/time";
 import { fmt, useT } from "../../i18n";
 import { useRegionName } from "./jurisdictions";
-
-/**
- * A point inside each covered country (longitude, latitude), chosen on land and away from borders so
- * the circle reads as that country. Countries missing here are listed by the filter but not drawn.
- */
-const POINTS: Record<string, readonly [number, number]> = {
-  CN: [104, 34.5],
-  US: [-99, 39],
-  CA: [-104, 57],
-  AU: [134, -25],
-  AR: [-65, -34],
-  CL: [-70.6, -27],
-  PE: [-75, -9.5],
-  BO: [-64.5, -17],
-  EC: [-78.4, -1.6],
-  CO: [-73.5, 4],
-  VE: [-66, 7],
-  GY: [-58.9, 5],
-  SR: [-55.9, 4.1],
-  GH: [-1.2, 7.9],
-  ML: [-2, 17],
-  CD: [23.5, -3],
-  ZM: [27.8, -13.5],
-  ZW: [29.8, -19],
-  MZ: [35.3, -17.5],
-  TZ: [34.8, -6.3],
-  ZA: [24.5, -29.5],
-  GB: [-1.8, 52.8],
-  CH: [8.2, 46.8],
-  RS: [20.8, 44],
-  RU: [96, 62],
-  KZ: [67, 48],
-  UZ: [63.5, 41.4],
-  KG: [74.6, 41.4],
-  TJ: [71, 38.8],
-  MN: [103.5, 46.8],
-  IR: [54, 32.5],
-  ID: [113.5, -1.5],
-  SG: [103.82, 1.35],
-};
 
 const project = ([lon, lat]: readonly [number, number]) => [lon - frame.west, frame.north - lat] as const;
 

@@ -184,6 +184,10 @@ const DEMO_COUNTRY_TITLES: Record<string, [string, string][]> = {
     ["演示：胡胡伊省锂矿企业与社区签署用水协议", "演示企业公告"],
     ["演示：门多萨省议会审议新一批勘探项目", "演示地方媒体"],
   ],
+  "CN-XJ": [
+    ["演示：新疆公布一批金属矿探矿权挂牌出让", "演示自治区厅公告"],
+    ["演示：阿勒泰某铜镍矿扩建项目环评公示", "演示地方公示"],
+  ],
   CN: [
     ["演示：自然资源部公布新一批矿业权出让公告", "演示部委网站"],
     ["演示：某铜业公司披露三季度产量与检修安排", "演示交易所公告"],
@@ -265,15 +269,27 @@ const DEMO_COUNTRY_COUNTS: Array<[string, string, number]> = [
   ["GH", "加纳", 2],
   ["SG", "新加坡", 1],
 ];
-export const demoJurisdictions = DEMO_COUNTRY_COUNTS.map(([code, label, news_count]) => ({
-  code,
-  label,
-  kind: "country" as const,
-  news_scope: true,
-  policy_scope: true,
-  news_count,
-  policy_count: 0,
-}));
+export const demoJurisdictions = [
+  ...DEMO_COUNTRY_COUNTS.map(([code, label, news_count]) => ({
+    code,
+    label,
+    kind: "country" as const,
+    news_scope: true,
+    policy_scope: true,
+    news_count,
+    policy_count: 0,
+  })),
+  {
+    code: "CN-XJ",
+    label: "新疆维吾尔自治区",
+    kind: "subdivision" as const,
+    parent: "CN",
+    news_scope: true,
+    policy_scope: false,
+    news_count: 6,
+    policy_count: 0,
+  },
+];
 
 /** Synthetic news map per window (演示数据): the last window beside the one before it. */
 export function demoNewsMap(window: "1d" | "7d" | "30d", now = new Date()) {

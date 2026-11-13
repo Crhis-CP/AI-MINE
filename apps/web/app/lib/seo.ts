@@ -52,6 +52,7 @@ export interface PageMetaInput {
   /** Use `title` verbatim as the document title (no " · <site>" suffix). */
   rawTitle?: boolean;
   description?: string | null;
+  /** The same description in English, for fixed pages whose wording is not in the phrase book (TASK-0619). */
   descriptionEn?: string | null;
   path: string;
   image?: string | null;

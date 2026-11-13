@@ -16,6 +16,9 @@ let browser: Browser,
   web: ChildProcess,
   origin = "";
 const asked: string[] = [];
+/** Items taken down by an operator: no longer listed and answered as unavailable (TASK-0637 review). */
+const withdrawn = new Set<string>();
+let withdrawals = 1;
 const now = new Date().toISOString();
 const card = (id: string, title: string) => ({
   id,
@@ -40,7 +43,8 @@ const place = (code: string, label: string, news: number) => ({
   news_count: news,
   policy_count: 0,
 });
-const LOCAL: Record<string, number> = { AR: 7, CN: 3 };
+const province = (code: string, label: string, news: number) => ({ ...place(code, label, news), kind: "subdivision", parent: "CN" });
+const LOCAL: Record<string, number> = { AR: 7, CN: 3, "CN-XJ": 2 };
 
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
@@ -51,10 +55,18 @@ const api = createServer((req, res) => {
   };
   const country = url.searchParams.get("jurisdiction");
   if (url.pathname === "/api/site/meta") return send({ changelogVersion: null });
-  if (url.pathname === "/api/site/content-version") return send({ version: "1", withdrawalVersion: "1" });
-  if (url.pathname === "/api/site/items/availability") return send({});
+  if (url.pathname === "/api/site/content-version") return send({ version: "1", withdrawalVersion: String(withdrawals) });
+  if (url.pathname === "/api/site/items/availability")
+    return send(Object.fromEntries((url.searchParams.get("ids") ?? "").split(",").map((id) => [id, withdrawn.has(id) ? "unavailable" : "public"])));
   if (url.pathname === "/api/site/jurisdictions")
-    return send([place("AR", "阿根廷", 40), place("CN", "中国", 90), place("CL", "智利", 55), place("JP", "日本", 0)]);
+    return send([
+      place("AR", "阿根廷", 40),
+      place("CN", "中国", 90),
+      place("CL", "智利", 55),
+      place("JP", "日本", 0),
+      province("CN-XJ", "新疆维吾尔自治区", 8),
+      province("CN-YN", "云南省", 0),
+    ]);
   if (url.pathname === "/api/site/news-map")
     return send({
       window: url.searchParams.get("window") ?? "7d",
@@ -80,7 +92,7 @@ const api = createServer((req, res) => {
     const n = LOCAL[country ?? ""] ?? 0;
     return send({
       filters: { channel: "all", category: null, tag: null, topic: null, jurisdiction: country, q: null, tab: "time" },
-      items: Array.from({ length: n }, (_, i) => card(`${country}-${i}`, `${country} 合成动态 ${i + 1}`)),
+      items: Array.from({ length: n }, (_, i) => card(`${country}-${i}`, `${country} 合成动态 ${i + 1}`)).filter((item) => !withdrawn.has(item.id)),
       hot: [],
       facets: { sources: [], minerals: [] },
       page: 1,
@@ -223,6 +235,63 @@ test("a launch country with nothing collected yet says so and leaves the worldwi
     await context.close();
   } finally {
     LOCAL.CN = 3;
+  }
+});
+
+test("a reader in China can put a province first: its items lead, the country's fill the rest, and the choice is kept", async () => {
+  const { context, page } = await open("Asia/Shanghai");
+  const block = page.locator("[data-home-country='CN']");
+  await expect(block.getByRole("listitem")).toHaveCount(3);
+  // Only provinces that have items are offered.
+  assert.deepEqual(await page.getByLabel("优先看哪个省份").locator("option").allTextContents(), ["全国（不指定省份）", "新疆维吾尔自治区"]);
+  await page.getByLabel("优先看哪个省份").selectOption("CN-XJ");
+  await expect(block.getByRole("listitem")).toHaveCount(5);
+  assert.deepEqual(
+    await block
+      .getByRole("listitem")
+      .allTextContents()
+      .then((rows) => rows.map((row) => row.startsWith("本省"))),
+    [true, true, false, false, false],
+  );
+  await expect(block.getByRole("listitem").first()).toContainText("CN-XJ 合成动态 1");
+  assert.match((await block.getByRole("link", { name: /看新疆维吾尔自治区全部动态/ }).getAttribute("href"))!, /^\/all\?jurisdiction=CN-XJ&from=/);
+  await page.reload();
+  await expect(page.locator("[data-home-country='CN'] [data-near]")).toHaveCount(2);
+  // Another country starts without a province, and coming back finds it again.
+  await page.locator("[data-home-country='CN']").getByRole("button", { name: "换国家 / 地区" }).click();
+  await page.getByLabel("首页先看哪个国家 / 地区").selectOption("AR");
+  await expect(page.locator("[data-home-country='AR']").getByRole("listitem")).toHaveCount(5);
+  await expect(page.getByLabel("优先看哪个省份")).toHaveCount(0); // Argentina's items are not sorted by province yet
+  await expect(page.locator("[data-near]")).toHaveCount(0);
+  await page.locator("[data-home-country='AR']").getByRole("button", { name: "换国家 / 地区" }).click();
+  await page.getByLabel("首页先看哪个国家 / 地区").selectOption("CN");
+  await expect(page.locator("[data-home-country='CN'] [data-near]")).toHaveCount(2);
+  await page.getByLabel("优先看哪个省份").selectOption("");
+  await expect(page.locator("[data-home-country='CN']").getByRole("listitem")).toHaveCount(3);
+  await expect(page.locator("[data-near]")).toHaveCount(0);
+  await context.close();
+});
+
+test("an item taken down while the page is open leaves the country block, even when nothing else on the page went", async () => {
+  const { context, page } = await open("America/Argentina/Buenos_Aires");
+  const block = page.locator("[data-home-country='AR']");
+  await expect(block.getByRole("listitem")).toHaveCount(5);
+  await expect(block.locator("[data-item-id='AR-0']")).toHaveCount(1);
+  withdrawn.add("AR-0");
+  withdrawals += 1;
+  try {
+    // The guard checks on focus; only the country block shows AR-0, the worldwide picks are untouched.
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(block.locator("[data-item-id='AR-0']")).toHaveCount(0, { timeout: 10_000 });
+    await expect(block.getByText("AR 合成动态 1", { exact: true })).toHaveCount(0);
+    // Nothing new is waiting, so the next item fills the gap, as on the other lists.
+    await expect(block.getByRole("listitem")).toHaveCount(5);
+    await expect(block.locator("[data-item-id='AR-5']")).toHaveCount(1);
+    await expect(page.getByText("全球精选合成动态")).toBeVisible();
+  } finally {
+    withdrawn.clear();
+    withdrawals += 1;
+    await context.close();
   }
 });
 

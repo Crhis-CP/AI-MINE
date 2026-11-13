@@ -15,6 +15,21 @@ function rejectionDetail(body: string): { code: string; message: string } {
   };
 }
 
+/**
+ * Whether a provider's refusal, as recorded on an article or a receipt (“deepseek HTTP 402: {...Insufficient
+ * Balance...}”), says the account is out of money or over its paid limit (TASK-0630). Such a refusal is not the
+ * article's fault and ends when the Owner tops up: work waits and goes on by itself, it is never marked failed.
+ * A wrong key or a banned account (401, 403) is not this: topping up does not cure it.
+ */
+const ACCOUNT_OUT =
+  /\bHTTP 402\b|\binsufficient (?:account |credit )?balance\b|\b(?:credit )?balance (?:is )?(?:exhausted|insufficient)\b|账户.*欠费|余额不足|credit_balance_exhausted|CreditLimitExceeded|PrepaidBillOverdue|PostpaidBillOverdue|_spend_limit_exceeded|organization_usage_limit_exceeded/i;
+export function accountOutOfMoney(message: string | null | undefined): boolean {
+  return !!message && ACCOUNT_OUT.test(message);
+}
+/** The same test for SQL (operations and the safety net read stored messages). Keep in step with ACCOUNT_OUT. */
+export const ACCOUNT_OUT_SQL =
+  "(HTTP 402\\M|insufficient (account |credit )?balance|balance (is )?(exhausted|insufficient)|账户.*欠费|余额不足|credit_balance_exhausted|CreditLimitExceeded|PrepaidBillOverdue|PostpaidBillOverdue|_spend_limit_exceeded|organization_usage_limit_exceeded)";
+
 export function providerRejection(service: string, status: number, body: string) {
   const { code, message } = rejectionDetail(body);
   const accountLimit =

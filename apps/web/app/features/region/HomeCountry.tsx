@@ -1,29 +1,40 @@
 // The home page's opening block: the newest items of the reader's country above the worldwide picks (TASK-0633, Owner
 // 2026-11-13: “不同国家的人看到的是一开始不同的……但是也是支持看其他国家”). It is drawn after hydration from the public
 // list APIs, so the page itself stays one page for everyone: the same HTML for every reader, cache and search engine.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { z } from "zod";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
 import { apiFetch } from "../../lib/http.ts";
 import { dateFormatFor } from "../../lib/format";
 import { fmt, useLocale, useT } from "../../i18n";
-import { readMap } from "../feed/WorldMap";
+import { countryNewsPath, readMap } from "../feed/WorldMap";
 import { useJurisdictionChoices, useRegionName } from "../feed/jurisdictions";
-import { type HomeCountry as Choice, HOME_COUNTRIES, WORLD, resolveHomeCountry, writeHomeCountry } from "./home-country";
+import { useReaderItemScope } from "../feed/ContentVersionGuard";
+import { type HomeCountry as Choice, HOME_COUNTRIES, WORLD, readHomeProvince, resolveHomeCountry, writeHomeCountry, writeHomeProvince } from "./home-country";
 
 type Item = z.infer<typeof publicSchemas.ReportGroupedPoolResponse>["items"][number];
-type Local = { code: string; items: Item[]; week: number | null; from: string | null };
+type Local = { code: string; province: string | null; items: Item[]; near: Set<string>; week: number | null; from: string | null };
 /** How many of the country's newest items open the page. */
 export const HOME_COUNTRY_ROWS = 5;
 
-async function readLocal(code: string): Promise<Local> {
+async function readPool(code: string): Promise<Item[]> {
   const response = await apiFetch(`/api/site/pool?jurisdiction=${code}&readingGroups=reports-v1`, { baseUrl: globalThis.location.origin });
-  if (!response.ok) throw new Error("country items unavailable");
-  const pool = publicSchemas.ReportGroupedPoolResponse.parse(await response.json());
+  if (!response.ok) throw new Error("items unavailable");
+  return publicSchemas.ReportGroupedPoolResponse.parse(await response.json()).items;
+}
+
+/**
+ * The province's newest items first, then the country's to fill the rows (Owner 2026-11-13: “优先看省，本省的，再到省外”).
+ * A province read that fails only loses the province's share: the country's items still open the page.
+ */
+async function readLocal(code: string, province: string | null): Promise<Local> {
+  const [country, own] = await Promise.all([readPool(code), province ? readPool(province).catch(() => []) : []]);
+  const near = new Set(own.slice(0, HOME_COUNTRY_ROWS).map((item) => item.id));
+  const items = [...own.slice(0, HOME_COUNTRY_ROWS), ...country.filter((item) => !near.has(item.id))].slice(0, HOME_COUNTRY_ROWS);
   // The week's count is a nicety: without the map the block still shows the items.
   const map = await readMap("7d").catch(() => null);
-  return { code, items: pool.items.slice(0, HOME_COUNTRY_ROWS), week: map?.countries.find((c) => c.code === code)?.count ?? null, from: map?.from ?? null };
+  return { code, province, items, near, week: map?.countries.find((c) => c.code === code)?.count ?? null, from: map?.from ?? null };
 }
 
 export function HomeCountry() {
@@ -32,6 +43,8 @@ export function HomeCountry() {
   const { relativeTime } = dateFormatFor(english);
   const nameOf = useRegionName();
   const { choices } = useJurisdictionChoices();
+  // A withdrawal re-mounts this block (ContentVersionGuard); while new arrivals wait, only the items that were on screen come back.
+  const scope = useRef(useReaderItemScope());
   const [choice, setChoice] = useState<Choice | null>(null);
   const [local, setLocal] = useState<Local | "none" | null>(null);
   const [picking, setPicking] = useState(false);
@@ -44,19 +57,33 @@ export function HomeCountry() {
     };
   }, []);
   const code = choice?.code ?? null;
+  const [province, setProvince] = useState<string | null>(null);
+  // The stored province belongs to one country: another country starts without one.
+  useEffect(() => setProvince(code ? readHomeProvince(code) : null), [code]);
   useEffect(() => {
     if (!code) return setLocal(null);
     let live = true;
     setLocal(null);
-    readLocal(code).then(
-      (found) => live && setLocal(found.items.length ? found : "none"),
+    readLocal(code, province).then(
+      (found) => {
+        if (!live) return;
+        const allowed = scope.current;
+        const items = allowed ? found.items.filter((item) => allowed.has(item.id)) : found.items;
+        setLocal(items.length ? { ...found, items } : "none");
+      },
       () => live && setLocal("none"),
     );
     return () => {
       live = false;
     };
-  }, [code]);
+  }, [code, province]);
 
+  // Provinces the country's items are already sorted into; a country without any offers no second choice.
+  const provinces = (choices ?? []).filter((place) => place.kind === "subdivision" && place.parent === code && place.news_scope && place.news_count > 0);
+  const chooseProvince = (value: string) => {
+    writeHomeProvince(value);
+    setProvince(value || null);
+  };
   const countries = (choices ?? []).filter((place) => HOME_COUNTRIES.includes(place.code) && place.news_scope && place.news_count > 0);
   const choose = (value: string) => {
     writeHomeCountry(value);
@@ -108,13 +135,38 @@ export function HomeCountry() {
           {fmt(t.title, { country: name })}
           {local.week !== null && <span className="ml-2 text-[12.5px] font-normal text-ink-3">{fmt(t.week, { count: local.week })}</span>}
         </h2>
-        <div className="flex items-center gap-3">{change}</div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {provinces.length > 0 && (
+            <select
+              aria-label={t.province}
+              className="rounded-md border border-line bg-surface px-2 py-1 text-[13px] text-ink"
+              value={provinces.some((one) => one.code === province) ? province! : ""}
+              onChange={(event) => chooseProvince(event.target.value)}
+            >
+              <option value="">{t.anyProvince}</option>
+              {provinces
+                .map((one) => ({ code: one.code, name: nameOf(one) }))
+                .sort((a, b) => a.name.localeCompare(b.name, english ? "en" : "zh-Hans-CN"))
+                .map((one) => (
+                  <option key={one.code} value={one.code}>
+                    {one.name}
+                  </option>
+                ))}
+            </select>
+          )}
+          {change}
+        </div>
       </div>
       <ol className="divide-y divide-line-soft">
         {local.items.map((item) => (
-          <li key={item.id}>
+          <li key={item.id} data-item-id={item.id}>
             <Link to={`/items/${item.id}`} className="group flex flex-col gap-0.5 py-2 sm:flex-row sm:items-baseline sm:gap-3">
               <span className="min-w-0 flex-1 text-[14.5px] leading-snug text-ink group-hover:text-accent">
+                {local.near.has(item.id) && (
+                  <span data-near className="mr-1.5 rounded bg-accent-soft px-1.5 py-0.5 align-[1px] text-[11.5px] font-medium text-accent">
+                    {t.near}
+                  </span>
+                )}
                 {(english && item.english?.title) || item.title}
               </span>
               <span className="shrink-0 text-[12px] text-ink-4 sm:whitespace-nowrap">
@@ -125,9 +177,19 @@ export function HomeCountry() {
         ))}
       </ol>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[13px]">
-        <Link to={`/country/${code}`} className="font-medium text-accent hover:underline">
-          {fmt(t.all, { country: name })} →
-        </Link>
+        <span className="flex flex-wrap gap-x-4 gap-y-1">
+          <Link to={`/country/${code}`} className="font-medium text-accent hover:underline">
+            {fmt(t.all, { country: name })} →
+          </Link>
+          {local.province && local.near.size > 0 && (
+            <Link to={countryNewsPath(local.province, local.from ? { from: local.from } : null)} className="font-medium text-accent hover:underline">
+              {fmt(t.all, {
+                country: nameOf(provinces.find((one) => one.code === local.province) ?? { code: local.province, label: local.province, kind: "subdivision" }),
+              })}{" "}
+              →
+            </Link>
+          )}
+        </span>
         {!choice.chosen && <span className="text-[12px] text-ink-4">{t.guessed}</span>}
       </div>
     </section>

@@ -37,6 +37,9 @@ export const zh = {
     "/more": "我的",
   } as Record<string, string>,
   local: {
+    province: "优先看哪个省份",
+    anyProvince: "全国（不指定省份）",
+    near: "本省",
     title: "{country} · 最新动态",
     week: "近 7 天 {count} 条",
     all: "看{country}全部动态",

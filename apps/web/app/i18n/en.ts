@@ -39,6 +39,9 @@ export const en: Dict = {
     "/more": "Me",
   },
   local: {
+    province: "Province to show first",
+    anyProvince: "Whole country (no province)",
+    near: "Your province",
     title: "{country} · Latest",
     week: "{count} in the last 7 days",
     all: "All news for {country}",
