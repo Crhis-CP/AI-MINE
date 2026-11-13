@@ -221,11 +221,17 @@ export function jsonListDocument(text: string, source: SourceRow, observedAt: st
   if (!Array.isArray(items)) throw new FetchError("items path did not resolve to an array");
 
   const out: Candidate[] = [];
-  for (const [index, item] of items.entries()) {
+  let embeddedItems = 0;
+  for (const [index, listed] of items.entries()) {
+    // itemJsonPath: each listed item carries its record as a JSON string (SAIJ's documentAbstract); every other path reads
+    // the parsed record. An item whose string is missing or malformed is skipped, and a page where none parse fails below.
+    const item = c.itemJsonPath ? embeddedItem(listed, c.itemJsonPath) : listed;
+    if (item === undefined) continue;
+    embeddedItems++;
     if (c.requireBoolean && getPath(item, c.requireBoolean.path) !== c.requireBoolean.equals) continue;
     if (c.minNumeric && !(Number(getPath(item, c.minNumeric.path)) >= Number(c.minNumeric.min))) continue;
     if (c.includeValues && !c.includeValues.values.includes(getPath(item, c.includeValues.path))) continue;
-    const title = (c.titleTemplate && renderTemplate(c.titleTemplate, item)) || firstString(item, c.titlePaths);
+    const title = firstTemplate(c.titleTemplate, item) || firstString(item, c.titlePaths);
     const url = (c.urlTemplate && renderTemplate(c.urlTemplate, item)) || (c.urlTemplateFallback && renderTemplate(c.urlTemplateFallback, item));
     if (!title || !url) continue;
     const externalId = c.externalIdPath ? getPath(item, c.externalIdPath) : null;
@@ -237,7 +243,7 @@ export function jsonListDocument(text: string, source: SourceRow, observedAt: st
       source,
       url,
       rawDateAt(item, c.publishedAtPath),
-      `json.items[${index}].${c.publishedAtPath ?? "(unconfigured)"}`,
+      `json.items[${index}].${c.itemJsonPath ? `${c.itemJsonPath}(json).` : ""}${c.publishedAtPath ?? "(unconfigured)"}`,
       {
         observedAt,
         format:
@@ -264,9 +270,31 @@ export function jsonListDocument(text: string, source: SourceRow, observedAt: st
       raw: { externalId: externalId ?? null },
     });
   }
+  if (c.itemJsonPath && items.length > 0 && embeddedItems === 0) throw new FetchError(`no item carried JSON at ${c.itemJsonPath}`);
   if (items.length > 0 && out.length === 0 && !c.requireBoolean && !c.minNumeric && !c.includeValues)
     throw new FetchError("no items mapped (check title/url paths)");
   return { data, items, candidates: out };
+}
+
+/** The record an item holds as a JSON string at `path`, parsed with literal tracking; undefined when absent or not an object. */
+function embeddedItem(item: unknown, path: string): object | undefined {
+  const text = getPath(item, path);
+  if (typeof text !== "string") return undefined;
+  try {
+    const parsed = parseSourceJson(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A title template, or several tried in order: the first whose every value is present (e.g. with a province, then without). */
+function firstTemplate(template: unknown, item: unknown): string | null {
+  for (const candidate of typeof template === "string" ? [template] : Array.isArray(template) ? template : []) {
+    const rendered = typeof candidate === "string" ? renderTemplate(candidate, item) : null;
+    if (rendered) return rendered;
+  }
+  return null;
 }
 
 /** Every column must have the same length; a partial column cannot shift filing dates onto other documents. */

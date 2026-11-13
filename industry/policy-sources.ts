@@ -286,6 +286,31 @@ export const POLICY_PILOT: readonly PolicyPilotSource[] = Object.freeze([
     serverVerify: "node scripts/policy-pilot-discover.ts --source AR-008 --detail 2",
   },
   {
+    // TASK-0603 (Owner 2026-11-09): legislation only, no court rulings or doctrine; checked on 2026-11-10, not CHECKED.
+    sourceId: "AR-P01",
+    group: "ar_national",
+    publisher: "Sistema Argentino de Información Jurídica（SAIJ，阿根廷司法部）· 立法检索",
+    url: "https://www.saij.gob.ar/busqueda",
+    interface: "json_api",
+    identity: "SAIJ 文档 uuid；文书按 种类 + 法域 + 编号 + 日期识别（standard-normativo，如 LEY M 009739 2026 10 21）",
+    cadence: "检索每 6 小时一次（每次 1 个请求，最新 25 件，同主机请求间隔至少 10 秒）；单件页暂不取得",
+    conditionalRequests: false,
+    robots: {
+      checkedAt: "2026-11-10",
+      url: "https://www.saij.gob.ar/robots.txt",
+      result: "allowed",
+      note: "允许 /busqueda、/view-document 与单件页；禁 /convert-html-to-pdf、/descarga-archivo、/*resource/kbee:、/archivo.php、/index.php、/urls、/_pdf。",
+    },
+    license: {
+      archive: "unknown",
+      display: "metadata_link",
+      basis: "收录的法律、法令、决议是官方规范文本；SAIJ 网站使用条款本次未核，先只存标题、日期、法域与官方链接，取得正文前另核。",
+    },
+    state: "needs_server_verification",
+    serverVerify:
+      "node scripts/policy-pilot-discover.ts --source AR-P01（预期 listing_only_no_policyProfile，核对 25 条、日期从新到旧、省名在标题中）；正文在 /view-document JSON，取得阶段接 JSON 正文须另开任务。",
+  },
+  {
     sourceId: null,
     group: "standards",
     publisher: "全国标准信息公共服务平台（矿山安全、生态环境国家标准）",
