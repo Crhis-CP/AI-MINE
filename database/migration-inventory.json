@@ -553,6 +553,10 @@
       "dependsOn": ["sources/202610120500_public_attribution_links.sql"]
     },
     {
+      "name": "publication/202611071300_policy_instrument_gate.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
       "name": "enrichment/202611081000_english_copies.sql",
       "dependsOn": ["enrichment/202610260846_quote_translations.sql"]
     },

@@ -8,6 +8,8 @@ import { SITE } from "@amp/industry/site";
 import type { PolicyMetadataObservation } from "../domain/metadata.ts";
 import type { FulltextRun } from "../domain/fulltext-store.ts";
 import type { Candidate } from "../domain/interpretation-schema.ts";
+import type { InstrumentGateResult } from "../domain/instrument-gate.ts";
+import type { ArLifecycle } from "../domain/ar-lifecycle.ts";
 import type { z } from "zod";
 export type PublicIds = {
   policy: string;
@@ -142,6 +144,125 @@ export function basicPolicy(meta: PolicyMetadataObservation, ids: PublicIds, at:
     evidence: [],
     limitation: "仅展示已核原题、文号与官方入口；不作为完整政策解读。",
     ai_metadata: { provider: SITE.name, content_id: ids.policy },
+  });
+}
+const KIND_LABELS: Record<string, string> = {
+  ley: "Ley（法律）",
+  decreto: "Decreto（法令）",
+  dnu: "Decreto de Necesidad y Urgencia（紧急法令）",
+  decreto_ley: "Decreto-Ley（法令-法律）",
+  decision_administrativa: "Decisión Administrativa（行政决定）",
+  resolucion: "Resolución（决议）",
+  resolucion_conjunta: "Resolución Conjunta（联合决议）",
+  disposicion: "Disposición（处置令）",
+  act: "Act",
+  regulation: "Regulation",
+  rule: "Rule",
+  decree: "Decree",
+  statutory_instrument: "Statutory Instrument",
+  zh_law: "法律",
+  zh_regulation: "法规、规章",
+  zh_order: "令",
+  zh_amendment_decision: "修改或废止决定",
+  zh_normative_notice: "规范性文件",
+};
+/** A program-built date (source text or legal default rule); date only, the text's own words in `raw`. */
+export function ruleDate(meaning: "event" | "signed" | "published" | "formally_published" | "effective", date: string, raw: string, basis: string) {
+  return normalizeSourceTime(
+    { meaning, raw: raw.slice(0, 300), local_date: date, local_time: null, timezone: null, utc: null, precision: "date", basis, condition_text: null },
+    { instantBasis: null, timezoneEvidence: null },
+  );
+}
+export type InstrumentFacts = {
+  gate: InstrumentGateResult;
+  /** Argentine procedure read from the gazette text (AR sources only). */
+  lifecycle: ArLifecycle | null;
+  relationships: Policy["relationships"];
+  evidence: Policy["evidence"];
+  /** The projection's own day (YYYY-MM-DD): a stated entry into force on or before it has occurred; nothing later is claimed. */
+  today: string;
+};
+/**
+ * Basic facts of an instrument that passed the gate: nature, stage “published” and, for Argentina, the procedure dates
+ * and amendment/repeal relations the program read from the official text. Each value says how it was established;
+ * a computed entry into force (CCyC art. 5) is labelled as computed and is never marked as having occurred.
+ */
+export function withInstrumentFacts(basic: Policy, facts: InstrumentFacts): Policy {
+  const { gate, lifecycle } = facts;
+  if (!gate.publishable || !gate.nature) return basic;
+  const kind = KIND_LABELS[gate.kind] ?? gate.kind;
+  const fromText = lifecycle ? "程序从公报原文抽取" : "程序判定";
+  const dates: Policy["dates"] = [...basic.dates];
+  const arrangements: Policy["legal_state"]["enforcement"]["arrangements"] = [];
+  let enforcement: Policy["legal_state"]["enforcement"]["value"] = "unknown";
+  let publicationTime = basic.published_time.local_date ? basic.published_time : null;
+  if (lifecycle) {
+    if (lifecycle.sanction)
+      dates.push({
+        ...ruleDate("event", lifecycle.sanction.date, lifecycle.sanction.raw, "程序从公报原文抽取：立法机关通过（Sancionada）"),
+        event_kind: "adoption",
+        occurrence: "occurred",
+      });
+    if (lifecycle.promulgation)
+      dates.push({
+        ...ruleDate(
+          "signed",
+          lifecycle.promulgation.date,
+          lifecycle.promulgation.raw,
+          lifecycle.promulgation.tacit
+            ? "程序从公报原文抽取：未经明示颁布而依法自动颁布（Promulgada de hecho）"
+            : "程序从公报原文抽取：行政机关颁布（Promulgada）",
+        ),
+        event_kind: "promulgation",
+        occurrence: "occurred",
+      });
+    if (lifecycle.signature && gate.nature !== "law")
+      dates.push({
+        ...ruleDate("signed", lifecycle.signature.date, lifecycle.signature.raw, "程序从公报原文抽取：签发日期（文首地点与日期）"),
+        occurrence: "occurred",
+      });
+    if (lifecycle.publication && !dates.some((d) => d.event_kind === "original_publication")) {
+      const published = ruleDate("formally_published", lifecycle.publication.date, lifecycle.publication.raw, "公报刊登日期（来源单件地址中的公报日期）");
+      dates.push({ ...published, event_kind: "original_publication", occurrence: "occurred" });
+      publicationTime ??= published;
+    }
+    if (lifecycle.vigencia) {
+      const stated = lifecycle.vigencia.basis === "stated";
+      const occurred = stated && lifecycle.vigencia.date <= facts.today;
+      const basis = stated
+        ? "程序从公报原文抽取：原文写明的施行日期"
+        : "原文未写明施行日；按阿根廷《民商法典》第5条一般规则推算（公布后第八日届满，次日起施行），不是原文所写";
+      const time = ruleDate("effective", lifecycle.vigencia.date, lifecycle.vigencia.raw, basis);
+      dates.push({ ...time, event_kind: "entry_into_force", occurrence: occurred ? "occurred" : "planned" });
+      arrangements.push({
+        text: stated ? `原文写明的施行安排：${lifecycle.vigencia.raw}` : "原文未写明施行日；按《民商法典》第5条推算的施行日",
+        time,
+        occurrence: occurred ? "occurred" : stated ? "planned" : "conditional",
+        scope: null,
+        condition: stated ? null : "推算日期：若其他规定或原文另有安排，以官方原文为准",
+        evidence_ids: [],
+      });
+      if (occurred) enforcement = "whole";
+    }
+  }
+  const force = { whole: "yes", partial: "partial", not_in_force: "no", unknown: "unknown" } as const;
+  const brief = { stage: "published", in_force: force[enforcement], repeal: "unknown" } as const;
+  return Policy.parse({
+    ...basic,
+    nature: { code: gate.nature, label: natureLabels[gate.nature] },
+    legal_brief: brief,
+    legal_state: {
+      ...basic.legal_state,
+      nature: { value: gate.nature, basis: `${fromText}：${kind}`, evidence_ids: [] },
+      legislative_stage: { value: "published", basis: `${fromText}：官方来源已正式公布的${kind}`, evidence_ids: [] },
+      publication: { value: "published", basis: `${fromText}：官方来源公布`, evidence_ids: [], time: publicationTime },
+      enforcement: { value: enforcement, basis: lifecycle?.vigencia ? `${fromText}：施行安排` : null, evidence_ids: [], arrangements },
+    },
+    dates,
+    versions: basic.versions.map((version) => ({ ...version, legal_brief: brief })),
+    relationships: facts.relationships,
+    evidence: facts.evidence,
+    limitation: lifecycle ? "仅展示已核原题、文号、官方入口，以及程序从公报原文抽取的程序日期与修改关系；不作为完整政策解读。" : basic.limitation,
   });
 }
 export function policyBackfill(time: Policy["published_time"] | null, discoveredAt: string | null) {

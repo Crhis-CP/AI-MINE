@@ -947,6 +947,7 @@
     "modules/policy/backend/domain/vision-store.ts": "policy",
     "modules/policy/backend/publication/policies-publish.ts": "publication",
     "modules/policy/backend/publication/policy-provisions-project.ts": "publication",
+    "modules/policy/backend/publication/policy-regate.ts": "publication",
     "modules/policy/backend/publication/policy-report-store.ts": "publication",
     "modules/policy/backend/read.ts": "publication",
     "modules/policy/backend/relations.ts": "publication",

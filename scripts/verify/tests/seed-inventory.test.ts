@@ -48,10 +48,11 @@ test("seed evidence requires exact IDs, including equal-count substitutions and 
   assert.equal(seedSourceMismatch([], "[]"), null);
 });
 
-test("current catalogues require 473 news (455 plus 19 added for TASK-0588, less the cnmn duplicate dropped in TASK-0602) plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
+test("current catalogues require 473 news (455 plus 19 added for TASK-0588, less the cnmn duplicate dropped in TASK-0602) plus 82 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition, less RU-002 now reference only for TASK-0576)", () => {
   const ids = industrySourceIds(ROOT);
-  assert.equal(ids.length, 556);
-  assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 83);
+  assert.equal(ids.length, 555);
+  assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 82);
+  assert.ok(!ids.includes("policy-ru-002"), "RU-002's entry is a private aggregator: reference only, never seeded (TASK-0576)");
   assert.equal(new Set(ids).size, ids.length);
 });
 

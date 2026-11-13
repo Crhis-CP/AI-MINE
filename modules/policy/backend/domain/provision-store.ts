@@ -119,6 +119,18 @@ export async function backfillPolicyStructures(options: { apply: boolean; limit?
   return { results, next: rows.length === (options.limit ?? 500) ? rows.at(-1)!.id : null };
 }
 
+/**
+ * The main document's text of one revision from its newest cached extraction (the instrument gate and the rule-based
+ * procedure read it). Never extracts, fetches or calls a model; "" when nothing was extracted (e.g. full text not allowed).
+ */
+export async function readCachedPolicyText(revisionId: string, db: Db = sql): Promise<string> {
+  const [row] = await db<{ result: PolicyExtraction; manifest: { resources: { url: string }[] } }[]>`
+    SELECT x.result,r.manifest FROM policy.document_extractions x JOIN policy.document_revisions r ON r.id=x.revision_id
+    WHERE x.revision_id=${revisionId} ORDER BY (x.recipe=${EXTRACTION_RECIPE}) DESC,x.created_at DESC LIMIT 1`;
+  const mainUrl = row?.manifest.resources[0]?.url;
+  return row && mainUrl ? provisionSourceText(row.result, mainUrl).text : "";
+}
+
 /** Stored provisions of one revision, in document order; null when the revision has not been structured. */
 export async function readPolicyProvisions(revisionId: string, db: Db = sql): Promise<{ structure: PolicyStructure; provisions: Provision[] } | null> {
   const structure = await readStructure(revisionId, db);

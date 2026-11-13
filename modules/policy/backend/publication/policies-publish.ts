@@ -31,7 +31,10 @@ import { audit } from "@amp/backend/admin/auth";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { policyInterpretationQualityRecipe } from "../domain/references.ts";
 import { preparePolicyRelationships, savePolicyRelationships } from "../relations.ts";
-import { basicPolicy, completePolicy, policyCard, readingBlock, type PublicIds } from "./policies-project.ts";
+import { basicPolicy, completePolicy, policyCard, readingBlock, withInstrumentFacts, type PublicIds } from "./policies-project.ts";
+import { classifyInstrument, INSTRUMENT_GATE_REASON_ZH, type InstrumentGateResult } from "../domain/instrument-gate.ts";
+import { argentineLifecycle, type ArLifecycle } from "../domain/ar-lifecycle.ts";
+import { readCachedPolicyText } from "../domain/provision-store.ts";
 import { projectPolicyProvisions } from "./policy-provisions-project.ts";
 
 export async function setPolicyPublicationState(id: string, input: { withdrawn?: boolean; paused?: boolean; reason: string; actor: string }) {
@@ -45,7 +48,11 @@ export async function setPolicyPublicationState(id: string, input: { withdrawn?:
 }
 /** Explicit worker projection. No request path invokes this, no caller-supplied candidate or qualification is trusted. */
 export async function publishPolicyPublication(input: { expressionId: string; fulltextRunId?: string }) {
-  const pending = (reason: "identity" | "permission" | "paused" | "withdrawn" | "stale") => ({ status: "pending" as const, reason });
+  const pending = (reason: "identity" | "permission" | "paused" | "withdrawn" | "stale" | "not_instrument", detail?: string) => ({
+    status: "pending" as const,
+    reason,
+    ...(detail ? { detail } : {}),
+  });
   const meta = await readPolicyMetadataObservation(input.expressionId),
     snapshot = await readPolicyOriginal(input.expressionId),
     native = await policyPublicationIdentity(input.expressionId);
@@ -113,6 +120,19 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     ? sha256(stableJson([native.version_id, snapshot.language, originalHashes]))
     : snapshot.revisionId;
   const processingNotice = await policyProcessingNotice(input.expressionId);
+  // The instrument gate (TASK-0576): only final, mining-related legal instruments get any edition, basic or complete.
+  const officialText = await readCachedPolicyText(snapshot.revisionId);
+  const gate = classifyInstrument({
+    title: meta.originalTitle,
+    number: meta.documentNumber,
+    issuer: meta.authority,
+    excerpt: officialText.slice(0, 8000),
+    documentType: meta.documentType,
+    language: snapshot.language,
+    sourceId: snapshot.sourceId,
+  });
+  const lifecycle = gate.publishable ? argentineFacts(meta, officialText) : null;
+  const excerptAllowed = await allowed("public_excerpt", false);
   const factsKey = {
     title: meta.originalTitle,
     titleZh: meta.titleZh ?? null,
@@ -130,7 +150,9 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
       factsKey,
       fulltext?.status === "program_validated" ? fulltext.accepted : null,
       complete ? candidate : null,
-      "policy-public-2",
+      gate.recipe,
+      lifecycle,
+      "policy-public-3",
     ]),
   );
   const write = async (db: Db) => {
@@ -151,13 +173,18 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
       await db`INSERT INTO publication.policy_ids(kind,internal_id,public_id) VALUES(${kind!},${key!},${policyId}) ON CONFLICT(kind,internal_id) DO NOTHING`;
     await db`INSERT INTO publication.policy_documents(id) VALUES(${policyId}) ON CONFLICT DO NOTHING`;
     const [doc] = await db<
-      { withdrawn: boolean; automatic_excluded: boolean; publishing_paused: boolean; first_public_at: Date | null }[]
-    >`SELECT withdrawn,automatic_excluded,publishing_paused,first_public_at FROM publication.policy_documents WHERE id=${policyId} FOR UPDATE`;
+      { withdrawn: boolean; automatic_excluded: boolean; publishing_paused: boolean; first_public_at: Date | null; instrument_gate_hold: unknown }[]
+    >`SELECT withdrawn,automatic_excluded,publishing_paused,first_public_at,instrument_gate_hold FROM publication.policy_documents WHERE id=${policyId} FOR UPDATE`;
     if (doc!.withdrawn) return pending("withdrawn");
     if (excluded) {
-      await db`UPDATE publication.policy_documents SET automatic_excluded=true,updated_at=now() WHERE id=${policyId}`;
+      // A verified model exclusion takes over from any gate hold, so passing the gate later cannot un-hide it.
+      await db`UPDATE publication.policy_documents SET automatic_excluded=true,instrument_gate_hold=NULL,updated_at=now() WHERE id=${policyId}`;
       return pending("identity");
     }
+    if (!(await applyInstrumentGate(db, policyId, doc!, gate))) return pending("not_instrument", `${INSTRUMENT_GATE_REASON_ZH[gate.reason]}：${gate.detail}`);
+    doc!.automatic_excluded = (
+      await db<{ automatic_excluded: boolean }[]>`SELECT automatic_excluded FROM publication.policy_documents WHERE id=${policyId}`
+    )[0]!.automatic_excluded;
     if (doc!.publishing_paused) return pending("paused");
     if (candidate) await db`UPDATE publication.policy_documents SET automatic_excluded=false WHERE id=${policyId}`;
     else if (doc!.automatic_excluded) return pending("identity");
@@ -292,6 +319,9 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     basic.sections = [];
     basic.relationships = [];
     basic.evidence = [];
+    // Program-read facts of the recognised instrument (no model): nature, stage, Argentine procedure and cited targets.
+    const rule = await ruleRelationships(db, editionId, gate, lifecycle, Policy.parse(basic), snapshot.sourceId, excerptAllowed);
+    Object.assign(basic, withInstrumentFacts(Policy.parse(basic), { gate, lifecycle, ...rule, today: new Date().toISOString().slice(0, 10) }));
     const preferred = ALL_POLICY_SOURCES.find((s) => `policy-${s.id.toLowerCase()}` === snapshot.sourceId)?.language ?? null;
     await db`INSERT INTO publication.policy_editions(id,content_hash,policy_id,native_expression_id,native_revision_id,source_id,permission_version,policy_version_id,source_language,preferred_source_language,
    expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id,discovered_at,original_content_key)
@@ -338,4 +368,113 @@ export async function setPolicyPublicationPaused(input: { expectedVersion: numbe
     await audit(input.actor, "policy.publication", "policy:lane", input.reason, null, input, undefined, tx);
     return Number(row.version);
   });
+}
+
+const GATE_ACTOR = "system:policy-instrument-gate";
+/** What the gate stores on a hidden document: enough to explain and to undo exactly this hold. */
+export function instrumentGateHold(gate: InstrumentGateResult) {
+  return { kind: gate.kind, final: gate.final, mining: gate.mining, reason: gate.reason, detail: gate.detail, recipe: gate.recipe };
+}
+/**
+ * Hold or release one document under the instrument gate inside the caller's transaction. A failing item is hidden
+ * through automatic_excluded with the gate's reason in instrument_gate_hold (audited on every change); a passing item
+ * releases only a hold the gate itself set. A verified model exclusion (automatic_excluded without a gate hold) is left alone.
+ */
+export async function applyInstrumentGate(
+  db: Db,
+  policyId: string,
+  doc: { automatic_excluded: boolean; instrument_gate_hold: unknown },
+  gate: InstrumentGateResult,
+  actor = GATE_ACTOR,
+) {
+  if (gate.publishable) {
+    if (doc.instrument_gate_hold) {
+      await db`UPDATE publication.policy_documents SET automatic_excluded=false,instrument_gate_hold=NULL,updated_at=now() WHERE id=${policyId}`;
+      await audit(
+        actor,
+        "policy.instrument_gate.release",
+        `policy:${policyId}`,
+        INSTRUMENT_GATE_REASON_ZH.instrument,
+        doc.instrument_gate_hold,
+        instrumentGateHold(gate),
+        undefined,
+        db,
+      );
+    }
+    return true;
+  }
+  if (doc.automatic_excluded && !doc.instrument_gate_hold) return false;
+  const hold = instrumentGateHold(gate);
+  if (stableJson(doc.instrument_gate_hold ?? null) !== stableJson(hold)) {
+    await db`UPDATE publication.policy_documents SET automatic_excluded=true,instrument_gate_hold=${db.json(hold)},updated_at=now() WHERE id=${policyId}`;
+    await audit(
+      actor,
+      "policy.instrument_gate.hold",
+      `policy:${policyId}`,
+      `${INSTRUMENT_GATE_REASON_ZH[gate.reason]}：${gate.detail}`,
+      doc.instrument_gate_hold ?? null,
+      hold,
+      undefined,
+      db,
+    );
+  }
+  return false;
+}
+
+type MetadataObservation = NonNullable<Awaited<ReturnType<typeof readPolicyMetadataObservation>>>;
+/** The gazette edition's date of an Argentine item: the source's own parsed date, else the date in a national gazette item address. */
+export function argentinePublicationDate(meta: Pick<MetadataObservation, "publicationDate" | "officialUrl">) {
+  const source = meta.publicationDate;
+  if (source?.origin === "source" && source.interpretation === "parsed" && source.time.local_date && !source.time.condition_text) return source.time.local_date;
+  const fromUrl = meta.officialUrl.match(/^https:\/\/www\.boletinoficial\.gob\.ar\/detalleAviso\/[a-z]+\/\d+\/(\d{4})(\d{2})(\d{2})$/);
+  return fromUrl ? `${fromUrl[1]}-${fromUrl[2]}-${fromUrl[3]}` : null;
+}
+/** Argentine procedure from the gazette text (rules only); other jurisdictions get none here. */
+export function argentineFacts(meta: Pick<MetadataObservation, "jurisdiction" | "publicationDate" | "officialUrl">, text: string): ArLifecycle | null {
+  if (meta.jurisdiction !== "AR") return null;
+  return argentineLifecycle({ text, publicationDate: argentinePublicationDate(meta) });
+}
+
+/** Amendment and repeal targets the text states, as relations with their own quoted evidence; the target is resolved when read. */
+async function ruleRelationships(
+  db: Db,
+  editionId: string,
+  gate: InstrumentGateResult,
+  lifecycle: ArLifecycle | null,
+  basic: Policy,
+  sourceId: string,
+  excerptAllowed: boolean,
+) {
+  const cited: { relation: "updates" | "repeals"; citation: string; quote: string; locator: string }[] = [];
+  for (const target of lifecycle?.targets ?? [])
+    cited.push({
+      relation: target.relation,
+      citation: target.citation,
+      quote: target.quote,
+      locator: target.partial ? "原文修改条款（部分条文）" : "原文修改条款",
+    });
+  if (gate.kind === "zh_amendment_decision" && gate.change)
+    for (const name of new Set(basic.original_title.match(/《[^》]{2,60}》/g) ?? []))
+      cited.push({ relation: gate.change === "repeal" ? "repeals" : "updates", citation: name, quote: basic.original_title, locator: "标题" });
+  const relationships: Policy["relationships"] = [];
+  const evidence: Policy["evidence"] = [];
+  for (const [i, item] of cited.slice(0, 10).entries()) {
+    const id = await policyPublicId("evidence", `${editionId}:rule:${i}`, db);
+    evidence.push({
+      evidence_id: id,
+      source: {
+        source_id: sourceId,
+        publisher: basic.authority,
+        title_original: basic.original_title,
+        original_url: basic.original_url,
+        insecure_transport: basic.original_url.startsWith("http:"),
+        published_time: basic.published_time,
+      },
+      locator: item.locator,
+      excerpt: excerptAllowed ? item.quote.slice(0, 200) : null,
+      relation: "supports",
+    });
+    relationships.push({ relation: item.relation, target_policy_id: null, target_citation: item.citation, evidence_ids: [id] });
+  }
+  return { relationships, evidence };
 }

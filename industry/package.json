@@ -30,6 +30,7 @@
     "./brand/world-dots.svg": "./brand/world-dots.svg",
     "./jurisdictions": "./jurisdictions/index.ts",
     "./policy-sources": "./policy-sources.ts",
+    "./policy-instruments": "./policy-instruments.ts",
     "./mining-taxonomy": "./mining-taxonomy.ts",
     "./source-targets": "./source-targets.ts",
     "./wording": "./wording.ts"

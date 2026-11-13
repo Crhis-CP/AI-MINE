@@ -26,6 +26,7 @@
         "original": "国家法律法规数据库"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://flk.npc.gov.cn/",
@@ -58,6 +59,7 @@
         "original": "国务院政策文件库"
       },
       "type": "policy_documents",
+      "publisher_kind": "government",
       "role": "core",
       "duplicate_of": null,
       "website": "https://sousuo.www.gov.cn/",
@@ -141,6 +143,7 @@
         "original": "自然资源部政府信息公开"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.mnr.gov.cn/",
@@ -189,6 +192,7 @@
         "original": "规章库"
       },
       "type": "related_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.mee.gov.cn/",
@@ -285,6 +289,7 @@
         "original": "行政规范性文件"
       },
       "type": "local_rules",
+      "publisher_kind": "government",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.yn.gov.cn/",
@@ -374,6 +379,7 @@
         "original": "新疆维吾尔自治区人民政府公报"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.xinjiang.gov.cn/",
@@ -422,6 +428,7 @@
         "original": "厅本级政策法规"
       },
       "type": "local_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://zrzyt.xinjiang.gov.cn/",
@@ -506,6 +513,7 @@
         "original": "自治区文件"
       },
       "type": "local_rules",
+      "publisher_kind": "government",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.nmg.gov.cn/",
@@ -538,6 +546,7 @@
         "original": "规范性文件"
       },
       "type": "local_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://bnr.jiangxi.gov.cn/",
@@ -570,6 +579,7 @@
         "original": "政策文件"
       },
       "type": "policy_documents",
+      "publisher_kind": "government",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.cgs.gov.cn/",
@@ -654,6 +664,7 @@
         "original": "Federal Register Document Search"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.federalregister.gov/",
@@ -709,6 +720,7 @@
         "original": "GovInfo Federal Register"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "duplicate",
       "duplicate_of": "US-001",
       "website": "https://www.govinfo.gov/",
@@ -748,6 +760,7 @@
         "original": "Electronic Code of Federal Regulations"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.ecfr.gov/",
@@ -780,6 +793,7 @@
         "original": "Nevada Register of Administrative Regulations"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.leg.state.nv.us/",
@@ -812,6 +826,7 @@
         "original": "Arizona Administrative Register"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://azsos.gov/",
@@ -844,6 +859,7 @@
         "original": "Alaska Mining Statutes and Regulations"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://dnr.alaska.gov/",
@@ -884,6 +900,7 @@
         "original": "GovInfo Public and Private Laws"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.govinfo.gov/",
@@ -924,6 +941,7 @@
         "original": "GovInfo CFR Annual Edition"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.govinfo.gov/",
@@ -956,6 +974,7 @@
         "original": "BLM Instruction Memoranda"
       },
       "type": "policy_documents",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.blm.gov/",
@@ -1054,6 +1073,7 @@
         "original": "Utah Administrative Rules Register"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://rules.utah.gov/",
@@ -1102,6 +1122,7 @@
         "original": "Montana ARM / MAR"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://rules.mt.gov/",
@@ -1134,6 +1155,7 @@
         "original": "Federal Register of Legislation"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.legislation.gov.au/",
@@ -1181,6 +1203,7 @@
         "original": "Publications — Department of Industry, Science and Resources"
       },
       "type": "policy_documents",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.industry.gov.au/",
@@ -1221,6 +1244,7 @@
         "original": "ATO Legal database"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.ato.gov.au/",
@@ -1253,6 +1277,7 @@
         "original": "Western Australian Legislation"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.legislation.wa.gov.au/",
@@ -1296,6 +1321,7 @@
         "original": "Government Gazettes of Western Australia"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.legislation.wa.gov.au/",
@@ -1339,6 +1365,7 @@
         "original": "Queensland Legislation — Notifications"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.legislation.qld.gov.au/",
@@ -1387,6 +1414,7 @@
         "original": "NSW legislation — Notification-Gazette"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://legislation.nsw.gov.au/",
@@ -1431,6 +1459,7 @@
         "original": "NSW Resources — Gazettals current and in force"
       },
       "type": "local_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.resources.nsw.gov.au/",
@@ -1480,6 +1509,7 @@
         "original": "South Australian Legislation — What’s new"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://legislation.sa.gov.au/",
@@ -1512,6 +1542,7 @@
         "original": "Victorian legislation — What’s New"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.legislation.vic.gov.au/",
@@ -1552,6 +1583,7 @@
         "original": "Tasmanian Legislation Online"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.legislation.tas.gov.au/",
@@ -1600,6 +1632,7 @@
         "original": "Northern Territory Legislation"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://legislation.nt.gov.au/",
@@ -1648,6 +1681,7 @@
         "original": "Boletín Oficial — Primera Sección"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.boletinoficial.gob.ar/",
@@ -1737,6 +1771,7 @@
         "original": "Leyes Argentinas / InfoLEG"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "duplicate",
       "duplicate_of": "AR-001",
       "website": "https://www.argentina.gob.ar/",
@@ -1781,6 +1816,7 @@
         "original": "BCRA Buscador de Comunicaciones"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.bcra.gob.ar/",
@@ -1813,6 +1849,7 @@
         "original": "Biblioteca Electrónica ARCA"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://biblioteca.arca.gob.ar/",
@@ -1862,6 +1899,7 @@
         "original": "Boletín Oficial y Judicial de Catamarca"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://portal.catamarca.gob.ar/",
@@ -1894,6 +1932,7 @@
         "original": "Digesto Legislativo Provincial"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://digesto.catamarca.gob.ar/",
@@ -1926,6 +1965,7 @@
         "original": "Boletín Oficial de Salta"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://boletinoficialsalta.gob.ar/",
@@ -2017,6 +2057,7 @@
         "original": "Boletines — Jujuy"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://boletinoficial.jujuy.gob.ar/",
@@ -2161,6 +2202,7 @@
         "original": "Boletín Oficial — San Juan"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://contenido.sanjuan.gov.ar/",
@@ -2204,6 +2246,7 @@
         "original": "Boletín Oficial de Santa Cruz — Legislación"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://boletinoficial.santacruz.gob.ar/",
@@ -2284,6 +2327,7 @@
         "original": "Boletín Oficial Mendoza"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://boletinoficial.mendoza.gov.ar/",
@@ -2334,6 +2378,7 @@
         "original": "Surinaamse Wetten"
       },
       "type": "law_database",
+      "publisher_kind": "legislature",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.dna.sr/",
@@ -2377,6 +2422,7 @@
         "original": "Overzicht goedgekeurde en gepubliceerde wetten"
       },
       "type": "law_database",
+      "publisher_kind": "legislature",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.dna.sr/",
@@ -2420,6 +2466,7 @@
         "original": "Arbeidswetgeving"
       },
       "type": "related_rules",
+      "publisher_kind": "ministry",
       "role": "duplicate",
       "duplicate_of": "SR-001",
       "website": "https://gov.sr/",
@@ -2466,6 +2513,7 @@
         "original": "Sistema Único de Información Normativa"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.suin-juriscol.gov.co/",
@@ -2511,6 +2559,7 @@
         "original": "Diario Oficial — Consulta"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "duplicate",
       "duplicate_of": "CO-001",
       "website": "https://svrpubindc.imprenta.gov.co/",
@@ -2543,6 +2592,7 @@
         "original": "Ministerio de Minas y Energía — Normativa"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "duplicate",
       "duplicate_of": "CO-001",
       "website": "https://www.minenergia.gov.co/",
@@ -2588,6 +2638,7 @@
         "original": "ANM — Resoluciones"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.anm.gov.co/",
@@ -2632,6 +2683,7 @@
         "original": "Official E-Gazette Publications"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://officialegazette.gov.gy/",
@@ -2675,6 +2727,7 @@
         "original": "GGMC Acts and Regulations"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.ggmc.gov.gy/",
@@ -2707,6 +2760,7 @@
         "original": "Laws of Guyana"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.mola.gov.gy/",
@@ -2753,6 +2807,7 @@
         "original": "Acts"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.mincom.gov.gh/",
@@ -2785,6 +2840,7 @@
         "original": "Regulations"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.mincom.gov.gh/",
@@ -2817,6 +2873,7 @@
         "original": "Mining Policy"
       },
       "type": "policy_documents",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.mincom.gov.gh/",
@@ -2859,6 +2916,7 @@
         "original": "Acts"
       },
       "type": "law_database",
+      "publisher_kind": "legislature",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://parliament.gh/",
@@ -2891,6 +2949,7 @@
         "original": "Acts"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://gra.gov.gh/",
@@ -2923,6 +2982,7 @@
         "original": "Press Release — regulatory directives only"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://goldbod.gov.gh/",
@@ -2970,6 +3030,7 @@
         "original": "Notices"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.gov.za/",
@@ -3015,6 +3076,7 @@
         "original": "Provincial Gazettes"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.gpwonline.co.za/",
@@ -3047,6 +3109,7 @@
         "original": "Mine Health and Safety Resources"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.dmpr.gov.za/",
@@ -3092,6 +3155,7 @@
         "original": "Financial Surveillance Documents"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.resbank.co.za/",
@@ -3140,6 +3204,7 @@
         "original": "Acts"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.gov.za/",
@@ -3185,6 +3250,7 @@
         "original": "Journal officiel de la République démocratique du Congo"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.presidence.cd/",
@@ -3217,6 +3283,7 @@
         "original": "Législation"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://cami.cd/",
@@ -3249,6 +3316,7 @@
         "original": "DRC Mining Data Warehouse — Arrêtés"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://miningdatawarehouse.cd/",
@@ -3281,6 +3349,7 @@
         "original": "Règlements"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.bcc.cd/",
@@ -3313,6 +3382,7 @@
         "original": "Acts of Parliament"
       },
       "type": "law_database",
+      "publisher_kind": "legislature",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.parliament.gov.zm/",
@@ -3345,6 +3415,7 @@
         "original": "Downloads"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.mmmd.gov.zm/",
@@ -3377,6 +3448,7 @@
         "original": "Statutory Instruments"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.zema.org.zm/",
@@ -3415,6 +3487,7 @@
         "original": "Regulatory Framework"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.boz.zm/",
@@ -3463,6 +3536,7 @@
         "original": "Эрх зүйн мэдээллийн нэгдсэн систем — Шинээр нэмэгдсэн акт"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://legalinfo.mn/",
@@ -3507,6 +3581,7 @@
         "original": "Аймаг, нийслэлийн ИТХ-ын шийдвэр"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "duplicate",
       "duplicate_of": "MN-001",
       "website": "https://legalinfo.mn/",
@@ -3539,6 +3614,7 @@
         "original": "Сайд, агентлагийн даргын тушаал"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "duplicate",
       "duplicate_of": "MN-001",
       "website": "https://mrpam.gov.mn/",
@@ -3584,6 +3660,7 @@
         "original": "Централизованный банк данных правовой информации"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://cbd.minjust.gov.kg/",
@@ -3634,6 +3711,7 @@
         "original": "Документы"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.mnr.gov.kg/",
@@ -3678,6 +3756,7 @@
         "original": "Нормативно-правовые акты"
       },
       "type": "policy_documents",
+      "publisher_kind": "government",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.gov.kg/",
@@ -3721,6 +3800,7 @@
         "original": "Қонунгузории Ҷумҳурии Тоҷикистон"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "duplicate",
       "duplicate_of": "TJ-002",
       "website": "https://mmk.tj/",
@@ -3753,6 +3833,7 @@
         "original": "Махзани муттамаркази иттилооти ҳуқуқӣ — ADLIA"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://mmih.adlia.tj/",
@@ -3797,6 +3878,7 @@
         "original": "Нормативно правовые акты НБТ"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://nbt.tj/",
@@ -3838,6 +3920,7 @@
         "original": "Информационно-правовая система «Әділет»"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://adilet.zan.kz/",
@@ -3870,6 +3953,7 @@
         "original": "Эталонный контрольный банк нормативных правовых актов Республики Казахстан в электронном виде"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://zan.gov.kz/",
@@ -3902,6 +3986,7 @@
         "original": "Документы"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.gov.kz/",
@@ -3947,6 +4032,7 @@
         "original": "Pravno-informacioni sistem Republike Srbije"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://pravno-informacioni-sistem.rs/",
@@ -3979,6 +4065,7 @@
         "original": "Dokumenta — Sektor za geologiju i rudarstvo (arhiva)"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://arhiva.mre.gov.rs/",
@@ -4011,6 +4098,7 @@
         "original": "Propisi iz oblasti deviznih poslova"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.nbs.rs/",
@@ -4053,6 +4141,7 @@
         "original": "Ministarstvo finansija — Propisi"
       },
       "type": "related_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.mfin.gov.rs/",
@@ -4097,6 +4186,7 @@
         "original": "Diario Oficial — Normas Generales"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.diariooficial.interior.gob.cl/",
@@ -4146,6 +4236,7 @@
         "original": "Ley Chile — Ministerio de Minería"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.bcn.cl/",
@@ -4195,6 +4286,7 @@
         "original": "BCN — Dataset de Normas"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://datos.bcn.cl/",
@@ -4227,6 +4319,7 @@
         "original": "Canada Gazette Publications"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://gazette.gc.ca/",
@@ -4265,6 +4358,7 @@
         "original": "Justice Laws Website"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "duplicate",
       "duplicate_of": "CA-001",
       "website": "https://laws-lois.justice.gc.ca/",
@@ -4310,6 +4404,7 @@
         "original": "BC Laws"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.bclaws.gov.bc.ca/",
@@ -4342,6 +4437,7 @@
         "original": "Mining Act resources"
       },
       "type": "mining_rules",
+      "publisher_kind": "government",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.ontario.ca/",
@@ -4386,6 +4482,7 @@
         "original": "Légis Québec — Loi sur les mines"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.legisquebec.gouv.qc.ca/",
@@ -4418,6 +4515,7 @@
         "original": "BC Gazette Part II"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.bclaws.gov.bc.ca/",
@@ -4450,6 +4548,7 @@
         "original": "Gazette officielle du Québec — Partie 2"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.publicationsduquebec.gouv.qc.ca/",
@@ -4482,6 +4581,7 @@
         "original": "Nunavut Legislation"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.nunavutlegislation.ca/",
@@ -4514,6 +4614,7 @@
         "original": "Yukon Legislation"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://laws.yukon.ca/",
@@ -4546,6 +4647,7 @@
         "original": "El Peruano — Normas Legales"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://diariooficial.elperuano.pe/",
@@ -4596,6 +4698,7 @@
         "original": "MINEM Normas y documentos legales"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.gob.pe/",
@@ -4628,6 +4731,7 @@
         "original": "Gobierno Regional Arequipa — Normas y documentos legales"
       },
       "type": "local_rules",
+      "publisher_kind": "government",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.gob.pe/",
@@ -4672,6 +4776,7 @@
         "original": "Gobierno Regional Cajamarca — Normas y documentos legales"
       },
       "type": "local_rules",
+      "publisher_kind": "government",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.gob.pe/",
@@ -4704,6 +4809,7 @@
         "original": "Официальное опубликование правовых актов"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://pravo.gov.ru/",
@@ -4747,22 +4853,14 @@
         "original": "Нормативные правовые акты в Российской Федерации"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "duplicate",
       "duplicate_of": "RU-001",
       "website": "https://pravo.minjust.ru/",
       "listed_url": "https://pravo.minjust.ru/",
-      "entry": "https://minjust.consultant.ru/",
-      "collect": {
-        "kind": "web_list",
-        "config": {
-          "url": "https://minjust.consultant.ru/",
-          "itemSelector": "#tbDocumentList tbody tr:has(a[href^='/documents/'])",
-          "linkSelector": "a[href^='/documents/']",
-          "allowUrlPrefixes": ["https://minjust.consultant.ru/documents/"],
-          "language": "ru"
-        }
-      },
-      "status": "ready",
+      "entry": "https://pravo.minjust.ru/",
+      "collect": null,
+      "status": "reference_only",
       "language": "ru",
       "detail_format": "pdf_scanned",
       "themes": ["investment_company", "mineral_rights", "land_construction", "safety_environment", "labour_community", "tax_finance", "trade_transport"],
@@ -4770,7 +4868,7 @@
         "status": "verified",
         "evidence": "https://minjust.gov.ru/ru/appeals/faq/605/"
       },
-      "notes": "原检索靠 POST 且证书过期，改读司法部已登记法规库首页的每日批次（与 RU-001 联邦机关板块重复）；UA 不能含 localhost。；核对依据：2026-10-08地区H，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "原检索靠 POST 且证书过期，改读司法部已登记法规库首页的每日批次（与 RU-001 联邦机关板块重复）；UA 不能含 localhost。；核对依据：2026-10-08地区H，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-11-07（TASK-0576）：原采集入口 minjust.consultant.ru 是私营法律数据库（ConsultantPlus）托管的页面，不是官方发布者；法规线只采官方发布者，改为仅作参考、不采集，司法部登记的联邦文书由 RU-001 官方公布平台覆盖。",
       "terms": "restricted",
       "hold": "重复渠道，默认沿主渠道 RU-001；没有明确替代安排不启用"
     },
@@ -4788,6 +4886,7 @@
         "original": "Приказы Минприроды России"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://rosnedra.gov.ru/",
@@ -4831,6 +4930,7 @@
         "original": "Перечень нормативных правовых актов в сфере недропользования"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://rosnedra.gov.ru/",
@@ -4874,6 +4974,7 @@
         "original": "Boletim da República"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.inm.gov.mz/",
@@ -4906,6 +5007,7 @@
         "original": "Legislação"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://mireme.gov.mz/",
@@ -4944,6 +5046,7 @@
         "original": "Normativos"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.bancomoc.mz/",
@@ -4988,6 +5091,7 @@
         "original": "Legislation"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.zimra.co.zw/",
@@ -5020,6 +5124,7 @@
         "original": "Directives, Circulars and Orders"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.rbz.co.zw/",
@@ -5060,6 +5165,7 @@
         "original": "Acts"
       },
       "type": "law_database",
+      "publisher_kind": "legislature",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.parlzim.gov.zw/",
@@ -5092,6 +5198,7 @@
         "original": "Peraturan.go.id"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://peraturan.go.id/",
@@ -5133,6 +5240,7 @@
         "original": "JDIH Kementerian Energi dan Sumber Daya Mineral — Peraturan Perundang-undangan"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://jdih.esdm.go.id/",
@@ -5175,6 +5283,7 @@
         "original": "Database Peraturan JDIH BPK"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://peraturan.bpk.go.id/",
@@ -5207,6 +5316,7 @@
         "original": "Peraturan Daerah"
       },
       "type": "local_rules",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://peraturan.bpk.go.id/",
@@ -5239,6 +5349,7 @@
         "original": "Acts of Parliament — OAG MIS"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://oagmis.oag.go.tz/public",
@@ -5283,6 +5394,7 @@
         "original": "Subsidiary Legislation — OAG MIS"
       },
       "type": "related_rules",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://oagmis.oag.go.tz/public",
@@ -5326,6 +5438,7 @@
         "original": "Acts"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "duplicate",
       "duplicate_of": "TZ-001",
       "website": "https://www.tumemadini.go.tz/",
@@ -5358,6 +5471,7 @@
         "original": "Regulations"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "duplicate",
       "duplicate_of": "TZ-002",
       "website": "https://www.tumemadini.go.tz/",
@@ -5390,6 +5504,7 @@
         "original": "Regulations"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.bot.go.tz/",
@@ -5439,6 +5554,7 @@
         "original": "Circulars"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.bot.go.tz/",
@@ -5488,6 +5604,7 @@
         "original": "Asamblea Nacional — Leyes Vigentes"
       },
       "type": "law_database",
+      "publisher_kind": "legislature",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.asambleanacional.gob.ve/",
@@ -5520,6 +5637,7 @@
         "original": "Gaceta Oficial"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.gacetaoficial.gob.ve/",
@@ -5552,6 +5670,7 @@
         "original": "BCV Convenios Cambiarios"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.bcv.org.ve/",
@@ -5584,6 +5703,7 @@
         "original": "Registro Oficial"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.registroficial.gob.ec/",
@@ -5616,6 +5736,7 @@
         "original": "ARCOM — Resoluciones de Directorio"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://controlminero.gob.ec/",
@@ -5656,6 +5777,7 @@
         "original": "Registro Oficial — Suplemento"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "duplicate",
       "duplicate_of": "EC-001",
       "website": "https://www.registroficial.gob.ec/",
@@ -5694,6 +5816,7 @@
         "original": "Registro Oficial — Edición Especial"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "duplicate",
       "duplicate_of": "EC-001",
       "website": "https://www.registroficial.gob.ec/",
@@ -5732,6 +5855,7 @@
         "original": "Singapore Statutes Online"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://sso.agc.gov.sg/",
@@ -5770,6 +5894,7 @@
         "original": "Republic of Singapore Government Gazette"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "duplicate",
       "duplicate_of": "SG-001",
       "website": "https://www.egazette.gov.sg/",
@@ -5809,6 +5934,7 @@
         "original": "Acts and Legislation"
       },
       "type": "related_rules",
+      "publisher_kind": "regulator",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.customs.gov.sg/",
@@ -5848,6 +5974,7 @@
         "original": "Национальная база данных законодательства Республики Узбекистан — Новое в законодательстве"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.lex.uz/",
@@ -5880,6 +6007,7 @@
         "original": "Документы Кабинета Министров Республики Узбекистан"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://gov.uz/ru/mingeo",
@@ -5912,6 +6040,7 @@
         "original": "Законы Республики Узбекистан"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://gov.uz/ru/mingeo",
@@ -5944,6 +6073,7 @@
         "original": "Legislation.gov.uk — New legislation"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.legislation.gov.uk/",
@@ -5976,6 +6106,7 @@
         "original": "GOV.UK — Policy papers"
       },
       "type": "policy_documents",
+      "publisher_kind": "government",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.gov.uk/",
@@ -6025,6 +6156,7 @@
         "original": "سامانه ملی قوانین و مقررات جمهوری اسلامی ایران"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "core",
       "duplicate_of": null,
       "website": "https://qavanin.ir/",
@@ -6057,6 +6189,7 @@
         "original": "پایگاه ملی اطلاع‌رسانی قوانین و مقررات کشور"
       },
       "type": "policy_documents",
+      "publisher_kind": "government",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://dotic.ir/",
@@ -6089,6 +6222,7 @@
         "original": "روزنامه رسمی جمهوری اسلامی ایران"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.rrk.ir/",
@@ -6121,6 +6255,7 @@
         "original": "Fedlex — Official Compilation of Federal Legislation"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.fedlex.admin.ch/",
@@ -6153,6 +6288,7 @@
         "original": "Fedlex — Classified Compilation"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://www.fedlex.admin.ch/",
@@ -6185,6 +6321,7 @@
         "original": "Fedlex — Federal Gazette"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.fedlex.admin.ch/",
@@ -6231,6 +6368,7 @@
         "original": "Gaceta Oficial — Buscador de Leyes y Decretos"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.gacetaoficialdebolivia.gob.bo/",
@@ -6263,6 +6401,7 @@
         "original": "Normativa Nacional — Ministerio de Minería y Metalurgia"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://www.mineria.gob.bo/",
@@ -6312,6 +6451,7 @@
         "original": "AJAM — Resolución Administrativa"
       },
       "type": "mining_rules",
+      "publisher_kind": "regulator",
       "role": "core",
       "duplicate_of": null,
       "website": "https://autoridadminera.gob.bo/",
@@ -6344,6 +6484,7 @@
         "original": "Journaux Officiels du Mali"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://sgg-mali.ml/",
@@ -6391,6 +6532,7 @@
         "original": "Lois Minières"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "duplicate",
       "duplicate_of": "ML-001",
       "website": "https://mines.gouv.ml/",
@@ -6423,6 +6565,7 @@
         "original": "Décrets miniers"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "duplicate",
       "duplicate_of": "ML-001",
       "website": "https://mines.gouv.ml/",
@@ -6455,6 +6598,7 @@
         "original": "Laws"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://mojeritrea.net/",
@@ -6487,6 +6631,7 @@
         "original": "Official Journal of the European Union"
       },
       "type": "official_gazette",
+      "publisher_kind": "official_gazette",
       "role": "core",
       "duplicate_of": null,
       "website": "https://eur-lex.europa.eu/",
@@ -6519,6 +6664,7 @@
         "original": "EUR-Lex — Consolidated texts"
       },
       "type": "law_database",
+      "publisher_kind": "official_law_database",
       "role": "reference",
       "duplicate_of": null,
       "website": "https://eur-lex.europa.eu/",
@@ -6551,6 +6697,7 @@
         "original": "EUR-Lex — European Commission documents"
       },
       "type": "policy_documents",
+      "publisher_kind": "government",
       "role": "supplement",
       "duplicate_of": null,
       "website": "https://eur-lex.europa.eu/",
@@ -6599,6 +6746,7 @@
         "original": "应急管理部规章"
       },
       "type": "mining_rules",
+      "publisher_kind": "ministry",
       "role": "core",
       "duplicate_of": null,
       "website": "https://www.mem.gov.cn/",
