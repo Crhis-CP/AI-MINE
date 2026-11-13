@@ -1,0 +1,109 @@
+{
+  "id": "hrss-index-html-news",
+  "status": "local_preview_passed",
+  "old_failure_reproduction": {
+    "status": 404,
+    "transport": "synthetic empty HTTP404 response reproducing supplied production failure status; not original response bytes",
+    "assertion": "existing collector rejects HTTP404"
+  },
+  "current_policy_reference": {
+    "sampled_at_utc": "2026-11-13T06:27:01.727251+00:00",
+    "permission_version": 2,
+    "scope": {
+      "hosts": [
+        "hrss.yn.gov.cn"
+      ],
+      "path_prefixes": [
+        "/"
+      ],
+      "document_types": [],
+      "excluded_content": []
+    },
+    "permissions": {
+      "fetch": "allow",
+      "store_metadata": "allow",
+      "process_locally": "allow",
+      "store_fulltext": "allow",
+      "external_model": "allow",
+      "public_excerpt": "allow",
+      "public_summary": "allow",
+      "public_original_fulltext": "allow",
+      "public_translation": "allow"
+    },
+    "condition_count": 0,
+    "restriction_evidence_flags": {
+      "source_objection": false,
+      "owner_instruction": false,
+      "legal_requirement": false
+    },
+    "is_signed_processing_permit": false
+  },
+  "local_policy_version": 1,
+  "local_policy_mirrors_observed_scope_and_permissions": true,
+  "target_config": {
+    "allowUrlPrefixes": [
+      "https://hrss.yn.gov.cn/"
+    ],
+    "itemSelector": "li.list-item",
+    "language": "zh-CN",
+    "linkSelector": "a[href]",
+    "publishedAtUtcOffset": "+08:00",
+    "sourceDate": {
+      "format": "declared",
+      "language": "zh-CN",
+      "formatPattern": "YYYY-MM-DD"
+    },
+    "titleSelector": ".text",
+    "url": "https://hrss.yn.gov.cn/gsgg/gztz/",
+    "publishedAtSelector": ".time"
+  },
+  "target_config_hash": "7314547ca1717d957959b0d674da352f939cee23a7ac6d94d8669b7a129a99b8",
+  "expected_current_hash": "2926939e2f464c3dfc382fc4b0a6a1bdac8982cea6401adaf2726717b22963ab",
+  "preview_id_local": 125,
+  "preview_count": 20,
+  "sample_title_prefix": "云南省人力资源和社会保障厅关于公开征求《云南省就",
+  "sample_title_truncated": true,
+  "sample_url": "https://hrss.yn.gov.cn/gsgg/gztz/202611/t20261111_4383496.html",
+  "latest_source_time": {
+    "meaning": "published",
+    "raw": "\n\t\t\t\t\t\t\t\t\t\t\t2026-11-11\n\t\t\t\t\t\t\t\t\t\t",
+    "local_date": "2026-11-11",
+    "local_time": null,
+    "timezone": null,
+    "utc": null,
+    "precision": "date",
+    "basis": "Source field: selector:li.list-item/.time",
+    "condition_text": null,
+    "meaning_label": "来源发布",
+    "label": "来源发布于 2026-11-11",
+    "beijing_date": "2026-11-11"
+  },
+  "robots": {
+    "url": "https://hrss.yn.gov.cn/robots.txt",
+    "status": 404,
+    "allowed": true,
+    "checked_at": "2026-11-13T04:54:57Z"
+  },
+  "real_listing_fetched_at_utc": "2026-11-13T04:57:33Z",
+  "preview_transport": "existing collector and preview API with same cached actual new listing; local pacing clock only; zero real requests in replay",
+  "additional_network_gets": 0,
+  "replay_reads": 3,
+  "source_still_disabled_isolated": true,
+  "production_writes": 0,
+  "model_calls": 0,
+  "parent_entry_scope_check": {
+    "url": "https://hrss.yn.gov.cn/gsgg/",
+    "http_status": 200,
+    "fetched_at_utc": "2026-11-13T06:51:24Z",
+    "static_list_items": 0,
+    "declared_navigation_targets": [],
+    "observation": "官网父栏目以meta refresh明确指向本次工作通知目标URL；未宣称其它独立子栏目全轮覆盖。",
+    "refresh_directives": [
+      "0;URL=https://hrss.yn.gov.cn/gsgg/gztz/"
+    ],
+    "work_notice_target_literals": [
+      "0;URL=https://hrss.yn.gov.cn/gsgg/gztz/"
+    ],
+    "additional_source_gets": 1
+  }
+}

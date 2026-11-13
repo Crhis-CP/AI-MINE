@@ -142,3 +142,7 @@
 **2026-10-23 DEC-76：以下A/B/AR与双人盲标为历史实验说明，不再是当前实施或验收前置。全站使用统一选材/评分规则，国别只承担分类、查询与分发；AI负责规则核验和完善。**
 
 `selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。当时实验中权重、双评分与60/65/76门槛不变（这是2026-10-22的配置；现行门槛、权重和评分次数见2.5节）；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。
+
+## 两旧源入口护栏（TASK-0651，2026-11-13）
+
+只为已在运行库登记的hrss-index-html-news补齐同ID目录适配，更新到官网声明的/gsgg/gztz/工作通知栏目，不计新增发布主体；语言、链接范围和日期声明保留，现役其它运营字段由existing增量路径保留。当前许可覆盖目标后，缓存页隔离预览20条。Torex新域超出当前scope，停项未列执行清单。逐项当前护栏、日期精度与回放证据见 `docs/acceptance/source-repairs-20261113/`；本线不生产apply，不把配置预览当作生产修复完成。

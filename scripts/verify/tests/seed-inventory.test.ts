@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { prepareIntake } from "../../source-intake.ts";
 import { industrySourceIds, seedSourceMismatch } from "../run.ts";
 import { ROOT } from "../lib.ts";
 import { scratch, write } from "./helpers.ts";
@@ -48,9 +49,9 @@ test("seed evidence requires exact IDs, including equal-count substitutions and 
   assert.equal(seedSourceMismatch([], "[]"), null);
 });
 
-test("current catalogues require 473 news (455 plus 19 added for TASK-0588, less the cnmn duplicate dropped in TASK-0602) plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
+test("current catalogues require 474 news plus 83 eligible policy identities", () => {
   const ids = industrySourceIds(ROOT);
-  assert.equal(ids.length, 556);
+  assert.equal(ids.length, 557);
   assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 83);
   assert.equal(new Set(ids).size, ids.length);
 });
@@ -82,4 +83,28 @@ test("news catalogue has no two sources on the same kind and entry URL (createSo
     assert.equal(seen.get(key), undefined, `${source.id} repeats ${seen.get(key)} (${key})`);
     seen.set(key, source.id);
   }
+});
+
+test("TASK-0651 repairs HRSS with its original ID and runtime guards, leaving Torex stopped", () => {
+  const { sources } = JSON.parse(readFileSync(join(ROOT, "industry/sources.json"), "utf8")) as { sources: Record<string, unknown>[] };
+  const plan = JSON.parse(readFileSync(join(ROOT, "docs/acceptance/source-repairs-20261113/source-intake.json"), "utf8"));
+  const guard = JSON.parse(readFileSync(join(ROOT, "docs/acceptance/source-repairs-20261113/runtime-guard.json"), "utf8"));
+  const proof = JSON.parse(readFileSync(join(ROOT, "docs/acceptance/source-repairs-20261113/hrss-preview.json"), "utf8"));
+  const stopped = JSON.parse(readFileSync(join(ROOT, "docs/acceptance/source-repairs-20261113/torex-stopped.json"), "utf8"));
+  const [prepared] = prepareIntake(plan, sources);
+  assert.equal(plan.entries.length, 1);
+  assert.equal(prepared!.entry.id, "hrss-index-html-news");
+  assert.equal(prepared!.entry.expected_existing, true);
+  assert.equal(prepared!.entry.expected_config_hash, guard.expected_current_config_hash);
+  assert.equal(prepared!.entry.expected_owner_entity_id, null);
+  assert.equal(prepared!.entry.owner_entity_id, "hrss.yn.gov.cn");
+  assert.equal(prepared!.input.config.url, "https://hrss.yn.gov.cn/gsgg/gztz/");
+  assert.equal(prepared!.input.config.language, "zh-CN");
+  assert.equal(prepared!.input.config.publishedAtUtcOffset, "+08:00");
+  assert.equal(prepared!.entry.target_config_hash, proof.target_config_hash);
+  assert.equal(proof.preview_count, 20);
+  assert.equal(guard.safe_config_hash_matches_runtime, true);
+  assert.equal(stopped.included_in_intake, false);
+  assert.equal(stopped.local_scope_evaluation.decision, "deny");
+  assert.ok(!plan.entries.some((entry: { id: string }) => entry.id === "rpl-torexgold"));
 });

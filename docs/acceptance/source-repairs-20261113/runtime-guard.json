@@ -1,0 +1,82 @@
+{
+  "id": "hrss-index-html-news",
+  "source_state_sampled_at_utc": "2026-11-13T06:00:49.109816+00:00",
+  "policy_and_safe_fields_sampled_at_utc": "2026-11-13T06:27:01.727251+00:00",
+  "source_query_count": 1,
+  "policy_query_count": 1,
+  "hash_algorithm": "sha256(stableJson([kind,config]))",
+  "expected_kind": "web_list",
+  "expected_entry_url": "https://hrss.yn.gov.cn/NewsLsit.aspx?ClassID=558",
+  "expected_current_config_hash": "2926939e2f464c3dfc382fc4b0a6a1bdac8982cea6401adaf2726717b22963ab",
+  "expected_current_owner_entity_id": null,
+  "enabled_at_snapshot": true,
+  "archived_at": null,
+  "participation_mode_at_snapshot": "editorial",
+  "source_updated_at": "2026-11-13T02:16:10.187114+00:00",
+  "manual_ui_change_events": 0,
+  "manual_ui_change_definition": "audit actor admin:/dev: only; preserve paused/archive regardless of actor",
+  "permission_version_reference": 2,
+  "permissions": {
+    "fetch": "allow",
+    "store_metadata": "allow",
+    "process_locally": "allow",
+    "store_fulltext": "allow",
+    "external_model": "allow",
+    "public_excerpt": "allow",
+    "public_summary": "allow",
+    "public_original_fulltext": "allow",
+    "public_translation": "allow"
+  },
+  "scope": {
+    "hosts": [
+      "hrss.yn.gov.cn"
+    ],
+    "path_prefixes": [
+      "/"
+    ],
+    "document_types": [],
+    "excluded_content": []
+  },
+  "conditions_count": 0,
+  "expires_at": null,
+  "restriction_evidence_flags": {
+    "source_objection": false,
+    "owner_instruction": false,
+    "legal_requirement": false
+  },
+  "current_policy_non_auto_reviewer": true,
+  "non_auto_permission_event_count": 1,
+  "last_non_auto_permission_event_at": "2026-11-07T11:30:50.235323+00:00",
+  "safe_config_projection_complete": true,
+  "safe_config_keys": [
+    "allowUrlPrefixes",
+    "itemSelector",
+    "language",
+    "linkSelector",
+    "publishedAtRegex",
+    "publishedAtUtcOffset",
+    "sourceDate",
+    "titleSelector",
+    "url"
+  ],
+  "safe_config_hash_matches_runtime": true,
+  "changed_keys": [
+    "itemSelector",
+    "publishedAtRegex",
+    "publishedAtSelector",
+    "titleSelector",
+    "url"
+  ],
+  "unchanged_keys": [
+    "allowUrlPrefixes",
+    "language",
+    "linkSelector",
+    "publishedAtUtcOffset",
+    "sourceDate"
+  ],
+  "new_owner_basis": "现役owner为空；按同一机关官网及现役名称补齐hrss.yn.gov.cn，不计新主体。已有非空owner不作迁移重命名。",
+  "is_signed_processing_permit": false,
+  "runtime_4_source_receipt_sha256": "1015b4506393cef857d212b83806015e0f4ad67a837faf9d96e18c9b964568ae",
+  "runtime_2_policy_receipt_sha256": "62813e1c1eeef6a0e13733e5f9269f77f39a9c5e9e2b4cba16431764d3425c98",
+  "production_writes": 0
+}

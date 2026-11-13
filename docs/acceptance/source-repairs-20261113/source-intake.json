@@ -1,0 +1,14 @@
+{
+  "$comment": "TASK-0651：只对现役HRSS原ID进行配置草稿预览/激活，expected_existing:true；不创建新源、不计新增，保留当前启停/归档/许可/参与方式/全文和间隔等现役字段。Torex迁域不在当前许可内，未列入。此清单不是生产已修复回执。",
+  "batch": "source-intake-20261113",
+  "entries": [
+    {
+      "id": "hrss-index-html-news",
+      "target_config_hash": "7314547ca1717d957959b0d674da352f939cee23a7ac6d94d8669b7a129a99b8",
+      "expected_config_hash": "2926939e2f464c3dfc382fc4b0a6a1bdac8982cea6401adaf2726717b22963ab",
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "hrss.yn.gov.cn",
+      "expected_existing": true
+    }
+  ]
+}

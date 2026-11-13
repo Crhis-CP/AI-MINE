@@ -294,7 +294,9 @@
         "linkSelector": "a[href]",
         "titleSelector": "a",
         "allowUrlPrefixes": ["https://zjt.fujian.gov.cn/"],
-        "detail": { "reveal": ["div.tabs_bd > div.word_con"] }
+        "detail": {
+          "reveal": ["div.tabs_bd > div.word_con"]
+        }
       },
       "tier": "T1",
       "first_party": true,
@@ -13583,6 +13585,28 @@
       "site_fulltext": true,
       "syndicate_fulltext": false,
       "enabled": false
+    },
+    {
+      "id": "hrss-index-html-news",
+      "name": "云南省人力资源和社会保障厅 · 通知公告",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "allowUrlPrefixes": ["https://hrss.yn.gov.cn/"],
+        "itemSelector": "li.list-item",
+        "language": "zh-CN",
+        "linkSelector": "a[href]",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        },
+        "titleSelector": ".text",
+        "url": "https://hrss.yn.gov.cn/gsgg/gztz/",
+        "publishedAtSelector": ".time"
+      },
+      "owner_entity_id": "hrss.yn.gov.cn"
     }
   ]
 }
