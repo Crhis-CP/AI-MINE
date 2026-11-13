@@ -24,7 +24,7 @@ x-app: &app
 services:
   db:
     # Pinned to a patch version and its multi-arch digest (T-0001); T-0005 moves to PostgreSQL 18.6 + pgvector.
-    image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: postgres:17.12-alpine@sha256:34261f594522cf41dfcb76aefd42b9d201098b0e6b23c9c68733f169e4218b6f
     restart: unless-stopped
     environment:
       POSTGRES_USER: amp
@@ -110,7 +110,7 @@ services:
         condition: service_started
 
   caddy:
-    image: caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
     profiles: ["https"]
     command:
       - /bin/sh
