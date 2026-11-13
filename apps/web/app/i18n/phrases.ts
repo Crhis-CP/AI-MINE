@@ -1304,7 +1304,6 @@ export const PHRASES = {
   // The side-by-side regulation page (TASK-0657).
   官方原文: "Official original",
   通过: "Adopted",
-  "截至 {date}": "until {date}",
   "该原件留存时核对 {date}": "Checked when archived {date}",
   "原文最近核对 {date}": "Original last checked {date}",
   "原文确认的变化日期 {date}": "Change date confirmed in the original {date}",

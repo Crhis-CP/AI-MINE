@@ -3,13 +3,16 @@
 // enriched so one page exercises every part of the review (clause links, relations, open points, an attachment, a
 // comparable earlier version); the others show what the page does when something is not there:
 //
+//   demo-policy-marks          a comparison whose changes cannot all be found in the text (HTML block, number
+//                              written differently, block on a later page)
+//   demo-policy-draft          a consultation draft with a general deadline and no consultation closing date
 //   demo-policy-plain          basic facts and a long Chinese original read in pages; no impacts, relations, open
 //                              points, attachment, related report or comparable version
 //   demo-policy-partial        the Chinese translation is still being made: 6 of 10 blocks are there
 //   demo-policy-excerpt        only an excerpt of the original may be shown
 //   demo-policy-scan           a scanned original this site could not read: no text at all
 //   demo-policy-original-only  the original can be read, there is no Chinese translation yet
-import { Policy, PolicyHistoryPage, PolicyReadingPage } from "@amp/contracts/http/public";
+import { Policy, PolicyComparison, PolicyHistoryPage, PolicyReadingPage } from "@amp/contracts/http/public";
 import { demoPolicy, demoPolicyComparison, demoPolicyHistory, demoPolicyReading } from "./demo-reader.ts";
 import { FIXED_TIME } from "./time.ts";
 
@@ -93,7 +96,7 @@ const publicAt = (meaning: "site_public" | "checked", published: string) => {
   };
 };
 
-type Text = { kind: Block["kind"]; text: string; evidence?: string[] };
+type Text = { kind: Block["kind"]; text: string; evidence?: string[]; html?: string };
 type Stream = { language: string; kind: Expression["kind"]; state: Expression["reading_state"]; blocks: Text[] };
 type Extra = {
   id: string;
@@ -101,8 +104,8 @@ type Extra = {
   originalTitle: string;
   jurisdiction: { code: string; label: string; kind: "country" };
   authority: string;
-  nature: "notice" | "regulation" | "guidance";
-  stage: "published" | "adopted";
+  nature: "notice" | "regulation" | "guidance" | "draft";
+  stage: "published" | "adopted" | "consultation";
   enforcement: "whole" | "not_in_force";
   published: string;
   effective: { date: string; evidence: string[] } | null;
@@ -137,7 +140,45 @@ const PLAIN_TEXT: Text[] = ["总则", "申请与受理", "审查与颁发", "延
   }),
 ]);
 
+/** The same text with article 2 as marked-up HTML, the way some sources publish a provision: it has no number to find it by. */
+const MARKS_TEXT: Text[] = PLAIN_TEXT.map((block) => (block.text.startsWith("第2条") ? { ...block, html: `<p>${block.text}</p>` } : block));
+
 const EXTRAS: Extra[] = [
+  {
+    id: "demo-policy-marks",
+    title: "示例：矿山安全生产许可证管理通知（修订）",
+    originalTitle: "示例：矿山安全生产许可证管理通知（修订）",
+    jurisdiction: CN,
+    authority: "演示来源·矿山安全主管部门",
+    nature: "notice",
+    stage: "published",
+    enforcement: "whole",
+    published: "2026-11-01",
+    effective: { date: "2026-12-01", evidence: [] },
+    deadline: null,
+    summary: "演示数据。修订矿山安全生产许可证的申请、审查、延期和监督管理。",
+    evidence: [],
+    streams: [{ language: "zh-CN", kind: "original", state: "complete", blocks: MARKS_TEXT }],
+    reading: { state: "not_needed", completeness: "complete" },
+  },
+  {
+    id: "demo-policy-draft",
+    title: "示例：尾矿库闭库管理办法（征求意见稿）",
+    originalTitle: "示例：尾矿库闭库管理办法（征求意见稿）",
+    jurisdiction: CN,
+    authority: "演示来源·矿山安全主管部门",
+    nature: "draft",
+    stage: "consultation",
+    enforcement: "not_in_force",
+    published: "2026-11-05",
+    effective: null,
+    // A compliance deadline the draft proposes, not the day the consultation closes.
+    deadline: { text: "演示数据。已闭库尾矿库补交闭库报告", date: "2027-06-30", evidence: [] },
+    summary: "演示数据。拟规定尾矿库闭库的程序和闭库后的管理责任。",
+    evidence: [],
+    streams: [{ language: "zh-CN", kind: "original", state: "unavailable", blocks: [] }],
+    reading: null,
+  },
   {
     id: "demo-policy-plain",
     title: "示例：矿山安全生产许可证管理通知",
@@ -287,7 +328,7 @@ const EXTRAS: Extra[] = [
   },
 ];
 
-const NATURES = { notice: "通知", regulation: "法规", guidance: "指引" } as const;
+const NATURES = { notice: "通知", regulation: "法规", guidance: "指引", draft: "草案" } as const;
 const expressionId = (extra: Extra, stream: Stream) => `${extra.id}-${stream.kind === "original" ? "original" : "zh"}`;
 
 function extraPolicy(extra: Extra, chosen: string | null): Detail {
@@ -432,6 +473,7 @@ export function demoReviewReading(id: string, chosen: string | null, revision: s
     block_id: `node-${i + 1}`,
     kind: b.kind,
     text: b.text,
+    ...(b.html ? { semantic_html: b.html } : {}),
     table_rows: null,
     evidence_ids: b.evidence ?? [],
     links: [],
@@ -478,9 +520,55 @@ export function demoReviewHistory(id: string) {
   });
 }
 
-/** Only the royalty regulation has an earlier version to compare with. */
+/**
+ * The royalty regulation is compared with its consultation draft. `demo-policy-marks` has a hand-made comparison
+ * with four amended articles, of which only the first can be found in the text at first: article 2 is marked-up
+ * HTML, the third is numbered “第三条” where the text writes “第3条”, and article 22 is on the second page.
+ */
 export function demoReviewComparison(id: string, from: string | null, to: string | null) {
-  return EXTRAS.some((e) => e.id === id) ? null : demoPolicyComparison(id, from, to);
+  if (id !== "demo-policy-marks") return EXTRAS.some((e) => e.id === id) ? null : demoPolicyComparison(id, from, to);
+  const current = demoReviewHistory(id)!.items[0]!;
+  const earlier = {
+    ...current,
+    policy_version_id: `${id}-v0`,
+    expression_id: `${id}-v0-original`,
+    document_revision_id: `${id}-v0-original-r1`,
+    current: false,
+    first_public_at: publicAt("site_public", "2026-09-01"),
+    published_time: day("published", "2026-09-01"),
+    original_version: "演示版本零",
+    checked_at: publicAt("checked", "2026-09-01"),
+  };
+  if ((from && from !== earlier.document_revision_id) || (to && to !== current.document_revision_id)) return null;
+  const amended = (label: string, chapter: string, n: number) => {
+    const head = `（演示数据）这是${chapter}一章的第 ${n} 条示例条文，用来演示较长的正文怎样`;
+    const side = (way: string) => ({ number_key: label, label, path: [chapter], heading: null, text: `${head}${way}读取。` });
+    return {
+      change: "modified" as const,
+      renumbered: false,
+      from: side("一次"),
+      to: side("分批"),
+      diff: [
+        { op: "equal" as const, text: head },
+        { op: "delete" as const, text: "一次" },
+        { op: "insert" as const, text: "分批" },
+        { op: "equal" as const, text: "读取。" },
+      ],
+    };
+  };
+  return PolicyComparison.parse({
+    content_version: "demo-compare-marks",
+    generated_at: FIXED_TIME,
+    policy_id: id,
+    language: "zh-CN",
+    method: "deterministic",
+    from: earlier,
+    to: current,
+    candidates: [current, earlier],
+    counts: { added: 0, modified: 4, removed: 0, unchanged: 0 },
+    provisions: [amended("第1条", "总则", 1), amended("第2条", "总则", 2), amended("第三条", "总则", 3), amended("第22条", "附则", 2)],
+    limitation: "演示数据：手工写成的对照。",
+  });
 }
 
 export const DEMO_REVIEW_IDS = EXTRAS.map((e) => e.id);
