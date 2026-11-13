@@ -24,7 +24,7 @@
     "react": "19.3.1",
     "react-router": "8.4.0",
     "@amp/backend": "*",
-    "fastify": "5.12.7",
+    "fastify": "5.12.8",
     "zod": "4.6.7",
     "@amp/industry": "*",
     "cheerio": "1.2.0",

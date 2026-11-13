@@ -126,6 +126,8 @@ export interface BackfillReport {
   missing: number;
   /** Days still to do after this run (the limit was reached). */
   remaining: number;
+  /** The earliest day this run tried, to pass as `before` to go further back; null when none was tried. */
+  earliest: string | null;
   days: BackfillDay[];
 }
 
@@ -141,6 +143,8 @@ export async function backfillMetalPrices(opts: {
   now?: Date;
   registry?: MetalPriceRegistry;
   get?: PageGetter;
+  /** Only days before this one (YYYY-MM-DD); default: the newest stored day. */
+  before?: string;
   /** Wait between two daily PDFs, so a long run stays a light visitor of the official site. */
   pauseMs?: number;
 }): Promise<BackfillReport> {
@@ -177,7 +181,10 @@ export async function backfillMetalPrices(opts: {
       },
     }));
   }
-  const missing = candidates.filter(({ day }) => day >= opts.from && day < newest && !have.has(day)).sort((a, b) => a.day.localeCompare(b.day));
+  // `before` moves a later run past days that can never go in (no dollar rate, a broken PDF), which would otherwise take
+  // the whole limit again at every run (TASK-0641). The report names the earliest day tried, the next run's `before`.
+  const upTo = opts.before && opts.before < newest ? opts.before : newest;
+  const missing = candidates.filter(({ day }) => day >= opts.from && day < upTo && !have.has(day)).sort((a, b) => a.day.localeCompare(b.day));
   const chosen = missing.slice(-opts.limit);
   const report: BackfillReport = {
     source: source.key,
@@ -185,6 +192,7 @@ export async function backfillMetalPrices(opts: {
     from: opts.from,
     missing: missing.length,
     remaining: missing.length - chosen.length,
+    earliest: chosen[0]?.day ?? null,
     days: [],
   };
   const run = new Map<string, Map<string, string>>();
@@ -204,14 +212,19 @@ export async function backfillMetalPrices(opts: {
       entry.left.push(`整天：${fetched.held.join("；")}`);
       continue;
     }
+    // The base of each series is its nearest later day, stored or taken earlier in this run, whichever is nearer (TASK-0641).
     const was = await nextValues(source.key, day, items);
-    for (const [, values] of [...run].sort(([a], [b]) => b.localeCompare(a))) for (const [key, value] of values) was.set(key, value);
+    for (const [runDay, values] of run)
+      for (const [key, value] of values) {
+        const current = was.get(key);
+        if (runDay > day && (!current || runDay < current.day)) was.set(key, { value, day: runDay });
+      }
     const keep: MetalPriceItem[] = [];
     for (const item of items) {
       const rows = fetched.rows.filter((row) => row.key === item.key);
       if (!rows.length) continue;
       const { unit, value } = rows[0]!;
-      const base = was.get(item.key);
+      const base = was.get(item.key)?.value;
       const ratio = base === undefined ? 1 : Number(value) / Number(base);
       if (rows.length !== 1) entry.left.push(`${item.key}：出现 ${rows.length} 次`);
       else if (unit !== item.sourceUnit) entry.left.push(`${item.key}：单位是“${unit}”，不是“${item.sourceUnit}”`);

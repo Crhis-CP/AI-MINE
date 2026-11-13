@@ -563,6 +563,14 @@
     {
       "name": "publication/202611081001_publication_english_copy.sql",
       "dependsOn": ["publication/202610260847_original_post_projection.sql", "enrichment/202611081000_english_copies.sql"]
+    },
+    {
+      "name": "acquisition/202611130408_robots_failures.sql",
+      "dependsOn": ["acquisition/202610090900_host_pacing.sql"]
+    },
+    {
+      "name": "publication/202611130408_withdrawn_reasons.sql",
+      "dependsOn": ["publication/202611061200_news_links.sql"]
     }
   ]
 }

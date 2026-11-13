@@ -18,6 +18,10 @@ robots失败的等待到期后，在原会话、原预约重新读取；过期�
 
 这些检查点仅证明调度恢复，不证明目录分页或目录覆盖完整；结构完整回执归TASK-0134。源码不启用held来源，不更改任何模型或质量资格。
 
+## 信源诊断兼容存储（TASK-0574）
+
+TASK-0574 第一批只准备兼容存储：robots观测新增成功副本位置、警告与失败序列，主机新增传输失败计数/原因；旧失败行标为没有成功副本，不补造历史内容。`publication.withdrawn_reasons` 是私有运维表，仅供后续发布事务记录原因，public_read无权限。运行逻辑与当前公开行为在本批保持原样，待迁移合入后另接。
+
 ## 官方目录整轮扫描（TASK-0134）
 
 法规 `web_list` / `json_list` 通过 `config.directoryProfile` 明确分页请求位置、来源页码、总页数、总记录数、来源记录ID、当前/历史角色和目录范围依据。字段支持 HTML selector/attribute、JSON path、响应 header；page/total 字段可声明 `adjust`（0或1起始差异）和千位分隔。HTML在JSON中时继续使用既有 `htmlJsonPath`。大整数JSON记录ID读取原始数字字面量，不能经浮点舍入。URL记录ID需明确选 `kind:"url"`；不能用自增序号冒作官方ID。`documentId` 缺失时不同文书数为 null，语言记录数不充作文书数。
