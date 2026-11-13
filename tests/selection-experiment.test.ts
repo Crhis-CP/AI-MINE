@@ -3,8 +3,6 @@ import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { readFileSync } from "node:fs";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { createHash } from "node:crypto";
 import { sql, closeDb } from "@amp/backend/db";
 import { promptText } from "@amp/backend/editorial/prompts";
@@ -17,7 +15,7 @@ import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
 import { ExperimentManifest, countryPreview, metrics, attemptSummary, type ExperimentCase, type Outcome } from "../scripts/selection-experiment-data.ts";
-import { runExperiment, exportCountryCandidates, assertIsolatedDatabase } from "../scripts/selection-experiment.ts";
+import { runExperiment, exportCountryCandidates, assertIsolatedDatabase, assertDeclaredCalls } from "../scripts/selection-experiment.ts";
 import { scoreAxes } from "./score-axes.ts";
 
 const requests: Array<{ system: string; user: string }> = [];
@@ -219,15 +217,17 @@ test("separate progress survives dedupe; stale/withdrawn country candidates cann
   assert.equal(result.countryPreview.length, 0);
 });
 
-test("CLI rejects a real run beyond the declared task budget before initializing the database", async () => {
-  await assert.rejects(
-    promisify(execFile)(
-      process.execPath,
-      ["scripts/selection-experiment.ts", "--run", "--task", "TASK-0402", "--max-calls", "7", "--output", "/unused-output.json"],
-      { env: { ...process.env, DATABASE_URL: "postgres://127.0.0.1:1/isolated_test" } },
-    ),
-    /exceed the task card/,
-  );
+test("a real run beyond the declared task budget is refused; the check runs before the database is opened", () => {
+  // In-process: the former child-process form timed out twice in CI (2026-11-10, 2026-11-11) while passing in seconds
+  // locally. The order in main() is asserted from its source, which is what the subprocess was proving.
+  assert.throws(() => assertDeclaredCalls("TASK-0402", "7"), /exceed the task card/);
+  assert.throws(() => assertDeclaredCalls("TASK-0402", "0"), /exceed the task card/);
+  assert.throws(() => assertDeclaredCalls("TASK-0402", "x"), /exceed the task card/);
+  assert.throws(() => assertDeclaredCalls(undefined, "7"), /--task TASK-nnnn required/);
+  assert.throws(() => assertDeclaredCalls("../TASK-0402", "7"), /--task TASK-nnnn required/);
+  const main = readFileSync(new URL("../scripts/selection-experiment.ts", import.meta.url), "utf8");
+  const check = main.indexOf('if (values.run) assertDeclaredCalls(values.task, values["max-calls"]);');
+  assert.ok(check > 0 && check < main.indexOf('await initializeDb("worker");'), "the budget check precedes the database");
 });
 
 test("reasoning model token allowance does not lose prior failed attempts on replay", async () => {

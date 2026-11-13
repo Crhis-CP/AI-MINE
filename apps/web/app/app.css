@@ -1070,3 +1070,185 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The admin console's night-and-gold look (TASK-0624, Owner 2026-11-12: the whole console, not only 访问概况).
+   The layout sets data-theme="dark" on its root; these deepen the dark tokens and add the gold light.
+   --------------------------------------------------------------------------- */
+.admin-night {
+  --bg: #0d0b08;
+  --bg-sunk: #15120d;
+  --bg-muted: #221c13;
+  --surface: #1a1610;
+  --surface-2: #1f1a12;
+  --raised: #231d14;
+  --ink: #f5efe2;
+  --ink-2: #ddd4c2;
+  --ink-3: #a99f8c;
+  --ink-4: #8f8573;
+  --line: rgba(226, 176, 79, 0.16);
+  --line-strong: rgba(226, 176, 79, 0.3);
+  --line-soft: rgba(226, 176, 79, 0.09);
+  color-scheme: dark;
+  background:
+    radial-gradient(900px 500px at 60% -80px, rgba(226, 176, 79, 0.14), transparent 70%),
+    radial-gradient(700px 500px at 100% 40%, rgba(111, 214, 232, 0.05), transparent 70%), var(--bg);
+  background-attachment: fixed;
+}
+.admin-rail {
+  background: linear-gradient(180deg, rgba(30, 25, 18, 0.9), rgba(16, 13, 9, 0.9));
+  box-shadow: 1px 0 0 rgba(246, 212, 138, 0.06) inset;
+}
+.admin-nav-on {
+  background: linear-gradient(90deg, rgba(226, 176, 79, 0.3), rgba(226, 176, 79, 0.05));
+  box-shadow:
+    inset 2px 0 0 #e2b04f,
+    0 0 18px -6px rgba(226, 176, 79, 0.6);
+}
+.admin-pill-on {
+  background: linear-gradient(180deg, #f6d48a, #e2b04f);
+  color: #2a1d06;
+  box-shadow: 0 0 16px rgba(226, 176, 79, 0.4);
+}
+.admin-night .admin-card {
+  position: relative;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 40px -26px rgba(0, 0, 0, 0.9);
+}
+.admin-night .admin-card::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(246, 212, 138, 0.55), transparent);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Opening animation (TASK-0628). The boot script sets html.intro before the first paint; without it the screen
+   does not exist. It leaves by its own CSS after 4.6s even if no script runs afterwards, and the boot script itself takes
+   html.intro away at 5.6s, so the page scrolls again even when the app never loads (TASK-0641).
+   --------------------------------------------------------------------------- */
+.intro-screen {
+  display: none;
+}
+html.intro .intro-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #f5efe2;
+  background: radial-gradient(circle at 50% 50%, #1a1408, #0b0906 65%);
+  animation: intro-leave 0.85s cubic-bezier(0.7, 0, 0.2, 1) 4.6s forwards;
+}
+html.intro.intro-out .intro-screen {
+  animation: intro-leave 0.85s cubic-bezier(0.7, 0, 0.2, 1) forwards;
+}
+html.intro {
+  overflow: hidden;
+}
+.intro-skip {
+  position: absolute;
+  right: 18px;
+  top: calc(14px + env(safe-area-inset-top));
+  z-index: 2;
+  border: 1px solid rgba(226, 176, 79, 0.25);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  color: #a99f8c;
+}
+.intro-mark {
+  margin: 0 auto;
+  border-radius: 28px;
+  opacity: 0;
+  transform: scale(0.2) rotate(-200deg);
+  animation: intro-mark 1.5s cubic-bezier(0.2, 1, 0.3, 1) 0.9s forwards;
+}
+.intro-name {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 0.02em;
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.intro-name span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(26px) scale(1.25);
+  filter: blur(10px);
+  background: linear-gradient(180deg, #fff3d6, #e2b04f 65%, #8a5a17);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: intro-letter 0.7s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+}
+.intro-line {
+  margin-top: 10px;
+  padding-left: 0.42em;
+  font-size: 15px;
+  letter-spacing: 0.42em;
+  color: #c9bfab;
+  opacity: 0;
+  animation: intro-fade 0.8s ease 2.5s forwards;
+}
+.intro-rule {
+  position: absolute;
+  left: 50%;
+  bottom: -44px;
+  width: 0;
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, #f6d48a, transparent);
+  animation: intro-rule 1s ease 2.4s forwards;
+}
+@keyframes intro-mark {
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: drop-shadow(0 0 34px rgba(226, 176, 79, 0.75));
+  }
+}
+@keyframes intro-letter {
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes intro-fade {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes intro-rule {
+  to {
+    width: 260px;
+  }
+}
+@keyframes intro-leave {
+  to {
+    transform: translateY(-100%);
+    opacity: 0.4;
+    visibility: hidden;
+  }
+}
+@media (max-width: 640px) {
+  .intro-name {
+    font-size: 38px;
+  }
+  .intro-mark {
+    width: 108px;
+    height: 108px;
+  }
+}

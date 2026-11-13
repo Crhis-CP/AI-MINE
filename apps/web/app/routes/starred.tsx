@@ -1,5 +1,5 @@
 import { PhoneBar } from "../components/shell/PhoneBar";
-import { useTr } from "../i18n";
+import { useLocale, useTr } from "../i18n";
 import { apiFetch } from "../lib/http.ts";
 import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +22,8 @@ export const meta = () => pageMeta({ title: "我的收藏", description: `保存
 
 export default function StarredPage() {
   const tr = useTr();
+  // “收藏” alone translates as the verb on the save button; the page is named “Saved” in English.
+  const pageName = useLocale() === "en" ? tr("我的收藏") : tr("收藏");
   const references = useStarred();
   const starred = references.filter((ref) => ref.type === "item");
   const ids = starred.map((ref) => ref.id).join(",");
@@ -139,13 +141,13 @@ export default function StarredPage() {
   };
   return (
     <div className="pb-12">
-      <PhoneBar back={{ to: "/more", label: tr("我的") }} title={tr("收藏")} />
+      <PhoneBar back={{ to: "/more", label: tr("我的") }} title={pageName} />
       {/* UI update (Owner 2026-11-05): title with the count, and the file actions as real buttons beside it. */}
       <header className="pb-4 pt-5 lg:pt-1">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 data-page-title="" className="flex items-baseline gap-2 text-[24px] font-semibold text-ink">
-              {tr("收藏")}
+              {pageName}
               <span className="num text-[15px] font-medium text-ink-4">
                 {references.length} / {STARRED_LIMIT}
               </span>

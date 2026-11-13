@@ -174,8 +174,38 @@ export function demoTimeline(filters: { channel: string; category: string | null
   });
 }
 
-export function demoPool(filters: { channel: string; category: string | null; q: string | null; tab: "time" | "relevance" }) {
-  const items = DEMO_ITEMS.filter((item) => !filters.category || item.category === filters.category);
+/** Synthetic items per country (演示数据) for the home page's country block (TASK-0633); other countries have none. */
+const DEMO_COUNTRY_TITLES: Record<string, [string, string][]> = {
+  AR: [
+    ["演示：圣胡安省公布铜矿项目环评听证日程", "演示省政府公报"],
+    ["演示：萨尔塔盐湖锂项目二期投产，年产能翻倍", "演示矿业媒体"],
+    ["演示：联邦矿业秘书处更新出口预扣税适用清单", "演示官方公报"],
+    ["演示：卡塔马卡省调整矿业特许权使用费申报表", "演示省矿业厅"],
+    ["演示：胡胡伊省锂矿企业与社区签署用水协议", "演示企业公告"],
+    ["演示：门多萨省议会审议新一批勘探项目", "演示地方媒体"],
+  ],
+  "CN-XJ": [
+    ["演示：新疆公布一批金属矿探矿权挂牌出让", "演示自治区厅公告"],
+    ["演示：阿勒泰某铜镍矿扩建项目环评公示", "演示地方公示"],
+  ],
+  CN: [
+    ["演示：自然资源部公布新一批矿业权出让公告", "演示部委网站"],
+    ["演示：某铜业公司披露三季度产量与检修安排", "演示交易所公告"],
+    ["演示：稀土开采总量控制指标下达", "演示部委网站"],
+    ["演示：西部某省发布锂矿探矿权挂牌结果", "演示省厅公告"],
+  ],
+};
+export function demoPool(filters: { channel: string; category: string | null; q: string | null; tab: "time" | "relevance"; jurisdiction?: string | null }) {
+  const local = filters.jurisdiction
+    ? (DEMO_COUNTRY_TITLES[filters.jurisdiction] ?? []).map(([title, source], i) => ({
+        ...DEMO_ITEMS[0]!,
+        id: `demo-${filters.jurisdiction}-${i}`,
+        title,
+        source: { name: source },
+        timelineAt: new Date(Date.parse(FIXED_TIME) - (i * 3 + 1) * 3600_000).toISOString(),
+      }))
+    : null;
+  const items = local ?? DEMO_ITEMS.filter((item) => !filters.category || item.category === filters.category);
   return PoolResponse.parse({
     filters: { channel: filters.channel, category: filters.category, tag: null, topic: null, q: filters.q, tab: filters.tab },
     items,
@@ -239,15 +269,27 @@ const DEMO_COUNTRY_COUNTS: Array<[string, string, number]> = [
   ["GH", "加纳", 2],
   ["SG", "新加坡", 1],
 ];
-export const demoJurisdictions = DEMO_COUNTRY_COUNTS.map(([code, label, news_count]) => ({
-  code,
-  label,
-  kind: "country" as const,
-  news_scope: true,
-  policy_scope: true,
-  news_count,
-  policy_count: 0,
-}));
+export const demoJurisdictions = [
+  ...DEMO_COUNTRY_COUNTS.map(([code, label, news_count]) => ({
+    code,
+    label,
+    kind: "country" as const,
+    news_scope: true,
+    policy_scope: true,
+    news_count,
+    policy_count: 0,
+  })),
+  {
+    code: "CN-XJ",
+    label: "新疆维吾尔自治区",
+    kind: "subdivision" as const,
+    parent: "CN",
+    news_scope: true,
+    policy_scope: false,
+    news_count: 6,
+    policy_count: 0,
+  },
+];
 
 /** Synthetic news map per window (演示数据): the last window beside the one before it. */
 export function demoNewsMap(window: "1d" | "7d" | "30d", now = new Date()) {
@@ -1724,6 +1766,49 @@ function demoConverted(secondary: { factor: string; unit: string; currency: stri
   };
 }
 
+/**
+ * Synthetic earlier periods for a demo quote's trend line (TASK-0627): 23 working days for a daily price, six months
+ * for a monthly one, ending exactly at the demo value. A fixed gentle walk, the same on every run; not real prices.
+ */
+function demoHistory(key: string, value: string | null, [start, end, label]: readonly [string, string, string]) {
+  if (!value) return undefined;
+  const seed = [...key].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const digits = (value.split(".")[1] ?? "").length;
+  const walk = (count: number, step: number) => {
+    const out = [Number(value)];
+    for (let i = 1; i < count; i++) out.unshift(out[0]! / (1 + Math.sin(seed + i * 1.7) * step + Math.cos(seed * 0.5 + i * 0.6) * step * 0.6));
+    return out.map((n, i) => (i === count - 1 ? value : n.toFixed(digits)));
+  };
+  if (start === end) {
+    const days: string[] = [];
+    for (let t = Date.parse(`${end}T00:00:00Z`); days.length < 23; t -= 86400_000)
+      if (new Date(t).getUTCDay() % 6) days.unshift(new Date(t).toISOString().slice(0, 10));
+    const values = walk(days.length, 0.006);
+    return days.map((day, i) => ({
+      period: {
+        start: day,
+        end: day,
+        label: i === days.length - 1 ? label : `${Number(day.slice(0, 4))}年${Number(day.slice(5, 7))}月${Number(day.slice(8))}日`,
+      },
+      value: values[i]!,
+    }));
+  }
+  if (!/^\d{4}年\d{1,2}月$/.test(label)) return undefined;
+  const values = walk(6, 0.03);
+  return values.map((v, i) => {
+    const first = new Date(Date.UTC(Number(start.slice(0, 4)), Number(start.slice(5, 7)) - 1 - (5 - i), 1));
+    const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0));
+    return {
+      period: {
+        start: first.toISOString().slice(0, 10),
+        end: last.toISOString().slice(0, 10),
+        label: i === 5 ? label : `${first.getUTCFullYear()}年${first.getUTCMonth() + 1}月`,
+      },
+      value: v,
+    };
+  });
+}
+
 function buildDemoMetalPrices() {
   const sources = demoRegistry.sources.filter((source) => DEMO_PERIODS[source.key]);
   const refs = new Map<string, number>();
@@ -1750,6 +1835,7 @@ function buildDemoMetalPrices() {
           period: value ? { start, end, label } : null,
           change: value && percent ? { percent, previous: { value: "100", period: { start: previousStart, end: previousEnd, label: previousLabel } } } : null,
           ...(source.secondary ? { converted: demoConverted(source.secondary, value, end) } : {}),
+          ...(demoHistory(key, value, period.current) ? { history: demoHistory(key, value, period.current) } : {}),
         },
       ];
     });

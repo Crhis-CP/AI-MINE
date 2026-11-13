@@ -1,10 +1,9 @@
 import { ADMIN_MODULES } from "@amp/site/modules/admin";
 import { SITE } from "@amp/industry/site";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { motion } from "motion/react";
 import { redirect, Await, NavLink, Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
 import type { Route } from "./+types/layout";
-import { ThemeSwitch } from "../../components/shell/ThemeSwitch";
 import { Wordmark } from "../../components/Logo";
 import { NavigationProgress } from "../../components/shell/Chrome";
 import type { AdminMe } from "../../features/admin/action";
@@ -90,7 +89,7 @@ function NavItem({ item, counts, countsKey, pathname }: { item: NavEntry; counts
         {active && (
           <motion.span
             layoutId="admin-nav"
-            className="absolute inset-0 rounded-control bg-surface shadow-sm ring-1 ring-line"
+            className="admin-nav-on absolute inset-0 rounded-control"
             transition={{ type: "spring", stiffness: 520, damping: 38 }}
           />
         )}
@@ -116,14 +115,28 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
   const { me, counts, countsKey } = loaderData;
   const navigation = useNavigation();
   const location = useLocation();
+  // Dialogs and toasts are drawn outside this tree, so the page itself wears the night look while the console is open.
+  useEffect(() => {
+    const root = document.documentElement,
+      before = root.dataset.theme;
+    root.dataset.theme = "dark";
+    root.classList.add("admin-night");
+    return () => {
+      root.classList.remove("admin-night");
+      if (before === undefined) delete root.dataset.theme;
+      else root.dataset.theme = before;
+    };
+  }, []);
   const groups = me.mustChangePassword
     ? []
     : NAV.map((group) => ({ ...group, items: group.items.filter((item) => !item.owner || me.owner) })).filter((group) => group.items.length);
   const flat = [...groups.flatMap((g) => g.items), ...ACCOUNTS];
   return (
-    <div className="flex min-h-dvh bg-bg">
+    // The whole console wears the night-and-gold look of 访问概况 (TASK-0624, Owner 2026-11-12), whatever theme the
+    // reader site is in: the dark tokens apply from this element down, and app.css deepens them under .admin-night.
+    <div data-theme="dark" className="admin-night flex min-h-dvh bg-bg text-ink">
       <NavigationProgress active={navigation.state === "loading"} />
-      <aside className="sticky top-0 hidden h-dvh w-[216px] shrink-0 flex-col border-r border-line bg-bg-sunk/50 px-3 py-4 lg:flex">
+      <aside className="admin-rail sticky top-0 hidden h-dvh w-[216px] shrink-0 flex-col border-r border-line px-3 py-4 lg:flex">
         <a href="/" className="mb-5 flex items-center gap-2 px-2">
           <Wordmark size={18} className="text-ink" />
           <span className="text-[15px] font-semibold tracking-tight text-ink">后台</span>
@@ -131,7 +144,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
         <nav className="flex-1 space-y-4 overflow-y-auto">
           {groups.map((g) => (
             <div key={g.group}>
-              <div className="mb-1 px-3 text-[11.5px] font-medium tracking-wide text-ink-4">{g.group}</div>
+              <div className="mb-1 px-3 text-[11.5px] font-medium tracking-[.14em] text-accent/80">{g.group}</div>
               <div className="space-y-0.5">
                 {g.items.map((i) => (
                   <NavItem key={i.to} item={i} counts={counts} countsKey={countsKey} pathname={location.pathname} />
@@ -140,7 +153,6 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
             </div>
           ))}
         </nav>
-        <ThemeSwitch />
         <div className="mt-3 border-t border-line px-2 pt-3 text-[12.5px] text-ink-3">
           {ACCOUNTS.map((item) => (
             <NavItem key={item.to} item={item} counts={counts} countsKey={countsKey} pathname={location.pathname} />
@@ -162,7 +174,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
           <div className="flex items-center gap-2 px-4 pt-3">
             <Wordmark size={16} className="text-ink" />
             <span className="text-[14px] font-semibold text-ink">后台</span>
-            <ThemeSwitch className="ml-auto w-[124px]" />
+            <span className="ml-auto" />
             {me.dev && <span className="rounded bg-amber/15 px-1.5 text-[11px] font-medium text-amber">开发</span>}
           </div>
           <nav className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
@@ -172,7 +184,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
                 <NavLink
                   key={i.to}
                   to={i.to}
-                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[13px] ${active ? "bg-ink text-bg" : "text-ink-3"}`}
+                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[13px] ${active ? "admin-pill-on font-semibold" : "text-ink-3"}`}
                 >
                   {i.label}
                   {i.count && (

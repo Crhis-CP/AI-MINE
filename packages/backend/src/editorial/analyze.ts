@@ -182,23 +182,6 @@ export const ScoreSchema = z.object({
 });
 const tenth = (value: number) => Math.round(value * 10) / 10;
 
-const SCORE_TIME = new Intl.DateTimeFormat("sv-SE", {
-  timeZone: "Asia/Shanghai",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
-
-/** The score input's time: Beijing time, ISO 8601 with +08:00 (the form the prompt was tuned on). */
-export function scoreInputTime(at: Date): string {
-  const ms = at.getTime() % 1000;
-  return `${SCORE_TIME.format(at).replace(" ", "T")}${ms ? `.${String(ms).padStart(3, "0")}` : ""}+08:00`;
-}
-
 /** One analysis request in a layout: the system prompt, the shared material (shared layout only) and the step message. */
 type StepRequest = { system: string; prefix?: ChatPrefix; user: string };
 const layoutOf = (opts: { layout?: AnalysisPromptLayout }) => opts.layout ?? analysisPromptLayout();

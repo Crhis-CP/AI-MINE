@@ -98,6 +98,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta({
     title: q ? `搜索：${q}` : `全部${withSubject("动态")}`,
     description: `${SITE.name} 收录的全部${withSubject("动态")}，可按国家、地区、类别与标签筛选，支持中英文搜索。`,
+    descriptionEn: "Every mining story on AI-MINE, filtered by country, region, category and tag, searchable in Chinese and English.",
     path: listPath("/all", {
       channel: f && f.channel !== "all" ? f.channel : null,
       category: f?.category,
