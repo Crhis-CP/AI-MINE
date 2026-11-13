@@ -48,11 +48,32 @@ test("seed evidence requires exact IDs, including equal-count substitutions and 
   assert.equal(seedSourceMismatch([], "[]"), null);
 });
 
-test("current catalogues require 473 news (455 plus 19 added for TASK-0588, less the cnmn duplicate dropped in TASK-0602) plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
+test("current catalogues require 478 news (TASK-0635 adds five isolated previews) plus 83 eligible policy identities", () => {
   const ids = industrySourceIds(ROOT);
-  assert.equal(ids.length, 556);
+  assert.equal(ids.length, 561);
   assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 83);
   assert.equal(new Set(ids).size, ids.length);
+});
+
+test("TASK-0635 keeps Mendoza isolated and enables only the four reviewed official news sources", () => {
+  const sources = JSON.parse(readFileSync(join(ROOT, "industry/sources.json"), "utf8")).sources.filter((source: { id: string }) =>
+    source.id.startsWith("exp-20261113-ar-"),
+  );
+  assert.deepEqual(sources.map((source: { id: string }) => source.id).sort(), [
+    "exp-20261113-ar-jujuy-mining-news",
+    "exp-20261113-ar-mendoza-mining-news",
+    "exp-20261113-ar-salta-news",
+    "exp-20261113-ar-santacruz-energy-news",
+    "exp-20261113-ar-santacruz-government-mining",
+  ]);
+  for (const source of sources) {
+    const held = source.id === "exp-20261113-ar-mendoza-mining-news";
+    assert.equal(source.enabled, !held);
+    assert.equal(source.participation_mode, held ? "isolated" : "editorial");
+    assert.equal(source.interval_minutes, 60);
+    assert.equal(source.site_fulltext, !held);
+    assert.equal(source.syndicate_fulltext, false);
+  }
 });
 
 test("malformed catalogue identities fail rather than silently shrinking expected coverage", () => {

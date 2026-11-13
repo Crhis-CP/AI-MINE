@@ -1,0 +1,39 @@
+{
+  "batch": "source-intake-20261113",
+  "task": "TASK-0635",
+  "entries": [
+    {
+      "id": "exp-20261113-ar-salta-news",
+      "target_config_hash": "07d1fd508d66deab35e1bd96dacbb0bd0648bf9ce6e12550bafaecc9d12c7ac7",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "salta.gob.ar",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-ar-jujuy-mining-news",
+      "target_config_hash": "65838d2d882de8f7f5156677be628a2f63af5e98ad4843cd0944add835cf4ece",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "jujuy.gob.ar",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-ar-santacruz-government-mining",
+      "target_config_hash": "432aab8263bf8b264d3710e79dfb729bc9c3048782f07fccb9e7d05efd31c385",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "santacruz.gob.ar",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-ar-santacruz-energy-news",
+      "target_config_hash": "bb97982417fde144fcc6580c52b02b0eebf9274c95cb5d1080156c3fdab6894a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "santacruz.gob.ar",
+      "expected_existing": false
+    }
+  ],
+  "$comment": "按Claude 6842199019/6843066463只列4个正式来源；生产登记使用现有source-intake.ts，与目录一致：站内全文开、站外再分发关。门多萨不在本清单。"
+}
