@@ -533,12 +533,13 @@ export async function admitUsage(
   };
 }
 /** Recheck before dispatch, then mark actual gateway hand-off, not merely the earlier reservation. */
-export async function authorizeUsageSend(db: Db, attemptId: string, clock: () => Date = () => new Date()) {
+export async function authorizeUsageSend(db: Db, attemptId: string, clock: () => Date = () => new Date(), observe?: (quote: UsageQuote) => void) {
   await usageLock(db);
   const [row] = await db<
     (AttemptUsage & { submitted: boolean })[]
   >`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,reserved_micros::text,settled_micros::text,state,quote,occurred_at,submitted FROM ai.usage_attempts WHERE attempt_id=${attemptId}`;
   if (!row) return "缺少费用预留证据";
+  let frozen = row.quote;
   const c = contextOf(row),
     configuration = await usageConfiguration(db);
   if (configuration) {
@@ -553,11 +554,13 @@ export async function authorizeUsageSend(db: Db, attemptId: string, clock: () =>
     const now = clock();
     const refreshed = refreshUsageQuote(row.quote, now);
     const next = refreshed.quote ?? { ...row.quote, quoted_at: now.toISOString(), pricing_issue: refreshed.missing! };
+    frozen = next;
     const delta = BigInt(next.reserved_micros) - BigInt(row.reserved_micros);
     await db`UPDATE ai.usage_attempts SET quote=${db.json(next)},reserved_micros=${next.reserved_micros},updated_at=${now} WHERE attempt_id=${attemptId}`;
     await applySums(db, c, beijingDate(row.occurred_at), { settled: 0n, unknown: 0n, reserved: delta });
   }
   await db`UPDATE ai.usage_attempts SET submitted=true WHERE attempt_id=${attemptId}`;
+  observe?.(frozen);
   return null;
 }
 /** Observe timed-out placeholders and evaluate without sending. The scheduler calls delivery separately. */

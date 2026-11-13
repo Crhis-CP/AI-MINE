@@ -29,6 +29,7 @@ import {
   type PolicyReceiptContext,
   type ModelAttemptSnapshot,
   type ReceiptRequest,
+  type PaidSendContext,
 } from "./receipts.ts";
 import { sql } from "../db.ts";
 
@@ -158,10 +159,51 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   policyContext?: PolicyReceiptContext;
   runtimeControl?: RuntimeControlSnapshot;
   /** Recheck the trusted input and current permissions immediately before any new paid send. */
-  beforeRequest?: () => Promise<void>;
+  beforeRequest?: (context?: ModelRequestGuardContext) => Promise<void>;
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
   json?: boolean;
   parse?: (content: string) => unknown;
+}
+
+export type ModelRequestGuardContext =
+  | Readonly<{ phase: "prepare" }>
+  | Readonly<
+      Omit<PaidSendContext, "issue"> & {
+        phase: "send";
+        modelKey: string;
+        configurationHash: string;
+        requestHash: string;
+        issue: "quote_unavailable" | "unsupported_request_options" | null;
+      }
+    >;
+// Unknown output/sample controls cannot certify a single-request bound; normal sends keep their existing behavior.
+function boundedRequestOptions(extra: Record<string, unknown> = {}) {
+  const neutral = new Set([
+    "model",
+    "max_tokens",
+    "temperature",
+    "top_p",
+    "frequency_penalty",
+    "presence_penalty",
+    "seed",
+    "stop",
+    "response_format",
+    "reasoning_effort",
+  ]);
+  return Object.entries(extra).every(([key, value]) => {
+    if (neutral.has(key)) return true;
+    if (key === "n" || key === "best_of") return value === 1;
+    if (key === "enable_thinking") return typeof value === "boolean";
+    if (key === "stream") return value === false;
+    if (key === "thinking" || key === "translation_options")
+      return (
+        !!value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        Object.keys(value).every((name) => (key === "thinking" ? ["type", "clear_thinking"] : ["source_lang", "target_lang"]).includes(name))
+      );
+    return false;
+  });
 }
 
 export interface ChatPrefix {
@@ -430,11 +472,22 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     let circuitPermit: CircuitPermit | undefined;
     const receipt = await paidRequest(
       request,
-      async () => {
+      async (billing) => {
         const send = async () => {
           if (opts.beforeRequest) {
             try {
-              await opts.beforeRequest();
+              const bounded = boundedRequestOptions(spec.extra) && Number.isSafeInteger(body.max_tokens) && Number(body.max_tokens) > 0;
+              await opts.beforeRequest(
+                Object.freeze({
+                  ...billing,
+                  phase: "send",
+                  modelKey: opts.model,
+                  configurationHash,
+                  requestHash: sha256(requestBody),
+                  quote: bounded ? billing.quote : null,
+                  issue: bounded ? billing.issue : "unsupported_request_options",
+                }),
+              );
             } catch (error) {
               if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
                 throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
@@ -556,11 +609,11 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     const previous = opts.beforeRequest;
     try {
       if (permit) {
-        opts.beforeRequest = async () => {
+        opts.beforeRequest = async (context) => {
           await permit.beforeRequest();
-          await previous?.();
+          await previous?.(context);
         };
-        await opts.beforeRequest();
+        await opts.beforeRequest({ phase: "prepare" });
       }
       const result = await primary(circuit);
       try {

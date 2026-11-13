@@ -1,7 +1,7 @@
 import { prepareModelQuota, type ModelQuotaAlias } from "./model-budget.ts";
 import { admitUsage, reserveUsageAttempt, settleUsageAttempt, authorizeUsageSend, type UsageContext, type UsageReservation } from "./usage-protection.ts";
 import { UNKNOWN_AUTO_RELEASE_NOTE } from "./unknown-recovery.ts";
-import { rateYuan, type UsageBounds } from "./usage-pricing.ts";
+import { rateYuan, type UsageBounds, type UsageQuote } from "./usage-pricing.ts";
 
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Paid requests (models, Jina, Dajiala) go through here.
@@ -100,6 +100,52 @@ export class ProviderRejectedError extends Error {
     this.retryable = retryable;
     this.failureKind = failureKind;
   }
+}
+
+/** Read-only billing evidence for this actual send; no provider credentials or request contents. */
+export interface PaidSendContext {
+  readonly receiptId: number;
+  readonly attemptId: string;
+  readonly service: string;
+  readonly model: string | null;
+  readonly issue: "quote_unavailable" | null;
+  readonly quote: Readonly<{
+    currency: "CNY";
+    priceId: string;
+    priceVersion: number;
+    quotedAt: string;
+    reservedMicros: string;
+    bounds: Readonly<UsageBounds> | null;
+  }> | null;
+}
+function sendContext(req: ReceiptRequest, receiptId: number, attemptId: string, frozen: UsageQuote | null): PaidSendContext {
+  const price = frozen?.price;
+  const valid = !!(
+    price &&
+    price.currency === "CNY" &&
+    !frozen?.pricing_issue &&
+    frozen?.price_id &&
+    frozen.quoted_at &&
+    Number.isSafeInteger(frozen.price_version) &&
+    frozen.price_version > 0 &&
+    /^\d+$/.test(frozen.reserved_micros) &&
+    price.service === req.service &&
+    (price.model ?? "") === (req.model ?? "") &&
+    (price.configuration_hash ?? null) === (req.modelSnapshot?.configuration_hash ?? null) &&
+    stableJson(frozen.bounds) === stableJson(req.costBounds ?? null)
+  );
+  const quote =
+    valid && frozen
+      ? Object.freeze({
+          currency: "CNY" as const,
+          priceId: frozen.price_id!,
+          priceVersion: frozen.price_version,
+          quotedAt: frozen.quoted_at!,
+          reservedMicros: frozen.reserved_micros,
+          bounds: frozen.bounds ? Object.freeze({ ...frozen.bounds }) : null,
+        })
+      : null;
+  return Object.freeze({ receiptId, attemptId, service: req.service, model: req.model ?? null, quote, issue: quote ? null : "quote_unavailable" });
 }
 
 export interface CallOutcome {
@@ -533,7 +579,11 @@ async function legacyModelReceipt(db: Db, req: ReceiptRequest) {
  * Runs a paid request at most once per logical key and returns its raw response.
  * The caller parses the response and commits business results, then calls completeReceipt.
  */
-export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallOutcome>, beforeAttempt?: (tx: Db) => Promise<void>): Promise<ReceiptResult> {
+export async function paidRequest(
+  req: ReceiptRequest,
+  call: (context: PaidSendContext) => Promise<CallOutcome>,
+  beforeAttempt?: (tx: Db) => Promise<void>,
+): Promise<ReceiptResult> {
   if (req.maxRejectedOutputs !== undefined && (![1, 3].includes(req.maxRejectedOutputs) || req.purpose !== "translate_body"))
     throw new Error("Only translation may opt into a rejected-output limit");
   const knownLane = req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane;
@@ -763,17 +813,25 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   const { id: receiptId, attemptId, attempt } = claimed;
   const started = Date.now();
   let outcome: CallOutcome;
+  let frozen: UsageQuote | null = null;
   try {
     try {
       const blocked = await sql.begin(async (tx) => {
         await assertRuntimeControl(tx, claimed.control);
-        return authorizeUsageSend(tx, attemptId);
+        return authorizeUsageSend(
+          tx,
+          attemptId,
+          () => new Date(),
+          (quote) => {
+            frozen = quote;
+          },
+        );
       });
       if (blocked) throw new UsageProtectionError(req.service, blocked);
     } catch (error) {
       throw error instanceof UsageProtectionError ? error : new UsageProtectionError(req.service, "新的付费调用已暂停或控制版本发生变化");
     }
-    outcome = await call();
+    outcome = await call(sendContext(req, receiptId, attemptId, frozen));
   } catch (error) {
     const knownUnbilled =
       error instanceof ProviderRejectedError &&
