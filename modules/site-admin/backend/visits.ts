@@ -77,6 +77,23 @@ export interface VisitHit {
   now?: Date;
 }
 
+/**
+ * lastSeen keeps insertion order equal to time order (a key is moved to the end when it is set again), so expired entries
+ * are always at the front: forgetting them and making room both stop at the first live entry, never scanning the map.
+ */
+function forgetRepeats(minute: number) {
+  for (const [key, at] of lastSeen) {
+    if (minute - at < REPEAT_MINUTES) break;
+    lastSeen.delete(key);
+  }
+}
+function rememberRepeat(key: string, minute: number) {
+  lastSeen.delete(key);
+  // Full: the oldest entry goes. A view it would have folded may then count once more; memory stays bounded.
+  if (lastSeen.size >= MAX_REPEATS) lastSeen.delete(lastSeen.keys().next().value!);
+  lastSeen.set(key, minute);
+}
+
 /** Record one beacon in memory. Returns whether it counted as a reader page view. Never throws, never waits. */
 export function recordVisit(hit: VisitHit): boolean {
   const page = readerPage(hit.path);
@@ -86,18 +103,18 @@ export function recordVisit(hit: VisitHit): boolean {
   if (clientMinute.minute !== minute) {
     clientMinute.minute = minute;
     clientMinute.counts.clear();
-    // Once a minute, forget repeats that are over.
-    for (const [key, at] of lastSeen) if (minute - at >= REPEAT_MINUTES) lastSeen.delete(key);
+    forgetRepeats(minute);
   }
   const client = createHmac("sha256", clientSecret).update(`${hit.address}\n${hit.userAgent}`).digest("base64url");
-  const repeat = `${client}\n${page.path}`;
+  // The exact address, not the route pattern readerPage may fold it into; with the Beijing day, so the first view of a new
+  // day always counts (and registers its daily and monthly visitor).
+  const repeat = `${client}\n${beijingDate(now)}\n${hit.path.split(/[?#]/, 1)[0]}`;
   const last = lastSeen.get(repeat);
   if (last !== undefined && minute - last < REPEAT_MINUTES) return false;
   const seen = clientMinute.counts.get(client) ?? 0;
   if (seen >= PER_CLIENT_PER_MINUTE || (!seen && clientMinute.counts.size >= 50_000)) return false;
   clientMinute.counts.set(client, seen + 1);
-  if (lastSeen.size >= MAX_REPEATS) for (const [key, at] of lastSeen) if (minute - at >= REPEAT_MINUTES) lastSeen.delete(key);
-  if (lastSeen.size < MAX_REPEATS) lastSeen.set(repeat, minute);
+  rememberRepeat(repeat, minute);
 
   const day = beijingDate(now);
   const device = deviceClass(hit.userAgent);

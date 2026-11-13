@@ -170,12 +170,21 @@ test("reloading one page in a loop counts once per half hour; another page, anot
   assert.equal(hit(at10, "203.0.113.50", CHROME, "/all"), true, "another page");
   assert.equal(hit(at10, "203.0.113.51", CHROME, "/feedback"), true, "another reader");
   assert.equal(hit(at10, "203.0.113.50", IPHONE, "/feedback"), true, "the same network on another browser");
-  await flushVisits(new Date(start + 2 * 3600_000));
+  // Two different originals fold into one route in the counts, but are two pages to the reader.
+  assert.equal(hit(at10, "203.0.113.50", CHROME, "/items/a/original"), true);
+  assert.equal(hit(at10, "203.0.113.50", CHROME, "/items/b/original"), true);
+  // Past Beijing midnight the same page counts again, so the new day has this visitor.
+  const midnight = Date.parse("2026-11-12T15:59:00Z");
+  assert.equal(hit(new Date(midnight), "203.0.113.52", CHROME, "/feedback"), true);
+  assert.equal(hit(new Date(midnight + 60_000), "203.0.113.52", CHROME, "/feedback"), true, "a new day");
+  await flushVisits(new Date(midnight + 2 * 60_000));
+  assert.equal(await count("visit_day_keys", "day = '2026-11-13'"), 1, "the visitor of the new day");
   assert.deepEqual(
-    (await sql`SELECT path,views FROM ops.visit_pages ORDER BY path`).map((r) => [r.path, r.views]),
+    (await sql`SELECT path,views FROM ops.visit_pages WHERE day = '2026-11-12' ORDER BY path`).map((r) => [r.path, r.views]),
     [
       ["/all", 1],
-      ["/feedback", 6],
+      ["/feedback", 7],
+      ["/items/:id/original", 2],
     ],
   );
 });
