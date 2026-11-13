@@ -13611,12 +13611,12 @@
       "tier": "T1",
       "first_party": true,
       "owner_entity_id": "salta.gob.ar",
-      "interval_minutes": 120,
+      "interval_minutes": 60,
       "tags": ["AR"],
-      "participation_mode": "isolated",
+      "participation_mode": "editorial",
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261113-ar-jujuy-mining-news",
@@ -13643,12 +13643,12 @@
       "tier": "T1",
       "first_party": true,
       "owner_entity_id": "jujuy.gob.ar",
-      "interval_minutes": 120,
+      "interval_minutes": 60,
       "tags": ["AR"],
-      "participation_mode": "isolated",
+      "participation_mode": "editorial",
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261113-ar-mendoza-mining-news",
@@ -13675,7 +13675,7 @@
       "tier": "T1",
       "first_party": true,
       "owner_entity_id": "mendoza.gov.ar",
-      "interval_minutes": 120,
+      "interval_minutes": 60,
       "tags": ["AR"],
       "participation_mode": "isolated",
       "site_fulltext": false,
@@ -13707,12 +13707,12 @@
       "tier": "T1",
       "first_party": true,
       "owner_entity_id": "santacruz.gob.ar",
-      "interval_minutes": 120,
+      "interval_minutes": 60,
       "tags": ["AR"],
-      "participation_mode": "isolated",
+      "participation_mode": "editorial",
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261113-ar-santacruz-energy-news",
@@ -13738,12 +13738,12 @@
       "tier": "T1",
       "first_party": true,
       "owner_entity_id": "santacruz.gob.ar",
-      "interval_minutes": 120,
+      "interval_minutes": 60,
       "tags": ["AR"],
-      "participation_mode": "isolated",
+      "participation_mode": "editorial",
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     }
   ]
 }

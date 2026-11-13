@@ -45,7 +45,7 @@
 
 ### 2.3 `sources.json`
 
-TASK-0635 的五个阿根廷官方列表仅登记为停用、`isolated` 预览，省份及逐源结果见 `docs/acceptance/sources-20261113/source-preview.json`；门多萨栏目旧且日期格式待适配，圣胡安 iframe 被 robots 禁止、卡塔马卡遇验证而未登记。转正式由 Claude 看预览结果后另定。
+TASK-0635 按 Claude 在 #485 评论6842199019的清单，将萨尔塔、胡胡伊及圣克鲁斯两个官方新闻入口转为正式目录；门多萨保持停用、`isolated`。间隔沿用同类官方新闻源的60分钟，站内/站外全文都关。省份及七源预览见 `docs/acceptance/sources-20261113/source-preview.json`；圣胡安 iframe 被 robots 禁止、卡塔马卡遇验证而未登记。身份清单只列4个正式来源；旧 `source-intake --apply` 固定开启站内全文，本次不执行。
 
 | 字段 | 含义 |
 |---|---|

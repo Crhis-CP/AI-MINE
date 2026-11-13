@@ -55,14 +55,23 @@ test("current catalogues require 478 news (TASK-0635 adds five isolated previews
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test("TASK-0635 Argentina sources stay disabled and isolated after preview", () => {
+test("TASK-0635 keeps Mendoza isolated and enables only the four reviewed official news sources", () => {
   const sources = JSON.parse(readFileSync(join(ROOT, "industry/sources.json"), "utf8")).sources.filter((source: { id: string }) =>
     source.id.startsWith("exp-20261113-ar-"),
   );
-  assert.equal(sources.length, 5);
+  assert.deepEqual(sources.map((source: { id: string }) => source.id).sort(), [
+    "exp-20261113-ar-jujuy-mining-news",
+    "exp-20261113-ar-mendoza-mining-news",
+    "exp-20261113-ar-salta-news",
+    "exp-20261113-ar-santacruz-energy-news",
+    "exp-20261113-ar-santacruz-government-mining",
+  ]);
   for (const source of sources) {
-    assert.equal(source.enabled, false);
-    assert.equal(source.participation_mode, "isolated");
+    const held = source.id === "exp-20261113-ar-mendoza-mining-news";
+    assert.equal(source.enabled, !held);
+    assert.equal(source.participation_mode, held ? "isolated" : "editorial");
+    assert.equal(source.interval_minutes, 60);
+    assert.equal(source.site_fulltext, false);
     assert.equal(source.syndicate_fulltext, false);
   }
 });

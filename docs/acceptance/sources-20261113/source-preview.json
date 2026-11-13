@@ -124,5 +124,19 @@
     "matched_rows": 0,
     "successful_executions": 1,
     "scope": "news lane; five candidate hosts with www normalization and five new IDs"
+  },
+  "formal_catalogue_decision": {
+    "authority": "https://github.com/Crhis-CP/AI-MINE/pull/485#issuecomment-6842199019",
+    "editorial_enabled_ids": [
+      "exp-20261113-ar-salta-news",
+      "exp-20261113-ar-jujuy-mining-news",
+      "exp-20261113-ar-santacruz-government-mining",
+      "exp-20261113-ar-santacruz-energy-news"
+    ],
+    "held_id": "exp-20261113-ar-mendoza-mining-news",
+    "interval_minutes": 60,
+    "site_fulltext": false,
+    "syndicate_fulltext": false,
+    "preview_rows_describe_initial_disabled_state": true
   }
 }

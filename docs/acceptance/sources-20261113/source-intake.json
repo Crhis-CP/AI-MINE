@@ -1,7 +1,6 @@
 {
   "batch": "source-intake-20261113",
   "task": "TASK-0635",
-  "mode": "preview_only_do_not_apply",
   "entries": [
     {
       "id": "exp-20261113-ar-salta-news",
@@ -20,14 +19,6 @@
       "expected_existing": false
     },
     {
-      "id": "exp-20261113-ar-mendoza-mining-news",
-      "target_config_hash": "a80631e6c4b4f9577094ef0d69bcdedaab63f6a9ca811e1bdbce1a3c558aa2be",
-      "expected_config_hash": null,
-      "expected_owner_entity_id": null,
-      "owner_entity_id": "mendoza.gov.ar",
-      "expected_existing": false
-    },
-    {
       "id": "exp-20261113-ar-santacruz-government-mining",
       "target_config_hash": "432aab8263bf8b264d3710e79dfb729bc9c3048782f07fccb9e7d05efd31c385",
       "expected_config_hash": null,
@@ -43,5 +34,6 @@
       "owner_entity_id": "santacruz.gob.ar",
       "expected_existing": false
     }
-  ]
+  ],
+  "$comment": "按Claude 6842199019只列4个转正式来源的身份/配置摘要。仅用于核对；旧source-intake --apply固定开启站内全文，本次不执行。"
 }
