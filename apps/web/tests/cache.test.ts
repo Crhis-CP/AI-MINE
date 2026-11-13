@@ -347,6 +347,34 @@ const protectedApi = async (req: IncomingMessage, res: ServerResponse) => {
       );
     if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
     if (req.url === "/api/admin/visits") return res.end(JSON.stringify(visitOverviewFixture));
+    if (req.url === "/api/admin/policies")
+      return res.end(
+        JSON.stringify({
+          total: 2,
+          items: [
+            {
+              id: "pol-fixture-a",
+              title: "合成矿业法修正案",
+              original_title: "Ley sintética de minería",
+              withdrawn: false,
+              publishing_paused: true,
+              automatic_excluded: false,
+              first_public_at: "2026-11-01T00:00:00.000Z",
+              updated_at: "2026-11-10T00:00:00.000Z",
+            },
+            {
+              id: "pol-fixture-b",
+              title: "合成环保条例",
+              original_title: "合成环保条例",
+              withdrawn: true,
+              publishing_paused: false,
+              automatic_excluded: false,
+              first_public_at: null,
+              updated_at: "2026-11-09T00:00:00.000Z",
+            },
+          ],
+        }),
+      );
     if (req.url === "/api/admin/content/grouping-fixture") {
       const at = "2026-10-15T08:00:00Z";
       return res.end(
@@ -1897,6 +1925,22 @@ const visitOverviewFixture = {
     },
   },
 };
+
+test("法规文书 lists documents with their state and the owner's controls, privately (TASK-0610)", async () => {
+  privatePageFixtures = true;
+  try {
+    const res = await fetchWithHost(origin + "/admin/policies", PRIVATE_HOST);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    for (const text of ["法规文书", "合成矿业法修正案", "Ley sintética de minería", "合成环保条例", "已下架", "已暂停更新", "按标题或编号查找"])
+      assert.ok(html.includes(text), text);
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store");
+    const reader = await fetch(origin + "/admin/policies");
+    assert.notEqual(reader.status, 200, "the public host never serves the admin page");
+  } finally {
+    privatePageFixtures = false;
+  }
+});
 
 test("访问概况 renders the overview contract as the dark screen: figures, globe, charts and lists, privately", async () => {
   privatePageFixtures = true;
