@@ -202,6 +202,8 @@ async function extractArticleBody(
     if (readKey && !(await previousAuditedCommand("worker", "content.body-read", `content:${articleId}`, readKey, tx)))
       await audit("worker", "content.body-read", `content:${articleId}`, "记录实际正文读取尝试", null, { inputRevision: a.revision, outcome }, readKey, tx);
   };
+  // No current permission: nothing may be stored, so nothing is fetched (and the paid reader is not asked) either.
+  if (!permission) throw new CrawlBlocked("crawl_body_permission_missing");
   if (!(await crawlFulltextAllowed(a.url))) {
     await sql.begin(async (tx) => {
       await guardWrite(tx);
@@ -238,7 +240,6 @@ async function extractArticleBody(
   }
   const body = z.object({ html: z.string(), text: z.string(), bodyStatus: z.enum(["ok", "unconfirmed"]).optional() }).parse(got);
   const bodyStatus = body.bodyStatus ?? "ok";
-  if (!permission) throw new CrawlBlocked("crawl_body_permission_missing");
   // The body is new content: a new revision, so an analysis of the body-less input counts as stale.
   const stored = await sql.begin(async (tx) => {
     await guardWrite(tx);

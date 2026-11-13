@@ -37,6 +37,14 @@ const MAX_IDENTITIES = 20_000;
 const MAX_PATHS_PER_DAY = 5_000;
 /** Page views one client (address and browser) may add per minute. */
 const PER_CLIENT_PER_MINUTE = 60;
+/**
+ * One client opening the same page again within this many minutes is one page view, not several (TASK-0638): reloads,
+ * a tab coming back, or an automated client that runs the page in a loop no longer multiply a page's count. The
+ * 2026-11-12 counts had /feedback at 15,154 views from 130 visitors with one feedback sent.
+ */
+export const REPEAT_MINUTES = 30;
+/** Repeat entries held at most; beyond it a view counts as new rather than lose memory. */
+const MAX_REPEATS = 100_000;
 
 interface Batch {
   days: Map<string, { views: number; english: number }>;
@@ -52,6 +60,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let writing: Promise<void> | null = null;
 const dayPaths = new Map<string, Set<string>>();
 const clientMinute = { minute: -1, counts: new Map<string, number>() };
+/** The minute each client last had each page counted, for REPEAT_MINUTES. */
+const lastSeen = new Map<string, number>();
 const clientSecret = randomBytes(32);
 const saltCache = new Map<string, Buffer>();
 /** Process-lifetime diagnostics: page views lost to a failed write, and failed writes. */
@@ -67,6 +77,23 @@ export interface VisitHit {
   now?: Date;
 }
 
+/**
+ * lastSeen keeps insertion order equal to time order (a key is moved to the end when it is set again), so expired entries
+ * are always at the front: forgetting them and making room both stop at the first live entry, never scanning the map.
+ */
+function forgetRepeats(minute: number) {
+  for (const [key, at] of lastSeen) {
+    if (minute - at < REPEAT_MINUTES) break;
+    lastSeen.delete(key);
+  }
+}
+function rememberRepeat(key: string, minute: number) {
+  lastSeen.delete(key);
+  // Full: the oldest entry goes. A view it would have folded may then count once more; memory stays bounded.
+  if (lastSeen.size >= MAX_REPEATS) lastSeen.delete(lastSeen.keys().next().value!);
+  lastSeen.set(key, minute);
+}
+
 /** Record one beacon in memory. Returns whether it counted as a reader page view. Never throws, never waits. */
 export function recordVisit(hit: VisitHit): boolean {
   const page = readerPage(hit.path);
@@ -76,11 +103,18 @@ export function recordVisit(hit: VisitHit): boolean {
   if (clientMinute.minute !== minute) {
     clientMinute.minute = minute;
     clientMinute.counts.clear();
+    forgetRepeats(minute);
   }
   const client = createHmac("sha256", clientSecret).update(`${hit.address}\n${hit.userAgent}`).digest("base64url");
+  // The exact address, not the route pattern readerPage may fold it into; with the Beijing day, so the first view of a new
+  // day always counts (and registers its daily and monthly visitor).
+  const repeat = `${client}\n${beijingDate(now)}\n${hit.path.split(/[?#]/, 1)[0]}`;
+  const last = lastSeen.get(repeat);
+  if (last !== undefined && minute - last < REPEAT_MINUTES) return false;
   const seen = clientMinute.counts.get(client) ?? 0;
   if (seen >= PER_CLIENT_PER_MINUTE || (!seen && clientMinute.counts.size >= 50_000)) return false;
   clientMinute.counts.set(client, seen + 1);
+  rememberRepeat(repeat, minute);
 
   const day = beijingDate(now);
   const device = deviceClass(hit.userAgent);

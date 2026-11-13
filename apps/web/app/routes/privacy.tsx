@@ -18,6 +18,7 @@ export function meta() {
   return pageMeta({
     title: "隐私说明",
     description: `本站如何处理浏览器本地数据、反馈资料、访问统计与访问日志。`,
+    descriptionEn: "How AI-MINE handles data kept in your browser, feedback you send, visit statistics and access logs.",
     path: "/privacy",
     image: "/og/pages/privacy.png",
   });
