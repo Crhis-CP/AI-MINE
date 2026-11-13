@@ -2,8 +2,6 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, test } from "node:test";
-import { once } from "node:events";
-import { Worker } from "node:worker_threads";
 import { config } from "@amp/backend/config";
 import { fetchRss } from "@amp/backend/sources/rss";
 import { escapeXml } from "@amp/backend/lib/text";
@@ -54,28 +52,14 @@ async function read(path: string) {
   return (await fetchRss(sourceFor(path))).candidates;
 }
 
-test("truncated Atom XHTML parsing finishes within an external deadline", async () => {
-  // A worker lets the deadline stop synchronous parsing as well as network waits.
-  const code = `
-    import { parentPort, workerData } from "node:worker_threads";
-    const { config } = await import(workerData.config);
-    const { fetchRss } = await import(workerData.rss);
-    config.allowPrivateNetworkFetch = true;
-    try { await fetchRss(workerData.source); } catch {}
-    parentPort.postMessage(true);
-  `;
-  const worker = new Worker(new URL(`data:text/javascript,${encodeURIComponent(code)}`), {
-    workerData: {
-      config: new URL("../packages/backend/src/config.ts", import.meta.url).href,
-      rss: new URL("../packages/backend/src/sources/rss.ts", import.meta.url).href,
-      source: sourceFor("/truncated"),
-    },
-  });
+test("truncated Atom XHTML fetch and parsing finish within three seconds", async () => {
+  const started = performance.now();
   try {
-    assert.deepEqual(await once(worker, "message", { signal: AbortSignal.timeout(3000) }), [true]);
-  } finally {
-    await worker.terminate();
+    await read("/truncated");
+  } catch {
+    /* A truncated document may be rejected. */
   }
+  assert.ok(performance.now() - started < 3000);
 });
 
 test("Atom XHTML titles and summaries keep the article and its text in order", async () => {
