@@ -53,6 +53,18 @@ export const en: Dict = {
     worldFirst: "The home page opens with worldwide news.",
     nothing: "No recent items for {country}; worldwide picks are below.",
   },
+  country: {
+    title: "{country} mining news",
+    description: "The latest mining announcements, company news, laws and policies for {country}, with Chinese summaries and links to original sources.",
+    today: "{count} today",
+    latest: "Latest news",
+    empty: "No recent items for {country}.",
+    world: "See worldwide picks",
+    more: "More news for {country}",
+    policies: "Laws and policies",
+    allPolicies: "All laws and policies for {country}",
+    stages: { proposed: "Proposed", consultation: "Consultation", adopted: "Adopted", published: "Published", unknown: "" },
+  },
   map: {
     title: "News map",
     windows: { "1d": "Today", "7d": "7 days", "30d": "30 days" },
