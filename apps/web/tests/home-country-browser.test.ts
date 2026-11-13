@@ -173,7 +173,7 @@ test("a device in Argentina opens with Argentina's newest items above the worldw
   await expect(block.getByRole("heading")).toContainText("近 7 天 12 条");
   await expect(block.getByRole("listitem")).toHaveCount(5); // seven exist, five open the page
   await expect(block.getByText("按你设备的时区显示，可以更换")).toBeVisible();
-  assert.match((await block.getByRole("link", { name: /看阿根廷全部动态/ }).getAttribute("href"))!, /^\/all\?jurisdiction=AR&from=\d{4}-\d{2}-\d{2}$/);
+  assert.equal(await block.getByRole("link", { name: /看阿根廷全部动态/ }).getAttribute("href"), "/country/AR");
   await expect(page.getByText("全球精选合成动态")).toBeVisible();
   const box = await block.boundingBox();
   const world = await page.getByText("全球精选合成动态").boundingBox();

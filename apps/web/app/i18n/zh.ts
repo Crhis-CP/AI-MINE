@@ -48,6 +48,18 @@ export const zh = {
     worldFirst: "首页先看全球。",
     nothing: "{country}近期没有收录动态，下面是全球精选。",
   },
+  country: {
+    title: "{country}矿业动态",
+    description: "{country}矿业的最新公告、企业动态和法规政策，附中文导读和原文链接。",
+    today: "今天 {count} 条",
+    latest: "最新动态",
+    empty: "{country}近期没有收录动态。",
+    world: "看全球精选",
+    more: "更多{country}动态",
+    policies: "法规政策",
+    allPolicies: "全部{country}法规",
+    stages: { proposed: "拟议", consultation: "征求意见", adopted: "已通过", published: "已公布", unknown: "" },
+  },
   map: {
     title: "资讯地图",
     windows: { "1d": "今天", "7d": "7 天", "30d": "30 天" },

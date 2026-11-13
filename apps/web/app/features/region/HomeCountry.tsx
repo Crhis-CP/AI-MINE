@@ -8,7 +8,7 @@ import { IntentLink as Link } from "../../components/ui/IntentLink";
 import { apiFetch } from "../../lib/http.ts";
 import { dateFormatFor } from "../../lib/format";
 import { fmt, useLocale, useT } from "../../i18n";
-import { countryNewsPath, readMap } from "../feed/WorldMap";
+import { readMap } from "../feed/WorldMap";
 import { useJurisdictionChoices, useRegionName } from "../feed/jurisdictions";
 import { type HomeCountry as Choice, HOME_COUNTRIES, WORLD, resolveHomeCountry, writeHomeCountry } from "./home-country";
 
@@ -125,7 +125,7 @@ export function HomeCountry() {
         ))}
       </ol>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[13px]">
-        <Link to={countryNewsPath(code, local.from ? { from: local.from } : null)} className="font-medium text-accent hover:underline">
+        <Link to={`/country/${code}`} className="font-medium text-accent hover:underline">
           {fmt(t.all, { country: name })} →
         </Link>
         {!choice.chosen && <span className="text-[12px] text-ink-4">{t.guessed}</span>}

@@ -52,6 +52,7 @@ export interface PageMetaInput {
   /** Use `title` verbatim as the document title (no " · <site>" suffix). */
   rawTitle?: boolean;
   description?: string | null;
+  descriptionEn?: string | null;
   path: string;
   image?: string | null;
   noindex?: boolean;
@@ -98,7 +99,9 @@ export function pageMeta(input: PageMetaInput): MetaDescriptor[] {
   const enUrl = `${base}${localizedPath(zhPath, "en")}`;
   const title = localTitle(input.title ? (input.rawTitle ? input.title : titled(input.title)) : HOME_TITLE, locale);
   const shortTitle = localTitle(input.title ?? HOME_TITLE, locale);
-  const description = english ? (input.description ? tr.maybe(input.description) : SITE_DESCRIPTION_EN) : (input.description ?? SITE_DESCRIPTION);
+  const description = english
+    ? (input.descriptionEn ?? (input.description ? tr.maybe(input.description) : SITE_DESCRIPTION_EN))
+    : (input.description ?? SITE_DESCRIPTION);
   const url = english ? enUrl : zhUrl;
   const image = input.image ? (input.image.startsWith("http") ? input.image : `${base}${input.image}`) : `${base}/og/site.png`;
   const tags: MetaDescriptor[] = [
