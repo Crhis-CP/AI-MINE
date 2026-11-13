@@ -55,6 +55,8 @@ test("the real model send receives its own frozen quote and hard bounds without 
   const [row] = await sql`SELECT reserved_micros::text,quote FROM ai.usage_attempts WHERE attempt_id=${first.attemptId}`;
   assert.ok(send.quote, "an explicitly registered zero price is still a valid quote");
   assert.equal(send.quote.reservedMicros, row.reserved_micros);
+  assert.deepEqual([send.quote.priceId, send.quote.priceVersion], [row.quote.price_id, row.quote.price_version]);
+  assert.equal(send.model, JSON.parse(bodies.at(-1)!).model);
   assert.deepEqual(send.quote.bounds, row.quote.bounds);
   assert.equal(send.quote.bounds?.output_tokens, 800);
   assert.equal(send.quote.bounds?.input_tokens, Buffer.byteLength(bodies.at(-1)!));

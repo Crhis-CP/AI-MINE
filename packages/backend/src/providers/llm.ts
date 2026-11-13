@@ -190,7 +190,7 @@ function boundedRequestOptions(extra: Record<string, unknown> = {}) {
     "response_format",
     "reasoning_effort",
   ]);
-  return Object.entries(extra).every(([key, value]) => {
+  return Object.entries(extra ?? {}).every(([key, value]) => {
     if (neutral.has(key)) return true;
     if (key === "n" || key === "best_of") return value === 1;
     if (key === "enable_thinking") return typeof value === "boolean";
@@ -318,6 +318,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   // the same for many materials.
   const userText = chatUserText(opts);
   const layout = opts.prefix ? { layout: "prefix-v1" } : {};
+  const extra = spec.extra;
   const body: Record<string, unknown> = {
     model: spec.model,
     messages: [
@@ -335,9 +336,10 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     temperature,
     max_tokens: maxTokens,
     ...(spec.jsonMode && opts.json !== false ? { response_format: { type: "json_object" } } : {}),
-    ...(spec.extra ?? {}),
+    ...(extra ?? {}),
   };
   const requestBody = JSON.stringify(body),
+    boundedOptions = boundedRequestOptions(extra) && Number.isSafeInteger(body.max_tokens) && Number(body.max_tokens) > 0,
     imageTransport = opts.purpose === "policy_vision" ? { transportHash: sha256(requestBody), transportBytes: Buffer.byteLength(requestBody) } : {};
 
   if (typeof body.model !== "string" || !body.model) throw new Error("Model transport requires an explicit requested model");
@@ -476,16 +478,15 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         const send = async () => {
           if (opts.beforeRequest) {
             try {
-              const bounded = boundedRequestOptions(spec.extra) && Number.isSafeInteger(body.max_tokens) && Number(body.max_tokens) > 0;
               await opts.beforeRequest(
                 Object.freeze({
                   ...billing,
                   phase: "send",
-                  modelKey: opts.model,
+                  modelKey: spec.key,
                   configurationHash,
                   requestHash: sha256(requestBody),
-                  quote: bounded ? billing.quote : null,
-                  issue: bounded ? billing.issue : "unsupported_request_options",
+                  quote: boundedOptions ? billing.quote : null,
+                  issue: boundedOptions ? billing.issue : "unsupported_request_options",
                 }),
               );
             } catch (error) {
