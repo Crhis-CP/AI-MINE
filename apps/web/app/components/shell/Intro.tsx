@@ -8,16 +8,14 @@ import { SITE } from "@amp/industry/site";
 import { useTr } from "../../i18n";
 import logoUrl from "@amp/industry/brand/logo.svg?url&no-inline";
 
-const SEEN_KEY = "amp-intro";
+import { INTRO_BOOT_SCRIPT, SEEN_KEY } from "./intro-boot.ts";
+
+export { INTRO_BOOT_SCRIPT };
 /** How long the screen stays before it lifts (CSS: .intro-screen). */
 const INTRO_MS = 3900;
 /** Fired to play the animation again (the about page's button). */
 export const INTRO_REPLAY_EVENT = "amp-intro-replay";
 const INTRO_SKIP_EVENT = "amp-intro-skip";
-
-// Runs in <head>, before anything is painted. Only the home page, a browser that has not seen it, motion allowed,
-// and not an automated client (crawlers, link previews, headless browsers: they should see the page itself).
-export const INTRO_BOOT_SCRIPT = `(function(){try{var p=location.pathname.replace(/^\\/en(?=\\/|$)/,'')||'/';if(p!=='/')return;if(localStorage.getItem('${SEEN_KEY}'))return;if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;if(navigator.webdriver||/bot|crawl|spider|slurp|preview|headless|lighthouse|pagespeed/i.test(navigator.userAgent))return;window.__ampIntro=1;document.documentElement.classList.add('intro')}catch(e){}})();`;
 
 export function Intro() {
   const tr = useTr();
