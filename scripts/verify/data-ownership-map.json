@@ -737,6 +737,10 @@
     "events.report_group_checks": {
       "module": "events",
       "access": "business"
+    },
+    "publication.withdrawn_reasons": {
+      "module": "publication",
+      "access": "business"
     }
   },
   "externalTables": {

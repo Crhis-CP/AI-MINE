@@ -101,12 +101,12 @@ export async function previousValues(source: string, start: string, items: Metal
   return new Map(rows.filter((row) => items.some((item) => item.key === row.series_key)).map((row) => [row.series_key, row.value]));
 }
 
-/** Each series' value on the nearest stored period after `start`, from that period's latest version (TASK-0632). */
-export async function nextValues(source: string, start: string, items: MetalPriceItem[]): Promise<Map<string, string>> {
-  const rows = await sql<{ series_key: string; value: string }[]>`
-    SELECT DISTINCT ON (series_key) series_key, value::text AS value FROM publication.metal_prices
+/** Each series' value and day on the nearest stored period after `start`, from that period's latest version (TASK-0632). */
+export async function nextValues(source: string, start: string, items: MetalPriceItem[]): Promise<Map<string, { value: string; day: string }>> {
+  const rows = await sql<{ series_key: string; value: string; day: string }[]>`
+    SELECT DISTINCT ON (series_key) series_key, value::text AS value, period_start::text AS day FROM publication.metal_prices
     WHERE source = ${source} AND period_start > ${start} ORDER BY series_key, period_start, first_fetched_at DESC`;
-  return new Map(rows.filter((row) => items.some((item) => item.key === row.series_key)).map((row) => [row.series_key, row.value]));
+  return new Map(rows.filter((row) => items.some((item) => item.key === row.series_key)).map((row) => [row.series_key, { value: row.value, day: row.day }]));
 }
 
 /** The starts of every stored period of the source (TASK-0632). */

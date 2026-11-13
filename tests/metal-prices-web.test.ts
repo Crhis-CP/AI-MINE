@@ -1,9 +1,33 @@
-// The /metals cards' presentation helpers: which quote leads a card and how its period and change read. Pure, no
-// database or network; the payload is synthetic and parsed through the public contract.
+// The /metals presentation helpers and a stationary touch on the production page.
+// Contract-checked synthetic prices only; no database or external network.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createServer } from "node:http";
+import { once } from "node:events";
+import { spawn, type ChildProcess } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import type { AddressInfo } from "node:net";
+import { chromium, expect, type Browser } from "@playwright/test";
+import { browserExecutable, isolateBrowser } from "../apps/web/tests/browser.ts";
+import { webEnvironment } from "../apps/web/runtime-env.ts";
 import { MetalPrices } from "@amp/contracts/http/public";
-import { changeText, headlineIndex, isBehind, licenceNotes, priceText, shortLabel } from "../modules/metals/web/quotes.ts";
+import {
+  changeText,
+  headlineIndex,
+  isBehind,
+  licenceNotes,
+  priceText,
+  shortLabel,
+  trendPoints,
+  trendRanges,
+  trendScale,
+  trendStepped,
+  trendWindow,
+  TREND_MIN_BAND,
+  type Quote,
+} from "../modules/metals/web/quotes.ts";
 
 const period = (end: string, label: string) => ({ start: end, end, label });
 function prices(overrides: { dayStale?: boolean; dayValue?: string | null } = {}) {
@@ -96,4 +120,160 @@ test("periods, prices, changes and licences read as published", () => {
     ["CC BY 4.0"],
   );
   assert.deepEqual(licenceNotes(data.notes, data.sources[1]!), []);
+});
+
+test("a trend line shows only stored periods, offers only ranges that add something, and never exaggerates a small move", () => {
+  // TASK-0627: the Owner found the preview's ups and downs misleading; the scale keeps a move's height honest.
+  const day = (n: number) => new Date(Date.UTC(2026, 9, 1) + n * 86400_000).toISOString().slice(0, 10);
+  const history = Array.from({ length: 40 }, (_, i) => ({ period: { start: day(i), end: day(i), label: `第${i}天` }, value: String(10000 + i) }));
+  const quote = { history } as unknown as Quote;
+  const points = trendPoints(quote);
+  assert.equal(points.length, 40);
+  assert.equal(trendWindow(points, 31).length, 32, "the latest day and the 31 before it");
+  assert.deepEqual(
+    trendRanges(points).map((range) => range.key),
+    ["1m", "3m"],
+    "a year would show nothing more than three months",
+  );
+  assert.deepEqual(
+    trendRanges(points.slice(-10)).map((range) => range.key),
+    ["1m"],
+  );
+  assert.deepEqual(trendRanges(points.slice(-1)), [], "one period is not a trend");
+  assert.deepEqual(trendPoints({ history: undefined } as unknown as Quote), []);
+  // A 0.4% move may fill at most a tenth of the height; a 20% move uses nearly all of it.
+  const flat = trendScale([10000, 10040]);
+  assert.ok((10040 - 10000) / (flat.max - flat.min) < 0.11);
+  assert.ok(flat.max - flat.min >= 10020 * TREND_MIN_BAND);
+  const wide = trendScale([10000, 12000]);
+  assert.ok((12000 - 10000) / (wide.max - wide.min) > 0.9);
+  assert.ok(wide.min < 10000 && wide.max > 12000);
+  assert.deepEqual(trendScale([5, 5]).max > 5, true);
+  assert.equal(trendStepped(points), false);
+  assert.equal(trendStepped([{ start: "2026-09-01", end: "2026-09-30", label: "9月", value: 1 }]), true);
+});
+
+// Build @amp/web first; this drives the real /metals route without a test-only product export.
+test("a stationary touch start immediately shows the pressed metal-price period", { timeout: 45000 }, async () => {
+  const fixture = prices(),
+    quote = fixture.metals[0]!.quotes[2]!;
+  quote.history = [
+    { period: period("2026-09-30", "2026年9月30日"), value: "9700" },
+    { period: period("2026-10-01", "2026年10月1日"), value: "9800" },
+    { period: quote.period!, value: quote.value! },
+  ];
+  const payload = MetalPrices.parse(fixture);
+  const api = createServer((req, res) => {
+    res.setHeader("content-type", "application/json");
+    res.setHeader("cache-control", "no-store");
+    const pathname = new URL(req.url!, "http://fixture").pathname;
+    const answer =
+      pathname === "/api/site/metal-prices"
+        ? payload
+        : pathname === "/api/site/meta"
+          ? { changelogVersion: null }
+          : pathname === "/api/site/content-version"
+            ? { version: "touch-fixture", withdrawalVersion: "touch-fixture" }
+            : pathname === "/api/site/jurisdictions"
+              ? []
+              : null;
+    if (answer === null) res.statusCode = 404;
+    res.end(JSON.stringify(answer));
+  });
+  let web: ChildProcess | undefined, browser: Browser | undefined;
+  try {
+    api.listen(0, "127.0.0.1");
+    await once(api, "listening");
+    const base = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
+    web = spawn(process.execPath, ["apps/web/server.ts"], {
+      env: webEnvironment({
+        PATH: process.env.PATH,
+        NODE_ENV: "production",
+        AMP_RELEASE: "fixture-metal-touch",
+        WEB_PORT: "0",
+        WEB_HOST: "127.0.0.1",
+        PRIVATE_HOST: "private.localhost",
+        TRUST_PROXY: "false",
+        API_BASE_URL: base,
+        PRIVATE_API_BASE_URL: base,
+      }),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const origin = await new Promise<string>((resolve, reject) => {
+      let output = "";
+      const timer = setTimeout(() => reject(new Error(output || "web did not start")), 15000);
+      const read = (chunk: Buffer) => {
+        output += chunk;
+        const match = output.match(/"msg":"web started","port":(\d+)/);
+        if (match) {
+          clearTimeout(timer);
+          resolve(`http://127.0.0.1:${match[1]}`);
+        }
+      };
+      web!.stdout!.on("data", read);
+      web!.stderr!.on("data", read);
+      web!.once("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      web!.once("exit", () => {
+        clearTimeout(timer);
+        reject(new Error(output));
+      });
+    });
+    browser = await chromium.launch({
+      headless: true,
+      executablePath: browserExecutable(),
+      args: ["--disable-background-networking", "--disable-component-update"],
+    });
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+      locale: "zh-CN",
+      reducedMotion: "reduce",
+    });
+    const blocked = await isolateBrowser(context, [origin]),
+      page = await context.newPage(),
+      errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(`${origin}/metals`);
+    const figure = page.locator('[data-trend="d"]'),
+      chart = figure.locator("svg"),
+      caption = figure.locator("figcaption");
+    // Existing move/leave behavior also proves the component hydrated before the no-move touch.
+    await chart.hover();
+    await expect(caption).toContainText("10月1日");
+    await page.mouse.move(0, 0);
+    await expect(caption).toContainText("10月2日");
+    await page.evaluate(`(() => {
+      const element = document.querySelector('[data-trend="d"] svg');
+      element.setAttribute("data-test-moves", "0");
+      element.addEventListener("pointermove", () => element.setAttribute("data-test-moves", String(Number(element.getAttribute("data-test-moves")) + 1)));
+    })()`);
+    const box = (await chart.boundingBox())!,
+      session = await context.newCDPSession(page);
+    try {
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: box.x + box.width * 0.1, y: box.y + box.height * 0.5 }] });
+      await expect(chart).toHaveAttribute("data-test-moves", "0");
+      const screenshot = path.join(mkdtempSync(path.join(tmpdir(), "aimine-metal-touch-")), "touch-start.png");
+      await page.screenshot({ path: screenshot });
+      console.log(`stationary touch screenshot: ${screenshot}`);
+      await expect(caption).toContainText("9月30日");
+      await expect(caption).toContainText("9,700");
+      assert.equal(await chart.locator("line").count(), 1, "the pressed period has its own marker");
+    } finally {
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    }
+    assert.deepEqual(errors, []);
+    assert.deepEqual(blocked, []);
+  } finally {
+    await browser?.close();
+    if (web && web.exitCode === null) {
+      web.kill("SIGTERM");
+      await once(web, "exit");
+    }
+    api.closeAllConnections();
+    await new Promise<void>((resolve) => api.close(() => resolve()));
+  }
 });

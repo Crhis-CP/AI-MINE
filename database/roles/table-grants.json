@@ -1509,6 +1509,15 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "publication.withdrawn_reasons": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
     }
   },
   "sequences": {
