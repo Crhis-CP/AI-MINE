@@ -1,633 +1,389 @@
 /**
- * The policy reading page in parts (UI update, Owner 2026-11-05: "法规解读的代码也要好好做"). The route keeps
- * loading and version checks; these parts only render the parsed Policy. Order on the page: tools, facts card,
- * at-a-glance card (what it changes, for whom, by when), the analysis, legal status, the clause-by-clause comparison
- * (PolicyCompare.tsx, when two versions can be compared), full text and evidence.
+ * The document page's head and its interpretation side (TASK-0657, Owner 2026-11-13: “这种对照确实很好”). The head
+ * names the document once and shows where it stands in its lifecycle; the interpretation describes what the text
+ * says, each statement ending in the clause it rests on, and the text itself is beside it (PolicyReading.tsx).
  *
- * What the record does not know is left out, not printed: a basics-only document shows its title, place, issuer and
- * the dates it has, and each section appears only when it has something to say (AGENTS.md 14).
+ * Two rules from the Owner run through every part. A section appears only when the record has something for it:
+ * no empty heading, no placeholder (AGENTS.md 14). And the page describes, it does not decide: there is no rating
+ * of how much a document matters and no list of things to do, only what the text provides, for whom and from when.
+ * The one disclaimer is at the end.
  */
 import { useTr } from "@amp/web/i18n";
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { Link } from "@amp/web/extension";
 import type { Policy } from "@amp/contracts/http/public";
+import { PolicyChanges } from "./PolicyCompare";
+import { ClauseRef, EvidenceRefs, useReview } from "./PolicyReview";
 import { PolicySaveButton } from "./PolicySaved";
-import { EvidenceLinks, PolicyBack, PolicyLifecycle, Section, actionClass, policyHref, stateText, useKnownLabels } from "./PolicyUI";
-import { policyTitle, usePolicyText, type PolicyText } from "./reader";
+import { PolicyBack, policyHref, stateText, useKnownLabels } from "./PolicyUI";
+import { policyTitle, usePolicyText } from "./reader";
+import { lifecycleOf } from "./review";
 
 type Arrangement = Policy["legal_state"]["deadlines"][number];
 type Impact = Policy["impacts"][number];
 
-/** Small pill for the page tools: one height and one look for links and buttons alike. */
-export const toolClass =
-  "inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-line-strong bg-surface px-3 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-accent aria-pressed:border-accent/40 aria-pressed:text-accent";
+/** The link to the official original: the page's way out to the text that counts. */
+function Official({ policy, history, primary = false }: { policy: Policy; history: boolean; primary?: boolean }) {
+  const tr = useTr();
+  return (
+    <a
+      href={policy.original_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={primary ? undefined : "pr-link"}
+      data-policy-primary={primary ? "" : undefined}
+    >
+      {history ? tr("留存来源地址") : primary ? tr("官方原文") : tr("查看官方原文")} ↗
+    </a>
+  );
+}
+
+/** The five stages in one band, each with the date the record gives; the stage the record states is marked. */
+function Lifecycle({ policy }: { policy: Policy }) {
+  const tr = useTr();
+  const text = usePolicyText();
+  const stages = lifecycleOf(policy);
+  if (!stages) return null;
+  const names = {
+    proposed: tr("拟议"),
+    consultation: tr("征求意见"),
+    adopted: tr("通过"),
+    published: tr("公布"),
+    in_force: policy.legal_brief.in_force === "partial" ? tr("部分施行") : tr("施行"),
+  };
+  return (
+    <ol className="pr-life" aria-label={tr("文件生命周期")}>
+      {stages.map((stage) => {
+        const date = text.date(stage.time);
+        return (
+          <li key={stage.key} className={stage.now ? "now" : date ? "dated" : undefined} aria-current={stage.now ? "step" : undefined}>
+            <b>
+              {names[stage.key]}
+              {stage.now && <em>{tr("当前")}</em>}
+            </b>
+            <span>{date ? (stage.closes ? tr("截至 {date}", { date }) : date) : "—"}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 /**
- * The page's tools on one sticky row. The official original is the page's main action and always stays in view at
- * the right; the secondary tools between it and the back link scroll sideways on a narrow phone.
+ * The head: the way back and the three actions as text links, where and who and what kind, the title once, the
+ * lifecycle band, then one quiet line of the times this site keeps apart (source publication, shown here, last checked).
  */
-export function PolicyToolbar({ policy, history }: { policy: Policy; history: boolean }) {
-  const tr = useTr();
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="sticky top-0 z-20 mb-5 flex items-center gap-3 border-b border-line bg-bg/95 py-2.5 backdrop-blur">
-      <PolicyBack />
-      <div className="scrollbar-none flex min-w-0 flex-1 items-center gap-2 overflow-x-auto lg:justify-end" data-policy-tools>
-        <PolicySaveButton id={policy.id} className={toolClass} />
-        {policy.thread_id && (
-          <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className={toolClass}>
-            {tr("政策脉络 →")}
-          </Link>
-        )}
-        <Link to={`${policyHref(policy.id)}/history`} className={toolClass}>
-          {tr("版本记录")}
-        </Link>
-        <button
-          type="button"
-          className={toolClass}
-          onClick={() => {
-            void navigator.clipboard
-              .writeText(location.href)
-              .then(() => setCopied(true))
-              .catch(() => setCopied(false));
-          }}
-        >
-          {copied ? tr("链接已复制") : tr("复制链接")}
-        </button>
-      </div>
-      <a href={policy.original_url} target="_blank" rel="noopener noreferrer" className={`${toolClass} !border-accent/40 !text-accent`} data-policy-primary>
-        {history ? tr("留存来源地址") : tr("查看官方原文")} ↗
-      </a>
-    </div>
-  );
-}
-
-/** What the legal-status section has to show; nothing when the record states none of it. */
-function legalContent(policy: Policy) {
-  const legal = policy.legal_state;
-  const statuses = [legal.nature.value, legal.legislative_stage.value, legal.publication.value, legal.repeal.value].filter((v) => v !== "unknown");
-  const changes = policy.dates.filter((t) => CHANGE_MEANINGS.includes(t.meaning) && t.precision !== "unknown");
-  const groups = [legal.enforcement.arrangements, legal.applicability, legal.deadlines];
-  return { statuses, changes, any: statuses.length > 0 || changes.length > 0 || groups.some((rows) => rows.length > 0) };
-}
-/** Whether the reading section has text to show: a selected language whose text this site may show. */
-export function hasReading(policy: Policy) {
-  const selected = policy.expressions.find((e) => e.id === policy.selected_expression_id);
-  return !!policy.reading && !!selected && ["complete", "partial"].includes(selected.reading_state);
-}
-
-/** The sections this document actually has, for both the desktop contents and the phone jump bar. */
-export function policySections(policy: Policy, tr: ReturnType<typeof useTr>, options: { compare?: boolean } = {}) {
-  return [
-    ["facts", tr("基础事实")],
-    ...(policy.interpretation_state === "complete" ? [["analysis", tr("重点解读")]] : []),
-    ...(legalContent(policy).any ? [["legal", tr("法律状态与适用时间")]] : []),
-    ...(options.compare ? [["compare", tr("逐条对照")]] : []),
-    ...(hasReading(policy) ? [["reading", tr("完整正文")]] : []),
-    ...(policy.evidence.length ? [["evidence", tr("原文证据")]] : []),
-  ] as [string, string][];
-}
-
-export function PolicyToc({ sections }: { sections: [string, string][] }) {
-  const tr = useTr();
-  if (sections.length < 2) return null;
-  return (
-    <nav aria-label={tr("文书目录")} className="space-y-3 text-[13px] text-ink-3">
-      {sections.map(([id, label]) => (
-        <a key={id} href={`#${id}`} className="block hover:text-accent">
-          {label}
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-/** Phones and tablets have no side contents, so the same sections become one sideways row of chips. */
-export function PolicyJumpBar({ sections }: { sections: [string, string][] }) {
-  const tr = useTr();
-  if (sections.length < 2) return null;
-  return (
-    <nav aria-label={tr("跳到")} className="scrollbar-none -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 lg:hidden">
-      {sections.map(([id, label]) => (
-        <a key={id} href={`#${id}`} className="chip shrink-0">
-          {label}
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-/** Who issued what, where it stands in its lifecycle, and the times it has, in one card; the title once. */
-export function PolicyFacts({ policy, history }: { policy: Policy; history: boolean }) {
+export function PolicyHead({ policy, history }: { policy: Policy; history: boolean }) {
   const tr = useTr();
   const text = usePolicyText();
   const known = useKnownLabels();
+  const { source } = useReview();
   const current = policy.versions.find((v) => v.id === policy.selected_policy_version_id);
-  const places = text.places(policy.jurisdictions);
   const read = policyTitle(policy);
-  const published = text.dateTime(policy.published_time);
-  const shown = text.dateTime(policy.first_public_at);
-  const checked = text.date(policy.source_checked_at);
-  const number = text.join([
-    read.number,
-    known.nature(policy.nature.code, policy.nature.label),
-    current && !text.archiveCopy(current.version_label) ? current.version_label : null,
-  ]);
-  const rows: [string, string | null][] = [
-    [tr("国家与组织"), places],
-    [tr("发布机关"), policy.authority.name],
-    [tr("文号与性质"), number || null],
-    [tr("来源发布"), published],
-    [tr("本站公开"), shown],
-    [history ? tr("该原件留存时核对") : tr("原文最近核对"), checked],
-    [tr("原文确认的变化日期"), policy.sort_kind === "substantive_change" ? text.dateTime(policy.sort_time) : null],
+  const published = text.dateTime(policy.published_time),
+    shown = text.dateTime(policy.first_public_at),
+    checked = text.date(policy.source_checked_at),
+    changed = policy.sort_kind === "substantive_change" ? text.dateTime(policy.sort_time) : null;
+  const facts = [
+    published && tr("来源发布 {date}", { date: published }),
+    shown && tr("本站公开 {date}", { date: shown }),
+    checked && (history ? tr("该原件留存时核对 {date}", { date: checked }) : tr("原文最近核对 {date}", { date: checked })),
+    changed && tr("原文确认的变化日期 {date}", { date: changed }),
+    policy.is_backfill && tr("补录 · 按原文真实日期呈现"),
+    policy.legal_brief.repeal === "repealed" ? tr("本文件已废止。") : policy.legal_brief.repeal === "partly_repealed" ? tr("本文件部分废止。") : null,
   ];
   return (
-    <header id="facts" className="scroll-mt-20">
-      <p className="text-[12px] text-ink-3">
-        {places} · {policy.authority.name}
+    <header className="pr-top" id="facts">
+      <div className="pr-crumb">
+        <PolicyBack />
+        <span className="pr-tools" data-policy-tools="">
+          <Official policy={policy} history={history} primary />
+          <PolicySaveButton id={policy.id} className="pr-tool" short />
+          <Link to={`${policyHref(policy.id)}/history`}>{tr("版本记录")}</Link>
+        </span>
+      </div>
+      {history && (
+        <p className="pr-snapshot">
+          {tr("历史公开快照 ·")} {current?.current ? tr("亦为当前可读版本") : tr("非当前公开版本")}
+          {tr("。本站于")} {text.date(policy.first_public_at)} {tr("公开的正文与解读，不代表完整法定沿革。")}{" "}
+          <Link to={policyHref(policy.id)} className="pr-link">
+            {tr("查看当前可读版本")}
+          </Link>
+        </p>
+      )}
+      <p className="pr-kick">
+        {text.join([
+          text.places(policy.jurisdictions),
+          policy.authority.name,
+          known.nature(policy.nature.code, policy.nature.label),
+          read.number,
+          current && !text.archiveCopy(current.version_label) ? current.version_label : null,
+        ])}
       </p>
-      <h1 className="mt-3 text-[26px] font-semibold leading-snug text-ink sm:text-[30px]">
+      <h1>
         {read.title}
-        {read.part && (
-          <span className="ml-2 whitespace-nowrap align-middle text-[14px] font-normal text-ink-4">
-            {tr("第 {n}/{of} 部分", { n: read.part.n, of: read.part.of })}
-          </span>
-        )}
+        {read.part && <span className="pr-part">{tr("第 {n}/{of} 部分", { n: read.part.n, of: read.part.of })}</span>}
       </h1>
       {read.original && (
-        <p className="mt-3 break-words text-[13px] text-ink-3" lang={policy.expressions.find((e) => e.kind === "original")?.language ?? undefined}>
+        <p className="pr-orig" lang={policy.expressions.find((e) => e.kind === "original")?.language ?? undefined}>
           {read.original}
         </p>
       )}
-      <div className="mt-5 rounded-card border border-line bg-surface p-4">
-        <PolicyLifecycle brief={policy.legal_brief} />
-        <dl className="grid grid-cols-[6.5em_minmax(0,1fr)] gap-x-3 gap-y-2 text-[13px] sm:grid-cols-[6.5em_minmax(0,1fr)_6.5em_minmax(0,1fr)]">
-          {rows
-            .filter((row): row is [string, string] => !!row[1])
-            .map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-[12px] leading-[1.6] text-ink-4">{label}</dt>
-                <dd className="leading-[1.5] text-ink-2">{value}</dd>
-              </div>
-            ))}
-        </dl>
-      </div>
-      {policy.is_backfill && <p className="mt-2 text-[12px] text-amber-ink">{tr("补录 · 按原文真实日期呈现")}</p>}
+      <Lifecycle policy={policy} />
+      {facts.some(Boolean) && <p className="pr-facts">{text.join(facts)}</p>}
+      {source.kind === "none" && (
+        <p className="pr-nosrc" data-pr-nosrc="">
+          {tr("这份文书的全文没有在本站显示。")}
+          {policy.reading?.limitation ? `${tr.maybe(policy.reading.limitation)} ` : " "}
+          <Official policy={policy} history={history} />
+        </p>
+      )}
     </header>
   );
 }
 
-type KeyDate = { key: string; kind: string; date: string | null; label: string; text: string; planned: boolean };
-
-/** Dated obligations from the legal state and the impacts, earliest first; undated rows are left to the full table. */
-export function keyDates(policy: Policy, tr: ReturnType<typeof useTr>, text: PolicyText): KeyDate[] {
-  const from = (rows: Arrangement[], kind: string) =>
-    rows.flatMap((row) => {
-      const label = text.dateTime(row.time);
-      return label ? [{ key: `${kind}:${row.text}`, kind, date: row.time!.beijing_date, label, text: row.text, planned: row.occurrence !== "occurred" }] : [];
-    });
-  const legal = policy.legal_state;
-  const all = [
-    ...from(legal.enforcement.arrangements, tr("施行")),
-    ...from(legal.deadlines, tr("截止")),
-    ...from(legal.applicability, tr("适用")),
-    ...policy.impacts.flatMap((i) => {
-      const label = text.dateTime(i.deadline);
-      return label ? [{ key: `impact:${i.id}`, kind: tr("期限"), date: i.deadline!.beijing_date, label, text: i.activity, planned: true }] : [];
-    }),
-  ];
-  const seen = new Set<string>();
-  return all
-    .filter((d) => {
-      const id = `${d.date ?? d.label}:${d.text}`;
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    })
-    .sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
-}
-
-type Time = Policy["published_time"];
-const earliest = (times: (Time | null | undefined)[]) =>
-  times.filter((t): t is Time => !!t && t.precision !== "unknown").sort((x, y) => (x.beijing_date ?? "9999").localeCompare(y.beijing_date ?? "9999"))[0] ??
-  null;
-
-/**
- * The date calendar the brief asks for (任务书 v2 §5): consultation close, publication, entry into force and the
- * transition or compliance deadline, each from the official record only. Consultation close is shown only while the
- * document is a draft under consultation; a date the record does not have is left out of the calendar.
- */
-export function policyCalendar(policy: Policy, tr: ReturnType<typeof useTr>) {
-  const legal = policy.legal_state;
-  const deadline = earliest(legal.deadlines.map((d) => d.time));
-  const consulting = legal.legislative_stage.value === "consultation" || legal.legislative_stage.value === "proposed";
-  return [
-    ...(consulting ? [{ key: "consultation", label: tr("征求意见截止"), time: deadline }] : []),
-    {
-      key: "published",
-      label: tr("公布"),
-      time: legal.publication.time ?? earliest(policy.dates.filter((t) => t.meaning === "formally_published" || t.meaning === "published")),
-    },
-    {
-      key: "effective",
-      label: tr("施行"),
-      time: earliest([...legal.enforcement.arrangements.map((d) => d.time), ...policy.dates.filter((t) => t.meaning === "effective")]),
-    },
-    ...(consulting ? [] : [{ key: "deadline", label: tr("过渡期与截止"), time: deadline }]),
-  ].filter((entry) => !!entry.time);
-}
-
-/**
- * The at-a-glance card: the dates the record has, what the document changes (themes), for whom (affected actors),
- * and other dated obligations. Every line comes from fields the page shows in full below; nothing is new
- * interpretation, and a record with none of these shows no card.
- */
-export function PolicyGlance({ policy }: { policy: Policy }) {
-  const tr = useTr();
-  const text = usePolicyText();
-  const known = useKnownLabels();
-  const calendar = policyCalendar(policy, tr);
-  const shown = new Set(calendar.flatMap((c) => (c.time?.beijing_date ? [c.time.beijing_date] : [])));
-  const others = keyDates(policy, tr, text)
-    .filter((d) => !d.date || !shown.has(d.date))
-    .slice(0, 3);
-  const themeCodes = [...new Set(policy.impacts.map((i) => i.theme))];
-  const actors = [...new Set(policy.impacts.map((i) => i.affected_actor))].slice(0, 4);
-  // The calendar alone repeats the facts card; the card is worth a place when the document changes something.
-  if (!themeCodes.length && !actors.length && !others.length && calendar.every((c) => c.key === "published")) return null;
+function Part({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby="policy-glance" className="mt-5 rounded-card border border-accent/25 bg-accent/[0.04] p-4">
-      <h2 id="policy-glance" className="text-[13px] font-semibold text-accent">
-        {tr("一眼看懂")}
-      </h2>
-      {calendar.length > 0 && (
-        <ol aria-label={tr("日期日历")} className="mt-3 grid grid-cols-3 gap-2">
-          {calendar.map((c) => (
-            <li key={c.key} className="rounded-control bg-surface px-2.5 py-2 ring-1 ring-line">
-              <p className="text-[11.5px] text-ink-4">{c.label}</p>
-              <p className="num mt-0.5 text-[13.5px] font-semibold text-ink">{text.date(c.time)}</p>
-            </li>
-          ))}
-        </ol>
-      )}
-      <dl className="mt-3 space-y-3 text-[13.5px]">
-        {themeCodes.length > 0 && (
-          <div className="grid grid-cols-[5em_minmax(0,1fr)] gap-x-3">
-            <dt className="pt-0.5 text-[12px] text-ink-4">{tr("影响方面")}</dt>
-            <dd className="flex flex-wrap gap-1.5">
-              {themeCodes.map((code) => (
-                <span key={code} className="rounded-mark bg-surface px-2 py-0.5 text-[12.5px] text-ink-2 ring-1 ring-line">
-                  {known.theme(code)}
-                </span>
-              ))}
-            </dd>
-          </div>
-        )}
-        {actors.length > 0 && (
-          <div className="grid grid-cols-[5em_minmax(0,1fr)] gap-x-3">
-            <dt className="text-[12px] leading-[1.7] text-ink-4">{tr("涉及谁")}</dt>
-            <dd className="leading-[1.6] text-ink-2">{actors.join("；")}</dd>
-          </div>
-        )}
-        {others.length > 0 && (
-          <div className="grid grid-cols-[5em_minmax(0,1fr)] gap-x-3">
-            <dt className="text-[12px] leading-[1.7] text-ink-4">{tr("关键日期")}</dt>
-            <dd>
-              <ol className="space-y-1.5">
-                {others.map((d) => (
-                  <li key={d.key} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2.5">
-                    <span className="num whitespace-nowrap text-[13px] font-semibold text-ink">{d.label}</span>
-                    <span className="leading-[1.6] text-ink-2">
-                      <span className="mr-1.5 text-[12px] text-accent">{d.kind}</span>
-                      {d.text}
-                      {d.planned && <span className="ml-1.5 text-[12px] text-ink-4">{tr("（计划）")}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </dd>
-          </div>
-        )}
-      </dl>
+    <section id={id} className="pr-sec">
+      <h2>{title}</h2>
+      {children}
     </section>
   );
 }
 
-/** How far the AI reading goes, then the languages the text can be read in, by name. */
-export function PolicyReadingState({ policy }: { policy: Policy }) {
+/** A value as it reads inside a sentence: without the full stop it may have come with. */
+const bare = (value: string) => value.replace(/[\s。．.；;，,]+$/u, "");
+
+/** Who the text concerns, as the text has it: the actor, the activity, the condition and the exception. */
+function Concern({ impact }: { impact: Impact }) {
   const tr = useTr();
   const text = usePolicyText();
-  const original = policy.expressions.find((e) => e.id === policy.selected_expression_id);
-  const name = (language: string) => text.language(language) ?? language;
+  const names = { actor: bare(impact.affected_actor), activity: bare(impact.activity) };
+  const deadline = text.longDate(impact.deadline);
   return (
-    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-      <p
-        className={`rounded-control border px-3 py-2 text-[13px] ${policy.interpretation_state === "complete" ? "border-accent/20 bg-accent/5 text-accent" : "border-line bg-bg-sunk text-ink-2"}`}
-      >
-        {tr.maybe(stateText(policy))}
-      </p>
-      {policy.expressions.length > 1 && (
-        <nav aria-label={tr("阅读语言")} className="flex flex-wrap gap-2">
-          {policy.expressions.map((e) => (
-            <Link
-              key={e.id}
-              className={`${actionClass} aria-[current=page]:border-accent aria-[current=page]:bg-accent/5`}
-              aria-current={e.id === original?.id ? "page" : undefined}
-              to={`${policyHref(policy.id)}?expression_id=${encodeURIComponent(e.id)}`}
-            >
-              {e.kind === "ai_translation"
-                ? tr("AI 中文")
-                : e.kind === "official_translation"
-                  ? tr("{language}官方译本", { language: name(e.language) })
-                  : tr("{language}原文", { language: name(e.language) })}
-            </Link>
-          ))}
-        </nav>
-      )}
-    </div>
-  );
-}
-
-/** One business impact: the effect first, then who, what and when as a compact two-column list. */
-function ImpactCard({ impact, themeLabel }: { impact: Impact; themeLabel: string | undefined }) {
-  const tr = useTr();
-  const text = usePolicyText();
-  const deadline = text.dateTime(impact.deadline);
-  const rows: [string, string][] = [
-    [tr("受影响主体"), impact.affected_actor],
-    [tr("经营活动"), impact.activity],
-    [tr("条件"), impact.condition],
-    ...(impact.exceptions ? [[tr("例外"), impact.exceptions] as [string, string]] : []),
-    ...(deadline ? [[tr("期限"), deadline] as [string, string]] : []),
-    [tr("适用区域"), impact.region],
-    [tr("法定主体"), impact.legal_actor],
-  ];
-  return (
-    <li className="rounded-control border border-line bg-surface p-4 text-[13px] leading-6">
-      <p className="flex flex-wrap items-center gap-2">
-        {themeLabel && <span className="rounded-mark bg-accent/5 px-2 py-0.5 text-[12px] text-accent">{themeLabel}</span>}
-        <span className="text-[12px] text-ink-4">{impact.effect_mode === "direct" ? tr("直接影响") : tr("间接影响")}</span>
-      </p>
-      <p className="mt-2 text-[14.5px] leading-7 text-ink">
-        {impact.impact}
-        <EvidenceLinks ids={impact.evidence_ids} />
-      </p>
-      <dl className="mt-3 grid grid-cols-[5.5em_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t border-line-soft pt-3 text-ink-3">
-        {rows.map(([label, value]) => (
-          <div key={label} className="contents">
-            <dt className="text-ink-4">{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </li>
-  );
-}
-
-export function PolicyAnalysis({ policy }: { policy: Policy }) {
-  const tr = useTr();
-  const known = useKnownLabels();
-  if (policy.interpretation_state !== "complete") return null;
-  return (
-    <Section id="analysis" title={tr("重点解读")}>
-      <p className="whitespace-pre-wrap text-[15px] leading-7 text-ink-2">{policy.guide}</p>
-      {policy.main_points.length > 0 && (
-        <>
-          <h3 className="mt-6 text-[15px] font-semibold">{tr("主要条款")}</h3>
-          <ol className="mt-3 space-y-2.5">
-            {policy.main_points.map((p, n) => (
-              <li key={p.clause_ref} className="grid grid-cols-[1.75rem_minmax(0,1fr)] text-[14px] leading-6 text-ink-2">
-                <span className="num pt-px text-[12.5px] font-semibold text-accent">{String(n + 1).padStart(2, "0")}</span>
-                <span>
-                  {p.text}
-                  <span className="ml-2 whitespace-nowrap rounded-mark bg-bg-sunk px-1.5 py-px text-[11.5px] text-ink-3">{p.clause_ref}</span>
-                  <EvidenceLinks ids={p.evidence_ids} />
-                </span>
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
-      {policy.impacts.length > 0 && (
-        <>
-          <h3 className="mt-6 text-[15px] font-semibold">{tr("经营影响")}</h3>
-          <ul className="mt-3 space-y-3">
-            {policy.impacts.map((i) => (
-              <ImpactCard key={i.id} impact={i} themeLabel={known.theme(i.theme)} />
-            ))}
-          </ul>
-        </>
-      )}
-    </Section>
+    <p>
+      {impact.effect_mode === "direct"
+        ? tr("从条文看，直接涉及{actor}，活动是{activity}。", names)
+        : impact.legal_actor !== impact.affected_actor
+          ? tr("从条文看，间接涉及{actor}，活动是{activity}；承担法定义务的是{legal}。", { ...names, legal: bare(impact.legal_actor) })
+          : tr("从条文看，间接涉及{actor}，活动是{activity}。", names)}
+      {tr("适用条件：{condition}。", { condition: bare(impact.condition) })}
+      {impact.exceptions && tr("例外：{exceptions}。", { exceptions: bare(impact.exceptions) })}
+      {deadline && tr("期限：{date}。", { date: deadline })} <EvidenceRefs ids={impact.evidence_ids} />
+    </p>
   );
 }
 
 const CHANGE_MEANINGS = ["published", "updated", "signed", "registered", "formally_published", "compiled", "public_inspection"];
 
-/** The legal state the record confirms: only the known status values and the groups that have rows; nothing when none. */
-export function PolicyLegal({ policy }: { policy: Policy }) {
+type DateRow = { key: string; label: string; when: string | null; what: string | null; note: string; ids: string[]; record?: boolean };
+
+/** Publication, entry into force, application and deadlines as the record states them, then other dated records. */
+function useDateRows(policy: Policy): DateRow[] {
   const tr = useTr();
   const text = usePolicyText();
-  const known = useKnownLabels();
   const legal = policy.legal_state;
-  const content = legalContent(policy);
-  if (!content.any) return null;
-  const labels = { published: tr("已公布"), not_published: tr("尚未公布"), unknown: tr("尚未确认"), repealed: tr("已废止"), partly_repealed: tr("部分废止") };
   const occurrence = { occurred: tr("原文确认已发生"), planned: tr("计划"), conditional: tr("附条件"), unknown: null };
   const events = { original_publication: tr("首次公布"), substantive_change: tr("实质变化"), registration: tr("登记"), other: tr("其他日期事件") };
-  const groups: [string, Arrangement[]][] = [
-    [tr("施行安排"), legal.enforcement.arrangements],
-    [tr("适用范围与时间"), legal.applicability],
-    [tr("截止要求"), legal.deadlines],
+  const from = (label: string, rows: Arrangement[]) =>
+    rows.map((row) => ({
+      key: `${label}:${row.text}`,
+      label,
+      when: text.longDate(row.time),
+      what: row.text,
+      note: text.join([occurrence[row.occurrence], row.scope, row.condition ? tr("条件：{condition}", { condition: row.condition }) : null]),
+      ids: row.evidence_ids,
+    }));
+  const publication = legal.publication.value === "published" ? legal.publication.time : null;
+  const repeal = { repealed: tr("已废止"), partly_repealed: tr("部分废止"), unknown: null }[legal.repeal.value];
+  return [
+    ...(publication && text.longDate(publication)
+      ? [{ key: "publication", label: tr("公布"), when: text.longDate(publication), what: null, note: "", ids: legal.publication.evidence_ids }]
+      : []),
+    ...from(tr("施行"), legal.enforcement.arrangements),
+    ...from(tr("适用"), legal.applicability),
+    ...from(tr("截止"), legal.deadlines),
+    ...(repeal ? [{ key: "repeal", label: tr("废止"), when: null, what: repeal, note: "", ids: legal.repeal.evidence_ids }] : []),
+    ...policy.dates
+      .filter((t) => CHANGE_MEANINGS.includes(t.meaning) && t.precision !== "unknown")
+      // The publication row above already says this one.
+      .filter((t) => !(publication && !t.event_kind && t.meaning === publication.meaning && t.local_date === publication.local_date))
+      .map((t) => ({
+        key: `${t.meaning}:${t.event_kind ?? ""}:${t.raw}`,
+        // Kinds added to the contract before their labels (TASK-0576) fall back to the source wording.
+        label: (t.event_kind && t.event_kind in events ? events[t.event_kind as keyof typeof events] : null) ?? tr.maybe(t.meaning_label),
+        when: text.longDate(t),
+        what: null,
+        note: text.join([
+          t.occurrence ? (t.occurrence === "occurred" ? tr("已发生") : tr("计划")) : null,
+          t.condition_text ? tr("条件：{condition_text}", { condition_text: t.condition_text }) : null,
+        ]),
+        ids: [],
+        record: true,
+      })),
   ];
-  const statuses = (
-    [
-      [tr("文件性质"), known.nature(legal.nature.value), legal.nature.evidence_ids],
-      [tr("制定阶段"), known.stage(legal.legislative_stage.value), legal.legislative_stage.evidence_ids],
-      [tr("公布状态"), legal.publication.value === "unknown" ? null : labels[legal.publication.value], legal.publication.evidence_ids],
-      [tr("废止状态"), legal.repeal.value === "unknown" ? null : labels[legal.repeal.value], legal.repeal.evidence_ids],
-    ] as [string, string | null, string[]][]
-  ).filter((row): row is [string, string, string[]] => !!row[1]);
-  return (
-    <Section id="legal" title={tr("法律状态与适用时间")}>
-      {statuses.length > 0 && (
-        <dl className="grid grid-cols-2 gap-2.5 text-[13px]">
-          {statuses.map(([name, value, ids]) => (
-            <div key={name} className="rounded-control bg-bg-sunk p-3">
-              <dt className="text-[12px] text-ink-4">{name}</dt>
-              <dd className="mt-1 font-medium text-ink-2">
-                {value}
-                <EvidenceLinks ids={ids} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      {content.changes.length > 0 && (
-        <>
-          <h3 className="mb-2 mt-5 text-[14px] font-semibold">{tr("公布与变化记录")}</h3>
-          <DateList
-            rows={content.changes.map((t) => ({
-              key: `${t.meaning}:${t.raw}`,
-              when: text.dateTime(t) ?? "",
-              // Kinds added to the contract before their labels (TASK-0576) fall back to the source wording.
-              what: (t.event_kind && t.event_kind in events ? events[t.event_kind as keyof typeof events] : null) ?? tr.maybe(t.meaning_label),
-              note: text.join([
-                t.occurrence ? (t.occurrence === "occurred" ? tr("已发生") : tr("计划")) : null,
-                t.condition_text ? tr("条件：{condition_text}", { condition_text: t.condition_text }) : null,
-              ]),
-              evidence: [],
-            }))}
-          />
-        </>
-      )}
-      {groups
-        .filter(([, rows]) => rows.length > 0)
-        .map(([title, rows]) => (
-          <div key={title} className="mt-5">
-            <h3 className="mb-2 text-[14px] font-semibold">{title}</h3>
-            <DateList
-              rows={rows.map((row) => ({
-                key: row.text,
-                when: text.dateTime(row.time) ?? "",
-                what: row.text,
-                note: text.join([occurrence[row.occurrence], row.scope, row.condition ? tr("条件：{condition}", { condition: row.condition }) : null]),
-                evidence: row.evidence_ids,
-              }))}
-            />
-          </div>
-        ))}
-    </Section>
-  );
 }
 
-/** Dated rows as a small table: the date in its own column so a reader can run down the times. */
-function DateList({ rows }: { rows: { key: string; when: string; what: string; note: string; evidence: string[] }[] }) {
-  return (
-    <ul className="divide-y divide-line-soft rounded-control border border-line-soft">
-      {rows.map((r) => (
-        <li key={r.key} className="grid grid-cols-[7.5em_minmax(0,1fr)] gap-x-3 px-3 py-2 text-[13px] leading-6 sm:grid-cols-[9em_minmax(0,1fr)]">
-          <span className="num text-ink-2">{r.when}</span>
-          <span className="text-ink-2">
-            {r.what}
-            {/* A real separator, so the words never run together when the line is read or copied. */}
-            {r.note && <span className="text-[12px] text-ink-4">{` · ${r.note}`}</span>}
-            <EvidenceLinks ids={r.evidence} />
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export function PolicyGaps({ policy }: { policy: Policy }) {
+/**
+ * The interpretation side. Every section is one field of the record and is left out when that field is empty:
+ * summary (guide), what it provides (main points), who it concerns (impacts), times (legal state), changes from
+ * the earlier version (comparison), relations, open points, attachments and related reports.
+ */
+export function PolicyInterpretation({ compareRequested }: { compareRequested: boolean }) {
   const tr = useTr();
-  if (!policy.gaps.length && !policy.attachment_inventory.length) return null;
+  const text = usePolicyText();
+  const { policy, source } = useReview();
+  const complete = policy.interpretation_state === "complete";
+  const lead = (complete ? policy.guide : null) ?? policy.summary;
+  const dates = useDateRows(policy);
+  const relation = { updates: tr("修订"), corrects: tr("更正"), repeals: tr("废止"), implements: tr("实施"), related: tr("相关") };
   const status = {
     complete: tr("已取得"),
     missing: tr("尚未取得"),
-    restricted: tr("暂无展示许可"),
+    restricted: tr("未获展示许可"),
     not_required: tr("非必要附件"),
     blocked_capacity: tr("尚未完成处理"),
   };
+  // With the text beside it a statement points into the text; where the text is missing or cut short, the passages it rests on are listed here.
+  const excerpts = source.kind !== "text" || policy.reading?.completeness !== "complete" ? policy.evidence.filter((e) => e.excerpt) : [];
+  const progress = policy.reading && ["pending", "in_progress"].includes(policy.reading.state) && policy.reading.completed_blocks > 0 && source.kind === "text";
   return (
-    <Section title={tr("待核实事项与附件")}>
-      <ul className="space-y-2 text-[13px] leading-6 text-ink-3">
-        {policy.gaps.map((g) => (
-          <li key={g}>{tr.maybe(g)}</li>
-        ))}
-        {policy.attachment_inventory.map((a) => (
-          <li key={a.url}>
-            <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-accent underline">
-              {a.title} ↗
-            </a>{" "}
-            · {status[a.status]}
-            {a.decisive && tr(" · 决定性附件")}
-          </li>
-        ))}
-      </ul>
-    </Section>
-  );
-}
-
-export function PolicyEvidence({ policy }: { policy: Policy }) {
-  const tr = useTr();
-  if (!policy.evidence.length) return null;
-  return (
-    <Section id="evidence" title={tr("原文证据")}>
-      <ol className="space-y-3">
-        {policy.evidence.map((e) => (
-          <li
-            id={`evidence-${e.evidence_id}`}
-            key={e.evidence_id}
-            className="scroll-mt-20 rounded-control border-l-2 border-accent/40 bg-bg-sunk/60 px-3 py-2.5 text-[13px] leading-6 text-ink-3 target:border-accent target:bg-accent/5"
-          >
-            <p className="text-[12px] font-semibold text-ink-2">{e.locator}</p>
-            {e.excerpt && <blockquote className="mt-1 text-ink-2">{e.excerpt}</blockquote>}
-            <a href={e.source.original_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[12.5px] text-accent underline">
-              {e.source.publisher.name} {tr("· 官方原文 ↗")}
-            </a>
-          </li>
-        ))}
-      </ol>
-    </Section>
-  );
-}
-
-export function PolicyLinks({ policy }: { policy: Policy }) {
-  const tr = useTr();
-  return (
-    <>
-      {policy.relationships.length > 0 && (
-        <Section title={tr("关联文件")}>
-          <ul className="space-y-2 text-[13px]">
-            {policy.relationships.map((r) => (
-              <li key={`${r.relation}:${r.target_citation}`}>
-                {r.target_citation} ·{" "}
-                {r.target_policy_id ? (
-                  <Link to={policyHref(r.target_policy_id)} className="text-accent">
-                    {tr("查看关联文件当前解读 →")}
-                  </Link>
-                ) : (
-                  tr("目标文件尚无可确认的公开解读链接")
-                )}
-                <EvidenceLinks ids={r.evidence_ids} />
+    <article className="pr-read" id="pr-read" aria-label={tr("解读")}>
+      {!complete && (
+        <p className="pr-note" data-pr-state="">
+          {progress && policy.reading?.mode === "ai_translation" ? tr("中文译文还在整理，先显示已完成的部分；完整解读暂不可用。") : tr.maybe(stateText(policy))}
+        </p>
+      )}
+      {lead && (
+        <Part id="summary" title={tr("概要")}>
+          <p className="pr-lead">{lead}</p>
+        </Part>
+      )}
+      {complete && policy.main_points.length > 0 && (
+        <Part id="analysis" title={tr("规定了什么")}>
+          <ol className="pr-pts">
+            {policy.main_points.map((point) => (
+              <li key={`${point.clause_ref}:${point.text}`}>
+                <span>
+                  {point.text} <ClauseRef ids={point.evidence_ids} label={point.clause_ref} />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </Part>
+      )}
+      {complete && policy.impacts.length > 0 && (
+        <Part id="who" title={tr("涉及谁")}>
+          {policy.impacts.map((impact) => (
+            <Concern key={impact.id} impact={impact} />
+          ))}
+        </Part>
+      )}
+      {dates.length > 0 && (
+        <Part id="legal" title={tr("时间")}>
+          <dl className="pr-kv">
+            {dates.map((row) => (
+              <div key={row.key} data-pr-record={row.record ? "" : undefined}>
+                <dt>{row.label}</dt>
+                <dd>
+                  {row.when && <span className="num">{row.when}</span>}
+                  {row.when && row.what && "　"}
+                  {row.what}
+                  {/* A real separator, so the words never run together when the line is read or copied. */}
+                  {row.note && <span className="pr-quiet">{` · ${row.note}`}</span>} <EvidenceRefs ids={row.ids} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Part>
+      )}
+      <PolicyChanges requested={compareRequested} />
+      {(policy.relationships.length > 0 || policy.thread_id) && (
+        <Part id="relations" title={tr("与其他法规的关系")}>
+          {policy.relationships.length > 0 && (
+            <ul className="pr-chg">
+              {policy.relationships.map((r) => (
+                <li key={`${r.relation}:${r.target_citation}`}>
+                  <i>{relation[r.relation]}</i>
+                  {r.target_policy_id ? <Link to={policyHref(r.target_policy_id)}>{r.target_citation}</Link> : r.target_citation}{" "}
+                  <EvidenceRefs ids={r.evidence_ids} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {policy.thread_id && (
+            <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="pr-link">
+              {tr("政策脉络 →")}
+            </Link>
+          )}
+        </Part>
+      )}
+      {policy.gaps.length > 0 && (
+        <Part id="gaps" title={tr("尚待明确")}>
+          <ul className="pr-list">
+            {policy.gaps.map((gap) => (
+              <li key={gap}>{tr.maybe(gap)}</li>
+            ))}
+          </ul>
+        </Part>
+      )}
+      {policy.attachment_inventory.length > 0 && (
+        <Part id="attachments" title={tr("附件")}>
+          <ul className="pr-list">
+            {policy.attachment_inventory.map((a) => (
+              <li key={a.url}>
+                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                  {a.title} ↗
+                </a>
+                <span className="pr-quiet">
+                  {` · ${status[a.status]}`}
+                  {a.decisive && tr(" · 决定性附件")}
+                </span>
               </li>
             ))}
           </ul>
-        </Section>
+        </Part>
       )}
       {policy.related_items.length > 0 && (
-        <Section title={tr("相关报道")}>
-          <ul className="space-y-2">
+        <Part id="related" title={tr("相关报道")}>
+          <ul className="pr-list">
             {policy.related_items.map((item) => (
               <li key={item.id}>
-                <Link to={`/items/${encodeURIComponent(item.id)}`} className="text-[13.5px] text-accent hover:underline">
-                  {item.title}
-                </Link>
+                <Link to={`/items/${encodeURIComponent(item.id)}`}>{item.title}</Link>
               </li>
             ))}
           </ul>
-        </Section>
+        </Part>
       )}
-    </>
-  );
-}
-
-export function PolicyFooter({ policy }: { policy: Policy }) {
-  const tr = useTr();
-  return (
-    <footer className="mt-7 border-t border-line pt-4 text-[12px] leading-6 text-ink-4">
-      <p>{tr("AI 辅助生成/翻译 · 解读是通用说明，不构成法律意见或经营建议，以官方原文为准。")}</p>
-      <p>{tr.maybe(policy.limitation)}</p>
-      <div>
-        {policy.attributions.map((a) => (
-          <a key={a.url} href={a.url} target="_blank" rel="noopener noreferrer" className="mr-3 text-accent">
-            {a.name} ↗
-          </a>
-        ))}
-      </div>
-    </footer>
+      {excerpts.length > 0 && (
+        <Part id="evidence" title={tr("原文摘录")}>
+          <ol className="pr-quotes">
+            {excerpts.map((e) => (
+              <li id={`evidence-${e.evidence_id}`} key={e.evidence_id}>
+                <b>{e.locator}</b>
+                <blockquote>{e.excerpt}</blockquote>
+                <a href={e.source.original_url} target="_blank" rel="noopener noreferrer">
+                  {e.source.publisher.name} {tr("· 官方原文 ↗")}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </Part>
+      )}
+      <footer className="pr-disc">
+        <p data-pr-disclaimer="">
+          {tr("本页是对法规文本的整理，由 AI 辅助生成，可能有疏漏，不构成法律意见或经营建议，请以原文和官方公报为准。")}
+          {text.english && " "}
+          {tr.maybe(policy.limitation)}
+        </p>
+        <p>
+          {policy.attributions.map((a) => (
+            <a key={a.url} href={a.url} target="_blank" rel="noopener noreferrer">
+              {a.name} ↗
+            </a>
+          ))}
+        </p>
+      </footer>
+    </article>
   );
 }

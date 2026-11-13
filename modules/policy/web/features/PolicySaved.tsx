@@ -12,7 +12,8 @@ function useIds() {
     .filter((ref) => ref.type === "policy")
     .map((ref) => ref.id);
 }
-export function PolicySaveButton({ id, className = "text-[13px] text-accent" }: { id: string; className?: string }) {
+/** `short` shows 收藏 / 已收藏 beside other text links; the button's name still says what is saved. */
+export function PolicySaveButton({ id, className = "text-[13px] text-accent", short = false }: { id: string; className?: string; short?: boolean }) {
   const tr = useTr();
   const ids = useIds();
   const [error, setError] = useState<string | null>(null);
@@ -22,12 +23,13 @@ export function PolicySaveButton({ id, className = "text-[13px] text-accent" }: 
         type="button"
         className={className}
         aria-pressed={ids.includes(id)}
+        aria-label={short ? (ids.includes(id) ? tr("已收藏法规") : tr("收藏法规")) : undefined}
         onClick={() => {
           const result = toggleStar({ type: "policy", id });
           setError(result.ok ? null : result.message);
         }}
       >
-        {ids.includes(id) ? tr("已收藏法规") : tr("收藏法规")}
+        {short ? (ids.includes(id) ? tr("已收藏") : tr("收藏")) : ids.includes(id) ? tr("已收藏法规") : tr("收藏法规")}
       </button>
       {error && (
         <span role="alert" className="ml-2 text-[12px] text-hot">
