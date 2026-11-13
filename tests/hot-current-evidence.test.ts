@@ -82,9 +82,10 @@ async function addReport(storyId: number, factId: number, hoursAgo: number, tier
   await sql`INSERT INTO story_signals(story_id,article_id,participant_key,source_id,kind,observed_at) VALUES(${storyId},${articleId},${`source:${source}`},${source},'editorial',${at})`;
   return articleId;
 }
-test("trend comparison includes attention 48 to 54 hours ago instead of incorrectly calling the event new", async () => {
+// The window is 72 hours every day (TASK-0642); the comparison six hours earlier reaches 72 to 78 hours back.
+test("trend comparison includes attention 72 to 78 hours ago instead of incorrectly calling the event new", async () => {
   const f = await fixture();
-  await addReport(f.storyId, f.factId, 50);
+  await addReport(f.storyId, f.factId, 74);
   const row = await ranking(f.storyId);
   assert.equal(row!.participantCount, 2);
   assert.equal(row!.trend, "up");

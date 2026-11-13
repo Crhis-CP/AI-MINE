@@ -513,8 +513,8 @@ export const PHRASES = {
   收起: "Collapse",
   "热度来自参与同一事件的独立账号与机构，重复采集只算一次，并按 24 小时半衰期衰减。它衡量讨论活跃程度，不是报道质量评分。":
     "Heat comes from independent accounts and organisations taking part in the same event; repeated collection counts once, and it decays with a 24-hour half-life. It measures how active the discussion is, not the quality of the reporting.",
-  "榜单统计过去 48 小时；周末海外媒体发稿少，周六、周日和周一统计过去 72 小时。至少两家独立来源报道才上榜，不足 10 件时不凑数。趋势只比较持续覆盖的同一组信源；它反映我们的监测范围，不代表全网人数。缺少可比历史时，不展示趋势线。":
-    "The ranking covers the past 48 hours; at weekends, when overseas media publish little, it covers the past 72 hours on Saturday, Sunday and Monday. An event needs at least two independent sources, and the list is not padded to 10. The trend only compares the same set of continuously covered sources; it reflects our monitoring range, not the whole web. Without comparable history, no trend line is shown.",
+  "榜单每天统计过去 72 小时。至少两家独立来源报道才上榜，符合条件的全部列出，不够也不凑数。趋势只比较持续覆盖的同一组信源；它反映我们的监测范围，不代表全网人数。缺少可比历史时，不展示趋势线。":
+    "The ranking covers the past 72 hours, every day. An event needs at least two independent sources; every event that qualifies is listed, and the list is never padded. The trend only compares the same set of continuously covered sources; it reflects our monitoring range, not the whole web. Without comparable history, no trend line is shown.",
   "信源名单只展示可公开阅读的报道来源；讨论参与者还包括只计入热度的账号与机构。同一机构的多个渠道可能合并计数，因此参与者不一定多于信源数。点击事件可查看各方报道与观点。":
     "The source list only shows publicly readable reports; discussion participants also include accounts and organisations that only count toward heat. Several channels of one organisation may be counted together, so participants are not always more than sources. Select an event to see each side's reports and views.",
   正文: "Text",
@@ -913,8 +913,8 @@ export const PHRASES = {
   "{time} 更新": "updated {time}",
   "{y} 年 {mo} 月": "{mo}/{y} ",
   "第 {first}–{last} 条 · 共 {total} 条": "{first}–{last} of {total}",
-  "近两天（周末三天）矿业领域讨论最多的事件，最多 10 个：热度指数、趋势与组成热度的公开来源。":
-    "The most-discussed mining events of the past two days (three at weekends), up to 10: heat index, trend and the public sources behind it.",
+  "近三天矿业领域讨论最多的事件，符合条件的全部列出：热度指数、趋势与组成热度的公开来源。":
+    "The most-discussed mining events of the past three days, all that qualify: heat index, trend and the public sources behind it.",
   "过去 {hours} 小时，{subject}讨论最多的 {count} 件事": "The {count} most-discussed {subject} events of the past {hours} hours",
   "；已沿用文件中的外观设置": "; the appearance setting in the file was applied",
   "收藏已导入，但已读记录未能保存，请检查浏览器存储。": "Saved items were imported, but read records couldn't be saved; check the browser's storage.",
