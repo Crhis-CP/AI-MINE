@@ -15,7 +15,7 @@
     "@amp/backend": "*",
     "@amp/contracts": "*",
     "cheerio": "1.2.0",
-    "fast-xml-parser": "5.11.2",
+    "fast-xml-parser": "5.12.0",
     "pdfjs-dist": "6.4.299",
     "zod": "4.6.7",
     "@amp/web": "*",

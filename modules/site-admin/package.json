@@ -19,7 +19,7 @@
     "react-router": "8.4.0",
     "zod": "4.6.7",
     "@amp/backend": "*",
-    "fastify": "5.12.7",
+    "fastify": "5.12.8",
     "@amp/metals": "*"
   },
   "devDependencies": {
