@@ -17,6 +17,7 @@ const pages: Record<string, string> = {
 };
 const server = http.createServer((req, res) => {
   res.setHeader("content-type", "application/atom+xml");
+  if (req.url === "/truncated") return res.end('<feed><entry><content type="xhtml"><div>Unfinished content');
   res.end(
     `<feed xmlns="http://www.w3.org/2005/Atom"><id>urn:test:feed</id><title>Test</title><updated>2026-09-29T00:00:00Z</updated><author><name>Test</name></author><entry><id>urn:test:entry</id><updated>2026-09-29T00:00:00Z</updated><link href="https://example.org/article"/>${pages[req.url!]}</entry></feed>`,
   );
@@ -29,25 +30,37 @@ after(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
-async function read(path: string) {
+function sourceFor(path: string): Parameters<typeof fetchRss>[0] {
   const feedUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}${path}`;
-  return (
-    await fetchRss({
-      id: "rss-xhtml-fixture",
-      name: "Isolated Atom XHTML fixture",
-      kind: "rss",
-      config: { feedUrl },
-      participation_mode: "editorial",
-      lane: "news",
-      tier: "T2",
-      first_party: false,
-      enabled: true,
-      cursor: null,
-      interval_minutes: 60,
-      fail_count: 0,
-    })
-  ).candidates;
+  return {
+    id: "rss-xhtml-fixture",
+    name: "Isolated Atom XHTML fixture",
+    kind: "rss",
+    config: { feedUrl },
+    participation_mode: "editorial",
+    lane: "news",
+    tier: "T2",
+    first_party: false,
+    enabled: true,
+    cursor: null,
+    interval_minutes: 60,
+    fail_count: 0,
+  };
 }
+
+async function read(path: string) {
+  return (await fetchRss(sourceFor(path))).candidates;
+}
+
+test("truncated Atom XHTML fetch and parsing finish within three seconds", async () => {
+  const started = performance.now();
+  try {
+    await read("/truncated");
+  } catch {
+    /* A truncated document may be rejected. */
+  }
+  assert.ok(performance.now() - started < 3000);
+});
 
 test("Atom XHTML titles and summaries keep the article and its text in order", async () => {
   const items = await read("/title");
