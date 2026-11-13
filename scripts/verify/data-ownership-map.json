@@ -928,6 +928,7 @@
     "apps/api/src/routes/admin.ts": "sources",
     "modules/metals/backend/read.ts": "publication",
     "modules/metals/backend/store.ts": "publication",
+    "modules/policy/backend/admin.ts": "publication",
     "modules/policy/backend/compare.ts": "publication",
     "modules/policy/backend/domain/automation.ts": "policy",
     "modules/policy/backend/domain/capture.ts": "policy",

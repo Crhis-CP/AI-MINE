@@ -5,7 +5,6 @@ import { isRouteErrorResponse, useLocation, useRevalidator, useRouteError } from
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
 import { EmptyState, useNotAPageView } from "@amp/web/page";
 import { groupParts, policyTitle, usePolicyText } from "./reader";
-import { argentineStages } from "./lifecycle";
 
 /** The seven business themes (docs/01-product/10-policy-service.md §2.3); the read layer gives cards the same names. */
 export const themes = {
@@ -227,20 +226,6 @@ export function PolicyCardList({ items }: { items: PolicyCard[] }) {
   );
 }
 
-export function EvidenceLinks({ ids }: { ids: string[] }) {
-  const tr = useTr();
-  // Nothing at all without evidence: an empty inline box after a paragraph adds a blank line.
-  if (!ids.length) return null;
-  return (
-    <span className="ml-1 inline-flex flex-wrap gap-1">
-      {ids.map((id) => (
-        <a key={id} href={`#evidence-${id}`} className="text-[11px] text-accent underline" aria-label={tr("查看证据 {id}", { id })}>
-          {tr("证据")}
-        </a>
-      ))}
-    </span>
-  );
-}
 export function Section({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
   return (
     <section id={id} className="mt-7 scroll-mt-20 border-t border-line pt-5">
@@ -280,103 +265,6 @@ export function PolicyError() {
             ? tr("请从当前列表重新浏览，避免混用不同版本。")
             : tr("可以重新读取，或返回法规政策动态列表。")}
       </EmptyState>
-    </div>
-  );
-}
-
-const LIFECYCLE = [
-  { key: "proposed", label: "拟议" },
-  { key: "consultation", label: "征求意见" },
-  { key: "adopted", label: "已通过" },
-  { key: "published", label: "已公布" },
-  { key: "in_force", label: "施行" },
-] as const;
-
-function Marker({ on, hollow }: { on: boolean; hollow?: boolean }) {
-  return (
-    <svg viewBox="0 0 20 18" className={`relative size-5 ${on ? "text-accent" : "text-ink-4"}`} aria-hidden="true" focusable="false">
-      <path d="M10 2 L18 16 H2 Z" className={on && !hollow ? "fill-current" : "fill-surface stroke-current"} strokeWidth={1.4} strokeLinejoin="round" />
-      <circle cx="10" cy="11.5" r="1.6" className={on && !hollow ? "fill-surface" : "fill-current"} />
-    </svg>
-  );
-}
-
-/**
- * The document's lifecycle as survey points (direction C, DEC-78). Argentine instruments show the procedure the
- * program read from the gazette text, each point with its date (a computed entry into force says so). Other
- * documents keep the generic line where only the stage the record states is marked; a record that states no stage
- * shows no line. The dimensions table below holds the evidence.
- */
-export function PolicyLifecycle({ policy }: { policy: Pick<Policy, "jurisdictions" | "nature" | "dates" | "legal_brief" | "original_title"> }) {
-  const tr = useTr();
-  const text = usePolicyText();
-  const brief = policy.legal_brief;
-  const path = argentineStages(policy);
-  if (path) {
-    const current = path.map((s) => s.state).lastIndexOf("occurred");
-    return (
-      <div className="mb-4">
-        <ol className="flex items-start" aria-label={tr("文件生命周期")}>
-          {path.map((point, i) => {
-            const on = i === current;
-            const done = point.state === "occurred";
-            const date = point.date ? text.date(point.date) : null;
-            return (
-              <li
-                key={`${point.key}:${point.date?.local_date ?? ""}:${point.date?.raw ?? ""}`}
-                className="relative flex flex-1 flex-col items-center text-center"
-                aria-current={on ? "step" : undefined}
-              >
-                {i > 0 && (
-                  <span
-                    aria-hidden="true"
-                    className={`absolute right-1/2 top-[9px] h-px w-full ${done ? "bg-line-strong" : "border-t border-dashed border-line-strong"}`}
-                  />
-                )}
-                <Marker on={done} hollow={!on} />
-                <span className={`mt-1 text-[12.5px] leading-snug ${on ? "font-semibold text-ink" : done ? "text-ink-2" : "text-ink-4"}`}>
-                  {tr(point.label)}
-                </span>
-                {date && (
-                  <span className="text-[11.5px] text-ink-4">
-                    {date}
-                    {point.state === "computed" ? tr("（推算）") : point.state === "planned" ? tr("（计划）") : ""}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-        <p className="mt-2 text-[12.5px] text-ink-4">
-          {tr("程序与日期由程序从公报原文抽取；")}
-          {path.some((s) => s.state === "computed") ? tr("施行日原文未写明，按阿根廷《民商法典》第5条推算，以官方原文为准。") : tr("依据见下表。")}
-        </p>
-      </div>
-    );
-  }
-  const inForce = brief.in_force === "yes" || brief.in_force === "partial";
-  const current = inForce ? "in_force" : brief.stage;
-  if (current === "unknown") return null;
-  return (
-    <div className="mb-4">
-      <ol className="flex items-start" aria-label={tr("文件生命周期")}>
-        {LIFECYCLE.map((point, i) => {
-          const on = point.key === current;
-          return (
-            <li key={point.key} className="relative flex flex-1 flex-col items-center text-center" aria-current={on ? "step" : undefined}>
-              {i > 0 && <span aria-hidden="true" className="absolute right-1/2 top-[9px] h-px w-full bg-line-strong" />}
-              <Marker on={on} />
-              <span className={`mt-1 text-[12.5px] ${on ? "font-semibold text-ink" : "text-ink-4"}`}>
-                {point.key === "in_force" && brief.in_force === "partial" ? tr("部分施行") : tr(point.label)}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      <p className="mt-2 text-[12.5px] text-ink-4">
-        {tr("只标出原文确认的当前阶段；")}
-        {brief.repeal === "repealed" ? tr("本文件已废止。") : brief.repeal === "partly_repealed" ? tr("本文件部分废止。") : tr("依据见下表。")}
-      </p>
     </div>
   );
 }

@@ -312,9 +312,10 @@ test("new policy date kinds show their own labels in Chinese and English", { tim
     );
     for (const prefix of ["", "/en"]) {
       await page.goto(`${origin}${prefix}/policies/${document.id}`);
-      const rows = page.locator("#legal li");
+      // The dated records sit in the 时间 section of the review page (TASK-0657), one row each.
+      const rows = page.locator("#legal [data-pr-record]");
       await expect(rows).toHaveCount(kinds.length);
-      for (const [i, kind] of kinds.entries()) await expect(rows.filter({ hasText: `2026-10-${10 + i}` })).toContainText(labels[kind][prefix ? 1 : 0]);
+      for (const [i, kind] of kinds.entries()) await expect(rows.nth(i)).toContainText(labels[kind][prefix ? 1 : 0]);
       for (const row of await rows.all()) await expect(row).not.toContainText(prefix ? "Source published" : "来源发布");
     }
     assert.deepEqual(errors, []);
@@ -521,7 +522,7 @@ test("an Argentine law shows its procedure read from the gazette: passed, promul
     await expect(steps).toHaveCount(4);
     assert.deepEqual(
       (await steps.allInnerTexts()).map((s) => s.replace(/\s+/g, " ").trim()),
-      ["国会通过（Sancionada） 2026-10-28", "行政颁布（Promulgada） 2026-11-03", "公报公布 2026-11-04", "施行 2026-11-13（推算）"],
+      ["国会通过（Sancionada） 2026-10-28", "行政颁布（Promulgada） 2026-11-03", "公报公布当前 2026-11-04", "施行 2026-11-13（推算）"],
     );
     await expect(steps.nth(2)).toHaveAttribute("aria-current", "step");
     await expect(page.locator("main")).toContainText("施行日原文未写明，按阿根廷《民商法典》第5条推算");

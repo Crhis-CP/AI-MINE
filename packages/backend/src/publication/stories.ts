@@ -455,7 +455,7 @@ export async function loadHot(): Promise<HotResponse> {
   return {
     computedAt: ranking.computedAt,
     ruleVersion: ranking.ruleVersion,
-    // The window the ranking was computed with: 72 hours on Beijing weekends, else 48 (TASK-0599).
+    // The window the ranking was computed with: 72 hours every day since TASK-0642; a ranking stored before it keeps its own value.
     windowHours: Number(ranking.coverage?.windowHours) || 48,
     entries: ranking.entries.map((e) => {
       const text = extras.text(e);
@@ -504,9 +504,12 @@ function v1StoryLink(publicId: string, api = false): string {
   return siteUrl(path);
 }
 
+/** The public API, MCP and RSS keep the top 10 (docs/03-data/02-public-api-contract.md); the web page lists every qualified event (TASK-0642). */
+export const V1_HOT_LIMIT = 10;
+
 export async function v1HotTopics() {
   const ranking = await latestHotRanking();
-  const items = (ranking?.entries ?? []).map((e) => ({
+  const items = (ranking?.entries ?? []).slice(0, V1_HOT_LIMIT).map((e) => ({
     rank: e.rank,
     id: e.representativeItemId ?? e.storyPublicId,
     title: e.title,
