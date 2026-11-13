@@ -178,7 +178,7 @@ export function HomeCountry() {
       </ol>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[13px]">
         <span className="flex flex-wrap gap-x-4 gap-y-1">
-          <Link to={countryNewsPath(code, local.from ? { from: local.from } : null)} className="font-medium text-accent hover:underline">
+          <Link to={`/country/${code}`} className="font-medium text-accent hover:underline">
             {fmt(t.all, { country: name })} →
           </Link>
           {local.province && local.near.size > 0 && (
