@@ -108,6 +108,41 @@ test("explicit unambiguous province evidence keeps all actual project countries 
   assert.deepEqual(validateGeography(candidate([assignment("CA", "Catamarca", body)]), material(body)).codes, []);
   assert.deepEqual(validateGeography(candidate([assignment("AR", "San Juan", "Project in San Juan")]), material("Project in San Juan")).codes, []);
 });
+
+test("Argentina province aliases support their own subdivision and the existing country assignment", () => {
+  for (const [code, names] of [
+    ["AR-A", ["Salta", "萨尔塔", "萨尔塔省"]],
+    ["AR-Y", ["Jujuy", "胡胡伊", "胡胡伊省"]],
+    ["AR-K", ["Catamarca", "卡塔马卡", "卡塔马卡省"]],
+    ["AR-M", ["Mendoza", "门多萨", "门多萨省"]],
+  ] as const)
+    for (const name of names) {
+      const body = `Project in ${name}.`;
+      assert.deepEqual(validateGeography(candidate([assignment(code, name, body)]), material(body)).codes, [code]);
+      assert.deepEqual(validateGeography(candidate([assignment("AR", name, body)]), material(body)).codes, ["AR"]);
+    }
+});
+
+test("San Juan and Santa Cruz require Argentina to be chosen and never infer it from their names", () => {
+  for (const [code, name] of [
+    ["AR-J", "San Juan"],
+    ["AR-Z", "Santa Cruz"],
+    ["AR-J", "圣胡安省"],
+    ["AR-Z", "圣克鲁斯"],
+  ]) {
+    const body = `Project in ${name}.`;
+    for (const primary of [null, "PE", "AR"])
+      for (const assignedCode of [code, "AR"]) {
+        const result = validateGeography({ ...candidate([assignment(assignedCode!, name!, body)]), primary }, material(body));
+        assert.deepEqual(result.codes, primary === "AR" ? [assignedCode] : []);
+      }
+    const explicit = `Argentina project in ${name}.`;
+    assert.deepEqual(validateGeography(candidate([assignment(code!, name!, explicit), assignment("AR", "Argentina", explicit)]), material(explicit)).codes, [
+      code,
+      "AR",
+    ]);
+  }
+});
 async function fixture(body: string, geo: unknown = undefined) {
   const id = tag(),
     sourceId = `geo-${id}`,
@@ -135,6 +170,17 @@ async function fixture(body: string, geo: unknown = undefined) {
   await publishArticle(articleId);
   return { articleId, input };
 }
+test("geography saved before the Argentina province addition keeps its country assignment without reanalysis", async () => {
+  const body = "A permit changed in Salta.";
+  const f = await fixture(body, candidate([assignment("AR", "Salta", body)]));
+  const [analysis] =
+    await sql`UPDATE analyses SET output=jsonb_set(output,'{geography,recipe}',${sql.json("58dde75df5e5e2cf52ced36c4ba7351e006a1a8a8364bcf9315e88c7bbff1f08")})
+    WHERE article_id=${f.articleId} RETURNING id`;
+  const stored = await readAnalyzedGeography(f.articleId, 1, Number(analysis.id), { ...material(body), title: f.input.title });
+  assert.equal(stored.state, "identified");
+  assert.deepEqual(stored.codes, ["AR"]);
+  assert.equal(await needsGeographyAnalysis(f.articleId, 1), false);
+});
 test("a geography-only correction emits transactionally without changing the article copy or buying a model call", async (t) => {
   const body = "加拿大公司总部发布消息，阿根廷矿区发生生产变化。";
   const f = await fixture(body, candidate([assignment("CA", "加拿大", body, "headquarters")], "none"));
