@@ -42,7 +42,8 @@ const material = (name: string, title = name) =>
     language: "zh",
     url: `https://fixture.invalid/${T}/${name}`,
     title,
-    bodyText: `合成材料正文 ${title}`,
+    // At least 20 characters: shorter material waits for a body without any paid step (TASK-0598).
+    bodyText: `合成材料正文 ${title}：矿山公告的原始条件、产量与地点说明。`,
     bodyStatus: "ok",
     via: "fetch",
   });

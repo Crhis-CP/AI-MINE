@@ -20,7 +20,7 @@ import {
   usageConfiguration,
 } from "../packages/backend/src/providers/usage-protection.ts";
 import { priceQuote } from "../packages/backend/src/providers/usage-pricing.ts";
-import { usageMonthly } from "../packages/backend/src/operations/usage-monthly.ts";
+import { reconcileMonthlyUsage, usageMonthly } from "../packages/backend/src/operations/usage-monthly.ts";
 import { deliverUsageProtectionEvents } from "../packages/backend/src/operations/usage-protection.ts";
 import {
   createModelConnection,
@@ -273,6 +273,84 @@ test("unknown keeps its reservation; known unbilled release adjusts only its amo
   await evaluateUsageProtection();
   assert.equal((await readUsageProtection()).events.filter((e) => e.kind === "usage_notice").length, 2);
   await charge("new-work-after-notice", "1");
+});
+test("the monthly reminder line is announced once when crossed and stops nothing; a stored config without it uses the repo default (TASK-0605)", async () => {
+  // A configuration stored before TASK-0605 has no reminder line; the repository default (¥400) applies.
+  const { reminder_micros: _line, ...notice } = defaults.usage_notice;
+  const stored = { ...structuredClone(defaults), usage_notice: notice };
+  stored.breaker.daily_no_history_micros = "10000000000";
+  stored.breaker.news_object_micros = "10000000000";
+  await changeUsageProtection({ expected_version: 0, config: stored, reason: "synthetic pre-0605 config", high_risk_confirmed: true }, owner);
+  await charge("reminder-a", "350000000");
+  let notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0]!.payload.reminder_micros, undefined, "¥350 is below the line");
+  await charge("reminder-b", "100000000");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 2);
+  assert.equal(notices[0]!.payload.reminder_micros, "400000000");
+  assert.equal(notices[0]!.payload.crossed_through_micros, "400000000");
+  const messages: Array<{ title: string; lines: string[] }> = [];
+  await deliverUsageProtectionEvents(new Date(), async (title, lines) => {
+    messages.push({ title, lines });
+    return "sent";
+  });
+  const line = messages.find((m) => m.title === "用量提示：本月已超过提醒线");
+  assert.ok(line, "the crossing notice says so in its title");
+  assert.ok(line.lines.some((l) => l.includes("每月400.0元提醒线") && l.includes("不会自动停止")));
+  // Spending goes on; the next ¥100 step is an ordinary notice without the line.
+  const before = calls;
+  await charge("reminder-c", "100000000");
+  assert.equal(calls, before + 1, "the request after the line still runs");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 3);
+  assert.equal(notices[0]!.payload.reminder_micros, undefined);
+});
+test("an explicitly disabled monthly reminder stays off while ordinary step notices and requests continue (TASK-0605)", async () => {
+  const disabled = { ...structuredClone(defaults), usage_notice: { ...defaults.usage_notice, reminder_micros: "0" } };
+  const saved = await changeUsageProtection({ expected_version: 0, config: disabled, reason: "synthetic cleared reminder", high_risk_confirmed: true }, owner);
+  assert.equal(saved.config.usage_notice.reminder_micros, "0");
+  assert.equal((await usageConfiguration())?.config.usage_notice.reminder_micros, "0", "off survives a configuration read");
+  await assert.rejects(
+    changeUsageProtection(
+      {
+        expected_version: 1,
+        config: { ...disabled, usage_notice: { ...disabled.usage_notice, step_micros: "0" } },
+        reason: "invalid zero step",
+        high_risk_confirmed: true,
+      },
+      owner,
+    ),
+    "only the optional reminder can be disabled; the notice step stays positive",
+  );
+  await charge("disabled-reminder-a", "450000000");
+  await charge("disabled-reminder-b", "50000000");
+  assert.equal(calls, 2, "crossing the default reminder does not stop requests");
+  const notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 2, "ordinary ¥100-step notices continue");
+  assert.deepEqual(notices.map((e) => e.payload.crossed_through_micros).sort(), ["400000000", "500000000"]);
+  assert.ok(
+    notices.every((e) => e.payload.reminder_micros === undefined),
+    "explicit off never falls back to ¥400",
+  );
+});
+test("a reminder between notice steps fires at its own line and does not move later step notices (TASK-0605)", async () => {
+  const betweenSteps = { ...structuredClone(defaults), usage_notice: { ...defaults.usage_notice, reminder_micros: "350000000" } };
+  await changeUsageProtection({ expected_version: 0, config: betweenSteps, reason: "synthetic non-step reminder", high_risk_confirmed: true }, owner);
+  await charge("between-steps-a", "349000000");
+  let notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0]!.payload.reminder_micros, undefined);
+  await charge("between-steps-b", "1000000");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 2);
+  assert.equal(notices[0]!.payload.reminder_micros, "350000000");
+  assert.equal(notices[0]!.payload.crossed_through_micros, "350000000");
+  await charge("between-steps-c", "50000000");
+  notices = (await readUsageProtection()).events.filter((e) => e.kind === "usage_notice");
+  assert.equal(notices.length, 3);
+  assert.equal(notices[0]!.payload.crossed_through_micros, "400000000");
+  assert.equal(notices[0]!.payload.reminder_micros, undefined, "the monthly reminder is not repeated at the next step");
 });
 test("Owner recovery has version CAS and never releases a system/deployment/Owner pause", async () => {
   await install();
@@ -737,6 +815,19 @@ test("price expiry is notified once per evidence revision; monthly report honors
   await usageMonthly(new Date("2026-11-01T02:37:00Z"), send);
   await usageMonthly(new Date("2026-11-01T02:38:00Z"), send);
   assert.equal(messages, 1);
+  // TASK-0618: a month still settling is rebuilt hourly; one that ended more than 35 days ago only once a day.
+  const checked = async (month: string) =>
+    (await sql<{ checked_at: Date }[]>`SELECT checked_at FROM ai.usage_monthly_reports WHERE month=${month}`)[0]!.checked_at;
+  // reconcile stamps checked_at with the database clock, so the synthetic clock stays behind it.
+  const hours = (n: number) => new Date(Date.parse("2026-11-05T04:00:00Z") - n * 3600_000);
+  await reconcileMonthlyUsage("2026-09", hours(30), send);
+  await sql`UPDATE ai.usage_monthly_reports SET checked_at=${hours(2)} WHERE month IN ('2026-09','2026-10')`;
+  await usageMonthly(hours(0), send);
+  assert.ok((await checked("2026-10")).getTime() > hours(2).getTime(), "last month is checked again after an hour");
+  assert.equal((await checked("2026-09")).getTime(), hours(2).getTime(), "a settled month waits for a day");
+  await sql`UPDATE ai.usage_monthly_reports SET checked_at=${hours(25)} WHERE month='2026-09'`;
+  await usageMonthly(hours(0), send);
+  assert.ok((await checked("2026-09")).getTime() > hours(25).getTime(), "and is rebuilt once the day has passed");
 });
 
 test("token-only receipts stay unpriced after a price is registered or changed; foreign bills and unknown calls stay out", async () => {

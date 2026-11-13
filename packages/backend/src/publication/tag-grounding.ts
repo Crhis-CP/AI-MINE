@@ -7,7 +7,7 @@
 // Category tags, country tags (country filters read the quoted geography assignments, not tags) and tags a person
 // set are left as they are.
 import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
-import { filterMentions, mentionByTag, textHits } from "./mentions.ts";
+import { filterHits, mentionByTag, textHits } from "./mentions.ts";
 
 /**
  * Other wordings that name a mineral, used to keep a tag and never to add one. The filter's own aliases are Chinese
@@ -28,7 +28,8 @@ const MINERAL_EVIDENCE: Record<string, RegExp> = {
   // Steel is how the iron trade is mostly written about (dry run 2026-11-08: SSAB, World Steel); iron ore stays strict.
   铁: /\bhierro\b|\bferro\b|\bsteel(?:s|making|maker|makers)?\b|钢|\bacero\b|\baço\b/i,
   铝土矿: /\bbauxita\b/i,
-  铝: /\balum[ií]nio\b|\balumina\b|氧化铝|\balúmina\b/i,
+  // Bauxite is aluminium's ore: a bauxite story belongs under 铝 too (filter audit 2026-11-08: Weipa, bauxite investment).
+  铝: /\balum[ií]nio\b|\balumina\b|氧化铝|\balúmina\b|\bbauxit[ea]\b|铝土矿/i,
   稀土: /\btierras raras\b|\bterras raras\b|\brare[\s-]earths?\b/i,
   钨: /\btungsteno\b|\bwolframio\b|\btungst[eê]nio\b/i,
   锑: /\bantimonio\b|\bantim[oô]nio\b/i,
@@ -97,11 +98,7 @@ export function groundTags(tags: readonly string[], text: string, language?: str
  * arriving through the AI copy instead. Read-only: it is counted, not changed.
  */
 export function ungroundedFilterHits(searchText: string, tags: readonly string[], text: string, language?: string | null): string[] {
-  const out: string[] = [];
-  for (const mention of filterMentions()) {
-    const tagged = tags.includes(mention.label) || tags.includes(`entity:${mention.id}`);
-    if (!tagged && !textHits(searchText, mention.needles)) continue;
-    if (!tagGrounded(mention.kind === "company" ? `entity:${mention.id}` : mention.label, text, language)) out.push(mention.label);
-  }
-  return out;
+  return filterHits(tags, searchText)
+    .filter((mention) => !tagGrounded(mention.kind === "company" ? `entity:${mention.id}` : mention.label, text, language))
+    .map((mention) => mention.label);
 }

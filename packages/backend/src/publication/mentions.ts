@@ -8,10 +8,26 @@ import { ENTITIES, MINERAL_TAGS, TAG_SYNONYMS } from "@amp/industry/taxonomy";
 const FOLD_DROP = /[\s（）()【】[\]「」『』·・,，.。\-‐‑–—_/]/g;
 const SHORT_LATIN = new Set(["drc", "uk", "eu", "un"]);
 /** Single-character minerals that also sit inside unrelated words. Strip those words, then look. */
+// Everyday words that contain a one-character metal name. Without them, choosing 金 also showed stories whose
+// Chinese copy only said 现金 or 金额 (TASK-0592: the 2026-11-08 filter audit found 435 such 金 hits).
 const CHAR_GUARDS: Record<string, string[]> = {
-  金: ["刚果（金）", "刚果(金)", "金属", "资金", "基金", "紫金"],
-  银: ["银行"],
-  铁: ["地铁", "铁路"],
+  金: [
+    ..."刚果（金） 刚果(金) 金属 资金 基金 紫金".split(" "),
+    // money
+    ..."现金 金额 金融 美金 租金 奖金 薪金 押金 保证金 本金 赔偿金 补偿金 罚金 违约金 佣金 定金 订金 年金 养老金 退休金 公积金 准备金 税金 股金 补助金 奖学金 金钱 金主".split(
+      " ",
+    ),
+    // other words, places and companies (中金黄金 still reads 黄金 once 中金 is removed)
+    ..."合金 冶金 五金 白金 金砖 金牌 金银铜牌 金奖 金色 金字塔 金三角 金秋 黄金周 黄金时期 金沙萨 金边 金山 金川 金诚信 金钼 金风 中金公司 中金".split(" "),
+    // diamond (TASK-0604: 金刚石钻探 is diamond drilling, Codex found it under 金 on 2026-11-10)
+    ..."金刚石 金刚钻 金刚砂".split(" "),
+  ],
+  银: "银行 美银 银团 银河 银川 银联 银保监 金银铜牌".split(" "),
+  铁: "地铁 铁路 高铁 铁道 铁塔 钛铁矿".split(" "),
+  锡: ["无锡"],
+  // Only the medal sense. 铜牌价 (copper price board) and 阴极铜牌号 (copper grade) are copper (TASK-0604, Codex #406 P2).
+  铜: "获铜牌 获得铜牌 夺铜牌 夺得铜牌 摘铜 枚铜牌 铜牌得主 铜牌榜 金银铜牌".split(" "),
+  铅: ["铅笔"],
 };
 const MINERAL_ENGLISH: Record<string, string[]> = {
   铜: ["copper"],
@@ -165,6 +181,14 @@ for (const mention of mentions) {
 /** Every company and mineral the filters know (for the filter-hit audit, TASK-0589). */
 export function filterMentions(): readonly Mention[] {
   return mentions.filter((m) => m.kind !== "country");
+}
+
+/**
+ * The companies and minerals whose filter shows an item: a stored tag (the label, or entity:id for a company) or an
+ * alias hit in its search text, as tagCondition and topicCondition read it.
+ */
+export function filterHits(tags: readonly string[], searchText: string): Mention[] {
+  return filterMentions().filter((m) => tags.includes(m.label) || tags.includes(`entity:${m.id}`) || textHits(searchText, m.needles));
 }
 
 export function mentionByTag(tag: string): Mention | null {

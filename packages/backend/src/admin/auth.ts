@@ -262,6 +262,14 @@ export async function previousAuditedCommand(actor: string, action: string, subj
   return row ? { result: row.after } : null;
 }
 
+/** How many of this actor's `action` records a subject has since its latest `since` record; never returns payloads. */
+export async function auditedCommandsSince(actor: string, action: string, subject: string, since: string, db: Db = sql): Promise<number> {
+  const [row] = await db<{ n: number }[]>`SELECT count(*)::int AS n FROM audit_log
+    WHERE subject=${subject} AND actor=${actor} AND action=${action}
+      AND id > coalesce((SELECT max(id) FROM audit_log WHERE subject=${subject} AND actor=${actor} AND action=${since}), 0)`;
+  return row?.n ?? 0;
+}
+
 /** Model settings read their own switch history through the audit owner. */
 export async function modelSwitchHistory() {
   return sql<{ at: Date; actor: string; subject: string; reason: string | null; before: unknown; after: unknown }[]>`

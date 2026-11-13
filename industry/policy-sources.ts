@@ -83,7 +83,7 @@ export const ALL_POLICY_SOURCES: readonly PolicySource[] = Object.freeze([...POL
 
 /** How a pilot source is read; “none” means metadata is curated by hand from the official page, nothing is polled. */
 export type PolicyPilotInterface = "json_api" | "list_page" | "rest_api" | "rss" | "none";
-/** working: configured and verified against real pages; server: configured, waits for a production dry run; missing: nothing usable yet. */
+/** working: configured and verified against real pages; needs_server_verification: configured, waits for a production dry run; blocked: the site refuses or has nothing usable; reference_only: a standard cited by hand, never polled. */
 export type PolicyPilotState = "working" | "needs_server_verification" | "blocked" | "reference_only";
 export interface PolicyPilotSource {
   /** Catalogue or pilot-addition id when a collectable entry exists; null for reference-only standards. */

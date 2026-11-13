@@ -91,6 +91,12 @@ type Q = Record<string, string | undefined>;
 const q = (req: FastifyRequest) => req.query as Q;
 const body = <T = Record<string, unknown>>(req: FastifyRequest) => (req.body ?? {}) as T;
 const param = (req: FastifyRequest, name: string) => (req.params as Record<string, string>)[name]!;
+/** The request id of a repeat-safe command. A missing header is a bad request, never the text "undefined" shared by every such call. */
+function requestKey(req: FastifyRequest) {
+  const key = req.headers["idempotency-key"];
+  if (typeof key !== "string" || !/^[\w-]{8,80}$/.test(key)) throw Object.assign(new Error("请刷新页面后重新提交。"), { statusCode: 400 });
+  return key;
+}
 const notFound = (req: FastifyRequest, reply: FastifyReply) => sendProblem(req, reply, { status: 404, code: "not_found", detail: "Not found." });
 const orNotFound = <T>(req: FastifyRequest, reply: FastifyReply, value: T | null) => (value === null || value === undefined ? notFound(req, reply) : value);
 const page = (req: FastifyRequest) => Math.max(1, Number(q(req).page) || 1);
@@ -336,7 +342,7 @@ export function registerAdmin(app: FastifyInstance) {
     { schema: contracts.adminContentRerun.schema },
     adminHandler(async (req, reply, admin) => {
       const input = contracts.adminContentRerun.schema.body.parse(req.body);
-      return orNotFound(req, reply, await rerun(param(req, "id"), input.step, String(req.headers["idempotency-key"]), actorOf(admin), input));
+      return orNotFound(req, reply, await rerun(param(req, "id"), input.step, requestKey(req), actorOf(admin), input));
     }),
   );
   app.post(
@@ -348,7 +354,7 @@ export function registerAdmin(app: FastifyInstance) {
     contracts.adminDateCorrection.url,
     { schema: contracts.adminDateCorrection.schema },
     adminHandler(async (req, reply, admin) =>
-      orNotFound(req, reply, await correctPublicationDate(param(req, "id"), req.body, String(req.headers["idempotency-key"]), actorOf(admin))),
+      orNotFound(req, reply, await correctPublicationDate(param(req, "id"), req.body, requestKey(req), actorOf(admin))),
     ),
   );
   app.post(

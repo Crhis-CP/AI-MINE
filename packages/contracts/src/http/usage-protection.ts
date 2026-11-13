@@ -21,7 +21,8 @@ export const UsageProtectionConfig = z.strictObject({
     lookback_days: z.number().int().positive(),
     warning_ratio: Ratio.refine((v) => Number(v) < 1),
   }),
-  usage_notice: z.strictObject({ step_micros: PositiveMicros }),
+  // Missing reminder uses the repository default; explicit 0 disables only this line, not ordinary step notices.
+  usage_notice: z.strictObject({ step_micros: PositiveMicros, reminder_micros: Micros.optional() }),
   usage_report: z.strictObject({ push_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }),
   unknown_alert: z.strictObject({ amount_micros: PositiveMicros, oldest_age_seconds: z.number().int().positive() }),
 });

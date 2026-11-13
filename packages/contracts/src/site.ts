@@ -104,6 +104,8 @@ export interface ItemDetail extends ItemSummary, XPostDetailFields {
   manualRevisionLabel?: string | null;
   companyContext?: Array<{ name: string; originalName: string | null; description: string | null; sources: Array<{ name: string; url: string }> }>;
   attribution?: import("zod").infer<typeof import("./http/public.ts").SourceAttribution> | null;
+  /** English title and summary for the English interface; absent until written (TASK-0595). Not in machine exits. */
+  english?: import("zod").infer<typeof import("./http/public.ts").EnglishCopy>;
   relatedPolicies?: Array<{ id: string; title: string; jurisdiction: string | null; documentNumber: string | null }>;
 
   readingMode: "full" | "summary-only";

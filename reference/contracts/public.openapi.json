@@ -39,6 +39,42 @@
         ],
         "type": "object"
       },
+      "EnglishCopy": {
+        "additionalProperties": false,
+        "properties": {
+          "summary": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "EnglishCopyInput": {
+        "additionalProperties": false,
+        "properties": {
+          "summary": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "summary"
+        ],
+        "type": "object"
+      },
       "FeedItemSummary": {
         "additionalProperties": false,
         "properties": {
@@ -76,6 +112,9 @@
           "channel": {
             "const": "news",
             "type": "string"
+          },
+          "english": {
+            "$ref": "#/components/schemas/EnglishCopy"
           },
           "firstPublicAt": {
             "anyOf": [
@@ -340,6 +379,9 @@
           "channel": {
             "const": "news",
             "type": "string"
+          },
+          "english": {
+            "$ref": "#/components/schemas/EnglishCopyInput"
           },
           "firstPublicAt": {
             "anyOf": [

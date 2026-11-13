@@ -139,7 +139,13 @@ export function settleQuotedCost(
     if (cached != null) {
       const details = usage?.prompt_tokens_details as { cached_tokens?: unknown } | undefined;
       const hits = [usage?.prompt_cache_hit_tokens, details?.cached_tokens].filter((v) => v !== undefined);
-      const miss = usage?.prompt_cache_miss_tokens;
+      // The dialect with prompt_cache_hit_tokens must also report the miss (incomplete evidence stays unpriced). The
+      // OpenAI-compatible dialect has only prompt_tokens_details.cached_tokens: there the rest of prompt_tokens is the
+      // miss (TASK-0608: such calls used to stay unpriced).
+      const cachedOnly = usage?.prompt_cache_hit_tokens === undefined && usage?.prompt_cache_miss_tokens === undefined ? details?.cached_tokens : undefined;
+      const miss =
+        usage?.prompt_cache_miss_tokens ??
+        (typeof cachedOnly === "number" && typeof input === "number" && cachedOnly <= input ? input - cachedOnly : undefined);
       if (!hits.length || ![...hits, miss].every((v) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0) || hits.some((v) => v !== hits[0]))
         return null;
       const hit = BigInt(hits[0] as number),

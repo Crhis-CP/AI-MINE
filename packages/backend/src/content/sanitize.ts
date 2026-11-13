@@ -247,18 +247,6 @@ export function unwrapProxyUrl(src: string): string {
   return u && /^https?:\/\//i.test(u) ? u : src;
 }
 
-/** Stored bodies: every image and video poster wrapped in our proxy points at its source again. */
-export function unwrapProxiedImages(html: string): string {
-  // Quoted attribute values may hold a ">" (an alt text), so a tag ends only outside quotes.
-  return html.replace(/<(?:img|video)\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, (tag) =>
-    tag.replace(/(\s(?:src|poster)=")([^"]*)(")/gi, (match, pre: string, value: string, post: string) => {
-      const url = value.replace(/&amp;/g, "&");
-      const unwrapped = unwrapProxyUrl(url);
-      return unwrapped === url ? match : `${pre}${unwrapped.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}${post}`;
-    }),
-  );
-}
-
 /** A link's address that is itself a picture: often the larger copy a thumbnail opens. */
 const PICTURE_PATH = /\.(?:avif|bmp|gif|jpe?g|png|svg|tiff?|webp)$/i;
 

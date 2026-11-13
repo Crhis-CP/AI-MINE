@@ -16440,6 +16440,10 @@
           "usage_notice": {
             "additionalProperties": false,
             "properties": {
+              "reminder_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
               "step_micros": {
                 "pattern": "^(0|[1-9]\\d{0,17})$",
                 "type": "string"
@@ -16553,6 +16557,10 @@
           "usage_notice": {
             "additionalProperties": false,
             "properties": {
+              "reminder_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
               "step_micros": {
                 "pattern": "^(0|[1-9]\\d{0,17})$",
                 "type": "string"
@@ -17485,6 +17493,424 @@
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
             "type": "string"
           },
+          "interest": {
+            "additionalProperties": false,
+            "properties": {
+              "month": {
+                "additionalProperties": false,
+                "properties": {
+                  "category": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "classified_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "company": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "country": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "days": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "item_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "article_id": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "article_id",
+                        "title",
+                        "category",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 20,
+                    "type": "array"
+                  },
+                  "mineral": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "page": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "days",
+                  "item_views",
+                  "classified_views",
+                  "category",
+                  "mineral",
+                  "company",
+                  "country",
+                  "page",
+                  "items"
+                ],
+                "type": "object"
+              },
+              "since": {
+                "anyOf": [
+                  {
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "week": {
+                "additionalProperties": false,
+                "properties": {
+                  "category": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "classified_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "company": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "country": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "days": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "item_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "article_id": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "article_id",
+                        "title",
+                        "category",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 20,
+                    "type": "array"
+                  },
+                  "mineral": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "page": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "days",
+                  "item_views",
+                  "classified_views",
+                  "category",
+                  "mineral",
+                  "company",
+                  "country",
+                  "page",
+                  "items"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "since",
+              "week",
+              "month"
+            ],
+            "type": "object"
+          },
           "months": {
             "items": {
               "additionalProperties": false,
@@ -17944,6 +18370,424 @@
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
             "type": "string"
+          },
+          "interest": {
+            "additionalProperties": false,
+            "properties": {
+              "month": {
+                "additionalProperties": false,
+                "properties": {
+                  "category": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "classified_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "company": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "country": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "days": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "item_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "article_id": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "article_id",
+                        "title",
+                        "category",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 20,
+                    "type": "array"
+                  },
+                  "mineral": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "page": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "days",
+                  "item_views",
+                  "classified_views",
+                  "category",
+                  "mineral",
+                  "company",
+                  "country",
+                  "page",
+                  "items"
+                ],
+                "type": "object"
+              },
+              "since": {
+                "anyOf": [
+                  {
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "week": {
+                "additionalProperties": false,
+                "properties": {
+                  "category": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "classified_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "company": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "country": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "days": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "item_views": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "article_id": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "article_id",
+                        "title",
+                        "category",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 20,
+                    "type": "array"
+                  },
+                  "mineral": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  },
+                  "page": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "views": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "views"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 15,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "days",
+                  "item_views",
+                  "classified_views",
+                  "category",
+                  "mineral",
+                  "company",
+                  "country",
+                  "page",
+                  "items"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "since",
+              "week",
+              "month"
+            ],
+            "type": "object"
           },
           "months": {
             "items": {

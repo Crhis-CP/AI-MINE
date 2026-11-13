@@ -12,6 +12,65 @@ STOP = re.search(r"stop_api_containers\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
 
 
 class TopologyTests(unittest.TestCase):
+    def test_release_checks_never_use_a_hardcoded_host_port(self):
+        self.assertNotIn("127.0.0.1:3000", SCRIPT)
+
+    def test_health_retries_a_temporarily_unavailable_port_mapping(self):
+        resolver = re.search(r"web_origin\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        health = re.search(r"health\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        with tempfile.TemporaryDirectory() as folder:
+            command = r'''set -e
+dc() {
+  printf 'port\n' >> "$RELEASE_BACKUP/attempts"
+  [[ $(wc -l < "$RELEASE_BACKUP/attempts") -gt 1 ]] || return 1
+  printf '127.0.0.1:43123\n'
+}
+sleep() { [[ $1 == 2 ]]; printf 'sleep\n' >> "$RELEASE_BACKUP/waits"; }
+curl() {
+  [[ "$*" == *"http://127.0.0.1:43123/api/health" ]] || return 1
+  printf '{"ok":true,"db":"ok","release":"1234567"}\n'
+}
+''' + resolver + '\n' + health + '\nhealth 1234567'
+            result = subprocess.run(["bash", "-c", command],
+                env={"PATH": os.environ["PATH"], "RELEASE_BACKUP": folder, "AIMINE_HOST": "synthetic.invalid"},
+                capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((Path(folder) / "attempts").read_text().splitlines(), ["port", "port"])
+            self.assertEqual((Path(folder) / "waits").read_text().splitlines(), ["sleep"])
+
+    def test_web_origin_uses_the_actual_single_loopback_mapping(self):
+        resolver = re.search(r"web_origin\(\) \{\n.*?\n\}", SCRIPT, re.S).group(0)
+        for address, expected in [("127.0.0.1:3000", "http://127.0.0.1:3000"), ("127.0.0.1:43123", "http://127.0.0.1:43123"),
+                                  ("", None), ("127.0.0.1:0", None), ("127.0.0.1:65536", None), ("0.0.0.0:3000", None),
+                                  ("127.0.0.1:3000\n127.0.0.1:43123", None)]:
+            with self.subTest(address=address):
+                command = 'set -e\ndc() { [[ "$*" == "port web 3000" ]] || return 1; printf "%s" "$MAPPING"; }\n' + resolver + '\nweb_origin'
+                result = subprocess.run(["bash", "-c", command], env={"PATH": os.defpath, "MAPPING": address}, capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, expected is not None)
+                self.assertEqual(result.stdout.strip(), expected or "")
+
+    def test_maintenance_units_are_installed_without_starting_cleanup(self):
+        section = SCRIPT[SCRIPT.index('install -m 0644 "$RELEASE_STAGE/deploy/recovery_bindings.py"'):SCRIPT.index('# Finish any older healthy')]
+        with tempfile.TemporaryDirectory() as folder:
+            binary = Path(folder) / "bin"; binary.mkdir()
+            for name in ["install", "systemctl"]:
+                p = binary / name; p.write_text('#!/bin/sh\nprintf "%s\\n" "' + name + ' $*" >> "$CALLS"\n'); p.chmod(0o755)
+            calls = Path(folder) / "calls"
+            p = binary / "cmp"
+            p.write_text('#!/bin/sh\ncase " $CHANGED_UNITS " in *" ${2##*.} "*) exit 1;; *) exit 0;; esac\n')
+            p.chmod(0o755)
+            for changed in ["", "service", "timer", "service timer"]:
+                with self.subTest(changed=changed):
+                    calls.write_text("")
+                    result = subprocess.run(["bash", "-c", "set -e\n" + section], env={"PATH": str(binary) + ":" + os.defpath, "RELEASE_STAGE": "/synthetic", "CALLS": str(calls), "CHANGED_UNITS": changed}, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    commands = calls.read_text().splitlines()
+                    for unit in ["service", "timer"]:
+                        self.assertEqual(f"install -m 0644 /synthetic/deploy/aimine-release-retention.{unit} /etc/systemd/system/aimine-release-retention.{unit}" in commands, unit in changed.split())
+                    self.assertEqual([c for c in commands if c.startswith("systemctl ")], ["systemctl daemon-reload"] if changed else [])
+        service = Path(__file__).with_name("aimine-release-retention.service").read_text()
+        self.assertIn("EnvironmentFile=-/etc/aimine/release.env", service)
+
     def select(self, services):
         command = 'set -e\ndc() { printf "%s\\n" "$FIXTURE_SERVICES"; }\n' + SELECT + '\nread_api_topology\nprintf "%s\\n" "${RELEASE_CURRENT_APIS[@]}"'
         return subprocess.run(["bash", "-c", command], env={"PATH": os.defpath, "FIXTURE_SERVICES": services}, capture_output=True, text=True)
