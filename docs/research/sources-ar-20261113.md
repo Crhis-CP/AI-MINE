@@ -1,6 +1,6 @@
 # 阿根廷来源普查（2026-11-13）
 
-任务：[TASK-0644](../../tasks/TASK-0644.md)。交接：[Claude 6842866126](https://github.com/Crhis-CP/AI-MINE/issues/348#issuecomment-6842866126)。本清单供 Claude 圈选与后续逐源预览，不启用来源。
+任务：[TASK-0644](../../tasks/TASK-0644.md)。交接：[Claude 6842866126](https://github.com/Crhis-CP/AI-MINE/issues/348#issuecomment-6842866126)。本卡研究资料已交齐，后续按 [Claude通用准入规则6843902861](https://github.com/Crhis-CP/AI-MINE/issues/348#issuecomment-6843902861) 在对应接入卡内逐源预览和登记，不再等待逐条圈选；本卡不执行接入。
 
 共记录 **305 个去重候选入口**：主清单 **248 个**（165 个归一主机），另有 **57 个阻碍/未定位入口**。主清单分组：A 16；B 45；C 21；D 42；E 31；F 64；G 29。
 
@@ -9,12 +9,17 @@
 ## 核验口径与覆盖
 
 先用公开网络检索发现候选，再以项目 `AIMiningPolicyBot` 只读 robots 与列表。每个实际 URL 只 GET 一次，robots 缓存复用，完成请求后间隔至少 2 秒；更长 Crawl-delay 与单主机一次 robots 为执行口径，实际偏差见末尾检查记录。RSS 只记录列表的声明/链接，不另取 feed；“未见声明”不等于不存在。未登录、未绕验证、未执行来源脚本、未抓文章全文/整期 PDF、未调用模型或付费服务。
-主清单表示列表/目录实际打开且 robots 准入明确；静态无条目、检索表单、目录页和动态加载逐行注明，尚需 Claude 圈选后逐源预览。纯空白、非列表、登录入口、robots 未知/禁止、验证页和连接失败放附录，不记可抓。404 robots按既有 RFC 9309 口径无规则；门多萨仅复用 #480 明确裁定的非规则响应，不推广到别的主机。
+主清单表示列表/目录实际打开且 robots 准入明确；静态无条目、检索表单、目录页和动态加载逐行注明；后续对应接入卡仍须用正式预览取得标题和链接，HTTP可打开记录不替代该预览。纯空白、非列表、登录入口、robots 未知/禁止、验证页和连接失败放附录，不记可抓。404 robots按既有 RFC 9309 口径无规则；门多萨仅复用 #480 明确裁定的非规则响应，不推广到别的主机。
 日期只用内容卡片、时间字段、期次或 URL 的明示值；月份、相对时间、缺年保持原粒度，注明日期依据；顶栏当天、页脚年份、未来活动日期和搜索引擎时间不替代内容日期。RIGI 静态零值为加载占位，不据此填写真实项目数。
 去重快照：main `7c49b7bf94e68b031182e00e7a82d461f8d50812` 的资讯、法规与目标三目录；另叠 [#485](https://github.com/Crhis-CP/AI-MINE/pull/485) `28e5fada7276eff36003910426a4d0993aa4c40e` 五源。归一 www、HTTPS/HTTP、尾斜线及声明的 feed 形式，再按栏目比较；同域异栏不按整站排除，原表目标也不冒充已配置来源。
 复用 [TASK-0635 七源实测](https://github.com/Crhis-CP/AI-MINE/pull/480#issuecomment-6840741449) 的当天 robots/列表证据，没有重抓；圣胡安矿业部 iframe 禁止和卡塔马卡门户验证仍保留，圣胡安 SI 新闻站及卡塔马卡其他官方子域独立核验。两圣克鲁斯入口同一政府发布体系；同域新闻库和不同语言转载不能作为独立来源背书。
 省代码：AR-J 圣胡安；AR-A 萨尔塔；AR-Y 胡胡伊；AR-K 卡塔马卡；AR-M 门多萨；AR-Z 圣克鲁斯；AR-U 丘布特；AR-Q 内乌肯；AR-R 里奥内格罗；AR-F 拉里奥哈；AR-X 科尔多瓦。联邦/全国写 AR；拉美区域媒体也写 AR，并在备注标明区域范围，不当阿根廷本土媒体。
 覆盖了交接 A–G 全部组别、十一省的政府/矿业环境/公报及省报，并保留紫金、赣锋、青山、天齐、央行、INDEC、CNV、海关和 RIGI 例子。天齐仅留合作线索，未确认当前阿根廷自有矿；青山的阿根廷合作与退股分开。未声称穷尽互联网；搜索未发现、闭源、登录及本轮受阻部分仍可能有遗漏。
+
+## 后续接入条件与本卡边界
+
+按 [6843902861](https://github.com/Crhis-CP/AI-MINE/issues/348#issuecomment-6843902861)，后续对应接入卡对通过robots与人机验证检查、正式预览能取得标题和链接的来源可以登记，无需逐条再等圈选。官方、企业、媒体和财经宏观来源用`editorial`；只有转载或聚合的用`hot_signal`；质量看不准的用`isolated`。
+站内全文开、站外再分发关，间隔60分钟；每批先演练，再按对应任务卡和唯一发布线授权执行正式登记。以上是后续接入要求，不改变本卡`budget.model_calls: 0`和仅研究文档的范围；本卡没有执行新增来源的正式预览、登记、启用或生产apply。主清单248项与阻碍附录57项均是研究记录，不能整批当成已通过接入预览。
 
 ## 主清单
 
@@ -34,7 +39,7 @@
 | A010 国家矿业秘书处·新闻 | AR | [列表](https://www.argentina.gob.ar/economia/mineria/noticias) | 新闻/es | 未见声明 | 允许 | 2026-09-01 | 资讯已有 sa5-ar-mineria | — |
 | A011 经济部·新闻 | AR | [列表](https://www.argentina.gob.ar/economia/noticias) | 新闻/es | 未见声明 | 允许 | 2026-11-11 | 同域异栏 AR-002, ar-presidencia-noticias, sa5-ar-anpyn-news 等 | — |
 | A012 联邦官方公报·第一部分 | AR | [列表](https://www.boletinoficial.gob.ar/seccion/primera) | 法规/es | 未见声明 | 允许 | 2026-11-13 | 法规已有 AR-001；原表目标 S16-R018 | 当天版次；与公报首页为同一发行目录 |
-| A013 联邦政府综合新闻 | AR | [列表](https://www.argentina.gob.ar/noticias) | 新闻/es | 未见声明 | 允许 | 2026-11-12 | 资讯已有 ar-presidencia-noticias | 含综合非矿业新闻，留Claude圈选 |
+| A013 联邦政府综合新闻 | AR | [列表](https://www.argentina.gob.ar/noticias) | 新闻/es | 未见声明 | 允许 | 2026-11-12 | 资讯已有 ar-presidencia-noticias | 含综合非矿业新闻，按通用准入预览 |
 | A014 联邦环境主管部门·新闻 | AR | [列表](https://www.argentina.gob.ar/jefatura/turismo-ambiente-y-deportes/ambiente/noticias) | 新闻/es | 未见声明 | 允许 | 2026-11-04 | 同域异栏 AR-002, ar-presidencia-noticias, sa5-ar-anpyn-news 等 | 旧 turismo-y-ambiente 路径本轮404，使用当前栏目 |
 | A015 能源秘书处·新闻 | AR | [列表](https://www.argentina.gob.ar/economia/energia/noticias) | 新闻/es | 未见声明 | 允许 | 2026-11-04 | 同域异栏 AR-002, ar-presidencia-noticias, sa5-ar-anpyn-news 等 | — |
 | A016 财政金融秘书处·新闻 | AR | [列表](https://www.argentina.gob.ar/economia/finanzas/noticias) | 新闻/es | 未见声明 | 允许 | 2026-11-11 | 同域异栏 AR-002, ar-presidencia-noticias, sa5-ar-anpyn-news 等 | 国债发行、融资与投资，非矿业专栏 |
@@ -49,7 +54,7 @@
 | B004 Chubut · 环境部门新闻 | AR-U | [列表](https://ambiente.chubut.gov.ar/noticias) | 新闻/es | 未见声明 | 404无规则 | 2026-11-04 | 目录未见 | — |
 | B005 Chubut · 矿业部门矿产数据 | AR-U | [列表](https://www.hidrocarburos.chubut.gov.ar/?page_id=3172) | 数据/es | [声明](https://www.hidrocarburos.chubut.gov.ar/?feed=rss2) | 允许 | 列表未明示 | 目录未见 | 官方矿产产量概览；未明示统计期与发布日期，不用页脚2023替代。 |
 | B006 Chubut · 碳氢化合物/矿业部数据入口 | AR-U | [列表](https://www.hidrocarburos.chubut.gov.ar/) | 数据/es | [声明1](https://www.hidrocarburos.chubut.gov.ar/?feed=rss2)、[声明2](https://www.hidrocarburos.chubut.gov.ar/?feed=rss2&page_id=1064) | 允许 | 列表未明示 | 目录未见 | 官方资源目录，含矿产资源图、矿业数据和生产者名单；非新闻流，未登录/下载。 |
-| B007 Córdoba · IDECOR官方地理信息培训更新 | AR-X | [列表](https://www.idecor.gob.ar/novedades-de-capacitaciones/) | 数据/es | [声明](https://www.idecor.gob.ar/feed/) | 允许 | 列表未明示 | 目录未见 | 官方地理信息机构列表；该入口由/novedades/正常302转入，需另圈选其矿权/地质相关栏目。 |
+| B007 Córdoba · IDECOR官方地理信息培训更新 | AR-X | [列表](https://www.idecor.gob.ar/novedades-de-capacitaciones/) | 数据/es | [声明](https://www.idecor.gob.ar/feed/) | 允许 | 列表未明示 | 目录未见 | 官方地理信息机构列表；该入口由/novedades/正常302转入，矿权/地质相关栏目可作后续核验候选。 |
 | B008 Córdoba · IDECOR官方地理信息更新 | AR-X | [列表](https://www.idecor.gob.ar/category/novedades/) | 数据/es | [声明1](https://www.idecor.gob.ar/feed/)、[声明2](https://www.idecor.gob.ar/category/novedades/feed/) | 允许 | 2026-11-11 | 目录未见 | 官方地理数据发布与研究更新，包含地质、矿权地图相关资源；可见日期明确。 |
 | B009 Jujuy · 官方公报 Minas 矿业公告分类 | AR-Y | [列表](https://boletinoficial.jujuy.gob.ar/?cat=119) | 公告/es | [声明1](https://boletinoficial.jujuy.gob.ar/?feed=rss2)、[声明2](https://boletinoficial.jujuy.gob.ar/?feed=rss2&cat=119) | 404无规则 | 2026-11-11 | 同域异栏 AR-008 | — |
 | B010 Jujuy · 官方公报日历 | AR-Y | [列表](https://boletinoficial.jujuy.gob.ar/?page_id=2017) | 法规/es | [声明](https://boletinoficial.jujuy.gob.ar/?feed=rss2) | 404无规则 | 列表未明示 | 法规已有 AR-008 | 公开日历与期次列表；未下载整期PDF。 |
@@ -58,7 +63,7 @@
 | B013 Jujuy · 省政府新闻 | AR-Y | [列表](https://prensa.jujuy.gob.ar/) | 新闻/es | [声明](https://prensa.jujuy.gob.ar/contenidos/rss.html) | 允许 | 列表未明示 | 目录未见 | 列表有条目；当前HTML未明示各条日期。RSS锚指向官方RSS说明页。 |
 | B014 Jujuy · 省政府矿业主题 | AR-Y | [列表](https://prensa.jujuy.gob.ar/mineria-a254/1) | 新闻/es | [声明](https://prensa.jujuy.gob.ar/contenidos/rss.html) | 允许 | 列表未明示 | 目录未见 | 列表有条目；当前HTML未明示各条日期。 |
 | B015 Jujuy · 矿业部门新闻 | AR-Y | [列表](https://www.mineriajujuy.gob.ar/site/noticias.php) | 新闻/es | 未见声明 | 允许（404无规则，Claude明确裁定） | 2026-11-12 | #485在途 exp-20261113-ar-jujuy-mining-news | — |
-| B016 Jujuy · 经济与生产新闻 | AR-Y | [列表](https://prensa.jujuy.gob.ar/economia-y-produccion) | 新闻/es | [声明](https://prensa.jujuy.gob.ar/contenidos/rss.html) | 允许 | 列表未明示 | 目录未见 | 保留财经/综合候选，交Claude圈选。 |
+| B016 Jujuy · 经济与生产新闻 | AR-Y | [列表](https://prensa.jujuy.gob.ar/economia-y-produccion) | 新闻/es | [声明](https://prensa.jujuy.gob.ar/contenidos/rss.html) | 允许 | 列表未明示 | 目录未见 | 保留财经/综合候选，按通用准入预览。 |
 | B017 La Rioja · 官方公报2026年度 | AR-F | [列表](https://www.boletinoflarioja.com.ar/boletines_completos.php?anio=2026) | 法规/es | 未见声明 | 404无规则 | 2026-11-06 | 目录未见 | 页面按日期升序排列；取可见期次日期最大值，未下载整期PDF。 |
 | B018 La Rioja · 环境部门新闻 | AR-F | [列表](https://ambiente.larioja.gob.ar/index.php?pagina=noticias) | 新闻/es | 未见声明 | 404无规则 | 2026-10-26 | 目录未见 | — |
 | B019 Mendoza · 环境旧栏目 | AR-M | [列表](https://www.mendoza.gov.ar/prensa/energia-y-ambiente/ambiente/) | 新闻/es | 未见声明 | 允许（200非规则正文；Claude #480 comment6841197957裁定） | 2025-09-03 | 目录未见 | 沿用0635 robots200非规则正文的Claude明确准入裁定；与能源环境栏目有相同条目。 |
@@ -85,9 +90,9 @@
 | B040 San Juan · 官方公报 | AR-J | [列表](https://boletinoficial.sanjuan.gob.ar/) | 法规/es | 未见声明 | 允许 | 列表未明示 | 法规已有 AR-009（新版入口） | HTTP200；官方JS应用壳；本轮未执行脚本，原始HTML没有期次日期或文章链接。 |
 | B041 Santa Cruz · 健康与环境新闻 | AR-Z | [列表](https://noticias.santacruz.gob.ar/organismos/salud) | 新闻/es | [声明1](https://noticias.santacruz.gob.ar/organismos/salud?format=feed&type=rss)、[声明2](https://noticias.santacruz.gob.ar/organismos/salud?format=feed&type=atom) | 允许 | 2026-11-12 | 目录未见 | — |
 | B042 Santa Cruz · 官方公报目录 | AR-Z | [列表](https://boletinoficial.santacruz.gob.ar/boletin/) | 法规/es | 未见声明 | 允许 | 列表未明示 | 同域异栏 AR-010 | 公开年度目录；2026子目录返回200空白；主入口有年度导航，本轮未得到最新期次日期、未下载PDF。 |
-| B043 Santa Cruz · 政府矿业新闻 | AR-Z | [列表](https://noticias.santacruz.gob.ar/organismos/energia/mineria) | 新闻/es | [声明](https://noticias.santacruz.gob.ar/organismos/energia/mineria?format=feed&type=rss（0635实现线已识别）) | 允许 | 2026-10-30 | #485在途 exp-20261113-ar-santacruz-government-mining | 与能源矿业部同属省政府，不能视为两个独立发布者。 |
+| B043 Santa Cruz · 政府矿业新闻 | AR-Z | [列表](https://noticias.santacruz.gob.ar/organismos/energia/mineria) | 新闻/es | [声明](https://noticias.santacruz.gob.ar/organismos/energia/mineria?format=feed&type=rss)（0635实现线已识别） | 允许 | 2026-10-30 | #485在途 exp-20261113-ar-santacruz-government-mining | 与能源矿业部同属省政府，不能视为两个独立发布者。 |
 | B044 Santa Cruz · 省政府全部新闻 | AR-Z | [列表](https://noticias.santacruz.gob.ar/) | 新闻/es | [声明1](https://noticias.santacruz.gob.ar/?format=feed&type=rss)、[声明2](https://noticias.santacruz.gob.ar/?format=feed&type=atom) | 允许 | 2026-11-12 | 目录未见 | — |
-| B045 Santa Cruz · 能源与矿业部 | AR-Z | [列表](https://enermin.gob.ar/) | 新闻/es | [声明](https://enermin.gob.ar/feed/（列表head声明）) | 允许 | 2026-11-12 | #485在途 exp-20261113-ar-santacruz-energy-news | 与政府矿业栏目同一政府发布体系；首页还含能源、水资源。 |
+| B045 Santa Cruz · 能源与矿业部 | AR-Z | [列表](https://enermin.gob.ar/) | 新闻/es | [声明](https://enermin.gob.ar/feed/)（列表head声明） | 允许 | 2026-11-12 | #485在途 exp-20261113-ar-santacruz-energy-news | 与政府矿业栏目同一政府发布体系；首页还含能源、水资源。 |
 
 ### C 行业协会、大学、研究与智库（21）
 
@@ -220,8 +225,8 @@
 | F016 Diario UNO·经济 | AR-M | [列表](https://www.diariouno.com.ar/economia) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F017 Diario de Cuyo·经济 | AR-J | [列表](https://www.diariodecuyo.com.ar/economia) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F018 Diario de Salta·经济 | AR-A | [列表](https://diariosalta.com/economia/) | 新闻/es | [声明1](https://diariosalta.com/feed/)、[声明2](https://diariosalta.com/economia/feed/) | 允许 | 2026-10-14（更新2026-10-19） | 目录未见 | — |
-| F019 El Ancasti | AR-K | [列表](https://www.elancasti.com.ar/mineria-a66) | 新闻/es | [声明](https://www.elancasti.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 2026-11-12 | 资讯已有 sa5-ar-ancasti | — |
-| F020 El Ancasti | AR-K | [列表](https://www.elancasti.com.ar/economia-a920/1) | 新闻/es | [声明](https://www.elancasti.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 2026-09-06 | 同域异栏 sa5-ar-ancasti | — |
+| F019 El Ancasti | AR-K | [列表](https://www.elancasti.com.ar/mineria-a66) | 新闻/es | [声明](https://www.elancasti.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 2026-11-12 | 资讯已有 sa5-ar-ancasti | — |
+| F020 El Ancasti | AR-K | [列表](https://www.elancasti.com.ar/economia-a920/1) | 新闻/es | [声明](https://www.elancasti.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 2026-09-06 | 同域异栏 sa5-ar-ancasti | — |
 | F021 El Chubut·经济 | AR-U | [列表](https://www.elchubut.com.ar/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F022 El Chubut·经济 | AR-U | [列表](https://www.elchubut.com.ar/seccion/economia) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F023 El Cronista·经济与政治 | AR | [列表](https://www.cronista.com/economia-politica/) | 新闻/es | 未见声明 | 允许 | 2026-11-12 | 目录未见 | — |
@@ -233,39 +238,39 @@
 | F029 El Esquiú·经济 | AR-K | [列表](https://www.elesquiu.com/economia) | 新闻/es | 未见声明 | 允许 | 2026-11-03 | 目录未见 | — |
 | F030 El Independiente | AR-F | [列表](https://www.elindependiente.com.ar/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F031 El Independiente·地方综合（含经济） | AR-F | [列表](https://www.elindependiente.com.ar/seccion.php?seccion=1) | 新闻/es | [声明](https://www.elindependiente.com.ar/feed.xml) | 允许 | 2026-11-12 | 目录未见 | 该栏目标题为Locales（地方综合），含经济/投资新闻；编码出现乱码，登记需复核 |
-| F032 El Tribuno de Jujuy·经济 | AR-Y | [列表](https://eltribunodejujuy.com/ttag/economia) | 新闻/es | [声明](https://eltribunodejujuy.com/page-rss（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | — |
-| F033 El Tribuno de Salta | AR-A | [列表](https://www.eltribuno.com/ttag/economia) | 新闻/es | [声明](https://www.eltribuno.com/page-rss（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | — |
-| F034 El Tribuno de Salta·Jujuy标签 | AR-A | [列表](https://www.eltribuno.com/jujuy) | 新闻/es | [声明](https://www.eltribuno.com/page-rss（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | Salta站的Jujuy标签，另列Jujuy独立站 |
-| F035 EnerNews·全部资讯 | AR | [列表](https://enernews.com/nota) | 新闻/es | 未见声明 | 404无规则 | 2026-11-12 | 目录未见 | robots404，按RFC9309无规则；能源专业媒体；矿业专栏另列或后续由Claude圈选 |
-| F036 Energía Estratégica | AR | [列表](https://www.energiaestrategica.com/strategicenergy/es) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | 能源专业媒体；矿业专栏另列或后续由Claude圈选 |
-| F037 Energía Estratégica | AR | [列表](https://www.energiaestrategica.com/energiaestrategica/es) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | 能源专业媒体；矿业专栏另列或后续由Claude圈选 |
+| F032 El Tribuno de Jujuy·经济 | AR-Y | [列表](https://eltribunodejujuy.com/ttag/economia) | 新闻/es | [声明](https://eltribunodejujuy.com/page-rss)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | — |
+| F033 El Tribuno de Salta | AR-A | [列表](https://www.eltribuno.com/ttag/economia) | 新闻/es | [声明](https://www.eltribuno.com/page-rss)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | — |
+| F034 El Tribuno de Salta·Jujuy标签 | AR-A | [列表](https://www.eltribuno.com/jujuy) | 新闻/es | [声明](https://www.eltribuno.com/page-rss)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | Salta站的Jujuy标签，另列Jujuy独立站 |
+| F035 EnerNews·全部资讯 | AR | [列表](https://enernews.com/nota) | 新闻/es | 未见声明 | 404无规则 | 2026-11-12 | 目录未见 | robots404，按RFC9309无规则；能源专业媒体；矿业专栏另列或后续按通用准入预览 |
+| F036 Energía Estratégica | AR | [列表](https://www.energiaestrategica.com/strategicenergy/es) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | 能源专业媒体；矿业专栏另列或后续按通用准入预览 |
+| F037 Energía Estratégica | AR | [列表](https://www.energiaestrategica.com/energiaestrategica/es) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | 能源专业媒体；矿业专栏另列或后续按通用准入预览 |
 | F038 Infobae·经济 | AR | [列表](https://www.infobae.com/economia/) | 新闻/es | [声明](https://www.infobae.com/arc/outboundfeeds/rss/category/economia/) | 允许 | 列表未明示 | 同域异栏 sa5-ar-infobae-mining | — |
 | F039 Jornada·经济 | AR-U | [列表](https://www.diariojornada.com.ar/economia) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F040 LM +E·能源 | AR-Q | [列表](https://mase.lmneuquen.com/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | LM Neuquén能源专业子站 |
-| F041 LM Neuquén | AR-Q | [列表](https://www.lmneuquen.com/economia-y-petroleo-a420) | 新闻/es | [声明](https://www.lmneuquen.com/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | 标签可读但正文多2018年旧内容，2026页脚不能证明更新；+E子站另列 |
+| F041 LM Neuquén | AR-Q | [列表](https://www.lmneuquen.com/economia-y-petroleo-a420) | 新闻/es | [声明](https://www.lmneuquen.com/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | 标签可读但正文多2018年旧内容，2026页脚不能证明更新；+E子站另列 |
 | F042 La Nación·经济 | AR | [列表](https://www.lanacion.com.ar/economia/) | 新闻/es | [声明](https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml) | 允许 | 2026-11-12 | 目录未见 | RSS为列表声明/链接，未另取feed |
 | F043 La Opinión Austral·政治与经济 | AR-Z | [列表](https://laopinionaustral.com.ar/seccion/politica-y-economia.html) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F044 La Voz del Interior | AR-X | [列表](https://www.lavoz.com.ar/negocios/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
 | F045 La Voz del Interior·政治（含宏观经济） | AR-X | [列表](https://www.lavoz.com.ar/politica/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
-| F046 Los Andes·经济 | AR-M | [列表](https://www.losandes.com.ar/economia) | 新闻/es | [声明](https://www.losandes.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | — |
+| F046 Los Andes·经济 | AR-M | [列表](https://www.losandes.com.ar/economia) | 新闻/es | [声明](https://www.losandes.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | — |
 | F047 MDZ·经济 | AR-M | [列表](https://www.mdzol.com/economia) | 新闻/es | 未见声明 | 允许 | 2026-11-12 | 目录未见 | — |
-| F048 Mejor Energía | AR-Q | [列表](https://www.mejorenergia.com.ar/) | 新闻/es | [声明](https://www.mejorenergia.com.ar/rss/noticias) | 允许 | 列表未明示 | 目录未见 | 能源专业媒体；矿业专栏另列或后续由Claude圈选 |
+| F048 Mejor Energía | AR-Q | [列表](https://www.mejorenergia.com.ar/) | 新闻/es | [声明](https://www.mejorenergia.com.ar/rss/noticias) | 允许 | 列表未明示 | 目录未见 | 能源专业媒体；矿业专栏另列或后续按通用准入预览 |
 | F049 Nueva Rioja·经济 | AR-F | [列表](https://www.nuevarioja.com.ar/temas/economia) | 新闻/es | 未见声明 | 允许 | 2026-11-12 | 目录未见 | 已定位正确经济栏目，先前短路径404保留在阻碍附录 |
 | F050 Perfil·经济 | AR | [列表](https://www.perfil.com/economia) | 新闻/es | [声明1](https://www.perfil.com/feed)、[声明2](https://www.perfil.com/paginas-estaticas/canales-rss-aRyGO0y2C3cJ) | 允许 | 列表未明示 | 目录未见 | RSS为列表声明/链接，未另取feed |
 | F051 Pregón de Jujuy | AR-Y | [列表](https://www.pregon.com.ar/) | 新闻/es | 未见声明 | 允许 | 2026-11-05 | 目录未见 | — |
-| F052 Puntal·经济 | AR-X | [列表](https://www.puntal.com.ar/contenidos/economia.html) | 新闻/es | [声明](https://www.puntal.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | 已定位正确经济栏目，先前短路径404保留在阻碍附录 |
-| F053 Página/12·经济 | AR | [列表](https://www.pagina12.com.ar/economia/) | 新闻/es | [声明](https://www.pagina12.com.ar/rss（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | — |
-| F054 Sitio Andino·经济 | AR-M | [列表](https://www.sitioandino.com.ar/economia-a743) | 新闻/es | [声明](https://www.sitioandino.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 2026-11-06 | 同域异栏 sa5-ar-sitioandino | 已定位正确经济栏目，先前短路径404保留在阻碍附录 |
-| F055 Sitio Andino·能源 | AR-M | [列表](https://www.sitioandino.com.ar/seccion/energia) | 新闻/es | [声明](https://www.sitioandino.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 资讯已有 sa5-ar-sitioandino | 列表含矿业/能源/投资条目；头部13日不当条目日期 |
+| F052 Puntal·经济 | AR-X | [列表](https://www.puntal.com.ar/contenidos/economia.html) | 新闻/es | [声明](https://www.puntal.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | 已定位正确经济栏目，先前短路径404保留在阻碍附录 |
+| F053 Página/12·经济 | AR | [列表](https://www.pagina12.com.ar/economia/) | 新闻/es | [声明](https://www.pagina12.com.ar/rss)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | — |
+| F054 Sitio Andino·经济 | AR-M | [列表](https://www.sitioandino.com.ar/economia-a743) | 新闻/es | [声明](https://www.sitioandino.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 2026-11-06 | 同域异栏 sa5-ar-sitioandino | 已定位正确经济栏目，先前短路径404保留在阻碍附录 |
+| F055 Sitio Andino·能源 | AR-M | [列表](https://www.sitioandino.com.ar/seccion/energia) | 新闻/es | [声明](https://www.sitioandino.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 资讯已有 sa5-ar-sitioandino | 列表含矿业/能源/投资条目；头部13日不当条目日期 |
 | F056 TN·经济 | AR | [列表](https://tn.com.ar/economia/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | — |
-| F057 Tiempo de San Juan·经济 | AR-J | [列表](https://www.tiempodesanjuan.com/economia-a24360) | 新闻/es | [声明](https://www.tiempodesanjuan.com/contenidos/rss（未另取目录/feed）) | 允许 | 2026-10-02 | 目录未见 | — |
+| F057 Tiempo de San Juan·经济 | AR-J | [列表](https://www.tiempodesanjuan.com/economia-a24360) | 新闻/es | [声明](https://www.tiempodesanjuan.com/contenidos/rss)（未另取目录/feed） | 允许 | 2026-10-02 | 目录未见 | — |
 | F058 TiempoSur | AR-Z | [列表](https://www.tiemposur.com.ar/tema/econom%C3%ADa) | 新闻/es | 未见声明 | 允许 | 2026-11-12 | 目录未见 | — |
 | F059 TiempoSur·综合首页 | AR-Z | [列表](https://www.tiemposur.com.ar/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | 请求/economia重定向首页；本行是综合首页，economía主题另列 |
 | F060 iProfesional·经济 | AR | [列表](https://www.iprofesional.com/economia) | 新闻/es | [声明](https://www.iprofesional.com/rss/economia) | 允许 | 列表未明示 | 目录未见 | — |
-| F061 Ámbito | AR | [列表](https://www.ambito.com/economia) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 同域异栏 sa5-ar-ambito | — |
-| F062 Ámbito·矿业主题 | AR | [列表](https://www.ambito.com/mineria-a5123007/1) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 资讯已有 sa5-ar-ambito | 列表也含能源采访；保留完整候选范围交Claude圈选 |
-| F063 Ámbito·能源 | AR | [列表](https://www.ambito.com/energia) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 同域异栏 sa5-ar-ambito | — |
-| F064 Ámbito·金融 | AR | [列表](https://www.ambito.com/finanzas) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 同域异栏 sa5-ar-ambito | — |
+| F061 Ámbito | AR | [列表](https://www.ambito.com/economia) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html) | 允许 | 列表未明示 | 同域异栏 sa5-ar-ambito | — |
+| F062 Ámbito·矿业主题 | AR | [列表](https://www.ambito.com/mineria-a5123007/1) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html) | 允许 | 列表未明示 | 资讯已有 sa5-ar-ambito | 列表也含能源采访；保留完整候选范围按通用准入预览 |
+| F063 Ámbito·能源 | AR | [列表](https://www.ambito.com/energia) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html) | 允许 | 列表未明示 | 同域异栏 sa5-ar-ambito | — |
+| F064 Ámbito·金融 | AR | [列表](https://www.ambito.com/finanzas) | 新闻/es | [声明](https://www.ambito.com/contenidos/rss.html) | 允许 | 列表未明示 | 同域异栏 sa5-ar-ambito | — |
 
 ### G 金融宏观、外贸及 RIGI 官方数据（29）
 
@@ -345,19 +350,19 @@
 | X037 Pan American Silver·新闻候选 | AR-Z/AR-U | [列表](https://www.panamericansilver.com/news/) | 公告/en | 未见声明 | robots未知 HTTP301 | 未取得 | 资讯已有 exp-20261014-pan-american-silver | robots未知 HTTP301；robots301未知，未GET列表；Cerro Moro/Navidad等项目 |
 | X038 SEDAR+·申报文件入口 | AR | [列表](https://www.sedarplus.ca/home/) | 公告/en/fr | 未见声明 | 允许 | 门户未明示 | 目录未见 | 页面可打开但未定位有效更新列表/仅去重线索；真实申报门户，非限定发行人列表；未登录、未提交交互检索，列待定位目录 |
 | X039 天齐锂业·新闻候选 | AR | [列表](https://www.tianqilithium.com/news/) | 新闻/zh | 未见声明 | 禁止 | 未取得 | 目录未见 | 禁止；中文所试新闻路径与英文正式新闻目录均被各自主机robots禁止，未GET列表；官方2022年YPF合作备忘录仅作合作线索，未核得现有阿根廷自有矿山，不把Olaroz竞品介绍当其项目；[项目/关系依据](https://en.tianqilithium.com/content/details17_925.html) |
-| X040 深交所·上市公司公告候选 | AR | [列表](https://www.szse.cn/disclosure/listed/bulletin/index.html) | 公告/zh | 未见声明 | robots未知 HTTP0 | 未取得 | 目录未见 | robots未知 HTTP0；robots连接失败，未GET列表；赣锋/天齐/中伟等可由Claude后续圈选 |
+| X040 深交所·上市公司公告候选 | AR | [列表](https://www.szse.cn/disclosure/listed/bulletin/index.html) | 公告/zh | 未见声明 | robots未知 HTTP0 | 未取得 | 目录未见 | robots未知 HTTP0；robots连接失败，未GET列表；赣锋/天齐/中伟等可在后续对应卡核验发行人 |
 | X041 MINING.COM·拉美 | AR | [列表](https://www.mining.com/region/latin-america/) | 新闻/en | 未见声明 | robots未知 HTTP403 | 列表未明示 | 同域异栏 mining-com-news | robots未知 HTTP403；拉美区域/国际媒体，栏目可能含非AR内容 |
 | X042 Rumbo Minero | AR | [列表](https://www.rumbominero.com/category/argentina/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | 验证或拒绝页；拉美区域/国际媒体，栏目可能含非AR内容；两候选在首个挑战结果返回前已排队，观察到挑战后停止该主机 |
 | X043 Rumbo Minero | AR | [列表](https://www.rumbominero.com/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | 验证或拒绝页；拉美区域/国际媒体，栏目可能含非AR内容；两候选在首个挑战结果返回前已排队，观察到挑战后停止该主机 |
 | X044 CBA24N·经济 | AR-X | [列表](https://www.cba24n.com.ar/economia) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
-| X045 El Ancasti | AR-K | [列表](https://www.elancasti.com.ar/economia) | 新闻/es | [声明](https://www.elancasti.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 同域异栏 sa5-ar-ancasti | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
-| X046 LM Neuquén | AR-Q | [列表](https://www.lmneuquen.com/economia) | 新闻/es | [声明](https://www.lmneuquen.com/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
+| X045 El Ancasti | AR-K | [列表](https://www.elancasti.com.ar/economia) | 新闻/es | [声明](https://www.elancasti.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 同域异栏 sa5-ar-ancasti | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
+| X046 LM Neuquén | AR-Q | [列表](https://www.lmneuquen.com/economia) | 新闻/es | [声明](https://www.lmneuquen.com/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
 | X047 La Opinión Austral·政治与经济 | AR-Z | [列表](https://www.laopinionaustral.com.ar/) | 新闻/es | 未见声明 | robots未知 HTTP301 | 列表未明示 | 目录未见 | robots未知 HTTP301；该入口受阻/旧路径，正确公开栏目另列 |
 | X048 Noticias Argentinas | AR | [列表](https://www.na.com.ar/economia) | 新闻/es | 未见声明 | robots未知 HTTP0 | 列表未明示 | 目录未见 | robots未知 HTTP0； |
 | X049 Noticias Argentinas | AR | [列表](https://www.noticiasargentinas.com/economia) | 新闻/es | 未见声明 | robots未知 HTTP301 | 列表未明示 | 目录未见 | robots未知 HTTP301； |
 | X050 Nueva Rioja·经济 | AR-F | [列表](https://www.nuevarioja.com.ar/economia/) | 新闻/es | 未见声明 | 允许 | 列表未明示 | 目录未见 | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
-| X051 Puntal·经济 | AR-X | [列表](https://www.puntal.com.ar/economia) | 新闻/es | [声明](https://www.puntal.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 目录未见 | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
-| X052 Sitio Andino·经济 | AR-M | [列表](https://www.sitioandino.com.ar/economia) | 新闻/es | [声明](https://www.sitioandino.com.ar/contenidos/rss.html（未另取目录/feed）) | 允许 | 列表未明示 | 同域异栏 sa5-ar-sitioandino | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
+| X051 Puntal·经济 | AR-X | [列表](https://www.puntal.com.ar/economia) | 新闻/es | [声明](https://www.puntal.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 目录未见 | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
+| X052 Sitio Andino·经济 | AR-M | [列表](https://www.sitioandino.com.ar/economia) | 新闻/es | [声明](https://www.sitioandino.com.ar/contenidos/rss.html)（未另取目录/feed） | 允许 | 列表未明示 | 同域异栏 sa5-ar-sitioandino | HTTP404；该入口受阻/旧路径，正确公开栏目另列 |
 | X053 Datos Argentina·矿业数据集 | AR | [列表](https://datos.gob.ar/dataset/?organization=secretaria-de-mineria) | 数据/es | 未见声明 | robots未知 HTTP500 | 未明示 | 目录未见 | robots未知 HTTP500；robots HTTP500，未请求列表 |
 | X054 INDEC·COMEX外贸查询 | AR | [列表](https://comex.indec.gob.ar/) | 数据/es | 未见声明 | 404无规则 | 未明示 | 目录未见 | 可读；200仅应用标题，静态未给查询/数据列表；需浏览器适配 |
 | X055 INDEC·技术报告目录 | AR | [列表](https://www.indec.gob.ar/indec/web/Institucional-Indec-InformesTecnicos-37) | 数据/es | 未见声明 | 允许 | 未明示 | 目录未见 | 可读；200仅通用导航壳，未得到报告列表；保留待定位 |
@@ -370,4 +375,4 @@
 网络核验原始响应缓存、每批 probe、分组元数据、归一结果和汇总保存于临时证据目录 `aimine-task0641-evidence`；0635 原件沿用 `aimine-task0635-candidates-20261112`。每个缓存以 URL 的 SHA256 命名并带 UTC 时间、HTTP 状态、robots 响应、列表声明/链接；本仓库只保存本卡与此清单。
 网络纪律偏差：初始 www.argentina.gob.ar 两次相邻列表请求开始间隔为 3 秒与 2 秒，低于该站 10 秒 Crawl-delay；随后修正共享主机锁，后续按 10 秒执行。SSR 旧 IR 正常跳转从 HTTPS 转到 HTTP，辅助探测随 Location 在同一主机两种协议下各读一次 robots，并取到旧列表404；现已停源，不再续读。两处偏差保留，不能写为全程零偏差。
 离线复核：全部必填字段、归一 URL 唯一、A–G/十一省覆盖、主清单无 robots 未知/禁止、日期待处理标记为零、分组和总数对账。任务卡、文档 strict 与提交前 quick check 的实际结果见任务卡交付记录；最终完整 CI 仍由 PR 回执确认。
-质量异常逐行保留：Once Diario、San Juan Minero、Latinominería 含博彩或无关外链；部分旧栏目停在 2019/2021/2025 年；乱码、动态列表与日期缺失尚需逐源预览处理。财经综合栏目未由本线筛掉，取舍交 Claude；不新建后续任务，不改目录配置或生产。
+质量异常逐行保留：Once Diario、San Juan Minero、Latinominería 含博彩或无关外链；部分旧栏目停在 2019/2021/2025 年；乱码、动态列表与日期缺失尚需逐源预览处理。财经综合栏目未由本线筛掉；本卡资料交付完成，不新建后续任务，不改目录配置或生产。
