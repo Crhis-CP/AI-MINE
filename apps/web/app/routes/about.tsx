@@ -1,3 +1,4 @@
+import { INTRO_REPLAY_EVENT } from "../components/shell/Intro";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import { type Tr, useLocale, useTr } from "../i18n";
 import { SignalRiver, type RiverSource } from "../features/about/SignalRiver";
@@ -188,7 +189,16 @@ export default function AboutPage() {
       <PhoneBar back={{ to: "/more", label: tr("我的") }} title={tr("关于 {name}", { name: SITE.name })} />
       <header className="grid items-end gap-8 pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:pt-0">
         <div>
-          <Kicker>{tr.maybe(ABOUT.kicker)}</Kicker>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Kicker>{tr.maybe(ABOUT.kicker)}</Kicker>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(INTRO_REPLAY_EVENT))}
+              className="rounded-full border border-line px-3 py-1 text-[12.5px] text-ink-3 transition-colors hover:border-accent hover:text-accent motion-reduce:hidden"
+            >
+              ↻ {tr("重看开场动画")}
+            </button>
+          </div>
           <h1
             data-page-title=""
             className="mt-5 text-[34px] font-black leading-[1.18] tracking-[-0.03em] text-ink [text-wrap:balance] sm:text-[46px] xl:text-[56px] 2xl:text-[64px]"
