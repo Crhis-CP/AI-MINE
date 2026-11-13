@@ -36,6 +36,18 @@ export const zh = {
     "/feedback": "反馈",
     "/more": "我的",
   } as Record<string, string>,
+  local: {
+    title: "{country} · 最新动态",
+    week: "近 7 天 {count} 条",
+    all: "看{country}全部动态",
+    guessed: "按你设备的时区显示，可以更换",
+    change: "换国家 / 地区",
+    choose: "选一个常看的国家 / 地区",
+    pick: "首页先看哪个国家 / 地区",
+    world: "全球（不指定）",
+    worldFirst: "首页先看全球。",
+    nothing: "{country}近期没有收录动态，下面是全球精选。",
+  },
   map: {
     title: "资讯地图",
     windows: { "1d": "今天", "7d": "7 天", "30d": "30 天" },

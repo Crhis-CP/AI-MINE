@@ -38,6 +38,18 @@ export const en: Dict = {
     "/feedback": "Feedback",
     "/more": "Me",
   },
+  local: {
+    title: "{country} · Latest",
+    week: "{count} in the last 7 days",
+    all: "All news for {country}",
+    guessed: "Shown by your device's time zone; you can change it",
+    change: "Change country / region",
+    choose: "Choose a country / region to open with",
+    pick: "Country / region the home page opens with",
+    world: "Worldwide (none)",
+    worldFirst: "The home page opens with worldwide news.",
+    nothing: "No recent items for {country}; worldwide picks are below.",
+  },
   map: {
     title: "News map",
     windows: { "1d": "Today", "7d": "7 days", "30d": "30 days" },
