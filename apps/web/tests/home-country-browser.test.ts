@@ -16,6 +16,9 @@ let browser: Browser,
   web: ChildProcess,
   origin = "";
 const asked: string[] = [];
+/** Items taken down by an operator: no longer listed and answered as unavailable (TASK-0637 review). */
+const withdrawn = new Set<string>();
+let withdrawals = 1;
 const now = new Date().toISOString();
 const card = (id: string, title: string) => ({
   id,
@@ -52,8 +55,9 @@ const api = createServer((req, res) => {
   };
   const country = url.searchParams.get("jurisdiction");
   if (url.pathname === "/api/site/meta") return send({ changelogVersion: null });
-  if (url.pathname === "/api/site/content-version") return send({ version: "1", withdrawalVersion: "1" });
-  if (url.pathname === "/api/site/items/availability") return send({});
+  if (url.pathname === "/api/site/content-version") return send({ version: "1", withdrawalVersion: String(withdrawals) });
+  if (url.pathname === "/api/site/items/availability")
+    return send(Object.fromEntries((url.searchParams.get("ids") ?? "").split(",").map((id) => [id, withdrawn.has(id) ? "unavailable" : "public"])));
   if (url.pathname === "/api/site/jurisdictions")
     return send([
       place("AR", "阿根廷", 40),
@@ -88,7 +92,7 @@ const api = createServer((req, res) => {
     const n = LOCAL[country ?? ""] ?? 0;
     return send({
       filters: { channel: "all", category: null, tag: null, topic: null, jurisdiction: country, q: null, tab: "time" },
-      items: Array.from({ length: n }, (_, i) => card(`${country}-${i}`, `${country} 合成动态 ${i + 1}`)),
+      items: Array.from({ length: n }, (_, i) => card(`${country}-${i}`, `${country} 合成动态 ${i + 1}`)).filter((item) => !withdrawn.has(item.id)),
       hot: [],
       facets: { sources: [], minerals: [] },
       page: 1,
@@ -266,6 +270,29 @@ test("a reader in China can put a province first: its items lead, the country's 
   await expect(page.locator("[data-home-country='CN']").getByRole("listitem")).toHaveCount(3);
   await expect(page.locator("[data-near]")).toHaveCount(0);
   await context.close();
+});
+
+test("an item taken down while the page is open leaves the country block, even when nothing else on the page went", async () => {
+  const { context, page } = await open("America/Argentina/Buenos_Aires");
+  const block = page.locator("[data-home-country='AR']");
+  await expect(block.getByRole("listitem")).toHaveCount(5);
+  await expect(block.locator("[data-item-id='AR-0']")).toHaveCount(1);
+  withdrawn.add("AR-0");
+  withdrawals += 1;
+  try {
+    // The guard checks on focus; only the country block shows AR-0, the worldwide picks are untouched.
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(block.locator("[data-item-id='AR-0']")).toHaveCount(0, { timeout: 10_000 });
+    await expect(block.getByText("AR 合成动态 1", { exact: true })).toHaveCount(0);
+    // Nothing new is waiting, so the next item fills the gap, as on the other lists.
+    await expect(block.getByRole("listitem")).toHaveCount(5);
+    await expect(block.locator("[data-item-id='AR-5']")).toHaveCount(1);
+    await expect(page.getByText("全球精选合成动态")).toBeVisible();
+  } finally {
+    withdrawn.clear();
+    withdrawals += 1;
+    await context.close();
+  }
 });
 
 test("a filtered home page asked for something else: no country block, and no country is read", async () => {

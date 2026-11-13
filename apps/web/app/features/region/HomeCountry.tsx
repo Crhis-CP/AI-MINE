@@ -1,7 +1,7 @@
 // The home page's opening block: the newest items of the reader's country above the worldwide picks (TASK-0633, Owner
 // 2026-11-13: “不同国家的人看到的是一开始不同的……但是也是支持看其他国家”). It is drawn after hydration from the public
 // list APIs, so the page itself stays one page for everyone: the same HTML for every reader, cache and search engine.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { z } from "zod";
 import { IntentLink as Link } from "../../components/ui/IntentLink";
@@ -10,6 +10,7 @@ import { dateFormatFor } from "../../lib/format";
 import { fmt, useLocale, useT } from "../../i18n";
 import { countryNewsPath, readMap } from "../feed/WorldMap";
 import { useJurisdictionChoices, useRegionName } from "../feed/jurisdictions";
+import { useReaderItemScope } from "../feed/ContentVersionGuard";
 import { type HomeCountry as Choice, HOME_COUNTRIES, WORLD, readHomeProvince, resolveHomeCountry, writeHomeCountry, writeHomeProvince } from "./home-country";
 
 type Item = z.infer<typeof publicSchemas.ReportGroupedPoolResponse>["items"][number];
@@ -42,6 +43,8 @@ export function HomeCountry() {
   const { relativeTime } = dateFormatFor(english);
   const nameOf = useRegionName();
   const { choices } = useJurisdictionChoices();
+  // A withdrawal re-mounts this block (ContentVersionGuard); while new arrivals wait, only the items that were on screen come back.
+  const scope = useRef(useReaderItemScope());
   const [choice, setChoice] = useState<Choice | null>(null);
   const [local, setLocal] = useState<Local | "none" | null>(null);
   const [picking, setPicking] = useState(false);
@@ -62,7 +65,12 @@ export function HomeCountry() {
     let live = true;
     setLocal(null);
     readLocal(code, province).then(
-      (found) => live && setLocal(found.items.length ? found : "none"),
+      (found) => {
+        if (!live) return;
+        const allowed = scope.current;
+        const items = allowed ? found.items.filter((item) => allowed.has(item.id)) : found.items;
+        setLocal(items.length ? { ...found, items } : "none");
+      },
       () => live && setLocal("none"),
     );
     return () => {
@@ -151,7 +159,7 @@ export function HomeCountry() {
       </div>
       <ol className="divide-y divide-line-soft">
         {local.items.map((item) => (
-          <li key={item.id}>
+          <li key={item.id} data-item-id={item.id}>
             <Link to={`/items/${item.id}`} className="group flex flex-col gap-0.5 py-2 sm:flex-row sm:items-baseline sm:gap-3">
               <span className="min-w-0 flex-1 text-[14.5px] leading-snug text-ink group-hover:text-accent">
                 {local.near.has(item.id) && (
