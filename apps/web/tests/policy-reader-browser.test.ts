@@ -289,6 +289,42 @@ async function open(width: number) {
 const visibleText = (page: Page) => page.locator("main").innerText();
 const noOverflow = async (page: Page) => assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no sideways scroll");
 
+// The contract gained these kinds first (#413) and the page then fell back to the date's own label; with their labels
+// shipped (TASK-0576) each kind reads as its own step, in Chinese and English, never as the fallback.
+test("new policy date kinds show their own labels in Chinese and English", { timeout: 60000 }, async () => {
+  const document = documents[0]!,
+    dates = document.dates,
+    kinds = ["adoption", "promulgation", "entry_into_force", "repeal"] as const,
+    labels = {
+      adoption: ["立法机关通过", "Passed by the legislature"],
+      promulgation: ["行政颁布", "Promulgated"],
+      entry_into_force: ["施行日期", "Entry into force"],
+      repeal: ["已废止", "Repealed"],
+    } as const;
+  const { context, page, errors, blocked } = await open(390);
+  try {
+    document.dates = Policy.shape.dates.parse(
+      kinds.map((event_kind, i) => ({
+        ...sourceDate(`2026-10-${10 + i}`, null),
+        event_kind,
+        occurrence: "occurred",
+      })),
+    );
+    for (const prefix of ["", "/en"]) {
+      await page.goto(`${origin}${prefix}/policies/${document.id}`);
+      const rows = page.locator("#legal li");
+      await expect(rows).toHaveCount(kinds.length);
+      for (const [i, kind] of kinds.entries()) await expect(rows.filter({ hasText: `2026-10-${10 + i}` })).toContainText(labels[kind][prefix ? 1 : 0]);
+      for (const row of await rows.all()) await expect(row).not.toContainText(prefix ? "Source published" : "来源发布");
+    }
+    assert.deepEqual(errors, []);
+    assert.deepEqual(blocked, []);
+  } finally {
+    document.dates = dates;
+    await context.close();
+  }
+});
+
 for (const width of [1440, 390])
   test(`the policy list leads somewhere at every level and prints no placeholders (${width}px)`, { timeout: 60000 }, async () => {
     const { context, page, errors, blocked } = await open(width);

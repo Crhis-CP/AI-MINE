@@ -121,6 +121,20 @@ test("the 2026.11 notice shows each change as the old and the new screen of the 
   assert.match(english, />Before</);
 });
 
+test("English fixed pages describe themselves in English to search engines", async () => {
+  // TASK-0619: pages without a phrase-book description used to carry the Chinese one under /en.
+  for (const path of ["/en/changelog", "/en/terms", "/en/privacy"]) {
+    const html = await (await fetch(`${origin}${path}`)).text();
+    for (const tag of ['name="description"', 'property="og:description"']) {
+      const content = html.match(new RegExp(`<meta ${tag} content="([^"]*)"`))?.[1] ?? "";
+      assert.ok(content.length > 20, `${path} ${tag}`);
+      assert.doesNotMatch(content, /\p{Script=Han}/u, `${path} ${tag}`);
+    }
+  }
+  const chinese = await (await fetch(`${origin}/terms`)).text();
+  assert.match(chinese, /<meta name="description" content="本站网站、RSS、公开 API 与 MCP 的使用规则。"/);
+});
+
 test("the published 2026.11 copy names no company as an example", async () => {
   // Owner 2026-11-06: “不要说必和必拓这些举例”.
   const edits = await readFile(new URL("../../../industry/changelog-copy-edits.json", import.meta.url), "utf8");

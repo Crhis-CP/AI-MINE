@@ -357,7 +357,7 @@ jobs/module-queues按安装清单注册有类型的模块队列，保留每个�
 
 正文提取在Readability之前恢复完整的静态流式片段、按行内样式实际优先级判断隐藏状态，并将图形提供的文字说明保留为普通段落；响应式重复图形只保留一份可见说明。来源脚本和SVG代码不执行、不公开，HTML仍经统一白名单清理。
 
-普通网页/RSS/JSON来源可用acceptLanguage指定直接请求的Accept-Language；列表、翻页、详情和独立正文补抓保持一致，RSS取消条件请求重读时仍保留它。该偏好不是正文语言结论；改变它会改变来源日期配置身份，防止沿用旧语言页面的日期批准。detail.preserve可声明selector与as（pre/table）；pre可选code与caption选择器，table仅把各列具有相同术语的说明列表转成表格。不匹配的组件保留原有提取方式；无效或会被忽略的规则在配置预览前拒绝。现有HTTP来源配置对象形状保持兼容。
+普通网页/RSS/JSON来源可用acceptLanguage指定直接请求的Accept-Language；列表、翻页、详情和独立正文补抓保持一致，RSS取消条件请求重读时仍保留它。该偏好不是正文语言结论；改变它会改变来源日期配置身份，防止沿用旧语言页面的日期批准。detail.preserve可声明selector与as（pre/table）；pre可选code与caption选择器，table仅把各列具有相同术语的说明列表转成表格。不匹配的组件保留原有提取方式；无效或会被忽略的规则在配置预览前拒绝。detail.reveal可列出至多10个选择器，指向页面要靠脚本才显示的“文字版”正文元素：正文读取前只去掉这些元素本身的hidden与行内display/visibility，其子元素的隐藏保持不变，不执行页面脚本（TASK-0598，福建省住建厅文件页）。现有HTTP来源配置对象形状保持兼容。
 
 模型HTTP响应将临时限流/服务故障与账户权限、余额或采购限制区分，结构化错误码保留在截断消息之前。新收到的供应商明确拒绝响应记录为失败；发出后超时、连接中断等无法确认结果的调用继续记为未知。历史未知尝试及费用不回写；已收到的结果继续复用。
 
@@ -501,6 +501,14 @@ editorial/analyze的AnalysisRun允许prefilter=null，表示未进行预筛，�
 ### 缺材料时的运行等待（TASK-0474）
 
 当前文章材料只有标题、正文/摘要均不可用时，runAnalysis和analyzeArticle在预筛前等待，保存无模型/回执的unknown结果；正常材料修订后沿原队列续接。页面抓正文、有效预筛后的中文原文提前公开、权限/暂停及修订围栏保持。评测同样先等材料，记为未判定/等待，不计入正确拒选或准确率。原帖路径由下述TASK0493/0495—0498消费者接通；真实固定样本比较仍待完成，不能以本片回归宣称整个模型迁移完成。
+
+### 只有标题的资讯：重读正文，读不到不上（TASK-0598）
+
+Owner 2026-11-08（DEC-78补充·只抓到标题的资讯）：文章（不含原帖）的材料按写作步骤的口径（有字母或数字的正文，否则摘要，去掉首尾空白）不到 20 字时，`awaitsMaterial` 在预筛前等待，与“一个字都没有”同样零调用（`lib/original-post-admission.ts` 的 `articleMaterialTooShort`）。`processArticle` 随后交给 `jobs/body-reread.ts` 的 `settleShortBody`：稿件留在 `analyzed`，`processing_error` 记“body_retry: 正文不足 20 字，等待第 n 次重读”，`processing_retry_at` 为 30 分钟、3 小时、12 小时后；`sweepUnprocessed` 的 `resumeBodyRereads` 每 5 分钟最多取 50 条到期稿件，核对信源仍是资讯编辑来源、页面可抓、权限允许（fetch、store_metadata、process_locally、store_fulltext），记 `content.body-reread` 审计后按低优先级排入普通正文抽取（站点限速与 robots 照常）。第 3 次重读后仍不足 20 字，稿件转 `failed`，原因“body_unreadable: 正文读取失败（重读 3 次）｜信源：名称”；页面不能重读或权限不允许的立即以对应原因失败；信源暂停的顺延 1 小时。运行页“处理失败”按原因归类，原因带信源名，因此按信源列出；在内容诊断页重新抽取会开始新的一轮（计数从上一次 `content.body-unreadable` 之后算）。读取配置变化时的自动续接（`resumeMaterialWaits`）对 1–19 字的等待同样适用。
+
+自动等待结算、到期重读与读取配置变化后的续接先取得人工发布共用锁，再在同一事务中核对人工修订/下架/仅摘要控制；等待期间新增人工控制即结束自动重读，不改变原材料或人工稿。正文最终不可读时，同一事务重建公开投影：旧模型导读不能使已失败的短稿继续出现在公开列表、搜索与订阅中；后续明确的人工内容修订仍优先。
+
+一次性补读：`node scripts/body-reread-backfill.ts` 默认预演，按信源列出 `analyzed` 且不足 20 字的资讯条数、读者当前可见的条数，以及重读后需要付费分析的估算（每条 1–7 次模型请求：预筛 1，评分最多 2，结构化 1，写作最多 2，措辞修正最多 1；归组与精选全文翻译另计；“预计能读到”按信源近 14 天是否有读到正文的稿件判断）。`--apply --limit N` 最多为 N 条记 `content.body-backfill` 审计并把下一次重读设为现在（模型高峰时段则为下一个非高峰起点）；这些稿件读到正文后的分析排在实时内容之后，并在非高峰时段进行（`queueProcessing` 的 `offPeak` 与 `historicalAnalysisWait`）。人工下架或修订的稿件不处理；重复执行只处理剩下的候选。
 
 ### 固定样本只读清单（TASK-0475）
 

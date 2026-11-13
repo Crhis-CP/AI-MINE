@@ -482,6 +482,18 @@
       "module": "platform/ops",
       "access": "business"
     },
+    "ops.reader_interest_days": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.reader_interest_items": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.reader_interest_facets": {
+      "module": "platform/ops",
+      "access": "business"
+    },
     "acquisition.directory_scans": {
       "module": "acquisition",
       "access": "business"
@@ -710,6 +722,10 @@
       "module": "enrichment",
       "access": "business"
     },
+    "enrichment.english_copies": {
+      "module": "enrichment",
+      "access": "business"
+    },
     "publication.report_group_members": {
       "module": "publication",
       "access": "business"
@@ -720,6 +736,10 @@
     },
     "events.report_group_checks": {
       "module": "events",
+      "access": "business"
+    },
+    "publication.withdrawn_reasons": {
+      "module": "publication",
       "access": "business"
     }
   },
@@ -928,6 +948,7 @@
     "modules/site-admin/backend/source-export.ts": "identity",
     "modules/site-admin/backend/target-catalogue.ts": "sources",
     "modules/site-admin/backend/visits.ts": "ops",
+    "modules/site-admin/backend/reader-interest.ts": "ops",
     "packages/backend/src/acquisition/directory-membership.ts": "acquisition",
     "packages/backend/src/acquisition/directory-read.ts": "acquisition",
     "packages/backend/src/acquisition/directory-store.ts": "acquisition",
@@ -973,6 +994,7 @@
     "packages/backend/src/editorial/report-exclusions.ts": "editorial",
     "packages/backend/src/editorial/translate.ts": "enrichment",
     "packages/backend/src/editorial/translation-quota.ts": "ai-gateway",
+    "packages/backend/src/editorial/english-copy.ts": "enrichment",
     "packages/backend/src/editorial/post-translation.ts": "enrichment",
     "packages/backend/src/editorial/reclassify.ts": "enrichment",
     "packages/backend/src/editorial/translation-store.ts": "enrichment",
@@ -991,6 +1013,7 @@
     "packages/backend/src/feedback/operational-snapshot.ts": "feedback",
     "packages/backend/src/ingest/items.ts": "acquisition",
     "packages/backend/src/jobs/content.ts": "content",
+    "packages/backend/src/jobs/body-reread.ts": "content",
     "packages/backend/src/jobs/operational-snapshot.ts": "queue",
     "packages/backend/src/jobs/publication.ts": "publication",
     "packages/backend/src/jobs/module-queues.ts": "queue",
@@ -1029,6 +1052,7 @@
     "packages/backend/src/providers/unknown-recovery.ts": "ai-gateway",
     "packages/backend/src/providers/usage-accounting.ts": "ai-gateway",
     "packages/backend/src/providers/usage-pricing.ts": "ai-gateway",
+    "packages/backend/src/providers/account-balance.ts": "ai-gateway",
     "packages/backend/src/providers/usage-protection.ts": "ai-gateway",
     "packages/backend/src/publication/availability.ts": "publication",
     "packages/backend/src/publication/detail.ts": "publication",

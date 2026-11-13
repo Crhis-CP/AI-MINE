@@ -283,7 +283,7 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
     local_reuse: { recorded_count: coverage === "none" ? null : Number(reuse?.n ?? 0), observed_since: since.toISOString(), coverage },
     limitations: [
       "按当前保留的物理调用记录汇总；实际与当时估算分列，缺金额不按当前单价回填，不跨币种合计。",
-      "调用时按统一输入、输出单价计算的估算未单独计入缓存命中和峰谷优惠，不等于供应商账单；历史金额保留原依据，不按当前优惠重算。",
+      "调用时的估算不等于供应商账单：2026-11-06 起登记了缓存命中价的模型按命中价计入缓存部分；此前的记录按全价估算，约比账单高一倍，历史金额保留原依据，不按现价重算；峰谷优惠不单独计入。",
       "单篇费用只统计有明确材料归属和金额的记录；未标明对象、来源或用途的历史调用不猜测归属，缺金额不计入平均数。",
       "单篇已记录平均不等于通过独立质量复核的合格内容成本；服务器、存储、抓取等未记录费用不在本模型用量合计中。费用记录不设置周度或月度金额上限。",
       "预留与未知占用单独列出截至本次对账仍占用的金额，不计为已花费用；没有保护记录的调用保留覆盖缺项。",
@@ -346,6 +346,8 @@ export async function reconcileMonthlyUsage(month: string, now = new Date(), sen
   }
   return (await monthlyUsageReports(month))[0]!;
 }
+/** How long after a month ends its report is still rebuilt hourly (late bills, unknown receipts); daily afterwards. */
+const SETTLING_DAYS = 35;
 export async function usageMonthly(now = new Date(), send = sendAlert) {
   const date = beijingDate(now),
     previous = new Date(`${date.slice(0, 7)}-01T00:00:00Z`);
@@ -354,10 +356,15 @@ export async function usageMonthly(now = new Date(), send = sendAlert) {
   const configured = await usageConfiguration();
   const [hour, minute] = (configured?.config.usage_report.push_time ?? "09:00").split(":").map(Number);
   if (now.getTime() < usageMonthPeriod(month).end.getTime() + (hour! * 60 + minute!) * 60_000) return { deferred: true };
-  // Minute-level scheduling honors the chosen first-issue minute; history is still reconciled at most hourly.
+  // Minute-level scheduling honors the chosen first-issue minute. A closed month can still change while late bills and
+  // unknown receipts settle, so it is rebuilt hourly for SETTLING_DAYS after it ended and once a day after that: each
+  // rebuild scans the month's attempts, and hourly for every month ever stored only grew (TASK-0618).
   const existing = await sql<{ month: string; checked_at: Date }[]>`SELECT month,checked_at FROM ai.usage_monthly_reports ORDER BY checked_at,month LIMIT 24`;
-  const due = (checked: Date) => checked.getTime() <= now.getTime() - 3600_000;
-  for (const row of existing) if (row.month !== month && due(row.checked_at)) await reconcileMonthlyUsage(row.month, now, send);
-  const latest = existing.find((row) => row.month === month);
+  const due = (checked: Date, everyMs = 3600_000) => checked.getTime() <= now.getTime() - everyMs;
+  const settled = (stored: string) => now.getTime() > usageMonthPeriod(stored).end.getTime() + SETTLING_DAYS * 86400_000;
+  for (const row of existing)
+    if (row.month !== month && due(row.checked_at, settled(row.month) ? 86400_000 : 3600_000)) await reconcileMonthlyUsage(row.month, now, send);
+  // Read on its own: among more than 24 stored months the one just checked is never one of the 24 least recently checked.
+  const [latest] = await sql<{ checked_at: Date }[]>`SELECT checked_at FROM ai.usage_monthly_reports WHERE month=${month}`;
   return latest && !due(latest.checked_at) ? { deferred: true } : reconcileMonthlyUsage(month, now, send);
 }

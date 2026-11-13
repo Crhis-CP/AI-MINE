@@ -95,6 +95,13 @@ test("cache evidence must be complete and conserved; legacy quotes and actual bi
     { cache_read_input_tokens: 600 },
   ])
     assert.equal(settleQuotedCost(q, { ...usage, ...patch }, null), null);
+  // The OpenAI-compatible dialect reports only the cached part; the rest of the prompt is the miss (TASK-0608).
+  const { prompt_cache_hit_tokens: _hit, prompt_cache_miss_tokens: _miss, ...plain } = usage as Record<string, unknown>;
+  assert.equal(
+    settleQuotedCost(q, { ...plain, prompt_tokens_details: { cached_tokens: usage.prompt_cache_hit_tokens } }, null)?.micros,
+    settleQuotedCost(q, usage, null)?.micros,
+  );
+  assert.equal(settleQuotedCost(q, { ...plain, prompt_tokens_details: { cached_tokens: Number(usage.prompt_tokens) + 1 } }, null), null);
   const legacy: UsageQuote = {
     price_id: id,
     price_version: 1,

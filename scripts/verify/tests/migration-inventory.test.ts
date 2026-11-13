@@ -702,6 +702,40 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["sources"],
         dependsOn: ["0038_publication_source_excerpt.sql", "sources/202610120500_public_attribution_links.sql"],
       },
+      {
+        name: "enrichment/202611081000_english_copies.sql",
+        module: "enrichment",
+        schemas: ["enrichment"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "enrichment/202610260846_quote_translations.sql"],
+      },
+      {
+        name: "platform/ops/202611081000_reader_interest.sql",
+        module: "platform/ops",
+        schemas: ["ops"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "platform/ops/202611071000_visit_stats.sql"],
+      },
+      {
+        name: "publication/202611081001_publication_english_copy.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: [
+          "0038_publication_source_excerpt.sql",
+          "publication/202610260847_original_post_projection.sql",
+          "enrichment/202611081000_english_copies.sql",
+        ],
+      },
+      {
+        name: "acquisition/202611130408_robots_failures.sql",
+        module: "acquisition",
+        schemas: ["acquisition"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "acquisition/202610090900_host_pacing.sql"],
+      },
+      {
+        name: "publication/202611130408_withdrawn_reasons.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202611061200_news_links.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

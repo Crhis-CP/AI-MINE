@@ -4,7 +4,8 @@
 //
 // - The api records a page-view beacon in process memory and writes the batch every FLUSH_MS (one transaction);
 //   page rendering never waits for it, and a failed write is dropped and counted, never retried or surfaced.
-// - A visitor is an HMAC of the client address and browser string under a random salt of the Beijing day (daily
+// - A visitor is an HMAC of the client's network and device kind (visit-rules.ts: visitorNetwork, visitorDevice;
+//   TASK-0622 made both coarse, so one reader in two browsers is one visitor) under a random salt of the Beijing day (daily
 //   visitors) and of the Beijing month (monthly visitors). Salts live only in ops.visit_salts and are never sent
 //   anywhere; the count job deletes a salt once its day or month is over, and the api never re-creates a past one.
 //   The raw address and browser string stay in this process's memory until the next write, at most FLUSH_MS.
@@ -15,7 +16,19 @@ import { addCalendarMonths, addDays, beijingDate } from "@amp/contracts/time";
 import { VisitOverview } from "@amp/contracts/http/private";
 import { sql, type Db } from "@amp/backend/db";
 import { savedItems } from "@amp/backend/publication/availability";
-import { deviceClass, isBot, isPrefetch, monthOf, readerPage, referrerHost, visitorKey, type VisitDevice } from "./visit-rules.ts";
+import { readerInterestOverview } from "./reader-interest.ts";
+import {
+  deviceClass,
+  isBot,
+  isPrefetch,
+  monthOf,
+  readerPage,
+  referrerHost,
+  visitorDevice,
+  visitorKey,
+  visitorNetwork,
+  type VisitDevice,
+} from "./visit-rules.ts";
 
 export const FLUSH_MS = 10_000;
 /** Distinct visitors held between two writes; beyond it a view still counts, its visitor does not. */
@@ -24,6 +37,14 @@ const MAX_IDENTITIES = 20_000;
 const MAX_PATHS_PER_DAY = 5_000;
 /** Page views one client (address and browser) may add per minute. */
 const PER_CLIENT_PER_MINUTE = 60;
+/**
+ * One client opening the same page again within this many minutes is one page view, not several (TASK-0638): reloads,
+ * a tab coming back, or an automated client that runs the page in a loop no longer multiply a page's count. The
+ * 2026-11-12 counts had /feedback at 15,154 views from 130 visitors with one feedback sent.
+ */
+export const REPEAT_MINUTES = 30;
+/** Repeat entries held at most; beyond it a view counts as new rather than lose memory. */
+const MAX_REPEATS = 100_000;
 
 interface Batch {
   days: Map<string, { views: number; english: number }>;
@@ -39,6 +60,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let writing: Promise<void> | null = null;
 const dayPaths = new Map<string, Set<string>>();
 const clientMinute = { minute: -1, counts: new Map<string, number>() };
+/** The minute each client last had each page counted, for REPEAT_MINUTES. */
+const lastSeen = new Map<string, number>();
 const clientSecret = randomBytes(32);
 const saltCache = new Map<string, Buffer>();
 /** Process-lifetime diagnostics: page views lost to a failed write, and failed writes. */
@@ -54,6 +77,23 @@ export interface VisitHit {
   now?: Date;
 }
 
+/**
+ * lastSeen keeps insertion order equal to time order (a key is moved to the end when it is set again), so expired entries
+ * are always at the front: forgetting them and making room both stop at the first live entry, never scanning the map.
+ */
+function forgetRepeats(minute: number) {
+  for (const [key, at] of lastSeen) {
+    if (minute - at < REPEAT_MINUTES) break;
+    lastSeen.delete(key);
+  }
+}
+function rememberRepeat(key: string, minute: number) {
+  lastSeen.delete(key);
+  // Full: the oldest entry goes. A view it would have folded may then count once more; memory stays bounded.
+  if (lastSeen.size >= MAX_REPEATS) lastSeen.delete(lastSeen.keys().next().value!);
+  lastSeen.set(key, minute);
+}
+
 /** Record one beacon in memory. Returns whether it counted as a reader page view. Never throws, never waits. */
 export function recordVisit(hit: VisitHit): boolean {
   const page = readerPage(hit.path);
@@ -63,11 +103,18 @@ export function recordVisit(hit: VisitHit): boolean {
   if (clientMinute.minute !== minute) {
     clientMinute.minute = minute;
     clientMinute.counts.clear();
+    forgetRepeats(minute);
   }
   const client = createHmac("sha256", clientSecret).update(`${hit.address}\n${hit.userAgent}`).digest("base64url");
+  // The exact address, not the route pattern readerPage may fold it into; with the Beijing day, so the first view of a new
+  // day always counts (and registers its daily and monthly visitor).
+  const repeat = `${client}\n${beijingDate(now)}\n${hit.path.split(/[?#]/, 1)[0]}`;
+  const last = lastSeen.get(repeat);
+  if (last !== undefined && minute - last < REPEAT_MINUTES) return false;
   const seen = clientMinute.counts.get(client) ?? 0;
   if (seen >= PER_CLIENT_PER_MINUTE || (!seen && clientMinute.counts.size >= 50_000)) return false;
   clientMinute.counts.set(client, seen + 1);
+  rememberRepeat(repeat, minute);
 
   const day = beijingDate(now);
   const device = deviceClass(hit.userAgent);
@@ -104,7 +151,8 @@ export function recordVisit(hit: VisitHit): boolean {
   deviceRow.views += 1;
   batch.devices.set(deviceKey, deviceRow);
 
-  const identity = `${day}\n${hit.address}\n${hit.userAgent}`;
+  // One entry per visitor, not per browser string: the key is what visitorKey hashes.
+  const identity = `${day}\n${visitorNetwork(hit.address)}\n${visitorDevice(hit.userAgent)}`;
   if (!batch.identities.has(identity) && batch.identities.size < MAX_IDENTITIES)
     batch.identities.set(identity, { day, device, address: hit.address, userAgent: hit.userAgent });
 
@@ -257,7 +305,7 @@ export async function visitOverview(now = new Date()): Promise<VisitOverview> {
     FROM generate_series(${from12}::date,${thisMonth}::date,interval '1 month') AS m
     LEFT JOIN ops.visit_months s ON s.month=m::date LEFT JOIN live l ON l.month=m::date LEFT JOIN views w ON w.month=m::date
     ORDER BY m`;
-  const [pagesWeek, pagesMonth, sections, referrersWeek, referrersMonth, devices, [first]] = await Promise.all([
+  const [pagesWeek, pagesMonth, sections, referrersWeek, referrersMonth, devices, [first], interest] = await Promise.all([
     topPages(from7),
     topPages(from30),
     sql<{ route: string; views: number }[]>`SELECT route,sum(views)::bigint AS views FROM ops.visit_pages WHERE day >= ${from30}::date
@@ -268,6 +316,7 @@ export async function visitOverview(now = new Date()): Promise<VisitOverview> {
       SELECT device,sum(views)::bigint AS views,coalesce(sum(visitors),0)::bigint AS visitor_days FROM ops.visit_devices
       WHERE day >= ${from30}::date GROUP BY device ORDER BY views DESC,device`,
     sql<{ since: string | null }[]>`SELECT pg_catalog.to_char(min(day),'YYYY-MM-DD') AS since FROM ops.visit_days WHERE page_views > 0`,
+    readerInterestOverview(today),
   ]);
   const titles = await itemTitles([...pagesWeek, ...pagesMonth]);
   const withTitles = (rows: { route: string; path: string; views: number }[]) =>
@@ -303,6 +352,7 @@ export async function visitOverview(now = new Date()): Promise<VisitOverview> {
       month: referrersMonth.map((r) => ({ host: r.host, views: Number(r.views) })),
     },
     devices: devices.map((d) => ({ device: d.device, views: Number(d.views), visitor_days: Number(d.visitor_days) })),
+    interest,
   });
 }
 

@@ -66,11 +66,14 @@ export interface ItemRow {
   language: string | null;
   story_public_id: string | null;
   story_title: string | null;
+  /** The English copy matching the current Chinese copy (TASK-0595); both null when there is none. */
+  title_en?: string | null;
+  summary_en?: string | null;
 }
 
 /** Columns every item listing selects. Internal judgement details never leave this layer. */
 export const ITEM_COLUMNS = () => sql`
-  p.article_id AS id, p.revision, p.title, p.original_title,
+  p.article_id AS id, p.revision, p.title, p.original_title, p.title_en, p.summary_en,
   p.is_original_post,p.x_post->>'summaryKind' AS post_summary_kind,p.original_post_admission_required,p.x_post,p.x_post_revision,a.revision AS content_revision,
   coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
   (${confirmedSelected()}) AS selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
@@ -245,6 +248,14 @@ export function toItemSummary(row: ItemRow): ItemSummary {
   };
 }
 
+/**
+ * The English title and summary the English interface shows (TASK-0595), or null: the pages then show the Chinese
+ * copy. Website responses only; machine exits (v1, RSS, MCP, sync) do not carry it.
+ */
+export function englishCopyOf(row: Pick<ItemRow, "title_en" | "summary_en" | "is_original_post">): { title: string; summary: string } | null {
+  return !row.is_original_post && row.title_en && row.summary_en ? { title: row.title_en, summary: row.summary_en } : null;
+}
+
 /** Project the shared public article into the exact fields a site card renders. */
 export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
   const item = toItemSummary(row);
@@ -265,8 +276,13 @@ export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
     selected: item.selected,
     channel: item.channel,
     ...(row.is_original_post ? { x: postFeedView(row) } : {}),
+    ...withEnglish(row),
   };
 }
+const withEnglish = (row: ItemRow) => {
+  const english = englishCopyOf(row);
+  return english ? { english } : {};
+};
 
 export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<string, ItemRow>> {
   if (ids.length === 0) return new Map();
@@ -300,11 +316,16 @@ export async function currentNewsJurisdictionCounts(range?: { from: Date; to: Da
   let unknown = 0;
   for (const row of rows) {
     if (!row.state || row.state === "unknown" || row.state === "partial") unknown += 1;
-    const hit = new Set<string>();
-    for (const code of row.codes ?? []) for (const j of JURISDICTIONS) if (jurisdictionDescendants(j.id).includes(code)) hit.add(j.id);
-    for (const id of hit) counts[id] = (counts[id] ?? 0) + 1;
+    for (const id of jurisdictionHits(row.codes ?? [])) counts[id] = (counts[id] ?? 0) + 1;
   }
   return { counts, unknown };
+}
+
+/** The jurisdictions whose country filter shows an item with these evidenced codes (as currentGeographyMatch). */
+export function jurisdictionHits(codes: readonly string[]): string[] {
+  const hit = new Set<string>();
+  for (const code of codes) for (const j of JURISDICTIONS) if (jurisdictionDescendants(j.id).includes(code)) hit.add(j.id);
+  return [...hit];
 }
 
 /** Public evidence used by the event judge, bound to the caller's current material revisions. */

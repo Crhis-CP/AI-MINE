@@ -37,6 +37,8 @@ const preservationRules = z
       .refine((rule) => rule.as === "pre" || (!rule.code && !rule.caption)),
   )
   .max(30);
+/** Elements holding a page's text version that only a script would show (detail.reveal, TASK-0598). */
+const revealSelectors = z.array(z.string().trim().min(1).max(500)).min(1).max(10);
 const acceptLanguage = z
   .string()
   .min(1)
@@ -142,6 +144,7 @@ const NESTED: Record<string, string[]> = {
     "titleAuthoritative",
     "summarySelector",
     "preserve",
+    "reveal",
   ],
 };
 
@@ -240,6 +243,7 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
   if (config.acceptLanguage !== undefined && !acceptLanguage.safeParse(config.acceptLanguage).success) out.push("acceptLanguage");
   const detail = config.detail as Record<string, unknown> | undefined;
   if (detail?.preserve !== undefined && !preservationRules.safeParse(detail.preserve).success) out.push("detail.preserve");
+  if (detail?.reveal !== undefined && !revealSelectors.safeParse(detail.reveal).success) out.push("detail.reveal");
   if (config.directoryProfile !== undefined && !directoryContract({ kind, config })) out.push("directoryProfile");
   if (config?.crawlProfile !== undefined && !SourceCrawlProfile.safeParse(config.crawlProfile).success) out.push("crawlProfile");
   for (const [key, value] of Object.entries(config ?? {})) {

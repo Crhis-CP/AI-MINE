@@ -349,16 +349,8 @@ async function main() {
     return;
   }
   assertIsolatedDatabase(process.env.DATABASE_URL ?? "postgres://unset/unset");
-  if (values.run) {
-    if (!/^TASK-[0-9]{4}$/.test(values.task ?? "")) throw new Error("--task TASK-nnnn required for live experiment");
-    const text = readFileSync(path.join(REPO_ROOT, "tasks", `${values.task}.md`), "utf8");
-    // Task cards use this deliberately narrow inline declaration; unsupported forms fail closed.
-    const header = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text)?.[1] ?? "";
-    const declarations = [...header.matchAll(/^budget:\s*\{\s*model_calls:\s*([0-9]+)\s*\}\s*$/gm)];
-    const taskCalls = declarations.length === 1 ? Number(declarations[0]![1]) : 0;
-    if (!Number.isInteger(Number(values["max-calls"])) || Number(values["max-calls"]) <= 0 || Number(values["max-calls"]) > taskCalls)
-      throw new Error("Declared physical calls exceed the task card; no model request made");
-  }
+  // Checked before the database is opened: a run the task card does not cover makes no connection and no request.
+  if (values.run) assertDeclaredCalls(values.task, values["max-calls"]);
   await initializeDb("worker");
   try {
     const result = values["export-country"]
@@ -370,5 +362,18 @@ async function main() {
   } finally {
     await closeDb();
   }
+}
+/**
+ * A live run must name a task card whose `budget: {model_calls: n}` covers the calls it asks for. Task cards use this
+ * deliberately narrow inline declaration; any other form counts as zero, so the run is refused.
+ */
+export function assertDeclaredCalls(task: string | undefined, maxCalls: string | undefined, root = REPO_ROOT): void {
+  if (!/^TASK-[0-9]{4}$/.test(task ?? "")) throw new Error("--task TASK-nnnn required for live experiment");
+  const text = readFileSync(path.join(root, "tasks", `${task}.md`), "utf8");
+  const header = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text)?.[1] ?? "";
+  const declarations = [...header.matchAll(/^budget:\s*\{\s*model_calls:\s*([0-9]+)\s*\}\s*$/gm)];
+  const taskCalls = declarations.length === 1 ? Number(declarations[0]![1]) : 0;
+  if (!Number.isInteger(Number(maxCalls)) || Number(maxCalls) <= 0 || Number(maxCalls) > taskCalls)
+    throw new Error("Declared physical calls exceed the task card; no model request made");
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

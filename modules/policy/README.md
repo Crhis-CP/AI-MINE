@@ -6,7 +6,7 @@ module声明既有法规列表、正文、历史版本、政策脉络及报告�
 
 ## 重启：存档、结构化与逐条对照（DEC-78补充·五项决定 5）
 
-Owner 解除了 DEC-71 的暂停，先做不调用模型的部分（`docs/design/policy-restart-202611/README.md` 第 4、6 节）。解读段预算未定，所以法规线所有模型用途默认关闭。
+Owner 解除了 DEC-71 的暂停，先做不调用模型的部分（`docs/design/policy-restart-202611/README.md` 第 4、6 节）。解读不设调用上限、靠设计降本（决定台账“正文共享前缀、非高峰与模型选择”）；模型步骤由 `POLICY_MODEL_STAGES_ENABLED` 控制，默认关。
 
 - **两个开关**（`backend/pilot.ts`，每次读取环境变量，只认精确的 `true`）：
   - `POLICY_PILOT_ENABLED=true`：恢复存档（目录扫描 `policy.sources.schedule`、`policy.acquire` 取原件）和结构化（提取正文、切分条款、投影逐条对照）。它叠加在 `COLLECT_ENABLED`、`COLLECT_POLICY_ENABLED` 和后台运行控制之上，不取代它们。法规列表说明随之改为“试点范围更新中”。

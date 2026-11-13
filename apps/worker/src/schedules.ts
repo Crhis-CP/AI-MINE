@@ -15,7 +15,7 @@ import { linkRelatedStories, recoverPendingGroupings, remergeSingleReportFacts }
 import { enqueuePendingReportCorrections, catchUpReports } from "@amp/backend/reports/compose";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
-import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
+import { checkAlerts, readAccountBalances, sendDigest } from "@amp/backend/operations/alerts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
 import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots, usageProtectionTick } from "@amp/backend/operations/reports";
@@ -55,6 +55,7 @@ export const SCHEDULES: Scheduled[] = [
     run: async () => ({ receipts: await markStalePendingReceipts(), released: await autoReleaseUnknownReceipts(), deliveries: await markStaleDeliveries() }),
   },
   { name: "ops.usage-protection", cron: "*/5 * * * *", run: () => usageProtectionTick() },
+  { name: "ops.account-balance", cron: "*/30 * * * *", run: async () => void (await readAccountBalances()) },
   { name: "ops.alerts", cron: "*/10 * * * *", run: () => checkAlerts() },
   // One message with the follow-ups that do not touch readers (nothing when there are none).
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },

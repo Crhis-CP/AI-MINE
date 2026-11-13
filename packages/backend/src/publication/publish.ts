@@ -2,7 +2,9 @@ import { groundTags, groundingText, tagGrounded, ungroundedFilterHits } from "./
 import { isHistorical, newsMaterialBindings, type XPostData } from "../content/materials.ts";
 export { extractHistoricalAnchors, readHistoricalBackgroundCandidates, replaceHistoricalBackgroundProjection } from "./historical-background.ts";
 import { bilingualNames } from "../editorial/bilingual-names.ts";
-import { groupingAnalysisHash, readQuotedPostTranslation } from "../enrichment/records.ts";
+import { groupingAnalysisHash, readEnglishCopy, readQuotedPostTranslation } from "../enrichment/records.ts";
+import { englishCopyInput, type EnglishCopyInput } from "../editorial/english-copy-input.ts";
+import { englishCopyEnabled } from "../config.ts";
 import { deferHistoricalSelection } from "../events/group.ts";
 import { recomputeSelection } from "./selection-recompute.ts";
 import { audit } from "../admin/auth.ts";
@@ -26,6 +28,7 @@ export {
 } from "./withdrawals.ts";
 export type { WithdrawalTarget } from "./withdrawals.ts";
 import { manualRevisionState } from "../editorial/manual-revisions.ts";
+import { articleMaterialTooShort } from "../lib/original-post-admission.ts";
 import { requireRuntimeRunning, assertRuntimeControl, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
@@ -42,7 +45,7 @@ import { looksZh } from "../editorial/writing.ts";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT } from "../editorial/translation-readiness.ts";
 import { readStoredTranslation } from "../editorial/translation-store.ts";
-import { liveTranslationWindow, translationJobOptions } from "../editorial/translation-schedule.ts";
+import { englishCopyJobOptions, liveTranslationWindow, translationJobOptions } from "../editorial/translation-schedule.ts";
 import { itemUrl } from "./links.ts";
 import { QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
@@ -103,6 +106,7 @@ interface ArticleRow {
   grouping_input_revision: number | null;
   selection_adds_value: boolean | null;
   processing_state: string;
+  processing_error: string | null;
 }
 
 interface AnalysisRow {
@@ -247,6 +251,14 @@ async function appendLedger(tx: Tx, articleId: string, op: "upsert" | "remove", 
   return next;
 }
 
+/** Each listed article's current publication visibility (none when it was never published); read-only (TASK-0594). */
+export async function publicationVisibilities(articleIds: readonly string[]): Promise<Map<string, string>> {
+  if (!articleIds.length) return new Map();
+  const rows = await sql<{ article_id: string; visibility: string }[]>`
+    SELECT article_id, visibility FROM publications WHERE article_id=ANY(${[...articleIds]}::text[])`;
+  return new Map(rows.map((r) => [r.article_id, r.visibility]));
+}
+
 export async function publishArticle(articleId: string, options: PublishOptions = {}): Promise<PublishResult | null> {
   return sql.begin((tx) => publishArticleTx(tx, articleId, options));
 }
@@ -317,6 +329,94 @@ export async function regroundPublicationTags(articleId: string): Promise<string
   });
 }
 
+interface EnglishCopyRow {
+  title: string;
+  summary: string | null;
+  original_title: string | null;
+  is_original_post: boolean;
+  visibility: string;
+  eligible: boolean;
+  language: string | null;
+}
+const englishSource = (row: EnglishCopyRow) =>
+  englishCopyInput({
+    title: row.title,
+    summary: row.summary,
+    originalTitle: row.original_title,
+    language: row.language,
+    isOriginalPost: row.is_original_post,
+    visibility: row.visibility,
+    eligible: row.eligible,
+  });
+
+/** Sets the stored English copy that matches the publication as it is now (or none); says whether one is missing. */
+async function projectEnglishCopy(tx: Tx, articleId: string, language: string | null): Promise<{ missing: boolean }> {
+  const [row] = await tx<(Omit<EnglishCopyRow, "language"> & { title_en: string | null; summary_en: string | null })[]>`
+    SELECT title, summary, original_title, is_original_post, visibility, eligible, title_en, summary_en FROM publications WHERE article_id=${articleId}`;
+  if (!row) return { missing: false };
+  const input = englishSource({ ...row, language });
+  const copy = input ? await readEnglishCopy(articleId, input.hash, tx) : null;
+  const title = copy?.title ?? null,
+    summary = copy?.summary ?? null;
+  if (row.title_en !== title || row.summary_en !== summary)
+    await tx`UPDATE publications SET title_en=${title}, summary_en=${summary} WHERE article_id=${articleId}`;
+  return { missing: !!input && !copy };
+}
+
+/**
+ * After a copy is written: show it, without a full publish (no revision, ledger, event or queue change; the reader
+ * caches follow the publication row's own change).
+ */
+export async function refreshEnglishCopy(articleId: string): Promise<void> {
+  await sql.begin(async (tx) => {
+    const [row] = await tx<{ language: string | null }[]>`SELECT a.language FROM publications p JOIN articles a ON a.id=p.article_id
+      WHERE p.article_id=${articleId} AND p.channel='news' FOR UPDATE OF p`;
+    if (row) await projectEnglishCopy(tx, articleId, row.language);
+  });
+}
+
+export interface EnglishCopyCandidate {
+  articleId: string;
+  /** The material revision the publication was made from. */
+  revision: number;
+  sourceId: string;
+  selected: boolean;
+  input: EnglishCopyInput;
+}
+
+/** A public news item that gets an English copy, with its current input; null when it gets none. Worker only. */
+export async function englishCopyCandidate(articleId: string, db: Db = sql): Promise<EnglishCopyCandidate | null> {
+  const [row] = await db<(EnglishCopyRow & { revision: number; source_id: string; selected: boolean })[]>`
+    SELECT p.title, p.summary, p.original_title, p.is_original_post, p.visibility, p.eligible, p.selected, p.source_id, a.language, a.revision
+    FROM publications p JOIN articles a ON a.id=p.article_id WHERE p.article_id=${articleId} AND p.channel='news'`;
+  const input = row ? englishSource(row) : null;
+  return row && input ? { articleId, revision: row.revision, sourceId: row.source_id, selected: row.selected, input } : null;
+}
+
+/**
+ * Public news items still showing the Chinese copy on the English pages, newest first (by discovery), after the
+ * cursor: the backfill's page (scripts/en-copy-backfill.ts). Read-only.
+ */
+export async function englishCopyBackfillPage(before: { at: Date; id: string } | null, limit: number) {
+  const at = before?.at ?? new Date("9999-12-31T00:00:00Z"),
+    id = before?.id ?? "~";
+  const rows = await sql<(EnglishCopyRow & { article_id: string; discovered_at: Date; selected: boolean })[]>`
+    SELECT p.article_id, p.discovered_at, p.selected, p.title, p.summary, p.original_title, p.is_original_post, p.visibility, p.eligible, a.language
+    FROM publications p JOIN articles a ON a.id=p.article_id
+    WHERE p.channel='news' AND p.visibility='public' AND p.eligible AND p.title_en IS NULL AND p.summary IS NOT NULL AND NOT p.is_original_post
+      AND (p.discovered_at < ${at} OR (p.discovered_at = ${at} AND p.article_id < ${id}))
+    ORDER BY p.discovered_at DESC, p.article_id DESC LIMIT ${limit}`;
+  const last = rows.at(-1);
+  return {
+    items: rows.flatMap((row) => {
+      const input = englishSource(row);
+      return input ? [{ articleId: row.article_id, discoveredAt: row.discovered_at, selected: row.selected, input }] : [];
+    }),
+    /** Where the next page starts; null after the last page. */
+    next: last && rows.length === limit ? { at: last.discovered_at, id: last.article_id } : null,
+  };
+}
+
 /** Grouping reads the effective nomination only when it belongs to the same saved analysis. */
 export async function groupingSelectionCandidate(articleId: string, analysisId: number, db: Db = sql) {
   const [row] = await db<{ selection_candidate: boolean }[]>`SELECT selection_candidate FROM publications
@@ -357,7 +457,7 @@ export async function publishArticleTx(
   await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
   const [article] = await tx<ArticleRow[]>`
     SELECT id, revision, source_id, source_date_version, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, body_html, excerpt, x_post, x_article, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state
+           body_text, body_html, excerpt, x_post, x_article, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state, processing_error
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -420,7 +520,18 @@ export async function publishArticleTx(
     ON CONFLICT(article_id) DO UPDATE SET manual_revision_id=EXCLUDED.manual_revision_id,material_revision=EXCLUDED.material_revision,body_html=EXCLUDED.body_html,label=EXCLUDED.label,state=EXCLUDED.state
     WHERE (manual_copies.manual_revision_id,manual_copies.material_revision,manual_copies.body_html,manual_copies.state)
       IS DISTINCT FROM (EXCLUDED.manual_revision_id,EXCLUDED.material_revision,EXCLUDED.body_html,EXCLUDED.state)`;
-  const hasMaterial = !!usableSourceText(article.body_text, article.excerpt) || postReady;
+  // Legacy short articles can still have model copy. A failed reread must not republish it (TASK-0598).
+  // Explicit manual content and visibility keep their priority over the automatic material failure.
+  const manualContent =
+    (Object.keys(override?.fields ?? {}).length > 0 || manual.manualRevisionId !== null) && manual.state !== "superseded" && manual.state !== "withdrawn";
+  const failedBody =
+    !post &&
+    article.processing_state === "failed" &&
+    article.processing_error?.startsWith("body_unreadable:") &&
+    articleMaterialTooShort(article.body_text, article.excerpt) &&
+    !manualContent &&
+    override?.visibility !== "summary-only";
+  const hasMaterial = (!!usableSourceText(article.body_text, article.excerpt) || postReady) && !failedBody;
   const language = normalizeSourceLanguage(article.language);
   const nativeChinese = isChineseOriginal(language);
   // Wide admission (BR-SEL-01): only a BLOCK keeps an item out. PASS, UNKNOWN and "not judged yet" go on;
@@ -438,8 +549,17 @@ export async function publishArticleTx(
       : "summary"
     : bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
   // A Chinese original with full-text permission is guided by a deterministic excerpt until the model writes (BR-ENR-06).
+  // The permission is the source's, not the body's status: text read from a PDF stays "unconfirmed" (content/extract.ts)
+  // and is not shown as the full body, but its opening is still the source's own words (TASK-0594: exchange
+  // announcements were left out whenever the model's copy came back empty).
   const excerpt =
-    !post && admitted && nativeChinese && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
+    !post &&
+    admitted &&
+    nativeChinese &&
+    source.site_fulltext &&
+    (article.body_status === "ok" || article.body_status === "unconfirmed") &&
+    usableSourceText(article.body_text) &&
+    collapseWhitespace(article.body_text!).length >= 20
       ? `来源摘录：${Array.from(collapseWhitespace(article.body_text!)).slice(0, 400).join("")}（根据来源正文整理，保留原始材料供核对）`
       : null;
   const isChineseTitle = nativeChinese;
@@ -751,6 +871,12 @@ export async function publishArticleTx(
     WHERE article_id=${articleId} AND (source_time,source_time_material_revision,source_date_version,source_date_config_hash)
     IS DISTINCT FROM (${sourceTime ? tx.json(sourceTime) : null},${article.revision},${Number(article.source_date_version)},${timeConfigHash})`;
   await tx`UPDATE publications SET company_context=${tx.json(companyContext as never)} WHERE article_id=${articleId} AND company_context IS DISTINCT FROM ${tx.json(companyContext as never)}`;
+  // The English title and summary (TASK-0595) follow the copy just written: shown only while made from this exact
+  // Chinese copy. A missing one is queued while the item is fresh; older items come from scripts/en-copy-backfill.ts,
+  // so republishing a source never queues its history for paid calls (PIT-112).
+  const english = await projectEnglishCopy(tx, articleId, article.language);
+  if (english.missing && englishCopyEnabled() && liveTranslationWindow(article.discovered_at, now))
+    await enqueue(QUEUES.translate, { articleId, lane: "news", english: true }, englishCopyJobOptions(articleId, selected, options.now), tx);
   const geographyChanged = await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // Explicit outbound links of this body, for the news/policy navigation; readers apply the public state themselves.
   await projectNewsLinks(tx, article);
@@ -1005,6 +1131,16 @@ export async function retiredCategoryPublications(keys: readonly string[], names
     ORDER BY article_id`;
   const [total] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM publications WHERE visibility='public' AND eligible AND channel='news'`;
   return { articleIds: rows.map((r) => r.article_id), publicNews: total?.n ?? 0 };
+}
+
+/**
+ * Of these articles, the ones readers can see now (TASK-0598 backfill count: model copy once written from a few
+ * characters; if a read again still finds under 20 characters, the next analysis waits and this withdraws them).
+ */
+export async function publicArticleIds(ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await sql<{ article_id: string }[]>`SELECT article_id FROM publications WHERE article_id=ANY(${ids}::text[]) AND visibility='public'`;
+  return new Set(rows.map((r) => r.article_id));
 }
 
 /**

@@ -11,6 +11,35 @@ const Figures = z.strictObject({ visitors: count.nullable(), page_views: count }
 const Page = z.strictObject({ route: z.string(), path: z.string(), views: count, title: z.string().nullable() });
 const Referrer = z.strictObject({ host: z.string(), views: count });
 export const VisitDevice = z.enum(["phone", "tablet", "desktop"]);
+/**
+ * 读者兴趣记录 (TASK-0596, Owner 2026-11-07): page views of complete Beijing days summed by what the reader filters
+ * classify the viewed articles under, plus the most read articles and list pages. A reference only; counts, never a
+ * visitor. key is the filter's own value (category key, mineral, company entity id, jurisdiction id, page path);
+ * label is its name when the day was recorded.
+ */
+const InterestRow = z.strictObject({ key: z.string(), label: z.string(), views: count });
+const InterestItem = z.strictObject({ article_id: z.string(), title: z.string().nullable(), category: z.string().nullable(), views: count });
+const InterestRange = z.strictObject({
+  /** Recorded days in the range (complete days before today). */
+  days: count,
+  /** Article page views; classified_views are those of articles that still had a page when the day was recorded. */
+  item_views: count,
+  classified_views: count,
+  category: z.array(InterestRow).max(15),
+  mineral: z.array(InterestRow).max(15),
+  company: z.array(InterestRow).max(15),
+  country: z.array(InterestRow).max(15),
+  /** List and topic pages (search and filters are never recorded: an address never keeps its query). */
+  page: z.array(InterestRow).max(15),
+  /** Summed from each day's 50 most read articles. */
+  items: z.array(InterestItem).max(20),
+});
+export const ReaderInterest = z.strictObject({
+  /** First recorded day; null before the first record. */
+  since: Day.nullable(),
+  week: InterestRange,
+  month: InterestRange,
+});
 export const VisitOverview = z.strictObject({
   generated_at: z.iso.datetime({ offset: true }),
   /** Beijing date the figures are read for. */
@@ -35,8 +64,11 @@ export const VisitOverview = z.strictObject({
   referrers: z.strictObject({ week: z.array(Referrer).max(20), month: z.array(Referrer).max(20) }),
   /** Last 30 days: page views and visitor-days (a visitor counted once per day) by device class. */
   devices: z.array(z.strictObject({ device: VisitDevice, views: count, visitor_days: count })).max(3),
+  /** 读者兴趣记录 over the last 7 and 30 complete days; absent from an api older than the record (TASK-0596). */
+  interest: ReaderInterest.optional(),
 });
 export type VisitOverview = z.infer<typeof VisitOverview>;
+export type ReaderInterest = z.infer<typeof ReaderInterest>;
 export const visitSchemas = { VisitOverview };
 export const visitRoutes = {
   adminVisits: {

@@ -92,6 +92,24 @@ export function cochilcoPeriod(registry: MetalPriceRegistry, day: string, url: s
   return one;
 }
 
+/** The daily reports the list page names, by day. Throws when a link is off the source's hosts or a day is listed twice. */
+export function cochilcoListed(source: Pick<MetalPriceRegistry["sources"][number], "hosts">, html: string): Map<string, string> {
+  const $ = load(html);
+  const found = new Map<string, string>();
+  for (const link of $("a.wpfd-file-link[href]").toArray()) {
+    const match = /^Rueda (\d{2})-(\d{2})-(\d{4})$/.exec(tidy($(link).attr("title") ?? $(link).text()));
+    if (!match) continue;
+    const day = `${match[3]}-${match[2]}-${match[1]}`,
+      url = new URL($(link).attr("href")!, COCHILCO_URL).href;
+    if (!Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0, 10) !== day) throw new Error("Cochilco 列表日期无效");
+    if (!onSourceHost(source, url) || !new URL(url).pathname.endsWith(".pdf")) throw new Error("Cochilco 列表文件不在登记范围内");
+    if (found.has(day) && found.get(day) !== url) throw new Error("Cochilco 同一天列出多个文件，不猜哪份为准");
+    found.set(day, url);
+  }
+  if (!found.size) throw new Error("Cochilco 列表没有可识别的日报");
+  return found;
+}
+
 export function cochilcoFetcher(registry: MetalPriceRegistry, get: PageGetter = fetchCochilco): Fetcher {
   return {
     sourceKeys: ["cochilco"],
@@ -104,20 +122,7 @@ export function cochilcoFetcher(registry: MetalPriceRegistry, get: PageGetter = 
         if (response.status !== 200 || response.url !== url) throw new Error(`Cochilco 请求失败或跳转：${response.status}`);
         return response;
       };
-      const list = await request(COCHILCO_URL, 2 * 1024 * 1024),
-        $ = load(list.text());
-      const found = new Map<string, string>();
-      for (const link of $("a.wpfd-file-link[href]").toArray()) {
-        const match = /^Rueda (\d{2})-(\d{2})-(\d{4})$/.exec(tidy($(link).attr("title") ?? $(link).text()));
-        if (!match) continue;
-        const day = `${match[3]}-${match[2]}-${match[1]}`,
-          url = new URL($(link).attr("href")!, COCHILCO_URL).href;
-        if (!Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0, 10) !== day) throw new Error("Cochilco 列表日期无效");
-        if (!onSourceHost(source, url) || !new URL(url).pathname.endsWith(".pdf")) throw new Error("Cochilco 列表文件不在登记范围内");
-        if (found.has(day) && found.get(day) !== url) throw new Error("Cochilco 同一天列出多个文件，不猜哪份为准");
-        found.set(day, url);
-      }
-      if (!found.size) throw new Error("Cochilco 列表没有可识别的日报");
+      const found = cochilcoListed(source, (await request(COCHILCO_URL, 2 * 1024 * 1024)).text());
       const since = await newest("cochilco"),
         sorted = [...found].sort(([a], [b]) => a.localeCompare(b));
       const selected = since ? sorted.filter(([day]) => day >= since).slice(-32) : sorted.slice(-2);
