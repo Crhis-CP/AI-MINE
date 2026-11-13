@@ -1,0 +1,27 @@
+{
+  "id": "rpl-torexgold",
+  "status": "stopped_current_scope_excludes_target_host",
+  "current_policy_version_reference": 2,
+  "current_scope": {
+    "hosts": [
+      "torexgold.com"
+    ],
+    "path_prefixes": [
+      "/"
+    ],
+    "document_types": [],
+    "excluded_content": []
+  },
+  "target_url": "https://torex.com/news/",
+  "local_scope_evaluation": {
+    "decision": "deny",
+    "reason": "resource_mismatch",
+    "network_gets": 0
+  },
+  "safe_config_uncovered_keys": [
+    "parseMode"
+  ],
+  "included_in_intake": false,
+  "source_identity_and_five_second_pacing_preserved": true,
+  "required_next_step": "Claude明确有审计且保留收紧的迁域/许可处理或工具卡；未回复不是授权。禁止新建替代ID或放宽本地许可来绕过当前scope。"
+}
