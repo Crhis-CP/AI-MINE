@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
-import { chromium, expect, type Browser } from "@playwright/test";
+import { chromium, expect, type Browser, type Page } from "@playwright/test";
 import { Policy, PolicyListResponse, PolicyReadingPage, PolicyReport, PolicyReportList, PolicyScopeList } from "@amp/contracts/http/public";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
@@ -34,6 +34,12 @@ const zh = '<p><del>旧义务十万元</del>现行义务二十万元，面积 m<
 const en = '<p><del>Old duty 10</del>Current duty 20, area m<sup>2</sup>.</p><ol start="3"><li>Mining obligation</li><li>Legal exception</li></ol>';
 const legalTable = `<table><caption>法定费用对照</caption><tbody><tr><th colspan="12">费用条款</th></tr><tr><td rowspan="2">采矿许可</td>${Array.from({ length: 11 }, (_, i) => `<td>Fee${i}LongUnbrokenLegalTableValue</td>`).join("")}</tr><tr>${Array.from({ length: 11 }, () => "<td>法定金额</td>").join("")}</tr></tbody></table>`;
 const calls: string[] = [];
+/** On narrow screens the text is the second of two tabs (TASK-0657); wide screens show it beside the interpretation. */
+const openText = async (page: Page) => {
+  await expect(page.locator(".pr-page")).toHaveAttribute("data-pr-ready", "");
+  const tab = page.getByRole("tab", { name: "原文", exact: true });
+  if (await tab.isVisible()) await tab.click();
+};
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
   calls.push(req.url!);
@@ -193,6 +199,7 @@ for (const width of [1440, 390])
     page.setDefaultTimeout(5000);
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${origin}/policies/${complete.id}`);
+    await openText(page);
     await expect(page.locator('#node-same-source-part [lang="zh-CN"] del')).toHaveText("旧义务十万元");
     await expect(page.locator('#node-same-source-part [lang="zh-CN"] ol')).toHaveAttribute("start", "3");
     const tableRegion = page.getByRole("region", { name: "正文表格（中文）", exact: true });
@@ -208,19 +215,18 @@ for (const width of [1440, 390])
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 
     await page.getByRole("button", { name: "对照原文", exact: true }).click();
-    if (width === 390) await page.getByRole("button", { name: "原文", exact: true }).click();
     await expect(page.locator('#node-same-source-part [lang="en"] del')).toHaveText("Old duty 10");
     await expect(page.locator('#node-same-source-part [lang="en"] del')).toBeVisible();
     await expect(page.getByText("对应原文尚未载入。", { exact: true })).toHaveCount(0);
-    if (width === 390) {
-      await page.getByRole("button", { name: "中文", exact: true }).click();
-      await expect(page.locator('#node-same-source-part [lang="zh-CN"] del')).toBeVisible();
-      await expect(page.locator('#node-same-source-part [lang="en"] del')).toBeHidden();
-    }
+    // The original sits under its translation, block by block, on every width: both are on screen together.
+    await expect(page.locator('#node-same-source-part [lang="zh-CN"] del')).toBeVisible();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     // Languages are named, not coded (“英语原文”, not “原文 en”).
     await page.getByRole("navigation", { name: "阅读语言" }).getByRole("link", { name: "英语原文", exact: true }).click();
     await expect(page).toHaveURL(/expression_id=expression-en/);
+    // The reader stays on the text (the phone keeps its tab) and reads the language chosen.
     await expect(page.locator('#node-same-source-part [lang="en"] del')).toBeVisible();
+    await expect(page.locator('#node-same-source-part [lang="zh-CN"]')).toHaveCount(0);
     await page.goto(`${origin}/policies/${basic.id}`);
     await expect(page.getByText("决定性附件尚未取得，完整解读不可用", { exact: true })).toBeVisible();
     await expect(page.getByText("annex-missing.pdf", { exact: false }).first()).toBeVisible();
@@ -316,6 +322,7 @@ test("the first policy page is server-rendered, reused after hydration and paged
     assert.ok(html.includes("现行义务二十万元"));
     assert.match(html, /name="amp-release" content="fixture-policy-release"/);
     assert.ok(!html.includes("第二页合成正文"));
+    await openText(page);
     await expect(page.getByRole("button", { name: "继续读取正文", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "继续读取正文", exact: true }).click();
     await expect(page.getByText("第二页合成正文。", { exact: true })).toBeVisible();
@@ -350,10 +357,12 @@ test("initial policy reading fails closed on revision changes but retains retry 
     }
     readingStatus = "partial";
     await page.goto(`${origin}/policies/${complete.id}`);
+    await openText(page);
     await expect(page.getByText("当前可读内容已载入，尚不能视为完整正文。", { exact: true })).toBeVisible();
     await expect(page.getByText("正文已全部载入。", { exact: true })).toHaveCount(0);
     readingStatus = "temporary";
     await page.goto(`${origin}/policies/${complete.id}`);
+    await openText(page);
     await expect(page.getByText("正文暂时无法读取，请重试或查看官方原文。", { exact: true })).toBeVisible();
     readingStatus = "ok";
     await page.getByRole("button", { name: "重新读取正文", exact: true }).click();

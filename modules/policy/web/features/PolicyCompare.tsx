@@ -1,223 +1,203 @@
 /**
- * 逐条对照 (法规线重启设计 §6 步骤 4): two public versions of one document, compared provision by provision. The
- * comparison comes from the API, computed by code from the archived originals; nothing here calls a model. Only
- * changed provisions are shown at first; inserted and deleted words use <ins>/<del> with a text marker, an
- * underline or strike-through and a tint, so the change never depends on colour alone.
+ * “与上一版相比” (TASK-0657; 逐条对照, 法规线重启设计 §6 步骤 4): what changed between two public versions of one
+ * document, provision by provision. The comparison comes from the API, computed by code from the archived
+ * originals; nothing here calls a model. This side lists the added, amended and deleted provisions; the words
+ * themselves are marked in the text beside it (PolicyReading.tsx), with <ins>/<del>, an underline or a
+ * strike-through and a text label for screen readers, so a change never depends on colour alone.
  */
-import { apiFetch } from "@amp/web/extension";
+import { Link } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
-import { useId, useState } from "react";
-import { schemas as publicSchemas } from "@amp/contracts/http/public";
-import type { z } from "zod";
-import { Section } from "./PolicyUI";
+import { policyHref } from "./PolicyUI";
+import { useReview } from "./PolicyReview";
 import { usePolicyText } from "./reader";
+import type { Comparison, ProvisionChange } from "./review";
 
-export type PolicyComparisonData = z.infer<typeof publicSchemas.PolicyComparison>;
-type Change = PolicyComparisonData["provisions"][number];
-type Entry = PolicyComparisonData["candidates"][number];
+type Entry = Comparison["candidates"][number];
+type Side = NonNullable<ProvisionChange["from"]>;
 
-const insClass =
-  "rounded-[2px] bg-ok-soft text-ok-ink underline decoration-ok-ink/70 decoration-[1.5px] underline-offset-[3px] [text-decoration-skip-ink:none]";
-const delClass = "rounded-[2px] bg-hot-soft text-hot line-through decoration-hot/80 decoration-[1.5px]";
-const textClass = "whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[14px] leading-7";
-
-function Inserted({ text }: { text: string }) {
+export function Inserted({ text }: { text: string }) {
   const tr = useTr();
   return (
-    <ins className={insClass}>
+    <ins className="pr-ins">
       <span className="sr-only">{tr("加入：")}</span>
       {text}
     </ins>
   );
 }
-function Deleted({ text }: { text: string }) {
+export function Deleted({ text }: { text: string }) {
   const tr = useTr();
   return (
-    <del className={delClass}>
+    <del className="pr-del">
       <span className="sr-only">{tr("删去：")}</span>
       {text}
     </del>
   );
 }
+export const provisionBody = (side: Side) => `${side.heading ? `${side.heading}\n` : ""}${side.text}`;
 
-const bodyOf = (side: NonNullable<Change["from"]>) => `${side.heading ? `${side.heading}\n` : ""}${side.text}`;
-
-/** One side of a diff (the old text keeps deletions, the new text keeps insertions), keyed by text position. */
-function sideSpans(diff: NonNullable<Change["diff"]>, keep: "delete" | "insert") {
+/** A changed provision's old and new wording in one run of text: kept words plain, dropped and added words marked. */
+export function DiffText({ diff }: { diff: NonNullable<ProvisionChange["diff"]> }) {
   let at = 0;
-  return diff
-    .filter((span) => span.op === "equal" || span.op === keep)
-    .map((span) => {
-      const start = at;
-      at += span.text.length;
-      return { ...span, at: start };
-    });
+  return diff.map((span) => {
+    const key = `${at}:${span.op}`;
+    at += span.text.length;
+    return span.op === "equal" ? (
+      <span key={key}>{span.text}</span>
+    ) : span.op === "insert" ? (
+      <Inserted key={key} text={span.text} />
+    ) : (
+      <Deleted key={key} text={span.text} />
+    );
+  });
 }
 
-/** One provision: its number, what happened to it, and the old and new wording with the changed words marked. */
-function ProvisionCard({ change }: { change: Change }) {
+const clip = (text: string, length: number) => {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > length ? `${flat.slice(0, length)}…` : flat;
+};
+
+/** One line on what happened to a provision, in the original's own words. */
+function useChangeLine() {
   const tr = useTr();
-  const badge = {
-    added: { mark: "+", label: tr("新增"), className: "border-ok/40 bg-ok-soft text-ok-ink" },
-    modified: { mark: "±", label: tr("修改"), className: "border-amber/40 bg-amber-soft text-amber-ink" },
-    removed: { mark: "−", label: tr("删除"), className: "border-hot/40 bg-hot-soft text-hot" },
-    unchanged: { mark: "=", label: tr("未变"), className: "border-line bg-bg-sunk text-ink-3" },
-  }[change.change];
+  return (change: ProvisionChange) => {
+    if (change.change === "added") return clip(provisionBody(change.to!), 64);
+    if (change.change === "removed") return clip(provisionBody(change.from!), 64);
+    const spans = change.diff ?? [];
+    const first = spans.findIndex((span) => span.op !== "equal");
+    if (first < 0) return change.renumbered ? tr("条号变化") : "";
+    const old = spans[first]!.op === "delete" ? spans[first]!.text : "",
+      added = spans[first]!.op === "insert" ? spans[first]!.text : spans[first + 1]?.op === "insert" ? spans[first + 1]!.text : "";
+    // A delete followed by an insert is one change.
+    const places = spans.filter((span, i) => span.op !== "equal" && !(span.op === "insert" && spans[i - 1]?.op === "delete")).length;
+    const line =
+      old && added
+        ? tr("“{old}”改为“{added}”", { old: clip(old, 40), added: clip(added, 40) })
+        : old
+          ? tr("删去“{text}”", { text: clip(old, 56) })
+          : tr("加入“{text}”", { text: clip(added, 56) });
+    return places > 1 ? `${line}${tr("；共 {n} 处改动", { n: places })}` : line;
+  };
+}
+
+function ChangeRow({ change, index }: { change: ProvisionChange; index: number }) {
+  const tr = useTr();
+  const review = useReview();
+  const line = useChangeLine();
   const side = change.to ?? change.from!;
-  const number = change.renumbered && change.from && change.to ? `${change.from.label} → ${change.to.label}` : side.label;
-  return (
-    <li className="rounded-card border border-line bg-surface p-4">
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-        <h3 className="text-[15px] font-semibold text-ink">{number}</h3>
-        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-px text-[12px] font-medium ${badge.className}`}>
-          <span aria-hidden="true">{badge.mark}</span>
-          {badge.label}
-        </span>
-        {change.renumbered && <span className="text-[12px] text-ink-4">{tr("条号变化")}</span>}
-      </div>
-      {side.path.length > 0 && <p className="mt-1 break-words text-[12px] text-ink-4">{side.path.join(" › ")}</p>}
-      {change.change === "modified" && change.diff ? (
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <div className="min-w-0 rounded-control bg-bg-sunk/70 p-3">
-            <p className="mb-1 text-[12px] font-medium text-ink-4">{tr("修改前")}</p>
-            <p className={`${textClass} text-ink-2`}>
-              {sideSpans(change.diff, "delete").map((span) =>
-                span.op === "equal" ? <span key={span.at}>{span.text}</span> : <Deleted key={span.at} text={span.text} />,
-              )}
-            </p>
-          </div>
-          <div className="min-w-0 rounded-control bg-bg-sunk/70 p-3">
-            <p className="mb-1 text-[12px] font-medium text-ink-4">{tr("修改后")}</p>
-            <p className={`${textClass} text-ink`}>
-              {sideSpans(change.diff, "insert").map((span) =>
-                span.op === "equal" ? <span key={span.at}>{span.text}</span> : <Inserted key={span.at} text={span.text} />,
-              )}
-            </p>
-          </div>
-        </div>
-      ) : change.change === "added" ? (
-        <p className={`${textClass} mt-3 border-l-2 border-ok/50 pl-3 text-ink`}>
-          <Inserted text={bodyOf(change.to!)} />
-        </p>
-      ) : change.change === "removed" ? (
-        <p className={`${textClass} mt-3 border-l-2 border-hot/50 pl-3 text-ink-3`}>
-          <Deleted text={bodyOf(change.from!)} />
-        </p>
+  const kind = { added: ["a", tr("新增")], modified: ["m", tr("修改")], removed: ["d", tr("删除")], unchanged: ["", ""] }[change.change] as [string, string];
+  const label = !change.to
+    ? tr("原 {label}", { label: side.label })
+    : change.renumbered && change.from
+      ? `${change.from.label} → ${change.to.label}`
+      : side.label;
+  const anchor = review.redline?.anchors.get(index);
+  const text = (
+    <>
+      <i>{kind[1]}</i>
+      <span lang={review.comparison?.language}>{line(change)}</span>{" "}
+      {anchor ? (
+        <a
+          href={`#${anchor}`}
+          className={`pr-ref${review.hover === anchor ? " on" : ""}`}
+          data-pr-ref={anchor}
+          onClick={(event) => {
+            event.preventDefault();
+            review.go([anchor], { redline: true });
+          }}
+        >
+          {label}
+        </a>
       ) : (
-        <p className={`${textClass} mt-3 text-ink-3`}>{bodyOf(side)}</p>
+        <span className="pr-ref-plain">{label}</span>
       )}
+    </>
+  );
+  // Where the text beside it cannot carry the marks (another pair of versions, or no text shown), the wording opens in place.
+  if (review.marked) return <li className={kind[0]}>{text}</li>;
+  return (
+    <li className={kind[0]}>
+      <details>
+        <summary>{text}</summary>
+        <p className="pr-chg-full" lang={review.comparison?.language}>
+          {change.diff ? (
+            <DiffText diff={change.diff} />
+          ) : change.to ? (
+            <Inserted text={provisionBody(change.to)} />
+          ) : (
+            <Deleted text={provisionBody(change.from!)} />
+          )}
+        </p>
+      </details>
     </li>
   );
 }
 
-/** The comparison section; null when the document has no two comparable versions and none was asked for. */
-export function PolicyCompare({ policyId, initial, requested }: { policyId: string; initial: PolicyComparisonData | null; requested: boolean }) {
+/** The comparison section; nothing at all when the document has no two comparable versions and none was asked for. */
+export function PolicyChanges({ requested }: { requested: boolean }) {
   const tr = useTr();
   const text = usePolicyText();
-  const ids = useId();
-  const [data, setData] = useState(initial);
-  const [showUnchanged, setShowUnchanged] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const review = useReview();
+  const data = review.comparison;
   if (!data)
     return requested ? (
-      <Section id="compare" title={tr("逐条对照")}>
-        <p className="text-[13px] text-ink-3">{tr("所选的两个版本暂时无法逐条对照。")}</p>
-      </Section>
+      <section id="compare" className="pr-sec">
+        <h2>{tr("与上一版相比")}</h2>
+        <p>{tr("所选的两个版本暂时无法逐条对照。")}</p>
+      </section>
     ) : null;
   const versionLabel = (entry: Entry) =>
     `${text.version(entry.original_version)} · ${tr("本站公开")} ${text.date(entry.first_public_at) ?? ""}${entry.current ? tr("（当前）") : ""}`;
-  const load = async (from: string, to: string) => {
-    if (busy || from === to) return;
-    setBusy(true);
-    setFailed(false);
-    try {
-      const response = await apiFetch("/api/site/policies/{id}/compare", { params: { path: { id: policyId }, query: { from, to } }, baseUrl: location.origin });
-      if (!response.ok) throw new Error("unavailable");
-      const next = publicSchemas.PolicyComparison.parse(await response.json());
-      if (next.policy_id !== policyId) throw new Error("mismatch");
-      setData(next);
-    } catch {
-      setFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const shown = showUnchanged ? data.provisions : data.provisions.filter((p) => p.change !== "unchanged");
-  const counts: [string, number][] = [
-    [tr("新增"), data.counts.added],
-    [tr("修改"), data.counts.modified],
-    [tr("删除"), data.counts.removed],
-    [tr("未变"), data.counts.unchanged],
-  ];
-  const select = (name: "from" | "to", value: string) => (
-    <label className="block min-w-0 text-[12px] text-ink-4">
-      {name === "from" ? tr("较早版本") : tr("较新版本")}
-      <select
-        name={name}
-        value={value}
-        disabled={busy}
-        onChange={(event) =>
-          void load(name === "from" ? event.target.value : data.from.document_revision_id, name === "to" ? event.target.value : data.to.document_revision_id)
-        }
-        className="mt-1 block w-full min-w-0 truncate rounded-control border border-line-strong bg-surface px-2.5 py-2 text-[16px] text-ink sm:text-[13px]"
-      >
-        {data.candidates.map((entry) => (
-          <option key={entry.document_revision_id} value={entry.document_revision_id}>
-            {versionLabel(entry)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+  const changes = data.provisions.map((change, index) => ({ change, index })).filter((entry) => entry.change.change !== "unchanged");
+  const shown = changes.slice(0, 12),
+    rest = changes.slice(12);
+  const first = changes.map((entry) => review.redline?.anchors.get(entry.index)).find(Boolean);
   return (
-    <Section id="compare" title={tr("逐条对照")}>
-      <p className="text-[13px] leading-6 text-ink-3">{tr("按条款编号和文字比对两个公开版本，由程序生成，未调用模型。")}</p>
-      {data.candidates.length > 2 ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2" aria-busy={busy}>
-          {select("from", data.from.document_revision_id)}
-          {select("to", data.to.document_revision_id)}
-        </div>
+    <section id="compare" className="pr-sec">
+      <h2>{tr("与{version}相比", { version: text.version(data.from.original_version) })}</h2>
+      <p className="pr-quiet">
+        {versionLabel(data.from)} → {versionLabel(data.to)}
+        {data.candidates.length > 2 && (
+          <>
+            {" · "}
+            <Link to={`${policyHref(data.policy_id)}/history`}>{tr("换一个版本比较")}</Link>
+          </>
+        )}
+      </p>
+      {changes.length ? (
+        <>
+          <ul className="pr-chg" aria-label={tr("条款变化")}>
+            {shown.map((entry) => (
+              <ChangeRow key={entry.index} {...entry} />
+            ))}
+          </ul>
+          {rest.length > 0 && (
+            <details className="pr-more">
+              <summary>{tr("其余 {n} 条变化", { n: rest.length })}</summary>
+              <ul className="pr-chg">
+                {rest.map((entry) => (
+                  <ChangeRow key={entry.index} {...entry} />
+                ))}
+              </ul>
+            </details>
+          )}
+          {review.marked && (
+            <button
+              type="button"
+              className="pr-link"
+              data-pr-redline-link=""
+              onClick={() => {
+                if (review.redlineOn) review.setRedline(false);
+                else if (first) review.go([first], { redline: true });
+                else review.setRedline(true);
+              }}
+            >
+              {review.redlineOn ? tr("隐藏修订痕迹") : tr("在原文里显示修订痕迹")}
+            </button>
+          )}
+        </>
       ) : (
-        <p className="mt-3 break-words text-[13px] text-ink-2">
-          {versionLabel(data.from)} → {versionLabel(data.to)}
-        </p>
+        <p>{tr("两个版本的条款文字没有变化。")}</p>
       )}
-      {failed && <p className="mt-2 text-[13px] text-amber-ink">{tr("暂时无法读取这两个版本的对照，已显示的内容不变。")}</p>}
-      <dl className="mt-3 grid grid-cols-4 gap-2">
-        {counts.map(([label, count]) => (
-          <div key={label} className="rounded-control bg-bg-sunk px-2 py-2 text-center">
-            <dt className="text-[11.5px] text-ink-4">{label}</dt>
-            <dd className="num text-[16px] font-semibold text-ink">{count}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="text-[12px] text-ink-4">
-          {tr("图例：")}
-          <Inserted text={tr("加入的文字")} /> <Deleted text={tr("删去的文字")} />
-        </p>
-        <label htmlFor={`${ids}-unchanged`} className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-ink-2">
-          <input
-            id={`${ids}-unchanged`}
-            type="checkbox"
-            checked={showUnchanged}
-            onChange={(event) => setShowUnchanged(event.target.checked)}
-            className="size-4 accent-[var(--accent)]"
-          />
-          {tr("显示未变条款")}
-        </label>
-      </div>
-      {shown.length ? (
-        <ol className="mt-4 space-y-3" aria-label={tr("条款变化")}>
-          {shown.map((change) => (
-            <ProvisionCard key={`${change.from?.number_key ?? "-"}>${change.to?.number_key ?? "-"}`} change={change} />
-          ))}
-        </ol>
-      ) : (
-        <p className="mt-4 text-[13px] text-ink-3">{tr("两个版本的条款文字没有变化。")}</p>
-      )}
-      <p className="mt-4 text-[12px] leading-5 text-ink-4">{tr.maybe(data.limitation)}</p>
-    </Section>
+    </section>
   );
 }
