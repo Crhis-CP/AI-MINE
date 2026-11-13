@@ -28,7 +28,7 @@ const reads = new Map<NewsMapWindow, Promise<SiteNewsMap>>();
 /** How long the map and the country list wait before reading again after a failed read. */
 const RETRY_MS = 2500;
 
-function readMap(period: NewsMapWindow): Promise<SiteNewsMap> {
+export function readMap(period: NewsMapWindow): Promise<SiteNewsMap> {
   let read = reads.get(period);
   if (!read) {
     read = apiFetch(`/api/site/news-map?window=${period}`, { baseUrl: globalThis.location.origin })
