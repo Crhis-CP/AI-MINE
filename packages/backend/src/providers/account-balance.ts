@@ -19,9 +19,14 @@ export const BALANCE_FLOOR_YUAN = 5;
 export const BALANCE_FRESH_MS = 3 * 3600_000;
 
 export interface BalanceReading {
-  /** Yuan left, summed over the provider's accounts in use. */
+  /**
+   * Yuan left on the provider's account with the least money among those in use (TASK-0641): one account's money cannot
+   * pay for another account's calls, so the accounts are never added up. Older readings (TASK-0631) were a sum.
+   */
   yuan: number;
   at: string;
+  /** How many accounts (distinct keys) were read; absent in readings from before TASK-0641. */
+  accounts?: number;
 }
 export type BalanceState = Record<string, BalanceReading>;
 
@@ -79,7 +84,7 @@ export async function readAccountBalances(options: { fetch?: Fetch; now?: number
   const now = options.now ?? Date.now();
   const found: BalanceState = {};
   for (const [service, keys] of await keysInUse()) {
-    let yuan = 0;
+    let yuan = Number.POSITIVE_INFINITY;
     let complete = true;
     for (const key of keys) {
       try {
@@ -89,12 +94,13 @@ export async function readAccountBalances(options: { fetch?: Fetch; now?: number
         });
         const left = res.ok ? READERS[service]!.read(await res.json()) : null;
         if (left === null) complete = false;
-        else yuan += left;
+        else yuan = Math.min(yuan, left);
       } catch {
         complete = false;
       }
     }
-    if (complete) found[service] = { yuan: Math.round(yuan * 100) / 100, at: new Date(now).toISOString() };
+    // A provider is updated only when every account in use answered; otherwise its reading ages and becomes unknown.
+    if (complete && keys.size) found[service] = { yuan: Math.round(yuan * 100) / 100, at: new Date(now).toISOString(), accounts: keys.size };
   }
   if (Object.keys(found).length)
     await sql`INSERT INTO settings(key, value) VALUES('models.balance', ${sql.json(found as never)})
@@ -115,20 +121,28 @@ export async function recentDailySpend(now = Date.now()): Promise<number | null>
 export interface LowBalance {
   service: string;
   yuan: number;
+  /** Accounts the reading covers; 1 for readings from before TASK-0641. */
+  accounts: number;
   /** Days the balance lasts at the recent daily spend; null when there is no spend on record. */
   days: number | null;
   daily: number | null;
 }
 
-/** The accounts that are about to run dry, from fresh readings only. */
-export async function lowBalances(now = Date.now()): Promise<LowBalance[]> {
+/**
+ * The providers about to run dry, from fresh readings, and the providers whose reading is fresh at all (TASK-0641). A
+ * stale reading says nothing: an open warning stays open until a fresh reading shows the account was topped up.
+ */
+export async function lowBalances(now = Date.now()): Promise<{ low: LowBalance[]; fresh: string[] }> {
   const [row] = await sql<{ value: BalanceState }[]>`SELECT value FROM settings WHERE key = 'models.balance'`;
   const daily = await recentDailySpend(now);
-  const out: LowBalance[] = [];
+  const low: LowBalance[] = [];
+  const fresh: string[] = [];
   for (const [service, reading] of Object.entries(row?.value ?? {})) {
     if (!(now - Date.parse(reading.at) < BALANCE_FRESH_MS)) continue;
+    fresh.push(service);
     const days = daily && daily > 0 ? reading.yuan / daily : null;
-    if (days !== null ? days < BALANCE_WARN_DAYS : reading.yuan < BALANCE_FLOOR_YUAN) out.push({ service, yuan: reading.yuan, days, daily });
+    if (days !== null ? days < BALANCE_WARN_DAYS : reading.yuan < BALANCE_FLOOR_YUAN)
+      low.push({ service, yuan: reading.yuan, accounts: reading.accounts ?? 1, days, daily });
   }
-  return out;
+  return { low, fresh };
 }

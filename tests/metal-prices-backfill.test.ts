@@ -175,3 +175,59 @@ test("the limit takes the newest missing days first, so the chart grows backward
 test("nothing stored yet: refuses, the schedule reads the newest day first", async () => {
   await assert.rejects(backfillMetalPrices({ source: "cbr", from: "2026-10-01", limit: 10, get: cbrPages("", "") }), /还没有任何一期入库/);
 });
+
+test("each day is compared with its nearest later day, stored or taken this run, whichever is nearer (TASK-0641)", async () => {
+  // Stored: 10-14 gold 200 and 10-16 gold 10000. Missing: 10-15 (gold 10000) and 10-13 (gold 190).
+  await seedCbr("2026-10-16", "10000");
+  await seedCbr("2026-10-14", "200");
+  const pages = cbrPages(
+    METALS([
+      ["14.10.2026", "1", "190,0"], // fixing 10-13: next is the stored 10-14 (200), not this run's 10-15 (10000)
+      ["16.10.2026", "1", "10000,0"], // fixing 10-15
+      ["17.10.2026", "1", "10000,0"],
+    ]),
+    DOLLARS([
+      ["14.10.2026", "80,1"],
+      ["16.10.2026", "80,2"],
+      ["17.10.2026", "80,3"],
+    ]),
+  );
+  const done = await backfillMetalPrices({ source: "cbr", from: "2026-10-01", limit: 400, apply: false, now: NOW, get: pages });
+  assert.deepEqual(
+    done.days.map((d) => [d.day, d.stored]),
+    [
+      ["2026-10-13", ["cbr.gold", "cbr.usd"]],
+      ["2026-10-15", ["cbr.gold", "cbr.usd"]],
+    ],
+  );
+});
+
+test("--before moves a later run past days that never go in (TASK-0641)", async () => {
+  await seedCbr("2026-10-16", "10100");
+  const days = ["09", "10", "13", "14", "15"];
+  // No dollar rate on the two newest effective days: they never go in.
+  const pages = cbrPages(METALS(days.map((d) => [`${d}.10.2026`, "1", "10100,0"])), DOLLARS(days.slice(0, 3).map((d) => [`${d}.10.2026`, "80,0"])));
+  const first = await backfillMetalPrices({ source: "cbr", from: "2026-10-01", limit: 2, apply: true, now: NOW, get: pages });
+  assert.deepEqual(
+    first.days.map((d) => [d.day, d.stored.length]),
+    [
+      ["2026-10-13", 0],
+      ["2026-10-14", 0],
+    ],
+  );
+  assert.equal(first.earliest, "2026-10-13");
+  const again = await backfillMetalPrices({ source: "cbr", from: "2026-10-01", limit: 2, apply: true, now: NOW, get: pages });
+  assert.deepEqual(
+    again.days.map((d) => d.day),
+    ["2026-10-13", "2026-10-14"],
+    "without --before the same two days take the limit again",
+  );
+  const past = await backfillMetalPrices({ source: "cbr", from: "2026-10-01", before: first.earliest!, limit: 2, apply: true, now: NOW, get: pages });
+  assert.deepEqual(
+    past.days.map((d) => [d.day, d.stored]),
+    [
+      ["2026-10-09", ["cbr.gold", "cbr.usd"]],
+      ["2026-10-12", ["cbr.gold", "cbr.usd"]],
+    ],
+  );
+});
