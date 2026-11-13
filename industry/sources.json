@@ -13614,7 +13614,7 @@
       "interval_minutes": 60,
       "tags": ["AR"],
       "participation_mode": "editorial",
-      "site_fulltext": false,
+      "site_fulltext": true,
       "syndicate_fulltext": false,
       "enabled": true
     },
@@ -13646,7 +13646,7 @@
       "interval_minutes": 60,
       "tags": ["AR"],
       "participation_mode": "editorial",
-      "site_fulltext": false,
+      "site_fulltext": true,
       "syndicate_fulltext": false,
       "enabled": true
     },
@@ -13710,7 +13710,7 @@
       "interval_minutes": 60,
       "tags": ["AR"],
       "participation_mode": "editorial",
-      "site_fulltext": false,
+      "site_fulltext": true,
       "syndicate_fulltext": false,
       "enabled": true
     },
@@ -13741,7 +13741,7 @@
       "interval_minutes": 60,
       "tags": ["AR"],
       "participation_mode": "editorial",
-      "site_fulltext": false,
+      "site_fulltext": true,
       "syndicate_fulltext": false,
       "enabled": true
     }

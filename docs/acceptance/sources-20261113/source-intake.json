@@ -35,5 +35,5 @@
       "expected_existing": false
     }
   ],
-  "$comment": "按Claude 6842199019只列4个转正式来源的身份/配置摘要。仅用于核对；旧source-intake --apply固定开启站内全文，本次不执行。"
+  "$comment": "按Claude 6842199019/6843066463只列4个正式来源；生产登记使用现有source-intake.ts，与目录一致：站内全文开、站外再分发关。门多萨不在本清单。"
 }

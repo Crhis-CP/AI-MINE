@@ -126,7 +126,7 @@
     "scope": "news lane; five candidate hosts with www normalization and five new IDs"
   },
   "formal_catalogue_decision": {
-    "authority": "https://github.com/Crhis-CP/AI-MINE/pull/485#issuecomment-6842199019",
+    "authority": "https://github.com/Crhis-CP/AI-MINE/pull/485#issuecomment-6843066463",
     "editorial_enabled_ids": [
       "exp-20261113-ar-salta-news",
       "exp-20261113-ar-jujuy-mining-news",
@@ -135,8 +135,9 @@
     ],
     "held_id": "exp-20261113-ar-mendoza-mining-news",
     "interval_minutes": 60,
-    "site_fulltext": false,
+    "site_fulltext": true,
     "syndicate_fulltext": false,
-    "preview_rows_describe_initial_disabled_state": true
+    "preview_rows_describe_initial_disabled_state": true,
+    "activation_authority": "https://github.com/Crhis-CP/AI-MINE/pull/485#issuecomment-6842199019"
   }
 }

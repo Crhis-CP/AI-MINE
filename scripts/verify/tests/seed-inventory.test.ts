@@ -71,7 +71,7 @@ test("TASK-0635 keeps Mendoza isolated and enables only the four reviewed offici
     assert.equal(source.enabled, !held);
     assert.equal(source.participation_mode, held ? "isolated" : "editorial");
     assert.equal(source.interval_minutes, 60);
-    assert.equal(source.site_fulltext, false);
+    assert.equal(source.site_fulltext, !held);
     assert.equal(source.syndicate_fulltext, false);
   }
 });
