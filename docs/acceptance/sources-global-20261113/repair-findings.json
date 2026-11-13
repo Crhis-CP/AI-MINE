@@ -1,0 +1,107 @@
+{
+  "health_sampled_at_utc": "2026-11-13T04:37:47Z",
+  "source_health_sha256": "4bfbe14f92c1e1083d88d6e9e494a78368752e62e90d2f99b3e43990abe46b0c",
+  "findings": [
+    {
+      "existing_id": "rpl-torexgold",
+      "status": "local_repair_preview_passed",
+      "target_entry": "https://torex.com/news/",
+      "target_kind": "web_list",
+      "target_config": {
+        "url": "https://torex.com/news/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": [
+          "https://torex.com/"
+        ],
+        "parseMode": "html",
+        "denyUrlPrefixes": [
+          "https://torex.com/news/"
+        ],
+        "itemSelector": "ul.wp-block-post-template > li.wp-block-post",
+        "linkSelector": "h2.wp-block-post-title a",
+        "titleSelector": "h2.wp-block-post-title a",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        }
+      },
+      "target_config_hash": "46ca7f5d5a1538e23250ae730604053d24601854ed2293597c029722765dd564",
+      "preview_count": 10,
+      "latest_source_date": "2026-11-10",
+      "preview_id_local": 123,
+      "permission_version_local": 1,
+      "robots": {
+        "state": "允许",
+        "robots": "https://torex.com/robots.txt",
+        "allowed": true,
+        "delay": 0,
+        "invalid": false
+      },
+      "real_fetched_at_utc": "2026-11-13T04:55:10Z",
+      "current_production_config_hash": "pending_query_line",
+      "current_production_owner": "pending_query_line",
+      "production_action": "not_authorized_by_this_record; no apply executed"
+    },
+    {
+      "existing_id": "hrss-index-html-news",
+      "status": "local_repair_preview_passed",
+      "target_entry": "https://hrss.yn.gov.cn/gsgg/gztz/",
+      "target_kind": "web_list",
+      "target_config": {
+        "url": "https://hrss.yn.gov.cn/gsgg/gztz/",
+        "language": "zh-CN",
+        "acceptLanguage": "zh-CN,zh;q=0.9",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": [
+          "https://hrss.yn.gov.cn/"
+        ],
+        "itemSelector": "li.list-item",
+        "linkSelector": "a[href]",
+        "titleSelector": ".text",
+        "publishedAtSelector": ".time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        }
+      },
+      "target_config_hash": "70d5808ce4bd7d8d91e5b350e2caa15d17fa2b8a01435347a048b55866f1e7e2",
+      "preview_count": 20,
+      "latest_source_date": "2026-11-11",
+      "preview_id_local": 124,
+      "permission_version_local": 1,
+      "robots": {
+        "state": "404无规则",
+        "allowed": true,
+        "delay": 0,
+        "robots": "https://hrss.yn.gov.cn/robots.txt"
+      },
+      "real_fetched_at_utc": "2026-11-13T04:57:33Z",
+      "current_production_config_hash": "pending_query_line",
+      "current_production_owner": "pending_query_line",
+      "production_action": "not_authorized_by_this_record; no apply executed"
+    },
+    {
+      "existing_id": "amr-yn-news",
+      "status": "research_stopped_robots_unavailable",
+      "production_observation": "no items matched (html), latest three failures; zero found/ok in supplied7d window",
+      "research_observation": "robots fetch transport timeout; list not fetched",
+      "production_action": "none; do not infer production network state from the local research network"
+    },
+    {
+      "existing_id": "exp-20261014-saimm",
+      "status": "research_stopped_HTTP500",
+      "production_observation": "RSS HTTP500, latest three failures",
+      "research_observation": "declared public HTML news route also returned500; no retry/bypass",
+      "production_action": "none; authoritative alternative under research, no unsupported parser added"
+    }
+  ],
+  "runtime_guard_metadata_status": "not_obtained: query line reported two SSH connection timeouts before SQL execution; no result file was generated or used",
+  "included_in_source_intake": false
+}
