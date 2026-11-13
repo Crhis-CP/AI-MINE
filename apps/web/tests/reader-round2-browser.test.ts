@@ -351,6 +351,35 @@ test("followups distinguish errors, retry, empty results and one-sentence summar
   phase = "complete";
 });
 
+test("the native desktop more menu stays open through hydration and closes on later navigation", { timeout: 30000 }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await isolateBrowser(context, [origin]);
+  let release!: () => void;
+  const scripts = new Promise<void>((resolve) => (release = resolve));
+  await context.route("**/*.js", async (route) => {
+    await scripts;
+    await route.continue();
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${origin}/all`, { waitUntil: "commit" });
+    const nav = page.getByRole("navigation", { name: "主导航" });
+    const menu = nav.locator("details");
+    await nav.getByText("更多", { exact: true }).click();
+    await expect(menu).toHaveAttribute("open", "");
+    release();
+    // This fixture has only finite local requests; finish the deliberately held client assets before asserting.
+    await page.waitForLoadState("networkidle");
+    await expect(menu).toHaveAttribute("open", "");
+    await nav.getByRole("link", { name: "反馈", exact: true }).click();
+    await expect(page).toHaveURL(`${origin}/feedback?from=%2Fall`);
+    await expect(menu).not.toHaveAttribute("open", "");
+  } finally {
+    release();
+    await context.close();
+  }
+});
+
 test("SPA feedback carries the current filtered page and item correction URL without submitting stale referrers", { timeout: 30000 }, async () => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await isolateBrowser(context, [origin]);
