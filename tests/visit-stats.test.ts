@@ -34,7 +34,8 @@ test("daily visitors use the day's salt, monthly visitors the month's; the count
   // Beijing 2026-11-03 10:00.
   const d1 = at("2026-11-03T02:00:00Z");
   assert.equal(hit(d1, "203.0.113.7", CHROME, "/items/abc"), true);
-  assert.equal(hit(d1, "203.0.113.7", CHROME, "/items/abc?from=list"), true);
+  // The same page again within REPEAT_MINUTES is the same view (TASK-0638); a query never makes it another page.
+  assert.equal(hit(d1, "203.0.113.7", CHROME, "/items/abc?from=list"), false);
   assert.equal(hit(d1, "203.0.113.7", CHROME, "/en/all"), true);
   assert.equal(hit(d1, "198.51.100.9", IPHONE, "/", { referrer: "https://www.baidu.com/s?wd=%E9%94%82" }), true);
   assert.equal(hit(d1, "198.51.100.9", IPHONE, "/all", { referrer: "https://aimine.example/" }), true);
@@ -48,14 +49,14 @@ test("daily visitors use the day's salt, monthly visitors the month's; the count
 
   assert.deepEqual(
     (await rows("visit_days")).map((r) => [beijingDate(r.day as Date), r.page_views, r.english_views, r.visitors]),
-    [["2026-11-03", 5, 1, null]],
+    [["2026-11-03", 4, 1, null]],
   );
   assert.deepEqual(
     (await sql`SELECT path,route,views FROM ops.visit_pages ORDER BY path`).map((r) => [r.path, r.route, r.views]),
     [
       ["/", "/", 1],
       ["/all", "/all", 2],
-      ["/items/abc", "/items/:id", 2],
+      ["/items/abc", "/items/:id", 1],
     ],
   );
   assert.deepEqual(
@@ -65,7 +66,7 @@ test("daily visitors use the day's salt, monthly visitors the month's; the count
   assert.deepEqual(
     (await sql`SELECT device,views FROM ops.visit_devices ORDER BY device`).map((r) => [r.device, r.views]),
     [
-      ["desktop", 3],
+      ["desktop", 2],
       ["phone", 2],
     ],
   );
@@ -104,7 +105,7 @@ test("daily visitors use the day's salt, monthly visitors the month's; the count
   await flushVisits(d2);
   assert.deepEqual(await salts(), ["day:2026-11-04", "month:2026-11-01"]);
   assert.equal(await count("visit_day_keys", "day='2026-11-03'"), 2);
-  assert.equal((await sql`SELECT page_views FROM ops.visit_days WHERE day='2026-11-03'`)[0]!.page_views, 6);
+  assert.equal((await sql`SELECT page_views FROM ops.visit_days WHERE day='2026-11-03'`)[0]!.page_views, 5);
 
   // Two days later the day's key set is deleted; its counts stay.
   await countVisits(at("2026-11-05T01:00:00Z"));
@@ -141,14 +142,14 @@ test("daily visitors use the day's salt, monthly visitors the month's; the count
   // The overview reads the kept counts.
   const overview = await visitOverview(at("2026-12-02T04:00:00Z"));
   assert.equal(overview.since, "2026-11-03");
-  assert.deepEqual(overview.cards.last_month, { visitors: 2, page_views: 7 });
+  assert.deepEqual(overview.cards.last_month, { visitors: 2, page_views: 6 });
   assert.deepEqual(overview.cards.this_month, { visitors: 1, page_views: 1 });
   assert.deepEqual(overview.cards.yesterday, { visitors: 1, page_views: 1 });
   assert.equal(overview.cards.today.page_views, 0);
   assert.deepEqual(
     overview.months.slice(-2).map((m) => [m.month, m.visitors, m.page_views]),
     [
-      ["2026-11", 2, 7],
+      ["2026-11", 2, 6],
       ["2026-12", 1, 1],
     ],
   );
@@ -156,6 +157,27 @@ test("daily visitors use the day's salt, monthly visitors the month's; the count
   assert.equal(overview.days.at(-1)!.day, "2026-12-02");
   assert.deepEqual(overview.pages.month[0], { route: "/", path: "/", views: 3, title: null });
   assert.deepEqual(overview.referrers.month, [{ host: "baidu.com", views: 1 }]);
+});
+
+test("reloading one page in a loop counts once per half hour; another page, another client or a later visit counts", async () => {
+  await sql`TRUNCATE ops.visit_days,ops.visit_pages,ops.visit_referrers,ops.visit_devices,ops.visit_day_keys,ops.visit_month_keys,ops.visit_months,ops.visit_salts`;
+  const start = Date.parse("2026-11-12T04:00:00Z");
+  // Every 6 seconds for two hours, as the 2026-11-12 /feedback counts looked.
+  let counted = 0;
+  for (let t = 0; t < 2 * 3600_000; t += 6_000) if (hit(new Date(start + t), "203.0.113.50", CHROME, "/feedback")) counted += 1;
+  assert.equal(counted, 4, "minutes 0, 30, 60 and 90");
+  const at10 = new Date(start + 10 * 60_000);
+  assert.equal(hit(at10, "203.0.113.50", CHROME, "/all"), true, "another page");
+  assert.equal(hit(at10, "203.0.113.51", CHROME, "/feedback"), true, "another reader");
+  assert.equal(hit(at10, "203.0.113.50", IPHONE, "/feedback"), true, "the same network on another browser");
+  await flushVisits(new Date(start + 2 * 3600_000));
+  assert.deepEqual(
+    (await sql`SELECT path,views FROM ops.visit_pages ORDER BY path`).map((r) => [r.path, r.views]),
+    [
+      ["/all", 1],
+      ["/feedback", 6],
+    ],
+  );
 });
 
 test("the beacon answers 204 and counts only reader pages; the overview needs a signed-in operator", async () => {
@@ -239,7 +261,8 @@ test("a salt from a rolled-back write is not reused: the next write creates and 
   assert.equal(await count("visit_salts", "starts_on >= '2027-01-01'"), 0, "the salt rolled back with the write");
   await sql.unsafe(`DROP TRIGGER fail_visit_write ON ops.visit_days; DROP FUNCTION ops.fail_visit_write();`);
 
-  assert.equal(hit(now, "203.0.113.50", CHROME, "/all"), true);
+  // Another page: the first view of /all was counted (then lost with the batch), so /all again would be a repeat.
+  assert.equal(hit(now, "203.0.113.50", CHROME, "/hot"), true);
   await flushVisits(now);
   const stored = await sql<{ period: string; salt: Buffer }[]>`SELECT period, salt FROM ops.visit_salts WHERE starts_on >= '2027-01-01' ORDER BY 1`;
   assert.deepEqual(

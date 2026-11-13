@@ -36,7 +36,15 @@ const MAX_IDENTITIES = 20_000;
 /** Distinct content addresses per day before further ones are kept under their route pattern only. */
 const MAX_PATHS_PER_DAY = 5_000;
 /** Page views one client (address and browser) may add per minute. */
-const PER_CLIENT_PER_MINUTE = 60;
+const PER_CLIENT_PER_MINUTE = 20;
+/**
+ * One client opening the same page again within this many minutes is one page view, not several (TASK-0638): reloads,
+ * a tab coming back, or an automated client that runs the page in a loop no longer multiply a page's count. The
+ * 2026-11-12 counts had /feedback at 15,154 views from 130 visitors with one feedback sent.
+ */
+export const REPEAT_MINUTES = 30;
+/** Repeat entries held at most; beyond it a view counts as new rather than lose memory. */
+const MAX_REPEATS = 100_000;
 
 interface Batch {
   days: Map<string, { views: number; english: number }>;
@@ -52,6 +60,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let writing: Promise<void> | null = null;
 const dayPaths = new Map<string, Set<string>>();
 const clientMinute = { minute: -1, counts: new Map<string, number>() };
+/** The minute each client last had each page counted, for REPEAT_MINUTES. */
+const lastSeen = new Map<string, number>();
 const clientSecret = randomBytes(32);
 const saltCache = new Map<string, Buffer>();
 /** Process-lifetime diagnostics: page views lost to a failed write, and failed writes. */
@@ -76,11 +86,18 @@ export function recordVisit(hit: VisitHit): boolean {
   if (clientMinute.minute !== minute) {
     clientMinute.minute = minute;
     clientMinute.counts.clear();
+    // Once a minute, forget repeats that are over.
+    for (const [key, at] of lastSeen) if (minute - at >= REPEAT_MINUTES) lastSeen.delete(key);
   }
   const client = createHmac("sha256", clientSecret).update(`${hit.address}\n${hit.userAgent}`).digest("base64url");
+  const repeat = `${client}\n${page.path}`;
+  const last = lastSeen.get(repeat);
+  if (last !== undefined && minute - last < REPEAT_MINUTES) return false;
   const seen = clientMinute.counts.get(client) ?? 0;
   if (seen >= PER_CLIENT_PER_MINUTE || (!seen && clientMinute.counts.size >= 50_000)) return false;
   clientMinute.counts.set(client, seen + 1);
+  if (lastSeen.size >= MAX_REPEATS) for (const [key, at] of lastSeen) if (minute - at >= REPEAT_MINUTES) lastSeen.delete(key);
+  if (lastSeen.size < MAX_REPEATS) lastSeen.set(repeat, minute);
 
   const day = beijingDate(now);
   const device = deviceClass(hit.userAgent);
