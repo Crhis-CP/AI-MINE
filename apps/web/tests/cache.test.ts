@@ -1702,7 +1702,13 @@ test("retired search pages stay absent while canonical admin navigation includes
     ]) {
       assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
     }
-    assert.doesNotMatch(html, /同批样本对比|Codex|888/);
+    // Only what the operator can read: asset addresses carry a content hash that may spell anything (TASK-0626).
+    const shown = html
+      .replace(/<script\b[\s\S]*?<\/script>/g, "")
+      .replace(/<link\b[^>]*>/g, "")
+      .replace(/\s(?:src|href|srcset|integrity)="[^"]*"/g, "");
+    assert.doesNotMatch(shown, /同批样本对比|Codex|888/);
+    assert.match(shown, /模型与评测/);
     assert.ok(
       privateCalls
         .slice(before)
@@ -1892,20 +1898,23 @@ const visitOverviewFixture = {
   },
 };
 
-test("访问概况 renders the overview contract with cards, charts and tables, privately", async () => {
+test("访问概况 renders the overview contract as the dark screen: figures, globe, charts and lists, privately", async () => {
   privatePageFixtures = true;
   try {
     const res = await fetchWithHost(origin + "/admin/visits", PRIVATE_HOST);
     assert.equal(res.status, 200);
     const html = await res.text();
     for (const text of [
-      "今日访客",
-      "昨日访客",
-      "近 7 天日均访客",
-      "本月访客（月活）",
-      "上月访客",
-      "近 30 天日访客与浏览量",
-      "近 12 个月月访客",
+      // TASK-0623: the page is a dark screen in reader language; the same figures as before.
+      "今天来了多少人",
+      "昨天全天",
+      "近 7 天平均每天来的人",
+      "本月来过的人（月活）",
+      "读者在看哪些国家的矿业",
+      "每天的访客",
+      "每天的浏览量",
+      "每月来过的人",
+      "每分钟自动更新",
       "合成热门文章",
       "baidu.com",
       "手机",

@@ -38,7 +38,7 @@ export function Card({
   scrollable?: boolean;
 }) {
   return (
-    <section className={`min-w-0 rounded-panel bg-surface ring-1 ring-line ${scrollable ? "overflow-hidden" : ""} ${className}`}>
+    <section className={`admin-card min-w-0 rounded-panel bg-surface ring-1 ring-line ${scrollable ? "overflow-hidden" : ""} ${className}`}>
       {(title || right) && (
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <h2 className="text-[15px] font-semibold text-ink">{title}</h2>

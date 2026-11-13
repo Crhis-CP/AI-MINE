@@ -43,6 +43,7 @@ import { LIVE_TRANSLATION_DAYS, englishCopyDeferralOptions, translationDeferralO
 import { writeEnglishCopy } from "../editorial/english-copy.ts";
 import { readEnglishCopy } from "../enrichment/records.ts";
 import { translationQuotaWait } from "../editorial/translation-quota.ts";
+import { ACCOUNT_OUT_SQL, accountOutOfMoney } from "../providers/provider-errors.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
@@ -78,6 +79,8 @@ const COPY_RETRY_MINUTES = [30, 180];
 export const COPY_INCOMPLETE = "copy_incomplete";
 /** While model calls are switched off, a waiting article looks again this often. */
 const MODELS_OFF_WAIT_SECONDS = 3600;
+/** How long an article waits before looking again while the model account is out of money (one refused call each time). */
+export const ACCOUNT_WAIT_SECONDS = 600;
 /** A queued article whose job left no trace for this long is queued again. */
 const QUEUED_STALE = "30 minutes";
 
@@ -360,6 +363,14 @@ export async function afterFailure(articleId: string, error: unknown, expectedRe
       await tx`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
       return { state: "waiting", retryAt };
     }
+    if (accountOutOfMoney(message)) {
+      // The model account has no money left (HTTP 402, “Insufficient Balance”): nothing is wrong with the article and
+      // nothing will work until the Owner tops up. Wait and look again; attempts are not used up, so once the balance
+      // is back the article is processed like any other, with no one having to requeue it (TASK-0630).
+      const retryAt = new Date(Date.now() + ACCOUNT_WAIT_SECONDS * 1000);
+      await tx`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
+      return { state: "waiting", retryAt };
+    }
     const attempts = current.processing_attempts + 1;
     const refused = error instanceof ProviderRejectedError && !error.retryable;
     const exhausted = attempts > RETRY_MINUTES.length || (error instanceof ModelOutputError && attempts >= MAX_OUTPUT_FAILURES);
@@ -409,6 +420,9 @@ export async function freshSelection(articleId: string, selected: boolean): Prom
   return row?.fresh === true;
 }
 
+/** A paused news lane: a translation or English-copy job looks again after this long, without using up its retries. */
+const PAUSE_WAIT_MS = 30 * 60_000;
+
 /** One content.translate job. Exported for tests; the worker registers it below. */
 export async function runTranslationJob(data: { articleId: string }, clock: JobClock = {}) {
   const inputRevision = await materialRevision(data.articleId);
@@ -448,7 +462,10 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
       );
     return result;
   } catch (error) {
-    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(data.articleId, error, inputRevision);
+    // A paused lane only postpones the translation. The article is already analysed: afterFailure would set it back
+    // to "new" and the sweep would pay for its whole analysis again (TASK-0608).
+    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+      return deferTranslation(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS));
     throw error;
   }
 }
@@ -459,8 +476,6 @@ async function deferEnglishCopy(articleId: string, until: Date) {
   if (queued === undefined) throw new Error("English copy deferral was not accepted by the queue");
   return { state: "deferred_peak", until: until.toISOString() };
 }
-/** A paused news lane: look again after this long, without using up the job's retries. */
-const ENGLISH_PAUSE_WAIT_MS = 30 * 60_000;
 
 /**
  * One English title and summary (content.translate with `english`, TASK-0595). Nothing is paid unless EN_COPY_ENABLED
@@ -483,7 +498,7 @@ export async function runEnglishCopyJob(data: { articleId: string }, clock: JobC
     return { state: outcome };
   } catch (error) {
     if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
-      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + ENGLISH_PAUSE_WAIT_MS));
+      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS));
     throw error;
   }
 }
@@ -872,6 +887,21 @@ async function resumeEditorialSources(): Promise<number> {
   return resumed;
 }
 
+/**
+ * Articles that were marked failed only because the model account was out of money, back into the queue (TASK-0630).
+ * Since that change such a refusal waits instead of failing, so this finds the ones failed before it and any that
+ * reach “failed” by another path. They wait ACCOUNT_WAIT_SECONDS like the others, so an empty account is asked once
+ * per article per wait, not on every sweep. Fourteen days: older news is no longer worth a paid judgement.
+ */
+export async function reviveAccountFailures(): Promise<{ revived: number }> {
+  const rows = await sql<{ id: string }[]>`
+    UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_queued_at = NULL,
+      processing_retry_at = now() + ${`${ACCOUNT_WAIT_SECONDS} seconds`}::interval
+    WHERE processing_state = 'failed' AND discovered_at > now() - interval '14 days' AND processing_error ~* ${ACCOUNT_OUT_SQL}
+    RETURNING id`;
+  return { revived: rows.length };
+}
+
 export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
   const rows = await sql<{ id: string }[]>`
     SELECT id FROM articles
@@ -880,6 +910,7 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
       AND (processing_queued_at IS NULL OR processing_queued_at < now() - ${QUEUED_STALE}::interval)
     ORDER BY discovered_at DESC LIMIT 500`;
   for (const r of rows) await queueProcessing(r.id);
+  await reviveAccountFailures();
   return { enqueued: rows.length + (await resumeMaterialWaits()) + (await resumeBodyRereads()) + (await resumeEditorialSources()) };
 }
 
