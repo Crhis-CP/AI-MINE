@@ -36,7 +36,7 @@ const MAX_IDENTITIES = 20_000;
 /** Distinct content addresses per day before further ones are kept under their route pattern only. */
 const MAX_PATHS_PER_DAY = 5_000;
 /** Page views one client (address and browser) may add per minute. */
-const PER_CLIENT_PER_MINUTE = 20;
+const PER_CLIENT_PER_MINUTE = 60;
 /**
  * One client opening the same page again within this many minutes is one page view, not several (TASK-0638): reloads,
  * a tab coming back, or an automated client that runs the page in a loop no longer multiply a page's count. The
