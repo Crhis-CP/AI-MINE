@@ -188,6 +188,10 @@ const DEMO_COUNTRY_TITLES: Record<string, [string, string][]> = {
     ["演示：新疆公布一批金属矿探矿权挂牌出让", "演示自治区厅公告"],
     ["演示：阿勒泰某铜镍矿扩建项目环评公示", "演示地方公示"],
   ],
+  "AR-A": [
+    ["演示：萨尔塔省公布盐湖项目用水监测结果", "演示省政府公告"],
+    ["演示：萨尔塔省铜矿项目完成新一轮勘探", "演示矿业部门新闻"],
+  ],
   CN: [
     ["演示：自然资源部公布新一批矿业权出让公告", "演示部委网站"],
     ["演示：某铜业公司披露三季度产量与检修安排", "演示交易所公告"],
@@ -287,6 +291,16 @@ export const demoJurisdictions = [
     news_scope: true,
     policy_scope: false,
     news_count: 6,
+    policy_count: 0,
+  },
+  {
+    code: "AR-A",
+    label: "萨尔塔省",
+    kind: "subdivision" as const,
+    parent: "AR",
+    news_scope: true,
+    policy_scope: false,
+    news_count: 2,
     policy_count: 0,
   },
 ];

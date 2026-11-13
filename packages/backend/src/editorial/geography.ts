@@ -33,12 +33,14 @@ type DictionaryRow = (typeof JURISDICTIONS)[number];
 const dictionaryText = (rows: readonly DictionaryRow[]) =>
   rows.map((j) => `${j.id}=${j.name_zh}/${j.name_en}${j.parent ? `(parent:${j.parent})` : ""}`).join("; ");
 /**
- * Codes added to the dictionary after geography was first stored (Owner 2026-11-05: Brazil, news line only). Adding a
+ * Codes added after geography was first stored (Brazil and Argentina's six provinces, news line only). Adding a
  * code is additive: an answer given without it is still a valid answer, so recipes from the dictionary before the
  * addition stay compatible and stored country assignments keep filtering.
  */
-const ADDED_CODES = new Set(["BR"]);
+const ARGENTINA_ADDED_CODES = new Set(["AR-J", "AR-A", "AR-Y", "AR-K", "AR-M", "AR-Z"]);
+const ADDED_CODES = new Set(["BR", ...ARGENTINA_ADDED_CODES]);
 const PREVIOUS_ROWS = JURISDICTIONS.filter((j) => !ADDED_CODES.has(j.id));
+const BEFORE_ARGENTINA_ROWS = JURISDICTIONS.filter((j) => !ARGENTINA_ADDED_CODES.has(j.id));
 export const GEOGRAPHY_DICTIONARY = dictionaryText(JURISDICTIONS);
 const PREVIOUS_DICTIONARY = dictionaryText(PREVIOUS_ROWS);
 type Aliases = Map<string, Set<string>>;
@@ -68,7 +70,12 @@ function addProvinces(aliases: Aliases): Aliases {
     AU: ["Northern Territory", "New South Wales", "北领地", "新南威尔士州"],
     AR: ["Catamarca", "Salta", "Jujuy", "卡塔马卡", "萨尔塔", "胡胡伊"],
   }))
-    for (const name of names) aliases.set(name.toLocaleLowerCase(), new Set([code]));
+    for (const name of names) {
+      const key = name.toLocaleLowerCase();
+      // New subdivisions own their names; the country fallback keeps the older dictionaries' recipes intact.
+      if (code === "AR" && [...(aliases.get(key) ?? [])].some((id) => codes.get(id)?.parent === "AR")) continue;
+      aliases.set(key, new Set([code]));
+    }
   return aliases;
 }
 const digestAliases = (aliases: Aliases) => sha256(stableJson([...aliases].map(([alias, ids]) => [alias, [...ids]])));
@@ -79,6 +86,9 @@ const aliasDigest = digestAliases(aliases);
 const beforeAdded = baseAliases(PREVIOUS_ROWS);
 const beforeAddedPreviousDigest = digestAliases(beforeAdded);
 const beforeAddedDigest = digestAliases(addProvinces(beforeAdded));
+const beforeArgentina = baseAliases(BEFORE_ARGENTINA_ROWS);
+const beforeArgentinaPreviousDigest = digestAliases(beforeArgentina);
+const beforeArgentinaDigest = digestAliases(addProvinces(beforeArgentina));
 const recipeForAliases = (digest: string, prompt = promptVersion("structure"), dictionary = GEOGRAPHY_DICTIONARY) =>
   sha256(stableJson(["news-geography-v1/head12000-tail2000/adaptive-total-32000", prompt, dictionary, digest]));
 // The reviewed scope-only prompt change left geography unchanged; this exception expires with the next prompt change.
@@ -91,6 +101,8 @@ const currentRecipes = () =>
   (recipes ??= [
     recipeForAliases(aliasDigest),
     recipeForAliases(previousAliasDigest),
+    recipeForAliases(beforeArgentinaDigest, undefined, dictionaryText(BEFORE_ARGENTINA_ROWS)),
+    recipeForAliases(beforeArgentinaPreviousDigest, undefined, dictionaryText(BEFORE_ARGENTINA_ROWS)),
     recipeForAliases(beforeAddedDigest, undefined, PREVIOUS_DICTIONARY),
     recipeForAliases(beforeAddedPreviousDigest, undefined, PREVIOUS_DICTIONARY),
   ]);
@@ -165,7 +177,12 @@ export function validateGeography(value: unknown, a: Material, bodyBudget = 2200
       key = stableJson(row),
       known = aliases.get(row.mention.toLocaleLowerCase());
     let valid =
-      !!codes.has(row.code) && !!source?.includes(row.quote) && row.quote.includes(row.mention) && known?.size === 1 && known.has(row.code) && !seen.has(key);
+      !!codes.has(row.code) &&
+      !!source?.includes(row.quote) &&
+      row.quote.includes(row.mention) &&
+      known?.size === 1 &&
+      (known.has(row.code) || (row.code === "AR" && [...known].some((id) => codes.get(id)?.parent === "AR"))) &&
+      !seen.has(key);
     if (/^(?:us|usa|u\.s\.|u\.s\.a\.|uk|u\.k\.|drc|un|eu|oecd)$/i.test(row.mention) && row.mention !== row.mention.toUpperCase()) valid = false;
     if (/\b(?:US|A|C)\$|\bIndian lands?\b/i.test(row.mention) || (/^(?:US|A|C)$/i.test(row.mention) && row.quote.includes(`${row.mention}$`))) valid = false;
     const at = row.quote.indexOf(row.mention),
@@ -181,6 +198,7 @@ export function validateGeography(value: unknown, a: Material, bodyBudget = 2200
         alias !== row.mention.toLocaleLowerCase() &&
         alias.includes(row.mention.toLocaleLowerCase()) &&
         !ids.has(row.code) &&
+        !(row.code === "AR" && [...ids].some((id) => codes.get(id)?.parent === "AR")) &&
         row.quote.toLocaleLowerCase().includes(alias)
       )
         valid = false;
@@ -191,6 +209,13 @@ export function validateGeography(value: unknown, a: Material, bodyBudget = 2200
     seen.add(key);
     assignments.push(row);
   }
+  const ambiguousArgentina = (row: Assignment) => [...(aliases.get(row.mention.toLocaleLowerCase()) ?? [])].some((id) => id === "AR-J" || id === "AR-Z");
+  const argentinaChosen = parsed.data.primary === "AR" || assignments.some((row) => row.code === "AR" && active.has(row.role) && !ambiguousArgentina(row));
+  for (let i = assignments.length - 1; i >= 0; i--)
+    if (ambiguousArgentina(assignments[i]!) && !argentinaChosen) {
+      assignments.splice(i, 1);
+      rejected = true;
+    }
   const assigned = [...new Set(assignments.filter((r) => active.has(r.role)).map((r) => r.code))];
   if (
     assigned.filter((code) => codes.get(code)?.kind === "country").length > 8 ||

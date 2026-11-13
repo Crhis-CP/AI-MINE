@@ -44,7 +44,8 @@ const place = (code: string, label: string, news: number) => ({
   policy_count: 0,
 });
 const province = (code: string, label: string, news: number) => ({ ...place(code, label, news), kind: "subdivision", parent: "CN" });
-const LOCAL: Record<string, number> = { AR: 7, CN: 3, "CN-XJ": 2 };
+const LOCAL: Record<string, number> = { AR: 7, CN: 3, "CN-XJ": 2, "AR-A": 2 };
+let argentinaProvince = false;
 
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
@@ -66,6 +67,7 @@ const api = createServer((req, res) => {
       place("JP", "日本", 0),
       province("CN-XJ", "新疆维吾尔自治区", 8),
       province("CN-YN", "云南省", 0),
+      ...(argentinaProvince ? [{ ...province("AR-A", "萨尔塔省", 2), parent: "AR" }] : []),
     ]);
   if (url.pathname === "/api/site/news-map")
     return send({
@@ -270,6 +272,25 @@ test("a reader in China can put a province first: its items lead, the country's 
   await expect(page.locator("[data-home-country='CN']").getByRole("listitem")).toHaveCount(3);
   await expect(page.locator("[data-near]")).toHaveCount(0);
   await context.close();
+});
+
+test("a reader in Argentina can put Salta first and keep the province choice", async () => {
+  argentinaProvince = true;
+  const { context, page } = await open("America/Argentina/Salta");
+  try {
+    const block = page.locator("[data-home-country='AR']");
+    await expect(block.getByRole("listitem")).toHaveCount(5);
+    assert.deepEqual(await page.getByLabel("优先看哪个省份").locator("option").allTextContents(), ["全国（不指定省份）", "萨尔塔省"]);
+    await page.getByLabel("优先看哪个省份").selectOption("AR-A");
+    await expect(block.getByRole("listitem")).toHaveCount(5);
+    await expect(block.locator("[data-near]")).toHaveCount(2);
+    await expect(block.getByRole("listitem").first()).toContainText("AR-A 合成动态 1");
+    await page.reload();
+    await expect(page.locator("[data-home-country='AR'] [data-near]")).toHaveCount(2);
+  } finally {
+    argentinaProvince = false;
+    await context.close();
+  }
 });
 
 test("an item taken down while the page is open leaves the country block, even when nothing else on the page went", async () => {

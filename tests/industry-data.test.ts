@@ -21,9 +21,9 @@ const dictionary = JSON.parse(read("docs/data/jurisdictions-36.json").toString()
 const scope = JSON.parse(read("docs/data/jurisdiction-scope.json").toString());
 const ids = (rows: readonly { id: string }[]) => rows.map((row) => row.id);
 
-test("36 policy objects, 18 + 1 news countries and 14 Chinese subdivisions retain every authoritative field", () => {
-  assert.equal(JURISDICTIONS.length, 51);
-  assert.equal(new Set(ids(JURISDICTIONS)).size, 51);
+test("36 policy objects, 18 + 1 news countries and China/Argentina subdivisions retain every authoritative field", () => {
+  assert.equal(JURISDICTIONS.length, 57);
+  assert.equal(new Set(ids(JURISDICTIONS)).size, 57);
   assert.equal(COUNTRIES.length, 34);
   assert.deepEqual(ids(ORGANIZATIONS), ["EU", "UN", "OECD"]);
   assert.equal(POLICY_JURISDICTIONS.length, 36);
@@ -47,7 +47,7 @@ test("36 policy objects, 18 + 1 news countries and 14 Chinese subdivisions retai
     for (const [key, value] of Object.entries(row)) assert.deepEqual(value, original[key], `${row.id}.${key}`);
     assert.ok(!("workbook_records" in row || "workbook_targets" in row || "old_candidate_count" in row));
     if (row.kind === "subdivision") {
-      assert.equal(row.parent, "CN");
+      assert.ok(row.parent === "CN" || row.parent === "AR");
       assert.equal(row.news_scope, true);
       assert.equal(row.policy_scope, false);
       assert.equal(row.policy_local_sources, "by_publication_duty");
@@ -61,6 +61,15 @@ test("36 policy objects, 18 + 1 news countries and 14 Chinese subdivisions retai
   assert.deepEqual(TIER_DEFINITIONS, dictionary.tier_definitions);
   assert.deepEqual(SCOPE_FLAGS, dictionary.scope_flags);
   assert.deepEqual(checkIndustryData(), []);
+});
+
+test("six Argentina provinces are news-only children without changing the 36 policy objects", () => {
+  const provinces = JURISDICTIONS.filter((row) => row.parent === "AR");
+  assert.deepEqual(ids(provinces), ["AR-J", "AR-A", "AR-Y", "AR-K", "AR-M", "AR-Z"]);
+  assert.ok(provinces.every((row) => row.kind === "subdivision" && row.news_scope && !row.policy_scope));
+  assert.equal(POLICY_JURISDICTIONS.length, 36);
+  for (const before of ["58dde75df5e5e2cf52ced36c4ba7351e006a1a8a8364bcf9315e88c7bbff1f08", "a9320d57e3114d9e9174cee0e304743fdd2655af87460298be4663f1fa248b9b"])
+    assert.ok(compatibleGeographyRecipes().includes(before), before);
 });
 
 test("321 records and 320 targets remain byte-identical input mirrors, never operational configuration", () => {
