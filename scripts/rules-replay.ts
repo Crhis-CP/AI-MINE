@@ -109,8 +109,9 @@ export function goldMetrics(cases: readonly GoldCase[], rules: Rules, threshold?
     fn = 0,
     tn = 0;
   for (const c of cases) {
+    // Only pairs both rules finished: the two sets of metrics then describe the same articles.
     const run = c[rules];
-    if (!run || c.decision === "either") continue;
+    if (!run || !c.current || !c.candidate || c.decision === "either") continue;
     const limit = threshold ? threshold(c) : null;
     const picked = limit === null ? run.selected : run.mean !== null && run.mean >= limit;
     if (picked && c.decision === "select") tp++;
@@ -123,6 +124,35 @@ export function goldMetrics(cases: readonly GoldCase[], rules: Rules, threshold?
   const f1 = precision !== null && recall !== null && precision + recall ? (2 * precision * recall) / (precision + recall) : null;
   const total = tp + fp + fn + tn;
   return { tp, fp, fn, tn, total, precision, recall, f1, agreement: total ? (tp + tn) / total : null };
+}
+
+/** Labelled cases one of the two rules did not finish (budget stop or error): left out of every comparison. */
+export function goldIncomplete(cases: readonly GoldCase[]): number {
+  return cases.filter((c) => c.decision !== "either" && (!c.current || !c.candidate)).length;
+}
+
+/** A score is a judgement only once it is settled as production settles it (scoreSettled); otherwise null. */
+export function settledRun(scores: number[], resons: number[], threshold: number): ScoreRun | null {
+  if (!scores.length || !scoreSettled(scores, threshold, 2)) return null;
+  return { values: scores, mean: scoreMean(scores), selected: meetsThreshold(scores, threshold), reson: resons };
+}
+
+/**
+ * Spent cost from the receipts' attempts: priced CNY attempts at their cost; an attempt without a price (unknown
+ * outcome, unpriced, another currency) counts as one bounded call (`reserve`), so it can never hide spending.
+ */
+export function costOf(rows: readonly { cost: number | null; currency: string | null }[], reserve: number) {
+  let priced = 0,
+    unpriced = 0,
+    maxCost = 0;
+  for (const row of rows) {
+    if (row.cost === null || (row.currency ?? "CNY") !== "CNY") unpriced++;
+    else {
+      priced += Number(row.cost);
+      maxCost = Math.max(maxCost, Number(row.cost));
+    }
+  }
+  return { spent: priced + unpriced * reserve, unpriced, maxCost };
 }
 
 /** One flat threshold from 50 to 80 for the candidate: where its decisions would agree best with the Owner. */
@@ -159,6 +189,8 @@ export class Meter {
   stopped: string | null = null;
   readonly maxYuan: number;
   readonly perMinute: number;
+  /** The most one call can cost (yuan): a call starts only if it still fits under the cap. */
+  reserve = 0.1;
   #next = 0;
   readonly #now: () => number;
   readonly #sleep: (ms: number) => Promise<void>;
@@ -173,10 +205,10 @@ export class Meter {
     this.#now = now;
     this.#sleep = sleep;
   }
-  /** Before each call: wait for its turn; false once the cap is reached (the replay then stops). */
+  /** Before each paid call: wait for its turn; false once one more bounded call would pass the cap (the replay then stops). */
   async turn(phase: string): Promise<boolean> {
     if (this.stopped) return false;
-    if (this.spent >= this.maxYuan) {
+    if (this.spent + this.reserve > this.maxYuan) {
       this.stopped = phase;
       return false;
     }
@@ -205,8 +237,10 @@ export function renderReport(r: {
   gold: GoldCase[];
   recent: RecentCase[];
   blocked: { sampled: BlockedCase[]; total: number };
+  errors?: number;
 }): string {
   const lines: string[] = [];
+  const errors = r.errors ?? 0;
   const cur = goldMetrics(r.gold, "current"),
     cand = goldMetrics(r.gold, "candidate");
   const shifts = recentShifts(r.recent),
@@ -215,13 +249,18 @@ export function renderReport(r: {
   const passed = judged.filter((b) => b.label !== "BLOCK");
   const passRate = judged.length ? passed.length / judged.length : null;
   const perDay = passRate === null ? null : (passRate * r.blocked.total) / r.days;
-  const selectedOfPassed = passed.filter((b) => b.candidate?.selected).length;
+  // Selection is estimated only over passed items whose candidate score finished; the rest are pending, not "not selected".
+  const scoredPassed = passed.filter((b) => b.candidate);
+  const selectedOfPassed = scoredPassed.filter((b) => b.candidate!.selected).length;
+  const goldMissing = goldIncomplete(r.gold);
+  const recentMissing = r.recent.filter((c) => !c.candidate).length;
+  const unfinished = goldMissing + recentMissing + (passed.length - scoredPassed.length) + r.blocked.sampled.filter((b) => !b.label).length;
   lines.push("# 3.1 新规则回放报告", "");
   lines.push(
-    `运行：${r.startedAt} 至 ${r.finishedAt}（UTC）。模型 ${r.model}，提示词排法 ${r.layout}。费用 ${num(r.meter.spent)} 元（上限 ${r.meter.maxYuan} 元），模型调用 ${r.meter.calls} 次${r.meter.stopped ? `；**到上限停在“${r.meter.stopped}”这一步，后面的没跑**` : "，全部跑完"}。`,
+    `运行：${r.startedAt} 至 ${r.finishedAt}（UTC）。模型 ${r.model}，提示词排法 ${r.layout}。费用 ${num(r.meter.spent)} 元（上限 ${r.meter.maxYuan} 元），模型调用 ${r.meter.calls} 次${r.meter.stopped ? `；**到上限停在“${r.meter.stopped}”这一步，后面的没跑**` : ""}${unfinished || errors ? `；未完成 ${unfinished} 篇、出错 ${errors} 次，这些不计入任何对照` : r.meter.stopped ? "" : "，全部跑完"}。`,
     "",
   );
-  lines.push("## 一、和 Owner 11-05 的标注比", "");
+  lines.push(`## 一、和 Owner 11-05 的标注比（两版都打完分的 ${cur.total} 篇${goldMissing ? `，另有 ${goldMissing} 篇没打完，不计` : ""}）`, "");
   lines.push("| 规则 | 判对 | 查准 | 查全 | F1 | 选了几篇 |", "|---|---|---|---|---|---|");
   for (const [name, m] of [
     ["现行", cur],
@@ -256,7 +295,7 @@ export function renderReport(r: {
   }
   lines.push(`## 三、“全部”放宽到四层（最近 ${r.days} 天被预筛挡掉 ${r.blocked.total} 篇，抽样重判 ${judged.length} 篇）`, "");
   lines.push(
-    `- 候选预筛放行 ${passed.length} 篇（${pct(passRate)}），推算每天多收约 **${num(perDay)}** 条；放行的里面按候选评分会入选 ${selectedOfPassed} 篇，推算每天约 ${num(passRate === null || !passed.length ? null : (selectedOfPassed / passed.length) * (perDay ?? 0))} 条进精选。`,
+    `- 候选预筛放行 ${passed.length} 篇（${pct(passRate)}），推算每天多收约 **${num(perDay)}** 条；放行的里面已打完分 ${scoredPassed.length} 篇，其中会入选 ${selectedOfPassed} 篇，推算每天约 ${num(!scoredPassed.length || perDay === null ? null : (selectedOfPassed / scoredPassed.length) * perDay)} 条进精选${passed.length > scoredPassed.length ? `（另有 ${passed.length - scoredPassed.length} 篇放行后没打完分，不计）` : ""}。`,
     "",
     "| 日期 | 标题 | 来源 | 结果 | 理由 |",
     "|---|---|---|---|---|",
@@ -273,6 +312,12 @@ export function renderReport(r: {
       .join("；")}。`,
   );
   return `${lines.join("\n")}\n`;
+}
+
+/** The receipt a failed paid call carries (ModelOutputError, post-receipt guards), if any. */
+export function receiptOf(error: unknown): number | null {
+  const id = (error as { receiptId?: unknown } | null)?.receiptId;
+  return typeof id === "number" && Number.isInteger(id) ? id : null;
 }
 
 const Prefilter = z.object({ label: z.preprocess(normalizedUppercase, z.enum(["PASS", "BLOCK", "UNKNOWN"])), reason: z.string().max(200).catch("") });
@@ -324,15 +369,31 @@ async function main() {
   const model = await modelFor("score"),
     prefilterModel = await modelFor("prefilter");
   const meter = new Meter(maxYuan, perMinute);
-  const receipts: number[] = [];
-  let checked = 0;
-  const account = async (receiptId: number) => {
-    receipts.push(receiptId);
-    if (receipts.length - checked < 10) return;
-    checked = receipts.length;
-    const [row] = await sql<{ spent: number }[]>`SELECT coalesce(sum(cost),0)::float AS spent FROM receipt_attempts
-      WHERE receipt_id = ANY(${receipts}::bigint[]) AND coalesce(currency,'CNY') = 'CNY'`;
-    meter.spent = row?.spent ?? meter.spent;
+  const receipts = new Set<number>();
+  /** Re-reads every attempt of every receipt this run produced: called after each paid call, failed ones included. */
+  const settle = async () => {
+    if (!receipts.size) return;
+    const rows = await sql<{ cost: number | null; currency: string | null }[]>`SELECT cost::float AS cost, currency FROM receipt_attempts
+      WHERE receipt_id = ANY(${[...receipts]}::bigint[])`;
+    const cost = costOf(rows, meter.reserve);
+    meter.spent = cost.spent;
+    // A call can cost up to the dearest one seen so far, with a margin; never less than the default bound.
+    meter.reserve = Math.max(meter.reserve, cost.maxCost * 1.5);
+  };
+  const account = async (receiptId: number | null) => {
+    if (receiptId !== null) receipts.add(receiptId);
+    await settle();
+  };
+  /** A paid call: its receipt counts even when the call throws after the provider charged (invalid output, guards). */
+  const paid = async <T extends { receiptId: number }>(call: () => Promise<T>): Promise<T> => {
+    try {
+      const res = await call();
+      await account(res.receiptId);
+      return res;
+    } catch (error) {
+      await account(receiptOf(error));
+      throw error;
+    }
   };
   const prepared = async (input: AnalyzeInputArticle) => prepareEvaluationInput(input, evaluationInputFingerprint(input));
 
@@ -343,58 +404,62 @@ async function main() {
     const axes: ScoreAxes[] = [],
       scores: number[] = [];
     for (let i = 1; i <= 2; i++) {
-      if (!(await meter.turn(phase))) return scores.length ? finish() : null;
+      // Stopped before the score settled: no judgement (production would not accept it either).
+      if (!(await meter.turn(phase))) return null;
       const request = { ...selectionStepRequest("score", current, layout), system: systems[rules].score };
       const special = model === "glm-5.3-flash-selection";
-      const res = await chatJson({
-        model,
-        purpose: "score_article",
-        lane: "news",
-        usagePurpose: "evaluation",
-        subject: `article:${current.id}@${current.revision}`,
-        sourceIds: [current.sourceId!],
-        ...request,
-        promptVersion: rules === "current" ? versions.currentScore : versions.candidateScore,
-        schema: ScoreSchema,
-        temperature: special ? 1 : 0.2,
-        maxTokens: special ? 65536 : 1024,
-        timeoutMs: special ? 180000 : 120000,
-        maxPhysicalAttempts: 1,
-        attemptTag: `rules-replay-${tag}-score-${i}`,
-        fallbackPermit: fallbackInput(request),
-      });
-      await account(res.receiptId);
+      const res = await paid(() =>
+        chatJson({
+          model,
+          purpose: "score_article",
+          lane: "news",
+          usagePurpose: "evaluation",
+          subject: `article:${current.id}@${current.revision}`,
+          sourceIds: [current.sourceId!],
+          ...request,
+          promptVersion: rules === "current" ? versions.currentScore : versions.candidateScore,
+          schema: ScoreSchema,
+          temperature: special ? 1 : 0.2,
+          maxTokens: special ? 65536 : 1024,
+          timeoutMs: special ? 180000 : 120000,
+          maxPhysicalAttempts: 1,
+          attemptTag: `rules-replay-${tag}-score-${i}`,
+          fallbackPermit: fallbackInput(request),
+        }),
+      );
       axes.push(res.data as ScoreAxes);
       scores.push(attentionScore(res.data as ScoreAxes));
       if (scoreSettled(scores, threshold, 2)) break;
     }
-    return finish();
-    function finish(): ScoreRun {
-      return { values: scores, mean: scoreMean(scores), selected: meetsThreshold(scores, threshold), reson: axes.map((a) => a.reson) };
-    }
+    return settledRun(
+      scores,
+      axes.map((a) => a.reson),
+      threshold,
+    );
   }
 
   async function prefilter(input: AnalyzeInputArticle, phase: string) {
     if (!(await meter.turn(phase))) return null;
     const { input: current, fallbackInput } = await prepared(input);
     const request = { ...selectionStepRequest("prefilter", current, layout), system: systems.candidate.prefilter };
-    const res = await chatJson({
-      model: prefilterModel,
-      purpose: "prefilter_article",
-      lane: "news",
-      usagePurpose: "evaluation",
-      subject: `article:${current.id}@${current.revision}`,
-      sourceIds: [current.sourceId!],
-      ...request,
-      promptVersion: versions.candidatePrefilter,
-      schema: Prefilter,
-      temperature: 0,
-      maxTokens: 512,
-      maxPhysicalAttempts: 1,
-      attemptTag: "rules-replay-prefilter",
-      fallbackPermit: fallbackInput(request),
-    });
-    await account(res.receiptId);
+    const res = await paid(() =>
+      chatJson({
+        model: prefilterModel,
+        purpose: "prefilter_article",
+        lane: "news",
+        usagePurpose: "evaluation",
+        subject: `article:${current.id}@${current.revision}`,
+        sourceIds: [current.sourceId!],
+        ...request,
+        promptVersion: versions.candidatePrefilter,
+        schema: Prefilter,
+        temperature: 0,
+        maxTokens: 512,
+        maxPhysicalAttempts: 1,
+        attemptTag: "rules-replay-prefilter",
+        fallbackPermit: fallbackInput(request),
+      }),
+    );
     return { label: res.data.label === "BLOCK" && missingEvidence(current) ? "UNKNOWN" : res.data.label, reason: res.data.reason };
   }
 
@@ -415,8 +480,9 @@ async function main() {
       gold,
       recent,
       blocked,
+      errors: errors.length,
     };
-    writeFileSync(path.join(outDir, "report.json"), `${JSON.stringify({ ...report, errors }, null, 2)}\n`);
+    writeFileSync(path.join(outDir, "report.json"), `${JSON.stringify({ ...report, errorDetails: errors }, null, 2)}\n`);
     writeFileSync(path.join(outDir, "report.md"), renderReport(report));
   };
   const guarded = async (what: string, run: () => Promise<void>) => {
@@ -507,6 +573,7 @@ async function main() {
       });
     }
   } finally {
+    await settle().catch((error) => errors.push(`final cost check: ${String(error).slice(0, 200)}`));
     write();
     await closeDb();
   }

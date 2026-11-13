@@ -5,6 +5,10 @@ import { test } from "node:test";
 import { selectionSystem } from "../packages/backend/src/editorial/analyze.ts";
 import {
   candidateSystem,
+  costOf,
+  goldIncomplete,
+  receiptOf,
+  settledRun,
   type GoldCase,
   goldMetrics,
   Meter,
@@ -147,4 +151,87 @@ test("the report leads with the comparison and says where a capped run stopped",
   assert.match(md, /推算每天多收约 \*\*50\*\* 条/, "half of 700 blocked over 7 days");
   assert.match(md, /智利修改矿业权益金法案/);
   assert.doesNotMatch(md, /无关新闻/, "only what the candidate lets through is listed");
+});
+
+test("every attempt counts toward the cap: priced at cost, unpriced or foreign as one bounded call", () => {
+  const rows = [
+    { cost: 0.01, currency: "CNY" },
+    { cost: null, currency: null },
+    { cost: 0.02, currency: "CNY" },
+    { cost: 0.5, currency: "USD" },
+  ];
+  const cost = costOf(rows, 0.1);
+  assert.equal(cost.unpriced, 2);
+  assert.equal(Math.round(cost.spent * 1000) / 1000, 0.23);
+  assert.equal(cost.maxCost, 0.02);
+  assert.equal(costOf([], 0.1).spent, 0);
+});
+
+test("a call starts only if it still fits under the cap: crossing at the first call or later both stop", async () => {
+  const meter = new Meter(
+    30,
+    600,
+    () => 0,
+    async () => {},
+  );
+  meter.spent = 29.95;
+  assert.equal(await meter.turn("金标集"), false, "the first call would pass 30 yuan");
+  assert.equal(meter.calls, 0);
+  const later = new Meter(
+    30,
+    600,
+    () => 0,
+    async () => {},
+  );
+  for (let i = 0; i < 8; i++) assert.equal(await later.turn("最近稿件"), true);
+  later.spent = 29.91;
+  assert.equal(await later.turn("最近稿件"), false, "the ninth call would pass the cap");
+  assert.equal(later.stopped, "最近稿件");
+});
+
+test("a billed call that failed still names its receipt; a plain error names none", () => {
+  assert.equal(receiptOf(Object.assign(new Error("invalid output"), { receiptId: 4242 })), 4242);
+  assert.equal(receiptOf(new Error("network")), null);
+  assert.equal(receiptOf({ receiptId: "x" }), null);
+  assert.equal(receiptOf(null), null);
+});
+
+test("a score stopped before it settled is no judgement", () => {
+  assert.equal(settledRun([63], [6], 64), null, "one score near the threshold needs a second");
+  assert.equal(settledRun([], [], 64), null);
+  assert.deepEqual(settledRun([90], [8], 64)?.selected, true, "far from the threshold one score settles");
+  assert.equal(settledRun([63, 66], [6, 7], 64)?.selected, true);
+});
+
+test("comparisons use only pairs both rules finished, and count the rest", () => {
+  const onlyCurrent: GoldCase = { ...goldCase("select", true, true), caseId: "owner-only-current", candidate: null };
+  const cases = [goldCase("select", false, true), goldCase("reject", false, false), onlyCurrent];
+  assert.equal(goldMetrics(cases, "current").total, 2);
+  assert.equal(goldMetrics(cases, "candidate").total, 2);
+  assert.equal(goldIncomplete(cases), 1);
+  const md = renderReport({
+    startedAt: "s",
+    finishedAt: "f",
+    model: "m",
+    layout: "shared",
+    versions: {},
+    meter: { calls: 3, spent: 0.03, maxYuan: 30, stopped: null },
+    days: 7,
+    band: [45, 80],
+    gold: cases,
+    recent: [],
+    blocked: {
+      total: 70,
+      sampled: [
+        { id: "p1", title: "放行已评", source: "s", day: "11-12", label: "PASS", reason: "r", candidate: run(70, true) },
+        { id: "p2", title: "放行未评", source: "s", day: "11-12", label: "PASS", reason: "r", candidate: null },
+      ],
+    },
+    errors: 2,
+  });
+  assert.match(md, /两版都打完分的 2 篇，另有 1 篇没打完，不计/);
+  assert.match(md, /未完成 2 篇、出错 2 次/);
+  assert.doesNotMatch(md, /全部跑完/);
+  assert.match(md, /已打完分 1 篇，其中会入选 1 篇/);
+  assert.match(md, /另有 1 篇放行后没打完分，不计/);
 });
