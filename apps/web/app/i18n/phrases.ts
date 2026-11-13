@@ -353,8 +353,6 @@ export const PHRASES = {
   "{count} 个资讯来源": "{count} news sources",
   "法规文件单独整理，保留原文": "Regulations are handled separately, originals kept",
   精选线: "Pick line",
-  "{count} 家来源": "{count} sources",
-  "{count} 家": "×{count}",
   "关于 {name}": "About {name}",
   "网站资料暂时无法读取，请稍后重试。": "Site information can't be loaded right now; please try again later.",
   看今天的精选: "See today's picks",

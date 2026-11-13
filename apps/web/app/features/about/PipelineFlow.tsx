@@ -262,6 +262,9 @@ export function PipelineFlow({ stats, notice, onArrive }: { stats: SiteStats | n
   const [pin, setPin] = useState<number | null>(null);
   const [open, setOpen] = useState<readonly number[]>([]);
   const [across, setAcross] = useState(true);
+  // Set once the page has taken over in the browser; until then the stylesheet keeps every step's text readable.
+  const [enhanced, setEnhanced] = useState(false);
+  useEffect(() => setEnhanced(true), []);
   const active = hover ?? pin;
 
   const flowRef = useRef<HTMLDivElement>(null);
@@ -285,7 +288,6 @@ export function PipelineFlow({ stats, notice, onArrive }: { stats: SiteStats | n
       regulationSources: tr("法规来源"),
       regulationLane: tr("法规文件单独整理，保留原文"),
       line: tr("精选线"),
-      merged: (k, compact) => (compact ? tr("{count} 家", { count: k }) : tr("{count} 家来源", { count: k })),
     }),
     [tr, sources],
   );
@@ -396,7 +398,13 @@ export function PipelineFlow({ stats, notice, onArrive }: { stats: SiteStats | n
         <p className="pf-hint">{tr("点一下任意一步，看说明和数字。")}</p>
       </div>
 
-      <div ref={flowRef} className="pf mt-5 lg:mt-7" data-river={river ? "" : undefined} data-active={active ?? undefined}>
+      <div
+        ref={flowRef}
+        className="pf mt-5 lg:mt-7"
+        data-river={river ? "" : undefined}
+        data-active={active ?? undefined}
+        data-enhanced={enhanced ? "" : undefined}
+      >
         <ol ref={listRef} className="pf-stages">
           {stages.map((s, i) => {
             const isOpen = !across && open.includes(i);

@@ -1,9 +1,10 @@
 // The about page's moving picture of the six steps (TASK-0654), drawn on one canvas beside the stage list that the
 // server already rendered. Reports leave the source dots coloured by language, pass the AI screen (off-topic ones
-// fall away), gather into events marked "N 家来源", get a five-axis score against the 精选线, turn into articles and
+// fall away), gather into events, get a five-axis shape against the 精选线, turn into articles and
 // fan out to the outputs (精选, 日报, 热点榜, 全部; regulation documents run in their own lane to 法规). Left to
 // right when the stage heads stand in a row, top to bottom beside the stage cards otherwise.
-// The only number it draws is the real source count it is given; the stream itself is an illustration. Reduced
+// The only figures it draws are the real source counts it is given and the two ends of the score scale (0 and 100);
+// the stream itself is an illustration and carries no numbers. Reduced
 // motion draws one still frame. The loop stops off screen and in hidden tabs; `destroy` removes everything.
 import { watchAppearance } from "../../lib/local-state";
 import { reducedMotion } from "../../lib/motion";
@@ -14,8 +15,6 @@ export interface PipelineLabels {
   regulationSources: string;
   regulationLane: string;
   line: string;
-  /** An event's source count while reports gather: wide (desktop) and compact (phone). */
-  merged: (count: number, compact: boolean) => string;
 }
 
 export interface PipelineOptions {
@@ -1155,7 +1154,7 @@ export function mountPipeline(o: PipelineOptions): PipelineHandle {
       const goldK = ev.gold ? ease((s3 - 0.52) / 0.22) : 0;
       const pop = 1 + 0.3 * Math.exp(-(t - ev.popT) / 0.18);
       const r = (P.node + P.nodeK * Math.sqrt(ev.count - 1)) * pop * (1 + 0.14 * goldK);
-      const pa = s3 > 0 && s3 < 1 ? drawPenta(c, x, y, ev, s3, goldK > 0.5) : 0;
+      if (s3 > 0 && s3 < 1) drawPenta(c, x, y, ev, s3, goldK > 0.5);
       drawShape(c, x, y, r, ease((w4 - 0.06) / 0.4), goldK, 1, 1);
       if (ev.goldAt !== null && t - ev.goldAt < 1.1) {
         const e = (t - ev.goldAt) / 1.1;
@@ -1165,37 +1164,7 @@ export function mountPipeline(o: PipelineOptions): PipelineHandle {
         c.lineWidth = 1.2;
         c.stroke();
       }
-      // "N 家来源" while they gather, the score once it is known (placed after every node).
-      const la = ev.count >= 2 ? smooth((M - 0.35) / 0.2) * (1 - smooth((ev.U - (l.h ? (still ? 3.55 : 3.2) : 2.86)) / 0.12)) : 0;
-      if (la > 0.02) {
-        const right = l.h || x < l.cMid;
-        const text = labels.merged(ev.count, !l.h);
-        labelsToPlace.push({
-          a: la,
-          s: text,
-          x: right ? x + r + (l.h ? 5 : 3) : x - r - 3,
-          y: y - r - 1,
-          col: rgba(C.ink3),
-          size: P.font,
-          mono: false,
-          align: right ? "left" : "right",
-        });
-      }
-      const sa = smooth((s3 - 0.42) / 0.12) * (1 - smooth((w4 - (still ? 0.62 : 0.3)) / 0.15));
-      if (sa > 0.02) {
-        const off = Math.max(r, P.penta * pa) + 5;
-        const right = l.h || x < l.cMid + 6;
-        labelsToPlace.push({
-          a: sa,
-          s: String(ev.score),
-          x: right ? x + off - (l.h ? 0 : 1) : x - off + 1,
-          y: y + (l.h ? 4 : 3.5),
-          col: goldK > 0.5 ? rgba(C.accent) : rgba(C.ink3),
-          size: P.font + 0.5,
-          mono: true,
-          align: right ? "left" : "right",
-        });
-      }
+      // No figure is drawn beside an event: its size and the five axes are a picture of the step, not a statistic.
     }
     // Labels never sit on each other: the more visible one wins.
     labelsToPlace.sort((p, q) => q.a - p.a);

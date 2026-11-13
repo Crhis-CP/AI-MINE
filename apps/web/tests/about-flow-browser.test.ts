@@ -201,6 +201,60 @@ for (const width of [1440, 390]) {
   });
 }
 
+// The stream is a picture of the steps, not a chart: no event carries a count or a score. The only figures on the
+// canvas are the real source count and the two ends of the score scale.
+test("the canvas draws no figure except the real source count and the ends of the score scale", { timeout: 40000 }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "zh-CN", reducedMotion: "no-preference" });
+  try {
+    await isolateBrowser(context, [origin]);
+    await context.addInitScript(() => {
+      const drawn = new Set<string>();
+      (window as unknown as { drawnText: Set<string> }).drawnText = drawn;
+      const original = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text: string, ...rest: [number, number, number?]) {
+        drawn.add(String(text));
+        return original.call(this, text, ...rest);
+      };
+    });
+    const page = await context.newPage();
+    await page.goto(`${origin}/about`);
+    await expect(page.locator(".pf")).toHaveAttribute("data-ready", "");
+    await page.locator(".pf-river").scrollIntoViewIfNeeded();
+    // Long enough for reports to gather into events, be scored and reach the outputs.
+    await page.waitForTimeout(9000);
+    const drawn = await page.evaluate(() => [...(window as unknown as { drawnText: Set<string> }).drawnText]);
+    assert.ok(drawn.includes("442 个资讯来源"), "the real source count is drawn");
+    const figures = drawn.filter((text) => /\d/.test(text));
+    assert.deepEqual(figures.sort(), ["0", "100", "442 个资讯来源"]);
+  } finally {
+    await context.close();
+  }
+});
+
+for (const width of [1440, 390])
+  test(`without scripts every step's explanation can be read at ${width}px`, { timeout: 30000 }, async () => {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, locale: "zh-CN", javaScriptEnabled: false });
+    try {
+      await isolateBrowser(context, [origin]);
+      const page = await context.newPage();
+      await page.goto(`${origin}/about`);
+      const texts = ["AI 先把每篇读一遍", "合成一个事件，并标出有几家来源", "AI 从五个方面给每个事件打分", "每天北京时间 08:00 出刊"];
+      const holder = width > 500 ? ".pf-pane" : ".pf-body";
+      const boxes = [];
+      for (const text of texts) {
+        const line = page.locator(holder).getByText(text).first();
+        await line.scrollIntoViewIfNeeded();
+        await expect(line).toBeVisible();
+        // Page coordinates: scrolling to each line must not change the comparison.
+        boxes.push(await line.evaluate((el) => ({ y: el.getBoundingClientRect().top + scrollY, height: el.getBoundingClientRect().height })));
+      }
+      for (let i = 1; i < boxes.length; i++) assert.ok(boxes[i]!.y >= boxes[i - 1]!.y + boxes[i - 1]!.height - 1, "the explanations stand one under another");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no sideways scrolling");
+    } finally {
+      await context.close();
+    }
+  });
+
 test("the English steps and their outputs fit a phone", { timeout: 30000 }, async () => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
   try {

@@ -1423,6 +1423,44 @@ html.intro {
     opacity 0.35s 0.08s,
     visibility 0s;
 }
+/* The steps fold only once the page can unfold them. Without scripts (the boot script never set data-font) every
+   step shows its text at once; when scripts run but the page never takes over, the text appears by itself after six
+   seconds. */
+@keyframes pf-unfold {
+  to {
+    grid-template-rows: 1fr;
+  }
+}
+@keyframes pf-reveal {
+  to {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+@keyframes pf-unstack {
+  to {
+    grid-area: auto;
+    visibility: visible;
+  }
+}
+.pf:not([data-enhanced]) .pf-body {
+  animation: pf-unfold 0s 6s forwards;
+}
+.pf:not([data-enhanced]) .pf-body > div {
+  animation: pf-reveal 0s 6s forwards;
+}
+:root:not([data-font]) .pf-body {
+  grid-template-rows: 1fr;
+  animation: none;
+}
+:root:not([data-font]) .pf-body > div {
+  visibility: visible;
+  opacity: 1;
+  animation: none;
+}
+:root:not([data-font]) :is(.pf-chev, .pf-hint) {
+  display: none;
+}
 .pf-river {
   position: absolute;
   inset: 0;
@@ -1793,6 +1831,22 @@ html.intro {
   }
   .pf-detail > [data-shown="true"] {
     animation: fade-up 0.35s var(--ease-out-quart) both;
+  }
+  /* The wide layout shows one step's panel at a time; with no page to switch them, they stand one under another. */
+  .pf:not([data-enhanced]) .pf-detail > [data-shown="false"] {
+    animation: pf-unstack 0s 6s forwards;
+  }
+  :root:not([data-font]) .pf-detail > * {
+    grid-area: auto;
+    visibility: visible;
+    animation: none;
+  }
+  :root:not([data-font]) .pf-detail {
+    row-gap: 28px;
+  }
+  /* Nothing draws the river without scripts: its space is not left empty. */
+  :root:not([data-font]) .pf-river {
+    display: none;
   }
   .pf-pane {
     display: grid;
