@@ -180,6 +180,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.story_background_refs",
       "publication.withdrawal_members",
       "publication.withdrawal_targets",
+      "publication.withdrawn_reasons",
       "reports.calendar",
       "reports.correction_jobs",
       "reports.reconciliation_commands",
@@ -200,6 +201,18 @@ test("every real role has exactly the approved table, column, sequence and cross
     await permission(sql, "UPDATE feedback.quota_buckets SET used=used WHERE false", quotaWrite, `${role} updates quota count`);
     await permission(sql, "UPDATE feedback.quota_buckets SET bucket_key=bucket_key WHERE false", role === "migrate", `${role} cannot reassign quota bucket`);
     await permission(sql, "DELETE FROM feedback.quota_buckets WHERE false", role === "migrate", `${role} cannot clear quota`);
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const allowed = ["migrate", "private_ops", "worker"].includes(role) || (operation === "SELECT" && role === "backup");
+      const statement =
+        operation === "SELECT"
+          ? "SELECT * FROM publication.withdrawn_reasons LIMIT 1"
+          : operation === "INSERT"
+            ? "INSERT INTO publication.withdrawn_reasons SELECT * FROM publication.withdrawn_reasons WHERE false"
+            : operation === "UPDATE"
+              ? "UPDATE publication.withdrawn_reasons SET reason=reason WHERE false"
+              : "DELETE FROM publication.withdrawn_reasons WHERE false";
+      await permission(sql, statement, allowed, `${role} ${operation} private withdrawal reasons`);
+    }
     // Independent expectations: proof is private and retained; only the safe projection is publicly readable.
     for (const [table, field, safe] of [
       ["events.story_background_proofs", "active", false],
