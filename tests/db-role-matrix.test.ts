@@ -298,7 +298,7 @@ test("every real role has exactly the approved table, column, sequence and cross
         role === "public_read" && PUBLIC_COLUMNS[table.name]
           ? PUBLIC_COLUMNS[table.name]
           : role === "feedback_write" && table.name === "feedback"
-            ? ["id"]
+            ? ["id", "created_at"]
             : table.columns;
       await permission(sql, `SELECT ${read.map(quote).join(",")} FROM ${name} LIMIT 1`, permitted(role, table.name, "SELECT"), `${role} reads ${table.name}`);
       await permission(
@@ -318,7 +318,7 @@ test("every real role has exactly the approved table, column, sequence and cross
         for (const column of table.columns.filter((name) => !PUBLIC_COLUMNS[table.name].includes(name)))
           await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
       if (role === "feedback_write" && table.name === "feedback")
-        for (const column of table.columns.filter((name) => name !== "id")) await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
+        for (const column of table.columns.filter((name) => !["id", "created_at"].includes(name))) await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
     }
     for (const [table, field, appendOnly] of [
       ['"enrichment"."translation_segments"', "state", false],

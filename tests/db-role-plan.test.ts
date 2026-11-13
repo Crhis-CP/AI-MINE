@@ -258,7 +258,7 @@ test("the plan separates eight identities, column reads, append-only audit, owne
   assert.deepEqual(Object.keys(roles), DATABASE_ROLES);
   assert.match(sql, /CREATE ROLE "fixture_public_read" LOGIN NOINHERIT.*CONNECTION LIMIT 2/);
   assert.match(sql, /ALTER DATABASE "fixture_test" OWNER TO "fixture_migrate"/);
-  assert.match(sql, /GRANT INSERT, SELECT \(id\) ON TABLE public\."feedback" TO "fixture_feedback_write"/);
+  assert.match(sql, /GRANT INSERT, SELECT \(id, created_at\) ON TABLE public\."feedback" TO "fixture_feedback_write"/);
   assert.match(sql, /GRANT SELECT, INSERT ON TABLE public\."audit_log" TO "fixture_auth"/);
   assert.doesNotMatch(sql, /GRANT (?:ALL|UPDATE|DELETE|SELECT, INSERT, UPDATE, DELETE) ON TABLE public\."audit_log" TO "fixture_(?:auth|worker|private_ops)"/);
   assert.doesNotMatch(sql, /GRANT SELECT ON TABLE public\."(?:sources|articles|translations|settings)" TO "fixture_public_read"/);

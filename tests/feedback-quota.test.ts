@@ -1,6 +1,6 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { after, test } from "node:test";
@@ -67,4 +67,38 @@ test("legacy global counters do not block; invalid pictures and changed-key payl
     await assert.rejects(submitFeedback({ ...request("invalid-image-client"), screenshot: { mime: "image/png", data: Buffer.from("invalid") } }), /有效的/);
   await assert.rejects(submitFeedback(request("invalid-image-client")), limited);
   assert.equal((await sql`SELECT used FROM feedback.quota_buckets WHERE scope='site_day'`)[0]!.used, 500);
+});
+
+test("network quotas ignore browser changes and preserve legacy manual bans", async () => {
+  for (let i = 0; i < 3; i++) await submitFeedback({ ...request(`2001:db8:aa:bb::${i + 1}`), content: `同一网络的不同反馈 ${i}`, userAgent: `Chrome ${i}` });
+  await assert.rejects(submitFeedback({ ...request("2001:db8:aa:bb::ff"), userAgent: "Firefox" }), limited);
+  assert.equal(feedbackSourceHash("192.0.2.7", "Chrome"), feedbackSourceHash("::ffff:c000:207", "Firefox"));
+  const input = { ...request("192.0.2.75"), userAgent: "Chrome Android" },
+    old = createHmac("sha256", process.env.PUBLIC_RATE_LIMIT_SECRET!).update(`${input.ip}|Chrome/Android`).digest("base64url").slice(0, 24);
+  await banSource(old, "合成旧来源永久封禁", "test");
+  await assert.rejects(submitFeedback(input), (e) => (e as { status: number }).status === 403);
+  await unbanSource(old, "test");
+  assert.ok((await submitFeedback(input)).id);
+});
+
+test("site capacity is atomic, logs once per hour and still permits an idempotent replay", async (t) => {
+  await sql`UPDATE feedback SET created_at=now()-interval '2 hours'`;
+  const saved = request("site-capacity-saved"),
+    first = await submitFeedback(saved);
+  await sql`INSERT INTO feedback(content,source_hash) SELECT '合成容量记录','site-capacity-'||n FROM generate_series(1,58) n`;
+  const warning = t.mock.method(console, "warn", () => {});
+  const results = await Promise.all(
+    [0, 1, 2].map(async (i) => {
+      try {
+        await submitFeedback(request(`site-capacity-${i}`));
+        return 201;
+      } catch (error) {
+        return (error as { status: number }).status;
+      }
+    }),
+  );
+  assert.deepEqual(results.sort(), [201, 429, 429]);
+  assert.equal(warning.mock.callCount(), 1);
+  assert.deepEqual(await submitFeedback(saved), first);
+  assert.equal((await sql`SELECT count(*)::int n FROM feedback WHERE created_at>now()-interval '1 hour'`)[0]!.n, 60);
 });
