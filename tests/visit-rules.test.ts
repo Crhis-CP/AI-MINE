@@ -6,6 +6,7 @@ import { test } from "node:test";
 import type { ModulePage } from "@amp/contracts/modules";
 import { MODULES } from "@amp/site/modules";
 import {
+  COUNTRY_PAGES,
   deviceClass,
   isBot,
   isPrefetch,
@@ -110,7 +111,12 @@ test("every public reader route, Chinese and English, is counted under its own p
   const modulePages = MODULES.flatMap((m) => (m.pages ?? []).flatMap((p) => ("layout" in p ? p.pages : [p as ModulePage]))).map((p) => p.path);
   const adminPages = MODULES.flatMap((m) => m.adminPages ?? []).map((p) => p.path);
   assert.ok(core.length >= 20 && modulePages.length >= 6, "route list read");
-  const sample = (path: string) => `/${path.replace(/:page/g, "2").replace(/:[A-Za-z]+/g, "x-1")}`;
+  // A country page exists only for the countries in COUNTRY_PAGES (TASK-0634); every other placeholder takes any segment.
+  const sample = (path: string) =>
+    `/${path
+      .replace(/^country\/:code$/, "country/CN")
+      .replace(/:page/g, "2")
+      .replace(/:[A-Za-z]+/g, "x-1")}`;
   for (const path of ["", ...core, ...modulePages]) {
     for (const address of [sample(path), `/en${sample(path) === "/" ? "" : sample(path)}`]) {
       const page = readerPage(address);
@@ -204,4 +210,20 @@ test("an IPv6 visitor is its /64 network: the part a phone changes on its own do
   assert.equal(visitorNetwork(""), "");
   const salt = Buffer.alloc(32, 4);
   assert.equal(visitorKey(salt, "2001:db8:12:3400:a1b2:c3d4:e5f6:1", IPHONE), visitorKey(salt, "2001:db8:12:3400:1111:2222:3333:4444", IPHONE));
+});
+
+test("a country page counts only for a country that has one, the list the web app uses (TASK-0634)", () => {
+  const web = readFileSync(new URL("../apps/web/app/features/region/home-country.ts", import.meta.url), "utf8");
+  const listed = /HOME_COUNTRIES[^=]*=\s*\[([^\]]*)\]/.exec(web)?.[1];
+  assert.ok(listed, "HOME_COUNTRIES read");
+  assert.deepEqual(
+    [...listed.matchAll(/"([A-Z]{2})"/g)].map((m) => m[1]),
+    [...COUNTRY_PAGES],
+  );
+  for (const code of COUNTRY_PAGES) {
+    assert.deepEqual(readerPage(`/country/${code}`), { route: "/country/:code", path: `/country/${code}`, english: false });
+    assert.deepEqual(readerPage(`/en/country/${code}`), { route: "/country/:code", path: `/country/${code}`, english: true });
+  }
+  for (const path of ["/country/XX", "/country/cn", "/country/x-1", "/country/", "/country/CN/more", "/en/country/JP"])
+    assert.equal(readerPage(path), null, path);
 });
