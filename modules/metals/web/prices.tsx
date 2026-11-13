@@ -1,6 +1,6 @@
 import { apiFetch, IconChevronDown, IconExternal, Link, pageMeta } from "@amp/web/extension";
 import { type Phrase, useLocale, useTr } from "@amp/web/i18n";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type PointerEvent, type ReactNode } from "react";
 import { data as withHeaders, useLoaderData } from "react-router";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { schemas as publicSchemas, type MetalPrices } from "@amp/contracts/http/public";
@@ -231,6 +231,10 @@ function Trend({ prices, quote }: { prices: MetalPrices; quote: Quote }) {
   const at = hover === null ? null : points[Math.max(0, Math.min(points.length - 1, hover))]!;
   const shown = at ?? last;
   const id = `trend-${quote.key.replace(/[^a-z0-9]/gi, "-")}`;
+  const selectPoint = (event: PointerEvent<SVGSVGElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    setHover(Math.round((((event.clientX - box.left) / box.width) * W - 2) / ((W - 4) / Math.max(1, points.length - 1))));
+  };
   return (
     <figure className="mt-2.5" data-trend={quote.key}>
       <figcaption className="flex items-center justify-between gap-2 text-[11px] text-ink-4">
@@ -266,10 +270,8 @@ function Trend({ prices, quote }: { prices: MetalPrices; quote: Quote }) {
           to: shortLabel(prices, last.label),
           count: points.length,
         })}
-        onPointerMove={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          setHover(Math.round((((event.clientX - box.left) / box.width) * W - 2) / ((W - 4) / Math.max(1, points.length - 1))));
-        }}
+        onPointerDown={selectPoint}
+        onPointerMove={selectPoint}
         onPointerLeave={() => setHover(null)}
       >
         <defs>
