@@ -1,0 +1,128 @@
+{
+  "task": "TASK-0635",
+  "authorization": [
+    "6840362796",
+    "6841197957"
+  ],
+  "batch": "source-preview-20261113",
+  "execution": "local disposable PostgreSQL; requestSourcePreview inline + runSourcePreview; existing collector parses single fetched listing bytes",
+  "actual_user_agent": "Mozilla/5.0 (compatible; AIMiningPolicyBot/1.0; +http://localhost:3000/about)",
+  "permission_check": "current source policy version; fetch/store_metadata/process_locally/store_fulltext evaluated before reads; native preview and crawl checks retained",
+  "model_calls": 0,
+  "production_writes": 0,
+  "list_fetch_rule": "each discovered entry once, per-host gap >=2 seconds; preview reused those bytes",
+  "sources": [
+    {
+      "catalogue_id": null,
+      "province": "AR-J",
+      "publisher": "圣胡安省矿业部",
+      "entry_url": "https://mineria.sanjuan.gob.ar/index.html",
+      "declared_news_entry": "https://feed.mikle.com/widget/v2/156128/?id=fw-iframe156128&preloader-text=Cargando%E2%80%A6",
+      "status": "blocked_robots_disallowed",
+      "count": null,
+      "latest_source_date": null,
+      "body_observed": false,
+      "note": "首页JS声明的iframe指向feed.mikle.com；项目robots检查禁止，停止该源，未登记。"
+    },
+    {
+      "catalogue_id": "exp-20261113-ar-salta-news",
+      "province": "AR-A",
+      "publisher": "萨尔塔省政府·矿业主题",
+      "entry_url": "https://www.salta.gob.ar/prensa/noticias/tema-mineria-32/pagina-1",
+      "status": "preview_succeeded",
+      "count": 18,
+      "latest_source_date": "2026-11-04",
+      "date_precision": "date",
+      "body_observed": true,
+      "body_sample_url": "https://www.salta.gob.ar/prensa/noticias/salta-jujuy-y-catamarca-trabajan-con-organismos-internacionales-para-fortalecer-la-gestion-minera-110939",
+      "body_characters": 2197,
+      "enabled": false,
+      "participation_mode": "isolated",
+      "note": "日期取来源local_date，未把内部排序时间当来源日期。"
+    },
+    {
+      "catalogue_id": "exp-20261113-ar-jujuy-mining-news",
+      "province": "AR-Y",
+      "publisher": "胡胡伊省矿业与碳氢化合物部门",
+      "entry_url": "https://www.mineriajujuy.gob.ar/site/noticias.php",
+      "status": "preview_succeeded",
+      "count": 9,
+      "latest_source_date": "2026-11-12",
+      "date_precision": "date",
+      "body_observed": true,
+      "body_sample_url": "https://www.mineriajujuy.gob.ar/site/detail_news.php?id=291",
+      "body_characters": 3381,
+      "enabled": false,
+      "participation_mode": "isolated",
+      "note": "日期取来源local_date，未把内部排序时间当来源日期。"
+    },
+    {
+      "catalogue_id": null,
+      "province": "AR-K",
+      "publisher": "卡塔马卡省政府",
+      "entry_url": "https://portal.catamarca.gob.ar/",
+      "status": "blocked_crawl_challenge",
+      "count": null,
+      "latest_source_date": null,
+      "body_observed": false,
+      "note": "项目现行UA实际遇验证，停止该源，未登记。"
+    },
+    {
+      "catalogue_id": "exp-20261113-ar-mendoza-mining-news",
+      "province": "AR-M",
+      "publisher": "门多萨省政府新闻·矿业",
+      "entry_url": "https://www.mendoza.gov.ar/prensa/energia-y-ambiente/energia-y-mineria/mineria/",
+      "status": "preview_succeeded",
+      "count": 10,
+      "latest_source_date": "2025-09-01",
+      "date_precision": "date",
+      "body_observed": true,
+      "body_sample_url": "https://www.mendoza.gov.ar/prensa/concluyo-el-proceso-participativo-de-la-audiencia-publica-de-psj-cobre-mendocino-con-mas-de-9-000-expresiones-ciudadanas-y-un-67-a-favor/",
+      "body_characters": 3495,
+      "enabled": false,
+      "participation_mode": "isolated",
+      "note": "最新条目超过60天；日期逗号格式待适配，当前解析器日期为unknown。"
+    },
+    {
+      "catalogue_id": "exp-20261113-ar-santacruz-government-mining",
+      "province": "AR-Z",
+      "publisher": "圣克鲁斯省政府新闻·矿业",
+      "entry_url": "https://noticias.santacruz.gob.ar/organismos/energia/mineria",
+      "status": "preview_succeeded",
+      "count": 5,
+      "latest_source_date": "2026-10-30",
+      "date_precision": "date",
+      "body_observed": true,
+      "body_sample_url": "https://noticias.santacruz.gob.ar/organismos/energia/santa-cruz-verifico-inversiones-en-proyectos-mineros-del-macizo-del-deseado",
+      "body_characters": 4071,
+      "enabled": false,
+      "participation_mode": "isolated",
+      "note": "日期取来源local_date，未把内部排序时间当来源日期。"
+    },
+    {
+      "catalogue_id": "exp-20261113-ar-santacruz-energy-news",
+      "province": "AR-Z",
+      "publisher": "圣克鲁斯省能源与矿业部",
+      "entry_url": "https://enermin.gob.ar/",
+      "status": "preview_succeeded",
+      "count": 3,
+      "latest_source_date": "2026-11-12",
+      "date_precision": "second",
+      "body_observed": true,
+      "body_sample_url": "https://enermin.gob.ar/hidricos/el-gobierno-supervisa-estudios-para-evaluar-la-disponibilidad-de-agua-en-yacimientos-de-la-cuenca-del-golfo-san-jorge/",
+      "body_characters": 2583,
+      "enabled": false,
+      "participation_mode": "isolated",
+      "note": "日期取来源local_date，未把内部排序时间当来源日期。"
+    }
+  ],
+  "local_failures": [
+    "Discovery helper first omitted expected_permission_version and failed before network; fixed against current policy version. Original log retained."
+  ],
+  "production_dedup": {
+    "checked_at_utc": "2026-11-13T02:01:06.873795+00:00",
+    "matched_rows": 0,
+    "successful_executions": 1,
+    "scope": "news lane; five candidate hosts with www normalization and five new IDs"
+  }
+}

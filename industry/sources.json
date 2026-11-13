@@ -294,7 +294,9 @@
         "linkSelector": "a[href]",
         "titleSelector": "a",
         "allowUrlPrefixes": ["https://zjt.fujian.gov.cn/"],
-        "detail": { "reveal": ["div.tabs_bd > div.word_con"] }
+        "detail": {
+          "reveal": ["div.tabs_bd > div.word_con"]
+        }
       },
       "tier": "T1",
       "first_party": true,
@@ -13581,6 +13583,165 @@
       "interval_minutes": 360,
       "tags": [],
       "site_fulltext": true,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261113-ar-salta-news",
+      "name": "萨尔塔省政府 · 矿业新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.salta.gob.ar/prensa/noticias/tema-mineria-32/pagina-1",
+        "language": "es",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "acceptLanguage": "es-AR,es;q=0.9",
+        "itemSelector": ".lista-noticias > li",
+        "linkSelector": "h2 a",
+        "titleSelector": "h2 a",
+        "publishedAtSelector": ".badge",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es"
+        },
+        "allowUrlPrefixes": ["https://www.salta.gob.ar/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "salta.gob.ar",
+      "interval_minutes": 120,
+      "tags": ["AR"],
+      "participation_mode": "isolated",
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261113-ar-jujuy-mining-news",
+      "name": "胡胡伊省矿业部门 · 新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mineriajujuy.gob.ar/site/noticias.php",
+        "language": "es",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "acceptLanguage": "es-AR,es;q=0.9",
+        "itemSelector": "article.news-card",
+        "linkSelector": "h2 a",
+        "titleSelector": "h2 a",
+        "publishedAtSelector": ".tag--date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es"
+        },
+        "allowUrlPrefixes": ["https://www.mineriajujuy.gob.ar/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "jujuy.gob.ar",
+      "interval_minutes": 120,
+      "tags": ["AR"],
+      "participation_mode": "isolated",
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261113-ar-mendoza-mining-news",
+      "name": "门多萨省政府 · 矿业新闻（旧栏目预览）",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mendoza.gov.ar/prensa/energia-y-ambiente/energia-y-mineria/mineria/",
+        "language": "es",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "acceptLanguage": "es-AR,es;q=0.9",
+        "itemSelector": "article.post",
+        "linkSelector": "h4.media-heading a",
+        "titleSelector": "h4.media-heading a",
+        "publishedAtRegex": "([0-9]{1,2}\\s+DE\\s+[A-ZÁÉÍÓÚÑ]+,\\s*[0-9]{4})",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "es"
+        },
+        "allowUrlPrefixes": ["https://www.mendoza.gov.ar/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "mendoza.gov.ar",
+      "interval_minutes": 120,
+      "tags": ["AR"],
+      "participation_mode": "isolated",
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261113-ar-santacruz-government-mining",
+      "name": "圣克鲁斯省政府 · 矿业新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://noticias.santacruz.gob.ar/organismos/energia/mineria",
+        "language": "es",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "acceptLanguage": "es-AR,es;q=0.9",
+        "itemSelector": ".noticia-b",
+        "linkSelector": "a",
+        "titleSelector": "h3",
+        "publishedAtSelector": ".fechaPublicacion",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "es"
+        },
+        "allowUrlPrefixes": ["https://noticias.santacruz.gob.ar/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "santacruz.gob.ar",
+      "interval_minutes": 120,
+      "tags": ["AR"],
+      "participation_mode": "isolated",
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261113-ar-santacruz-energy-news",
+      "name": "圣克鲁斯省能源与矿业部 · 新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://enermin.gob.ar/",
+        "language": "es",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "acceptLanguage": "es-AR,es;q=0.9",
+        "itemSelector": ".wp-block-latest-posts > li",
+        "linkSelector": ".wp-block-latest-posts__post-title",
+        "titleSelector": ".wp-block-latest-posts__post-title",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        },
+        "allowUrlPrefixes": ["https://enermin.gob.ar/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "santacruz.gob.ar",
+      "interval_minutes": 120,
+      "tags": ["AR"],
+      "participation_mode": "isolated",
+      "site_fulltext": false,
       "syndicate_fulltext": false,
       "enabled": false
     }

@@ -45,6 +45,8 @@
 
 ### 2.3 `sources.json`
 
+TASK-0635 的五个阿根廷官方列表仅登记为停用、`isolated` 预览，省份及逐源结果见 `docs/acceptance/sources-20261113/source-preview.json`；门多萨栏目旧且日期格式待适配，圣胡安 iframe 被 robots 禁止、卡塔马卡遇验证而未登记。转正式由 Claude 看预览结果后另定。
+
 | 字段 | 含义 |
 |---|---|
 | `kind` | `rss`；`web_list`（网页列表，配选择器）；`json_list`（JSON 接口）；`mp_account`（公众号，经付费的第三方接口，附录 B 定为关闭）；`external`（外部推送，推送入口首版关闭、不注册，F-ACQ-07） |
