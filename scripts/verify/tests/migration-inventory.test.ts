@@ -719,6 +719,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         ],
       },
       {
+        name: "sources/202611111000_interval_pinned.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202611071401_public_processing_projection.sql"],
+      },
+      {
         name: "acquisition/202611130408_robots_failures.sql",
         module: "acquisition",
         schemas: ["acquisition"],
