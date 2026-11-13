@@ -1,4 +1,5 @@
 import { schemas } from "@amp/contracts/http/public";
+import { useEffect, useState } from "react";
 import { useLoaderData } from "react-router";
 import type { Route } from "./+types/country";
 import { apiBaseFor } from "../../api-target.ts";
@@ -62,7 +63,6 @@ export default function CountryPage() {
   const { code, place, places, news, policies, today, week } = useLoaderData<typeof loader>();
   const { country: t, local } = useT();
   const english = useLocale() === "en";
-  const tr = useTr();
   const nameOf = useRegionName();
   const navigate = useNavigate();
   const name = nameOf(place ?? { code, label: code });
@@ -118,34 +118,75 @@ export default function CountryPage() {
           {fmt(t.more, { country: name })} →
         </Link>
       </section>
-      {!!policies?.items.length && (
-        <section aria-labelledby="country-policies" className="mt-8 border-t border-line pt-5">
-          <h2 id="country-policies" className="text-[16px] font-semibold text-ink">
-            {t.policies}
-          </h2>
-          <ul className="divide-y divide-line-soft">
-            {policies.items.slice(0, 5).map((policy) => {
-              const facts = [
-                policy.instrument_number,
-                policy.nature.code === "unknown" ? null : tr.maybe(policy.nature.label),
-                t.stages[policy.legal_brief.stage],
-                policy.change_kind ? tr.maybe(policy.change_kind.label) : null,
-              ].filter(Boolean);
-              return (
-                <li key={policy.id} className="py-4">
-                  <Link to={`/policies/${encodeURIComponent(policy.id)}`} className="text-[16px] font-medium leading-relaxed text-ink hover:text-accent">
-                    {policy.title}
-                  </Link>
-                  {facts.length > 0 && <p className="mt-1 text-[12px] text-ink-4">{facts.join(" · ")}</p>}
-                </li>
-              );
-            })}
-          </ul>
-          <Link to={`/policies?jurisdiction=${code}`} className="mt-3 inline-block text-[14px] font-medium text-accent hover:underline">
-            {fmt(t.allPolicies, { country: name })} →
-          </Link>
-        </section>
-      )}
+      {place?.policy_scope && <CountryPolicies key={code} code={code} name={name} initial={policies} />}
     </div>
+  );
+}
+
+function CountryPolicies({ code, name, initial }: { code: string; name: string; initial: Awaited<ReturnType<typeof loader>>["policies"] }) {
+  const [policies, setPolicies] = useState(initial);
+  const { country: t } = useT();
+  const tr = useTr();
+  // Policy changes need their own public read, without bypassing the news reader's update controls.
+  useEffect(() => {
+    const controller = new AbortController();
+    let pending = false;
+    const check = async () => {
+      if (pending || document.visibilityState !== "visible") return;
+      pending = true;
+      try {
+        const response = await apiFetch(`/api/site/policies?jurisdiction=${code}&page_size=5`, {
+          baseUrl: window.location.origin,
+          cache: "no-store",
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+        });
+        if (!response.ok) throw new Error("policy list unavailable");
+        const next = schemas.PolicyListResponse.parse(await response.json());
+        if (!controller.signal.aborted) setPolicies(next);
+      } catch {
+        if (!controller.signal.aborted) setPolicies(null);
+      } finally {
+        pending = false;
+      }
+    };
+    void check();
+    const timer = setInterval(check, 60_000);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [code]);
+  if (!policies?.items.length) return null;
+  return (
+    <section aria-labelledby="country-policies" className="mt-8 border-t border-line pt-5">
+      <h2 id="country-policies" className="text-[16px] font-semibold text-ink">
+        {t.policies}
+      </h2>
+      <ul className="divide-y divide-line-soft">
+        {policies.items.slice(0, 5).map((policy) => {
+          const facts = [
+            policy.instrument_number,
+            policy.nature.code === "unknown" ? null : tr.maybe(policy.nature.label),
+            t.stages[policy.legal_brief.stage],
+            policy.change_kind ? tr.maybe(policy.change_kind.label) : null,
+          ].filter(Boolean);
+          return (
+            <li key={policy.id} className="py-4">
+              <Link to={`/policies/${encodeURIComponent(policy.id)}`} className="text-[16px] font-medium leading-relaxed text-ink hover:text-accent">
+                {policy.title}
+              </Link>
+              {facts.length > 0 && <p className="mt-1 text-[12px] text-ink-4">{facts.join(" · ")}</p>}
+            </li>
+          );
+        })}
+      </ul>
+      <Link to={`/policies?jurisdiction=${code}`} className="mt-3 inline-block text-[14px] font-medium text-accent hover:underline">
+        {fmt(t.allPolicies, { country: name })} →
+      </Link>
+    </section>
   );
 }

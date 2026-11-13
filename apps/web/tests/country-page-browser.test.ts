@@ -19,6 +19,10 @@ let emptyNews = false,
   policyScope = true,
   failNews = false,
   failPolicies = false;
+let policyWithdrawn: string | null = null,
+  policyRevision = 1,
+  policyReads = 0,
+  newsReads = 0;
 const failedMaps = new Set<string>();
 let withdrawn: string | null = null;
 const policyList = schemas.PolicyListResponse.parse(JSON.parse(readFileSync("tests/fixtures/policy-public/list.json", "utf8")));
@@ -48,6 +52,7 @@ const api = createServer((req, res) => {
     return send(Object.fromEntries((url.searchParams.get("ids") ?? "").split(",").map((id) => [id, id === withdrawn ? "unavailable" : "public"])));
   if (url.pathname === "/api/site/jurisdictions") return send(places.map((one) => ({ ...one, policy_scope: policyScope })));
   if (url.pathname === "/api/site/pool") {
+    newsReads++;
     if (failNews) return send({ code: "unavailable" }, 503);
     const code = url.searchParams.get("jurisdiction");
     const items = emptyNews
@@ -77,9 +82,16 @@ const api = createServer((req, res) => {
     });
   }
   if (url.pathname === "/api/site/policies") {
+    policyReads++;
     if (failPolicies) return send({ code: "unavailable" }, 503);
     assert.equal(url.searchParams.get("page_size"), "5");
-    const items = emptyPolicies ? [] : Array.from({ length: 5 }, (_, i) => ({ ...policy, id: `demo-law-${i}`, title: `演示法规 ${i + 1}` }));
+    const items = emptyPolicies
+      ? []
+      : Array.from({ length: 5 }, (_, i) => ({
+          ...policy,
+          id: `demo-law-${i}`,
+          title: `演示法规 ${i + 1}${i === 1 && policyRevision > 1 ? `（修订${policyRevision}）` : ""}`,
+        })).filter((one) => one.id !== policyWithdrawn);
     return send({ ...policyList, items, total: items.length, page_size: 5 });
   }
   if (url.pathname === "/api/site/timeline")
@@ -272,4 +284,46 @@ test("English titles, metadata and navigation stay in English", async () => {
   await expect(page).toHaveURL(`${origin}/en/country/CN`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("China mining news");
   await context.close();
+});
+
+test("policy-only withdrawal and correction refresh on focus and timer with a fixed news version", async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", reducedMotion: "reduce" });
+  await isolateBrowser(context, [origin]);
+  const page = await context.newPage();
+  await page.clock.install();
+  try {
+    await page.route("**/api/site/content-version", (route) => route.fulfill({ json: { version: "1", withdrawalVersion: "1" } }));
+    await page.goto(`${origin}/country/AR`);
+    await expect(page.getByRole("link", { name: "演示法规 1", exact: true })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    // Prime the news guard's initial read before changing only policy data.
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await page.waitForLoadState("networkidle");
+    policyWithdrawn = "demo-law-0";
+    policyRevision = 2;
+    const before = policyReads,
+      newsBefore = newsReads;
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("a[href='/policies/demo-law-0']")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "演示法规 2（修订2）", exact: true })).toBeVisible();
+    assert.ok(policyReads > before, "policy list must be read even when the news version is unchanged");
+    assert.equal(newsReads, newsBefore, "policy checks must leave the news reader's update controls alone");
+    policyRevision = 3;
+    await page.clock.fastForward(61_000);
+    await expect(page.getByRole("link", { name: "演示法规 2（修订3）", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "演示法规 2（修订2）", exact: true })).toHaveCount(0);
+    assert.equal(newsReads, newsBefore, "the policy timer must not reread the news pool");
+    failPolicies = true;
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("section[aria-labelledby='country-policies']")).toHaveCount(0);
+    failPolicies = false;
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await expect(page.getByRole("link", { name: "演示法规 2（修订3）", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "演示：AR矿业动态1", exact: true })).toBeVisible();
+  } finally {
+    policyWithdrawn = null;
+    policyRevision = 1;
+    failPolicies = false;
+    await context.close();
+  }
 });
