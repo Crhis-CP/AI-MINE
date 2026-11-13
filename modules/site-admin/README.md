@@ -10,7 +10,7 @@ server.admin.http注册网站资料和来源对账/覆盖接口，仅进入统�
 
 读者页面每显示一页（首次打开和站内跳转），浏览器向`/api/site/visit`发一次信标（`VisitBeacon`：页面路径和首次打开时的来源）；不设Cookie、不在浏览器保存标识，查询条件不发送。server.http注册信标，总是204。backend/visit-rules只做判断：爬虫与脚本、预加载、后台/接口/文件/未知地址不计；按路由归类（内容页保留自己的地址，其余只记路由），来源只留域名且排除本站，设备分手机/平板/电脑。backend/visits在api进程内存累计，每10秒一个事务批量写入，失败即丢弃并计数，不影响页面。
 
-访客标识是网络地址加浏览器信息在当天盐与当月盐下的HMAC（22位）；盐只存`ops.visit_salts`，只为当前日/月创建，统计任务`ops.visit-count`（worker，每10分钟）在日/月结束后删除。同一任务把标识集合计成日访客、设备访客与月访客，日标识在后天、月标识在次月2日删除，长期只留`ops.visit_days/pages/referrers/devices/months`的汇总数字。admin.http的`GET /api/admin/visits`（`VisitOverview`）供负责人与管理员读取，今日与本月访客由标识集合实时计数；后台页`/admin/visits`在“站点管理”第一项。
+访客标识是网络（IPv4整个地址，IPv6只取前64位）加设备种类（操作系统和手机/平板/电脑，不含浏览器名和版本；TASK-0622，同一人换浏览器或从微信再打开不再多算）在当天盐与当月盐下的HMAC（22位）；盐只存`ops.visit_salts`，只为当前日/月创建，统计任务`ops.visit-count`（worker，每10分钟）在日/月结束后删除。同一任务把标识集合计成日访客、设备访客与月访客，日标识在后天、月标识在次月2日删除，长期只留`ops.visit_days/pages/referrers/devices/months`的汇总数字。admin.http的`GET /api/admin/visits`（`VisitOverview`）供负责人与管理员读取，今日与本月访客由标识集合实时计数；后台页`/admin/visits`在“站点管理”第一项。
 
 ## 读者兴趣记录（TASK-0596）
 

@@ -76,10 +76,6 @@ export function fmt(text: string, values: Record<string, string | number>): stri
   return text.replace(/\{(\w+)\}/g, (whole, key: string) => (key in values ? String(values[key]) : whole));
 }
 
-export function dictFor(locale: Locale): Dict {
-  return DICTS[locale];
-}
-
 /** A news category's name in the interface language; a retired key (ADR-0031) names the classes it now covers. */
 export function useCategoryLabel(): (key: string) => string {
   const locale = useLocale();

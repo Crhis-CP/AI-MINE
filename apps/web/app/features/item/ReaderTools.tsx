@@ -40,7 +40,7 @@ export function ReaderToolbar({ id, originalUrl, onOutline, onShare }: { id: str
     >
       {error && (
         <p role="alert" className="px-4 py-2 text-[13px] text-hot">
-          {error}
+          {tr.maybe(error)}
         </p>
       )}
       <div className={`mx-auto grid max-w-[640px] ${onOutline ? "grid-cols-4" : "grid-cols-3"}`}>
