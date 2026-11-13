@@ -43,6 +43,9 @@ interface Converted {
   currency: "CNY" | "USD";
   rate: { source: string; name: string; date: string; label: string };
 }
+/** How many periods of one quote the trend line may carry (a year of working days and some). */
+const HISTORY_POINTS = 400;
+type History = Array<{ period: { start: string; end: string; label: string }; value: string }>;
 /** The newest stored day of a rate series: what a source that only gives rates is fresh or stale by. */
 type RateDay = Pick<Price, "start" | "end" | "label" | "release" | "url" | "date">;
 
@@ -64,8 +67,9 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
   );
   // The rate series a conversion may use: enabled, of an enabled source (a stopped rate source just shows no conversion).
   const rates = registry.items.filter((item) => item.rate && item.enabled && sources.some((s) => s.key === item.source));
-  const [selected, held, converted, rateDays] = await sql.begin("read only isolation level repeatable read", async (tx) => {
+  const [selected, held, converted, rateDays, histories] = await sql.begin("read only isolation level repeatable read", async (tx) => {
     const out = new Map<string, Price>();
+    const trends = new Map<string, History>();
     const conversions = new Map<string, Converted>();
     const days = new Map<string, RateDay>();
     // Values held back alone are not in the price table: the quote keeps its last value, marked as waiting.
@@ -105,6 +109,27 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
       )
         throw new Error(`Price unit/currency mismatch: ${item.key}`);
       out.set(item.key, row);
+      // Every stored period of the quote in the same unit and currency (the newest version of each), for the trend
+      // line: read in the same snapshot as the price above, newest first, at most HISTORY_POINTS.
+      const points = await tx<{ start: string; end: string; label: string; value: string }[]>`
+        WITH versions AS (
+          SELECT DISTINCT ON (series_key, period_start) series_key, currency, unit, period_start, period_end, period_label,
+            value, first_fetched_at, released_on, release_label
+          FROM publication.metal_prices WHERE series_key IN (${item.key}, ${convert?.rate ?? item.key})
+          ORDER BY series_key, period_start DESC, first_fetched_at DESC, released_on DESC NULLS LAST, release_label DESC
+        )
+        SELECT p.period_start::text AS start, p.period_end::text AS end, p.period_label AS label,
+          (CASE WHEN ${!!convert} THEN p.value * ${convert?.factor ?? "1"}::numeric / r.value ELSE p.value END)::text AS value
+        FROM versions p LEFT JOIN versions r ON r.series_key = ${convert?.rate ?? ""} AND r.period_start = p.period_start
+        WHERE p.series_key = ${item.key} AND p.unit = ${item.unit} AND p.currency = ${source.currency}
+          AND (NOT ${!!convert} OR (r.value IS NOT NULL AND r.unit = ${row.rate_unit ?? ""} AND r.currency = ${row.rate_currency ?? ""}))
+          AND p.period_start <= ${row.start}::date
+        ORDER BY p.period_start DESC LIMIT ${HISTORY_POINTS}`;
+      if (points.length >= 2)
+        trends.set(
+          item.key,
+          points.reverse().map((point) => ({ period: { start: point.start, end: point.end, label: point.label }, value: point.value })),
+        );
       // The rate of the quote's period end, or of the latest day before it within the window; never a later one.
       const secondary = item.secondary;
       const by = secondary ? rates.find((candidate) => candidate.key === secondary.rate) : undefined;
@@ -139,7 +164,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
         LIMIT 1`;
       if (day) days.set(rate.source, day);
     }
-    return [out, new Map(holds.map((hold) => [hold.series_key, hold.period_label])), conversions, days] as const;
+    return [out, new Map(holds.map((hold) => [hold.series_key, hold.period_label])), conversions, days, trends] as const;
   });
   const today = beijingDate(now),
     yearPrefix = `${today.slice(0, 4)}年`;
@@ -221,6 +246,7 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
           // Only quotes registered with a conversion whose rate is in use carry the field; null while no rate of the
           // window is stored. A stopped or unregistered rate source leaves the published price alone, as before.
           ...(item.secondary && rates.some((rate) => rate.key === item.secondary!.rate) ? { converted: converted.get(item.key) ?? null } : {}),
+          ...(histories.has(item.key) ? { history: histories.get(item.key)! } : {}),
         };
       });
     return quotes.length ? [{ ...metal, quotes }] : [];
