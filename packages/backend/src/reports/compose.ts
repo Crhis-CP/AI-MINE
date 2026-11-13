@@ -213,12 +213,6 @@ export async function periodReportQualification(kind: "weekly" | "monthly", key:
   return periodQualification(start, addDays(next, -1));
 }
 
-/** How many current entries the composer would use; zero alone does not prove a completed quiet period. */
-export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
-  if (kind === "daily") return (await dailyReportQualification(key)).qualified;
-  return (await periodReportQualification(kind, key)).qualified;
-}
-
 export const editionTime = (date: string) => new Date(`${date}T${EDITION_TIMES.daily}:00+08:00`);
 export function dueDaily(now = new Date()) {
   const today = beijingDate(now);

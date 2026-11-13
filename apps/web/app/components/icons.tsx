@@ -32,14 +32,6 @@ export const IconHeart = (p: P) => (
     <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />
   </Svg>
 );
-export const IconApps = (p: P) => (
-  <Svg {...p}>
-    <rect x="4" y="4" width="6.5" height="6.5" rx="1.2" />
-    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2" />
-    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2" />
-    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2" />
-  </Svg>
-);
 export const IconUsers = (p: P) => (
   <Svg {...p}>
     <path d="M16 20v-1.5a3.5 3.5 0 00-3.5-3.5h-5A3.5 3.5 0 004 18.5V20" />

@@ -31,7 +31,7 @@ export function PolicySaveButton({ id, className = "text-[13px] text-accent" }: 
       </button>
       {error && (
         <span role="alert" className="ml-2 text-[12px] text-hot">
-          {error}
+          {tr.maybe(error)}
         </span>
       )}
     </span>
