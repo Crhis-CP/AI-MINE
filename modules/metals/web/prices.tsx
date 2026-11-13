@@ -1,6 +1,6 @@
 import { apiFetch, IconChevronDown, IconExternal, Link, pageMeta } from "@amp/web/extension";
 import { type Phrase, useLocale, useTr } from "@amp/web/i18n";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type PointerEvent, type ReactNode } from "react";
 import { data as withHeaders, useLoaderData } from "react-router";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { schemas as publicSchemas, type MetalPrices } from "@amp/contracts/http/public";
@@ -15,6 +15,12 @@ import {
   priceText,
   shortLabel,
   tagOf,
+  trendPoints,
+  trendRanges,
+  trendScale,
+  trendStepped,
+  trendWindow,
+  type TrendRange,
   type Metal,
   type Note,
   type Quote,
@@ -193,6 +199,108 @@ function QuoteInfo({ prices, quote }: { prices: MetalPrices; quote: Quote }) {
   );
 }
 
+/**
+ * How the quote's price moved (TASK-0627, a reader's suggestion taken up by the Owner 2026-11-12): one point per
+ * published period, read from what the site has stored, never interpolated. Daily prices are a line; ten-day and
+ * monthly ones are steps. The point under the pointer shows its period and price. Red when the range ends higher
+ * than it began, green when lower, as the change badge does.
+ */
+function Trend({ prices, quote }: { prices: MetalPrices; quote: Quote }) {
+  const tr = useTr();
+  const all = trendPoints(quote);
+  const ranges = trendRanges(all);
+  const [range, setRange] = useState<TrendRange | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  if (!ranges.length) return null;
+  const current = ranges.find((r) => r.key === range) ?? ranges[0]!;
+  const points = trendWindow(all, current.days);
+  const W = 320,
+    H = 96,
+    top = 8,
+    bottom = 6;
+  const { min, max } = trendScale(points.map((p) => p.value));
+  const x = (i: number) => (points.length === 1 ? W / 2 : 2 + ((W - 4) * i) / (points.length - 1)),
+    y = (value: number) => top + (H - top - bottom) * (1 - (value - min) / (max - min));
+  const stepped = trendStepped(points);
+  let path = `M${x(0)},${y(points[0]!.value)}`;
+  for (let i = 1; i < points.length; i++) path += stepped ? ` H${x(i)} V${y(points[i]!.value)}` : ` L${x(i)},${y(points[i]!.value)}`;
+  const first = points[0]!,
+    last = points.at(-1)!,
+    direction = last.value > first.value ? "up" : last.value < first.value ? "down" : "flat",
+    stroke = direction === "up" ? "var(--hot)" : direction === "down" ? "var(--ok)" : "var(--ink-3)";
+  const at = hover === null ? null : points[Math.max(0, Math.min(points.length - 1, hover))]!;
+  const shown = at ?? last;
+  const id = `trend-${quote.key.replace(/[^a-z0-9]/gi, "-")}`;
+  const selectPoint = (event: PointerEvent<SVGSVGElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    setHover(Math.round((((event.clientX - box.left) / box.width) * W - 2) / ((W - 4) / Math.max(1, points.length - 1))));
+  };
+  return (
+    <figure className="mt-2.5" data-trend={quote.key}>
+      <figcaption className="flex items-center justify-between gap-2 text-[11px] text-ink-4">
+        <span className="min-w-0 truncate" aria-live="polite">
+          {shortLabel(prices, shown.label)} <span className="mono tabular-nums text-ink-2">{priceText(String(shown.value), quote.decimals)}</span>
+        </span>
+        {ranges.length > 1 && (
+          <span className="flex shrink-0 gap-0.5 rounded-full bg-bg-sunk p-0.5">
+            {ranges.map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                aria-pressed={r.key === current.key}
+                onClick={() => {
+                  setRange(r.key);
+                  setHover(null);
+                }}
+                className={`rounded-full px-2 py-px ${r.key === current.key ? "bg-surface font-medium text-ink shadow-sm" : "text-ink-3"}`}
+              >
+                {tr.maybe(r.label)}
+              </button>
+            ))}
+          </span>
+        )}
+      </figcaption>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="mt-1 block h-auto w-full touch-pan-y overflow-visible"
+        role="img"
+        aria-label={tr("{metal}价格走势：{from} 至 {to}，共 {count} 期", {
+          metal: quote.title,
+          from: shortLabel(prices, first.label),
+          to: shortLabel(prices, last.label),
+          count: points.length,
+        })}
+        onPointerDown={selectPoint}
+        onPointerMove={selectPoint}
+        onPointerLeave={() => setHover(null)}
+      >
+        <defs>
+          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={stroke} stopOpacity={0.16} />
+            <stop offset="1" stopColor={stroke} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={`${path} V${H} H${x(0)}Z`} fill={`url(#${id})`} />
+        <path d={path} fill="none" stroke={stroke} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+        {points.length <= 12 && points.map((p, i) => <circle key={p.start} cx={x(i)} cy={y(p.value)} r={1.75} fill={stroke} />)}
+        <circle cx={x(points.length - 1)} cy={y(last.value)} r={3.25} fill={stroke} stroke="var(--surface)" strokeWidth={1.75} />
+        {at && (
+          <>
+            <line x1={x(points.indexOf(at))} x2={x(points.indexOf(at))} y1={top - 4} y2={H} stroke="var(--ink-4)" strokeWidth={1} />
+            <circle cx={x(points.indexOf(at))} cy={y(at.value)} r={3.5} fill="var(--surface)" stroke={stroke} strokeWidth={1.75} />
+          </>
+        )}
+      </svg>
+      <p className="mt-0.5 flex justify-between text-[10.5px] text-ink-4">
+        <span>{shortLabel(prices, first.label)}</span>
+        <span>
+          {stepped ? tr("每期一个价") : tr("每次公布一个价")} · {tr("{count} 期", { count: points.length })}
+        </span>
+      </p>
+    </figure>
+  );
+}
+
 function MetalCard({ prices, metal }: { prices: MetalPrices; metal: Metal }) {
   const tr = useTr();
   const lead = headlineIndex(prices, metal);
@@ -213,6 +321,7 @@ function MetalCard({ prices, metal }: { prices: MetalPrices; metal: Metal }) {
       <div className="mt-1.5 min-h-5">
         <Change prices={prices} quote={quote} />
       </div>
+      <Trend prices={prices} quote={quote} />
       <details className="disclosure group/quotes mt-auto pt-3">
         <summary className="flex items-center gap-1 border-t border-line-soft pt-2.5 text-[12px] text-ink-3 transition-colors hover:text-ink">
           <span>{others.length ? tr("另有 {count} 个报价", { count: others.length }) : tr("来源与规格")}</span>
