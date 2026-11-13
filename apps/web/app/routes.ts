@@ -27,6 +27,7 @@ const moduleAdminPages: RouteConfigEntry[] = MODULES.flatMap((m) => (m.adminPage
 const publicRoutes = [
   route("en?", "routes/home.tsx", { id: "routes/home" }),
   route(en("all"), "routes/all.tsx"),
+  route(en("country/:code"), "routes/country.tsx"),
   route(en("items/:id"), "routes/item.tsx"),
   route(en("items/:id/original"), "routes/item-original.tsx", { id: "item-original" }),
   route(en("hot"), "routes/hot.tsx"),
