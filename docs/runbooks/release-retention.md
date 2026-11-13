@@ -111,7 +111,7 @@ timer每15分钟检查应用是否同镜像、数据库与入口是否运行，�
 bash "$VERIFIED_SOURCE/deploy/production-release.sh" "$SHA" "$ARCHIVE" "$ARCHIVE_HASH" "$BUNDLE" "$MANIFEST_HASH" "$TREE" --selection-confirmed-version 'selection-score-shared@868be169a7+weights@20542a669a'
 ```
 
-先保留原完整environment，单键的存在状态、定义指纹及API/worker生效值存入既有`recovery-point.json.selection_confirmation`；不另加会被维护器判为未知内容的备份文件，不输出环境全文。prepare_switch与镜像同阶段写该键，重复或歧义定义在写入前拒绝。切换失败沿原restore恢复完整environment及程序；原来缺键则恢复缺键，创建旧容器前检查定义，创建后、启动前核对原镜像ID，旧API/worker启动后检查实际值，质量记录仍按原规则保留。
+仅显式传值时，加载校验过的候选镜像后、备份和停机前，用无网络、只读、无生产挂载/环境文件的限额临时容器读取该镜像真实PROMPT_VERSIONS.score；布局仅取当前受支持的.env字面值或镜像默认，不把输入当计算结果。版本、布局不一致或无法取得时停止，现役不动；布局插值或Compose覆盖不猜测放行。先保留原完整environment，单键的存在状态、定义指纹及API/worker生效值存入既有`recovery-point.json.selection_confirmation`；不另加会被维护器判为未知内容的备份文件，不输出环境全文。prepare_switch与镜像同阶段写该键，重复或歧义定义在写入前拒绝。切换失败沿原restore恢复完整environment及程序；原来缺键则恢复缺键，创建旧容器前检查定义，创建后、启动前核对原镜像ID，旧API/worker启动后检查实际值，质量记录仍按原规则保留。
 
 唯一发布线将实际切换起止、准确镜像和新确认值交原查询线，约T+25分钟只读一次新入库稿的新评分及精选供给，T30内判断；本脚本不触发评分或查询费用。无新评分时使用**同一次受测入口**的显式恢复模式，保留该入口的临时源码目录，不热改现场脚本：
 

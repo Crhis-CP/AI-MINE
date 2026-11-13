@@ -179,6 +179,38 @@ else:
     print('SELECTION_CONFIRMED_VERSION '+action+' verified')
 PYS
 }
+# Probe the loaded immutable image with only its planned nonsecret layout, never the production env file.
+candidate_selection() {
+  local layout actual probe=amp-score-probe-$RELEASE_ID-$RELEASE_ATTEMPT
+  local -a probe_env=(-e MODEL_CALLS_ENABLED=false -e AMP_CREDENTIALS_DIR= -e DATABASE_URL=postgres://127.0.0.1:1/score_probe)
+  layout=$(python3 - "$RELEASE_ROOT/.env" "$RELEASE_STAGE/docker-compose.yml" <<'PYL'
+import re,sys
+from pathlib import Path
+compose=Path(sys.argv[2]).read_text(); compose='\n'.join(line for line in compose.splitlines() if not line.lstrip().startswith('#'))
+assert re.findall(r'^\s*env_file:\s*(\S+)\s*$',compose,re.M)==['.env'] and re.search(r'^  worker:\n    <<: \*app(?:\n|$)',compose,re.M), 'Unsupported worker environment inheritance'
+assert 'ANALYSIS_PROMPT_LAYOUT' not in compose and not re.search(r'^\s*(?:include|extends):',compose,re.M), 'Unsupported layout override'
+with open(sys.argv[1]) as file:found=[line.rstrip('\r\n') for line in file if re.match(r'^\s*(?:export\s+)?ANALYSIS_PROMPT_LAYOUT\b',line)]
+assert len(found)<=1, 'Ambiguous analysis layout'
+if not found:print('__image_default__')
+else:
+    match=re.fullmatch(r'''\s*(?:export\s+)?ANALYSIS_PROMPT_LAYOUT\s*=[ \t]*(?:"(shared|separate|)"|'(shared|separate|)'|(shared|separate|))(?:(?:[ \t]+#.*)?[ \t]*)''',found[0])
+    assert match, 'Analysis layout must be a literal shared/separate/default'
+    print(next(value for value in match.groups() if value is not None))
+PYL
+  ) || return 1
+  if [[ $layout != __image_default__ ]]; then probe_env+=(-e "ANALYSIS_PROMPT_LAYOUT=$layout"); fi
+  if ! actual=$(timeout 30s docker run --rm --pull never --name "$probe" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --memory 256m --cpus 1 "${probe_env[@]}" --entrypoint node "$RELEASE_CANDIDATE_IMAGE" --input-type=module -e 'import {PROMPT_VERSIONS} from "@amp/backend/editorial/analyze";import {analysisPromptLayout} from "@amp/backend/config";console.log(JSON.stringify({layout:analysisPromptLayout(),score:PROMPT_VERSIONS.score}));process.exit(0)'); then
+    timeout 10s docker rm -f -v "$probe" >/dev/null 2>&1 || true
+    return 1
+  fi
+  python3 - "$actual" "$RELEASE_SELECTION_CONFIRMED_VERSION" "$layout" <<'PYV'
+import json,sys
+actual=json.loads(sys.argv[1]); layout=sys.argv[3]
+assert actual['layout'] in ['shared','separate'] and (layout=='__image_default__' or actual['layout']==(layout or 'shared')), 'Candidate layout differs'
+assert actual['score']==sys.argv[2], 'Candidate scoring recipe differs; current version retained'
+print('Candidate scoring recipe and layout verified')
+PYV
+}
 web_origin() {
   local address port
   address=$(dc port web 3000) || return 1
@@ -347,6 +379,7 @@ RELEASE_CANDIDATE_IMAGE=$(python3 -B "$RELEASE_TOOLS/release_artifact.py" loaded
 docker image tag "$RELEASE_CANDIDATE_IMAGE" "$RELEASE_IMAGE"
 printf '%s\n' "$RELEASE_CANDIDATE_IMAGE" > "$RELEASE_BACKUP/candidate-image.txt"
 # Loading and unpacking are complete before the database recovery point and worker pause.
+if [[ -n $RELEASE_SELECTION_CONFIRMED_VERSION ]]; then candidate_selection || exit 1; fi
 phase backup
 for role in "${RELEASE_OLD_APIS[@]}" web worker; do
   [[ $(docker inspect --format '{{.State.Running}}' "amp-$role-1") == true ]]
