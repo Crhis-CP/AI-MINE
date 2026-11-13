@@ -569,6 +569,10 @@
       "dependsOn": ["sources/202611071401_public_processing_projection.sql"]
     },
     {
+      "name": "ai-gateway/202611121000_swipe_calibration.sql",
+      "dependsOn": ["ai-gateway/202610180700_model_service_circuits.sql"]
+    },
+    {
       "name": "acquisition/202611130408_robots_failures.sql",
       "dependsOn": ["acquisition/202610090900_host_pacing.sql"]
     },

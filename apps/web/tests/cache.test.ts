@@ -288,6 +288,7 @@ const protectedApi = async (req: IncomingMessage, res: ServerResponse) => {
     if (req.url === "/api/admin/model-connections")
       return res.end(JSON.stringify({ storage: "ready", connections: modelJourney?.connection ? [modelJourney.connection] : [] }));
     if (req.url === "/api/admin/model-fallbacks") return res.end(JSON.stringify({ routes: [], sources: [] }));
+    if (req.url === "/api/admin/selectbench/swipe") return res.end(JSON.stringify(swipeDeckFixture));
     if (req.url === "/api/admin/selectbench/control") return res.end(JSON.stringify({ enabled: false, expiresAt: null, revision: 0 }));
     if (req.url === "/api/admin/selectbench/prefilter-audit")
       return res.end(
@@ -1897,6 +1898,90 @@ const visitOverviewFixture = {
     },
   },
 };
+
+const swipeDeckFixture = {
+  day: "2026-11-12",
+  dealt: true,
+  cards: [
+    {
+      position: 0,
+      articleId: "synthetic-swipe-answered",
+      kind: "near_pass",
+      title: "合成已答卡片",
+      preview: "合成导读一。",
+      sourceName: "合成来源甲",
+      category: null,
+      discoveredAt: "2026-11-11T02:00:00.000Z",
+      system: "selected",
+      score: 67,
+      threshold: 66,
+      answer: { answer: "yes", reasons: [], revision: 1, at: "2026-11-12T01:00:00.000Z" },
+    },
+    {
+      position: 1,
+      articleId: "synthetic-swipe-open",
+      kind: "near_miss",
+      title: "合成待答卡片：某国修订矿业特许权费",
+      preview: "合成导读二，新规按金属价格分档。",
+      sourceName: "合成来源乙",
+      category: null,
+      discoveredAt: "2026-11-11T03:00:00.000Z",
+      system: "kept",
+      score: 63,
+      threshold: 64,
+      answer: null,
+    },
+    {
+      position: 2,
+      articleId: "synthetic-swipe-blocked",
+      kind: "blocked",
+      title: "合成被拦下的卡片",
+      preview: "合成导读三。",
+      sourceName: "合成来源丙",
+      category: null,
+      discoveredAt: null,
+      system: "blocked",
+      score: null,
+      threshold: null,
+      answer: null,
+    },
+  ],
+  summary: { days: 3, answered: 41, no: 12, yes: 22, star: 7, missed: 4, extra: 2, widened: 5 },
+};
+
+test("刷卡校准台 shows the first unanswered card, its question, the three answers and the week, privately", async () => {
+  privatePageFixtures = true;
+  try {
+    const res = await fetchWithHost(origin + "/admin/swipe", PRIVATE_HOST);
+    assert.equal(res.status, 200);
+    const html = (await res.text()).replace(/<script\b[\s\S]*?<\/script>/g, "");
+    for (const text of [
+      "刷卡校准台",
+      "这条值不值得全球矿业投资者看？",
+      "合成待答卡片：某国修订矿业特许权费",
+      "差一点进精选",
+      "收进“全部”，未进精选（",
+      "← 不相关",
+      "可以看看 →",
+      "必须看 ↑",
+      "很重要",
+      "与矿业无关",
+      "↶ 撤销",
+      "您认为必须看、系统没选进精选",
+    ])
+      assert.ok(html.includes(text), text);
+    // One of three is answered; the answered card and the one after the current are not on the table.
+    assert.match(html, /今天 <b[^>]*>1<\/b>/);
+    assert.ok(!html.includes("合成已答卡片"));
+    assert.ok(!html.includes("合成被拦下的卡片"));
+    assert.match(html, /共答 (?:<!-- -->)?41/);
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store");
+    const reader = await fetch(origin + "/admin/swipe");
+    assert.notEqual(reader.status, 200, "the public host never serves the admin page");
+  } finally {
+    privatePageFixtures = false;
+  }
+});
 
 test("访问概况 renders the overview contract as the dark screen: figures, globe, charts and lists, privately", async () => {
   privatePageFixtures = true;

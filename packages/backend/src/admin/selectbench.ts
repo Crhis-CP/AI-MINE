@@ -133,3 +133,4 @@ export {
 } from "./selectbench-evidence.ts";
 
 export { selectionModelIdentity } from "./selectbench-runtime.ts";
+export { swipeDeck, dealSwipeDeck, answerSwipeCard, recordSwipeDeal, chooseSwipeCards, SWIPE_DECK } from "./swipe.ts";

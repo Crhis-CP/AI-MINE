@@ -602,6 +602,14 @@
       "module": "ai-gateway",
       "access": "business"
     },
+    "ai.swipe_cards": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.swipe_answers": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
     "ai.model_fallback_routes": {
       "module": "ai-gateway",
       "access": "business"
@@ -967,6 +975,7 @@
     "packages/backend/src/admin/models.ts": "ai-gateway",
     "packages/backend/src/admin/operational-snapshot.ts": "identity",
     "packages/backend/src/admin/prefilter-audit.ts": "ai-gateway",
+    "packages/backend/src/admin/swipe.ts": "ai-gateway",
     "packages/backend/src/admin/runs.ts": "ops",
     "packages/backend/src/admin/selectbench-evidence.ts": "ai-gateway",
     "packages/backend/src/admin/selectbench-records.ts": "ai-gateway",
