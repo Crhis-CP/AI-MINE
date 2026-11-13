@@ -14,6 +14,28 @@ export function readHomeCountry(): string | null {
   }
 }
 
+/** The reader's province or state inside the chosen country (TASK-0636), e.g. "CN-XJ"; kept in this browser only. */
+export const HOME_PROVINCE_KEY = "amp-home-province";
+
+export function readHomeProvince(country: string): string | null {
+  try {
+    const value = window.localStorage.getItem(HOME_PROVINCE_KEY);
+    return value?.startsWith(`${country}-`) && /^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** An empty value forgets the province. */
+export function writeHomeProvince(value: string): void {
+  try {
+    if (value) window.localStorage.setItem(HOME_PROVINCE_KEY, value);
+    else window.localStorage.removeItem(HOME_PROVINCE_KEY);
+  } catch {
+    // Private mode: the choice lasts for this page view.
+  }
+}
+
 export function writeHomeCountry(value: string): void {
   try {
     window.localStorage.setItem(HOME_COUNTRY_KEY, value);
