@@ -7,7 +7,7 @@ import { chatJson, environmentModelMetadata } from "../packages/backend/src/prov
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import defaults from "../industry/usage-controls.json" with { type: "json" };
-import { sql, closeDb } from "@amp/backend/db";
+import { sql, closeDb, createDatabaseAccess, type Db } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { sessionPrincipal, SESSION_COOKIE, type AdminPrincipal } from "@amp/backend/admin/auth";
 import { paidRequest, logicalKeyFor, ReceiptUnknownError } from "@amp/backend/providers/receipts";
@@ -427,6 +427,35 @@ test("daily history includes complete zero-spend days and keeps comparisons exac
   const daily = (await readUsageProtection()).breakers.find((b) => b.trigger === "daily_total" && b.state === "warning")!;
   assert.equal(daily.current.history_days, "3");
   assert.equal(daily.current.history_micros, "200000000");
+});
+test("first live history is not cached while empty and a completed value is shared only by its native pool", async () => {
+  await install();
+  await price();
+  const access = createDatabaseAccess("test", { DATABASE_URL: process.env.DATABASE_URL, DATABASE_POOL_MAX: "1" }, () => {});
+  const db = access.dbFor("worker");
+  let reads = 0;
+  const count = {
+    apply(target: Db, self: unknown, args: unknown[]) {
+      if (Array.isArray(args[0]) && Object.hasOwn(args[0], "raw") && (args[0] as string[]).join("?").includes("min(started_at) AS first")) reads++;
+      return Reflect.apply(target, self, args);
+    },
+  };
+  try {
+    assert.notEqual(db.json, sql.json);
+    const counted = new Proxy(db, count);
+    await readUsageProtection(counted);
+    await readUsageProtection(counted);
+    assert.equal(reads, 2);
+    await charge("first-live-history", "0");
+    await readUsageProtection(counted);
+    await db.begin(async (tx) => {
+      assert.equal(tx.json, db.json);
+      await readUsageProtection(new Proxy(tx, count));
+    });
+    assert.equal(reads, 3);
+  } finally {
+    await access.close();
+  }
 });
 test("notification batching is idempotent; unknown delivery is retained and price/usage notices never invoke a model", async () => {
   await install();

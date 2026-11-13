@@ -287,6 +287,17 @@ async function evaluateInput(db: Db, configuration: Configuration, c: UsageConte
       );
   }
 }
+// Native transactions share their pool's JSON encoder; only completed reads cross transaction boundaries.
+const firstLiveDays = new WeakMap<Db["json"], { configuration: string; day: string }>();
+async function firstLiveStartDay(db: Db, configuration: Configuration): Promise<string | null> {
+  const version = `${configuration.version}:${configuration.effective_at}`;
+  const cached = firstLiveDays.get(db.json);
+  if (cached?.configuration === version) return cached.day;
+  const [row] = await db<{ first: Date | null }[]>`SELECT min(started_at) AS first FROM receipt_attempts WHERE origin='live'`;
+  const day = row?.first ? beijingDate(row.first) : null;
+  if (day) firstLiveDays.set(db.json, { configuration: version, day });
+  return day;
+}
 async function dailyMeasurement(db: Db, configuration: Configuration, now: Date) {
   const b = configuration.config.breaker,
     day = beijingDate(now),
@@ -294,9 +305,9 @@ async function dailyMeasurement(db: Db, configuration: Configuration, now: Date)
   const totals = await db<
     { key: string; amount: string }[]
   >`SELECT key,(settled_micros+unknown_micros)::text AS amount FROM ai.usage_sums WHERE kind='day' AND key>=${start} AND key<=${day}`;
-  const [first] = await db<{ first: Date | null }[]>`SELECT min(started_at) AS first FROM receipt_attempts WHERE origin='live'`;
-  const historyDays = first?.first
-    ? Math.min(b.lookback_days, Math.max(0, Math.round((beijingMidnight(day).getTime() - beijingMidnight(beijingDate(first.first)).getTime()) / 86400000)))
+  const first = await firstLiveStartDay(db, configuration);
+  const historyDays = first
+    ? Math.min(b.lookback_days, Math.max(0, Math.round((beijingMidnight(day).getTime() - beijingMidnight(first).getTime()) / 86400000)))
     : 0;
   const today = BigInt(totals.find((t) => t.key === day)?.amount ?? "0"),
     history = totals.filter((t) => t.key < day),

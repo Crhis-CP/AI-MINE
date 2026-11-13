@@ -563,6 +563,18 @@
     {
       "name": "publication/202611081001_publication_english_copy.sql",
       "dependsOn": ["publication/202610260847_original_post_projection.sql", "enrichment/202611081000_english_copies.sql"]
+    },
+    {
+      "name": "ai-gateway/202611131000_receipt_attempts_live_started.sql",
+      "dependsOn": ["ai-gateway/202610180700_model_service_circuits.sql"]
+    },
+    {
+      "name": "events/202611131010_grouping_decisions_created.sql",
+      "dependsOn": ["events/202611071400_report_group_check_outcome.sql"]
+    },
+    {
+      "name": "content/202611131020_articles_analyzed_retry.sql",
+      "dependsOn": ["content/202611061201_news_links_body_hook.sql"]
     }
   ]
 }
