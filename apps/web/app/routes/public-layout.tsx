@@ -1,3 +1,4 @@
+import { Intro } from "../components/shell/Intro";
 import { SearchProvider } from "../features/search/SearchOverlay";
 import { Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
 import { useEffect, type ReactNode } from "react";
@@ -59,6 +60,7 @@ function SiteShell({ children }: { children: ReactNode }) {
     <SearchProvider>
       <div className="flex min-h-dvh flex-col">
         <NavigationProgress active={navigation.state === "loading"} />
+        <Intro />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-control focus:bg-surface focus:px-3 focus:py-2"

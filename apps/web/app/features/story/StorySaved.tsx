@@ -34,6 +34,8 @@ export function StorySaveButton({ id }: { id: string }) {
 
 type CurrentStory = { referenceId: string; id: string; title: string; summary: string | null };
 type Reading = { scope: string; items: CurrentStory[]; missing: string[]; failed: string[]; busy: boolean };
+/** How long a re-check may keep the previously confirmed list on screen before it is blanked. */
+export const RECHECK_GRACE_MS = 2_000;
 const empty = (scope: string, busy = false): Reading => ({ scope, items: [], missing: [], failed: [], busy });
 
 /** Saved identity stays unchanged on merges; all display text comes from the current qualified API. */
@@ -50,9 +52,16 @@ export function StorySavedList() {
     const read = async () => {
       if (pending || controller.signal.aborted || document.visibilityState !== "visible") return;
       pending = true;
-      setReading(empty(selected, true));
       const result = empty(selected);
       const ids = selected ? selected.split(",") : [];
+      // A re-check keeps what the last one confirmed on screen while the answer is on its way (TASK-0619): the list
+      // no longer blanks every minute. An answer slower than RECHECK_GRACE_MS blanks it as before, so unconfirmed
+      // content never outlives the check by more than that. Saved events never checked yet show the “checking” line.
+      setReading((prev) => {
+        const known = new Set([...prev.items.map((item) => item.referenceId), ...prev.missing, ...prev.failed]);
+        return { ...prev, scope: selected, busy: ids.some((id) => !known.has(id)) };
+      });
+      const grace = setTimeout(() => !controller.signal.aborted && setReading(empty(selected, true)), RECHECK_GRACE_MS);
       const apiBase = window.location.origin;
       let next = 0;
       const worker = async () => {
@@ -83,6 +92,7 @@ export function StorySavedList() {
         await Promise.all(Array.from({ length: Math.min(3, ids.length) }, worker));
         if (!controller.signal.aborted) setReading(result);
       } finally {
+        clearTimeout(grace);
         pending = false;
       }
     };
@@ -103,7 +113,7 @@ export function StorySavedList() {
     };
   }, [selected]);
   if (!refs.length) return null;
-  const state = reading.scope === selected ? reading : empty(selected, true);
+  const state = reading.scope === "" ? empty(selected, true) : reading;
   const remove = (id: string) => {
     const result = removeStar(id, "story");
     setError(result.ok ? null : result.message);

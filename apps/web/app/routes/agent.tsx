@@ -106,6 +106,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta({
     title: "Agent 接入",
     description: `让 Agent 直接使用 ${SITE.name}：MCP、RSS、REST API v3，匿名只读。`,
+    descriptionEn: "Use AI-MINE from your agent: MCP, RSS and REST API v3, anonymous and read-only.",
     path,
     image: "/og/pages/agent.png",
   });

@@ -13,6 +13,7 @@ import { HotTopics } from "../features/feed/HotTopics";
 import { WorldMap } from "../features/feed/WorldMap";
 import { FeedBar, FeedToolbar } from "../features/feed/Filters";
 import { DayList } from "../features/feed/DayList";
+import { HomeCountry } from "../features/region/HomeCountry";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -113,6 +114,8 @@ export default function Home() {
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
       <FeedBar base="/" category={filters.category} jurisdiction={filters.jurisdiction ?? null} />
+      {/* The reader's country first, the world below; only on the unfiltered page, where no country was asked for. */}
+      {!filters.jurisdiction && !filters.category && !filters.tag && filters.channel === "all" && <HomeCountry />}
       {/* Direction C overview: the hotspot board beside the survey map on desktop; phones and tablets show the
           map under the board (TASK-0568: it used to be desktop only). */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start lg:gap-5">

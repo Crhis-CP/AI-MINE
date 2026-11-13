@@ -346,6 +346,8 @@ export async function reconcileMonthlyUsage(month: string, now = new Date(), sen
   }
   return (await monthlyUsageReports(month))[0]!;
 }
+/** How long after a month ends its report is still rebuilt hourly (late bills, unknown receipts); daily afterwards. */
+const SETTLING_DAYS = 35;
 export async function usageMonthly(now = new Date(), send = sendAlert) {
   const date = beijingDate(now),
     previous = new Date(`${date.slice(0, 7)}-01T00:00:00Z`);
@@ -354,10 +356,15 @@ export async function usageMonthly(now = new Date(), send = sendAlert) {
   const configured = await usageConfiguration();
   const [hour, minute] = (configured?.config.usage_report.push_time ?? "09:00").split(":").map(Number);
   if (now.getTime() < usageMonthPeriod(month).end.getTime() + (hour! * 60 + minute!) * 60_000) return { deferred: true };
-  // Minute-level scheduling honors the chosen first-issue minute; history is still reconciled at most hourly.
+  // Minute-level scheduling honors the chosen first-issue minute. A closed month can still change while late bills and
+  // unknown receipts settle, so it is rebuilt hourly for SETTLING_DAYS after it ended and once a day after that: each
+  // rebuild scans the month's attempts, and hourly for every month ever stored only grew (TASK-0618).
   const existing = await sql<{ month: string; checked_at: Date }[]>`SELECT month,checked_at FROM ai.usage_monthly_reports ORDER BY checked_at,month LIMIT 24`;
-  const due = (checked: Date) => checked.getTime() <= now.getTime() - 3600_000;
-  for (const row of existing) if (row.month !== month && due(row.checked_at)) await reconcileMonthlyUsage(row.month, now, send);
-  const latest = existing.find((row) => row.month === month);
+  const due = (checked: Date, everyMs = 3600_000) => checked.getTime() <= now.getTime() - everyMs;
+  const settled = (stored: string) => now.getTime() > usageMonthPeriod(stored).end.getTime() + SETTLING_DAYS * 86400_000;
+  for (const row of existing)
+    if (row.month !== month && due(row.checked_at, settled(row.month) ? 86400_000 : 3600_000)) await reconcileMonthlyUsage(row.month, now, send);
+  // Read on its own: among more than 24 stored months the one just checked is never one of the 24 least recently checked.
+  const [latest] = await sql<{ checked_at: Date }[]>`SELECT checked_at FROM ai.usage_monthly_reports WHERE month=${month}`;
   return latest && !due(latest.checked_at) ? { deferred: true } : reconcileMonthlyUsage(month, now, send);
 }
