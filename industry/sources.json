@@ -294,7 +294,9 @@
         "linkSelector": "a[href]",
         "titleSelector": "a",
         "allowUrlPrefixes": ["https://zjt.fujian.gov.cn/"],
-        "detail": { "reveal": ["div.tabs_bd > div.word_con"] }
+        "detail": {
+          "reveal": ["div.tabs_bd > div.word_con"]
+        }
       },
       "tier": "T1",
       "first_party": true,
@@ -13583,6 +13585,1307 @@
       "site_fulltext": true,
       "syndicate_fulltext": false,
       "enabled": false
+    },
+    {
+      "id": "exp-20261113-global-cn-ceic-com",
+      "name": "国家能源集团",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ceic.com/",
+        "language": "zh-CN",
+        "acceptLanguage": "zh-CN,zh;q=0.9",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.ceic.com/"],
+        "itemSelector": ".swiper-slide:has(a[href*=\"newCE0301\"])",
+        "linkSelector": "a[href]",
+        "titleSelector": ".c_h24 .line",
+        "publishedAtSelector": ".c_tmt",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "ceic.com",
+      "tags": ["CN"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-cn-chinacma-org-cn",
+      "name": "中国化学矿业协会",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://chinacma.org.cn/",
+        "language": "zh-CN",
+        "acceptLanguage": "zh-CN,zh;q=0.9",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://chinacma.org.cn/"],
+        "itemSelector": "ul.cyc_cnw > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.timer",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "chinacma.org.cn",
+      "tags": ["CN"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-cn-cnitdc-com",
+      "name": "中国有色金属科技信息网",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cnitdc.com/",
+        "language": "zh-CN",
+        "acceptLanguage": "zh-CN,zh;q=0.9",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.cnitdc.com/"],
+        "itemSelector": ".yw_list_item",
+        "linkSelector": ".yw_list_text a[href]",
+        "titleSelector": ".yw_list_text a",
+        "publishedAtSelector": ".yw_list_time span",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "cnitdc.com",
+      "tags": ["CN"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-cn-stats-gov-cn",
+      "name": "国家统计局",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.stats.gov.cn/sj/zxfb/",
+        "language": "zh-CN",
+        "acceptLanguage": "zh-CN,zh;q=0.9",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.stats.gov.cn/"],
+        "itemSelector": ".list-content > ul > li",
+        "linkSelector": "a.pc_1600",
+        "titleSelector": "a.pc_1600",
+        "publishedAtSelector": "span",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "stats.gov.cn",
+      "tags": ["CN"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-au-amec-org-au",
+      "name": "Association Mining Exploration Companies",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://amec.org.au/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "amec.org.au",
+      "tags": ["AU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-au-ecograf-com-au",
+      "name": "EcoGraf",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.ecograf.com.au/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "ecograf.com.au",
+      "tags": ["AU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-au-ga-gov-au",
+      "name": "Geoscience Australia",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ga.gov.au/news",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.ga.gov.au/"],
+        "itemSelector": ".ga-card-grid__item.News_Item",
+        "linkSelector": "a.ga-card__link",
+        "titleSelector": "h3.ga-card__title",
+        "publishedAtSelector": ".ga-card__date span",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "ga.gov.au",
+      "tags": ["AU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-au-lynasrareearths-com",
+      "name": "Lynas Rare Earths",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://lynasrareearths.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "lynasrareearths.com",
+      "tags": ["AU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-au-mining-com-au",
+      "name": "Mining.com.au",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://mining.com.au/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "mining.com.au",
+      "tags": ["AU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-au-rba-gov-au-rss",
+      "name": "Reserve Bank Australia",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.rba.gov.au/rss/rss-cb-media-releases.xml",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "rba.gov.au",
+      "tags": ["AU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-au-smallcaps-com-au",
+      "name": "Small Caps",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://smallcaps.com.au/feed",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "smallcaps.com.au",
+      "tags": ["AU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-bw-botswanaminingreview-com",
+      "name": "Botswana Mining Review",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://botswanaminingreview.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "publisher-evans-mumba",
+      "tags": ["BW"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-dlpresourcesinc-com",
+      "name": "DLP Resources",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://dlpresourcesinc.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "dlpresourcesinc.com",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-news-gov-bc-ca-rss",
+      "name": "British Columbia Mining Critical Minerals Ministry",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://news.gov.bc.ca/ministries/mining-and-critical-minerals/feed",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "news.gov.bc.ca",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-nexgenenergy-ca-web",
+      "name": "NexGen Energy",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.nexgenenergy.ca/investor-news",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.nexgenenergy.ca/"],
+        "itemSelector": ".collection-item-3, .collection-item-4",
+        "linkSelector": "a[href]",
+        "titleSelector": "h2,h3",
+        "publishedAtSelector": ".text-size-regular",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "nexgenenergy.ca",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-northisle-ca",
+      "name": "Northisle Copper Gold",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://northisle.ca/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "northisle.ca",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-silvernorthres-com",
+      "name": "Silver North Resources",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://silvernorthres.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "silvernorthres.com",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-silverone-com-web",
+      "name": "Silver One Resources",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://silverone.com/news/2026/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://silverone.com/"],
+        "itemSelector": "a[href^=\"/news/2026/\"]",
+        "linkSelector": "a[href]",
+        "sourceDate": {
+          "format": "unknown",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "silverone.com",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-southernsilverexploration-com",
+      "name": "Southern Silver Exploration",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://southernsilverexploration.com/rss/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "southernsilverexploration.com",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ca-thorexpl-com",
+      "name": "Thor Explorations",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://thorexpl.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "thorexpl.com",
+      "tags": ["CA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-eu-ecb-europa-eu-rss",
+      "name": "European Central Bank",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.ecb.europa.eu/rss/press.html",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "ecb.europa.eu",
+      "tags": ["EU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-eu-eurometal-net",
+      "name": "Eurometal",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://eurometal.net/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "eurometal.net",
+      "tags": ["EU"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-fi-gtk-fi",
+      "name": "Geological Survey Finland",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.gtk.fi/en/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "gtk.fi",
+      "tags": ["FI"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-fr-brgm-fr",
+      "name": "French Geological Survey",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.brgm.fr/en/newsroom",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.brgm.fr/"],
+        "itemSelector": "a.bk-article[href^=\"/en/news/\"]",
+        "linkSelector": "a[href]",
+        "titleSelector": ".article-title",
+        "publishedAtSelector": ".article-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "brgm.fr",
+      "tags": ["FR"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gb-andradamining-com",
+      "name": "Andrada Mining",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://andradamining.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "andradamining.com",
+      "tags": ["GB"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gb-bankofengland-co-uk-rss",
+      "name": "Bank of England",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.bankofengland.co.uk/rss/news",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "bankofengland.co.uk",
+      "tags": ["GB"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gb-bgs-ac-uk",
+      "name": "British Geological Survey",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.bgs.ac.uk/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "bgs.ac.uk",
+      "tags": ["GB"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gb-caledoniamining-com",
+      "name": "Caledonia Mining",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.caledoniamining.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "caledoniamining.com",
+      "tags": ["GB"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gb-mauk-org",
+      "name": "Mining Association United Kingdom",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mauk.org/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "mauk.org",
+      "tags": ["GB"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gb-pensana-co-uk",
+      "name": "Pensana",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://pensana.co.uk/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "pensana.co.uk",
+      "tags": ["GB"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gb-womeninmining-org-uk",
+      "name": "Women in Mining UK",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.womeninmining.org.uk/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "womeninmining.org.uk",
+      "tags": ["GB"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gh-ghanachamberofmines-org-web",
+      "name": "Ghana Chamber of Mines",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://ghanachamberofmines.org/media-centre/news-updates/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://ghanachamberofmines.org/"],
+        "itemSelector": "article.ee-post",
+        "linkSelector": "a.ee-post-title-link",
+        "titleSelector": "a.ee-post-title-link",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "unknown",
+          "language": "en"
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "ghanachamberofmines.org",
+      "tags": ["GH"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-gh-mlnr-gov-gh",
+      "name": "Ghana Ministry Lands Natural Resources",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://mlnr.gov.gh/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "mlnr.gov.gh",
+      "tags": ["GH"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-int-afdb-org-rss",
+      "name": "African Development Bank",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.afdb.org/en/news-and-events/rss",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "afdb.org",
+      "tags": ["INT"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-int-bis-org-rss",
+      "name": "Bank International Settlements",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.bis.org/doclist/all_pressrels.rss",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "bis.org",
+      "tags": ["INT"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-int-eiti-org",
+      "name": "EITI",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://eiti.org/latest",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://eiti.org/"],
+        "itemSelector": ".c-listing__items .views-row",
+        "linkSelector": "a.c-card[href]",
+        "titleSelector": ".c-card__heading",
+        "publishedAtSelector": ".c-card__meta",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "eiti.org",
+      "tags": ["INT"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-int-iea-org",
+      "name": "International Energy Agency",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.iea.org/news",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.iea.org/"],
+        "itemSelector": ".m-news-detailed-listing",
+        "linkSelector": "a.m-news-detailed-listing__link[href]",
+        "titleSelector": "h5.m-news-detailed-listing__title",
+        "publishedAtSelector": ".m-news-detailed-listing__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "iea.org",
+      "tags": ["INT"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-int-igfmining-org",
+      "name": "Intergovernmental Forum Mining Minerals Metals",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.igfmining.org/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "igfmining.org",
+      "tags": ["INT"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-int-worldsteel-org",
+      "name": "World Steel Association",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://worldsteel.org/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1_5",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "worldsteel.org",
+      "tags": ["INT"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-lr-mme-gov-lr-web",
+      "name": "Liberia Mines and Energy Ministry",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://mme.gov.lr/all_news.php",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://mme.gov.lr/"],
+        "itemSelector": "article.lds-news-card",
+        "linkSelector": "h3 a[href]",
+        "titleSelector": "h3 a",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "unknown",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "mme.gov.lr",
+      "tags": ["LR"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-rs-balkangreenenergynews-com",
+      "name": "Balkan Green Energy News",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://balkangreenenergynews.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "balkangreenenergynews.com",
+      "tags": ["RS"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-rs-miningsee-eu",
+      "name": "Mining South East Europe",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.miningsee.eu/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "miningsee.eu",
+      "tags": ["RS"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-rw-rmb-gov-rw",
+      "name": "Rwanda Mines Petroleum Gas Board",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.rmb.gov.rw/news/news",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://www.rmb.gov.rw/"],
+        "itemSelector": "article.card-news",
+        "linkSelector": ".article-content-holder a[href]:has(h2)",
+        "titleSelector": "h2",
+        "publishedAtSelector": ".date",
+        "sourceDate": {
+          "format": "unknown",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "rmb.gov.rw",
+      "tags": ["RW"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-ug-memd-go-ug-web",
+      "name": "Uganda Energy Mineral Development",
+      "lane": "news",
+      "kind": "web_list",
+      "config": {
+        "url": "https://memd.go.ug/media/news",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        },
+        "allowUrlPrefixes": ["https://memd.go.ug/"],
+        "itemSelector": "a[href*=\"/media/news/\"]:has(h3)",
+        "linkSelector": "a[href]",
+        "titleSelector": "h3",
+        "sourceDate": {
+          "format": "unknown",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "memd.go.ug",
+      "tags": ["UG"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-us-criticalmetalscorp-com",
+      "name": "Critical Metals Corp",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.criticalmetalscorp.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "criticalmetalscorp.com",
+      "tags": ["US"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-us-federalreserve-gov-rss",
+      "name": "Federal Reserve",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.federalreserve.gov/feeds/press_all.xml",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "federalreserve.gov",
+      "tags": ["US"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-za-africanmining-co-za",
+      "name": "African Mining",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.africanmining.co.za/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "africanmining.co.za",
+      "tags": ["ZA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-za-geoscience-org-za",
+      "name": "Council for Geoscience",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.geoscience.org.za/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T1",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": true,
+      "owner_entity_id": "geoscience.org.za",
+      "tags": ["ZA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-za-miningbusinessafrica-co-za",
+      "name": "Mining Business Africa",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://miningbusinessafrica.co.za/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "miningbusinessafrica.co.za",
+      "tags": ["ZA"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-zm-copperbeltkatangamining-com",
+      "name": "Copperbelt Katanga Mining",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://copperbeltkatangamining.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "copperbeltkatangamining.com",
+      "tags": ["ZM"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261113-global-zm-miningnewszambia-com",
+      "name": "Zambian Mining News",
+      "lane": "news",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.miningnewszambia.com/feed/",
+        "language": "en",
+        "acceptLanguage": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 2
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "first_party": false,
+      "owner_entity_id": "publisher-evans-mumba",
+      "tags": ["ZM"],
+      "enabled": true,
+      "site_fulltext": true,
+      "syndicate_fulltext": false
     }
   ]
 }

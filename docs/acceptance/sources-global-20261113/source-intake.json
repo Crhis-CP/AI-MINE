@@ -1,0 +1,414 @@
+{
+  "$comment": "TASK-0645：中国与AR以外全球首批51配置/50发布主体；逐源robots/当前许可/隔离预览通过。按Claude6843902861：60分钟、站内全文开、站外再分发关。生产元数据去重已由查询线于04:55:54Z完成；原52候选排除已存在的CGS同入口，余51无ID/host/owner匹配。本线不执行apply。",
+  "batch": "source-intake-20261113",
+  "entries": [
+    {
+      "id": "exp-20261113-global-cn-ceic-com",
+      "target_config_hash": "f99ea38499af0f9a99509418d73822718197b429b2cac6fe4345773024eadbb8",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ceic.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-cn-chinacma-org-cn",
+      "target_config_hash": "8894a9246e93651d42344af7a81476aa043628200dd9628fadb04df136cb103c",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "chinacma.org.cn",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-cn-cnitdc-com",
+      "target_config_hash": "53d37a8aea54099037b0563d7df8e3262f65bf7e18bafe7624cd79f4786bbb3b",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "cnitdc.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-cn-stats-gov-cn",
+      "target_config_hash": "e9f34924af316281ff5c41c278f6ea1be4da3cd403ab4f28eb67ff0ead183532",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "stats.gov.cn",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-au-amec-org-au",
+      "target_config_hash": "c0cb05455d2729d102f02588a9f6b9adb1928364d325b9bf81e8235a320faa50",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "amec.org.au",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-au-ecograf-com-au",
+      "target_config_hash": "275720d175db0dd22af43626a8095042e56cb87c20793a065f78738e6080e252",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ecograf.com.au",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-au-ga-gov-au",
+      "target_config_hash": "3b59170e9deb7b3c6d1fa600020d757bbc4c8604825a2af4f4d53fd6d320540f",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ga.gov.au",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-au-lynasrareearths-com",
+      "target_config_hash": "12ec39c6c86de485b80585ea7c0e4914a75cda44dca97d5cdc997599fe8ff1b6",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "lynasrareearths.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-au-mining-com-au",
+      "target_config_hash": "050ec4cf3aa06b163e984358f7ceba6e1adb67e307b044afa6c3409a080a4698",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mining.com.au",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-au-rba-gov-au-rss",
+      "target_config_hash": "19e5ae91079d7ef8459a35738447f8f3eb9a287d1b3d353655e1b6571e533fa1",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "rba.gov.au",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-au-smallcaps-com-au",
+      "target_config_hash": "911c1c1201ccef77945a42efc84e7de8d994a5fe786a1646d73c2b822d7aef76",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "smallcaps.com.au",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-bw-botswanaminingreview-com",
+      "target_config_hash": "51b796d9f8793aeffc3efd567a42024518dafaccd9f744e51aabc5455a99f736",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "publisher-evans-mumba",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-dlpresourcesinc-com",
+      "target_config_hash": "91696dfdda29c1bf9e2f69267e5c49170a0f1e45aa8648400615f2932ffaa597",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "dlpresourcesinc.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-news-gov-bc-ca-rss",
+      "target_config_hash": "2af0af7703db32ed18515dcd7c0a2941caebc9355b35abe471de60ed231ae0ca",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "news.gov.bc.ca",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-nexgenenergy-ca-web",
+      "target_config_hash": "75ca12e700f6973109ba12a8fc04025db671b264ca69e713df9c9edbaca735a8",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "nexgenenergy.ca",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-northisle-ca",
+      "target_config_hash": "edeac177207abf1c15ec1bbbaeb56a1d8788dab7df3390cb542eafac3fc2fb57",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "northisle.ca",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-silvernorthres-com",
+      "target_config_hash": "0c2ec692a5ffcdc89f871ad603c8e1bfeba7ed2574a68df47ac49493a4cc5dc6",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "silvernorthres.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-silverone-com-web",
+      "target_config_hash": "1b3d38140f1d27160789a1f4f75cf92af3dad2d21d451b7eb3509595e96201ff",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "silverone.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-southernsilverexploration-com",
+      "target_config_hash": "03af1a018e7e21774f6953960759eda9bfb25fb9f07960eb618aac44b80bab2f",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "southernsilverexploration.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ca-thorexpl-com",
+      "target_config_hash": "076dd42b806a521e8e9a0312d9df526c17290c62c59f5b2fe6907cc167ab8d5d",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "thorexpl.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-eu-ecb-europa-eu-rss",
+      "target_config_hash": "ca77cef1ff235f3a4ad04b60a6a87fe8b232b5ff55a844959a8c733be647531c",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ecb.europa.eu",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-eu-eurometal-net",
+      "target_config_hash": "642f6baf64c777b70ed3f8b440ba2c9f77ab0c14d57dd2b4a2cbeccacf96cb54",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "eurometal.net",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-fi-gtk-fi",
+      "target_config_hash": "6b84c21088670bed47de828a0e681150345649edce3cca9ec613b114b4a08c4c",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "gtk.fi",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-fr-brgm-fr",
+      "target_config_hash": "a0e3c6f50a3e710c9466e6ca647fcca0bca0cbe644ff99d1ff737e95762e8f98",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "brgm.fr",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gb-andradamining-com",
+      "target_config_hash": "c207a4002482808b09859fc6c39f0bb2322335c9f590f1285989a85d78194a73",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "andradamining.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gb-bankofengland-co-uk-rss",
+      "target_config_hash": "931d172f5134e4f764beb014ac28e0fd47f4c6c6b0fdee4642b28980a6ebd477",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "bankofengland.co.uk",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gb-bgs-ac-uk",
+      "target_config_hash": "e2be077d08346a2b6ad603097a6999560af8e232f18acfa65f1884b47beba18a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "bgs.ac.uk",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gb-caledoniamining-com",
+      "target_config_hash": "70e1a757d170dfcdc6410230900b9dea1dabf41acabeb4681869bbd8a6cea586",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "caledoniamining.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gb-mauk-org",
+      "target_config_hash": "8287d9a07b73a84d674e10f071e3990a682e25d2c03e6a84b8b6c9af92b43bc1",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mauk.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gb-pensana-co-uk",
+      "target_config_hash": "63e3047927ffda7532f99be93c90e5c6bf932cd6bb6d06e496dfa2140824d2b6",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "pensana.co.uk",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gb-womeninmining-org-uk",
+      "target_config_hash": "1420f618f9eab7115b1c16b5e0f3ffbb4c1db9195fde39b6a221041f88a73b0e",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "womeninmining.org.uk",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gh-ghanachamberofmines-org-web",
+      "target_config_hash": "a6d2c0dc5e062dbcf3df0bb00831340252e1c92647fc2ed432a91ad38b46b4e3",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "ghanachamberofmines.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-gh-mlnr-gov-gh",
+      "target_config_hash": "9d77db318afa26676f42825c69fa9dc88d2b4ebfa9994cb6ca35179c4841693e",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mlnr.gov.gh",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-int-afdb-org-rss",
+      "target_config_hash": "af25fe32024f3a441888feef782f47008487cc00a22ad4124591d6d3cc75b190",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "afdb.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-int-bis-org-rss",
+      "target_config_hash": "8871a82c1a1c1d3764f8e6348151034abe7c762d5b884da97f6d491610720da7",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "bis.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-int-eiti-org",
+      "target_config_hash": "315988cc0dc570bc8ab524efb98fdeb0aebd09ac12bc0e69ffce5320bd182bd2",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "eiti.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-int-iea-org",
+      "target_config_hash": "6c3fab568e5ffec85ecf7236a7a8dc7b8bfb2927a8e92b336a37fe5cd559ed67",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "iea.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-int-igfmining-org",
+      "target_config_hash": "6d76adc0ed05dc6583eaeef080fd6f6d73762e7b62923b18a019b387dd89b812",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "igfmining.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-int-worldsteel-org",
+      "target_config_hash": "a9758d0f3438348771529627987112984e52d6e309672fad0276fc82dc8f2ab0",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "worldsteel.org",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-lr-mme-gov-lr-web",
+      "target_config_hash": "c5d3f70ca66cabc21d47a1d47e80d7c26d02297c958a9915f17153ffa57e94ee",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "mme.gov.lr",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-rs-balkangreenenergynews-com",
+      "target_config_hash": "a5d87e29d6fe46dd89234a476c116b3fa23622e94a60ea54514fd8ca5bffe9c0",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "balkangreenenergynews.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-rs-miningsee-eu",
+      "target_config_hash": "526386922cd08403575a228fd094dbbb0cfe276a2c5352fa55cf913b0d218cc8",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "miningsee.eu",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-rw-rmb-gov-rw",
+      "target_config_hash": "ad1a974276a6093e7c4ed4bc965d303a94c81943ced6426d97febdb20194a89d",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "rmb.gov.rw",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-ug-memd-go-ug-web",
+      "target_config_hash": "66b90e2c870bcbda5465a7a06c93f9c2eb1700f9ec1b6072e484452afb749bf7",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "memd.go.ug",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-us-criticalmetalscorp-com",
+      "target_config_hash": "62e4b5060bbfd27fd5c23028230d9446998817b536c6e0400a95ea7e60795793",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "criticalmetalscorp.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-us-federalreserve-gov-rss",
+      "target_config_hash": "c0faf1f5b3f9496d9e1e168a7df4c916096e4860d8225f131d2698f5309adb31",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "federalreserve.gov",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-za-africanmining-co-za",
+      "target_config_hash": "b0ffb3f88fdc11c5fe8480fb826fb51ef92b554f432acb1e06278a33a5770462",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "africanmining.co.za",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-za-geoscience-org-za",
+      "target_config_hash": "ea44fc333f15e68450dac1d432f5e0575356f61d1ceec09fcddcb61dde6e9888",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "geoscience.org.za",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-za-miningbusinessafrica-co-za",
+      "target_config_hash": "d2f7d2fd82d3f40c4a4d04aec0419e4d0f299b7d4a20dfb412a7339822ea0f9a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "miningbusinessafrica.co.za",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-zm-copperbeltkatangamining-com",
+      "target_config_hash": "ae36ce8e393b68fd82614b19296ad8d10f8852d5ccda91aebee5ff1cb8a8b918",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "copperbeltkatangamining.com",
+      "expected_existing": false
+    },
+    {
+      "id": "exp-20261113-global-zm-miningnewszambia-com",
+      "target_config_hash": "b6c9295c511b910f092a2bf0adf44f1879af9aef2b03b38ee98512b7758db35a",
+      "expected_config_hash": null,
+      "expected_owner_entity_id": null,
+      "owner_entity_id": "publisher-evans-mumba",
+      "expected_existing": false
+    }
+  ]
+}

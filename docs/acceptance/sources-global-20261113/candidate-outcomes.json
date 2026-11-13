@@ -1,0 +1,2471 @@
+{
+  "$comment": "本次发现候选263个去重主机；下列为未纳入本批者，不表示该机构永久不可接。HTTP/robots故障仅对当时所试入口成立。真实研究网页在仓库外共享缓存；没有原文或环境秘密。",
+  "research_unique_hosts": 263,
+  "selected_catalogue_entries": 51,
+  "excluded_candidates": [
+    {
+      "id": "exp-20261113-global-cn-mmac-org-cn",
+      "name": "中国冶金矿山企业协会",
+      "entry_url": "https://www.mmac.org.cn/",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.mmac.org.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-chinaisa-org-cn",
+      "name": "中国钢铁工业协会",
+      "entry_url": "https://www.chinaisa.org.cn/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.chinaisa.org.cn/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-cctda-org-cn",
+      "name": "中国煤炭运销协会",
+      "entry_url": "https://www.cctda.org.cn/list-6-1.html",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.cctda.org.cn/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-cnmn-com-cn",
+      "name": "中国有色金属报",
+      "entry_url": "https://www.cnmn.com.cn/index.aspx",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.cnmn.com.cn/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-cgs-gov-cn",
+      "name": "中国地质调查局",
+      "entry_url": "https://www.cgs.gov.cn/xwl/ddyw/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.cgs.gov.cn/robots.txt",
+      "reason": "existing_runtime_cgs-news_same_kind_and_exact_entry; preserve cgs-news and policy-cn-010; no new ID",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 15,
+      "latest_source_date": "2026-11-13",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.cgs.gov.cn/ywdt/ddyw/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-cn-cmgb-com-cn",
+      "name": "中国冶金地质总局",
+      "entry_url": "https://www.cmgb.com.cn/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.cmgb.com.cn/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-ccgc-cn",
+      "name": "中国煤炭地质总局",
+      "entry_url": "https://www.ccgc.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.ccgc.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-mnr-gov-cn",
+      "name": "自然资源部",
+      "entry_url": "https://www.mnr.gov.cn/dt/ywbb/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.mnr.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-ndrc-gov-cn",
+      "name": "国家发展改革委",
+      "entry_url": "https://www.ndrc.gov.cn/xwdt/xwfb/",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.ndrc.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-miit-gov-cn",
+      "name": "工业和信息化部",
+      "entry_url": "https://www.miit.gov.cn/xwdt/gxdt/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.miit.gov.cn/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-chinamine-safety-gov-cn",
+      "name": "国家矿山安全监察局",
+      "entry_url": "https://www.chinamine-safety.gov.cn/xw/mtxx/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.chinamine-safety.gov.cn/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-pbc-gov-cn",
+      "name": "中国人民银行",
+      "entry_url": "https://www.pbc.gov.cn/goutongjiaoliu/113456/113469/index.html",
+      "initial_state": "禁止",
+      "initial_http_status": null,
+      "robots_url": "https://www.pbc.gov.cn/robots.txt",
+      "reason": "stopped_on_禁止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-dnr-gxzf-gov-cn",
+      "name": "广西自然资源厅",
+      "entry_url": "https://dnr.gxzf.gov.cn/xwzx/tpxw/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://dnr.gxzf.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-dnr-shandong-gov-cn",
+      "name": "山东自然资源厅",
+      "entry_url": "https://dnr.shandong.gov.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://dnr.shandong.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-zrzyt-hunan-gov-cn",
+      "name": "湖南自然资源厅",
+      "entry_url": "https://zrzyt.hunan.gov.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://zrzyt.hunan.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-bnr-jiangxi-gov-cn",
+      "name": "江西自然资源厅",
+      "entry_url": "https://bnr.jiangxi.gov.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://bnr.jiangxi.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-dnr-sc-gov-cn",
+      "name": "四川自然资源厅",
+      "entry_url": "https://dnr.sc.gov.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://dnr.sc.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-zrzy-gansu-gov-cn",
+      "name": "甘肃自然资源厅",
+      "entry_url": "https://zrzy.gansu.gov.cn/",
+      "initial_state": "HTTP412",
+      "initial_http_status": 412,
+      "robots_url": "https://zrzy.gansu.gov.cn/robots.txt",
+      "reason": "stopped_on_HTTP412; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-zrzyt-shaanxi-gov-cn",
+      "name": "陕西自然资源厅",
+      "entry_url": "https://zrzyt.shaanxi.gov.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://zrzyt.shaanxi.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-zrzyt-qinghai-gov-cn",
+      "name": "青海自然资源厅",
+      "entry_url": "https://zrzyt.qinghai.gov.cn/",
+      "initial_state": "robots未知 HTTP502",
+      "initial_http_status": null,
+      "robots_url": "https://zrzyt.qinghai.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP502; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-zrzy-ln-gov-cn",
+      "name": "辽宁自然资源厅",
+      "entry_url": "https://zrzy.ln.gov.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://zrzy.ln.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-zrzy-hebei-gov-cn",
+      "name": "河北自然资源厅",
+      "entry_url": "https://zrzy.hebei.gov.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://zrzy.hebei.gov.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-zrzy-jl-gov-cn",
+      "name": "吉林自然资源厅",
+      "entry_url": "https://zrzy.jl.gov.cn/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://zrzy.jl.gov.cn/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-chinalco-com-cn",
+      "name": "中国铝业集团",
+      "entry_url": "https://www.chinalco.com.cn/",
+      "initial_state": "robots非规则正文",
+      "initial_http_status": null,
+      "robots_url": "https://www.chinalco.com.cn/robots.txt",
+      "reason": "stopped_on_robots非规则正文; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-chinareg-com",
+      "name": "中国稀土集团",
+      "entry_url": "https://www.chinareg.com/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.chinareg.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-sdhj-com-cn",
+      "name": "山东黄金",
+      "entry_url": "https://www.sdhj.com.cn/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.sdhj.com.cn/robots.txt",
+      "reason": "publisher mismatch: fetched domain is a construction-materials company, not Shandong Gold"
+    },
+    {
+      "id": "exp-20261113-global-cn-tnmg-com-cn",
+      "name": "铜陵有色",
+      "entry_url": "https://www.tnmg.com.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.tnmg.com.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-chinacoal-com",
+      "name": "中煤集团",
+      "entry_url": "https://www.chinacoal.com/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.chinacoal.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-cn-ansteel-cn",
+      "name": "鞍钢集团",
+      "entry_url": "https://www.ansteel.cn/",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.ansteel.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-baowugroup-com",
+      "name": "宝武钢铁",
+      "entry_url": "https://www.baowugroup.com/",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.baowugroup.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cn-600219-com-cn",
+      "name": "南山铝业",
+      "entry_url": "https://www.600219.com.cn/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.600219.com.cn/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-us-usgs-gov",
+      "name": "US Geological Survey Mineral Resources",
+      "entry_url": "https://www.usgs.gov/programs/mineral-resources-program/news",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.usgs.gov/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.usgs.gov/news/minerals/feed",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-canada-ca",
+      "name": "Natural Resources Canada",
+      "entry_url": "https://www.canada.ca/en/natural-resources-canada/news.html",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.canada.ca/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-gh-mincom-gov-gh",
+      "name": "Ghana Minerals Commission",
+      "entry_url": "https://www.mincom.gov.gh/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.mincom.gov.gh/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ng-msmd-gov-ng",
+      "name": "Nigeria Solid Minerals Development",
+      "entry_url": "https://msmd.gov.ng/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://msmd.gov.ng/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-06-18",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://msmd.gov.ng/news/",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://msmd.gov.ng/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-zm-mmmd-gov-zm",
+      "name": "Zambia Mines and Minerals Development",
+      "entry_url": "https://www.mmmd.gov.zm/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.mmmd.gov.zm/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-tz-tumemadini-go-tz",
+      "name": "Tanzania Minerals Commission",
+      "entry_url": "https://www.tumemadini.go.tz/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.tumemadini.go.tz/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-tz-madini-go-tz",
+      "name": "Tanzania Ministry of Minerals",
+      "entry_url": "https://www.madini.go.tz/news",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.madini.go.tz/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-sl-nma-gov-sl",
+      "name": "Sierra Leone National Minerals Agency",
+      "entry_url": "https://www.nma.gov.sl/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.nma.gov.sl/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 12,
+      "latest_source_date": "2025-03-06",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.nma.gov.sl/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ke-mining-go-ke",
+      "name": "Kenya Mining Department",
+      "entry_url": "https://www.mining.go.ke/news",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.mining.go.ke/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-zw-mines-gov-zw",
+      "name": "Zimbabwe Ministry Mines",
+      "entry_url": "https://www.mines.gov.zw/feed/",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.mines.gov.zw/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-za-mineralscouncil-org-za",
+      "name": "Minerals Council South Africa",
+      "entry_url": "https://www.mineralscouncil.org.za/industry-news/media-releases",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.mineralscouncil.org.za/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-bw-bcm-org-bw",
+      "name": "Botswana Chamber of Mines",
+      "entry_url": "https://bcm.org.bw/feed/",
+      "initial_state": "robots未知 HTTP500",
+      "initial_http_status": null,
+      "robots_url": "https://bcm.org.bw/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP500; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-zw-chamines-co-zw",
+      "name": "Chamber of Mines Zimbabwe",
+      "entry_url": "https://www.chamines.co.zw/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.chamines.co.zw/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.chamines.co.zw/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-tz-chamberofmines-or-tz",
+      "name": "Tanzania Chamber of Mines",
+      "entry_url": "https://chamberofmines.or.tz/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://chamberofmines.or.tz/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ke-kenyachamberofmines-com",
+      "name": "Kenya Chamber of Mines",
+      "entry_url": "https://kenyachamberofmines.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://kenyachamberofmines.com/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2024-04-26",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://kenyachamberofmines.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-cmewa-com-au",
+      "name": "Chamber Minerals Energy Western Australia",
+      "entry_url": "https://www.cmewa.com.au/feed/",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.cmewa.com.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-qrc-org-au",
+      "name": "Queensland Resources Council",
+      "entry_url": "https://www.qrc.org.au/feed/",
+      "initial_state": "验证或拒绝页",
+      "initial_http_status": 403,
+      "robots_url": "https://www.qrc.org.au/robots.txt",
+      "reason": "stopped_on_验证或拒绝页; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-sacome-org-au",
+      "name": "South Australian Chamber Mines Energy",
+      "entry_url": "https://sacome.org.au/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://sacome.org.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-nswmining-com-au",
+      "name": "New South Wales Minerals Council",
+      "entry_url": "https://www.nswmining.com.au/feed/",
+      "initial_state": "跨主机跳转停止",
+      "initial_http_status": null,
+      "robots_url": "https://www.nswmining.com.au/robots.txt",
+      "reason": "stopped_on_跨主机跳转停止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-oma-on-ca",
+      "name": "Ontario Mining Association",
+      "entry_url": "https://oma.on.ca/en/news/rss.aspx",
+      "initial_state": "robots未知 HTTP308",
+      "initial_http_status": null,
+      "robots_url": "https://oma.on.ca/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP308; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-pdac-ca",
+      "name": "PDAC",
+      "entry_url": "https://www.pdac.ca/news",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.pdac.ca/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-nickelinstitute-org",
+      "name": "Nickel Institute",
+      "entry_url": "https://nickelinstitute.org/en/about-nickel-and-its-applications/news/",
+      "initial_state": "验证或拒绝页",
+      "initial_http_status": 403,
+      "robots_url": "https://nickelinstitute.org/robots.txt",
+      "reason": "stopped_on_验证或拒绝页; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-manganese-org",
+      "name": "International Manganese Institute",
+      "entry_url": "https://www.manganese.org/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.manganese.org/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.manganese.org/en/news",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.manganese.org/en",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-int-ifapa-org",
+      "name": "International Ferroalloys Producers Association",
+      "entry_url": "https://www.ifapa.org/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.ifapa.org/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-int-itia-info",
+      "name": "International Tungsten Industry Association",
+      "entry_url": "https://www.itia.info/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.itia.info/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-icdacr-com",
+      "name": "International Chromium Development Association",
+      "entry_url": "https://www.icdacr.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.icdacr.com/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 5,
+      "latest_source_date": "2025-11-26",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.icdacr.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-us-copper-org",
+      "name": "Copper Development Association",
+      "entry_url": "https://www.copper.org/about/pressreleases/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://www.copper.org/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-in-fedmin-com",
+      "name": "Federation Indian Mineral Industries",
+      "entry_url": "https://www.fedmin.com/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.fedmin.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-eu-eurometaux-eu",
+      "name": "Eurometaux",
+      "entry_url": "https://eurometaux.eu/news/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://eurometaux.eu/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-coppercouncil-org",
+      "name": "International Wrought Copper Council",
+      "entry_url": "https://www.coppercouncil.org/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.coppercouncil.org/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-04-22",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.coppercouncil.org/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-int-blogs-worldbank-org",
+      "name": "World Bank Extractives",
+      "entry_url": "https://blogs.worldbank.org/en/energy",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://blogs.worldbank.org/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-au-perseusmining-com",
+      "name": "Perseus Mining",
+      "entry_url": "https://perseusmining.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://perseusmining.com/robots.txt",
+      "reason": "preview_has_metadata_but_source_date_or_current_editorial_purpose_not_yet_verified; held_from_this_batch",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-11-12",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://perseusmining.com/asx-announcements/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-westafricanresources-com",
+      "name": "West African Resources",
+      "entry_url": "https://www.westafricanresources.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.westafricanresources.com/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用"
+    },
+    {
+      "id": "exp-20261113-global-au-greatland-com-au",
+      "name": "Greatland Resources",
+      "entry_url": "https://greatland.com.au/feed/",
+      "initial_state": "跨主机跳转停止",
+      "initial_http_status": null,
+      "robots_url": "https://greatland.com.au/robots.txt",
+      "reason": "stopped_on_跨主机跳转停止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-kefi-minerals-com",
+      "name": "KEFI Gold and Copper",
+      "entry_url": "https://www.kefi-minerals.com/news",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.kefi-minerals.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-orioleresources-com",
+      "name": "Oriole Resources",
+      "entry_url": "https://orioleresources.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://orioleresources.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-gb-arianaresources-com",
+      "name": "Ariana Resources",
+      "entry_url": "https://www.arianaresources.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.arianaresources.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.arianaresources.com/investors/regulatory-news",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.arianaresources.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-tertiaryminerals-com",
+      "name": "Tertiary Minerals",
+      "entry_url": "https://www.tertiaryminerals.com/news",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.tertiaryminerals.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-aterianplc-com",
+      "name": "Aterian",
+      "entry_url": "https://www.aterianplc.com/feed/",
+      "initial_state": "robots未知 HTTP429",
+      "initial_http_status": null,
+      "robots_url": "https://www.aterianplc.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP429; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-rainbowrareearths-com",
+      "name": "Rainbow Rare Earths",
+      "entry_url": "https://rainbowrareearths.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://rainbowrareearths.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-mkango-ca",
+      "name": "Mkango Resources",
+      "entry_url": "https://mkango.ca/news/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://mkango.ca/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-sovereignmetals-com-au",
+      "name": "Sovereign Metals",
+      "entry_url": "https://sovereignmetals.com.au/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://sovereignmetals.com.au/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 2,
+      "latest_source_date": "2024-09-02",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://sovereignmetals.com.au/",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://sovereignmetals.com.au/asx-announcements/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-ionicre-com-au",
+      "name": "Ionic Rare Earths",
+      "entry_url": "https://ionicre.com.au/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://ionicre.com.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-lindianresources-com-au",
+      "name": "Lindian Resources",
+      "entry_url": "https://lindianresources.com.au/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://lindianresources.com.au/robots.txt",
+      "reason": "local_preview_not_completed_or_binding_not_confirmed; not_a_permanent_source_verdict",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "该预览已结束，请重新试抓。"
+    },
+    {
+      "id": "exp-20261113-global-au-hastingstechmetals-com",
+      "name": "Hastings Technology Metals",
+      "entry_url": "https://hastingstechmetals.com/feed/",
+      "initial_state": "robots未知 HTTP429",
+      "initial_http_status": null,
+      "robots_url": "https://hastingstechmetals.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP429; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-iluka-com",
+      "name": "Iluka Resources",
+      "entry_url": "https://www.iluka.com/media-releases/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.iluka.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-lepidico-com",
+      "name": "Lepidico",
+      "entry_url": "https://lepidico.com/feed/",
+      "initial_state": "robots未知 HTTP530",
+      "initial_http_status": null,
+      "robots_url": "https://lepidico.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP530; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-v-er-eu",
+      "name": "Vulcan Energy",
+      "entry_url": "https://v-er.eu/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://v-er.eu/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://v-er.eu/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-vulcan-co",
+      "name": "Vulcan Steel",
+      "entry_url": "https://vulcan.co/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://vulcan.co/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2025-10-14",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://vulcan.co/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-altechbatteries-com",
+      "name": "Altech Batteries",
+      "entry_url": "https://www.altechbatteries.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.altechbatteries.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-renascor-com-au",
+      "name": "Renascor Resources",
+      "entry_url": "https://renascor.com.au/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://renascor.com.au/robots.txt",
+      "reason": "local_preview_not_completed_or_binding_not_confirmed; not_a_permanent_source_verdict",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "该预览已结束，请重新试抓。"
+    },
+    {
+      "id": "exp-20261113-global-au-quantumgraphite-com",
+      "name": "Quantum Graphite",
+      "entry_url": "https://quantumgraphite.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://quantumgraphite.com/robots.txt",
+      "reason": "local_preview_not_completed_or_binding_not_confirmed; not_a_permanent_source_verdict",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "该预览已结束，请重新试抓。"
+    },
+    {
+      "id": "exp-20261113-global-au-blackrockmining-com-au",
+      "name": "Black Rock Mining",
+      "entry_url": "https://blackrockmining.com.au/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://blackrockmining.com.au/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-au-wres-com-au",
+      "name": "Walkabout Resources",
+      "entry_url": "https://wres.com.au/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://wres.com.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-voltresources-com",
+      "name": "Volt Resources",
+      "entry_url": "https://voltresources.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://voltresources.com/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2025-11-05",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://voltresources.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-syrahresources-com-au",
+      "name": "Syrah Resources",
+      "entry_url": "https://www.syrahresources.com.au/news",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.syrahresources.com.au/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-au-tritonminerals-com",
+      "name": "Triton Minerals",
+      "entry_url": "https://tritonminerals.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://tritonminerals.com/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用"
+    },
+    {
+      "id": "exp-20261113-global-gb-marulamining-com",
+      "name": "Marula Mining",
+      "entry_url": "https://www.marulamining.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://www.marulamining.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-atlanticlithium-com-au",
+      "name": "Atlantic Lithium",
+      "entry_url": "https://www.atlanticlithium.com.au/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.atlanticlithium.com.au/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.atlanticlithium.com.au/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-braddaheadltd-com",
+      "name": "Bradda Head Lithium",
+      "entry_url": "https://www.braddaheadltd.com/feed/",
+      "initial_state": "HTTP500",
+      "initial_http_status": 500,
+      "robots_url": "https://www.braddaheadltd.com/robots.txt",
+      "reason": "stopped_on_HTTP500; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-ctlithium-com",
+      "name": "CleanTech Lithium",
+      "entry_url": "https://ctlithium.com/feed/",
+      "initial_state": "HTTP500",
+      "initial_http_status": 500,
+      "robots_url": "https://ctlithium.com/robots.txt",
+      "reason": "stopped_on_HTTP500; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-europeanlithium-com",
+      "name": "European Lithium",
+      "entry_url": "https://europeanlithium.com/feed/",
+      "initial_state": "验证或拒绝页",
+      "initial_http_status": 403,
+      "robots_url": "https://europeanlithium.com/robots.txt",
+      "reason": "stopped_on_验证或拒绝页; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-criticalmetals-co-uk",
+      "name": "Critical Metals",
+      "entry_url": "https://www.criticalmetals.co.uk/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.criticalmetals.co.uk/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用"
+    },
+    {
+      "id": "exp-20261113-global-ie-europeangreentransition-com",
+      "name": "European Green Transition",
+      "entry_url": "https://www.europeangreentransition.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.europeangreentransition.com/robots.txt",
+      "reason": "feed points to external video/wind coverage; mining coverage and rights not clear",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-11-10"
+    },
+    {
+      "id": "exp-20261113-global-gb-tridentroyalties-com",
+      "name": "Trident Royalties",
+      "entry_url": "https://tridentroyalties.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://tridentroyalties.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-ecoraroyalties-com",
+      "name": "Ecora Royalties",
+      "entry_url": "https://www.ecoraroyalties.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.ecoraroyalties.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.ecoraroyalties.com/",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.ecoraroyalties.com/news-media/press-releases/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-altus-strategies-com",
+      "name": "Altus Strategies",
+      "entry_url": "https://www.altus-strategies.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://www.altus-strategies.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-premierafricanminerals-com",
+      "name": "Premier African Minerals",
+      "entry_url": "https://www.premierafricanminerals.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://www.premierafricanminerals.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-kodalminerals-com",
+      "name": "Kodal Minerals",
+      "entry_url": "https://kodalminerals.com/feed/",
+      "initial_state": "HTTP403",
+      "initial_http_status": 403,
+      "robots_url": "https://kodalminerals.com/robots.txt",
+      "reason": "stopped_on_HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-fireringplc-com",
+      "name": "Firering Strategic Minerals",
+      "entry_url": "https://www.fireringplc.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.fireringplc.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.fireringplc.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-eurasiamining-co-uk",
+      "name": "Eurasia Mining",
+      "entry_url": "https://www.eurasiamining.co.uk/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.eurasiamining.co.uk/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.eurasiamining.co.uk/investors/news-announcements",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.eurasiamining.co.uk/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-kavangoresources-com",
+      "name": "Kavango Resources",
+      "entry_url": "https://www.kavangoresources.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.kavangoresources.com/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2025-05-14",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.kavangoresources.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-powermetalresources-com",
+      "name": "Power Metal Resources",
+      "entry_url": "https://www.powermetalresources.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.powermetalresources.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-gb-katorogold-com",
+      "name": "Katoro Gold",
+      "entry_url": "https://katorogold.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://katorogold.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://katorogold.com/",
+          "state": "跨主机跳转停止",
+          "http_status": null
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-rrrplc-com",
+      "name": "Red Rock Resources",
+      "entry_url": "https://www.rrrplc.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.rrrplc.com/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用"
+    },
+    {
+      "id": "exp-20261113-global-au-redrockaustralasia-com-au",
+      "name": "Red Rock Australasia",
+      "entry_url": "https://www.redrockaustralasia.com.au/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.redrockaustralasia.com.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-wishbonegold-com",
+      "name": "Wishbone Gold",
+      "entry_url": "https://wishbonegold.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://wishbonegold.com/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用"
+    },
+    {
+      "id": "exp-20261113-global-gb-panafricanresources-com",
+      "name": "Pan African Resources",
+      "entry_url": "https://www.panafricanresources.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.panafricanresources.com/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 18,
+      "latest_source_date": "2026-03-11",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.panafricanresources.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-gb-jubileemetalsgroup-com",
+      "name": "Jubilee Metals",
+      "entry_url": "https://jubileemetalsgroup.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://jubileemetalsgroup.com/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用"
+    },
+    {
+      "id": "exp-20261113-global-gb-sylvaniaplatinum-com",
+      "name": "Sylvania Platinum",
+      "entry_url": "https://www.sylvaniaplatinum.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.sylvaniaplatinum.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.sylvaniaplatinum.com/",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.sylvaniaplatinum.com/investors-and-media/announcements/2026",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-za-tharisa-com",
+      "name": "Tharisa",
+      "entry_url": "https://www.tharisa.com/latest-news.php",
+      "initial_state": "robots非规则正文",
+      "initial_http_status": null,
+      "robots_url": "https://www.tharisa.com/robots.txt",
+      "reason": "stopped_on_robots非规则正文; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-jangadamines-com",
+      "name": "Jangada Mines",
+      "entry_url": "https://www.jangadamines.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://www.jangadamines.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-harvestminerals-net",
+      "name": "Harvest Minerals",
+      "entry_url": "https://www.harvestminerals.net/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://www.harvestminerals.net/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-serabigold-com",
+      "name": "Serabi Gold",
+      "entry_url": "https://www.serabigold.com/feed/",
+      "initial_state": "HTTP500",
+      "initial_http_status": 500,
+      "robots_url": "https://www.serabigold.com/robots.txt",
+      "reason": "stopped_on_HTTP500; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-auraminerals-com",
+      "name": "Aura Minerals",
+      "entry_url": "https://auraminerals.com/feed/",
+      "initial_state": "跨主机跳转停止",
+      "initial_http_status": null,
+      "robots_url": "https://auraminerals.com/robots.txt",
+      "reason": "stopped_on_跨主机跳转停止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-jaguarmining-com",
+      "name": "Jaguar Mining",
+      "entry_url": "https://jaguarmining.com/en/news/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://jaguarmining.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-gmin-gold",
+      "name": "G Mining Ventures",
+      "entry_url": "https://gmin.gold/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://gmin.gold/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://gmin.gold/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-g2goldfields-com",
+      "name": "G2 Goldfields",
+      "entry_url": "https://g2goldfields.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://g2goldfields.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-reuniongold-com",
+      "name": "Reunion Gold",
+      "entry_url": "https://reuniongold.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://reuniongold.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://reuniongold.com/",
+          "state": "HTTP404",
+          "http_status": 404
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-foundersmetals-com",
+      "name": "Founders Metals",
+      "entry_url": "https://www.foundersmetals.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.foundersmetals.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-kodiakcoppercorp-com",
+      "name": "Kodiak Copper",
+      "entry_url": "https://kodiakcoppercorp.com/feed/",
+      "initial_state": "HTTP500",
+      "initial_http_status": 500,
+      "robots_url": "https://kodiakcoppercorp.com/robots.txt",
+      "reason": "stopped_on_HTTP500; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-dollyvardensilver-com",
+      "name": "Dolly Varden Silver",
+      "entry_url": "https://dollyvardensilver.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://dollyvardensilver.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-sierrametals-com",
+      "name": "Sierra Metals",
+      "entry_url": "https://www.sierrametals.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.sierrametals.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-sierramadregoldandsilver-com",
+      "name": "Sierra Madre Gold Silver",
+      "entry_url": "https://sierramadregoldandsilver.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://sierramadregoldandsilver.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-ca-grsilvermining-com",
+      "name": "GR Silver Mining",
+      "entry_url": "https://grsilvermining.com/feed/",
+      "initial_state": "验证或拒绝页",
+      "initial_http_status": 403,
+      "robots_url": "https://grsilvermining.com/robots.txt",
+      "reason": "stopped_on_验证或拒绝页; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-gsilver-com",
+      "name": "Guanajuato Silver",
+      "entry_url": "https://gsilver.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://gsilver.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://gsilver.com/news/news-2026?format=feed&type=rss",
+          "state": "HTTP404",
+          "http_status": 404
+        },
+        {
+          "entry_url": "https://gsilver.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-santacruzsilver-com",
+      "name": "Santacruz Silver",
+      "entry_url": "https://santacruzsilver.com/feed/",
+      "initial_state": "HTTP500",
+      "initial_http_status": 500,
+      "robots_url": "https://santacruzsilver.com/robots.txt",
+      "reason": "stopped_on_HTTP500; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-cmcmetals-ca",
+      "name": "CMC Metals",
+      "entry_url": "https://cmcmetals.ca/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://cmcmetals.ca/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 9,
+      "latest_source_date": "2026-05-09",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://cmcmetals.ca/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-kuyasilver-com",
+      "name": "Kuya Silver",
+      "entry_url": "https://kuyasilver.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://kuyasilver.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-ca-silvercrestmetals-com",
+      "name": "SilverCrest Metals",
+      "entry_url": "https://silvercrestmetals.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://silvercrestmetals.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://silvercrestmetals.com/",
+          "state": "跨主机跳转停止",
+          "http_status": null
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-discoverysilver-com",
+      "name": "Discovery Silver",
+      "entry_url": "https://discoverysilver.com/feed/",
+      "initial_state": "跨主机跳转停止",
+      "initial_http_status": null,
+      "robots_url": "https://discoverysilver.com/robots.txt",
+      "reason": "stopped_on_跨主机跳转停止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-kootenaysilver-com",
+      "name": "Kootenay Silver",
+      "entry_url": "https://kootenaysilver.com/feed/",
+      "initial_state": "HTTP500",
+      "initial_http_status": 500,
+      "robots_url": "https://kootenaysilver.com/robots.txt",
+      "reason": "stopped_on_HTTP500; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-newgold-com",
+      "name": "New Gold",
+      "entry_url": "https://newgold.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://newgold.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-osiskomining-com",
+      "name": "Osisko Mining",
+      "entry_url": "https://osiskomining.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://osiskomining.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://osiskomining.com/",
+          "state": "跨主机跳转停止",
+          "http_status": null
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-osiskodev-com",
+      "name": "Osisko Development",
+      "entry_url": "https://osiskodev.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://osiskodev.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-osiskogr-com",
+      "name": "Osisko Gold Royalties",
+      "entry_url": "https://osiskogr.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://osiskogr.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://osiskogr.com/English/overview/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-maverix-com",
+      "name": "Maverix Metals",
+      "entry_url": "https://maverix.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://maverix.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://maverix.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-sandstormgold-com",
+      "name": "Sandstorm Gold",
+      "entry_url": "https://sandstormgold.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://sandstormgold.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-franco-nevada-com",
+      "name": "Franco Nevada",
+      "entry_url": "https://www.franco-nevada.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.franco-nevada.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.franco-nevada.com/home/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.franco-nevada.com/investors/news/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-wheatonpm-com",
+      "name": "Wheaton Precious Metals",
+      "entry_url": "https://www.wheatonpm.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.wheatonpm.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.wheatonpm.com/news/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.wheatonpm.com/overview/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-tripleflagpm-com",
+      "name": "Triple Flag Precious Metals",
+      "entry_url": "https://www.tripleflagpm.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.tripleflagpm.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.tripleflagpm.com/home/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.tripleflagpm.com/investors/news/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-goldmining-com",
+      "name": "GoldMining Inc",
+      "entry_url": "https://goldmining.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://goldmining.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://goldmining.com/news/",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://goldmining.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-us-uraniumenergy-com",
+      "name": "Uranium Energy Corp",
+      "entry_url": "https://www.uraniumenergy.com/news/releases/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.uraniumenergy.com/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-ca-uraniumroyalty-com",
+      "name": "Uranium Royalty Corp",
+      "entry_url": "https://www.uraniumroyalty.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.uraniumroyalty.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.uraniumroyalty.com/news/news-releases/",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.uraniumroyalty.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-isoenergy-ca",
+      "name": "IsoEnergy",
+      "entry_url": "https://www.isoenergy.ca/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.isoenergy.ca/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-au-bannermanenergy-com",
+      "name": "Bannerman Energy",
+      "entry_url": "https://bannermanenergy.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://bannermanenergy.com/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-03-26",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://bannermanenergy.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-paladinenergy-com-au",
+      "name": "Paladin Energy",
+      "entry_url": "https://paladinenergy.com.au/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://paladinenergy.com.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-lotusresources-com-au",
+      "name": "Lotus Resources",
+      "entry_url": "https://lotusresources.com.au/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://lotusresources.com.au/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://lotusresources.com.au/investors/asx-announcements",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://lotusresources.com.au/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-pel-net-au",
+      "name": "Peninsula Energy",
+      "entry_url": "https://www.pel.net.au/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.pel.net.au/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.pel.net.au/investors/announcements",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://www.pel.net.au/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-berkeleyenergia-com",
+      "name": "Berkeley Energia",
+      "entry_url": "https://www.berkeleyenergia.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.berkeleyenergia.com/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2023-05-24",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://www.berkeleyenergia.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-au-auraenergy-com-au",
+      "name": "Aura Energy",
+      "entry_url": "https://auraenergy.com.au/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://auraenergy.com.au/robots.txt",
+      "reason": "external media aggregation; do not use to bypass publisher robots restrictions",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-10-26"
+    },
+    {
+      "id": "exp-20261113-global-au-alligatorenergy-com-au",
+      "name": "Alligator Energy",
+      "entry_url": "https://www.alligatorenergy.com.au/feed/",
+      "initial_state": "robots未知 HTTP429",
+      "initial_http_status": null,
+      "robots_url": "https://www.alligatorenergy.com.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP429; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-bossenergy-com",
+      "name": "Boss Energy",
+      "entry_url": "https://bossenergy.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://bossenergy.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://bossenergy.com/investors/asx-announcements",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://bossenergy.com/",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-globalatomiccorp-com",
+      "name": "Global Atomic",
+      "entry_url": "https://globalatomiccorp.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://globalatomiccorp.com/robots.txt",
+      "reason": "initial_entry_failed_but_official_followup_readable; current_collector_config_still_pending",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://globalatomiccorp.com/overview/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        },
+        {
+          "entry_url": "https://globalatomiccorp.com/investors/news/default.aspx",
+          "state": "可读",
+          "http_status": 200
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-goviex-com",
+      "name": "GoviEx Uranium",
+      "entry_url": "https://goviex.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://goviex.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://goviex.com/",
+          "state": "跨主机跳转停止",
+          "http_status": null
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-ca-forsysmetals-com",
+      "name": "Forsys Metals",
+      "entry_url": "https://forsysmetals.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://forsysmetals.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation",
+      "bounded_official_followups": [
+        {
+          "entry_url": "https://forsysmetals.com/",
+          "state": "跨主机跳转停止",
+          "http_status": null
+        }
+      ]
+    },
+    {
+      "id": "exp-20261113-global-za-miningreview-com",
+      "name": "Mining Review Africa",
+      "entry_url": "https://www.miningreview.com/feed/",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.miningreview.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-za-africanminingbrief-com",
+      "name": "African Mining Brief",
+      "entry_url": "https://africanminingbrief.com/feed/",
+      "initial_state": "跨主机跳转停止",
+      "initial_http_status": null,
+      "robots_url": "https://africanminingbrief.com/robots.txt",
+      "reason": "stopped_on_跨主机跳转停止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-na-namibianminingnews-com",
+      "name": "Namibian Mining News",
+      "entry_url": "https://namibianminingnews.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://namibianminingnews.com/robots.txt",
+      "reason": "publisher_identity_relationship_not_confirmed; excluded_from_intake_and_independent_count",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-11-10"
+    },
+    {
+      "id": "exp-20261113-global-mz-mozambiqueminingjournal-com",
+      "name": "Mozambique Mining Journal",
+      "entry_url": "https://mozambiqueminingjournal.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://mozambiqueminingjournal.com/robots.txt",
+      "reason": "publisher_identity_relationship_not_confirmed; excluded_from_intake_and_independent_count",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-11-12"
+    },
+    {
+      "id": "exp-20261113-global-za-miningfocusafrica-com",
+      "name": "Mining Focus Africa",
+      "entry_url": "https://www.miningfocusafrica.com/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://www.miningfocusafrica.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-miningdigital-com",
+      "name": "Mining Digital",
+      "entry_url": "https://miningdigital.com/rss",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://miningdigital.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-us-eurasianet-org",
+      "name": "Eurasianet",
+      "entry_url": "https://eurasianet.org/feed",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://eurasianet.org/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-resourceinvestingnews-com",
+      "name": "Resource Investing News",
+      "entry_url": "https://resourceinvestingnews.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://resourceinvestingnews.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-stockhead-com-au",
+      "name": "Stockhead",
+      "entry_url": "https://stockhead.com.au/feed/",
+      "initial_state": "禁止",
+      "initial_http_status": null,
+      "robots_url": "https://stockhead.com.au/robots.txt",
+      "reason": "robots_disallowed; no alternative channel used to retrieve its articles"
+    },
+    {
+      "id": "exp-20261113-global-gb-miningbeacon-com",
+      "name": "Mining Beacon",
+      "entry_url": "https://www.miningbeacon.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.miningbeacon.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-miningstockdaily-com",
+      "name": "Mining Stock Daily",
+      "entry_url": "https://www.miningstockdaily.com/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.miningstockdaily.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-juniorminingnetwork-com",
+      "name": "Junior Mining Network",
+      "entry_url": "https://www.juniorminingnetwork.com/press-releases.html?format=feed&type=rss",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.juniorminingnetwork.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-juniormininghub-com",
+      "name": "Junior Mining Hub",
+      "entry_url": "https://juniormininghub.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://juniormininghub.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-us-resourcestockdigest-com",
+      "name": "Resource Stock Digest",
+      "entry_url": "https://resourcestockdigest.com/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://resourcestockdigest.com/robots.txt",
+      "reason": "preview_has_metadata_but_source_date_or_current_editorial_purpose_not_yet_verified; held_from_this_batch",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 30,
+      "latest_source_date": null
+    },
+    {
+      "id": "exp-20261113-global-ca-minermoment-com",
+      "name": "The Northern Miner Miner Moment",
+      "entry_url": "https://minermoment.com/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://minermoment.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-resourcegovernance-org",
+      "name": "Natural Resource Governance Institute",
+      "entry_url": "https://resourcegovernance.org/articles",
+      "initial_state": "验证或拒绝页",
+      "initial_http_status": 403,
+      "robots_url": "https://resourcegovernance.org/robots.txt",
+      "reason": "stopped_on_验证或拒绝页; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-iisd-org",
+      "name": "International Institute Sustainable Development",
+      "entry_url": "https://www.iisd.org/rss.xml",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.iisd.org/robots.txt",
+      "reason": "current_collector_preview_empty_or_invalid; keep_unenabled",
+      "local_preview_status": "preview_failed",
+      "local_preview_count": 0,
+      "latest_source_date": null,
+      "preview_error": "预览未取得有效样例，不能据此启用"
+    },
+    {
+      "id": "exp-20261113-global-int-irena-org",
+      "name": "International Renewable Energy Agency",
+      "entry_url": "https://www.irena.org/News",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.irena.org/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-imf-org",
+      "name": "International Monetary Fund",
+      "entry_url": "https://www.imf.org/en/News/RSS",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.imf.org/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-bankofcanada-ca",
+      "name": "Bank of Canada",
+      "entry_url": "https://www.bankofcanada.ca/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.bankofcanada.ca/robots.txt",
+      "reason": "preview_has_metadata_but_source_date_or_current_editorial_purpose_not_yet_verified; held_from_this_batch",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": null
+    },
+    {
+      "id": "exp-20261113-global-int-wto-org",
+      "name": "World Trade Organization",
+      "entry_url": "https://www.wto.org/english/news_e/news_rss_e.xml",
+      "initial_state": "协议降级停止",
+      "initial_http_status": null,
+      "robots_url": "https://www.wto.org/robots.txt",
+      "reason": "stopped_on_协议降级停止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-adb-org",
+      "name": "Asian Development Bank",
+      "entry_url": "https://www.adb.org/rss.xml",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.adb.org/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-unctad-org",
+      "name": "UNCTAD",
+      "entry_url": "https://unctad.org/news/rss.xml",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://unctad.org/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-news-un-org",
+      "name": "UN News Economic Development",
+      "entry_url": "https://news.un.org/feed/subscribe/en/news/topic/economic-development/feed/rss.xml",
+      "initial_state": "robots未知 HTTP308",
+      "initial_http_status": null,
+      "robots_url": "https://news.un.org/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP308; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-ebrd-com",
+      "name": "European Bank Reconstruction Development",
+      "entry_url": "https://www.ebrd.com/news/rss.xml",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.ebrd.com/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-news-ontario-ca",
+      "name": "Ontario Mines Ministry",
+      "entry_url": "https://news.ontario.ca/en/rss",
+      "initial_state": "robots非规则正文",
+      "initial_http_status": null,
+      "robots_url": "https://news.ontario.ca/robots.txt",
+      "reason": "stopped_on_robots非规则正文; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ca-yukon-ca",
+      "name": "Yukon Government",
+      "entry_url": "https://yukon.ca/en/news",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://yukon.ca/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-nrmmrrd-qld-gov-au",
+      "name": "Queensland Resources Department",
+      "entry_url": "https://www.nrmmrrd.qld.gov.au/news-media",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.nrmmrrd.qld.gov.au/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-wa-gov-au",
+      "name": "Western Australia Mines",
+      "entry_url": "https://www.wa.gov.au/organisation/department-of-mines-petroleum-and-exploration/news",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.wa.gov.au/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-au-treasury-gov-au",
+      "name": "Australian Treasury",
+      "entry_url": "https://treasury.gov.au/media-release",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://treasury.gov.au/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-au-minister-industry-gov-au",
+      "name": "Australian Resources Minister",
+      "entry_url": "https://www.minister.industry.gov.au/ministers/king/media-releases",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.minister.industry.gov.au/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-za-gov-za",
+      "name": "South Africa Government News",
+      "entry_url": "https://www.gov.za/rss-feeds",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.gov.za/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-za-resbank-co-za",
+      "name": "South African Reserve Bank",
+      "entry_url": "https://www.resbank.co.za/en/home/publications/rss",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.resbank.co.za/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cl-minmineria-cl",
+      "name": "Chile Ministry Mining",
+      "entry_url": "https://www.minmineria.cl/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.minmineria.cl/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-cl-cochilco-cl",
+      "name": "Chile Cochilco",
+      "entry_url": "https://www.cochilco.cl/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.cochilco.cl/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-br-gov-br",
+      "name": "Brazil Mining Ministry",
+      "entry_url": "https://www.gov.br/mme/pt-br/assuntos/noticias",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.gov.br/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-mx-camimex-org-mx",
+      "name": "Mexico Mining Chamber",
+      "entry_url": "https://camimex.org.mx/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://camimex.org.mx/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-br-sgb-gov-br",
+      "name": "Brazil Institute Geology",
+      "entry_url": "https://www.sgb.gov.br/feed/",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.sgb.gov.br/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-internationalwim-org",
+      "name": "International Women Mining",
+      "entry_url": "https://internationalwim.org/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://internationalwim.org/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2026-03-18"
+    },
+    {
+      "id": "exp-20261113-global-se-swedishmininginnovation-se",
+      "name": "Mining Equipment Mining Processes Business Performance",
+      "entry_url": "https://swedishmininginnovation.se/feed/",
+      "initial_state": "robots未知 HTTP301",
+      "initial_http_status": null,
+      "robots_url": "https://swedishmininginnovation.se/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP301; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-fi-miningfinland-com",
+      "name": "Mining Finland",
+      "entry_url": "https://miningfinland.com/feed/",
+      "initial_state": "robots未知 HTTP302",
+      "initial_http_status": null,
+      "robots_url": "https://miningfinland.com/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP302; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-fi-mineralsgroup-fi",
+      "name": "Finnish Minerals Group",
+      "entry_url": "https://www.mineralsgroup.fi/topical/news.html",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.mineralsgroup.fi/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-se-sgu-se",
+      "name": "Geological Survey Sweden",
+      "entry_url": "https://www.sgu.se/en/about-sgu/news/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.sgu.se/robots.txt",
+      "reason": "readable_page_but_no_supported_current_listing_config_verified_in_this_batch"
+    },
+    {
+      "id": "exp-20261113-global-no-ngu-no",
+      "name": "Geological Survey Norway",
+      "entry_url": "https://www.ngu.no/en/news",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.ngu.no/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-ie-gsi-ie",
+      "name": "Geological Survey Ireland",
+      "entry_url": "https://www.gsi.ie/en-ie/events-and-news/news/Pages/default.aspx",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.gsi.ie/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-de-deutsche-rohstoffagentur-de",
+      "name": "German Raw Materials Agency",
+      "entry_url": "https://www.deutsche-rohstoffagentur.de/DERA/EN/News/news_node.html",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.deutsche-rohstoffagentur.de/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-de-hzdr-de",
+      "name": "Helmholtz Resource Institute",
+      "entry_url": "https://www.hzdr.de/db/Cms?pNid=0&pOid=14755",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.hzdr.de/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-za-csir-co-za",
+      "name": "Council Scientific Industrial Research",
+      "entry_url": "https://www.csir.co.za/media-releases",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.csir.co.za/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-au-amdc-org",
+      "name": "Africa Minerals Development Centre",
+      "entry_url": "https://www.au-amdc.org/feed/",
+      "initial_state": "robots未知 HTTP0",
+      "initial_http_status": null,
+      "robots_url": "https://www.au-amdc.org/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP0; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-dundee-ac-uk",
+      "name": "Dundee Sustainable Minerals Institute",
+      "entry_url": "https://www.dundee.ac.uk/corporate-information/centre-energy-petroleum-and-mineral-law-and-policy",
+      "initial_state": "robots未知 HTTP403",
+      "initial_http_status": null,
+      "robots_url": "https://www.dundee.ac.uk/robots.txt",
+      "reason": "stopped_on_robots未知 HTTP403; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-int-responsibleminingfoundation-org",
+      "name": "Responsible Mining Foundation",
+      "entry_url": "https://www.responsibleminingfoundation.org/feed/",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.responsibleminingfoundation.org/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 1,
+      "latest_source_date": "2019-03-26"
+    },
+    {
+      "id": "exp-20261113-global-int-iied-org",
+      "name": "International Institute Environment Development",
+      "entry_url": "https://www.iied.org/feed",
+      "initial_state": "禁止",
+      "initial_http_status": null,
+      "robots_url": "https://www.iied.org/robots.txt",
+      "reason": "stopped_on_禁止; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-chathamhouse-org",
+      "name": "Chatham House",
+      "entry_url": "https://www.chathamhouse.org/rss.xml",
+      "initial_state": "验证或拒绝页",
+      "initial_http_status": 403,
+      "robots_url": "https://www.chathamhouse.org/robots.txt",
+      "reason": "stopped_on_验证或拒绝页; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-gb-rusi-org",
+      "name": "RUSI",
+      "entry_url": "https://www.rusi.org/feed",
+      "initial_state": "HTTP404",
+      "initial_http_status": 404,
+      "robots_url": "https://www.rusi.org/robots.txt",
+      "reason": "stopped_on_HTTP404; no_bypass_or_activation"
+    },
+    {
+      "id": "exp-20261113-global-us-csis-org",
+      "name": "CSIS",
+      "entry_url": "https://www.csis.org/rss.xml",
+      "initial_state": "可读",
+      "initial_http_status": 200,
+      "robots_url": "https://www.csis.org/robots.txt",
+      "reason": "historical_or_low_frequency_feed; current_news_listing_not_validated_in_this_batch; not_a_permanent_rejection",
+      "local_preview_status": "preview_succeeded",
+      "local_preview_count": 10,
+      "latest_source_date": "2016-03-03"
+    }
+  ],
+  "alias_evidence": [
+    {
+      "owner_entity_id": "publisher-evans-mumba",
+      "source_ids": [
+        "exp-20261113-global-bw-botswanaminingreview-com",
+        "exp-20261113-global-zm-miningnewszambia-com"
+      ],
+      "basis": "Both original magazine mastheads identify Evans Mumba as publisher; count this publishing family once. No inference of common ownership for Namibia or Mozambique is used.",
+      "urls": [
+        "https://botswanaminingreview.com/wp-content/uploads/2024/09/Botswana-Mining-Review-web.pdf",
+        "https://www.miningnewszambia.com/wp-content/uploads/2026/03/Zambian-Mining-Magazine-March-April-2026-Issue.pdf"
+      ]
+    }
+  ],
+  "baseline": {
+    "repo_news_config_count": 473,
+    "repo_owner_fallback_id_count": 465,
+    "repo_combined_seed_identity_count": 556,
+    "inflight_pr485_entries": 5,
+    "ar_research_candidates": 305,
+    "ar_main_table": 248,
+    "ar_appendix": 57,
+    "production_numbers_are_separate": true
+  },
+  "publisher_name_disambiguation": [
+    {
+      "candidate_id": "exp-20261113-global-au-mining-com-au",
+      "candidate_publisher": "Mayfair Media Operations Pty Ltd",
+      "evidence_url": "https://mining.com.au/terms-conditions/",
+      "similar_existing_brand": "MINING.COM",
+      "note": "Do not merge on similar branding or the mining.com string alone. The Australian publication names its own publisher; source ID, full entry and declared publisher must be considered."
+    },
+    {
+      "candidate_id": "exp-20261113-global-za-africanmining-co-za",
+      "candidate_publisher": "Interact Media Defined",
+      "evidence_url": "https://www.africanmining.co.za/privacy-policy/",
+      "similar_existing_brand": "African Mining Market",
+      "note": "Generic African/mining words are not an identity match. This candidate names Interact Media Defined as its publishing operator."
+    },
+    {
+      "candidate_id": "exp-20261113-global-za-miningbusinessafrica-co-za",
+      "candidate_publisher": "Media Icon (Pty) Ltd",
+      "evidence_url": "https://embed-rech-01.dialog.cm/miningbusinessafrica/docs/mba_mining_issue_sept_-_oct_2026",
+      "similar_existing_brand": "Mining & Business (DRC)",
+      "note": "Magazine masthead identifies Media Icon; similar business/mining wording is not a publisher identity match."
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { prepareIntake } from "../../source-intake.ts";
 import { industrySourceIds, seedSourceMismatch } from "../run.ts";
 import { ROOT } from "../lib.ts";
 import { scratch, write } from "./helpers.ts";
@@ -48,9 +49,9 @@ test("seed evidence requires exact IDs, including equal-count substitutions and 
   assert.equal(seedSourceMismatch([], "[]"), null);
 });
 
-test("current catalogues require 473 news (455 plus 19 added for TASK-0588, less the cnmn duplicate dropped in TASK-0602) plus 83 eligible policy identities (81 Owner-list entries, CN-004 re-checked and the CN-P01 pilot addition)", () => {
+test("current catalogues require 524 news plus 83 eligible policy identities", () => {
   const ids = industrySourceIds(ROOT);
-  assert.equal(ids.length, 556);
+  assert.equal(ids.length, 607);
   assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 83);
   assert.equal(new Set(ids).size, ids.length);
 });
@@ -81,5 +82,45 @@ test("news catalogue has no two sources on the same kind and entry URL (createSo
     const key = `${source.kind} ${entry}`;
     assert.equal(seen.get(key), undefined, `${source.id} repeats ${seen.get(key)} (${key})`);
     seen.set(key, source.id);
+  }
+});
+
+test("TASK-0645 catalogue, intake and actual preview bind the same 51 sources and preserve the CGS duplicate", () => {
+  const { sources } = JSON.parse(readFileSync(join(ROOT, "industry/sources.json"), "utf8")) as { sources: Record<string, unknown>[] };
+  const plan = JSON.parse(readFileSync(join(ROOT, "docs/acceptance/sources-global-20261113/source-intake.json"), "utf8"));
+  const preview = JSON.parse(readFileSync(join(ROOT, "docs/acceptance/sources-global-20261113/source-preview.json"), "utf8"));
+  const dedup = JSON.parse(readFileSync(join(ROOT, "docs/acceptance/sources-global-20261113/production-dedup.json"), "utf8"));
+  const added = sources.filter((source) => String(source.id).startsWith("exp-20261113-global-"));
+  const prepared = prepareIntake(plan, sources);
+  assert.equal(added.length, 51);
+  assert.equal(prepared.length, 51);
+  assert.equal(new Set(added.map((source) => source.owner_entity_id)).size, 50);
+  const ids = added.map((source) => String(source.id)).sort();
+  assert.deepEqual(prepared.map(({ entry }) => entry.id).sort(), ids);
+  assert.deepEqual(preview.sources.map((source: { id: string }) => source.id).sort(), ids);
+  assert.deepEqual([...dedup.accepted_subset_ids].sort(), ids);
+  assert.equal(dedup.request_candidates, 52);
+  assert.equal(dedup.query_count, 1);
+  assert.equal(dedup.accepted_subset_collision_count, 0);
+  assert.deepEqual(dedup.preserved_existing_records.map((source: { id: string }) => source.id).sort(), ["cgs-news", "policy-cn-010"]);
+  assert.ok(!ids.includes("exp-20261113-global-cn-cgs-gov-cn"));
+  assert.equal(preview.body_samples_observed, 48);
+  assert.equal(preview.sources.filter((row: { body_sample: { body_observed: boolean } }) => row.body_sample.body_observed).length, 48);
+  for (const { entry, input } of prepared) {
+    const source = added.find((row) => row.id === entry.id)!;
+    const recorded = preview.sources.find((row: { id: string }) => row.id === entry.id);
+    assert.equal(recorded.target_config_hash, entry.target_config_hash);
+    assert.equal(recorded.preview_status, "succeeded");
+    assert.equal(recorded.robots.allowed, true);
+    assert.ok(recorded.count > 0 && recorded.sample_item.title_example.trim() && /^https:\/\//.test(recorded.sample_item.url));
+    assert.equal(entry.expected_existing, false);
+    assert.equal(source.owner_entity_id, entry.owner_entity_id);
+    assert.equal(source.enabled, true);
+    assert.equal(source.participation_mode, "editorial");
+    assert.equal(source.interval_minutes, 60);
+    assert.equal(source.site_fulltext, true);
+    assert.equal(source.syndicate_fulltext, false);
+    assert.equal(input.site_fulltext, true);
+    assert.equal(input.syndicate_fulltext, false);
   }
 });
