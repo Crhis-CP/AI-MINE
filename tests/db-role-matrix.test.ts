@@ -109,6 +109,8 @@ test("every real role has exactly the approved table, column, sequence and cross
       "events.report_group_checks",
       "events.report_group_decisions",
       "events.story_background_proofs",
+      "events.story_duplicate_metrics",
+      "events.story_merge_decisions",
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
       "feedback.quota_buckets",
@@ -174,6 +176,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.policy_threads",
       "publication.read_watermarks",
       "publication.report_group_members",
+      "publication.report_group_stories",
       "publication.report_revision_changes",
       "publication.site_information",
       "publication.site_information_commands",
@@ -200,6 +203,36 @@ test("every real role has exactly the approved table, column, sequence and cross
     await permission(sql, "UPDATE feedback.quota_buckets SET used=used WHERE false", quotaWrite, `${role} updates quota count`);
     await permission(sql, "UPDATE feedback.quota_buckets SET bucket_key=bucket_key WHERE false", role === "migrate", `${role} cannot reassign quota bucket`);
     await permission(sql, "DELETE FROM feedback.quota_buckets WHERE false", role === "migrate", `${role} cannot clear quota`);
+    // TASK-0575: model decisions stay private; readers get only the relationship projection.
+    for (const [table, field, projection] of [
+      ["events.story_merge_decisions", "outcome", false],
+      ["events.story_duplicate_metrics", "suspected_pairs", false],
+      ["publication.report_group_stories", "relation", true],
+    ] as const) {
+      const name = table.split(".").map(quote).join(".");
+      for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+        const allowed =
+          role === "migrate" ||
+          (operation === "SELECT" && (["backup", "private_ops", "worker"].includes(role) || (projection && role === "public_read"))) ||
+          (role === "worker" &&
+            (operation === "INSERT" || (operation === "UPDATE" && table !== "events.story_merge_decisions") || (operation === "DELETE" && projection)));
+        const statement =
+          operation === "SELECT"
+            ? `SELECT ${projection ? "lane,group_id,story_id,fact_id,relation,updated_at" : "*"} FROM ${name} LIMIT 1`
+            : operation === "INSERT"
+              ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false`
+              : operation === "UPDATE"
+                ? `UPDATE ${name} SET ${quote(field)}=${quote(field)} WHERE false`
+                : `DELETE FROM ${name} WHERE false`;
+        await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
+      }
+    }
+    await permission(
+      sql,
+      "SELECT basis FROM publication.report_group_stories LIMIT 1",
+      ["migrate", "backup", "private_ops", "worker"].includes(role),
+      `${role} reads private attachment basis`,
+    );
     // Independent expectations: proof is private and retained; only the safe projection is publicly readable.
     for (const [table, field, safe] of [
       ["events.story_background_proofs", "active", false],

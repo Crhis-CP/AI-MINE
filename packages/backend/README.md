@@ -594,6 +594,8 @@ TASK0503依据Owner默认关闭决定，使用唯一 `ORIGINAL_POST_ADMISSION_EN
 
 ### 普通复合稿的报道身份（TASK-0501）
 
+TASK-0575首批只准备事件合并决定、每日重复指标及报道组事件关系三张表，运行逻辑另批接入。合并决定按UUID追加，worker不能修改既有决定；事件表均为私有。关系表公开读取只含lane/group/story/fact/relation/updated_at，basis审计依据留给内部角色；后续公开读取口不得选择basis。
+
 `events/group` 的 `compareReportGroup` 在原归组任务结束后运行，包括 `kept` 和 `roundup`；只处理当前公开合格、当前归组完成、没有主事实/报道成员且无人工独立或正文控制的资讯稿。候选可含普通稿、精选和已有事实的报道，近14日相似度只作召回，每轮最多比较3个不同的固定身份锚点。模型经现有 `groupReview` 服务判断同一核心事件/阶段、真实新进展、无关或不足；不修改评分、入选、原文或事实归属。
 
 `events.report_group_decisions` 保存双方真实材料、许可、人工状态与配方绑定、原文引文及实际回执/字符串attempt身份。原始正文和配方构成付费输入，公开修订、计数、展示代表不加入该指纹；正负结果可复用，回执完成与决定保存同事务。未知结果只有waiting状态，不伪造模型结论；原未知费用和30分钟一次恢复规则仍由gateway管理。`events.report_group_checks`只记录无候选/负结果和恢复扫描位置，不冒充模型结果。
