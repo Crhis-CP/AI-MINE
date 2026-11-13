@@ -4,6 +4,7 @@
 // back-filled. FEISHU_CONTENT_PUSH_ENABLED is the safety valve: off, deliveries are recorded as
 // skipped and nothing leaves the process.
 import { config, credential } from "../config.ts";
+import { invalidInput } from "../admin/invalid.ts";
 import { sql, type Db } from "../db.ts";
 import { selectedDeliveryCandidate, type SelectedDeliveryCandidate } from "@amp/backend/publication/detail";
 import { lockReportPublications } from "@amp/backend/publication/publish";
@@ -32,7 +33,7 @@ export async function listTargets() {
 export async function setTargetEnabled(key: string, enabled: boolean, reason: string, actor: string, principal?: AdminPrincipal) {
   return sql.begin(async (tx) => {
     if (principal) await requireOwner(principal, tx);
-    if (!reason?.trim()) throw new Error("reason is required");
+    if (!reason?.trim()) throw invalidInput("reason is required");
     const [before] = await tx`SELECT enabled, enabled_at FROM notify_targets WHERE key = ${key}`;
     if (!before) return null;
     const [after] = await tx`

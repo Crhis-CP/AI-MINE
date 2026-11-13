@@ -22,6 +22,7 @@ export function meta() {
   return pageMeta({
     title: "反馈",
     description: `告诉 ${SITE.name} 哪里可以做得更好：内容、功能、接入或来源方的更正与下架请求。`,
+    descriptionEn: "Tell AI-MINE what could be better: content, features, integrations, or a correction or takedown request from a source.",
     path: "/feedback",
     image: "/og/pages/feedback.png",
     noindex: true,
