@@ -6,6 +6,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
+import { pipeline } from "node:stream";
 import { createRequestListener } from "@react-router/node";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
@@ -126,7 +127,9 @@ async function serveStatic(clientDir: string, pathname: string, res: import("nod
     "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "public, max-age=3600",
     "X-Content-Type-Options": "nosniff",
   });
-  createReadStream(file).pipe(res);
+  pipeline(createReadStream(file), res, (error) => {
+    if (error) res.destroy(error);
+  });
   return true;
 }
 
@@ -265,19 +268,32 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
     // Removed whether or not a secret is configured, so it never reaches the api even while the setup is incomplete.
     delete headers[ORIGIN_SECRET_HEADER];
     if (ORIGIN_SECRET) delete headers[ORIGIN_SECRET.header];
-    const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
+    const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers, timeout: 60_000 }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
-      up.pipe(res);
+      pipeline(up, res, () => {});
+    });
+    upstream.on("timeout", () => upstream.destroy(new Error("api idle timeout")));
+    res.on("close", () => {
+      if (!res.writableFinished) upstream.destroy();
     });
     upstream.on("error", () => {
-      res.statusCode = 502;
-      res.end("api unavailable");
+      if (res.destroyed) return;
+      if (res.headersSent) res.destroy();
+      else {
+        res.statusCode = 502;
+        res.end("api unavailable");
+      }
     });
-    return req.pipe(upstream);
+    pipeline(req, upstream, () => {});
+    return;
   }
 
   const assetPath = group === "private" && pathname.startsWith("/admin/assets/") ? pathname.slice("/admin".length) : pathname;
   if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(CLIENT_DIR[group], assetPath, res))) return;
+  if (buildAsset(pathname)) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+    return res.end("Not found");
+  }
   pageCache(req, res);
   return renderingPath.run(pathname, () => ssr[group](req, res));
 }
