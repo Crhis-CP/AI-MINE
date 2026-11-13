@@ -1766,6 +1766,49 @@ function demoConverted(secondary: { factor: string; unit: string; currency: stri
   };
 }
 
+/**
+ * Synthetic earlier periods for a demo quote's trend line (TASK-0627): 23 working days for a daily price, six months
+ * for a monthly one, ending exactly at the demo value. A fixed gentle walk, the same on every run; not real prices.
+ */
+function demoHistory(key: string, value: string | null, [start, end, label]: readonly [string, string, string]) {
+  if (!value) return undefined;
+  const seed = [...key].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const digits = (value.split(".")[1] ?? "").length;
+  const walk = (count: number, step: number) => {
+    const out = [Number(value)];
+    for (let i = 1; i < count; i++) out.unshift(out[0]! / (1 + Math.sin(seed + i * 1.7) * step + Math.cos(seed * 0.5 + i * 0.6) * step * 0.6));
+    return out.map((n, i) => (i === count - 1 ? value : n.toFixed(digits)));
+  };
+  if (start === end) {
+    const days: string[] = [];
+    for (let t = Date.parse(`${end}T00:00:00Z`); days.length < 23; t -= 86400_000)
+      if (new Date(t).getUTCDay() % 6) days.unshift(new Date(t).toISOString().slice(0, 10));
+    const values = walk(days.length, 0.006);
+    return days.map((day, i) => ({
+      period: {
+        start: day,
+        end: day,
+        label: i === days.length - 1 ? label : `${Number(day.slice(0, 4))}年${Number(day.slice(5, 7))}月${Number(day.slice(8))}日`,
+      },
+      value: values[i]!,
+    }));
+  }
+  if (!/^\d{4}年\d{1,2}月$/.test(label)) return undefined;
+  const values = walk(6, 0.03);
+  return values.map((v, i) => {
+    const first = new Date(Date.UTC(Number(start.slice(0, 4)), Number(start.slice(5, 7)) - 1 - (5 - i), 1));
+    const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0));
+    return {
+      period: {
+        start: first.toISOString().slice(0, 10),
+        end: last.toISOString().slice(0, 10),
+        label: i === 5 ? label : `${first.getUTCFullYear()}年${first.getUTCMonth() + 1}月`,
+      },
+      value: v,
+    };
+  });
+}
+
 function buildDemoMetalPrices() {
   const sources = demoRegistry.sources.filter((source) => DEMO_PERIODS[source.key]);
   const refs = new Map<string, number>();
@@ -1792,6 +1835,7 @@ function buildDemoMetalPrices() {
           period: value ? { start, end, label } : null,
           change: value && percent ? { percent, previous: { value: "100", period: { start: previousStart, end: previousEnd, label: previousLabel } } } : null,
           ...(source.secondary ? { converted: demoConverted(source.secondary, value, end) } : {}),
+          ...(demoHistory(key, value, period.current) ? { history: demoHistory(key, value, period.current) } : {}),
         },
       ];
     });
