@@ -737,6 +737,18 @@
     "events.report_group_checks": {
       "module": "events",
       "access": "business"
+    },
+    "events.story_merge_decisions": {
+      "module": "events",
+      "access": "business"
+    },
+    "events.story_duplicate_metrics": {
+      "module": "events",
+      "access": "business"
+    },
+    "publication.report_group_stories": {
+      "module": "publication",
+      "access": "business"
     }
   },
   "externalTables": {

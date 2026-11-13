@@ -1509,6 +1509,33 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "events.story_merge_decisions": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "events.story_duplicate_metrics": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.report_group_stories": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["lane", "group_id", "story_id", "fact_id", "relation", "updated_at"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
     }
   },
   "sequences": {
