@@ -1,6 +1,5 @@
 import { apiFetch } from "../lib/http.ts";
 import { localizedFrom, useT, useTagLabel } from "../i18n";
-import { SITE, withSubject } from "@amp/industry/site";
 import { data as withHeaders, redirect, useLoaderData } from "react-router";
 import { Link } from "../i18n/navigation";
 import type { Route } from "./+types/home";
@@ -14,6 +13,7 @@ import { HotTopics } from "../features/feed/HotTopics";
 import { WorldMap } from "../features/feed/WorldMap";
 import { FeedBar, FeedToolbar } from "../features/feed/Filters";
 import { DayList } from "../features/feed/DayList";
+import { HomeCountry } from "../features/region/HomeCountry";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -33,7 +33,6 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
   const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
-  const upstream = new Headers();
   const query = {
     readingGroups: "reports-v1",
     channel: channel === "all" ? undefined : channel,
@@ -51,9 +50,6 @@ export async function loader({ request }: Route.LoaderArgs) {
         baseUrl: apiBaseFor(),
       }).then(async (result) => {
         const body = await contractResult(result, publicSchemas.ReportGroupedTimelineResponse);
-        result.headers.forEach((value, name) => {
-          upstream.set(name, value);
-        });
         return body;
       }),
     { signal: request.signal },
@@ -118,6 +114,8 @@ export default function Home() {
   return (
     <div className="pb-6 [--phone-bar-offset:48px] lg:[--phone-bar-offset:0px]">
       <FeedBar base="/" category={filters.category} jurisdiction={filters.jurisdiction ?? null} />
+      {/* The reader's country first, the world below; only on the unfiltered page, where no country was asked for. */}
+      {!filters.jurisdiction && !filters.category && !filters.tag && filters.channel === "all" && <HomeCountry />}
       {/* Direction C overview: the hotspot board beside the survey map on desktop; phones and tablets show the
           map under the board (TASK-0568: it used to be desktop only). */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start lg:gap-5">

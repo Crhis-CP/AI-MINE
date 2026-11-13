@@ -138,9 +138,10 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
     if (pending.interaction !== interaction.current) return;
     return restoreAnchor(pending.snapshot.anchor, pending.snapshot.scrollY, pending.snapshot.keyboardFocus);
   }, [location.key, visit, checkedVisit, revalidator.state, status]);
-  const policyPage = !/^\/(?:$|all(?:\/|$)|hot(?:\/|$)|items\/|story\/|topics(?:\/|$)|starred(?:\/|$)|daily(?:\/|$)|weekly(?:\/|$)|monthly(?:\/|$))/.test(
-    section,
-  );
+  const policyPage =
+    !/^\/(?:$|all(?:\/|$)|country(?:\/|$)|hot(?:\/|$)|items\/|story\/|topics(?:\/|$)|starred(?:\/|$)|daily(?:\/|$)|weekly(?:\/|$)|monthly(?:\/|$))/.test(
+      section,
+    );
   useEffect(() => {
     // A new page starts without the last page's notices; what still applies is found again by its first check.
     setAllowedIds(null);

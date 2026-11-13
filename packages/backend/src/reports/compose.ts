@@ -213,12 +213,6 @@ export async function periodReportQualification(kind: "weekly" | "monthly", key:
   return periodQualification(start, addDays(next, -1));
 }
 
-/** How many current entries the composer would use; zero alone does not prove a completed quiet period. */
-export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
-  if (kind === "daily") return (await dailyReportQualification(key)).qualified;
-  return (await periodReportQualification(kind, key)).qualified;
-}
-
 export const editionTime = (date: string) => new Date(`${date}T${EDITION_TIMES.daily}:00+08:00`);
 export function dueDaily(now = new Date()) {
   const today = beijingDate(now);
@@ -267,13 +261,17 @@ export async function catchUpReports(now = new Date(), limit = 8): Promise<{ gen
     },
     { kind: "monthly" as const, due: dueMonthly(now), next: nextMonth, end: (key: string) => addDays(`${nextMonth(key)}-01`, -1), compose: composeMonthly },
   ];
+  // Stored issues are read once per kind for both passes (TASK-0611; it was once per kind per pass). The first pass
+  // only looks at the issue now due and the second skips that one, so what the first writes does not change the second.
+  type Stored = { key: string; content: StoredReportContent; origin: string };
+  const stored = new Map<string, Map<string, Stored>>();
   editions: for (const current of [true, false]) {
     for (const item of kinds) {
-      const have = new Map(
-        (await sql<{ key: string; content: StoredReportContent; origin: string }[]>`SELECT key,content,origin FROM reports WHERE kind=${item.kind}`).map(
-          (row) => [row.key, row],
-        ),
-      );
+      let have = stored.get(item.kind);
+      if (!have) {
+        have = new Map((await sql<Stored[]>`SELECT key,content,origin FROM reports WHERE kind=${item.kind}`).map((row) => [row.key, row]));
+        stored.set(item.kind, have);
+      }
       const firstDaily = item.kind !== "daily" && dailies[0] ? addDays(dailies[0].key, -1) : await firstScheduledDaily();
       const floor = firstDaily && (item.kind === "daily" ? firstDaily : item.kind === "weekly" ? isoWeekLabel(firstDaily) : firstDaily.slice(0, 7));
       const earliest = [...have.keys()].sort()[0] ?? item.due;

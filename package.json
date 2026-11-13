@@ -14,7 +14,6 @@
     "typecheck": "tsc -p site && tsc -p packages/contracts && tsc -p packages/backend && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && tsc -p scripts && tsc -p e2e && npm run typecheck --workspace @amp/web",
     "test": "node scripts/verify/test-files.ts",
     "check": "node scripts/verify/run.ts --quick",
-    "dev:private-api": "npm run dev:private --workspace @amp/api",
     "contracts:gen": "node scripts/contracts/generate.ts",
     "contracts:check": "node scripts/contracts/generate.ts --check && node --test scripts/verify/contract-tests.ts",
     "check:data-ownership": "node scripts/verify/data-ownership.ts",

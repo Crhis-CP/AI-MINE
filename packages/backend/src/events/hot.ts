@@ -3,7 +3,7 @@ import { projectParticipation, participationHash } from "./participation-read.ts
 import { reportEventEvidence, currentFactMembers } from "./report-context.ts";
 import { reportFactEvidence } from "../publication/groups.ts";
 import { pickRepresentative } from "../publication/representative.ts";
-// Hot ranking: attention over the last 48 hours from independent participants.
+// Hot ranking: attention over the ranking window (48 hours; 72 on Beijing Saturday, Sunday and Monday) from independent participants.
 // Each participant counts once per window (repeat collection does not add heat), decays with a
 // 24-hour half-life, and the source time (not collection time) places evidence in the window.
 import { sql } from "../db.ts";
@@ -82,7 +82,7 @@ async function currentHeatEvidence(at: Date, storyIds?: number[], includeHistory
   return (await reportEventEvidence(ids, [], new Date(at.getTime() + 1), includeHistory ? undefined : from)).signals;
 }
 
-/** Compare two complete 48-hour windows using currently valid independent participants. */
+/** Compare two complete ranking windows (hotWindowHours) using currently valid independent participants. */
 async function heatRows(at: Date, behind: string[] = [], storyIds?: number[], supplied?: HeatEvidence): Promise<HeatRow[]> {
   const evidence = supplied ?? (await currentHeatEvidence(at, storyIds));
   if (!evidence.length) return [];
@@ -94,7 +94,7 @@ async function heatRows(at: Date, behind: string[] = [], storyIds?: number[], su
     observed_at: row.observed_at.toISOString(),
     source_since: row.source_since.toISOString(),
   }));
-  const prev = new Date(at.getTime() - 6 * 3600000);
+  const prev = new Date(at.getTime() - LOOKBACK_MARGIN_HOURS * 3600000);
   const windowHours = hotWindowHours(at);
   const nowFrom = new Date(at.getTime() - windowHours * 3600000),
     prevFrom = new Date(prev.getTime() - windowHours * 3600000);

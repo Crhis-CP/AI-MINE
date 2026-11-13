@@ -10,6 +10,8 @@ import { serverModules, type SitemapEntry } from "../modules.ts";
 import { z } from "zod";
 
 const MAX_URLS = 45_000;
+// Keep in sync with the web's HOME_COUNTRIES; the backend never imports web code.
+const COUNTRY_PAGES = ["CN", "AR"];
 type Entry = SitemapEntry;
 const moduleEntries = z.array(
   z.object({
@@ -50,6 +52,7 @@ async function entriesForSitemap(): Promise<Entry[]> {
     { loc: "/privacy", changefreq: "monthly", priority: 0.4 },
     { loc: "/changelog", lastmod: now, changefreq: "weekly", priority: 0.5 },
   );
+  for (const code of COUNTRY_PAGES) entries.push({ loc: `/country/${code}`, lastmod: now, changefreq: "hourly", priority: 0.8 });
   const reports = await sql<
     { kind: string; key: string; generated_at: Date }[]
   >`SELECT kind, key, generated_at FROM reports r WHERE NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key) ORDER BY kind, key DESC`;

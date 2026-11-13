@@ -96,10 +96,6 @@ export function checkQuotes(quotes: Quote[], parts: PolicyPart[], allowed?: Quot
       throw new Error("quote_outside_actual_input");
   }
 }
-export function checkEnvelope(value: { id: string; input_hash: string; input_ids: string[] }, expected: { id: string; inputHash: string; inputIds: string[] }) {
-  if (value.id !== expected.id || value.input_hash !== expected.inputHash) throw new Error("stage_binding_mismatch");
-  sameIds(value.input_ids, expected.inputIds);
-}
 
 /** Compare source components, never infer a zone or numeric day/month ambiguity.
  * The parser envelope is discarded; it is not an acquisition receipt or a stored source-date observation. */

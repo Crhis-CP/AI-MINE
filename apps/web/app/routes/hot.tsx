@@ -22,6 +22,7 @@ export function meta() {
   return pageMeta({
     title: withSubject("热点榜"),
     description: `近两天（周末三天）${withSubject("领域")}讨论最多的事件，最多 10 个：热度指数、趋势与组成热度的公开来源。`,
+    descriptionEn: "The mining events drawing the most coverage right now, up to 10: heat index, trend and the public sources behind each.",
     path: "/hot",
     image: "/og/pages/hot.png",
   });

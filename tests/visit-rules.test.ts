@@ -5,7 +5,18 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import type { ModulePage } from "@amp/contracts/modules";
 import { MODULES } from "@amp/site/modules";
-import { deviceClass, isBot, isPrefetch, monthOf, readerPage, referrerHost, visitorKey } from "../modules/site-admin/backend/visit-rules.ts";
+import {
+  COUNTRY_PAGES,
+  deviceClass,
+  isBot,
+  isPrefetch,
+  monthOf,
+  readerPage,
+  referrerHost,
+  visitorDevice,
+  visitorKey,
+  visitorNetwork,
+} from "../modules/site-admin/backend/visit-rules.ts";
 
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
@@ -100,7 +111,12 @@ test("every public reader route, Chinese and English, is counted under its own p
   const modulePages = MODULES.flatMap((m) => (m.pages ?? []).flatMap((p) => ("layout" in p ? p.pages : [p as ModulePage]))).map((p) => p.path);
   const adminPages = MODULES.flatMap((m) => m.adminPages ?? []).map((p) => p.path);
   assert.ok(core.length >= 20 && modulePages.length >= 6, "route list read");
-  const sample = (path: string) => `/${path.replace(/:page/g, "2").replace(/:[A-Za-z]+/g, "x-1")}`;
+  // A country page exists only for the countries in COUNTRY_PAGES (TASK-0634); every other placeholder takes any segment.
+  const sample = (path: string) =>
+    `/${path
+      .replace(/^country\/:code$/, "country/CN")
+      .replace(/:page/g, "2")
+      .replace(/:[A-Za-z]+/g, "x-1")}`;
   for (const path of ["", ...core, ...modulePages]) {
     for (const address of [sample(path), `/en${sample(path) === "/" ? "" : sample(path)}`]) {
       const page = readerPage(address);
@@ -140,8 +156,74 @@ test("a visitor key is the same for one address and browser under one salt, and 
   const a = visitorKey(day1, "203.0.113.7", CHROME);
   assert.match(a, /^[A-Za-z0-9_-]{22}$/);
   assert.equal(visitorKey(day1, "203.0.113.7", CHROME), a);
-  assert.notEqual(visitorKey(day1, "203.0.113.7", IPHONE), a);
+  assert.notEqual(visitorKey(day1, "203.0.113.7", IPHONE), a, "another kind of device");
   assert.notEqual(visitorKey(day1, "203.0.113.8", CHROME), a);
   assert.notEqual(visitorKey(day2, "203.0.113.7", CHROME), a);
   assert.equal(monthOf("2026-11-30"), "2026-11-01");
+});
+
+test("one reader on one phone is one visitor in Safari, in WeChat and after WeChat rewrites its browser string", () => {
+  // Owner 2026-11-12: opening the same link again from WeChat, or in another browser, kept adding visitors.
+  const salt = Buffer.alloc(32, 3);
+  const safari = IPHONE;
+  const wechatWifi =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.54(0x18003622) NetType/WIFI Language/zh_CN";
+  const wechatCell = wechatWifi.replace("NetType/WIFI", "NetType/4G").replace("0x18003622", "0x18003701");
+  const chromeIos =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0.6723.90 Mobile/15E148 Safari/604.1";
+  const key = visitorKey(salt, "203.0.113.7", safari);
+  for (const browser of [wechatWifi, wechatCell, chromeIos]) assert.equal(visitorKey(salt, "203.0.113.7", browser), key);
+  // Android: Chrome reports a reduced string, WeChat the real version and model; still one phone.
+  const chromeAndroid = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
+  const wechatAndroid =
+    "Mozilla/5.0 (Linux; Android 14; V2307A Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/126.0.6478.188 Mobile Safari/537.36 XWEB/1260117 MMWEBSDK/20240404 MicroMessenger/8.0.49.2600(0x28003133) NetType/5G Language/zh_CN ABI/arm64";
+  assert.equal(visitorKey(salt, "203.0.113.7", chromeAndroid), visitorKey(salt, "203.0.113.7", wechatAndroid));
+  // A different kind of device on the same network, or the same device on another network, is another visitor.
+  assert.notEqual(visitorKey(salt, "203.0.113.7", chromeAndroid), key);
+  assert.notEqual(visitorKey(salt, "203.0.113.7", CHROME), key);
+  assert.notEqual(visitorKey(salt, "203.0.113.8", safari), key);
+  assert.deepEqual([safari, chromeAndroid, CHROME, IPAD].map(visitorDevice), ["ios:phone", "android:phone", "windows:desktop", "ios:tablet"]);
+});
+
+test("an IPv6 visitor is its /64 network: the part a phone changes on its own does not make a new visitor", () => {
+  assert.equal(visitorNetwork("2001:db8:12:3400:a1b2:c3d4:e5f6:1"), "2001:db8:12:3400::/64");
+  assert.equal(visitorNetwork("2001:0DB8:0012:3400:ffff:0:0:2"), "2001:db8:12:3400::/64");
+  assert.equal(visitorNetwork("2001:db8::1"), "2001:db8:0:0::/64");
+  assert.equal(visitorNetwork("[2001:db8:12:3400::9]"), "2001:db8:12:3400::/64");
+  assert.notEqual(visitorNetwork("2001:db8:12:3401::9"), visitorNetwork("2001:db8:12:3400::9"));
+  assert.equal(visitorNetwork("::ffff:203.0.113.7"), "203.0.113.7");
+  // TASK-0629 (review of #451): every spelling of an IPv4 address carried in IPv6 is that IPv4 address.
+  for (const spelling of [
+    "::ffff:cb00:7107",
+    "::FFFF:CB00:7107",
+    "0:0:0:0:0:ffff:cb00:7107",
+    "0000:0000:0000:0000:0000:ffff:cb00:7107",
+    "0:0:0:0:0:ffff:203.0.113.7",
+    "[::ffff:cb00:7107]",
+  ])
+    assert.equal(visitorNetwork(spelling), "203.0.113.7", spelling);
+  assert.equal(visitorKey(Buffer.alloc(32, 5), "::ffff:cb00:7107", IPHONE), visitorKey(Buffer.alloc(32, 5), "203.0.113.7", IPHONE));
+  // Not a mapped address: an ordinary IPv6 network that merely contains ffff.
+  assert.equal(visitorNetwork("2001:db8:0:ffff:cb00:7107:1:2"), "2001:db8:0:ffff::/64");
+  assert.equal(visitorNetwork("::1"), "0:0:0:0::/64");
+  assert.equal(visitorNetwork("203.0.113.7"), "203.0.113.7");
+  assert.equal(visitorNetwork(""), "");
+  const salt = Buffer.alloc(32, 4);
+  assert.equal(visitorKey(salt, "2001:db8:12:3400:a1b2:c3d4:e5f6:1", IPHONE), visitorKey(salt, "2001:db8:12:3400:1111:2222:3333:4444", IPHONE));
+});
+
+test("a country page counts only for a country that has one, the list the web app uses (TASK-0634)", () => {
+  const web = readFileSync(new URL("../apps/web/app/features/region/home-country.ts", import.meta.url), "utf8");
+  const listed = /HOME_COUNTRIES[^=]*=\s*\[([^\]]*)\]/.exec(web)?.[1];
+  assert.ok(listed, "HOME_COUNTRIES read");
+  assert.deepEqual(
+    [...listed.matchAll(/"([A-Z]{2})"/g)].map((m) => m[1]),
+    [...COUNTRY_PAGES],
+  );
+  for (const code of COUNTRY_PAGES) {
+    assert.deepEqual(readerPage(`/country/${code}`), { route: "/country/:code", path: `/country/${code}`, english: false });
+    assert.deepEqual(readerPage(`/en/country/${code}`), { route: "/country/:code", path: `/country/${code}`, english: true });
+  }
+  for (const path of ["/country/XX", "/country/cn", "/country/x-1", "/country/", "/country/CN/more", "/en/country/JP"])
+    assert.equal(readerPage(path), null, path);
 });

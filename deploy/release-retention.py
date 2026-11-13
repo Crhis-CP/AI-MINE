@@ -74,7 +74,11 @@ def current_release(containers, now, minimum_uptime=600):
 
 
 def health():
-    request = urllib.request.Request("http://127.0.0.1:3000/api/health", headers={"Host": HOST})
+    address = docker("port", "amp-web-1", "3000/tcp")
+    match = re.fullmatch(r"127\.0\.0\.1:([0-9]{1,5})", address)
+    if not match or not 1 <= int(match[1]) <= 65535:
+        raise RuntimeError("Invalid local web endpoint; keep everything")
+    request = urllib.request.Request(f"http://{address}/api/health", headers={"Host": HOST})
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *args, **kwargs):
             return None
