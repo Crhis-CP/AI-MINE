@@ -1,6 +1,6 @@
 import { apiFetch } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@amp/web/extension";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { Policy } from "@amp/contracts/http/public";
@@ -44,14 +44,21 @@ export function PolicySavedList() {
     [busy, setBusy] = useState(false),
     [unavailable, setUnavailable] = useState(false);
   const selected = ids.join(",");
+  const checked = useRef(new Set<string>());
   useEffect(() => {
     const controller = new AbortController();
     let pending = false;
     const read = async () => {
       if (pending || document.visibilityState !== "visible") return;
       pending = true;
-      setBusy(true);
-      setItems([]);
+      // A re-check keeps the confirmed documents on screen while the answer is on its way; a slow answer blanks
+      // the list after two seconds, as every re-check used to do at once (TASK-0619).
+      const grace = setTimeout(() => {
+        if (controller.signal.aborted) return;
+        setItems([]);
+        setBusy(true);
+      }, 2_000);
+      setBusy((selected ? selected.split(",") : []).some((id) => !checked.current.has(id)));
       const apiBase = location.origin;
       const values = await Promise.allSettled(
         selected
@@ -67,8 +74,10 @@ export function PolicySavedList() {
             })
           : [],
       );
+      clearTimeout(grace);
       if (!controller.signal.aborted) {
         setItems(values.flatMap((r) => (r.status === "fulfilled" ? [r.value] : [])));
+        checked.current = new Set(selected ? selected.split(",") : []);
         setUnavailable(values.some((r) => r.status === "rejected"));
         setBusy(false);
       }
@@ -93,14 +102,16 @@ export function PolicySavedList() {
       {busy && <p className="mt-3 text-[13px]">{tr("正在核对当前可用内容…")}</p>}
       {unavailable && <p className="mt-3 text-[13px] text-ink-3">{tr("部分法规当前不可查看，已停止显示未确认的内容。")}</p>}
       <ul className="mt-3 divide-y divide-line">
-        {items.map((p) => (
-          <li key={p.id} className="flex items-start justify-between gap-3 py-3">
-            <Link to={policyHref(p.id)} className="text-[14px] text-accent">
-              {policyTitle(p).title}
-            </Link>
-            <PolicySaveButton id={p.id} />
-          </li>
-        ))}
+        {items
+          .filter((p) => ids.includes(p.id))
+          .map((p) => (
+            <li key={p.id} className="flex items-start justify-between gap-3 py-3">
+              <Link to={policyHref(p.id)} className="text-[14px] text-accent">
+                {policyTitle(p).title}
+              </Link>
+              <PolicySaveButton id={p.id} />
+            </li>
+          ))}
       </ul>
       {unavailable && (
         <ul className="mt-2 text-[13px] text-ink-3">

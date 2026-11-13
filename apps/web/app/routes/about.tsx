@@ -10,7 +10,7 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { contractResult } from "../lib/api.server";
 import { ABOUT, SITE } from "@amp/industry/site";
-import { organizationLd, pageMeta } from "../lib/seo";
+import { organizationLd, pageMeta, SITE_DESCRIPTION_EN } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker.tsx";
 import { buttonClass } from "../components/ui/Controls";
 import { IconArrowRight } from "../components/icons";
@@ -45,6 +45,7 @@ export function meta() {
   return pageMeta({
     title: "关于",
     description: `关于 ${SITE.name}：${SITE.description}`,
+    descriptionEn: `About AI-MINE. ${SITE_DESCRIPTION_EN}`,
     path: "/about",
     image: "/og/pages/about.png",
     jsonLd: organizationLd(),
