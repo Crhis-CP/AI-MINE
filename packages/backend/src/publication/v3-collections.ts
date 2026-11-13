@@ -5,6 +5,8 @@ import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { SITE } from "@amp/industry/site";
 import { encodeCursor, decodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { sha256 } from "../lib/ids.ts";
+import { mapLimit } from "../lib/concurrency.ts";
+import type { DetailReadCache } from "./detail.ts";
 import { loadChangelog } from "../site/meta.ts";
 import { loadStoryDetail, resolveStory, loadHot, publicStoryVersion, publicStoryDirectory } from "./stories.ts";
 import { listTopicSummaries, loadTopic } from "./topics.ts";
@@ -30,14 +32,14 @@ export function v3Page<T>(items: T[], query: Page, binding: unknown, key: (item:
     last = page.at(-1);
   return { items: page, next_cursor: remaining.length > query.limit && last ? encodeCursor("v3-page", { binding: bind, after: key(last) }) : null };
 }
-export async function v3Event(id: string) {
+export async function v3Event(id: string, now = new Date(), coverage: DetailReadCache = new Map()) {
   const resolved = await resolveStory(id);
   if (resolved.kind === "merged") throw new V3Moved(resolved.target);
   if (resolved.kind !== "found") return null;
-  const detail = await loadStoryDetail(resolved.storyId);
+  const detail = await loadStoryDetail(resolved.storyId, now);
   if (!detail) return null;
   const revision = await publicStoryVersion(resolved.storyId);
-  const items = (await Promise.all(detail.timeline.map((item) => v3Item(item.id)))).filter((item) => item !== null);
+  const items = (await mapLimit(detail.timeline, 4, (item) => v3Item(item.id, false, now, coverage))).filter((item) => item !== null);
   if (!items.length) return null;
   const representative = detail.developments.at(-1)?.representative.id ?? items.at(-1)!.id;
   const event = V3EventCard.parse({
@@ -69,6 +71,8 @@ export async function v3EventDetail(id: string) {
   };
 }
 export async function v3Events(q: z.infer<typeof V3EventsQuery>) {
+  const now = new Date(),
+    coverage: DetailReadCache = new Map();
   const rows = await publicStoryDirectory(q);
   const { cursor: _cursor, limit: _limit, ...binding } = q;
   const page = v3Page(
@@ -78,17 +82,15 @@ export async function v3Events(q: z.infer<typeof V3EventsQuery>) {
     (row) => `${row.latest.toISOString()}|${row.id}`,
   );
   const items = (
-    await Promise.all(
-      page.items.map(async (row) => {
-        try {
-          return await v3Event(row.id);
-        } catch (error) {
-          if (!(error instanceof V3Moved) || q.status !== "merged") throw error;
-          const target = await v3Event(error.target);
-          return target ? { ...target, event: { ...target.event, id: row.id, status: "merged" as const, merged_into: error.target } } : null;
-        }
-      }),
-    )
+    await mapLimit(page.items, 1, async (row) => {
+      try {
+        return await v3Event(row.id, now, coverage);
+      } catch (error) {
+        if (!(error instanceof V3Moved) || q.status !== "merged") throw error;
+        const target = await v3Event(error.target, now, coverage);
+        return target ? { ...target, event: { ...target.event, id: row.id, status: "merged" as const, merged_into: error.target } } : null;
+      }
+    })
   ).flatMap((value) => (value ? [value.event] : []));
   return { ...(await v3Envelope()), items, next_cursor: page.next_cursor };
 }
@@ -112,11 +114,13 @@ export async function v3Story(id: string) {
   };
 }
 export async function v3Hot() {
+  const now = new Date(),
+    coverage: DetailReadCache = new Map();
   const ranking = await loadHot(),
     entries = [];
   for (const entry of ranking.entries.slice(0, 10)) {
-    const found = await v3Event(entry.story.publicId),
-      representative = entry.representative ? await v3Item(entry.representative.id) : null;
+    const found = await v3Event(entry.story.publicId, now, coverage),
+      representative = entry.representative ? await v3Item(entry.representative.id, false, now, coverage) : null;
     if (!found || !representative) continue;
     entries.push({ rank: entry.rank, event: found.event, representative, independent_source_count: entry.sourceCount, report_count: entry.reportCount });
   }
@@ -146,7 +150,7 @@ export async function v3Topic(id: string, q: Page) {
   const listing = await v3Items({ view: "all", topic: id, ...q });
   return { ...V3Topic.parse({ id, slug: id, kind: topicKind[topic.grp], title: topic.name, summary: topic.definition, count: summary.total }), ...listing };
 }
-export async function v3Report(id: string) {
+export async function v3Report(id: string, now = new Date(), coverage: DetailReadCache = new Map()) {
   const match = /^(daily|weekly|monthly):(.+)$/.exec(id);
   if (!match) throw new V3ReadError(404, "not_found");
   const kind = match[1] as "daily" | "weekly" | "monthly",
@@ -154,7 +158,7 @@ export async function v3Report(id: string) {
   if (!value) throw new V3ReadError(404, "not_found");
   const report = value.report,
     ids = [...new Set([...report.stories, ...report.flashes].flatMap((item) => (item.itemId ? [item.itemId] : [])))];
-  const items = (await Promise.all(ids.map((id) => v3Item(id)))).filter((item) => item !== null);
+  const items = (await mapLimit(ids, 4, (id) => v3Item(id, false, now, coverage))).filter((item) => item !== null);
   const card = V3ReportCard.parse({
     id: `${kind}:${report.key}`,
     type: kind,
@@ -193,29 +197,31 @@ export async function v3Report(id: string) {
   };
 }
 export async function v3Reports(q: Page & { type: "daily" | "weekly" | "monthly" }) {
+  const now = new Date(),
+    coverage: DetailReadCache = new Map();
   const rows = await publicReportKeys(q.type);
   const page = v3Page(rows, q, { type: "reports", kind: q.type }, (row) => row.key);
-  const items = await Promise.all(
-    page.items.map(async (row) => {
-      const report = await v3Report(`${q.type}:${row.key}`);
-      return V3ReportCard.parse(Object.fromEntries(Object.keys(V3ReportCard.shape).map((key) => [key, report[key as keyof typeof report]])));
-    }),
-  );
+  const items = await mapLimit(page.items, 1, async (row) => {
+    const report = await v3Report(`${q.type}:${row.key}`, now, coverage);
+    return V3ReportCard.parse(Object.fromEntries(Object.keys(V3ReportCard.shape).map((key) => [key, report[key as keyof typeof report]])));
+  });
   return { ...(await v3Envelope()), items, status: rows.length ? "available" : "empty", next_cursor: page.next_cursor };
 }
 export async function v3Saved(ids: string[]) {
+  const now = new Date(),
+    coverage: DetailReadCache = new Map();
   const items: z.infer<typeof V3ItemCard>[] = [],
     events: z.infer<typeof V3EventCard>[] = [],
     policies: z.infer<typeof PolicyCard>[] = [],
     unavailable_ids: string[] = [];
   for (const id of [...new Set(ids)]) {
-    const item = await v3Item(id);
+    const item = await v3Item(id, false, now, coverage);
     if (item) {
       items.push(item);
       continue;
     }
     try {
-      const event = await v3Event(id);
+      const event = await v3Event(id, now, coverage);
       if (event) {
         events.push(event.event);
         continue;
