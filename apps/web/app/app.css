@@ -1129,7 +1129,8 @@
 
 /* ---------------------------------------------------------------------------
    Opening animation (TASK-0628). The boot script sets html.intro before the first paint; without it the screen
-   does not exist. It leaves by its own CSS after 4.6s even if no script runs afterwards.
+   does not exist. It leaves by its own CSS after 4.6s even if no script runs afterwards, and the boot script itself takes
+   html.intro away at 5.6s, so the page scrolls again even when the app never loads (TASK-0641).
    --------------------------------------------------------------------------- */
 .intro-screen {
   display: none;
