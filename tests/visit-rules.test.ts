@@ -186,6 +186,20 @@ test("an IPv6 visitor is its /64 network: the part a phone changes on its own do
   assert.equal(visitorNetwork("[2001:db8:12:3400::9]"), "2001:db8:12:3400::/64");
   assert.notEqual(visitorNetwork("2001:db8:12:3401::9"), visitorNetwork("2001:db8:12:3400::9"));
   assert.equal(visitorNetwork("::ffff:203.0.113.7"), "203.0.113.7");
+  // TASK-0629 (review of #451): every spelling of an IPv4 address carried in IPv6 is that IPv4 address.
+  for (const spelling of [
+    "::ffff:cb00:7107",
+    "::FFFF:CB00:7107",
+    "0:0:0:0:0:ffff:cb00:7107",
+    "0000:0000:0000:0000:0000:ffff:cb00:7107",
+    "0:0:0:0:0:ffff:203.0.113.7",
+    "[::ffff:cb00:7107]",
+  ])
+    assert.equal(visitorNetwork(spelling), "203.0.113.7", spelling);
+  assert.equal(visitorKey(Buffer.alloc(32, 5), "::ffff:cb00:7107", IPHONE), visitorKey(Buffer.alloc(32, 5), "203.0.113.7", IPHONE));
+  // Not a mapped address: an ordinary IPv6 network that merely contains ffff.
+  assert.equal(visitorNetwork("2001:db8:0:ffff:cb00:7107:1:2"), "2001:db8:0:ffff::/64");
+  assert.equal(visitorNetwork("::1"), "0:0:0:0::/64");
   assert.equal(visitorNetwork("203.0.113.7"), "203.0.113.7");
   assert.equal(visitorNetwork(""), "");
   const salt = Buffer.alloc(32, 4);
