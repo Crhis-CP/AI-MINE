@@ -109,6 +109,8 @@ test("receipt schemas stay in explicit private registration without global leaka
     "sourceTargets",
     "adminSiteInformation",
     "saveSiteInformation",
+    "adminPolicies",
+    "adminPolicyPublication",
     "selectionStandards",
     "selectionTool",
     "selectionToolChange",

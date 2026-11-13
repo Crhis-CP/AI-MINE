@@ -387,6 +387,8 @@ if (process.argv.includes("--routes")) {
           "/api/admin/nav-counts",
           "/api/admin/notify-target-scopes",
           "/api/admin/notify-targets/{key}/scope",
+          "/api/admin/policies",
+          "/api/admin/policies/{id}/publication",
           "/api/admin/receipts/{id}/release",
           "/api/admin/reports",
           "/api/admin/reports/{kind}/{key}/reconcile",

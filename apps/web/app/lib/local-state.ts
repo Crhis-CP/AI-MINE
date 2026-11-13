@@ -253,7 +253,7 @@ export function setReadingFace(face: ReadingFace): boolean {
 export function useReadingFace(): ReadingFace {
   return useSyncExternalStore(subscribeReadingFace, getReadingFace, () => null);
 }
-const THEME_COLOR = { light: "#f9f6f0", dark: "#15130f" } as const;
+const THEME_COLOR = { light: "#f9f6f0", dark: "#28231a" } as const;
 export function applyTheme(theme: "light" | "dark", followsSystem: boolean) {
   document.documentElement.setAttribute("data-theme", theme);
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))
