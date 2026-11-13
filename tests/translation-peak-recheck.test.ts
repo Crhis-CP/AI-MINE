@@ -20,6 +20,7 @@ import { publishArticle } from "@amp/backend/publication/publish";
 import { OFF_PEAK_WAIT } from "@amp/backend/providers/llm";
 import { SOURCE_PURPOSES } from "@amp/contracts/source-policy";
 import { translationDeferralOptions, translationPeakWait } from "../packages/backend/src/editorial/translation-schedule.ts";
+import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 
 const T = tag();
 let hits = 0;
@@ -213,4 +214,34 @@ test("history analysis taken in a peak hour waits through its retry time and the
   await sweepUnprocessed();
   const queued = await sql`SELECT 1 FROM articles WHERE id=${history} AND processing_queued_at IS NOT NULL`;
   assert.equal(queued.length, 0);
+});
+
+test("a paused lane postpones the translation and leaves the analysed article as it is (TASK-0608)", async () => {
+  const id = await article({ selected: true });
+  const state = async () => (await sql<{ processing_state: string }[]>`SELECT processing_state FROM articles WHERE id=${id}`)[0]!.processing_state;
+  const before = await state();
+  const control = async (action: "pause" | "resume") =>
+    changeOwnerLaneControls(
+      {
+        lane: "news",
+        mode: "processing",
+        action,
+        reason: "Synthetic pause for a translation",
+        ...(action === "pause" ? { expires_at: new Date(Date.now() + 3600_000).toISOString() } : {}),
+        expected_revisions: { processing: (await listLaneControls()).owner_revisions.find((r) => r.lane === "news" && r.switch === "processing")!.revision },
+        confirm_all: true,
+      },
+      "test-owner",
+    );
+  await control("pause");
+  try {
+    const paid = hits;
+    const now = new Date("2030-01-07T05:00:00Z");
+    const result = await runTranslationJob({ articleId: id }, at(now));
+    assert.deepEqual(result, { state: "deferred_peak", until: new Date(now.getTime() + 30 * 60_000).toISOString() });
+    assert.equal(hits, paid, "nothing is paid while paused");
+    assert.equal(await state(), before, "the article is not sent back for a second analysis");
+  } finally {
+    await control("resume");
+  }
 });

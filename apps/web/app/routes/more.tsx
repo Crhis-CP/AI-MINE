@@ -102,7 +102,7 @@ export default function MorePage() {
                 >
                   <span className="text-ink-3">{r.icon}</span>
                   <span className="flex flex-1 items-center gap-2">
-                    {tr.maybe(r.label)}
+                    {r.to === "/starred" && locale === "en" ? tr("我的收藏") : tr.maybe(r.label)}
                     {r.to === "/changelog" && <UnreadMark />}
                   </span>
                   {r.detail && (

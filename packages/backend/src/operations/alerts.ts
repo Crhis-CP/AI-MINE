@@ -1,3 +1,7 @@
+import { accountOutOfMoney } from "../providers/provider-errors.ts";
+import { BALANCE_FLOOR_YUAN, BALANCE_WARN_DAYS, lowBalances } from "../providers/account-balance.ts";
+// The worker schedules the reading through this module: the backend package takes no new exports.
+export { readAccountBalances } from "../providers/account-balance.ts";
 import { buildModelCatalog } from "../model-catalog.ts";
 import { OFF_PEAK_WAIT } from "../providers/peak-hours.ts";
 import { DEFAULTS } from "@amp/site/models";
@@ -355,22 +359,25 @@ export async function collectFindings(
           AND ((processing_state = 'new' AND discovered_at < now() - interval '2 hours')
             OR (processing_state = 'failed' AND discovered_at > now() - interval '3 hours'))
         GROUP BY 1 ORDER BY 2 DESC LIMIT 3`;
+      // When what holds them is the model account being out of money, say so: the Owner tops up and nothing else
+      // is needed (TASK-0630). The waiting articles look again every ten minutes by themselves.
+      const broke = errors.length > 0 && accountOutOfMoney(errors[0]!.error);
       out.push({
         key: "content.process",
         level: "now",
-        title: "新内容卡住了，进不了网站",
+        title: broke ? "模型账户余额用完了，新内容暂时进不了网站" : "新内容卡住了，进不了网站",
         impact:
           [p!.waiting >= 10 && `${p!.waiting} 篇新文章等了 2 小时以上还没处理完`, p!.failed >= 20 && `最近 3 小时 ${p!.failed} 篇新文章处理失败`]
             .filter(Boolean)
             .join("；") + "，精选和热点会缺内容",
-        heals: p!.waiting >= 10 ? "服务恢复后会自动补处理" : "不会，需要修好后重新处理这些文章",
-        action: "转给 AI 处理",
+        heals: broke ? "充值后会，积压的文章自动补上" : p!.waiting >= 10 ? "服务恢复后会自动补处理" : "不会，需要修好后重新处理这些文章",
+        action: broke ? "给模型账户充值；到账后约 10 分钟内自动恢复，不用转给 AI" : "转给 AI 处理",
         detail: errors.map((e) => `${e.error}（${e.n}）`).join("；") || "没有记录错误",
         since: p!.waiting >= 10 && p!.oldest ? p!.oldest : undefined,
       });
     }
     observeCheck?.("content.process");
-    // Daily is composed at 08:00, weekly Monday 10:00, monthly the 1st 10:30; catch-up is hourly.
+    // Daily is composed at 08:00, weekly Monday 10:00, monthly the 1st 10:30; catch-up runs every 30 minutes.
     // The daily existence read stays here so its data-ownership site does not move.
     for (const issue of dueReports(now)) {
       if (issue.kind === "daily") {
@@ -577,11 +584,34 @@ async function providerFindings(): Promise<Finding[]> {
     out.push({
       key: `provider.refused.${p.service}`,
       level: "today",
-      title: `${providerName(p.service)} 拒绝服务，可能欠费或账号失效`,
+      // Out of money is its own message (TASK-0630): the Owner only has to top up, everything waiting goes on by itself.
+      title: accountOutOfMoney(p.last) ? `${providerName(p.service)} 余额用完了` : `${providerName(p.service)} 拒绝服务，可能账号失效`,
       impact: providerStops(p.service),
-      heals: "不会",
-      action: `去${providerConsole(p.service)}看余额和账号状态；充值或恢复后系统会自动继续`,
+      heals: accountOutOfMoney(p.last) ? "充值后会，不用别的操作" : "不会",
+      action: accountOutOfMoney(p.last)
+        ? `去${providerConsole(p.service)}充值；到账后约 10 分钟内自动接着处理，这段时间积压的文章会自动补上`
+        : `去${providerConsole(p.service)}看账号和密钥状态；恢复后系统会自动继续`,
       detail: `最近 1 小时被拒 ${p.n} 次：${p.last}`,
+    });
+  }
+  // Before it runs dry (TASK-0631): what is left pays for fewer than three days at the recent daily spend.
+  for (const low of await lowBalances()) {
+    if (out.some((f) => f.key === `provider.refused.${low.service}`)) continue;
+    const left = `¥${low.yuan.toFixed(2)}`;
+    out.push({
+      key: `provider.balance.${low.service}`,
+      level: "today",
+      title:
+        low.days === null
+          ? `${providerName(low.service)} 余额只剩 ${left}`
+          : `${providerName(low.service)} 余额只剩 ${left}，按最近用量约够 ${low.days < 1 ? "不到 1" : Math.floor(low.days)} 天`,
+      impact: "现在一切正常。余额用完后新内容会暂时进不了网站，充值后自动恢复",
+      heals: "不会，需要充值",
+      action: `去${providerConsole(low.service)}充值；到账后半小时内这条提醒自动关闭，不用转给 AI`,
+      detail:
+        low.daily === null
+          ? `余额 ${left}；还没有花费记录，低于 ¥${BALANCE_FLOOR_YUAN} 时提醒`
+          : `余额 ${left}；最近 7 天日均花费 ¥${low.daily.toFixed(2)}；不足 ${BALANCE_WARN_DAYS} 天时提醒`,
     });
   }
   // The meter in providers/receipts.ts (checkBudget) stops a service while its live calls of the past hour or day reach the

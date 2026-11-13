@@ -183,6 +183,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "policy.vision_stages",
       "publication.news_geography",
       "publication.news_links",
+      "publication.withdrawn_reasons",
       "ops.operational_snapshots",
       "ops.visit_day_keys",
       "ops.visit_days",

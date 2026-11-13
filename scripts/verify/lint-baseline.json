@@ -93,8 +93,7 @@
     "lint/correctness/useExhaustiveDependencies": 1
   },
   "apps/web/app/routes/home.tsx": {
-    "lint/complexity/useOptionalChain": 1,
-    "lint/correctness/noUnusedImports": 1
+    "lint/complexity/useOptionalChain": 1
   },
   "apps/web/app/routes/hot.tsx": {
     "lint/a11y/useAriaPropsSupportedByRole": 1

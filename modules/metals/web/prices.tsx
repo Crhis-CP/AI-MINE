@@ -42,7 +42,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
 export function meta() {
-  return pageMeta({ title: "金属价格", description: "官方机构定期发布的金属价格，注明出处。", path: "/metals" });
+  return pageMeta({
+    title: "金属价格",
+    description: "官方机构定期发布的金属价格，注明出处。",
+    descriptionEn: "Metal prices published regularly by official bodies, each with its source.",
+    path: "/metals",
+  });
 }
 
 /** The frequency mark (日, 周, 旬, 月) in front of a quote or a source. */

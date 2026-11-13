@@ -1,8 +1,21 @@
 {
   "note": {
     "kind": "更新",
-    "title": "金属价格可以看走势了",
-    "body": ["每种金属的价格下面多了一条走势线，按住可以看某一期的价格。", "走势只用官方已经公布的每一期价格，不补数、不估算。"]
+    "title": "金属价格可以看走势，首页先看本国",
+    "body": [
+      "金属价格页每种金属下面多了一条走势线，按住可以看某一期的价格；只用官方已经公布的每一期价格，不补数、不估算。",
+      "在中国或阿根廷打开首页，顶部先是本国最新的 5 条动态；在中国还可以把本省的排在最前面。可以换国家，也可以选“全球”。",
+      "第一次打开首页有一段开场动画，可以跳过，只放一次；在“关于”页可以再看一遍。",
+      "收藏页重新核对内容时不再闪成空白；报告页的版式更整齐；英文页的搜索简介改成了英文。",
+      "中国和阿根廷还有了各自的动态页，集中看最新消息和法规政策。"
+    ]
   },
-  "fragments": ["changes/TASK-0627-metal-trend.md"]
+  "fragments": [
+    "changes/TASK-0627-metal-trend.md",
+    "changes/TASK-0619-reader-polish.md",
+    "changes/TASK-0628-opening-animation.md",
+    "changes/TASK-0633-home-country.md",
+    "changes/TASK-0636-home-province.md",
+    "changes/TASK-0634-country-page.md"
+  ]
 }
