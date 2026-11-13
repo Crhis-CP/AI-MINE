@@ -1,6 +1,6 @@
 # 阿根廷来源普查（2026-11-13）
 
-任务：[TASK-0641](../../tasks/TASK-0641.md)。交接：[Claude 6842866126](https://github.com/Crhis-CP/AI-MINE/issues/348#issuecomment-6842866126)。本清单供 Claude 圈选与后续逐源预览，不启用来源。
+任务：[TASK-0644](../../tasks/TASK-0644.md)。交接：[Claude 6842866126](https://github.com/Crhis-CP/AI-MINE/issues/348#issuecomment-6842866126)。本清单供 Claude 圈选与后续逐源预览，不启用来源。
 
 共记录 **305 个去重候选入口**：主清单 **248 个**（165 个归一主机），另有 **57 个阻碍/未定位入口**。主清单分组：A 16；B 45；C 21；D 42；E 31；F 64；G 29。
 
