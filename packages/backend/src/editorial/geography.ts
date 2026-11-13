@@ -198,6 +198,7 @@ export function validateGeography(value: unknown, a: Material, bodyBudget = 2200
         alias !== row.mention.toLocaleLowerCase() &&
         alias.includes(row.mention.toLocaleLowerCase()) &&
         !ids.has(row.code) &&
+        !(row.code === "AR" && [...ids].some((id) => codes.get(id)?.parent === "AR")) &&
         row.quote.toLocaleLowerCase().includes(alias)
       )
         valid = false;

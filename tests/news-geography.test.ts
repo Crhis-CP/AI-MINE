@@ -123,6 +123,13 @@ test("Argentina province aliases support their own subdivision and the existing 
     }
 });
 
+test("Argentina country assignments accept a short province mention inside its full Chinese name", () => {
+  for (const name of ["萨尔塔", "胡胡伊", "卡塔马卡"]) {
+    const body = `${name}省矿区获批。`;
+    assert.deepEqual(validateGeography(candidate([assignment("AR", name, body)]), material(body)).codes, ["AR"]);
+  }
+});
+
 test("San Juan and Santa Cruz require Argentina to be chosen and never infer it from their names", () => {
   for (const [code, name] of [
     ["AR-J", "San Juan"],
