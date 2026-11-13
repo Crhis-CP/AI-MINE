@@ -20,7 +20,7 @@ import {
   usageConfiguration,
 } from "../packages/backend/src/providers/usage-protection.ts";
 import { priceQuote } from "../packages/backend/src/providers/usage-pricing.ts";
-import { usageMonthly } from "../packages/backend/src/operations/usage-monthly.ts";
+import { reconcileMonthlyUsage, usageMonthly } from "../packages/backend/src/operations/usage-monthly.ts";
 import { deliverUsageProtectionEvents } from "../packages/backend/src/operations/usage-protection.ts";
 import {
   createModelConnection,
@@ -815,6 +815,19 @@ test("price expiry is notified once per evidence revision; monthly report honors
   await usageMonthly(new Date("2026-11-01T02:37:00Z"), send);
   await usageMonthly(new Date("2026-11-01T02:38:00Z"), send);
   assert.equal(messages, 1);
+  // TASK-0618: a month still settling is rebuilt hourly; one that ended more than 35 days ago only once a day.
+  const checked = async (month: string) =>
+    (await sql<{ checked_at: Date }[]>`SELECT checked_at FROM ai.usage_monthly_reports WHERE month=${month}`)[0]!.checked_at;
+  // reconcile stamps checked_at with the database clock, so the synthetic clock stays behind it.
+  const hours = (n: number) => new Date(Date.parse("2026-11-05T04:00:00Z") - n * 3600_000);
+  await reconcileMonthlyUsage("2026-09", hours(30), send);
+  await sql`UPDATE ai.usage_monthly_reports SET checked_at=${hours(2)} WHERE month IN ('2026-09','2026-10')`;
+  await usageMonthly(hours(0), send);
+  assert.ok((await checked("2026-10")).getTime() > hours(2).getTime(), "last month is checked again after an hour");
+  assert.equal((await checked("2026-09")).getTime(), hours(2).getTime(), "a settled month waits for a day");
+  await sql`UPDATE ai.usage_monthly_reports SET checked_at=${hours(25)} WHERE month='2026-09'`;
+  await usageMonthly(hours(0), send);
+  assert.ok((await checked("2026-09")).getTime() > hours(25).getTime(), "and is rebuilt once the day has passed");
 });
 
 test("token-only receipts stay unpriced after a price is registered or changed; foreign bills and unknown calls stay out", async () => {

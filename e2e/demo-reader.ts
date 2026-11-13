@@ -174,8 +174,38 @@ export function demoTimeline(filters: { channel: string; category: string | null
   });
 }
 
-export function demoPool(filters: { channel: string; category: string | null; q: string | null; tab: "time" | "relevance" }) {
-  const items = DEMO_ITEMS.filter((item) => !filters.category || item.category === filters.category);
+/** Synthetic items per country (演示数据) for the home page's country block (TASK-0633); other countries have none. */
+const DEMO_COUNTRY_TITLES: Record<string, [string, string][]> = {
+  AR: [
+    ["演示：圣胡安省公布铜矿项目环评听证日程", "演示省政府公报"],
+    ["演示：萨尔塔盐湖锂项目二期投产，年产能翻倍", "演示矿业媒体"],
+    ["演示：联邦矿业秘书处更新出口预扣税适用清单", "演示官方公报"],
+    ["演示：卡塔马卡省调整矿业特许权使用费申报表", "演示省矿业厅"],
+    ["演示：胡胡伊省锂矿企业与社区签署用水协议", "演示企业公告"],
+    ["演示：门多萨省议会审议新一批勘探项目", "演示地方媒体"],
+  ],
+  "CN-XJ": [
+    ["演示：新疆公布一批金属矿探矿权挂牌出让", "演示自治区厅公告"],
+    ["演示：阿勒泰某铜镍矿扩建项目环评公示", "演示地方公示"],
+  ],
+  CN: [
+    ["演示：自然资源部公布新一批矿业权出让公告", "演示部委网站"],
+    ["演示：某铜业公司披露三季度产量与检修安排", "演示交易所公告"],
+    ["演示：稀土开采总量控制指标下达", "演示部委网站"],
+    ["演示：西部某省发布锂矿探矿权挂牌结果", "演示省厅公告"],
+  ],
+};
+export function demoPool(filters: { channel: string; category: string | null; q: string | null; tab: "time" | "relevance"; jurisdiction?: string | null }) {
+  const local = filters.jurisdiction
+    ? (DEMO_COUNTRY_TITLES[filters.jurisdiction] ?? []).map(([title, source], i) => ({
+        ...DEMO_ITEMS[0]!,
+        id: `demo-${filters.jurisdiction}-${i}`,
+        title,
+        source: { name: source },
+        timelineAt: new Date(Date.parse(FIXED_TIME) - (i * 3 + 1) * 3600_000).toISOString(),
+      }))
+    : null;
+  const items = local ?? DEMO_ITEMS.filter((item) => !filters.category || item.category === filters.category);
   return PoolResponse.parse({
     filters: { channel: filters.channel, category: filters.category, tag: null, topic: null, q: filters.q, tab: filters.tab },
     items,
@@ -239,15 +269,27 @@ const DEMO_COUNTRY_COUNTS: Array<[string, string, number]> = [
   ["GH", "加纳", 2],
   ["SG", "新加坡", 1],
 ];
-export const demoJurisdictions = DEMO_COUNTRY_COUNTS.map(([code, label, news_count]) => ({
-  code,
-  label,
-  kind: "country" as const,
-  news_scope: true,
-  policy_scope: true,
-  news_count,
-  policy_count: 0,
-}));
+export const demoJurisdictions = [
+  ...DEMO_COUNTRY_COUNTS.map(([code, label, news_count]) => ({
+    code,
+    label,
+    kind: "country" as const,
+    news_scope: true,
+    policy_scope: true,
+    news_count,
+    policy_count: 0,
+  })),
+  {
+    code: "CN-XJ",
+    label: "新疆维吾尔自治区",
+    kind: "subdivision" as const,
+    parent: "CN",
+    news_scope: true,
+    policy_scope: false,
+    news_count: 6,
+    policy_count: 0,
+  },
+];
 
 /** Synthetic news map per window (演示数据): the last window beside the one before it. */
 export function demoNewsMap(window: "1d" | "7d" | "30d", now = new Date()) {

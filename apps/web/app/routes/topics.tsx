@@ -16,6 +16,7 @@ export function meta() {
   return pageMeta({
     title: "主题",
     description: "按国家与地区、金属、矿企聚合的金属矿业主题页：智利、刚果（金）、铜、锂、紫金矿业、必和必拓等。",
+    descriptionEn: "Metal mining topics by country and region, metal and mining company: Chile, DR Congo, copper, lithium, Zijin Mining, BHP and more.",
     path: "/topics",
     image: "/og/pages/topics.png",
   });

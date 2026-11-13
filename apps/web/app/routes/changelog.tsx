@@ -33,7 +33,13 @@ export async function loader({ request }: { request: Request }) {
 }
 
 export function meta() {
-  return pageMeta({ title: "更新日志", description: `${SITE.name} 的功能更新、优化、公告与下线记录。`, path: "/changelog", image: "/og/pages/changelog.png" });
+  return pageMeta({
+    title: "更新日志",
+    description: `${SITE.name} 的功能更新、优化、公告与下线记录。`,
+    descriptionEn: "What changed on AI-MINE: new features, improvements, notices and retirements.",
+    path: "/changelog",
+    image: "/og/pages/changelog.png",
+  });
 }
 
 const KIND_DOT: Record<Release["kind"], string> = {

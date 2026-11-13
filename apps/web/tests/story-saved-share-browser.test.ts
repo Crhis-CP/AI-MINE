@@ -312,6 +312,9 @@ test("saved event revalidation is periodic and has at most three concurrent requ
   await page.clock.fastForward(60_001);
   await expect.poll(() => held.length).toBe(3);
   assert.ok(peak <= 3);
+  // TASK-0619: the confirmed list stays while the answer is on its way, and is blanked when it takes over 2 s.
+  await expect(list.getByRole("link")).toHaveCount(7);
+  await page.clock.fastForward(2_001);
   await expect(list.getByRole("link")).toHaveCount(0);
   hold = false;
   for (const finish of held) finish();
