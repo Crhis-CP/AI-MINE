@@ -70,7 +70,7 @@ test("thirty selected cards keep every field, limit reads to four, and share eve
   assert.deepEqual(first.items, expected);
   assert.equal(first.count, 30);
   await measure(() => v3Snapshot({ limit: 30 }));
-  const events = await measure(() => v3Events({ limit: 30 }));
+  const events = await measure(() => v3Events({ limit: 30, view: "all" }));
   assert.equal(events.items.length, 2, "nested event lists share the four-detail ceiling");
   await db`UPDATE publications SET visibility='withdrawn' WHERE article_id=${ids[0]!}`;
   const next = await v3Snapshot({ limit: 30 });
