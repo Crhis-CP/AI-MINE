@@ -509,9 +509,6 @@ export async function lockNewsModelMaterials(ids: string[], db: Db) {
 export async function lockMaterialForGrouping(db: Db, articleId: string) {
   await db`SELECT 1 FROM articles WHERE id=${articleId} FOR UPDATE`;
 }
-export async function markMaterialGrouped(db: Db, articleId: string, preserveExisting: boolean) {
-  await db`UPDATE articles SET grouped_at=CASE WHEN ${preserveExisting} THEN coalesce(grouped_at,now()) ELSE now() END WHERE id=${articleId}`;
-}
 /** Acquisition owns the retry decision; content owns persistence of its material metadata. */
 export async function updateMaterialBodyRetry(db: Db, articleId: string, retry: { attempts: number; error: string } | null) {
   await db`UPDATE articles SET raw=CASE WHEN ${retry !== null}

@@ -134,10 +134,18 @@ t=p.with_name(p.name+'.release-tmp');t.write_text('\n'.join([*lines,key+'='+valu
 os.chmod(t,stat.st_mode & 0o777);os.chown(t,stat.st_uid,stat.st_gid);os.replace(t,p)
 PYE
 }
+web_origin() {
+  local address port
+  address=$(dc port web 3000) || return 1
+  [[ $address =~ ^127\.0\.0\.1:([0-9]{1,5})$ ]] || { echo 'Invalid local web endpoint' >&2; return 1; }
+  port=$((10#${BASH_REMATCH[1]}))
+  [[ $port -ge 1 && $port -le 65535 ]] || return 1
+  printf 'http://127.0.0.1:%s\n' "$port"
+}
 health() {
-  local expected=$1
+  local expected=$1 origin
   for attempt in $(seq 1 60); do
-    if curl -fsS --max-time 3 -H "Host: $AIMINE_HOST" http://127.0.0.1:3000/api/health > "$RELEASE_BACKUP/health.json"; then
+    if origin=$(web_origin) && curl -fsS --noproxy '*' --max-time 3 -H "Host: $AIMINE_HOST" "$origin/api/health" > "$RELEASE_BACKUP/health.json"; then
       if python3 - "$RELEASE_BACKUP/health.json" "$expected" <<'PYH'
 import json,sys
 x=json.load(open(sys.argv[1]));assert x.get('ok') is True and x.get('db')=='ok' and x.get('release')==sys.argv[2]
@@ -194,7 +202,8 @@ trap on_exit EXIT
 phase observe_previous
 read_api_topology
 RELEASE_OLD_APIS=("${RELEASE_CURRENT_APIS[@]}")
-curl -fsS --max-time 5 -H "Host: $AIMINE_HOST" http://127.0.0.1:3000/api/health > "$RELEASE_PREVIOUS_HEALTH"
+RELEASE_PREVIOUS_ORIGIN=$(web_origin)
+curl -fsS --noproxy '*' --max-time 5 -H "Host: $AIMINE_HOST" "$RELEASE_PREVIOUS_ORIGIN/api/health" > "$RELEASE_PREVIOUS_HEALTH"
 RELEASE_OLD_VERSION=$(python3 - "$RELEASE_PREVIOUS_HEALTH" <<'PYP'
 import json,sys,re
 x=json.load(open(sys.argv[1]));assert x.get('ok') is True and x.get('db')=='ok' and re.fullmatch('[a-f0-9]{7,40}',x.get('release',''));print(x['release'])
@@ -265,6 +274,14 @@ PYQ
 install -m 0644 "$RELEASE_STAGE/deploy/recovery_bindings.py" /usr/local/lib/aimine-maintenance/recovery_bindings.py
 install -m 0644 "$RELEASE_STAGE/deploy/release_changelog.py" /usr/local/lib/aimine-maintenance/release_changelog.py
 install -m 0755 "$RELEASE_STAGE/deploy/release-retention.py" /usr/local/lib/aimine-maintenance/release-retention.py
+RELEASE_UNITS_CHANGED=0
+for unit in aimine-release-retention.service aimine-release-retention.timer; do
+  if ! cmp -s "$RELEASE_STAGE/deploy/$unit" "/etc/systemd/system/$unit"; then
+    install -m 0644 "$RELEASE_STAGE/deploy/$unit" "/etc/systemd/system/$unit"
+    RELEASE_UNITS_CHANGED=1
+  fi
+done
+if [[ $RELEASE_UNITS_CHANGED == 1 ]]; then systemctl daemon-reload; fi
 # Finish any older healthy version's note before changing its running code.
 if [[ -f "$RELEASE_ROOT/.ops/changelog-pending.json" ]]; then
   python3 - "$RELEASE_ROOT" "$RELEASE_OLD_VERSION" <<'PYN'
@@ -333,8 +350,9 @@ dc run --rm --no-deps -e AMP_RELEASE_LOCK_HELD=1 setup node scripts/apply-releas
 phase activate
 dc up -d --no-deps --no-build --pull never --force-recreate "${RELEASE_CURRENT_APIS[@]}" web
 health "$RELEASE_ID"
+RELEASE_ACTIVE_ORIGIN=$(web_origin)
 for page in / /all /policies /metals /feedback /privacy /api/site/content-version; do
-  code=$(curl -sS -o /dev/null --max-time 15 -H "Host: $AIMINE_HOST" -w '%{http_code}' "http://127.0.0.1:3000$page")
+  code=$(curl -sS --noproxy '*' -o /dev/null --max-time 15 -H "Host: $AIMINE_HOST" -w '%{http_code}' "$RELEASE_ACTIVE_ORIGIN$page")
   [[ $code == 200 ]]
 done
 if [[ $RELEASE_CADDY_CHANGED == 1 ]]; then dc --profile https up -d --no-deps --no-build --pull never --force-recreate caddy; fi

@@ -737,6 +737,10 @@
     "events.report_group_checks": {
       "module": "events",
       "access": "business"
+    },
+    "publication.withdrawn_reasons": {
+      "module": "publication",
+      "access": "business"
     }
   },
   "externalTables": {
@@ -1048,6 +1052,7 @@
     "packages/backend/src/providers/unknown-recovery.ts": "ai-gateway",
     "packages/backend/src/providers/usage-accounting.ts": "ai-gateway",
     "packages/backend/src/providers/usage-pricing.ts": "ai-gateway",
+    "packages/backend/src/providers/account-balance.ts": "ai-gateway",
     "packages/backend/src/providers/usage-protection.ts": "ai-gateway",
     "packages/backend/src/publication/availability.ts": "publication",
     "packages/backend/src/publication/detail.ts": "publication",

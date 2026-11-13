@@ -1,4 +1,5 @@
 import { invalidateHistoricalBackgrounds } from "../events/historical-background-store.ts";
+import { invalidInput } from "./invalid.ts";
 import { refreshPresentation } from "./content-presentation.ts";
 export { previewPublicationDateCorrection, correctPublicationDate } from "./content-date.ts";
 import { materialGroupingDiagnostic } from "../content/grouping.ts";
@@ -120,7 +121,7 @@ export async function setVisibility(
   input: { visibility: "public" | "summary-only" | "withdrawn"; reason: string; version: number },
   actor: string,
 ) {
-  if (!input.reason?.trim()) throw new Error("reason is required");
+  if (!input.reason?.trim()) throw invalidInput("reason is required");
   const published = await sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await manualMaterialSnapshot(id, tx);
@@ -146,7 +147,7 @@ export async function setVisibility(
 
 /** Marks a detail page for search indexing (sitemap, IndexNow, robots) or removes the mark. */
 export async function setSeoIndexed(id: string, input: { indexed: boolean; reason: string }, actor: string) {
-  if (!input.reason?.trim()) throw new Error("reason is required");
+  if (!input.reason?.trim()) throw invalidInput("reason is required");
   const [before] = await sql<
     { seo_indexed_at: Date | null; indexable: boolean }[]
   >`SELECT seo_indexed_at, indexable FROM publications WHERE article_id = ${id}`;
@@ -202,7 +203,7 @@ export async function overrideFields(
   },
   actor: string,
 ) {
-  if (!input.reason?.trim()) throw new Error("reason is required");
+  if (!input.reason?.trim()) throw invalidInput("reason is required");
   const fields = FieldsSchema.parse(input.fields ?? {});
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
@@ -294,7 +295,7 @@ export async function rerun(
   actor: string,
   options: { preview?: boolean; version?: string; reason?: string } = {},
 ) {
-  if (!/^[\w-]{8,80}$/.test(requestId)) throw new Error("a stable request id is required");
+  if (!/^[\w-]{8,80}$/.test(requestId)) throw invalidInput("a stable request id is required");
   if (step === "presentation") return refreshPresentation(id, options, requestId, actor);
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;

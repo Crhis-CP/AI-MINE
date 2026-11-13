@@ -96,3 +96,55 @@ export function noteParts(note: Note): [string, string] {
   const [before = "", after = ""] = note.text.split("{link}");
   return [before, after];
 }
+
+/** One point of a quote's trend line (TASK-0627). */
+export interface TrendPoint {
+  start: string;
+  end: string;
+  label: string;
+  value: number;
+}
+export const TREND_RANGES = [
+  { key: "1m", days: 31, label: "1个月" },
+  { key: "3m", days: 93, label: "3个月" },
+  { key: "1y", days: 366, label: "1年" },
+] as const;
+export type TrendRange = (typeof TREND_RANGES)[number]["key"];
+
+/** A quote's stored periods as numbers; none when the quote has no history or a value does not read as a number. */
+export function trendPoints(quote: Quote): TrendPoint[] {
+  const points = (quote.history ?? []).map((point) => ({ ...point.period, value: Number(point.value) }));
+  return points.every((point) => Number.isFinite(point.value)) ? points : [];
+}
+/** The points whose period ended within `days` of the latest one. */
+export function trendWindow(points: TrendPoint[], days: number): TrendPoint[] {
+  const last = points.at(-1);
+  if (!last) return [];
+  const from = new Date(Date.parse(`${last.end}T00:00:00Z`) - days * 86400_000).toISOString().slice(0, 10);
+  return points.filter((point) => point.end >= from);
+}
+/** Ranges worth offering: each must show more periods than the one before it, and at least two. */
+export function trendRanges(points: TrendPoint[]) {
+  let shown = 1;
+  return TREND_RANGES.filter((range) => {
+    const count = trendWindow(points, range.days).length;
+    if (count <= shown) return false;
+    shown = count;
+    return true;
+  });
+}
+/**
+ * The vertical scale of a trend line. The band is never narrower than MIN_BAND of the level, so a week of prices
+ * that moved by half a percent draws as nearly flat instead of filling the chart with peaks: the height of a move
+ * on screen says how big it was.
+ */
+export const TREND_MIN_BAND = 0.04;
+export function trendScale(values: number[]): { min: number; max: number } {
+  const low = Math.min(...values),
+    high = Math.max(...values),
+    middle = (low + high) / 2,
+    half = Math.max((high - low) / 2, (Math.abs(middle) * TREND_MIN_BAND) / 2) * 1.08 || 1;
+  return { min: middle - half, max: middle + half };
+}
+/** A period is drawn as a flat step when it is longer than a day (ten-day and monthly prices are one value for the period). */
+export const trendStepped = (points: TrendPoint[]) => points.some((point) => point.start !== point.end);

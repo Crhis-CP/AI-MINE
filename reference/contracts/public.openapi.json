@@ -1821,6 +1821,50 @@
                           }
                         ]
                       },
+                      "history": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "period": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "end": {
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "pattern": "\\S",
+                                  "type": "string"
+                                },
+                                "start": {
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "start",
+                                "end",
+                                "label"
+                              ],
+                              "type": "object"
+                            },
+                            "value": {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "period",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        "maxItems": 400,
+                        "minItems": 2,
+                        "type": "array"
+                      },
                       "key": {
                         "pattern": "\\S",
                         "type": "string"
@@ -2346,6 +2390,50 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "history": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "period": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "end": {
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "pattern": "\\S",
+                                  "type": "string"
+                                },
+                                "start": {
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "start",
+                                "end",
+                                "label"
+                              ],
+                              "type": "object"
+                            },
+                            "value": {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "period",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        "maxItems": 400,
+                        "minItems": 2,
+                        "type": "array"
                       },
                       "key": {
                         "pattern": "\\S",

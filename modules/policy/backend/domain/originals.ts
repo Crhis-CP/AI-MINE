@@ -62,10 +62,6 @@ function originalIdentity(value: IdentityInput) {
     expressionId = sha256(stableJson([versionId, value.language, value.kind]));
   return { key, instrumentId, versionKey, versionId, expressionId };
 }
-/** Compare-and-set acquisition callers must use the identity computed by the original store itself. */
-export async function lookupPolicyOriginalHead(value: IdentityInput): Promise<string | null> {
-  return (await lookupPolicyOriginalExpression(value)).revisionId;
-}
 /** The expression the original store would use for this identity, with its current revision (null before the first). */
 export async function lookupPolicyOriginalExpression(value: IdentityInput) {
   const { instrumentId, versionId, expressionId } = originalIdentity(value);

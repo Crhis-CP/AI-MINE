@@ -316,7 +316,8 @@ async function storyRootFacts(storyIds: number[], db: Db = sql): Promise<Map<num
 }
 
 /** Reports of the recall window that belong to a live fact; those waiting for a regroup only when asked for (the warm-up). */
-async function recallPool(withWaiting = false): Promise<Array<PoolRow & { material_revision: number; discovered_at: Date }>> {
+type RecallPool = Array<PoolRow & { material_revision: number; discovered_at: Date }>;
+async function recallPool(withWaiting = false): Promise<RecallPool> {
   return qualifiedReports(
     await sql<(Omit<PoolRow, "publication_revision"> & { discovered_at: Date })[]>`
     SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title, a.discovered_at
@@ -425,8 +426,8 @@ function cosine32(a: Float32Array, b: Float32Array): number {
 }
 
 /** Facts whose reports are similar to the query text: the best report of each fact counts. */
-async function recallFacts(queryId: string, queryText: string, minScore: number, top: number): Promise<Recalled[]> {
-  const pool = (await recallPool()).filter((r) => r.article_id !== queryId);
+async function recallFacts(queryId: string, queryText: string, minScore: number, top: number, loaded?: RecallPool): Promise<Recalled[]> {
+  const pool = (loaded ?? (await recallPool())).filter((r) => r.article_id !== queryId);
   const best = new Map<number, Recalled>();
   const consider = (r: PoolRow, score: number) => {
     const prev = best.get(r.fact_id);
@@ -565,12 +566,13 @@ function mergeRecalled(...lists: Recalled[][]): Recalled[] {
  * name and the same amount. Scored with the ordinary similarity, so a merge below CONFIRM_BELOW_COSINE is still
  * reviewed; recall only makes sure the pair is judged.
  */
-async function recallKeyFacts(queryId: string, queryText: string): Promise<Recalled[]> {
+async function recallKeyFacts(queryId: string, queryText: string, loaded?: RecallPool): Promise<Recalled[]> {
   const mine = keyFacts(queryText, IDENTITY_LEXICON);
   if (!mine.names.size || !mine.quantities.size) return [];
-  // The recall pool already carries discovery time (one read of articles for all recall); the key-fact window is its last hours.
+  // The recall pool already carries discovery time; the key-fact window is its last hours. decide() reads the pool once
+  // and hands it to both recalls (TASK-0611).
   const since = Date.now() - KEY_FACT_RECALL_HOURS * 3600_000;
-  const rows = (await recallPool()).filter((row) => row.article_id !== queryId && row.discovered_at.getTime() > since);
+  const rows = (loaded ?? (await recallPool())).filter((row) => row.article_id !== queryId && row.discovered_at.getTime() > since);
   if (!rows.length) return [];
   const texts = await reportTexts([...new Set(rows.map((row) => row.article_id))]);
   const matched = rows.filter((row) => sharesKeyFact(mine, keyFacts(texts.get(row.article_id) ?? "", IDENTITY_LEXICON)));
@@ -1808,14 +1810,16 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
   const exact = sameUrl ? [{ factId: sameUrl.fact_id, storyId: sameUrl.story_id, factTitle: sameUrl.fact_title, score: 1 }] : [];
   const exactViews = await candidateViews(exact, undefined, articleId);
   const selectedSameUrl = exactViews.some((c) => c.selected);
+  // One read of the 14-day pool serves both recalls of this article.
+  const pool = selectedSameUrl || archiveOnly ? undefined : await recallPool();
   const recalled = selectedSameUrl
     ? exact
     : archiveOnly
       ? attachRecall
       : keyFactsFirst(
-          composite ? [] : await recallKeyFacts(articleId, reportText(title, an.summary_zh)),
+          composite ? [] : await recallKeyFacts(articleId, reportText(title, an.summary_zh), pool),
           mergeRecalled(
-            await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS),
+            await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS, pool),
             composite ? [] : await recallDocumentFacts(articleId, docKeys, reportText(title, an.summary_zh)),
           ),
         );

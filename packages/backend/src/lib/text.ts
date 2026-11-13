@@ -79,18 +79,3 @@ export function escapeXml(s: string): string {
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-
-/** Share of CJK characters among letters; used to decide whether a title needs translation. */
-export function cjkRatio(s: string): number {
-  const letters = s.match(/[\p{L}]/gu) ?? [];
-  if (letters.length === 0) return 0;
-  const cjk = s.match(/[㐀-鿿豈-﫿]/g) ?? [];
-  return cjk.length / letters.length;
-}
-
-export function guessLanguage(s: string): "zh" | "en" | "other" {
-  const ratio = cjkRatio(s);
-  if (ratio > 0.3) return "zh";
-  if (/[a-z]/i.test(s)) return "en";
-  return "other";
-}

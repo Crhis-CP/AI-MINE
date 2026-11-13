@@ -20,6 +20,7 @@ export function meta() {
   return pageMeta({
     title: `${withSubject("日报")} · 历史存档`,
     description: `${SITE.name} 历史日报，按日期归档。`,
+    descriptionEn: "Past issues of the AI-MINE daily report, by date.",
     path: "/daily/archive",
     image: "/og/pages/daily.png",
   });
