@@ -17,6 +17,7 @@ import { runBodyTranslation } from "../packages/backend/src/editorial/translatio
 import { isChineseOriginal, TRANSLATION_MANIFEST_FORMAT } from "../packages/backend/src/editorial/translation-readiness.ts";
 import { promptVersion, promptText } from "@amp/backend/editorial/prompts";
 import assert from "node:assert/strict";
+import { translationAnswer } from "./translation-stub.ts";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
@@ -38,14 +39,14 @@ const SOURCE = `test-publication-${T}`;
 const BODY = `FULLTEXT-${T} `.repeat(40);
 const REPORT_KEY = `2099-12-${String(10 + Math.floor(Math.random() * 19))}`;
 const provider = await stub((_hit, req) => {
-  const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
-  const translated =
+  const content = translationAnswer(req.body, (text) =>
     text === "Original heading"
       ? "译文标题"
       : text === "Original full body"
         ? "中文完整正文"
-        : `${[...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ")} 合成中文 FULLTEXT-${T}`;
-  return { choices: [{ message: { content: JSON.stringify({ text: translated }) } }], usage: { prompt_tokens: 10, completion_tokens: 5 } };
+        : `${[...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ")} 合成中文 FULLTEXT-${T}`,
+  );
+  return { choices: [{ message: { content } }], usage: { prompt_tokens: 10, completion_tokens: 5 } };
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "synthetic-publication-fixture";

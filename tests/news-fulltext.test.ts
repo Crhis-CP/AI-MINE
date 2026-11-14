@@ -24,14 +24,14 @@ import { publishArticle, republishSource } from "@amp/backend/publication/publis
 import { machineItemDetail } from "@amp/backend/publication/detail";
 import { SOURCE_PURPOSES } from "@amp/contracts/source-policy";
 import { buildApp } from "./site-app.ts";
+import { translationAnswer } from "./translation-stub.ts";
 
 const T = tag();
 const ACTOR = "ops:news-fulltext-test";
 const provider = await stub((_hit, req) => {
-  const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
-  const marks = [...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ");
+  const content = translationAnswer(req.body, (text) => `${[...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ")} 合成中文译文 ZH-${T}`);
   return {
-    choices: [{ message: { content: JSON.stringify({ text: `${marks} 合成中文译文 ZH-${T}` }) } }],
+    choices: [{ message: { content } }],
     usage: { prompt_tokens: 10, completion_tokens: 5 },
   };
 });
@@ -249,7 +249,7 @@ test("translation covers every admitted public item: selected at once, the rest 
   const dry = await translatePending({ limit: 1000, backfillDays: 30, enqueue: false, estimateSystemTokens: 1000 });
   assert.ok(dry.due >= 2, JSON.stringify(dry));
   assert.equal(dry.enqueued, 0);
-  assert.ok(dry.estimate.calls >= 1 && dry.estimate.input >= dry.estimate.calls * 1030, "the dry run plans the due bodies segment by segment");
+  assert.ok(dry.estimate.calls >= 1 && dry.estimate.input >= dry.estimate.calls * 1030, "the dry run plans the due bodies request by request");
   assert.equal((await translatePending({ limit: 1000, backfillDays: 30, enqueue: false })).estimate.calls, 0, "without the option no body is read");
   assert.equal((await jobs(old)).length, 0, "a dry run queues nothing");
   const run = await translatePending({ limit: 1000, backfillDays: 30 });
@@ -274,18 +274,24 @@ test("queue options and the cost-report estimate", () => {
   assert.deepEqual(translationJobOptions("a", true, peak, false), { singletonKey: "a", priority: 0 });
   const system = promptTokenEstimate(promptText("translate-body"));
   assert.ok(system > 300 && system < 3000, String(system));
-  // Codex review #362: the estimate follows the worker's plan, one request per manifest segment.
+  // Codex review #362: the estimate follows the worker's plan. TASK-0711: consecutive blocks share one request up to
+  // 4,000 bytes, so twenty short paragraphs are one request, and every block's text is still counted once.
   const paragraph = (i: number) => `<p>Paragraph ${i} of a mining report with enough words to be a real block of text in the article body.</p>`;
   const short = Array.from({ length: 20 }, (_, i) => paragraph(i)).join("");
   const manifest = translationSourceManifest(short);
+  assert.equal(manifest.segments.length, 20);
   const typical = translationTokenEstimate(short, system);
-  assert.equal(typical.calls, manifest.segments.length, "one request per segment the worker would send");
-  assert.equal(typical.calls, 20, "twenty short paragraphs are twenty requests, not two");
-  assert.ok(typical.input >= 20 * (system + 30) + Math.ceil(short.length / 3.5), "every request carries the system prompt");
-  assert.equal(typical.cachedPrefix, 19 * system);
+  assert.equal(typical.calls, 1, "twenty short paragraphs fit one request");
+  const blockChars = manifest.segments.reduce((sum, seg) => sum + seg.html.length, 0);
+  assert.ok(typical.input >= system + 30 + Math.floor(blockChars / 3.5), "the request carries the system prompt and every block");
+  assert.ok(typical.output >= Math.ceil(blockChars * 0.3) + 20 * 10, "every block's answer is counted");
+  assert.equal(typical.cachedPrefix, 0);
   assert.equal(translationTokenEstimate("", system).calls, 0, "no body, no request");
   const long = Array.from({ length: 900 }, (_, i) => paragraph(i)).join("");
   const capped = translationTokenEstimate(long, system);
-  assert.equal(capped.calls, translationSourceManifest(long).segments.filter((seg) => translationBudgetUnits(long).has(seg.unitIndex)).length);
+  const chosen = translationSourceManifest(long).segments.filter((seg) => translationBudgetUnits(long).has(seg.unitIndex));
+  const bytes = chosen.reduce((sum, seg) => sum + Buffer.byteLength(seg.html), 0);
+  assert.ok(capped.calls >= Math.ceil(bytes / 4000) && capped.calls <= Math.ceil(bytes / 4000) + Math.ceil(chosen.length / 30), String(capped.calls));
+  assert.equal(capped.cachedPrefix, (capped.calls - 1) * system);
   assert.ok(capped.calls < 900, "text beyond the 60,000-character budget is not translated");
 });

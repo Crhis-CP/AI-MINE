@@ -112,11 +112,14 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   assert.ok(f.calls.some((call) => call.marker === "FOREIGN_LOW" && call.step === "translate"));
   assert.equal((await f.reader.inject(`/api/site/items/${withdrawn.id}`)).statusCode, 404);
   assert.ok(!f.calls.some((call) => call.marker === "FOREIGN_WITHDRAWN" && call.step === "translate"));
+  // Two translated items of two paragraphs each: one batched request per item (TASK-0711).
   const calls = f.calls.filter((call) => call.step === "translate");
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 2);
   const [receipts] =
     await f.sql`SELECT count(*)::int AS n FROM receipts WHERE purpose='translate_body' AND status='completed' AND response_attempt_id IS NOT NULL`;
-  assert.equal(receipts.n, 4);
+  assert.equal(receipts.n, 2);
+  const [segments] = await f.sql`SELECT count(*)::int AS n FROM enrichment.translation_segments WHERE state='complete'`;
+  assert.equal(segments.n, 4, "each paragraph still has its own checkpoint");
   // Drain current work while leaving future jobs intact; gateway configuration and the provider stay enabled.
   await f.stopWorkers();
   assert.equal(shutdownSignal.signal.aborted, false, "reader observation does not disable the model gateway");

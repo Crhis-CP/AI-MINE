@@ -27,18 +27,11 @@ import { ARTICLE_ID_PATTERN, toPublicApiCategory, type PublicApiCategoryKey } fr
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
 import type { CategoryKey } from "@amp/contracts/taxonomy";
-import {
-  isChineseOriginal,
-  readableTranslation,
-  readablePartialTranslation,
-  TRANSLATION_MANIFEST_FORMAT,
-  type StoredTranslation,
-} from "../editorial/translation-readiness.ts";
-import { promptVersion } from "../editorial/prompts.ts";
+import { isChineseOriginal, readableTranslation, readablePartialTranslation, type StoredTranslation } from "../editorial/translation-readiness.ts";
 import { looksZh } from "../editorial/writing.ts";
 import { currentPostView, postPermission, postQuoteHtml } from "./post-view.ts";
 
-const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
+// A stored translation is shown by its revision, source text and manifest, never by the current prompt (TASK-0711).
 
 interface DetailRow extends ItemRow {
   /** Persisted release gate, independent of the confirmed selection badge. */
@@ -140,11 +133,8 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
   if (originalAllowed && row.body_mode === "full" && row.source_site_fulltext && (row.body_html || row.manual_body_html)) {
     const isZh = isChineseOriginal(row.language, row.body_text ?? "");
     const original = linkBodyImages(row.body_html ?? "");
-    const verified = isZh || !row.body_html ? null : readableTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
-    const partial =
-      isZh || !row.body_html || verified
-        ? null
-        : readablePartialTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
+    const verified = isZh || !row.body_html ? null : readableTranslation(row.body_html, { revision: row.content_revision }, row.translation);
+    const partial = isZh || !row.body_html || verified ? null : readablePartialTranslation(row.body_html, { revision: row.content_revision }, row.translation);
     const zh =
       row.manual_body_html && (translationAllowed || isZh)
         ? `<p>AI 辅助整理，经人工修订</p>${linkBodyImages(row.manual_body_html)}`

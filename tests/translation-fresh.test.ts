@@ -10,6 +10,7 @@ import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { tag, stub } from "./setup.ts";
+import { translationAnswer } from "./translation-stub.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
@@ -31,10 +32,9 @@ let afterHit: () => Promise<void> = async () => {};
 const provider = await stub(async (_hit, req) => {
   hits += 1;
   await afterHit();
-  const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
-  const marks = [...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ");
+  const content = translationAnswer(req.body, (text) => `${[...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ")} 合成中文译文 FRESH-${T}`);
   return {
-    choices: [{ message: { content: JSON.stringify({ text: `${marks} 合成中文译文 FRESH-${T}` }) } }],
+    choices: [{ message: { content } }],
     usage: { prompt_tokens: 10, completion_tokens: 5 },
   };
 });
@@ -52,9 +52,11 @@ const scope = { hosts: ["example.com"], path_prefixes: ["/"], document_types: []
 const SOURCE = `translation-fresh-${T}`;
 let n = 0;
 /** A public item that is not selected (unless asked), found `hoursAgo` hours ago. */
-async function article(opts: { hoursAgo: number; selected?: boolean; paragraphs?: number }) {
+async function article(opts: { hoursAgo: number; selected?: boolean; paragraphs?: number; repeat?: number }) {
   n += 1;
-  const paragraphs = Array.from({ length: opts.paragraphs ?? 1 }, (_, i) => `PARA-${T}-${n}-${i} copper project text with enough words. `.repeat(6));
+  const paragraphs = Array.from({ length: opts.paragraphs ?? 1 }, (_, i) =>
+    `PARA-${T}-${n}-${i} copper project text with enough words. `.repeat(opts.repeat ?? 6),
+  );
   const { articleId } = await upsertMaterial({
     sourceId: SOURCE,
     url: `https://example.com/${T}-${n}`,
@@ -178,7 +180,8 @@ test("backlog goes ahead at 60% of the hourly quota and waits at 80%", async () 
 });
 
 test("a long body that crosses the 48-hour line mid-way is judged as backlog before its next paid segment", async () => {
-  const long = await article({ hoursAgo: 47, paragraphs: 4 });
+  // Each paragraph is over 2,000 bytes, so no two share a batch (TASK-0711): four paragraphs are four requests.
+  const long = await article({ hoursAgo: 47, paragraphs: 4, repeat: 45 });
   const before = hits;
   // The first segment is bought while the item is fresh; by the time it is answered the item is 49 hours old.
   afterHit = async () => {
