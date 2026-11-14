@@ -209,7 +209,7 @@ base=$FIXTURE
 if [[ $1 == --host ]]; then shift 2; fi
 printf '%s\n' "$*" >> "$base/calls"
 case $1 in
- image) if [[ $* == *'.Config.Env'* ]]; then if [[ -f $base/image-default-key ]]; then cat "$base/image-default-key"; fi; elif [[ $* == *amp-retained:* && -e $base/bad-old-tag ]]; then cat "$base/new-image"; else cat "$base/old-image"; fi ;;
+ image) if [[ $* == *'.Config.Env'* ]]; then if [[ -f $base/image-default-key ]]; then cat "$base/image-default-key"; fi; printf '\n'; elif [[ $* == *amp-retained:* && -e $base/bad-old-tag ]]; then cat "$base/new-image"; else cat "$base/old-image"; fi ;;
  inspect) printf '%s\n' "$(<"$base/image")" ;;
  exec) [[ $2 == amp-api-1 || $2 == amp-worker-1 ]]; [[ $* == *'const k="SELECTION_CONFIRMED_VERSION"'* ]]; cat "$base/runtime.json" ;;
  run)

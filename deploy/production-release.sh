@@ -184,7 +184,7 @@ if action=='capture':
             image=subprocess.check_output(['docker','inspect','--format','{{.Image}}','amp-'+name+'-1'],text=True).strip()
             assert re.fullmatch(r'sha256:[0-9a-f]{64}',image), 'Invalid current application image'
             template='{{range .Config.Env}}{{if eq (index (split . "=") 0) "SELECTION_CONFIRMED_VERSION"}}{{json .}}{{println}}{{end}}{{end}}'
-            values=subprocess.check_output(['docker','image','inspect','--format',template,image],text=True).splitlines()
+            values=[line for line in subprocess.check_output(['docker','image','inspect','--format',template,image],text=True).splitlines() if line.strip()]
             assert len(values)<=1, 'Ambiguous image selection default'
             value=json.loads(values[0]).removeprefix('SELECTION_CONFIRMED_VERSION=') if values else None
             assert value is None or value=='' or re.fullmatch(literal,value), 'Unsupported image selection default'
