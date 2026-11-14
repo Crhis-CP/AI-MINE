@@ -268,6 +268,10 @@ test("queue options and the cost-report estimate", () => {
   const peak = new Date("2026-11-09T02:00:00Z");
   assert.deepEqual(translationJobOptions("b", false, peak), { singletonKey: "later:b", priority: -2, startAfter: new Date("2026-11-09T04:00:00Z") });
   assert.deepEqual(translationJobOptions("b", false, new Date("2026-11-08T02:00:00Z")), { singletonKey: "later:b", priority: -2 });
+  // A fresh item (found within the two-day live window) starts at once even in a peak hour; only backlog waits (TASK-0676).
+  assert.deepEqual(translationJobOptions("b", false, peak, true), { singletonKey: "later:b", priority: -2 });
+  assert.deepEqual(translationJobOptions("b", false, peak, false), { singletonKey: "later:b", priority: -2, startAfter: new Date("2026-11-09T04:00:00Z") });
+  assert.deepEqual(translationJobOptions("a", true, peak, false), { singletonKey: "a", priority: 0 });
   const system = promptTokenEstimate(promptText("translate-body"));
   assert.ok(system > 300 && system < 3000, String(system));
   // Codex review #362: the estimate follows the worker's plan, one request per manifest segment.
