@@ -232,7 +232,11 @@ export function PolicyReviewProvider({
   useEffect(() => {
     setReady(true);
     // The changes are listed beside a translation too; their clause numbers need the original to point at.
-    if (marked && marked.id !== selected?.id) void load(marked);
+    if (marked && marked.id !== selected?.id) {
+      void load(marked);
+      // Marks left on while the language changed: they sit in the original, so the original is shown under the translation again.
+      if (view.redline) setCompare(true);
+    }
     return () => clearTimeout(settle.current);
   }, []);
 

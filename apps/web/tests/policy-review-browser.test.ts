@@ -29,6 +29,8 @@ const ALL = [
   "demo-policy-excerpt",
   "demo-policy-scan",
   "demo-policy-original-only",
+  "demo-policy-marks",
+  "demo-policy-draft",
 ];
 const BANNED = ["需要行动", "要做的事", "影响程度", "待核"];
 const CJK = /[㐀-鿿]/;
@@ -200,6 +202,12 @@ test("a section appears only when its field has content", { timeout: 60000 }, as
   await visit("/policies/demo-policy-brine");
   await expect(page.locator('.pr-life li[aria-current="step"]')).toHaveText("征求意见当前—");
   await expect(page.locator(".pr-life li").nth(3)).toHaveText("公布—");
+  // A general deadline in a draft is not the day the consultation closes: it stays in the 时间 section only.
+  await visit("/policies/demo-policy-draft");
+  await expect(page.locator('.pr-life li[aria-current="step"]')).toHaveText("征求意见当前—");
+  await expect(page.locator(".pr-life")).not.toContainText("2027-06-30");
+  await expect(page.locator("#legal dt")).toHaveText(["公布", "截止"]);
+  await expect(page.locator("#legal dd").nth(1)).toContainText("2027 年 6 月 30 日");
   // A complete interpretation with no earlier version: no comparison section and no revision switch.
   await visit("/policies/demo-policy-export");
   assert.deepEqual(await sections(page), ["summary", "analysis", "who", "legal", "attachments", "related"]);
@@ -346,10 +354,61 @@ test("revision marks go on and off in the text, and are not offered without a co
   await page.locator("[data-pr-redline]").click();
   await expect(page.locator("#node-node-9 .pr-t del")).toHaveText("删去：un año");
   await expect(page.locator("#node-node-10 .pr-t")).toHaveClass(/pr-added/);
+  // Switching to the translation with the marks still on: they sit in the original, so the original comes along
+  // under each block. The switch must never read "on" while no marked word is on screen.
+  await page.getByRole("navigation", { name: "阅读语言" }).getByRole("link", { name: "中文译文", exact: true }).click();
+  await expect(page).toHaveURL(/expression_id=demo-policy-royalty-zh/);
+  await expect(page.locator(".pr-page")).toHaveAttribute("data-pr-ready", "");
+  await expect(page.locator("[data-pr-redline]")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "对照原文", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#node-node-9 .pr-o del")).toBeVisible();
+  await expect(page.locator("#node-node-9 .pr-o del")).toHaveText("删去：un año");
+  await expect(page.locator("#node-node-9 .pr-o ins")).toBeVisible();
+  await expect(page.locator("#pr-gone-2 del")).toBeVisible();
   for (const other of ["demo-policy-export", "demo-policy-plain", "demo-policy-partial"]) {
     await visit(`/policies/${other}`);
     await expect(page.locator("[data-pr-redline], [data-pr-redline-link], #compare")).toHaveCount(0);
   }
+  await done();
+});
+
+test("a change that has no place in the text keeps its full wording openable in the list", { timeout: 60000 }, async () => {
+  const { page, visit, done } = await open(1360);
+  await visit("/policies/demo-policy-marks");
+  const rows = page.locator("#compare .pr-chg > li");
+  await expect(rows).toHaveCount(4);
+  await expect(page.locator("[data-pr-redline]")).toHaveCount(1);
+  // Article 1 is found in the text: its number is a link and the wording is read there.
+  await expect(rows.nth(0).locator(".pr-ref")).toHaveText("第1条");
+  await expect(rows.nth(0).locator("details")).toHaveCount(0);
+  // Three are not: a block of marked-up HTML without a number to find it by, a number written differently
+  // (第三条 against 第3条), and a block on a page not loaded yet. None is a link; each opens in place.
+  for (const [i, label] of [
+    [1, "第2条"],
+    [2, "第三条"],
+    [3, "第22条"],
+  ] as const) {
+    const row = rows.nth(i);
+    await expect(row.locator(".pr-ref")).toHaveCount(0);
+    await expect(row.locator(".pr-ref-plain")).toHaveText(label);
+    await expect(row.locator(".pr-chg-full")).toBeHidden();
+    await row.locator("summary").click();
+    await expect(row.locator(".pr-chg-full del")).toHaveText("删去：一次");
+    await expect(row.locator(".pr-chg-full ins")).toHaveText("加入：分批");
+    await expect(row.locator(".pr-chg-full")).toBeVisible();
+  }
+  // With the marks on, only the article that was found is marked in the text.
+  await page.locator("[data-pr-redline]").click();
+  await expect(page.locator(".pr-doc .pr-art del")).toHaveCount(1);
+  await expect(page.locator("#node-node-2 del")).toHaveText("删去：一次");
+  // Once its page is loaded, article 22 has a place: a link, and no longer a second copy of the wording in the list.
+  await page.locator(".pr-doc").getByRole("button", { name: "继续读取正文", exact: true }).click();
+  await expect(page.locator(".pr-doc .pr-art")).toHaveCount(30);
+  await expect(rows.nth(3).locator(".pr-ref")).toHaveText("第22条");
+  await expect(rows.nth(3).locator("details")).toHaveCount(0);
+  await expect(rows.locator("details")).toHaveCount(2);
+  await rows.nth(3).locator(".pr-ref").click();
+  await expect(page.locator(".pr-art.pr-hit del")).toHaveText("删去：一次");
   await done();
 });
 

@@ -96,7 +96,7 @@ function Lifecycle({ policy }: { policy: Policy }) {
               {names[stage.key]}
               {stage.now && <em>{tr("当前")}</em>}
             </b>
-            <span>{date ? (stage.closes ? tr("截至 {date}", { date }) : date) : "—"}</span>
+            <span>{date ?? "—"}</span>
           </li>
         );
       })}

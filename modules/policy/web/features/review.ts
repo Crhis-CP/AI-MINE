@@ -185,7 +185,7 @@ export function redlineOf(comparison: Comparison, rows: readonly ReadingBlock[])
 }
 
 export const LIFECYCLE = ["proposed", "consultation", "adopted", "published", "in_force"] as const;
-export type LifecycleStage = { key: (typeof LIFECYCLE)[number]; time: Time | null; now: boolean; closes: boolean };
+export type LifecycleStage = { key: (typeof LIFECYCLE)[number]; time: Time | null; now: boolean };
 
 const earliest = (times: (Time | null | undefined)[]) =>
   times.filter((t): t is Time => !!t && t.precision !== "unknown").sort((x, y) => (x.beijing_date ?? "9999").localeCompare(y.beijing_date ?? "9999"))[0] ??
@@ -202,12 +202,12 @@ export function lifecycleOf(policy: Pick<Policy, "legal_brief" | "legal_state" |
     brief = policy.legal_brief;
   const current = brief.in_force === "yes" || brief.in_force === "partial" ? "in_force" : brief.stage === "unknown" ? null : brief.stage;
   const reached = current ? LIFECYCLE.indexOf(current) : -1;
-  const consulting = current === "proposed" || current === "consultation";
   const dated = (kinds: string[], meanings: string[]) =>
     earliest(policy.dates.filter((t) => (t.event_kind && kinds.includes(t.event_kind)) || (!t.event_kind && meanings.includes(t.meaning))));
   const times: Record<LifecycleStage["key"], Time | null> = {
     proposed: null,
-    consultation: consulting ? earliest(legal.deadlines.map((d) => d.time)) : null,
+    // The record has no field for the day a consultation closes; a general deadline (a compliance date) is not one.
+    consultation: null,
     adopted: dated(["adoption"], []),
     // A draft put out for comment is published as a draft, not promulgated: the stage must have been reached.
     published:
@@ -220,5 +220,5 @@ export function lifecycleOf(policy: Pick<Policy, "legal_brief" | "legal_state" |
     in_force: earliest([...legal.enforcement.arrangements.map((d) => d.time), dated(["entry_into_force"], ["effective"])]),
   };
   if (!current && !Object.values(times).some(Boolean)) return null;
-  return LIFECYCLE.map((key) => ({ key, time: times[key], now: key === current, closes: key === "consultation" && !!times[key] }));
+  return LIFECYCLE.map((key) => ({ key, time: times[key], now: key === current }));
 }

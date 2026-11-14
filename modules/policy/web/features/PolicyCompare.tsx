@@ -112,8 +112,9 @@ function ChangeRow({ change, index }: { change: ProvisionChange; index: number }
       )}
     </>
   );
-  // Where the text beside it cannot carry the marks (another pair of versions, or no text shown), the wording opens in place.
-  if (review.marked) return <li className={kind[0]}>{text}</li>;
+  // A change that has its place in the text is read there. One that has none (another pair of versions, no text shown,
+  // a block not loaded yet or without a number to find it by) keeps its wording here, to open in place.
+  if (anchor) return <li className={kind[0]}>{text}</li>;
   return (
     <li className={kind[0]}>
       <details>
