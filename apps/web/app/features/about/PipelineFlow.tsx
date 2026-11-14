@@ -7,6 +7,7 @@ import type { SiteStats } from "@amp/contracts/site";
 import { EDITION_TIMES } from "@amp/industry/site";
 import { useTr, type Tr } from "../../i18n";
 import type { PipelineHandle, PipelineLabels } from "./pipeline-canvas";
+import "./pipeline-flow.css";
 
 type StatKey = "sources" | "collected" | "selected" | "dailies";
 interface Figure {
