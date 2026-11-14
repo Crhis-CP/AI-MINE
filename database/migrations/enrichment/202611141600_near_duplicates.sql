@@ -9,7 +9,7 @@ CREATE TABLE enrichment.near_duplicates (
   input_revision integer NOT NULL CHECK (input_revision > 0),
   source_id text NOT NULL,
   simhash bigint NOT NULL,
-  bands integer[] NOT NULL CHECK (cardinality(bands) = 7),
+  bands integer[] NOT NULL,
   title_key text NOT NULL,
   recipe text NOT NULL,
   match_article_id text,

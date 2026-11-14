@@ -101,7 +101,7 @@ test("record only: a later reprint from another source points at the earlier one
   assert.equal(await recordNearDuplicate({ ...reprint, id: article("h"), sourceId: `src-h-${id}` }), null);
 });
 
-test("many far articles sharing a band do not crowd out a true reprint (distance is filtered before the limit)", async () => {
+test("many far articles sharing a band do not crowd out a true reprint (no row limit before the distance check)", async () => {
   const id = tag(),
     body = `${wire}批次${id}`,
     hash = simhash(body);
