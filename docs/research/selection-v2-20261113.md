@@ -6,6 +6,8 @@
 
 两份候选文件只给回放工具读，生产照旧用现行规则，Owner 看过对照才切换。
 
+> **2026-11-13 晚更新（Owner 改口，TASK-0670）**：新规则先上线，再用真实数据对比，不行再回撤。两份文件现在是生产缺省的 `global` 规则组，原规则由 `SELECTION_RULESET=classic` 逐字保留；每日对比用 `scripts/rules-live-compare.ts`。下面第二节的回放保留为可选工具，不再是上线前置。见决定台账“DEC-78补充·新评分规则先上线再对比”。
+
 **评分** `industry/prompts/selection-score-global.md`，在现行 `selection-score.md` 上只改口径、不改结构，方便对照：
 
 | 现行 | 候选 |

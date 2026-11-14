@@ -12,10 +12,14 @@
 // budget for every step (UNDERSTAND_BODY_CHARS).
 // The X-post title/summary prompts (short and long posts, short-post translation) keep the separate layout in both
 // modes: they carry the post inline and the stored post translation is bound to their recipe.
+// Both layouts take the score rules and the prefilter rules from the selection rule set (SELECTION_RULESET, config.ts;
+// the files of each set are named in industry/selection.ts). The shared template names the classic files in its two
+// includes and the other set is read in their place, so the classic prompts are rendered exactly as they were before
+// the switch existed; each set has its own prompt versions.
 import { createHash } from "node:crypto";
 import { CATEGORIES } from "@amp/industry/taxonomy";
-import { MAJOR_COMPANIES, SELECTION } from "@amp/industry/selection";
-import type { AnalysisPromptLayout } from "../config.ts";
+import { MAJOR_COMPANIES, SELECTION, SELECTION_RULESETS } from "@amp/industry/selection";
+import { selectionRuleset, type AnalysisPromptLayout, type SelectionRuleset } from "../config.ts";
 import type { ChatPrefix } from "../providers/llm.ts";
 import { postEvidenceText, usableSourceText } from "../lib/text.ts";
 import { stableJson } from "../lib/ids.ts";
@@ -24,7 +28,7 @@ import type { AnalyzeInputArticle } from "./input.ts";
 import { configuredPromptVersion, promptText, promptVersion } from "./prompts.ts";
 import { modelSourceDateLabel } from "./source-time.ts";
 import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, TOPIC_TAGS } from "./vocabulary.ts";
-import { bodyWithin, materialQuality, mediaLine, UNDERSTAND_BODY_CHARS, UNDERSTAND_CONFIG } from "./writing.ts";
+import { bodyWithin, materialQuality, mediaLine, prefilterSystem, UNDERSTAND_BODY_CHARS, UNDERSTAND_CONFIG } from "./writing.ts";
 
 const ZH_COUNT = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
 
@@ -63,8 +67,36 @@ function sharedValues(): Record<string, string> {
   return values;
 }
 
-/** The one system prompt of every shared-layout analysis request: a preamble and every step's rules. */
-export const SHARED_ANALYSIS_SYSTEM = promptText("analysis-shared", sharedValues());
+/** One value per rule set, made on first use; without an argument, the configured set's (read on every call). */
+function perRuleset<T>(make: (ruleset: SelectionRuleset) => T): (ruleset?: SelectionRuleset) => T {
+  const made = new Map<SelectionRuleset, T>();
+  return (ruleset = selectionRuleset()) => {
+    if (!made.has(ruleset)) made.set(ruleset, make(ruleset));
+    return made.get(ruleset)!;
+  };
+}
+
+/** The score rules of a selection rule set: the industry's taste, as the separate layout's score step sends it. */
+export const scoreSystem = perRuleset((ruleset) => promptText(SELECTION_RULESETS[ruleset].score, SCORE_CONFIG));
+
+/**
+ * The one system prompt of every shared-layout analysis request in a rule set: a preamble and every step's rules. The
+ * template (analysis-shared.md) includes the classic prefilter and score files; another set's files are read in their
+ * place. A set whose rules are not in the result exactly once is an error: no rule set may silently send another's.
+ */
+export const sharedAnalysisSystem = perRuleset((ruleset) => {
+  const rules = SELECTION_RULESETS[ruleset],
+    template = SELECTION_RULESETS.classic;
+  const system = promptText("analysis-shared", sharedValues(), { [template.prefilter]: rules.prefilter, [template.score]: rules.score });
+  for (const [step, text] of [
+    ["prefilter", prefilterSystem(ruleset)],
+    ["score", scoreSystem(ruleset)],
+  ] as const)
+    if (system.split(text).length !== 2) throw new Error(`shared analysis prompt: the ${ruleset} ${step} rules are not included exactly once`);
+  return system;
+});
+/** The shared system prompt of the rule set configured when this module loaded; requests are built from sharedAnalysisSystem(). */
+export const SHARED_ANALYSIS_SYSTEM = sharedAnalysisSystem();
 /** The constant assistant turn between the material and the step instruction. */
 export const MATERIAL_ACKNOWLEDGEMENT = promptText("analysis-material-ack").trim();
 
@@ -109,19 +141,24 @@ export function sharedMaterial(a: AnalyzeInputArticle): SharedMaterial {
 }
 
 /**
- * The shared system prompt with other score rules in place of the production ones (rules experiments only): the
- * same preamble and other sections, so only the score rules differ from production.
+ * The shared system prompt with other score rules in place of a rule set's (rules experiments only): the same
+ * preamble and other sections, so only the score rules differ from that set's production prompt.
  */
-export function sharedSystemWithScoreRules(rules: string): string {
-  const parts = SHARED_ANALYSIS_SYSTEM.split(promptText("selection-score", SCORE_CONFIG));
+export function sharedSystemWithScoreRules(rules: string, ruleset: SelectionRuleset = selectionRuleset()): string {
+  const parts = sharedAnalysisSystem(ruleset).split(scoreSystem(ruleset));
   if (parts.length !== 2) throw new Error("shared analysis prompt: the score rules are not included exactly once");
   return parts.join(rules);
 }
 
 /** A shared-layout request: the shared system prompt, the material and the step's instruction. */
-export function sharedRequest(material: SharedMaterial, step: AnalysisStep, values: Record<string, string> = {}) {
+export function sharedRequest(
+  material: SharedMaterial,
+  step: AnalysisStep,
+  values: Record<string, string> = {},
+  ruleset: SelectionRuleset = selectionRuleset(),
+) {
   return {
-    system: SHARED_ANALYSIS_SYSTEM,
+    system: sharedAnalysisSystem(ruleset),
     prefix: { material: material.text, acknowledgement: MATERIAL_ACKNOWLEDGEMENT } satisfies ChatPrefix,
     user: promptText(`analysis-step-${step}`, values),
   };
@@ -134,56 +171,63 @@ const WEIGHTS = createHash("sha256")
   .update(JSON.stringify([SELECTION.weights, SELECTION.unusableMaterialCap, SELECTION.noiseCaps, MAJOR_COMPANIES]))
   .digest("hex")
   .slice(0, 10);
-const STEP_NAMES: Record<AnalysisStep, string> = {
-  prefilter: "prefilter",
-  score: "selection-score",
+/** A step's name in its version: the selection steps are named after their rule set's files. */
+const stepNames = (ruleset: SelectionRuleset): Record<AnalysisStep, string> => ({
+  prefilter: SELECTION_RULESETS[ruleset].prefilter,
+  score: SELECTION_RULESETS[ruleset].score,
   understand: "understand",
   summarize: "summarize-article",
   wording: "mend-wording",
   structure: "structure",
-};
+});
 /** Prompt files a step instruction may add to the rendered text besides its own file. */
 const STEP_FILES: Partial<Record<AnalysisStep, string[]>> = { summarize: ["summarize-article-empty", "identity-context"] };
 
-/** `<step>-shared@hash` over the rendered shared system, the acknowledgement, the step instruction and the recipe. */
-function sharedStepVersion(step: AnalysisStep): string {
+/**
+ * `<step>-shared@hash` over the rendered shared system, the acknowledgement, the step instruction and the recipe. The
+ * shared system holds the rule set's rules, so every step's shared version differs between rule sets.
+ */
+function sharedStepVersion(step: AnalysisStep, ruleset: SelectionRuleset): string {
   const hash = createHash("sha256")
-    .update(stableJson([SHARED_RECIPE, SHARED_ANALYSIS_SYSTEM, MATERIAL_ACKNOWLEDGEMENT, promptVersion(`analysis-step-${step}`, ...(STEP_FILES[step] ?? []))]))
+    .update(
+      stableJson([SHARED_RECIPE, sharedAnalysisSystem(ruleset), MATERIAL_ACKNOWLEDGEMENT, promptVersion(`analysis-step-${step}`, ...(STEP_FILES[step] ?? []))]),
+    )
     .digest("hex")
     .slice(0, 10);
-  return `${STEP_NAMES[step]}-shared@${hash}`;
+  return `${stepNames(ruleset)[step]}-shared@${hash}`;
 }
 
 /** The score standard without its weights (SelectBench's standard version): the score prompt, as the layout sends it. */
-export function scoreStandardVersion(layout: AnalysisPromptLayout): string {
-  return layout === "shared" ? sharedStepVersion("score") : promptVersion("selection-score");
+export function scoreStandardVersion(layout: AnalysisPromptLayout, ruleset: SelectionRuleset = selectionRuleset()): string {
+  return layout === "shared" ? sharedStepVersion("score", ruleset) : promptVersion(SELECTION_RULESETS[ruleset].score);
 }
 
-const versions = new Map<AnalysisPromptLayout, Readonly<Record<AnalysisStep, string>>>();
-/** Every step's prompt version in a layout, as receipts and judgements record it. */
-export function promptVersionsFor(layout: AnalysisPromptLayout): Readonly<Record<AnalysisStep, string>> {
-  let found = versions.get(layout);
+const versions = new Map<string, Readonly<Record<AnalysisStep, string>>>();
+/** Every step's prompt version in a layout and rule set (the configured set unless named), as receipts and judgements record it. */
+export function promptVersionsFor(layout: AnalysisPromptLayout, ruleset: SelectionRuleset = selectionRuleset()): Readonly<Record<AnalysisStep, string>> {
+  const key = `${layout}/${ruleset}`;
+  let found = versions.get(key);
   if (!found) {
     found = Object.freeze(
       layout === "shared"
         ? {
-            prefilter: sharedStepVersion("prefilter"),
-            score: `${scoreStandardVersion(layout)}+weights@${WEIGHTS}`,
-            understand: sharedStepVersion("understand"),
-            summarize: sharedStepVersion("summarize"),
-            wording: sharedStepVersion("wording"),
-            structure: sharedStepVersion("structure"),
+            prefilter: sharedStepVersion("prefilter", ruleset),
+            score: `${scoreStandardVersion(layout, ruleset)}+weights@${WEIGHTS}`,
+            understand: sharedStepVersion("understand", ruleset),
+            summarize: sharedStepVersion("summarize", ruleset),
+            wording: sharedStepVersion("wording", ruleset),
+            structure: sharedStepVersion("structure", ruleset),
           }
         : {
-            prefilter: promptVersion("prefilter"),
-            score: `${scoreStandardVersion(layout)}+weights@${WEIGHTS}`,
+            prefilter: promptVersion(SELECTION_RULESETS[ruleset].prefilter),
+            score: `${scoreStandardVersion(layout, ruleset)}+weights@${WEIGHTS}`,
             understand: configuredPromptVersion("understand", UNDERSTAND_CONFIG),
             summarize: promptVersion("summarize-article", "summarize-article-empty", "identity-context"),
             wording: promptVersion("mend-wording"),
             structure: configuredPromptVersion("structure", STRUCTURE_CONFIG),
           },
     );
-    versions.set(layout, found);
+    versions.set(key, found);
   }
   return found;
 }

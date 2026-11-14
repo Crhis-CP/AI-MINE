@@ -8,7 +8,8 @@ import { prepareNewsFallback, lockNewsProcessingPermissions, type NewsFallbackIn
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // analyzeArticle: the judging and writing steps, each with its own rules from the industry pack
 // (industry/prompts/), laid out per ANALYSIS_PROMPT_LAYOUT (analysis-layout.ts: one shared system prompt and material
-// for every step by default, or each step's own prompt):
+// for every step by default, or each step's own prompt); the prefilter's and the score's rules are those of the
+// selection rule set (SELECTION_RULESET, config.ts):
 // Missing material waits before any model request.
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
 //      item; UNKNOWN goes on like PASS;
@@ -25,7 +26,7 @@ export { toPublicApiCategory };
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
 import { attentionScore, meetsThreshold, NOISE_TYPES, SELECTION, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";
-import { analysisPromptLayout, config, isProduction, type AnalysisPromptLayout } from "../config.ts";
+import { analysisPromptLayout, config, isProduction, selectionRuleset, type AnalysisPromptLayout, type SelectionRuleset } from "../config.ts";
 import { sql } from "../db.ts";
 import { chatJson, chatUserText, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ChatPrefix, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
@@ -57,7 +58,7 @@ import {
   missingEvidence,
   parseTranslateOutput,
   parseShortPostOutput,
-  PREFILTER_SYSTEM,
+  prefilterSystem,
   prefilterUser,
   publisherLines,
   translateInputOf,
@@ -71,9 +72,9 @@ import { geographyMaterial, validateGeography, type NewsGeography } from "./geog
 import {
   MEND_CONFIG,
   promptVersionsFor,
-  SCORE_CONFIG,
   scoreStandardVersion,
-  SHARED_ANALYSIS_SYSTEM,
+  scoreSystem,
+  sharedAnalysisSystem,
   sharedMaterial,
   sharedRequest,
   sharedSystemWithScoreRules,
@@ -88,8 +89,9 @@ export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 const STRUCTURE_SYSTEM = promptText("structure", STRUCTURE_CONFIG);
 
 /**
- * Every step's prompt version in the configured layout (ANALYSIS_PROMPT_LAYOUT, read on each access); the layouts'
- * versions differ, so receipts and judgements say which layout produced them. promptVersionsFor names one layout.
+ * Every step's prompt version in the configured layout and selection rule set (ANALYSIS_PROMPT_LAYOUT and
+ * SELECTION_RULESET, read on each access); their versions differ, so receipts and judgements say which layout and
+ * rules produced them. promptVersionsFor names one layout and, optionally, one rule set.
  */
 export const PROMPT_VERSIONS: Readonly<Record<AnalysisStep, string>> = {
   get prefilter() {
@@ -147,7 +149,8 @@ export function draftTierThreshold(tier: string): number | null {
 /**
  * Release-version gate: production scores only the exact validated prompt bound by
  * SELECTION_CONFIRMED_VERSION. Rule changes require Owner confirmation under Issue #293.
- * Development, tests and evaluations (draftTierThreshold) run the draft.
+ * Development, tests and evaluations (draftTierThreshold) run the draft. The version is that of the configured rule
+ * set and layout, so switching SELECTION_RULESET without the matching confirmed version scores nothing.
  */
 export function scoringConfirmed(production = isProduction, confirmed = config.selectionConfirmedVersion): boolean {
   return !production || confirmed === PROMPT_VERSIONS.score;
@@ -165,8 +168,9 @@ const SCORE_CALL: Record<string, { temperature: number; maxTokens: number; timeo
 };
 const scoreCall = (model: string) => SCORE_CALL[model] ?? { temperature: 0.2, maxTokens: 1024, timeoutMs: 120_000 };
 
-/** The score prompt: the industry's taste (industry/prompts/selection-score.md). */
-export const SCORE_SYSTEM = promptText("selection-score", SCORE_CONFIG);
+/** The score rules of the rule set configured when this module loaded; requests are built from scoreSystem(). */
+export const SCORE_SYSTEM = scoreSystem();
+export { scoreSystem, prefilterSystem };
 
 const axis = z.coerce.number().min(0).max(10);
 /** The model judges the type and five axes (0–10, one decimal); code weighs them into the 0–100 score (industry/selection.ts). */
@@ -193,12 +197,12 @@ const publisherContext = (a: AnalyzeInputArticle) => [...publisherLines(a), `【
  * original title (items are scored before any Chinese copy exists) and the whole body. The shared layout's material
  * carries no publisher either, and its score instruction adds none.
  */
-function scoreRequest(a: AnalyzeInputArticle, layout: AnalysisPromptLayout): StepRequest {
-  if (layout === "shared") return sharedRequest(sharedMaterial(a), "score");
+function scoreRequest(a: AnalyzeInputArticle, layout: AnalysisPromptLayout, ruleset: SelectionRuleset = selectionRuleset()): StepRequest {
+  if (layout === "shared") return sharedRequest(sharedMaterial(a), "score", {}, ruleset);
   let body = a.xPost ? postEvidenceText(a.xPost) : usableSourceText(a.bodyText, a.excerpt).trim();
   if (!body) body = a.title;
   return {
-    system: SCORE_SYSTEM,
+    system: scoreSystem(ruleset),
     user: [
       "请按系统规则评估以下单篇材料所代表的事件。只输出内容类型、五轴分和噪声类型。",
       `【原文时间】\n${modelSourceDateLabel(a)}`,
@@ -210,29 +214,34 @@ function scoreRequest(a: AnalyzeInputArticle, layout: AnalysisPromptLayout): Ste
 /** Everything the scorer reads besides the system prompt, as one text (its request's userHash; SelectBench's sample input). */
 export const buildScoreInput = (a: AnalyzeInputArticle, layout: AnalysisPromptLayout = analysisPromptLayout()) => chatUserText(scoreRequest(a, layout));
 
-function prefilterRequest(a: AnalyzeInputArticle, layout: AnalysisPromptLayout): StepRequest {
+function prefilterRequest(a: AnalyzeInputArticle, layout: AnalysisPromptLayout, ruleset: SelectionRuleset = selectionRuleset()): StepRequest {
   return layout === "shared"
-    ? sharedRequest(sharedMaterial(a), "prefilter", { context: publisherContext(a) })
-    : { system: PREFILTER_SYSTEM, user: prefilterUser(a) };
+    ? sharedRequest(sharedMaterial(a), "prefilter", { context: publisherContext(a) }, ruleset)
+    : { system: prefilterSystem(ruleset), user: prefilterUser(a) };
 }
-/** The system prompt a selection step sends in a layout. */
-export const selectionSystem = (step: "prefilter" | "score", layout: AnalysisPromptLayout = analysisPromptLayout()) =>
-  layout === "shared" ? SHARED_ANALYSIS_SYSTEM : step === "prefilter" ? PREFILTER_SYSTEM : SCORE_SYSTEM;
+/** The system prompt a selection step sends in a layout and rule set (the configured ones unless named). */
+export const selectionSystem = (
+  step: "prefilter" | "score",
+  layout: AnalysisPromptLayout = analysisPromptLayout(),
+  ruleset: SelectionRuleset = selectionRuleset(),
+) => (layout === "shared" ? sharedAnalysisSystem(ruleset) : step === "prefilter" ? prefilterSystem(ruleset) : scoreSystem(ruleset));
 
 /**
  * A selection step's request as production sends it, for evaluations that send it themselves; `scoreRules` replaces
- * the score rules (a rules experiment), leaving the rest of the layout as it is.
+ * the score rules (a rules experiment), leaving the rest of the layout as it is. `ruleset` names the rule set whose
+ * request this is (the configured one unless named).
  */
 export function selectionStepRequest(
   step: "prefilter" | "score",
   a: AnalyzeInputArticle,
   layout: AnalysisPromptLayout = analysisPromptLayout(),
   scoreRules?: string,
+  ruleset: SelectionRuleset = selectionRuleset(),
 ): StepRequest {
-  if (step === "prefilter") return prefilterRequest(a, layout);
-  const request = scoreRequest(a, layout);
+  if (step === "prefilter") return prefilterRequest(a, layout, ruleset);
+  const request = scoreRequest(a, layout, ruleset);
   if (scoreRules === undefined) return request;
-  return { ...request, system: layout === "shared" ? sharedSystemWithScoreRules(scoreRules) : scoreRules };
+  return { ...request, system: layout === "shared" ? sharedSystemWithScoreRules(scoreRules, ruleset) : scoreRules };
 }
 
 /** Everything the prefilter reads besides the system prompt, as one text (its request's userHash). */

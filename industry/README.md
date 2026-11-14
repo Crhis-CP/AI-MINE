@@ -62,8 +62,10 @@
 
 | 文件 | 用途 |
 |---|---|
-| `prefilter.md` | 预筛：是不是本行业的事。宽召回，只拦明显无关的 |
-| `selection-score.md` | 评分标准：读者定义、内容类型、五个评分维度的含义（每个 0–10，可到一位小数）、噪声类型，以及必须正常评价的价值和必须压住的噪声。模型只给类型、各维度分和噪声类型；总分（0–100，一位小数）由 `selection.ts` 的权重和封顶算出。同一份标准最多独立打两次，第一次离门槛较远时只打一次 |
+| `prefilter-four-layers.md` | 预筛（`global` 规则组，缺省）：在 `prefilter.md` 上加四层放行——资源国法律政策、资源国政治与安全风险、中国对外投资与中资动态、写明了对具体金属影响的下游需求与宏观 |
+| `selection-score-global.md` | 评分标准（`global` 规则组，缺省）：结构同 `selection-score.md`，读者为全球矿业投资者与从业者，第四轴（字段仍是 `reson`）改为“影响面”，去掉中资专门条目，加入资源国政治与安全风险 |
+| `prefilter.md` | 预筛（`classic` 规则组，原规则，逐字保留供回撤）：是不是本行业的事。宽召回，只拦明显无关的 |
+| `selection-score.md` | 评分标准（`classic` 规则组，原规则，逐字保留供回撤）：读者定义、内容类型、五个评分维度的含义（每个 0–10，可到一位小数）、噪声类型，以及必须正常评价的价值和必须压住的噪声。模型只给类型、各维度分和噪声类型；总分（0–100，一位小数）由 `selection.ts` 的权重和封顶算出。同一份标准最多独立打两次，第一次离门槛较远时只打一次 |
 | `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加四份共用规则（`rules-domain.md`、`rules-anti-hallucination.md`、`rules-self-contained-title.md`、`rules-answer-first-summary.md`）组成 |
 | `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
 | `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`，其中第 3 条“通行中文名”引用 `rules-domain-names.md`）、防幻觉、答案先行的摘要、自洽的标题 |
@@ -74,6 +76,8 @@
 | `story-digest.md` | 事件综述 |
 | `report-daily-lead.md`、`report-period.md` | 日报导语，周报与月报 |
 | `translate-body.md` | 全文翻译；只引用 `rules-domain-names.md`（公司与机构的通行中文名，翻译只用这份名单），术语默认值不进翻译，改术语或写作规则不会让已译的全文重译；改 `translate-body.md` 或 `rules-domain-names.md` 会让已存的外文全文全部重译（后者和摘要规则 `rules-domain.md` 第 3 条共用）。只给标题摘要用的新增名单放在 `rules-domain-names-extra.md`（只由 `rules-domain.md` 引用，不进翻译），改它不会触发重译 |
+
+**规则组**（`SELECTION_RULESET`，TASK-0670，Owner 2026-11-13）：评分和预筛各用哪份文件由 `selection.ts` 的 `SELECTION_RULESETS` 决定——`global`（缺省）用 `selection-score-global.md` 与 `prefilter-four-layers.md`，`classic` 用 `selection-score.md` 与 `prefilter.md`。两种排布都按它取规则：分开排布直接发该组的文件；共享排布的 `analysis-shared.md` 写的是 `classic` 的两份文件名，`global` 时在这两处换读本组文件，其余字节不变。每个规则组有自己的版本号，`classic` 的提示词和版本号与开关出现前逐字节相同（`tests/selection-ruleset.test.ts`）。开关填其他值，进程启动即报错。
 
 模板只有两种写法（`packages/backend/src/editorial/prompts.ts`）：`{{名字}}` 是调用方传入的值（另有站名 `siteName`），`{{> 文件名}}` 原样插入另一份提示词。缺值或缺文件直接报错，不会留空。提示词的版本号由名称加它读到的所有文件内容的哈希组成，回执和私有页面的模型页都记着结果出自哪一版；改一个字，版本号就变。
 
@@ -141,4 +145,4 @@
 
 **2026-10-23 DEC-76：以下A/B/AR与双人盲标为历史实验说明，不再是当前实施或验收前置。全站使用统一选材/评分规则，国别只承担分类、查询与分发；AI负责规则核验和完善。**
 
-`selection-score-global.md`（3.1 候选：读者为全球矿业投资者，第四轴改为“影响面”，去掉中资专门条目，加入资源国政治与安全风险）和`prefilter-four-layers.md`（3.1 候选：预筛加入资源国法律政策、资源国政治与安全风险、中国对外投资与中资动态、写明对金属影响的下游需求与宏观四层）只由`scripts/rules-replay.ts`读取，生产不用；Owner 看过回放对照后另开卡切换（TASK-0643，Owner 2026-11-13）。`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。当时实验中权重、双评分与60/65/76门槛不变（这是2026-10-22的配置；现行门槛、权重和评分次数见2.5节）；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。
+`selection-score-global.md`和`prefilter-four-layers.md`（3.1 规则，TASK-0643 起草）自 TASK-0670 起是生产缺省的 `global` 规则组（Owner 2026-11-13 晚：先上线，再用真实数据对比，不行再回撤）；上线后每天用 `scripts/rules-live-compare.ts`（只读、不调用模型）按天、按规则版本对比。回放工具 `scripts/rules-replay.ts` 保留为可选工具（“现行”指 `classic`，“候选”缺省为 `global`），不再是上线前置，默认不运行。`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。当时实验中权重、双评分与60/65/76门槛不变（这是2026-10-22的配置；现行门槛、权重和评分次数见2.5节）；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。

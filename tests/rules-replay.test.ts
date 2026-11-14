@@ -1,5 +1,6 @@
 // The rules replay (TASK-0643): swapping in the 3.1 candidate rules, the comparisons it reports, the cost cap and
-// pacing. No database and no model: the parts that decide what the Owner reads are pure.
+// pacing. No database and no model: the parts that decide what the Owner reads are pure. Since TASK-0670 the rules
+// are a switch: the replay's "current" is the classic rule set and its default candidate is the global one.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { selectionSystem } from "../packages/backend/src/editorial/analyze.ts";
@@ -36,18 +37,25 @@ test("both layouts swap in the candidate rules and keep everything else", () => 
   assert.match(texts.candidate.prefilter, /资源国的政治与安全风险/);
   const shared = candidateSystem("score", "shared", texts);
   assert.equal(candidateSystem("prefilter", "shared", texts), shared, "one shared system prompt holds both rules");
-  // Swapping the current rules back restores the production prompt byte for byte: nothing else changed.
+  // Swapping the current rules back restores the classic rule set's prompt byte for byte: nothing else changed.
   const back = (system: string, pairs: [string, string][]) => pairs.reduce((text, [from, to]) => replaceOnce(text, from, to, "back"), system);
   assert.equal(
     back(shared, [
       [texts.candidate.score, texts.current.score],
       [texts.candidate.prefilter, texts.current.prefilter],
     ]),
-    selectionSystem("score", "shared"),
+    selectionSystem("score", "shared", "classic"),
   );
-  assert.equal(back(candidateSystem("score", "separate", texts), [[texts.candidate.score, texts.current.score]]), selectionSystem("score", "separate"));
+  assert.equal(
+    back(candidateSystem("score", "separate", texts), [[texts.candidate.score, texts.current.score]]),
+    selectionSystem("score", "separate", "classic"),
+  );
   const prefilter = candidateSystem("prefilter", "separate", texts);
-  assert.equal(back(prefilter, [[texts.candidate.prefilter, texts.current.prefilter]]), selectionSystem("prefilter", "separate"));
+  assert.equal(back(prefilter, [[texts.candidate.prefilter, texts.current.prefilter]]), selectionSystem("prefilter", "separate", "classic"));
+  // The default candidate is exactly what production sends under the global rule set, in both layouts.
+  for (const layout of ["shared", "separate"] as const)
+    for (const step of ["prefilter", "score"] as const)
+      assert.equal(candidateSystem(step, layout, texts), selectionSystem(step, layout, "global"), `${layout} ${step}`);
 });
 
 const run = (mean: number, selected: boolean) => ({ values: [mean], mean, selected, reson: [5] });

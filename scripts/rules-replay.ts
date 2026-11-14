@@ -1,7 +1,12 @@
 // Rules replay (TASK-0643, Owner 2026-11-13): the 3.1 candidate rules (industry/prompts/selection-score-global.md and
 // prefilter-four-layers.md) against the Owner's labels and recent production items, side by side with the current
 // rules. Read-only for business tables: it sends model requests (evaluation receipts) and writes a report; it changes
-// no article, analysis or publication. Run it in a one-off container of the released image, not beside a release:
+// no article, analysis or publication. Run it in a one-off container of the released image, not beside a release.
+// Since TASK-0670 the rules are a switch (SELECTION_RULESET): here "current" is always the classic rule set and the
+// default "candidate" is the global one, whatever the process is configured to run. The replay is optional and no
+// longer precedes go-live (scripts/rules-live-compare.ts reads the real results instead); nothing runs it by default.
+// Its recent-items and noise phases compare with the scores production stored, so they mean what the report says
+// only for days production ran the classic rules; the gold-set phase scores both rule sets itself.
 //   node scripts/rules-replay.ts --out .data/rules-replay [--gold .data/gold-owner-20261105.jsonl] [--days 7]
 //     [--max-yuan 30] [--per-minute 8] [--band 45-80] [--recent 400] [--noise 50] [--blocked 400]
 // The gold file comes from scripts/gold-from-labels.ts (read-only). Phases run in order — gold set, recent scores,
@@ -29,7 +34,7 @@ import { missingEvidence } from "@amp/backend/editorial/writing";
 import { sha256 } from "@amp/backend/lib/ids";
 import { normalizedUppercase } from "@amp/backend/lib/text";
 import { chatJson } from "@amp/backend/providers/llm";
-import { attentionScore, MAJOR_COMPANIES, meetsThreshold, scoreMean, scoreSettled, type ScoreAxes } from "@amp/industry/selection";
+import { attentionScore, MAJOR_COMPANIES, meetsThreshold, scoreMean, scoreSettled, SELECTION_RULESETS, type ScoreAxes } from "@amp/industry/selection";
 
 export type Rules = "current" | "candidate";
 export interface ScoreRun {
@@ -75,21 +80,25 @@ export function replaceOnce(text: string, find: string, replacement: string, lab
   return parts.join(replacement);
 }
 
-/** Rules texts as the system prompts embed them (the score rules read the major companies; the prefilter none). */
-export function rulesTexts(scoreRules = "selection-score-global", prefilterRules = "prefilter-four-layers") {
+/**
+ * Rules texts as the system prompts embed them (the score rules read the major companies; the prefilter none):
+ * `current` is the classic rule set, `candidate` the named files (the global rule set unless others are given).
+ */
+export function rulesTexts(scoreRules: string = SELECTION_RULESETS.global.score, prefilterRules: string = SELECTION_RULESETS.global.prefilter) {
   const values = { majorCompanies: MAJOR_COMPANIES.join("、") };
   return {
-    current: { score: promptText("selection-score", values), prefilter: promptText("prefilter") },
+    current: { score: promptText(SELECTION_RULESETS.classic.score, values), prefilter: promptText(SELECTION_RULESETS.classic.prefilter) },
     candidate: { score: promptText(scoreRules, values), prefilter: promptText(prefilterRules) },
   };
 }
 
 /**
- * The candidate's system prompt for a step. In the shared layout both steps send one system prompt that holds both
- * rules, so both are swapped; in the separate layout each step's own prompt is its rules.
+ * The candidate's system prompt for a step: the classic rule set's prompt with the candidate rules swapped in. In the
+ * shared layout both steps send one system prompt that holds both rules, so both are swapped; in the separate layout
+ * each step's own prompt is its rules.
  */
 export function candidateSystem(step: "prefilter" | "score", layout: "shared" | "separate", texts = rulesTexts()): string {
-  const base = selectionSystem(step, layout);
+  const base = selectionSystem(step, layout, "classic");
   if (layout === "shared")
     return replaceOnce(
       replaceOnce(base, texts.current.score, texts.candidate.score, "score rules"),
@@ -263,7 +272,7 @@ export function renderReport(r: {
   lines.push(`## 一、和 Owner 11-05 的标注比（两版都打完分的 ${cur.total} 篇${goldMissing ? `，另有 ${goldMissing} 篇没打完，不计` : ""}）`, "");
   lines.push("| 规则 | 判对 | 查准 | 查全 | F1 | 选了几篇 |", "|---|---|---|---|---|---|");
   for (const [name, m] of [
-    ["现行", cur],
+    ["原规则（classic）", cur],
     ["候选（全球影响力）", cand],
   ] as const)
     lines.push(`| ${name} | ${m.tp + m.tn}/${m.total}（${pct(m.agreement)}） | ${pct(m.precision)} | ${pct(m.recall)} | ${pct(m.f1)} | ${m.tp + m.fp} |`);
@@ -273,7 +282,7 @@ export function renderReport(r: {
   );
   if (best) lines.push("", `候选规则若用一条统一门槛，${best.threshold} 分时和标注最一致（F1 ${pct(best.f1)}）；现行三条线是官方 62、准官方 64、媒体 66。`);
   const differ = r.gold.filter((c) => c.current && c.candidate && c.current.selected !== c.candidate.selected);
-  lines.push("", `两版判断不同的 ${differ.length} 篇：`, "", "| 编号 | 标题 | Owner | 现行 | 候选 |", "|---|---|---|---|---|");
+  lines.push("", `两版判断不同的 ${differ.length} 篇：`, "", "| 编号 | 标题 | Owner | 原规则 | 候选 |", "|---|---|---|---|---|");
   const said = { select: "该选", reject: "不选", either: "两可" } as const;
   for (const c of differ)
     lines.push(
@@ -282,7 +291,7 @@ export function renderReport(r: {
   lines.push("", `## 二、最近 ${r.days} 天线上打过分的稿件（均分 ${r.band[0]}–${r.band[1]}，重评 ${shifts.scored} 篇）`, "");
   lines.push(
     `- 原来入选、换规则后不选：**${shifts.dropped.length}** 篇；原来不选、换规则后入选：**${shifts.added.length}** 篇；不变：入选 ${shifts.keptIn.length} 篇、不选 ${shifts.keptOut} 篇。`,
-    `- 模型自身的波动：同一现行规则再打一次 ${noise.pairs} 篇，判断翻转 ${noise.flips} 篇（${pct(noise.flipRate)}），均分平均相差 ${num(noise.meanShift)} 分。上面两张清单里，超过这个比例的部分才是规则带来的变化。`,
+    `- 模型自身的波动：同一原规则再打一次 ${noise.pairs} 篇，判断翻转 ${noise.flips} 篇（${pct(noise.flipRate)}），均分平均相差 ${num(noise.meanShift)} 分。上面两张清单里，超过这个比例的部分才是规则带来的变化。`,
     "",
   );
   for (const [title, list] of [
@@ -339,8 +348,8 @@ async function main() {
       recent: { type: "string", default: "400" },
       noise: { type: "string", default: "50" },
       blocked: { type: "string", default: "400" },
-      "score-rules": { type: "string", default: "selection-score-global" },
-      "prefilter-rules": { type: "string", default: "prefilter-four-layers" },
+      "score-rules": { type: "string", default: SELECTION_RULESETS.global.score },
+      "prefilter-rules": { type: "string", default: SELECTION_RULESETS.global.prefilter },
     },
   });
   if (!values.out) throw new Error("Usage: rules-replay.ts --out <dir> [--gold file.jsonl] [--days 7] [--max-yuan 30] [--per-minute 8]");
@@ -357,12 +366,12 @@ async function main() {
   const layout = analysisPromptLayout();
   const texts = rulesTexts(values["score-rules"], values["prefilter-rules"]);
   const systems = {
-    current: { score: selectionSystem("score", layout), prefilter: selectionSystem("prefilter", layout) },
+    current: { score: selectionSystem("score", layout, "classic"), prefilter: selectionSystem("prefilter", layout, "classic") },
     candidate: { score: candidateSystem("score", layout, texts), prefilter: candidateSystem("prefilter", layout, texts) },
   };
   const versions = {
-    currentScore: promptVersionsFor(layout).score,
-    currentPrefilter: promptVersionsFor(layout).prefilter,
+    currentScore: promptVersionsFor(layout, "classic").score,
+    currentPrefilter: promptVersionsFor(layout, "classic").prefilter,
     candidateScore: `${values["score-rules"]}@${sha256(systems.candidate.score).slice(0, 10)}`,
     candidatePrefilter: `${values["prefilter-rules"]}@${sha256(systems.candidate.prefilter).slice(0, 10)}`,
   };
