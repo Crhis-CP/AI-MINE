@@ -43,14 +43,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // Page 1 lives at the topic's own address (308).
   if (params.page === "1") throw redirect(localizedFrom(request.url, `/topics/${encodeURIComponent(params.slug)}`), 308);
   const topicPath = `/api/site/topics/${encodeURIComponent(params.slug)}`;
+  // The page's list comes from the pool below, so the topic is read without its own (TASK-0714).
   const readTopic = async (wanted: number) =>
     publicSchemas.TopicPage.parse(
-      await apiGet<unknown>(`${topicPath}?page=${wanted}`, {
+      await apiGet<unknown>(`${topicPath}?page=${wanted}&items=none`, {
         signal: request.signal,
         baseUrl: apiBaseFor(),
       }),
     );
-  let data = await loadOr404(() => readTopic(1), { signal: request.signal });
   const query = {
     readingGroups: "reports-v1",
     topic: params.slug,
@@ -65,7 +65,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     to: search.get("to") || undefined,
     selected: search.get("selected") === "true" || undefined,
   };
-  const pool = await loadOr404(
+  // The topic and the list are independent: both are asked for at once. An unknown topic still answers 404 first.
+  const topicRead = loadOr404(() => readTopic(1), { signal: request.signal });
+  const poolRead = loadOr404(
     () =>
       apiFetch("/api/site/pool", {
         params: { query },
@@ -76,6 +78,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       }).then((result) => contractResult(result, publicSchemas.ReportGroupedPoolResponse)),
     { signal: request.signal },
   );
+  poolRead.catch(() => {});
+  let data = await topicRead;
+  const pool = await poolRead;
   const filtered = [
     pool.filters.q,
     pool.filters.source,
