@@ -13,7 +13,8 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { runBodyTranslation, type TranslationRecipe } from "../packages/backend/src/editorial/translation-runtime.ts";
-import { readableTranslation, translationSourceManifest } from "../packages/backend/src/editorial/translation-readiness.ts";
+import { readableTranslation, shield, translationSourceManifest } from "../packages/backend/src/editorial/translation-readiness.ts";
+import { isTranslationBatch, translationBlocks, translationInput } from "./translation-stub.ts";
 
 const T = tag(),
   SOURCE = `long-${T}`;
@@ -25,7 +26,8 @@ const recipe: TranslationRecipe = {
 };
 let mode = "normal";
 let hold: { asked: ReturnType<typeof gate<void>>; release: ReturnType<typeof gate<void>> } | null = null;
-const requests: { text: string; referenceOnly?: string }[] = [];
+// One entry per request; `texts` holds its blocks (one for a one-block request, more for a batch, TASK-0711).
+const requests: { texts: string[]; referenceOnly?: string }[] = [];
 const translate = (text: string) =>
   text
     .split(/(<[^>]+>|⟦\d+⟧)/g)
@@ -35,21 +37,21 @@ const provider = http.createServer((req, res) => {
   const chunks: Buffer[] = [];
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", async () => {
-    const input = JSON.parse(JSON.parse(Buffer.concat(chunks).toString()).messages[1].content) as (typeof requests)[number];
-    requests.push(input);
+    const requestBody = Buffer.concat(chunks).toString();
+    const blocks = translationBlocks(requestBody);
+    requests.push({ texts: blocks, ...(translationInput(requestBody).referenceOnly ? { referenceOnly: translationInput(requestBody).referenceOnly } : {}) });
     const selected = mode,
       waiting = hold;
     waiting?.asked.open();
     if (waiting) await waiting.release.promise;
     if (selected === "reset") return res.destroy();
-    const length = selected.includes("length") && (input.text.includes("\n") || selected === "length-child" || selected === "held-length");
-    const bad = selected === "bad" || (selected === "length-bad-child" && !input.text.includes("\n"));
+    const length = selected.includes("length") && (blocks.some((b) => b.includes("\n")) || selected === "length-child" || selected === "held-length");
+    const bad = selected === "bad" || (selected === "length-bad-child" && !blocks.some((b) => b.includes("\n")));
+    const answer = isTranslationBatch(requestBody) ? { texts: blocks.map(translate) } : { text: translate(blocks[0]!) };
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
-        choices: [
-          { message: { content: JSON.stringify({ text: translate(input.text), ...(bad ? { extra: true } : {}) }) }, finish_reason: length ? "length" : "stop" },
-        ],
+        choices: [{ message: { content: JSON.stringify({ ...answer, ...(bad ? { extra: true } : {}) }) }, finish_reason: length ? "length" : "stop" }],
         ...(selected === "no-usage-length" ? {} : { usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }),
       }),
     );
@@ -104,23 +106,35 @@ test("actual long calls preserve units, all ordered coverage and reference-bound
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
   const row = await stored(articleId),
     plan = translationSourceManifest(html);
-  assert.equal(requests.length - start, plan.segments.length);
   assert.ok(plan.segments.length > 2);
-  for (const [i, request] of requests.slice(start).entries()) {
-    assert.ok(Buffer.byteLength(request.text, "utf8") <= 4000);
-    assert.equal(request.referenceOnly ?? "", plan.segments[i]!.reference);
+  // TASK-0711: every segment is asked exactly once, in order; consecutive segments share a request up to 4,000 bytes,
+  // and each request's reference is the tail of the text before its first block.
+  const sent = requests.slice(start);
+  assert.deepEqual(
+    sent.flatMap((request) => request.texts),
+    plan.segments.map((segment) => shield(segment.html).html),
+  );
+  assert.ok(sent.length < plan.segments.length, "the last long part and the table row share one request");
+  let first = 0;
+  for (const request of sent) {
+    assert.ok(Buffer.byteLength(request.texts.join(""), "utf8") <= 4000);
+    assert.equal(request.referenceOnly ?? "", plan.segments[first]!.reference);
+    first += request.texts.length;
   }
-  assert.equal(requests.at(-1)!.text, "<td>One cell.</td><td>Two cells.</td>");
+  assert.equal(requests.at(-1)!.texts.at(-1), "<td>One cell.</td><td>Two cells.</td>");
   assert.equal(readableTranslation(html, { revision: 1, recipe: recipe.id }, row as never), row.body_html);
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
-  assert.equal(requests.length - start, plan.segments.length);
+  assert.equal(requests.length - start, sent.length, "a finished translation asks nothing again");
   const serial = (middle: string) => `<p>First stable ${T}.</p><p>${middle} ${T}.</p><p>Third stable ${T}.</p><p>Fourth stable ${T}.</p>`;
   const revision = await material("revision", serial("Middle one")),
     prior = requests.length;
   assert.equal((await runBodyTranslation(revision.articleId, recipe)).status, "translated");
   await material("revision", serial("Middle two"));
   assert.equal((await runBodyTranslation(revision.articleId, recipe)).status, "translated");
-  assert.equal(requests.length - prior, 6, "only changed text and the following source reference create new requests");
+  // Four short paragraphs are one batch. For the revision, the unchanged first and fourth blocks keep their paid answers
+  // (BR-ENR-18); only the changed block and the block whose reference line changed are asked, together (TASK-0711).
+  assert.equal(requests.length - prior, 2, "only changed text and the following source reference create a new request");
+  assert.deepEqual(requests.at(-1)!.texts, [`Middle two ${T}.`, `Third stable ${T}.`]);
 });
 
 test("unbreakable rows/clauses/inline nodes stop before any paid request", async () => {
@@ -373,7 +387,7 @@ test("an explicit non-billing decision resolves only the unproved historical cou
   );
   mode = "normal";
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
-  assert.equal(requests.length - start, 3, "only the explicitly released first request and the following segment are sent");
+  assert.equal(requests.length - start, 2, "only the explicitly released batch is sent again, for both segments");
   const observations =
     await sql`SELECT receipt_version,attempt_id,known_unbilled FROM ai.translation_receipt_observations WHERE scope=${`article:${articleId}@1`} AND receipt_id=${receipt!.id} ORDER BY receipt_version`;
   assert.deepEqual({ ...observations[0]! }, { receipt_version: 1, attempt_id: null, known_unbilled: true });

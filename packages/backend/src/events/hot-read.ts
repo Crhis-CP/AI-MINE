@@ -1,9 +1,10 @@
 import { reportPublicInputs, originalPostAffectedStories } from "../publication/groups.ts";
+import { storiesWithdrawalAffected } from "../publication/stories.ts";
 import { publicParticipation, participationHash } from "./participation-read.ts";
 // Reading the latest published hot ranking. The web shows heat values; machine exits only ranks.
 import type { HotStripEntry } from "@amp/contracts/site";
 import { sql } from "../db.ts";
-import { storyTextNeedsRefresh, storyWithdrawalAffected } from "@amp/backend/publication/reports";
+import { storyTextNeedsRefresh } from "@amp/backend/publication/reports";
 
 export interface HotEntry {
   evidenceHash?: string;
@@ -98,27 +99,31 @@ async function queryLatestHotRanking(): Promise<HotRanking | null> {
       return [];
     return [{ entry, story, representative: representatives.get(entry.representativeItemId)! }];
   });
-  // Only an operator-written story title can be affected by a withdrawal of its facts; their ids are read in one statement.
-  const manual = shown.filter(({ story }) => !storyTextNeedsRefresh(story) && story.origin === "manual").map(({ story }) => story.id);
-  const facts = manual.length
-    ? Map.groupBy(await sql<{ story_id: number; public_id: string }[]>`SELECT story_id,public_id FROM facts WHERE story_id=ANY(${manual}::bigint[])`, (fact) =>
-        Number(fact.story_id),
-      )
-    : new Map<number, { story_id: number; public_id: string }[]>();
-  const entries = await Promise.all(
-    shown.map(async ({ entry, story, representative }) => {
-      const safeTitle =
-        storyTextNeedsRefresh(story) ||
-        (story.origin === "manual" &&
-          (await storyWithdrawalAffected(
-            story.id,
-            story.public_id,
-            (facts.get(Number(story.id)) ?? []).map((f) => f.public_id),
-          )));
-      return { ...entry, title: safeTitle ? representative.title : story.title };
-    }),
-  );
-  return { id: row.id, computedAt: row.computed_at.toISOString(), ruleVersion: row.rule_version, entries, coverage: row.evidence };
+  // Only an operator-written story title can be affected by a withdrawal of its facts. Every listed story's withdrawal
+  // state is read in one statement and kept with the ranking, so the list's newest developments reuse it (TASK-0714).
+  const withdrawn = await storiesWithdrawalAffected(shown.map(({ story }) => Number(story.id)));
+  const entries = shown.map(({ entry, story, representative }) => {
+    const safeTitle = storyTextNeedsRefresh(story) || (story.origin === "manual" && withdrawn.has(Number(story.id)));
+    return { ...entry, title: safeTitle ? representative.title : story.title };
+  });
+  const ranking: HotRanking = { id: row.id, computedAt: row.computed_at.toISOString(), ruleVersion: row.rule_version, entries, coverage: row.evidence };
+  checks.set(ranking, { admission: admissionAffected, withdrawn });
+  return ranking;
+}
+
+/**
+ * The current public checks a ranking read made, kept for the rest of the request that holds the ranking: the stories
+ * whose text an original post's grant fences (originalPostAffectedStories) and those touched by a withdrawal
+ * (storiesWithdrawalAffected). They cover every story the ranking lists. Nothing is kept across reads: each
+ * latestHotRanking() call that starts a read makes its own checks.
+ */
+export interface RankingChecks {
+  admission: ReadonlySet<number>;
+  withdrawn: ReadonlySet<number>;
+}
+const checks = new WeakMap<HotRanking, RankingChecks>();
+export function rankingChecks(ranking: HotRanking): RankingChecks | null {
+  return checks.get(ranking) ?? null;
 }
 
 // The words change only with the ranking, so they are read once per ranking.
@@ -156,7 +161,7 @@ async function queryExtras(ranking: HotRanking): Promise<Extras> {
 /** What the web adds to a ranking entry: the digest and the latest turn. */
 export async function rankingExtras(ranking: HotRanking) {
   const { texts } = await readExtras(ranking);
-  const admissionAffected = await originalPostAffectedStories(ranking.entries.map((entry) => Number(entry.storyId)));
+  const admissionAffected = rankingChecks(ranking)?.admission ?? (await originalPostAffectedStories(ranking.entries.map((entry) => Number(entry.storyId))));
   return {
     text: (e: HotEntry) =>
       admissionAffected.has(Number(e.storyId)) ? { summary: null, latest: null } : (texts.get(e.storyId) ?? { summary: null, latest: null }),

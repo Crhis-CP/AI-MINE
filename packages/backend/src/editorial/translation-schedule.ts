@@ -1,7 +1,7 @@
 // Which full-text translations start now and which wait (TASK-0569, Owner 2026-11-07, DEC-78补充·新闻原文全文与中文译文).
 // Pure: no database or network; only offPeakWait reads the clock.
 import { offPeakWait } from "../providers/peak-hours.ts";
-import { translationBudgetUnits, translationSourceManifest } from "./translation-readiness.ts";
+import { translationBatch, translationBudgetUnits, translationSourceManifest } from "./translation-readiness.ts";
 
 /**
  * Public items that are not selected are translated by the live pipeline only while they are this fresh (by the time
@@ -23,25 +23,28 @@ export function liveTranslationWindow(discoveredAt: Date, now: Date): boolean {
 
 /**
  * Queue options for one body translation. Selected items run at once, as before. Every other admitted public item
- * goes through the same queue at a lower priority and, during the provider's peak hours, starts at the next off-peak
- * start (half price). The waiting job has its own singleton key, so an item selected while it waits still gets an
- * immediate job; the later one then finds the translation done and stops without a model call.
- * `at` is only passed by tests and replays; the wall clock is judged otherwise (see offPeakWait).
+ * goes through the same queue at a lower priority; a fresh one (`fresh`: found within the live window) starts at once,
+ * and backlog queued during the provider's peak hours starts at the next off-peak start (half price; TASK-0676). The
+ * waiting job has its own singleton key, so an item selected while it waits still gets an immediate job; the later one
+ * then finds the translation done and stops without a model call. The worker judges freshness again when it takes
+ * the job. `at` is only passed by tests and replays; the wall clock is judged otherwise (see offPeakWait).
  */
-export function translationJobOptions(articleId: string, selected: boolean, at?: Date) {
+export function translationJobOptions(articleId: string, selected: boolean, at?: Date, fresh = false) {
   if (selected) return { singletonKey: articleId, priority: PRIORITY.selected };
-  const wait = offPeakWait(at);
+  // A fresh item (found within the live window) starts at once, behind selected ones (TASK-0676); only backlog waits.
+  const wait = fresh ? null : offPeakWait(at);
   return { singletonKey: `later:${articleId}`, priority: PRIORITY.later, ...(wait ? { startAfter: wait } : {}) };
 }
 
 /**
  * The enqueue-time wait above is not enough on its own (TASK-0579, Codex review #362): a backlog or a retry can pick a
  * waiting job up in a peak hour, and a long body's segments can run into one. So the worker judges again when it takes
- * the job and before every paid segment: an item that is not selected at that moment waits for the next off-peak start
- * (null: go ahead). Selection is read then, so an item selected while it waited is translated at once.
+ * the job and before every paid segment: an item that does not go ahead at that moment waits for the next off-peak
+ * start (null: go ahead). `ahead` is true for a fresh item, selected or not (TASK-0676), judged at that moment, so an
+ * item that ages out of the live window mid-body continues as backlog.
  */
-export function translationPeakWait(selected: boolean, at?: Date): Date | null {
-  return selected ? null : offPeakWait(at);
+export function translationPeakWait(ahead: boolean, at?: Date): Date | null {
+  return ahead ? null : offPeakWait(at);
 }
 
 /**
@@ -56,12 +59,13 @@ export function translationDeferralOptions(articleId: string, until: Date) {
 
 /**
  * Queue options for an item's English title and summary (TASK-0595): the same queue, priorities and off-peak wait as
- * body translation, under keys of their own so the two never collapse into one job. The worker judges peak hours and
- * the background quota share again when it takes the job (jobs/content.ts runEnglishCopyJob).
+ * body translation (a fresh item starts at once; TASK-0676), under keys of their own so the two never collapse into
+ * one job. The worker judges freshness, peak hours and the backlog quota share again when it takes the job
+ * (jobs/content.ts runEnglishCopyJob).
  */
-export function englishCopyJobOptions(articleId: string, selected: boolean, at?: Date) {
+export function englishCopyJobOptions(articleId: string, selected: boolean, at?: Date, fresh = false) {
   if (selected) return { singletonKey: `en:${articleId}`, priority: PRIORITY.selected };
-  const wait = offPeakWait(at);
+  const wait = fresh ? null : offPeakWait(at);
   return { singletonKey: `en-later:${articleId}`, priority: PRIORITY.later, ...(wait ? { startAfter: wait } : {}) };
 }
 
@@ -81,13 +85,14 @@ export function promptTokenEstimate(text: string): number {
 
 /**
  * Cost-report estimate for translating one body of foreign-language HTML; no model call. It walks the same plan the
- * worker does: the source manifest's segments (every block is its own segment, so twenty short paragraphs are twenty
- * requests), in order, stopping at the first block beyond the 60,000-character budget (translationBudgetUnits).
- * Per segment, one request carries the whole system prompt S, a ~30-token JSON envelope, the segment's text and the
- * previous segment's reference line; the reply is Chinese with the same tags (about 0.3 tokens per source character
- * for English news HTML, plus ~10 for the envelope). The system prompt is the same for every segment, so with
- * provider prefix caching most of `calls × S` is billed at the cache-hit rate (`cachedPrefix`). Codex review #362:
- * the earlier estimate assumed ~3,600-character segments and undercounted bodies of many short paragraphs.
+ * worker does: the source manifest's segments, in order, stopping at the first block beyond the 60,000-character
+ * budget (translationBudgetUnits), packed into requests the way the worker packs a fresh body (translationBatch,
+ * TASK-0711): consecutive blocks share one request up to TRANSLATION_SEGMENT_BYTES, so twenty short paragraphs are
+ * one or two requests rather than twenty. Per request, the call carries the whole system prompt S, a ~30-token JSON
+ * envelope, its blocks' text and the reference line before its first block; the reply is Chinese with the same tags
+ * (about 0.3 tokens per source character for English news HTML, plus ~10 per block for the envelope). The system
+ * prompt is the same for every request, so with provider prefix caching most of `calls × S` is billed at the
+ * cache-hit rate (`cachedPrefix`). Retries of a failed block or batch are not estimated.
  */
 export function translationTokenEstimate(html: string, systemTokens: number) {
   const manifest = translationSourceManifest(html);
@@ -95,11 +100,16 @@ export function translationTokenEstimate(html: string, systemTokens: number) {
   let calls = 0,
     input = 0,
     output = 0;
-  for (const segment of manifest.segments) {
-    if (!chosen.has(segment.unitIndex)) break;
+  for (let position = 0; position < manifest.segments.length; ) {
+    if (!chosen.has(manifest.segments[position]!.unitIndex)) break;
+    const batch = translationBatch(manifest.segments, position, (leaf) => chosen.has(leaf.unitIndex));
     calls++;
-    input += systemTokens + 30 + Math.ceil(segment.html.length / CHARS_PER_TOKEN) + (segment.reference ? promptTokenEstimate(segment.reference) : 0);
-    output += Math.ceil(segment.html.length * 0.3) + 10;
+    input += systemTokens + 30 + (batch[0]!.reference ? promptTokenEstimate(batch[0]!.reference) : 0);
+    for (const segment of batch) {
+      input += Math.ceil(segment.html.length / CHARS_PER_TOKEN);
+      output += Math.ceil(segment.html.length * 0.3) + 10;
+    }
+    position += batch.length;
   }
   return { calls, input, output, cachedPrefix: Math.max(0, calls - 1) * systemTokens };
 }

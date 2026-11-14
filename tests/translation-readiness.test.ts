@@ -246,11 +246,17 @@ test("public reading rechecks current manifest, ordered protected nodes and six 
   ])!;
   const stored = { ...current, body_html: assembled.html, complete: true, origin: "model", source_hash: original.sourceHash, manifest: assembled.manifest };
   assert.equal(readableTranslation(source, current, stored), assembled.html, "protected source code is not reclassified as bad model prose");
+  // TASK-0711: the current prompt does not decide visibility; a translation made under an earlier prompt still reads.
+  assert.equal(readableTranslation(source, { ...current, recipe: "a-later-prompt" }, stored), assembled.html, "a prompt change keeps the stored translation");
+  assert.equal(readableTranslation(source, { revision: 2 }, stored), assembled.html);
   for (const changed of [
     { ...stored, manifest: null },
     { ...stored, complete: false },
     { ...stored, revision: 1 },
+    // The stored recipe must still be the one its own manifest records.
     { ...stored, recipe: "old" },
+    { ...stored, recipe: null },
+    { ...stored, manifest: { ...assembled.manifest, format: "strict-text-context-v1" } },
     { ...stored, body_html: assembled.html + "<p>多出的段落。</p>" },
     { ...stored, manifest: { ...assembled.manifest, segments: [] } },
     { ...stored, manifest: { ...assembled.manifest, bodyHash: "0".repeat(64) } },
@@ -386,7 +392,10 @@ test("partial renditions retain original blocks and cannot satisfy the complete 
   assert.equal(readableTranslation(source, identity, stored), null);
   assert.equal(readablePartialTranslation(source, identity, stored), partial.html);
   assert.equal(readablePartialTranslation(source, { ...identity, revision: 2 }, stored), null);
-  assert.equal(readablePartialTranslation(source, { ...identity, recipe: "other" }, stored), null);
+  // TASK-0711: a later prompt keeps a stored partial readable; a row whose recipe disagrees with its manifest does not read.
+  assert.equal(readablePartialTranslation(source, { ...identity, recipe: "other" }, stored), partial.html);
+  assert.equal(readablePartialTranslation(source, identity, { ...stored, recipe: "other" }), null);
+  assert.equal(readablePartialTranslation(source, identity, { ...stored, source_hash: "0".repeat(64) }), null);
   assert.equal(readablePartialTranslation(source + "<p>Changed.</p>", identity, stored), null);
   assert.equal(readablePartialTranslation(source, identity, { ...stored, body_html: "<p>替换内容。</p>" }), null);
   assert.equal(readablePartialTranslation(source, identity, { ...stored, complete: true }), null);

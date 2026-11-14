@@ -12,7 +12,6 @@ import { Wordmark } from "./components/Logo";
 import { buttonClass } from "./components/ui/Controls";
 import { NonceContext } from "./lib/csp";
 import { THEME_BOOT_SCRIPT, useAppearanceSync } from "./lib/local-state";
-import { INTRO_BOOT_SCRIPT } from "./components/shell/Intro";
 import { useHydratedFlag } from "./lib/hydration";
 import { ROOT_MODULES } from "../root-modules";
 
@@ -57,12 +56,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="amp-release" content={rootData?.release ?? "dev"} />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f6f0" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#28231a" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15130f" />
         {/* Both interfaces are searchable (Owner 2026-11-08, TASK-0590): each page names its own language version and
           the other one (lib/seo.ts); pages that should stay out of search still say so themselves. */}
         {(pathname === "/" || pathname === "/en") && rootData?.verification?.map((tag) => <meta key={tag.name} name={tag.name} content={tag.content} />)}
         <BootScript text={THEME_BOOT_SCRIPT} />
-        <BootScript text={INTRO_BOOT_SCRIPT} />
         {ROOT_MODULES.map((module) => module.root?.bootScript && <BootScript key={module.name} text={module.root.bootScript} />)}
         <Meta />
         <Links />

@@ -97,6 +97,8 @@ services:
       ORIGIN_SECRET: ${ORIGIN_SECRET:-}
       ORIGIN_SECRET_HEADER: ${ORIGIN_SECRET_HEADER:-}
       ORIGIN_ENFORCE: ${ORIGIN_ENFORCE:-}
+      # Seconds a CDN or proxy may share a reader page's HTML (TASK-0672/0717): empty means 30, 0 turns it off.
+      PAGE_CACHE_SECONDS: ${PAGE_CACHE_SECONDS:-}
       # Search-console ownership codes for the home page (TASK-0590): empty means none.
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       BING_SITE_VERIFICATION: ${BING_SITE_VERIFICATION:-}

@@ -3,7 +3,7 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, RouterContextProvider, RouterProvider } from "react-router";
 import { createServer } from "vite";
 
 const file = (value: string) => fileURLToPath(new URL(value, import.meta.url));
@@ -35,9 +35,11 @@ test("installed reader additions reach their existing page consumers without rep
   });
   const { loader: metaLoader } = await server.ssrLoadModule(file("../app/routes/public-layout.tsx"));
   // An API answer without run-time filing numbers keeps the update mark and shows no numbers.
-  assert.deepEqual(await metaLoader({ request: new Request("https://example.invalid/more") }), {
+  // A data request reads no content versions (TASK-0679 R1): the layout carries none.
+  assert.deepEqual(await metaLoader({ request: new Request("https://example.invalid/more"), context: new RouterContextProvider() }), {
     changelogVersion: "fixture-version",
     filings: { icp: null, publicSecurity: null, newsLicense: null },
+    contentVersion: null,
   });
   assert.deepEqual(seen, ["/more"], "metadata request receives the module's document context");
   const { SIDEBAR, MORE_PATHS } = await server.ssrLoadModule(file("../app/components/shell/nav.ts"));

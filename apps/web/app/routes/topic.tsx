@@ -11,7 +11,8 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { SearchField, SourceDateFilters, JurisdictionFilter, hrefWith } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
-import { apiGet, ApiError, contractResult, queryString, loadOr404 } from "../lib/api.server";
+import { apiGet, ApiError, contractResult, queryString, loadOr404, readerPageHeaders } from "../lib/api.server";
+import { markDegraded } from "../lib/cache.server";
 import { breadcrumbLd, pageMeta, titled, siteUrl } from "../lib/seo";
 import { loadParts } from "../../site-modules";
 import type { TopicPagePart } from "../../modules";
@@ -19,8 +20,9 @@ import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
 /** Topic lists retain their mining scope and current country evidence. */
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 type TopicPageData = z.infer<typeof publicSchemas.TopicPage>;
@@ -41,14 +43,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // Page 1 lives at the topic's own address (308).
   if (params.page === "1") throw redirect(localizedFrom(request.url, `/topics/${encodeURIComponent(params.slug)}`), 308);
   const topicPath = `/api/site/topics/${encodeURIComponent(params.slug)}`;
+  // The page's list comes from the pool below, so the topic is read without its own (TASK-0714).
   const readTopic = async (wanted: number) =>
     publicSchemas.TopicPage.parse(
-      await apiGet<unknown>(`${topicPath}?page=${wanted}`, {
+      await apiGet<unknown>(`${topicPath}?page=${wanted}&items=none`, {
         signal: request.signal,
         baseUrl: apiBaseFor(),
       }),
     );
-  let data = await loadOr404(() => readTopic(1), { signal: request.signal });
   const query = {
     readingGroups: "reports-v1",
     topic: params.slug,
@@ -63,7 +65,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     to: search.get("to") || undefined,
     selected: search.get("selected") === "true" || undefined,
   };
-  const pool = await loadOr404(
+  // The topic and the list are independent: both are asked for at once. An unknown topic still answers 404 first.
+  const topicRead = loadOr404(() => readTopic(1), { signal: request.signal });
+  const poolRead = loadOr404(
     () =>
       apiFetch("/api/site/pool", {
         params: { query },
@@ -74,6 +78,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       }).then((result) => contractResult(result, publicSchemas.ReportGroupedPoolResponse)),
     { signal: request.signal },
   );
+  poolRead.catch(() => {});
+  let data = await topicRead;
+  const pool = await poolRead;
   const filtered = [
     pool.filters.q,
     pool.filters.source,
@@ -103,7 +110,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     data.topic.group === "genre"
       ? await apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor() })
           .then((result) => contractResult(result, publicSchemas.PolicyJurisdictionList))
-          .catch(() => [])
+          .catch(() => {
+            // Without the country list the policy link falls back to a search; such a page is not cached.
+            markDegraded();
+            return [];
+          })
       : [];
   const country = countries.find((country) => country.label === data.topic.name);
   const policyLink = country ? `/policies?jurisdiction=${country.code}` : `/policies?q=${encodeURIComponent(data.topic.name)}`;

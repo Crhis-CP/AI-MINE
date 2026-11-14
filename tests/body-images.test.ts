@@ -2,6 +2,7 @@
 // and the full feed never fetch, re-host or show a source's pictures.
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
+import { translationAnswer } from "./translation-stub.ts";
 import { contentHash } from "@amp/backend/content/materials";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
@@ -113,9 +114,9 @@ test("real public_read detail and full RSS reject unproved translations and tigh
   assert.match(pendingFeed, /中文译文尚不完整/);
   assert.ok(pendingFeed.includes(`ORIGINAL_BODY_${id}`));
   const provider = await stub((_hit, request) => {
-    const input = JSON.parse(JSON.parse(request.body).messages[1].content) as { text: string };
+    const content = translationAnswer(request.body, (text) => (text.includes("PR9 original") ? "合成译文" : "真实假服务中文正文。"));
     return {
-      choices: [{ message: { content: JSON.stringify({ text: input.text.includes("PR9 original") ? "合成译文" : "真实假服务中文正文。" }) } }],
+      choices: [{ message: { content } }],
       usage: { prompt_tokens: 10, completion_tokens: 5 },
     };
   });
@@ -157,7 +158,8 @@ test("real public_read detail and full RSS reject unproved translations and tigh
     DEEPSEEK_BASE_URL: `${provider.url}/v1`,
     DEEPSEEK_API_KEY: "synthetic-fixture",
   });
-  assert.equal(provider.hits(), 2, "the stored manifest came from two actual gateway/attempt writes");
+  // Both blocks went out in one batch (TASK-0711); the manifest still proves each block from that actual attempt.
+  assert.equal(provider.hits(), 1, "the stored manifest came from one actual gateway/attempt write for both blocks");
   assert.ok((await detail()).body!.zh!.includes("真实假服务中文正文"));
   assert.match(await feedItem(), /真实假服务中文正文/);
   await f.admin`UPDATE sources SET syndicate_fulltext=false WHERE id='pr9-editorial'`;

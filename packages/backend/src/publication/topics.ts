@@ -235,7 +235,8 @@ export interface TopicPage {
   parts?: Record<string, unknown>;
 }
 
-export async function loadTopicPage(slug: string, page: number, now?: Date): Promise<TopicPage | null> {
+/** `items: false` leaves the page's list out (an empty list) for callers that read it elsewhere; the rest is unchanged. */
+export async function loadTopicPage(slug: string, page: number, now?: Date, opts: { items?: boolean } = {}): Promise<TopicPage | null> {
   const at = now ?? new Date();
   const row = await loadTopic(slug);
   if (!row || !Number.isInteger(page) || page < 1) return null;
@@ -256,7 +257,10 @@ export async function loadTopicPage(slug: string, page: number, now?: Date): Pro
       })
     : [];
   const recheck = [...new Set(parts.flatMap((part) => part.recheck))];
-  const rows = await sql<ItemRow[]>`
+  const rows =
+    opts.items === false
+      ? []
+      : await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
       WHERE ${match.topicTags !== null} AND ${listedCondition(at)} AND p.eligible ${browseFloorCondition(true)} ${topicCondition(match)}

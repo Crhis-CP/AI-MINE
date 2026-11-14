@@ -11,6 +11,7 @@ import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { webHostPolicy } from "./host-policy.ts";
+import { DEFAULT_PAGE_CACHE_SECONDS, type PageState, pageCacheSetting, READER_PAGE_MARK, withPageState } from "./app/lib/cache.server.ts";
 import {
   bucketFor,
   buildAsset,
@@ -72,6 +73,16 @@ const CLIENT_DIR = {
 const BROWSER_MAX_SECONDS = 300;
 /** How long a browser may keep data it fetched on a link press, to answer the click that follows. */
 const PREFETCH_REUSE_SECONDS = 5;
+/**
+ * How long a shared cache in front (the CDN, a proxy) may keep a reader page's HTML (TASK-0672, Owner 2026-11-14);
+ * PAGE_CACHE_SECONDS=0 turns it off. There is no stale period, so a withdrawn item leaves shared caches within it.
+ */
+const PAGE_CACHE_SETTING = pageCacheSetting();
+if (PAGE_CACHE_SETTING === null)
+  console.warn(JSON.stringify({ level: "warn", msg: `PAGE_CACHE_SECONDS must be whole seconds from 0 to 300; using ${DEFAULT_PAGE_CACHE_SECONDS}` }));
+const PAGE_CACHE_SECONDS = PAGE_CACHE_SETTING ?? DEFAULT_PAGE_CACHE_SECONDS;
+/** A search result page (`?q=`): never shared, whatever the route says. */
+const searching = (url: URL) => !!url.searchParams.get("q")?.trim();
 /** A browser prefetch (`<link rel="prefetch">`): Chromium sends Sec-Purpose / Purpose, Firefox X-moz. */
 function prefetchRequest(req: import("node:http").IncomingMessage): boolean {
   return [req.headers["sec-purpose"], req.headers.purpose, req.headers["x-moz"]].some((value) => /\bprefetch\b/i.test(String(value ?? "")));
@@ -144,12 +155,17 @@ const server = createServer((req, res) => {
   });
 });
 
-/** Public navigation returns all matched loaders, so `_routes` never changes a cached answer. */
-function pageCache(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) {
+/**
+ * The final cache rule of every page and data response. Public navigation returns all matched loaders, so `_routes`
+ * never changes a cached answer.
+ */
+function pageCache(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse, group: "public" | "private", page: PageState) {
   const url = new URL(req.url ?? "/", "http://web.local");
   const pathname = decodeURIComponent(url.pathname).replace(/\.data$/, "");
-  const publicRead = (req.method === "GET" || req.method === "HEAD") && !/^\/admin(?:\/|$)/i.test(pathname);
-  if (publicRead && url.pathname.endsWith(".data")) {
+  const data = url.pathname.endsWith(".data");
+  // Everything on the private host stays private, whatever its route says.
+  const publicRead = group === "public" && (req.method === "GET" || req.method === "HEAD") && !/^\/admin(?:\/|$)/i.test(pathname);
+  if (publicRead && data) {
     url.searchParams.delete("_routes");
     req.url = url.pathname + url.search;
   }
@@ -161,30 +177,50 @@ function pageCache(req: import("node:http").IncomingMessage, res: import("node:h
     const outgoing = typeof messageOrHeaders === "string" ? headers : messageOrHeaders;
     for (const [name, value] of Object.entries(outgoing ?? {})) if (value !== undefined) res.setHeader(name, value);
     const cc = String(res.getHeader("Cache-Control") ?? "");
+    // A reader page (TASK-0672): its full HTML may be shared briefly; its `.data` is read fresh like before.
+    const readerPage = res.hasHeader(READER_PAGE_MARK);
+    res.removeHeader(READER_PAGE_MARK);
+    // Anything that fell back or set a cookie is this request's alone; a search is never shared (TASK-0679 R13).
+    const own = page.degraded || res.hasHeader("Set-Cookie");
+    const now = new Date();
+    const nowSeconds = Math.floor(now.getTime() / 1000);
+    const deadline = String(res.getHeader("X-Accel-Expires") ?? "");
     // A link pressed a moment ago fetched this page's data ahead of the click (IntentLink). A page that is never
     // stored for freshness (withdrawals apply on the next read) would make the browser drop that answer and ask
     // again on the click: two reads and no head start. Only that press-time answer may be kept, privately and for
     // PREFETCH_REUSE_SECONDS; every other read of the page stays uncached.
-    if (
-      publicRead &&
-      status === 200 &&
-      !res.hasHeader("Set-Cookie") &&
-      url.pathname.endsWith(".data") &&
-      prefetchRequest(req) &&
-      /^\s*no-store\s*$/i.test(cc)
-    ) {
+    if (publicRead && status === 200 && !own && data && prefetchRequest(req) && (readerPage || /^\s*no-store\s*$/i.test(cc))) {
       res.removeHeader("Expires");
       res.setHeader("Cache-Control", `private, max-age=${PREFETCH_REUSE_SECONDS}`);
       res.setHeader("X-Accel-Expires", "0");
-    } else if (!publicRead || status !== 200 || res.hasHeader("Set-Cookie") || !cc || /(?:private|no-store)/i.test(cc)) {
+    } else if (readerPage) {
+      // A route deadline (the next scheduled release, or the API's own) ends the fresh period early; a
+      // sibling loader may have delayed this response since. Browsers ask the shared cache again each time (max-age=0).
+      const remaining = /(?:no-cache|no-store|private)/i.test(cc)
+        ? 0
+        : !deadline
+          ? PAGE_CACHE_SECONDS
+          : deadline.startsWith("@")
+            ? Number(deadline.slice(1)) - nowSeconds
+            : 0;
+      const fresh = Math.max(0, Math.min(PAGE_CACHE_SECONDS, remaining));
+      res.removeHeader("Expires");
+      if (publicRead && status === 200 && !own && !searching(url) && !data && fresh > 0) {
+        res.setHeader("Date", now.toUTCString());
+        res.setHeader("X-Accel-Expires", `@${nowSeconds + fresh}`);
+        // No stale period: a withdrawn item leaves a shared copy within the fresh period (TASK-0672: at most 30 s).
+        res.setHeader("Cache-Control", `public, max-age=0, s-maxage=${fresh}`);
+      } else {
+        res.setHeader("Cache-Control", "private, no-store");
+        res.setHeader("X-Accel-Expires", "0");
+      }
+    } else if (!publicRead || status !== 200 || own || searching(url) || !cc || /(?:private|no-store)/i.test(cc)) {
       res.removeHeader("Expires");
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Accel-Expires", "0");
     } else {
-      const now = new Date();
-      const nowSeconds = Math.floor(now.getTime() / 1000);
       const sharedSeconds = Number(cc.match(/(?:^|,)\s*s-maxage=(\d+)/i)?.[1] ?? 0);
-      const expires = String(res.getHeader("X-Accel-Expires") ?? `@${nowSeconds + sharedSeconds}`);
+      const expires = deadline || `@${nowSeconds + sharedSeconds}`;
       // A sibling loader may have delayed this response after the selected loader set its TTL.
       const seconds =
         /(?:^|,)\s*no-cache(?:,|$)/i.test(cc) || expires === "0" ? 0 : Math.max(0, Math.min(sharedSeconds, Number(expires.slice(1)) - nowSeconds));
@@ -278,8 +314,9 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
 
   const assetPath = group === "private" && pathname.startsWith("/admin/assets/") ? pathname.slice("/admin".length) : pathname;
   if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(CLIENT_DIR[group], assetPath, res))) return;
-  pageCache(req, res);
-  return renderingPath.run(pathname, () => ssr[group](req, res));
+  const page: PageState = { degraded: false };
+  pageCache(req, res, group, page);
+  return renderingPath.run(pathname, () => withPageState(page, () => ssr[group](req, res)));
 }
 
 process.on("unhandledRejection", (reason) => {

@@ -10,10 +10,16 @@ import { SELECTION } from "@amp/industry/selection";
 // ANALYSIS_PROMPT_LAYOUT; run once per layout to compare both on the same labels (their prompt versions differ).
 // Receipts make re-runs free; "either" cases are excluded from decisive metrics. Each run is also
 // imported into SelectBench (admin → SelectBench) with every case, unless --no-import is given.
+// Config check without models or a database (TASK-0710), for the release note:
+//   node scripts/eval-selection.ts --config-check [--confirmed <value>] [--baseline <snapshot.json>] [--write <snapshot.json>]
+// prints every rule set's and layout's score standard (what SELECTION_CONFIRMED_VERSION must name; --confirmed defaults
+// to that variable) and the full step versions receipts record; with --baseline (a --write snapshot from the previous
+// release's exact commit) it lists which score-standard parts and which other parts (dictionary, aliases, vocabulary,
+// writing rules, names list, other steps) changed. Only a score-standard change needs a new Owner confirmation.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { analysisPromptLayout, REPO_ROOT } from "@amp/backend/config";
+import { analysisPromptLayout, config, REPO_ROOT, selectionRuleset } from "@amp/backend/config";
 import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import {
   selectionPromptVersion,
@@ -33,8 +39,7 @@ import {
   selectionModelIdentity,
   type SelectionEvaluationMetadata,
 } from "@amp/backend/admin/selectbench";
-
-await initializeDb("worker");
+import { selectionConfigReport, selectionConfigSnapshot, type SelectionConfigSnapshot } from "../packages/backend/src/editorial/selection-config.ts";
 
 const { values } = parseArgs({
   options: {
@@ -48,6 +53,10 @@ const { values } = parseArgs({
     label: { type: "string" },
     layout: { type: "string" },
     "no-import": { type: "boolean", default: false },
+    "config-check": { type: "boolean", default: false },
+    confirmed: { type: "string" },
+    baseline: { type: "string" },
+    write: { type: "string" },
   },
 });
 if (values.layout !== undefined) {
@@ -56,6 +65,25 @@ if (values.layout !== undefined) {
   process.env.ANALYSIS_PROMPT_LAYOUT = values.layout;
 }
 const layout = analysisPromptLayout();
+
+if (values["config-check"]) {
+  const current = selectionConfigSnapshot();
+  const baseline = values.baseline ? (JSON.parse(readFileSync(path.resolve(values.baseline), "utf8")) as SelectionConfigSnapshot) : null;
+  console.log(
+    selectionConfigReport(current, {
+      baseline,
+      confirmed: values.confirmed ?? config.selectionConfirmedVersion,
+      configured: `${selectionRuleset()}/${layout}`,
+    }),
+  );
+  if (values.write) {
+    mkdirSync(path.dirname(path.resolve(values.write)), { recursive: true });
+    writeFileSync(path.resolve(values.write), JSON.stringify(current, null, 2) + "\n");
+  }
+  process.exit(0);
+}
+
+await initializeDb("worker");
 // Evaluation always takes both scores (production buys the second only near the threshold, TASK-0532). Cases share
 // score results per input across tiers with different thresholds, and the 40–90 sweep needs every case scored the
 // same way, so a threshold-dependent stop would make results depend on case order.

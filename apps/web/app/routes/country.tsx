@@ -4,7 +4,8 @@ import { useLoaderData } from "react-router";
 import type { Route } from "./+types/country";
 import { apiBaseFor } from "../../api-target.ts";
 import { apiFetch } from "../lib/http.ts";
-import { contractResult, loadOr404 } from "../lib/api.server";
+import { contractResult, loadOr404, readerPageHeaders } from "../lib/api.server";
+import { markDegraded } from "../lib/cache.server";
 import { pageMeta, requestLocale } from "../lib/seo";
 import { fmt, useLocale, useT, useTr } from "../i18n";
 import { en } from "../i18n/en";
@@ -23,14 +24,19 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       headers: { accept: "application/json", "x-amp-ssr": "1" },
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
     }).then((response) => contractResult(response, schema));
+  // A count or list that could not be read is left out of the page, and that page is not cached (TASK-0679 R13).
+  const missing = () => {
+    markDegraded();
+    return null;
+  };
   const [places, news, today, week] = await Promise.all([
     loadOr404(() => read("/api/site/jurisdictions", schemas.PolicyJurisdictionList), { signal: request.signal }),
     loadOr404(() => read(`/api/site/pool?jurisdiction=${code}&readingGroups=reports-v1`, schemas.ReportGroupedPoolResponse), { signal: request.signal }),
-    read("/api/site/news-map?window=1d", schemas.SiteNewsMap).catch(() => null),
-    read("/api/site/news-map?window=7d", schemas.SiteNewsMap).catch(() => null),
+    read("/api/site/news-map?window=1d", schemas.SiteNewsMap).catch(missing),
+    read("/api/site/news-map?window=7d", schemas.SiteNewsMap).catch(missing),
   ]);
   const place = places.find((one) => one.code === code);
-  const policies = place?.policy_scope ? await read(`/api/site/policies?jurisdiction=${code}&page_size=5`, schemas.PolicyListResponse).catch(() => null) : null;
+  const policies = place?.policy_scope ? await read(`/api/site/policies?jurisdiction=${code}&page_size=5`, schemas.PolicyListResponse).catch(missing) : null;
   return {
     code,
     place,
@@ -42,8 +48,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   };
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {

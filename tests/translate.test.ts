@@ -18,39 +18,44 @@ import { latestSuccessfulRunResult, autoReleaseUnknownReceipts, releaseReceipt, 
 import { getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
 import { buildApp } from "./site-app.ts";
+import { isTranslationBatch, translationAnswer } from "./translation-stub.ts";
 
 const T = tag();
 const SOURCE = `test-translate-${T}`;
 const URL_ = `https://example.com/translate-${T}`;
 
 // The model: one Chinese sentence per segment. `hold` keeps an answer back while the test revises the text.
+// Consecutive blocks may arrive as one batch (TASK-0711). `asks` counts one-block requests only, so the per-block retry
+// sequences below stay the same; inside a batch a Neuroglancer block always gets the answer that drops its link.
 let hold: ReturnType<typeof gate<void>> | null = null;
 let unknownReply = false;
 const asked = gate();
 const asks = new Map<string, number>();
 const provider = await stub(async (_hit, req) => {
   if (unknownReply) return DROP_RESPONSE;
-  const { text: s } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
   if (hold) {
     asked.open();
     await hold.promise;
   }
-  const text = (() => {
+  const batch = isTranslationBatch(req.body);
+  const answer = (s: string) => {
     // A block with a link and an image: the first answer drops the link, the second keeps everything.
     if (s.includes("Neuroglancer")) {
+      if (batch) return "解释 Neuroglancer 的文字 ⟦0⟧。";
       const n = (asks.get(s) ?? 0) + 1;
       asks.set(s, n);
       if (s.includes("legacy cooldown") && (n === 2 || (n === 3 && s.includes("EXHAUST_SEGMENT")))) return `第 ${n} 次回复丢了链接 ⟦0⟧。`;
       return n === 1 ? "解释 Neuroglancer 的文字 ⟦0⟧。" : '解释 <a id="L0">Neuroglancer</a> 的文字 ⟦0⟧。';
     }
     if (s.includes("never keeps")) {
-      asks.set(s, (asks.get(s) ?? 0) + 1);
+      if (!batch) asks.set(s, (asks.get(s) ?? 0) + 1);
       return "丢了链接。";
     }
     if (s.includes("FINAL_PARAGRAPH")) return "最后一段完整译文。";
     return s.includes("twenty") ? "价格是二十美元。" : s.includes("ten") ? "价格是十美元。" : "译文";
-  })();
-  return { id: "stub", choices: [{ message: { content: JSON.stringify({ text }) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
+  };
+  const content = translationAnswer(req.body, answer);
+  return { id: "stub", choices: [{ message: { content } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
@@ -112,9 +117,10 @@ test("the translation prompt gives a closed list of Chinese names, and its versi
   for (const open of ["确有通行译名", "例如："]) assert.ok(!prompt.includes(open), `no open wording: ${open}`);
   // The summary rules keep their open example: the list ends with “等” right after the include (the names file has no final newline).
   assert.ok(promptText("rules-domain").includes("华友钴业等"), "the summary rules still read “……华友钴业等”");
-  // A change to translate-body.md or rules-domain-names.md (shared with the summary rules) translates every stored
-  // foreign body again: change this pin on purpose.
-  assert.equal(TRANSLATE_PROMPT_VERSION, "translate-body@5127c40297");
+  // A change to translate-body.md or rules-domain-names.md (shared with the summary rules) applies to new translations
+  // only; stored ones stay readable and are not bought again (TASK-0711). Still change this pin on purpose.
+  assert.equal(TRANSLATE_PROMPT_VERSION, "translate-body@0c325807e5");
+  assert.ok(prompt.includes('{"texts":['), "the prompt describes the batched form");
 });
 
 test("a text corrected while its translation was running is translated again, and the old translation is not shown", async () => {
@@ -496,7 +502,7 @@ for (const recovery of ["automatic", "manual"] as const)
     for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
     assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
     assert.equal((await translateArticle(articleId, 1)).status, "translated");
-    assert.equal(provider.hits() - before, 3);
+    assert.equal(provider.hits() - before, 2, "the unknown batch, then the same batch once more for both blocks");
     const [history] = await sql`SELECT attempts,outcome FROM translation_attempts WHERE article_id=${articleId}`;
     assert.deepEqual({ ...history }, { attempts: 4, outcome: "translated" });
   });
