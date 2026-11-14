@@ -69,6 +69,7 @@ import {
 import { CATEGORY_TAGS, ENTITIES, ITEM_TYPES, normalizeTags } from "./vocabulary.ts";
 import { currentPrefilter, promptText, promptVersion } from "./prompts.ts";
 import { geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
+import { recordNearDuplicate } from "./near-duplicate.ts";
 import {
   MEND_CONFIG,
   promptVersionsFor,
@@ -1035,6 +1036,9 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
             articles: [input],
           }),
   };
+  // Record only (TASK-0661): a near-identical reprint from another source is noted, never skipped; a failure here never
+  // stops the analysis.
+  if (!awaitsMaterial(input)) await recordNearDuplicate(input).catch(() => undefined);
   try {
     const prefilter = awaitsMaterial(input) ? null : await runSelectionPrefilter(input, opts);
     if (prefilter) {
