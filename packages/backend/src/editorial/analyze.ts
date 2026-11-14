@@ -68,10 +68,12 @@ import {
 } from "./writing.ts";
 import { CATEGORY_TAGS, ENTITIES, ITEM_TYPES, normalizeTags } from "./vocabulary.ts";
 import { currentPrefilter, promptText, promptVersion } from "./prompts.ts";
-import { geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
+import { EARLIER_GEOGRAPHY_DICTIONARIES, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
 import {
+  analysisFingerprint,
   MEND_CONFIG,
   promptVersionsFor,
+  promptVersionsWithDictionary,
   scoreConfirmationVersion,
   scoreStandardVersion,
   scoreSystem,
@@ -124,6 +126,30 @@ const POST_SUMMARIZE_PROMPT_VERSION = () =>
   promptVersion("summarize-short-post", "summarize-short-post-quoted", "summarize-long-post", "summarize-long-post-quoted", "identity-context");
 export const analysisVersionOf = (a: Pick<AnalyzeInputArticle, "xPost">, layout: AnalysisPromptLayout = analysisPromptLayout()) =>
   a.xPost ? `${analyzePromptVersion(layout)}+${POST_SUMMARIZE_PROMPT_VERSION()}` : analyzePromptVersion(layout);
+/** The analysis rules of this input without the jurisdiction dictionary (TASK-0653), stored in each new analysis's output. */
+export const analysisFingerprintOf = (a: Pick<AnalyzeInputArticle, "xPost">, layout: AnalysisPromptLayout = analysisPromptLayout()) =>
+  analysisFingerprint(layout, a.xPost ? POST_SUMMARIZE_PROMPT_VERSION() : null);
+/**
+ * Whether a stored analysis was made under the current analysis rules, a change of the jurisdiction dictionary aside
+ * (TASK-0653; an original post's copy must have been written under the current rules). The same full version; else the
+ * same dictionary-free fingerprint when the analysis stored one; else, for an analysis stored before fingerprints, the
+ * full version this input had under an earlier dictionary with every other rule as now. A change of any rule other than
+ * the dictionary — score, prefilter, writing, structure wording, layout, rule set — still fails all three.
+ */
+export function analysisRulesCurrent(
+  stored: { prompt_version: string | null; output: unknown },
+  a: Pick<AnalyzeInputArticle, "xPost">,
+  layout: AnalysisPromptLayout = analysisPromptLayout(),
+): boolean {
+  if (!stored.prompt_version) return false;
+  if (stored.prompt_version === analysisVersionOf(a, layout)) return true;
+  const fingerprint = (stored.output as { analysisFingerprint?: unknown } | null)?.analysisFingerprint;
+  if (typeof fingerprint === "string") return fingerprint === analysisFingerprintOf(a, layout);
+  const post = a.xPost ? `+${POST_SUMMARIZE_PROMPT_VERSION()}` : "";
+  return EARLIER_GEOGRAPHY_DICTIONARIES.some(
+    (dictionary) => stored.prompt_version === `${Object.values(promptVersionsWithDictionary(layout, dictionary)).join("+")}${post}`,
+  );
+}
 
 // ── Scoring ───────────────────────────────────────────────────────────────────────────────
 
@@ -1090,6 +1116,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       fact: out.fact,
       geography: out.geography,
       company_context: out.company_context,
+      analysisFingerprint: analysisFingerprintOf(input, layout),
     };
     const committed = await commitProcessingResult(
       articleId,
