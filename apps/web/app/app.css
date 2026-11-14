@@ -173,22 +173,23 @@
 }
 
 [data-theme="dark"] {
-  /* Dark is a warm, slightly golden charcoal, not black, and the text a soft cream: easier on the eyes at night (Owner 2026-11-13).
-     Body text stays above 10:1 on the page, the quietest text above 5:1. */
+  /* Dark is a deep, slightly warm grey (Owner 2026-11-14 chose option A “深灰微暖”, with the gold kept as the accent): one step
+     lighter than the earlier near-black and without the brown cast of the 11-13 charcoal. Body text stays above 10:1 on the page,
+     the quietest text above 5:1. */
   color-scheme: dark;
-  --bg: #15130f;
-  --bg-sunk: #1a1814;
-  --bg-muted: #24211b;
-  --surface: #1c1914;
-  --surface-2: #201d18;
-  --raised: #26221c;
-  --sidebar: #181611;
-  --daybar: #1a1814;
+  --bg: #1c1a17;
+  --bg-sunk: #211f1b;
+  --bg-muted: #2a2722;
+  --surface: #24221e;
+  --surface-2: #282521;
+  --raised: #2f2c27;
+  --sidebar: #1f1d19;
+  --daybar: #211f1b;
   --field: rgba(255, 255, 255, 0.06);
-  --ink: #ece6da;
-  --ink-2: #d9d2c4;
-  --ink-3: #ada595;
-  --ink-4: #948c7d;
+  --ink: #ece7dd;
+  --ink-2: #dbd5ca;
+  --ink-3: #b3ac9f;
+  --ink-4: #9a9387;
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.12);
   --line-soft: rgba(255, 255, 255, 0.06);
@@ -216,8 +217,8 @@
   --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.35);
   --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.45);
-  --prose-ink: #ddd6c8;
-  --code-bg: #12100d;
+  --prose-ink: #e0dacf;
+  --code-bg: #181613;
   --selection: rgba(226, 176, 79, 0.22);
   --lang-zh: #e48a6e;
   --lang-en: #8aaedb;
