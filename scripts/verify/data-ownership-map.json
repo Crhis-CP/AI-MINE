@@ -734,6 +734,10 @@
       "module": "enrichment",
       "access": "business"
     },
+    "enrichment.near_duplicates": {
+      "module": "enrichment",
+      "access": "business"
+    },
     "publication.report_group_members": {
       "module": "publication",
       "access": "business"
@@ -1005,6 +1009,7 @@
     "packages/backend/src/editorial/translate.ts": "enrichment",
     "packages/backend/src/editorial/translation-quota.ts": "ai-gateway",
     "packages/backend/src/editorial/english-copy.ts": "enrichment",
+    "packages/backend/src/editorial/near-duplicate.ts": "enrichment",
     "packages/backend/src/editorial/post-translation.ts": "enrichment",
     "packages/backend/src/editorial/reclassify.ts": "enrichment",
     "packages/backend/src/editorial/translation-store.ts": "enrichment",
