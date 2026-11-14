@@ -23,25 +23,28 @@ export function liveTranslationWindow(discoveredAt: Date, now: Date): boolean {
 
 /**
  * Queue options for one body translation. Selected items run at once, as before. Every other admitted public item
- * goes through the same queue at a lower priority and, during the provider's peak hours, starts at the next off-peak
- * start (half price). The waiting job has its own singleton key, so an item selected while it waits still gets an
- * immediate job; the later one then finds the translation done and stops without a model call.
- * `at` is only passed by tests and replays; the wall clock is judged otherwise (see offPeakWait).
+ * goes through the same queue at a lower priority; a fresh one (`fresh`: found within the live window) starts at once,
+ * and backlog queued during the provider's peak hours starts at the next off-peak start (half price; TASK-0676). The
+ * waiting job has its own singleton key, so an item selected while it waits still gets an immediate job; the later one
+ * then finds the translation done and stops without a model call. The worker judges freshness again when it takes
+ * the job. `at` is only passed by tests and replays; the wall clock is judged otherwise (see offPeakWait).
  */
-export function translationJobOptions(articleId: string, selected: boolean, at?: Date) {
+export function translationJobOptions(articleId: string, selected: boolean, at?: Date, fresh = false) {
   if (selected) return { singletonKey: articleId, priority: PRIORITY.selected };
-  const wait = offPeakWait(at);
+  // A fresh item (found within the live window) starts at once, behind selected ones (TASK-0676); only backlog waits.
+  const wait = fresh ? null : offPeakWait(at);
   return { singletonKey: `later:${articleId}`, priority: PRIORITY.later, ...(wait ? { startAfter: wait } : {}) };
 }
 
 /**
  * The enqueue-time wait above is not enough on its own (TASK-0579, Codex review #362): a backlog or a retry can pick a
  * waiting job up in a peak hour, and a long body's segments can run into one. So the worker judges again when it takes
- * the job and before every paid segment: an item that is not selected at that moment waits for the next off-peak start
- * (null: go ahead). Selection is read then, so an item selected while it waited is translated at once.
+ * the job and before every paid segment: an item that does not go ahead at that moment waits for the next off-peak
+ * start (null: go ahead). `ahead` is true for a fresh item, selected or not (TASK-0676), judged at that moment, so an
+ * item that ages out of the live window mid-body continues as backlog.
  */
-export function translationPeakWait(selected: boolean, at?: Date): Date | null {
-  return selected ? null : offPeakWait(at);
+export function translationPeakWait(ahead: boolean, at?: Date): Date | null {
+  return ahead ? null : offPeakWait(at);
 }
 
 /**
@@ -56,12 +59,13 @@ export function translationDeferralOptions(articleId: string, until: Date) {
 
 /**
  * Queue options for an item's English title and summary (TASK-0595): the same queue, priorities and off-peak wait as
- * body translation, under keys of their own so the two never collapse into one job. The worker judges peak hours and
- * the background quota share again when it takes the job (jobs/content.ts runEnglishCopyJob).
+ * body translation (a fresh item starts at once; TASK-0676), under keys of their own so the two never collapse into
+ * one job. The worker judges freshness, peak hours and the backlog quota share again when it takes the job
+ * (jobs/content.ts runEnglishCopyJob).
  */
-export function englishCopyJobOptions(articleId: string, selected: boolean, at?: Date) {
+export function englishCopyJobOptions(articleId: string, selected: boolean, at?: Date, fresh = false) {
   if (selected) return { singletonKey: `en:${articleId}`, priority: PRIORITY.selected };
-  const wait = offPeakWait(at);
+  const wait = fresh ? null : offPeakWait(at);
   return { singletonKey: `en-later:${articleId}`, priority: PRIORITY.later, ...(wait ? { startAfter: wait } : {}) };
 }
 

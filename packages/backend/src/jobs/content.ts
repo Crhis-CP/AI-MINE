@@ -33,7 +33,6 @@ import { usableSourceText } from "../lib/text.ts";
 import {
   publishArticle,
   prepareTranslationRun,
-  translationSelectedNow,
   articleWithdrawalHeld,
   publicationVisibilities,
   englishCopyCandidate,
@@ -393,28 +392,39 @@ async function materialRevision(articleId: string): Promise<number | undefined> 
 /** Tests and replays pass the time to judge; the worker judges the wall clock (see offPeakWait). */
 export type JobClock = { now?: () => Date };
 
+/** Why a translation or English copy waits (TASK-0676): the off-peak price, the backlog quota share, or a paused lane. */
+export type DeferralReason = "peak" | "quota" | "paused";
+
 /**
- * A translation that is not selected now and was picked up (or reached a segment) in the provider's peak hours waits
- * for the next off-peak start in a new job on the same queue (TASK-0579); one held for model quota (TASK-0580) waits
- * the same way until it judges again. The state keeps the name `deferred_peak` for both (it is the same deferral). A queue that gives no acceptance throws, so
- * pg-boss retries this job and it judges again; a key already waiting for the same start already covers it.
+ * A backlog translation picked up (or reaching a segment) in the provider's peak hours waits for the next off-peak
+ * start in a new job on the same queue (TASK-0579); one held for model quota (TASK-0580) or by a paused lane waits the
+ * same way until it judges again. The state keeps the name `deferred_peak` for every wait (it is the same deferral);
+ * `reason` says which wait it was (TASK-0676). A queue that gives no acceptance throws, so pg-boss retries this job and
+ * it judges again; a key already waiting for the same start already covers it.
  */
-async function deferTranslation(articleId: string, until: Date) {
+async function deferTranslation(articleId: string, until: Date, reason: DeferralReason) {
   const queued = await enqueue(QUEUES.translate, { articleId, lane: "news" }, translationDeferralOptions(articleId, until));
   if (queued === undefined) throw new Error("translation deferral was not accepted by the queue");
-  return { state: "deferred_peak", until: until.toISOString() };
+  return { state: "deferred_peak", reason, until: until.toISOString() };
+}
+
+/** The first wait that applies to work that does not go ahead now, with its reason; null to go ahead. */
+async function backgroundWait(ahead: boolean, at?: Date, model?: string): Promise<{ until: Date; reason: DeferralReason } | null> {
+  const peak = translationPeakWait(ahead, at);
+  if (peak) return { until: peak, reason: "peak" };
+  const quota = await translationQuotaWait(ahead, at, model);
+  return quota ? { until: quota, reason: "quota" } : null;
 }
 
 /**
- * Whether a selected item still goes ahead of the quota and peak-hour waits: only while it is fresh (found within the
- * live translation window). Opening a source's full text republishes its history, and selected items from weeks ago
- * would otherwise all be translated at once, at any hour and past any share of the quota (2026-11-07: six such jobs
- * from mid-October were among the requests that kept the hourly quota full). An old selected item is backlog and
- * waits like any other background translation; it is still translated, only not ahead of core steps. The database
- * clock judges freshness, as it records discovery.
+ * Whether an item goes ahead of the peak-hour and quota waits (TASK-0676, Owner 2026-11-13): any item found within the
+ * live translation window, selected or not, so a new article's Chinese translation follows it within minutes. Older
+ * items are backlog and still wait for the off-peak price and the quota share. Judged at each moment it is asked.
+ * Republishing a source's history does not put its old items ahead, selected or not: freshness is by discovery time,
+ * read from the database clock that records it (2026-11-07: six mid-October selected items once kept the hourly quota
+ * full).
  */
-export async function freshSelection(articleId: string, selected: boolean): Promise<boolean> {
-  if (!selected) return false;
+export async function freshItem(articleId: string): Promise<boolean> {
   const [row] = await sql<{ fresh: boolean }[]>`
     SELECT discovered_at > now() - make_interval(days => ${LIVE_TRANSLATION_DAYS}) AS fresh FROM articles WHERE id = ${articleId}`;
   return row?.fresh === true;
@@ -430,18 +440,20 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
   try {
     const prepared = await prepareTranslationRun(data.articleId);
     if (prepared === null) return { state: "not-needed-or-not-permitted" };
-    // Judged when the job is taken, from the publication as it is now, before any paid step (the quote, the body).
-    // The same moments also judge the model quota (TASK-0580): background translation leaves half of it to core steps.
-    // Only a fresh selected item goes ahead of both waits; an old selected item reached by a republication is backlog.
-    const ahead = await freshSelection(data.articleId, prepared.selected);
-    const consumed = translationPeakWait(ahead, clock.now?.()) ?? (await translationQuotaWait(ahead, clock.now?.()));
-    if (consumed) return await deferTranslation(data.articleId, consumed);
+    // Judged when the job is taken, before any paid step (the quote, the body), and again before every paid segment.
+    // A fresh item, selected or not, goes ahead of both waits (TASK-0676); older items are backlog: they wait for the
+    // off-peak price and leave a quarter of the model quota to core steps (TASK-0579/0580).
+    const consumed = await backgroundWait(await freshItem(data.articleId), clock.now?.());
+    if (consumed) return await deferTranslation(data.articleId, consumed.until, consumed.reason);
+    let segmentReason: DeferralReason = "peak";
     const beforePaidSegment = async (model: string) => {
-      const until = translationPeakWait(false, clock.now?.()) ?? (await translationQuotaWait(false, clock.now?.(), model));
-      return until && !(await freshSelection(data.articleId, await translationSelectedNow(data.articleId))) ? until : null;
+      if (await freshItem(data.articleId)) return null;
+      const wait = await backgroundWait(false, clock.now?.(), model);
+      if (wait) segmentReason = wait.reason;
+      return wait?.until ?? null;
     };
     const result = await translateArticle(data.articleId, prepared.revision, { beforePaidSegment });
-    if (result.reason === "deferred_peak" && result.until) return await deferTranslation(data.articleId, result.until);
+    if (result.reason === "deferred_peak" && result.until) return await deferTranslation(data.articleId, result.until, segmentReason);
     if (result.status === "skipped" && ["no_post_text", "quote_not_permitted", "post_admission_disabled"].includes(result.reason ?? "")) {
       await publishArticle(data.articleId);
       return result;
@@ -465,16 +477,16 @@ export async function runTranslationJob(data: { articleId: string }, clock: JobC
     // A paused lane only postpones the translation. The article is already analysed: afterFailure would set it back
     // to "new" and the sweep would pay for its whole analysis again (TASK-0608).
     if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
-      return deferTranslation(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS));
+      return deferTranslation(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS), "paused");
     throw error;
   }
 }
 
 /** An English-copy job that waits (peak hours, the background quota share, a paused lane) continues in a new job. */
-async function deferEnglishCopy(articleId: string, until: Date) {
+async function deferEnglishCopy(articleId: string, until: Date, reason: DeferralReason) {
   const queued = await enqueue(QUEUES.translate, { articleId, lane: "news", english: true }, englishCopyDeferralOptions(articleId, until));
   if (queued === undefined) throw new Error("English copy deferral was not accepted by the queue");
-  return { state: "deferred_peak", until: until.toISOString() };
+  return { state: "deferred_peak", reason, until: until.toISOString() };
 }
 
 /**
@@ -489,16 +501,15 @@ export async function runEnglishCopyJob(data: { articleId: string }, clock: JobC
     const candidate = await englishCopyCandidate(data.articleId);
     if (!candidate) return { state: "not_needed" };
     if (!(await readEnglishCopy(data.articleId, candidate.input.hash))) {
-      const ahead = await freshSelection(data.articleId, candidate.selected);
-      const wait = translationPeakWait(ahead, clock.now?.()) ?? (await translationQuotaWait(ahead, clock.now?.()));
-      if (wait) return await deferEnglishCopy(data.articleId, wait);
+      const wait = await backgroundWait(await freshItem(data.articleId), clock.now?.());
+      if (wait) return await deferEnglishCopy(data.articleId, wait.until, wait.reason);
     }
     const outcome = await writeEnglishCopy(data.articleId);
     if (outcome === "written" || outcome === "ready") await refreshEnglishCopy(data.articleId);
     return { state: outcome };
   } catch (error) {
     if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
-      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS));
+      return deferEnglishCopy(data.articleId, new Date((clock.now?.() ?? new Date()).getTime() + PAUSE_WAIT_MS), "paused");
     throw error;
   }
 }

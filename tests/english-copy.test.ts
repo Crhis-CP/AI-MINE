@@ -109,9 +109,12 @@ test("a public item gets one English title and summary, shown on the website onl
   assert.deepEqual(await englishJobs(id), [{ singleton_key: `en-later:${id}`, priority: -2 }]);
   assert.deepEqual(await projected(id), { title_en: null, summary_en: null });
 
-  // In a peak hour it waits for the off-peak start without a model call.
+  // Once it is backlog (found more than two days ago, TASK-0676), a peak hour waits for the off-peak start without a
+  // model call; a fresh item would be written at once (last test below).
+  await sql`UPDATE articles SET discovered_at = now() - interval '3 days' WHERE id=${id}`;
   const waited = await runEnglishCopyJob({ articleId: id }, PEAK);
   assert.equal((waited as { state: string }).state, "deferred_peak");
+  assert.equal((waited as { reason?: string }).reason, "peak");
   assert.equal(hits, 0);
 
   const done = await runEnglishCopyJob({ articleId: id }, OFF_PEAK);
@@ -218,4 +221,12 @@ test("the backfill lists public items still without an English copy, newest firs
   const written = await sql<{ article_id: string }[]>`SELECT article_id FROM publications WHERE title_en IS NOT NULL`;
   assert.ok(written.length > 0);
   for (const row of written) assert.ok(!listed.includes(row.article_id));
+});
+
+test("a fresh item's English title and summary are written at once, even in a peak hour (TASK-0676)", async () => {
+  const id = await article();
+  const before = hits;
+  assert.deepEqual(await runEnglishCopyJob({ articleId: id }, PEAK), { state: "written" });
+  assert.equal(hits, before + 1);
+  assert.deepEqual(await projected(id), { title_en: `English title ${T}`, summary_en: `English summary ${T}` });
 });
