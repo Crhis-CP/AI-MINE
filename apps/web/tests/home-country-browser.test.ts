@@ -88,6 +88,11 @@ const api = createServer((req, res) => {
       generatedAt: now,
     });
   if (url.pathname === "/api/site/pool") {
+    // The home block asks for the lean read: the newest few items, no source facets (TASK-0714/0717).
+    if (url.searchParams.get("lean") !== "1") {
+      res.statusCode = 400;
+      return send({ code: "lean_expected" });
+    }
     asked.push(country ?? "");
     const n = LOCAL[country ?? ""] ?? 0;
     return send({
