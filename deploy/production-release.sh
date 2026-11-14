@@ -156,6 +156,7 @@ selection_state() {
 import hashlib,json,re,subprocess,sys
 from pathlib import Path
 action,root,backup,version,*roles=sys.argv[1:]; root=Path(root); backup=Path(backup)
+literal=r'selection-score(?:-global)?(?:-shared(?:-standard)?)?@[0-9a-f]{10,64}\+weights@[0-9a-f]{10,64}'
 def field(path):
     found=[line for line in path.read_text().splitlines() if re.match(r'^\s*(?:export\s+)?SELECTION_CONFIRMED_VERSION\b',line)]
     assert len(found)<=1, 'Ambiguous selection confirmation'
@@ -163,13 +164,33 @@ def field(path):
         match=re.fullmatch(r'\s*(?:export\s+)?SELECTION_CONFIRMED_VERSION\s*=(.*)',found[0]); assert match, 'Unsupported selection definition'
         value=match[1].strip(); assert not value.endswith(chr(92)), 'Multiline selection definition'
         if value[:1] in ["'",'"']:assert re.fullmatch(r"(['\"]).*\1\s*(?:#.*)?",value), 'Multiline selection definition'
-    return {'present':bool(found),'definition_sha256':hashlib.sha256(found[0].encode()).hexdigest() if found else None}
+        match=re.fullmatch(r'''[ \t]*(?:"('''+literal+r'''|)"|'('''+literal+r'''|)'|('''+literal+r'''|))(?:(?:[ \t]+#.*)?[ \t]*)''',match[1])
+        assert match, 'Selection confirmation must be a supported literal or empty'
+        value=next(value for value in match.groups() if value is not None)
+    return {'present':bool(found),'value':value if found else None,'definition_sha256':hashlib.sha256(found[0].encode()).hexdigest() if found else None}
 def runtime(names):
     assert set(names) in [{'api','worker'},{'public-api','private-api','worker'}]
     code='const k="SELECTION_CONFIRMED_VERSION";console.log(JSON.stringify({present:Object.hasOwn(process.env,k),value:process.env[k]??null}))'
     return {name:json.loads(subprocess.check_output(['docker','exec','amp-'+name+'-1','node','-e',code],text=True)) for name in names}
 if action=='capture':
-    print(json.dumps({'file':field(backup/'environment'),'runtime':runtime([*roles,'worker']),'requested':version}))
+    saved=field(backup/'environment'); assert field(root/'.env')==saved, 'Selection definition changed after backup'
+    compose='\n'.join(line for line in (root/'docker-compose.yml').read_text().splitlines() if not line.lstrip().startswith('#'))
+    assert re.findall(r'^\s*env_file:\s*(\S+)\s*$',compose,re.M)==['.env'] and all(re.search(r'^  '+name+r':\n    <<: \*app(?:\n|$)',compose,re.M) for name in [*roles,'worker']), 'Unsupported application environment inheritance'
+    assert 'SELECTION_CONFIRMED_VERSION' not in compose and not re.search(r'^\s*(?:include|extends):',compose,re.M), 'Unsupported selection override'
+    running=runtime([*roles,'worker']); defaults={}
+    for name,actual in running.items():
+        expected={'present':saved['present'],'value':saved['value']}
+        if not saved['present']:
+            image=subprocess.check_output(['docker','inspect','--format','{{.Image}}','amp-'+name+'-1'],text=True).strip()
+            assert re.fullmatch(r'sha256:[0-9a-f]{64}',image), 'Invalid current application image'
+            template='{{range .Config.Env}}{{if eq (index (split . "=") 0) "SELECTION_CONFIRMED_VERSION"}}{{json .}}{{println}}{{end}}{{end}}'
+            values=subprocess.check_output(['docker','image','inspect','--format',template,image],text=True).splitlines()
+            assert len(values)<=1, 'Ambiguous image selection default'
+            value=json.loads(values[0]).removeprefix('SELECTION_CONFIRMED_VERSION=') if values else None
+            assert value is None or value=='' or re.fullmatch(literal,value), 'Unsupported image selection default'
+            expected={'present':bool(values),'value':value}; defaults[name]={'image':image,**expected}
+        assert actual==expected, 'Original selection definition does not match running roles'
+    print(json.dumps({'file':saved,'runtime':running,'image_defaults':defaults,'requested':version}))
 else:
     old=json.loads((backup/'recovery-point.json').read_text())['selection_confirmation']
     if action in ['backup','file']:assert field((backup/'environment') if action=='backup' else root/'.env')==old['file'], 'Original selection definition differs'

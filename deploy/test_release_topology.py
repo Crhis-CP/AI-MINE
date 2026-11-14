@@ -164,7 +164,7 @@ set_value() { [[ $1 != "$FIXTURE_FAIL" ]]; }
             result = subprocess.run(['bash', '-c', header, 'release', 'b' * 40, '/archive', 'c' * 64, '/bundle', 'd' * 64, 'e' * 40, '--selection-confirmed-version', version], capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, family + ': ' + result.stderr)
 
-    def selection_fixture(self, folder, present=True):
+    def selection_fixture(self, folder, present=True, image_default=False, capture=True):
         base=Path(folder); root=base/'root'; backup=base/'backups'/('release-'+'b'*12+'-test'); stage=base/'stage'; binary=base/'bin'
         for path in [root/'.ops',root/'.data',root/'deploy',backup,stage/'deploy',binary]:path.mkdir(parents=True,exist_ok=True)
         old='selection-score-shared@'+'e'*10+'+weights@'+'f'*10; new='selection-score-global-shared-standard@'+'c'*10+'+weights@'+'d'*10
@@ -172,14 +172,15 @@ set_value() { [[ $1 != "$FIXTURE_FAIL" ]]; }
         env_text='APP_IMAGE=amp-retained:'+'1'*12+'\nAMP_RELEASE='+'a'*12+'\nUNRELATED=synthetic-never-print\n'+('SELECTION_CONFIRMED_VERSION='+old+'\n' if present else '')
         (root/'.env').write_text(env_text); (root/'.env').chmod(0o600); (backup/'environment').write_text(env_text); (backup/'environment').chmod(0o600)
         (root/'.ops/release.lock').touch(); (root/'.data/keep').write_text('persistent data')
+        compose='x-app: &app\n  env_file: .env\nservices:\n  api:\n    <<: *app\n  worker:\n    <<: *app\n'
         for directory in [root,stage]:
-            (directory/'docker-compose.yml').write_text('synthetic compose')
+            (directory/'docker-compose.yml').write_text(compose)
             (directory/'deploy/Caddyfile').write_text('synthetic caddy')
         payloads={}
         for role in ['api','web','worker','host']:
             file=backup/(role+'-program.tar.gz')
             with tarfile.open(file,'w:gz') as archive:
-                for name,body in ([('./deploy/Caddyfile',b'synthetic caddy'),('./docker-compose.yml',b'synthetic compose')] if role=='host' else [('apps/code',b'old program')]):
+                for name,body in ([('./deploy/Caddyfile',b'synthetic caddy'),('./docker-compose.yml',compose.encode())] if role=='host' else [('apps/code',b'old program')]):
                     item=tarfile.TarInfo(name); item.size=len(body); archive.addfile(item,io.BytesIO(body))
             payloads[file.name]=file
         (backup/'database.dump').write_bytes(b'synthetic database snapshot'); payloads['database.dump']=backup/'database.dump'
@@ -192,12 +193,14 @@ set_value() { [[ $1 != "$FIXTURE_FAIL" ]]; }
         (backup/'recovery-point.json').write_text(json.dumps(point)); (backup/'previous-quality-gate.json').write_text('{"status":"pending","previous":true}')
         (root/'.ops/release-quality-gate.json').write_text('{"status":"pending","candidate":true}')
         expected={'old':old,'new':new,'present':present,'old_image':image_old,'new_image':image_new}; (base/'expected.json').write_text(json.dumps(expected))
-        runtime={name:{'present':present,'value':old if present else None} for name in ['api','worker']}
+        effective_present=present or image_default
+        runtime={name:{'present':effective_present,'value':old if effective_present else None} for name in ['api','worker']}
+        if image_default:(base/'image-default-key').write_text(json.dumps('SELECTION_CONFIRMED_VERSION='+old)+'\n')
         (base/'state.json').write_text(json.dumps({'image':image_old,'release':'a'*12,'runtime':runtime}))
         (base/'state-old.json').write_bytes((base/'state.json').read_bytes())
         (base/'state-new.json').write_text(json.dumps({'image':image_new,'release':'b'*12,'runtime':{name:{'present':True,'value':new} for name in runtime}}))
         for name,value in {'old-value':old,'new-value':new,'old-image':image_old,'new-image':image_new,'image':image_old,'release':'a'*12,'has-old':'1' if present else '0'}.items(): (base/name).write_text(value)
-        (base/'runtime-old.json').write_text(json.dumps({'present':present,'value':old if present else None}))
+        (base/'runtime-old.json').write_text(json.dumps({'present':effective_present,'value':old if effective_present else None}))
         (base/'runtime-new.json').write_text(json.dumps({'present':True,'value':new}))
         (base/'runtime.json').write_bytes((base/'runtime-old.json').read_bytes())
         docker=r"""#!/bin/bash
@@ -206,7 +209,7 @@ base=$FIXTURE
 if [[ $1 == --host ]]; then shift 2; fi
 printf '%s\n' "$*" >> "$base/calls"
 case $1 in
- image) if [[ $* == *amp-retained:* && -e $base/bad-old-tag ]]; then cat "$base/new-image"; else cat "$base/old-image"; fi ;;
+ image) if [[ $* == *'.Config.Env'* ]]; then if [[ -f $base/image-default-key ]]; then cat "$base/image-default-key"; fi; elif [[ $* == *amp-retained:* && -e $base/bad-old-tag ]]; then cat "$base/new-image"; else cat "$base/old-image"; fi ;;
  inspect) printf '%s\n' "$(<"$base/image")" ;;
  exec) [[ $2 == amp-api-1 || $2 == amp-worker-1 ]]; [[ $* == *'const k="SELECTION_CONFIRMED_VERSION"'* ]]; cat "$base/runtime.json" ;;
  run)
@@ -265,7 +268,8 @@ printf '{"ok":true,"db":"ok","release":"%s"}\n' "$(<"$FIXTURE/release")"
         functions='\n'.join(re.search(re.escape(name)+r"\(\) \{(?:[^\n]*\}|\n.*?\n\})",SCRIPT,re.S).group(0) for name in ['phase','dc','read_api_topology','stop_api_containers','set_value','selection_state','candidate_selection','web_origin','health','restore','on_exit'])
         prefix='set -Eeuo pipefail\n'+functions+'\nRELEASE_CURRENT_APIS=(api); RELEASE_OLD_APIS=(api)\n'
         # Capture each deterministic key state once; every scenario still has independent mutable files/processes.
-        key=(present,old,new)
+        if not capture:return base,root,backup,env,prefix
+        key=(present,old,new,image_default)
         with self._selection_snapshot_lock:
             if key not in self._selection_snapshots:
                 capture=subprocess.run(['bash','-c',prefix+'selection_state capture'],env=env,capture_output=True,text=True,timeout=10)
@@ -275,6 +279,43 @@ printf '{"ok":true,"db":"ok","release":"%s"}\n' "$(<"$FIXTURE/release")"
         point['selection_confirmation']=json.loads(self._selection_snapshots[key]); (backup/'recovery-point.json').write_text(json.dumps(point))
         return base,root,backup,env,prefix
 
+    def test_selection_capture_rejects_file_runtime_drift_before_switch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base,root,backup,env,prefix=self.selection_fixture(folder,capture=False)
+            changed=(root/'.env').read_text().replace((base/'old-value').read_text(),(base/'new-value').read_text())
+            (root/'.env').write_text(changed);(backup/'environment').write_text(changed)
+            before=(root/'.env').read_bytes();(base/'calls').write_text('')
+            switch=SCRIPT[SCRIPT.index('phase prepare_switch\n'):SCRIPT.index('phase migrate\n')]
+            result=subprocess.run(['bash','-c',prefix+'RELEASE_SELECTION_BEFORE=$(selection_state capture) || exit 1\n'+switch+'\ndc up -d --force-recreate api web worker'],env=env,capture_output=True,text=True,timeout=10)
+            self.assertNotEqual(result.returncode,0)
+            self.assertIn('does not match running roles',result.stderr)
+            self.assertEqual((root/'.env').read_bytes(),before)
+            self.assertEqual((base/'image').read_text(),'sha256:'+'1'*64)
+            self.assertFalse(any('compose' in line and ' up ' in line for line in (base/'calls').read_text().splitlines()))
+            self.assertNotIn('synthetic-never-print',result.stdout+result.stderr)
+
+    def test_selection_missing_file_uses_verified_image_default_and_recovers_absence(self):
+        self.selection_lifecycle_case((False,'after_success'),image_default=True)
+
+    def test_selection_capture_literal_and_missing_default_boundaries(self):
+        def run(kind):
+            with tempfile.TemporaryDirectory() as folder:
+                base,root,backup,env,prefix=self.selection_fixture(folder,present=kind!='missing_default',capture=False)
+                old=(base/'old-value').read_text()
+                if kind in ['quoted','dynamic']:
+                    text=(root/'.env').read_text().replace('SELECTION_CONFIRMED_VERSION='+old,"SELECTION_CONFIRMED_VERSION='"+old+"' # literal" if kind=='quoted' else 'SELECTION_CONFIRMED_VERSION=${UNRELATED}')
+                    (root/'.env').write_text(text);(backup/'environment').write_text(text)
+                elif kind=='override':
+                    with (root/'docker-compose.yml').open('a') as file:file.write('    environment:\n      SELECTION_CONFIRMED_VERSION: override\n')
+                else:(base/'runtime.json').write_text(json.dumps({'present':True,'value':old}))
+                before=(root/'.env').read_bytes()
+                result=subprocess.run(['bash','-c',prefix+'selection_state capture'],env=env,capture_output=True,text=True,timeout=10)
+                self.assertEqual(result.returncode==0,kind=='quoted',result.stderr)
+                if kind=='quoted':self.assertEqual(json.loads(result.stdout)['file']['value'],old)
+                self.assertEqual((root/'.env').read_bytes(),before)
+                self.assertNotIn('synthetic-never-print',result.stdout+result.stderr)
+        self.selection_cases(['quoted','dynamic','override','missing_default'],run)
+
     def selection_cases(self, cases, run):
         # Each case has independent files/processes; retain every case within the existing aggregate deadline.
         with ThreadPoolExecutor(max_workers=3) as pool:
@@ -283,11 +324,11 @@ printf '{"ok":true,"db":"ok","release":"%s"}\n' "$(<"$FIXTURE/release")"
                 with self.subTest(case=case):job.result()
 
 
-    def selection_lifecycle_case(self,case):
+    def selection_lifecycle_case(self,case,image_default=False):
         switch=SCRIPT[SCRIPT.index('phase prepare_switch\n'):SCRIPT.index('phase migrate\n')]
         present,phase=case
         with tempfile.TemporaryDirectory() as folder:
-            base,root,backup,env,prefix=self.selection_fixture(folder,present)
+            base,root,backup,env,prefix=self.selection_fixture(folder,present,image_default=image_default)
             command=prefix+'trap on_exit EXIT\n'+switch
             if phase!='before_activation':command+='\ndc up -d --force-recreate api web worker\n'
             command+='\nexit 1' if phase!='after_success' else '\ntrap - EXIT\n'
