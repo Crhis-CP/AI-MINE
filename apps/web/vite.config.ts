@@ -101,7 +101,8 @@ export default defineConfig({
         // Framework code stays one stable chunk across releases; app code that at least four public
         // routes share is one chunk (7–10 files a page, and less JavaScript than before on every page
         // but the three smallest, measured 2026-09-29); the rest keeps automatic splitting. Motion is
-        // left to the admin pages.
+        // left to the admin pages. Narrowing the shared chunk was measured again on 2026-11-14 (TASK-0715): a share count
+        // of 5 or 6, or keeping features/feed out of it, lightens the article and hot pages but makes the home page heavier.
         codeSplitting: {
           groups: [
             {

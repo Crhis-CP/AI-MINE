@@ -9,6 +9,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import type { Policy } from "@amp/contracts/http/public";
 import { blockDomId, evidenceBlocks, redlineOf, sourceState, type Comparison, type ReadingBlock, type Redline } from "./review";
+import "./policy-review.css";
 
 type Page = ReturnType<typeof publicSchemas.PolicyReadingPage.parse>;
 type Expression = Policy["expressions"][number];
