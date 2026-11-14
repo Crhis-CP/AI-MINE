@@ -246,7 +246,13 @@ test("feedback uses only feedback_write in a fresh public process", async (t) =>
     app = await publicServer(t, f);
   try {
     assert.deepEqual(await roleConnections(f), { public_read: 0, feedback_write: 0 });
-    const headers = { "idempotency-key": randomUUID(), "content-type": "application/json", "user-agent": "Chrome", "x-real-ip": "192.0.2.50" };
+    const headers = {
+      "idempotency-key": randomUUID(),
+      "content-type": "application/json",
+      "user-agent": "Chrome",
+      "x-forwarded-for": "192.0.2.50",
+      "x-real-ip": "192.0.2.99",
+    };
     const response = await app.request("/api/site/feedback", {
       method: "POST",
       headers,
@@ -258,7 +264,7 @@ test("feedback uses only feedback_write in a fresh public process", async (t) =>
     const [stored] = await f.admin`SELECT content,email,source_hash FROM feedback WHERE id=${result.id}`;
     assert.equal(stored.content, "PR9 synthetic feedback");
     assert.equal(stored.email, "fixture@example.test");
-    const hash = createHmac("sha256", RATE_SECRET).update("192.0.2.50|Chrome").digest("base64url").slice(0, 24);
+    const hash = createHmac("sha256", RATE_SECRET).update("192.0.2.50").digest("base64url").slice(0, 24);
     assert.equal(stored.source_hash, hash);
     await f.admin`INSERT INTO feedback_bans(source_hash)VALUES(${hash})`;
     const banned = await app.request("/api/site/feedback", {

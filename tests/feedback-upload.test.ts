@@ -29,7 +29,7 @@ async function upload(file: Buffer, ip: string) {
   return app.inject({
     method: "POST",
     url: "/api/site/feedback",
-    headers: { "idempotency-key": randomUUID(), "content-type": request.headers.get("content-type")!, "x-real-ip": ip },
+    headers: { "idempotency-key": randomUUID(), "content-type": request.headers.get("content-type")!, "x-forwarded-for": ip },
     payload,
   });
 }
@@ -71,7 +71,7 @@ test("the JSON screenshot sent by an already-open tab remains accepted", async (
   const result = await app.inject({
     method: "POST",
     url: "/api/site/feedback",
-    headers: { "idempotency-key": randomUUID(), "x-real-ip": "203.0.113.213" },
+    headers: { "idempotency-key": randomUUID(), "x-forwarded-for": "203.0.113.213" },
     payload: { content: "旧标签页继续提交有效反馈文字", screenshot: { mime: "image/png", data: file.toString("base64") } },
   });
   assert.equal(result.statusCode, 201);
@@ -82,7 +82,7 @@ test("the JSON screenshot sent by an already-open tab remains accepted", async (
 });
 
 test("feedback HTTP replay is stable and a missing key gives an actionable rejection", async () => {
-  const headers = { "idempotency-key": randomUUID(), "x-real-ip": "203.0.113.215" },
+  const headers = { "idempotency-key": randomUUID(), "x-forwarded-for": "203.0.113.215" },
     payload = { content: "反馈响应丢失后重交同一请求不会重复" };
   const first = await app.inject({ method: "POST", url: "/api/site/feedback", headers, payload });
   const replay = await app.inject({ method: "POST", url: "/api/site/feedback", headers, payload });
