@@ -214,7 +214,6 @@ export function registerSite(app: FastifyInstance) {
       if (q.lean !== undefined && q.lean !== "1") throw new BadRequest("invalid lean flag");
       const lean = q.lean === "1";
       const unfiltered =
-        page === 1 &&
         !lean &&
         !search &&
         !filters.category &&
@@ -228,7 +227,7 @@ export function registerSite(app: FastifyInstance) {
         !filters.to &&
         !filters.selected &&
         filters.channel === "all";
-      // The hotspot board heads the first unfiltered page only (as the timeline's first page); it is read alongside the list.
+      // The hotspot board does not depend on the page (the wire and its ETag stay as before); read it alongside the list.
       const [data, hot] = await Promise.all([loadPool({ ...filters, q: search, tab, page, ...(lean ? { lean } : {}) }), unfiltered ? loadHotStrip() : null]);
       if (unfiltered) data.hot = hot ?? [];
       (filters.readingGroups ? ReportGroupedPoolResponse : PoolResponse).parse(JSON.parse(JSON.stringify(data))); // Validate wire values without changing the original bytes.
