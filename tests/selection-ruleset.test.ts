@@ -63,15 +63,15 @@ const CLASSIC = {
 } as const;
 // The global rule set's selection versions, as the card's delivery record gives them to the release.
 const GLOBAL = {
-  shared: { prefilter: "prefilter-four-layers-shared@4cbc95fcc9", score: "selection-score-global-shared@d3b4cb6ac0+weights@20542a669a" },
-  separate: { prefilter: "prefilter-four-layers@82a70b39f8", score: "selection-score-global@6780f69e09+weights@20542a669a" },
+  shared: { prefilter: "prefilter-four-layers-shared@de030505f1", score: "selection-score-global-shared@39c374ad10+weights@20542a669a" },
+  separate: { prefilter: "prefilter-four-layers@ab17e835d0", score: "selection-score-global@47d13bde9b+weights@20542a669a" },
 } as const;
 // The values SELECTION_CONFIRMED_VERSION names (TASK-0710: the score standard, not the whole shared prompt), as the
 // card's delivery record gives them to the release. In the separate layout the score standard is the score step's
 // version. Only a change to what defines the score (score rules, preamble, score heading and step instruction, material
 // recipe, weights and caps) may move them, and that change needs a new Owner confirmation.
 const CONFIRMED = {
-  global: { shared: "selection-score-global-shared-standard@fe5d2f7b9e+weights@20542a669a", separate: GLOBAL.separate.score },
+  global: { shared: "selection-score-global-shared-standard@e85fbf2117+weights@20542a669a", separate: GLOBAL.separate.score },
   classic: { shared: "selection-score-shared-standard@8a6af9afe0+weights@20542a669a", separate: CLASSIC.separate.score },
 } as const;
 

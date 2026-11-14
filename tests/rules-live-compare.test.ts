@@ -21,7 +21,7 @@ import {
 } from "../scripts/rules-live-compare.ts";
 
 const CLASSIC = { prefilter: "prefilter-shared@aa4cb4ab1b", score: "selection-score-shared@a195d5bf17+weights@20542a669a" };
-const GLOBAL = { prefilter: "prefilter-four-layers-shared@4cbc95fcc9", score: "selection-score-global-shared@d3b4cb6ac0+weights@20542a669a" };
+const GLOBAL = { prefilter: "prefilter-four-layers-shared@de030505f1", score: "selection-score-global-shared@39c374ad10+weights@20542a669a" };
 const REST = "understand-shared@0000000001+summarize-article-shared@0000000002+mend-wording-shared@0000000003+structure-shared@0000000004";
 const full = (v: { prefilter: string; score: string }) => `${v.prefilter}+${v.score}+${REST}`;
 /** An X post's judgement stores the post prompts' version after the six steps. */
@@ -56,7 +56,7 @@ test("a stored prompt version names its prefilter and score versions, and throug
   assert.equal(rulesVersion(full(CLASSIC)).ruleset, "classic");
   assert.equal(rulesVersion(full(GLOBAL)).ruleset, "global");
   assert.equal(rulesVersion("prefilter@f1a5eca242+selection-score@9881743a29+weights@20542a669a").ruleset, "classic", "the separate layout");
-  assert.equal(rulesVersion("prefilter-four-layers@82a70b39f8+selection-score-global@6780f69e09+weights@20542a669a").ruleset, "global");
+  assert.equal(rulesVersion("prefilter-four-layers@ab17e835d0+selection-score-global@47d13bde9b+weights@20542a669a").ruleset, "global");
   assert.equal(rulesVersion(GLOBAL.prefilter).ruleset, "global");
   assert.equal(rulesVersion(`${CLASSIC.prefilter}+${GLOBAL.score}`).ruleset, null, "mixed versions are not called either rule set");
   assert.equal(rulesVersion("prefilter@f1a5eca242+selection-score-b@1234567890").ruleset, null, "an experiment's score rules");
@@ -217,7 +217,7 @@ test("the report lists the titles and sources selected under the new rules, and 
   assert.match(report, /\| 2026-11-16 \| 刚果（金）延长钴出口配额 \| 合成来源（T1） \| 71\.3 \| 还没有 \|/);
   assert.ok(!report.includes("智利提高铜矿权益金") && !report.includes("原规则下入选的一条"));
   assert.match(renderReport(summary, picks, { generatedAt: "x", titles: 10 }), /\| 智利提高铜矿权益金 ／ 议会表决 \| 合成来源（T1） \| 71\.3 \| 是 \|/);
-  assert.match(report, /- 新规则·版本1：预筛 `prefilter-four-layers-shared@4cbc95fcc9`，评分 `selection-score-global-shared@d3b4cb6ac0\+weights@20542a669a`/);
+  assert.match(report, /- 新规则·版本1：预筛 `prefilter-four-layers-shared@de030505f1`，评分 `selection-score-global-shared@39c374ad10\+weights@20542a669a`/);
   assert.match(report, /没有费用记录或不是人民币的调用单独计数，不当作 0/);
   assert.match(renderReport(summarize([], []), [], { generatedAt: "x", titles: 10 }), /查询范围内没有分析记录/);
 });
