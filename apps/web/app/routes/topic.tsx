@@ -11,7 +11,8 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { SearchField, SourceDateFilters, JurisdictionFilter, hrefWith } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
-import { apiGet, ApiError, contractResult, queryString, loadOr404 } from "../lib/api.server";
+import { apiGet, ApiError, contractResult, queryString, loadOr404, readerPageHeaders } from "../lib/api.server";
+import { markDegraded } from "../lib/cache.server";
 import { breadcrumbLd, pageMeta, titled, siteUrl } from "../lib/seo";
 import { loadParts } from "../../site-modules";
 import type { TopicPagePart } from "../../modules";
@@ -19,8 +20,9 @@ import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
 /** Topic lists retain their mining scope and current country evidence. */
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 type TopicPageData = z.infer<typeof publicSchemas.TopicPage>;
@@ -103,7 +105,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     data.topic.group === "genre"
       ? await apiFetch("/api/site/jurisdictions", { signal: request.signal, baseUrl: apiBaseFor() })
           .then((result) => contractResult(result, publicSchemas.PolicyJurisdictionList))
-          .catch(() => [])
+          .catch(() => {
+            // Without the country list the policy link falls back to a search; such a page is not cached.
+            markDegraded();
+            return [];
+          })
       : [];
   const country = countries.find((country) => country.label === data.topic.name);
   const policyLink = country ? `/policies?jurisdiction=${country.code}` : `/policies?q=${encodeURIComponent(data.topic.name)}`;

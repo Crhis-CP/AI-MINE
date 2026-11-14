@@ -166,6 +166,8 @@ async function open(path = "/country/AR", width = 390) {
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   await page.goto(`${origin}${path}`);
+  // The page answers controls once it has started in the browser and made its first content check.
+  await page.waitForLoadState("networkidle");
   return { context, page };
 }
 

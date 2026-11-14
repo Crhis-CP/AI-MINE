@@ -6,6 +6,7 @@ import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
+import { readerPageHeaders } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
 import { beijingDate, NO_TIME, newsSourceDate } from "../lib/format";
 import { ShareLink } from "../components/ShareLink";
@@ -48,8 +49,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 const STATUS = {

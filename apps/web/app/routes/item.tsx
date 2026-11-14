@@ -14,7 +14,7 @@ import { Link, useNavigate } from "../i18n/navigation";
 import type { Route } from "./+types/item";
 import { XPostDetailFields, ReportGroupDetailFields } from "@amp/contracts/http/public";
 import type { ReportGroupedSiteItemDetail as SiteItemDetail } from "@amp/contracts/site";
-import { apiGet, loadOr404 } from "../lib/api.server";
+import { apiGet, loadOr404, readerPageHeaders } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { fullDateTime, newsSourceDate } from "../lib/format";
 import { SelectedBadge } from "../components/ui/Badge.tsx";
@@ -70,8 +70,9 @@ export function meta({ loaderData, location }: Route.MetaArgs) {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 /** A 2px accent line across the top that follows long bodies. */

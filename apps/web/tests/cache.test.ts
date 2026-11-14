@@ -3,6 +3,7 @@ import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import type { AddressInfo } from "node:net";
@@ -26,6 +27,12 @@ let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
 let metaWithoutFilings = false;
+let metaFails = false;
+let statsFails = false;
+/** What /api/site/content-version answers (TASK-0679 R1); null answers 503. */
+let contentVersion: { version: string; withdrawalVersion: string } | null = { version: "1", withdrawalVersion: "1" };
+/** Every public API path the web server read for a page (loaders send x-amp-ssr), in order. */
+const ssrReads: string[] = [];
 // Synthetic, obviously fake numbers: the real ones are deployment settings and never live in the repository.
 const FILINGS_FIXTURE = { icp: "京ICP备00000000号-1", publicSecurity: { text: "京公网安备00000000000000号", code: "00000000000000" }, newsLicense: null };
 /** The desktop header's main navigation (content sections and the “更多” menu), in document order. */
@@ -563,7 +570,16 @@ const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   if (/^\/api\/(?:admin|auth)(?:\/|$)/.test(url.pathname)) return protectedApi(req, res);
   apiCookies.push(req.headers.cookie);
+  if (req.headers["x-amp-ssr"] === "1") ssrReads.push(url.pathname);
   res.setHeader("Content-Type", "application/json");
+  if (url.pathname === "/api/site/content-version") {
+    res.setHeader("Cache-Control", "no-store");
+    if (!contentVersion) {
+      res.statusCode = 503;
+      return res.end(JSON.stringify({ code: "temporarily_unavailable" }));
+    }
+    return res.end(JSON.stringify(contentVersion));
+  }
   if (url.pathname === "/api/site/policy-threads/thread-fixture") {
     return res.end(
       JSON.stringify(
@@ -631,11 +647,19 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/information") return res.end(JSON.stringify(siteInformationFixture));
   if (url.pathname === "/api/site/meta") {
     metaCalls++;
+    if (metaFails) {
+      res.statusCode = 503;
+      return res.end(JSON.stringify({ code: "temporarily_unavailable" }));
+    }
     const meta = metaWithoutFilings ? { changelogVersion: "2026-09-28T12:00" } : { changelogVersion: "2026-09-28T12:00", filings: FILINGS_FIXTURE };
     const respond = () => res.end(JSON.stringify(meta));
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
   }
   if (url.pathname === "/api/site/stats") {
+    if (statsFails) {
+      res.statusCode = 503;
+      return res.end(JSON.stringify({ code: "temporarily_unavailable" }));
+    }
     return res.end(
       JSON.stringify({
         sources: 0,
@@ -817,13 +841,20 @@ test("a press-time prefetch of an uncached page's data may answer the click; eve
   const read = await fetch(`${origin}/all.data`);
   assert.equal(read.headers.get("Cache-Control"), "private, no-store");
   await read.arrayBuffer();
-  // HTML is never prefetched this way, and private pages keep their rule.
+  // HTML is never prefetched this way: it keeps the reader page rule (TASK-0672), not the press-time one.
   const html = await fetch(`${origin}/all`, { headers: { "Sec-Purpose": "prefetch" } });
-  assert.equal(html.headers.get("Cache-Control"), "private, no-store");
+  assert.equal(html.headers.get("Cache-Control"), "public, max-age=0, s-maxage=30, stale-while-revalidate=30");
   await html.arrayBuffer();
 });
 
-test("INV-34 public, missing and private pages authorize only this response's nonce", async () => {
+/** Inline scripts a page runs (not JSON-LD data blocks, not scripts with a source file), as CSP hash sources. */
+function inlineScriptSources(html: string) {
+  return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+    .filter(([, attributes]) => !/\bsrc=|type="application\/ld\+json"/.test(attributes!))
+    .map(([, , text]) => `'sha256-${createHash("sha256").update(text!, "utf8").digest("base64")}'`);
+}
+
+test("INV-34 reader pages allow exactly their inline scripts by hash; private pages authorize only this response's nonce", async () => {
   for (const pathname of ["/", "/all", "/about", "/items/footer-page", "/does-not-exist", "/admin/login"]) {
     const get = (method = "GET") =>
       pathname.startsWith("/admin") ? fetchWithHost(origin + pathname, PRIVATE_HOST, { method }) : fetch(origin + pathname, { method });
@@ -831,25 +862,39 @@ test("INV-34 public, missing and private pages authorize only this response's no
     assert.equal(response.status, pathname === "/does-not-exist" ? 404 : 200, pathname);
     const policy = response.headers.get("Content-Security-Policy") ?? "";
     const scriptSource = policy.match(/(?:^|; )script-src ([^;]+)/)?.[1] ?? "";
-    const nonce = scriptSource.match(/'nonce-([^']+)'/)?.[1];
-    assert.ok(nonce, pathname);
-    assert.equal(Buffer.from(nonce, "base64").byteLength, 16);
     assert.doesNotMatch(scriptSource, /'unsafe-inline'|'unsafe-eval'/);
     for (const directive of ["object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(policy.includes(directive), pathname);
+    const html = await response.text();
+    const scripts = [...html.matchAll(/<script\b([^>]*)>/g)].filter((match) => !/type="application\/ld\+json"/.test(match[1]!));
+    assert.ok(scripts.length > 0, pathname);
     if (pathname.startsWith("/admin")) {
       const siteOrigin = new URL(process.env.SITE_URL || "http://localhost:3000").origin;
       assert.ok(policy.split("; ").includes(`form-action 'self' ${siteOrigin}`));
+      const nonce = scriptSource.match(/'nonce-([^']+)'/)?.[1];
+      assert.ok(nonce, pathname);
+      assert.equal(Buffer.from(nonce, "base64").byteLength, 16);
+      for (const [, attributes] of scripts) assert.equal(attributes!.match(/\bnonce="([^"]+)"/)?.[1], nonce, pathname);
+      const next = await get();
+      const nextNonce = next.headers.get("Content-Security-Policy")?.match(/'nonce-([^']+)'/)?.[1];
+      assert.ok(nextNonce, pathname);
+      assert.notEqual(nextNonce, nonce, pathname);
+      await next.arrayBuffer();
+      const head = await get("HEAD");
+      assert.match(head.headers.get("Content-Security-Policy") ?? "", /'nonce-[^']+'/);
+      assert.equal(await head.text(), "");
+      continue;
     }
-    const scripts = [...(await response.text()).matchAll(/<script\b([^>]*)>/g)].filter((match) => !/type="application\/ld\+json"/.test(match[1]!));
-    assert.ok(scripts.length > 0, pathname);
-    for (const [, attributes] of scripts) assert.equal(attributes!.match(/\bnonce="([^"]+)"/)?.[1], nonce, pathname);
-    const next = await get();
-    const nextNonce = next.headers.get("Content-Security-Policy")?.match(/'nonce-([^']+)'/)?.[1];
-    assert.ok(nextNonce, pathname);
-    assert.notEqual(nextNonce, nonce, pathname);
-    await next.arrayBuffer();
+    // A reader page may be shared by a cache (TASK-0672): no nonce anywhere, each inline script allowed by its hash,
+    // the built files by 'self', and nothing else.
+    assert.doesNotMatch(policy, /'nonce-/, pathname);
+    assert.doesNotMatch(scriptSource, /'strict-dynamic'/, pathname);
+    for (const [, attributes] of scripts) assert.doesNotMatch(attributes!, /\bnonce=/, pathname);
+    const expected = new Set(inlineScriptSources(html));
+    assert.ok(expected.size > 0, pathname);
+    assert.deepEqual(new Set(scriptSource.split(" ").filter((source) => source !== "'self'")), expected, pathname);
+    // The same page gets the same policy each time, and HEAD names what GET would.
     const head = await get("HEAD");
-    assert.match(head.headers.get("Content-Security-Policy") ?? "", /'nonce-[^']+'/);
+    assert.equal(head.headers.get("Content-Security-Policy"), policy, pathname);
     assert.equal(await head.text(), "");
   }
 });
@@ -901,11 +946,12 @@ test("every public page carries the configured filing numbers in the phone foote
 test("HTML and navigation preserve current reading state; cookies do not personalize public results", async () => {
   const html = await fetch(`${origin}/`);
   assert.equal(html.status, 200);
-  assert.equal(html.headers.get("X-Accel-Expires"), "0");
+  // Shared at most until the next release in scope (the timeline's deadline), never past it.
+  assertWithinDeadline(html);
   assert.match(await html.text(), /精选/);
   const plain = await fetch(`${origin}/about.data`);
   const signedIn = await fetch(`${origin}/about.data?_routes=root`, { headers: { cookie: "admin_session=private; amp_vid=reader" } });
-  assert.equal(plain.headers.get("Cache-Control"), "no-cache", "editable about material must be revalidated after saving");
+  assert.equal(plain.headers.get("Cache-Control"), "private, no-store", "editable about material is read fresh on every in-site visit");
   assert.equal(plain.headers.get("X-Accel-Expires"), "0");
   assert.equal(signedIn.headers.get("Set-Cookie"), null);
   assert.equal(await signedIn.text(), await plain.text());
@@ -965,20 +1011,21 @@ test("an elapsed release deadline cannot be extended by a fresh page/data respon
   assert.equal(headers["X-Accel-Expires"], upstream.get("X-Accel-Expires"));
 });
 
-test("selected release metadata cannot make reader responses cacheable, including slow sibling loaders", async () => {
+test("a release deadline bounds the reader page cache; its data and slow sibling loaders stay uncached", async () => {
   const savedDeadline = deadline;
   const savedRefresh = refreshAt;
   try {
     deadline = Math.floor(Date.now() / 1000) + 20;
     refreshAt = new Date((deadline + 5) * 1000).toISOString();
-    for (const pathname of ["/", "/_.data?_routes=routes%2Fhome"]) {
-      const res = await fetch(origin + pathname);
-      const cc = res.headers.get("Cache-Control")!;
-      assert.equal(cc, "private, no-store");
-      assert.equal(res.headers.get("X-Accel-Expires"), "0");
-      assert.doesNotMatch(cc, /stale/);
-      await res.text();
-    }
+    // The page HTML is shared only until the API's release deadline, with no stale period past it; its data is not.
+    const page = await fetch(`${origin}/`);
+    assert.match(page.headers.get("Cache-Control")!, /^public, max-age=0, s-maxage=(?:1\d|20)$/);
+    assertWithinDeadline(page);
+    await page.text();
+    const data = await fetch(`${origin}/_.data?_routes=routes%2Fhome`);
+    assert.equal(data.headers.get("Cache-Control"), "private, no-store");
+    assert.equal(data.headers.get("X-Accel-Expires"), "0");
+    await data.text();
     // Upstream grants a positive TTL, but public layout metadata finishes after that release deadline.
     deadline = Math.floor(Date.now() / 1000) + 2;
     refreshAt = new Date((deadline + 5) * 1000).toISOString();
@@ -1005,6 +1052,170 @@ test("article navigation cannot be retained by either browsers or the edge after
   assert.equal(res.headers.get("Cache-Control"), "private, no-store");
   assert.equal(res.headers.get("X-Accel-Expires"), "0");
   await res.text();
+});
+
+const SHARED_PAGE = "public, max-age=0, s-maxage=30, stale-while-revalidate=30";
+
+/** The home page follows the timeline's release deadline: shared until it at most (or not at all once it passed). */
+function assertWithinDeadline(response: Response) {
+  const expires = response.headers.get("X-Accel-Expires") ?? "";
+  const cc = response.headers.get("Cache-Control") ?? "";
+  if (expires === "0") return assert.equal(cc, "private, no-store");
+  assert.match(expires, /^@\d+$/);
+  assert.ok(Number(expires.slice(1)) <= deadline, `${expires} is past the release deadline ${deadline}`);
+  assert.match(cc, /^public, max-age=0, s-maxage=\d+$/, "no stale period past a release");
+}
+
+test("TASK-0672 reader page HTML is shared for 30 seconds; data, searches, errors, the private host and fallbacks are not", async () => {
+  for (const path of ["/hot", "/en/hot", "/items/footer-page", "/about", "/all", "/all?q="]) {
+    for (const method of ["GET", "HEAD"]) {
+      const res = await fetch(origin + path, { method });
+      assert.equal(res.status, 200, path);
+      assert.equal(res.headers.get("Cache-Control"), SHARED_PAGE, `${method} ${path}`);
+      const expires = Number(res.headers.get("X-Accel-Expires")!.slice(1)) - Date.now() / 1000;
+      assert.ok(expires > 28 && expires <= 31, `${path} fresh deadline ${expires}`);
+      assert.equal(res.headers.get("X-Amp-Reader-Page"), null, "the route's mark never leaves the server");
+      await res.arrayBuffer();
+    }
+  }
+  const uncached = async (label: string, response: Promise<Response>) => {
+    const res = await response;
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store", label);
+    assert.equal(res.headers.get("X-Accel-Expires"), "0", label);
+    assert.equal(res.headers.get("X-Amp-Reader-Page"), null, label);
+    await res.arrayBuffer();
+    return res;
+  };
+  // Page data, searches and errors.
+  for (const path of ["/hot.data", "/items/footer-page.data", "/all.data", "/about.data", "/all?q=%E9%93%9C", "/all?channel=news&q=copper", "/items/missing"])
+    await uncached(path, fetch(origin + path));
+  // The private host, whatever its page.
+  await uncached("admin login", fetchWithHost(`${origin}/admin/login`, PRIVATE_HOST));
+  // A page that fell back is this request's alone: the footer without its filing numbers is never cached.
+  // The versions are read for page documents only; in-site navigation data never needs them.
+  for (const [label, fail, restore, paths] of [
+    ["meta unavailable", () => (metaFails = true), () => (metaFails = false), ["/hot", "/about", "/feedback", "/feedback.data"]],
+    ["meta without filings", () => (metaWithoutFilings = true), () => (metaWithoutFilings = false), ["/hot", "/about", "/feedback", "/feedback.data"]],
+    ["version unavailable", () => (contentVersion = null), () => (contentVersion = { version: "1", withdrawalVersion: "1" }), ["/hot", "/about", "/feedback"]],
+  ] as const) {
+    fail();
+    try {
+      for (const path of paths) {
+        const res = await uncached(`${label} ${path}`, fetch(origin + path));
+        assert.equal(res.status, 200, `${label} ${path}`);
+      }
+    } finally {
+      restore();
+    }
+  }
+  // A page loader that shows less after a failed read (关于 without its figures) keeps its page out of the cache too.
+  statsFails = true;
+  try {
+    const res = await uncached("about without statistics", fetch(`${origin}/about`));
+    assert.equal(res.status, 200);
+  } finally {
+    statsFails = false;
+  }
+});
+
+test("TASK-0672 PAGE_CACHE_SECONDS=0 turns the shared page cache off", async (t) => {
+  const off = spawn(process.execPath, [fileURLToPath(new URL("../server.ts", import.meta.url))], {
+    env: {
+      ...webEnvironment({
+        ...process.env,
+        WEB_PORT: "0",
+        SITE_URL: process.env.SITE_URL || "http://localhost:3000",
+        PRIVATE_HOST: "private.localhost",
+        TRUST_PROXY: "false",
+        API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
+      }),
+      PAGE_CACHE_SECONDS: "0",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  t.after(async () => {
+    if (off.exitCode === null) {
+      off.kill("SIGTERM");
+      await once(off, "exit");
+    }
+  });
+  let output = "";
+  const offOrigin = await new Promise<string>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`web did not start: ${output}`)), 15_000);
+    off.stderr!.on("data", (chunk) => (output += String(chunk)));
+    off.stdout!.on("data", (chunk) => {
+      output += String(chunk);
+      const match = output.match(/"msg":"web started","port":(\d+)/);
+      if (match) {
+        clearTimeout(timeout);
+        resolve(`http://127.0.0.1:${match[1]}`);
+      }
+    });
+  });
+  for (const path of ["/", "/hot", "/items/footer-page", "/about"]) {
+    const res = await fetch(offOrigin + path);
+    assert.equal(res.status, 200, path);
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store", path);
+    assert.doesNotMatch(res.headers.get("Cache-Control")!, /s-maxage|public/, path);
+    await res.arrayBuffer();
+  }
+  // Pages with their own longer rule keep it; only the reader pages' shared cache is switched off.
+  const feedback = await fetch(`${offOrigin}/feedback`);
+  assert.equal(feedback.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
+  await feedback.arrayBuffer();
+});
+
+test("TASK-0679 R1 a first page load reads its data once, re-reads only after a version change, and its boot scripts run under the hashed policy", {
+  timeout: 60000,
+}, async (t) => {
+  const browser = await chromium.launch({ executablePath: browserExecutable() });
+  t.after(() => browser.close());
+  const context = await browser.newContext({ serviceWorkers: "block", colorScheme: "dark", reducedMotion: "reduce" });
+  await context.route("**/*", (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient")));
+  const page = await context.newPage();
+  const violations: string[] = [];
+  const dataRequests: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) violations.push(message.text());
+  });
+  page.on("pageerror", (error) => violations.push(error.message));
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith(".data")) dataRequests.push(new URL(request.url()).pathname);
+  });
+  const reads = (path: string) => ssrReads.filter((read) => read === path).length;
+  const settled = async () => {
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+    await page.waitForTimeout(300);
+  };
+  for (const [path, endpoint] of [
+    ["/", "/api/site/timeline"],
+    ["/items/footer-page", "/api/site/items/footer-page"],
+    ["/hot", "/api/site/hot"],
+  ] as const) {
+    const before = reads(endpoint);
+    dataRequests.length = 0;
+    const checked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/content-version");
+    const opened = await page.goto(origin + path);
+    assert.equal(opened!.status(), 200, path);
+    assert.doesNotMatch(opened!.headers()["content-security-policy"]!, /'nonce-/, path);
+    assert.equal((await checked).status(), 200, path);
+    await settled();
+    assert.equal(reads(endpoint), before + 1, `${path} reads ${endpoint} once`);
+    assert.deepEqual(dataRequests, [], `${path} is not read again in the browser`);
+    // The theme boot script ran before paint (the reader prefers dark), and the page hydrated.
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark", path);
+    assert.equal(await page.evaluate(() => typeof (window as { __reactRouterRouteModules?: unknown }).__reactRouterRouteModules), "object", path);
+  }
+  // The versions moved after the page was rendered: the first check reads the page once more, and only once.
+  const before = reads("/api/site/hot");
+  dataRequests.length = 0;
+  await page.route("**/api/site/content-version", (route) => route.fulfill({ json: { version: "2", withdrawalVersion: "1" } }));
+  await page.goto(`${origin}/hot`);
+  await expect.poll(() => dataRequests.length).toBe(1);
+  await settled();
+  assert.deepEqual(dataRequests, ["/hot.data"]);
+  assert.equal(reads("/api/site/hot"), before + 2);
+  assert.deepEqual(violations, []);
 });
 
 test("browser caching preserves noindex and private sign-in responses", async () => {
@@ -1092,7 +1303,7 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
       accept: "application/json",
       ssr: "1",
     });
-    assert.equal(response.headers.get("X-Accel-Expires"), "0");
+    assertWithinDeadline(response);
     for (const [mode, status] of [
       ["bad", 503],
       ["busy", 503],
@@ -1142,7 +1353,7 @@ test("until the first pick exists the unfiltered home page shows the newest item
     assert.match(html, /真实列表消费者/);
     assert.match(html, /href="\/all\?page=2"/);
     assert.deepEqual(poolCalls.slice(before), [{ path: "/api/site/pool?readingGroups=reports-v1", accept: "application/json", ssr: "1" }]);
-    assert.equal(home.headers.get("X-Accel-Expires"), "0");
+    assertWithinDeadline(home);
     // “全部分类” stays on the home page; category links lead to 全部动态.
     const rows = filterTabs(html);
     assert.ok(rows.length > 0);
@@ -1163,14 +1374,14 @@ test("until the first pick exists the unfiltered home page shows the newest item
       assert.match(body, /这个筛选下还没有精选内容/, query);
       assert.equal(poolCalls.length, before, query);
     }
-    // 全部动态 empty: the picks empty state of DR-85 remains uncached so later arrivals are observable.
+    // 全部动态 empty: the picks empty state of DR-85 is a confirmed state, shared no longer than any reader page (TASK-0672).
     poolMode = "empty";
     const empty = await fetch(`${origin}/`);
     assert.equal(empty.status, 200);
     const emptyBody = await empty.text();
     assert.doesNotMatch(emptyBody, notice);
     assert.match(emptyBody, noPicks);
-    assert.equal(empty.headers.get("X-Accel-Expires"), "0");
+    assertWithinDeadline(empty);
     // Failed reads stay distinct from a confirmed empty collection and remain uncached.
     for (const mode of ["busy", "bad"] as const) {
       poolMode = mode;

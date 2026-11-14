@@ -6,7 +6,8 @@ import type { Route } from "./+types/home";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { canonicalCategoryFilter, isChannelKey } from "@amp/contracts/taxonomy";
-import { contractResult, loadOr404, queryString } from "../lib/api.server";
+import { contractResult, loadOr404, queryString, readerPageHeaders } from "../lib/api.server";
+import { markDegraded } from "../lib/cache.server";
 import { listPath, organizationLd, pageMeta, websiteLd } from "../lib/seo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
@@ -40,6 +41,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     tag: tag ?? undefined,
     jurisdiction: jurisdiction ?? undefined,
   };
+  let upstream: Headers | undefined;
   const data = await loadOr404(
     () =>
       apiFetch("/api/site/timeline", {
@@ -50,6 +52,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         baseUrl: apiBaseFor(),
       }).then(async (result) => {
         const body = await contractResult(result, publicSchemas.ReportGroupedTimelineResponse);
+        upstream = result.headers;
         return body;
       }),
     { signal: request.signal },
@@ -62,10 +65,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const waiting = unfilteredEmpty && started === false;
   const latest = waiting ? await loadLatest(request.signal) : null;
   const unavailable = (unfilteredEmpty && started === null) || latest === "failed";
-  // A failed read must not be cached: the next request tries 全部动态 again.
+  // A failed read must not be cached: the next request tries 全部动态 again. Otherwise the HTML may be shared until the
+  // next scheduled release in this scope at the latest (TASK-0672).
+  if (unavailable) markDegraded();
   return withHeaders(
     { data, waiting, unavailable, latest: typeof latest === "object" ? latest : null, filters: { channel, category, tag, topic: null, jurisdiction } },
-    { headers: { "Cache-Control": "no-store" } },
+    { headers: unavailable ? { "Cache-Control": "no-store" } : readerPageHeaders(data.refreshAt, upstream) },
   );
 }
 
