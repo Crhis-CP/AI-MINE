@@ -401,6 +401,8 @@ if (process.argv.includes("--routes")) {
           "/api/admin/selectbench/samples/{datasetId}/{caseId}",
           "/api/admin/selectbench/standard-review",
           "/api/admin/selectbench/standards",
+          "/api/admin/selectbench/swipe",
+          "/api/admin/selectbench/swipe/{day}/{articleId}",
           "/api/admin/selectbench/{id}/evidence",
           "/api/admin/site",
           "/api/admin/source-coverage",

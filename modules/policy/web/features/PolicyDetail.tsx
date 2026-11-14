@@ -17,6 +17,7 @@ import { ClauseRef, EvidenceRefs, useReview } from "./PolicyReview";
 import { PolicySaveButton } from "./PolicySaved";
 import { PolicyBack, policyHref, stateText, useKnownLabels } from "./PolicyUI";
 import { policyTitle, usePolicyText } from "./reader";
+import { argentineStages } from "./lifecycle";
 import { lifecycleOf } from "./review";
 
 type Arrangement = Policy["legal_state"]["deadlines"][number];
@@ -42,6 +43,40 @@ function Official({ policy, history, primary = false }: { policy: Policy; histor
 function Lifecycle({ policy }: { policy: Policy }) {
   const tr = useTr();
   const text = usePolicyText();
+  // An Argentine instrument shows the procedure read from the gazette text, each step with its date (TASK-0576).
+  const path = argentineStages(policy);
+  if (path) {
+    const current = path.map((point) => point.state).lastIndexOf("occurred");
+    return (
+      <>
+        <ol className="pr-life" aria-label={tr("文件生命周期")} data-pr-path="AR">
+          {path.map((point, i) => {
+            const date = point.date ? text.date(point.date) : null;
+            const now = i === current;
+            return (
+              <li
+                key={`${point.key}:${point.date?.local_date ?? ""}:${point.date?.raw ?? ""}`}
+                className={now ? "now" : date ? "dated" : undefined}
+                aria-current={now ? "step" : undefined}
+              >
+                <b>
+                  {tr(point.label)}
+                  {now && <em>{tr("当前")}</em>}
+                </b>
+                <span>
+                  {date ?? "—"}
+                  {date && point.state === "computed" ? tr("（推算）") : date && point.state === "planned" ? tr("（计划）") : ""}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+        {path.some((point) => point.state === "computed") && (
+          <p className="pr-facts">{tr("施行日原文未写明，按阿根廷《民商法典》第5条推算，以官方原文为准。")}</p>
+        )}
+      </>
+    );
+  }
   const stages = lifecycleOf(policy);
   if (!stages) return null;
   const names = {
@@ -174,7 +209,8 @@ function Concern({ impact }: { impact: Impact }) {
   );
 }
 
-const CHANGE_MEANINGS = ["published", "updated", "signed", "registered", "formally_published", "compiled", "public_inspection"];
+// "event" carries a legislature's adoption read from the gazette text (event_kind adoption, TASK-0576).
+const CHANGE_MEANINGS = ["published", "updated", "signed", "registered", "formally_published", "compiled", "public_inspection", "event"];
 
 type DateRow = { key: string; label: string; when: string | null; what: string | null; note: string; ids: string[]; record?: boolean };
 
@@ -184,7 +220,16 @@ function useDateRows(policy: Policy): DateRow[] {
   const text = usePolicyText();
   const legal = policy.legal_state;
   const occurrence = { occurred: tr("原文确认已发生"), planned: tr("计划"), conditional: tr("附条件"), unknown: null };
-  const events = { original_publication: tr("首次公布"), substantive_change: tr("实质变化"), registration: tr("登记"), other: tr("其他日期事件") };
+  const events = {
+    original_publication: tr("首次公布"),
+    substantive_change: tr("实质变化"),
+    registration: tr("登记"),
+    other: tr("其他日期事件"),
+    adoption: tr("立法机关通过"),
+    promulgation: tr("行政颁布"),
+    entry_into_force: tr("施行日期"),
+    repeal: tr("已废止"),
+  };
   const from = (label: string, rows: Arrangement[]) =>
     rows.map((row) => ({
       key: `${label}:${row.text}`,

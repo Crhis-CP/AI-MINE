@@ -10,6 +10,13 @@ export const POLICY_SOURCE_TERMS = ["open", "reuse", "exempt", "restricted", "no
 /** core: an independent publisher; supplement: fills a gap; reference: consolidated text only, not new documents; duplicate: same documents as another entry. */
 export const POLICY_SOURCE_ROLES = ["core", "supplement", "reference", "duplicate"] as const;
 export const POLICY_SOURCE_TYPES = ["official_gazette", "law_database", "mining_rules", "related_rules", "local_rules", "policy_documents"] as const;
+/**
+ * Who publishes what an entry reads (TASK-0576, Owner 2026-11-07): the policy line only takes instruments from official
+ * publishers. Every entry names one; a missing or other value fails loading, so a private aggregator or a news site cannot
+ * be registered as a policy source. A private database found behind an entry is kept only as reference_only, not collected.
+ */
+export const POLICY_PUBLISHER_KINDS = ["official_gazette", "legislature", "government", "ministry", "regulator", "court", "official_law_database"] as const;
+export type PolicyPublisherKind = (typeof POLICY_PUBLISHER_KINDS)[number];
 /** The seven business themes (docs/01-product/10-policy-service.md §2.3). */
 export const POLICY_THEMES = [
   "investment_company",
@@ -29,6 +36,7 @@ export interface PolicySource {
   authority: { zh: string; original: string };
   name: { zh: string; original: string };
   type: (typeof POLICY_SOURCE_TYPES)[number];
+  publisher_kind: PolicyPublisherKind;
   role: (typeof POLICY_SOURCE_ROLES)[number];
   duplicate_of: string | null;
   website: string;
@@ -47,14 +55,28 @@ export interface PolicySource {
   notes: string | null;
 }
 
-export const POLICY_SOURCES: readonly PolicySource[] = Object.freeze((data.sources as unknown as PolicySource[]).map((source) => Object.freeze(source)));
+/** Loading rejects an entry without an allowed publisher kind; the list is data, so the check runs on every import. */
+export function assertPolicyPublisherKinds(entries: readonly { id: string; publisher_kind?: unknown }[]) {
+  for (const entry of entries)
+    if (!POLICY_PUBLISHER_KINDS.includes(entry.publisher_kind as PolicyPublisherKind))
+      throw new Error(
+        `policy source ${entry.id}: publisher_kind ${JSON.stringify(entry.publisher_kind ?? null)} is not one of ${POLICY_PUBLISHER_KINDS.join(", ")}`,
+      );
+  return entries;
+}
+
+export const POLICY_SOURCES: readonly PolicySource[] = Object.freeze(
+  (assertPolicyPublisherKinds(data.sources) as unknown as PolicySource[]).map((source) => Object.freeze(source)),
+);
 
 /**
  * Pilot additions (法规线重启设计 §5): official sources the restart pilot needs that are not in the Owner's 156-entry list.
  * Numbered <jurisdiction>-P<nn> so they never collide with the Owner's numbering; seeded and enabled like the catalogue.
  */
 export const POLICY_PILOT_ADDITIONS: readonly PolicySource[] = Object.freeze(
-  ((data as { pilot_additions?: unknown[] }).pilot_additions as unknown as PolicySource[]).map((source) => Object.freeze(source)),
+  (assertPolicyPublisherKinds((data as unknown as { pilot_additions: { id: string }[] }).pilot_additions) as unknown as PolicySource[]).map((source) =>
+    Object.freeze(source),
+  ),
 );
 /** Everything the seeder, the scheduler and the operator scripts may know about: the Owner's list, then pilot additions. */
 export const ALL_POLICY_SOURCES: readonly PolicySource[] = Object.freeze([...POLICY_SOURCES, ...POLICY_PILOT_ADDITIONS]);
@@ -262,6 +284,31 @@ export const POLICY_PILOT: readonly PolicyPilotSource[] = Object.freeze([
     license: { archive: "allowed", display: "fulltext", basis: "省法令、决议为官方文本。" },
     state: "working",
     serverVerify: "node scripts/policy-pilot-discover.ts --source AR-008 --detail 2",
+  },
+  {
+    // TASK-0603 (Owner 2026-11-09): legislation only, no court rulings or doctrine; checked on 2026-11-10, not CHECKED.
+    sourceId: "AR-P01",
+    group: "ar_national",
+    publisher: "Sistema Argentino de Información Jurídica（SAIJ，阿根廷司法部）· 立法检索",
+    url: "https://www.saij.gob.ar/busqueda",
+    interface: "json_api",
+    identity: "SAIJ 文档 uuid；文书按 种类 + 法域 + 编号 + 日期识别（standard-normativo，如 LEY M 009739 2026 10 21）",
+    cadence: "检索每 6 小时一次（每次 1 个请求，最新 25 件，同主机请求间隔至少 10 秒）；单件页暂不取得",
+    conditionalRequests: false,
+    robots: {
+      checkedAt: "2026-11-10",
+      url: "https://www.saij.gob.ar/robots.txt",
+      result: "allowed",
+      note: "允许 /busqueda、/view-document 与单件页；禁 /convert-html-to-pdf、/descarga-archivo、/*resource/kbee:、/archivo.php、/index.php、/urls、/_pdf。",
+    },
+    license: {
+      archive: "unknown",
+      display: "metadata_link",
+      basis: "收录的法律、法令、决议是官方规范文本；SAIJ 网站使用条款本次未核，先只存标题、日期、法域与官方链接，取得正文前另核。",
+    },
+    state: "needs_server_verification",
+    serverVerify:
+      "node scripts/policy-pilot-discover.ts --source AR-P01（预期 listing_only_no_policyProfile，核对 25 条、日期从新到旧、省名在标题中）；正文在 /view-document JSON，取得阶段接 JSON 正文须另开任务。",
   },
   {
     sourceId: null,
