@@ -16,6 +16,9 @@
 // the files of each set are named in industry/selection.ts). The shared template names the classic files in its two
 // includes and the other set is read in their place, so the classic prompts are rendered exactly as they were before
 // the switch existed; each set has its own prompt versions.
+// Every step's version (promptVersionsFor) is what receipts and judgements record: in the shared layout it hashes the
+// whole shared system prompt. The production score gate reads the narrower score standard (scoreConfirmationVersion,
+// TASK-0710), so editing the dictionary, aliases, vocabulary, writing rules or names list does not stop scoring.
 import { createHash } from "node:crypto";
 import { CATEGORIES } from "@amp/industry/taxonomy";
 import { MAJOR_COMPANIES, SELECTION, SELECTION_RULESETS } from "@amp/industry/selection";
@@ -102,6 +105,8 @@ export const MATERIAL_ACKNOWLEDGEMENT = promptText("analysis-material-ack").trim
 
 /** Bumped when the material rendering below or the message layout changes; neither lives in a prompt file. */
 const SHARED_RECIPE = "analysis-shared-v1/geography-22000/body-20000/prefix-v1";
+/** The shared layout's material recipe: the rendering and message layout, and the acknowledgement between them. */
+export const sharedMaterialRecipe = () => stableJson([SHARED_RECIPE, MATERIAL_ACKNOWLEDGEMENT]);
 
 export interface SharedMaterial {
   /** The material message, byte-identical for every step of one article revision. */
@@ -166,11 +171,18 @@ export function sharedRequest(
 
 // ── Versions ───────────────────────────────────────────────────────────────────────────────
 
+/** The hash of the weights and caps that turn the score's axes into the score, and of the major companies its rules name. */
+export function weightsVersion(
+  selection: Pick<typeof SELECTION, "weights" | "unusableMaterialCap" | "noiseCaps"> = SELECTION,
+  majorCompanies: readonly string[] = MAJOR_COMPANIES,
+) {
+  return createHash("sha256")
+    .update(JSON.stringify([selection.weights, selection.unusableMaterialCap, selection.noiseCaps, majorCompanies]))
+    .digest("hex")
+    .slice(0, 10);
+}
 /** The score recipe is the prompt plus the weights and caps that turn its axes into the score. */
-const WEIGHTS = createHash("sha256")
-  .update(JSON.stringify([SELECTION.weights, SELECTION.unusableMaterialCap, SELECTION.noiseCaps, MAJOR_COMPANIES]))
-  .digest("hex")
-  .slice(0, 10);
+const WEIGHTS = weightsVersion();
 /** A step's name in its version: the selection steps are named after their rule set's files. */
 const stepNames = (ruleset: SelectionRuleset): Record<AnalysisStep, string> => ({
   prefilter: SELECTION_RULESETS[ruleset].prefilter,
@@ -197,10 +209,113 @@ function sharedStepVersion(step: AnalysisStep, ruleset: SelectionRuleset): strin
   return `${stepNames(ruleset)[step]}-shared@${hash}`;
 }
 
-/** The score standard without its weights (SelectBench's standard version): the score prompt, as the layout sends it. */
+/**
+ * The score prompt as the layout sends it, without the weights (SelectBench's standard version, and the first part of
+ * the score step's version on receipts and judgements). In the shared layout it hashes the whole shared system prompt,
+ * so it moves with any section; the confirmation gate reads scoreConfirmationVersion instead.
+ */
 export function scoreStandardVersion(layout: AnalysisPromptLayout, ruleset: SelectionRuleset = selectionRuleset()): string {
   return layout === "shared" ? sharedStepVersion("score", ruleset) : promptVersion(SELECTION_RULESETS[ruleset].score);
 }
+
+// ── The score standard (what SELECTION_CONFIRMED_VERSION confirms) ─────────────────────────
+
+/** A shared system prompt taken apart: the preamble, and each step's heading and rules. */
+export interface SharedSections {
+  preamble: string;
+  headings: Record<AnalysisStep, string>;
+  rules: Record<AnalysisStep, string>;
+}
+
+/** Each step's rules as the shared system prompt includes them: its file, rendered with the shared values. */
+export const sharedSectionRules = perRuleset((ruleset): Record<AnalysisStep, string> => {
+  const names = stepNames(ruleset),
+    values = sharedValues();
+  return Object.fromEntries((Object.keys(names) as AnalysisStep[]).map((step) => [step, promptText(names[step], values)])) as Record<AnalysisStep, string>;
+});
+
+/**
+ * Takes a rendered shared system prompt apart into the preamble and, per step, the heading line above its rules and
+ * the rules. The prompt must be exactly that (whitespace aside): the preamble, then for each step one heading starting
+ * with "# " and its rules once. Anything else is an error, so text added between sections must be placed on purpose.
+ */
+export function splitSharedSystem(system: string, rules: Record<AnalysisStep, string>): SharedSections {
+  const placed = (Object.keys(rules) as AnalysisStep[])
+    .map((step) => {
+      const at = system.indexOf(rules[step]);
+      if (at < 0 || system.indexOf(rules[step], at + 1) >= 0) throw new Error(`shared analysis prompt: the ${step} rules are not included exactly once`);
+      return { step, at, end: at + rules[step].length };
+    })
+    .sort((a, b) => a.at - b.at);
+  const headings = {} as Record<AnalysisStep, string>;
+  let preamble = "",
+    from = 0;
+  for (const [i, { step, at, end }] of placed.entries()) {
+    if (at < from) throw new Error(`shared analysis prompt: the ${step} rules overlap another section`);
+    const gap = system.slice(from, at).trimEnd(),
+      cut = gap.lastIndexOf("\n"),
+      heading = gap.slice(cut + 1).trim(),
+      before = cut < 0 ? "" : gap.slice(0, cut).trim();
+    if (!heading.startsWith("# ")) throw new Error(`shared analysis prompt: the ${step} rules have no "# " heading above them`);
+    if (i === 0) preamble = before;
+    else if (before) throw new Error(`shared analysis prompt: text outside any section before the ${step} rules`);
+    headings[step] = heading;
+    from = end;
+  }
+  if (!preamble) throw new Error("shared analysis prompt: no preamble before the first section");
+  if (system.slice(from).trim()) throw new Error("shared analysis prompt: text outside any section after the last one");
+  return { preamble, headings, rules: Object.fromEntries(placed.map(({ step }) => [step, rules[step]])) as Record<AnalysisStep, string> };
+}
+
+/** Bumped when what the score standard hashes changes (the list in sharedScoreStandard). */
+const SCORE_STANDARD_RECIPE = "score-standard-v1";
+
+/**
+ * The hash of what defines the score in the shared layout (TASK-0710): the score rules, the preamble that tells the
+ * model how the conversation is laid out and to run only the named section, the score section's heading, the score
+ * step instruction, and the material recipe (SHARED_RECIPE: how the article is rendered and the messages laid out,
+ * with the constant acknowledgement). The other sections — the prefilter, structure (the jurisdiction dictionary,
+ * company aliases, category and tag vocabulary), content understanding, title and summary (the writing rules and the
+ * names list), wording — are not in it: they are sent alongside but do not define the score.
+ */
+export function sharedScoreStandard(sections: SharedSections): string {
+  return createHash("sha256")
+    .update(
+      stableJson([
+        SCORE_STANDARD_RECIPE,
+        sharedMaterialRecipe(),
+        sections.preamble,
+        sections.headings.score,
+        sections.rules.score,
+        promptText("analysis-step-score"),
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 10);
+}
+
+/** The shared system prompt of a rule set, taken apart (made once per set). */
+export const sharedSections = perRuleset((ruleset) => splitSharedSystem(sharedAnalysisSystem(ruleset), sharedSectionRules(ruleset)));
+
+/**
+ * The score standard of a layout and rule set: the value SELECTION_CONFIRMED_VERSION must name for production to
+ * score (analyze.ts scoringConfirmed). Shared layout: `<score file>-shared-standard@<sharedScoreStandard>+weights@…`,
+ * so editing the dictionary, aliases, vocabulary, writing rules or names list leaves it as it is, while the receipts
+ * and judgements keep recording the full step version (promptVersionsFor) of what was actually sent. Separate layout:
+ * the score rules are the score request's whole system prompt, so the standard is the score step's version itself
+ * (`<score file>@…+weights@…`, unchanged by TASK-0710).
+ */
+export function scoreConfirmationVersion(layout: AnalysisPromptLayout, ruleset: SelectionRuleset = selectionRuleset()): string {
+  if (layout === "separate") return promptVersionsFor(layout, ruleset).score;
+  // Read on every scoringConfirmed call, so made once per rule set (prompt files are read once per process anyway).
+  let found = confirmations.get(ruleset);
+  if (!found) {
+    found = `${SELECTION_RULESETS[ruleset].score}-shared-standard@${sharedScoreStandard(sharedSections(ruleset))}+weights@${WEIGHTS}`;
+    confirmations.set(ruleset, found);
+  }
+  return found;
+}
+const confirmations = new Map<SelectionRuleset, string>();
 
 const versions = new Map<string, Readonly<Record<AnalysisStep, string>>>();
 /** Every step's prompt version in a layout and rule set (the configured set unless named), as receipts and judgements record it. */

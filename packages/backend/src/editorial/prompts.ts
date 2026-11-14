@@ -72,6 +72,9 @@ export function promptVersion(...names: string[]): string {
   return version;
 }
 
+/** The hash of one prompt file as written, without the files it includes (the selection config check, selection-config.ts). */
+export const promptFileHash = (name: string) => createHash("sha256").update(raw(name)).digest("hex").slice(0, 10);
+
 export const quoteTranslationRecipe = () => `post-quote-v1:${promptVersion("translate-post")}`;
 
 /**

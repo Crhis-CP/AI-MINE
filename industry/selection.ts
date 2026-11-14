@@ -8,6 +8,8 @@
 // “影响面”（波及多少市场、国家和公司）；字段名、权重、门槛和封顶都不变。上面这段是 classic 规则组的口径。
 // 门槛按信源分级区分：官方一手信源的门槛低一些，媒体和个人的高一些。改了门槛、权重或评分提示词，
 // AI 负责真实案例与边界验证；规则调整按 Issue #293 由 Owner 确认，生产继续绑定已确认的准确版本。
+// 确认值（SELECTION_CONFIRMED_VERSION）只认评分标准本身：评分提示词、共享规则的前言与评分本步指令、材料配方，
+// 以及这里的权重、封顶和大型矿企名单；法域词典、公司别名、写作规则和名称表改了不影响确认值（TASK-0710）。
 
 /**
  * Selection rule sets: which prompt files (industry/prompts/<name>.md) hold the score rules and the prefilter rules.

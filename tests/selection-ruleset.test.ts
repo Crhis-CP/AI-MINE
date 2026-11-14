@@ -12,6 +12,7 @@ import {
   draftTierThreshold,
   PROMPT_VERSIONS,
   promptVersionsFor,
+  scoreConfirmationVersion,
   scoringConfirmed,
   selectionStepRequest,
   selectionSystem,
@@ -64,6 +65,14 @@ const CLASSIC = {
 const GLOBAL = {
   shared: { prefilter: "prefilter-four-layers-shared@4cbc95fcc9", score: "selection-score-global-shared@d3b4cb6ac0+weights@20542a669a" },
   separate: { prefilter: "prefilter-four-layers@82a70b39f8", score: "selection-score-global@6780f69e09+weights@20542a669a" },
+} as const;
+// The values SELECTION_CONFIRMED_VERSION names (TASK-0710: the score standard, not the whole shared prompt), as the
+// card's delivery record gives them to the release. In the separate layout the score standard is the score step's
+// version. Only a change to what defines the score (score rules, preamble, score heading and step instruction, material
+// recipe, weights and caps) may move them, and that change needs a new Owner confirmation.
+const CONFIRMED = {
+  global: { shared: "selection-score-global-shared-standard@fe5d2f7b9e+weights@20542a669a", separate: GLOBAL.separate.score },
+  classic: { shared: "selection-score-shared-standard@8a6af9afe0+weights@20542a669a", separate: CLASSIC.separate.score },
 } as const;
 
 const article: AnalyzeInputArticle = {
@@ -212,17 +221,20 @@ test("production scores only when the confirmed version is the configured rule s
   for (const layout of ["shared", "separate"] as const) {
     process.env.ANALYSIS_PROMPT_LAYOUT = layout;
     use(undefined);
-    assert.equal(scoringConfirmed(true, GLOBAL[layout].score), true);
-    assert.equal(scoringConfirmed(true, CLASSIC[layout].score), false, "the earlier confirmation does not release the new rules");
+    assert.equal(scoringConfirmed(true, CONFIRMED.global[layout]), true);
+    assert.equal(scoringConfirmed(true, CONFIRMED.classic[layout]), false, "the earlier confirmation does not release the new rules");
     use("classic");
-    assert.equal(scoringConfirmed(true, CLASSIC[layout].score), true, "rollback: the switch and the earlier confirmed version together");
-    assert.equal(scoringConfirmed(true, GLOBAL[layout].score), false);
+    assert.equal(scoringConfirmed(true, CONFIRMED.classic[layout]), true, "rollback: the switch and the earlier confirmed version together");
+    assert.equal(scoringConfirmed(true, CONFIRMED.global[layout]), false);
   }
+  for (const ruleset of ["global", "classic"] as const)
+    for (const layout of ["shared", "separate"] as const)
+      assert.equal(scoreConfirmationVersion(layout, ruleset), CONFIRMED[ruleset][layout], `${ruleset} ${layout}`);
   process.env.ANALYSIS_PROMPT_LAYOUT = "separate";
   const weights = (version: string) => version.split("+").at(-1);
   assert.deepEqual(
-    [GLOBAL.shared.score, GLOBAL.separate.score, CLASSIC.shared.score, CLASSIC.separate.score].map(weights),
-    Array.from({ length: 4 }, () => "weights@20542a669a"),
+    [GLOBAL.shared.score, GLOBAL.separate.score, CLASSIC.shared.score, CLASSIC.separate.score, CONFIRMED.global.shared, CONFIRMED.classic.shared].map(weights),
+    Array.from({ length: 6 }, () => "weights@20542a669a"),
   );
   assert.deepEqual(SELECTION.thresholds, { T1: 62, T1_5: 64, T2: 66 });
   assert.deepEqual([draftTierThreshold("T1"), draftTierThreshold("T1_5"), draftTierThreshold("T2")], [62, 64, 66]);

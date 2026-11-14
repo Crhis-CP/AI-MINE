@@ -1,6 +1,6 @@
 import { analysisPromptLayout, config } from "../config.ts";
 import { SELECTION } from "@amp/industry/selection";
-import { prefilterSystem, promptVersionsFor, scoreStandardVersion, scoreSystem } from "@amp/backend/editorial/analyze";
+import { prefilterSystem, promptVersionsFor, scoreConfirmationVersion, scoreStandardVersion, scoreSystem } from "@amp/backend/editorial/analyze";
 import * as modelPorts from "@amp/backend/admin/models";
 import { sha256, stableJson } from "../lib/ids.ts";
 import type { Db } from "../db.ts";
@@ -45,8 +45,9 @@ export function selectionStandardSnapshot() {
     text,
     prefilterText: prefilterSystem(),
     deploymentConfirmedVersion: config.selectionConfirmedVersion,
-    // SELECTION_CONFIRMED_VERSION binds the whole score recipe (prompt in this layout plus weights), as scoringConfirmed reads it.
-    configuredForCurrent: config.selectionConfirmedVersion === promptVersionsFor(layout).score,
+    // SELECTION_CONFIRMED_VERSION names the score standard of this layout and rule set (score rules, preamble and step
+    // instruction, material recipe, weights; TASK-0710), as scoringConfirmed reads it.
+    configuredForCurrent: config.selectionConfirmedVersion === scoreConfirmationVersion(layout),
     effectiveAt: null,
   };
 }
