@@ -309,3 +309,24 @@ test("the 2.0 notice keeps its five steps, so the changelog draws how news is co
   );
   assert.ok(!notice.body.some((line) => /评分|分数|\d+\s*分/.test(line)), "no scoring details");
 });
+
+test("a release note registered again by a later release shows once, at its latest time (Owner 2026-11-14)", () => {
+  const record = (date: string, time: string, title: string, body: string[], n: number) => ({
+    sha: String(n).padStart(40, "0"),
+    publishedAt: `${date}T${time}:00.000Z`,
+    noteHash: String(n).repeat(64).slice(0, 64),
+    release: { date, time, kind: "更新" as const, title, body },
+  });
+  const merged = mergeReleaseRecords(valid(), [
+    record("2026-11-13", "11:53", "首页先看本国", ["本国 5 条。", "开场动画。"], 1),
+    record("2026-11-14", "08:40", "首页先看本国", ["本国 5 条。", "开场动画。", "金属走势线。"], 2),
+    // Same title, but a line the later note does not carry: a different update, both stay.
+    record("2026-11-12", "10:00", "首页先看本国", ["已撤下的说法。"], 3),
+  ]);
+  const same = merged.releases.filter((r) => r.title === "首页先看本国");
+  assert.deepEqual(
+    same.map((r) => `${r.date} ${r.time}`),
+    ["2026-11-14 08:40", "2026-11-12 10:00"],
+  );
+  assert.equal(merged.latestVersion, "2026-11-14T08:40");
+});
