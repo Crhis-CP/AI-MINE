@@ -136,6 +136,8 @@ paidRequest先免费复用回执，再按已核CNY价格做保守预留；chatJs
 
 供应商提示缓存计价：费用只按“用量与模型密钥”里登记的价格结算（`providers/usage-pricing.ts`的settleQuotedCost）；chatJson按模型接入单价算出的估算不入账，结算失败时保持未知。价格登记了“缓存命中输入单价”且供应商同时报告命中/未命中token（DeepSeek为`prompt_cache_hit_tokens`/`prompt_cache_miss_tokens`）并与`prompt_tokens`守恒时，命中部分按命中价、未命中部分按输入价；未登记命中价则全部输入按输入价记账，会高于供应商账单。代码不内置供应商默认价（文档中的DeepSeek价格只是带观察日期的估算输入，且分空闲/高峰时段）：Owner应按DeepSeek官方价格页当前的“输入（缓存命中）”价在价格登记中填写，峰谷价用时段价格各自填写命中价（时段未填不继承基础折扣）。月报各分组的`cache_hit_rate`及仅在存在命中价结算时出现的`provider_cache_saving`（命中token×（输入价−命中价），取冻结报价）展示缓存效果，月报推送按能力列出；周报暂未加入缓存口径。
 
+TASK-0652兼容追加实际发送只读上下文，区分许可prepare与付费send，冻结报价来自同attempt实际发送时点；旧无参守卫与默认准入不变。实验可据此自行拒绝不可证费用，详见[接口约定](../../docs/03-data/model-send-quote-contract.md)。
+
 ### TASK-0148 按环节主备
 
 现有 `admin/models` 出口追加 `modelFallbacks/changeModelFallback`，HTTP 使用模型配置能力、CSRF、revision CAS 与同事务审计。主模型继续由原 `modelFor/settings` 决定；没有种子备用。后台列出所有登记接入并给出不可选原因。备用须为另一当前测试通过的接入，明确限定本业务线来源；主/备配置、测试修订或质量证据变化会立即阻止新回退。正在作为备用的接入同主接入一样不能直接修改运行参数或停用，须先解除指派。
