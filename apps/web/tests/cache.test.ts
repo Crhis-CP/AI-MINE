@@ -843,7 +843,7 @@ test("a press-time prefetch of an uncached page's data may answer the click; eve
   await read.arrayBuffer();
   // HTML is never prefetched this way: it keeps the reader page rule (TASK-0672), not the press-time one.
   const html = await fetch(`${origin}/all`, { headers: { "Sec-Purpose": "prefetch" } });
-  assert.equal(html.headers.get("Cache-Control"), "public, max-age=0, s-maxage=30, stale-while-revalidate=30");
+  assert.equal(html.headers.get("Cache-Control"), "public, max-age=0, s-maxage=30");
   await html.arrayBuffer();
 });
 
@@ -1054,7 +1054,7 @@ test("article navigation cannot be retained by either browsers or the edge after
   await res.text();
 });
 
-const SHARED_PAGE = "public, max-age=0, s-maxage=30, stale-while-revalidate=30";
+const SHARED_PAGE = "public, max-age=0, s-maxage=30";
 
 /** The home page follows the timeline's release deadline: shared until it at most (or not at all once it passed). */
 function assertWithinDeadline(response: Response) {

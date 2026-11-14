@@ -75,7 +75,7 @@ const BROWSER_MAX_SECONDS = 300;
 const PREFETCH_REUSE_SECONDS = 5;
 /**
  * How long a shared cache in front (the CDN, a proxy) may keep a reader page's HTML (TASK-0672, Owner 2026-11-14);
- * PAGE_CACHE_SECONDS=0 turns it off. The stale copy may be served as long again while it refreshes.
+ * PAGE_CACHE_SECONDS=0 turns it off. There is no stale period, so a withdrawn item leaves shared caches within it.
  */
 const PAGE_CACHE_SETTING = pageCacheSetting();
 if (PAGE_CACHE_SETTING === null)
@@ -194,22 +194,22 @@ function pageCache(req: import("node:http").IncomingMessage, res: import("node:h
       res.setHeader("Cache-Control", `private, max-age=${PREFETCH_REUSE_SECONDS}`);
       res.setHeader("X-Accel-Expires", "0");
     } else if (readerPage) {
-      // A route deadline (the next scheduled release, or the API's own) ends the fresh and the stale period early; a
+      // A route deadline (the next scheduled release, or the API's own) ends the fresh period early; a
       // sibling loader may have delayed this response since. Browsers ask the shared cache again each time (max-age=0).
       const remaining = /(?:no-cache|no-store|private)/i.test(cc)
         ? 0
         : !deadline
-          ? 2 * PAGE_CACHE_SECONDS
+          ? PAGE_CACHE_SECONDS
           : deadline.startsWith("@")
             ? Number(deadline.slice(1)) - nowSeconds
             : 0;
       const fresh = Math.max(0, Math.min(PAGE_CACHE_SECONDS, remaining));
-      const stale = Math.max(0, Math.min(PAGE_CACHE_SECONDS, remaining - fresh));
       res.removeHeader("Expires");
       if (publicRead && status === 200 && !own && !searching(url) && !data && fresh > 0) {
         res.setHeader("Date", now.toUTCString());
         res.setHeader("X-Accel-Expires", `@${nowSeconds + fresh}`);
-        res.setHeader("Cache-Control", `public, max-age=0, s-maxage=${fresh}${stale > 0 ? `, stale-while-revalidate=${stale}` : ""}`);
+        // No stale period: a withdrawn item leaves a shared copy within the fresh period (TASK-0672: at most 30 s).
+        res.setHeader("Cache-Control", `public, max-age=0, s-maxage=${fresh}`);
       } else {
         res.setHeader("Cache-Control", "private, no-store");
         res.setHeader("X-Accel-Expires", "0");
