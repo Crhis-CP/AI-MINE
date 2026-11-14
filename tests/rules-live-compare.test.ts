@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  firstGlobalDay,
   addCost,
   addDays,
   beijingDay,
@@ -315,6 +316,10 @@ test("the queries read each article's latest judgement, the public lists and the
     ]);
     const summary = summarize(data.rows, data.costs);
     assert.equal(summary.liveDate, today);
+    // The go-live day is read without a window, so it stays fixed long after the switch (Codex review on #542).
+    assert.equal(await firstGlobalDay(), today);
+    const inferred = summarize(data.rows, data.costs, today, true);
+    assert.deepEqual([inferred.liveDate, inferred.liveDateFrom], [today, "first global judgement"]);
     const live = summary.days.find((d) => d.day === today)!;
     assert.deepEqual(live.total.cost, { cny: 2, attempts: 3, unpriced: 1 });
     assert.deepEqual([live.cells.length, live.cells[0]!.version.ruleset, live.cells[0]!.cell.analysed], [1, "global", 5]);

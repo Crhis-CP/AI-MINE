@@ -147,7 +147,7 @@ export interface Summary {
  * the seven days before go-live as the baseline. `liveDate` is the Beijing day the new rules went live; without it,
  * the first day with a judgement under the global rule set.
  */
-export function summarize(rows: readonly JudgementRow[], costs: readonly CostRow[], liveDate?: string): Summary {
+export function summarize(rows: readonly JudgementRow[], costs: readonly CostRow[], liveDate?: string, liveDateInferred = false): Summary {
   if (liveDate !== undefined && !DAY.test(liveDate)) throw new Error(`--live-date must be YYYY-MM-DD (got "${liveDate}")`);
   const full = new Map<string, RulesVersion>();
   for (const row of rows) {
@@ -232,7 +232,7 @@ export function summarize(rows: readonly JudgementRow[], costs: readonly CostRow
     versions: order,
     days: out,
     liveDate: live,
-    liveDateFrom: liveDate ? "argument" : firstGlobal ? "first global judgement" : null,
+    liveDateFrom: liveDate ? (liveDateInferred ? "first global judgement" : "argument") : firstGlobal ? "first global judgement" : null,
     baseline,
     costAlerts,
   };
@@ -321,6 +321,17 @@ export function renderReport(summary: Summary, picks: readonly PickRow[], opts: 
 }
 
 /** The three read-only queries, from the Beijing day `fromDay` on. The conditions mirror the reader lists (publication/items.ts). */
+/**
+ * The Beijing day of the first judgement made under the global rule set, read without any window, so the go-live day
+ * and its seven-day baseline stay fixed however long ago the switch happened (Codex review on #542).
+ */
+export async function firstGlobalDay(): Promise<string | null> {
+  const [row] = await sql<{ day: string | null }[]>`
+    SELECT to_char(min(created_at) AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') AS day
+    FROM analyses WHERE prompt_version LIKE '%selection-score-global%' OR prompt_version LIKE '%prefilter-four-layers%'`;
+  return row?.day ?? null;
+}
+
 export async function collect(fromDay: string): Promise<{ rows: JudgementRow[]; costs: CostRow[]; picks: PickRow[] }> {
   const from = new Date(`${addDays(fromDay, 0)}T00:00:00+08:00`);
   return sql.begin(async (tx) => {
@@ -385,12 +396,14 @@ async function main() {
     throw new Error("Usage: rules-live-compare.ts [--live-date YYYY-MM-DD] [--days 1-90] [--titles N] [--out dir]");
   const now = new Date();
   const earliest = addDays(beijingDay(now), -(days - 1));
-  // With a go-live day, the window always reaches its seven days before.
-  const fromDay = liveDate && addDays(liveDate, -7) < earliest ? addDays(liveDate, -7) : earliest;
   await initializeDb("worker");
   try {
+    // Without --live-date the go-live day is the first global judgement ever, read outside the window.
+    const live = liveDate ?? (await firstGlobalDay()) ?? undefined;
+    // With a go-live day, the window always reaches its seven days before.
+    const fromDay = live && addDays(live, -7) < earliest ? addDays(live, -7) : earliest;
     const data = await collect(fromDay);
-    const summary = summarize(data.rows, data.costs, liveDate);
+    const summary = summarize(data.rows, data.costs, live, liveDate === undefined && live !== undefined);
     const report = renderReport(summary, data.picks, { generatedAt: now.toISOString(), titles });
     if (values.out) {
       const dir = path.resolve(values.out, now.toISOString().replace(/[:.]/g, "-"));
