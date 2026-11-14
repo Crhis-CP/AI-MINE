@@ -108,10 +108,12 @@ timer每15分钟检查应用是否同镜像、数据库与入口是否运行，�
 [6851939469](https://github.com/Crhis-CP/AI-MINE/issues/348#issuecomment-6851939469)只批准正式入口显式接收非密钥`SELECTION_CONFIRMED_VERSION`，不提供其他配置编辑入口。原六个参数不变；未追加选项时沿原发布流程。含486的准确受测版本使用同批已核归档中的入口：
 
 ```bash
-bash "$VERIFIED_SOURCE/deploy/production-release.sh" "$SHA" "$ARCHIVE" "$ARCHIVE_HASH" "$BUNDLE" "$MANIFEST_HASH" "$TREE" --selection-confirmed-version 'selection-score-shared@868be169a7+weights@20542a669a'
+bash "$VERIFIED_SOURCE/deploy/production-release.sh" "$SHA" "$ARCHIVE" "$ARCHIVE_HASH" "$BUNDLE" "$MANIFEST_HASH" "$TREE" --selection-confirmed-version "${SCORE_STANDARD:?computed from exact tested candidate}"
 ```
 
-仅显式传值时，加载校验过的候选镜像后、备份和停机前，用无网络、只读、无生产挂载/环境文件的限额临时容器读取该镜像真实PROMPT_VERSIONS.score；布局仅取当前受支持的.env字面值或镜像默认，不把输入当计算结果。版本、布局不一致或无法取得时停止，现役不动；布局插值或Compose覆盖不猜测放行。先保留原完整environment，单键的存在状态、定义指纹及API/worker生效值存入既有`recovery-point.json.selection_confirmation`；不另加会被维护器判为未知内容的备份文件，不输出环境全文。prepare_switch与镜像同阶段写该键，重复或歧义定义在写入前拒绝。切换失败沿原restore恢复完整environment及程序；原来缺键则恢复缺键，创建旧容器前检查定义，创建后、启动前核对原镜像ID，旧API/worker启动后检查实际值，质量记录仍按原规则保留。
+`SCORE_STANDARD`由最终准确受测SHA的`scripts/eval-selection.ts --config-check --write <snapshot.json>`按实际规则组/布局计算；快照同时保存confirmation和steps.score，后者用于发布后的自然新评分观察，不用于确认门禁。shared/separate、classic/global版本均须真实候选验证，不复用参考串；旧六参数和旧family语法保留。
+
+仅显式传值时，加载校验过的候选镜像后、备份和停机前，用无网络、只读、无生产挂载/环境文件的限额临时容器读取该镜像真实scoreConfirmationVersion及scoringConfirmed(true,请求值)；不把包含词典等完整步骤的PROMPT_VERSIONS.score当作确认标准。布局和规则组仅取当前受支持的.env字面值或镜像缺省，沙箱中显式绑定的只有非密钥确认输入与这些只读投影。确认标准、实际布局、规则组或生产门禁不一致及无法取得时停止，现役不动；插值和Compose覆盖不猜测放行。先保留原完整environment，单键的存在状态、定义指纹及API/worker生效值存入既有`recovery-point.json.selection_confirmation`；不另加会被维护器判为未知内容的备份文件，不输出环境全文。prepare_switch与镜像同阶段写该键，重复或歧义定义在写入前拒绝。切换失败沿原restore恢复完整environment及程序；原来缺键则恢复缺键，创建旧容器前检查定义，创建后、启动前核对原镜像ID，旧API/worker启动后检查实际值，质量记录仍按原规则保留。
 
 唯一发布线将实际切换起止、准确镜像和新确认值交原查询线，约T+25分钟只读一次新入库稿的新评分及精选供给，T30内判断；本脚本不触发评分或查询费用。无新评分时使用**同一次受测入口**的显式恢复模式，保留该入口的临时源码目录，不热改现场脚本：
 
@@ -119,4 +121,4 @@ bash "$VERIFIED_SOURCE/deploy/production-release.sh" "$SHA" "$ARCHIVE" "$ARCHIVE
 bash "$VERIFIED_SOURCE/deploy/production-release.sh" --recover "$EXPECTED_RUNNING_SHA" "$MATCHED_RECOVERY_DIRECTORY"
 ```
 
-此模式持原release.lock，以完整恢复点和现役候选镜像/版本绑定，仅允许带单键快照的本次恢复点；保留原健康证据并用独立恢复日志记账。复用原restore的完整environment、镜像、角色程序和质量语义，不还原数据库、重建稿件或调用模型。一次恢复意图已存在、绑定不符、锁或恢复步骤失败时停止，不重复执行或报告部分恢复成功；前驱没有质量记录时仍保留原保守pending行为。worker的480秒优雅停止不缩短，因此观察在30分钟内不等于完整恢复也必在T30前结束；成功后仍须原质量验收，不自动清理。
+此模式持原release.lock，以完整恢复点和现役候选镜像/版本绑定，仅允许带单键快照的本次恢复点；保留原健康证据并用独立恢复日志记账。复用原restore的完整environment、镜像、角色程序和质量语义，旧程序恢复使用其原环境和原确认值（旧d6的a195），不拿新程序classic标准代替。恢复不还原数据库、重建稿件或调用模型。一次恢复意图已存在、绑定不符、锁或恢复步骤失败时停止，不重复执行或报告部分恢复成功；前驱没有质量记录时仍保留原保守pending行为。worker的480秒优雅停止不缩短，因此观察在30分钟内不等于完整恢复也必在T30前结束；成功后仍须原质量验收，不自动清理。

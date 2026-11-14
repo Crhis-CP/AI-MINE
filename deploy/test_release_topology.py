@@ -156,10 +156,18 @@ set_value() { [[ $1 != "$FIXTURE_FAIL" ]]; }
             if not fail: self.assertIn("stop -t 15 amp-web-1", result.stderr)
 
 
+    def test_selection_confirmation_argument_supports_score_standard_families(self):
+        header = SCRIPT[:SCRIPT.index('RELEASE_TOOLS=')]
+        families = ['selection-score', 'selection-score-global', 'selection-score-shared', 'selection-score-shared-standard', 'selection-score-global-shared-standard']
+        for family in families:
+            version = family + '@' + 'c' * 10 + '+weights@' + 'd' * 10
+            result = subprocess.run(['bash', '-c', header, 'release', 'b' * 40, '/archive', 'c' * 64, '/bundle', 'd' * 64, 'e' * 40, '--selection-confirmed-version', version], capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, family + ': ' + result.stderr)
+
     def selection_fixture(self, folder, present=True):
         base=Path(folder); root=base/'root'; backup=base/'backups'/('release-'+'b'*12+'-test'); stage=base/'stage'; binary=base/'bin'
         for path in [root/'.ops',root/'.data',root/'deploy',backup,stage/'deploy',binary]:path.mkdir(parents=True,exist_ok=True)
-        old='selection-score-shared@'+'e'*10+'+weights@'+'f'*10; new='selection-score-shared@'+'c'*10+'+weights@'+'d'*10
+        old='selection-score-shared@'+'e'*10+'+weights@'+'f'*10; new='selection-score-global-shared-standard@'+'c'*10+'+weights@'+'d'*10
         image_old='sha256:'+'1'*64; image_new='sha256:'+'2'*64
         env_text='APP_IMAGE=amp-retained:'+'1'*12+'\nAMP_RELEASE='+'a'*12+'\nUNRELATED=synthetic-never-print\n'+('SELECTION_CONFIRMED_VERSION='+old+'\n' if present else '')
         (root/'.env').write_text(env_text); (root/'.env').chmod(0o600); (backup/'environment').write_text(env_text); (backup/'environment').chmod(0o600)
@@ -202,10 +210,20 @@ case $1 in
  inspect) printf '%s\n' "$(<"$base/image")" ;;
  exec) [[ $2 == amp-api-1 || $2 == amp-worker-1 ]]; [[ $* == *'const k="SELECTION_CONFIRMED_VERSION"'* ]]; cat "$base/runtime.json" ;;
  run)
-  [[ $* == *'--network none'* && $* == *'--read-only'* && $* == *'MODEL_CALLS_ENABLED=false'* && $* == *'AMP_CREDENTIALS_DIR='* && $* == *'PROMPT_VERSIONS.score'* && $* == *'--entrypoint node sha256:222222'* ]] || exit 2
-  [[ $* != *--env-file* && $* != *--volume* && $* != *'SELECTION_CONFIRMED_VERSION='* && $* != *synthetic-never-print* ]] || exit 2
+  [[ $* == *'--network none'* && $* == *'--read-only'* && $* == *'MODEL_CALLS_ENABLED=false'* && $* == *'AMP_CREDENTIALS_DIR='* && $* == *'scoreConfirmationVersion(layout,ruleset)'* && $* == *'scoringConfirmed(true,process.env.SELECTION_CONFIRMED_VERSION)'* && $* == *'--entrypoint node sha256:222222'* ]] || exit 2
+  [[ $* != *--env-file* && $* != *--volume* && $* != *--mount* && $* != *synthetic-never-print* ]] || exit 2
   [[ ! -e $base/probe-unavailable ]] || exit 1
-  if [[ $* == *'ANALYSIS_PROMPT_LAYOUT=separate'* ]]; then printf '{"layout":"separate","score":"selection-score@0000000000+weights@dddddddddd"}\n'; else printf '{"layout":"shared","score":"%s"}\n' "$(<"$base/new-value")"; fi ;;
+  layout=shared; ruleset=global; version=$(<"$base/new-value")
+  if [[ $* == *'SELECTION_RULESET=classic'* ]]; then ruleset=classic; version=selection-score-shared-standard@cccccccccc+weights@dddddddddd; fi
+  if [[ $* == *'ANALYSIS_PROMPT_LAYOUT=separate'* ]]; then
+   layout=separate; version=selection-score-global@0000000000+weights@dddddddddd
+   if [[ $ruleset == classic ]]; then version=selection-score@0000000000+weights@dddddddddd; fi
+  fi
+  confirmed=true
+  if [[ $* != *"SELECTION_CONFIRMED_VERSION=$version"* || -e $base/probe-gate-false ]]; then confirmed=false; fi
+  if [[ -e $base/probe-wrong-ruleset ]]; then ruleset=classic; fi
+  printf '{"layout":"%s","ruleset":"%s","defaultRuleset":"global","confirmation":"%s","score":"different-full-step","confirmed":%s}\n' "$layout" "$ruleset" "$version" "$confirmed" ;;
+
  rm) [[ $* == *amp-score-probe-bbbbbbbbbbbb-test* ]] || exit 2 ;;
  ps) printf 'amp-api-1\namp-web-1\namp-worker-1\namp-db-1\namp-caddy-1\n' ;;
  cp) cat >/dev/null ;;
@@ -348,22 +366,34 @@ printf '{"ok":true,"db":"ok","release":"%s"}\n' "$(<"$FIXTURE/release")"
             base,root,backup,env,prefix=self.selection_fixture(folder)
             (Path(env['RELEASE_STAGE'])/'docker-compose.yml').write_text('x-app: &app\n  env_file: .env\nservices:\n  worker:\n    <<: *app\n')
             if kind=='wrong':env['RELEASE_SELECTION_CONFIRMED_VERSION']='selection-score-shared@'+'e'*10+'+weights@'+'f'*10
-            if kind=='unavailable':(base/'probe-unavailable').touch()
-            if kind=='separate':(root/'.env').write_text((root/'.env').read_text()+'ANALYSIS_PROMPT_LAYOUT=separate\n')
+            for case,marker in [('unavailable','probe-unavailable'),('gate_false','probe-gate-false'),('ruleset_mismatch','probe-wrong-ruleset')]:
+                if kind==case:(base/marker).touch()
+            if kind in ['separate','global_separate_correct']:(root/'.env').write_text((root/'.env').read_text()+'ANALYSIS_PROMPT_LAYOUT=separate\n')
+            if kind=='classic_correct':(root/'.env').write_text((root/'.env').read_text()+'SELECTION_RULESET=classic\n')
+            if kind in ['classic_correct','global_separate_correct']:
+                version=('selection-score-shared-standard@'+'c'*10 if kind=='classic_correct' else 'selection-score-global@'+'0'*10)+'+weights@'+'d'*10
+                env['RELEASE_SELECTION_CONFIRMED_VERSION']=version;(base/'new-value').write_text(version)
+                (base/'runtime-new.json').write_text(json.dumps({'present':True,'value':version}))
+                state=json.loads((base/'state-new.json').read_text());state['runtime']={name:{'present':True,'value':version} for name in state['runtime']};(base/'state-new.json').write_text(json.dumps(state))
+            success=kind in ['correct','classic_correct','global_separate_correct']
             before=(root/'.env').read_bytes();(base/'calls').write_text('')
             switch=SCRIPT[SCRIPT.index('phase prepare_switch\n'):SCRIPT.index('phase migrate\n')]
             result=subprocess.run(['bash','-c',prefix+self.candidate_check_call()+switch+'\ndc up -d --force-recreate api web worker'],env=env,capture_output=True,text=True,timeout=10)
-            self.assertEqual(result.returncode==0,kind=='correct',result.stderr)
+            self.assertEqual(result.returncode==0,success,result.stderr)
             calls=[shlex.split(line) for line in (base/'calls').read_text().splitlines()]
             self.assertFalse(any(call[0]=='stop' or (call[0]=='compose' and 'stop' in call) for call in calls))
             self.assertTrue(any(call[0]=='run' for call in calls))
             if kind in ['wrong','separate']:self.assertIn('Candidate scoring recipe differs',result.stderr)
+            if kind=='gate_false':self.assertIn('production scoring gate is not confirmed',result.stderr)
+            if kind=='ruleset_mismatch':self.assertIn('Candidate ruleset differs',result.stderr)
             if kind=='unavailable':self.assertTrue(any(call[0]=='rm' for call in calls))
-            if kind!='correct':
+            if not success:
                 self.assertEqual((root/'.env').read_bytes(),before)
                 self.assertEqual((base/'image').read_text(),'sha256:'+'1'*64)
                 self.assertFalse(any(call[0]=='compose' and 'up' in call for call in calls))
-            else:self.assertEqual((base/'image').read_text(),'sha256:'+'2'*64)
+            else:
+                self.assertEqual((base/'image').read_text(),'sha256:'+'2'*64)
+                self.assertEqual('SELECTION_RULESET=' in (root/'.env').read_text(),kind=='classic_correct')
             self.assertNotIn('synthetic-never-print',result.stdout+result.stderr)
 
     def test_selection_confirmation_lifecycle_and_failures(self):
@@ -372,7 +402,7 @@ printf '{"ok":true,"db":"ok","release":"%s"}\n' "$(<"$FIXTURE/release")"
         cases += [('guard',kind) for kind in ['candidate','lock','intent','tag']]
         cases += [('lifecycle',(present,phase)) for present in [False,True] for phase in ['before_activation','after_activation','after_success']]
         cases += [('partial',kind) for kind in ['backup','environment','container','image']]
-        cases += [('candidate',kind) for kind in ['wrong','correct','unavailable','separate']]
+        cases += [('candidate',kind) for kind in ['wrong','correct','unavailable','separate','gate_false','ruleset_mismatch','classic_correct','global_separate_correct']]
         self.selection_cases(cases,lambda case:paths[case[0]](case[1]))
 
 

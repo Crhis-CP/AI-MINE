@@ -21,7 +21,7 @@ else
   if [[ $# != 6 ]]; then
     [[ $# == 8 && $7 == --selection-confirmed-version ]] || exit 2
     RELEASE_SELECTION_CONFIRMED_VERSION=$8
-    [[ $8 =~ ^selection-score-shared@[0-9a-f]{10,64}\+weights@[0-9a-f]{10,64}$ ]] || exit 2
+    [[ $8 =~ ^selection-score(-global)?(-shared(-standard)?)?@[0-9a-f]{10,64}\+weights@[0-9a-f]{10,64}$ ]] || exit 2
   fi
 fi
 [[ $RELEASE_SHA =~ ^[0-9a-f]{40}$ ]] || exit 1
@@ -179,36 +179,42 @@ else:
     print('SELECTION_CONFIRMED_VERSION '+action+' verified')
 PYS
 }
-# Probe the loaded immutable image with only its planned nonsecret layout, never the production env file.
+# Probe only the loaded immutable image; planned layout/ruleset are read-only inputs, not editable settings.
 candidate_selection() {
-  local layout actual probe=amp-score-probe-$RELEASE_ID-$RELEASE_ATTEMPT
-  local -a probe_env=(-e MODEL_CALLS_ENABLED=false -e AMP_CREDENTIALS_DIR= -e DATABASE_URL=postgres://127.0.0.1:1/score_probe)
-  layout=$(python3 - "$RELEASE_ROOT/.env" "$RELEASE_STAGE/docker-compose.yml" <<'PYL'
+  local settings layout ruleset actual probe=amp-score-probe-$RELEASE_ID-$RELEASE_ATTEMPT
+  local -a probe_env=(-e MODEL_CALLS_ENABLED=false -e AMP_CREDENTIALS_DIR= -e DATABASE_URL=postgres://127.0.0.1:1/score_probe -e "SELECTION_CONFIRMED_VERSION=$RELEASE_SELECTION_CONFIRMED_VERSION")
+  settings=$(python3 - "$RELEASE_ROOT/.env" "$RELEASE_STAGE/docker-compose.yml" <<'PYL'
 import re,sys
 from pathlib import Path
 compose=Path(sys.argv[2]).read_text(); compose='\n'.join(line for line in compose.splitlines() if not line.lstrip().startswith('#'))
 assert re.findall(r'^\s*env_file:\s*(\S+)\s*$',compose,re.M)==['.env'] and re.search(r'^  worker:\n    <<: \*app(?:\n|$)',compose,re.M), 'Unsupported worker environment inheritance'
-assert 'ANALYSIS_PROMPT_LAYOUT' not in compose and not re.search(r'^\s*(?:include|extends):',compose,re.M), 'Unsupported layout override'
-with open(sys.argv[1]) as file:found=[line.rstrip('\r\n') for line in file if re.match(r'^\s*(?:export\s+)?ANALYSIS_PROMPT_LAYOUT\b',line)]
-assert len(found)<=1, 'Ambiguous analysis layout'
-if not found:print('__image_default__')
-else:
-    match=re.fullmatch(r'''\s*(?:export\s+)?ANALYSIS_PROMPT_LAYOUT\s*=[ \t]*(?:"(shared|separate|)"|'(shared|separate|)'|(shared|separate|))(?:(?:[ \t]+#.*)?[ \t]*)''',found[0])
-    assert match, 'Analysis layout must be a literal shared/separate/default'
-    print(next(value for value in match.groups() if value is not None))
+assert not any(key in compose for key in ['ANALYSIS_PROMPT_LAYOUT','SELECTION_RULESET']) and not re.search(r'^\s*(?:include|extends):',compose,re.M), 'Unsupported layout/ruleset override'
+lines=Path(sys.argv[1]).read_text().splitlines(); settings=[]
+for key,choices in [('ANALYSIS_PROMPT_LAYOUT','shared|separate'),('SELECTION_RULESET','classic|global')]:
+    found=[line for line in lines if re.match(r'^\s*(?:export\s+)?'+key+r'\b',line)]
+    assert len(found)<=1, 'Ambiguous '+key
+    if not found:settings.append('__image_default__');continue
+    match=re.fullmatch(r"""\s*(?:export\s+)?"""+key+r"""\s*=[ \t]*(?:"("""+choices+r"""|)"|'("""+choices+r"""|)'|("""+choices+r"""|))(?:(?:[ \t]+#.*)?[ \t]*)""",found[0])
+    assert match, key+' must be a supported literal or default'
+    settings.append(next(value for value in match.groups() if value is not None))
+print('|'.join(settings))
 PYL
   ) || return 1
+  IFS='|' read -r layout ruleset <<< "$settings"
   if [[ $layout != __image_default__ ]]; then probe_env+=(-e "ANALYSIS_PROMPT_LAYOUT=$layout"); fi
-  if ! actual=$(timeout 30s docker run --rm --pull never --name "$probe" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --memory 256m --cpus 1 "${probe_env[@]}" --entrypoint node "$RELEASE_CANDIDATE_IMAGE" --input-type=module -e 'import {PROMPT_VERSIONS} from "@amp/backend/editorial/analyze";import {analysisPromptLayout} from "@amp/backend/config";console.log(JSON.stringify({layout:analysisPromptLayout(),score:PROMPT_VERSIONS.score}));process.exit(0)'); then
+  if [[ $ruleset != __image_default__ ]]; then probe_env+=(-e "SELECTION_RULESET=$ruleset"); fi
+  if ! actual=$(timeout 30s docker run --rm --pull never --name "$probe" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --memory 256m --cpus 1 "${probe_env[@]}" --entrypoint node "$RELEASE_CANDIDATE_IMAGE" --input-type=module -e 'import {scoreConfirmationVersion,scoringConfirmed} from "@amp/backend/editorial/analyze";import {analysisPromptLayout,selectionRuleset} from "@amp/backend/config";import {DEFAULT_SELECTION_RULESET} from "@amp/industry/selection";const layout=analysisPromptLayout(),ruleset=selectionRuleset();console.log(JSON.stringify({layout,ruleset,defaultRuleset:DEFAULT_SELECTION_RULESET,confirmation:scoreConfirmationVersion(layout,ruleset),confirmed:scoringConfirmed(true,process.env.SELECTION_CONFIRMED_VERSION)}));process.exit(0)'); then
     timeout 10s docker rm -f -v "$probe" >/dev/null 2>&1 || true
     return 1
   fi
-  python3 - "$actual" "$RELEASE_SELECTION_CONFIRMED_VERSION" "$layout" <<'PYV'
+  python3 - "$actual" "$RELEASE_SELECTION_CONFIRMED_VERSION" "$layout" "$ruleset" <<'PYV'
 import json,sys
-actual=json.loads(sys.argv[1]); layout=sys.argv[3]
-assert actual['layout'] in ['shared','separate'] and (layout=='__image_default__' or actual['layout']==(layout or 'shared')), 'Candidate layout differs'
-assert actual['score']==sys.argv[2], 'Candidate scoring recipe differs; current version retained'
-print('Candidate scoring recipe and layout verified')
+actual=json.loads(sys.argv[1]); layout,ruleset=sys.argv[3:]
+assert actual['layout'] in ['shared','separate'] and actual['layout']==('shared' if layout=='__image_default__' else layout or 'shared'), 'Candidate layout differs'
+assert actual['defaultRuleset'] in ['classic','global'] and actual['ruleset']==(actual['defaultRuleset'] if ruleset in ['__image_default__',''] else ruleset), 'Candidate ruleset differs'
+assert actual['confirmation']==sys.argv[2], 'Candidate scoring recipe differs; current version retained'
+assert actual.get('confirmed') is True, 'Candidate production scoring gate is not confirmed'
+print('Candidate scoring standard, layout, ruleset and production gate verified')
 PYV
 }
 web_origin() {
