@@ -8,6 +8,7 @@ import http from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
+import { isTranslationBatch, translationBlocks } from "./translation-stub.ts";
 import { sanitizeBody } from "@amp/backend/content/sanitize";
 import { readCurrentBody, upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -28,28 +29,35 @@ const provider = http.createServer((req, res) => {
   req.on("end", async () => {
     hits++;
     const selectedMode = mode;
-    const input = JSON.parse(JSON.parse(Buffer.concat(chunks).toString()).messages[1].content) as { text: string };
-    const pending = selectedMode === "presentation-hold" && !input.text.includes("SECOND") ? null : hold;
+    const requestBody = Buffer.concat(chunks).toString();
+    // TASK-0711: consecutive blocks may arrive as one batch; each block gets the answer it would get alone.
+    const blocks = translationBlocks(requestBody);
+    const pending = selectedMode === "presentation-hold" && !blocks.some((block) => block.includes("SECOND")) ? null : hold;
     pending?.asked.open();
     if (pending) await pending.release.promise;
     if (selectedMode === "reset") return res.destroy();
-    const bad =
-      (selectedMode === "presentation-partial" && input.text.includes("BAD")) ||
-      (selectedMode === "bad" && !input.text.includes("GOOD")) ||
+    const isBad = (block: string) =>
+      (selectedMode === "presentation-partial" && block.includes("BAD")) ||
+      (selectedMode === "bad" && !block.includes("GOOD")) ||
       selectedMode === "no-usage-bad";
-    const text = selectedMode.startsWith("presentation")
-      ? input.text.replace(/Mining project/g, "矿业项目").replace(/report/g, "报告")
-      : selectedMode === "encoded"
-        ? "中文 &#65533;"
-        : input.text.includes("<strong>")
-          ? "合成<strong>未</strong>获准。"
-          : "合成中文正文。";
+    const translate = (block: string) =>
+      selectedMode.startsWith("presentation")
+        ? block.replace(/Mining project/g, "矿业项目").replace(/report/g, "报告")
+        : selectedMode === "encoded"
+          ? "中文 &#65533;"
+          : block.includes("<strong>")
+            ? "合成<strong>未</strong>获准。"
+            : "合成中文正文。";
+    // A bad one-block answer carries an extra key; a bad block inside a batch is an answer without Chinese.
+    const content = isTranslationBatch(requestBody)
+      ? JSON.stringify({ texts: blocks.map((block) => (isBad(block) ? "bad answer" : translate(block))) })
+      : JSON.stringify(isBad(blocks[0]!) ? { text: translate(blocks[0]!), extra: true } : { text: translate(blocks[0]!) });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
         choices: [
           {
-            message: { content: JSON.stringify(bad ? { text, extra: true } : { text }) },
+            message: { content },
             ...(selectedMode === "empty" ? {} : { finish_reason: selectedMode === "length" ? "length" : "stop" }),
           },
         ],
@@ -116,20 +124,20 @@ test("real strict calls assemble all ordered blocks, reuse receipts across recip
   const first = await translation(articleId);
   assert.equal(first.body_html, "<p>合成<strong>未</strong>获准。</p><p>合成中文正文。</p>");
   assert.equal(first.manifest.segments.length, 2);
-  assert.equal(hits - start, 2);
+  assert.equal(hits - start, 1, "both blocks went out in one batch and were saved one by one (TASK-0711)");
   assert.equal(changes, 1);
   assert.equal(await finishTranslation((await beginTranslation((await readCurrentBody(articleId))!, recipe.id))!), true);
   assert.equal(changes, 1, "unchanged promotion reuses the readable body without another event");
   assert.equal((await runBodyTranslation(articleId, { ...recipe, id: recipe.id + "-reassembled" })).status, "translated");
-  assert.equal(hits - start, 2, "same request inputs reuse actual gateway receipts; recipe labels never manufacture an attemptTag");
+  assert.equal(hits - start, 1, "same request inputs reuse actual gateway receipts; recipe labels never manufacture an attemptTag");
   const records = await sql`SELECT recipe,receipt_id FROM enrichment.translation_segments WHERE article_id=${articleId} ORDER BY recipe,segment_index`;
-  assert.equal(records.length, 4);
-  assert.equal(new Set(records.map((row) => row.receipt_id)).size, 2);
+  assert.equal(records.length, 4, "each block keeps its own checkpoint");
+  assert.equal(new Set(records.map((row) => row.receipt_id)).size, 1, "both blocks hold the batch's one receipt");
   await sql`UPDATE receipts SET response_attempt_id=NULL WHERE id=ANY(${records.map((row) => row.receipt_id)}::bigint[])`;
   const historical = await runBodyTranslation(articleId, { ...recipe, id: recipe.id + "-unbound" });
   assert.equal(historical.status, "partial");
   assert.equal(historical.reason, "unbound historical response");
-  assert.equal(hits - start, 2, "unprovable cached identity is neither guessed nor repurchased");
+  assert.equal(hits - start, 1, "unprovable cached identity is neither guessed nor repurchased");
   assert.equal((await translation(articleId)).complete, false);
   assert.ok((await sql`SELECT status FROM receipts WHERE id=ANY(${records.map((row) => row.receipt_id)}::bigint[])`).every((r) => r.status === "completed"));
   assert.deepEqual(
@@ -301,7 +309,7 @@ test("actual process stop retains the received answer and a new process resumes 
     assert.equal((await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0].status, "received");
     assert.equal((await translation(articleId)).complete, false);
     assert.equal(((await launch().done) as { status: string }).status, "translated");
-    assert.equal(hits - start, 2);
+    assert.equal(hits - start, 1, "the received batch answer is reused for both blocks");
   } finally {
     hold?.release.open();
     hold = null;
@@ -319,14 +327,14 @@ test("one released unknown segment can recover and continue to the next segment 
   await autoReleaseUnknownReceipts();
   mode = "stop";
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
-  assert.equal(hits - start, 3, "one initial unknown, one exact retry, then the second segment");
+  assert.equal(hits - start, 2, "one initial unknown, then one exact retry of the same batch for both segments");
   const [original] = await sql`SELECT a.status,u.state,o.known_unbilled FROM receipt_attempts a
     JOIN receipts r ON r.id=a.receipt_id JOIN ai.usage_attempts u ON u.attempt_id=a.id
     JOIN ai.translation_receipt_observations o ON o.attempt_id=a.id::text
     WHERE r.subject LIKE ${`article:${articleId}@1#%`} AND a.status='unknown'`;
   assert.deepEqual({ ...original }, { status: "unknown", state: "unknown", known_unbilled: false });
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
-  assert.equal(hits - start, 3);
+  assert.equal(hits - start, 2);
 });
 
 test("presentation updates reuse bound translations and preserve semantic state without any model request", async () => {
@@ -393,7 +401,8 @@ test("presentation updates keep a partial translation partial and retain unfinis
 test("an in-flight presentation change retains completed fragments and does not spend a body retry", async () => {
   mode = "presentation-hold";
   const name = "presentation-inflight",
-    html = `<p>Mining project <a href="https://fixture.invalid/old">FIRST</a> ${T}.</p><p>Mining project SECOND ${T}.</p>`;
+    // Each block is over 2,000 bytes, so they cannot share one batch: the first is saved before the second is held.
+    html = `<p>Mining project <a href="https://fixture.invalid/old">FIRST</a> ${"矿".repeat(900)} ${T}.</p><p>Mining project SECOND ${"石".repeat(700)} ${T}.</p>`;
   const { articleId } = await material(name, html);
   hold = { asked: gate(), release: gate() };
   const running = translateArticle(articleId, 1);

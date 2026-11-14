@@ -1,7 +1,7 @@
 // Which full-text translations start now and which wait (TASK-0569, Owner 2026-11-07, DEC-78补充·新闻原文全文与中文译文).
 // Pure: no database or network; only offPeakWait reads the clock.
 import { offPeakWait } from "../providers/peak-hours.ts";
-import { translationBudgetUnits, translationSourceManifest } from "./translation-readiness.ts";
+import { translationBatch, translationBudgetUnits, translationSourceManifest } from "./translation-readiness.ts";
 
 /**
  * Public items that are not selected are translated by the live pipeline only while they are this fresh (by the time
@@ -85,13 +85,14 @@ export function promptTokenEstimate(text: string): number {
 
 /**
  * Cost-report estimate for translating one body of foreign-language HTML; no model call. It walks the same plan the
- * worker does: the source manifest's segments (every block is its own segment, so twenty short paragraphs are twenty
- * requests), in order, stopping at the first block beyond the 60,000-character budget (translationBudgetUnits).
- * Per segment, one request carries the whole system prompt S, a ~30-token JSON envelope, the segment's text and the
- * previous segment's reference line; the reply is Chinese with the same tags (about 0.3 tokens per source character
- * for English news HTML, plus ~10 for the envelope). The system prompt is the same for every segment, so with
- * provider prefix caching most of `calls × S` is billed at the cache-hit rate (`cachedPrefix`). Codex review #362:
- * the earlier estimate assumed ~3,600-character segments and undercounted bodies of many short paragraphs.
+ * worker does: the source manifest's segments, in order, stopping at the first block beyond the 60,000-character
+ * budget (translationBudgetUnits), packed into requests the way the worker packs a fresh body (translationBatch,
+ * TASK-0711): consecutive blocks share one request up to TRANSLATION_SEGMENT_BYTES, so twenty short paragraphs are
+ * one or two requests rather than twenty. Per request, the call carries the whole system prompt S, a ~30-token JSON
+ * envelope, its blocks' text and the reference line before its first block; the reply is Chinese with the same tags
+ * (about 0.3 tokens per source character for English news HTML, plus ~10 per block for the envelope). The system
+ * prompt is the same for every request, so with provider prefix caching most of `calls × S` is billed at the
+ * cache-hit rate (`cachedPrefix`). Retries of a failed block or batch are not estimated.
  */
 export function translationTokenEstimate(html: string, systemTokens: number) {
   const manifest = translationSourceManifest(html);
@@ -99,11 +100,16 @@ export function translationTokenEstimate(html: string, systemTokens: number) {
   let calls = 0,
     input = 0,
     output = 0;
-  for (const segment of manifest.segments) {
-    if (!chosen.has(segment.unitIndex)) break;
+  for (let position = 0; position < manifest.segments.length; ) {
+    if (!chosen.has(manifest.segments[position]!.unitIndex)) break;
+    const batch = translationBatch(manifest.segments, position, (leaf) => chosen.has(leaf.unitIndex));
     calls++;
-    input += systemTokens + 30 + Math.ceil(segment.html.length / CHARS_PER_TOKEN) + (segment.reference ? promptTokenEstimate(segment.reference) : 0);
-    output += Math.ceil(segment.html.length * 0.3) + 10;
+    input += systemTokens + 30 + (batch[0]!.reference ? promptTokenEstimate(batch[0]!.reference) : 0);
+    for (const segment of batch) {
+      input += Math.ceil(segment.html.length / CHARS_PER_TOKEN);
+      output += Math.ceil(segment.html.length * 0.3) + 10;
+    }
+    position += batch.length;
   }
   return { calls, input, output, cachedPrefix: Math.max(0, calls - 1) * systemTokens };
 }

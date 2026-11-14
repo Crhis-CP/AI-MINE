@@ -10,6 +10,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
+import { translationAnswer } from "./translation-stub.ts";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { saveSourcePolicy } from "@amp/backend/admin/sources";
@@ -27,10 +28,9 @@ const T = tag();
 let hits = 0;
 const provider = await stub((_hit, req) => {
   hits += 1;
-  const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
-  const marks = [...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ");
+  const content = translationAnswer(req.body, (text) => `${[...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ")} 合成中文译文 PEAK-${T}`);
   return {
-    choices: [{ message: { content: JSON.stringify({ text: `${marks} 合成中文译文 PEAK-${T}` }) } }],
+    choices: [{ message: { content } }],
     usage: { prompt_tokens: 10, completion_tokens: 5 },
   };
 });
@@ -50,7 +50,10 @@ const SOURCE = `peak-recheck-${T}`;
 let n = 0;
 async function article(opts: { selected?: boolean; paragraphs?: number; historical?: boolean; backlog?: boolean } = {}) {
   n += 1;
-  const paragraphs = Array.from({ length: opts.paragraphs ?? 1 }, (_, i) => `PARA-${T}-${n}-${i} copper project text with enough words. `.repeat(6));
+  // Several paragraphs are each over 2,000 bytes, so no two share a batch (TASK-0711): one request per paragraph,
+  // which is what the between-request checks here need.
+  const repeat = (opts.paragraphs ?? 1) > 1 ? 45 : 6;
+  const paragraphs = Array.from({ length: opts.paragraphs ?? 1 }, (_, i) => `PARA-${T}-${n}-${i} copper project text with enough words. `.repeat(repeat));
   const { articleId } = await upsertMaterial({
     sourceId: SOURCE,
     url: `https://example.com/${T}-${n}`,
