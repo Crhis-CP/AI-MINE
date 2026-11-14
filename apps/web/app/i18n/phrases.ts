@@ -606,6 +606,9 @@ export const PHRASES = {
   "本站暂时没有可展示的完整正文。可以阅读导读，或打开来源网站继续阅读。":
     "There is no complete text to show here yet. Read the summary, or open the source site to continue.",
   打开来源原文: "Open the original source",
+  "全文需在浏览器中打开本页查看。": "Open this page in a browser to read the full text.",
+  "正文暂时没有加载出来。": "The text did not load.",
+  "正文加载中…": "Loading the text…",
   引用: "Quote",
   正文语言: "Text language",
   引用语言: "Quote language",

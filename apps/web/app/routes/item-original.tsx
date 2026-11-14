@@ -2,6 +2,7 @@ import type { Route } from "./+types/item-original";
 import { XPostDetailFields, ReportGroupDetailFields } from "@amp/contracts/http/public";
 import type { ReportGroupedSiteItemDetail as SiteItemDetail } from "@amp/contracts/site";
 import { apiGet, loadOr404 } from "../lib/api.server";
+import { withoutBody } from "../features/item/deferred-body";
 
 export { default, headers, meta } from "./item";
 
@@ -12,7 +13,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         signal: request.signal,
       });
       XPostDetailFields.parse(value.x === undefined ? {} : { x: value.x });
-      return { ...value, ...ReportGroupDetailFields.parse(value.reportGroup === undefined ? {} : { reportGroup: value.reportGroup }) };
+      const item = { ...value, ...ReportGroupDetailFields.parse(value.reportGroup === undefined ? {} : { reportGroup: value.reportGroup }) };
+      return withoutBody(item, `/api/site/items/${encodeURIComponent(params.id)}/original`);
     },
     { signal: request.signal },
   );
