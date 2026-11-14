@@ -8,7 +8,8 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { isValidDate } from "@amp/contracts/time";
 import { canonicalCategoryFilter, isChannelKey } from "@amp/contracts/taxonomy";
-import { contractResult, loadOr404, queryString } from "../lib/api.server";
+import { contractResult, loadOr404, queryString, readerPageHeaders } from "../lib/api.server";
+import { markDegraded } from "../lib/cache.server";
 import { listPath, pageMeta } from "../lib/seo";
 import { FeedBar, FeedToolbar, SearchField, SourceDateFilters } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
@@ -88,6 +89,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     { signal: request.signal },
   );
   const policyMatches = await policyRequest;
+  // A search is never shared anyway; a failed policy search is also kept out of the browser's own reuse.
+  if (q && policyMatches === null) markDegraded();
   return { data, policyMatches, policySearchFailed: !!q && policyMatches === null, filterError: null };
 }
 
@@ -117,8 +120,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 function pageHref(params: URLSearchParams, page: number) {

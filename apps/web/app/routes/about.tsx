@@ -9,7 +9,8 @@ import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { SiteStats } from "@amp/contracts/site";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
-import { contractResult } from "../lib/api.server";
+import { contractResult, readerPageHeaders } from "../lib/api.server";
+import { markDegraded } from "../lib/cache.server";
 import { ABOUT, SITE } from "@amp/industry/site";
 import { organizationLd, pageMeta, SITE_DESCRIPTION_EN } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker.tsx";
@@ -17,9 +18,9 @@ import { buttonClass } from "../components/ui/Controls";
 import { IconArrowRight } from "../components/icons";
 import { useSiteFilings } from "../components/shell/Filings";
 
-/** Revalidate page data; the API owns its short statistics snapshot. */
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh, so an edit shows on the next in-site visit. */
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, must-revalidate" };
+  return readerPageHeaders();
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -30,7 +31,10 @@ export async function loader({ request }: { request: Request }) {
     baseUrl: apiBaseFor(),
   })
     .then((result) => contractResult(result, publicSchemas.SiteInformation))
-    .catch(() => null);
+    .catch(() => {
+      markDegraded();
+      return null;
+    });
   const stats = await apiFetch("/api/site/stats", {
     cache: "no-store",
     headers: { accept: "application/json", "x-amp-ssr": "1" },
@@ -38,7 +42,10 @@ export async function loader({ request }: { request: Request }) {
     baseUrl: apiBaseFor(),
   })
     .then((result) => contractResult(result, publicSchemas.SiteStats))
-    .catch(() => null);
+    .catch(() => {
+      markDegraded();
+      return null;
+    });
   return { stats, information: await informationRequest };
 }
 

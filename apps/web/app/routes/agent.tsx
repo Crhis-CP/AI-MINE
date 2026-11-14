@@ -96,6 +96,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   } catch {
     healthy = false;
   }
+  // A page that says the service is down is not kept for five minutes (TASK-0679 R13). Loaded here only: this page's
+  // module also runs in the browser on its own (agent-modules-browser.test.ts).
+  if (!healthy) (await import("../lib/cache.server")).markDegraded();
   // The public address the examples show is the configured one, the same on the server and in the browser.
   return { tab: tabKey(tab), healthy, base: siteUrl(), now: Date.now() };
 }

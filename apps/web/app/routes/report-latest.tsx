@@ -3,7 +3,7 @@ import { useTr } from "../i18n";
 import { useLoaderData } from "react-router";
 import type { Route } from "./+types/report-latest";
 import type { ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
-import { loadOr404 } from "../lib/api.server";
+import { loadOr404, readerPageHeaders } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { beijingDate } from "../lib/format";
 import { EmptyState } from "../components/ui/Page";
@@ -36,8 +36,9 @@ export function meta({ loaderData, location }: Route.MetaArgs) {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 export default function ReportLatestPage() {

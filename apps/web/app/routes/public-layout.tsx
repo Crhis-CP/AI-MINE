@@ -1,6 +1,6 @@
 import { Intro } from "../components/shell/Intro";
 import { SearchProvider } from "../features/search/SearchOverlay";
-import { Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
+import { createContext, Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
 import { useEffect, type ReactNode } from "react";
 import type { Route } from "./+types/public-layout";
 import { ContentVersionGuard } from "../features/feed/ContentVersionGuard";
@@ -14,27 +14,54 @@ import { Link } from "../i18n/navigation";
 import { SITE } from "@amp/industry/site";
 import { BackToTop, ListKeys, NavigationProgress } from "../components/shell/Chrome";
 import { apiGet } from "../lib/api.server";
+import { markDegraded } from "../lib/cache.server";
 import { ErrorBoundary as PageError } from "../root";
 import { WEB_MODULES } from "@amp/site/modules/web";
-import { SiteMeta } from "@amp/contracts/http/public";
+import { SiteMeta, schemas as publicSchemas } from "@amp/contracts/http/public";
 import { NO_FILINGS } from "../components/shell/Filings";
 import { localeOf, useT, useTr } from "../i18n";
 import { useVisitBeacon } from "../lib/visit-beacon";
 
-// Unavailable metadata leaves the navigation unmarked and the footer without numbers; it never invents either.
-export async function loader({ request }: Route.LoaderArgs): Promise<SiteMeta> {
+/** The content and withdrawal versions this page was read at (TASK-0679 R1); null when they could not be read. */
+export type ServedVersion = { version: string; withdrawalVersion: string } | null;
+const servedVersion = createContext<ServedVersion>(null);
+
+/**
+ * A page document reads the content and withdrawal versions before any of its data and carries them, so the browser
+ * re-reads the page only when they have moved since (TASK-0679 R1). Read first, a race can only leave them older than
+ * the data: one extra read, never a missed withdrawal. Data requests (in-site navigation) do not need them.
+ */
+export const middleware: Route.MiddlewareFunction[] = [
+  async ({ request, context }, next) => {
+    if (new URL(request.url).pathname.endsWith(".data")) return next();
+    try {
+      context.set(servedVersion, publicSchemas.ContentVersion.parse(await apiGet<unknown>("/api/site/content-version", { signal: request.signal })));
+    } catch {
+      // The browser then re-reads once, as before; the page itself stays out of every cache.
+      markDegraded();
+    }
+    return next();
+  },
+];
+
+// Unavailable metadata leaves the navigation unmarked and the footer without numbers; it never invents either, and the
+// page is not cached that way (TASK-0679 R13).
+export async function loader({ request, context }: Route.LoaderArgs): Promise<SiteMeta & { contentVersion: ServedVersion }> {
+  const contentVersion = context.get(servedVersion);
   try {
     const raw = await apiGet<unknown>("/api/site/meta", {
       signal: request.signal,
       headers: Object.assign({}, ...WEB_MODULES.map((module) => module.root?.documentHeaders?.(request) ?? {})),
     });
     const meta = SiteMeta.safeParse(raw);
-    if (meta.success) return meta.data;
+    if (meta.success) return { ...meta.data, contentVersion };
+    markDegraded();
     // An API without run-time filing numbers (during a rolling release) still marks product updates.
     const version = SiteMeta.shape.changelogVersion.safeParse((raw as { changelogVersion?: unknown } | null)?.changelogVersion);
-    return { changelogVersion: version.success ? version.data : null, filings: NO_FILINGS };
+    return { changelogVersion: version.success ? version.data : null, filings: NO_FILINGS, contentVersion };
   } catch {
-    return { changelogVersion: null, filings: NO_FILINGS };
+    markDegraded();
+    return { changelogVersion: null, filings: NO_FILINGS, contentVersion };
   }
 }
 

@@ -3,7 +3,7 @@ import { useTr, useDateFormat } from "../i18n";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { ReportIndexEntry } from "@amp/contracts/site";
-import { apiGet } from "../lib/api.server";
+import { apiGet, readerPageHeaders } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { beijingDate } from "../lib/format";
 import { ReportLayout } from "../features/report/ReportLayout";
@@ -26,8 +26,9 @@ export function meta() {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 export default function DailyArchive() {

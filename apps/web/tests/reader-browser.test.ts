@@ -267,7 +267,7 @@ const api = createServer((req, res) => {
           },
     );
   }
-  if (url.pathname === "/api/site/meta") return answer({ changelogVersion });
+  if (url.pathname === "/api/site/meta") return answer({ changelogVersion, filings: { icp: null, publicSecurity: null, newsLicense: null } });
   if (url.pathname === "/api/site/changelog")
     return answer({
       releases: changelogVersion ? [{ date: changelogVersion.slice(0, 10), time: "12:30", kind: "优化", title: "合成阅读更新", body: ["改进阅读体验。"] }] : [],
@@ -510,11 +510,15 @@ async function openQualifiedReader(page: Page, path = "/all", expectedVersion = 
   await page.bringToFront();
   await page.route(versionUrl, holdFirstVersion, { times: 1 });
   const version = page.waitForResponse((response) => response.url() === versionUrl);
-  const revalidation = path.split("?")[0] === "/all" ? page.waitForResponse((response) => new URL(response.url()).pathname === "/all.data") : null;
-  // If an earlier readiness assertion fails, context cleanup will reject these waiters too.
-  // Keep those rejections observed; the awaited responses below still fail the actual test.
+  // The page came with the versions it was read at (TASK-0679 R1): an unchanged version means no second read.
+  const rereads: string[] = [];
+  const reread = (request: { url(): string }) => {
+    if (new URL(request.url()).pathname.endsWith(".data")) rereads.push(request.url());
+  };
+  page.on("request", reread);
+  // If an earlier readiness assertion fails, context cleanup will reject this waiter too.
+  // Keep that rejection observed; the awaited response below still fails the actual test.
   void version.catch(() => {});
-  void revalidation?.catch(() => {});
   try {
     phase = `baseline ${path}: navigate`;
     const opened = await page.goto(`${origin}${path}`);
@@ -527,15 +531,9 @@ async function openQualifiedReader(page: Page, path = "/all", expectedVersion = 
     const baseline = await version;
     assert.equal(baseline.status(), 200);
     assert.deepEqual(await baseline.json(), { version: expectedVersion, withdrawalVersion: "1" });
-    if (revalidation) {
-      phase = `baseline ${path}: data response`;
-      const loaded = await revalidation;
-      assert.equal(loaded.status(), 200);
-      // React Router consumes a streamed navigation response. Its network stream closing is not
-      // the readiness condition: the guard sets idle only after revalidate() and baseline assignment.
-    }
     phase = `baseline ${path}: DOM qualified`;
     await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+    assert.deepEqual(rereads, [], "an unchanged version does not read the page again");
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     if (deepTimeline) await expect(page.getByRole("heading", { name: "新到的矿业动态" }).first()).toBeVisible();
@@ -547,6 +545,7 @@ async function openQualifiedReader(page: Page, path = "/all", expectedVersion = 
     return opened;
   } finally {
     release();
+    page.off("request", reread);
     phase += ": unroute";
     await page.unroute(versionUrl, holdFirstVersion);
   }
@@ -594,7 +593,8 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const opened = await openQualifiedReader(page);
-  assert.match(opened!.headers()["cache-control"]!, /(?:^|, )no-store(?:,|$)/);
+  // The page HTML may be shared for 30 seconds (TASK-0672); its data is read fresh.
+  assert.equal(opened!.headers()["cache-control"], "public, max-age=0, s-maxage=30");
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   const tabs = page.getByRole("navigation", { name: "底部导航" });
   await expect(tabs.getByRole("link")).toHaveCount(5);
@@ -1636,6 +1636,8 @@ test("report reading groups preserve filters, source links, unread members and r
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `.verify/report-reading-${width}.png` });
       await page.getByRole("link", { name: "同源补充报道", exact: true }).click();
+      // The list has save buttons too: press the article's own, once it is open.
+      await expect(page).toHaveURL(/\/items\//);
       await page.getByRole("button", { name: "收藏", exact: true }).filter({ visible: true }).first().click();
       await expect(page.getByRole("button", { name: "取消收藏", exact: true }).filter({ visible: true }).first()).toBeVisible();
       await page.getByRole("link", { name: "原文", exact: true }).click();
