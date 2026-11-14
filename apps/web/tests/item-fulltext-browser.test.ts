@@ -254,3 +254,49 @@ test("the English interface names the tabs, the pending note and the copyright n
     await context.close();
   }
 });
+
+test("search engines get our title and 导读, not the reprinted text; readers still see it (TASK-0673)", { timeout: 60000 }, async () => {
+  for (const [path, text] of [
+    ["/items/translated", "中文译文：扩建已获批准"],
+    ["/items/translated/original", "ORIGINAL TEXT: the expansion was approved"],
+    ["/items/native", "中文原文：扩建已获批准"],
+  ] as const) {
+    const html = await (await fetch(`${origin}${path}`)).text();
+    assert.ok(html.includes(GUIDE), `${path}: the AI guide is in the server HTML`);
+    assert.ok(html.includes("合成铜矿扩建"), `${path}: the title is in the server HTML`);
+    assert.ok(!html.includes(text), `${path}: the body text is not in the server HTML`);
+    assert.ok(html.includes("全文需在浏览器中打开本页查看"), `${path}: readers without scripts are told how to read it`);
+    const data = await (await fetch(`${origin}${path}.data`)).text();
+    assert.ok(!data.includes(text), `${path}: the body text is not in the route data either`);
+  }
+  const robots = await fetch(`${origin}/robots.txt`);
+  if (robots.ok) assert.match(await robots.text(), /Disallow: \/api\//);
+  const { context, page, errors } = await open(1280);
+  try {
+    await page.goto(`${origin}/items/translated`);
+    await expect(page.locator("main").getByText("中文译文：扩建已获批准")).toBeVisible();
+    await expect(page.locator("[data-body-pending]")).toHaveCount(0);
+    assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
+  }
+});
+
+test("a body that does not arrive offers a retry and the original link (TASK-0673)", { timeout: 60000 }, async () => {
+  const { context, page, errors } = await open(390);
+  try {
+    let fail = true;
+    await page.route("**/api/site/items/translated?**", (route) => (fail ? route.fulfill({ status: 503, body: "{}" }) : route.continue()));
+    await page.goto(`${origin}/items/translated`);
+    const pending = page.locator('[data-body-pending="failed"]');
+    await expect(pending.getByText("正文暂时没有加载出来。")).toBeVisible();
+    await expect(pending.getByRole("link", { name: "打开来源原文" })).toHaveAttribute("href", "https://example.invalid/translated");
+    fail = false;
+    await pending.getByRole("button", { name: "重试" }).click();
+    await expect(page.locator("main").getByText("中文译文：扩建已获批准")).toBeVisible();
+    assert.equal(await overflow(page), 0);
+    assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
+  }
+});
