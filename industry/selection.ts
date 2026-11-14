@@ -1,11 +1,30 @@
-// 精选的门槛与总分算法。评分标准（五轴的含义、品味规则）写在 prompts/selection-score.md；
+// 精选的门槛与总分算法。评分标准（五轴的含义、品味规则）写在评分提示词里，用哪一份由规则组决定（见下方 SELECTION_RULESETS）；
 // 评分模型给出内容类型、五轴分（0–10，可到一位小数）和噪声类型，总分由这里的权重表和封顶在代码里算出（0–100，一位小数）。
 // 第一次分数离门槛较远时只打一次；靠近门槛的再独立打一次，取平均（Owner 2026-11-05：降低模型成本）。
 // 平均分 ≥ 门槛才进精选，卡片上显示这个分数（一位小数）。
 // 2026-11-05 按 Owner 对 119 篇线上文章的标注改写（docs/design/taxonomy-scoring-202611/）：读者是关注海外矿业投资、
 // 贸易与合规的中国读者；与中国读者的关系（共振面）权重提高，证据强度不再是主要加分项；小矿企的例行项目新闻封顶。
+// 2026-11-13（TASK-0670）起缺省用 global 规则组：读者改为全球矿业投资者与从业者，第四轴 reson 的含义由“共振面”改为
+// “影响面”（波及多少市场、国家和公司）；字段名、权重、门槛和封顶都不变。上面这段是 classic 规则组的口径。
 // 门槛按信源分级区分：官方一手信源的门槛低一些，媒体和个人的高一些。改了门槛、权重或评分提示词，
 // AI 负责真实案例与边界验证；规则调整按 Issue #293 由 Owner 确认，生产继续绑定已确认的准确版本。
+
+/**
+ * Selection rule sets: which prompt files (industry/prompts/<name>.md) hold the score rules and the prefilter rules.
+ * SELECTION_RULESET picks one per process (packages/backend/src/config.ts); both sets share the weights, thresholds
+ * and caps below.
+ *   global   the default (Owner 2026-11-13, TASK-0670): 精选 is scored by how widely an event matters to mining
+ *            worldwide, and the prefilter also passes four more layers (resource-country law and policy, political and
+ *            security risk, Chinese outbound investment, downstream and macro news that states its effect on a metal).
+ *   classic  the rules production ran before, kept byte for byte so a rollback is this switch plus the confirmed
+ *            version; tests/selection-ruleset.test.ts locks its prompts and versions.
+ */
+export const SELECTION_RULESETS = {
+  global: { score: "selection-score-global", prefilter: "prefilter-four-layers" },
+  classic: { score: "selection-score", prefilter: "prefilter" },
+} as const;
+export type SelectionRuleset = keyof typeof SELECTION_RULESETS;
+export const DEFAULT_SELECTION_RULESET: SelectionRuleset = "global";
 
 export const SELECTION = {
   /**

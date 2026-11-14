@@ -51,6 +51,10 @@ for (const [name, model] of Object.entries(PRESET_MODELS)) process.env[name] ??=
 // were written for. Production shares one system prompt and material across the steps (ANALYSIS_PROMPT_LAYOUT=shared,
 // the default); tests/analysis-shared-prefix.test.ts covers that layout end to end.
 process.env.ANALYSIS_PROMPT_LAYOUT ??= "separate";
+// The invariant tests' fixtures, stubs and recorded prompt versions were written for the selection rules production
+// ran before the rule sets existed (SELECTION_RULESET=classic). Production defaults to the global rule set;
+// tests/selection-ruleset.test.ts covers the default, both rule sets' prompts and versions, and a rejected value.
+process.env.SELECTION_RULESET ??= "classic";
 await initializeDb("test");
 
 /**

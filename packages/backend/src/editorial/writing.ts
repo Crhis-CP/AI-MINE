@@ -1,7 +1,9 @@
 // The writing side of the analysis: the prefilter's and the content understanding's inputs, the
 // title/summary prompts for everything else, the output parsing and the deterministic guards. The
 // wording lives in the industry pack (industry/prompts/); a failed guard falls back without a repair call.
+import { SELECTION_RULESETS } from "@amp/industry/selection";
 import { IDENTITY_CONTEXT_ALIASES, IDENTITY_LEXICON, PUBLISHER_DOMAINS } from "@amp/industry/taxonomy";
+import { selectionRuleset, type SelectionRuleset } from "../config.ts";
 import { usableSourceText } from "../lib/text.ts";
 import type { TimeAssertion } from "@amp/contracts/time-assertion";
 import { modelSourceDateLabel } from "./source-time.ts";
@@ -9,7 +11,10 @@ import type { AnalyzeInputArticle } from "./input.ts";
 import { promptText } from "./prompts.ts";
 import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITY_TAGS, TOPIC_TAGS } from "./vocabulary.ts";
 
-export const PREFILTER_SYSTEM = promptText("prefilter");
+/** The prefilter rules of a selection rule set (SELECTION_RULESET; industry/selection.ts names the file). */
+export const prefilterSystem = (ruleset: SelectionRuleset = selectionRuleset()) => promptText(SELECTION_RULESETS[ruleset].prefilter);
+/** The prefilter rules of the rule set configured when this module loaded; requests are built from prefilterSystem(). */
+export const PREFILTER_SYSTEM = prefilterSystem();
 export const UNDERSTAND_CONFIG = {
   categoryGuide: CATEGORY_GUIDE,
   categoryTags: CATEGORY_TAGS.join("、"),
