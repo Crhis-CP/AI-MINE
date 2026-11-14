@@ -5,8 +5,7 @@ import { redirect, useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
-import { data as routeData } from "react-router";
-import { readerPageHeaders } from "../lib/api.server";
+import { apiGet, loadOr404, readerPageHeaders } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
 import { beijingDate, NO_TIME, newsSourceDate } from "../lib/format";
 import { ShareLink } from "../components/ShareLink";
@@ -19,17 +18,13 @@ import { Select } from "../components/ui/Controls";
 import { IconArrowLeft, IconChevronRight, IconClock, IconDoc, IconUsers } from "../components/icons";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const res = await fetch(`${process.env.API_BASE_URL || "http://127.0.0.1:3001"}/api/site/stories/${encodeURIComponent(params.publicId)}`, {
-    redirect: "manual",
-    signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]),
+  // The shared API client follows the API's 308 for a merged story; the surviving story's own address is then the
+  // page's, so a different id here means the reader is sent there, as the API sent the request.
+  const story = await loadOr404(() => apiGet<StoryDetail>(`/api/site/stories/${encodeURIComponent(params.publicId)}`, { signal: request.signal }), {
+    signal: request.signal,
   });
-  if (res.status === 308) {
-    const target = (await res.json()) as { mergedInto: string };
-    throw redirect(localizedFrom(request.url, `/story/${target.mergedInto}`), 308);
-  }
-  if (res.status === 404) throw routeData({ message: "not_found" }, { status: 404 });
-  if (!res.ok) throw routeData({ message: "unavailable" }, { status: 503 });
-  return { story: (await res.json()) as StoryDetail };
+  if (story.publicId.toLowerCase() !== params.publicId.toLowerCase()) throw redirect(localizedFrom(request.url, `/story/${story.publicId}`), 308);
+  return { story };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {

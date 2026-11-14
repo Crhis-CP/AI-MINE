@@ -740,9 +740,12 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/items/long-lived") return res.end(JSON.stringify({ id: "long-lived", title: "t" }));
   if (url.pathname === "/api/site/items/footer-page") return res.end(JSON.stringify(footerItem));
   if (url.pathname === "/api/site/stories/merged") {
+    // As the API answers a merged story: a 308 to the surviving story's own address (TASK-0714: the web follows it).
     res.statusCode = 308;
+    res.setHeader("location", "/api/site/stories/surviving-story");
     return res.end(JSON.stringify({ mergedInto: "surviving-story" }));
   }
+  if (url.pathname === "/api/site/stories/surviving-story") return res.end(JSON.stringify({ publicId: "surviving-story" }));
   res.statusCode = url.pathname.startsWith("/api/admin/") ? 401 : 404;
   res.end(JSON.stringify({ code: "not_found" }));
 });

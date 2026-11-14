@@ -29,6 +29,8 @@ import { loadTimeline } from "./timeline.ts";
 import { MINERAL_TAGS } from "@amp/industry/taxonomy";
 
 export const POOL_PAGE_SIZE = 20;
+/** A lean read (the home page's country block): the newest few items, without source facets (TASK-0714). */
+export const LEAN_POOL_SIZE = 5;
 
 export class SearchBusyError extends Error {
   readonly retryAfter: number;
@@ -124,6 +126,8 @@ export interface PoolQuery extends TimelineFilters {
   now?: Date;
   rangeStart?: Date | null;
   rangeEnd?: Date | null;
+  /** Only the first LEAN_POOL_SIZE items of each page and no source facets, for callers that show neither. */
+  lean?: boolean;
 }
 
 // Sharing happens before search capacity admission, and retains every site-specific filter in the key.
@@ -147,6 +151,7 @@ const searchPool = sharedSearch(
         query.tab ?? "time",
         query.page ?? 1,
         query.readingGroups ?? null,
+        query.lean ?? false,
       ]),
     ),
   ({ query, matchers }, now) => queryPool(query, matchers, now),
@@ -187,7 +192,8 @@ async function queryPool(
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(names)} ${topicCondition(names)} ${dateFilter}
     ${query.selected ? sql`AND ${confirmedSelected()}` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``} ${browseFloorCondition(!q && !query.selected)}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))`;
-  const offset = (page - 1) * POOL_PAGE_SIZE;
+  const size = query.lean ? LEAN_POOL_SIZE : POOL_PAGE_SIZE;
+  const offset = (page - 1) * size;
   // A fixed clock (tests, replays) never shares cached totals.
   const filterKey =
     query.now || query.jurisdiction
@@ -204,7 +210,7 @@ async function queryPool(
       const rows = await db<ItemRow[]>`
         WITH page AS (
           SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
-          ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
+          ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${size} OFFSET ${offset})
         SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
         ORDER BY p.timeline_at DESC, p.article_id DESC`;
       return {
@@ -252,7 +258,7 @@ async function queryPool(
           WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
         ), page AS MATERIALIZED (
           SELECT article_id, rel, tie FROM scored ORDER BY rel DESC, tie DESC, timeline_at DESC, article_id DESC
-          LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
+          LIMIT ${size} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
           SELECT ${ITEM_COLUMNS()}, page.rel, page.tie ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
@@ -264,7 +270,7 @@ async function queryPool(
           WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
         ), page AS MATERIALIZED (
           SELECT article_id, rel, tie FROM scored ORDER BY rel DESC, tie DESC, timeline_at DESC, article_id DESC
-          LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
+          LIMIT ${size} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
           SELECT ${ITEM_COLUMNS()}, page.rel, page.tie ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
@@ -282,7 +288,7 @@ async function queryPool(
           AND (${!textMatchers.term3.active} OR ${publicationTextMatches(textMatchers.term3)})
           AND (${!textMatchers.term4.active} OR ${publicationTextMatches(textMatchers.term4)})
           AND (${!textMatchers.term5.active} OR ${publicationTextMatches(textMatchers.term5)})
-        ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
+        ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${size} OFFSET ${offset})
       SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
       ORDER BY p.timeline_at DESC, p.article_id DESC`;
     const direct = sql`(${!textMatchers.term0.active} OR ${poolDirectTextMatches(textMatchers.term0)})
@@ -313,26 +319,28 @@ async function queryPool(
   const side = () =>
     Promise.all([
       readMeta(),
-      loadPoolSourceFacets(
-        query,
-        readMatcherValues(
-          query.tag,
-          query.topicTags,
-          query.jurisdictionCodes ?? [],
-          terms,
-          query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
-        ),
-        matchers,
-        now,
-        query.jurisdictionCodes ?? [],
-        query.jurisdictionRecipe ?? "",
-      ),
+      query.lean
+        ? null
+        : loadPoolSourceFacets(
+            query,
+            readMatcherValues(
+              query.tag,
+              query.topicTags,
+              query.jurisdictionCodes ?? [],
+              terms,
+              query.jurisdictionRecipe ?? newsJurisdictionScope(query.jurisdiction).jurisdictionRecipe,
+            ),
+            matchers,
+            now,
+            query.jurisdictionCodes ?? [],
+            query.jurisdictionRecipe ?? "",
+          ),
     ]);
   const early = q ? null : side();
   early?.catch(() => {});
   const negotiated = grouping
     ? await (q ? withSearchCapacity : withCustomPlans)((db) =>
-        loadReportGroupedPage({ ...query, scope: query.selected ? "selected" : "all", offset, limit: POOL_PAGE_SIZE }, now, db),
+        loadReportGroupedPage({ ...query, scope: query.selected ? "selected" : "all", offset, limit: size }, now, db),
       )
     : null;
   const { rows, total } = negotiated
@@ -356,7 +364,7 @@ async function queryPool(
     !to &&
     !query.selected;
   const [legacyGrouped, [meta, sourceFacets]] = await Promise.all([
-    !negotiated && unfiltered ? loadTimeline({ ...query, scope: "all", offset, limit: POOL_PAGE_SIZE, now }) : null,
+    !negotiated && unfiltered ? loadTimeline({ ...query, scope: "all", offset, limit: size, now }) : null,
     early ?? side(),
   ]);
   const grouped = negotiated ?? legacyGrouped;
@@ -378,9 +386,9 @@ async function queryPool(
     },
     items: grouped ? grouped.cards.map((card) => card.item) : rows.map(toFeedItemSummary),
     ...(grouped ? { cards: grouped.cards, reportTotal: total } : {}),
-    facets: { sources: sourceFacets.map((row) => ({ ...row, count: Number(row.count) })), minerals: [...MINERAL_TAGS] },
+    ...(sourceFacets ? { facets: { sources: sourceFacets.map((row) => ({ ...row, count: Number(row.count) })), minerals: [...MINERAL_TAGS] } } : {}),
     page,
-    pageCount: Math.max(1, Math.ceil((grouped?.total ?? total) / POOL_PAGE_SIZE)),
+    pageCount: Math.max(1, Math.ceil((grouped?.total ?? total) / size)),
     total: grouped?.total ?? total,
     todayCount: negotiated ? (negotiated.dayCounts[today] ?? 0) : Number(meta.today_count),
     freshness: (meta.updated_at ?? now).toISOString(),

@@ -1,4 +1,4 @@
-import { relatedNewsForPolicy, currentNewsJurisdictionCounts } from "@amp/backend/publication/news-links";
+import { relatedNewsForPolicy, cachedNewsJurisdictionCounts } from "@amp/backend/publication/news-links";
 import { POLICY_MODEL_BINDING_VERSION } from "./domain/model-evidence.ts";
 import { currentPolicyHeads } from "./domain/public-state.ts";
 import { policyLanguageOrder } from "./language.ts";
@@ -343,7 +343,8 @@ export async function policyScope(jurisdictions = false) {
       ...("parent" in j && j.parent ? { parent: j.parent } : {}),
     });
   if (jurisdictions) {
-    const news = await currentNewsJurisdictionCounts();
+    // Labels and scopes are the static dictionary; the news counts are a 60-second aggregate (TASK-0714).
+    const news = await cachedNewsJurisdictionCounts();
     return JURISDICTIONS.filter((j) => j.news_scope || j.policy_scope).map((j) => ({
       ...jurisdiction(j),
       news_scope: j.news_scope,
