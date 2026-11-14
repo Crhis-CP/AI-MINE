@@ -64,7 +64,7 @@ import { foldableSelectionCondition } from "./scope.ts";
 import { projectNewsGeography } from "./news-geography.ts";
 import { projectNewsLinks } from "./news-link-index.ts";
 import { withXArticle } from "../editorial/input.ts";
-import { analysisVersionOf } from "../editorial/analyze.ts";
+import { analysisRulesCurrent } from "../editorial/analyze.ts";
 import { quoteTranslatable, quoteTranslationRecipe } from "../editorial/post-translation.ts";
 import { postPermission, projectPostView } from "./post-view.ts";
 import { originalPostAdmissionRequired, originalPostProjectionAllowed } from "../lib/original-post-admission.ts";
@@ -480,9 +480,7 @@ export async function publishArticleTx(
 
   const post = withXArticle(article.x_post, article.x_article);
   const analysis =
-    storedAnalysis?.input_revision === article.revision && (!post || storedAnalysis.prompt_version === analysisVersionOf({ xPost: post }))
-      ? storedAnalysis
-      : undefined;
+    storedAnalysis?.input_revision === article.revision && (!post || analysisRulesCurrent(storedAnalysis, { xPost: post })) ? storedAnalysis : undefined;
   const currentPolicy = post ? await readCurrentPublicPolicy(source.id, tx) : null;
   const quotedTranslation = post?.quoted ? await readQuotedPostTranslation(source.id, post.quoted, quoteTranslationRecipe(), tx) : null;
   const postView = source.site_fulltext ? projectPostView(post, source.id, article.url, currentPolicy, quotedTranslation, now.getTime()) : null;

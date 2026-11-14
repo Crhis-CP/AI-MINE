@@ -4,10 +4,12 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial, type XPostData } from "@amp/backend/content/materials";
-import { analysisVersionOf, loadAnalyzeInput, tierThreshold } from "@amp/backend/editorial/analyze";
+import { analysisFingerprintOf, analysisVersionOf, analyzePromptVersion, loadAnalyzeInput, tierThreshold } from "@amp/backend/editorial/analyze";
+import { promptVersionsWithDictionary } from "../packages/backend/src/editorial/analysis-layout.ts";
+import { analysisPromptLayout } from "@amp/backend/config";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
 import { loadItemDetail, siteItemDetail, machineItemDetail, publicItemMetadata } from "@amp/backend/publication/detail";
-import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
+import { EARLIER_GEOGRAPHY_DICTIONARIES, validateGeography } from "../packages/backend/src/editorial/geography.ts";
 import { loadGroupReports } from "@amp/backend/publication/groups";
 import { loadStoryDetail } from "@amp/backend/publication/stories";
 import { fetchItemsByIds, toItemSummary } from "../packages/backend/src/publication/items.ts";
@@ -311,6 +313,38 @@ test("publication rechecks post geography against the same acquired long article
   await confirmGroupingFixture(item);
   await publishArticle(item);
   assert.deepEqual((await publicItemMetadata(item))?.jurisdictions, ["AR"]);
+});
+
+test("an original post keeps its copy when only the jurisdiction dictionary changed, and loses it when any other rule did (TASK-0653)", async () => {
+  const id = await source(),
+    text = "铜矿建设的原帖证据以及实施日期。",
+    item = await article(id, text),
+    input = (await loadAnalyzeInput(item))!;
+  const [stored] = await sql<{ output: { analysisFingerprint?: string } }[]>`SELECT output FROM analyses WHERE article_id=${item} ORDER BY id DESC LIMIT 1`;
+  assert.equal(stored!.output.analysisFingerprint, undefined, "the fixture stores an analysis made before fingerprints");
+  const restamp = async (version: string, fingerprint?: string) => {
+    await sql`UPDATE analyses SET prompt_version=${version},
+      output=(output - 'analysisFingerprint') || ${sql.json(fingerprint ? { analysisFingerprint: fingerprint } : {})}::jsonb
+      WHERE id=(SELECT max(id) FROM analyses WHERE article_id=${item})`;
+    await publishArticle(item);
+    const result = await loadItemDetail(item);
+    return result.kind === "found" ? result.detail.title : null;
+  };
+  const postRules = analysisVersionOf(input).slice(analyzePromptVersion().length);
+  assert.match(postRules, /^\+summarize-short-post\S*@[0-9a-f]+$/, "a post adds its writing rules");
+  const earlier = `${Object.values(promptVersionsWithDictionary(analysisPromptLayout(), EARLIER_GEOGRAPHY_DICTIONARIES[0]!)).join("+")}${postRules}`;
+  assert.notEqual(earlier, analysisVersionOf(input), "every shared step's version moves with the dictionary");
+  const title = await restamp(analysisVersionOf(input));
+  assert.equal(title, "合成作者的原帖");
+  // Stored before fingerprints, under the dictionary before the last addition, every other rule as now: still current.
+  assert.equal(await restamp(earlier), title);
+  // Stored with a fingerprint: compared on it, whatever dictionary the full version was made with.
+  assert.equal(await restamp("structure-shared@0123456789", analysisFingerprintOf(input)), title);
+  // Any other rule changed: the fingerprint differs, and so does the full version under every earlier dictionary.
+  assert.notEqual(await restamp(earlier, "without-dictionary@0000000000000000"), title);
+  assert.notEqual(await restamp(earlier.replace(/^[^@]+@[0-9a-f]{10}/, (step) => `${step.split("@")[0]}@0000000000`)), title);
+  assert.notEqual(await restamp(analysisVersionOf({ xPost: null })), title, "an article's version is not a post's");
+  assert.equal(await restamp(analysisVersionOf(input)), title, "the current version restores the copy");
 });
 
 async function authoredPostCopy(id: string, title: string, summary: string, privateTranslation?: string) {

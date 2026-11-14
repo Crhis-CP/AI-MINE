@@ -199,11 +199,9 @@ const STEP_FILES: Partial<Record<AnalysisStep, string[]>> = { summarize: ["summa
  * `<step>-shared@hash` over the rendered shared system, the acknowledgement, the step instruction and the recipe. The
  * shared system holds the rule set's rules, so every step's shared version differs between rule sets.
  */
-function sharedStepVersion(step: AnalysisStep, ruleset: SelectionRuleset): string {
+function sharedStepVersion(step: AnalysisStep, ruleset: SelectionRuleset, system = sharedAnalysisSystem(ruleset)): string {
   const hash = createHash("sha256")
-    .update(
-      stableJson([SHARED_RECIPE, sharedAnalysisSystem(ruleset), MATERIAL_ACKNOWLEDGEMENT, promptVersion(`analysis-step-${step}`, ...(STEP_FILES[step] ?? []))]),
-    )
+    .update(stableJson([SHARED_RECIPE, system, MATERIAL_ACKNOWLEDGEMENT, promptVersion(`analysis-step-${step}`, ...(STEP_FILES[step] ?? []))]))
     .digest("hex")
     .slice(0, 10);
   return `${stepNames(ruleset)[step]}-shared@${hash}`;
@@ -345,4 +343,55 @@ export function promptVersionsFor(layout: AnalysisPromptLayout, ruleset: Selecti
     versions.set(key, found);
   }
   return found;
+}
+
+// ── Dictionary-only changes (TASK-0653) ───────────────────────────────────────────────────
+
+/**
+ * Every step's version as it was recorded while the structure step's jurisdiction dictionary was `dictionary`, all
+ * other rules as they are now. The dictionary is one value inside the structure rules (STRUCTURE_CONFIG.jurisdictions);
+ * in the shared layout those rules are part of the one system prompt every step hashes, so a dictionary change moves
+ * every step's version although no step's rules changed. Same key order as promptVersionsFor (analysis versions join
+ * the values in order).
+ */
+export function promptVersionsWithDictionary(
+  layout: AnalysisPromptLayout,
+  dictionary: string,
+  ruleset: SelectionRuleset = selectionRuleset(),
+): Readonly<Record<AnalysisStep, string>> {
+  const current = promptVersionsFor(layout, ruleset);
+  if (dictionary === GEOGRAPHY_DICTIONARY) return current;
+  if (layout === "separate") return { ...current, structure: configuredPromptVersion("structure", { ...STRUCTURE_CONFIG, jurisdictions: dictionary }) };
+  const parts = sharedAnalysisSystem(ruleset).split(GEOGRAPHY_DICTIONARY);
+  if (parts.length !== 2) throw new Error("shared analysis prompt: the jurisdiction dictionary is not included exactly once");
+  const system = parts.join(dictionary);
+  return {
+    prefilter: sharedStepVersion("prefilter", ruleset, system),
+    score: `${sharedStepVersion("score", ruleset, system)}+weights@${WEIGHTS}`,
+    understand: sharedStepVersion("understand", ruleset, system),
+    summarize: sharedStepVersion("summarize", ruleset, system),
+    wording: sharedStepVersion("wording", ruleset, system),
+    structure: sharedStepVersion("structure", ruleset, system),
+  };
+}
+
+/** Stands in for the jurisdiction dictionary in the dictionary-free fingerprint. */
+const DICTIONARY_PLACEHOLDER = "〔法域词典〕";
+/** Bumped when what the dictionary-free fingerprint hashes changes. */
+const FINGERPRINT_RECIPE = "analysis-without-dictionary-v1";
+
+/**
+ * The analysis rules with the jurisdiction dictionary left out (TASK-0653): every step's version with a fixed
+ * placeholder in the dictionary's place, hashed, plus `extra` (the X-post writing rules, analyze.ts). Stored on each new
+ * analysis so that a later dictionary change (a country or province added) does not count as a change of the rules an
+ * original post's copy was written under. It is only that compatibility check's key: the score gate, receipts and
+ * judgement reuse keep the full versions.
+ */
+export function analysisFingerprint(layout: AnalysisPromptLayout, extra: string | null = null, ruleset: SelectionRuleset = selectionRuleset()): string {
+  const versions = promptVersionsWithDictionary(layout, DICTIONARY_PLACEHOLDER, ruleset);
+  const hash = createHash("sha256")
+    .update(stableJson([FINGERPRINT_RECIPE, layout, Object.values(versions), extra]))
+    .digest("hex")
+    .slice(0, 16);
+  return `without-dictionary@${hash}`;
 }

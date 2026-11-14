@@ -41,6 +41,12 @@ const ADDED_CODES = new Set(["BR"]);
 const PREVIOUS_ROWS = JURISDICTIONS.filter((j) => !ADDED_CODES.has(j.id));
 export const GEOGRAPHY_DICTIONARY = dictionaryText(JURISDICTIONS);
 const PREVIOUS_DICTIONARY = dictionaryText(PREVIOUS_ROWS);
+/**
+ * The jurisdiction dictionaries analyses were made with before the current one, newest first (TASK-0653): an analysis
+ * stored before a dictionary addition still counts as made under the current rules when only the dictionary differs.
+ * A code added to ADDED_CODES adds the dictionary before it here.
+ */
+export const EARLIER_GEOGRAPHY_DICTIONARIES: readonly string[] = [PREVIOUS_DICTIONARY];
 type Aliases = Map<string, Set<string>>;
 function baseAliases(rows: readonly DictionaryRow[]): Aliases {
   const aliases: Aliases = new Map();
