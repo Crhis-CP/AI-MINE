@@ -233,8 +233,16 @@ export function mergeReleaseRecords(base: Changelog, records: ReleaseRecord[]): 
       b.date.localeCompare(a.date) ||
       (a.time === undefined && b.time === undefined ? 0 : a.time === undefined ? -1 : b.time === undefined ? 1 : b.time.localeCompare(a.time)),
   );
-  const first = releases[0]!;
-  return validateChangelog({ latestVersion: first.time ? `${first.date}T${first.time}` : first.date, releases });
+  // The release note accumulates while a batch is in flight, so two releases can register the same note: the later one
+  // with every earlier line and more. Readers see it once, at its latest time (Owner 2026-11-14, the 11-13/11-14 repeat).
+  const shown = releases.filter(
+    (release, i) =>
+      !releases
+        .slice(0, i)
+        .some((newer) => newer.kind === release.kind && newer.title === release.title && release.body.every((line) => newer.body.includes(line))),
+  );
+  const first = shown[0]!;
+  return validateChangelog({ latestVersion: first.time ? `${first.date}T${first.time}` : first.date, releases: shown });
 }
 
 /** Called only by the deployment/maintenance command while the shared host release lock is held. */

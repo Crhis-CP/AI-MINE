@@ -2,7 +2,7 @@
 
 /* This sheet is linked by every page: tokens, base styles and what the whole site shares. A page's own styles live
    beside it and are imported by its module, so only that page links them (TASK-0715): the regulation review page in
-   modules/policy/web/features/policy-review.css, the About flow in features/about/pipeline-flow.css, the changelog's
+   modules/policy/web/features/policy-review.css, the changelog's
    pipeline screen in features/changelog/changelog-flow.css, and the admin console's look in private.css. */
 
 /* ---------------------------------------------------------------------------
@@ -176,19 +176,19 @@
   /* Dark is a warm, slightly golden charcoal, not black, and the text a soft cream: easier on the eyes at night (Owner 2026-11-13).
      Body text stays above 10:1 on the page, the quietest text above 5:1. */
   color-scheme: dark;
-  --bg: #28231a;
-  --bg-sunk: #2d281e;
-  --bg-muted: #383125;
-  --surface: #312b20;
-  --surface-2: #352f23;
-  --raised: #3c3528;
-  --sidebar: #2b261c;
-  --daybar: #2d281e;
+  --bg: #15130f;
+  --bg-sunk: #1a1814;
+  --bg-muted: #24211b;
+  --surface: #1c1914;
+  --surface-2: #201d18;
+  --raised: #26221c;
+  --sidebar: #181611;
+  --daybar: #1a1814;
   --field: rgba(255, 255, 255, 0.06);
-  --ink: #e4ded2;
-  --ink-2: #d3ccbe;
-  --ink-3: #b3ab9b;
-  --ink-4: #afa795;
+  --ink: #ece6da;
+  --ink-2: #d9d2c4;
+  --ink-3: #ada595;
+  --ink-4: #948c7d;
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.12);
   --line-soft: rgba(255, 255, 255, 0.06);
@@ -210,14 +210,14 @@
   --rank-1: #d86a52;
   --rank-2: #d18a5e;
   --rank-3: #d3b26a;
-  --rank-rest: #a09888;
+  --rank-rest: #958d80;
   --shadow-card: none;
   --shadow-card-hover: none;
-  --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.28);
+  --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.35);
   --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.45);
-  --prose-ink: #d8d1c3;
-  --code-bg: #231f17;
+  --prose-ink: #ddd6c8;
+  --code-bg: #12100d;
   --selection: rgba(226, 176, 79, 0.22);
   --lang-zh: #e48a6e;
   --lang-en: #8aaedb;
@@ -902,131 +902,5 @@
 @media (prefers-reduced-motion: reduce) {
   [data-arrived] {
     animation: none;
-  }
-}
-
-/* ---------------------------------------------------------------------------
-   Opening animation (TASK-0628). The boot script sets html.intro before the first paint; without it the screen
-   does not exist. It leaves by its own CSS after 4.6s even if no script runs afterwards, and the boot script itself takes
-   html.intro away at 5.6s, so the page scrolls again even when the app never loads (TASK-0641).
-   --------------------------------------------------------------------------- */
-.intro-screen {
-  display: none;
-}
-html.intro .intro-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  color: #f5efe2;
-  background: radial-gradient(circle at 50% 50%, #1a1408, #0b0906 65%);
-  animation: intro-leave 0.85s cubic-bezier(0.7, 0, 0.2, 1) 4.6s forwards;
-}
-html.intro.intro-out .intro-screen {
-  animation: intro-leave 0.85s cubic-bezier(0.7, 0, 0.2, 1) forwards;
-}
-html.intro {
-  overflow: hidden;
-}
-.intro-skip {
-  position: absolute;
-  right: 18px;
-  top: calc(14px + env(safe-area-inset-top));
-  z-index: 2;
-  border: 1px solid rgba(226, 176, 79, 0.25);
-  border-radius: 999px;
-  padding: 5px 14px;
-  font-size: 12.5px;
-  color: #a99f8c;
-}
-.intro-mark {
-  margin: 0 auto;
-  border-radius: 28px;
-  opacity: 0;
-  transform: scale(0.2) rotate(-200deg);
-  animation: intro-mark 1.5s cubic-bezier(0.2, 1, 0.3, 1) 0.9s forwards;
-}
-.intro-name {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-  gap: 0.02em;
-  font-size: 46px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-.intro-name span {
-  display: inline-block;
-  opacity: 0;
-  transform: translateY(26px) scale(1.25);
-  filter: blur(10px);
-  background: linear-gradient(180deg, #fff3d6, #e2b04f 65%, #8a5a17);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: intro-letter 0.7s cubic-bezier(0.2, 1, 0.3, 1) forwards;
-}
-.intro-line {
-  margin-top: 10px;
-  padding-left: 0.42em;
-  font-size: 15px;
-  letter-spacing: 0.42em;
-  color: #c9bfab;
-  opacity: 0;
-  animation: intro-fade 0.8s ease 2.5s forwards;
-}
-.intro-rule {
-  position: absolute;
-  left: 50%;
-  bottom: -44px;
-  width: 0;
-  height: 1px;
-  transform: translateX(-50%);
-  background: linear-gradient(90deg, transparent, #f6d48a, transparent);
-  animation: intro-rule 1s ease 2.4s forwards;
-}
-@keyframes intro-mark {
-  60% {
-    opacity: 1;
-  }
-  to {
-    opacity: 1;
-    transform: none;
-    filter: drop-shadow(0 0 34px rgba(226, 176, 79, 0.75));
-  }
-}
-@keyframes intro-letter {
-  to {
-    opacity: 1;
-    transform: none;
-    filter: none;
-  }
-}
-@keyframes intro-fade {
-  to {
-    opacity: 1;
-  }
-}
-@keyframes intro-rule {
-  to {
-    width: 260px;
-  }
-}
-@keyframes intro-leave {
-  to {
-    transform: translateY(-100%);
-    opacity: 0.4;
-    visibility: hidden;
-  }
-}
-@media (max-width: 640px) {
-  .intro-name {
-    font-size: 38px;
-  }
-  .intro-mark {
-    width: 108px;
-    height: 108px;
   }
 }

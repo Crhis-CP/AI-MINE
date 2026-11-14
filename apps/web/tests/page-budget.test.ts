@@ -84,7 +84,7 @@ test("the phone search layer is its own chunk, loaded on first open", () => {
   assert.equal(assets.filter((file) => /^SearchPanel-[\w-]+\.js$/.test(file)).length, 1);
 });
 
-test("regulation, About and changelog styles travel with their pages; admin styles stay in the admin build", () => {
+test("regulation and changelog styles travel with their pages; admin styles stay in the admin build", () => {
   const built = manifest("public");
   const sheets = (id: string) => firstLoad(built, id, readPublic).files.filter((file) => file.endsWith(".css"));
   // The admin build is served under /admin/, so its manifest names files with that prefix.
@@ -92,8 +92,7 @@ test("regulation, About and changelog styles travel with their pages; admin styl
   const [root] = built.routes.root!.css ?? [];
   assert.ok(root, "the public root links its sheet");
   const site = text("public", root);
-  for (const marker of [".pr-page", ".pf-box", ".flow-screen", ".notice-sheen", ".admin-night"])
-    assert.ok(!site.includes(marker), `site sheet carries ${marker}`);
+  for (const marker of [".pr-page", ".flow-screen", ".notice-sheen", ".admin-night"]) assert.ok(!site.includes(marker), `site sheet carries ${marker}`);
   const policy = sheets("routes/policy").filter((file) => file !== root);
   const about = sheets("routes/about").filter((file) => file !== root);
   const changelog = sheets("routes/changelog").filter((file) => file !== root);
@@ -101,10 +100,10 @@ test("regulation, About and changelog styles travel with their pages; admin styl
   assert.equal(changelog.length, 1);
   assert.match(text("public", changelog[0]!), /\[data-theme=dark\] \.flow-screen\{/);
   assert.match(text("public", changelog[0]!), /@media \(prefers-reduced-motion:reduce\)\{[^}]*\.flow-comet/);
-  assert.equal(about.length, 1);
+  // The About page went back to its earlier version (Owner 2026-11-14), which needs nothing beyond the site sheet.
+  assert.deepEqual(about, []);
   assert.match(text("public", policy[0]!), /\[data-theme=dark\] \.pr-page\{/);
   assert.match(text("public", policy[0]!), /@container pr \(width>=840px\)/);
-  assert.match(text("public", about[0]!), /@container pf \(width>=56rem\)/);
   for (const id of Object.keys(CEILINGS)) assert.deepEqual(sheets(id), [root], `${id} links only the site sheet`);
 
   const admin = manifest("private");
@@ -112,5 +111,5 @@ test("regulation, About and changelog styles travel with their pages; admin styl
   assert.ok(adminRoot, "the admin root links its sheet");
   const adminSheet = text("private", adminRoot);
   assert.ok(adminSheet.includes(".admin-night{"), "admin sheet keeps the night-and-gold look");
-  for (const marker of [".pr-page", ".pf-box", ".flow-screen"]) assert.ok(!adminSheet.includes(marker), `admin sheet carries ${marker}`);
+  for (const marker of [".pr-page", ".flow-screen"]) assert.ok(!adminSheet.includes(marker), `admin sheet carries ${marker}`);
 });
