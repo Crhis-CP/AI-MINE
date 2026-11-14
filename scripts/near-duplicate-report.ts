@@ -26,7 +26,11 @@ export async function collect(days: number): Promise<MatchRow> {
         SELECT DISTINCT ON (article_id) article_id, match_article_id FROM enrichment.near_duplicates
         WHERE computed_at > pg_catalog.clock_timestamp() - make_interval(days => ${days}) ORDER BY article_id, input_revision DESC
       ), membership AS (
-        SELECT fa.article_id, fa.fact_id, f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id WHERE fa.role IN ('primary', 'report')
+        -- Grouping that holds for the article's current revision, as publication reads it: a manual link, or an automatic
+        -- one for this revision that is not waiting to be regrouped (events/group.ts trusted()).
+        SELECT fa.article_id, fa.fact_id, f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id JOIN articles a ON a.id = fa.article_id
+        WHERE fa.role IN ('primary', 'report')
+          AND (fa.manual OR (fa.input_revision = a.revision AND NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = fa.article_id)))
       ), judged AS (
         SELECT r.article_id,
           EXISTS (SELECT 1 FROM membership a JOIN membership b ON a.fact_id = b.fact_id WHERE a.article_id = r.article_id AND b.article_id = r.match_article_id) AS same_fact,

@@ -100,21 +100,27 @@ export async function recordNearDuplicate(
   const hash = simhash(a.bodyText),
     keys = bands(hash),
     titleKey = normaliseText(a.title).slice(0, 300);
-  const candidates = await sql<{ article_id: string; simhash: string; title_key: string }[]>`
-    SELECT DISTINCT ON (article_id) article_id, simhash::text AS simhash, title_key FROM enrichment.near_duplicates
-    WHERE computed_at > pg_catalog.clock_timestamp() - make_interval(days => ${WINDOW_DAYS})
-      AND source_id <> ${a.sourceId} AND article_id <> ${a.id}
-      AND bands && ${keys}::integer[]
-    ORDER BY article_id, input_revision DESC
-    LIMIT 500`;
+  // Distance is computed in SQL, so the limit applies only to articles already within MAX_DISTANCE (closest first);
+  // the title check, which needs the normalised title, runs on those.
+  const candidates = await sql<{ article_id: string; distance: number; title_key: string }[]>`
+    SELECT article_id, distance, title_key FROM (
+      SELECT DISTINCT ON (article_id) article_id, title_key,
+        bit_count((simhash # ${signed(hash).toString()}::bigint)::bit(64))::int AS distance
+      FROM enrichment.near_duplicates
+      WHERE computed_at > pg_catalog.clock_timestamp() - make_interval(days => ${WINDOW_DAYS})
+        AND source_id <> ${a.sourceId} AND article_id <> ${a.id}
+        AND bands && ${keys}::integer[]
+      ORDER BY article_id, input_revision DESC
+    ) latest
+    WHERE distance <= ${MAX_DISTANCE}
+    ORDER BY distance, article_id
+    LIMIT 200`;
   let match: NearDuplicateMatch | null = null;
   for (const c of candidates) {
-    const distance = hammingDistance(hash, BigInt(c.simhash));
-    if (distance > MAX_DISTANCE) continue;
     const similarity = titleSimilarity(titleKey, c.title_key);
     if (similarity < TITLE_SIMILARITY) continue;
-    if (!match || distance < match.distance || (distance === match.distance && similarity > match.titleSimilarity))
-      match = { articleId: c.article_id, distance, titleSimilarity: Math.round(similarity * 1000) / 1000 };
+    if (!match || c.distance < match.distance || (c.distance === match.distance && similarity > match.titleSimilarity))
+      match = { articleId: c.article_id, distance: c.distance, titleSimilarity: Math.round(similarity * 1000) / 1000 };
   }
   await sql`INSERT INTO enrichment.near_duplicates
       (article_id, input_revision, source_id, simhash, bands, title_key, recipe, match_article_id, match_distance, match_title_similarity)

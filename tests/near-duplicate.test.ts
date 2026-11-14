@@ -2,7 +2,15 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
-import { bands, hammingDistance, MAX_DISTANCE, recordNearDuplicate, simhash, titleSimilarity } from "../packages/backend/src/editorial/near-duplicate.ts";
+import {
+  bands,
+  hammingDistance,
+  MAX_DISTANCE,
+  NEAR_DUPLICATE_RECIPE,
+  recordNearDuplicate,
+  simhash,
+  titleSimilarity,
+} from "../packages/backend/src/editorial/near-duplicate.ts";
 import { collect, render } from "../scripts/near-duplicate-report.ts";
 
 after(closeDb);
@@ -91,6 +99,26 @@ test("record only: a later reprint from another source points at the earlier one
   // Outside the window: no match.
   await sql`UPDATE enrichment.near_duplicates SET computed_at = now() - interval '15 days' WHERE article_id IN (${first.id}, ${reprint.id}, ${article("c")}, ${article("d")}, ${article("e")})`;
   assert.equal(await recordNearDuplicate({ ...reprint, id: article("h"), sourceId: `src-h-${id}` }), null);
+});
+
+test("many far articles sharing a band do not crowd out a true reprint (distance is filtered before the limit)", async () => {
+  const id = tag(),
+    body = `${wire}批次${id}`,
+    hash = simhash(body);
+  // 600 articles (more than any limit) from other sources share the first band but are 20+ bits away; their ids sort before the reprint's.
+  const far = Array.from({ length: 600 }, (_, i) => {
+    let value = hash;
+    for (let bit = 10; bit < 64; bit += 2) value ^= 1n << BigInt(bit);
+    value ^= BigInt(i) << 40n;
+    return { article_id: `a-far-${id}-${String(i).padStart(3, "0")}`, simhash: BigInt.asIntN(64, value) };
+  });
+  for (const row of far)
+    await sql`INSERT INTO enrichment.near_duplicates (article_id, input_revision, source_id, simhash, bands, title_key, recipe)
+      VALUES (${row.article_id}, 1, ${`src-far-${id}`}, ${row.simhash.toString()}, ${bands(row.simhash)}::integer[], '紫金矿业卡莫阿铜矿三期选厂带料试车', ${NEAR_DUPLICATE_RECIPE})`;
+  const original = { id: `z-orig-${id}`, revision: 1, sourceId: `src-o-${id}`, title: "紫金矿业卡莫阿铜矿三期选厂带料试车", bodyText: body, xPost: null };
+  await recordNearDuplicate(original);
+  const match = await recordNearDuplicate({ ...original, id: `z-copy-${id}`, sourceId: `src-c-${id}`, bodyText: `转载：${body}` });
+  assert.equal(match?.articleId, original.id);
 });
 
 test("the report counts matches, their events and the would-be saving read-only", async () => {
