@@ -41,6 +41,13 @@ export interface PolicyMetadataObservation {
   };
 }
 
+/** The document type observed with one stored revision; the regate command reads it for documents published before the instrument gate. */
+export async function observedPolicyDocumentType(revisionId: string): Promise<string | null> {
+  const [row] = await sql<{ type: string | null }[]>`SELECT metadata->>'documentType' AS type FROM policy.metadata_observations
+    WHERE document_revision_id=${revisionId} ORDER BY observed_at DESC,id DESC LIMIT 1`;
+  return row?.type ?? null;
+}
+
 /** Trusted private getter; only program-captured observations tied to real material rows are returned. */
 export async function readPolicyMetadataObservation(expressionId: string): Promise<PolicyMetadataObservation | null> {
   const [row] = await sql<

@@ -685,6 +685,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610131500_metal_prices_cochilco.sql"],
       },
       {
+        name: "publication/202611071300_policy_instrument_gate.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610090500_policy_publication.sql"],
+      },
+      {
         name: "events/202611071400_report_group_check_outcome.sql",
         module: "events",
         schemas: ["events"],
@@ -717,6 +723,18 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
           "publication/202610260847_original_post_projection.sql",
           "enrichment/202611081000_english_copies.sql",
         ],
+      },
+      {
+        name: "sources/202611111000_interval_pinned.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202611071401_public_processing_projection.sql"],
+      },
+      {
+        name: "ai-gateway/202611121000_swipe_calibration.sql",
+        module: "ai-gateway",
+        schemas: ["ai"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610180700_model_service_circuits.sql"],
       },
       {
         name: "acquisition/202611130408_robots_failures.sql",

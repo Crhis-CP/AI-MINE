@@ -23,7 +23,7 @@ export type PolicyStage = (typeof POLICY_STAGES)[number];
 export type PolicyJob = { lane: "policy"; sourceId: string; materialId: string; crawlSessionId?: string; directoryHash?: string };
 export type PublishResult =
   | { status: "published"; mode: "basic_facts" | "complete"; policyId: string; editionId: string; pending?: "quality" | "interpretation" }
-  | { status: "pending"; reason: "identity" | "permission" | "paused" | "withdrawn" | "stale" };
+  | { status: "pending"; reason: "identity" | "permission" | "paused" | "withdrawn" | "stale" | "not_instrument"; detail?: string };
 export interface PolicyAutomationPorts {
   publish: (input: { expressionId: string; fulltextRunId?: string }) => Promise<PublishResult>;
   capture?: typeof capturePolicyMaterial;
@@ -113,6 +113,8 @@ export async function advancePolicyMaterial(
     const basic = await ports.publish({ expressionId: capture.expressionId });
     if (basic.status === "pending" && basic.reason === "paused" && !capture.fulltextAllowed) return save(row, "publish", "pending", "公开已暂停", 1);
     if (basic.status === "pending" && basic.reason === "withdrawn") return save(row, "acquire", basic.reason, null, interval);
+    // Not a final, mining-related legal instrument (TASK-0576): archived and rechecked, never sent to a paid stage.
+    if (basic.status === "pending" && basic.reason === "not_instrument") return save(row, "acquire", "not_instrument", basic.detail ?? null, interval);
     if (!capture.fulltextAllowed) return save(row, "acquire", "permission", "全文用途未获准，保留独立基本事实", interval);
     if (!changed && finished.has(previousStatus)) {
       const result = await ports.publish({ expressionId: capture.expressionId, ...(row.fulltext_run_id ? { fulltextRunId: row.fulltext_run_id } : {}) });

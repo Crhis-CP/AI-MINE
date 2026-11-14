@@ -173,6 +173,8 @@ export async function updateSource(
       name = CASE WHEN ${Object.hasOwn(patch, "name")} THEN ${patch.name ?? null} ELSE name END,
       enabled = CASE WHEN ${Object.hasOwn(patch, "enabled")} THEN ${patch.enabled ?? null} ELSE enabled END,
       interval_minutes = CASE WHEN ${Object.hasOwn(patch, "interval_minutes")} THEN ${patch.interval_minutes ?? null} ELSE interval_minutes END,
+      -- An interval a person sets stays: the nightly tuning (adaptIntervals) skips pinned sources (TASK-0609).
+      interval_pinned = interval_pinned OR ${Object.hasOwn(patch, "interval_minutes")},
       tier = CASE WHEN ${Object.hasOwn(patch, "tier")} THEN ${patch.tier ?? null} ELSE tier END,
       participation_mode = CASE WHEN ${Object.hasOwn(patch, "participation_mode")} THEN ${patch.participation_mode ?? null} ELSE participation_mode END,
       first_party = CASE WHEN ${Object.hasOwn(patch, "first_party")} THEN ${patch.first_party ?? null} ELSE first_party END,

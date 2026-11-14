@@ -86,6 +86,8 @@ test("every real role has exactly the approved table, column, sequence and cross
       "ai.selection_samples",
       "ai.selection_submissions",
       "ai.selection_tool_control",
+      "ai.swipe_answers",
+      "ai.swipe_cards",
       "ai.translation_receipt_observations",
       "ai.usage_attempts",
       "ai.usage_breakers",

@@ -1,7 +1,7 @@
 import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
 import { modelSourceDate, modelSourceDateLabel } from "./source-time.ts";
 import { beginMaterialGrouping } from "../content/grouping.ts";
-export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "../enrichment/records.ts";
+export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies, swipeJudgments, type SwipeJudgment } from "../enrichment/records.ts";
 import { ModelContentFiltered } from "../providers/model-fallback.ts";
 import { evaluateSourcePolicy, readCurrentSourcePolicy } from "../admin/sources.ts";
 import { prepareNewsFallback, lockNewsProcessingPermissions, type NewsFallbackInput } from "../providers/news-fallback.ts";

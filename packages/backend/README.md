@@ -245,6 +245,8 @@ Cochilco 可通过 `METAL_PRICE_RELAY_URL` 使用限定来源的 HTTPS 取件服
 
 列式披露配置使用 `itemsShape: "columns"`，所有列必须等长，按同行配对标题、日期与文件。`includeValues: {path, values}` 限定需要的文书类型；`titleTemplate` 可使用 `{raw:字段}` 组合原始字段。URL 中 `{compact:字段}` 仅接受数字和连字符，并去掉连字符，适用于已核实规则的公告编号；它不证明生成的地址可访问，真实预览仍需检查。列长度异常会失败，不错配下一行日期。
 
+列表项把整条记录放在一个 JSON 字符串字段里时（如 SAIJ 检索结果的 `documentAbstract`），配置 `itemJsonPath: "documentAbstract"`：先解析该字符串，标题、网址、日期、筛选等路径都从解析后的记录读取；字符串缺失或解析失败的项跳过，一页里没有任何一项能解析时报错，不当作空列表。`titleTemplate` 也可写成数组，按顺序取第一个所有字段都有值的模板（例如先“种类 编号（省名）— 标题”，没有省名再用不带省名的写法）。
+
 无时区的发布时间只有在 `sourceDate.timezone` 与真实 `timezoneEvidence` 已配置时才转成确定时刻；只有日期的来源保持日期精度。缺少时区不会按服务器所在地补造。
 
 

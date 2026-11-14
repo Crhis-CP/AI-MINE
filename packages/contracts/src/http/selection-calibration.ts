@@ -190,6 +190,48 @@ export const PrefilterAuditLabelRequest = SelectionCommand.extend({
   decision: PrefilterAuditDecision,
   note: z.string().max(4000),
 });
+// Swipe calibration desk (TASK-0621, Owner 2026-11-09): one question per card, three answers. A deck is dealt once
+// per Beijing day and keeps a copy of what the system had decided when it was dealt.
+export const SwipeAnswerValue = z.enum(["no", "yes", "star"]);
+export const SwipeCardKind = z.enum(["near_miss", "near_pass", "split", "blocked", "recheck"]);
+export const SwipeSystemDecision = z.enum(["selected", "kept", "blocked"]);
+export const SwipeReason = z.enum(["important", "off_topic", "minor", "duplicate", "wrong_category"]);
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+/** `answer: null` is an answer taken back (undo): the card is open again. */
+export const SwipeAnswer = z.strictObject({
+  answer: SwipeAnswerValue.nullable(),
+  reasons: z.array(SwipeReason).max(5),
+  revision: z.number().int().positive(),
+  at: time,
+});
+export const SwipeCard = z.strictObject({
+  position: z.number().int().nonnegative(),
+  articleId: text,
+  kind: SwipeCardKind,
+  title: z.string(),
+  preview: z.string(),
+  sourceName: z.string(),
+  category: z.string().nullable(),
+  discoveredAt: time.nullable(),
+  system: SwipeSystemDecision,
+  score: z.number().nullable(),
+  threshold: z.number().nullable(),
+  answer: SwipeAnswer.nullable(),
+});
+/** The last seven Beijing days of answers against what the system had decided. */
+export const SwipeSummary = z.strictObject({
+  days: z.number().int().nonnegative(),
+  answered: z.number().int().nonnegative(),
+  no: z.number().int().nonnegative(),
+  yes: z.number().int().nonnegative(),
+  star: z.number().int().nonnegative(),
+  missed: z.number().int().nonnegative(),
+  extra: z.number().int().nonnegative(),
+  widened: z.number().int().nonnegative(),
+});
+export const SwipeDeck = z.strictObject({ day, dealt: z.boolean(), cards: z.array(SwipeCard), summary: SwipeSummary });
+export const SwipeDealRequest = z.strictObject({ requestId: z.uuid() });
+export const SwipeAnswerRequest = SelectionCommand.extend({ answer: SwipeAnswerValue.nullable(), reasons: z.array(SwipeReason).max(5) });
 export const selectionCalibrationSchemas = {
   SelectionToolState,
   SelectionToolRequest,
@@ -212,6 +254,16 @@ export const selectionCalibrationSchemas = {
   PrefilterAuditView,
   PrefilterAuditDrawRequest,
   PrefilterAuditLabelRequest,
+  SwipeAnswerValue,
+  SwipeCardKind,
+  SwipeSystemDecision,
+  SwipeReason,
+  SwipeAnswer,
+  SwipeCard,
+  SwipeSummary,
+  SwipeDeck,
+  SwipeDealRequest,
+  SwipeAnswerRequest,
 };
 const errors = {
   400: ProblemResponse,
@@ -290,6 +342,26 @@ export const selectionCalibrationRoutes = {
       params: z.strictObject({ articleId: z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/) }),
       body: PrefilterAuditLabelRequest,
       response: { 200: PrefilterAuditLabel, ...errors },
+    },
+  },
+  swipeDeck: {
+    method: "GET" as const,
+    url: "/api/admin/selectbench/swipe",
+    schema: { operationId: "swipeDeck", response: { 200: SwipeDeck, ...errors } },
+  },
+  swipeDeal: {
+    method: "POST" as const,
+    url: "/api/admin/selectbench/swipe",
+    schema: { operationId: "swipeDeal", body: SwipeDealRequest, response: { 200: SwipeDeck, ...errors } },
+  },
+  swipeAnswer: {
+    method: "POST" as const,
+    url: "/api/admin/selectbench/swipe/:day/:articleId",
+    schema: {
+      operationId: "swipeAnswer",
+      params: z.strictObject({ day, articleId: z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/) }),
+      body: SwipeAnswerRequest,
+      response: { 200: SwipeAnswer, ...errors },
     },
   },
 };
