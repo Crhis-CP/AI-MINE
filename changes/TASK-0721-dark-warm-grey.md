@@ -1,6 +1,6 @@
 ---
 type: 优化
-audience: 读者
+audience: 运营
 title: 深色模式换成深灰微暖
 highlights:
   - 深色模式的底色换成深灰微暖：比原来亮一档，不发棕，金色更醒目，夜里看不刺眼。
