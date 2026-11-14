@@ -11,7 +11,7 @@ import type { ReportGroupedSiteItemDetail as SiteItemDetail } from "@amp/contrac
  * Readers see the same page as before.
  */
 export interface DeferredBody {
-  /** The site API address the page's language reads from (no reading-group capability: the body is all it needs). */
+  /** The site API address the page's language reads from, with the same reading-group capability as the page. */
   path: string;
   /** Which languages the API holds for this page, so the page can lay out the body section before it arrives. */
   zh: boolean;

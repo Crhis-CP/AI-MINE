@@ -286,7 +286,7 @@ test("a body that does not arrive offers a retry and the original link (TASK-067
   const { context, page, errors } = await open(390);
   try {
     let fail = true;
-    await page.route("**/api/site/items/translated", (route) => (fail ? route.fulfill({ status: 503, body: "{}" }) : route.continue()));
+    await page.route("**/api/site/items/translated?**", (route) => (fail ? route.fulfill({ status: 503, body: "{}" }) : route.continue()));
     await page.goto(`${origin}/items/translated`);
     const pending = page.locator('[data-body-pending="failed"]');
     await expect(pending.getByText("正文暂时没有加载出来。")).toBeVisible();

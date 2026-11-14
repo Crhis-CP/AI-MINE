@@ -37,7 +37,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       const value = await apiGet<SiteItemDetail>(`/api/site/items/${encodeURIComponent(params.id)}?readingGroups=reports-v1`, { signal: request.signal });
       XPostDetailFields.parse(value.x === undefined ? {} : { x: value.x });
       const item = { ...value, ...ReportGroupDetailFields.parse(value.reportGroup === undefined ? {} : { reportGroup: value.reportGroup }) };
-      return withoutBody(item, `/api/site/items/${encodeURIComponent(params.id)}`);
+      return withoutBody(item, `/api/site/items/${encodeURIComponent(params.id)}?readingGroups=reports-v1`);
     },
     { signal: request.signal },
   );

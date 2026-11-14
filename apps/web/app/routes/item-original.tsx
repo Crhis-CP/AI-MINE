@@ -14,7 +14,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       });
       XPostDetailFields.parse(value.x === undefined ? {} : { x: value.x });
       const item = { ...value, ...ReportGroupDetailFields.parse(value.reportGroup === undefined ? {} : { reportGroup: value.reportGroup }) };
-      return withoutBody(item, `/api/site/items/${encodeURIComponent(params.id)}/original`);
+      return withoutBody(item, `/api/site/items/${encodeURIComponent(params.id)}/original?readingGroups=reports-v1`);
     },
     { signal: request.signal },
   );
