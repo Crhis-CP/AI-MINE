@@ -465,14 +465,15 @@ export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDU
 }
 
 /**
- * Daily: adapt each source's interval to its recent output (active 15 min … quiet 120 min).
- * hot_signal sources are allowed to be slower.
+ * Daily: adapt each news source's interval to its recent output: 15 minutes for a busy one up to 60 for a quiet one
+ * (60 to 120 for a listing read through the paid reader, up to 180 for a hot signal). The interval in the catalogue is
+ * only where a source starts. One a person set in the admin console is pinned and left alone (TASK-0609).
  */
 export async function adaptIntervals(): Promise<{ updated: number }> {
   const rows = await sql<Array<Pick<SourceRow, "id" | "participation_mode"> & { paid_listing: boolean; per_day: number }>>`
     SELECT s.id, s.participation_mode, coalesce(s.config->>'url', '') LIKE 'https://r.jina.ai/%' AS paid_listing,
       (SELECT count(*) FROM articles a WHERE a.source_id = s.id AND a.discovered_at > now() - interval '7 days' AND NOT a.backfill) / 7.0 AS per_day
-    FROM sources s WHERE s.enabled AND s.lane = 'news' AND s.kind IN ('rss', 'web_list', 'json_list')`;
+    FROM sources s WHERE s.enabled AND s.lane = 'news' AND NOT s.interval_pinned AND s.kind IN ('rss', 'web_list', 'json_list')`;
   let updated = 0;
   for (const r of rows) {
     const perDay = Number(r.per_day);

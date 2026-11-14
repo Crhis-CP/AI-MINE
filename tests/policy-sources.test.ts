@@ -2,9 +2,13 @@
 // Config validation is offline; a historical ready status with a hold is not permission to activate a source.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { POLICY_JURISDICTIONS } from "@amp/industry/jurisdictions";
 import {
+  ALL_POLICY_SOURCES,
+  POLICY_PUBLISHER_KINDS,
+  assertPolicyPublisherKinds,
   POLICY_SOURCES,
   POLICY_SOURCE_ROLES,
   POLICY_SOURCE_STATUSES,
@@ -148,4 +152,64 @@ test("known prohibitions and unverified corrected configurations cannot be activ
   }
   for (const id of ["CN-004", "EC-001", "BO-003", "PE-002", "CH-001", "EU-001", "UZ-001", "RS-002"])
     assert.ok(POLICY_SOURCES.find((s) => s.id === id)?.hold, `${id}: old receipts do not verify the corrected configuration`);
+});
+
+test("every entry names who publishes it, from the closed list of official publishers; loading rejects anything else (TASK-0576)", () => {
+  assert.equal(ALL_POLICY_SOURCES.length, 158, "the Owner's 156 entries and the CN-P01 and AR-P01 (SAIJ, TASK-0603) additions");
+  const counts: Record<string, number> = {};
+  for (const s of ALL_POLICY_SOURCES) {
+    assert.ok(POLICY_PUBLISHER_KINDS.includes(s.publisher_kind), `${s.id}: publisher_kind ${s.publisher_kind}`);
+    counts[s.publisher_kind] = (counts[s.publisher_kind] ?? 0) + 1;
+  }
+  assert.deepEqual(counts, { official_law_database: 45, government: 11, ministry: 24, official_gazette: 39, regulator: 33, legislature: 6 });
+  assert.throws(() => assertPolicyPublisherKinds([{ id: "XX-001" }]), /XX-001: publisher_kind null/);
+  assert.throws(() => assertPolicyPublisherKinds([{ id: "XX-002", publisher_kind: "news_media" }]), /XX-002/);
+  assert.throws(() => assertPolicyPublisherKinds([{ id: "XX-003", publisher_kind: "private_database" }]), /XX-003/);
+  // Assignments follow each entry's own type, authority and host evidence.
+  const kind = (id: string) => ALL_POLICY_SOURCES.find((s) => s.id === id)!.publisher_kind;
+  assert.deepEqual(
+    ["AR-001", "AR-007", "AR-008", "AR-010", "CN-002", "CN-003", "CN-P01", "SR-002", "CO-004", "AR-003", "AU-001", "TZ-002", "AR-P01"].map(kind),
+    [
+      "official_gazette",
+      "official_gazette",
+      "official_gazette",
+      "official_gazette",
+      "government",
+      "ministry",
+      "ministry",
+      "legislature",
+      "regulator",
+      "regulator",
+      "official_law_database",
+      "official_law_database",
+      "official_law_database",
+    ],
+  );
+});
+
+test("a private aggregator behind an entry is reference only and not collected: RU-002 (minjust.consultant.ru)", () => {
+  const ru = POLICY_SOURCES.find((s) => s.id === "RU-002")!;
+  assert.equal(ru.status, "reference_only");
+  assert.equal(ru.collect, null);
+  assert.equal(ru.entry, "https://pravo.minjust.ru/");
+  assert.match(ru.notes!, /私营法律数据库/);
+  // No entry anywhere reads a known private legal database.
+  for (const s of ALL_POLICY_SOURCES)
+    for (const url of [s.website, s.listed_url, s.entry, JSON.stringify(s.collect ?? {})])
+      assert.doesNotMatch(url, /consultant\.ru|garant\.ru|lexisnexis|westlaw|vlex\.|pkulaw|chinalawinfo/i, s.id);
+});
+
+test("no news-lane source can be a policy source: separate ids, no shared entry, policy sources are seeded into the policy lane", () => {
+  const news = (JSON.parse(readFileSync("industry/sources.json", "utf8")) as { sources: { id: string; config: Record<string, unknown> }[] }).sources;
+  const entryOf = (config: Record<string, unknown> | undefined) =>
+    ["feedUrl", "url", "listUrl", "endpoint"].map((key) => config?.[key]).find((value): value is string => typeof value === "string");
+  const newsUrls = new Set(news.map((s) => entryOf(s.config)?.replace(/\/$/, "")).filter(Boolean));
+  for (const s of news) assert.doesNotMatch(s.id, /^policy-/, `${s.id}: the policy- prefix belongs to the policy catalogue`);
+  for (const s of ALL_POLICY_SOURCES)
+    for (const url of [s.entry, entryOf(s.collect?.config)].filter(Boolean))
+      assert.ok(!newsUrls.has(url!.replace(/\/$/, "")), `${s.id}: ${url} is also a news source`);
+  // The seeder creates policy entries in the policy lane, and the publisher reads only policy-lane observations.
+  const seed = readFileSync("scripts/seed.ts", "utf8");
+  assert.match(seed, /createSource\(input, "seed:policy-sources", \{ lane: "policy" \}\)/);
+  assert.match(readFileSync("modules/policy/backend/domain/metadata.ts", "utf8"), /source\?\.lane !== "policy"/);
 });

@@ -15,6 +15,7 @@ export function sourceCheckpointIdentity(kind: SourceRow["kind"], config: Record
     "windowVar",
     "itemsPath",
     "itemsObjectValues",
+    "itemJsonPath",
     "wxid",
     "ghid",
   ];

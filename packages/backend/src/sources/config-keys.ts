@@ -100,6 +100,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     "itemsPath",
     "itemsObjectValues",
     "itemsShape",
+    "itemJsonPath",
     "literalFormat",
     "titleTemplate",
     "includeValues",
@@ -205,6 +206,7 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
               "itemsPath",
               "itemsObjectValues",
               "itemsShape",
+              "itemJsonPath",
               "literalFormat",
               "titleTemplate",
               "includeValues",
@@ -259,7 +261,12 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
   if (config.literalFormat === "static" && !["html_attribute", "html_window_var"].includes(String(config.mode)))
     out.push("literalFormat without embedded data mode");
   if (config.itemsShape === "columns" && config.itemsObjectValues) out.push("itemsShape+itemsObjectValues");
-  if (config.titleTemplate !== undefined && (typeof config.titleTemplate !== "string" || !config.titleTemplate.trim())) out.push("titleTemplate");
+  if (
+    config.titleTemplate !== undefined &&
+    !z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1).max(10)]).safeParse(config.titleTemplate).success
+  )
+    out.push("titleTemplate");
+  if (config.itemJsonPath !== undefined && (typeof config.itemJsonPath !== "string" || !config.itemJsonPath.trim())) out.push("itemJsonPath");
   // htmlJsonPath reads list HTML out of a direct JSON response: through Jina or as Markdown it would be
   // ignored or misread, so those combinations are refused like an unknown key. The endpoint is not the page
   // the links belong to, so that page is named explicitly (baseUrl) instead of resolving against the endpoint.

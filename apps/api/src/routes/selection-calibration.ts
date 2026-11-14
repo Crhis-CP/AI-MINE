@@ -9,6 +9,9 @@ import {
   prefilterAuditView,
   drawPrefilterAudit,
   labelPrefilterAudit,
+  swipeDeck,
+  dealSwipeDeck,
+  answerSwipeCard,
   reviewSelectionStandard,
   confirmSelectionHoldout,
   selectionRunEvidence,
@@ -55,6 +58,24 @@ export function registerSelectionCalibration(app: FastifyInstance) {
     routes.prefilterAuditDraw.url,
     routes.prefilterAuditDraw,
     handler(async (req, _reply, p) => drawPrefilterAudit(req.body, p)),
+  );
+  app.get(
+    routes.swipeDeck.url,
+    routes.swipeDeck,
+    handler(async (_req, _reply, p) => swipeDeck(p)),
+  );
+  app.post(
+    routes.swipeDeal.url,
+    routes.swipeDeal,
+    handler(async (req, _reply, p) => dealSwipeDeck(req.body, p)),
+  );
+  app.post(
+    routes.swipeAnswer.url,
+    routes.swipeAnswer,
+    handler(async (req, _reply, p) => {
+      const params = req.params as { day: string; articleId: string };
+      return answerSwipeCard(params.day, params.articleId, req.body, p);
+    }),
   );
   app.post(
     routes.prefilterAuditLabel.url,

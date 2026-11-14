@@ -2,6 +2,7 @@ import { readPolicyFulltextRun, type FulltextRun } from "./domain/fulltext-store
 import { readPolicyMetadataObservation } from "./domain/metadata.ts";
 import type { Candidate, RelatedPolicy } from "./domain/interpretation-schema.ts";
 import { explicitPolicyReference } from "./domain/references.ts";
+import { citationKey } from "./domain/ar-lifecycle.ts";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
 import { sql, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";
@@ -145,9 +146,10 @@ export async function decoratePolicyNavigation<T extends PolicyCard>(cards: T[],
 }
 export async function decoratePolicyRelationships(detail: Policy, editionId: string, ctx?: Reading) {
   // Only a current complete interpretation carries relations or a thread, so nothing else reads the graph at all.
+  // Basic facts carry only the program-read amendment/repeal targets (TASK-0576), linked here when the library has the target.
   if (detail.interpretation_state !== "complete") {
     detail.thread_id = null;
-    detail.relationships = [];
+    detail.relationships = await resolveCitedTargets(detail, ctx);
     return detail;
   }
   const current = await graph([detail.id], ctx),
@@ -165,6 +167,40 @@ export async function decoratePolicyRelationships(detail: Policy, editionId: str
     return edge ? [{ ...r, target_policy_id: edge.target_policy_id }] : matching.length ? [] : [{ ...r, target_policy_id: null }];
   });
   return detail;
+}
+/** Chinese law names compare without the state prefix and book-title marks: 《中华人民共和国矿产资源法》 = 矿产资源法. */
+const zhName = (value: string) => value.replace(/[《》\s]/g, "").replace(/^中华人民共和国/, "");
+/**
+ * A cited target (“Ley N° 24.196”, “Decreto N° 456/1997”, “《中华人民共和国矿产资源法》”) is linked only when exactly one
+ * current public document of the same jurisdiction has that kind, number and year (Argentine numbering is unique per
+ * kind, and per year where numbers restart) or that exact Chinese name; otherwise the citation stays as text.
+ */
+async function resolveCitedTargets(detail: Policy, ctx?: Reading): Promise<Policy["relationships"]> {
+  if (!detail.relationships.length) return [];
+  const jurisdiction = detail.jurisdictions[0]?.code;
+  const out: Policy["relationships"] = [];
+  for (const relation of detail.relationships) {
+    const key = citationKey(relation.target_citation);
+    const name = /^《[^》]+》$/.test(relation.target_citation) ? zhName(relation.target_citation) : null;
+    let target: string | null = null;
+    if (jurisdiction && (key || name)) {
+      // Candidates by the number's digits (with or without thousands dots) or by the name; the exact key is checked below.
+      const pattern = key ? `(^|[^0-9.])${key.number.replace(/\B(?=(\d{3})+$)/g, "\\.?")}([^0-9]|$)` : name!.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+      const rows = await sql<{ policy_id: string; number: string | null; title: string }[]>`
+        SELECT DISTINCT policy_id,basic_card->>'instrument_number' AS number,basic_card->>'original_title' AS title FROM publication.policy_editions
+        WHERE basic_card->'jurisdictions' @> ${sql.json([{ code: jurisdiction }])} AND policy_id<>${detail.id}
+          AND (coalesce(basic_card->>'instrument_number','') ~ ${pattern} OR basic_card->>'original_title' ~ ${pattern})`;
+      const same = rows.filter((row) => {
+        if (name) return zhName(row.title) === name;
+        const found = citationKey(row.number ?? "") ?? citationKey(row.title);
+        return !!found && found.kind === key!.kind && found.number === key!.number && found.year === key!.year;
+      });
+      const records = same.length ? await policyPublicRecordsOf([...new Set(same.map((row) => row.policy_id))], ctx) : new Map();
+      if (records.size === 1) target = [...records.keys()][0]!;
+    }
+    out.push({ ...relation, target_policy_id: target });
+  }
+  return out;
 }
 export async function readPolicyThread(id: string) {
   const [thread] = await sql<{ anchor_policy_id: string }[]>`SELECT anchor_policy_id FROM publication.policy_threads WHERE id=${id}`;
