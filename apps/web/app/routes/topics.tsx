@@ -3,7 +3,7 @@ import { useTr } from "../i18n";
 import { useLoaderData, useSearchParams } from "react-router";
 import { PillTabs } from "../components/ui/Tabs";
 import { IntentLink as Link } from "../components/ui/IntentLink";
-import { apiGet } from "../lib/api.server";
+import { apiGet, readerPageHeaders } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { BrandMark } from "../components/BrandMark";
@@ -22,8 +22,9 @@ export function meta() {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 const GROUPS = [

@@ -1,28 +1,28 @@
 // Background translation leaves room in the model quota for the steps a reader waits on (TASK-0580, Owner 2026-11-07).
 // Model requests share one quota per provider (budgets: per hour and per day, retries included). Scoring, grouping
 // and the AI 导读 decide what readers see; translating items that are not selected only improves pages already shown.
-// So a translation that is not selected pays only while both windows still have at least half of their limit unused;
-// otherwise it waits and judges again. A selected item is never held back here (its peak-hour rule is unchanged).
+// So backlog translation pays only while both windows still have at least a quarter of their limit unused (half until
+// TASK-0676); otherwise it waits and judges again. A fresh item, selected or not, is never held back here.
 import { sql } from "../db.ts";
 import { modelService } from "../providers/model-fallback-admission.ts";
 import { modelFor } from "./models.ts";
 
 /** Background translation may use up to this share of each window (hour, day); the rest is kept for core steps. */
-export const BACKGROUND_QUOTA_SHARE = 0.5;
+export const BACKGROUND_QUOTA_SHARE = 0.75;
 /** How long a held translation waits before it judges again. */
 export const QUOTA_RECHECK_MS = 20 * 60_000;
 
 /**
- * When a translation that is not selected must wait for quota, the time to judge again; null to go ahead. The quota
- * judged is the one the request will draw on: before a paid segment, the model that segment is paid with (`model`,
- * fixed when the run started, so a route switched mid-body does not move the check away from it); when a job is
- * taken, the current translation route (the model chosen for "translate" now, so switching provider in the admin
- * moves the check with it; Codex review #372). Only when that cannot be resolved does it fall back to every quota
- * translation drew on in the last day. `at` is the caller's clock for the returned time; the
- * windows are counted by the database clock, as the quota check itself counts them.
+ * When a backlog translation must wait for quota, the time to judge again; null to go ahead (`ahead`: a fresh item,
+ * TASK-0676). The quota judged is the one the request will draw on: before a paid segment, the model that segment is
+ * paid with (`model`, fixed when the run started, so a route switched mid-body does not move the check away from it);
+ * when a job is taken, the current translation route (the model chosen for "translate" now, so switching provider in
+ * the admin moves the check with it; Codex review #372). Only when that cannot be resolved does it fall back to every
+ * quota translation drew on in the last day. `at` is the caller's clock for the returned time; the windows are counted
+ * by the database clock, as the quota check itself counts them.
  */
-export async function translationQuotaWait(selected: boolean, at?: Date, model?: string): Promise<Date | null> {
-  if (selected) return null;
+export async function translationQuotaWait(ahead: boolean, at?: Date, model?: string): Promise<Date | null> {
+  if (ahead) return null;
   const current = await translationService(model);
   const services = current === null ? await recentTranslationServices() : [current];
   let held = false;

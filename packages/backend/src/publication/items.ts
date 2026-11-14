@@ -16,6 +16,7 @@ import { publicationTextMatches, publicBodyTextMatches } from "./read-predicates
 import { displayTags, independentSelectedSources } from "./rules.ts";
 import { postFeedView, publicPostSummary } from "./post-view.ts";
 import { config } from "../config.ts";
+import { cached } from "../lib/cache.ts";
 import { placeholderClockSources } from "../content/date-evidence.ts";
 import { midnightClock } from "../sources/date-extraction.ts";
 
@@ -319,6 +320,15 @@ export async function currentNewsJurisdictionCounts(range?: { from: Date; to: Da
     for (const id of jurisdictionHits(row.codes ?? [])) counts[id] = (counts[id] ?? 0) + 1;
   }
   return { counts, unknown };
+}
+
+/**
+ * The all-time counts the shared country list shows (/api/site/jurisdictions), kept for 60 seconds like the news map
+ * (site/stats.ts loadNewsMap): every filtered page reads that list, and a full count per page view is not needed.
+ */
+const allTimeJurisdictionCounts = cached(() => currentNewsJurisdictionCounts(), { freshMs: 60_000, maxStaleMs: 60_000 });
+export function cachedNewsJurisdictionCounts(): Promise<{ counts: Record<string, number>; unknown: number }> {
+  return allTimeJurisdictionCounts.get();
 }
 
 /** The jurisdictions whose country filter shows an item with these evidenced codes (as currentGeographyMatch). */

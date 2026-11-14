@@ -299,9 +299,13 @@ test("followups distinguish errors, retry, empty results and one-sentence summar
     };
     await page.route(versionUrl, holdVersion, { times: 1 });
     const version = page.waitForResponse((response) => response.url() === versionUrl);
-    const data = page.waitForResponse((response) => new URL(response.url()).pathname === "/items/none.data");
+    // The page came with the versions it was read at (TASK-0679 R1): an unchanged version means no second read.
+    const rereads: string[] = [];
+    const reread = (request: { url(): string }) => {
+      if (new URL(request.url()).pathname.endsWith(".data")) rereads.push(request.url());
+    };
+    page.on("request", reread);
     void version.catch(() => {});
-    void data.catch(() => {});
     try {
       phase = reload ? "reload" : "initial navigation";
       if (reload) await page.reload();
@@ -315,16 +319,15 @@ test("followups distinguish errors, retry, empty results and one-sentence summar
       const baseline = await version;
       assert.equal(baseline.status(), 200);
       assert.deepEqual(await baseline.json(), { version: "1", withdrawalVersion: "1" });
-      phase = "data response";
-      assert.equal((await data).status(), 200);
-      // Stream EOF is not the route commit; the guard clears checking after revalidate() resolves.
       phase = "DOM qualified";
       await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+      assert.deepEqual(rereads, [], "an unchanged version does not read the page again");
       await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: "矿业历史报道", exact: true })).toBeVisible();
     } finally {
       release();
+      page.off("request", reread);
       await page.unroute(versionUrl, holdVersion);
     }
   };

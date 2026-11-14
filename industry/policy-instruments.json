@@ -1,0 +1,184 @@
+{
+  "$comment": "TASK-0576（Owner 2026-11-07）：法规线只收正式公布的法律文书。本文件是程序判定（不调用模型）用的唯一词表：文书种类、未定稿与非规范性标记、人事与个案行为、矿业相关机关与矿业词。正则按不区分大小写、去掉重音后的文字匹配；中文按原字匹配。改动须同步 tests/policy-instrument-gate.test.ts。",
+  "version": "policy-instruments-1",
+  "kinds": [
+    { "kind": "resolucion_conjunta", "nature": "regulation", "language": "es", "pattern": "\\bresolucion(?:es)?\\s+conjunta" },
+    { "kind": "decision_administrativa", "nature": "regulation", "language": "es", "pattern": "\\bdecision\\s+administrativa" },
+    { "kind": "dnu", "nature": "law", "language": "es", "pattern": "\\bdecreto\\s+de\\s+necesidad\\s+y\\s+urgencia|\\bdnu\\b" },
+    { "kind": "decreto_ley", "nature": "law", "language": "es", "pattern": "\\bdecreto[\\s-]+ley\\b" },
+    { "kind": "decreto", "nature": "regulation", "language": "es", "pattern": "\\bdecreto(?:[\\s-]+acuerdo)?\\b" },
+    { "kind": "resolucion", "nature": "regulation", "language": "es", "pattern": "\\bresolucion\\b" },
+    { "kind": "disposicion", "nature": "regulation", "language": "es", "pattern": "\\bdisposicion\\b" },
+    { "kind": "ley", "nature": "law", "language": "es", "pattern": "\\bley\\b" },
+    { "kind": "act", "nature": "law", "language": "en", "pattern": "\\bact\\b" },
+    { "kind": "regulation", "nature": "regulation", "language": "en", "pattern": "\\bregulations?\\b" },
+    { "kind": "rule", "nature": "regulation", "language": "en", "pattern": "\\b(?:final\\s+)?rules?\\b" },
+    { "kind": "decree", "nature": "regulation", "language": "en", "pattern": "\\bdecree\\b" },
+    { "kind": "statutory_instrument", "nature": "regulation", "language": "en", "pattern": "\\bstatutory\\s+instrument\\b" },
+    { "kind": "zh_amendment_decision", "nature": "amendment", "language": "zh", "pattern": "关于(?:修改|修订|废止|废除|宣布失效)[^，。]{0,80}的决定$" },
+    { "kind": "zh_regulation", "nature": "regulation", "language": "zh", "pattern": "(?:条例|规定|办法|细则|规则)(?:（[^）]{0,20}）)?$" },
+    { "kind": "zh_law", "nature": "law", "language": "zh", "pattern": "(?<![办方做算手写说用看想])法(?:（[^）]{0,20}）)?$" },
+    { "kind": "zh_order", "nature": "regulation", "language": "zh", "pattern": "令(?:（?第\\s*\\d+\\s*号）?)?$|第\\s*\\d+\\s*号令$" },
+    {
+      "kind": "zh_normative_notice",
+      "nature": "notice",
+      "language": "zh",
+      "pattern": "的(?:通知|意见|公告)$",
+      "requires_number": "〔\\d{4}〕\\s*\\d+\\s*号|\\[\\d{4}\\]\\s*\\d+\\s*号|〔\\d{4}〕第?\\d+号|\\d{4}年第\\s*\\d+\\s*号"
+    }
+  ],
+  "not_final": {
+    "es": [
+      "\\bproyecto\\s+de\\s+(?:ley|decreto|resolucion)",
+      "\\banteproyecto\\b",
+      "\\bconsulta\\s+publica\\b",
+      "\\bconvocatoria\\b",
+      "\\baudiencia\\s+publica\\b",
+      "\\belaboracion\\s+participativa\\b",
+      "\\bmedia\\s+sancion\\b",
+      "(?:^|\\| )(?:convocase|sometese\\s+a\\s+(?:consulta|elaboracion|audiencia)|llamase\\s+a\\s+(?:consulta|audiencia))\\b",
+      "\\bse\\s+publicara\\b",
+      "\\bpropuesta\\s+de\\s+(?:ley|reglamento|norma)"
+    ],
+    "zh": ["征求意见", "草案", "送审稿", "讨论稿", "拟(?:订|定|修|制|出台|发布|废止|设立|同意|授予|认定|命名|推荐|入选|列入|新增)", "即将", "公开征集"],
+    "en": [
+      "\\bproposed\\s+rules?\\b",
+      "\\bnotice\\s+of\\s+proposed\\b",
+      "\\bnprm\\b",
+      "\\badvance\\s+notice\\b",
+      "\\bbill\\b",
+      "\\bdraft\\b",
+      "\\bconsultation\\b",
+      "\\brequest\\s+for\\s+comments?\\b"
+    ]
+  },
+  "not_normative": {
+    "es": [
+      "\\bedicto\\b",
+      "\\blicitacion\\b",
+      "\\bconcurso(?:s)?\\b",
+      "\\bremate(?:s)?\\b",
+      "\\bsociedad(?:es)?\\s+(?:anonima|comercial)",
+      "\\basamblea(?:s)?\\b",
+      "\\bconvencion(?:es)?\\s+colectiva",
+      "\\bsentencia\\b",
+      "\\bjuzgado\\b",
+      "\\bquiebra\\b",
+      "\\baviso\\s+oficial\\b",
+      "\\bfe\\s+de\\s+erratas\\b"
+    ],
+    "zh": ["批复$", "函$", "名单", "公示", "招聘", "录用", "中标", "采购"],
+    "en": ["\\bpublic\\s+hearing\\b", "\\bmeeting\\b", "\\bsunshine\\s+act\\b", "\\bagency\\s+information\\s+collection\\b"]
+  },
+  "personnel": {
+    "es": [
+      "\\bdesignase\\b",
+      "\\bdase\\s+por\\s+designad",
+      "\\bdesignacion(?:es)?\\b",
+      "\\bnombramiento",
+      "\\bacept(?:a|e)se\\s+la\\s+renuncia",
+      "\\bdase\\s+por\\s+concluid",
+      "\\bprorrogase\\s+(?:la|las)\\s+designacion",
+      "\\basignase\\s+(?:transitoriamente|con\\s+caracter)",
+      "\\blicencia\\s+(?:sin|con)\\s+goce",
+      "\\bpromuevese\\b",
+      "\\btrasladase\\b"
+    ],
+    "zh": [
+      "任免",
+      "任命",
+      "免去",
+      "免职",
+      "表彰",
+      "通报表扬",
+      "嘉奖",
+      "授予[^，。]{0,20}称号",
+      "先进集体",
+      "先进个人",
+      "行政许可决定",
+      "准予[^，。]{0,30}(?:许可|登记|延续|变更)",
+      "同意[^，。]{0,40}的批复"
+    ],
+    "en": ["\\bappointment\\b", "\\bdesignation\\s+of\\s+(?:a|an|the)\\s+\\w+\\s+(?:officer|official)"]
+  },
+  "individual_act": {
+    "es": [
+      "^(?:otorgase|concedese|adjudicase|autorizase|apruebase|inscribase|registrase)\\b[^.]{0,200}(?:a\\s+la\\s+empresa|a\\s+la\\s+firma|a\\s+favor\\s+de|\\bs\\.\\s?a\\.|\\bs\\.\\s?r\\.\\s?l\\.|\\bs\\.\\s?a\\.\\s?u\\.)"
+    ]
+  },
+  "amendment": {
+    "es": "\\b(?:modificanse|modificase|sustituyese|sustituyense|incorporase|incorporanse|reemplazase)\\b",
+    "zh": "关于(?:修改|修订)[^，。]{0,80}的决定"
+  },
+  "repeal": {
+    "es": "\\b(?:derogase|deroganse|abrogase|abroganse)\\b",
+    "zh": "关于(?:废止|废除|宣布失效)[^，。]{0,80}的决定"
+  },
+  "mining_issuers": [
+    "secretaria de mineria",
+    "subsecretaria de mineria",
+    "ministerio de mineria",
+    "ministerio de produccion y mineria",
+    "secretaria de mineria y energia",
+    "ministerio de mineria e hidrocarburos",
+    "secretaria de estado de mineria",
+    "juzgado de minas",
+    "direccion provincial de mineria",
+    "autoridad minera",
+    "servicio geologico minero",
+    "secretaria de energia y mineria",
+    "自然资源部",
+    "国家矿山安全监察局",
+    "国土资源部",
+    "自然资源厅",
+    "mining",
+    "minerals commission",
+    "mineral resources",
+    "mines and minerals",
+    "bureau of land management",
+    "department of mines"
+  ],
+  "mining_terms": {
+    "es": [
+      "\\bmineri(?:a|as)\\b",
+      "\\bminer(?:o|a|os|as)\\b",
+      "\\byacimientos?\\b",
+      "\\bcodigo\\s+de\\s+mineria\\b",
+      "\\blitio\\b",
+      "\\bcobre\\b",
+      "\\boro\\b",
+      "\\bregalias\\s+mineras\\b",
+      "\\bcanon\\s+minero\\b",
+      "\\brelaves?\\b",
+      "\\bconcesion(?:es)?\\s+minera",
+      "\\bpertenencias?\\s+mineras?\\b",
+      "\\bmetaliferos?\\b"
+    ],
+    "zh": ["矿"],
+    "en": ["\\bmining\\b", "\\bminerals?\\b", "\\bmines?\\b", "\\btailings\\b", "\\bore\\b"]
+  },
+  "strong_mining_terms": {
+    "es": [
+      "\\bcodigo\\s+de\\s+mineria\\b",
+      "\\bregalias\\s+mineras\\b",
+      "\\bcanon\\s+minero\\b",
+      "\\brelaves?\\b",
+      "\\bconcesion(?:es)?\\s+minera",
+      "\\blitio\\b"
+    ],
+    "zh": ["矿产资源", "矿业权", "尾矿", "采矿", "矿山"],
+    "en": ["\\bmining\\b", "\\btailings\\b"]
+  },
+  "mining_noise": {
+    "es": [
+      "yacimientos\\s+petroliferos\\s+fiscales",
+      "\\bypf\\b",
+      "yacimientos?\\s+(?:de\\s+)?(?:hidrocarburos|petroliferos?|gasiferos?)",
+      "\\bmar\\s+del\\s+plata\\b",
+      "\\bmina\\s+clavero\\b",
+      "\\bbodas\\s+de\\s+oro\\b"
+    ],
+    "zh": ["矿泉水", "矿物质", "矿物油"],
+    "en": ["\\bmineral\\s+water\\b", "\\bmineral\\s+oil\\b", "\\bland\\s+mines?\\b"]
+  }
+}

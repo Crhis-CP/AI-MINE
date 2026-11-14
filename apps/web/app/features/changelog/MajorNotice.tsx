@@ -4,6 +4,7 @@ import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
 import { Convergence } from "./AggregationFlow";
 import { Showcase202611 } from "./Showcase202611";
+import "./changelog-flow.css";
 
 /**
  * A major update's own showcase, by version (not by title, which the reader copy may rewrite). With one, the first

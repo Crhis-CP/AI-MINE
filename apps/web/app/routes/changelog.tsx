@@ -91,11 +91,20 @@ export default function ChangelogPage() {
   useEffect(() => {
     if (version) setChangelogSeen(version);
   }, [version]);
+  // The newest major update leads the page with its animation, even after smaller updates (Owner 2026-11-14: “更新日志
+  // 本身就是动画”, opening the page shows it first). It is not repeated under its own date.
+  const lead = data.releases.find((r) => r.kind === "重大更新");
   const groups = new Map<string, Release[]>();
   for (const r of data.releases) groups.set(r.date, [...(groups.get(r.date) ?? []), r]);
+  const monthGroups = new Map(groups);
+  if (lead) {
+    const rest = (groups.get(lead.date) ?? []).filter((r) => r !== lead);
+    if (rest.length) groups.set(lead.date, rest);
+    else groups.delete(lead.date);
+  }
   // Month → the newest date shown in it (the jump target) and how many entries it holds.
   const months = new Map<string, { first: string; count: number }>();
-  for (const [date, releases] of groups) {
+  for (const [date, releases] of monthGroups) {
     const month = months.get(date.slice(0, 7)) ?? { first: date, count: 0 };
     month.count += releases.length;
     months.set(date.slice(0, 7), month);
@@ -140,6 +149,11 @@ export default function ChangelogPage() {
         <p className="mt-1.5 text-[13px] text-ink-3">{tr("新功能、调整、下线，都写在这里。")}</p>
       </header>
       <div className="space-y-4">
+        {lead && (
+          <div id={groups.has(lead.date) ? undefined : `d-${lead.date}`} className="scroll-mt-16 lg:scroll-mt-6">
+            <FeatureNotice release={lead} />
+          </div>
+        )}
         {[...groups.entries()].map(([date, releases]) => {
           const h = dateHeading(date);
           const features = releases.filter(isFeatureNotice);

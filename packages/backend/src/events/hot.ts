@@ -3,29 +3,31 @@ import { projectParticipation, participationHash } from "./participation-read.ts
 import { reportEventEvidence, currentFactMembers } from "./report-context.ts";
 import { reportFactEvidence } from "../publication/groups.ts";
 import { pickRepresentative } from "../publication/representative.ts";
-// Hot ranking: attention over the ranking window (48 hours; 72 on Beijing Saturday, Sunday and Monday) from independent participants.
+// Hot ranking: attention over the last 72 hours from independent participants.
 // Each participant counts once per window (repeat collection does not add heat), decays with a
 // 24-hour half-life, and the source time (not collection time) places evidence in the window.
 import { sql } from "../db.ts";
 import { tierRank, type HotEntry } from "./hot-read.ts";
 
-export const HOT_RULE_VERSION = "heat-v3-48h-weekend72h-halflife24h";
-const WINDOW_HOURS = 48;
+export const HOT_RULE_VERSION = "heat-v4-72h-halflife24h-all";
 /**
- * Over the weekend overseas mining media mostly stop publishing, so a 48-hour window empties the list. On Beijing
- * Saturday, Sunday and Monday the window covers 72 hours (Owner 2026-11-08, TASK-0599). The half-life stays 24 hours,
- * so older reports still count for less; the list is never padded — fewer than 10 qualified events show fewer.
+ * The window is 72 hours every day (Owner 2026-11-13, TASK-0642: “周一到周日全部同时的”; until then 48 hours, 72 only on
+ * Beijing Saturday to Monday, TASK-0599). The half-life stays 24 hours, so older reports still count for less.
  */
-const WEEKEND_WINDOW_HOURS = 72;
+const WINDOW_HOURS = 72;
+/**
+ * Every qualified event is listed (Owner 2026-11-13: “反正全部”), never padded. The bound only guards against runaway
+ * data; at two or more independent sources within 72 hours it is not reached in practice.
+ */
+export const HOT_MAX_ENTRIES = 50;
 const HALF_LIFE_HOURS = 24;
 const MIN_PARTICIPANTS = 2;
 /** Evidence is read this much further back than the window, for the comparison six hours earlier. */
 const LOOKBACK_MARGIN_HOURS = 6;
 
-/** The window for a ranking computed at `at`: 72 hours on Beijing Saturday, Sunday and Monday, else 48. */
-export function hotWindowHours(at: Date): number {
-  const beijingDay = new Date(at.getTime() + 8 * 3600000).getUTCDay();
-  return beijingDay === 6 || beijingDay === 0 || beijingDay === 1 ? WEEKEND_WINDOW_HOURS : WINDOW_HOURS;
+/** The window for a ranking computed at `at`: 72 hours, whatever the day (kept as a function for the readers of old rankings). */
+export function hotWindowHours(_at: Date): number {
+  return WINDOW_HOURS;
 }
 const lookbackFrom = (at: Date) => new Date(at.getTime() - (hotWindowHours(at) + LOOKBACK_MARGIN_HOURS) * 3600000);
 
@@ -149,7 +151,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
 
   const entries: HotEntry[] = [];
   for (const r of rows) {
-    if (entries.length >= 10) break;
+    if (entries.length >= HOT_MAX_ENTRIES) break;
     const facts = (await sql<{ id: number }[]>`SELECT id FROM facts WHERE story_id=${r.story_id}`).map((row) => row.id);
     const members = await currentFactMembers(facts),
       qualified = new Set(members.map((row) => `${row.fact_id}:${row.article_id}`));
@@ -276,7 +278,7 @@ export async function backfillStoryHeat(storyId: number, hours = 7 * 24): Promis
     { first: Date | null; last: Date | null }[]
   >`SELECT min(observed_at) AS first, max(observed_at) AS last FROM story_signals WHERE story_id = ${storyId}`;
   if (!s?.first) return 0;
-  const end = Math.floor(Math.min(Date.now(), (s.last?.getTime() ?? Date.now()) + WEEKEND_WINDOW_HOURS * 3600000) / 3600000) * 3600000;
+  const end = Math.floor(Math.min(Date.now(), (s.last?.getTime() ?? Date.now()) + WINDOW_HOURS * 3600000) / 3600000) * 3600000;
   const start = Math.max(Math.floor(s.first.getTime() / 3600000) * 3600000, end - hours * 3600000);
   const clocks = await sourceClocks();
   let n = 0;

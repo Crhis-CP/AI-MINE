@@ -13,10 +13,6 @@ import {
   demoDailyReport,
   demoHot,
   demoPolicies,
-  demoPolicy,
-  demoPolicyReading,
-  demoPolicyHistory,
-  demoPolicyComparison,
   demoPolicyScope,
   demoInformation,
   demoJurisdictions,
@@ -31,6 +27,7 @@ import {
   demoStory,
   DEMO_ITEMS,
 } from "./demo-reader.ts";
+import { demoReviewComparison, demoReviewHistory, demoReviewPolicy, demoReviewReading } from "./demo-policy.ts";
 import { demoTopic, demoTopics } from "./demo-topics.ts";
 import { readFileSync } from "node:fs";
 import { type ChangelogCopyEdit, type ChangelogRelease, mergeReleaseRecords, validateChangelog, validateReleaseNote } from "@amp/backend/site/meta";
@@ -141,12 +138,18 @@ export function demoReaderApi(req: IncomingMessage, res: ServerResponse) {
     const [, id = "", part] = policy;
     const body =
       part === "reading"
-        ? demoPolicyReading(id, q.get("expression_id"), q.get("document_revision_id"))
+        ? demoReviewReading(
+            id,
+            q.get("expression_id"),
+            q.get("document_revision_id"),
+            q.get("cursor"),
+            Math.min(50, Math.max(1, Number.parseInt(q.get("limit") ?? "20", 10) || 20)),
+          )
         : part === "history"
-          ? demoPolicyHistory(id)
+          ? demoReviewHistory(id)
           : part === "compare"
-            ? demoPolicyComparison(id, q.get("from"), q.get("to"))
-            : demoPolicy(id, q.get("expression_id"));
+            ? demoReviewComparison(id, q.get("from"), q.get("to"))
+            : demoReviewPolicy(id, q.get("expression_id"));
     return body ? send(res, 200, body) : send(res, 404, { code: "not_in_demo" });
   }
   const story = url.pathname.startsWith("/api/site/stories/") ? demoStory(decodeURIComponent(url.pathname.slice("/api/site/stories/".length))) : null;

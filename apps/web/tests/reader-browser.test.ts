@@ -23,6 +23,7 @@ let deepTimeline = false;
 let deepPool = false;
 let historicalBackground = true;
 let readerWithdrawalVersion = "1";
+let delayNextVersionBody = false;
 let changelogVersion: string | null = null;
 let searchNavigationMode: "ready" | "error" | "empty" = "ready";
 // How the availability API reports the withdrawn fixture: gone, or moved to "summary only" (no longer listed).
@@ -266,12 +267,22 @@ const api = createServer((req, res) => {
           },
     );
   }
-  if (url.pathname === "/api/site/meta") return answer({ changelogVersion });
+  if (url.pathname === "/api/site/meta") return answer({ changelogVersion, filings: { icp: null, publicSecurity: null, newsLicense: null } });
   if (url.pathname === "/api/site/changelog")
     return answer({
       releases: changelogVersion ? [{ date: changelogVersion.slice(0, 10), time: "12:30", kind: "优化", title: "合成阅读更新", body: ["改进阅读体验。"] }] : [],
     });
-  if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion });
+  if (url.pathname === "/api/site/content-version") {
+    const value = { version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : readerWithdrawalVersion };
+    if (delayNextVersionBody) {
+      delayNextVersionBody = false;
+      res.writeHead(200);
+      res.write('{"version":');
+      setTimeout(() => res.end(JSON.stringify(value.version) + ',"withdrawalVersion":' + JSON.stringify(value.withdrawalVersion) + "}"), 500);
+      return;
+    }
+    return answer(value);
+  }
   if (url.pathname === "/api/site/items/availability")
     return answer(
       Object.fromEntries(
@@ -499,11 +510,15 @@ async function openQualifiedReader(page: Page, path = "/all", expectedVersion = 
   await page.bringToFront();
   await page.route(versionUrl, holdFirstVersion, { times: 1 });
   const version = page.waitForResponse((response) => response.url() === versionUrl);
-  const revalidation = path.split("?")[0] === "/all" ? page.waitForResponse((response) => new URL(response.url()).pathname === "/all.data") : null;
-  // If an earlier readiness assertion fails, context cleanup will reject these waiters too.
-  // Keep those rejections observed; the awaited responses below still fail the actual test.
+  // The page came with the versions it was read at (TASK-0679 R1): an unchanged version means no second read.
+  const rereads: string[] = [];
+  const reread = (request: { url(): string }) => {
+    if (new URL(request.url()).pathname.endsWith(".data")) rereads.push(request.url());
+  };
+  page.on("request", reread);
+  // If an earlier readiness assertion fails, context cleanup will reject this waiter too.
+  // Keep that rejection observed; the awaited response below still fails the actual test.
   void version.catch(() => {});
-  void revalidation?.catch(() => {});
   try {
     phase = `baseline ${path}: navigate`;
     const opened = await page.goto(`${origin}${path}`);
@@ -516,15 +531,9 @@ async function openQualifiedReader(page: Page, path = "/all", expectedVersion = 
     const baseline = await version;
     assert.equal(baseline.status(), 200);
     assert.deepEqual(await baseline.json(), { version: expectedVersion, withdrawalVersion: "1" });
-    if (revalidation) {
-      phase = `baseline ${path}: data response`;
-      const loaded = await revalidation;
-      assert.equal(loaded.status(), 200);
-      // React Router consumes a streamed navigation response. Its network stream closing is not
-      // the readiness condition: the guard sets idle only after revalidate() and baseline assignment.
-    }
     phase = `baseline ${path}: DOM qualified`;
     await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+    assert.deepEqual(rereads, [], "an unchanged version does not read the page again");
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     if (deepTimeline) await expect(page.getByRole("heading", { name: "新到的矿业动态" }).first()).toBeVisible();
@@ -536,18 +545,39 @@ async function openQualifiedReader(page: Page, path = "/all", expectedVersion = 
     return opened;
   } finally {
     release();
+    page.off("request", reread);
     phase += ": unroute";
     await page.unroute(versionUrl, holdFirstVersion);
   }
 }
 
-async function checkVersionOnFocus(page: Page, withdrawalVersion: string) {
-  const checked = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
-  phase = "focus version response";
-  await page.bringToFront();
-  await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  assert.deepEqual(await (await checked).json(), { version: "2", withdrawalVersion });
+async function checkVersionOnFocus(page: Page, withdrawalVersion: string, expectedVersion = "2") {
+  const versionUrl = `${origin}/api/site/content-version`;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const holdVersion = async (route: Route) => {
+    await gate;
+    await route.continue();
+  };
+  await page.route(versionUrl, holdVersion, { times: 1 });
+  const checked = page.waitForResponse((response) => response.url() === versionUrl);
+  void checked.catch(() => {});
+  try {
+    phase = "focus version: checking";
+    await page.bringToFront();
+    await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
+    release();
+    phase = "focus version: completed";
+    assert.deepEqual(await (await checked).json(), { version: expectedVersion, withdrawalVersion });
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+  } finally {
+    release();
+    await page.unroute(versionUrl, holdVersion);
+  }
 }
 
 test("mobile controls, content refresh, saved withdrawal and system theme work in the production build", { timeout: 60000 }, async (t) => {
@@ -563,7 +593,8 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const opened = await openQualifiedReader(page);
-  assert.match(opened!.headers()["cache-control"]!, /(?:^|, )no-store(?:,|$)/);
+  // The page HTML may be shared for 30 seconds (TASK-0672); its data is read fresh.
+  assert.equal(opened!.headers()["cache-control"], "public, max-age=0, s-maxage=30");
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   const tabs = page.getByRole("navigation", { name: "底部导航" });
   await expect(tabs.getByRole("link")).toHaveCount(5);
@@ -741,6 +772,7 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   const context = await browser.newContext({ viewport: { width: 1365, height: 900 }, locale: "zh-CN" });
   t.after(async () => {
     readerWithdrawalVersion = "1";
+    delayNextVersionBody = false;
     t.diagnostic(`last reader phase: ${phase}`);
     await context.close();
   });
@@ -753,10 +785,8 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   });
   // Another article was withdrawn or a report regrouped: the counter moves, nothing on this page is affected.
   readerWithdrawalVersion = "2";
-  const checked = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
   const asked = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/items/availability");
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  assert.deepEqual(await (await checked).json(), { version: "1", withdrawalVersion: "2" });
+  await checkVersionOnFocus(page, "2", "1");
   assert.ok(new URL((await asked).url()).searchParams.get("ids")?.split(",").includes("fixture-a"), "the page asks about the cards it shows");
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
@@ -765,17 +795,15 @@ test("a withdrawal elsewhere on the site leaves the open page, its position and 
   await expect(page.getByText("正在更新当前页面", { exact: false })).toHaveCount(0);
   assert.equal(reloads, 0, "nothing on this page changed, so it is not read again");
   // A later check with no change keeps it that way.
-  const again = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await again;
+  // Headers can arrive while JSON is still streaming; a new focus must wait for the current check to finish.
+  delayNextVersionBody = true;
+  await checkVersionOnFocus(page, "2", "1");
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
   assert.equal(reloads, 0);
   // News arriving together with another unrelated change still shows up: at the top of a live list, at once.
   added = true;
   readerWithdrawalVersion = "3";
-  const both = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  assert.deepEqual(await (await both).json(), { version: "2", withdrawalVersion: "3" });
+  await checkVersionOnFocus(page, "3");
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
   await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
   await expect(page.getByText("已撤回", { exact: false })).toHaveCount(0);
@@ -1608,6 +1636,8 @@ test("report reading groups preserve filters, source links, unread members and r
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `.verify/report-reading-${width}.png` });
       await page.getByRole("link", { name: "同源补充报道", exact: true }).click();
+      // The list has save buttons too: press the article's own, once it is open.
+      await expect(page).toHaveURL(/\/items\//);
       await page.getByRole("button", { name: "收藏", exact: true }).filter({ visible: true }).first().click();
       await expect(page.getByRole("button", { name: "取消收藏", exact: true }).filter({ visible: true }).first()).toBeVisible();
       await page.getByRole("link", { name: "原文", exact: true }).click();

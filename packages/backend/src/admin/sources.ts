@@ -173,6 +173,8 @@ export async function updateSource(
       name = CASE WHEN ${Object.hasOwn(patch, "name")} THEN ${patch.name ?? null} ELSE name END,
       enabled = CASE WHEN ${Object.hasOwn(patch, "enabled")} THEN ${patch.enabled ?? null} ELSE enabled END,
       interval_minutes = CASE WHEN ${Object.hasOwn(patch, "interval_minutes")} THEN ${patch.interval_minutes ?? null} ELSE interval_minutes END,
+      -- An interval a person sets stays: the nightly tuning (adaptIntervals) skips pinned sources (TASK-0609).
+      interval_pinned = interval_pinned OR ${Object.hasOwn(patch, "interval_minutes")},
       tier = CASE WHEN ${Object.hasOwn(patch, "tier")} THEN ${patch.tier ?? null} ELSE tier END,
       participation_mode = CASE WHEN ${Object.hasOwn(patch, "participation_mode")} THEN ${patch.participation_mode ?? null} ELSE participation_mode END,
       first_party = CASE WHEN ${Object.hasOwn(patch, "first_party")} THEN ${patch.first_party ?? null} ELSE first_party END,
@@ -482,9 +484,29 @@ export {
 export { parseSourceDate } from "../sources/date-extraction.ts";
 
 /** Explicit permission edit; no HTTP caller is activated by this storage capability. */
-export async function saveSourcePolicy(id: string, input: { policy: Record<string, unknown>; expectedVersion: number | null; reason: string }, actor: string) {
+export async function saveSourcePolicy(
+  id: string,
+  input: {
+    policy: Record<string, unknown>;
+    expectedVersion: number | null;
+    reason: string;
+    expectedSourceGuard?: { ownerEntityId: string | null };
+  },
+  actor: string,
+) {
   if (!actor.trim() || !input.reason.trim()) throw new Error("Permission editor and reason are required");
+  const guard = Object.hasOwn(input, "expectedSourceGuard")
+    ? z.strictObject({ ownerEntityId: z.string().nullable() }).safeParse(input.expectedSourceGuard)
+    : null;
+  if (guard && !guard.success) throw new Conflict("来源守卫无效，许可未保存。");
   return sql.begin(async (tx) => {
+    if (guard?.success) {
+      await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${id}))`;
+      const [source] = await tx<{ owner_entity_id: string | null; archived_at: Date | null }[]>`
+        SELECT owner_entity_id,archived_at FROM sources WHERE id=${id} FOR SHARE`;
+      if (!source || source.archived_at !== null || source.owner_entity_id !== guard.data.ownerEntityId)
+        throw new Conflict("信源机构归属或归档状态已变化，许可未保存。");
+    }
     const change = await appendSourcePolicy(tx, input.expectedVersion, {
       ...input.policy,
       source_id: id,

@@ -81,7 +81,7 @@ test("actual topic route consumes installed parts, their current page, news and 
   const calls = mockApi(t);
   const page = await load("?page=2");
   assert.equal(page.data.parts.fixture.page, 2);
-  assert.ok(calls.includes("/api/site/topics/fixture?page=2"));
+  assert.ok(calls.includes("/api/site/topics/fixture?page=2&items=none"), "the topic's own list is not read: the pool supplies it");
   assert.match(render(page, "?page=2"), /扩展第2页/);
   const first = await load();
   const meta = route.meta({ loaderData: first });

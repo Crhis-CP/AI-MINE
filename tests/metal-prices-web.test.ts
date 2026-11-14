@@ -5,11 +5,11 @@ import { test } from "node:test";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { chromium, expect, type Browser } from "@playwright/test";
+import { chromium, expect, type Browser, type Page } from "@playwright/test";
 import { browserExecutable, isolateBrowser } from "../apps/web/tests/browser.ts";
 import { webEnvironment } from "../apps/web/runtime-env.ts";
 import { MetalPrices } from "@amp/contracts/http/public";
@@ -154,7 +154,7 @@ test("a trend line shows only stored periods, offers only ranges that add someth
 });
 
 // Build @amp/web first; this drives the real /metals route without a test-only product export.
-test("a stationary touch start immediately shows the pressed metal-price period", { timeout: 45000 }, async () => {
+test("metal-price captions remain readable on touch and pointer charts", { timeout: 45000 }, async () => {
   const fixture = prices(),
     quote = fixture.metals[0]!.quotes[2]!;
   quote.history = [
@@ -162,7 +162,39 @@ test("a stationary touch start immediately shows the pressed metal-price period"
     { period: period("2026-10-01", "2026年10月1日"), value: "9800" },
     { period: quote.period!, value: quote.value! },
   ];
+  const gold = { ...quote, key: "caption-gold", title: "合成金价", unit: "美元/盎司", decimals: 2 };
+  gold.history = Array.from({ length: 400 }, (_, index) => {
+    const date = new Date(Date.parse("2026-10-02T00:00:00Z") - (399 - index) * 86400_000);
+    return {
+      period: period(date.toISOString().slice(0, 10), `${date.getUTCFullYear()}年${date.getUTCMonth() + 1}月${date.getUTCDate()}日`),
+      value: (10000.12 + index).toFixed(2),
+    };
+  });
+  gold.period = gold.history.at(-1)!.period;
+  gold.value = gold.history.at(-1)!.value;
+  fixture.metals[1] = { key: "gold", name: "金", quotes: [gold] };
   const payload = MetalPrices.parse(fixture);
+  const evidence = path.join(mkdtempSync(path.join(tmpdir(), "aimine-metal-caption-")), "output/playwright");
+  mkdirSync(evidence, { recursive: true });
+  const readable = async (page: Page) => {
+    const geometry = await page.evaluate(`(() => {
+      const label = document.querySelector('[data-trend="caption-gold"] [aria-live]');
+      const controls = label.nextElementSibling.getBoundingClientRect();
+      const bounds = label.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(label);
+      return {
+        clipped: label.scrollWidth > label.clientWidth + 1,
+        outside: [...range.getClientRects()].some(r => r.left < bounds.left - 1 || r.right > bounds.right + 1),
+        overlap: [...range.getClientRects()].some(r => r.left < controls.right && r.right > controls.left && r.top < controls.bottom && r.bottom > controls.top),
+      };
+    })()`);
+    assert.deepEqual(
+      geometry,
+      { clipped: false, outside: false, overlap: false },
+      "the whole date and price must fit without clipping or covering range controls",
+    );
+  };
   const api = createServer((req, res) => {
     res.setHeader("content-type", "application/json");
     res.setHeader("cache-control", "no-store");
@@ -265,6 +297,43 @@ test("a stationary touch start immediately shows the pressed metal-price period"
     } finally {
       await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     }
+    const firstYear = trendWindow(trendPoints(gold), 366)[0]!;
+    for (const width of [390, 360]) {
+      await page.setViewportSize({ width, height: 844 });
+      const goldFigure = page.locator('[data-trend="caption-gold"]');
+      await goldFigure.getByRole("button", { name: "1年", exact: true }).click();
+      const cards = await page.locator('[data-metal="copper"], [data-metal="gold"]').all();
+      const [left, right] = await Promise.all(cards.map((card) => card.boundingBox()));
+      assert.equal(left!.y, right!.y, `${width}px retains two columns`);
+      assert.ok(right!.x > left!.x);
+      const goldChart = goldFigure.locator("svg"),
+        touch = (await goldChart.boundingBox())!;
+      try {
+        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: touch.x + 0.1, y: touch.y + touch.height / 2 }] });
+        await expect(goldFigure.locator("figcaption")).toContainText(firstYear.label);
+        await expect(goldFigure.locator("figcaption")).toContainText(priceText(String(firstYear.value), gold.decimals));
+        assert.equal(await goldChart.locator("line").count(), 1);
+        await page.screenshot({ path: path.join(evidence, `touch-${width}.png`) });
+        await readable(page);
+      } finally {
+        await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      }
+    }
+    const desktop = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: "zh-CN", reducedMotion: "reduce" });
+    const desktopBlocked = await isolateBrowser(desktop, [origin]),
+      desktopPage = await desktop.newPage();
+    desktopPage.on("pageerror", (error) => errors.push(error.message));
+    await desktopPage.goto(`${origin}/metals`);
+    const desktopFigure = desktopPage.locator('[data-trend="caption-gold"]');
+    await desktopFigure.getByRole("button", { name: "1年", exact: true }).click();
+    await desktopFigure.locator("svg").hover({ position: { x: 0.1, y: 10 } });
+    await expect(desktopFigure.locator("figcaption")).toContainText(firstYear.label);
+    await readable(desktopPage);
+    await desktopPage.screenshot({ path: path.join(evidence, "pointer-1280.png") });
+    await desktopPage.mouse.move(0, 0);
+    await expect(desktopFigure.locator("figcaption")).toContainText("10月2日");
+    assert.deepEqual(desktopBlocked, []);
+    console.log(`caption screenshots: ${evidence}`);
     assert.deepEqual(errors, []);
     assert.deepEqual(blocked, []);
   } finally {

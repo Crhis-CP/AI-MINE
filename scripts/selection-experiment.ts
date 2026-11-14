@@ -29,6 +29,9 @@ import { normalizedUppercase } from "@amp/backend/lib/text";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { ExperimentManifest, metrics, countryPreview, attemptSummary, type Experiment, type Outcome, type Variant } from "./selection-experiment-data.ts";
 
+// The A/B/AR experiment was designed against the classic selection rules (variant A is their score prompt, and B and
+// AR replace it in the classic prompt). It stays pinned to that rule set whatever SELECTION_RULESET the process runs.
+const RULESET = "classic";
 const prompts = { A: "selection-score", B: "selection-score-b", AR: "selection-country-ar" } as const;
 /** Values the score prompts read (the production prompt names the major companies; the others ignore it). */
 const promptValues = { majorCompanies: MAJOR_COMPANIES.join("、") };
@@ -39,8 +42,8 @@ const Prefilter = z.object({ label: z.preprocess(normalizedUppercase, z.enum(["P
  */
 const variantVersion = (prompt: string) => {
   if (analysisPromptLayout() === "separate") return promptVersion(prompt);
-  const system = selectionSystem("score", "shared").split(promptText(prompts.A, promptValues)).join(promptText(prompt, promptValues));
-  return `${prompt}-shared@${sha256(stableJson([scoreStandardVersion("shared"), system])).slice(0, 10)}`;
+  const system = selectionSystem("score", "shared", RULESET).split(promptText(prompts.A, promptValues)).join(promptText(prompt, promptValues));
+  return `${prompt}-shared@${sha256(stableJson([scoreStandardVersion("shared", RULESET), system])).slice(0, 10)}`;
 };
 const restored = (input: AnalyzeInputArticle): AnalyzeInputArticle => ({
   ...input,
@@ -105,7 +108,7 @@ export async function exportCountryCandidates(datasetId: string): Promise<Experi
             prefilterModel,
             modelIdentity,
             prefilterIdentity,
-            prefilterHash: sha256(selectionSystem("prefilter")),
+            prefilterHash: sha256(selectionSystem("prefilter", analysisPromptLayout(), RULESET)),
             promptHashes: {
               A: sha256(promptText(prompts.A, promptValues)),
               B: sha256(promptText(prompts.B, promptValues)),
@@ -138,7 +141,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
     manifest.bindings.prefilterModel !== prefilterModel ||
     manifest.bindings.modelIdentity !== identity ||
     manifest.bindings.prefilterIdentity !== prefilterIdentity ||
-    manifest.bindings.prefilterHash !== sha256(selectionSystem("prefilter")) ||
+    manifest.bindings.prefilterHash !== sha256(selectionSystem("prefilter", analysisPromptLayout(), RULESET)) ||
     (Object.keys(prompts) as Variant[]).some((v) => manifest.bindings!.promptHashes[v] !== versions[v]!.renderedHash)
   )
     throw new Error("Frozen prompt/model bindings are missing or changed; do not silently rerun a different experiment");
@@ -182,7 +185,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
     try {
       await guardModel();
       const { input, fallbackInput } = await prepareEvaluationInput(restored(row.analysisInput), row.inputFingerprint);
-      const request = selectionStepRequest("prefilter", input);
+      const request = selectionStepRequest("prefilter", input, analysisPromptLayout(), undefined, RULESET);
       const result = await observedCall(
         {
           model: prefilterModel,
@@ -192,7 +195,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
           subject: `article:${input.id}@${input.revision}`,
           sourceIds: [input.sourceId!],
           ...request,
-          promptVersion: promptVersionsFor(analysisPromptLayout()).prefilter,
+          promptVersion: promptVersionsFor(analysisPromptLayout(), RULESET).prefilter,
           schema: Prefilter,
           temperature: 0,
           maxTokens: 512,
@@ -224,7 +227,7 @@ export async function runExperiment(manifest: Experiment, maxCalls: number, chec
         for (let i = 1; i <= 2; i++) {
           await guardModel();
           const { input, fallbackInput } = await prepareEvaluationInput(restored(row.analysisInput), row.inputFingerprint);
-          const request = selectionStepRequest("score", input, analysisPromptLayout(), promptText(prompts[variant], promptValues));
+          const request = selectionStepRequest("score", input, analysisPromptLayout(), promptText(prompts[variant], promptValues), RULESET);
           const special = model === "glm-5.3-flash-selection";
           const result = await observedCall(
             {

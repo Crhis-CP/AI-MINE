@@ -73,6 +73,13 @@ export function policyText(tr: Tr, english: boolean) {
       const clock = policyClock(time);
       return clock ? `${clock}${tr("（北京时间）")}` : policyDate(time);
     },
+    /** A date written out for reading (2026 年 10 月 2 日); a stated clock, and the English interface, keep the numeric form. */
+    longDate: (time: Time | null | undefined) => {
+      const date = policyDate(time);
+      const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? "");
+      if (english || policyClock(time) || !parts) return policyClock(time) ? `${policyClock(time)}${tr("（北京时间）")}` : date;
+      return `${Number(parts[1])} 年 ${Number(parts[2])} 月 ${Number(parts[3])} 日`;
+    },
     /** A language code as its name (“es” → 西班牙语 / Spanish); an undetermined language has no name. */
     language: (code: string) => {
       const base = code.split("-")[0]!.toLowerCase();

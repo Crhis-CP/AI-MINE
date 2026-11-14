@@ -88,6 +88,34 @@ function sourceTree(html: string) {
 }
 
 const bytes = (html: string) => Buffer.byteLength(shield(html).html, "utf8");
+
+/**
+ * TASK-0711: the leaves one request carries. Starting at `start`, consecutive leaves that `accept` admits are packed
+ * until their shielded text would pass TRANSLATION_SEGMENT_BYTES or the batch holds `limit` leaves (a binary split
+ * after a failed batch lowers it). The first leaf is always included; a single leaf goes out in the one-block form.
+ */
+export function translationBatch(
+  leaves: readonly SourceSegment[],
+  start: number,
+  accept: (leaf: SourceSegment) => boolean,
+  limit = Number.POSITIVE_INFINITY,
+): SourceSegment[] {
+  const first = leaves[start];
+  if (!first) return [];
+  const batch = [first];
+  let total = bytes(first.html);
+  for (let i = start + 1; i < leaves.length && batch.length < limit; i++) {
+    const leaf = leaves[i]!;
+    if (!accept(leaf)) break;
+    total += bytes(leaf.html);
+    if (total > TRANSLATION_SEGMENT_BYTES) break;
+    batch.push(leaf);
+  }
+  return batch;
+}
+
+/** A batched answer: one string per block, in the order sent. Each string is then checked like a one-block answer. */
+export const TranslationBatchSchema = z.strictObject({ texts: z.array(z.string()).min(2) });
 const sentences = new Intl.Segmenter("und", { granularity: "sentence" });
 const referenceOf = (html: string) =>
   [...sentences.segment(visibleText(html, true))]
@@ -316,8 +344,20 @@ const StoredManifest = z.strictObject({
   ),
 });
 
+/**
+ * What a reader is shown is bound to the source text, its revision and the manifest format, never to the prompt
+ * (TASK-0711): a later prompt change applies to new translations and leaves stored ones readable. `recipe` is
+ * accepted only so existing callers keep compiling; it is not compared. The stored recipe must still agree with the
+ * recipe its own manifest records.
+ */
+export interface TranslationReadIdentity {
+  revision: number;
+  /** Ignored: visibility no longer depends on the translation prompt (TASK-0711). */
+  recipe?: string;
+}
+
 /** Read-only second defence: legacy flags or a body hash alone never prove model completeness. */
-export function readableTranslation(sourceHtml: string, current: { revision: number; recipe: string }, stored: StoredTranslation | null): string | null {
+export function readableTranslation(sourceHtml: string, current: TranslationReadIdentity, stored: StoredTranslation | null): string | null {
   if (!stored?.complete || stored.revision !== current.revision || !stored.body_html) return null;
   const translated = sourceTree(stored.body_html);
   if (!translated.segments.length) return null;
@@ -330,8 +370,8 @@ export function readableTranslation(sourceHtml: string, current: { revision: num
   const leaves = translationLeaves(source, manifest.replacements);
   if (
     source.capacity.length > 0 ||
-    stored.recipe !== current.recipe ||
-    manifest.recipe !== current.recipe ||
+    !stored.recipe ||
+    manifest.recipe !== stored.recipe ||
     manifest.revision !== current.revision ||
     stored.source_hash !== source.sourceHash ||
     manifest.sourceHash !== source.sourceHash ||
@@ -341,6 +381,7 @@ export function readableTranslation(sourceHtml: string, current: { revision: num
     translated.segments.length !== sourceTree(sourceHtml).segments.length
   )
     return null;
+  const identity = { revision: current.revision, recipe: manifest.recipe };
   const checkpoints: TranslationCheckpoint[] = [];
   const offsets = translated.segments.map(() => 0);
   for (const [index, original] of leaves.entries()) {
@@ -362,10 +403,10 @@ export function readableTranslation(sourceHtml: string, current: { revision: num
       JSON.stringify(before.links) !== JSON.stringify(after.links)
     )
       return null;
-    checkpoints.push({ ...current, index: original.index, sourceHash: original.sourceHash, state: "complete", text: after.html });
+    checkpoints.push({ ...identity, index: original.index, sourceHash: original.sourceHash, state: "complete", text: after.html });
   }
   if (translated.segments.some((unit, index) => unit.html.length !== offsets[index])) return null;
-  const assembled = assembleTranslation(sourceHtml, current, checkpoints, manifest.replacements);
+  const assembled = assembleTranslation(sourceHtml, identity, checkpoints, manifest.replacements);
   return assembled?.html === stored.body_html ? stored.body_html : null;
 }
 
@@ -529,15 +570,14 @@ const PartialManifest = z.strictObject({
   totalSegments: z.number().int().positive(),
 });
 
-/** Revision and recipe binding also applies when the page explicitly says a translation is partial. */
-export function readablePartialTranslation(sourceHtml: string, current: { revision: number; recipe: string }, stored: StoredTranslation | null): string | null {
-  if (!stored || stored.complete || stored.origin !== "model" || !stored.body_html || stored.revision !== current.revision || stored.recipe !== current.recipe)
-    return null;
+/** Revision and source binding also applies when the page explicitly says a translation is partial; the prompt does not (TASK-0711). */
+export function readablePartialTranslation(sourceHtml: string, current: TranslationReadIdentity, stored: StoredTranslation | null): string | null {
+  if (!stored || stored.complete || stored.origin !== "model" || !stored.body_html || stored.revision !== current.revision || !stored.recipe) return null;
   const result = PartialManifest.safeParse(stored.manifest);
   if (!result.success) return null;
   const m = result.data;
   return m.revision === current.revision &&
-    m.recipe === current.recipe &&
+    m.recipe === stored.recipe &&
     m.sourceHash === hash(sourceHtml) &&
     stored.source_hash === m.sourceHash &&
     m.bodyHash === hash(stored.body_html) &&

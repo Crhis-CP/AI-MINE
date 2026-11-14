@@ -1,6 +1,7 @@
 // Server-side HTTP client for route loaders. The web process never touches the database;
 // SSR reads the api over loopback with keep-alive, one or two requests per page.
 import { data, redirect } from "react-router";
+import { pageCacheSeconds, READER_PAGE_MARK } from "./cache.server.ts";
 
 const API_BASE = process.env.API_BASE_URL || "http://127.0.0.1:3001";
 
@@ -79,6 +80,20 @@ export function releaseBoundCache(refreshAt: string | null, maxSeconds: number, 
     "Cache-Control": seconds > 0 ? `public, max-age=0, s-maxage=${seconds}` : "no-cache",
     "X-Accel-Expires": seconds > 0 ? `@${deadline}` : "0",
   };
+}
+
+/**
+ * Headers for a reader page (TASK-0672): its HTML may sit in a shared cache for PAGE_CACHE_SECONDS and then be served
+ * stale for as long again while it refreshes. Both periods end by `refreshAt`, the next scheduled release in the page's
+ * scope, and by any deadline the API gave (`upstream`), so a release never waits behind the cache. server.ts splits the
+ * deadline into the two periods and keeps the page's `.data`, searches and fallbacks uncached.
+ */
+export function readerPageHeaders(refreshAt: string | null = null, upstream?: Headers, now = Date.now()): Record<string, string> {
+  const seconds = pageCacheSeconds();
+  const bound = releaseBoundCache(refreshAt, 2 * seconds, now, upstream);
+  // A deadline is passed on only when a release or the API ends the two periods early; otherwise both run in full.
+  if (bound["X-Accel-Expires"] !== `@${Math.floor(now / 1000) + 2 * seconds}`) return { ...bound, [READER_PAGE_MARK]: "1" };
+  return { "Cache-Control": `public, max-age=0, s-maxage=${seconds}`, [READER_PAGE_MARK]: "1" };
 }
 
 /** Read and validate HTTP responses without losing status, retry timing or response headers. */

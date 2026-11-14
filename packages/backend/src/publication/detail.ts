@@ -1,10 +1,10 @@
 import { originalPostAdmissionCondition } from "./items.ts";
 import { originalPostAffectedStories } from "./groups.ts";
-import { foldCopies, readStoryReportLines, storyLine } from "./stories.ts";
+import { foldCopies, readStoryReportLines, storyLine, type CopyCandidate } from "./stories.ts";
 import { CURRENT_SOURCE_TIME } from "./source-time.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import { compatibleGeographyRecipes } from "../editorial/geography.ts";
-import { publicCompanyContext, readerAttribution } from "./reader-context.ts";
+import { readerAttribution } from "./reader-context.ts";
 // Item detail, behind the visibility and licence rules every public output shares.
 import { relatedPoliciesForNews } from "./news-policy-links.ts";
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
@@ -24,21 +24,14 @@ import {
 import { filterHits } from "./mentions.ts";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { ARTICLE_ID_PATTERN, toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
-import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
+import { pickRepresentative, type RepresentativeRow } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
 import type { CategoryKey } from "@amp/contracts/taxonomy";
-import {
-  isChineseOriginal,
-  readableTranslation,
-  readablePartialTranslation,
-  TRANSLATION_MANIFEST_FORMAT,
-  type StoredTranslation,
-} from "../editorial/translation-readiness.ts";
-import { promptVersion } from "../editorial/prompts.ts";
+import { isChineseOriginal, readableTranslation, readablePartialTranslation, type StoredTranslation } from "../editorial/translation-readiness.ts";
 import { looksZh } from "../editorial/writing.ts";
 import { currentPostView, postPermission, postQuoteHtml } from "./post-view.ts";
 
-const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
+// A stored translation is shown by its revision, source text and manifest, never by the current prompt (TASK-0711).
 
 interface DetailRow extends ItemRow {
   /** Persisted release gate, independent of the confirmed selection badge. */
@@ -54,6 +47,8 @@ interface DetailRow extends ItemRow {
   source_syndicate_fulltext: boolean;
   machine_summary: string | null;
   translation: StoredTranslation;
+  /** Read with the row (TASK-0714): the verified company context the worker stored. */
+  company_context: NonNullable<ItemDetail["companyContext"]> | null;
 }
 
 export type DetailResult = { kind: "found"; detail: ItemDetail; row: DetailRow } | { kind: "not_found" };
@@ -81,7 +76,7 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
     SELECT ${ITEM_COLUMNS()}, p.selected AS release_gated, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
-      s.syndicate_fulltext AS source_syndicate_fulltext,p.summary AS machine_summary,
+      s.syndicate_fulltext AS source_syndicate_fulltext,p.summary AS machine_summary,p.company_context,
       jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
         'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
     ${ITEM_FROM()}
@@ -123,13 +118,21 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     return { kind: "found", detail, row };
   }
 
-  const relatedRows = await sql<(StoryRef & { internal_id: number })[]>`
+  // The reads below depend only on the row: they run together, not one after another (TASK-0714).
+  const relatedRead = (async () => {
+    const relatedRows = await sql<(StoryRef & { internal_id: number })[]>`
     SELECT DISTINCT st.id AS internal_id,st.public_id::text AS "publicId", st.title
     FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id
     WHERE fa.article_id = ${id} AND (fa.manual OR fa.input_revision=${row.content_revision}) AND fa.role <> 'mention' AND st.merged_into IS NULL
     LIMIT 6`;
-  const admissionAffected = await originalPostAffectedStories(relatedRows.map((story) => story.internal_id));
-  const related = relatedRows.map(({ internal_id, ...story }) => ({ ...story, title: admissionAffected.has(internal_id) ? summary.title : story.title }));
+    const admissionAffected = await originalPostAffectedStories(relatedRows.map((story) => story.internal_id));
+    return relatedRows.map(({ internal_id, ...story }) => ({ ...story, title: admissionAffected.has(internal_id) ? summary.title : story.title }));
+  })();
+  const groupRead = row.fact_id ? itemGroup(row.fact_id, summary.story, now) : Promise.resolve(null);
+  const coverageRead = row.story_id ? eventCoverage(row.story_id, now, machine) : Promise.resolve(null);
+  const policiesRead = relatedPoliciesForNews(id);
+  // A read that fails must not leave the others' rejections unobserved.
+  for (const read of [relatedRead, groupRead, coverageRead, policiesRead]) read.catch(() => {});
 
   let body: ItemDetail["body"] = null;
   let outline: OutlineEntry[] = [];
@@ -140,11 +143,8 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
   if (originalAllowed && row.body_mode === "full" && row.source_site_fulltext && (row.body_html || row.manual_body_html)) {
     const isZh = isChineseOriginal(row.language, row.body_text ?? "");
     const original = linkBodyImages(row.body_html ?? "");
-    const verified = isZh || !row.body_html ? null : readableTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
-    const partial =
-      isZh || !row.body_html || verified
-        ? null
-        : readablePartialTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
+    const verified = isZh || !row.body_html ? null : readableTranslation(row.body_html, { revision: row.content_revision }, row.translation);
+    const partial = isZh || !row.body_html || verified ? null : readablePartialTranslation(row.body_html, { revision: row.content_revision }, row.translation);
     const zh =
       row.manual_body_html && (translationAllowed || isZh)
         ? `<p>AI 辅助整理，经人工修订</p>${linkBodyImages(row.manual_body_html)}`
@@ -163,31 +163,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     };
   }
 
-  let group: ItemDetail["group"] = null;
-  if (row.fact_id) {
-    // Copies of one report (copyGroups) count once, as in the list the group opens.
-    const members = foldCopies(
-      await sql<{ public_id: string; id: string; source_id: string; title: string; original_title: string | null; first_party: boolean; at: Date }[]>`
-      SELECT f.public_id, p.article_id AS id, p.source_id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at
-      FROM facts f JOIN publications p ON p.fact_id = f.id
-      WHERE f.id = ${row.fact_id} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now})`,
-    );
-    const g = members.length ? { public_id: members[0]!.public_id, reports: members.length, sources: new Set(members.map((m) => m.source_id)).size } : null;
-    const [dev] = await sql<{ n: number }[]>`
-      SELECT count(DISTINCT other.id) AS n FROM facts f
-      JOIN facts other ON other.story_id = f.story_id AND other.id <> f.id
-      JOIN publications p ON p.fact_id = other.id
-      WHERE f.id = ${row.fact_id} AND f.story_id IS NOT NULL AND ${selectedCondition(now)}`;
-    if (g) {
-      group = {
-        factId: g.public_id,
-        story: summary.story,
-        reportCount: Number(g.reports),
-        additionalSourceCount: Math.max(0, Number(g.sources) - 1),
-        developmentCount: Number(dev?.n ?? 0),
-      };
-    }
-  }
+  const [related, group, eventCoverageView, relatedPolicies] = await Promise.all([relatedRead, groupRead, coverageRead, policiesRead]);
 
   const post = row.is_original_post ? currentPostView(row, now.getTime()) : undefined;
   const detail: ItemDetail = {
@@ -202,10 +178,10 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
             ? "pending"
             : "unavailable",
     firstPublicAt: row.first_public_at?.toISOString() ?? null,
-    eventCoverage: row.story_id ? await eventCoverage(row.story_id, now, machine) : null,
+    eventCoverage: eventCoverageView,
     manualRevisionLabel: row.manual_revision_label,
-    companyContext: await publicCompanyContext(id),
-    relatedPolicies: await relatedPoliciesForNews(id),
+    companyContext: row.company_context ?? [],
+    relatedPolicies,
     attribution: readerAttribution(row.source_name, row.url, row.source_policy),
     author: row.author,
     language: row.language,
@@ -220,18 +196,50 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
   return { kind: "found", detail, row };
 }
 
-/** Current public event members: first-party representation and the latest distinct fact stay separate. */
+/** The item's reading group: its fact's current public reports (copies once), sources and the story's other developments. */
+async function itemGroup(factId: number, story: ItemDetail["story"], now: Date): Promise<ItemDetail["group"]> {
+  // Copies of one report (copyGroups) count once, as in the list the group opens.
+  const [rows, [dev]] = await Promise.all([
+    sql<{ public_id: string; id: string; source_id: string; title: string; original_title: string | null; first_party: boolean; at: Date }[]>`
+      SELECT f.public_id, p.article_id AS id, p.source_id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at
+      FROM facts f JOIN publications p ON p.fact_id = f.id
+      WHERE f.id = ${factId} AND p.visibility = 'public' AND ${originalPostAdmissionCondition()} AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now})`,
+    sql<{ n: number }[]>`
+      SELECT count(DISTINCT other.id) AS n FROM facts f
+      JOIN facts other ON other.story_id = f.story_id AND other.id <> f.id
+      JOIN publications p ON p.fact_id = other.id
+      WHERE f.id = ${factId} AND f.story_id IS NOT NULL AND ${selectedCondition(now)}`,
+  ]);
+  const members = foldCopies(rows);
+  if (!members.length) return null;
+  return {
+    factId: members[0]!.public_id,
+    story,
+    reportCount: members.length,
+    additionalSourceCount: Math.max(0, new Set(members.map((m) => m.source_id)).size - 1),
+    developmentCount: Number(dev?.n ?? 0),
+  };
+}
+
+/**
+ * Current public event members: first-party representation and the latest distinct fact stay separate. Members are
+ * read with only what folding copies and choosing the two reports need; the chosen reports are then read in full.
+ */
 async function eventCoverage(storyId: number, now: Date, machine: boolean): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
-  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary ${ITEM_FROM()}
+  type Member = CopyCandidate & RepresentativeRow & { fact_id: number | null; sort_at: Date };
+  const [rows, lines] = await Promise.all([
+    sql<Member[]>`SELECT p.article_id AS id, p.title, p.original_title, p.first_party, coalesce(p.published_at, p.discovered_at) AS at, p.fact_id, p.sort_at,
+      p.body_mode, p.score, p.timeline_at, p.representative_priority
+    FROM publications p JOIN sources s ON s.id = p.source_id
     WHERE p.story_id=${storyId} AND p.visibility='public' AND ${originalPostAdmissionCondition()} AND p.eligible AND s.participation_mode='editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
-    ORDER BY p.timeline_at ASC,p.article_id ASC`;
+    ORDER BY p.timeline_at ASC,p.article_id ASC`,
+    readStoryReportLines([storyId], now),
+  ]);
   // Copies of one report count once; "最新进展" is the development the story page marks as the newest.
-  const kept = foldCopies(rows.map((row) => Object.assign(row, { at: row.published_at ?? row.discovered_at })));
+  const kept = foldCopies(rows);
   if (kept.length < 2) return null;
-  await attachSourcePolicies(kept);
-  await attachRepresentativePriority(kept);
-  const line = storyLine(await readStoryReportLines([storyId], now));
+  const line = storyLine(lines);
   let latest = kept.filter((row) => line.developmentOf.get(row.id) === line.developments.length - 1);
   if (!latest.length) {
     const facts = new Map<string, (typeof kept)[number][]>();
@@ -241,8 +249,19 @@ async function eventCoverage(storyId: number, now: Date, machine: boolean): Prom
     }
     latest = [...facts.values()].sort((a, b) => Math.min(...b.map((r) => r.sort_at.getTime())) - Math.min(...a.map((r) => r.sort_at.getTime())))[0]!;
   }
-  const project = (row: (typeof rows)[number]) => toItemSummary(machine ? { ...row, summary: row.machine_summary } : row);
-  return { representative: project(pickRepresentative(kept)), latest: project(pickRepresentative(latest)), reportCount: kept.length };
+  const representative = pickRepresentative(kept).id,
+    newest = pickRepresentative(latest).id;
+  const full = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary ${ITEM_FROM()}
+    WHERE p.article_id=ANY(${[...new Set([representative, newest])]}::text[]) AND p.story_id=${storyId} AND p.visibility='public' AND ${originalPostAdmissionCondition()}
+      AND p.eligible AND s.participation_mode='editorial' AND (NOT p.selected OR p.visible_after <= ${now})`;
+  await attachSourcePolicies(full);
+  const byId = new Map(full.map((row) => [row.id, row]));
+  const repRow = byId.get(representative),
+    newestRow = byId.get(newest);
+  // A report withdrawn between the two reads leaves the coverage out of this answer rather than showing it.
+  if (!repRow || !newestRow) return null;
+  const project = (row: ItemRow & { machine_summary: string | null }) => toItemSummary(machine ? { ...row, summary: row.machine_summary } : row);
+  return { representative: project(repRow), latest: project(newestRow), reportCount: kept.length };
 }
 
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */

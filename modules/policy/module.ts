@@ -2,6 +2,13 @@ import { defineModule } from "@amp/contracts/modules";
 export default defineModule({
   name: "policy",
   apiPaths: [/^\/api\/(?:site|v1)\/(?:policies|policy-threads)(?:\/|$)/],
+  adminPages: [
+    {
+      path: "admin/policies",
+      file: "web/admin/policies.tsx",
+      id: "routes/admin/policies",
+    },
+  ],
   pages: [
     {
       path: "policies",

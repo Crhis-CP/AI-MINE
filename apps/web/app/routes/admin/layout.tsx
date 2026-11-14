@@ -53,6 +53,7 @@ const NAV: Array<{ group: string; items: NavEntry[] }> = [
     items: [
       { to: "/admin/runs", label: "运行", count: "runs", tone: "bad", end: true },
       { to: "/admin/models", label: "模型与评测", end: true },
+      { to: "/admin/swipe", label: "刷卡校准台", owner: true },
       { to: "/admin/selectbench", label: "精选校准", owner: true },
       { to: "/admin/settings", label: "设置", end: true },
       { to: "/admin/audit", label: "审计记录", end: true, owner: true },

@@ -148,16 +148,25 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
       void window.__reportCsp({ directive: event.effectiveDirective, blockedURI: event.blockedURI });
     });
   });
+  // Reader pages are shareable for 30 s (TASK-0672), so their inline scripts are allowed by hash, not by a per-request
+  // nonce; admin pages keep the nonce. Either way every inline script must be allowed and the boot script must run.
   const pageNonce = async (response: Response) => {
-    const nonce = response.headers()["content-security-policy"]?.match(/'nonce-([^']+)'/)?.[1];
-    expect(nonce).toBeTruthy();
+    const csp = response.headers()["content-security-policy"] ?? "";
+    const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
     await expect(page.locator("html")).toHaveAttribute("data-theme", /^(light|dark)$/);
-    const nonces = await page
-      .locator('script:not([type="application/ld+json"])')
-      .evaluateAll((scripts) => scripts.map((script) => (script as HTMLScriptElement).nonce));
-    expect(nonces.length).toBeGreaterThan(0);
-    expect(nonces.every((value) => value === nonce)).toBe(true);
-    return nonce;
+    const scripts = await page
+      .locator('script:not([type="application/ld+json"]):not([src])')
+      .evaluateAll((list) => list.map((script) => ({ nonce: (script as HTMLScriptElement).nonce, text: script.textContent ?? "" })));
+    expect(scripts.length).toBeGreaterThan(0);
+    if (nonce) {
+      expect(scripts.every((script) => script.nonce === nonce)).toBe(true);
+      return nonce;
+    }
+    const hashes = [...csp.matchAll(/'sha256-([^']+)'/g)].map((m) => m[1]);
+    expect(hashes.length).toBeGreaterThan(0);
+    const { createHash } = await import("node:crypto");
+    for (const script of scripts) expect(hashes).toContain(createHash("sha256").update(script.text).digest("base64"));
+    return null;
   };
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -233,6 +242,7 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     await expect(page.getByRole("button", { name: "登录", exact: true })).toBeFocused();
     await audit("private-login");
     const firstNonce = await pageNonce(login!);
+    expect(firstNonce, "admin pages keep a per-request nonce").toBeTruthy();
     const reopened = await page.goto(`${site.privateOrigin}/admin/login`);
     expect(await pageNonce(reopened!)).not.toBe(firstNonce);
     await expect(loginNonce).toHaveValue("synthetic-login-nonce-2");

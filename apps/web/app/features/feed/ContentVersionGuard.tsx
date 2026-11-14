@@ -1,7 +1,7 @@
 import { apiFetch } from "../../lib/http.ts";
 import { basePath, fmt, useTr } from "../../i18n";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigation, useNavigationType, useRevalidator } from "react-router";
+import { useLocation, useNavigation, useNavigationType, useRevalidator, useRouteLoaderData } from "react-router";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { readSnapshot, restoreAnchor, saveSnapshot, type ListSnapshot } from "./restore";
 import { LIVE_TOP, arrivalKeys, liveList, markArrivals } from "./live";
@@ -72,6 +72,9 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
   const retry = useRef<() => void>(() => {});
   // What the reader has: the withdrawal version this page was checked against and the arrivals it has loaded.
   const seen = useRef<{ withdrawals: string; arrivals: string } | null>(null);
+  // The versions the server read before this document's data and sent with it (TASK-0679 R1).
+  const served = useRouteLoaderData<{ contentVersion?: { version: string; withdrawalVersion: string } | null }>("public-layout")?.contentVersion;
+  const seed = useRef(served ? { withdrawals: served.withdrawalVersion, arrivals: served.version } : null);
   // Arrivals the server has and the page does not show yet; recorded as seen when the reader loads them.
   const pendingArrivals = useRef<string | null>(null);
   // Returning to the same history key still needs this visit's check, not its earlier result.
@@ -171,7 +174,14 @@ export function ContentVersionGuard({ children }: { children: ReactNode }) {
         if (controller.signal.aborted) return;
         const previous = seen.current;
         if (!previous) {
-          // The first visit refreshes the server-rendered page once in place.
+          // The page was read at the versions it came with: nothing has moved since, so it is not read again.
+          const first = seed.current;
+          if (first && first.withdrawals === value.withdrawalVersion && first.arrivals === value.version) {
+            seen.current = first;
+            setStatus("idle");
+            return;
+          }
+          // Versions moved (or were not sent): the first visit refreshes the server-rendered page once in place.
           setStatus("checking");
           await ref.current.revalidate();
           if (controller.signal.aborted) return;

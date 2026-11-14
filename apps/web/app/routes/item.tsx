@@ -14,7 +14,7 @@ import { Link, useNavigate } from "../i18n/navigation";
 import type { Route } from "./+types/item";
 import { XPostDetailFields, ReportGroupDetailFields } from "@amp/contracts/http/public";
 import type { ReportGroupedSiteItemDetail as SiteItemDetail } from "@amp/contracts/site";
-import { apiGet, loadOr404 } from "../lib/api.server";
+import { apiGet, loadOr404, readerPageHeaders } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { fullDateTime, newsSourceDate } from "../lib/format";
 import { SelectedBadge } from "../components/ui/Badge.tsx";
@@ -29,13 +29,15 @@ import { feedbackPath } from "../lib/feedback-origin";
 import { StoryFollowups } from "../features/item/StoryFollowups";
 import { IconArrowLeft, IconCopy, IconExternal, IconMenu, IconShare } from "../components/icons";
 import { ThemeToggle } from "../components/shell/ThemeSwitch";
+import { useDeferredBody, withoutBody, type BodyState } from "../features/item/deferred-body";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const item = await loadOr404(
     async () => {
       const value = await apiGet<SiteItemDetail>(`/api/site/items/${encodeURIComponent(params.id)}?readingGroups=reports-v1`, { signal: request.signal });
       XPostDetailFields.parse(value.x === undefined ? {} : { x: value.x });
-      return { ...value, ...ReportGroupDetailFields.parse(value.reportGroup === undefined ? {} : { reportGroup: value.reportGroup }) };
+      const item = { ...value, ...ReportGroupDetailFields.parse(value.reportGroup === undefined ? {} : { reportGroup: value.reportGroup }) };
+      return withoutBody(item, `/api/site/items/${encodeURIComponent(params.id)}?readingGroups=reports-v1`);
     },
     { signal: request.signal },
   );
@@ -70,8 +72,9 @@ export function meta({ loaderData, location }: Route.MetaArgs) {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 /** A 2px accent line across the top that follows long bodies. */
@@ -145,6 +148,47 @@ function BodyNotice({ item, chineseOriginal }: { item: Pick<SiteItemDetail, "sou
   );
 }
 
+/**
+ * Where the full text appears once the browser has read it (TASK-0673): the server-rendered page has only this, so
+ * search engines index our title and 导读 but not the reprinted text. Without scripts the reader is told how to read it.
+ */
+function BodyPending({ state, original, onRetry }: { state: BodyState; original: string; onRetry: () => void }) {
+  const tr = useTr();
+  // The loading line is the browser's own: the server HTML (and a reader without scripts) gets the noscript line only.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return (
+    <div data-body-pending={state} className="rounded-control bg-bg-sunk px-4 py-3 text-[14.5px] leading-relaxed text-ink-3">
+      <noscript>
+        <p>
+          {tr("全文需在浏览器中打开本页查看。")}{" "}
+          <a href={original} target="_blank" rel="noopener noreferrer" className="text-accent">
+            {tr("打开来源原文")}
+          </a>
+        </p>
+      </noscript>
+      {state === "failed" ? (
+        <p role="status">
+          {tr("正文暂时没有加载出来。")}{" "}
+          <button type="button" onClick={onRetry} className="text-accent">
+            {tr("重试")}
+          </button>
+          {" · "}
+          <a href={original} target="_blank" rel="noopener noreferrer" className="text-accent">
+            {tr("打开来源原文")}
+          </a>
+        </p>
+      ) : (
+        mounted && (
+          <p data-body-loading aria-live="polite">
+            {tr("正文加载中…")}
+          </p>
+        )
+      )}
+    </div>
+  );
+}
+
 async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">, path: string): Promise<"shared" | "copied" | null> {
   const url = `${siteUrl()}${path}`;
   try {
@@ -162,7 +206,9 @@ async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">, path: str
 export default function ItemPage() {
   const df = useDateFormat();
   const tr = useTr();
-  const { item } = useLoaderData<typeof loader>();
+  const { item: page } = useLoaderData<typeof loader>();
+  const { item, state: bodyState, retry: retryBody } = useDeferredBody(page);
+  const bodyLoading = bodyState !== "ready";
   useEffect(() => {
     markRead(item.id);
   }, [item.id]);
@@ -191,7 +237,8 @@ export default function ItemPage() {
 
   const bodyHtml = lang === "zh" ? (item.body?.zh ?? item.body?.original) : (item.body?.original ?? item.body?.zh);
   // A foreign article whose Chinese translation is still being made opens on its original text (TASK-0569).
-  const translationPending = item.readingState === "pending" && lang === "original" && !!item.body?.original && item.body.zhKind !== "original";
+  const hasOriginal = !!item.body?.original || !!item.deferredBody?.original;
+  const translationPending = item.readingState === "pending" && lang === "original" && hasOriginal && item.body?.zhKind !== "original";
   const chineseOriginal = item.body?.zhKind === "original";
   const bodyLabel = !item.body
     ? null
@@ -496,7 +543,7 @@ export default function ItemPage() {
             </div>
           )}
 
-          {!bodyHtml && (
+          {!bodyHtml && !bodyLoading && (
             <section className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[14.5px] leading-relaxed text-ink-3" aria-label={tr("正文状态")}>
               <h2 className="font-semibold">
                 {item.readingState === "pending"
@@ -518,7 +565,7 @@ export default function ItemPage() {
             </section>
           )}
 
-          {((item.body && bodyHtml) || (item.x && hasTranslation)) && (
+          {((item.body && (bodyHtml || bodyLoading)) || (item.x && hasTranslation)) && (
             <section id="article-body" className="mt-9 scroll-mt-16 border-t border-line pt-4 xl:mt-10">
               <div className="mb-6 flex items-center justify-between gap-3">
                 <span className="text-[13px] text-ink-4">{bodyLabel ?? tr("引用")}</span>
@@ -526,10 +573,10 @@ export default function ItemPage() {
                   <PillTabs
                     size="xs"
                     layoutId="item-body-lang"
-                    label={bodyHtml ? tr("正文语言") : tr("引用语言")}
+                    label={bodyHtml || bodyLoading ? tr("正文语言") : tr("引用语言")}
                     active={lang}
                     items={[
-                      { key: "zh", label: bodyHtml ? tr("中文译文") : tr("中文"), prefetch: "intent", replace: true, to: `/items/${item.id}` },
+                      { key: "zh", label: bodyHtml || bodyLoading ? tr("中文译文") : tr("中文"), prefetch: "intent", replace: true, to: `/items/${item.id}` },
                       { key: "original", label: tr("原文"), prefetch: "intent", replace: true, to: `/items/${item.id}/original` },
                     ]}
                   />
@@ -543,6 +590,7 @@ export default function ItemPage() {
                   {tr("中文译文生成中，先为你显示原文。")}
                 </p>
               )}
+              {bodyLoading && <BodyPending state={bodyState} original={item.links.original} onRetry={retryBody} />}
               {bodyHtml && <ArticleBody key={`${itemKey}:${lang}`} html={bodyHtml} />}
               {item.body && bodyHtml && <BodyNotice item={item} chineseOriginal={chineseOriginal} />}
             </section>

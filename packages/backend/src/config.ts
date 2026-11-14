@@ -3,6 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseEnv } from "node:util";
+import { DEFAULT_SELECTION_RULESET, SELECTION_RULESETS, type SelectionRuleset } from "@amp/industry/selection";
 import { SITE } from "@amp/industry/site";
 
 export const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -45,8 +46,9 @@ export const config = {
   siteUrl: str("SITE_URL", SITE.defaultUrl).replace(/\/+$/, ""),
   selectedVisibleAfterSeconds: int("SELECTED_VISIBLE_AFTER_SECONDS", 180),
   /**
-   * The mining scoring standard (industry/prompts/selection-score.md) the Owner has confirmed, as its
-   * prompt version (selection-score@…). Production scores and selects only with that exact version.
+   * The mining scoring standard the Owner has confirmed, as the score version of the rule set and prompt layout in use
+   * (selectionRuleset and analysisPromptLayout below; e.g. selection-score-global-shared@…+weights@…). Production
+   * scores and selects only with that exact version.
    */
   selectionConfirmedVersion: env.SELECTION_CONFIRMED_VERSION || null,
   metalPriceRelayUrl: env.METAL_PRICE_RELAY_URL || null,
@@ -93,6 +95,23 @@ export function analysisPromptLayout(): AnalysisPromptLayout {
   if (value === "separate") return value;
   throw new Error(`ANALYSIS_PROMPT_LAYOUT must be "shared" or "separate" (got "${value}")`);
 }
+
+export type { SelectionRuleset };
+/**
+ * Which selection rules the analysis sends (SELECTION_RULESET; the prompt files of each set are named in
+ * industry/selection.ts): `global` (default) scores 精选 by worldwide reach and passes four more layers into “全部”;
+ * `classic` is the earlier production rules, kept byte for byte for a rollback. Either layout takes its score and
+ * prefilter rules from the set, and each set has its own prompt versions, so SELECTION_CONFIRMED_VERSION must name the
+ * score version of the set in use. Read at call time like the layout; any other value is an error, never a fallback.
+ */
+export function selectionRuleset(): SelectionRuleset {
+  const value = env.SELECTION_RULESET;
+  if (value === undefined || value === "") return DEFAULT_SELECTION_RULESET;
+  if (Object.hasOwn(SELECTION_RULESETS, value)) return value as SelectionRuleset;
+  throw new Error(`SELECTION_RULESET must be one of ${Object.keys(SELECTION_RULESETS).join(", ")} (got "${value}")`);
+}
+// A mistyped rule set stops every backend process as it starts, before any article is judged with other rules.
+selectionRuleset();
 
 /**
  * Paid English titles and summaries for the English interface (EN_COPY_ENABLED, TASK-0595, Owner 2026-11-08). Off

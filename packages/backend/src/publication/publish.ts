@@ -429,7 +429,7 @@ export async function prepareTranslation(articleId: string): Promise<number | nu
   return (await prepareTranslationRun(articleId))?.revision ?? null;
 }
 
-/** The same check, also saying whether the item is selected as this run judged it (TASK-0579: who may pay peak prices). */
+/** The same check, also saying whether the item is selected as this run judged it. */
 export async function prepareTranslationRun(articleId: string): Promise<{ revision: number; selected: boolean } | null> {
   let prepared: { revision: number; selected: boolean } | null = null;
   await sql.begin((tx) =>
@@ -438,12 +438,6 @@ export async function prepareTranslationRun(articleId: string): Promise<{ revisi
     }),
   );
   return prepared;
-}
-
-/** Whether the item is selected in its current publication; read between paid translation segments (TASK-0579). */
-export async function translationSelectedNow(articleId: string): Promise<boolean> {
-  const [row] = await sql<{ selected: boolean }[]>`SELECT selected FROM publications WHERE article_id=${articleId}`;
-  return row?.selected === true;
 }
 
 export async function publishArticleTx(
@@ -703,7 +697,12 @@ export async function publishArticleTx(
   if (needsTranslation) {
     if (forTranslation) forTranslation(article.revision, selected);
     else if (selected || (selectionSettled && liveTranslationWindow(article.discovered_at, now)))
-      await enqueue(QUEUES.translate, { articleId, lane: "news" }, translationJobOptions(articleId, selected, options.now), tx);
+      await enqueue(
+        QUEUES.translate,
+        { articleId, lane: "news" },
+        translationJobOptions(articleId, selected, options.now, liveTranslationWindow(article.discovered_at, now)),
+        tx,
+      );
   }
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ? bilingualNames(analysis.reason_zh) : null) : null;
   const syndicate = mayRedistribute(source, bodyMode);
@@ -876,7 +875,7 @@ export async function publishArticleTx(
   // so republishing a source never queues its history for paid calls (PIT-112).
   const english = await projectEnglishCopy(tx, articleId, article.language);
   if (english.missing && englishCopyEnabled() && liveTranslationWindow(article.discovered_at, now))
-    await enqueue(QUEUES.translate, { articleId, lane: "news", english: true }, englishCopyJobOptions(articleId, selected, options.now), tx);
+    await enqueue(QUEUES.translate, { articleId, lane: "news", english: true }, englishCopyJobOptions(articleId, selected, options.now, true), tx);
   const geographyChanged = await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // Explicit outbound links of this body, for the news/policy navigation; readers apply the public state themselves.
   await projectNewsLinks(tx, article);

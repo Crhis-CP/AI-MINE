@@ -210,7 +210,11 @@ export function registerSite(app: FastifyInstance) {
       if (!Number.isSafeInteger(page) || page < 1) throw new BadRequest("invalid page");
       const search = q.q?.trim() ? q.q.trim().slice(0, 200) : null;
       const tab = q.tab === "relevance" ? "relevance" : "time";
+      // `lean=1`: the first few items only, no source facets (the home page's country block, TASK-0714).
+      if (q.lean !== undefined && q.lean !== "1") throw new BadRequest("invalid lean flag");
+      const lean = q.lean === "1";
       const unfiltered =
+        !lean &&
         !search &&
         !filters.category &&
         !filters.tag &&
@@ -223,8 +227,8 @@ export function registerSite(app: FastifyInstance) {
         !filters.to &&
         !filters.selected &&
         filters.channel === "all";
-      // The hotspot board does not depend on the page: read it alongside, as the timeline does.
-      const [data, hot] = await Promise.all([loadPool({ ...filters, q: search, tab, page }), unfiltered ? loadHotStrip() : null]);
+      // The hotspot board does not depend on the page (the wire and its ETag stay as before); read it alongside the list.
+      const [data, hot] = await Promise.all([loadPool({ ...filters, q: search, tab, page, ...(lean ? { lean } : {}) }), unfiltered ? loadHotStrip() : null]);
       if (unfiltered) data.hot = hot ?? [];
       (filters.readingGroups ? ReportGroupedPoolResponse : PoolResponse).parse(JSON.parse(JSON.stringify(data))); // Validate wire values without changing the original bytes.
       const { generatedAt: _, ...content } = data;
@@ -407,10 +411,13 @@ export function registerSite(app: FastifyInstance) {
     "/api/site/topics/:slug",
     siteHandler(async (req, reply) => {
       const slug = (req.params as { slug: string }).slug;
-      const page = Number(looseQuery(req).page ?? 1);
-      const data = Number.isInteger(page) ? await loadTopicPage(slug, page) : null;
+      const q = looseQuery(req);
+      const page = Number(q.page ?? 1);
+      // `items=none`: the topic and its parts without the list, for a caller that reads the list from the pool (TASK-0714).
+      if (q.items !== undefined && q.items !== "none") throw new BadRequest("invalid items option");
+      const data = Number.isInteger(page) ? await loadTopicPage(slug, page, undefined, { items: q.items !== "none" }) : null;
       if (!data) return sendProblem(req, reply, { status: 404, code: "not_found", detail: "topic page not found", cacheControl: "public, max-age=60" });
-      return sendJsonWithEtag(req, reply, data, { etagPrefix: "topic", cacheControl: "public, max-age=60, s-maxage=60" });
+      return sendJsonWithEtag(req, reply, data, { etagPrefix: q.items === "none" ? "topic-bare" : "topic", cacheControl: "public, max-age=60, s-maxage=60" });
     }),
   );
 

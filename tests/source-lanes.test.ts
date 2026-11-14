@@ -14,6 +14,7 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { checkAlerts, collectFindings } from "@amp/backend/operations/alerts";
 import { loadSiteStats } from "@amp/backend/site/stats";
 import { adaptIntervals } from "@amp/backend/sources/collect";
+import { updateSource } from "@amp/backend/admin/sources";
 import { collectSource } from "./crawl-fixture.ts";
 import { sourceClocks } from "@amp/backend/events/hot";
 import { grantDateFixture } from "./source-date-fixture.ts";
@@ -173,6 +174,11 @@ test("interval tuning and the heat clocks only count news sources", async () => 
     (await sql<{ interval_minutes: number }[]>`SELECT interval_minutes FROM sources WHERE id = ${id}`)[0]!.interval_minutes;
   assert.equal(await interval(POLICY), 360, "a policy source keeps the interval it was created with");
   assert.equal(await interval(NEWS), 60, "a quiet news source is slowed to the hourly maximum, as before");
+  // An interval a person sets in the admin console survives the nightly tuning (TASK-0609).
+  const version = ((await sql<{ updated_at: Date }[]>`SELECT updated_at FROM sources WHERE id=${NEWS}`)[0]!.updated_at as Date).toISOString();
+  await updateSource(NEWS, { patch: { interval_minutes: 240 }, version, reason: "来源方要求放慢" }, "test");
+  await adaptIntervals();
+  assert.equal(await interval(NEWS), 240, "a hand-set interval is not rewritten");
   const clocks = (await sourceClocks()).map((c) => c.id);
   assert.ok(clocks.includes(NEWS));
   assert.ok(!clocks.includes(POLICY), "a slow policy source does not make the heat evidence look incomplete");

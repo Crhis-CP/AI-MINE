@@ -58,6 +58,8 @@ export function webEnvironment(env: Environment): Record<string, string> {
     // The secret header the CDN adds when it fetches from us (TASK-0586).
     "ORIGIN_SECRET",
     "ORIGIN_SECRET_HEADER",
+    // Seconds a shared cache may keep a reader page (TASK-0672); unset means 30, 0 turns it off.
+    "PAGE_CACHE_SECONDS",
     "ORIGIN_ENFORCE",
     // Search-console ownership codes shown on the home page (TASK-0590).
     "GOOGLE_SITE_VERIFICATION",

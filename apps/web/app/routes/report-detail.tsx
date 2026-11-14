@@ -2,7 +2,7 @@ import { SITE, withSubject } from "@amp/industry/site";
 import { data, useLoaderData } from "react-router";
 import type { Route } from "./+types/report-detail";
 import type { ReportDetail, ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
-import { apiGet, loadOr404 } from "../lib/api.server";
+import { apiGet, loadOr404, readerPageHeaders } from "../lib/api.server";
 import { pageMeta, titled } from "../lib/seo";
 import { beijingDate } from "../lib/format";
 import { ReportLayout } from "../features/report/ReportLayout";
@@ -38,8 +38,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 export default function ReportDetailPage() {

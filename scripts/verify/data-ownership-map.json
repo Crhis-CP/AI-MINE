@@ -602,6 +602,14 @@
       "module": "ai-gateway",
       "access": "business"
     },
+    "ai.swipe_cards": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.swipe_answers": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
     "ai.model_fallback_routes": {
       "module": "ai-gateway",
       "access": "business"
@@ -920,6 +928,7 @@
     "apps/api/src/routes/admin.ts": "sources",
     "modules/metals/backend/read.ts": "publication",
     "modules/metals/backend/store.ts": "publication",
+    "modules/policy/backend/admin.ts": "publication",
     "modules/policy/backend/compare.ts": "publication",
     "modules/policy/backend/domain/automation.ts": "policy",
     "modules/policy/backend/domain/capture.ts": "policy",
@@ -939,6 +948,7 @@
     "modules/policy/backend/domain/vision-store.ts": "policy",
     "modules/policy/backend/publication/policies-publish.ts": "publication",
     "modules/policy/backend/publication/policy-provisions-project.ts": "publication",
+    "modules/policy/backend/publication/policy-regate.ts": "publication",
     "modules/policy/backend/publication/policy-report-store.ts": "publication",
     "modules/policy/backend/read.ts": "publication",
     "modules/policy/backend/relations.ts": "publication",
@@ -967,6 +977,7 @@
     "packages/backend/src/admin/models.ts": "ai-gateway",
     "packages/backend/src/admin/operational-snapshot.ts": "identity",
     "packages/backend/src/admin/prefilter-audit.ts": "ai-gateway",
+    "packages/backend/src/admin/swipe.ts": "ai-gateway",
     "packages/backend/src/admin/runs.ts": "ops",
     "packages/backend/src/admin/selectbench-evidence.ts": "ai-gateway",
     "packages/backend/src/admin/selectbench-records.ts": "ai-gateway",

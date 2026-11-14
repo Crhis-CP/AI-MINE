@@ -101,7 +101,7 @@ test("actual classification, publication and public exits agree on nine keys and
   assert.equal(
     shared.score,
     "selection-score-shared@a195d5bf17+weights@20542a669a",
-    "the score rules as the shared layout sends them; SELECTION_CONFIRMED_VERSION must name this value to score in that layout",
+    "the score rules as the shared layout sends them (recorded on receipts); SELECTION_CONFIRMED_VERSION names the score standard instead (TASK-0710)",
   );
   for (const step of Object.keys(shared) as Array<keyof typeof shared>) assert.notEqual(shared[step], separate[step], step);
   assert.deepEqual(normalizeTags([]), []);

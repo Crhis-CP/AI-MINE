@@ -1,4 +1,4 @@
-import { apiFetch, Link } from "@amp/web/extension";
+import { apiFetch } from "@amp/web/extension";
 import { useTr } from "@amp/web/i18n";
 import { useState } from "react";
 import { data as withHeaders, useLoaderData } from "react-router";
@@ -7,27 +7,10 @@ import { schemas as publicSchemas } from "@amp/contracts/http/public";
 import { PolicyDetailQuery } from "@amp/contracts/http/public";
 import { apiBaseFor } from "@amp/web/extension.server";
 import { pageMeta } from "@amp/web/extension";
-import { ArticleLayout } from "@amp/web/page";
-import { PolicyReading } from "./features/PolicyReading";
-import { PolicyCompare } from "./features/PolicyCompare";
-import { PolicyBack, PolicyError, Section, policyCache, policyHref, useKnownLabels, usePolicyRecheck } from "./features/PolicyUI";
-import { usePolicyText } from "./features/reader";
-import {
-  PolicyAnalysis,
-  PolicyEvidence,
-  PolicyFacts,
-  PolicyFooter,
-  PolicyGaps,
-  PolicyGlance,
-  PolicyJumpBar,
-  PolicyLegal,
-  PolicyLinks,
-  PolicyReadingState,
-  PolicyToc,
-  PolicyToolbar,
-  hasReading,
-  policySections,
-} from "./features/PolicyDetail";
+import { PolicySource } from "./features/PolicyReading";
+import { PolicyReviewProvider, useReview, type ReviewView } from "./features/PolicyReview";
+import { PolicyBack, PolicyError, policyCache, policyHref, usePolicyRecheck } from "./features/PolicyUI";
+import { PolicyHead, PolicyInterpretation } from "./features/PolicyDetail";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const url = new URL(request.url);
@@ -49,7 +32,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     if (!result.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.status) ? result.status : 503 });
     const policy = publicSchemas.Policy.parse(await result.json());
     const history = !!parsed.data.document_revision_id;
-    // 逐条对照 is optional: no two comparable versions, or a failed read, only leaves the section out.
+    // The comparison is optional: no two comparable versions, or a failed read, only leaves its section and the marks out.
     const comparing = history
       ? Promise.resolve(null)
       : apiFetch("/api/site/policies/{id}/compare", {
@@ -120,17 +103,71 @@ export function meta({ loaderData, params }: MetaArgs<typeof loader>) {
     noindex: loaderData?.history ?? true,
   });
 }
+const FIRST_VIEW: ReviewView = { pane: "read", redline: false };
+
 export default function PolicyPage() {
   const data = useLoaderData<typeof loader>();
+  // The phone tab and the revision marks stay as the reader set them while the language changes; another document starts afresh.
+  const [view, setView] = useState({ policy: data.policy.id, ...FIRST_VIEW });
+  const current = view.policy === data.policy.id ? view : { policy: data.policy.id, ...FIRST_VIEW };
   return (
-    <PolicyDocument key={`${data.policy.id}:${data.policy.selected_expression_id}:${data.policy.reading?.document_revision_id}:${data.history}`} {...data} />
+    <PolicyDocument
+      key={`${data.policy.id}:${data.policy.selected_expression_id}:${data.policy.reading?.document_revision_id}:${data.history}`}
+      {...data}
+      view={current}
+      onView={(next) => setView((now) => ({ ...(now.policy === data.policy.id ? now : { policy: data.policy.id, ...FIRST_VIEW }), ...next }))}
+    />
   );
 }
-function PolicyDocument({ policy, history, initialReading, initialReadingFailed, comparison, compareRequested }: Awaited<ReturnType<typeof loader>>) {
+
+/** The two sides under the head. Narrow space shows them as two tabs; the bar is plain anchors until scripts run. */
+function Panes({ compareRequested }: { compareRequested: boolean }) {
   const tr = useTr();
-  const text = usePolicyText();
-  const known = useKnownLabels();
-  const nature = known.nature(policy.nature.code, policy.nature.label);
+  const { source, pane, setPane } = useReview();
+  const tab = (key: ReviewView["pane"], label: string) => (
+    <a
+      href={`#pr-${key}`}
+      role="tab"
+      aria-selected={pane === key}
+      aria-controls={`pr-${key}`}
+      onClick={(event) => {
+        event.preventDefault();
+        setPane(key);
+      }}
+    >
+      {label}
+    </a>
+  );
+  // Without any text to show there is one column and no tab that would lead nowhere.
+  if (source.kind === "none")
+    return (
+      <div className="pr-panes">
+        <PolicyInterpretation compareRequested={compareRequested} />
+      </div>
+    );
+  return (
+    <div className="pr-panes">
+      <div className="pr-ptab" role="tablist" aria-label={tr("解读与原文")}>
+        {tab("read", tr("解读"))}
+        {tab("src", tr("原文"))}
+      </div>
+      <PolicyInterpretation compareRequested={compareRequested} />
+      <PolicySource />
+    </div>
+  );
+}
+
+function PolicyDocument({
+  policy,
+  history,
+  initialReading,
+  initialReadingFailed,
+  comparison,
+  compareRequested,
+  view,
+  onView,
+}: Awaited<ReturnType<typeof loader>> & { view: ReviewView; onView: (next: Partial<ReviewView>) => void }) {
+  const tr = useTr();
   const [invalid, setInvalid] = useState(false);
   usePolicyRecheck();
   if (invalid)
@@ -141,56 +178,20 @@ function PolicyDocument({ policy, history, initialReading, initialReadingFailed,
         <p className="mt-3 text-[14px] text-ink-3">{tr("请返回列表重新读取，避免混用不同版本。")}</p>
       </div>
     );
-  const current = policy.versions.find((v) => v.id === policy.selected_policy_version_id);
-  const sections = policySections(policy, tr, { compare: !!comparison || compareRequested });
   return (
-    <div className="pb-12 pt-3 lg:pt-0" data-policy>
-      <PolicyToolbar policy={policy} history={history} />
-      {history && (
-        <p className="mb-5 rounded-control bg-bg-sunk p-3 text-[13px] text-ink-3">
-          {tr("历史公开快照 ·")} {current?.current ? tr("亦为当前可读版本") : tr("非当前公开版本")}
-          {tr("。本站于")} {text.date(policy.first_public_at)} {tr("公开的正文与解读，不代表完整法定沿革。")}
-          <Link to={policyHref(policy.id)} className="ml-2 text-accent underline">
-            {tr("查看当前可读版本")}
-          </Link>
-        </p>
-      )}
-      <ArticleLayout
-        left={
-          <div className="space-y-2 text-[12px] text-ink-3">
-            <p>{text.places(policy.jurisdictions)}</p>
-            <p>{policy.authority.name}</p>
-            {nature && <p>{nature}</p>}
-          </div>
-        }
-        right={<PolicyToc sections={sections} />}
-      >
-        <PolicyFacts policy={policy} history={history} />
-        <PolicyGlance policy={policy} />
-        <PolicyReadingState policy={policy} />
-        <PolicyJumpBar sections={sections} />
-        {policy.summary && <p className="mt-5 text-[15px] leading-7 text-ink-2">{policy.summary}</p>}
-        <PolicyAnalysis policy={policy} />
-        <PolicyLegal policy={policy} />
-        <PolicyGaps policy={policy} />
-        <PolicyCompare key={comparison?.content_version ?? "none"} policyId={policy.id} initial={comparison} requested={compareRequested} />
-        {/* Without text this site may show there is nothing to read here; the official original is the page's main action. */}
-        {hasReading(policy) && (
-          <Section id="reading" title={tr("正文阅读")}>
-            <PolicyReading
-              key={`${policy.selected_expression_id}:${policy.reading?.document_revision_id}`}
-              policy={policy}
-              history={history}
-              initialPage={initialReading}
-              initialFailed={initialReadingFailed}
-              onInvalid={() => setInvalid(true)}
-            />
-          </Section>
-        )}
-        <PolicyEvidence policy={policy} />
-        <PolicyLinks policy={policy} />
-        <PolicyFooter policy={policy} />
-      </ArticleLayout>
-    </div>
+    <PolicyReviewProvider
+      policy={policy}
+      history={history}
+      comparison={comparison}
+      initialPage={initialReading}
+      initialFailed={initialReadingFailed}
+      onInvalid={() => setInvalid(true)}
+      view={view}
+      onView={onView}
+    >
+      <div className="pr-prog" aria-hidden="true" />
+      <PolicyHead policy={policy} history={history} />
+      <Panes compareRequested={compareRequested} />
+    </PolicyReviewProvider>
   );
 }
