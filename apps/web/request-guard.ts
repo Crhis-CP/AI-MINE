@@ -181,7 +181,8 @@ export function clientAddress(
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
-  const address = trustProxy && forwarded.length ? forwarded[forwarded.length - 1]! : peer;
+  const last = forwarded.at(-1);
+  const address = trustProxy && last && privateAddress(peer) && isIP(last) ? last : peer;
   return { address, distinct: address !== "" && !privateAddress(address) };
 }
 

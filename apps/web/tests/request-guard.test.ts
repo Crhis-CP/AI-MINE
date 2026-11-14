@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { createServer, type IncomingMessage } from "node:http";
+import { unlink, writeFile } from "node:fs/promises";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -82,6 +83,8 @@ test("the visitor address: the proxy's record only when trusted; private address
   assert.equal(clientAddress(request("172.18.0.5", "10.0.0.4"), true).distinct, false, "the server's own checks through the proxy");
   assert.equal(clientAddress(request("172.18.0.5", "::1"), true).distinct, false);
   assert.equal(clientAddress(request("172.18.0.5", "2001:db8::1"), true).distinct, true);
+  assert.deepEqual(clientAddress(request("198.51.100.10", "203.0.113.9"), true), { address: "198.51.100.10", distinct: true });
+  assert.deepEqual(clientAddress(request("172.18.0.5", "not-an-address"), true), { address: "172.18.0.5", distinct: false });
 });
 
 test("limiting is on only when the deployment says where the visitor address comes from (Codex review #379)", () => {
@@ -182,17 +185,51 @@ let origin = "";
 let logs = "";
 let apiHits = 0;
 let lastApiHeaders: Record<string, unknown> = {};
+const readFailureFile = fileURLToPath(new URL("../build/public/client/assets/task0687-read-error.js", import.meta.url));
 const api = createServer((req, res) => {
   apiHits += 1;
   lastApiHeaders = req.headers;
   res.setHeader("Content-Type", "application/json");
+  if (req.url?.startsWith("/api/lifecycle/")) {
+    api.emit("lifecycle", res);
+    if (req.url.endsWith("before")) return;
+    res.setHeader("Content-Type", "text/event-stream");
+    res.write("data: start\n\n");
+    if (req.url.endsWith("heartbeat")) {
+      const beat = setInterval(() => res.write(": keepalive\n\n"), 100);
+      const end = setTimeout(() => res.end("data: done\n\n"), 1500);
+      res.once("close", () => {
+        clearInterval(beat);
+        clearTimeout(end);
+      });
+    }
+    return;
+  }
   res.end("{}");
 });
 
 before(async () => {
+  await writeFile(readFailureFile, "fixture");
   api.listen(0, "127.0.0.1");
   await once(api, "listening");
-  web = spawn(process.execPath, [fileURLToPath(new URL("../server.ts", import.meta.url))], {
+  const boot = `
+    import assert from "node:assert/strict";
+    import http from "node:http";
+    import fs from "node:fs";
+    import { Readable } from "node:stream";
+    import { syncBuiltinESMExports } from "node:module";
+    const request = http.request;
+    http.request = (options, ...args) => {
+      assert.equal(options.timeout, 60_000);
+      return request({ ...options, timeout: options.path.startsWith("/api/lifecycle/timed-") ? 500 : options.timeout }, ...args);
+    };
+    const stream = fs.createReadStream;
+    fs.createReadStream = (file, ...args) => String(file) === ${JSON.stringify(readFailureFile)}
+      ? new Readable({ read() { this.destroy(new Error("fixture read failure")); } }) : stream(file, ...args);
+    syncBuiltinESMExports();
+    await import(${JSON.stringify(new URL("../server.ts", import.meta.url).href)});
+  `;
+  web = spawn(process.execPath, ["--input-type=module", "--eval", boot], {
     env: webEnvironment({
       ...process.env,
       WEB_PORT: "0",
@@ -232,6 +269,7 @@ before(async () => {
 after(async () => {
   web?.kill();
   api.close();
+  await unlink(readFailureFile).catch(() => {});
 });
 
 // The test connects from loopback, standing for the proxy: the CDN header names the visitor, and every request
@@ -302,4 +340,62 @@ test("only the CDN may fetch from outside: no secret, 403; the api never sees th
   assert.equal(lastApiHeaders["x-forwarded-for"], "203.0.113.72", "the api sees the visitor the CDN named");
   const own = await fetch(`${origin}/api/site/news`, { headers: { host: "example.com" }, redirect: "manual" });
   assert.equal(own.status, 200, "the server's own check from a private address");
+});
+
+test("reader departure closes the api response before and after its headers", async () => {
+  for (const beforeHeaders of [true, false]) {
+    const opened = once(api, "lifecycle", { signal: AbortSignal.timeout(1000) });
+    const controller = new AbortController();
+    const pending = get(`/api/lifecycle/cancel-${beforeHeaders ? "before" : "after"}`, beforeHeaders ? "203.0.113.80" : "203.0.113.81", {
+      signal: controller.signal,
+    });
+    try {
+      const [up] = (await opened) as [ServerResponse];
+      const closed = once(up, "close", { signal: AbortSignal.timeout(1000) });
+      if (!beforeHeaders) {
+        const reader = (await pending).body!.getReader();
+        assert.equal((await reader.read()).done, false);
+        reader.releaseLock();
+      }
+      assert.equal(up.destroyed, false);
+      controller.abort();
+      if (beforeHeaders) await assert.rejects(pending);
+      await closed;
+    } finally {
+      controller.abort();
+    }
+  }
+});
+
+test("idle api sockets close at either response stage while heartbeats keep a stream alive", async () => {
+  for (const stage of ["before", "after", "heartbeat"]) {
+    const opened = once(api, "lifecycle", { signal: AbortSignal.timeout(1000) });
+    const pending = get(`/api/lifecycle/timed-${stage}`, `203.0.113.${82 + ["before", "after", "heartbeat"].indexOf(stage)}`);
+    const [up] = (await opened) as [ServerResponse];
+    const closed = once(up, "close", { signal: AbortSignal.timeout(3000) });
+    const response = await pending;
+    assert.equal(response.status, stage === "before" ? 502 : 200);
+    if (stage === "after") await assert.rejects(response.text());
+    else assert.match(await response.text(), stage === "before" ? /api unavailable/ : /: keepalive[\s\S]*data: done/);
+    await closed;
+    if (stage !== "heartbeat") assert.equal(up.destroyed, true);
+  }
+});
+
+test("missing build files return plain 404 and a static read failure leaves the web process alive", async () => {
+  const hits = apiHits;
+  for (const [path, host, cache] of [
+    ["/assets/missing.js", "example.com", "no-store"],
+    ["/admin/assets/missing.js", "private.localhost", "private, no-store"],
+  ]) {
+    const response = await get(path!, "203.0.113.90", { headers: { host: host! } });
+    assert.equal(response.status, 404);
+    assert.equal(response.headers.get("content-type"), "text/plain; charset=utf-8");
+    assert.equal(response.headers.get("cache-control"), cache);
+    assert.equal(await response.text(), "Not found");
+  }
+  assert.equal(apiHits, hits);
+  await assert.rejects(get("/assets/task0687-read-error.js", "203.0.113.91").then((response) => response.arrayBuffer()));
+  assert.equal((await get("/api/site/news", "203.0.113.92")).status, 200);
+  assert.equal(web.exitCode, null);
 });
