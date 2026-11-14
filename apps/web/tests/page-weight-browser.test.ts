@@ -176,11 +176,18 @@ test("body pictures after the first are marked lazy; one the body already marks 
 });
 
 test("an article page renders its first body picture eagerly and the rest lazily", async () => {
-  const html = await (await fetch(`${origin}/items/weight-item`)).text();
-  const pictures = [...html.matchAll(/<img[^>]*fixture-picture[^>]*>/g)].map((match) => match[0]);
-  assert.equal(pictures.length, 3);
-  assert.doesNotMatch(pictures[0]!, /loading=/);
-  for (const tag of pictures.slice(1)) assert.match(tag, /loading="lazy"/);
+  // The body is read by the browser after the page opens (TASK-0673), so the pictures are checked in the page.
+  const { context, page, errors, blocked } = await visit("/items/weight-item");
+  try {
+    const pictures = page.locator('main img[src*="fixture-picture"]');
+    await expect(pictures).toHaveCount(3);
+    assert.equal(await pictures.nth(0).getAttribute("loading"), null);
+    for (const i of [1, 2]) assert.equal(await pictures.nth(i).getAttribute("loading"), "lazy");
+    assert.deepEqual(errors, []);
+    assert.deepEqual(blocked, []);
+  } finally {
+    await context.close();
+  }
 });
 
 test("the logo cut the theme hides is never downloaded; the shown one loads", async () => {

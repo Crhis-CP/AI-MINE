@@ -15,11 +15,11 @@ import { type HomeCountry as Choice, HOME_COUNTRIES, WORLD, readHomeProvince, re
 
 type Item = z.infer<typeof publicSchemas.ReportGroupedPoolResponse>["items"][number];
 type Local = { code: string; province: string | null; items: Item[]; near: Set<string>; week: number | null; from: string | null };
-/** How many of the country's newest items open the page. */
+/** How many of the country's newest items open the page; the pool's lean read returns exactly this many (TASK-0714 LEAN_POOL_SIZE). */
 export const HOME_COUNTRY_ROWS = 5;
 
 async function readPool(code: string): Promise<Item[]> {
-  const response = await apiFetch(`/api/site/pool?jurisdiction=${code}&readingGroups=reports-v1`, { baseUrl: globalThis.location.origin });
+  const response = await apiFetch(`/api/site/pool?jurisdiction=${code}&readingGroups=reports-v1&lean=1`, { baseUrl: globalThis.location.origin });
   if (!response.ok) throw new Error("items unavailable");
   return publicSchemas.ReportGroupedPoolResponse.parse(await response.json()).items;
 }
