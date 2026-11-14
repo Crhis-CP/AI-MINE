@@ -16,6 +16,7 @@
 - 不得把银行义务写成矿企义务，把建议写成强制，把原有义务写成新增，把罚款上限写成必然罚额，不外推适用范围；数字、金额、比例、日期须与所引原文一致。
 - relationships 的 target_citation 必须逐字出现在所引原文；只有 related 中唯一、合格的目标且引文含其官方 URL 才可写 target_policy_id，否则为 null；修订/勘误/废止目标须同法域。
 - gaps 最多5项，明确未核实，不制造确定结论。不要输出影响分、具体企业得失、语义已核验或公开资格声明。
+- 栏目只来自文书实际规定。没有过渡安排、罚则或期限，不补齐栏目、不写模板空话；deadline、exceptions没有原文依据就为null。只陈述“规定”“要求”“适用于”，不写“企业应当采取行动”“建议”或影响程度。条件只能写所引条款实际规定的条件，不用“符合原文条件”等泛话填空。
 
 字段结构（占位值只说明格式，不可原样返回）：
 {"title_zh":"忠实中文标题","relevance":"uncertain","relevance_evidence_ids":[],"legal_state":{"nature":{"value":"unknown","basis":null,"evidence_ids":[]},"legislative_stage":{"value":"unknown","basis":null,"evidence_ids":[]},"publication":{"value":"unknown","basis":null,"evidence_ids":[],"time":null},"enforcement":{"value":"unknown","basis":null,"evidence_ids":[],"arrangements":[]},"applicability":[],"deadlines":[],"repeal":{"value":"unknown","basis":null,"evidence_ids":[]}},"main_points":[],"impacts":[],"relationships":[],"dynamic_zh":"导读","gaps":[],"evidence":[{"id":"e1","part_id":"p1","quote":"原文逐字摘录"}]}

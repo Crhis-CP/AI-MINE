@@ -145,6 +145,27 @@ function checkDate(time: z.infer<typeof TimeAssertion>, evidence: Candidate["evi
   if (!matches.length || new Set(matches.map((match) => stableJson(fields(match)))).size !== 1 || stableJson(fields(matches[0]!)) !== stableJson(fields(time)))
     throw new Error("date_components_unproved");
 }
+/** An unsupported optional deadline disappears; it does not erase the otherwise supported impact. */
+export function groundImpactDeadlines(candidate: Candidate, plan: PolicyFulltextPlan, sequence: number): Candidate {
+  return {
+    ...candidate,
+    impacts: candidate.impacts.map((impact) => {
+      if (!impact.deadline) return impact;
+      try {
+        checkDate(
+          impact.deadline,
+          candidate.evidence.filter((e) => impact.evidence_ids.includes(e.id)),
+          plan,
+          sequence,
+        );
+        return impact;
+      } catch (error) {
+        if (!(error instanceof Error) || !["date_has_no_source_literal", "date_components_unproved"].includes(error.message)) throw error;
+        return { ...impact, deadline: null };
+      }
+    }),
+  };
+}
 export function checkCandidate(
   candidate: Candidate,
   plan: PolicyFulltextPlan,
