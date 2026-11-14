@@ -594,7 +594,7 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   page.on("pageerror", (error) => errors.push(error.message));
   const opened = await openQualifiedReader(page);
   // The page HTML may be shared for 30 seconds (TASK-0672); its data is read fresh.
-  assert.equal(opened!.headers()["cache-control"], "public, max-age=0, s-maxage=30, stale-while-revalidate=30");
+  assert.equal(opened!.headers()["cache-control"], "public, max-age=0, s-maxage=30");
   await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   const tabs = page.getByRole("navigation", { name: "底部导航" });
   await expect(tabs.getByRole("link")).toHaveCount(5);
