@@ -167,6 +167,7 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
   const rows = await sql<
     (TranslationCandidate & {
       selected: boolean;
+      fresh: boolean;
       body_pending: boolean;
       quote_pending: boolean;
       post_text: string | null;
@@ -176,6 +177,7 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
     })[]
   >`
     SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason,p.selected,${bodyPending} AS body_pending,
+      a.discovered_at >= now() - make_interval(days => ${LIVE_TRANSLATION_DAYS}) AS fresh,
       ${quotePending} AS quote_pending,a.x_post->>'text' AS post_text,a.x_article->>'text' AS article_text,
       coalesce(length(a.body_html),0)::int AS html_chars,CASE WHEN ${estimating} THEN a.body_html END AS body_html
     FROM publications p JOIN articles a ON a.id = p.article_id
@@ -215,7 +217,8 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
         const queued = await enqueue(
           QUEUES.translate,
           { articleId: row.article_id, lane: "news" },
-          translationJobOptions(row.article_id, row.selected, opts.now),
+          // A fresh item re-queued by this sweep starts at once, as at publication (TASK-0676); backlog waits off-peak.
+          translationJobOptions(row.article_id, row.selected, opts.now, row.fresh),
         );
         if (queued === undefined) break; // An expired producer gives no durable acceptance evidence.
         if (queued) enqueued++;
