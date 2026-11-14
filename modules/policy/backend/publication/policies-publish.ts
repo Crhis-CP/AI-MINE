@@ -36,6 +36,7 @@ import { classifyInstrument, INSTRUMENT_GATE_REASON_ZH, type InstrumentGateResul
 import { argentineLifecycle, type ArLifecycle } from "../domain/ar-lifecycle.ts";
 import { readCachedPolicyText } from "../domain/provision-store.ts";
 import { projectPolicyProvisions } from "./policy-provisions-project.ts";
+import { alignPolicyEvidence } from "../domain/linkage.ts";
 
 export async function setPolicyPublicationState(id: string, input: { withdrawn?: boolean; paused?: boolean; reason: string; actor: string }) {
   if (!input.reason.trim() || !input.actor.trim()) throw new Error("Publication control needs reason and actor");
@@ -79,8 +80,8 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
       )
     : null;
   const candidate =
-    interpretation?.semantic_verified && interpretation.modelEvidenceComplete && interpretation.candidate?.relevance === "relevant"
-      ? interpretation.candidate
+    loaded && interpretation?.semantic_verified && interpretation.modelEvidenceComplete && interpretation.candidate?.relevance === "relevant"
+      ? alignPolicyEvidence(interpretation.candidate, loaded.run.plan.parts).candidate
       : null;
   const relationLinks = candidate && loaded ? await preparePolicyRelationships(loaded.run, candidate) : [];
   const qualityInput = candidate
@@ -152,7 +153,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
       complete ? candidate : null,
       gate.recipe,
       lifecycle,
-      "policy-public-3",
+      "policy-public-4",
     ]),
   );
   const write = async (db: Db) => {

@@ -29,6 +29,7 @@ const provider = await stub(async (_hit, req) => {
   await beforeResponse(input);
   const output = answer(input);
   if (input.phase === "interpret") {
+    for (const impact of output.impacts) impact.exceptions = ["bad_exception", "translated_exception"].includes(mode) ? "原文例外的中文译文" : null;
     if (["excluded_pass", "excluded_veto"].includes(mode)) output.relevance = "excluded";
     // A number the cited quote does not contain: code cannot decide it, the model verifier must.
     if (["number_veto", "number_pass", "missing_judgment"].includes(mode)) output.main_points.push({ ...output.main_points[0], text: "上限提高到99吨" });
@@ -37,7 +38,11 @@ const provider = await stub(async (_hit, req) => {
   }
   if (input.phase === "verify") {
     const verdict = (claim: Payload) =>
-      (mode === "excluded_veto" && claim.path === "relevance") || (mode === "number_veto" && String(claim.value?.text).includes("99")) ? "vetoes" : "supports";
+      mode === "bad_exception" && claim.path.endsWith(".exceptions")
+        ? "not_applicable"
+        : (mode === "excluded_veto" && claim.path === "relevance") || (mode === "number_veto" && String(claim.value?.text).includes("99"))
+          ? "vetoes"
+          : "supports";
     Object.assign(output, verifyReply(input, verdict));
     if (mode === "missing_judgment") output.judgments.pop();
   }
@@ -61,6 +66,26 @@ after(async () => {
   await closeDb();
 });
 const profile = { bodySelector: "article", attachmentSelector: null, maxBytes: 2_000_000, maxResources: 8, maxPages: 40, maxTextBytes: 2_000_000 };
+
+test("optional exceptions use cited semantic verification and do not erase the impact", async () => {
+  for (const [nextMode, expected] of [
+    ["bad_exception", null],
+    ["translated_exception", "原文例外的中文译文"],
+  ] as const) {
+    mode = nextMode;
+    const f = await fixture(),
+      before = requests.length;
+    const result = await runPolicyInterpretation(f.runId, { root, maxRequests: 100 });
+    assert.equal(result.status, "semantic_verified");
+    assert.ok("candidate" in result && result.candidate);
+    assert.equal(result.candidate.impacts.length, 1);
+    assert.equal(result.candidate.impacts[0]!.exceptions, expected);
+    assert.equal(result.fieldChecks[0]!.verdict, nextMode === "bad_exception" ? "not_applicable" : "supports");
+    const check = requests.slice(before).find((call) => call.phase === "verify" && call.claims.some((claim: Payload) => claim.path.endsWith(".exceptions")));
+    assert.ok(check, "a translated exception cannot pass on numbers or a cross-language substring check");
+    assert.ok(check.claims.every((claim: Payload) => claim.value.evidence_ids.length));
+  }
+});
 async function fixture(count = 1) {
   // No digits in the ID: it is quoted in the provisions, and a number there (say "99") would let code decide a
   // claim these tests send to the model verifier.

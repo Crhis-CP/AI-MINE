@@ -9,6 +9,7 @@ import {
   VerifyDelta,
   checkCandidate,
   checkQuotes,
+  groundImpactDeadlines,
   originalText,
   type Candidate,
   type Claim,
@@ -148,16 +149,59 @@ export async function executePolicyInterpretation(input: InterpretationInput, ca
     // The caller validates the actual reply (fresh or checkpointed) with `check` and returns that validated value.
     return (await call({ id, inputHash, purpose, prompt, payload: body, parts, upstream: [...upstream], validate: check })) as z.infer<S>;
   };
+  const verifyClaims = async (candidate: Candidate, claims: Claim[], undecided: ClaimDecision[]) => {
+    const verdicts = new Map<string, string>();
+    for (const batch of claimBatches(undecided, claims, candidate, plan, refs)) {
+      const body = {
+        phase: "verify",
+        candidate_hash: sha256(stableJson(candidate)),
+        claims: batch.claims.map((claim) => ({ id: claim.id, path: claim.path, value: claim.value })),
+        evidence: batch.evidence.map((e) => ({ id: e.id, part: refs.get(e.part_id)!, quote: e.quote })),
+        parts: batch.parts.map((part) => ({ ref: refs.get(part.partId)!, text: originalText(part) })),
+      };
+      const reply = await stage<typeof VerifyDelta>(
+        "policy_verify",
+        "policy-verify",
+        body,
+        batch.parts.map((part) => part.partId),
+        [{ id: candidate.id, hash: sha256(stableJson(candidate)) }],
+        (value) => {
+          const parsed = VerifyDelta.parse(value);
+          const ids = parsed.judgments.map((j) => j.claim_id),
+            expected = batch.claims.map((claim) => claim.id);
+          if (new Set(ids).size !== ids.length || stableJson([...ids].sort()) !== stableJson([...expected].sort())) throw new Error("coverage_mismatch");
+          for (const judgment of parsed.judgments) {
+            if (judgment.verdict === "not_applicable" ? judgment.quotes.length > 0 : !judgment.quotes.length) throw new Error("verification_quote_required");
+            const claim = batch.claims.find((claim) => claim.id === judgment.claim_id)!;
+            const cited = /\.exceptions$/.test(claim.path) ? evidenceReferences(claim.value) : null;
+            checkQuotes(
+              judgment.quotes.map((q) => ({ ...q, part_id: toPart(q.part_id) })),
+              batch.parts,
+              cited ? batch.evidence.filter((e) => cited.has(e.id)) : undefined,
+            );
+          }
+          return parsed;
+        },
+      );
+      stats.verifyStages++;
+      for (const judgment of reply.judgments) verdicts.set(judgment.claim_id, judgment.verdict);
+    }
+    return verdicts;
+  };
   const envelope = (accumulated: Accumulated, inputHash: string) =>
-    CandidateReply.parse({
-      id: sha256(stableJson(["policy-candidate", inputHash])),
-      input_hash: inputHash,
-      input_ids: [plan.manifestHash],
-      document_title: input.identity.title,
-      instrument_number: input.identity.number,
-      comparisons: [],
-      ...accumulated,
-    });
+    groundImpactDeadlines(
+      CandidateReply.parse({
+        id: sha256(stableJson(["policy-candidate", inputHash])),
+        input_hash: inputHash,
+        input_ids: [plan.manifestHash],
+        document_title: input.identity.title,
+        instrument_number: input.identity.number,
+        comparisons: [],
+        ...accumulated,
+      }),
+      plan,
+      input.identity.sequence,
+    );
 
   // 1. Interpret only what changed (everything, chunk-bounded, for a first version).
   let accumulated: Accumulated | null = carry?.complete && !changed.length ? carry.carried : null;
@@ -230,6 +274,31 @@ export async function executePolicyInterpretation(input: InterpretationInput, ca
   }
   let candidate = envelope(accumulated, sha256(stableJson([plan.manifestHash, upstream])));
   checkCandidate(candidate, plan, input.identity, input.related);
+  const fieldChecks: { path: string; value: unknown; verdict: string }[] = [];
+  // A translated exception needs semantic support, not a substring match in another language.
+  const exceptions: Claim[] =
+    candidate.relevance === "relevant"
+      ? candidate.impacts.flatMap((impact, index) => {
+          if (!impact.exceptions?.trim() || candidate.evidence.some((e) => impact.evidence_ids.includes(e.id) && e.quote.includes(impact.exceptions!)))
+            return [];
+          const path = `impacts.${index}.exceptions`,
+            value = { exceptions: impact.exceptions, evidence_ids: impact.evidence_ids };
+          return [{ id: sha256(stableJson([path, value])), path, value, requiresSupport: true }];
+        })
+      : [];
+  if (exceptions.length) {
+    const verdicts = await verifyClaims(
+      candidate,
+      exceptions,
+      exceptions.map((claim) => ({ claimId: claim.id, path: claim.path, verdict: "undecided", reason: "exception_needs_cited_support" })),
+    );
+    const unsupported = new Set(exceptions.filter((claim) => verdicts.get(claim.id) !== "supports").map((claim) => claim.path));
+    for (const claim of exceptions) fieldChecks.push({ path: claim.path, value: claim.value, verdict: verdicts.get(claim.id)! });
+    candidate = {
+      ...candidate,
+      impacts: candidate.impacts.map((impact, i) => (unsupported.has(`impacts.${i}.exceptions`) ? { ...impact, exceptions: null } : impact)),
+    };
+  }
   const claimsOf = () => deterministicDecisions(candidate, plan, units, new Set(previous?.verifiedClaims ?? []));
   let { claims, decisions } = claimsOf();
   const result = (status: "semantic_verified" | "semantic_failed" | "excluded" | "uncertain", reason?: string) => {
@@ -239,6 +308,7 @@ export async function executePolicyInterpretation(input: InterpretationInput, ca
       candidate,
       claims,
       decisions,
+      fieldChecks,
       verifiedClaims: status === "semantic_verified" || status === "excluded" ? verifiedClaimKeys(claims, passed) : [],
       changes: stats,
       ...(reason ? { reason } : {}),
@@ -251,39 +321,7 @@ export async function executePolicyInterpretation(input: InterpretationInput, ca
   // 2. Model verification only for claims code could not decide (one bounded call per chunk of claims).
   const undecided = decisions.filter((d) => d.verdict === "undecided");
   if (undecided.length) {
-    const verdicts = new Map<string, string>();
-    for (const batch of claimBatches(undecided, claims, candidate, plan, refs)) {
-      const body = {
-        phase: "verify",
-        candidate_hash: sha256(stableJson(candidate)),
-        claims: batch.claims.map((claim) => ({ id: claim.id, path: claim.path, value: claim.value })),
-        evidence: batch.evidence.map((e) => ({ id: e.id, part: refs.get(e.part_id)!, quote: e.quote })),
-        parts: batch.parts.map((part) => ({ ref: refs.get(part.partId)!, text: originalText(part) })),
-      };
-      const reply = await stage<typeof VerifyDelta>(
-        "policy_verify",
-        "policy-verify",
-        body,
-        batch.parts.map((part) => part.partId),
-        [{ id: candidate.id, hash: sha256(stableJson(candidate)) }],
-        (value) => {
-          const parsed = VerifyDelta.parse(value);
-          const ids = parsed.judgments.map((j) => j.claim_id),
-            expected = batch.claims.map((claim) => claim.id);
-          if (new Set(ids).size !== ids.length || stableJson([...ids].sort()) !== stableJson([...expected].sort())) throw new Error("coverage_mismatch");
-          for (const judgment of parsed.judgments) {
-            if (judgment.verdict === "not_applicable" ? judgment.quotes.length > 0 : !judgment.quotes.length) throw new Error("verification_quote_required");
-            checkQuotes(
-              judgment.quotes.map((q) => ({ ...q, part_id: toPart(q.part_id) })),
-              batch.parts,
-            );
-          }
-          return parsed;
-        },
-      );
-      stats.verifyStages++;
-      for (const judgment of reply.judgments) verdicts.set(judgment.claim_id, judgment.verdict);
-    }
+    const verdicts = await verifyClaims(candidate, claims, undecided);
     decisions = decisions.map((d) =>
       d.verdict === "undecided"
         ? { ...d, verdict: verdicts.get(d.claimId) === "supports" ? "passes" : "fails", reason: `model_${verdicts.get(d.claimId)}` }
