@@ -72,6 +72,7 @@ import { geographyMaterial, validateGeography, type NewsGeography } from "./geog
 import {
   MEND_CONFIG,
   promptVersionsFor,
+  scoreConfirmationVersion,
   scoreStandardVersion,
   scoreSystem,
   sharedAnalysisSystem,
@@ -113,7 +114,7 @@ export const PROMPT_VERSIONS: Readonly<Record<AnalysisStep, string>> = {
     return promptVersionsFor(analysisPromptLayout()).structure;
   },
 };
-export { promptVersionsFor, scoreStandardVersion };
+export { promptVersionsFor, scoreConfirmationVersion, scoreStandardVersion };
 /** The selection steps' prompts (prefilter and score), as stored on each judgement. */
 export const selectionPromptVersion = (layout: AnalysisPromptLayout = analysisPromptLayout()) =>
   [promptVersionsFor(layout).prefilter, promptVersionsFor(layout).score].join("+");
@@ -147,13 +148,15 @@ export function draftTierThreshold(tier: string): number | null {
 }
 
 /**
- * Release-version gate: production scores only the exact validated prompt bound by
- * SELECTION_CONFIRMED_VERSION. Rule changes require Owner confirmation under Issue #293.
- * Development, tests and evaluations (draftTierThreshold) run the draft. The version is that of the configured rule
- * set and layout, so switching SELECTION_RULESET without the matching confirmed version scores nothing.
+ * Release-version gate: production scores only when SELECTION_CONFIRMED_VERSION names the current score standard
+ * (scoreConfirmationVersion: the score rules, the preamble and score step instruction, the material recipe and the
+ * weights — not the dictionary, aliases, vocabulary, writing rules or names list the shared prompt also carries;
+ * TASK-0710). Rule changes require Owner confirmation under Issue #348. Development, tests and evaluations
+ * (draftTierThreshold) run the draft. The standard is that of the configured rule set and layout, so switching
+ * SELECTION_RULESET or ANALYSIS_PROMPT_LAYOUT without the matching confirmed version scores nothing.
  */
 export function scoringConfirmed(production = isProduction, confirmed = config.selectionConfirmedVersion): boolean {
-  return !production || confirmed === PROMPT_VERSIONS.score;
+  return !production || confirmed === scoreConfirmationVersion(analysisPromptLayout());
 }
 
 /** Unselected items above this mean are written like selected ones. */
