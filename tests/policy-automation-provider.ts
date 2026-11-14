@@ -46,7 +46,7 @@ export function interpretReply(input: Payload) {
         effect_mode: "direct",
         impact: "适用原文规定",
         deadline: null,
-        exceptions: "保留原文例外",
+        exceptions: null,
         evidence_ids: [first],
       },
     ],
