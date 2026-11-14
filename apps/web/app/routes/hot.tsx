@@ -5,7 +5,7 @@ import { withSubject } from "@amp/industry/site";
 import { useLoaderData } from "react-router";
 import { IntentLink as Link } from "../components/ui/IntentLink";
 import type { HotEntryView, HotResponse } from "@amp/contracts/site";
-import { loadOr404 } from "../lib/api.server";
+import { loadOr404, readerPageHeaders } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { shortSourceName } from "../lib/format";
 import { Badge } from "../components/ui/Badge.tsx";
@@ -29,8 +29,9 @@ export function meta() {
   });
 }
 
+/** The HTML may be shared briefly (TASK-0672); its data is read fresh. */
 export function headers() {
-  return { "Cache-Control": "no-store" };
+  return readerPageHeaders();
 }
 
 const BADGES: Record<HotEntryView["badges"][number], { label: string; tone: "hot" | "accent" | "amber"; hint: string }> = {

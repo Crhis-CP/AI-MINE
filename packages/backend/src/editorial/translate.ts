@@ -22,7 +22,9 @@ export { shield, unshield } from "./translation-readiness.ts";
 
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
 const SYSTEM_BODY = promptText("translate-body");
-// Route changes apply to new segments; each receipt retains its exact model/request identity.
+// Route changes apply to new segments; each receipt retains its exact model/request identity. A prompt change applies
+// to new translations only (TASK-0711): a stored translation keeps the recipe it was started with, stays readable and
+// is not queued again for it. Translating stored items again is a deliberate step: a manifest-format change.
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${TRANSLATE_PROMPT_VERSION}`;
 
 export interface TranslateResult {
@@ -49,7 +51,7 @@ async function translationRecoveryScopes(rows: TranslationCandidate[]): Promise<
   const scope = (row: TranslationCandidate) => `article:${row.article_id}@${row.revision}`;
   const [released, retryable] = await Promise.all([
     releasedTranslationScopes(stopped.map(scope)),
-    retryableTranslationScopes(stopped.filter((row) => row.outcome === "partial").map(scope), RECIPE),
+    retryableTranslationScopes(stopped.filter((row) => row.outcome === "partial").map(scope)),
   ]);
   return new Set([...released, ...retryable]);
 }
@@ -141,7 +143,7 @@ export interface TranslationScanOptions {
   now?: Date;
   /**
    * The cost report (scripts/translate-backfill.ts): with the system prompt's token estimate, each due body is read and
-   * planned segment by segment like the worker does (translationTokenEstimate). The live repair leaves it unset and
+   * planned request by request like the worker does (translationTokenEstimate). The live repair leaves it unset and
    * never loads body HTML.
    */
   estimateSystemTokens?: number;
@@ -159,14 +161,16 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
   const since = new Date((opts.now ?? new Date()).getTime() - (opts.backfillDays ?? LIVE_TRANSLATION_DAYS) * 86_400_000);
   const previous = backfill ? null : RepairCursor.safeParse(await latestSuccessfulRunResult("content.translate"));
   let afterId = backfill ? (opts.afterId ?? null) : previous?.success ? previous.data.cursor.afterId : null;
+  // A complete translation of the current revision is never queued again because the prompt changed (TASK-0711).
   const bodyPending = sql`(a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh' AND
-    (tr.article_id IS NULL OR (tr.origin <> 'source' AND (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE}))))`;
+    (tr.article_id IS NULL OR (tr.origin <> 'source' AND (tr.revision < a.revision OR NOT tr.complete))))`;
   const quotePending = sql`(p.x_post->>'quoteRecipe' IS NOT NULL AND (qt.quote_url IS NULL
     OR p.x_post_revision IS DISTINCT FROM a.revision OR p.x_post->>'quoteRecipe' IS DISTINCT FROM ${quoteTranslationRecipe()}
     OR p.x_post#>>'{view,quoted,translation}' IS DISTINCT FROM qt.text_zh))`;
   const rows = await sql<
     (TranslationCandidate & {
       selected: boolean;
+      fresh: boolean;
       body_pending: boolean;
       quote_pending: boolean;
       post_text: string | null;
@@ -176,6 +180,7 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
     })[]
   >`
     SELECT p.article_id,a.revision,ta.attempts,ta.outcome,ta.reason,p.selected,${bodyPending} AS body_pending,
+      a.discovered_at >= now() - make_interval(days => ${LIVE_TRANSLATION_DAYS}) AS fresh,
       ${quotePending} AS quote_pending,a.x_post->>'text' AS post_text,a.x_article->>'text' AS article_text,
       coalesce(length(a.body_html),0)::int AS html_chars,CASE WHEN ${estimating} THEN a.body_html END AS body_html
     FROM publications p JOIN articles a ON a.id = p.article_id
@@ -215,7 +220,8 @@ export async function translatePending(opts: TranslationScanOptions = {}) {
         const queued = await enqueue(
           QUEUES.translate,
           { articleId: row.article_id, lane: "news" },
-          translationJobOptions(row.article_id, row.selected, opts.now),
+          // A fresh item re-queued by this sweep starts at once, as at publication (TASK-0676); backlog waits off-peak.
+          translationJobOptions(row.article_id, row.selected, opts.now, row.fresh),
         );
         if (queued === undefined) break; // An expired producer gives no durable acceptance evidence.
         if (queued) enqueued++;

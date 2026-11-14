@@ -11,6 +11,7 @@
 // motion gets the still screen; the screen is decoration, the steps' words carry the content.
 import { useId, useState } from "react";
 import { type Phrase, useTr } from "../../i18n";
+import "./changelog-flow.css";
 
 export interface FlowStation {
   name: string;

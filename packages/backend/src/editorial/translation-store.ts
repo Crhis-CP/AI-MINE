@@ -16,6 +16,7 @@ import {
   translationSourceManifest,
   translationLeaves,
   translationReplacement,
+  TRANSLATION_MANIFEST_FORMAT,
   type SourceSegment,
   type StoredTranslation,
   type TranslationCheckpoint,
@@ -34,8 +35,11 @@ export async function translationObservations(body: CurrentBody): Promise<Transl
     FROM enrichment.translation_segments WHERE article_id=${body.id} AND revision=${body.revision} AND receipt_id IS NOT NULL`;
 }
 
-/** A saved partial keeps presentation changes behind the existing input/manifest fence. */
-export async function retryableTranslationScopes(scopes: string[], recipe: string): Promise<Set<string>> {
+/**
+ * A saved partial keeps presentation changes behind the existing input/manifest fence. Any stored recipe counts: a
+ * translation keeps the recipe it was started with when the prompt changes later (TASK-0711).
+ */
+export async function retryableTranslationScopes(scopes: string[]): Promise<Set<string>> {
   if (!scopes.length) return new Set();
   const segments = await sql<(TranslationObservation & { subject: string; maxRejectedOutputs: 1 | 3 })[]>`
     SELECT s.receipt_id::text AS "receiptId",s.attempt_id AS "attemptId",
@@ -43,7 +47,7 @@ export async function retryableTranslationScopes(scopes: string[], recipe: strin
       CASE WHEN s.parent_index IS NULL THEN 3 ELSE 1 END AS "maxRejectedOutputs"
     FROM translations t JOIN enrichment.translation_segments s ON s.article_id=t.article_id AND s.revision=t.revision
       AND s.recipe=t.recipe AND s.source_hash=t.source_hash
-    WHERE t.lang='zh' AND t.origin='model' AND NOT t.complete AND t.recipe=${recipe} AND t.body_html<>''
+    WHERE t.lang='zh' AND t.origin='model' AND NOT t.complete AND t.body_html<>''
       AND ('article:'||t.article_id||'@'||t.revision)=ANY(${scopes}::text[])
       AND s.state='failed' AND s.replacement_plan IS NULL AND s.receipt_id IS NOT NULL AND s.attempt_id IS NOT NULL`;
   const subjects = await retryableTranslationSubjects(segments);
@@ -103,7 +107,12 @@ async function commitTranslationBody<T>(body: CurrentBody, write: (tx: Tx) => Pr
   return result.value;
 }
 
-/** Claim a target identity before paid work; source-provided translations are never replaced. */
+/**
+ * Claim a target identity before paid work; source-provided translations are never replaced. A stored translation of
+ * this exact revision and source text, in the current manifest format, keeps the recipe it was started with
+ * (TASK-0711): a prompt change applies to new translations, so it neither hides that text nor buys it again, and an
+ * unfinished one carries on where it stopped. Each request's receipt records the prompt it was actually sent with.
+ */
 export async function beginTranslation(body: CurrentBody, recipe: string): Promise<TranslationSession | null> {
   if (!body.body_html || !recipe) return null;
   const runtimeControl = await requireRuntimeRunning("news", ["processing"]);
@@ -119,6 +128,17 @@ export async function beginTranslation(body: CurrentBody, recipe: string): Promi
     const [current] = await tx`SELECT revision,recipe,source_hash,origin FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
     if (current?.origin === "source" || current?.revision > body.revision) return false;
     if (current?.revision === body.revision && current.recipe === recipe && current.source_hash === session.source.sourceHash) return true;
+    if (
+      current?.origin === "model" &&
+      current.revision === body.revision &&
+      current.source_hash === session.source.sourceHash &&
+      typeof current.recipe === "string" &&
+      current.recipe.startsWith(`${TRANSLATION_MANIFEST_FORMAT}:`) &&
+      recipe.startsWith(`${TRANSLATION_MANIFEST_FORMAT}:`)
+    ) {
+      session.recipe = current.recipe;
+      return true;
+    }
     await tx`INSERT INTO translations(article_id,lang,revision,complete,origin,recipe,source_hash)
       VALUES(${body.id},'zh',${body.revision},false,'model',${recipe},${session.source.sourceHash})
       ON CONFLICT(article_id,lang) DO UPDATE SET revision=EXCLUDED.revision,complete=false,origin='model',recipe=EXCLUDED.recipe,
@@ -144,7 +164,7 @@ export async function translationCheckpoints(run: TranslationSession, tx: Db = s
   >`SELECT segment_index,segment_hash,state,failed_attempts,attempt_id,receipt_id::text AS receipt_id,response_text,response_hash,restored_html,restored_hash,parent_index,replacement_plan
     FROM enrichment.translation_segments WHERE article_id=${run.body.id} AND revision=${run.body.revision}
       AND recipe=${run.recipe} AND source_hash=${run.source.sourceHash} ORDER BY segment_index`;
-  return rows.map((row): TranslationCheckpoint & { failedAttempts: number; replacement: boolean } => {
+  return rows.map((row): TranslationCheckpoint & { failedAttempts: number; replacement: boolean; receiptId: string | null } => {
     const segment = segmentAt(run, row.segment_index);
     if (row.replacement_plan && (row.parent_index !== null || stableJson(row.replacement_plan) !== stableJson(replacementPlan(run, row.segment_index))))
       throw new Error("Invalid translation replacement identity");
@@ -165,6 +185,7 @@ export async function translationCheckpoints(run: TranslationSession, tx: Db = s
       text: row.response_text ?? "",
       failedAttempts: row.failed_attempts,
       replacement: !!row.replacement_plan,
+      receiptId: row.receipt_id,
     };
   });
 }
@@ -213,6 +234,67 @@ export async function recordTranslationFailure(
         failed_attempts=CASE WHEN EXCLUDED.state='failed' THEN EXCLUDED.failed_attempts ELSE translation_segments.failed_attempts END,
         last_error=EXCLUDED.last_error,updated_at=now()
       WHERE translation_segments.state<>'complete'`;
+  });
+}
+
+/**
+ * Paid answers of an earlier revision of this article that still fit a block of the current one (TASK-0711): the same
+ * recipe, the same block text and the same block before it (so the same reference line). A batch would otherwise buy
+ * such a block again only because a neighbour in its batch changed; per-block reuse on revision stays (BR-ENR-18).
+ */
+export async function earlierRevisionAnswers(run: TranslationSession, leaves: readonly SourceSegment[]) {
+  const rows = await sql<
+    { revision: number; source_hash: string; segment_index: number; segment_hash: string; receipt_id: string; attempt_id: string; response_text: string }[]
+  >`SELECT revision,source_hash,segment_index,segment_hash,receipt_id::text AS receipt_id,attempt_id,response_text
+    FROM enrichment.translation_segments WHERE article_id=${run.body.id} AND revision<${run.body.revision} AND recipe=${run.recipe}
+      AND state='complete' AND parent_index IS NULL AND replacement_plan IS NULL
+      AND receipt_id IS NOT NULL AND attempt_id IS NOT NULL AND response_text IS NOT NULL
+    ORDER BY revision DESC,segment_index`;
+  const at = new Map(rows.map((row) => [`${row.revision}:${row.source_hash}:${row.segment_index}`, row] as const));
+  const answers = new Map<number, { text: string; receiptId: number; attemptId: string }>();
+  for (const leaf of leaves) {
+    if (leaf.parentIndex !== undefined) continue;
+    const before = leaf.index > 0 ? run.source.segments[leaf.index - 1]!.sourceHash : null;
+    const found = rows.find(
+      (row) =>
+        row.segment_hash === leaf.sourceHash &&
+        (before === null ? row.segment_index === 0 : at.get(`${row.revision}:${row.source_hash}:${row.segment_index - 1}`)?.segment_hash === before),
+    );
+    if (found) answers.set(leaf.index, { text: found.response_text, receiptId: Number(found.receipt_id), attemptId: found.attempt_id });
+  }
+  return answers;
+}
+
+/**
+ * A batched answer none of whose blocks could be used (TASK-0711): the whole returned output is rejected, which with
+ * the batch's one-output limit means the same batch is never bought again; the caller splits it in two.
+ */
+export async function rejectTranslationBatch(run: TranslationSession, reply: Pick<ChatJsonResult<unknown>, "receiptId" | "attemptId">, reason: string) {
+  return withCurrentTranslation(run, async (tx) => !!(await settleTranslationResponse(tx, reply, { accepted: false, reason })));
+}
+
+/**
+ * One block of an otherwise usable batched answer failed its check (TASK-0711). The answer stays accepted for the
+ * blocks that passed; this block records the failure without a rejected output of its own, so from now on it goes out
+ * alone, under the one-block request and its own retry limit, and is never packed into a batch again.
+ */
+export async function recordTranslationBatchBlockFailure(
+  run: TranslationSession,
+  index: number,
+  reply: Pick<ChatJsonResult<unknown>, "receiptId" | "attemptId">,
+  error: string,
+) {
+  const segment = segmentAt(run, index);
+  if (!segment) throw new Error("Translation segment does not exist");
+  return withCurrentTranslation(run, async (tx) => {
+    if (!(await activeSegment(run, segment, tx))) return null;
+    await tx`INSERT INTO enrichment.translation_segments(article_id,revision,recipe,source_hash,segment_index,segment_hash,state,receipt_id,attempt_id,failed_attempts,last_error,parent_index)
+      VALUES(${run.body.id},${run.body.revision},${run.recipe},${run.source.sourceHash},${index},${segment.sourceHash},'failed',${reply.receiptId},${reply.attemptId},
+        0,${error.slice(0, 300)},${segment.parentIndex ?? null})
+      ON CONFLICT(article_id,revision,recipe,source_hash,segment_index) DO UPDATE SET state='failed',receipt_id=EXCLUDED.receipt_id,attempt_id=EXCLUDED.attempt_id,
+        last_error=EXCLUDED.last_error,updated_at=now()
+      WHERE translation_segments.state<>'complete'`;
+    return true;
   });
 }
 

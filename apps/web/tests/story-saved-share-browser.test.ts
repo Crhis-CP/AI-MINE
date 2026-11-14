@@ -213,10 +213,13 @@ async function openReaderPage(page: Page, path: string) {
   };
   await page.route(versionUrl, heldVersion, { times: 1 });
   const version = page.waitForResponse((response) => response.url() === versionUrl);
-  const detail = /^\/(?:story|daily|weekly|monthly)\//.test(path);
-  const revalidation = detail ? page.waitForResponse((response) => new URL(response.url()).pathname === `${path}.data`) : null;
+  // The page came with the versions it was read at (TASK-0679 R1): an unchanged version means no second read.
+  const rereads: string[] = [];
+  const reread = (request: { url(): string }) => {
+    if (new URL(request.url()).pathname.endsWith(".data")) rereads.push(request.url());
+  };
+  page.on("request", reread);
   void version.catch(() => {});
-  void revalidation?.catch(() => {});
   try {
     await page.goto(origin + path);
     await page.bringToFront();
@@ -224,12 +227,8 @@ async function openReaderPage(page: Page, path: string) {
     await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
     release();
     assert.deepEqual(await (await version).json(), { version: "1", withdrawalVersion: "1" });
-    if (revalidation) {
-      const loaded = await revalidation;
-      assert.equal(loaded.status(), 200);
-      // The current DOM/status below proves route commit without awaiting stream EOF.
-    }
     await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+    assert.deepEqual(rereads, [], "an unchanged version does not read the page again");
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     if (path.startsWith("/story/")) await expect(page.getByRole("heading", { name: story.title, exact: true })).toBeVisible();
@@ -237,6 +236,7 @@ async function openReaderPage(page: Page, path: string) {
     else await expect(page.getByRole("article").getByRole("button", { name: "复制链接", exact: true })).toBeVisible();
   } finally {
     release();
+    page.off("request", reread);
     await page.unroute(versionUrl, heldVersion);
   }
 }

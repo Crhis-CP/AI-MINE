@@ -18,7 +18,7 @@ import { loadTopicTags } from "./topics.ts";
 // v1 / MCP / Skill only see ranks and counts.
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { sql, withCustomPlans, type Db } from "../db.ts";
-import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
+import { latestHotRanking, rankingChecks, rankingExtras, storyParticipation, type RankingChecks } from "../events/hot-read.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 import { readDigestDetail, storyStatusFor } from "../events/digest.ts";
 import { TITLE_KEY_MIN_CHARS, titleKey } from "../events/relate.ts";
@@ -142,9 +142,9 @@ export function developmentTitle(factTitle: string, members: { title: string; at
 /** Each story's listed reports for the feed's progress line, chosen as on the story page (storyReports). */
 export async function readStoryReportLines(storyIds: number[], now: Date, db: Db = sql) {
   if (!storyIds.length) return [];
-  return db<(LineReport & { story_id: number; fact_title: string })[]>`
+  return db<(LineReport & { story_id: number; fact_title: string; is_original_post: boolean; url: string; source_id: string; source_name: string })[]>`
     SELECT DISTINCT ON (f.story_id, p.article_id) f.story_id, p.article_id AS id, f.id AS fact_id, f.title AS fact_title, p.title, p.original_title,
-      p.first_party, coalesce(p.published_at, p.discovered_at) AS at
+      p.first_party, coalesce(p.published_at, p.discovered_at) AS at, p.is_original_post, p.url, s.id AS source_id, s.name AS source_name
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
     WHERE f.story_id = ANY(${storyIds}::bigint[]) AND p.visibility = 'public' AND ${originalPostAdmissionCondition()}
@@ -342,30 +342,72 @@ async function storyContent(storyId: number, now: Date) {
   return { s, reports, developments };
 }
 
-async function relatedStories(storyId: number) {
+/**
+ * The title each story's own page shows (storyContent), for many stories at once, without building their pages: the
+ * story's title, or its newest current report's when its text waits for a rewrite, an original post's grant fences
+ * it, or a withdrawal touches an operator-written title. Report titles pass the same original-post projection the
+ * story page applies (storyReports) before copies fold. Stories with no public report are left out, as their pages are.
+ */
+export async function safeStoryTitles(storyIds: number[], now: Date): Promise<Map<number, string>> {
+  const ids = [...new Set(storyIds)];
+  if (!ids.length) return new Map();
+  const [stories, rows, admission, withdrawn] = await Promise.all([
+    sql<{ id: number; title: string; origin: string; version: number; updated_at: Date; digest_updated_at: Date | null; text_stale: boolean }[]>`
+      SELECT id,title,origin,version,updated_at,digest_updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale
+      FROM stories WHERE id=ANY(${ids}::bigint[])`,
+    readStoryReportLines(ids, now),
+    originalPostAffectedStories(ids),
+    storiesWithdrawalAffected(ids),
+  ]);
+  const posts = rows.filter((row) => row.is_original_post);
+  const sources = [...new Set(posts.map((row) => row.source_id))],
+    policies = new Map<string, unknown>();
+  for (let offset = 0; offset < sources.length; offset += 100)
+    for (const [id, policy] of await readCurrentPublicPolicies(sources.slice(offset, offset + 100))) policies.set(id, policy);
+  for (const row of posts) row.title = publicPostSummary({ ...row, source_policy: policies.get(row.source_id) ?? null, summary: null }, now.getTime()).title;
+  const out = new Map<number, string>();
+  for (const story of stories) {
+    const id = Number(story.id);
+    const own = rows.filter((row) => Number(row.story_id) === id);
+    if (!own.length) continue;
+    // The newest kept report, as storyContent orders them: developments oldest first, then newest first by time.
+    const newest = storyLine(own)
+      .developments.flatMap((d) => d.members)
+      .sort((a, b) => b.at.getTime() - a.at.getTime())[0]!;
+    const fenced = storyTextNeedsRefresh(story) || admission.has(id) || (withdrawn.has(id) && story.origin === "manual");
+    out.set(id, fenced ? newest.title : story.title);
+  }
+  return out;
+}
+
+async function relatedStories(storyId: number, now = new Date()) {
   const rows = await sql<{ id: number; public_id: string; title: string; relation: "storyline" | "related"; latest_at: Date | null }[]>`
     SELECT st.id,st.public_id::text, st.title, l.relation, st.latest_at FROM story_links l JOIN stories st ON st.id = l.other_id
     WHERE l.story_id = ${storyId} AND st.merged_into IS NULL ORDER BY st.latest_at DESC NULLS LAST LIMIT 8`;
-  return (
-    await Promise.all(
-      rows.map(async (row) => {
-        const current = await storyContent(row.id, new Date());
-        return current ? [{ public_id: row.public_id, title: current.s.title, relation: row.relation, latest_at: row.latest_at }] : [];
-      }),
-    )
-  ).flat();
+  // One read for every neighbour's title, not each neighbour's whole page (TASK-0714).
+  const titles = await safeStoryTitles(
+    rows.map((row) => Number(row.id)),
+    now,
+  );
+  return rows.flatMap((row) => {
+    const title = titles.get(Number(row.id));
+    return title === undefined ? [] : [{ public_id: row.public_id, title, relation: row.relation, latest_at: row.latest_at }];
+  });
 }
 
 export async function loadStoryDetail(storyId: number, now = new Date()): Promise<StoryDetail | null> {
   const content = await storyContent(storyId, now);
   if (!content) return null;
   const { s, reports, developments } = content;
-  const ranking = await latestHotRanking();
-  const why = await storyParticipation(storyId, now);
+  // The rest of the page depends only on the story: read it together. Only hours observed in full are drawn (the chart leaves a gap otherwise).
+  const [ranking, why, heat, related, background] = await Promise.all([
+    latestHotRanking(),
+    storyParticipation(storyId, now),
+    publicHeatSeries(storyId, now),
+    relatedStories(storyId),
+    readHistoricalBackground(s.public_id),
+  ]);
   const entry = ranking?.entries.find((e) => e.storyId === storyId && e.evidenceHash === why?.evidenceHash) ?? null;
-  // Only hours observed in full are drawn (the chart leaves a gap otherwise).
-  const heat = await publicHeatSeries(storyId, now);
-  const related = await relatedStories(storyId);
   const latestAt = s.latest_at ?? reports[0]!.at;
   // Without a digest or a summary of its own, the story opens with its first development's representative report.
   const origin = developments[developments.length - 1]?.representative;
@@ -399,7 +441,7 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
       .slice(0, 12)
       .map(reportView),
     timeline: reports.slice(0, 100).map(reportView),
-    background: await readHistoricalBackground(s.public_id),
+    background,
     heat: heat.map((h): HeatPoint => ({ hour: h.hour.toISOString(), heat: Number(h.heat), participants: h.participants })),
     related: related.map((r) => ({ publicId: r.public_id, title: r.title, relation: r.relation, latestAt: r.latest_at?.toISOString() ?? null })),
   };
@@ -422,11 +464,18 @@ async function sparklines(storyIds: number[], at: Date): Promise<Map<number, Arr
   return out;
 }
 
-/** Each story's newest development title (storyLine), named as on the story page (developmentTitle). Exported for tests. */
-export async function newestDevelopments(storyIds: number[], now: Date): Promise<Map<number, string>> {
+/**
+ * Each story's newest development title (storyLine), named as on the story page (developmentTitle). Exported for tests.
+ * `known` passes checks this request already made for these stories (the hot ranking's, rankingChecks), so they are not read again.
+ */
+export async function newestDevelopments(storyIds: number[], now: Date, known?: RankingChecks | null): Promise<Map<number, string>> {
   const ids = [...new Set(storyIds)];
   if (!ids.length) return new Map();
-  const [rows, admission, withdrawn] = await Promise.all([readStoryReportLines(ids, now), originalPostAffectedStories(ids), storiesWithdrawalAffected(ids)]);
+  const [rows, admission, withdrawn] = await Promise.all([
+    readStoryReportLines(ids, now),
+    known?.admission ?? originalPostAffectedStories(ids),
+    known?.withdrawn ?? storiesWithdrawalAffected(ids),
+  ]);
   const out = new Map<number, string>();
   for (const id of ids) {
     const own = rows.filter((r) => r.story_id === id);
@@ -441,17 +490,19 @@ export async function loadHot(): Promise<HotResponse> {
   const ranking = await latestHotRanking();
   if (!ranking) return { computedAt: null, ruleVersion: null, windowHours: 48, entries: [] };
   const at = new Date(ranking.computedAt);
-  const [sparks, extras] = await Promise.all([
+  // The ranking read already checked original-post grants and withdrawals for every listed story: one check per request.
+  const [sparks, extras, newest] = await Promise.all([
     sparklines(
       ranking.entries.map((e) => e.storyId),
       at,
     ),
     rankingExtras(ranking),
+    newestDevelopments(
+      ranking.entries.map((e) => e.storyId),
+      new Date(),
+      rankingChecks(ranking),
+    ),
   ]);
-  const newest = await newestDevelopments(
-    ranking.entries.map((e) => e.storyId),
-    new Date(),
-  );
   return {
     computedAt: ranking.computedAt,
     ruleVersion: ranking.ruleVersion,

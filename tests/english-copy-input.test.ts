@@ -65,6 +65,9 @@ test("English-copy jobs use the translation queue's priorities and off-peak wait
     startAfter: new Date("2030-01-07T04:00:00Z"),
   });
   assert.deepEqual(englishCopyJobOptions("a1", false, offPeak), { singletonKey: "en-later:a1", priority: -2 });
+  // A fresh item's copy starts at once in a peak hour, under the same background key (TASK-0676).
+  assert.deepEqual(englishCopyJobOptions("a1", false, peak, true), { singletonKey: "en-later:a1", priority: -2 });
+  assert.deepEqual(englishCopyJobOptions("a1", true, peak, true), { singletonKey: "en:a1", priority: 0 });
   assert.notEqual(englishCopyJobOptions("a1", false, offPeak).singletonKey, translationJobOptions("a1", false, offPeak).singletonKey);
   const until = new Date("2030-01-07T04:00:00Z");
   assert.deepEqual(englishCopyDeferralOptions("a1", until), { singletonKey: `en-later:a1:off-peak:${until.toISOString()}`, priority: -2, startAfter: until });

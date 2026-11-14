@@ -16,7 +16,7 @@ const SOURCE = `test-translate-stop-${T}`;
 let active: { asked: ReturnType<typeof gate<void>>; hold: ReturnType<typeof gate<void>>; calls: number; misaligned: boolean; truncated: boolean };
 const provider = await stub(async (_hit, req) => {
   const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
-  assert.equal(typeof text, "string");
+  assert.equal(typeof text, "string", "every request here carries one block");
   active.calls++;
   if (active.calls === 1) {
     active.asked.open();
@@ -98,12 +98,11 @@ for (const scenario of ["normal", "extra-field", "truncated"] as const)
     const misaligned = scenario === "extra-field",
       truncated = scenario === "truncated";
     active = { asked: gate(), hold: gate(), calls: 0, misaligned, truncated };
+    // Each paragraph is over 2,000 bytes, so the two never share a batch (TASK-0711) and each keeps its one-block request.
     const first = truncated
-      ? `Truncated left ${T}.\nTruncated right ${T}.`
-      : misaligned
-        ? `First paragraph ${T}.`
-        : `First paragraph ${T}. ${"English text ".repeat(170)}`;
-    const second = truncated ? `Truncated follow-up ${T}.` : misaligned ? `Second paragraph ${T}.` : `Second paragraph ${T}. ${"More English ".repeat(170)}`;
+      ? `Truncated left ${T}. ${"Left words ".repeat(100)}\nTruncated right ${T}. ${"Right words ".repeat(100)}`
+      : `First paragraph ${scenario} ${T}. ${"English text ".repeat(170)}`;
+    const second = truncated ? `Truncated follow-up ${T}. ${"Follow words ".repeat(170)}` : `Second paragraph ${scenario} ${T}. ${"More English ".repeat(170)}`;
     const { articleId } = await upsertMaterial({
       sourceId: SOURCE,
       url: `https://example.org/translation-shutdown-${T}/${scenario}`,

@@ -211,10 +211,11 @@ test("the policy list reads only the policy library: news never becomes a policy
     ["publication.policy_documents", "publication.policy_editions", "publication.policy_quality_windows"].filter((t) => tables.has(t)).sort(),
   );
   for (const table of tables) assert.match(table!, /^publication\.policy_/, `${table}: the policy list reads no news table`);
-  // News reaches a policy page only as related reports, through the named read-only entry, never as list items.
+  // News reaches a policy page only as related reports and the cached per-country counts (TASK-0714), through the named
+  // read-only entry, never as list items.
   assert.deepEqual(
     [...source.matchAll(/^import \{([^}]+)\} from "@amp\/backend\/publication\/news-links";$/gm)].map((m) => m[1]!.trim()),
-    ["relatedNewsForPolicy, currentNewsJurisdictionCounts"],
+    ["relatedNewsForPolicy, cachedNewsJurisdictionCounts"],
   );
   const { listPolicies } = await import("../modules/policy/backend/read.ts");
   const items = (await listPolicies({ page_size: 50 })).items;

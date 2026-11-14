@@ -1,7 +1,8 @@
-// A non-selected item's translation never buys a model response in the provider's peak hours (TASK-0579, Codex review
-// #362): the worker judges again when it takes the job and before every paid segment, from the publication as it is
-// then, and waits in a new job for the next off-peak start; saved segments are not paid for twice. History analysis
-// judges again when its job is taken, too. Every time here is explicit (tests/setup.ts turns the wall clock off).
+// A backlog item's translation (found more than two days ago; TASK-0676) never buys a model response in the provider's
+// peak hours (TASK-0579, Codex review #362): the worker judges again when it takes the job and before every paid
+// segment, from the item as it is then, and waits in a new job for the next off-peak start; saved segments are not paid
+// for twice. A fresh item, selected or not, goes at once (tests/translation-fresh.test.ts). History analysis judges
+// again when its job is taken, too. Every time here is explicit (tests/setup.ts turns the wall clock off).
 import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
@@ -9,6 +10,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
+import { translationAnswer } from "./translation-stub.ts";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { saveSourcePolicy } from "@amp/backend/admin/sources";
@@ -26,10 +28,9 @@ const T = tag();
 let hits = 0;
 const provider = await stub((_hit, req) => {
   hits += 1;
-  const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
-  const marks = [...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ");
+  const content = translationAnswer(req.body, (text) => `${[...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ")} 合成中文译文 PEAK-${T}`);
   return {
-    choices: [{ message: { content: JSON.stringify({ text: `${marks} 合成中文译文 PEAK-${T}` }) } }],
+    choices: [{ message: { content } }],
     usage: { prompt_tokens: 10, completion_tokens: 5 },
   };
 });
@@ -47,9 +48,12 @@ const at = (time: Date) => ({ now: () => time });
 const scope = { hosts: ["example.com"], path_prefixes: ["/"], document_types: [], excluded_content: [] };
 const SOURCE = `peak-recheck-${T}`;
 let n = 0;
-async function article(opts: { selected?: boolean; paragraphs?: number; historical?: boolean } = {}) {
+async function article(opts: { selected?: boolean; paragraphs?: number; historical?: boolean; backlog?: boolean } = {}) {
   n += 1;
-  const paragraphs = Array.from({ length: opts.paragraphs ?? 1 }, (_, i) => `PARA-${T}-${n}-${i} copper project text with enough words. `.repeat(6));
+  // Several paragraphs are each over 2,000 bytes, so no two share a batch (TASK-0711): one request per paragraph,
+  // which is what the between-request checks here need.
+  const repeat = (opts.paragraphs ?? 1) > 1 ? 45 : 6;
+  const paragraphs = Array.from({ length: opts.paragraphs ?? 1 }, (_, i) => `PARA-${T}-${n}-${i} copper project text with enough words. `.repeat(repeat));
   const { articleId } = await upsertMaterial({
     sourceId: SOURCE,
     url: `https://example.com/${T}-${n}`,
@@ -71,6 +75,8 @@ async function article(opts: { selected?: boolean; paragraphs?: number; historic
       ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
   await completeMaterialGrouping(articleId, 1, { addsValue: selected, reason: "合成归组" }, null);
   await publishArticle(articleId, { releasedAt: new Date(Date.now() - 60_000) });
+  // Backlog: queued while fresh, taken once it is past the two-day live window (TASK-0676).
+  if (opts.backlog) await sql`UPDATE articles SET discovered_at = now() - interval '3 days' WHERE id=${articleId}`;
   return articleId;
 }
 const jobs = (id: string) =>
@@ -108,8 +114,8 @@ after(async () => {
   await closeDb();
 });
 
-test("the wait is judged from selection at that moment; the follow-up key never equals the running job's", () => {
-  assert.equal(translationPeakWait(true, PEAK), null, "a selected item pays the peak price, as before");
+test("the wait is judged at that moment; the follow-up key never equals the running job's", () => {
+  assert.equal(translationPeakWait(true, PEAK), null, "an item that goes ahead (fresh) pays the peak price");
   assert.deepEqual(translationPeakWait(false, PEAK), MORNING_START);
   assert.equal(translationPeakWait(false, OFF_PEAK), null);
   const first = translationDeferralOptions("a", MORNING_START);
@@ -118,8 +124,8 @@ test("the wait is judged from selection at that moment; the follow-up key never 
   assert.notEqual(translationDeferralOptions("a", translationPeakWait(false, SECOND_PEAK)!).singletonKey, first.singletonKey);
 });
 
-test("a later job taken in a peak hour waits for the off-peak start without a model call; selected now goes at once", async () => {
-  const later = await article();
+test("a backlog job taken in a peak hour waits for the off-peak start without a model call, even once selected; a fresh one goes at once", async () => {
+  const later = await article({ backlog: true });
   assert.deepEqual(
     (await jobs(later)).map((j) => j.singleton_key),
     [`later:${later}`],
@@ -127,7 +133,7 @@ test("a later job taken in a peak hour waits for the off-peak start without a mo
   const before = hits;
   // Queued off-peak (00:59, no start delay), taken at 01:01 because of a backlog.
   const result = await runTranslationJob({ articleId: later }, at(PEAK));
-  assert.deepEqual(result, { state: "deferred_peak", until: MORNING_START.toISOString() });
+  assert.deepEqual(result, { state: "deferred_peak", reason: "peak", until: MORNING_START.toISOString() });
   assert.equal(hits, before, "no paid request in the peak hour");
   const queued = (await jobs(later)).find((j) => j.singleton_key.includes(":off-peak:"))!;
   assert.equal(queued.singleton_key, `later:${later}:off-peak:${MORNING_START.toISOString()}`);
@@ -137,21 +143,31 @@ test("a later job taken in a peak hour waits for the off-peak start without a mo
   assert.equal(await translation(later), null, "nothing was claimed or paid for");
   assert.equal((await sql`SELECT 1 FROM translation_attempts WHERE article_id=${later}`).length, 0, "waiting is not an attempt");
 
-  // Selected while it waited (an editor marks it): the same peak hour now translates it at once.
+  // Selected while it waited (an editor marks it): still backlog by its age, so the same peak hour still waits; a
+  // republished history does not move its old selected items ahead.
   await sql`INSERT INTO editorial_overrides(article_id,fields,updated_by) VALUES(${later},'{"selected":true}','test')`;
-  const now = await runTranslationJob({ articleId: later }, at(PEAK));
+  assert.deepEqual(await runTranslationJob({ articleId: later }, at(PEAK)), { state: "deferred_peak", reason: "peak", until: MORNING_START.toISOString() });
+  assert.equal(hits, before);
+
+  // A fresh item, not selected, in the same peak hour: translated at once.
+  const fresh = await article();
+  const now = await runTranslationJob({ articleId: fresh }, at(PEAK));
   assert.equal((now as { status?: string }).status, "translated", JSON.stringify(now));
   assert.ok(hits > before);
+  assert.equal(await translation(fresh), true);
+
+  // Off-peak the backlog item is translated too.
+  assert.equal(((await runTranslationJob({ articleId: later }, at(MORNING_START))) as { status?: string }).status, "translated");
   assert.equal(await translation(later), true);
 });
 
 test("a long body stops between segments when a peak window starts and resumes off-peak without paying twice", async () => {
-  const long = await article({ paragraphs: 4 });
+  const long = await article({ paragraphs: 4, backlog: true });
   const before = hits;
   // Off-peak for the first segment; the clock reaches 01:01 once one response has been bought.
   const clock = { now: () => (hits > before ? PEAK : OFF_PEAK) };
   const stopped = await runTranslationJob({ articleId: long }, clock);
-  assert.deepEqual(stopped, { state: "deferred_peak", until: MORNING_START.toISOString() });
+  assert.deepEqual(stopped, { state: "deferred_peak", reason: "peak", until: MORNING_START.toISOString() });
   assert.equal(hits - before, 1, "only the segment begun off-peak was bought");
   assert.equal(await checkpoints(long), 1, "the bought segment is a saved checkpoint");
   assert.equal(await translation(long), false);
@@ -171,17 +187,25 @@ test("a long body stops between segments when a peak window starts and resumes o
 });
 
 test("repeated waits keep a job queued: past the off-peak window into the next peak, and beside a cron duplicate", async () => {
-  const item = await article();
+  const item = await article({ backlog: true });
   const before = hits;
-  assert.deepEqual(await runTranslationJob({ articleId: item }, at(PEAK)), { state: "deferred_peak", until: MORNING_START.toISOString() });
+  assert.deepEqual(await runTranslationJob({ articleId: item }, at(PEAK)), { state: "deferred_peak", reason: "peak", until: MORNING_START.toISOString() });
   // The cron repair runs during the wait: the item still needs translating, its `later:` job is already queued.
   await translatePending({ limit: 1000, now: PEAK });
   const morningKey = `later:${item}:off-peak:${MORNING_START.toISOString()}`;
   // The 04:00 job is taken (active) but only at 06:30, in the next peak window, because of a backlog.
   await sql`UPDATE pgboss.job SET state='active', started_on=now() WHERE name='content.translate' AND singleton_key=${morningKey}`;
-  assert.deepEqual(await runTranslationJob({ articleId: item }, at(SECOND_PEAK)), { state: "deferred_peak", until: SECOND_START.toISOString() });
+  assert.deepEqual(await runTranslationJob({ articleId: item }, at(SECOND_PEAK)), {
+    state: "deferred_peak",
+    reason: "peak",
+    until: SECOND_START.toISOString(),
+  });
   // A second copy taken in the same window collapses into the job already waiting for 10:00; nothing is dropped.
-  assert.deepEqual(await runTranslationJob({ articleId: item }, at(SECOND_PEAK)), { state: "deferred_peak", until: SECOND_START.toISOString() });
+  assert.deepEqual(await runTranslationJob({ articleId: item }, at(SECOND_PEAK)), {
+    state: "deferred_peak",
+    reason: "peak",
+    until: SECOND_START.toISOString(),
+  });
   const rows = await jobs(item);
   assert.deepEqual(
     rows.map((j) => [j.singleton_key, j.state]),
@@ -238,7 +262,7 @@ test("a paused lane postpones the translation and leaves the analysed article as
     const paid = hits;
     const now = new Date("2030-01-07T05:00:00Z");
     const result = await runTranslationJob({ articleId: id }, at(now));
-    assert.deepEqual(result, { state: "deferred_peak", until: new Date(now.getTime() + 30 * 60_000).toISOString() });
+    assert.deepEqual(result, { state: "deferred_peak", reason: "paused", until: new Date(now.getTime() + 30 * 60_000).toISOString() });
     assert.equal(hits, paid, "nothing is paid while paused");
     assert.equal(await state(), before, "the article is not sent back for a second analysis");
   } finally {

@@ -59,6 +59,12 @@ export async function automaticFeedFixture(
       feed.close(() => resolve());
     });
   try {
+    // TASK-0711: consecutive blocks may come as one batch; each block gets the answer it would get alone.
+    const translateRequest = async (marker: string, input: { text?: string; texts?: string[] }) => {
+      if (!Array.isArray(input.texts)) return options.translate?.(marker, input.text ?? "");
+      const answers = await Promise.all(input.texts.map((text) => options.translate?.(marker, text)));
+      return { texts: answers.map((answer) => (answer as { text: string }).text) };
+    };
     const provider = await stub(async (_hit, req) => {
       const body = JSON.parse(req.body) as { messages: { role: string; content: string }[] };
       const system = body.messages.find((m) => m.role === "system")?.content ?? "";
@@ -83,7 +89,7 @@ export async function automaticFeedFixture(
       if (!sample || step === "unexpected" || req.url !== "/v1/chat/completions") return new Reply(400, { error: "unexpected fixture request" });
       const result =
         step === "translate"
-          ? await options.translate?.(sample.marker, JSON.parse(user).text)
+          ? await translateRequest(sample.marker, JSON.parse(user) as { text?: string; texts?: string[] })
           : step === "prefilter"
             ? { label: sample.label, reason: "合成预筛结果，不评价模型分类质量" }
             : step === "score"

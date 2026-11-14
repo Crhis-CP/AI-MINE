@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ENTITIES } from "@amp/industry/taxonomy";
 import type { SourceAttribution } from "@amp/contracts/http/public";
 import type { ItemDetail } from "@amp/contracts/site";
-import { sql, type Db } from "../db.ts";
+import type { Db } from "../db.ts";
 
 const policyLabel = z.object({
   licence_label_zh: z.string(),
@@ -64,13 +64,6 @@ export function verifiedCompanyContext(output: unknown, body: string, originalUr
       sources: [{ name: "原文依据", url: originalUrl }],
     }));
 }
-export async function publicCompanyContext(articleId: string): Promise<NonNullable<ItemDetail["companyContext"]>> {
-  const [row] = await sql<
-    { company_context: NonNullable<ItemDetail["companyContext"]> }[]
-  >`SELECT company_context FROM publications WHERE article_id=${articleId}`;
-  return row?.company_context ?? [];
-}
-
 /** Read source-owned licence projections through their port, once per source and request. */
 export async function attachSourcePolicies<
   T extends {

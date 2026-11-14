@@ -1,6 +1,7 @@
 // TASK-0601 with an isolated database and a local provider stub: the gold file binds the material, and the step
 // comparison draws, calls only the model it names, stops at its token cap and writes no analysis.
 import assert from "node:assert/strict";
+import { translationAnswer } from "./translation-stub.ts";
 import { execFile } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -211,9 +212,9 @@ test("translation replay compares with the stored DeepSeek segments and writes n
     via: "fetch",
   });
   const deepseek = await stub((_hit, req) => {
-    const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
+    // The stored translation may come from one batched request (TASK-0711); each block gets its own answer.
     return {
-      choices: [{ message: { content: JSON.stringify({ text: translateText(text, "译") }) }, finish_reason: "stop" }],
+      choices: [{ message: { content: translationAnswer(req.body, (text) => translateText(text, "译")) }, finish_reason: "stop" }],
       usage: { prompt_tokens: 50, completion_tokens: 40 },
     };
   });

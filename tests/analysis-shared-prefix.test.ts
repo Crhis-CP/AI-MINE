@@ -18,6 +18,7 @@ import {
   PROMPT_VERSIONS,
   promptVersionsFor,
   SCORE_SYSTEM,
+  scoreConfirmationVersion,
   scoringConfirmed,
   type AnalyzeInputArticle,
 } from "@amp/backend/editorial/analyze";
@@ -267,13 +268,17 @@ test("the layouts' versions differ, and the score's release gate follows the con
   for (const step of Object.keys(separate) as Array<keyof typeof separate>) assert.notEqual(shared[step], separate[step], step);
   assert.match(shared.score, /^selection-score-shared@[0-9a-f]{10}\+weights@[0-9a-f]{10}$/);
   assert.equal(separate.score, "selection-score@9881743a29+weights@20542a669a");
+  // The gate reads the layout's score standard (TASK-0710); in the separate layout it is the score step's version.
+  const sharedStandard = scoreConfirmationVersion("shared");
+  assert.match(sharedStandard, /^selection-score-shared-standard@[0-9a-f]{10}\+weights@[0-9a-f]{10}$/);
+  assert.equal(scoreConfirmationVersion("separate"), separate.score);
   process.env.ANALYSIS_PROMPT_LAYOUT = "shared";
   assert.equal(PROMPT_VERSIONS.score, shared.score);
-  assert.equal(scoringConfirmed(true, shared.score), true);
+  assert.equal(scoringConfirmed(true, sharedStandard), true);
   assert.equal(scoringConfirmed(true, separate.score), false, "a version confirmed for the other layout does not release scoring");
   process.env.ANALYSIS_PROMPT_LAYOUT = "separate";
   assert.equal(PROMPT_VERSIONS.score, separate.score);
-  assert.equal(scoringConfirmed(true, shared.score), false);
+  assert.equal(scoringConfirmed(true, sharedStandard), false);
   process.env.ANALYSIS_PROMPT_LAYOUT = "both";
   assert.throws(() => PROMPT_VERSIONS.score, /ANALYSIS_PROMPT_LAYOUT/);
   process.env.ANALYSIS_PROMPT_LAYOUT = "separate";

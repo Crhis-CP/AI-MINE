@@ -24,23 +24,29 @@ function raw(name: string): string {
   return text;
 }
 
+/** Includes read from another file: `{ a: "b" }` renders b.md wherever a template says {{> a}}. */
+export type PromptSwap = Readonly<Record<string, string>>;
+
 /** The file with its includes expanded, and the names of every file it read. */
-function expand(name: string, seen: string[] = []): { text: string; used: string[] } {
+function expand(name: string, seen: string[] = [], swap: PromptSwap = {}): { text: string; used: string[] } {
   if (seen.includes(name)) throw new Error(`prompt include cycle: ${[...seen, name].join(" → ")}`);
   const used = [name];
   const text = raw(name).replace(TOKEN, (token, include: string | undefined, key: string) => {
     if (!include) return token;
-    const inner = expand(key, [...seen, name]);
+    const inner = expand(Object.hasOwn(swap, key) ? swap[key]! : key, [...seen, name], swap);
     used.push(...inner.used);
     return inner.text;
   });
   return { text, used };
 }
 
-/** A prompt with its values filled in. */
-export function promptText(name: string, values: Record<string, string> = {}): string {
+/**
+ * A prompt with its values filled in. `swap` reads other files for some includes: the shared analysis prompt is one
+ * template for both selection rule sets (analysis-layout.ts).
+ */
+export function promptText(name: string, values: Record<string, string> = {}, swap: PromptSwap = {}): string {
   const all: Record<string, string> = { siteName: SITE.name, ...values };
-  return expand(name).text.replace(TOKEN, (_token, _include, key: string) => {
+  return expand(name, [], swap).text.replace(TOKEN, (_token, _include, key: string) => {
     const value = all[key];
     if (value === undefined) throw new Error(`prompt ${name}: no value for {{${key}}}`);
     return value;
@@ -66,16 +72,19 @@ export function promptVersion(...names: string[]): string {
   return version;
 }
 
+/** The hash of one prompt file as written, without the files it includes (the selection config check, selection-config.ts). */
+export const promptFileHash = (name: string) => createHash("sha256").update(raw(name)).digest("hex").slice(0, 10);
+
 export const quoteTranslationRecipe = () => `post-quote-v1:${promptVersion("translate-post")}`;
 
 /**
  * Existing analysis evidence is reusable only for this material revision and scope wording (`version`: the prefilter's
- * version in the analysis prompt layout in use).
+ * version in the rule set and analysis prompt layout in use).
  */
 export function currentPrefilter(
   analysis: { input_revision: number; prompt_version: string | null; output: unknown } | undefined,
   revision: number,
-  version = promptVersion("prefilter"),
+  version: string,
 ) {
   if (analysis?.input_revision !== revision || !analysis.prompt_version?.split("+").includes(version)) return null;
   const output = analysis.output as { prefilter?: { label?: unknown } } | null;

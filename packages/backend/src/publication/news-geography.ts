@@ -63,4 +63,4 @@ export async function projectNewsGeography(
         IS DISTINCT FROM (EXCLUDED.article_revision,EXCLUDED.analysis_id,EXCLUDED.recipe,EXCLUDED.state,EXCLUDED.jurisdictions,EXCLUDED.primary_jurisdiction)`;
   return (await tx`${write}`).count > 0;
 }
-export { currentNewsJurisdictionCounts } from "./items.ts";
+export { cachedNewsJurisdictionCounts, currentNewsJurisdictionCounts } from "./items.ts";
