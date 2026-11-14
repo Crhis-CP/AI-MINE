@@ -237,8 +237,8 @@ function Trend({ prices, quote }: { prices: MetalPrices; quote: Quote }) {
   };
   return (
     <figure className="mt-2.5" data-trend={quote.key}>
-      <figcaption className="flex items-center justify-between gap-2 text-[11px] text-ink-4">
-        <span className="min-w-0 truncate" aria-live="polite">
+      <figcaption className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] text-ink-4">
+        <span className="min-w-0" aria-live="polite">
           {shortLabel(prices, shown.label)} <span className="mono tabular-nums text-ink-2">{priceText(String(shown.value), quote.decimals)}</span>
         </span>
         {ranges.length > 1 && (
