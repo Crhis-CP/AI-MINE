@@ -51,7 +51,7 @@ test("a card that arrives with the work covers ordinary paths, inside its own li
 
 test("a card that arrives with the work does not open guarded paths: that card must be on the base first", () => {
   const dir = scratch();
-  const open = card(["apps/web/app/features/**", "deploy/**", "database/migrations/**", "scripts/verify/**"], "architect");
+  const open = card(["apps/web/app/features/**", "deploy/**", "database/migrations/**", "modules/*/migrations/**", "scripts/verify/**"], "architect");
   const [base, head] = repo(dir, [
     { "lanes.yaml": lanes },
     {
@@ -59,6 +59,7 @@ test("a card that arrives with the work does not open guarded paths: that card m
       "apps/web/app/features/feed.tsx": "export {};\n",
       "deploy/release.sh": "#!/bin/sh\n",
       "database/migrations/0999_x.sql": "SELECT 1;\n",
+      "modules/metals/migrations/0999_y.sql": "SELECT 1;\n",
       "scripts/verify/path-guard.ts": "export {};\n",
     },
   ]);
@@ -66,7 +67,7 @@ test("a card that arrives with the work does not open guarded paths: that card m
   assert.equal(r.status, "fail");
   assert.deepEqual(
     r.lines.sort(),
-    ["database/migrations/0999_x.sql", "deploy/release.sh", "scripts/verify/path-guard.ts"].map(
+    ["database/migrations/0999_x.sql", "deploy/release.sh", "modules/metals/migrations/0999_y.sql", "scripts/verify/path-guard.ts"].map(
       (f) => `${f}: guarded path, and tasks/TASK-0042.md is not on the base commit yet: merge a PR that only adds the card first`,
     ),
   );
@@ -126,7 +127,8 @@ test("the guarded list is the base's: a PR cannot shorten it for itself, and a b
 
 test("this repository guards the guard: lanes.yaml and the checks are on its own guarded list", () => {
   const guarded = (parse(lanes) as { guarded: string[] }).guarded;
-  for (const p of ["lanes.yaml", "scripts/verify/**", "deploy/**", "database/migrations/**", "industry/prompts/**"]) assert.ok(guarded.includes(p), p);
+  for (const p of ["lanes.yaml", "scripts/verify/**", "deploy/**", "database/migrations/**", "modules/*/migrations/**", "industry/prompts/**"])
+    assert.ok(guarded.includes(p), p);
 });
 
 test("a PR may not delete the card it names", () => {

@@ -6,10 +6,37 @@ import { decideTimeline } from "../../packages/backend/src/content/timeline.ts";
 import { bilingualNames } from "../../packages/backend/src/editorial/bilingual-names.ts";
 import { validateGeography } from "../../packages/backend/src/editorial/geography.ts";
 import { tagGrounded } from "../../packages/backend/src/publication/tag-grounding.ts";
-import { reportImportance } from "../../packages/backend/src/reports/arrangement.ts";
-import type { NewsEffects } from "./news.ts";
+import { arrangeDaily, type EditionEntry, reportImportance } from "../../packages/backend/src/reports/arrangement.ts";
+import type { LeadCandidate, NewsEffects } from "./news.ts";
 
 const fold = (s: string) => s.trim().toLowerCase();
+
+/** A candidate as the daily issue's arrangement receives it: one entry of its own source, a follow-up when the event was covered before. */
+const editionEntry = (c: LeadCandidate): EditionEntry => ({
+  entry: {
+    itemId: c.id,
+    factId: null,
+    storyPublicId: null,
+    title: c.id,
+    summary: "",
+    sourceName: c.id,
+    sourceUrl: `https://fixture.invalid/${c.id}`,
+    sourceId: c.id,
+    firstParty: !!c.official,
+    role: "report",
+    score: c.score,
+    publishedAt: "2026-11-19T02:00:00Z",
+    sources: c.outlets,
+  },
+  category: null,
+  storyId: null,
+  mentions: new Set(),
+  sourceIds: new Set([c.id]),
+  authority: 2,
+  importance: reportImportance({ score: c.score, participants: c.outlets, official: !!c.official, followUp: !!c.followUp }),
+  commentary: false,
+  previous: c.followUp ? { key: c.id, title: c.id } : null,
+});
 
 export const CURRENT_NEWS: NewsEffects = {
   locate(article, answer) {
@@ -27,11 +54,7 @@ export const CURRENT_NEWS: NewsEffects = {
   },
   // Today "new" is decided from the report's own times alone: found within 48 hours of its publication.
   isNew: (report) => !decideTimeline(report.publishedAt, report.now).backfill,
-  // Today the lead is the entry with the highest importance (reports/arrangement.ts); yesterday's issue plays no part.
-  lead: (candidates) =>
-    [...candidates].sort(
-      (a, b) =>
-        reportImportance({ score: b.score, participants: b.outlets, official: !!b.official, followUp: !!b.followUp }) -
-          reportImportance({ score: a.score, participants: a.outlets, official: !!a.official, followUp: !!a.followUp }) || a.id.localeCompare(b.id),
-    )[0]!.id,
+  // Today the lead is the first main entry of the production arrangement (reports/arrangement.ts, as reports/draft.ts
+  // calls it for a new issue); yesterday's issue plays no part.
+  lead: (candidates) => arrangeDaily(candidates.map(editionEntry)).main[0]!.entry.itemId,
 };

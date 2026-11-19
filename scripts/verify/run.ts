@@ -24,7 +24,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { checkBoundaries } from "./boundaries.ts";
-import { checkLegacyZones } from "./legacy-zones.ts";
+import { checkLegacyZones, type Zone } from "./legacy-zones.ts";
 import { checkDataOwnership, OWNERSHIP_BASELINE, OWNERSHIP_MAP } from "./data-ownership.ts";
 import { git, type Log, openLog, probe, ROOT, run, capture, sha256, sha256File, start, stopAll, tryGit } from "./lib.ts";
 import { formatLint } from "./lint.ts";
@@ -361,7 +361,13 @@ export const STAGES: Stage[] = [
       const snapshot = base ? tryGit(["show", `${base}:scripts/verify/backend-exports.json`]) : null;
       const backend = snapshot && base ? JSON.parse(git(["show", `${base}:packages/backend/package.json`])) : null;
       const baseline = snapshot ? { snapshot: JSON.parse(snapshot), exports: backend.exports } : undefined;
-      return problems([...checkBoundaries(ROOT, trackedFiles(), baseline), ...checkLegacyZones(ROOT)], log, "workspace graph, imports and legacy zones");
+      const zonesBefore = base ? tryGit(["show", `${base}:scripts/verify/legacy-zones.json`]) : null;
+      const baseZones = zonesBefore ? (JSON.parse(zonesBefore) as { zones: Zone[] }).zones : undefined;
+      return problems(
+        [...checkBoundaries(ROOT, trackedFiles(), baseline), ...checkLegacyZones(ROOT, undefined, undefined, baseZones)],
+        log,
+        "workspace graph, imports and legacy zones",
+      );
     },
   },
   {

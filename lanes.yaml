@@ -168,6 +168,7 @@ guarded:
   - package-lock.json
   - .npmrc
   - "database/migrations/**"                        # 迁移只增不改，合并后撤不回
+  - "modules/*/migrations/**"                       # 扩展目录里的迁移由同一个执行器运行
   - "database/roles/**"
   - database/migration-inventory.json
   - "industry/prompts/**"                           # 评分与分析提示词：改一个字就会重新花模型费

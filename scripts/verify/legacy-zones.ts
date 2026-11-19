@@ -4,6 +4,8 @@
 //     shorter: a new importer is a new seam to cut later, so it fails; one that stopped importing must come
 //     off the list in the same change;
 //   - a zone whose old code is gone is removed from the file.
+//   - against the base commit a zone's list never has more entries: adding an importer together with its list
+//     entry fails, while gathering many callers behind one entry file (fewer entries) passes.
 // The importers list is the seam list of the rewrite: when it is empty, the old code can be deleted.
 // Tests are not importers here: a test of old code is deleted together with it.
 import { readFileSync } from "node:fs";
@@ -102,9 +104,14 @@ export function zoneImports(
 export const loadZones = (root = ROOT): Zone[] =>
   (JSON.parse(readFileSync(path.join(root, "scripts/verify/legacy-zones.json"), "utf8")) as { zones: Zone[] }).zones;
 
-/** Every way the repository departs from legacy-zones.json. */
-export function checkLegacyZones(root = ROOT, zones = loadZones(root), files?: readonly string[]): string[] {
+/** Every way the repository departs from legacy-zones.json, and every zone whose list grew since `baseZones`. */
+export function checkLegacyZones(root = ROOT, zones = loadZones(root), files?: readonly string[], baseZones?: readonly Zone[]): string[] {
   const problems: string[] = [];
+  for (const zone of zones) {
+    const before = baseZones?.find((z) => z.name === zone.name);
+    if (before && zone.importers.length > before.importers.length)
+      problems.push(`zone ${zone.name}: the importers list grew from ${before.importers.length} to ${zone.importers.length}; it only gets shorter`);
+  }
   for (const [name, found] of zoneImports(zones, root, files)) {
     const zone = zones.find((z) => z.name === name)!;
     if (!found.old.length) {
