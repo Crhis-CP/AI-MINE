@@ -38,6 +38,7 @@ const ENGINE_ENTRIES: Record<string, string> = {
   "./providers/permissions": "./src/providers/permissions.ts",
   "./sources/permissions": "./src/sources/permissions.ts",
   "./publication/news-links": "./src/publication/news-links.ts",
+  "./operations/reconcile": "./src/operations/reconcile.ts",
 };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
