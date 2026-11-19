@@ -226,8 +226,9 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       VALUES(${at},${HOT_RULE_VERSION},${tx.json(entries as never)},${tx.json({ windowHours: hotWindowHours(at), halfLifeHours: HALF_LIFE_HOURS, minParticipants: MIN_PARTICIPANTS, candidates: rows.length })},true) RETURNING id`;
     return saved!;
   });
-  // Keep a bounded history of rankings.
-  await sql`DELETE FROM hot_rankings WHERE computed_at < now() - interval '30 days'`;
+  // Keep a bounded history of rankings, measured on this ranking's own clock: the database's now() would delete a
+  // ranking computed for a time more than 30 days back the moment it is written.
+  await sql`DELETE FROM hot_rankings WHERE computed_at < ${at}::timestamptz - interval '30 days'`;
   return { id: row!.id, entries: entries.length };
 }
 

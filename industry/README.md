@@ -141,8 +141,6 @@
 
 结构化与理解调用使用 `configuredPromptVersion(name, values)` 对实际 `promptText` 渲染文本求版本；仅实际使用的注入值会影响版本，参数键序和未使用值不影响。预筛、评分、发布及公开页面共用当前行业口径；外部HTTP契约保留，内部生成客户端已退役。合成样本只验证链路，不代表真实分类质量验收。
 
-## 隔离评分对照（2026-10-22）
+## 评分规则组与线上对比
 
-**2026-10-23 DEC-76：以下A/B/AR与双人盲标为历史实验说明，不再是当前实施或验收前置。全站使用统一选材/评分规则，国别只承担分类、查询与分发；AI负责规则核验和完善。**
-
-`selection-score-global.md`和`prefilter-four-layers.md`（3.1 规则，TASK-0643 起草）自 TASK-0670 起是生产缺省的 `global` 规则组（Owner 2026-11-13 晚：先上线，再用真实数据对比，不行再回撤）；上线后每天用 `scripts/rules-live-compare.ts`（只读、不调用模型）按天、按规则版本对比。回放工具 `scripts/rules-replay.ts` 保留为可选工具（“现行”指 `classic`，“候选”缺省为 `global`），不再是上线前置，默认不运行。`selection-score-b.md`保存Owner认可方向的监管边界澄清；`selection-country-ar.md`在B上采用已获准试验的阿根廷经营视角。它们只由`scripts/selection-experiment.ts`显式加载，不改变现行`selection-score.md`或生产能力路由。当时实验中权重、双评分与60/65/76门槛不变（这是2026-10-22的配置；现行门槛、权重和评分次数见2.5节）；候选提示词不等于已获准正式生效。输入、模型和渲染提示hash冻结，互盲人工判断先于模型对照；工具详见`docs/acceptance/selection-country-20261022/README.md`。
+`selection-score-global.md`和`prefilter-four-layers.md`（3.1 规则，TASK-0643 起草）自 TASK-0670 起是生产缺省的 `global` 规则组（Owner 2026-11-13 晚：先上线，再用真实数据对比，不行再回撤）；上线后每天用 `scripts/rules-live-compare.ts`（只读、不调用模型）按天、按规则版本对比。回放工具 `scripts/rules-replay.ts` 保留为可选工具（“现行”指 `classic`，“候选”缺省为 `global`），不再是上线前置，默认不运行。现行门槛、权重和评分次数见2.5节。2026-10-22 的 A/B/AR 隔离评分实验已按 DEC-76 作废，脚本和两份实验提示词于 TASK-0730 删除；当时的做法留在 `docs/acceptance/selection-country-20261022/README.md`。
