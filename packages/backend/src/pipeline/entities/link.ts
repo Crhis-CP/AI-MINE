@@ -15,6 +15,8 @@ interface AliasEntry {
   /** Latin aliases: the folded words and the words as written. */
   keys: readonly string[];
   raws: readonly string[];
+  /** A full stop the spelling ends with (Vale S.A.): taken into the hit when the text has it, so none is left over. */
+  tail: string;
   /** Chinese aliases: the pattern that finds them, and the lexicon entry whose Han matches must confirm a hit. */
   han: RegExp | null;
   guard: string | null;
@@ -103,7 +105,7 @@ export function buildIndex(entities: readonly EntityRow[], statements: readonly 
       if (scope === "lookup") continue;
       if (hasHan(statement.value)) {
         const guard = LEXICON.has(statement.entityId) && guardedByLexicon(statement.entityId, statement.value) ? statement.entityId : null;
-        han.push({ entityId: target, scope, caseSensitive: false, keys: [], raws: [], han: hanPattern(statement.value), guard });
+        han.push({ entityId: target, scope, caseSensitive: false, keys: [], raws: [], tail: "", han: hanPattern(statement.value), guard });
         continue;
       }
       const words = tokenize(statement.value);
@@ -114,6 +116,7 @@ export function buildIndex(entities: readonly EntityRow[], statements: readonly 
         caseSensitive: statement.caseSensitive,
         keys: words.map((w) => w.key),
         raws: words.map((w) => w.raw),
+        tail: /^\.?/.exec(statement.value.slice(words.at(-1)!.end).trim())![0],
         han: null,
         guard: null,
       };
@@ -173,7 +176,7 @@ export function findHits(index: EntityIndex, text: string): Hit[] {
       }
       if (!same) continue;
       const start = words[i]!.start;
-      const end = words[i + n - 1]!.end;
+      const end = words[i + n - 1]!.end + (entry.tail && text.startsWith(entry.tail, words[i + n - 1]!.end) ? entry.tail.length : 0);
       found.push({ entityId: entry.entityId, alias: text.slice(start, end), start, end, scope: entry.scope === "anchored" ? "anchored" : "text" });
     }
   }
@@ -202,6 +205,9 @@ export function findHits(index: EntityIndex, text: string): Hit[] {
   return kept.sort((a, b) => a.start - b.start);
 }
 
+/** The roles that make 前 mean "former" in Chinese (前高管), not "before" (前三季度). */
+const ZH_ROLES = "(?:高管|首席执行官|CEO|总裁|董事|员工|雇员|负责人|主席|总经理)";
+
 /**
  * Wordings that name a company in passing (one explicit list per language): a former employee, a backer, a rival.
  * `before` must end right before the name, `after` start right after it; an entry with both needs both.
@@ -215,7 +221,9 @@ const PASSING: Readonly<Record<string, ReadonlyArray<{ before?: RegExp; after?: 
   ],
   zh: [
     { before: /曾(?:任|在|供职于|就职于)$/ },
-    { before: /(?<![此之以目提当日年月面向事])前$/, after: /^(?:高管|首席执行官|CEO|总裁|董事|员工|雇员|负责人|主席|总经理)/ },
+    // 前力拓高管, 前任力拓高管, 力拓前首席执行官, 力拓前任董事; 此前力拓宣布 and 力拓前三季度 are the company's own news.
+    { before: /(?<![此之以目提当日年月面向事])前任?$/, after: new RegExp(`^${ZH_ROLES}`) },
+    { after: new RegExp(`^前任?${ZH_ROLES}`) },
   ],
   es: [{ before: /\bex[\s-]*(?:(?:ejecutiv|directiv|emplead)[oa]s?|director(?:a|es)?|gerente|president[ea]|CEO)?\s*(?:de(?:\s+la)?\s+)?$/i }],
   pt: [{ before: /\bex[\s-]*(?:(?:executiv|funcionári)[oa]s?|diretor(?:a|es)?|presidente|CEO)?\s*(?:d[aeo]s?\s+)?$/i }],

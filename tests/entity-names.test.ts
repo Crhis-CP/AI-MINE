@@ -112,6 +112,27 @@ test("variants become the one name, and the house form is left alone", () => {
   assert.deepEqual(result.changes, [{ entityId: "codelco", from: "科德尔科", to: "智利国家铜业公司（Codelco）" }]);
 });
 
+test("a name with a full stop in it leaves no stray stop behind", () => {
+  assert.equal(render("Vale S.A.削减指引，Vale称").text, "淡水河谷（Vale）削减指引，淡水河谷称");
+  assert.equal(render("Vale S.A. (NYSE: VALE) 宣布").text, "淡水河谷（Vale） (NYSE: VALE) 宣布", "a listing symbol is not the bracketed original");
+});
+
+test("a bracket that only repeats a Chinese name is folded into one 中文名（原文名）", () => {
+  assert.equal(render("Codelco（智利国家铜业公司）宣布裁员").text, "智利国家铜业公司（Codelco）宣布裁员");
+  assert.equal(render("BHP（必和必拓）公布季度产量").text, "必和必拓（BHP）公布季度产量");
+  assert.equal(render("Vale（淡水河谷）宣布").text, "淡水河谷（Vale）宣布");
+  assert.equal(render("科德尔科（智利国家铜业公司）宣布").text, "智利国家铜业公司（Codelco）宣布");
+  assert.equal(render("BHP（必和必拓）宣布，BHP（必和必拓）称").text, "必和必拓（BHP）宣布，必和必拓称");
+  assert.equal(render("Zijin Mining（紫金矿业）收购").text, "紫金矿业收购", "Chinese companies take no bracket");
+  assert.equal(render("BHP（必和必拓旗下公司）公布").text, "必和必拓（BHP）（必和必拓旗下公司）公布", "a bracket that says more is kept");
+});
+
+test("a bare listing symbol is left as written; it still answers which company it is", () => {
+  assert.equal(render("FCX股价上涨").text, "FCX股价上涨");
+  assert.equal(render("Freeport-McMoRan（FCX）公布季度业绩").text, "自由港麦克莫兰（Freeport-McMoRan）（FCX）公布季度业绩");
+  assert.equal(companyName(index, "FCX"), "自由港麦克莫兰");
+});
+
 test("rendering twice changes nothing more", () => {
   for (const text of [
     "科德尔科下调指引，智利国营铜业公司称推迟投产",
@@ -119,6 +140,9 @@ test("rendering twice changes nothing more", () => {
     "Rio Tinto 批准扩建 Rincon 锂项目，Rio Tinto 股价上涨",
     "南32（South32）与Teck Resources合资",
     "智利铜业巨头（Codelco）宣布",
+    "Codelco（智利国家铜业公司）宣布裁员",
+    "BHP（必和必拓）公布季度产量",
+    "Vale S.A.削减指引，Vale称",
   ]) {
     const once = render(text).text;
     assert.equal(render(once).text, once, text);
@@ -128,6 +152,9 @@ test("rendering twice changes nothing more", () => {
 test("places and words that share a spelling are left alone unless the source names the company", () => {
   assert.equal(render("初级勘探公司在 Vale of Belvoir 完成钻探").text, "初级勘探公司在 Vale of Belvoir 完成钻探");
   assert.equal(render("该项目位于智利 Antofagasta 大区").text, "该项目位于智利 Antofagasta 大区");
+  assert.equal(render("该项目位于智利安托法加斯塔大区").text, "该项目位于智利安托法加斯塔大区");
+  assert.equal(render("矿区位于首都以南32公里处").text, "矿区位于首都以南32公里处");
+  assert.equal(render("南32（South32）宣布扩产").text, "南32（South32）宣布扩产", "with its original, 南32 is the company");
   assert.equal(render("Vale削减铁矿石指引").text, "Vale削减铁矿石指引");
   assert.equal(render("Vale削减铁矿石指引", ["vale"]).text, "淡水河谷（Vale）削减铁矿石指引");
   assert.equal(render("托克与当地政府签约", ["trafigura"]).text, "托克（Trafigura）与当地政府签约");
@@ -137,6 +164,8 @@ test("an unknown Chinese name before a bracketed original is reported and kept a
   const result = render("智利铜业巨头（Codelco）宣布，Codelco将裁员");
   assert.equal(result.text, "智利铜业巨头（Codelco）宣布，智利国家铜业公司将裁员");
   assert.deepEqual(result.unregistered, [{ entityId: "codelco", variant: "智利铜业巨头" }]);
+  assert.deepEqual(render("据路透社报道（BHP）宣布").unregistered, [], "a clause ending in a reporting verb is not a name");
+  assert.deepEqual(render("消息人士称智利铜业巨头（Codelco）宣布").unregistered, [{ entityId: "codelco", variant: "智利铜业巨头" }]);
 });
 
 test("a company without a Chinese name stays as written; a merged one takes the winner's name", () => {

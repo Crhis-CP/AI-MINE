@@ -59,6 +59,10 @@ test("place names and ordinary words that a regex takes for a company are not li
   assert.deepEqual(link("Junior explorer completes drilling in the Vale of Belvoir"), []);
   assert.deepEqual(link("Exploration drilling resumed in the southern Copperbelt of Zambia."), []);
   assert.deepEqual(link("Antofagasta region approves desalination plant"), []);
+  assert.deepEqual(link("该项目位于智利安托法加斯塔大区"), []);
+  assert.deepEqual(link("矿区位于首都以南32公里处"), []);
+  assert.deepEqual(link("Exploration in the southern copper belt of Zambia"), [], "lower-case southern copper is a landscape");
+  assert.deepEqual(link("FCX shares rise"), [], "a ticker links only with its exchange");
   assert.deepEqual(link("Kinross council rejects quarry plan"), []);
   assert.deepEqual(link("Rio, Tinto and Odiel rivers polluted"), [], "words of one name are not split by a comma");
   assert.deepEqual(link("the bhp rating of the engine"), [], "an upper-case abbreviation only counts in upper case");
@@ -73,6 +77,8 @@ test("a spelling that is also a place counts once the article names the company 
     "vale/publisher_domain": "publisher",
   });
   assert.deepEqual(roles(link("Antofagasta Minerals says Antofagasta output rose")), { "antofagasta/text": "subject" });
+  assert.deepEqual(roles(link("安托法加斯塔（Antofagasta plc）公布产量")), { "antofagasta/text": "subject" });
+  assert.deepEqual(roles(link("FCX shares rise (NYSE: FCX)")), { "freeport/text": "subject" });
   const [vale] = link("Vale S.A. said Vale will cut output");
   assert.equal(vale?.hits, 2, "an anchored spelling counts once anchored");
   assert.deepEqual(link("Teck"), []);
@@ -107,6 +113,10 @@ test("a company named in passing is a mention, in each language with a list", ()
   assert.deepEqual(roles(link("前力拓高管加盟初级勘探公司", { language: "zh" })), { "rio-tinto/text": "mention" });
   assert.deepEqual(roles(link("曾任必和必拓财务总监的某人出任董事", { language: "zh" })), { "bhp/text": "mention" });
   assert.deepEqual(roles(link("此前力拓宣布扩产", { language: "zh" })), { "rio-tinto/text": "subject" }, "此前 is not 前 (former)");
+  assert.deepEqual(roles(link("前任力拓高管加入初级勘探公司", { language: "zh" })), { "rio-tinto/text": "mention" });
+  assert.deepEqual(roles(link("必和必拓前首席执行官出任初级勘探公司董事", { language: "zh" })), { "bhp/text": "mention" });
+  assert.deepEqual(roles(link("力拓前任董事加盟初级勘探公司", { language: "zh" })), { "rio-tinto/text": "mention" });
+  assert.deepEqual(roles(link("力拓前三季度产量上升", { language: "zh" })), { "rio-tinto/text": "subject" }, "前三季度 is not a former role");
   assert.deepEqual(roles(link("Ex ejecutivo de Codelco asume en minera junior", { language: "es" })), { "codelco/text": "mention" });
   assert.deepEqual(roles(link("Ex-diretor da Glencore assume mineradora", { language: "pt" })), { "glencore/text": "mention" });
 });

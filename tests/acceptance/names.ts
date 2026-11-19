@@ -23,13 +23,15 @@ export const NAME_CASES: readonly AcceptanceCase<NameEffects>[] = [
     check: oneName("科德尔科下调年度产量指引，智利国营铜业公司称将推迟新矿投产", "智利国家铜业公司", ["科德尔科", "智利国营铜业"]),
   },
   {
+    // A variant written with its bracketed original, then the house name.
     id: "name-bracketed-variant-and-house-name",
-    says: "同一家公司一个标题里两个译名：括注原文的写法和正式译名要统一",
+    says: "同一家公司一个标题里两个译名",
     check: oneName("雅保（Albemarle）与智利签署锂合同，雅宝称产量不变", "雅宝", ["雅保"]),
   },
   {
+    // A Chinese variant, then the original spelling: both become the one Chinese name.
     id: "name-variant-and-original-in-title",
-    says: "同一家公司一个标题里两个译名：中文异名和英文原名要统一成一个中文名",
+    says: "同一家公司一个标题里两个译名",
     check: oneName("自由港迈克墨伦旗下 Grasberg 恢复生产，Freeport-McMoRan 股价上涨", "自由港麦克莫兰", ["自由港迈克墨伦", "Freeport-McMoRan 股价"]),
   },
 ];

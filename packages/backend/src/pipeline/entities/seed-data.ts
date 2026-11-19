@@ -70,21 +70,26 @@ export const EXTRA_ALIASES: Readonly<Record<string, ReadonlyArray<string | Alias
 
 /**
  * Scope and case of spellings that are also places or ordinary words. Vale is a Portuguese verb and an English
- * valley (Vale of Belvoir); Antofagasta a Chilean region; Kinross a Scottish town; Freeport a port town; Teck too
- * short to trust alone. Upper-case abbreviations only count in upper case, and "gold fields" in lower case is
- * just gold fields.
+ * valley (Vale of Belvoir); Antofagasta, in either script, a Chilean region; Kinross a Scottish town; Freeport a port
+ * town; Teck too short to trust alone; 南32 is also "south 32" in 以南32公里. Barrick is left `text`: it is no place
+ * or word, and the passing-mention wordings tell "Former Barrick executive" apart. Upper-case abbreviations only
+ * count in upper case, and "gold fields" or "southern copper" in lower case is just a landscape. A bare FCX is a
+ * ticker without its exchange, which running text does not link (only "NYSE: FCX" does); it still answers lookups.
  */
 export const ALIAS_RULES: Readonly<Record<string, Omit<AliasSpec, "value">>> = {
   Vale: { scope: "anchored", caseSensitive: true },
   Antofagasta: { scope: "anchored" },
+  安托法加斯塔: { scope: "anchored" },
   Kinross: { scope: "anchored" },
   Teck: { scope: "anchored" },
+  南32: { scope: "anchored" },
   BHP: { caseSensitive: true },
   MMG: { caseSensitive: true },
   SQM: { caseSensitive: true },
   CMOC: { caseSensitive: true },
-  FCX: { caseSensitive: true },
+  FCX: { scope: "lookup", caseSensitive: true },
   "Gold Fields": { caseSensitive: true },
+  "Southern Copper": { caseSensitive: true },
 };
 
 /** Listing symbols as `EXCHANGE:SYMBOL`; text links them only in that qualified form, as in “(NYSE: FCX)”. */
