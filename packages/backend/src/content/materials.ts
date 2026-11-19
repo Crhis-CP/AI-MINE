@@ -557,3 +557,12 @@ export async function presentationMaterialSnapshot(articleId: string, db: Db = s
     FROM articles WHERE id=${articleId}`;
   return row ?? null;
 }
+
+/** How many reports these sources brought in the window, history imports aside (the daily reconciliation). */
+export async function countDiscovered(sourceIds: readonly string[], start: Date, end: Date, db: Db = sql): Promise<number> {
+  if (!sourceIds.length) return 0;
+  const [row] = await db<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM articles
+    WHERE source_id = ANY(${sourceIds as string[]}::text[]) AND NOT backfill AND discovered_at >= ${start} AND discovered_at < ${end}`;
+  return row!.n;
+}

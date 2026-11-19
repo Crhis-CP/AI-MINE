@@ -107,3 +107,11 @@ export function groupingAnalysisHash(row: Pick<GroupingAnalysis, "selected" | "r
     ]),
   );
 }
+
+/** Articles whose latest judgement made in the window found them relevant and gave them a score (the daily reconciliation). */
+export async function scoredRelevantArticles(start: Date, end: Date, db: Db = sql): Promise<string[]> {
+  const rows = await db<{ article_id: string; relevance: string | null; score: string | null }[]>`
+    SELECT DISTINCT ON (article_id) article_id, relevance, score FROM analyses
+    WHERE created_at >= ${start} AND created_at < ${end} ORDER BY article_id, id DESC`;
+  return rows.filter((r) => r.relevance === "pass" && r.score !== null).map((r) => r.article_id);
+}

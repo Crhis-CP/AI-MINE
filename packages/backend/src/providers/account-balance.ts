@@ -146,3 +146,12 @@ export async function lowBalances(now = Date.now()): Promise<{ low: LowBalance[]
   }
   return { low, fresh };
 }
+
+/** Every account's latest reading and the days it lasts at the recent daily spend (null without spend on record), by service name. */
+export async function accountDaysLeft(now = Date.now()): Promise<Array<{ service: string; yuan: number; days: number | null }>> {
+  const [row] = await sql<{ value: BalanceState }[]>`SELECT value FROM settings WHERE key = ${BALANCE_SETTING}`;
+  const daily = await recentDailySpend(now);
+  return Object.entries(row?.value ?? {})
+    .map(([service, reading]) => ({ service, yuan: reading.yuan, days: daily && daily > 0 ? Math.floor(reading.yuan / daily) : null }))
+    .sort((a, b) => a.service.localeCompare(b.service));
+}

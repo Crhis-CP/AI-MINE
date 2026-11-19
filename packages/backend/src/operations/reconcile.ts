@@ -3,11 +3,15 @@
 // what was collected and what reached readers, whether translations keep up, how long the model accounts last),
 // so the Owner sees a drift the day it starts, not when a reader notices. Read-only; no model, no network.
 // The alerts (alerts.ts) tell of single things that broke; this is the whole picture, sent whether or not
-// anything broke.
+// anything broke. Each number is read through the module that owns the table; this file only puts them together.
 import { addDays, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql } from "../db.ts";
 import { beijingDay, sendAlert } from "../notify/feishu.ts";
-import { BALANCE_SETTING, type BalanceState, recentDailySpend } from "../providers/account-balance.ts";
+import { sourceIdsOnLane } from "../admin/sources.ts";
+import { countDiscovered } from "../content/materials.ts";
+import { scoredRelevantArticles } from "../enrichment/records.ts";
+import { accountDaysLeft } from "../providers/account-balance.ts";
+import { notPublicAmong, publicationFlow, translationLag } from "../publication/items.ts";
 import { sourceHealth } from "../sources/health.ts";
 
 /** Why a source brought nothing in seven days, in the order the reasons are tried. */
@@ -68,40 +72,21 @@ export async function reconcile(now = Date.now()): Promise<Reconciliation> {
     }
   }
 
-  const [flow] = await sql<{ collected: number; public: number; selected: number; scored_not_public: number }[]>`
-    SELECT
-      (SELECT count(*)::int FROM articles a JOIN sources s ON s.id = a.source_id
-        WHERE s.lane = 'news' AND NOT a.backfill AND a.discovered_at >= ${start} AND a.discovered_at < ${end}) AS collected,
-      (SELECT count(*)::int FROM publications WHERE first_public_at >= ${start} AND first_public_at < ${end}) AS public,
-      (SELECT count(*)::int FROM publications WHERE first_selected_at >= ${start} AND first_selected_at < ${end}) AS selected,
-      (SELECT count(*)::int FROM (
-          SELECT DISTINCT ON (article_id) article_id, relevance, score FROM analyses
-          WHERE created_at >= ${start} AND created_at < ${end} ORDER BY article_id, id DESC) latest
-        LEFT JOIN publications p ON p.article_id = latest.article_id
-        WHERE latest.relevance = 'pass' AND latest.score IS NOT NULL
-          AND (p.article_id IS NULL OR NOT p.eligible OR p.visibility <> 'public')) AS scored_not_public`;
-
-  const [translation] = await sql<{ due: number; missing: number }[]>`
-    SELECT count(*)::int AS due, count(*) FILTER (WHERE t.article_id IS NULL)::int AS missing
-    FROM publications p
-    JOIN articles a ON a.id = p.article_id
-    JOIN sources s ON s.id = a.source_id
-    LEFT JOIN translations t ON t.article_id = a.id AND t.lang = 'zh'
-    WHERE p.visibility = 'public' AND p.eligible AND s.lane = 'news' AND s.site_fulltext
-      AND a.language IS NOT NULL AND a.language NOT ILIKE 'zh%'
-      AND p.first_public_at >= ${start} AND p.first_public_at < ${new Date(Math.min(end.getTime(), now - 3600_000))}`;
-
-  const [setting] = await sql<{ value: BalanceState }[]>`SELECT value FROM settings WHERE key = ${BALANCE_SETTING}`;
-  const daily = await recentDailySpend(now);
-  const balance = Object.entries(setting?.value ?? {})
-    .map(([service, reading]) => ({ service, yuan: reading.yuan, days: daily && daily > 0 ? Math.floor(reading.yuan / daily) : null }))
-    .sort((a, b) => a.service.localeCompare(b.service));
+  const [collected, shown, scored] = await Promise.all([
+    sourceIdsOnLane("news").then((ids) => countDiscovered(ids, start, end)),
+    publicationFlow(start, end),
+    scoredRelevantArticles(start, end),
+  ]);
+  const scoredNotPublic = await notPublicAmong(scored);
+  // A report needs an hour to be translated before it counts as late.
+  const translation = await translationLag(start, new Date(Math.min(end.getTime(), now - 3600_000)));
+  const balance = await accountDaysLeft(now);
 
   return {
     day,
     sources: { enabled, withNew, silent },
-    flow: { collected: flow!.collected, public: flow!.public, selected: flow!.selected, scoredNotPublic: flow!.scored_not_public },
-    translation: translation!,
+    flow: { collected, public: shown.public, selected: shown.selected, scoredNotPublic },
+    translation,
     balance,
   };
 }

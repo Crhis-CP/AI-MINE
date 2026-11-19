@@ -615,3 +615,42 @@ export async function pendingSourceTimeProjectionIds(limit: number) {
   const placeholders = await placeholderClockSources(midnights.map((row) => row.source_id));
   return [...new Set([...ids, ...midnights.filter((row) => placeholders.has(row.source_id)).map((row) => row.article_id)])].slice(0, limit);
 }
+
+// ---- Counts for the daily reconciliation (operations/reconcile.ts) -------------------------------------------------
+
+/** Reports first shown to readers, and first shown as selected, in the window. */
+export async function publicationFlow(start: Date, end: Date): Promise<{ public: number; selected: number }> {
+  const [row] = await sql<{ public: number; selected: number }[]>`
+    SELECT count(*) FILTER (WHERE first_public_at >= ${start} AND first_public_at < ${end})::int AS public,
+           count(*) FILTER (WHERE first_selected_at >= ${start} AND first_selected_at < ${end})::int AS selected
+    FROM publications
+    WHERE (first_public_at >= ${start} AND first_public_at < ${end}) OR (first_selected_at >= ${start} AND first_selected_at < ${end})`;
+  return row!;
+}
+
+/** How many of these articles readers cannot see in the public pool now. */
+export async function notPublicAmong(articleIds: readonly string[]): Promise<number> {
+  if (!articleIds.length) return 0;
+  const [row] = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM publications
+    WHERE article_id = ANY(${articleIds as string[]}::text[]) AND visibility = 'public' AND eligible`;
+  return articleIds.length - row!.n;
+}
+
+/**
+ * Foreign-language news reports of full-text sources first shown between `start` and `cutoff`, and those among them
+ * that have no Chinese translation yet.
+ */
+export async function translationLag(start: Date, cutoff: Date): Promise<{ due: number; missing: number }> {
+  if (cutoff <= start) return { due: 0, missing: 0 };
+  const [row] = await sql<{ due: number; missing: number }[]>`
+    SELECT count(*)::int AS due, count(*) FILTER (WHERE t.article_id IS NULL)::int AS missing
+    FROM publications p
+    JOIN articles a ON a.id = p.article_id
+    JOIN sources s ON s.id = p.source_id
+    LEFT JOIN translations t ON t.article_id = p.article_id AND t.lang = 'zh'
+    WHERE p.visibility = 'public' AND p.eligible AND s.lane = 'news' AND s.site_fulltext
+      AND a.language IS NOT NULL AND a.language NOT ILIKE 'zh%'
+      AND p.first_public_at >= ${start} AND p.first_public_at < ${cutoff}`;
+  return row!;
+}
