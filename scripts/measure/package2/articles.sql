@@ -324,17 +324,21 @@ GROUP BY 2
 ORDER BY 2;
 
 -- [L10] Judgements of an already judged revision, per day over the last 30 days.
--- Measures: analyses written each day, and how many of them judge an article revision that already had an analysis
---   (copy rewrites, retries, regrades).
+-- Measures: full judgements written each day, and how many of them judge an article revision that already had a full
+--   judgement (copy rewrites, retries, regrades). A full judgement records its scores; the prefilter's row that a first
+--   analysis writes ahead of it (and a stale diagnostic) does not, so neither is counted on either side.
 -- Decides: how often names would be rendered again for one revision, which is why names are frozen per revision.
 -- Columns: measure, day, analyses, same_revision_again
 SELECT 'L10' AS measure,
   (r.created_at AT TIME ZONE 'Asia/Shanghai')::date AS day,
   count(*)::int AS analyses,
   count(*) FILTER (
-    WHERE EXISTS (SELECT 1 FROM analyses o WHERE o.article_id = r.article_id AND o.input_revision = r.input_revision AND o.id < r.id)
+    WHERE EXISTS (
+      SELECT 1 FROM analyses o
+      WHERE o.article_id = r.article_id AND o.input_revision = r.input_revision AND o.id < r.id AND o.output ? 'scores'
+    )
   )::int AS same_revision_again
 FROM analyses r
-WHERE r.created_at >= now() - interval '30 days'
+WHERE r.created_at >= now() - interval '30 days' AND r.output ? 'scores'
 GROUP BY 2
 ORDER BY 2 DESC;

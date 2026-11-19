@@ -10,7 +10,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { after, test } from "node:test";
 import { REPO_ROOT } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, sql, type Tx } from "@amp/backend/db";
 import { COUNTRIES } from "@amp/industry/jurisdictions";
 import { topLevelStatements } from "../scripts/check-handoff-sql.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
@@ -227,7 +227,12 @@ test("every statement runs read-only on the migrated schema and the fixture give
     ["f3", "a5", "primary"],
     ["f3", "a7", "report"],
   ] as const)
-    await sql`INSERT INTO fact_articles(fact_id,article_id,role) VALUES(${factIds[fact]!},${id(article)},${role})`;
+    await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${factIds[fact]!},${id(article)},${role},1)`;
+  // Grouping confirmed each article's current revision. a2 was tied by hand and has since been asked to regroup: a
+  // manual membership stays evidence for recall whatever its revision or regroup request (events/group.ts).
+  await sql`UPDATE articles SET grouping_status='complete',grouping_input_revision=revision WHERE id LIKE ${`${run}-%`}`;
+  await sql`UPDATE fact_articles SET manual=true,input_revision=NULL WHERE article_id=${id("a2")}`;
+  await sql`INSERT INTO regroup_pending(article_id) VALUES(${id("a2")})`;
 
   // Public projections. a1's public title was revised by hand, so the pool text differs from the analysis text.
   const publications = [
@@ -255,9 +260,19 @@ test("every statement runs read-only on the migrated schema and the fixture give
   await sql`INSERT INTO publication.news_geography(article_id,article_revision,recipe,state,jurisdictions,primary_jurisdiction)
     VALUES(${id("a1")},1,'measure-fixture','identified',${["CL"]},'CL'),(${id("a5")},1,'measure-fixture','identified',${["CL"]},'CL')`;
 
+  // A first analysis writes the prefilter's row for the revision, then the full judgement (editorial/analyze-article.ts):
+  // a1 and a2 start that way, so only a1's second full judgement judges its revision again.
+  for (const article of ["a1", "a2"])
+    await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,selected,output)
+      VALUES(${id(article)},1,'model','pass',false,${sql.json({ prefilter: { label: "PASS", reason: "mining" } })})`;
   // Judgements: a1 judged twice on one revision (a date written in its text), a2 a date that does not exist, a5 and a7
-  // the same quarter end.
-  const analysis = (subject: string, occurredAt: string, extra: Record<string, unknown> = {}) => ({ fact: { title: "t", subject, occurredAt }, ...extra });
+  // the same quarter end. A full judgement always records its scores (null when none were taken).
+  const analysis = (subject: string, occurredAt: string, extra: Record<string, unknown> = {}) => ({
+    prefilter: { label: "PASS", reason: "mining" },
+    scores: null,
+    fact: { title: "t", subject, occurredAt },
+    ...extra,
+  });
   for (const [article, subjects, title, output] of [
     ["a1", ["teck"], "泰克重启铜矿山", analysis("Teck Resources", claimed)],
     ["a1", ["teck"], "泰克重启铜矿山", analysis("Teck Resources", claimed)],
@@ -407,6 +422,57 @@ test("every statement runs read-only on the migrated schema and the fixture give
     rows("M3b").map((r) => [r.same_source, r.cosine_band, r.pairs]),
     [[false, "f >=0.92", 1]],
   );
+  // The pool is what live recall returns (events/group.ts recallPool and qualifiedReports): a1 leaves it, and its pair
+  // with a2 leaves M3b, once any one of these holds; a membership tied by hand stays whatever its revision or regroup
+  // request. Each change is rolled back after the two statements have run.
+  const text = (measure: string) => statements().find((s) => s.id === measure)!.text;
+  const rollback = new Error("rollback");
+  const poolWith = async (change: (tx: Tx) => Promise<unknown>) => {
+    let seen: { pool: number; withVector: number; pairs: number } | undefined;
+    await sql
+      .begin(async (tx) => {
+        await change(tx);
+        const m2a = await tx.unsafe(text("M2a"));
+        const m3b = await tx.unsafe(text("M3b"));
+        seen = {
+          pool: m2a.reduce((n, r) => n + Number(r.pool_reports), 0),
+          withVector: m2a.filter((r) => r.model !== null).reduce((n, r) => n + Number(r.pool_reports), 0),
+          pairs: m3b.reduce((n, r) => n + Number(r.pairs), 0),
+        };
+        throw rollback;
+      })
+      .catch((error) => {
+        if (error !== rollback) throw error;
+      });
+    return seen;
+  };
+  const a1 = id("a1");
+  for (const [reason, change] of [
+    ["waits for a regroup", (tx) => tx`INSERT INTO regroup_pending(article_id) VALUES(${a1})`],
+    ["is tied to an older revision", (tx) => tx`UPDATE fact_articles SET input_revision=0 WHERE article_id=${a1}`],
+    ["has no confirmed grouping for its revision", (tx) => tx`UPDATE articles SET grouping_status='pending' WHERE id=${a1}`],
+    ["is withdrawn", (tx) => tx`UPDATE publications SET visibility='withdrawn' WHERE article_id=${a1}`],
+    ["is taken down by an operator", (tx) => tx`UPDATE publications SET operator_withdrawn=true WHERE article_id=${a1}`],
+    ["is an original post still waiting for admission", (tx) => tx`UPDATE publications SET is_original_post=true WHERE article_id=${a1}`],
+    [
+      "is a composite report",
+      (tx) => tx`INSERT INTO analyses(article_id,input_revision,origin,relevance,output)
+        VALUES(${a1},1,'model','pass',${tx.json({ scores: null, scope: "composite" })})`,
+    ],
+  ] as [string, (tx: Tx) => Promise<unknown>][])
+    assert.deepEqual(await poolWith(change), { pool: 4, withVector: 1, pairs: 0 }, `a1 leaves the recall pool when it ${reason}`);
+  for (const [reason, change] of [
+    ["an admitted original post", (tx) => tx`UPDATE publications SET is_original_post=true,original_post_admission_required=false WHERE article_id=${a1}`],
+    [
+      "a membership tied by hand to an older revision, waiting for a regroup",
+      async (tx) => {
+        await tx`UPDATE fact_articles SET manual=true,input_revision=0 WHERE article_id=${a1}`;
+        await tx`UPDATE articles SET grouping_status='pending' WHERE id=${a1}`;
+        await tx`INSERT INTO regroup_pending(article_id) VALUES(${a1})`;
+      },
+    ],
+  ] as [string, (tx: Tx) => Promise<unknown>][])
+    assert.deepEqual(await poolWith(change), { pool: 5, withVector: 2, pairs: 1 }, `a1 stays in the recall pool as ${reason}`);
   assert.deepEqual(
     rows("M4a").map((r) => [r.kind, r.gap_band, r.body, r.groups, r.articles]),
     [
@@ -513,6 +579,7 @@ test("every statement runs read-only on the migrated schema and the fixture give
   assert.deepEqual(
     rows("L10").map((r) => [r.analyses, r.same_revision_again]),
     [[5, 1]],
+    "five full judgements; only a1's second judges its revision again, the prefilter rows ahead of a1 and a2 do not count",
   );
 
   // Policy PDFs (part N).

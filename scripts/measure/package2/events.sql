@@ -38,8 +38,12 @@ GROUP BY 2, 3, 4
 ORDER BY 2 DESC, 3, 4;
 
 -- [M2a] The 14-day recall pool: its size and how much of it has a stored vector for the text it is compared by.
--- Measures: reports of the recall window (live fact, live story, discovered in the last 14 days, the window the live
---   grouping step reads), per stored vector model and dimension. A row with no model is a report with no vector.
+-- Measures: the reports live recall returns (events/group.ts recallPool and qualifiedReports): a primary or report
+--   member of a fact in a live story, discovered in the last 14 days, not taken down (withdrawn, removed by an operator,
+--   or an original post still waiting for admission, with that admission switch off as in production) and not a
+--   composite report; unless tied by hand, also not waiting for a regroup, tied to the article's current revision and
+--   with grouping confirmed for it. Counted per stored vector model and dimension; a row with no model is a report with
+--   no vector.
 --   The live pool embeds the public title and summary, an arriving report is embedded from its analysis title and
 --   summary; both hashes are recomputed here the way the worker computes them (title, a full stop, the first 300
 --   characters of the summary, SHA-256), so hash_is_pool_text and hash_is_query_text say which text a stored vector
@@ -53,7 +57,14 @@ WITH pool AS (
   JOIN facts f ON f.id = fa.fact_id
   JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
   JOIN articles a ON a.id = fa.article_id
+  LEFT JOIN publications p ON p.article_id = fa.article_id
   WHERE fa.role IN ('primary', 'report') AND a.discovered_at > now() - interval '14 days'
+    AND (fa.manual OR (NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = fa.article_id)
+      AND fa.input_revision = a.revision AND a.grouping_status = 'complete' AND a.grouping_input_revision = a.revision))
+    AND NOT coalesce(p.visibility = 'withdrawn' OR p.operator_withdrawn
+      OR (p.is_original_post AND p.original_post_admission_required IS DISTINCT FROM false), false)
+    AND (SELECT x.output->>'scope' FROM analyses x WHERE x.article_id = fa.article_id ORDER BY x.input_revision DESC, x.id DESC LIMIT 1)
+      IS DISTINCT FROM 'composite'
 ), texts AS (
   SELECT pool.article_id,
     encode(sha256(convert_to(coalesce(p.title, an.title_zh, a.title) || '。' || left(coalesce(p.summary, an.summary_zh, ''), 300), 'UTF8')), 'hex')
@@ -121,8 +132,8 @@ GROUP BY 2, 3
 ORDER BY 2, 3;
 
 -- [M3b] Cosine between reports that today share a fact, in the 14-day pool.
--- Measures: every pair of current members of one fact (both discovered in the last 14 days, both with a vector of the
---   same model), banded by cosine, split by whether both came from the same source. The cosine is computed here from
+-- Measures: every pair of current members of one fact (both in the recall pool of M2a, both with a vector of the same
+--   model), banded by cosine, split by whether both came from the same source. The cosine is computed here from
 --   the stored vectors; nothing is embedded.
 -- Decides: together with M3a, the 0.92 / 0.85 / 0.6 bars: how many live same-fact pairs each bar would keep.
 -- Columns: measure, same_source, cosine_band, pairs
@@ -132,7 +143,14 @@ WITH members AS (
   JOIN facts f ON f.id = fa.fact_id
   JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
   JOIN articles a ON a.id = fa.article_id
+  LEFT JOIN publications p ON p.article_id = fa.article_id
   WHERE fa.role IN ('primary', 'report') AND a.discovered_at > now() - interval '14 days'
+    AND (fa.manual OR (NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = fa.article_id)
+      AND fa.input_revision = a.revision AND a.grouping_status = 'complete' AND a.grouping_input_revision = a.revision))
+    AND NOT coalesce(p.visibility = 'withdrawn' OR p.operator_withdrawn
+      OR (p.is_original_post AND p.original_post_admission_required IS DISTINCT FROM false), false)
+    AND (SELECT x.output->>'scope' FROM analyses x WHERE x.article_id = fa.article_id ORDER BY x.input_revision DESC, x.id DESC LIMIT 1)
+      IS DISTINCT FROM 'composite'
 ), pairs AS (
   SELECT x.source_id = y.source_id AS same_source,
     (SELECT sum(u::float8 * v::float8) / nullif(sqrt(sum(u::float8 * u::float8)) * sqrt(sum(v::float8 * v::float8)), 0)
