@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ReportCitation, ReportDetail } from "@amp/contracts/site";
+import { factTiming, memberClaim } from "../packages/backend/src/pipeline/events/timing-rules.ts";
 import { type DailyRank, eventAwareDaily } from "../packages/backend/src/pipeline/rank/daily.ts";
 import {
   cardAnchor,
@@ -100,6 +101,37 @@ test("a card is placed by its members that are not old; only an all-old card mov
   assert.throws(() => cardAnchor([]));
 });
 
+test("known limit: inside one fact, one member's checked background day files the whole card on that day", () => {
+  // The two Zambia reports of tests/acceptance/order.ts fresh-report-keeps-its-card, put in ONE fact instead of two.
+  // The undated report inherits the fact's checked day and is old with it, so the card moves to 20 October. Pinned so
+  // the measurement of member agreement (design M, E6) and the read-side switch see it; separate facts keep the card.
+  const reports = [
+    { articleId: "zambia-background", at: hoursAgo(0), claim: "2026-10-20", text: "Zambia first restricted raw ore exports on October 20, 2026." },
+    { articleId: "zambia-export", at: new Date(NOW.getTime() + 3_600_000), claim: null, text: "Zambia lifts its ban on copper concentrate exports." },
+  ];
+  const claims = reports.map((r) => memberClaim({ articleId: r.articleId, revision: 1, claim: r.claim, text: r.text, reportedAt: r.at }));
+  const timing = factTiming(claims)!;
+  assert.deepEqual([timing.occurredOn, timing.occurredBasis], ["2026-10-20", "verified"]);
+  const members = reports.map((r, index) => {
+    const i = input({
+      reportedAt: r.at,
+      ownDate: claims[index]!.verified ? claims[index]!.on : null,
+      factDate: { on: timing.occurredOn, basis: timing.occurredBasis },
+      firstReportedAt: timing.firstReportedAt,
+    });
+    const f = freshness(i);
+    return { f, sortAt: r.at, rankAnchor: rankAnchor(f, i, r.at) };
+  });
+  assert.deepEqual(
+    members.map((m) => [m.f.class, m.f.basis]),
+    [
+      ["old", "own_date"],
+      ["old", "fact_date"],
+    ],
+  );
+  assert.equal(cardAnchor(members), new Date("2026-10-19T16:00:00Z").getTime());
+});
+
 test("importance: score, official release, tagged major, old penalty; never the number of outlets", () => {
   assert.deepEqual(importance({ score: null, representativePriority: 3, tags: [], freshness: "new" }), {
     value: 50,
@@ -165,6 +197,8 @@ test("the lead memory: two earlier issues, by story key; an undeveloped follow-u
   const story = (id: string, importance: number) => cand(id, importance, { key: "story-a" });
   assert.equal(leadOf([story("a-3", 90), cand("d", 60)], ["story-c", "story-a"]), "d", "led two issues ago");
   assert.equal(leadOf([story("a-4", 90), cand("d", 60)], ["story-c", "story-b", "story-a"]), "a-4", "three issues ago is forgotten");
+  assert.equal(leadOf([story("a-5", 90), cand("d", 60)], [null, "story-c", "story-a"]), "a-5", "a quiet issue without a lead still counts as an issue");
+  assert.equal(leadOf([story("a-6", 90), cand("d", 60)], [null, "story-a"]), "d");
   assert.equal(leadOf([cand("follow", 80, { followUp: true }), cand("fresh", 69)], []), "fresh", "a follow-up that did not develop: 80 − 12 = 68 < 69");
   assert.equal(leadOf([cand("follow", 80, { followUp: true, developed: true }), cand("fresh", 69)], []), "follow");
   assert.deepEqual(issueOrder([cand("b", 50), cand("a", 50), cand("c", 60, { followUp: true })], []), ["a", "b", "c"], "ties by id; 60 − 12 = 48");
@@ -301,4 +335,11 @@ test("the stored issue is returned untouched whenever the event order may not ap
     ["no main items", issue({ sections: [] }), RANKS],
   ];
   for (const [why, stored, ranks] of cases) assert.equal(eventAwareDaily(stored, ranks, ["s-wire"], FROM), stored, why);
+});
+
+test("a quiet issue between two leads uses up a place in the lead memory", () => {
+  // 90 − 12 = 78 still beats policy's 75, so only the memory can keep the wire story from leading.
+  const ranks = new Map([...RANKS, ["wire", rank(90)]]);
+  assert.equal(eventAwareDaily(issue(), ranks, [null, "s-wire"], FROM).leadItemId, "policy", "led two issues ago, one of them quiet");
+  assert.equal(eventAwareDaily(issue(), ranks, [null, "s-other", "s-wire"], FROM).leadItemId, "wire", "led three issues ago is forgotten");
 });

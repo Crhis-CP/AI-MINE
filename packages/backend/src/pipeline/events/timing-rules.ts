@@ -133,11 +133,17 @@ const FORMS: ReadonlyArray<{ pattern: RegExp; year: number; month: number; day: 
 
 /**
  * Words right before a day that make it the end of a reporting period or a cut-off, not an occurrence: results "for the
- * quarter ended September 30", reserves "as at 30 June", figures "截至9月30日". The text check must not turn those
- * into proof that something happened that day.
+ * quarter ended September 30", "in the nine months to 30 September", reserves "as at 30 June", figures "截至 9月30日",
+ * and the end of a range that starts with a day ("7月1日至9月30日", "July 1 to September 30", "1–30 September"). The
+ * text check must not turn those into proof that something happened that day. A dash only closes a range when it
+ * touches the day before it, so a headline such as "UPDATE 2 - Nov 18" still counts.
  */
-const PERIOD_END =
-  /(?:\b(?:ended|ending|as\s+(?:at|of)|through|year\s+to)\s+(?:on\s+)?|截至|截止(?:到|至)?|terminad[oa]\s+(?:el|em)\s+|al\s+cierre\s+del?\s+)$/iu;
+const PERIOD_END = new RegExp(
+  String.raw`(?:\b(?:ended|ending|as\s+(?:at|of)|through|(?:months?|quarter|half(?:-year)?|period|year|results)\s+to)\s+(?:on\s+)?` +
+    String.raw`|截至|截止(?:到|至)?|terminad[oa]\s+(?:el|em)\s+|al\s+cierre\s+del?\s+` +
+    String.raw`|(?:[日号]|\d(?:st|nd|rd|th)?)\s*(?:至|到)|(?:[日号]|\d(?:st|nd|rd|th)?)[~–—-]|\d(?:st|nd|rd|th)?\s+(?:to|until)\s)\s*$`,
+  "iu",
+);
 
 /**
  * The calendar days written in a text, as YYYY-MM-DD. A form without a year takes the report's year, or the year
@@ -180,6 +186,11 @@ export function memberClaim(i: { articleId: string; revision: number; claim: unk
 /**
  * A fact's timing from its current members' claims. The founder is the earliest report (ties by article id, so the
  * answer does not depend on the order members are read). Null when the fact has no member left.
+ *
+ * Known limit: one member that writes a background day ("first restricted exports on October 20") and claims it makes
+ * that day the fact's checked day, and every member without a checked day of its own then counts as old with it, so
+ * the whole fact is filed on that day. Only a different checked day in a member's own text keeps it fresh. Whether to
+ * trust a single member's day for the others is left to the production measurement of member agreement (design M, E6).
  */
 export function factTiming(claims: readonly MemberClaim[]): FactTiming | null {
   if (!claims.length) return null;

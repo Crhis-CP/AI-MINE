@@ -120,7 +120,9 @@ export function rankAnchor(f: Freshness, i: FreshnessInput, timelineAt: Date): D
  * A card's place in a time-ordered list. Today it is its earliest member's time; with the event order, old members
  * do not count while the card has a member that is not old, so one old copy cannot drag a fresh card back to last
  * month. Only a card whose members are all old moves to their (earliest) event time. `rankAnchor` is null for a
- * member that is not old, or whose rank row the reader may not use yet.
+ * member that is not old, or whose rank row the reader may not use yet. This protects a fresh fact from an old fact in
+ * the same card, not a fresh report from an old day inside its own fact: members of one fact share its day
+ * (timing-rules factTiming), so one member's checked background day can make the whole card old.
  */
 export function cardAnchor(members: ReadonlyArray<{ sortAt: Date; rankAnchor: Date | null }>): number {
   if (!members.length) throw new Error("A card has at least one member");
@@ -209,9 +211,10 @@ export interface LeadCandidate {
  * The order an issue's main items are read in; the first is the lead. Old news goes last while anything else exists; a
  * story that led one of the last issues goes after the rest unless it developed; then importance, less the follow-up
  * penalty for a follow-up that did not develop; ties by id so the answer is stable. Nothing is dropped: an issue whose
- * only item is yesterday's lead still leads with it.
+ * only item is yesterday's lead still leads with it. `recentLeads` holds one entry per earlier issue, newest first,
+ * null for an issue that had no lead: a quiet day still uses up its place in the memory.
  */
-export function issueOrder(c: readonly LeadCandidate[], recentLeads: readonly string[], t = THRESHOLDS): string[] {
+export function issueOrder(c: readonly LeadCandidate[], recentLeads: readonly (string | null)[], t = THRESHOLDS): string[] {
   const barred = new Set(recentLeads.slice(0, t.leadMemory));
   const late = (x: LeadCandidate) => (x.freshness === "old" ? 2 : 0) + (barred.has(x.key) && !x.developed ? 1 : 0);
   const weight = (x: LeadCandidate) => x.importance - (x.followUp && !x.developed ? t.followUpPenalty : 0);
@@ -219,7 +222,7 @@ export function issueOrder(c: readonly LeadCandidate[], recentLeads: readonly st
 }
 
 /** The lead of an issue (issueOrder's first item). */
-export function leadOf(c: readonly LeadCandidate[], recentLeads: readonly string[], t = THRESHOLDS): string {
+export function leadOf(c: readonly LeadCandidate[], recentLeads: readonly (string | null)[], t = THRESHOLDS): string {
   const [lead] = issueOrder(c, recentLeads, t);
   if (lead === undefined) throw new Error("An issue without items has no lead");
   return lead;

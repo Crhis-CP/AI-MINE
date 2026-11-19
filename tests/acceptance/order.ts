@@ -402,8 +402,14 @@ const editionEntry = (e: IssueEntry): EditionEntry => ({
 export const TODAY_ORDER: OrderEffects = {
   // Today "new" is decided from the report's own times alone: found within 48 hours of its publication.
   isNew: (r) => !decideTimeline(r.publishedAt, r.publishedAt).backfill,
-  // Today's home order lives inside the list query (publication/report-group-reading.ts): earliest member time, newest
-  // first, with no idea of when the event happened. It is not callable on its own, so it is left out here.
+  // Today's home order lives inside the list query (publication/report-group-reading.ts plans()), which needs a
+  // database, so its rule is restated here: a card sits at its earliest member's list time, newest first, ties by key,
+  // with no idea of when the event happened. A report's list time is its publication time in these cases.
+  homeOrder: (cards) =>
+    cards
+      .map((card) => ({ id: card.id, anchor: Math.min(...card.facts.flat().map((r) => r.publishedAt.getTime())) }))
+      .sort((a, b) => b.anchor - a.anchor || b.id.localeCompare(a.id))
+      .map((c) => c.id),
   // Today the lead is the first main entry of the arrangement; earlier issues play no part (keepLead only keeps an
   // already published issue's own lead).
   leads: (issues) => issues.map((issue) => arrangeDaily(issue.entries.map(editionEntry)).main[0]!.entry.itemId),

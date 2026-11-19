@@ -25,7 +25,8 @@ export const leadKey = (c: Pick<ReportCitation, "itemId" | "storyPublicId">) => 
  *   an issue readers already saw keeps its lead (Owner 2026-11-06: past issues must not change under readers);
  * - only when every main item is public and has a rank, and the stored issue names its lead item: the order never
  *   guesses for an item it does not know.
- * `recentLeads` are the lead keys of the previous issues, newest first, as this function answered for them.
+ * `recentLeads` are the lead keys of the previous issues, newest first, as this function answered for them; null for an
+ * issue without a lead, which keeps its place so the memory counts issues, not leads.
  */
 export function eventAwareDaily<D extends ReportDetail>(
   detail: D,
@@ -52,10 +53,7 @@ export function eventAwareDaily<D extends ReportDetail>(
       developed: rank.developed,
     });
   }
-  const order = issueOrder(
-    candidates,
-    recentLeads.filter((key): key is string => key !== null),
-  );
+  const order = issueOrder(candidates, recentLeads);
   const position = new Map(order.map((id, index) => [id, index]));
   const byOrder = (a: ReportCitation, b: ReportCitation) => position.get(a.itemId!)! - position.get(b.itemId!)!;
   const lead = byId.get(order[0]!)!;

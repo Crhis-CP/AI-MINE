@@ -45,8 +45,19 @@ test("a period end or cut-off written in the text is not the day anything happen
     "Reserves as at 30 September 2026 rose 4%.",
     "截至2026年9月30日，公司铜产量同比增长。",
     "Resultados del trimestre terminado el 30 de septiembre de 2026.",
+    "截至 9 月 30 日，公司产量同比增长。",
+    "截止到 2026年9月30日，储量增加。",
+    "Copper output rose in the nine months to 30 September 2026.",
+    "Q3 results to September 30, 2026 beat forecasts.",
+    "Half-year to 30 September 2026: sales up.",
+    "三季度（7月1日至9月30日）铜产量增长。",
+    "Production from July 1 to September 30 rose.",
+    "Output for 1–30 September 2026 rose.",
+    "统计期为2026-07-01至2026-09-30。",
   ])
     assert.equal(dateInText(text, "2026-09-30", REPORTED), false, text);
+  assert.ok(dateInText("UPDATE 2 - Sept 30, 2026: the mine flooded.", "2026-09-30", REPORTED), "a spaced dash in a headline is not a range");
+  assert.ok(dateInText("Workers walked out on September 30 to protest.", "2026-09-30", REPORTED), "'to' after the day, not before it");
   assert.ok(
     dateInText("Results for the quarter ended September 30. The mine flooded on September 30, 2026.", "2026-09-30", REPORTED),
     "stated again as an occurrence",

@@ -3,7 +3,7 @@
 // to bite: each is a defect the Owner saw on the live site, and a case today's code already met would prove nothing.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runCases } from "./acceptance/case.ts";
+import { missing, runCases } from "./acceptance/case.ts";
 import { NEXT_ORDER, ORDER_CASES, type OrderEffects, TODAY_ORDER } from "./acceptance/order.ts";
 
 function outcome(name: string, effects: OrderEffects) {
@@ -25,10 +25,16 @@ test("the event order meets every order case", () => {
 
 test("today's code fails every defect case: the cases describe what the Owner saw", () => {
   const results = outcome("today", TODAY_ORDER);
+  const defects = ORDER_CASES.filter((c) => c.kind === "defect");
   assert.deepEqual(
-    ORDER_CASES.filter((c) => c.kind === "defect" && results.get(c.id) === null).map((c) => c.id),
+    defects.filter((c) => results.get(c.id) === null).map((c) => c.id),
     [],
     "a defect case today's code meets does not show the defect",
+  );
+  assert.deepEqual(
+    defects.filter((c) => results.get(c.id)?.startsWith(missing(""))).map((c) => c.id),
+    [],
+    "a defect case today's code fails only for want of the ability proves nothing about the defect",
   );
 });
 
