@@ -369,7 +369,8 @@ function sourceFigures(texts: readonly string[], sourceDate: SourceDate | null, 
     if (m[1]!.length >= 4 || m[1] === "May" || m[1]!.toLowerCase() === "mai" || m[2]) out.months.add(monthNumber(m[1]!)!);
   for (const m of text.matchAll(/(?<![\d.])(\d{1,2})月/g)) out.months.add(Number(m[1]));
   for (const m of text.matchAll(/(?<!\d)((?:19|20)\d{2})(?!\d)/g)) out.years.add(Number(m[1]));
-  for (const m of text.matchAll(/(?<!\d)(20\d{2})[/-](\d{2})(?!\d)/g)) out.years.add(2000 + Number(m[2]));
+  // A short fiscal range (2025-26, 2025/26) names its end year; a full ISO date (2026-11-18) or year-month (2026-11) does not.
+  for (const m of text.matchAll(/(?<![\d-])(20\d{2})[/-](\d{2})(?![\d/-])/g)) if (Number(m[2]) === (Number(m[1]) + 1) % 100) out.years.add(2000 + Number(m[2]));
   for (const m of text.matchAll(
     /(?<![A-Za-z])FY\s?'?(\d{4}|\d{2})(?!\d)|\b(?:fiscal|financial) (?:year )?(\d{4})\b|(?<![A-Za-z])[1-4]Q(\d{2})(?!\d)|(?<![A-Za-z])[HQ][1-4]\s?'?(\d{2})(?!\d)/gi,
   ))
@@ -481,7 +482,8 @@ export function checkFigures(copy: FigureCopy, source: FigureSource, mask: reado
       const d = f.date!;
       if (d.quarter) problem = found.quarters.has(d.quarter) ? null : "absent";
       else if (d.half) problem = found.halves.has(d.half) ? null : "absent";
-      else if (d.d === null) problem = found.months.has(d.m!) || found.dates.some((s) => s.m === d.m) ? null : "absent";
+      else if (d.d === null)
+        problem = (found.months.has(d.m!) || found.dates.some((s) => s.m === d.m)) && (d.y === null || yearSupported(d.y)) ? null : "absent";
       else {
         fullDate = true;
         const year = d.y ?? sourceDate?.y ?? 2001;

@@ -73,3 +73,18 @@ test("Chinese numerals are read as numbers only when they are one", () => {
   assert.equal(chineseNumber("十四五"), null);
   assert.equal(chineseNumber("万一"), null);
 });
+
+test("an ISO date in the source is not read as a fiscal range, and a year-month in the copy needs its year too", () => {
+  const source = (text: string) => ({ texts: [text], language: "en", sourceDate: "2026-11-18", complete: true, hasImage: false });
+  const copy = (summaryZh: string, occurredAt: string | null = null) => ({ titleZh: "", summaryZh, reasonZh: null, occurredAt });
+  const iso = checkFigures(copy("公司于2011年投产"), source("The mine started production on 2026-11-18."));
+  assert.notEqual(iso.verdict, "ok");
+  const range = checkFigures(copy("2026财年产量"), source("Output guidance for fiscal 2025-26 is unchanged."));
+  assert.equal(range.verdict, "ok");
+  const yearMonth = checkFigures(copy("公司将于2030年12月投产"), source("The company will start production in December 2027."));
+  assert.notEqual(yearMonth.verdict, "ok");
+  const fact = checkFigures(copy("公司将于12月投产", "2030-12"), source("The company will start production in December 2027."));
+  assert.notEqual(fact.verdict, "ok");
+  const right = checkFigures(copy("公司将于2027年12月投产", "2027-12"), source("The company will start production in December 2027."));
+  assert.equal(right.verdict, "ok");
+});
