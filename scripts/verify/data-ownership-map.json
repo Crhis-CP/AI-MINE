@@ -997,6 +997,7 @@
     "packages/backend/src/content/operational-snapshot.ts": "content",
     "packages/backend/src/content/target-evidence.ts": "content",
     "packages/backend/src/db.ts": "publication",
+    "packages/backend/src/editorial/analyze-article.ts": "enrichment",
     "packages/backend/src/editorial/analyze.ts": "enrichment",
     "packages/backend/src/editorial/geography.ts": "enrichment",
     "packages/backend/src/editorial/input.ts": "enrichment",

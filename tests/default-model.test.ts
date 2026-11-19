@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle } from "@amp/backend/editorial/analyze";
+import { analyzeArticle } from "@amp/backend/editorial/analyze-article";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { scoreAxes } from "./score-axes.ts";
 

@@ -5,7 +5,8 @@ import { isModelRouteWaiting, modelRouteWaitSeconds } from "../providers/model-f
 import { ReceiptBusyError, ReceiptUnknownError, BudgetExceededError } from "../providers/receipts.ts";
 // Event jobs: serial grouping, debounced digests.
 import type { PgBoss } from "pg-boss";
-import { groupArticle, GroupingSupersededError, consolidate, resumeSignalRematch, EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/group.ts";
+import { groupArticle, GroupingSupersededError, consolidate, resumeSignalRematch } from "../events/engine.ts";
+import { EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/queues.ts";
 import { compareReportGroup } from "../events/report-groups.ts";
 import { composeStoryDigest } from "../events/digest.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";

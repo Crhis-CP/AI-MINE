@@ -3,45 +3,21 @@
   "zones": [
     {
       "name": "news-pipeline",
-      "why": "scoring and grouping are rewritten in packages/backend/src/pipeline",
+      "why": "the orchestration of analysis and the event engine are rewritten in packages/backend/src/pipeline; the prompt steps (editorial/analyze.ts) and the relation library (events/relate.ts) are kept and called by the new code",
       "legacy": [
-        "packages/backend/src/editorial/analyze.ts",
+        "packages/backend/src/editorial/analyze-article.ts",
         "packages/backend/src/events/group.ts",
-        "packages/backend/src/events/relate.ts",
         "packages/backend/src/events/merge.ts",
         "packages/backend/src/events/recovery.ts"
       ],
       "next": ["packages/backend/src/pipeline/**"],
       "importers": [
-        "apps/worker/src/schedules.ts",
-        "packages/backend/src/admin/content-date.ts",
-        "packages/backend/src/admin/content.ts",
-        "packages/backend/src/admin/prefilter-audit.ts",
-        "packages/backend/src/admin/selectbench-evidence.ts",
-        "packages/backend/src/admin/selectbench-runtime.ts",
-        "packages/backend/src/admin/selectbench-samples.ts",
-        "packages/backend/src/admin/swipe.ts",
-        "packages/backend/src/editorial/reclassify.ts",
-        "packages/backend/src/editorial/withdrawals.ts",
+        "packages/backend/src/events/engine.ts",
         "packages/backend/src/events/historical-background.ts",
         "packages/backend/src/events/report-groups.ts",
         "packages/backend/src/jobs/content.ts",
-        "packages/backend/src/jobs/events.ts",
-        "packages/backend/src/providers/model-fallback-quality.ts",
-        "packages/backend/src/publication/publish.ts",
-        "packages/backend/src/publication/report-groups.ts",
-        "packages/backend/src/publication/selection-recompute.ts",
-        "packages/backend/src/publication/stories.ts",
-        "packages/backend/src/reports/fallback-input.ts",
-        "scripts/eval-model-steps.ts",
         "scripts/eval-pipeline.ts",
-        "scripts/eval-relations-core.ts",
-        "scripts/eval-relations.ts",
-        "scripts/eval-selection.ts",
-        "scripts/gold-from-labels.ts",
-        "scripts/regroup-events.ts",
-        "scripts/resume-copy.ts",
-        "scripts/rules-replay.ts"
+        "scripts/regroup-events.ts"
       ]
     },
     {

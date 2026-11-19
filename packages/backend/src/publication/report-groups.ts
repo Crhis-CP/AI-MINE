@@ -139,7 +139,7 @@ export const projectReportGroup: ReportGroupProjector<Db> = async (input, db) =>
     return removed.count > 0;
   }
   const p = value.projection;
-  const { readReportIdentityDecision } = await import("@amp/backend/events/group");
+  const { readReportIdentityDecision } = await import("../events/report-groups.ts");
   const proof = await readReportIdentityDecision(
     { lane: p.lane, article: p.article, anchor: p.anchor, recipe: p.recipe, inputFingerprint: p.inputFingerprint },
     db,
