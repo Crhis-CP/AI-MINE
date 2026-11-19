@@ -7,7 +7,7 @@
 //   0  a person placed or split it, archive history, not passed or too thin, not editorial, a roundup → not_judged
 //   1  another report of the same address has a live fact                                     → same_fact
 //   2  another report with the same stored content hash has a live fact                        → same_fact
-//   3  near-identical body and alike title (fingerprint.ts), no country conflict               → same_fact
+//   3  near-identical body and alike title (fingerprint.ts), no country or occurrence-day conflict → same_fact
 //   4  certainDuplicate exactly as the live re-merge uses it (events/relate.ts)                → same_fact
 //   5  every candidate's trusted occurrence day is more than DATE_APART_DAYS from the report's → undecided
 //      Not the same fact, but a later development of the same story is exactly this, and only the relation step
@@ -15,6 +15,7 @@
 //   6  no candidate at all (with a stored vector, so recall was complete)                      → new_event
 //   7  anything else                                                                           → undecided
 // Only rule 6 founds a new event without the model; events.shadow_decisions enforces the same with a CHECK.
+// Like the live engine, the rules judge facts, not reports: the candidates of one fact count once (judgedFacts).
 import { beijingDate } from "@amp/contracts/time";
 import {
   GROUP_ARTICLE_CANDIDATES,
@@ -24,19 +25,32 @@ import {
   jurisdictionsConflict,
   titleKey,
 } from "../../events/relate.ts";
-import { FINGERPRINT_MAX_DISTANCE, FINGERPRINT_RECIPE, FINGERPRINT_TITLE_SIMILARITY, hammingDistance, titleSimilarity } from "./fingerprint.ts";
+import {
+  FINGERPRINT_MAX_DISTANCE,
+  FINGERPRINT_MIN_BODY_CHARS,
+  FINGERPRINT_RECIPE,
+  FINGERPRINT_TITLE_SIMILARITY,
+  hammingDistance,
+  titleSimilarity,
+} from "./fingerprint.ts";
 
 /** Trusted occurrence days further apart than this cannot be one happening. Start value; fixed after measurement 5. */
 export const DATE_APART_DAYS = 7;
 /** The live engine asks a second (review) call before a merge whose recall score is under this (events/group.ts, CONFIRM_BELOW_COSINE). */
 export const CONFIRM_BELOW_SCORE = 0.85;
-/** Every threshold is part of the ruleset, so rows decided under different values are never counted together. */
+/**
+ * Every threshold is part of the ruleset, so rows decided under different values are never counted together. A change
+ * of policy rather than of a number (which rule fires, what a guard compares) bumps the leading version instead.
+ */
 export const EVENT_RULESET = [
   "event-rules-v1",
   FINGERPRINT_RECIPE,
+  `body${FINGERPRINT_MIN_BODY_CHARS}`,
   `fp${FINGERPRINT_MAX_DISTANCE}-title${FINGERPRINT_TITLE_SIMILARITY}`,
+  `key${TITLE_KEY_MIN_CHARS}`,
   `certain${SKIP_REVIEW_MIN_COSINE}`,
   `apart${DATE_APART_DAYS}`,
+  `top${GROUP_ARTICLE_CANDIDATES}`,
   `confirm${CONFIRM_BELOW_SCORE}`,
 ].join("/");
 
@@ -99,7 +113,10 @@ export interface EventCandidate extends EventReport {
   sameHash: boolean;
   /** Recalled because both name the same 《…》 document. */
   documentKey: boolean;
-  /** The candidate report is a selected (public pick) report. */
+  /**
+   * The candidate's fact has a visible selected (public pick) report, whichever report of the fact this is: the live
+   * engine reads selection per fact (events/group.ts candidateViews), and so must the caller.
+   */
   selected: boolean;
 }
 
@@ -158,15 +175,20 @@ function fingerprintDistance(a: EventReport, b: EventReport): number | null {
   return a.fingerprint === null || b.fingerprint === null ? null : hammingDistance(a.fingerprint, b.fingerprint);
 }
 
+const sameBeijingDay = (a: EventReport, b: EventReport) => !!a.at && !!b.at && beijingDate(a.at) === beijingDate(b.at);
+
 /**
- * The same text: near-identical bodies, no conflicting country, and titles that agree. Within one source the title
- * must be the same, because a page whose extraction kept only the site's chrome fingerprints like every other such
- * page of that site; across sources a reprint often gets a new headline, so alike is enough.
+ * The same text: near-identical bodies, no conflicting country or trusted occurrence day, and titles that agree. Within
+ * one source the title must be the same, because a page whose extraction kept only the site's chrome fingerprints like
+ * every other such page of that site; and so must the publication day, because a recurring column (a daily price or
+ * output bulletin) repeats its title and template every day, while a re-collected page keeps its source's date. Across
+ * sources a reprint often gets a new headline and a later date, so an alike title is enough.
  */
 function nearCopy(q: EventReport, c: EventReport): boolean {
   const distance = fingerprintDistance(q, c);
   if (distance === null || distance > FINGERPRINT_MAX_DISTANCE || jurisdictionsConflict(q.jurisdiction, c.jurisdiction)) return false;
-  return q.sourceId === c.sourceId ? titleKeyEqual(q, c) : titleSimilarity(q.title, c.title) >= FINGERPRINT_TITLE_SIMILARITY;
+  if ((occurredGapDays(q, c) ?? 0) > 0) return false;
+  return q.sourceId === c.sourceId ? titleKeyEqual(q, c) && sameBeijingDay(q, c) : titleSimilarity(q.title, c.title) >= FINGERPRINT_TITLE_SIMILARITY;
 }
 
 /** Live recall order (events/group.ts decide): the same address first, then similarity; the hash twin sits with it. */
@@ -201,7 +223,7 @@ function evidence(q: EventQuery, c: EventCandidate): CandidateEvidence {
     documentKey: c.documentKey,
     fingerprint: fingerprintDistance(q, c),
     countryConflict: jurisdictionsConflict(q.jurisdiction, c.jurisdiction),
-    sameDay: !!q.at && !!c.at && beijingDate(q.at) === beijingDate(c.at),
+    sameDay: sameBeijingDay(q, c),
     occurredGapDays: occurredGapDays(q, c),
   };
 }
@@ -211,12 +233,29 @@ const dateApart = (q: EventReport, c: EventReport) => {
   return gap !== null && gap > DATE_APART_DAYS;
 };
 
+/**
+ * The pool as the live engine judges it: one entry per fact, in recall order, at most GROUP_ARTICLE_CANDIDATES facts.
+ * Each fact's reports are in recall order, so the first stands for it in the record.
+ */
+function judgedFacts(pool: readonly EventCandidate[]): EventCandidate[][] {
+  const facts = new Map<number, EventCandidate[]>();
+  for (const c of pool) facts.set(c.factId, [...(facts.get(c.factId) ?? []), c]);
+  return [...facts.values()].slice(0, GROUP_ARTICLE_CANDIDATES);
+}
+
 export function decideEvent(query: EventQuery, candidates: readonly EventCandidate[]): EventDecision {
   const pool = candidates.filter((c) => c.articleId !== query.articleId).sort(recallOrder);
-  // The live engine judges at most this many candidates; the record keeps the same number, the target always among them.
-  const judged = pool.slice(0, GROUP_ARTICLE_CANDIDATES);
+  const facts = judgedFacts(pool);
+  // The record keeps one report per judged fact, the same number the live engine judges, the target always among them.
+  const judged = facts.map((reports) => reports[0]!);
   const decision = (verdict: EventVerdict, rule: EventRule, target: EventCandidate | null, wouldCall: number): EventDecision => {
-    const shown = target && !judged.includes(target) ? [...judged.slice(0, GROUP_ARTICLE_CANDIDATES - 1), target] : judged;
+    // The target stands in for its own fact's entry when that fact is judged, else for the last one.
+    const shown =
+      !target || judged.includes(target)
+        ? judged
+        : judged.some((c) => c.factId === target.factId)
+          ? judged.map((c) => (c.factId === target.factId ? target : c))
+          : [...judged.slice(0, GROUP_ARTICLE_CANDIDATES - 1), target];
     const best = target ?? pool[0];
     return {
       ruleset: EVENT_RULESET,
@@ -235,10 +274,13 @@ export function decideEvent(query: EventQuery, candidates: readonly EventCandida
   if (gate) return decision("not_judged", gate, null, 0);
 
   // A decided report still costs one call when selected coverage exists: the value question is not a rule's to answer.
-  const valueCall = query.readingBackground || pool.some((c) => c.selected) ? 1 : 0;
+  // An undetermined scope costs it too: the live engine always asks whether the report is one event or a roundup
+  // (events/group.ts decide, needsJudgement), and that answer may still turn a decided report into a roundup.
+  const scopeCall = query.scope === "unknown" ? 1 : 0;
+  const valueCall = Math.max(scopeCall, query.readingBackground || judged.some((c) => c.selected) ? 1 : 0);
   const sameUrl = earliest(pool.filter((c) => c.sameUrl));
-  // A selected same-address report short-cuts the live engine without any call (events/group.ts decide).
-  if (sameUrl) return decision("same_fact", "same_url", sameUrl, sameUrl.selected ? 0 : valueCall);
+  // A same-address fact with a selected report short-cuts the live engine without any call (events/group.ts decide).
+  if (sameUrl) return decision("same_fact", "same_url", sameUrl, sameUrl.selected ? scopeCall : valueCall);
   // A hash over a short generic title and no body ties unrelated notices; require a body or a specific title.
   const hashSpecific = query.fingerprint !== null || [...titleKey(query.title)].length >= TITLE_KEY_MIN_CHARS;
   const sameHash = hashSpecific ? earliest(pool.filter((c) => c.sameHash)) : undefined;
@@ -250,8 +292,9 @@ export function decideEvent(query: EventQuery, candidates: readonly EventCandida
 
   // From here on the relation step decides; its one batch call also answers the scope and value questions.
   if (pool.length && pool.every((c) => dateApart(query, c))) return decision("undecided", "date_apart", null, 1);
-  // A merge pick under the confirm score costs a second call; candidates whose dates exclude the same fact never get one.
-  const confirmCalls = judged.filter((c) => score(c) < CONFIRM_BELOW_SCORE && !dateApart(query, c)).length;
+  // A merge pick under the confirm score costs a second call, at most once per fact, scored by its best report as live
+  // recall scores a fact; a fact whose every report's dates exclude the same occurrence never gets one.
+  const confirmCalls = facts.filter((reports) => Math.max(...reports.map(score)) < CONFIRM_BELOW_SCORE && !reports.every((c) => dateApart(query, c))).length;
   if (!query.hasVector) return decision("undecided", "vector_missing", null, 1 + confirmCalls);
   if (!pool.length)
     // An undetermined scope (one event or a roundup) is a question for the model even with nothing to compare.

@@ -1,9 +1,11 @@
 // Body fingerprint for the event rules (package 2, step 2.4): tells a reprint or a re-collection of the same text
 // from a report that only covers the same thing. The algorithm is the near-duplicate SimHash of TASK-0661 (unmerged
-// branch, 2026-11-14), taken unchanged so its recipe and its measured thresholds carry over: 64 bits over overlapping
-// 4-character shingles of the normalised body head, which works for Chinese and alphabetic text alike. A reprint with
-// some page chrome stays within 6 bits of the original and a different story lands far beyond; two copies of a short
-// text that each carry different chrome sit at the limit (tests/shadow-rules.test.ts).
+// branch, 2026-11-14), taken unchanged: 64 bits over overlapping 4-character shingles of the normalised body head,
+// which works for Chinese and alphabetic text alike. Its thresholds were only unit-tested there, never measured on
+// production, and the rules here compare other inputs (the reader title, and same-source pairs too), so they are start
+// values for the shadow measurement to settle. A reprint with some page chrome stays within 6 bits of the original and
+// a different story lands far beyond; two copies of a short text that each carry different chrome sit at the limit
+// (tests/shadow-rules.test.ts).
 // Pure: nothing is stored, the caller passes the body.
 import { createHash } from "node:crypto";
 

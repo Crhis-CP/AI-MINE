@@ -1,10 +1,11 @@
 // The package 2 event rules (packages/backend/src/pipeline/events/rules.ts) on hand-built reports: each rule fires on
 // its own evidence and nothing weaker, only "no candidate at all" founds a new event, and the call forecast counts
-// what the live engine would still ask. The wire story is the one TASK-0661 measured its thresholds on.
+// what the live engine would still ask. The wire story is the one TASK-0661 unit-tested its thresholds on.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   FINGERPRINT_MAX_DISTANCE,
+  FINGERPRINT_MIN_BODY_CHARS,
   FINGERPRINT_RECIPE,
   bodyFingerprint,
   hammingDistance,
@@ -101,8 +102,11 @@ test("fingerprint: a reprint with page chrome stays within the distance, another
 test("the ruleset names every threshold, so rows under other values are never pooled", () => {
   assert.ok(EVENT_RULESET.startsWith("event-rules-v1/"));
   assert.ok(EVENT_RULESET.includes(FINGERPRINT_RECIPE));
+  assert.ok(EVENT_RULESET.includes(`body${FINGERPRINT_MIN_BODY_CHARS}/`));
   assert.ok(EVENT_RULESET.includes(`apart${DATE_APART_DAYS}`));
   assert.ok(EVENT_RULESET.includes("fp6-title0.5"));
+  assert.ok(EVENT_RULESET.includes("/key8/"));
+  assert.ok(EVENT_RULESET.includes("/top5/"));
 });
 
 test("rule 0: manual, archive, not passed, too thin and roundups are not judged and carry no forecast", () => {
@@ -164,6 +168,24 @@ test("rule 3: a retitled reprint from another site is the same fact; chrome-only
 
   assert.equal(decideEvent(query(), [{ ...original, jurisdiction: "CL" }]).rule, "similar_unsure", "a country conflict leaves it to the judge");
   assert.equal(decideEvent(query(), [{ ...original, fingerprint: bodyFingerprint(otherStory) }]).rule, "similar_unsure");
+  // A reprint shares its occurrence day: two trusted days that differ are two happenings, however alike the text.
+  const otherDay = decideEvent(query({ occurredOn: "2026-11-18" }), [{ ...original, occurredOn: "2026-11-17" }]);
+  assert.equal(otherDay.rule, "similar_unsure");
+  assert.equal(decideEvent(query({ occurredOn: "2026-11-18" }), [{ ...original, occurredOn: "2026-11-18" }]).rule, "fingerprint");
+});
+
+test("rule 3: a recurring same-title column of one source on the next day is not a re-collection", () => {
+  // A daily bulletin: same site, same title every day, a template body that barely changes.
+  const bulletin = `${"今日国内铜精矿现货加工费持平，主要港口库存小幅变化，冶炼厂采购意愿一般，市场成交清淡，贸易商报价稳定。".repeat(5)}（数据来源：某某矿业网行情中心）`;
+  const column = { sourceId: "src-b", title: "国内铜精矿现货加工费日报", fingerprint: bodyFingerprint(bulletin), jurisdiction: null };
+  const today = query({ ...column, at: day("2026-11-18") });
+  const yesterday = candidate("yesterday", { ...column, factId: 90, storyId: 900, at: day("2026-11-17") });
+  assert.equal(decideEvent(today, [yesterday]).candidates[0]?.fingerprint, 0, "the template alone fingerprints alike");
+  assert.notEqual(decideEvent(today, [yesterday]).verdict, "same_fact");
+  // The same page collected again keeps its source's date and is still the same fact.
+  assert.equal(decideEvent(today, [{ ...yesterday, at: day("2026-11-18") }]).rule, "fingerprint");
+  // Without a publication time on either side the day cannot be told, so the pair goes to the judge.
+  assert.notEqual(decideEvent(query({ ...column, at: null }), [yesterday]).verdict, "same_fact");
 });
 
 test("rule 4: certainDuplicate exactly as the live re-merge (0.92, same Beijing day, same title key)", () => {
@@ -202,9 +224,25 @@ test("rule 6: only no candidate at all, with a complete recall, founds a new eve
   assert.equal(decideEvent(query(), [candidate("q", { sameUrl: true })]).verdict, "new_event");
 });
 
+test("an undetermined scope always costs the scope call, even where a rule ties the report", () => {
+  const unknown = query({ scope: "unknown" });
+  const twin = candidate("twin", { sameUrl: true, factId: 20, storyId: 200 });
+  const sameUrl = decideEvent(unknown, [twin]);
+  assert.deepEqual([sameUrl.verdict, sameUrl.rule, sameUrl.wouldCall], ["same_fact", "same_url", 1]);
+  assert.equal(decideEvent(unknown, [{ ...twin, selected: true }]).wouldCall, 1, "a selected twin skips only the value call");
+  assert.equal(decideEvent(query({ scope: "unknown", readingBackground: true }), [twin]).wouldCall, 1, "one batch call answers both");
+  const original = candidate("orig", { factId: 40, storyId: 400, fingerprint: bodyFingerprint(`首页 > 新闻中心\n${wire}\n责任编辑 版权所有`) });
+  const copy = decideEvent(unknown, [original]);
+  assert.deepEqual([copy.verdict, copy.rule, copy.wouldCall], ["same_fact", "fingerprint", 1]);
+});
+
 test("rule 7: anything else is undecided; the forecast adds one review call per judged candidate under 0.85, capped at six", () => {
   const q = query({ fingerprint: null });
-  const d = decideEvent(q, [candidate("a", { cosine: 0.9 }), candidate("b", { cosine: 0.7 }), candidate("c", { cosine: null, lexical: 0.3 })]);
+  const d = decideEvent(q, [
+    candidate("a", { factId: 11, cosine: 0.9 }),
+    candidate("b", { factId: 12, cosine: 0.7 }),
+    candidate("c", { factId: 13, cosine: null, lexical: 0.3 }),
+  ]);
   assert.deepEqual([d.verdict, d.rule, d.wouldCall, d.similarity], ["undecided", "similar_unsure", 3, 0.9]);
   assert.deepEqual(
     d.candidates.map((c) => c.articleId),
@@ -216,6 +254,34 @@ test("rule 7: anything else is undecided; the forecast adds one review call per 
   assert.equal(capped.candidates.length, 5);
   assert.equal(capped.wouldCall, 6);
   assert.equal(decideEvent(query({ fingerprint: null, hasVector: false }), many).rule, "vector_missing");
+});
+
+test("candidates are judged per fact, as the live engine judges facts", () => {
+  const q = query({ fingerprint: null });
+  // Two reports of one fact take one judged slot and at most one review call, scored by the better report.
+  const one = decideEvent(q, [candidate("a1", { factId: 1, cosine: 0.7 }), candidate("a2", { factId: 1, cosine: 0.72 })]);
+  assert.deepEqual([one.rule, one.wouldCall], ["similar_unsure", 2]);
+  assert.deepEqual(
+    one.candidates.map((c) => [c.factId, c.articleId]),
+    [[1, "a2"]],
+  );
+  assert.equal(decideEvent(q, [candidate("b1", { factId: 2, cosine: 0.7 }), candidate("b2", { factId: 2, cosine: 0.9 })]).wouldCall, 1, "0.9 needs no review");
+  // Five facts are judged however many reports each has.
+  const reports = Array.from({ length: 12 }, (_, i) => candidate(`r${i}`, { factId: 60 + (i % 6), cosine: 0.6 + i * 0.01 }));
+  const capped = decideEvent(q, reports);
+  assert.equal(new Set(capped.candidates.map((c) => c.factId)).size, 5);
+  assert.equal(capped.candidates.length, 5);
+  // The target replaces its own fact's entry in the record, so no fact appears twice.
+  const pair = [candidate("new", { factId: 4, sameUrl: true, cosine: 0.9 }), candidate("old", { factId: 4, sameUrl: true, at: day("2026-11-01") })];
+  assert.deepEqual(
+    decideEvent(q, pair).candidates.map((c) => c.articleId),
+    ["old"],
+  );
+  // Only selections among the judged facts ask the value question, as only those reach the live judge.
+  const twin = candidate("u1", { factId: 3, sameUrl: true });
+  const strong = Array.from({ length: 5 }, (_, i) => candidate(`v${i}`, { factId: 70 + i, cosine: 0.8 }));
+  assert.equal(decideEvent(q, [twin, ...strong.slice(0, 3), candidate("w", { factId: 9, cosine: 0.5, selected: true })]).wouldCall, 1);
+  assert.equal(decideEvent(q, [twin, ...strong, candidate("w", { factId: 9, cosine: 0.5, selected: true })]).wouldCall, 0);
 });
 
 test("the record keeps at most five candidates and always the target", () => {
