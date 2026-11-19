@@ -4,7 +4,7 @@ import { refreshPresentation } from "./content-presentation.ts";
 export { previewPublicationDateCorrection, correctPublicationDate } from "./content-date.ts";
 import { materialGroupingDiagnostic } from "../content/grouping.ts";
 import { manualMaterialSnapshot, resetMaterialProcessing } from "@amp/backend/content/materials";
-import { detachArticleFromFactTx, factArticleIds, requestArticleRegroup } from "@amp/backend/events/group";
+import { detachArticleFromFactTx, factArticleIds, mergeStoryInto, requestArticleRegroup } from "../events/engine.ts";
 import { invalidateReportCorrections } from "@amp/backend/reports/compose";
 export { previewWithdrawal, actWithdrawal } from "../editorial/withdrawals.ts";
 import { manualRevisionHistory } from "../editorial/manual-revisions.ts";
@@ -23,7 +23,6 @@ import { normalizeUrl } from "../lib/url.ts";
 import { publishArticle, publishArticleTx, publishedStoryId } from "../publication/publish.ts";
 
 import { computeHotRanking } from "../events/hot.ts";
-import { mergeStoryInto } from "../events/merge.ts";
 import { latestHotRanking } from "../events/hot-read.ts";
 import { audit, previousAuditedCommand } from "./auth.ts";
 import { Conflict } from "./sources.ts";

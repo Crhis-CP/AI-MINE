@@ -34,9 +34,9 @@
 信源（生产库 sources 表）
   → 抓取        packages/backend/src/sources、acquisition      队列 sources.fetch
   → 入库与正文  packages/backend/src/content                   队列 content.extract-body
-  → 评分与写作  packages/backend/src/editorial/analyze.ts      队列 content.analyze   （调模型，结果只追加到 analyses 表）
+  → 评分与写作  packages/backend/src/editorial/analyze-article.ts 队列 content.analyze （调模型，结果只追加到 analyses 表）
   → 翻译        packages/backend/src/editorial/translate.ts    队列 content.translate
-  → 归组        packages/backend/src/events/group.ts           队列 events.group      （报道 → 事实 → 事件）
+  → 归组        packages/backend/src/events/engine.ts          队列 events.group      （报道 → 事实 → 事件）
   → 发布投影    packages/backend/src/publication/publish.ts                           （写 publication 下的公开表）
   → 公开读取    packages/backend/src/publication               首页 timeline.ts、全部 pool.ts、条目 items.ts
   → 接口        apps/api/src/routes                            site.ts、v1.ts、v3.ts、feeds.ts、mcp.ts
@@ -72,10 +72,12 @@
 | 块 | 现在的位置（遗留区，只修不扩） | 新代码的位置 |
 |---|---|---|
 | 读者端页面 | `apps/web/app/routes`、`apps/web/app/features`、`apps/web/app/components` | `apps/web/reader`（未建） |
-| 资讯流水线的评分与归组 | `packages/backend/src/editorial/analyze.ts`、`packages/backend/src/events/group.ts`、`packages/backend/src/events/relate.ts`、`packages/backend/src/events/merge.ts`、`packages/backend/src/events/recovery.ts` | `packages/backend/src/pipeline`（未建） |
+| 资讯流水线的编排与归组 | `packages/backend/src/editorial/analyze-article.ts`（一篇稿子从评分到落库的编排）、`packages/backend/src/events/group.ts`、`packages/backend/src/events/merge.ts`、`packages/backend/src/events/recovery.ts` | `packages/backend/src/pipeline`（未建） |
 | 法规线写入侧 | `modules/policy/backend`（读取接口与确定性代码保留） | `modules/policy/backend/core`（未建）、`modules/policy/backend/pipeline`（未建） |
 
-规则：新区不引用遗留区；遗留区的引用方只减不增；切换和删旧分两次发布。数据库表是新旧代码共同的约定，只做增量迁移。
+规则：新区不引用遗留区；遗留区的引用方只减不增；切换和删旧分两次发布。数据库表是新旧代码共同的约定，只做增量迁移。清单在 `scripts/verify/legacy-zones.json`，由检查强制。
+
+提示词步骤不在重写范围内，新代码继续调用：`packages/backend/src/editorial/analyze.ts`（各步骤、版本、输入构造）与 `packages/backend/src/events/relate.ts`（关系判定）。事件归组对外只有一个入口 `packages/backend/src/events/engine.ts`，生产代码都经它调用，切换新实现时只改这一个文件。
 
 保留不动：数据库与已有数据、`packages/backend/src/providers` 的记账、抓取器、`deploy/production-release.sh`、登录与后台、对外接口的地址和字段。
 

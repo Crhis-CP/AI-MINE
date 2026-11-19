@@ -16,11 +16,12 @@ import { sourceParticipants } from "../sources/participants.ts";
 import { config, englishCopyEnabled, sourceCollectionEnabled } from "../config.ts";
 import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
-import { analyzeArticle, AnalysisInterruptedError, incompleteCopyJudgements } from "../editorial/analyze.ts";
+import { AnalysisInterruptedError, incompleteCopyJudgements } from "../editorial/analyze.ts";
+import { analyzeArticle } from "../editorial/analyze-article.ts";
 import { isHistorical, readCurrentBody, resetMaterialProcessing } from "../content/materials.ts";
 import { recordedMaterialWaits, readGroupingAnalysis } from "../enrichment/records.ts";
 import { beginMaterialGrouping, EDITORIAL_RESUME_PENDING } from "../content/grouping.ts";
-import { captureEventWithdrawal, removeAutomaticDateMembership } from "@amp/backend/events/group";
+import { captureEventWithdrawal, removeAutomaticDateMembership } from "../events/engine.ts";
 import {
   readSourceDateContext,
   readCurrentSourcePolicy,
