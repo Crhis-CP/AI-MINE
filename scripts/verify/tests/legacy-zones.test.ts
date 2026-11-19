@@ -49,6 +49,16 @@ test("a new importer fails, and one that stopped importing must come off the lis
   ]);
 });
 
+test("against the base the list never grows, even when the new importer is listed; fewer entries pass", () => {
+  const { dir, files } = tree({ "packages/backend/src/admin/content.ts": 'export { group } from "../events/group.ts";\n' });
+  const before = ["apps/web/app/old/admin/page.tsx", "apps/worker/src/schedules.ts", "packages/backend/src/jobs/content.ts"];
+  const after = [...before, "packages/backend/src/admin/content.ts"];
+  assert.deepEqual(checkLegacyZones(dir, [zone(after)], files, [zone(before)]), ["zone pipeline: the importers list grew from 3 to 4; it only gets shorter"]);
+  assert.deepEqual(checkLegacyZones(dir, [zone(after)], files, [zone([...after, "scripts/gone.ts"])]), []);
+  // A zone that is new in this change has no earlier list to compare with.
+  assert.deepEqual(checkLegacyZones(dir, [zone(after)], files, []), []);
+});
+
 test("new code that imports the old code it replaces fails, whatever the list says", () => {
   const { dir, files } = tree({ "packages/backend/src/pipeline/port.ts": 'import { group } from "../events/group.ts";\nexport const port = group;\n' });
   const listed = [

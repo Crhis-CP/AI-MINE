@@ -58,6 +58,7 @@ export const DEFAULT_GUARDED = [
   "package-lock.json",
   ".npmrc",
   "database/migrations/**",
+  "modules/*/migrations/**",
   "database/roles/**",
   "database/migration-inventory.json",
   "industry/prompts/**",
