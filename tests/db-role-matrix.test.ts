@@ -105,11 +105,19 @@ test("every real role has exactly the approved table, column, sequence and cross
       "editorial.manual_revisions",
       "editorial.withdrawal_records",
       "editorial.withdrawal_restorations",
+      "enrichment.analysis_checks",
       "enrichment.english_copies",
       "enrichment.quote_translations",
       "enrichment.translation_segments",
+      "entities.article_links",
+      "entities.entities",
+      "entities.merges",
+      "entities.statements",
+      "events.engine_switches",
+      "events.fact_timing",
       "events.report_group_checks",
       "events.report_group_decisions",
+      "events.shadow_decisions",
       "events.story_background_proofs",
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
@@ -156,6 +164,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "policy.vision_pages",
       "policy.vision_runs",
       "policy.vision_stages",
+      "publication.event_rank",
       "publication.manual_copies",
       "publication.metal_price_checks",
       "publication.metal_price_holds",
@@ -292,6 +301,47 @@ test("every real role has exactly the approved table, column, sequence and cross
                 : `DELETE FROM ${name} WHERE false RETURNING 1`;
         await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
       }
+    // Package 2 tables (TASK-0367). Business roles read them; writes follow who will write each one. The entity
+    // library is edited from the admin console only; the worker writes links, checks, shadow rows, timing and the event
+    // order; the grouping switch is append-only. Only the event order has a public projection, column by column.
+    const PACKAGE_2: Record<string, { field: string; private_ops: string[]; worker: string[] }> = {
+      "entities.entities": { field: "status", private_ops: ["INSERT", "UPDATE"], worker: [] },
+      "entities.statements": { field: "status", private_ops: ["INSERT", "UPDATE"], worker: [] },
+      "entities.merges": { field: "reason", private_ops: ["INSERT", "UPDATE"], worker: [] },
+      "entities.article_links": { field: "hits", private_ops: ["INSERT", "DELETE"], worker: ["INSERT", "DELETE"] },
+      "enrichment.analysis_checks": { field: "verdict", private_ops: [], worker: ["INSERT", "DELETE"] },
+      "events.shadow_decisions": { field: "verdict", private_ops: [], worker: ["INSERT", "UPDATE", "DELETE"] },
+      "events.fact_timing": { field: "members", private_ops: [], worker: ["INSERT", "UPDATE", "DELETE"] },
+      "events.engine_switches": { field: "engine", private_ops: [], worker: ["INSERT"] },
+      "publication.event_rank": { field: "freshness", private_ops: [], worker: ["INSERT", "UPDATE", "DELETE"] },
+    };
+    for (const [table, rule] of Object.entries(PACKAGE_2))
+      for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+        const allowed =
+          role === "migrate" ||
+          (operation === "SELECT" && ["private_ops", "worker", "backup"].includes(role)) ||
+          ((role === "private_ops" || role === "worker") && rule[role].includes(operation));
+        const name = table.split(".").map(quote).join(".");
+        const statement =
+          operation === "SELECT"
+            ? `SELECT * FROM ${name} LIMIT 1`
+            : operation === "INSERT"
+              ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false RETURNING 1`
+              : operation === "UPDATE"
+                ? `UPDATE ${name} SET ${quote(rule.field)}=${quote(rule.field)} WHERE false RETURNING 1`
+                : `DELETE FROM ${name} WHERE false RETURNING 1`;
+        await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
+      }
+    // Readers may later order news by event; they read the order and its decision time, never the inputs or rule set.
+    await permission(
+      sql,
+      'SELECT article_id, fact_id, story_id, reported_at, freshness, occurred_on, anchor_at, importance, genre, topic, decided_at FROM publication."event_rank" LIMIT 1',
+      ["migrate", "backup", "private_ops", "worker", "public_read"].includes(role),
+      `${role} reads the public event order columns`,
+    );
+    if (role === "public_read")
+      for (const column of ["lane", "article_revision", "freshness_basis", "importance_inputs", "ruleset", "updated_at"])
+        await denied(sql, `SELECT ${quote(column)} FROM publication."event_rank"`);
     for (const row of legacy) {
       assert.match(row.name, /^public\./, "this independent oracle covers the 48 legacy public tables");
       const table = { ...row, name: row.name.slice(7) };
@@ -439,11 +489,18 @@ test("every real role has exactly the approved table, column, sequence and cross
           "sources.source_config_activations_id_seq",
           "sources.source_config_drafts_id_seq",
           "sources.source_previews_id_seq",
+          "entities.merges_id_seq",
+          "entities.statements_id_seq",
+          "events.engine_switches_id_seq",
         ]);
         assert.ok(expected.has(row.name), `unreviewed module sequence ${row.name}`);
         const name = row.name.split(".").map(quote).join(".");
         await permission(sql, `SELECT last_value FROM ${name}`, role === "migrate" || role === "backup", `${role} reads ${row.name}`);
-        const advance = row.name === "editorial.withdrawal_records_id_seq" ? ["migrate", "private_ops"] : ["migrate", "worker", "private_ops"];
+        const advance = ["editorial.withdrawal_records_id_seq", "entities.merges_id_seq", "entities.statements_id_seq"].includes(row.name)
+          ? ["migrate", "private_ops"]
+          : row.name === "events.engine_switches_id_seq"
+            ? ["migrate", "worker"]
+            : ["migrate", "worker", "private_ops"];
         await permission(sql, `SELECT nextval('${name}')`, advance.includes(role), `${role} advances ${row.name}`);
         await permission(sql, `SELECT setval('${name}',1000000000,true)`, role === "migrate", `${role} resets ${row.name}`);
         continue;
