@@ -618,7 +618,10 @@ export async function pendingSourceTimeProjectionIds(limit: number) {
 
 // ---- Counts for the daily reconciliation (operations/reconcile.ts) -------------------------------------------------
 
-/** Reports first shown to readers, and first shown as selected, in the window. */
+/**
+ * Reports first shown to readers, and reports first shown as selected, in the window. Two separate events: a report is
+ * often selected on a later day than it became public, so neither count is a part of the other.
+ */
 export async function publicationFlow(start: Date, end: Date): Promise<{ public: number; selected: number }> {
   const [row] = await sql<{ public: number; selected: number }[]>`
     SELECT count(*) FILTER (WHERE first_public_at >= ${start} AND first_public_at < ${end})::int AS public,
@@ -638,19 +641,24 @@ export async function notPublicAmong(articleIds: readonly string[]): Promise<num
 }
 
 /**
- * Foreign-language news reports of full-text sources first shown between `start` and `cutoff`, and those among them
- * that have no Chinese translation yet.
+ * Foreign-language news reports shown with their full text and first public between `start` and `cutoff`, and those
+ * among them whose Chinese translation is still to come. Both sides are the translator's own definitions
+ * (editorial/translate.ts translatePending), so the count is what its sweep would still pick up: only a report stored
+ * with its full body is ever translated, and a row in `translations` is claimed before any text exists, so a row
+ * alone does not mean readers have the translation.
  */
 export async function translationLag(start: Date, cutoff: Date): Promise<{ due: number; missing: number }> {
   if (cutoff <= start) return { due: 0, missing: 0 };
   const [row] = await sql<{ due: number; missing: number }[]>`
-    SELECT count(*)::int AS due, count(*) FILTER (WHERE t.article_id IS NULL)::int AS missing
+    SELECT count(*)::int AS due,
+           count(*) FILTER (WHERE t.article_id IS NULL
+             OR (t.origin <> 'source' AND (t.revision < a.revision OR NOT t.complete)))::int AS missing
     FROM publications p
     JOIN articles a ON a.id = p.article_id
     JOIN sources s ON s.id = p.source_id
     LEFT JOIN translations t ON t.article_id = p.article_id AND t.lang = 'zh'
-    WHERE p.visibility = 'public' AND p.eligible AND s.lane = 'news' AND s.site_fulltext
-      AND a.language IS NOT NULL AND a.language NOT ILIKE 'zh%'
+    WHERE p.visibility = 'public' AND p.eligible AND p.body_mode = 'full' AND s.lane = 'news'
+      AND a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh'
       AND p.first_public_at >= ${start} AND p.first_public_at < ${cutoff}`;
   return row!;
 }
