@@ -20,7 +20,7 @@
 | `site` | 站名文案、出刊时刻、模型预设、模块安装清单。 |
 | `database` | 增量迁移（`database/migrations`）与角色授权登记（`database/roles`）。 |
 | `tests`、`e2e` | 根目录集成测试（多数连临时数据库）；Playwright 冒烟与演示数据。 |
-| `scripts` | 运维命令、评测、合并前检查（`scripts/verify`）。 |
+| `scripts` | 运维命令、评测、合并前检查（`scripts/verify`）、交部署端在生产库只读执行的测量 SQL（`scripts/measure`，用法见 `docs/runbooks/package2-measurements.md`）。 |
 | `deploy` | 发布脚本 `deploy/production-release.sh` 与生产配置。 |
 | `docs`、`tasks`、`changes` | 规格与决定；任务卡；随 PR 的产品更新片段。 |
 
