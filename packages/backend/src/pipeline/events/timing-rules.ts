@@ -134,14 +134,15 @@ const FORMS: ReadonlyArray<{ pattern: RegExp; year: number; month: number; day: 
 /**
  * Words right before a day that make it the end of a reporting period or a cut-off, not an occurrence: results "for the
  * quarter ended September 30", "in the nine months to 30 September", reserves "as at 30 June", figures "截至 9月30日",
- * and the end of a range that starts with a day ("7月1日至9月30日", "July 1 to September 30", "1–30 September"). The
- * text check must not turn those into proof that something happened that day. A dash only closes a range when it
- * touches the day before it, so a headline such as "UPDATE 2 - Nov 18" still counts.
+ * and the end of a range that starts with a day ("7月1日至9月30日", "July 1 to September 30", "1 July to 30 September",
+ * "1–30 September"). The text check must not turn those into proof that something happened that day. A dash only
+ * closes a range when it touches the start date before it, so a headline such as "UPDATE 2 - Nov 18" still counts.
  */
 const PERIOD_END = new RegExp(
   String.raw`(?:\b(?:ended|ending|as\s+(?:at|of)|through|(?:months?|quarter|half(?:-year)?|period|year|results)\s+to)\s+(?:on\s+)?` +
     String.raw`|截至|截止(?:到|至)?|terminad[oa]\s+(?:el|em)\s+|al\s+cierre\s+del?\s+` +
-    String.raw`|(?:[日号]|\d(?:st|nd|rd|th)?)\s*(?:至|到)|(?:[日号]|\d(?:st|nd|rd|th)?)[~–—-]|\d(?:st|nd|rd|th)?\s+(?:to|until)\s)\s*$`,
+    String.raw`|(?:[日号]|\d(?:st|nd|rd|th)?)\s*(?:至|到)|(?:[日号]|\d(?:st|nd|rd|th)?)[~–—-]|\d(?:st|nd|rd|th)?\s+(?:to|until)\s` +
+    String.raw`|\d(?:st|nd|rd|th|er)?\s+(?:of\s+|de\s+)?${MONTH}\.?(?:\s+(?:to|until)\s|[~–—-]))\s*$`,
   "iu",
 );
 

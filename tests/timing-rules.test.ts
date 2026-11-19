@@ -64,6 +64,27 @@ test("a period end or cut-off written in the text is not the day anything happen
   );
 });
 
+test("a range that starts with a full day-month date is closed by 'to' or 'until', in every written order", () => {
+  for (const text of [
+    "Production from 1 July to 30 September rose.",
+    "Production from 1 July until 30 September rose.",
+    "Production from 1st July to 30th September rose.",
+    "Output from 1 July 2026 to 30 September 2026 rose.",
+    "Output for 1 July–30 September 2026 rose.",
+    "Production from July 1 to September 30 rose.",
+    "Production from July 1 until September 30 rose.",
+    "三季度（7月1日至9月30日）铜产量增长。",
+  ])
+    assert.equal(dateInText(text, "2026-09-30", REPORTED), false, text);
+  assert.ok(dateInText("Output fell from 1 July. On 30 September the mine closed.", "2026-09-30", REPORTED), "two separate days, not a range");
+  assert.ok(dateInText("Workers walked out on 30 September to protest.", "2026-09-30", REPORTED), "'to' after the day, not before it");
+  assert.equal(
+    memberClaim({ articleId: "a", revision: 1, claim: "2026-09-30", text: "Production from 1 July to 30 September rose.", reportedAt: REPORTED }).verified,
+    false,
+    "a quarter's last day is not checked as the day the report happened",
+  );
+});
+
 test("a member's claim is checked against its own text; a day after the report is dropped as a schedule", () => {
   const claim = (value: unknown, text: string) => memberClaim({ articleId: "a", revision: 2, claim: value, text, reportedAt: REPORTED });
   assert.deepEqual(claim("2026-11-18", "Workers struck on November 18."), { articleId: "a", revision: 2, on: "2026-11-18", verified: true, at: REPORTED });
