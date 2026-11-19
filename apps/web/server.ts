@@ -11,6 +11,7 @@ import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { webHostPolicy } from "./host-policy.ts";
+import { DEFAULT_READER_IMPL, READER_BUILD, type ReaderImpl, readerImplSetting } from "./reader-impl.ts";
 import { DEFAULT_PAGE_CACHE_SECONDS, type PageState, pageCacheSetting, READER_PAGE_MARK, withPageState } from "./app/lib/cache.server.ts";
 import {
   bucketFor,
@@ -65,10 +66,19 @@ if (CLIENT_HEADER || ORIGIN_SECRET)
   setInterval(() => console.log(JSON.stringify({ level: "info", msg: "origin check", window: "1h", ...tally.take() })), 3_600_000).unref();
 const SECURITY_HEADERS = securityHeaders(process.env.SITE_URL);
 let sharedAddressWarned = false;
+/** Which reader pages the public host serves (DEC-79): fixed for the life of the process. */
+const READER_SETTING = readerImplSetting();
+if (READER_SETTING === null) console.warn(JSON.stringify({ level: "warn", msg: `READER_IMPL must be old or new; using ${DEFAULT_READER_IMPL}` }));
+const READER: ReaderImpl = READER_SETTING ?? DEFAULT_READER_IMPL;
 const CLIENT_DIR = {
-  public: path.resolve(import.meta.dirname, "build/public/client"),
+  public: path.resolve(import.meta.dirname, `build/${READER_BUILD[READER]}/client`),
   private: path.resolve(import.meta.dirname, "build/private/client"),
 };
+/**
+ * The built files of the public build not being served. A page a cache kept, or a tab opened, just before a switch
+ * still finds its hashed files; scripts/verify/web-split.ts proves no such name is a private-only file.
+ */
+const OTHER_PUBLIC_CLIENT_DIR = path.resolve(import.meta.dirname, `build/${READER_BUILD[READER === "new" ? "old" : "new"]}/client`);
 /** Browsers keep a page at most this long, so a withdrawal reaches them within minutes. */
 const BROWSER_MAX_SECONDS = 300;
 /** How long a browser may keep data it fetched on a link press, to answer the click that follows. */
@@ -102,9 +112,13 @@ const TYPES: Record<string, string> = {
   ".map": "application/json",
 };
 
-// Built JavaScript has no source declaration and is absent before the two builds.
+// Built JavaScript has no source declaration and is absent before the builds. The paths are literal (the boundaries
+// check requires it), and only the chosen public build is loaded: the other costs no memory and cannot fail a start.
 // @ts-expect-error generated build
-const publicBuild = await import("./build/public/server/index.js");
+const loadOldReader = () => import("./build/public/server/index.js");
+// @ts-expect-error generated build
+const loadNewReader = () => import("./build/reader/server/index.js");
+const publicBuild = await (READER === "new" ? loadNewReader : loadOldReader)();
 // @ts-expect-error generated build
 const privateBuild = await import("./build/private/server/index.js");
 const ssr = {
@@ -313,7 +327,11 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   }
 
   const assetPath = group === "private" && pathname.startsWith("/admin/assets/") ? pathname.slice("/admin".length) : pathname;
-  if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(CLIENT_DIR[group], assetPath, res))) return;
+  if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".")) {
+    if (await serveStatic(CLIENT_DIR[group], assetPath, res)) return;
+    // Only content-hashed build files fall through, so a name can never mean two different files.
+    if (group === "public" && pathname.startsWith("/assets/") && (await serveStatic(OTHER_PUBLIC_CLIENT_DIR, pathname, res))) return;
+  }
   const page: PageState = { degraded: false };
   pageCache(req, res, group, page);
   return renderingPath.run(pathname, () => withPageState(page, () => ssr[group](req, res)));
@@ -328,7 +346,9 @@ server.keepAliveTimeout = 65_000;
 server.headersTimeout = 30_000;
 server.requestTimeout = 120_000;
 server.listen(PORT, HOST, () =>
-  console.log(JSON.stringify({ level: "info", msg: "web started", port: (server.address() as import("node:net").AddressInfo).port, pid: process.pid })),
+  console.log(
+    JSON.stringify({ level: "info", msg: "web started", port: (server.address() as import("node:net").AddressInfo).port, pid: process.pid, reader: READER }),
+  ),
 );
 
 const shutdown = () => server.close(() => process.exit(0));
