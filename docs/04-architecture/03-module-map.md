@@ -72,7 +72,7 @@
 | 块 | 现在的位置（遗留区，只修不扩） | 新代码的位置 |
 |---|---|---|
 | 读者端页面 | `apps/web/app/routes`、`apps/web/app/features`、`apps/web/app/components` | `apps/web/reader`（未建） |
-| 资讯流水线的编排与归组 | `packages/backend/src/editorial/analyze-article.ts`（一篇稿子从评分到落库的编排）、`packages/backend/src/events/group.ts`、`packages/backend/src/events/merge.ts`、`packages/backend/src/events/recovery.ts` | `packages/backend/src/pipeline`（未建） |
+| 资讯流水线的编排与归组 | `packages/backend/src/editorial/analyze-article.ts`（一篇稿子从评分到落库的编排）、`packages/backend/src/events/group.ts`、`packages/backend/src/events/merge.ts`、`packages/backend/src/events/recovery.ts` | `packages/backend/src/pipeline`（已有公司库 `packages/backend/src/pipeline/entities`：纯函数，尚未接入流水线） |
 | 法规线写入侧 | `modules/policy/backend`（读取接口与确定性代码保留） | `modules/policy/backend/core`（未建）、`modules/policy/backend/pipeline`（未建） |
 
 规则：新区不引用遗留区；遗留区的引用方只减不增；切换和删旧分两次发布。数据库表是新旧代码共同的约定，只做增量迁移。清单在 `scripts/verify/legacy-zones.json`，由检查强制。
