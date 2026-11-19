@@ -49,6 +49,16 @@ async function ranking(storyId: number) {
     (entry) => entry.storyId === storyId,
   );
 }
+test("a ranking computed for a time long past is kept: history is trimmed on the ranking's own clock, not today's", async () => {
+  const past = new Date("2025-01-01T01:00:00Z");
+  const result = await computeHotRanking(past);
+  const [row] = await sql`SELECT computed_at FROM hot_rankings WHERE id=${result.id}`;
+  assert.ok(row, "the ranking just written is still there");
+  await sql`INSERT INTO hot_rankings(computed_at,rule_version,entries,evidence,published) VALUES(${new Date(past.getTime() - 31 * 86400000)},'old','[]','{}',true)`;
+  await computeHotRanking(past);
+  const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM hot_rankings WHERE rule_version='old'`;
+  assert.equal(n, 0, "a ranking 31 days older than this one is trimmed");
+});
 for (const change of ["withdrawal", "isolated", "regroup-pending", "standalone"] as const)
   test(`hot ranking drops ${change} evidence before counting independent participants`, async () => {
     const f = await fixture(),
