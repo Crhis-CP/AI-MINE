@@ -3,8 +3,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import type { RouteConfigEntry } from "@react-router/dev/routes";
 import type { ModulePage } from "@amp/contracts/modules";
 import { MODULES } from "@amp/site/modules";
+import rewrittenReaderRoutes from "../apps/web/reader/routes.ts";
 import {
   COUNTRY_PAGES,
   deviceClass,
@@ -104,6 +106,13 @@ test("reader routes are grouped by pattern; content pages keep their own address
     assert.equal(readerPage(path), null, path);
 });
 
+/** An address of a route path. A country page exists only for the countries in COUNTRY_PAGES (TASK-0634); every other placeholder takes any segment. */
+const sample = (path: string) =>
+  `/${path
+    .replace(/^country\/:code$/, "country/CN")
+    .replace(/:page/g, "2")
+    .replace(/:[A-Za-z]+/g, "x-1")}`;
+
 test("every public reader route, Chinese and English, is counted under its own pattern; no private page is", () => {
   const routes = readFileSync(new URL("../apps/web/app/routes.ts", import.meta.url), "utf8");
   const publicPart = routes.slice(routes.indexOf("const publicRoutes"), routes.indexOf("const privateRoutes"));
@@ -111,12 +120,6 @@ test("every public reader route, Chinese and English, is counted under its own p
   const modulePages = MODULES.flatMap((m) => (m.pages ?? []).flatMap((p) => ("layout" in p ? p.pages : [p as ModulePage]))).map((p) => p.path);
   const adminPages = MODULES.flatMap((m) => m.adminPages ?? []).map((p) => p.path);
   assert.ok(core.length >= 20 && modulePages.length >= 6, "route list read");
-  // A country page exists only for the countries in COUNTRY_PAGES (TASK-0634); every other placeholder takes any segment.
-  const sample = (path: string) =>
-    `/${path
-      .replace(/^country\/:code$/, "country/CN")
-      .replace(/:page/g, "2")
-      .replace(/:[A-Za-z]+/g, "x-1")}`;
   for (const path of ["", ...core, ...modulePages]) {
     for (const address of [sample(path), `/en${sample(path) === "/" ? "" : sample(path)}`]) {
       const page = readerPage(address);
@@ -127,6 +130,24 @@ test("every public reader route, Chinese and English, is counted under its own p
   }
   for (const path of [...adminPages, ...[...routes.slice(routes.indexOf("const privateRoutes")).matchAll(/route\("([^"]+)"/g)].map((m) => m[1]!)])
     assert.equal(readerPage(sample(path)), null, path);
+});
+
+test("every page of the rewritten reader answers in both languages and is counted under its own pattern", () => {
+  const paths = (entries: readonly RouteConfigEntry[]): string[] =>
+    entries.flatMap((entry) => [...(entry.path ? [entry.path] : []), ...paths(entry.children ?? [])]);
+  const pages = paths(rewrittenReaderRoutes).filter((path) => path !== "*");
+  assert.ok(pages.includes("en?"), "route list read");
+  for (const page of pages) {
+    // One optional static segment gives every page its English address (DEC-78), so the beacon sees both.
+    assert.match(page, /^en\?(?:\/|$)/, `${page}: declare reader pages as en?/<path>`);
+    const path = page.replace(/^en\?\/?/, "");
+    for (const address of [sample(path), `/en${sample(path) === "/" ? "" : sample(path)}`]) {
+      const counted = readerPage(address);
+      assert.ok(counted, `not counted: ${address}; add its pattern to modules/site-admin/backend/visit-rules.ts`);
+      assert.equal(counted.route, `/${path}`.replace(/:publicId/, ":id").replace(/^\/$/, "/"), address);
+      assert.equal(counted.english, address.startsWith("/en"));
+    }
+  }
 });
 
 test("referring sites are kept as a bare host, never this site's own, never a path or query", () => {

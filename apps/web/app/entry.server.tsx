@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { PassThrough } from "node:stream";
 
 import type { EntryContext, RouterContextProvider } from "react-router";
@@ -8,6 +8,7 @@ import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 import { contentSecurityPolicy, NonceContext } from "./lib/csp";
+import { hashedDocument } from "./lib/hashed-document.server";
 import { registerEnglishPhrases } from "./i18n";
 import { PHRASES } from "./i18n/phrases";
 
@@ -15,19 +16,6 @@ import { PHRASES } from "./i18n/phrases";
 registerEnglishPhrases(PHRASES);
 
 export const streamTimeout = 5_000;
-
-/**
- * The sha256 of every inline script the page runs, in the form a Content-Security-Policy hash source takes. Data
- * blocks (JSON-LD) never run and need none; scripts with a source file are allowed by 'self'.
- */
-function inlineScriptHashes(html: string): string[] {
-  const hashes = new Set<string>();
-  for (const [, attributes, text] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
-    if (/\bsrc=/i.test(attributes!) || /\btype="application\/ld\+json"/i.test(attributes!)) continue;
-    hashes.add(createHash("sha256").update(text!, "utf8").digest("base64"));
-  }
-  return [...hashes];
-}
 
 export default function handleRequest(
   request: Request,
@@ -82,9 +70,7 @@ export default function handleRequest(
             body.on("end", () => {
               clearTimeout(timeoutId);
               timeoutId = undefined;
-              const html = Buffer.concat(chunks).toString("utf8");
-              responseHeaders.set("Content-Security-Policy", contentSecurityPolicy({ hashes: inlineScriptHashes(html) }, siteOrigin));
-              resolve(new Response(html, { headers: responseHeaders, status: responseStatusCode }));
+              resolve(hashedDocument(Buffer.concat(chunks).toString("utf8"), responseStatusCode, responseHeaders, siteOrigin));
             });
             pipe(body);
             return;

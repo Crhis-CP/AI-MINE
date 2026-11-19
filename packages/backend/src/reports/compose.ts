@@ -14,7 +14,6 @@ import { emit } from "../modules.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
-export { composePolicyReports } from "../publication/policy-report-job.ts";
 
 import { writePeriod } from "./period-writing.ts";
 import { firstScheduledDaily, preserveReportCalendar, requestReportDependents } from "./revision-state.ts";

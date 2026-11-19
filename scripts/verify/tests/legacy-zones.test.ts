@@ -82,3 +82,36 @@ test("a zone whose old code is gone must be removed", () => {
 test("this repository matches its legacy-zones.json", () => {
   assert.deepEqual(checkLegacyZones(), []);
 });
+
+test("in a transitive zone, new code may not reach the old code through other files either", () => {
+  const { dir, files } = tree({
+    "packages/backend/src/shared/helper.ts": 'export { run } from "../jobs/content.ts";\n',
+    "packages/backend/src/pipeline/port.ts": 'import { run } from "../shared/helper.ts";\nexport const port = run;\n',
+    "packages/backend/src/pipeline/clean.ts": 'import "../shared/clean.ts";\n',
+    "packages/backend/src/shared/clean.ts": "export {};\n",
+  });
+  const listed = ["apps/web/app/old/admin/page.tsx", "apps/worker/src/schedules.ts", "packages/backend/src/jobs/content.ts"];
+  // Without the mark only direct imports count, as before.
+  assert.deepEqual(checkLegacyZones(dir, [zone(listed)], files), []);
+  assert.deepEqual(checkLegacyZones(dir, [{ ...zone(listed), transitive: true }], files), [
+    "packages/backend/src/pipeline/port.ts: new code of zone pipeline reaches the old code it replaces through packages/backend/src/pipeline/port.ts -> packages/backend/src/shared/helper.ts -> packages/backend/src/jobs/content.ts -> packages/backend/src/events/group.ts",
+  ]);
+});
+
+test("files only the old code may use are barred to new code, directly or through a chain, without becoming old code", () => {
+  const { dir, files } = tree({
+    "apps/web/app/i18n/index.ts": "export const tr = 1;\n",
+    "apps/web/app/lib/seo.ts": 'import { tr } from "../i18n/index.ts";\nexport const seo = tr;\n',
+    "apps/web/app/lib/format.ts": "export const format = 1;\n",
+    "packages/backend/src/pipeline/direct.ts": 'import { tr } from "../../../../apps/web/app/i18n/index.ts";\nexport const d = tr;\n',
+    "packages/backend/src/pipeline/chain.ts": 'import { seo } from "../../../../apps/web/app/lib/seo.ts";\nexport const c = seo;\n',
+    "packages/backend/src/pipeline/shared.ts": 'import { format } from "../../../../apps/web/app/lib/format.ts";\nexport const s = format;\n',
+  });
+  const listed = ["apps/web/app/old/admin/page.tsx", "apps/worker/src/schedules.ts", "packages/backend/src/jobs/content.ts"];
+  const barred = { ...zone(listed), transitive: true, oldOnly: ["apps/web/app/i18n/**"] };
+  // seo.ts imports the barred phrase book but is no importer of the old code: the list stays as it is.
+  assert.deepEqual(checkLegacyZones(dir, [barred], files), [
+    "packages/backend/src/pipeline/direct.ts: new code of zone pipeline imports the old code it replaces",
+    "packages/backend/src/pipeline/chain.ts: new code of zone pipeline reaches the old code it replaces through packages/backend/src/pipeline/chain.ts -> apps/web/app/lib/seo.ts -> apps/web/app/i18n/index.ts",
+  ]);
+});
