@@ -85,7 +85,7 @@
 
 ### 3.3 允许修改的路径（任务卡 `allowed_paths` 与路径守卫）
 
-每张任务卡必须列出 `allowed_paths`。`make verify` 的 **path guard** 阶段读取 PR 对应任务卡（按分支名 `agent/<lane>/TASK-<编号>-<slug>` 或 PR 描述里的卡号定位）与 `lanes.yaml`，要求：**PR 改动的每个文件 ⊆ 任务卡 `allowed_paths`，且 ⊆（该泳道拥有的路径 ∪ 该泳道在共享区有追加权的路径 ∪ 卡上声明并已获集成人批准的共享区）**；生成文件（`lanes.yaml` 的 `generated:` 列表）除外。超出时：要么拆任务，要么先合并一个只改任务卡的“计划 PR”（由集成人批准），再继续原 PR。**路径守卫读取的任务卡以 PR 的 base（main）版本为准**，避免作者在同一 PR 里放宽自己的路径。计划 PR 本身的卡还不在 base 上：点名的卡由本 PR 新增、改动全在 `tasks/` 下时，路径守卫按计划 PR 放行；夹带 `tasks/` 以外的文件仍然失败（TASK-0015）。
+每张任务卡必须列出 `allowed_paths`。`make verify` 的 **path guard** 阶段读取 PR 对应任务卡（按分支名 `agent/<lane>/TASK-<编号>-<slug>` 或 PR 描述里的卡号定位）与 `lanes.yaml`，要求：**PR 改动的每个文件 ⊆ 任务卡 `allowed_paths`，且 ⊆（该泳道拥有的路径 ∪ 该泳道在共享区有追加权的路径 ∪ 卡上声明并已获集成人批准的共享区）**；生成文件（`lanes.yaml` 的 `generated:` 列表）除外。**任务卡可以和实现放在同一个 PR 里**（2026-11-19 起；此前要求卡先单独合并，一个月里每个改动都多跑一轮检查，而拦下的越权是零）：普通路径按本 PR 改完之后的卡判断，所以新增卡、给卡补一条路径都可以随实现一起交。**高危路径例外**（`lanes.yaml` 的 `guarded:` 列表：部署与生产配置、检查本身、数据库迁移与授权、评分与分析提示词、锁文件、`AGENTS.md`）：打开它们的卡必须已经在 PR 的 base（main）上，PR 不能给自己放行；做法是先合并一个只改 `tasks/` 的 PR（点名的卡由该 PR 新增、改动全在 `tasks/` 下时路径守卫放行），再交实现。`guarded:` 列表和泳道规则同样从 base 读取。PR 不得删除自己点名的卡。
 
 ### 3.4 `.github/CODEOWNERS`
 
@@ -387,7 +387,7 @@ verify（PR 必过）**只用假模型、录制响应与黄金集固定夹具，
 
 ## 13. 推荐的 Agent 工作配置
 
-- 根目录 `AGENTS.md`（模板：`templates/root-AGENTS.md`）；`CLAUDE.md`（模板：`templates/CLAUDE.md`）只是指向 `AGENTS.md` 的兼容入口，不另存规则；这两个根目录文件都与各自模板逐字节一致，改一处要同步另一处。
+- 根目录 `AGENTS.md` 是唯一的规则入口，直接改它；`CLAUDE.md` 只是指向 `AGENTS.md` 的兼容入口，不另存规则。两者不再与 `templates/` 下的副本同步（2026-11-19）。
 - 每个模块目录一个 `README.md`（模板：`templates/module-README.md`）和可选的 `AGENTS.md`（模板：`templates/module-AGENTS.md`）。模块 README 是该模块的**最小上下文包**（移植自 `B:delivery/01-multi-agent-development.md` §2）：目的与非职责、负责的 F-ID、输入输出契约版本、依赖方向、表与事件所有权、状态机、错误码、可运行的测试命令、最小合成例子、局部修改步骤、变更记录。新 Agent 的读取顺序固定为：根 `AGENTS.md` → 当前任务卡 → 本模块 README → 所用契约 → 对应验收用例；**无需全仓扫描**。
 - 提交前钩子（lefthook）只是本地便利，**不是门禁**（ADR-0015）：格式化 + 快速 lint，不跑全量测试。
 - 开发期可为 Agent 提供**只读**的本地数据库查询工具与文档检索；生产环境只读 MCP 只能访问脱敏数据（服务身份，无 SQL 与 shell 能力）。

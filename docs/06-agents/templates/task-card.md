@@ -1,6 +1,6 @@
 # 任务卡模板（新仓库 `tasks/_template.md`；实例 `tasks/TASK-<四位序号>.md`）
 
-> 用法：架构 Agent 随“计划 PR”或“契约 PR”把卡合并进 `main` 的 `tasks/` 目录，`make verify` 的 `path-guard` 与 `tasks` 阶段读取它（`docs/06-agents/01-parallel-development-rules.md` 第 3.3、6.3 节）；路径守卫以 **PR base（main）上的版本**为准，作者不能在同一 PR 里放宽自己的路径。复制本模板，序号递增、不复用。
+> 用法：复制本模板，序号递增、不复用。卡随实现同一个 PR 提交到 `tasks/` 目录；动到高危路径（`lanes.yaml` 的 `guarded:` 清单：部署、检查本身、迁移、提示词等）时，卡要先单独合并进 `main`（`docs/06-agents/01-parallel-development-rules.md` 第 3.3 节）。`make verify` 的 `path-guard` 与 `tasks` 阶段读取它。
 > 一个任务 = 一个模块（可附本模块契约）+ 一个可验收的行为增量，有效改动 ≤400 行（不含生成物、夹具、快照、`move-only` 纯搬移）。**写不清“验收命令”的任务不允许开工。**
 > **卡不是审批表**：Owner 只通过 `owner_decision_needed` 与 Q 卡片介入，不做逐步批准；卡上没有“待 Owner 批准”这一状态。
 > 编号：任务卡 `TASK-nnnn`；路线图任务包 `T-<四位>`（`wbs` 字段）；验收场景 `T-<三位>`（`scenarios` 字段）；旧法规分支验收 `POL-T01`～`POL-T63`。PR 分支名 `agent/<lane>/TASK-<编号>-<slug>`。
@@ -45,7 +45,7 @@ pages: []                       # PG-<nn> / OP-<nn>
 owner_decision_needed: []       # 待 Owner 回答的 Q 编号；没有写 []（硬前置类问题——如矿业版评分标准审阅——未确认前不得合并依赖它的行为变化）
 stop_conditions:                # 越界条件：出现即停止、写入“交付记录”、开新卡，不要自行扩大范围
   - 发现契约须改 → 停止消费者 PR，开契约卡，从新 main 重建
-  - 需要写入 allowed_paths 之外的文件 → 拆任务或请架构 Agent 开计划 PR
+  - 需要写入 allowed_paths 之外的文件 → 在同一个 PR 里给卡补上这条路径并写明原因；高危路径先单独合并卡
   - 需要超出 budget 的真实模型调用 → 停止并发 Q 卡片
 status: specified               # specified | implemented | locally_verified | integrated | live_verified | quality_accepted
 evidence: []                    # 交付证据（完成后填）：验证回执、合并记录、部署读回、验收记录的链接

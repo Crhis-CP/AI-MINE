@@ -9,14 +9,6 @@
     "3 historical evidence": ["docs/acceptance/**"],
     "4 governance records": [
       {
-        "path": "AGENTS.md",
-        "sameAs": "docs/06-agents/templates/root-AGENTS.md"
-      },
-      {
-        "path": "CLAUDE.md",
-        "sameAs": "docs/06-agents/templates/CLAUDE.md"
-      },
-      {
         "path": "tasks/_template.md",
         "sameAs": "docs/06-agents/templates/task-card.md"
       },
