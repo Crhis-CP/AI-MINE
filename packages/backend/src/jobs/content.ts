@@ -1034,9 +1034,6 @@ export async function resumeIncompleteCopy(articleId: string): Promise<boolean> 
   });
 }
 
-// Policy processing shares only this frozen composition entry; its queues and state remain separate.
-export { registerPolicyJobs, sweepPolicyMaterials, policyQueues } from "./policy.ts";
-
 /** Explicit low-priority preparation; dry-run is the default and no automatic paid sweep is enabled. */
 export async function prepareGeographyBackfill(options: { limit?: number; enqueue?: boolean } = {}) {
   const limit = options.limit ?? 20;
