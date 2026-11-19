@@ -7,6 +7,8 @@
 //   - against the base commit a zone's list never has more entries: adding an importer together with its list
 //     entry fails, while gathering many callers behind one entry file (fewer entries) passes.
 // The importers list is the seam list of the rewrite: when it is empty, the old code can be deleted.
+// legacy-zones.json is a guarded path (lanes.yaml): a change that cuts a seam, redefines a zone or removes one needs
+// a task card already on main that lists scripts/verify/legacy-zones.json, so a change cannot loosen the list for itself.
 // Tests are not importers here: a test of old code is deleted together with it.
 import { readFileSync } from "node:fs";
 import path from "node:path";

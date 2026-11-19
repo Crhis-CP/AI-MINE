@@ -63,7 +63,7 @@ Owner 2026-11-06：“我希望你可以在仓库中和 codex 达成协作交流
 
 ## 六、一次完整的循环
 
-1. Claude 开 PR（任务卡随实现一起；动到高危路径时卡先单独合并），在看板发【Claude→Codex】：合并、上线、核对。
+1. Claude 开 PR（任务卡随实现一起；动到高危路径时卡先单独合并），检查通过后由 Claude 合并，再在看板发【Claude→Codex】：上线、核对。
 2. Codex 执行，回【Codex→Claude】。
 3. Codex 按 Claude 的请求或定期做线上审计，报告单开 Issue，链接留在看板。
 4. Claude 读报告、按类修复，回【Claude】已处理，进入下一轮。

@@ -23,7 +23,8 @@ export function pathClaims(text: string, topLevel: ReadonlySet<string>): Array<{
     for (const m of line.matchAll(/`([^`\n]+)`/g)) {
       const token = m[1]!.replace(/\/$/, "");
       if (/[\s<>…]|nnnn/.test(token) || token.startsWith("/") || token.includes("://")) continue;
-      if (!topLevel.has(token.split("/")[0]!)) continue;
+      // A single word is a path only when it names something at the root; anything with a slash claims to be a path.
+      if (!token.includes("/") && !topLevel.has(token)) continue;
       out.push({ line: i + 1, path: token, planned: line.slice(m.index! + m[0].length).startsWith(PLANNED) });
     }
   }

@@ -127,7 +127,18 @@ test("the guarded list is the base's: a PR cannot shorten it for itself, and a b
 
 test("this repository guards the guard: lanes.yaml and the checks are on its own guarded list", () => {
   const guarded = (parse(lanes) as { guarded: string[] }).guarded;
-  for (const p of ["lanes.yaml", "scripts/verify/**", "deploy/**", "database/migrations/**", "modules/*/migrations/**", "industry/prompts/**"])
+  for (const p of [
+    "lanes.yaml",
+    "scripts/verify/**",
+    "scripts/docs-check/**",
+    "package.json",
+    "biome.jsonc",
+    "tsconfig.base.json",
+    "deploy/**",
+    "database/migrations/**",
+    "modules/*/migrations/**",
+    "industry/prompts/**",
+  ])
     assert.ok(guarded.includes(p), p);
 });
 

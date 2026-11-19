@@ -8,7 +8,7 @@ test("a path that is not there is reported with its line; placeholders, commands
   const dir = scratch();
   write(dir, {
     "AGENTS.md": [
-      "Read `apps/web` and `apps/fetcher`, then `tasks/TASK-nnnn.md`.",
+      "Read `apps/web` and `apps/fetcher`, then `tasks/TASK-nnnn.md`; `infra/deploy` is gone.",
       "Run `npm run check`; the API is under `/api/v1`; see `docs/*.md` and `docs/none/*.md`.",
       "```bash",
       "npm test -- `apps/ghost`",
@@ -21,6 +21,7 @@ test("a path that is not there is reported with its line; placeholders, commands
   });
   assert.deepEqual(checkEntryPaths(dir, ["AGENTS.md", "CLAUDE.md"]), [
     "AGENTS.md:1: apps/fetcher does not exist",
+    "AGENTS.md:1: infra/deploy does not exist",
     "AGENTS.md:2: docs/none/*.md does not exist",
     "CLAUDE.md: the entry document is missing",
   ]);
