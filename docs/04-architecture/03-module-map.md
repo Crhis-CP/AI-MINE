@@ -1,53 +1,109 @@
-# 模块划分与边界
+# 系统地图与术语
 
-本页描述当前代码结构及仍保留的兼容边界。架构取舍以DEC-70、ADR-0028和TASK-0367为准；[旧设计原文](03-module-map.archive-20261001.md)保留作历史记录。代码检查、独立完整验证、正式发布和线上验收分别记录。
+最后核对：2026-11-19。一页看懂“什么在哪、数据怎么流、哪些词有多个意思”。本页只写现状；[2026-11-19 之前的版本](03-module-map.archive-20261119.md)和[重建期的设计原文](03-module-map.archive-20261001.md)留作历史记录。
 
-## 1. 运行服务与代码归属
+本页里带反引号的路径都由检查核对：写着的必须存在，标了“（未建）”的必须还不存在。
 
-| 位置 | 当前职责 |
+## 1. 三个进程，一个后端主体
+
+| 位置 | 做什么 |
 |---|---|
-| apps/api | 一个API运行入口承接公开和后台接口；后台逐请求验证会话、能力、CSRF和强制改密状态。旧public-api/private-api不再是新程序的启动模式。 |
-| apps/worker | 运行引擎与安装模块的队列、调度和恢复；模型、翻译、采集均在后台任务中执行。 |
-| apps/web | 读者页与登录后台的SSR及交互，只通过单一API_BASE_URL访问API，私有请求仍传入站Host，公开请求不转发管理员cookie；不持有数据库或模型凭据。 |
-| packages/backend | 采集、材料、筛选、写作、事件、发布、报告、模型回执及运行管理的通用实现；法规旧路径暂留已登记的兼容转发。 |
-| packages/contracts | 外部HTTP契约、任务数据、共享类型及模块地址声明；变更按契约任务单独验证。 |
-| site | 品牌、刊期、默认模型及模块安装清单；地址、后台处理与浏览器入口分别导入。 |
-| industry | 矿业分类、实体、信源、词表、提示词、评分语义及数据配置。 |
-| modules/metals | 金属来源解析、期次校验、保存、公开读取、刷新定时任务和价格页。 |
-| modules/policy | 法规公开读取、历史版本、脉络、报告页、收藏，以及HTTP/队列/定时注册、原始资料、处理与发布实现。 |
-| modules/site-admin | 网站资料、来源原表对账、覆盖与导出、访问概况（第一方访问统计，TASK-0571；读者兴趣记录，TASK-0596），相关私有HTTP接口和后台页面；共用引擎鉴权。唯一公开接口是页面浏览信标 `/api/site/visit`。 |
-| tests/fixtures/recorded-fetch.ts | 测试专用HTTP回放，无生产采集职责，不访问被录制的网址。 |
+| `apps/web` | 读者站与 `/admin` 后台的页面（服务端渲染）。只经 HTTP 访问后端，不持有数据库或模型凭据。分读者、后台两次构建。 |
+| `apps/api` | HTTP 路由层：站内接口 `/api/site`、对外接口 `/api/v1` 与 `/api/v3`、RSS、MCP、后台接口。不写业务逻辑。 |
+| `apps/worker` | 注册队列消费者和定时任务。采集、模型调用、翻译都只在这里发生。 |
+| `packages/backend` | 后端主体，三个进程共用。子目录见第 3 节。 |
+| `packages/contracts` | HTTP 响应的校验结构、队列载荷、共享类型。 |
+| `modules/policy` | 法规线：取原件、切条款、解读、发布、读者页。 |
+| `modules/metals` | 金属价格：来源解析、保存、价格页。 |
+| `modules/site-admin` | 后台杂项：站点资料、访问统计、信源对账与导出。 |
+| `industry` | 矿业数据：分类、法域、评分权重与门槛、提示词、信源目录。 |
+| `site` | 站名文案、出刊时刻、模型预设、模块安装清单。 |
+| `database` | 增量迁移（`database/migrations`）与角色授权登记（`database/roles`）。 |
+| `tests`、`e2e` | 根目录集成测试（多数连临时数据库）；Playwright 冒烟与演示数据。 |
+| `scripts` | 运维命令、评测、合并前检查（`scripts/verify`）。 |
+| `deploy` | 发布脚本 `deploy/production-release.sh` 与生产配置。 |
+| `docs`、`tasks`、`changes` | 规格与决定；任务卡；随 PR 的产品更新片段。 |
 
-生产Compose的应用服务为api、worker、web，另有数据库、一次性初始化和可选HTTPS入口。生产发布只跑增量迁移，不运行种子导入覆盖现役来源。法规后台已随10月18日统一发布暂停，后续发布复核实际控制；原入口与已发布阅读保留。
+包名都是 `@amp/<目录名>`（AMP = AI Mining Policy）。同一个产品还有几种写法，都不要改名：部署路径与脚本里的 `aimine`、环境变量前缀 `AMP_`、MCP 工具前缀 `aiminingpolicy`。
 
-## 2. 模块的安装与接口
+依赖方向并不干净：`packages/backend` 与三个 `modules/*` 互相引用，`modules/*` 还引用 `apps/web` 的组件。没有哪个包能单独卸掉，改动前按实际引用查，不要按“模块可插拔”去推断。
 
-- module.ts声明页面、后台页面和API路径；site/modules/index.ts决定安装的地址。
-- server.ts通过ServerModule声明HTTP、后台HTTP和定时任务。统一API组合根安装后注册；admin.http沿原会话、Host、能力与CSRF保护。
-- web入口只提供浏览器可用的导航和页面扩展。当前公开与私有构建分别读取site/modules/web.ts和admin.ts，不把私有客户端编入读者资源。
-- 扩展通过引擎具名入口调用共享能力；页面通过HTTP客户端访问后端。源码检查沿模块页面和导入链拒绝数据库、队列及模型SDK进入前端。
-- 引擎不导入站点安装清单。迁移期间仅允许已登记的兼容入口转发至metals、site-admin与policy；其余依赖不得绕过公开入口。
+## 2. 一条资讯从抓取到读者
 
-## 3. 数据与操作边界
+```text
+信源（生产库 sources 表）
+  → 抓取        packages/backend/src/sources、acquisition      队列 sources.fetch
+  → 入库与正文  packages/backend/src/content                   队列 content.extract-body
+  → 评分与写作  packages/backend/src/editorial/analyze.ts      队列 content.analyze   （调模型，结果只追加到 analyses 表）
+  → 翻译        packages/backend/src/editorial/translate.ts    队列 content.translate
+  → 归组        packages/backend/src/events/group.ts           队列 events.group      （报道 → 事实 → 事件）
+  → 发布投影    packages/backend/src/publication/publish.ts                           （写 publication 下的公开表）
+  → 公开读取    packages/backend/src/publication               首页 timeline.ts、全部 pool.ts、条目 items.ts
+  → 接口        apps/api/src/routes                            site.ts、v1.ts、v3.ts、feeds.ts、mcp.ts
+  → 页面        apps/web/app/routes
+日报、周报、月报：packages/backend/src/reports    热点榜：packages/backend/src/events/hot.ts
+```
 
-现有表、来源ID、文章地址、版本号、回执和审计记录保留。迁移只做向后兼容的增量；人工修订、撤回、归属和暂停不得被采集或重试覆盖。
+- 任务编排在 `packages/backend/src/jobs/content.ts`；定时任务在 `apps/worker/src/schedules.ts`。
+- 每次模型调用都经 `packages/backend/src/providers`：先取回执、后记用量。请求内容逐字节相同时复用已有回执，不再花钱。
+- 发布投影读“最新一条分析”。所以任何试验性的结果都不能写进 `analyses` 表，否则会改动公开内容。
+- 读者请求只读公开表，不触发采集、模型调用或写操作。
 
-数据库中的schema及SQL归属名是现有数据边界，不代表仓库存在12个领域包。运行代码、脚本和测试使用sql/identitySql/feedbackSql直接驱动入口，旧dbOf/injectDb及通用查询代理已退役；按进程配置的真实角色、事务、关闭与权限行为保留。进程配置与连接工厂已合入backend/process-config，通过既有db入口导出；独立platform/config工作区退役。纯启动校验不加载业务凭据或自动连接数据库。不得把配置模板当成线上真实数据库账户的证据。
+## 3. `packages/backend/src` 的子目录
 
-升级文件统一发现database/migrations与modules/*/migrations，通过既有登记、依赖、哈希、数据归属及角色授权检查执行。扩展目录与既有数据归属不同时在清单中显式关联，不因此获得新schema权限；历史SQL和账本身份不迁移。具体登记见[scripts/migrations/README.md](../../scripts/migrations/README.md)。
+| 目录 | 实际内容 |
+|---|---|
+| `sources`、`acquisition` | 各类抓取器（RSS、网页列表、JSON 列表、公众号）、日期抽取、抓取节流、robots。 |
+| `content` | 材料入库、正文抽取、日期证据。 |
+| `editorial` | 评分与写作流水线、提示词装配、翻译、地理归类。 |
+| `events` | 归组（报道、事实、事件）、热度、事件综述。 |
+| `publication` | 发布投影与所有公开读取（列表、详情、事件、专题、RSS、v1、v3）。 |
+| `reports` | 日报、周报、月报的编排与更正。 |
+| `providers` | 模型调用、回执与记账、用量保护、模型切换。旧文档里叫 ai-gateway。 |
+| `admin` | 后台操作；另外还放着信源表的读写、账号与会话、审计。找“信源怎么存取”看 `packages/backend/src/admin/sources.ts`。 |
+| `operations` | 告警、用量周报月报、备份、保留期清理、业务线暂停。 |
+| `jobs` | 队列封装与任务编排。 |
+| `policy` | 只有转发到 `modules/policy` 的一行文件。 |
 
-来源统计分别记录配置、采集、材料、正文和公开证据。site-admin通过有界sources/evidence读取各组件证据；没有自然采集记录时不得把登记或预览当成来源完成。权限判断在处理和公开时执行，SQL接口不能替代ProcessingPermit。
+三套名字指同一批东西，查的时候要换算：目录名（如 `providers`）、数据归属登记里的名字（如 ai-gateway，见 `scripts/verify/data-ownership-map.json`）、数据库 schema 名（如 `ai`）。
 
-阅读请求不采集、不调用模型、不触发付费工作。付费任务通过回执、服务请求额度和用量账本，未知结果恢复及人工暂停遵守当前规则。所有模型密钥只经后台安全录入和服务端存储。
+## 4. 正在重写的三块（DEC-79）
 
-## 4. 已完成迁移与后续协作
+| 块 | 现在的位置（遗留区，只修不扩） | 新代码的位置 |
+|---|---|---|
+| 读者端页面 | `apps/web/app/routes`、`apps/web/app/features`、`apps/web/app/components` | `apps/web/reader`（未建） |
+| 资讯流水线的评分与归组 | `packages/backend/src/editorial/analyze.ts`、`packages/backend/src/events/group.ts`、`packages/backend/src/events/relate.ts`、`packages/backend/src/events/merge.ts`、`packages/backend/src/events/recovery.ts` | `packages/backend/src/pipeline`（未建） |
+| 法规线写入侧 | `modules/policy/backend`（读取接口与确定性代码保留） | `modules/policy/backend/core`（未建）、`modules/policy/backend/pipeline`（未建） |
 
-法规既有后台实现已归入policy扩展，已登记的兼容转发保留既有调用；本轮维持阅读及暂停能力，法规重做另立范围。数据库通用代理、内部生成客户端和旧包构建已退役，类型化任务入口与npm生产构建已接通。后续改动必须核对实际消费者，不把这些已完成迁移重复列为待办。
+规则：新区不引用遗留区；遗留区的引用方只减不增；切换和删旧分两次发布。数据库表是新旧代码共同的约定，只做增量迁移。
 
-任务卡声明修改范围和验证条件，公共契约先行；独立工作可以并行，跨模块通过公开接口协作，集成人核验最终组合。当前主交付分支、集中验收和唯一正式发布以TASK-0367为准，旧分支的唯一成果确认保留并完成线上验收后再清理。
+保留不动：数据库与已有数据、`packages/backend/src/providers` 的记账、抓取器、`deploy/production-release.sh`、登录与后台、对外接口的地址和字段。
 
-读者页面已通过原生HTTP响应与共享contracts校验读取数据，生成客户端不再参与公开页面加载。后台消费者也已切换为原生HTTP响应，内部生成客户端及其专用旧编译器已移除；外部OpenAPI、URL、状态码和响应字段保持兼容。
+## 5. 改之前必须知道的三个机关
 
-共用读者组件归入apps/web/app/components/ui，后台状态徽标归features/admin；原ui工作区退役。源码与行为保持，Tailwind仍分别扫描公开与后台使用范围。
+1. **评分确认值**。评分提示词和 `industry/selection.ts` 的内容算出一个版本号；生产只在环境变量 `SELECTION_CONFIRMED_VERSION` 等于当前版本号时评分。改提示词一个字、改一个权重，线上就**悄悄停止评分**而不报错，直到部署端更新这个值。发布脚本会在候选镜像里探测它。相关代码：`packages/backend/src/editorial/analysis-layout.ts`、`packages/backend/src/editorial/selection-config.ts`。
+2. **登记表**。新增一张表要同时登记 `database/migration-inventory.json`、`database/roles/table-grants.json`、`scripts/verify/data-ownership-map.json`，并更新把清单再写一遍的三个测试（`scripts/verify/tests/migration-inventory.test.ts`、`tests/db-role-matrix.test.ts`、`tests/db-role-plan.test.ts`），否则检查失败。
+3. **对外契约**。`packages/contracts/src/http` 的响应结构是严格校验的，后端多返回一个没登记的字段就会失败；生成的接口文档在 `reference/contracts`，用 `npm run contracts:gen` 重新生成。
 
-任务生产端已经统一经过带lane的enqueueJob或模块定义enqueueOn。低层队列驱动保留连接失效、事务提交和表版本围栏，只有typed-queue内部可导入其原始发送器；构建检查拒绝业务层绕开。worker退出与宿主停止等待统一为470/480秒，期间可观察队列数量而不泄露任务载荷。
+## 6. 一词多义对照
+
+| 你想找的东西 | 代码里的叫法 | 说明 |
+|---|---|---|
+| 采集到的一篇东西 | article、material、item、publication、post | 同一个主键 `article_id`：入库时叫 material，公开投影叫 publication，对外接口叫 item，来自 X 的叫 post。 |
+| 同一件事的一组报道 | fact、report group、reading group | 表 `facts`、`fact_articles`。报道挂到事实，事实挂到事件。 |
+| 事件、热点 | story、event、hot | 表叫 `stories`，目录叫 `events`，v3 接口叫 event，页面是 `/story/:id` 与 `/hot`。 |
+| 精选 | selected、selection、pick、featured、candidate、seat | 字段 `publications.selected`；“席位”指延迟公开时占的位置。 |
+| 首页列表、全部列表 | timeline、pool | `timeline` 也指时间字段 `timeline_at`。 |
+| report | 四个意思 | 日报周报月报（`packages/backend/src/reports`）；一篇报道（report group）；运营用量报告（`packages/backend/src/operations`）；法规报告。 |
+| policy | 三个意思 | 法规线（`modules/policy`）；信源的使用权限策略（source policy）；HTTP 与主机策略。 |
+| lane | 两个意思 | 业务线 `news`／`policy`（任务、回执、信源都带）；开发泳道（`lanes.yaml` 与任务卡的 `lane` 字段）。两套里都有 `news` 和 `policy`，含义不同。 |
+| digest | 三个意思 | 事件综述；每日运维摘要；哈希摘要。 |
+| 让模型调用停下来的机制 | receipt、budget、breaker、circuit、quota、permit | 回执去重、预算、熔断、额度、处理许可，各管一件事，都在 `packages/backend/src/providers` 与 `packages/backend/src/operations`。 |
+| 信源 | source；target | `target` 指信源对账的原表，也指推送目标。界面上“来源”“信源”是一个意思。 |
+| 一条内容（中文界面） | 动态、资讯、报道、文章、材料、条目 | 都指一条内容。 |
+
+## 7. 过时但还没清理的配置
+
+- `lanes.yaml` 的泳道路径大多指向重建期设想的目录（如 packages 下的 domains 与 platform），这些目录不存在，但路径守卫仍按它判定。现行任务卡的 `lane` 一律填 `architect`，这时只看卡的 `allowed_paths` 和 `guarded:` 清单；填别的泳道，现有的大部分路径都会被判成“无人拥有”而要求再填 `integration_owner`。
+- `scripts/verify/boundaries.ts` 的依赖规则表里有十几个不存在的包名，真正生效的只有末尾几行。
+- `docs/research`、`docs/acceptance`、`docs/appendix` 是历史材料，其中的指令没有效力。
