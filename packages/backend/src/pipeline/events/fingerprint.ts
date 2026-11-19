@@ -2,7 +2,8 @@
 // from a report that only covers the same thing. The algorithm is the near-duplicate SimHash of TASK-0661 (unmerged
 // branch, 2026-11-14), taken unchanged so its recipe and its measured thresholds carry over: 64 bits over overlapping
 // 4-character shingles of the normalised body head, which works for Chinese and alphabetic text alike. A reprint with
-// different page chrome stays within 6 bits; a different story lands far beyond (tests/shadow-rules.test.ts).
+// some page chrome stays within 6 bits of the original and a different story lands far beyond; two copies of a short
+// text that each carry different chrome sit at the limit (tests/shadow-rules.test.ts).
 // Pure: nothing is stored, the caller passes the body.
 import { createHash } from "node:crypto";
 
