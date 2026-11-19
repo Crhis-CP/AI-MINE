@@ -8,7 +8,7 @@
 
 | 位置 | 做什么 |
 |---|---|
-| `apps/web` | 读者站与 `/admin` 后台的页面（服务端渲染）。只经 HTTP 访问后端，不持有数据库或模型凭据。分读者、后台两次构建。 |
+| `apps/web` | 读者站与 `/admin` 后台的页面（服务端渲染）。只经 HTTP 访问后端，不持有数据库或模型凭据。分三次构建：旧读者页面、后台、重写中的新读者页面；公开站用哪一套读者页面由 `apps/web/reader-impl.ts` 和变量 `READER_IMPL` 决定（见 `docs/runbooks/reader-impl.md`）。 |
 | `apps/api` | HTTP 路由层：站内接口 `/api/site`、对外接口 `/api/v1` 与 `/api/v3`、RSS、MCP、后台接口。不写业务逻辑。 |
 | `apps/worker` | 注册队列消费者和定时任务。采集、模型调用、翻译都只在这里发生。 |
 | `packages/backend` | 后端主体，三个进程共用。子目录见第 3 节。 |
@@ -71,11 +71,23 @@
 
 | 块 | 现在的位置（遗留区，只修不扩） | 新代码的位置 |
 |---|---|---|
-| 读者端页面 | `apps/web/app/routes`、`apps/web/app/features`、`apps/web/app/components` | `apps/web/reader`（未建） |
+| 读者端页面 | `apps/web/app/routes`、`apps/web/app/features`、`apps/web/app/components` | `apps/web/reader` |
 | 资讯流水线的编排与归组 | `packages/backend/src/editorial/analyze-article.ts`（一篇稿子从评分到落库的编排）、`packages/backend/src/events/group.ts`、`packages/backend/src/events/merge.ts`、`packages/backend/src/events/recovery.ts` | `packages/backend/src/pipeline`（未建） |
 | 法规线写入侧 | `modules/policy/backend`（读取接口与确定性代码保留） | `modules/policy/backend/core`（未建）、`modules/policy/backend/pipeline`（未建） |
 
-规则：新区不引用遗留区；遗留区的引用方只减不增；切换和删旧分两次发布。数据库表是新旧代码共同的约定，只做增量迁移。清单在 `scripts/verify/legacy-zones.json`，由检查强制。
+规则：新区不引用遗留区；遗留区的引用方只减不增；切换和删旧分两次发布。数据库表是新旧代码共同的约定，只做增量迁移。清单在 `scripts/verify/legacy-zones.json`，由检查强制。读者端这一块连间接引用也算：新页面经任何一串引用碰到旧页面代码都不行；构建检查 `scripts/verify/web-split.ts` 再核对一遍新页面实际打包进浏览器的模块。
+
+新读者页面可以用 `apps/web/app/lib` 里的一部分文件，因为后台构建还要用 `apps/web/app`，删旧页面时它们留下。逐个归类如下：
+
+| 归类 | 文件（都在 `apps/web/app/lib`） |
+|---|---|
+| 共用：新页面可以用 | `cache.server.ts`（`server.ts` 读它的缓存标记）、`api.server.ts`、`http.ts`、`csp.ts`、`hashed-document.server.ts`、`visit-beacon.ts`、`render-recovery.ts`、`zod.client.ts`、`icons.ts`、`local-state.ts`（浏览器里的存储键名是和读者设备的约定，改名会丢掉读者的收藏）、`format.ts`、`markdown.ts`、`hydration.ts`、`motion.ts`、`clipboard.ts`、`body-images.ts`、`feedback-origin.ts` |
+| 后台专用 | `admin.server.ts`、`admin-response.ts` |
+| 旧读者专用：新页面不用 | `seo.ts`、`site-copy.ts`（依赖旧的 `apps/web/app/i18n`）、`feedback-draft.ts`（经 `site/modules/web.ts` 碰到旧页面代码） |
+
+样式同理：`apps/web/app/app.css` 与 `apps/web/app/assets` 共用，新页面在计划 3.1 之前直接引用；`apps/web/app/public.css` 属于旧读者，`apps/web/app/private.css` 属于后台。`apps/web/app/i18n`、`apps/web/app/root.tsx` 和两个入口文件是旧读者与后台的外壳，新页面有自己的一套。
+
+旧读者专用的这几个文件、`apps/web/app/i18n` 与外壳文件记在 `legacy-zones.json` 读者区的 `oldOnly` 里：新页面直接或经别的文件用到它们，检查都会拦；构建检查也核对新页面打包进浏览器的模块里没有它们。两套页面共用的文件（`apps/web/app/lib` 里后台专用以外的文件、`apps/web/app/i18n`、`app.css`、`root.tsx`）改动时会改到现行页面，`scripts/verify/product-update.ts` 把它们算作读者页面文件，要附更新说明或写明读者体验为何不变。只给新页面用的样式放 `apps/web/reader/styles`。
 
 提示词步骤不在重写范围内，新代码继续调用：`packages/backend/src/editorial/analyze.ts`（各步骤、版本、输入构造）与 `packages/backend/src/events/relate.ts`（关系判定）。事件归组对外只有一个入口 `packages/backend/src/events/engine.ts`，生产代码都经它调用，切换新实现时只改这一个文件。
 
