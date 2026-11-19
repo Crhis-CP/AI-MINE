@@ -1,23 +1,21 @@
-import { ALL_POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { POLICY_JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { PolicyJurisdiction } from "@amp/contracts/http/public";
 import { directoryCoverageEvidence } from "@amp/backend/sources/collect";
 import { sql } from "../db.ts";
 
-const directory = new Map(ALL_POLICY_SOURCES.map((source) => [`policy-${source.id.toLowerCase()}`, source]));
-
 /** Coverage comes from structural rounds, never a successful HTTP response alone. */
 export async function policySourceCoverage(start: string, end: string) {
   if (!Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || Date.parse(start) >= Date.parse(end))
     throw new Error("Invalid coverage period");
-  const sources = await sql<{ id: string; name: string }[]>`SELECT id,name FROM sources WHERE lane='policy' AND created_at<${end}`;
+  const sources = await sql<{ id: string; name: string; jurisdiction: string | null }[]>`
+    SELECT id,name,jurisdiction FROM sources WHERE lane='policy' AND created_at<${end}`;
   const { receipts, failures } = await directoryCoverageEvidence(
     sources.map((s) => s.id),
     start,
     end,
   );
   const rows = POLICY_JURISDICTIONS.map((jurisdiction) => {
-    const registered = sources.filter((source) => directory.get(source.id)?.jurisdiction === jurisdiction.id);
+    const registered = sources.filter((source) => source.jurisdiction === jurisdiction.id);
     const names = new Map(registered.map((source) => [source.id, source.name]));
     return {
       jurisdiction: PolicyJurisdiction.parse({
@@ -41,5 +39,5 @@ export async function policySourceCoverage(start: string, end: string) {
     };
   });
   const known = new Set(POLICY_JURISDICTIONS.map((j) => j.id));
-  return { rows, unassignedSourceCount: sources.filter((s) => !known.has(directory.get(s.id)?.jurisdiction ?? "")).length };
+  return { rows, unassignedSourceCount: sources.filter((s) => !known.has(s.jurisdiction ?? "")).length };
 }

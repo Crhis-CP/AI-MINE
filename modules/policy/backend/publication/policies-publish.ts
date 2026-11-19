@@ -16,7 +16,6 @@ export async function policyPublicId(kind: string, internalId: string, db: Db = 
 }
 
 import { Policy } from "@amp/contracts/http/public";
-import { ALL_POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { policyProcessingNotice } from "../domain/processing-notice.ts";
 import { readPolicyMetadataObservation } from "../domain/metadata.ts";
 import { readPolicyOriginal, assertOriginalPermissions } from "../domain/originals.ts";
@@ -26,7 +25,7 @@ import { validatePolicyFulltextCandidate, PolicyPartCandidateSchema } from "../d
 import { provenFulltextCandidates } from "../domain/translation-memory.ts";
 import { matchingPolicyQuality } from "../domain/quality.ts";
 import { policyPublicationIdentity, lockPolicyPublicationHead } from "../domain/public-state.ts";
-import { evaluateSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
+import { evaluateSourcePolicy, lockCurrentSourcePolicies, readSourceProfile } from "@amp/backend/admin/sources";
 import { audit } from "@amp/backend/admin/auth";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { policyInterpretationQualityRecipe } from "../domain/references.ts";
@@ -322,7 +321,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     // Program-read facts of the recognised instrument (no model): nature, stage, Argentine procedure and cited targets.
     const rule = await ruleRelationships(db, editionId, gate, lifecycle, Policy.parse(basic), snapshot.sourceId, excerptAllowed);
     Object.assign(basic, withInstrumentFacts(Policy.parse(basic), { gate, lifecycle, ...rule, today: new Date().toISOString().slice(0, 10) }));
-    const preferred = ALL_POLICY_SOURCES.find((s) => `policy-${s.id.toLowerCase()}` === snapshot.sourceId)?.language ?? null;
+    const preferred = (await readSourceProfile(snapshot.sourceId, db))?.language ?? null;
     await db`INSERT INTO publication.policy_editions(id,content_hash,policy_id,native_expression_id,native_revision_id,source_id,permission_version,policy_version_id,source_language,preferred_source_language,
    expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id,discovered_at,original_content_key)
    VALUES(${editionId},${contentHash},${policyId},${input.expressionId},${snapshot.revisionId},${snapshot.sourceId},${snapshot.permissionVersion},${ids.version},${snapshot.language},${preferred},

@@ -210,6 +210,6 @@ test("no news-lane source can be a policy source: separate ids, no shared entry,
       assert.ok(!newsUrls.has(url!.replace(/\/$/, "")), `${s.id}: ${url} is also a news source`);
   // The seeder creates policy entries in the policy lane, and the publisher reads only policy-lane observations.
   const seed = readFileSync("scripts/seed.ts", "utf8");
-  assert.match(seed, /createSource\(input, "seed:policy-sources", \{ lane: "policy" \}\)/);
+  assert.match(seed, /createSource\(input, "seed:policy-sources", \{\s*lane: "policy"/);
   assert.match(readFileSync("modules/policy/backend/domain/metadata.ts", "utf8"), /source\?\.lane !== "policy"/);
 });
