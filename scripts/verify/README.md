@@ -37,7 +37,7 @@ make verify TASK=TASK-0002
 
 ## 2. 阶段
 
-按顺序执行；某阶段依赖的前一阶段没通过时，它记为跳过。上游的 `check.yml`（原样保存在 [`upstream-check.yml`](upstream-check.yml)）两个作业逐步翻译到了这里，“种子信源必须是 18 个”改为“种子信源数与 `industry/sources.json` 一致”。
+先跑六个不需要安装和构建的“门槛阶段”（`product-update`、`names`、`path-guard`、`secrets`、`docs`、`tasks`：任务卡、更新说明、文档链接、名称与密钥），再按下表顺序跑其余阶段。`make verify` 里任何一个门槛阶段失败，其余构建与测试阶段记为跳过、整次检查立即结束（2026-11-19：此前缺卡、缺说明这类问题要等二十分钟全部跑完才报出来）；门槛阶段之间互不阻挡，一次把手续问题报全。`npm run check` 不因门槛失败而停。某阶段依赖的前一阶段没通过时，它也记为跳过。上游的 `check.yml`（原样保存在 [`upstream-check.yml`](upstream-check.yml)）两个作业逐步翻译到了这里，“种子信源必须是 18 个”改为“种子信源数与 `industry/sources.json` 一致”。
 
 | 阶段 | 检查什么 | 需要 | 对应上游步骤 |
 |---|---|---|---|
