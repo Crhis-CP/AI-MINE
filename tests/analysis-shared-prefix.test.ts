@@ -11,7 +11,6 @@ import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import {
   analysisVersionOf,
-  analyzeArticle,
   buildScoreInput,
   loadAnalyzeInput,
   MEND_SYSTEM,
@@ -22,6 +21,7 @@ import {
   scoringConfirmed,
   type AnalyzeInputArticle,
 } from "@amp/backend/editorial/analyze";
+import { analyzeArticle } from "@amp/backend/editorial/analyze-article";
 import { buildArticlePrompt, PREFILTER_SYSTEM, prefilterUser, translateInputOf, UNDERSTAND_SYSTEM, understandUser } from "@amp/backend/editorial/writing";
 import { MATERIAL_ACKNOWLEDGEMENT, SHARED_ANALYSIS_SYSTEM, sharedMaterial } from "../packages/backend/src/editorial/analysis-layout.ts";
 import { promptText } from "@amp/backend/editorial/prompts";

@@ -22,9 +22,9 @@ import {
   evaluationInputFingerprint,
   normalizeAnalysis,
   prepareEvaluationInput,
-  runAnalysis,
   waitsForPage,
 } from "@amp/backend/editorial/analyze";
+import { runAnalysis } from "@amp/backend/editorial/analyze-article";
 import { runtimeControlSnapshot } from "@amp/backend/operations/lane-controls";
 import { SELECTION } from "@amp/industry/selection";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
