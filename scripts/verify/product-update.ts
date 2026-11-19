@@ -44,8 +44,17 @@ export function checkProductUpdate(root: string, changed: string[], previousMani
     }
     if (!Array.isArray(manifest.fragments) || !manifest.fragments.length) throw new Error("Release note must cite its product fragments");
     const changedFragments = changed.filter((file) => file !== "changes/_template.md" && /^changes\/.+\.md$/.test(file) && existsSync(path.join(root, file)));
+    // Reader page files: the old reader's routes and components, every file of the rewrite (apps/web/reader) and the
+    // switch between the two (apps/web/reader-impl.ts, whose default line is the cutover). The rewrite counts before
+    // readers can see it (an 运营 fragment then says why nothing changed for them) and both stay covered after the
+    // switch, because READER_IMPL=old can serve the old pages again until they are deleted.
     const readerPaths = new Set(
-      changed.filter((file) => /^apps\/web\/app\/(routes|components)\//.test(file) && !/^apps\/web\/app\/routes\/admin(?:\/|-login\.)/.test(file)),
+      changed.filter(
+        (file) =>
+          (/^apps\/web\/app\/(routes|components)\//.test(file) && !/^apps\/web\/app\/routes\/admin(?:\/|-login\.)/.test(file)) ||
+          file.startsWith("apps/web/reader/") ||
+          file === "apps/web/reader-impl.ts",
+      ),
     );
     const unchangedReaderPaths = new Set<string>();
     let readerFragmentChanged = false;

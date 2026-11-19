@@ -82,3 +82,18 @@ test("a zone whose old code is gone must be removed", () => {
 test("this repository matches its legacy-zones.json", () => {
   assert.deepEqual(checkLegacyZones(), []);
 });
+
+test("in a transitive zone, new code may not reach the old code through other files either", () => {
+  const { dir, files } = tree({
+    "packages/backend/src/shared/helper.ts": 'export { run } from "../jobs/content.ts";\n',
+    "packages/backend/src/pipeline/port.ts": 'import { run } from "../shared/helper.ts";\nexport const port = run;\n',
+    "packages/backend/src/pipeline/clean.ts": 'import "../shared/clean.ts";\n',
+    "packages/backend/src/shared/clean.ts": "export {};\n",
+  });
+  const listed = ["apps/web/app/old/admin/page.tsx", "apps/worker/src/schedules.ts", "packages/backend/src/jobs/content.ts"];
+  // Without the mark only direct imports count, as before.
+  assert.deepEqual(checkLegacyZones(dir, [zone(listed)], files), []);
+  assert.deepEqual(checkLegacyZones(dir, [{ ...zone(listed), transitive: true }], files), [
+    "packages/backend/src/pipeline/port.ts: new code of zone pipeline reaches the old code it replaces through packages/backend/src/pipeline/port.ts -> packages/backend/src/shared/helper.ts -> packages/backend/src/jobs/content.ts -> packages/backend/src/events/group.ts",
+  ]);
+});
