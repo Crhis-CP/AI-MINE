@@ -3,7 +3,7 @@
 // Chinese name: at the first mention 中文名（原文名） (no bracket for Chinese companies), later just 中文名. This is
 // the library's successor of editorial/bilingual-names.ts, which knows only the glossary spellings and rewrites by
 // spelling alone, so "Vale of Belvoir" became 淡水河谷.
-import { type EntityIndex, findHits, type Hit } from "./link.ts";
+import { BRACKET, type EntityIndex, findHits, type Hit } from "./link.ts";
 import { hasHan, lookupKey } from "./normalize.ts";
 
 export interface RenderedNames {
@@ -18,14 +18,15 @@ export interface RenderedNames {
   unregistered: Array<{ entityId: string; variant: string }>;
 }
 
-/** A bracket right after a name: （…） or (…), short, not nested. */
-const BRACKET = /^\s*[（(]([^（()）]{1,40})[）)]/;
 /** A Chinese name ending in one of these swallows the same word written after a shorter variant (科德尔科公司). */
 const NAME_SUFFIXES = ["公司", "集团"];
 /** Everything up to the last word that cannot sit inside a company name: the variant starts after it. */
 const UP_TO_FUNCTION_WORD = /^.*(?:的|在|据|称|与|和|及|对|向|由|被|将|是|为|报道|表示|宣布|指出|透露|消息)/u;
 /** Longer than this, a Han run before a bracket is a clause, not a name. */
 const MAX_VARIANT = 12;
+/** What may be left in a bracket besides the entity's own spellings for it to say nothing more: legal forms. */
+const ONLY_NAME =
+  /^\s*[（(][\s,.，、]*(?:(?:公司|集团|inc|corp|corporation|ltd|limited|plc|s\.?a|ag|n\.?v|co|company|group|holdings)(?![a-z])[\s,.，、]*)*[）)]$/i;
 
 /**
  * Rewrites every admitted company name in `text`. Admitted: a `text`-scope spelling, a qualified ticker, or an
@@ -50,9 +51,10 @@ export function renderNames(index: EntityIndex, text: string, ctx?: { linked?: R
   let cursor = 0;
   /**
    * The bracket after a name, when it holds another spelling of the same entity: `original` when one of those is
-   * an original spelling (the writer's bracket is kept), otherwise `chinese` (the bracket only repeats a Chinese
-   * name, as in Codelco（智利国家铜业公司）, and is replaced). A listing symbol (NYSE: VALE) is neither: it does not
-   * stand in for the name, so the name still gets its original.
+   * an original spelling, otherwise `chinese` (the bracket only repeats a Chinese name, as in Codelco（智利国家铜业公司）,
+   * and is replaced). `bare` when the bracket holds nothing but those spellings and legal forms; an original
+   * bracket that says more (必和必拓（BHP，ASX: BHP）) is kept as written. A listing symbol (NYSE: VALE) is neither:
+   * it does not stand in for the name, so the name still gets its original.
    */
   const ownBracket = (hit: Hit, end: number) => {
     const m = BRACKET.exec(text.slice(end));
@@ -62,11 +64,12 @@ export function renderNames(index: EntityIndex, text: string, ctx?: { linked?: R
       (other) => other !== hit && other.scope !== "ticker" && other.entityId === hit.entityId && other.start > end && other.end < close,
     );
     if (!inside.length) return null;
-    if (inside.some((other) => !hasHan(other.alias))) return { close, kind: "original" as const };
-    // Only a bracket that holds nothing but the Chinese name (and its 公司) is replaced; BHP（必和必拓旗下公司） says more.
     let rest = text.slice(end, close);
     for (const other of inside) rest = rest.replace(other.alias, "");
-    return /^\s*[（(]\s*(?:公司|集团)?\s*[）)]$/.test(rest) ? { close, kind: "chinese" as const } : null;
+    const bare = ONLY_NAME.test(rest);
+    if (inside.some((other) => !hasHan(other.alias))) return { close, kind: "original" as const, bare };
+    // Only a bracket that holds nothing but the Chinese name (and its 公司) is replaced; BHP（必和必拓旗下公司） says more.
+    return bare ? { close, kind: "chinese" as const, bare } : null;
   };
 
   for (const hit of admitted) {
@@ -92,10 +95,14 @@ export function renderNames(index: EntityIndex, text: string, ctx?: { linked?: R
     let end = hit.end;
     const suffix = NAME_SUFFIXES.find((s) => entity.nameZh!.endsWith(s) && !hit.alias.endsWith(s) && text.startsWith(s, end));
     if (suffix && hasHan(hit.alias)) end += suffix.length;
-    const bracket = ownBracket(hit, end);
+    let bracket = ownBracket(hit, end);
     // A bracket that only repeats a Chinese name goes, and the name before it gives the original: the one the
-    // writer used when it is one (BHP（必和必拓） becomes 必和必拓（BHP）), else the registered one.
-    if (bracket?.kind === "chinese") end = bracket.close;
+    // writer used when it is one (BHP（必和必拓） becomes 必和必拓（BHP）), else the registered one. A bare original
+    // bracket follows the same rules as an added one: it stays on the first mention of a foreign company only.
+    if (bracket?.kind === "chinese" || (bracket?.bare && !(first && entity.showOriginal))) {
+      end = bracket.close;
+      if (bracket.kind === "original") bracket = null;
+    }
     const original = bracket && !hasHan(hit.alias) ? hit.alias : entity.nameOriginal;
     const to = entity.nameZh + (first && bracket?.kind !== "original" && entity.showOriginal ? `（${original}）` : "");
     const from = text.slice(hit.start, end);

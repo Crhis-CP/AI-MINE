@@ -230,12 +230,35 @@ const PASSING: Readonly<Record<string, ReadonlyArray<{ before?: RegExp; after?: 
 };
 const ALL_PASSING = Object.values(PASSING).flat();
 
-function inPassing(text: string, hit: Hit, language: string | null): boolean {
+function inPassing(text: string, span: { start: number; end: number }, language: string | null): boolean {
   const base = (language ?? "").toLowerCase().split(/[-_]/)[0]!;
   const rules = PASSING[base] ?? ALL_PASSING;
-  const before = text.slice(Math.max(0, hit.start - 40), hit.start);
-  const after = text.slice(hit.end, hit.end + 30);
+  const before = text.slice(Math.max(0, span.start - 40), span.start);
+  const after = text.slice(span.end, span.end + 30);
   return rules.some((rule) => (!rule.before || rule.before.test(before)) && (!rule.after || rule.after.test(after)));
+}
+
+/** A bracket right after a name: （…） or (…), short, not nested. */
+export const BRACKET = /^\s*[（(]([^（()）]{1,40})[）)]/;
+
+/**
+ * One entity's hits in one text, sorted, grouped into mentions: a name and the bracket right after it that holds
+ * another spelling of the same entity (前力拓（Rio Tinto）高管, Former Barrick (巴里克) executive) are one mention,
+ * so the wording around the whole decides whether it is named in passing.
+ */
+function mentionsOf<T extends Hit>(text: string, hits: readonly T[]): Array<{ start: number; end: number; hits: T[] }> {
+  const mentions: Array<{ start: number; end: number; hits: T[] }> = [];
+  for (const hit of hits) {
+    const last = mentions.at(-1);
+    const m = last ? BRACKET.exec(text.slice(last.end)) : null;
+    const close = last && m ? last.end + m[0].length : -1;
+    if (last && hit.start > last.end && hit.end < close) {
+      last.hits.push(hit);
+      last.end = close;
+    } else if (last && hit.end <= last.end) last.hits.push(hit);
+    else mentions.push({ start: hit.start, end: hit.end, hits: [hit] });
+  }
+  return mentions;
 }
 
 /** Where the first sentence of a body ends: a full stop before a capital (not "Nov. 18"), or a Chinese stop. */
@@ -296,8 +319,11 @@ export function linkText(
     byEntity.get(hit.entityId)!.push(hit);
   }
   for (const [entityId, own] of byEntity) {
-    const plain = own.filter((hit) => !inPassing(hit.text, hit, input.language));
-    const subject = named ? named.has(entityId) && plain.length > 0 : plain.some((hit) => hit.segment === "title" || hit.start < leadEnd);
+    const plain = (["title", "body"] as const).flatMap((segment) => {
+      const inSegment = own.filter((hit) => hit.segment === segment);
+      return inSegment.length ? mentionsOf(inSegment[0]!.text, inSegment).filter((m) => !inPassing(inSegment[0]!.text, m, input.language)) : [];
+    });
+    const subject = named ? named.has(entityId) && plain.length > 0 : plain.some(({ hits: [hit] }) => hit!.segment === "title" || hit!.start < leadEnd);
     const first = own[0]!;
     links.push({
       entityId,

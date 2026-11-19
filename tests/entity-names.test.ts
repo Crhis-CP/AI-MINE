@@ -127,6 +127,23 @@ test("a bracket that only repeats a Chinese name is folded into one 中文名（
   assert.equal(render("BHP（必和必拓旗下公司）公布").text, "必和必拓（BHP）（必和必拓旗下公司）公布", "a bracket that says more is kept");
 });
 
+test("a bracketed original the writer gave follows the first-mention rule; one that says more is kept", () => {
+  assert.equal(render("BHP宣布，必和必拓（BHP）称").text, "必和必拓（BHP）宣布，必和必拓称");
+  assert.equal(render("必和必拓（BHP）宣布，必和必拓（BHP）称").text, "必和必拓（BHP）宣布，必和必拓称");
+  assert.equal(render("必和必拓（BHP Group Ltd）宣布，必和必拓（BHP Group Ltd）称").text, "必和必拓（BHP Group Ltd）宣布，必和必拓称");
+  assert.equal(render("紫金矿业（Zijin Mining）收购").text, "紫金矿业收购", "Chinese companies take no bracket");
+  assert.equal(render("紫金矿业（Zijin Mining Group Co., Ltd.）收购").text, "紫金矿业收购");
+  assert.equal(render("必和必拓(BHP Group)公布季度产量").text, "必和必拓(BHP Group)公布季度产量", "the first mention keeps the writer's original");
+  assert.equal(render("必和必拓（BHP，ASX: BHP）宣布，必和必拓（BHP，ASX: BHP）称").text, "必和必拓（BHP，ASX: BHP）宣布，必和必拓（BHP，ASX: BHP）称");
+  assert.equal(render("紫金矿业（Zijin Mining，HK: 2899）收购").text, "紫金矿业（Zijin Mining，HK: 2899）收购");
+  const result = render("BHP宣布，必和必拓（BHP）称");
+  assert.deepEqual(result.changes, [
+    { entityId: "bhp", from: "BHP", to: "必和必拓（BHP）" },
+    { entityId: "bhp", from: "必和必拓（BHP）", to: "必和必拓" },
+  ]);
+  assert.equal(render(result.text).text, result.text);
+});
+
 test("a bare listing symbol is left as written; it still answers which company it is", () => {
   assert.equal(render("FCX股价上涨").text, "FCX股价上涨");
   assert.equal(render("Freeport-McMoRan（FCX）公布季度业绩").text, "自由港麦克莫兰（Freeport-McMoRan）（FCX）公布季度业绩");

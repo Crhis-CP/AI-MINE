@@ -121,6 +121,18 @@ test("a company named in passing is a mention, in each language with a list", ()
   assert.deepEqual(roles(link("Ex-diretor da Glencore assume mineradora", { language: "pt" })), { "glencore/text": "mention" });
 });
 
+test("a name with its bracketed original or translation is one mention, judged once", () => {
+  assert.deepEqual(roles(link("前力拓（Rio Tinto）高管加盟初级勘探公司", { language: "zh" })), { "rio-tinto/text": "mention" });
+  assert.deepEqual(roles(link("前力拓(Rio Tinto)高管加盟初级勘探公司", { language: "zh" })), { "rio-tinto/text": "mention" });
+  assert.deepEqual(roles(link("曾任必和必拓（BHP）财务总监的某人出任董事", { language: "zh" })), { "bhp/text": "mention" });
+  assert.deepEqual(roles(link("Former Barrick (巴里克) executive joins junior explorer board")), { "barrick/text": "mention" });
+  assert.deepEqual(roles(link("Glencore (嘉能可)-backed explorer raises funds", { language: "en" })), { "glencore/text": "mention" });
+  assert.deepEqual(roles(link("力拓（Rio Tinto）宣布扩产", { language: "zh" })), { "rio-tinto/text": "subject" }, "the company's own news");
+  assert.deepEqual(roles(link("此前力拓（Rio Tinto）宣布扩产", { language: "zh" })), { "rio-tinto/text": "subject" });
+  const both = link("前力拓（Rio Tinto）高管加盟初级勘探公司", { language: "zh" })[0]!;
+  assert.equal(both.hits, 2, "both spellings still count as hits");
+});
+
 test("with a model answer the subject is what the model named and the text grounds", () => {
   const body = "Barrick and Newmont operate the joint venture. Separately, BHP said its outlook was unchanged.";
   assert.deepEqual(roles(link("Nevada Gold Mines output falls", { body, modelSubjects: ["barrick"] })), {
