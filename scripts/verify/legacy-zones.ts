@@ -1,5 +1,10 @@
 // The parts being rewritten block by block (DEC-79) are listed in legacy-zones.json. For each zone:
-//   - new code (`next`) never imports the old code (`legacy`): the rewrite does not lean on what it replaces;
+//   - new code (`next`) never imports the old code (`legacy`): the rewrite does not lean on what it replaces. A zone
+//     marked `transitive` also refuses a chain of imports through other files (the reader: a page that imports a
+//     shared module which imports an old component would ship the old code all the same). Files outside the old code
+//     that only the old code may use (`oldOnly`: the old reader's phrase book and page metadata, which the admin keeps)
+//     are barred to new code the same way, directly or through a chain, but are not old code: importing them does not
+//     make a file an importer;
 //   - the files outside the zone that import the old code (`importers`) are listed, and the list only gets
 //     shorter: a new importer is a new seam to cut later, so it fails; one that stopped importing must come
 //     off the list in the same change;
@@ -21,6 +26,10 @@ export interface Zone {
   legacy: string[];
   except?: string[];
   next: string[];
+  /** New code may not reach the old code through any chain of imports, not only directly. */
+  transitive?: boolean;
+  /** Files outside `legacy` that new code may not use either, because they belong to what is being replaced. */
+  oldOnly?: string[];
   importers: string[];
 }
 
@@ -70,7 +79,7 @@ export function zoneImports(
   zones: readonly Zone[],
   root = ROOT,
   files?: readonly string[],
-): Map<string, { old: string[]; importers: string[]; leaning: string[] }> {
+): Map<string, { old: string[]; importers: string[]; leaning: string[]; reaching: Map<string, string[]> }> {
   const all = files ?? git(["ls-files", "-z"], root).split("\0").filter(Boolean);
   const tracked = new Set(all);
   const packages = workspaces(root, all);
@@ -89,18 +98,42 @@ export function zoneImports(
       ],
     ]),
   );
-  const out = new Map<string, { old: string[]; importers: string[]; leaning: string[] }>();
+  const out = new Map<string, { old: string[]; importers: string[]; leaning: string[]; reaching: Map<string, string[]> }>();
   for (const zone of zones) {
     const isOld = (f: string) => matchesAny(f, zone.legacy) && !matchesAny(f, zone.except ?? []);
     const old = all.filter(isOld);
+    const barred = (f: string) => isOld(f) || matchesAny(f, zone.oldOnly ?? []);
     const users = sources.filter((f) => !isOld(f) && targets.get(f)!.some(isOld));
-    out.set(zone.name, {
-      old,
-      importers: users.filter((f) => !matchesAny(f, zone.next)).sort(),
-      leaning: users.filter((f) => matchesAny(f, zone.next)).sort(),
-    });
+    const leaning = sources.filter((f) => matchesAny(f, zone.next) && !isOld(f) && targets.get(f)!.some(barred)).sort();
+    const reaching = new Map<string, string[]>();
+    if (zone.transitive)
+      for (const f of sources.filter((s) => matchesAny(s, zone.next) && !leaning.includes(s)).sort()) {
+        const chain = chainToOld(f, targets, barred);
+        if (chain) reaching.set(f, chain);
+      }
+    out.set(zone.name, { old, importers: users.filter((f) => !matchesAny(f, zone.next)).sort(), leaning, reaching });
   }
   return out;
+}
+
+/** The shortest chain of imports from `start` to an old file (both ends included), or null when there is none. */
+function chainToOld(start: string, targets: ReadonlyMap<string, readonly string[]>, isOld: (f: string) => boolean): string[] | null {
+  const from = new Map<string, string>([[start, ""]]);
+  const queue = [start];
+  for (let i = 0; i < queue.length; i++) {
+    const file = queue[i]!;
+    for (const next of targets.get(file) ?? []) {
+      if (from.has(next)) continue;
+      from.set(next, file);
+      if (isOld(next)) {
+        const chain = [next];
+        for (let at = file; at; at = from.get(at)!) chain.unshift(at);
+        return chain;
+      }
+      queue.push(next);
+    }
+  }
+  return null;
 }
 
 export const loadZones = (root = ROOT): Zone[] =>
@@ -121,6 +154,7 @@ export function checkLegacyZones(root = ROOT, zones = loadZones(root), files?: r
       continue;
     }
     for (const f of found.leaning) problems.push(`${f}: new code of zone ${name} imports the old code it replaces`);
+    for (const [f, chain] of found.reaching) problems.push(`${f}: new code of zone ${name} reaches the old code it replaces through ${chain.join(" -> ")}`);
     const listed = new Set(zone.importers);
     for (const f of found.importers) if (!listed.has(f)) problems.push(`${f}: a new importer of the old code of zone ${name}; the list only gets shorter`);
     const now = new Set(found.importers);
