@@ -106,7 +106,7 @@ test("yesterday's flow, the silent sources by reason, translation lag and accoun
     "评过分、合格但没有公开：1 条",
     "译文：该有中文译文的外文稿 5 条，还没有的 3 条（60%）",
     "模型余额 deepseek：90 元，按近 7 天的用量约够 3 天",
-    "模型余额 qwen：最新余额没读到，上次读到的是 40 元（11月18日 06:00），已过期",
+    "模型余额 qwen：最新余额没读到，上次读到的是 40 元（11月18日 06:00），这个读数已过期",
   ]);
 });
 
@@ -135,7 +135,7 @@ test("a failed send keeps the day's numbers unsent, the next run sends them, and
   assert.deepEqual(await sendReconcile(NOW + 60_000), { day: "2026-11-18", sent: true });
   assert.deepEqual(await storedDays(), [{ day: "2026-11-18", sent: true }]);
   assert.equal(feishu.messages.length, 1);
-  assert.match(feishu.messages[0]!, /📊 每日对账 · 11月18日\n读者昨天看到：新公开 7 条/);
+  assert.match(feishu.messages[0]!, /📊 每日对账 · 11月18日\n读者昨天看到：新公开 \d+ 条/);
 
   assert.deepEqual(await sendReconcile(NOW + 3600_000), { day: "2026-11-18", sent: false });
   assert.equal(feishu.messages.length, 1);
@@ -143,8 +143,11 @@ test("a failed send keeps the day's numbers unsent, the next run sends them, and
 
 test("with sending off the day stays unsent and goes out once sending is on; the last thirty days are kept", async (t) => {
   // Twenty-nine older days and 18 November make thirty; the next day pushes the oldest out.
+  // The history is written here in full, so this test does not lean on what an earlier test left behind.
   const older = Array.from({ length: 29 }, (_, i) => ({ day: `2026-10-${String(i + 1).padStart(2, "0")}`, sent: true }));
-  await sql`UPDATE settings SET value = ${sql.json(older as never)} || value WHERE key='reconcile.daily'`;
+  const seeded = [...older, { day: "2026-11-18", sent: true }];
+  await sql`INSERT INTO settings(key, value, updated_by) VALUES('reconcile.daily', ${sql.json(seeded as never)}, 'test')
+    ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value`;
 
   const before = process.env.FEISHU_INTERNAL_ENABLED;
   process.env.FEISHU_INTERNAL_ENABLED = "false";

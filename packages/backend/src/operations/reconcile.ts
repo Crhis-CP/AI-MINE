@@ -109,7 +109,7 @@ const percent = (part: number, whole: number) => (whole ? `${Math.round((part / 
 function balanceLine(b: AccountDaysLeft): string {
   if (b.stale) {
     const when = Number.isFinite(Date.parse(b.at)) ? `（${beijingStamp(b.at)}）` : "";
-    return `模型余额 ${b.service}：最新余额没读到，上次读到的是 ${b.yuan.toFixed(0)} 元${when}，已过期`;
+    return `模型余额 ${b.service}：最新余额没读到，上次读到的是 ${b.yuan.toFixed(0)} 元${when}，这个读数已过期`;
   }
   const lasts = b.days === null ? "" : b.days < 1 ? "，按近 7 天的用量不到 1 天就会用完" : `，按近 7 天的用量约够 ${b.days} 天`;
   return `模型余额 ${b.service}：${b.yuan.toFixed(0)} 元${lasts}`;
@@ -142,9 +142,10 @@ type StoredDay = Reconciliation & { sent: boolean };
 
 /**
  * Every morning: compute, keep the last thirty days for comparison, and send. The day is stored before sending, marked
- * unsent, so a Feishu failure loses neither the numbers nor the message: the error fails the job, and the next run for
- * that day (the retry, or a later run the same day) sends it. A day already sent is not sent again. With sending
- * switched off the day stays unsent and goes out once sending is on.
+ * unsent, so a Feishu failure never loses the numbers. The error fails the job; the queue retries it once at once, and
+ * any later run for the same day sends the message. Nothing else runs it again that day (the schedule fires once), so
+ * after a longer outage the day stays stored and unsent. A day already sent is not sent again. With sending switched
+ * off the day stays unsent and goes out if a later run that day finds sending on.
  */
 export async function sendReconcile(now = Date.now()): Promise<{ day: string; sent: boolean }> {
   const result = await reconcile(now);
