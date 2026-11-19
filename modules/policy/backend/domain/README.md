@@ -37,7 +37,7 @@ TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyI
 `readPolicyMetadataObservation(expressionId)` 是内部可信元数据端口，返回当前原件可回读字段依据，以及 material_discoveries 的真实最早 discovered_at；无依据返回 null。其结果供 publication 独立基本事实资格判断，不公开私有源配置、许可或模型字段。两张证据表只追加，workflow 表供独立 policy 队列续跑；HTTP 读取不会调用取得或排队。
 
 
-`advancePolicyMaterial` 每次推进一个有限阶段，独立 policy 队列经现有 `jobs/content` 组合入口转发。初始取得先尝试独立基本事实发布，完整输出仍只交可信发布端；partial续跑，未知回执与异常停止自动付费，同 URL 按来源显式 recheckMinutes 复查。视觉extracted后须重新通过完整全文计划，不能用视觉结果替代目录完整性。新调度不改新闻成功计数、首次材料入库或公开读取路径。
+`advancePolicyMaterial` 每次推进一个有限阶段，独立 policy 队列由法规模块的 server 入口注册（原先经 `jobs/content` 的转发已删除）。初始取得先尝试独立基本事实发布，完整输出仍只交可信发布端；partial续跑，未知回执与异常停止自动付费，同 URL 按来源显式 recheckMinutes 复查。视觉extracted后须重新通过完整全文计划，不能用视觉结果替代目录完整性。新调度不改新闻成功计数、首次材料入库或公开读取路径。
 
 ## PDF视觉候选（TASK-0126）
 

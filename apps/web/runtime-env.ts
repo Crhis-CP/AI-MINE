@@ -60,6 +60,8 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "ORIGIN_SECRET_HEADER",
     // Seconds a shared cache may keep a reader page (TASK-0672); unset means 30, 0 turns it off.
     "PAGE_CACHE_SECONDS",
+    // Which reader pages the public host serves (apps/web/reader-impl.ts); unset means the code's default.
+    "READER_IMPL",
     "ORIGIN_ENFORCE",
     // Search-console ownership codes shown on the home page (TASK-0590).
     "GOOGLE_SITE_VERIFICATION",

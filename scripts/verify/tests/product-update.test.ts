@@ -140,3 +140,31 @@ test("internal reader-file refactors need a changed, exact-path explanation with
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("files of the rewritten reader count as reader files, before and after readers are switched to it", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "rewrite-reader-change-"));
+  try {
+    mkdirSync(path.join(root, "industry"));
+    mkdirSync(path.join(root, "changes"));
+    const reader = "changes/TASK-0447-reader.md",
+      internal = "changes/TASK-0367-reader-build.md";
+    writeFileSync(path.join(root, reader), "---\ntype: 优化\naudience: 读者\ntitle: 阅读更顺畅\nhighlights:\n  - 返回列表时保留阅读位置。\n---\n");
+    const previous = JSON.stringify({ note: { kind: "优化", title: "阅读更顺畅", body: ["返回列表时保留阅读位置。"] }, fragments: [reader] });
+    writeFileSync(path.join(root, "industry/release-note.json"), previous);
+    const page = "apps/web/reader/routes/home.tsx";
+    assert.ok(checkProductUpdate(root, [page], previous).length, "a rewritten page needs a note");
+    writeFileSync(
+      path.join(root, internal),
+      `---\ntype: 优化\naudience: 运营\ntitle: 新读者页面骨架\nhighlights:\n  - 公开站仍显示现行页面。\nreader_unchanged:\n  paths: ["${page}"]\n  reason: "公开站仍由现行页面服务，读者看不到新页面。"\n---\n`,
+    );
+    assert.deepEqual(checkProductUpdate(root, [page, internal], previous), []);
+    // The switch between the two is a reader file too: changing its default changes what every reader sees.
+    assert.ok(checkProductUpdate(root, ["apps/web/reader-impl.ts"], previous).length);
+    assert.deepEqual(checkProductUpdate(root, ["apps/web/readers.md", "apps/web/app/lib/admin.server.ts", "apps/web/app/private.css"], previous), []);
+    // Files both readers share change the live old pages too, whichever reader the work is for.
+    for (const shared of ["apps/web/app/app.css", "apps/web/app/root.tsx", "apps/web/app/lib/format.ts", "apps/web/app/i18n/zh.ts"])
+      assert.ok(checkProductUpdate(root, [shared], previous).length, shared);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -749,6 +749,42 @@
     "publication.withdrawn_reasons": {
       "module": "publication",
       "access": "business"
+    },
+    "entities.entities": {
+      "module": "entities",
+      "access": "business"
+    },
+    "entities.statements": {
+      "module": "entities",
+      "access": "business"
+    },
+    "entities.merges": {
+      "module": "entities",
+      "access": "business"
+    },
+    "entities.article_links": {
+      "module": "entities",
+      "access": "business"
+    },
+    "enrichment.analysis_checks": {
+      "module": "enrichment",
+      "access": "business"
+    },
+    "events.shadow_decisions": {
+      "module": "events",
+      "access": "business"
+    },
+    "events.fact_timing": {
+      "module": "events",
+      "access": "business"
+    },
+    "events.engine_switches": {
+      "module": "events",
+      "access": "business"
+    },
+    "publication.event_rank": {
+      "module": "publication",
+      "access": "business"
     }
   },
   "externalTables": {
