@@ -41,9 +41,7 @@
         "scripts/gold-from-labels.ts",
         "scripts/regroup-events.ts",
         "scripts/resume-copy.ts",
-        "scripts/rules-replay.ts",
-        "scripts/selection-experiment-data.ts",
-        "scripts/selection-experiment.ts"
+        "scripts/rules-replay.ts"
       ]
     },
     {
