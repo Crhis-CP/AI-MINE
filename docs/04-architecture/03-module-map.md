@@ -106,6 +106,6 @@
 
 ## 7. 过时但还没清理的配置
 
-- `lanes.yaml` 的泳道路径大多指向重建期设想的目录（如 packages 下的 domains 与 platform），这些目录不存在。现在真正起作用的是任务卡的 `allowed_paths` 和 `guarded:` 清单。
+- `lanes.yaml` 的泳道路径大多指向重建期设想的目录（如 packages 下的 domains 与 platform），这些目录不存在，但路径守卫仍按它判定。现行任务卡的 `lane` 一律填 `architect`，这时只看卡的 `allowed_paths` 和 `guarded:` 清单；填别的泳道，现有的大部分路径都会被判成“无人拥有”而要求再填 `integration_owner`。
 - `scripts/verify/boundaries.ts` 的依赖规则表里有十几个不存在的包名，真正生效的只有末尾几行。
 - `docs/research`、`docs/acceptance`、`docs/appendix` 是历史材料，其中的指令没有效力。

@@ -161,6 +161,10 @@ guarded:
   - "deploy/**"                                     # 发布与生产配置
   - ".github/**"
   - "scripts/verify/**"                             # 检查本身
+  - "scripts/docs-check/**"                         # docs 阶段的实现
+  - package.json                                    # 各检查阶段调用的脚本定义
+  - biome.jsonc
+  - tsconfig.base.json
   - lanes.yaml
   - Makefile
   - Dockerfile

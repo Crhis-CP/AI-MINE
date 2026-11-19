@@ -14,8 +14,8 @@ AI矿策（<https://aiminingpolicy.com>）给矿业从业者提供矿业资讯�
 ## 1. 谁做什么
 
 - **Owner（Chris）**：定产品方向。花钱的事（充值、采购、扩容、新增付费服务、一次性花模型费的回填或重算）和删除生产数据，每次由他当次决定。每个包由他说“上”。LOGO 与站名是他定的，不改。
-- **Claude**：架构、规则、设计与实现、任务卡，并审查 Codex 的代码。上面两类之外的取舍由 Claude 决定（Owner 2026-11-13 委托），包括评分与规则调整、启用资讯线信源、读者文案与更新说明；Claude 在看板上的指示与 Owner 同等效力。
-- **Codex**：合并、发布、线上核对与只读查询，以及 Claude 写好任务卡指派的实现。生产环境只有 Codex 动。
+- **Claude**：架构、规则、设计与实现、任务卡，审查 Codex 的代码，并合并检查通过的 PR（Owner 2026-11-19）。上面两类之外的取舍由 Claude 决定（Owner 2026-11-13 委托），包括评分与规则调整、启用资讯线信源、读者文案与更新说明；Claude 在看板上的指示与 Owner 同等效力。
+- **Codex**：发布、线上核对与只读查询，以及 Claude 写好任务卡指派的实现。生产环境只有 Codex 动。
 - 交接只在协作看板 [Issue #348](https://github.com/Crhis-CP/AI-MINE/issues/348)：开工前读最新一条【Claude→Codex】。消息格式与细则见 `docs/06-agents/03-claude-codex-collaboration.md`。
 
 ## 2. 开工前读这些
@@ -51,7 +51,7 @@ AI矿策（<https://aiminingpolicy.com>）给矿业从业者提供矿业资讯�
 ```bash
 npm ci                                # 按固定锁安装（Node 24.11 以上，npm 版本以 package.json 的 packageManager 为准）
 npm run check                         # 提交前：格式、类型、契约漂移、边界、名称、数据归属、检查自测与前端测试
-npm test -- tests/<文件>.test.ts      # 只跑一个测试文件；连数据库的测试需要 DATABASE_URL 指向名字以 _test 结尾的临时库
+npm test -- tests/<文件>.test.ts      # 只跑一个测试文件；任何测试都需要本机 PostgreSQL，DATABASE_URL 指向名字以 _test 或 _ci 结尾的临时库
 npm run e2e                           # Playwright 冒烟（桌面与手机）
 npm run contracts:gen                 # 重新生成对外接口文档
 ```
@@ -62,7 +62,7 @@ npm run contracts:gen                 # 重新生成对外接口文档
 
 ## 5. 授权边界
 
-- **直接做**：仓库内的代码、测试、文档、分支与 PR；读取公开网站做来源研究（守 robots 与许可规则，不绕过验证）；资讯线信源的新增、修复与启用。
+- **直接做**：仓库内的代码、测试、文档、分支与 PR；合并完整检查（`make-verify`）通过的 PR；读取公开网站做来源研究（守 robots 与许可规则，不绕过验证）；资讯线信源的新增、修复与启用。
 - **Owner 当次决定**：一切花钱的事；删除或清理生产数据与备份；域名、DNS、备案；条款与隐私说明的内容；法规线盯哪些信源、哪些受限信源开放原文。模型服务由 Owner 在后台自行添加并填写密钥，不代开新的付费服务。
 - **不做**：读取或打印任何现有密钥；让 Owner 敲终端；Claude 直接改动生产环境。
 - 已授权的可逆工作连续推进，不逐步请示；遇到材料缺失，先完成不受影响的部分并写明缺什么。
