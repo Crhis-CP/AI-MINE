@@ -275,10 +275,27 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
       if (map.tables[table] && map.tables[table].module !== owner.module) errors.push(`existing table owner changed: ${table}`);
     for (const [file, owner] of Object.entries(previous.map.fileModules ?? {}))
       if (map.fileModules?.[file] !== owner) errors.push(`existing source owner changed: ${file}`);
-    for (const kind of ["settings", "moduleAliases", "externalTables"] as const)
-      for (const [key, value] of Object.entries(map[kind]))
-        if (JSON.stringify(previous.map[kind][key]) !== JSON.stringify(value)) errors.push(`ownership rule expanded or changed: ${kind}.${key}`);
+    errors.push(...ownershipRuleChanges(map, previous.map));
   }
+  return errors;
+}
+
+/**
+ * Changes to the ownership rules themselves against the base. An existing rule may not change, and module aliases and
+ * external tables may not grow. One addition is ordinary: a new settings key with its owner (a module that starts
+ * keeping a setting says so here). It must be an exact key: a new wildcard could take over keys other modules own.
+ */
+export function ownershipRuleChanges(
+  map: Pick<OwnershipMap, "settings" | "moduleAliases" | "externalTables">,
+  previous: Pick<OwnershipMap, "settings" | "moduleAliases" | "externalTables">,
+): string[] {
+  const errors: string[] = [];
+  for (const kind of ["settings", "moduleAliases", "externalTables"] as const)
+    for (const [key, value] of Object.entries(map[kind])) {
+      const before = previous[kind][key];
+      if (kind === "settings" && before === undefined && !key.includes("*")) continue;
+      if (JSON.stringify(before) !== JSON.stringify(value)) errors.push(`ownership rule expanded or changed: ${kind}.${key}`);
+    }
   return errors;
 }
 
