@@ -23,7 +23,7 @@ test("web dev and start commands share one API target even with a stale private 
   // Observe the environment actually delivered by each package command, without starting a second web server.
   const probe = `#!/bin/sh\nexec "$FIXTURE_NODE" -e 'process.stdout.write(JSON.stringify({API_BASE_URL:process.env.API_BASE_URL,PRIVATE_API_BASE_URL:process.env.PRIVATE_API_BASE_URL,WEB_ROUTE_GROUP:process.env.WEB_ROUTE_GROUP}))'\n`;
   for (const name of ["react-router", "node"]) writeFileSync(path.join(bin, name), probe, { mode: 0o700 });
-  for (const name of ["dev", "dev:private", "start"]) {
+  for (const name of ["dev", "dev:private", "dev:reader", "start"]) {
     for (const target of [undefined, "http://127.0.0.1:49002"]) {
       const result = spawnSync("/bin/sh", ["-c", scripts[name]!], {
         env: { PATH: bin, FIXTURE_NODE: process.execPath, API_BASE_URL: env.API_BASE_URL, ...(target ? { PRIVATE_API_BASE_URL: target } : {}) },
@@ -33,7 +33,7 @@ test("web dev and start commands share one API target even with a stale private 
       assert.equal(result.error, undefined);
       assert.equal(result.status, 0, result.stderr);
       const supplied = JSON.parse(result.stdout);
-      assert.equal(supplied.WEB_ROUTE_GROUP, name === "start" ? undefined : name === "dev" ? "public" : "private");
+      assert.equal(supplied.WEB_ROUTE_GROUP, { dev: "public", "dev:private": "private", "dev:reader": "reader", start: undefined }[name]);
       assert.equal(apiBaseFor(supplied), env.API_BASE_URL);
     }
   }

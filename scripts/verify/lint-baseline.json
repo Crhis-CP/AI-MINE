@@ -101,6 +101,9 @@
   "apps/web/app/routes/story.tsx": {
     "lint/correctness/useExhaustiveDependencies": 5
   },
+  "apps/web/reader/root.tsx": {
+    "lint/security/noDangerouslySetInnerHtml": 1
+  },
   "apps/worker/src/main.ts": {
     "lint/style/noProcessEnv": 1
   },

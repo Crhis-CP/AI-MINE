@@ -1534,6 +1534,99 @@
         "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
         "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
       }
+    },
+    "entities.entities": {
+      "module": "entities",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "entities.statements": {
+      "module": "entities",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "entities.merges": {
+      "module": "entities",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "entities.article_links": {
+      "module": "entities",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "DELETE"],
+        "worker": ["SELECT", "INSERT", "DELETE"]
+      }
+    },
+    "enrichment.analysis_checks": {
+      "module": "enrichment",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "DELETE"]
+      }
+    },
+    "events.shadow_decisions": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "events.fact_timing": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "events.engine_switches": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.event_rank": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [
+        "article_id",
+        "fact_id",
+        "story_id",
+        "reported_at",
+        "freshness",
+        "occurred_on",
+        "anchor_at",
+        "importance",
+        "genre",
+        "topic",
+        "decided_at"
+      ],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
     }
   },
   "sequences": {
@@ -1557,6 +1650,9 @@
     "sources.source_config_drafts_id_seq": "sources.source_config_drafts",
     "sources.source_previews_id_seq": "sources.source_previews",
     "sources.source_config_activations_id_seq": "sources.source_config_activations",
-    "editorial.withdrawal_records_id_seq": "editorial.withdrawal_records"
+    "editorial.withdrawal_records_id_seq": "editorial.withdrawal_records",
+    "entities.statements_id_seq": "entities.statements",
+    "entities.merges_id_seq": "entities.merges",
+    "events.engine_switches_id_seq": "events.engine_switches"
   }
 }

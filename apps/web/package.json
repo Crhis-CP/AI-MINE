@@ -4,10 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "WEB_ROUTE_GROUP=public react-router dev --port 3000 --host 127.0.0.1",
-    "build": "WEB_ROUTE_GROUP=public react-router build && WEB_ROUTE_GROUP=private react-router build",
+    "build": "WEB_ROUTE_GROUP=public react-router build && WEB_ROUTE_GROUP=private react-router build && WEB_ROUTE_GROUP=reader react-router build",
     "start": "node server.ts",
-    "typecheck": "WEB_ROUTE_GROUP=public react-router typegen && tsc -p tsconfig.public.json && WEB_ROUTE_GROUP=private react-router typegen && tsc -p tsconfig.private.json",
-    "dev:private": "WEB_ROUTE_GROUP=private react-router dev --port 3003 --host 127.0.0.1"
+    "typecheck": "WEB_ROUTE_GROUP=public react-router typegen && tsc -p tsconfig.public.json && WEB_ROUTE_GROUP=private react-router typegen && tsc -p tsconfig.private.json && WEB_ROUTE_GROUP=reader react-router typegen && tsc -p tsconfig.reader.json",
+    "dev:private": "WEB_ROUTE_GROUP=private react-router dev --port 3003 --host 127.0.0.1",
+    "dev:reader": "WEB_ROUTE_GROUP=reader react-router dev --port 3000 --host 127.0.0.1"
   },
   "dependencies": {
     "@amp/contracts": "*",
