@@ -28,7 +28,6 @@ import {
 import { QUEUES } from "../jobs/queue.ts";
 import { enqueueJob as enqueue } from "../jobs/module-queues.ts";
 import { enqueueSourceFetch, collectionEnabled, type CollectionLane } from "../jobs/source-queues.ts";
-import { ALL_POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { queueProcessing } from "../jobs/content.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { fetchRss } from "./rss.ts";
@@ -430,7 +429,6 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
   }
 }
 
-const policyJurisdictions = new Map(ALL_POLICY_SOURCES.map((source) => [`policy-${source.id.toLowerCase()}`, source.jurisdiction]));
 /** Each lane receives its own batch; policy countries take turns before any country takes a second slot. */
 export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDULE_BATCH || 40), lane?: CollectionLane): Promise<{ enqueued: number }> {
   if (!lane) {
@@ -440,15 +438,16 @@ export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDU
   if (!collectionEnabled(lane)) return { enqueued: 0 };
   const kinds: string[] = (process.env.COLLECT_KINDS || "rss,web_list,json_list").split(",");
   const skipJina = process.env.COLLECT_SKIP_JINA === "true";
-  const rows = await sql<{ id: string }[]>`
-    SELECT id FROM sources
+  const rows = await sql<{ id: string; jurisdiction: string | null }[]>`
+    SELECT id, jurisdiction FROM sources
     WHERE enabled AND lane = ${lane} AND kind = ANY(${kinds}::text[]) AND (next_fetch_at IS NULL OR next_fetch_at <= now())
       AND (NOT ${skipJina} OR config::text NOT LIKE '%r.jina.ai%')
     ORDER BY next_fetch_at NULLS FIRST, id`;
   const countrySlots = new Map<string, number>();
   const ordered = rows
     .map((row, index) => {
-      const country = policyJurisdictions.get(row.id) ?? row.id;
+      // A source without a recorded jurisdiction takes turns as a country of its own.
+      const country = row.jurisdiction ?? row.id;
       const round = lane === "policy" ? (countrySlots.get(country) ?? 0) : 0;
       countrySlots.set(country, round + 1);
       return { ...row, round, index };

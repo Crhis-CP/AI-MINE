@@ -19,6 +19,8 @@ TASK-0367统一升级保留主线故障修复：同一逻辑请求的未知回�
 - 关闭后旧待执行查询留在已关闭的驱动，不转发到新根；重开后重新创建查询。取消、游标和保留连接遵循驱动自身接口，不再包一层通用代理。
 - 真实表权限继续由数据库角色控制；静态文件归属登记只用于检查跨表写入，不能授予权限。保留的UNKNOWN位置仍是未静态证明，不当成安全或完整验收。
 
+信源目录以数据库为准（DEC-79）：信源所在国家与语言记在`sources.jurisdiction`、`sources.language`两列，采集轮转、法规覆盖统计与法规发布经`admin/sources`的`readSourceProfile`读取，运行时不再读`industry/`里的目录文件。整份目录用`scripts/source-catalogue.ts`搬运：`export`把全部信源连同当前许可记录写成一份JSON；`import <文件>`只做检查并列出将新建与不合格的条目，加`--apply`才写入。导入只新建缺少的信源、一律停用，不改已有信源；`createSource`的`restore`选项（许可记录、发布机构、人工固定的间隔，先经`validateSourceRestore`检查）只给这个脚本用，与信源本身在同一事务写入。导出文件含许可证据，不进仓库。
+
 来源许可写入从`@amp/backend/admin/sources`导入`saveSourcePolicy(id, input, actor)`。`input`可选传`expectedSourceGuard: { ownerEntityId: string | null }`；明确传入时必须含字符串或null，显式空值只作精确比较，不是同机构迁域证据。无效守卫或来源不存在、已归档、机构不符时按原冲突路径拒绝，不写许可版本或成功审计。
 
 守卫在原保存事务内依次取得`23621 + hashtext(sourceId)`许可锁及来源行锁，保护机构和未归档状态直到原版本CAS、审计与提交完成；不增加启用状态或`updated_at`门槛，不写来源配置、启停或历史。未传守卫的旧调用、返回许可对象及版本/审计行为不变；用途、证据、条件与迁域身份要求仍由原许可机制及对应消费者校验，守卫不替代许可证。

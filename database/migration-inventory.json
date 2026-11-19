@@ -583,6 +583,10 @@
     {
       "name": "publication/202611130408_withdrawn_reasons.sql",
       "dependsOn": ["publication/202611061200_news_links.sql"]
+    },
+    {
+      "name": "sources/202611191000_source_jurisdiction_language.sql",
+      "dependsOn": ["sources/202611111000_interval_pinned.sql"]
     }
   ]
 }
