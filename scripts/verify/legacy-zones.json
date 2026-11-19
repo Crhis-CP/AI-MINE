@@ -1,5 +1,5 @@
 {
-  "$comment": "The parts being rewritten block by block (DEC-79), read by scripts/verify/legacy-zones.ts. legacy: the old code (except: paths inside it that stay). next: where the new code goes; it never imports the old code. importers: the production files outside the zone that import the old code today, the seam list of the rewrite; it only gets shorter, and the zone is removed when its old code is deleted. Print the current importers with: node scripts/verify/legacy-zones.ts --print This file is a guarded path: the task card of a change that edits it must already be on main and list scripts/verify/legacy-zones.json.",
+  "$comment": "The parts being rewritten block by block (DEC-79), read by scripts/verify/legacy-zones.ts. legacy: the old code (except: paths inside it that stay). next: where the new code goes; it never imports the old code (transitive: not even through other files; oldOnly: files outside the old code that new code may not use either). importers: the production files outside the zone that import the old code today, the seam list of the rewrite; it only gets shorter, and the zone is removed when its old code is deleted. Print the current importers with: node scripts/verify/legacy-zones.ts --print This file is a guarded path: the task card of a change that edits it must already be on main and list scripts/verify/legacy-zones.json.",
   "zones": [
     {
       "name": "news-pipeline",
@@ -26,6 +26,16 @@
       "legacy": ["apps/web/app/routes/**", "apps/web/app/features/**", "apps/web/app/components/**", "modules/policy/web/**", "modules/metals/web/**"],
       "except": ["apps/web/app/routes/admin/**", "apps/web/app/routes/admin-login.tsx", "apps/web/app/features/admin/**"],
       "next": ["apps/web/reader/**"],
+      "transitive": true,
+      "oldOnly": [
+        "apps/web/app/i18n/**",
+        "apps/web/app/lib/seo.ts",
+        "apps/web/app/lib/site-copy.ts",
+        "apps/web/app/lib/feedback-draft.ts",
+        "apps/web/app/root.tsx",
+        "apps/web/app/entry.client.tsx",
+        "apps/web/app/entry.server.tsx"
+      ],
       "importers": [
         "apps/web/app/features/admin/VisitGlobe.tsx",
         "apps/web/app/root.tsx",

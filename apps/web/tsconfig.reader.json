@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["reader/**/*.ts", "reader/**/*.tsx", ".react-router/types/**/*"]
+}
