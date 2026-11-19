@@ -144,6 +144,22 @@ test("a bracketed original the writer gave follows the first-mention rule; one t
   assert.equal(render(result.text).text, result.text);
 });
 
+test("a 集团 or 公司 the writer put after a name stays with it; the bracket goes after it, on the first mention only", () => {
+  const result = render("力拓集团（Rio Tinto）宣布，力拓集团（Rio Tinto）称");
+  assert.equal(result.text, "力拓集团（Rio Tinto）宣布，力拓集团称");
+  assert.deepEqual(result.unregistered, [], "集团 is not an unknown name of 力拓");
+  assert.deepEqual(result.changes, [{ entityId: "rio-tinto", from: "力拓集团（Rio Tinto）", to: "力拓集团" }]);
+  assert.equal(render(result.text).text, result.text);
+  assert.equal(render("力拓集团宣布，力拓集团称").text, "力拓集团（Rio Tinto）宣布，力拓集团称");
+  assert.equal(render("Rio Tinto集团宣布").text, "力拓集团（Rio Tinto）宣布");
+  assert.equal(render("必和必拓公司（BHP）宣布，必和必拓公司（BHP）称").text, "必和必拓公司（BHP）宣布，必和必拓公司称");
+  assert.equal(render("BHP集团（必和必拓）宣布").text, "必和必拓集团（BHP）宣布");
+  assert.equal(render("紫金矿业集团（Zijin Mining）收购").text, "紫金矿业集团收购", "Chinese companies take no bracket");
+  assert.equal(render("力拓集团（Rio Tinto，ASX: RIO）宣布").text, "力拓集团（Rio Tinto，ASX: RIO）宣布", "a bracket that says more is kept");
+  assert.equal(render("力拓（Rio Tinto）集团宣布").text, "力拓（Rio Tinto）集团宣布", "a bracket right after the name is the writer's");
+  assert.equal(render("科德尔科公司（Codelco）宣布，科德尔科公司（Codelco）称").text, "智利国家铜业公司（Codelco）宣布，智利国家铜业公司称");
+});
+
 test("a bare listing symbol is left as written; it still answers which company it is", () => {
   assert.equal(render("FCX股价上涨").text, "FCX股价上涨");
   assert.equal(render("Freeport-McMoRan（FCX）公布季度业绩").text, "自由港麦克莫兰（Freeport-McMoRan）（FCX）公布季度业绩");

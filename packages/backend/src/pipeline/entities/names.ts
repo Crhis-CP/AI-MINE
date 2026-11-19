@@ -95,6 +95,12 @@ export function renderNames(index: EntityIndex, text: string, ctx?: { linked?: R
     let end = hit.end;
     const suffix = NAME_SUFFIXES.find((s) => entity.nameZh!.endsWith(s) && !hit.alias.endsWith(s) && text.startsWith(s, end));
     if (suffix && hasHan(hit.alias)) end += suffix.length;
+    // A 集团/公司 the writer put after a name whose Chinese name has none stays as written and belongs to the name:
+    // its bracket comes after it (力拓集团（Rio Tinto）), and one the writer gave there follows the same rules.
+    const form = NAME_SUFFIXES.some((s) => entity.nameZh!.endsWith(s))
+      ? ""
+      : (NAME_SUFFIXES.find((s) => !hit.alias.endsWith(s) && text.startsWith(s, end)) ?? "");
+    end += form.length;
     let bracket = ownBracket(hit, end);
     // A bracket that only repeats a Chinese name goes, and the name before it gives the original: the one the
     // writer used when it is one (BHP（必和必拓） becomes 必和必拓（BHP）), else the registered one. A bare original
@@ -104,7 +110,7 @@ export function renderNames(index: EntityIndex, text: string, ctx?: { linked?: R
       if (bracket.kind === "original") bracket = null;
     }
     const original = bracket && !hasHan(hit.alias) ? hit.alias : entity.nameOriginal;
-    const to = entity.nameZh + (first && bracket?.kind !== "original" && entity.showOriginal ? `（${original}）` : "");
+    const to = entity.nameZh + form + (first && bracket?.kind !== "original" && entity.showOriginal ? `（${original}）` : "");
     const from = text.slice(hit.start, end);
     out.push(text.slice(cursor, hit.start), to);
     if (from !== to) changes.push({ entityId: entity.id, from, to });
