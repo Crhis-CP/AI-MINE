@@ -3,8 +3,12 @@ import path from "node:path";
 
 type Manifest = { routes: Record<string, { path?: string; module: string }> };
 
-/** The rewritten reader's client graph never holds the old reader's code (legacy-zones.json, zone reader). */
-const OLD_READER = /^(?:app\/(?:routes|features|components)\/|\.\.\/\.\.\/modules\/[^/]+\/web(?:\/|\.ts$)|\.\.\/\.\.\/site\/modules\/)/;
+/**
+ * The rewritten reader's client graph never holds the old reader's code, nor the files only the old reader uses
+ * (legacy-zones.json, zone reader: legacy and oldOnly).
+ */
+const OLD_READER =
+  /^(?:app\/(?:routes|features|components|i18n)\/|app\/lib\/(?:seo|site-copy|feedback-draft)\.ts$|app\/(?:root|entry\.client)\.tsx$|\.\.\/\.\.\/modules\/[^/]+\/web(?:\/|\.ts$)|\.\.\/\.\.\/site\/modules\/)/;
 
 /**
  * Read build output, without evaluating a generated browser script. Missing proof fails closed. Both public builds

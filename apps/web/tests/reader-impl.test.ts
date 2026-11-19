@@ -224,12 +224,20 @@ test("the rewrite's home page lists the featured reports as text, and says so pl
   assert.ok(html.includes(card.item.title) && html.includes(card.item.source.name), "card title and source");
   assert.ok(html.includes(FILINGS.icp) && html.includes("https://beian.miit.gov.cn/"), "footer filing number and its official link");
   assert.doesNotMatch(html, /href="\/items\//, "no link to an item page the rewrite does not have yet");
+  // The list is the first page of a timeline over several days, so the heading carries no date.
+  assert.match(html, /<h1[^>]*>最新精选<\/h1>/);
+  // Each language names itself in search and points at the other, Chinese standing for the rest.
+  const links = (page: string) =>
+    [...page.matchAll(/<link rel="(canonical|alternate)"(?: hrefLang="([^"]+)")? href="([^"]+)"/g)].map((m) => m.slice(1).join(" "));
+  const alternates = ["alternate zh-CN https://example.com/", "alternate en https://example.com/en", "alternate x-default https://example.com/"];
+  assert.deepEqual(links(html), ["canonical  https://example.com/", ...alternates]);
   fixture.cards = false;
   const empty = await (await fetch(`${impls.new.origin}/`)).text();
   const english = await (await fetch(`${impls.new.origin}/en`)).text();
   fixture.cards = true;
   assert.ok(empty.includes("还没有精选内容。") && !empty.includes(card.item.title));
   assert.ok(english.includes("Nothing has been featured yet.") && english.includes('<html lang="en"'));
+  assert.deepEqual(links(english).slice(0, 1), ["canonical  https://example.com/en"]);
 });
 
 test("the private host and its policy are the same under both values; the public host has no admin", async () => {

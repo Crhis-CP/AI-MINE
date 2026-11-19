@@ -1,7 +1,10 @@
 // The parts being rewritten block by block (DEC-79) are listed in legacy-zones.json. For each zone:
 //   - new code (`next`) never imports the old code (`legacy`): the rewrite does not lean on what it replaces. A zone
 //     marked `transitive` also refuses a chain of imports through other files (the reader: a page that imports a
-//     shared module which imports an old component would ship the old code all the same);
+//     shared module which imports an old component would ship the old code all the same). Files outside the old code
+//     that only the old code may use (`oldOnly`: the old reader's phrase book and page metadata, which the admin keeps)
+//     are barred to new code the same way, directly or through a chain, but are not old code: importing them does not
+//     make a file an importer;
 //   - the files outside the zone that import the old code (`importers`) are listed, and the list only gets
 //     shorter: a new importer is a new seam to cut later, so it fails; one that stopped importing must come
 //     off the list in the same change;
@@ -25,6 +28,8 @@ export interface Zone {
   next: string[];
   /** New code may not reach the old code through any chain of imports, not only directly. */
   transitive?: boolean;
+  /** Files outside `legacy` that new code may not use either, because they belong to what is being replaced. */
+  oldOnly?: string[];
   importers: string[];
 }
 
@@ -97,12 +102,13 @@ export function zoneImports(
   for (const zone of zones) {
     const isOld = (f: string) => matchesAny(f, zone.legacy) && !matchesAny(f, zone.except ?? []);
     const old = all.filter(isOld);
+    const barred = (f: string) => isOld(f) || matchesAny(f, zone.oldOnly ?? []);
     const users = sources.filter((f) => !isOld(f) && targets.get(f)!.some(isOld));
-    const leaning = users.filter((f) => matchesAny(f, zone.next)).sort();
+    const leaning = sources.filter((f) => matchesAny(f, zone.next) && !isOld(f) && targets.get(f)!.some(barred)).sort();
     const reaching = new Map<string, string[]>();
     if (zone.transitive)
       for (const f of sources.filter((s) => matchesAny(s, zone.next) && !leaning.includes(s)).sort()) {
-        const chain = chainToOld(f, targets, isOld);
+        const chain = chainToOld(f, targets, barred);
         if (chain) reaching.set(f, chain);
       }
     out.set(zone.name, { old, importers: users.filter((f) => !matchesAny(f, zone.next)).sort(), leaning, reaching });

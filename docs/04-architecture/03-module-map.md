@@ -83,9 +83,11 @@
 |---|---|
 | 共用：新页面可以用 | `cache.server.ts`（`server.ts` 读它的缓存标记）、`api.server.ts`、`http.ts`、`csp.ts`、`hashed-document.server.ts`、`visit-beacon.ts`、`render-recovery.ts`、`zod.client.ts`、`icons.ts`、`local-state.ts`（浏览器里的存储键名是和读者设备的约定，改名会丢掉读者的收藏）、`format.ts`、`markdown.ts`、`hydration.ts`、`motion.ts`、`clipboard.ts`、`body-images.ts`、`feedback-origin.ts` |
 | 后台专用 | `admin.server.ts`、`admin-response.ts` |
-| 旧读者专用：新页面不用 | `seo.ts`、`site-copy.ts`（依赖旧的 `apps/web/app/i18n`）、`feedback-draft.ts`（经 `site/modules/web.ts` 碰到旧页面代码，检查会拦） |
+| 旧读者专用：新页面不用 | `seo.ts`、`site-copy.ts`（依赖旧的 `apps/web/app/i18n`）、`feedback-draft.ts`（经 `site/modules/web.ts` 碰到旧页面代码） |
 
 样式同理：`apps/web/app/app.css` 与 `apps/web/app/assets` 共用，新页面在计划 3.1 之前直接引用；`apps/web/app/public.css` 属于旧读者，`apps/web/app/private.css` 属于后台。`apps/web/app/i18n`、`apps/web/app/root.tsx` 和两个入口文件是旧读者与后台的外壳，新页面有自己的一套。
+
+旧读者专用的这几个文件、`apps/web/app/i18n` 与外壳文件记在 `legacy-zones.json` 读者区的 `oldOnly` 里：新页面直接或经别的文件用到它们，检查都会拦；构建检查也核对新页面打包进浏览器的模块里没有它们。两套页面共用的文件（`apps/web/app/lib` 里后台专用以外的文件、`apps/web/app/i18n`、`app.css`、`root.tsx`）改动时会改到现行页面，`scripts/verify/product-update.ts` 把它们算作读者页面文件，要附更新说明或写明读者体验为何不变。只给新页面用的样式放 `apps/web/reader/styles`。
 
 提示词步骤不在重写范围内，新代码继续调用：`packages/backend/src/editorial/analyze.ts`（各步骤、版本、输入构造）与 `packages/backend/src/events/relate.ts`（关系判定）。事件归组对外只有一个入口 `packages/backend/src/events/engine.ts`，生产代码都经它调用，切换新实现时只改这一个文件。
 

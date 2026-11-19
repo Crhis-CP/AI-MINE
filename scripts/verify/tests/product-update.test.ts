@@ -160,7 +160,10 @@ test("files of the rewritten reader count as reader files, before and after read
     assert.deepEqual(checkProductUpdate(root, [page, internal], previous), []);
     // The switch between the two is a reader file too: changing its default changes what every reader sees.
     assert.ok(checkProductUpdate(root, ["apps/web/reader-impl.ts"], previous).length);
-    assert.deepEqual(checkProductUpdate(root, ["apps/web/readers.md", "apps/web/app/lib/format.ts"], previous), []);
+    assert.deepEqual(checkProductUpdate(root, ["apps/web/readers.md", "apps/web/app/lib/admin.server.ts", "apps/web/app/private.css"], previous), []);
+    // Files both readers share change the live old pages too, whichever reader the work is for.
+    for (const shared of ["apps/web/app/app.css", "apps/web/app/root.tsx", "apps/web/app/lib/format.ts", "apps/web/app/i18n/zh.ts"])
+      assert.ok(checkProductUpdate(root, [shared], previous).length, shared);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -67,6 +67,11 @@ test("the rewritten reader's build gets the public proofs, holds no old reader c
     "../../modules/policy/web/reader.tsx",
     "../../modules/policy/web.ts",
     "../../site/modules/web.ts",
+    "app/i18n/index.ts",
+    "app/lib/seo.ts",
+    "app/lib/site-copy.ts",
+    "app/lib/feedback-draft.ts",
+    "app/root.tsx",
   ]) {
     write("reader/modules.json", JSON.stringify(["reader/root.tsx", id]));
     assert.match(checkWebSplit(root).join("\n"), /reader module graph includes old reader code/, id);

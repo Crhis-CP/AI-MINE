@@ -17,7 +17,7 @@ export function localizedPath(to: string, locale: Locale): string {
 const WORDS = {
   zh: {
     skip: "跳到正文",
-    picks: "精选",
+    picks: "最新精选",
     empty: "还没有精选内容。",
     notFound: "这里没有内容",
     notFoundBody: "你访问的页面不存在，或内容已不再公开。",
@@ -28,7 +28,7 @@ const WORDS = {
   },
   en: {
     skip: "Skip to content",
-    picks: "Featured",
+    picks: "Latest featured",
     empty: "Nothing has been featured yet.",
     notFound: "Nothing here",
     notFoundBody: "This page does not exist, or its content is no longer public.",
