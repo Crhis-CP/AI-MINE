@@ -97,14 +97,19 @@ test("a symbolic link is checked by the target path git stores, and a file that 
 
 test("a governance file is covered only while it is byte-identical to its handoff template", () => {
   const template = `# rules\n${N} is the base.\n`;
-  const same = tree({ "docs/06-agents/templates/root-AGENTS.md": template, "AGENTS.md": template });
+  const same = tree({ "docs/06-agents/templates/task-card.md": template, "tasks/_template.md": template });
   assert.deepEqual(checkNames(same.dir, same.files, rules), []);
-  assert.equal(exemption(same.dir, "AGENTS.md", rules), "4 governance records");
-  const edited = tree({ "docs/06-agents/templates/root-AGENTS.md": template, "AGENTS.md": `${template}one more line\n` });
+  assert.equal(exemption(same.dir, "tasks/_template.md", rules), "4 governance records");
+  const edited = tree({ "docs/06-agents/templates/task-card.md": template, "tasks/_template.md": `${template}one more line\n` });
   assert.deepEqual(checkNames(edited.dir, edited.files, rules), [
-    `AGENTS.md:2: "${N}" ${OUTSIDE}`,
-    "AGENTS.md: differs from docs/06-agents/templates/root-AGENTS.md, so the governance exception does not cover it",
+    `tasks/_template.md:2: "${N}" ${OUTSIDE}`,
+    "tasks/_template.md: differs from docs/06-agents/templates/task-card.md, so the governance exception does not cover it",
   ]);
+});
+
+test("the root rule files are not on the exception list: the upstream name in them is a finding", () => {
+  const named = tree({ "AGENTS.md": `${N} is the base.\n`, "CLAUDE.md": "Rules are in AGENTS.md.\n" });
+  assert.deepEqual(checkNames(named.dir, named.files, rules), [`AGENTS.md:1: "${N}" ${OUTSIDE}`]);
 });
 
 test("the upstream workflow is covered only while it has the upstream file's hash", () => {

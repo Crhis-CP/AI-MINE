@@ -93,9 +93,26 @@ interface Ctx {
 interface Stage {
   name: string;
   quick?: boolean;
+  /** A check of the change's paperwork and hygiene that needs no build: it runs first, and its failure stops the rest. */
+  gate?: boolean;
   after?: string[];
   needsDb?: boolean;
   run: (ctx: Ctx) => Promise<Outcome>;
+}
+
+/**
+ * The order stages run in: the gates first, then the rest, each group as listed. A missing card, a missing reader
+ * note or a broken doc link is then reported in the first minute, not after twenty minutes of builds and tests
+ * (November 2026: 214 path-guard failures were each found at the end of a full run).
+ */
+export function runOrder<T extends { gate?: boolean }>(stages: T[]): T[] {
+  return [...stages.filter((s) => s.gate), ...stages.filter((s) => !s.gate)];
+}
+
+/** The failed gate that stops `stage` from running in a full run, if any. A gate never stops another gate. */
+export function stoppedBy(stage: { gate?: boolean }, results: Array<{ name: string; status: string }>, gates: ReadonlySet<string>): string | null {
+  if (stage.gate) return null;
+  return results.find((r) => r.status === "fail" && gates.has(r.name))?.name ?? null;
 }
 
 // ---------- arguments and environment ----------
@@ -288,9 +305,10 @@ const receipt: Record<string, unknown> = {};
 
 // ---------- stages ----------
 
-const STAGES: Stage[] = [
+export const STAGES: Stage[] = [
   {
     name: "product-update",
+    gate: true,
     quick: true,
     run: async ({ log, base }) =>
       problems(
@@ -348,6 +366,7 @@ const STAGES: Stage[] = [
   },
   {
     name: "names",
+    gate: true,
     quick: true,
     run: async ({ log }) => problems(checkNames(ROOT, trackedFiles()), log, "upstream name and marks only on the exception paths; no upstream brand asset"),
   },
@@ -366,6 +385,7 @@ const STAGES: Stage[] = [
   },
   {
     name: "path-guard",
+    gate: true,
     run: async ({ log, base, head, task }) => {
       if (!base) return { status: "skipped", note: "no base ref to compare with (set VERIFY_BASE)" };
       const r = pathGuard(base, head, task);
@@ -375,6 +395,7 @@ const STAGES: Stage[] = [
   },
   {
     name: "secrets",
+    gate: true,
     run: async ({ log, env, base, head }) => {
       // The change's own commits; on the base itself (main after a merge), its last commit.
       const from = base && base !== head ? base : tryGit(["rev-parse", "--verify", "-q", `${head}^`]);
@@ -660,10 +681,12 @@ const STAGES: Stage[] = [
   },
   {
     name: "docs",
+    gate: true,
     run: async ({ log, env }) => fromCode(await run("python3", ["scripts/docs-check/validate_package.py", "--strict"], { log, env: env() }), "docs check"),
   },
   {
     name: "tasks",
+    gate: true,
     run: async ({ log }) => {
       const r = checkTasks();
       return problems(r.problems, log, `${r.cards} task cards`);
@@ -734,7 +757,8 @@ if (import.meta.main) {
   rmSync(logDir, { recursive: true, force: true });
   mkdirSync(logDir, { recursive: true });
 
-  const selected = STAGES.filter((s) => (quick ? s.quick : true)).filter((s) => !only.length || only.includes(s.name));
+  const selected = runOrder(STAGES.filter((s) => (quick ? s.quick : true)).filter((s) => !only.length || only.includes(s.name)));
+  const gates = new Set(STAGES.filter((s) => s.gate).map((s) => s.name));
   const results: Array<{ name: string; status: Status; duration_s: number; note?: string }> = [];
   let current = "";
   const startedAt = new Date();
@@ -809,7 +833,10 @@ if (import.meta.main) {
     const t0 = performance.now();
     let outcome: Outcome;
     const blocked = (stage.after ?? []).find((n) => results.some((r) => r.name === n && r.status !== "pass"));
+    // npm run check goes on past a failed gate: it is the loop before a commit, and all its findings at once help there.
+    const failedGate = quick ? null : stoppedBy(stage, results, gates);
     if (skip.includes(stage.name)) outcome = { status: "skipped", note: "skipped on request (VERIFY_SKIP / --skip)" };
+    else if (failedGate) outcome = { status: "skipped", note: `${failedGate} failed: fix it first; builds and tests were not run` };
     else if (blocked) outcome = { status: "skipped", note: `${blocked} did not pass` };
     else if (stage.needsDb && !db) outcome = { status: "skipped", note: "no database (set VERIFY_DATABASE_URL to a *_ci or *_test database)" };
     else {

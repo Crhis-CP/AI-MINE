@@ -155,6 +155,26 @@ shared:
     paths: ["upstream/**", UPSTREAM.md, NOTICE, LICENSE]
     integrator_only: true                            # 修改须同步 upstream/aihot.lock.json 与 ADR-0001
 
+# 高危路径：打开这些路径的任务卡必须已经在 main 上（先合并一个只改任务卡的 PR），PR 不能给自己放行。
+# 其余路径的任务卡可以和实现放在同一个 PR 里（2026-11-19）。本清单从 PR 的 base 读取。
+guarded:
+  - "deploy/**"                                     # 发布与生产配置
+  - ".github/**"
+  - "scripts/verify/**"                             # 检查本身
+  - lanes.yaml
+  - Makefile
+  - Dockerfile
+  - "docker-compose*.yml"
+  - package-lock.json
+  - .npmrc
+  - "database/migrations/**"                        # 迁移只增不改，合并后撤不回
+  - "database/roles/**"
+  - database/migration-inventory.json
+  - "industry/prompts/**"                           # 评分与分析提示词：改一个字就会重新花模型费
+  - industry/selection.ts
+  - AGENTS.md
+  - docs/06-agents/templates/root-AGENTS.md
+
 # 豁免 path-guard 的生成物（由命令生成，漂移检查保证与源一致）
 generated:
   - tasks/INDEX.md

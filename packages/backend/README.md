@@ -36,7 +36,7 @@ try {
 }
 ```
 
-withCustomPlans在直接连接的事务中设置计划策略，搜索不会继承其他请求的设置。历史注入阶段的机械改写和输入指纹仍保留于scripts/db-injection，仅用于核对历史记录，不再运行它重建已删除的代理。
+withCustomPlans在直接连接的事务中设置计划策略，搜索不会继承其他请求的设置。
 
 队列接口经 `@amp/backend/jobs/queue` 使用，getBoss返回原生pg-boss实例，方法、事务和监听器遵循驱动自身语义，不再包通用Proxy。组合根必须先stopBoss、后closeDb；队列正常drain期间仍允许在途handler结算并排入后续任务。ensure/enqueue保留所属根检查，旧异步结果不能写入新实例缓存；私有生产者不创建schema/队列，分区变动时只替换客户端、不自动重发未知请求。临时启动失败不永久缓存被拒绝的Promise。
 

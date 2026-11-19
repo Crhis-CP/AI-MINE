@@ -4,9 +4,7 @@
   "type": "module",
   "exports": {
     "./metal-price-relay": "./src/metal-price-relay.ts",
-    ".": "./src/index.ts",
     "./http-policy": "./src/http-policy.ts",
-    "./index": "./src/index.ts",
     "./mcp": "./src/mcp.ts",
     "./site": "./src/site.ts",
     "./taxonomy": "./src/taxonomy.ts",
