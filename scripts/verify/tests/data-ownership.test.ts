@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkCatalogue, compareOwnership, ownershipReport, ownershipRuleChanges, type OwnershipMap, type Baseline } from "../data-ownership.ts";
+import {
+  checkCatalogue,
+  compareOwnership,
+  ownershipReport,
+  ownershipRuleChanges,
+  sourceOwnerChanges,
+  type OwnershipMap,
+  type Baseline,
+} from "../data-ownership.ts";
 import type { extractOwnership } from "../ts-ownership.ts";
 
 const map: OwnershipMap = {
@@ -180,4 +188,18 @@ test("a new exact settings key with its owner is allowed; changing a rule, a new
   assert.deepEqual(ownershipRuleChanges({ ...before, moduleAliases: { ...before.moduleAliases, pub: "publication" } }, before), [
     "ownership rule expanded or changed: moduleAliases.pub",
   ]);
+});
+
+test("a registered source owner may be dropped only together with its file, and never changed", () => {
+  const before = { fileModules: { "modules/x/gone.ts": "policy", "modules/x/kept.ts": "policy" } };
+  const dropped = { fileModules: { "modules/x/kept.ts": "policy" } };
+  assert.deepEqual(sourceOwnerChanges(dropped, before, new Set(["modules/x/kept.ts"])), []);
+  assert.deepEqual(sourceOwnerChanges(dropped, before, new Set(["modules/x/kept.ts", "modules/x/gone.ts"])), [
+    "existing source owner removed while the file is still tracked: modules/x/gone.ts",
+  ]);
+  // A file that is gone does not free its key for another owner either.
+  const moved = { fileModules: { ...dropped.fileModules, "modules/x/gone.ts": "publication" } };
+  assert.deepEqual(sourceOwnerChanges(moved, before, new Set(["modules/x/kept.ts"])), ["existing source owner changed: modules/x/gone.ts"]);
+  assert.deepEqual(sourceOwnerChanges({}, before, new Set()), []);
+  assert.deepEqual(sourceOwnerChanges(before, before, new Set(Object.keys(before.fileModules))), []);
 });
