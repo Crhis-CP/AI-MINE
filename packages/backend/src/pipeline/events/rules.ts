@@ -8,7 +8,7 @@
 //   1  another report of the same address has a live fact                                     → same_fact
 //   2  another report with the same stored content hash has a live fact                        → same_fact
 //   3  near-identical body and alike title (fingerprint.ts), no country or occurrence-day conflict → same_fact
-//   4  certainDuplicate exactly as the live re-merge uses it (events/relate.ts)                → same_fact
+//   4  certainDuplicate as the live re-merge uses it (events/relate.ts), no occurrence-day conflict → same_fact
 //   5  every candidate's trusted occurrence day is more than DATE_APART_DAYS from the report's → undecided
 //      Not the same fact, but a later development of the same story is exactly this, and only the relation step
 //      can say so: founding a new event here would split stories (review of design M, F4).
@@ -277,18 +277,21 @@ export function decideEvent(query: EventQuery, candidates: readonly EventCandida
   // An undetermined scope costs it too: the live engine always asks whether the report is one event or a roundup
   // (events/group.ts decide, needsJudgement), and that answer may still turn a decided report into a roundup.
   const scopeCall = query.scope === "unknown" ? 1 : 0;
-  const valueCall = Math.max(scopeCall, query.readingBackground || judged.some((c) => c.selected) ? 1 : 0);
+  // The fact a rule ties the report to counts too, even where recall ranked it below the judged five.
+  const valueCall = (target?: EventCandidate) => Math.max(scopeCall, query.readingBackground || target?.selected || judged.some((c) => c.selected) ? 1 : 0);
   const sameUrl = earliest(pool.filter((c) => c.sameUrl));
   // A same-address fact with a selected report short-cuts the live engine without any call (events/group.ts decide).
-  if (sameUrl) return decision("same_fact", "same_url", sameUrl, sameUrl.selected ? scopeCall : valueCall);
+  if (sameUrl) return decision("same_fact", "same_url", sameUrl, sameUrl.selected ? scopeCall : valueCall(sameUrl));
   // A hash over a short generic title and no body ties unrelated notices; require a body or a specific title.
   const hashSpecific = query.fingerprint !== null || [...titleKey(query.title)].length >= TITLE_KEY_MIN_CHARS;
   const sameHash = hashSpecific ? earliest(pool.filter((c) => c.sameHash)) : undefined;
-  if (sameHash) return decision("same_fact", "content_hash", sameHash, valueCall);
+  if (sameHash) return decision("same_fact", "content_hash", sameHash, valueCall(sameHash));
   const copy = pool.filter((c) => nearCopy(query, c)).sort((a, b) => fingerprintDistance(query, a)! - fingerprintDistance(query, b)! || recallOrder(a, b))[0];
-  if (copy) return decision("same_fact", "fingerprint", copy, valueCall);
-  const certain = pool.find((c) => c.cosine !== null && certainDuplicate(c.cosine, query, c));
-  if (certain) return decision("same_fact", "certain_duplicate", certain, valueCall);
+  if (copy) return decision("same_fact", "fingerprint", copy, valueCall(copy));
+  // The live re-merge compares publication days only; two trusted occurrence days that differ are two happenings
+  // however alike the reports, as for rule 3, so such a pair goes on to rule 5 or the relation step.
+  const certain = pool.find((c) => c.cosine !== null && (occurredGapDays(query, c) ?? 0) === 0 && certainDuplicate(c.cosine, query, c));
+  if (certain) return decision("same_fact", "certain_duplicate", certain, valueCall(certain));
 
   // From here on the relation step decides; its one batch call also answers the scope and value questions.
   if (pool.length && pool.every((c) => dateApart(query, c))) return decision("undecided", "date_apart", null, 1);
@@ -298,6 +301,6 @@ export function decideEvent(query: EventQuery, candidates: readonly EventCandida
   if (!query.hasVector) return decision("undecided", "vector_missing", null, 1 + confirmCalls);
   if (!pool.length)
     // An undetermined scope (one event or a roundup) is a question for the model even with nothing to compare.
-    return query.scope === "unknown" ? decision("undecided", "no_candidate", null, 1) : decision("new_event", "no_candidate", null, valueCall);
+    return query.scope === "unknown" ? decision("undecided", "no_candidate", null, 1) : decision("new_event", "no_candidate", null, valueCall());
   return decision("undecided", "similar_unsure", null, 1 + confirmCalls);
 }

@@ -196,6 +196,19 @@ test("rule 4: certainDuplicate exactly as the live re-merge (0.92, same Beijing 
   assert.equal(decideEvent(query({ fingerprint: null }), [{ ...twin, cosine: 0.9 }]).verdict, "undecided", "below 0.92");
 });
 
+test("rule 4: two trusted occurrence days that differ are two happenings, however close the vectors and titles", () => {
+  const q = query({ fingerprint: null, occurredOn: "2026-11-18" });
+  const twin = candidate("wire", { factId: 50, storyId: 500, title: "新华社：卡莫阿铜矿三期选厂完成带料试车！", cosine: 0.95 });
+  const farApart = decideEvent(q, [{ ...twin, occurredOn: "2026-10-01" }]);
+  assert.deepEqual([farApart.verdict, farApart.rule, farApart.targetFactId], ["undecided", "date_apart", null], "more than a week apart");
+  const daysApart = decideEvent(q, [{ ...twin, occurredOn: "2026-11-15" }]);
+  assert.deepEqual([daysApart.verdict, daysApart.rule], ["undecided", "similar_unsure"], "within the week the relation step decides");
+  // The same trusted day, or no trusted day on one side, keeps the live re-merge's answer.
+  assert.equal(decideEvent(q, [{ ...twin, occurredOn: "2026-11-18" }]).rule, "certain_duplicate");
+  assert.equal(decideEvent(q, [twin]).rule, "certain_duplicate");
+  assert.equal(decideEvent(query({ fingerprint: null }), [{ ...twin, occurredOn: "2026-10-01" }]).rule, "certain_duplicate");
+});
+
 test("rule 5: trusted occurrence days far apart rule out the same fact but leave the story to the relation step", () => {
   const q = query({ fingerprint: null, occurredOn: "2026-11-18" });
   const older = candidate("older", { occurredOn: "2026-10-20", cosine: 0.75 });
@@ -293,4 +306,16 @@ test("the record keeps at most five candidates and always the target", () => {
   assert.ok(d.candidates.some((c) => c.factId === 80));
   // JSON-safe for the jsonb column: no bigint fingerprints, dates or functions.
   assert.deepEqual(JSON.parse(JSON.stringify(d.candidates)), d.candidates);
+});
+
+test("a selected fact a rule ties the report to asks the value question, even ranked below the judged five", () => {
+  const strong = Array.from({ length: 6 }, (_, i) => candidate(`s${i}`, { factId: 70 + i, cosine: 0.9 - i * 0.01 }));
+  const copy = candidate("copy", { factId: 80, cosine: null, lexical: 0.2, fingerprint: bodyFingerprint(wire) });
+  const selectedTarget = decideEvent(query(), [...strong, { ...copy, selected: true }]);
+  assert.deepEqual([selectedTarget.rule, selectedTarget.targetFactId, selectedTarget.wouldCall], ["fingerprint", 80, 1]);
+  // Neither the target nor any judged fact selected: no value question.
+  assert.equal(decideEvent(query(), [...strong, copy]).wouldCall, 0);
+  // A selected fact outside the five that no rule ties the report to still does not count.
+  const bystander = candidate("w", { factId: 9, cosine: 0.5, selected: true });
+  assert.equal(decideEvent(query(), [...strong.slice(0, 5), { ...copy, cosine: 0.95 }, bystander]).wouldCall, 0);
 });
