@@ -87,5 +87,6 @@
   "./sources/permissions": "./src/sources/permissions.ts",
   "./publication/news-links": "./src/publication/news-links.ts",
   "./editorial/analyze-article": "./src/editorial/analyze-article.ts",
-  "./events/engine": "./src/events/engine.ts"
+  "./events/engine": "./src/events/engine.ts",
+  "./operations/reconcile": "./src/operations/reconcile.ts"
 }

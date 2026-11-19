@@ -16,6 +16,7 @@ import { enqueuePendingReportCorrections, catchUpReports } from "@amp/backend/re
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
 import { checkAlerts, readAccountBalances, sendDigest } from "@amp/backend/operations/alerts";
+import { sendReconcile } from "@amp/backend/operations/reconcile";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
 import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots, usageProtectionTick } from "@amp/backend/operations/reports";
@@ -59,6 +60,8 @@ export const SCHEDULES: Scheduled[] = [
   { name: "ops.alerts", cron: "*/10 * * * *", run: () => checkAlerts() },
   // One message with the follow-ups that do not touch readers (nothing when there are none).
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },
+  // The whole picture of yesterday in one message, every day, whether or not anything broke.
+  { name: "ops.reconcile", cron: "5 9 * * *", missed: "once", run: () => sendReconcile() },
   ...(backupConfigured() ? [{ name: "ops.backup", cron: "10 4 * * *", missed: "once" as const, run: () => runBackup() }] : []),
   { name: "feedback.weekly", cron: "0 8 * * 1", missed: "once", run: () => sendWeeklyFeedbackSummary(new Date(Date.now() - 7 * 86400_000)) },
   { name: "feedback.forward", cron: "* * * * *", run: forwardPendingFeedback },

@@ -42,6 +42,7 @@ const ENGINE_ENTRIES: Record<string, string> = {
   // orchestration that tests and evaluation scripts drive directly.
   "./events/engine": "./src/events/engine.ts",
   "./editorial/analyze-article": "./src/editorial/analyze-article.ts",
+  "./operations/reconcile": "./src/operations/reconcile.ts",
 };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),

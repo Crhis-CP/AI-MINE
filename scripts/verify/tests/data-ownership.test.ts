@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkCatalogue, compareOwnership, ownershipReport, type OwnershipMap, type Baseline } from "../data-ownership.ts";
+import { checkCatalogue, compareOwnership, ownershipReport, ownershipRuleChanges, type OwnershipMap, type Baseline } from "../data-ownership.ts";
 import type { extractOwnership } from "../ts-ownership.ts";
 
 const map: OwnershipMap = {
@@ -161,4 +161,23 @@ test("direct driver files keep explicit source ownership and cannot erase cross-
   const conflict = ownershipReport(fixture("packages/direct.ts", "content"), registered);
   assert.match(conflict.errors.join("\n"), /disagrees with registered source ownership/);
   assert.throws(() => ownershipReport(direct, { ...map, fileModules: { "packages/direct.ts": "" } }), /invalid JSON/);
+});
+
+test("a new exact settings key with its owner is allowed; changing a rule, a new wildcard, a key under an existing wildcard, or growing aliases and external tables is not", () => {
+  const before = { settings: { "alerts.state": "platform/ops", "models.*": "ai-gateway" }, moduleAliases: { ops: "platform/ops" }, externalTables: {} };
+  const grown = { ...before, settings: { ...before.settings, "reconcile.daily": "platform/ops" } };
+  assert.deepEqual(ownershipRuleChanges(grown, before), []);
+  assert.deepEqual(ownershipRuleChanges({ ...before, settings: { ...before.settings, "alerts.state": "publication" } }, before), [
+    "ownership rule expanded or changed: settings.alerts.state",
+  ]);
+  assert.deepEqual(ownershipRuleChanges({ ...before, settings: { ...before.settings, "mod*": "publication" } }, before), [
+    "ownership rule expanded or changed: settings.mod*",
+  ]);
+  // Listed ahead of "models.*" the exact key would win the owner lookup and move a key of ai-gateway to another module.
+  assert.deepEqual(ownershipRuleChanges({ ...before, settings: { "models.balance": "platform/ops", ...before.settings } }, before), [
+    "ownership rule expanded or changed: settings.models.balance",
+  ]);
+  assert.deepEqual(ownershipRuleChanges({ ...before, moduleAliases: { ...before.moduleAliases, pub: "publication" } }, before), [
+    "ownership rule expanded or changed: moduleAliases.pub",
+  ]);
 });
