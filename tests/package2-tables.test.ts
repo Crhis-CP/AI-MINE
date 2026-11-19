@@ -22,7 +22,7 @@ test("the event rules may found a new event only when there is no candidate at a
   await row("p2-same", "same_fact", "same_url", 7);
 });
 
-test("only old news carries a sort anchor, and the public projection is column by column", async () => {
+test("only old news carries a sort anchor, and the row records when it was decided and updated", async () => {
   const row = (article: string, freshness: string, anchor: Date | null) =>
     sql`INSERT INTO publication.event_rank(article_id,article_revision,reported_at,freshness,freshness_basis,anchor_at,importance,importance_inputs,genre,ruleset)
       VALUES(${article},1,'2026-11-19T02:00:00Z',${freshness},'own_date',${anchor},70.5,'{}','report','rank-v1')`;
@@ -65,8 +65,12 @@ test("the entity library keeps matching scopes on spellings only and refuses sel
       VALUES('p2-alpha',${property},${value},${value.toLowerCase()},${scope},'seed','test')`;
   await statement("alias", "Alpha", "anchored");
   await statement("domain", "alpha.example", null);
+  // Seeds write tickers without a scope; one that is matched in running text may carry one.
+  await statement("ticker", "ASX:ALP", null);
+  await statement("ticker", "TSX:ALP", "text");
   await violates(statement("alias", "Alpha Mining", null), "a spelling needs a scope");
   await violates(statement("domain", "alpha.example.org", "text"), "a domain never matches running text");
+  await violates(statement("headquarters", "Perth", "lookup"), "a headquarters never matches running text");
   await violates(sql`UPDATE entities.entities SET merged_into=id WHERE id='p2-alpha'`, "an entity cannot merge into itself");
   await violates(sql`INSERT INTO entities.merges(loser_id,winner_id,actor,reason) VALUES('p2-alpha','p2-alpha','test','same')`, "a merge needs two entities");
   await violates(
@@ -81,7 +85,7 @@ test("the entity library keeps matching scopes on spellings only and refuses sel
   );
 });
 
-test("earlier copies of the same text are found by index, not by scanning every article", async () => {
+test("article content hashes have a partial index beside the url index", async () => {
   const indexes = await sql`SELECT indexname, indexdef FROM pg_indexes WHERE schemaname='public' AND tablename='articles'`;
   assert.ok(indexes.some((row) => row.indexname === "articles_url_idx"));
   const hash = indexes.find((row) => row.indexname === "articles_content_hash_idx");

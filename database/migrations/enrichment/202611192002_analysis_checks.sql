@@ -1,7 +1,7 @@
 -- Package 2 program-side checks of one judgement (plan step 2.3): entity links, name rewrites, figures and dates
 -- against the original, and dateline demotions. observed means nothing in analyses was changed. A flag only:
--- no model call and no reader-visible change come from a row here. Rows are pruned after 180 days by the
--- retention job, hence the worker's DELETE grant.
+-- no model call and no reader-visible change come from a row here. Rows are kept for 180 days; a later retention
+-- job will prune older ones, and the worker's DELETE grant is there for that job.
 CREATE TABLE enrichment.analysis_checks (
   analysis_id bigint PRIMARY KEY,
   article_id text NOT NULL,

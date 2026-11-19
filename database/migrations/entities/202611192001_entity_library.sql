@@ -40,8 +40,9 @@ CREATE TABLE entities.statements (
   updated_at timestamptz NOT NULL DEFAULT now(),
   updated_by text NOT NULL,
   UNIQUE (entity_id, property, norm),
-  -- Only spellings that can occur in running text carry a matching scope; a domain or an owner id never does.
-  CHECK ((scope IS NOT NULL) = (property IN ('alias', 'ticker')))
+  -- The matcher needs a scope on every alias. A ticker may carry one but is usually only looked up, so seeds write
+  -- it without. A domain, an owner id or a headquarters never matches running text, so it never has a scope.
+  CHECK (CASE property WHEN 'alias' THEN scope IS NOT NULL WHEN 'ticker' THEN true ELSE scope IS NULL END)
 );
 CREATE INDEX statements_lookup_idx ON entities.statements (property, norm);
 
