@@ -26,6 +26,16 @@ export const DATELINE_OPENINGS: { text: string; dateline: string | null; kind?: 
     dateline: "PERTH, Australia, Nov. 18, 2026 (ACCESSWIRE) -- ",
     kind: "release_wire",
   },
+  {
+    text: "VANCOUVER, BC / ACCESS Newswire / November 18, 2026 / Lundin Gold Inc. is pleased",
+    dateline: "VANCOUVER, BC / ACCESS Newswire / November 18, 2026 / ",
+    kind: "release_wire",
+  },
+  {
+    text: "TORONTO, ON / ACCESSWIRE / November 18, 2026 / Foran Mining Corporation announced",
+    dateline: "TORONTO, ON / ACCESSWIRE / November 18, 2026 / ",
+    kind: "release_wire",
+  },
   { text: "PHOENIX, Nov. 18, 2026 /PRNewswire/ -- Freeport-McMoRan Inc. said", dateline: "PHOENIX, Nov. 18, 2026 /PRNewswire/ -- ", kind: "release_wire" },
   { text: "美通社温哥华11月18日电 /美通社/ -- 某矿业公司今天宣布", dateline: "美通社温哥华11月18日电 /美通社/ -- ", kind: "release_wire" },
   // News agencies
@@ -65,4 +75,11 @@ export const DATELINE_OPENINGS: { text: string; dateline: string | null; kind?: 
   { text: "据外媒11月18日报道，智利国家铜业公司", dateline: null },
   { text: "国家发展改革委18日表示，将加强铜资源保障", dateline: null },
   { text: "Brasília - O governo anunciou", dateline: null },
+  // A date, then a word that begins with 电 (telephone, power price, power, electrolytic aluminium)
+  { text: "紫金矿业11月18日电话会议称，铜产量将增长", dateline: null },
+  { text: "11月18日电价上调，冶炼厂成本上升", dateline: null },
+  { text: "智利11月18日电力中断，Escondida铜矿停产。", dateline: null },
+  { text: "上海有色网11月18日电解铝社会库存下降。", dateline: null },
+  // Slashes around a name that is no wire
+  { text: "VANCOUVER, BC / Lundin Gold / November 18, 2026 / text", dateline: null },
 ];

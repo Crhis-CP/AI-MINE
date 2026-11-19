@@ -40,4 +40,4 @@ export const RELATIVE_DAY =
  * source uses one, the year before or after the article's own year is a fair reading of it.
  */
 export const RELATIVE_YEAR =
-  /\b(?:next|last|this|coming|previous|past) year\b|\b(?:el )?(?:próximo|proximo|pasado|este) año\b|\baño (?:próximo|pasado|que viene)\b|\b(?:próximo|proximo|este) ano\b|\bano (?:passado|que vem)\b|\bl'(?:année|an) (?:prochaine?|dernière?|passée)\b|\bcette année\b|明年|去年|今年|上一年|下一年/iu;
+  /\b(?:next|last|this|coming|previous|past) year\b|\b(?:el )?(?:próximo|proximo|pasado|este) año\b|\baño (?:próximo|pasado|que viene)\b|\b(?:próximo|proximo|este) ano\b|\bano (?:passado|que vem)\b|\bl['’](?:année|an) (?:prochaine?|derni(?:er|ère)|passée?)(?![\p{L}])|\bcette année\b|明年|去年|今年|上一年|下一年/iu;

@@ -84,13 +84,15 @@ test("the dateline country stays when the step also placed the news there outsid
   assert.deepEqual(demoteDateline(answer([CANADA_IN_DATELINE, ARGENTINA]), segments(about)).demoted, [{ code: "CA", quote: CANADA_IN_DATELINE.quote }]);
 });
 
-test("a news agency's dateline is kept: its reporter is usually where the news is", () => {
+test("a news agency's dateline is demoted like a release wire's, and its kind is reported for the measurement", () => {
   const a = article("Codelco output falls", "SANTIAGO, Nov 18 (Reuters) - Chile's Codelco said output fell at its largest mines.");
-  const chile: Row = { code: "CL", role: "event_location", mention: "SANTIAGO", segment: "body_head", quote: "SANTIAGO, Nov 18" };
-  const result = demoteDateline(answer([chile]), segments(a));
+  const santiago: Row = { code: "CL", role: "event_location", mention: "SANTIAGO", segment: "body_head", quote: "SANTIAGO, Nov 18" };
+  const result = demoteDateline(answer([santiago]), segments(a));
   assert.equal(result.dateline?.kind, "news_agency");
-  assert.deepEqual(result.demoted, []);
-  assert.deepEqual(result.kept, [{ code: "CL", quote: chile.quote, reason: "news_agency" }]);
+  assert.deepEqual(result.demoted, [{ code: "CL", quote: santiago.quote }]);
+  // The step also placing the news in Chile after the dateline keeps the country, as for any other kind.
+  const chile: Row = { code: "CL", role: "event_location", mention: "Chile", segment: "body_head", quote: "Chile's Codelco" };
+  assert.deepEqual(demoteDateline(answer([santiago, chile]), segments(a)).kept, [{ code: "CL", quote: santiago.quote, reason: "named_elsewhere" }]);
 });
 
 test("Chinese datelines are read the same way", () => {
@@ -100,7 +102,18 @@ test("Chinese datelines are read the same way", () => {
   assert.deepEqual(result.demoted, [{ code: "CA", quote: canada.quote }]);
   const xinhua = article("国家发改委：加强铜资源保障", "新华社北京11月18日电（记者 王明）国家发展改革委18日表示，将加强铜资源保障。");
   const china: Row = { code: "CN", role: "rule_scope", mention: "北京", segment: "body_head", quote: "新华社北京11月18日电" };
-  assert.deepEqual(demoteDateline(answer([china]), segments(xinhua)).kept, [{ code: "CN", quote: china.quote, reason: "news_agency" }]);
+  const fromXinhua = demoteDateline(answer([china]), segments(xinhua));
+  assert.equal(fromXinhua.dateline?.kind, "news_agency");
+  assert.deepEqual(fromXinhua.demoted, [{ code: "CN", quote: china.quote }]);
+});
+
+test("a date followed by a word that begins with 电 is no dateline, so the country stays", () => {
+  const a = article("全球最大铜矿停产", "智利11月18日电力中断，Escondida铜矿停产。");
+  const chile: Row = { code: "CL", role: "event_location", mention: "智利", segment: "body_head", quote: "智利11月18日电力中断" };
+  const before = answer([chile]);
+  const result = demoteDateline(before, segments(a));
+  assert.equal(result.dateline, null);
+  assert.equal(result.candidate, before);
 });
 
 test("only active assignments inside the dateline are touched", () => {

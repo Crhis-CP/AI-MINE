@@ -10,7 +10,7 @@ import { MONTH_PATTERN } from "./calendar.ts";
 /**
  * Who issued the text. A press-release wire (PRNewswire, GLOBE NEWSWIRE) carries the company's own office as the
  * dateline, which is often not where the project is. A news agency (Reuters, EFE, Xinhua) datelines where its
- * reporter is, which is usually where the news happened. Unmarked: a place and date with no wire or agency named.
+ * reporter is, which is often where the news happened. Unmarked: a place and date with no wire or agency named.
  */
 export type DatelineKind = "release_wire" | "news_agency" | "unmarked";
 
@@ -89,17 +89,22 @@ const DATE = [
 ].join("|");
 const MARKER = "/(?<slash>[^/\\n]{2,30})/|\\((?<paren>[^()\\n]{2,60})\\)";
 const SEPARATOR = "\\s*(?:--|—|–)|\\s-|\\.-|\\s*:";
+/** ACCESS Newswire's form puts the wire, then the date, between slashes: "VANCOUVER, BC / ACCESS Newswire / November 18, 2026 / ". */
+const SLASHED = `\\s*/(?<slashedWire>[^/\\n]{2,30})/\\s*(?<slashedDate>${DATE})\\s*/`;
 
 // Case matters (an upper-case place is evidence), so the expression is case-sensitive except for month names.
 const LATIN = new RegExp(
-  `^\\s*(?<place>${UPPER_PLACE}|${MIXED_PLACE})(?<parts>(?:, ?${PART}){0,2}?)(?:,? (?:le )?(?<date>${DATE}))?(?:(?:\\s*(?:--|—|–))?\\s*(?:${MARKER}))?(?:${SEPARATOR})\\s*(?=[\\p{L}\\p{N}"“'‘(])`,
+  `^\\s*(?<place>${UPPER_PLACE}|${MIXED_PLACE})(?<parts>(?:, ?${PART}){0,2}?)(?:(?:,? (?:le )?(?<date>${DATE}))?(?:(?:\\s*(?:--|—|–))?\\s*(?:${MARKER}))?(?:${SEPARATOR})|${SLASHED})\\s*(?=[\\p{L}\\p{N}"“'‘(])`,
   "u",
 );
 /** Upper-case labels that open a text with a colon or dash but name no place. */
 const NOT_A_PLACE = /^(?:NOTE|EDITOR'S NOTE|UPDATE(?: \d)?|BREAKING|EXCLUSIVE|ANALYSIS|COMMENT|OPINION|CORRECTION|WATCH|PHOTO|VIDEO|FILE|SOURCE)$/;
 const CHINESE_NUMBER = "[0-9０-９一二三四五六七八九十]{1,3}";
+const CHINESE_DATE = `[\\p{Script=Han}·]{0,10}?${CHINESE_NUMBER}月${CHINESE_NUMBER}日(?:电|讯)`;
+// After a named agency or wire the 电 or 讯 is the dateline's, whatever follows. Without one, ordinary words begin with
+// 电 (电话, 电价, 电力, 电解铝: "智利11月18日电力中断"), so the dateline must end there: no Han character may follow.
 const CHINESE = new RegExp(
-  `^\\s*(?:【(?<inner>[^】\\n]{2,40}?(?:电|讯))】|(?<lead>(?:${[...CHINESE_AGENCIES, ...CHINESE_WIRES, "本报"].join("|")})?[\\p{Script=Han}·]{0,10}?${CHINESE_NUMBER}月${CHINESE_NUMBER}日(?:电|讯)|本报讯)(?:[（(][^）)\\n]{0,30}[）)])?)(?:\\s*/[^/\\n]{2,12}/)?(?:\\s*(?:--|—|–))?\\s*[:：]?\\s*`,
+  `^\\s*(?:【(?<inner>[^】\\n]{2,40}?(?:电|讯))】|(?<lead>(?:${[...CHINESE_AGENCIES, ...CHINESE_WIRES, "本报"].join("|")})${CHINESE_DATE}|${CHINESE_DATE}(?!\\p{Script=Han})|本报讯)(?:[（(][^）)\\n]{0,30}[）)])?)(?:\\s*/[^/\\n]{2,12}/)?(?:\\s*(?:--|—|–))?\\s*[:：]?\\s*`,
   "u",
 );
 
@@ -113,7 +118,8 @@ const wireKind = (marker: string): DatelineKind | null => {
 
 /**
  * The dateline at the start of a body, if it has one: an upper-case place (or any place followed by a date or a
- * wire), up to two further comma parts, an optional date and wire or agency marker, then a dash or colon; or one of
+ * wire), up to two further comma parts, an optional date and wire or agency marker, then a dash or colon (or ACCESS
+ * Newswire's "/ wire / date /"); or one of
  * the Chinese forms 新华社北京11月18日电, 【温哥华11月18日讯】, 本报讯. A headline-like opening ("LME copper rose",
  * "BHP, Rio Tinto and Vale said") is not one.
  */
@@ -129,8 +135,9 @@ export function readDateline(bodyHead: string): Dateline | null {
   }
   const latin = LATIN.exec(head);
   if (!latin?.groups) return null;
-  const { place, parts, date, slash, paren } = latin.groups;
-  const marker = (slash ?? paren)?.trim() ?? null;
+  const { place, parts, slash, paren, slashedWire } = latin.groups;
+  const date = latin.groups.date ?? latin.groups.slashedDate;
+  const marker = (slash ?? paren ?? slashedWire)?.trim() ?? null;
   const kind = marker ? wireKind(marker) : null;
   // A marker that is no wire or agency (a parenthesis in an opening sentence) is no dateline evidence.
   if (marker && !kind) return null;
@@ -183,17 +190,19 @@ const placeRow = (value: unknown): PlaceRow | null => {
   return ["code", "role", "mention", "segment", "quote"].every((key) => typeof row[key] === "string") ? (row as unknown as PlaceRow) : null;
 };
 
-export type KeptReason = "title_names_it" | "named_elsewhere" | "news_agency";
+export type KeptReason = "title_names_it" | "named_elsewhere";
 
 /**
  * The structure step's answer with the countries it took only from the dateline turned into the issuer's location.
  * An active assignment is demoted when its segment is body_head and its mention lies inside the dateline. It is kept
- * (and listed in `kept`) when the title names that country, when the step gave the same country or one of its
- * subdivisions another active assignment outside the dateline, or when the dateline is a news agency's (its reporter
- * is usually where the news is). A second mention found by searching the text is deliberately not enough: the "About
- * the company" paragraph of a release names the head office's country. So a story the step quoted only from its
- * dateline ends with no country rather than a wrong one. The answer is not validated here; validateGeography
- * (editorial/geography.ts) recomputes codes and the main country from the returned candidate.
+ * (and listed in `kept`) when the title names that country, or when the step gave the same country or one of its
+ * subdivisions another active assignment outside the dateline. A second mention found by searching the text is
+ * deliberately not enough: the "About the company" paragraph of a release names the head office's country. So a story
+ * the step quoted only from its dateline ends with no country rather than a wrong one. A news agency's dateline is
+ * treated like a release wire's (design L, B4): its reporter is often where the news is, but whether that earns an
+ * exception is for the count of datelines by kind to decide, so the kind is returned with the result. The answer is
+ * not validated here; validateGeography (editorial/geography.ts) recomputes codes and the main country from the
+ * returned candidate.
  */
 export function demoteDateline<T extends { assignments: readonly unknown[] }>(
   candidate: T,
@@ -223,14 +232,11 @@ export function demoteDateline<T extends { assignments: readonly unknown[] }>(
     const row = rows[i];
     if (!row || !inDateline[i]) return value;
     const country = countryOf(row.code);
-    const reason: KeptReason | null =
-      dateline.kind === "news_agency"
-        ? "news_agency"
-        : [row.mention, ...placeNames(row.code)].some((name) => names(title, name))
-          ? "title_names_it"
-          : rows.some((other, j) => !!other && j !== i && !inDateline[j] && ACTIVE.has(other.role) && countryOf(other.code) === country)
-            ? "named_elsewhere"
-            : null;
+    const reason: KeptReason | null = [row.mention, ...placeNames(row.code)].some((name) => names(title, name))
+      ? "title_names_it"
+      : rows.some((other, j) => !!other && j !== i && !inDateline[j] && ACTIVE.has(other.role) && countryOf(other.code) === country)
+        ? "named_elsewhere"
+        : null;
     if (reason) {
       kept.push({ code: row.code, quote: row.quote, reason });
       return value;

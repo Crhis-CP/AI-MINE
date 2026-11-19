@@ -182,6 +182,8 @@ interface CopyFigure {
   value?: number;
   /** The value's own precision: 约25亿 is precise to one 亿. */
   step?: number;
+  /** A bare four-digit number from 1900 to 2100: a count, or a year written without 年. */
+  yearLike?: boolean;
   approx?: boolean;
   /** Written with a Chinese scale (万, 亿): a misread source scale shows up as the same digits elsewhere. */
   scaled?: boolean;
@@ -190,15 +192,21 @@ interface CopyFigure {
   date?: { y: number | null; m: number | null; d: number | null; quarter?: number; half?: number };
 }
 
-/** Precision of a figure the copy writes: its last decimal, or the round part of a large whole number. */
+/**
+ * The round part of a whole number: its trailing zeros, but never more than leave two leading digits. 3000 may stand
+ * for 2,980, and 1000万 for 10.4 million, but not for 5 million: a round figure is still near its source.
+ */
+const roundUnit = (value: number) => {
+  if (!Number.isInteger(value) || value < 100) return 1;
+  const digits = String(value);
+  return 10 ** Math.min(digits.match(/0*$/)![0].length, digits.length - 2);
+};
+/** Precision of a figure the copy writes: its last decimal, or the round part of a whole number. */
 function precision(digits: string, scale: number, percent: boolean): number {
   const decimals = digits.includes(".") ? digits.split(".")[1]!.length : 0;
   if (decimals) return 10 ** -decimals * scale;
-  const whole = Number(digits.replace(/,/g, ""));
-  if (percent || whole < 1000) return scale;
-  return 10 ** digits.replace(/,/g, "").match(/0*$/)![0].length * scale;
+  return percent ? scale : roundUnit(Number(digits.replace(/,/g, ""))) * scale;
 }
-const roundUnit = (value: number) => (value >= 1000 && Number.isInteger(value) ? 10 ** String(value).match(/0*$/)![0].length : 1);
 
 /** Blank out a matched span so later patterns do not read its digits again. */
 const blank = (text: string, start: number, length: number) => text.slice(0, start) + " ".repeat(length) + text.slice(start + length);
@@ -274,11 +282,13 @@ function copyFigures(field: FigureFinding["field"], original: string, mask: read
       if (base === null || (!arabic && !/[一二两三四五六七八九]/.test(end.digits))) continue;
       const value = base * scale;
       if (!percent && !unit && !end.scale && Number.isInteger(value) && value <= 10) continue;
-      const isYear = kind === "number" && !end.scale && arabic && /^\d{4}$/.test(end.digits) && value >= 1900 && value <= 2100;
+      // Only 年 (read above) makes a year; a bare 2000 is as often a count ("裁员2000人" for "2,000 jobs").
+      const yearLike = kind === "number" && !end.scale && arabic && /^\d{4}$/.test(end.digits) && value >= 1900 && value <= 2100;
       figures.push({
         field,
         token: m[0].trim(),
-        kind: isYear ? "year" : kind,
+        kind,
+        ...(yearLike ? { yearLike } : {}),
         value,
         step: arabic ? precision(end.digits, scale, percent) : roundUnit(value),
         approx,
@@ -353,7 +363,10 @@ function sourceFigures(texts: readonly string[], sourceDate: SourceDate | null, 
     date(y, Number(m[1]), Number(m[2]));
   }
   for (const m of text.matchAll(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日/g)) date(m[1] ? Number(m[1]) : null, Number(m[2]), Number(m[3]));
-  for (const m of text.matchAll(new RegExp(`(?<![\\p{L}])(${MONTH})(?![\\p{L}])`, "giu"))) if (m[1]!.length >= 4) out.months.add(monthNumber(m[1]!)!);
+  // A short name alone is too often a word (mar, set, out, ago, the verb may): it counts as a month when it is at least
+  // four letters, is May or mai, or is followed by a full stop or a year (Dec. , Mar 2026).
+  for (const m of text.matchAll(new RegExp(`(?<![\\p{L}])(${MONTH})(?![\\p{L}])(\\.|\\s+\\d{4}(?!\\d))?`, "giu")))
+    if (m[1]!.length >= 4 || m[1] === "May" || m[1]!.toLowerCase() === "mai" || m[2]) out.months.add(monthNumber(m[1]!)!);
   for (const m of text.matchAll(/(?<![\d.])(\d{1,2})月/g)) out.months.add(Number(m[1]));
   for (const m of text.matchAll(/(?<!\d)((?:19|20)\d{2})(?!\d)/g)) out.years.add(Number(m[1]));
   for (const m of text.matchAll(/(?<!\d)(20\d{2})[/-](\d{2})(?!\d)/g)) out.years.add(2000 + Number(m[2]));
@@ -430,7 +443,7 @@ const WORD_LANGUAGES = new Set(["zh", "en", "es", "pt", "fr"]);
  * Kept low on false alarms: integers 0–10 without a unit are not checked; everything is at most soft when the body is
  * incomplete, an image was sent, or the language is one whose words are not read; an amount is soft when the copy
  * converted it (another currency, or metric units where the source has imperial). hard = scale_mismatch, or an amount
- * with a unit, a full date or a year that is absent.
+ * with a unit, a full date or a year written with 年 that is absent.
  */
 export function checkFigures(copy: FigureCopy, source: FigureSource, mask: readonly string[] = []): FigureCheck {
   const own = parseDate(source.sourceDate);
@@ -442,6 +455,7 @@ export function checkFigures(copy: FigureCopy, source: FigureSource, mask: reado
   const capped = !source.complete || source.hasImage || !WORD_LANGUAGES.has(language);
   const sourceCurrency = ANY_CURRENCY.test(found.text);
   const imperial = IMPERIAL.test(found.text);
+  const yearSupported = (y: number) => found.years.has(y) || (relativeYear && !!own && Math.abs(y - own.y) <= 1);
 
   const figures = [
     ...copyFigures("title", copy.titleZh, mask),
@@ -462,9 +476,7 @@ export function checkFigures(copy: FigureCopy, source: FigureSource, mask: reado
     let nearest: string | undefined;
     let fullDate = false;
     if (f.kind === "year") {
-      const y = f.value!;
-      const near = relativeYear && own ? [own.y - 1, own.y, own.y + 1] : [];
-      if (found.years.has(y) || near.includes(y)) problem = null;
+      if (yearSupported(f.value!)) problem = null;
     } else if (f.kind === "date") {
       const d = f.date!;
       if (d.quarter) problem = found.quarters.has(d.quarter) ? null : "absent";
@@ -484,7 +496,7 @@ export function checkFigures(copy: FigureCopy, source: FigureSource, mask: reado
       }
     } else {
       const value = f.value!;
-      if (found.numbers.some((n) => supports(n.value, value, f.step!, !!f.approx))) problem = null;
+      if (found.numbers.some((n) => supports(n.value, value, f.step!, !!f.approx)) || (f.yearLike && yearSupported(value))) problem = null;
       else {
         // The same digits at another scale, both sides written with a scale word: a misread scale.
         const misread = f.scaled
