@@ -5,7 +5,7 @@ import { bilingualNames } from "../editorial/bilingual-names.ts";
 import { groupingAnalysisHash, readEnglishCopy, readQuotedPostTranslation } from "../enrichment/records.ts";
 import { englishCopyInput, type EnglishCopyInput } from "../editorial/english-copy-input.ts";
 import { englishCopyEnabled } from "../config.ts";
-import { deferHistoricalSelection } from "../events/group.ts";
+import { deferHistoricalSelection } from "../events/engine.ts";
 import { recomputeSelection } from "./selection-recompute.ts";
 import { audit } from "../admin/auth.ts";
 import { emit } from "../modules.ts";

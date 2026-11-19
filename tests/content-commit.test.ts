@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
 import { closeDb, sql, type Tx } from "@amp/backend/db";
 import { commitBodyResult, readCurrentBody, commitProcessingResult, upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle } from "@amp/backend/editorial/analyze";
+import { analyzeArticle } from "@amp/backend/editorial/analyze-article";
 import { failureGroupSql, requeueFailed } from "@amp/backend/jobs/content";
 import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { runsOverview } from "@amp/backend/admin/runs";

@@ -89,7 +89,9 @@
     "./providers/model-fallback-permit": "./src/providers/model-fallback-permit.ts",
     "./providers/permissions": "./src/providers/permissions.ts",
     "./sources/permissions": "./src/sources/permissions.ts",
-    "./publication/news-links": "./src/publication/news-links.ts"
+    "./publication/news-links": "./src/publication/news-links.ts",
+    "./editorial/analyze-article": "./src/editorial/analyze-article.ts",
+    "./events/engine": "./src/events/engine.ts"
   },
   "dependencies": {
     "@amp/contracts": "*",

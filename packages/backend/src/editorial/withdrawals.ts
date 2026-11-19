@@ -1,6 +1,6 @@
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { withdrawalEventMembers, invalidateWithdrawalStories } from "@amp/backend/events/group";
+import { withdrawalEventMembers, invalidateWithdrawalStories } from "../events/engine.ts";
 import { newsReportWithdrawalSnapshot, invalidateReportCorrections } from "@amp/backend/reports/compose";
 import {
   applyWithdrawalProjection,
