@@ -24,6 +24,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { checkBoundaries } from "./boundaries.ts";
+import { checkLegacyZones } from "./legacy-zones.ts";
 import { checkDataOwnership, OWNERSHIP_BASELINE, OWNERSHIP_MAP } from "./data-ownership.ts";
 import { git, type Log, openLog, probe, ROOT, run, capture, sha256, sha256File, start, stopAll, tryGit } from "./lib.ts";
 import { formatLint } from "./lint.ts";
@@ -342,7 +343,7 @@ const STAGES: Stage[] = [
       const snapshot = base ? tryGit(["show", `${base}:scripts/verify/backend-exports.json`]) : null;
       const backend = snapshot && base ? JSON.parse(git(["show", `${base}:packages/backend/package.json`])) : null;
       const baseline = snapshot ? { snapshot: JSON.parse(snapshot), exports: backend.exports } : undefined;
-      return problems(checkBoundaries(ROOT, trackedFiles(), baseline), log, "workspace graph and imports");
+      return problems([...checkBoundaries(ROOT, trackedFiles(), baseline), ...checkLegacyZones(ROOT)], log, "workspace graph, imports and legacy zones");
     },
   },
   {
