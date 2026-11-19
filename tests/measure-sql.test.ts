@@ -27,14 +27,40 @@ function sqlFiles(dir: string): string[] {
     .sort();
 }
 
-/** The statement with comments and quoted text blanked out, so a word inside a string or a comment is not read as SQL. */
+/**
+ * The statement with comments and quoted text blanked out, so a word inside a string or a comment is not read as SQL.
+ * One left-to-right scan, as topLevelStatements does: whichever opens first wins, so a `--` or `/*` inside a string
+ * stays string text instead of swallowing the closing quote and hiding the SQL after it.
+ */
 function code(text: string): string {
-  return text
-    .replace(/--[^\n]*/g, " ")
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/\$([A-Za-z_]*)\$[\s\S]*?\$\1\$/g, " ")
-    .replace(/'(?:[^']|'')*'/g, "''")
-    .replace(/"(?:[^"]|"")*"/g, '""');
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i]!;
+    const tag = c === "$" ? /^\$[A-Za-z_]*\$/.exec(text.slice(i))?.[0] : undefined;
+    const [open, close, blank] =
+      c === "'"
+        ? ["'", "'", "''"]
+        : c === '"'
+          ? ['"', '"', '""']
+          : text.startsWith("--", i)
+            ? ["--", "\n", " "]
+            : text.startsWith("/*", i)
+              ? ["/*", "*/", " "]
+              : tag
+                ? [tag, tag, " "]
+                : [];
+    if (!open) {
+      out += c;
+      i++;
+      continue;
+    }
+    // A doubled quote inside a string ends one string and opens the next, which blanks the same way.
+    const end = text.indexOf(close!, i + open.length);
+    i = end < 0 ? text.length : end + close!.length;
+    out += blank;
+  }
+  return out;
 }
 
 function statements(): Statement[] {
@@ -89,6 +115,8 @@ test("the read-only check refuses what it must", () => {
     "SELECT id FROM articles FOR UPDATE",
     "SELECT set_config('statement_timeout', '0', false)",
     "SELECT nextval('articles_seq')",
+    "WITH x AS (SELECT '--' AS a), d AS (DELETE FROM articles RETURNING 1) SELECT * FROM x",
+    "WITH x AS (SELECT '/*' AS a), d AS (DELETE FROM articles RETURNING 1) SELECT '*/' FROM x",
   ]) {
     const body = code(bad);
     assert.ok(!/^(?:select|with)\b/i.test(body) || WRITES.test(body) || /\bfor\s+update\b/i.test(body) || SIDE_EFFECTS.test(body), `refused: ${bad}`);
@@ -278,7 +306,9 @@ test("every statement runs read-only on the migrated schema and the fixture give
   ])},true)`;
 
   // One policy revision: a PDF whose stored text layer has a text page, a page with one character and an image, an
-  // empty page and a page with a broken font map, beside an HTML resource.
+  // empty page and a page with a broken font map, beside an HTML resource. Two more PDFs stopped partway: one past the
+  // text-size cap (nodes dropped, page gaps kept) and one that failed to parse after its first page. N1 and N2 skip
+  // both; N0 counts them.
   const policySource = `measure-policy-${run}`;
   await sql`INSERT INTO sources(id,name,kind,lane) VALUES(${policySource},'Measure policy','external','policy')`;
   await grantDateFixture(policySource, ["https://source.invalid/rule"]);
@@ -291,9 +321,12 @@ test("every statement runs read-only on the migrated schema and the fixture give
   await sql`INSERT INTO policy.document_revisions(id,expression_id,sequence,source_id,permission_version,manifest_hash,manifest)
     VALUES(${revision!},${expression!},1,${policySource},${permission},${sha(`${run}-manifest`)},'{}'::jsonb)`;
   const pdf = Buffer.from("%PDF-1.4 measure fixture"),
-    html = Buffer.from("<html><body>rule</body></html>");
+    html = Buffer.from("<html><body>rule</body></html>"),
+    capped = Buffer.from("%PDF-1.4 measure fixture, too much text"),
+    broken = Buffer.from("%PDF-1.4 measure fixture, broken");
   await sql`INSERT INTO policy.original_resources(revision_id,ordinal,metadata,body,sha256) VALUES
-    (${revision!},0,'{}'::jsonb,${pdf},${sha(pdf.toString())}),(${revision!},1,'{}'::jsonb,${html},${sha(html.toString())})`;
+    (${revision!},0,'{}'::jsonb,${pdf},${sha(pdf.toString())}),(${revision!},1,'{}'::jsonb,${html},${sha(html.toString())}),
+    (${revision!},2,'{}'::jsonb,${capped},${sha(capped.toString())}),(${revision!},3,'{}'::jsonb,${broken},${sha(broken.toString())})`;
   const node = (ordinal: number, text: string, page?: number) => ({ id: sha(`${ordinal}`), ordinal, text, ...(page ? { page } : {}) });
   const extraction = {
     revisionId: revision,
@@ -308,6 +341,20 @@ test("every statement runs read-only on the migrated schema and the fixture give
         gaps: ["第 2 页含未核验图件", "第 3 页无可核验文字层", "PDF 文字项已定位；版面、表格和跨页关系尚未核验"],
       },
       { url: "https://source.invalid/rule", sha256: sha(html.toString()), state: "extracted", nodes: [node(0, "rule")], gaps: [] },
+      {
+        url: "https://source.invalid/capped.pdf",
+        sha256: sha(capped.toString()),
+        state: "blocked_capacity",
+        nodes: [],
+        gaps: ["第 1 页含未核验图件", "第 2 页无可核验文字层，需图件/扫描处理", "原件/页数/文字容量超限，未截断为合格正文"],
+      },
+      {
+        url: "https://source.invalid/broken.pdf",
+        sha256: sha(broken.toString()),
+        state: "incomplete",
+        nodes: [node(0, "第一条 本办法自发布之日起施行，原办法同时废止。", 1)],
+        gaps: ["PDF 无法完整解析"],
+      },
     ],
   };
   await sql`INSERT INTO policy.document_extractions(revision_id,recipe,profile_hash,result) VALUES(${revision!},'measure-recipe',${sha("profile")},${sql.json(extraction)})`;
@@ -472,9 +519,10 @@ test("every statement runs read-only on the migrated schema and the fixture give
   assert.deepEqual(
     rows("N0").map((r) => [r.kind, r.resources, r.with_extraction, r.capacity_or_unparsed]),
     [
+      ["pdf", 3, 3, 2],
       ["html_or_xml", 1, 1, 0],
-      ["pdf", 1, 1, 0],
-    ].sort(),
+    ],
+    "two of the three PDFs stopped partway",
   );
   assert.deepEqual(
     rows("N1").map((r) => [r.chars_band, r.pages, r.with_replacement_char, r.with_image]),

@@ -7,7 +7,9 @@
 -- The page text comes from the text layer the current parser already stored (policy.document_extractions, the newest
 -- extraction of each revision): one node per text item with its page number, and a gap "第 N 页无可核验文字层" for a
 -- page whose text layer is empty. Nothing is parsed or rendered here. A PDF whose extraction stopped at a capacity
--- limit or failed to parse has no pages to count; N0 shows how many there are.
+-- limit or failed to parse keeps only some of its pages, or none: past the text-size cap its nodes are dropped but its
+-- per-page gaps stay, and a parse failure keeps the pages read before it. Counting those would add them as scans, so N1
+-- and N2 skip them and N0 counts them.
 
 -- [N0] Archived policy originals by kind, and how many have a stored extraction.
 -- Measures: original resources whose bytes start with %PDF-, HTML or XML (by the first bytes), other, or missing; their
@@ -47,9 +49,9 @@ GROUP BY 2
 ORDER BY 3 DESC, 2;
 
 -- [N1] PDF pages by the number of visible characters on their text layer.
--- Measures: every page of every PDF resource in the newest extraction of each revision, banded by its characters other
---   than white space; how many of those pages hold a replacement character (U+FFFD, a broken font map) and how many
---   paint an image (a seal or letterhead, or a scanned page under a thin text layer).
+-- Measures: every page of every fully read PDF resource in the newest extraction of each revision (N0 counts the rest),
+--   banded by its characters other than white space; how many of those pages hold a replacement character (U+FFFD, a
+--   broken font map) and how many paint an image (a seal or letterhead, or a scanned page under a thin text layer).
 -- Decides: the text threshold of the PDF page classifier (20 characters is a guess): a page is "text" at or above it
 --   with no replacement character, otherwise a scan for a person.
 -- Columns: measure, chars_band, pages, with_replacement_char, with_image, documents
@@ -62,6 +64,8 @@ WITH latest AS (
   FROM latest l
   CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(l.result->'resources') = 'array' THEN l.result->'resources' ELSE '[]'::jsonb END)
     WITH ORDINALITY AS r(value, ordinality)
+  WHERE r.value->>'state' IS DISTINCT FROM 'blocked_capacity'
+    AND NOT coalesce((r.value->'gaps') ? 'PDF 无法完整解析', false)
 ), text_pages AS (
   SELECT x.revision_id, x.resource_no, (n.value->>'page')::int AS page,
     sum(length(regexp_replace(coalesce(n.value->>'text', ''), '\s', '', 'g'))) AS chars,
@@ -120,6 +124,8 @@ WITH latest AS (
   FROM latest l
   CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(l.result->'resources') = 'array' THEN l.result->'resources' ELSE '[]'::jsonb END)
     WITH ORDINALITY AS r(value, ordinality)
+  WHERE r.value->>'state' IS DISTINCT FROM 'blocked_capacity'
+    AND NOT coalesce((r.value->'gaps') ? 'PDF 无法完整解析', false)
 ), text_pages AS (
   SELECT x.revision_id, x.resource_no, (n.value->>'page')::int AS page,
     sum(length(regexp_replace(coalesce(n.value->>'text', ''), '\s', '', 'g'))) AS chars,
