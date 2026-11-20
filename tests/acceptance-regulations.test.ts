@@ -11,7 +11,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
-import type { Policy } from "@amp/contracts/http/public";
+import { Policy } from "@amp/contracts/http/public";
+import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { runCases } from "./acceptance/case.ts";
 import {
   baselineProblems,
@@ -25,7 +26,7 @@ import {
   TEXT_PDF,
 } from "./acceptance/regulations.ts";
 import { coreRegulations } from "./acceptance/regulations-core.ts";
-import { livePublicRecord, liveRegulations } from "./acceptance/regulations-live.ts";
+import { liveRegulations } from "./acceptance/regulations-live.ts";
 
 after(closeDb);
 
@@ -78,43 +79,122 @@ test("each case starts with what the Owner saw, and its inputs are synthetic", (
   assert.ok(NUMBER_ONLY_INSTRUMENT.text.length < 600);
 });
 
-test("the title case is met by a record that names the document in Chinese and says what changes, for whom and from when", () => {
-  const live = livePublicRecord(NUMBER_ONLY_INSTRUMENT);
-  assert.ok(live, "the live gate publishes the synthetic instrument");
-  const effects = (record: Policy | null): RegulationsEffects => ({
-    ruleset: "probe",
-    publicRecord: () => record,
-  });
-  const result = (record: Policy | null) => runCases(REGULATIONS_CASES, effects(record)).get(TITLE);
-  // Today: the title is “文书 Resolución 12/2026”, with no change or applicability line; the date the text states is read.
-  assert.equal(live.title, `文书 ${NUMBER_ONLY_INSTRUMENT.documentNumber}`);
-  assert.equal(
-    result(live),
-    "the public title is only the document number (“文书 Resolución 12/2026”); no line says what it changes; no line says whom it affects",
+/**
+ * A fixed public record written by hand (never produced by an adapter), so the checks are tested against a known reader
+ * effect: the defect the Owner saw, a document known only by its number with nothing else said. The live projection's
+ * own result is judged only through the baseline comparison above.
+ */
+const day = (meaning: "published" | "effective", date: string) =>
+  normalizeSourceTime(
+    { meaning, raw: date, local_date: date, local_time: null, utc: null, timezone: null, basis: "Synthetic", condition_text: null },
+    { instantBasis: null, timezoneEvidence: null },
   );
-  const good = {
-    ...live,
-    title: "关于调整矿业年度生产申报期限的决议（Resolución 12/2026）",
-    summary: "把矿业年度生产申报的截止日改为每年 3 月 31 日。",
-    applicability_summary: "适用于持有采矿特许权的企业。",
-  };
-  assert.equal(result(good), null);
+const unknown = { value: "unknown" as const, basis: null, evidence_ids: [] };
+const NUMBER_ONLY_RECORD = Policy.parse({
+  id: "pol_synthetic",
+  title: "文书 Resolución 12/2026",
+  original_title: "Resolución 12/2026",
+  jurisdictions: [{ code: "AR", label: "阿根廷", kind: "country" }],
+  authority: { id: "aut_synthetic", name: "Secretaría de Minería de Ejemplo" },
+  instrument_number: "Resolución 12/2026",
+  nature: { code: "unknown", label: "尚未确认" },
+  themes: [],
+  change_kind: null,
+  published_time: day("published", "2026-11-02"),
+  sort_time: null,
+  sort_kind: null,
+  first_public_at: normalizeSourceTime(
+    {
+      meaning: "site_public",
+      raw: "2026-11-20T03:00:00.000Z",
+      local_date: "2026-11-20",
+      local_time: "03:00:00.000",
+      utc: "2026-11-20T03:00:00.000Z",
+      timezone: "UTC",
+      precision: "second",
+      basis: "Synthetic",
+      condition_text: null,
+    },
+    { instantBasis: "explicit", timezoneEvidence: "Synthetic UTC clock" },
+  ),
+  first_public_basis: "live",
+  source_checked_at: null,
+  is_backfill: false,
+  legal_brief: { stage: "unknown", in_force: "unknown", repeal: "unknown" },
+  interpretation_state: "basic_facts",
+  summary: null,
+  applicability_summary: null,
+  thread_id: null,
+  original_url: "https://gazette.invalid/aviso/12-2026",
+  attributions: [{ name: "Secretaría de Minería de Ejemplo", url: "https://gazette.invalid/aviso/12-2026" }],
+  ai_label: "ai_generated",
+  legal_state: {
+    nature: unknown,
+    legislative_stage: unknown,
+    publication: { ...unknown, time: null },
+    enforcement: { ...unknown, arrangements: [] },
+    applicability: [],
+    deadlines: [],
+    repeal: unknown,
+  },
+  dates: [],
+  attachment_inventory: [],
+  versions: [],
+  expressions: [],
+  selected_policy_version_id: null,
+  selected_expression_id: null,
+  reading: null,
+  main_points: [],
+  guide: null,
+  gaps: [],
+  impacts: [],
+  sections: [],
+  relationships: [],
+  related_items: [],
+  evidence: [],
+  limitation: "仅展示已核原题、文号与官方入口；不作为完整政策解读。",
+  ai_metadata: { provider: "Synthetic", content_id: "pol_synthetic" },
+});
+/** The same record with everything the case asks for: a Chinese title and lines on what changes, for whom and from when. */
+const FULL_RECORD = Policy.parse({
+  ...NUMBER_ONLY_RECORD,
+  title: "关于调整矿业年度生产申报期限的决议（Resolución 12/2026）",
+  summary: "把矿业年度生产申报的截止日改为每年 3 月 31 日。",
+  applicability_summary: "适用于持有采矿特许权的企业。",
+  dates: [{ ...day("effective", "2027-01-01"), event_kind: "entry_into_force", occurrence: "planned" }],
+});
+
+test("the title case is red for a record known only by its number, names each missing line, and is met by a full record", () => {
+  const result = (record: Policy | null) => runCases(REGULATIONS_CASES, { ruleset: "probe", publicRecord: () => record }).get(TITLE);
+  assert.equal(
+    result(NUMBER_ONLY_RECORD),
+    "the public title is only the document number (“文书 Resolución 12/2026”); no line says what it changes; no line says whom it affects; no line says when it takes effect",
+  );
+  assert.equal(result(FULL_RECORD), null);
   // Each missing line is named on its own.
-  assert.match(result({ ...good, title: "Resolución 12/2026" })!, /^the public title is only the document number/);
-  assert.equal(result({ ...good, summary: null }), "no line says what it changes");
-  assert.equal(result({ ...good, applicability_summary: null }), "no line says whom it affects");
-  const undated = {
-    ...good,
-    dates: good.dates.filter((d) => d.event_kind !== "entry_into_force"),
+  assert.equal(result({ ...FULL_RECORD, title: "Resolución 12/2026" }), "the public title is only the document number (“Resolución 12/2026”)");
+  assert.equal(result({ ...FULL_RECORD, title: NUMBER_ONLY_RECORD.title }), "the public title is only the document number (“文书 Resolución 12/2026”)");
+  assert.equal(result({ ...FULL_RECORD, summary: null }), "no line says what it changes");
+  assert.equal(result({ ...FULL_RECORD, applicability_summary: null }), "no line says whom it affects");
+  assert.equal(result({ ...FULL_RECORD, dates: [] }), "no line says when it takes effect");
+  // A stated effective arrangement counts as the date line as well.
+  const arranged = {
+    ...FULL_RECORD,
+    dates: [],
+    legal_state: {
+      ...FULL_RECORD.legal_state,
+      enforcement: {
+        ...FULL_RECORD.legal_state.enforcement,
+        arrangements: [
+          { text: "原文写明的施行日", time: day("effective", "2027-01-01"), occurrence: "planned" as const, scope: null, condition: null, evidence_ids: [] },
+        ],
+      },
+    },
   };
-  undated.legal_state = {
-    ...good.legal_state,
-    enforcement: { ...good.legal_state.enforcement, arrangements: [] },
-  };
-  assert.equal(result(undated), "no line says when it takes effect");
+  assert.equal(result(arranged), null);
   // Not published, not a valid public record, and no projection at all are three different answers.
   assert.equal(result(null), "the instrument is not published at all");
-  assert.match(result({ ...good, title: "" })!, /^not a valid public policy record/);
+  assert.match(result({ ...FULL_RECORD, title: "" })!, /^not a valid public policy record/);
   assert.match(runCases(REGULATIONS_CASES, { ruleset: "none" }).get(TITLE)!, /^no such ability yet/);
 });
 
@@ -149,42 +229,52 @@ test("the attachment and PDF cases follow the answer about their own fixture", (
   assert.deepEqual(regulationsOutcome(REGULATIONS_CASES, thrown).red, [PDF]);
 });
 
-// The baseline checks only protect the cases if they bite. Each ruleset below is a recorded one with one thing changed.
-test("the baseline check catches a regression, an unrecorded gain, a red case that moved or was dropped, a removed case and a miscount", () => {
-  const live = baseline.rulesets.live!,
-    core = baseline.rulesets.core!;
-  const problems = (effects: RegulationsEffects, record: RegulationsOutcome, cases = REGULATIONS_CASES) =>
-    baselineProblems(cases, outcomeOf(effects, cases), record).join("\n");
-  assert.equal(problems(LIVE, live), "");
-  assert.equal(problems(CORE, core), "");
+/**
+ * A ruleset written by hand whose answers are fixed: `met` names the cases it gets right; a case named in `blind` has no
+ * ability. The baseline checks are tested on it, so they do not depend on what live or core do today.
+ */
+function probe(met: readonly string[], blind: readonly string[] = []): RegulationsEffects {
+  const effects: RegulationsEffects = {
+    ruleset: "probe",
+    publicRecord: () => (met.includes(TITLE) ? FULL_RECORD : NUMBER_ONLY_RECORD),
+    attachmentList: () => ({ closed: met.includes(ATTACHMENTS), why: "probe" }),
+    pdfText: () => ({ fromTextLayer: met.includes(PDF), why: "probe" }),
+  };
+  if (blind.includes(TITLE)) delete effects.publicRecord;
+  if (blind.includes(ATTACHMENTS)) delete effects.attachmentList;
+  if (blind.includes(PDF)) delete effects.pdfText;
+  return effects;
+}
 
-  // A met case stops being met: core's PDF rule starts sending the text PDF to vision.
-  assert.ok(core.met.includes(PDF));
-  assert.match(problems({ ...CORE, pdfText: () => ({ fromTextLayer: false, why: "mutated" }) }, core), new RegExp(`no longer met: ${PDF}`));
-  // A red case starts being met but the baseline still lists it as red: the live attachment list closes.
-  assert.ok(live.red.includes(ATTACHMENTS));
-  assert.match(problems({ ...LIVE, attachmentList: () => ({ closed: true, why: "mutated" }) }, live), new RegExp(`newly met cases: .*${ATTACHMENTS}`));
-  // A red case loses its ability: still red, but it must be recorded where it now stands.
-  const blind = problems(
-    {
-      ruleset: "live",
-      attachmentList: LIVE.attachmentList,
-      pdfText: LIVE.pdfText,
-    },
-    live,
-  );
-  assert.match(blind, new RegExp(`\\(red\\) now fail differently.*${TITLE}`));
-  assert.match(blind, new RegExp(`\\(notJudged\\) the baseline does not record: ${TITLE}`));
+// The baseline checks only protect the cases if they bite. The recorded baseline here is a probe's: the attachment case
+// met, the PDF case red and the title case not judged.
+test("the baseline check catches a regression, an unrecorded gain, a red case that moved or was dropped, a removed case and a miscount", () => {
+  const reference = probe([ATTACHMENTS], [TITLE]);
+  const recorded = outcomeOf(reference);
+  assert.deepEqual(recorded, { counts: { cases: 3, met: 1, red: 1, notJudged: 1 }, met: [ATTACHMENTS], red: [PDF], notJudged: [TITLE] });
+  const problems = (effects: RegulationsEffects, record: RegulationsOutcome = recorded, cases = REGULATIONS_CASES) =>
+    baselineProblems(cases, outcomeOf(effects, cases), record).join("\n");
+  assert.equal(problems(reference), "");
+
+  // A met case stops being met.
+  assert.match(problems(probe([], [TITLE])), new RegExp(`no longer met: ${ATTACHMENTS}`));
+  // A red case starts being met but the baseline still lists it as red.
+  assert.match(problems(probe([ATTACHMENTS, PDF], [TITLE])), new RegExp(`newly met cases: .*${PDF}`));
+  // A red case loses its ability, and a not-judged case gains one but is still wrong: both must be recorded where they stand.
+  const moved = problems(probe([ATTACHMENTS], [PDF]));
+  assert.match(moved, new RegExp(`\\(red\\) now fail differently.*${PDF}`));
+  assert.match(moved, new RegExp(`\\(notJudged\\) now fail differently.*${TITLE}`));
+  assert.match(moved, new RegExp(`\\(red\\) the baseline does not record: ${TITLE}`));
   // A red case is dropped from the baseline while the ruleset still gets it wrong.
-  assert.match(problems(LIVE, { ...live, red: live.red.filter((id) => id !== PDF) }), new RegExp(`does not record .*${PDF}`));
+  assert.match(problems(reference, { ...recorded, red: [] }), new RegExp(`does not record .*${PDF}`));
   // A not-judged case is dropped from the baseline.
-  assert.match(problems(CORE, { ...core, notJudged: [] }), new RegExp(`does not record .*${TITLE}`));
+  assert.match(problems(reference, { ...recorded, notJudged: [] }), new RegExp(`does not record .*${TITLE}`));
   // A case disappears from the list: the baseline still names it, and the count is off.
   const fewer = REGULATIONS_CASES.filter((c) => c.id !== PDF);
-  const gone = problems(LIVE, live, fewer);
+  const gone = problems(reference, recorded, fewer);
   assert.match(gone, new RegExp(`not cases .*${PDF}`));
   assert.match(gone, /count cases: the baseline says 3, the cases give 2/);
   // A case listed twice, and counts that do not match the lists.
-  assert.match(problems(LIVE, { ...live, notJudged: [PDF] }), new RegExp(`twice: ${PDF}`));
-  assert.match(problems(CORE, { ...core, counts: { ...core.counts, met: 3 } }), /count met: the baseline says 3, the cases give 2/);
+  assert.match(problems(reference, { ...recorded, met: [ATTACHMENTS, PDF] }), new RegExp(`twice: ${PDF}`));
+  assert.match(problems(reference, { ...recorded, counts: { ...recorded.counts, met: 2 } }), /count met: the baseline says 2, the cases give 1/);
 });
