@@ -16,7 +16,7 @@ import {
 
 const page = (facts: Partial<PdfPageFacts>): PdfPageFacts => ({ textChars: 500, replacementChars: 0, imageArea: 0, ...facts });
 
-test("the thresholds are named: 20 characters is provisional until measurements N1/N2, the image share is a fixed design value", () => {
+test("both thresholds are named and provisional: 20 characters until N1/N2, a quarter of the page until an image-area count", () => {
   assert.equal(PDF_TEXT_MIN_CHARS, 20);
   assert.equal(PDF_IMAGE_AREA_MIXED, 0.25);
 });
@@ -35,6 +35,7 @@ test("a large image makes an otherwise-text page mixed; seals and letterheads be
   assert.equal(pdfPageKind(page({ imageArea: 0.03 })), "text");
   assert.equal(pdfPageKind(page({ imageArea: PDF_IMAGE_AREA_MIXED - 0.001 })), "text");
   assert.equal(pdfPageKind(page({ imageArea: PDF_IMAGE_AREA_MIXED })), "mixed");
+  // While the share is provisional, a text page over a full-page background and an OCR'd scan are mixed too.
   assert.equal(pdfPageKind(page({ imageArea: 1 })), "mixed");
   // Overlapping images may add up to more than the page.
   assert.equal(pdfPageKind(page({ imageArea: 1.7 })), "mixed");
@@ -54,14 +55,25 @@ test("a document is text when every page is text, a scan when every page is a sc
   assert.throws(() => pdfDocumentKind([]), RangeError);
 });
 
-test("text is counted as N1 counts it: code points other than white space, broken characters among them", () => {
+test("text is counted exactly as N1 counts it on production: PostgreSQL's white space there is removed, only U+FFFD is broken", () => {
+  // N1 runs regexp_replace(text, '\s', '') on PostgreSQL 17 on Alpine, where \s is musl's iswspace: exactly these code points.
+  const n1Space = [
+    0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20, 0x85, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2008, 0x2009, 0x200a, 0x2028, 0x2029, 0x205f, 0x3000,
+  ];
+  const removed: number[] = [];
+  for (let code = 1; code <= 0x10ffff; code++)
+    if ((code < 0xd800 || code > 0xdfff) && pdfTextCounts(String.fromCodePoint(code)).textChars === 0) removed.push(code);
+  assert.deepEqual(removed, n1Space);
+  // No-break spaces, U+1680 and U+FEFF are characters for N1, although JavaScript's \s would remove them.
+  assert.deepEqual(pdfTextCounts("\u00a0\u2007\u202f\u1680\ufeff"), { textChars: 5, replacementChars: 0 });
   assert.deepEqual(pdfTextCounts(""), { textChars: 0, replacementChars: 0 });
-  assert.deepEqual(pdfTextCounts(" \t\n\r\u3000 "), { textChars: 0, replacementChars: 0 });
   assert.deepEqual(pdfTextCounts("Section 1. Mining threshold is 10."), { textChars: 29, replacementChars: 0 });
   assert.deepEqual(pdfTextCounts("第一条\u3000为了规范矿业权出让"), { textChars: 12, replacementChars: 0 });
-  // A character outside the Basic Multilingual Plane is one character, not two UTF-16 units.
+  // A character outside the Basic Multilingual Plane is one character, as PostgreSQL's length() counts it.
   assert.deepEqual(pdfTextCounts("𠀀矿"), { textChars: 2, replacementChars: 0 });
-  assert.deepEqual(pdfTextCounts("Art\uFFFDculo 1\u0000"), { textChars: 10, replacementChars: 2 });
+  assert.deepEqual(pdfTextCounts("Art\uFFFDculo 1"), { textChars: 9, replacementChars: 1 });
+  // NUL never reaches N1 (PostgreSQL text cannot hold it); here it is an ordinary character, not a broken one.
+  assert.deepEqual(pdfTextCounts("a\u0000b"), { textChars: 3, replacementChars: 0 });
 });
 
 test("impossible counts are refused instead of being classified", () => {
@@ -78,9 +90,11 @@ test("impossible counts are refused instead of being classified", () => {
 });
 
 /**
- * Per-page facts of a fixture as the new write side will read them: the text layer, and the share of the page that
- * painted images cover (each image is the unit square under the transformation in effect, so its area is the product
- * of the determinants of the transformations applied). Enough for these fixtures, which use no form XObjects.
+ * Per-page facts of a fixture: the text layer, and the share of the page that painted images cover (each image is the
+ * unit square under the transformation in effect, so its area is the product of the determinants of the transformations
+ * applied). A FIXTURE-ONLY APPROXIMATION, not the production reader: it follows only save, restore and transform, and
+ * ignores form XObjects (their matrices and the images inside them), grouped and repeated image operations, clipping and
+ * overlap. These synthetic fixtures use none of them. Do not copy it into the new write side.
  */
 async function readPages(name: string): Promise<PdfPageFacts[]> {
   const entry = import.meta.resolve("pdfjs-dist/legacy/build/pdf.mjs");

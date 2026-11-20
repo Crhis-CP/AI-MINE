@@ -39,7 +39,8 @@ const label = (value: string) => value.normalize("NFKC").replace(/\s+/gu, " ").t
  * - a page whose source declares no list is closed when its body names no annex;
  * - a page whose source declares a list is closed when every annex the body names is among the list's links;
  * - an original that was not acquired, a body or list that could not be read, or an annex the body names without a
- *   listed link leaves it open, with the reason.
+ *   listed link leaves it open, with the reason. An annex named without a readable label cannot match any link, so it
+ *   keeps the list open too, as the legacy acquisition did.
  * A missing decisive attachment is not decided here: the attachment's own resource state says it.
  */
 export function catalogueState(facts: CatalogueFacts): CatalogueState {
@@ -49,15 +50,12 @@ export function catalogueState(facts: CatalogueFacts): CatalogueState {
   if (facts.original === "pdf")
     return facts.embeddedFiles > 0 ? { closed: false, reason: "pdf_embeds_files" } : { closed: true, basis: "pdf_without_embedded_files" };
   if (facts.bodyAnnexLabels === null) return { closed: false, reason: "body_unreadable" };
-  const named = facts.bodyAnnexLabels.map((value) => {
-    const folded = label(value);
-    if (!folded) throw new RangeError("An annex the body names needs a label");
-    return folded;
-  });
+  // An annex named without a readable label folds to "" and stays in the list: no link can match it.
+  const named = facts.bodyAnnexLabels.map(label);
   if (facts.attachmentSelector === null)
     return named.length ? { closed: false, reason: "body_names_unlisted_annex" } : { closed: true, basis: "no_attachments_declared" };
   if (facts.linkedLabels === null) return { closed: false, reason: "list_unreadable" };
-  // A link without text names no annex.
+  // A link without text names no annex, so it cannot stand in for an annex named without a label.
   const linked = new Set(facts.linkedLabels.map(label).filter(Boolean));
   return named.every((value) => linked.has(value)) ? { closed: true, basis: "all_links_listed" } : { closed: false, reason: "body_names_unlisted_annex" };
 }

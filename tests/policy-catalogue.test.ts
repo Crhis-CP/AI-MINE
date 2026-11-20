@@ -40,7 +40,7 @@ test("a page with a declared list closes when every annex its body names is list
   assert.deepEqual(listed([], null), { closed: false, reason: "list_unreadable" });
 });
 
-test("labels compare after compatibility folding, white space and case; a link without text names nothing", () => {
+test("labels compare after compatibility folding, white space and case", () => {
   const listed = (bodyAnnexLabels: string[], linkedLabels: string[]) =>
     catalogueState(page({ attachmentSelector: "ul a", bodyAnnexLabels, linkedLabels })).closed;
   assert.equal(listed(["附件１"], ["附件1"]), true);
@@ -49,9 +49,20 @@ test("labels compare after compatibility folding, white space and case; a link w
   assert.equal(listed(["Annex\nA"], ["annex a"]), true);
   assert.equal(listed(["附件1"], ["附件 1"]), false);
   assert.equal(listed(["Anexo I"], ["Anexo II"]), false);
-  assert.equal(listed([], ["", "  "]), true);
-  assert.throws(() => catalogueState(page({ attachmentSelector: "ul a", bodyAnnexLabels: [" "], linkedLabels: [] })), RangeError);
-  assert.throws(() => catalogueState(page({ bodyAnnexLabels: [""] })), RangeError);
+});
+
+test("an annex named without a readable label keeps the list open, as the legacy acquisition left it; a link without text cannot match it", () => {
+  const unlisted = { closed: false, reason: "body_names_unlisted_annex" };
+  assert.deepEqual(catalogueState(page({ bodyAnnexLabels: [""] })), unlisted);
+  assert.deepEqual(catalogueState(page({ attachmentSelector: "ul a", bodyAnnexLabels: [" "], linkedLabels: ["附件1"] })), unlisted);
+  // Both labels fold to "": a link without text names no annex, so it does not close the list.
+  assert.deepEqual(catalogueState(page({ attachmentSelector: "ul a", bodyAnnexLabels: [" "], linkedLabels: [""] })), unlisted);
+  assert.deepEqual(catalogueState(page({ attachmentSelector: "ul a", bodyAnnexLabels: ["附件1", ""], linkedLabels: ["附件1", "  "] })), unlisted);
+  // Links without text beside the named annexes change nothing.
+  assert.deepEqual(catalogueState(page({ attachmentSelector: "ul a", bodyAnnexLabels: ["附件1"], linkedLabels: ["", "附件1"] })), {
+    closed: true,
+    basis: "all_links_listed",
+  });
 });
 
 test("a PDF original closes when it embeds no file; a missing original or an unreadable body leaves the list open", () => {
