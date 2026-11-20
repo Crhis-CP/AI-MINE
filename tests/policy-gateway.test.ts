@@ -13,8 +13,11 @@ import { invalidateModelCache } from "@amp/backend/editorial/models";
 import { sha256 } from "../packages/backend/src/lib/ids.ts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { grantDateFixture } from "./source-date-fixture.ts";
+import { installModules } from "@amp/backend/modules";
 
 const root = await initializeDb("test");
+// Receipt release resumes policy workflows through the policy module's receiptReleased hook, as in the worker and api.
+installModules([(await import("../modules/policy/server.ts")).default]);
 type ProviderInput = { model: string; messages: { role: string; content: string }[] };
 let respond: (body: ProviderInput) => Promise<Record<string, unknown>> = async () => ({});
 const seen: ProviderInput[] = [];

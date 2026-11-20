@@ -11,7 +11,11 @@ import {
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { paidRequest } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
+import { installModules } from "@amp/backend/modules";
 
+// Receipt release resumes policy workflows through the policy module's receiptReleased hook, as in the worker and api;
+// a paused policy line still releases nothing with the module installed.
+installModules([(await import("../modules/policy/server.ts")).default]);
 after(closeDb);
 test("planned policy suspension keeps publication and news running, preserves holds, and never reapplies after a manual resume", async () => {
   await installUsageFixtureForService("policy-pause-fixture");

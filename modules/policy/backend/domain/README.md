@@ -55,7 +55,7 @@ TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyI
 
 ## 公开投影与读取（TASK-0122）
 
-`publication/policies-publish.ts` 的 `publishPolicyPublication({expressionId,fulltextRunId?})` 只消费当前持久物证、全文检查点及可回读的0101语义/实际模型依据。基本事实来自0123取得字段；完整解读须匹配 `policy/quality.ts` 中真实Owner审阅记录的来源、语言、完整配方、模型集合与期限。新安装不附任何资格，测试记录仅存在隔离库。`policyPublicationControl(db?)` 在写事务内锁独立法规公开开关；`setPolicyPublicationPaused` 及逐文书 `setPolicyPublicationState` 要求原因、操作人与既有审计。读请求不看采集/处理/公开暂停，也不写库、排队或调用模型。
+`publication/policies-publish.ts` 的 `publishPolicyPublication({expressionId,fulltextRunId?})` 只消费当前持久物证、全文检查点及可回读的0101语义/实际模型依据。基本事实来自0123取得字段；完整解读须匹配 `domain/quality.ts` 中真实Owner审阅记录的来源、语言、完整配方、模型集合与期限。新安装不附任何资格，测试记录仅存在隔离库。`policyPublicationControl(db?)` 在写事务内锁独立法规公开开关；`setPolicyPublicationPaused` 及逐文书 `setPolicyPublicationState` 要求原因、操作人与既有审计。读请求不看采集/处理/公开暂停，也不写库、排队或调用模型。
 
 公开层为随机代理ID与严格0098 DTO；当前许可、到期、自动排除和人工撤回对列表、详情、正文、历史、搜索与汇总逐次生效。`policyPublicVersions` / `policyPublicMembers(editionIds)` 给报告使用精确仍合格的公开版本及真实首次发现时刻，不以读取时间补齐。正文游标区分表达、修订和明确历史选择；列表游标只绑定筛选及排序锚点。报告继续读固定修订时，成员资格变化或当前报告换版返回409，不留下已撤回成员的标题或摘要。跨文书脉络由下述0128可信关系写口接入，读口不推测关系。
 

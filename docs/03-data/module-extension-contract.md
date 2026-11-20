@@ -17,3 +17,5 @@ TASK0461增量为ModelStep增加可选lane，复用JobLane的news/policy。可�
 TASK0466独立准备editorial/models公开查询口：capabilities()当前返回完整核心步骤目录，Capability兼容ModelStep上下文，命名键采用string；modelFor只查目录的自有键，未知及继承键不能借残留设置或默认值取得模型。已知步骤的选择优先级与返回形状保持。模块目录聚合及后台/用途/费用/暂停消费者仍须在本契约合并后接入，本卡不注册或启用新步骤。
 
 TASK0469/0470在上述独立接口合并后接入统一模型目录与消费者。核心键优先、重复用途拒绝，缺lane旧声明只供元数据读取；新付费必须明确且一致的lane。调用和后台不以policy_命名猜新步骤业务线，法规网关/原质量资格保留；历史未知归属不因安装新模块被补写。无新步骤/供应商启用、规则变化或真实模型调用，当前实施不能代替线上验收。
+
+TASK-0367（法规线扩展挂口）新增两个后端挂口，并把三处原来经引擎转发直接调用的法规代码改走挂口。`on.receiptReleased(receipt, db)`：结果未知的回执被放行（自动放行或人工核对放行）时，在放行事务里按安装顺序询问各模块，第一个返回true的模块接手、恢复它自己的工作，后面的不再询问；没有模块接手时返回false，引擎再按自己的步骤恢复；回调抛错则放行事务回滚。分发函数是`emitReceiptReleased`，测评回执在询问模块之前就被排除。`sourceEvidence(sourceIds)`：信源对账表“原件”一列，由模块读自己的表返回`{source_id, originals}`，引擎合并各模块的结果。法规模块经这两个挂口接回执恢复和原件计数，经已有的`alerts`挂口发“法规完整解读资格即将到期”提醒，键、级别和文字不变；提醒查询出错时按扩展检查的规则记为“运行检查未完成”，不再让整轮告警失败。这三项只在调用installModules的进程里存在（api、worker、`scripts/collect.ts`、`scripts/baseline/capture.ts`）；没有安装模块的进程里回执恢复不含法规、对账表原件记0、没有这条提醒，都不报错，见`tests/module-hooks-policy.test.ts`。

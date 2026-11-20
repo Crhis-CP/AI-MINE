@@ -4,7 +4,8 @@ import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
 import { FULLTEXT_CANDIDATE_RECIPE } from "./fulltext-candidate.ts";
 
-export type PolicyFallbackContext = { language: string; fulltextRecipe: string; interpretationRecipe: string };
+import type { PolicyFallbackContext } from "@amp/backend/providers/model-fallback";
+export type { PolicyFallbackContext };
 /** Interpretation recipe 2 (法规线成本设计): deterministic grouping and verification, change-only interpret calls. */
 export const INTERPRETATION_PROMPTS = ["policy-interpret", "policy-verify"] as const;
 export const currentInterpretationRecipe = () => sha256(stableJson(["policy-interpretation-2", ...INTERPRETATION_PROMPTS.map((n) => promptVersion(n))]));

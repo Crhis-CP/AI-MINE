@@ -7,9 +7,10 @@ import { modelRegistryLock } from "./model-registry.ts";
 import { backupAdmission, type BackupAdmission } from "./model-fallback-admission.ts";
 import { logicalKeyFor, ProviderRejectedError, ReceiptUnknownError, ReceiptPhysicalLimitError, type ReceiptRequest } from "./receipts.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
-import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import type { ChatJsonResult } from "./llm.ts";
 
+/** Policy-line context for backup-model admission; declared here so engine callers need no policy forward for the type. */
+export type PolicyFallbackContext = { language: string; fulltextRecipe: string; interpretationRecipe: string };
 export class ModelFallbackBlocked extends Error {}
 export class ModelContentFiltered extends Error {
   readonly receiptId: number;
