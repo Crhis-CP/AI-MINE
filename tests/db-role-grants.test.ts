@@ -70,6 +70,7 @@ test("seven real logins enforce grants, install worker-owned queues and round-tr
   await denied(s.public_read, "SELECT raw FROM articles"); // Table-level REVOKE alone would miss this old column grant.
 
   assert.ok((await s.feedback_write`INSERT INTO feedback (content,source_hash) VALUES ('fixture','fixture-client') RETURNING id`)[0].id);
+  assert.ok((await s.feedback_write`SELECT count(created_at)::int n FROM feedback WHERE created_at>now()-interval '1 hour'`)[0].n > 0);
   assert.equal((await s.feedback_write`SELECT source_hash FROM feedback_bans`).length, 1);
   await denied(s.feedback_write, "SELECT content,email FROM feedback");
   await denied(s.feedback_write, "DELETE FROM feedback");

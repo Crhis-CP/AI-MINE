@@ -45,7 +45,7 @@ test("actual PNG/JPEG/WebP/GIF are decoded and privately re-encoded without EXIF
   }
 });
 
-test("an animated screenshot preserves its frames after metadata removal", async () => {
+test("an animated screenshot keeps only its first frame after metadata removal", async () => {
   const pixels = Buffer.from([...Array(4).fill([255, 0, 0, 255]).flat(), ...Array(4).fill([0, 0, 255, 255]).flat()]);
   const gif = await sharp(pixels, { raw: { width: 2, height: 4, channels: 4, pageHeight: 2 } })
     .gif({ loop: 0, delay: [80, 160] })
@@ -53,8 +53,67 @@ test("an animated screenshot preserves its frames after metadata removal", async
   const { id } = await submitFeedback({ ...request(), screenshot: { mime: "image/gif", data: gif } });
   const [row] = await sql`SELECT screenshot_key FROM feedback WHERE id=${id}`;
   const metadata = await sharp(await readFile(path.join(dir, "feedback-screenshots", row!.screenshot_key.slice(6))), { animated: true }).metadata();
-  assert.equal(metadata.pages, 2);
-  assert.deepEqual(metadata.delay, [80, 160]);
+  assert.equal(metadata.pages, 1);
+  assert.deepEqual(
+    await sharp(gif).raw().toBuffer(),
+    await sharp(await readFile(path.join(dir, "feedback-screenshots", row!.screenshot_key.slice(6))))
+      .raw()
+      .toBuffer(),
+  );
+});
+
+test("image decoding holds no transaction; a second image waits at most three seconds and a banned request skips the slot", async (t) => {
+  const bytes = await image().png().toBuffer();
+  let release!: () => void,
+    reached!: () => void,
+    calls = 0;
+  const gate = new Promise<void>((resolve) => (release = resolve)),
+    entered = new Promise<void>((resolve) => (reached = resolve)),
+    metadata = sharp.prototype.metadata;
+  t.mock.method(sharp.prototype, "metadata", async function (this: ReturnType<typeof sharp>) {
+    calls++;
+    reached();
+    await gate;
+    return metadata.call(this);
+  });
+  const first = submitFeedback({ ...request(), screenshot: { mime: "image/png", data: bytes } });
+  try {
+    await entered;
+    assert.equal((await sql`SELECT count(*)::int n FROM pg_stat_activity WHERE datname=current_database() AND state='idle in transaction'`)[0]!.n, 0);
+    const blocked = request();
+    const { feedbackSourceHash } = await import("@amp/backend/operations/feedback");
+    await sql`INSERT INTO feedback_bans(source_hash) VALUES(${feedbackSourceHash(blocked.ip, blocked.userAgent)})`;
+    const started = performance.now();
+    await assert.rejects(submitFeedback({ ...blocked, screenshot: { mime: "image/png", data: bytes } }), (e) => (e as { status: number }).status === 403);
+    assert.ok(performance.now() - started < 2000, "a banned request does not wait for the occupied decoder");
+    await assert.rejects(submitFeedback({ ...request(), screenshot: { mime: "image/png", data: bytes } }), (e) => {
+      const error = e as { status: number; code: string; retryAfter: number };
+      return error.status === 503 && error.code === "busy" && error.retryAfter === 10;
+    });
+    assert.equal(calls, 1);
+  } finally {
+    release();
+    await first;
+  }
+});
+
+test("a ban lifted after precheck retries with a prepared image and records one attempt", async (t) => {
+  const { feedbackSourceHash } = await import("@amp/backend/operations/feedback"),
+    input = { ...request(), screenshot: { mime: "image/png", data: await image().png().toBuffer() } },
+    source = feedbackSourceHash(input.ip, input.userAgent),
+    begin = sql.begin;
+  await sql`INSERT INTO feedback_bans(source_hash) VALUES(${source})`;
+  let first = true;
+  t.mock.method(sql, "begin", async (...args: unknown[]) => {
+    if (first) {
+      first = false;
+      await sql`DELETE FROM feedback_bans WHERE source_hash=${source}`;
+    }
+    return Reflect.apply(begin, sql, args);
+  });
+  const result = await submitFeedback(input);
+  assert.ok((await sql`SELECT screenshot_key FROM feedback WHERE id=${result.id}`)[0]!.screenshot_key);
+  assert.equal((await sql`SELECT attempts FROM feedback.submission_state WHERE source_hash=${source}`)[0]!.attempts.length, 1);
 });
 
 test("forged MIME, SVG, empty/truncated data and excessive pixels never enter the inbox", async () => {
