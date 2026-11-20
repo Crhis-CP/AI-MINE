@@ -3,7 +3,7 @@ import { sql } from "@amp/backend/db";
 import { withCurrentPolicyOriginal, type OriginalRun } from "./fulltext-store.ts";
 import { settlePolicyResponse } from "@amp/backend/providers/receipts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-import type { ExtractionProfile } from "./extraction.ts";
+import type { ExtractionProfile } from "../core/extraction-parse.ts";
 import type { RenderedPdf } from "./vision-render.ts";
 
 export type VisionRun = OriginalRun & { id: string; recipe: string; profile: ExtractionProfile; pdfs: RenderedPdf[]; renderHash: string };

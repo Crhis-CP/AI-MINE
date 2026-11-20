@@ -12,10 +12,10 @@ import { capturePolicyMaterial } from "./capture.ts";
 import { runPolicyFulltext } from "./fulltext-runtime.ts";
 import { processingControl } from "./fulltext-store.ts";
 import { runPolicyVision } from "./vision-runtime.ts";
-import { policyRelationshipCandidates } from "../relations.ts";
+import { policyRelationshipCandidates } from "./relationship-links.ts";
 import { runPolicyInterpretation } from "./interpretation-runtime.ts";
-import type { ExtractionProfile } from "./extraction.ts";
-import { structurePolicyRevision } from "../core/provision-store.ts";
+import type { ExtractionProfile } from "../core/extraction-parse.ts";
+import { structurePolicyRevision } from "./structure.ts";
 import { policyModelStagesEnabled, policyVisionEnabled } from "../pilot.ts";
 
 export const POLICY_STAGES = ["acquire", "fulltext", "vision", "interpret", "publish"] as const;

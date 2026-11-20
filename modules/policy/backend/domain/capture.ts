@@ -14,7 +14,7 @@ import { guardedFetch, type GuardedResponse, type GuardedFetchOptions } from "@a
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { acquirePolicyOriginal } from "./acquire.ts";
 import { policyProfile, type PolicyAutomationProfile } from "../core/automation-profile.ts";
-import { decodeOriginal } from "./extraction.ts";
+import { decodeOriginal } from "../core/extraction-parse.ts";
 import { loadPolicyDocument, PolicyIdentityMismatch, readPolicyIdentityFields, type PolicyIdentityFields } from "../core/identity-fields.ts";
 import type { PolicyMetadataObservation } from "../core/metadata.ts";
 import { lookupPolicyOriginalExpression, readPolicyOriginal, recordPolicyOriginal } from "../core/originals.ts";

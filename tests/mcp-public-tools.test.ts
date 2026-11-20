@@ -1,6 +1,6 @@
 import { checkMcp } from "../scripts/mcp-check.ts";
 import { installTestConnections } from "./direct-db-fixture.ts";
-import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/core/quality-binding.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";

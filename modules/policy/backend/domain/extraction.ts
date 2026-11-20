@@ -1,63 +1,18 @@
 import * as cheerio from "cheerio";
-import { decodePolicyOriginal, PolicyEncodingError } from "../core/encoding.ts";
+import { PolicyEncodingError } from "../core/encoding.ts";
 import type { Element } from "domhandler";
-import { sourceAnnotations, xmlReadingHtml, type SourceAnnotation } from "../core/annotations.ts";
+import { sourceAnnotations, xmlReadingHtml } from "../core/annotations.ts";
 import { fileURLToPath } from "node:url";
 import { getDocument, OPS, version } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { policySemanticHtml } from "../core/semantic-html.ts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { sql } from "@amp/backend/db";
 import { assertOriginalPermissions, readPolicyOriginal } from "../core/originals.ts";
+import { decodeOriginal, validateProfile } from "../core/extraction-parse.ts";
+import type { ExtractionProfile, OriginalNode, PolicyExtraction, ResourceExtraction } from "../core/extraction-parse.ts";
 
-export interface ExtractionProfile {
-  bodySelector: string | null;
-  attachmentSelector: string | null;
-  /** A reviewed source-specific expression whose first group names a referenced attachment. */
-  attachmentReferencePattern?: string;
-  maxBytes: number;
-  maxResources: number;
-  maxPages: number;
-  maxTextBytes: number;
-}
-export type OriginalNode = {
-  id: string;
-  ordinal: number;
-  text: string;
-  html?: string;
-  page?: number;
-  transform?: number[];
-  visualLocations?: { page: number; bbox: number[]; imageHash: string }[];
-  selector?: string;
-  annotations?: SourceAnnotation[];
-};
-export type ResourceExtraction = {
-  url: string;
-  sha256: string | null;
-  state: "extracted" | "incomplete" | "blocked_capacity";
-  nodes: OriginalNode[];
-  gaps: string[];
-};
-export type PolicyExtraction = {
-  revisionId: string;
-  state: ResourceExtraction["state"];
-  gaps: string[];
-  resources: ResourceExtraction[];
-  visualProof?: { runId: string; contentHash: string; recipe: string };
-};
 export const EXTRACTION_RECIPE = `html-policy-2/xml-policy-2/decode-strict-1/pdfjs-${version}`;
 const normalized = (value: string) => value.replace(/\s+/g, " ").trim();
-export function validateProfile(profile: ExtractionProfile) {
-  for (const key of ["maxBytes", "maxResources", "maxPages", "maxTextBytes"] as const)
-    if (!Number.isSafeInteger(profile[key]) || profile[key] <= 0) throw new Error(`Invalid policy extraction ${key}`);
-  if (profile.attachmentReferencePattern) {
-    if (!profile.bodySelector || !profile.attachmentSelector || profile.attachmentReferencePattern.length > 300)
-      throw new Error("Attachment reference checks require bounded declared body and catalogue selectors");
-    new RegExp(profile.attachmentReferencePattern, "giu");
-  }
-}
-export function decodeOriginal(bytes: Uint8Array, mediaType: string | null) {
-  return decodePolicyOriginal(bytes, mediaType).text;
-}
 async function parseResource(
   resource: { url: string; sha256: string | null; body: Uint8Array | null; mediaType: string | null; reason: string | null },
   profile: ExtractionProfile,
