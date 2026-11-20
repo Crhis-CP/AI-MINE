@@ -1,47 +1,72 @@
 // The periodic repair of the event order (review of design M, F8). The event shadow's job (shadow-queue.ts) refreshes a
 // fact's timing and its reports' event order only when one of the fact's reports is grouped through events.group. The
-// hourly re-merge, story consolidation, an editor's story merge or detach, withdrawals, date corrections and score
-// changes move facts and reports without that, and would leave events.fact_timing and publication.event_rank stale.
-// Each of those republishes the reports it touches, so the pool publications changed since the last run name what to
-// look at again: the facts a report is in now, the fact its stored row was decided with, and the facts its recent
-// grouping decisions moved it into or out of. Their timing is recomputed and the rows of their public reports projected
-// again with the shadow's own functions (timing.ts observeFactTiming, rank/project.ts projectEventOrder); a timing or a
-// row that comes out the same is not written, so facts nothing changed keep their rows and decided_at.
-// No model call; a report's own text is read only where its source allows it (those functions); only those two tables
-// are written. It runs only while events.shadow is on (docs/runbooks/event-shadow.md): a timer queues one job an hour
-// on a queue of its own, worked one job at a time per worker process, its queries one after another and its loop
-// yielding to the event loop. A run takes at most REPAIR_BUDGET steps, then queues its continuation. It starts where
-// the last completed run stopped (that job's output, kept by the queue), never earlier than REPAIR_LOOKBACK_HOURS ago,
-// and leaves the last REPAIR_SETTLE_MINUTES to the next run, so a change still being committed is not passed over.
+// hourly re-merge, story merges, an editor's detach, withdrawals, date corrections and score changes move facts and
+// reports without that, and some of them republish after their own commit only as far as they can.
+// So the repair does not chase changes: once an hour it sweeps every fact active in the last REPAIR_WINDOW_HOURS and
+// recomputes it from what is stored now. A fact is active when one of these reports is in it now, or was in it by a
+// grouping decision or by the stored row of its order:
+//  - materials discovered in the window, in any state (members outside the public pool count for a fact's timing);
+//  - pool publications republished in the window (a withdrawal, a date or score change of an older report);
+//  - reports with a grouping decision in the window (a re-merge or regroup of an older report).
+// Facts are taken in id order, a page at a time: (A) the page's facts get their timing recomputed, then (B) every report
+// with a row for those facts or a public publication in them gets its row projected again, after the fact its
+// publication is in now has been recomputed in this run (also when that fact is on a later page). Reports of the window
+// in no fact come last. Both steps use the shadow's own functions (timing.ts observeFactTiming, rank/project.ts
+// projectEventOrder): a timing or a row that comes out the same is not written, so decided_at stays.
+// No model call; a report's own text is read only where its source allows it; only events.fact_timing and
+// publication.event_rank are written. It runs only while events.shadow is on (docs/runbooks/event-shadow.md), on a queue
+// of its own, one job at a time per worker process, its queries one after another, yielding to the event loop. A run
+// does at most REPAIR_BUDGET steps and queues its continuation; a new sweep is not started while one is under way. A
+// fact or report that fails is logged, counted and passed: the next sweep tries it again.
 import { z } from "zod";
+import { newsDiscoveredSince } from "../../content/materials.ts";
 import { sql, type Db } from "../../db.ts";
-import { enqueueOn, latestCompletedOutput } from "../../jobs/module-queues.ts";
+import { enqueueOn, queueBusy } from "../../jobs/module-queues.ts";
 import { defineQueue } from "../../modules.ts";
-import { type ChangeCursor, changedPublications, factPublications, projectEventOrder, storyRankedArticles } from "../rank/project.ts";
+import { factPublications, poolPublicationsUpdatedSince, projectEventOrder, publicationPlaces } from "../rank/project.ts";
 import { slicer } from "./recall.ts";
 import { eventShadowEnabled } from "./shadow.ts";
-import { REPROJECT_LIMIT } from "./shadow-queue.ts";
-import { articleFacts, observeFactTiming } from "./timing.ts";
+import { FACT_MEMBER_LIMIT, observeFactTiming } from "./timing.ts";
 
-/** How far back a run looks at most: changes older than this when the repair (re)starts are left alone. */
-export const REPAIR_LOOKBACK_HOURS = 72;
-/** Changes younger than this wait for the next run (their transaction may still be committing). */
-export const REPAIR_SETTLE_MINUTES = 5;
-/** Changed publications read per query. */
-export const REPAIR_PAGE = 100;
-/** Steps per run: a fact whose timing is recomputed, or a report whose row is projected. The report being repaired when the budget runs out is finished first. */
-export const REPAIR_BUDGET = 1000;
-/** Failed reports per run before the run gives up (it then fails, and the next run starts where the last completed one stopped). */
-export const REPAIR_FAILURE_LIMIT = 5;
+/** A fact is swept while one of its reports was discovered, republished or decided on within this many hours. */
+export const REPAIR_WINDOW_HOURS = 72;
+/** Reports read per source of the window; a source that reaches it is reported (windowFull) and its oldest reports wait. */
+export const REPAIR_WINDOW_LIMIT = 20_000;
+/** Facts per page. */
+export const REPAIR_PAGE = 25;
+/** Reports per page of the reports of the window in no fact. */
+const STANDALONE_PAGE = 100;
+/** Steps per run (a fact recomputed or a report projected); the page under way is finished first. */
+export const REPAIR_BUDGET = 2000;
+/** A continuation starts this long after the run before it. */
+export const CONTINUE_AFTER_SECONDS = 10;
+/** Reports looked up per query when the window is read. */
+const LOOKUP_SLICE = 500;
 /** Grouping decisions read per report. */
 const DECISION_LIMIT = 10;
 const HOUR = 3_600_000;
 
-/** The facts a report's grouping decisions since `since` put it into, and the fact a re-merge took it out of. */
-export async function decidedFacts(articleId: string, since: Date, db: Db = sql): Promise<number[]> {
+/**
+ * Reports of the latest `limit` grouping decisions made since `since`: those after the last decision made before it, read
+ * by id (a decision's id rises with its time), newest first.
+ */
+export async function decidedSince(since: Date, limit: number, db: Db = sql): Promise<string[]> {
+  const rows = await db<{ article_id: string }[]>`SELECT article_id FROM grouping_decisions
+    WHERE id>(SELECT coalesce(max(id),0) FROM grouping_decisions WHERE created_at<${since}) ORDER BY id DESC LIMIT ${limit}`;
+  return [...new Set(rows.map((row) => row.article_id))];
+}
+
+/**
+ * The facts these reports are in now, and those their latest grouping decisions put them in or (a re-merge) took them out
+ * of. A fact left in a merged story is among them too: recomputing it finds no live member and drops its timing.
+ */
+export async function factsOfReports(ids: readonly string[], db: Db = sql): Promise<number[]> {
+  if (!ids.length) return [];
   const rows = await db<{ fact_id: number | null; from_fact: string | null }[]>`
-    SELECT fact_id,input_manifest->'remerge'->>'fromFactId' AS from_fact FROM grouping_decisions
-    WHERE article_id=${articleId} AND created_at>=${since} ORDER BY id DESC LIMIT ${DECISION_LIMIT}`;
+    SELECT fact_id,NULL AS from_fact FROM fact_articles WHERE article_id=ANY(${[...ids]}::text[]) AND role IN ('primary','report')
+    UNION ALL
+    SELECT d.fact_id,d.from_fact FROM unnest(${[...ids]}::text[]) AS r(id) CROSS JOIN LATERAL (
+      SELECT fact_id,input_manifest->'remerge'->>'fromFactId' AS from_fact FROM grouping_decisions WHERE article_id=r.id ORDER BY id DESC LIMIT ${DECISION_LIMIT}) d`;
   const facts = new Set<number>();
   for (const row of rows) {
     if (row.fact_id !== null) facts.add(row.fact_id);
@@ -51,13 +76,54 @@ export async function decidedFacts(articleId: string, since: Date, db: Db = sql)
   return [...facts];
 }
 
-export interface RepairOutcome {
-  /** Where the next run starts. */
-  next: ChangeCursor;
-  /** Every change up to the window's end was looked at. */
+export interface SweepWindow {
+  /** Facts to sweep, ascending. */
+  facts: number[];
+  /** Reports of the window whose publication and row name no fact, ascending. */
+  standalone: string[];
+  reports: number;
+  /** A source reached REPAIR_WINDOW_LIMIT. */
+  full: boolean;
+}
+
+/** What one sweep covers, read anew by each of its runs (so a continuation sees what changed meanwhile). */
+export async function sweepWindow(since: Date, db: Db = sql): Promise<SweepWindow> {
+  const sources = [
+    await newsDiscoveredSince(since, REPAIR_WINDOW_LIMIT, db),
+    await poolPublicationsUpdatedSince(since, REPAIR_WINDOW_LIMIT, db),
+    await decidedSince(since, REPAIR_WINDOW_LIMIT, db),
+  ];
+  const ids = [...new Set(sources.flat())];
+  const facts = new Set<number>();
+  const standalone: string[] = [];
+  // In slices, so each lookup goes by its index.
+  for (let i = 0; i < ids.length; i += LOOKUP_SLICE) {
+    const slice = ids.slice(i, i + LOOKUP_SLICE);
+    for (const factId of await factsOfReports(slice, db)) facts.add(factId);
+    for (const [id, place] of await publicationPlaces(slice, db)) {
+      for (const factId of [place.factId, place.rankedFactId]) if (factId !== null) facts.add(factId);
+      if (place.factId === null && place.rankedFactId === null) standalone.push(id);
+    }
+  }
+  return {
+    facts: [...facts].sort((a, b) => a - b),
+    standalone: standalone.sort(),
+    reports: ids.length,
+    full: sources.some((source) => source.length >= REPAIR_WINDOW_LIMIT),
+  };
+}
+
+const After = z.union([z.object({ fact: z.number().int() }).strict(), z.object({ report: z.string().min(1) }).strict()]);
+export type SweepAfter = z.infer<typeof After>;
+
+export interface SweepOutcome {
+  /** Every fact and report of the window was swept. */
   done: boolean;
-  /** Changed publications looked at. */
-  changed: number;
+  /** Switched off between two pages. */
+  stopped: boolean;
+  /** The last fact (or, after the facts, report) done: where a continuation goes on. */
+  next: SweepAfter | null;
+  window: { facts: number; standalone: number; reports: number; full: boolean };
   /** Facts whose timing was recomputed, and those among them whose day, basis, first report or story moved. */
   facts: number;
   moved: number;
@@ -65,76 +131,123 @@ export interface RepairOutcome {
   failures: number;
 }
 
-class RepairFailing extends Error {}
-
-/**
- * Repair the facts and rows of the publications changed after `after` and at or before `to`. `since` bounds the grouping
- * decisions read. At most `budget` steps; the outcome says where to go on.
- */
-export async function repairEventOrder(o: { after: ChangeCursor; to: Date; since: Date; budget?: number }, db: Db = sql): Promise<RepairOutcome> {
-  const budget = o.budget ?? REPAIR_BUDGET;
-  const out: RepairOutcome = { next: o.after, done: false, changed: 0, facts: 0, moved: 0, rows: { written: 0, removed: 0, unchanged: 0 }, failures: 0 };
-  // A fact, report or story is looked at once per run, however many of its reports changed.
-  const observed = new Set<number>();
-  const projected = new Set<string>();
-  const stories = new Set<number>();
-  let steps = 0;
-  const project = async (articleId: string) => {
-    if (projected.has(articleId)) return;
-    projected.add(articleId);
-    steps++;
-    out.rows[await projectEventOrder(articleId, db)]++;
-  };
-  const turn = slicer();
-  for (;;) {
-    const page = await changedPublications({ after: out.next, to: o.to, limit: REPAIR_PAGE }, db);
-    for (const p of page) {
-      if (steps >= budget) return out;
-      try {
-        const facts = [
-          ...new Set([
-            ...(await articleFacts(p.articleId, db)),
-            ...(p.rankedFactId === null ? [] : [p.rankedFactId]),
-            ...(await decidedFacts(p.articleId, o.since, db)),
-          ]),
-        ].filter((factId) => !observed.has(factId));
-        for (const factId of facts) observed.add(factId);
-        steps += facts.length;
-        out.facts += facts.length;
-        const moved = await observeFactTiming(facts, db);
-        out.moved += moved.length;
-        await project(p.articleId);
-        // A fact whose day, first report or story moved moves its other reports' rows.
-        for (const factId of moved) for (const id of await factPublications(factId, REPROJECT_LIMIT, db)) await project(id);
-        // A report that moved to another story (a story merge) can move that story's first report, which every row of the
-        // story reads: the story's latest rows are projected again.
-        if (p.storyId !== null && p.rankedStoryId !== null && p.storyId !== p.rankedStoryId && !stories.has(p.storyId)) {
-          stories.add(p.storyId);
-          for (const id of await storyRankedArticles(p.storyId, REPROJECT_LIMIT, db)) await project(id);
-        }
-      } catch (error) {
-        out.failures++;
-        console.warn(`[event-order-repair] could not repair ${p.articleId}: ${String(error).slice(0, 200)}`);
-        if (out.failures >= REPAIR_FAILURE_LIMIT) throw new RepairFailing(`${out.failures} reports failed; stopping at ${p.articleId}`);
-      }
-      out.next = { at: p.at, articleId: p.articleId };
-      out.changed++;
-      await turn();
-    }
-    if (page.length < REPAIR_PAGE) {
-      // The window is done: the next run starts after its end (never before where this one started).
-      if (Date.parse(out.next.at) <= o.to.getTime()) out.next = { at: o.to.toISOString(), articleId: null };
-      out.done = true;
-      return out;
-    }
-  }
+export interface SweepOptions {
+  budget?: number;
+  page?: number;
+  /** Read before every page; off stops the sweep there. */
+  enabled?: () => Promise<boolean>;
+  /** Called after every page (tests). */
+  afterPage?: () => Promise<void>;
 }
 
-const Cursor = z.object({ at: z.string().min(1).max(40), articleId: z.string().min(1).nullable() }).strict();
-const Payload = z.object({ lane: z.literal("news"), after: Cursor.optional() }).strict();
+/** Sweep the window from `since` on, going on after `after`, for at most `budget` steps. */
+export async function sweepEventOrder(o: { since: Date; after: SweepAfter | null } & SweepOptions, db: Db = sql): Promise<SweepOutcome> {
+  const budget = o.budget ?? REPAIR_BUDGET;
+  const size = o.page ?? REPAIR_PAGE;
+  const enabled = o.enabled ?? (() => eventShadowEnabled());
+  const w = await sweepWindow(o.since, db);
+  const out: SweepOutcome = {
+    done: false,
+    stopped: false,
+    next: o.after,
+    window: { facts: w.facts.length, standalone: w.standalone.length, reports: w.reports, full: w.full },
+    facts: 0,
+    moved: 0,
+    rows: { written: 0, removed: 0, unchanged: 0 },
+    failures: 0,
+  };
+  // A fact or report is done once per run, however many pages name it.
+  const observed = new Set<number>();
+  const projected = new Set<string>();
+  let steps = 0;
+  const turn = slicer();
+  const failed = (what: string, error: unknown) => {
+    out.failures++;
+    console.warn(`[event-order-repair] could not repair ${what}: ${String(error).slice(0, 200)}`);
+  };
+  const observe = async (factIds: readonly number[]) => {
+    for (const factId of factIds) {
+      if (observed.has(factId)) continue;
+      observed.add(factId);
+      steps++;
+      out.facts++;
+      try {
+        out.moved += (await observeFactTiming([factId], db)).length;
+      } catch (error) {
+        failed(`fact ${factId}`, error);
+      }
+      await turn();
+    }
+  };
+  const project = async (ids: readonly string[]) => {
+    const todo = [...new Set(ids)].filter((id) => !projected.has(id));
+    // A row reads the timing of the fact its publication is in now: that fact is recomputed first.
+    const places = await publicationPlaces(todo, db);
+    await observe([...new Set(todo.flatMap((id) => places.get(id)?.factId ?? []))]);
+    for (const id of todo) {
+      projected.add(id);
+      steps++;
+      try {
+        out.rows[await projectEventOrder(id, db)]++;
+      } catch (error) {
+        failed(`report ${id}`, error);
+      }
+      await turn();
+    }
+  };
+  const page = async (run: () => Promise<void>): Promise<"go" | "budget" | "off"> => {
+    if (steps >= budget) return "budget";
+    if (!(await enabled())) return "off";
+    await run();
+    await o.afterPage?.();
+    return "go";
+  };
+  const stop = (why: "budget" | "off") => {
+    out.stopped = why === "off";
+    return out;
+  };
+
+  const facts = o.after === null ? w.facts : "fact" in o.after ? w.facts.filter((id) => id > (o.after as { fact: number }).fact) : [];
+  for (let i = 0; i < facts.length; i += size) {
+    const ids = facts.slice(i, i + size);
+    const state = await page(async () => {
+      await observe(ids); // (A)
+      const reports: string[] = [];
+      for (const factId of ids) reports.push(...(await factPublications(factId, FACT_MEMBER_LIMIT, db)));
+      await project(reports); // (B)
+    });
+    if (state !== "go") return stop(state);
+    out.next = { fact: ids.at(-1)! };
+  }
+  const after = o.after !== null && "report" in o.after ? o.after.report : null;
+  const standalone = after === null ? w.standalone : w.standalone.filter((id) => id > after);
+  for (let i = 0; i < standalone.length; i += STANDALONE_PAGE) {
+    const ids = standalone.slice(i, i + STANDALONE_PAGE);
+    const state = await page(() => project(ids));
+    if (state !== "go") return stop(state);
+    out.next = { report: ids.at(-1)! };
+  }
+  out.done = true;
+  return out;
+}
+
+const Payload = z.object({ lane: z.literal("news"), sweep: z.object({ since: z.string().datetime(), after: After.nullable() }).strict().optional() }).strict();
 type RepairJob = z.infer<typeof Payload>;
-/** One job waits at a time: the hourly one or a continuation, whichever was queued first. */
 const SINGLETON = "order-repair";
+
+/** One run of a sweep: a new sweep (no `sweep`) looks back REPAIR_WINDOW_HOURS; a run that stops at its budget queues the next. */
+export async function runOrderRepair(job: RepairJob, opts: SweepOptions = {}) {
+  const data = Payload.parse(job);
+  const since = data.sweep ? new Date(data.sweep.since) : new Date(Date.now() - REPAIR_WINDOW_HOURS * HOUR);
+  const outcome = await sweepEventOrder({ since, after: data.sweep?.after ?? null, ...opts });
+  if (!outcome.done && !outcome.stopped)
+    await enqueueOn(
+      orderRepairQueue,
+      { lane: "news", sweep: { since: since.toISOString(), after: outcome.next } },
+      { singletonKey: SINGLETON, startAfter: CONTINUE_AFTER_SECONDS },
+    );
+  return { state: outcome.done ? "swept" : outcome.stopped ? "stopped" : "continued", since: since.toISOString(), ...outcome };
+}
 
 export const orderRepairQueue = defineQueue<RepairJob>({
   name: "news.events.order-repair",
@@ -142,30 +255,24 @@ export const orderRepairQueue = defineQueue<RepairJob>({
   worker: { localConcurrency: 1, pollingIntervalSeconds: 30, batchSize: 1 },
   async run([job]) {
     if (!job) return;
-    const data = Payload.parse(job);
     if (!(await eventShadowEnabled())) return { state: "skipped", reason: "switched_off" };
-    const now = Date.now();
-    const floor = new Date(now - REPAIR_LOOKBACK_HOURS * HOUR);
-    const to = new Date(now - REPAIR_SETTLE_MINUTES * 60_000);
-    const last = Cursor.safeParse((await latestCompletedOutput(orderRepairQueue.name, "next"))?.next);
-    const start = data.after ?? (last.success ? last.data : null);
-    // Never earlier than the lookback: after a long pause the repair starts again from there.
-    const after: ChangeCursor = start && Date.parse(start.at) >= floor.getTime() ? start : { at: floor.toISOString(), articleId: null };
-    const outcome = await repairEventOrder({ after, to, since: floor });
-    if (!outcome.done) await enqueueOn(orderRepairQueue, { lane: "news", after: outcome.next }, { singletonKey: SINGLETON, startAfter: 60 });
-    return { state: outcome.done ? "repaired" : "continued", from: after, to: to.toISOString(), ...outcome };
+    return runOrderRepair(job);
   },
 });
 
 let failures = 0;
-/** The hourly timer (apps/worker/src/schedules.ts): queues a run while the switch is on. Never throws: a failure is logged and counted. */
-export async function scheduleOrderRepair(): Promise<{ queued: boolean }> {
+/**
+ * The hourly timer (apps/worker/src/schedules.ts): starts a sweep while the switch is on and no sweep is waiting,
+ * retrying or running. Never throws: a failure is logged and counted.
+ */
+export async function scheduleOrderRepair(): Promise<{ queued: boolean; reason?: "switched_off" | "sweep_under_way" }> {
   try {
-    if (!(await eventShadowEnabled())) return { queued: false };
+    if (!(await eventShadowEnabled())) return { queued: false, reason: "switched_off" };
+    if (await queueBusy(orderRepairQueue.name)) return { queued: false, reason: "sweep_under_way" };
     return { queued: (await enqueueOn(orderRepairQueue, { lane: "news" }, { singletonKey: SINGLETON })) !== null };
   } catch (error) {
     failures++;
-    console.warn(`[event-order-repair] could not queue a run (${failures} failures since start): ${String(error).slice(0, 200)}`);
+    console.warn(`[event-order-repair] could not queue a sweep (${failures} failures since start): ${String(error).slice(0, 200)}`);
     return { queued: false };
   }
 }

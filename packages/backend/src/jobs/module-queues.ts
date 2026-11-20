@@ -40,14 +40,12 @@ export async function shadowJobsWithFullWindow(from: Date, to: Date, db: Db = sq
 }
 
 /**
- * The output of the latest completed job of a module queue whose output holds the object `key`, as far as the queue keeps
- * completed jobs (pipeline/events/order-repair.ts resumes from it). Only that queue's jobs are read: the job table's key
- * begins with the queue name.
+ * Whether a module queue has a job waiting, retrying or running (pipeline/events/order-repair.ts starts no new sweep
+ * while one is under way). Only that queue's jobs are read: the job table's key begins with the queue name.
  */
-export async function latestCompletedOutput(queue: string, key: string, db: Db = sql): Promise<Record<string, unknown> | null> {
-  const [row] = await db<{ output: Record<string, unknown> }[]>`SELECT output FROM pgboss.job
-    WHERE name=${queue} AND state='completed' AND jsonb_typeof(output->${key})='object' ORDER BY completed_on DESC LIMIT 1`;
-  return row?.output ?? null;
+export async function queueBusy(queue: string, db: Db = sql): Promise<boolean> {
+  const [row] = await db`SELECT 1 FROM pgboss.job WHERE name=${queue} AND state IN ('created','retry','active') LIMIT 1`;
+  return !!row;
 }
 
 /** Durable grouping waits belong to the queue module, including delayed and retrying jobs. */
