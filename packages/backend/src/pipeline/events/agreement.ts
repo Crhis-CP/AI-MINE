@@ -153,13 +153,15 @@ export async function shadowAgreement(from: Date, to: Date, ruleset = EVENT_RULE
         r.live_story_id !== null &&
         merges.some((m) => m.at > r.decided_at && m.stories.includes(r.live_story_id!) && m.stories.includes(c.storyId) && r.live_story_id !== c.storyId);
       if (!different && !sameEvent) continue;
+      // The more specific label wins: a pair a person separated is "different" even if its stories were merged later.
+      const truth = !different;
       out.human.pairs++;
       const liveSaid = different ? r.live_fact_id === c.factId : r.live_story_id === c.storyId;
-      if (liveSaid === sameEvent) out.human.liveRight++;
+      if (liveSaid === truth) out.human.liveRight++;
       else out.human.liveWrong++;
       if (r.verdict === "undecided") continue;
       const shadowSaid = different ? shadowSame : r.verdict === "same_fact" && r.target_story_id === c.storyId;
-      if (shadowSaid === sameEvent) out.human.shadowRight++;
+      if (shadowSaid === truth) out.human.shadowRight++;
       else out.human.shadowWrong++;
     }
   }

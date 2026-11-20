@@ -260,7 +260,7 @@ test("off unless the switch says on: nothing is queued, then one job per grouped
 test("agreement: same-fact agreement, the undecided share, the call forecast and both engines against people's corrections", async () => {
   const source = await shadowSource();
   const r = async () => report({ source, titleZh: unique(), body: body(), publishedAt: hoursAgo(12) });
-  const [a1, a2, b1, c1, d1, e1, m1, g1] = [await r(), await r(), await r(), await r(), await r(), await r(), await r(), await r()];
+  const [a1, a2, b1, c1, d1, e1, m1, g1, h1] = [await r(), await r(), await r(), await r(), await r(), await r(), await r(), await r(), await r()];
   const shared = await fact("合成共同事实", [a1, a2]);
   const other = await fact("合成另一事实", [b1]);
   const merged = await fact("合成后来合并的事件", [m1]);
@@ -307,6 +307,10 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
   // A person merged m1's story into b1's: the rules, which tied m1 to b1's fact, were right; the live engine had split them.
   await insert(m1, "same_fact", "fingerprint", other, [cand(b1, other)], { verdict: "new-story", fact: merged, called: false }, 0);
   await sql`INSERT INTO audit_log(actor,action,subject,after) VALUES('admin:test','story.merge',${`story:${merged.storyId}`},${sql.json({ into: other.storyId })})`;
+  // Both labels on one pair: a person took h1 out of b1's fact, and h1's story was merged into b1's. The pair stays
+  // "different": the live engine, which kept h1 out of that fact, was right; the rules, which tied it there, were not.
+  await insert(h1, "same_fact", "fingerprint", other, [cand(b1, other)], { verdict: "same-fact", fact: merged, called: false }, 0);
+  await sql`INSERT INTO audit_log(actor,action,subject,before) VALUES('admin:test','content.detach',${`content:${h1}`},${sql.json({ facts: [other.factId], stories: [other.storyId] })})`;
   // The grouping engine's own merges are its answers, not labels: g1's pair would otherwise be labelled by this one.
   await insert(g1, "same_fact", "fingerprint", shared, [cand(a2, shared)], { verdict: "new-story", fact: other, called: false }, 0);
   await sql`INSERT INTO audit_log(actor,action,subject,after) VALUES('grouping','story.merge',${`story:${shared.storyId}`},${sql.json({ into: other.storyId })})`;
@@ -317,21 +321,21 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
   const a = await shadowAgreement(from, to);
   assert.deepEqual(
     { rows: a.rows, judged: a.judged, decided: a.decided, undecided: a.undecided, calls: a.calls, sameFact: a.sameFact },
-    { rows: 7, judged: 5, decided: 5, undecided: 0, calls: { wouldCall: 1, liveCalled: 3 }, sameFact: { rows: 4, agree: 1 } },
+    { rows: 8, judged: 6, decided: 6, undecided: 0, calls: { wouldCall: 1, liveCalled: 3 }, sameFact: { rows: 5, agree: 1 } },
   );
   assert.deepEqual(a.byRule, {
-    "same_fact/fingerprint": 3,
+    "same_fact/fingerprint": 4,
     "same_fact/certain_duplicate": 1,
     "undecided/similar_unsure": 1,
     "new_event/no_candidate": 1,
     "not_judged/manual": 1,
   });
-  assert.deepEqual(a.pairs, { total: 4, shadowSame: 4, liveSame: 1, both: 1 });
+  assert.deepEqual(a.pairs, { total: 5, shadowSame: 5, liveSame: 1, both: 1 });
   assert.deepEqual(a.newEvent, { rows: 1, liveJoinedFact: 1, liveJoinedStory: 0 });
-  assert.deepEqual(a.recallHit, { eligible: 2, hit: 1 });
-  assert.deepEqual(a.human, { pairs: 2, shadowRight: 1, shadowWrong: 1, liveRight: 1, liveWrong: 1 });
+  assert.deepEqual(a.recallHit, { eligible: 3, hit: 1 });
+  assert.deepEqual(a.human, { pairs: 3, shadowRight: 1, shadowWrong: 2, liveRight: 2, liveWrong: 1 });
 
-  assert.deepEqual(await shadowHeadline(from, to), { judged: 5, sameFact: 4, agree: 1, undecided: 0 });
+  assert.deepEqual(await shadowHeadline(from, to), { judged: 6, sameFact: 5, agree: 1, undecided: 0 });
   const day: Reconciliation = {
     day: "2026-11-18",
     sources: { enabled: 0, withNew: 0, silent: { failing: 0, waiting: 0, unstable: 0, overdue: 0, unknown: 0, quiet: 0 } },
@@ -348,5 +352,5 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
 
   await sql`UPDATE events.shadow_decisions SET decided_at=now()-interval '46 days' WHERE article_id=${e1}`;
   assert.equal(await pruneShadowDecisions(), 1, "rows past the 45-day retention go, the rest stay");
-  assert.equal((await shadowAgreement(from, to)).rows, 6);
+  assert.equal((await shadowAgreement(from, to)).rows, 7);
 });
