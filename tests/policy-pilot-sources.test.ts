@@ -12,7 +12,7 @@ import { assertSupportedConfig, normalizeSourceLanguage } from "@amp/backend/sou
 import { allowed, fromHtml } from "@amp/backend/sources/web-list";
 import { jsonListDocument } from "@amp/backend/sources/json-list";
 import { PolicyAutomationProfile } from "../modules/policy/backend/core/automation-profile.ts";
-import { validateProfile } from "../modules/policy/backend/domain/extraction.ts";
+import { validateProfile } from "../modules/policy/backend/core/extraction-parse.ts";
 import { PolicyIdentityMismatch, readPolicyIdentityFields } from "../modules/policy/backend/core/identity-fields.ts";
 import { splitProvisions } from "../modules/policy/backend/core/provisions.ts";
 const { load } = createRequire(new URL("../packages/backend/package.json", import.meta.url))("cheerio") as typeof import("cheerio");

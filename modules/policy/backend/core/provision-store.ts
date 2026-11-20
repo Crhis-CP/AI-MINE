@@ -5,8 +5,8 @@
  */
 import { sql, type Db } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
-import { EXTRACTION_RECIPE, extractPolicyOriginal, type ExtractionProfile, type PolicyExtraction } from "../domain/extraction.ts";
-import { readPolicyOriginal } from "./originals.ts";
+import { EXTRACTION_RECIPE } from "../domain/extraction.ts";
+import type { PolicyExtraction } from "./extraction-parse.ts";
 import { PROVISION_RECIPE, provisionSetHash, splitProvisions, type Provision, type ProvisionNumbering } from "./provisions.ts";
 
 export type PolicyStructureStatus = "structured" | "no_provisions" | "needs_manual";
@@ -41,7 +41,7 @@ export function structureFromText(text: string, gaps: string[], language: string
   return { split, status, sourceHash: sha256(text) };
 }
 
-async function readStructure(revisionId: string, db: Db = sql): Promise<PolicyStructure | null> {
+export async function readStructure(revisionId: string, db: Db = sql): Promise<PolicyStructure | null> {
   const [row] = await db<
     { status: PolicyStructureStatus; numbering: ProvisionNumbering | null; provisions_hash: string; provision_count: number; gaps: string[] }[]
   >`SELECT status,numbering,provisions_hash,provision_count,gaps FROM policy.revision_structures WHERE revision_id=${revisionId} AND recipe=${PROVISION_RECIPE}`;
@@ -73,20 +73,6 @@ export async function storePolicyStructure(revisionId: string, text: string, gap
         VALUES(${revisionId},${PROVISION_RECIPE},${p.ordinal},${p.key},${p.label},${tx.json(p.path)},${p.heading},${p.text},${p.hash})`;
   });
   return (await readStructure(revisionId))!;
-}
-
-/** Archive → structure for the current head of one expression. Reuses the cached extraction; never calls a model. */
-export async function structurePolicyRevision(expressionId: string, profile: ExtractionProfile): Promise<PolicyStructure | null> {
-  const snapshot = await readPolicyOriginal(expressionId);
-  if (!snapshot) return null;
-  const existing = await readStructure(snapshot.revisionId);
-  if (existing) return existing;
-  const main = snapshot.manifest.resources[0];
-  if (!main || !snapshot.resources[0]?.body) return storePolicyStructure(snapshot.revisionId, "", ["正文原件未存档"], snapshot.language);
-  const extraction = await extractPolicyOriginal(expressionId, profile);
-  if (extraction.revisionId !== snapshot.revisionId) return null;
-  const source = provisionSourceText(extraction, main.url);
-  return storePolicyStructure(snapshot.revisionId, source.text, source.gaps, snapshot.language);
 }
 
 /**

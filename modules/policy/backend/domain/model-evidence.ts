@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import type { readPolicyResponse } from "@amp/backend/providers/receipts";
-export const POLICY_MODEL_BINDING_VERSION = "physical-model-1";
 export const PolicyModelQualificationKey = z.string().regex(/^pmodel1:[a-f0-9]{64}$/u);
 export type ModelEvidence = {
   receiptId: number;

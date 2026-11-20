@@ -1,5 +1,5 @@
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
-import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/core/quality-binding.ts";
 import { policyInterpretationQualityRecipe } from "../modules/policy/backend/domain/references.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";

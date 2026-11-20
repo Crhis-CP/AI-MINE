@@ -53,14 +53,10 @@
       "next": ["modules/policy/backend/pipeline/**"],
       "importers": [
         "modules/policy/backend/core/provision-store.ts",
-        "modules/policy/backend/publication/policies-project.ts",
         "modules/policy/backend/publication/policies-publish.ts",
-        "modules/policy/backend/read.ts",
-        "modules/policy/backend/relations.ts",
         "modules/policy/server.ts",
         "packages/backend/src/policy/fallback-quality.ts",
-        "packages/backend/src/policy/model-evidence.ts",
-        "scripts/policy-pilot-discover.ts"
+        "packages/backend/src/policy/model-evidence.ts"
       ]
     }
   ]
