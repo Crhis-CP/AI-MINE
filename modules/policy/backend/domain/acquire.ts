@@ -3,8 +3,8 @@ import * as cheerio from "cheerio";
 import { CrawlDeferred, CrawlBlocked } from "@amp/backend/acquisition/crawl";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { guardedFetch, type GuardedFetchOptions, type GuardedResponse } from "@amp/backend/lib/http-fetch";
-import { recordPolicyOriginal } from "./originals.ts";
-import type { PolicyOriginalInput } from "./types.ts";
+import { recordPolicyOriginal } from "../core/originals.ts";
+import type { PolicyOriginalInput } from "../core/types.ts";
 import { decodeOriginal, validateProfile, type ExtractionProfile } from "./extraction.ts";
 
 type Input = Omit<PolicyOriginalInput, "resources" | "catalogueClosed">;

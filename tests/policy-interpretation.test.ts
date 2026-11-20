@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import { sql, closeDb, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
-import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
 import { runPolicyFulltext } from "../modules/policy/backend/domain/fulltext-runtime.ts";
 import { setPolicyProcessingPaused } from "../modules/policy/backend/domain/fulltext-store.ts";
 import { runPolicyInterpretation, loadPolicyInterpretation } from "../modules/policy/backend/domain/interpretation-runtime.ts";

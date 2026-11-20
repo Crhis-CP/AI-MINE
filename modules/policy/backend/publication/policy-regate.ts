@@ -5,9 +5,9 @@
  * gate set. Manual withdrawals and verified model exclusions are never touched. No model, no network.
  */
 import { sql } from "@amp/backend/db";
-import { classifyInstrument, INSTRUMENT_GATE_REASON_ZH, type InstrumentGateResult } from "../domain/instrument-gate.ts";
-import { readCachedPolicyText } from "../domain/provision-store.ts";
-import { observedPolicyDocumentType } from "../domain/metadata.ts";
+import { classifyInstrument, INSTRUMENT_GATE_REASON_ZH, type InstrumentGateResult } from "../core/instrument-gate.ts";
+import { readCachedPolicyText } from "../core/provision-store.ts";
+import { observedPolicyDocumentType } from "../core/metadata.ts";
 import { applyInstrumentGate } from "./policies-publish.ts";
 import { audit } from "@amp/backend/admin/auth";
 

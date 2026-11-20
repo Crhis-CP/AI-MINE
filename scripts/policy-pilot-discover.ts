@@ -11,10 +11,10 @@ import { jsonListDocument } from "@amp/backend/sources/json-list";
 import { allowed, fromHtml } from "@amp/backend/sources/web-list";
 import type { Candidate, SourceRow } from "../packages/backend/src/sources/types.ts";
 import { parseRobots, robotsAllows } from "../packages/backend/src/acquisition/robots.ts";
-import { PolicyAutomationProfile } from "../modules/policy/backend/domain/automation-profile.ts";
+import { PolicyAutomationProfile } from "../modules/policy/backend/core/automation-profile.ts";
 import { decodeOriginal } from "../modules/policy/backend/domain/extraction.ts";
-import { loadPolicyDocument, readPolicyIdentityFields } from "../modules/policy/backend/domain/identity-fields.ts";
-import { splitProvisions } from "../modules/policy/backend/domain/provisions.ts";
+import { loadPolicyDocument, readPolicyIdentityFields } from "../modules/policy/backend/core/identity-fields.ts";
+import { splitProvisions } from "../modules/policy/backend/core/provisions.ts";
 import { SITE } from "@amp/industry/site";
 
 class Usage extends Error {}

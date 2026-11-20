@@ -12,8 +12,8 @@ import {
   citationLabel,
   spanishNumber,
   spanishYear,
-} from "../modules/policy/backend/domain/ar-lifecycle.ts";
-import { classifyInstrument } from "../modules/policy/backend/domain/instrument-gate.ts";
+} from "../modules/policy/backend/core/ar-lifecycle.ts";
+import { classifyInstrument } from "../modules/policy/backend/core/instrument-gate.ts";
 import { argentinePublicationDate } from "../modules/policy/backend/publication/policies-publish.ts";
 import { withInstrumentFacts } from "../modules/policy/backend/publication/policies-project.ts";
 import { argentineStages } from "../modules/policy/web/features/lifecycle.ts";

@@ -1,6 +1,6 @@
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "@amp/backend/operations/lane-controls";
 import { sql, type Tx } from "@amp/backend/db";
-import { assertOriginalPermissions, readPolicyOriginal as readCurrentOriginal, type readPolicyOriginal } from "./originals.ts";
+import { assertOriginalPermissions, readPolicyOriginal as readCurrentOriginal, type readPolicyOriginal } from "../core/originals.ts";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { audit } from "@amp/backend/admin/auth";
 import { settlePolicyResponse } from "@amp/backend/providers/receipts";

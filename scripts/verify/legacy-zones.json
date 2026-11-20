@@ -45,6 +45,25 @@
         "apps/web/extension.ts",
         "modules/policy/web.ts"
       ]
+    },
+    {
+      "name": "policy-write",
+      "why": "the policy line's write side (state machine, capture, extraction, full text, interpretation, vision, model gateway) is rewritten in modules/policy/backend/pipeline; core/, publication/ and the read interface are kept",
+      "legacy": ["modules/policy/backend/domain/**", "modules/policy/backend/jobs.ts", "modules/policy/backend/provider.ts"],
+      "next": ["modules/policy/backend/pipeline/**"],
+      "importers": [
+        "modules/policy/backend/core/provision-store.ts",
+        "modules/policy/backend/publication/policies-project.ts",
+        "modules/policy/backend/publication/policies-publish.ts",
+        "modules/policy/backend/read.ts",
+        "modules/policy/backend/relations.ts",
+        "modules/policy/server.ts",
+        "packages/backend/src/policy/fallback-quality.ts",
+        "packages/backend/src/policy/model-evidence.ts",
+        "packages/backend/src/policy/quality.ts",
+        "packages/backend/src/policy/receipt-recovery.ts",
+        "scripts/policy-pilot-discover.ts"
+      ]
     }
   ]
 }
