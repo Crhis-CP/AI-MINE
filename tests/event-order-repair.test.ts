@@ -16,6 +16,7 @@ import { publishArticle } from "@amp/backend/publication/publish";
 import { SCHEDULES } from "../apps/worker/src/schedules.ts";
 import {
   CONTINUE_AFTER_SECONDS,
+  decidedSince,
   orderRepairQueue,
   REPAIR_WINDOW_HOURS,
   runOrderRepair,
@@ -229,6 +230,124 @@ test("a withdrawal of an older report removes its row and leaves its fact and th
     [keptBefore.decided_at, keptBefore.updated_at],
     "and its other report's row",
   );
+});
+
+/** Two reports of one fact before the window, the first carrying a checked day ten days back: the other is old news. */
+async function datedPair(source: string, title: string) {
+  const dating = await older((at) => checkedOld(source, at));
+  const other = await older((at) => report({ source, titleZh: unique(), body: body(), publishedAt: at }));
+  const shared = await fact(title, [dating, other], hoursAgo(100));
+  // Joining the fact republished them: back before the window again.
+  await sql`UPDATE publications SET updated_at=now()-interval '100 hours' WHERE article_id IN (${dating},${other})`;
+  await shadowed([shared.factId], [other]);
+  assert.deepEqual([(await rank(other))!.freshness, (await rank(other))!.freshness_basis], ["old", "fact_date"]);
+  return { dating, other, shared };
+}
+
+test("the fact a re-merge took a report out of is found through the decision's own record of it", async () => {
+  // The report has no publication (so no fact on one) and no row: only the re-merge decision names the fact it left.
+  const source = await shadowSource();
+  const { dating, other, shared } = await datedPair(source, "合成只靠判定记录的事实");
+  await sql`DELETE FROM publications WHERE article_id=${dating}`;
+  const target = await fact("合成并入", [], hoursAgo(100));
+  await remerge(dating, shared, target);
+  await sweep();
+  assert.deepEqual([(await timing(shared.factId))!.members, (await timing(shared.factId))!.occurred_basis], [1, "none"]);
+  assert.equal((await rank(other))!.freshness, "new");
+});
+
+test("the fact a report's publication still names is swept, though the report left it with no decision and no row", async () => {
+  // A report of the window leaves the fact (its republish has not happened yet): only its publication still names it.
+  const source = await shadowSource();
+  const other = await older((at) => report({ source, titleZh: unique(), body: body(), publishedAt: at }));
+  const dating = await checkedOld(source, hoursAgo(1));
+  const shared = await fact("合成只靠公开稿的事实", [dating, other], hoursAgo(100));
+  await sql`UPDATE publications SET updated_at=now()-interval '100 hours' WHERE article_id=${other}`;
+  await shadowed([shared.factId], [other]);
+  assert.equal((await rank(other))!.freshness, "old");
+  await sql`DELETE FROM fact_articles WHERE article_id=${dating}`;
+  await sweep();
+  assert.deepEqual([(await timing(shared.factId))!.members, (await timing(shared.factId))!.occurred_basis], [1, "none"]);
+  assert.equal((await rank(other))!.freshness, "new");
+});
+
+test("the fact a report's stored row was decided with is swept, though the report moved with no decision", async () => {
+  const source = await shadowSource();
+  const { dating, other, shared } = await datedPair(source, "合成只靠排序行的事实");
+  await projectEventOrder(dating);
+  assert.equal((await rank(dating))!.fact_id, shared.factId);
+  const target = await fact("合成新事实", [], hoursAgo(100));
+  await sql`UPDATE fact_articles SET fact_id=${target.factId} WHERE article_id=${dating}`;
+  await publishArticle(dating);
+  await sweep();
+  assert.deepEqual([(await timing(shared.factId))!.members, (await timing(shared.factId))!.occurred_basis], [1, "none"]);
+  assert.equal((await rank(other))!.freshness, "new");
+  assert.equal((await rank(dating))!.fact_id, target.factId);
+});
+
+test("an older report outside the pool detached by an editor: the fact it left is found through the audit log", async () => {
+  const source = await shadowSource();
+  const { dating, other, shared } = await datedPair(source, "合成旧稿被拆");
+  await sql`UPDATE publications SET eligible=false WHERE article_id=${dating}`;
+  await detachFromFact(dating, "合成：不是同一件事", "test");
+  await sql`UPDATE publications SET eligible=false,updated_at=now()-interval '100 hours' WHERE article_id=${dating}`;
+  assert.ok((await sweepWindow(since())).facts.includes(shared.factId));
+  await sweep();
+  assert.deepEqual([(await timing(shared.factId))!.members, (await timing(shared.factId))!.occurred_basis], [1, "none"]);
+  assert.equal((await rank(other))!.freshness, "new");
+});
+
+test("a story merge whose joined story's reports are all older than the window: they become follow-ups through the audit log", async () => {
+  const source = await shadowSource();
+  const early = await older((at) => report({ source, titleZh: unique(), body: body(), publishedAt: new Date(at.getTime() - 30 * 3_600_000) }));
+  const late = await older((at) => report({ source, titleZh: unique(), body: body(), publishedAt: at }));
+  const from = await fact("合成更早的事件", [early], hoursAgo(130));
+  const into = await fact("合成较早的事件", [late], hoursAgo(100));
+  await sql`UPDATE publications SET updated_at=now()-interval '100 hours' WHERE article_id IN (${early},${late})`;
+  await shadowed([from.factId, into.factId], [early, late]);
+  assert.equal((await rank(late))!.freshness, "new");
+  await mergeStories(from.storyId, into.storyId, "合成：同一事件", "test");
+  assert.equal(
+    (await sql`SELECT 1 FROM publications WHERE article_id=${late} AND updated_at>now()-interval '1 hour'`).length,
+    0,
+    "its publication did not change",
+  );
+  await sweep();
+  assert.equal((await rank(late))!.freshness, "follow_up", "its story now began 30 hours before its fact");
+});
+
+test("a window source that reads as many entries as it may is reported full, also when its decisions name fewer reports", async () => {
+  const source = await shadowSource();
+  const one = await report({ source, titleZh: unique(), body: body(), publishedAt: hoursAgo(1) });
+  const f = await fact("合成判定上限", [one], hoursAgo(1));
+  for (let i = 0; i < 3; i++) await liveDecision(one, "same-fact", f);
+  const decided = await decidedSince(since(), 3);
+  assert.deepEqual(decided, { ids: [one], full: true }, "three decisions read, one report");
+  assert.equal((await sweepWindow(since(), sql, 3)).full, true);
+  assert.equal((await sweepWindow(since())).full, false, "with the real limit this window is not full");
+});
+
+test("inside a page the switch and the budget are looked at every few steps; a run always finishes its first page", async () => {
+  const source = await shadowSource();
+  const a = await report({ source, titleZh: unique(), body: body(), publishedAt: hoursAgo(1) });
+  const b = await report({ source, titleZh: unique(), body: body(), publishedAt: hoursAgo(1) });
+  const fa = await fact("合成页内一", [a], hoursAgo(1));
+  const fb = await fact("合成页内二", [b], hoursAgo(1));
+  const start = { fact: fa.factId - 1 };
+  // A budget smaller than the first page: the run still finishes that page, and so the sweep moves on.
+  const small = await sweepEventOrder({ since: since(), after: start, budget: 1, page: 1, checkEvery: 1, enabled: async () => true });
+  assert.deepEqual([small.next, small.facts, small.rows.written + small.rows.unchanged], [{ fact: fa.factId }, 1, 1]);
+  // Budget: the first page (fact A: one recompute, one row) runs past it; the second stops after its first step.
+  const cut = await sweepEventOrder({ since: since(), after: start, budget: 3, page: 1, checkEvery: 1, enabled: async () => true });
+  assert.deepEqual([cut.done, cut.stopped, cut.next, cut.facts], [false, false, { fact: fa.factId }, 2]);
+  assert.equal(cut.rows.written + cut.rows.unchanged, 1, "the second page stopped before its report");
+  const rest = await sweepEventOrder({ since: since(), after: cut.next, budget: 1_000_000, page: 1, enabled: async () => true });
+  assert.equal(rest.done, true);
+  assert.equal((await rank(b))?.fact_id, fb.factId, "the continuation does the page again");
+  // Switch: off after the look before the page and the first step, the sweep stops inside its one page.
+  let looks = 0;
+  const off = await sweepEventOrder({ since: since(), after: null, page: 1000, checkEvery: 1, enabled: async () => ++looks <= 2 });
+  assert.deepEqual([off.stopped, off.done, off.facts], [true, false, 2]);
 });
 
 test("a story merge whose republish failed: the moved fact follows its story and the other report of the story it joined becomes a follow-up", async () => {
