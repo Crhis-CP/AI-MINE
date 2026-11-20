@@ -1,10 +1,10 @@
 // The queue of the event rules in shadow: a job per grouped report, queued after the live grouping has committed
 // (jobs/events.ts); one queued job per report at a time (singleton key). It is a queue of its own, worked one job at a
-// time and polled every 10 seconds, in the same worker process and on the same database pool as the grouping: it has
-// no priority over or under other queues, but its queries run one after another (one connection at a time) and its
-// long loops yield to the event loop (recall.ts). The job decides the report by the rules (shadow.ts), refreshes the
-// timing of the facts it touches (timing.ts) and the event order of their public reports (rank/project.ts). It makes
-// no model call and writes only those three tables.
+// time per worker process and polled every 10 seconds, in the same process and on the same database pool as the
+// grouping: it has no priority over or under other queues, but its queries run one after another (one connection at a
+// time) and its long loops yield to the event loop (recall.ts). The job decides the report by the rules (shadow.ts),
+// refreshes the timing of the facts it touches (timing.ts) and the event order of their public reports
+// (rank/project.ts). It makes no model call and writes only those three tables.
 // It does not wait for the news processing switch (review of design M, F10): it calls no model and writes no table a
 // reader sees, so a processing pause neither needs to stop it nor may lose its rows; during a cut-over pause the queue
 // drains. Its own switch, the settings key events.shadow, stops it: off, nothing is queued and queued jobs do nothing.
