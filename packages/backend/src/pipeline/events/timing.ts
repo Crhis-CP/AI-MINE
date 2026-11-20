@@ -7,14 +7,18 @@ import { newsShadowMaterials } from "../../content/materials.ts";
 import { sql, type Db } from "../../db.ts";
 import { groupingFrames } from "../../enrichment/records.ts";
 import { locallyReadable } from "./local-text.ts";
+import { slicer } from "./recall.ts";
 import { factTiming, type MemberClaim, memberClaim, type OccurredBasis } from "./timing-rules.ts";
 
-/** Bump when timing-rules.ts changes what counts as a checked day: stored checks of another ruleset are not reused. */
-export const TIMING_RULESET = "fact-timing-v1";
-/** Members read per fact; a fact with more is beyond anything grouping produces, and is timed by its earliest members. */
-export const FACT_MEMBER_LIMIT = 500;
 /** Characters of a report's original text searched for its claimed day. */
 export const TEXT_CHARS = 12_000;
+/**
+ * Bump when timing-rules.ts changes what counts as a checked day: stored checks of another ruleset, or of another length
+ * of text searched, are not reused.
+ */
+export const TIMING_RULESET = `fact-timing-v1|text${TEXT_CHARS}`;
+/** Members read per fact; a fact with more is beyond anything grouping produces, and is timed by its earliest members. */
+export const FACT_MEMBER_LIMIT = 500;
 
 export interface StoredClaim {
   rev: number;
@@ -92,7 +96,8 @@ export async function computeFactTiming(factId: number, stored: FactTimingRow | 
     ORDER BY fa.created_at,fa.article_id LIMIT ${FACT_MEMBER_LIMIT}`;
   if (!members.length) return null;
   const ids = members.map((m) => m.article_id);
-  const [materials, frames] = await Promise.all([newsShadowMaterials(ids, 0, db), groupingFrames(ids, db)]);
+  const materials = await newsShadowMaterials(ids, 0, db);
+  const frames = await groupingFrames(ids, db);
   const frameOf = new Map(frames.map((f) => [f.article_id, f]));
   const reuse = stored?.ruleset === TIMING_RULESET ? stored.claims : {};
   const claims: MemberClaim[] = [];
@@ -115,6 +120,8 @@ export async function computeFactTiming(factId: number, stored: FactTimingRow | 
     else if (kept && kept.rev === base.revision && kept.on === base.on && kept.at === base.at.toISOString()) claims.push({ ...base, verified: kept.verified });
     else unchecked.push(member);
   }
+  // Checking a day in a 12,000-character text takes about half a millisecond: yield between members.
+  const turn = slicer();
   for (let i = 0; i < unchecked.length; i += 50) {
     const part = unchecked.slice(i, i + 50);
     const texts = new Map(
@@ -126,7 +133,10 @@ export async function computeFactTiming(factId: number, stored: FactTimingRow | 
         )
       ).map((m) => [m.id, `${m.title}\n${m.body}`]),
     );
-    for (const c of part) claims.push(memberClaim({ ...c, text: texts.get(c.articleId) ?? "" }));
+    for (const c of part) {
+      claims.push(memberClaim({ ...c, text: texts.get(c.articleId) ?? "" }));
+      await turn();
+    }
   }
   const timing = factTiming(claims);
   if (!timing) return null;

@@ -68,24 +68,21 @@ export async function computeEventRank(articleId: string, db: Db = sql, timing?:
       representative_priority,timeline_at,fact_id,story_id
     FROM publications WHERE article_id=${articleId}`;
   if (p?.visibility !== "public" || !p.eligible || p.operator_withdrawn) return null;
-  const [[material], [frame], twins] = await Promise.all([
-    newsShadowMaterials([articleId], TEXT_CHARS, db),
-    groupingFrames([articleId], db),
-    newsDuplicateProbes(articleId, TWIN_LIMIT, db),
-  ]);
+  const [material] = await newsShadowMaterials([articleId], 0, db);
   if (!material) return null;
+  const [frame] = await groupingFrames([articleId], db);
+  const twins = await newsDuplicateProbes(articleId, TWIN_LIMIT, db);
   // Only the judgement of the current revision speaks for the report.
   const current = frame?.input_revision === material.revision ? frame : null;
   const reportedAt = material.published_at ?? material.discovered_at;
-  // The report's own day counts only when found in its text, read only while its source allows that locally.
-  const readable = (await locallyReadable([material], db)).has(articleId);
-  const own = memberClaim({
-    articleId,
-    revision: material.revision,
-    claim: readable ? (current?.occurred_at ?? null) : null,
-    text: readable ? `${material.title}\n${material.body}` : "",
-    reportedAt,
-  });
+  const claimed = memberClaim({ articleId, revision: material.revision, claim: current?.occurred_at ?? null, text: "", reportedAt });
+  // The report's own day counts only when found in its text: read only when there is a usable claim to check and its
+  // source allows reading it locally.
+  const text =
+    claimed.on !== null && (await locallyReadable([material], db)).has(articleId) ? (await newsShadowMaterials([articleId], TEXT_CHARS, db))[0] : undefined;
+  const own = text
+    ? memberClaim({ articleId, revision: material.revision, claim: current?.occurred_at ?? null, text: `${text.title}\n${text.body}`, reportedAt })
+    : claimed;
   const fact = p.fact_id === null ? null : timing?.has(p.fact_id) ? timing.get(p.fact_id)! : ((await readFactTiming([p.fact_id], db))[0] ?? null);
   const input = {
     reportedAt,

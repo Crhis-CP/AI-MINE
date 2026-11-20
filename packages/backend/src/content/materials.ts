@@ -483,11 +483,18 @@ export async function newsShadowMaterials(ids: string[], bodyChars: number, db: 
     FROM articles WHERE id=ANY(${ids}::text[])`;
 }
 
-/** Materials discovered in (since, until], newest first, at most `limit`: the event shadow's recall window (live: 14 days). */
+/**
+ * The event shadow's recall window (live: the 14 days before a decision): materials discovered in (since, until] whose
+ * grouping was confirmed for their current revision by `until` (content/grouping.ts confirmedGroupingMaterials), the only
+ * ones live recall can count. Newest first, archive history (stale on discovery) after everything else, so a large
+ * archive import cannot push current reports out of the `limit`.
+ */
 export async function newsDiscoveredWindow(since: Date, until: Date, limit: number, db: Db = sql) {
-  return db<{ id: string; revision: number; confirmed: boolean; grouped_at: Date | null; discovered_at: Date }[]>`
-    SELECT id,revision,(grouping_status='complete' AND grouping_input_revision=revision) AS confirmed,grouped_at,discovered_at
-    FROM articles WHERE discovered_at>${since} AND discovered_at<=${until} ORDER BY discovered_at DESC,id LIMIT ${limit}`;
+  return db<{ id: string; revision: number; grouped_at: Date | null; discovered_at: Date }[]>`
+    SELECT id,revision,grouped_at,discovered_at FROM articles
+    WHERE discovered_at>${since} AND discovered_at<=${until}
+      AND grouping_status='complete' AND grouping_input_revision=revision AND (grouped_at IS NULL OR grouped_at<=${until})
+    ORDER BY (backfill AND (published_at IS NULL OR discovered_at-published_at>interval '48 hours')),discovered_at DESC,id LIMIT ${limit}`;
 }
 
 /** Other materials with this one's address or stored content hash, any source and age, earliest first, at most `limit`. */

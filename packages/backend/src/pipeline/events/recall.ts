@@ -1,29 +1,36 @@
-// Candidates for the event rules in shadow (package 2, step 2.4): the reports the live engine's recall would put before
-// its judge for one grouped article, found without a model call and without creating a vector. The universe is the
-// live one (events/group.ts recallPool, qualifiedReports, sameUrlFact, recallDocumentFacts, recallKeyFacts,
+// Candidates for the event rules in shadow (package 2, step 2.4): the facts the live engine's recall would put before its
+// judge for one grouped article, found without a model call and without creating a vector. The universe is the live one
+// (events/group.ts recallPool, qualifiedReports, sameUrlFact, recallDocumentFacts, recallKeyFacts,
 // recallSelectedBackground): members of live facts discovered in the 14 days before the live decision, qualified the
 // same way (current revision and grouping confirmed unless tied by hand, not taken down, not a roundup, not waiting for
 // a regroup), the other reports of the same address, named documents over 24 months and same-party-same-amount reports
 // of the last 72 hours; and, which the live engine never looks for, the reports with the same stored content hash.
-// Where this differs from live recall, the agreement report's recall hit rate measures the effect:
+// Like the live engine it ranks facts, not reports: the facts in live order (the same address or hash first, then
+// key-fact matches, then by their best report's score), each with a few of its best reports, so one large fact of
+// wire copies cannot crowd the others out.
+// Where this differs from live recall:
 //  - vectors are only read: a missing or stale one falls back to the lexical overlap, as live recall does;
-//  - before any vector is read the pool is cut to the VECTOR_LIMIT reports with the most lexical overlap (review of
-//    design M, F11), and the selected background to BACKGROUND_VECTOR_LIMIT;
+//  - at most `vectors` reports get a vector per article: the reports found by address, hash, document or key fact
+//    first, then the pool's best by lexical overlap (review of design M, F11); the others of the pool are not compared;
+//    the selected background likewise at most `background`;
 //  - a report whose grouping completed after the live decision is left out: a later report of the same event must not
 //    answer for what the live engine could see;
-//  - the window keeps at most WINDOW_LIMIT materials, the most recently discovered.
+//  - the window keeps at most `window` materials, archive history last; a window that reaches it is reported.
 // Memory: at most VECTOR_CACHE_BYTES of vectors stay in the process between articles (least recently used dropped
-// first); per article at most VECTOR_LIMIT + BACKGROUND_VECTOR_LIMIT vectors are scored and at most WINDOW_LIMIT window
-// rows and their texts are held, all released when the article is done.
+// first). Per article at most 1 + vectors + background vectors are read (2,501 by default: about 10 MB as 1,024-dimension
+// Float32Arrays, more while their text form is parsed) and at most `window` window rows with their titles and summaries
+// are held, all released when the article is done. Long loops yield to the event loop once SLICE_MS have passed (the
+// longest single step, a 12,000-character text's fingerprint and day, takes about 3 ms), and queries run one after
+// another, so the worker's other jobs keep their turns and their connections.
 import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
 import { newsDiscoveredWindow, newsDuplicateProbes, newsShadowMaterials } from "../../content/materials.ts";
 import { sql, type Db } from "../../db.ts";
 import { groupingFrames, groupingScopeInputs } from "../../enrichment/records.ts";
 import {
-  LEXICAL_RECALL_MIN,
-  RECALL_TOP_FACTS,
   GROUP_ARTICLE_CANDIDATES,
   keyFacts,
+  LEXICAL_RECALL_MIN,
+  RECALL_TOP_FACTS,
   reportText,
   sharesKeyFact,
   titleNamesDocument,
@@ -32,7 +39,7 @@ import { sha256 } from "../../lib/ids.ts";
 import { EMBEDDING_MODEL } from "../../providers/embeddings.ts";
 import { readDocumentTitleMatches, readGroupingEvidencePublications, readGroupingReportTexts, readGroupingSelectionSnapshot } from "../../publication/items.ts";
 
-// The live engine's recall values (events/group.ts; tests/event-shadow.test.ts keeps them equal).
+// The live engine's recall values (events/group.ts and publication/items.ts; tests/event-shadow.test.ts keeps them equal).
 export const RECALL_DAYS = 14;
 export const RECALL_MIN_COSINE = 0.6;
 export const DOCUMENT_RECALL_MONTHS = 24;
@@ -41,15 +48,28 @@ export const DOCUMENT_RECALL_ROWS = 400;
 export const KEY_FACT_RECALL_HOURS = 72;
 export const KEY_FACT_TOP_FACTS = 3;
 /** The selected-background window of the live engine (publication/items.ts readGroupingSelectionSnapshot). */
-const BACKGROUND_DAYS = 60;
-// The shadow's own bounds.
-export const WINDOW_LIMIT = 40_000;
-export const VECTOR_LIMIT = 2_000;
-export const BACKGROUND_VECTOR_LIMIT = 500;
+export const BACKGROUND_DAYS = 60;
+
+/** The shadow's own bounds per article. */
+export interface RecallLimits {
+  /** Window materials read (discovered in the 14 days, grouping confirmed), archive history last. */
+  window: number;
+  /** Vectors read for candidates. */
+  vectors: number;
+  /** Vectors read for the selected background. */
+  background: number;
+  /** Facts handed to the rules, in live order, and best reports kept per fact (besides its address and hash twins). */
+  facts: number;
+  membersPerFact: number;
+  /** Address and hash twins looked at. */
+  probes: number;
+}
+export const RECALL_LIMITS: RecallLimits = { window: 40_000, vectors: 2_000, background: 500, facts: 20, membersPerFact: 3, probes: 50 };
+/** Part of the stored ruleset (shadow.ts SHADOW_RULESET), so rows decided under other bounds are never pooled. */
+export const RECALL_RULESET = `recall-v2:window${RECALL_LIMITS.window}/vectors${RECALL_LIMITS.vectors}+${RECALL_LIMITS.background}/facts${RECALL_LIMITS.facts}x${RECALL_LIMITS.membersPerFact}/probes${RECALL_LIMITS.probes}`;
 export const VECTOR_CACHE_BYTES = 24 * 1024 * 1024;
-export const PROBE_LIMIT = 50;
-/** Reports handed to the rules; their bodies are read for the fingerprint. */
-export const CANDIDATE_LIMIT = 60;
+/** Longest stretch of computation between two turns of the event loop. */
+export const SLICE_MS = 15;
 const DAY = 86_400_000;
 
 /** One recalled report, with the evidence the rules read. */
@@ -78,13 +98,23 @@ export interface RecallInput {
   /** When the live engine decided; recall sees the graph as of then as far as stored times allow. */
   liveAt: Date;
 }
+export interface RecallStats {
+  window: number;
+  windowFull: boolean;
+  pool: number;
+  /** Candidate reports given a vector lookup (at most `vectors`). */
+  scored: number;
+  /** Vectors read from the database (cached ones aside), background included. */
+  vectorsRead: number;
+  facts: number;
+}
 export interface RecallResult {
   candidates: RecallHit[];
   /** A stored vector matches the report's text: recall had its full reach. */
   hasVector: boolean;
   /** A visible selected report outside the judged facts is close enough that the live engine asks the value question. */
   readingBackground: boolean;
-  stats: { window: number; pool: number; scored: number; vectorsRead: number; windowFull: boolean };
+  stats: RecallStats;
 }
 
 interface Membership {
@@ -154,9 +184,42 @@ export function lexicalScorer(query: string): (text: string) => number {
   };
 }
 
+const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 /** The `limit` items with the highest score, ties by id: the prefilter that bounds the vectors read (review F11). */
 export function topByScore<T extends { id: string; score: number }>(items: readonly T[], limit: number): T[] {
-  return [...items].sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)).slice(0, limit);
+  return [...items].sort((a, b) => b.score - a.score || byId(a.id, b.id)).slice(0, limit);
+}
+
+/**
+ * topByScore for long lists without one long sort: scores (0 to 1) are counted in 1,001 bands while yielding, and only
+ * the band where the cut falls is sorted, in pieces that keep the best so far (a crowd of equal scores is one band);
+ * the answer is exactly topByScore's.
+ */
+export async function topByScoreSliced<T extends { id: string; score: number }>(items: readonly T[], limit: number, turn: () => Promise<void>): Promise<T[]> {
+  if (items.length <= limit) return topByScore(items, limit);
+  const band = (score: number) => Math.min(1000, Math.max(0, Math.floor(score * 1000)));
+  const counts = new Array<number>(1001).fill(0);
+  for (const item of items) {
+    counts[band(item.score)]!++;
+    await turn();
+  }
+  let floor = 1000,
+    above = 0;
+  while (floor > 0 && above + counts[floor]! < limit) above += counts[floor--]!;
+  const sure: T[] = [],
+    edge: T[] = [];
+  for (const item of items) {
+    const b = band(item.score);
+    if (b > floor) sure.push(item);
+    else if (b === floor) edge.push(item);
+    await turn();
+  }
+  let best: T[] = [];
+  for (let i = 0; i < edge.length; i += 2000) {
+    best = topByScore([...best, ...edge.slice(i, i + 2000)], limit - sure.length);
+    await turn();
+  }
+  return topByScore([...sure, ...best], limit);
 }
 
 function cosine(a: Float32Array, b: Float32Array): number {
@@ -171,22 +234,32 @@ function cosine(a: Float32Array, b: Float32Array): number {
   return na && nb ? dot / Math.sqrt(na * nb) : 0;
 }
 
-const yieldToLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+/** Call between units of work: yields to the event loop once SLICE_MS have passed since the last turn. */
+export function slicer() {
+  let since = performance.now();
+  return async () => {
+    if (performance.now() - since < SLICE_MS) return;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    since = performance.now();
+  };
+}
 
 /** Stored vectors whose hash matches the given text; never creates one (no paid call). */
 async function storedVectors(items: ReadonlyArray<{ id: string; text: string }>, db: Db): Promise<{ vectors: Map<string, Float32Array>; read: number }> {
   const vectors = new Map<string, Float32Array>();
   const wanted = new Map<string, string>();
+  const turn = slicer();
   for (const item of items) {
     const hash = sha256(item.text);
     const hit = cache.get(item.id, hash);
     if (hit) vectors.set(item.id, hit);
     else wanted.set(item.id, hash);
+    await turn();
   }
   let read = 0;
   const ids = [...wanted.keys()];
-  for (let i = 0; i < ids.length; i += 500) {
-    const part = ids.slice(i, i + 500);
+  for (let i = 0; i < ids.length; i += 50) {
+    const part = ids.slice(i, i + 50);
     const rows = await db<{ ref_id: string; text_hash: string; vector: number[] }[]>`
       SELECT e.ref_id,e.text_hash,e.vector FROM embeddings e
       JOIN unnest(${part}::text[],${part.map((id) => wanted.get(id)!)}::text[]) AS w(id,hash) ON w.id=e.ref_id AND w.hash=e.text_hash
@@ -195,9 +268,10 @@ async function storedVectors(items: ReadonlyArray<{ id: string; text: string }>,
       const vector = Float32Array.from(row.vector);
       cache.set(row.ref_id, row.text_hash, vector);
       vectors.set(row.ref_id, vector);
+      await turn();
     }
     read += rows.length;
-    await yieldToLoop();
+    await turn();
   }
   return { vectors, read };
 }
@@ -225,9 +299,8 @@ async function qualify<T extends Membership>(rows: T[], states: ReadonlyMap<stri
     composite = new Set<string>();
   for (let i = 0; i < ids.length; i += 5000) {
     const part = ids.slice(i, i + 5000);
-    const [publications, scopes] = await Promise.all([readGroupingEvidencePublications(part, db), groupingScopeInputs(part, db)]);
-    for (const p of publications) if (p.withdrawn) withdrawn.add(p.article_id);
-    for (const s of scopes) if (s.scope === "composite") composite.add(s.article_id);
+    for (const p of await readGroupingEvidencePublications(part, db)) if (p.withdrawn) withdrawn.add(p.article_id);
+    for (const s of await groupingScopeInputs(part, db)) if (s.scope === "composite") composite.add(s.article_id);
   }
   return rows.filter((row) => {
     const state = states.get(row.article_id);
@@ -240,11 +313,18 @@ async function qualify<T extends Membership>(rows: T[], states: ReadonlyMap<stri
 /** The text each report is compared by (events/group.ts reportTexts): public title and summary, else its analysis', else its own title. */
 async function reportTexts(ids: string[], db: Db): Promise<Map<string, { title: string; text: string }>> {
   const out = new Map<string, { title: string; text: string }>();
+  const turn = slicer();
   for (let i = 0; i < ids.length; i += 5000) {
     const part = ids.slice(i, i + 5000);
     const published = new Map((await readGroupingReportTexts(part, db)).map((p) => [p.article_id, p]));
-    const thin = part.filter((id) => published.get(id)?.summary == null);
-    const frames = new Map((await groupingFrames(thin, db)).map((f) => [f.article_id, f]));
+    const frames = new Map(
+      (
+        await groupingFrames(
+          part.filter((id) => published.get(id)?.summary == null),
+          db,
+        )
+      ).map((f) => [f.article_id, f]),
+    );
     const own = new Map(
       (
         await newsShadowMaterials(
@@ -258,16 +338,15 @@ async function reportTexts(ids: string[], db: Db): Promise<Map<string, { title: 
       const p = published.get(id),
         f = frames.get(id);
       const title = p?.title ?? f?.title_zh ?? own.get(id);
-      if (title === undefined) continue;
-      out.set(id, { title, text: reportText(title, p?.summary ?? f?.summary_zh ?? "") });
+      if (title !== undefined) out.set(id, { title, text: reportText(title, p?.summary ?? f?.summary_zh ?? "") });
+      await turn();
     }
-    await yieldToLoop();
   }
   return out;
 }
 
-/** Best report per fact, the `top` facts with the best scores (the live engine scores a fact by its best report). */
-function topFacts<T extends { fact_id: number; article_id: string; score: number }>(rows: readonly T[], top: number): T[] {
+/** The `top` facts with the best scores, each scored by its best report as the live engine scores a fact. */
+function topFacts<T extends { fact_id: number; score: number }>(rows: readonly T[], top: number): T[] {
   const best = new Map<number, number>();
   for (const row of rows) best.set(row.fact_id, Math.max(best.get(row.fact_id) ?? -Infinity, row.score));
   const keep = new Set(
@@ -279,11 +358,41 @@ function topFacts<T extends { fact_id: number; article_id: string; score: number
   return rows.filter((row) => keep.has(row.fact_id));
 }
 
-export async function recallCandidates(input: RecallInput, db: Db = sql): Promise<RecallResult> {
+/** Facts naming one of the query's documents over 24 months (events/group.ts recallDocumentFacts), read once, by index. */
+async function documentMembers(input: RecallInput, db: Db): Promise<Membership[]> {
+  if (!input.documentKeys.length || input.composite) return [];
+  const since = new Date(input.liveAt.getTime() - DOCUMENT_RECALL_MONTHS * 30 * DAY);
+  const patterns = input.documentKeys.map((key) => `%${key.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+  const names = (title: string | null | undefined) => input.documentKeys.some((key) => titleNamesDocument(title, key));
+  const published = (await readDocumentTitleMatches(patterns, since, DOCUMENT_RECALL_ROWS, db)).filter(
+    (row) => row.article_id !== input.articleId && (names(row.title) || names(row.original_title)),
+  );
+  const named = new Set(published.map((row) => row.article_id));
+  // The live query asks for both in one OR, which no index serves; the two halves each take one.
+  const byTitle = await db<Membership[]>`SELECT fa.article_id,fa.fact_id,f.story_id,f.title AS fact_title,fa.input_revision,fa.manual
+    FROM facts f JOIN stories st ON st.id=f.story_id AND st.merged_into IS NULL
+    JOIN fact_articles fa ON fa.fact_id=f.id AND fa.role IN ('primary','report')
+    WHERE f.created_at>${since} AND f.title LIKE ANY(${patterns}::text[]) AND fa.article_id<>${input.articleId}
+      AND (fa.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=fa.article_id))
+    LIMIT ${DOCUMENT_RECALL_ROWS}`;
+  const rows = [...(await liveMemberships([...named], db)), ...byTitle];
+  const seen = new Set<string>();
+  return rows
+    .filter((row) => {
+      const key = `${row.fact_id}:${row.article_id}`;
+      if (seen.has(key) || !(named.has(row.article_id) || names(row.fact_title))) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, DOCUMENT_RECALL_ROWS);
+}
+
+export async function recallCandidates(input: RecallInput, db: Db = sql, limits: RecallLimits = RECALL_LIMITS): Promise<RecallResult> {
   const { articleId, liveAt } = input;
   const score = lexicalScorer(input.text);
-  const window = await newsDiscoveredWindow(new Date(liveAt.getTime() - RECALL_DAYS * DAY), liveAt, WINDOW_LIMIT, db);
-  const states = new Map<string, MaterialState>(window.map((w) => [w.id, w]));
+  const turn = slicer();
+  const window = await newsDiscoveredWindow(new Date(liveAt.getTime() - RECALL_DAYS * DAY), liveAt, limits.window, db);
+  const states = new Map<string, MaterialState>(window.map((w) => [w.id, { revision: w.revision, confirmed: true, grouped_at: w.grouped_at }]));
   const discovered = new Map(window.map((w) => [w.id, w.discovered_at]));
   const pool = await qualify(
     await liveMemberships(
@@ -296,105 +405,112 @@ export async function recallCandidates(input: RecallInput, db: Db = sql): Promis
   );
 
   // The other reports of the same address or the same stored hash, any age (events/group.ts sameUrlFact for the address).
-  const probes = await newsDuplicateProbes(articleId, PROBE_LIMIT, db);
-  const twinIds = probes.map((p) => p.id);
-  // Facts naming one of the query's documents over 24 months (events/group.ts recallDocumentFacts).
-  const docMembers: Membership[] = [];
-  if (input.documentKeys.length && !input.composite) {
-    const since = new Date(liveAt.getTime() - DOCUMENT_RECALL_MONTHS * 30 * DAY);
-    const patterns = input.documentKeys.map((key) => `%${key.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
-    const names = (title: string | null | undefined) => input.documentKeys.some((key) => titleNamesDocument(title, key));
-    const published = (await readDocumentTitleMatches(patterns, since, DOCUMENT_RECALL_ROWS, db)).filter(
-      (row) => row.article_id !== articleId && (names(row.title) || names(row.original_title)),
-    );
-    const named = new Set(published.map((row) => row.article_id));
-    const rows = await db<Membership[]>`SELECT fa.article_id,fa.fact_id,f.story_id,f.title AS fact_title,fa.input_revision,fa.manual
-      FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id JOIN stories st ON st.id=f.story_id AND st.merged_into IS NULL
-      WHERE fa.role IN ('primary','report') AND fa.article_id<>${articleId}
-        AND (fa.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=fa.article_id))
-        AND (fa.article_id=ANY(${[...named]}::text[]) OR (f.created_at>${since} AND f.title LIKE ANY(${patterns}::text[])))
-      LIMIT ${DOCUMENT_RECALL_ROWS}`;
-    docMembers.push(...rows.filter((row) => named.has(row.article_id) || names(row.fact_title)));
-  }
-  const outside = [...new Set([...twinIds, ...docMembers.map((m) => m.article_id)])].filter((id) => !states.has(id));
+  const probes = await newsDuplicateProbes(articleId, limits.probes, db);
+  const docMembers = await documentMembers(input, db);
+  const outside = [...new Set([...probes.map((p) => p.id), ...docMembers.map((m) => m.article_id)])].filter((id) => !states.has(id));
   for (const m of await newsShadowMaterials(outside, 0, db)) states.set(m.id, m);
-  const twins = await qualify(await liveMemberships(twinIds, db), states, liveAt, db);
+  const twins = await qualify(
+    await liveMemberships(
+      probes.map((p) => p.id),
+      db,
+    ),
+    states,
+    liveAt,
+    db,
+  );
   const documents = await qualify(docMembers, states, liveAt, db);
 
-  // Lexical overlap for everything, vectors only for the best of the pool (the prefilter) and for the few found otherwise.
+  // Lexical overlap for everything; same party and same amount in the last 72 hours (events/group.ts recallKeyFacts).
   const texts = await reportTexts([...new Set([...pool, ...twins, ...documents].map((m) => m.article_id))], db);
   const lexical = new Map<string, number>();
   const mine = keyFacts(input.text, IDENTITY_LEXICON);
-  const keyedIds = new Set<string>();
-  const keySince = liveAt.getTime() - KEY_FACT_RECALL_HOURS * 3_600_000;
   const keyable = !input.composite && mine.names.size > 0 && mine.quantities.size > 0;
-  let n = 0;
+  const keySince = liveAt.getTime() - KEY_FACT_RECALL_HOURS * 3_600_000;
+  const keyedIds = new Set<string>();
   for (const [id, t] of texts) {
     lexical.set(id, score(t.text));
-    // Same party and same amount in the last 72 hours (events/group.ts recallKeyFacts): judged however worded.
     if (keyable && (discovered.get(id)?.getTime() ?? 0) > keySince && sharesKeyFact(mine, keyFacts(t.text, IDENTITY_LEXICON))) keyedIds.add(id);
-    if (++n % 2000 === 0) await yieldToLoop();
+    await turn();
   }
-  const poolIds = [...new Set(pool.map((m) => m.article_id))].filter((id) => texts.has(id));
-  const prefiltered = new Set(
-    topByScore(
-      poolIds.map((id) => ({ id, score: lexical.get(id)! })),
-      VECTOR_LIMIT,
-    ).map((x) => x.id),
-  );
   const keyed = pool.filter((m) => keyedIds.has(m.article_id));
-  const scoredIds = new Set([...prefiltered, ...twins.map((m) => m.article_id), ...documents.map((m) => m.article_id), ...keyed.map((m) => m.article_id)]);
-  const { vectors, read } = await storedVectors(
-    [{ id: articleId, text: input.text }, ...[...scoredIds].filter((id) => texts.has(id)).map((id) => ({ id, text: texts.get(id)!.text }))],
-    db,
+  // One budget of vectors: what address, hash, document and key fact found, then the pool's best by lexical overlap.
+  const byLexical = async (rows: Membership[]) =>
+    (
+      await topByScoreSliced(
+        [...new Set(rows.map((m) => m.article_id))].filter((id) => texts.has(id)).map((id) => ({ id, score: lexical.get(id)! })),
+        limits.vectors,
+        turn,
+      )
+    ).map((x) => x.id);
+  const scoredIds = [...new Set([...(await byLexical(twins)), ...(await byLexical(documents)), ...(await byLexical(keyed)), ...(await byLexical(pool))])].slice(
+    0,
+    limits.vectors,
   );
+  const scored = new Set(scoredIds);
+  const { vectors, read } = await storedVectors([{ id: articleId, text: input.text }, ...scoredIds.map((id) => ({ id, text: texts.get(id)!.text }))], db);
   const query = vectors.get(articleId);
   const cosineOf = (id: string) => {
     const v = vectors.get(id);
     return query && v && v.length === query.length ? cosine(query, v) : null;
   };
   // The live engine's recall score: cosine when both vectors are current, else the lexical overlap.
-  const similarity = (id: string) => cosineOf(id) ?? lexical.get(id) ?? 0;
-  const withScore = <T extends Membership>(rows: T[]) => rows.filter((m) => texts.has(m.article_id)).map((m) => ({ ...m, score: similarity(m.article_id) }));
-
+  const withScore = async <T extends Membership>(rows: T[]) => {
+    const out: Array<T & { score: number }> = [];
+    for (const m of rows) {
+      if (!texts.has(m.article_id)) continue;
+      out.push({ ...m, score: cosineOf(m.article_id) ?? lexical.get(m.article_id) ?? 0 });
+      await turn();
+    }
+    return out;
+  };
+  // Pool recall compares only the reports given a vector lookup; a low cosine is a reject, a missing vector falls back.
   const recalled = topFacts(
-    withScore(pool.filter((m) => prefiltered.has(m.article_id))).filter((m) =>
+    (await withScore(pool.filter((m) => scored.has(m.article_id)))).filter((m) =>
       cosineOf(m.article_id) !== null ? m.score >= RECALL_MIN_COSINE : (lexical.get(m.article_id) ?? 0) >= LEXICAL_RECALL_MIN,
     ),
     RECALL_TOP_FACTS,
   );
-  const hits = new Map<string, RecallHit & { order: number }>();
+
+  // Facts in live order (address or hash twin first, then key-fact matches, then by best score), a few reports each.
   const sameUrl = new Set(probes.filter((p) => p.same === "url").map((p) => p.id)),
     sameHash = new Set(probes.filter((p) => p.same === "hash").map((p) => p.id));
-  const add = (rows: Array<Membership & { score: number }>, order: number, documentKey = false) => {
+  const facts = new Map<number, { rank: number; best: number; storyId: number; members: Map<string, { score: number; twin: boolean; doc: boolean }> }>();
+  const add = (rows: Array<Membership & { score: number }>, rank: number, how: { twin?: boolean; doc?: boolean } = {}) => {
     for (const m of rows) {
-      const before = hits.get(m.article_id);
-      hits.set(m.article_id, {
-        articleId: m.article_id,
-        factId: m.fact_id,
-        storyId: m.story_id,
-        title: texts.get(m.article_id)!.title,
-        cosine: cosineOf(m.article_id),
-        lexical: lexical.get(m.article_id) ?? 0,
-        sameUrl: sameUrl.has(m.article_id),
-        sameHash: sameHash.has(m.article_id),
-        documentKey: documentKey || !!before?.documentKey,
-        selected: false,
-        order: Math.min(order, before?.order ?? order),
-      });
+      const f = facts.get(m.fact_id) ?? { rank, best: m.score, storyId: m.story_id, members: new Map() };
+      f.rank = Math.min(f.rank, rank);
+      f.best = Math.max(f.best, m.score);
+      const before = f.members.get(m.article_id);
+      f.members.set(m.article_id, { score: m.score, twin: !!how.twin || !!before?.twin, doc: !!how.doc || !!before?.doc });
+      facts.set(m.fact_id, f);
     }
   };
-  add(withScore(twins), 0);
-  add(topFacts(withScore(keyed), KEY_FACT_TOP_FACTS), 1);
-  add(topFacts(withScore(documents), DOCUMENT_RECALL_TOP_FACTS), 1, true);
+  add(await withScore(twins), 0, { twin: true });
+  add(topFacts(await withScore(keyed), KEY_FACT_TOP_FACTS), 1);
+  add(topFacts(await withScore(documents), DOCUMENT_RECALL_TOP_FACTS), 2, { doc: true });
   add(recalled, 2);
-  const candidates = [...hits.values()]
-    .sort((a, b) => a.order - b.order || (b.cosine ?? b.lexical) - (a.cosine ?? a.lexical) || a.articleId.localeCompare(b.articleId))
-    .slice(0, CANDIDATE_LIMIT);
+  const ordered = [...facts].sort((a, b) => a[1].rank - b[1].rank || b[1].best - a[1].best || a[0] - b[0]).slice(0, limits.facts);
+  const candidates: RecallHit[] = ordered.flatMap(([factId, f]) => {
+    const members = [...f.members].sort((a, b) => b[1].score - a[1].score || byId(a[0], b[0]));
+    // Every address or hash twin stays (rules 1 and 2 take the earliest), plus the fact's best few reports.
+    const kept = [...members.filter(([, m]) => m.twin), ...members.filter(([, m]) => !m.twin).slice(0, limits.membersPerFact)];
+    return kept.map(([id, m]) => ({
+      articleId: id,
+      factId,
+      storyId: f.storyId,
+      title: texts.get(id)!.title,
+      cosine: cosineOf(id),
+      lexical: lexical.get(id) ?? 0,
+      sameUrl: sameUrl.has(id),
+      sameHash: sameHash.has(id),
+      documentKey: m.doc,
+      selected: false,
+    }));
+  });
 
   // Selection: a fact counts as selected when a visible pick is one of its qualified members; the picks of the last 60
   // days outside the judged facts are the reading background the live engine compares the report with.
-  const factIds = [...new Set(candidates.map((c) => c.factId))];
+  const factIds = ordered.map(([factId]) => factId);
   const picks = await readGroupingSelectionSnapshot(articleId, factIds, db);
   const memberPicks = await qualify(
     (await liveMemberships([...new Set(picks.filter((p) => p.fact_id !== null && factIds.includes(p.fact_id)).map((p) => p.article_id))], db)).filter((m) =>
@@ -408,34 +524,39 @@ export async function recallCandidates(input: RecallInput, db: Db = sql): Promis
   for (const c of candidates) c.selected = selectedFacts.has(c.factId);
   const judged = judgedFactIds(candidates);
   const now = Date.now();
-  const background = picks.filter(
-    (p) =>
-      (p.fact_id === null || !judged.includes(p.fact_id)) &&
-      p.discovered_at.getTime() > now - BACKGROUND_DAYS * DAY &&
-      (p.fact_id === null || p.discovered_at.getTime() <= now - RECALL_DAYS * DAY),
-  );
-  const backgroundTexts = new Map(background.map((p) => [p.article_id, reportText(p.title, p.summary)]));
-  const near = topByScore(
-    background.map((p) => ({ id: p.article_id, score: score(backgroundTexts.get(p.article_id)!) })),
-    BACKGROUND_VECTOR_LIMIT,
-  );
-  const extra = query
-    ? await storedVectors(
-        near.map((n) => ({ id: n.id, text: backgroundTexts.get(n.id)! })),
-        db,
-      )
-    : { vectors: new Map<string, Float32Array>(), read: 0 };
-  const readingBackground = near.some((n) => {
+  const near: Array<{ id: string; score: number; text: string }> = [];
+  for (const p of picks) {
+    if (p.fact_id !== null && judged.includes(p.fact_id)) continue;
+    if (p.discovered_at.getTime() <= now - BACKGROUND_DAYS * DAY || (p.fact_id !== null && p.discovered_at.getTime() > now - RECALL_DAYS * DAY)) continue;
+    const text = reportText(p.title, p.summary);
+    near.push({ id: p.article_id, score: score(text), text });
+    await turn();
+  }
+  const background = await topByScoreSliced(near, limits.background, turn);
+  const extra = query ? await storedVectors(background, db) : { vectors: new Map<string, Float32Array>(), read: 0 };
+  let readingBackground = false;
+  for (const n of background) {
     const v = extra.vectors.get(n.id);
     const value = query && v && v.length === query.length ? cosine(query, v) : n.score;
-    return value >= (query && v ? RECALL_MIN_COSINE : LEXICAL_RECALL_MIN);
-  });
+    if (value >= (query && v ? RECALL_MIN_COSINE : LEXICAL_RECALL_MIN)) {
+      readingBackground = true;
+      break;
+    }
+    await turn();
+  }
 
   return {
-    candidates: candidates.map(({ order: _order, ...hit }) => hit),
+    candidates,
     hasVector: !!query,
     readingBackground,
-    stats: { window: window.length, pool: pool.length, scored: scoredIds.size, vectorsRead: read + extra.read, windowFull: window.length >= WINDOW_LIMIT },
+    stats: {
+      window: window.length,
+      windowFull: window.length >= limits.window,
+      pool: pool.length,
+      scored: scoredIds.length,
+      vectorsRead: read + extra.read,
+      facts: ordered.length,
+    },
   };
 }
 
@@ -446,7 +567,7 @@ export function judgedFactIds(candidates: readonly RecallHit[]): number[] {
       Number(b.sameUrl) - Number(a.sameUrl) ||
       Number(b.sameHash) - Number(a.sameHash) ||
       (b.cosine ?? b.lexical) - (a.cosine ?? a.lexical) ||
-      a.articleId.localeCompare(b.articleId),
+      byId(a.articleId, b.articleId),
   );
   return [...new Set(ordered.map((c) => c.factId))].slice(0, GROUP_ARTICLE_CANDIDATES);
 }
