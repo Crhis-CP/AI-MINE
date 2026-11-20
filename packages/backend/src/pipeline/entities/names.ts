@@ -6,6 +6,9 @@
 import { BRACKET, type EntityIndex, findHits, type Hit } from "./link.ts";
 import { hasHan, lookupKey } from "./normalize.ts";
 
+/** Names the rendering rules; stored beside each record of what renderNames did or would do. */
+export const NAMES_RECIPE = "entity-names-v1";
+
 export interface RenderedNames {
   text: string;
   changes: Array<{ entityId: string; from: string; to: string }>;

@@ -6,6 +6,7 @@ import { sql } from "../db.ts";
 import { serverModules } from "../modules.ts";
 
 import { anonymizeExpiredFeedback } from "../admin/feedback.ts";
+import { pruneAnalysisChecks } from "../pipeline/understand/observe.ts";
 
 /** Derived caches (proxied images and share cards) are rebuilt on demand; drop ones older than a month. */
 async function pruneCache(dir: string, maxAgeMs: number, now: number): Promise<number> {
@@ -52,10 +53,20 @@ export async function dailyRetention(now = new Date()) {
     (await pruneCache(path.join(config.dataDir, "imgcache"), monthMs, now.getTime())) +
     (await pruneCache(path.join(config.dataDir, "ogcache"), monthMs, now.getTime()));
   const anonymizedFeedback = await anonymizeExpiredFeedback(now);
+  // The per-article shadow's check rows (enrichment.analysis_checks) are kept 180 days.
+  const deletedAnalysisChecks = await pruneAnalysisChecks(now);
   if (failures.length)
     throw new AggregateError(
       failures.map((failure) => failure.error),
       `扩展维护未完成：${failures.map((failure) => failure.name).join("、")}`,
     );
-  return { modules, anonymizedFeedback, deletedLeases: leases.count, deletedJobRuns: runs.count, deletedFiles: files.length, prunedCache };
+  return {
+    modules,
+    anonymizedFeedback,
+    deletedLeases: leases.count,
+    deletedJobRuns: runs.count,
+    deletedFiles: files.length,
+    prunedCache,
+    deletedAnalysisChecks,
+  };
 }

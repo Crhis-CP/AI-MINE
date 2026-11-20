@@ -806,7 +806,8 @@
     "watchdog.worker": "platform/ops",
     "indexnow.watermark": "publication",
     "selected_ledger_epoch": "publication",
-    "republish.source:*": "publication"
+    "republish.source:*": "publication",
+    "observe.articles": "enrichment"
   },
   "retiredSettings": ["contact_qr", "leaderboard.fetch", "leaderboard.last_check"],
   "storedFiles": {
@@ -1090,6 +1091,7 @@
     "packages/backend/src/operations/watch.ts": "ops",
     "packages/backend/src/pipeline/entities/admin.ts": "entities",
     "packages/backend/src/pipeline/entities/store.ts": "entities",
+    "packages/backend/src/pipeline/understand/observe.ts": "enrichment",
     "packages/backend/src/providers/embeddings.ts": "ai-gateway",
     "packages/backend/src/providers/llm.ts": "ai-gateway",
     "packages/backend/src/providers/model-budget.ts": "ai-gateway",
