@@ -493,12 +493,12 @@ def execute(args):
         print(json.dumps({"status": "dry-run", "estimated_recovery_bytes": estimate, "image_upper_bound_bytes": image_bytes,
                           "plan_sha256": digest, **summary}), flush=True)
         return
-    if args.automatic:
+    if args.automatic or window["remove"]:
         armed = OPS / "retention-armed"
         approved = armed.read_text().strip() if armed.is_file() and not armed.is_symlink() and armed.stat().st_size <= 128 else ""
         previous_program_approval = not window["remove"] and approved == state.get("armed_dry_run")
         if not re.fullmatch("[a-f0-9]{64}", approved) or (approved != digest and not previous_program_approval):
-            print(json.dumps({"status": "blocked", "reason": "owner_reviewed_dry_run_required", "plan_sha256": digest}), flush=True)
+            print(json.dumps({"status": "blocked", "reason": "owner_reviewed_dry_run_required", "next": "Review the dry-run plan before authorizing cleanup"}), flush=True)
             return
     # All destructive work starts only after a complete plan and a second live observation.
     fresh, fresh_images = inventory()

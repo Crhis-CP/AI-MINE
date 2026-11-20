@@ -76,6 +76,12 @@ class ChannelTests(unittest.TestCase):
                 (directory / "prompts").mkdir(parents=True)
                 (directory / "prompts/score").write_text("same")
                 (directory / "selection.ts").write_text("same")
+                layout = directory.parent / "packages/backend/src/editorial/analysis-layout.ts"
+                layout.parent.mkdir(parents=True)
+                layout.write_text("same")
+            env = root / "live/.env"
+            env.write_text("UNRELATED=fixture-only\n")
+            (root / "candidate/selection_env.py").write_bytes(Path(__file__).with_name("selection_env.py").read_bytes())
             deploy = root / "candidate/deploy"; deploy.mkdir()
             (deploy / "production-release.sh").write_text('printf "%s\\n" "$@"')
             script = 'set -eu; sha=A; slot=B; source=C; manifest=D; tree=E; tools=$1\n' + block.replace("/opt/aimine/", str(root / "live") + "/")
@@ -84,13 +90,24 @@ class ChannelTests(unittest.TestCase):
                                       capture_output=True, text=True)
             unchanged = run()
             self.assertEqual(unchanged.returncode, 0, unchanged.stderr)
-            for changed in (root / "candidate/industry/prompts/score", root / "candidate/industry/selection.ts"):
+            for changed in (root / "candidate/industry/prompts/score", root / "candidate/industry/selection.ts",
+                            root / "candidate/packages/backend/src/editorial/analysis-layout.ts"):
                 changed.write_text("changed")
                 self.assertNotEqual(run().returncode, 0)
                 result = run("fixture-version")
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(result.stdout.splitlines()[-2:], ["--selection-confirmed-version", "fixture-version"])
                 changed.write_text("same")
+            live = "selection-score-shared@0123456789+weights@9876543210"
+            env.write_text(f"export SELECTION_CONFIRMED_VERSION='{live}' # current policy\n")
+            (root / "candidate/packages/backend/src/editorial/analysis-layout.ts").write_text("new recipe")
+            inherited = run()
+            self.assertEqual(inherited.returncode, 0, inherited.stderr)
+            self.assertEqual(inherited.stdout.splitlines()[-2:], ["--selection-confirmed-version", live])
+            self.assertEqual(run("explicit").stdout.splitlines()[-1], "explicit")
+            for invalid in ("SELECTION_CONFIRMED_VERSION=x", f"SELECTION_CONFIRMED_VERSION={live}\nSELECTION_CONFIRMED_VERSION="):
+                env.write_text(invalid)
+                self.assertNotEqual(run().returncode, 0)
 
     def test_fetch_rejects_other_branches_events_repositories_and_artifact_names(self):
         f = module("fetch-release")

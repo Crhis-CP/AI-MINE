@@ -435,6 +435,86 @@ class RetentionTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "regular file"): m.observe_current(linked, apply=True)
             self.assertEqual(target.read_text(), '{"history":[]}')
 
+    def approval_plan(self):
+        # Real recovery files and plan digest. Only Docker and the live health probes are replaced.
+        import io
+        from contextlib import redirect_stdout
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        backups = root / "backups"; backups.mkdir()
+        ops = root / "ops"; ops.mkdir()
+        self.backup(backups, 10, ident(2), ident(1))
+        self.backup(backups, 20, ident(3), ident(2))
+        expired = self.backup(backups, 30, ident(4), ident(3))
+        containers, images = fixture()
+        for image in images.values():
+            image["created"] = m.dt.datetime.fromtimestamp(NOW, m.dt.timezone.utc).isoformat()
+        mocks = [
+            patch.object(m, "OPS", ops), patch.object(m, "inventory", return_value=(containers, images)),
+            patch.object(m, "health", return_value="a" * 12), patch.object(m.time, "time", return_value=NOW),
+            patch.object(m, "docker", side_effect=lambda *cmd: cmd[-1] if cmd[:2] == ("image", "inspect") else ""),
+            patch.object(m, "quality_blockers", return_value=[]), patch.object(m, "healthy_interval", return_value=21600),
+            patch.object(m, "retry_pending"),
+        ]
+        for mock in mocks:
+            mock.start()
+            self.addCleanup(mock.stop)
+        state = root / "state.json"
+        state.write_text(json.dumps({"history": [ident(1), ident(2), ident(3)]}))
+
+        def run(apply=False, automatic=False):
+            output = io.StringIO()
+            args = argparse.Namespace(apply=apply, automatic=automatic, seed=[], state_dir=tmp.name, backup_dir=str(backups))
+            with redirect_stdout(output):
+                m.execute(args)
+            return json.loads(output.getvalue().splitlines()[-1])
+
+        return run, ops / "retention-armed", state, expired
+
+    def test_unreviewed_hex_digest_blocks_manual_and_automatic_removal(self):
+        run, marker, _, expired = self.approval_plan()
+        digest = run()["plan_sha256"]
+        for value in (None, "0" * 64):
+            if value is not None:
+                marker.write_text(value)
+            for automatic in (False, True):
+                with self.subTest(value=value, automatic=automatic):
+                    blocked = run(True, automatic)
+                    self.assertEqual(blocked["reason"], "owner_reviewed_dry_run_required")
+                    self.assertNotIn("plan_sha256", blocked)
+                    self.assertNotIn(digest, json.dumps(blocked))
+                    self.assertTrue((expired / "database.dump").is_file())
+        marker.write_text(digest)
+        self.assertEqual(run(True)["status"], "cleaned")
+        self.assertFalse(expired.exists())
+
+    def test_previous_approval_cannot_delete_a_new_recovery_point(self):
+        run, marker, state, expired = self.approval_plan()
+        approved = run()["plan_sha256"]
+        marker.write_text(approved)
+        self.assertEqual(run(True, True)["status"], "cleaned")
+        self.assertEqual(json.loads(state.read_text())["armed_dry_run"], approved)
+        new = self.backup(expired.parent, 40, ident(5), ident(4))
+        with patch.object(m.time, "time", return_value=NOW + 86401):
+            self.assertNotEqual(run()["plan_sha256"], approved)
+            for automatic in (False, True):
+                self.assertEqual(run(True, automatic)["reason"], "owner_reviewed_dry_run_required")
+                self.assertTrue((new / "database.dump").is_file())
+
+    def test_recovery_checksum_manifest_bytes_bind_approval(self):
+        run, marker, _, expired = self.approval_plan()
+        first = run()
+        marker.write_text(first["plan_sha256"])
+        checksum = expired / "backup-sha256.txt"
+        # Reordering valid entries preserves every payload and filename while changing the evidence.
+        checksum.write_bytes(b"".join(reversed(checksum.read_bytes().splitlines(keepends=True))))
+        second = run()
+        self.assertEqual(second["expired_recovery"], first["expired_recovery"])
+        self.assertNotEqual(second["plan_sha256"], first["plan_sha256"])
+        self.assertEqual(run(True, True)["reason"], "owner_reviewed_dry_run_required")
+        self.assertTrue((expired / "database.dump").exists())
+
     def test_pending_running_release_is_kept_in_the_next_accepted_recovery_window(self):
         containers, images = fixture()
         for container in containers:

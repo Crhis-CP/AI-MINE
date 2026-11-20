@@ -47,7 +47,7 @@ cleanup_tools() {
   exit "$code"
 }
 trap cleanup_tools EXIT
-scp -q "${ssh_opts[@]}" "$here"/{release-transfer.py,release_artifact.py,release_capacity.py,release-cache.py} "$host:$tools/"
+scp -q "${ssh_opts[@]}" "$here"/{release-transfer.py,release_artifact.py,release_capacity.py,release-cache.py,selection_env.py} "$host:$tools/"
 args=("$sha" "$tree" "$manifest" "$bytes")
 if [[ -n ${AIMINE_BASIS_DIR:-} ]]; then
   [[ $AIMINE_BASIS_DIR =~ ^/opt/[A-Za-z0-9_./-]+$ && $AIMINE_BASIS_DIR != *..* ]] || { echo 'Invalid active-bundle directory' >&2; exit 2; }
@@ -75,12 +75,16 @@ fi
 printf '%s  %s\n' "$source" "$slot/files/source.tar.gz" | sha256sum --check --status
 tar -xzf "$slot/files/source.tar.gz" -C "$tools" --strip-components=1
 confirmation=${7:-}
+if [[ -z $confirmation ]]; then
+  confirmation=$(python3 -B "$tools/selection_env.py" /opt/aimine/.env)
+fi
 set -- "$sha" "$slot/files/source.tar.gz" "$source" "$slot/files" "$manifest" "$tree"
 if [[ -n $confirmation ]]; then
   set -- "$@" --selection-confirmed-version "$confirmation"
 else
   diff -qr /opt/aimine/industry/prompts "$tools/industry/prompts" >/dev/null &&
-    cmp -s /opt/aimine/industry/selection.ts "$tools/industry/selection.ts" ||
+    cmp -s /opt/aimine/industry/selection.ts "$tools/industry/selection.ts" &&
+    cmp -s /opt/aimine/packages/backend/src/editorial/analysis-layout.ts "$tools/packages/backend/src/editorial/analysis-layout.ts" ||
     { echo 'Changed or unreadable scoring inputs require --selection-confirmed-version' >&2; exit 1; }
 fi
 bash "$tools/deploy/production-release.sh" "$@"
@@ -93,7 +97,7 @@ if [[ -n ${AIMINE_RELEASE_CHECK:-} ]]; then "$AIMINE_RELEASE_CHECK" "$sha" "$bas
 free=$(remote "python3 -c 'import os; s=os.statvfs(\"/opt/aimine\"); print(s.f_bavail*s.f_frsize)'")
 [[ $free =~ ^[0-9]+$ ]] && (( free >= 8053063680 )) || { echo 'Release disk below 7.5 GiB' >&2; exit 1; }
 phase=cache
-protected=$(remote "flock -n /opt/aimine/.ops/release.lock python3 -B $tools/release-cache.py $root $sha --ops /opt/aimine/.ops")
+protected=$(remote "flock -w 900 /opt/aimine/.ops/release.lock python3 -B $tools/release-cache.py $root $sha --ops /opt/aimine/.ops")
 python3 -B "$here/release-cache.py" "$(dirname -- "$local_dir")" "$sha" <<< "$protected"
 printf '已发布 %s，公网版本与冒烟核对通过。\n%s\n传输 %s 字节，历时 %s 秒，发布后可用 %s 字节；下一步由 Owner 核对读者效果。\n' \
   "$version" "${AIMINE_READER_CHANGE:-读者变化见本次发布说明。}" "$sent" "$((SECONDS - start))" "$free"
