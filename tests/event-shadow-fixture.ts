@@ -1,0 +1,96 @@
+// Synthetic news for the event shadow tests: published reports with an analysis, facts and stories written directly,
+// live grouping decisions as the live engine stores them, and stored vectors. No model and no network.
+import { randomUUID } from "node:crypto";
+import { addDays, beijingDate, beijingMidnight } from "@amp/contracts/time";
+import { sql } from "@amp/backend/db";
+import { upsertMaterial } from "@amp/backend/content/materials";
+import { reportText } from "@amp/backend/events/relate";
+import { sha256 } from "@amp/backend/lib/ids";
+import { EMBEDDING_MODEL } from "@amp/backend/providers/embeddings";
+import { publishArticle } from "@amp/backend/publication/publish";
+import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
+import { tag } from "./setup.ts";
+import { grantDateFixture } from "./source-date-fixture.ts";
+
+/** Text no other report shares: random CJK characters share next to no bigram (tests/events.test.ts), so the reports of
+ *  one test are never candidates of another's; 900 of them fingerprint (pipeline/events/fingerprint.ts) comfortably. */
+export const unique = (length = 16) => Array.from({ length }, () => String.fromCharCode(0x4e00 + Math.floor(Math.random() * (0x9fa5 - 0x4e00 + 1)))).join("");
+export const body = () => unique(900);
+
+export async function shadowSource(mode: "editorial" | "hot_signal" = "editorial"): Promise<string> {
+  const id = `shadow-${tag()}`;
+  await sql`INSERT INTO sources(id,name,kind,tier,site_fulltext,participation_mode) VALUES(${id},'Synthetic shadow','rss','T1',true,${mode})`;
+  await grantDateFixture(id, [`https://example.com/${id}`]);
+  return id;
+}
+
+export interface ReportInput {
+  source: string;
+  titleZh: string;
+  summaryZh?: string;
+  body: string;
+  publishedAt: Date;
+  discoveredAt?: Date;
+  url?: string;
+  scope?: "single" | "composite" | "unknown";
+  occurredAt?: string | null;
+  /** Leave grouping unconfirmed (the report is then no evidence for others). */
+  unconfirmed?: boolean;
+}
+export async function report(i: ReportInput): Promise<string> {
+  const { articleId } = await upsertMaterial({
+    sourceId: i.source,
+    url: i.url ?? `https://example.com/${i.source}/${tag()}`,
+    title: i.titleZh,
+    bodyText: i.body,
+    bodyHtml: `<p>${i.body}</p>`,
+    via: "fetch",
+    language: "zh",
+    publishedAt: i.publishedAt,
+    discoveredAt: i.discoveredAt ?? i.publishedAt,
+  });
+  await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,title_zh,summary_zh,selected,output)
+    VALUES(${articleId},1,'rule','synthetic','synthetic-shadow','pass',${i.titleZh},${i.summaryZh ?? `${i.titleZh}的合成导读。`},false,
+      ${sql.json({ scope: i.scope ?? "single", fact: { title: i.titleZh, occurredAt: i.occurredAt ?? null } })})`;
+  if (!i.unconfirmed) await completeMaterialGrouping(articleId, 1, { addsValue: true, reason: "合成已完成归组" }, null);
+  await publishArticle(articleId);
+  return articleId;
+}
+
+/** A story with one fact holding these reports, as the live engine leaves it; publications follow. */
+export async function fact(title: string, members: string[], at = new Date()): Promise<{ factId: number; storyId: number }> {
+  const [story] = await sql<{ id: number }[]>`INSERT INTO stories(public_id,title,first_report_at,latest_at)
+    VALUES(${randomUUID()},${title},${at},${at}) RETURNING id`;
+  const [row] = await sql<{ id: number }[]>`INSERT INTO facts(public_id,story_id,title) VALUES(${`f-${tag()}`},${story!.id},${title}) RETURNING id`;
+  for (const id of members) await join(row!.id, id);
+  return { factId: row!.id, storyId: story!.id };
+}
+export async function join(factId: number, articleId: string) {
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${factId},${articleId},'report',1)`;
+  await publishArticle(articleId);
+}
+
+/** The live engine's decision row (events/group.ts recordDecision). */
+export async function liveDecision(
+  articleId: string,
+  verdict: string,
+  target: { factId: number; storyId: number } | null,
+  at = new Date(),
+  receiptId: number | null = null,
+) {
+  await sql`INSERT INTO grouping_decisions(article_id,fact_id,story_id,verdict,candidates,receipt_id,input_revision,created_at)
+    VALUES(${articleId},${target?.factId ?? null},${target?.storyId ?? null},${verdict},${sql.json([] as never)},${receiptId},1,${at})`;
+}
+
+/** Store a vector for the text the shadow compares a report by: its analysis text as a query, its public text as a candidate. */
+export async function vector(articleId: string, as: "query" | "candidate", values: number[]) {
+  const [row] = await sql<{ title: string; summary: string | null; title_zh: string | null; summary_zh: string | null }[]>`
+    SELECT p.title,p.summary,an.title_zh,an.summary_zh FROM publications p JOIN analyses an ON an.article_id=p.article_id WHERE p.article_id=${articleId}`;
+  const text = as === "query" ? reportText(row!.title_zh!, row!.summary_zh) : reportText(row!.title, row!.summary);
+  await sql`INSERT INTO embeddings(kind,ref_id,model,text_hash,vector) VALUES('article',${articleId},${EMBEDDING_MODEL},${sha256(text)},${values})
+    ON CONFLICT(kind,ref_id,model) DO UPDATE SET text_hash=EXCLUDED.text_hash,vector=EXCLUDED.vector`;
+}
+
+export const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+/** A time on yesterday's Beijing day, so two reports share a day whenever the test runs. */
+export const yesterdayAt = (hour: number) => new Date(beijingMidnight(addDays(beijingDate(new Date()), -1)).getTime() + hour * 3_600_000);

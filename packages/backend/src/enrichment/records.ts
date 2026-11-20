@@ -92,6 +92,27 @@ export async function groupingScopeInputs(ids: string[], db: Db = sql) {
     FROM analyses WHERE article_id=ANY(${ids}::text[]) ORDER BY article_id,input_revision DESC,id DESC`;
 }
 
+/**
+ * The latest judgement of each article as the event shadow reads it (pipeline/events): the reader title and summary,
+ * the scope, the author role and the structure step's occurrence date. No other model text leaves here.
+ */
+export async function groupingFrames(ids: string[], db: Db = sql) {
+  if (!ids.length) return [];
+  return db<
+    {
+      article_id: string;
+      input_revision: number;
+      title_zh: string | null;
+      summary_zh: string | null;
+      scope: string | null;
+      author_role: string | null;
+      occurred_at: string | null;
+    }[]
+  >`SELECT DISTINCT ON(article_id) article_id,input_revision,title_zh,summary_zh,output->>'scope' AS scope,
+      output->>'authorRole' AS author_role,output->'fact'->>'occurredAt' AS occurred_at
+    FROM analyses WHERE article_id=ANY(${ids}::text[]) ORDER BY article_id,input_revision DESC,id DESC`;
+}
+
 /** Score changes within the same nomination state do not buy another grouping judgement. */
 export function groupingAnalysisHash(row: Pick<GroupingAnalysis, "selected" | "relevance" | "title_zh" | "summary_zh" | "output"> | null) {
   const value = row?.output && typeof row.output === "object" && !Array.isArray(row.output) ? (row.output as Record<string, unknown>) : {};

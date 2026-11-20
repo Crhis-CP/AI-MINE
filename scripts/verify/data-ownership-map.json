@@ -806,7 +806,8 @@
     "watchdog.worker": "platform/ops",
     "indexnow.watermark": "publication",
     "selected_ledger_epoch": "publication",
-    "republish.source:*": "publication"
+    "republish.source:*": "publication",
+    "events.shadow": "events"
   },
   "retiredSettings": ["contact_qr", "leaderboard.fetch", "leaderboard.last_check"],
   "storedFiles": {
@@ -1155,6 +1156,11 @@
     "packages/backend/src/events/report-groups.ts": "events",
     "packages/backend/src/publication/report-groups.ts": "publication",
     "packages/backend/src/publication/report-group-reading.ts": "publication",
-    "packages/backend/src/publication/story-progress.ts": "publication"
+    "packages/backend/src/publication/story-progress.ts": "publication",
+    "packages/backend/src/pipeline/events/recall.ts": "events",
+    "packages/backend/src/pipeline/events/shadow.ts": "events",
+    "packages/backend/src/pipeline/events/timing.ts": "events",
+    "packages/backend/src/pipeline/rank/project.ts": "publication",
+    "packages/backend/src/pipeline/rank/read.ts": "publication"
   }
 }
