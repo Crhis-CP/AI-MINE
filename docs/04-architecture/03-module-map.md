@@ -45,6 +45,7 @@
 ```
 
 - 任务编排在 `packages/backend/src/jobs/content.ts`；定时任务在 `apps/worker/src/schedules.ts`。
+- 单篇核对影子：判断落库后，`packages/backend/src/pipeline/understand/observe.ts` 在单独的队列 `news.enrichment.observe` 里一次一条地认公司、核数字和日期、读电头，只写 `entities.article_links` 与 `enrichment.analysis_checks`，不调模型、不改判断和公开内容。开关、公司库导入与回填见 `docs/runbooks/article-observe.md`。
 - 每次模型调用都经 `packages/backend/src/providers`：先取回执、后记用量。请求内容逐字节相同时复用已有回执，不再花钱。
 - 发布投影读“最新一条分析”。所以任何试验性的结果都不能写进 `analyses` 表，否则会改动公开内容。
 - 读者请求只读公开表，不触发采集、模型调用或写操作。
