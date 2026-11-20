@@ -1,13 +1,17 @@
 // The per-article check (pipeline/understand/checks.ts) on one synthetic release: the companies found, what the name
 // rule would rewrite, the figures held against the original and the dateline with the country taken only from it; that
-// it reads only what the judging steps were shown, stays fast on the largest bodies and lets other work run meanwhile.
+// it reads only what the judging steps were shown, cut where the shared material cuts the body, stays fast on the
+// largest bodies and lets other work run meanwhile.
 // Pure: the code seed stands in for the library, nothing is read or written.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { sharedBody, sharedMaterial } from "../packages/backend/src/editorial/analysis-layout.ts";
+import { geographyMaterial } from "../packages/backend/src/editorial/geography.ts";
 import type { AnalyzeInputArticle } from "../packages/backend/src/editorial/input.ts";
+import { UNDERSTAND_BODY_CHARS } from "../packages/backend/src/editorial/writing.ts";
 import { buildIndex } from "../packages/backend/src/pipeline/entities/link.ts";
 import { seedRows } from "../packages/backend/src/pipeline/entities/seed.ts";
-import { ARTICLE_CHECK_RECIPE, CHECK_BODY_CHARS, checkArticle, type JudgedArticle } from "../packages/backend/src/pipeline/understand/checks.ts";
+import { ARTICLE_CHECK_RECIPE, bodyAsShown, checkArticle, type JudgedArticle } from "../packages/backend/src/pipeline/understand/checks.ts";
 
 const seed = seedRows();
 const index = buildIndex(seed.entities, seed.statements);
@@ -106,7 +110,7 @@ test("only what the judging steps were shown is read: the head and the tail of a
   const filler = (n: number) => "Further detail on the project. ".repeat(Math.ceil(n / 31)).slice(0, n);
   const middle = "Codelco raised its output by 77%. ";
   const tail = "Newmont said gold output rose 31%.";
-  const long = `${BODY} ${filler(CHECK_BODY_CHARS)} ${middle}${filler(CHECK_BODY_CHARS)} ${tail}`;
+  const long = `${BODY} ${filler(UNDERSTAND_BODY_CHARS)} ${middle}${filler(UNDERSTAND_BODY_CHARS)} ${tail}`;
   const check = await checkArticle(
     index,
     article({ bodyText: long }),
@@ -125,6 +129,76 @@ test("only what the judging steps were shown is read: the head and the tail of a
   );
   const unconfirmed = await checkArticle(index, article({ bodyStatus: "unconfirmed" }), "en", judged());
   assert.equal(unconfirmed.verdict, "soft", "a body that was not extracted whole caps the findings");
+});
+
+const repeatTo = (unit: string, n: number) =>
+  Array.from(unit.repeat(Math.ceil(n / Array.from(unit).length)))
+    .slice(0, n)
+    .join("");
+const ZH_FILLER = "矿山的生产安排保持稳定，项目建设按计划推进。";
+const EN_FILLER = "Further detail on the project. ";
+
+test("a long Chinese body is read where the material cuts it: a figure at character 18,500 counts, one in its last 2,000 characters the model never saw does not", async () => {
+  const seen = "公司计划投资123亿元扩建冶炼厂。";
+  const unseen = "其余矿区产量增长47%。";
+  // 30,000 characters. body_tail is at most 4,000 UTF-8 bytes, 1,333 Chinese characters, so the material shows the
+  // first 18,667 characters and the last 1,333: the first figure is in what it shows, the second is not.
+  const body = `${repeatTo(ZH_FILLER, 18_500)}${seen}${repeatTo(ZH_FILLER, 30_000 - 18_500 - seen.length - 1_800)}${unseen}${repeatTo(ZH_FILLER, 1_800 - unseen.length)}`;
+  const long = article({ title: "紫金矿业扩建冶炼厂", bodyText: body });
+  const sent = sharedMaterial(long).text;
+  assert.ok(sent.includes(seen) && !sent.includes(unseen), "what the model was sent");
+  const check = await checkArticle(
+    index,
+    long,
+    "zh",
+    judged({ titleZh: "紫金矿业将投资123亿元扩建冶炼厂", summaryZh: "公司计划投资123亿元扩建冶炼厂，其余矿区产量增长47%。", geography: null }),
+  );
+  assert.deepEqual(
+    check.figures.map((f) => `${f.field} ${f.token} ${f.problem}`),
+    ["summary 47% absent"],
+  );
+});
+
+test("an English body and one with a Chinese tail are read where the material cuts them", async () => {
+  const copy = judged({ titleZh: "铜矿产量增长", summaryZh: "铜矿产量增长61%，发货量增长39%。", geography: null });
+  // Plain English: the first 18,000 characters and the last 2,000.
+  const english = `${repeatTo(EN_FILLER, 18_100)}Output rose 61%. ${repeatTo(EN_FILLER, 30_000 - 18_100 - 17 - 1_900)}Shipments rose 39%. ${repeatTo(EN_FILLER, 1_900 - 20)}`;
+  // A Chinese tail is cut shorter by its bytes, so more of the start is shown: the first 18,667 and the last 1,333.
+  const tail = `${repeatTo(ZH_FILLER, 200)}发货量增长39%。${repeatTo(ZH_FILLER, 2_000 - 200 - 9)}`;
+  const mixed = `${repeatTo(EN_FILLER, 18_300)}Output rose 61%. ${repeatTo(EN_FILLER, 28_000 - 18_300 - 17)}${tail}`;
+  for (const [body, findings] of [
+    [english, ["summary 61% absent"]],
+    [mixed, ["summary 39% absent"]],
+  ] as const) {
+    const long = article({ title: "Copper mine output", bodyText: body });
+    const check = await checkArticle(index, long, "en", copy);
+    assert.deepEqual(
+      check.figures.map((f) => `${f.field} ${f.token} ${f.problem}`),
+      findings,
+    );
+    const sent = sharedMaterial(long).text;
+    assert.equal(sent.includes("Output rose 61%"), findings[0] !== "summary 61% absent", "the check agrees with what the model was sent");
+    assert.equal(sent.includes("39%"), findings[0] !== "summary 39% absent");
+  }
+});
+
+test("the body is cut exactly as the material cuts the whole of it, from a bounded part of a long one", () => {
+  const kinds = {
+    zh: `${ZH_FILLER}投资123亿元。`,
+    en: "Copper output rose 12% to 123,000 tonnes. ",
+    mixed: "Zijin 紫金矿业 reported 25.3万吨 copper; Rio Tinto shipped 84.5 Mt. ",
+    astral: "𠀀铜😀 output 12% 𪚥。",
+  };
+  for (const [kind, unit] of Object.entries(kinds))
+    for (const size of [6_001, 18_667, 20_001, 24_001, 48_001, 200_000, 1_000_000]) {
+      const whole = article({ bodyText: repeatTo(unit, size) });
+      const cut = sharedBody(whole);
+      const shown = bodyAsShown(whole, whole.title);
+      assert.equal(shown.text, `${cut.head}${cut.continuation}${cut.omitted ? "\n" : ""}${cut.tail}`, `${kind} ${size}`);
+      assert.ok(shown.material.bodyText.length <= 2 * (UNDERSTAND_BODY_CHARS + 4_000), `${kind} ${size}: only a bounded part is handed to the cut`);
+      // The dateline check cuts its segments from the same part, at any budget a stored geography carries.
+      for (const budget of [22000, 4096]) assert.deepEqual(geographyMaterial(shown.material, budget).segments, geographyMaterial(whole, budget).segments);
+    }
 });
 
 test("one article of the largest kind is checked well within a second, with the other work let in between its steps", async () => {

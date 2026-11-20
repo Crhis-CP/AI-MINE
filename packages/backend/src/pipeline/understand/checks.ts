@@ -3,6 +3,7 @@
 // the original, and the dateline at the top of the body with the countries the structure step took only from it.
 // Pure: it reads and changes nothing. observe.ts stores the result beside the judgement (mode "observed"); nothing a
 // reader sees is derived from it, and the judgement itself is never edited.
+import { sharedBody } from "../../editorial/analysis-layout.ts";
 import { geographyMaterial } from "../../editorial/geography.ts";
 import { type AnalyzeInputArticle, firstInputImage } from "../../editorial/input.ts";
 import { modelSourceDate } from "../../editorial/source-time.ts";
@@ -17,25 +18,26 @@ import { checkFigures, FIGURES_RECIPE, type FigureFinding } from "./figures.ts";
 /** The versions of the four checks, stored with every result (enrichment.analysis_checks.recipe). */
 export const ARTICLE_CHECK_RECIPE = [LINKER_VERSION, NAMES_RECIPE, FIGURES_RECIPE, DATELINE_RECIPE].join("/");
 
+// The checks read what the judging steps were shown, and no more: the body exactly as the shared material cuts it
+// (editorial/analysis-layout.ts sharedBody, the cut sharedMaterial renders), and never the stored translation. Its
+// body_head and body_tail are cut by UTF-8 bytes and the body between them is shown up to UNDERSTAND_BODY_CHARS (20,000)
+// characters in all: of plain English that is the first 18,000 characters and the last 2,000, of all-Chinese text the
+// first 18,667 and the last 1,333. That bound is also what keeps one article cheap. Measured on 4 vCPUs at 2.1 GHz: a
+// usual article takes a few milliseconds; the worst bodies tried (200,000 to 1,000,000 characters of dense Chinese
+// figures, report tables or mixed text) about 50 ms once warm and 95 ms for the first, in four steps with the event loop
+// free between them, none longer than about 55 ms. Not bounded here: the input itself, loaded by the analysis's own
+// loader (observe.ts).
+
 /**
- * The checks read what the judging steps were shown, and no more. The shared material gives every step at most
- * UNDERSTAND_BODY_CHARS (20,000) characters of the body, its head and its tail, and never the stored translation
- * (editorial/analysis-layout.ts sharedMaterial). That bound is also what keeps one article cheap. Measured on 4 vCPUs at
- * 2.1 GHz: a usual article takes a few milliseconds; the worst bodies tried (200,000 to 1,000,000 characters of dense
- * Chinese figures, report tables or mixed text) about 50 ms once warm and 95 ms for the first, in four steps with the
- * event loop free between them, none longer than about 55 ms. A longer body is cut to its first and last characters.
- * Not bounded here: the input itself, loaded by the analysis's own loader (observe.ts).
+ * The cut reads at most WINDOW_HEAD characters from the start of the body (body_head and 〔正文续〕 together) and at most
+ * WINDOW_TAIL from its end (body_tail is at most 4,000 UTF-8 bytes, geographyMaterial). A longer body is handed to it as
+ * those characters only, which it cuts exactly as it cuts the whole body, so the cut costs the same however long the
+ * body is (tests/article-checks.test.ts holds the two cuts equal).
  */
-export const CHECK_BODY_CHARS = UNDERSTAND_BODY_CHARS;
-/** Of those, the body's last characters, as the shared material ends with the body's tail. */
-const TAIL_CHARS = 2_000;
+const WINDOW_HEAD = UNDERSTAND_BODY_CHARS;
+const WINDOW_TAIL = 4_000;
 /** A title longer than this is cut; real titles are a few hundred characters at most. */
 const TITLE_CHARS = 1_000;
-/**
- * The dateline rule reads only the title and the body_head segment, which geographyMaterial takes from the first 12,000
- * characters of the body; this many UTF-16 units always hold them, so the rest of a long body is never handed to it.
- */
-const HEAD_SOURCE_UNITS = 24_000;
 
 /** The parts of a stored judgement the checks read. */
 export interface JudgedArticle {
@@ -84,22 +86,39 @@ const record = (value: unknown): Record<string, unknown> | null =>
 /** Lets the worker's other jobs run between the steps of one article. */
 const yieldToLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-/** The body as the shared material shows it: whole up to the budget, else its head and its tail. */
-export function bodyAsRead(article: Pick<AnalyzeInputArticle, "bodyText" | "excerpt" | "xPost">): string {
+/** The text the cut reads: the whole text, or of a longer one its first WINDOW_HEAD and last WINDOW_TAIL characters. */
+function materialWindow(evidence: string): string {
+  // A character is one or two UTF-16 units, so a text this long has more characters than the window, and each slice
+  // holds at least the characters taken from it, whole.
+  if (evidence.length <= 2 * (WINDOW_HEAD + WINDOW_TAIL)) return evidence;
+  const first = Array.from(evidence.slice(0, 2 * WINDOW_HEAD)).slice(0, WINDOW_HEAD);
+  const last = Array.from(evidence.slice(-2 * WINDOW_TAIL)).slice(-WINDOW_TAIL);
+  return first.join("") + last.join("");
+}
+
+/**
+ * The body exactly as the shared material shows it: whole where it fits; else the start it shows, a line break where it
+ * leaves the middle out, and the tail. `material` is the article as handed to the cut (the title given, the body
+ * bounded by materialWindow); the dateline check cuts its segments from the same.
+ */
+export function bodyAsShown(article: Pick<AnalyzeInputArticle, "bodyText" | "excerpt" | "bodyStatus" | "xPost">, title: string) {
   const evidence = article.xPost ? postEvidenceText(article.xPost) : (article.bodyText ?? article.excerpt ?? "");
-  return evidence.length > CHECK_BODY_CHARS ? `${evidence.slice(0, CHECK_BODY_CHARS - TAIL_CHARS)}\n${evidence.slice(-TAIL_CHARS)}` : evidence;
+  const material = { title, bodyText: materialWindow(evidence), excerpt: null, bodyStatus: article.bodyStatus, xPost: undefined };
+  const shown = sharedBody(material);
+  return { material, text: `${shown.head}${shown.continuation}${shown.omitted ? "\n" : ""}${shown.tail}` };
 }
 
 /**
  * The four checks on one article and its judgement, in four steps with the event loop free between them. They read the
- * title, the body as the judging steps were shown it (bodyAsRead), the feed summary where the steps were shown it
+ * title, the body as the judging steps were shown it (bodyAsShown), the feed summary where the steps were shown it
  * instead of an unusable body, and the date line the model was shown.
  */
 export async function checkArticle(index: EntityIndex, article: AnalyzeInputArticle, language: string | null, judged: JudgedArticle): Promise<ArticleCheck> {
   const title = article.title.slice(0, TITLE_CHARS);
-  const body = bodyAsRead(article);
+  const { material, text: body } = bodyAsShown(article, title);
   const evidence = article.xPost ? postEvidenceText(article.xPost) : (article.bodyText ?? article.excerpt ?? "");
-  const feed = !article.xPost && !usableSourceText(evidence) ? usableSourceText(article.bodyText, article.excerpt).slice(0, CHECK_BODY_CHARS) : "";
+  // As sharedMaterial shows it: whole up to UNDERSTAND_BODY_CHARS (bodyWithin's cut), without the note on the cut.
+  const feed = !article.xPost && !usableSourceText(evidence) ? usableSourceText(article.bodyText, article.excerpt).slice(0, UNDERSTAND_BODY_CHARS) : "";
   const found = linkTextWithHits(index, {
     title,
     body,
@@ -151,7 +170,7 @@ export async function checkArticle(index: EntityIndex, article: AnalyzeInputArti
   const stored = record(judged.geography);
   const budget = stored?.bodyBudget;
   const { segments } = geographyMaterial(
-    { title, bodyText: evidence.slice(0, HEAD_SOURCE_UNITS), excerpt: null, bodyStatus: article.bodyStatus, xPost: undefined },
+    material,
     typeof budget === "number" && Number.isSafeInteger(budget) && budget >= 1024 && budget <= 22000 ? budget : 22000,
   );
   const demotion = demoteDateline({ assignments: Array.isArray(stored?.assignments) ? (stored.assignments as unknown[]) : [] }, segments);
