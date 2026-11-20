@@ -9,14 +9,11 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
 import { materialFixturePermit } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
-import { installModules } from "@amp/backend/modules";
 
 const provider = await stub(() => ({ choices: [{ message: { content: '{"ok":true}' } }], usage: { prompt_tokens: 10, completion_tokens: 2 } }));
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
 await installUsageFixtureForModel("deepseek-flash");
-// Evaluation receipts must not resume production work even with a module that resumes its own work on release installed.
-installModules([(await import("../modules/policy/server.ts")).default]);
 after(async () => {
   await stopBoss();
   await provider.close();

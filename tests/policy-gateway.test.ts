@@ -13,7 +13,7 @@ import { invalidateModelCache } from "@amp/backend/editorial/models";
 import { sha256 } from "../packages/backend/src/lib/ids.ts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { grantDateFixture } from "./source-date-fixture.ts";
-import { installModules } from "@amp/backend/modules";
+import { emitReceiptReleased, installModules } from "@amp/backend/modules";
 
 const root = await initializeDb("test");
 // Receipt release resumes policy workflows through the policy module's receiptReleased hook, as in the worker and api.
@@ -283,6 +283,34 @@ test("one aged policy timeout can retry while the first attempt and its uncertai
     assert.equal(attempts[0].status, "unknown");
     assert.equal(attempts[0].state, "unknown");
     assert.equal(attempts[1].status, "received");
+  } finally {
+    finish.open();
+  }
+});
+
+test("an isolated evaluation receipt on the policy lane is released without resuming the workflow, even with the policy module installed", async () => {
+  const f = await fixture(),
+    finish = gate();
+  respond = async () => {
+    await finish.promise;
+    return {};
+  };
+  try {
+    await assert.rejects(f.run("policy_fulltext", "1", 40));
+    const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${`policy:${f.id}@1`}`;
+    // Same policy request the module hook resumes, marked as an isolated evaluation (the engine's exclusion comes first).
+    await sql`UPDATE receipts SET subject=${`evaluation:policy:${f.id}@1`},updated_at=now()-interval '31 minutes',
+      request=request || ${sql.json({ usage_purpose: "evaluation", receipt_scope: "evaluation-v1" })} WHERE id=${receipt.id}`;
+    await sql`INSERT INTO policy.material_workflows(source_id,material_id,material_revision,status) VALUES(${f.id},${f.id},1,'blocked_unknown')`;
+    const status = async () => (await sql`SELECT status FROM policy.material_workflows WHERE source_id=${f.id} AND material_id=${f.id}`)[0].status;
+    await autoReleaseUnknownReceipts();
+    const [released] = await sql`SELECT status,purpose,subject,request FROM receipts WHERE id=${receipt.id}`;
+    assert.equal(released.status, "failed", "the uncertain receipt is released");
+    assert.equal(released.request.lane, "policy");
+    assert.equal(await status(), "blocked_unknown", "evaluation never resumes production work");
+    // Control: the same receipt handed to the module hook directly would resume this workflow.
+    assert.equal(await emitReceiptReleased({ purpose: released.purpose, subject: released.subject, request: released.request }, sql), true);
+    assert.equal(await status(), "pending");
   } finally {
     finish.open();
   }
