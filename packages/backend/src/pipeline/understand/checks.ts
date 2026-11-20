@@ -68,7 +68,7 @@ const record = (value: unknown): Record<string, unknown> | null =>
 /**
  * The four checks on one article and its judgement. The text is what the judging steps read: the title, the body as
  * the structure step's evidence segments take it (a post's own text, or the narrative body, or the excerpt), and for
- * the figures also the excerpt, a stored Chinese translation and the date line the model was shown.
+ * the figures also the excerpt, the date line the model was shown and, where it was shown one, a stored translation.
  */
 export function checkArticle(index: EntityIndex, article: AnalyzeInputArticle, language: string | null, judged: JudgedArticle): ArticleCheck {
   const fullBody = article.xPost ? postEvidenceText(article.xPost) : (article.bodyText ?? article.excerpt ?? "");
@@ -95,11 +95,13 @@ export function checkArticle(index: EntityIndex, article: AnalyzeInputArticle, l
       for (const hint of rendered.unregistered) names.push({ kind: "unregistered", field, ...hint });
     }
 
+  // A stored Chinese translation counts only where the model was shown it (a post, or an article without a body), so a
+  // figure the translation and the copy both got wrong is not taken as supported.
   const sourceTexts = [
     title,
     body,
     ...(article.excerpt && article.excerpt !== fullBody ? [clip(article.excerpt)] : []),
-    ...(article.translationZh ? [clip(article.translationZh)] : []),
+    ...(article.translationZh && (article.xPost || !article.bodyText) ? [clip(article.translationZh)] : []),
   ];
   // Names with digits in them (South32, 南32), as either side writes them, so their digits are not taken for figures.
   const mask = [

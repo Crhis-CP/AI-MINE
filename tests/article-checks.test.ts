@@ -136,3 +136,12 @@ test("a post is read as the structure step reads it: its own text and the quoted
   );
   assert.equal(check.verdict, "ok");
 });
+
+test("a stored Chinese translation supports a figure only where the model was shown it", () => {
+  const copy = judged({ titleZh: "力拓投资2.5亿美元", summaryZh: "力拓表示将投资2.5亿美元。", geography: null });
+  const translated = { translationZh: "力拓表示将投资2.5亿美元。" };
+  const withBody = checkArticle(index, article({ title: "Rio Tinto to invest", bodyText: "Rio Tinto will invest $2.5 billion.", ...translated }), "en", copy);
+  assert.equal(withBody.verdict, "hard", "the writer read the body, not the translation");
+  const withoutBody = checkArticle(index, article({ title: "Rio Tinto to invest", bodyText: null, bodyStatus: "none", ...translated }), "en", copy);
+  assert.deepEqual(withoutBody.figures, [], "without a body the writer was given the translation");
+});
