@@ -10,6 +10,9 @@ import { beijingDay, beijingStamp, sendAlert } from "../notify/feishu.ts";
 import { sourceIdsOnLane } from "../admin/sources.ts";
 import { countDiscovered } from "../content/materials.ts";
 import { scoredRelevantArticles } from "../enrichment/records.ts";
+import { articleLinkCoverage } from "../pipeline/entities/store.ts";
+import type { DatelineKind } from "../pipeline/understand/dateline.ts";
+import { articleCheckSummary } from "../pipeline/understand/observe.ts";
 import { type AccountDaysLeft, accountDaysLeft } from "../providers/account-balance.ts";
 import { notPublicAmong, publicationFlow, translationLag } from "../publication/items.ts";
 import { sourceHealth } from "../sources/health.ts";
@@ -42,6 +45,13 @@ export interface Reconciliation {
   translation: { due: number; missing: number };
   /** Each model account's latest reading; for a fresh one, the days it lasts at the recent daily spend. */
   balance: AccountDaysLeft[];
+  /**
+   * The per-article shadow (pipeline/understand/observe.ts), which changes nothing readers see: articles judged that
+   * day that were checked, those with at least one company found, how many entities the library holds (0: not seeded
+   * yet), the soft figure findings and the datelines by kind. The hard figure class is left out until a labelled sample shows how
+   * often it is right (design L, review F7). Absent in days stored before it existed.
+   */
+  articleChecks?: { checked: number; linked: number; library: number; softFlags: number; softArticles: number; datelines: Record<DatelineKind, number> };
 }
 
 export async function reconcile(now = Date.now()): Promise<Reconciliation> {
@@ -93,6 +103,8 @@ export async function reconcile(now = Date.now()): Promise<Reconciliation> {
   // A report needs an hour to be translated before it counts as late.
   const translation = await translationLag(start, new Date(Math.min(end.getTime(), now - 3600_000)));
   const balance = await accountDaysLeft(now);
+  const checks = await articleCheckSummary(start, end);
+  const coverage = await articleLinkCoverage(checks.articles);
 
   return {
     day,
@@ -100,6 +112,14 @@ export async function reconcile(now = Date.now()): Promise<Reconciliation> {
     flow: { collected, public: shown.public, selected: shown.selected, scoredNotPublic },
     translation,
     balance,
+    articleChecks: {
+      checked: checks.articles.length,
+      linked: coverage.linked,
+      library: coverage.library,
+      softFlags: checks.softFlags,
+      softArticles: checks.softArticles,
+      datelines: checks.datelines,
+    },
   };
 }
 
@@ -113,6 +133,19 @@ function balanceLine(b: AccountDaysLeft): string {
   }
   const lasts = b.days === null ? "" : b.days < 1 ? "，按近 7 天的用量不到 1 天就会用完" : `，按近 7 天的用量约够 ${b.days} 天`;
   return `模型余额 ${b.service}：${b.yuan.toFixed(0)} 元${lasts}`;
+}
+
+/**
+ * The per-article shadow in three lines, counts only; none on a day nothing was checked (the switch is off). The soft
+ * figure class is what the check is unsure of; the hard class stays out of the message (design L, review F7).
+ */
+function articleCheckLines(c: Reconciliation["articleChecks"]): string[] {
+  if (!c?.checked) return [];
+  return [
+    `单篇核对（只记录，读者看不到）：昨天判断的稿件核对了 ${c.checked} 条，认出至少一家公司的 ${c.linked} 条（${percent(c.linked, c.checked)}）${c.library ? "" : "；公司库还没导入，认出的公司没有存下"}`,
+    `数字核对（只标记，不改稿）：程序拿不准的数字或日期 ${c.softFlags} 处（${c.softArticles} 条）`,
+    `电头：新闻稿 ${c.datelines.release_wire} 条，通讯社 ${c.datelines.news_agency} 条，只写地点和日期 ${c.datelines.unmarked} 条`,
+  ];
 }
 
 /** The message, in the Owner's words: what readers got, what did not arrive, what needs money. */
@@ -130,6 +163,7 @@ export function reconcileLines(r: Reconciliation): string[] {
       ? `译文：该有中文译文的外文稿 ${r.translation.due} 条，还没有的 ${r.translation.missing} 条（${percent(r.translation.missing, r.translation.due)}）`
       : "译文：昨天没有需要翻译的外文稿",
   );
+  lines.push(...articleCheckLines(r.articleChecks));
   lines.push(...r.balance.map(balanceLine));
   return lines;
 }

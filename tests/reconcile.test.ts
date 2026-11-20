@@ -6,6 +6,8 @@ import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { type Reconciliation, reconcile, reconcileLines, sendReconcile } from "@amp/backend/operations/reconcile";
+import { seedRows } from "../packages/backend/src/pipeline/entities/seed.ts";
+import { seedEntityLibrary } from "../packages/backend/src/pipeline/entities/store.ts";
 import { mockFeishuAlerts } from "./feishu-alert-fixture.ts";
 
 after(async () => {
@@ -172,4 +174,63 @@ test("with sending off the day stays unsent and goes out once sending is on; the
       { day: "2026-11-19", sent: true },
     ],
   );
+});
+
+test("the per-article shadow adds three count lines before the balances, and none on a day nothing was checked", () => {
+  const at = new Date(NOW).toISOString();
+  const base: Reconciliation = {
+    day: "2026-11-18",
+    sources: { enabled: 0, withNew: 0, silent: { failing: 0, waiting: 0, unstable: 0, overdue: 0, unknown: 0, quiet: 0 } },
+    flow: { collected: 0, public: 0, selected: 0, scoredNotPublic: 0 },
+    translation: { due: 0, missing: 0 },
+    balance: [{ service: "deepseek", yuan: 12, at, stale: false, days: 3 }],
+  };
+  const checks = { checked: 120, linked: 78, library: 38, softFlags: 15, softArticles: 12, datelines: { release_wire: 30, news_agency: 10, unmarked: 5 } };
+  assert.deepEqual(reconcileLines({ ...base, articleChecks: checks }).slice(-4), [
+    "单篇核对（只记录，读者看不到）：昨天判断的稿件核对了 120 条，认出至少一家公司的 78 条（65%）",
+    "数字核对（只标记，不改稿）：程序拿不准的数字或日期 15 处（12 条）",
+    "电头：新闻稿 30 条，通讯社 10 条，只写地点和日期 5 条",
+    "模型余额 deepseek：12 元，按近 7 天的用量约够 3 天",
+  ]);
+  assert.equal(
+    reconcileLines({ ...base, articleChecks: { ...checks, linked: 0, library: 0 } }).at(-4),
+    "单篇核对（只记录，读者看不到）：昨天判断的稿件核对了 120 条，认出至少一家公司的 0 条（0%）；公司库还没导入，认出的公司没有存下",
+  );
+  const plain = reconcileLines(base);
+  for (const articleChecks of [undefined, { ...checks, checked: 0 }]) assert.deepEqual(reconcileLines({ ...base, articleChecks }), plain);
+});
+
+test("yesterday's per-article checks are read through their owners: the latest check of each article judged that day", async () => {
+  await seedEntityLibrary(seedRows(), "test", { apply: true });
+  const check = async (articleId: string, judgedAt: Date, checkedAt: Date, figures: unknown[], geography: unknown[]) => {
+    await report(articleId, "reconcile-busy", judgedAt, { public: false, revision: 2 });
+    const [judged] = await sql<{ id: number }[]>`INSERT INTO analyses (article_id, input_revision, origin, relevance, selected, output, created_at)
+      VALUES (${articleId}, 2, 'model', 'pass', false, '{"scores": []}', ${judgedAt}) RETURNING id`;
+    await sql`INSERT INTO enrichment.analysis_checks (analysis_id, article_id, input_revision, lane, recipe, mode, verdict, figures, geography, created_at)
+      VALUES (${judged!.id}, ${articleId}, 2, 'news', 'test', 'observed', 'ok', ${sql.json(figures as never)}, ${sql.json(geography as never)}, ${checkedAt})`;
+  };
+  await check("reconcile-check-a", YESTERDAY, YESTERDAY, [{ class: "soft" }, { class: "hard" }], [{ kind: "dateline", dateline: "release_wire" }]);
+  // Judged yesterday, checked this morning before the reconciliation ran.
+  await check("reconcile-check-b", YESTERDAY, TODAY, [{ class: "hard" }], []);
+  await check("reconcile-check-c", TODAY, TODAY, [{ class: "soft" }], [{ kind: "dateline", dateline: "news_agency" }]);
+  // Judged ten days ago and checked yesterday by the back-fill: not yesterday's.
+  await check("reconcile-check-d", daysAgo(10), YESTERDAY, [{ class: "soft" }], [{ kind: "dateline", dateline: "unmarked" }]);
+  await sql`INSERT INTO entities.article_links (article_id, input_revision, entity_id, lane, role, method, alias, segment, linker_version)
+    VALUES ('reconcile-check-a', 2, 'bhp', 'news', 'mention', 'text', 'BHP', 'body', 'test')`;
+  try {
+    const r = await reconcile(NOW);
+    assert.deepEqual(r.articleChecks, {
+      checked: 2,
+      linked: 1,
+      library: seedRows().entities.length,
+      softFlags: 1,
+      softArticles: 1,
+      datelines: { release_wire: 1, news_agency: 0, unmarked: 0 },
+    });
+    assert.ok(reconcileLines(r).includes("数字核对（只标记，不改稿）：程序拿不准的数字或日期 1 处（1 条）"), "the hard findings stay out of the message");
+  } finally {
+    await sql`DELETE FROM entities.article_links WHERE article_id LIKE 'reconcile-check-%'`;
+    await sql`DELETE FROM enrichment.analysis_checks WHERE article_id LIKE 'reconcile-check-%'`;
+    await sql`DELETE FROM articles WHERE id LIKE 'reconcile-check-%'`;
+  }
 });
