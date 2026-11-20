@@ -22,6 +22,7 @@ import {
   join,
   liveDecision,
   queryText,
+  recollect,
   report,
   revokeLocalText,
   shadowSource,
@@ -83,6 +84,19 @@ test("the shadow's recall values are the live engine's", () => {
     items.includes(`p.discovered_at>now()-interval'${recall.BACKGROUND_DAYS}days'`) &&
       items.includes(`p.discovered_at<=now()-interval'${recall.RECALL_DAYS}days'`),
   );
+  // Who counts (events/group.ts trusted and qualifiedReports): a member bound by hand even while its report waits for a
+  // regroup, and whatever its revision or grouping state, but never a missing, withdrawn or roundup report; any other
+  // only at its current revision with grouping confirmed. recall.ts qualify and its membership reads say the same.
+  const shadowRecall = flat(file("pipeline/events/recall.ts"));
+  const trusted = "(fa.manualORNOTEXISTS(SELECT1FROMregroup_pendingrpWHERErp.article_id=fa.article_id))";
+  assert.ok(flat(group).includes(trusted) && shadowRecall.includes(trusted), "a member bound by hand is trusted");
+  assert.ok(flat(group).includes("if(revision===undefined||publication?.withdrawn||composite.has(row.article_id))return[];"), "live: never");
+  assert.ok(
+    flat(group).includes("if(!row.manual&&(revision!==row.input_revision||(!withWaiting&&confirmed.get(row.article_id)!==revision)))return[];"),
+    "live: by hand, whatever its revision or grouping state",
+  );
+  assert.ok(shadowRecall.includes("if(!state||withdrawn.has(row.article_id)||composite.has(row.article_id))returnfalse;if(row.manual)returntrue;"), "shadow");
+  assert.ok(shadowRecall.includes("returnrow.input_revision===state.revision&&state.confirmed&&"), "shadow: the others");
   // "Grouping confirmed" as content/grouping.ts confirmedGroupingMaterials says it, in both shadow reads of content.
   const confirmed = "grouping_status='complete'ANDgrouping_input_revision=revision";
   assert.ok(flat(file("content/grouping.ts")).includes(confirmed));
@@ -295,6 +309,36 @@ test("one large fact of wire copies does not crowd out the fact the live engine 
   await shadowDecide(query);
   const row = (await shadowRow(query))!;
   assert.ok(row.candidates.some((c) => c.factId === big.factId) && row.candidates.some((c) => c.factId === target.factId), "both facts are judged");
+});
+
+test("a report a person bound to a fact stays a candidate while its new revision waits for its regroup; an automatic member in that state does not", async () => {
+  const words = unique(8);
+  const source = await shadowSource();
+  const bound = await report({ source, titleZh: `${words}锂矿项目签约`, body: body(), publishedAt: hoursAgo(6) });
+  const automatic = await report({ source, titleZh: `${words}锂矿项目签署协议`, body: body(), publishedAt: hoursAgo(6) });
+  const byHand = await fact("合成人工归属", [bound]);
+  const byEngine = await fact("合成自动归属", [automatic]);
+  await sql`UPDATE fact_articles SET manual=true WHERE fact_id=${byHand.factId} AND article_id=${bound}`;
+  const query = await report({ source: await shadowSource(), titleZh: `${words}锂矿项目签约仪式举行`, body: body(), publishedAt: hoursAgo(1) });
+  const recalled = async () =>
+    (await recall.recallCandidates({ articleId: query, text: await queryText(query), documentKeys: [], composite: false, liveAt: new Date() }, sql)).candidates;
+  const before = await recalled();
+  assert.ok(
+    before.some((c) => c.articleId === bound && c.factId === byHand.factId) && before.some((c) => c.articleId === automatic && c.factId === byEngine.factId),
+    "both are candidates while their grouping is confirmed",
+  );
+  // Both pages are collected again with other text: a new revision, whose grouping waits again.
+  for (const id of [bound, automatic]) await recollect(id);
+  const states = await sql<
+    { id: string; revision: number; grouping_status: string }[]
+  >`SELECT id,revision,grouping_status FROM articles WHERE id IN (${bound},${automatic})`;
+  assert.ok(states.length === 2 && states.every((s) => s.revision === 2 && s.grouping_status === "pending"));
+  const after = await recalled();
+  assert.ok(
+    after.some((c) => c.articleId === bound && c.factId === byHand.factId),
+    "the member bound by hand still counts, as live recall counts it whatever its revision or grouping state",
+  );
+  assert.ok(!after.some((c) => c.articleId === automatic), "the automatic member waits for its regroup, as in live recall");
 });
 
 test("a withdrawn report and a roundup are never candidates, however close their text", async () => {

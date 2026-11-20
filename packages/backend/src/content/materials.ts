@@ -486,8 +486,9 @@ export async function newsShadowMaterials(ids: string[], bodyChars: number, db: 
 /**
  * The event shadow's recall window (live: the 14 days before a decision): materials discovered in (since, until] whose
  * grouping was confirmed for their current revision by `until` (content/grouping.ts confirmedGroupingMaterials), the only
- * ones live recall can count. Newest first, archive history (stale on discovery) after everything else, so a large
- * archive import cannot push current reports out of the `limit`.
+ * ones whose automatic memberships live recall counts (members bound by hand count whatever their grouping state:
+ * pipeline/events/recall.ts adds them). Newest first, archive history (stale on discovery) after everything else, so a
+ * large archive import cannot push current reports out of the `limit`.
  */
 export async function newsDiscoveredWindow(since: Date, until: Date, limit: number, db: Db = sql) {
   return db<{ id: string; revision: number; grouped_at: Date | null; discovered_at: Date }[]>`

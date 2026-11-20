@@ -15,7 +15,9 @@
 //    the selected background likewise at most `background`;
 //  - a report whose grouping completed after the live decision is left out: a later report of the same event must not
 //    answer for what the live engine could see;
-//  - the window keeps at most `window` materials, archive history last; a window that reaches it is reported.
+//  - the window keeps at most `window` materials whose grouping is confirmed, archive history last, and the members a
+//    person bound by hand (which live counts whatever their grouping state) at most `manual`, the newest first; a window
+//    that reaches either bound is reported.
 // Memory: at most VECTOR_CACHE_BYTES of vectors stay in the process between articles (least recently used dropped
 // first). Per article at most 1 + vectors + background vectors are read (2,501 by default: about 10 MB as 1,024-dimension
 // Float32Arrays, more while their text form is parsed) and at most `window` window rows with their titles and summaries
@@ -54,6 +56,8 @@ export const BACKGROUND_DAYS = 60;
 export interface RecallLimits {
   /** Window materials read (discovered in the 14 days, grouping confirmed), archive history last. */
   window: number;
+  /** Members bound to a live fact by hand looked at, the newest first; those discovered in the 14 days join the window. */
+  manual: number;
   /** Vectors read for candidates. */
   vectors: number;
   /** Vectors read for the selected background. */
@@ -64,9 +68,9 @@ export interface RecallLimits {
   /** Address and hash twins looked at. */
   probes: number;
 }
-export const RECALL_LIMITS: RecallLimits = { window: 40_000, vectors: 2_000, background: 500, facts: 20, membersPerFact: 3, probes: 50 };
+export const RECALL_LIMITS: RecallLimits = { window: 40_000, manual: 2_000, vectors: 2_000, background: 500, facts: 20, membersPerFact: 3, probes: 50 };
 /** Part of the stored ruleset (shadow.ts SHADOW_RULESET), so rows decided under other bounds are never pooled. */
-export const RECALL_RULESET = `recall-v2:window${RECALL_LIMITS.window}/vectors${RECALL_LIMITS.vectors}+${RECALL_LIMITS.background}/facts${RECALL_LIMITS.facts}x${RECALL_LIMITS.membersPerFact}/probes${RECALL_LIMITS.probes}`;
+export const RECALL_RULESET = `recall-v3:window${RECALL_LIMITS.window}+manual${RECALL_LIMITS.manual}/vectors${RECALL_LIMITS.vectors}+${RECALL_LIMITS.background}/facts${RECALL_LIMITS.facts}x${RECALL_LIMITS.membersPerFact}/probes${RECALL_LIMITS.probes}`;
 export const VECTOR_CACHE_BYTES = 24 * 1024 * 1024;
 /** Longest stretch of computation between two turns of the event loop. */
 export const SLICE_MS = 15;
@@ -291,7 +295,23 @@ async function liveMemberships(ids: string[], db: Db): Promise<Membership[]> {
   return out;
 }
 
-/** events/group.ts qualifiedReports, plus: a report grouped after the live decision was not yet evidence then. */
+/**
+ * Members a person bound to a live fact, the newest first, at most `limit`. Live recall counts such a member whatever its
+ * report's revision or grouping state (events/group.ts trusted and qualifiedReports), so its report may be outside the
+ * window of confirmed materials (say, a new revision waiting for its regroup). No index serves `manual`: this reads the
+ * membership table, about 30 ms per million memberships.
+ */
+async function manualMemberships(limit: number, db: Db): Promise<Membership[]> {
+  return db<Membership[]>`SELECT fa.article_id,fa.fact_id,f.story_id,f.title AS fact_title,fa.input_revision,fa.manual
+    FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id JOIN stories st ON st.id=f.story_id AND st.merged_into IS NULL
+    WHERE fa.manual AND fa.role IN ('primary','report') ORDER BY fa.created_at DESC,fa.article_id LIMIT ${limit}`;
+}
+
+/**
+ * events/group.ts qualifiedReports: a member bound by hand needs only its report to exist, not be taken down and not be a
+ * roundup; any other also its current revision with grouping confirmed. Plus, for the others only: a report grouped
+ * after the live decision was not yet evidence then.
+ */
 async function qualify<T extends Membership>(rows: T[], states: ReadonlyMap<string, MaterialState>, liveAt: Date, db: Db): Promise<T[]> {
   const ids = [...new Set(rows.map((row) => row.article_id))];
   if (!ids.length) return [];
@@ -391,14 +411,26 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
   const { articleId, liveAt } = input;
   const score = lexicalScorer(input.text);
   const turn = slicer();
-  const window = await newsDiscoveredWindow(new Date(liveAt.getTime() - RECALL_DAYS * DAY), liveAt, limits.window, db);
+  const since = new Date(liveAt.getTime() - RECALL_DAYS * DAY);
+  const window = await newsDiscoveredWindow(since, liveAt, limits.window, db);
   const states = new Map<string, MaterialState>(window.map((w) => [w.id, { revision: w.revision, confirmed: true, grouped_at: w.grouped_at }]));
   const discovered = new Map(window.map((w) => [w.id, w.discovered_at]));
+  // Members bound by hand whose reports, discovered in the same 14 days, the window left out: they count as in live.
+  const manual = await manualMemberships(limits.manual, db);
+  const bound = new Set(manual.map((m) => m.article_id).filter((id) => id !== articleId && !states.has(id)));
+  for (const m of await newsShadowMaterials([...bound], 0, db))
+    if (m.discovered_at.getTime() > since.getTime() && m.discovered_at.getTime() <= liveAt.getTime()) {
+      states.set(m.id, m);
+      discovered.set(m.id, m.discovered_at);
+    }
   const pool = await qualify(
-    await liveMemberships(
-      window.map((w) => w.id).filter((id) => id !== articleId),
-      db,
-    ),
+    [
+      ...(await liveMemberships(
+        window.map((w) => w.id).filter((id) => id !== articleId),
+        db,
+      )),
+      ...manual.filter((m) => bound.has(m.article_id) && states.has(m.article_id)),
+    ],
     states,
     liveAt,
     db,
@@ -551,7 +583,7 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
     readingBackground,
     stats: {
       window: window.length,
-      windowFull: window.length >= limits.window,
+      windowFull: window.length >= limits.window || manual.length >= limits.manual,
       pool: pool.length,
       scored: scoredIds.length,
       vectorsRead: read + extra.read,

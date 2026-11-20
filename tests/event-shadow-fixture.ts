@@ -112,6 +112,24 @@ export async function bareMember(source: string, factId: number, titleZh: string
   return articleId;
 }
 
+/** The same page collected again with other text: a new revision whose grouping waits again (content/materials.ts upsertMaterial). */
+export async function recollect(articleId: string) {
+  const [a] = await sql<{ source_id: string; url: string; title: string; published_at: Date | null; discovered_at: Date }[]>`
+    SELECT source_id,url,title,published_at,discovered_at FROM articles WHERE id=${articleId}`;
+  const text = body();
+  await upsertMaterial({
+    sourceId: a!.source_id,
+    url: a!.url,
+    title: a!.title,
+    bodyText: text,
+    bodyHtml: `<p>${text}</p>`,
+    via: "fetch",
+    language: "zh",
+    publishedAt: a!.published_at,
+    discoveredAt: a!.discovered_at,
+  });
+}
+
 /** The text the shadow compares a grouped report by (events/relate.ts reportText of its analysis title and summary). */
 export async function queryText(articleId: string): Promise<string> {
   const [row] = await sql<{ title: string; summary: string | null }[]>`SELECT coalesce(nullif(an.title_zh,''),a.title) AS title,an.summary_zh AS summary
