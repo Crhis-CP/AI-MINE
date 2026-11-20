@@ -38,7 +38,11 @@ const LABELLED_ON = "2026-11-05T00:00:00+08:00";
 export function readOnly<T>(db: Sql, read: (tx: Tx) => Promise<T>): Promise<T> {
   return db.begin(async (tx) => {
     await tx`SET TRANSACTION READ ONLY`;
+    // Each query at most two minutes and at most two seconds waiting for a lock; a transaction left idle (the script
+    // stuck between queries) is ended after a minute. The replay is a fixed list of queries, so these bound the whole.
     await tx`SET LOCAL statement_timeout = '120s'`;
+    await tx`SET LOCAL lock_timeout = '2s'`;
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '60s'`;
     return read(tx);
   }) as Promise<T>;
 }
@@ -59,10 +63,13 @@ export async function runReplay(db: Sql, opts: { days: number; now?: Date; gold?
     caseIds = cases.map((c) => c.caseId);
   return readOnly(db, async (tx) => {
     const [mode] = await tx<{ transaction_read_only: string }[]>`SHOW transaction_read_only`;
-    // Gold vs stored judgements: the newest judgement per article and stored prompt version, no text.
+    // Gold vs stored judgements: the newest complete judgement per article and stored prompt version, no text. A row
+    // without the score step's result (the prefilter-only row committed ahead of the scores, a stale diagnostic) is no
+    // judgement: counted, it would make a rules version of its own and score the case as "not selected".
     const stored = await tx<StoredJudgement[]>`
-      SELECT DISTINCT ON (article_id, prompt_version) article_id AS "articleId", prompt_version AS "promptVersion", selected, id::float AS id
-      FROM analyses WHERE article_id = ANY(${articleIds}::text[])
+      SELECT DISTINCT ON (article_id, prompt_version) article_id AS "articleId", prompt_version AS "promptVersion", selected,
+             input_revision AS "inputRevision", id::float AS id
+      FROM analyses WHERE article_id = ANY(${articleIds}::text[]) AND jsonb_typeof(output) = 'object' AND output ? 'scores'
       ORDER BY article_id, prompt_version, input_revision DESC, id DESC`;
     const bench = await tx<BenchRow[]>`
       SELECT r.id AS "runId", to_char(r.created_at, 'YYYY-MM-DD"T"HH24:MI:SSOF') AS "createdAt", r.prompt_version AS "promptVersion",

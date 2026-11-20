@@ -138,13 +138,19 @@ export function snapshotBaseline(cases: readonly GoldCase[], candidates: readonl
   return scoreGold(cases, byN);
 }
 
-/** One stored judgement of a gold case: the latest per article and analyses.prompt_version (SQL), regrouped here. */
+/**
+ * One stored judgement of a gold case: the latest COMPLETE judgement per article and analyses.prompt_version (SQL),
+ * regrouped here. Complete means the row carries the score step's result (`output ? 'scores'`, as
+ * editorial/analyze-article.ts isCompleteJudgement): the prefilter-only row written ahead of the scores and the stale
+ * diagnostic row are no judgement and never reach this function.
+ */
 export interface StoredJudgement {
   articleId: string;
   promptVersion: string | null;
   /** analyses.selected: the judgement's own verdict (mean score reached the tier threshold); null counts as not selected. */
   selected: boolean | null;
-  /** For picking the newest judgement when two prompt versions belong to one rules version. */
+  /** With id, picks the newest judgement when two prompt versions belong to one rules version (input_revision DESC, id DESC). */
+  inputRevision: number;
   id: number;
 }
 export interface RulesetScore extends GoldScore {
@@ -165,7 +171,8 @@ export function storedBaselines(cases: readonly GoldCase[], rows: readonly Store
     const group = groups.get(v.key) ?? { ruleset: v.ruleset, newest: new Map() };
     groups.set(v.key, group);
     const before = group.newest.get(n);
-    if (!before || row.id > before.id) group.newest.set(n, row);
+    // The same order as the SQL and the live code (editorial/analyze-article.ts): newest input revision, then newest row.
+    if (!before || row.inputRevision > before.inputRevision || (row.inputRevision === before.inputRevision && row.id > before.id)) group.newest.set(n, row);
   }
   return [...groups.entries()]
     .map(([key, g]) => ({

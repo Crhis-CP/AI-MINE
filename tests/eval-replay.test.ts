@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { PROCESS_DATABASE_ROLES } from "@amp/backend/db";
+import { closeDb, initializeDb, sql } from "@amp/backend/db";
 import { tallySwipe } from "../packages/backend/src/admin/swipe.ts";
 import { planRoleGrants, quoteRelation, relationIdentity, SEQUENCES, TABLE_GRANTS, type Catalog } from "../scripts/db-roles/grants.ts";
 import {
@@ -85,15 +85,17 @@ test("gold scoring: either cases never count, an undecided case is missing rathe
 
 test("stored judgements: one baseline per rules version, never mixed; within a version the newest judgement counts", () => {
   const rows = [
-    // Classic: case 1 first not selected, then (newer, another stored version of the same rules) selected.
-    { articleId: "a1", promptVersion: CLASSIC, selected: false, id: 10 },
-    { articleId: "a1", promptVersion: CLASSIC_POST, selected: true, id: 11 },
-    { articleId: "a3", promptVersion: CLASSIC, selected: null, id: 12 },
-    // Global judged cases 2 and 3 only.
-    { articleId: "a2", promptVersion: GLOBAL, selected: false, id: 20 },
-    { articleId: "a3", promptVersion: GLOBAL, selected: true, id: 21 },
+    // Classic: case 1 under two stored versions of the same rules. The newer input revision counts even though its
+    // row id is lower (the order of the SQL and the live code: input_revision DESC, id DESC).
+    { articleId: "a1", promptVersion: CLASSIC_POST, selected: false, inputRevision: 1, id: 30 },
+    { articleId: "a1", promptVersion: CLASSIC, selected: true, inputRevision: 2, id: 10 },
+    { articleId: "a3", promptVersion: CLASSIC, selected: null, inputRevision: 1, id: 12 },
+    // Global judged cases 2 and 3 only; on one input revision the newer row counts.
+    { articleId: "a2", promptVersion: GLOBAL, selected: false, inputRevision: 1, id: 20 },
+    { articleId: "a3", promptVersion: GLOBAL, selected: false, inputRevision: 1, id: 21 },
+    { articleId: "a3", promptVersion: `${GLOBAL}+summarize-short-post`, selected: true, inputRevision: 1, id: 23 },
     // Not a gold case.
-    { articleId: "other", promptVersion: GLOBAL, selected: true, id: 22 },
+    { articleId: "other", promptVersion: GLOBAL, selected: true, inputRevision: 1, id: 22 },
   ];
   const out = storedBaselines(CASES, rows);
   assert.deepEqual(
@@ -189,7 +191,7 @@ test("the printed lines and the report carry counts and gold case numbers only: 
   const cases = goldCases(labels, candidates);
   const cards: SwipeCardRow[] = [{ day: "2026-11-12", article_id: "SECRET-ARTICLE-ID", kind: "near_miss", system: "kept", promptVersion: GLOBAL }];
   const answers = [{ day: "2026-11-12", article_id: "SECRET-ARTICLE-ID", answer: "star" }];
-  const stored = storedBaselines(cases, [{ articleId: cases[0]!.articleId, promptVersion: GLOBAL, selected: true, id: 1 }]);
+  const stored = storedBaselines(cases, [{ articleId: cases[0]!.articleId, promptVersion: GLOBAL, selected: true, inputRevision: 1, id: 1 }]);
   const report: ReplayReport = {
     generatedAt: "2026-11-20T00:00:00.000Z",
     readOnly: true,
@@ -309,10 +311,21 @@ test("the API process's role, private_ops, may read every table the replay reads
   assert.ok(!reads("public_read", "audit_log"));
   // The settings row is behind row security; private_ops has an all-rows policy.
   assert.ok(plan.some((s) => s.startsWith('CREATE POLICY "fixture_private_ops" ON public."settings"') && s.includes("USING (true)")));
-  // The script connects as the API process, whose query role is private_ops (db-bootstrap.ts roleFor).
+});
+
+test("with split logins, the script's database process (api) queries as the private_ops login", async () => {
   assert.match(readFileSync(path.join(ROOT, "scripts/eval-replay.ts"), "utf8"), /await initializeDb\("api"\);/);
-  assert.equal(PROCESS_DATABASE_ROLES.api[0], "private_ops");
-  assert.ok(!(PROCESS_DATABASE_ROLES.api as readonly string[]).includes("worker"));
+  // db-bootstrap's own mapping: initialize the api process with one distinct login per role and read which login the
+  // query handle uses. postgres.js connects lazily, so nothing is opened.
+  await initializeDb("api", {
+    DATABASE_URL_PRIVATE_OPS: "postgres://fixture_private_ops@127.0.0.1:9/fixture",
+    DATABASE_URL_AUTH: "postgres://fixture_auth@127.0.0.1:9/fixture",
+  });
+  try {
+    assert.equal((sql as unknown as { options: { user: string } }).options.user, "fixture_private_ops");
+  } finally {
+    await closeDb();
+  }
 });
 
 const MODEL_MODULE = /(?:^|\/)providers\/|editorial\/(?:analyze|models|translate|writing)|\bllm\b|openai|anthropic|@google|chatJson/;
