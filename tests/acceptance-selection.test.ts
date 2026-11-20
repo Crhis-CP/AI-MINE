@@ -1,6 +1,6 @@
 // The selection acceptance cases (tests/acceptance/selection.ts): the Owner's 116 decisive labels of 2026-11-05, run
 // against each named ruleset. tests/acceptance/selection-baseline.json records, per ruleset and never mixed, the cases
-// it meets and its red lists (items it leaves out of 精选 that the Owner would select, and items it selects that he
+// it meets and its red lists (items it leaves out of 精选 that the Owner would select, and items it selects that the Owner
 // would not). The met list only grows and the red lists only shrink: a case that stops being met is a regression, a
 // case that starts being met is moved to `met` in the same change, and a red case leaves the red lists only by being
 // met. The only ruleset recorded so far is the frozen snapshot "snapshot-20261105" (the site's 精选 flag at labeling

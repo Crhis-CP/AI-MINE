@@ -1,5 +1,5 @@
 // The selection acceptance cases: the Owner's decisive labels of 2026-11-05 (industry/selection-gold/), one case per
-// item he said should or should not be in 精选. Items he marked “either” or left unlabeled are not cases. The cases
+// item the Owner said should or should not be in 精选. Items the Owner marked “either” or left unlabeled are not cases. The cases
 // and every ruleset's judgements are read from repo files only: no database, no model call.
 //
 // A ruleset is one named way of deciding 精选, judged on the same cases. Results are recorded per ruleset in
