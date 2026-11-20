@@ -6,18 +6,18 @@ module声明既有法规列表、正文、历史版本、政策脉络及报告�
 
 ## 代码分区（DEC-79，2026-11-20）
 
-后端按“保留 / 旧写入侧 / 新写入侧”分目录。从 `domain/` 搬到 `core/` 的 15 个文件只搬位置、内容未改；`core/` 里另有两个新写的纯函数文件 `catalogue.ts`、`pdf-text.ts`（见下）：
+后端按“保留 / 旧写入侧 / 新写入侧”分目录。从 `domain/` 搬到 `core/` 的 15 个文件只搬位置、内容未改；另有两个文件是从旧写入侧的文件里原样搬出的几段代码（`extraction-parse.ts`、`quality-binding.ts`，见下）；`core/` 里还有两个新写的纯函数文件 `catalogue.ts`、`pdf-text.ts`（见下）：
 
-- `backend/core/`：保留下来的确定性代码，不调用模型，新旧写入侧都可以用。原件存档与版本（`originals.ts`、`types.ts`）、条款切分与存储（`provisions.ts`、`provision-store.ts`）、法律文书判定（`instrument-gate.ts`）、阿根廷程序日期（`ar-lifecycle.ts`）、编码与网页清洗（`encoding.ts`、`semantic-html.ts`、`annotations.ts`、`xml-structure.ts`）、来源配置与身份字段（`automation-profile.ts`、`identity-fields.ts`）、元数据（`metadata.ts`）、公开状态（`public-state.ts`）、信源对账的原件计数（`target-evidence.ts`）。另有两条新写的纯函数，已有测试、尚未接入旧写入侧，留给新写入侧用：`catalogue.ts` 判断附件目录是否闭合（来源没声明附件清单且正文没提附件、清单链接齐全、PDF 没有内嵌文件时闭合）；`pdf-text.ts` 按文字层把 PDF 每页分成文字、扫描、混合（可见字符不少于 `PDF_TEXT_MIN_CHARS` 且没有乱码字符 U+FFFD 算文字页，字数和测量 N1 的数法完全一致；这个 20 字是暂定值，等测量 N1、N2 定下。文字页上的图片面积达到页面的四分之一（`PDF_IMAGE_AREA_MIXED`）算混合页，文字照用、这一页另交人工看；四分之一同样是暂定值，而且还没有任何测量，新写入侧合并前要对已存的 PDF 做一次只读的图片面积统计再定。照现在的值，带整页底图或水印的文字页、带文字识别层的扫描件都会算混合页）。
-- `backend/domain/`、`backend/jobs.ts`、`backend/provider.ts`：旧写入侧（状态机、取原件、正文提取、全文翻译、解读、视觉、模型网关与质量放行），登记为遗留区 `policy-write`（`scripts/verify/legacy-zones.json`）：只修不扩，引用它的文件只减不增。`core/provision-store.ts` 仍直接引用旧的正文提取（`domain/extraction.ts`），是名单上的引用方之一：`structurePolicyRevision` 调用 `extractPolicyOriginal`，`backfillPolicyStructures` 和 `readCachedPolicyText` 还用它导出的提取配方名 `EXTRACTION_RECIPE`。所以只把 `structurePolicyRevision` 搬走（设计 B3.3）并不能让它离开名单：设计 B3.2 要把 `EXTRACTION_RECIPE` 搬进 `core/`，复核意见 D4 要它留在 `domain/`，两者要在新写入侧（计划 2.13）开工前定下。
+- `backend/core/`：保留下来的确定性代码，不调用模型，新旧写入侧都可以用。原件存档与版本（`originals.ts`、`types.ts`）、条款切分与存储（`provisions.ts`、`provision-store.ts`）、法律文书判定（`instrument-gate.ts`）、阿根廷程序日期（`ar-lifecycle.ts`）、编码与网页清洗（`encoding.ts`、`semantic-html.ts`、`annotations.ts`、`xml-structure.ts`）、来源配置与身份字段（`automation-profile.ts`、`identity-fields.ts`）、元数据（`metadata.ts`）、公开状态（`public-state.ts`）、信源对账的原件计数（`target-evidence.ts`）；从 `domain/extraction.ts` 搬出的提取配置与结果类型、`validateProfile`、`decodeOriginal`（`extraction-parse.ts`，PDF 解析和提取配方名 `EXTRACTION_RECIPE` 仍在 `domain/extraction.ts`，见设计复核意见 D4）；从 `domain/model-evidence.ts` 搬出的模型资格绑定版本 `POLICY_MODEL_BINDING_VERSION`（`quality-binding.ts`，公开读取与发布都用它）。另有两条新写的纯函数，已有测试、尚未接入旧写入侧，留给新写入侧用：`catalogue.ts` 判断附件目录是否闭合（来源没声明附件清单且正文没提附件、清单链接齐全、PDF 没有内嵌文件时闭合）；`pdf-text.ts` 按文字层把 PDF 每页分成文字、扫描、混合（可见字符不少于 `PDF_TEXT_MIN_CHARS` 且没有乱码字符 U+FFFD 算文字页，字数和测量 N1 的数法完全一致；这个 20 字是暂定值，等测量 N1、N2 定下。文字页上的图片面积达到页面的四分之一（`PDF_IMAGE_AREA_MIXED`）算混合页，文字照用、这一页另交人工看；四分之一同样是暂定值，而且还没有任何测量，新写入侧合并前要对已存的 PDF 做一次只读的图片面积统计再定。照现在的值，带整页底图或水印的文字页、带文字识别层的扫描件都会算混合页）。
+- `backend/domain/`、`backend/jobs.ts`、`backend/provider.ts`：旧写入侧（状态机、取原件、正文提取、全文翻译、解读、视觉、模型网关与质量放行），登记为遗留区 `policy-write`（`scripts/verify/legacy-zones.json`）：只修不扩，引用它的文件只减不增。调用正文提取的 `structurePolicyRevision` 已搬到旧写入侧 `domain/structure.ts`（设计 B3.3）。`core/provision-store.ts` 仍直接引用 `domain/extraction.ts`，只为提取配方名 `EXTRACTION_RECIPE`（`backfillPolicyStructures` 和 `readCachedPolicyText` 按它挑缓存的提取结果），所以它还在名单上：设计 B3.2 要把这个配方名搬进 `core/`，复核意见 D4 要它留在 `domain/`，现按 D4 留着，要在新写入侧（计划 2.13）开工前定下。现在名单上还有 5 个引用方：`core/provision-store.ts`、`publication/policies-publish.ts`（发布完整解读，是真正的接缝）、`server.ts`，以及引擎里的两个法规转发 `packages/backend/src/policy/fallback-quality.ts`、`packages/backend/src/policy/model-evidence.ts`。
 - `backend/pipeline/`：新写入侧的位置（计划 2.13）。它直接引用旧写入侧会被检查拦下；但检查只看直接引用，经别的文件间接碰到旧写入侧的路线（见下）拦不住。
-- `backend/publication/` 与读取接口（`read.ts`、`reports.ts`、`compare.ts`、`relations.ts` 等）位置不变。
+- `backend/publication/` 与读取接口（`read.ts`、`reports.ts`、`compare.ts`、`relations.ts` 等）位置不变。`relations.ts` 只留读取关系与脉络的一半；写关系的 `policyRelationshipCandidates`、`preparePolicyRelationships`、`savePolicyRelationships` 搬到旧写入侧 `domain/relationship-links.ts`（它写 `publication.policy_relations`、`policy_threads`，数据归属登记为 `publication`）。完整解读的投影 `completePolicy` 从 `publication/policies-project.ts` 搬到 `domain/complete-projection.ts`，只有 `publication/policies-publish.ts` 用它。
 
-间接碰到旧写入侧的路线（2026-11-20 按导入关系核对，与检查同一口径，只导入类型也算；留给计划 2.13）：
+间接碰到旧写入侧的路线（2026-11-20 按导入关系核对，切接缝之后复核过一次，与检查同一口径，只导入类型也算；留给计划 2.13）：
 
-- `core/provision-store.ts` 直接引用 `domain/extraction.ts`；`publication/policy-provisions-project.ts` 经 `core/provision-store.ts` 碰到它。
+- `core/provision-store.ts` 直接引用 `domain/extraction.ts`（只为提取配方名）；`publication/policy-provisions-project.ts` 经 `core/provision-store.ts` 碰到它。
 - `core/originals.ts`、`core/metadata.ts`、`core/public-state.ts`、`core/automation-profile.ts`、`core/identity-fields.ts` 经引擎代码（`@amp/backend/admin/sources`、`@amp/backend/content/materials`、`@amp/backend/sources/collect` 等）走到引擎里的法规转发 `packages/backend/src/policy/fallback-quality.ts`，再到 `domain/fallback-quality.ts`。按设计这个转发要到计划 2.14 随旧模型步骤删除（或改走扩展挂口），这几条路线才断。
-- `core/` 其余 11 个文件（含两个新文件）和 `pilot.ts` 不碰旧写入侧。
+- `core/` 其余 13 个文件（含 `catalogue.ts`、`pdf-text.ts`、`extraction-parse.ts`、`quality-binding.ts`）和 `pilot.ts` 不碰旧写入侧。
 
 ## 重启：存档、结构化与逐条对照（DEC-78补充·五项决定 5）
 
