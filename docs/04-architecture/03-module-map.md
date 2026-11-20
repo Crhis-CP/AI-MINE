@@ -64,7 +64,7 @@
 | `admin` | 后台操作；另外还放着信源表的读写、账号与会话、审计。找“信源怎么存取”看 `packages/backend/src/admin/sources.ts`。 |
 | `operations` | 告警、用量周报月报、备份、保留期清理、业务线暂停。 |
 | `jobs` | 队列封装与任务编排。 |
-| `policy` | 只有转发到 `modules/policy` 的一行文件。`publication` 下的 `packages/backend/src/publication/policies.ts`、`packages/backend/src/publication/policies-reports.ts` 也是这种转发（法规公开读取接口）。引擎代码导入法规模块（`modules/policy`）只能经过这七个文件，由 `scripts/verify/boundaries.ts` 强制。 |
+| `policy` | 只有转发到 `modules/policy` 的一行文件，现剩 `packages/backend/src/policy/fallback-quality.ts`、`packages/backend/src/policy/model-evidence.ts` 两个（旧的法规备用模型准入在用，随旧模型步骤一起删）。`publication` 下的 `packages/backend/src/publication/policies.ts`、`packages/backend/src/publication/policies-reports.ts` 也是这种转发（法规公开读取接口）。引擎代码导入法规模块（`modules/policy`）只能经过这四个文件，由 `scripts/verify/boundaries.ts` 强制。回执放行后恢复法规任务、信源对账表的原件计数、法规完整解读资格到期提醒走扩展挂口（`receiptReleased`、`sourceEvidence`、`alerts`，见 `docs/03-data/module-extension-contract.md`）。 |
 
 三套名字指同一批东西，查的时候要换算：目录名（如 `providers`）、数据归属登记里的名字（如 ai-gateway，见 `scripts/verify/data-ownership-map.json`）、数据库 schema 名（如 `ai`）。
 
