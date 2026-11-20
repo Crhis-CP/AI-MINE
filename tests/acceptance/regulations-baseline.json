@@ -1,0 +1,28 @@
+{
+  "rulesets": {
+    "live": {
+      "describes": "现行法规线：今天线上在跑的采集、抽取与公开投影（domain/acquire.ts、domain/extraction.ts、publication/policies-project.ts）",
+      "counts": {
+        "cases": 3,
+        "met": 0,
+        "red": 3,
+        "notJudged": 0
+      },
+      "met": [],
+      "red": ["policy-page-not-only-number", "attachment-list-closes-without-selector", "text-pdf-read-from-text-layer"],
+      "notJudged": []
+    },
+    "core": {
+      "describes": "新写入侧的纯规则（#583 加入的 core/catalogue.ts 与 core/pdf-text.ts），尚未接入线上；还没有新的公开投影，所以标题样例记为无法判断",
+      "counts": {
+        "cases": 3,
+        "met": 2,
+        "red": 0,
+        "notJudged": 1
+      },
+      "met": ["attachment-list-closes-without-selector", "text-pdf-read-from-text-layer"],
+      "red": [],
+      "notJudged": ["policy-page-not-only-number"]
+    }
+  }
+}
