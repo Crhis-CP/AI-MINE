@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sanitizeBody } from "@amp/backend/content/sanitize";
 import * as cheerio from "cheerio";
-import { policySemanticHtml } from "../modules/policy/backend/domain/semantic-html.ts";
+import { policySemanticHtml } from "../modules/policy/backend/core/semantic-html.ts";
 
 test("news and policy sanitizers keep noscript content inert across implied-close and CDATA parser forms", () => {
   for (const sanitize of [sanitizeBody, policySemanticHtml]) {

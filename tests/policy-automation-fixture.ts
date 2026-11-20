@@ -1,6 +1,6 @@
 import { sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import type { PolicyAutomationProfile } from "../modules/policy/backend/domain/automation-profile.ts";
+import type { PolicyAutomationProfile } from "../modules/policy/backend/core/automation-profile.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 const discovered = new Date("2026-01-02T03:04:05Z");
 let serial = 0;

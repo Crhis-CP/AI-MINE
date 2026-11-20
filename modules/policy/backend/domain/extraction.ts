@@ -1,13 +1,13 @@
 import * as cheerio from "cheerio";
-import { decodePolicyOriginal, PolicyEncodingError } from "./encoding.ts";
+import { decodePolicyOriginal, PolicyEncodingError } from "../core/encoding.ts";
 import type { Element } from "domhandler";
-import { sourceAnnotations, xmlReadingHtml, type SourceAnnotation } from "./annotations.ts";
+import { sourceAnnotations, xmlReadingHtml, type SourceAnnotation } from "../core/annotations.ts";
 import { fileURLToPath } from "node:url";
 import { getDocument, OPS, version } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { policySemanticHtml } from "./semantic-html.ts";
+import { policySemanticHtml } from "../core/semantic-html.ts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { sql } from "@amp/backend/db";
-import { assertOriginalPermissions, readPolicyOriginal } from "./originals.ts";
+import { assertOriginalPermissions, readPolicyOriginal } from "../core/originals.ts";
 
 export interface ExtractionProfile {
   bodySelector: string | null;

@@ -32,7 +32,7 @@ import type {
   StoryReportView,
 } from "@amp/contracts/site";
 import { FIXED_TIME } from "./time.ts";
-import { compareProvisions, splitProvisions } from "../modules/policy/backend/domain/provisions.ts";
+import { compareProvisions, splitProvisions } from "../modules/policy/backend/core/provisions.ts";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 
 const at = (minutesAgo: number) => new Date(Date.parse(FIXED_TIME) - minutesAgo * 60_000).toISOString();

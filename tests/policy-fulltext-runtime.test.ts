@@ -6,10 +6,10 @@ import { after, test } from "node:test";
 import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { readPolicyResponse } from "@amp/backend/providers/receipts";
-import { recordPolicyOriginal, readPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { recordPolicyOriginal, readPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
 import { runPolicyFulltext } from "../modules/policy/backend/domain/fulltext-runtime.ts";
 import { setPolicyProcessingPaused, readPolicyFulltextRun } from "../modules/policy/backend/domain/fulltext-store.ts";
-import type { PolicyOriginalInput } from "../modules/policy/backend/domain/types.ts";
+import type { PolicyOriginalInput } from "../modules/policy/backend/core/types.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
 const root = await initializeDb("test");

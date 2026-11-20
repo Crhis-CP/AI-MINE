@@ -8,7 +8,7 @@ import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { Policy, PolicyCard } from "@amp/contracts/http/public";
 
-import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { publicRoleFixture, publicServer, type PublicFixture } from "./public-role-fixture.ts";

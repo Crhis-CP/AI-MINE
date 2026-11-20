@@ -1,6 +1,6 @@
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import * as cheerio from "cheerio";
-import type { SourceAnnotation } from "./annotations.ts";
+import type { SourceAnnotation } from "../core/annotations.ts";
 import { proseFragments, type PolicyFragment } from "./processing-fragments.ts";
 import type { PolicyExtraction } from "./extraction.ts";
 

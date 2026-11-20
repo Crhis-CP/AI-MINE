@@ -1,15 +1,15 @@
 import * as cheerio from "cheerio";
-import { policySemanticHtml } from "../domain/semantic-html.ts";
+import { policySemanticHtml } from "../core/semantic-html.ts";
 import { POLICY_THEME_LABELS } from "../reader-copy.ts";
 import { Policy, PolicyCard, PolicyReadingBlock } from "@amp/contracts/http/public";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { SITE } from "@amp/industry/site";
-import type { PolicyMetadataObservation } from "../domain/metadata.ts";
+import type { PolicyMetadataObservation } from "../core/metadata.ts";
 import type { FulltextRun } from "../domain/fulltext-store.ts";
 import type { Candidate } from "../domain/interpretation-schema.ts";
-import type { InstrumentGateResult } from "../domain/instrument-gate.ts";
-import type { ArLifecycle } from "../domain/ar-lifecycle.ts";
+import type { InstrumentGateResult } from "../core/instrument-gate.ts";
+import type { ArLifecycle } from "../core/ar-lifecycle.ts";
 import type { z } from "zod";
 export type PublicIds = {
   policy: string;

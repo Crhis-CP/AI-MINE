@@ -7,7 +7,7 @@ import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
 import { config } from "@amp/backend/config";
 import { sql } from "@amp/backend/db";
 import { currentPolicyProcessingRecipe } from "./recipe.ts";
-import { policyProfile } from "./automation-profile.ts";
+import { policyProfile } from "../core/automation-profile.ts";
 import { capturePolicyMaterial } from "./capture.ts";
 import { runPolicyFulltext } from "./fulltext-runtime.ts";
 import { processingControl } from "./fulltext-store.ts";
@@ -15,7 +15,7 @@ import { runPolicyVision } from "./vision-runtime.ts";
 import { policyRelationshipCandidates } from "../relations.ts";
 import { runPolicyInterpretation } from "./interpretation-runtime.ts";
 import type { ExtractionProfile } from "./extraction.ts";
-import { structurePolicyRevision } from "./provision-store.ts";
+import { structurePolicyRevision } from "../core/provision-store.ts";
 import { policyModelStagesEnabled, policyVisionEnabled } from "../pilot.ts";
 
 export const POLICY_STAGES = ["acquire", "fulltext", "vision", "interpret", "publish"] as const;

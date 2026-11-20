@@ -73,7 +73,7 @@
 |---|---|---|
 | 读者端页面 | `apps/web/app/routes`、`apps/web/app/features`、`apps/web/app/components` | `apps/web/reader` |
 | 资讯流水线的编排与归组 | `packages/backend/src/editorial/analyze-article.ts`（一篇稿子从评分到落库的编排）、`packages/backend/src/events/group.ts`、`packages/backend/src/events/merge.ts`、`packages/backend/src/events/recovery.ts` | `packages/backend/src/pipeline`（已开始：公司库、单篇核对、事件影子规则、新旧排序规则，都是纯函数，尚未接入线上） |
-| 法规线写入侧 | `modules/policy/backend`（读取接口与确定性代码保留） | `modules/policy/backend/core`（未建）、`modules/policy/backend/pipeline`（未建） |
+| 法规线写入侧 | `modules/policy/backend/domain`、`modules/policy/backend/jobs.ts`、`modules/policy/backend/provider.ts`（状态机、取原件、提取、全文、解读、视觉、模型网关） | `modules/policy/backend/pipeline`（现在只有说明文件）；新旧两侧共用的确定性代码在 `modules/policy/backend/core`（从旧目录原样移来）。读取接口与 `modules/policy/backend/publication` 保留 |
 
 规则：新区不引用遗留区；遗留区的引用方只减不增；切换和删旧分两次发布。数据库表是新旧代码共同的约定，只做增量迁移。清单在 `scripts/verify/legacy-zones.json`，由检查强制。读者端这一块连间接引用也算：新页面经任何一串引用碰到旧页面代码都不行；构建检查 `scripts/verify/web-split.ts` 再核对一遍新页面实际打包进浏览器的模块。
 

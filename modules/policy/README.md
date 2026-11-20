@@ -4,6 +4,15 @@ module声明既有法规列表、正文、历史版本、政策脉络及报告�
 
 法规列表标题下展示更新说明并链接更新日志，桌面与手机共用：默认是已确认的暂停更新说明；运营方打开下述 `POLICY_PILOT_ENABLED` 后，同一处改为“试点范围更新中”（由 `/api/site/policies/scope` 的 `updates` 决定，不按最近活动猜测）。
 
+## 代码分区（DEC-79，2026-11-20）
+
+后端按“保留 / 旧写入侧 / 新写入侧”分目录，文件只搬位置、内容未改：
+
+- `backend/core/`：保留下来的确定性代码，不调用模型，新旧写入侧都可以用。原件存档与版本（`originals.ts`、`types.ts`）、条款切分与存储（`provisions.ts`、`provision-store.ts`）、法律文书判定（`instrument-gate.ts`）、阿根廷程序日期（`ar-lifecycle.ts`）、编码与网页清洗（`encoding.ts`、`semantic-html.ts`、`annotations.ts`、`xml-structure.ts`）、来源配置与身份字段（`automation-profile.ts`、`identity-fields.ts`）、元数据（`metadata.ts`）、公开状态（`public-state.ts`）、信源对账的原件计数（`target-evidence.ts`）。
+- `backend/domain/`、`backend/jobs.ts`、`backend/provider.ts`：旧写入侧（状态机、取原件、正文提取、全文翻译、解读、视觉、模型网关与质量放行），登记为遗留区 `policy-write`（`scripts/verify/legacy-zones.json`）：只修不扩，引用它的文件只减不增。`core/provision-store.ts` 的 `structurePolicyRevision` 仍调用旧的正文提取，是名单上的引用方之一，之后单独切开。
+- `backend/pipeline/`：新写入侧的位置（计划 2.13），只引用 `core/`，不引用旧写入侧，由检查强制。
+- `backend/publication/` 与读取接口（`read.ts`、`reports.ts`、`compare.ts`、`relations.ts` 等）位置不变。
+
 ## 重启：存档、结构化与逐条对照（DEC-78补充·五项决定 5）
 
 Owner 解除了 DEC-71 的暂停，先做不调用模型的部分（`docs/design/policy-restart-202611/README.md` 第 4、6 节）。解读不设调用上限、靠设计降本（决定台账“正文共享前缀、非高峰与模型选择”）；模型步骤由 `POLICY_MODEL_STAGES_ENABLED` 控制，默认关。
@@ -17,16 +26,16 @@ Owner 解除了 DEC-71 的暂停，先做不调用模型的部分（`docs/design
   3. 在后台“运行开关”里恢复法规线的负责人暂停，范围选“采集和新的模型处理”（DEC-71 发布时由 `industry/release-controls.json` 的 `policy-pause-20261015` 写入；该决定按编号只执行一次，以后发布不会重新暂停）。处理开关恢复后，存档、结构化和公开投影随时运行；翻译、解读、复核只在 DeepSeek 非高峰时段发出，高峰时取到的任务排到下一个非高峰时段。
   4. 在 worker 环境回填已有修订：先 `node scripts/policy-provisions-backfill.ts`（只统计，不写入），核对输出后执行 `node scripts/policy-provisions-backfill.ts --apply`。脚本只用已缓存的提取结果，不取页、不调模型、不改公开版本；重复执行不会重复写入。
   5. 回退：只停模型步骤时去掉 `POLICY_MODEL_STAGES_ENABLED` 并重启；全部停止时再去掉 `POLICY_PILOT_ENABLED`，存档与目录扫描停止，说明恢复为暂停文案；已存条款和对照保留。
-- **结构化**：`domain/provisions.ts` 是纯函数（中文第X条/之一与编章节、西语 Artículo/Art. N°/bis/序数词/único 与 Título/Capítulo/Sección、英文 Article/Section N 与 Part/Chapter，附件/ANEXO/Annex 另起编号空间；以引号开头的修改文本和小写引用不算新条款）。对齐先按全文相同的条款做锚点（LCS），其余按条号与文字相似度单调配对，分为新增、修改、删除、未变；修改的条款给出中文逐字、拉丁文字逐词的差异（Myers 差异算法，再做语义合并）。`domain/provision-store.ts` 在 `policy.acquire` 取得原件后、公开前，把当前修订的条款按配方 `provisions-1` 存进 `policy.revision_structures` / `policy.revision_provisions`；扫描件没有文字层时记为 `needs_manual`，不送视觉模型。工作流在模型阶段关闭时停在 `acquire / structured`，按来源复查周期继续存档。
+- **结构化**：`core/provisions.ts` 是纯函数（中文第X条/之一与编章节、西语 Artículo/Art. N°/bis/序数词/único 与 Título/Capítulo/Sección、英文 Article/Section N 与 Part/Chapter，附件/ANEXO/Annex 另起编号空间；以引号开头的修改文本和小写引用不算新条款）。对齐先按全文相同的条款做锚点（LCS），其余按条号与文字相似度单调配对，分为新增、修改、删除、未变；修改的条款给出中文逐字、拉丁文字逐词的差异（Myers 差异算法，再做语义合并）。`core/provision-store.ts` 在 `policy.acquire` 取得原件后、公开前，把当前修订的条款按配方 `provisions-1` 存进 `policy.revision_structures` / `policy.revision_provisions`；扫描件没有文字层时记为 `needs_manual`，不送视觉模型。工作流在模型阶段关闭时停在 `acquire / structured`，按来源复查周期继续存档。
 - **公开与读取**：`publication/policy-provisions-project.ts` 只在来源允许公开原文全文时，把条款投影到 `publication.policy_provision_sets` / `publication.policy_revision_provisions`（按原生修订）。`compare.ts` 提供 `GET /api/site/policies/{id}/compare?from=&to=`（`from`/`to` 为版本记录里的公开修订 ID，省略时比较当前版本与上一份不同的同语言版本），读取时逐次核对公开资格和原文阅读许可，结果在进程内按两边条款哈希缓存，不落库、不调模型、不写库。网页在法规页加“逐条对照”一节（`web/features/PolicyCompare.tsx`），版本记录页的历史版本带“与当前版本逐条对照”链接。
 - 生命周期事件沿用现有 `dates` 与 `legal_state`（公布、施行、截止、废止各带原文证据和已发生/计划），本次不新增 `lifecycle_event` 表；新来源适配器（中国 5 个机关、阿根廷公报与三省）由 Codex 按设计第 6 节第 2、3 步接入。
 
 ## 收录门槛：只收正式公布的法律文书，阿根廷先行（TASK-0576，DEC-78补充 2026-11-07）
 
 - **来源**：`industry/policy-sources.json` 每条都写 `publisher_kind`（official_gazette、legislature、government、ministry、regulator、court、official_law_database），`industry/policy-sources.ts` 加载时拒绝缺失或其他值。RU-002 的采集入口是私营法律数据库，改为 `reference_only`、不采集。新闻来源（`industry/sources.json`）与法规来源编号、入口互不重叠，法规来源由种子写进 policy 线（测试锁定）。
-- **法律文书判定**（`backend/domain/instrument-gate.ts`，纯函数，不调用模型；词表 `industry/policy-instruments.json`）：`classifyInstrument({title, number, issuer, excerpt, documentType, language})` → `kind`、`final`、`mining`、`change`（amendment/repeal）、`reason`、`publishable`。依次判断：未定稿或预告（proyecto de ley、consulta/audiencia pública、首条为 Convócase…、征求意见、草案、拟、即将、Proposed rule、Bill）→ 公告启事（edicto、licitación、sociedad、批复、名单…）→ 文书种类（来源登记的类型、标题、文号、像文书的正文开头，取最先出现、最具体的名称）→ 人事与个案（Desígnase、首条“Otórgase a la empresa…”、任免、表彰、行政许可决定）→ 矿业相关（矿业机关：标题、发布机关或签署句“EL SECRETARIO DE MINERÍA RESUELVE”；标题矿业词；正文强矿业词或至少两处矿业词；YPF、矿泉水等先剔除）。
-- **发布前执行**（`publication/policies-publish.ts`）：判定在写入任何版本（基本事实或完整解读）之前。不通过：不写版本，`publication.policy_documents.automatic_excluded=true`，原因写入私有列 `instrument_gate_hold`（迁移 `publication/202611071300_policy_instrument_gate.sql`，只增列），审计动作 `policy.instrument_gate.hold`；同一答案重试不重写不重审计。之后判定通过只解除判定自己设的隐藏（`policy.instrument_gate.release`）；经核验的模型排除接管时清掉判定记录，人工撤回不受影响。工作流记为 `acquire / not_instrument`，继续按周期存档复查，不进入任何付费阶段。正文取自该修订已缓存的提取结果（`domain/provision-store.ts readCachedPolicyText`），不重新抓取。
-- **基本事实的程序信息**（`publication/policies-project.ts withInstrumentFacts`）：通过判定的条目写入法律性质、制定阶段“已公布”（依据写明“程序判定/程序从公报原文抽取”）。阿根廷来源另由 `domain/ar-lifecycle.ts` 从原文抽取：国会通过（Sancionada 或 “Dada en la Sala de Sesiones… a los … días”，西语数字词也能读）、行政颁布（Promulgada、Promulgada de hecho，或随法律刊出的颁布法令“Ciudad de Buenos Aires, 03/11/2026 … Promúlgase”）、签发（文首地点与日期）、公报刊登日期（来源日期，国家公报取单件地址中的日期）、施行（原文写明的“a partir de su publicación / del día siguiente / el 1° de enero de 2027 / a los 30 días”；否则按《民商法典》第 5 条推算为公布日后第 9 日，标“推算”，不标已施行）。对应契约 `PolicyDate.event_kind` 新增 adoption、promulgation、entry_into_force、repeal（只增）。修改/废止对象（Modifícase/Sustitúyese/Derógase… Ley N° X、Decreto N° Y/年；中文“关于修改《X》的决定”）记为 `relationships`，附原文引文作证据（来源允许摘录时显示引文）；阅读时 `relations.ts resolveCitedTargets` 只在同一法域恰好一份现行文书的种类、号码与年份（或中文名称）一致时链接，否则保留文号文字。
+- **法律文书判定**（`backend/core/instrument-gate.ts`，纯函数，不调用模型；词表 `industry/policy-instruments.json`）：`classifyInstrument({title, number, issuer, excerpt, documentType, language})` → `kind`、`final`、`mining`、`change`（amendment/repeal）、`reason`、`publishable`。依次判断：未定稿或预告（proyecto de ley、consulta/audiencia pública、首条为 Convócase…、征求意见、草案、拟、即将、Proposed rule、Bill）→ 公告启事（edicto、licitación、sociedad、批复、名单…）→ 文书种类（来源登记的类型、标题、文号、像文书的正文开头，取最先出现、最具体的名称）→ 人事与个案（Desígnase、首条“Otórgase a la empresa…”、任免、表彰、行政许可决定）→ 矿业相关（矿业机关：标题、发布机关或签署句“EL SECRETARIO DE MINERÍA RESUELVE”；标题矿业词；正文强矿业词或至少两处矿业词；YPF、矿泉水等先剔除）。
+- **发布前执行**（`publication/policies-publish.ts`）：判定在写入任何版本（基本事实或完整解读）之前。不通过：不写版本，`publication.policy_documents.automatic_excluded=true`，原因写入私有列 `instrument_gate_hold`（迁移 `publication/202611071300_policy_instrument_gate.sql`，只增列），审计动作 `policy.instrument_gate.hold`；同一答案重试不重写不重审计。之后判定通过只解除判定自己设的隐藏（`policy.instrument_gate.release`）；经核验的模型排除接管时清掉判定记录，人工撤回不受影响。工作流记为 `acquire / not_instrument`，继续按周期存档复查，不进入任何付费阶段。正文取自该修订已缓存的提取结果（`core/provision-store.ts readCachedPolicyText`），不重新抓取。
+- **基本事实的程序信息**（`publication/policies-project.ts withInstrumentFacts`）：通过判定的条目写入法律性质、制定阶段“已公布”（依据写明“程序判定/程序从公报原文抽取”）。阿根廷来源另由 `core/ar-lifecycle.ts` 从原文抽取：国会通过（Sancionada 或 “Dada en la Sala de Sesiones… a los … días”，西语数字词也能读）、行政颁布（Promulgada、Promulgada de hecho，或随法律刊出的颁布法令“Ciudad de Buenos Aires, 03/11/2026 … Promúlgase”）、签发（文首地点与日期）、公报刊登日期（来源日期，国家公报取单件地址中的日期）、施行（原文写明的“a partir de su publicación / del día siguiente / el 1° de enero de 2027 / a los 30 días”；否则按《民商法典》第 5 条推算为公布日后第 9 日，标“推算”，不标已施行）。对应契约 `PolicyDate.event_kind` 新增 adoption、promulgation、entry_into_force、repeal（只增）。修改/废止对象（Modifícase/Sustitúyese/Derógase… Ley N° X、Decreto N° Y/年；中文“关于修改《X》的决定”）记为 `relationships`，附原文引文作证据（来源允许摘录时显示引文）；阅读时 `relations.ts resolveCitedTargets` 只在同一法域恰好一份现行文书的种类、号码与年份（或中文名称）一致时链接，否则保留文号文字。
 - **读者端**：`web/features/lifecycle.ts argentineStages` 给出阿根廷路径：Ley 为 国会通过（Sancionada）→ 行政颁布（Promulgada）→ 公报公布 → 施行；Decreto、Resolución、Disposición 为 签发 → 公报公布 → 施行；之后是已知的修订，废止为终点。每点写日期，推算的施行日标“（推算）”，未来日期标“（计划）”。其他法域仍用原来的阶段条（现在通过判定的文书都标“已公布”）。中英文词条在 `apps/web/app/i18n/phrases.ts`。
 - **清理已公开内容**（Codex 上线后在 worker 环境执行）：`node scripts/policy-regate.ts`（只统计：按来源、种类、原因计数，附 10 条样例）→ 核对后 `--apply`（隐藏不通过的，解除现已通过的判定隐藏；不删除版本，跳过人工撤回）→ 需要撤销时 `--restore`（只解除判定设的隐藏）。
 
@@ -62,7 +71,7 @@ Owner 解除了 DEC-71 的暂停，先做不调用模型的部分（`docs/design
 
 TASK0500：公开说明仅表达正文、附件、解读及资料覆盖的实际可读范围，不显示处理回执、配置、容量或采集失败明细，也不在暂停时承诺自动复查。读取历史公开版本时只转换已知系统诊断模板和匹配附件状态的旧提示；法条、人工自定义说明、历史记录和原始运行证据不改写。法规汇总保留覆盖不足提示与AI标识，既有覆盖数据字段不变，网页不再展示内部回执统计表。
 
-本轮不扩建法规业务、不接新模型。采集与模型处理已按Owner决定暂停，入口和已发布阅读保留。server注册法规公开读取接口、既有处理队列及三个定时任务，队列名/重试/并发/出刊节奏保留；国家地区查询留在通用站点入口，继续服务新闻筛选。模块队列通过统一worker注册器校验名称后安装，运行时仍执行原有暂停/许可/版本校验。read、reports、language与relations拥有法规公开列表/详情/正文/版本/报告、语言选择与关系投影的实际实现，旧publication入口只兼容转发。domain拥有原始资料采集、正文提取、版本、解读、证据与处理状态；provider、jobs和publication拥有既有模型适配、任务及发布/报告实现。处理状态直接从本模块读取，相关新闻经引擎具名只读入口取得；许可、现行修订和公开完整性仍在每次读取时核验。旧核心路径仅保留已登记消费者需要的兼容转发，模型设置、告警和恢复等共享消费者的扩展挂口仍待收敛。
+本轮不扩建法规业务、不接新模型。采集与模型处理已按Owner决定暂停，入口和已发布阅读保留。server注册法规公开读取接口、既有处理队列及三个定时任务，队列名/重试/并发/出刊节奏保留；国家地区查询留在通用站点入口，继续服务新闻筛选。模块队列通过统一worker注册器校验名称后安装，运行时仍执行原有暂停/许可/版本校验。read、reports、language与relations拥有法规公开列表/详情/正文/版本/报告、语言选择与关系投影的实际实现，旧publication入口只兼容转发。core拥有原件存档与版本、条款切分、文书判定等确定性代码；domain拥有原始资料采集、正文提取、解读、证据与处理状态；provider、jobs和publication拥有既有模型适配、任务及发布/报告实现（分区见上文“代码分区”）。处理状态直接从本模块读取，相关新闻经引擎具名只读入口取得；许可、现行修订和公开完整性仍在每次读取时核验。旧核心路径仅保留已登记消费者需要的兼容转发，模型设置、告警和恢复等共享消费者的扩展挂口仍待收敛。
 
 目录新增或变化材料经on.materialDiscovered在同一事务交接，本模块使用实际policy.acquire队列定义与原directory单例键安排后续处理；重复任务视为已接收，无模块接收或入队失败不能提交材料应用结果。定时、手工收集与最终暂停规则保持。
 
@@ -88,7 +97,7 @@ TASK0500：公开说明仅表达正文、附件、解读及资料覆盖的实际
 | ICMM | 不采集 | 名称+版本年 | 人工登记 | 条款只许链接首页、非商业转载；只存元数据，深链接需 Owner 决定是否申请许可 | reference_only |
 
 - **这次修了什么**：CN-002 原配置只收 `/zhengce/年月/`（党中央文件），漏掉以国务院令公布的行政法规和国务院、国办文件，现改收 `/zhengce/content/`；AR-007、AR-008 原来没有单件页身份配置，取得阶段只会停在“缺少配置”；AR-007 列表会把“AGUAS DEL NORTE”等采购公告当成法令；CN-004 的更正入口配好了；新增应急管理部规章。
-- **身份字段**：`policyProfile.fieldPatterns`（可选，title/number/version 各一个带一个捕获组的正则）从较长的官方元素里取出文号或修订记录；元数据记录同时保存原文与取出的值。空白的文号格退回“来源+URL”身份。选择器与正则由 `domain/identity-fields.ts` 统一读取，取得阶段和空跑命令用同一份代码。
+- **身份字段**：`policyProfile.fieldPatterns`（可选，title/number/version 各一个带一个捕获组的正则）从较长的官方元素里取出文号或修订记录；元数据记录同时保存原文与取出的值。空白的文号格退回“来源+URL”身份。选择器与正则由 `core/identity-fields.ts` 统一读取，取得阶段和空跑命令用同一份代码。
 - **增量与省钱**：法规线的 `json_list`、单页 `web_list` 列表带上次成功入库响应的 ETag/Last-Modified，304 时不解析、不入库（首次导入不存校验值；配置变化或跳转到别处时重新完整读取）。单件页复查时，若标题、标记、文号、版本、正文文字与链接的指纹和已存档的当前修订一致，就沿用原修订，不存新字节、不取附件、不产生新的提取、条款或公开版本；网页里的生成时间、nonce 等变化不再制造假修订。试点来源单件页复查周期改为 7 天。频率仍由既有礼貌抓取框架控制（robots、同主机至少 2 秒、429/503 退避）。
 - **服务器要核对的事（Codex）**：部署后在 worker 环境依次运行下列命令（只读，不连数据库、不写入、不调模型；每个来源先读 robots，单件页之间至少 3 秒）：
   - `node scripts/policy-pilot-discover.ts --source CN-002 --detail 2`
