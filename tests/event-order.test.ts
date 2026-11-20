@@ -11,7 +11,7 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { observeFactTiming, readFactTiming } from "../packages/backend/src/pipeline/events/timing.ts";
 import { eventOrderBackfillPage, projectEventOrder } from "../packages/backend/src/pipeline/rank/project.ts";
 import { readEventRanks, storyFreshness } from "../packages/backend/src/pipeline/rank/read.ts";
-import { body, fact, hoursAgo, join, report, shadowSource, unique } from "./event-shadow-fixture.ts";
+import { body, fact, hoursAgo, join, report, revokeLocalText, shadowSource, unique } from "./event-shadow-fixture.ts";
 
 after(async () => {
   await stopBoss();
@@ -129,6 +129,24 @@ test("the event order: an old report is filed on its event day, a fresh one keep
   const stories = await storyFreshness([freshFact.storyId, oldFact.storyId, -1], hoursAgo(200));
   assert.deepEqual(stories.get(freshFact.storyId), { fresh: false, latestFreshArticleId: null }, "a story whose only report is old news is stale");
   assert.equal(stories.has(oldFact.storyId), false, "a story without rows is unknown, not stale");
+});
+
+test("a source that stops allowing local reading: its day stays an unchecked claim and no longer files the report as old", async () => {
+  const source = await shadowSource();
+  const eventDay = day(30);
+  const report30 = await report({
+    source,
+    titleZh: unique(),
+    body: `${body()}该矿于${written(eventDay)}停产。`,
+    publishedAt: hoursAgo(2),
+    occurredAt: eventDay,
+  });
+  const f = await fact("合成许可收窄", [report30]);
+  await revokeLocalText(source);
+  await observeFactTiming([f.factId]);
+  assert.equal((await timing(f.factId))!.occurred_basis, "claimed", "the day is written in the text, but the text may not be read");
+  assert.equal(await projectEventOrder(report30), "written");
+  assert.deepEqual([(await rank(report30))!.freshness, (await rank(report30))!.anchor_at], ["new", null], "a single unchecked claim never makes a report old");
 });
 
 test("the back-fill: the dry run computes the same rows and writes nothing; with --apply it writes them", async () => {

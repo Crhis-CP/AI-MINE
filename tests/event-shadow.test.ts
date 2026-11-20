@@ -17,7 +17,7 @@ import * as recall from "../packages/backend/src/pipeline/events/recall.ts";
 import { EVENT_RULESET } from "../packages/backend/src/pipeline/events/rules.ts";
 import { eventShadowEnabled, pruneShadowDecisions, shadowDecide } from "../packages/backend/src/pipeline/events/shadow.ts";
 import { scheduleEventShadow } from "../packages/backend/src/pipeline/events/shadow-queue.ts";
-import { body, fact, hoursAgo, join, liveDecision, report, shadowSource, unique, vector, yesterdayAt } from "./event-shadow-fixture.ts";
+import { body, fact, hoursAgo, join, liveDecision, report, revokeLocalText, shadowSource, unique, vector, yesterdayAt } from "./event-shadow-fixture.ts";
 
 before(async () => {
   // The live engine's "kept" path checks the news controls; the shadow itself never does.
@@ -33,7 +33,7 @@ interface ShadowRow {
   rule: string;
   target_fact_id: number | null;
   similarity: number | null;
-  candidates: Array<{ articleId: string; factId: number; cosine: number | null }>;
+  candidates: Array<{ articleId: string; factId: number; cosine: number | null; fingerprint: number | null }>;
   would_call: number;
   live_verdict: string | null;
   live_fact_id: number | null;
@@ -148,6 +148,32 @@ test("a page the same source collected again under a new address is the same fac
   const row = (await shadowRow(again))!;
   assert.deepEqual([row.verdict, row.rule, row.target_fact_id], ["same_fact", "content_hash", earlier.factId]);
   assert.equal(row.live_verdict, "new-story", "the live engine founded a story for it: the agreement report counts that pair as a disagreement");
+});
+
+test("a report whose source no longer allows reading its text locally has no fingerprint, so a copy is not tied by it", async () => {
+  const words = unique(10),
+    text = body();
+  const original = await report({ source: await shadowSource(), titleZh: `${words}镍铁项目宣布复产`, body: text, publishedAt: hoursAgo(5) });
+  const first = await fact("合成许可收窄", [original], hoursAgo(5));
+  await liveDecision(original, "new-story", first, hoursAgo(5));
+  const narrowed = await shadowSource();
+  const copy = await report({
+    source: narrowed,
+    titleZh: `外媒称${words}镍铁项目复产`,
+    body: `【来源：某财经网】${text}（转载）`,
+    publishedAt: hoursAgo(2),
+  });
+  await join(first.factId, copy);
+  await liveDecision(copy, "same-fact", first);
+  await revokeLocalText(narrowed);
+  await shadowDecide(copy);
+  const row = (await shadowRow(copy))!;
+  assert.notEqual(row.rule, "fingerprint");
+  assert.deepEqual(
+    row.candidates.map((c) => [c.articleId, c.fingerprint]),
+    [[original, null]],
+    "the copy's text is not read: no distance to compare",
+  );
 });
 
 test("a report like nothing else is a new event only when its stored vector shows recall had its full reach", async () => {

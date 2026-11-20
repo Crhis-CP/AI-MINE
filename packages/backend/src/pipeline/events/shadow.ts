@@ -11,6 +11,7 @@ import { documentKeys, reportText } from "../../events/relate.ts";
 import { newsRelationJurisdictions } from "../../publication/items.ts";
 import { sourceParticipants } from "../../sources/participants.ts";
 import { bodyFingerprint } from "./fingerprint.ts";
+import { locallyReadable } from "./local-text.ts";
 import { recallCandidates, type RecallResult } from "./recall.ts";
 import { decideEvent, type EventCandidate, type EventDecision, type EventQuery, EVENT_RULESET } from "./rules.ts";
 import { memberClaim } from "./timing-rules.ts";
@@ -47,10 +48,18 @@ export type ShadowOutcome =
   | { state: "missing" | "kept" }
   | { state: "decided"; verdict: EventDecision["verdict"]; rule: EventDecision["rule"]; wouldCall: number; recall: RecallResult["stats"] | null };
 
-/** The trusted occurrence day of a report: its own claim found in its text (a bare model claim is not trusted). */
-function ownDay(m: { id: string; revision: number; title: string; body: string; published_at: Date | null; discovered_at: Date }, claim: string | null) {
+/**
+ * What the rules read of a report's own text: its body fingerprint and its trusted occurrence day (its own claim found in
+ * its text; a bare model claim is not trusted). Neither exists while its source does not allow reading the text locally.
+ */
+function ownText(
+  m: { id: string; revision: number; title: string; body: string; published_at: Date | null; discovered_at: Date },
+  claim: string | null,
+  readable: ReadonlySet<string>,
+) {
+  if (!readable.has(m.id)) return { fingerprint: null, occurredOn: null };
   const own = memberClaim({ articleId: m.id, revision: m.revision, claim, text: `${m.title}\n${m.body}`, reportedAt: m.published_at ?? m.discovered_at });
-  return own.verified ? own.on : null;
+  return { fingerprint: bodyFingerprint(m.body), occurredOn: own.verified ? own.on : null };
 }
 
 async function jurisdictions(materials: ReadonlyArray<{ id: string; revision: number }>, db: Db): Promise<Map<string, string | null>> {
@@ -76,6 +85,7 @@ async function shadowCandidates(recall: RecallResult, db: Db): Promise<EventCand
   const frameOf = new Map(frames.map((f) => [f.article_id, f]));
   const timingOf = new Map(timings.map((t) => [t.factId, t]));
   const placeOf = await jurisdictions(materials, db);
+  const readable = await locallyReadable(materials, db);
   return recall.candidates.flatMap((hit) => {
     const m = materialOf.get(hit.articleId);
     if (!m) return [];
@@ -83,6 +93,7 @@ async function shadowCandidates(recall: RecallResult, db: Db): Promise<EventCand
     const timing = timingOf.get(hit.factId);
     // A candidate's fact day counts when checked in a member's text or agreed by two members; else its own checked claim.
     const factDay = timing && (timing.occurredBasis === "verified" || timing.occurredBasis === "agreed") ? timing.occurredOn : null;
+    const own = ownText(m, frame?.input_revision === m.revision ? frame.occurred_at : null, readable);
     return [
       {
         articleId: hit.articleId,
@@ -90,8 +101,8 @@ async function shadowCandidates(recall: RecallResult, db: Db): Promise<EventCand
         title: hit.title,
         at: m.published_at,
         jurisdiction: placeOf.get(hit.articleId) ?? null,
-        fingerprint: bodyFingerprint(m.body),
-        occurredOn: factDay ?? ownDay(m, frame?.input_revision === m.revision ? frame.occurred_at : null),
+        fingerprint: own.fingerprint,
+        occurredOn: factDay ?? own.occurredOn,
         factId: hit.factId,
         storyId: hit.storyId,
         cosine: hit.cosine,
@@ -117,7 +128,7 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
     const [row] = await db`SELECT 1 FROM events.shadow_decisions WHERE article_id=${articleId} AND article_revision=${revision} AND ruleset=${EVENT_RULESET}`;
     if (row) return { state: "kept" };
   }
-  const [[live], [manual], analysis, [source], places] = await Promise.all([
+  const [[live], [manual], analysis, [source], places, readable] = await Promise.all([
     db<{ verdict: string; fact_id: number | null; story_id: number | null; called: boolean; candidates: unknown; created_at: Date }[]>`
       SELECT verdict,fact_id,story_id,receipt_id IS NOT NULL AS called,candidates,created_at FROM grouping_decisions
       WHERE article_id=${articleId} AND (input_revision IS NULL OR input_revision=${revision}) ORDER BY id DESC LIMIT 1`,
@@ -125,19 +136,21 @@ export async function shadowDecide(articleId: string, opts: { keepExisting?: boo
     readGroupingAnalysis(articleId, revision, db),
     sourceParticipants([material.source_id], db),
     jurisdictions([material], db),
+    locallyReadable([material], db),
   ]);
   const parsed = Judgement.safeParse(analysis?.output);
   const scope = parsed.success ? parsed.data.scope : "unknown";
   const frame = parsed.success && scope !== "composite" ? (parsed.data.fact ?? null) : null;
   const title = analysis?.title_zh || material.title;
+  const own = ownText(material, frame?.occurredAt ?? null, readable);
   const query: EventQuery = {
     articleId,
     sourceId: material.source_id,
     title,
     at: material.published_at,
     jurisdiction: places.get(articleId) ?? null,
-    fingerprint: bodyFingerprint(material.body),
-    occurredOn: ownDay(material, frame?.occurredAt ?? null),
+    fingerprint: own.fingerprint,
+    occurredOn: own.occurredOn,
     editorial: source?.participation_mode === "editorial",
     relevance: analysis?.relevance ?? null,
     scope,

@@ -7,6 +7,7 @@
 import { newsDuplicateProbes, newsShadowMaterials } from "../../content/materials.ts";
 import { sql, type Db } from "../../db.ts";
 import { groupingFrames } from "../../enrichment/records.ts";
+import { locallyReadable } from "../events/local-text.ts";
 import { memberClaim } from "../events/timing-rules.ts";
 import { type FactTimingView, observeFactTiming, previewFactTiming, readFactTiming, TEXT_CHARS } from "../events/timing.ts";
 import {
@@ -76,11 +77,13 @@ export async function computeEventRank(articleId: string, db: Db = sql, timing?:
   // Only the judgement of the current revision speaks for the report.
   const current = frame?.input_revision === material.revision ? frame : null;
   const reportedAt = material.published_at ?? material.discovered_at;
+  // The report's own day counts only when found in its text, read only while its source allows that locally.
+  const readable = (await locallyReadable([material], db)).has(articleId);
   const own = memberClaim({
     articleId,
     revision: material.revision,
-    claim: current?.occurred_at ?? null,
-    text: `${material.title}\n${material.body}`,
+    claim: readable ? (current?.occurred_at ?? null) : null,
+    text: readable ? `${material.title}\n${material.body}` : "",
     reportedAt,
   });
   const fact = p.fact_id === null ? null : timing?.has(p.fact_id) ? timing.get(p.fact_id)! : ((await readFactTiming([p.fact_id], db))[0] ?? null);

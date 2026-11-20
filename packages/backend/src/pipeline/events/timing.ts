@@ -6,6 +6,7 @@
 import { newsShadowMaterials } from "../../content/materials.ts";
 import { sql, type Db } from "../../db.ts";
 import { groupingFrames } from "../../enrichment/records.ts";
+import { locallyReadable } from "./local-text.ts";
 import { factTiming, type MemberClaim, memberClaim, type OccurredBasis } from "./timing-rules.ts";
 
 /** Bump when timing-rules.ts changes what counts as a checked day: stored checks of another ruleset are not reused. */
@@ -96,18 +97,21 @@ export async function computeFactTiming(factId: number, stored: FactTimingRow | 
   const reuse = stored?.ruleset === TIMING_RULESET ? stored.claims : {};
   const claims: MemberClaim[] = [];
   const unchecked: Array<{ articleId: string; revision: number; claim: string | null; reportedAt: Date }> = [];
-  for (const m of materials) {
+  // Only the judgement of the member's current revision speaks for it.
+  const claimOf = (m: (typeof materials)[number]) => {
     const frame = frameOf.get(m.id);
-    // Only the judgement of the member's current revision speaks for it.
-    const member = {
-      articleId: m.id,
-      revision: m.revision,
-      claim: frame?.input_revision === m.revision ? frame.occurred_at : null,
-      reportedAt: m.published_at ?? m.discovered_at,
-    };
+    return frame?.input_revision === m.revision ? frame.occurred_at : null;
+  };
+  // A claim is checked against the member's own text only while its source allows reading that text locally.
+  const readable = await locallyReadable(
+    materials.filter((m) => claimOf(m) !== null),
+    db,
+  );
+  for (const m of materials) {
+    const member = { articleId: m.id, revision: m.revision, claim: claimOf(m), reportedAt: m.published_at ?? m.discovered_at };
     const base = memberClaim({ ...member, text: "" });
     const kept = reuse[m.id];
-    if (base.on === null) claims.push(base);
+    if (base.on === null || !readable.has(m.id)) claims.push(base);
     else if (kept && kept.rev === base.revision && kept.on === base.on && kept.at === base.at.toISOString()) claims.push({ ...base, verified: kept.verified });
     else unchecked.push(member);
   }

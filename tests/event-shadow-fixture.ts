@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { addDays, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { sql } from "@amp/backend/db";
+import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { reportText } from "@amp/backend/events/relate";
 import { sha256 } from "@amp/backend/lib/ids";
@@ -22,6 +23,20 @@ export async function shadowSource(mode: "editorial" | "hot_signal" = "editorial
   await sql`INSERT INTO sources(id,name,kind,tier,site_fulltext,participation_mode) VALUES(${id},'Synthetic shadow','rss','T1',true,${mode})`;
   await grantDateFixture(id, [`https://example.com/${id}`]);
   return id;
+}
+
+/** The source stops allowing its material to be processed locally (a narrowed permission, as an editor saves it). */
+export async function revokeLocalText(sourceId: string) {
+  const current = (await readCurrentSourcePolicy(sourceId))!;
+  await saveSourcePolicy(
+    sourceId,
+    {
+      policy: { ...current, permissions: { ...current.permissions, process_locally: "deny" } },
+      expectedVersion: current.permission_version,
+      reason: "合成收窄许可",
+    },
+    "test",
+  );
 }
 
 export interface ReportInput {
