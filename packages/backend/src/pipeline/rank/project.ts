@@ -174,6 +174,19 @@ export async function poolPublicationsUpdatedSince(since: Date, limit: number, d
   return rows.map((row) => row.article_id);
 }
 
+/**
+ * Reports holding a row though their publication is no longer public and in the pool (or is gone), at most `limit`: the
+ * event-order sweep projects them so the row goes (pipeline/events/order-repair.ts). Read from the rows: each is looked
+ * up by its publication's key, so the read grows with the rows (one per public report), not with all publications.
+ */
+export async function rowsOutsidePool(limit: number, db: Db = sql): Promise<string[]> {
+  // A scalar subquery per row: one lookup by the publication's key each, never a pass over all publications.
+  const rows = await db<{ article_id: string }[]>`SELECT er.article_id FROM publication.event_rank er
+    WHERE (SELECT p.visibility='public' AND p.eligible AND NOT p.operator_withdrawn FROM publications p WHERE p.article_id=er.article_id) IS NOT TRUE
+    LIMIT ${limit}`;
+  return rows.map((row) => row.article_id);
+}
+
 /** For each of these reports that has a publication: the fact its publication is in now, and the fact its stored row was decided with. */
 export async function publicationPlaces(ids: readonly string[], db: Db = sql): Promise<Map<string, { factId: number | null; rankedFactId: number | null }>> {
   if (!ids.length) return new Map();

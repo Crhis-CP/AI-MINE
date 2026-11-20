@@ -316,6 +316,25 @@ test("a story merge whose joined story's reports are all older than the window: 
   assert.equal((await rank(late))!.freshness, "follow_up", "its story now began 30 hours before its fact");
 });
 
+test("an older report that leaves the pool, or whose publication is gone, loses its row in one sweep", async () => {
+  const source = await shadowSource();
+  const setAside = await older((at) => report({ source, titleZh: unique(), body: body(), publishedAt: at }));
+  const gone = await older((at) => report({ source, titleZh: unique(), body: body(), publishedAt: at }));
+  const kept = await older((at) => report({ source, titleZh: unique(), body: body(), publishedAt: at }));
+  const shared = await fact("合成离开公开池", [setAside, gone, kept], hoursAgo(100));
+  await sql`UPDATE publications SET updated_at=now()-interval '100 hours' WHERE article_id IN (${setAside},${gone},${kept})`;
+  await shadowed([shared.factId], [setAside, gone, kept]);
+  const keptBefore = (await rank(kept))!;
+  // Set aside (not in the pool any more, its row's time moves) and a publication removed: no source of the window names them.
+  await sql`UPDATE publications SET eligible=false,updated_at=now() WHERE article_id=${setAside}`;
+  await sql`DELETE FROM publications WHERE article_id=${gone}`;
+  assert.ok(!(await sweepWindow(since())).facts.includes(shared.factId), "their fact is not active");
+  await sweep();
+  assert.equal(await rank(setAside), undefined, "the report out of the pool loses its row");
+  assert.equal(await rank(gone), undefined, "so does the one whose publication is gone");
+  assert.deepEqual([(await rank(kept))!.decided_at, (await rank(kept))!.updated_at], [keptBefore.decided_at, keptBefore.updated_at]);
+});
+
 test("a window source that reads as many entries as it may is reported full, also when its decisions name fewer reports", async () => {
   const source = await shadowSource();
   const one = await report({ source, titleZh: unique(), body: body(), publishedAt: hoursAgo(1) });

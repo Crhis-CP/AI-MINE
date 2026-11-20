@@ -9,7 +9,8 @@
 //  - pool publications republished in the window (a withdrawal, a date or score change of an older report);
 //  - reports with a grouping decision in the window (a re-merge or regroup of an older report);
 // and, from the audit log of the window, the facts a detach took a report out of and the facts of a story another was
-// merged into (whose start may have moved), whatever the age of their reports.
+// merged into (whose start may have moved), whatever the age of their reports. Reports holding a row though their
+// publication left the pool (or is gone) are projected too, whatever their age, so their rows go.
 // Facts are taken in id order, a page at a time: (A) the page's facts get their timing recomputed, then (B) every report
 // with a row for those facts or a public publication in them gets its row projected again, after the fact its
 // publication is in now has been recomputed in this run (also when that fact is on a later page). Reports of the window
@@ -27,7 +28,7 @@ import { newsDiscoveredSince } from "../../content/materials.ts";
 import { sql, type Db } from "../../db.ts";
 import { enqueueOn, queueBusy } from "../../jobs/module-queues.ts";
 import { defineQueue } from "../../modules.ts";
-import { factPublications, poolPublicationsUpdatedSince, projectEventOrder, publicationPlaces } from "../rank/project.ts";
+import { factPublications, poolPublicationsUpdatedSince, projectEventOrder, publicationPlaces, rowsOutsidePool } from "../rank/project.ts";
 import { slicer } from "./recall.ts";
 import { eventShadowEnabled } from "./shadow.ts";
 import { FACT_MEMBER_LIMIT, observeFactTiming } from "./timing.ts";
@@ -150,7 +151,8 @@ export interface SweepOutcome {
   stopped: boolean;
   /** The last page finished (its last fact, or after the facts its last report): where a continuation goes on. */
   next: SweepAfter | null;
-  window: { facts: number; standalone: number; reports: number; full: boolean };
+  /** `outside`: reports holding a row outside the pool, read once the facts are done (0 until then). */
+  window: { facts: number; standalone: number; outside: number; reports: number; full: boolean };
   /** Facts whose timing was recomputed, and those among them whose day, basis, first report or story moved. */
   facts: number;
   moved: number;
@@ -195,7 +197,7 @@ export async function sweepEventOrder(o: { since: Date; after: SweepAfter | null
     done: false,
     stopped: false,
     next: o.after,
-    window: { facts: w.facts.length, standalone: w.standalone.length, reports: w.reports, full: w.full },
+    window: { facts: w.facts.length, standalone: w.standalone.length, outside: 0, reports: w.reports, full: w.full },
     facts: 0,
     moved: 0,
     rows: { written: 0, removed: 0, unchanged: 0 },
@@ -267,8 +269,15 @@ export async function sweepEventOrder(o: { since: Date; after: SweepAfter | null
       });
       out.next = { fact: batch.at(-1)! };
     }
+    // Rows of reports that left the pool whatever their age (an older report set aside, its source isolated): projected,
+    // they go. Read once the facts are done, as this read grows with the rows rather than with the window.
+    const limit = o.windowLimit ?? REPAIR_WINDOW_LIMIT;
+    const outside = await rowsOutsidePool(limit, db);
+    out.window.outside = outside.length;
+    if (outside.length >= limit) out.window.full = true;
     const after = o.after !== null && "report" in o.after ? o.after.report : null;
-    const standalone = after === null ? w.standalone : w.standalone.filter((id) => id > after);
+    const all = [...new Set([...w.standalone, ...outside])].sort();
+    const standalone = after === null ? all : all.filter((id) => id > after);
     for (let i = 0; i < standalone.length; i += STANDALONE_PAGE) {
       const batch = standalone.slice(i, i + STANDALONE_PAGE);
       await page(() => project(batch));
