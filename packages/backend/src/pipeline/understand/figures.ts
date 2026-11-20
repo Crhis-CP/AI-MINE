@@ -208,22 +208,31 @@ function precision(digits: string, scale: number, percent: boolean): number {
   return percent ? scale : roundUnit(Number(digits.replace(/,/g, ""))) * scale;
 }
 
-/** Blank out a matched span so later patterns do not read its digits again. */
-const blank = (text: string, start: number, length: number) => text.slice(0, start) + " ".repeat(length) + text.slice(start + length);
 const QUARTER: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, "1": 1, "2": 2, "3": 3, "4": 4 };
+const CURRENCY_UNIT = new RegExp(`^(?:${CURRENCY})$`);
+const METRIC_UNIT = new RegExp(`^(?:${METRIC})$`);
 
-/** The dates and figures of one field of the copy. */
+/** The dates and figures of one field of the copy (or of a Chinese source, read the same way). */
 function copyFigures(field: FigureFinding["field"], original: string, mask: readonly string[]): CopyFigure[] {
   let text = original;
   for (const name of mask) if (name) text = text.split(name).join(" ".repeat(name.length));
   const out: CopyFigure[] = [];
+  // A taken match is blanked so later patterns do not read its digits again. The blanking is done in place on the
+  // text's UTF-16 units and the string is rebuilt once per pattern: rebuilding it after every match made a Chinese source
+  // with thousands of figures cost its length times its figures (seconds for 200,000 characters).
+  const units = text.split("");
+  /** The text from `start` to `end` as blanked so far, for the few characters a pattern looks at around its match. */
+  const around = (start: number, end: number) => units.slice(Math.max(0, start), end).join("");
   const take = (pattern: RegExp, make: (m: RegExpExecArray) => CopyFigure | CopyFigure[] | null) => {
-    for (const m of [...text.matchAll(pattern)]) {
+    let blanked = false;
+    for (const m of text.matchAll(pattern)) {
       const made = make(m as RegExpExecArray);
       if (!made) continue;
       out.push(...(Array.isArray(made) ? made : [made]));
-      text = blank(text, m.index!, m[0].length);
+      units.fill(" ", m.index, m.index + m[0].length);
+      blanked = true;
     }
+    if (blanked) text = units.join("");
   };
   const num = (s: string | undefined) => (s === undefined ? null : Number(s));
   take(/(\d{4})年(\d{1,2})月(\d{1,2})日/g, (m) => ({ field, token: m[0], kind: "date", date: { y: num(m[1]), m: num(m[2]), d: num(m[3]) } }));
@@ -262,15 +271,16 @@ function copyFigures(field: FigureFinding["field"], original: string, mask: read
   });
   take(COPY_NUMBER, (m) => {
     const g = m.groups!;
-    const after = text.slice(m.index! + m[0].length);
+    // What follows is only tested for a few characters (10:30, 1、, 多, 以上), so a short stretch is enough.
+    const after = around(m.index + m[0].length, m.index + m[0].length + 8);
     // A time of day (10:30), an enumeration (1、) or a numeral inside a word is not a figure.
     if (/^[:：]\d/.test(after) || (/^、/.test(after) && !g.unit && !g.pct)) return null;
-    const approx = APPROX_BEFORE.test(text.slice(Math.max(0, m.index! - 4), m.index!)) || APPROX_AFTER.test(after);
+    const approx = APPROX_BEFORE.test(around(m.index - 4, m.index)) || APPROX_AFTER.test(after);
     const percent = !!g.pct;
     const unit = g.unit?.replace(/\/.*$/, "");
     const kind: FigureKind = percent ? "percent" : unit ? "amount" : "number";
-    const currency = unit && new RegExp(`^(?:${CURRENCY})$`).test(unit) ? unit : undefined;
-    const metric = !!unit && new RegExp(`^(?:${METRIC})$`).test(unit);
+    const currency = unit && CURRENCY_UNIT.test(unit) ? unit : undefined;
+    const metric = !!unit && METRIC_UNIT.test(unit);
     // In a range the scale and unit written once belong to both ends: 10至12亿美元.
     const ends = [{ digits: g.a!, scale: g.as ?? g.bs }, ...(g.b ? [{ digits: g.b, scale: g.bs }] : [])];
     const figures: CopyFigure[] = [];
