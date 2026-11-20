@@ -1,7 +1,7 @@
 import { sql, type Db } from "@amp/backend/db";
 import { promptVersion } from "@amp/backend/editorial/prompts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-import { POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../core/quality-binding.ts";
 import { FULLTEXT_CANDIDATE_RECIPE } from "./fulltext-candidate.ts";
 
 import type { PolicyFallbackContext } from "@amp/backend/providers/model-fallback";

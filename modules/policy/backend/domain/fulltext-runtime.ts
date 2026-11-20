@@ -8,7 +8,8 @@ import { ModelOutputError } from "@amp/backend/providers/llm";
 import { readPolicyPartResponses, ReceiptBusyError, ReceiptUnknownError, PolicyPartLimitError, ProviderRejectedError } from "@amp/backend/providers/receipts";
 import { normalizeSourceLanguage } from "@amp/backend/sources/config-keys";
 import { readPolicyOriginal } from "../core/originals.ts";
-import { extractPolicyOriginal, type ExtractionProfile } from "./extraction.ts";
+import { extractPolicyOriginal } from "./extraction.ts";
+import type { ExtractionProfile } from "../core/extraction-parse.ts";
 import { buildPolicyFulltextPlan, POLICY_PLAN_LIMITS, type PolicyPart } from "./processing-plan.ts";
 import {
   candidateFromReply,

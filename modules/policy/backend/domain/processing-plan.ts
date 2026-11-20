@@ -2,7 +2,7 @@ import { sha256, stableJson } from "@amp/backend/lib/ids";
 import * as cheerio from "cheerio";
 import type { SourceAnnotation } from "../core/annotations.ts";
 import { proseFragments, type PolicyFragment } from "./processing-fragments.ts";
-import type { PolicyExtraction } from "./extraction.ts";
+import type { PolicyExtraction } from "../core/extraction-parse.ts";
 
 export const POLICY_PLAN_LIMITS = Object.freeze({ documentBytes: 2_000_000, nodes: 8192, requestBytes: 2000, requestParts: 12, planBytes: 8 * 1024 * 1024 });
 export type PolicyPlanContext = {

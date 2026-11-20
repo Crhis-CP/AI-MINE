@@ -61,7 +61,7 @@ TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyI
 
 ## 可信关系与脉络（TASK-0128）
 
-`publication/policy-relations.ts` 的 `policyRelationshipCandidates(fulltextRunId)` 只给现有0101处理最多5个同法域、原文明示官方单对象URI与逐字文号、当前独立身份物证合格且唯一的候选。实际引文与其同一链接href由`policy/references.ts`统一核对，前缀相似URL、集合页和歧义不接受。发布者仅在语义和当前Owner质量资格通过后写关系；不能由传入qualified标记或模型ID自行公开。
+`domain/relationship-links.ts` 的 `policyRelationshipCandidates(fulltextRunId)` 只给现有0101处理最多5个同法域、原文明示官方单对象URI与逐字文号、当前独立身份物证合格且唯一的候选。实际引文与其同一链接href由`policy/references.ts`统一核对，前缀相似URL、集合页和歧义不接受。发布者仅在语义和当前Owner质量资格通过后写关系；不能由传入qualified标记或模型ID自行公开。
 
 确定性关系校验版本进入`policyInterpretationQualityRecipe(modelRecipe)`，与付费prompt/input hash分离；原模型配置及已有回执不变，资格复核可免费重放。模型没有旧法原文时不生成新旧法对比。
 
