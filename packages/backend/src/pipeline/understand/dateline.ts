@@ -7,6 +7,9 @@
 import { COUNTRY_ALIASES, JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { MONTH_PATTERN } from "./calendar.ts";
 
+/** Names the dateline reader and demotion rule; stored beside each result. */
+export const DATELINE_RECIPE = "dateline-v1";
+
 /**
  * Who issued the text. A press-release wire (PRNewswire, GLOBE NEWSWIRE) carries the company's own office as the
  * dateline, which is often not where the project is. A news agency (Reuters, EFE, Xinhua) datelines where its
