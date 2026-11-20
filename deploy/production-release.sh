@@ -152,11 +152,22 @@ PYE
 }
 # Only this nonsecret setting is inspected; keep its snapshot inside existing recovery metadata.
 selection_state() {
-  PYTHONPATH="$RELEASE_TOOLS${PYTHONPATH:+:$PYTHONPATH}" python3 -B - "$1" "$RELEASE_ROOT" "$RELEASE_BACKUP" "${RELEASE_SELECTION_CONFIRMED_VERSION:-}" "${RELEASE_CURRENT_APIS[@]}" <<'PYS'
-import json,re,subprocess,sys
+  python3 -B - "$1" "$RELEASE_ROOT" "$RELEASE_BACKUP" "${RELEASE_SELECTION_CONFIRMED_VERSION:-}" "${RELEASE_CURRENT_APIS[@]}" <<'PYS'
+import hashlib,json,re,subprocess,sys
 from pathlib import Path
 action,root,backup,version,*roles=sys.argv[1:]; root=Path(root); backup=Path(backup)
-from selection_env import LITERAL as literal, selection_field as field
+literal=r'selection-score(?:-global)?(?:-shared(?:-standard)?)?@[0-9a-f]{10,64}\+weights@[0-9a-f]{10,64}'
+def field(path):
+    found=[line for line in path.read_text().splitlines() if re.match(r'^\s*(?:export\s+)?SELECTION_CONFIRMED_VERSION\b',line)]
+    assert len(found)<=1, 'Ambiguous selection confirmation'
+    if found:
+        match=re.fullmatch(r'\s*(?:export\s+)?SELECTION_CONFIRMED_VERSION\s*=(.*)',found[0]); assert match, 'Unsupported selection definition'
+        value=match[1].strip(); assert not value.endswith(chr(92)), 'Multiline selection definition'
+        if value[:1] in ["'",'"']:assert re.fullmatch(r"(['\"]).*\1\s*(?:#.*)?",value), 'Multiline selection definition'
+        match=re.fullmatch(r'''[ \t]*(?:"('''+literal+r'''|)"|'('''+literal+r'''|)'|('''+literal+r'''|))(?:(?:[ \t]+#.*)?[ \t]*)''',match[1])
+        assert match, 'Selection confirmation must be a supported literal or empty'
+        value=next(value for value in match.groups() if value is not None)
+    return {'present':bool(found),'value':value if found else None,'definition_sha256':hashlib.sha256(found[0].encode()).hexdigest() if found else None}
 def runtime(names):
     assert set(names) in [{'api','worker'},{'public-api','private-api','worker'}]
     code='const k="SELECTION_CONFIRMED_VERSION";console.log(JSON.stringify({present:Object.hasOwn(process.env,k),value:process.env[k]??null}))'
