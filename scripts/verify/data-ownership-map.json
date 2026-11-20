@@ -1088,6 +1088,8 @@
     "packages/backend/src/operations/usage-protection.ts": "ai-gateway",
     "packages/backend/src/operations/usage-weekly.ts": "ai-gateway",
     "packages/backend/src/operations/watch.ts": "ops",
+    "packages/backend/src/pipeline/entities/admin.ts": "entities",
+    "packages/backend/src/pipeline/entities/store.ts": "entities",
     "packages/backend/src/providers/embeddings.ts": "ai-gateway",
     "packages/backend/src/providers/llm.ts": "ai-gateway",
     "packages/backend/src/providers/model-budget.ts": "ai-gateway",

@@ -8,6 +8,9 @@ import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
 import type { AliasScope, EntityLink, EntityRow, StatementRow } from "./model.ts";
 import { aliasKey, hasHan, lookupKey, tokenize } from "./normalize.ts";
 
+/** Names the linker's rules; stored with every link it writes. Change it when linkText decides differently. */
+export const LINKER_VERSION = "entity-linker-v1";
+
 interface AliasEntry {
   entityId: string;
   scope: AliasScope;
