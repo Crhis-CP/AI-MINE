@@ -9,7 +9,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 RUN npm install -g npm@11.19.0 --ignore-scripts --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY}
 
-FROM base AS build
+FROM base AS dependencies
 ARG NPM_REGISTRY=
 COPY package.json package-lock.json .npmrc ./
 COPY apps/api/package.json apps/api/package.json
@@ -25,14 +25,22 @@ COPY modules/site-admin/package.json modules/site-admin/package.json
 # Source edits reuse the installed workspace dependencies; installation scripts stay disabled by .npmrc.
 RUN npm ci --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
  && npm cache clean --force
-COPY . .
-RUN npm run build --workspace @amp/web \
- && npm prune --omit=dev --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
+FROM dependencies AS production-dependencies
+RUN npm prune --omit=dev --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
  && npm cache clean --force
+
+# npm extraction and workspace links inherit wall-clock mtimes on fresh builders.
+RUN find /app -depth -exec touch -h -d @0 {} +
+
+FROM dependencies AS build
+COPY . .
+RUN npm run build --workspace @amp/web
 
 FROM base
 ENV NODE_ENV=production
-COPY --from=build --chown=node:node /app /app
+COPY --from=production-dependencies --chown=node:node /app /app
+COPY --chown=node:node . .
+COPY --from=build --chown=node:node /app/apps/web/build /app/apps/web/build
 RUN mkdir -p /data /backups && chown node:node /data /backups && chmod 700 /backups
 USER node
 EXPOSE 3000

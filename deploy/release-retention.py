@@ -404,15 +404,59 @@ def observe_current(state_path, *, apply=False, expected_image=None, expected_re
     return observed, containers, images, release
 
 
+def healthy_interval(path, release, containers, now, persist):
+    # The timer samples every 15 minutes. A missed sample, restart, version change or failed probe starts over.
+    starts = {c["name"]: c["started"] for c in containers if c["name"] in APP_NAMES | UNIFIED_APP_NAMES | {"/amp-db-1", "/amp-caddy-1"}}
+    prior = json.loads(path.read_text()) if path.is_file() else {}
+    contiguous = (prior.get("release") == release and prior.get("starts") == starts
+                  and 0 <= now - prior.get("last", 0) <= 20 * 60)
+    since = prior["since"] if contiguous else now
+    if persist:
+        save(path, {"release": release, "starts": starts, "since": since, "last": now})
+    return now - since
+
+
+def accept_healthy_release(release, seconds):
+    gate_path = OPS / "release-quality-gate.json"
+    if seconds < 6 * 3600 or gate_path.is_symlink() or not gate_path.is_file():
+        return False
+    gate = json.loads(gate_path.read_text())
+    sha = gate.get("sha", "")
+    if gate.get("status") != "pending" or not re.fullmatch("[0-9a-f]{40}", sha) or sha[:12] != release:
+        return False
+    journals = sorted(OPS.glob("release-" + release + "-*.json"))
+    if not journals:
+        return False
+    journal = json.loads(journals[-1].read_text())
+    if journal.get("sha") != sha or journal.get("phase") != "deployed_origin_verified":
+        return False
+    save(gate_path, {**gate, "status": "accepted", "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                     "basis": "sampled_origin_health", "healthy_seconds": int(seconds)})
+    return True
+
+
 def execute(args):
     now = time.time()
     state_path = Path(args.state_dir) / "state.json"
-    state, containers, images, release = observe_current(state_path, apply=args.apply)
+    sample = state_path.parent / "health-samples.json"
+    try:
+        state, containers, images, release = observe_current(state_path, apply=args.apply)
+    except Exception:
+        if args.apply and sample.exists():
+            save(sample, {})
+        raise
     managed = state["managed_images"]
     result = {"current": state["history"][0], "history": state["history"], "release": release}
     if args.apply:
         retry_pending(ROOT, result["release"])
     quality_pending = quality_blockers(result["release"])
+    if args.automatic or quality_pending:
+        seconds = healthy_interval(sample, release, containers, now, args.apply)
+        if args.automatic and seconds < 6 * 3600:
+            print(json.dumps({"status": "waiting", "release": release, "healthy_seconds": int(seconds), "required_seconds": 21600}))
+            return
+        if quality_pending and args.apply and accept_healthy_release(release, seconds):
+            quality_pending = quality_blockers(release)
     if quality_pending:
         print(json.dumps({"status": "blocked", "reasons": quality_pending, **result}), flush=True)
         return
@@ -429,8 +473,18 @@ def execute(args):
     result["backup_references"] = backups
     result["recovery_window"] = window
     result["before_used_bytes"] = shutil.disk_usage("/").used
-    print(json.dumps({"mode": "apply" if args.apply else "dry-run", **result}), flush=True)
     if not args.apply:
+        # Count allocated blocks only when every link to that inode is in the removal plan.
+        blocks = {}
+        for point in window["remove"]:
+            for name in point["files"]:
+                entry = (Path(args.backup_dir) / point["directory"] / name).lstat()
+                key = (entry.st_dev, entry.st_ino)
+                count = blocks.get(key, (0, 0, 0))[0] + 1
+                blocks[key] = (count, entry.st_nlink, entry.st_blocks * 512)
+        estimate = sum(size for count, links, size in blocks.values() if count == links)
+        print(json.dumps({"status": "dry-run", "estimated_recovery_bytes": estimate, "release": release, "candidate_images": result["candidates"],
+                          "expired_recovery": [p["directory"] for p in window["remove"]], "kept": result["history"]}), flush=True)
         return
     # All destructive work starts only after a complete plan and a second live observation.
     fresh, fresh_images = inventory()
@@ -503,7 +557,9 @@ def execute(args):
     if failures:
         raise RuntimeError("Some old image references could not be removed; retained for retry")
     save(state_path, {**state, "history": result["history"], "managed_images": managed, "cleaned_at": now})
-    print(json.dumps({"status": "cleaned", **result}), flush=True)
+    print(json.dumps({"status": "cleaned", "release": release, "removed_images": removed,
+                      "removed_recovery": result["removed_recovery_directories"], "cache": cache.splitlines()[-1:],
+                      "released_bytes": result["before_used_bytes"] - result["after_used_bytes"]}), flush=True)
 
 
 def main():
@@ -522,7 +578,14 @@ def main():
             except BlockingIOError:
                 print('{"status":"deferred","reason":"release_lock_busy"}')
                 return
-            execute(args)
+            try:
+                execute(args)
+            except Exception as error:
+                sample = Path(args.state_dir) / "health-samples.json"
+                if sample.exists():
+                    save(sample, {})
+                print(json.dumps({"status": "failed", "reason": str(error)}), flush=True)
+                raise
     else:
         execute(args)
 

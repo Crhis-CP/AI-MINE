@@ -356,6 +356,25 @@ class RetentionTests(unittest.TestCase):
         self.assertIn(("image", "rm", "--no-prune", ident(5)), calls)
         self.assertFalse(any("--force" in x for x in calls if x[:2] == ("image", "rm")))
 
+    def test_six_hours_requires_unbroken_observations_for_same_running_release(self):
+        containers, _ = fixture()
+        with tempfile.TemporaryDirectory() as temporary, patch.object(m, "OPS", Path(temporary)):
+            sample = Path(temporary) / "samples"
+            release = "a" * 12
+            for elapsed in range(0, 21601, 900):
+                self.assertEqual(m.healthy_interval(sample, release, containers, NOW + elapsed, True), elapsed)
+            gate = m.OPS / "release-quality-gate.json"
+            m.save(gate, {"status": "pending", "sha": "a" * 40})
+            journal = m.OPS / ("release-" + release + "-attempt.json")
+            m.save(journal, {"phase": "deployed_origin_verified", "sha": "a" * 40})
+            self.assertFalse(m.accept_healthy_release(release, 21599))
+            self.assertTrue(m.accept_healthy_release(release, 21600))
+            self.assertEqual(m.quality_blockers(release), [])
+            self.assertEqual(m.healthy_interval(sample, release, containers, NOW + 24000, True), 0)
+            containers[0]["started"] = "new boot"
+            self.assertEqual(m.healthy_interval(sample, release, containers, NOW + 24900, True), 0)
+            self.assertEqual(m.healthy_interval(sample, "b" * 12, containers, NOW + 25800, True), 0)
+
     def test_pending_quality_never_reclaims_images_or_cache(self):
         self.assertEqual(self.run_execute(True, quality_pending=True), [])
         self.assertEqual(self.run_execute(False, quality_pending=True), [])
@@ -432,7 +451,7 @@ class RetentionTests(unittest.TestCase):
             with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="a" * 12), \
                     patch.object(m.time, "time", return_value=NOW), patch.object(m, "docker", side_effect=docker), \
                     patch.object(m, "quality_blockers", side_effect=lambda _: ["pending"] if pending else []), \
-                    patch.object(m, "retry_pending"), patch.object(m, "OPS", ops):
+                    patch.object(m, "healthy_interval", return_value=21600), patch.object(m, "retry_pending"), patch.object(m, "OPS", ops):
                 m.execute(args)
                 observed = json.loads(state_path.read_text())
                 self.assertEqual(observed["history"], [ident(6), ident(1), ident(2)])

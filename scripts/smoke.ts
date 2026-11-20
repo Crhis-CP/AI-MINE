@@ -7,6 +7,10 @@ import { fetchWithHost } from "./verify/api-split.ts";
 const at = process.argv.indexOf("--base");
 const base = (at > 0 ? process.argv[at + 1] : process.env.SITE_URL) ?? "http://localhost:3000";
 
+const privateAt = process.argv.indexOf("--private-base");
+const privateBase = privateAt > 0 ? process.argv[privateAt + 1] : base;
+const privateHost = process.env.PRIVATE_HOST || "private.localhost";
+
 const PAGES = [
   "/",
   "/all",
@@ -51,7 +55,7 @@ let failed = 0;
 async function check(path: string, expect: (res: Response, body: string) => string | null, status = 200, headers?: Record<string, string>) {
   try {
     const res = headers?.Host
-      ? await fetchWithHost(base + path, headers.Host)
+      ? await fetchWithHost(privateBase + path, headers.Host)
       : await fetch(base + path, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
     const body = res.headers.get("content-type")?.startsWith("image/") ? "" : await res.text();
     const problem = res.status !== status ? `HTTP ${res.status}` : expect(res, body);
@@ -64,9 +68,11 @@ async function check(path: string, expect: (res: Response, body: string) => stri
 }
 
 for (const path of PAGES) await check(path, (_res, body) => (body.includes(SITE.name) ? null : `the page does not name ${SITE.name}`));
-await check("/admin/login", (res) => (res.headers.has("set-cookie") ? "public rejection set a cookie" : null), 404);
+if (new URL(base).hostname === new URL(`http://${privateHost}`).hostname)
+  await check("/admin/login", (_res, body) => (body.includes(SITE.name) ? null : "shared-host login missing"));
+else await check("/admin/login", (res) => (res.headers.has("set-cookie") ? "public rejection set a cookie" : null), 404);
 await check("/admin/login", (_res, body) => (body.includes(SITE.name) ? null : "private login missing"), 200, {
-  Host: process.env.PRIVATE_HOST || "private.localhost",
+  Host: privateHost,
 });
 for (const [path, type] of MACHINE)
   await check(path, (res) => (type.test(res.headers.get("content-type") ?? "") ? null : `content-type ${res.headers.get("content-type")}`));

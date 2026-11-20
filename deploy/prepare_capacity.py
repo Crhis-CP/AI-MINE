@@ -12,7 +12,7 @@ import re
 import stat
 import subprocess
 
-FLOOR = 4 * 1024**3
+from release_capacity import DISK_FLOOR
 
 
 def digest(path):
@@ -111,7 +111,7 @@ def main():
     result = {"at": dt.datetime.now(dt.timezone.utc).isoformat(), "applied": False,
               "before_available_bytes": os.statvfs(args.root).f_bavail * os.statvfs(args.root).f_frsize}
     try:
-        if result["before_available_bytes"] >= FLOOR:
+        if result["before_available_bytes"] >= DISK_FLOOR:
             result["status"] = "already_sufficient"
         else:
             release = policy.health()
