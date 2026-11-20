@@ -93,7 +93,7 @@
 
 保留不动：数据库与已有数据、`packages/backend/src/providers` 的记账、抓取器、`deploy/production-release.sh`、登录与后台、对外接口的地址和字段。
 
-事件新规则影子判定（包二 2.4–2.5，默认关闭）：现网归组每完成一篇，`packages/backend/src/jobs/events.ts` 把它排进单独的低优先级队列，由 `packages/backend/src/pipeline/events/shadow-queue.ts` 不问模型地再判一次，只写影子判定、事实时间、事件排序三张内部表，读者看不到。开关是设置键 events.shadow，开关方法和打开前要核对的事见 `docs/runbooks/event-shadow.md`。
+事件新规则影子判定（包二 2.4–2.5，默认关闭）：现网归组每完成一篇，`packages/backend/src/jobs/events.ts` 把它排进单独的队列 `news.events.shadow`（一次跑一个，查询一条接一条），由 `packages/backend/src/pipeline/events/shadow-queue.ts` 不问模型地再判一次，只写影子判定、事实时间、事件排序三张内部表，读者看不到。开关是设置键 events.shadow，开关方法和打开前要核对的事见 `docs/runbooks/event-shadow.md`。
 
 ## 5. 改之前必须知道的三个机关
 
