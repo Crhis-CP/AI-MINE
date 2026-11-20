@@ -21,3 +21,18 @@ www.{$SITE_DOMAIN} {
 admin.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }
+
+# Preview comes through EdgeOne with CDN caching disabled. Its reader enforces the password.
+preview.{$SITE_DOMAIN} {
+	header {
+		defer
+		Cache-Control "private, no-store"
+		X-Robots-Tag "noindex, nofollow, noarchive"
+	}
+	reverse_proxy aimine-owner-preview:3000
+	handle_errors {
+		header Cache-Control "private, no-store"
+		header X-Robots-Tag "noindex, nofollow, noarchive"
+		respond "Preview unavailable" 503
+	}
+}
