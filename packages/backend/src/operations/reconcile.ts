@@ -10,9 +10,10 @@ import { beijingDay, beijingStamp, sendAlert } from "../notify/feishu.ts";
 import { sourceIdsOnLane } from "../admin/sources.ts";
 import { countDiscovered } from "../content/materials.ts";
 import { scoredRelevantArticles } from "../enrichment/records.ts";
+import { queueOperationalSnapshot } from "../jobs/operational-snapshot.ts";
 import { articleLinkCoverage } from "../pipeline/entities/store.ts";
 import type { DatelineKind } from "../pipeline/understand/dateline.ts";
-import { articleCheckSummary } from "../pipeline/understand/observe.ts";
+import { articleCheckSummary, articleObserveEnabled, observeQueue } from "../pipeline/understand/observe.ts";
 import { type AccountDaysLeft, accountDaysLeft } from "../providers/account-balance.ts";
 import { notPublicAmong, publicationFlow, translationLag } from "../publication/items.ts";
 import { sourceHealth } from "../sources/health.ts";
@@ -45,13 +46,65 @@ export interface Reconciliation {
   translation: { due: number; missing: number };
   /** Each model account's latest reading; for a fresh one, the days it lasts at the recent daily spend. */
   balance: AccountDaysLeft[];
-  /**
-   * The per-article shadow (pipeline/understand/observe.ts), which changes nothing readers see: articles judged that
-   * day that were checked, those with at least one company found, how many entities the library holds (0: not seeded
-   * yet), the soft figure findings and the datelines by kind. The hard figure class is left out until a labelled sample shows how
-   * often it is right (design L, review F7). Absent in days stored before it existed.
-   */
-  articleChecks?: { checked: number; linked: number; library: number; softFlags: number; softArticles: number; datelines: Record<DatelineKind, number> };
+  /** The per-article shadow, which changes nothing readers see. Absent in days stored before it existed. */
+  articleChecks?: ArticleCheckCounts;
+}
+
+/**
+ * The per-article shadow's numbers for a day (pipeline/understand/observe.ts), or `unreadable` when reading them failed,
+ * which never costs the rest of the message. `judged`: articles with a checkable judgement that day; `checked`: those
+ * with a check; `linked`: those with at least one company found; `library`: entities in the library (0: not seeded).
+ * Only the soft figure class is counted: the hard one is left out until a labelled sample shows how often it is right
+ * (design L, review F7).
+ */
+export type ArticleCheckCounts =
+  | { unreadable: true }
+  | {
+      /** Whether the switch (observe.articles) was on when the numbers were read. */
+      on: boolean;
+      judged: number;
+      checked: number;
+      linked: number;
+      library: number;
+      softFlags: number;
+      softArticles: number;
+      datelines: Record<DatelineKind, number>;
+      /** Failed jobs the shadow's queue still keeps (pg-boss keeps finished jobs a week); null when the queue was not read. */
+      failedJobs: number | null;
+    };
+
+/** The shadow's numbers, each read through the module that owns it; any failure is logged and told in one line. */
+async function articleCheckCounts(start: Date, end: Date): Promise<ArticleCheckCounts> {
+  try {
+    const on = await articleObserveEnabled({ maxAgeMs: 0 });
+    const checks = await articleCheckSummary(start, end);
+    const coverage = await articleLinkCoverage(checks.articles);
+    let failedJobs: number | null = null;
+    try {
+      const queues = (await queueOperationalSnapshot()) as unknown as Array<{ name: string; state: string; count: number }>;
+      failedJobs = queues.find((row) => row.name === observeQueue.name && row.state === "failed")?.count ?? 0;
+    } catch (error) {
+      console.warn(
+        JSON.stringify({ level: "warn", msg: "article check queue unreadable", error: (error instanceof Error ? error.message : String(error)).slice(0, 300) }),
+      );
+    }
+    return {
+      on,
+      judged: checks.judged,
+      checked: checks.articles.length,
+      linked: coverage.linked,
+      library: coverage.library,
+      softFlags: checks.softFlags,
+      softArticles: checks.softArticles,
+      datelines: checks.datelines,
+      failedJobs,
+    };
+  } catch (error) {
+    console.warn(
+      JSON.stringify({ level: "warn", msg: "article check counts unreadable", error: (error instanceof Error ? error.message : String(error)).slice(0, 300) }),
+    );
+    return { unreadable: true };
+  }
 }
 
 export async function reconcile(now = Date.now()): Promise<Reconciliation> {
@@ -103,8 +156,7 @@ export async function reconcile(now = Date.now()): Promise<Reconciliation> {
   // A report needs an hour to be translated before it counts as late.
   const translation = await translationLag(start, new Date(Math.min(end.getTime(), now - 3600_000)));
   const balance = await accountDaysLeft(now);
-  const checks = await articleCheckSummary(start, end);
-  const coverage = await articleLinkCoverage(checks.articles);
+  const articleChecks = await articleCheckCounts(start, end);
 
   return {
     day,
@@ -112,14 +164,7 @@ export async function reconcile(now = Date.now()): Promise<Reconciliation> {
     flow: { collected, public: shown.public, selected: shown.selected, scoredNotPublic },
     translation,
     balance,
-    articleChecks: {
-      checked: checks.articles.length,
-      linked: coverage.linked,
-      library: coverage.library,
-      softFlags: checks.softFlags,
-      softArticles: checks.softArticles,
-      datelines: checks.datelines,
-    },
+    articleChecks,
   };
 }
 
@@ -135,17 +180,37 @@ function balanceLine(b: AccountDaysLeft): string {
   return `模型余额 ${b.service}：${b.yuan.toFixed(0)} 元${lasts}`;
 }
 
+/** Below this share of the day's judged articles checked, the shadow is said to be behind. */
+const CHECKED_SHARE = 0.9;
+
 /**
- * The per-article shadow in three lines, counts only; none on a day nothing was checked (the switch is off). The soft
- * figure class is what the check is unsure of; the hard class stays out of the message (design L, review F7).
+ * The per-article shadow in a few lines, counts only. With the switch off it says so, so a stopped check never looks
+ * like one that broke; with it on, a check that falls behind the day's judgements or leaves failed jobs is pointed out.
+ * The soft figure class is what the check is unsure of; the hard class stays out of the message (design L, review F7).
  */
 function articleCheckLines(c: Reconciliation["articleChecks"]): string[] {
-  if (!c?.checked) return [];
-  return [
-    `单篇核对（只记录，读者看不到）：昨天判断的稿件核对了 ${c.checked} 条，认出至少一家公司的 ${c.linked} 条（${percent(c.linked, c.checked)}）${c.library ? "" : "；公司库还没导入，认出的公司没有存下"}`,
-    `数字核对（只标记，不改稿）：程序拿不准的数字或日期 ${c.softFlags} 处（${c.softArticles} 条）`,
-    `电头：新闻稿 ${c.datelines.release_wire} 条，通讯社 ${c.datelines.news_agency} 条，只写地点和日期 ${c.datelines.unmarked} 条`,
-  ];
+  if (!c) return [];
+  if ("unreadable" in c) return ["单篇核对：今天的计数读取失败（不影响上面的数字），见 worker 日志"];
+  if (!c.on) return ["单篇核对：开关关着（observe.articles），没有核对"];
+  const lines: string[] = [];
+  if (c.judged || c.checked)
+    lines.push(
+      `单篇核对（只记录，读者看不到）：昨天判断 ${c.judged} 条，核对了 ${c.checked} 条，认出至少一家公司的 ${c.linked} 条（${percent(c.linked, c.checked)}）${c.library ? "" : "；公司库还没导入，认出的公司没有存下"}`,
+    );
+  const behind = c.checked < c.judged * CHECKED_SHARE;
+  if (behind || c.failedJobs) {
+    const what = [
+      ...(behind ? [`开关开着，昨天判断的 ${c.judged} 条只核对了 ${c.checked} 条`] : []),
+      ...(c.failedJobs ? [`队列里有 ${c.failedJobs} 个失败任务`] : []),
+    ];
+    lines.push(`单篇核对需要看一下：${what.join("；")}，见后台“运行”页和 worker 日志`);
+  }
+  if (c.checked)
+    lines.push(
+      `数字核对（只标记，不改稿）：程序拿不准的数字或日期 ${c.softFlags} 处（${c.softArticles} 条）`,
+      `电头：新闻稿 ${c.datelines.release_wire} 条，通讯社 ${c.datelines.news_agency} 条，只写地点和日期 ${c.datelines.unmarked} 条`,
+    );
+  return lines;
 }
 
 /** The message, in the Owner's words: what readers got, what did not arrive, what needs money. */

@@ -3,45 +3,54 @@
 // judgement (company links in entities.article_links, figures, names and dateline in enrichment.analysis_checks).
 // No model call; analyses, articles and publications are only read, so nothing readers see changes. Re-running is
 // safe: a judgement keeps its first check row, and the links of its revision are replaced with what the library finds now.
+// Not append-only: like the worker, it deletes and writes again the program's links of each revision it checks.
 //   node scripts/entity-links-backfill.ts --since 2026-10-01            dry run (default): runs the checks, writes nothing
-//   node scripts/entity-links-backfill.ts --since 2026-10-01 --apply [--until 2026-11-01] [--batch 200] [--limit N] [--after ID]
-// Dates are Beijing days; --until is exclusive and defaults to now. Judgements are read in pages of --batch by id and
-// checked one at a time; with --limit it stops after N judgements and prints the --after value to continue from.
+//   node scripts/entity-links-backfill.ts --since 2026-10-01 --apply [--until 2026-11-01] [--batch 200] [--limit N]
+//                                         [--after ID] [--pause-ms 20]
+// Dates are Beijing days; --until is exclusive and defaults to now. The id range of those days is found once, from the
+// newest rows back (analyses.created_at has no index), then judgements are read in pages of --batch by id and checked
+// one at a time, with --pause-ms between them so the process does not hold a core the whole time. With --limit it stops
+// after N judgements and prints the --after value to continue from.
 // Runs with the worker's login, e.g. `docker compose exec -T worker node scripts/entity-links-backfill.ts --since …`;
 // seed the library first (scripts/entities-seed.ts), or no links are stored.
+import { setTimeout as pause } from "node:timers/promises";
 import { closeDb, initializeDb, sql } from "@amp/backend/db";
-import { observableAnalyses, observeAnalysis, type SkipReason } from "../packages/backend/src/pipeline/understand/observe.ts";
+import { analysisIdRange, observableAnalyses, observeAnalysis, type SkipReason } from "../packages/backend/src/pipeline/understand/observe.ts";
 import { normalizeSourceLanguage } from "../packages/backend/src/sources/config-keys.ts";
 
 const MAX_BATCH = 1000;
 const args = process.argv.slice(2);
-const FLAGS = ["--since", "--until", "--batch", "--limit", "--after"];
+const FLAGS = ["--since", "--until", "--batch", "--limit", "--after", "--pause-ms"];
+/** A flag's value; null when the flag is given without one (last, or followed by another flag), which is an error. */
 const value = (flag: string) => {
   const at = args.indexOf(flag);
-  return at >= 0 ? args[at + 1] : undefined;
+  if (at < 0) return undefined;
+  const given = args[at + 1];
+  return given === undefined || given.startsWith("--") ? null : given;
 };
 const apply = args.includes("--apply");
 /** A calendar day as written, or null; 2026-13-01 and 2026-02-30 are no days. */
-const day = (text: string | undefined) => {
-  if (text === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+const day = (text: string | null | undefined) => {
+  if (!text || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
   const date = new Date(`${text}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(text) ? text : null;
 };
 /** The start of a Beijing day (UTC+8 all year). */
 const beijingMidnight = (text: string) => new Date(`${text}T00:00:00+08:00`);
-const count = (text: string | undefined, min: number, max = Number.MAX_SAFE_INTEGER) => {
+const count = (text: string | null | undefined, min: number, max = Number.MAX_SAFE_INTEGER) => {
   const n = Number(text);
-  return text !== undefined && Number.isSafeInteger(n) && n >= min && n <= max ? n : null;
+  return text && Number.isSafeInteger(n) && n >= min && n <= max ? n : null;
 };
 const since = day(value("--since"));
 const until = value("--until") === undefined ? undefined : day(value("--until"));
 const batch = value("--batch") === undefined ? 200 : count(value("--batch"), 1, MAX_BATCH);
 const limit = value("--limit") === undefined ? undefined : count(value("--limit"), 1);
 const after = value("--after") === undefined ? 0 : count(value("--after"), 0);
+const pauseMs = value("--pause-ms") === undefined ? 20 : count(value("--pause-ms"), 0, 60_000);
 const unknown = args.filter((arg, i) => arg !== "--apply" && !FLAGS.includes(arg) && !FLAGS.includes(args[i - 1] ?? ""));
-if (unknown.length || since === null || until === null || batch === null || limit === null || after === null) {
+if (unknown.length || since === null || until === null || batch === null || limit === null || after === null || pauseMs === null) {
   console.error(
-    `usage: entity-links-backfill.ts --since YYYY-MM-DD [--until YYYY-MM-DD] [--batch 1-${MAX_BATCH}] [--limit N] [--after ID] [--apply]; nothing written`,
+    `usage: entity-links-backfill.ts --since YYYY-MM-DD [--until YYYY-MM-DD] [--batch 1-${MAX_BATCH}] [--limit N] [--after ID] [--pause-ms 0-60000] [--apply]; nothing written`,
   );
   process.exit(2);
 }
@@ -62,10 +71,11 @@ try {
     nameRewrites: 0,
     library: null as string | null,
   };
-  let cursor = after,
+  const ids = await analysisIdRange(range.since, range.until);
+  let cursor = Math.max(after, ids.after),
     stopped = false;
   pages: for (;;) {
-    const page = await observableAnalyses({ ...range, afterId: cursor, limit: batch });
+    const page = await observableAnalyses({ ...range, afterId: cursor, lastId: ids.last, limit: batch });
     if (!page.length) break;
     // A script may read the article table directly; the worker's queue job carries the language instead.
     const languages = new Map(
@@ -78,6 +88,7 @@ try {
         stopped = true;
         break pages;
       }
+      if (totals.examined && pauseMs) await pause(pauseMs);
       totals.examined++;
       const outcome = await observeAnalysis({ ...item, language: languages.get(item.articleId) ?? null }, { write: apply });
       cursor = item.analysisId;

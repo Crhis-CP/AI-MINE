@@ -979,7 +979,7 @@ test("TASK-0594: an item an operator withdrew is skipped without ending the scan
   emptySummaries.delete("COPYOPEN");
 });
 
-test("after a judgement is committed its per-article shadow is queued once; switched off or refused by the queue, the article goes on as before", async (t) => {
+test("after a judgement is committed its per-article shadow is queued once, never for a BLOCK; switched off or refused by the queue, the article goes on as before", async (t) => {
   const shadowJobs = async (id: string) =>
     (await sql<{ data: Record<string, unknown> }[]>`SELECT data FROM pgboss.job WHERE name = ${observeQueue.name} AND data->>'articleId' = ${id}`).map(
       (j) => j.data,
@@ -998,6 +998,10 @@ test("after a judgement is committed its per-article shadow is queued once; swit
   const [latest] = await sql<{ id: number }[]>`SELECT id FROM analyses WHERE article_id = ${id} ORDER BY id DESC LIMIT 1`;
   assert.deepEqual(await shadowJobs(id), [{ lane: "news", articleId: id, analysisId: latest!.id, language: "en" }]);
   assert.equal((await sql`SELECT 1 FROM enrichment.analysis_checks WHERE article_id = ${id}`).length, 0, "the content job only queues it");
+
+  const blocked = await article("OFFTOPIC", { url: `https://example.com/OFFTOPIC-observe-${T}`, title: `OFFTOPIC observe ${T}` });
+  assert.equal((await processArticle(blocked)).state, "block");
+  assert.deepEqual(await shadowJobs(blocked), [], "a BLOCK is not checked");
 
   await sql`INSERT INTO settings (key, value, updated_by) VALUES ('observe.articles', ${sql.json("off" as never)}, 'test')`;
   try {

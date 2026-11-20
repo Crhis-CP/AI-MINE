@@ -176,7 +176,7 @@ test("with sending off the day stays unsent and goes out once sending is on; the
   );
 });
 
-test("the per-article shadow adds three count lines before the balances, and none on a day nothing was checked", () => {
+test("the per-article shadow tells the day's judged and checked articles before the balances and points out a check that falls behind", () => {
   const at = new Date(NOW).toISOString();
   const base: Reconciliation = {
     day: "2026-11-18",
@@ -185,41 +185,75 @@ test("the per-article shadow adds three count lines before the balances, and non
     translation: { due: 0, missing: 0 },
     balance: [{ service: "deepseek", yuan: 12, at, stale: false, days: 3 }],
   };
-  const checks = { checked: 120, linked: 78, library: 38, softFlags: 15, softArticles: 12, datelines: { release_wire: 30, news_agency: 10, unmarked: 5 } };
-  assert.deepEqual(reconcileLines({ ...base, articleChecks: checks }).slice(-4), [
-    "单篇核对（只记录，读者看不到）：昨天判断的稿件核对了 120 条，认出至少一家公司的 78 条（65%）",
+  const counts = {
+    on: true,
+    judged: 125,
+    checked: 120,
+    linked: 78,
+    library: 38,
+    softFlags: 15,
+    softArticles: 12,
+    datelines: { release_wire: 30, news_agency: 10, unmarked: 5 },
+    failedJobs: 0,
+  };
+  const lines = (articleChecks: Reconciliation["articleChecks"]) => reconcileLines({ ...base, articleChecks });
+  assert.deepEqual(lines(counts).slice(-4), [
+    "单篇核对（只记录，读者看不到）：昨天判断 125 条，核对了 120 条，认出至少一家公司的 78 条（65%）",
     "数字核对（只标记，不改稿）：程序拿不准的数字或日期 15 处（12 条）",
     "电头：新闻稿 30 条，通讯社 10 条，只写地点和日期 5 条",
     "模型余额 deepseek：12 元，按近 7 天的用量约够 3 天",
   ]);
   assert.equal(
-    reconcileLines({ ...base, articleChecks: { ...checks, linked: 0, library: 0 } }).at(-4),
-    "单篇核对（只记录，读者看不到）：昨天判断的稿件核对了 120 条，认出至少一家公司的 0 条（0%）；公司库还没导入，认出的公司没有存下",
+    lines({ ...counts, linked: 0, library: 0 }).at(-4),
+    "单篇核对（只记录，读者看不到）：昨天判断 125 条，核对了 120 条，认出至少一家公司的 0 条（0%）；公司库还没导入，认出的公司没有存下",
   );
+  // Switched on but far behind the day's judgements, with failed jobs: said so, with where to look.
+  assert.deepEqual(lines({ ...counts, checked: 30, linked: 20, failedJobs: 5 }).slice(-5, -3), [
+    "单篇核对（只记录，读者看不到）：昨天判断 125 条，核对了 30 条，认出至少一家公司的 20 条（67%）",
+    "单篇核对需要看一下：开关开着，昨天判断的 125 条只核对了 30 条；队列里有 5 个失败任务，见后台“运行”页和 worker 日志",
+  ]);
+  assert.deepEqual(lines({ ...counts, checked: 0, linked: 0 }).slice(-3, -1), [
+    "单篇核对（只记录，读者看不到）：昨天判断 125 条，核对了 0 条，认出至少一家公司的 0 条（0%）",
+    "单篇核对需要看一下：开关开着，昨天判断的 125 条只核对了 0 条，见后台“运行”页和 worker 日志",
+  ]);
+  assert.ok(lines({ ...counts, failedJobs: 2 }).includes("单篇核对需要看一下：队列里有 2 个失败任务，见后台“运行”页和 worker 日志"));
+  // Switched off, or not readable: one line that says which, so neither looks like the other.
+  assert.deepEqual(lines({ ...counts, on: false }).slice(-2, -1), ["单篇核对：开关关着（observe.articles），没有核对"]);
+  assert.deepEqual(lines({ unreadable: true }).slice(-2, -1), ["单篇核对：今天的计数读取失败（不影响上面的数字），见 worker 日志"]);
+  // Nothing judged and nothing wrong, or a day stored before the shadow: nothing added.
   const plain = reconcileLines(base);
-  for (const articleChecks of [undefined, { ...checks, checked: 0 }]) assert.deepEqual(reconcileLines({ ...base, articleChecks }), plain);
+  for (const articleChecks of [undefined, { ...counts, judged: 0, checked: 0, linked: 0 }]) assert.deepEqual(lines(articleChecks), plain);
 });
 
-test("yesterday's per-article checks are read through their owners: the latest check of each article judged that day", async () => {
+test("yesterday's per-article checks are read through their owners: judged and checked articles, the latest check of each", async () => {
   await seedEntityLibrary(seedRows(), "test", { apply: true });
-  const check = async (articleId: string, judgedAt: Date, checkedAt: Date, figures: unknown[], geography: unknown[]) => {
+  const judge = async (articleId: string, judgedAt: Date, checkedAt: Date | null, figures: unknown[], geography: unknown[]) => {
     await report(articleId, "reconcile-busy", judgedAt, { public: false, revision: 2 });
     const [judged] = await sql<{ id: number }[]>`INSERT INTO analyses (article_id, input_revision, origin, relevance, selected, output, created_at)
-      VALUES (${articleId}, 2, 'model', 'pass', false, '{"scores": []}', ${judgedAt}) RETURNING id`;
-    await sql`INSERT INTO enrichment.analysis_checks (analysis_id, article_id, input_revision, lane, recipe, mode, verdict, figures, geography, created_at)
-      VALUES (${judged!.id}, ${articleId}, 2, 'news', 'test', 'observed', 'ok', ${sql.json(figures as never)}, ${sql.json(geography as never)}, ${checkedAt})`;
+      VALUES (${articleId}, 2, 'model', 'pass', false, ${sql.json({ prefilter: { label: "PASS", reason: "合成" }, scores: [] } as never)}, ${judgedAt})
+      RETURNING id`;
+    if (checkedAt)
+      await sql`INSERT INTO enrichment.analysis_checks (analysis_id, article_id, input_revision, lane, recipe, mode, verdict, figures, geography, created_at)
+        VALUES (${judged!.id}, ${articleId}, 2, 'news', 'test', 'observed', 'ok', ${sql.json(figures as never)}, ${sql.json(geography as never)}, ${checkedAt})`;
   };
-  await check("reconcile-check-a", YESTERDAY, YESTERDAY, [{ class: "soft" }, { class: "hard" }], [{ kind: "dateline", dateline: "release_wire" }]);
-  // Judged yesterday, checked this morning before the reconciliation ran.
-  await check("reconcile-check-b", YESTERDAY, TODAY, [{ class: "hard" }], []);
-  await check("reconcile-check-c", TODAY, TODAY, [{ class: "soft" }], [{ kind: "dateline", dateline: "news_agency" }]);
-  // Judged ten days ago and checked yesterday by the back-fill: not yesterday's.
-  await check("reconcile-check-d", daysAgo(10), YESTERDAY, [{ class: "soft" }], [{ kind: "dateline", dateline: "unmarked" }]);
+  // In time order, as the analysis writes its judgements. Judged ten days ago and checked yesterday by the back-fill:
+  // not yesterday's.
+  await judge("reconcile-check-d", daysAgo(10), YESTERDAY, [{ class: "soft" }], [{ kind: "dateline", dateline: "unmarked" }]);
+  await judge("reconcile-check-a", YESTERDAY, YESTERDAY, [{ class: "soft" }, { class: "hard" }], [{ kind: "dateline", dateline: "release_wire" }]);
+  // Judged yesterday and checked this morning, before the reconciliation ran.
+  await judge("reconcile-check-b", YESTERDAY, TODAY, [{ class: "hard" }], []);
+  // Judged yesterday and not checked.
+  await judge("reconcile-check-e", YESTERDAY, null, [], []);
+  await judge("reconcile-check-c", TODAY, TODAY, [{ class: "soft" }], [{ kind: "dateline", dateline: "news_agency" }]);
   await sql`INSERT INTO entities.article_links (article_id, input_revision, entity_id, lane, role, method, alias, segment, linker_version)
     VALUES ('reconcile-check-a', 2, 'bhp', 'news', 'mention', 'text', 'BHP', 'body', 'test')`;
   try {
     const r = await reconcile(NOW);
-    assert.deepEqual(r.articleChecks, {
+    assert.ok(r.articleChecks && !("unreadable" in r.articleChecks));
+    const { failedJobs, ...counts } = r.articleChecks;
+    assert.deepEqual(counts, {
+      on: true,
+      judged: 3,
       checked: 2,
       linked: 1,
       library: seedRows().entities.length,
@@ -227,10 +261,30 @@ test("yesterday's per-article checks are read through their owners: the latest c
       softArticles: 1,
       datelines: { release_wire: 1, news_agency: 0, unmarked: 0 },
     });
-    assert.ok(reconcileLines(r).includes("数字核对（只标记，不改稿）：程序拿不准的数字或日期 1 处（1 条）"), "the hard findings stay out of the message");
+    // This test database has no queue tables unless a queue was started: then the count is not read.
+    assert.ok(failedJobs === null || failedJobs === 0);
+    const text = reconcileLines(r);
+    assert.ok(text.includes("单篇核对（只记录，读者看不到）：昨天判断 3 条，核对了 2 条，认出至少一家公司的 1 条（50%）"));
+    assert.ok(text.some((line) => line.startsWith("单篇核对需要看一下：开关开着，昨天判断的 3 条只核对了 2 条")));
+    assert.ok(text.includes("数字核对（只标记，不改稿）：程序拿不准的数字或日期 1 处（1 条）"), "the hard findings stay out of the message");
   } finally {
     await sql`DELETE FROM entities.article_links WHERE article_id LIKE 'reconcile-check-%'`;
     await sql`DELETE FROM enrichment.analysis_checks WHERE article_id LIKE 'reconcile-check-%'`;
     await sql`DELETE FROM articles WHERE id LIKE 'reconcile-check-%'`;
   }
+});
+
+test("a failure reading the per-article checks costs one line of the message, never the rest of it", async (t) => {
+  const warned = t.mock.method(console, "warn", () => {});
+  await sql`ALTER TABLE enrichment.analysis_checks RENAME TO analysis_checks_away`;
+  try {
+    const r = await reconcile(NOW);
+    assert.deepEqual(r.articleChecks, { unreadable: true });
+    const text = reconcileLines(r);
+    assert.match(text[0]!, /^读者昨天看到：新公开 \d+ 条/);
+    assert.ok(text.includes("单篇核对：今天的计数读取失败（不影响上面的数字），见 worker 日志"));
+  } finally {
+    await sql`ALTER TABLE enrichment.analysis_checks_away RENAME TO analysis_checks`;
+  }
+  assert.ok(warned.mock.calls.some((call) => String(call.arguments[0]).includes("article check counts unreadable")));
 });

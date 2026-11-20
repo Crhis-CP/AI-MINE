@@ -43,6 +43,8 @@ const GEOGRAPHY = {
     { code: "AR", role: "event_location", mention: "Argentina", segment: "body_head", quote: "San Juan Province, Argentina" },
   ],
 };
+/** What the prefilter answered in a real judgement that went past it. */
+const PASSED = { label: "PASS", reason: "合成" };
 const COPY = {
   title_zh: "泰克资源与南32将投资25亿美元开发阿根廷铜矿",
   summary_zh: "泰克资源（Teck Resources）和南32表示，将在阿根廷投资2.5亿美元开发铜矿项目，产量将增长12%。",
@@ -59,7 +61,13 @@ async function judgement(
   articleId: string,
   fields: { relevance?: string; output?: Record<string, unknown>; revision?: number; copy?: { title_zh: string; summary_zh: string } } = {},
 ) {
-  const output = fields.output ?? { scores: [50, 52], writer: "understand", fact: { title: "投资", occurredAt: "2026-11-18" }, geography: GEOGRAPHY };
+  const output = fields.output ?? {
+    prefilter: PASSED,
+    scores: [50, 52],
+    writer: "understand",
+    fact: { title: "投资", occurredAt: "2026-11-18" },
+    geography: GEOGRAPHY,
+  };
   const copy = fields.copy ?? COPY;
   const [row] = await sql<{ id: number }[]>`
     INSERT INTO analyses (article_id, input_revision, origin, relevance, selected, score, subjects, title_zh, summary_zh, output)
@@ -147,7 +155,7 @@ test("a committed judgement is checked once: one check row and its links, and th
     ],
     geography: [
       { kind: "dateline", dateline: "release_wire", marker: "PRNewswire", end: DATELINE.length },
-      { kind: "demoted", code: "CA" },
+      { kind: "demoted", code: "CA", quote: "VANCOUVER, Canada" },
     ],
   });
   assert.deepEqual(await links(id), [
@@ -170,11 +178,14 @@ test("only the current, complete and relevant judgement of an article is checked
   const id = await article("observe-skips");
   const scope = await judgement(id, { relevance: "pass", output: { prefilter: { label: "PASS", reason: "合成" } } });
   const blocked = await judgement(id, { relevance: "block", output: { scores: null, prefilter: { label: "BLOCK", reason: "合成" } } });
+  // A post that waits for material is committed with no prefilter answer and nothing to check.
+  const waiting = await judgement(id, { relevance: "unknown", output: { prefilter: null, scores: null } });
   const older = await judgement(id);
   const newer = await judgement(id);
   const run = (analysisId: number, articleId = id) => observeAnalysis({ articleId, analysisId, language: "en" });
   assert.deepEqual(await run(scope), { state: "skipped", reason: "not_judged" });
   assert.deepEqual(await run(blocked), { state: "skipped", reason: "not_judged" });
+  assert.deepEqual(await run(waiting), { state: "skipped", reason: "not_judged" });
   assert.deepEqual(await run(older), { state: "skipped", reason: "superseded" });
   assert.deepEqual(await run(newer, "observe-release"), { state: "skipped", reason: "missing" }, "the row must belong to the article");
   assert.deepEqual(await run(987_654_321), { state: "skipped", reason: "missing" });
@@ -210,6 +221,13 @@ test("the queued job checks the judgement; the switch stops both the queueing an
   assert.equal(await checkRow(laterId), undefined, "queued work does nothing while it is off");
   assert.equal(await setSwitch(false), false, "false reads as off too");
   assert.equal(await setSwitch("on"), true);
+  assert.equal(await setSwitch(undefined), true);
+  // An answer is kept for up to a minute: a change is seen within it, without a restart.
+  const now = Date.now();
+  assert.equal(await articleObserveEnabled({ now }), true);
+  await sql`INSERT INTO settings (key, value, updated_by) VALUES ('observe.articles', ${sql.json("off" as never)}, 'test')`;
+  assert.equal(await articleObserveEnabled({ now: now + 30_000 }), true, "half a minute on, the kept answer still holds");
+  assert.equal(await articleObserveEnabled({ now: now + 61_000 }), false, "after a minute the setting is read again");
   assert.equal(await setSwitch(undefined), true);
   await assert.rejects(handler([{ id: "bad", data: { lane: "news", articleId: later } }]), "a malformed payload fails the job");
 });
@@ -249,7 +267,7 @@ test("the daily summary takes the latest check of each article judged in the win
   const judged = async (articleId: string, revision: number, at: string) => {
     if (!(await sql`SELECT 1 FROM articles WHERE id = ${articleId}`).length) await article(articleId);
     const [row] = await sql<{ id: number }[]>`INSERT INTO analyses (article_id, input_revision, origin, relevance, selected, output, created_at)
-      VALUES (${articleId}, ${revision}, 'model', 'pass', false, '{"scores": []}', ${at}) RETURNING id`;
+      VALUES (${articleId}, ${revision}, 'model', 'pass', false, ${sql.json({ prefilter: PASSED, scores: [] } as never)}, ${at}) RETURNING id`;
     return row!.id;
   };
   const check = (analysisId: number, articleId: string, revision: number, at: string, figures: unknown[], geography: unknown[]) =>
@@ -257,7 +275,10 @@ test("the daily summary takes the latest check of each article judged in the win
       VALUES (${analysisId}, ${articleId}, ${revision}, 'news', 'test', 'observed', 'ok', ${sql.json(figures as never)}, ${sql.json(geography as never)}, ${at})`;
   const soft = { class: "soft" },
     hard = { class: "hard" };
-  // The Beijing day 18 November runs from 2026-11-17T16:00Z to 2026-11-18T16:00Z.
+  // The Beijing day 18 November runs from 2026-11-17T16:00Z to 2026-11-18T16:00Z. Judgements are inserted in time
+  // order, as the analysis writes them (now() at commit), so their ids grow with their time as in production.
+  // An older judgement the back-fill checked that day is not that day's.
+  await check(await judged("sum-c", 1, "2026-11-16T08:00:00Z"), "sum-c", 1, "2026-11-18T08:00:00Z", [soft], [{ kind: "dateline", dateline: "unmarked" }]);
   await check(
     await judged("sum-a", 1, "2026-11-17T17:00:00Z"),
     "sum-a",
@@ -267,6 +288,14 @@ test("the daily summary takes the latest check of each article judged in the win
     [{ kind: "dateline", dateline: "release_wire" }],
   );
   await check(await judged("sum-a", 1, "2026-11-18T01:00:00Z"), "sum-a", 1, "2026-11-18T01:01:00Z", [soft], []);
+  await check(await judged("sum-d", 2, "2026-11-18T10:00:00Z"), "sum-d", 2, "2026-11-18T10:00:30Z", [hard], [{ kind: "dateline", dateline: "unmarked" }]);
+  // Judged that day and not checked (yet): counted as judged only.
+  await judged("sum-e", 1, "2026-11-18T12:00:00Z");
+  // A waiting post (no prefilter answer) and a BLOCK are no checkable judgements.
+  await article("sum-f");
+  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, selected, output, created_at)
+    VALUES ('sum-f', 1, 'model', 'unknown', false, '{"prefilter": null, "scores": null}', '2026-11-18T12:00:00Z'),
+           ('sum-f', 1, 'model', 'block', false, ${sql.json({ prefilter: { label: "BLOCK", reason: "合成" }, scores: null } as never)}, '2026-11-18T12:01:00Z')`;
   // Judged just before midnight and checked just after it: still that day's.
   await check(
     await judged("sum-b", 3, "2026-11-18T15:59:00Z"),
@@ -276,14 +305,12 @@ test("the daily summary takes the latest check of each article judged in the win
     [],
     [
       { kind: "dateline", dateline: "news_agency" },
-      { kind: "demoted", code: "CA" },
+      { kind: "demoted", code: "CA", quote: "OTTAWA, Canada" },
     ],
   );
-  // An older judgement the back-fill checked that day is not that day's.
-  await check(await judged("sum-c", 1, "2026-11-16T08:00:00Z"), "sum-c", 1, "2026-11-18T08:00:00Z", [soft], [{ kind: "dateline", dateline: "unmarked" }]);
-  await check(await judged("sum-d", 2, "2026-11-18T10:00:00Z"), "sum-d", 2, "2026-11-18T10:00:30Z", [hard], [{ kind: "dateline", dateline: "unmarked" }]);
   const summary = await articleCheckSummary(new Date("2026-11-17T16:00:00Z"), new Date("2026-11-18T16:00:00Z"));
   assert.deepEqual(summary, {
+    judged: 4,
     articles: [
       { articleId: "sum-a", revision: 1 },
       { articleId: "sum-b", revision: 3 },
@@ -307,11 +334,24 @@ test("check rows older than 180 days are pruned by the daily retention", async (
     await sql`INSERT INTO enrichment.analysis_checks (analysis_id, article_id, input_revision, lane, recipe, mode, verdict, created_at)
       VALUES (${analysisId}, 'prune', 1, 'news', 'test', 'observed', 'ok', ${new Date(Date.now() - age * day)})`;
   const result = await dailyRetention();
-  assert.ok(result.deletedAnalysisChecks >= 1);
+  assert.ok((result.deletedAnalysisChecks ?? 0) >= 1);
   assert.deepEqual(
     (await sql`SELECT analysis_id FROM enrichment.analysis_checks WHERE article_id = 'prune'`).map((r) => r.analysis_id),
     [9_102],
   );
+});
+
+test("a pruning that fails is logged and the rest of the daily housekeeping still runs", async (t) => {
+  const warned = t.mock.method(console, "warn", () => {});
+  await sql`ALTER TABLE enrichment.analysis_checks RENAME TO analysis_checks_away`;
+  try {
+    const result = await dailyRetention();
+    assert.equal(result.deletedAnalysisChecks, null);
+    assert.equal(typeof result.deletedJobRuns, "number", "the other housekeeping ran");
+  } finally {
+    await sql`ALTER TABLE enrichment.analysis_checks_away RENAME TO analysis_checks`;
+  }
+  assert.ok(warned.mock.calls.some((call) => String(call.arguments[0]).includes("analysis check pruning failed")));
 });
 
 test("the back-fill script checks the latest judgements once, and its dry run writes nothing", async () => {
@@ -321,14 +361,14 @@ test("the back-fill script checks the latest judgements once, and its dry run wr
   const [{ last }] = await sql<{ last: number }[]>`SELECT coalesce(max(id), 0)::int AS last FROM analyses`;
   const first = await article("backfill-a");
   const second = await article("backfill-b", "Glencore said cobalt output rose.", "Glencore cobalt output rises");
-  await judgement(first, { output: { scores: [10, 12], writer: "summarize", fact: null, geography: null } });
+  await judgement(first, { output: { prefilter: PASSED, scores: [10, 12], writer: "summarize", fact: null, geography: null } });
   const latest = await judgement(first);
   const other = await judgement(second, {
-    output: { scores: [10, 12], writer: "summarize", fact: null, geography: null },
+    output: { prefilter: PASSED, scores: [10, 12], writer: "summarize", fact: null, geography: null },
     copy: { title_zh: "嘉能可钴产量上升", summary_zh: "嘉能可表示钴产量上升。" },
   });
   const since = addDays(beijingDate(Date.now()), -1);
-  const window = ["--since", since, "--after", String(last)];
+  const window = ["--since", since, "--after", String(last), "--pause-ms", "0"];
 
   const dry = await run(...window);
   assert.equal(dry.mode, "dry-run");
@@ -342,7 +382,7 @@ test("the back-fill script checks the latest judgements once, and its dry run wr
 
   const limited = await run(...window, "--apply", "--limit", "1", "--batch", "1");
   assert.deepEqual([limited.examined, limited.stored, limited.next], [1, { checks: 1, links: 3 }, `--after ${latest}`]);
-  const rest = await run("--since", since, "--after", String(latest), "--apply");
+  const rest = await run("--since", since, "--after", String(latest), "--apply", "--pause-ms", "0");
   assert.deepEqual([rest.examined, rest.stored], [1, { checks: 1, links: 1 }]);
   assert.equal((await checkRow(other))?.verdict, "ok");
   assert.deepEqual(
@@ -353,4 +393,6 @@ test("the back-fill script checks the latest judgements once, and its dry run wr
   assert.deepEqual([repeat.examined, repeat.stored], [2, { checks: 0, links: 4 }], "a repeat keeps the check rows and refreshes the links");
   await assert.rejects(run("--apply"), "--since is required");
   await assert.rejects(run("--since", "2026-13-01"), "an invalid date stops the script");
+  await assert.rejects(run(...window, "--apply", "--limit"), "a flag given without its value stops the script");
+  await assert.rejects(run("--since", since, "--limit", "--apply"), "so does one followed by another flag");
 });

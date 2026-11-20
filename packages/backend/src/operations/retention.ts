@@ -53,8 +53,16 @@ export async function dailyRetention(now = new Date()) {
     (await pruneCache(path.join(config.dataDir, "imgcache"), monthMs, now.getTime())) +
     (await pruneCache(path.join(config.dataDir, "ogcache"), monthMs, now.getTime()));
   const anonymizedFeedback = await anonymizeExpiredFeedback(now);
-  // The per-article shadow's check rows (enrichment.analysis_checks) are kept 180 days.
-  const deletedAnalysisChecks = await pruneAnalysisChecks(now);
+  // The per-article shadow's check rows (enrichment.analysis_checks) are kept 180 days. A failure there is logged and
+  // left at that: the shadow must not stop the rest of the housekeeping.
+  let deletedAnalysisChecks: number | null = null;
+  try {
+    deletedAnalysisChecks = await pruneAnalysisChecks(now);
+  } catch (error) {
+    console.warn(
+      JSON.stringify({ level: "warn", msg: "analysis check pruning failed", error: (error instanceof Error ? error.message : String(error)).slice(0, 300) }),
+    );
+  }
   if (failures.length)
     throw new AggregateError(
       failures.map((failure) => failure.error),

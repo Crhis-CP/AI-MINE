@@ -4,11 +4,13 @@
 // publications are only read, so nothing a reader sees changes. The content job only queues the work, after the
 // judgement's transaction has committed, and a failure to queue it is logged and swallowed: the shadow can neither
 // fail, hold up nor roll back the article it observes. The work runs in a queue of its own, one article at a time;
-// a failed run is retried twice and then stays failed in pg-boss, which the runs page counts.
+// a failed run is retried twice and then stays failed in pg-boss, which the runs page and the daily reconciliation count.
+// The article is loaded with the analysis's own loader (editorial/input.ts), which reads the whole stored page, as the
+// judgement itself did; the checks then read only what the judging steps were shown (checks.ts).
 // Switch: the settings key observe.articles (owned by enrichment). Absent means on; the value "off" stops both the
 // queueing and the queued work within a minute (docs/runbooks/article-observe.md).
 import { z } from "zod";
-import { type Db, sql } from "../../db.ts";
+import { type Db, sql, withCustomPlans } from "../../db.ts";
 import { loadAnalyzeInput } from "../../editorial/input.ts";
 import { enqueueOn } from "../../jobs/module-queues.ts";
 import { defineQueue } from "../../modules.ts";
@@ -45,11 +47,12 @@ export type ObserveOutcome =
   | { state: "observed"; check: ArticleCheck; library: "database" | "code_seed"; stored: { check: boolean; links: number } | null };
 
 /**
- * Runs the checks on one committed judgement and, with `write` (the default), stores them. Skipped when the row is
- * gone or is no complete relevant judgement (a prefilter BLOCK, the early scope row), when a newer judgement of the same
- * revision exists (it has its own run), or when the article has moved to a newer revision. The check row is written
- * once per judgement (a repeat keeps the first); the links of the revision are replaced, so a run after the library
- * grew refreshes them. Both writes share one transaction of their own, never the judgement's.
+ * Runs the checks on one committed judgement and, with `write` (the default), stores them. Only a checkable judgement
+ * is checked: complete (it carries the scores, even when there were none to give), past the prefilter (a waiting post
+ * with no material has no prefilter answer) and not a BLOCK; the early scope row is none. Skipped too when a newer
+ * judgement of the same revision exists (it has its own run) or the article has moved to a newer revision. The check
+ * row is written once per judgement (a repeat keeps the first); the links of the revision are replaced, so a run after
+ * the library grew refreshes them. Both writes share one transaction of their own, never the judgement's.
  */
 export async function observeAnalysis(
   job: { articleId: string; analysisId: number; language: string | null },
@@ -67,22 +70,23 @@ export async function observeAnalysis(
       writer: string | null;
       occurred_at: string | null;
       geography: unknown;
-      complete: boolean;
+      checkable: boolean;
       superseded: boolean;
     }[]
   >`
     SELECT a.article_id, a.input_revision, a.relevance, a.subjects, a.title_zh, a.summary_zh, a.reason_zh, a.output->>'writer' AS writer,
-      a.output->'fact'->>'occurredAt' AS occurred_at, a.output->'geography' AS geography, coalesce(a.output ? 'scores', false) AS complete,
+      a.output->'fact'->>'occurredAt' AS occurred_at, a.output->'geography' AS geography,
+      coalesce(a.output ? 'scores' AND jsonb_typeof(a.output->'prefilter') = 'object' AND a.relevance IS DISTINCT FROM 'block', false) AS checkable,
       EXISTS (SELECT 1 FROM analyses n WHERE n.article_id = a.article_id AND n.input_revision = a.input_revision AND n.id > a.id) AS superseded
     FROM analyses a WHERE a.id = ${job.analysisId}`;
   if (!row || row.article_id !== job.articleId) return { state: "skipped", reason: "missing" };
-  if (!row.complete || row.relevance === "block") return { state: "skipped", reason: "not_judged" };
+  if (!row.checkable) return { state: "skipped", reason: "not_judged" };
   if (row.superseded) return { state: "skipped", reason: "superseded" };
   const article = await loadAnalyzeInput(job.articleId);
   if (!article) return { state: "skipped", reason: "missing" };
   if (article.revision !== row.input_revision) return { state: "skipped", reason: "stale" };
   const { index, source } = await loadEntityIndex();
-  const check = checkArticle(index, article, job.language, {
+  const check = await checkArticle(index, article, job.language, {
     subjects: row.subjects ?? [],
     titleZh: row.title_zh,
     summaryZh: row.summary_zh,
@@ -160,7 +164,9 @@ export async function queueArticleObserve(job: { articleId: string; analysisId: 
 }
 
 export interface ArticleCheckSummary {
-  /** Each article judged in the window that has a check, with the revision of its latest one. */
+  /** Articles with a checkable judgement made in the window (complete, past the prefilter, not a BLOCK). */
+  judged: number;
+  /** Those of them with a check, each with the revision of its latest checked judgement there. */
   articles: Array<{ articleId: string; revision: number }>;
   /** Soft figure findings of those latest checks, and how many articles have one. The hard class is not summed here. */
   softFlags: number;
@@ -169,28 +175,60 @@ export interface ArticleCheckSummary {
   datelines: Record<DatelineKind, number>;
 }
 
+/** A judgement is written in a transaction of seconds; an hour on either side covers any order its id and time take. */
+const ID_MARGIN_MS = 3_600_000;
+
 /**
- * For the daily reconciliation: the checks of the judgements made in [start, end), the latest one per article. A check
- * written later for an older judgement (the back-fill) is not that day's, and one written just after midnight for a
- * judgement of the day before is. Read through the check rows' created_at index from `start` on (a check is never older
- * than its judgement), each joined to its judgement by id: bounded by the checks written since then.
+ * The analysis ids that can have been written in [since, until): after `after` and up to `last`. Ids grow with time,
+ * and each end is found by walking the primary key back from the newest row until a row older than the end's margin,
+ * so it reads only the rows written since then, never the whole table (analyses.created_at has no index).
  */
-export async function articleCheckSummary(start: Date, end: Date, db: Db = sql): Promise<ArticleCheckSummary> {
-  const rows = await db<{ article_id: string; input_revision: number; figures: unknown; geography: unknown }[]>`
-    SELECT DISTINCT ON (c.article_id) c.article_id, c.input_revision, c.figures, c.geography
-    FROM enrichment.analysis_checks c JOIN analyses a ON a.id = c.analysis_id
-    WHERE c.created_at >= ${start} AND a.created_at >= ${start} AND a.created_at < ${end}
-    ORDER BY c.article_id, c.analysis_id DESC`;
-  const summary: ArticleCheckSummary = { articles: [], softFlags: 0, softArticles: 0, datelines: { release_wire: 0, news_agency: 0, unmarked: 0 } };
+export async function analysisIdRange(since: Date, until: Date, db: Db = sql): Promise<{ after: number; last: number }> {
+  const [row] = await db<{ after: number; last: number }[]>`
+    SELECT coalesce((SELECT id FROM analyses WHERE created_at < ${new Date(since.getTime() - ID_MARGIN_MS)} ORDER BY id DESC LIMIT 1), 0)::bigint AS after,
+      coalesce((SELECT id FROM analyses WHERE created_at < ${new Date(until.getTime() + ID_MARGIN_MS)} ORDER BY id DESC LIMIT 1), 0)::bigint AS last`;
+  return { after: Number(row?.after ?? 0), last: Number(row?.last ?? 0) };
+}
+
+/**
+ * For the daily reconciliation: the articles with a checkable judgement made in [start, end), and the latest check of
+ * each that has one. A check written later for an older judgement (the back-fill) is not that day's; one written just
+ * after midnight for a judgement of the day before is. The judgements are read by id from just before `start`, so the
+ * read is bounded by the rows written since then, with plans made for the actual bounds.
+ */
+export async function articleCheckSummary(start: Date, end: Date): Promise<ArticleCheckSummary> {
+  const rows = await withCustomPlans(async (db) => {
+    const ids = await analysisIdRange(start, end, db);
+    return db<{ article_id: string; checked: boolean; input_revision: number | null; figures: unknown; geography: unknown }[]>`
+      SELECT a.article_id, c.analysis_id IS NOT NULL AS checked, c.input_revision, c.figures, c.geography
+      FROM analyses a LEFT JOIN enrichment.analysis_checks c ON c.analysis_id = a.id
+      WHERE a.id > ${ids.after} AND a.id <= ${ids.last} AND a.created_at >= ${start} AND a.created_at < ${end}
+        AND a.output ? 'scores' AND jsonb_typeof(a.output->'prefilter') = 'object' AND a.relevance IS DISTINCT FROM 'block'
+      ORDER BY a.article_id, a.id DESC`;
+  });
+  const summary: ArticleCheckSummary = {
+    judged: 0,
+    articles: [],
+    softFlags: 0,
+    softArticles: 0,
+    datelines: { release_wire: 0, news_agency: 0, unmarked: 0 },
+  };
   const list = (value: unknown) => (Array.isArray(value) ? (value as Array<Record<string, unknown> | null>) : []);
+  const judged = new Set<string>(),
+    counted = new Set<string>();
   for (const row of rows) {
-    summary.articles.push({ articleId: row.article_id, revision: row.input_revision });
+    judged.add(row.article_id);
+    // Rows come newest first within an article: the first checked one is its latest check.
+    if (!row.checked || counted.has(row.article_id)) continue;
+    counted.add(row.article_id);
+    summary.articles.push({ articleId: row.article_id, revision: row.input_revision! });
     const soft = list(row.figures).filter((finding) => finding?.class === "soft").length;
     summary.softFlags += soft;
     if (soft) summary.softArticles++;
     const kind = list(row.geography).find((note) => note?.kind === "dateline")?.dateline;
     if (kind === "release_wire" || kind === "news_agency" || kind === "unmarked") summary.datelines[kind]++;
   }
+  summary.judged = judged.size;
   return summary;
 }
 
@@ -203,18 +241,19 @@ export async function pruneAnalysisChecks(now = new Date(), db: Db = sql): Promi
 }
 
 /**
- * The back-fill's pages (scripts/entity-links-backfill.ts): judgements made in [since, until) that are still the latest
- * of their article and complete and relevant, in id order after `afterId`. Older judgements are left out: readers see
- * the latest one, and a check of an older revision would be skipped as stale anyway.
+ * The back-fill's pages (scripts/entity-links-backfill.ts): checkable judgements made in [since, until) that are still
+ * the latest of their article, by id after `afterId` and up to `lastId` (take both from analysisIdRange once), so each
+ * page reads its own stretch of the primary key and no more. Older judgements are left out: readers see the latest one,
+ * and a check of an older revision would be skipped as stale anyway.
  */
 export async function observableAnalyses(
-  range: { since: Date; until: Date; afterId: number; limit: number },
+  range: { since: Date; until: Date; afterId: number; lastId: number; limit: number },
   db: Db = sql,
 ): Promise<Array<{ analysisId: number; articleId: string }>> {
   const rows = await db<{ id: number; article_id: string }[]>`
     SELECT a.id, a.article_id FROM analyses a
-    WHERE a.id > ${range.afterId} AND a.created_at >= ${range.since} AND a.created_at < ${range.until}
-      AND a.output ? 'scores' AND a.relevance IS DISTINCT FROM 'block'
+    WHERE a.id > ${range.afterId} AND a.id <= ${range.lastId} AND a.created_at >= ${range.since} AND a.created_at < ${range.until}
+      AND a.output ? 'scores' AND jsonb_typeof(a.output->'prefilter') = 'object' AND a.relevance IS DISTINCT FROM 'block'
       AND NOT EXISTS (SELECT 1 FROM analyses n WHERE n.article_id = a.article_id
         AND (n.input_revision > a.input_revision OR (n.input_revision = a.input_revision AND n.id > a.id)))
     ORDER BY a.id LIMIT ${range.limit}`;
