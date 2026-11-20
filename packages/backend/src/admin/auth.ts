@@ -235,6 +235,14 @@ export async function auditActionExists(actor: string, action: string, db: Db = 
   return !!row;
 }
 
+/** Manual grouping corrections in a window (detach, story merge, regroup) for the event shadow's agreement report. */
+export async function groupingAuditTrail(since: Date, until: Date, limit: number, db: Db = sql) {
+  return db<{ action: string; subject: string | null; actor: string; before: unknown; after: unknown; created_at: Date }[]>`
+    SELECT action,subject,actor,before,after,created_at FROM audit_log
+    WHERE action IN ('content.detach','story.merge','content.rerun.group') AND created_at>=${since} AND created_at<${until}
+    ORDER BY id LIMIT ${limit}`;
+}
+
 /** Owner-only audit reads hold the account fence through the complete query. */
 export async function readOwnerAudit(principal: AdminPrincipal, filters: { subject?: string; action?: string; page: number }) {
   return sql.begin(async (tx) => {

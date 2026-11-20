@@ -12,6 +12,7 @@ import { countDiscovered } from "../content/materials.ts";
 import { scoredRelevantArticles } from "../enrichment/records.ts";
 import { type AccountDaysLeft, accountDaysLeft } from "../providers/account-balance.ts";
 import { notPublicAmong, publicationFlow, translationLag } from "../publication/items.ts";
+import { type ShadowHeadline, shadowHeadline } from "../pipeline/events/agreement.ts";
 import { sourceHealth } from "../sources/health.ts";
 
 /**
@@ -42,6 +43,8 @@ export interface Reconciliation {
   translation: { due: number; missing: number };
   /** Each model account's latest reading; for a fresh one, the days it lasts at the recent daily spend. */
   balance: AccountDaysLeft[];
+  /** The event rules in shadow (pipeline/events/agreement.ts); null when they judged nothing that day or could not be read. */
+  shadow?: ShadowHeadline | null;
 }
 
 export async function reconcile(now = Date.now()): Promise<Reconciliation> {
@@ -93,6 +96,11 @@ export async function reconcile(now = Date.now()): Promise<Reconciliation> {
   // A report needs an hour to be translated before it counts as late.
   const translation = await translationLag(start, new Date(Math.min(end.getTime(), now - 3600_000)));
   const balance = await accountDaysLeft(now);
+  // The shadow's numbers never hold up the message: unreadable, they are left out and the reason is logged.
+  const shadow = await shadowHeadline(start, end).catch((error: unknown) => {
+    console.error("[reconcile] event shadow numbers unavailable:", error);
+    return null;
+  });
 
   return {
     day,
@@ -100,6 +108,7 @@ export async function reconcile(now = Date.now()): Promise<Reconciliation> {
     flow: { collected, public: shown.public, selected: shown.selected, scoredNotPublic },
     translation,
     balance,
+    shadow: shadow?.judged ? shadow : null,
   };
 }
 
@@ -131,6 +140,10 @@ export function reconcileLines(r: Reconciliation): string[] {
       : "译文：昨天没有需要翻译的外文稿",
   );
   lines.push(...r.balance.map(balanceLine));
+  if (r.shadow)
+    lines.push(
+      `事件新规则试运行（读者看不到）：试判 ${r.shadow.judged} 篇；判为同一件事 ${r.shadow.sameFact} 篇，与现在的归组一致 ${r.shadow.agree} 篇；仍需模型判断 ${r.shadow.undecided} 篇（${percent(r.shadow.undecided, r.shadow.judged)}）`,
+    );
   return lines;
 }
 
