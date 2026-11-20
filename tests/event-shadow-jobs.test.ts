@@ -145,14 +145,31 @@ test("shadow jobs whose window reached its bound are counted from the queue's co
 });
 
 test("with no shadow row in a window the report reads nothing else and says so in zeros", async () => {
-  const a = await shadowAgreement(hoursAgo(400), hoursAgo(399));
+  let queries = 0;
+  const counting = ((strings: TemplateStringsArray, ...values: never[]) => {
+    queries++;
+    return sql(strings, ...values);
+  }) as unknown as typeof sql;
+  const a = await shadowAgreement(hoursAgo(400), hoursAgo(399), {}, counting);
   assert.deepEqual([a.rows, a.judged, a.outside, a.calls.forecast, a.human.pairs, a.human.truncated, a.windowFull], [0, 0, 0, 0, 0, false, 0]);
+  assert.equal(queries, 1, "one read of the shadow rows, and no audit log, membership or queue read after it");
 });
 
 test("agreement: same-fact agreement, the undecided share, the call forecast and both engines against people's corrections", async () => {
   const source = await shadowSource();
   const r = async () => report({ source, titleZh: unique(), body: body(), publishedAt: hoursAgo(12) });
-  const [a1, a2, b1, c1, d1, e1, m1, g1, h1] = [await r(), await r(), await r(), await r(), await r(), await r(), await r(), await r(), await r()];
+  const [a1, a2, b1, c1, d1, e1, m1, g1, h1, o1] = [
+    await r(),
+    await r(),
+    await r(),
+    await r(),
+    await r(),
+    await r(),
+    await r(),
+    await r(),
+    await r(),
+    await r(),
+  ];
   const shared = await fact("合成共同事实", [a1, a2]);
   const other = await fact("合成另一事实", [b1]);
   const merged = await fact("合成后来合并的事件", [m1]);
@@ -196,6 +213,8 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
   // A new event the live engine put into an existing fact.
   await insert(d1, "new_event", "no_candidate", null, [], { verdict: "same-fact", fact: shared, called: true }, 0);
   await insert(e1, "not_judged", "manual", null, [], { verdict: "manual", fact: null, called: false }, 0);
+  // Outside the rules but the live engine called: it keeps the live path after a switch, so it counts one call.
+  await insert(o1, "not_judged", "not_passed", null, [], { verdict: "new-story", fact: null, called: true }, 0);
   // A person merged m1's story into b1's: the rules, which tied m1 to b1's fact, were right; the live engine had split them.
   await insert(m1, "same_fact", "fingerprint", other, [cand(b1, other)], { verdict: "new-story", fact: merged, called: false }, 0);
   await sql`INSERT INTO audit_log(actor,action,subject,after) VALUES('admin:test','story.merge',${`story:${merged.storyId}`},${sql.json({ into: other.storyId })})`;
@@ -214,11 +233,11 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
   assert.deepEqual(
     { rows: a.rows, judged: a.judged, decided: a.decided, undecided: a.undecided, calls: a.calls, sameFact: a.sameFact },
     {
-      rows: 8,
+      rows: 9,
       judged: 6,
       decided: 6,
       undecided: 0,
-      calls: { wouldCall: 1, outsideCalled: 0, forecast: 1, liveCalled: 3 },
+      calls: { wouldCall: 1, outsideCalled: 1, forecast: 2, liveCalled: 4 },
       sameFact: { rows: 5, agree: 1 },
     },
   );
@@ -228,16 +247,17 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
     "undecided/similar_unsure": 1,
     "new_event/no_candidate": 1,
     "not_judged/manual": 1,
+    "not_judged/not_passed": 1,
   });
   assert.deepEqual(a.pairs, { total: 5, shadowSame: 5, liveSame: 1, both: 1 });
   assert.deepEqual(a.newEvent, { rows: 1, liveJoinedFact: 1, liveJoinedStory: 0 });
   assert.deepEqual(a.recallHit, { eligible: 3, hit: 1 });
   assert.deepEqual(a.human, { pairs: 3, shadowRight: 1, shadowWrong: 2, liveRight: 2, liveWrong: 1, truncated: false });
-  assert.deepEqual([a.outside, a.windowFull], [1, 0]);
+  assert.deepEqual([a.outside, a.windowFull], [2, 0]);
   const newest = await shadowAgreement(from, to, { auditLimit: 1 });
   assert.ok(newest.human.truncated && newest.human.pairs < a.human.pairs, "past the bound only the newest corrections are read, and that is said");
 
-  assert.deepEqual(await shadowHeadline(from, to), { rows: 7, judged: 6, sameFact: 5, agree: 1, undecided: 0, forecast: 1, liveCalled: 3 });
+  assert.deepEqual(await shadowHeadline(from, to), { rows: 8, judged: 6, sameFact: 5, agree: 1, undecided: 0, forecast: 2, liveCalled: 4 });
   const day: Reconciliation = {
     day: "2026-11-18",
     sources: { enabled: 0, withNew: 0, silent: { failing: 0, waiting: 0, unstable: 0, overdue: 0, unknown: 0, quiet: 0 } },
@@ -254,5 +274,5 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
 
   await sql`UPDATE events.shadow_decisions SET decided_at=now()-interval '46 days' WHERE article_id=${e1}`;
   assert.equal((await dailyRetention()).deletedShadowDecisions, 1, "the daily housekeeping drops rows past the 45-day retention, the rest stay");
-  assert.equal((await shadowAgreement(from, to)).rows, 7);
+  assert.equal((await shadowAgreement(from, to)).rows, 8);
 });
