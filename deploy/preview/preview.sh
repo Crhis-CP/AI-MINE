@@ -18,7 +18,18 @@ case ${1:-} in
     PREVIEW_IMAGE_HEX=${image#sha256:}
     PREVIEW_EXPIRES=$(( $(date +%s) + hours * 3600 ))
     export PREVIEW_IMAGE_HEX PREVIEW_EXPIRES
-    docker compose --env-file "$root/.env" -f compose.yml up -d --no-build --pull never --wait
+    compose=(docker compose --project-name amp-preview --env-file "$root/.env" -f compose.yml)
+    cleanup_failed_start() {
+      code=$?
+      trap - EXIT
+      "${compose[@]}" down || echo 'Failed to close the preview project' >&2
+      exit "$code"
+    }
+    trap cleanup_failed_start EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    "${compose[@]}" up -d --no-build --pull never --wait
+    trap - EXIT INT TERM
     ;;
   down|status)
     # Inspect by project labels. Neither command needs credentials or a candidate image.
@@ -28,7 +39,8 @@ case ${1:-} in
     if [[ $1 == down ]]; then docker rm -f "$id" >/dev/null; echo 'Preview off'; exit 0; fi
     if [[ $(docker inspect --format '{{.State.Running}}' "$id") != true ]]; then echo 'Preview off'; exit 0; fi
     deadline=$(docker inspect --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "PREVIEW_EXPIRES"}}{{index (split . "=") 1}}{{end}}{{end}}' "$id")
-    echo "Preview running, $((deadline - $(date +%s))) seconds remaining"
+    reader=$(docker inspect --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "READER_IMPL"}}{{index (split . "=") 1}}{{end}}{{end}}' "$id")
+    echo "Preview running, reader=${reader:-image-default}, $((deadline - $(date +%s))) seconds remaining"
     ;;
   *) echo 'Usage: preview.sh up IMAGE [HOURS] | down | status' >&2; exit 2 ;;
 esac

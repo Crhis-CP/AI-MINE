@@ -6,10 +6,12 @@ services:
     restart: "no"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      start_period: 20s
       interval: 5s
       timeout: 4s
       retries: 8
     read_only: true
+    tmpfs: [/tmp]
     init: true
     mem_limit: 512m
     cpus: 1

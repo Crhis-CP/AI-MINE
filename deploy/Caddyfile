@@ -22,9 +22,10 @@ admin.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }
 
-# Owner preview resolves directly to this origin. Its own reader enforces the password.
+# Preview comes through EdgeOne with CDN caching disabled. Its reader enforces the password.
 preview.{$SITE_DOMAIN} {
 	header {
+		defer
 		Cache-Control "private, no-store"
 		X-Robots-Tag "noindex, nofollow, noarchive"
 	}
