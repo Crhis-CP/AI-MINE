@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { defineServerModule, emit, installModules, requestNotice, type ServerModule } from "../../../packages/backend/src/modules.ts";
+import { defineServerModule, emit, emitReceiptReleased, installModules, requestNotice, type ServerModule } from "../../../packages/backend/src/modules.ts";
 import type { FastifyRequest } from "fastify";
 import type { Db } from "../../../packages/backend/src/db.ts";
 import { defineWebModule, type WebModule } from "../../../apps/web/modules.ts";
@@ -61,6 +61,53 @@ test("module dispatch preserves order, caller context and first applicable notic
   }
   await emit("reportsChanged", { reason: "no extensions" }, tx);
   assert.equal(requestNotice("json", req), null);
+});
+
+test("a released receipt goes to the first module that resumes it; none installed answers false; failures propagate", async () => {
+  const calls: string[] = [];
+  const tx = {} as Db,
+    receipt = { purpose: "synthetic", subject: null, request: { lane: "policy" } };
+  try {
+    installModules([
+      {
+        name: "declines",
+        on: {
+          receiptReleased: async () => {
+            calls.push("declines");
+            return false;
+          },
+        },
+      },
+      { name: "plain" },
+      {
+        name: "takes",
+        on: {
+          receiptReleased: async (seen, db) => {
+            assert.equal(seen, receipt);
+            assert.equal(db, tx);
+            calls.push("takes");
+            return true;
+          },
+        },
+      },
+      {
+        name: "later",
+        on: {
+          receiptReleased: async () => {
+            calls.push("later");
+            return true;
+          },
+        },
+      },
+    ]);
+    assert.equal(await emitReceiptReleased(receipt, tx), true);
+    assert.deepEqual(calls, ["declines", "takes"]);
+    installModules([{ name: "fails", on: { receiptReleased: async () => Promise.reject(new Error("roll back release")) } }]);
+    await assert.rejects(emitReceiptReleased(receipt, tx), /roll back release/);
+  } finally {
+    installModules([]);
+  }
+  assert.equal(await emitReceiptReleased(receipt, tx), false);
 });
 
 test("legacy modules and optional extension hooks remain declarations without executing work", () => {

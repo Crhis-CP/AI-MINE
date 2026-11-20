@@ -60,8 +60,6 @@
         "modules/policy/server.ts",
         "packages/backend/src/policy/fallback-quality.ts",
         "packages/backend/src/policy/model-evidence.ts",
-        "packages/backend/src/policy/quality.ts",
-        "packages/backend/src/policy/receipt-recovery.ts",
         "scripts/policy-pilot-discover.ts"
       ]
     }

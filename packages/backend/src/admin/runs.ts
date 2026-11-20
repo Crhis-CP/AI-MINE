@@ -1,4 +1,4 @@
-import { resumePolicyAfterReceipt } from "../policy/receipt-recovery.ts";
+import { emitReceiptReleased } from "../modules.ts";
 import { invalidInput } from "./invalid.ts";
 import { recoverUnknownOnce } from "../providers/unknown-recovery.ts";
 import { releaseUnknownReceiptUnbilled, MANUAL_UNBILLED_NOTE_PREFIX } from "@amp/backend/providers/receipts";
@@ -194,7 +194,8 @@ async function resumeReceiptWork(row: { purpose: string; subject: string | null;
   const request = row.request && typeof row.request === "object" ? (row.request as Record<string, unknown>) : null;
   // Old shared receipts keep their recovery; isolated evaluations never resume production work.
   if (request?.usage_purpose === "evaluation" && request.receipt_scope === "evaluation-v1") return false;
-  if (await resumePolicyAfterReceipt(row.request, db)) return true;
+  // Module work first (the policy line resumes its own workflow); the engine's own stages follow.
+  if (await emitReceiptReleased({ purpose: row.purpose, subject: row.subject, request: row.request }, db)) return true;
   if (["translate_body", "group_article", "group_review", "group_signal"].includes(row.purpose)) {
     const pattern =
       row.purpose === "translate_body" ? /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)#[0-9]+$/ : /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)(?::fact:[1-9][0-9]*)?$/;
