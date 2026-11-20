@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Run from the operator checkout only after Owner approval.
+set -Eeuo pipefail
+umask 077
+export LC_ALL=C
+here=$(cd -- "$(dirname -- "$0")" && pwd)
+sha=${1:-}
+[[ $sha =~ ^[a-f0-9]{40}$ && ( $# == 1 || $# == 3 ) ]] || { echo 'Usage: release-one.sh SHA [--selection-confirmed-version VERSION]' >&2; exit 2; }
+selection=${3:-}
+if [[ $# == 3 ]]; then
+  [[ $2 == --selection-confirmed-version && $selection =~ ^selection-score(-global)?(-shared(-standard)?)?@[0-9a-f]{10,64}\+weights@[0-9a-f]{10,64}$ ]] || { echo 'Invalid selection confirmation option or version' >&2; exit 2; }
+fi
+host=${AIMINE_SSH:?set the production SSH alias}
+[[ $host =~ ^[A-Za-z0-9][A-Za-z0-9_.@-]*$ ]] || { echo 'Invalid SSH target' >&2; exit 2; }
+ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=8)
+remote() { ssh "${ssh_opts[@]}" -- "$host" "$@"; }
+rsync_bin=${AIMINE_RSYNC:-rsync}
+limit=${AIMINE_BWLIMIT:-2000}
+[[ $limit =~ ^[1-9][0-9]{0,3}$ ]] && (( limit <= 2000 )) || { echo 'Expected 1–2000 KiB/s' >&2; exit 2; }
+base=${AIMINE_PUBLIC_URL:-https://aiminingpolicy.com}
+[[ $base =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || { echo 'Expected an HTTPS public origin' >&2; exit 2; }
+root=/opt/aimine-release-stage
+slot=$root/channel-$sha
+local_dir=${AIMINE_RELEASE_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/aimine-release}/$sha
+mkdir -p "$local_dir"
+start=$SECONDS
+phase=preview
+trap 'printf "Release stopped in %s (exit %s)\n" "$phase" "$?" >&2' ERR
+remote 'set -eu; ids=$(docker ps -aq --filter label=com.docker.compose.project=amp-preview --filter label=com.docker.compose.service=reader); if [ -n "$ids" ]; then docker rm -f $ids; fi'
+phase=fetch
+python3 -B "$here/fetch-release.py" "$sha" "$local_dir/files" > "$local_dir/proof.json"
+read -r tree manifest source bytes < <(python3 - "$local_dir" <<'PY'
+import json,sys
+from pathlib import Path
+p=Path(sys.argv[1]); proof=json.loads((p/'proof.json').read_text())
+print(proof['tree'], proof['manifest_sha256'], proof['source_sha256'], sum(f.stat().st_size for f in (p/'files').iterdir()))
+PY
+)
+phase=transfer
+tools=$(remote "umask 077; mktemp -d $root/channel-tools.XXXXXXXX")
+[[ $tools =~ ^/opt/aimine-release-stage/channel-tools\.[a-zA-Z0-9]+$ ]] || { echo 'Unexpected remote tools directory' >&2; exit 1; }
+# This private mktemp directory contains only tools and the verified source unpacked by this invocation.
+cleanup_tools() {
+  code=$?
+  trap - EXIT
+  remote "flock -w 15 /opt/aimine/.ops/release-channel.lock flock -w 15 /opt/aimine/.ops/release.lock rm -rf -- $tools" || { echo 'Could not remove this attempt’s temporary tools' >&2; exit 1; }
+  exit "$code"
+}
+trap cleanup_tools EXIT
+scp -q "${ssh_opts[@]}" "$here"/{release-transfer.py,release_artifact.py,release_capacity.py,release-cache.py,selection_env.py} "$host:$tools/"
+args=("$sha" "$tree" "$manifest" "$bytes")
+if [[ -n ${AIMINE_BASIS_DIR:-} ]]; then
+  [[ $AIMINE_BASIS_DIR =~ ^/opt/[A-Za-z0-9_./-]+$ && $AIMINE_BASIS_DIR != *..* ]] || { echo 'Invalid active-bundle directory' >&2; exit 2; }
+  args+=(--basis "$AIMINE_BASIS_DIR")
+fi
+remote "python3 -B $tools/release-transfer.py prepare ${args[*]}"
+"$rsync_bin" --checksum --no-whole-file --copy-dest="$slot/basis" --partial-dir=.rsync-partial \
+  --timeout=120 --bwlimit="$limit" --stats --rsync-path='flock -n /opt/aimine/.ops/release.lock rsync' \
+  -e "ssh ${ssh_opts[*]}" -- "$local_dir/files/"{image.tar.gz,source.tar.gz,verify-receipt.json,release-manifest.json} "$host:$slot/files/" | tee "$local_dir/transfer.stats"
+sent=$(awk '/^Total bytes sent:/ {gsub(",", "", $4); print $4}' "$local_dir/transfer.stats")
+[[ $sent =~ ^[0-9]+$ ]] || { echo 'Missing rsync transfer count' >&2; exit 1; }
+remote "python3 -B $tools/release-transfer.py verify ${args[*]}"
+phase=deployment
+remote "bash -s -- $slot $sha $source $manifest $tree $tools $selection" <<'REMOTE'
+set -Eeuo pipefail
+slot=$1; sha=$2; source=$3; manifest=$4; tree=$5; tools=$6
+exec 8>>/opt/aimine/.ops/release-channel.lock
+flock -n 8
+ids=$(docker ps -aq --filter label=com.docker.compose.project=amp-preview --filter label=com.docker.compose.service=reader)
+if [[ -n $ids ]]; then docker rm -f $ids; fi
+if compgen -G "/opt/aimine/.ops/release-${sha:0:12}-*.json" >/dev/null; then
+  echo 'A deployment journal for this SHA already exists; inspect it before another release' >&2
+  exit 1
+fi
+printf '%s  %s\n' "$source" "$slot/files/source.tar.gz" | sha256sum --check --status
+tar -xzf "$slot/files/source.tar.gz" -C "$tools" --strip-components=1
+confirmation=${7:-}
+if [[ -z $confirmation ]]; then
+  confirmation=$(python3 -B "$tools/selection_env.py" /opt/aimine/.env)
+fi
+set -- "$sha" "$slot/files/source.tar.gz" "$source" "$slot/files" "$manifest" "$tree"
+if [[ -n $confirmation ]]; then
+  set -- "$@" --selection-confirmed-version "$confirmation"
+else
+  diff -qr /opt/aimine/industry/prompts "$tools/industry/prompts" >/dev/null &&
+    cmp -s /opt/aimine/industry/selection.ts "$tools/industry/selection.ts" &&
+    cmp -s /opt/aimine/packages/backend/src/editorial/analysis-layout.ts "$tools/packages/backend/src/editorial/analysis-layout.ts" ||
+    { echo 'Changed or unreadable scoring inputs require --selection-confirmed-version' >&2; exit 1; }
+fi
+bash "$tools/deploy/production-release.sh" "$@"
+REMOTE
+phase=public-check
+version=$(curl -fsS --max-time 30 "$base/api/health" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["ok"] is True and d["db"]=="ok"; print(d["release"])')
+[[ $version == "${sha:0:12}" ]] || { echo 'Public version differs from the release' >&2; exit 1; }
+remote "docker exec amp-web-1 node scripts/smoke.ts --base $base --private-base http://127.0.0.1:3000"
+if [[ -n ${AIMINE_RELEASE_CHECK:-} ]]; then "$AIMINE_RELEASE_CHECK" "$sha" "$base"; fi
+free=$(remote "python3 -c 'import os; s=os.statvfs(\"/opt/aimine\"); print(s.f_bavail*s.f_frsize)'")
+[[ $free =~ ^[0-9]+$ ]] && (( free >= 8053063680 )) || { echo 'Release disk below 7.5 GiB' >&2; exit 1; }
+phase=cache
+protected=$(remote "flock -w 900 /opt/aimine/.ops/release.lock python3 -B $tools/release-cache.py $root $sha --ops /opt/aimine/.ops")
+python3 -B "$here/release-cache.py" "$(dirname -- "$local_dir")" "$sha" <<< "$protected"
+printf '已发布 %s，公网版本与冒烟核对通过。\n%s\n传输 %s 字节，历时 %s 秒，发布后可用 %s 字节；下一步由 Owner 核对读者效果。\n' \
+  "$version" "${AIMINE_READER_CHANGE:-读者变化见本次发布说明。}" "$sent" "$((SECONDS - start))" "$free"

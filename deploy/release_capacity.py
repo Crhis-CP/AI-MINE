@@ -11,8 +11,7 @@ import signal
 import time
 
 GIB = 1024 ** 3
-DISK_FLOOR = 4 * GIB
-RESERVE = GIB
+DISK_FLOOR = 15 * GIB // 2
 
 
 def now():
@@ -92,9 +91,8 @@ def evaluate(manifest, previous, observed, phase):
                "passed": observed["memory_available_bytes"] >= GIB}]
     for device, sample in devices.items():
         peak = max(stage.get(device, 0) for stage in stages.values())
-        floor = DISK_FLOOR if phase == "before_import" and device == root_device else 0
-        required = max(floor, peak + RESERVE)
-        sample.update({"estimated_peak_additional_bytes": peak, "reserve_bytes": RESERVE, "required_available_bytes": required})
+        required = peak + DISK_FLOOR
+        sample.update({"estimated_peak_additional_bytes": peak, "reserve_bytes": DISK_FLOOR, "required_available_bytes": required})
         inode_floor = max(1024, sample["inodes_total"] // 100)
         checks.extend([{"name": "disk_available", "device": device, "actual": sample["available_bytes"], "required": required,
                         "passed": sample["available_bytes"] >= required},
@@ -107,7 +105,7 @@ def evaluate(manifest, previous, observed, phase):
                             "Source staging and its possible target copy are budgeted together before import",
                             "Input gzip files are already on disk; shared layers are not claimed as additional measured usage",
                             "Before-backup sampling occurs after image import, staging extraction and program archives; only the new dump and possible target source copy remain",
-                            "One GiB remains outside the estimated peak; estimates cannot prove actual Docker, WAL or future dump peaks"]}
+                            "7.5 GiB remains outside the estimated peak; estimates cannot prove actual Docker, WAL or future dump peaks"]}
 
 
 def preflight(root, backup_root, manifest_file, record, phase, persistent_bytes=0):

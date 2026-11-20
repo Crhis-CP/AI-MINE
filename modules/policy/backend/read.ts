@@ -1,5 +1,5 @@
 import { relatedNewsForPolicy, cachedNewsJurisdictionCounts } from "@amp/backend/publication/news-links";
-import { POLICY_MODEL_BINDING_VERSION } from "./domain/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "./core/quality-binding.ts";
 import { currentPolicyHeads } from "./core/public-state.ts";
 import { policyLanguageOrder } from "./language.ts";
 import type { z } from "zod";

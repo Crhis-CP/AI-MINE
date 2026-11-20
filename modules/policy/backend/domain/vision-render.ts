@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { getDocument, version, OPS, type PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { z } from "zod";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-import type { ExtractionProfile } from "./extraction.ts";
+import type { ExtractionProfile } from "../core/extraction-parse.ts";
 
 // Fixed output quality. Capacity failures never select a smaller scale or skip pages.
 const canvasVersion = (createRequire(import.meta.resolve("pdfjs-dist/legacy/build/pdf.mjs"))("@napi-rs/canvas/package.json") as { version: string }).version;

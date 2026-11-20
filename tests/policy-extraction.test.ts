@@ -5,7 +5,8 @@ import { after, beforeEach, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { acquirePolicyOriginal } from "../modules/policy/backend/domain/acquire.ts";
-import { extractPolicyOriginal, type ExtractionProfile } from "../modules/policy/backend/domain/extraction.ts";
+import { extractPolicyOriginal } from "../modules/policy/backend/domain/extraction.ts";
+import type { ExtractionProfile } from "../modules/policy/backend/core/extraction-parse.ts";
 import { readPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 

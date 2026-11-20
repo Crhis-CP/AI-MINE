@@ -64,7 +64,7 @@
 | `admin` | 后台操作；另外还放着信源表的读写、账号与会话、审计。找“信源怎么存取”看 `packages/backend/src/admin/sources.ts`。 |
 | `operations` | 告警、用量周报月报、备份、保留期清理、业务线暂停。 |
 | `jobs` | 队列封装与任务编排。 |
-| `policy` | 只有转发到 `modules/policy` 的一行文件。`publication` 下的 `packages/backend/src/publication/policies.ts`、`packages/backend/src/publication/policies-reports.ts` 也是这种转发（法规公开读取接口）。引擎代码导入法规模块（`modules/policy`）只能经过这七个文件，由 `scripts/verify/boundaries.ts` 强制。 |
+| `policy` | 只有转发到 `modules/policy` 的一行文件，现剩 `packages/backend/src/policy/fallback-quality.ts`、`packages/backend/src/policy/model-evidence.ts` 两个（旧的法规备用模型准入在用，随旧模型步骤一起删）。`publication` 下的 `packages/backend/src/publication/policies.ts`、`packages/backend/src/publication/policies-reports.ts` 也是这种转发（法规公开读取接口）。引擎代码导入法规模块（`modules/policy`）只能经过这四个文件，由 `scripts/verify/boundaries.ts` 强制。回执放行后恢复法规任务、信源对账表的原件计数、法规完整解读资格到期提醒走扩展挂口（`receiptReleased`、`sourceEvidence`、`alerts`，见 `docs/03-data/module-extension-contract.md`）。 |
 
 三套名字指同一批东西，查的时候要换算：目录名（如 `providers`）、数据归属登记里的名字（如 ai-gateway，见 `scripts/verify/data-ownership-map.json`）、数据库 schema 名（如 `ai`）。
 
@@ -94,7 +94,7 @@
 
 保留不动：数据库与已有数据、`packages/backend/src/providers` 的记账、抓取器、`deploy/production-release.sh`、登录与后台、对外接口的地址和字段。
 
-事件新规则影子判定（包二 2.4–2.5，默认关闭）：现网归组每完成一篇，`packages/backend/src/jobs/events.ts` 把它排进单独的队列 `news.events.shadow`（每个 worker 进程一次跑一个，查询一条接一条），由 `packages/backend/src/pipeline/events/shadow-queue.ts` 不问模型地再判一次，只写影子判定、事实时间、事件排序三张内部表，读者看不到。开关是设置键 events.shadow，开关方法和打开前要核对的事见 `docs/runbooks/event-shadow.md`。
+事件新规则影子判定（包二 2.4–2.5，默认关闭）：现网归组每完成一篇，`packages/backend/src/jobs/events.ts` 把它排进单独的队列 `news.events.shadow`（每个 worker 进程一次跑一个，查询一条接一条），由 `packages/backend/src/pipeline/events/shadow-queue.ts` 不问模型地再判一次，只写影子判定、事实时间、事件排序三张内部表，读者看不到。开关是设置键 events.shadow，开关方法和打开前要核对的事见 `docs/runbooks/event-shadow.md`。同一开关下，`packages/backend/src/pipeline/events/order-repair.ts` 每小时在队列 `news.events.order-repair` 里把近 72 小时活跃的事实扫一遍，补上整点重合并、事件合并、编辑拆分、撤稿和改日期之后过时的事实时间与排序行（设计复核 F8），也只写这两张内部表。
 
 ## 5. 改之前必须知道的三个机关
 

@@ -116,13 +116,16 @@ type CardRow = {
 };
 type AnswerRow = { article_id: string; answer: "no" | "yes" | "star" | null; reasons: string[]; revision: number; created_at: Date };
 
-async function summary(db: Db, day: string) {
-  const from = addDays(day, -6);
-  const answers = await db<{ day: string; article_id: string; answer: string | null }[]>`
-    SELECT DISTINCT ON (day, article_id) day::text AS day, article_id, answer FROM ai.swipe_answers
-    WHERE day >= ${from}::date AND day <= ${day}::date ORDER BY day, article_id, revision DESC`;
-  const cards = await db<{ day: string; article_id: string; system: System }[]>`
-    SELECT day::text AS day, article_id, system FROM ai.swipe_cards WHERE day >= ${from}::date AND day <= ${day}::date`;
+export type SwipeTallyCard = { day: string; article_id: string; system: System };
+/** The latest answer of one card (the newest revision per day and article); null when it was taken back. */
+export type SwipeTallyAnswer = { day: string; article_id: string; answer: string | null };
+
+/**
+ * The desk's counts of the Owner's answers against the system's decision at deal time. Pure, so the desk and the
+ * read-only eval replay (scripts/eval-replay.ts) count the same way: `missed` = starred but not selected, `extra` =
+ * selected but not starred, `widened` = blocked but answered yes or star. An answer taken back is not counted.
+ */
+export function tallySwipe(cards: readonly SwipeTallyCard[], answers: readonly SwipeTallyAnswer[]) {
   const system = new Map(cards.map((row) => [`${row.day}:${row.article_id}`, row.system]));
   const out = { days: 0, answered: 0, no: 0, yes: 0, star: 0, missed: 0, extra: 0, widened: 0 };
   const days = new Set<string>();
@@ -138,6 +141,16 @@ async function summary(db: Db, day: string) {
   }
   out.days = days.size;
   return out;
+}
+
+async function summary(db: Db, day: string) {
+  const from = addDays(day, -6);
+  const answers = await db<SwipeTallyAnswer[]>`
+    SELECT DISTINCT ON (day, article_id) day::text AS day, article_id, answer FROM ai.swipe_answers
+    WHERE day >= ${from}::date AND day <= ${day}::date ORDER BY day, article_id, revision DESC`;
+  const cards = await db<SwipeTallyCard[]>`
+    SELECT day::text AS day, article_id, system FROM ai.swipe_cards WHERE day >= ${from}::date AND day <= ${day}::date`;
+  return tallySwipe(cards, answers);
 }
 
 async function deckView(db: Db, day: string) {

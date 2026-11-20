@@ -18,7 +18,7 @@ import {
 import { readPolicyOriginal } from "../core/originals.ts";
 import { processingControl, readProcessingControl, withCurrentPolicyOriginal, PolicyRunStaleError } from "./fulltext-store.ts";
 import { SourcePolicyConflict } from "@amp/backend/admin/sources";
-import { validateProfile, type ExtractionProfile, type ResourceExtraction } from "./extraction.ts";
+import { validateProfile, type ExtractionProfile, type ResourceExtraction } from "../core/extraction-parse.ts";
 import { renderPolicyPdf, PDF_RENDER_RECIPE, VisionCapacityError, type PageImage, type RenderedPdf } from "./vision-render.ts";
 import { checkVisionPage, checkVisionVerification, assembleVisionNodes, type VisionPageCandidate, type VisionVerification } from "./vision-schema.ts";
 import { createVisionRun, storedVisionRun, visionCheckpoints, saveVisionStage, finishVision, visionRunReference, type VisionRun } from "./vision-store.ts";

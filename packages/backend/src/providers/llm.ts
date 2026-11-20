@@ -4,7 +4,7 @@ import { PRESETS, DEFAULTS } from "@amp/site/models";
 import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
 import { modelOutputContract } from "./model-fallback-contract.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
-import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
+import type { PolicyFallbackContext } from "./model-fallback.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { serverModules } from "../modules.ts";
 import { buildModelCatalog } from "../model-catalog.ts";
