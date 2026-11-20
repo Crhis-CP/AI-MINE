@@ -39,6 +39,15 @@ export async function shadowJobsWithFullWindow(from: Date, to: Date, db: Db = sq
   return row?.n ?? 0;
 }
 
+/**
+ * Whether a module queue has a job waiting, retrying or running (pipeline/events/order-repair.ts starts no new sweep
+ * while one is under way). Only that queue's jobs are read: the job table's key begins with the queue name.
+ */
+export async function queueBusy(queue: string, db: Db = sql): Promise<boolean> {
+  const [row] = await db`SELECT 1 FROM pgboss.job WHERE name=${queue} AND state IN ('created','retry','active') LIMIT 1`;
+  return !!row;
+}
+
 /** Durable grouping waits belong to the queue module, including delayed and retrying jobs. */
 export async function activeGroupingArticleIds(db: Db = sql): Promise<string[]> {
   const rows = await db<{ id: string }[]>`SELECT DISTINCT data->>'articleId' AS id FROM pgboss.job

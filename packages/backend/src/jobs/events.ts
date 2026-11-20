@@ -14,6 +14,7 @@ import { settleNonEditorial, articleJobLane, groupingQueuePriority } from "./con
 import { ensureQueue, QUEUES } from "./queue.ts";
 import { historyQueue } from "../events/history-queue.ts";
 import { scheduleEventShadow, shadowQueue } from "../pipeline/events/shadow-queue.ts";
+import { orderRepairQueue } from "../pipeline/events/order-repair.ts";
 import { enqueueJob as enqueue, enqueueOn, workQueues, work } from "./module-queues.ts";
 
 const isWaiting = (error: unknown) =>
@@ -25,8 +26,10 @@ const isWaiting = (error: unknown) =>
   error instanceof ReceiptBusyError ||
   error instanceof ReceiptUnknownError ||
   error instanceof BudgetExceededError;
+// The worker's hourly timer queues the event-order repair through this entry point.
+export { scheduleOrderRepair } from "../pipeline/events/order-repair.ts";
 export async function registerEventJobs(boss: PgBoss) {
-  await workQueues(boss, [historyQueue, shadowQueue]);
+  await workQueues(boss, [historyQueue, shadowQueue, orderRepairQueue]);
   await ensureQueue("events.hot-refresh");
   await work(
     boss,
