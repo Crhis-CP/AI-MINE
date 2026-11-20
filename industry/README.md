@@ -19,6 +19,7 @@
 | `changelog.json` | 更新日志（`/changelog`）：新条目写在 `releases` 最前面；`latestVersion` 写第一条的日期，第一条有时间再加“T时间”（如 `2026-10-06T02:50`）；同一天里只写日期的条目排在有时间的前面；每条只许 `date`、`time`、`kind`、`version`、`title`、`body` 六个字段，读入时整份校验，不合格就报错（TASK-0038） |
 | `metal-prices.json` | 金属价格来源与品种：保留sources/items的来源、许可、默认单位与精确sourceName匹配；新增metals品种顺序、intro导语、frequencies频率标签与较上期描述、footnotes脚注、notes说明和officialLinks官方入口。启用报价品种必须有metal/quote，spec/footnote可选；品种可以写convert（换算以后显示：指向同一来源的汇率品种、系数、显示的单位与币种）与rate: true（汇率品种，入库、不显示），换算后显示的现在只有俄罗斯央行用；secondary（可写在来源上作默认）让报价在原数下面另显示一种货币的参考值，指向任一来源中以报价币种计价的汇率品种，写明系数、单位、币种、小数位和最多回看天数，国家统计局与商务预报用国家外汇管理局的人民币对美元中间价safe.usd折成美元/吨（TASK-0572）；国家统计局四种有色与硫酸启用、六种钢材停用保留，原数见夹具。整份校验字段、引用、唯一性、HTTPS与占位，链接只供点击，不因此抓取行情（TASK-0085）。品种可写 `sourceId`：仅商务预报的 indexId 用于取数，页面不显示 |
 | `gold.example.jsonl`、`relation-gold.example.jsonl` | 精选评测与事件关系评测的样本格式示例（2.6 节） |
+| `gold.cross-industry-laws.jsonl` | 跨行业但约束矿企的法律（TASK-0582）的合成评测样例，8 条，公司与事件均为虚构；格式同 2.6 节，用 `--gold` 指向它评测 |
 
 ## 2. 各文件怎么写
 
