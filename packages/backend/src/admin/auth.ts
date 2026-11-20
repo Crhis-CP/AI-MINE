@@ -249,6 +249,16 @@ export async function groupingAuditTrail(subjects: string[], since: Date, limit:
     ORDER BY created_at DESC,id DESC LIMIT ${limit}`;
 }
 
+/**
+ * People's and the engine's detaches and story merges recorded since `since`, newest first, at most `limit` (the event-order
+ * sweep, pipeline/events/order-repair.ts): the entries after the last one written before it, read by id.
+ */
+export async function groupingCorrectionsSince(since: Date, limit: number, db: Db = sql) {
+  return db<{ action: "content.detach" | "story.merge"; before: unknown; after: unknown }[]>`SELECT action,before,after FROM audit_log
+    WHERE id>(SELECT coalesce(max(id),0) FROM audit_log WHERE created_at<${since}) AND action IN ('content.detach','story.merge')
+    ORDER BY id DESC LIMIT ${limit}`;
+}
+
 /** Owner-only audit reads hold the account fence through the complete query. */
 export async function readOwnerAudit(principal: AdminPrincipal, filters: { subject?: string; action?: string; page: number }) {
   return sql.begin(async (tx) => {
