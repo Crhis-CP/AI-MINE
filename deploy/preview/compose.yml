@@ -1,0 +1,33 @@
+name: amp-preview
+services:
+  reader:
+    image: sha256:${PREVIEW_IMAGE_HEX:?verified local image required}
+    pull_policy: never
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 8
+    read_only: true
+    init: true
+    mem_limit: 512m
+    cpus: 1
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    command: ["node", "/preview/reader.mjs"]
+    environment:
+      NODE_ENV: production
+      SITE_URL: https://preview.${SITE_DOMAIN:?site domain required}
+      PREVIEW_PASSWORD_HASH: ${PREVIEW_PASSWORD_HASH:?configure the server .env}
+      PREVIEW_EXPIRES: ${PREVIEW_EXPIRES:?deadline required}
+      READER_IMPL: ${PREVIEW_READER_IMPL:-}
+    volumes:
+      - ./reader.mjs:/preview/reader.mjs:ro
+    networks:
+      production:
+        aliases: [aimine-owner-preview]
+networks:
+  production:
+    external: true
+    name: amp_default
