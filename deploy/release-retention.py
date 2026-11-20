@@ -50,7 +50,7 @@ def inventory():
     for item in containers:
         item["image"] = canonical[item["image"]]
     ids = sorted(set(docker("image", "ls", "-aq", "--no-trunc").split()) | {c["image"] for c in containers})
-    fmt = '{"id":{{json .Id}},"created":{{json .Created}},"tags":{{json .RepoTags}}}'
+    fmt = '{"id":{{json .Id}},"created":{{json .Created}},"tags":{{json .RepoTags}},"size":{{json .Size}}}'
     images = [json.loads(x) for x in docker("image", "inspect", "--format", fmt, *ids).splitlines()] if ids else []
     return containers, {x["id"]: x for x in images}
 
@@ -405,15 +405,16 @@ def observe_current(state_path, *, apply=False, expected_image=None, expected_re
 
 
 def healthy_interval(path, release, containers, now, persist):
-    # The timer samples every 15 minutes. A missed sample, restart, version change or failed probe starts over.
+    # Long gaps add no healthy time. A missed timer does not erase earlier successful observations.
     starts = {c["name"]: c["started"] for c in containers if c["name"] in APP_NAMES | UNIFIED_APP_NAMES | {"/amp-db-1", "/amp-caddy-1"}}
     prior = json.loads(path.read_text()) if path.is_file() else {}
-    contiguous = (prior.get("release") == release and prior.get("starts") == starts
-                  and 0 <= now - prior.get("last", 0) <= 20 * 60)
-    since = prior["since"] if contiguous else now
+    seconds = 0
+    if prior.get("release") == release and prior.get("starts") == starts:
+        delta = now - prior["last"]
+        seconds = prior.get("seconds", 0) + (delta if 0 <= delta <= 20 * 60 else 0)
     if persist:
-        save(path, {"release": release, "starts": starts, "since": since, "last": now})
-    return now - since
+        save(path, {"release": release, "starts": starts, "seconds": seconds, "last": now})
+    return seconds
 
 
 def accept_healthy_release(release, seconds):
@@ -473,8 +474,13 @@ def execute(args):
     result["backup_references"] = backups
     result["recovery_window"] = window
     result["before_used_bytes"] = shutil.disk_usage("/").used
+    summary = {"release": release, "kept": result["history"], "candidate_images": result["candidates"],
+               "expired_recovery": [p["directory"] for p in window["remove"]]}
+    # Bind the first cleanup to exactly the reviewed identities and recovery contents.
+    summary["candidate_images"] = sorted(summary["candidate_images"], key=lambda x: x["id"])
+    proof = [summary, [(p["directory"], p["metadata"].get("backup-sha256.txt")) for p in window["remove"]]]
+    digest = hashlib.sha256(json.dumps(proof, sort_keys=True).encode()).hexdigest()
     if not args.apply:
-        # Count allocated blocks only when every link to that inode is in the removal plan.
         blocks = {}
         for point in window["remove"]:
             for name in point["files"]:
@@ -483,9 +489,17 @@ def execute(args):
                 count = blocks.get(key, (0, 0, 0))[0] + 1
                 blocks[key] = (count, entry.st_nlink, entry.st_blocks * 512)
         estimate = sum(size for count, links, size in blocks.values() if count == links)
-        print(json.dumps({"status": "dry-run", "estimated_recovery_bytes": estimate, "release": release, "candidate_images": result["candidates"],
-                          "expired_recovery": [p["directory"] for p in window["remove"]], "kept": result["history"]}), flush=True)
+        image_bytes = sum(images[x["id"]].get("size", 0) for x in result["candidates"])
+        print(json.dumps({"status": "dry-run", "estimated_recovery_bytes": estimate, "image_upper_bound_bytes": image_bytes,
+                          "plan_sha256": digest, **summary}), flush=True)
         return
+    if args.automatic:
+        armed = OPS / "retention-armed"
+        approved = armed.read_text().strip() if armed.is_file() and not armed.is_symlink() and armed.stat().st_size <= 128 else ""
+        previous_program_approval = not window["remove"] and approved == state.get("armed_dry_run")
+        if not re.fullmatch("[a-f0-9]{64}", approved) or (approved != digest and not previous_program_approval):
+            print(json.dumps({"status": "blocked", "reason": "owner_reviewed_dry_run_required", "plan_sha256": digest}), flush=True)
+            return
     # All destructive work starts only after a complete plan and a second live observation.
     fresh, fresh_images = inventory()
     if (current_release(fresh, time.time()) != result["current"] or health() != result["release"] or quality_blockers(result["release"]) or
@@ -556,6 +570,8 @@ def execute(args):
     save(state_path.parent / "last-result.json", result)
     if failures:
         raise RuntimeError("Some old image references could not be removed; retained for retry")
+    if args.automatic:
+        state["armed_dry_run"] = approved
     save(state_path, {**state, "history": result["history"], "managed_images": managed, "cleaned_at": now})
     print(json.dumps({"status": "cleaned", "release": release, "removed_images": removed,
                       "removed_recovery": result["removed_recovery_directories"], "cache": cache.splitlines()[-1:],
@@ -581,9 +597,6 @@ def main():
             try:
                 execute(args)
             except Exception as error:
-                sample = Path(args.state_dir) / "health-samples.json"
-                if sample.exists():
-                    save(sample, {})
                 print(json.dumps({"status": "failed", "reason": str(error)}), flush=True)
                 raise
     else:

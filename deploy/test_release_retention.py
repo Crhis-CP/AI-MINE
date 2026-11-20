@@ -367,10 +367,13 @@ class RetentionTests(unittest.TestCase):
             m.save(gate, {"status": "pending", "sha": "a" * 40})
             journal = m.OPS / ("release-" + release + "-attempt.json")
             m.save(journal, {"phase": "deployed_origin_verified", "sha": "a" * 40})
+            m.save(journal, {"phase": "database_backup", "sha": "a" * 40})
+            self.assertFalse(m.accept_healthy_release(release, 21600))
+            m.save(journal, {"phase": "deployed_origin_verified", "sha": "a" * 40})
             self.assertFalse(m.accept_healthy_release(release, 21599))
             self.assertTrue(m.accept_healthy_release(release, 21600))
             self.assertEqual(m.quality_blockers(release), [])
-            self.assertEqual(m.healthy_interval(sample, release, containers, NOW + 24000, True), 0)
+            self.assertEqual(m.healthy_interval(sample, release, containers, NOW + 24000, True), 21600)
             containers[0]["started"] = "new boot"
             self.assertEqual(m.healthy_interval(sample, release, containers, NOW + 24900, True), 0)
             self.assertEqual(m.healthy_interval(sample, "b" * 12, containers, NOW + 25800, True), 0)
@@ -466,6 +469,20 @@ class RetentionTests(unittest.TestCase):
                 for container in containers:
                     if container["name"] in m.APP_NAMES: container["image"] = ident(7)
                 pending = False
+                with patch.object(m, "healthy_interval", return_value=21599), patch.object(m, "recovery_window") as preplan:
+                    m.execute(args)
+                    preplan.assert_not_called()
+                m.execute(args)
+                self.assertTrue(expired.exists(), "six hours alone cannot delete a recovery point")
+                self.assertFalse(any(call[:2] in (("image", "rm"), ("builder", "prune")) for call in calls))
+                from contextlib import redirect_stdout
+                import io
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    m.execute(argparse.Namespace(**{**vars(args), "apply": False, "automatic": False}))
+                receipt = json.loads(output.getvalue().splitlines()[-1])
+                self.assertIn("image_upper_bound_bytes", receipt)
+                (ops / "retention-armed").write_text(receipt["plan_sha256"])
                 m.execute(args)
                 self.assertEqual(json.loads(state_path.read_text())["history"], [ident(7), ident(6), ident(1)])
                 self.assertEqual({p.name for p in backups.iterdir()}, {ece.name, prior.name})
