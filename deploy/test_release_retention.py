@@ -356,6 +356,28 @@ class RetentionTests(unittest.TestCase):
         self.assertIn(("image", "rm", "--no-prune", ident(5)), calls)
         self.assertFalse(any("--force" in x for x in calls if x[:2] == ("image", "rm")))
 
+    def test_six_hours_requires_unbroken_observations_for_same_running_release(self):
+        containers, _ = fixture()
+        with tempfile.TemporaryDirectory() as temporary, patch.object(m, "OPS", Path(temporary)):
+            sample = Path(temporary) / "samples"
+            release = "a" * 12
+            for elapsed in range(0, 21601, 900):
+                self.assertEqual(m.healthy_interval(sample, release, containers, NOW + elapsed, True), elapsed)
+            gate = m.OPS / "release-quality-gate.json"
+            m.save(gate, {"status": "pending", "sha": "a" * 40})
+            journal = m.OPS / ("release-" + release + "-attempt.json")
+            m.save(journal, {"phase": "deployed_origin_verified", "sha": "a" * 40})
+            m.save(journal, {"phase": "database_backup", "sha": "a" * 40})
+            self.assertFalse(m.accept_healthy_release(release, 21600))
+            m.save(journal, {"phase": "deployed_origin_verified", "sha": "a" * 40})
+            self.assertFalse(m.accept_healthy_release(release, 21599))
+            self.assertTrue(m.accept_healthy_release(release, 21600))
+            self.assertEqual(m.quality_blockers(release), [])
+            self.assertEqual(m.healthy_interval(sample, release, containers, NOW + 24000, True), 21600)
+            containers[0]["started"] = "new boot"
+            self.assertEqual(m.healthy_interval(sample, release, containers, NOW + 24900, True), 0)
+            self.assertEqual(m.healthy_interval(sample, "b" * 12, containers, NOW + 25800, True), 0)
+
     def test_pending_quality_never_reclaims_images_or_cache(self):
         self.assertEqual(self.run_execute(True, quality_pending=True), [])
         self.assertEqual(self.run_execute(False, quality_pending=True), [])
@@ -413,6 +435,86 @@ class RetentionTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "regular file"): m.observe_current(linked, apply=True)
             self.assertEqual(target.read_text(), '{"history":[]}')
 
+    def approval_plan(self):
+        # Real recovery files and plan digest. Only Docker and the live health probes are replaced.
+        import io
+        from contextlib import redirect_stdout
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        backups = root / "backups"; backups.mkdir()
+        ops = root / "ops"; ops.mkdir()
+        self.backup(backups, 10, ident(2), ident(1))
+        self.backup(backups, 20, ident(3), ident(2))
+        expired = self.backup(backups, 30, ident(4), ident(3))
+        containers, images = fixture()
+        for image in images.values():
+            image["created"] = m.dt.datetime.fromtimestamp(NOW, m.dt.timezone.utc).isoformat()
+        mocks = [
+            patch.object(m, "OPS", ops), patch.object(m, "inventory", return_value=(containers, images)),
+            patch.object(m, "health", return_value="a" * 12), patch.object(m.time, "time", return_value=NOW),
+            patch.object(m, "docker", side_effect=lambda *cmd: cmd[-1] if cmd[:2] == ("image", "inspect") else ""),
+            patch.object(m, "quality_blockers", return_value=[]), patch.object(m, "healthy_interval", return_value=21600),
+            patch.object(m, "retry_pending"),
+        ]
+        for mock in mocks:
+            mock.start()
+            self.addCleanup(mock.stop)
+        state = root / "state.json"
+        state.write_text(json.dumps({"history": [ident(1), ident(2), ident(3)]}))
+
+        def run(apply=False, automatic=False):
+            output = io.StringIO()
+            args = argparse.Namespace(apply=apply, automatic=automatic, seed=[], state_dir=tmp.name, backup_dir=str(backups))
+            with redirect_stdout(output):
+                m.execute(args)
+            return json.loads(output.getvalue().splitlines()[-1])
+
+        return run, ops / "retention-armed", state, expired
+
+    def test_unreviewed_hex_digest_blocks_manual_and_automatic_removal(self):
+        run, marker, _, expired = self.approval_plan()
+        digest = run()["plan_sha256"]
+        for value in (None, "0" * 64):
+            if value is not None:
+                marker.write_text(value)
+            for automatic in (False, True):
+                with self.subTest(value=value, automatic=automatic):
+                    blocked = run(True, automatic)
+                    self.assertEqual(blocked["reason"], "owner_reviewed_dry_run_required")
+                    self.assertNotIn("plan_sha256", blocked)
+                    self.assertNotIn(digest, json.dumps(blocked))
+                    self.assertTrue((expired / "database.dump").is_file())
+        marker.write_text(digest)
+        self.assertEqual(run(True)["status"], "cleaned")
+        self.assertFalse(expired.exists())
+
+    def test_previous_approval_cannot_delete_a_new_recovery_point(self):
+        run, marker, state, expired = self.approval_plan()
+        approved = run()["plan_sha256"]
+        marker.write_text(approved)
+        self.assertEqual(run(True, True)["status"], "cleaned")
+        self.assertEqual(json.loads(state.read_text())["armed_dry_run"], approved)
+        new = self.backup(expired.parent, 40, ident(5), ident(4))
+        with patch.object(m.time, "time", return_value=NOW + 86401):
+            self.assertNotEqual(run()["plan_sha256"], approved)
+            for automatic in (False, True):
+                self.assertEqual(run(True, automatic)["reason"], "owner_reviewed_dry_run_required")
+                self.assertTrue((new / "database.dump").is_file())
+
+    def test_recovery_checksum_manifest_bytes_bind_approval(self):
+        run, marker, _, expired = self.approval_plan()
+        first = run()
+        marker.write_text(first["plan_sha256"])
+        checksum = expired / "backup-sha256.txt"
+        # Reordering valid entries preserves every payload and filename while changing the evidence.
+        checksum.write_bytes(b"".join(reversed(checksum.read_bytes().splitlines(keepends=True))))
+        second = run()
+        self.assertEqual(second["expired_recovery"], first["expired_recovery"])
+        self.assertNotEqual(second["plan_sha256"], first["plan_sha256"])
+        self.assertEqual(run(True, True)["reason"], "owner_reviewed_dry_run_required")
+        self.assertTrue((expired / "database.dump").exists())
+
     def test_pending_running_release_is_kept_in_the_next_accepted_recovery_window(self):
         containers, images = fixture()
         for container in containers:
@@ -432,7 +534,7 @@ class RetentionTests(unittest.TestCase):
             with patch.object(m, "inventory", return_value=(containers, images)), patch.object(m, "health", return_value="a" * 12), \
                     patch.object(m.time, "time", return_value=NOW), patch.object(m, "docker", side_effect=docker), \
                     patch.object(m, "quality_blockers", side_effect=lambda _: ["pending"] if pending else []), \
-                    patch.object(m, "retry_pending"), patch.object(m, "OPS", ops):
+                    patch.object(m, "healthy_interval", return_value=21600), patch.object(m, "retry_pending"), patch.object(m, "OPS", ops):
                 m.execute(args)
                 observed = json.loads(state_path.read_text())
                 self.assertEqual(observed["history"], [ident(6), ident(1), ident(2)])
@@ -447,6 +549,20 @@ class RetentionTests(unittest.TestCase):
                 for container in containers:
                     if container["name"] in m.APP_NAMES: container["image"] = ident(7)
                 pending = False
+                with patch.object(m, "healthy_interval", return_value=21599), patch.object(m, "recovery_window") as preplan:
+                    m.execute(args)
+                    preplan.assert_not_called()
+                m.execute(args)
+                self.assertTrue(expired.exists(), "six hours alone cannot delete a recovery point")
+                self.assertFalse(any(call[:2] in (("image", "rm"), ("builder", "prune")) for call in calls))
+                from contextlib import redirect_stdout
+                import io
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    m.execute(argparse.Namespace(**{**vars(args), "apply": False, "automatic": False}))
+                receipt = json.loads(output.getvalue().splitlines()[-1])
+                self.assertIn("image_upper_bound_bytes", receipt)
+                (ops / "retention-armed").write_text(receipt["plan_sha256"])
                 m.execute(args)
                 self.assertEqual(json.loads(state_path.read_text())["history"], [ident(7), ident(6), ident(1)])
                 self.assertEqual({p.name for p in backups.iterdir()}, {ece.name, prior.name})

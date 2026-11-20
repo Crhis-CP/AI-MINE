@@ -88,8 +88,14 @@ export function checkToolchain(root: string, files: readonly string[]): string[]
   }
 
   for (const f of tracked.filter(isComposeFile)) {
-    const doc = (parse(read(f), { merge: true }) ?? {}) as { services?: Record<string, { image?: string; build?: unknown }> };
+    const doc = (parse(read(f), { merge: true }) ?? {}) as { services?: Record<string, { image?: string; build?: unknown; pull_policy?: string }> };
     for (const [name, service] of Object.entries(doc.services ?? {})) {
+      if (f === "deploy/preview/compose.yml" && name === "reader") {
+        // The launcher inspects the full ID locally. A literal sha256 prefix also prevents registry/tag selection.
+        if (service.image !== `sha256:\${PREVIEW_IMAGE_HEX:?verified local image required}` || service.pull_policy !== "never" || service.build !== undefined)
+          problems.push(f + ": preview reader must use its verified local image ID and never build or pull");
+        continue;
+      }
       // A service that is built here names the local image tag it builds; only pulled images need a digest.
       if (service?.image && service.build === undefined && !PINNED_IMAGE.test(service.image)) {
         problems.push(`${f}: service ${name}: image must name a patch version and its sha256 digest: ${service.image}`);

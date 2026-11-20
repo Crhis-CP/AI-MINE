@@ -27,6 +27,17 @@ test("the expected setup passes", () => {
   assert.deepEqual(problemsWith({}), []);
 });
 
+test("only the local reader preview may use the digest supplied by its launcher", () => {
+  const path = "deploy/preview/compose.yml";
+  const image = `sha256:\${PREVIEW_IMAGE_HEX:?verified local image required}`;
+  const compose = "services:\n  reader:\n    pull_policy: never\n    image: " + image + "\n";
+  assert.deepEqual(problemsWith({ [path]: compose }), []);
+  for (const changed of [compose.replace(image, "reader:latest"), compose.replace("never", "missing"), compose + "    build: .\n"]) {
+    assert.equal(problemsWith({ [path]: changed }).length, 1);
+  }
+  for (const other of ["docker-compose.yml", "deploy/compose.yml"]) assert.equal(problemsWith({ [other]: compose }).length, 1);
+});
+
 test("each violation is reported", () => {
   const problems = problemsWith({
     "package.json": JSON.stringify({ packageManager: "npm@^11", engines: { node: ">=24.11" } }),

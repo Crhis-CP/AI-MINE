@@ -14,7 +14,7 @@ MIB = 1024 ** 2
 MANIFEST = {"source": {"sha": "a" * 40, "tree": "b" * 40, "tar_bytes": 50 * MIB},
             "image": {"bytes": 200 * MIB, "tar_bytes": 400 * MIB, "layer_blob_bytes": 390 * MIB, "layer_tar_bytes": 390 * MIB}}
 PREVIOUS = {"dump_bytes": 200 * MIB, "program_named_bytes": 50 * MIB}
-FILESYSTEM = {"path": "/synthetic", "device": "1", "available_bytes": 8 * capacity.GIB, "inodes_total": 100000, "inodes_available": 90000}
+FILESYSTEM = {"path": "/synthetic", "device": "1", "available_bytes": 10 * capacity.GIB, "inodes_total": 100000, "inodes_available": 90000}
 OBSERVED = {"root": FILESYSTEM, "backup": FILESYSTEM, "memory_available_bytes": 2 * capacity.GIB}
 
 
@@ -30,7 +30,10 @@ class CapacityTests(unittest.TestCase):
         constrained = {**OBSERVED, "root": {**FILESYSTEM, "available_bytes": 2 * capacity.GIB}, "backup": {**FILESYSTEM, "available_bytes": 2 * capacity.GIB}}
         self.assertFalse(capacity.evaluate(MANIFEST, PREVIOUS, constrained, "before_import")["passed"])
         later = capacity.evaluate(MANIFEST, PREVIOUS, constrained, "before_backup")
-        self.assertTrue(later["passed"])
+        self.assertFalse(later["passed"])
+        for phase in ("before_import", "before_backup"):
+            row = capacity.evaluate(MANIFEST, PREVIOUS, OBSERVED, phase)["filesystems"][0]
+            self.assertEqual(row["required_available_bytes"], row["estimated_peak_additional_bytes"] + 7680 * MIB)
         self.assertEqual(later["filesystems"][0]["estimated_peak_additional_bytes"], 300 * MIB)
         separated = capacity.evaluate(MANIFEST, PREVIOUS, {**OBSERVED, "backup": {**FILESYSTEM, "device": "2"}}, "before_backup")
         self.assertEqual({row["device"]: row["estimated_peak_additional_bytes"] for row in separated["filesystems"]}, {"1": 50 * MIB, "2": 250 * MIB})

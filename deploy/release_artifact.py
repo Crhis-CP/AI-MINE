@@ -69,6 +69,22 @@ def validate_receipt(receipt, sha, tree, image_id=None):
     return normal
 
 
+def encode_image(opener, target, tar_bytes):
+    """Restart gzip at Docker tar member boundaries so moved, unchanged layers match in rsync."""
+    with opener() as catalog, opener() as source, tarfile.open(fileobj=catalog, mode="r|") as archive:
+        ends = [member.offset for member in archive][1:] + [tar_bytes]
+        for end in ends:
+            remaining = end - source.tell()
+            require(remaining > 0, "Invalid Docker archive member boundary")
+            with gzip.GzipFile(filename="", mode="wb", fileobj=target, compresslevel=1, mtime=0) as member:
+                while remaining:
+                    block = source.read(min(1024 * 1024, remaining))
+                    require(block, "Short image export")
+                    member.write(block)
+                    remaining -= len(block)
+        require(not source.read(1), "Long image export")
+
+
 def archive_layers(path, image):
     """Measure saved layer encoding and expanded tar bytes without filesystem extraction."""
     with tarfile.open(path, "r:") as archive:
@@ -208,6 +224,7 @@ def verify_bundle(directory, sha, tree, manifest_sha256):
         actual = file_info(directory / name)
         require(all(manifest[key].get(field) == value for field, value in actual.items()), f"Artifact bytes changed: {name}")
     source, image = manifest["source"], manifest["image"]
+    require(image.get("encoding") in (None, "gzip-per-member-v1"), "Unknown image transport encoding")
     require(source.get("sha") == sha and source.get("tree") == tree, "Artifact source mismatch")
     require(image.get("os") == "linux" and image.get("architecture") in {"amd64", "arm64"}, "Unsupported artifact platform")
     require(re.fullmatch(r"sha256:[a-f0-9]{64}", image.get("config_id", "")), "Image config identity required")
@@ -245,9 +262,8 @@ def pack(directory, sha):
     try:
         command(["docker", "--host", SOCKET, "image", "save", "--output", str(saved), image_id])
         sizes = archive_layers(saved, image)
-        with saved.open("rb") as source, (directory / FILES["image"]).open("xb") as target:
-            with gzip.GzipFile(filename="", mode="wb", fileobj=target, compresslevel=1, mtime=0) as zipped:
-                shutil.copyfileobj(source, zipped, 1024 * 1024)
+        with (directory / FILES["image"]).open("xb") as target:
+            encode_image(lambda: saved.open("rb"), target, sizes["tar_bytes"])
     finally:
         saved.unlink(missing_ok=True)
     with gzip.open(directory / FILES["source"], "rb") as source:
@@ -255,7 +271,7 @@ def pack(directory, sha):
     manifest = {
         "version": 1,
         "source": {"sha": sha, "tree": tree, "tar_bytes": source_tar_bytes, **file_info(directory / FILES["source"])},
-        "image": {"id": image_id, "os": image["Os"], "architecture": image["Architecture"], **sizes, **file_info(directory / FILES["image"])},
+        "image": {"encoding": "gzip-per-member-v1", "id": image_id, "os": image["Os"], "architecture": image["Architecture"], **sizes, **file_info(directory / FILES["image"])},
         "receipt": {"log_digest": receipt["log_digest"], **file_info(directory / FILES["receipt"])},
         "workflow": {key: os.environ.get(env, "") for key, env in [("repository", "GITHUB_REPOSITORY"), ("run_id", "GITHUB_RUN_ID"), ("run_attempt", "GITHUB_RUN_ATTEMPT")]},
     }
