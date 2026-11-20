@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { invalidateModelCache } from "../packages/backend/src/editorial/models.ts";
-import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
 import { runPolicyVision, loadPolicyVision, loadPolicyVisionProof } from "../modules/policy/backend/domain/vision-runtime.ts";
 import { extractPolicyOriginal } from "../modules/policy/backend/domain/extraction.ts";
 import { runPolicyFulltext, setPolicyProcessingPaused } from "../modules/policy/backend/domain/fulltext-runtime.ts";

@@ -7,7 +7,7 @@ import { Policy, PolicyCard, PolicyListQuery } from "@amp/contracts/http/public"
 import { installTestConnections } from "./direct-db-fixture.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
-import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import { listPolicies, policyCurrentPublicRecords, policyDetail, policyScope } from "../modules/policy/backend/read.ts";
 import { relatedPoliciesForNews } from "../packages/backend/src/publication/news-policy-links.ts";

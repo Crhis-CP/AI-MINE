@@ -17,23 +17,23 @@ export async function policyPublicId(kind: string, internalId: string, db: Db = 
 
 import { Policy } from "@amp/contracts/http/public";
 import { policyProcessingNotice } from "../domain/processing-notice.ts";
-import { readPolicyMetadataObservation } from "../domain/metadata.ts";
-import { readPolicyOriginal, assertOriginalPermissions } from "../domain/originals.ts";
+import { readPolicyMetadataObservation } from "../core/metadata.ts";
+import { readPolicyOriginal, assertOriginalPermissions } from "../core/originals.ts";
 import { loadPolicyInterpretation } from "../domain/interpretation-runtime.ts";
 import { readPolicyFulltextRun, withCurrentPolicyRun } from "../domain/fulltext-store.ts";
 import { validatePolicyFulltextCandidate, PolicyPartCandidateSchema } from "../domain/fulltext-candidate.ts";
 import { provenFulltextCandidates } from "../domain/translation-memory.ts";
 import { matchingPolicyQuality } from "../domain/quality.ts";
-import { policyPublicationIdentity, lockPolicyPublicationHead } from "../domain/public-state.ts";
+import { policyPublicationIdentity, lockPolicyPublicationHead } from "../core/public-state.ts";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies, readSourceProfile } from "@amp/backend/admin/sources";
 import { audit } from "@amp/backend/admin/auth";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { policyInterpretationQualityRecipe } from "../domain/references.ts";
 import { preparePolicyRelationships, savePolicyRelationships } from "../relations.ts";
 import { basicPolicy, completePolicy, policyCard, readingBlock, withInstrumentFacts, type PublicIds } from "./policies-project.ts";
-import { classifyInstrument, INSTRUMENT_GATE_REASON_ZH, type InstrumentGateResult } from "../domain/instrument-gate.ts";
-import { argentineLifecycle, type ArLifecycle } from "../domain/ar-lifecycle.ts";
-import { readCachedPolicyText } from "../domain/provision-store.ts";
+import { classifyInstrument, INSTRUMENT_GATE_REASON_ZH, type InstrumentGateResult } from "../core/instrument-gate.ts";
+import { argentineLifecycle, type ArLifecycle } from "../core/ar-lifecycle.ts";
+import { readCachedPolicyText } from "../core/provision-store.ts";
 import { projectPolicyProvisions } from "./policy-provisions-project.ts";
 
 export async function setPolicyPublicationState(id: string, input: { withdrawn?: boolean; paused?: boolean; reason: string; actor: string }) {

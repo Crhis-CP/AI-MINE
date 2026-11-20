@@ -15,7 +15,7 @@
  */
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import type { PolicyFulltextPlan, PolicyPart } from "./processing-plan.ts";
-import { chineseNumber, compareProvisions, locateProvisionBlocks, normalizeProvisionText, type Provision } from "./provisions.ts";
+import { chineseNumber, compareProvisions, locateProvisionBlocks, normalizeProvisionText, type Provision } from "../core/provisions.ts";
 import { candidateClaims, originalText, type Candidate, type Claim } from "./interpretation-schema.ts";
 
 export type PolicyUnit = {

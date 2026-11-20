@@ -5,7 +5,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { capturePolicyMaterial } from "../modules/policy/backend/domain/capture.ts";
-import type { PolicyAutomationProfile } from "../modules/policy/backend/domain/automation-profile.ts";
+import type { PolicyAutomationProfile } from "../modules/policy/backend/core/automation-profile.ts";
 import { publishPolicyPublication, setPolicyPublicationPaused, setPolicyPublicationState } from "../modules/policy/backend/publication/policies-publish.ts";
 import { policyDetail, policyPublicVersions } from "../modules/policy/backend/read.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";

@@ -4,7 +4,7 @@
 //   node scripts/policy-provisions-backfill.ts            dry run: counts what it would store, writes nothing
 //   node scripts/policy-provisions-backfill.ts --apply    stores provisions, then projects those the source allows in public
 import { closeDb, initializeDb } from "@amp/backend/db";
-import { backfillPolicyStructures } from "../modules/policy/backend/domain/provision-store.ts";
+import { backfillPolicyStructures } from "../modules/policy/backend/core/provision-store.ts";
 import { projectPendingPolicyProvisions } from "../modules/policy/backend/publication/policy-provisions-project.ts";
 
 const args = process.argv.slice(2);

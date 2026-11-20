@@ -7,7 +7,7 @@ import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput 
 import { ModelOutputError } from "@amp/backend/providers/llm";
 import { readPolicyPartResponses, ReceiptBusyError, ReceiptUnknownError, PolicyPartLimitError, ProviderRejectedError } from "@amp/backend/providers/receipts";
 import { normalizeSourceLanguage } from "@amp/backend/sources/config-keys";
-import { readPolicyOriginal } from "./originals.ts";
+import { readPolicyOriginal } from "../core/originals.ts";
 import { extractPolicyOriginal, type ExtractionProfile } from "./extraction.ts";
 import { buildPolicyFulltextPlan, POLICY_PLAN_LIMITS, type PolicyPart } from "./processing-plan.ts";
 import {

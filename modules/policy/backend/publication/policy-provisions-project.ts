@@ -5,7 +5,7 @@
  */
 import { sql, type Db } from "@amp/backend/db";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
-import { readPolicyProvisions } from "../domain/provision-store.ts";
+import { readPolicyProvisions } from "../core/provision-store.ts";
 
 type Resource = { url: string; document_type: string | null; attachment: boolean };
 
