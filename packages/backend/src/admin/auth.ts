@@ -235,6 +235,20 @@ export async function auditActionExists(actor: string, action: string, db: Db = 
   return !!row;
 }
 
+/**
+ * People's grouping corrections (detach, story merge, regroup) of these subjects since `since`, newest first, at most
+ * `limit`: the labels of the event shadow's agreement report. Read by subject (audit_log_subject_idx); the merges the
+ * grouping engine makes itself (actor "grouping") are its own answers, not corrections, and are left out here.
+ */
+export async function groupingAuditTrail(subjects: string[], since: Date, limit: number, db: Db = sql) {
+  if (!subjects.length) return [];
+  return db<{ action: string; subject: string | null; actor: string; before: unknown; after: unknown; created_at: Date }[]>`
+    SELECT action,subject,actor,before,after,created_at FROM audit_log
+    WHERE subject=ANY(${subjects}::text[]) AND created_at>=${since} AND action IN ('content.detach','story.merge','content.rerun.group')
+      AND actor<>'grouping'
+    ORDER BY created_at DESC,id DESC LIMIT ${limit}`;
+}
+
 /** Owner-only audit reads hold the account fence through the complete query. */
 export async function readOwnerAudit(principal: AdminPrincipal, filters: { subject?: string; action?: string; page: number }) {
   return sql.begin(async (tx) => {

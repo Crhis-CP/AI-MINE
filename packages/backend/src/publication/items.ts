@@ -509,6 +509,13 @@ export async function readGroupingEvidencePublications(articleIds: string[], db:
     FROM publications p WHERE article_id=ANY(${articleIds}::text[])`;
 }
 
+/** The title and summary of each publication, whatever its state: the text event recall compares (events/relate.ts reportText). */
+export async function readGroupingReportTexts(articleIds: string[], db: Db = sql) {
+  if (!articleIds.length) return [];
+  return db<{ article_id: string; title: string; summary: string | null }[]>`
+    SELECT article_id,title,summary FROM publications WHERE article_id=ANY(${articleIds}::text[])`;
+}
+
 /**
  * News items whose public title contains one of the given LIKE patterns, by original time since `since`:
  * the publication side of document-identity recall (events/group.ts). Titles only, no text or state.

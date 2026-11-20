@@ -28,6 +28,17 @@ export function workModuleQueues(boss: PgBoss): Promise<void> {
 
 export { enqueueJob, enqueueOn, work } from "./typed-queue.ts";
 
+/**
+ * Event shadow jobs completed in a window whose recall reached its window bound (pipeline/events/shadow-queue.ts output),
+ * as far as the queue still keeps completed jobs.
+ */
+export async function shadowJobsWithFullWindow(from: Date, to: Date, db: Db = sql): Promise<number> {
+  const [row] = await db<{ n: number }[]>`SELECT count(*)::int AS n FROM pgboss.job
+    WHERE name='news.events.shadow' AND state='completed' AND completed_on>=${from} AND completed_on<${to}
+      AND output->'recall'->>'windowFull'='true'`;
+  return row?.n ?? 0;
+}
+
 /** Durable grouping waits belong to the queue module, including delayed and retrying jobs. */
 export async function activeGroupingArticleIds(db: Db = sql): Promise<string[]> {
   const rows = await db<{ id: string }[]>`SELECT DISTINCT data->>'articleId' AS id FROM pgboss.job

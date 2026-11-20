@@ -13,6 +13,7 @@ import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-co
 import { settleNonEditorial, articleJobLane, groupingQueuePriority } from "./content.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
 import { historyQueue } from "../events/history-queue.ts";
+import { scheduleEventShadow, shadowQueue } from "../pipeline/events/shadow-queue.ts";
 import { enqueueJob as enqueue, enqueueOn, workQueues, work } from "./module-queues.ts";
 
 const isWaiting = (error: unknown) =>
@@ -25,7 +26,7 @@ const isWaiting = (error: unknown) =>
   error instanceof ReceiptUnknownError ||
   error instanceof BudgetExceededError;
 export async function registerEventJobs(boss: PgBoss) {
-  await workQueues(boss, [historyQueue]);
+  await workQueues(boss, [historyQueue, shadowQueue]);
   await ensureQueue("events.hot-refresh");
   await work(
     boss,
@@ -49,6 +50,9 @@ export async function registerEventJobs(boss: PgBoss) {
       // A discussion post comes here straight from collection: record it first (settleNonEditorial).
       if (data.signalOnly && !data.force && !(await settleNonEditorial(data.articleId)).group) return { verdict: "skipped" };
       const result = await groupArticle(data.articleId, { signalOnly: data.signalOnly, force: data.force });
+      // The event rules in shadow decide the report again on their own queue. Queuing never fails the grouping (an
+      // error is logged); it costs one queue insert and, at most once a minute, a read of the switch.
+      await scheduleEventShadow(data.articleId, result.verdict);
       // A late repost attached to its fact adds nothing new to tell: no digest or background refresh.
       if (result.storyId && !result.verdict.startsWith("signal") && result.verdict !== "historical-attached") {
         await enqueue(QUEUES.digest, { lane: "news", storyId: result.storyId }, { singletonKey: `story:${result.storyId}`, startAfter: 60 });
