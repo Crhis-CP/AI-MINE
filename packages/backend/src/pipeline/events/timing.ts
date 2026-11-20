@@ -159,6 +159,13 @@ export async function computeFactTiming(factId: number, stored: FactTimingRow | 
 }
 
 const sameTime = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
+/** Whether two claim sets say the same. A stored set comes back from jsonb with its keys in jsonb's order, so key order does not count. */
+const sameClaims = (a: Record<string, StoredClaim>, b: Record<string, StoredClaim>) =>
+  Object.keys(a).length === Object.keys(b).length &&
+  Object.entries(a).every(([id, x]) => {
+    const y = b[id];
+    return !!y && x.rev === y.rev && x.on === y.on && x.verified === y.verified && x.at === y.at;
+  });
 /** Whether a change of timing can change another member's freshness (the fact's day, its basis, its first report). */
 const orderMoves = (a: FactTimingRow, b: FactTimingRow) =>
   a.occurredOn !== b.occurredOn || a.occurredBasis !== b.occurredBasis || !sameTime(a.firstReportedAt, b.firstReportedAt) || a.storyId !== b.storyId;
@@ -186,7 +193,7 @@ export async function observeFactTiming(factIds: readonly number[], db: Db = sql
       sameTime(stored.lastReportedAt, next.lastReportedAt) &&
       stored.members === next.members &&
       stored.ruleset === next.ruleset &&
-      JSON.stringify(stored.claims) === JSON.stringify(next.claims)
+      sameClaims(stored.claims, next.claims)
     )
       continue;
     await db`INSERT INTO events.fact_timing(lane,fact_id,story_id,occurred_on,occurred_basis,claims,first_reported_at,first_article_id,

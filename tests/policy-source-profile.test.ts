@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
 import { PolicyAutomationProfile } from "../modules/policy/backend/core/automation-profile.ts";
-import { validateProfile } from "../modules/policy/backend/domain/extraction.ts";
+import { validateProfile } from "../modules/policy/backend/core/extraction-parse.ts";
 const { load } = createRequire(new URL("../packages/backend/package.json", import.meta.url))("cheerio");
 
 test("reviewed BLM profile distinguishes original directives and posting dates from signature dates", () => {

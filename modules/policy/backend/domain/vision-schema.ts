@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import type { PageImage } from "./vision-render.ts";
-import type { OriginalNode } from "./extraction.ts";
+import type { OriginalNode } from "../core/extraction-parse.ts";
 
 const text = z
     .string()

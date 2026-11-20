@@ -23,6 +23,7 @@ import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapsh
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
 import { repairNewsLinks, repairPublicationTimes } from "@amp/backend/jobs/publication";
+import { scheduleOrderRepair } from "@amp/backend/jobs/events";
 
 const collecting = process.env.COLLECT_ENABLED !== "false";
 
@@ -43,6 +44,8 @@ export const SCHEDULES: Scheduled[] = [
   // Recent facts left with one report get one bounded pairwise look an hour (at most 20 model calls, none at
   // the provider's peak hours: rule merges still run then, judged pairs wait for the next off-peak run).
   { name: "events.remerge", cron: "37 * * * *", run: () => remergeSingleReportFacts() },
+  // Queues the event-order repair while the event shadow is on (docs/runbooks/event-shadow.md); queues nothing when off.
+  { name: "events.order-repair", cron: "47 * * * *", run: () => scheduleOrderRepair() },
   { name: "reports.correction-sweep", cron: "*/5 * * * *", run: () => enqueuePendingReportCorrections(20) },
   { name: "reports.catch-up", cron: "*/30 * * * *", missed: "once", run: () => catchUpReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },

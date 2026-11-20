@@ -983,6 +983,7 @@
     "modules/policy/backend/domain/processing-notice.ts": "policy",
     "modules/policy/backend/domain/quality.ts": "policy",
     "modules/policy/backend/domain/receipt-recovery.ts": "policy",
+    "modules/policy/backend/domain/relationship-links.ts": "publication",
     "modules/policy/backend/domain/translation-memory.ts": "policy",
     "modules/policy/backend/domain/vision-store.ts": "policy",
     "modules/policy/backend/publication/policies-publish.ts": "publication",
@@ -1165,6 +1166,7 @@
     "packages/backend/src/pipeline/events/shadow.ts": "events",
     "packages/backend/src/pipeline/events/timing.ts": "events",
     "packages/backend/src/pipeline/events/agreement.ts": "events",
+    "packages/backend/src/pipeline/events/order-repair.ts": "events",
     "packages/backend/src/pipeline/rank/project.ts": "publication",
     "packages/backend/src/pipeline/rank/read.ts": "publication"
   }

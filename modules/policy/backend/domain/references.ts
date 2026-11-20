@@ -1,4 +1,4 @@
-import { POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../core/quality-binding.ts";
 import * as cheerio from "cheerio";
 import type { PolicyPart } from "./processing-plan.ts";
 const address = (value: string, base?: string) => {

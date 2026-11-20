@@ -103,9 +103,24 @@ export interface RequestNotices {
   mcp: (req: FastifyRequest) => McpNotice | null;
   feed: (req: FastifyRequest, feedPath: string) => FeedNotice | null;
 }
+/** A receipt whose unknown outcome was just released (automatically or by an operator), inside the release transaction. */
+export interface ReleasedReceipt {
+  purpose: string;
+  subject: string | null;
+  request: unknown;
+}
+/** Per-source counts of what a module archived, for the source coverage table. */
+export interface SourceOriginalEvidence {
+  source_id: string;
+  originals: number;
+}
 export interface ServerModule {
   name: string;
-  on?: Partial<EngineHooks> & { materialDiscovered?: (data: MaterialDiscovered, tx: Tx) => Promise<boolean> };
+  on?: Partial<EngineHooks> & {
+    materialDiscovered?: (data: MaterialDiscovered, tx: Tx) => Promise<boolean>;
+    /** Resume the module's own work behind a released receipt; true when it took the receipt. */
+    receiptReleased?: (receipt: ReleasedReceipt, db: Db) => Promise<boolean>;
+  };
   http?: (app: FastifyInstance) => void | Promise<void>;
   schedules?: readonly Scheduled[];
   queues?: readonly ModuleQueue[];
@@ -139,6 +154,8 @@ export interface ServerModule {
     }
   >;
   sourceHealth?: (now: number) => Promise<string[]>;
+  /** Per-source counts of what this module archived, for the source coverage table. */
+  sourceEvidence?: (sourceIds: string[]) => Promise<SourceOriginalEvidence[]>;
   hosts?: string[];
   notices?: Partial<RequestNotices>;
   storyOrigin?: () => string | null;
@@ -185,6 +202,13 @@ export async function emitMaterialDiscovered(data: MaterialDiscovered, tx: Tx): 
     if (await module.on?.materialDiscovered?.(data, tx)) handled = true;
   }
   if (!handled) throw new Error(`No module accepted material discovery for lane ${data.lane}`);
+}
+/** First module that resumes the work behind a released receipt wins; errors roll back the release transaction. */
+export async function emitReceiptReleased(receipt: ReleasedReceipt, db: Db): Promise<boolean> {
+  for (const module of installed) {
+    if (await module.on?.receiptReleased?.(receipt, db)) return true;
+  }
+  return false;
 }
 
 /** Validate the complete active set before registering any timers. */

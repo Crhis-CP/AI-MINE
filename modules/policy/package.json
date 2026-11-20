@@ -11,10 +11,7 @@
     "./language": "./backend/language.ts",
     "./relations": "./backend/relations.ts",
     "./fallback-quality": "./backend/domain/fallback-quality.ts",
-    "./model-evidence": "./backend/domain/model-evidence.ts",
-    "./quality": "./backend/domain/quality.ts",
-    "./receipt-recovery": "./backend/domain/receipt-recovery.ts",
-    "./source-evidence": "./backend/core/target-evidence.ts"
+    "./model-evidence": "./backend/domain/model-evidence.ts"
   },
   "dependencies": {
     "@amp/contracts": "*",

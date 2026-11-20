@@ -223,9 +223,7 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
         if (
           w.name === "@amp/backend" &&
           pkg === "@amp/policy" &&
-          !/^packages\/backend\/src\/(publication\/(policies|policies-reports)|policy\/(fallback-quality|model-evidence|quality|receipt-recovery|target-evidence))\.ts$/.test(
-            f,
-          )
+          !/^packages\/backend\/src\/(publication\/(policies|policies-reports)|policy\/(fallback-quality|model-evidence))\.ts$/.test(f)
         )
           problems.push(`${f}: policy implementation is only reachable through its temporary compatibility entries`);
 

@@ -14,7 +14,6 @@ import { DEFAULTS } from "@amp/site/models";
 import { sourceHealth, sourceQualityClearance, SOURCE_PROBLEMS } from "../sources/health.ts";
 import { serverModules } from "../modules.ts";
 import { manualReviewExceptions } from "@amp/backend/admin/content";
-import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
 import { addDays, beijingDate, beijingMidnight, beijingTime, isoWeekLabel } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
@@ -294,16 +293,6 @@ export async function collectFindings(
   observeCheck?: (key: string) => void,
 ): Promise<Finding[]> {
   const out: Finding[] = await laneControlFindings(now);
-  for (const release of await expiringPolicyQualityReleases(new Date(now), 7, 100)) {
-    out.push({
-      key: `policy-quality-expiry:${release.id}`,
-      level: "today",
-      title: "法规完整解读资格即将到期",
-      impact: "到期后相关文书将只保留基本事实。",
-      action: "请在模型与质量配置中完成续期核验。",
-      detail: `来源：${release.source_ids.join("、")}；语言：${release.languages.join("、")}；到期：${release.valid_until}`,
-    });
-  }
   for (const item of await manualReviewExceptions())
     out.push({
       key: `manual-review:${item.article_id}`,

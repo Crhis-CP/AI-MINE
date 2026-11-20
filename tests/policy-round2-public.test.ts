@@ -8,7 +8,7 @@ import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { recordPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
-import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/core/quality-binding.ts";
 import { Policy, PolicyCard, PolicyCursorResponse } from "@amp/contracts/http/public";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { policyPublicVersions } from "../modules/policy/backend/read.ts";

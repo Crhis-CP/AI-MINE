@@ -1,4 +1,5 @@
-import { PolicyModelQualificationKey, POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
+import { PolicyModelQualificationKey } from "./model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../core/quality-binding.ts";
 import { z } from "zod";
 import { sql, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";

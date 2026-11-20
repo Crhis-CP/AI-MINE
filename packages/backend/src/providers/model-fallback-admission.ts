@@ -5,7 +5,8 @@ import { capabilities } from "../editorial/models.ts";
 import { connectionRow, registeredModelId, modelConfigurationHash, type ConnectionConfig } from "./model-registry.ts";
 import { modelConfigurationIdentity } from "../admin/models.ts";
 import { readModelRouteApproval } from "./model-fallback-quality.ts";
-import { policyFallbackQuality, type PolicyFallbackContext } from "../policy/fallback-quality.ts";
+import { policyFallbackQuality } from "../policy/fallback-quality.ts";
+import type { PolicyFallbackContext } from "./model-fallback.ts";
 import { policyModelQualificationKey } from "../policy/model-evidence.ts";
 
 export type BackupAdmission = {

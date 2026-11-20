@@ -1,4 +1,4 @@
-import { POLICY_MODEL_BINDING_VERSION } from "../domain/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../core/quality-binding.ts";
 import { runtimeControlSnapshot, assertRuntimeControl } from "@amp/backend/operations/lane-controls";
 import { sql, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";
@@ -29,8 +29,9 @@ import { evaluateSourcePolicy, lockCurrentSourcePolicies, readSourceProfile } fr
 import { audit } from "@amp/backend/admin/auth";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { policyInterpretationQualityRecipe } from "../domain/references.ts";
-import { preparePolicyRelationships, savePolicyRelationships } from "../relations.ts";
-import { basicPolicy, completePolicy, policyCard, readingBlock, withInstrumentFacts, type PublicIds } from "./policies-project.ts";
+import { preparePolicyRelationships, savePolicyRelationships } from "../domain/relationship-links.ts";
+import { basicPolicy, policyCard, readingBlock, withInstrumentFacts, type PublicIds } from "./policies-project.ts";
+import { completePolicy } from "../domain/complete-projection.ts";
 import { classifyInstrument, INSTRUMENT_GATE_REASON_ZH, type InstrumentGateResult } from "../core/instrument-gate.ts";
 import { argentineLifecycle, type ArLifecycle } from "../core/ar-lifecycle.ts";
 import { readCachedPolicyText } from "../core/provision-store.ts";

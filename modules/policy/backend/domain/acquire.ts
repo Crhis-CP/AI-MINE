@@ -5,7 +5,7 @@ import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { guardedFetch, type GuardedFetchOptions, type GuardedResponse } from "@amp/backend/lib/http-fetch";
 import { recordPolicyOriginal } from "../core/originals.ts";
 import type { PolicyOriginalInput } from "../core/types.ts";
-import { decodeOriginal, validateProfile, type ExtractionProfile } from "./extraction.ts";
+import { decodeOriginal, validateProfile, type ExtractionProfile } from "../core/extraction-parse.ts";
 
 type Input = Omit<PolicyOriginalInput, "resources" | "catalogueClosed">;
 type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedResponse>;

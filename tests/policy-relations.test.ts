@@ -1,5 +1,5 @@
 import { installTestConnections } from "./direct-db-fixture.ts";
-import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/core/quality-binding.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
@@ -16,7 +16,7 @@ import type { Candidate } from "../modules/policy/backend/domain/interpretation-
 import type { PolicyAutomationProfile } from "../modules/policy/backend/core/automation-profile.ts";
 import { explicitPolicyReference } from "../modules/policy/backend/domain/references.ts";
 import { publishPolicyPublication } from "../modules/policy/backend/publication/policies-publish.ts";
-import { preparePolicyRelationships, savePolicyRelationships, policyRelationshipCandidates } from "../modules/policy/backend/relations.ts";
+import { preparePolicyRelationships, savePolicyRelationships, policyRelationshipCandidates } from "../modules/policy/backend/domain/relationship-links.ts";
 import { Policy, PolicyCard, PolicyThread } from "@amp/contracts/http/public";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 const discovered = new Date("2026-01-02T03:04:05Z");
