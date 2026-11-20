@@ -483,6 +483,12 @@ export async function newsShadowMaterials(ids: string[], bodyChars: number, db: 
     FROM articles WHERE id=ANY(${ids}::text[])`;
 }
 
+/** Materials discovered since `since`, in any state, newest first, at most `limit` (the event-order sweep's window, pipeline/events/order-repair.ts). */
+export async function newsDiscoveredSince(since: Date, limit: number, db: Db = sql): Promise<string[]> {
+  const rows = await db<{ id: string }[]>`SELECT id FROM articles WHERE discovered_at>=${since} ORDER BY discovered_at DESC LIMIT ${limit}`;
+  return rows.map((row) => row.id);
+}
+
 /**
  * The event shadow's recall window (live: the 14 days before a decision): materials discovered in (since, until] whose
  * grouping was confirmed for their current revision by `until` (content/grouping.ts confirmedGroupingMaterials), the only
