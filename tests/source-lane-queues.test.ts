@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, beforeEach, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { config } from "@amp/backend/config";
 import { closeDb, sql } from "@amp/backend/db";
 import { getBoss, stopBoss, enqueue, ensureQueue, QUEUES } from "@amp/backend/jobs/queue";
@@ -71,10 +70,10 @@ after(async () => {
 });
 
 test("lane batches are independent and policy countries rotate before a second source from one country", async () => {
-  const first = POLICY_SOURCES[0]!;
-  const same = POLICY_SOURCES.find((s) => s.jurisdiction === first.jurisdiction && s.id !== first.id)!;
-  const other = POLICY_SOURCES.find((s) => s.jurisdiction !== first.jurisdiction)!;
-  const ids = await Promise.all([first, same, other].map((s) => source("policy", `policy-${s.id.toLowerCase()}`)));
+  // The country is the source's own (sources.jurisdiction), not a catalogue file's.
+  const ids = await Promise.all(["rotate-a1", "rotate-a2", "rotate-b1"].map((id) => source("policy", `policy-${id}`)));
+  await sql`UPDATE sources SET jurisdiction='AR' WHERE id IN ${sql(ids.slice(0, 2))}`;
+  await sql`UPDATE sources SET jurisdiction='CL' WHERE id=${ids[2]!}`;
   await sql`UPDATE sources SET next_fetch_at='2020-01-01' WHERE id IN ${sql(ids.slice(0, 2))}`;
   await sql`UPDATE sources SET next_fetch_at='2021-01-01' WHERE id=${ids[2]!}`;
   const news = await source("news");

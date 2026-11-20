@@ -3,7 +3,7 @@ import path from "node:path";
 import { z } from "zod";
 import { loadMigrationInventory } from "../migrations/inventory.ts";
 import { relationIdentity } from "../db-roles/grants.ts";
-import { ROOT } from "./lib.ts";
+import { git, ROOT } from "./lib.ts";
 import { digest, extractOwnership } from "./ts-ownership.ts";
 import { sqlOwnership } from "./sql-ownership.ts";
 import { migrationSql, type MigrationFunctions } from "./migration-sql.ts";
@@ -273,12 +273,52 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
     for (const file of Object.keys(map.splitFiles)) if (!previous.map.splitFiles[file]) errors.push(`split-file allowlist increased: ${file}`);
     for (const [table, owner] of Object.entries(previous.map.tables))
       if (map.tables[table] && map.tables[table].module !== owner.module) errors.push(`existing table owner changed: ${table}`);
-    for (const [file, owner] of Object.entries(previous.map.fileModules ?? {}))
-      if (map.fileModules?.[file] !== owner) errors.push(`existing source owner changed: ${file}`);
-    for (const kind of ["settings", "moduleAliases", "externalTables"] as const)
-      for (const [key, value] of Object.entries(map[kind]))
-        if (JSON.stringify(previous.map[kind][key]) !== JSON.stringify(value)) errors.push(`ownership rule expanded or changed: ${kind}.${key}`);
+    const tracked = new Set(git(["ls-files", "-z"], root).split("\0").filter(Boolean));
+    errors.push(...sourceOwnerChanges(map, previous.map, tracked), ...ownershipRuleChanges(map, previous.map));
   }
+  return errors;
+}
+
+/**
+ * Registered source owners against the base. An owner may not change, and a key may not be dropped while its file is
+ * still tracked, since that would let the file's SQL lose its registered owner. A key may go together with its file:
+ * once git no longer tracks the file there is nothing left for the key to protect, and keeping it would leave a dead
+ * entry behind every deleted legacy file.
+ */
+export function sourceOwnerChanges(
+  map: Pick<OwnershipMap, "fileModules">,
+  previous: Pick<OwnershipMap, "fileModules">,
+  tracked: ReadonlySet<string>,
+): string[] {
+  const errors: string[] = [];
+  for (const [file, owner] of Object.entries(previous.fileModules ?? {})) {
+    const now = map.fileModules?.[file];
+    if (now === undefined && !tracked.has(file)) continue;
+    if (now === undefined) errors.push(`existing source owner removed while the file is still tracked: ${file}`);
+    else if (now !== owner) errors.push(`existing source owner changed: ${file}`);
+  }
+  return errors;
+}
+
+/**
+ * Changes to the ownership rules themselves against the base. An existing rule may not change, and module aliases and
+ * external tables may not grow. One addition is ordinary: a new settings key with its owner (a module that starts
+ * keeping a setting says so here). It must be an exact key that no existing wildcard rule covers: a new wildcard could
+ * take over keys other modules own, and an exact key under an existing wildcard would take that key from the wildcard's
+ * owner, because the first matching rule in the map decides who owns a key.
+ */
+export function ownershipRuleChanges(
+  map: Pick<OwnershipMap, "settings" | "moduleAliases" | "externalTables">,
+  previous: Pick<OwnershipMap, "settings" | "moduleAliases" | "externalTables">,
+): string[] {
+  const errors: string[] = [];
+  const covered = (key: string) => Object.keys(previous.settings).some((pattern) => pattern.endsWith("*") && key.startsWith(pattern.slice(0, -1)));
+  for (const kind of ["settings", "moduleAliases", "externalTables"] as const)
+    for (const [key, value] of Object.entries(map[kind])) {
+      const before = previous[kind][key];
+      if (kind === "settings" && before === undefined && !key.includes("*") && !covered(key)) continue;
+      if (JSON.stringify(before) !== JSON.stringify(value)) errors.push(`ownership rule expanded or changed: ${kind}.${key}`);
+    }
   return errors;
 }
 

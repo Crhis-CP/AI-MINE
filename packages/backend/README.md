@@ -19,6 +19,8 @@ TASK-0367统一升级保留主线故障修复：同一逻辑请求的未知回�
 - 关闭后旧待执行查询留在已关闭的驱动，不转发到新根；重开后重新创建查询。取消、游标和保留连接遵循驱动自身接口，不再包一层通用代理。
 - 真实表权限继续由数据库角色控制；静态文件归属登记只用于检查跨表写入，不能授予权限。保留的UNKNOWN位置仍是未静态证明，不当成安全或完整验收。
 
+信源目录以数据库为准（DEC-79）：信源所在国家与语言记在`sources.jurisdiction`、`sources.language`两列，采集轮转、法规覆盖统计与法规发布经`admin/sources`的`readSourceProfile`读取，运行时不再读`industry/`里的目录文件。整份目录用`scripts/source-catalogue.ts`搬运：`export`把全部信源连同当前许可记录写成一份JSON；`import <文件>`只做检查并列出将新建与不合格的条目，加`--apply`才写入。导入只新建缺少的信源、一律停用，不改已有信源；`createSource`的`restore`选项（许可记录、发布机构、人工固定的间隔，先经`validateSourceRestore`检查）只给这个脚本用，与信源本身在同一事务写入。导出文件含许可证据，不进仓库。
+
 来源许可写入从`@amp/backend/admin/sources`导入`saveSourcePolicy(id, input, actor)`。`input`可选传`expectedSourceGuard: { ownerEntityId: string | null }`；明确传入时必须含字符串或null，显式空值只作精确比较，不是同机构迁域证据。无效守卫或来源不存在、已归档、机构不符时按原冲突路径拒绝，不写许可版本或成功审计。
 
 守卫在原保存事务内依次取得`23621 + hashtext(sourceId)`许可锁及来源行锁，保护机构和未归档状态直到原版本CAS、审计与提交完成；不增加启用状态或`updated_at`门槛，不写来源配置、启停或历史。未传守卫的旧调用、返回许可对象及版本/审计行为不变；用途、证据、条件与迁域身份要求仍由原许可机制及对应消费者校验，守卫不替代许可证。
@@ -36,7 +38,7 @@ try {
 }
 ```
 
-withCustomPlans在直接连接的事务中设置计划策略，搜索不会继承其他请求的设置。历史注入阶段的机械改写和输入指纹仍保留于scripts/db-injection，仅用于核对历史记录，不再运行它重建已删除的代理。
+withCustomPlans在直接连接的事务中设置计划策略，搜索不会继承其他请求的设置。
 
 队列接口经 `@amp/backend/jobs/queue` 使用，getBoss返回原生pg-boss实例，方法、事务和监听器遵循驱动自身语义，不再包通用Proxy。组合根必须先stopBoss、后closeDb；队列正常drain期间仍允许在途handler结算并排入后续任务。ensure/enqueue保留所属根检查，旧异步结果不能写入新实例缓存；私有生产者不创建schema/队列，分区变动时只替换客户端、不自动重发未知请求。临时启动失败不永久缓存被拒绝的Promise。
 
@@ -609,3 +611,9 @@ TASK0503依据Owner默认关闭决定，使用唯一 `ORIGINAL_POST_ADMISSION_EN
 TASK-0507将报道比较的结构解析与证据业务校验分开：网关保存可解析的已付响应；是否有必要的双方引文、是否逐字出现在当前原文中，均在写入完成决定和投影前检查。证据不成立时保留真实回执并等待，不合并、不伪造`insufficient`；相同输入重试、反向比较和重启只复用已收到的回答，不因本地证据判定重复购买。真实材料或配方变化仍使用新的输入身份，明确未计费拒绝与未知计费恢复保持既有机制。
 
 分类重切（ADR-0031，Owner 2026-11-05）：九类代码与退役代码映射在contracts，结构化与评分直接用新九类；发布投影把一对一的退役代码换成新代码，`company_project`在重判前不显示分类，公开标签以当前分类名开头。`editorial/reclassify`（enrichment）只改各稿件最新判断的分类与首个标签并在`output.categoryReclassification`留下原值、方式、配方与回执，人工设置的分类经`editorial/manual-revisions.manualCategoryArticles`排除；需要模型的稿件经`analyze.runCategoryStructure`重跑结构化步骤，沿用同一材料许可、处理暂停、请求次数控制与回执复用，不重评分、不改写导读或归组输入。`publication/publish.retiredCategoryPublications`列出仍带退役代码或旧分类名的公开记录供无模型重发。运行入口`scripts/reclassify-categories.ts`：默认只读统计，`--apply-mapped`不调模型，`--apply-model --limit N`分批、可续接。
+
+### 单篇核对影子（TASK-0367，包二）
+
+`jobs/content.processArticle` 在判断提交、发布投影和排入归组之后调用 `pipeline/understand/observe.queueArticleObserve`（BLOCK、等待正文、需先抓页、过期修订都不调用）：只排一个模块队列任务 `news.enrichment.observe`（singletonKey=`analysis:<分析ID>`，载荷带业务线、稿件、分析ID和语言），开关关着就不排，排队出错只记日志、不抛给稿件处理。消费者在 `registerContentJobs` 里注册，并发1，失败重试两次。任务取出时复核开关 `observe.articles`（enrichment的设置键，缺省为开，`"off"`或`false`为关，进程内缓存不超过60秒），只核对“可核对的判断”：带评分键、有预筛答案、不是BLOCK，且是该稿当前修订最新的一次。稿件输入用分析自己的 `loadAnalyzeInput` 读（整页读入，与判断时相同）；`checks.ts` 只读判断步骤看到的那部分（标题，加 `editorial/analysis-layout.sharedBody` 切出的正文，即共享材料本身的切法：body_head、body_tail按UTF-8字节截，中间续到合计20,000字；长正文只把开头20,000字和末尾4,000字交给它切，结果与切整篇相同；正文不可用时读信源摘要，不读存下的译文），分四段异步执行、段间让出事件循环：`linkTextWithHits`（带结构步骤的subjects，命中直接用作数字屏蔽）、对understand/summarize写的稿预演 `renderNames`、`checkFigures`、只用正文开头做 `demoteDateline`（记下被降级或保留的国家及引文）。然后在一个独立事务里写 `enrichment.analysis_checks`（mode=observed，同一判断只留第一次）并经 `pipeline/entities/store.replaceArticleLinks` 整组替换该修订的 `entities.article_links`（人工关联保留，库里没有的实体ID不写）。`analyses`、`articles`、`publications` 只读。`figures.ts` 的中文读数改为每种写法只重建一次文本，不再随数字个数平方增长。
+
+公司库只经 `pipeline/entities/store.ts` 与 `admin.ts` 读写：`loadEntityIndex` 读两表建索引，按行数和最新updated_at复用、至多10分钟重建；库为空时用代码种子建索引（不等导入，链接存不下）。`scripts/entities-seed.ts` 默认预演，`--apply` 只补缺、不改已有行；`mergeEntities`/`undoMerge` 只改指针并写审计，标签词表公司不能作被合并方，暂无调用方。每日对账在独立的try里经 `articleObserveEnabled`、`articleCheckSummary`（按编号从昨天开始前一小时往后读，不扫全表）、`articleLinkCoverage` 和队列模块的 `queueOperationalSnapshot` 读数：报昨天判断数、核对数、认出公司数，核对不到九成或有失败任务时加一行提醒，开关关着或读数失败各一行，hard类不进消息。保留期任务经 `pruneAnalysisChecks` 删180天前的核对记录，失败只记日志。`scripts/entity-links-backfill.ts` 免费回填（默认预演，按编号分页，参数缺值即报错，默认每条间隔20毫秒）。运维说明（含先关开关、等队列排空再回退的顺序）见 `docs/runbooks/article-observe.md`。

@@ -263,10 +263,99 @@ export function validateSourceCreate(input: unknown) {
   return source;
 }
 
-export async function createSource(input: unknown, actor: string, opts: { lane?: "news" | "policy"; principal?: AdminPrincipal } = {}) {
+/** Where a source publishes from and in which language; null when the source is unknown, null fields when not recorded. */
+export async function readSourceProfile(sourceId: string, db: Db = sql): Promise<{ jurisdiction: string | null; language: string | null } | null> {
+  const [row] = await db<{ jurisdiction: string | null; language: string | null }[]>`SELECT jurisdiction, language FROM sources WHERE id = ${sourceId}`;
+  return row ?? null;
+}
+
+const SourceRestoreSchema = z.strictObject({
+  permission: z
+    .strictObject({
+      permissions: SourcePolicySchema.shape.permissions,
+      evidence: SourcePolicySchema.shape.evidence,
+      conditions: SourcePolicySchema.shape.conditions,
+      expires_at: SourcePolicySchema.shape.expires_at,
+      licence_label_zh: SourcePolicySchema.shape.licence_label_zh,
+    })
+    .optional(),
+  owner_entity_id: z.string().max(120).nullable().optional(),
+  interval_pinned: z.boolean().optional(),
+});
+/**
+ * What an operations import brings back with a source it creates (scripts/source-catalogue.ts). Not part of the HTTP
+ * entry: a person creating a source gets the default permission record and sets the rest on the source page.
+ *   permission: the exported current permission, written as the source's first version in place of the default
+ *   allow-all record, so a denied purpose, an objection, a condition or an expiry is not lost on the way. Its scope
+ *   and attachments are the create request's own.
+ */
+export type SourceRestore = z.infer<typeof SourceRestoreSchema>;
+
+/** The permission record a new source starts with: the Owner's standing declaration, or the one being restored. */
+function firstSourcePolicy(s: z.infer<typeof SourceCreateRequest>, actor: string, at: string, restored?: SourceRestore["permission"]) {
+  return SourcePolicySchema.parse({
+    source_id: s.id,
+    permission_version: 1,
+    permissions:
+      restored?.permissions ??
+      Object.fromEntries(
+        SOURCE_PURPOSES.map((purpose) => [
+          purpose,
+          !s.site_fulltext && (purpose === "public_original_fulltext" || purpose === "public_translation") ? "deny" : "allow",
+        ]),
+      ),
+    evidence: restored?.evidence ?? [
+      {
+        kind: "owner_declared",
+        url: null,
+        checked_at: at,
+        valid_until: null,
+        basis_zh: "Owner 2026-10-01书面答复",
+        capabilities: [...SOURCE_PURPOSES],
+        scope: s.permission_scope,
+      },
+    ],
+    scope: s.permission_scope,
+    conditions: restored?.conditions ?? [],
+    attachments_in_scope: s.attachments_in_scope,
+    reviewed_by: actor,
+    reviewed_at: at,
+    expires_at: restored?.expires_at ?? null,
+    licence_label_zh: restored?.licence_label_zh ?? "负责人声明许可；来源异议或指示可逐项收紧",
+  });
+}
+
+/**
+ * Everything createSource would refuse for this request and restore, checked without writing: an import validates its
+ * whole file with this before it creates the first source, and its dry run lists exactly what would be created.
+ */
+export function validateSourceRestore(input: unknown, restore: unknown, actor: string) {
+  const source = validateSourceCreate(input);
+  const restored = SourceRestoreSchema.parse(restore);
+  firstSourcePolicy(source, actor, new Date().toISOString(), restored.permission);
+  return { source, restore: restored };
+}
+
+/**
+ * `profile`: where the source publishes from and in which language (sources.jurisdiction, sources.language).
+ * `restore`: see SourceRestore; operations scripts only, written in the creating transaction and named in its audit row.
+ */
+export async function createSource(
+  input: unknown,
+  actor: string,
+  opts: {
+    lane?: "news" | "policy";
+    principal?: AdminPrincipal;
+    profile?: { jurisdiction?: string | null; language?: string | null };
+    restore?: SourceRestore;
+  } = {},
+) {
   const lane = opts.lane ?? "news";
   if (lane !== "news" && lane !== "policy") throw new Error("业务线必须是 news 或 policy");
+  // A signed-in person's request never carries a restore; refusing the combination keeps it out of any HTTP entry.
+  if (opts.restore && opts.principal) throw new Error("A restore is an operations import, not an administrator request");
   const s = validateSourceCreate(input);
+  const restore = opts.restore ? SourceRestoreSchema.parse(opts.restore) : null;
   return sql.begin(async (tx) => {
     if (opts.principal) await requireOwner(opts.principal, tx);
     await tx`SELECT pg_advisory_xact_lock(23622, hashtext(${s.kind + ":" + (sourceIdentity(s.config) ?? s.id)}))`;
@@ -274,41 +363,20 @@ export async function createSource(input: unknown, actor: string, opts: { lane?:
     if (dup) return { created: false as const, duplicate: dup };
     await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${s.id}))`;
     const [row] = await tx`
-      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at,source_date_config_hash,lane)
+      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at,source_date_config_hash,lane,jurisdiction,language,
+        owner_entity_id,interval_pinned)
       VALUES (${s.id},${s.name},${s.kind},${tx.json(s.config as never)},${s.tier},${s.participation_mode},${s.interval_minutes},${s.first_party},${s.tags},
-        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL,${sourceDateConfigHash(s.kind, s.config)},${lane}) ON CONFLICT (id) DO NOTHING RETURNING *`;
+        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL,${sourceDateConfigHash(s.kind, s.config)},${lane},
+        ${opts.profile?.jurisdiction ?? null},${opts.profile?.language ?? null},
+        ${restore?.owner_entity_id ?? null},${restore?.interval_pinned ?? false}) ON CONFLICT (id) DO NOTHING RETURNING *`;
     if (!row) throw new Conflict(`信源 ID ${s.id} 已存在`);
-    const at = new Date().toISOString();
-    const permission = SourcePolicySchema.parse({
-      source_id: s.id,
-      permission_version: 1,
-      permissions: Object.fromEntries(
-        SOURCE_PURPOSES.map((purpose) => [
-          purpose,
-          !s.site_fulltext && (purpose === "public_original_fulltext" || purpose === "public_translation") ? "deny" : "allow",
-        ]),
-      ),
-      evidence: [
-        {
-          kind: "owner_declared",
-          url: null,
-          checked_at: at,
-          valid_until: null,
-          basis_zh: "Owner 2026-10-01书面答复",
-          capabilities: [...SOURCE_PURPOSES],
-          scope: s.permission_scope,
-        },
-      ],
-      scope: s.permission_scope,
-      conditions: [],
-      attachments_in_scope: s.attachments_in_scope,
-      reviewed_by: actor,
-      reviewed_at: at,
-      expires_at: null,
-      licence_label_zh: "负责人声明许可；来源异议或指示可逐项收紧",
-    });
+    const permission = firstSourcePolicy(s, actor, new Date().toISOString(), restore?.permission);
     await appendSourcePolicy(tx, null, permission);
-    await audit(actor, "source.create", `source:${s.id}`, null, null, { ...s, lane }, undefined, tx);
+    // The audit row names what was brought back, so the owner and the pin have a recorded author like any later edit.
+    const restored = restore
+      ? { owner_entity_id: restore.owner_entity_id ?? null, interval_pinned: restore.interval_pinned ?? false, permission_restored: !!restore.permission }
+      : {};
+    await audit(actor, "source.create", `source:${s.id}`, null, null, { ...s, lane, ...(opts.profile ?? {}), ...restored }, undefined, tx);
     return { created: true as const, source: row };
   });
 }

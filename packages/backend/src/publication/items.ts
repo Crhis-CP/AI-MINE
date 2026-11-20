@@ -509,6 +509,13 @@ export async function readGroupingEvidencePublications(articleIds: string[], db:
     FROM publications p WHERE article_id=ANY(${articleIds}::text[])`;
 }
 
+/** The title and summary of each publication, whatever its state: the text event recall compares (events/relate.ts reportText). */
+export async function readGroupingReportTexts(articleIds: string[], db: Db = sql) {
+  if (!articleIds.length) return [];
+  return db<{ article_id: string; title: string; summary: string | null }[]>`
+    SELECT article_id,title,summary FROM publications WHERE article_id=ANY(${articleIds}::text[])`;
+}
+
 /**
  * News items whose public title contains one of the given LIKE patterns, by original time since `since`:
  * the publication side of document-identity recall (events/group.ts). Titles only, no text or state.
@@ -614,4 +621,51 @@ export async function pendingSourceTimeProjectionIds(limit: number) {
   ).filter(midnightClock);
   const placeholders = await placeholderClockSources(midnights.map((row) => row.source_id));
   return [...new Set([...ids, ...midnights.filter((row) => placeholders.has(row.source_id)).map((row) => row.article_id)])].slice(0, limit);
+}
+
+// ---- Counts for the daily reconciliation (operations/reconcile.ts) -------------------------------------------------
+
+/**
+ * Reports first shown to readers, and reports first shown as selected, in the window. Two separate events: a report is
+ * often selected on a later day than it became public, so neither count is a part of the other.
+ */
+export async function publicationFlow(start: Date, end: Date): Promise<{ public: number; selected: number }> {
+  const [row] = await sql<{ public: number; selected: number }[]>`
+    SELECT count(*) FILTER (WHERE first_public_at >= ${start} AND first_public_at < ${end})::int AS public,
+           count(*) FILTER (WHERE first_selected_at >= ${start} AND first_selected_at < ${end})::int AS selected
+    FROM publications
+    WHERE (first_public_at >= ${start} AND first_public_at < ${end}) OR (first_selected_at >= ${start} AND first_selected_at < ${end})`;
+  return row!;
+}
+
+/** How many of these articles readers cannot see in the public pool now. */
+export async function notPublicAmong(articleIds: readonly string[]): Promise<number> {
+  if (!articleIds.length) return 0;
+  const [row] = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM publications
+    WHERE article_id = ANY(${articleIds as string[]}::text[]) AND visibility = 'public' AND eligible`;
+  return articleIds.length - row!.n;
+}
+
+/**
+ * Foreign-language news reports shown with their full text and first public between `start` and `cutoff`, and those
+ * among them whose Chinese translation is still to come. Both sides are the translator's own definitions
+ * (editorial/translate.ts translatePending), so the count is what its sweep would still pick up: only a report stored
+ * with its full body is ever translated, and a row in `translations` is claimed before any text exists, so a row
+ * alone does not mean readers have the translation.
+ */
+export async function translationLag(start: Date, cutoff: Date): Promise<{ due: number; missing: number }> {
+  if (cutoff <= start) return { due: 0, missing: 0 };
+  const [row] = await sql<{ due: number; missing: number }[]>`
+    SELECT count(*)::int AS due,
+           count(*) FILTER (WHERE t.article_id IS NULL
+             OR (t.origin <> 'source' AND (t.revision < a.revision OR NOT t.complete)))::int AS missing
+    FROM publications p
+    JOIN articles a ON a.id = p.article_id
+    JOIN sources s ON s.id = p.source_id
+    LEFT JOIN translations t ON t.article_id = p.article_id AND t.lang = 'zh'
+    WHERE p.visibility = 'public' AND p.eligible AND p.body_mode = 'full' AND s.lane = 'news'
+      AND a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh'
+      AND p.first_public_at >= ${start} AND p.first_public_at < ${cutoff}`;
+  return row!;
 }

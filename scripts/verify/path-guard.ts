@@ -6,10 +6,15 @@
 //     card, the product specs);
 //   - integrator areas (integrator_only shared paths, and paths that only the architect lane owns or that no
 //     lane owns) only when the card names an integration_owner.
-// Paths under `generated:` are exempt. The card and lanes.yaml are read from the base commit, so a PR cannot
-// widen its own paths. One exception, the plan PR (§3.3: a PR that only changes task cards, merged before the
-// work): the card it names is new, so it is not on the base yet; such a PR passes when it adds that card and
-// every file it changes is under tasks/ (TASK-0015).
+// Paths under `generated:` are exempt. lanes.yaml is read from the base commit.
+//
+// The card may arrive in the same PR as the work (2026-11-19: the card-first plan PR doubled every change and
+// stopped no real overreach). Ordinary paths are judged against the card as the PR leaves it, so a PR can add
+// its card, or add a path to it, together with the change. Guarded paths (`guarded:` in the base's lanes.yaml:
+// deployment, the checks themselves, migrations, scoring prompts, the rule file) keep the old rule: the card
+// that opens them must already be on the base, so a PR cannot open them for itself. A PR that only adds its
+// card (every file under tasks/) still passes as a plan PR (TASK-0015); that is how a card for guarded work
+// lands first.
 import { parse } from "yaml";
 import { git, matchesAny, ROOT, tryGit } from "./lib.ts";
 
@@ -29,6 +34,7 @@ export interface Lanes {
     by_file?: Array<{ paths: string[]; lane: string }>;
   }>;
   generated?: string[];
+  guarded?: string[];
 }
 
 export interface Card {
@@ -40,6 +46,30 @@ export interface Card {
 
 const INTEGRATOR = "architect";
 const NOT_ALLOWED = "not in the task card's allowed_paths";
+/** The guarded paths of a base whose lanes.yaml has no `guarded:` list (bases older than the list). */
+export const DEFAULT_GUARDED = [
+  "deploy/**",
+  ".github/**",
+  "scripts/verify/**",
+  "scripts/docs-check/**",
+  "package.json",
+  "biome.jsonc",
+  "tsconfig.base.json",
+  "lanes.yaml",
+  "Makefile",
+  "Dockerfile",
+  "docker-compose*.yml",
+  "package-lock.json",
+  ".npmrc",
+  "database/migrations/**",
+  "modules/*/migrations/**",
+  "database/roles/**",
+  "database/migration-inventory.json",
+  "industry/prompts/**",
+  "industry/selection.ts",
+  "AGENTS.md",
+  "docs/06-agents/templates/root-AGENTS.md",
+];
 
 /** Reads a task card's YAML front matter (between the first two `---` lines). */
 export function parseCard(text: string): Record<string, unknown> {
@@ -67,8 +97,8 @@ export function judge(file: string, card: Card, lanes: Lanes): string | null {
   if (card.lane === INTEGRATOR) return null;
   const approved = Boolean(card.integration_owner?.trim());
   // Integrator-only areas first: they win over a lane's own paths (contracts owns src/**, but not src/common/**).
-  const guarded = (lanes.shared ?? []).find((a) => a.integrator_only && matchesAny(file, a.paths ?? []));
-  if (guarded) return approved ? null : `shared area ${guarded.id} is the integrator's: the card needs an integration_owner`;
+  const integratorArea = (lanes.shared ?? []).find((a) => a.integrator_only && matchesAny(file, a.paths ?? []));
+  if (integratorArea) return approved ? null : `shared area ${integratorArea.id} is the integrator's: the card needs an integration_owner`;
   if (matchesAny(file, ownedPaths(lanes, card.lane))) return null;
 
   for (const area of lanes.shared ?? []) {
@@ -111,39 +141,62 @@ export function cardFromBranch(branch: string): string | null {
 
 export type GuardResult = { status: "pass" | "fail" | "skipped"; lines: string[] };
 
-/** The stage: changed files between `base` and `head` against the card and lanes.yaml as they are on `base`. */
+/**
+ * The stage: changed files between `base` and `head` against lanes.yaml as it is on `base` and the task card:
+ * the card as the change leaves it for ordinary paths, the card as it is on `base` for guarded paths.
+ */
 export function pathGuard(base: string, head: string, task: string | null, root = ROOT): GuardResult {
   const lanesText = tryGit(["show", `${base}:lanes.yaml`], root);
   if (lanesText === null) return { status: "skipped", lines: ["the base commit has no lanes.yaml (bootstrap: nothing to guard against yet)"] };
   const changed = git(["diff", "--name-only", "-z", "--no-renames", base, head], root).split("\0").filter(Boolean);
   if (!changed.length) return { status: "pass", lines: ["no changes against the base"] };
   if (!task) return { status: "fail", lines: ["no task card: name it with TASK=TASK-nnnn or use a branch agent/<lane>/TASK-nnnn-<slug>"] };
-  const cardText = tryGit(["show", `${base}:tasks/${task}.md`], root);
-  if (cardText === null) return planPr(changed, head, task, root);
   const lanes = parse(lanesText) as Lanes;
-  const raw = parseCard(cardText);
-  const card: Card = {
+  const baseText = tryGit(["show", `${base}:tasks/${task}.md`], root);
+  const headText = tryGit(["show", `${head}:tasks/${task}.md`], root);
+  if (baseText === null && changed.every((f) => f.startsWith("tasks/"))) return planPr(changed, head, task, root);
+  if (headText === null) {
+    return {
+      status: "fail",
+      lines: [`tasks/${task}.md is not in this change${baseText === null ? " or on the base commit" : " (a PR may not delete its own card)"}`],
+    };
+  }
+  const baseCard = baseText === null ? null : cardOf(parseCard(baseText));
+  const headCard = cardOf(parseCard(headText));
+  for (const card of [baseCard, headCard]) {
+    if (!card) continue;
+    if (card.id !== task) return { status: "fail", lines: [`tasks/${task}.md says id ${card.id}`] };
+    if (!lanes.lanes[card.lane]) return { status: "fail", lines: [`lane ${card.lane} of ${task} is not in lanes.yaml`] };
+  }
+  const guarded = lanes.guarded ?? DEFAULT_GUARDED;
+  const lines = changed.flatMap((f) => {
+    if (matchesAny(f, lanes.generated ?? []) || f === `tasks/${task}.md`) return [];
+    if (!matchesAny(f, guarded)) {
+      const why = judge(f, headCard, lanes);
+      return why ? [`${f}: ${why}`] : [];
+    }
+    if (!baseCard) return [`${f}: guarded path, and tasks/${task}.md is not on the base commit yet: merge a PR that only adds the card first`];
+    const why = judge(f, baseCard, lanes);
+    if (!why) return [];
+    return [
+      why === NOT_ALLOWED && matchesAny(f, headCard.allowed_paths)
+        ? `${f}: guarded path, and the card on the base commit does not list it: land the card change first in a PR that changes only tasks/${task}.md (PIT-108)`
+        : `${f}: ${why}`,
+    ];
+  });
+  return {
+    status: lines.length ? "fail" : "pass",
+    lines: lines.length
+      ? lines
+      : [`${changed.length} changed files within ${task} (lane ${headCard.lane}${baseCard ? "" : "; the card arrives in this change"})`],
+  };
+}
+
+function cardOf(raw: Record<string, unknown>): Card {
+  return {
     id: String(raw.id ?? ""),
     lane: String(raw.lane ?? ""),
     allowed_paths: Array.isArray(raw.allowed_paths) ? raw.allowed_paths.map(String) : [],
     integration_owner: typeof raw.integration_owner === "string" ? raw.integration_owner : "",
   };
-  if (card.id !== task) return { status: "fail", lines: [`tasks/${task}.md says id ${card.id}`] };
-  if (!lanes.lanes[card.lane]) return { status: "fail", lines: [`lane ${card.lane} of ${task} is not in lanes.yaml`] };
-  const lines = changed.flatMap((f) => {
-    const why = judge(f, card, lanes);
-    return why ? [`${f}: ${why}`] : [];
-  });
-  // PIT-108: the card on this branch may already list a file the base card does not. Say what to do about it.
-  const headText = lines.length ? tryGit(["show", `${head}:tasks/${task}.md`], root) : null;
-  if (headText !== null) {
-    const headPaths = (parseCard(headText).allowed_paths as unknown[] | undefined)?.map(String) ?? [];
-    const widened = changed.filter((f) => judge(f, card, lanes) === NOT_ALLOWED && matchesAny(f, headPaths));
-    if (widened.length)
-      lines.push(
-        `tasks/${task}.md on this branch lists ${widened.join(", ")}, but path-guard reads the card on the base commit: ` +
-          `land that card change first in a PR that changes only tasks/${task}.md, then merge the base into this branch (PIT-108)`,
-      );
-  }
-  return { status: lines.length ? "fail" : "pass", lines: lines.length ? lines : [`${changed.length} changed files within ${task} (lane ${card.lane})`] };
 }

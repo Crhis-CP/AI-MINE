@@ -748,6 +748,54 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["publication"],
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202611061200_news_links.sql"],
       },
+      {
+        name: "sources/202611191000_source_jurisdiction_language.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202611111000_interval_pinned.sql"],
+      },
+      {
+        name: "content/202611192000_article_content_hash_index.sql",
+        module: "content",
+        schemas: ["content"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "content/202611061201_news_links_body_hook.sql"],
+      },
+      {
+        name: "entities/202611192001_entity_library.sql",
+        module: "entities",
+        schemas: ["entities"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
+        name: "enrichment/202611192002_analysis_checks.sql",
+        module: "enrichment",
+        schemas: ["enrichment"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "enrichment/202611081000_english_copies.sql"],
+      },
+      {
+        name: "events/202611192003_shadow_decisions.sql",
+        module: "events",
+        schemas: ["events"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "events/202611071400_report_group_check_outcome.sql"],
+      },
+      {
+        name: "events/202611192004_fact_timing.sql",
+        module: "events",
+        schemas: ["events"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "events/202611192003_shadow_decisions.sql"],
+      },
+      {
+        name: "events/202611192005_engine_switches.sql",
+        module: "events",
+        schemas: ["events"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "events/202611192004_fact_timing.sql"],
+      },
+      {
+        name: "publication/202611192006_event_rank.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202611130408_withdrawn_reasons.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

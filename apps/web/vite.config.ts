@@ -19,7 +19,9 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
       server.middlewares.use((req, res, next) => {
         const group = hostPolicy(req, res);
         if (!group) return;
-        if (env.WEB_ROUTE_GROUP && group !== env.WEB_ROUTE_GROUP) {
+        // The rewritten reader pages answer on the public host, like the old ones.
+        const served = env.WEB_ROUTE_GROUP === "reader" ? "public" : env.WEB_ROUTE_GROUP;
+        if (served && group !== served) {
           res.writeHead(404, { "Cache-Control": "private, no-store" });
           return res.end("Not found");
         }
@@ -27,7 +29,14 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
         const qi = raw.indexOf("?");
         const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
         const search = qi >= 0 ? raw.slice(qi) : "";
-        if (pathname.startsWith("/@") || pathname.startsWith("/node_modules/") || pathname.startsWith("/app/") || pathname.startsWith("/__")) return next();
+        if (
+          pathname.startsWith("/@") ||
+          pathname.startsWith("/node_modules/") ||
+          pathname.startsWith("/app/") ||
+          pathname.startsWith("/reader/") ||
+          pathname.startsWith("/__")
+        )
+          return next();
         const decision = resolveRedirect(pathname, search);
         if (decision) {
           for (const [k, v] of Object.entries(decision.headers)) res.setHeader(k, v);

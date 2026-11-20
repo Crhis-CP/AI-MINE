@@ -38,6 +38,11 @@ const ENGINE_ENTRIES: Record<string, string> = {
   "./providers/permissions": "./src/providers/permissions.ts",
   "./sources/permissions": "./src/sources/permissions.ts",
   "./publication/news-links": "./src/publication/news-links.ts",
+  // The seams of the pipeline rewrite (DEC-79): the one caller-facing entry of the event engine, and the analysis
+  // orchestration that tests and evaluation scripts drive directly.
+  "./events/engine": "./src/events/engine.ts",
+  "./editorial/analyze-article": "./src/editorial/analyze-article.ts",
+  "./operations/reconcile": "./src/operations/reconcile.ts",
 };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
@@ -218,7 +223,7 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
         if (
           w.name === "@amp/backend" &&
           pkg === "@amp/policy" &&
-          !/^packages\/backend\/src\/(publication\/(policies|policies-reports|policy-report-job)|policy\/(fallback-quality|model-evidence|quality|receipt-recovery|target-evidence)|jobs\/policy)\.ts$/.test(
+          !/^packages\/backend\/src\/(publication\/(policies|policies-reports)|policy\/(fallback-quality|model-evidence|quality|receipt-recovery|target-evidence))\.ts$/.test(
             f,
           )
         )

@@ -325,6 +325,7 @@ test("missing structure and HTTP 200 alone do not yield completion; declared emp
 
 test("coverage uses structural receipts and unfinished rounds as of report end, with public count left to publication", async () => {
   const f = await fixture([[item("a")]], "policy-us-009");
+  await sql`UPDATE sources SET jurisdiction='US' WHERE id=${f.id}`;
   await drain(f.run);
   const before = await policySourceCoverage("2000-01-01Z", "2100-01-01Z"),
     us = before.rows.find((r) => r.jurisdiction.code === "US")!;

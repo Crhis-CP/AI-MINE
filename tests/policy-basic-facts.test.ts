@@ -119,7 +119,7 @@ test("coverage counts distinct sources and incomplete-only sources still lack a 
   const { policySourceCoverage } = await import("../packages/backend/src/sources/policy-coverage.ts");
   const sourceId = "policy-ar-001",
     scanId = "coverage-synthetic";
-  await sql`INSERT INTO sources(id,name,kind,lane) VALUES(${sourceId},'Synthetic AR source','external','policy')`;
+  await sql`INSERT INTO sources(id,name,kind,lane,jurisdiction) VALUES(${sourceId},'Synthetic AR source','external','policy','AR')`;
   await sql`INSERT INTO acquisition.directory_scans(id,source_id,contract_hash,permission_version,contract,state,next_page,finished_at)
     VALUES(${scanId},${sourceId},'synthetic',1,'{}','failed',1,now())`;
   for (let i = 0; i < 3; i++)
@@ -169,7 +169,7 @@ test("a changed official material identity retires only its superseded current e
   const second = await capturePolicyMaterial(f.sourceId, f.materialId, changed);
   if (second.status !== "captured") return assert.fail("second capture");
   assert.notEqual(first.expressionId, second.expressionId);
-  const { currentPolicyHeads } = await import("../modules/policy/backend/domain/public-state.ts");
+  const { currentPolicyHeads } = await import("../modules/policy/backend/core/public-state.ts");
   const heads = await currentPolicyHeads([first.expressionId, second.expressionId]);
   assert.equal(heads.get(first.expressionId), null);
   assert.equal(heads.get(second.expressionId), second.revisionId);

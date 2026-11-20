@@ -115,12 +115,27 @@ export interface SharedMaterial {
   geography: ReturnType<typeof geographyMaterial>;
 }
 
+/** The body as the shared material cuts it, before it is rendered (sharedBody). */
+export interface SharedBody {
+  /** The evidence segments (title, body_head, body_tail at the full geography budget, cut by UTF-8 bytes). */
+  geography: ReturnType<typeof geographyMaterial>;
+  /** The text the segments were cut from: the page body, else the feed summary; a post with its quote. */
+  evidence: string;
+  head: string;
+  /** The body between body_head and body_tail, as far as UNDERSTAND_BODY_CHARS reaches in all (〔正文续〕). */
+  continuation: string;
+  tail: string;
+  /** The evidence's length and how much between head and tail is left out, in characters. */
+  length: number;
+  omitted: number;
+}
+
 /**
- * The article as every shared-layout step reads it: the original time, media, material quality and the evidence
- * segments (title, body_head, body_tail at the geography budget) with the body between head and tail as 〔正文续〕, up
- * to UNDERSTAND_BODY_CHARS in all; a cut is stated. No source name, tier, first-party flag, author or link.
+ * The body as every shared-layout step reads it: the evidence segments' body_head and body_tail, and the body between
+ * them up to UNDERSTAND_BODY_CHARS characters in all. sharedMaterial renders it; the per-article checks read the same
+ * cut (pipeline/understand/checks.ts).
  */
-export function sharedMaterial(a: AnalyzeInputArticle): SharedMaterial {
+export function sharedBody(a: Pick<AnalyzeInputArticle, "title" | "bodyText" | "excerpt" | "bodyStatus" | "xPost">): SharedBody {
   const geography = geographyMaterial(a);
   const segment = (id: string) => geography.segments.find((s) => s.id === id)?.text ?? "";
   // The same evidence text geographyMaterial cut its segments from.
@@ -132,17 +147,28 @@ export function sharedMaterial(a: AnalyzeInputArticle): SharedMaterial {
     tailLength = Array.from(tail).length;
   const between = chars.slice(headLength, chars.length - tailLength);
   const kept = between.slice(0, Math.max(0, UNDERSTAND_BODY_CHARS - headLength - tailLength));
+  return { geography, evidence, head, continuation: kept.join(""), tail, length: chars.length, omitted: between.length - kept.length };
+}
+
+/**
+ * The article as every shared-layout step reads it: the original time, media, material quality and the evidence
+ * segments (title, body_head, body_tail at the geography budget) with the body between head and tail as 〔正文续〕, up
+ * to UNDERSTAND_BODY_CHARS in all (sharedBody); a cut is stated. No source name, tier, first-party flag, author or link.
+ */
+export function sharedMaterial(a: AnalyzeInputArticle): SharedMaterial {
+  const body = sharedBody(a);
+  const title = body.geography.segments.find((s) => s.id === "title")?.text ?? "";
   const lines = [`【原文时间】${modelSourceDateLabel(a)}`];
   const media = mediaLine(a);
   if (media) lines.push(media);
-  lines.push(`【材料质量】${materialQuality(a)}`, "", "〔title〕", segment("title"), "", "〔body_head〕", head);
-  if (kept.length) lines.push("", "〔正文续〕", kept.join(""));
-  if (kept.length < between.length) lines.push(`……（正文共 ${chars.length} 字，此处省略中间 ${between.length - kept.length} 字）`);
-  if (tail) lines.push("", "〔body_tail〕", tail);
+  lines.push(`【材料质量】${materialQuality(a)}`, "", "〔title〕", title, "", "〔body_head〕", body.head);
+  if (body.continuation) lines.push("", "〔正文续〕", body.continuation);
+  if (body.omitted) lines.push(`……（正文共 ${body.length} 字，此处省略中间 ${body.omitted} 字）`);
+  if (body.tail) lines.push("", "〔body_tail〕", body.tail);
   // A usable feed summary beside a page body without text: the steps still read it, though it is no evidence segment.
   const usable = a.xPost ? "" : usableSourceText(a.bodyText, a.excerpt);
-  if (usable && !usableSourceText(evidence)) lines.push("", "〔正文（不是可引用的段）〕", bodyWithin(usable, UNDERSTAND_BODY_CHARS));
-  return { text: lines.join("\n"), geography };
+  if (usable && !usableSourceText(body.evidence)) lines.push("", "〔正文（不是可引用的段）〕", bodyWithin(usable, UNDERSTAND_BODY_CHARS));
+  return { text: lines.join("\n"), geography: body.geography };
 }
 
 /**

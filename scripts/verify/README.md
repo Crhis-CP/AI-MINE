@@ -37,7 +37,7 @@ make verify TASK=TASK-0002
 
 ## 2. 阶段
 
-按顺序执行；某阶段依赖的前一阶段没通过时，它记为跳过。上游的 `check.yml`（原样保存在 [`upstream-check.yml`](upstream-check.yml)）两个作业逐步翻译到了这里，“种子信源必须是 18 个”改为“种子信源数与 `industry/sources.json` 一致”。
+先跑六个不需要安装和构建的“门槛阶段”（`product-update`、`names`、`path-guard`、`secrets`、`docs`、`tasks`：任务卡、更新说明、文档链接、名称与密钥），再按下表顺序跑其余阶段。`make verify` 里任何一个门槛阶段失败，其余构建与测试阶段记为跳过、整次检查立即结束（2026-11-19：此前缺卡、缺说明这类问题要等二十分钟全部跑完才报出来）；门槛阶段之间互不阻挡，一次把手续问题报全。`npm run check` 不因门槛失败而停。某阶段依赖的前一阶段没通过时，它也记为跳过。上游的 `check.yml`（原样保存在 [`upstream-check.yml`](upstream-check.yml)）两个作业逐步翻译到了这里，“种子信源必须是 18 个”改为“种子信源数与 `industry/sources.json` 一致”。
 
 | 阶段 | 检查什么 | 需要 | 对应上游步骤 |
 |---|---|---|---|
@@ -45,11 +45,11 @@ make verify TASK=TASK-0002
 | `toolchain` | 固定 npm 版本、根 package-lock.json 与显式 workspaces；`.npmrc` 保留一天等待并禁用安装脚本；镜像使用 npm ci、构建后 prune 开发依赖，保留 NPM_REGISTRY、镜像摘要和只读工作流要求 | — | — |
 | `format-lint` | 单次 `biome ci --reporter=json --max-diagnostics=none` 同时检查退出状态和完整告警；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增；缺失、无效或截断的报告失败 | — | — |
 | `typecheck` | `npm run typecheck`（含 `scripts/`） | — | Typecheck |
-| `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少 | — | — |
-| `data-ownership` | 表归属与授权分类一致；跨模块 SQL 分位置只减不增；publication 显式读模型、附录拆分文件与未知位置分别记账 | — | — |
+| `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少；正在逐块重写的部分按 [`legacy-zones.json`](legacy-zones.json) 检查：新代码不引用被它替换的旧代码，仍在引用旧代码的文件清单只减不增（`node scripts/verify/legacy-zones.ts --print` 打印当前清单） | — | — |
+| `data-ownership` | 表归属与授权分类一致；跨模块 SQL 分位置只减不增；publication 显式读模型、附录拆分文件与未知位置分别记账；已有的归属规则不得改动，唯一允许的新增是“一个确切的 settings 键及其归属模块”（不含通配符，且不落在已有通配符规则之下）；`fileModules` 里登记的文件归属不得改，只有文件本身已从 git 删除时才能连同登记一起删掉 | — | — |
 | `role-config` | 进程凭据与生产代理拒绝矩阵、web规则一致性、Compose合并锚点后的web环境隔离；`ALLOW_PRIVATE_NETWORK_FETCH` 的未展开插值与null/裸继承值保守拒绝，不读取环境或秘密展开，明确false/0/显式空值及未配置仍可通过；quick只做静态/纯规划，full在迁移后执行真实授权与公开HTTP矩阵 | — | — |
-| `names` | 上游项目的名称（含带空格的写法，不分大小写）、两个品牌色值与环形加载标识只在 [`names.json`](names.json) 列的例外路径里出现（TASK-0003 完成条件第 1 条；`04-aihot-adoption.md` 4.3、4.6 第 1 条）：来源登记；交接包原件及其写回（上游的宣传图 `docs/assets/` 和上游自带的 7 份说明文档不算）；历史证据；治理记录（`AGENTS.md`、`CLAUDE.md`、`tasks/_template.md` 只在与交接包模板逐字节相同时算例外，由任务卡生成的 `tasks/INDEX.md` 也在内）；上游原样存档（只在与来源清单里的上游原件哈希相同时算例外）；`names.json` 本身；更新日志数据 `industry/changelog.json`（第 7 类“致谢”，Owner 2026-10-05 要求，TASK-0038；这个文件里的命中只能落在 `names.json` 的 `allowedPhrases` 列出的三句原句里，每句在文件里的次数也登记在那里：原句以外多出一处，或某句的次数与登记的不同，即失败；第 7 类的文件清单必须和 `allowedPhrases.files` 完全相同，不同即失败）。JSON 文件先把 `\uXXXX` 转义还原成字符再查，原句次数也按还原后的文字数（反斜杠本身被转义的不还原；还原出的换行不算换行，报出的行号仍是文件里的行号）。引用登记文件或交接包文件的路径与文件名不算命中。文件清单取自 `git ls-files -z`，中文等非 ASCII 路径照原样查；文件路径本身也查；二进制文件按字节查；符号链接查它存的目标路径；读不了的文件记为问题。任何文件都不得与来源清单里的上游品牌素材 SHA-256 相同（不设例外）。`node scripts/verify/names.ts --counts` 列出例外内各文件的命中行数。带空格的写法不看词边界：以 ai 结尾的英文词后面跟以 hot 开头的词（比如上海、迪拜的英文名后接 hotel）也会命中，以后用真实新闻数据查输出时要预期这种误报。规则文件 §8.2 与测试标准 1.1 放在 `pit-checks`（TASK-0011）里的“去品牌残留”扫描就是这个阶段，TASK-0011 复用它，不再另写 | — | — |
-| `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围；任务卡与 `lanes.yaml` 从**基线提交**读取，PR 改不宽自己的路径。例外是计划 PR（规则文件 3.3）：点名的卡还不在基线上、本 PR 新增了这张卡、改动全在 `tasks/` 下，就放行；夹带 `tasks/` 以外的文件，或卡既不在基线上也不是本 PR 新增的，仍然失败 | 能取到基线分支 | — |
+| `names` | 上游项目的名称（含带空格的写法，不分大小写）、两个品牌色值与环形加载标识只在 [`names.json`](names.json) 列的例外路径里出现（TASK-0003 完成条件第 1 条；`04-aihot-adoption.md` 4.3、4.6 第 1 条）：来源登记；交接包原件及其写回（上游的宣传图 `docs/assets/` 和上游自带的 7 份说明文档不算）；历史证据；治理记录（`tasks/_template.md` 只在与交接包模板逐字节相同时算例外；根目录 `AGENTS.md` 与 `CLAUDE.md` 自 2026-11-19 起不再出现上游名称，不需要例外，由任务卡生成的 `tasks/INDEX.md` 也在内）；上游原样存档（只在与来源清单里的上游原件哈希相同时算例外）；`names.json` 本身；更新日志数据 `industry/changelog.json`（第 7 类“致谢”，Owner 2026-10-05 要求，TASK-0038；这个文件里的命中只能落在 `names.json` 的 `allowedPhrases` 列出的三句原句里，每句在文件里的次数也登记在那里：原句以外多出一处，或某句的次数与登记的不同，即失败；第 7 类的文件清单必须和 `allowedPhrases.files` 完全相同，不同即失败）。JSON 文件先把 `\uXXXX` 转义还原成字符再查，原句次数也按还原后的文字数（反斜杠本身被转义的不还原；还原出的换行不算换行，报出的行号仍是文件里的行号）。引用登记文件或交接包文件的路径与文件名不算命中。文件清单取自 `git ls-files -z`，中文等非 ASCII 路径照原样查；文件路径本身也查；二进制文件按字节查；符号链接查它存的目标路径；读不了的文件记为问题。任何文件都不得与来源清单里的上游品牌素材 SHA-256 相同（不设例外）。`node scripts/verify/names.ts --counts` 列出例外内各文件的命中行数。带空格的写法不看词边界：以 ai 结尾的英文词后面跟以 hot 开头的词（比如上海、迪拜的英文名后接 hotel）也会命中，以后用真实新闻数据查输出时要预期这种误报。规则文件 §8.2 与测试标准 1.1 放在 `pit-checks`（TASK-0011）里的“去品牌残留”扫描就是这个阶段，TASK-0011 复用它，不再另写 | — | — |
+| `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围。任务卡可以随实现同一个 PR 提交：普通路径按 PR 改完之后的卡判断；高危路径（`lanes.yaml` 的 `guarded:`：部署、检查本身、迁移、提示词、锁文件、`AGENTS.md`）按**基线提交**上的卡判断，卡不在基线上或基线上的卡没列这条路径就失败，PR 不能给自己放行。`lanes.yaml` 一律从基线读取。只改 `tasks/` 并新增所点名的卡的 PR 照旧放行（高危改动的卡这样先进 main）；卡既不在基线上也不在本 PR 里，或 PR 删除了自己点名的卡，失败 | 能取到基线分支 | — |
 | `secrets` | 基线到当前提交之间的每个提交：trufflehog（版本与 sha256 写在 [`tools.json`](tools.json)，首次运行下载到 `.tools/`，不联网验证，所有候选都算）+ 本项目规则（私钥块、腾讯云 SecretId、模型服务密钥、飞书应用密钥、带用户名和密码的 URL）；只报规则、文件与行号，不打印命中的内容 | 首次运行能访问 github.com 下载 | — |
 | `audit` | `npm audit --audit-level=high`；高危或严重即失败 | 能访问 npm 源的漏洞接口 | — |
 | `build-web` | 前端生产构建；构建产物里没有上游名称、色值、环形标识，也没有上游品牌素材（不设例外） | — | Build web |
@@ -87,7 +87,7 @@ make verify TASK=TASK-0002
 
 ## 4. 故意违规用例
 
-`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规与工作流形状的 13 条规则（`toolchain.test.ts`，27 个违规用例，另有 11 个换写法绕过规则 3、7、13 的用例）、计划 PR 的放行与拦截（`path-guard.test.ts`）、任务卡号只从“任务卡”一行、分支名或手动输入取（`pr-task.test.ts`）、数据库镜像只从 compose 读（`ci-db.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）、正式镜像里跑的脚本引了镜像里没装的包（`production-scripts.test.ts`：`scripts/` 第一层的脚本连同它们相对引入的文件，只能引 Node 自带模块与所在目录往上各级 `package.json` 的 `dependencies`，`@amp/backend`、`@amp/industry` 只能引导出清单里的路径；开发依赖、导出清单之外的路径、`import { type X }` 引开发依赖、相对引入的文件里引开发依赖都拦，整句 `import type` 与 JSON 不拦；只在开发机或执行器上跑的四个脚本列为例外，各写一句原因）。契约漂移的用例随 TASK-0005 加入。
+`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 给自己打开高危路径（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规与工作流形状的 13 条规则（`toolchain.test.ts`，27 个违规用例，另有 11 个换写法绕过规则 3、7、13 的用例）、计划 PR 的放行与拦截（`path-guard.test.ts`）、任务卡号只从“任务卡”一行、分支名或手动输入取（`pr-task.test.ts`）、数据库镜像只从 compose 读（`ci-db.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）、正式镜像里跑的脚本引了镜像里没装的包（`production-scripts.test.ts`：`scripts/` 第一层的脚本连同它们相对引入的文件，只能引 Node 自带模块与所在目录往上各级 `package.json` 的 `dependencies`，`@amp/backend`、`@amp/industry` 只能引导出清单里的路径；开发依赖、导出清单之外的路径、`import { type X }` 引开发依赖、相对引入的文件里引开发依赖都拦，整句 `import type` 与 JSON 不拦；只在开发机或执行器上跑的四个脚本列为例外，各写一句原因）。契约漂移的用例随 TASK-0005 加入。
 
 ## 5. 常见情况
 
@@ -128,7 +128,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
   - 描述里没有这一行或这一行没写卡号时，按 PR 的分支名 `agent/<lane>/TASK-nnnn-<slug>` 取，与本地运行一样（规则文件 3.3）。Actions 检出的是提交，不在分支上，所以分支名从事件文件读；
   - 手动运行取输入 `task`；
   - 推送 main 不需要。
-  - 取不到时不设，`path-guard` 照常报“没有任务卡”。计划 PR 的“任务卡”一行照常写本 PR 新增的卡，`path-guard` 按计划 PR 放行（第 2 节）。
+  - 取不到时不设，`path-guard` 照常报“没有任务卡”。卡随实现一起提交时，“任务卡”一行照常写本 PR 新增的卡（第 2 节）。
 - **回执在哪**：写在运行日志和运行摘要页里，集成人照旧贴到 PR 评论。有阶段失败时，运行日志里接着打出这个阶段的完整日志：控制台只显示最后 25 行，运行结束后 runner 上的文件也不在了。打出的日志只当文字，不当工作流命令。
 - **同一制品交付**：完整验证成功后，`deploy/release_artifact.py` 从原回执的 `local_rehearsal.normalImage` 导出已实际运行的镜像，不重新构建。只上传 `source.tar.gz`、`image.tar.gz`、`verify-receipt.json`、`release-manifest.json` 四个文件，保留七天，不覆盖旧制品。清单绑定提交、tree、镜像 ID、逐层内容、原始日志摘要与文件哈希；下载后先从独立读取的 Actions 日志核对清单哈希，再经正式发布入口校验、加载同一镜像。所记压缩文件、保存的层对象和展开 tar 字节各有口径，不能相加当作实际磁盘峰值；导入后仍需实测。哈希核对不等于签名验证，完整验证也不等于生产或恢复验收。
 - Docker 使用 config digest 或 manifest digest 作为镜像身份时，清单分别保留原验证 ID、原始 config 摘要与层清单。`loaded --directory DIR --manifest-sha256 HASH` 校验平台与层；身份不同则流式读取实际保存清单所引用的 config 字节并复算哈希，不在生产额外保存整份 tar。成功只输出当前 canonical ID，供正式入口打标签和记录；相同文件层不能代替配置相同的证明。Actions 制品名含运行 attempt，同一提交重试也不覆盖已有文件。

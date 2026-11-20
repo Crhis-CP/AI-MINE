@@ -458,6 +458,54 @@ export async function newsMaterialBindings(articleIds: string[], db: Db = sql) {
     SELECT id,source_id,revision,content_hash,url,source_date_version FROM articles WHERE id=ANY(${articleIds}::text[]) ORDER BY id`;
 }
 
+/** What the event rules in shadow (pipeline/events) compare of a material: identity, times, grouping state, text head. */
+export interface ShadowMaterial {
+  id: string;
+  source_id: string;
+  revision: number;
+  url: string;
+  content_hash: string | null;
+  backfill: boolean;
+  title: string;
+  /** The first `bodyChars` characters of the body (the excerpt when there is no body). */
+  body: string;
+  published_at: Date | null;
+  discovered_at: Date;
+  /** Grouping is complete for the current revision (content/grouping.ts confirmedGroupingMaterials). */
+  confirmed: boolean;
+  grouped_at: Date | null;
+}
+export async function newsShadowMaterials(ids: string[], bodyChars: number, db: Db = sql): Promise<ShadowMaterial[]> {
+  if (!ids.length) return [];
+  return db<ShadowMaterial[]>`SELECT id,source_id,revision,url,content_hash,backfill,title,
+    left(CASE WHEN body_text<>'' THEN body_text ELSE coalesce(excerpt,'') END,${bodyChars}) AS body,published_at,discovered_at,
+    (grouping_status='complete' AND grouping_input_revision=revision) AS confirmed,grouped_at
+    FROM articles WHERE id=ANY(${ids}::text[])`;
+}
+
+/**
+ * The event shadow's recall window (live: the 14 days before a decision): materials discovered in (since, until] whose
+ * grouping was confirmed for their current revision by `until` (content/grouping.ts confirmedGroupingMaterials), the only
+ * ones whose automatic memberships live recall counts (members bound by hand count whatever their grouping state:
+ * pipeline/events/recall.ts adds them). Newest first, archive history (stale on discovery) after everything else, so a
+ * large archive import cannot push current reports out of the `limit`.
+ */
+export async function newsDiscoveredWindow(since: Date, until: Date, limit: number, db: Db = sql) {
+  return db<{ id: string; revision: number; grouped_at: Date | null; discovered_at: Date }[]>`
+    SELECT id,revision,grouped_at,discovered_at FROM articles
+    WHERE discovered_at>${since} AND discovered_at<=${until}
+      AND grouping_status='complete' AND grouping_input_revision=revision AND (grouped_at IS NULL OR grouped_at<=${until})
+    ORDER BY (backfill AND (published_at IS NULL OR discovered_at-published_at>interval '48 hours')),discovered_at DESC,id LIMIT ${limit}`;
+}
+
+/** Other materials with this one's address or stored content hash, any source and age, earliest first, at most `limit`. */
+export async function newsDuplicateProbes(articleId: string, limit: number, db: Db = sql) {
+  return db<{ id: string; source_id: string; same: "url" | "hash"; published_at: Date | null; discovered_at: Date }[]>`
+    SELECT b.id,b.source_id,CASE WHEN b.url=a.url THEN 'url' ELSE 'hash' END AS same,b.published_at,b.discovered_at
+    FROM articles a JOIN articles b ON b.id<>a.id AND (b.url=a.url OR b.content_hash=a.content_hash)
+    WHERE a.id=${articleId} ORDER BY b.discovered_at,b.id LIMIT ${limit}`;
+}
+
 /** The selected, current observation only; policy applies its own legal date semantics. */
 export async function readPolicyMaterialDate(materialId: string, sourceId: string): Promise<SourceDateEvidence | null> {
   const source = await sourceDateConfiguration(sourceId);
@@ -556,4 +604,13 @@ export async function presentationMaterialSnapshot(articleId: string, db: Db = s
     SELECT id,source_id,revision,title,language,body_status,body_html,body_text,excerpt,media,identity_key,url
     FROM articles WHERE id=${articleId}`;
   return row ?? null;
+}
+
+/** How many reports these sources brought in the window, history imports aside (the daily reconciliation). */
+export async function countDiscovered(sourceIds: readonly string[], start: Date, end: Date, db: Db = sql): Promise<number> {
+  if (!sourceIds.length) return 0;
+  const [row] = await db<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM articles
+    WHERE source_id = ANY(${sourceIds as string[]}::text[]) AND NOT backfill AND discovered_at >= ${start} AND discovered_at < ${end}`;
+  return row!.n;
 }

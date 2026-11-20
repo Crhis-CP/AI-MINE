@@ -12,7 +12,7 @@ import {
   applyCorrectedMaterialDate,
   type CorrectionMaterial,
 } from "../content/materials.ts";
-import { removeAutomaticDateMembership } from "../events/group.ts";
+import { removeAutomaticDateMembership } from "../events/engine.ts";
 import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { publishArticleTx } from "../publication/publish.ts";

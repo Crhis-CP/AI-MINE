@@ -99,6 +99,8 @@ services:
       ORIGIN_ENFORCE: ${ORIGIN_ENFORCE:-}
       # Seconds a CDN or proxy may share a reader page's HTML (TASK-0672/0717): empty means 30, 0 turns it off.
       PAGE_CACHE_SECONDS: ${PAGE_CACHE_SECONDS:-}
+      # Which reader pages the public site serves, old or new (apps/web/reader-impl.ts): empty means the image's default.
+      READER_IMPL: ${READER_IMPL:-}
       # Search-console ownership codes for the home page (TASK-0590): empty means none.
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       BING_SITE_VERIFICATION: ${BING_SITE_VERIFICATION:-}

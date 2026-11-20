@@ -11,10 +11,10 @@ import { POLICY_JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { assertSupportedConfig, normalizeSourceLanguage } from "@amp/backend/sources/config-keys";
 import { allowed, fromHtml } from "@amp/backend/sources/web-list";
 import { jsonListDocument } from "@amp/backend/sources/json-list";
-import { PolicyAutomationProfile } from "../modules/policy/backend/domain/automation-profile.ts";
+import { PolicyAutomationProfile } from "../modules/policy/backend/core/automation-profile.ts";
 import { validateProfile } from "../modules/policy/backend/domain/extraction.ts";
-import { PolicyIdentityMismatch, readPolicyIdentityFields } from "../modules/policy/backend/domain/identity-fields.ts";
-import { splitProvisions } from "../modules/policy/backend/domain/provisions.ts";
+import { PolicyIdentityMismatch, readPolicyIdentityFields } from "../modules/policy/backend/core/identity-fields.ts";
+import { splitProvisions } from "../modules/policy/backend/core/provisions.ts";
 const { load } = createRequire(new URL("../packages/backend/package.json", import.meta.url))("cheerio") as typeof import("cheerio");
 
 const fixture = (name: string) => readFileSync(path.join(import.meta.dirname, "fixtures/policy/pilot", name), "utf8");

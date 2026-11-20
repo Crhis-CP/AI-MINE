@@ -152,9 +152,9 @@ test("report revisions are idempotent under concurrent rechecks and preserve fix
 });
 
 test("coverage counts real registrations but never substitutes successful HTTP for complete catalogue receipts", async () => {
-  await sql`INSERT INTO sources(id,name,kind,config,lane,created_at) VALUES
-    ('policy-cn-001','合成官方来源','rss','{}','policy','2026-09-01Z'),
-    ('report-news-fixture','资讯来源','rss','{}','news','2026-09-01Z')`;
+  await sql`INSERT INTO sources(id,name,kind,config,lane,created_at,jurisdiction) VALUES
+    ('policy-cn-001','合成官方来源','rss','{}','policy','2026-09-01Z','CN'),
+    ('report-news-fixture','资讯来源','rss','{}','news','2026-09-01Z',NULL)`;
   await sql`INSERT INTO fetch_runs(source_id,status,started_at,finished_at,error) VALUES
     ('policy-cn-001','ok','2026-10-06T00:00:00Z','2026-10-06T00:00:01Z',NULL),
     ('policy-cn-001','failed','2026-10-07T00:00:00Z','2026-10-07T00:00:01Z','HTTP 403 private_token=do-not-publish'),

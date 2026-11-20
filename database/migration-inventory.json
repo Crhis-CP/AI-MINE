@@ -583,6 +583,38 @@
     {
       "name": "publication/202611130408_withdrawn_reasons.sql",
       "dependsOn": ["publication/202611061200_news_links.sql"]
+    },
+    {
+      "name": "sources/202611191000_source_jurisdiction_language.sql",
+      "dependsOn": ["sources/202611111000_interval_pinned.sql"]
+    },
+    {
+      "name": "content/202611192000_article_content_hash_index.sql",
+      "dependsOn": ["content/202611061201_news_links_body_hook.sql"]
+    },
+    {
+      "name": "entities/202611192001_entity_library.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "enrichment/202611192002_analysis_checks.sql",
+      "dependsOn": ["enrichment/202611081000_english_copies.sql"]
+    },
+    {
+      "name": "events/202611192003_shadow_decisions.sql",
+      "dependsOn": ["events/202611071400_report_group_check_outcome.sql"]
+    },
+    {
+      "name": "events/202611192004_fact_timing.sql",
+      "dependsOn": ["events/202611192003_shadow_decisions.sql"]
+    },
+    {
+      "name": "events/202611192005_engine_switches.sql",
+      "dependsOn": ["events/202611192004_fact_timing.sql"]
+    },
+    {
+      "name": "publication/202611192006_event_rank.sql",
+      "dependsOn": ["publication/202611130408_withdrawn_reasons.sql"]
     }
   ]
 }

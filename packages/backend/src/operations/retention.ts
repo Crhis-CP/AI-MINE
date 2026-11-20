@@ -6,6 +6,8 @@ import { sql } from "../db.ts";
 import { serverModules } from "../modules.ts";
 
 import { anonymizeExpiredFeedback } from "../admin/feedback.ts";
+import { pruneShadowDecisions } from "../pipeline/events/shadow.ts";
+import { pruneAnalysisChecks } from "../pipeline/understand/observe.ts";
 
 /** Derived caches (proxied images and share cards) are rebuilt on demand; drop ones older than a month. */
 async function pruneCache(dir: string, maxAgeMs: number, now: number): Promise<number> {
@@ -52,10 +54,36 @@ export async function dailyRetention(now = new Date()) {
     (await pruneCache(path.join(config.dataDir, "imgcache"), monthMs, now.getTime())) +
     (await pruneCache(path.join(config.dataDir, "ogcache"), monthMs, now.getTime()));
   const anonymizedFeedback = await anonymizeExpiredFeedback(now);
+  // The event rules' shadow rows (events.shadow_decisions), through the events module that owns them.
+  let deletedShadowDecisions = 0;
+  try {
+    deletedShadowDecisions = await pruneShadowDecisions(now);
+  } catch (error) {
+    failures.push({ name: "events.shadow", error });
+  }
+  // The per-article shadow's check rows (enrichment.analysis_checks) are kept 180 days. A failure there is logged and
+  // left at that: the shadow must not stop the rest of the housekeeping.
+  let deletedAnalysisChecks: number | null = null;
+  try {
+    deletedAnalysisChecks = await pruneAnalysisChecks(now);
+  } catch (error) {
+    console.warn(
+      JSON.stringify({ level: "warn", msg: "analysis check pruning failed", error: (error instanceof Error ? error.message : String(error)).slice(0, 300) }),
+    );
+  }
   if (failures.length)
     throw new AggregateError(
       failures.map((failure) => failure.error),
       `扩展维护未完成：${failures.map((failure) => failure.name).join("、")}`,
     );
-  return { modules, anonymizedFeedback, deletedLeases: leases.count, deletedJobRuns: runs.count, deletedFiles: files.length, prunedCache };
+  return {
+    modules,
+    anonymizedFeedback,
+    deletedLeases: leases.count,
+    deletedJobRuns: runs.count,
+    deletedFiles: files.length,
+    prunedCache,
+    deletedShadowDecisions,
+    deletedAnalysisChecks,
+  };
 }

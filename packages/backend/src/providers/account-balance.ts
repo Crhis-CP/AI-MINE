@@ -146,3 +146,29 @@ export async function lowBalances(now = Date.now()): Promise<{ low: LowBalance[]
   }
   return { low, fresh };
 }
+
+export interface AccountDaysLeft {
+  service: string;
+  /** The yuan of the latest reading, and when it was read. */
+  yuan: number;
+  at: string;
+  /** The reading is older than BALANCE_FRESH_MS: it is the last known figure, not what the account holds now. */
+  stale: boolean;
+  /** Whole days a fresh reading lasts at the recent daily spend; null without spend on record, and for a stale reading. */
+  days: number | null;
+}
+
+/**
+ * Every account's latest reading, by service name. A reading is never removed (readAccountBalances keeps the earlier one
+ * when a provider does not answer), so each entry says whether it is still fresh; no days are estimated from a stale one.
+ */
+export async function accountDaysLeft(now = Date.now()): Promise<AccountDaysLeft[]> {
+  const [row] = await sql<{ value: BalanceState }[]>`SELECT value FROM settings WHERE key = ${BALANCE_SETTING}`;
+  const daily = await recentDailySpend(now);
+  return Object.entries(row?.value ?? {})
+    .map(([service, reading]) => {
+      const stale = !(now - Date.parse(reading.at) < BALANCE_FRESH_MS);
+      return { service, yuan: reading.yuan, at: reading.at, stale, days: !stale && daily && daily > 0 ? Math.floor(reading.yuan / daily) : null };
+    })
+    .sort((a, b) => a.service.localeCompare(b.service));
+}

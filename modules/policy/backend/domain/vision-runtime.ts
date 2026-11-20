@@ -15,7 +15,7 @@ import {
   ReceiptUnknownError,
   ProviderRejectedError,
 } from "@amp/backend/providers/receipts";
-import { readPolicyOriginal } from "./originals.ts";
+import { readPolicyOriginal } from "../core/originals.ts";
 import { processingControl, readProcessingControl, withCurrentPolicyOriginal, PolicyRunStaleError } from "./fulltext-store.ts";
 import { SourcePolicyConflict } from "@amp/backend/admin/sources";
 import { validateProfile, type ExtractionProfile, type ResourceExtraction } from "./extraction.ts";

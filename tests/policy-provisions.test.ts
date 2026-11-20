@@ -14,7 +14,7 @@ import {
   splitProvisions,
   textSimilarity,
   type ProvisionComparison,
-} from "../modules/policy/backend/domain/provisions.ts";
+} from "../modules/policy/backend/core/provisions.ts";
 
 const fixture = (name: string) => readFileSync(path.join(import.meta.dirname, "fixtures/policy/provisions", name), "utf8");
 const summary = (result: ProvisionComparison) =>

@@ -85,7 +85,10 @@ export async function seedPolicySources(entries: readonly PolicySource[]) {
       result.existing++;
       continue;
     }
-    const created = await createSource(input, "seed:policy-sources", { lane: "policy" });
+    const created = await createSource(input, "seed:policy-sources", {
+      lane: "policy",
+      profile: { jurisdiction: entry.jurisdiction, language: entry.language },
+    });
     if (created.created) result.added[entry.status as "ready" | "needs_overseas"]++;
     else result.duplicates.push({ id: input.id, existingId: created.duplicate.id });
   }
