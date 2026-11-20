@@ -17,6 +17,24 @@ import { grantDateFixture } from "./source-date-fixture.ts";
  *  one test are never candidates of another's; 900 of them fingerprint (pipeline/events/fingerprint.ts) comfortably. */
 export const unique = (length = 16) => Array.from({ length }, () => String.fromCharCode(0x4e00 + Math.floor(Math.random() * (0x9fa5 - 0x4e00 + 1)))).join("");
 export const body = () => unique(900);
+/**
+ * A real-sized wire story whose copy with page chrome stays within the fingerprint distance (tests/shadow-rules.test.ts):
+ * copies of it are deterministic near-copies, where random bodies would now and then fall just outside.
+ */
+export const WIRE = [
+  "紫金矿业今日宣布，公司旗下位于刚果（金）的卡莫阿铜矿三期选厂已完成带料试车，设计年处理矿石能力提升至1900万吨。",
+  "公司表示，三期达产后卡莫阿-卡库拉铜矿年产铜将超过60万吨，成为全球第四大铜矿。项目配套的直流冶炼厂预计明年二季度投产，",
+  "届时阳极铜产能达到50万吨，可就地加工约一半的铜精矿，降低运输成本和出口关税。",
+  "公告显示，三期工程总投资约为14亿美元，较可研估算节省约8%，主要得益于设备国产化和施工组织优化。",
+  "刚果（金）矿业部长在试车仪式上表示，政府将继续支持外国投资者，并推动更多矿产在本地完成加工。",
+  "分析人士认为，在全球铜精矿供应偏紧、冶炼加工费处于低位的背景下，卡莫阿项目扩产将为市场带来新增供应。",
+  "据介绍，三期选厂采用大型半自磨加球磨工艺，配套建设了尾矿库扩容和回水系统，选矿回收率设计值为百分之八十六。",
+  "项目建设期间累计雇用当地员工超过六千人，公司同步建设了职业培训中心、医院和道路，并向周边社区提供清洁饮用水。",
+  "电力方面，项目与当地电力公司合作修复了英加二级水电站一台机组，新增约一百六十兆瓦供电，缓解了矿区用电紧张。",
+  "公司计划在未来两年内启动四期工程可行性研究，目标将年产铜提升至八十万吨以上，并评估在矿区建设硫酸厂的可行性。",
+  "今年前三季度，紫金矿业矿产铜产量约为八十万吨，同比增长约百分之六，其中卡莫阿项目权益产量贡献约四分之一。",
+  "公司同时公布，旗下塞尔维亚佩吉铜金矿下部矿带开发进展顺利，预计明年产量继续增长，西藏巨龙铜矿二期工程也已开工。",
+].join("");
 
 export async function shadowSource(mode: "editorial" | "hot_signal" = "editorial"): Promise<string> {
   const id = `shadow-${tag()}`;
@@ -65,11 +83,40 @@ export async function report(i: ReportInput): Promise<string> {
     discoveredAt: i.discoveredAt ?? i.publishedAt,
   });
   await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,title_zh,summary_zh,selected,output)
-    VALUES(${articleId},1,'rule','synthetic','synthetic-shadow','pass',${i.titleZh},${i.summaryZh ?? `${i.titleZh}的合成导读。`},false,
+    VALUES(${articleId},1,'rule','synthetic','synthetic-shadow','pass',${i.titleZh},${i.summaryZh ?? `${i.titleZh}。${unique(6)}`},false,
       ${sql.json({ scope: i.scope ?? "single", fact: { title: i.titleZh, occurredAt: i.occurredAt ?? null } })})`;
   if (!i.unconfirmed) await completeMaterialGrouping(articleId, 1, { addsValue: true, reason: "合成已完成归组" }, null);
   await publishArticle(articleId);
   return articleId;
+}
+
+/**
+ * A grouped member of a fact without a publication (recall then compares its analysis text): quick enough to build the
+ * large facts of wire copies the bounds are tested on.
+ */
+export async function bareMember(source: string, factId: number, titleZh: string, text = body()): Promise<string> {
+  const { articleId } = await upsertMaterial({
+    sourceId: source,
+    url: `https://example.com/${source}/${tag()}`,
+    title: titleZh,
+    bodyText: text,
+    via: "fetch",
+    language: "zh",
+    publishedAt: hoursAgo(3),
+    discoveredAt: hoursAgo(3),
+  });
+  await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,title_zh,summary_zh,selected,output)
+    VALUES(${articleId},1,'rule','synthetic','synthetic-shadow','pass',${titleZh},${`${titleZh}。${unique(6)}`},false,${sql.json({ scope: "single" })})`;
+  await completeMaterialGrouping(articleId, 1, { addsValue: true, reason: "合成已完成归组" }, null);
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${factId},${articleId},'report',1)`;
+  return articleId;
+}
+
+/** The text the shadow compares a grouped report by (events/relate.ts reportText of its analysis title and summary). */
+export async function queryText(articleId: string): Promise<string> {
+  const [row] = await sql<{ title: string; summary: string | null }[]>`SELECT coalesce(nullif(an.title_zh,''),a.title) AS title,an.summary_zh AS summary
+    FROM articles a JOIN analyses an ON an.article_id=a.id WHERE a.id=${articleId} ORDER BY an.id DESC LIMIT 1`;
+  return reportText(row!.title, row!.summary);
 }
 
 /** A story with one fact holding these reports, as the live engine leaves it; publications follow. */

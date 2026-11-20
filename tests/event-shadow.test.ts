@@ -1,28 +1,36 @@
 // The event rules in shadow (packages/backend/src/pipeline/events): after the live engine grouped a report, the rules
 // decide it again from the live graph and stored vectors only, and the answer is stored next to the live one. Asserts
-// the rows, the call forecast, that no receipt, publication or analysis changes, the switch and queue, and the
-// agreement report with people's corrections.
+// the rows, the call forecast, that no receipt, publication or analysis changes, how recall finds candidates (address,
+// hash, fingerprint, vectors, documents, key facts, the selected background) within its bounds and like the live engine
+// (facts, not reports; nothing withdrawn or a roundup), and that a report's text is read only where its source allows.
+// The queue, the switch and the agreement report: tests/event-shadow-jobs.test.ts.
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { after, before, test } from "node:test";
+import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { lexicalSimilarity } from "@amp/backend/events/relate";
 import * as live from "@amp/backend/events/group";
-import { registerEventJobs } from "@amp/backend/jobs/events";
-import { QUEUES, stopBoss, type getBoss } from "@amp/backend/jobs/queue";
-import { type Reconciliation, reconcileLines } from "@amp/backend/operations/reconcile";
-import { shadowAgreement, shadowHeadline } from "../packages/backend/src/pipeline/events/agreement.ts";
+import { stopBoss } from "@amp/backend/jobs/queue";
 import * as recall from "../packages/backend/src/pipeline/events/recall.ts";
-import { EVENT_RULESET } from "../packages/backend/src/pipeline/events/rules.ts";
-import { eventShadowEnabled, pruneShadowDecisions, shadowDecide } from "../packages/backend/src/pipeline/events/shadow.ts";
-import { scheduleEventShadow } from "../packages/backend/src/pipeline/events/shadow-queue.ts";
-import { body, fact, hoursAgo, join, liveDecision, report, revokeLocalText, shadowSource, unique, vector, yesterdayAt } from "./event-shadow-fixture.ts";
+import { SHADOW_RULESET, shadowDecide } from "../packages/backend/src/pipeline/events/shadow.ts";
+import {
+  bareMember,
+  body,
+  fact,
+  hoursAgo,
+  join,
+  liveDecision,
+  queryText,
+  report,
+  revokeLocalText,
+  shadowSource,
+  unique,
+  vector,
+  WIRE,
+  yesterdayAt,
+} from "./event-shadow-fixture.ts";
 
-before(async () => {
-  // The live engine's "kept" path checks the news controls; the shadow itself never does.
-  await sql`UPDATE ops.lane_controls SET paused=false,revision=revision+1`;
-});
 after(async () => {
   await stopBoss();
   await closeDb();
@@ -33,14 +41,14 @@ interface ShadowRow {
   rule: string;
   target_fact_id: number | null;
   similarity: number | null;
-  candidates: Array<{ articleId: string; factId: number; cosine: number | null; fingerprint: number | null }>;
+  candidates: Array<{ articleId: string; factId: number; cosine: number | null; fingerprint: number | null; documentKey: boolean }>;
   would_call: number;
   live_verdict: string | null;
   live_fact_id: number | null;
   live_called: boolean | null;
 }
 const shadowRow = async (articleId: string) =>
-  (await sql<ShadowRow[]>`SELECT * FROM events.shadow_decisions WHERE article_id=${articleId} AND ruleset=${EVENT_RULESET}`)[0];
+  (await sql<ShadowRow[]>`SELECT * FROM events.shadow_decisions WHERE article_id=${articleId} AND ruleset=${SHADOW_RULESET}`)[0];
 /** Everything a reader or the ledger could see, and the paid-call records. */
 const visible = async () => ({
   publications: JSON.stringify(await sql`SELECT * FROM publications ORDER BY article_id`),
@@ -56,16 +64,36 @@ test("the shadow's recall values are the live engine's", () => {
   assert.equal(recall.DOCUMENT_RECALL_TOP_FACTS, live.DOCUMENT_RECALL_TOP_FACTS);
   assert.equal(recall.KEY_FACT_RECALL_HOURS, live.KEY_FACT_RECALL_HOURS);
   assert.equal(recall.KEY_FACT_TOP_FACTS, live.KEY_FACT_TOP_FACTS);
-  const source = readFileSync(new URL("../packages/backend/src/events/group.ts", import.meta.url), "utf8");
+  const file = (path: string) => readFileSync(new URL(`../packages/backend/src/${path}`, import.meta.url), "utf8");
+  const flat = (text: string) => text.replace(/\s+/g, "");
+  const group = file("events/group.ts");
   for (const [name, value] of [
     ["RECALL_DAYS", recall.RECALL_DAYS],
     ["RECALL_MIN_COSINE", recall.RECALL_MIN_COSINE],
     ["DOCUMENT_RECALL_ROWS", recall.DOCUMENT_RECALL_ROWS],
   ] as const)
-    assert.ok(source.includes(`const ${name} = ${value};`), name);
+    assert.ok(group.includes(`const ${name} = ${value};`), name);
+  // The document query the shadow splits in two halves still asks what the live one asks.
+  const hole = (name: string) => `$${"{"}${name}}`;
+  for (const clause of [`f.created_at>${hole("since")}ANDf.titleLIKEANY(${hole("patterns")}::text[])`, "fa.roleIN('primary','report')"])
+    assert.ok(flat(group).includes(clause) && flat(file("pipeline/events/recall.ts")).includes(clause), clause);
+  // The selected background's windows (publication/items.ts readGroupingSelectionSnapshot).
+  const items = flat(file("publication/items.ts"));
+  assert.ok(
+    items.includes(`p.discovered_at>now()-interval'${recall.BACKGROUND_DAYS}days'`) &&
+      items.includes(`p.discovered_at<=now()-interval'${recall.RECALL_DAYS}days'`),
+  );
+  // "Grouping confirmed" as content/grouping.ts confirmedGroupingMaterials says it, in both shadow reads of content.
+  const confirmed = "grouping_status='complete'ANDgrouping_input_revision=revision";
+  assert.ok(flat(file("content/grouping.ts")).includes(confirmed));
+  for (const fn of ["newsShadowMaterials", "newsDiscoveredWindow"]) {
+    const materials = file("content/materials.ts");
+    const start = materials.indexOf(`export async function ${fn}`);
+    assert.ok(start > 0 && flat(materials.slice(start, materials.indexOf("\n}", start))).includes(confirmed), fn);
+  }
 });
 
-test("the prefilter keeps the best lexical scores, the scorer is the live overlap, and the vector cache stays within its bytes", () => {
+test("the prefilter keeps the best lexical scores, the scorer is the live overlap, and the vector cache stays within its bytes", async () => {
   for (const [a, b] of [
     ["紫金矿业卡莫阿铜矿", "卡莫阿铜矿三期试车"],
     ["Rio Tinto approves", "rio tinto  approves US$144m"],
@@ -84,6 +112,10 @@ test("the prefilter keeps the best lexical scores, the scorer is the live overla
     recall.topByScore(scored, 3).map((x) => x.id),
     ["c", "a", "b"],
   );
+  // The sliced selection answers exactly as the plain sort, ties and a crowd of zeros included.
+  const many = Array.from({ length: 5000 }, (_, i) => ({ id: `r${(i * 7919) % 5000}`, score: i % 3 === 0 ? 0 : Math.round(((i * 37) % 1000) / 7) / 143 }));
+  for (const limit of [1, 10, 333, 2000, 4999])
+    assert.deepEqual(await recall.topByScoreSliced(many, limit, async () => {}), recall.topByScore(many, limit), String(limit));
   const cache = new recall.VectorCache(64);
   cache.set("x", "h", new Float32Array(8));
   cache.set("y", "h", new Float32Array(8));
@@ -100,7 +132,7 @@ test("the prefilter keeps the best lexical scores, the scorer is the live overla
 
 test("a wire copy carried by another site is the same fact by its fingerprint; nothing a reader sees and no receipt changes", async () => {
   const words = unique(10),
-    text = body();
+    text = WIRE;
   const original = await report({ source: await shadowSource(), titleZh: `${words}三期选厂完成带料试车`, body: text, publishedAt: hoursAgo(5) });
   const first = await fact("合成试车", [original], hoursAgo(5));
   await liveDecision(original, "new-story", first, hoursAgo(5));
@@ -150,10 +182,11 @@ test("a page the same source collected again under a new address is the same fac
   assert.equal(row.live_verdict, "new-story", "the live engine founded a story for it: the agreement report counts that pair as a disagreement");
 });
 
-test("a report whose source no longer allows reading its text locally has no fingerprint, so a copy is not tied by it", async () => {
+test("a report whose source no longer allows reading its text locally is not read: no fingerprint, so a copy is not tied by it", async () => {
   const words = unique(10),
-    text = body();
-  const original = await report({ source: await shadowSource(), titleZh: `${words}镍铁项目宣布复产`, body: text, publishedAt: hoursAgo(5) });
+    text = WIRE;
+  const originalSource = await shadowSource();
+  const original = await report({ source: originalSource, titleZh: `${words}镍铁项目宣布复产`, body: text, publishedAt: hoursAgo(5) });
   const first = await fact("合成许可收窄", [original], hoursAgo(5));
   await liveDecision(original, "new-story", first, hoursAgo(5));
   const narrowed = await shadowSource();
@@ -166,7 +199,7 @@ test("a report whose source no longer allows reading its text locally has no fin
   await join(first.factId, copy);
   await liveDecision(copy, "same-fact", first);
   await revokeLocalText(narrowed);
-  await shadowDecide(copy);
+  const outcome = await shadowDecide(copy);
   const row = (await shadowRow(copy))!;
   assert.notEqual(row.rule, "fingerprint");
   assert.deepEqual(
@@ -174,6 +207,10 @@ test("a report whose source no longer allows reading its text locally has no fin
     [[original, null]],
     "the copy's text is not read: no distance to compare",
   );
+  assert.ok(outcome.state === "decided" && outcome.textsRead === 1, "only the original's text, whose source allows it, was read");
+  await revokeLocalText(originalSource);
+  const none = await shadowDecide(copy);
+  assert.ok(none.state === "decided" && none.textsRead === 0, "neither source allows it: no text is read at all");
 });
 
 test("a report like nothing else is a new event only when its stored vector shows recall had its full reach", async () => {
@@ -225,7 +262,7 @@ test("a person's placement, a discussion post and a roundup are outside the rule
 
 test("a report grouped after the live decision is not a candidate: it cannot answer for what the live engine could see", async () => {
   const words = unique(10),
-    text = body();
+    text = WIRE;
   const query = await report({ source: await shadowSource(), titleZh: `${words}签署锂矿包销协议`, body: text, publishedAt: hoursAgo(4) });
   const own = await fact("合成包销协议", [query]);
   await liveDecision(query, "new-story", own, new Date(Date.now() - 1000));
@@ -239,144 +276,122 @@ test("a report grouped after the live decision is not a candidate: it cannot ans
   assert.deepEqual([row.verdict, row.rule, row.target_fact_id], ["same_fact", "fingerprint", theirs.factId], "grouped before a later decision");
 });
 
-test("off unless the switch says on: nothing is queued, then one job per grouped report that writes its row, timing and order", async () => {
-  const handlers = new Map<string, (jobs: Array<{ id: string; data: unknown }>) => Promise<unknown>>();
-  await registerEventJobs({
-    work: async (queue: string, _options: unknown, handler: (jobs: Array<{ id: string; data: unknown }>) => Promise<unknown>) => {
-      handlers.set(queue, handler);
-    },
-  } as unknown as Awaited<ReturnType<typeof getBoss>>);
-  const queued = (id: string) =>
-    sql<{ id: string; data: unknown }[]>`SELECT id,data FROM pgboss.job WHERE name='news.events.shadow' AND data->>'articleId'=${id} AND state='created'`;
-  const kept = await report({ source: await shadowSource(), titleZh: unique(), body: body(), publishedAt: hoursAgo(1) });
-  const own = await fact("合成已归组报道", [kept]);
-  await liveDecision(kept, "new-story", own);
-
-  assert.equal(await eventShadowEnabled(0), false, "no settings row: off");
-  const grouped = (await handlers.get(QUEUES.group)!([{ id: "g1", data: { lane: "news", articleId: kept } }])) as { verdict: string };
-  assert.equal(grouped.verdict, "kept");
-  assert.equal((await queued(kept)).length, 0, "switched off, the grouping queues nothing");
-
-  await sql`INSERT INTO settings(key,value,updated_by) VALUES('events.shadow',${sql.json("on")},'test')`;
-  assert.equal(await eventShadowEnabled(0), true);
-  await handlers.get(QUEUES.group)!([{ id: "g2", data: { lane: "news", articleId: kept } }]);
-  const jobs = await queued(kept);
-  assert.deepEqual(
-    jobs.map((j) => j.data),
-    [{ lane: "news", articleId: kept, keep: true }],
-    "a run that decided nothing new only fills a missing row",
+test("one large fact of wire copies does not crowd out the fact the live engine joined: recall keeps facts, a few reports each", async () => {
+  const words = unique(8);
+  const source = await shadowSource();
+  const big = await fact("合成大量转载", []);
+  for (let n = 0; n < 62; n++) await bareMember(source, big.factId, `${words}铜矿扩建项目获批第${n}篇`);
+  const joined = await report({ source: await shadowSource(), titleZh: `${words}铜矿扩建项目`, summaryZh: unique(20), body: body(), publishedAt: hoursAgo(3) });
+  const target = await fact("合成现网目标", [joined]);
+  const query = await report({ source: await shadowSource(), titleZh: `${words}铜矿扩建项目获批`, body: body(), publishedAt: hoursAgo(1) });
+  await join(target.factId, query);
+  await liveDecision(query, "same-fact", target);
+  const found = await recall.recallCandidates({ articleId: query, text: await queryText(query), documentKeys: [], composite: false, liveAt: new Date() }, sql);
+  assert.equal(found.candidates.filter((c) => c.factId === big.factId).length, recall.RECALL_LIMITS.membersPerFact, "a few reports of the large fact");
+  assert.ok(
+    found.candidates.some((c) => c.articleId === joined),
+    "the joined fact is recalled",
   );
-  const [done] = (await handlers.get("news.events.shadow")!(jobs)) as Array<{ output: { state: string; verdict: string } }>;
-  assert.deepEqual([done!.output.state, done!.output.verdict], ["decided", "undecided"]);
-  assert.ok(await shadowRow(kept));
-  assert.equal((await sql`SELECT 1 FROM events.fact_timing WHERE fact_id=${own.factId}`).length, 1, "the fact's timing is observed");
-  assert.equal((await sql`SELECT 1 FROM publication.event_rank WHERE article_id=${kept}`).length, 1, "the public report's order is projected");
-  const [again] = (await handlers.get("news.events.shadow")!(jobs)) as Array<{ output: { state: string } }>;
-  assert.equal(again!.output.state, "kept", "a repeated keep-only job leaves the row as it is");
-  assert.equal(await scheduleEventShadow(kept, "signal"), false, "discussion posts are not judged by the rules");
-  assert.equal(await scheduleEventShadow(kept, "skipped"), false);
-
-  await sql`UPDATE settings SET value=${sql.json("off")} WHERE key='events.shadow'`;
-  assert.equal(await eventShadowEnabled(0), false);
-  const [stopped] = (await handlers.get("news.events.shadow")!(jobs)) as Array<{ output: { state: string } }>;
-  assert.equal(stopped!.output.state, "skipped", "switched off, a job already queued does nothing");
-  assert.equal(await scheduleEventShadow(kept, "same-fact"), false);
+  await shadowDecide(query);
+  const row = (await shadowRow(query))!;
+  assert.ok(row.candidates.some((c) => c.factId === big.factId) && row.candidates.some((c) => c.factId === target.factId), "both facts are judged");
 });
 
-test("agreement: same-fact agreement, the undecided share, the call forecast and both engines against people's corrections", async () => {
-  const source = await shadowSource();
-  const r = async () => report({ source, titleZh: unique(), body: body(), publishedAt: hoursAgo(12) });
-  const [a1, a2, b1, c1, d1, e1, m1, g1, h1] = [await r(), await r(), await r(), await r(), await r(), await r(), await r(), await r(), await r()];
-  const shared = await fact("合成共同事实", [a1, a2]);
-  const other = await fact("合成另一事实", [b1]);
-  const merged = await fact("合成后来合并的事件", [m1]);
-  const decided = hoursAgo(10);
-  const cand = (articleId: string, f: { factId: number; storyId: number }) => ({
-    factId: f.factId,
-    storyId: f.storyId,
-    articleId,
-    cosine: null,
-    lexical: 0.5,
-    sameUrl: false,
-    sameHash: false,
-    titleKeyEqual: false,
-    documentKey: false,
-    fingerprint: null,
-    countryConflict: false,
-    sameDay: true,
-    occurredGapDays: null,
+test("a withdrawn report and a roundup are never candidates, however close their text", async () => {
+  const words = unique(10),
+    text = WIRE;
+  const withdrawn = await report({ source: await shadowSource(), titleZh: `${words}钾盐项目投产`, body: `${text}（一）`, publishedAt: hoursAgo(6) });
+  await fact("合成已撤下", [withdrawn]);
+  await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${withdrawn}`;
+  const roundup = await report({
+    source: await shadowSource(),
+    titleZh: `${words}钾盐项目投产等`,
+    body: `${text}（二）`,
+    publishedAt: hoursAgo(6),
+    scope: "composite",
   });
-  const insert = async (
-    article: string,
-    verdict: string,
-    rule: string,
-    target: { factId: number; storyId: number } | null,
-    candidates: unknown[],
-    liveRow: { verdict: string; fact: { factId: number; storyId: number } | null; called: boolean },
-    wouldCall: number,
-  ) =>
-    sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,target_fact_id,target_story_id,candidates,would_call,
-        live_verdict,live_fact_id,live_story_id,live_called,decided_at)
-      VALUES(${article},1,${EVENT_RULESET},${verdict},${rule},${target?.factId ?? null},${target?.storyId ?? null},${sql.json(candidates as never)},${wouldCall},
-        ${liveRow.verdict},${liveRow.fact?.factId ?? null},${liveRow.fact?.storyId ?? null},${liveRow.called},${decided})`;
-  // Agrees: a1 is in the fact the rules named.
-  await insert(a1, "same_fact", "fingerprint", shared, [cand(a2, shared)], { verdict: "same-fact", fact: shared, called: true }, 0);
-  // Disagrees, and a person later kept b1 standalone: the rules were wrong, the live engine (which left it apart) right.
-  await insert(b1, "same_fact", "certain_duplicate", shared, [cand(a2, shared)], { verdict: "new-story", fact: other, called: true }, 1);
-  await sql`INSERT INTO grouping_overrides(article_id,reason,actor) VALUES(${b1},'合成人工独立','admin:test')`;
-  // Superseded: an editor asked for a regroup after it.
-  await insert(c1, "undecided", "similar_unsure", null, [cand(a2, shared)], { verdict: "new-story", fact: null, called: true }, 2);
-  await sql`INSERT INTO audit_log(actor,action,subject,after) VALUES('admin:test','content.rerun.group',${`content:${c1}`},${sql.json({} as never)})`;
-  // A new event the live engine put into an existing fact.
-  await insert(d1, "new_event", "no_candidate", null, [], { verdict: "same-fact", fact: shared, called: true }, 0);
-  await insert(e1, "not_judged", "manual", null, [], { verdict: "manual", fact: null, called: false }, 0);
-  // A person merged m1's story into b1's: the rules, which tied m1 to b1's fact, were right; the live engine had split them.
-  await insert(m1, "same_fact", "fingerprint", other, [cand(b1, other)], { verdict: "new-story", fact: merged, called: false }, 0);
-  await sql`INSERT INTO audit_log(actor,action,subject,after) VALUES('admin:test','story.merge',${`story:${merged.storyId}`},${sql.json({ into: other.storyId })})`;
-  // Both labels on one pair: a person took h1 out of b1's fact, and h1's story was merged into b1's. The pair stays
-  // "different": the live engine, which kept h1 out of that fact, was right; the rules, which tied it there, were not.
-  await insert(h1, "same_fact", "fingerprint", other, [cand(b1, other)], { verdict: "same-fact", fact: merged, called: false }, 0);
-  await sql`INSERT INTO audit_log(actor,action,subject,before) VALUES('admin:test','content.detach',${`content:${h1}`},${sql.json({ facts: [other.factId], stories: [other.storyId] })})`;
-  // The grouping engine's own merges are its answers, not labels: g1's pair would otherwise be labelled by this one.
-  await insert(g1, "same_fact", "fingerprint", shared, [cand(a2, shared)], { verdict: "new-story", fact: other, called: false }, 0);
-  await sql`INSERT INTO audit_log(actor,action,subject,after) VALUES('grouping','story.merge',${`story:${shared.storyId}`},${sql.json({ into: other.storyId })})`;
+  await fact("合成汇总", [roundup]);
+  const query = await report({ source: await shadowSource(), titleZh: `外媒：${words}钾盐项目投产`, body: `${text}（三）`, publishedAt: hoursAgo(2) });
+  await liveDecision(query, "new-story", await fact("合成查询", [query]));
+  const found = await recall.recallCandidates({ articleId: query, text: await queryText(query), documentKeys: [], composite: false, liveAt: new Date() }, sql);
+  assert.ok(!found.candidates.some((c) => c.articleId === withdrawn || c.articleId === roundup), "not evidence (events/group.ts qualifiedReports)");
+  await shadowDecide(query);
+  assert.notEqual((await shadowRow(query))!.rule, "fingerprint");
+});
 
-  // The rows above were decided ten hours ago; the other tests' rows of this file are decided now and stay outside.
-  const from = hoursAgo(11),
-    to = hoursAgo(9);
-  const a = await shadowAgreement(from, to);
+test("a named document recalls its fact over months, beyond the 14-day pool", async () => {
+  const doc = `${unique(4)}矿产资源管理条例`;
+  const older = await report({ source: await shadowSource(), titleZh: `《${doc}》全文公布`, body: body(), publishedAt: hoursAgo(24 * 30) });
+  const theirs = await fact(`《${doc}》全文公布`, [older], hoursAgo(24 * 30));
+  const query = await report({ source: await shadowSource(), titleZh: `解读《${doc}》`, body: body(), publishedAt: hoursAgo(1) });
+  await liveDecision(query, "new-story", await fact("合成解读", [query]));
+  await shadowDecide(query);
+  const row = (await shadowRow(query))!;
+  assert.ok(
+    row.candidates.some((c) => c.articleId === older && c.factId === theirs.factId && c.documentKey),
+    "found by its document, not by the 14-day pool",
+  );
+});
+
+test("the same company and amount in the last 72 hours is a candidate however differently it is worded", async () => {
+  const keyed = await report({
+    source: await shadowSource(),
+    titleZh: `${unique(4)}，力拓斥资1.44亿美元`,
+    summaryZh: unique(60),
+    body: body(),
+    publishedAt: hoursAgo(10),
+  });
+  const theirs = await fact("合成同一笔投资", [keyed]);
+  const query = await report({
+    source: await shadowSource(),
+    titleZh: `${unique(4)}，力拓批准1.44亿美元投资`,
+    summaryZh: unique(60),
+    body: body(),
+    publishedAt: hoursAgo(1),
+  });
+  await liveDecision(query, "new-story", await fact("合成新报道", [query]));
+  assert.ok(recall.lexicalScorer(await queryText(query))(await queryText(keyed)) < 0.25, "too little shared wording for the ordinary recall");
+  await shadowDecide(query);
+  assert.ok((await shadowRow(query))!.candidates.some((c) => c.articleId === keyed && c.factId === theirs.factId));
+});
+
+test("a close visible pick outside the judged facts still costs the value call, even where the rules decide", async () => {
+  const words = unique(10),
+    text = WIRE;
+  const original = await report({ source: await shadowSource(), titleZh: `${words}锡矿复产`, body: text, publishedAt: hoursAgo(5) });
+  const first = await fact("合成锡矿", [original]);
+  const pick = await report({ source: await shadowSource(), titleZh: `${words}锡矿复产在即`, body: body(), publishedAt: hoursAgo(30) });
+  await sql`UPDATE publications SET selected=true,eligible=true,visibility='public',visible_after=now()-interval '1 hour' WHERE article_id=${pick}`;
+  const copy = await report({ source: await shadowSource(), titleZh: `转载：${words}锡矿复产`, body: `【转载】${text}`, publishedAt: hoursAgo(2) });
+  await join(first.factId, copy);
+  await liveDecision(copy, "same-fact", first);
+  await shadowDecide(copy);
+  const row = (await shadowRow(copy))!;
   assert.deepEqual(
-    { rows: a.rows, judged: a.judged, decided: a.decided, undecided: a.undecided, calls: a.calls, sameFact: a.sameFact },
-    { rows: 8, judged: 6, decided: 6, undecided: 0, calls: { wouldCall: 1, liveCalled: 3 }, sameFact: { rows: 5, agree: 1 } },
+    [row.verdict, row.rule, row.would_call],
+    ["same_fact", "fingerprint", 1],
+    "the reading background makes the live engine ask whether it adds value",
   );
-  assert.deepEqual(a.byRule, {
-    "same_fact/fingerprint": 4,
-    "same_fact/certain_duplicate": 1,
-    "undecided/similar_unsure": 1,
-    "new_event/no_candidate": 1,
-    "not_judged/manual": 1,
-  });
-  assert.deepEqual(a.pairs, { total: 5, shadowSame: 5, liveSame: 1, both: 1 });
-  assert.deepEqual(a.newEvent, { rows: 1, liveJoinedFact: 1, liveJoinedStory: 0 });
-  assert.deepEqual(a.recallHit, { eligible: 3, hit: 1 });
-  assert.deepEqual(a.human, { pairs: 3, shadowRight: 1, shadowWrong: 2, liveRight: 2, liveWrong: 1 });
+});
 
-  assert.deepEqual(await shadowHeadline(from, to), { judged: 6, sameFact: 5, agree: 1, undecided: 0 });
-  const day: Reconciliation = {
-    day: "2026-11-18",
-    sources: { enabled: 0, withNew: 0, silent: { failing: 0, waiting: 0, unstable: 0, overdue: 0, unknown: 0, quiet: 0 } },
-    flow: { collected: 0, public: 0, selected: 0, scoredNotPublic: 0 },
-    translation: { due: 0, missing: 0 },
-    balance: [],
-    shadow: { judged: 120, sameFact: 40, agree: 38, undecided: 50 },
-  };
-  assert.equal(
-    reconcileLines(day).at(-1),
-    "事件新规则试运行（读者看不到）：试判 120 篇；判为同一件事 40 篇，与现在的归组一致 38 篇；仍需模型判断 50 篇（42%）",
-  );
-  assert.ok(!reconcileLines({ ...day, shadow: null }).some((line) => line.startsWith("事件新规则")), "no line on a day the rules judged nothing");
-
-  await sql`UPDATE events.shadow_decisions SET decided_at=now()-interval '46 days' WHERE article_id=${e1}`;
-  assert.equal(await pruneShadowDecisions(), 1, "rows past the 45-day retention go, the rest stay");
-  assert.equal((await shadowAgreement(from, to)).rows, 7);
+test("recall stays within its bounds: the window, and one budget of vectors per article", async () => {
+  const words = unique(8);
+  const source = await shadowSource();
+  const members: string[] = [];
+  for (let n = 0; n < 4; n++) {
+    const id = await report({ source, titleZh: `${words}钴矿收购完成第${n}篇`, body: body(), publishedAt: hoursAgo(3) });
+    await fact(`合成钴矿${n}`, [id]);
+    await vector(id, "candidate", [1, 0.1 * n, 0, 0, 0, 0]);
+    members.push(id);
+  }
+  const query = await report({ source: await shadowSource(), titleZh: `${words}钴矿收购完成`, body: body(), publishedAt: hoursAgo(1) });
+  await vector(query, "query", [1, 0, 0, 0, 0, 0]);
+  const input = { articleId: query, text: await queryText(query), documentKeys: [], composite: false, liveAt: new Date() };
+  const full = await recall.recallCandidates(input, sql);
+  assert.ok(members.every((id) => full.candidates.some((c) => c.articleId === id)) && full.stats.scored >= 4);
+  const capped = await recall.recallCandidates(input, sql, { ...recall.RECALL_LIMITS, vectors: 2, background: 0 });
+  assert.equal(capped.stats.scored, 2, "at most two candidate reports get a vector");
+  assert.ok(capped.stats.vectorsRead <= 3 && capped.candidates.length === 2, "the query and two candidates, nothing else compared");
+  const narrow = await recall.recallCandidates(input, sql, { ...recall.RECALL_LIMITS, window: 3 });
+  assert.deepEqual([narrow.stats.window, narrow.stats.windowFull], [3, true], "a window at its bound is reported");
 });
