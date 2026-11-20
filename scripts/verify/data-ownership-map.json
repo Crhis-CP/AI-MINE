@@ -1166,6 +1166,7 @@
     "packages/backend/src/pipeline/events/shadow.ts": "events",
     "packages/backend/src/pipeline/events/timing.ts": "events",
     "packages/backend/src/pipeline/events/agreement.ts": "events",
+    "packages/backend/src/pipeline/events/order-repair.ts": "events",
     "packages/backend/src/pipeline/rank/project.ts": "publication",
     "packages/backend/src/pipeline/rank/read.ts": "publication"
   }

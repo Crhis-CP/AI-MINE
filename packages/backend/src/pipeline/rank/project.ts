@@ -163,6 +163,39 @@ export async function factPublications(factId: number, limit: number, db: Db = s
   return rows.map((row) => row.article_id);
 }
 
+/**
+ * Pool publications whose row changed since `since`, newest first, at most `limit`: one source of the event-order sweep's
+ * window (pipeline/events/order-repair.ts). Read through the index on updated_at of pool rows
+ * (publications_eligible_updated_idx); withdrawn reports stay in the pool, so a withdrawal is among them.
+ */
+export async function poolPublicationsUpdatedSince(since: Date, limit: number, db: Db = sql): Promise<string[]> {
+  const rows = await db<{ article_id: string }[]>`SELECT article_id FROM publications WHERE eligible AND updated_at>=${since}
+    ORDER BY updated_at DESC LIMIT ${limit}`;
+  return rows.map((row) => row.article_id);
+}
+
+/**
+ * Reports holding a row though their publication is no longer public and in the pool (or is gone), at most `limit`: the
+ * event-order sweep projects them so the row goes (pipeline/events/order-repair.ts). Read from the rows: each is looked
+ * up by its publication's key, so the read grows with the rows (one per public report), not with all publications.
+ */
+export async function rowsOutsidePool(limit: number, db: Db = sql): Promise<string[]> {
+  // A scalar subquery per row: one lookup by the publication's key each, never a pass over all publications.
+  const rows = await db<{ article_id: string }[]>`SELECT er.article_id FROM publication.event_rank er
+    WHERE (SELECT p.visibility='public' AND p.eligible AND NOT p.operator_withdrawn FROM publications p WHERE p.article_id=er.article_id) IS NOT TRUE
+    LIMIT ${limit}`;
+  return rows.map((row) => row.article_id);
+}
+
+/** For each of these reports that has a publication: the fact its publication is in now, and the fact its stored row was decided with. */
+export async function publicationPlaces(ids: readonly string[], db: Db = sql): Promise<Map<string, { factId: number | null; rankedFactId: number | null }>> {
+  if (!ids.length) return new Map();
+  const rows = await db<{ article_id: string; fact_id: number | null; ranked_fact_id: number | null }[]>`
+    SELECT p.article_id,p.fact_id,(SELECT er.fact_id FROM publication.event_rank er WHERE er.article_id=p.article_id) AS ranked_fact_id
+    FROM publications p WHERE p.article_id=ANY(${[...ids]}::text[])`;
+  return new Map(rows.map((row) => [row.article_id, { factId: row.fact_id, rankedFactId: row.ranked_fact_id }]));
+}
+
 export interface BackfillPage {
   seen: number;
   written: number;
