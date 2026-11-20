@@ -9,8 +9,8 @@ import { sql } from "@amp/backend/db";
 import { stableJson } from "@amp/backend/lib/ids";
 import { Policy, PolicyComparison, type PolicyHistoryEntry } from "@amp/contracts/http/public";
 import type { z } from "zod";
-import { compareProvisions, PROVISION_RECIPE, type Provision, type ProvisionComparison } from "./domain/provisions.ts";
-import { currentPolicyHeads } from "./domain/public-state.ts";
+import { compareProvisions, PROVISION_RECIPE, type Provision, type ProvisionComparison } from "./core/provisions.ts";
+import { currentPolicyHeads } from "./core/public-state.ts";
 import { context, editions, eligible, ensureDocument, PolicyReadError, type Edition } from "./read.ts";
 import { readerPolicy } from "./reader-copy.ts";
 

@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { classifyInstrument, foldText, operativeIssuer, INSTRUMENT_GATE_RECIPE } from "../modules/policy/backend/domain/instrument-gate.ts";
+import { classifyInstrument, foldText, operativeIssuer, INSTRUMENT_GATE_RECIPE } from "../modules/policy/backend/core/instrument-gate.ts";
 import { POLICY_INSTRUMENTS } from "@amp/industry/policy-instruments";
 
 const es = (title: string, excerpt = "", issuer: string | null = "阿根廷国家公报局", number: string | null = null) =>
@@ -220,7 +220,7 @@ test("the vocabulary is one data file; every pattern compiles and the gate's ans
   const input = { title: "SECRETARÍA DE MINERÍA Resolución 45/2026", number: null, issuer: null, excerpt: MINING_RESOLUTION, language: "es" };
   assert.deepEqual(classifyInstrument(input), classifyInstrument(input));
   // The gate never reads a model or the network: the module imports only the vocabulary.
-  const source = readFileSync("modules/policy/backend/domain/instrument-gate.ts", "utf8");
+  const source = readFileSync("modules/policy/backend/core/instrument-gate.ts", "utf8");
   assert.deepEqual(
     [...source.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]),
     ["@amp/industry/policy-instruments"],

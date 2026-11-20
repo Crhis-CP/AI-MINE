@@ -13,11 +13,11 @@ import { createHash } from "node:crypto";
 import { guardedFetch, type GuardedResponse, type GuardedFetchOptions } from "@amp/backend/lib/http-fetch";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { acquirePolicyOriginal } from "./acquire.ts";
-import { policyProfile, type PolicyAutomationProfile } from "./automation-profile.ts";
+import { policyProfile, type PolicyAutomationProfile } from "../core/automation-profile.ts";
 import { decodeOriginal } from "./extraction.ts";
-import { loadPolicyDocument, PolicyIdentityMismatch, readPolicyIdentityFields, type PolicyIdentityFields } from "./identity-fields.ts";
-import type { PolicyMetadataObservation } from "./metadata.ts";
-import { lookupPolicyOriginalExpression, readPolicyOriginal, recordPolicyOriginal } from "./originals.ts";
+import { loadPolicyDocument, PolicyIdentityMismatch, readPolicyIdentityFields, type PolicyIdentityFields } from "../core/identity-fields.ts";
+import type { PolicyMetadataObservation } from "../core/metadata.ts";
+import { lookupPolicyOriginalExpression, readPolicyOriginal, recordPolicyOriginal } from "../core/originals.ts";
 
 type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedResponse>;
 /** Captures field locations from the configured official single-document page, never a news classifier. */

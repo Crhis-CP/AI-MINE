@@ -5,7 +5,7 @@
  */
 import { sql, type Db } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
-import { EXTRACTION_RECIPE, extractPolicyOriginal, type ExtractionProfile, type PolicyExtraction } from "./extraction.ts";
+import { EXTRACTION_RECIPE, extractPolicyOriginal, type ExtractionProfile, type PolicyExtraction } from "../domain/extraction.ts";
 import { readPolicyOriginal } from "./originals.ts";
 import { PROVISION_RECIPE, provisionSetHash, splitProvisions, type Provision, type ProvisionNumbering } from "./provisions.ts";
 

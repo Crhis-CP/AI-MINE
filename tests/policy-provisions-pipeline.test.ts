@@ -10,7 +10,7 @@ import { PolicyComparison, PolicyScopeList } from "@amp/contracts/http/public";
 import { capturePolicyMaterial } from "../modules/policy/backend/domain/capture.ts";
 import { advancePolicyMaterial, discoverPolicyWorkflows, readPolicyWorkflow, type PolicyAutomationPorts } from "../modules/policy/backend/domain/automation.ts";
 import { extractPolicyOriginal } from "../modules/policy/backend/domain/extraction.ts";
-import { backfillPolicyStructures, readPolicyProvisions } from "../modules/policy/backend/domain/provision-store.ts";
+import { backfillPolicyStructures, readPolicyProvisions } from "../modules/policy/backend/core/provision-store.ts";
 import { publishPolicyPublication } from "../modules/policy/backend/publication/policies-publish.ts";
 import { projectPendingPolicyProvisions } from "../modules/policy/backend/publication/policy-provisions-project.ts";
 import { policyHistory, policyScope, PolicyReadError } from "../modules/policy/backend/read.ts";

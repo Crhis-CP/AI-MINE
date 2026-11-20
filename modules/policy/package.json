@@ -14,7 +14,7 @@
     "./model-evidence": "./backend/domain/model-evidence.ts",
     "./quality": "./backend/domain/quality.ts",
     "./receipt-recovery": "./backend/domain/receipt-recovery.ts",
-    "./source-evidence": "./backend/domain/target-evidence.ts"
+    "./source-evidence": "./backend/core/target-evidence.ts"
   },
   "dependencies": {
     "@amp/contracts": "*",

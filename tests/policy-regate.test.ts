@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { closeDb, sql } from "@amp/backend/db";
 import { capturePolicyMaterial } from "../modules/policy/backend/domain/capture.ts";
-import { structurePolicyRevision } from "../modules/policy/backend/domain/provision-store.ts";
+import { structurePolicyRevision } from "../modules/policy/backend/core/provision-store.ts";
 import { publishPolicyPublication } from "../modules/policy/backend/publication/policies-publish.ts";
 import { regatePolicyDocuments } from "../modules/policy/backend/publication/policy-regate.ts";
 import { policyDetail } from "../modules/policy/backend/read.ts";

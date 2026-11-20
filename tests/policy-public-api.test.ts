@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { denied } from "./role-db-fixture.ts";
 
-import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/core/originals.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import {

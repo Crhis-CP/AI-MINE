@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readingBlock } from "../modules/policy/backend/publication/policies-project.ts";
-import { policySemanticHtml } from "../modules/policy/backend/domain/semantic-html.ts";
+import { policySemanticHtml } from "../modules/policy/backend/core/semantic-html.ts";
 
 test("published legal blocks preserve deleted provisions, superscripts, ordered lists and merged cells", () => {
   const html =
