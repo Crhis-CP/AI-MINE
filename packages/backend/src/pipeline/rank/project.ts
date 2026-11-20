@@ -163,6 +163,53 @@ export async function factPublications(factId: number, limit: number, db: Db = s
   return rows.map((row) => row.article_id);
 }
 
+/** Where the event-order repair stopped: after this change time and report (a null report: after the whole instant). */
+export interface ChangeCursor {
+  /** A publication's updated_at in UTC with microseconds (an ISO time): a page never ends inside one stored instant. */
+  at: string;
+  articleId: string | null;
+}
+export interface ChangedPublication {
+  articleId: string;
+  at: string;
+  factId: number | null;
+  storyId: number | null;
+  /** The fact and story its stored event-order row was decided with; null without a row. */
+  rankedFactId: number | null;
+  rankedStoryId: number | null;
+}
+
+/**
+ * Pool publications changed after `after` and at or before `to`, oldest change first, at most `limit` (the event-order
+ * repair, pipeline/events/order-repair.ts). Every change to a membership, a story, a withdrawal, a date or a score
+ * republishes the report and moves updated_at; the index on updated_at of pool rows (publications_eligible_updated_idx)
+ * finds them. A report that leaves the pool (eligible turns false) is not among them.
+ */
+export async function changedPublications(o: { after: ChangeCursor; to: Date; limit: number }, db: Db = sql): Promise<ChangedPublication[]> {
+  const rows = await db<
+    { article_id: string; at: string; fact_id: number | null; story_id: number | null; ranked_fact_id: number | null; ranked_story_id: number | null }[]
+  >`SELECT p.article_id,pg_catalog.to_char(p.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at,p.fact_id,p.story_id,er.fact_id AS ranked_fact_id,er.story_id AS ranked_story_id
+    FROM publications p LEFT JOIN publication.event_rank er ON er.article_id=p.article_id
+    WHERE p.eligible AND p.updated_at>=${o.after.at}::text::timestamptz AND p.updated_at<=${o.to}
+      AND (p.updated_at>${o.after.at}::text::timestamptz OR (${o.after.articleId}::text IS NOT NULL AND p.article_id>${o.after.articleId}))
+    ORDER BY p.updated_at,p.article_id LIMIT ${o.limit}`;
+  return rows.map((row) => ({
+    articleId: row.article_id,
+    at: row.at,
+    factId: row.fact_id,
+    storyId: row.story_id,
+    rankedFactId: row.ranked_fact_id,
+    rankedStoryId: row.ranked_story_id,
+  }));
+}
+
+/** Reports holding a row for a story, latest first, at most `limit`: whose rows a change of the story's first report moves. */
+export async function storyRankedArticles(storyId: number, limit: number, db: Db = sql): Promise<string[]> {
+  const rows = await db<{ article_id: string }[]>`SELECT article_id FROM publication.event_rank WHERE story_id=${storyId}
+    ORDER BY reported_at DESC LIMIT ${limit}`;
+  return rows.map((row) => row.article_id);
+}
+
 export interface BackfillPage {
   seen: number;
   written: number;
