@@ -8,6 +8,9 @@ import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
 import type { AliasScope, EntityLink, EntityRow, StatementRow } from "./model.ts";
 import { aliasKey, hasHan, lookupKey, tokenize } from "./normalize.ts";
 
+/** Names the linker's rules; stored with every link it writes. Change it when linkText decides differently. */
+export const LINKER_VERSION = "entity-linker-v1";
+
 interface AliasEntry {
   entityId: string;
   scope: AliasScope;
@@ -283,10 +286,14 @@ function hostOf(url: string | undefined): string | null {
  * wording is in the title or the first sentence; otherwise `mention`. The model's subjects are never edited, and
  * only ids present in the index are returned.
  */
-export function linkText(
-  index: EntityIndex,
-  input: { title: string; body: string; language: string | null; url?: string; sourceOwner?: string | null; modelSubjects?: readonly string[] },
-): EntityLink[] {
+export function linkText(index: EntityIndex, input: LinkInput): EntityLink[] {
+  return linkTextWithHits(index, input).links;
+}
+
+export type LinkInput = { title: string; body: string; language: string | null; url?: string; sourceOwner?: string | null; modelSubjects?: readonly string[] };
+
+/** linkText, with every spelling found in the title and the body as well (admitted or not), for callers that need them. */
+export function linkTextWithHits(index: EntityIndex, input: LinkInput): { links: EntityLink[]; hits: Array<Hit & { segment: "title" | "body" }> } {
   const publishers: EntityLink[] = [];
   const host = hostOf(input.url);
   if (host) {
@@ -335,5 +342,5 @@ export function linkText(
       hits: own.length,
     });
   }
-  return [...links, ...publishers];
+  return { links: [...links, ...publishers], hits: hits.map(({ text: _text, ...hit }) => hit) };
 }

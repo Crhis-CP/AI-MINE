@@ -61,7 +61,8 @@ import {
   settleShortBody,
 } from "./body-reread.ts";
 import { ensureQueue, QUEUES, shutdownSignal } from "./queue.ts";
-import { enqueueJob as enqueue, work } from "./module-queues.ts";
+import { enqueueJob as enqueue, work, workQueues } from "./module-queues.ts";
+import { observeQueue, queueArticleObserve } from "../pipeline/understand/observe.ts";
 import { SELECTION } from "@amp/industry/selection";
 
 /** Minutes to wait after the n-th failed attempt; one more failure after the last ends in "failed". */
@@ -293,6 +294,10 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     // History founds no event but may attach to the fact it reposts (events/group.ts); it waits behind live work.
     if (result.output.relevance === "pass" && publication?.visibility === "public" && worthGrouping(result.output))
       await enqueue(QUEUES.group, { lane: "news", articleId }, { singletonKey: articleId, priority: row.historical ? PRIORITY.history : PRIORITY.live });
+    // The per-article shadow (company links, figure and dateline checks) runs later in a queue of its own and writes
+    // only its own tables; queueing it never throws, so it cannot fail or hold up this article.
+    if (result.analysisId !== null && result.output.relevance !== "block")
+      await queueArticleObserve({ articleId, analysisId: result.analysisId, language: normalizeSourceLanguage(found.language) });
     if (result.copyIncomplete) return copyRewrite(articleId, found.revision, result.copyAttempt ?? 0);
     return { state: result.output.relevance };
   } catch (error) {
@@ -559,6 +564,8 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
   );
   await ensureQueue(QUEUES.analyze);
   await work(boss, QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, articleJobLane, (data) => runAnalysisJob(data));
+  // The per-article shadow, one article at a time beside the analyses (pipeline/understand/observe.ts).
+  await workQueues(boss, [observeQueue]);
 }
 
 /** An old article the body backfill read again (TASK-0598) is history: its paid analysis waits behind live work and off-peak. */

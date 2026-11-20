@@ -17,6 +17,7 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { SCORE_SYSTEM, tierThreshold, StructureSchema, normalizeAnalysis, loadAnalyzeInput } from "@amp/backend/editorial/analyze";
 import { analyzeArticle, runAnalysis } from "@amp/backend/editorial/analyze-article";
 import { afterFailure, incompleteCopyCandidates, processArticle, queueProcessing, resumeIncompleteCopy } from "@amp/backend/jobs/content";
+import { articleObserveEnabled, observeQueue } from "../packages/backend/src/pipeline/understand/observe.ts";
 import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
 import { promptText } from "@amp/backend/editorial/prompts";
@@ -976,4 +977,56 @@ test("TASK-0594: an item an operator withdrew is skipped without ending the scan
   assert.ok(foundOpen, "the scan reaches the open item that sorts after the withdrawn one");
   emptySummaries.delete("COPYHELD");
   emptySummaries.delete("COPYOPEN");
+});
+
+test("after a judgement is committed its per-article shadow is queued once, never for a BLOCK; switched off or refused by the queue, the article goes on as before", async (t) => {
+  const shadowJobs = async (id: string) =>
+    (await sql<{ data: Record<string, unknown> }[]>`SELECT data FROM pgboss.job WHERE name = ${observeQueue.name} AND data->>'articleId' = ${id}`).map(
+      (j) => j.data,
+    );
+  const lowArticle = (name: string) => article("LOW", { url: `https://example.com/LOW-${name}-${T}`, title: `LOW ${name} ${T}` });
+  const settled = async (id: string) =>
+    (
+      await sql<
+        { state: string; analyses: number }[]
+      >`SELECT a.processing_state AS state, (SELECT count(*)::int FROM analyses WHERE article_id = a.id) AS analyses
+      FROM articles a WHERE a.id = ${id}`
+    )[0];
+
+  const id = await lowArticle("observe");
+  assert.equal((await processArticle(id)).state, "pass");
+  const [latest] = await sql<{ id: number }[]>`SELECT id FROM analyses WHERE article_id = ${id} ORDER BY id DESC LIMIT 1`;
+  assert.deepEqual(await shadowJobs(id), [{ lane: "news", articleId: id, analysisId: latest!.id, language: "en" }]);
+  assert.equal((await sql`SELECT 1 FROM enrichment.analysis_checks WHERE article_id = ${id}`).length, 0, "the content job only queues it");
+
+  const blocked = await article("OFFTOPIC", { url: `https://example.com/OFFTOPIC-observe-${T}`, title: `OFFTOPIC observe ${T}` });
+  assert.equal((await processArticle(blocked)).state, "block");
+  assert.deepEqual(await shadowJobs(blocked), [], "a BLOCK is not checked");
+
+  await sql`INSERT INTO settings (key, value, updated_by) VALUES ('observe.articles', ${sql.json("off" as never)}, 'test')`;
+  try {
+    assert.equal(await articleObserveEnabled({ maxAgeMs: 0 }), false);
+    const off = await lowArticle("observe-off");
+    assert.equal((await processArticle(off)).state, "pass");
+    assert.deepEqual(await shadowJobs(off), [], "nothing is queued while it is switched off");
+    assert.deepEqual(await settled(off), { state: "analyzed", analyses: 2 });
+  } finally {
+    await sql`DELETE FROM settings WHERE key = 'observe.articles'`;
+    assert.equal(await articleObserveEnabled({ maxAgeMs: 0 }), true);
+  }
+
+  const warned = t.mock.method(console, "warn", () => {});
+  await sql.unsafe(`CREATE FUNCTION analyze_test_refuse_shadow() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic queue refusal'; END$$;
+    CREATE TRIGGER analyze_test_refuse_shadow BEFORE INSERT ON pgboss.job FOR EACH ROW
+      WHEN (NEW.name = '${observeQueue.name}') EXECUTE FUNCTION analyze_test_refuse_shadow()`);
+  try {
+    const refused = await lowArticle("observe-refused");
+    assert.equal((await processArticle(refused)).state, "pass", "a refused shadow job does not fail the article");
+    assert.deepEqual(await shadowJobs(refused), []);
+    assert.deepEqual(await settled(refused), { state: "analyzed", analyses: 2 });
+    assert.equal((await sql`SELECT 1 FROM publications WHERE article_id = ${refused}`).length, 1, "it was published as usual");
+  } finally {
+    await sql.unsafe("DROP TRIGGER analyze_test_refuse_shadow ON pgboss.job; DROP FUNCTION analyze_test_refuse_shadow()");
+  }
+  assert.ok(warned.mock.calls.some((call) => String(call.arguments[0]).includes("article observe not queued")));
 });

@@ -88,3 +88,16 @@ test("an ISO date in the source is not read as a fiscal range, and a year-month 
   const right = checkFigures(copy("公司将于2027年12月投产", "2027-12"), source("The company will start production in December 2027."));
   assert.equal(right.verdict, "ok");
 });
+
+test("a long Chinese source with thousands of figures is read in time proportional to its length", () => {
+  const prose = "紫金矿业2025年第三季度铜产量增长12.5%，达到25.3万吨，营收约320亿元，同比增加18%。力拓发货8,450万吨，嘉能可钴产量3.5至4.0万吨。";
+  const source = prose.repeat(Math.ceil(200_000 / prose.length)).slice(0, 200_000);
+  const started = performance.now();
+  const result = checkFigures(
+    { titleZh: "紫金矿业铜产量增长12.5%", summaryZh: "营收约320亿元，发货8,450万吨。", reasonZh: null, occurredAt: null },
+    { texts: [source], language: "zh", sourceDate: "2025-10-20", complete: true, hasImage: false },
+  );
+  assert.equal(result.verdict, "ok");
+  // About 0.1 s on 4 vCPUs at 2.1 GHz; rebuilding the text after every figure once took about 4 s here.
+  assert.ok(performance.now() - started < 1_500, `took ${Math.round(performance.now() - started)} ms`);
+});
