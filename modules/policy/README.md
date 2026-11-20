@@ -8,7 +8,7 @@ module声明既有法规列表、正文、历史版本、政策脉络及报告�
 
 后端按“保留 / 旧写入侧 / 新写入侧”分目录，文件只搬位置、内容未改：
 
-- `backend/core/`：保留下来的确定性代码，不调用模型，新旧写入侧都可以用。原件存档与版本（`originals.ts`、`types.ts`）、条款切分与存储（`provisions.ts`、`provision-store.ts`）、法律文书判定（`instrument-gate.ts`）、阿根廷程序日期（`ar-lifecycle.ts`）、编码与网页清洗（`encoding.ts`、`semantic-html.ts`、`annotations.ts`、`xml-structure.ts`）、来源配置与身份字段（`automation-profile.ts`、`identity-fields.ts`）、元数据（`metadata.ts`）、公开状态（`public-state.ts`）、信源对账的原件计数（`target-evidence.ts`）。
+- `backend/core/`：保留下来的确定性代码，不调用模型，新旧写入侧都可以用。原件存档与版本（`originals.ts`、`types.ts`）、条款切分与存储（`provisions.ts`、`provision-store.ts`）、法律文书判定（`instrument-gate.ts`）、阿根廷程序日期（`ar-lifecycle.ts`）、编码与网页清洗（`encoding.ts`、`semantic-html.ts`、`annotations.ts`、`xml-structure.ts`）、来源配置与身份字段（`automation-profile.ts`、`identity-fields.ts`）、元数据（`metadata.ts`）、公开状态（`public-state.ts`）、信源对账的原件计数（`target-evidence.ts`）。另有两条新写的纯函数，已有测试、尚未接入旧写入侧，留给新写入侧用：`catalogue.ts` 判断附件目录是否闭合（来源没声明附件清单且正文没提附件、清单链接齐全、PDF 没有内嵌文件时闭合）；`pdf-text.ts` 按文字层把 PDF 每页分成文字、扫描、混合（可见字符不少于 `PDF_TEXT_MIN_CHARS` 且没有乱码字符算文字页，这个 20 字是暂定值，等测量 N1、N2 定下；文字页上的图片面积达到页面的四分之一（`PDF_IMAGE_AREA_MIXED`）算混合页，文字照用、这一页另交人工看）。
 - `backend/domain/`、`backend/jobs.ts`、`backend/provider.ts`：旧写入侧（状态机、取原件、正文提取、全文翻译、解读、视觉、模型网关与质量放行），登记为遗留区 `policy-write`（`scripts/verify/legacy-zones.json`）：只修不扩，引用它的文件只减不增。`core/provision-store.ts` 的 `structurePolicyRevision` 仍调用旧的正文提取，是名单上的引用方之一，之后单独切开。
 - `backend/pipeline/`：新写入侧的位置（计划 2.13），只引用 `core/`，不引用旧写入侧，由检查强制。
 - `backend/publication/` 与读取接口（`read.ts`、`reports.ts`、`compare.ts`、`relations.ts` 等）位置不变。
