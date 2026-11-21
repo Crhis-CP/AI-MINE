@@ -3,8 +3,9 @@ import { runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operatio
 // Text embeddings through receipts, used only for the event grouping's candidate recall. Any
 // OpenAI-compatible /embeddings endpoint (EMBEDDING_BASE_URL, EMBEDDING_API_KEY, EMBEDDING_MODEL);
 // with a DashScope key and nothing else set, Aliyun text-embedding-v4 at 1024 dimensions. Without
-// either, recall falls back to the other signal (the same address).
-import { config, credential } from "../config.ts";
+// either, recall falls back to the other signal (the same address). Used only while EMBEDDINGS_ENABLED=true
+// (embeddingsAvailable); a key alone does not switch it on.
+import { config, credential, embeddingsEnabled } from "../config.ts";
 import { sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { paidRequest, ProviderRejectedError } from "./receipts.ts";
@@ -33,13 +34,14 @@ function cacheFact(id: string, textHash: string, vector: number[]) {
   if (factVectors.size > FACT_CACHE_LIMIT) factVectors.delete(factVectors.keys().next().value!);
 }
 
-/** Embeddings are paid model calls: MODEL_CALLS_ENABLED=false switches them off like every other call. */
+/**
+ * Embeddings are paid model calls of a service the Owner must approve (DEC-29), so they are an explicit opt-in:
+ * EMBEDDINGS_ENABLED=true, a key, and MODEL_CALLS_ENABLED not false. A key alone never turns them on, because the
+ * qwen model presets read the same DASHSCOPE_API_KEY (TASK-0367). Off, every grouping similarity is the lexical overlap
+ * (events/relate.ts lexicalSimilarity), as production has always run.
+ */
 export function embeddingsAvailable(): boolean {
-  return (
-    config.modelCallsEnabled &&
-    !!(credential("models", "EMBEDDING_API_KEY") ?? credential("models", "DASHSCOPE_API_KEY")) &&
-    process.env.EMBEDDINGS_ENABLED !== "false"
-  );
+  return embeddingsEnabled() && config.modelCallsEnabled && !!(credential("models", "EMBEDDING_API_KEY") ?? credential("models", "DASHSCOPE_API_KEY"));
 }
 
 type EmbeddingItem = { id: string; text: string };

@@ -12,7 +12,15 @@ import {
   simhash,
   titleSimilarity,
 } from "../packages/backend/src/pipeline/events/fingerprint.ts";
-import { DATE_APART_DAYS, EVENT_RULESET, type EventCandidate, type EventQuery, decideEvent } from "../packages/backend/src/pipeline/events/rules.ts";
+import {
+  CONFIRM_BELOW_COSINE,
+  CONFIRM_BELOW_LEXICAL,
+  DATE_APART_DAYS,
+  EVENT_RULESET,
+  type EventCandidate,
+  type EventQuery,
+  decideEvent,
+} from "../packages/backend/src/pipeline/events/rules.ts";
 
 const wire = [
   "紫金矿业今日宣布，公司旗下位于刚果（金）的卡莫阿铜矿三期选厂已完成带料试车，设计年处理矿石能力提升至1900万吨。",
@@ -54,7 +62,7 @@ function query(over: Partial<EventQuery> = {}): EventQuery {
     frame: true,
     manual: false,
     historical: false,
-    hasVector: true,
+    recallComplete: true,
     readingBackground: false,
     ...over,
   };
@@ -100,13 +108,14 @@ test("fingerprint: a reprint with page chrome stays within the distance, another
 });
 
 test("the ruleset names every threshold, so rows under other values are never pooled", () => {
-  assert.ok(EVENT_RULESET.startsWith("event-rules-v1/"));
+  assert.ok(EVENT_RULESET.startsWith("event-rules-v2/"), "v2: recall complete instead of a vector, bars by score kind");
   assert.ok(EVENT_RULESET.includes(FINGERPRINT_RECIPE));
   assert.ok(EVENT_RULESET.includes(`body${FINGERPRINT_MIN_BODY_CHARS}/`));
   assert.ok(EVENT_RULESET.includes(`apart${DATE_APART_DAYS}`));
   assert.ok(EVENT_RULESET.includes("fp6-title0.5"));
   assert.ok(EVENT_RULESET.includes("/key8/"));
   assert.ok(EVENT_RULESET.includes("/top5/"));
+  assert.ok(EVENT_RULESET.includes(`/confirm${CONFIRM_BELOW_COSINE}/lexconfirm${CONFIRM_BELOW_LEXICAL}`), "both confirm bars, by name");
 });
 
 test("rule 0: manual, archive, not passed, too thin and roundups are not judged and carry no forecast", () => {
@@ -229,7 +238,7 @@ test("rule 6: only no candidate at all, with a complete recall, founds a new eve
   const d = decideEvent(query(), []);
   assert.deepEqual([d.verdict, d.rule, d.targetFactId, d.similarity, d.candidates, d.wouldCall], ["new_event", "no_candidate", null, null, [], 0]);
   assert.equal(decideEvent(query({ readingBackground: true }), []).wouldCall, 1, "the value question remains");
-  const blind = decideEvent(query({ hasVector: false }), []);
+  const blind = decideEvent(query({ recallComplete: false }), []);
   assert.deepEqual([blind.verdict, blind.rule, blind.wouldCall], ["undecided", "vector_missing", 1]);
   const unknownScope = decideEvent(query({ scope: "unknown" }), []);
   assert.deepEqual([unknownScope.verdict, unknownScope.rule, unknownScope.wouldCall], ["undecided", "no_candidate", 1]);
@@ -266,7 +275,7 @@ test("rule 7: anything else is undecided; the forecast adds one review call per 
   const capped = decideEvent(q, many);
   assert.equal(capped.candidates.length, 5);
   assert.equal(capped.wouldCall, 6);
-  assert.equal(decideEvent(query({ fingerprint: null, hasVector: false }), many).rule, "vector_missing");
+  assert.equal(decideEvent(query({ fingerprint: null, recallComplete: false }), many).rule, "vector_missing");
 });
 
 test("candidates are judged per fact, as the live engine judges facts", () => {
@@ -318,4 +327,30 @@ test("a selected fact a rule ties the report to asks the value question, even ra
   // A selected fact outside the five that no rule ties the report to still does not count.
   const bystander = candidate("w", { factId: 9, cosine: 0.5, selected: true });
   assert.equal(decideEvent(query(), [...strong.slice(0, 5), { ...copy, cosine: 0.95 }, bystander]).wouldCall, 0);
+});
+
+test("without vectors: recall complete founds a new event on no candidate, a lexical near-match is left to the judge, never a certain duplicate", () => {
+  // Lexical mode (production: no stored vector anywhere): every candidate's cosine is null and recall is complete.
+  const lexical = (articleId: string, over: Partial<EventCandidate> = {}) => candidate(articleId, { cosine: null, ...over });
+  const q = query({ fingerprint: null });
+  const none = decideEvent(q, []);
+  assert.deepEqual([none.verdict, none.rule, none.wouldCall], ["new_event", "no_candidate", 0], "as the live engine: no candidate, no call");
+  // The same title on the same day and an overlap of 1: rule 4 would tie this pair on a cosine of 1, but its 0.92 bar
+  // is a cosine and the overlap is not held to it (a short text inside a long one scores 1).
+  const twin = lexical("wire", { factId: 50, storyId: 500, title: "新华社：卡莫阿铜矿三期选厂完成带料试车！", lexical: 1 });
+  const near = decideEvent(q, [twin]);
+  assert.deepEqual([near.verdict, near.rule, near.similarity, near.wouldCall], ["undecided", "similar_unsure", 1, 1], "one relation call, no confirm call");
+  assert.equal(decideEvent(q, [{ ...twin, cosine: 1 }]).rule, "certain_duplicate", "the same pair with vectors is tied");
+  // Confirm calls follow the lexical bar: at or above it no second call, below it one.
+  assert.equal(decideEvent(q, [lexical("a", { lexical: CONFIRM_BELOW_LEXICAL })]).wouldCall, 1);
+  assert.equal(decideEvent(q, [lexical("a", { lexical: CONFIRM_BELOW_LEXICAL - 0.01 })]).wouldCall, 2);
+  // Rules 1-3 need no vector.
+  assert.equal(decideEvent(q, [lexical("u", { sameUrl: true })]).rule, "same_url");
+  assert.equal(decideEvent(q, [lexical("h", { sameHash: true, title: q.title })]).rule, "content_hash");
+  assert.equal(decideEvent(query(), [lexical("f", { fingerprint: bodyFingerprint(`首页 > 新闻中心\n${wire}\n责任编辑 版权所有`) })]).rule, "fingerprint");
+  // Incomplete recall (vector mode without the report's vector) never founds an event.
+  assert.deepEqual(
+    [decideEvent(query({ recallComplete: false }), []).verdict, decideEvent(query({ recallComplete: false }), []).rule],
+    ["undecided", "vector_missing"],
+  );
 });

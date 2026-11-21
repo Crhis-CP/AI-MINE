@@ -527,6 +527,59 @@ test("every statement runs read-only on the migrated schema and the fixture give
   assert.ok(rows("M10").some((r) => String(r.definition).includes("(url)")));
   assert.ok(rows("M11").some((r) => r.trigger === "analysis written" && Number(r.events) >= 5));
   assert.deepEqual(rows("M12"), [{ members_band: "b 2", facts: 3, largest: 2 }]);
+  // M2c: no embedding was ever requested (the fixture's one receipt is a grouping call); one appears when it was.
+  assert.deepEqual(rows("M2c"), []);
+  // M13: a1 and a2 are one article from two sources, but too short to count; long enough, they sit in one story, then
+  // in two, then one of them in none. Each change is rolled back after the statement has run.
+  assert.deepEqual(rows("M13"), [{ groups: 0, articles: 0, split_across_stories: 0, one_story: 0, some_unplaced: 0 }]);
+  const readWith = async (measure: string, change: (tx: Tx) => Promise<unknown>) => {
+    let seen: Record<string, unknown>[] = [];
+    await sql
+      .begin(async (tx) => {
+        await change(tx);
+        seen = [...(await tx.unsafe(text(measure)))].map(({ measure: _, ...rest }) => rest);
+        throw rollback;
+      })
+      .catch((error) => {
+        if (error !== rollback) throw error;
+      });
+    return seen;
+  };
+  assert.deepEqual(
+    (
+      await readWith(
+        "M2c",
+        (tx) =>
+          // A qwen preset's call on the same service is no embedding.
+          tx`INSERT INTO receipts(logical_key,service,model,purpose,status) VALUES(${id("embed")},'dashscope','text-embedding-v4','embedding','completed'),
+            (${id("qwen")},'dashscope','qwen3.7-flash','prefilter_article','completed')`,
+      )
+    ).map((r) => [r.service, r.model, r.status, r.receipts]),
+    [["dashscope", "text-embedding-v4", "completed", 1]],
+  );
+  const long = (tx: Tx) => tx`UPDATE articles SET body_text=repeat('Copper shipments resumed. ', 30) WHERE id IN (${id("a1")},${id("a2")})`;
+  const m13 = (r: Record<string, unknown>) => [r.groups, r.articles, r.split_across_stories, r.one_story, r.some_unplaced];
+  assert.deepEqual((await readWith("M13", long)).map(m13), [[1, 2, 0, 1, 0]], "one article, two sources, one story");
+  assert.deepEqual(
+    (
+      await readWith("M13", async (tx) => {
+        await long(tx);
+        await tx`UPDATE fact_articles SET fact_id=${factIds.f3!} WHERE article_id=${id("a2")}`;
+      })
+    ).map(m13),
+    [[1, 2, 1, 0, 0]],
+    "the same article in two stories: a duplicate left ungrouped",
+  );
+  assert.deepEqual(
+    (
+      await readWith("M13", async (tx) => {
+        await long(tx);
+        await tx`DELETE FROM fact_articles WHERE article_id=${id("a2")}`;
+      })
+    ).map(m13),
+    [[1, 2, 0, 0, 1]],
+    "a copy in no story",
+  );
 
   // One article (part L).
   assert.ok(rows("L1a").some((r) => r.table_name === "public.articles"));

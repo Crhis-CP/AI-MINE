@@ -465,18 +465,33 @@ export function reportText(title: string, summary: string | null | undefined): s
   return `${title}。${(summary ?? "").slice(0, 300)}`;
 }
 
-/** Lexical stand-in for cosine when embeddings are off (tests, development without a key): shared character bigrams. */
-export function lexicalSimilarity(a: string, b: string): number {
+/**
+ * lexicalSimilarity with one side's bigrams built once: lexicalScorer(a)(b) is lexicalSimilarity(a, b) for every b. The
+ * event shadow (pipeline/events/recall.ts) compares one report with the whole recall pool through it, so both engines
+ * score by this one function.
+ */
+export function lexicalScorer(a: string): (b: string) => number {
   const grams = (s: string) => {
     const chars = [...s.replace(/\s+/g, "")];
     return new Set(chars.map((_c, i) => chars.slice(i, i + 2).join("")).filter((g) => g.length === 2));
   };
-  const g = grams(a),
-    h = grams(b);
-  if (!g.size || !h.size) return 0;
-  let inter = 0;
-  for (const x of g) if (h.has(x)) inter++;
-  return inter / Math.min(g.size, h.size);
+  const g = grams(a);
+  return (b) => {
+    if (!g.size) return 0;
+    const h = grams(b);
+    if (!h.size) return 0;
+    let inter = 0;
+    for (const x of g) if (h.has(x)) inter++;
+    return inter / Math.min(g.size, h.size);
+  };
+}
+
+/**
+ * Lexical stand-in for cosine when embeddings are off (production while EMBEDDINGS_ENABLED is not "true", tests,
+ * development without a key): shared character bigrams over the smaller set, so a short text inside a long one scores 1.
+ */
+export function lexicalSimilarity(a: string, b: string): number {
+  return lexicalScorer(a)(b);
 }
 
 // ---------------------------------------------------------------------------

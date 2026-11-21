@@ -8,20 +8,27 @@
 // Like the live engine it ranks facts, not reports: the facts in live order (the same address or hash first, then
 // key-fact matches, then by their best report's score), each with a few of its best reports, so one large fact of
 // wire copies cannot crowd the others out.
+// It runs in the mode the live engine runs in (recallMode: embeddingsAvailable, a configuration check, no call):
+//  - lexical (no embeddings: production today, DEC-29): no vector is read; every report of the pool is compared by the
+//    live engine's own character-pair overlap (events/relate.ts lexicalScorer) against the live floor
+//    LEXICAL_RECALL_MIN, the whole pool as live recall compares it, so recall is complete;
+//  - vector (EMBEDDINGS_ENABLED=true): vectors are only read, a missing or stale one falls back to the lexical overlap
+//    as live recall does; at most `vectors` reports get a vector per article: the reports found by address, hash,
+//    document or key fact first, then the pool's best by lexical overlap (review of design M, F11); the others of the
+//    pool are not compared, the selected background likewise at most `background`; recall counts as complete only
+//    when the report's own vector was read.
+// The mode is part of the stored ruleset, so rows of the two modes are never pooled.
 // Where this differs from live recall:
-//  - vectors are only read: a missing or stale one falls back to the lexical overlap, as live recall does;
-//  - at most `vectors` reports get a vector per article: the reports found by address, hash, document or key fact
-//    first, then the pool's best by lexical overlap (review of design M, F11); the others of the pool are not compared;
-//    the selected background likewise at most `background`;
 //  - a report whose grouping completed after the live decision is left out: a later report of the same event must not
 //    answer for what the live engine could see;
 //  - the window keeps at most `window` materials whose grouping is confirmed, archive history last, and the members a
 //    person bound by hand (which live counts whatever their grouping state) at most `manual`, the newest first; a window
 //    that reaches either bound is reported.
-// Memory: at most VECTOR_CACHE_BYTES of vectors stay in the process between articles (least recently used dropped
-// first). Per article at most 1 + vectors + background vectors are read (2,501 by default: about 10 MB as 1,024-dimension
-// Float32Arrays, more while their text form is parsed) and at most `window` window rows with their titles and summaries
-// are held, all released when the article is done. Long loops yield to the event loop once SLICE_MS have passed (the
+// Memory: per article at most `window` window rows with their titles and summaries are held, and one score per report
+// (tests/event-shadow-load.test.ts measures 3,000 and 6,000 reports), all released when the article is done. Vector
+// mode only: at most VECTOR_CACHE_BYTES of vectors stay in the process between articles (least recently used dropped
+// first), and per article at most 1 + vectors + background vectors are read (2,501 by default: about 10 MB as
+// 1,024-dimension Float32Arrays, more while their text form is parsed). Long loops yield to the event loop once SLICE_MS have passed (the
 // longest single step, a 12,000-character text's fingerprint and day, takes about 3 ms), and queries run one after
 // another, so the worker's other jobs keep their turns and their connections.
 import { IDENTITY_LEXICON } from "@amp/industry/taxonomy";
@@ -32,13 +39,14 @@ import {
   GROUP_ARTICLE_CANDIDATES,
   keyFacts,
   LEXICAL_RECALL_MIN,
+  lexicalScorer,
   RECALL_TOP_FACTS,
   reportText,
   sharesKeyFact,
   titleNamesDocument,
 } from "../../events/relate.ts";
 import { sha256 } from "../../lib/ids.ts";
-import { EMBEDDING_MODEL } from "../../providers/embeddings.ts";
+import { EMBEDDING_MODEL, embeddingsAvailable } from "../../providers/embeddings.ts";
 import { readDocumentTitleMatches, readGroupingEvidencePublications, readGroupingReportTexts, readGroupingSelectionSnapshot } from "../../publication/items.ts";
 
 // The live engine's recall values (events/group.ts and publication/items.ts; tests/event-shadow.test.ts keeps them equal).
@@ -58,9 +66,9 @@ export interface RecallLimits {
   window: number;
   /** Members bound to a live fact by hand looked at, the newest first; those discovered in the 14 days join the window. */
   manual: number;
-  /** Vectors read for candidates. */
+  /** Vectors read for candidates (vector mode; lexical mode compares the whole pool). */
   vectors: number;
-  /** Vectors read for the selected background. */
+  /** Vectors read for the selected background (vector mode), and its best by lexical overlap compared. */
   background: number;
   /** Facts handed to the rules, in live order, and best reports kept per fact (besides its address and hash twins). */
   facts: number;
@@ -69,8 +77,22 @@ export interface RecallLimits {
   probes: number;
 }
 export const RECALL_LIMITS: RecallLimits = { window: 40_000, manual: 2_000, vectors: 2_000, background: 500, facts: 20, membersPerFact: 3, probes: 50 };
-/** Part of the stored ruleset (shadow.ts SHADOW_RULESET), so rows decided under other bounds are never pooled. */
-export const RECALL_RULESET = `recall-v3:window${RECALL_LIMITS.window}+manual${RECALL_LIMITS.manual}/vectors${RECALL_LIMITS.vectors}+${RECALL_LIMITS.background}/facts${RECALL_LIMITS.facts}x${RECALL_LIMITS.membersPerFact}/probes${RECALL_LIMITS.probes}`;
+/** lexical: the live engine runs without embeddings and so does recall; vector: EMBEDDINGS_ENABLED=true. */
+export type RecallMode = "lexical" | "vector";
+/** The mode the live engine runs in: a configuration check, never a call. */
+export function recallMode(): RecallMode {
+  return embeddingsAvailable() ? "vector" : "lexical";
+}
+/**
+ * Part of the stored ruleset (shadow.ts shadowRuleset), so rows decided in another mode or under other bounds are never
+ * pooled. v4: the mode (lexical rows compare the whole pool, no vector cap).
+ */
+export function recallRuleset(mode: RecallMode, limits: RecallLimits = RECALL_LIMITS): string {
+  const common = `window${limits.window}+manual${limits.manual}/facts${limits.facts}x${limits.membersPerFact}/probes${limits.probes}`;
+  return mode === "lexical"
+    ? `recall-v4:lexical/pool-all-min${LEXICAL_RECALL_MIN}+background${limits.background}/${common}`
+    : `recall-v4:vector/vectors${limits.vectors}+${limits.background}-min${RECALL_MIN_COSINE}/${common}`;
+}
 export const VECTOR_CACHE_BYTES = 24 * 1024 * 1024;
 /** Longest stretch of computation between two turns of the event loop. */
 export const SLICE_MS = 15;
@@ -101,12 +123,14 @@ export interface RecallInput {
   composite: boolean;
   /** When the live engine decided; recall sees the graph as of then as far as stored times allow. */
   liveAt: Date;
+  /** The live engine's mode (recallMode() when absent). */
+  mode?: RecallMode;
 }
 export interface RecallStats {
   window: number;
   windowFull: boolean;
   pool: number;
-  /** Candidate reports given a vector lookup (at most `vectors`). */
+  /** Candidate reports compared: all of them in lexical mode, those given a vector lookup (at most `vectors`) in vector mode. */
   scored: number;
   /** Vectors read from the database (cached ones aside), background included. */
   vectorsRead: number;
@@ -114,8 +138,9 @@ export interface RecallStats {
 }
 export interface RecallResult {
   candidates: RecallHit[];
-  /** A stored vector matches the report's text: recall had its full reach. */
-  hasVector: boolean;
+  mode: RecallMode;
+  /** Recall compared the pool as the live engine does: always in lexical mode; with vectors when the report's own vector was read. */
+  recallComplete: boolean;
   /** A visible selected report outside the judged facts is close enough that the live engine asks the value question. */
   readingBackground: boolean;
   stats: RecallStats;
@@ -170,23 +195,6 @@ export class VectorCache {
   }
 }
 const cache = new VectorCache(VECTOR_CACHE_BYTES);
-
-/** events/relate.ts lexicalSimilarity with the query's bigrams built once; the same number for every pair. */
-export function lexicalScorer(query: string): (text: string) => number {
-  const grams = (s: string) => {
-    const chars = [...s.replace(/\s+/g, "")];
-    return new Set(chars.map((_c, i) => chars.slice(i, i + 2).join("")).filter((g) => g.length === 2));
-  };
-  const g = grams(query);
-  return (text) => {
-    if (!g.size) return 0;
-    const h = grams(text);
-    if (!h.size) return 0;
-    let inter = 0;
-    for (const x of g) if (h.has(x)) inter++;
-    return inter / Math.min(g.size, h.size);
-  };
-}
 
 const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 /** The `limit` items with the highest score, ties by id: the prefilter that bounds the vectors read (review F11). */
@@ -409,6 +417,7 @@ async function documentMembers(input: RecallInput, db: Db): Promise<Membership[]
 
 export async function recallCandidates(input: RecallInput, db: Db = sql, limits: RecallLimits = RECALL_LIMITS): Promise<RecallResult> {
   const { articleId, liveAt } = input;
+  const mode = input.mode ?? recallMode();
   const score = lexicalScorer(input.text);
   const turn = slicer();
   const since = new Date(liveAt.getTime() - RECALL_DAYS * DAY);
@@ -465,7 +474,8 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
     await turn();
   }
   const keyed = pool.filter((m) => keyedIds.has(m.article_id));
-  // One budget of vectors: what address, hash, document and key fact found, then the pool's best by lexical overlap.
+  // Vector mode: one budget of vectors, what address, hash, document and key fact found, then the pool's best by lexical
+  // overlap. Lexical mode: every report found is compared, as live lexical recall compares the whole pool.
   const byLexical = async (rows: Membership[]) =>
     (
       await topByScoreSliced(
@@ -474,12 +484,18 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
         turn,
       )
     ).map((x) => x.id);
-  const scoredIds = [...new Set([...(await byLexical(twins)), ...(await byLexical(documents)), ...(await byLexical(keyed)), ...(await byLexical(pool))])].slice(
-    0,
-    limits.vectors,
-  );
+  const scoredIds =
+    mode === "lexical"
+      ? [...texts.keys()]
+      : [...new Set([...(await byLexical(twins)), ...(await byLexical(documents)), ...(await byLexical(keyed)), ...(await byLexical(pool))])].slice(
+          0,
+          limits.vectors,
+        );
   const scored = new Set(scoredIds);
-  const { vectors, read } = await storedVectors([{ id: articleId, text: input.text }, ...scoredIds.map((id) => ({ id, text: texts.get(id)!.text }))], db);
+  const { vectors, read } =
+    mode === "lexical"
+      ? { vectors: new Map<string, Float32Array>(), read: 0 }
+      : await storedVectors([{ id: articleId, text: input.text }, ...scoredIds.map((id) => ({ id, text: texts.get(id)!.text }))], db);
   const query = vectors.get(articleId);
   const cosineOf = (id: string) => {
     const v = vectors.get(id);
@@ -495,7 +511,7 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
     }
     return out;
   };
-  // Pool recall compares only the reports given a vector lookup; a low cosine is a reject, a missing vector falls back.
+  // Pool recall compares the reports scored (all in lexical mode); a low cosine is a reject, a missing vector falls back.
   const recalled = topFacts(
     (await withScore(pool.filter((m) => scored.has(m.article_id)))).filter((m) =>
       cosineOf(m.article_id) !== null ? m.score >= RECALL_MIN_COSINE : (lexical.get(m.article_id) ?? 0) >= LEXICAL_RECALL_MIN,
@@ -579,7 +595,8 @@ export async function recallCandidates(input: RecallInput, db: Db = sql, limits:
 
   return {
     candidates,
-    hasVector: !!query,
+    mode,
+    recallComplete: mode === "lexical" || !!query,
     readingBackground,
     stats: {
       window: window.length,

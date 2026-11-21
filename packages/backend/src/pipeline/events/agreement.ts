@@ -18,7 +18,7 @@ import { groupingAuditTrail } from "../../admin/auth.ts";
 import { sql, type Db } from "../../db.ts";
 import { shadowJobsWithFullWindow } from "../../jobs/module-queues.ts";
 import type { CandidateEvidence } from "./rules.ts";
-import { SHADOW_RULESET } from "./shadow.ts";
+import { shadowRuleset } from "./shadow.ts";
 
 /** Corrections read per report window, newest first; more are reported as truncated, never silently dropped. */
 export const AUDIT_LIMIT = 5000;
@@ -112,7 +112,7 @@ function empty(from: Date, to: Date, ruleset: string, rows: number): ShadowAgree
 }
 
 export async function shadowAgreement(from: Date, to: Date, opts: { ruleset?: string; auditLimit?: number } = {}, db: Db = sql): Promise<ShadowAgreement> {
-  const ruleset = opts.ruleset ?? SHADOW_RULESET,
+  const ruleset = opts.ruleset ?? shadowRuleset(),
     auditLimit = opts.auditLimit ?? AUDIT_LIMIT;
   const rows = await db<Row[]>`SELECT article_id,verdict,rule,target_fact_id,target_story_id,candidates,would_call,live_verdict,live_fact_id,
       live_story_id,live_called,decided_at

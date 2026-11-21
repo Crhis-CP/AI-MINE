@@ -12,7 +12,7 @@ import { type Reconciliation, reconcileLines } from "@amp/backend/operations/rec
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { shadowJobsWithFullWindow } from "../packages/backend/src/jobs/module-queues.ts";
 import { shadowAgreement, shadowHeadline } from "../packages/backend/src/pipeline/events/agreement.ts";
-import { eventShadowEnabled, SHADOW_RULESET } from "../packages/backend/src/pipeline/events/shadow.ts";
+import { eventShadowEnabled, shadowRuleset } from "../packages/backend/src/pipeline/events/shadow.ts";
 import { scheduleEventShadow, shadowQueue } from "../packages/backend/src/pipeline/events/shadow-queue.ts";
 import { body, fact, hoursAgo, liveDecision, report, shadowSource, unique } from "./event-shadow-fixture.ts";
 
@@ -41,7 +41,7 @@ const queued = (id: string) =>
 const shadowRow = async (articleId: string) =>
   (
     await sql<{ verdict: string; rule: string; live_verdict: string | null }[]>`SELECT verdict,rule,live_verdict FROM events.shadow_decisions
-    WHERE article_id=${articleId} AND ruleset=${SHADOW_RULESET}`
+    WHERE article_id=${articleId} AND ruleset=${shadowRuleset()}`
   )[0];
 async function switchShadow(value: "on" | "off") {
   await sql`INSERT INTO settings(key,value,updated_by) VALUES('events.shadow',${sql.json(value)},'test') ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`;
@@ -69,7 +69,8 @@ test("off unless the switch says on: a re-delivered grouping queues nothing, the
     "a run that decided nothing new only fills a missing row",
   );
   const [done] = (await handlers.get("news.events.shadow")!(jobs)) as Array<{ output: { state: string; verdict: string } }>;
-  assert.deepEqual([done!.output.state, done!.output.verdict], ["decided", "undecided"]);
+  // A report like no other: without embeddings recall is complete, so the rules found a new event, as live did.
+  assert.deepEqual([done!.output.state, done!.output.verdict], ["decided", "new_event"]);
   assert.ok(await shadowRow(kept));
   assert.equal((await sql`SELECT 1 FROM events.fact_timing WHERE fact_id=${own.factId}`).length, 1, "the fact's timing is observed");
   assert.equal((await sql`SELECT 1 FROM publication.event_rank WHERE article_id=${kept}`).length, 1, "the public report's order is projected");
@@ -108,7 +109,7 @@ test("a new decision of the real grouping job is queued as a full decision, and 
   assert.equal((await queued(fresh)).length, 1, "one job per report waits in the queue at a time");
   // A row left from an earlier decision of the same revision must not survive the new one.
   await sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,candidates)
-    VALUES(${fresh},1,${SHADOW_RULESET},'not_judged','manual','[]'::jsonb)`;
+    VALUES(${fresh},1,${shadowRuleset()},'not_judged','manual','[]'::jsonb)`;
   const [done] = (await handlers.get("news.events.shadow")!(jobs)) as Array<{ output: { state: string } }>;
   assert.equal(done!.output.state, "decided");
   const row = (await shadowRow(fresh))!;
@@ -200,7 +201,7 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
   ) =>
     sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,target_fact_id,target_story_id,candidates,would_call,
         live_verdict,live_fact_id,live_story_id,live_called,decided_at)
-      VALUES(${article},1,${SHADOW_RULESET},${verdict},${rule},${target?.factId ?? null},${target?.storyId ?? null},${sql.json(candidates as never)},${wouldCall},
+      VALUES(${article},1,${shadowRuleset()},${verdict},${rule},${target?.factId ?? null},${target?.storyId ?? null},${sql.json(candidates as never)},${wouldCall},
         ${liveRow.verdict},${liveRow.fact?.factId ?? null},${liveRow.fact?.storyId ?? null},${liveRow.called},${decided})`;
   // Agrees: a1 is in the fact the rules named.
   await insert(a1, "same_fact", "fingerprint", shared, [cand(a2, shared)], { verdict: "same-fact", fact: shared, called: true }, 0);

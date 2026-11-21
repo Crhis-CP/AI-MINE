@@ -9,11 +9,20 @@
 //   2  another report with the same stored content hash has a live fact                        → same_fact
 //   3  near-identical body and alike title (fingerprint.ts), no country or occurrence-day conflict → same_fact
 //   4  certainDuplicate as the live re-merge uses it (events/relate.ts), no occurrence-day conflict → same_fact
+//      Vectors only: its 0.92 bar is a cosine, and a character-pair overlap of 0.92 is a different, weaker claim
+//      (a short text inside a long one scores 1). Without stored vectors (production today) it never fires.
 //   5  every candidate's trusted occurrence day is more than DATE_APART_DAYS from the report's → undecided
 //      Not the same fact, but a later development of the same story is exactly this, and only the relation step
 //      can say so: founding a new event here would split stories (review of design M, F4).
-//   6  no candidate at all (with a stored vector, so recall was complete)                      → new_event
+//   6  no candidate at all, and recall was complete                                            → new_event
+//      Complete: recall compared the whole pool the way the live engine does. In lexical mode (no embeddings, as
+//      production runs) it always is; with vectors only when the report's own vector was read (recall.ts).
 //   7  anything else                                                                           → undecided
+//      Recorded as vector_missing when recall was not complete (vector mode without the report's vector), else
+//      similar_unsure; both forecast the relation call plus the confirm calls.
+// Scores come in two kinds: a cosine of stored vectors, or the character-pair overlap (events/relate.ts
+// lexicalSimilarity) where a vector is missing or embeddings are off. Each bar is named for its kind
+// (CONFIRM_BELOW_COSINE, CONFIRM_BELOW_LEXICAL; certainDuplicate's 0.92 is a cosine and is applied to cosines only).
 // Only rule 6 founds a new event without the model; events.shadow_decisions enforces the same with a CHECK.
 // Like the live engine, the rules judge facts, not reports: the candidates of one fact count once (judgedFacts).
 import { beijingDate } from "@amp/contracts/time";
@@ -36,14 +45,22 @@ import {
 
 /** Trusted occurrence days further apart than this cannot be one happening. Start value; fixed after measurement 5. */
 export const DATE_APART_DAYS = 7;
-/** The live engine asks a second (review) call before a merge whose recall score is under this (events/group.ts, CONFIRM_BELOW_COSINE). */
-export const CONFIRM_BELOW_SCORE = 0.85;
+/** The live engine asks a second (review) call before a merge whose cosine is under this (events/group.ts CONFIRM_BELOW_COSINE). */
+export const CONFIRM_BELOW_COSINE = 0.85;
+/**
+ * The same question when the candidate's score is the character-pair overlap (no vectors). Not a calibration: the live
+ * engine in lexical mode compares that overlap with its cosine bar (events/group.ts `pick.score >= CONFIRM_BELOW_COSINE`),
+ * and the forecast counts the calls the live engine makes, so this must be the bar the live engine applies to the
+ * overlap. It is named apart so the forecast follows the score kind and a later lexical bar in live changes only this;
+ * tests/event-shadow.test.ts holds it to the live source.
+ */
+export const CONFIRM_BELOW_LEXICAL = 0.85;
 /**
  * Every threshold is part of the ruleset, so rows decided under different values are never counted together. A change
  * of policy rather than of a number (which rule fires, what a guard compares) bumps the leading version instead.
  */
 export const EVENT_RULESET = [
-  "event-rules-v1",
+  "event-rules-v2",
   FINGERPRINT_RECIPE,
   `body${FINGERPRINT_MIN_BODY_CHARS}`,
   `fp${FINGERPRINT_MAX_DISTANCE}-title${FINGERPRINT_TITLE_SIMILARITY}`,
@@ -51,7 +68,8 @@ export const EVENT_RULESET = [
   `certain${SKIP_REVIEW_MIN_COSINE}`,
   `apart${DATE_APART_DAYS}`,
   `top${GROUP_ARTICLE_CANDIDATES}`,
-  `confirm${CONFIRM_BELOW_SCORE}`,
+  `confirm${CONFIRM_BELOW_COSINE}`,
+  `lexconfirm${CONFIRM_BELOW_LEXICAL}`,
 ].join("/");
 
 export type EventVerdict = "same_fact" | "new_event" | "undecided" | "not_judged";
@@ -96,8 +114,11 @@ export interface EventQuery extends EventReport {
   manual: boolean;
   /** Archive history placed by source time. */
   historical: boolean;
-  /** A stored vector matches the report's current text, so recall had its full reach. */
-  hasVector: boolean;
+  /**
+   * Recall compared the whole pool as the live engine does, so no candidate means none exists for the live engine
+   * either: always in lexical mode; with vectors only when the report's own vector was read (recall.ts).
+   */
+  recallComplete: boolean;
   /** Selected coverage of the subject exists, so the live engine still asks whether this report adds value. */
   readingBackground: boolean;
 }
@@ -153,6 +174,8 @@ export interface EventDecision {
 
 /** Recall score as the live engine orders and confirms by it: cosine when both vectors are current, else the lexical overlap. */
 const score = (c: EventCandidate) => c.cosine ?? c.lexical;
+/** The confirm bar for the kind of score a candidate has (cosine or character-pair overlap). */
+const confirmBar = (c: EventCandidate) => (c.cosine !== null ? CONFIRM_BELOW_COSINE : CONFIRM_BELOW_LEXICAL);
 
 function dayNumber(day: string | null): number | null {
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
@@ -289,16 +312,17 @@ export function decideEvent(query: EventQuery, candidates: readonly EventCandida
   const copy = pool.filter((c) => nearCopy(query, c)).sort((a, b) => fingerprintDistance(query, a)! - fingerprintDistance(query, b)! || recallOrder(a, b))[0];
   if (copy) return decision("same_fact", "fingerprint", copy, valueCall(copy));
   // The live re-merge compares publication days only; two trusted occurrence days that differ are two happenings
-  // however alike the reports, as for rule 3, so such a pair goes on to rule 5 or the relation step.
+  // however alike the reports, as for rule 3, so such a pair goes on to rule 5 or the relation step. A cosine only:
+  // the lexical overlap is never held to the 0.92 cosine bar here.
   const certain = pool.find((c) => c.cosine !== null && (occurredGapDays(query, c) ?? 0) === 0 && certainDuplicate(c.cosine, query, c));
   if (certain) return decision("same_fact", "certain_duplicate", certain, valueCall(certain));
 
   // From here on the relation step decides; its one batch call also answers the scope and value questions.
   if (pool.length && pool.every((c) => dateApart(query, c))) return decision("undecided", "date_apart", null, 1);
-  // A merge pick under the confirm score costs a second call, at most once per fact, scored by its best report as live
-  // recall scores a fact; a fact whose every report's dates exclude the same occurrence never gets one.
-  const confirmCalls = facts.filter((reports) => Math.max(...reports.map(score)) < CONFIRM_BELOW_SCORE && !reports.every((c) => dateApart(query, c))).length;
-  if (!query.hasVector) return decision("undecided", "vector_missing", null, 1 + confirmCalls);
+  // A merge pick under the confirm bar of its score kind costs a second call, at most once per fact, scored by its best
+  // report as live recall scores a fact; a fact whose every report's dates exclude the same occurrence never gets one.
+  const confirmCalls = facts.filter((reports) => !reports.some((c) => score(c) >= confirmBar(c)) && !reports.every((c) => dateApart(query, c))).length;
+  if (!query.recallComplete) return decision("undecided", "vector_missing", null, 1 + confirmCalls);
   if (!pool.length)
     // An undetermined scope (one event or a roundup) is a question for the model even with nothing to compare.
     return query.scope === "unknown" ? decision("undecided", "no_candidate", null, 1) : decision("new_event", "no_candidate", null, valueCall());

@@ -132,10 +132,10 @@ test("the replay counts the stored judgements, SelectBench runs, swipe answers a
     sameDay: true,
     occurredGapDays: null,
   };
-  const { SHADOW_RULESET } = await import("../packages/backend/src/pipeline/events/shadow.ts");
+  const { shadowRuleset } = await import("../packages/backend/src/pipeline/events/shadow.ts");
   await sql`INSERT INTO events.shadow_decisions(article_id,article_revision,ruleset,verdict,rule,target_fact_id,target_story_id,candidates,would_call,
       live_verdict,live_fact_id,live_story_id,live_called,decided_at)
-    VALUES(${a1},1,${SHADOW_RULESET},'same_fact','fingerprint',9000001,9000002,${sql.json([candidate])},0,'new-story',9000003,9000004,true,${hoursAgo(10)})`;
+    VALUES(${a1},1,${shadowRuleset()},'same_fact','fingerprint',9000001,9000002,${sql.json([candidate])},0,'new-story',9000003,9000004,true,${hoursAgo(10)})`;
   await sql`INSERT INTO grouping_overrides(article_id,reason,actor) VALUES(${a1},'合成人工独立','admin:test')`;
 
   const now = new Date();
@@ -187,7 +187,7 @@ test("the replay counts the stored judgements, SelectBench runs, swipe answers a
   ]);
   assert.deepEqual(report.grouping.overrides, [{ mode: "standalone", rows: 1 }]);
   assert.equal(report.grouping.shadowSwitch, '"on"');
-  assert.deepEqual(report.grouping.shadowRows, [{ ruleset: SHADOW_RULESET, rows: 1 }]);
+  assert.deepEqual(report.grouping.shadowRows, [{ ruleset: shadowRuleset(), rows: 1 }]);
   assert.deepEqual(report.grouping.agreement.human, { pairs: 1, shadowRight: 0, shadowWrong: 1, liveRight: 1, liveWrong: 0, truncated: false });
 
   // Only non-judgements under global: no global baseline, the answer stays "needs budget".
