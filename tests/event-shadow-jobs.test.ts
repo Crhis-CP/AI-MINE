@@ -242,7 +242,7 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
       judged: 6,
       decided: 6,
       undecided: 0,
-      calls: { wouldCall: 1, confirmUpperBound: 0, outsideCalled: 1, forecast: 2, forecastUpperBound: 2, liveCalled: 4 },
+      calls: { wouldCall: 1, confirmUpperBound: 0, outsideCalled: 1, forecast: 2, judgedUpperBound: 1, liveCalled: 4 },
       sameFact: { rows: 5, agree: 1 },
     },
   );
@@ -284,7 +284,7 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
       ] as never)},
       1,'new-story',true,${hoursAgo(20)})`;
   const undecided = await shadowAgreement(hoursAgo(21), hoursAgo(19));
-  assert.deepEqual(undecided.calls, { wouldCall: 1, confirmUpperBound: 3, outsideCalled: 0, forecast: 1, forecastUpperBound: 4, liveCalled: 1 });
+  assert.deepEqual(undecided.calls, { wouldCall: 1, confirmUpperBound: 3, outsideCalled: 0, forecast: 1, judgedUpperBound: 4, liveCalled: 1 });
   // The rows the worker recorded decide which mode is read, not this process's environment.
   assert.equal(undecided.ruleset, shadowRuleset("lexical"));
   assert.equal((await shadowAgreement(hoursAgo(21), hoursAgo(19), { mode: "vector" })).rows, 0, "an explicit mode reads only its rows");
@@ -307,7 +307,7 @@ test("agreement: same-fact agreement, the undecided share, the call forecast and
   };
   assert.equal(
     reconcileLines(day).at(-1),
-    "事件新规则试运行（读者看不到）：归组 130 篇，其中按规则试判 120 篇；判为同一件事 40 篇，与现在的归组一致 38 篇；仍待模型判断 50 篇（42%）；估计切换后这 130 篇至少调用模型 70 次，视模型回答至多再加 90 次复核；现网调用过模型的 100 篇",
+    "事件新规则试运行（读者看不到）：归组 130 篇，其中按规则试判 120 篇；判为同一件事 40 篇，与现在的归组一致 38 篇；仍待模型判断 50 篇（42%）；估计切换后这 130 篇至少调用模型 70 次，其中规则试判的稿件视模型回答至多再加 90 次复核；现网调用过模型的 100 篇",
   );
   const { confirmUpperBound: _, ...stored } = day.shadow!;
   assert.ok(

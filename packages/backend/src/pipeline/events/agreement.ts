@@ -6,9 +6,11 @@
 // Same-fact agreement is the share of same_fact rows whose target report shares a fact with the report now.
 // The call forecast of a switch, in two parts. Certain: the calls the live path makes for the reports the rules judge
 // whatever the judge answers (would_call: an undecided report's relation call, a decided one's value or scope question),
-// plus one call for each report outside the rules on which the live engine called (those keep the live path). Bounded:
-// the review calls an undecided report may add, depending on the judge's answers (rules.ts confirmUpperBound over its
-// stored candidates). The live engine's own count lies between the certain part and the certain part plus the bound.
+// plus one call for each report outside the rules on which the live engine called (those keep the live path). Bounded,
+// for the judged rows only: the review calls an undecided report may add, depending on the judge's answers (rules.ts
+// confirmUpperBound over its stored candidates), so the judged rows cost at most would_call plus the bound. Rows outside
+// the rules keep the live path and may cost the live engine more than one call (archive history: the relation call and
+// a review); their count is not recorded, so they enter only as "at least one" and the total has no upper bound.
 // Which rows: the ruleset given, else the current rules in the mode the worker last recorded (its newest row), never
 // the mode of the shell the report runs in.
 // The recall hit rate looks only at rows where the live engine joined an existing fact, and only at the at most five
@@ -49,12 +51,12 @@ export interface ShadowAgreement {
     wouldCall: number;
     /** Review calls the undecided rows may add on top, depending on the judge's answers: at most this many. */
     confirmUpperBound: number;
-    /** Rows outside the rules on which the live engine called: they keep the live path, counted once each. */
+    /** Rows outside the rules on which the live engine called: they keep the live path, counted as one call each (at least). */
     outsideCalled: number;
     /** wouldCall + outsideCalled: the model calls a switch would make for these reports at least. */
     forecast: number;
-    /** forecast + confirmUpperBound: at most. */
-    forecastUpperBound: number;
+    /** wouldCall + confirmUpperBound: the judged rows' calls after a switch, at most. Rows outside the rules have no bound. */
+    judgedUpperBound: number;
     /** Rows (judged or outside) on which the live engine called at least once. */
     liveCalled: number;
   };
@@ -110,7 +112,7 @@ function empty(from: Date, to: Date, ruleset: string, rows: number): ShadowAgree
     decided: 0,
     undecided: 0,
     byRule: {},
-    calls: { wouldCall: 0, confirmUpperBound: 0, outsideCalled: 0, forecast: 0, forecastUpperBound: 0, liveCalled: 0 },
+    calls: { wouldCall: 0, confirmUpperBound: 0, outsideCalled: 0, forecast: 0, judgedUpperBound: 0, liveCalled: 0 },
     sameFact: { rows: 0, agree: 0 },
     pairs: { total: 0, shadowSame: 0, liveSame: 0, both: 0 },
     newEvent: { rows: 0, liveJoinedFact: 0, liveJoinedStory: 0 },
@@ -231,7 +233,7 @@ export async function shadowAgreement(
     }
   }
   out.calls.forecast = out.calls.wouldCall + out.calls.outsideCalled;
-  out.calls.forecastUpperBound = out.calls.forecast + out.calls.confirmUpperBound;
+  out.calls.judgedUpperBound = out.calls.wouldCall + out.calls.confirmUpperBound;
   return out;
 }
 

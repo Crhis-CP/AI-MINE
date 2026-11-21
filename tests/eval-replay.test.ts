@@ -221,7 +221,7 @@ test("the printed lines and the report carry counts and gold case numbers only: 
         decided: 0,
         undecided: 0,
         byRule: {},
-        calls: { wouldCall: 0, confirmUpperBound: 0, outsideCalled: 0, forecast: 0, forecastUpperBound: 0, liveCalled: 0 },
+        calls: { wouldCall: 0, confirmUpperBound: 0, outsideCalled: 0, forecast: 0, judgedUpperBound: 0, liveCalled: 0 },
         sameFact: { rows: 0, agree: 0 },
         pairs: { total: 0, shadowSame: 0, liveSame: 0, both: 0 },
         newEvent: { rows: 0, liveJoinedFact: 0, liveJoinedStory: 0 },

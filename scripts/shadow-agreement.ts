@@ -29,7 +29,7 @@ try {
       `事件新规则影子对照：${a.from} 至 ${a.to}（规则版本 ${a.ruleset}）`,
       `影子记录 ${a.rows} 条：规则试判 ${a.judged} 篇，不在规则范围 ${a.outside} 篇（编辑要求重判之前的记录不算）`,
       `不问模型就判定 ${a.decided} 篇（${percent(a.decided, a.judged)}），仍待模型判断 ${a.undecided} 篇（${percent(a.undecided, a.judged)}）`,
-      `模型调用预测：切换后至少 ${a.calls.forecast} 次 = 规则试判的稿件无论模型怎么回答都要的 ${a.calls.wouldCall} 次 + 不在规则范围、现网调用过模型的 ${a.calls.outsideCalled} 篇各 1 次；视模型回答，待定稿件至多再加 ${a.calls.confirmUpperBound} 次复核（合计至多 ${a.calls.forecastUpperBound} 次）；同一批稿件里现网调用过模型的 ${a.calls.liveCalled} 篇`,
+      `模型调用预测：切换后至少 ${a.calls.forecast} 次 = 规则试判的稿件无论模型怎么回答都要的 ${a.calls.wouldCall} 次 + 不在规则范围、现网调用过模型的 ${a.calls.outsideCalled} 篇各至少 1 次；规则试判的稿件视模型回答至多再加 ${a.calls.confirmUpperBound} 次复核（这部分合计至多 ${a.calls.judgedUpperBound} 次）；不在规则范围的稿件照走现网，实际可能不止 1 次（比如历史稿的关系判断加复核），所以总数只有下限；同一批稿件里现网调用过模型的 ${a.calls.liveCalled} 篇`,
       `判为同一件事 ${a.sameFact.rows} 篇，与现在的归组一致 ${a.sameFact.agree} 篇（${percent(a.sameFact.agree, a.sameFact.rows)}）`,
       `成对比较 ${a.pairs.total} 对：规则判同 ${a.pairs.shadowSame}，现网同 ${a.pairs.liveSame}，两边都同 ${a.pairs.both}（准确 ${percent(a.pairs.both, a.pairs.shadowSame)}，召回 ${percent(a.pairs.both, a.pairs.liveSame)}）`,
       `规则判新事件 ${a.newEvent.rows} 篇：现网并入已有事实 ${a.newEvent.liveJoinedFact} 篇，作为新事实并入已有事件 ${a.newEvent.liveJoinedStory} 篇`,

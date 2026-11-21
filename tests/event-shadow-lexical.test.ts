@@ -11,11 +11,12 @@ import { config } from "@amp/backend/config";
 import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle } from "@amp/backend/events/group";
-import { stopBoss } from "@amp/backend/jobs/queue";
+import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { EMBEDDING_MODEL, embeddingsAvailable } from "@amp/backend/providers/embeddings";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { recallMode } from "../packages/backend/src/pipeline/events/recall.ts";
 import { type CandidateEvidence, CONFIRM_BELOW_LEXICAL, confirmUpperBound } from "../packages/backend/src/pipeline/events/rules.ts";
+import { shadowAgreement } from "../packages/backend/src/pipeline/events/agreement.ts";
 import { shadowDecide, shadowRuleset } from "../packages/backend/src/pipeline/events/shadow.ts";
 import { body, shadowSource, unique, WIRE } from "./event-shadow-fixture.ts";
 import { stub, tag } from "./setup.ts";
@@ -83,6 +84,10 @@ interface Input {
   summary: string;
   body: string;
   url?: string;
+  /** Published this many hours before it is collected (over 48 makes it archive history). */
+  hoursOld?: number;
+  /** Nominated for selection (archive history that is no nomination only ever attaches to near-identical copies). */
+  selected?: boolean;
 }
 /** A collected report with its analysis, published, waiting for the live engine to group it. */
 async function report(i: Input): Promise<string> {
@@ -94,10 +99,10 @@ async function report(i: Input): Promise<string> {
     bodyHtml: `<p>${i.body}</p>`,
     via: "fetch",
     language: "zh",
-    publishedAt: new Date(Date.now() - 3_600_000),
+    publishedAt: new Date(Date.now() - (i.hoursOld ?? 1) * 3_600_000),
   });
   await sql`INSERT INTO analyses(article_id,input_revision,origin,model,prompt_version,relevance,category,title_zh,summary_zh,selected,output)
-    VALUES(${articleId},1,'rule','synthetic','synthetic-shadow','pass','project_development',${i.title},${i.summary},false,
+    VALUES(${articleId},1,'rule','synthetic','synthetic-shadow','pass','project_development',${i.title},${i.summary},${i.selected ?? false},
       ${sql.json({ scope: "single", fact: { title: i.title, subject: "合成矿企", action: "推进", object: "合成项目", occurredAt: null } })})`;
   await publishArticle(articleId);
   return articleId;
@@ -127,12 +132,13 @@ async function both(articleId: string) {
   assert.ok(row, "the row is stored under the lexical ruleset");
   // The certain part never exceeds the live engine's calls. Where the rules leave the report to the relation step (or
   // found nothing), a switch keeps the live path: the live engine's calls lie within the certain part plus the bound.
-  // A report the rules tie saves the live engine's calls, so only the first holds there.
+  // A report the rules tie saves the live engine's calls, and one outside the rules is not bounded: only the first holds.
   const bound = confirmUpperBound(row.candidates);
   assert.ok(row.would_call <= liveCalls, `${row.verdict}/${row.rule}: certain calls ${row.would_call} never exceed the live engine's ${liveCalls}`);
-  if (row.verdict !== "same_fact")
+  if (row.verdict === "undecided" || row.verdict === "new_event")
     assert.ok(liveCalls <= row.would_call + bound, `${row.verdict}/${row.rule}: live ${liveCalls} within ${row.would_call} + at most ${bound} reviews`);
-  else assert.equal(bound, 0, "a tied report needs no review");
+  // A tied report needs no review; a report outside the rules has no bound at all (it keeps the live path).
+  else assert.equal(bound, 0);
   return { live, liveCalls, row, bound, recall: outcome.state === "decided" ? outcome.recall : null };
 }
 
@@ -278,6 +284,35 @@ test("several weak facts: the relation call is certain, the reviews depend on th
   const second = await both(await report({ source: await shadowSource(), title: `${coreB}${unique(6)}`, summary: unique(14), body: body() }));
   assert.deepEqual([second.live.verdict, second.live.factId], ["same-fact", facts[1]], "live joined the second fact after its review");
   assert.deepEqual([second.liveCalls, second.row.verdict, second.row.would_call, second.bound], [2, "undecided", 1, 4], "certain 1 <= live 2 <= 1 + 4");
+});
+
+test("a report outside the rules can cost the live engine more than one call: the report counts it only as at least one", async (t) => {
+  t.after(() => {
+    judge = () => "SAME_OCCURRENCE";
+  });
+  const core = unique(10);
+  judge = () => "UNRELATED";
+  const earlier = await both(await report({ source: await shadowSource(), title: `${core}${unique(6)}`, summary: unique(14), body: body() }));
+  judge = () => "SAME_OCCURRENCE";
+  // Archive history (published five days before it was collected), nominated: live judges it against its candidates and,
+  // the pick being under the confirm bar, reviews it before attaching it.
+  const oldId = await report({ source: await shadowSource(), title: `${core}${unique(6)}`, summary: unique(14), body: body(), hoursOld: 120, selected: true });
+  const old = await both(oldId);
+  assert.deepEqual([old.live.verdict, old.live.factId, old.liveCalls], ["historical-attached", earlier.live.factId, 2], "relation call and review");
+  assert.deepEqual([old.row.verdict, old.row.rule, old.row.would_call, old.row.live_called], ["not_judged", "historical", 0, true]);
+  await getBoss(); // the report also counts the queue's jobs whose window was full
+  // Exactly this row's moment (stored to the microsecond), so no row of the other fixtures falls in the window.
+  const [at] = await sql<
+    { from: Date; to: Date }[]
+  >`SELECT date_trunc('milliseconds',decided_at) AS from,date_trunc('milliseconds',decided_at)+interval '1 millisecond' AS to
+    FROM events.shadow_decisions WHERE article_id=${oldId} AND ruleset=${shadowRuleset("lexical")}`;
+  const a = await shadowAgreement(at!.from, at!.to, { mode: "lexical" });
+  assert.equal(a.rows, 1);
+  assert.deepEqual(
+    [a.calls.outsideCalled, a.calls.forecast, a.calls.judgedUpperBound],
+    [1, 1, 0],
+    "the two live calls enter as at least one; no upper bound covers rows outside the rules",
+  );
 });
 
 test("opted in, live grouping does embed: the switch is what decides, not the key", async () => {
