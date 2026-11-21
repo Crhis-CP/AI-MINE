@@ -113,3 +113,29 @@ test("regulation and changelog styles travel with their pages; admin styles stay
   assert.ok(adminSheet.includes(".admin-night{"), "admin sheet keeps the night-and-gold look");
   for (const marker of [".pr-page", ".flow-screen"]) assert.ok(!adminSheet.includes(marker), `admin sheet carries ${marker}`);
 });
+
+test("the changelog film's player and Three.js load only on press: no page links them, and they stay small", () => {
+  // TASK-0367 (Owner 2026-11-21: the film is opened, “点开能看”). Measured: the player chunk 138994 gzip bytes, the
+  // changelog's first load 226638 (scripts) against 221996 before the film.
+  const built = manifest("public");
+  const assets = readdirSync(path.join(client("public"), "assets"));
+  const players = assets.filter((file) => file.endsWith(".js") && readPublic(`/assets/${file}`).includes("WebGLRenderer"));
+  assert.equal(players.length, 1, "Three.js sits in one chunk");
+  const player = `/assets/${players[0]}`;
+  for (const id of Object.keys(built.routes)) assert.ok(!firstLoad(built, id, readPublic).files.includes(player), `${id} links the player in its first load`);
+  const referrers = assets.filter((file) => file.endsWith(".js") && `/assets/${file}` !== player && readPublic(`/assets/${file}`).includes(players[0]!));
+  assert.deepEqual(
+    referrers.map((file) => file.replace(/-[\w-]+\.js$/, "")),
+    ["changelog"],
+    "only the changelog page can ask for it",
+  );
+  assert.ok(gzipSync(readPublic(player), { level: 9 }).length <= 180_000, "the player stays within 180 KB compressed");
+  const changelog = firstLoad(built, "routes/changelog", readPublic);
+  assert.ok(changelog.jsGzip <= 232_000, `the changelog's first scripts: ${changelog.jsGzip} gzip bytes`);
+  // The server's render never holds it.
+  for (const group of ["public", "private", "reader"])
+    for (const file of readdirSync(path.join(BUILD, group, "server"), { recursive: true })
+      .map(String)
+      .filter((f) => f.endsWith(".js")))
+      assert.ok(!readFileSync(path.join(BUILD, group, "server", file), "utf8").includes("WebGLRenderer"), `${group} server ${file}`);
+});

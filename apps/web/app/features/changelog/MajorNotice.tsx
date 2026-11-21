@@ -3,26 +3,15 @@ import { useTr } from "../../i18n";
 import { Wordmark } from "../../components/Logo";
 import { Inline, dateHeading } from "./text";
 import { Convergence } from "./AggregationFlow";
-import { Showcase202611 } from "./Showcase202611";
+import { showcaseFor } from "./showcases";
+import type { Release } from "./release";
 import "./changelog-flow.css";
 
 /**
- * A major update's own showcase, by version (not by title, which the reader copy may rewrite). With one, the first
- * line leads, the showcase follows, and the remaining lines are listed after it (folded away when there are many).
+ * With a showcase (showcases.tsx: a major update's by version, any other entry's by its moment), the first line leads,
+ * the showcase follows, and the lines it does not already show are listed after it (folded away when there are many).
  */
-const SHOWCASES: Record<string, () => ReactNode> = {
-  "2026.11": Showcase202611,
-};
 const FOLD_AFTER = 5;
-
-interface Release {
-  date: string;
-  time?: string;
-  kind: "重大更新" | "更新" | "优化" | "公告" | "下线";
-  version?: string;
-  title: string;
-  body: string[];
-}
 
 interface Station {
   name: string;
@@ -300,7 +289,9 @@ export function FeatureNotice({ release }: { release: Release }) {
   const parts = parseFeature(release.body);
   const label = release.version ? `${release.kind} ${release.version}` : release.kind;
   const test = release.kind === "公告" && release.title === "目前是测试版";
-  const Showcase = release.version ? SHOWCASES[release.version] : undefined;
+  const showcase = showcaseFor(release);
+  // The site's mark heads the major updates and the beta notice; an ordinary update with a showcase goes without it.
+  const mark = release.kind === "重大更新" || test;
   return (
     <section className="card scroll-mt-6 px-5 py-5 sm:px-7 sm:py-6">
       <header className="animate-fade-up flex items-baseline justify-between gap-4">
@@ -315,15 +306,20 @@ export function FeatureNotice({ release }: { release: Release }) {
           ) : null}
         </span>
       </header>
-      <div className="animate-fade-up mt-5" style={at(0.35)}>
-        <Wordmark size={40} />
-      </div>
+      {mark && (
+        <div className="animate-fade-up mt-5" style={at(0.35)}>
+          <Wordmark size={40} />
+        </div>
+      )}
       <h2 className="animate-fade-up mt-3 max-w-[14em] text-[26px] font-black leading-[1.25] tracking-tight text-ink sm:text-[32px]" style={at(0.7)}>
         {release.title}
       </h2>
       {test && <Beats />}
-      {Showcase ? (
-        <ShowcaseBody lines={parts.paragraphs} showcase={<Showcase />} />
+      {showcase ? (
+        <ShowcaseBody
+          lines={parts.paragraphs.filter((line, i) => i === 0 || !showcase.covers.some((re) => re.test(line)))}
+          showcase={showcase.render(release)}
+        />
       ) : (
         <div className="mt-4 max-w-[42em] space-y-3 text-[15px] leading-[1.85] text-ink-2">
           {parts.paragraphs.map((p, i) => (

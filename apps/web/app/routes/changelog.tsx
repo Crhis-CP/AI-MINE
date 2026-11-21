@@ -11,25 +11,27 @@ import { AsideCard, ReadingLayout } from "../components/ui/Page";
 import { IconChevronRight } from "../components/icons";
 import { FeatureNotice } from "../features/changelog/MajorNotice";
 import { Inline, dateHeading } from "../features/changelog/text";
+import { type Release, releaseKey } from "../features/changelog/release";
+import { LIVE_BLOCKS, showcaseFor } from "../features/changelog/showcases";
+import { loadLive } from "../features/changelog/live/load.server";
+import { LiveDataContext } from "../features/changelog/live/context";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
   return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" };
 }
 
-interface Release {
-  date: string;
-  /** Absent when the record has only a date: no time is shown, never 00:00 (PG-13). */
-  time?: string;
-  kind: "重大更新" | "更新" | "优化" | "公告" | "下线";
-  /** Only on 重大更新, shown after the kind ("重大更新 2.0"). */
-  version?: string;
-  title: string;
-  body: string[];
-}
-
+/**
+ * The changelog, and beside it the real figures its showcases draw (TASK-0367): all read at once, the figures with short
+ * deadlines, so a slow figure never holds the page; one that fails is drawn as a sketch. The page stays shareable for
+ * five minutes either way (headers()), which bounds how often these reads run.
+ */
 export async function loader({ request }: { request: Request }) {
-  return apiGet<{ releases: Release[] }>("/api/site/changelog", { signal: request.signal });
+  const [changelog, live] = await Promise.all([
+    apiGet<{ releases: Release[] }>("/api/site/changelog", { signal: request.signal }),
+    loadLive(LIVE_BLOCKS, request.signal),
+  ]);
+  return { releases: changelog.releases, live };
 }
 
 export function meta() {
@@ -51,7 +53,7 @@ const KIND_DOT: Record<Release["kind"], string> = {
 };
 
 function isFeatureNotice(r: Release): boolean {
-  return r.kind === "重大更新" || (r.kind === "公告" && r.title === "目前是测试版");
+  return r.kind === "重大更新" || (r.kind === "公告" && r.title === "目前是测试版") || showcaseFor(r) !== undefined;
 }
 
 function ReleaseBody({ lines }: { lines: string[] }) {
@@ -86,25 +88,19 @@ function ReleaseBody({ lines }: { lines: string[] }) {
 export default function ChangelogPage() {
   const tr = useTr();
   const data = useLoaderData<typeof loader>();
+  // The newest entry is the first: the unread mark's version (the site meta's changelogVersion names the same one).
   const first = data.releases[0];
-  const version = first ? first.date + (first.time ? `T${first.time}` : "") : null;
+  const version = first ? releaseKey(first) : null;
   useEffect(() => {
     if (version) setChangelogSeen(version);
   }, [version]);
-  // The newest major update leads the page with its animation, even after smaller updates (Owner 2026-11-14: “更新日志
-  // 本身就是动画”, opening the page shows it first). It is not repeated under its own date.
-  const lead = data.releases.find((r) => r.kind === "重大更新");
+  // Strictly newest first, every entry under its own date, a major update's animation included (Owner 2026-11-21:
+  // “更新日志为什么把11月6日置顶，没有必要”, reversing the lift of 2026-11-14).
   const groups = new Map<string, Release[]>();
   for (const r of data.releases) groups.set(r.date, [...(groups.get(r.date) ?? []), r]);
-  const monthGroups = new Map(groups);
-  if (lead) {
-    const rest = (groups.get(lead.date) ?? []).filter((r) => r !== lead);
-    if (rest.length) groups.set(lead.date, rest);
-    else groups.delete(lead.date);
-  }
   // Month → the newest date shown in it (the jump target) and how many entries it holds.
   const months = new Map<string, { first: string; count: number }>();
-  for (const [date, releases] of monthGroups) {
+  for (const [date, releases] of groups) {
     const month = months.get(date.slice(0, 7)) ?? { first: date, count: 0 };
     month.count += releases.length;
     months.set(date.slice(0, 7), month);
@@ -148,57 +144,54 @@ export default function ChangelogPage() {
         </h1>
         <p className="mt-1.5 text-[13px] text-ink-3">{tr("新功能、调整、下线，都写在这里。")}</p>
       </header>
-      <div className="space-y-4">
-        {lead && (
-          <div id={groups.has(lead.date) ? undefined : `d-${lead.date}`} className="scroll-mt-16 lg:scroll-mt-6">
-            <FeatureNotice release={lead} />
-          </div>
-        )}
-        {[...groups.entries()].map(([date, releases]) => {
-          const h = dateHeading(date);
-          const features = releases.filter(isFeatureNotice);
-          const plain = releases.filter((r) => !isFeatureNotice(r));
-          return (
-            <div key={date} id={`d-${date}`} className="scroll-mt-16 lg:scroll-mt-6 space-y-4">
-              {features.map((r) => (
-                <FeatureNotice key={`${r.date}-${r.time ?? ""}-${r.title}`} release={r} />
-              ))}
-              {plain.length > 0 && (
-                <section className="card scroll-mt-16 lg:scroll-mt-6 px-5 lg:px-7">
-                  <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
-                    <time dateTime={date} className="text-[18px] font-bold text-ink">
-                      {h.label}
-                    </time>
-                    <span className="text-[12px] text-ink-4">{h.weekday}</span>
-                  </h2>
-                  <ol>
-                    {plain.map((r) => (
-                      <li
-                        key={`${r.date}-${r.time ?? ""}-${r.title}`}
-                        className="grid gap-x-8 gap-y-2 border-b border-line-soft py-5 last:border-b-0 sm:grid-cols-[88px_minmax(0,1fr)]"
-                      >
-                        <div className="flex items-center gap-3 sm:block">
-                          {r.time && <span className="mono block text-[12.5px] text-ink-3">{r.time}</span>}
-                          <span
-                            className={`inline-flex items-center gap-1.5 text-[11.5px] ${r.kind === "重大更新" ? "font-semibold text-hot" : "text-ink-4"} ${r.time ? "sm:mt-1.5" : ""}`}
-                          >
-                            <span className={`size-1.5 rounded-full ${KIND_DOT[r.kind]}`} aria-hidden="true" />
-                            {r.version ? `${r.kind} ${r.version}` : r.kind}
-                          </span>
-                        </div>
-                        <article className="min-w-0 sm:border-l sm:border-line sm:pl-8">
-                          <h3 className="text-[15px] font-bold leading-snug text-ink">{r.title}</h3>
-                          <ReleaseBody lines={r.body} />
-                        </article>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <LiveDataContext value={data.live}>
+        <div className="space-y-4">
+          {[...groups.entries()].map(([date, releases]) => {
+            const h = dateHeading(date);
+            const features = releases.filter(isFeatureNotice);
+            const plain = releases.filter((r) => !isFeatureNotice(r));
+            return (
+              <div key={date} id={`d-${date}`} className="scroll-mt-16 lg:scroll-mt-6 space-y-4">
+                {features.map((r) => (
+                  <FeatureNotice key={`${r.date}-${r.time ?? ""}-${r.title}`} release={r} />
+                ))}
+                {plain.length > 0 && (
+                  <section className="card scroll-mt-16 lg:scroll-mt-6 px-5 lg:px-7">
+                    <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
+                      <time dateTime={date} className="text-[18px] font-bold text-ink">
+                        {h.label}
+                      </time>
+                      <span className="text-[12px] text-ink-4">{h.weekday}</span>
+                    </h2>
+                    <ol>
+                      {plain.map((r) => (
+                        <li
+                          key={`${r.date}-${r.time ?? ""}-${r.title}`}
+                          className="grid gap-x-8 gap-y-2 border-b border-line-soft py-5 last:border-b-0 sm:grid-cols-[88px_minmax(0,1fr)]"
+                        >
+                          <div className="flex items-center gap-3 sm:block">
+                            {r.time && <span className="mono block text-[12.5px] text-ink-3">{r.time}</span>}
+                            <span
+                              className={`inline-flex items-center gap-1.5 text-[11.5px] ${r.kind === "重大更新" ? "font-semibold text-hot" : "text-ink-4"} ${r.time ? "sm:mt-1.5" : ""}`}
+                            >
+                              <span className={`size-1.5 rounded-full ${KIND_DOT[r.kind]}`} aria-hidden="true" />
+                              {r.version ? `${r.kind} ${r.version}` : r.kind}
+                            </span>
+                          </div>
+                          <article className="min-w-0 sm:border-l sm:border-line sm:pl-8">
+                            <h3 className="text-[15px] font-bold leading-snug text-ink">{r.title}</h3>
+                            <ReleaseBody lines={r.body} />
+                          </article>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </LiveDataContext>
     </ReadingLayout>
   );
 }

@@ -330,3 +330,24 @@ test("a release note registered again by a later release shows once, at its late
   );
   assert.equal(merged.latestVersion, "2026-11-14T08:40");
 });
+
+test("the 2026-11-14 and 2026-11-15 entries read as one update at its latest time, without the changelog's own change (Owner 2026-11-21)", () => {
+  const read = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
+  const edits: ChangelogCopyEdit[] = read("changelog-copy-edits.json");
+  // The note registered at 02:24 on 2026-11-15 is the pending note as it stands; its rewrite is the edit of that moment.
+  const note = read("release-note.json").note;
+  const rewrite = publishedNoteRewrite(note, edits);
+  assert.deepEqual([rewrite?.date, rewrite?.time], ["2026-11-15", "02:24"]);
+  const registered = { latestVersion: "2026-11-15T02:24", releases: [{ ...note, date: "2026-11-15", time: "02:24" }] };
+  const [shown] = readerChangelogCopy(registered, edits).releases;
+  assert.equal(shown?.title, "首页先看本国，外文全文几分钟内翻好");
+  assert.ok([...shown!.title].length <= 24);
+  assert.equal(readerWordingProblem([shown!.title, ...shown!.body]), null);
+  // The changelog page's own change is not a reader update (changelog standard, section 1), and no line repeats.
+  assert.ok(!shown!.body.some((line) => line.includes("更新日志")));
+  assert.equal(new Set(shown!.body).size, shown!.body.length);
+  // The 2026-11-14 entry, whose lines the 2026-11-15 one carried again, is out of the reader log; its record stays.
+  const earlier = edits.find((edit) => edit.date === "2026-11-14" && edit.time === "08:40");
+  assert.equal(earlier?.title, "首页先看本国，第一次打开有动画");
+  assert.equal(earlier?.copy, null);
+});

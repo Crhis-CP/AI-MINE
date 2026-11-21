@@ -132,6 +132,28 @@
   animation: flow-blink 1.4s steps(2, jump-none) infinite;
 }
 
+/* The poster frame of a changelog film (player/Film.tsx), in the pipeline screen's colours. */
+.film-poster {
+  background: var(--fs-bg);
+  border-color: var(--fs-border);
+  box-shadow: var(--fs-shadow);
+  color: var(--fs-ink);
+}
+.film-kicker {
+  color: var(--fs-gold);
+}
+.film-chip {
+  border-color: var(--fs-chip-line);
+  background: var(--fs-chip);
+  color: var(--fs-ink-soft);
+}
+.film-line {
+  fill: none;
+  stroke: var(--fs-gold);
+  stroke-width: 2;
+  opacity: 0.55;
+}
+
 /* A light that keeps traveling the notice line after the entrance has finished. */
 @keyframes notice-sheen {
   from {
