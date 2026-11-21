@@ -30,21 +30,32 @@ import {
 import { demoReviewComparison, demoReviewHistory, demoReviewPolicy, demoReviewReading } from "./demo-policy.ts";
 import { demoTopic, demoTopics } from "./demo-topics.ts";
 import { readFileSync } from "node:fs";
-import { type ChangelogCopyEdit, type ChangelogRelease, mergeReleaseRecords, validateChangelog, validateReleaseNote } from "@amp/backend/site/meta";
+import {
+  type ChangelogCopyEdit,
+  type ChangelogRelease,
+  mergeReleaseRecords,
+  publishedNoteRewrite,
+  readerChangelogCopy,
+  validateChangelog,
+  validateReleaseNote,
+} from "@amp/backend/site/meta";
 
 /**
  * The changelog as readers will see it after the next release: the history file, the 2026-11-06 major update in its
- * reader copy (its registered record lives only on the production server), and the pending release note as it will
- * register (shown here at a sample time).
+ * reader copy (its registered record lives only on the production server), and the release note: in its reader copy at
+ * the moment it went live once published and rewritten, else as it will register (at a sample time).
  */
 function demoChangelog() {
   const file = (name: string) => JSON.parse(readFileSync(new URL(`../industry/${name}`, import.meta.url), "utf8"));
-  const major = (file("changelog-copy-edits.json") as ChangelogCopyEdit[]).find((edit) => edit.copy?.version === "2026.11");
+  const edits = file("changelog-copy-edits.json") as ChangelogCopyEdit[];
+  const major = edits.find((edit) => edit.copy?.version === "2026.11");
   if (!major?.copy?.kind) throw new Error("the 2026.11 reader copy is missing");
   const shipped = { date: major.date, time: major.time, kind: major.copy.kind, version: major.copy.version, title: major.copy.title, body: major.copy.body };
-  const pending = { ...validateReleaseNote(file("release-note.json").note), date: "2026-11-07", time: "09:30" };
+  const note = validateReleaseNote(file("release-note.json").note);
+  const published = publishedNoteRewrite(note, edits);
+  const pending = { ...note, date: published?.date ?? "2026-11-07", time: published?.time ?? "09:30" };
   const record = (release: ChangelogRelease) => ({ sha: "0".repeat(40), publishedAt: `${release.date}T00:00:00.000Z`, noteHash: "0".repeat(64), release });
-  return mergeReleaseRecords(validateChangelog(file("changelog.json")), [record(shipped), record(pending)]);
+  return readerChangelogCopy(mergeReleaseRecords(validateChangelog(file("changelog.json")), [record(shipped), record(pending)]), edits);
 }
 
 function send(res: ServerResponse, status: number, body: unknown) {

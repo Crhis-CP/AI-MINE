@@ -1,0 +1,261 @@
+/* The changelog film player (TASK-0367): loaded with the player when a reader presses play, never with the page.
+   The stage takes the pipeline screen's colours (.flow-screen in changelog-flow.css): white by day, bright navy by night. */
+@reference "../../../app.css";
+
+.pl-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(10 12 20 / 0.8);
+}
+.pl-dismiss {
+  position: absolute;
+  inset: 0;
+  cursor: default;
+}
+.pl-panel {
+  position: relative;
+  width: min(960px, 100%);
+}
+.pl-stage {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  max-height: calc(100dvh - 96px);
+  border-radius: 12px;
+  border: 1px solid var(--fs-border);
+  background: var(--fs-bg);
+  box-shadow: var(--fs-shadow);
+  color: var(--fs-ink);
+}
+/* A tall screen gets a tall film: the scenes lay themselves out by the stage's own size. */
+@media (max-aspect-ratio: 4 / 5) {
+  .pl-stage {
+    aspect-ratio: 4 / 5;
+  }
+}
+.pl-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.pl-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pl-overlay > *,
+.pl-layer > * {
+  position: absolute;
+}
+.pl-layer {
+  inset: 0;
+}
+.pl-overlay [data-k] {
+  opacity: 0;
+}
+.pl-overlay a {
+  pointer-events: auto;
+}
+.pl-heading {
+  font-size: clamp(15px, 2.4vw, 22px);
+  font-weight: 800;
+  line-height: 1.3;
+}
+.pl-sub,
+.pl-row-source,
+.pl-note,
+.pl-rule {
+  color: var(--fs-ink-soft);
+}
+.pl-sub,
+.pl-label,
+.pl-tab {
+  font-size: 13px;
+}
+.pl-sub b {
+  color: var(--fs-ink);
+}
+.pl-center {
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: 24px;
+  text-align: center;
+}
+.pl-kicker {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--fs-gold);
+}
+.pl-title {
+  margin-top: 10px;
+  max-width: 18em;
+  font-size: clamp(20px, 4vw, 34px);
+  font-weight: 900;
+  line-height: 1.3;
+}
+.pl-tabs {
+  display: flex;
+  gap: 6px;
+}
+.pl-tab {
+  border: 1px solid var(--fs-chip-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  color: var(--fs-ink-soft);
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+}
+.pl-tab[data-on="true"] {
+  border-color: var(--fs-gold);
+  background: var(--fs-gold);
+  color: var(--fs-bg-solid, #fff);
+  font-weight: 700;
+}
+.pl-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(12px, 1.6vw, 14.5px);
+}
+.pl-row-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.pl-row-source {
+  flex-shrink: 0;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.pl-read {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--fs-ink-soft);
+}
+.pl-read b {
+  color: var(--fs-ink);
+  font-size: 15px;
+}
+.pl-note {
+  font-size: 11.5px;
+}
+.pl-tag {
+  border-radius: 999px;
+  border: 1px solid var(--fs-chip-line);
+  background: var(--fs-chip);
+  padding: 1px 10px;
+  font-size: 11.5px;
+  color: var(--fs-ink-soft);
+}
+.pl-overlay .pl-tag-still {
+  opacity: 1;
+}
+.pl-count b {
+  display: block;
+  font-size: clamp(48px, 10vw, 104px);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--fs-rose);
+  font-variant-numeric: tabular-nums;
+}
+.pl-count .pl-count-none {
+  font-size: clamp(28px, 5vw, 44px);
+}
+.pl-rule {
+  margin-top: 10px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.pl-label {
+  font-weight: 700;
+  color: var(--fs-ink);
+}
+.pl-links {
+  position: relative;
+}
+.pl-link-row {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.pl-link {
+  border-radius: 999px;
+  border: 1px solid var(--fs-gold);
+  padding: 6px 14px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fs-ink);
+}
+.pl-link:hover,
+.pl-link:focus-visible {
+  background: var(--fs-gold);
+  color: #fff;
+}
+.pl-controls {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+}
+.pl-button {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.14);
+  font-size: 16px;
+  color: #fff;
+}
+.pl-button:hover,
+.pl-button:focus-visible {
+  background: var(--hot);
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.pl-track {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.2);
+}
+.pl-bar {
+  height: 100%;
+  background: var(--fs-gold, #f5c451);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.pl-time {
+  max-width: 45%;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgb(255 255 255 / 0.75);
+}
+.pl-panel:focus {
+  outline: none;
+}
