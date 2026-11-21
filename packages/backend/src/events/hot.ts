@@ -17,7 +17,7 @@ export const HOT_RULE_VERSION = "heat-v4-72h-halflife24h-all";
 const WINDOW_HOURS = 72;
 /**
  * Every qualified event is listed (Owner 2026-11-13: “反正全部”), never padded. The bound only guards against runaway
- * data; at two or more independent sources within 72 hours it is not reached in practice.
+ * data. It IS reached in production (2026-11-21: exactly 50 returned, the last at the two-source minimum), so reader copy says "up to 50 by heat", never "all that qualify".
  */
 export const HOT_MAX_ENTRIES = 50;
 const HALF_LIFE_HOURS = 24;

@@ -21,9 +21,9 @@ export async function loader({ request }: { request: Request }) {
 export function meta() {
   return pageMeta({
     title: withSubject("热点榜"),
-    description: `近三天${withSubject("领域")}讨论最多的事件，符合条件的全部列出：热度指数、趋势与组成热度的公开来源。`,
+    description: `近三天${withSubject("领域")}讨论最多的事件，按热度最多列出 50 件：热度指数、趋势与组成热度的公开来源。`,
     descriptionEn:
-      "The mining events drawing the most coverage over the past three days, all that qualify: heat index, trend and the public sources behind each.",
+      "The mining events drawing the most coverage over the past three days, up to 50 by heat: heat index, trend and the public sources behind each.",
     path: "/hot",
     image: "/og/pages/hot.png",
   });
@@ -350,7 +350,7 @@ export default function HotPage() {
           <p>{tr("热度来自参与同一事件的独立账号与机构，重复采集只算一次，并按 24 小时半衰期衰减。它衡量讨论活跃程度，不是报道质量评分。")}</p>
           <p>
             {tr(
-              "榜单每天统计过去 72 小时。至少两家独立来源报道才上榜，符合条件的全部列出，不够也不凑数。趋势只比较持续覆盖的同一组信源；它反映我们的监测范围，不代表全网人数。缺少可比历史时，不展示趋势线。",
+              "榜单每天统计过去 72 小时。至少两家独立来源报道才上榜，按热度最多列出 50 件，不够也不凑数。趋势只比较持续覆盖的同一组信源；它反映我们的监测范围，不代表全网人数。缺少可比历史时，不展示趋势线。",
             )}
           </p>
           <p>
