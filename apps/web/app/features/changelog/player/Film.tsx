@@ -12,11 +12,14 @@ import type { FilmData } from "../blocks/types";
 import { PolicySketch } from "../PolicySketch";
 import { type Scene, type Script, scriptMs } from "./types";
 
-/** Whether this browser draws WebGL, asked once (each probe takes a drawing context of its own). */
+/**
+ * Whether this browser can play the film, asked once (each probe takes a drawing context of its own). Three.js 0.187
+ * draws with WebGL 2 only, so a browser with WebGL 1 alone gets the storyboard; so does one whose player failed to start.
+ */
 let webglSupport: boolean | undefined;
 function webgl(): boolean {
   if (webglSupport === undefined) {
-    const gl = document.createElement("canvas").getContext("webgl2") ?? document.createElement("canvas").getContext("webgl");
+    const gl = document.createElement("canvas").getContext("webgl2");
     webglSupport = !!gl;
     gl?.getExtension("WEBGL_lose_context")?.loseContext();
   }
@@ -27,6 +30,8 @@ export interface PlayerProps {
   script: Script;
   data: FilmData;
   onClose: () => void;
+  /** The player could not start (no drawing context, a scene that would not build): the page shows the storyboard. */
+  onFail: () => void;
 }
 
 /** The still form of each scene kind that has content of its own; the title and closing scenes have none. */
@@ -186,6 +191,12 @@ export function Film({ script, data, id }: { script: Script; data: FilmData; id:
           onClose={() => {
             setOpen(false);
             poster.current?.querySelector("button")?.focus();
+          }}
+          onFail={() => {
+            webglSupport = false;
+            setOpen(false);
+            setNote(true);
+            toStoryboard();
           }}
         />
       )}

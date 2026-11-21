@@ -144,6 +144,7 @@ export class Engine {
     this.ambientBuilder = options.ambient;
     this.hooks = options.hooks;
     this.period = options.period;
+    // Three.js draws with WebGL 2 only; without it this throws, before anything else is set up (the dialog falls back).
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setClearColor(0x000000, 0);
@@ -158,7 +159,13 @@ export class Engine {
     this.sizer = new ResizeObserver(() => this.resize());
     this.sizer.observe(canvas.parentElement ?? canvas);
     document.addEventListener("visibilitychange", this.onVisibility);
-    this.resize();
+    // A failure while drawing the first frame leaves nothing behind: observers, listener and context are freed first.
+    try {
+      this.resize();
+    } catch (error) {
+      this.dispose();
+      throw error;
+    }
   }
 
   private ambientDraw: Drawn | null = null;

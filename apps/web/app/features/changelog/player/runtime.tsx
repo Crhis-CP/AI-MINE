@@ -13,7 +13,7 @@ import "./player.css";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function PlayerDialog({ script, data, onClose }: PlayerProps) {
+export function PlayerDialog({ script, data, onClose, onFail }: PlayerProps) {
   const tr = useTr();
   const dialog = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -29,6 +29,8 @@ export function PlayerDialog({ script, data, onClose }: PlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const failed = useRef(onFail);
+  failed.current = onFail;
 
   useEffect(() => {
     const box = stage.current!;
@@ -39,23 +41,32 @@ export function PlayerDialog({ script, data, onClose }: PlayerProps) {
     measure();
     const sizer = new ResizeObserver(measure);
     sizer.observe(box);
-    const run = new Engine({
-      canvas: canvas.current!,
-      overlay: overlay.current!,
-      script,
-      data,
-      builders: BUILDERS,
-      ambient,
-      period: (point) => period.current(point),
-      hooks: {
-        scene: setIndex,
-        progress: (share) => {
-          if (bar.current) bar.current.style.transform = `scaleX(${share.toFixed(4)})`;
+    let run: Engine;
+    try {
+      run = new Engine({
+        canvas: canvas.current!,
+        overlay: overlay.current!,
+        script,
+        data,
+        builders: BUILDERS,
+        ambient,
+        period: (point) => period.current(point),
+        hooks: {
+          scene: setIndex,
+          progress: (share) => {
+            if (bar.current) bar.current.style.transform = `scaleX(${share.toFixed(4)})`;
+          },
+          playing: setPlaying,
+          end: () => setEnded(true),
         },
-        playing: setPlaying,
-        end: () => setEnded(true),
-      },
-    });
+      });
+    } catch (error) {
+      // No uncaught error and no half-open dialog: the page closes it and shows the same scenes still.
+      console.warn("changelog film could not start", error);
+      sizer.disconnect();
+      failed.current();
+      return;
+    }
     engine.current = run;
     run.play();
     toggleButton.current?.focus();
@@ -73,6 +84,7 @@ export function PlayerDialog({ script, data, onClose }: PlayerProps) {
   // Keys are read on the document, so they still work after a press on the film itself moved focus off a control.
   const close = useRef(onClose);
   close.current = onClose;
+
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {

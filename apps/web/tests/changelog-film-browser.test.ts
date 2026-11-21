@@ -93,18 +93,24 @@ after(async () => {
   await new Promise<void>((resolve) => api.close(() => resolve()));
 });
 
-async function open(options: BrowserContextOptions = {}) {
+/** `before` runs in the page before its own scripts (to take WebGL 2 away, say). */
+async function open(options: BrowserContextOptions = {}, before?: () => void) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block", locale: "zh-CN", ...options });
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
+  if (before) await page.addInitScript(before);
   const scripts: string[] = [];
   const problems: string[] = [];
   page.on("request", (request) => scripts.push(new URL(request.url()).pathname));
-  page.on("pageerror", (error) => problems.push(String(error)));
+  const uncaught: string[] = [];
+  page.on("pageerror", (error) => {
+    uncaught.push(String(error));
+    problems.push(String(error));
+  });
   page.on("console", (message) => /WebGL|context|three/i.test(message.text()) && message.type() !== "warning" && problems.push(message.text()));
   await page.goto(`${origin}/changelog`, { waitUntil: "networkidle" });
   const player = () => scripts.filter((path) => /\/assets\/runtime-[\w-]+\.js$/.test(path)).length;
-  return { context, page, player, problems };
+  return { context, page, player, problems, uncaught };
 }
 
 const POSTER = "button[aria-label^='播放演示']";
@@ -184,6 +190,56 @@ test("switching country does not move the page; the price line steps through the
     assert.equal(await line.getAttribute("aria-valuetext"), read(0));
     // Said once the key has stepped, not on every pointer move.
     assert.equal(await board.locator("p[aria-live=polite]").first().textContent(), read(0));
+  } finally {
+    await context.close();
+  }
+});
+
+test("a browser with WebGL 1 alone gets the storyboard: the player is not even loaded", async () => {
+  // Three.js 0.187 draws with WebGL 2 only (PR #596 review): WebGL 1 is not enough to start the film.
+  const { context, page, player, problems } = await open({}, () => {
+    const real = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      return type === "webgl2" ? null : real.call(this, type as "webgl", ...(rest as []));
+    } as typeof real;
+  });
+  try {
+    await page.locator(POSTER).click();
+    assert.equal(await page.getByRole("dialog").count(), 0);
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "分镜");
+    assert.ok(await page.getByText("这个浏览器放不了动画，下面是同样内容的分镜。").isVisible());
+    assert.equal(player(), 0);
+    assert.deepEqual(problems, []);
+  } finally {
+    await context.close();
+  }
+});
+
+test("a player that cannot start closes itself and shows the storyboard, with no uncaught error", async () => {
+  // The probe sees WebGL 2, but the film's own canvas cannot get it: the renderer throws while the dialog mounts.
+  const { context, page, player, problems, uncaught } = await open({}, () => {
+    const real = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      return type === "webgl2" && this.classList.contains("pl-canvas") ? null : real.call(this, type as "webgl2", ...(rest as []));
+    } as typeof real;
+  });
+  try {
+    await page.locator(POSTER).click();
+    await page.getByText("这个浏览器放不了动画，下面是同样内容的分镜。").waitFor();
+    assert.equal(player(), 1, "the player was loaded and tried");
+    assert.equal(await page.getByRole("dialog").count(), 0, "no half-open dialog");
+    assert.equal(await page.locator("canvas").count(), 0);
+    assert.equal(await page.evaluate(() => document.documentElement.style.overflow), "", "the page scrolls again");
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "分镜");
+    assert.deepEqual(uncaught, [], "no uncaught error");
+    // Only Three.js's own note that it could not get a context.
+    assert.deepEqual(
+      problems.filter((text) => !/^THREE\.WebGLRenderer: .*Error creating WebGL context/.test(text)),
+      [],
+    );
+    // A second press goes straight to the storyboard.
+    await page.locator(POSTER).click();
+    assert.equal(await page.getByRole("dialog").count(), 0);
   } finally {
     await context.close();
   }
