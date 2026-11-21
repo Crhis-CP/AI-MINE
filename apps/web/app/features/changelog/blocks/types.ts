@@ -1,7 +1,7 @@
 // The figures a changelog film draws (TASK-0367). A film is a recording of one moment (Owner 2026-11-21: like a video,
 // independent of the live site): its figures were captured once from the site's public API by
-// scripts/changelog-film-snapshot.ts and are kept beside its scenes (films/<date>/snapshot.json). Later changes or
-// takedowns on the site never change them; headlines in a film are shown, not linked.
+// scripts/changelog-film-snapshot.ts and are kept beside its scenes (films/<date>/snapshot.json). Ordinary changes on
+// the site never change them; a manual takedown still wins (rule 7, films/redact.ts). Headlines are shown, not linked.
 
 /** One of the newest items of a country, as the home page's country block listed it then. */
 export interface FilmItem {
@@ -11,6 +11,8 @@ export interface FilmItem {
   source: string;
   /** When it entered the list (ISO). */
   at: string;
+  /** Taken down by hand since the recording: drawn as “（该条已撤下）”, with no title, source or time. */
+  removed?: boolean;
 }
 
 /** The newest items of one country at the time of the recording. */

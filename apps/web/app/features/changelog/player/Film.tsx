@@ -89,20 +89,20 @@ const IconPlay = () => (
 );
 
 /**
- * The poster frame: the film's title, the day it was recorded and the figures it shows, kept clear of one another.
+ * The poster frame: the film's title and the figures it shows, kept clear of one another (the day it was recorded is
+ * said once, above the storyboard, where screen readers read it too).
  * Wide screens keep a film's proportions; on phones and tablets the frame has a fixed height that holds the English
  * title in three lines, the day and the figures, so nothing below moves while the web font arrives.
  */
 function Poster({ script, data, still, onPlay }: { script: Script; data: FilmData; still: boolean; onPlay: () => void }) {
   const tr = useTr();
   const say = usePriceWords();
-  const caption = useSnapshotCaption();
   const seconds = Math.round(scriptMs(script) / 1000);
   const metal = data.metals[0];
   const chips = [
     ...data.countries.filter((c) => countryName(c.code)).map((c) => `${tr(countryName(c.code)!)} · ${tr("{n} 条", { n: c.items.length })}`),
     ...(metal ? [`${say(metal.metal)} ${priceLabel(metal.points.at(-1)!.value, metal.decimals)}`] : []),
-    ...(data.hot ? [tr("热点 {n} 件", { n: data.hot.count })] : []),
+    ...(data.hot ? [tr("热点榜前 {n} 件", { n: data.hot.count })] : []),
     `${tr("解读")} | ${tr("原文")}`,
   ];
   return (
@@ -115,11 +115,10 @@ function Poster({ script, data, still, onPlay }: { script: Script; data: FilmDat
       <span className="relative flex w-full flex-col justify-between gap-6 p-5 sm:p-7">
         <span>
           <span className="film-kicker block text-[12px] font-semibold tracking-wide">{still ? tr("分镜") : tr("演示 · 约 {s} 秒", { s: seconds })}</span>
-          <span className="mt-1.5 line-clamp-3 max-w-[20em] text-[20px] font-black leading-[1.3] sm:text-[26px]">{tr(script.title)}</span>
-          <span className="film-kicker mt-1 block text-[11.5px] opacity-80">{caption(data.takenAt)}</span>
+          <span className="film-title mt-1.5 line-clamp-3 max-w-[20em] text-[20px] font-black leading-[1.3] sm:text-[26px]">{tr(script.title)}</span>
         </span>
         <span className="flex items-end justify-between gap-4">
-          <span className="flex flex-wrap gap-1.5">
+          <span className="film-chips flex flex-wrap gap-1.5">
             {chips.map((chip) => (
               <span key={chip} className="film-chip rounded-full border px-2.5 py-0.5 text-[12px] font-semibold">
                 {chip}
@@ -127,7 +126,7 @@ function Poster({ script, data, still, onPlay }: { script: Script; data: FilmDat
             ))}
           </span>
           <span
-            className="grid size-14 shrink-0 place-items-center rounded-full bg-hot text-white shadow-lg transition duration-200 group-hover/poster:scale-110 group-focus-visible/poster:scale-110 sm:size-16"
+            className="ml-auto grid size-14 shrink-0 place-items-center rounded-full bg-hot text-white shadow-lg transition duration-200 group-hover/poster:scale-110 group-focus-visible/poster:scale-110 sm:size-16"
             aria-hidden="true"
           >
             {still ? <span className="text-[22px] leading-none">↓</span> : <IconPlay />}

@@ -267,14 +267,50 @@ test("the film's storyboard draws its own recording: headlines shown, not linked
   const last = copper.points.at(-1)!;
   const price = Number(last.value).toLocaleString("en-US", { minimumFractionDigits: copper.decimals, maximumFractionDigits: copper.decimals });
   assert.ok(film.includes(`aria-valuetext="${last.label} ${price} ${copper.unit}"`), "the slider reads the last recorded point");
-  assert.match(film, new RegExp(`>${recording.hot.count}</span><span[^>]*>件事件在热点榜上`));
-  assert.match(film, /画面为 2026年11月22日 的截取/);
+  // The top of a capped list, never “all that qualify”.
+  assert.match(film, new RegExp(`热点榜上排在前面的 ?(?:<!-- -->)?<span[^>]*>${recording.hot.count}</span>(?:<!-- -->)? ?件`));
+  assert.doesNotMatch(film, /全部列出/);
+  // The day of the recording, said once (above the storyboard; the poster's label carries no caption).
+  assert.equal(film.split("画面为 2026年11月22日 的截取").length, 2);
   // Sections are links; the scenes tell their change in their own words, so the entry's own lines are listed once.
   for (const to of ['href="/"', 'href="/metals"', 'href="/hot"']) assert.ok(film.includes(to), to);
   for (const line of FILM_LINES) assert.equal(film.split(line).length, 2, line);
-  assert.match(film, /热点榜不再分周几/);
+  assert.match(film, /不再分周几/);
   // The page reads the changelog and the site frame's two answers, nothing else: no figures from the live site.
   assert.deepEqual(asked.map((url) => new URL(url, "http://x").pathname).sort(), ["/api/site/changelog", "/api/site/content-version", "/api/site/meta"]);
+});
+
+test("an entry without a film of its own shows none: a film never leaks to another entry", async () => {
+  served = {
+    latestVersion: "2026-11-15T02:24",
+    releases: [
+      { date: "2026-11-15", time: "02:24", kind: "更新", title: "合成的最新更新", body: FILM_LINES },
+      { date: "2026-11-14", time: "08:40", kind: "更新", title: "合成的前一天", body: ["合成说明。"] },
+      { date: "2026-11-13", time: "02:24", kind: "更新", title: "合成的同一时刻另一天", body: ["合成说明。"] },
+    ] as typeof changelog.releases,
+  };
+  try {
+    const { cards: shown } = await cards();
+    const film = shown.filter((card) => card.includes("播放演示"));
+    assert.equal(film.length, 1, "one film, on its own entry");
+    assert.match(film[0]!, /合成的最新更新/);
+    for (const title of ["合成的前一天", "合成的同一时刻另一天"]) {
+      const card = shown.find((one) => one.includes(title))!;
+      assert.doesNotMatch(card, /播放演示|aria-label="分镜"/, title);
+    }
+  } finally {
+    served = changelog;
+  }
+});
+
+test("a headline taken down by hand since the recording is not on the page (rule 7)", async () => {
+  // Each film's takedown list beside its recording; the loader leaves those headlines out of the page's data.
+  const takenDown: string[] = JSON.parse(await readFile(new URL("../app/features/changelog/films/2026-11-15/redactions.json", import.meta.url), "utf8"));
+  const page = await (await fetch(`${origin}/changelog`)).text();
+  for (const title of takenDown) assert.ok(!page.includes(title), `taken down: ${title}`);
+  const recorded = recording.countries.flatMap((country) => country.items.map((item) => item.title));
+  const removed = recorded.filter((title) => takenDown.includes(title)).length;
+  assert.equal(page.replace(/<script\b[\s\S]*?<\/script>/g, "").split("（该条已撤下）").length - 1, removed);
 });
 
 test("within a day entries run strictly by time: a film stands between the list cards", async () => {
@@ -299,6 +335,9 @@ test("within a day entries run strictly by time: a film stands between the list 
     assert.match(entries[0]!, /合成三点十分/);
     assert.match(entries[1]!, /aria-label="播放演示：/);
     assert.match(entries[2]!, /合成一点零五/);
+    // The day is named once: by the first card; the later card of the same day has no date heading of its own.
+    assert.match(entries[0]!, /<time dateTime="2026-11-15"/);
+    assert.doesNotMatch(entries[2]!, /<time dateTime=/);
   } finally {
     served = changelog;
   }
@@ -314,10 +353,10 @@ test("the English page shows the film's words, kinds, dates and price periods in
   assert.match(film, />China</);
   assert.match(film, />Argentina</);
   assert.match(film, /Copper/);
-  assert.match(film, /events on the hot list/);
+  assert.match(film, /the top (?:<!-- -->)?<span[^>]*>\d+<\/span>(?:<!-- -->)? on the hot list/);
   // The price periods and units in English, from the recorded dates.
   assert.match(film, /aria-valuetext="Nov 19, 2026 12,570\.00 USD\/t"/);
-  assert.match(film, /The hot list no longer depends on the weekday/);
+  assert.match(film, /whatever the weekday/);
 });
 
 test("the published 2026-11-15 copy: at most three lines of its own, each shown once beside the film", async () => {
@@ -334,7 +373,7 @@ test("the published 2026-11-15 copy: at most three lines of its own, each shown 
     const film = shown[0]!;
     for (const line of copy.body) assert.equal(film.split(line).length, 2, line);
     // The four scenes' own words on the storyboard.
-    for (const words of ["本国最新的 5 条动态", "多了一条走势线", "最近 72 小时", "左边解读、右边原文"]) assert.match(film, new RegExp(words), words);
+    for (const words of ["本国最新的 5 条动态", "多了一条走势线", "最近 72 小时", "左边是解读"]) assert.match(film, new RegExp(words), words);
   } finally {
     served = changelog;
   }

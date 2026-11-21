@@ -1,5 +1,6 @@
 // Captures the figures of a changelog film once, as a fixed recording (TASK-0367, Owner 2026-11-21: the film is a
-// snapshot of one moment, like a video; later changes or takedowns on the site never change it). Read-only: four GETs
+// snapshot of one moment, like a video; ordinary changes on the site do not change it, while a manual takedown still
+// wins through the film's takedown list, films/<date>/redactions.json, rule 7). Read-only: four GETs
 // to the site's public API, nothing written anywhere but the output file. Keeps only public fields the film draws:
 // each home-page country's newest titles (Chinese and English as served) with source name and time, the published
 // price points of the metals drawn, and the hot list's count. No item ids or links: the recording does not link items.

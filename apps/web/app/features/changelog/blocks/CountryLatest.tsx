@@ -1,6 +1,6 @@
 // The newest items of each home-page country as the film recorded them, switchable (TASK-0367). Both lists are drawn in
 // the same cell and only the chosen one is visible, so switching never moves the page. A recording: the headlines are
-// shown, not linked (an item may since have changed or been taken down); the way to the home page is a link.
+// shown, not linked; one taken down by hand since reads “（该条已撤下）”. The way to the home page is a link.
 import { useState } from "react";
 import { IntentLink as Link } from "../../../components/ui/IntentLink";
 import { useLocale, useTr } from "../../../i18n";
@@ -45,10 +45,16 @@ export function CountryLatest({ countries }: { countries: FilmCountry[] }) {
                 className={`flex flex-col gap-0.5 py-2 sm:flex-row sm:items-baseline sm:gap-3 ${c.code === code ? "animate-fade-up" : ""}`}
                 style={{ animationDelay: `${i * 70}ms` }}
               >
-                <span className="min-w-0 flex-1 truncate text-[14px] leading-snug text-ink">{(english && item.titleEn) || item.title}</span>
-                <span className="shrink-0 text-[12px] text-ink-4 sm:whitespace-nowrap">
-                  {item.source} · {monthDayTime(item.at)}
-                </span>
+                {item.removed ? (
+                  <span className="text-[14px] leading-snug text-ink-4">{tr("（该条已撤下）")}</span>
+                ) : (
+                  <>
+                    <span className="min-w-0 flex-1 truncate text-[14px] leading-snug text-ink">{(english && item.titleEn) || item.title}</span>
+                    <span className="shrink-0 text-[12px] text-ink-4 sm:whitespace-nowrap">
+                      {item.source} · {monthDayTime(item.at)}
+                    </span>
+                  </>
+                )}
               </li>
             ))}
           </ol>

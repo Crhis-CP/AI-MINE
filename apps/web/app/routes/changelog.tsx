@@ -94,17 +94,20 @@ function runs(
   return out;
 }
 
-function PlainCard({ date, releases }: { date: string; releases: Release[] }) {
+/** One card of a day's plain entries; the day is named once, by the day's first card (a notice names it in its own header). */
+function PlainCard({ date, releases, heading }: { date: string; releases: Release[]; heading: boolean }) {
   const labels = useReleaseLabels();
   const h = labels.date(date);
   return (
     <section className="card scroll-mt-16 lg:scroll-mt-6 px-5 lg:px-7">
-      <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
-        <time dateTime={date} className="text-[18px] font-bold text-ink">
-          {h.label}
-        </time>
-        <span className="text-[12px] text-ink-4">{h.weekday}</span>
-      </h2>
+      {heading && (
+        <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
+          <time dateTime={date} className="text-[18px] font-bold text-ink">
+            {h.label}
+          </time>
+          <span className="text-[12px] text-ink-4">{h.weekday}</span>
+        </h2>
+      )}
       <ol>
         {releases.map((r) => (
           <li
@@ -195,11 +198,11 @@ export default function ChangelogPage() {
           {[...groups.entries()].map(([date, releases]) => (
             <div key={date} id={`d-${date}`} className="scroll-mt-16 lg:scroll-mt-6 space-y-4">
               {/* Within a day, strictly by time too: an entry with its own showcase stands between the list cards. */}
-              {runs(releases, data.films).map((run) =>
+              {runs(releases, data.films).map((run, i) =>
                 run.feature ? (
                   <FeatureNotice key={releaseKey(run.feature) + run.feature.title} release={run.feature} />
                 ) : (
-                  <PlainCard key={releaseKey(run.plain[0]!) + run.plain[0]!.title} date={date} releases={run.plain} />
+                  <PlainCard key={releaseKey(run.plain[0]!) + run.plain[0]!.title} date={date} releases={run.plain} heading={i === 0} />
                 ),
               )}
             </div>

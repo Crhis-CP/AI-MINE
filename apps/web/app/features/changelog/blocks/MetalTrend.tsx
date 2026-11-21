@@ -1,6 +1,7 @@
 // A metal price's trend line as the film recorded it (TASK-0367): one point per officially published period, joined in
 // order and never filled in. Pointing at the line, or the arrow keys once it has focus, shows that period's price as
-// published; screen readers hear the point when the press ends or a key steps, not on every pointer move.
+// published. Screen readers hear one announcement per step: the slider's value on a key, the live region when a press
+// ends; moving the pointer is not read aloud.
 import { type KeyboardEvent, type PointerEvent, useState } from "react";
 import { IntentLink as Link } from "../../../components/ui/IntentLink";
 import { useTr } from "../../../i18n";
@@ -18,7 +19,7 @@ function Line({ metal }: { metal: FilmMetal }) {
   const pts = plot(metal);
   const last = metal.points.length - 1;
   const [at, setAt] = useState(last);
-  // What the live region says: set when a press ends or a key steps, so moving the pointer is not read aloud each time.
+  // What the live region says: set when a press ends (a key step is announced by the slider's own value).
   const [said, setSaid] = useState("");
   const point = metal.points[at]!;
   const up = Number(metal.points[last]!.value) >= Number(metal.points[0]!.value);
@@ -35,7 +36,6 @@ function Line({ metal }: { metal: FilmMetal }) {
     e.preventDefault();
     const step = Math.max(0, Math.min(last, next));
     setAt(step);
-    setSaid(text(step));
   };
   const valueText = text(at);
   return (

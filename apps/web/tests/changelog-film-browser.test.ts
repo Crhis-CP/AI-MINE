@@ -188,8 +188,15 @@ test("switching country does not move the page; the price line steps through the
     assert.equal(await line.getAttribute("aria-valuetext"), read(-2));
     await page.keyboard.press("Home");
     assert.equal(await line.getAttribute("aria-valuetext"), read(0));
-    // Said once the key has stepped, not on every pointer move.
-    assert.equal(await board.locator("p[aria-live=polite]").first().textContent(), read(0));
+    // One announcement per step: a key step is the slider's own value, so the live region stays quiet; it speaks
+    // when a press ends.
+    const live = board.locator("p[aria-live=polite]").first();
+    assert.equal(await live.textContent(), "");
+    const box = (await line.boundingBox())!;
+    await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    assert.equal(await live.textContent(), read(-1));
   } finally {
     await context.close();
   }

@@ -59,8 +59,14 @@ export function Overlay({ script, scene, data, w, h, onLeave }: { script: Script
                 className="pl-row"
                 style={{ ...at(rows[i]!.x + 18, rows[i]!.y, rows[i]!.w - 30), height: rows[i]!.h }}
               >
-                <span className="pl-row-title">{(english && item.titleEn) || item.title}</span>
-                <span className="pl-row-source">{item.source}</span>
+                {item.removed ? (
+                  <span className="pl-row-title">{tr("（该条已撤下）")}</span>
+                ) : (
+                  <>
+                    <span className="pl-row-title">{(english && item.titleEn) || item.title}</span>
+                    <span className="pl-row-source">{item.source}</span>
+                  </>
+                )}
               </p>
             )),
           )}
@@ -111,8 +117,8 @@ export function Overlay({ script, scene, data, w, h, onLeave }: { script: Script
             </p>
             <p data-k="rule" className="pl-rule">
               {data.hot
-                ? tr("件事件 · 最近 {hours} 小时 · 至少两家独立来源报道", { hours: data.hot.windowHours })
-                : tr("最近 {hours} 小时内被至少两家独立来源报道的矿业事件，符合条件的全部列出。", { hours: 72 })}
+                ? tr("热点榜上排在前面的 {n} 件 · 最近 {hours} 小时 · 至少两家独立来源报道", { n: data.hot.count, hours: data.hot.windowHours })
+                : tr("最近 {hours} 小时内被至少两家独立来源报道的矿业事件，按热度排列。", { hours: 72 })}
             </p>
           </div>
           {!data.hot && sketch}

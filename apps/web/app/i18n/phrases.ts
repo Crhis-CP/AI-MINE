@@ -1180,23 +1180,28 @@ export const PHRASES = {
   "本次全部 {n} 项变化": "All {n} changes in this update",
   // The 2026-11-15 update's film and storyboard on the changelog (features/changelog/player, live, TASK-0367).
   "首页先看本国，还有金属走势、热点榜和法规页新版式": "Your country first, plus metal trends, the hot list and the new regulation layout",
-  "在中国或阿根廷打开首页，顶部先是本国最新的 5 条动态；在中国还可以把本省的排在最前面，也可以换国家或选“全球”；中国和阿根廷还有了各自的动态页。":
-    "Open the home page in China or Argentina and your country's 5 newest items come first; in China your own province can come first, and you can switch country or choose “Worldwide”. China and Argentina also have their own news pages.",
-  "金属价格页每种金属下面多了一条走势线，按住可以看某一期的价格，手机上也能完整显示日期和价格；只用官方已经公布的每一期价格，不补数、不估算。":
-    "Each metal on the metal prices page has a trend line: press and hold to see a period's price, with the full date and price on phones too. Only prices officially published for each period are used, nothing filled in or estimated.",
-  "热点榜不再分周几，每天都统计最近 72 小时内被多家独立来源报道的矿业事件；符合条件的全部列出，不够也不凑数。":
-    "The hot list no longer depends on the weekday: every day it counts the mining events reported by several independent sources in the last 72 hours, lists every one that qualifies and never pads the list.",
-  "法规页改成左边解读、右边原文：点条款号，原文跳到那一条；有上一版时可以看修订痕迹；手机上分成“解读”和“原文”两个标签。":
-    "Regulation pages show the reading on the left and the official text on the right: select an article number to jump to it in the text, see revision marks when there is an earlier version, and switch between two tabs on phones.",
   这次更新: "In this update",
   "画面为 {date} 的截取": "Snapshot of {date}",
+  "（该条已撤下）": "(removed)",
+  "热点榜上排在前面的 {n} 件": "the top {n} on the hot list",
+  "热点榜前 {n} 件": "Top {n} on the hot list",
+  "最近 {hours} 小时内被至少两家独立来源报道的矿业事件，按热度排列。":
+    "Mining events reported by at least two independent sources in the last {hours} hours, ranked by heat.",
+  "热点榜上排在前面的 {n} 件 · 最近 {hours} 小时 · 至少两家独立来源报道": "The top {n} on the hot list · last {hours} hours · at least two independent sources",
+  "在中国或阿根廷打开首页，先看到本国最新的 5 条动态，也可以换国家或选“全球”。":
+    "Open the home page in China or Argentina and your country's 5 newest items come first; you can switch country or choose “Worldwide”.",
+  "每种金属多了一条走势线，只用官方公布的每一期价格，不补数、不估算。":
+    "Each metal has a trend line drawn only from officially published prices, nothing filled in or estimated.",
+  "热点榜每天统计最近 72 小时内被多家独立来源报道的矿业事件，不再分周几。":
+    "Every day the hot list counts the mining events reported by several independent sources in the last 72 hours, whatever the weekday.",
+  "法规页左边是解读、右边是原文，点条款号就跳到原文那一条。":
+    "Regulation pages show the reading on the left and the official text on the right; select an article number to jump to it.",
   首页先看本国: "Your country first on the home page",
   金属走势线: "Metal price trends",
   法规页解读与原文并排: "Regulations: reading and official text side by side",
   打开看看: "Take a look",
   分镜: "Storyboard",
   "{n} 条": "{n} items",
-  "热点 {n} 件": "{n} trending",
   "查看分镜：{title}": "View the storyboard: {title}",
   "播放演示：{title}（约 {s} 秒）": "Play the demo: {title} (about {s} s)",
   "演示 · 约 {s} 秒": "Demo · about {s} s",
@@ -1214,13 +1219,8 @@ export const PHRASES = {
   选择国家: "Choose a country",
   "{metal}价格走势，共 {count} 期": "{metal} price trend, {count} periods",
   示意图: "Illustration",
-  件事件在热点榜上: "events on the hot list",
-  "最近 {hours} 小时内被至少两家独立来源报道的矿业事件，符合条件的全部列出。":
-    "Mining events reported by at least two independent sources in the last {hours} hours; every one that qualifies is listed.",
-  "统计于 {time}": "Counted {time}",
   看现在的热点榜: "See the hot list now",
   "官方公布的每一期价格，不补数、不估算": "Each officially published price, nothing filled in or estimated",
-  "件事件 · 最近 {hours} 小时 · 至少两家独立来源报道": "events · last {hours} hours · at least two independent sources",
   // Before/after comparisons of the 2026.11 redesign (features/changelog/BeforeAfter.tsx).
   改版前后: "Before and after",
   改版前: "Before",

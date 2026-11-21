@@ -142,6 +142,19 @@
 .film-kicker {
   color: var(--fs-gold);
 }
+/* A phone held sideways: a low poster without its figures (the storyboard below has them), so the play button stays
+   clear of the bottom navigation. */
+@media (max-height: 500px) and (max-width: 1279px) {
+  .film-poster {
+    height: 15rem;
+  }
+  .film-poster .film-title {
+    font-size: 20px;
+  }
+  .film-chips {
+    display: none;
+  }
+}
 .film-chip {
   border-color: var(--fs-chip-line);
   background: var(--fs-chip);
